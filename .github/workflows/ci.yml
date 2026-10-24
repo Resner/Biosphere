@@ -1,0 +1,62 @@
+name: CI
+
+on:
+  pull_request:
+    types: [opened, synchronize, reopened, ready_for_review]
+  # Re-check main after dependency changes; this also warms the npm cache that PRs share.
+  push:
+    branches: [main]
+    paths: [package-lock.json]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: ci-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: true
+
+jobs:
+  # The single required check. One job, because GitHub rounds every job up to a whole minute.
+  verify:
+    # Drafts skip: a skipped job reports success, and drafts can't merge anyway.
+    if: github.event.pull_request.draft != true
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+        with:
+          fetch-depth: 2 # the PR merge commit and its base, for the scope check
+
+      # Skips build and tests before the toolchain exists and for docs-only PRs.
+      # Any error here falls through to a full run.
+      - name: Scope
+        id: scope
+        run: |
+          if [ ! -f package.json ]; then
+            echo "::notice::No package.json yet; nothing to build or test."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          elif [ "$GITHUB_EVENT_NAME" = pull_request ] &&
+               changed=$(git diff --name-only HEAD^1 HEAD) &&
+               ! grep -qvE '^(docs/|\.claude/)|\.md$' <<< "$changed"; then
+            echo "::notice::Docs-only change; skipping build and tests."
+            echo "run=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "run=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - if: steps.scope.outputs.run == 'true'
+        uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: npm
+      - if: steps.scope.outputs.run == 'true'
+        run: npm ci
+      - if: steps.scope.outputs.run == 'true'
+        run: npm run check
+      - if: steps.scope.outputs.run == 'true'
+        run: npm run build
+      - if: steps.scope.outputs.run == 'true'
+        run: npm run e2e:setup --if-present
+      - if: steps.scope.outputs.run == 'true'
+        run: npm run test:e2e

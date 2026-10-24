@@ -1,0 +1,10 @@
+version: 2
+updates:
+  # /scaffold adds the npm ecosystem once package.json exists.
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: monthly
+    groups:
+      actions:
+        patterns: ["*"]
