@@ -1,14 +1,12 @@
 ---
 name: scaffold
-description: One-time Biosphere scaffold from the product brief - roadmap timeline to v1.0, architecture decisions, a toolchain implementing the npm script contract, and domain rules. Run once, interactively, before the factory starts.
-disable-model-invocation: true
+description: One-time Biosphere scaffold from the product brief - roadmap timeline to v1.0, architecture decisions, a toolchain implementing the npm script contract, and domain rules. Use only when the owner asks to scaffold the project and provides the brief.
 model: opus
-effort: xhigh
 ---
 
 # Scaffold (once, with the owner present)
 
-The product brief is in $ARGUMENTS. If that's empty, ask the owner to paste it.
+The product brief is in $ARGUMENTS, or in the owner's message if they asked for this skill in words. If there's no brief, ask the owner to paste it.
 
 1. Save the brief verbatim as `docs/BRIEF.md`. It stays the source of intent.
 2. Interview the owner (AskUserQuestion) only about choices the brief leaves open that are expensive to reverse, plus the factory cadence (runs per day) for the timeline.
