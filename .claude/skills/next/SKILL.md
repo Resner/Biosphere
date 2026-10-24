@@ -17,6 +17,7 @@ Go in this order; the first item that applies is this run's step.
 
 - `docs/BRIEF.md` doesn't exist → the scaffold hasn't run yet. Stop with `IDLE: waiting for /scaffold`; change nothing.
 - An open `Blocked: …` issue with no owner reply → stop and report it. If the owner replied, apply the answer, close the issue and unblock the task.
+- An open `Playtest: …` issue for a milestone marked `gate` in the roadmap, with no owner reply → stop with `WAITING: playtest <version>`. A reply (or closing the issue) opens the gate; its feedback becomes owner issues or tasks in the next spec.
 - Another open PR from a `claude/` branch updated within the last 90 minutes → another run is still working; stop.
 - An older open factory PR → merge its branch into yours, finish it as your PR, and close the old one with a link.
 - Dependabot PRs: merge the green ones and carry on; on red ones, comment why and add an upgrade task to the current spec.

@@ -16,3 +16,4 @@ Nothing ships unless it meets the spec. Be strict about requirements, not about 
 5. Re-plan: mark this row `done`, record its release, and re-estimate the remaining windows from the actual pace (runs used against runs planned). Keep the order; scope changes need an ADR.
 6. Bump `VERSION` to this milestone's release: a minor bump, or 1.0.0 for the final milestone.
 7. Ship as `chore(release): v<version> <milestone title>`, with player-facing release notes in the PR body. The merge runs the full tests, deploys to Pages and tags the release.
+8. Once the Release workflow is green, open an issue `Playtest: v<version>` with the Pages link, what changed, what to try, and the spec's `(owner)` checks. For a `gate` milestone, say that the factory waits for the owner's reply.

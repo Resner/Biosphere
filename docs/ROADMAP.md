@@ -4,11 +4,11 @@ The linear timeline from M0 to v1.0.0 ("finished"). `/scaffold` writes it and `/
 
 Pace: <factory runs per day, set at scaffold>
 
-| ID | Milestone | Exit criteria (observable) | Size (runs) | Window | Status | Spec | Release |
-|----|-----------|----------------------------|-------------|--------|--------|------|---------|
-| M0 | Toolchain and pipeline | npm script contract implemented; CI green on a PR; v0.1.0 live on Pages | — | wk 1 | planned | — | v0.1.0 |
+| ID | Milestone | Exit criteria (observable) | Size (runs) | Window | Gate | Status | Spec | Release |
+|----|-----------|----------------------------|-------------|--------|------|--------|------|---------|
+| M0 | Toolchain and pipeline | npm script contract implemented; CI green on a PR; v0.1.0 live on Pages | — | wk 1 | — | planned | — | v0.1.0 |
 
-Status: `planned` → `specced` → `done`.
+Status: `planned` → `specced` → `done`. Gate: `gate` means the factory waits for the owner's reply on the release's `Playtest:` issue before it starts the next milestone.
 
 ## Brief coverage
 
