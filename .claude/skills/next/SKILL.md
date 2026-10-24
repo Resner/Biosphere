@@ -15,6 +15,7 @@ Everything you post on GitHub (issues, comments) ends with the footer `_Generate
 
 Go in this order; the first item that applies is this run's step.
 
+- `docs/BRIEF.md` doesn't exist → the scaffold hasn't run yet. Stop with `IDLE: waiting for /scaffold`; change nothing.
 - An open `Blocked: …` issue with no owner reply → stop and report it. If the owner replied, apply the answer, close the issue and unblock the task.
 - Another open PR from a `claude/` branch updated within the last 90 minutes → another run is still working; stop.
 - An older open factory PR → merge its branch into yours, finish it as your PR, and close the old one with a link.
@@ -26,7 +27,6 @@ Go in this order; the first item that applies is this run's step.
 
 The current milestone is the first row in `docs/ROADMAP.md` that isn't `done`.
 
-- No milestones yet → stop: `/scaffold` has to run first, with the owner.
 - No spec for the milestone → run the `spec` skill.
 - Unticked tasks → implement the first one that isn't blocked (below).
 - Every task ticked → run the `milestone` skill.
@@ -50,3 +50,7 @@ The current milestone is the first row in `docs/ROADMAP.md` that isn't `done`.
 ## When stuck
 
 A product decision with no sensible default, a missing secret, or CI still red after two root-cause attempts: open an issue `Blocked: <task>: <question>` with the context and options, mark the task `blocked (#<n>)` in the spec, and stop.
+
+## Report
+
+End every run with one status line; it's what the owner's run notification shows: `SHIPPED <PR link>`, `BLOCKED <issue link>`, `WAITING <reason>` or `IDLE <reason>`.
