@@ -18,7 +18,7 @@ The npm script contract: CI, hooks and skills call these names; the tools behind
 ## Where things live
 
 - `docs/BRIEF.md`: the original product brief. Read the parts you need; don't rewrite it.
-- `docs/ROADMAP.md`: the linear timeline from M0 to v1.0.0 and each milestone's status. It decides what's next.
+- `docs/ROADMAP.md`: the ordered milestones from M0 to v1.0.0 and their status. It decides what's next.
 - `docs/specs/<milestone>.md`: tasks with acceptance tests and per-task notes.
 - `docs/decisions/`: ADRs. Don't re-decide an accepted one; supersede it with a new ADR.
 - `.claude/rules/`: quality bars for each code area, loaded when you touch matching files.
