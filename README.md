@@ -18,6 +18,7 @@ https://resner.github.io/Biosphere/ (live after the first release).
 
 - Play the build and **open an issue** for any bug or idea. Bugs get fixed in the next run; ideas get folded into the next spec.
 - **`Blocked: …` issues** need your answer. Reply in the issue, and the next run picks it up.
+- **`Playtest: …` issues** come with each release. Try the build and reply with what you found; milestones marked `gate` wait for that reply.
 - To change direction, edit `docs/BRIEF.md` or `docs/ROADMAP.md` (through a PR), or describe the change in an issue.
 - Pause or resume the factory by disabling or enabling its scheduled task.
 

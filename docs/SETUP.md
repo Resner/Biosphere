@@ -40,13 +40,21 @@ The `verify` check can be selected once CI has run on a pull request; the setup 
 - New budget → Product **Actions** → amount **$0** → alerts on. Personal budgets stop usage at the limit, so CI pauses at the 3,000 included minutes instead of billing you.
 - Track usage under Billing and licensing → Usage (filter on Actions).
 
-## 7. Start the factory (after the scaffold PR has merged)
+## 7. The factory schedule
 
-claude.ai/code → Scheduled tasks → New scheduled task:
+The scheduled task "Factory" runs `/next` in a fresh cloud session: claude.ai/code → Scheduled tasks → Factory.
 
-- Repository `Resner/Biosphere`, model **Sonnet 5.5**, your usual cloud environment.
-- Schedule: Custom, `0 */3 * * *` (every three hours; hourly is the minimum). Match the cadence you gave the scaffold.
+- Keep it **paused until the scaffold PR has merged**; the scaffold tells you when to resume it. Agents can't toggle a task created in the web UI, so pausing and resuming is up to you.
+- Schedule: every 2 hours (edit the task → Custom → `25 */2 * * *`; hourly is the minimum). Hourly can exceed the 3,000 Actions minutes in a busy month.
 - Prompt: `Run /next. Open a pull request for the result, enable auto-merge, and see it through until it is merged.`
-- Turn notifications on, so `Blocked:` issues and failed runs reach you.
+- Model: the default or Sonnet 5.5. `/next` switches to Sonnet itself, and to Opus for specs and milestone reviews.
+- Connectors: none needed. GitHub access comes from your GitHub connection and the Claude GitHub App, so you can remove the defaults (Claude-Docs, visualize).
+- Notifications: keep push on. Every run ends with `SHIPPED`, `BLOCKED`, `WAITING` or `IDLE`. GitHub won't notify you about the factory's issues, because they're posted as you.
 
-Disable the task to pause the factory and enable it to resume. Every run counts against your Claude plan's usage.
+Every run counts against your Claude plan's usage.
+
+## What only you provide
+
+- **Playtests.** Each release opens a `Playtest: v…` issue with the Pages link and what to check. Milestones marked `gate` in the roadmap wait for your reply; reply with what you found, or just "go".
+- **Decisions.** `Blocked: …` issues ask questions the factory couldn't settle. Reply in the issue.
+- **Accounts and credentials** (hosting such as Cloudflare, a TURN service, a domain). The factory opens a `Blocked:` issue with the exact steps and the secret name; you add the value under Settings → Secrets and variables → Actions. It never sees the value.

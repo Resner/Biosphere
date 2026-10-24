@@ -30,6 +30,7 @@ Window: wk <a>–<b> · Size: ~<n> runs · Release: v<x.y.z>
 ## Rubric
 
 - [ ] <Checkable statement about look, feel or responsiveness> (evidence: <screenshot, timing, …>)
+- [ ] <A check only a person can make: fun, feel on real hardware, real-world networking> (owner)
 
 ## Risks
 
