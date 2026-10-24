@@ -8,7 +8,7 @@ https://resner.github.io/Biosphere/ (live after the first release).
 | Step | Who | Model | What happens |
 |------|-----|-------|--------------|
 | Setup | you, once | — | Apply the GitHub settings in [docs/SETUP.md](docs/SETUP.md). |
-| Scaffold | you + Claude, once | Opus 5.5 with `/effort xhigh` (or `max`) | `/scaffold <brief>`: the brief becomes a roadmap timeline to v1.0, architecture ADRs and a toolchain, and v0.1.0 goes live. |
+| Scaffold | you + Claude, once | Opus 5.5 with `/effort xhigh` (or `max`) | `/scaffold` + your brief (or say "Run the scaffold skill" + your brief): the brief becomes a roadmap timeline to v1.0, architecture ADRs and a toolchain, and v0.1.0 goes live. |
 | Factory | a scheduled task, unattended | Sonnet 5.5; spec and milestone steps switch to Opus 5.5 | Each run does `/next`: one step, one PR, auto-merged once CI is green. |
 | Release | automatic | — | A merged `VERSION` bump runs the full tests, deploys to Pages, and tags the release with notes. |
 
