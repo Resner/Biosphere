@@ -1,6 +1,6 @@
 ---
 name: scaffold
-description: One-time Biosphere scaffold from the product brief - roadmap timeline to v1.0, architecture decisions, a toolchain implementing the npm script contract, and domain rules. Use only when the owner asks to scaffold the project and provides the brief.
+description: One-time Biosphere scaffold from the product brief - ordered roadmap to v1.0, architecture decisions, a toolchain implementing the npm script contract, and domain rules. Use only when the owner asks to scaffold the project and provides the brief.
 model: opus
 ---
 
@@ -9,10 +9,10 @@ model: opus
 The product brief is in $ARGUMENTS, or in the owner's message if they asked for this skill in words. If there's no brief, ask the owner to paste it.
 
 1. Save the brief verbatim as `docs/BRIEF.md`. It stays the source of intent.
-2. Interview the owner (AskUserQuestion) only about choices the brief leaves open that are expensive to reverse, plus the factory cadence (runs per day) for the timeline.
+2. Interview the owner (AskUserQuestion) only about choices the brief leaves open that are expensive to reverse.
 3. Architecture: one short ADR per lasting decision (`docs/decisions/`, from `0000-template.md`). Prefer the simplest design that meets the brief, and name rejected options in one line each.
-4. `docs/ROADMAP.md` is a linear timeline from M0 to v1.0.0:
-   - Each milestone is a shippable, testable increment with observable exit criteria, a size in factory runs, and a window in weeks from the start (no dates).
+4. `docs/ROADMAP.md` lists the milestones from M0 to v1.0.0 in build order:
+   - Each milestone is a shippable, testable increment with observable exit criteria. No time estimates or dates.
    - Prove the riskiest assumptions with the smallest builds first. The last milestone is v1.0.0: everything in the brief, done.
    - Mark `gate` on milestones that need the owner's playtest before the factory continues: at least the first playable loop, the first breeding and morphology release, and v1.0.0.
    - Fill in "Brief coverage" so every brief requirement maps to a milestone.

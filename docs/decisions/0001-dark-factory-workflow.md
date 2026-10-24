@@ -11,7 +11,7 @@ One owner who doesn't review PRs. Development runs for weeks in Claude Code clou
 
 - **One loop, skills for phases.** Each run is a single agent loop. `/next` routes to the `spec` skill, a task, or the `milestone` skill. There are no custom subagents; only disposable review passes (`/simplify`, `/code-review`) use them.
 - **Model by phase.** Specs: Opus 5.5 at xhigh. Tasks: Sonnet 5.5 at high. Milestone review: Opus 5.5 at high. Scaffold: Opus 5.5 at xhigh, or max if the owner chooses.
-- **Memory in the repo.** BRIEF (intent) → ROADMAP (linear timeline to v1.0) → one spec per milestone, written just in time → ADRs → CLAUDE.md and path-scoped rules.
+- **Memory in the repo.** BRIEF (intent) → ROADMAP (ordered milestones to v1.0, no time estimates) → one spec per milestone, written just in time → ADRs → CLAUDE.md and path-scoped rules.
 - **Trunk-based.** `main` plus one short-lived branch per step, squash-merged. One factory PR is open at a time, and it auto-merges when the single required check, `verify`, passes.
 - **Releases from `VERSION`.** A merged `VERSION` change runs the full test suite, deploys Pages from `main`, and tags `v<VERSION>`. Each milestone bumps the minor version; v1.0.0 means finished.
 - **CI on a budget.** One job (GitHub rounds every job up to a whole minute). Drafts skip it, docs-only changes skip the build, slow E2E runs only at release, jobs have timeouts, and an Actions budget of $0 caps the spend.

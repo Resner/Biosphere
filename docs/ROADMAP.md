@@ -1,12 +1,10 @@
 # Roadmap
 
-The linear timeline from M0 to v1.0.0 ("finished"). `/scaffold` writes it and `/next` follows it from top to bottom. Each milestone close re-estimates the remaining windows from the actual pace. Only the current milestone gets a detailed spec (rolling-wave planning).
+The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` writes them, and `/next` works through them one at a time, top to bottom. There are no time estimates: a milestone is done when its exit criteria hold. Only the current milestone gets a detailed spec.
 
-Pace: <factory runs per day, set at scaffold>
-
-| ID | Milestone | Exit criteria (observable) | Size (runs) | Window | Gate | Status | Spec | Release |
-|----|-----------|----------------------------|-------------|--------|------|--------|------|---------|
-| M0 | Toolchain and pipeline | npm script contract implemented; CI green on a PR; v0.1.0 live on Pages | — | wk 1 | — | planned | — | v0.1.0 |
+| ID | Milestone | Exit criteria (observable) | Gate | Status | Spec | Release |
+|----|-----------|----------------------------|------|--------|------|---------|
+| M0 | Toolchain and pipeline | npm script contract implemented; CI green on a PR; v0.1.0 live on Pages | — | planned | — | v0.1.0 |
 
 Status: `planned` → `specced` → `done`. Gate: `gate` means the factory waits for the owner's reply on the release's `Playtest:` issue before it starts the next milestone.
 

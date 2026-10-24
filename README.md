@@ -8,7 +8,7 @@ https://resner.github.io/Biosphere/ (live after the first release).
 | Step | Who | Model | What happens |
 |------|-----|-------|--------------|
 | Setup | you, once | — | Apply the GitHub settings in [docs/SETUP.md](docs/SETUP.md). |
-| Scaffold | you + Claude, once | Opus 5.5 with `/effort xhigh` (or `max`) | `/scaffold` + your brief (or say "Run the scaffold skill" + your brief): the brief becomes a roadmap timeline to v1.0, architecture ADRs and a toolchain, and v0.1.0 goes live. |
+| Scaffold | you + Claude, once | Opus 5.5 with `/effort xhigh` (or `max`) | `/scaffold` + your brief (or say "Run the scaffold skill" + your brief): the brief becomes an ordered roadmap to v1.0, architecture ADRs and a toolchain, and v0.1.0 goes live. |
 | Factory | a scheduled task, unattended | Sonnet 5.5; spec and milestone steps switch to Opus 5.5 | Each run does `/next`: one step, one PR, auto-merged once CI is green. |
 | Release | automatic | — | A merged `VERSION` bump runs the full tests, deploys to Pages, and tags the release with notes. |
 
@@ -24,7 +24,7 @@ https://resner.github.io/Biosphere/ (live after the first release).
 
 ## Keeping an eye on it
 
-- Progress: `docs/ROADMAP.md` (milestone status and windows) and the repository's Releases page.
+- Progress: `docs/ROADMAP.md` (milestone status) and the repository's Releases page.
 - Decisions: `docs/decisions/`.
 - GitHub Actions minutes: Settings → Billing and licensing → Usage. A CI run costs about 4–6 minutes; slow the schedule if a month passes about 2,000.
 - Claude usage: https://claude.ai/settings/usage

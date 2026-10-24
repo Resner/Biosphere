@@ -1,6 +1,6 @@
 # <ID>: <title>
 
-Window: wk <a>–<b> · Size: ~<n> runs · Release: v<x.y.z>
+Release: v<x.y.z> · Gate: <yes/no>
 
 ## Goal
 
