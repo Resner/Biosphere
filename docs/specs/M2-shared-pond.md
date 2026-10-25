@@ -206,7 +206,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `applyRemoteClaim`/`isFoodSlot` (`src/sim/food.ts`), `ClaimBook`, `consumedParts` and `ConsumedJoin` (`src/net/claims.ts`), `PondTime` (`src/game/pond-time.ts`: join, 1 s slew checks, snap, resnap), `Loop.setSpeed`, and `PondFood` glue (`src/game/pond-food.ts`) wired into `app.ts`. Debug-only `joinPond`, `deliver` and `hasFood` (a per-item check, sturdier than the `visibleFood` count) let `m2-food.spec.ts` relay claims between two tabs.
   - Gotcha: a lost `consumed` part is covered by merging every peer's set (`ConsumedJoin.complete` turns true when one peer delivered all parts), so T13 sends the set to each new connection and need not request it. `PondFood.receive` must get a pond-level `World` that shares `consumed` with the player's world. The E2E relays by test code, not WebRTC; T13/T17 cover the real mesh.
 
-- [ ] T13 Online session in the game
+- [ ] T13 Online session in the game (in progress)
   - Acceptance:
     - Title screen: a name field (remembered in `localStorage`, default `Cell` + 4 random digits), "Hatch" as before. The status chip shows `Online · N in pond`, `Connecting…`, `Offline · playing alone`, or `Signed in elsewhere`.
     - Hatching while online: the cell spawns at the hub's `spawnHint` moved clear of plumes (`findClearSpot`), the world uses `pond.seed` and `pond.size`, the mesh connects to every member, and the HUD shows the pond count.
