@@ -342,7 +342,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     void tryOnline(() =>
       identityReady.then(() => {
         ensureOnline(name);
-        return keeper.current ? keeper.current.whenReady(HATCH_WAIT_MS) : null;
+        return keeper.current?.whenReady(HATCH_WAIT_MS) ?? null;
       }),
     ).then((welcome) => {
       hatching = false;
@@ -498,11 +498,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const updateNetUi = (now: number, joined: Pond | null): void => {
     // A life in a local pond is alone, whatever the hub says about its own pond.
     const apart = !session.demo && session.pond === null;
-    const text = hubUrl
-      ? apart
+    let text = '';
+    if (hubUrl) {
+      text = apart
         ? statusText('offline', 1)
-        : statusText(keeper.current?.status ?? 'connecting', keeper.current?.count ?? 1)
-      : '';
+        : statusText(keeper.current?.status ?? 'connecting', keeper.current?.count ?? 1);
+    }
     if (text !== shownStatus) {
       shownStatus = text;
       netStatus.textContent = text;
