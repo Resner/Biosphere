@@ -43,13 +43,14 @@ export function cleanName(typed: string): string | null {
   return validName(name) ? name : null;
 }
 
-interface NameStore {
+/** The slice of `localStorage` the game uses. */
+export interface Store {
   getItem(key: string): string | null;
   setItem(key: string, value: string): void;
 }
 
 /** The remembered name, or a new default that is remembered from now on. */
-export function loadName(store: NameStore, random: () => number = Math.random): string {
+export function loadName(store: Store, random: () => number = Math.random): string {
   try {
     const kept = cleanName(store.getItem(NAME_KEY) ?? '');
     if (kept) return kept;
@@ -61,7 +62,7 @@ export function loadName(store: NameStore, random: () => number = Math.random): 
   return name;
 }
 
-export function saveName(store: NameStore, name: string): void {
+export function saveName(store: Store, name: string): void {
   try {
     store.setItem(NAME_KEY, name);
   } catch {

@@ -5,7 +5,13 @@ import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
 import type { Welcome } from '../net/hub-client';
 import { RemoteSet, type RemoteView, SnapshotSender, snapshotOf } from '../net/pond-sync';
-import { decodeSnapshot, type PeerEvent, parsePeerEvent, type Vec2 } from '../net/protocol';
+import {
+  decodeSnapshot,
+  type Member,
+  type PeerEvent,
+  parsePeerEvent,
+  type Vec2,
+} from '../net/protocol';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import { Effects } from '../render/effects';
@@ -58,6 +64,7 @@ const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
 const DEBUG_MAX_TICKS_PER_FRAME = 120;
 const MAX_THROTTLE = RULES.movement.maxThrottle;
 const NO_REMOTES: readonly RemoteView[] = [];
+const NO_MEMBERS: readonly Member[] = [];
 /** A hatch waits this long for the hub before the player swims in a local pond. */
 const HATCH_WAIT_MS = 4000;
 
@@ -214,7 +221,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const selfKey = (): string => playerId ?? 'local';
   const social = new Social({
     now: () => performance.now(),
-    nameOf: (id) => online?.others().find((m) => m.playerId === id)?.name,
+    nameOf: (id) => online?.nameOf(id),
     send: (event) => online?.broadcastEvent(event),
     muted: new MuteList(safeStorage()),
     selfName: 'You',
@@ -341,11 +348,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     window,
     document,
     () => {
-      if (playing()) {
-        controller.reset();
-        controller.typing = true;
-        socialUi.open();
-      } else if (enterHatches(screen, performance.now() - screenShownAt)) hatch();
+      if (playing()) socialUi.open();
+      else if (enterHatches(screen, performance.now() - screenShownAt)) hatch();
     },
     {
       key: (key) => {
@@ -577,8 +581,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       anchors.clear();
       anchors.set(selfKey(), { x: cell.x, y: cell.y, radius: cell.radius });
       for (const r of remoteViews) anchors.set(r.id, r);
-      const others = (online?.others() ?? []).map((m) => ({ id: m.playerId, name: m.name }));
-      socialUi.update(now, anchors, others, projection);
+      socialUi.update(now, anchors, online?.others() ?? NO_MEMBERS, projection);
     }
     field.flush();
     scene.draw(view);

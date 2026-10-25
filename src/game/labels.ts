@@ -9,6 +9,21 @@ export interface LabelProjection {
   height: number;
 }
 
+/** Screen position (CSS pixels) of a world position. */
+export function screenX(wx: number, p: LabelProjection): number {
+  return p.width / 2 + (wx - p.camX) * p.pxPerWu;
+}
+
+export function screenY(wy: number, p: LabelProjection): number {
+  return p.height / 2 - (wy - p.camY) * p.pxPerWu;
+}
+
+/** A CSS transform that puts an absolutely positioned element's anchor point at (x, y). */
+export function placeAt(x: number, y: number, anchor: 'above' | 'centre'): string {
+  const offset = anchor === 'above' ? '-50%, -100%' : '-50%, -50%';
+  return `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(${offset})`;
+}
+
 /** Gap between a cell's edge and its name, in CSS pixels. */
 const GAP_PX = 8;
 const FADED = 0.01;
@@ -23,13 +38,13 @@ export class RemoteLabels {
     let used = 0;
     for (const remote of remotes) {
       if (remote.alpha < FADED) continue;
-      const x = p.width / 2 + (remote.x - p.camX) * p.pxPerWu;
-      const y = p.height / 2 - (remote.y - p.camY) * p.pxPerWu - remote.radius * p.pxPerWu - GAP_PX;
+      const x = screenX(remote.x, p);
+      const y = screenY(remote.y, p) - remote.radius * p.pxPerWu - GAP_PX;
       const element = this.elementAt(used);
       used++;
       // Names come from other players: text only, never markup.
       if (element.textContent !== remote.name) element.textContent = remote.name;
-      element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -100%)`;
+      element.style.transform = placeAt(x, y, 'above');
       element.style.opacity = String(Math.round(remote.alpha * 100) / 100);
       element.hidden = false;
     }

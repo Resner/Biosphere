@@ -3,6 +3,7 @@
 
 import { CHAT_MAX_CHARS, EMOTE_COUNT, type PeerEvent, PING_KINDS } from '../net/protocol';
 import { filterText } from '../net/text';
+import type { Store } from './online-config';
 
 const MUTE_KEY = 'bs.muted';
 
@@ -10,12 +11,26 @@ const CHAT_LIMIT = { max: 3, windowMs: 5000 };
 const EMOTE_LIMIT = { max: 1, windowMs: 1000 };
 const PING_LIMIT = { max: 1, windowMs: 1000 };
 
-export const LOG_SIZE = 50;
-export const BUBBLE_MS = 5000;
-export const EMOTE_MS = 2000;
-export const PING_MS = 4000;
+const LOG_SIZE = 50;
+const BUBBLE_MS = 5000;
+const EMOTE_MS = 2000;
+const PING_MS = 4000;
 /** `T` waits this long for the number that follows. */
 const EMOTE_ARM_MS = 3000;
+
+interface Limits {
+  chat: RateLimit;
+  emote: RateLimit;
+  ping: RateLimit;
+}
+
+function makeLimits(): Limits {
+  return {
+    chat: new RateLimit(CHAT_LIMIT.max, CHAT_LIMIT.windowMs),
+    emote: new RateLimit(EMOTE_LIMIT.max, EMOTE_LIMIT.windowMs),
+    ping: new RateLimit(PING_LIMIT.max, PING_LIMIT.windowMs),
+  };
+}
 
 /** At most `max` hits in any `windowMs`; a refused hit is not counted. */
 export class RateLimit {
@@ -33,11 +48,6 @@ export class RateLimit {
     this.hits.push(now);
     return true;
   }
-}
-
-interface Store {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
 }
 
 /** Players this browser has muted, kept by `playerId` in local storage. */
@@ -124,13 +134,9 @@ export class Social {
   private readonly chatLines: ChatLine[] = [];
   private readonly bubbleMap = new Map<string, Bubble>();
   private readonly emoteMap = new Map<string, EmoteCue>();
-  private pingList: PingCue[] = [];
-  private readonly mine = {
-    chat: new RateLimit(CHAT_LIMIT.max, CHAT_LIMIT.windowMs),
-    emote: new RateLimit(EMOTE_LIMIT.max, EMOTE_LIMIT.windowMs),
-    ping: new RateLimit(PING_LIMIT.max, PING_LIMIT.windowMs),
-  };
-  private readonly theirs = new Map<string, typeof this.mine>();
+  private readonly pingList: PingCue[] = [];
+  private readonly mine = makeLimits();
+  private readonly theirs = new Map<string, Limits>();
   private nextPing = 0;
   private armedUntil = -1;
 
@@ -156,8 +162,11 @@ export class Social {
   }
 
   pings(): readonly PingCue[] {
+    // Pings last the same time, so they expire oldest first.
     const now = this.opts.now();
-    this.pingList = this.pingList.filter((p) => p.until > now);
+    while (this.pingList.length > 0 && (this.pingList[0] as PingCue).until <= now) {
+      this.pingList.shift();
+    }
     return this.pingList;
   }
 
@@ -252,7 +261,7 @@ export class Social {
     this.chatLines.length = 0;
     this.bubbleMap.clear();
     this.emoteMap.clear();
-    this.pingList = [];
+    this.pingList.length = 0;
     this.theirs.clear();
     this.armedUntil = -1;
   }
@@ -264,14 +273,10 @@ export class Social {
     this.bubbleMap.set(from, { text, until: this.opts.now() + BUBBLE_MS });
   }
 
-  private limitsOf(id: string): typeof this.mine {
+  private limitsOf(id: string): Limits {
     let limits = this.theirs.get(id);
     if (!limits) {
-      limits = {
-        chat: new RateLimit(CHAT_LIMIT.max, CHAT_LIMIT.windowMs),
-        emote: new RateLimit(EMOTE_LIMIT.max, EMOTE_LIMIT.windowMs),
-        ping: new RateLimit(PING_LIMIT.max, PING_LIMIT.windowMs),
-      };
+      limits = makeLimits();
       this.theirs.set(id, limits);
     }
     return limits;

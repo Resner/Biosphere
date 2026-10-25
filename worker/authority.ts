@@ -29,7 +29,7 @@ import { TurnCredentials } from './turn';
 const HELLO_TIMEOUT_MS = 10_000;
 const RATE_WINDOW_MS = 10_000;
 const RATE_MAX_MESSAGES = 20;
-const POND_SIZE = 24;
+const POND_CAPACITY = 24;
 /** Joiner `i` spawns at angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · members` (DESIGN.md). */
 const RING_BASE = 300;
 const RING_STEP = 40;
@@ -192,7 +192,7 @@ export class Authority extends DurableObject<Env> {
     let best: PondRow | null = null;
     for (const row of sql.exec<PondRow>('SELECT * FROM ponds ORDER BY created, id')) {
       const n = counts.get(row.id) ?? 0;
-      if (n < POND_SIZE && (!best || n > (counts.get(best.id) ?? 0))) best = row;
+      if (n < POND_CAPACITY && (!best || n > (counts.get(best.id) ?? 0))) best = row;
     }
     if (!best) {
       const centre = RULES.world.size / 2;

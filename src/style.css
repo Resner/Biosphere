@@ -327,7 +327,6 @@ body {
   border-radius: 0;
 }
 
-.bubble[hidden],
 .emote[hidden] {
   display: none;
 }
@@ -406,7 +405,6 @@ body {
   font-size: 0.85rem;
 }
 
-.chat-input[hidden],
 .roster[hidden] {
   display: none;
 }

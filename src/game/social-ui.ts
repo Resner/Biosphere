@@ -2,16 +2,27 @@
 // and the bubbles, emotes and pings drawn over the water. Text only, never markup, because every
 // string except the glyphs comes from another player.
 
+import type { Member } from '../net/protocol';
 import { pick } from './dom';
-import type { LabelProjection } from './labels';
-import type { Social } from './social';
+import { type LabelProjection, placeAt, screenX, screenY } from './labels';
+import type { PingCue, Social } from './social';
 
-/** One glyph per emote: wave, happy, love, angry, scared, question. */
-export const EMOTE_GLYPHS = ['≋', '☺', '♥', '✖', '!', '?'] as const;
-const EMOTE_NAMES = ['wave', 'happy', 'love', 'angry', 'scared', 'question'] as const;
-/** One glyph per ping: look, danger, food, mate. */
-export const PING_GLYPHS = ['◎', '▲', '◆', '♥'] as const;
-const PING_NAMES = ['look', 'danger', 'food', 'mate'] as const;
+/** Wave, happy, love, angry, scared, question; indexed by the emote id. */
+const EMOTES = [
+  { glyph: '≋', name: 'wave' },
+  { glyph: '☺', name: 'happy' },
+  { glyph: '♥', name: 'love' },
+  { glyph: '✖', name: 'angry' },
+  { glyph: '!', name: 'scared' },
+  { glyph: '?', name: 'question' },
+] as const;
+/** Look, danger, food, mate; indexed by the ping kind. */
+const PINGS = [
+  { glyph: '◎', name: 'look' },
+  { glyph: '▲', name: 'danger' },
+  { glyph: '◆', name: 'food' },
+  { glyph: '♥', name: 'mate' },
+] as const;
 
 /** Gap between a cell's edge and the cues above it: room for the name label. */
 const GAP_PX = 30;
@@ -30,9 +41,10 @@ interface Cue {
   bubble: HTMLElement;
 }
 
-export interface RosterEntry {
+interface ShownMember {
   id: string;
   name: string;
+  muted: boolean;
 }
 
 export class SocialUi {
@@ -41,13 +53,14 @@ export class SocialUi {
   private readonly roster = pick('[data-testid="roster"]');
   private readonly cues = pick('[data-testid="social-cues"]');
   private readonly byId = new Map<string, Cue>();
-  private readonly pingEls = new Map<object, HTMLElement>();
+  private readonly pingEls = new Map<PingCue, HTMLElement>();
+  private readonly live = new Set<string>();
   private seenChats = -1;
-  private rosterKey = '';
+  private shown: ShownMember[] = [];
 
   constructor(
     private readonly social: Social,
-    handlers: { submit(text: string): void; typing(on: boolean): void },
+    private readonly handlers: { submit(text: string): void; typing(on: boolean): void },
   ) {
     this.input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== 'Escape') return;
@@ -56,14 +69,10 @@ export class SocialUi {
       if (e.isComposing) return;
       const text = this.input.value;
       this.close();
-      handlers.typing(false);
       if (e.key === 'Enter' && text.trim() !== '') handlers.submit(text);
     });
     this.input.addEventListener('blur', () => {
-      if (!this.input.hidden) {
-        this.close();
-        handlers.typing(false);
-      }
+      if (!this.input.hidden) this.close();
     });
     this.roster.addEventListener('click', (e) => {
       const button = (e.target as Element).closest<HTMLButtonElement>('button[data-id]');
@@ -71,15 +80,12 @@ export class SocialUi {
       social.toggleMute(button.dataset.id);
       // A focused button would turn the dash key (space) into another click.
       button.blur();
-      this.rosterKey = '';
+      this.shown = [];
     });
   }
 
-  get typing(): boolean {
-    return !this.input.hidden;
-  }
-
   open(): void {
+    this.handlers.typing(true);
     this.input.value = '';
     this.input.hidden = false;
     this.input.focus();
@@ -89,12 +95,13 @@ export class SocialUi {
     this.input.hidden = true;
     this.input.value = '';
     this.input.blur();
+    this.handlers.typing(false);
   }
 
   update(
     now: number,
     anchors: ReadonlyMap<string, Anchor>,
-    others: readonly RosterEntry[],
+    others: readonly Member[],
     p: LabelProjection,
   ): void {
     this.drawLog();
@@ -118,22 +125,30 @@ export class SocialUi {
     this.log.scrollTop = this.log.scrollHeight;
   }
 
-  private drawRoster(others: readonly RosterEntry[]): void {
-    const muted = this.social.muted;
-    const key = others.map((o) => `${o.id}\n${o.name}\n${muted.has(o.id)}`).join('\n\n');
-    if (key === this.rosterKey) return;
-    this.rosterKey = key;
+  private drawRoster(others: readonly Member[]): void {
+    const { muted } = this.social;
+    const same =
+      others.length === this.shown.length &&
+      others.every((o, i) => {
+        const was = this.shown[i] as ShownMember;
+        return was.id === o.playerId && was.name === o.name && was.muted === muted.has(o.playerId);
+      });
+    if (same) return;
+    this.shown = others.map((o) => ({
+      id: o.playerId,
+      name: o.name,
+      muted: muted.has(o.playerId),
+    }));
     this.roster.hidden = others.length === 0;
     this.roster.replaceChildren(
-      ...others.map((o) => {
+      ...this.shown.map((o) => {
         const item = document.createElement('li');
         const button = document.createElement('button');
         button.type = 'button';
         button.dataset.id = o.id;
-        const isMuted = muted.has(o.id);
-        button.dataset.muted = String(isMuted);
-        button.title = isMuted ? 'Click to unmute' : 'Click to mute';
-        button.textContent = isMuted ? `${o.name} · muted` : o.name;
+        button.dataset.muted = String(o.muted);
+        button.title = o.muted ? 'Click to unmute' : 'Click to mute';
+        button.textContent = o.muted ? `${o.name} · muted` : o.name;
         item.append(button);
         return item;
       }),
@@ -143,29 +158,30 @@ export class SocialUi {
   private drawCues(now: number, anchors: ReadonlyMap<string, Anchor>, p: LabelProjection): void {
     const bubbles = this.social.bubbles();
     const emotes = this.social.emotes();
-    const live = new Set<string>();
-    for (const id of new Set([...bubbles.keys(), ...emotes.keys()])) {
+    if (bubbles.size === 0 && emotes.size === 0 && this.byId.size === 0) return;
+    const { live } = this;
+    live.clear();
+    for (const id of [...bubbles.keys(), ...emotes.keys()]) {
       const anchor = anchors.get(id);
-      if (!anchor) continue;
+      if (!anchor || live.has(id)) continue;
       live.add(id);
       const cue = this.cueFor(id);
-      const x = p.width / 2 + (anchor.x - p.camX) * p.pxPerWu;
-      const y = p.height / 2 - (anchor.y - p.camY) * p.pxPerWu - anchor.radius * p.pxPerWu - GAP_PX;
-      cue.root.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -100%)`;
+      const x = screenX(anchor.x, p);
+      const y = screenY(anchor.y, p) - anchor.radius * p.pxPerWu - GAP_PX;
+      cue.root.style.transform = placeAt(x, y, 'above');
       const bubble = bubbles.get(id);
       cue.bubble.hidden = !bubble;
       if (bubble) {
-        if (cue.bubble.textContent !== bubble.text) cue.bubble.textContent = bubble.text;
+        cue.bubble.textContent = bubble.text;
         cue.bubble.style.opacity = fade(bubble.until - now);
       }
       const emote = emotes.get(id);
       cue.emote.hidden = !emote;
       if (emote) {
+        const { glyph, name } = EMOTES[emote.id] as (typeof EMOTES)[number];
         cue.emote.dataset.emote = String(emote.id);
-        cue.emote.setAttribute('aria-label', EMOTE_NAMES[emote.id] ?? '');
-        if (cue.emote.textContent !== EMOTE_GLYPHS[emote.id]) {
-          cue.emote.textContent = EMOTE_GLYPHS[emote.id] ?? '';
-        }
+        cue.emote.textContent = glyph;
+        cue.emote.setAttribute('aria-label', name);
         cue.emote.style.opacity = fade(emote.until - now);
       }
     }
@@ -178,25 +194,26 @@ export class SocialUi {
 
   private drawPings(now: number, p: LabelProjection): void {
     const pings = this.social.pings();
+    if (pings.length === 0 && this.pingEls.size === 0) return;
+    const current = new Set(pings);
     for (const [ping, element] of this.pingEls) {
-      if (pings.includes(ping as (typeof pings)[number])) continue;
+      if (current.has(ping)) continue;
       element.remove();
       this.pingEls.delete(ping);
     }
     for (const ping of pings) {
       let element = this.pingEls.get(ping);
       if (!element) {
+        const { glyph, name } = PINGS[ping.kind] as (typeof PINGS)[number];
         element = document.createElement('div');
         element.className = 'ping';
         element.dataset.kind = String(ping.kind);
-        element.setAttribute('aria-label', PING_NAMES[ping.kind] ?? '');
-        element.textContent = PING_GLYPHS[ping.kind] ?? '';
+        element.setAttribute('aria-label', name);
+        element.textContent = glyph;
         this.cues.append(element);
         this.pingEls.set(ping, element);
       }
-      const x = p.width / 2 + (ping.x - p.camX) * p.pxPerWu;
-      const y = p.height / 2 - (ping.y - p.camY) * p.pxPerWu;
-      element.style.transform = `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(-50%, -50%)`;
+      element.style.transform = placeAt(screenX(ping.x, p), screenY(ping.y, p), 'centre');
       element.style.opacity = fade(ping.until - now);
     }
   }
