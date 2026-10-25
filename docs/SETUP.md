@@ -37,7 +37,7 @@ The `verify` check can be selected once CI has run on a pull request; the setup 
 
 ## 6. Spending cap: your avatar → Settings → Billing and licensing → Budgets and alerts
 
-- New budget → Product **Actions** → amount **$0** → alerts on. Personal budgets stop usage at the limit, so CI pauses at the 3,000 included minutes instead of billing you.
+- New budget → Product **Actions** → amount **$0** → alerts on. The repository is public, so standard runners cost nothing; the $0 budget guards against anything that would bill.
 - Track usage under Billing and licensing → Usage (filter on Actions).
 
 ## 7. The factory schedule
@@ -45,11 +45,14 @@ The `verify` check can be selected once CI has run on a pull request; the setup 
 The scheduled task "Factory" runs `/next` in a fresh cloud session: claude.ai/code → Scheduled tasks → Factory.
 
 - Keep it **paused until the scaffold PR has merged**; the scaffold tells you when to resume it. Agents can't toggle a task created in the web UI, so pausing and resuming is up to you.
-- Schedule: every 2 hours (edit the task → Custom → `25 */2 * * *`; hourly is the minimum). Hourly can exceed the 3,000 Actions minutes in a busy month.
+- Schedule: hourly (edit the task → Custom → `54 * * * *`; hourly is the minimum).
+  - Runs also chain: when a run's PR merges, it fires the task again, so the factory works back to back until your Claude usage limit (ADR 0015).
+  - The hourly schedule restarts the chain after usage limits, playtest gates and failures.
+  - Pausing the task stops the chain after the current run.
 - Prompt: `Run /next. Open a pull request for the result, enable auto-merge, and see it through until it is merged.`
 - Model: the default or Sonnet 5.5. `/next` switches to Sonnet itself, and to Opus for specs and milestone reviews.
 - Connectors: none needed. GitHub access comes from your GitHub connection and the Claude GitHub App, so you can remove the defaults (Claude-Docs, visualize).
-- Notifications: keep push on. Every run ends with `SHIPPED`, `BLOCKED`, `WAITING` or `IDLE`. GitHub won't notify you about the factory's issues, because they're posted as you.
+- Notifications: every run ends with `SHIPPED`, `BLOCKED`, `WAITING` or `IDLE`. With chained runs that's a push every few minutes, so turn push off if it's too much; `BLOCKED` and `WAITING` also show up as GitHub issues. GitHub won't notify you about the factory's issues, because they're posted as you.
 
 Every run counts against your Claude plan's usage.
 
