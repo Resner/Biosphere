@@ -1,4 +1,4 @@
-import { expect, type Page, test } from '@playwright/test';
+import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { slotAnchor } from '../../src/sim/food';
 import { createWorld } from '../../src/sim/world';
@@ -9,11 +9,11 @@ import { hatch, openGame } from './helpers';
 
 const SEED = 'shared-food';
 
-async function joinedTab(browser: import('@playwright/test').Browser, epoch: number) {
+async function joinedTab(browser: Browser) {
   const context = await browser.newContext({ viewport: { width: 960, height: 540 } });
   const page = await context.newPage();
   await openGame(page, `?debug=1&seed=${SEED}`);
-  return { page, context, epoch };
+  return { page, context };
 }
 
 /** Connects two pages: what one sends, the other receives, as a data channel would deliver it. */
@@ -52,7 +52,7 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
   browser,
 }) => {
   const epoch = Date.now() - 50_000;
-  const [a, b] = await Promise.all([joinedTab(browser, epoch), joinedTab(browser, epoch)]);
+  const [a, b] = await Promise.all([joinedTab(browser), joinedTab(browser)]);
   try {
     await link(a.page, b.page, { a: 'peer-a', b: 'peer-b' });
     await join(a.page, epoch);

@@ -111,6 +111,12 @@ export function foodNear(world: World, x: number, y: number, radius: number): Fo
   return found;
 }
 
+/** Splits an item id (`c3_5_s2_k0`) into its slot and cycle, or null if it is not one. */
+export function parseFoodId(id: string): { slot: string; k: number } | null {
+  const m = ID_PATTERN.exec(id);
+  return m ? { slot: slotKey(Number(m[1]), Number(m[2]), Number(m[3])), k: Number(m[4]) } : null;
+}
+
 const SLOT_PATTERN = /^c(\d+)_(\d+)_s(\d+)$/;
 
 /** Whether `slot` (`c3_5_s2`) names a food slot of this world. */

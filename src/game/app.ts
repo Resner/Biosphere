@@ -222,13 +222,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const receiveFoodEvent = (from: string, event: PeerEvent): void => {
     if (!pond) return;
     const stolen = pond.food.receive(pond.world, from, event);
-    field.now();
+    field.markDirty();
     if (!stolen || session.demo) return;
     const { player, counts } = session;
     player.energy = Math.max(0, player.energy - stolen.value);
     counts.stolen = (counts.stolen ?? 0) + 1;
     hud.update(player);
   };
+
+  /** The pond, while a real life (not the title screen's cell) is running in it. */
+  const livePond = (): Pond | null => (session.demo ? null : pond);
 
   const tick = (): void => {
     const { world, player, counts } = session;
@@ -238,12 +241,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     prev.y = player.y;
     prev.heading = player.heading;
     input = chooseInput();
-    if (pond && !session.demo && scale === 1) {
-      loop.setSpeed(pond.time.update(world, performance.now()));
-    }
+    const live = livePond();
+    if (live && scale === 1) loop.setSpeed(live.time.update(world, performance.now()));
     const at = world.tick;
     const events = step(world, { [player.id]: input });
-    if (pond && !session.demo) pond.food.onEat(events, at);
+    live?.food.onEat(events, at);
     for (const event of events) {
       if (event.creature !== player.id) continue;
       fx.onEvent(event, anchorFor(event));
@@ -377,7 +379,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     // The pond moved on while the tab was hidden: skip ahead instead of simulating it.
-    if (pond && !session.demo) pond.time.resnap(session.world, performance.now());
+    livePond()?.time.resnap(session.world, performance.now());
     // Cues run on wall-clock time: hidden time must not skip the death dissolve.
     lastMs = performance.now();
     fx.resume();
@@ -467,8 +469,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     deliver(from, raw) {
       const event = parsePeerEvent(JSON.stringify(raw));
-      if (!pond || !event) return;
-      receiveFoodEvent(from, event);
+      if (event) receiveFoodEvent(from, event);
     },
     hasFood: (id) => food.some((f) => f.id === id),
     timeScale(next) {

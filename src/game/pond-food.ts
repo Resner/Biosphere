@@ -3,9 +3,8 @@
 
 import { ClaimBook, ConsumedJoin, type Stolen } from '../net/claims';
 import type { PeerEvent } from '../net/protocol';
+import { parseFoodId } from '../sim/food';
 import type { StepEvent, World } from '../sim/types';
-
-const FOOD_ID = /^(c\d+_\d+_s\d+)_k(\d+)$/;
 
 export class PondFood {
   private readonly book: ClaimBook;
@@ -21,9 +20,10 @@ export class PondFood {
   /** Announces the bites the player just took; `tick` is the tick the step ran at. */
   onEat(events: readonly StepEvent[], tick: number): void {
     for (const event of events) {
-      const m = event.type === 'eat' ? FOOD_ID.exec(event.food) : null;
-      if (event.type !== 'eat' || !m) continue;
-      const claim = { slot: m[1] as string, k: Number(m[2]), tick };
+      if (event.type !== 'eat') continue;
+      const item = parseFoodId(event.food);
+      if (!item) continue;
+      const claim = { ...item, tick };
       this.book.local(claim, event.value);
       this.send({ t: 'claim', ...claim });
     }

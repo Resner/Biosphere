@@ -93,6 +93,14 @@ describe('ClaimBook', () => {
     expect(book.remote(w, { t: 'claim', slot: 'c99_0_s0', k: 0, tick: 1 }, 'A')).toBeNull();
   });
 
+  it('takes a newer cycle after an older one without reversing anything', () => {
+    const w = world(0);
+    const book = new ClaimBook('Z');
+    book.local({ slot: SLOT, k: 0, tick: 10 }, 7);
+    expect(book.remote(w, { t: 'claim', slot: SLOT, k: 1, tick: 900 }, 'B')).toBeNull();
+    expect(w.consumed[SLOT]?.k).toBe(2);
+  });
+
   it('adopts a claim that arrives for a cycle it never saw eaten', () => {
     const w = world(0);
     const book = new ClaimBook('Z');

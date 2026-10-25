@@ -40,18 +40,16 @@ export class ClaimBook {
   /** Applies a peer's claim to `world`. Returns the bite to reverse when it beats this client's. */
   remote(world: World, claim: ClaimEvent, from: string): Stolen | null {
     const held = this.winners.get(claim.slot);
-    if (held !== undefined && held.k === claim.k) {
-      if (!beats(claim.tick, from, held) || !applyRemoteClaim(world, claim)) return null;
-      this.winners.set(claim.slot, { k: claim.k, tick: claim.tick, by: from, value: 0 });
-      return held.by === this.self ? { slot: claim.slot, k: claim.k, value: held.value } : null;
-    }
     if (held !== undefined && claim.k < held.k) return null;
+    const contested = held !== undefined && held.k === claim.k;
     // A cycle the world already counts as eaten without a known winner came from a consumed set.
-    if (held === undefined && claim.k + 1 === (world.consumed[claim.slot]?.k ?? 0)) return null;
-    if (applyRemoteClaim(world, claim)) {
-      this.winners.set(claim.slot, { k: claim.k, tick: claim.tick, by: from, value: 0 });
-    }
-    return null;
+    const settled = held === undefined && claim.k + 1 === (world.consumed[claim.slot]?.k ?? 0);
+    if (settled || (contested && !beats(claim.tick, from, held))) return null;
+    if (!applyRemoteClaim(world, claim)) return null;
+    this.winners.set(claim.slot, { k: claim.k, tick: claim.tick, by: from, value: 0 });
+    return contested && held.by === this.self
+      ? { slot: claim.slot, k: claim.k, value: held.value }
+      : null;
   }
 }
 
