@@ -27,7 +27,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Deep | dark; bioluminescence dominates | vent crystals near vents | toxic plumes around vents | luminescence, senses |
 | Abyss | near black | rich vent beds | pressure (3 hp/s × (1 − pressure tolerance)) | pressure tolerance, armour |
 
-- **Currents**: a smooth, curl-noise velocity field (max 12 wu/s, spatial period about 2,048 wu, slowly changing with a period of about 120 s) moves creatures, food and plumes.
+- **Currents**: a smooth, divergence-free velocity field (max 12 wu/s, spatial period about 2,048 wu, slowly changing with a period of about 120 s; M1: three shear waves) carries creatures on top of their own velocity (a passive creature drifts exactly with the water) and moves plumes. Food only bobs in M1: it does not drift.
 - **Food is nonliving** (ADR 0014):
 
 | Food | Value (energy) | Radius (wu) | Where |
@@ -37,10 +37,10 @@ Death is common and never total: you fall back to your pending offspring or your
 | Vent crystal | 60 | 2.5 | near vents and plumes (risk for reward) |
 | Carrion | share of a dead creature's biomass (M7) | scales with victim | where a creature died |
 
-- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) and, from T5, drift with currents. A creature eats every item it overlaps (distance below its radius plus the item's), even at full energy, where the surplus is lost.
+- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) (M1: they do not drift with currents). A creature eats every item it overlaps (distance below its radius plus the item's), even at full energy, where the surplus is lost.
 - Each tier has food sized for it (M11). Tiny items are noise to giants, so larger tiers feed on denser drifts, vent beds and carrion, and big filter-feeding mouths sweep detritus in bulk.
 - **Hazards are nonliving**:
-  - toxic plumes: radius 60–160 wu, 15 hp/s inside, drifting, about one per 9 food cells;
+  - toxic plumes: radius 60–160 wu, 15 hp/s while the creature's centre is inside (overlapping plumes don't stack), about one per 9 food cells. Each grid cell anchors at most one plume, which drifts at half the local current (bounded, periodic with the currents);
   - currents (above);
   - UV and pressure (M6).
 
@@ -84,6 +84,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
   From M3 the basal rate is multiplied by an anatomy complexity factor (§6).
 - **Growth**: while energy is above 75% of max, the creature converts 3 energy into 1 biomass, at up to `0.005·b` biomass/s, until its genetic maximum (M1: 400).
+  Growth also raises health by 10 per unit of radius gained, so a grown creature is as healthy as its size allows; there is no regeneration in M1. Energy never goes below 0.
 - **Damage over time**:
 
 | Cause | Drain |
@@ -92,7 +93,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Toxic plume | 15 hp/s |
 | UV, pressure (M6) | per zone |
 
-  At 0 health the creature dies with a **cause**: starved, toxin, UV, pressure, killed by `<name>`, old age.
+  At 0 health the creature dies with a **cause** (the last damage taken that tick): starved, toxin, UV, pressure, killed by `<name>`, old age.
 - **Tiers** (ADR 0013), with the biomass equivalents:
 
 | Tier | Radius | Biomass |

@@ -119,7 +119,8 @@ describe('feeding', () => {
     expect(events.filter((e) => e.type === 'eat')).toEqual([
       { type: 'eat', creature: 'p', food: item.id, value: item.value },
     ]);
-    expect(creature.energy).toBe(before + item.value);
+    // The step also bills one tick of basal metabolism (0.8/s).
+    expect(creature.energy).toBeCloseTo(before + item.value - 0.8 / 30, 4);
     expect(foodInCell(w, 8, 8).map((i) => i.id)).not.toContain(item.id);
   });
 
