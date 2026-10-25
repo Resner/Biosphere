@@ -169,13 +169,15 @@ Other `src/sim` modules:
   - Done: `metabolism.ts`, `currents.ts` (three shear waves; `currentDriftAt` is the closed-form integral), `hazards.ts` (one plume per anchor cell, drifting at 0.5× the current), and death in `step.ts`. A step is ~0.8 ms for 24 creatures. Currents advect creatures on top of their own velocity.
   - Gotcha: the toxin case starts at 75% energy, not full: above that the creature grows and growth adds health, which delays death by a few ticks (the spec said "full energy"). Food does not drift with currents (it would break the bob-within-12-wu rule); T9's `spawnPlume` needs an extra-plume list on `World`.
 
-- [ ] T6 Replay and golden scenarios (in progress)
+- [x] T6 Replay and golden scenarios
   - Acceptance:
     - The files `src/sim/__golden__/idle-starve.json`, `forage-route.json` and `hazard-dash.json` (each an `InputLog` plus the expected hash) replay to the stored hash in Node.
     - Changing one input in a log changes the hash.
     - Replaying 9,000 ticks takes under 1 s in Node.
     - `recordInputs` round trip: decoding the runs gives back the original per-tick inputs.
   - Notes: golden files change only with a `RULES_VERSION` bump (`.claude/rules/sim.md`).
+  - Done: `replay.ts` (`replay`, `recordInputs`, `expandRuns`; rejects logs from other rules or with bad runs) and goldens `{ log, hash, events }`, regenerated with `UPDATE_GOLDENS=1 npx vitest run src/sim/replay.test.ts`. 9,000 ticks replay in ~0.1 s.
+  - Gotcha: food is dense, so `idle-starve` uses the first grid spawn where nothing drifts into reach; before the first run a creature idles.
 
 - [ ] T7 Game loop, input mapping and camera
   - Acceptance:
