@@ -1,3 +1,5 @@
+import { indexedDbKeyStore } from '../ledger/idb-keystore';
+import { createIdentity, memoryKeyStore } from '../ledger/identity';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import { Effects } from '../render/effects';
@@ -67,6 +69,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const hud = new Hud();
   const fx = new Effects();
   const vignette = pick('[data-testid="vignette"]');
+
+  // Without IndexedDB (a private window, say) the identity lasts for this visit only.
+  let playerId: string | null = null;
+  createIdentity(indexedDbKeyStore())
+    .catch(() => createIdentity(memoryKeyStore()))
+    .then((identity) => {
+      playerId = identity.playerId;
+    });
 
   let session = newSession(params.seed, true);
   let screen: Screen = 'title';
@@ -357,6 +367,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     state: () => ({
       screen,
       tick: session.world.tick,
+      playerId,
       visibleFood: food.length,
       player: session.demo
         ? null

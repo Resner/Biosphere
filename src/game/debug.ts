@@ -8,6 +8,8 @@ import type { DeathSummary, Screen } from './screens';
 export interface BsState {
   screen: Screen;
   tick: number;
+  /** This browser's identity; null until the key is loaded. */
+  playerId: string | null;
   /** Food items handed to the renderer this tick. */
   visibleFood: number;
   /** The creature being played; null on the title screen. */
