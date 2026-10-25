@@ -24,18 +24,25 @@ export class Hud {
   private readonly healthBar = pick('[data-bar="health"]');
 
   private readonly energyMeter = pick('[data-meter="energy"]');
+  private low = false;
 
   /** Restarts the short brightening of the energy readout after eating. */
   pulseEnergy(): void {
-    this.energyMeter.removeAttribute('data-pulse');
-    // Reading a layout property flushes the style, so re-adding the attribute restarts the animation.
-    void this.energyMeter.offsetWidth;
-    this.energyMeter.setAttribute('data-pulse', '');
+    for (const part of [this.energy, this.energyBar]) {
+      part.animate(
+        [{ filter: 'brightness(2.2) drop-shadow(0 0 6px #8de88a)' }, { filter: 'none' }],
+        { duration: 450, easing: 'ease-out' },
+      );
+    }
   }
 
   update(creature: CreatureState): void {
     const energy = Math.max(0, creature.energy / maxEnergy(creature.biomass));
-    this.energyMeter.toggleAttribute('data-low', energy < LOW_ENERGY);
+    const low = energy < LOW_ENERGY;
+    if (low !== this.low) {
+      this.low = low;
+      this.energyMeter.toggleAttribute('data-low', low);
+    }
     setText(this.biomass, String(Math.round(creature.biomass)));
     setText(this.energy, `${Math.round(energy * 100)}%`);
     setText(this.health, String(Math.round(creature.health)));

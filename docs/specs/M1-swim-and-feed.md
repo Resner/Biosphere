@@ -222,7 +222,7 @@ Other `src/sim` modules:
   - Done: `game/screens.ts` (title and death overlays), `game/hud.ts`, `game/app.ts` (`startApp`: the title is a live demo world; Hatch swaps in a real session), `__bs` with `replay`, `debug.{setEnergy,teleport,nearestFood,steerTo,spawnPlume,timeScale}`; `World.extraPlumes` (hashed when non-empty) makes debug plumes real; `sim/spawn.ts` `findClearSpot` and `sim/vitals.ts`; `tests/e2e/m1-loop.spec.ts`. `render/preview.ts` and `?autohatch` are gone.
   - Gotcha: hatching picks the nearest spot `RULES.spawn.plumeClearance` (120 wu) clear of any plume (`findClearSpot`), so nobody is born poisoned. E2E that idles must park the cursor on the cell, because a pointer elsewhere steers. `steerTo` returns a promise that resolves when the sim eats the target.
 
-- [ ] T10 Feel and feedback (in progress)
+- [x] T10 Feel and feedback
   - Acceptance:
     - Each eat increments `__bs.render.fx().eat`.
     - While damage is being taken, the vignette intensity is > 0.
@@ -231,6 +231,8 @@ Other `src/sim` modules:
     - After `debug` growth from biomass 100 to 400, the view half-height eases to its new value within 1.5 s with no overshoot above 5%.
     - The PR body includes screenshots of the title, play near food, play inside a plume, and the death screen.
   - Notes: tune constants for feel in `rules.ts` (sim) or `src/render` (presentation), and record sim changes in `docs/DESIGN.md`.
+  - Done: `render/effects.ts` (`Effects` and the `FX` constants: eat pop, dash ripple, vignette, dissolve) with `rings.ts`/`rings.frag.glsl`; the cell shader flushes red on a hit and breaks up on death; `game/app.ts` shows the death screen once the 1.2 s dissolve ends; HUD energy pulse on eating and a slow pulse below 20%; `__bs.render.fx()` and `debug.setBiomass`; `tests/e2e/m1-feel.spec.ts`.
+  - Gotcha: cues run on wall-clock time (uncapped frame time), not sim ticks, so `timeScale` and slow software frames don't stretch the dissolve; the death screen therefore appears 1.2 s after `state().death` is set, and E2E waits for starvation or toxin death use a 15 s timeout.
 
 ## End-to-end check
 

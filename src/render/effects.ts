@@ -85,8 +85,6 @@ export class Effects {
           Math.min(1, FX.vignetteFloor + event.amount * FX.vignettePerHp),
         );
         break;
-      default:
-        break;
     }
   }
 
@@ -108,6 +106,8 @@ export class Effects {
     }
     this.rings.length = live;
     this.vignette *= Math.exp(-dt / FX.vignetteFadeSeconds);
+    // Snap to exactly 0 so the shaders can skip the hurt tint.
+    if (this.vignette < 0.002) this.vignette = 0;
     if (this.dissolving) this.dissolve = Math.min(1, this.dissolve + dt / FX.dissolveSeconds);
   }
 

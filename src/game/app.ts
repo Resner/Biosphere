@@ -248,7 +248,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     cell.hurt = fx.vignette;
     cell.dissolve = fx.dissolve;
     view.creature = fx.dissolved ? null : cell;
-    view.rings = fx.rings;
     setVignette(fx.vignette);
     // The death screen waits for the body to dissolve, so the player sees what killed them.
     if (session.death !== null && fx.dissolved && screen === 'playing') {

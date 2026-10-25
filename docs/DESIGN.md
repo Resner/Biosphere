@@ -212,6 +212,8 @@ Death is common and never total: you fall back to your pending offspring or your
 
 Never a silent death: every source of damage and every death cause has a cue.
 
+Presentation timings (v1, `FX` in `src/render/effects.ts`): eat pop 0.55 s, dash ripple 0.85 s, damage vignette at least 40% on any hit and fading with a 0.25 s time constant, death dissolve 1.2 s before the death screen, low-energy pulse below 20%.
+
 ## 11. Supply control and anti-farming
 
 - Survival costs (metabolism, hazards), finite lifespan, and maturity and cooldown gates on the authority clock.

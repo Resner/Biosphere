@@ -24,7 +24,9 @@ export class RingLayer {
       writeInstance(this.mesh.instanceMatrix.array, i, ring.x, ring.y, ring.size, 0, phase);
     }
     this.mesh.count = n;
-    this.mesh.instanceMatrix.needsUpdate = true;
+    // Most frames have no rings: skip the upload and the draw call.
+    this.mesh.visible = n > 0;
+    if (n > 0) this.mesh.instanceMatrix.needsUpdate = true;
   }
 
   dispose(): void {
