@@ -316,7 +316,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: a re-welcome into the same pond disconnects and re-calls every remaining member (peers dropped us on `leave` and wait for our offer); `PeerMesh.setIce` swaps in the newest credentials; the `consumed` `of` cap is `CONSUMED_MAX_PARTS` = 256 (a whole pond), not pruning.
   - Gotcha: pruning old entries would lose their cycle `k` and show eaten slots as cycle 0, so the cap rose instead.
 
-- [ ] T23 Game-loop and sim hygiene from the close review
+- [ ] T23 Game-loop and sim hygiene from the close review (in progress)
   - Acceptance:
     - `loop.setSpeed(1)` runs whenever a life ends, a local or title session starts, or the pond switches, so a slew factor never outlives its pond (unit on the app's session switching).
     - Opening chat then dying: the death screen closes the chat input and clears `controller.typing`, so one Enter hatches again (unit).
