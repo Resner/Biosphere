@@ -71,8 +71,9 @@ Death is common and never total: you fall back to your pending offspring or your
 |----------|-------|
 | Thrust | 140 wu/s² × (throttle/15) × (b/100)^−0.1 |
 | Drag | linear, 2.2/s (top speed for a starter about 64 wu/s) |
-| Turning | 5 rad/s × (b/100)^−0.15 |
-| Dash | +120 wu/s × (b/100)^−0.1 along the heading; costs 0.06·b energy |
+| Turning | 5 rad/s × (b/100)^−0.15, only while the throttle is above 0 |
+| Dash | +120 wu/s × (b/100)^−0.1 along the heading; costs 0.06·b energy (ignored without that much energy) |
+| Soft wall | within 64 wu of an edge, an inward push up to 300 wu/s² at the edge (more than full thrust) |
 
 - **Metabolism**:
 
