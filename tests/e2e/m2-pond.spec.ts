@@ -71,6 +71,8 @@ function stopSeries(page: Page): Promise<Sample[]> {
 }
 
 test('three players see each other move smoothly, share food and chat', async ({ browser }) => {
+  // Three software-GL browsers take 21–29 s; the online and social specs get 60 s too.
+  test.setTimeout(60_000);
   const [a, b, c] = await joinThree(browser);
   try {
     const [sa, sb, sc] = await Promise.all([a, b, c].map(state));
