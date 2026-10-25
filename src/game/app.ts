@@ -43,7 +43,10 @@ import {
   ringSpawn,
   saveName,
   statusText,
+  switchPond,
+  tryOnline,
 } from './online-config';
+import { OnlineKeeper } from './online-keeper';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
 import { type DeathSummary, type Screen, Screens } from './screens';
@@ -208,23 +211,34 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   // The online session (ADRs 0007, 0016): the hub roster, the mesh and the pond they share. Without
   // a hub URL the game runs offline, as in M1.
   const hubUrl = hubSocketUrl(window.location.search, __AUTHORITY_URL__);
-  let online: OnlineSession | null = null;
-  let onlineName = '';
+  const keeper = new OnlineKeeper<OnlineSession>({
+    start: (name) => {
+      social.selfName = name;
+      social.reset();
+      return startOnline(name, identity as Identity);
+    },
+    stop: (link) => {
+      for (const { playerId: id } of link.others()) remotes.removeMember(id);
+      link.dispose();
+    },
+    isFinal: (link) => isFinalStatus(link.status),
+  });
+  const storage = safeStorage();
   const nameField = pick('[data-testid="name-field"]');
   const nameInput = pick<HTMLInputElement>('[data-testid="name-input"]');
   const nameError = pick('[data-testid="name-error"]');
   const netStatus = pick('[data-testid="net-status"]');
   const aloneElement = pick('[data-testid="alone-hint"]');
   const alone = new AloneHint();
-  const sender = new SnapshotSender((bytes) => online?.broadcastState(bytes));
+  const sender = new SnapshotSender((bytes) => keeper.current?.broadcastState(bytes));
 
   // Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`.
   const selfKey = (): string => playerId ?? 'local';
   const social = new Social({
     now: () => performance.now(),
-    nameOf: (id) => online?.nameOf(id),
-    send: (event) => online?.broadcastEvent(event),
-    muted: new MuteList(safeStorage()),
+    nameOf: (id) => keeper.current?.nameOf(id),
+    send: (event) => keeper.current?.broadcastEvent(event),
+    muted: new MuteList(storage),
     selfName: 'You',
   });
   const socialUi = new SocialUi(social, {
@@ -248,7 +262,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     ring: { centre: w.pond.centre, hint: w.you.spawnHint },
     lives: 0,
     time: new PondTime(hubClock, w.pond.epoch),
-    food: new PondFood(playerId ?? 'local', (event) => online?.broadcastEvent(event)),
+    food: new PondFood(playerId ?? 'local', (event) => keeper.current?.broadcastEvent(event)),
     world: createWorld({ seed: w.pond.seed, size: w.pond.size }),
   });
 
@@ -259,9 +273,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       name,
       handlers: {
         welcome(w) {
-          if (pond?.id !== w.pond.id) {
-            pond = makePond(w, link.clock);
+          const life = session.demo ? null : session.pond;
+          const next = switchPond(pond, life, w.pond.id, () => makePond(w, link.clock));
+          if (next.changed) {
+            pond = next.pond;
             social.reset();
+            // A life in the old pond carries on in a local one; the chip says so.
+            if (life && !next.life) {
+              session.pond = null;
+              loop.setSpeed(1);
+            }
           }
           social.worldSize = w.pond.size;
         },
@@ -288,15 +309,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** Connects (or reconnects under a new name) once the identity is loaded. */
   const ensureOnline = (name: string): void => {
     if (!hubUrl || !identity) return;
-    if (online && onlineName === name && !isFinalStatus(online.status)) return;
-    if (online) {
-      for (const { playerId: id } of online.others()) remotes.removeMember(id);
-      online.dispose();
-    }
-    onlineName = name;
-    social.selfName = name;
-    social.reset();
-    online = startOnline(name, identity);
+    keeper.ensure(name);
   };
 
   /** Starts a life, in the joined pond or (`inPond` false) in a local one. */
@@ -322,29 +335,34 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const name = cleanName(nameInput.value);
     nameError.hidden = name !== null;
     if (!name) return;
-    saveName(localStorage, name);
+    saveName(storage, name);
     hatching = true;
     screens.setBusy(true);
-    void identityReady
-      .then(() => {
+    // A hub that cannot be reached (or a failing connector) means a local pond, never a stuck screen.
+    void tryOnline(() =>
+      identityReady.then(() => {
         ensureOnline(name);
-        return online ? online.whenReady(HATCH_WAIT_MS) : null;
-      })
-      .then((welcome) => {
-        hatching = false;
-        screens.setBusy(false);
-        begin(welcome !== null && pond !== null);
-      });
+        return keeper.current ? keeper.current.whenReady(HATCH_WAIT_MS) : null;
+      }),
+    ).then((welcome) => {
+      hatching = false;
+      screens.setBusy(false);
+      begin(welcome !== null && pond !== null);
+    });
   };
   const screens = new Screens({ hatch });
   if (hubUrl) {
     nameField.hidden = false;
-    nameInput.value = loadName(localStorage);
-    void identityReady.then(() =>
-      ensureOnline(cleanName(nameInput.value) ?? loadName(localStorage)),
-    );
-    // Leave the roster promptly instead of waiting for the hub to notice the dead socket.
-    window.addEventListener('pagehide', () => online?.dispose());
+    nameInput.value = loadName(storage);
+    void identityReady
+      .then(() => ensureOnline(cleanName(nameInput.value) ?? loadName(storage)))
+      .catch(() => {});
+    // Leave the roster promptly instead of waiting for the hub to notice the dead socket. A page
+    // restored from the back/forward cache joins again.
+    window.addEventListener('pagehide', () => keeper.suspend());
+    window.addEventListener('pageshow', (e) => {
+      if (e.persisted) keeper.resume();
+    });
   }
   // Enter hatches from the title and death screens (Space stays the dash key).
   // Enter opens the chat input while playing. T then 1-6, G and the middle button are social keys.
@@ -478,15 +496,21 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   let shownStatus = '';
   const updateNetUi = (now: number, joined: Pond | null): void => {
-    const text = hubUrl ? statusText(online?.status ?? 'connecting', online?.count ?? 1) : '';
+    // A life in a local pond is alone, whatever the hub says about its own pond.
+    const apart = !session.demo && session.pond === null;
+    const text = hubUrl
+      ? apart
+        ? statusText('offline', 1)
+        : statusText(keeper.current?.status ?? 'connecting', keeper.current?.count ?? 1)
+      : '';
     if (text !== shownStatus) {
       shownStatus = text;
       netStatus.textContent = text;
     }
     const lonely = alone.update(
       now,
-      joined !== null && online?.status === 'online',
-      (online?.count ?? 1) - 1,
+      joined !== null && keeper.current?.status === 'online',
+      (keeper.current?.count ?? 1) - 1,
     );
     if (aloneElement.hidden === lonely) aloneElement.hidden = !lonely;
   };
@@ -566,11 +590,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     for (const script of scripted) feedScripted(script, now);
     const joined = livePond();
-    if (online && joined && joined === pond && online.openCount() > 0) {
+    if (joined && joined === pond && (keeper.current?.openCount() ?? 0) > 0) {
       sender.update(now, document.hidden, () => snapshotOf(player, session.world.tick));
     }
     // A local pond life does not show the players of the hub's pond.
-    remoteViews = !online || joined ? remotes.sample(now, pondMs()) : NO_REMOTES;
+    remoteViews = !keeper.current || joined ? remotes.sample(now, pondMs()) : NO_REMOTES;
     updateNetUi(now, joined);
     view.remotes = remoteViews;
     const projection = {
@@ -585,7 +609,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       anchors.clear();
       anchors.set(selfKey(), { x: cell.x, y: cell.y, radius: cell.radius });
       for (const r of remoteViews) if (r.alpha >= 0.01) anchors.set(r.id, r);
-      socialUi.update(now, anchors, online?.others() ?? NO_MEMBERS, projection);
+      socialUi.update(now, anchors, keeper.current?.others() ?? NO_MEMBERS, projection);
     }
     field.flush();
     scene.draw(view);
@@ -739,7 +763,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             seed: pond.seed,
             members: [
               playerId ?? 'local',
-              ...(online?.others().map((m) => m.playerId) ?? []),
+              ...(keeper.current?.others().map((m) => m.playerId) ?? []),
             ].sort(),
           }
         : null,
@@ -750,7 +774,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         pings: social.pings().map(({ from, kind, x, y }) => ({ from, kind, x, y })),
         dropped: social.dropped,
       },
-      net: { text: shownStatus, status: online?.status ?? 'none', open: online?.openCount() ?? 0 },
+      net: {
+        text: shownStatus,
+        status: keeper.current?.status ?? 'none',
+        open: keeper.current?.openCount() ?? 0,
+      },
     }),
     events: () => ({ ...session.counts }),
     replay: (log) => {

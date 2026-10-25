@@ -130,3 +130,36 @@ test('a lone player is told so after eight seconds @slow', async ({ browser }) =
     await page.context().close();
   }
 });
+
+test('blocked storage still lets the player hatch, and the name field keeps its editing keys', async ({
+  browser,
+}) => {
+  const context = await browser.newContext();
+  await context.addInitScript(() => {
+    Object.defineProperty(window, 'localStorage', {
+      get() {
+        throw new DOMException('blocked', 'SecurityError');
+      },
+    });
+  });
+  const page = await context.newPage();
+  const errors: string[] = [];
+  page.on('pageerror', (e) => errors.push(e.message));
+  try {
+    await openGame(page, `?debug=1&hub=${HUB}`);
+    const input = page.getByTestId('name-input');
+    await expect(input).toHaveValue(/^Cell\d{4}$/);
+    // Arrows, Space and Backspace edit the text instead of steering or scrolling.
+    await input.fill('Ada');
+    await input.press('ArrowLeft');
+    await input.press('Backspace');
+    await input.pressSequentially(' x');
+    await expect(input).toHaveValue('A xa');
+    await input.fill('Ada_1');
+    await hatch(page);
+    expect((await state(page)).player).not.toBeNull();
+    expect(errors).toEqual([]);
+  } finally {
+    await context.close();
+  }
+});

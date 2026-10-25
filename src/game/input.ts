@@ -74,6 +74,12 @@ export function enterHatches(screen: 'title' | 'playing' | 'dead', shownMs: numb
   return screen === 'dead' && shownMs >= ENTER_DELAY_MS;
 }
 
+/** Whether a key event happened in a text field, which keeps its editing keys. */
+function inTextField(target: EventTarget | null): boolean {
+  const tag = (target as { tagName?: string } | null)?.tagName;
+  return tag === 'INPUT' || tag === 'TEXTAREA';
+}
+
 /** What the page does with keys and buttons beyond steering. */
 export interface InputHooks {
   /** A fresh key press while not typing (never a repeat); the key as the browser names it. */
@@ -151,6 +157,8 @@ export class InputController {
   attach(target: Window, doc?: Document, onEnter?: () => void, hooks: InputHooks = {}): () => void {
     const down = (e: KeyboardEvent) => {
       if (this.typing) return;
+      // The name field on the title screen: the arrows, Space and Backspace edit text there.
+      if (e.key !== 'Enter' && inTextField(e.target)) return;
       if (SCROLL_KEYS.has(e.key) || (e.key === 'Enter' && onEnter)) e.preventDefault();
       if (e.repeat) return;
       if (e.key === 'Enter') onEnter?.();

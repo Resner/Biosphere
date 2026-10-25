@@ -7,6 +7,8 @@ import {
   ringSpawn,
   saveName,
   statusText,
+  switchPond,
+  tryOnline,
 } from './online-config';
 
 describe('hubSocketUrl', () => {
@@ -121,5 +123,51 @@ describe('statusText', () => {
     expect(statusText('none', 1)).toBe('Offline · playing alone');
     expect(statusText('replaced', 1)).toBe('Signed in elsewhere');
     expect(statusText('outdated', 1)).toBe('Update available, reload');
+  });
+});
+
+describe('loadName and saveName without storage', () => {
+  it('give a fresh valid name for this visit when storage is blocked', () => {
+    const name = loadName(null, () => 0.5);
+    expect(cleanName(name)).toBe(name);
+    expect(() => saveName(null, name)).not.toThrow();
+  });
+});
+
+describe('tryOnline', () => {
+  it('passes the welcome through', async () => {
+    await expect(tryOnline(async () => 'welcome')).resolves.toBe('welcome');
+  });
+
+  it('falls back to a local pond (null) when connecting throws or rejects', async () => {
+    await expect(
+      tryOnline(() => {
+        throw new Error('no identity');
+      }),
+    ).resolves.toBeNull();
+    await expect(tryOnline(() => Promise.reject(new Error('hub')))).resolves.toBeNull();
+  });
+});
+
+describe('switchPond', () => {
+  const make = (id: string) => () => ({ id });
+
+  it('keeps the pond and the running life for a welcome of the same pond', () => {
+    const pond = { id: 'a' };
+    const next = switchPond(pond, pond, 'a', make('a'));
+    expect(next).toEqual({ pond, life: pond, changed: false });
+  });
+
+  it('moves a life that was in the old pond to a local pond', () => {
+    const pond = { id: 'a' };
+    const next = switchPond(pond, pond, 'b', make('b'));
+    expect(next.changed).toBe(true);
+    expect(next.pond).toEqual({ id: 'b' });
+    expect(next.life).toBeNull();
+  });
+
+  it('joins the first pond with no life to move', () => {
+    const next = switchPond(null, null, 'a', make('a'));
+    expect(next).toEqual({ pond: { id: 'a' }, life: null, changed: true });
   });
 });
