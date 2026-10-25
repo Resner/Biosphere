@@ -179,7 +179,7 @@ Other `src/sim` modules:
   - Done: `replay.ts` (`replay`, `recordInputs`, `expandRuns`; rejects logs from other rules or with bad runs) and goldens `{ log, hash, events }`, regenerated with `UPDATE_GOLDENS=1 npx vitest run src/sim/replay.test.ts`. 9,000 ticks replay in ~0.1 s.
   - Gotcha: food is dense, so `idle-starve` uses the first grid spawn where nothing drifts into reach; before the first run a creature idles.
 
-- [ ] T7 Game loop, input mapping and camera
+- [ ] T7 Game loop, input mapping and camera (in progress)
   - Acceptance:
     - With a fake clock advancing 1,000 ms in 16.67 ms frames, the loop runs exactly 30 ticks, and `render` receives alpha in [0, 1).
     - One 2,000 ms frame runs 5 ticks, and `stats().skippedMs` reports 1,833 ± 1.
