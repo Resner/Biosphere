@@ -12,6 +12,7 @@ const hubPort = 8787;
 // Files run in parallel and a hub fills the fullest pond first, so each file that uses a hub gets
 // its own (m2-online.spec.ts: 8787, m2-social.spec.ts: 8788).
 const socialHubPort = 8788;
+const SOCIAL = /m2-social\.spec\.ts/;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -30,7 +31,17 @@ export default defineConfig({
       args: ['--disable-features=WebRtcHideLocalIpsWithMdns'],
     },
   },
-  projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
+  projects: [
+    { name: 'chromium', testIgnore: SOCIAL, use: { browserName: 'chromium' } },
+    // Three-browser scenarios are CPU-bound under software GL: running this one after the rest
+    // keeps CI runners from starving the online spec into its timeout.
+    {
+      name: 'social',
+      testMatch: SOCIAL,
+      dependencies: ['chromium'],
+      use: { browserName: 'chromium' },
+    },
+  ],
   webServer: [
     {
       command: `npm run preview -- --port ${port} --strictPort`,
