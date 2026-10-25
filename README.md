@@ -9,7 +9,7 @@ https://resner.github.io/Biosphere/ (live after the first release).
 |------|-----|-------|--------------|
 | Setup | you, once | — | Apply the GitHub settings in [docs/SETUP.md](docs/SETUP.md). |
 | Scaffold | you + Claude, once | Opus 5.5 with `/effort xhigh` (or `max`) | `/scaffold` + your brief (or say "Run the scaffold skill" + your brief): the brief becomes an ordered roadmap to v1.0, architecture ADRs and a toolchain, and v0.1.0 goes live. |
-| Factory | a scheduled task, unattended | Sonnet 5.5; spec and milestone steps switch to Opus 5.5 | Each run does `/next`: one step, one PR, auto-merged once CI is green. When the PR merges, the run starts the next one, so it works back to back until your usage limit; the hourly schedule restarts it. |
+| Factory | a scheduled task, unattended | Sonnet 5.5; spec and milestone steps switch to Opus 5.5 | Each run does `/next`: one step, one PR, auto-merged once CI is green. Its GitHub trigger starts the next run whenever a factory PR merges, so it works back to back until your usage limit; the hourly schedule restarts it. |
 | Release | automatic | — | A merged `VERSION` bump runs the full tests, deploys to Pages, and tags the release with notes. |
 
 `/next` reads `docs/ROADMAP.md` to decide the step: write the next milestone's spec, implement the next task, or close the milestone. Before a task merges, its tests are written first, then it passes `npm run check`, `/simplify`, `/code-review` and CI.
