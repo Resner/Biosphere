@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { createIdentity, type KeyStore, memoryKeyStore, playerIdOf, verify } from './identity';
+import {
+  createIdentity,
+  fromBase64Url,
+  type KeyStore,
+  memoryKeyStore,
+  playerIdOf,
+  toBase64Url,
+  verify,
+} from './identity';
 
 const text = (s: string) => new TextEncoder().encode(s);
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
@@ -77,5 +85,15 @@ describe('sign and verify', () => {
     expect(
       playerIdOf(fromHex('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a')),
     ).toBe(KAT_PLAYER);
+  });
+});
+
+describe('base64url helpers', () => {
+  it('round trips bytes and rejects malformed text', () => {
+    const bytes = Uint8Array.from({ length: 37 }, (_, i) => i * 7);
+    expect(fromBase64Url(toBase64Url(bytes))).toEqual(bytes);
+    expect(fromBase64Url('ab+/')).toBeNull();
+    expect(fromBase64Url('abcde')).toBeNull();
+    expect(fromBase64Url('')).toEqual(new Uint8Array());
   });
 });

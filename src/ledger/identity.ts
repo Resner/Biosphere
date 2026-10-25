@@ -57,13 +57,18 @@ export function playerIdOf(publicKey: Uint8Array): string {
 /** The public key a playerId names, or null when it is not 43 base64url characters. */
 function publicKeyOf(playerId: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]{43}$/.test(playerId)) return null;
-  const bytes = Uint8Array.from(atob(playerId.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
-    c.charCodeAt(0),
-  );
-  return bytes.length === KEY_BYTES ? bytes : null;
+  const bytes = fromBase64Url(playerId);
+  return bytes?.length === KEY_BYTES ? bytes : null;
 }
 
-function toBase64Url(bytes: Uint8Array): string {
+/** Decodes unpadded base64url, or null when the text isn't valid. */
+export function fromBase64Url(text: string): Uint8Array | null {
+  if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) return null;
+  const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
+  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+}
+
+export function toBase64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
