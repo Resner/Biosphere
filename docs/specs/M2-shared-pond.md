@@ -131,7 +131,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
 - [x] T6 Ponds, roster and signal relay
   - Acceptance (workerd tests):
     - The first player creates a pond (one row in `ponds`: id, seed, epoch, centre, created) and gets `members: []`, `spawnHint` at the pond centre, `pond.seed` and `pond.epoch`. The centre is the world centre.
-    - A second player joins the same pond: `welcome.members` lists the first, the first gets `member {op:'join'}`, and `spawnHint` is on the ring: angle `i · 2.399963` for the joiner's index `i` among current members, radius `300 + 40 · members` from the centre.
+    - A second player joins the same pond: `welcome.members` lists the first, the first gets `member {op:'join'}`, and `spawnHint` is on the ring: angle `i · 2.399963` for the joiner's slot `i` (the first slot no current member holds), radius `300 + 40 · i` from the centre.
     - The 25th player gets a new pond. With ponds of 3 and 24 players, a new player joins the pond of 3 (fullest with a free place). After a pond empties, its row stays and it can be reused.
     - A player leaving (close, `leave`, error) sends `member {op:'leave'}` to the others. The DO writes one row per new pond and nothing else.
     - `signal` to a member of the same pond is delivered with `from` set to the sender's verified `playerId` (a forged `from` in the input is ignored). To a player in another pond or unknown: `error {code:'no-peer'}` to the sender, nothing delivered. Oversized `sdp` (> 8 KB) is dropped with `error {code:'too-big'}`.
@@ -278,13 +278,15 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Gotcha: never drive a shader wave with `uTime * rate` when the rate changes; integrate the phase.
   - Routed from the same comment: 4 (growth pace and the 400 cap) → M3 "Game integration" (the cap becomes the max-size gene, and the growth pace is retuned with `RULES_VERSION` 2); 5 (a living, attached body that survives generated designs; crispness) → M3 mesh builder (vertex-shader gait on one merged body) and M6 readability pass.
 
-- [ ] T19 A full pond can be joined (in progress)
+- [x] T19 A full pond can be joined
   - Found by the milestone `/code-review`; they break "friends share a pond (≤ 24)".
   - Acceptance:
     - A client joining a pond of 23 members stays within the hub's message budget: the hello, the opening pings and one signal per member never exceed 20 messages in any 10 s window, or the Worker budget exempts `signal` messages (with their own, larger cap). A simulation joins 24 clients one after another against the real `PondAuthority` (workerd test) and none is closed with 4003 (worker + unit).
     - A welcome for a pond of 23 members with STUN and long TURN credentials parses (`parseHubMsg`), by raising the welcome cap or sending the roster in a separate message; a unit test builds the worst case and asserts it parses.
     - The spawn hint stays unique after members leave: it uses a counter that only grows (or the first free slot), so a new joiner never gets the angle of a member who is still there (workerd test: A, B, C join, B leaves, D joins, D's hint differs from C's).
   - Notes: measure the worst-case welcome before choosing; record the choice in the task note.
+  - Done: `signal` messages count against their own cap (60 per 10 s) beside the 20 for everything else; the welcome has `WELCOME_MAX_BYTES` (8 KB; measured worst case with 23 members and two TURN entries with 512-character credentials is about 4.8 KB, over the 4 KB hub cap); the spawn hint comes from the first free slot, kept in the socket attachment (no SQLite write).
+  - Gotcha: a session hibernated before this change has no `signals` counter or `slot`; the code tolerates both.
 
 - [ ] T20 Online session robustness
   - Acceptance:

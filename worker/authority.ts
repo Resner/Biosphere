@@ -88,6 +88,7 @@ export class Authority extends DurableObject<Env> {
       session.signals = 0;
     }
     const signal = msg?.t === 'signal';
+    // `?? 0`: a hibernated session from before signals were counted has no counter.
     if (signal) session.signals = (session.signals ?? 0) + 1;
     else session.count++;
     if (signal ? session.signals > RATE_MAX_SIGNALS : session.count > RATE_MAX_MESSAGES) {
@@ -225,10 +226,12 @@ export class Authority extends DurableObject<Env> {
         best.created,
       );
     }
-    const members = this.membersOf(best.id);
+    const members: Member[] = [];
     const taken = new Set<number>();
     for (const [, theirs] of this.activeSessions()) {
-      if (theirs.pondId === best.id) taken.add(theirs.slot);
+      if (theirs.pondId !== best.id) continue;
+      members.push({ playerId: theirs.playerId, name: theirs.name });
+      taken.add(theirs.slot);
     }
     let slot = 0;
     while (taken.has(slot)) slot++;
@@ -255,14 +258,6 @@ export class Authority extends DurableObject<Env> {
       const theirs = sessionOf(other);
       if (theirs?.phase === 'active') yield [other, theirs];
     }
-  }
-
-  private membersOf(pondId: string): Member[] {
-    const members: Member[] = [];
-    for (const [, theirs] of this.activeSessions()) {
-      if (theirs.pondId === pondId) members.push({ playerId: theirs.playerId, name: theirs.name });
-    }
-    return members;
   }
 
   private broadcast(pondId: string, except: WebSocket, msg: HubMsg): void {
