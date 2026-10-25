@@ -1,6 +1,6 @@
 # One-time setup
 
-About 15 minutes. Steps 1–6 make the factory safe to run unattended; step 7 starts it once the scaffold has merged.
+About 15 minutes. Steps 1–6 make the factory safe to run unattended; step 7 starts it once the scaffold has merged; step 8 (Cloudflare) is needed before the first playtest.
 
 ## 1. Pull requests: Settings → General
 
@@ -52,6 +52,20 @@ The scheduled task "Factory" runs `/next` in a fresh cloud session: claude.ai/co
 - Notifications: keep push on. Every run ends with `SHIPPED`, `BLOCKED`, `WAITING` or `IDLE`. GitHub won't notify you about the factory's issues, because they're posted as you.
 
 Every run counts against your Claude plan's usage.
+
+## 8. Cloudflare: needed before the first playtest (M2)
+
+The game's minimal authority (signaling, short-lived TURN relay credentials, and later the lineage ledger) runs as a Cloudflare Worker on the free plan (ADR 0008). Do this any time before M2 ships; if the factory reaches the deploy step first, it opens a `Blocked:` issue pointing here.
+
+1. Create a free account at https://dash.cloudflare.com/sign-up. No domain is needed.
+2. Open **Workers & Pages** once, so the account gets a `workers.dev` subdomain. Note the subdomain and your **Account ID** (shown on the account overview).
+3. **My Profile → API Tokens → Create Token** → template **Edit Cloudflare Workers** → Account Resources: your account → Create. Copy the token.
+4. **Realtime** (formerly Calls) **→ TURN Server → Create**, named `biosphere`. Copy the **TURN Key ID** and its **API token**.
+5. GitHub → Settings → Secrets and variables → Actions:
+   - **Secrets**: `CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CF_TURN_KEY_ID`, `CF_TURN_KEY_API_TOKEN`.
+   - **Variables**: `AUTHORITY_URL` = `https://biosphere-authority.<your-subdomain>.workers.dev`.
+
+The free plan stops at its daily limits instead of billing you, and the game queues new players before it gets there. Switching to the $5 Workers Paid plan is optional and only raises capacity (`docs/CAPACITY.md`, from M13).
 
 ## What only you provide
 

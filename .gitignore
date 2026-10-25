@@ -8,3 +8,8 @@ coverage/
 .DS_Store
 CLAUDE.local.md
 .claude/settings.local.json
+test-results/
+playwright-report/
+blob-report/
+.wrangler/
+*.tsbuildinfo
