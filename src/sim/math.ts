@@ -1,10 +1,12 @@
-// Deterministic math (ADR 0005). Only + - * / and Math.sqrt/floor/round/abs/min/max are used, so every
-// engine produces identical bits. Kernels follow the fdlibm reductions and minimax polynomials.
+// Deterministic math (ADR 0005). Only exactly specified operations are used (the list in
+// .claude/rules/sim.md, plus the constants Math.PI/SQRT2/LOG2E, which are fixed doubles), so every engine
+// produces identical bits. Kernels follow the fdlibm reductions and minimax polynomials.
+// Domain: sin and cos are accurate for |x| up to about 1e6; log and pow throw outside x > 0; exp clamps.
 
 export const PI = Math.PI;
 export const TAU = 2 * Math.PI;
 
-const HALF_PI = 1.5707963267948966;
+const HALF_PI = PI / 2;
 const TWO_OVER_PI = 0.6366197723675814;
 // pi/2 split into three 33-bit parts, so k * part is exact for |k| < 2^20 (Cody-Waite reduction).
 const PIO2_1 = 1.5707963267341256;
@@ -36,41 +38,33 @@ function kernelCos(x: number): number {
   return 1 - (0.5 * z - z * r);
 }
 
-/** Reduces x to r in [-pi/4, pi/4] and returns the quadrant in `quadrant` (0..3). */
-let quadrant = 0;
-function reduce(x: number): number {
-  const k = Math.round(x * TWO_OVER_PI);
-  quadrant = (((k % 4) + 4) % 4) as number;
+/** sin of the reduced argument r for quadrant q (cos is the same table shifted by one). */
+function sinQuad(r: number, q: number): number {
+  switch (q & 3) {
+    case 0:
+      return kernelSin(r);
+    case 1:
+      return kernelCos(r);
+    case 2:
+      return -kernelSin(r);
+    default:
+      return -kernelCos(r);
+  }
+}
+
+/** Cody-Waite reduction of x by k * pi/2 into [-pi/4, pi/4]. */
+function reduce(x: number, k: number): number {
   return x - k * PIO2_1 - k * PIO2_2 - k * PIO2_3;
 }
 
-/** Accurate for |x| up to about 1e6; the sim only passes wrapped or bounded angles. */
 export function sin(x: number): number {
-  const r = reduce(x);
-  switch (quadrant) {
-    case 0:
-      return kernelSin(r);
-    case 1:
-      return kernelCos(r);
-    case 2:
-      return -kernelSin(r);
-    default:
-      return -kernelCos(r);
-  }
+  const k = Math.round(x * TWO_OVER_PI);
+  return sinQuad(reduce(x, k), k);
 }
 
 export function cos(x: number): number {
-  const r = reduce(x);
-  switch (quadrant) {
-    case 0:
-      return kernelCos(r);
-    case 1:
-      return -kernelSin(r);
-    case 2:
-      return -kernelCos(r);
-    default:
-      return kernelSin(r);
-  }
+  const k = Math.round(x * TWO_OVER_PI);
+  return sinQuad(reduce(x, k), k + 1);
 }
 
 const ATAN_HI = [
@@ -78,7 +72,7 @@ const ATAN_HI = [
 ] as const;
 const ATAN_LO = [
   2.2698777452961687e-17, 3.061616997868383e-17, 1.3903311031230998e-17, 6.123233995736766e-17,
-];
+] as const;
 const AT = [
   3.3333333333332932e-1, -1.9999999999876483e-1, 1.4285714272503466e-1, -1.111111040546235e-1,
   9.090887133436507e-2, -7.69187620504483e-2, 6.661073137387531e-2, -5.833570133790573e-2,
@@ -157,7 +151,8 @@ export function exp(x: number): number {
   const t = r * r;
   const c = r - t * (P1 + t * (P2 + t * (P3 + t * (P4 + t * P5))));
   const y = 1 + (r + (r * c) / (2 - c));
-  const half = Math.trunc(k / 2);
+  if (k >= -1022) return y * pow2(k);
+  const half = Math.trunc(k / 2); // two steps keep each factor normal near underflow
   return y * pow2(half) * pow2(k - half);
 }
 
@@ -178,12 +173,13 @@ export function log(x: number): number {
   let v = x;
   let e = 0;
   bitsView.setFloat64(0, v);
-  if (((bitsView.getUint32(0) >>> 20) & 0x7ff) === 0) {
+  let hi = bitsView.getUint32(0);
+  if (((hi >>> 20) & 0x7ff) === 0) {
     v *= TWO_54; // subnormal
     e -= 54;
     bitsView.setFloat64(0, v);
+    hi = bitsView.getUint32(0);
   }
-  const hi = bitsView.getUint32(0);
   e += ((hi >>> 20) & 0x7ff) - 1023;
   bitsView.setUint32(0, (hi & 0x000fffff) | 0x3ff00000);
   let m = bitsView.getFloat64(0);

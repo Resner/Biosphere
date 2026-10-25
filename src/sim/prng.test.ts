@@ -89,7 +89,8 @@ describe('hash64 and Hasher', () => {
     expect(() => new Hasher().f64(Number.POSITIVE_INFINITY)).toThrow();
   });
 
-  it('f64 sees 1e-9 differences and distinguishes -0 handling consistently', () => {
+  it('f64 sees 1e-9 differences and hashes -0 like 0', () => {
+    expect(new Hasher().f64(-0).digest()).toBe(new Hasher().f64(0).digest());
     expect(new Hasher().f64(1).digest()).not.toBe(new Hasher().f64(1 + 1e-9).digest());
   });
 });

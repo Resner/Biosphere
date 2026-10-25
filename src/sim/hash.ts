@@ -2,8 +2,10 @@
 // security use SHA-256 elsewhere (ADR 0009).
 
 const view = new DataView(new ArrayBuffer(8));
+const encoder = new TextEncoder();
 
-function fmix(h0: number): number {
+/** Murmur3 finalizer: avalanches a 32-bit word. */
+export function fmix(h0: number): number {
   let h = h0;
   h ^= h >>> 16;
   h = Math.imul(h, 0x85ebca6b);
@@ -24,28 +26,32 @@ export class Hasher {
     this.b = Math.imul(this.b + v + 1, 0x85ebca6b) ^ (this.a >>> 15);
   }
 
-  u32(n: number): this {
-    this.byte(0x01);
+  /** Feeds a 32-bit word, least significant byte first. */
+  private word(n: number): this {
     for (let shift = 0; shift < 32; shift += 8) this.byte((n >>> shift) & 0xff);
     return this;
   }
 
+  u32(n: number): this {
+    this.byte(0x01);
+    return this.word(n);
+  }
+
   i32(n: number): this {
     this.byte(0x02);
-    for (let shift = 0; shift < 32; shift += 8) this.byte((n >> shift) & 0xff);
-    return this;
+    return this.word(n);
   }
 
   f64(n: number): this {
     if (!Number.isFinite(n)) throw new RangeError(`cannot hash a non-finite number: ${n}`);
     view.setFloat64(0, n === 0 ? 0 : n); // -0 hashes like 0
     this.byte(0x03);
-    for (let i = 0; i < 8; i++) this.byte(view.getUint8(i));
-    return this;
+    this.word(view.getUint32(4));
+    return this.word(view.getUint32(0));
   }
 
   str(s: string): this {
-    const bytes = new TextEncoder().encode(s);
+    const bytes = encoder.encode(s);
     this.byte(0x04);
     return this.raw(bytes);
   }
@@ -57,8 +63,8 @@ export class Hasher {
 
   private raw(b: Uint8Array): this {
     const n = b.length;
-    for (let shift = 0; shift < 32; shift += 8) this.byte((n >>> shift) & 0xff);
-    for (const v of b) this.byte(v);
+    this.word(n);
+    for (let i = 0; i < n; i++) this.byte(b[i] as number);
     return this;
   }
 

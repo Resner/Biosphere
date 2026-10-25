@@ -41,13 +41,16 @@ function stripComments(source: string): string {
 function scanSource(source: string): string[] {
   const code = stripComments(source);
   const found: string[] = [];
-  for (const m of code.matchAll(/\bMath\.(\w+)/g)) {
+  for (const m of code.matchAll(/\bMath\s*\??\.\s*(\w+)/g)) {
     const member = m[1] as string;
     if (!ALLOWED_MATH.has(member)) found.push(`Math.${member}`);
   }
   for (const word of BANNED_WORDS) {
     if (new RegExp(`\\b${word}\\b`).test(code)) found.push(word);
   }
+  if (/\*\*/.test(code)) found.push('**'); // same engine-dependent pow as Math.pow
+  if (/\bglobalThis\b|\bimport\s*\(|=\s*Math\s*[;,)]|\bMath\s*\[/.test(code))
+    found.push('indirect');
   for (const re of BANNED_IMPORTS) {
     if (re.test(code)) found.push(String(re));
   }
@@ -69,6 +72,10 @@ describe('sim determinism guard', () => {
     expect(scanSource('const x = Math.random();')).toEqual(['Math.random']);
     expect(scanSource('const t = Date.now();')).toEqual(['Date']);
     expect(scanSource("import * as T from 'three';")).toHaveLength(1);
+    expect(scanSource('const y = 2 ** x;')).toEqual(['**']);
+    expect(scanSource("const M = Math; M.sin(1); Math['cos'](1);")).toEqual(['indirect']);
+    expect(scanSource('const { sin } = Math;')).toEqual(['indirect']);
+    expect(scanSource('Math?.sin(1); Math . exp(1);')).toEqual(['Math.sin', 'Math.exp']);
     expect(scanSource('// Math.random() in a comment\nconst y = Math.sqrt(2);')).toEqual([]);
   });
 

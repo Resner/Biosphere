@@ -1,5 +1,7 @@
 // Seeded randomness (ADR 0005): xoshiro128** streams, one per purpose, plus a stateless integer hash.
 
+import { fmix } from './hash';
+
 export type Seed = readonly [number, number, number, number]; // four u32
 
 export interface Rng {
@@ -12,17 +14,8 @@ export interface Rng {
   int(lo: number, hi: number): number;
 }
 
+const encoder = new TextEncoder();
 const rotl = (x: number, k: number): number => (x << k) | (x >>> (32 - k));
-
-function fmix(h0: number): number {
-  let h = h0;
-  h ^= h >>> 16;
-  h = Math.imul(h, 0x85ebca6b);
-  h ^= h >>> 13;
-  h = Math.imul(h, 0xc2b2ae35);
-  h ^= h >>> 16;
-  return h >>> 0;
-}
 
 /** Stateless murmur3-style hash of any number of integers. */
 export function hashU32(...values: number[]): number {
@@ -54,24 +47,20 @@ export function seedFromBytes(bytes: Uint8Array): Seed {
 }
 
 export function seedFromString(text: string): Seed {
-  return seedFromBytes(new TextEncoder().encode(text));
-}
-
-function splitmix32(state: { s: number }): number {
-  state.s = (state.s + 0x9e3779b9) | 0;
-  let z = state.s;
-  z = Math.imul(z ^ (z >>> 16), 0x85ebca6b);
-  z = Math.imul(z ^ (z >>> 13), 0xc2b2ae35);
-  return (z ^ (z >>> 16)) >>> 0;
+  return seedFromBytes(encoder.encode(text));
 }
 
 export function createRng(seed: Seed, purpose: string): Rng {
   const purposeHash = seedFromString(purpose);
-  const sm = { s: hashU32(seed[0], seed[1], seed[2], seed[3], purposeHash[0], purposeHash[1]) };
-  let s0 = splitmix32(sm);
-  let s1 = splitmix32(sm);
-  let s2 = splitmix32(sm);
-  let s3 = splitmix32(sm);
+  let sm = hashU32(...seed, purposeHash[0], purposeHash[1]);
+  const splitmix32 = (): number => {
+    sm = (sm + 0x9e3779b9) | 0;
+    return fmix(sm);
+  };
+  let s0 = splitmix32();
+  let s1 = splitmix32();
+  let s2 = splitmix32();
+  let s3 = splitmix32();
   if ((s0 | s1 | s2 | s3) === 0) s0 = 1;
 
   const nextU32 = (): number => {

@@ -84,8 +84,8 @@ describe('accuracy against Math.*', () => {
     expect(log(1)).toBe(0);
     expect(pow(7, 0)).toBe(1);
     expect(atan2(0, 1)).toBe(0);
-    expect(atan2(1, 0)).toBeCloseTo(PI / 2, 15);
-    expect(atan2(0, -1)).toBeCloseTo(PI, 15);
+    expect(atan2(1, 0)).toBe(PI / 2);
+    expect(atan2(0, -1)).toBe(PI);
     expect(exp(-800)).toBe(0);
     expect(() => log(0)).toThrow();
     expect(() => log(-1)).toThrow();
