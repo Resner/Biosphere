@@ -150,7 +150,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `worker/turn.ts` (`TurnCredentials`, owned by the Authority as `turn`) keeps the entries with credentials from Cloudflare's answer, dedupes concurrent fetches, and aborts after 2 s. `hello` is now async: the session is placed and announced first, and only the `welcome` waits for ICE.
   - Gotcha: tests set the secrets by mutating `env` on the live object (`runInDurableObject`) and spy on `globalThis.fetch`; call `turn.reset()` when changing them.
 
-- [ ] T8 Hub client and pond clock
+- [ ] T8 Hub client and pond clock (in progress)
   - Acceptance (unit tests with a fake WebSocket and a fake clock; `src/net/hub-client.ts`, `src/net/clock.ts`):
     - Connect sequence: `open` → on `challenge`, `hello` with a signature that `verify` accepts → `welcome` resolves `connect()` with the pond data.
     - Loss of the socket schedules reconnects with backoff 1, 2, 4, 8, 16, 30, 30 s (±20% jitter, seeded), resets after a successful welcome, and a 4001 close does not reconnect (the status becomes `replaced`).
