@@ -52,16 +52,16 @@ describe('foodInCell', () => {
     const w = world('stats');
     const counts: Record<FoodKind, number> = { detritus: 0, globule: 0, crystal: 0 };
     let total = 0;
-    for (let cy = 0; cy < 32; cy++) {
-      for (let cx = 0; cx < 31; cx++) {
+    const side = w.size / RULES.world.cellSize;
+    for (let cy = 0; cy < side; cy++) {
+      for (let cx = 0; cx < side; cx++) {
         for (const item of foodInCell(w, cx, cy)) {
           counts[item.kind]++;
           total++;
         }
       }
     }
-    const cells = 32 * 31;
-    expect(cells).toBeGreaterThanOrEqual(992);
+    const cells = side * side;
     expect(total / cells).toBeGreaterThanOrEqual(6);
     expect(total / cells).toBeLessThanOrEqual(10);
     expect(Math.abs((counts.detritus / total) * 100 - 70)).toBeLessThan(5);

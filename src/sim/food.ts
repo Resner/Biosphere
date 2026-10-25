@@ -45,9 +45,9 @@ function itemFor(
   cx: number,
   cy: number,
   slot: number,
-  k: number,
-  since: number,
+  eaten: { k: number; until: number } | undefined,
 ): FoodItem {
+  const k = eaten?.k ?? 0;
   let roll = slotHash(world, cx, cy, slot, k, SALT.kind) % TOTAL_WEIGHT;
   let kind = KINDS[KINDS.length - 1] as FoodKind;
   for (const candidate of KINDS) {
@@ -66,7 +66,7 @@ function itemFor(
     y: anchor.y + bob(world, cx, cy, slot, k, SALT.bobY),
     value: spec.value,
     radius: spec.radius,
-    respawnTick: since,
+    respawnTick: eaten?.until ?? 0,
   };
 }
 
@@ -81,9 +81,9 @@ export function foodInCell(world: World, cx: number, cy: number): FoodItem[] {
   const items: FoodItem[] = [];
   for (let slot = 0; slot < RULES.food.slotsPerCell; slot++) {
     const eaten = world.consumed[slotKey(cx, cy, slot)];
-    if (eaten === undefined) items.push(itemFor(world, cx, cy, slot, 0, 0));
-    else if (world.tick >= eaten.until)
-      items.push(itemFor(world, cx, cy, slot, eaten.k, eaten.until));
+    if (eaten === undefined || world.tick >= eaten.until) {
+      items.push(itemFor(world, cx, cy, slot, eaten));
+    }
   }
   return items;
 }
@@ -115,9 +115,14 @@ export function consumeFood(world: World, id: string): void {
   const m = ID_PATTERN.exec(id);
   if (!m) throw new Error(`bad food id ${id}`);
   const [cx, cy, slot, k] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])] as const;
-  if (!foodInCell(world, cx, cy).some((item) => item.id === id)) {
-    throw new Error(`food ${id} is not alive`);
-  }
+  const eaten = world.consumed[slotKey(cx, cy, slot)];
+  const inGrid = cx < cellsPerSide(world) && cy < cellsPerSide(world);
+  const alive =
+    inGrid &&
+    slot < RULES.food.slotsPerCell &&
+    k === (eaten?.k ?? 0) &&
+    world.tick >= (eaten?.until ?? 0);
+  if (!alive) throw new Error(`food ${id} is not alive`);
   const f = RULES.food;
   const span = f.respawnMaxTicks - f.respawnMinTicks + 1;
   const delay = f.respawnMinTicks + (slotHash(world, cx, cy, slot, k, SALT.delay) % span);
