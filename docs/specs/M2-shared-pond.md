@@ -161,7 +161,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/clock.ts` (`PondClock`, `ClockSync`) and `src/net/hub-client.ts` (`HubClient`, injectable socket); 8 pings 250 ms apart after each welcome, then one a minute. `onWelcome` fires again after reconnects; 4002/4003 closes reconnect, 4004 (origin) stops like 4001.
   - Gotcha: slewing treats drift under 1 tick as zero, using the fractional pond tick (`pondTickExact`); `ClockSync.correct` only returns a speed or a snap, the loop in T12 applies it.
 
-- [ ] T9 PeerMesh: negotiation and channels
+- [x] T9 PeerMesh: negotiation and channels
   - Acceptance:
     - Unit tests with a fake `RTCPeerConnection` pair wired through an in-memory signal bus: two peers connect with perfect negotiation, both orderings of who calls first; simultaneous offers (glare) resolve to one connection, the polite side yielding by `playerId` order. Each connection opens a `state` channel (unordered, `maxRetransmits: 0`) and an `event` channel (ordered, reliable). Offers and answers are sent once ICE gathering completes or after 2 s (fake timers), exactly two signal messages per connection.
     - A connection that is not `connected` within 12 s is closed and retried once after 3 s, then dropped until the roster changes.
@@ -169,6 +169,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - A malformed inbound message is counted in `stats().dropped` and never reaches the handler; inbound events over 2 KB or snapshots of the wrong length are dropped.
     - Real WebRTC E2E (`tests/e2e/m2-webrtc.spec.ts`): two pages in separate browser contexts, with Chromium started with `--disable-features=WebRtcHideLocalIpsWithMdns`, no ICE servers and an in-test signal relay (`page.exposeFunction`), connect and exchange a snapshot and an event within 5 s. This proves local WebRTC works in the cloud sandbox and CI.
   - Notes: the mesh takes an `RTCPeerConnection` factory so tests inject fakes. Never contacts public STUN in tests. If the sandbox cannot do localhost WebRTC, record the finding in the PR and the task and fall back to fake-transport tests plus a manual check in the playtest.
+  - Done: `src/net/peer-mesh.ts` (`PeerMesh`, fake-able `PeerConnectionLike`); glare is settled by dropping the polite (higher id) side's own connection and answering the other's offer. Real two-context WebRTC passes in the sandbox with host candidates only (`m2-webrtc.spec.ts`, ~4 s).
+  - Gotcha: the E2E bundles `src/net/peer-mesh-entry.ts` with Vite's API (`bundleForBrowser` in helpers) and needs `--disable-features=WebRtcHideLocalIpsWithMdns`, so it launches its own Chromium.
 
 - [ ] T10 Connection policy: cap, priority, eviction
   - Acceptance (unit tests on a `ConnectionPolicy` with fake peers):
