@@ -193,7 +193,7 @@ Other `src/sim` modules:
   - Done: `game/loop.ts` (`createLoop`, `attachVisibilityPause`), `game/input.ts` (`mouseToInput`, `keysToInput`, `InputController`), `render/camera.ts` (`viewHalfHeight`, `FollowCamera`); new `RULES.controls` (dead zone 0.5 r, full throttle at 3 r).
   - Gotcha: a paused loop skips `render` too, and resume does not catch up; the camera's `smoothSeconds` is the time to ~98% of a zoom change.
 
-- [ ] T8 Macro look v1: water, cell, food, particles, plumes
+- [x] T8 Macro look v1: water, cell, food, particles, plumes
   - Acceptance (`tests/e2e/m1-look.spec.ts`, `?debug=1&seed=look`):
     - No console errors and no WebGL warnings during 3 s of play.
     - On a canvas screenshot, the mean luminance of the annulus at 0.9–1.1 of the creature's on-screen radius is more than 2× the mean of the four corner patches (the membrane rim).
@@ -205,6 +205,8 @@ Other `src/sim` modules:
     - Particle layers above and below the plane use soft bokeh sprites (fake depth of field until M6).
     - Food: one `InstancedMesh` per kind with distinct shape and colour (detritus flakes, round globules, faceted crystals).
     - Caustics: an animated procedural pattern on the backdrop.
+  - Done: orthographic top-down `GameScene` (`render/scene.ts`) with water and caustics, membrane cell and flagellum, instanced food, three particle layers and instanced plumes (9 draw calls); `game/app.ts` wires sim, loop, input and camera; `game/debug.ts` is the `window.__bs` hook (`ready`, `state`, `events`, `render.info`, `debug.spawnPlume`); `tests/e2e/m1-look.spec.ts`.
+  - Gotcha: until T9's title screen exists, `?autohatch` starts play directly (the title scene runs otherwise), so the look E2E uses `?debug=1&seed=look&autohatch=1`; T9 replaces it with the Hatch button. `spawnPlume` is render-only (it does no damage) until T9 adds the extra-plume list to `World`. Software GL logs a "GPU stall due to ReadPixels" driver hint on every frame, which the console check ignores. `state().visibleFood` is the food handed to the renderer: items within a circle that covers the view.
 
 - [ ] T9 Screens, HUD, test hook and the full loop
   - Acceptance (`tests/e2e/m1-loop.spec.ts`):

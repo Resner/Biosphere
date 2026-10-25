@@ -1,0 +1,197 @@
+import * as THREE from 'three';
+import type { Plume } from '../sim/hazards';
+import type { FoodItem } from '../sim/types';
+import { Cell, type CellView } from './cell';
+import { FoodLayer } from './food';
+import { PlumeLayer } from './hazards';
+import { ParticleLayer } from './particles';
+import { Water } from './water';
+
+export interface SceneView {
+  /** Seconds, for animation only. */
+  time: number;
+  camX: number;
+  camY: number;
+  /** Visible half-height in world units. */
+  halfHeight: number;
+  creature: CellView | null;
+}
+
+export interface RenderInfo {
+  calls: number;
+  triangles: number;
+  foodInstances: number;
+  /** CSS pixels per world unit. */
+  pxPerWu: number;
+}
+
+const ORDER = { water: 0, far: 1, plumes: 2, food: 3, cell: 4, mid: 5, near: 6 } as const;
+
+/** The whole play-field picture: backdrop, particle layers, plumes, food and the cell. */
+export class GameScene {
+  private readonly renderer: THREE.WebGLRenderer;
+  private readonly scene = new THREE.Scene();
+  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
+  private readonly water: Water;
+  private readonly far: ParticleLayer;
+  private readonly mid: ParticleLayer;
+  private readonly near: ParticleLayer;
+  private readonly plumes = new PlumeLayer();
+  private readonly food = new FoodLayer();
+  private readonly cell = new Cell();
+  private cssWidth = 1;
+  private cssHeight = 1;
+  private half = 1;
+  private readonly onResize = () => this.resize();
+
+  constructor(
+    private readonly canvas: HTMLCanvasElement,
+    worldSize: number,
+  ) {
+    this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+    this.renderer.setClearColor(0x04090b);
+    this.camera.position.z = 5;
+
+    this.water = new Water(worldSize);
+    // Fake depth of field until M6: big soft bokeh far below and near above the plane.
+    this.far = new ParticleLayer(290, 11, {
+      size: 16,
+      period: 640,
+      color: 0x7fb8ad,
+      opacity: 0.1,
+      bokeh: 1,
+      parallax: 0.55,
+    });
+    this.mid = new ParticleLayer(2500, 23, {
+      size: 1.1,
+      period: 640,
+      color: 0xd8efe8,
+      opacity: 0.7,
+      bokeh: 0,
+      parallax: 1,
+    });
+    this.near = new ParticleLayer(60, 37, {
+      size: 42,
+      period: 640,
+      color: 0x9ad7c4,
+      opacity: 0.045,
+      bokeh: 1,
+      parallax: 1.6,
+    });
+
+    const items: [THREE.Object3D, number][] = [
+      [this.water.mesh, ORDER.water],
+      [this.far.points, ORDER.far],
+      [this.plumes.mesh, ORDER.plumes],
+      ...this.food.meshes.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
+      [this.cell.flagellum, ORDER.cell],
+      [this.cell.body, ORDER.cell + 0.5],
+      [this.mid.points, ORDER.mid],
+      [this.near.points, ORDER.near],
+    ];
+    for (const [object, order] of items) {
+      object.renderOrder = order;
+      object.frustumCulled = false;
+      this.scene.add(object);
+    }
+
+    window.addEventListener('resize', this.onResize);
+    this.resize();
+  }
+
+  resize(): void {
+    this.cssWidth = this.canvas.clientWidth || window.innerWidth;
+    this.cssHeight = this.canvas.clientHeight || window.innerHeight;
+    this.renderer.setSize(this.cssWidth, this.cssHeight, false);
+  }
+
+  /** Sets the zoom before the first draw, so input mapping starts right. */
+  setHalfHeight(half: number): void {
+    this.half = half;
+  }
+
+  get aspect(): number {
+    return this.cssWidth / this.cssHeight;
+  }
+
+  /** CSS pixels per world unit at the current zoom. */
+  get pxPerWu(): number {
+    return this.cssHeight / (2 * this.half);
+  }
+
+  get width(): number {
+    return this.cssWidth;
+  }
+
+  get height(): number {
+    return this.cssHeight;
+  }
+
+  /** Replaces the food and plumes to draw; call when the sim ticks, not every frame. */
+  setField(food: readonly FoodItem[], plumes: readonly Plume[]): void {
+    this.food.set(food);
+    this.plumes.set(plumes);
+  }
+
+  draw(view: SceneView): void {
+    this.half = view.halfHeight;
+    const halfWidth = view.halfHeight * this.aspect;
+    const camera = this.camera;
+    camera.left = -halfWidth;
+    camera.right = halfWidth;
+    camera.top = view.halfHeight;
+    camera.bottom = -view.halfHeight;
+    camera.position.x = view.camX;
+    camera.position.y = view.camY;
+    camera.updateProjectionMatrix();
+
+    this.water.update(view, halfWidth);
+    // Point sizes are in device pixels.
+    const pxPerWu = this.pxPerWu * this.renderer.getPixelRatio();
+    this.far.update(view, pxPerWu);
+    this.mid.update(view, pxPerWu);
+    this.near.update(view, pxPerWu);
+    this.plumes.update(view.time);
+    this.food.update(view.time);
+    this.cell.update(view.creature, view.time);
+
+    this.renderer.render(this.scene, camera);
+  }
+
+  info(): RenderInfo {
+    const { render } = this.renderer.info;
+    return {
+      calls: render.calls,
+      triangles: render.triangles,
+      foodInstances: this.food.instances(),
+      pxPerWu: this.pxPerWu,
+    };
+  }
+
+  /** Runs `frame` once per display frame until `stop()`. */
+  start(frame: (ms: number) => void): void {
+    this.renderer.setAnimationLoop(frame);
+  }
+
+  stop(): void {
+    this.renderer.setAnimationLoop(null);
+  }
+
+  dispose(): void {
+    this.stop();
+    window.removeEventListener('resize', this.onResize);
+    for (const part of [
+      this.water,
+      this.far,
+      this.mid,
+      this.near,
+      this.plumes,
+      this.food,
+      this.cell,
+    ]) {
+      part.dispose();
+    }
+    this.renderer.dispose();
+  }
+}
