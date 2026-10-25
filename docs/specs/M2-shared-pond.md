@@ -265,6 +265,9 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - A 24-peer pond runs in a unit-level simulation (24 `PeerMesh` instances over fake transports): everyone connects to 23 others, a snapshot round reaches all, and a leave drops one connection per peer.
   - Notes: tag the longest scenario `@slow`. Chromium needs `--disable-features=WebRtcHideLocalIpsWithMdns` (set in `playwright.config.ts` launch args). This is the milestone's single end-to-end check.
 
+- [ ] T18 Playtest v0.2.0 fixes (#24) (in progress)
+  - Owner points 1–3 of the v0.2.0 playtest comment; points 4 and 5 are routed below.
+
 ## End-to-end check
 
 `tests/e2e/m2-pond.spec.ts` (T17) plus `m2-webrtc.spec.ts` (T9), `m2-identity.spec.ts` (T3) and the chat scenario from T15, all offline against local `wrangler dev`. Exit-criteria map:
