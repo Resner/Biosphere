@@ -1,8 +1,7 @@
 import { PROTOCOL_VERSION } from '../src/net/protocol';
-import { Authority } from './authority';
 import { isAllowedOrigin } from './origin';
 
-export { Authority };
+export { Authority } from './authority';
 
 const CLOSE_ORIGIN_NOT_ALLOWED = 4004;
 
@@ -16,7 +15,7 @@ function json(body: unknown, status: number, headers: Record<string, string> = {
 function health(origin: string | null): Response {
   // A request without Origin (curl, uptime checks) is fine here: the endpoint holds nothing private.
   if (origin !== null && !isAllowedOrigin(origin)) return json({ error: 'origin' }, 403);
-  const cors: Record<string, string> = origin ? { 'Access-Control-Allow-Origin': origin } : {};
+  const cors = origin ? { 'Access-Control-Allow-Origin': origin } : {};
   return json({ ok: true, version: __VERSION__, protocol: PROTOCOL_VERSION }, 200, {
     ...cors,
     Vary: 'Origin',
@@ -28,7 +27,7 @@ function hub(request: Request, env: Env): Response | Promise<Response> {
     return json({ error: 'upgrade-required' }, 426);
   }
   const origin = request.headers.get('Origin');
-  if (origin === null || !isAllowedOrigin(origin)) {
+  if (!isAllowedOrigin(origin)) {
     // A browser can't read a 403 on a WebSocket handshake, so accept and close with a code.
     const pair = new WebSocketPair();
     pair[1].accept();

@@ -12,7 +12,7 @@ function get(path: string, origin?: string, init: RequestInit = {}) {
 async function connect(origin: string | undefined) {
   const res = await get('/v1/hub', origin, { headers: { Upgrade: 'websocket' } });
   const ws = res.webSocket;
-  if (!ws) return { res, ws: null, closed: Promise.resolve(-1) };
+  if (!ws) throw new Error(`no WebSocket (status ${res.status})`);
   const closed = new Promise<number>((resolve) =>
     ws.addEventListener('close', (e) => resolve(e.code)),
   );
@@ -72,8 +72,7 @@ describe('GET /v1/hub', () => {
   it('reaches the Authority for an allowed origin', async () => {
     const { res, ws } = await connect('https://resner.github.io');
     expect(res.status).toBe(101);
-    expect(ws).not.toBeNull();
-    ws?.close(1000, 'bye');
+    ws.close(1000, 'bye');
   });
 
   it('answers a plain GET with 426', async () => {

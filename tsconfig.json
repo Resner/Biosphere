@@ -11,11 +11,10 @@
     "noImplicitOverride": true,
     "noFallthroughCasesInSwitch": true,
     "verbatimModuleSyntax": true,
-    "allowImportingTsExtensions": true,
     "isolatedModules": true,
     "resolveJsonModule": true,
     "skipLibCheck": true,
     "noEmit": true
   },
-  "include": ["src", "tests", "tools", "*.ts", "worker/vitest.config.ts"]
+  "include": ["src", "tests", "tools", "*.ts"]
 }
