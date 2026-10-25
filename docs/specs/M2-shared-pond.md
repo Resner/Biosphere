@@ -307,7 +307,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `PeerMesh` re-calls an open link that dropped (the lower id calls, 3 s doubling to 30 s, `RECOVERY_MAX_ATTEMPTS` = 5, reset by an open link, cancelled by `disconnect`); a first connection that never came up still retries once. `claimPlausible`/`consumedPlausible` (`sim/food.ts`, `RULES.food.claimTickWindow` = 900) gate claims and consumed entries; `ClaimBook`/`ConsumedJoin` count the ignored ones (`__bs.state().net.foodIgnored`).
   - Gotcha: `k` is bounded by the pond clock (a slot needs ≥ 600 ticks per cycle), not by the local `k`, because a late joiner's local `k` is 0 while peers' legitimately run far ahead. Three old fixtures used a local tick of 0 with large `k` and now use a realistic tick.
 
-- [ ] T22 Links and credentials survive a hub reconnect, and late joiners get the whole consumed set
+- [ ] T22 Links and credentials survive a hub reconnect, and late joiners get the whole consumed set (in progress)
   - Found by the milestone `/code-review` of v0.2.0..T21; they break "friends share a pond" over a session of hours.
   - Acceptance:
     - A hub reconnect into the same pond rebuilds the links: peers dropped us on the hub's `leave`, so after a welcome that lists them again the lower id calls and the higher id waits (or both re-enter the roster path of `OnlineSession.welcomed` so that `connect` runs for every member without an open link). The test at `online.test.ts` that asserts "no reconnect" is replaced by one asserting the link returns (unit with fake transports).
