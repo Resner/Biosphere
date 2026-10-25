@@ -179,7 +179,7 @@ Other `src/sim` modules:
   - Done: `replay.ts` (`replay`, `recordInputs`, `expandRuns`; rejects logs from other rules or with bad runs) and goldens `{ log, hash, events }`, regenerated with `UPDATE_GOLDENS=1 npx vitest run src/sim/replay.test.ts`. 9,000 ticks replay in ~0.1 s.
   - Gotcha: food is dense, so `idle-starve` uses the first grid spawn where nothing drifts into reach; before the first run a creature idles.
 
-- [ ] T7 Game loop, input mapping and camera
+- [x] T7 Game loop, input mapping and camera
   - Acceptance:
     - With a fake clock advancing 1,000 ms in 16.67 ms frames, the loop runs exactly 30 ticks, and `render` receives alpha in [0, 1).
     - One 2,000 ms frame runs 5 ticks, and `stats().skippedMs` reports 1,833 ± 1.
@@ -190,6 +190,8 @@ Other `src/sim` modules:
     - `keysToInput`: `{ 'w' }` gives steer 64 and throttle 15; `{ 'w', 'd' }` gives steer 32; no keys gives `null` (the mouse is in control).
     - `viewHalfHeight(10)` = 71.4 ± 0.1. It is monotonic, and r / viewHalfHeight(r) stays in [0.1, 0.3] for r in [5, 4,096].
     - The sim pauses while the tab is hidden (single player only).
+  - Done: `game/loop.ts` (`createLoop`, `attachVisibilityPause`), `game/input.ts` (`mouseToInput`, `keysToInput`, `InputController`), `render/camera.ts` (`viewHalfHeight`, `FollowCamera`); new `RULES.controls` (dead zone 0.5 r, full throttle at 3 r).
+  - Gotcha: a paused loop skips `render` too, and resume does not catch up; the camera's `smoothSeconds` is the time to ~98% of a zoom change.
 
 - [ ] T8 Macro look v1: water, cell, food, particles, plumes
   - Acceptance (`tests/e2e/m1-look.spec.ts`, `?debug=1&seed=look`):

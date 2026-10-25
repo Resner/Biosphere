@@ -48,7 +48,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
 | Action | Mouse | Keyboard |
 |--------|-------|----------|
-| Steer | cursor direction; distance from the creature sets throttle (dead zone within 0.5 r) | WASD (overrides the mouse while held) |
+| Steer | cursor direction; distance from the creature sets throttle (dead zone within 0.5 r, linear ramp to full throttle at 3 r) | WASD (overrides the mouse while held) |
 | Dash | — | Space (cooldown 2.5 s) |
 | Court or accept (M5) | click the creature, then the button | E on the nearest eligible creature |
 | Attack (M7) | click a creature in range | F on the nearest target |
