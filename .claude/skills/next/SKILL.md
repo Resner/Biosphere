@@ -50,7 +50,7 @@ Before any real work, claim the step so that no other run starts it too:
    - a task: append ` (in progress)` to its line in the spec;
    - a spec: create the spec file with just its title;
    - a milestone close: append ` (closing)` to the milestone's status in `docs/ROADMAP.md`.
-3. Push it and open a **draft** PR titled after the step. Drafts don't run CI. This draft is the lock that "Clear the line" checks.
+3. Push it and open a **draft** PR titled after the step. This draft is the lock that "Clear the line" checks.
 4. If another open `claude/` PR claims the same step and was created before yours, close yours and stop with `IDLE: <step> already claimed`.
 
 Clear the marker before you ship.
@@ -67,9 +67,9 @@ Clear the marker before you ship.
 ## 3. Ship
 
 - Use a Conventional Commit title (`feat(scope): …`, `fix: …`, `docs(spec): …`). The PR body names the step and lists the commands you ran with their results.
-- Update the draft PR's title and body, mark it ready for review, and enable auto-merge (squash). If GitHub says it can merge right away, squash-merge it.
+- Push your last commit before you mark the PR ready, update its title and body, mark it ready for review, and enable auto-merge (squash). If GitHub says it can merge right away, squash-merge it. After it merges, push nothing more to its branch: GitHub deletes the branch on merge, and a push would recreate it with no PR.
 - Stay with the PR until it merges. Fix CI failures at the root cause; never skip or disable a test.
-- Wait for CI in the foreground with one command at a time: `gh run list -R Resner/Biosphere -w ci.yml -b <branch> -L 3` for the newest run id that isn't `skipped` (drafts skip CI), then `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (about 2 minutes). Don't arm background jobs, `Monitor`s or scheduled check-ins (`send_later`, `create_trigger`) to wait: they outlive the run and keep waking the finished session. The hourly schedule is the safety net.
+- Wait for CI in the foreground with one command at a time: `gh run list -R Resner/Biosphere -w ci.yml -b <branch> -L 3` for the newest run id, then `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (about 2 minutes). Don't arm background jobs, `Monitor`s or scheduled check-ins (`send_later`, `create_trigger`) to wait: they outlive the run and keep waking the finished session. The hourly schedule is the safety net.
 - Once the PR has merged (or you stop for another reason), unsubscribe from its activity, stop any background job you started and delete any check-in you scheduled, then write the report line.
 
 ## 4. The next run
