@@ -244,7 +244,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `Social` (`src/game/social.ts`: rate limits, filtering, mute list, expiry, `T`+digit and `G`), `SocialUi` (`social-ui.ts`: chat panel and input, roster, bubbles, emotes, pings as DOM), `InputController.typing`/`InputHooks` (keys and middle button), `state().social`. Each `G` or middle click places the current ping kind, then the next kind is used. `m2-social.spec.ts` covers the acceptance E2E on its own hub (port 8788).
   - Gotcha: fixed a T13 bug found here: the hub sent the pond capacity (24) as `pond.size`, so hub players lived in a 24 wu world. `PondInfo.size` is now the world side (`RULES.world.size`). Files run in parallel, so each hub E2E file needs its own `wrangler dev` port.
 
-- [ ] T16 Deploy the Worker with the release
+- [ ] T16 Deploy the Worker with the release (in progress)
   - Acceptance:
     - `release.yml` gains a step after the Pages deploy that runs `npx wrangler deploy` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, sets the `CF_TURN_KEY_ID` and `CF_TURN_KEY_API_TOKEN` Worker secrets with `wrangler secret put`, and then smoke-checks `GET $AUTHORITY_URL/v1/health` for the released version within 60 s. The build step reads the `AUTHORITY_URL` repository variable.
     - If any of the four secrets or `AUTHORITY_URL` is missing, the workflow fails on a plain, early step (before anything is deployed) with a message naming what is missing, and the factory opens a `Blocked:` issue (below).
