@@ -72,7 +72,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
 
 ## Tasks
 
-- [ ] T1 M1 carry-overs
+- [ ] T1 M1 carry-overs (in progress)
   - Acceptance (unit tests unless noted):
     - Feeding: a creature at maximum energy overlapping an item emits no `eat`, and `foodNear` still lists the item. Below maximum it eats as before. If a golden changes because of this, bump `RULES_VERSION` to 2, regenerate the goldens and say so in the PR.
     - `findClearSpot(world, x, y)` returns the clear point nearest to (x, y) (compare with a brute-force scan on a 20-point sample), and the point stays at least `plumeClearance` from every plume for the next 10 s of drift (simulate 300 ticks).
