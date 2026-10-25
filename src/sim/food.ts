@@ -1,4 +1,4 @@
-import { sin, TAU } from './math';
+import { clamp, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { RULES } from './rules';
 import type { CreatureState, FoodItem, FoodKind, StepEvent, Vec2, World } from './types';
@@ -25,7 +25,7 @@ export function slotAnchor(world: World, cx: number, cy: number, slot: number, k
   const margin = RULES.food.driftRadius;
   const place = (cell0: number, salt: number): number => {
     const p = cell0 * cell + unit(slotHash(world, cx, cy, slot, k, salt)) * cell;
-    return Math.min(Math.max(p, margin), world.size - margin);
+    return clamp(p, margin, world.size - margin);
   };
   return { x: place(cx, SALT.x), y: place(cy, SALT.y) };
 }
