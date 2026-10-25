@@ -81,6 +81,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   const enter = (next: Session, nextScreen: Screen): void => {
     session = next;
+    controller.reset();
     steering?.done(false);
     steering = null;
     const { player } = session;
@@ -95,8 +96,19 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     screens.show(nextScreen);
   };
 
-  const screens = new Screens({
-    hatch: () => enter(newSession(params.seed, false), 'playing'),
+  // The first hatch uses the pond seed as given; each later one gets its own pond.
+  let hatches = 0;
+  const hatch = (): void => {
+    const seed = hatches === 0 ? params.seed : `${params.seed}/${hatches}`;
+    hatches++;
+    enter(newSession(seed, false), 'playing');
+  };
+  const screens = new Screens({ hatch });
+  // Enter hatches from the title and death screens (Space stays the dash key).
+  window.addEventListener('keydown', (e) => {
+    if (e.key !== 'Enter' || screen === 'playing') return;
+    e.preventDefault();
+    hatch();
   });
 
   /** The input the tick uses: a script on the title, the debug steering, or the player's own. */
@@ -128,7 +140,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       target.y = item.y;
     }
     const reached =
-      target.id === undefined && Math.hypot(target.x - player.x, target.y - player.y) <= 1;
+      target.id === undefined &&
+      Math.hypot(target.x - player.x, target.y - player.y) <= Math.sqrt(player.biomass);
     const gone = target.id !== undefined && !eaten && !item;
     steering.ticksLeft--;
     if (eaten || reached || gone || steering.ticksLeft <= 0 || !player.alive) {
@@ -149,6 +162,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const events = step(world, { [player.id]: input });
     if (session.demo) {
       // The title cell lives on: keep it fed and healthy without growing.
+      player.biomass = RULES.starter.biomass;
       player.energy = starterEnergy(player.biomass);
       player.health = maxHealth(player.biomass);
     } else {
@@ -246,6 +260,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     steerTo(target) {
       steering?.done(false);
+      steering = null;
+      if (!session.player.alive) return Promise.resolve(false);
       return new Promise<boolean>((resolve) => {
         steering = { target: { ...target }, ticksLeft: STEER_TIMEOUT_TICKS, done: resolve };
       });

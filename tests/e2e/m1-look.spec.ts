@@ -152,7 +152,7 @@ test.describe('macro look', () => {
     const query = { radiusPx: player.radius * pxPerWu, patch };
 
     const before = (await measure(page, query)).patch;
-    await page.evaluate(({ x, y }) => window.__bs?.debug?.spawnPlume(x + 40, y), {
+    await page.evaluate(({ x, y }) => window.__bs?.debug?.spawnPlume(x + 40, y, 20), {
       x: player.x,
       y: player.y,
     });

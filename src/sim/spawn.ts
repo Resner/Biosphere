@@ -16,13 +16,19 @@ export function findClearSpot(world: World, x: number, y: number): Vec2 {
     py <= world.size &&
     plumesNear(world, px, py, plumeClearance).length === 0;
   if (clear(x, y)) return { x, y };
+  // Walk each square ring's perimeter. A pond with no clear spot at all keeps the original point.
   const rings = Math.ceil(world.size / searchStep);
   for (let ring = 1; ring <= rings; ring++) {
-    for (let dy = -ring; dy <= ring; dy++) {
-      for (let dx = -ring; dx <= ring; dx++) {
-        if (Math.max(Math.abs(dx), Math.abs(dy)) !== ring) continue;
-        const px = x + dx * searchStep;
-        const py = y + dy * searchStep;
+    for (let i = -ring; i <= ring; i++) {
+      const edge: [number, number][] = [
+        [i, -ring],
+        [i, ring],
+        [-ring, i],
+        [ring, i],
+      ];
+      for (const [dx, dy] of edge) {
+        const px = x + (dx as number) * searchStep;
+        const py = y + (dy as number) * searchStep;
         if (clear(px, py)) return { x: px, y: py };
       }
     }

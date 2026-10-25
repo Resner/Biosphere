@@ -7,13 +7,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <title>Biosphere</title>
   </head>
-  <body>
+  <body data-screen="title">
     <canvas id="scene" aria-hidden="true"></canvas>
     <main class="screen title" data-for="title">
       <h1>Biosphere</h1>
       <p class="tagline">Life is stirring in the water.</p>
       <button type="button" class="action" data-testid="hatch">Hatch</button>
-      <p class="hint">Mouse or WASD to swim · Space to dash</p>
+      <p class="hint">Enter to hatch · Mouse or WASD to swim · Space to dash</p>
     </main>
     <section class="hud" data-for="playing" aria-label="Status">
       <div class="meter"><span class="meter-name">Biomass</span><span class="meter-value" data-testid="hud-biomass"></span></div>
@@ -29,6 +29,7 @@
         <div><dt>Peak biomass</dt><dd data-testid="death-peak"></dd></div>
       </dl>
       <button type="button" class="action" data-testid="hatch-again">Hatch again</button>
+      <p class="hint">or press Enter</p>
     </main>
     <footer class="build-label" data-testid="build-label"></footer>
     <script type="module" src="/src/main.ts"></script>

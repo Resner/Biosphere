@@ -40,7 +40,7 @@ export function plumesNear(world: World, x: number, y: number, radius: number): 
     const range = radius + plume.radius;
     const dx = plume.x - x;
     const dy = plume.y - y;
-    if (dx * dx + dy * dy <= range * range) found.push(plume);
+    if (dx * dx + dy * dy <= range * range) found.push({ ...plume });
   }
   if (!world.options.hazards) return found;
   const cell = RULES.world.cellSize;

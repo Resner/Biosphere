@@ -28,6 +28,12 @@ test.describe('the M1 loop', () => {
     await page.waitForFunction(() => window.__bs?.state().screen === 'playing');
   });
 
+  test('Enter hatches from the title screen', async ({ page }) => {
+    await openGame(page, '?seed=loop-enter');
+    await page.keyboard.press('Enter');
+    await page.waitForFunction(() => window.__bs?.state().screen === 'playing');
+  });
+
   test('steering to food eats it', async ({ page }) => {
     await openGame(page, '?debug=1&seed=loop-eat');
     await hatch(page);
