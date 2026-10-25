@@ -230,7 +230,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/text.ts` + `text-words.ts` (≥ 80 terms per language, `INNOCENT_WORDS` exempts stem hits like `retardant`); `cleanName` and the hub's hello (closes 4002) use it.
   - Gotcha: digits only count as leetspeak inside a token with a real letter (`455` stays a number); `!` is `i` only inside a word (`sh!t`, not `shit!`); spelled-out words need ≥ 3 single letters. T15 calls `filterText` on send and receive.
 
-- [ ] T15 Chat, emotes, pings, mute
+- [ ] T15 Chat, emotes, pings, mute (in progress)
   - Acceptance:
     - `Enter` opens the chat input, `Enter` again sends (≤ 140 characters, filtered by the sender and again by each receiver), `Esc` cancels. Typing does not steer or dash. The panel keeps the last 50 messages, and a short bubble shows above the sender for 5 s.
     - Rate limit: the sender allows 3 messages per 5 s; receivers drop any sender's 4th message in 5 s (test with a fake clock). Dropped messages are counted, not shown.
