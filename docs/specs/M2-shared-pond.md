@@ -105,7 +105,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Notes: the same module runs in Node and workerd. Signatures are over `domain ‖ 0x0A ‖ message` as in ADR 0009. Recovery codes are M4.
   - Done: `indexedDbKeyStore` lives in `src/ledger/idb-keystore.ts` (browser only) so the Worker types stay DOM-free; `verify` uses strict (non-ZIP215) checks; the worker suite also runs a sign/verify round trip in workerd.
 
-- [ ] T4 Wire protocol and codecs (in progress)
+- [x] T4 Wire protocol and codecs
   - Acceptance:
     - `decodeSnapshot(encodeSnapshot(s))` equals `s` within quantization: positions to 0.125 wu, heading to 2π/256, velocities to 0.25 wu/s, biomass to 0.1, energy and health to 0.5%. `encodeSnapshot` is exactly 24 bytes. `seq` and `tick` wrap modulo 65,536 and 2^32.
     - Fuzz (seeded, 100,000 cases): random byte arrays of lengths 0–64 never throw in `decodeSnapshot`, and only length-24 arrays with a valid flag byte decode. Random strings and random mutations of valid messages never throw in the three parsers; a message over its size cap (hub 4 KB, events 2 KB) returns null.
@@ -113,6 +113,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - `parsePeerEvent` rejects a `consumed` part with more than 40 entries and a `chat` over 140 characters.
     - The module imports nothing from DOM or Node (guard test like the sim's).
   - Notes: JSON messages are parsed with `JSON.parse` in a try block and validated field by field; no schema library.
+  - Done: `src/net/protocol.ts` (24-byte little-endian snapshot, energy and health as 0–1 fractions) with 35 tests, 100k-case fuzz for the snapshot and the parsers. Parsers copy only known fields and reject `__proto__` keys.
+  - Gotcha: a `signal` may be up to 12 KB so T6 can answer `too-big` for an `sdp` over `SDP_MAX_BYTES` (8 KB); every other hub message is capped at 4 KB. Sizes are counted in UTF-8 bytes.
 
 - [ ] T5 Hub sessions: hello, single session, time, rate limit
   - Acceptance (workerd tests with `SELF.fetch` WebSockets):
