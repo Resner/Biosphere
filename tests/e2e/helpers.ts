@@ -23,3 +23,23 @@ export async function playerOf(page: Page): Promise<NonNullable<BsState['player'
   if (!player) throw new Error('the player has not hatched');
   return player;
 }
+
+/** Bundles a source file into one browser script (an IIFE that sets `globalName`). */
+export async function bundleForBrowser(entry: string, globalName: string): Promise<string> {
+  const { build } = await import('vite');
+  const out = await build({
+    configFile: false,
+    logLevel: 'silent',
+    build: {
+      write: false,
+      minify: false,
+      lib: { entry, name: globalName, formats: ['iife'], fileName: 'bundle' },
+    },
+  });
+  const outputs = Array.isArray(out) ? out : [out];
+  const chunk = outputs
+    .flatMap((o) => ('output' in o ? o.output : []))
+    .find((o) => o.type === 'chunk');
+  if (!chunk || chunk.type !== 'chunk') throw new Error(`no bundle for ${entry}`);
+  return chunk.code;
+}
