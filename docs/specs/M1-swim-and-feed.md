@@ -146,7 +146,7 @@ Other `src/sim` modules:
   - Done: `input.ts` (u16 codec: steer bits 0-7, throttle 8-11, dash 12) and `physics.ts` `applyMovement`; new rule `movement.wallPush` (300 wu/s²).
   - Gotcha: turning needs throttle > 0 and a dash needs the energy for it (both unspecified, so decided here and in DESIGN §4); currents join the movement in T5.
 
-- [ ] T4 Food field and feeding
+- [ ] T4 Food field and feeding (in progress)
   - Acceptance:
     - `foodInCell(world, 3, 5)` returns identical arrays (ids, kinds, positions) on repeated calls, and a different world seed gives different items.
     - Ids look like `c3_5_s2_k0`.
