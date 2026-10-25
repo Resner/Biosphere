@@ -1,7 +1,8 @@
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
+import { PondClock } from '../net/clock';
 import { RemoteSet, type RemoteView, SnapshotSender } from '../net/pond-sync';
-import { decodeSnapshot } from '../net/protocol';
+import { decodeSnapshot, type PeerEvent, parsePeerEvent } from '../net/protocol';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import { Effects } from '../render/effects';
@@ -24,6 +25,8 @@ import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
 import { RemoteLabels } from './labels';
 import { attachVisibilityPause, createLoop } from './loop';
+import { PondFood } from './pond-food';
+import { PondTime } from './pond-time';
 import { type DeathSummary, type Screen, Screens } from './screens';
 
 export interface GameParams {
@@ -57,8 +60,21 @@ interface Steering {
   done(reached: boolean): void;
 }
 
-function newSession(seed: string, demo: boolean): Session {
+/** The pond this tab has joined: one seed, one clock and one set of eaten food for every life. */
+interface Pond {
+  seed: string;
+  time: PondTime;
+  food: PondFood;
+  /** Stands in for the world when a food event arrives between lives; never stepped. */
+  world: World;
+}
+
+function newSession(seed: string, demo: boolean, pond: Pond | null = null): Session {
   const world = createWorld({ seed: demo ? `${seed}/title` : seed, hazards: !demo });
+  if (pond) {
+    world.consumed = pond.world.consumed;
+    pond.time.join(world, performance.now());
+  }
   const spot = findClearSpot(world, world.size / 2, world.size / 2);
   const player = spawnCreature(world, { id: 'player', ...spot });
   return { world, player, demo, counts: {}, peakBiomass: player.biomass, death: null };
@@ -94,6 +110,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       playerId = identity.playerId;
     });
 
+  // Set once a pond is joined (T13 wires the hub; until then tests join through `debug.joinPond`).
+  let pond: Pond | null = null;
+  let scale = 1;
   let session = newSession(params.seed, true);
   let screen: Screen = 'title';
   let food: FoodItem[] = [];
@@ -138,7 +157,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const hatch = (): void => {
     const seed = hatches === 0 ? params.seed : `${params.seed}/${hatches}`;
     hatches++;
-    enter(newSession(seed, false), 'playing');
+    enter(newSession(pond ? pond.seed : seed, false, pond), 'playing');
   };
   const screens = new Screens({ hatch });
   // Enter hatches from the title and death screens (Space stays the dash key).
@@ -199,6 +218,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     return { x: player.x, y: player.y, radius };
   };
 
+  /** A peer's claim or consumed set: update the shared food and give back a bite that lost. */
+  const receiveFoodEvent = (from: string, event: PeerEvent): void => {
+    if (!pond) return;
+    const stolen = pond.food.receive(pond.world, from, event);
+    field.now();
+    if (!stolen || session.demo) return;
+    const { player, counts } = session;
+    player.energy = Math.max(0, player.energy - stolen.value);
+    counts.stolen = (counts.stolen ?? 0) + 1;
+    hud.update(player);
+  };
+
   const tick = (): void => {
     const { world, player, counts } = session;
     // The world stops when the player has died: nothing changes behind the death screen.
@@ -207,7 +238,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     prev.y = player.y;
     prev.heading = player.heading;
     input = chooseInput();
+    if (pond && !session.demo && scale === 1) {
+      loop.setSpeed(pond.time.update(world, performance.now()));
+    }
+    const at = world.tick;
     const events = step(world, { [player.id]: input });
+    if (pond && !session.demo) pond.food.onEat(events, at);
     for (const event of events) {
       if (event.creature !== player.id) continue;
       fx.onEvent(event, anchorFor(event));
@@ -323,7 +359,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   // `timeScale` speeds the sim up by scaling the loop's clock.
-  let scale = 1;
   let virtualMs = 0;
   let lastRealMs = performance.now();
   const clock = (): number => {
@@ -341,6 +376,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   attachVisibilityPause(document, loop);
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
+    // The pond moved on while the tab was hidden: skip ahead instead of simulating it.
+    if (pond && !session.demo) pond.time.resnap(session.world, performance.now());
     // Cues run on wall-clock time: hidden time must not skip the death dissolve.
     lastMs = performance.now();
     fx.resume();
@@ -416,6 +453,24 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         return { spec, sender, startedMs: performance.now() };
       });
     },
+    joinPond(spec) {
+      const clock = new PondClock();
+      const now = performance.now();
+      clock.addSample(now, now, spec.hubNow);
+      const world = createWorld({ seed: spec.seed });
+      pond = {
+        seed: spec.seed,
+        time: new PondTime(clock, spec.epoch),
+        food: new PondFood(playerId ?? 'local', spec.send),
+        world,
+      };
+    },
+    deliver(from, raw) {
+      const event = parsePeerEvent(JSON.stringify(raw));
+      if (!pond || !event) return;
+      receiveFoodEvent(from, event);
+    },
+    hasFood: (id) => food.some((f) => f.id === id),
     timeScale(next) {
       clock();
       scale = next;
