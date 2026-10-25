@@ -87,6 +87,8 @@ export class InputController {
   private readonly keys = new Set<string>();
   private readonly pointer: Point = { x: 0, y: 0 };
   private hasPointer = false;
+  /** Whether the pointer moved after the last movement key went down; if not, releasing keys coasts. */
+  private mouseSteers = true;
   private dashQueued = false;
   /** While true (chat is open) keys belong to the text field: they neither steer nor reach hooks. */
   typing = false;
@@ -97,8 +99,14 @@ export class InputController {
   }
 
   keyDown(key: string): void {
-    if (key === DASH_KEY) this.dashQueued = true;
-    else this.keys.add(key.toLowerCase());
+    if (key === DASH_KEY) {
+      this.dashQueued = true;
+      return;
+    }
+    const lower = key.toLowerCase();
+    // The keyboard keeps authority until the pointer moves again.
+    if (KEY_DIRECTIONS[lower]) this.mouseSteers = false;
+    this.keys.add(lower);
   }
 
   keyUp(key: string): void {
@@ -109,6 +117,12 @@ export class InputController {
     this.pointer.x = x;
     this.pointer.y = y;
     this.hasPointer = true;
+    this.mouseSteers = true;
+  }
+
+  /** The pointer left the page: it no longer steers until it moves again. */
+  pointerLeave(): void {
+    this.hasPointer = false;
   }
 
   /** Forgets held keys, e.g. when the window loses focus. */
@@ -121,7 +135,9 @@ export class InputController {
   sample(creatureScreenPos: Point, pxPerWu: number, radius: number): Input {
     const steering =
       keysToInput(this.keys) ??
-      (this.hasPointer ? mouseToInput(this.pointer, creatureScreenPos, pxPerWu, radius) : IDLE);
+      (this.hasPointer && this.mouseSteers
+        ? mouseToInput(this.pointer, creatureScreenPos, pxPerWu, radius)
+        : IDLE);
     const dash = this.dashQueued;
     this.dashQueued = false;
     return { ...steering, dash };
@@ -156,6 +172,9 @@ export class InputController {
       this.pointerMove(e.clientX, e.clientY);
       hooks.middle?.(e.clientX, e.clientY);
     };
+    const leave = (e: MouseEvent) => {
+      if (!e.relatedTarget) this.pointerLeave();
+    };
     const blur = () => this.reset();
     const visibility = () => {
       if (doc?.hidden) this.reset();
@@ -168,6 +187,8 @@ export class InputController {
     target.addEventListener('mousedown', noMiddle);
     target.addEventListener('blur', blur);
     doc?.addEventListener('visibilitychange', visibility);
+    // `mouseout` with no related target is the pointer leaving the page.
+    doc?.addEventListener('mouseout', leave);
     return () => {
       target.removeEventListener('keydown', down);
       target.removeEventListener('keyup', up);
@@ -176,6 +197,7 @@ export class InputController {
       target.removeEventListener('mousedown', noMiddle);
       target.removeEventListener('blur', blur);
       doc?.removeEventListener('visibilitychange', visibility);
+      doc?.removeEventListener('mouseout', leave);
     };
   }
 }

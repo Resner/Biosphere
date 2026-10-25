@@ -66,7 +66,8 @@ Genuinely different, always-viable bodies from DNA (ADR 0006). It proves the mor
 - Mutation, meiosis and inheritance as pure functions: Mendelian ratio tests (1:2:1, 3:1, 9:3:3:1), linkage, distinct slots, goldens.
 - Creature mesh builder (merged geometry, LODs, vertex-shader gait) and materials from genes.
 - Creature Lab (`lab.html`): a grid, an inspect panel in plain words, mutate, breed two → 8 offspring.
-- Game integration: physics, collision circles and mouth-arc or filter feeding from stats; genome shared with peers so remotes render the same body.
+- Game integration: physics, collision circles and mouth-arc or filter feeding from stats; genome shared with peers so remotes render the same body. Growth stops at the max-size gene (not the M1 placeholder 400), and the growth pace is retuned: players found 0.005·b/s too slow (owner, Playtest v0.2.0).
+- The body reads as alive: tail and body are one attached mesh with a vertex-shader gait that works for any generated design, not a separate sprite (owner, Playtest v0.2.0).
 - Rarity score and tiers, deterministic species names, and a diversity report tool.
 
 ### M4 Authority and lineage core
@@ -110,7 +111,7 @@ Beautiful and smooth within browser budgets (ADR 0004).
 - Depth zones from deterministic bathymetry: light, fog and food by zone; UV and pressure hazards tied to tolerance genes.
 - Caustics, god rays, marine snow v2. Membrane, chitin and iridescence materials. Bioluminescence and dark-zone vision.
 - Procedural Web Audio: depth ambience and effects for every event; volume, mute and reduced-motion settings.
-- Readability pass (rim and contrast, threat outline by tier).
+- Readability pass (rim and contrast, threat outline by tier), including crispness: the cell and UI looked blurry in browsers (owner, Playtest v0.2.0).
 - No per-frame allocations, budget report, per-preset screenshots.
 
 ### M7 Encounters (gate 3: combat feel)
