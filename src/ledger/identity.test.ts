@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { createIdentity, type KeyStore, memoryKeyStore, playerIdOf, verify } from './identity';
+import {
+  createIdentity,
+  fromBase64Url,
+  type KeyStore,
+  memoryKeyStore,
+  playerIdOf,
+  toBase64Url,
+  verify,
+} from './identity';
 
 const text = (s: string) => new TextEncoder().encode(s);
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
@@ -77,5 +85,29 @@ describe('sign and verify', () => {
     expect(
       playerIdOf(fromHex('d75a980182b10ab7d54bfed3c964073a0ee172f3daa62325af021a68f707511a')),
     ).toBe(KAT_PLAYER);
+  });
+});
+
+describe('base64url helpers', () => {
+  it('round trips bytes and rejects malformed text', () => {
+    const bytes = Uint8Array.from({ length: 37 }, (_, i) => i * 7);
+    expect(fromBase64Url(toBase64Url(bytes))).toEqual(bytes);
+    expect(fromBase64Url('ab+/')).toBeNull();
+    expect(fromBase64Url('abcde')).toBeNull();
+    expect(fromBase64Url('')).toEqual(new Uint8Array());
+    // 'AB' has non-zero spare bits: the canonical form of the same byte is 'AA'.
+    expect(fromBase64Url('AA')).toEqual(new Uint8Array([0]));
+    expect(fromBase64Url('AB')).toBeNull();
+  });
+});
+
+describe('playerId canonical form', () => {
+  it('rejects a playerId whose last character has non-zero spare bits', async () => {
+    const id = await createIdentity(memoryKeyStore(fromHex(KAT_SEED)));
+    expect(id.playerId).toBe(KAT_PLAYER);
+    const variant = `${KAT_PLAYER.slice(0, -1)}${KAT_PLAYER.endsWith('o') ? 'p' : 'o'}`;
+    const sig = id.sign('bs/hello/v1', text('x'));
+    expect(verify(KAT_PLAYER, 'bs/hello/v1', text('x'), sig)).toBe(true);
+    expect(verify(variant, 'bs/hello/v1', text('x'), sig)).toBe(false);
   });
 });

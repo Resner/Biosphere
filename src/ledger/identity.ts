@@ -10,6 +10,9 @@ const KEY_BYTES = 32;
 const SIG_BYTES = 64;
 const SEPARATOR = 0x0a;
 
+/** Domain tag of the signed hello (ADR 0009). */
+export const HELLO_DOMAIN = 'bs/hello/v1';
+
 export interface KeyStore {
   load(): Promise<Uint8Array | null>;
   save(seed: Uint8Array): Promise<void>;
@@ -57,13 +60,31 @@ export function playerIdOf(publicKey: Uint8Array): string {
 /** The public key a playerId names, or null when it is not 43 base64url characters. */
 function publicKeyOf(playerId: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]{43}$/.test(playerId)) return null;
-  const bytes = Uint8Array.from(atob(playerId.replace(/-/g, '+').replace(/_/g, '/')), (c) =>
-    c.charCodeAt(0),
-  );
-  return bytes.length === KEY_BYTES ? bytes : null;
+  const bytes = fromBase64Url(playerId);
+  return bytes?.length === KEY_BYTES ? bytes : null;
 }
 
-function toBase64Url(bytes: Uint8Array): string {
+/** What a hello signs: the hub's challenge nonce bytes followed by the UTF-8 name. */
+export function helloMessage(nonce: string, name: string): Uint8Array | null {
+  const nonceBytes = fromBase64Url(nonce);
+  if (!nonceBytes) return null;
+  const nameBytes = new TextEncoder().encode(name);
+  const out = new Uint8Array(nonceBytes.length + nameBytes.length);
+  out.set(nonceBytes);
+  out.set(nameBytes, nonceBytes.length);
+  return out;
+}
+
+/** Decodes unpadded base64url, or null when the text isn't the canonical encoding of some bytes. */
+export function fromBase64Url(text: string): Uint8Array | null {
+  if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) return null;
+  const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  // Spare bits in the last character must be zero, or one key would have several playerIds.
+  return toBase64Url(bytes) === text ? bytes : null;
+}
+
+export function toBase64Url(bytes: Uint8Array): string {
   return btoa(String.fromCharCode(...bytes))
     .replace(/\+/g, '-')
     .replace(/\//g, '_')
