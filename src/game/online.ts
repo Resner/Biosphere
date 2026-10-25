@@ -31,6 +31,7 @@ export type OnlineMesh = Pick<
   PeerMesh,
   | 'connect'
   | 'disconnect'
+  | 'setIce'
   | 'close'
   | 'peers'
   | 'isOpen'
@@ -172,11 +173,17 @@ export class OnlineSession {
       if (samePond && now.has(id)) continue;
       this.drop(id, member);
     }
-    this.mesh ??= this.makeMesh(w.ice);
+    if (this.mesh) this.mesh.setIce(w.ice);
+    else this.mesh = this.makeMesh(w.ice);
     for (const [id, member] of now) {
-      if (this.roster.has(id)) continue;
-      this.roster.set(id, member);
-      handlers.member('join', member);
+      if (this.roster.has(id)) {
+        // A reconnect: the peers dropped this client on the hub's `leave` and now wait for its
+        // offer, so start every link again from the caller.
+        this.mesh.disconnect(id);
+      } else {
+        this.roster.set(id, member);
+        handlers.member('join', member);
+      }
       this.mesh.connect(id);
     }
     handlers.welcome(w);

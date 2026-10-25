@@ -95,8 +95,10 @@ export class PeerMesh {
   private stateListeners: ((id: string, s: Snapshot) => void)[] = [];
   private eventListeners: ((id: string, e: PeerEvent) => void)[] = [];
   private readonly factory: PeerConnectionFactory;
+  private iceServers: RTCIceServer[];
 
   constructor(private readonly opts: PeerMeshOptions) {
+    this.iceServers = opts.iceServers ?? [];
     this.factory = opts.createPeerConnection ?? browserPeerConnection;
   }
 
@@ -126,6 +128,11 @@ export class PeerMesh {
 
   isOpen(id: string): boolean {
     return this.links.get(id)?.opened === true;
+  }
+
+  /** Replaces the ICE servers (fresh TURN credentials) for connections and recoveries from now on. */
+  setIce(iceServers: RTCIceServer[]): void {
+    this.iceServers = iceServers;
   }
 
   /** Starts a connection as the caller. Does nothing when one is already under way. */
@@ -204,7 +211,7 @@ export class PeerMesh {
   }
 
   private createLink(peerId: string, caller: boolean): Link {
-    const pc = this.factory({ iceServers: this.opts.iceServers ?? [] });
+    const pc = this.factory({ iceServers: this.iceServers });
     const link: Link = {
       peerId,
       pc,
