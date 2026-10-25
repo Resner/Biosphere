@@ -23,6 +23,8 @@ export interface Loop {
   pause(): void;
   /** Continues from the next frame, without catching up on the time spent paused. */
   resume(): void;
+  /** Runs ticks at this multiple of real time (1 by default); the pond clock slews with it. */
+  setSpeed(speed: number): void;
   stats(): { ticks: number; skippedMs: number };
 }
 
@@ -30,6 +32,7 @@ export function createLoop({ now, tick, render, maxTicksPerFrame = 5 }: LoopOpti
   let last: number | null = null;
   let accumulator = 0;
   let paused = false;
+  let speed = 1;
   let ticks = 0;
   let skippedMs = 0;
 
@@ -39,7 +42,7 @@ export function createLoop({ now, tick, render, maxTicksPerFrame = 5 }: LoopOpti
       const t = now();
       const delta = last === null ? 0 : Math.max(0, t - last);
       last = t;
-      accumulator += delta;
+      accumulator += delta * speed;
 
       let run = 0;
       while (accumulator + EPSILON_MS >= STEP_MS && run < maxTicksPerFrame) {
@@ -62,6 +65,9 @@ export function createLoop({ now, tick, render, maxTicksPerFrame = 5 }: LoopOpti
     resume() {
       paused = false;
       last = null;
+    },
+    setSpeed(next) {
+      speed = next;
     },
     stats: () => ({ ticks, skippedMs }),
   };

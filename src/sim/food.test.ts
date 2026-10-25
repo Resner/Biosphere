@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { applyFeeding, consumeFood, foodInCell, foodNear, slotAnchor } from './food';
+import {
+  applyFeeding,
+  applyRemoteClaim,
+  consumeFood,
+  foodInCell,
+  foodNear,
+  slotAnchor,
+} from './food';
 import { RULES } from './rules';
 import { step } from './step';
 import type { FoodKind } from './types';
@@ -189,5 +196,37 @@ describe('feeding', () => {
     expect(() => consumeFood(w, item.id)).toThrow();
     expect(() => consumeFood(w, 'nonsense')).toThrow();
     expect(() => consumeFood(w, 'c08_8_s0_k1')).toThrow();
+  });
+});
+
+describe('applyRemoteClaim', () => {
+  it('gives the slot the respawn tick the eater would have computed', () => {
+    const local = world('claims');
+    const remote = world('claims');
+    local.tick = 100;
+    consumeFood(local, 'c3_5_s2_k0');
+    remote.tick = 5000; // a different local clock changes nothing
+    expect(applyRemoteClaim(remote, { slot: 'c3_5_s2', k: 0, tick: 100 })).toBe(true);
+    expect(remote.consumed.c3_5_s2).toEqual(local.consumed.c3_5_s2);
+  });
+
+  it('lets an earlier claim for the same cycle replace a later one, and ignores older cycles', () => {
+    const w = world('claims');
+    applyRemoteClaim(w, { slot: 'c3_5_s2', k: 0, tick: 103 });
+    const late = w.consumed.c3_5_s2?.until ?? 0;
+    expect(applyRemoteClaim(w, { slot: 'c3_5_s2', k: 0, tick: 100 })).toBe(true);
+    expect(w.consumed.c3_5_s2?.until).toBe(late - 3);
+    applyRemoteClaim(w, { slot: 'c3_5_s2', k: 1, tick: 5000 });
+    const after = structuredClone(w.consumed);
+    expect(applyRemoteClaim(w, { slot: 'c3_5_s2', k: 0, tick: 100 })).toBe(false);
+    expect(w.consumed).toEqual(after);
+  });
+
+  it('rejects slots outside the grid', () => {
+    const w = world('claims');
+    for (const slot of ['c99_0_s0', 'c0_0_s10', 'x1_1_s1', 'c01_0_s0', 'c1_1']) {
+      expect(applyRemoteClaim(w, { slot, k: 0, tick: 1 })).toBe(false);
+    }
+    expect(w.consumed).toEqual({});
   });
 });

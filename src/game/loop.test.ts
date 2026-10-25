@@ -37,6 +37,17 @@ describe('createLoop', () => {
     }
   });
 
+  it('runs ticks faster or slower when the speed changes', () => {
+    const h = harness();
+    h.advance(0);
+    h.loop.setSpeed(1.02);
+    for (let i = 0; i < 600; i++) h.advance(1000 / 60);
+    expect(h.ticks()).toBe(306);
+    h.loop.setSpeed(0.98);
+    for (let i = 0; i < 600; i++) h.advance(1000 / 60);
+    expect(h.ticks()).toBe(306 + 294);
+  });
+
   it('caps a long frame at 5 ticks and reports the dropped time', () => {
     const h = harness();
     h.advance(0);

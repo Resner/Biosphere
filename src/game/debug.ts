@@ -1,3 +1,4 @@
+import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { RenderInfo } from '../render/scene';
 import type { InputLog } from '../sim/replay';
@@ -78,6 +79,20 @@ export interface BsDebug {
   spawnPlume(x: number, y: number, radius?: number): void;
   /** Replaces the scripted remotes (an empty list removes them); they send snapshots at 10 Hz. */
   setRemotes(remotes: readonly ScriptedRemote[]): void;
+  /**
+   * Joins a pond for the next hatch without a hub: its seed, epoch and the hub clock's reading now
+   * (hub ms), and where this tab's food claims go. Tests relay them to other tabs.
+   */
+  joinPond(spec: {
+    seed: string;
+    epoch: number;
+    hubNow: number;
+    send(event: PeerEvent): void;
+  }): void;
+  /** Delivers a peer's `event` message as if its data channel had; invalid ones are dropped. */
+  deliver(from: string, event: unknown): void;
+  /** Whether the food item (`c3_5_s2_k0`) is in the field now. */
+  hasFood(id: string): boolean;
   /** Runs the sim this many times faster than real time. */
   timeScale(scale: number): void;
 }

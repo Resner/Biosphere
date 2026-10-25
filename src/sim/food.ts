@@ -111,6 +111,35 @@ export function foodNear(world: World, x: number, y: number, radius: number): Fo
   return found;
 }
 
+/** Splits an item id (`c3_5_s2_k0`) into its slot and cycle, or null if it is not one. */
+export function parseFoodId(id: string): { slot: string; k: number } | null {
+  const m = ID_PATTERN.exec(id);
+  return m ? { slot: slotKey(Number(m[1]), Number(m[2]), Number(m[3])), k: Number(m[4]) } : null;
+}
+
+const SLOT_PATTERN = /^c(\d+)_(\d+)_s(\d+)$/;
+
+/** Whether `slot` (`c3_5_s2`) names a food slot of this world. */
+export function isFoodSlot(world: World, slot: string): boolean {
+  return parseSlot(world, slot) !== null;
+}
+
+function parseSlot(world: World, slot: string): [number, number, number] | null {
+  const m = SLOT_PATTERN.exec(slot);
+  if (!m) return null;
+  const [cx, cy, s] = [Number(m[1]), Number(m[2]), Number(m[3])] as const;
+  const n = cellsPerSide(world);
+  const valid = slotKey(cx, cy, s) === slot && cx < n && cy < n && s < RULES.food.slotsPerCell;
+  return valid ? [cx, cy, s] : null;
+}
+
+/** Ticks a slot stays empty after cycle `k` is eaten (20-60 s, chosen by hash). */
+function respawnDelay(world: World, cx: number, cy: number, slot: number, k: number): number {
+  const f = RULES.food;
+  const span = f.respawnMaxTicks - f.respawnMinTicks + 1;
+  return f.respawnMinTicks + (slotHash(world, cx, cy, slot, k, SALT.delay) % span);
+}
+
 /** Marks a live item as eaten; its slot is empty until a hash-chosen 20-60 s have passed. */
 export function consumeFood(world: World, id: string): void {
   const m = ID_PATTERN.exec(id);
@@ -125,10 +154,28 @@ export function consumeFood(world: World, id: string): void {
     k === (eaten?.k ?? 0) &&
     world.tick >= (eaten?.until ?? 0);
   if (!alive) throw new Error(`food ${id} is not alive`);
-  const f = RULES.food;
-  const span = f.respawnMaxTicks - f.respawnMinTicks + 1;
-  const delay = f.respawnMinTicks + (slotHash(world, cx, cy, slot, k, SALT.delay) % span);
+  const delay = respawnDelay(world, cx, cy, slot, k);
   world.consumed[slotKey(cx, cy, slot)] = { k: k + 1, until: world.tick + delay };
+}
+
+/**
+ * Applies another player's claim: cycle `k` of `slot` was eaten at `tick`. The slot moves to
+ * cycle `k + 1` and respawns exactly when it would have for that eater (ADR 0016), whatever this
+ * world's own tick is. Returns false, changing nothing, for a slot outside the grid or a cycle the
+ * slot is already past.
+ */
+export function applyRemoteClaim(
+  world: World,
+  claim: { slot: string; k: number; tick: number },
+): boolean {
+  const parsed = parseSlot(world, claim.slot);
+  if (!parsed || !Number.isInteger(claim.k) || !Number.isInteger(claim.tick)) return false;
+  const [cx, cy, slot] = parsed;
+  // Cycle k - 1 of the slot is the one eaten now; a re-claim of it replaces who ate it.
+  if (claim.k + 1 < (world.consumed[claim.slot]?.k ?? 0)) return false;
+  const delay = respawnDelay(world, cx, cy, slot, claim.k);
+  world.consumed[claim.slot] = { k: claim.k + 1, until: claim.tick + delay };
+  return true;
 }
 
 /**

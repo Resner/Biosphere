@@ -194,7 +194,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/pond-sync.ts` (`SnapshotSender`, `RemoteBuffer`, `RemoteSet`, `snapshotOf`), `src/render/remotes.ts` (a pooled `Cell` per remote, tinted by hue, with an alpha uniform) and `src/game/labels.ts` (DOM names). `__bs.state().remotes`, `render.info().remoteCells`, `render.fx().camX/camY` and the debug helper `setRemotes` (scripted remotes through the real sender, codec and buffer) back the E2E in `m2-remotes.spec.ts`.
   - Gotcha: buffers run on the sender's tick (pond time), not arrival time, so T12/T13 must pass the hub-synced pond time to `RemoteSet.sample` (the app uses `performance.now()` until then) and call `receive`, `setMember` and `removeMember` from the mesh and roster. A newer tick beats an old `seq`, so a reloaded peer shows up again. The app does not send yet: T13 wires `SnapshotSender.update(loopMs, document.hidden, () => snapshotOf(player, tick))` to every open `state` channel.
 
-- [ ] T12 Shared food and the pond clock in play
+- [x] T12 Shared food and the pond clock in play
   - Acceptance:
     - `ClaimBook` (pure, unit tests): two clients that each eat `c3_5_s2` cycle 0 at ticks 100 and 103 converge so that the tick-100 eater keeps it and the other receives a reversal (`stolen`); equal ticks resolve by lower `playerId`. Delivery order does not change the result (test all orderings of 3 claims). A claim for an older cycle is ignored. The respawn tick equals the one `consumeFood` computes locally for the winning tick.
     - Reversal: the loser's energy drops by the item's value, never below 0, and a `stolen` event is counted in `__bs.events()`.
@@ -203,6 +203,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - Hidden tab in a pond: on return, `world.tick` resnaps to the pond clock; the creature does not die of starvation for the hidden time.
     - E2E (two contexts, in-test signaling and a fake clock offset): both hatch into the same seed, one eats an item, and within 2 s the other no longer sees it in `state().visibleFood`; after the respawn tick it is back for both.
   - Notes: the claim is sent right after the local `eat`. Claims travel on the reliable `event` channel. Use the real `consumeFood` for the local half; add `applyRemoteClaim(world, claim)` in `src/sim/food.ts` (pure) for the other.
+  - Done: `applyRemoteClaim`/`isFoodSlot` (`src/sim/food.ts`), `ClaimBook`, `consumedParts` and `ConsumedJoin` (`src/net/claims.ts`), `PondTime` (`src/game/pond-time.ts`: join, 1 s slew checks, snap, resnap), `Loop.setSpeed`, and `PondFood` glue (`src/game/pond-food.ts`) wired into `app.ts`. Debug-only `joinPond`, `deliver` and `hasFood` (a per-item check, sturdier than the `visibleFood` count) let `m2-food.spec.ts` relay claims between two tabs.
+  - Gotcha: a lost `consumed` part is covered by merging every peer's set (`ConsumedJoin.complete` turns true when one peer delivered all parts), so T13 sends the set to each new connection and need not request it. `PondFood.receive` must get a pond-level `World` that shares `consumed` with the player's world. The E2E relays by test code, not WebRTC; T13/T17 cover the real mesh.
 
 - [ ] T13 Online session in the game
   - Acceptance:
