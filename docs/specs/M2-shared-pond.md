@@ -307,6 +307,22 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `PeerMesh` re-calls an open link that dropped (the lower id calls, 3 s doubling to 30 s, `RECOVERY_MAX_ATTEMPTS` = 5, reset by an open link, cancelled by `disconnect`); a first connection that never came up still retries once. `claimPlausible`/`consumedPlausible` (`sim/food.ts`, `RULES.food.claimTickWindow` = 900) gate claims and consumed entries; `ClaimBook`/`ConsumedJoin` count the ignored ones (`__bs.state().net.foodIgnored`).
   - Gotcha: `k` is bounded by the pond clock (a slot needs ≥ 600 ticks per cycle), not by the local `k`, because a late joiner's local `k` is 0 while peers' legitimately run far ahead. Three old fixtures used a local tick of 0 with large `k` and now use a realistic tick.
 
+- [ ] T22 Links and credentials survive a hub reconnect, and late joiners get the whole consumed set
+  - Found by the milestone `/code-review` of v0.2.0..T21; they break "friends share a pond" over a session of hours.
+  - Acceptance:
+    - A hub reconnect into the same pond rebuilds the links: peers dropped us on the hub's `leave`, so after a welcome that lists them again the lower id calls and the higher id waits (or both re-enter the roster path of `OnlineSession.welcomed` so that `connect` runs for every member without an open link). The test at `online.test.ts` that asserts "no reconnect" is replaced by one asserting the link returns (unit with fake transports).
+    - A later welcome's fresh `ice` list reaches the mesh: new connections and link recovery use the newest TURN credentials (unit: `PeerMesh` gets `setIce`, the second welcome calls it).
+    - `consumedParts` never emits `of` above the protocol cap: either the cap in `parsePeerEvent` rises to cover the whole pond (32 × 32 × 10 slots at 40 per part) or the sender prunes entries whose `until` is far in the past; a unit test with every slot eaten asserts that all parts parse.
+
+- [ ] T23 Game-loop and sim hygiene from the close review
+  - Acceptance:
+    - `loop.setSpeed(1)` runs whenever a life ends, a local or title session starts, or the pond switches, so a slew factor never outlives its pond (unit on the app's session switching).
+    - Opening chat then dying: the death screen closes the chat input and clears `controller.typing`, so one Enter hatches again (unit).
+    - `applyFeeding` leaving food to a full creature and `findClearSpot` change outcomes: `RULES_VERSION` becomes 2 and the goldens are regenerated in the same PR; the M3 growth retune named in T18's routing note becomes `RULES_VERSION` 3, and DESIGN.md says "rules version 2".
+    - `LOOKAHEAD_TICKS` and `LOOKAHEAD_STRIDE` move into `RULES.spawn` and `docs/DESIGN.md`.
+
+  - Seen and left alone (record, no task): `ConnectionPolicy` is only used by tests until M7/M11 need its eviction (kept, noted in `net.md`); `render()` allocates a few small objects per frame (revisit in the M6 performance pass); `PondAuthority` never deletes pond rows and reuses the oldest epoch (u32 ticks last about 4.5 years, so M13 owns it).
+
 ## End-to-end check
 
 `tests/e2e/m2-pond.spec.ts` (T17) plus `m2-webrtc.spec.ts` (T9), `m2-identity.spec.ts` (T3) and the chat scenario from T15, all offline against local `wrangler dev`. Exit-criteria map:
