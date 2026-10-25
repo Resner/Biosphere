@@ -92,6 +92,12 @@ export const RULES = deepFreeze({
       crystal: { value: 60, radius: 2.5, weight: 5 },
     },
   },
+  spawn: {
+    /** Hatching looks for a plume-free spot on rings this far apart (wu). */
+    searchStep: 50,
+    /** A hatching cell keeps at least this far from any plume (wu). */
+    plumeClearance: 120,
+  },
   hazards: {
     plumeMinRadius: 60,
     plumeMaxRadius: 160,

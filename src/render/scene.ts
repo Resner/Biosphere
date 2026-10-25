@@ -1,6 +1,5 @@
 import * as THREE from 'three';
-import type { Plume } from '../sim/hazards';
-import type { FoodItem } from '../sim/types';
+import type { FoodItem, Plume } from '../sim/types';
 import { Cell, type CellView } from './cell';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';

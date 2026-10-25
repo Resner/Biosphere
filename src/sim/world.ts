@@ -1,6 +1,7 @@
 import { seedFromString } from './prng';
 import { RULES, RULES_VERSION } from './rules';
 import type { CreatureState, World } from './types';
+import { maxHealth, starterEnergy } from './vitals';
 
 export interface WorldOptions {
   seed: string;
@@ -19,6 +20,7 @@ export function createWorld(opts: WorldOptions): World {
     creatures: [],
     consumed: {},
     options: { currents: opts.currents ?? true, hazards: opts.hazards ?? true },
+    extraPlumes: [],
   };
 }
 
@@ -35,8 +37,8 @@ export function spawnCreature(
     vy: 0,
     heading: 0,
     biomass,
-    energy: RULES.starter.energyFraction * RULES.creature.energyPerBiomass * biomass,
-    health: RULES.creature.healthPerRadius * Math.sqrt(biomass),
+    energy: starterEnergy(biomass),
+    health: maxHealth(biomass),
     dashReadyTick: 0,
     alive: true,
     cause: null,

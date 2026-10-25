@@ -1,7 +1,6 @@
 import './style.css';
-import { startGame } from './game/app';
+import { startApp } from './game/app';
 import { formatBuildLabel } from './game/build-label';
-import { startPreview } from './render/preview';
 
 const label = document.querySelector<HTMLElement>('[data-testid="build-label"]');
 if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
@@ -9,10 +8,14 @@ if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
 const canvas = document.querySelector<HTMLCanvasElement>('#scene');
 if (canvas) {
   const params = new URLSearchParams(window.location.search);
-  // Until the title screen lands (M1 T9), `autohatch` starts play directly; otherwise the title scene runs.
-  if (params.has('autohatch')) {
-    startGame(canvas, { seed: params.get('seed') ?? 'biosphere', debug: params.has('debug') });
-  } else {
-    startPreview(canvas);
-  }
+  startApp(canvas, {
+    seed: params.get('seed') ?? randomSeed(),
+    debug: params.has('debug'),
+  });
+}
+
+/** A fresh pond for every visit; tests pass `?seed=` to pin it. */
+function randomSeed(): string {
+  const bytes = crypto.getRandomValues(new Uint32Array(2));
+  return `pond-${bytes[0]?.toString(36)}${bytes[1]?.toString(36)}`;
 }

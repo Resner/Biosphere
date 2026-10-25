@@ -39,6 +39,14 @@ export interface FoodItem {
   respawnTick: number;
 }
 
+/** A toxic cloud: a disc of poisoned water. */
+export interface Plume {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+}
+
 export interface World {
   rules: number;
   seed: string;
@@ -53,6 +61,8 @@ export interface World {
    */
   consumed: Record<string, { k: number; until: number }>;
   options: { currents: boolean; hazards: boolean };
+  /** Fixed plumes added by tests and debug tools; they sit on top of the seeded ones. */
+  extraPlumes: Plume[];
 }
 
 export type StepEvent =

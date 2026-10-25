@@ -23,5 +23,10 @@ export function hashWorld(world: World): string {
   const eaten = Object.entries(world.consumed).sort(([a], [b]) => (a < b ? -1 : 1));
   h.u32(eaten.length);
   for (const [id, slot] of eaten) h.str(id).u32(slot.k).u32(slot.until);
+  // Only present when something added plumes, so ordinary worlds hash as before.
+  if (world.extraPlumes.length > 0) {
+    h.u32(world.extraPlumes.length);
+    for (const p of world.extraPlumes) h.str(p.id).f64(p.x).f64(p.y).f64(p.radius);
+  }
   return h.digest();
 }
