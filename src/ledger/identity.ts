@@ -10,6 +10,9 @@ const KEY_BYTES = 32;
 const SIG_BYTES = 64;
 const SEPARATOR = 0x0a;
 
+/** Domain tag of the signed hello (ADR 0009). */
+export const HELLO_DOMAIN = 'bs/hello/v1';
+
 export interface KeyStore {
   load(): Promise<Uint8Array | null>;
   save(seed: Uint8Array): Promise<void>;
@@ -59,6 +62,16 @@ function publicKeyOf(playerId: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]{43}$/.test(playerId)) return null;
   const bytes = fromBase64Url(playerId);
   return bytes?.length === KEY_BYTES ? bytes : null;
+}
+
+/** What a hello signs: the hub's challenge nonce bytes followed by the UTF-8 name. */
+export function helloMessage(nonce: string, name: string): Uint8Array {
+  const nonceBytes = fromBase64Url(nonce) ?? new Uint8Array();
+  const nameBytes = new TextEncoder().encode(name);
+  const out = new Uint8Array(nonceBytes.length + nameBytes.length);
+  out.set(nonceBytes);
+  out.set(nameBytes, nonceBytes.length);
+  return out;
 }
 
 /** Decodes unpadded base64url, or null when the text isn't valid. */

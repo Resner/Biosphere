@@ -1,17 +1,28 @@
-import { evictDurableObject, runDurableObjectAlarm } from 'cloudflare:test';
+import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
 import { afterEach, describe, expect, it, vi } from 'vitest';
-import { createIdentity, fromBase64Url, memoryKeyStore, toBase64Url } from '../src/ledger/identity';
+import {
+  createIdentity,
+  fromBase64Url,
+  HELLO_DOMAIN,
+  helloMessage,
+  memoryKeyStore,
+  toBase64Url,
+} from '../src/ledger/identity';
 import {
   CLOSE_BAD_HELLO,
   CLOSE_RATE_LIMITED,
   CLOSE_REPLACED,
   type HubMsg,
+  NONCE_BYTES,
   parseHubMsg,
 } from '../src/net/protocol';
 
 const ORIGIN = 'https://resner.github.io';
-const encoder = new TextEncoder();
+
+const stub = () => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
+/** Moves the clock the Authority sees forward, as if `ms` had passed. */
+const skip = (ms: number) => vi.spyOn(Date, 'now').mockReturnValue(Date.now() + ms);
 
 interface Client {
   ws: WebSocket;
@@ -68,9 +79,7 @@ async function challenge(c: Client): Promise<string> {
 
 async function makeHello(nonce: string, name = 'Alice', store = memoryKeyStore()) {
   const id = await createIdentity(store);
-  const nonceBytes = fromBase64Url(nonce) ?? new Uint8Array();
-  const message = new Uint8Array([...nonceBytes, ...encoder.encode(name)]);
-  const sig = toBase64Url(id.sign('bs/hello/v1', message));
+  const sig = toBase64Url(id.sign(HELLO_DOMAIN, helloMessage(nonce, name)));
   return { id, hello: { t: 'hello', v: 1, playerId: id.playerId, name, sig } };
 }
 
@@ -98,7 +107,7 @@ describe('hub hello', () => {
     const a = await open();
     const b = await open();
     const [na, nb] = [await challenge(a), await challenge(b)];
-    expect(fromBase64Url(na)?.length).toBe(16);
+    expect(fromBase64Url(na)?.length).toBe(NONCE_BYTES);
     expect(na).not.toBe(nb);
   });
 
@@ -121,7 +130,7 @@ describe('hub hello', () => {
   it('closes 4002 when the signature covers another nonce', async () => {
     const c = await open();
     await challenge(c);
-    const { hello } = await makeHello(toBase64Url(new Uint8Array(16)));
+    const { hello } = await makeHello(toBase64Url(new Uint8Array(NONCE_BYTES)));
     c.send(hello);
     expect(await c.closed).toBe(CLOSE_BAD_HELLO);
   });
@@ -163,7 +172,7 @@ describe('hub hello', () => {
 
   it('closes 4002 for a second hello', async () => {
     const { c, id } = await login();
-    const nonce = toBase64Url(new Uint8Array(16));
+    const nonce = toBase64Url(new Uint8Array(NONCE_BYTES));
     const again = await makeHello(nonce, 'Alice', memoryKeyStore());
     expect(id.playerId).not.toBe(again.id.playerId);
     c.send(again.hello);
@@ -173,18 +182,15 @@ describe('hub hello', () => {
   it('closes 4002 after 10 s without a hello', async () => {
     const c = await open();
     await challenge(c);
-    const real = Date.now();
-    vi.spyOn(Date, 'now').mockReturnValue(real + 11_000);
-    const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
-    expect(await runDurableObjectAlarm(stub)).toBe(true);
+    skip(11_000);
+    expect(await runDurableObjectAlarm(stub())).toBe(true);
     expect(await c.closed).toBe(CLOSE_BAD_HELLO);
   });
 
   it('keeps a logged-in socket when the hello timer fires', async () => {
     const { c } = await login();
-    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 11_000);
-    const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
-    await runDurableObjectAlarm(stub);
+    skip(11_000);
+    await runDurableObjectAlarm(stub());
     c.send({ t: 'ping', id: 1 });
     expect((await c.next()).t).toBe('pong');
   });
@@ -249,7 +255,7 @@ describe('rate limit', () => {
     const { c } = await login();
     for (let i = 0; i < 15; i++) c.send({ t: 'ping', id: i });
     for (let i = 0; i < 15; i++) await c.next();
-    vi.spyOn(Date, 'now').mockReturnValue(Date.now() + 11_000);
+    skip(11_000);
     for (let i = 0; i < 15; i++) c.send({ t: 'ping', id: i });
     for (let i = 0; i < 15; i++) expect((await c.next()).t).toBe('pong');
   });
@@ -258,8 +264,7 @@ describe('rate limit', () => {
 describe('hibernation and storage', () => {
   it('keeps the session after the object is evicted', async () => {
     const { c } = await login();
-    const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
-    await evictDurableObject(stub);
+    await evictDurableObject(stub());
     c.send({ t: 'ping', id: 9 });
     const pong = await c.next();
     expect(pong).toMatchObject({ t: 'pong', id: 9 });
@@ -268,35 +273,19 @@ describe('hibernation and storage', () => {
   it('replaces a hibernated session too', async () => {
     const store = memoryKeyStore();
     const first = await login('Alice', store);
-    const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
-    await evictDurableObject(stub);
+    await evictDurableObject(stub());
     await login('Alice', store);
     expect(await first.c.closed).toBe(CLOSE_REPLACED);
   });
 
   it('writes no SQLite rows for hello, ping or leave', async () => {
-    const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
-    const { runInDurableObject } = await import('cloudflare:test');
-    const rowsWritten = () =>
-      runInDurableObject(stub, (_o, state) => {
-        const tables = state.storage.sql
-          .exec<{ name: string }>(
-            "SELECT name FROM sqlite_master WHERE type='table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\'",
-          )
-          .toArray();
-        return tables.reduce(
-          (n, t) =>
-            n +
-            state.storage.sql.exec<{ c: number }>(`SELECT count(*) AS c FROM "${t.name}"`).one().c,
-          0,
-        );
-      });
-    const before = await rowsWritten();
+    const size = () => runInDurableObject(stub(), (_o, state) => state.storage.sql.databaseSize);
+    const before = await size();
     const { c } = await login();
     c.send({ t: 'ping', id: 1 });
     await c.next();
     c.send({ t: 'leave' });
     await c.closed;
-    expect(await rowsWritten()).toBe(before);
+    expect(await size()).toBe(before);
   });
 });

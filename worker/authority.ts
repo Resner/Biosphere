@@ -1,21 +1,25 @@
 import { DurableObject } from 'cloudflare:workers';
-import { fromBase64Url, toBase64Url, verify } from '../src/ledger/identity';
+import {
+  fromBase64Url,
+  HELLO_DOMAIN,
+  helloMessage,
+  toBase64Url,
+  verify,
+} from '../src/ledger/identity';
 import {
   CLOSE_BAD_HELLO,
   CLOSE_RATE_LIMITED,
   CLOSE_REPLACED,
   type ClientMsg,
   type HubMsg,
+  NONCE_BYTES,
   parseClientMsg,
 } from '../src/net/protocol';
 import { RULES } from '../src/sim/rules';
 
-const HELLO_DOMAIN = 'bs/hello/v1';
-const NONCE_BYTES = 16;
 const HELLO_TIMEOUT_MS = 10_000;
 const RATE_WINDOW_MS = 10_000;
 const RATE_MAX_MESSAGES = 20;
-const encoder = new TextEncoder();
 
 /** Per-socket state, kept in the hibernation attachment (survives eviction, never touches SQLite). */
 type Session = (
@@ -45,7 +49,7 @@ export class Authority extends DurableObject<Env> {
   }
 
   override webSocketMessage(ws: WebSocket, data: string | ArrayBuffer): void {
-    const session = ws.deserializeAttachment() as Session | null;
+    const session = sessionOf(ws);
     if (!session) {
       ws.close(CLOSE_BAD_HELLO, 'no session');
       return;
@@ -101,7 +105,7 @@ export class Authority extends DurableObject<Env> {
     const now = Date.now();
     let next: number | null = null;
     for (const ws of this.ctx.getWebSockets()) {
-      const session = ws.deserializeAttachment() as Session | null;
+      const session = sessionOf(ws);
       if (session?.phase !== 'challenged') continue;
       const due = session.openedAt + HELLO_TIMEOUT_MS;
       if (due <= now) ws.close(CLOSE_BAD_HELLO, 'hello timeout');
@@ -115,8 +119,7 @@ export class Authority extends DurableObject<Env> {
     session: Session & { phase: 'challenged' },
     msg: ClientMsg & { t: 'hello' },
   ): void {
-    const nonce = fromBase64Url(session.nonce) ?? new Uint8Array();
-    const message = new Uint8Array([...nonce, ...encoder.encode(msg.name)]);
+    const message = helloMessage(session.nonce, msg.name);
     const sig = fromBase64Url(msg.sig);
     if (!sig || !verify(msg.playerId, HELLO_DOMAIN, message, sig)) {
       ws.close(CLOSE_BAD_HELLO, 'bad hello');
@@ -124,18 +127,16 @@ export class Authority extends DurableObject<Env> {
     }
     for (const other of this.ctx.getWebSockets()) {
       if (other === ws) continue;
-      const theirs = other.deserializeAttachment() as Session | null;
+      const theirs = sessionOf(other);
       if (theirs?.phase === 'active' && theirs.playerId === msg.playerId) {
         other.close(CLOSE_REPLACED, 'replaced by a newer session');
       }
     }
     ws.serializeAttachment({
+      ...session,
       phase: 'active',
       playerId: msg.playerId,
       name: msg.name,
-      openedAt: session.openedAt,
-      windowStart: session.windowStart,
-      count: session.count,
     } satisfies Session);
     // A single stub pond until the roster arrives (M2 T6).
     const centre = RULES.world.size / 2;
@@ -149,6 +150,10 @@ export class Authority extends DurableObject<Env> {
       now: Date.now(),
     });
   }
+}
+
+function sessionOf(ws: WebSocket): Session | null {
+  return ws.deserializeAttachment() as Session | null;
 }
 
 function send(ws: WebSocket, msg: HubMsg): void {
