@@ -20,3 +20,6 @@ updates:
       # @cloudflare/vitest-pool-workers supports Vitest 4 only (ADR 0003).
       - dependency-name: vitest
         update-types: ["version-update:semver-major"]
+      # @types/node follows the lowest Node major in engines.node (22), not the newest Node.
+      - dependency-name: "@types/node"
+        update-types: ["version-update:semver-major"]
