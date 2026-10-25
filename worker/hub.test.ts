@@ -16,6 +16,7 @@ import {
   type HubMsg,
   NONCE_BYTES,
   parseHubMsg,
+  SDP_MAX_BYTES,
 } from '../src/net/protocol';
 
 const ORIGIN = 'https://resner.github.io';
@@ -91,15 +92,21 @@ async function login(name = 'Alice', store = memoryKeyStore()) {
   return { c, id, welcome };
 }
 
-afterEach(() => {
+afterEach(async () => {
   vi.restoreAllMocks();
-  for (const c of sockets.splice(0)) {
+  const open = sockets.splice(0);
+  for (const c of open) {
     try {
       c.ws.close(1000, 'done');
     } catch {
       // already closed
     }
   }
+  await Promise.all(open.map((c) => c.closed));
+  // The Authority and its storage outlive a test, so leave no ponds behind.
+  await runInDurableObject(stub(), (_o, state) => {
+    state.storage.sql.exec('DELETE FROM ponds');
+  });
 });
 
 describe('hub hello', () => {
@@ -211,6 +218,7 @@ describe('single session', () => {
     const a = await login('Alice');
     const b = await login('Bob');
     expect(b.welcome.t).toBe('welcome');
+    await a.c.next(); // Bob joined Alice's pond
     a.c.send({ t: 'ping', id: 1 });
     expect((await a.c.next()).t).toBe('pong');
   });
@@ -287,5 +295,211 @@ describe('hibernation and storage', () => {
     c.send({ t: 'leave' });
     await c.closed;
     expect(await size()).toBe(before);
+  });
+});
+
+type Welcome = Extract<HubMsg, { t: 'welcome' }>;
+const welcomeOf = (msg: HubMsg): Welcome => {
+  if (msg.t !== 'welcome') throw new Error(`expected welcome, got ${msg.t}`);
+  return msg;
+};
+/** The next message that is not a roster change. */
+async function nextNonMember(c: Client): Promise<HubMsg> {
+  for (;;) {
+    const msg = await c.next();
+    if (msg.t !== 'member') return msg;
+  }
+}
+const GOLDEN_ANGLE = 2.399963;
+const CENTRE = 4096;
+
+/** Logs in `n` players, in order, and returns them with their welcomes. */
+async function fill(n: number) {
+  const players = [];
+  for (let i = 0; i < n; i++) {
+    const p = await login(`Pl${i}`);
+    players.push({ ...p, welcome: welcomeOf(p.welcome) });
+  }
+  return players;
+}
+
+const pondRows = () =>
+  runInDurableObject(stub(), (_o, state) =>
+    state.storage.sql.exec('SELECT id, seed, epoch, cx, cy, created FROM ponds').toArray(),
+  );
+
+describe('ponds', () => {
+  it('creates a pond for the first player, with the spawn hint at the centre', async () => {
+    const { welcome } = (await fill(1))[0] ?? {};
+    expect(welcome?.members).toEqual([]);
+    expect(welcome?.you.spawnHint).toEqual({ x: CENTRE, y: CENTRE });
+    expect(welcome?.pond.centre).toEqual({ x: CENTRE, y: CENTRE });
+    expect(welcome?.pond.size).toBe(24);
+    const rows = await pondRows();
+    expect(rows).toHaveLength(1);
+    expect(rows[0]).toMatchObject({
+      id: welcome?.pond.id,
+      seed: welcome?.pond.seed,
+      epoch: welcome?.pond.epoch,
+      cx: CENTRE,
+      cy: CENTRE,
+    });
+  });
+
+  it('puts the second player in the same pond, on the ring, and tells the first', async () => {
+    const [a, b] = await fill(2);
+    if (!a || !b) throw new Error('fill');
+    expect(b.welcome.pond).toEqual(a.welcome.pond);
+    expect(b.welcome.members).toEqual([{ playerId: a.id.playerId, name: 'Pl0' }]);
+    const angle = GOLDEN_ANGLE;
+    const radius = 340;
+    expect(b.welcome.you.spawnHint.x).toBeCloseTo(CENTRE + radius * Math.cos(angle), 6);
+    expect(b.welcome.you.spawnHint.y).toBeCloseTo(CENTRE + radius * Math.sin(angle), 6);
+    expect(await a.c.next()).toEqual({
+      t: 'member',
+      op: 'join',
+      member: { playerId: b.id.playerId, name: 'Pl1' },
+    });
+  });
+
+  it('spaces the ring by the number of current members', async () => {
+    const players = await fill(4);
+    const hint = players[3]?.welcome.you.spawnHint;
+    expect(hint?.x).toBeCloseTo(CENTRE + (300 + 40 * 3) * Math.cos(3 * GOLDEN_ANGLE), 6);
+    expect(hint?.y).toBeCloseTo(CENTRE + (300 + 40 * 3) * Math.sin(3 * GOLDEN_ANGLE), 6);
+  });
+
+  it('sends the 25th player to a new pond', async () => {
+    const players = await fill(25);
+    const last = players[24]?.welcome;
+    expect(last?.pond.id).not.toBe(players[0]?.welcome.pond.id);
+    expect(last?.members).toEqual([]);
+    expect(await pondRows()).toHaveLength(2);
+  }, 20_000);
+
+  it('joins the fullest pond that has a free place', async () => {
+    const players = await fill(25); // pond A: 24, pond B: 1
+    const b2 = await login('Bee2'); // joins B (A is full)
+    const bId = players[24]?.welcome.pond.id;
+    expect(welcomeOf(b2.welcome).pond.id).toBe(bId);
+    // A loses a player: A has 23 and is now the fullest with a place.
+    players[0]?.c.send({ t: 'leave' });
+    await players[0]?.c.closed;
+    const next = welcomeOf((await login('Next')).welcome);
+    expect(next.pond.id).toBe(players[1]?.welcome.pond.id);
+    expect(next.members).toHaveLength(23);
+  }, 20_000);
+
+  it('reuses an emptied pond and keeps its epoch', async () => {
+    const [a] = await fill(1);
+    if (!a) throw new Error('fill');
+    a.c.send({ t: 'leave' });
+    await a.c.closed;
+    const again = welcomeOf((await login('Again')).welcome);
+    expect(again.pond).toEqual(a.welcome.pond);
+    expect(again.members).toEqual([]);
+    expect(await pondRows()).toHaveLength(1);
+  });
+
+  it('sends member leave on leave, close and a replaced session', async () => {
+    const store = memoryKeyStore();
+    const watcher = await login('Watcher');
+    const leaver = await login('Leaver');
+    const closer = await login('Closer');
+    const twin = await login('Twin', store);
+    await watcher.c.next(); // join Leaver
+    await watcher.c.next(); // join Closer
+    await watcher.c.next(); // join Twin
+    leaver.c.send({ t: 'leave' });
+    expect(await watcher.c.next()).toMatchObject({
+      t: 'member',
+      op: 'leave',
+      member: { name: 'Leaver' },
+    });
+    closer.c.ws.close(1000, 'bye');
+    expect(await watcher.c.next()).toMatchObject({
+      t: 'member',
+      op: 'leave',
+      member: { name: 'Closer' },
+    });
+    await login('Twin', store); // replaces the twin
+    expect(await twin.c.closed).toBe(CLOSE_REPLACED);
+    const seen = [await watcher.c.next(), await watcher.c.next()];
+    expect(seen.map((m) => (m.t === 'member' ? m.op : m.t)).sort()).toEqual(['join', 'leave']);
+  });
+
+  it('writes one row per new pond and nothing for joins or leaves', async () => {
+    const [a, b] = await fill(2);
+    b?.c.send({ t: 'leave' });
+    await b?.c.closed;
+    a?.c.send({ t: 'ping', id: 1 });
+    expect(await pondRows()).toHaveLength(1);
+    const rows = await runInDurableObject(
+      stub(),
+      (_o, state) =>
+        state.storage.sql
+          .exec<{ n: number }>(
+            'SELECT (SELECT COUNT(*) FROM ponds) + (SELECT COUNT(*) FROM migrations) AS n',
+          )
+          .one().n,
+    );
+    expect(rows).toBe(2); // the pond and the schema version
+  });
+
+  it('keeps the pond and the roster across hibernation', async () => {
+    const [a] = await fill(1);
+    await evictDurableObject(stub());
+    const b = welcomeOf((await login('Late')).welcome);
+    expect(b.pond).toEqual(a?.welcome.pond);
+    expect(b.members).toHaveLength(1);
+  });
+});
+
+describe('signal relay', () => {
+  it('delivers a signal with the verified sender and ignores a forged from', async () => {
+    const [a, b] = await fill(2);
+    if (!a || !b) throw new Error('fill');
+    await a.c.next(); // join B
+    a.c.send({ t: 'signal', to: b.id.playerId, kind: 'offer', sdp: 'v=0', from: 'forged' });
+    expect(await b.c.next()).toEqual({
+      t: 'signal',
+      from: a.id.playerId,
+      kind: 'offer',
+      sdp: 'v=0',
+    });
+  });
+
+  it('answers no-peer for an unknown player and for another pond', async () => {
+    const players = await fill(25);
+    const first = players[0];
+    const lonely = players[24];
+    if (!first || !lonely) throw new Error('fill');
+    first.c.send({ t: 'signal', to: lonely.id.playerId, kind: 'offer', sdp: 'v=0' });
+    expect(await nextNonMember(first.c)).toEqual({ t: 'error', code: 'no-peer' });
+    const stranger = await createIdentity(memoryKeyStore());
+    first.c.send({ t: 'signal', to: stranger.playerId, kind: 'offer', sdp: 'v=0' });
+    expect(await nextNonMember(first.c)).toEqual({ t: 'error', code: 'no-peer' });
+    lonely.c.send({ t: 'ping', id: 1 });
+    expect(await lonely.c.next()).toMatchObject({ t: 'pong' }); // nothing was delivered
+  });
+
+  it('drops an sdp over 8 KB with too-big', async () => {
+    const [a, b] = await fill(2);
+    if (!a || !b) throw new Error('fill');
+    await a.c.next();
+    const big = 'a'.repeat(SDP_MAX_BYTES + 1);
+    a.c.send({ t: 'signal', to: b.id.playerId, kind: 'offer', sdp: big });
+    expect(await a.c.next()).toEqual({ t: 'error', code: 'too-big' });
+    a.c.send({ t: 'signal', to: b.id.playerId, kind: 'offer', sdp: 'a'.repeat(SDP_MAX_BYTES) });
+    const ok = await b.c.next();
+    expect(ok.t).toBe('signal');
+  });
+
+  it('keeps the epoch when joining an old pond', async () => {
+    const [a] = await fill(1);
+    skip(60_000);
+    const b = welcomeOf((await login('Later')).welcome);
+    expect(b.pond.epoch).toBe(a?.welcome.pond.epoch);
+    expect(b.now).toBeGreaterThan(b.pond.epoch);
   });
 });

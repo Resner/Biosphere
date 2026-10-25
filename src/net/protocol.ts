@@ -173,7 +173,7 @@ export function decodeSnapshot(b: Uint8Array): Snapshot | null {
 type Obj = Record<string, unknown>;
 
 /** UTF-8 length without TextEncoder, which keeps this module free of runtime APIs. */
-function byteLength(s: string): number {
+export function byteLength(s: string): number {
   let n = 0;
   for (let i = 0; i < s.length; i++) {
     const c = s.charCodeAt(i);
