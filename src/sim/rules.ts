@@ -97,6 +97,8 @@ export const RULES = deepFreeze({
     plumeMaxRadius: 160,
     /** About one plume per this many food cells. */
     cellsPerPlume: 9,
+    /** A plume drifts at this fraction of the local current. */
+    driftFactor: 0.5,
   },
   currents: {
     /** Maximum speed in wu/s. */

@@ -1,3 +1,4 @@
+import { currentAt } from './currents';
 import { IDLE, type Input, steerToAngle } from './input';
 import { clamp, cos, pow, sin, wrapAngle } from './math';
 import { DT, RULES } from './rules';
@@ -13,7 +14,8 @@ function wallAccel(p: number, size: number): number {
 
 /**
  * One tick of steering, thrust, drag and the soft wall for a living creature (DESIGN §4).
- * Velocity is integrated before position (semi-implicit Euler). Currents join in T5.
+ * Velocity is integrated before position (semi-implicit Euler). The water's current carries the
+ * creature on top of its own velocity, so a passive creature drifts with the field.
  */
 export function applyMovement(
   world: World,
@@ -54,8 +56,9 @@ export function applyMovement(
 
   creature.vx += ax * DT;
   creature.vy += ay * DT;
-  creature.x += creature.vx * DT;
-  creature.y += creature.vy * DT;
+  const current = currentAt(world, creature.x, creature.y);
+  creature.x += (creature.vx + current.x) * DT;
+  creature.y += (creature.vy + current.y) * DT;
 
   // Backstop: the world is closed even for a dash straight into a corner.
   if (creature.x < 0 || creature.x > world.size) {

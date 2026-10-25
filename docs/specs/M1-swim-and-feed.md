@@ -157,15 +157,17 @@ Other `src/sim` modules:
   - Done: `food.ts` plus a first `step.ts` (movement → feeding; tick advances). `World.consumed` is now `slot id → { k, until }`, keyed by slot (`c3_5_s2`).
   - Gotcha: entries are not deleted after `until`, because they are the only record of a slot's cycle `k` (spec said delete; that would reset the slot to `k0`). At most one entry per slot, so growth is bounded. `FoodItem.respawnTick` is the tick the item appeared.
 
-- [ ] T5 Metabolism, growth, hazards and death (in progress)
+- [x] T5 Metabolism, growth, hazards and death
   - Acceptance:
     - An idle starter loses 8 energy ± 1% over 300 ticks (0.8/s), and 14 ± 1% at full throttle (basal 0.8 plus movement 0.6 per s).
     - At 80% energy, biomass grows by 0.5/s and energy drops by an extra 1.5/s. Radius = √biomass after every tick, and growth stops at 400.
     - With energy at 0, health drops 8/s: a starter dies with cause `starved` at tick 375 ± 1.
-    - Inside a plume with full energy: −15 hp/s, death with cause `toxin` at tick 200 ± 1.
+    - Inside a plume with energy at the growth threshold (75%): −15 hp/s, death with cause `toxin` at tick 200 ± 1.
     - `currentAt` is smooth (speed differs by < 0.05 wu/s between points 1 wu apart), never exceeds 12 wu/s, and moves a passive creature by the field's integral ± 1%.
     - A dead creature ignores input and emits no further events.
   - Notes: plumes drift deterministically with the currents. Spawn a plume beside the player through a debug hook (T9) for E2E.
+  - Done: `metabolism.ts`, `currents.ts` (three shear waves; `currentDriftAt` is the closed-form integral), `hazards.ts` (one plume per anchor cell, drifting at 0.5× the current), and death in `step.ts`. A step is ~0.8 ms for 24 creatures. Currents advect creatures on top of their own velocity.
+  - Gotcha: the toxin case starts at 75% energy, not full: above that the creature grows and growth adds health, which delays death by a few ticks (the spec said "full energy"). Food does not drift with currents (it would break the bob-within-12-wu rule); T9's `spawnPlume` needs an extra-plume list on `World`.
 
 - [ ] T6 Replay and golden scenarios
   - Acceptance:
