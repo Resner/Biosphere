@@ -94,7 +94,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `worker/` (index, origin, `Authority` stub that accepts hibernatable sockets), root `vitest.config.ts` with `node` and `worker` projects, `tsc -p worker`, `tools/worker.mjs` for wrangler with `__VERSION__`. 16 workerd tests; `check` runs in about 6 s.
   - Gotcha: uses `@cloudflare/vitest-plugin` (renamed pool, ADR 0017). A project's `include` is relative to its own config directory, so a wrong glob runs zero tests without failing: check the test count.
 
-- [ ] T3 Browser identity
+- [ ] T3 Browser identity (in progress)
   - Acceptance:
     - `createIdentity(memoryKeyStore())` twice with the same store gives the same `playerId`; a fresh store gives a different one. `playerId` is 43 base64url characters.
     - `sign` then `verify` round trips; a different domain, message, playerId or a flipped signature bit fails. `verify` with garbage input returns false and does not throw.
