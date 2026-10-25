@@ -28,7 +28,7 @@ Go in this order; the first item that applies is this run's step.
   - red → add an upgrade task to the current spec (unless one exists), close the Dependabot PR with a comment linking it, and carry on.
 
   `@dependabot` comment commands don't work from here, because the GitHub tool neutralises bot mentions. Record decisions in the config or by closing the PR.
-- A Release workflow run on `main` is in progress → a milestone is being released, and its gate may be about to open a `Playtest:` issue; stop with `IDLE: release in progress`.
+- A Release workflow run on `main` is in progress → a milestone is being released. Wait for it in the foreground: `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (Release takes about 2 minutes; `gh run` works here, unlike `gh pr`). If the released milestone is a `gate`, also wait up to 10 minutes for its `Playtest:` issue. Then start this list again from the top. Stop with `IDLE: release in progress` only if the wait times out.
 - The latest Release workflow run on `main` failed → fix it.
 - An owner issue reporting a bug in shipped behaviour → fix it test-first, record it as a ticked task in the current spec, and close the issue. Other owner issues → add them to the right spec or ROADMAP row, comment where, and carry on.
 
@@ -61,7 +61,7 @@ Clear the marker before you ship.
 2. Read the task, its acceptance tests, and the code and rules it touches. Nothing more.
 3. Write the acceptance tests first and watch them fail, then implement until `npm run check` and the relevant E2E pass. Long scenarios belong in `test:e2e:full`.
 4. Keep the diff to the task. If the spec is wrong, fix the spec in the same PR and say why. Never weaken a test to make it pass.
-5. Run `/simplify`, then `/code-review` on the diff. Fix findings that affect correctness or the acceptance criteria; skip style nits.
+5. Run `/simplify`, then `/code-review` on the diff, every time; a small diff is no reason to skip them or the tests-first step. Fix findings that affect correctness or the acceptance criteria; skip style nits.
 6. Tick the task with a note of two lines at most: what changed and any gotcha. Lasting gotchas go into CLAUDE.md or `.claude/rules/`.
 
 ## 3. Ship
@@ -69,6 +69,8 @@ Clear the marker before you ship.
 - Use a Conventional Commit title (`feat(scope): …`, `fix: …`, `docs(spec): …`). The PR body names the step and lists the commands you ran with their results.
 - Update the draft PR's title and body, mark it ready for review, and enable auto-merge (squash). If GitHub says it can merge right away, squash-merge it.
 - Stay with the PR until it merges. Fix CI failures at the root cause; never skip or disable a test.
+- Wait for CI in the foreground with one command at a time: `gh run list -R Resner/Biosphere -w ci.yml -b <branch> -L 3` for the newest run id that isn't `skipped` (drafts skip CI), then `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (about 2 minutes). Don't arm background jobs, `Monitor`s or scheduled check-ins (`send_later`, `create_trigger`) to wait: they outlive the run and keep waking the finished session. The hourly schedule is the safety net.
+- Once the PR has merged (or you stop for another reason), unsubscribe from its activity, stop any background job you started and delete any check-in you scheduled, then write the report line.
 
 ## 4. The next run
 
