@@ -23,8 +23,8 @@ export const NAME_RE = /^[A-Za-z0-9_-]{3,16}$/;
 const PLAYER_ID_RE = /^[A-Za-z0-9_-]{43}$/;
 /** An Ed25519 signature (64 bytes) in base64url. */
 const SIG_RE = /^[A-Za-z0-9_-]{86}$/;
+/** The hub's challenge nonce: 16 bytes, 22 base64url characters. */
 export const NONCE_BYTES = 16;
-/** A 16-byte nonce in base64url. */
 const NONCE_RE = /^[A-Za-z0-9_-]{22}$/;
 const SLOT_RE = /^[A-Za-z0-9_]{1,24}$/;
 const CODE_RE = /^[a-z0-9-]{1,32}$/;

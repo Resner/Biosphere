@@ -95,5 +95,19 @@ describe('base64url helpers', () => {
     expect(fromBase64Url('ab+/')).toBeNull();
     expect(fromBase64Url('abcde')).toBeNull();
     expect(fromBase64Url('')).toEqual(new Uint8Array());
+    // 'AB' has non-zero spare bits: the canonical form of the same byte is 'AA'.
+    expect(fromBase64Url('AA')).toEqual(new Uint8Array([0]));
+    expect(fromBase64Url('AB')).toBeNull();
+  });
+});
+
+describe('playerId canonical form', () => {
+  it('rejects a playerId whose last character has non-zero spare bits', async () => {
+    const id = await createIdentity(memoryKeyStore(fromHex(KAT_SEED)));
+    expect(id.playerId).toBe(KAT_PLAYER);
+    const variant = `${KAT_PLAYER.slice(0, -1)}${KAT_PLAYER.endsWith('o') ? 'p' : 'o'}`;
+    const sig = id.sign('bs/hello/v1', text('x'));
+    expect(verify(KAT_PLAYER, 'bs/hello/v1', text('x'), sig)).toBe(true);
+    expect(verify(variant, 'bs/hello/v1', text('x'), sig)).toBe(false);
   });
 });

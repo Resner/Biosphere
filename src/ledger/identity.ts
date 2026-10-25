@@ -65,8 +65,9 @@ function publicKeyOf(playerId: string): Uint8Array | null {
 }
 
 /** What a hello signs: the hub's challenge nonce bytes followed by the UTF-8 name. */
-export function helloMessage(nonce: string, name: string): Uint8Array {
-  const nonceBytes = fromBase64Url(nonce) ?? new Uint8Array();
+export function helloMessage(nonce: string, name: string): Uint8Array | null {
+  const nonceBytes = fromBase64Url(nonce);
+  if (!nonceBytes) return null;
   const nameBytes = new TextEncoder().encode(name);
   const out = new Uint8Array(nonceBytes.length + nameBytes.length);
   out.set(nonceBytes);
@@ -74,11 +75,13 @@ export function helloMessage(nonce: string, name: string): Uint8Array {
   return out;
 }
 
-/** Decodes unpadded base64url, or null when the text isn't valid. */
+/** Decodes unpadded base64url, or null when the text isn't the canonical encoding of some bytes. */
 export function fromBase64Url(text: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]*$/.test(text) || text.length % 4 === 1) return null;
   const binary = atob(text.replace(/-/g, '+').replace(/_/g, '/'));
-  return Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  const bytes = Uint8Array.from(binary, (c) => c.charCodeAt(0));
+  // Spare bits in the last character must be zero, or one key would have several playerIds.
+  return toBase64Url(bytes) === text ? bytes : null;
 }
 
 export function toBase64Url(bytes: Uint8Array): string {

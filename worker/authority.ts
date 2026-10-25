@@ -120,6 +120,10 @@ export class Authority extends DurableObject<Env> {
     msg: ClientMsg & { t: 'hello' },
   ): void {
     const message = helloMessage(session.nonce, msg.name);
+    if (!message) {
+      ws.close(CLOSE_BAD_HELLO, 'bad nonce');
+      return;
+    }
     const sig = fromBase64Url(msg.sig);
     if (!sig || !verify(msg.playerId, HELLO_DOMAIN, message, sig)) {
       ws.close(CLOSE_BAD_HELLO, 'bad hello');

@@ -79,7 +79,7 @@ async function challenge(c: Client): Promise<string> {
 
 async function makeHello(nonce: string, name = 'Alice', store = memoryKeyStore()) {
   const id = await createIdentity(store);
-  const sig = toBase64Url(id.sign(HELLO_DOMAIN, helloMessage(nonce, name)));
+  const sig = toBase64Url(id.sign(HELLO_DOMAIN, helloMessage(nonce, name) ?? new Uint8Array()));
   return { id, hello: { t: 'hello', v: 1, playerId: id.playerId, name, sig } };
 }
 
