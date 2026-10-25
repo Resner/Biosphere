@@ -72,7 +72,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
 
 ## Tasks
 
-- [ ] T1 M1 carry-overs (in progress)
+- [x] T1 M1 carry-overs
   - Acceptance (unit tests unless noted):
     - Feeding: a creature at maximum energy overlapping an item emits no `eat`, and `foodNear` still lists the item. Below maximum it eats as before. If a golden changes because of this, bump `RULES_VERSION` to 2, regenerate the goldens and say so in the PR.
     - `findClearSpot(world, x, y)` returns the clear point nearest to (x, y) (compare with a brute-force scan on a 20-point sample), and the point stays at least `plumeClearance` from every plume for the next 10 s of drift (simulate 300 ticks).
@@ -80,6 +80,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - `InputController`: a keydown with `repeat: true` does nothing; Enter on the death screen hatches only after 400 ms; `preventDefault` is called for Space and the arrow keys; `visibilitychange` to hidden clears held keys.
     - The field query (`refreshField`) runs once per rendered frame whatever the number of catch-up ticks (a spy on 5 ticks in one frame sees one call).
   - Notes: this clears the review list in the M1 spec. Update DESIGN §2 (the full-energy sentence) in the same PR.
+  - Done: all six items fixed; no golden changed, so `RULES_VERSION` stays 1. DESIGN already had the full-energy sentence. `Effects.resume()` caps only the first update after a hidden gap, and `src/game/field.ts` defers the field query to the render frame.
+  - Gotcha: `Math.hypot` is banned in `src/sim` (determinism guard); use `length` from `math.ts`.
 
 - [ ] T2 Worker skeleton
   - Acceptance:

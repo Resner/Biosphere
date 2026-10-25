@@ -139,15 +139,16 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
   if (!creature.alive) return [];
   const radius = Math.sqrt(creature.biomass);
   const energyCap = maxEnergy(creature.biomass);
+  if (creature.energy >= energyCap) return [];
   const events: StepEvent[] = [];
   for (const item of foodNear(world, creature.x, creature.y, radius + MAX_ITEM_RADIUS)) {
     const dx = item.x - creature.x;
     const dy = item.y - creature.y;
     const reach = radius + item.radius;
     if (dx * dx + dy * dy >= reach * reach) continue;
-    if (creature.energy >= energyCap) continue;
+    if (creature.energy >= energyCap) break;
     consumeFood(world, item.id);
-    creature.energy = Math.max(creature.energy, Math.min(creature.energy + item.value, energyCap));
+    creature.energy = Math.min(creature.energy + item.value, energyCap);
     events.push({ type: 'eat', creature: creature.id, food: item.id, value: item.value });
   }
   return events;
