@@ -125,7 +125,17 @@ describe('hashWorld', () => {
     const base = build(['a']);
     const baseHash = hashWorld(base);
     // seed32 derives from seed; creatures are covered by the test above.
-    const covered = ['rules', 'tick', 'size', 'consumed', 'options', 'seed', 'seed32', 'creatures'];
+    const covered = [
+      'rules',
+      'tick',
+      'size',
+      'consumed',
+      'options',
+      'extraPlumes',
+      'seed',
+      'seed32',
+      'creatures',
+    ];
     expect(covered.sort()).toEqual(Object.keys(base).sort());
     const variants: ((w: World) => void)[] = [
       (w) => {
@@ -142,6 +152,9 @@ describe('hashWorld', () => {
       },
       (w) => {
         w.options.hazards = false;
+      },
+      (w) => {
+        w.extraPlumes.push({ id: 'debug0', x: 1, y: 2, radius: 3 });
       },
       (w) => {
         w.rules = 2;

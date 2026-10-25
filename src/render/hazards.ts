@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import type { Plume } from '../sim/hazards';
+import type { Plume } from '../sim/types';
 import { idFraction, writeInstance } from './instances';
 import { plumeMaterial, setUniform } from './materials';
 

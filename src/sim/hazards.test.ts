@@ -1,10 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import type { Plume } from './hazards';
 import { applyHazards, plumesNear } from './hazards';
 import { TAU } from './math';
 import { RULES, TICK_HZ } from './rules';
+import { hashWorld } from './state-hash';
 import { step } from './step';
-import type { StepEvent, World } from './types';
+import type { Plume, StepEvent, World } from './types';
 import { createWorld, spawnCreature } from './world';
 
 const allPlumes = (w: World): Plume[] => plumesNear(w, w.size / 2, w.size / 2, w.size);
@@ -98,5 +98,27 @@ describe('toxin', () => {
     expect(events).toEqual([{ type: 'damage', creature: 'a', amount: 0.5, cause: 'toxin' }]);
     c.x = -1000;
     expect(applyHazards(world, c)).toEqual([]);
+  });
+});
+
+describe('extra plumes', () => {
+  it('poison a creature inside them, even with hazards off', () => {
+    const world = createWorld({ seed: 'haz', hazards: false });
+    const c = spawnCreature(world, { id: 'a', x: 3000, y: 3000 });
+    expect(applyHazards(world, c)).toEqual([]);
+    world.extraPlumes = [{ id: 'debug0', x: 3010, y: 3000, radius: 40 }];
+    expect(plumesNear(world, 3000, 3000, 0)).toEqual(world.extraPlumes);
+    expect(applyHazards(world, c)).toHaveLength(1);
+    c.x = 3100;
+    expect(applyHazards(world, c)).toEqual([]);
+  });
+
+  it('are part of the state hash, and an empty list is not', () => {
+    const world = createWorld({ seed: 'haz' });
+    const plain = hashWorld(world);
+    world.extraPlumes = [];
+    expect(hashWorld(world)).toBe(plain);
+    world.extraPlumes = [{ id: 'debug0', x: 1, y: 2, radius: 3 }];
+    expect(hashWorld(world)).not.toBe(plain);
   });
 });

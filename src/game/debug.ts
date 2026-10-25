@@ -1,11 +1,15 @@
 import type { RenderInfo } from '../render/scene';
+import type { InputLog } from '../sim/replay';
+import type { FoodItem } from '../sim/types';
+import type { DeathSummary, Screen } from './screens';
 
 /** Read-only views of the running game for tests and tools (`window.__bs`). */
 export interface BsState {
-  screen: 'playing';
+  screen: Screen;
   tick: number;
   /** Food items handed to the renderer this tick. */
   visibleFood: number;
+  /** The creature being played; null on the title screen. */
   player: {
     x: number;
     y: number;
@@ -15,22 +19,36 @@ export interface BsState {
     energy: number;
     health: number;
     alive: boolean;
-  };
+  } | null;
+  /** Set once the player has died. */
+  death: DeathSummary | null;
 }
 
 export interface BsHook {
   ready: true;
   state(): BsState;
-  /** How many events of each type the sim has emitted since the game started. */
+  /** How many events of each type the sim has emitted since the player hatched. */
   events(): Record<string, number>;
+  /** Re-runs an input log in a fresh world and returns its final state hash. */
+  replay(log: InputLog): { hash: string; events: Record<string, number> };
   render: { info(): RenderInfo };
   /** Mutating helpers; present only with `?debug=1`. */
   debug?: BsDebug;
 }
 
 export interface BsDebug {
-  /** Draws a toxic plume without touching the sim (render-only until T9 moves it into the world). */
+  /** Sets the player's energy (clamped to its maximum). */
+  setEnergy(energy: number): void;
+  /** Moves the player and stops it. */
+  teleport(x: number, y: number): void;
+  /** The food item closest to the player, or null. */
+  nearestFood(): FoodItem | null;
+  /** Swims at full throttle towards a target; resolves true once it is eaten or reached, false on a timeout or if it vanished. */
+  steerTo(target: { id?: string; x: number; y: number }): Promise<boolean>;
+  /** Adds a toxic plume to the world. */
   spawnPlume(x: number, y: number, radius?: number): void;
+  /** Runs the sim this many times faster than real time. */
+  timeScale(scale: number): void;
 }
 
 declare global {

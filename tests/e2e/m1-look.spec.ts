@@ -1,10 +1,14 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { hatch, openGame, playerOf } from './helpers';
 
 // The macro look is judged by properties of decoded screenshots and renderer budgets, never by
 // pixel-exact baselines: software rendering differs between browser versions.
 
-const URL = './?debug=1&seed=look&autohatch=1';
+async function play(page: Page): Promise<void> {
+  await openGame(page, '?debug=1&seed=look');
+  await hatch(page);
+}
 
 async function waitForFrames(page: Page, frames = 4): Promise<void> {
   const before = Number(await page.locator('#scene').getAttribute('data-frames'));
@@ -106,8 +110,7 @@ test.describe('macro look', () => {
     });
     page.on('pageerror', (error) => problems.push(error.message));
 
-    await page.goto(URL);
-    await page.waitForFunction(() => window.__bs?.ready === true);
+    await play(page);
     await page.mouse.move(700, 200);
     await page.waitForTimeout(3000);
     expect(problems).toEqual([]);
@@ -115,10 +118,9 @@ test.describe('macro look', () => {
   });
 
   test('the membrane rim glows against the water', async ({ page }) => {
-    await page.goto(URL);
-    await page.waitForFunction(() => window.__bs?.ready === true);
+    await play(page);
     await waitForFrames(page);
-    const { player } = await page.evaluate(() => (window.__bs as BsHook).state());
+    const player = await playerOf(page);
     const { pxPerWu } = await page.evaluate(() => (window.__bs as BsHook).render.info());
 
     const { luma } = await measure(page, { radiusPx: player.radius * pxPerWu });
@@ -127,8 +129,7 @@ test.describe('macro look', () => {
   });
 
   test('stays inside the draw budget and draws every visible food item', async ({ page }) => {
-    await page.goto(URL);
-    await page.waitForFunction(() => window.__bs?.ready === true);
+    await play(page);
     await waitForFrames(page);
     // One evaluate, so both numbers describe the same tick.
     const { info, visibleFood } = await page.evaluate(() => {
@@ -142,10 +143,9 @@ test.describe('macro look', () => {
   });
 
   test('a toxic plume tints the water it covers', async ({ page }) => {
-    await page.goto(URL);
-    await page.waitForFunction(() => window.__bs?.ready === true);
+    await play(page);
     await waitForFrames(page);
-    const { player } = await page.evaluate(() => (window.__bs as BsHook).state());
+    const player = await playerOf(page);
     const { pxPerWu } = await page.evaluate(() => (window.__bs as BsHook).render.info());
     const size = await page.evaluate(() => ({ w: innerWidth, h: innerHeight }));
     const patch = { cx: size.w / 2 + 40 * pxPerWu, cy: size.h / 2, half: 12 };

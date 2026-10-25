@@ -2,6 +2,7 @@ import { clamp, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { RULES } from './rules';
 import type { CreatureState, FoodItem, FoodKind, StepEvent, Vec2, World } from './types';
+import { maxEnergy } from './vitals';
 
 // Independent hash streams per property of a slot's cycle, so adding one never shifts another.
 const SALT = { kind: 1, x: 2, y: 3, delay: 4, bobX: 5, bobY: 6 } as const;
@@ -134,7 +135,7 @@ export function consumeFood(world: World, id: string): void {
 export function applyFeeding(world: World, creature: CreatureState): StepEvent[] {
   if (!creature.alive) return [];
   const radius = Math.sqrt(creature.biomass);
-  const maxEnergy = RULES.creature.energyPerBiomass * creature.biomass;
+  const energyCap = maxEnergy(creature.biomass);
   const events: StepEvent[] = [];
   for (const item of foodNear(world, creature.x, creature.y, radius + MAX_ITEM_RADIUS)) {
     const dx = item.x - creature.x;
@@ -142,7 +143,7 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
     const reach = radius + item.radius;
     if (dx * dx + dy * dy >= reach * reach) continue;
     consumeFood(world, item.id);
-    creature.energy = Math.max(creature.energy, Math.min(creature.energy + item.value, maxEnergy));
+    creature.energy = Math.max(creature.energy, Math.min(creature.energy + item.value, energyCap));
     events.push({ type: 'eat', creature: creature.id, food: item.id, value: item.value });
   }
   return events;

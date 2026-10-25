@@ -9,9 +9,26 @@
   </head>
   <body>
     <canvas id="scene" aria-hidden="true"></canvas>
-    <main class="title">
+    <main class="screen title" data-for="title">
       <h1>Biosphere</h1>
       <p class="tagline">Life is stirring in the water.</p>
+      <button type="button" class="action" data-testid="hatch">Hatch</button>
+      <p class="hint">Mouse or WASD to swim · Space to dash</p>
+    </main>
+    <section class="hud" data-for="playing" aria-label="Status">
+      <div class="meter"><span class="meter-name">Biomass</span><span class="meter-value" data-testid="hud-biomass"></span></div>
+      <div class="meter"><span class="meter-name">Energy</span><span class="meter-value" data-testid="hud-energy"></span><span class="bar"><i data-bar="energy"></i></span></div>
+      <div class="meter"><span class="meter-name">Health</span><span class="meter-value" data-testid="hud-health"></span><span class="bar"><i data-bar="health"></i></span></div>
+      <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
+    </section>
+    <main class="screen death" data-for="dead">
+      <h2 data-testid="death-cause">Lost</h2>
+      <p class="cause-hint" data-testid="death-hint"></p>
+      <dl>
+        <div><dt>Survived</dt><dd data-testid="death-survived"></dd></div>
+        <div><dt>Peak biomass</dt><dd data-testid="death-peak"></dd></div>
+      </dl>
+      <button type="button" class="action" data-testid="hatch-again">Hatch again</button>
     </main>
     <footer class="build-label" data-testid="build-label"></footer>
     <script type="module" src="/src/main.ts"></script>

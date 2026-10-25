@@ -23,11 +23,15 @@ body {
   display: block;
 }
 
-.title {
+.screen {
   position: fixed;
-  inset: auto 0 12vh;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: flex-end;
+  padding-bottom: 12vh;
   text-align: center;
-  pointer-events: none;
   text-shadow: 0 0 24px rgb(0 0 0 / 0.8);
 }
 
@@ -40,9 +44,126 @@ body {
 }
 
 .tagline {
-  margin: 0.5rem 0 0;
+  margin: 0.5rem 0 1.5rem;
   color: var(--muted);
   letter-spacing: 0.08em;
+}
+
+.action {
+  padding: 0.7rem 2.2rem;
+  border: 1px solid var(--text);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.55);
+  color: var(--text);
+  font: inherit;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+  cursor: pointer;
+}
+
+.action:hover,
+.action:focus-visible {
+  background: rgb(227 244 240 / 0.15);
+}
+
+.hint {
+  margin: 1.25rem 0 0;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.death {
+  justify-content: center;
+  padding-bottom: 0;
+  background: rgb(2 5 6 / 0.55);
+}
+
+.death h2 {
+  margin: 0;
+  font-size: clamp(2rem, 6vw, 3.5rem);
+  font-weight: 200;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.cause-hint {
+  margin: 0.5rem 0 1.5rem;
+  color: var(--muted);
+}
+
+.death dl {
+  display: flex;
+  gap: 2.5rem;
+  margin: 0 0 2rem;
+}
+
+.death dt {
+  color: var(--muted);
+  font-size: 0.8rem;
+  text-transform: uppercase;
+  letter-spacing: 0.1em;
+}
+
+.death dd {
+  margin: 0.2rem 0 0;
+  font-size: 1.4rem;
+}
+
+.hud {
+  position: fixed;
+  top: 0.75rem;
+  left: 0.75rem;
+  display: grid;
+  gap: 0.35rem;
+  min-width: 11rem;
+  pointer-events: none;
+  text-shadow: 0 0 6px rgb(0 0 0 / 0.9);
+}
+
+.hud .hint {
+  margin: 0.5rem 0 0;
+  max-width: 16rem;
+}
+
+.meter {
+  display: grid;
+  grid-template-columns: 4.5rem auto;
+  align-items: center;
+  gap: 0 0.5rem;
+}
+
+.meter-name {
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.meter-value {
+  font-variant-numeric: tabular-nums;
+}
+
+.bar {
+  grid-column: 1 / -1;
+  height: 4px;
+  border-radius: 2px;
+  background: rgb(227 244 240 / 0.15);
+  overflow: hidden;
+}
+
+.bar i {
+  display: block;
+  height: 100%;
+  width: 0;
+  background: var(--text);
+}
+
+[data-bar="health"] {
+  background: #e8b04a;
+}
+
+[data-screen]:not([data-screen="title"]) [data-for="title"],
+[data-screen]:not([data-screen="playing"]) [data-for="playing"],
+[data-screen]:not([data-screen="dead"]) [data-for="dead"] {
+  display: none;
 }
 
 .build-label {
@@ -56,8 +177,4 @@ body {
     Menlo,
     Consolas,
     monospace;
-}
-
-[data-screen="playing"] .title {
-  display: none;
 }

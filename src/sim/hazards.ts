@@ -2,14 +2,7 @@ import { currentDriftAt } from './currents';
 import { TAU } from './math';
 import { hashU32 } from './prng';
 import { DT, RULES, TICK_HZ } from './rules';
-import type { CreatureState, StepEvent, World } from './types';
-
-export interface Plume {
-  id: string;
-  x: number;
-  y: number;
-  radius: number;
-}
+import type { CreatureState, Plume, StepEvent, World } from './types';
 
 const SALT = { roll: 1, x: 2, y: 3, radius: 4 } as const;
 const H = RULES.hazards;
@@ -42,7 +35,14 @@ function anchorInCell(world: World, cx: number, cy: number): Plume | null {
  * seed and the tick.
  */
 export function plumesNear(world: World, x: number, y: number, radius: number): Plume[] {
-  if (!world.options.hazards) return [];
+  const found: Plume[] = [];
+  for (const plume of world.extraPlumes) {
+    const range = radius + plume.radius;
+    const dx = plume.x - x;
+    const dy = plume.y - y;
+    if (dx * dx + dy * dy <= range * range) found.push(plume);
+  }
+  if (!world.options.hazards) return found;
   const cell = RULES.world.cellSize;
   const n = Math.floor(world.size / cell);
   const reach = radius + H.plumeMaxRadius + MAX_DRIFT;
@@ -50,7 +50,6 @@ export function plumesNear(world: World, x: number, y: number, radius: number): 
   const x1 = Math.min(n - 1, Math.floor((x + reach) / cell));
   const y0 = Math.max(0, Math.floor((y - reach) / cell));
   const y1 = Math.min(n - 1, Math.floor((y + reach) / cell));
-  const found: Plume[] = [];
   for (let cy = y0; cy <= y1; cy++) {
     for (let cx = x0; cx <= x1; cx++) {
       const plume = anchorInCell(world, cx, cy);
