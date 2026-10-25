@@ -13,6 +13,7 @@ import {
   SDP_MAX_BYTES,
   SNAPSHOT_BYTES,
   type Snapshot,
+  WELCOME_MAX_BYTES,
 } from './protocol';
 
 const TAU = 2 * Math.PI;
@@ -183,6 +184,47 @@ const peerEvents = [
   { t: 'emote', id: 5 },
   { t: 'ping', kind: 3, x: 100.5, y: -20 },
 ];
+
+describe('welcome size', () => {
+  it('parses the worst case: 23 members with 16-character names, STUN and two TURN entries with maximal credentials', () => {
+    const members = Array.from({ length: 23 }, (_, i) => ({
+      playerId: String.fromCharCode(65 + i).repeat(43),
+      name: 'n'.repeat(16),
+    }));
+    const welcome: HubMsg = {
+      t: 'welcome',
+      pond: {
+        id: 'p'.repeat(6),
+        seed: 's'.repeat(16),
+        epoch: Number.MAX_SAFE_INTEGER,
+        centre: { x: 4096.123456789, y: 4096.123456789 },
+        size: 8192,
+      },
+      you: { spawnHint: { x: 4400.123456789012, y: 4000.123456789012 } },
+      members,
+      ice: [
+        { urls: 'stun:stun.cloudflare.com:3478' },
+        { urls: 'stun:stun.l.google.com:19302' },
+        ...[0, 1].map((k) => ({
+          urls: [0, 1, 2, 3].map((i) => `turn:turn${k}${i}.cloudflare.com:3478?transport=udp`),
+          username: 'u'.repeat(512),
+          credential: 'c'.repeat(512),
+        })),
+      ],
+      turn: true,
+      now: Number.MAX_SAFE_INTEGER,
+    };
+    const raw = JSON.stringify(welcome);
+    expect(raw.length).toBeGreaterThan(HUB_MAX_BYTES);
+    expect(raw.length).toBeLessThanOrEqual(WELCOME_MAX_BYTES);
+    expect(parseHubMsg(raw)).toEqual(welcome);
+  });
+
+  it('still caps a welcome at WELCOME_MAX_BYTES', () => {
+    const raw = JSON.stringify({ ...(hubMsgs[1] as object), pad: 'x'.repeat(WELCOME_MAX_BYTES) });
+    expect(parseHubMsg(raw)).toBeNull();
+  });
+});
 
 describe('message round trips', () => {
   it.each(clientMsgs)('client %j', (m) => {

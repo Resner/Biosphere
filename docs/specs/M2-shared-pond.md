@@ -121,7 +121,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - On connect the DO sends `challenge` with a 16-byte random nonce. A `hello` with a valid signature over `'bs/hello/v1' ‖ nonce ‖ name` gets `welcome` (pond data is T6's; a single stub pond is fine here). A bad signature, a wrong nonce, a name that is not 3–16 characters of `A–Z a–z 0–9 _ -`, a wrong protocol version or a hello after 10 s of silence closes with 4002.
     - A second session with the same `playerId` gets `welcome`, and the first socket closes with 4001.
     - `ping {id}` returns `pong {id, now}` with the DO's `Date.now()`.
-    - More than 20 messages in 10 s from one socket closes it with 4003; normal traffic is unaffected.
+    - More than 20 messages in 10 s from one socket (60 for `signal`, T19) closes it with 4003; normal traffic is unaffected.
     - Per-socket state (playerId, name, pondId) survives hibernation: after the test harness evicts the object from memory, a `ping` on the same socket still works and the session is still known.
     - The DO writes no SQLite rows for hello, ping or leave.
   - Notes: use `ctx.acceptWebSocket` and attachments; protocol pings through `setWebSocketAutoResponse`. Names go through the filter in T14 once it exists (T14 adds the check here); until then only the pattern is checked.
@@ -131,14 +131,14 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
 - [x] T6 Ponds, roster and signal relay
   - Acceptance (workerd tests):
     - The first player creates a pond (one row in `ponds`: id, seed, epoch, centre, created) and gets `members: []`, `spawnHint` at the pond centre, `pond.seed` and `pond.epoch`. The centre is the world centre.
-    - A second player joins the same pond: `welcome.members` lists the first, the first gets `member {op:'join'}`, and `spawnHint` is on the ring: angle `i · 2.399963` for the joiner's index `i` among current members, radius `300 + 40 · members` from the centre.
+    - A second player joins the same pond: `welcome.members` lists the first, the first gets `member {op:'join'}`, and `spawnHint` is on the ring: angle `i · 2.399963` for the joiner's slot `i` (the first slot no current member holds), radius `300 + 40 · i` from the centre.
     - The 25th player gets a new pond. With ponds of 3 and 24 players, a new player joins the pond of 3 (fullest with a free place). After a pond empties, its row stays and it can be reused.
     - A player leaving (close, `leave`, error) sends `member {op:'leave'}` to the others. The DO writes one row per new pond and nothing else.
     - `signal` to a member of the same pond is delivered with `from` set to the sender's verified `playerId` (a forged `from` in the input is ignored). To a player in another pond or unknown: `error {code:'no-peer'}` to the sender, nothing delivered. Oversized `sdp` (> 8 KB) is dropped with `error {code:'too-big'}`.
     - Joining an old pond keeps its `epoch`, so `pondTick` keeps advancing across joins.
   - Notes: membership is derived from `ctx.getWebSockets()` and attachments after hibernation. Ponds are not capped in number; admission arrives in M4.
   - Done: `worker/authority.ts` derives rosters from socket attachments (`pondId` per active session); `worker/schema.ts` holds the numbered migrations (`ponds` plus a `migrations` table). A dropped socket is marked `retired` so its leave is sent once. The first joiner spawns at the centre, later ones on the ring (index = current member count).
-  - Gotcha: the DO's SQLite refuses `PRAGMA user_version`, hence the `migrations` table. DO storage outlives a test, so `hub.test.ts` clears `ponds` after each test. Signals count against the 20-per-10 s limit: a joiner offering to 23 peers would exceed it, so T9/T10 must budget signals (or give them their own window).
+  - Gotcha: the DO's SQLite refuses `PRAGMA user_version`, hence the `migrations` table. DO storage outlives a test, so `hub.test.ts` clears `ponds` after each test. Signals counted against the 20-per-10 s limit, which a joiner offering to 23 peers exceeds; T19 gave them their own window.
 
 - [x] T7 TURN credentials
   - Acceptance (workerd tests with a faked `fetch`):
@@ -278,13 +278,16 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Gotcha: never drive a shader wave with `uTime * rate` when the rate changes; integrate the phase.
   - Routed from the same comment: 4 (growth pace and the 400 cap) → M3 "Game integration" (the cap becomes the max-size gene, and the growth pace is retuned with `RULES_VERSION` 2); 5 (a living, attached body that survives generated designs; crispness) → M3 mesh builder (vertex-shader gait on one merged body) and M6 readability pass.
 
-- [ ] T19 A full pond can be joined
+- [x] T19 A full pond can be joined
   - Found by the milestone `/code-review`; they break "friends share a pond (≤ 24)".
   - Acceptance:
     - A client joining a pond of 23 members stays within the hub's message budget: the hello, the opening pings and one signal per member never exceed 20 messages in any 10 s window, or the Worker budget exempts `signal` messages (with their own, larger cap). A simulation joins 24 clients one after another against the real `PondAuthority` (workerd test) and none is closed with 4003 (worker + unit).
     - A welcome for a pond of 23 members with STUN and long TURN credentials parses (`parseHubMsg`), by raising the welcome cap or sending the roster in a separate message; a unit test builds the worst case and asserts it parses.
     - The spawn hint stays unique after members leave: it uses a counter that only grows (or the first free slot), so a new joiner never gets the angle of a member who is still there (workerd test: A, B, C join, B leaves, D joins, D's hint differs from C's).
   - Notes: measure the worst-case welcome before choosing; record the choice in the task note.
+  - Done: `signal` messages count against their own cap (60 per 10 s) beside the 20 for everything else; the welcome has `WELCOME_MAX_BYTES` (8 KB; measured worst case with 23 members and two TURN entries with 512-character credentials is about 4.8 KB, over the 4 KB hub cap); the spawn hint comes from the first free slot, kept in the socket attachment (no SQLite write).
+  - Gotcha: a session hibernated before this change has no `signals` counter or `slot`; the code tolerates both.
+  - Also: `m2-online` takes about 25 s in the parallel suite (24.7 s on `main` too) against a 30 s timeout, and failed twice in CI; it now has 60 s like the social and pond projects.
 
 - [ ] T20 Online session robustness
   - Acceptance:

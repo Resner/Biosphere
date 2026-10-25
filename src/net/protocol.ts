@@ -9,6 +9,8 @@ export const CLOSE_ORIGIN = 4004;
 
 /** Size caps in UTF-8 bytes. A `signal` carries an SDP of up to `SDP_MAX_BYTES`, so it gets more room. */
 export const HUB_MAX_BYTES = 4096;
+/** A welcome lists up to 23 members plus ICE servers with long TURN credentials (about 4.8 KB at worst). */
+export const WELCOME_MAX_BYTES = 8192;
 export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;
 export const EVENT_MAX_BYTES = 2048;
@@ -289,7 +291,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
     case 'challenge':
       return isStr(o.nonce, NONCE_RE) ? capped(raw, { t: 'challenge', nonce: o.nonce }) : null;
     case 'welcome':
-      return capped(raw, welcome(o));
+      return capped(raw, welcome(o), WELCOME_MAX_BYTES);
     case 'pong':
       return isInt(o.id, 0, MAX_TICK) && isInt(o.now, 0, MAX_TIME)
         ? capped(raw, { t: 'pong', id: o.id, now: o.now })
@@ -319,9 +321,13 @@ function isSignalPayload(o: Obj): o is Obj & { kind: 'offer' | 'answer'; sdp: st
   );
 }
 
-/** Only signals may exceed `HUB_MAX_BYTES`. */
-function capped<T extends ClientMsg | HubMsg>(raw: string, msg: T | null): T | null {
-  return msg !== null && byteLength(raw) <= HUB_MAX_BYTES ? msg : null;
+/** Only signals and the welcome may exceed `HUB_MAX_BYTES`. */
+function capped<T extends ClientMsg | HubMsg>(
+  raw: string,
+  msg: T | null,
+  max = HUB_MAX_BYTES,
+): T | null {
+  return msg !== null && byteLength(raw) <= max ? msg : null;
 }
 
 function welcome(o: Obj): HubMsg | null {
