@@ -28,6 +28,11 @@ export class PondTime {
     this.nextCheck = localNow + CHECK_MS;
   }
 
+  /** Pond time in ms: the hub's clock since the pond's epoch. */
+  pondMs(localNow: number): number {
+    return this.clock.hubNow(localNow) - this.epoch;
+  }
+
   /** Returns after a hidden tab: the world skips the missed time instead of simulating it. */
   resnap(world: World, localNow: number): void {
     this.join(world, localNow);

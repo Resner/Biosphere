@@ -34,6 +34,8 @@ export interface HubClientOptions {
   createSocket?: (url: string) => SocketLike;
   /** Seeds the reconnect jitter. */
   seed?: string;
+  /** The local clock behind the pond clock's samples; default `Date.now`. */
+  now?: () => number;
 }
 
 const BACKOFF_S = [1, 2, 4, 8, 16, 30];
@@ -65,6 +67,10 @@ export class HubClient {
 
   constructor(private readonly opts: HubClientOptions) {
     this.rng = createRng(seedFromString(opts.seed ?? opts.identity.playerId), 'hub-backoff');
+  }
+
+  private now(): number {
+    return (this.opts.now ?? Date.now)();
   }
 
   get status(): HubStatus {
@@ -155,7 +161,7 @@ export class HubClient {
         const sent = this.pending.get(msg.id);
         if (sent === undefined) break;
         this.pending.delete(msg.id);
-        this.clock.addSample(sent, Date.now(), msg.now);
+        this.clock.addSample(sent, this.now(), msg.now);
         break;
       }
       case 'member':
@@ -208,7 +214,7 @@ export class HubClient {
     let sent = 0;
     const tick = (): void => {
       const id = ++this.pingId;
-      this.pending.set(id, Date.now());
+      this.pending.set(id, this.now());
       this.socket?.send(JSON.stringify({ t: 'ping', id } satisfies ClientMsg));
       sent++;
       this.pingTimer = setTimeout(tick, sent < BURST_PINGS ? BURST_GAP_MS : PING_EVERY_MS);

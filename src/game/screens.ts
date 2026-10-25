@@ -30,12 +30,21 @@ export class Screens {
   private readonly survived = pick('[data-testid="death-survived"]');
   private readonly peak = pick('[data-testid="death-peak"]');
 
+  private readonly buttons: HTMLButtonElement[] = [];
+
   constructor(handlers: { hatch(): void }) {
     for (const id of ['hatch', 'hatch-again']) {
-      pick(`[data-testid="${id}"]`).addEventListener('click', () => {
+      const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
+      this.buttons.push(button);
+      button.addEventListener('click', () => {
         handlers.hatch();
       });
     }
+  }
+
+  /** Greys out the hatch buttons while a hatch waits for the hub. */
+  setBusy(busy: boolean): void {
+    for (const button of this.buttons) button.disabled = busy;
   }
 
   show(screen: Screen): void {

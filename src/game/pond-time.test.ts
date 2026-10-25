@@ -26,6 +26,10 @@ describe('PondTime', () => {
     expect(world.tick).toBe(Math.floor((12_345 * TICK_HZ) / 1000));
   });
 
+  it('reads pond time in ms since the epoch from the local clock', () => {
+    expect(client(5_000).pondMs(EPOCH - 5_000 + 1_500)).toBe(1_500);
+  });
+
   it('shows the same food and plumes to worlds that joined 7 s apart', () => {
     const early = createWorld({ seed: 'pond' });
     const late = createWorld({ seed: 'pond' });

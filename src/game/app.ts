@@ -1,8 +1,11 @@
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
+import type { Identity } from '../ledger/identity';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
+import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
-import { RemoteSet, type RemoteView, SnapshotSender } from '../net/pond-sync';
-import { decodeSnapshot, type PeerEvent, parsePeerEvent } from '../net/protocol';
+import type { Welcome } from '../net/hub-client';
+import { RemoteSet, type RemoteView, SnapshotSender, snapshotOf } from '../net/pond-sync';
+import { decodeSnapshot, type PeerEvent, parsePeerEvent, type Vec2 } from '../net/protocol';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import { Effects } from '../render/effects';
@@ -18,6 +21,7 @@ import { step } from '../sim/step';
 import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
+import { AloneHint } from './alone-hint';
 import { type BsDebug, installHook, type ScriptedRemote } from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
@@ -25,6 +29,15 @@ import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
 import { RemoteLabels } from './labels';
 import { attachVisibilityPause, createLoop } from './loop';
+import { connectOnline, type OnlineSession } from './online';
+import {
+  cleanName,
+  hubSocketUrl,
+  loadName,
+  ringSpawn,
+  saveName,
+  statusText,
+} from './online-config';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
 import { type DeathSummary, type Screen, Screens } from './screens';
@@ -42,6 +55,8 @@ const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
 /** With `timeScale`, a slow software-GL frame must still catch up: 120 ticks is 4 s of sim. */
 const DEBUG_MAX_TICKS_PER_FRAME = 120;
 const MAX_THROTTLE = RULES.movement.maxThrottle;
+/** A hatch waits this long for the hub before the player swims in a local pond. */
+const HATCH_WAIT_MS = 4000;
 
 /** One creature in one world: the title screen's drifting cell, or a real hatch. */
 interface Session {
@@ -52,6 +67,8 @@ interface Session {
   counts: Record<string, number>;
   peakBiomass: number;
   death: DeathSummary | null;
+  /** The pond this life is in; null for the title cell and for a local pond. */
+  pond: Pond | null;
 }
 
 interface Steering {
@@ -62,22 +79,37 @@ interface Steering {
 
 /** The pond this tab has joined: one seed, one clock and one set of eaten food for every life. */
 interface Pond {
+  id: string;
   seed: string;
+  size: number;
+  /** The hub's spawn ring: centre and this player's first spawn; null without a hub. */
+  ring: { centre: Vec2; hint: Vec2 } | null;
+  /** Lives started in this pond, to turn the spawn point on the ring. */
+  lives: number;
   time: PondTime;
   food: PondFood;
   /** Stands in for the world when a food event arrives between lives; never stepped. */
   world: World;
 }
 
-function newSession(seed: string, demo: boolean, pond: Pond | null = null): Session {
-  const world = createWorld({ seed: demo ? `${seed}/title` : seed, hazards: !demo });
+function newSession(
+  seed: string,
+  demo: boolean,
+  pond: Pond | null = null,
+  spawn: Vec2 | null = null,
+): Session {
+  const world = createWorld({
+    seed: demo ? `${seed}/title` : seed,
+    hazards: !demo,
+    ...(pond ? { size: pond.size } : {}),
+  });
   if (pond) {
     world.consumed = pond.world.consumed;
     pond.time.join(world, performance.now());
   }
-  const spot = findClearSpot(world, world.size / 2, world.size / 2);
+  const spot = findClearSpot(world, spawn?.x ?? world.size / 2, spawn?.y ?? world.size / 2);
   const player = spawnCreature(world, { id: 'player', ...spot });
-  return { world, player, demo, counts: {}, peakBiomass: player.biomass, death: null };
+  return { world, player, demo, counts: {}, peakBiomass: player.biomass, death: null, pond };
 }
 
 /** Starts the title screen; the player hatches into the same scene. */
@@ -90,10 +122,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const vignette = pick('[data-testid="vignette"]');
   const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
 
-  // Other players, drawn from the snapshots they send. The pond clock arrives with the online
-  // session; until then pond time is this tab's own clock.
+  // Other players, drawn from the snapshots they send. Pond time is the hub's clock once a pond is
+  // joined; until then it is this tab's own clock.
   const remotes = new RemoteSet();
-  const pondMs = (): number => performance.now();
+  let pond: Pond | null = null;
+  const pondMs = (): number => (pond ? pond.time.pondMs(performance.now()) : performance.now());
   let remoteViews: readonly RemoteView[] = [];
   interface Scripted {
     spec: ScriptedRemote;
@@ -104,14 +137,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   // Without IndexedDB (a private window, say) the identity lasts for this visit only.
   let playerId: string | null = null;
-  createIdentity(indexedDbKeyStore())
+  let identity: Identity | null = null;
+  const identityReady = createIdentity(indexedDbKeyStore())
     .catch(() => createIdentity(memoryKeyStore()))
-    .then((identity) => {
-      playerId = identity.playerId;
+    .then((loaded) => {
+      identity = loaded;
+      playerId = loaded.playerId;
     });
 
-  // Set once a pond is joined (T13 wires the hub; until then tests join through `debug.joinPond`).
-  let pond: Pond | null = null;
   let scale = 1;
   let session = newSession(params.seed, true);
   let screen: Screen = 'title';
@@ -152,14 +185,118 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     screens.show(nextScreen);
   };
 
-  // The first hatch uses the pond seed as given; each later one gets its own pond.
+  // The online session (ADRs 0007, 0016): the hub roster, the mesh and the pond they share. Without
+  // a hub URL the game runs offline, as in M1.
+  const hubUrl = hubSocketUrl(window.location.search, __AUTHORITY_URL__);
+  let online: OnlineSession | null = null;
+  let onlineName = '';
+  const nameField = pick('[data-testid="name-field"]');
+  const nameInput = pick<HTMLInputElement>('[data-testid="name-input"]');
+  const nameError = pick('[data-testid="name-error"]');
+  const netStatus = pick('[data-testid="net-status"]');
+  const aloneElement = pick('[data-testid="alone-hint"]');
+  const alone = new AloneHint();
+  const sender = new SnapshotSender((bytes) => online?.broadcastState(bytes));
+
+  const makePond = (w: Welcome, hubClock: PondClock): Pond => ({
+    id: w.pond.id,
+    seed: w.pond.seed,
+    size: w.pond.size,
+    ring: { centre: w.pond.centre, hint: w.you.spawnHint },
+    lives: 0,
+    time: new PondTime(hubClock, w.pond.epoch),
+    food: new PondFood(playerId ?? 'local', (event) => online?.broadcastEvent(event)),
+    world: createWorld({ seed: w.pond.seed, size: w.pond.size }),
+  });
+
+  const startOnline = (name: string, loaded: Identity): OnlineSession => {
+    const link = connectOnline({
+      url: hubUrl as string,
+      identity: loaded,
+      name,
+      handlers: {
+        welcome(w) {
+          if (pond?.id !== w.pond.id) pond = makePond(w, link.clock);
+        },
+        member(op, member) {
+          if (op === 'join') remotes.setMember(member.playerId, member.name);
+          else remotes.removeMember(member.playerId);
+        },
+        peerOpen(id) {
+          // The new peer learns what has been eaten; the reliable channel keeps the parts in order.
+          if (pond) for (const part of consumedParts(pond.world)) link.sendEvent(id, part);
+        },
+        peerClosed() {},
+        state(id, snapshot) {
+          remotes.receive(id, snapshot, performance.now());
+        },
+        event(id, event) {
+          receiveFoodEvent(id, event);
+        },
+      },
+    });
+    return link;
+  };
+
+  /** Connects (or reconnects under a new name) once the identity is loaded. */
+  const ensureOnline = (name: string): void => {
+    if (!hubUrl || !identity) return;
+    if (online && onlineName === name && online.status !== 'replaced') return;
+    if (online) {
+      for (const { playerId: id } of online.others()) remotes.removeMember(id);
+      online.dispose();
+    }
+    onlineName = name;
+    online = startOnline(name, identity);
+  };
+
+  /** Starts a life, in the joined pond or (`inPond` false) in a local one. */
+  // The first local hatch uses the pond seed as given; each later one gets its own pond.
   let hatches = 0;
-  const hatch = (): void => {
+  const begin = (inPond: boolean): void => {
+    const target = inPond ? pond : null;
     const seed = hatches === 0 ? params.seed : `${params.seed}/${hatches}`;
     hatches++;
-    enter(newSession(pond ? pond.seed : seed, false, pond), 'playing');
+    let spawn: Vec2 | null = null;
+    if (target?.ring) spawn = ringSpawn(target.ring.centre, target.ring.hint, target.lives);
+    if (target) target.lives++;
+    enter(newSession(target ? target.seed : seed, false, target, spawn), 'playing');
+  };
+
+  let hatching = false;
+  const hatch = (): void => {
+    if (hatching) return;
+    if (!hubUrl) {
+      begin(pond !== null);
+      return;
+    }
+    const name = cleanName(nameInput.value);
+    nameError.hidden = name !== null;
+    if (!name) return;
+    saveName(localStorage, name);
+    hatching = true;
+    screens.setBusy(true);
+    void identityReady
+      .then(() => {
+        ensureOnline(name);
+        return online ? online.whenReady(HATCH_WAIT_MS) : null;
+      })
+      .then((welcome) => {
+        hatching = false;
+        screens.setBusy(false);
+        begin(welcome !== null && pond !== null);
+      });
   };
   const screens = new Screens({ hatch });
+  if (hubUrl) {
+    nameField.hidden = false;
+    nameInput.value = loadName(localStorage);
+    void identityReady.then(() =>
+      ensureOnline(cleanName(nameInput.value) ?? loadName(localStorage)),
+    );
+    // Leave the roster promptly instead of waiting for the hub to notice the dead socket.
+    window.addEventListener('pagehide', () => online?.dispose());
+  }
   // Enter hatches from the title and death screens (Space stays the dash key).
   controller.attach(window, document, () => {
     if (enterHatches(screen, performance.now() - screenShownAt)) hatch();
@@ -223,7 +360,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (!pond) return;
     const stolen = pond.food.receive(pond.world, from, event);
     field.markDirty();
-    if (!stolen || session.demo) return;
+    // A bite is only given back by a life in this pond, never by a local one.
+    if (!stolen || session.demo || session.pond !== pond) return;
     const { player, counts } = session;
     player.energy = Math.max(0, player.energy - stolen.value);
     counts.stolen = (counts.stolen ?? 0) + 1;
@@ -231,7 +369,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   /** The pond, while a real life (not the title screen's cell) is running in it. */
-  const livePond = (): Pond | null => (session.demo ? null : pond);
+  const livePond = (): Pond | null => (session.demo ? null : session.pond);
 
   const tick = (): void => {
     const { world, player, counts } = session;
@@ -271,6 +409,21 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       };
       fx.startDissolve();
     }
+  };
+
+  let shownStatus = '';
+  const updateNetUi = (now: number, joined: Pond | null): void => {
+    const text = hubUrl ? statusText(online?.status ?? 'connecting', online?.count ?? 1) : '';
+    if (text !== shownStatus) {
+      shownStatus = text;
+      netStatus.textContent = text;
+    }
+    const lonely = alone.update(
+      now,
+      joined !== null && online?.status === 'online',
+      (online?.count ?? 1) - 1,
+    );
+    if (aloneElement.hidden === lonely) aloneElement.hidden = !lonely;
   };
 
   let lastMs = performance.now();
@@ -347,7 +500,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       screens.showDeath(session.death);
     }
     for (const script of scripted) feedScripted(script, now);
-    remoteViews = remotes.sample(now, pondMs());
+    const joined = livePond();
+    if (online && joined && joined === pond) {
+      sender.update(now, document.hidden, () => snapshotOf(player, session.world.tick));
+    }
+    // A local pond life does not show the players of the hub's pond.
+    remoteViews = !online || joined ? remotes.sample(now, pondMs()) : [];
+    updateNetUi(now, joined);
     view.remotes = remoteViews;
     labels.update(remoteViews, {
       camX: camera.x,
@@ -461,7 +620,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       clock.addSample(now, now, spec.hubNow);
       const world = createWorld({ seed: spec.seed });
       pond = {
+        id: 'debug',
         seed: spec.seed,
+        size: RULES.world.size,
+        ring: null,
+        lives: 0,
         time: new PondTime(clock, spec.epoch),
         food: new PondFood(playerId ?? 'local', spec.send),
         world,
@@ -498,6 +661,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           },
       death: session.death,
       remotes: remoteViews.map(({ id, name, x, y, alpha }) => ({ id, name, x, y, alpha })),
+      pond: pond
+        ? {
+            id: pond.id,
+            seed: pond.seed,
+            members: [
+              playerId ?? 'local',
+              ...(online?.others().map((m) => m.playerId) ?? []),
+            ].sort(),
+          }
+        : null,
+      net: { text: shownStatus, status: online?.status ?? 'none', open: online?.openCount() ?? 0 },
     }),
     events: () => ({ ...session.counts }),
     replay: (log) => {

@@ -8,6 +8,7 @@ const executablePath =
   !existsSync(chromium.executablePath()) && existsSync(preinstalled) ? preinstalled : undefined;
 
 const port = 4173;
+const hubPort = 8787;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -19,12 +20,26 @@ export default defineConfig({
     baseURL: `http://localhost:${port}/`,
     viewport: { width: 960, height: 540 },
     trace: 'retain-on-failure',
-    launchOptions: executablePath ? { executablePath } : {},
+    // Chromium hides local IPs behind mDNS names that the sandbox cannot resolve; the E2E peers
+    // connect over host candidates only (no STUN, TURN or relays).
+    launchOptions: {
+      ...(executablePath ? { executablePath } : {}),
+      args: ['--disable-features=WebRtcHideLocalIpsWithMdns'],
+    },
   },
   projects: [{ name: 'chromium', use: { browserName: 'chromium' } }],
-  webServer: {
-    command: `npm run preview -- --port ${port} --strictPort`,
-    url: `http://localhost:${port}/`,
-    reuseExistingServer: !process.env.CI,
-  },
+  webServer: [
+    {
+      command: `npm run preview -- --port ${port} --strictPort`,
+      url: `http://localhost:${port}/`,
+      reuseExistingServer: !process.env.CI,
+    },
+    {
+      // The authority, locally: the same Worker and Durable Object, with fresh state per run.
+      command: `npm run worker:dev -- --port ${hubPort} --persist-to .wrangler/e2e-state`,
+      url: `http://localhost:${hubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+  ],
 });

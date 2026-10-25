@@ -28,6 +28,10 @@ export interface BsState {
   death: DeathSummary | null;
   /** The other players in the pond, as drawn (alpha fades when they go quiet). */
   remotes: { id: string; name: string; x: number; y: number; alpha: number }[];
+  /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
+  pond: { id: string; seed: string; members: string[] } | null;
+  /** The status chip's text, the hub's state ('none' without a hub) and open peer connections. */
+  net: { text: string; status: string; open: number };
 }
 
 /** A scripted remote creature for tests: it swims in a straight line and sends real snapshots. */
