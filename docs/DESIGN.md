@@ -37,7 +37,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Vent crystal | 60 | 2.5 | near vents and plumes (risk for reward) |
 | Carrion | share of a dead creature's biomass (M7) | scales with victim | where a creature died |
 
-- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten it respawns 20–60 s later (hash-determined). Items drift with currents.
+- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) and, from T5, drift with currents. A creature eats every item it overlaps (distance below its radius plus the item's), even at full energy, where the surplus is lost.
 - Each tier has food sized for it (M11). Tiny items are noise to giants, so larger tiers feed on denser drifts, vent beds and carrion, and big filter-feeding mouths sweep detritus in bulk.
 - **Hazards are nonliving**:
   - toxic plumes: radius 60–160 wu, 15 hp/s inside, drifting, about one per 9 food cells;

@@ -135,7 +135,7 @@ describe('hashWorld', () => {
         w.size = 4096;
       },
       (w) => {
-        w.consumed.c0_0_s0_k0 = 700;
+        w.consumed.c0_0_s0 = { k: 1, until: 700 };
       },
       (w) => {
         w.options.currents = false;
@@ -156,17 +156,17 @@ describe('hashWorld', () => {
 
   it('does not depend on consumed insertion order', () => {
     const one = createWorld({ seed: 's' });
-    one.consumed.x = 1;
-    one.consumed.y = 2;
+    one.consumed.x = { k: 1, until: 1 };
+    one.consumed.y = { k: 1, until: 2 };
     const two = createWorld({ seed: 's' });
-    two.consumed.y = 2;
-    two.consumed.x = 1;
+    two.consumed.y = { k: 1, until: 2 };
+    two.consumed.x = { k: 1, until: 1 };
     expect(hashWorld(one)).toBe(hashWorld(two));
   });
 
   it('survives structuredClone', () => {
     const world = build(['a', 'b']);
-    world.consumed.f1 = 40;
+    world.consumed.f1 = { k: 1, until: 40 };
     const clone = structuredClone(world);
     expect(clone).toEqual(world);
     expect(hashWorld(clone)).toBe(hashWorld(world));

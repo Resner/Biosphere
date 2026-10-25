@@ -20,8 +20,8 @@ export function hashWorld(world: World): string {
       .u32(c.bornTick);
   }
 
-  const ids = Object.keys(world.consumed).sort();
-  h.u32(ids.length);
-  for (const id of ids) h.str(id).u32(world.consumed[id] as number);
+  const eaten = Object.entries(world.consumed).sort(([a], [b]) => (a < b ? -1 : 1));
+  h.u32(eaten.length);
+  for (const [id, slot] of eaten) h.str(id).u32(slot.k).u32(slot.until);
   return h.digest();
 }

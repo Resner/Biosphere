@@ -146,14 +146,16 @@ Other `src/sim` modules:
   - Done: `input.ts` (u16 codec: steer bits 0-7, throttle 8-11, dash 12) and `physics.ts` `applyMovement`; new rule `movement.wallPush` (300 wu/s²).
   - Gotcha: turning needs throttle > 0 and a dash needs the energy for it (both unspecified, so decided here and in DESIGN §4); currents join the movement in T5.
 
-- [ ] T4 Food field and feeding
+- [x] T4 Food field and feeding
   - Acceptance:
     - `foodInCell(world, 3, 5)` returns identical arrays (ids, kinds, positions) on repeated calls, and a different world seed gives different items.
     - Ids look like `c3_5_s2_k0`.
     - A creature overlapping an item (distance < r + item radius) gets an `eat` event on the next `step`. Its energy rises by the item's value (capped at max), and the item disappears from `foodInCell` until its `respawnTick`, 20–60 s later. Then cycle `k1` of that slot appears at a new deterministic position.
     - Over 1,000 cells, the mean live item count per cell is between 6 and 10, and kinds split detritus : globule : crystal = 70 : 25 : 5 ± 5 points.
     - An item's position is a pure function of the tick and stays within 12 wu of its slot anchor (a bobbing drift).
-  - Notes: a cycle's spawn time and position come from `hashU32(seed32, cx, cy, slot, k)`. Entries in `consumed` are deleted once their respawn tick passes.
+  - Notes: a cycle's kind, position and respawn delay come from `hashU32(seed32, cx, cy, slot, k, salt)`.
+  - Done: `food.ts` plus a first `step.ts` (movement → feeding; tick advances). `World.consumed` is now `slot id → { k, until }`, keyed by slot (`c3_5_s2`).
+  - Gotcha: entries are not deleted after `until`, because they are the only record of a slot's cycle `k` (spec said delete; that would reset the slot to `k0`). At most one entry per slot, so growth is bounded. `FoodItem.respawnTick` is the tick the item appeared.
 
 - [ ] T5 Metabolism, growth, hazards and death
   - Acceptance:
