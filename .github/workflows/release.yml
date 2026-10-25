@@ -1,6 +1,7 @@
 name: Release
 
-# A merged change to VERSION releases that version: full tests, Pages deploy, tag and GitHub Release.
+# A merged change to VERSION releases that version: full tests, the Worker, then Pages, tag and
+# GitHub Release. The Worker goes first so a client never points at an older Worker.
 on:
   push:
     branches: [main]
@@ -15,7 +16,31 @@ concurrency:
   cancel-in-progress: false
 
 jobs:
+  # Fails early and plainly when the owner has not set up Cloudflare (docs/SETUP.md step 8),
+  # before anything is built or deployed. It only tests that the values exist.
+  preflight:
+    runs-on: ubuntu-latest
+    timeout-minutes: 2
+    steps:
+      - name: Check the Cloudflare secrets and AUTHORITY_URL
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_TURN_KEY_ID: ${{ secrets.CF_TURN_KEY_ID }}
+          CF_TURN_KEY_API_TOKEN: ${{ secrets.CF_TURN_KEY_API_TOKEN }}
+          AUTHORITY_URL: ${{ vars.AUTHORITY_URL }}
+        run: |
+          missing=""
+          for name in CLOUDFLARE_API_TOKEN CLOUDFLARE_ACCOUNT_ID CF_TURN_KEY_ID CF_TURN_KEY_API_TOKEN AUTHORITY_URL; do
+            [ -n "${!name}" ] || missing="$missing $name"
+          done
+          if [ -n "$missing" ]; then
+            echo "::error::Missing in Settings > Secrets and variables > Actions:$missing. See docs/SETUP.md step 8."
+            exit 1
+          fi
+
   build:
+    needs: preflight
     runs-on: ubuntu-latest
     timeout-minutes: 20
     outputs:
@@ -51,13 +76,69 @@ jobs:
           npm run e2e:setup --if-present
           npm run test:e2e:full
 
+      # The tests ran against a build without the hub URL (they never touch the live authority);
+      # the published site is built again with it.
+      - name: Build the site for the live authority
+        if: steps.version.outputs.tag
+        env:
+          BUILD_LABEL: ${{ steps.version.outputs.tag }}
+          AUTHORITY_URL: ${{ vars.AUTHORITY_URL }}
+        run: npm run build
+
       - if: steps.version.outputs.tag
         uses: actions/upload-pages-artifact@v5
         with:
           path: dist
 
-  deploy:
+  worker:
     needs: build
+    if: needs.build.outputs.tag
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          package-manager-cache: false # no shared cache in the publishing path
+
+      - run: npm ci
+
+      - name: Deploy the Worker
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+        run: node tools/worker.mjs deploy
+
+      - name: Set the TURN secrets
+        env:
+          CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
+          CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
+          CF_TURN_KEY_ID: ${{ secrets.CF_TURN_KEY_ID }}
+          CF_TURN_KEY_API_TOKEN: ${{ secrets.CF_TURN_KEY_API_TOKEN }}
+        run: |
+          printf %s "$CF_TURN_KEY_ID" | npx wrangler secret put CF_TURN_KEY_ID -c worker/wrangler.jsonc
+          printf %s "$CF_TURN_KEY_API_TOKEN" | npx wrangler secret put CF_TURN_KEY_API_TOKEN -c worker/wrangler.jsonc
+
+      - name: Smoke-check the released version
+        env:
+          AUTHORITY_URL: ${{ vars.AUTHORITY_URL }}
+        run: |
+          want=$(tr -d '[:space:]' < VERSION)
+          for _ in $(seq 1 12); do
+            got=$(curl -fsS --max-time 5 "${AUTHORITY_URL%/}/v1/health" | jq -r '.version' 2>/dev/null || true)
+            if [ "$got" = "$want" ]; then
+              echo "Worker $got is live."
+              exit 0
+            fi
+            sleep 5
+          done
+          echo "::error::The Worker at AUTHORITY_URL does not report version $want within 60 s (last saw: ${got:-nothing})."
+          exit 1
+
+  deploy:
+    needs: [build, worker]
     if: needs.build.outputs.tag
     runs-on: ubuntu-latest
     timeout-minutes: 10

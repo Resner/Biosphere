@@ -163,6 +163,7 @@ describe('hub hello', () => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
     c.send({ ...hello, v: 2 });
+    expect(await c.next()).toEqual({ t: 'error', code: 'version' });
     expect(await c.closed).toBe(CLOSE_BAD_HELLO);
   });
 

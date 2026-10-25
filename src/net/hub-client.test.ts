@@ -8,8 +8,8 @@ import {
   memoryKeyStore,
   verify,
 } from '../ledger/identity';
-import { HubClient, type HubStatus, type SocketLike } from './hub-client';
-import { CLOSE_REPLACED, type ClientMsg, type HubMsg } from './protocol';
+import { HubClient, type HubClientOptions, type HubStatus, type SocketLike } from './hub-client';
+import { CLOSE_BAD_HELLO, CLOSE_REPLACED, type ClientMsg, type HubMsg } from './protocol';
 
 const NONCE = `${'d'.repeat(21)}Q`;
 const NAME = 'Tester_1';
@@ -54,8 +54,9 @@ let sockets: FakeSocket[];
 let identity: Identity;
 let statuses: HubStatus[];
 
-const make = () => {
+const make = (fetchHealth?: HubClientOptions['fetchHealth']) => {
   const client = new HubClient({
+    fetchHealth,
     url: 'ws://hub.test/v1/ws',
     identity,
     name: NAME,
@@ -202,6 +203,66 @@ describe('HubClient reconnect', () => {
     expect(client.status).toBe('replaced');
     await vi.advanceTimersByTimeAsync(120_000);
     expect(sockets.length).toBe(n);
+  });
+
+  it('reports outdated on a version error and does not reconnect', async () => {
+    const client = make();
+    const p = client.connect();
+    p.catch(() => {});
+    const s = last();
+    s.open();
+    s.receive({ t: 'challenge', nonce: NONCE });
+    s.receive({ t: 'error', code: 'version' });
+    s.drop(CLOSE_BAD_HELLO);
+    expect(client.status).toBe('outdated');
+    await expect(p).rejects.toThrow('outdated');
+    const n = sockets.length;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(sockets.length).toBe(n);
+  });
+
+  it('keeps retrying after a 4002 that is not a version error', async () => {
+    const client = make();
+    void client.connect().catch(() => {});
+    last().open();
+    last().drop(CLOSE_BAD_HELLO);
+    const n = sockets.length;
+    await vi.advanceTimersByTimeAsync(1500);
+    expect(sockets.length).toBe(n + 1);
+  });
+
+  it('reports outdated when the health check names another protocol', async () => {
+    const urls: string[] = [];
+    const client = make(async (url) => {
+      urls.push(url);
+      return { ok: true, version: '9.9.9', protocol: 2 };
+    });
+    void client.connect().catch(() => {});
+    last().open();
+    last().drop();
+    await vi.advanceTimersByTimeAsync(0);
+    expect(urls).toEqual(['http://hub.test/v1/health']);
+    expect(client.status).toBe('outdated');
+    const n = sockets.length;
+    await vi.advanceTimersByTimeAsync(120_000);
+    expect(sockets.length).toBe(n);
+  });
+
+  it('keeps retrying when the health check agrees or fails', async () => {
+    let calls = 0;
+    const client = make(async () => {
+      calls++;
+      if (calls === 1) throw new Error('offline');
+      return { protocol: 1 };
+    });
+    void client.connect().catch(() => {});
+    last().open();
+    last().drop();
+    await vi.advanceTimersByTimeAsync(1500);
+    last().drop();
+    await vi.advanceTimersByTimeAsync(2500);
+    expect(client.status).toBe('connecting');
+    expect(sockets.length).toBe(3);
   });
 
   it('reports each status change once', async () => {

@@ -92,6 +92,8 @@ export function statusText(status: HubStatus | 'none', count: number): string {
       return 'Connecting…';
     case 'replaced':
       return 'Signed in elsewhere';
+    case 'outdated':
+      return 'Update available, reload';
     default:
       return 'Offline · playing alone';
   }

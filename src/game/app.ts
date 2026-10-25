@@ -3,7 +3,7 @@ import type { Identity } from '../ledger/identity';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
 import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
-import type { Welcome } from '../net/hub-client';
+import { isFinalStatus, type Welcome } from '../net/hub-client';
 import { RemoteSet, type RemoteView, SnapshotSender, snapshotOf } from '../net/pond-sync';
 import {
   decodeSnapshot,
@@ -288,7 +288,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** Connects (or reconnects under a new name) once the identity is loaded. */
   const ensureOnline = (name: string): void => {
     if (!hubUrl || !identity) return;
-    if (online && onlineName === name && online.status !== 'replaced') return;
+    if (online && onlineName === name && !isFinalStatus(online.status)) return;
     if (online) {
       for (const { playerId: id } of online.others()) remotes.removeMember(id);
       online.dispose();

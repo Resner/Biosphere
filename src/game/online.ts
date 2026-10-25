@@ -3,8 +3,14 @@
 
 import type { Identity } from '../ledger/identity';
 import type { PondClock } from '../net/clock';
-import type { HubClient, HubStatus, SignalMsg, Welcome } from '../net/hub-client';
-import { HubClient as RealHub } from '../net/hub-client';
+import {
+  type HubClient,
+  type HubStatus,
+  isFinalStatus,
+  HubClient as RealHub,
+  type SignalMsg,
+  type Welcome,
+} from '../net/hub-client';
 import { PeerMesh } from '../net/peer-mesh';
 import type { ClientMsg, IceServer, Member, PeerEvent, Snapshot } from '../net/protocol';
 
@@ -120,7 +126,7 @@ export class OnlineSession {
         resolve(w);
       };
       const check = (): void => {
-        if (hub.status === 'offline' || hub.status === 'replaced') finish(null);
+        if (hub.status === 'offline' || isFinalStatus(hub.status)) finish(null);
         else if (hub.status === 'online' && this.last && hub.clock.offset !== null)
           finish(this.last);
       };

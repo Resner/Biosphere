@@ -244,7 +244,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `Social` (`src/game/social.ts`: rate limits, filtering, mute list, expiry, `T`+digit and `G`), `SocialUi` (`social-ui.ts`: chat panel and input, roster, bubbles, emotes, pings as DOM), `InputController.typing`/`InputHooks` (keys and middle button), `state().social`. Each `G` or middle click places the current ping kind, then the next kind is used. `m2-social.spec.ts` covers the acceptance E2E on its own hub (port 8788).
   - Gotcha: fixed a T13 bug found here: the hub sent the pond capacity (24) as `pond.size`, so hub players lived in a 24 wu world. `PondInfo.size` is now the world side (`RULES.world.size`). Files run in parallel, so each hub E2E file needs its own `wrangler dev` port.
 
-- [ ] T16 Deploy the Worker with the release
+- [x] T16 Deploy the Worker with the release
   - Acceptance:
     - `release.yml` gains a step after the Pages deploy that runs `npx wrangler deploy` with `CLOUDFLARE_API_TOKEN` and `CLOUDFLARE_ACCOUNT_ID`, sets the `CF_TURN_KEY_ID` and `CF_TURN_KEY_API_TOKEN` Worker secrets with `wrangler secret put`, and then smoke-checks `GET $AUTHORITY_URL/v1/health` for the released version within 60 s. The build step reads the `AUTHORITY_URL` repository variable.
     - If any of the four secrets or `AUTHORITY_URL` is missing, the workflow fails on a plain, early step (before anything is deployed) with a message naming what is missing, and the factory opens a `Blocked:` issue (below).
@@ -253,6 +253,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Notes:
     - If the secrets are not set when this task runs, open `Blocked: M2 T16: add Cloudflare secrets` with the exact steps from `docs/SETUP.md` step 8 and the secret names, mark T16 `blocked (#n)`, and stop. Release then waits for the owner; the `milestone` step must not run before T16 is ticked.
     - The PR gate never touches Cloudflare (`.claude/rules/ci.md`); only the release workflow deploys.
+  - Done: `release.yml` jobs `preflight` (names the missing secrets or `AUTHORITY_URL`) → `build` (tests on a build without the hub URL, then a rebuild with `AUTHORITY_URL`) → `worker` (`tools/worker.mjs deploy`, TURN secrets, 60 s version smoke check) → `deploy` (Pages). `tools/release-workflow.test.ts` checks the shape and that secrets are read only in `preflight`/`worker`. A hello with another `v` gets `error {code:'version'}` before the 4002 close; `HubClient` shows `outdated` ("Update available, reload") on that error or a `/v1/health` protocol mismatch and stops retrying.
+  - Gotcha: the secrets could not be checked from the factory session (the proxy blocks the Actions secrets API), so no `Blocked:` issue was opened; the first release fails early in `preflight` with the missing names if `docs/SETUP.md` step 8 isn't done. The `milestone` step opens that issue if it sees the failure.
 
 - [x] T17 End-to-end shared pond
   - Acceptance (`tests/e2e/m2-pond.spec.ts`, local `wrangler dev` started by Playwright's `webServer`, no public STUN, TURN or relays):

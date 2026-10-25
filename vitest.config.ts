@@ -7,7 +7,10 @@ import { versionDefine } from './tools/version.mjs';
 export default defineConfig({
   test: {
     projects: [
-      { extends: './vite.config.ts', test: { name: 'node', include: ['src/**/*.test.ts'] } },
+      {
+        extends: './vite.config.ts',
+        test: { name: 'node', include: ['src/**/*.test.ts', 'tools/**/*.test.ts'] },
+      },
       {
         define: versionDefine(),
         plugins: [

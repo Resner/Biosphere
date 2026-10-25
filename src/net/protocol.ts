@@ -255,6 +255,12 @@ function list<T>(v: unknown, max: number, item: (x: unknown) => T | null): T[] |
   return out;
 }
 
+/** True for a well-formed `hello` that speaks another protocol version: worth an `error`, not a silent close. */
+export function isOtherVersionHello(raw: string): boolean {
+  const o = parseObject(raw, SIGNAL_MAX_BYTES);
+  return o !== null && o.t === 'hello' && typeof o.v === 'number' && o.v !== PROTOCOL_VERSION;
+}
+
 export function parseClientMsg(raw: string): ClientMsg | null {
   const o = parseObject(raw, SIGNAL_MAX_BYTES);
   if (!o) return null;
