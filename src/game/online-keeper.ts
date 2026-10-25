@@ -21,8 +21,8 @@ export class OnlineKeeper<S> {
     if (current && this.name === name && !this.opts.isFinal(current)) return current;
     if (current) this.opts.stop(current);
     this.current = null;
-    this.name = name;
     this.current = this.opts.start(name);
+    this.name = name;
     return this.current;
   }
 

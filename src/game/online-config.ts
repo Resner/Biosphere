@@ -53,7 +53,8 @@ export interface Store {
 export async function tryOnline<T>(connect: () => Promise<T | null>): Promise<T | null> {
   try {
     return await connect();
-  } catch {
+  } catch (error) {
+    console.warn('online session failed, playing in a local pond', error);
     return null;
   }
 }

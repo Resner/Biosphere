@@ -281,6 +281,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             // A life in the old pond carries on in a local one; the chip says so.
             if (life && !next.life) {
               session.pond = null;
+              // The old pond's eaten food is not this life's any more.
+              session.world.consumed = { ...session.world.consumed };
               loop.setSpeed(1);
             }
           }
@@ -360,9 +362,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     // Leave the roster promptly instead of waiting for the hub to notice the dead socket. A page
     // restored from the back/forward cache joins again.
     window.addEventListener('pagehide', () => keeper.suspend());
-    window.addEventListener('pageshow', (e) => {
-      if (e.persisted) keeper.resume();
-    });
+    window.addEventListener('pageshow', () => keeper.resume());
   }
   // Enter hatches from the title and death screens (Space stays the dash key).
   // Enter opens the chat input while playing. T then 1-6, G and the middle button are social keys.
@@ -497,7 +497,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let shownStatus = '';
   const updateNetUi = (now: number, joined: Pond | null): void => {
     // A life in a local pond is alone, whatever the hub says about its own pond.
-    const apart = !session.demo && session.pond === null;
+    const apart = screen === 'playing' && !session.demo && session.pond === null;
     let text = '';
     if (hubUrl) {
       text = apart
