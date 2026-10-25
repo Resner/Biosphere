@@ -122,7 +122,7 @@ Other `src/sim` modules:
   - Done: `math.ts`, `prng.ts`, `hash.ts` use fdlibm kernels (all accuracy targets met); the guard allows only the exactly specified `Math.*` members and flags aliasing, `**` and `globalThis`.
   - Gotcha: `sin`/`cos` are accurate to about |x| 1e6 (callers pass wrapped angles); `exp` clamps, `log`/`pow` throw outside their domain.
 
-- [ ] T2 Rules, world state and state hash
+- [x] T2 Rules, world state and state hash
   - Acceptance:
     - `hashWorld(createWorld({ seed: 'pond-1' }))` is equal across two calls, and seed `'pond-2'` gives a different hash.
     - With two creatures spawned in either order, `world.creatures` is sorted by id and the hashes are equal.
@@ -131,6 +131,8 @@ Other `src/sim` modules:
     - `structuredClone(world)` deep-equals `world` and hashes the same.
     - `spawnCreature` defaults: biomass 100, energy 120 (60% of 200), health 100, `alive: true`.
   - Notes: the state hash walks fields in a fixed order (it never relies on `JSON.stringify` key order).
+  - Done: `rules.ts` (deep-frozen `RULES` for DESIGN §2–§4), `types.ts`, `world.ts`, `state-hash.ts`; `consumed` ids are hashed in sorted order.
+  - Gotcha: `hashWorld` throws on NaN/Infinity (via `Hasher.f64`); `options.currents`/`hazards` default to true.
 
 - [ ] T3 Movement physics and input encoding
   - Acceptance:
