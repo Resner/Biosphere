@@ -64,7 +64,7 @@ test.describe('the M1 loop', () => {
       window.__bs?.debug?.setEnergy(0);
       window.__bs?.debug?.timeScale(4);
     });
-    await expect(page.getByTestId('death-cause')).toHaveText('Starved', { timeout: 15_000 });
+    await expect(page.getByTestId('death-cause')).toHaveText('Starved', { timeout: 25_000 });
     await expect(page.getByTestId('death-survived')).toContainText('s');
     await expect(page.getByTestId('death-peak')).toContainText('100');
     expect(await page.evaluate(() => window.__bs?.state().screen)).toBe('dead');

@@ -5,6 +5,7 @@ import type { Ring } from './effects';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';
 import { ParticleLayer } from './particles';
+import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
 import { Water } from './water';
 
@@ -16,6 +17,8 @@ export interface SceneView {
   /** Visible half-height in world units. */
   halfHeight: number;
   creature: CellView | null;
+  /** The other players in the pond. */
+  remotes: readonly RemoteCellView[];
   /** Eat pops and dash ripples alive right now. */
   rings: readonly Ring[];
 }
@@ -24,6 +27,8 @@ export interface RenderInfo {
   calls: number;
   triangles: number;
   foodInstances: number;
+  /** Other players' cells drawn this frame. */
+  remoteCells: number;
   /** CSS pixels per world unit. */
   pxPerWu: number;
 }
@@ -52,6 +57,7 @@ export class GameScene {
   private readonly food = new FoodLayer();
   private readonly cell = new Cell();
   private readonly rings = new RingLayer();
+  private readonly remotes: RemoteLayer;
   private cssWidth = 1;
   private cssHeight = 1;
   private half = 1;
@@ -66,6 +72,7 @@ export class GameScene {
     this.renderer.setClearColor(0x04090b);
     this.camera.position.z = 5;
 
+    this.remotes = new RemoteLayer(this.scene, ORDER.cell - 0.1);
     this.water = new Water(worldSize);
     // Fake depth of field until M6: big soft bokeh far below and near above the plane.
     this.far = new ParticleLayer(290, 11, {
@@ -169,6 +176,7 @@ export class GameScene {
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(view.creature, view.time);
+    this.remotes.set(view.remotes, view.time);
     this.rings.set(view.rings);
 
     this.renderer.render(this.scene, camera);
@@ -180,6 +188,7 @@ export class GameScene {
       calls: render.calls,
       triangles: render.triangles,
       foodInstances: this.food.instances(),
+      remoteCells: this.remotes.count(),
       pxPerWu: this.pxPerWu,
     };
   }
@@ -205,6 +214,7 @@ export class GameScene {
       this.food,
       this.cell,
       this.rings,
+      this.remotes,
     ]) {
       part.dispose();
     }

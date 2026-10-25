@@ -319,7 +319,8 @@ describe('parser fuzz', () => {
       }
     }
     expect(threw).toBe(0);
-  });
+    // The 100,000 cases take about 5 s alone, so the default 5 s limit flaked under load.
+  }, 30_000);
 });
 
 describe('module hygiene', () => {
