@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { createRng, seedFromString } from '../sim/prng';
 import { filterText, isProfane, validName } from './text';
 import { ENGLISH_TERMS, GERMAN_TERMS, INNOCENT_WORDS } from './text-words';
 
@@ -93,11 +94,7 @@ describe('filterText', () => {
   });
 
   it('never throws and never lengthens random text', () => {
-    let s = 0x2545f491;
-    const next = (): number => {
-      s = (Math.imul(s, 1664525) + 1013904223) >>> 0;
-      return s / 0x100000000;
-    };
+    const rng = createRng(seedFromString('text-fuzz'), 'filter');
     const pools = [
       'abcdefghijklmnopqrstuvwxyz',
       'ABCXYZ 0123456789 .-_*@$!',
@@ -105,16 +102,23 @@ describe('filterText', () => {
       '😀𐀀\udfff',
     ];
     for (let i = 0; i < 10_000; i++) {
-      const len = Math.floor(next() * 140);
+      const len = rng.int(0, 139);
       let text = '';
       for (let j = 0; j < len; j++) {
-        const pool = pools[Math.floor(next() * pools.length)] as string;
-        text += pool[Math.floor(next() * pool.length)];
+        const pool = pools[rng.int(0, pools.length - 1)] as string;
+        text += pool[rng.int(0, pool.length - 1)];
       }
       const out = filterText(text);
       expect(out.length).toBeLessThanOrEqual(text.length);
       isProfane(text);
     }
+  });
+
+  it('stays fast on a long run of single letters', () => {
+    const text = 'a b c d e f g h i j k l m n o p q r s t u v w x y z '.repeat(3).slice(0, 140);
+    const start = performance.now();
+    for (let i = 0; i < 50; i++) filterText(text);
+    expect((performance.now() - start) / 50).toBeLessThan(1);
   });
 
   it('filters a 140-character message in well under a millisecond on average', () => {

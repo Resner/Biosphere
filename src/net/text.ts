@@ -11,6 +11,8 @@ const SPELLED_MIN = 3;
 
 const WHOLE = new Set([...ENGLISH_TERMS, ...GERMAN_TERMS]);
 const STEMS = [...WHOLE].filter((t) => t.length >= STEM_MIN);
+const STEM_RE = new RegExp(STEMS.join('|'));
+const LONGEST_TERM = Math.max(...[...WHOLE].map((t) => t.length));
 const INNOCENT = new Set(INNOCENT_WORDS);
 
 const LEET: Readonly<Record<string, string>> = {
@@ -22,7 +24,6 @@ const LEET: Readonly<Record<string, string>> = {
   '7': 't',
   '@': 'a',
   $: 's',
-  '!': 'i',
 };
 
 // Letters that Unicode normalisation does not turn into ASCII, and look-alikes from other scripts.
@@ -72,16 +73,13 @@ interface Cell {
 
 const ASCII_LETTER = /^[a-z]+$/;
 const COMBINING_MARK = /\p{M}/gu;
+const INVISIBLE = /^[\p{M}\p{Cf}]$/u;
 
 function classify(ch: string, start: number): Cell {
   const end = start + ch.length;
   // Zero-width characters and bare combining marks are invisible: they join the letters around them.
-  if (/^[\p{M}\p{Cf}]+$/u.test(ch)) return { start, end, letters: '', kind: 'ignored' };
-  const lower = ch.toLowerCase();
-  const direct = CONFUSABLE[lower];
-  const base = direct ?? lower.normalize('NFKD').replace(COMBINING_MARK, '');
-  const mapped = base
-    .split('')
+  if (INVISIBLE.test(ch)) return { start, end, letters: '', kind: 'ignored' };
+  const mapped = [...ch.toLowerCase().normalize('NFKD').replace(COMBINING_MARK, '')]
     .map((c) => CONFUSABLE[c] ?? c)
     .join('');
   if (ASCII_LETTER.test(mapped)) return { start, end, letters: mapped, kind: 'letter' };
@@ -157,18 +155,18 @@ function tokensOf(cells: Cell[]): Token[] {
   return tokens;
 }
 
-/** The word as typed, with each run of the same letter cut to two, then to one. */
+/** The word as typed, with each run of the same letter cut to two, then to one (no repeats: itself). */
 function shortenedForms(word: string): string[] {
+  if (!/(.)\1/.test(word)) return [word];
   const twice = word.replace(/(.)\1{2,}/g, '$1$1');
   const once = word.replace(/(.)\1+/g, '$1');
-  return [word, twice, once];
+  return [...new Set([word, twice, once])];
 }
 
 function wordIsProfane(word: string): boolean {
   for (const form of shortenedForms(word)) {
     if (WHOLE.has(form)) return true;
-    if (INNOCENT.has(form)) continue;
-    for (const stem of STEMS) if (form.includes(stem)) return true;
+    if (!INNOCENT.has(form) && STEM_RE.test(form)) return true;
   }
   return false;
 }
@@ -188,16 +186,14 @@ function profaneSpans(text: string): Array<[number, number]> {
     let last = i;
     while (last + 1 < tokens.length && (tokens[last + 1] as Token).single) last++;
     for (let from = i; from + SPELLED_MIN <= last + 1; from++) {
-      for (let to = last; to - from + 1 >= SPELLED_MIN; to--) {
-        const word = tokens
-          .slice(from, to + 1)
-          .map((t) => t.word)
-          .join('');
-        if (wordIsProfane(word)) {
-          spans.push([(tokens[from] as Token).start, (tokens[to] as Token).end]);
-          break;
-        }
+      // A longer window can only match through a term a shorter one already holds.
+      let word = '';
+      let hit = -1;
+      for (let to = from; to <= last && word.length < LONGEST_TERM; to++) {
+        word += (tokens[to] as Token).word;
+        if (to - from + 1 >= SPELLED_MIN && wordIsProfane(word)) hit = to;
       }
+      if (hit >= 0) spans.push([(tokens[from] as Token).start, (tokens[hit] as Token).end]);
     }
     i = last;
   }
@@ -211,13 +207,10 @@ export function isProfane(text: string): boolean {
 
 /** The text with profanity replaced by `*`, one for each UTF-16 unit, so it never gets longer. */
 export function filterText(text: string): string {
-  const spans = profaneSpans(text);
-  if (spans.length === 0) return text;
-  const chars = text.split('');
-  for (const [start, end] of spans) {
-    for (let i = start; i < end; i++) chars[i] = '*';
-  }
-  return chars.join('');
+  return profaneSpans(text).reduce(
+    (out, [start, end]) => out.slice(0, start) + '*'.repeat(end - start) + out.slice(end),
+    text,
+  );
 }
 
 /** A name the hub accepts: 3–16 characters of `A-Z a-z 0-9 _ -`, and nothing profane. */
