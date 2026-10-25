@@ -244,11 +244,22 @@ Other `src/sim` modules:
 
 ## Rubric
 
-- [ ] The membrane reads as translucent with a bright rim; the three food kinds are distinguishable at default zoom (evidence: screenshots in the PR).
-- [ ] Particles sit at three depths with soft bokeh discs (evidence: screenshot).
-- [ ] The HUD is readable over both dark water and a plume (evidence: screenshot).
+- [x] The membrane reads as translucent with a bright rim; the three food kinds are distinguishable at default zoom (evidence: screenshots in the PR).
+- [x] Particles sit at three depths with soft bokeh discs (evidence: screenshot).
+- [x] The HUD is readable over both dark water and a plume (evidence: screenshot).
 - [ ] Steering, dash and growth feel responsive and satisfying (owner).
 - [ ] It runs smoothly on the owner's laptop (owner).
+
+## Carried over from the close review
+
+Non-blocking findings from the M1 close review; the M2 spec takes them up (ROADMAP, M2 outline):
+
+- `fx.update` takes uncapped wall-clock time, so a hidden tab skips the death dissolve on return; reset `lastMs` on resume.
+- Enter hatches on key repeat, and at once on the death screen; ignore `repeat` and add a short delay.
+- Input never calls `preventDefault` for Space and the arrows, and keys held across `visibilitychange` stay down.
+- `consumeFood` empties a slot even when the eater is at max energy (matters once ponds are shared).
+- `refreshField` repeats per catch-up tick; refresh once per rendered frame.
+- `findClearSpot` returns the first clear point in scan order, not the nearest; plumes may drift onto a hatching point.
 
 ## Risks
 
