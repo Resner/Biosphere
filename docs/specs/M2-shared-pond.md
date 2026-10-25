@@ -254,7 +254,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - If the secrets are not set when this task runs, open `Blocked: M2 T16: add Cloudflare secrets` with the exact steps from `docs/SETUP.md` step 8 and the secret names, mark T16 `blocked (#n)`, and stop. Release then waits for the owner; the `milestone` step must not run before T16 is ticked.
     - The PR gate never touches Cloudflare (`.claude/rules/ci.md`); only the release workflow deploys.
 
-- [ ] T17 End-to-end shared pond
+- [ ] T17 End-to-end shared pond (in progress)
   - Acceptance (`tests/e2e/m2-pond.spec.ts`, local `wrangler dev` started by Playwright's `webServer`, no public STUN, TURN or relays):
     - Three browser contexts hatch, join one pond, and see each other: `state().remotes` has 2 entries in each within 5 s, and each remote's reported position is within 40 wu of the owner's own `state().player` position after 5 s of play (interpolation lag included).
     - While A steers in a circle at full throttle for 5 s, B's recorded remote position series for A has no step larger than 25 wu between consecutive frames at 30 fps, and its mean error against A's own positions (aligned by tick) is under 12 wu.
