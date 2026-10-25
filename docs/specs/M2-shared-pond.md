@@ -219,7 +219,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/game/online.ts` (`OnlineSession`: roster, mesh, traffic from roster members only; `connectOnline` wires the real hub client and `PeerMesh`), `online-config.ts` (`?hub=` accepted for localhost only, the `AUTHORITY_URL` build variable, names, `ringSpawn`, chip text), `alone-hint.ts`, and `PondTime.pondMs`. Title name field, status chip and alone hint in `index.html`. Playwright now starts `wrangler dev` (port 8787, state in `.wrangler/e2e-state`) and launches Chromium without mDNS ICE names; `m2-online.spec.ts` covers the acceptance E2E.
   - Gotcha: the hub client runs on `performance.now` (`HubClientOptions.now`) so the pond clock and `PondTime` share one local axis. A hatch waits (≤ 4 s) for the welcome and the first pong. The mesh connects at welcome, not at hatch, so claims and consumed sets reach the pond between lives; a local-pond life ignores them (`session.pond !== pond`). E2E files that use the hub must run serially: one hub, fullest pond first. `ConnectionPolicy` (T10) is not used yet: a pond has at most 24 members, under the 32-connection cap; T17's 24-peer test and M11 need it.
 
-- [ ] T14 Text filter and names
+- [x] T14 Text filter and names
   - Acceptance (unit tests, `src/net/text.ts`, shared with the Worker):
     - `validName`: accepts `Cell1234`, `a-b_c`, rejects `ab`, 17 characters, spaces, `é`, empty.
     - `filterText` replaces profanity with `***` of the same length: words in an English list and a German list, case-insensitive, after normalising leetspeak (`0→o 1→i 3→e 4→a 5→s 7→t @→a $→s !→i`), repeated letters (`fuuuck`), separators (`f.u.c.k`, `f u c k`) and Unicode confusables (`ƒuck` → `fuck`). The list ships ≥ 80 terms per language, kept in a data file.
@@ -227,6 +227,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - Names go through the same check: `validName` plus `!isProfane(name)`; the hub (T5) rejects a profane name with 4002 and the title screen shows "Pick another name".
     - 10,000 random strings never throw and `filterText` never lengthens the text.
   - Notes: the lists are plain word arrays so they can be reviewed; no network. Matching is deterministic and fast (< 1 ms for a 140-character message).
+  - Done: `src/net/text.ts` + `text-words.ts` (≥ 80 terms per language, `INNOCENT_WORDS` exempts stem hits like `retardant`); `cleanName` and the hub's hello (closes 4002) use it.
+  - Gotcha: digits only count as leetspeak inside a token with a real letter (`455` stays a number); `!` is `i` only inside a word (`sh!t`, not `shit!`); spelled-out words need ≥ 3 single letters. T15 calls `filterText` on send and receive.
 
 - [ ] T15 Chat, emotes, pings, mute
   - Acceptance:

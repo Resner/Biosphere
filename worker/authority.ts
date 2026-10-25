@@ -21,6 +21,7 @@ import {
   SPAWN_GOLDEN_ANGLE,
   type Vec2,
 } from '../src/net/protocol';
+import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
@@ -144,6 +145,10 @@ export class Authority extends DurableObject<Env> {
     session: Session & { phase: 'challenged' },
     msg: ClientMsg & { t: 'hello' },
   ): Promise<void> {
+    if (isProfane(msg.name)) {
+      ws.close(CLOSE_BAD_HELLO, 'name not allowed');
+      return;
+    }
     const message = helloMessage(session.nonce, msg.name);
     if (!message) {
       ws.close(CLOSE_BAD_HELLO, 'bad nonce');
