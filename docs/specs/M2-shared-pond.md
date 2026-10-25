@@ -161,7 +161,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/clock.ts` (`PondClock`, `ClockSync`) and `src/net/hub-client.ts` (`HubClient`, injectable socket); 8 pings 250 ms apart after each welcome, then one a minute. `onWelcome` fires again after reconnects; 4002/4003 closes reconnect, 4004 (origin) stops like 4001.
   - Gotcha: slewing treats drift under 1 tick as zero, using the fractional pond tick (`pondTickExact`); `ClockSync.correct` only returns a speed or a snap, the loop in T12 applies it.
 
-- [ ] T9 PeerMesh: negotiation and channels
+- [ ] T9 PeerMesh: negotiation and channels (in progress)
   - Acceptance:
     - Unit tests with a fake `RTCPeerConnection` pair wired through an in-memory signal bus: two peers connect with perfect negotiation, both orderings of who calls first; simultaneous offers (glare) resolve to one connection, the polite side yielding by `playerId` order. Each connection opens a `state` channel (unordered, `maxRetransmits: 0`) and an `event` channel (ordered, reliable). Offers and answers are sent once ICE gathering completes or after 2 s (fake timers), exactly two signal messages per connection.
     - A connection that is not `connected` within 12 s is closed and retried once after 3 s, then dropped until the roster changes.
