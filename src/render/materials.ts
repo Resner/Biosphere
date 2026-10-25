@@ -59,7 +59,7 @@ export const cellMaterial = (extent: number): THREE.ShaderMaterial =>
 
 export const flagellumMaterial = (): THREE.ShaderMaterial =>
   layer(flagellumVertex, flagellumFragment, {
-    uTime: { value: 0 },
+    uPhase: { value: 0 },
     uRadius: { value: 1 },
     uBeat: { value: 0 },
     uColor: { value: new THREE.Color(0.62, 0.91, 0.84) },

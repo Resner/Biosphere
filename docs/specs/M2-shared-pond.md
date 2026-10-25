@@ -265,6 +265,15 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - A 24-peer pond runs in a unit-level simulation (24 `PeerMesh` instances over fake transports): everyone connects to 23 others, a snapshot round reaches all, and a leave drops one connection per peer.
   - Notes: tag the longest scenario `@slow`. Chromium needs `--disable-features=WebRtcHideLocalIpsWithMdns` (set in `playwright.config.ts` launch args). This is the milestone's single end-to-end check.
 
+- [x] T18 Playtest v0.2.0 fixes (#24)
+  - Acceptance:
+    - The water looks the same anywhere in the world: the mean luma of the open-water part of the frame at the world's middle, near the left edge and in the corner stays within 0.6–1.6× (E2E, `m1-look.spec.ts`).
+    - The flagellum's wave phase is integrated per frame (`advanceBeatPhase`), so a change of beat never jumps the phase, however long the session; the phase stays within one turn (unit).
+    - WASD outranks the mouse while held. After the last key is released the cell coasts until the pointer moves again; a pointer that leaves the page stops steering (unit, `InputController`).
+  - Done: caustics are evaluated on one wrapped tile (the filament formula scaled with the distance from the world origin); `src/render/beat.ts` feeds the `uPhase` uniform; `InputController` tracks whether the pointer moved after the last movement key went down, and `mouseout` with no related target releases the pointer.
+  - Gotcha: never drive a shader wave with `uTime * rate` when the rate changes; integrate the phase.
+  - Routed from the same comment: 4 (growth pace and the 400 cap) → M3 "Game integration" (the cap becomes the max-size gene, and the growth pace is retuned with `RULES_VERSION` 2); 5 (a living, attached body that survives generated designs; crispness) → M3 mesh builder (vertex-shader gait on one merged body) and M6 readability pass.
+
 ## End-to-end check
 
 `tests/e2e/m2-pond.spec.ts` (T17) plus `m2-webrtc.spec.ts` (T9), `m2-identity.spec.ts` (T3) and the chat scenario from T15, all offline against local `wrangler dev`. Exit-criteria map:

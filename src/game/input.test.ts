@@ -69,6 +69,35 @@ describe('InputController', () => {
     expect(sample(c).steer).toBe(0);
   });
 
+  it('coasts after the last movement key is released until the pointer moves again', () => {
+    const c = new InputController();
+    c.pointerMove(700, 300);
+    c.keyDown('w');
+    c.keyUp('w');
+    expect(sample(c).throttle).toBe(0);
+    c.pointerMove(701, 300);
+    expect(sample(c)).toEqual({ steer: 0, throttle: 15, dash: false });
+  });
+
+  it('keeps a held key above the pointer, and the pointer wins back once the key is released and it has moved', () => {
+    const c = new InputController();
+    c.keyDown('d');
+    c.pointerMove(400, 100);
+    expect(sample(c).steer).toBe(0);
+    c.keyUp('d');
+    expect(sample(c).steer).toBe(64);
+  });
+
+  it('stops following a pointer that left the window', () => {
+    const c = new InputController();
+    c.pointerMove(700, 300);
+    c.pointerLeave();
+    expect(sample(c).throttle).toBe(0);
+    expect(c.pointerAt()).toBeNull();
+    c.pointerMove(700, 300);
+    expect(sample(c).throttle).toBe(15);
+  });
+
   it('coasts before the pointer has ever moved', () => {
     expect(sample(new InputController()).throttle).toBe(0);
   });
@@ -132,6 +161,21 @@ describe('InputController events', () => {
       expect(key('keydown', k).defaultPrevented).toBe(true);
     }
     expect(key('keydown', 'w').defaultPrevented).toBe(false);
+  });
+
+  it('coasts when the pointer leaves the page', () => {
+    const { controller, doc } = setup();
+    controller.pointerMove(700, 300);
+    expect(controller.sample({ x: 0, y: 0 }, 1, 10).throttle).toBeGreaterThan(0);
+    doc.dispatchEvent(Object.assign(new Event('mouseout'), { relatedTarget: null }));
+    expect(controller.sample({ x: 0, y: 0 }, 1, 10).throttle).toBe(0);
+  });
+
+  it('keeps following the pointer when it only crosses between elements', () => {
+    const { controller, doc } = setup();
+    controller.pointerMove(700, 300);
+    doc.dispatchEvent(Object.assign(new Event('mouseout'), { relatedTarget: {} }));
+    expect(controller.sample({ x: 0, y: 0 }, 1, 10).throttle).toBeGreaterThan(0);
   });
 
   it('releases held keys when the tab is hidden', () => {

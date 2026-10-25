@@ -5,7 +5,8 @@ uniform float uTime;
 uniform float uWorld;
 varying vec2 vNdc;
 
-// Folded sine caustics: bright filaments where the folded waves converge.
+// Folded sine caustics: bright filaments where the folded waves converge. The filament width is a
+// constant: scaling it with `p` (as the shader this comes from does) makes it depend on the origin.
 float caustic(vec2 p, float t) {
   vec2 i = p;
   float c = 1.0;
@@ -15,7 +16,7 @@ float caustic(vec2 p, float t) {
     // The sine and cosine are floored away from zero, where the term would blow up.
     float sx = max(abs(sin(i.x + tt)), 1e-3);
     float cy = max(abs(cos(i.y + tt)), 1e-3);
-    c += 1.0 / length(vec2(p.x * 0.006 / sx, p.y * 0.006 / cy));
+    c += 1.0 / length(vec2(0.44 / sx, 0.44 / cy));
   }
   c /= 4.0;
   return pow(abs(1.17 - pow(c, 1.4)), 8.0);
@@ -26,7 +27,9 @@ void main() {
   float body = fbm(w / 700.0 + vec2(uTime * 0.01, 0.0));
   vec3 col = mix(vec3(0.010, 0.026, 0.034), vec3(0.040, 0.100, 0.110), body);
 
-  float c = caustic(w / 55.0, uTime * 0.35);
+  // The sine terms repeat every 2 pi, so the coordinate is wrapped to one tile and the look does
+  // not depend on where in the world the camera is.
+  float c = caustic(mod(w / 55.0, 6.2831853), uTime * 0.35);
   col += vec3(0.09, 0.27, 0.24) * clamp(c, 0.0, 1.0) * (0.35 + body);
 
   col *= 1.0 - 0.4 * dot(vNdc, vNdc) * 0.5;

@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { RULES } from '../../src/sim/rules';
 import { hatch, openGame, playerOf } from './helpers';
 
 // The macro look is judged by properties of decoded screenshots and renderer budgets, never by
@@ -70,6 +71,16 @@ async function measure(
         }
       }
 
+      // The right-hand 70% of the frame: open water, clear of the HUD.
+      let fieldSum = 0;
+      let fieldCount = 0;
+      for (let y = 0; y < height; y++) {
+        for (let x = Math.floor(width * 0.3); x < width; x++) {
+          fieldSum += luma((y * width + x) * 4);
+          fieldCount++;
+        }
+      }
+
       let rgb: [number, number, number] | null = null;
       if (patch) {
         const sum = [0, 0, 0];
@@ -90,7 +101,11 @@ async function measure(
         rgb = [(sum[0] ?? 0) / n, (sum[1] ?? 0) / n, (sum[2] ?? 0) / n];
       }
       return {
-        luma: { ring: ringSum / ringCount, corners: cornerSum / cornerCount },
+        luma: {
+          ring: ringSum / ringCount,
+          corners: cornerSum / cornerCount,
+          field: fieldSum / fieldCount,
+        },
         patch: rgb,
       };
     },
@@ -126,6 +141,41 @@ test.describe('macro look', () => {
     const { luma } = await measure(page, { radiusPx: player.radius * pxPerWu });
     expect(luma.ring).toBeGreaterThan(2 * (luma.corners ?? 0));
     expect(luma.corners).toBeGreaterThan(0);
+  });
+
+  test('the water looks the same near the world origin as in the middle of the world', async ({
+    page,
+  }) => {
+    await play(page);
+    await waitForFrames(page);
+    const size = RULES.world.size;
+    const player = await playerOf(page);
+    const { pxPerWu } = await page.evaluate(() => (window.__bs as BsHook).render.info());
+    const query = { radiusPx: player.radius * pxPerWu };
+    const fields: number[] = [];
+    for (const [x, y] of [
+      [size / 2, size / 2],
+      [150, size / 2],
+      [150, 150],
+      [size / 2, 150],
+    ] as const) {
+      await page.evaluate(
+        (to) => {
+          const debug = (window.__bs as BsHook).debug;
+          if (!debug) throw new Error('needs ?debug=1');
+          debug.teleport(to.x, to.y);
+        },
+        { x, y },
+      );
+      await waitForFrames(page, 8);
+      fields.push((await measure(page, query)).luma.field ?? 0);
+    }
+    const middle = fields[0] ?? 0;
+    expect(middle).toBeGreaterThan(0);
+    for (const field of fields) {
+      expect(field / middle).toBeGreaterThan(0.6);
+      expect(field / middle).toBeLessThan(1.6);
+    }
   });
 
   test('stays inside the draw budget and draws every visible food item', async ({ page }) => {

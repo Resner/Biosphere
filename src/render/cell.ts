@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { advanceBeatPhase } from './beat';
 import { cellMaterial, colorUniform, flagellumMaterial, setUniform } from './materials';
 
 /** The halo reaches this many radii out from the centre. */
@@ -32,6 +33,8 @@ export class Cell {
   private readonly bodyGeometry = new THREE.PlaneGeometry(2, 2);
   private readonly flagellumGeometry = new THREE.PlaneGeometry(1, 2, 40, 1);
   private tint: number | null = null;
+  private phase = 0;
+  private lastTime: number | null = null;
 
   constructor() {
     this.flagellumGeometry.translate(-0.5, 0, 0);
@@ -45,7 +48,10 @@ export class Cell {
     const visible = view !== null;
     this.body.visible = visible;
     this.flagellum.visible = visible;
-    if (!view) return;
+    if (!view) {
+      this.lastTime = null;
+      return;
+    }
 
     if (view.hue !== undefined) this.setTint(view.hue);
     const alpha = view.alpha ?? 1;
@@ -62,7 +68,9 @@ export class Cell {
     // The whip's vertices are built in the cell's frame, so it follows the heading as a whole.
     this.flagellum.position.set(view.x, view.y, 0);
     this.flagellum.rotation.z = view.heading;
-    setUniform(this.flagellumMat, 'uTime', time);
+    this.phase = advanceBeatPhase(this.phase, view.beat, time - (this.lastTime ?? time));
+    this.lastTime = time;
+    setUniform(this.flagellumMat, 'uPhase', this.phase);
     setUniform(this.flagellumMat, 'uRadius', view.radius);
     setUniform(this.flagellumMat, 'uBeat', view.beat);
     setUniform(this.flagellumMat, 'uDissolve', view.dissolve);
