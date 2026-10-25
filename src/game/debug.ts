@@ -39,8 +39,11 @@ export interface BsState {
     /** Social events dropped for a rate limit or a sender outside the roster. */
     dropped: number;
   };
-  /** The status chip's text, the hub's state ('none' without a hub) and open peer connections. */
-  net: { text: string; status: string; open: number };
+  /**
+   * The status chip's text, the hub's state ('none' without a hub), open peer connections and
+   * food claims ignored as implausible.
+   */
+  net: { text: string; status: string; open: number; foodIgnored: number };
 }
 
 /** A scripted remote creature for tests: it swims in a straight line and sends real snapshots. */

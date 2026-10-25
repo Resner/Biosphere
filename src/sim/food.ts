@@ -159,17 +159,46 @@ export function consumeFood(world: World, id: string): void {
 }
 
 /**
+ * Whether cycle `k` of a slot can have been eaten at `tick` on this world's clock: `tick` lies
+ * within `claimTickWindow` of the local tick, and a slot needs at least `respawnMinTicks` per
+ * cycle, so cycle `k` is never eaten before tick `k × respawnMinTicks` (less the same window).
+ */
+export function claimPlausible(world: World, k: number, tick: number): boolean {
+  const slack = RULES.food.claimTickWindow;
+  return (
+    Number.isInteger(k) &&
+    Number.isInteger(tick) &&
+    k >= 0 &&
+    Math.abs(tick - world.tick) <= slack &&
+    k * RULES.food.respawnMinTicks <= tick + slack
+  );
+}
+
+/** Whether a `consumed` entry (next cycle `k`, respawn at `until`) fits this world's clock. */
+export function consumedPlausible(world: World, k: number, until: number): boolean {
+  const slack = RULES.food.claimTickWindow;
+  return (
+    Number.isInteger(k) &&
+    Number.isInteger(until) &&
+    k >= 0 &&
+    until >= 0 &&
+    until <= world.tick + slack + RULES.food.respawnMaxTicks &&
+    (k - 1) * RULES.food.respawnMinTicks <= world.tick + slack
+  );
+}
+
+/**
  * Applies another player's claim: cycle `k` of `slot` was eaten at `tick`. The slot moves to
  * cycle `k + 1` and respawns exactly when it would have for that eater (ADR 0016), whatever this
- * world's own tick is. Returns false, changing nothing, for a slot outside the grid or a cycle the
- * slot is already past.
+ * world's own tick is. Returns false, changing nothing, for a slot outside the grid, a claim outside
+ * the window of `claimPlausible`, or a cycle the slot is already past.
  */
 export function applyRemoteClaim(
   world: World,
   claim: { slot: string; k: number; tick: number },
 ): boolean {
   const parsed = parseSlot(world, claim.slot);
-  if (!parsed || !Number.isInteger(claim.k) || !Number.isInteger(claim.tick)) return false;
+  if (!parsed || !claimPlausible(world, claim.k, claim.tick)) return false;
   const [cx, cy, slot] = parsed;
   // Cycle k - 1 of the slot is the one eaten now; a re-claim of it replaces who ate it.
   if (claim.k + 1 < (world.consumed[claim.slot]?.k ?? 0)) return false;

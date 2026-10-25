@@ -1,7 +1,7 @@
 // Shared food (ADR 0016): the claim with the lower tick wins a contested item, then the lower
 // playerId, and every client ends up with the same `World.consumed`. Pure and DOM-free.
 
-import { applyRemoteClaim, isFoodSlot } from '../sim/food';
+import { applyRemoteClaim, claimPlausible, consumedPlausible, isFoodSlot } from '../sim/food';
 import type { World } from '../sim/types';
 import { CONSUMED_MAX_ENTRIES, type PeerEvent } from './protocol';
 
@@ -29,6 +29,8 @@ const beats = (tick: number, id: string, w: Winner): boolean =>
 /** Who holds each slot's latest eaten cycle, as far as this client knows. */
 export class ClaimBook {
   private readonly winners = new Map<string, Winner>();
+  /** Claims dropped for a cycle or tick outside the window of this client's clock. */
+  ignored = 0;
 
   constructor(private readonly self: string) {}
 
@@ -39,6 +41,10 @@ export class ClaimBook {
 
   /** Applies a peer's claim to `world`. Returns the bite to reverse when it beats this client's. */
   remote(world: World, claim: ClaimEvent, from: string): Stolen | null {
+    if (!claimPlausible(world, claim.k, claim.tick)) {
+      this.ignored += 1;
+      return null;
+    }
     const held = this.winners.get(claim.slot);
     if (held !== undefined && claim.k < held.k) return null;
     const contested = held !== undefined && held.k === claim.k;
@@ -79,6 +85,8 @@ export function consumedParts(world: World): ConsumedEvent[] {
 export class ConsumedJoin {
   private readonly senders = new Map<string, { of: number; seen: Set<number> }>();
   private done = false;
+  /** Entries dropped for a cycle or respawn tick outside the window of this client's clock. */
+  ignored = 0;
 
   get complete(): boolean {
     return this.done;
@@ -91,14 +99,21 @@ export class ConsumedJoin {
       this.senders.set(from, sender);
     }
     if (sender.of !== event.of) return;
+    let whole = true;
     for (const [slot, k, until] of event.entries) {
       if (!isFoodSlot(world, slot)) continue;
+      if (!consumedPlausible(world, k, until)) {
+        this.ignored += 1;
+        whole = false;
+        continue;
+      }
       const have = world.consumed[slot];
       if (have === undefined || k > have.k || (k === have.k && until < have.until)) {
         world.consumed[slot] = { k, until };
       }
     }
-    sender.seen.add(event.part);
+    // A part with dropped entries does not count, so the next peer's set can fill the gaps.
+    if (whole) sender.seen.add(event.part);
     if (sender.seen.size === sender.of) this.done = true;
   }
 }

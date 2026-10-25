@@ -21,9 +21,14 @@ export class PondTime {
     this.sync = new ClockSync(clock, epoch);
   }
 
+  /** The pond tick at a local time. */
+  tickAt(localNow: number): number {
+    return this.clock.pondTick(localNow, this.epoch);
+  }
+
   /** Puts a world on the pond clock. */
   join(world: World, localNow: number): void {
-    world.tick = this.clock.pondTick(localNow, this.epoch);
+    world.tick = this.tickAt(localNow);
     this.speed = 1;
     this.nextCheck = localNow + CHECK_MS;
   }

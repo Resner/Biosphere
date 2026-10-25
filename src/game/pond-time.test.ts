@@ -26,6 +26,10 @@ describe('PondTime', () => {
     expect(world.tick).toBe(Math.floor((12_345 * TICK_HZ) / 1000));
   });
 
+  it('reads the pond tick without touching a world', () => {
+    expect(client(5_000).tickAt(EPOCH - 5_000 + 90_000)).toBe(2700);
+  });
+
   it('reads pond time in ms since the epoch from the local clock', () => {
     expect(client(5_000).pondMs(EPOCH - 5_000 + 1_500)).toBe(1_500);
   });

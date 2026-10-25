@@ -60,6 +60,9 @@ export interface PeerMeshStats {
 /** A connection that is not up by then is closed. */
 export const CONNECT_TIMEOUT_MS = 12_000;
 export const RETRY_DELAY_MS = 3_000;
+/** A link that was up and dropped is re-called this many times, the wait doubling each time. */
+export const RECOVERY_MAX_ATTEMPTS = 5;
+const RETRY_DELAY_MAX_MS = 30_000;
 /** Offers and answers wait this long for ICE gathering before they go out. */
 export const GATHER_TIMEOUT_MS = 2_000;
 
@@ -77,8 +80,10 @@ interface Link {
   /** Serialises the offer and answer steps of this connection. */
   chain: Promise<void>;
   timeout: ReturnType<typeof setTimeout> | null;
-  /** Failed connect attempts as caller, reset by `connect`. */
-  retried: boolean;
+  /** Failed attempts in a row as caller (a link that was up counts as the first). */
+  attempt: number;
+  /** Whether this link replaces one that was up (more attempts than a first connection). */
+  recovering: boolean;
 }
 
 export class PeerMesh {
@@ -127,7 +132,7 @@ export class PeerMesh {
   connect(peerId: string): void {
     if (peerId === this.opts.selfId || this.links.has(peerId)) return;
     this.clearRetry(peerId);
-    this.startCall(peerId, false);
+    this.startCall(peerId, 0, false);
   }
 
   /** Closes the connection to a peer that left the roster. */
@@ -183,9 +188,10 @@ export class PeerMesh {
     return this.opts.selfId > peerId;
   }
 
-  private startCall(peerId: string, isRetry: boolean): void {
+  private startCall(peerId: string, attempt: number, recovering: boolean): void {
     const link = this.createLink(peerId, true);
-    link.retried = isRetry;
+    link.attempt = attempt;
+    link.recovering = recovering;
     link.state = this.watch(
       link,
       link.pc.createDataChannel(STATE_CHANNEL, { ordered: false, maxRetransmits: 0 }),
@@ -209,7 +215,8 @@ export class PeerMesh {
       closed: false,
       chain: Promise.resolve(),
       timeout: null,
-      retried: false,
+      attempt: 0,
+      recovering: false,
     };
     this.links.set(peerId, link);
     pc.ondatachannel = ({ channel }) => {
@@ -254,19 +261,28 @@ export class PeerMesh {
     for (const fn of this.joinedListeners) fn(link.peerId);
   }
 
-  /** A connection that never came up is retried once by its caller; one that was up is gone. */
+  /**
+   * A first connection that never came up is retried once by its caller. One that was up and
+   * dropped is re-called by the lower id (the higher id waits for the offer), with a doubling wait,
+   * up to `RECOVERY_MAX_ATTEMPTS` times; `disconnect` (the peer left the roster) cancels it.
+   */
   private failed(link: Link): void {
     if (link.closed) return;
-    const retry = link.caller && !link.opened && !link.retried;
-    const peerId = link.peerId;
+    const { peerId } = link;
+    const wasOpen = link.opened;
+    const recovering = link.recovering || wasOpen;
+    const attempt = wasOpen ? 1 : link.attempt + 1;
+    const caller = wasOpen ? this.opts.selfId < peerId : link.caller;
+    const retry = caller && attempt <= (recovering ? RECOVERY_MAX_ATTEMPTS : 1);
     this.teardown(link);
     if (!retry) return;
+    const delay = Math.min(RETRY_DELAY_MS * 2 ** (attempt - 1), RETRY_DELAY_MAX_MS);
     this.retries.set(
       peerId,
       setTimeout(() => {
         this.retries.delete(peerId);
-        if (!this.links.has(peerId)) this.startCall(peerId, true);
-      }, RETRY_DELAY_MS),
+        if (!this.links.has(peerId)) this.startCall(peerId, attempt, recovering);
+      }, delay),
     );
   }
 

@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { consumeFood } from '../sim/food';
+import { RULES } from '../sim/rules';
 import { createWorld } from '../sim/world';
 import { ClaimBook, ConsumedJoin, consumedParts } from './claims';
 import { CONSUMED_MAX_ENTRIES, EVENT_MAX_BYTES, parsePeerEvent } from './protocol';
@@ -109,6 +110,35 @@ describe('ClaimBook', () => {
   });
 });
 
+describe('claim window', () => {
+  it('ignores and counts a claim far outside the local tick or cycle', () => {
+    const w = world(3000);
+    const book = new ClaimBook('Z');
+    for (const claim of [
+      { slot: SLOT, k: 4294967295, tick: 3000 },
+      { slot: SLOT, k: 0, tick: 4294967295 },
+      { slot: SLOT, k: 0, tick: 3000 - 901 },
+      { slot: SLOT, k: 30, tick: 3000 },
+      { slot: SLOT, k: -1, tick: 3000 },
+      { slot: SLOT, k: 1.5, tick: 3000 },
+    ]) {
+      expect(book.remote(w, { t: 'claim', ...claim }, 'B')).toBeNull();
+    }
+    expect(book.ignored).toBe(6);
+    expect(w.consumed).toEqual({});
+  });
+
+  it('accepts a claim at the edge of the window and for a long-running slot', () => {
+    const w = world(3000);
+    const book = new ClaimBook('Z');
+    book.remote(w, { t: 'claim', slot: SLOT, k: 0, tick: 3000 - 900 }, 'B');
+    book.remote(w, { t: 'claim', slot: 'c1_1_s1', k: 5, tick: 3000 + 900 }, 'B');
+    expect(book.ignored).toBe(0);
+    expect(w.consumed[SLOT]?.k).toBe(1);
+    expect(w.consumed.c1_1_s1?.k).toBe(6);
+  });
+});
+
 describe('late join', () => {
   const big = (n: number) => {
     const w = world(0);
@@ -142,7 +172,7 @@ describe('late join', () => {
     const shuffled = [...parts, ...parts.slice(0, 3)].sort(
       (a, b) => ((a.part * 7) % 11) - ((b.part * 7) % 11),
     );
-    const joiner = world(0);
+    const joiner = world(3000);
     const join = new ConsumedJoin();
     for (const part of shuffled) join.receive(joiner, 'P1', part);
     expect(join.complete).toBe(true);
@@ -152,7 +182,7 @@ describe('late join', () => {
   it('stays incomplete when a part is lost, and the next peer completes it', () => {
     const source = big(500);
     const parts = consumedParts(source);
-    const joiner = world(0);
+    const joiner = world(3000);
     const join = new ConsumedJoin();
     parts.forEach((part, i) => {
       if (i !== 4) join.receive(joiner, 'P1', part);
@@ -164,7 +194,7 @@ describe('late join', () => {
   });
 
   it('keeps the higher cycle and the earlier respawn when merging', () => {
-    const joiner = world(0);
+    const joiner = world(3000);
     joiner.consumed[SLOT] = { k: 2, until: 900 };
     joiner.consumed.c1_1_s1 = { k: 1, until: 800 };
     const join = new ConsumedJoin();
@@ -185,8 +215,28 @@ describe('late join', () => {
     });
   });
 
+  it('ignores entries whose cycle or respawn tick the pond clock cannot have reached', () => {
+    const joiner = world(3000);
+    const join = new ConsumedJoin();
+    join.receive(joiner, 'P1', {
+      t: 'consumed',
+      part: 0,
+      of: 1,
+      entries: [
+        [SLOT, 4294967295, 100],
+        ['c1_1_s1', 2, 4294967295],
+        ['c2_2_s2', 1000, 100],
+        ['c3_3_s3', 3, 3000 + 900 + RULES.food.respawnMaxTicks],
+      ],
+    });
+    expect(join.ignored).toBe(3);
+    expect(joiner.consumed).toEqual({ c3_3_s3: { k: 3, until: 5700 } });
+    // The part had dropped entries, so it does not complete the join: another peer's set can.
+    expect(join.complete).toBe(false);
+  });
+
   it('ignores entries outside the grid and inconsistent part counts', () => {
-    const joiner = world(0);
+    const joiner = world(3000);
     const join = new ConsumedJoin();
     join.receive(joiner, 'P1', { t: 'consumed', part: 0, of: 2, entries: [['c99_0_s0', 1, 5]] });
     join.receive(joiner, 'P1', { t: 'consumed', part: 1, of: 3, entries: [] });
