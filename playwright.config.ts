@@ -10,9 +10,11 @@ const executablePath =
 const port = 4173;
 const hubPort = 8787;
 // Files run in parallel and a hub fills the fullest pond first, so each file that uses a hub gets
-// its own (m2-online.spec.ts: 8787, m2-social.spec.ts: 8788).
+// its own (m2-online.spec.ts: 8787, m2-social.spec.ts: 8788, m2-pond.spec.ts: 8789).
 const socialHubPort = 8788;
+const pondHubPort = 8789;
 const SOCIAL = /m2-social\.spec\.ts/;
+const POND = /m2-pond\.spec\.ts/;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -32,13 +34,20 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: 'chromium', testIgnore: SOCIAL, use: { browserName: 'chromium' } },
+    { name: 'chromium', testIgnore: [SOCIAL, POND], use: { browserName: 'chromium' } },
     // Three-browser scenarios are CPU-bound under software GL: running this one after the rest
     // keeps CI runners from starving the online spec into its timeout.
     {
       name: 'social',
       testMatch: SOCIAL,
       dependencies: ['chromium'],
+      use: { browserName: 'chromium' },
+    },
+    // The same for the three-context pond check, after the social one.
+    {
+      name: 'pond',
+      testMatch: POND,
+      dependencies: ['social'],
       use: { browserName: 'chromium' },
     },
   ],
@@ -58,6 +67,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --port ${socialHubPort} --persist-to .wrangler/e2e-state-social`,
       url: `http://localhost:${socialHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --port ${pondHubPort} --persist-to .wrangler/e2e-state-pond`,
+      url: `http://localhost:${pondHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
