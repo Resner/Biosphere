@@ -1,6 +1,6 @@
 # 0001: Dark-factory workflow, branching and releases
 
-- Status: accepted
+- Status: accepted (schedule cadence and the private-repository budget superseded by 0015)
 - Date: 2026-10-24
 
 ## Context
