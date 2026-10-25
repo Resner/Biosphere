@@ -38,7 +38,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Vent crystal | 60 | 2.5 | near vents and plumes (risk for reward) |
 | Carrion | share of a dead creature's biomass (M7) | scales with victim | where a creature died |
 
-- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) (M1: they do not drift with currents). A creature eats every item it overlaps (distance below its radius plus the item's), even at full energy, where the surplus is lost.
+- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) (M1: they do not drift with currents). A creature eats every item it overlaps (distance below its radius plus the item's) unless its energy is at the maximum; then the item stays (M2). In a pond, two players reaching the same item are settled by the lower claim tick, then the lower id; the loser gives the energy back (ADR 0016).
 - Each tier has food sized for it (M11). Tiny items are noise to giants, so larger tiers feed on denser drifts, vent beds and carrion, and big filter-feeding mouths sweep detritus in bulk.
 - **Hazards are nonliving**:
   - toxic plumes: radius 60–160 wu, 15 hp/s while the creature's centre is inside (overlapping plumes don't stack), about one per 9 food cells. Each grid cell anchors at most one plume, which drifts at half the local current (bounded, periodic with the currents);
@@ -180,7 +180,9 @@ Death is common and never total: you fall back to your pending offspring or your
 
 ## 8. Multiplayer and scale
 
-- **Ponds (M2)**: up to 24 players, all connected to each other. A joiner goes to the fullest pond that isn't full. The first player's spawn point becomes the pond's spawn centre; later joiners spawn on a ring around it, 300 + 40 × members wu away.
+- **Ponds (M2)**: up to 24 players, all connected to each other. A joiner goes to the fullest pond that isn't full. A pond's spawn centre is the world centre; joiner number i spawns on a ring around it at angle i × 2.399963 rad, 300 + 40 × members wu away, moved clear of plumes.
+  - **Pond clock**: the hub's clock gives every pond tick (30 Hz from the pond's epoch), so food and plumes agree between players. Each browser simulates only its own creature; others are drawn from 10 Hz snapshots, 120 ms behind. A silent player fades after 2 s and disappears after 6 s. A hidden tab freezes your cell and fades you out for the others (ADR 0016).
+  - **Offline**: if the hub can't be reached you play alone in a local pond and the status says so.
 - **AoI and tiers (M11)**: connect only to creatures within ±1 tier inside the AoI (1.3 × the visible half-diagonal), plus boundary neighbours and duties. The default cap is 24, the hard cap 32 (ADR 0013). Giants see smaller life as ambient swarms.
 - **Spawning and regrouping (M12)**:
   - Newcomers spawn on a ring around a compatible group, at least 3× the attack reach of larger creatures away and away from recent spawn points. The ring expands as the area fills.
