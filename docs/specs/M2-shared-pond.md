@@ -278,6 +278,27 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Gotcha: never drive a shader wave with `uTime * rate` when the rate changes; integrate the phase.
   - Routed from the same comment: 4 (growth pace and the 400 cap) → M3 "Game integration" (the cap becomes the max-size gene, and the growth pace is retuned with `RULES_VERSION` 2); 5 (a living, attached body that survives generated designs; crispness) → M3 mesh builder (vertex-shader gait on one merged body) and M6 readability pass.
 
+- [ ] T19 A full pond can be joined
+  - Found by the milestone `/code-review`; they break "friends share a pond (≤ 24)".
+  - Acceptance:
+    - A client joining a pond of 23 members stays within the hub's message budget: the hello, the opening pings and one signal per member never exceed 20 messages in any 10 s window, or the Worker budget exempts `signal` messages (with their own, larger cap). A simulation joins 24 clients one after another against the real `PondAuthority` (workerd test) and none is closed with 4003 (worker + unit).
+    - A welcome for a pond of 23 members with STUN and long TURN credentials parses (`parseHubMsg`), by raising the welcome cap or sending the roster in a separate message; a unit test builds the worst case and asserts it parses.
+    - The spawn hint stays unique after members leave: it uses a counter that only grows (or the first free slot), so a new joiner never gets the angle of a member who is still there (workerd test: A, B, C join, B leaves, D joins, D's hint differs from C's).
+  - Notes: measure the worst-case welcome before choosing; record the choice in the task note.
+
+- [ ] T20 Online session robustness
+  - Acceptance:
+    - `app.ts` reads `localStorage` only through `safeStorage()`, and `loadName`/`saveName` accept `null`; with a throwing `localStorage` the app starts and Hatch works (unit + E2E with the accessor stubbed to throw).
+    - A failing `ensureOnline`/`startOnline` in `hatch()` falls back to a local pond: the buttons are enabled again and the player is playing (unit with a throwing connector).
+    - After `pagehide` then `pageshow` (back/forward cache) the session reconnects, so the next hatch is online again (unit, `online` cleared on dispose).
+    - Editing keys (arrows, space, backspace) work in the title screen's name field: `InputController` ignores key events whose target is an input or textarea (unit).
+    - A welcome with a different pond id while a life is running ends that life's pond cleanly (the life continues in a local pond, with the offline chip) instead of silently splitting `pond` and `session.pond` (unit).
+
+- [ ] T21 Links that recover, and food claims that cannot be abused
+  - Acceptance:
+    - A link that was open and then dropped is re-established while both peers are still in the roster: both sides retry with backoff (the lower id calls), up to a limit, and the remote returns without a reload (unit with fake transports; E2E optional).
+    - `ConsumedJoin.receive` and `applyRemoteClaim` clamp `k` and `until`/`tick` to a window around the local tick and the local `k`; a claim far outside it is ignored and counted (unit with `k = 4294967295`).
+
 ## End-to-end check
 
 `tests/e2e/m2-pond.spec.ts` (T17) plus `m2-webrtc.spec.ts` (T9), `m2-identity.spec.ts` (T3) and the chat scenario from T15, all offline against local `wrangler dev`. Exit-criteria map:
