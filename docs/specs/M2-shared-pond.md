@@ -105,7 +105,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Notes: the same module runs in Node and workerd. Signatures are over `domain ‖ 0x0A ‖ message` as in ADR 0009. Recovery codes are M4.
   - Done: `indexedDbKeyStore` lives in `src/ledger/idb-keystore.ts` (browser only) so the Worker types stay DOM-free; `verify` uses strict (non-ZIP215) checks; the worker suite also runs a sign/verify round trip in workerd.
 
-- [ ] T4 Wire protocol and codecs
+- [ ] T4 Wire protocol and codecs (in progress)
   - Acceptance:
     - `decodeSnapshot(encodeSnapshot(s))` equals `s` within quantization: positions to 0.125 wu, heading to 2π/256, velocities to 0.25 wu/s, biomass to 0.1, energy and health to 0.5%. `encodeSnapshot` is exactly 24 bytes. `seq` and `tick` wrap modulo 65,536 and 2^32.
     - Fuzz (seeded, 100,000 cases): random byte arrays of lengths 0–64 never throw in `decodeSnapshot`, and only length-24 arrays with a valid flag byte decode. Random strings and random mutations of valid messages never throw in the three parsers; a message over its size cap (hub 4 KB, events 2 KB) returns null.
