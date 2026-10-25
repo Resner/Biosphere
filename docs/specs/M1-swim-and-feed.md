@@ -193,7 +193,7 @@ Other `src/sim` modules:
   - Done: `game/loop.ts` (`createLoop`, `attachVisibilityPause`), `game/input.ts` (`mouseToInput`, `keysToInput`, `InputController`), `render/camera.ts` (`viewHalfHeight`, `FollowCamera`); new `RULES.controls` (dead zone 0.5 r, full throttle at 3 r).
   - Gotcha: a paused loop skips `render` too, and resume does not catch up; the camera's `smoothSeconds` is the time to ~98% of a zoom change.
 
-- [ ] T8 Macro look v1: water, cell, food, particles, plumes
+- [ ] T8 Macro look v1: water, cell, food, particles, plumes (in progress)
   - Acceptance (`tests/e2e/m1-look.spec.ts`, `?debug=1&seed=look`):
     - No console errors and no WebGL warnings during 3 s of play.
     - On a canvas screenshot, the mean luminance of the annulus at 0.9–1.1 of the creature's on-screen radius is more than 2× the mean of the four corner patches (the membrane rim).
