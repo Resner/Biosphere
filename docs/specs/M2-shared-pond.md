@@ -128,7 +128,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `worker/authority.ts` keeps per-socket state (challenge nonce or player, plus the rate window) in the hibernation attachment; a single alarm closes sockets still without a hello after 10 s. `helloMessage`/`HELLO_DOMAIN` live in `src/ledger/identity.ts` for the client to reuse. The pond in `welcome` is a stub until T6.
   - Gotcha: protocol `ping {id}` can't be an auto-response (it needs the DO clock), so it wakes the object and counts against the 20-per-10 s limit: the T8 hub client must ping well under that. T6 will need its own alarm scheduling if it adds deadlines (one alarm slot).
 
-- [ ] T6 Ponds, roster and signal relay
+- [ ] T6 Ponds, roster and signal relay (in progress)
   - Acceptance (workerd tests):
     - The first player creates a pond (one row in `ponds`: id, seed, epoch, centre, created) and gets `members: []`, `spawnHint` at the pond centre, `pond.seed` and `pond.epoch`. The centre is the world centre.
     - A second player joins the same pond: `welcome.members` lists the first, the first gets `member {op:'join'}`, and `spawnHint` is on the ring: angle `i · 2.399963` for the joiner's index `i` among current members, radius `300 + 40 · members` from the centre.
