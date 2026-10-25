@@ -22,6 +22,9 @@ export function hashWorld(world: World): string {
 
   const ids = Object.keys(world.consumed).sort();
   h.u32(ids.length);
-  for (const id of ids) h.str(id).u32(world.consumed[id] as number);
+  for (const id of ids) {
+    const eaten = world.consumed[id] as { k: number; until: number };
+    h.str(id).u32(eaten.k).u32(eaten.until);
+  }
   return h.digest();
 }

@@ -82,6 +82,10 @@ export const RULES = deepFreeze({
     respawnMaxTicks: 1800,
     /** Bobbing drift stays within this many wu of the slot anchor. */
     driftRadius: 12,
+    /** Bob amplitude per axis as a fraction of driftRadius (0.7 keeps the diagonal inside it). */
+    bobFraction: 0.7,
+    bobPeriodMinTicks: 120,
+    bobPeriodMaxTicks: 240,
     kinds: {
       detritus: { value: 8, radius: 1.5, weight: 70 },
       globule: { value: 25, radius: 3, weight: 25 },

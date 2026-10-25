@@ -13,4 +13,5 @@ Bit-for-bit determinism across Chromium, Firefox, WebKit, Node and workerd is th
 - Iterate entities in stable id order whenever order can affect an outcome. Never iterate in network-arrival or Map-insertion order of external data.
 - State is plain data (numbers, strings, arrays, plain objects), with no NaN or Infinity, no class instances and no closures. It must survive `structuredClone` and hash identically.
 - Every number belongs in `RULES` (`rules.ts`) and in `docs/DESIGN.md`. A change that alters outcomes bumps `RULES_VERSION` and regenerates the goldens in the same PR. Never edit a golden just to get green.
+- Food slots keep their `consumed` entry for good: it holds the slot's next cycle `k`. Never prune it.
 - Budget: one tick for a full pond (24 creatures plus visible food) stays under 2 ms in Node. Avoid per-tick allocations in hot loops.

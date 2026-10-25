@@ -46,8 +46,11 @@ export interface World {
   size: number;
   /** Always sorted by id. */
   creatures: CreatureState[];
-  /** Food id to the tick it respawns. */
-  consumed: Record<string, number>;
+  /**
+   * Eaten food slots (`c3_5_s2`): the cycle that appears next and the tick it appears. An entry
+   * stays after its respawn tick passes, because it is the only record of the slot's cycle.
+   */
+  consumed: Record<string, { k: number; until: number }>;
   options: { currents: boolean; hazards: boolean };
 }
 
