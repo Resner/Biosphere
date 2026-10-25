@@ -278,7 +278,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Gotcha: never drive a shader wave with `uTime * rate` when the rate changes; integrate the phase.
   - Routed from the same comment: 4 (growth pace and the 400 cap) → M3 "Game integration" (the cap becomes the max-size gene, and the growth pace is retuned with `RULES_VERSION` 2); 5 (a living, attached body that survives generated designs; crispness) → M3 mesh builder (vertex-shader gait on one merged body) and M6 readability pass.
 
-- [ ] T19 A full pond can be joined
+- [ ] T19 A full pond can be joined (in progress)
   - Found by the milestone `/code-review`; they break "friends share a pond (≤ 24)".
   - Acceptance:
     - A client joining a pond of 23 members stays within the hub's message budget: the hello, the opening pings and one signal per member never exceed 20 messages in any 10 s window, or the Worker budget exempts `signal` messages (with their own, larger cap). A simulation joins 24 clients one after another against the real `PondAuthority` (workerd test) and none is closed with 4003 (worker + unit).
