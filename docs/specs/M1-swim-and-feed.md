@@ -208,7 +208,7 @@ Other `src/sim` modules:
   - Done: orthographic top-down `GameScene` (`render/scene.ts`) with water and caustics, membrane cell and flagellum, instanced food, three particle layers and instanced plumes (9 draw calls); `game/app.ts` wires sim, loop, input and camera; `game/debug.ts` is the `window.__bs` hook (`ready`, `state`, `events`, `render.info`, `debug.spawnPlume`); `tests/e2e/m1-look.spec.ts`.
   - Gotcha: until T9's title screen exists, `?autohatch` starts play directly (the title scene runs otherwise), so the look E2E uses `?debug=1&seed=look&autohatch=1`; T9 replaces it with the Hatch button. `spawnPlume` is render-only (it does no damage) until T9 adds the extra-plume list to `World`. Software GL logs a "GPU stall due to ReadPixels" driver hint on every frame, which the console check ignores. `state().visibleFood` is the food handed to the renderer: items within a circle that covers the view.
 
-- [ ] T9 Screens, HUD, test hook and the full loop
+- [ ] T9 Screens, HUD, test hook and the full loop (in progress)
   - Acceptance (`tests/e2e/m1-loop.spec.ts`):
     - The title screen shows "Hatch". Clicking it gives `__bs.state().screen === 'playing'`, and the HUD shows biomass 100, energy 60% and health 100.
     - With `?debug=1`: calling `__bs.debug.steerTo(food)` on the nearest food three times gives `__bs.events().eat >= 3`, and energy is higher than its start value minus metabolism.
