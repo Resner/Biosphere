@@ -5,7 +5,7 @@ The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` wrote them, a
 | ID | Milestone | Exit criteria (observable) | Gate | Status | Spec | Release |
 |----|-----------|----------------------------|------|--------|------|---------|
 | M0 | Toolchain and pipeline | npm script contract implemented; CI green on a PR; v0.1.0 live on Pages with the build label and a WebGL-rendered cell | — | done | — | v0.1.0 |
-| M1 | Swim and feed | solo on Pages: hatch, steer, dash, eat, grow (zoom out), starve or hit a toxin and die with the cause shown, hatch again; fixed-tick sim with golden replays equal in Node and Chromium; base macro look | — | specced (closing) | [M1](specs/M1-swim-and-feed.md) | v0.2.0 |
+| M1 | Swim and feed | solo on Pages: hatch, steer, dash, eat, grow (zoom out), starve or hit a toxin and die with the cause shown, hatch again; fixed-tick sim with golden replays equal in Node and Chromium; base macro look | — | done | [M1](specs/M1-swim-and-feed.md) | v0.2.0 |
 | M2 | Shared pond | friends on the Pages link share a pond (≤24), spawn near each other, see each other move smoothly, compete for the same food; Worker signaling plus TURN; keypair identity; filtered chat, emotes, pings | gate | planned | — | v0.3.0 |
 | M3 | Procedural morphology | DNA → bounded development → body, stats and mesh; zero invalid bodies over 10k random and mutated genomes; anatomy changes movement, collision and feeding; Creature Lab page; unique genesis DNA | — | planned | — | v0.4.0 |
 | M4 | Authority and lineage core | identities and genesis creatures registered (drand-seeded); one accepted head per creature; single session; lifespan on the authority clock (paused offline); durable resume; recovery code; extinct lineages kept as history | — | planned | — | v0.5.0 |
@@ -36,6 +36,7 @@ Fully specced in [specs/M1-swim-and-feed.md](specs/M1-swim-and-feed.md). It prov
 
 Friends share a pond and play together from the Pages link with no setup. It proves real-world WebRTC: dependable signaling, TURN, smooth remote motion.
 
+- M1 carry-overs: the list in the M1 spec, "Carried over from the close review".
 - Worker skeleton (`worker/`, wrangler, the Workers Vitest pool, `/v1/health`, origin allowlist).
 - Browser identity (`src/ledger/identity.ts`: Ed25519 seed in IndexedDB; `playerId`).
 - Wire protocol and codecs (`src/net/protocol.ts`, binary snapshots, validated JSON events, fuzz-safe).
