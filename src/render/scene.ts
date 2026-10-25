@@ -1,9 +1,11 @@
 import * as THREE from 'three';
 import type { FoodItem, Plume } from '../sim/types';
 import { Cell, type CellView } from './cell';
+import type { Ring } from './effects';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';
 import { ParticleLayer } from './particles';
+import { RingLayer } from './rings';
 import { Water } from './water';
 
 export interface SceneView {
@@ -14,6 +16,8 @@ export interface SceneView {
   /** Visible half-height in world units. */
   halfHeight: number;
   creature: CellView | null;
+  /** Eat pops and dash ripples alive right now. */
+  rings: readonly Ring[];
 }
 
 export interface RenderInfo {
@@ -24,7 +28,16 @@ export interface RenderInfo {
   pxPerWu: number;
 }
 
-const ORDER = { water: 0, far: 1, plumes: 2, food: 3, cell: 4, mid: 5, near: 6 } as const;
+const ORDER = {
+  water: 0,
+  far: 1,
+  plumes: 2,
+  food: 3,
+  cell: 4,
+  rings: 4.8,
+  mid: 5,
+  near: 6,
+} as const;
 
 /** The whole play-field picture: backdrop, particle layers, plumes, food and the cell. */
 export class GameScene {
@@ -38,6 +51,7 @@ export class GameScene {
   private readonly plumes = new PlumeLayer();
   private readonly food = new FoodLayer();
   private readonly cell = new Cell();
+  private readonly rings = new RingLayer();
   private cssWidth = 1;
   private cssHeight = 1;
   private half = 1;
@@ -86,6 +100,7 @@ export class GameScene {
       ...this.food.meshes.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
       [this.cell.flagellum, ORDER.cell],
       [this.cell.body, ORDER.cell + 0.5],
+      [this.rings.mesh, ORDER.rings],
       [this.mid.points, ORDER.mid],
       [this.near.points, ORDER.near],
     ];
@@ -154,6 +169,7 @@ export class GameScene {
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(view.creature, view.time);
+    this.rings.set(view.rings);
 
     this.renderer.render(this.scene, camera);
   }
@@ -188,6 +204,7 @@ export class GameScene {
       this.plumes,
       this.food,
       this.cell,
+      this.rings,
     ]) {
       part.dispose();
     }

@@ -1,3 +1,4 @@
+import type { FxSnapshot } from '../render/effects';
 import type { RenderInfo } from '../render/scene';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem } from '../sim/types';
@@ -31,14 +32,22 @@ export interface BsHook {
   events(): Record<string, number>;
   /** Re-runs an input log in a fresh world and returns its final state hash. */
   replay(log: InputLog): { hash: string; events: Record<string, number> };
-  render: { info(): RenderInfo };
+  render: { info(): RenderInfo; fx(): FxState };
   /** Mutating helpers; present only with `?debug=1`. */
   debug?: BsDebug;
+}
+
+/** The feedback cues now showing: counts since hatching, plus the camera's current zoom. */
+export interface FxState extends FxSnapshot {
+  /** Visible half-height in world units, as drawn. */
+  halfHeight: number;
 }
 
 export interface BsDebug {
   /** Sets the player's energy (clamped to its maximum). */
   setEnergy(energy: number): void;
+  /** Sets the player's biomass (growth to a new size); energy and health keep their fractions. */
+  setBiomass(biomass: number): void;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
   /** The food item closest to the player, or null. */

@@ -3,6 +3,8 @@ uniform float uTime;
 uniform vec3 uCore;
 uniform vec3 uRim;
 uniform vec3 uNucleus;
+uniform float uHurt;
+uniform float uDissolve;
 varying vec2 vP;
 
 void main() {
@@ -33,8 +35,20 @@ void main() {
   float n = length(vP - vec2(0.2, 0.08));
   col += uNucleus * (exp(-n * n * 26.0) * 0.9 + (1.0 - smoothstep(0.0, 0.03, abs(n - 0.27))) * 0.18) * (1.0 - smoothstep(0.7, 1.0, r));
 
+  // Damage: the body flushes red and the rim brightens, so a hit shows on the cell itself.
+  vec3 hurtCol = vec3(1.0, 0.18, 0.12);
+  col = mix(col, col * 0.5 + hurtCol * (0.35 + 0.8 * fres), uHurt * 0.7);
+
   float alpha = inside * (0.4 + 0.6 * fres + 0.3 * glint);
   float halo = exp(-max(d - 1.0, 0.0) * 6.5) * 0.3 * (1.0 - inside);
-  vec3 haloCol = uRim * 0.55;
-  gl_FragColor = vec4(mix(haloCol, col, inside), max(alpha, halo));
+  vec3 haloCol = mix(uRim * 0.55, hurtCol * 0.6, uHurt);
+  alpha = max(alpha, halo);
+
+  // Death: the body breaks up along a noisy front and fades, with a bright edge on the front.
+  float front = fbm(vP * 3.2 + 3.7) * 0.75 + 0.125;
+  float gone = smoothstep(front - 0.06, front + 0.06, uDissolve * 1.15);
+  float edge = (1.0 - smoothstep(0.0, 0.08, abs(front - uDissolve * 1.15))) * step(0.001, uDissolve);
+  alpha *= (1.0 - gone) * (1.0 - 0.35 * uDissolve);
+  vec3 rgb = mix(haloCol, col, inside) + vec3(0.9, 0.7, 0.5) * edge * 0.6;
+  gl_FragColor = vec4(rgb, alpha);
 }

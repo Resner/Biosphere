@@ -160,6 +160,40 @@ body {
   background: #e8b04a;
 }
 
+.meter[data-pulse] .meter-value,
+.meter[data-pulse] .bar {
+  animation: energy-pulse 0.45s ease-out;
+}
+
+/* Low energy keeps a slow pulse on the readout; the text stays, so colour is never the only cue. */
+.meter[data-low] .meter-value {
+  animation: low-energy 1.1s ease-in-out infinite;
+}
+
+@keyframes energy-pulse {
+  from {
+    filter: brightness(2.2) drop-shadow(0 0 6px #8de88a);
+  }
+  to {
+    filter: none;
+  }
+}
+
+@keyframes low-energy {
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* Red edge while taking damage; the game sets its opacity every frame. */
+.vignette {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  opacity: 0;
+  background: radial-gradient(ellipse at center, transparent 45%, rgb(190 20 20 / 0.55) 100%);
+}
+
 [data-screen]:not([data-screen="title"]) [data-for="title"],
 [data-screen]:not([data-screen="playing"]) [data-for="playing"],
 [data-screen]:not([data-screen="dead"]) [data-for="dead"] {

@@ -13,6 +13,10 @@ export interface CellView {
   radius: number;
   /** 0..1, how hard the flagellum beats. */
   beat: number;
+  /** 0..1, how red the body is from a recent hit. */
+  hurt: number;
+  /** 0..1, how far the dying body has dissolved. */
+  dissolve: number;
 }
 
 /** A translucent cell with a waving flagellum; the quad and the whip are drawn in two meshes. */
@@ -42,6 +46,8 @@ export class Cell {
     this.body.rotation.z = view.heading;
     this.body.scale.setScalar(view.radius * EXTENT);
     setUniform(this.bodyMaterial, 'uTime', time);
+    setUniform(this.bodyMaterial, 'uHurt', view.hurt);
+    setUniform(this.bodyMaterial, 'uDissolve', view.dissolve);
 
     // The whip's vertices are built in the cell's frame, so it follows the heading as a whole.
     this.flagellum.position.set(view.x, view.y, 0);
@@ -49,6 +55,7 @@ export class Cell {
     setUniform(this.flagellumMat, 'uTime', time);
     setUniform(this.flagellumMat, 'uRadius', view.radius);
     setUniform(this.flagellumMat, 'uBeat', view.beat);
+    setUniform(this.flagellumMat, 'uDissolve', view.dissolve);
   }
 
   dispose(): void {
