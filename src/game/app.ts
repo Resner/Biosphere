@@ -34,6 +34,7 @@ import { createFieldSync } from './field';
 import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
 import { RemoteLabels } from './labels';
+import { resetLife } from './life-reset';
 import { attachVisibilityPause, createLoop } from './loop';
 import { connectOnline, type OnlineSession } from './online';
 import {
@@ -188,9 +189,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   const field = createFieldSync(refreshField);
 
+  // A slew factor belongs to the pond clock it chases, and an open chat would swallow Enter.
+  const endLifeState = (): void =>
+    resetLife({ setSpeed: (speed) => loop.setSpeed(speed), closeChat: () => socialUi.close() });
+
   const enter = (next: Session, nextScreen: Screen): void => {
     session = next;
-    socialUi.close();
+    endLifeState();
     fx.reset();
     controller.reset();
     steering?.done(false);
@@ -493,6 +498,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         peakBiomass: session.peakBiomass,
       };
       fx.startDissolve();
+      endLifeState();
     }
   };
 

@@ -79,11 +79,16 @@ describe('findClearSpot, nearest and stable', () => {
     }
   });
 
+  it('keeps its lookahead in the rules: 10 s, checked every second', () => {
+    expect(RULES.spawn.lookaheadTicks).toBe(300);
+    expect(RULES.spawn.lookaheadStride).toBe(30);
+  });
+
   it('stays clear of every plume for the next 10 s of drift', () => {
     for (const world of blockedWorlds(20)) {
       const spot = findClearSpot(world, c, c);
       const start = world.tick;
-      for (let t = 0; t <= 300; t++) {
+      for (let t = 0; t <= RULES.spawn.lookaheadTicks; t++) {
         world.tick = start + t;
         expect(plumesNear(world, spot.x, spot.y, plumeClearance)).toEqual([]);
       }

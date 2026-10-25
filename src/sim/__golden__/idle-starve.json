@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 1,
+    "rules": 2,
     "seed": "golden-idle",
     "spawn": {
       "id": "p1",
@@ -10,7 +10,7 @@
     "ticks": 5000,
     "runs": [[0, 0]]
   },
-  "hash": "29cb2149767d46d7",
+  "hash": "81355543b22bcf22",
   "events": {
     "damage": 376,
     "death": 1
