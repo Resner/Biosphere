@@ -30,6 +30,7 @@ Go in this order; the first item that applies is this run's step.
   `@dependabot` comment commands don't work from here, because the GitHub tool neutralises bot mentions. Record decisions in the config or by closing the PR.
 - A Release workflow run on `main` is in progress → a milestone is being released. Wait for it in the foreground: `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (Release takes about 2 minutes; `gh run` works here, unlike `gh pr`). If the released milestone is a `gate`, also wait up to 10 minutes for its `Playtest:` issue. Then start this list again from the top. Stop with `IDLE: release in progress` only if the wait times out.
 - The latest Release workflow run on `main` failed → fix it.
+- Owner comments on any `Playtest:` issue, gate or not, posted after your last comment there → treat each point as an owner issue (next item), then reply in that issue saying where each point went.
 - An owner issue reporting a bug in shipped behaviour → fix it test-first, record it as a ticked task in the current spec, and close the issue. Other owner issues → add them to the right spec or ROADMAP row, comment where, and carry on.
 
 ## 2. Pick the step
