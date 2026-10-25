@@ -222,7 +222,7 @@ Other `src/sim` modules:
   - Done: `game/screens.ts` (title and death overlays), `game/hud.ts`, `game/app.ts` (`startApp`: the title is a live demo world; Hatch swaps in a real session), `__bs` with `replay`, `debug.{setEnergy,teleport,nearestFood,steerTo,spawnPlume,timeScale}`; `World.extraPlumes` (hashed when non-empty) makes debug plumes real; `sim/spawn.ts` `findClearSpot` and `sim/vitals.ts`; `tests/e2e/m1-loop.spec.ts`. `render/preview.ts` and `?autohatch` are gone.
   - Gotcha: hatching picks the nearest spot `RULES.spawn.plumeClearance` (120 wu) clear of any plume (`findClearSpot`), so nobody is born poisoned. E2E that idles must park the cursor on the cell, because a pointer elsewhere steers. `steerTo` returns a promise that resolves when the sim eats the target.
 
-- [ ] T10 Feel and feedback
+- [ ] T10 Feel and feedback (in progress)
   - Acceptance:
     - Each eat increments `__bs.render.fx().eat`.
     - While damage is being taken, the vignette intensity is > 0.
