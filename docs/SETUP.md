@@ -46,9 +46,13 @@ The scheduled task "Factory" runs `/next` in a fresh cloud session: claude.ai/co
 
 - Keep it **paused until the scaffold PR has merged**; the scaffold tells you when to resume it. Agents can't toggle a task created in the web UI, so pausing and resuming is up to you.
 - Schedule: hourly (edit the task → Custom → `54 * * * *`; hourly is the minimum).
-  - Runs also chain: when a run's PR merges, it fires the task again, so the factory works back to back until your Claude usage limit (ADR 0015).
-  - The hourly schedule restarts the chain after usage limits, playtest gates and failures.
-  - Pausing the task stops the chain after the current run.
+- **GitHub trigger**, so runs follow each other back to back until your Claude usage limit (ADR 0015):
+  1. Edit the task.
+  2. In the **Trigger** row, click **+** → **GitHub event** → repository `Resner/Biosphere` → event **Pull request** → action **closed**.
+  3. Add filters: **Is merged** = `true`, **Head branch** starts with `claude/`, **Base branch** equals `main`. Save changes.
+  4. The Claude GitHub App must be installed on the repository; the dialog prompts you if it isn't.
+
+  Every merged factory PR then starts the next run. The hourly schedule restarts the factory after usage limits, playtest gates and failures, and pausing the task stops both triggers.
 - Prompt: `Run /next. Open a pull request for the result, enable auto-merge, and see it through until it is merged.`
 - Model: the default or Sonnet 5.5. `/next` switches to Sonnet itself, and to Opus for specs and milestone reviews.
 - Connectors: none needed. GitHub access comes from your GitHub connection and the Claude GitHub App, so you can remove the defaults (Claude-Docs, visualize).
