@@ -128,7 +128,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `worker/authority.ts` keeps per-socket state (challenge nonce or player, plus the rate window) in the hibernation attachment; a single alarm closes sockets still without a hello after 10 s. `helloMessage`/`HELLO_DOMAIN` live in `src/ledger/identity.ts` for the client to reuse. The pond in `welcome` is a stub until T6.
   - Gotcha: protocol `ping {id}` can't be an auto-response (it needs the DO clock), so it wakes the object and counts against the 20-per-10 s limit: the T8 hub client must ping well under that. T6 will need its own alarm scheduling if it adds deadlines (one alarm slot).
 
-- [ ] T6 Ponds, roster and signal relay
+- [x] T6 Ponds, roster and signal relay
   - Acceptance (workerd tests):
     - The first player creates a pond (one row in `ponds`: id, seed, epoch, centre, created) and gets `members: []`, `spawnHint` at the pond centre, `pond.seed` and `pond.epoch`. The centre is the world centre.
     - A second player joins the same pond: `welcome.members` lists the first, the first gets `member {op:'join'}`, and `spawnHint` is on the ring: angle `i · 2.399963` for the joiner's index `i` among current members, radius `300 + 40 · members` from the centre.
@@ -137,6 +137,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - `signal` to a member of the same pond is delivered with `from` set to the sender's verified `playerId` (a forged `from` in the input is ignored). To a player in another pond or unknown: `error {code:'no-peer'}` to the sender, nothing delivered. Oversized `sdp` (> 8 KB) is dropped with `error {code:'too-big'}`.
     - Joining an old pond keeps its `epoch`, so `pondTick` keeps advancing across joins.
   - Notes: membership is derived from `ctx.getWebSockets()` and attachments after hibernation. Ponds are not capped in number; admission arrives in M4.
+  - Done: `worker/authority.ts` derives rosters from socket attachments (`pondId` per active session); `worker/schema.ts` holds the numbered migrations (`ponds` plus a `migrations` table). A dropped socket is marked `retired` so its leave is sent once. The first joiner spawns at the centre, later ones on the ring (index = current member count).
+  - Gotcha: the DO's SQLite refuses `PRAGMA user_version`, hence the `migrations` table. DO storage outlives a test, so `hub.test.ts` clears `ponds` after each test. Signals count against the 20-per-10 s limit: a joiner offering to 23 peers would exceed it, so T9/T10 must budget signals (or give them their own window).
 
 - [ ] T7 TURN credentials
   - Acceptance (workerd tests with a faked `fetch`):
