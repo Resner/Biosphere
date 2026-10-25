@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 1,
+    "rules": 2,
     "seed": "golden-hazard",
     "spawn": {
       "id": "p1",
@@ -10,7 +10,7 @@
     "ticks": 600,
     "runs": [[0, 3840], [20, 7936], [21, 3840]]
   },
-  "hash": "f9e073f735d97eeb",
+  "hash": "2aa5728404729a50",
   "events": {
     "eat": 7,
     "dash": 1,

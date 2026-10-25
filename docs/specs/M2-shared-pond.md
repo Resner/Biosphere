@@ -316,12 +316,14 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: a re-welcome into the same pond disconnects and re-calls every remaining member (peers dropped us on `leave` and wait for our offer); `PeerMesh.setIce` swaps in the newest credentials; the `consumed` `of` cap is `CONSUMED_MAX_PARTS` = 256 (a whole pond), not pruning.
   - Gotcha: pruning old entries would lose their cycle `k` and show eaten slots as cycle 0, so the cap rose instead.
 
-- [ ] T23 Game-loop and sim hygiene from the close review (in progress)
+- [x] T23 Game-loop and sim hygiene from the close review
   - Acceptance:
     - `loop.setSpeed(1)` runs whenever a life ends, a local or title session starts, or the pond switches, so a slew factor never outlives its pond (unit on the app's session switching).
     - Opening chat then dying: the death screen closes the chat input and clears `controller.typing`, so one Enter hatches again (unit).
     - `applyFeeding` leaving food to a full creature and `findClearSpot` change outcomes: `RULES_VERSION` becomes 2 and the goldens are regenerated in the same PR; the M3 growth retune named in T18's routing note becomes `RULES_VERSION` 3, and DESIGN.md says "rules version 2".
     - `LOOKAHEAD_TICKS` and `LOOKAHEAD_STRIDE` move into `RULES.spawn` and `docs/DESIGN.md`.
+  - Done: `resetLife` (`life-reset.ts`) sets the loop speed to 1 and closes the chat on every session start and at the moment of death; `RULES_VERSION` is 2 (the goldens carry only the new version and hash); the lookahead is `RULES.spawn.lookaheadTicks`/`lookaheadStride` and DESIGN.md says rules version 2.
+  - Gotcha: the two outcome changes were already in `main`, so the bump records them; the pond-switch path keeps its own `setSpeed(1)` because it must not close the chat.
 
   - Seen and left alone (record, no task): `ConnectionPolicy` is only used by tests until M7/M11 need its eviction (kept, noted in `net.md`); `render()` allocates a few small objects per frame (revisit in the M6 performance pass); `PondAuthority` never deletes pond rows and reuses the oldest epoch (u32 ticks last about 4.5 years, so M13 owns it).
 

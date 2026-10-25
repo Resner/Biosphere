@@ -1,6 +1,6 @@
 # Game design reference
 
-The living description of how Biosphere plays, with **initial values** for rules version 1. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
+The living description of how Biosphere plays, with **initial values** for rules version 2. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
 
 - **Code is the source of truth for numbers.** Values below start in `src/sim/rules.ts` (and the genome and combat tables that follow). When a spec or playtest changes a mechanic or a value, update this file in the same PR.
 - **Units**: world units (wu; think 1 wu ≈ 1 µm), seconds, and sim ticks at 30 Hz. "r" is a creature's size radius in wu.
@@ -18,7 +18,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
 - **One body of water, seen from above** (ADR 0014). Gameplay is 2D in the x–y plane; z is presentation only.
 - **Ponds, then one world**: M1 is a single-player square world (8,192 × 8,192 wu with soft walls). M2 groups players into separate ponds of up to 24, each with its own seed and spawn centre. From M11 the world is one large continuous plane with a spatial directory (ADR 0013).
-- **Hatching (M1)**: a new cell appears at the world centre, or at the nearest point at least 120 wu clear of any toxic plume, so nobody is born poisoned.
+- **Hatching (M1)**: a new cell appears at the world centre, or at the nearest point at least 120 wu clear of any toxic plume, now and at every second of the next 10 s of drift (`RULES.spawn.lookaheadTicks`, `lookaheadStride`), so nobody is born poisoned.
 - **Depth zones (M6)** come from a deterministic bathymetry field (smooth noise of the world seed):
 
 | Zone | Light | Food | Hazard | Adaptation that helps |

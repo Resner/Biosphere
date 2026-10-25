@@ -11,7 +11,7 @@ const deepFrozen = (value: unknown): boolean => {
 
 describe('RULES', () => {
   it('is deep-frozen', () => {
-    expect(RULES_VERSION).toBe(1);
+    expect(RULES_VERSION).toBe(2);
     expect(deepFrozen(RULES)).toBe(true);
   });
 
@@ -157,7 +157,7 @@ describe('hashWorld', () => {
         w.extraPlumes.push({ id: 'debug0', x: 1, y: 2, radius: 3 });
       },
       (w) => {
-        w.rules = 2;
+        w.rules = RULES_VERSION + 1;
       },
     ];
     for (const mutate of variants) {

@@ -3,12 +3,7 @@ import { length } from './math';
 import { RULES } from './rules';
 import type { Vec2, World } from './types';
 
-const { searchStep, plumeClearance } = RULES.spawn;
-
-/** Plumes drift with the currents, so a spot must stay clear for this long (10 s). */
-const LOOKAHEAD_TICKS = 300;
-/** Drift is slow (a plume moves a few wu per second), so checking each second is dense enough. */
-const LOOKAHEAD_STRIDE = 30;
+const { searchStep, plumeClearance, lookaheadTicks, lookaheadStride } = RULES.spawn;
 
 /**
  * The point nearest to (x, y), on the search lattice, that is clear of every toxic plume now and
@@ -17,7 +12,7 @@ const LOOKAHEAD_STRIDE = 30;
  */
 export function findClearSpot(world: World, x: number, y: number): Vec2 {
   const future: World[] = [];
-  for (let t = 0; t <= LOOKAHEAD_TICKS; t += LOOKAHEAD_STRIDE) {
+  for (let t = 0; t <= lookaheadTicks; t += lookaheadStride) {
     future.push({ ...world, tick: world.tick + t });
   }
   const clear = (px: number, py: number): boolean =>

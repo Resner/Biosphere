@@ -1,7 +1,7 @@
-// Rules v1 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v2 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 1;
+export const RULES_VERSION = 2;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -99,6 +99,10 @@ export const RULES = deepFreeze({
     searchStep: 50,
     /** A hatching cell keeps at least this far from any plume (wu). */
     plumeClearance: 120,
+    /** Plumes drift, so a spot must stay clear for this long (10 s)... */
+    lookaheadTicks: 300,
+    /** ...checked this often (1 s; a plume moves a few wu per second). */
+    lookaheadStride: 30,
   },
   hazards: {
     plumeMinRadius: 60,
