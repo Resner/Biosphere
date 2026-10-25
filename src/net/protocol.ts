@@ -18,6 +18,8 @@ export const SNAPSHOT_BYTES = 24;
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;
+/** Parts of a whole pond's consumed set: 32 x 32 cells x 10 slots at 40 entries per part. */
+export const CONSUMED_MAX_PARTS = 256;
 export const EMOTE_COUNT = 6;
 export const PING_KINDS = 4;
 
@@ -380,7 +382,7 @@ export function parsePeerEvent(raw: string): PeerEvent | null {
         : null;
     case 'consumed': {
       const entries = list(o.entries, CONSUMED_MAX_ENTRIES, consumedEntry);
-      return entries && isInt(o.of, 1, 255) && isInt(o.part, 0, (o.of as number) - 1)
+      return entries && isInt(o.of, 1, CONSUMED_MAX_PARTS) && isInt(o.part, 0, (o.of as number) - 1)
         ? { t: 'consumed', part: o.part, of: o.of as number, entries }
         : null;
     }

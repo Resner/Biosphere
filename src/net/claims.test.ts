@@ -3,7 +3,12 @@ import { consumeFood } from '../sim/food';
 import { RULES } from '../sim/rules';
 import { createWorld } from '../sim/world';
 import { ClaimBook, ConsumedJoin, consumedParts } from './claims';
-import { CONSUMED_MAX_ENTRIES, EVENT_MAX_BYTES, parsePeerEvent } from './protocol';
+import {
+  CONSUMED_MAX_ENTRIES,
+  CONSUMED_MAX_PARTS,
+  EVENT_MAX_BYTES,
+  parsePeerEvent,
+} from './protocol';
 
 const world = (tick = 0) => {
   const w = createWorld({ seed: 'pond-claims', currents: false, hazards: false });
@@ -160,6 +165,18 @@ describe('late join', () => {
       expect(parsePeerEvent(JSON.stringify(part))).toEqual(part);
     }
     expect(parts.every((p, i) => p.part === i && p.of === parts.length)).toBe(true);
+  });
+
+  it('emits parts that all parse when every slot of the pond is eaten', () => {
+    const w = world(0);
+    const side = Math.floor(RULES.world.size / RULES.world.cellSize);
+    for (let cx = 0; cx < side; cx++)
+      for (let cy = 0; cy < side; cy++)
+        for (let s = 0; s < RULES.food.slotsPerCell; s++)
+          w.consumed[`c${cx}_${cy}_s${s}`] = { k: 1, until: 600 };
+    const parts = consumedParts(w);
+    expect(parts.length).toBe(CONSUMED_MAX_PARTS);
+    for (const part of parts) expect(parsePeerEvent(JSON.stringify(part))).toEqual(part);
   });
 
   it('sends one empty part for an empty set', () => {

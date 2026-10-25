@@ -56,6 +56,7 @@ class FakeHub implements OnlineHub {
 
 class FakeMesh implements OnlineMesh {
   connects: string[] = [];
+  ices: unknown[] = [];
   disconnects: string[] = [];
   signals: SignalMsg[] = [];
   open = new Set<string>();
@@ -67,6 +68,9 @@ class FakeMesh implements OnlineMesh {
   event: (id: string, e: PeerEvent) => void = () => {};
   connect(id: string): void {
     this.connects.push(id);
+  }
+  setIce(ice: unknown[]): void {
+    this.ices.push(ice);
   }
   disconnect(id: string): void {
     this.disconnects.push(id);
@@ -166,13 +170,37 @@ describe('OnlineSession', () => {
     hub.welcome(welcome(['a', 'b']));
     mesh.connects.length = 0;
     hub.welcome(welcome(['b', 'c']));
-    expect(mesh.connects).toEqual(['c']);
-    expect(mesh.disconnects).toEqual(['a']);
+    expect(mesh.connects.sort()).toEqual(['b', 'c']);
+    expect(mesh.disconnects.sort()).toEqual(['a', 'b']);
     expect(handlers.member).toHaveBeenCalledWith('leave', { playerId: 'a', name: 'A' });
+    mesh.disconnects.length = 0;
     hub.welcome(welcome(['d'], 'pond2'));
-    expect(mesh.disconnects.sort()).toEqual(['a', 'b', 'c']);
+    expect(mesh.disconnects.sort()).toEqual(['b', 'c']);
     expect(session.others().map((m) => m.playerId)).toEqual(['d']);
     expect(session.welcome?.pond.id).toBe('pond2');
+  });
+
+  it('re-calls the members it already knew when a reconnect welcomes it into the same pond', () => {
+    const { hub, mesh, handlers } = setup();
+    hub.welcome(welcome(['a', 'b']));
+    mesh.open.add('a');
+    mesh.connects.length = 0;
+    mesh.disconnects.length = 0;
+    handlers.member.mockClear();
+    hub.welcome(welcome(['a', 'b']));
+    // Peers dropped this client on the hub's `leave`, so every link starts again from the caller.
+    expect(mesh.disconnects.sort()).toEqual(['a', 'b']);
+    expect(mesh.connects.sort()).toEqual(['a', 'b']);
+    expect(handlers.member).not.toHaveBeenCalled();
+  });
+
+  it('hands the newest ICE servers to the mesh on a later welcome', () => {
+    const { hub, mesh } = setup();
+    hub.welcome(welcome(['a']));
+    expect(mesh.ices).toEqual([]);
+    const second = { ...welcome(['a']), ice: [{ urls: 'turn:fresh.test', username: 'u' }] };
+    hub.welcome(second);
+    expect(mesh.ices).toEqual([[{ urls: 'turn:fresh.test', username: 'u' }]]);
   });
 
   it('routes signals from roster members to the mesh and ignores strangers', () => {

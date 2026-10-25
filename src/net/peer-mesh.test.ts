@@ -286,6 +286,27 @@ describe('PeerMesh negotiation', () => {
     await settle();
     expect(seen[0]?.iceServers).toEqual([{ urls: 'stun:example.invalid' }]);
   });
+
+  it('uses the newest ICE servers for connections made after setIce', async () => {
+    const seen: RTCConfiguration[] = [];
+    const mesh = new PeerMesh({
+      selfId: 'a',
+      signal: () => {},
+      iceServers: [{ urls: 'stun:old.invalid' }],
+      createPeerConnection: (config) => {
+        seen.push(config);
+        return new FakePc(config);
+      },
+    });
+    mesh.connect('b');
+    mesh.setIce([{ urls: 'turn:new.invalid', username: 'u', credential: 'c' }]);
+    mesh.connect('c');
+    await settle();
+    expect(seen[0]?.iceServers).toEqual([{ urls: 'stun:old.invalid' }]);
+    expect(seen[1]?.iceServers).toEqual([
+      { urls: 'turn:new.invalid', username: 'u', credential: 'c' },
+    ]);
+  });
 });
 
 describe('PeerMesh timeouts and loss', () => {
