@@ -1,0 +1,20 @@
+{
+  "log": {
+    "rules": 1,
+    "seed": "golden-hazard",
+    "spawn": {
+      "id": "p1",
+      "x": 4499,
+      "y": 2694
+    },
+    "ticks": 600,
+    "runs": [[0, 3840], [20, 7936], [21, 3840]]
+  },
+  "hash": "f9e073f735d97eeb",
+  "events": {
+    "eat": 7,
+    "dash": 1,
+    "damage": 100,
+    "grow": 2
+  }
+}
