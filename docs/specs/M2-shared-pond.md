@@ -300,7 +300,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: the app reads storage through `safeStorage()` only (`loadName`/`saveName` take `null`); `tryOnline` turns a throwing connector into a local pond; `OnlineKeeper` owns the one session (`pagehide` suspends it, `pageshow` with `persisted` resumes it); `InputController` ignores keydowns in an input or textarea except Enter; `switchPond` moves a life in the old pond to a local one (pond cleared, speed 1) and the chip reads "Offline" while a life is in a local pond.
   - Gotcha: keyup is never ignored, so a key held over a field cannot stick.
 
-- [ ] T21 Links that recover, and food claims that cannot be abused
+- [ ] T21 Links that recover, and food claims that cannot be abused (in progress)
   - Acceptance:
     - A link that was open and then dropped is re-established while both peers are still in the roster: both sides retry with backoff (the lower id calls), up to a limit, and the remote returns without a reload (unit with fake transports; E2E optional).
     - `ConsumedJoin.receive` and `applyRemoteClaim` clamp `k` and `until`/`tick` to a window around the local tick and the local `k`; a claim far outside it is ignored and counted (unit with `k = 4294967295`).
