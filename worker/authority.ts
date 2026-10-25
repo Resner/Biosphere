@@ -231,7 +231,8 @@ export class Authority extends DurableObject<Env> {
     for (const [, theirs] of this.activeSessions()) {
       if (theirs.pondId !== best.id) continue;
       members.push({ playerId: theirs.playerId, name: theirs.name });
-      taken.add(theirs.slot);
+      // A session hibernated before slots existed has none.
+      if (theirs.slot !== undefined) taken.add(theirs.slot);
     }
     let slot = 0;
     while (taken.has(slot)) slot++;

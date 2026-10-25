@@ -9,7 +9,7 @@ export const CLOSE_ORIGIN = 4004;
 
 /** Size caps in UTF-8 bytes. A `signal` carries an SDP of up to `SDP_MAX_BYTES`, so it gets more room. */
 export const HUB_MAX_BYTES = 4096;
-/** A welcome lists up to 23 members plus ICE servers with long TURN credentials (about 4.5 KB at worst). */
+/** A welcome lists up to 23 members plus ICE servers with long TURN credentials (about 4.8 KB at worst). */
 export const WELCOME_MAX_BYTES = 8192;
 export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;

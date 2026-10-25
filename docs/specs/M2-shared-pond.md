@@ -121,7 +121,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - On connect the DO sends `challenge` with a 16-byte random nonce. A `hello` with a valid signature over `'bs/hello/v1' ‖ nonce ‖ name` gets `welcome` (pond data is T6's; a single stub pond is fine here). A bad signature, a wrong nonce, a name that is not 3–16 characters of `A–Z a–z 0–9 _ -`, a wrong protocol version or a hello after 10 s of silence closes with 4002.
     - A second session with the same `playerId` gets `welcome`, and the first socket closes with 4001.
     - `ping {id}` returns `pong {id, now}` with the DO's `Date.now()`.
-    - More than 20 messages in 10 s from one socket closes it with 4003; normal traffic is unaffected.
+    - More than 20 messages in 10 s from one socket (60 for `signal`, T19) closes it with 4003; normal traffic is unaffected.
     - Per-socket state (playerId, name, pondId) survives hibernation: after the test harness evicts the object from memory, a `ping` on the same socket still works and the session is still known.
     - The DO writes no SQLite rows for hello, ping or leave.
   - Notes: use `ctx.acceptWebSocket` and attachments; protocol pings through `setWebSocketAutoResponse`. Names go through the filter in T14 once it exists (T14 adds the check here); until then only the pattern is checked.
@@ -138,7 +138,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - Joining an old pond keeps its `epoch`, so `pondTick` keeps advancing across joins.
   - Notes: membership is derived from `ctx.getWebSockets()` and attachments after hibernation. Ponds are not capped in number; admission arrives in M4.
   - Done: `worker/authority.ts` derives rosters from socket attachments (`pondId` per active session); `worker/schema.ts` holds the numbered migrations (`ponds` plus a `migrations` table). A dropped socket is marked `retired` so its leave is sent once. The first joiner spawns at the centre, later ones on the ring (index = current member count).
-  - Gotcha: the DO's SQLite refuses `PRAGMA user_version`, hence the `migrations` table. DO storage outlives a test, so `hub.test.ts` clears `ponds` after each test. Signals count against the 20-per-10 s limit: a joiner offering to 23 peers would exceed it, so T9/T10 must budget signals (or give them their own window).
+  - Gotcha: the DO's SQLite refuses `PRAGMA user_version`, hence the `migrations` table. DO storage outlives a test, so `hub.test.ts` clears `ponds` after each test. Signals counted against the 20-per-10 s limit, which a joiner offering to 23 peers exceeds; T19 gave them their own window.
 
 - [x] T7 TURN credentials
   - Acceptance (workerd tests with a faked `fetch`):

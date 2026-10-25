@@ -471,8 +471,10 @@ describe('joining a full pond', () => {
   it('lets 24 clients join one after another within the message budget', async () => {
     const closes: number[] = [];
     const joined: Array<{ playerId: string }> = [];
+    const hints = new Set<string>();
     for (let i = 0; i < 24; i++) {
-      const { c, id } = await login(`Pl${i}`);
+      const { c, id, welcome } = await login(`Pl${i}`);
+      hints.add(JSON.stringify(welcomeOf(welcome).you.spawnHint));
       void c.closed.then((code) => closes.push(code));
       // What a joining client sends: the opening pings, then one offer per member.
       for (let p = 0; p < 8; p++) c.send({ t: 'ping', id: p });
@@ -485,6 +487,7 @@ describe('joining a full pond', () => {
       joined.push({ playerId: id.playerId });
     }
     expect(closes).toEqual([]);
+    expect(hints.size).toBe(24);
   }, 30_000);
 
   it('closes 4003 on a flood of signals', async () => {
