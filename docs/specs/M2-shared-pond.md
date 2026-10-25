@@ -254,7 +254,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - If the secrets are not set when this task runs, open `Blocked: M2 T16: add Cloudflare secrets` with the exact steps from `docs/SETUP.md` step 8 and the secret names, mark T16 `blocked (#n)`, and stop. Release then waits for the owner; the `milestone` step must not run before T16 is ticked.
     - The PR gate never touches Cloudflare (`.claude/rules/ci.md`); only the release workflow deploys.
 
-- [ ] T17 End-to-end shared pond (in progress)
+- [x] T17 End-to-end shared pond
   - Acceptance (`tests/e2e/m2-pond.spec.ts`, local `wrangler dev` started by Playwright's `webServer`, no public STUN, TURN or relays):
     - Three browser contexts hatch, join one pond, and see each other: `state().remotes` has 2 entries in each within 5 s, and each remote's reported position is within 40 wu of the owner's own `state().player` position after 5 s of play (interpolation lag included).
     - While A steers in a circle at full throttle for 5 s, B's recorded remote position series for A has no step larger than 25 wu between consecutive frames at 30 fps, and its mean error against A's own positions (aligned by tick) is under 12 wu.
@@ -264,6 +264,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - Chat: A's message reaches B and C; a muted sender does not reach B.
     - A 24-peer pond runs in a unit-level simulation (24 `PeerMesh` instances over fake transports): everyone connects to 23 others, a snapshot round reaches all, and a leave drops one connection per peer.
   - Notes: tag the longest scenario `@slow`. Chromium needs `--disable-features=WebRtcHideLocalIpsWithMdns` (set in `playwright.config.ts` launch args). This is the milestone's single end-to-end check.
+  - Done: `tests/e2e/m2-pond.spec.ts` (own hub, port 8789, project `pond` after `social`): three contexts, a 5 s circle with B's series of A (worst step < 25 wu, mean error < 12 wu), a same-item race (net bites kept across A and B = 1, gone for C), chat to B and C with a mute, and a `@slow` tab close and reload; the 24-peer mesh is a unit test in `peer-mesh.test.ts`. The dead-hub chip stays in `m2-online.spec.ts`.
+  - Gotcha: the race asserts bites kept (`eat` − `stolen`) instead of `stolen == 1`: whether the loser had already eaten when the winning claim arrived depends on the tick alignment, and either outcome is correct. `events()` counts since hatching, so diff against a baseline.
 
 - [x] T18 Playtest v0.2.0 fixes (#24)
   - Acceptance:

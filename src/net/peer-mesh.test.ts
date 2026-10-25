@@ -430,3 +430,39 @@ describe('PeerMesh inbound hygiene', () => {
     expect(a.sendEvent('b', { t: 'chat', text: 'x'.repeat(EVENT_MAX_BYTES) })).toBe(false);
   });
 });
+
+describe('PeerMesh in a full pond', () => {
+  const ids = Array.from({ length: 24 }, (_, i) => `p${String(i).padStart(2, '0')}`);
+
+  it('connects 24 peers pairwise, reaches all with a snapshot round, and drops one link per peer on a leave', async () => {
+    const net = network(ids);
+    const meshes = ids.map((id) => net.meshes.get(id) as PeerMesh);
+    const heard = new Map<string, Set<string>>(ids.map((id) => [id, new Set()]));
+    const left = new Map<string, string[]>(ids.map((id) => [id, []]));
+    for (const [i, mesh] of meshes.entries()) {
+      const self = ids[i] as string;
+      mesh.onState((from) => heard.get(self)?.add(from));
+      mesh.onPeerLeft((id) => left.get(self)?.push(id));
+    }
+    // The roster tells everyone about the others; each side dials the peers listed after it.
+    for (const [i, mesh] of meshes.entries()) {
+      for (const other of ids.slice(i + 1)) mesh.connect(other);
+    }
+    await settle();
+    for (const mesh of meshes) expect(mesh.stats().open).toBe(23);
+
+    for (const [i, mesh] of meshes.entries()) {
+      for (const other of ids) if (other !== ids[i]) mesh.sendState(other, encodeSnapshot(SNAP));
+    }
+    for (const id of ids) expect(heard.get(id)?.size).toBe(23);
+
+    // The last peer leaves: everyone else loses exactly that one connection.
+    const leaver = ids[23] as string;
+    net.meshes.get(leaver)?.close();
+    await settle();
+    for (const id of ids.slice(0, 23)) {
+      expect(net.meshes.get(id)?.stats().open).toBe(22);
+      expect(left.get(id)).toEqual([leaver]);
+    }
+  });
+});
