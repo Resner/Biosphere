@@ -30,8 +30,9 @@ export function createIdentity(store: KeyStore): Promise<Identity>;  // loads th
 export interface Identity { playerId: string; sign(domain: string, message: Uint8Array): Uint8Array }
 export function verify(playerId: string, domain: string, message: Uint8Array, sig: Uint8Array): boolean;
 export function playerIdOf(publicKey: Uint8Array): string;           // base64url
+export function memoryKeyStore(initial?: Uint8Array): KeyStore;
+// src/ledger/idb-keystore.ts (browser only; identity.ts stays DOM-free for the Worker):
 export function indexedDbKeyStore(): KeyStore;
-export function memoryKeyStore(): KeyStore;
 ```
 
 `src/net/protocol.ts` (shared with the Worker; no DOM or Node APIs). `PROTOCOL_VERSION = 1`.
@@ -94,7 +95,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `worker/` (index, origin, `Authority` stub that accepts hibernatable sockets), root `vitest.config.ts` with `node` and `worker` projects, `tsc -p worker`, `tools/worker.mjs` for wrangler with `__VERSION__`. 16 workerd tests; `check` runs in about 6 s.
   - Gotcha: uses `@cloudflare/vitest-plugin` (renamed pool, ADR 0017). A project's `include` is relative to its own config directory, so a wrong glob runs zero tests without failing: check the test count.
 
-- [ ] T3 Browser identity (in progress)
+- [x] T3 Browser identity
   - Acceptance:
     - `createIdentity(memoryKeyStore())` twice with the same store gives the same `playerId`; a fresh store gives a different one. `playerId` is 43 base64url characters.
     - `sign` then `verify` round trips; a different domain, message, playerId or a flipped signature bit fails. `verify` with garbage input returns false and does not throw.
@@ -102,6 +103,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - The seed is never returned by `Identity` and never appears in `JSON.stringify(identity)`.
     - E2E (`tests/e2e/m2-identity.spec.ts`): reloading the page keeps the same `playerId` (`__bs.state().playerId`); clearing IndexedDB gives a new one.
   - Notes: the same module runs in Node and workerd. Signatures are over `domain ‖ 0x0A ‖ message` as in ADR 0009. Recovery codes are M4.
+  - Done: `indexedDbKeyStore` lives in `src/ledger/idb-keystore.ts` (browser only) so the Worker types stay DOM-free; `verify` uses strict (non-ZIP215) checks; the worker suite also runs a sign/verify round trip in workerd.
 
 - [ ] T4 Wire protocol and codecs
   - Acceptance:
