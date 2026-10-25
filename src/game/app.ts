@@ -1,5 +1,6 @@
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
+import { Effects } from '../render/effects';
 import { GameScene } from '../render/scene';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
@@ -13,6 +14,7 @@ import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { type BsDebug, installHook } from './debug';
+import { pick } from './dom';
 import { Hud } from './hud';
 import { InputController } from './input';
 import { attachVisibilityPause, createLoop } from './loop';
@@ -63,6 +65,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const controller = new InputController();
   controller.attach(window);
   const hud = new Hud();
+  const fx = new Effects();
+  const vignette = pick('[data-testid="vignette"]');
 
   let session = newSession(params.seed, true);
   let screen: Screen = 'title';
@@ -83,6 +87,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   const enter = (next: Session, nextScreen: Screen): void => {
     session = next;
+    fx.reset();
     controller.reset();
     steering?.done(false);
     steering = null;
@@ -153,6 +158,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
   };
 
+  /** Where a cue belongs: an eat pops at the food, everything else at the creature. */
+  const anchorFor = (event: StepEvent): { x: number; y: number; radius: number } => {
+    const { player } = session;
+    const radius = Math.sqrt(player.biomass);
+    if (event.type === 'eat') {
+      const item = food.find((f) => f.id === event.food);
+      if (item) return { x: item.x, y: item.y, radius: Math.max(item.radius, radius * 0.6) };
+    }
+    return { x: player.x, y: player.y, radius };
+  };
+
   const tick = (): void => {
     const { world, player, counts } = session;
     // The world stops when the player has died: nothing changes behind the death screen.
@@ -162,6 +178,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     prev.heading = player.heading;
     input = chooseInput();
     const events = step(world, { [player.id]: input });
+    for (const event of events) {
+      if (event.creature !== player.id) continue;
+      fx.onEvent(event, anchorFor(event));
+      if (event.type === 'eat') hud.pulseEnergy();
+    }
     if (session.demo) {
       // The title cell lives on: keep it fed and healthy without growing.
       player.biomass = RULES.starter.biomass;
@@ -180,19 +201,34 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         survivedSeconds: (world.tick - player.bornTick) / TICK_HZ,
         peakBiomass: session.peakBiomass,
       };
-      screen = 'dead';
-      screens.showDeath(session.death);
+      fx.startDissolve();
     }
   };
 
   let lastMs = performance.now();
-  const view = { time: 0, camX: 0, camY: 0, halfHeight: 1, creature: null as CellView | null };
-  const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0 };
+  const view = {
+    time: 0,
+    camX: 0,
+    camY: 0,
+    halfHeight: 1,
+    creature: null as CellView | null,
+    rings: fx.rings,
+  };
+  const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0, hurt: 0, dissolve: 0 };
+  let shownVignette = -1;
+  const setVignette = (amount: number): void => {
+    // Rounded so a steady fade does not rewrite the style every frame.
+    const rounded = Math.round(amount * 100) / 100;
+    if (rounded === shownVignette) return;
+    shownVignette = rounded;
+    vignette.style.opacity = String(rounded);
+  };
 
   const render = (alpha: number): void => {
     const { player } = session;
     const now = performance.now();
-    const dt = Math.min((now - lastMs) / 1000, MAX_FRAME_SECONDS);
+    const elapsed = (now - lastMs) / 1000;
+    const dt = Math.min(elapsed, MAX_FRAME_SECONDS);
     lastMs = now;
 
     cell.x = lerp(prev.x, player.x, alpha);
@@ -207,7 +243,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     view.camX = camera.x;
     view.camY = camera.y;
     view.halfHeight = camera.halfHeight;
-    view.creature = player.alive ? cell : null;
+    // Cues run on wall-clock time: a slow frame must not stretch the dissolve.
+    fx.update(elapsed);
+    cell.hurt = fx.vignette;
+    cell.dissolve = fx.dissolve;
+    view.creature = fx.dissolved ? null : cell;
+    setVignette(fx.vignette);
+    // The death screen waits for the body to dissolve, so the player sees what killed them.
+    if (session.death !== null && fx.dissolved && screen === 'playing') {
+      screen = 'dead';
+      screens.showDeath(session.death);
+    }
     scene.draw(view);
   };
 
@@ -242,6 +288,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     setEnergy(energy) {
       const { player } = session;
       player.energy = Math.min(energy, maxEnergy(player.biomass));
+    },
+    setBiomass(biomass) {
+      const { player } = session;
+      const energy = player.energy / maxEnergy(player.biomass);
+      const health = player.health / maxHealth(player.biomass);
+      player.biomass = biomass;
+      player.energy = energy * maxEnergy(biomass);
+      player.health = health * maxHealth(biomass);
+      session.peakBiomass = Math.max(session.peakBiomass, biomass);
+      hud.update(player);
     },
     teleport(x, y) {
       const { player } = session;
@@ -308,7 +364,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       const { hash, events } = replay(log);
       return { hash, events };
     },
-    render: { info: () => scene.info() },
+    render: {
+      info: () => scene.info(),
+      fx: () => ({ ...fx.snapshot(), halfHeight: camera.halfHeight }),
+    },
     ...(params.debug ? { debug } : {}),
   });
 }

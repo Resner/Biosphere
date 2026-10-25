@@ -10,6 +10,7 @@ import particlesFragment from './shaders/particles.frag.glsl?raw';
 import particlesVertex from './shaders/particles.vert.glsl?raw';
 import plumeFragment from './shaders/plume.frag.glsl?raw';
 import plumeVertex from './shaders/plume.vert.glsl?raw';
+import ringsFragment from './shaders/rings.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
 
@@ -51,6 +52,8 @@ export const cellMaterial = (extent: number): THREE.ShaderMaterial =>
     uCore: { value: new THREE.Color(0.04, 0.15, 0.16) },
     uRim: { value: new THREE.Color(0.56, 0.95, 0.86) },
     uNucleus: { value: new THREE.Color(0.6, 0.9, 0.55) },
+    uHurt: { value: 0 },
+    uDissolve: { value: 0 },
   });
 
 export const flagellumMaterial = (): THREE.ShaderMaterial =>
@@ -59,6 +62,7 @@ export const flagellumMaterial = (): THREE.ShaderMaterial =>
     uRadius: { value: 1 },
     uBeat: { value: 0 },
     uColor: { value: new THREE.Color(0.62, 0.91, 0.84) },
+    uDissolve: { value: 0 },
   });
 
 export const foodMaterial = (kind: number, color: number): THREE.ShaderMaterial =>
@@ -70,6 +74,10 @@ export const foodMaterial = (kind: number, color: number): THREE.ShaderMaterial 
 
 export const plumeMaterial = (): THREE.ShaderMaterial =>
   layer(plumeVertex, noise + plumeFragment, { uTime: { value: 0 } });
+
+/** Pops and ripples reuse the plume's instanced-quad vertex shader; only the fragment differs. */
+export const ringMaterial = (): THREE.ShaderMaterial =>
+  layer(plumeVertex, ringsFragment, {}, { blending: THREE.AdditiveBlending });
 
 export interface ParticleStyle {
   /** Sprite diameter in world units. */
