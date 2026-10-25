@@ -1,4 +1,3 @@
-/// <reference types="vitest/config" />
 import { defineConfig } from 'vite';
 
 export default defineConfig({
@@ -11,8 +10,5 @@ export default defineConfig({
     sourcemap: true,
     // three.js alone is about 540 kB minified; warn when the app grows well beyond it.
     chunkSizeWarningLimit: 900,
-  },
-  test: {
-    include: ['src/**/*.test.ts'],
   },
 });

@@ -16,4 +16,4 @@ ADR 0008 is the contract: one Worker and one SQLite Durable Object, minimal by d
 - Use hibernatable WebSockets (`ctx.acceptWebSocket`) and keep per-socket state in attachments. Protocol pings use auto-response so they don't wake the object.
 - Accept requests only from the Pages origin and localhost. Validate every message with the shared codecs. Rate-limit each session.
 - Secrets (TURN key, the Cloudflare token for deploys) come only from Worker secrets or GitHub secrets. Never put them in code, logs, responses or tests.
-- Tests run offline in workerd (`@cloudflare/vitest-pool-workers`) and through local `wrangler dev`, with drand and Cloudflare APIs faked or replayed from fixtures.
+- Tests run offline in workerd (`@cloudflare/vitest-plugin`) and through local `wrangler dev`, with drand and Cloudflare APIs faked or replayed from fixtures.

@@ -18,7 +18,7 @@ Friends open the Pages link and share a pond of up to 24 with no setup. They spa
 
 New: `worker/` (Worker and `Authority` Durable Object), `src/ledger/identity.ts`, `src/net/` (protocol, codecs, hub client, `PeerMesh`, pond sync, claims, text filter), `src/game/` online session, social UI. Changed: `src/sim` (feeding rule), `src/render` (remote cells), `.github/workflows/release.yml` (Worker deploy), `package.json`.
 
-New dependencies (add with `npx -y npm@11 install …`): `@noble/ed25519`, `@noble/hashes` (runtime); `wrangler`, `@cloudflare/vitest-pool-workers`, `@cloudflare/workers-types` (dev).
+New dependencies (add with `npx -y npm@11 install …`): `@noble/ed25519`, `@noble/hashes` (runtime); `wrangler`, `@cloudflare/vitest-plugin`, `@cloudflare/workers-types` (dev).
 
 Interfaces:
 
@@ -83,7 +83,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: all six items fixed; no golden changed, so `RULES_VERSION` stays 1. DESIGN already had the full-energy sentence. `Effects.resume()` caps only the first update after a hidden gap, and `src/game/field.ts` defers the field query to the render frame.
   - Gotcha: `Math.hypot` is banned in `src/sim` (determinism guard); use `length` from `math.ts`.
 
-- [ ] T2 Worker skeleton (in progress)
+- [x] T2 Worker skeleton
   - Acceptance:
     - `worker/` has `wrangler.jsonc` (name `biosphere-authority`, one SQLite DO class `Authority`, a numbered migration), `index.ts` and `authority.ts`. `npm run check` still takes under 30 s and runs the Worker tests in workerd through `@cloudflare/vitest-pool-workers` as a Vitest project beside the Node tests.
     - `GET /v1/health` returns 200 `{ ok: true, version: <VERSION>, protocol: 1 }` with `Access-Control-Allow-Origin` set to the request origin when the origin is allowed: `https://resner.github.io` and any `http://localhost:*` or `http://127.0.0.1:*`. A disallowed origin gets 403 and no CORS header. A request with no `Origin` header (curl) is allowed for `/v1/health` only.
@@ -91,6 +91,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - Unknown paths return 404 JSON.
     - `tsc --noEmit` covers `worker/` with the Workers types and `src/` with DOM types, via separate tsconfig projects.
   - Notes: the build version comes from `VERSION` through a `define`. Keep the DO free of timers (`.claude/rules/worker.md`). Pin the dependency versions.
+  - Done: `worker/` (index, origin, `Authority` stub that accepts hibernatable sockets), root `vitest.config.ts` with `node` and `worker` projects, `tsc -p worker`, `tools/worker.mjs` for wrangler with `__VERSION__`. 16 workerd tests; `check` runs in about 6 s.
+  - Gotcha: uses `@cloudflare/vitest-plugin` (renamed pool, ADR 0017). A project's `include` is relative to its own config directory, so a wrong glob runs zero tests without failing: check the test count.
 
 - [ ] T3 Browser identity
   - Acceptance:
