@@ -134,14 +134,41 @@ describe('InputController events', () => {
     const controller = new InputController();
     const enters: number[] = [];
     controller.attach(win as unknown as Window, doc as unknown as Document, () => enters.push(1));
-    const key = (type: 'keydown' | 'keyup', k: string, repeat = false) => {
+    const key = (
+      type: 'keydown' | 'keyup',
+      k: string,
+      repeat = false,
+      target?: { tagName: string },
+    ) => {
       const event = Object.assign(new Event(type, { cancelable: true }), { key: k, repeat });
+      if (target) Object.defineProperty(event, 'target', { value: target });
       win.dispatchEvent(event);
       return event;
     };
     const held = () => controller.sample({ x: 0, y: 0 }, 1, 10);
     return { controller, doc, key, held, enters };
   };
+
+  it('leaves editing keys to a text field', () => {
+    const { key, held, enters } = setup();
+    for (const tag of ['INPUT', 'TEXTAREA']) {
+      for (const k of ['ArrowLeft', 'a', ' ', 'Backspace']) {
+        const down = key('keydown', k, false, { tagName: tag });
+        expect(down.defaultPrevented).toBe(false);
+        key('keyup', k, false, { tagName: tag });
+      }
+    }
+    expect(held()).toEqual({ steer: 0, throttle: 0, dash: false });
+    // Enter still hatches from the name field.
+    key('keydown', 'Enter', false, { tagName: 'INPUT' });
+    expect(enters).toHaveLength(1);
+    // The page itself still steers, and a key released over a field is not left held.
+    key('keydown', 'a');
+    key('keyup', 'a', false, { tagName: 'INPUT' });
+    expect(held().throttle).toBe(0);
+    key('keydown', 'a');
+    expect(held().throttle).toBeGreaterThan(0);
+  });
 
   it('ignores auto-repeated keydowns', () => {
     const { key, held, enters } = setup();

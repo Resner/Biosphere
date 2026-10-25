@@ -289,13 +289,16 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Gotcha: a session hibernated before this change has no `signals` counter or `slot`; the code tolerates both.
   - Also: `m2-online` takes about 25 s in the parallel suite (24.7 s on `main` too) against a 30 s timeout, and failed twice in CI; it now has 60 s like the social and pond projects.
 
-- [ ] T20 Online session robustness
+- [x] T20 Online session robustness
   - Acceptance:
     - `app.ts` reads `localStorage` only through `safeStorage()`, and `loadName`/`saveName` accept `null`; with a throwing `localStorage` the app starts and Hatch works (unit + E2E with the accessor stubbed to throw).
     - A failing `ensureOnline`/`startOnline` in `hatch()` falls back to a local pond: the buttons are enabled again and the player is playing (unit with a throwing connector).
     - After `pagehide` then `pageshow` (back/forward cache) the session reconnects, so the next hatch is online again (unit, `online` cleared on dispose).
     - Editing keys (arrows, space, backspace) work in the title screen's name field: `InputController` ignores key events whose target is an input or textarea (unit).
     - A welcome with a different pond id while a life is running ends that life's pond cleanly (the life continues in a local pond, with the offline chip) instead of silently splitting `pond` and `session.pond` (unit).
+
+  - Done: the app reads storage through `safeStorage()` only (`loadName`/`saveName` take `null`); `tryOnline` turns a throwing connector into a local pond; `OnlineKeeper` owns the one session (`pagehide` suspends it, `pageshow` with `persisted` resumes it); `InputController` ignores keydowns in an input or textarea except Enter; `switchPond` moves a life in the old pond to a local one (pond cleared, speed 1) and the chip reads "Offline" while a life is in a local pond.
+  - Gotcha: keyup is never ignored, so a key held over a field cannot stick.
 
 - [ ] T21 Links that recover, and food claims that cannot be abused
   - Acceptance:

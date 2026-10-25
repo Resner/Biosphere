@@ -49,10 +49,34 @@ export interface Store {
   setItem(key: string, value: string): void;
 }
 
-/** The remembered name, or a new default that is remembered from now on. */
-export function loadName(store: Store, random: () => number = Math.random): string {
+/** Runs `connect`; a throw or rejection means no hub, so the caller plays in a local pond. */
+export async function tryOnline<T>(connect: () => Promise<T | null>): Promise<T | null> {
   try {
-    const kept = cleanName(store.getItem(NAME_KEY) ?? '');
+    return await connect();
+  } catch (error) {
+    console.warn('online session failed, playing in a local pond', error);
+    return null;
+  }
+}
+
+/**
+ * Adopts the pond a welcome names. A running life stays in `life` only while the pond is the same:
+ * in a different pond it carries on in a local one (`life` null).
+ */
+export function switchPond<P extends { id: string }>(
+  current: P | null,
+  life: P | null,
+  nextId: string,
+  make: () => P,
+): { pond: P; life: P | null; changed: boolean } {
+  if (current && current.id === nextId) return { pond: current, life, changed: false };
+  return { pond: make(), life: null, changed: true };
+}
+
+/** The remembered name, or a new default that is remembered from now on. */
+export function loadName(store: Store | null, random: () => number = Math.random): string {
+  try {
+    const kept = cleanName(store?.getItem(NAME_KEY) ?? '');
     if (kept) return kept;
   } catch {
     // storage blocked: fall through to a name for this visit
@@ -62,9 +86,9 @@ export function loadName(store: Store, random: () => number = Math.random): stri
   return name;
 }
 
-export function saveName(store: Store, name: string): void {
+export function saveName(store: Store | null, name: string): void {
   try {
-    store.setItem(NAME_KEY, name);
+    store?.setItem(NAME_KEY, name);
   } catch {
     // storage blocked: the name lasts for this visit
   }
