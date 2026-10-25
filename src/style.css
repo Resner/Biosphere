@@ -125,6 +125,68 @@ body {
   max-width: 16rem;
 }
 
+.name-field {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  margin: 0 0 1rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.name-field[hidden],
+.name-error[hidden],
+.alone-hint[hidden] {
+  display: none;
+}
+
+.name-field input {
+  width: 9rem;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.55);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+}
+
+.name-error {
+  margin: -0.5rem 0 0.75rem;
+  color: #e8b04a;
+  font-size: 0.85rem;
+}
+
+/* Online status: text, so colour is never the only signal. */
+.net-status {
+  position: fixed;
+  top: 0.75rem;
+  right: 0.75rem;
+  margin: 0;
+  padding: 0.2rem 0.7rem;
+  border: 1px solid rgb(127 163 156 / 0.5);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.55);
+  color: var(--muted);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.net-status:empty {
+  display: none;
+}
+
+.alone-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 2.5rem;
+  margin: 0;
+  transform: translateX(-50%);
+  color: var(--muted);
+  text-shadow: 0 0 6px rgb(0 0 0 / 0.9);
+  pointer-events: none;
+}
+
 .remote-labels {
   position: fixed;
   inset: 0;

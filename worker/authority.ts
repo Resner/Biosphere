@@ -18,6 +18,7 @@ import {
   type PondInfo,
   parseClientMsg,
   SDP_MAX_BYTES,
+  SPAWN_GOLDEN_ANGLE,
   type Vec2,
 } from '../src/net/protocol';
 import { RULES } from '../src/sim/rules';
@@ -28,8 +29,7 @@ const HELLO_TIMEOUT_MS = 10_000;
 const RATE_WINDOW_MS = 10_000;
 const RATE_MAX_MESSAGES = 20;
 const POND_SIZE = 24;
-/** Joiner `i` spawns at angle `i · GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · members` (DESIGN.md). */
-const GOLDEN_ANGLE = 2.399963;
+/** Joiner `i` spawns at angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · members` (DESIGN.md). */
 const RING_BASE = 300;
 const RING_STEP = 40;
 
@@ -212,7 +212,7 @@ export class Authority extends DurableObject<Env> {
     }
     const members = this.membersOf(best.id);
     const n = members.length;
-    const angle = n * GOLDEN_ANGLE;
+    const angle = n * SPAWN_GOLDEN_ANGLE;
     const radius = n === 0 ? 0 : RING_BASE + RING_STEP * n;
     return {
       pond: {

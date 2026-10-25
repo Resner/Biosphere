@@ -5,6 +5,7 @@ export default defineConfig({
   base: './',
   define: {
     __BUILD_LABEL__: JSON.stringify(process.env.BUILD_LABEL ?? ''),
+    __AUTHORITY_URL__: JSON.stringify(process.env.AUTHORITY_URL ?? ''),
   },
   build: {
     sourcemap: true,
