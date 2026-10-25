@@ -112,6 +112,8 @@ describe('hashWorld', () => {
       { cause: 'toxin' satisfies DeathCause },
       { bornTick: 1 },
     ];
+    const covered = new Set(['id', ...mutations.flatMap((m) => Object.keys(m))]);
+    expect([...covered].sort()).toEqual(Object.keys(base.creatures[0] as CreatureState).sort());
     for (const m of mutations) {
       const world = structuredClone(base);
       Object.assign(world.creatures[0] as CreatureState, m);
@@ -122,6 +124,9 @@ describe('hashWorld', () => {
   it('changes when world fields change', () => {
     const base = build(['a']);
     const baseHash = hashWorld(base);
+    // seed32 derives from seed; creatures are covered by the test above.
+    const covered = ['rules', 'tick', 'size', 'consumed', 'options', 'seed', 'seed32', 'creatures'];
+    expect(covered.sort()).toEqual(Object.keys(base).sort());
     const variants: ((w: World) => void)[] = [
       (w) => {
         w.tick = 1;

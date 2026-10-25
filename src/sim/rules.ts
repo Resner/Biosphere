@@ -5,12 +5,14 @@ export const RULES_VERSION = 1;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
-function deepFreeze<T>(value: T): T {
+type DeepReadonly<T> = { readonly [K in keyof T]: DeepReadonly<T[K]> };
+
+function deepFreeze<T>(value: T): DeepReadonly<T> {
   if (typeof value === 'object' && value !== null) {
     for (const child of Object.values(value)) deepFreeze(child);
     Object.freeze(value);
   }
-  return value;
+  return value as DeepReadonly<T>;
 }
 
 export const RULES = deepFreeze({

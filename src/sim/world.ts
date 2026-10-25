@@ -26,9 +26,6 @@ export function spawnCreature(
   world: World,
   spec: { id: string; x: number; y: number; biomass?: number },
 ): CreatureState {
-  if (world.creatures.some((c) => c.id === spec.id)) {
-    throw new Error(`creature ${spec.id} already exists`);
-  }
   const biomass = spec.biomass ?? RULES.starter.biomass;
   const creature: CreatureState = {
     id: spec.id,
@@ -45,8 +42,11 @@ export function spawnCreature(
     cause: null,
     bornTick: world.tick,
   };
+  // world.creatures is sorted by id, so a duplicate sits right at the insertion point.
   let at = world.creatures.length;
   while (at > 0 && (world.creatures[at - 1] as CreatureState).id > spec.id) at--;
+  if (world.creatures[at - 1]?.id === spec.id)
+    throw new Error(`creature ${spec.id} already exists`);
   world.creatures.splice(at, 0, creature);
   return creature;
 }
