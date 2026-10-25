@@ -116,7 +116,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/protocol.ts` (24-byte little-endian snapshot, energy and health as 0–1 fractions) with 35 tests, 100k-case fuzz for the snapshot and the parsers. Parsers copy only known fields and reject `__proto__` keys.
   - Gotcha: a `signal` may be up to 12 KB so T6 can answer `too-big` for an `sdp` over `SDP_MAX_BYTES` (8 KB); every other hub message is capped at 4 KB. Sizes are counted in UTF-8 bytes.
 
-- [ ] T5 Hub sessions: hello, single session, time, rate limit
+- [ ] T5 Hub sessions: hello, single session, time, rate limit (in progress)
   - Acceptance (workerd tests with `SELF.fetch` WebSockets):
     - On connect the DO sends `challenge` with a 16-byte random nonce. A `hello` with a valid signature over `'bs/hello/v1' ‖ nonce ‖ name` gets `welcome` (pond data is T6's; a single stub pond is fine here). A bad signature, a wrong nonce, a name that is not 3–16 characters of `A–Z a–z 0–9 _ -`, a wrong protocol version or a hello after 10 s of silence closes with 4002.
     - A second session with the same `playerId` gets `welcome`, and the first socket closes with 4001.
