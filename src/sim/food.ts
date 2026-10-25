@@ -115,6 +115,7 @@ export function consumeFood(world: World, id: string): void {
   const m = ID_PATTERN.exec(id);
   if (!m) throw new Error(`bad food id ${id}`);
   const [cx, cy, slot, k] = [Number(m[1]), Number(m[2]), Number(m[3]), Number(m[4])] as const;
+  if (`${slotKey(cx, cy, slot)}_k${k}` !== id) throw new Error(`bad food id ${id}`);
   const eaten = world.consumed[slotKey(cx, cy, slot)];
   const inGrid = cx < cellsPerSide(world) && cy < cellsPerSide(world);
   const alive =
@@ -141,7 +142,7 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
     const reach = radius + item.radius;
     if (dx * dx + dy * dy >= reach * reach) continue;
     consumeFood(world, item.id);
-    creature.energy = Math.min(creature.energy + item.value, maxEnergy);
+    creature.energy = Math.max(creature.energy, Math.min(creature.energy + item.value, maxEnergy));
     events.push({ type: 'eat', creature: creature.id, food: item.id, value: item.value });
   }
   return events;

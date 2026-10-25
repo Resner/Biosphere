@@ -35,6 +35,7 @@ export interface FoodItem {
   y: number;
   value: number;
   radius: number;
+  /** The tick this item appeared (0 for a slot's first item). */
   respawnTick: number;
 }
 

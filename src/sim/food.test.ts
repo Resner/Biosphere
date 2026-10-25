@@ -153,6 +153,14 @@ describe('feeding', () => {
     expect(creature.energy).toBe(2 * creature.biomass);
   });
 
+  it('never lowers energy that is above the cap', () => {
+    const w = world();
+    const { creature } = placeOnItem(w);
+    creature.energy = 2 * creature.biomass + 5;
+    applyFeeding(w, creature);
+    expect(creature.energy).toBe(2 * creature.biomass + 5);
+  });
+
   it('does not eat a distant item or feed a dead creature', () => {
     const w = world();
     const { item, creature } = placeOnItem(w);
@@ -169,5 +177,6 @@ describe('feeding', () => {
     consumeFood(w, item.id);
     expect(() => consumeFood(w, item.id)).toThrow();
     expect(() => consumeFood(w, 'nonsense')).toThrow();
+    expect(() => consumeFood(w, 'c08_8_s0_k1')).toThrow();
   });
 });
