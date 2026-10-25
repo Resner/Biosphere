@@ -167,7 +167,7 @@ describe('InputController social hooks', () => {
           clientY: y,
         }),
       );
-    return { controller, key, keys, middles, pointer };
+    return { controller, key, keys, middles, pointer, win };
   };
 
   it('reports fresh key presses, not repeats', () => {
@@ -176,6 +176,22 @@ describe('InputController social hooks', () => {
     key('keydown', 't', true);
     key('keydown', '2');
     expect(keys).toEqual(['t', '2']);
+  });
+
+  it('does not report presses with Ctrl, Cmd or Alt held', () => {
+    const { key, keys, win } = setup();
+    for (const mod of ['ctrlKey', 'metaKey', 'altKey']) {
+      win.dispatchEvent(
+        Object.assign(new Event('keydown', { cancelable: true }), {
+          key: 'g',
+          repeat: false,
+          [mod]: true,
+        }),
+      );
+    }
+    expect(keys).toEqual([]);
+    key('keydown', 'g');
+    expect(keys).toEqual(['g']);
   });
 
   it('while typing, ignores keys, leaves Space alone and releases held keys', () => {

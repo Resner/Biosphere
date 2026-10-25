@@ -170,8 +170,21 @@ export class Social {
     return this.pingList;
   }
 
+  /** Flips the mute; muting also clears what that player has on screen and in the log. */
   toggleMute(id: string): boolean {
-    return this.muted.toggle(id);
+    const muted = this.muted.toggle(id);
+    if (muted) {
+      this.bubbleMap.delete(id);
+      this.emoteMap.delete(id);
+      for (let i = this.pingList.length - 1; i >= 0; i--) {
+        if ((this.pingList[i] as PingCue).from === id) this.pingList.splice(i, 1);
+      }
+      const kept = this.chatLines.filter((line) => line.from !== id);
+      this.chatLines.length = 0;
+      this.chatLines.push(...kept);
+      this.chats++;
+    }
+    return muted;
   }
 
   /** Sends `text` (trimmed, cut, filtered) and shows it as the player's own; false if nothing went. */
@@ -195,6 +208,7 @@ export class Social {
   /** Marks a world position; each ping placed moves on to the next of the four kinds. */
   ping(at: { x: number; y: number }, self: string): boolean {
     const now = this.opts.now();
+    if (this.worldSize !== undefined && !inside(at.x, at.y, this.worldSize)) return false;
     if (!this.mine.ping.allow(now)) return false;
     const kind = this.nextPing;
     this.nextPing = (kind + 1) % PING_KINDS;
@@ -211,7 +225,7 @@ export class Social {
       this.armedUntil = now + EMOTE_ARM_MS;
     } else if (k === 'g') {
       if (cursor) this.ping(cursor, self);
-    } else if (/^[1-9]$/.test(k) && now < this.armedUntil) {
+    } else if (/^[1-9]$/.test(k) && Number(k) <= EMOTE_COUNT && now < this.armedUntil) {
       this.armedUntil = -1;
       this.sendEmote(Number(k) - 1, self);
     }
@@ -259,6 +273,7 @@ export class Social {
   /** Forgets the log and every cue (a new pond or name); mutes stay. */
   reset(): void {
     this.chatLines.length = 0;
+    this.chats++;
     this.bubbleMap.clear();
     this.emoteMap.clear();
     this.pingList.length = 0;

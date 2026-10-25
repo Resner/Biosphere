@@ -100,7 +100,8 @@ test('chat is filtered, typing does not steer, mute hides a sender, and cues cro
     await expect(b.getByTestId('roster').getByRole('button')).toContainText('muted');
     await say(a, 'still there?');
     await a.waitForTimeout(1000);
-    expect(await chatTexts(b)).toHaveLength(2);
+    // Muting also cleared A's earlier lines, and the new message never arrived.
+    expect(await chatTexts(b)).toEqual([]);
 
     // The mute survives a reload.
     await b.reload();

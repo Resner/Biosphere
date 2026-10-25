@@ -272,6 +272,51 @@ describe('hotkeys', () => {
   });
 });
 
+describe('mute clears what is showing', () => {
+  it("removes the sender's bubble, emote, ping and log lines, and leaves others", () => {
+    const { social, clock } = setup();
+    social.receive('alice', { t: 'chat', text: 'hi' });
+    social.receive('alice', { t: 'emote', id: 1 });
+    social.receive('alice', { t: 'ping', kind: 0, x: 1, y: 1 });
+    social.receive('bob', { t: 'chat', text: 'yo' });
+    const before = social.chats;
+    social.toggleMute('alice');
+    expect(social.bubbles().has('alice')).toBe(false);
+    expect(social.emotes().has('alice')).toBe(false);
+    expect(social.pings()).toHaveLength(0);
+    expect(social.log().map((l) => l.text)).toEqual(['yo']);
+    expect(social.bubbles().has('bob')).toBe(true);
+    expect(social.chats).toBeGreaterThan(before);
+    clock.now = 1;
+  });
+});
+
+describe('edges', () => {
+  it('refuses to ping outside the world, as peers would drop it', () => {
+    const { social, sent } = setup({ worldSize: 1000 });
+    expect(social.ping({ x: -5, y: 10 }, 'self')).toBe(false);
+    expect(social.ping({ x: 10, y: 10 }, 'self')).toBe(true);
+    expect(sent).toHaveLength(1);
+  });
+
+  it('keeps T armed through a number that is not an emote', () => {
+    const { social, sent } = setup();
+    social.key('t', 'self', null);
+    social.key('7', 'self', null);
+    expect(sent).toHaveLength(0);
+    social.key('6', 'self', null);
+    expect(sent).toEqual([{ t: 'emote', id: 5 }]);
+  });
+
+  it('tells a view to redraw after a reset', () => {
+    const { social } = setup();
+    social.sendChat('hi', 'self');
+    const before = social.chats;
+    social.reset();
+    expect(social.chats).toBeGreaterThan(before);
+  });
+});
+
 describe('reset', () => {
   it('clears cues and the log but keeps mutes', () => {
     const { social } = setup();

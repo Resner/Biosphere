@@ -140,11 +140,14 @@ export class InputController {
       if (e.key === 'Enter') onEnter?.();
       else {
         this.keyDown(e.key);
-        hooks.key?.(e.key);
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) hooks.key?.(e.key);
       }
     };
     const up = (e: KeyboardEvent) => {
       if (!this.typing) this.keyUp(e.key);
+    };
+    const noMiddle = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
     };
     const move = (e: PointerEvent) => this.pointerMove(e.clientX, e.clientY);
     const press = (e: PointerEvent) => {
@@ -161,6 +164,8 @@ export class InputController {
     target.addEventListener('keyup', up);
     target.addEventListener('pointermove', move);
     target.addEventListener('pointerdown', press);
+    // The middle button would otherwise start the browser's autoscroll.
+    target.addEventListener('mousedown', noMiddle);
     target.addEventListener('blur', blur);
     doc?.addEventListener('visibilitychange', visibility);
     return () => {
@@ -168,6 +173,7 @@ export class InputController {
       target.removeEventListener('keyup', up);
       target.removeEventListener('pointermove', move);
       target.removeEventListener('pointerdown', press);
+      target.removeEventListener('mousedown', noMiddle);
       target.removeEventListener('blur', blur);
       doc?.removeEventListener('visibilitychange', visibility);
     };

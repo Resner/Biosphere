@@ -60,7 +60,7 @@ export class SocialUi {
 
   constructor(
     private readonly social: Social,
-    private readonly handlers: { submit(text: string): void; typing(on: boolean): void },
+    private readonly handlers: { submit(text: string): boolean; typing(on: boolean): void },
   ) {
     this.input.addEventListener('keydown', (e) => {
       if (e.key !== 'Enter' && e.key !== 'Escape') return;
@@ -69,7 +69,11 @@ export class SocialUi {
       if (e.isComposing) return;
       const text = this.input.value;
       this.close();
-      if (e.key === 'Enter' && text.trim() !== '') handlers.submit(text);
+      // A refused message (rate limit) stays in the input so the player can send it again.
+      if (e.key === 'Enter' && text.trim() !== '' && !this.handlers.submit(text)) {
+        this.open();
+        this.input.value = text;
+      }
     });
     this.input.addEventListener('blur', () => {
       if (!this.input.hidden) this.close();

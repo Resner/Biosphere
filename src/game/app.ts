@@ -187,6 +187,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   const enter = (next: Session, nextScreen: Screen): void => {
     session = next;
+    socialUi.close();
     fx.reset();
     controller.reset();
     steering?.done(false);
@@ -258,7 +259,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       name,
       handlers: {
         welcome(w) {
-          if (pond?.id !== w.pond.id) pond = makePond(w, link.clock);
+          if (pond?.id !== w.pond.id) {
+            pond = makePond(w, link.clock);
+            social.reset();
+          }
           social.worldSize = w.pond.size;
         },
         member(op, member) {
@@ -580,7 +584,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (screen === 'playing') {
       anchors.clear();
       anchors.set(selfKey(), { x: cell.x, y: cell.y, radius: cell.radius });
-      for (const r of remoteViews) anchors.set(r.id, r);
+      for (const r of remoteViews) if (r.alpha >= 0.01) anchors.set(r.id, r);
       socialUi.update(now, anchors, online?.others() ?? NO_MEMBERS, projection);
     }
     field.flush();
