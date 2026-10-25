@@ -182,7 +182,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/connection-policy.ts` (`ConnectionPolicy`): `upsert`/`remove`/`release` keep the roster, `plan()` returns `{connect, evict}` (calls only higher ids), `admit(id)` judges inbound offers. Ties never evict; only P2 peers are victims.
   - Gotcha: `plan()` and `admit()` record connections as held at once, so T13 must `release(id)` when the mesh drops one and `remove(id)` on a roster leave.
 
-- [ ] T11 Pond sync and remote creatures
+- [ ] T11 Pond sync and remote creatures (in progress)
   - Acceptance:
     - Sender: `SnapshotSender` emits one snapshot per 100 ms of loop time to every open `state` channel (10 Hz ± 1 over 10 s on a fake clock), nothing while the tab is hidden.
     - `RemoteBuffer` (interpolation): snapshots at 100 ms spacing for a creature moving at a constant 60 wu/s: a query at `now − 120 ms` is within 0.5 wu of the true position for 20 s of simulated jitter (±30 ms arrival jitter, 5% loss, out-of-order delivery). Heading interpolates the short way across ±π. With one gap longer than 300 ms it extrapolates for at most 250 ms, then holds.
