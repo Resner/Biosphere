@@ -83,7 +83,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: all six items fixed; no golden changed, so `RULES_VERSION` stays 1. DESIGN already had the full-energy sentence. `Effects.resume()` caps only the first update after a hidden gap, and `src/game/field.ts` defers the field query to the render frame.
   - Gotcha: `Math.hypot` is banned in `src/sim` (determinism guard); use `length` from `math.ts`.
 
-- [ ] T2 Worker skeleton
+- [ ] T2 Worker skeleton (in progress)
   - Acceptance:
     - `worker/` has `wrangler.jsonc` (name `biosphere-authority`, one SQLite DO class `Authority`, a numbered migration), `index.ts` and `authority.ts`. `npm run check` still takes under 30 s and runs the Worker tests in workerd through `@cloudflare/vitest-pool-workers` as a Vitest project beside the Node tests.
     - `GET /v1/health` returns 200 `{ ok: true, version: <VERSION>, protocol: 1 }` with `Access-Control-Allow-Origin` set to the request origin when the origin is allowed: `https://resner.github.io` and any `http://localhost:*` or `http://127.0.0.1:*`. A disallowed origin gets 403 and no CORS header. A request with no `Origin` header (curl) is allowed for `/v1/health` only.
