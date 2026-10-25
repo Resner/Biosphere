@@ -57,3 +57,7 @@ body {
     Consolas,
     monospace;
 }
+
+[data-screen="playing"] .title {
+  display: none;
+}
