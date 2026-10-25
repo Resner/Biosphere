@@ -131,7 +131,10 @@ export function consumeFood(world: World, id: string): void {
   world.consumed[slotKey(cx, cy, slot)] = { k: k + 1, until: world.tick + delay };
 }
 
-/** Eats every item the creature overlaps (distance < radius + item radius). */
+/**
+ * Eats every item the creature overlaps (distance < radius + item radius), unless its energy is
+ * already at the cap: then the item stays for someone hungrier.
+ */
 export function applyFeeding(world: World, creature: CreatureState): StepEvent[] {
   if (!creature.alive) return [];
   const radius = Math.sqrt(creature.biomass);
@@ -142,6 +145,7 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
     const dy = item.y - creature.y;
     const reach = radius + item.radius;
     if (dx * dx + dy * dy >= reach * reach) continue;
+    if (creature.energy >= energyCap) continue;
     consumeFood(world, item.id);
     creature.energy = Math.max(creature.energy, Math.min(creature.energy + item.value, energyCap));
     events.push({ type: 'eat', creature: creature.id, food: item.id, value: item.value });

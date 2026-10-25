@@ -15,8 +15,9 @@ import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { type BsDebug, installHook } from './debug';
 import { pick } from './dom';
+import { createFieldSync } from './field';
 import { Hud } from './hud';
-import { InputController } from './input';
+import { enterHatches, InputController } from './input';
 import { attachVisibilityPause, createLoop } from './loop';
 import { type DeathSummary, type Screen, Screens } from './screens';
 
@@ -63,7 +64,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const scene = new GameScene(canvas, RULES.world.size);
   const camera = new FollowCamera();
   const controller = new InputController();
-  controller.attach(window);
   const hud = new Hud();
   const fx = new Effects();
   const vignette = pick('[data-testid="vignette"]');
@@ -73,6 +73,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let food: FoodItem[] = [];
   let input: Input = IDLE;
   let beat = 0;
+  let screenShownAt = 0;
   let steering: Steering | null = null;
   const prev = { x: 0, y: 0, heading: 0 };
 
@@ -84,6 +85,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     food = foodNear(world, player.x, player.y, reach);
     scene.setField(food, plumesNear(world, player.x, player.y, reach));
   };
+
+  const field = createFieldSync(refreshField);
 
   const enter = (next: Session, nextScreen: Screen): void => {
     session = next;
@@ -97,9 +100,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     prev.heading = player.heading;
     camera.snap({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) });
     scene.setHalfHeight(camera.halfHeight);
-    refreshField();
+    field.now();
     hud.update(player);
     screen = nextScreen;
+    screenShownAt = performance.now();
     screens.show(nextScreen);
   };
 
@@ -112,10 +116,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
   const screens = new Screens({ hatch });
   // Enter hatches from the title and death screens (Space stays the dash key).
-  window.addEventListener('keydown', (e) => {
-    if (e.key !== 'Enter' || screen === 'playing') return;
-    e.preventDefault();
-    hatch();
+  controller.attach(window, document, () => {
+    if (enterHatches(screen, performance.now() - screenShownAt)) hatch();
   });
 
   /** The input the tick uses: a script on the title, the debug steering, or the player's own. */
@@ -138,6 +140,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   const settleSteering = (events: StepEvent[]): void => {
     if (!steering) return;
+    // Steering is a debug aid that reads the live field, so it refreshes every tick.
+    field.now();
     const { player } = session;
     const { target } = steering;
     const eaten = events.some((e) => e.type === 'eat' && e.food === target.id);
@@ -193,7 +197,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       session.peakBiomass = Math.max(session.peakBiomass, player.biomass);
       hud.update(player);
     }
-    refreshField();
+    field.markDirty();
     settleSteering(events);
     if (!session.demo && player.cause !== null) {
       session.death = {
@@ -252,8 +256,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     // The death screen waits for the body to dissolve, so the player sees what killed them.
     if (session.death !== null && fx.dissolved && screen === 'playing') {
       screen = 'dead';
+      screenShownAt = now;
       screens.showDeath(session.death);
     }
+    field.flush();
     scene.draw(view);
   };
 
@@ -274,6 +280,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     maxTicksPerFrame: params.debug ? DEBUG_MAX_TICKS_PER_FRAME : 5,
   });
   attachVisibilityPause(document, loop);
+  document.addEventListener('visibilitychange', () => {
+    if (document.hidden) return;
+    // Cues run on wall-clock time: hidden time must not skip the death dissolve.
+    lastMs = performance.now();
+    fx.resume();
+  });
 
   let frames = 0;
   scene.start(() => {
@@ -332,7 +344,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     spawnPlume(x, y, radius = 80) {
       const { extraPlumes } = session.world;
       extraPlumes.push({ id: `debug${extraPlumes.length}`, x, y, radius });
-      refreshField();
+      field.now();
     },
     timeScale(next) {
       clock();

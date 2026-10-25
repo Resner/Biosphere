@@ -102,4 +102,18 @@ describe('Effects', () => {
     expect(fx.dissolve).toBe(0);
     expect(fx.dissolved).toBe(false);
   });
+
+  it('does not skip the dissolve after a long hidden gap', () => {
+    const fx = new Effects();
+    fx.startDissolve();
+    fx.update(0.1);
+    const before = fx.dissolve;
+    fx.resume();
+    fx.update(5);
+    expect(fx.dissolve - before).toBeLessThanOrEqual(0.1 / FX.dissolveSeconds + 1e-9);
+    expect(fx.dissolved).toBe(false);
+    // Only the first update after resume is capped.
+    fx.update(5);
+    expect(fx.dissolved).toBe(true);
+  });
 });

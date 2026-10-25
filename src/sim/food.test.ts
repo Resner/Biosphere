@@ -162,6 +162,16 @@ describe('feeding', () => {
     expect(creature.energy).toBe(2 * creature.biomass + 5);
   });
 
+  it('leaves an overlapping item alone at maximum energy', () => {
+    const w = world();
+    const { item, creature } = placeOnItem(w);
+    creature.energy = 2 * creature.biomass;
+    expect(applyFeeding(w, creature)).toEqual([]);
+    expect(foodNear(w, item.x, item.y, 1).map((i) => i.id)).toContain(item.id);
+    creature.energy = 2 * creature.biomass - 1;
+    expect(applyFeeding(w, creature)).toHaveLength(1);
+  });
+
   it('does not eat a distant item or feed a dead creature', () => {
     const w = world();
     const { item, creature } = placeOnItem(w);

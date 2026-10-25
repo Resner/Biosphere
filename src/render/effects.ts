@@ -17,6 +17,8 @@ export const FX = {
   /** Size of an eat pop and of a dash ripple, in cell radii. */
   popRadii: 1.7,
   rippleRadii: 3.2,
+  /** The longest the first update after a pause may advance the cues, in seconds. */
+  resumeCapSeconds: 0.1,
 } as const;
 
 export type RingKind = 'pop' | 'ripple';
@@ -60,6 +62,7 @@ export class Effects {
   vignette = 0;
   dissolve = 0;
   private dissolving = false;
+  private resumed = false;
   private eat = 0;
   private dash = 0;
   private damage = 0;
@@ -97,8 +100,17 @@ export class Effects {
     return this.dissolve >= 1;
   }
 
+  /** Call when the tab returns: the next update ignores the time spent hidden. */
+  resume(): void {
+    this.resumed = true;
+  }
+
   /** Advances every cue by `dt` seconds of wall-clock time. */
   update(dt: number): void {
+    if (this.resumed) {
+      dt = Math.min(dt, FX.resumeCapSeconds);
+      this.resumed = false;
+    }
     let live = 0;
     for (const ring of this.rings) {
       ring.age += dt;
@@ -116,6 +128,7 @@ export class Effects {
     this.vignette = 0;
     this.dissolve = 0;
     this.dissolving = false;
+    this.resumed = false;
     this.eat = 0;
     this.dash = 0;
     this.damage = 0;
