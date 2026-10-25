@@ -1,7 +1,8 @@
 // Where the hub is and what the player is called: small, DOM-free helpers for the online session.
 
 import type { HubStatus } from '../net/hub-client';
-import { NAME_RE, SPAWN_GOLDEN_ANGLE, type Vec2 } from '../net/protocol';
+import { SPAWN_GOLDEN_ANGLE, type Vec2 } from '../net/protocol';
+import { validName } from '../net/text';
 
 const NAME_KEY = 'bs.name';
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1)$/;
@@ -36,10 +37,10 @@ export function defaultName(random: () => number = Math.random): string {
   return `Cell${String(n).padStart(4, '0')}`;
 }
 
-/** A typed name, trimmed; null when the hub would refuse it. */
+/** A typed name, trimmed; null when the hub would refuse it (bad shape or profane). */
 export function cleanName(typed: string): string | null {
   const name = typed.trim();
-  return NAME_RE.test(name) ? name : null;
+  return validName(name) ? name : null;
 }
 
 interface NameStore {

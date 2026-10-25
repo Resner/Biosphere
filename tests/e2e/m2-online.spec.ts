@@ -95,6 +95,10 @@ test('the name is remembered and a bad one is refused', async ({ browser }) => {
     await page.getByRole('button', { name: 'Hatch', exact: true }).click();
     await expect(page.getByTestId('name-error')).toHaveText('Pick another name');
     expect((await state(page)).screen).toBe('title');
+    await input.fill('f_u_c_k');
+    await page.getByRole('button', { name: 'Hatch', exact: true }).click();
+    await expect(page.getByTestId('name-error')).toBeVisible();
+    expect((await state(page)).screen).toBe('title');
     await input.fill('Ada_1');
     await page.getByRole('button', { name: 'Hatch', exact: true }).click();
     await page.waitForFunction(() => window.__bs?.state().screen === 'playing');

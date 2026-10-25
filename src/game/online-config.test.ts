@@ -88,6 +88,12 @@ describe('names', () => {
     expect(cleanName('a'.repeat(17))).toBeNull();
     expect(cleanName('has space')).toBeNull();
     expect(cleanName('')).toBeNull();
+    expect(cleanName('Fuck')).toBeNull();
+    expect(cleanName(' f_u_c_k ')).toBeNull();
+  });
+
+  it('replaces a stored name that is profane', () => {
+    expect(loadName(store({ 'bs.name': 'Scheisse' }), () => 0.25)).toBe('Cell2500');
   });
 });
 

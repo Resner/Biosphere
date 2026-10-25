@@ -149,7 +149,7 @@ describe('hub hello', () => {
     expect(await c.closed).toBe(CLOSE_BAD_HELLO);
   });
 
-  it.each(['ab', 'a'.repeat(17), 'bad name', 'ümlaut', 'x<y'])(
+  it.each(['ab', 'a'.repeat(17), 'bad name', 'ümlaut', 'x<y', 'Fuck', 'f_u_c_k', 'Arschloch'])(
     'closes 4002 for the name %j',
     async (name) => {
       const c = await open();
