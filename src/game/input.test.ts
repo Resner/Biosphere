@@ -144,6 +144,82 @@ describe('InputController events', () => {
   });
 });
 
+describe('InputController social hooks', () => {
+  const setup = () => {
+    const win = new EventTarget();
+    const controller = new InputController();
+    const keys: string[] = [];
+    const middles: number[][] = [];
+    controller.attach(win as unknown as Window, undefined, undefined, {
+      key: (k) => keys.push(k),
+      middle: (x, y) => middles.push([x, y]),
+    });
+    const key = (type: 'keydown' | 'keyup', k: string, repeat = false) => {
+      const event = Object.assign(new Event(type, { cancelable: true }), { key: k, repeat });
+      win.dispatchEvent(event);
+      return event;
+    };
+    const pointer = (button: number, x = 0, y = 0) =>
+      win.dispatchEvent(
+        Object.assign(new Event('pointerdown', { cancelable: true }), {
+          button,
+          clientX: x,
+          clientY: y,
+        }),
+      );
+    return { controller, key, keys, middles, pointer, win };
+  };
+
+  it('reports fresh key presses, not repeats', () => {
+    const { key, keys } = setup();
+    key('keydown', 't');
+    key('keydown', 't', true);
+    key('keydown', '2');
+    expect(keys).toEqual(['t', '2']);
+  });
+
+  it('does not report presses with Ctrl, Cmd or Alt held', () => {
+    const { key, keys, win } = setup();
+    for (const mod of ['ctrlKey', 'metaKey', 'altKey']) {
+      win.dispatchEvent(
+        Object.assign(new Event('keydown', { cancelable: true }), {
+          key: 'g',
+          repeat: false,
+          [mod]: true,
+        }),
+      );
+    }
+    expect(keys).toEqual([]);
+    key('keydown', 'g');
+    expect(keys).toEqual(['g']);
+  });
+
+  it('while typing, ignores keys, leaves Space alone and releases held keys', () => {
+    const { controller, key, keys } = setup();
+    key('keydown', 'w');
+    controller.typing = true;
+    controller.reset();
+    expect(key('keydown', ' ').defaultPrevented).toBe(false);
+    key('keydown', 'd');
+    key('keydown', 't');
+    controller.typing = false;
+    const input = controller.sample({ x: 0, y: 0 }, 1, 10);
+    expect(input.dash).toBe(false);
+    expect(input.throttle).toBe(0);
+    expect(keys).toEqual(['w']);
+  });
+
+  it('turns the middle button into a ping position and tracks the pointer', () => {
+    const { controller, middles, pointer } = setup();
+    expect(controller.pointerAt()).toBeNull();
+    pointer(0, 5, 5);
+    expect(middles).toEqual([]);
+    pointer(1, 40, 60);
+    expect(middles).toEqual([[40, 60]]);
+    expect(controller.pointerAt()).toEqual({ x: 40, y: 60 });
+  });
+});
+
 describe('enterHatches', () => {
   it('hatches at once from the title, after a short delay from the death screen, never in play', () => {
     expect(enterHatches('title', 0)).toBe(true);

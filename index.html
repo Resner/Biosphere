@@ -25,10 +25,17 @@
       <div class="meter" data-meter="energy"><span class="meter-name">Energy</span><span class="meter-value" data-testid="hud-energy"></span><span class="bar"><i data-bar="energy"></i></span></div>
       <div class="meter"><span class="meter-name">Health</span><span class="meter-value" data-testid="hud-health"></span><span class="bar"><i data-bar="health"></i></span></div>
       <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
+      <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping</p>
     </section>
     <p class="net-status" data-testid="net-status" role="status"></p>
     <p class="alone-hint" data-for="playing" data-testid="alone-hint" hidden>Alone in the pond. Share the link.</p>
     <div class="remote-labels" data-for="playing" data-testid="remote-labels" aria-hidden="true"></div>
+    <div class="social-cues" data-for="playing" data-testid="social-cues" aria-hidden="true"></div>
+    <ul class="roster" data-for="playing" data-testid="roster" aria-label="Players (click a name to mute)" hidden></ul>
+    <section class="chat" data-for="playing" aria-label="Chat">
+      <ul class="chat-log" data-testid="chat-log" aria-live="polite"></ul>
+      <input type="text" class="chat-input" data-testid="chat-input" maxlength="140" placeholder="Say something · Enter to send · Esc to cancel" autocomplete="off" spellcheck="false" hidden />
+    </section>
     <div class="vignette" data-for="playing" data-testid="vignette" aria-hidden="true"></div>
     <main class="screen death" data-for="dead">
       <h2 data-testid="death-cause">Lost</h2>

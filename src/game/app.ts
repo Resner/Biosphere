@@ -5,7 +5,13 @@ import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
 import type { Welcome } from '../net/hub-client';
 import { RemoteSet, type RemoteView, SnapshotSender, snapshotOf } from '../net/pond-sync';
-import { decodeSnapshot, type PeerEvent, parsePeerEvent, type Vec2 } from '../net/protocol';
+import {
+  decodeSnapshot,
+  type Member,
+  type PeerEvent,
+  parsePeerEvent,
+  type Vec2,
+} from '../net/protocol';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import { Effects } from '../render/effects';
@@ -41,6 +47,8 @@ import {
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
 import { type DeathSummary, type Screen, Screens } from './screens';
+import { MuteList, Social } from './social';
+import { type Anchor, SocialUi } from './social-ui';
 
 export interface GameParams {
   seed: string;
@@ -56,8 +64,18 @@ const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
 const DEBUG_MAX_TICKS_PER_FRAME = 120;
 const MAX_THROTTLE = RULES.movement.maxThrottle;
 const NO_REMOTES: readonly RemoteView[] = [];
+const NO_MEMBERS: readonly Member[] = [];
 /** A hatch waits this long for the hub before the player swims in a local pond. */
 const HATCH_WAIT_MS = 4000;
+
+/** Local storage, or null where the browser blocks it. */
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 /** One creature in one world: the title screen's drifting cell, or a real hatch. */
 interface Session {
@@ -169,6 +187,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   const enter = (next: Session, nextScreen: Screen): void => {
     session = next;
+    socialUi.close();
     fx.reset();
     controller.reset();
     steering?.done(false);
@@ -199,6 +218,29 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const alone = new AloneHint();
   const sender = new SnapshotSender((bytes) => online?.broadcastState(bytes));
 
+  // Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`.
+  const selfKey = (): string => playerId ?? 'local';
+  const social = new Social({
+    now: () => performance.now(),
+    nameOf: (id) => online?.nameOf(id),
+    send: (event) => online?.broadcastEvent(event),
+    muted: new MuteList(safeStorage()),
+    selfName: 'You',
+  });
+  const socialUi = new SocialUi(social, {
+    submit: (text) => social.sendChat(text, selfKey()),
+    typing: (on) => {
+      controller.typing = on;
+      if (on) controller.reset();
+    },
+  });
+  const worldAt = (px: number, py: number): Vec2 => ({
+    x: camera.x + (px - scene.width / 2) / scene.pxPerWu,
+    y: camera.y - (py - scene.height / 2) / scene.pxPerWu,
+  });
+  const playing = (): boolean => screen === 'playing' && !session.demo && session.death === null;
+  const anchors = new Map<string, Anchor>();
+
   const makePond = (w: Welcome, hubClock: PondClock): Pond => ({
     id: w.pond.id,
     seed: w.pond.seed,
@@ -217,7 +259,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       name,
       handlers: {
         welcome(w) {
-          if (pond?.id !== w.pond.id) pond = makePond(w, link.clock);
+          if (pond?.id !== w.pond.id) {
+            pond = makePond(w, link.clock);
+            social.reset();
+          }
+          social.worldSize = w.pond.size;
         },
         member(op, member) {
           if (op === 'join') remotes.setMember(member.playerId, member.name);
@@ -232,6 +278,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         },
         event(id, event) {
           receiveFoodEvent(id, event);
+          social.receive(id, event);
         },
       },
     });
@@ -247,6 +294,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       online.dispose();
     }
     onlineName = name;
+    social.selfName = name;
+    social.reset();
     online = startOnline(name, identity);
   };
 
@@ -298,9 +347,25 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     window.addEventListener('pagehide', () => online?.dispose());
   }
   // Enter hatches from the title and death screens (Space stays the dash key).
-  controller.attach(window, document, () => {
-    if (enterHatches(screen, performance.now() - screenShownAt)) hatch();
-  });
+  // Enter opens the chat input while playing. T then 1-6, G and the middle button are social keys.
+  controller.attach(
+    window,
+    document,
+    () => {
+      if (playing()) socialUi.open();
+      else if (enterHatches(screen, performance.now() - screenShownAt)) hatch();
+    },
+    {
+      key: (key) => {
+        if (!playing()) return;
+        const at = controller.pointerAt();
+        social.key(key, selfKey(), at && worldAt(at.x, at.y));
+      },
+      middle: (x, y) => {
+        if (playing()) social.ping(worldAt(x, y), selfKey());
+      },
+    },
+  );
 
   /** The input the tick uses: a script on the title, the debug steering, or the player's own. */
   const chooseInput = (): Input => {
@@ -508,13 +573,20 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     remoteViews = !online || joined ? remotes.sample(now, pondMs()) : NO_REMOTES;
     updateNetUi(now, joined);
     view.remotes = remoteViews;
-    labels.update(remoteViews, {
+    const projection = {
       camX: camera.x,
       camY: camera.y,
       pxPerWu: scene.pxPerWu,
       width: scene.width,
       height: scene.height,
-    });
+    };
+    labels.update(remoteViews, projection);
+    if (screen === 'playing') {
+      anchors.clear();
+      anchors.set(selfKey(), { x: cell.x, y: cell.y, radius: cell.radius });
+      for (const r of remoteViews) if (r.alpha >= 0.01) anchors.set(r.id, r);
+      socialUi.update(now, anchors, online?.others() ?? NO_MEMBERS, projection);
+    }
     field.flush();
     scene.draw(view);
   };
@@ -671,6 +743,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             ].sort(),
           }
         : null,
+      social: {
+        chat: social.log().map((line) => ({ ...line })),
+        muted: [...social.muted.ids()],
+        emotes: [...social.emotes()].map(([from, cue]) => ({ from, emote: cue.id })),
+        pings: social.pings().map(({ from, kind, x, y }) => ({ from, kind, x, y })),
+        dropped: social.dropped,
+      },
       net: { text: shownStatus, status: online?.status ?? 'none', open: online?.openCount() ?? 0 },
     }),
     events: () => ({ ...session.counts }),

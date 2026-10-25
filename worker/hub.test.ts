@@ -334,7 +334,8 @@ describe('ponds', () => {
     expect(welcome?.members).toEqual([]);
     expect(welcome?.you.spawnHint).toEqual({ x: CENTRE, y: CENTRE });
     expect(welcome?.pond.centre).toEqual({ x: CENTRE, y: CENTRE });
-    expect(welcome?.pond.size).toBe(24);
+    // The world side in wu (not the pond's capacity): clients build their world from it.
+    expect(welcome?.pond.size).toBe(CENTRE * 2);
     const rows = await pondRows();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({

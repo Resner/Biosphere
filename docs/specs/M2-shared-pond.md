@@ -230,7 +230,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/text.ts` + `text-words.ts` (≥ 80 terms per language, `INNOCENT_WORDS` exempts stem hits like `retardant`); `cleanName` and the hub's hello (closes 4002) use it.
   - Gotcha: digits only count as leetspeak inside a token with a real letter (`455` stays a number); `!` is `i` only inside a word (`sh!t`, not `shit!`); spelled-out words need ≥ 3 single letters. T15 calls `filterText` on send and receive.
 
-- [ ] T15 Chat, emotes, pings, mute
+- [x] T15 Chat, emotes, pings, mute
   - Acceptance:
     - `Enter` opens the chat input, `Enter` again sends (≤ 140 characters, filtered by the sender and again by each receiver), `Esc` cancels. Typing does not steer or dash. The panel keeps the last 50 messages, and a short bubble shows above the sender for 5 s.
     - Rate limit: the sender allows 3 messages per 5 s; receivers drop any sender's 4th message in 5 s (test with a fake clock). Dropped messages are counted, not shown.
@@ -240,6 +240,9 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - Every inbound social event is validated (T4 parsers), and a `chat` from a peer that is not in the roster is dropped.
     - E2E (two contexts): A types "hello pond", B's chat panel shows it within 2 s; A sends a profane message and B shows it filtered; B mutes A and A's next message does not appear.
   - Notes: add the controls to the on-screen hint. Update `.claude/rules/tests.md` with the new `__bs.state()` fields and the `chat` helpers under `?debug=1`.
+
+  - Done: `Social` (`src/game/social.ts`: rate limits, filtering, mute list, expiry, `T`+digit and `G`), `SocialUi` (`social-ui.ts`: chat panel and input, roster, bubbles, emotes, pings as DOM), `InputController.typing`/`InputHooks` (keys and middle button), `state().social`. Each `G` or middle click places the current ping kind, then the next kind is used. `m2-social.spec.ts` covers the acceptance E2E on its own hub (port 8788).
+  - Gotcha: fixed a T13 bug found here: the hub sent the pond capacity (24) as `pond.size`, so hub players lived in a 24 wu world. `PondInfo.size` is now the world side (`RULES.world.size`). Files run in parallel, so each hub E2E file needs its own `wrangler dev` port.
 
 - [ ] T16 Deploy the Worker with the release
   - Acceptance:

@@ -91,6 +91,11 @@ export class OnlineSession {
     return this.roster.size + 1;
   }
 
+  /** The name of a roster member (not this player), or undefined. */
+  nameOf(id: string): string | undefined {
+    return this.roster.get(id)?.name;
+  }
+
   others(): Member[] {
     return [...this.roster.values()];
   }

@@ -74,12 +74,27 @@ export function enterHatches(screen: 'title' | 'playing' | 'dead', shownMs: numb
   return screen === 'dead' && shownMs >= ENTER_DELAY_MS;
 }
 
+/** What the page does with keys and buttons beyond steering. */
+export interface InputHooks {
+  /** A fresh key press while not typing (never a repeat); the key as the browser names it. */
+  key?(key: string): void;
+  /** The middle button went down at this screen position. */
+  middle?(x: number, y: number): void;
+}
+
 /** Turns raw pointer and keyboard events into one `Input` per sim tick. */
 export class InputController {
   private readonly keys = new Set<string>();
   private readonly pointer: Point = { x: 0, y: 0 };
   private hasPointer = false;
   private dashQueued = false;
+  /** While true (chat is open) keys belong to the text field: they neither steer nor reach hooks. */
+  typing = false;
+
+  /** The pointer's last position in screen pixels, or null before it has moved. */
+  pointerAt(): Point | null {
+    return this.hasPointer ? { x: this.pointer.x, y: this.pointer.y } : null;
+  }
 
   keyDown(key: string): void {
     if (key === DASH_KEY) this.dashQueued = true;
@@ -114,17 +129,33 @@ export class InputController {
 
   /**
    * Listens on the window and, for hidden tabs, the document; returns a function that detaches
-   * again. `onEnter` fires on a fresh Enter press, never on a key repeat.
+   * again. `onEnter` fires on a fresh Enter press, never on a key repeat; `hooks` get the other
+   * fresh presses and the middle button.
    */
-  attach(target: Window, doc?: Document, onEnter?: () => void): () => void {
+  attach(target: Window, doc?: Document, onEnter?: () => void, hooks: InputHooks = {}): () => void {
     const down = (e: KeyboardEvent) => {
+      if (this.typing) return;
       if (SCROLL_KEYS.has(e.key) || (e.key === 'Enter' && onEnter)) e.preventDefault();
       if (e.repeat) return;
       if (e.key === 'Enter') onEnter?.();
-      else this.keyDown(e.key);
+      else {
+        this.keyDown(e.key);
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) hooks.key?.(e.key);
+      }
     };
-    const up = (e: KeyboardEvent) => this.keyUp(e.key);
+    const up = (e: KeyboardEvent) => {
+      if (!this.typing) this.keyUp(e.key);
+    };
+    const noMiddle = (e: MouseEvent) => {
+      if (e.button === 1) e.preventDefault();
+    };
     const move = (e: PointerEvent) => this.pointerMove(e.clientX, e.clientY);
+    const press = (e: PointerEvent) => {
+      if (e.button !== 1 || this.typing) return;
+      e.preventDefault();
+      this.pointerMove(e.clientX, e.clientY);
+      hooks.middle?.(e.clientX, e.clientY);
+    };
     const blur = () => this.reset();
     const visibility = () => {
       if (doc?.hidden) this.reset();
@@ -132,12 +163,17 @@ export class InputController {
     target.addEventListener('keydown', down);
     target.addEventListener('keyup', up);
     target.addEventListener('pointermove', move);
+    target.addEventListener('pointerdown', press);
+    // The middle button would otherwise start the browser's autoscroll.
+    target.addEventListener('mousedown', noMiddle);
     target.addEventListener('blur', blur);
     doc?.addEventListener('visibilitychange', visibility);
     return () => {
       target.removeEventListener('keydown', down);
       target.removeEventListener('keyup', up);
       target.removeEventListener('pointermove', move);
+      target.removeEventListener('pointerdown', press);
+      target.removeEventListener('mousedown', noMiddle);
       target.removeEventListener('blur', blur);
       doc?.removeEventListener('visibilitychange', visibility);
     };

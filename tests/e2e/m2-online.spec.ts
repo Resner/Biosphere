@@ -78,7 +78,8 @@ test('an unreachable hub means a local pond and an offline chip', async ({ brows
     const s = await state(page);
     expect(s.player?.alive).toBe(true);
     expect(s.pond).toBeNull();
-    expect(s.net.text).toBe('Offline · playing alone');
+    // The hub client keeps retrying, so the chip may read "Connecting…" between two attempts.
+    await expect(page.getByTestId('net-status')).toHaveText('Offline · playing alone');
     // No hub, so no "alone in the pond" hint either.
     await expect(page.getByTestId('alone-hint')).toBeHidden();
   } finally {
