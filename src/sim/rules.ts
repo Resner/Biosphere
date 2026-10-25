@@ -108,6 +108,12 @@ export const RULES = deepFreeze({
     /** Slow temporal change, in ticks (about 120 s). */
     timePeriodTicks: 3600,
   },
+  controls: {
+    /** Cursor within this many radii of the creature means coast. */
+    deadZoneRadii: 0.5,
+    /** Full throttle once the cursor is this many radii out; the ramp is linear in between. */
+    fullThrottleRadii: 3,
+  },
   camera: {
     /** Visible half-height = heightCoeff * r^heightExp wu. */
     heightCoeff: 9,

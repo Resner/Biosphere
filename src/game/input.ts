@@ -1,16 +1,10 @@
-import { angleToSteer, type Input } from '../sim/input';
+import { angleToSteer, IDLE, type Input } from '../sim/input';
 import { atan2, clamp, length } from '../sim/math';
+import { RULES } from '../sim/rules';
+import type { Vec2 as Point } from '../sim/types';
 
-/** Cursor within this many radii of the creature's centre means coast (DESIGN §3). */
-const DEAD_ZONE_RADII = 0.5;
-/** Full throttle once the cursor is this many radii out. */
-const FULL_THROTTLE_RADII = 3;
-const MAX_THROTTLE = 15;
-
-interface Point {
-  x: number;
-  y: number;
-}
+const { deadZoneRadii, fullThrottleRadii } = RULES.controls;
+const MAX_THROTTLE = RULES.movement.maxThrottle;
 
 /**
  * Cursor direction sets the heading, distance sets the throttle.
@@ -25,10 +19,12 @@ export function mouseToInput(
   const dx = pointer.x - creatureScreenPos.x;
   const dy = creatureScreenPos.y - pointer.y;
   const distance = length(dx, dy) / pxPerWu;
-  const dead = DEAD_ZONE_RADII * radius;
-  if (distance <= dead) return { steer: angleToSteer(atan2(dy, dx)), throttle: 0, dash: false };
-  const span = (FULL_THROTTLE_RADII - DEAD_ZONE_RADII) * radius;
-  const throttle = clamp(Math.ceil((MAX_THROTTLE * (distance - dead)) / span), 1, MAX_THROTTLE);
+  const dead = deadZoneRadii * radius;
+  const span = (fullThrottleRadii - deadZoneRadii) * radius;
+  const throttle =
+    distance <= dead
+      ? 0
+      : clamp(Math.ceil((MAX_THROTTLE * (distance - dead)) / span), 1, MAX_THROTTLE);
   return { steer: angleToSteer(atan2(dy, dx)), throttle, dash: false };
 }
 
@@ -56,7 +52,7 @@ export function keysToInput(keys: ReadonlySet<string>): Input | null {
     y += dir.y;
   }
   if (!held) return null;
-  if (x === 0 && y === 0) return { steer: 0, throttle: 0, dash: false };
+  if (x === 0 && y === 0) return IDLE;
   return { steer: angleToSteer(atan2(y, x)), throttle: MAX_THROTTLE, dash: false };
 }
 
@@ -65,7 +61,8 @@ const DASH_KEY = ' ';
 /** Turns raw pointer and keyboard events into one `Input` per sim tick. */
 export class InputController {
   private readonly keys = new Set<string>();
-  private pointer: Point | null = null;
+  private readonly pointer: Point = { x: 0, y: 0 };
+  private hasPointer = false;
   private dashQueued = false;
 
   keyDown(key: string): void {
@@ -78,7 +75,9 @@ export class InputController {
   }
 
   pointerMove(x: number, y: number): void {
-    this.pointer = { x, y };
+    this.pointer.x = x;
+    this.pointer.y = y;
+    this.hasPointer = true;
   }
 
   /** Forgets held keys, e.g. when the window loses focus. */
@@ -91,9 +90,7 @@ export class InputController {
   sample(creatureScreenPos: Point, pxPerWu: number, radius: number): Input {
     const steering =
       keysToInput(this.keys) ??
-      (this.pointer
-        ? mouseToInput(this.pointer, creatureScreenPos, pxPerWu, radius)
-        : { steer: 0, throttle: 0, dash: false });
+      (this.hasPointer ? mouseToInput(this.pointer, creatureScreenPos, pxPerWu, radius) : IDLE);
     const dash = this.dashQueued;
     this.dashQueued = false;
     return { ...steering, dash };

@@ -1,3 +1,4 @@
+import { clamp } from '../sim/math';
 import { DT } from '../sim/rules';
 
 const STEP_MS = DT * 1000;
@@ -51,7 +52,7 @@ export function createLoop({ now, tick, render, maxTicksPerFrame = 5 }: LoopOpti
         skippedMs += accumulator;
         accumulator = 0;
       }
-      render(Math.min(Math.max(accumulator / STEP_MS, 0), 1 - EPSILON_MS));
+      render(clamp(accumulator / STEP_MS, 0, 1 - EPSILON_MS));
     },
     pause() {
       paused = true;

@@ -1,3 +1,4 @@
+import { lerp } from '../sim/math';
 import { RULES } from '../sim/rules';
 
 const { heightCoeff, heightExp, smoothSeconds } = RULES.camera;
@@ -32,7 +33,7 @@ export class FollowCamera {
       return;
     }
     const k = 1 - Math.exp((-dt * SETTLE_TIME_CONSTANTS) / smoothSeconds);
-    this.halfHeight += (wanted - this.halfHeight) * k;
+    this.halfHeight = lerp(this.halfHeight, wanted, k);
   }
 
   /** Jumps to the target without easing, e.g. on a new hatch. */
