@@ -1,4 +1,4 @@
-import type { Page } from '@playwright/test';
+import { expect, type Page } from '@playwright/test';
 import type { BsHook, BsState } from '../../src/game/debug';
 
 /** Opens the game on the title screen and waits for the test hook. */
@@ -17,6 +17,20 @@ export async function hatch(page: Page): Promise<void> {
   const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
   await page.mouse.move(width / 2, height / 2);
 }
+
+export const state = (page: Page) => page.evaluate(() => (window.__bs as BsHook).state());
+
+/** Types a chat line through the real UI (Enter, text, Enter). */
+export async function say(page: Page, text: string): Promise<void> {
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('chat-input')).toBeVisible();
+  await page.keyboard.type(text);
+  await page.keyboard.press('Enter');
+  await expect(page.getByTestId('chat-input')).toBeHidden();
+}
+
+export const chatTexts = (page: Page) =>
+  page.evaluate(() => (window.__bs as BsHook).state().social.chat.map((l) => l.text));
 
 export async function playerOf(page: Page): Promise<NonNullable<BsState['player']>> {
   const { player } = await page.evaluate(() => (window.__bs as BsHook).state());

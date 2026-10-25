@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { hatch, openGame } from './helpers';
+import { chatTexts, hatch, openGame, say, state } from './helpers';
 
 // Chat, emotes, pings and mute between two real browser contexts through the local hub.
 
@@ -8,8 +8,6 @@ import { hatch, openGame } from './helpers';
 const HUB = 'http://localhost:8788';
 
 test.describe.configure({ mode: 'serial' });
-
-const state = (page: Page) => page.evaluate(() => (window.__bs as BsHook).state());
 
 async function joined(browser: Browser): Promise<[Page, Page]> {
   const pages: Page[] = [];
@@ -27,17 +25,6 @@ async function joined(browser: Browser): Promise<[Page, Page]> {
   }
   return pages as [Page, Page];
 }
-
-async function say(page: Page, text: string): Promise<void> {
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId('chat-input')).toBeVisible();
-  await page.keyboard.type(text);
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId('chat-input')).toBeHidden();
-}
-
-const chatTexts = (page: Page) =>
-  page.evaluate(() => (window.__bs as BsHook).state().social.chat.map((l) => l.text));
 
 test('chat is filtered, typing does not steer, mute hides a sender, and cues cross the pond', async ({
   browser,

@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { hatch, openGame } from './helpers';
+import { chatTexts, hatch, openGame, say, state } from './helpers';
 
 // The milestone's end-to-end check: three real browser contexts share a pond through the local
 // Worker and real WebRTC (host candidates only). Smaller pieces have their own specs: the offline
@@ -11,8 +11,6 @@ const HUB = 'http://localhost:8789';
 
 // One hub, and it fills the fullest pond first: one scenario at a time.
 test.describe.configure({ mode: 'serial' });
-
-const state = (page: Page) => page.evaluate(() => (window.__bs as BsHook).state());
 
 async function joinThree(browser: Browser): Promise<[Page, Page, Page]> {
   const pages: Page[] = [];
@@ -31,6 +29,16 @@ async function joinThree(browser: Browser): Promise<[Page, Page, Page]> {
   }
   return pages as [Page, Page, Page];
 }
+
+/** Distances between consecutive samples. */
+const stepsOf = (samples: Sample[]) =>
+  samples.slice(1).map((s, i) => {
+    const prev = samples[i] as Sample;
+    return Math.hypot(s.x - prev.x, s.y - prev.y);
+  });
+
+const nearestInTime = (samples: Sample[], t: number) =>
+  samples.reduce((best, s) => (Math.abs(s.t - t) < Math.abs(best.t - t) ? s : best));
 
 const closeAll = (pages: Page[]) => Promise.all(pages.map((p) => p.context().close()));
 
@@ -62,17 +70,6 @@ function stopSeries(page: Page): Promise<Sample[]> {
   });
 }
 
-const chatTexts = (page: Page) =>
-  page.evaluate(() => (window.__bs as BsHook).state().social.chat.map((l) => l.text));
-
-async function say(page: Page, text: string): Promise<void> {
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId('chat-input')).toBeVisible();
-  await page.keyboard.type(text);
-  await page.keyboard.press('Enter');
-  await expect(page.getByTestId('chat-input')).toBeHidden();
-}
-
 test('three players see each other move smoothly, share food and chat', async ({ browser }) => {
   const [a, b, c] = await joinThree(browser);
   try {
@@ -96,24 +93,15 @@ test('three players see each other move smoothly, share food and chat', async ({
     expect(seen.length).toBeGreaterThan(30);
 
     // No jumps in what B draws, and a small mean error against A's own positions at the same time.
-    let worstStep = 0;
-    let errorSum = 0;
-    for (const [i, s] of seen.entries()) {
-      const prev = seen[i - 1];
-      if (prev) worstStep = Math.max(worstStep, Math.hypot(s.x - prev.x, s.y - prev.y));
-      let nearest = own[0] as Sample;
-      for (const o of own) if (Math.abs(o.t - s.t) < Math.abs(nearest.t - s.t)) nearest = o;
-      errorSum += Math.hypot(s.x - nearest.x, s.y - nearest.y);
-    }
-    expect(worstStep).toBeLessThan(25);
-    expect(errorSum / seen.length).toBeLessThan(12);
+    const steps = stepsOf(seen);
+    expect(Math.max(...steps)).toBeLessThan(25);
+    const errors = seen.map((s) => {
+      const o = nearestInTime(own, s.t);
+      return Math.hypot(s.x - o.x, s.y - o.y);
+    });
+    expect(errors.reduce((sum, e) => sum + e, 0) / errors.length).toBeLessThan(12);
     // A really moved, or the bounds above prove nothing.
-    const travelled = own.reduce(
-      (sum, s, i) =>
-        sum + (i ? Math.hypot(s.x - (own[i - 1] as Sample).x, s.y - (own[i - 1] as Sample).y) : 0),
-      0,
-    );
-    expect(travelled).toBeGreaterThan(10);
+    expect(stepsOf(own).reduce((sum, d) => sum + d, 0)).toBeGreaterThan(10);
 
     // After the run, every remote sits near where its owner says it is.
     await a.mouse.move(cx, cy);

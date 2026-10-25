@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { hatch, openGame } from './helpers';
+import { hatch, openGame, state } from './helpers';
 
 // The online session against the local Worker (`wrangler dev`, started by Playwright): real hub
 // signaling and real WebRTC between browser contexts, over host candidates only.
@@ -10,8 +10,6 @@ const HUB = 'http://localhost:8787';
 // One hub serves every test, and it fills the fullest pond first: tests run one at a time so that
 // a pond holds only the players of the test that is running.
 test.describe.configure({ mode: 'serial' });
-
-const state = (page: Page) => page.evaluate(() => (window.__bs as BsHook).state());
 
 async function player(browser: Browser, query = `?debug=1&hub=${HUB}`): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
