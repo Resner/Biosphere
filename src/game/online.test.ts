@@ -63,7 +63,6 @@ class FakeMesh implements OnlineMesh {
   events: [string, PeerEvent][] = [];
   closed = false;
   joined: (id: string) => void = () => {};
-  left: (id: string) => void = () => {};
   state: (id: string, s: Snapshot) => void = () => {};
   event: (id: string, e: PeerEvent) => void = () => {};
   connect(id: string): void {
@@ -96,9 +95,6 @@ class FakeMesh implements OnlineMesh {
   onPeerJoined(fn: (id: string) => void): void {
     this.joined = fn;
   }
-  onPeerLeft(fn: (id: string) => void): void {
-    this.left = fn;
-  }
   onState(fn: (id: string, s: Snapshot) => void): void {
     this.state = fn;
   }
@@ -125,7 +121,6 @@ function setup() {
     welcome: vi.fn(),
     member: vi.fn(),
     peerOpen: vi.fn(),
-    peerClosed: vi.fn(),
     state: vi.fn(),
     event: vi.fn(),
   };
@@ -200,8 +195,6 @@ describe('OnlineSession', () => {
     mesh.state('a', snapshot);
     mesh.state('zed', snapshot);
     expect(handlers.state).toHaveBeenCalledTimes(1);
-    mesh.left('a');
-    expect(handlers.peerClosed).toHaveBeenCalledWith('a');
   });
 
   it('broadcasts to open peers only', () => {

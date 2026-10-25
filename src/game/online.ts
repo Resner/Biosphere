@@ -5,7 +5,6 @@ import type { Identity } from '../ledger/identity';
 import type { PondClock } from '../net/clock';
 import type { HubClient, HubStatus, SignalMsg, Welcome } from '../net/hub-client';
 import { HubClient as RealHub } from '../net/hub-client';
-import type { PeerConnectionFactory } from '../net/peer-mesh';
 import { PeerMesh } from '../net/peer-mesh';
 import type { ClientMsg, IceServer, Member, PeerEvent, Snapshot } from '../net/protocol';
 
@@ -33,7 +32,6 @@ export type OnlineMesh = Pick<
   | 'sendEvent'
   | 'handleSignal'
   | 'onPeerJoined'
-  | 'onPeerLeft'
   | 'onState'
   | 'onEvent'
 >;
@@ -45,7 +43,6 @@ export interface OnlineHandlers {
   member(op: 'join' | 'leave', member: Member): void;
   /** Both data channels to a roster member are open. */
   peerOpen(id: string): void;
-  peerClosed(id: string): void;
   state(id: string, snapshot: Snapshot): void;
   event(id: string, event: PeerEvent): void;
 }
@@ -100,7 +97,7 @@ export class OnlineSession {
 
   openCount(): number {
     let open = 0;
-    for (const id of this.roster.keys()) if (this.mesh?.isOpen(id)) open++;
+    this.eachOpen(() => open++);
     return open;
   }
 
@@ -130,15 +127,11 @@ export class OnlineSession {
   }
 
   broadcastState(bytes: Uint8Array): void {
-    const { mesh } = this;
-    if (!mesh) return;
-    for (const id of this.roster.keys()) if (mesh.isOpen(id)) mesh.sendState(id, bytes);
+    this.eachOpen((id, mesh) => mesh.sendState(id, bytes));
   }
 
   broadcastEvent(event: PeerEvent): void {
-    const { mesh } = this;
-    if (!mesh) return;
-    for (const id of this.roster.keys()) if (mesh.isOpen(id)) mesh.sendEvent(id, event);
+    this.eachOpen((id, mesh) => mesh.sendEvent(id, event));
   }
 
   sendEvent(id: string, event: PeerEvent): void {
@@ -151,6 +144,12 @@ export class OnlineSession {
     this.opts.hub.close();
     this.mesh?.close();
     this.mesh = null;
+  }
+
+  private eachOpen(fn: (id: string, mesh: OnlineMesh) => void): void {
+    const { mesh } = this;
+    if (!mesh) return;
+    for (const id of this.roster.keys()) if (mesh.isOpen(id)) fn(id, mesh);
   }
 
   private welcomed(w: Welcome): void {
@@ -201,7 +200,6 @@ export class OnlineSession {
     mesh.onPeerJoined((id) => {
       if (this.roster.has(id)) handlers.peerOpen(id);
     });
-    mesh.onPeerLeft((id) => handlers.peerClosed(id));
     mesh.onState((id, s) => {
       if (this.roster.has(id)) handlers.state(id, s);
     });
@@ -217,8 +215,6 @@ export interface RealSessionOptions {
   identity: Identity;
   name: string;
   handlers: OnlineHandlers;
-  /** Seeds the browser's `RTCPeerConnection` for tests. */
-  createPeerConnection?: PeerConnectionFactory;
 }
 
 /** The session with the real hub client and `PeerMesh`, clocked by `performance.now`. */
@@ -239,7 +235,6 @@ export function connectOnline(opts: RealSessionOptions): OnlineSession {
         selfId: identity.playerId,
         signal,
         iceServers: ice as RTCIceServer[],
-        ...(opts.createPeerConnection ? { createPeerConnection: opts.createPeerConnection } : {}),
       }),
   });
 }

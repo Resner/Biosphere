@@ -55,6 +55,7 @@ const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
 /** With `timeScale`, a slow software-GL frame must still catch up: 120 ticks is 4 s of sim. */
 const DEBUG_MAX_TICKS_PER_FRAME = 120;
 const MAX_THROTTLE = RULES.movement.maxThrottle;
+const NO_REMOTES: readonly RemoteView[] = [];
 /** A hatch waits this long for the hub before the player swims in a local pond. */
 const HATCH_WAIT_MS = 4000;
 
@@ -226,7 +227,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           // The new peer learns what has been eaten; the reliable channel keeps the parts in order.
           if (pond) for (const part of consumedParts(pond.world)) link.sendEvent(id, part);
         },
-        peerClosed() {},
         state(id, snapshot) {
           remotes.receive(id, snapshot, performance.now());
         },
@@ -501,11 +501,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     for (const script of scripted) feedScripted(script, now);
     const joined = livePond();
-    if (online && joined && joined === pond) {
+    if (online && joined && joined === pond && online.openCount() > 0) {
       sender.update(now, document.hidden, () => snapshotOf(player, session.world.tick));
     }
     // A local pond life does not show the players of the hub's pond.
-    remoteViews = !online || joined ? remotes.sample(now, pondMs()) : [];
+    remoteViews = !online || joined ? remotes.sample(now, pondMs()) : NO_REMOTES;
     updateNetUi(now, joined);
     view.remotes = remoteViews;
     labels.update(remoteViews, {

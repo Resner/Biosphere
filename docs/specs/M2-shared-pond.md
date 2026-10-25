@@ -206,7 +206,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `applyRemoteClaim`/`isFoodSlot` (`src/sim/food.ts`), `ClaimBook`, `consumedParts` and `ConsumedJoin` (`src/net/claims.ts`), `PondTime` (`src/game/pond-time.ts`: join, 1 s slew checks, snap, resnap), `Loop.setSpeed`, and `PondFood` glue (`src/game/pond-food.ts`) wired into `app.ts`. Debug-only `joinPond`, `deliver` and `hasFood` (a per-item check, sturdier than the `visibleFood` count) let `m2-food.spec.ts` relay claims between two tabs.
   - Gotcha: a lost `consumed` part is covered by merging every peer's set (`ConsumedJoin.complete` turns true when one peer delivered all parts), so T13 sends the set to each new connection and need not request it. `PondFood.receive` must get a pond-level `World` that shares `consumed` with the player's world. The E2E relays by test code, not WebRTC; T13/T17 cover the real mesh.
 
-- [ ] T13 Online session in the game (in progress)
+- [x] T13 Online session in the game
   - Acceptance:
     - Title screen: a name field (remembered in `localStorage`, default `Cell` + 4 random digits), "Hatch" as before. The status chip shows `Online · N in pond`, `Connecting…`, `Offline · playing alone`, or `Signed in elsewhere`.
     - Hatching while online: the cell spawns at the hub's `spawnHint` moved clear of plumes (`findClearSpot`), the world uses `pond.seed` and `pond.size`, the mesh connects to every member, and the HUD shows the pond count.
@@ -216,6 +216,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - E2E, three contexts: all hatch, `__bs.state().pond` has the same `id` and `seed` and three members for each, and every page lists two remotes within 5 s.
     - `?hub=<url>` selects the authority URL (E2E and local use); the production URL comes from the build variable `AUTHORITY_URL`; with neither, the game runs offline.
   - Notes: `src/game/online.ts` owns hub, mesh, sync and claims; `app.ts` stays the loop and rendering. A player can leave with `leave` on `pagehide`. Keep `?debug=1` helpers local-only.
+  - Done: `src/game/online.ts` (`OnlineSession`: roster, mesh, traffic from roster members only; `connectOnline` wires the real hub client and `PeerMesh`), `online-config.ts` (`?hub=` accepted for localhost only, the `AUTHORITY_URL` build variable, names, `ringSpawn`, chip text), `alone-hint.ts`, and `PondTime.pondMs`. Title name field, status chip and alone hint in `index.html`. Playwright now starts `wrangler dev` (port 8787, state in `.wrangler/e2e-state`) and launches Chromium without mDNS ICE names; `m2-online.spec.ts` covers the acceptance E2E.
+  - Gotcha: the hub client runs on `performance.now` (`HubClientOptions.now`) so the pond clock and `PondTime` share one local axis. A hatch waits (≤ 4 s) for the welcome and the first pong. The mesh connects at welcome, not at hatch, so claims and consumed sets reach the pond between lives; a local-pond life ignores them (`session.pond !== pond`). E2E files that use the hub must run serially: one hub, fullest pond first. `ConnectionPolicy` (T10) is not used yet: a pond has at most 24 members, under the 32-connection cap; T17's 24-peer test and M11 need it.
 
 - [ ] T14 Text filter and names
   - Acceptance (unit tests, `src/net/text.ts`, shared with the Worker):

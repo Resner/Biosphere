@@ -1,7 +1,7 @@
 // Where the hub is and what the player is called: small, DOM-free helpers for the online session.
 
 import type { HubStatus } from '../net/hub-client';
-import { NAME_RE, type Vec2 } from '../net/protocol';
+import { NAME_RE, SPAWN_GOLDEN_ANGLE, type Vec2 } from '../net/protocol';
 
 const NAME_KEY = 'bs.name';
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1)$/;
@@ -68,9 +68,6 @@ export function saveName(store: NameStore, name: string): void {
   }
 }
 
-/** Joiner `i` of a pond spawns this far round the ring (DESIGN.md: spawn ring). */
-const GOLDEN_ANGLE = 2.399963;
-
 /**
  * Where life number `life` (0 for the first) of a player spawns: the hub's hint, then the same
  * ring radius at a new angle each time.
@@ -79,7 +76,7 @@ export function ringSpawn(centre: Vec2, hint: Vec2, life: number): Vec2 {
   if (life === 0) return hint;
   const dx = hint.x - centre.x;
   const dy = hint.y - centre.y;
-  const angle = Math.atan2(dy, dx) + life * GOLDEN_ANGLE;
+  const angle = Math.atan2(dy, dx) + life * SPAWN_GOLDEN_ANGLE;
   const radius = Math.hypot(dx, dy);
   return { x: centre.x + Math.cos(angle) * radius, y: centre.y + Math.sin(angle) * radius };
 }

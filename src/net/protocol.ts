@@ -40,6 +40,9 @@ export interface Member {
   name: string;
 }
 
+/** Joiner `i` of a pond spawns at angle `i · SPAWN_GOLDEN_ANGLE` on the spawn ring (DESIGN.md). */
+export const SPAWN_GOLDEN_ANGLE = 2.399963;
+
 export interface IceServer {
   urls: string | string[];
   username?: string;
