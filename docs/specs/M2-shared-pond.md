@@ -289,7 +289,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Gotcha: a session hibernated before this change has no `signals` counter or `slot`; the code tolerates both.
   - Also: `m2-online` takes about 25 s in the parallel suite (24.7 s on `main` too) against a 30 s timeout, and failed twice in CI; it now has 60 s like the social and pond projects.
 
-- [ ] T20 Online session robustness
+- [ ] T20 Online session robustness (in progress)
   - Acceptance:
     - `app.ts` reads `localStorage` only through `safeStorage()`, and `loadName`/`saveName` accept `null`; with a throwing `localStorage` the app starts and Hatch works (unit + E2E with the accessor stubbed to throw).
     - A failing `ensureOnline`/`startOnline` in `hatch()` falls back to a local pond: the buttons are enabled again and the player is playing (unit with a throwing connector).
