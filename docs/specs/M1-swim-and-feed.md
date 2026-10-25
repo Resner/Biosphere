@@ -134,7 +134,7 @@ Other `src/sim` modules:
   - Done: `rules.ts` (deep-frozen `RULES` for DESIGN §2–§4), `types.ts`, `world.ts`, `state-hash.ts`; `consumed` ids are hashed in sorted order.
   - Gotcha: `hashWorld` throws on NaN/Infinity (via `Hasher.f64`); `options.currents`/`hazards` default to true.
 
-- [ ] T3 Movement physics and input encoding
+- [ ] T3 Movement physics and input encoding (in progress)
   - Acceptance:
     - `decodeInput(encodeInput(i))` equals `i` for all 256 × 16 × 2 inputs.
     - With currents off, a starter at rest given steer 0 (east) and throttle 15 for 60 ticks moves 98.7 wu ± 5% east (closed form `a/k·t − a/k²·(1 − e^(−kt))` with a = 140, k = 2.2, t = 2 s).
