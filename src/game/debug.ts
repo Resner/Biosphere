@@ -25,6 +25,21 @@ export interface BsState {
   } | null;
   /** Set once the player has died. */
   death: DeathSummary | null;
+  /** The other players in the pond, as drawn (alpha fades when they go quiet). */
+  remotes: { id: string; name: string; x: number; y: number; alpha: number }[];
+}
+
+/** A scripted remote creature for tests: it swims in a straight line and sends real snapshots. */
+export interface ScriptedRemote {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  /** World units per second. */
+  vx?: number;
+  vy?: number;
+  /** Default 100. */
+  biomass?: number;
 }
 
 export interface BsHook {
@@ -43,6 +58,9 @@ export interface BsHook {
 export interface FxState extends FxSnapshot {
   /** Visible half-height in world units, as drawn. */
   halfHeight: number;
+  /** Where the camera looks, in world units. */
+  camX: number;
+  camY: number;
 }
 
 export interface BsDebug {
@@ -58,6 +76,8 @@ export interface BsDebug {
   steerTo(target: { id?: string; x: number; y: number }): Promise<boolean>;
   /** Adds a toxic plume to the world. */
   spawnPlume(x: number, y: number, radius?: number): void;
+  /** Replaces the scripted remotes (an empty list removes them); they send snapshots at 10 Hz. */
+  setRemotes(remotes: readonly ScriptedRemote[]): void;
   /** Runs the sim this many times faster than real time. */
   timeScale(scale: number): void;
 }

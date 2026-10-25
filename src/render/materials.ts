@@ -54,6 +54,7 @@ export const cellMaterial = (extent: number): THREE.ShaderMaterial =>
     uNucleus: { value: new THREE.Color(0.6, 0.9, 0.55) },
     uHurt: { value: 0 },
     uDissolve: { value: 0 },
+    uAlpha: { value: 1 },
   });
 
 export const flagellumMaterial = (): THREE.ShaderMaterial =>
@@ -63,6 +64,7 @@ export const flagellumMaterial = (): THREE.ShaderMaterial =>
     uBeat: { value: 0 },
     uColor: { value: new THREE.Color(0.62, 0.91, 0.84) },
     uDissolve: { value: 0 },
+    uAlpha: { value: 1 },
   });
 
 export const foodMaterial = (kind: number, color: number): THREE.ShaderMaterial =>
@@ -118,6 +120,10 @@ function uniformOf(material: THREE.ShaderMaterial, name: string): THREE.IUniform
 
 export function setUniform(material: THREE.ShaderMaterial, name: string, value: number): void {
   uniformOf(material, name).value = value;
+}
+
+export function colorUniform(material: THREE.ShaderMaterial, name: string): THREE.Color {
+  return uniformOf(material, name).value as THREE.Color;
 }
 
 export function vec2Uniform(material: THREE.ShaderMaterial, name: string): THREE.Vector2 {

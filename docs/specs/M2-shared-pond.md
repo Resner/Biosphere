@@ -182,7 +182,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/connection-policy.ts` (`ConnectionPolicy`): `upsert`/`remove`/`release` keep the roster, `plan()` returns `{connect, evict}` (calls only higher ids), `admit(id)` judges inbound offers. Ties never evict; only P2 peers are victims.
   - Gotcha: `plan()` and `admit()` record connections as held at once, so T13 must `release(id)` when the mesh drops one and `remove(id)` on a roster leave.
 
-- [ ] T11 Pond sync and remote creatures
+- [x] T11 Pond sync and remote creatures
   - Acceptance:
     - Sender: `SnapshotSender` emits one snapshot per 100 ms of loop time to every open `state` channel (10 Hz ± 1 over 10 s on a fake clock), nothing while the tab is hidden.
     - `RemoteBuffer` (interpolation): snapshots at 100 ms spacing for a creature moving at a constant 60 wu/s: a query at `now − 120 ms` is within 0.5 wu of the true position for 20 s of simulated jitter (±30 ms arrival jitter, 5% loss, out-of-order delivery). Heading interpolates the short way across ±π. With one gap longer than 300 ms it extrapolates for at most 250 ms, then holds.
@@ -191,6 +191,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - Render: `GameScene` draws N remote cells with `CellView` instanced per remote; E2E `?debug=1` shows 3 remotes in one scene within the draw-call budget (≤ 60 calls, ≤ 120,000 triangles). A remote cell is visibly the same species, hue from `hashU32(playerId)`, with its display name above it.
     - `__bs.state().remotes` lists `{ id, name, x, y, alpha }`.
   - Notes: the 24-byte snapshot is a version/type byte, `seq` u16, `tick` u32, x and y u16, heading u8, vx and vy i16, biomass u16, energy and health u8, a flag byte and 3 reserved bytes. Snapshots carry quantized state only; remotes never run `step`. The name label is a DOM overlay positioned from the camera projection. No collisions in M2.
+  - Done: `src/net/pond-sync.ts` (`SnapshotSender`, `RemoteBuffer`, `RemoteSet`, `snapshotOf`), `src/render/remotes.ts` (a pooled `Cell` per remote, tinted by hue, with an alpha uniform) and `src/game/labels.ts` (DOM names). `__bs.state().remotes`, `render.info().remoteCells`, `render.fx().camX/camY` and the debug helper `setRemotes` (scripted remotes through the real sender, codec and buffer) back the E2E in `m2-remotes.spec.ts`.
+  - Gotcha: buffers run on the sender's tick (pond time), not arrival time, so T12/T13 must pass the hub-synced pond time to `RemoteSet.sample` (the app uses `performance.now()` until then) and call `receive`, `setMember` and `removeMember` from the mesh and roster. A newer tick beats an old `seq`, so a reloaded peer shows up again. The app does not send yet: T13 wires `SnapshotSender.update(loopMs, document.hidden, () => snapshotOf(player, tick))` to every open `state` channel.
 
 - [ ] T12 Shared food and the pond clock in play
   - Acceptance:

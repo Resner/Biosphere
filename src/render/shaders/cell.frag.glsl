@@ -5,6 +5,7 @@ uniform vec3 uRim;
 uniform vec3 uNucleus;
 uniform float uHurt;
 uniform float uDissolve;
+uniform float uAlpha;
 varying vec2 vP;
 
 void main() {
@@ -53,5 +54,5 @@ void main() {
     alpha *= (1.0 - gone) * (1.0 - 0.35 * uDissolve);
     rgb += vec3(0.9, 0.7, 0.5) * edge * 0.6;
   }
-  gl_FragColor = vec4(rgb, alpha);
+  gl_FragColor = vec4(rgb, alpha * uAlpha);
 }

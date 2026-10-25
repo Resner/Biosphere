@@ -125,6 +125,33 @@ body {
   max-width: 16rem;
 }
 
+.remote-labels {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.remote-label {
+  position: absolute;
+  left: 0;
+  top: 0;
+  max-width: 12rem;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  text-shadow:
+    0 0 6px rgb(0 0 0 / 0.95),
+    0 0 2px rgb(0 0 0 / 0.9);
+  will-change: transform;
+}
+
+.remote-label[hidden] {
+  display: none;
+}
+
 .meter {
   display: grid;
   grid-template-columns: 4.5rem auto;

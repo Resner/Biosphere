@@ -1,5 +1,7 @@
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
+import { RemoteSet, type RemoteView, SnapshotSender } from '../net/pond-sync';
+import { decodeSnapshot } from '../net/protocol';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import { Effects } from '../render/effects';
@@ -15,11 +17,12 @@ import { step } from '../sim/step';
 import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
-import { type BsDebug, installHook } from './debug';
+import { type BsDebug, installHook, type ScriptedRemote } from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
 import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
+import { RemoteLabels } from './labels';
 import { attachVisibilityPause, createLoop } from './loop';
 import { type DeathSummary, type Screen, Screens } from './screens';
 
@@ -69,6 +72,19 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const hud = new Hud();
   const fx = new Effects();
   const vignette = pick('[data-testid="vignette"]');
+  const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
+
+  // Other players, drawn from the snapshots they send. The pond clock arrives with the online
+  // session; until then pond time is this tab's own clock.
+  const remotes = new RemoteSet();
+  const pondMs = (): number => performance.now();
+  let remoteViews: readonly RemoteView[] = [];
+  interface Scripted {
+    spec: ScriptedRemote;
+    sender: SnapshotSender;
+    startedMs: number;
+  }
+  let scripted: Scripted[] = [];
 
   // Without IndexedDB (a private window, say) the identity lasts for this visit only.
   let playerId: string | null = null;
@@ -226,6 +242,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     camY: 0,
     halfHeight: 1,
     creature: null as CellView | null,
+    remotes: [] as readonly RemoteView[],
     rings: fx.rings,
   };
   const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0, hurt: 0, dissolve: 0 };
@@ -236,6 +253,28 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (rounded === shownVignette) return;
     shownVignette = rounded;
     vignette.style.opacity = String(rounded);
+  };
+
+  /** A scripted remote's snapshot goes through the real codec and into the set, as a peer's would. */
+  const feedScripted = ({ spec, sender, startedMs }: Scripted, now: number): void => {
+    sender.update(now, false, () => {
+      const seconds = (now - startedMs) / 1000;
+      const vx = spec.vx ?? 0;
+      const vy = spec.vy ?? 0;
+      return {
+        tick: Math.round((pondMs() * TICK_HZ) / 1000),
+        x: spec.x + vx * seconds,
+        y: spec.y + vy * seconds,
+        heading: Math.atan2(vy, vx),
+        vx,
+        vy,
+        biomass: spec.biomass ?? RULES.starter.biomass,
+        energy: 1,
+        health: 1,
+        alive: true,
+        dashing: false,
+      };
+    });
   };
 
   const render = (alpha: number): void => {
@@ -269,6 +308,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       screenShownAt = now;
       screens.showDeath(session.death);
     }
+    for (const script of scripted) feedScripted(script, now);
+    remoteViews = remotes.sample(now, pondMs());
+    view.remotes = remoteViews;
+    labels.update(remoteViews, {
+      camX: camera.x,
+      camY: camera.y,
+      pxPerWu: scene.pxPerWu,
+      width: scene.width,
+      height: scene.height,
+    });
     field.flush();
     scene.draw(view);
   };
@@ -356,6 +405,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       extraPlumes.push({ id: `debug${extraPlumes.length}`, x, y, radius });
       field.now();
     },
+    setRemotes(specs) {
+      for (const { spec } of scripted) remotes.removeMember(spec.id);
+      scripted = specs.map((spec) => {
+        remotes.setMember(spec.id, spec.name);
+        const sender = new SnapshotSender((bytes) => {
+          const snapshot = decodeSnapshot(bytes);
+          if (snapshot) remotes.receive(spec.id, snapshot, performance.now());
+        });
+        return { spec, sender, startedMs: performance.now() };
+      });
+    },
     timeScale(next) {
       clock();
       scale = next;
@@ -381,6 +441,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             alive: session.player.alive,
           },
       death: session.death,
+      remotes: remoteViews.map(({ id, name, x, y, alpha }) => ({ id, name, x, y, alpha })),
     }),
     events: () => ({ ...session.counts }),
     replay: (log) => {
@@ -389,7 +450,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     render: {
       info: () => scene.info(),
-      fx: () => ({ ...fx.snapshot(), halfHeight: camera.halfHeight }),
+      fx: () => ({
+        ...fx.snapshot(),
+        halfHeight: camera.halfHeight,
+        camX: camera.x,
+        camY: camera.y,
+      }),
     },
     ...(params.debug ? { debug } : {}),
   });

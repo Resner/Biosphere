@@ -1,5 +1,5 @@
 import * as THREE from 'three';
-import { cellMaterial, flagellumMaterial, setUniform } from './materials';
+import { cellMaterial, colorUniform, flagellumMaterial, setUniform } from './materials';
 
 /** The halo reaches this many radii out from the centre. */
 const EXTENT = 1.45;
@@ -17,6 +17,10 @@ export interface CellView {
   hurt: number;
   /** 0..1, how far the dying body has dissolved. */
   dissolve: number;
+  /** 0..1, opacity; a missing value means opaque. */
+  alpha?: number;
+  /** 0..1, tints the cell for another player; a missing value keeps the player's own teal; a cell is tinted or not for its whole life. */
+  hue?: number;
 }
 
 /** A translucent cell with a waving flagellum; the quad and the whip are drawn in two meshes. */
@@ -27,6 +31,7 @@ export class Cell {
   private readonly flagellumMat = flagellumMaterial();
   private readonly bodyGeometry = new THREE.PlaneGeometry(2, 2);
   private readonly flagellumGeometry = new THREE.PlaneGeometry(1, 2, 40, 1);
+  private tint: number | null = null;
 
   constructor() {
     this.flagellumGeometry.translate(-0.5, 0, 0);
@@ -42,6 +47,11 @@ export class Cell {
     this.flagellum.visible = visible;
     if (!view) return;
 
+    if (view.hue !== undefined) this.setTint(view.hue);
+    const alpha = view.alpha ?? 1;
+    setUniform(this.bodyMaterial, 'uAlpha', alpha);
+    setUniform(this.flagellumMat, 'uAlpha', alpha);
+
     this.body.position.set(view.x, view.y, 0);
     this.body.rotation.z = view.heading;
     this.body.scale.setScalar(view.radius * EXTENT);
@@ -56,6 +66,16 @@ export class Cell {
     setUniform(this.flagellumMat, 'uRadius', view.radius);
     setUniform(this.flagellumMat, 'uBeat', view.beat);
     setUniform(this.flagellumMat, 'uDissolve', view.dissolve);
+  }
+
+  /** Recolours another player's cell around a hue; writes only when the hue changes. */
+  private setTint(hue: number): void {
+    if (hue === this.tint) return;
+    this.tint = hue;
+    colorUniform(this.bodyMaterial, 'uCore').setHSL(hue, 0.6, 0.1);
+    colorUniform(this.bodyMaterial, 'uRim').setHSL(hue, 0.85, 0.72);
+    colorUniform(this.bodyMaterial, 'uNucleus').setHSL((hue + 0.15) % 1, 0.75, 0.62);
+    colorUniform(this.flagellumMat, 'uColor').setHSL(hue, 0.7, 0.76);
   }
 
   dispose(): void {
