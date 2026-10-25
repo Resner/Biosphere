@@ -172,13 +172,15 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/peer-mesh.ts` (`PeerMesh`, fake-able `PeerConnectionLike`); glare is settled by dropping the polite (higher id) side's own connection and answering the other's offer. Real two-context WebRTC passes in the sandbox with host candidates only (`m2-webrtc.spec.ts`, ~4 s).
   - Gotcha: the E2E bundles `src/net/peer-mesh-entry.ts` with Vite's API (`bundleForBrowser` in helpers) and needs `--disable-features=WebRtcHideLocalIpsWithMdns`, so it launches its own Chromium.
 
-- [ ] T10 Connection policy: cap, priority, eviction (in progress)
+- [x] T10 Connection policy: cap, priority, eviction
   - Acceptance (unit tests on a `ConnectionPolicy` with fake peers):
     - With the cap at 24, a roster of 30 connects to 24, nearest first by last known distance (unknown distance counts as far), and never exceeds 24 attempted-plus-open connections.
     - A closer peer joining when full evicts the farthest, and a farther one never evicts a nearer one. Peers marked P0 or P1 (the hooks M7 and M11 will use) are never evicted by P2 peers; the test marks two peers P0 and fills the rest.
     - The cap is configurable up to 32; a value above 32 throws.
     - A pond of 24 (the M2 maximum) is fully connected: each peer has 23 connections.
   - Notes: for M2 every peer is P2, so this is the distance rule; the classes exist so M7 and M11 do not rewrite it. The connect initiator is the lower `playerId`.
+  - Done: `src/net/connection-policy.ts` (`ConnectionPolicy`): `upsert`/`remove`/`release` keep the roster, `plan()` returns `{connect, evict}` (calls only higher ids), `admit(id)` judges inbound offers. Ties never evict; only P2 peers are victims.
+  - Gotcha: `plan()` and `admit()` record connections as held at once, so T13 must `release(id)` when the mesh drops one and `remove(id)` on a roster leave.
 
 - [ ] T11 Pond sync and remote creatures
   - Acceptance:
