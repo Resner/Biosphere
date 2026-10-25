@@ -13,7 +13,10 @@ import {
   parseHubMsg,
 } from './protocol';
 
-export type HubStatus = 'connecting' | 'online' | 'offline' | 'replaced';
+/** `outdated`: the hub speaks another protocol version, so this page needs a reload. */
+export type HubStatus = 'connecting' | 'online' | 'offline' | 'replaced' | 'outdated';
+/** Statuses the client does not leave on its own: no reconnect follows. */
+export const isFinalStatus = (s: HubStatus): boolean => s === 'replaced' || s === 'outdated';
 export type Welcome = Extract<HubMsg, { t: 'welcome' }>;
 export type SignalMsg = Extract<HubMsg, { t: 'signal' }>;
 
@@ -34,6 +37,8 @@ export interface HubClientOptions {
   createSocket?: (url: string) => SocketLike;
   /** Seeds the reconnect jitter. */
   seed?: string;
+  /** Reads `/v1/health` (default: `fetch` of the URL as JSON); resolves with the body or rejects. */
+  fetchHealth?: ((url: string) => Promise<unknown>) | undefined;
   /** The local clock behind the pond clock's samples; default `Date.now`. */
   now?: () => number;
 }
@@ -54,6 +59,10 @@ export class HubClient {
   private socket: SocketLike | null = null;
   private attempt = 0;
   private lastWelcome: Welcome | null = null;
+  private versionError = false;
+  /** One `/v1/health` look per run of failures; counts `close()` calls so a late reply is dropped. */
+  private healthChecked = false;
+  private closes = 0;
   private retry: ReturnType<typeof setTimeout> | null = null;
   private pingTimer: ReturnType<typeof setTimeout> | null = null;
   private pingId = 0;
@@ -85,17 +94,13 @@ export class HubClient {
     if (this._status === 'online' && this.lastWelcome) this.settleWith(this.lastWelcome);
     else if (this._status === 'offline') this.open();
     else if (this._status === 'replaced') this.settle(new Error('replaced by another session'));
+    else if (this._status === 'outdated') this.settle(new Error('outdated'));
     return result;
   }
 
   close(): void {
-    this.clearTimers();
-    const s = this.socket;
-    this.socket = null;
-    if (s) {
-      s.onclose = null;
-      s.close();
-    }
+    this.closes++;
+    this.drop();
     this.setStatus('offline');
     this.settle(new Error('closed'));
   }
@@ -118,13 +123,20 @@ export class HubClient {
     return subscribe(this.welcomeListeners, fn);
   }
 
-  private open(): void {
+  /** Stops the timers and abandons the socket without a close event. */
+  private drop(): void {
     this.clearTimers();
-    const old = this.socket;
-    if (old) {
-      old.onclose = null;
-      old.close();
+    const s = this.socket;
+    this.socket = null;
+    if (s) {
+      s.onclose = null;
+      s.close();
     }
+  }
+
+  private open(): void {
+    this.drop();
+    this.versionError = false;
     this.setStatus('connecting');
     const socket = (this.opts.createSocket ?? ((u) => new WebSocket(u) as SocketLike))(
       this.opts.url,
@@ -151,6 +163,7 @@ export class HubClient {
         break;
       case 'welcome':
         this.attempt = 0;
+        this.healthChecked = false;
         this.setStatus('online');
         this.startPings();
         this.lastWelcome = msg;
@@ -171,6 +184,7 @@ export class HubClient {
         for (const fn of [...this.signalListeners]) fn(msg);
         break;
       case 'error':
+        if (msg.code === 'version') this.versionError = true;
         break;
     }
   }
@@ -196,10 +210,19 @@ export class HubClient {
       this.settle(new Error('replaced by another session'));
       return;
     }
+    if (this.versionError) {
+      this.setStatus('outdated');
+      this.settle(new Error('outdated'));
+      return;
+    }
     this.setStatus('offline');
     if (code === CLOSE_ORIGIN) {
       this.settle(new Error('origin not allowed'));
       return;
+    }
+    if (!this.healthChecked) {
+      this.healthChecked = true;
+      void this.checkHealth();
     }
     const base = BACKOFF_S[Math.min(this.attempt, BACKOFF_S.length - 1)] as number;
     this.attempt++;
@@ -208,6 +231,26 @@ export class HubClient {
       this.retry = null;
       this.open();
     }, delay);
+  }
+
+  /** A hub that reports another protocol version in `/v1/health` is out of reach for this page. */
+  private async checkHealth(): Promise<void> {
+    const url = new URL(this.opts.url);
+    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
+    url.pathname = '/v1/health';
+    url.search = '';
+    const closes = this.closes;
+    try {
+      const body = await (this.opts.fetchHealth ?? fetchJson)(url.toString());
+      const protocol = (body as { protocol?: unknown } | null)?.protocol;
+      if (typeof protocol !== 'number' || protocol === PROTOCOL_VERSION) return;
+    } catch {
+      return; // unreachable or garbled: keep retrying
+    }
+    if (this._status === 'online' || this.closes !== closes) return;
+    this.drop();
+    this.setStatus('outdated');
+    this.settle(new Error('outdated'));
   }
 
   private startPings(): void {
@@ -242,6 +285,11 @@ export class HubClient {
     this._status = s;
     for (const fn of [...this.statusListeners]) fn(s);
   }
+}
+
+async function fetchJson(url: string): Promise<unknown> {
+  const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  return res.json();
 }
 
 function subscribe<T>(list: T[], fn: T): () => void {

@@ -120,5 +120,6 @@ describe('statusText', () => {
     expect(statusText('offline', 1)).toBe('Offline · playing alone');
     expect(statusText('none', 1)).toBe('Offline · playing alone');
     expect(statusText('replaced', 1)).toBe('Signed in elsewhere');
+    expect(statusText('outdated', 1)).toBe('Update available, reload');
   });
 });

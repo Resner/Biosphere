@@ -13,6 +13,7 @@ import {
   CLOSE_REPLACED,
   type ClientMsg,
   type HubMsg,
+  isOtherVersionHello,
   type Member,
   NONCE_BYTES,
   type PondInfo,
@@ -91,6 +92,9 @@ export class Authority extends DurableObject<Env> {
     const msg = typeof data === 'string' ? parseClientMsg(data) : null;
     if (session.phase === 'challenged') {
       if (msg?.t !== 'hello') {
+        // A client on another protocol version is told so, to show "Update available".
+        if (typeof data === 'string' && isOtherVersionHello(data))
+          send(ws, { t: 'error', code: 'version' });
         ws.close(CLOSE_BAD_HELLO, 'hello expected');
         return;
       }
