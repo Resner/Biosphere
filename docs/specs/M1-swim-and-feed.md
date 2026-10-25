@@ -103,7 +103,7 @@ Other `src/sim` modules:
 
 ## Tasks
 
-- [ ] T1 Deterministic math, PRNG and hashing
+- [x] T1 Deterministic math, PRNG and hashing
   - Acceptance:
     - Accuracy against `Math.*` over 100,000 samples from `createRng`:
       - `sin` and `cos`: absolute error ≤ 1e-12 for x in [−1e4, 1e4];
@@ -119,6 +119,8 @@ Other `src/sim` modules:
     - Cody–Waite range reduction with π/2 split into three parts, then minimax polynomials on [−π/4, π/4].
     - `exp` = 2^k·p(r). `log` decomposes the double with a `DataView` (exponent and mantissa), because `Math.log2` is banned too.
     - Generate the golden files once with `UPDATE_GOLDENS=1 npx vitest run src/sim` and freeze them. After that they change only with a `RULES_VERSION` bump.
+  - Done: `math.ts`, `prng.ts`, `hash.ts` use fdlibm kernels (all accuracy targets met); the guard allows only the exactly specified `Math.*` members and flags aliasing, `**` and `globalThis`.
+  - Gotcha: `sin`/`cos` are accurate to about |x| 1e6 (callers pass wrapped angles); `exp` clamps, `log`/`pow` throw outside their domain.
 
 - [ ] T2 Rules, world state and state hash
   - Acceptance:
