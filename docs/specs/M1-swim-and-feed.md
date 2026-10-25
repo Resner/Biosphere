@@ -157,7 +157,7 @@ Other `src/sim` modules:
   - Done: `food.ts` plus a first `step.ts` (movement → feeding; tick advances). `World.consumed` is now `slot id → { k, until }`, keyed by slot (`c3_5_s2`).
   - Gotcha: entries are not deleted after `until`, because they are the only record of a slot's cycle `k` (spec said delete; that would reset the slot to `k0`). At most one entry per slot, so growth is bounded. `FoodItem.respawnTick` is the tick the item appeared.
 
-- [ ] T5 Metabolism, growth, hazards and death
+- [ ] T5 Metabolism, growth, hazards and death (in progress)
   - Acceptance:
     - An idle starter loses 8 energy ± 1% over 300 ticks (0.8/s), and 14 ± 1% at full throttle (basal 0.8 plus movement 0.6 per s).
     - At 80% energy, biomass grows by 0.5/s and energy drops by an extra 1.5/s. Radius = √biomass after every tick, and growth stops at 400.
