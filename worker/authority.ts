@@ -225,7 +225,7 @@ export class Authority extends DurableObject<Env> {
         seed: best.seed,
         epoch: best.epoch,
         centre: { x: best.cx, y: best.cy },
-        size: POND_SIZE,
+        size: RULES.world.size,
       },
       spawnHint: { x: best.cx + radius * Math.cos(angle), y: best.cy + radius * Math.sin(angle) },
       members,

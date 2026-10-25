@@ -30,6 +30,15 @@ export interface BsState {
   remotes: { id: string; name: string; x: number; y: number; alpha: number }[];
   /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
   pond: { id: string; seed: string; members: string[] } | null;
+  /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
+  social: {
+    chat: { from: string; name: string; text: string }[];
+    muted: string[];
+    emotes: { from: string; emote: number }[];
+    pings: { from: string; kind: number; x: number; y: number }[];
+    /** Social events dropped for a rate limit or a sender outside the roster. */
+    dropped: number;
+  };
   /** The status chip's text, the hub's state ('none' without a hub) and open peer connections. */
   net: { text: string; status: string; open: number };
 }

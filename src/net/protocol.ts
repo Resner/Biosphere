@@ -54,6 +54,7 @@ export interface PondInfo {
   seed: string;
   epoch: number;
   centre: Vec2;
+  /** The world's side in wu. */
   size: number;
 }
 

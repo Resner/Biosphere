@@ -9,6 +9,9 @@ const executablePath =
 
 const port = 4173;
 const hubPort = 8787;
+// Files run in parallel and a hub fills the fullest pond first, so each file that uses a hub gets
+// its own (m2-online.spec.ts: 8787, m2-social.spec.ts: 8788).
+const socialHubPort = 8788;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -38,6 +41,12 @@ export default defineConfig({
       // The authority, locally: the same Worker and Durable Object, with fresh state per run.
       command: `npm run worker:dev -- --port ${hubPort} --persist-to .wrangler/e2e-state`,
       url: `http://localhost:${hubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --port ${socialHubPort} --persist-to .wrangler/e2e-state-social`,
+      url: `http://localhost:${socialHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
