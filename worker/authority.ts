@@ -22,6 +22,7 @@ import {
 } from '../src/net/protocol';
 import { RULES } from '../src/sim/rules';
 import { migrate, type PondRow } from './schema';
+import { TurnCredentials } from './turn';
 
 const HELLO_TIMEOUT_MS = 10_000;
 const RATE_WINDOW_MS = 10_000;
@@ -41,6 +42,8 @@ type Session = (
 
 /** The one authority object (ADR 0008). Handles messages and alarms only: no game loop. */
 export class Authority extends DurableObject<Env> {
+  readonly turn = new TurnCredentials();
+
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     ctx.blockConcurrencyWhile(async () => migrate(ctx.storage.sql));
@@ -90,7 +93,7 @@ export class Authority extends DurableObject<Env> {
         ws.close(CLOSE_BAD_HELLO, 'hello expected');
         return;
       }
-      this.hello(ws, session, msg);
+      void this.hello(ws, session, msg);
       return;
     }
     if (!msg) {
@@ -136,11 +139,11 @@ export class Authority extends DurableObject<Env> {
     if (next !== null) await this.ctx.storage.setAlarm(next);
   }
 
-  private hello(
+  private async hello(
     ws: WebSocket,
     session: Session & { phase: 'challenged' },
     msg: ClientMsg & { t: 'hello' },
-  ): void {
+  ): Promise<void> {
     const message = helloMessage(session.nonce, msg.name);
     if (!message) {
       ws.close(CLOSE_BAD_HELLO, 'bad nonce');
@@ -164,20 +167,14 @@ export class Authority extends DurableObject<Env> {
       name: msg.name,
       pondId: pond.id,
     } satisfies Session);
-    send(ws, {
-      t: 'welcome',
-      pond,
-      you: { spawnHint },
-      members,
-      ice: [],
-      turn: false,
-      now: Date.now(),
-    });
     this.broadcast(pond.id, ws, {
       t: 'member',
       op: 'join',
       member: { playerId: msg.playerId, name: msg.name },
     });
+    // The session is already placed, so a slow or failed TURN lookup only delays this welcome.
+    const { ice, turn } = await this.turn.ice(this.env);
+    sendIfOpen(ws, { t: 'welcome', pond, you: { spawnHint }, members, ice, turn, now: Date.now() });
   }
 
   /** Picks the fullest pond with a free place (creating one if none), and the joiner's spawn hint. */
@@ -300,4 +297,13 @@ function sessionOf(ws: WebSocket): Session | null {
 
 function send(ws: WebSocket, msg: HubMsg): void {
   ws.send(JSON.stringify(msg));
+}
+
+/** Sends unless the socket closed in the meantime. */
+function sendIfOpen(ws: WebSocket, msg: HubMsg): void {
+  try {
+    send(ws, msg);
+  } catch {
+    // closed while waiting
+  }
 }

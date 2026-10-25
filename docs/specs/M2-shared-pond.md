@@ -140,13 +140,15 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `worker/authority.ts` derives rosters from socket attachments (`pondId` per active session); `worker/schema.ts` holds the numbered migrations (`ponds` plus a `migrations` table). A dropped socket is marked `retired` so its leave is sent once. The first joiner spawns at the centre, later ones on the ring (index = current member count).
   - Gotcha: the DO's SQLite refuses `PRAGMA user_version`, hence the `migrations` table. DO storage outlives a test, so `hub.test.ts` clears `ponds` after each test. Signals count against the 20-per-10 s limit: a joiner offering to 23 peers would exceed it, so T9/T10 must budget signals (or give them their own window).
 
-- [ ] T7 TURN credentials
+- [x] T7 TURN credentials
   - Acceptance (workerd tests with a faked `fetch`):
     - With `CF_TURN_KEY_ID` and `CF_TURN_KEY_API_TOKEN` set, `welcome.ice` contains the STUN servers (`stun.cloudflare.com:3478`, `stun.l.google.com:19302`) plus the TURN entry returned by the faked Cloudflare endpoint (`POST …/credentials/generate-ice-servers`, TTL 86,400 s), and `turn: true`.
     - Credentials are cached in the DO and reused while more than 1 h remains: ten hellos cause one fetch. After expiry, one new fetch.
     - If the fetch fails (network error, non-200, malformed body) or the secrets are missing, `welcome.ice` is the STUN list only, `turn: false`, and the welcome is not delayed past 2 s.
     - The TURN token never appears in any response, log line or error message (the test greps all captured output).
   - Notes: cache in memory with the expiry; rows are not needed. The TTL and refresh margin are constants in `worker/turn.ts`.
+  - Done: `worker/turn.ts` (`TurnCredentials`, owned by the Authority as `turn`) keeps the entries with credentials from Cloudflare's answer, dedupes concurrent fetches, and aborts after 2 s. `hello` is now async: the session is placed and announced first, and only the `welcome` waits for ICE.
+  - Gotcha: tests set the secrets by mutating `env` on the live object (`runInDurableObject`) and spy on `globalThis.fetch`; call `turn.reset()` when changing them.
 
 - [ ] T8 Hub client and pond clock
   - Acceptance (unit tests with a fake WebSocket and a fake clock; `src/net/hub-client.ts`, `src/net/clock.ts`):

@@ -503,3 +503,125 @@ describe('signal relay', () => {
     expect(b.now).toBeGreaterThan(b.pond.epoch);
   });
 });
+
+describe('TURN credentials', () => {
+  const TOKEN = 'secret-api-token-0123456789';
+  const STUN = ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'];
+  const TURN_ENTRY = {
+    urls: ['turn:turn.cloudflare.com:3478?transport=udp', 'turns:turn.cloudflare.com:5349'],
+    username: 'u-1',
+    credential: 'c-1',
+  };
+
+  const authority = () =>
+    runInDurableObject(
+      stub(),
+      (o) => o as unknown as { env: Record<string, unknown>; turn: { reset(): void } },
+    );
+  /** Sets or clears the TURN secrets the Authority sees, and forgets any cached credentials. */
+  async function secrets(on: boolean) {
+    const a = await authority();
+    a.env.CF_TURN_KEY_ID = on ? 'key-id' : undefined;
+    a.env.CF_TURN_KEY_API_TOKEN = on ? TOKEN : undefined;
+    a.turn.reset();
+  }
+  const cloudflare = (body: unknown = { iceServers: [{ urls: STUN }, TURN_ENTRY] }, status = 200) =>
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => Response.json(body, { status }));
+
+  afterEach(() => secrets(false));
+
+  it('adds the TURN entry to the STUN servers and says turn: true', async () => {
+    await secrets(true);
+    const fetchMock = cloudflare();
+    const { welcome } = await login();
+    expect(welcome).toMatchObject({ t: 'welcome', turn: true });
+    if (welcome.t !== 'welcome') return;
+    expect(welcome.ice).toEqual([{ urls: STUN[0] }, { urls: STUN[1] }, TURN_ENTRY]);
+    const [url, init] = fetchMock.mock.calls[0] ?? [];
+    expect(String(url)).toBe(
+      'https://rtc.live.cloudflare.com/v1/turn/keys/key-id/credentials/generate-ice-servers',
+    );
+    expect(init?.method).toBe('POST');
+    expect(new Headers(init?.headers).get('Authorization')).toBe(`Bearer ${TOKEN}`);
+    expect(JSON.parse(String(init?.body))).toEqual({ ttl: 86_400 });
+  });
+
+  it('fetches once for ten hellos', async () => {
+    await secrets(true);
+    const fetchMock = cloudflare();
+    for (let i = 0; i < 10; i++) await login(`Player${i}`);
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+  });
+
+  it('fetches again once less than an hour of the TTL remains', async () => {
+    await secrets(true);
+    const fetchMock = cloudflare();
+    await login('Alice');
+    skip(86_400_000 - 3_600_000 - 1_000); // 1 h + 1 s left: still cached
+    await login('Bob');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    skip(86_400_000 - 3_600_000 + 1_000); // under 1 h left
+    const { welcome } = await login('Cara');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+    expect(welcome).toMatchObject({ turn: true });
+  });
+
+  it('falls back to STUN only when the secrets are missing', async () => {
+    const fetchMock = cloudflare();
+    const { welcome } = await login();
+    expect(welcome).toMatchObject({
+      t: 'welcome',
+      turn: false,
+      ice: [{ urls: STUN[0] }, { urls: STUN[1] }],
+    });
+    expect(fetchMock).not.toHaveBeenCalled();
+  });
+
+  it.each([
+    ['a non-200 answer', () => cloudflare({ error: 'no' }, 500)],
+    ['a malformed body', () => cloudflare({ iceServers: 'nope' })],
+    ['no TURN entry', () => cloudflare({ iceServers: [{ urls: STUN }] })],
+    [
+      'a network error',
+      () => vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error(`boom ${TOKEN}`)),
+    ],
+  ])('falls back to STUN only on %s', async (_label, fake) => {
+    await secrets(true);
+    fake();
+    const { welcome } = await login();
+    expect(welcome).toMatchObject({
+      t: 'welcome',
+      turn: false,
+      ice: [{ urls: STUN[0] }, { urls: STUN[1] }],
+    });
+  });
+
+  it('does not wait more than 2 s for a hanging Cloudflare', async () => {
+    await secrets(true);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(
+      (_url, init) =>
+        new Promise((_resolve, reject) =>
+          init?.signal?.addEventListener('abort', () => reject(new Error('aborted'))),
+        ),
+    );
+    const started = performance.now();
+    const { welcome } = await login();
+    expect(welcome).toMatchObject({ turn: false });
+    expect(performance.now() - started).toBeLessThan(3_000);
+  });
+
+  it('never leaks the token to a response, a log line or an error', async () => {
+    await secrets(true);
+    const spies = (['log', 'info', 'warn', 'error', 'debug'] as const).map((k) =>
+      vi.spyOn(console, k),
+    );
+    vi.spyOn(globalThis, 'fetch').mockRejectedValueOnce(new Error(`boom ${TOKEN}`));
+    const failed = await login('Alice');
+    await secrets(true);
+    cloudflare();
+    const ok = await login('Bob');
+    const output = JSON.stringify([failed.welcome, ok.welcome, spies.map((s) => s.mock.calls)]);
+    expect(output).not.toContain(TOKEN);
+    expect(output.length).toBeGreaterThan(100);
+  });
+});
