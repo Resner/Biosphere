@@ -134,7 +134,7 @@ Other `src/sim` modules:
   - Done: `rules.ts` (deep-frozen `RULES` for DESIGN §2–§4), `types.ts`, `world.ts`, `state-hash.ts`; `consumed` ids are hashed in sorted order.
   - Gotcha: `hashWorld` throws on NaN/Infinity (via `Hasher.f64`); `options.currents`/`hazards` default to true.
 
-- [ ] T3 Movement physics and input encoding
+- [x] T3 Movement physics and input encoding
   - Acceptance:
     - `decodeInput(encodeInput(i))` equals `i` for all 256 × 16 × 2 inputs.
     - With currents off, a starter at rest given steer 0 (east) and throttle 15 for 60 ticks moves 98.7 wu ± 5% east (closed form `a/k·t − a/k²·(1 − e^(−kt))` with a = 140, k = 2.2, t = 2 s).
@@ -143,6 +143,8 @@ Other `src/sim` modules:
     - Dash adds 120 wu/s along the heading and costs 6 energy for a starter. A second dash within 75 ticks is ignored, with no event.
     - Driven toward x < 0 for 300 ticks, a creature never leaves [0, size] (soft wall within 64 wu of the edge).
   - Notes: integrate velocity first, then position (semi-implicit Euler).
+  - Done: `input.ts` (u16 codec: steer bits 0-7, throttle 8-11, dash 12) and `physics.ts` `applyMovement`; new rule `movement.wallPush` (300 wu/s²).
+  - Gotcha: turning needs throttle > 0 and a dash needs the energy for it (both unspecified, so decided here and in DESIGN §4); currents join the movement in T5.
 
 - [ ] T4 Food field and feeding
   - Acceptance:

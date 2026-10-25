@@ -52,6 +52,8 @@ export const RULES = deepFreeze({
     dashEnergyPerBiomass: 0.06,
     dashCooldownTicks: 75,
     maxThrottle: 15,
+    /** Inward acceleration at the very edge of the world, wu/s^2 (beats full thrust). */
+    wallPush: 300,
   },
   metabolism: {
     /** Basal energy/s = basal * b^basalExp. */
