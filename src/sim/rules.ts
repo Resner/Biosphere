@@ -80,6 +80,8 @@ export const RULES = deepFreeze({
     /** Respawn delay after being eaten, 20-60 s. */
     respawnMinTicks: 600,
     respawnMaxTicks: 1800,
+    /** A remote claim or consumed entry may differ from the local tick by this much (30 s, M2). */
+    claimTickWindow: 900,
     /** Bobbing drift stays within this many wu of the slot anchor. */
     driftRadius: 12,
     /** Bob amplitude per axis as a fraction of driftRadius (0.7 keeps the diagonal inside it). */

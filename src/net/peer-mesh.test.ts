@@ -5,6 +5,7 @@ import {
   GATHER_TIMEOUT_MS,
   type PeerConnectionLike,
   PeerMesh,
+  RECOVERY_MAX_ATTEMPTS,
   RETRY_DELAY_MS,
 } from './peer-mesh';
 import { EVENT_MAX_BYTES, encodeSnapshot, SNAPSHOT_BYTES, type Snapshot } from './protocol';
@@ -373,6 +374,92 @@ describe('PeerMesh timeouts and loss', () => {
     await settle();
     expect(left).toEqual(['a']);
     expect(net.meshes.get('b')?.isOpen('a')).toBe(true);
+  });
+});
+
+describe('PeerMesh recovery of a dropped link', () => {
+  it('re-establishes an open link that dropped: the lower id calls, both come back without a reload', async () => {
+    const net = network(['a', 'b']);
+    const joined: string[] = [];
+    const left: string[] = [];
+    for (const [id, mesh] of net.meshes) {
+      mesh.onPeerJoined((p) => joined.push(`${id}+${p}`));
+      mesh.onPeerLeft((p) => left.push(`${id}-${p}`));
+    }
+    net.meshes.get('b')?.connect('a'); // b joined later and called a
+    await settle();
+    expect(net.meshes.get('a')?.isOpen('b')).toBe(true);
+    net.pcs[0]?.fail();
+    await settle();
+    expect(left.sort()).toEqual(['a-b', 'b-a']);
+    expect(net.meshes.get('a')?.isOpen('b')).toBe(false);
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS);
+    await settle();
+    expect(net.meshes.get('a')?.isOpen('b')).toBe(true);
+    expect(net.meshes.get('b')?.isOpen('a')).toBe(true);
+    expect(net.signals.filter((m) => m.kind === 'offer').map((m) => m.from)).toEqual(['b', 'a']);
+    expect(joined.sort()).toEqual(['a+b', 'a+b', 'b+a', 'b+a']);
+  });
+
+  it('leaves the call to the lower id: the higher id waits and sends no offer', async () => {
+    const net = network(['a', 'b']);
+    net.meshes.get('a')?.connect('b');
+    await settle();
+    const offers = () => net.signals.filter((m) => m.kind === 'offer').length;
+    expect(offers()).toBe(1);
+    net.meshes.get('b')?.disconnect('a'); // b drops the link; only a's side may call again
+    await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS * 4);
+    await settle();
+    expect(net.signals.filter((m) => m.kind === 'offer' && m.from === 'b')).toHaveLength(0);
+    expect(net.meshes.get('b')?.isOpen('a')).toBe(true);
+  });
+
+  it('backs off between attempts and gives up after the limit', async () => {
+    const net = network(['a', 'b']);
+    net.meshes.get('a')?.connect('b');
+    await settle();
+    net.hold = true; // no answer reaches a from now on
+    net.pcs[0]?.fail();
+    const gaps: number[] = [];
+    let seen = net.pcs.length;
+    let last = 0;
+    for (let t = 0; t < 600_000; t += 500) {
+      await vi.advanceTimersByTimeAsync(500);
+      if (net.pcs.length > seen) {
+        gaps.push(t + 500 - last);
+        seen = net.pcs.length;
+        last = t + 500;
+      }
+    }
+    expect(net.pcs).toHaveLength(2 + RECOVERY_MAX_ATTEMPTS); // the first pair, then one call per attempt
+    // The wait before an attempt doubles each time (3 s, 6 s, ...) on top of the 12 s timeout.
+    const waits = gaps.map((g, i) => g - (i === 0 ? 0 : CONNECT_TIMEOUT_MS));
+    expect(waits[0]).toBeGreaterThanOrEqual(RETRY_DELAY_MS);
+    expect(waits[0]).toBeLessThan(RETRY_DELAY_MS + 1000);
+    expect(waits[1]).toBeGreaterThanOrEqual(RETRY_DELAY_MS * 2);
+    expect(net.meshes.get('a')?.peers()).toEqual([]);
+  });
+
+  it('stops retrying when the peer leaves the roster', async () => {
+    const net = network(['a', 'b']);
+    net.meshes.get('a')?.connect('b');
+    await settle();
+    net.pcs[0]?.fail();
+    net.meshes.get('a')?.disconnect('b');
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(net.pcs).toHaveLength(2); // only the first pair, no new call
+  });
+
+  it('starts over with a fresh budget after a recovered link drops again', async () => {
+    const net = network(['a', 'b']);
+    net.meshes.get('a')?.connect('b');
+    await settle();
+    for (let i = 0; i < RECOVERY_MAX_ATTEMPTS + 2; i++) {
+      net.pcs[net.pcs.length - 1]?.fail();
+      await vi.advanceTimersByTimeAsync(RETRY_DELAY_MS);
+      await settle();
+      expect(net.meshes.get('a')?.isOpen('b')).toBe(true);
+    }
   });
 });
 

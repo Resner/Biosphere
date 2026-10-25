@@ -300,10 +300,12 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: the app reads storage through `safeStorage()` only (`loadName`/`saveName` take `null`); `tryOnline` turns a throwing connector into a local pond; `OnlineKeeper` owns the one session (`pagehide` suspends it, `pageshow` with `persisted` resumes it); `InputController` ignores keydowns in an input or textarea except Enter; `switchPond` moves a life in the old pond to a local one (pond cleared, speed 1) and the chip reads "Offline" while a life is in a local pond.
   - Gotcha: keyup is never ignored, so a key held over a field cannot stick.
 
-- [ ] T21 Links that recover, and food claims that cannot be abused
+- [x] T21 Links that recover, and food claims that cannot be abused
   - Acceptance:
     - A link that was open and then dropped is re-established while both peers are still in the roster: both sides retry with backoff (the lower id calls), up to a limit, and the remote returns without a reload (unit with fake transports; E2E optional).
     - `ConsumedJoin.receive` and `applyRemoteClaim` clamp `k` and `until`/`tick` to a window around the local tick and the local `k`; a claim far outside it is ignored and counted (unit with `k = 4294967295`).
+  - Done: `PeerMesh` re-calls an open link that dropped (the lower id calls, 3 s doubling to 30 s, `RECOVERY_MAX_ATTEMPTS` = 5, reset by an open link, cancelled by `disconnect`); a first connection that never came up still retries once. `claimPlausible`/`consumedPlausible` (`sim/food.ts`, `RULES.food.claimTickWindow` = 900) gate claims and consumed entries; `ClaimBook`/`ConsumedJoin` count the ignored ones (`__bs.state().net.foodIgnored`).
+  - Gotcha: `k` is bounded by the pond clock (a slot needs ≥ 600 ticks per cycle), not by the local `k`, because a late joiner's local `k` is 0 while peers' legitimately run far ahead. Three old fixtures used a local tick of 0 with large `k` and now use a realistic tick.
 
 ## End-to-end check
 

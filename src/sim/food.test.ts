@@ -205,7 +205,7 @@ describe('applyRemoteClaim', () => {
     const remote = world('claims');
     local.tick = 100;
     consumeFood(local, 'c3_5_s2_k0');
-    remote.tick = 5000; // a different local clock changes nothing
+    remote.tick = 400; // a different local clock (within the window) changes nothing
     expect(applyRemoteClaim(remote, { slot: 'c3_5_s2', k: 0, tick: 100 })).toBe(true);
     expect(remote.consumed.c3_5_s2).toEqual(local.consumed.c3_5_s2);
   });
@@ -216,10 +216,27 @@ describe('applyRemoteClaim', () => {
     const late = w.consumed.c3_5_s2?.until ?? 0;
     expect(applyRemoteClaim(w, { slot: 'c3_5_s2', k: 0, tick: 100 })).toBe(true);
     expect(w.consumed.c3_5_s2?.until).toBe(late - 3);
-    applyRemoteClaim(w, { slot: 'c3_5_s2', k: 1, tick: 5000 });
+    applyRemoteClaim(w, { slot: 'c3_5_s2', k: 1, tick: 800 });
     const after = structuredClone(w.consumed);
     expect(applyRemoteClaim(w, { slot: 'c3_5_s2', k: 0, tick: 100 })).toBe(false);
     expect(w.consumed).toEqual(after);
+  });
+
+  it('rejects a claim outside the window around the local tick or the cycles a slot can reach', () => {
+    const w = world('claims');
+    w.tick = 3000;
+    const w0 = structuredClone(w.consumed);
+    for (const [k, tick] of [
+      [4294967295, 3000],
+      [0, 4294967295],
+      [0, 3000 - RULES.food.claimTickWindow - 1],
+      [0, 3000 + RULES.food.claimTickWindow + 1],
+      [(3000 + 2 * RULES.food.claimTickWindow) / RULES.food.respawnMinTicks, 3000],
+    ] as const) {
+      expect(applyRemoteClaim(w, { slot: 'c3_5_s2', k, tick })).toBe(false);
+    }
+    expect(w.consumed).toEqual(w0);
+    expect(applyRemoteClaim(w, { slot: 'c3_5_s2', k: 5, tick: 3000 })).toBe(true);
   });
 
   it('rejects slots outside the grid', () => {

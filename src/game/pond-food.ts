@@ -17,6 +17,11 @@ export class PondFood {
     this.book = new ClaimBook(selfId);
   }
 
+  /** Claims and consumed entries ignored for lying outside the window of this client's clock. */
+  get ignored(): number {
+    return this.book.ignored + this.join.ignored;
+  }
+
   /** Announces the bites the player just took; `tick` is the tick the step ran at. */
   onEat(events: readonly StepEvent[], tick: number): void {
     for (const event of events) {

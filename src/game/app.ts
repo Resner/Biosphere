@@ -441,6 +441,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** A peer's claim or consumed set: update the shared food and give back a bite that lost. */
   const receiveFoodEvent = (from: string, event: PeerEvent): void => {
     if (!pond) return;
+    // The stand-in world is never stepped; its tick is the pond clock the claims are judged by.
+    pond.world.tick = pond.time.tickAt(performance.now());
     const stolen = pond.food.receive(pond.world, from, event);
     field.markDirty();
     // A bite is only given back by a life in this pond, never by a local one.
@@ -779,6 +781,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         text: shownStatus,
         status: keeper.current?.status ?? 'none',
         open: keeper.current?.openCount() ?? 0,
+        foodIgnored: pond?.food.ignored ?? 0,
       },
     }),
     events: () => ({ ...session.counts }),
