@@ -194,7 +194,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `src/net/pond-sync.ts` (`SnapshotSender`, `RemoteBuffer`, `RemoteSet`, `snapshotOf`), `src/render/remotes.ts` (a pooled `Cell` per remote, tinted by hue, with an alpha uniform) and `src/game/labels.ts` (DOM names). `__bs.state().remotes`, `render.info().remoteCells`, `render.fx().camX/camY` and the debug helper `setRemotes` (scripted remotes through the real sender, codec and buffer) back the E2E in `m2-remotes.spec.ts`.
   - Gotcha: buffers run on the sender's tick (pond time), not arrival time, so T12/T13 must pass the hub-synced pond time to `RemoteSet.sample` (the app uses `performance.now()` until then) and call `receive`, `setMember` and `removeMember` from the mesh and roster. A newer tick beats an old `seq`, so a reloaded peer shows up again. The app does not send yet: T13 wires `SnapshotSender.update(loopMs, document.hidden, () => snapshotOf(player, tick))` to every open `state` channel.
 
-- [ ] T12 Shared food and the pond clock in play
+- [ ] T12 Shared food and the pond clock in play (in progress)
   - Acceptance:
     - `ClaimBook` (pure, unit tests): two clients that each eat `c3_5_s2` cycle 0 at ticks 100 and 103 converge so that the tick-100 eater keeps it and the other receives a reversal (`stolen`); equal ticks resolve by lower `playerId`. Delivery order does not change the result (test all orderings of 3 claims). A claim for an older cycle is ignored. The respawn tick equals the one `consumeFood` computes locally for the winning tick.
     - Reversal: the loser's energy drops by the item's value, never below 0, and a `stolen` event is counted in `__bs.events()`.
