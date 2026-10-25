@@ -2,7 +2,9 @@ name: CI
 
 on:
   pull_request:
-    types: [opened, synchronize, reopened, ready_for_review]
+    # Drafts run too: a skipped job counts as a passing `verify`, so a draft skip once let a PR
+    # merge untested when a draft-time run cancelled the ready-for-review run (#40).
+    types: [opened, synchronize, reopened]
   # Re-check main after dependency changes; this also warms the npm cache that PRs share.
   push:
     branches: [main]
@@ -19,8 +21,6 @@ concurrency:
 jobs:
   # The single required check. One job, because GitHub rounds every job up to a whole minute.
   verify:
-    # Drafts skip: a skipped job reports success, and drafts can't merge anyway.
-    if: github.event.pull_request.draft != true
     runs-on: ubuntu-latest
     timeout-minutes: 15
     steps:
