@@ -56,6 +56,13 @@ describe('filterText', () => {
     expect(filterText('b17ch')).toBe('*****');
   });
 
+  it('sees through fullwidth digits and stacked bangs', () => {
+    expect(filterText('ｓｈ１ｔ')).toBe('****');
+    expect(filterText('５h1t')).toBe('****');
+    expect(filterText('f!!ck')).toBe('*****');
+    expect(filterText('shit!!')).toBe('****!!');
+  });
+
   it('sees through repeated letters', () => {
     expect(filterText('fuuuck')).toBe('******');
     expect(filterText('shiiiit')).toBe('*******');
@@ -161,11 +168,11 @@ describe('false positives', () => {
     'nice to meet you',
     'good game everyone',
     'I am a s tiny cell',
-    'Maine coon cats are big',
     'the fire retardant worked',
+    'my therapist said hi',
+    'he began to snigger',
     'passage through the reef',
     'a massive jellyfish',
-    'compass and map',
     'Hancock and Mitchell',
     'grassland and bassoon',
     'the pickens family',

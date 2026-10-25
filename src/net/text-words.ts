@@ -208,4 +208,13 @@ export const GERMAN_TERMS: readonly string[] = [
 ];
 
 /** Longer words that contain a stem term but are fine: they are skipped by stem matching. */
-export const INNOCENT_WORDS: readonly string[] = ['retardant', 'retardants'];
+export const INNOCENT_WORDS: readonly string[] = [
+  'retardant',
+  'retardants',
+  'therapist',
+  'therapists',
+  'snigger',
+  'sniggers',
+  'sniggered',
+  'sniggering',
+];

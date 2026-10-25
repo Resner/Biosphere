@@ -83,8 +83,10 @@ function classify(ch: string, start: number): Cell {
     .map((c) => CONFUSABLE[c] ?? c)
     .join('');
   if (ASCII_LETTER.test(mapped)) return { start, end, letters: mapped, kind: 'letter' };
-  if (ch === '!') return { start, end, letters: 'i', kind: 'bang' };
-  const leet = LEET[ch];
+  // Leetspeak is looked up after normalisation, so fullwidth `５` and `＠` count as `5` and `@`.
+  const plain = ch.normalize('NFKD');
+  if (plain === '!') return { start, end, letters: 'i', kind: 'bang' };
+  const leet = LEET[plain];
   if (leet) return { start, end, letters: leet, kind: 'leet' };
   return { start, end, letters: '', kind: 'separator' };
 }
@@ -112,7 +114,7 @@ function cellsOf(text: string): Cell[] {
 function wordSide(cells: Cell[], from: number, step: 1 | -1): boolean {
   for (let i = from + step; i >= 0 && i < cells.length; i += step) {
     const { kind } = cells[i] as Cell;
-    if (kind === 'ignored') continue;
+    if (kind === 'ignored' || kind === 'bang') continue;
     return kind === 'letter' || kind === 'leet';
   }
   return false;
