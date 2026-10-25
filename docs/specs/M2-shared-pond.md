@@ -150,7 +150,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Done: `worker/turn.ts` (`TurnCredentials`, owned by the Authority as `turn`) keeps the entries with credentials from Cloudflare's answer, dedupes concurrent fetches, and aborts after 2 s. `hello` is now async: the session is placed and announced first, and only the `welcome` waits for ICE.
   - Gotcha: tests set the secrets by mutating `env` on the live object (`runInDurableObject`) and spy on `globalThis.fetch`; call `turn.reset()` when changing them.
 
-- [ ] T8 Hub client and pond clock (in progress)
+- [x] T8 Hub client and pond clock
   - Acceptance (unit tests with a fake WebSocket and a fake clock; `src/net/hub-client.ts`, `src/net/clock.ts`):
     - Connect sequence: `open` → on `challenge`, `hello` with a signature that `verify` accepts → `welcome` resolves `connect()` with the pond data.
     - Loss of the socket schedules reconnects with backoff 1, 2, 4, 8, 16, 30, 30 s (±20% jitter, seeded), resets after a successful welcome, and a 4001 close does not reconnect (the status becomes `replaced`).
@@ -158,6 +158,8 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - `pondTick(epoch)` = `floor((hubNow − epoch) · 30 / 1000)`. `ClockSync` slews the loop speed by ±2% when drift is 1–3 ticks, snaps when larger, and does nothing when 0 (fake clock: after a simulated 5 s of 50 ppm-fast local time the drift stays within 1 tick).
     - Status values: `connecting`, `online`, `offline`, `replaced`. Calling `connect()` while offline surfaces the status to listeners once per change.
   - Notes: no WebSocket traffic in play beyond a ping a minute. Expose `onSignal`, `send` and `onMember` for the mesh.
+  - Done: `src/net/clock.ts` (`PondClock`, `ClockSync`) and `src/net/hub-client.ts` (`HubClient`, injectable socket); 8 pings 250 ms apart after each welcome, then one a minute. `onWelcome` fires again after reconnects; 4002/4003 closes reconnect, 4004 (origin) stops like 4001.
+  - Gotcha: slewing treats drift under 1 tick as zero, using the fractional pond tick (`pondTickExact`); `ClockSync.correct` only returns a speed or a snap, the loop in T12 applies it.
 
 - [ ] T9 PeerMesh: negotiation and channels
   - Acceptance:
