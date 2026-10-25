@@ -10,9 +10,11 @@
     "dev": "vite",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "biome check . && tsc --noEmit && vitest run",
+    "check": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run",
     "format": "biome check --write .",
     "test:unit": "vitest",
+    "worker:dev": "node tools/worker.mjs dev",
+    "worker:deploy": "node tools/worker.mjs deploy",
     "test:e2e": "playwright test --grep-invert @slow",
     "test:e2e:full": "playwright test",
     "e2e:setup": "playwright install --with-deps --only-shell chromium",
@@ -23,11 +25,14 @@
   },
   "devDependencies": {
     "@biomejs/biome": "2.6.3",
+    "@cloudflare/vitest-plugin": "1.4.7",
+    "@cloudflare/workers-types": "5.20261025.1",
     "@playwright/test": "1.64.1",
     "@types/node": "^22.20.5",
     "@types/three": "^0.186.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
-    "vitest": "^4.1.12"
+    "vitest": "^4.1.12",
+    "wrangler": "4.152.0"
   }
 }
