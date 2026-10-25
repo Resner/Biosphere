@@ -57,6 +57,22 @@ export function keysToInput(keys: ReadonlySet<string>): Input | null {
 }
 
 const DASH_KEY = ' ';
+/** Keys the page would otherwise scroll with. */
+const SCROLL_KEYS: ReadonlySet<string> = new Set([
+  DASH_KEY,
+  'ArrowUp',
+  'ArrowDown',
+  'ArrowLeft',
+  'ArrowRight',
+]);
+/** Enter on the death screen waits this long, so a key held through the death does not rehatch. */
+export const ENTER_DELAY_MS = 400;
+
+/** Whether Enter hatches: at once from the title, after a short delay from the death screen. */
+export function enterHatches(screen: 'title' | 'playing' | 'dead', shownMs: number): boolean {
+  if (screen === 'title') return true;
+  return screen === 'dead' && shownMs >= ENTER_DELAY_MS;
+}
 
 /** Turns raw pointer and keyboard events into one `Input` per sim tick. */
 export class InputController {
@@ -96,24 +112,34 @@ export class InputController {
     return { ...steering, dash };
   }
 
-  /** Listens on the window; returns a function that detaches again. */
-  attach(target: Window): () => void {
+  /**
+   * Listens on the window and, for hidden tabs, the document; returns a function that detaches
+   * again. `onEnter` fires on a fresh Enter press, never on a key repeat.
+   */
+  attach(target: Window, doc?: Document, onEnter?: () => void): () => void {
     const down = (e: KeyboardEvent) => {
+      if (SCROLL_KEYS.has(e.key) || (e.key === 'Enter' && onEnter)) e.preventDefault();
       if (e.repeat) return;
-      this.keyDown(e.key);
+      if (e.key === 'Enter') onEnter?.();
+      else this.keyDown(e.key);
     };
     const up = (e: KeyboardEvent) => this.keyUp(e.key);
     const move = (e: PointerEvent) => this.pointerMove(e.clientX, e.clientY);
     const blur = () => this.reset();
+    const visibility = () => {
+      if (doc?.hidden) this.reset();
+    };
     target.addEventListener('keydown', down);
     target.addEventListener('keyup', up);
     target.addEventListener('pointermove', move);
     target.addEventListener('blur', blur);
+    doc?.addEventListener('visibilitychange', visibility);
     return () => {
       target.removeEventListener('keydown', down);
       target.removeEventListener('keyup', up);
       target.removeEventListener('pointermove', move);
       target.removeEventListener('blur', blur);
+      doc?.removeEventListener('visibilitychange', visibility);
     };
   }
 }
