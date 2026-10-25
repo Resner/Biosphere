@@ -76,6 +76,17 @@ describe('Effects', () => {
     expect(fx.dissolve).toBe(1);
   });
 
+  it('does not count the frame that died: a slow frame cannot shorten the dissolve', () => {
+    const fx = new Effects();
+    fx.startDissolve();
+    fx.update(0.5);
+    expect(fx.dissolve).toBe(0);
+    fx.update(1.0);
+    expect(fx.dissolved).toBe(false);
+    fx.update(0.25);
+    expect(fx.dissolved).toBe(true);
+  });
+
   it('does not dissolve before startDissolve', () => {
     const fx = new Effects();
     fx.update(5);

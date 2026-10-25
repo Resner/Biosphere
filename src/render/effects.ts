@@ -62,6 +62,8 @@ export class Effects {
   vignette = 0;
   dissolve = 0;
   private dissolving = false;
+  /** The frame that starts the dissolve ends before the body is drawn dissolving, so it is not counted. */
+  private dissolveFresh = false;
   private resumed = false;
   private eat = 0;
   private dash = 0;
@@ -93,6 +95,7 @@ export class Effects {
 
   /** Starts the death dissolve; later calls do nothing. */
   startDissolve(): void {
+    if (!this.dissolving) this.dissolveFresh = true;
     this.dissolving = true;
   }
 
@@ -120,7 +123,10 @@ export class Effects {
     this.vignette *= Math.exp(-dt / FX.vignetteFadeSeconds);
     // Snap to exactly 0 so the shaders can skip the hurt tint.
     if (this.vignette < 0.002) this.vignette = 0;
-    if (this.dissolving) this.dissolve = Math.min(1, this.dissolve + dt / FX.dissolveSeconds);
+    if (this.dissolveFresh) this.dissolveFresh = false;
+    else if (this.dissolving) {
+      this.dissolve = Math.min(1, this.dissolve + dt / FX.dissolveSeconds);
+    }
   }
 
   reset(): void {
@@ -128,6 +134,7 @@ export class Effects {
     this.vignette = 0;
     this.dissolve = 0;
     this.dissolving = false;
+    this.dissolveFresh = false;
     this.resumed = false;
     this.eat = 0;
     this.dash = 0;
