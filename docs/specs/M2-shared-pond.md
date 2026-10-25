@@ -287,6 +287,7 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
   - Notes: measure the worst-case welcome before choosing; record the choice in the task note.
   - Done: `signal` messages count against their own cap (60 per 10 s) beside the 20 for everything else; the welcome has `WELCOME_MAX_BYTES` (8 KB; measured worst case with 23 members and two TURN entries with 512-character credentials is about 4.8 KB, over the 4 KB hub cap); the spawn hint comes from the first free slot, kept in the socket attachment (no SQLite write).
   - Gotcha: a session hibernated before this change has no `signals` counter or `slot`; the code tolerates both.
+  - Also: `m2-online` takes about 25 s in the parallel suite (24.7 s on `main` too) against a 30 s timeout, and failed twice in CI; it now has 60 s like the social and pond projects.
 
 - [ ] T20 Online session robustness
   - Acceptance:

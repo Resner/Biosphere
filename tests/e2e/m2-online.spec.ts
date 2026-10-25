@@ -18,6 +18,8 @@ async function player(browser: Browser, query = `?debug=1&hub=${HUB}`): Promise<
 }
 
 test('three players share a pond, see each other and keep it after dying', async ({ browser }) => {
+  // Three software-GL browsers take about 25 s when other specs share the CPU; the social and pond projects get 60 s too.
+  test.setTimeout(60_000);
   const pages = await Promise.all([player(browser), player(browser), player(browser)]);
   try {
     await Promise.all(pages.map((p) => p.waitForFunction(() => window.__bs?.state().playerId)));
