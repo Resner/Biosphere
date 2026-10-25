@@ -60,8 +60,6 @@ test.describe('the M1 loop', () => {
   }) => {
     await openGame(page, '?debug=1&seed=loop-starve');
     await hatch(page);
-    // The cursor sits on the cell (inside the dead zone), so it idles instead of swimming off.
-    await page.mouse.move(480, 270);
     await page.evaluate(() => {
       window.__bs?.debug?.setEnergy(0);
       window.__bs?.debug?.timeScale(4);

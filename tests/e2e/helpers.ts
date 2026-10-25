@@ -7,10 +7,15 @@ export async function openGame(page: Page, query: string): Promise<void> {
   await page.waitForFunction(() => window.__bs?.ready === true);
 }
 
-/** Clicks Hatch and waits until play has started. */
+/**
+ * Clicks Hatch and waits until play has started. The click leaves the cursor on the button, which
+ * would steer the cell away, so the cursor is parked on the cell (inside its dead zone).
+ */
 export async function hatch(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Hatch', exact: true }).click();
   await page.waitForFunction(() => window.__bs?.state().screen === 'playing');
+  const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
+  await page.mouse.move(width / 2, height / 2);
 }
 
 export async function playerOf(page: Page): Promise<NonNullable<BsState['player']>> {

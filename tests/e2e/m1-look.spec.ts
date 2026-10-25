@@ -152,9 +152,11 @@ test.describe('macro look', () => {
     const query = { radiusPx: player.radius * pxPerWu, patch };
 
     const before = (await measure(page, query)).patch;
-    await page.evaluate(({ x, y }) => window.__bs?.debug?.spawnPlume(x + 40, y, 20), {
-      x: player.x,
-      y: player.y,
+    // Placed from the creature's position now: the currents carry it while the page is busy.
+    await page.evaluate(() => {
+      const bs = window.__bs as BsHook;
+      const { x, y } = bs.state().player ?? { x: 0, y: 0 };
+      bs.debug?.spawnPlume(x + 40, y, 30);
     });
     await waitForFrames(page);
     const after = (await measure(page, query)).patch;

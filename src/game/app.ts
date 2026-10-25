@@ -28,6 +28,8 @@ const FIELD_MARGIN = RULES.food.driftRadius + RULES.food.kinds.globule.radius;
 const MAX_FRAME_SECONDS = 0.1;
 /** `debug.steerTo` gives up after this many ticks (30 s). */
 const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
+/** With `timeScale`, a slow software-GL frame must still catch up: 120 ticks is 4 s of sim. */
+const DEBUG_MAX_TICKS_PER_FRAME = 120;
 const MAX_THROTTLE = RULES.movement.maxThrottle;
 
 /** One creature in one world: the title screen's drifting cell, or a real hatch. */
@@ -219,7 +221,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     lastRealMs = real;
     return virtualMs;
   };
-  const loop = createLoop({ now: clock, tick, render, maxTicksPerFrame: params.debug ? 20 : 5 });
+  const loop = createLoop({
+    now: clock,
+    tick,
+    render,
+    maxTicksPerFrame: params.debug ? DEBUG_MAX_TICKS_PER_FRAME : 5,
+  });
   attachVisibilityPause(document, loop);
 
   let frames = 0;
