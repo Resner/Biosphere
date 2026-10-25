@@ -20,7 +20,12 @@ Go in this order; the first item that applies is this run's step.
 - An open `Playtest: …` issue for a milestone marked `gate` in the roadmap, with no owner reply → stop with `WAITING: playtest <version>`. A reply (or closing the issue) opens the gate; its feedback becomes owner issues or tasks in the next spec.
 - Another open PR from a `claude/` branch updated within the last 90 minutes → another run is still working; stop.
 - An older open factory PR → merge its branch into yours, finish it as your PR, and close the old one with a link.
-- Dependabot PRs: merge the green ones and carry on; on red ones, comment why and add an upgrade task to the current spec.
+- Dependabot PRs are yours to settle; the owner never handles them:
+  - green and right for the repo → squash-merge, and carry on;
+  - wrong for the repo (conflicts with `engines`, an ADR or a deliberate pin) → add an `ignore` rule to `.github/dependabot.yml` in this run's PR, close the Dependabot PR with a comment saying why, and carry on;
+  - red → add an upgrade task to the current spec (unless one exists), close the Dependabot PR with a comment linking it, and carry on.
+
+  `@dependabot` comment commands don't work from here, because the GitHub tool neutralises bot mentions. Record decisions in the config or by closing the PR.
 - The latest Release workflow run on `main` failed → fix it.
 - An owner issue reporting a bug in shipped behaviour → fix it test-first, record it as a ticked task in the current spec, and close the issue. Other owner issues → add them to the right spec or ROADMAP row, comment where, and carry on.
 
@@ -50,7 +55,16 @@ The current milestone is the first row in `docs/ROADMAP.md` that isn't `done`.
 
 ## When stuck
 
-A product decision with no sensible default, a missing secret, or CI still red after two root-cause attempts: open an issue `Blocked: <task>: <question>` with the context and options, mark the task `blocked (#<n>)` in the spec, and stop.
+Block only on what the owner alone can do:
+- provide a secret or an account;
+- change a repository or billing setting;
+- answer a question that `docs/BRIEF.md`, the ADRs and `docs/DESIGN.md` leave open, when no reasonable default exists.
+
+Then open an issue `Blocked: <task>: <question>` with the context, the options and your recommendation, mark the task `blocked (#<n>)` in the spec, and stop.
+
+Everything else is yours to decide: pick the sensible default, record lasting decisions as ADRs, and carry on.
+
+CI still red after two root-cause attempts is not a blocker. Comment on your PR with what failed and what you tried, and end the run with `WAITING: <PR> still red`; the next run takes it over as an older factory PR. If a task has failed across three runs, change the plan instead of retrying it: split it, simplify it, or take a different approach in the spec, with an ADR if a decision changes.
 
 ## Report
 
