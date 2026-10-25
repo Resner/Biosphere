@@ -30,17 +30,19 @@ import { TurnCredentials } from './turn';
 const HELLO_TIMEOUT_MS = 10_000;
 const RATE_WINDOW_MS = 10_000;
 const RATE_MAX_MESSAGES = 20;
+/** Signals have their own window cap: joining a pond of 24 sends one offer per member (at most 23), plus retries. */
+const RATE_MAX_SIGNALS = 60;
 const POND_CAPACITY = 24;
-/** Joiner `i` spawns at angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · members` (DESIGN.md). */
+/** A joiner takes the first free slot `i` of its pond: angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · i` (DESIGN.md). */
 const RING_BASE = 300;
 const RING_STEP = 40;
 
 /** Per-socket state, kept in the hibernation attachment (survives eviction, never touches SQLite). */
 type Session = (
   | { phase: 'challenged'; nonce: string }
-  | { phase: 'active'; playerId: string; name: string; pondId: string }
+  | { phase: 'active'; playerId: string; name: string; pondId: string; slot: number }
   | { phase: 'retired' }
-) & { openedAt: number; windowStart: number; count: number };
+) & { openedAt: number; windowStart: number; count: number; signals: number };
 
 /** The one authority object (ADR 0008). Handles messages and alarms only: no game loop. */
 export class Authority extends DurableObject<Env> {
@@ -62,6 +64,7 @@ export class Authority extends DurableObject<Env> {
       openedAt: now,
       windowStart: now,
       count: 0,
+      signals: 0,
     } satisfies Session);
     send(pair[1], { t: 'challenge', nonce });
     if ((await this.ctx.storage.getAlarm()) === null) {
@@ -78,18 +81,20 @@ export class Authority extends DurableObject<Env> {
     }
     if (session.phase === 'retired') return;
     const now = Date.now();
+    const msg = typeof data === 'string' ? parseClientMsg(data) : null;
     if (now - session.windowStart >= RATE_WINDOW_MS) {
       session.windowStart = now;
       session.count = 0;
+      session.signals = 0;
     }
-    session.count++;
-    if (session.count > RATE_MAX_MESSAGES) {
+    const signal = msg?.t === 'signal';
+    if (signal) session.signals = (session.signals ?? 0) + 1;
+    else session.count++;
+    if (signal ? session.signals > RATE_MAX_SIGNALS : session.count > RATE_MAX_MESSAGES) {
       this.drop(ws, CLOSE_RATE_LIMITED, 'rate limited');
       return;
     }
     ws.serializeAttachment(session);
-
-    const msg = typeof data === 'string' ? parseClientMsg(data) : null;
     if (session.phase === 'challenged') {
       if (msg?.t !== 'hello') {
         // A client on another protocol version is told so, to show "Update available".
@@ -168,13 +173,14 @@ export class Authority extends DurableObject<Env> {
         this.drop(other, CLOSE_REPLACED, 'replaced by a newer session');
       }
     }
-    const { pond, spawnHint, members } = this.place();
+    const { pond, spawnHint, members, slot } = this.place();
     ws.serializeAttachment({
       ...session,
       phase: 'active',
       playerId: msg.playerId,
       name: msg.name,
       pondId: pond.id,
+      slot,
     } satisfies Session);
     this.broadcast(pond.id, ws, {
       t: 'member',
@@ -187,7 +193,7 @@ export class Authority extends DurableObject<Env> {
   }
 
   /** Picks the fullest pond with a free place (creating one if none), and the joiner's spawn hint. */
-  private place(): { pond: PondInfo; spawnHint: Vec2; members: Member[] } {
+  private place(): { pond: PondInfo; spawnHint: Vec2; members: Member[]; slot: number } {
     const sql = this.ctx.storage.sql;
     const counts = new Map<string, number>();
     for (const [, theirs] of this.activeSessions()) {
@@ -220,9 +226,14 @@ export class Authority extends DurableObject<Env> {
       );
     }
     const members = this.membersOf(best.id);
-    const n = members.length;
-    const angle = n * SPAWN_GOLDEN_ANGLE;
-    const radius = n === 0 ? 0 : RING_BASE + RING_STEP * n;
+    const taken = new Set<number>();
+    for (const [, theirs] of this.activeSessions()) {
+      if (theirs.pondId === best.id) taken.add(theirs.slot);
+    }
+    let slot = 0;
+    while (taken.has(slot)) slot++;
+    const angle = slot * SPAWN_GOLDEN_ANGLE;
+    const radius = slot === 0 ? 0 : RING_BASE + RING_STEP * slot;
     return {
       pond: {
         id: best.id,
@@ -233,6 +244,7 @@ export class Authority extends DurableObject<Env> {
       },
       spawnHint: { x: best.cx + radius * Math.cos(angle), y: best.cy + radius * Math.sin(angle) },
       members,
+      slot,
     };
   }
 

@@ -330,6 +330,16 @@ const pondRows = () =>
   );
 
 describe('ponds', () => {
+  it('gives a joiner a spawn hint no current member has, after members left', async () => {
+    const [a, b, c] = await fill(3);
+    if (!a || !b || !c) throw new Error('fill');
+    b.c.send({ t: 'leave' });
+    await b.c.closed;
+    const d = welcomeOf((await login('Dee')).welcome);
+    expect(d.members).toHaveLength(2);
+    for (const other of [a, c]) expect(d.you.spawnHint).not.toEqual(other.welcome.you.spawnHint);
+  });
+
   it('creates a pond for the first player, with the spawn hint at the centre', async () => {
     const { welcome } = (await fill(1))[0] ?? {};
     expect(welcome?.members).toEqual([]);
@@ -454,6 +464,35 @@ describe('ponds', () => {
     const b = welcomeOf((await login('Late')).welcome);
     expect(b.pond).toEqual(a?.welcome.pond);
     expect(b.members).toHaveLength(1);
+  });
+});
+
+describe('joining a full pond', () => {
+  it('lets 24 clients join one after another within the message budget', async () => {
+    const closes: number[] = [];
+    const joined: Array<{ playerId: string }> = [];
+    for (let i = 0; i < 24; i++) {
+      const { c, id } = await login(`Pl${i}`);
+      void c.closed.then((code) => closes.push(code));
+      // What a joining client sends: the opening pings, then one offer per member.
+      for (let p = 0; p < 8; p++) c.send({ t: 'ping', id: p });
+      for (const m of joined) c.send({ t: 'signal', to: m.playerId, kind: 'offer', sdp: 'v=0' });
+      c.send({ t: 'ping', id: 999 });
+      for (;;) {
+        const msg = await c.next();
+        if (msg.t === 'pong' && msg.id === 999) break;
+      }
+      joined.push({ playerId: id.playerId });
+    }
+    expect(closes).toEqual([]);
+  }, 30_000);
+
+  it('closes 4003 on a flood of signals', async () => {
+    const { c } = await login();
+    for (let i = 0; i < 80; i++) {
+      c.send({ t: 'signal', to: 'A'.repeat(43), kind: 'offer', sdp: 'v=0' });
+    }
+    expect(await c.closed).toBe(CLOSE_RATE_LIMITED);
   });
 });
 
