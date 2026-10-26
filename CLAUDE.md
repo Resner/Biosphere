@@ -60,6 +60,7 @@ The npm script contract: CI, hooks and skills call these names; the tools behind
 - Biome lints and formats code files only, so Markdown stays untouched. `npm run format` applies its fixes; `check` fails on unformatted code.
 - In cloud sessions the proxy blocks `gh pr` and `gh issue` (GraphQL); use the GitHub MCP tools for PRs, issues and merges.
 - GitHub offers auto-merge only while checks are pending. If a PR is already green, squash-merge it directly.
+- CI's `verify` fails a `claude/` PR while an open `claude/` PR from this repository has a lower number (ADR 0020). Taking over an older factory PR means closing it before your last push, because only a push re-runs CI.
 - The repository is public, so Actions minutes on standard runners are free. Keep CI to one fast job anyway (runs wait for it), and keep slow E2E scenarios in `test:e2e:full`.
 
 ## Compaction

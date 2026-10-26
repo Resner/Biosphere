@@ -13,6 +13,7 @@ on:
 
 permissions:
   contents: read
+  pull-requests: read # the single-factory-PR guard lists open PRs
 
 concurrency:
   group: ci-${{ github.event.pull_request.number || github.ref }}
@@ -27,6 +28,27 @@ jobs:
       - uses: actions/checkout@v7
         with:
           fetch-depth: 2 # the PR merge commit and its base, for the scope check
+
+      # One factory PR at a time (ADR 0020): a `claude/` PR fails while an open `claude/` PR from this
+      # repository has a lower number, so a duplicate claim from a parallel run can never merge.
+      # Fork branches are ignored, or anyone could block the factory by naming a branch `claude/…`.
+      - name: Single factory PR
+        if: >-
+          github.event_name == 'pull_request' &&
+          startsWith(github.head_ref, 'claude/') &&
+          github.event.pull_request.head.repo.full_name == github.repository
+        env:
+          GH_TOKEN: ${{ github.token }}
+          NUMBER: ${{ github.event.pull_request.number }}
+        run: |
+          older=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" --jq "
+            [.[] | select(.head.repo.full_name == \"$GITHUB_REPOSITORY\"
+                          and (.head.ref | startswith(\"claude/\")) and .number < $NUMBER)
+                 | \"#\(.number)\"] | join(\" \")")
+          if [ -n "$older" ]; then
+            echo "::error::Older open factory PR: $older. Only the lowest-numbered open claude/ PR may merge (ADR 0020). Close the duplicate, or close the older one and push again."
+            exit 1
+          fi
 
       # Skips build and tests before the toolchain exists and for docs-only PRs.
       # Any error here falls through to a full run.

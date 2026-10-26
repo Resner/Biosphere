@@ -1,6 +1,6 @@
 # 0015: Chained factory runs in a public repository
 
-- Status: accepted (supersedes the schedule cadence and the private-repository budget in 0001)
+- Status: accepted (supersedes the schedule cadence and the private-repository budget in 0001; the overlap rule is refined by 0020)
 - Date: 2026-10-25
 
 ## Context
