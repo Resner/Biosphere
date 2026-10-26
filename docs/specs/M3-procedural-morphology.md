@@ -270,7 +270,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Gotcha: "no link" means no connection at all, open or coming up: the sender's channels can open before the receiver's `connectionState` is `connected`, and the genome arrives in that gap. A rehatch within 2 s of the first genome is ignored by the rate limit (the peer then shows the tinted cell after 5 s); a death screen takes longer than that.
   - Notes: a joiner receives genomes from the peers it connects to, and the existing in-pond tests keep their timing budgets. `PROTOCOL_VERSION` for the hub stays 1 (the hub only relays); only the snapshot version changes. Peers on an old cached page won't see new ones; accepted before 1.0.
 
-- [ ] T17 Archetype tournament: nobody wins everything
+- [ ] T17 Archetype tournament: nobody wins everything (in progress)
   - Acceptance:
     - `tools/` or `src/genome/tournament.test.ts` runs the six archetypes of T6 through four sim scenarios, each with a simple deterministic bot, 8 seeds each: (1) forage for 3 simulated minutes in the default world (score: biomass gained); (2) a plume gauntlet (a line of `extraPlumes` to cross; score: health left and time); (3) a sprint to a point 2,000 wu away (score: time); (4) a hungry cruise (no food, 40% energy; score: time until starvation). Each scenario has a different winner or at least a different ranking: no archetype wins more than 2 of the 4 scenarios, and every archetype wins at least one scenario or is ranked first or second in two.
     - Determinism: two runs give identical results (a hash of the scores), and the summary hash is a golden under `RULES_VERSION`.
