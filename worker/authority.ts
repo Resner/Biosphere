@@ -24,6 +24,7 @@ import {
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
+import { type BeaconSource, Beacons, liveSource } from './beacons';
 import { type KeyEntry, Ledger } from './ledger';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
@@ -49,11 +50,24 @@ type Session = (
 export class Authority extends DurableObject<Env> {
   readonly turn = new TurnCredentials();
   readonly ledger: Ledger;
+  readonly beacons: Beacons;
+  private rearming: Promise<void> = Promise.resolve();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ledger = new Ledger(ctx.storage);
+    this.beacons = new Beacons({
+      storage: ctx.storage,
+      source: this.beaconSource(),
+      countersign: (hash) => this.ledger.countersign(hash),
+      rearm: () => this.rearm(),
+    });
     ctx.blockConcurrencyWhile(async () => migrate(ctx.storage.sql));
+  }
+
+  /** Live drand by default; the E2E entry (`worker/e2e-entry.ts`) overrides it with recorded rounds. */
+  protected beaconSource(): BeaconSource {
+    return liveSource();
   }
 
   /** The public halves of every authority key (`GET /v1/pubkeys`). */
@@ -75,9 +89,7 @@ export class Authority extends DurableObject<Env> {
       signals: 0,
     } satisfies Session);
     send(pair[1], { t: 'challenge', nonce });
-    if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(now + HELLO_TIMEOUT_MS);
-    }
+    await this.rearm();
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -144,18 +156,52 @@ export class Authority extends DurableObject<Env> {
     this.drop(ws, 1011, 'error');
   }
 
-  /** Closes sockets that never said hello, and reschedules while some still may. */
+  /** Closes sockets that never said hello, resolves due commitments, and re-arms for whatever is still waiting. */
   override async alarm(): Promise<void> {
     const now = Date.now();
+    for (const ws of this.ctx.getWebSockets()) {
+      const session = sessionOf(ws);
+      if (session?.phase === 'challenged' && session.openedAt + HELLO_TIMEOUT_MS <= now) {
+        ws.close(CLOSE_BAD_HELLO, 'hello timeout');
+      }
+    }
+    try {
+      await this.beacons.alarm();
+    } finally {
+      await this.rearm();
+    }
+  }
+
+  /** When the earliest socket that hasn't said hello times out, or null. Sockets already closing don't count. */
+  private helloDue(): number | null {
     let next: number | null = null;
     for (const ws of this.ctx.getWebSockets()) {
       const session = sessionOf(ws);
-      if (session?.phase !== 'challenged') continue;
+      if (session?.phase !== 'challenged' || ws.readyState > WebSocket.READY_STATE_OPEN) continue;
       const due = session.openedAt + HELLO_TIMEOUT_MS;
-      if (due <= now) ws.close(CLOSE_BAD_HELLO, 'hello timeout');
-      else next = Math.min(next ?? due, due);
+      next = Math.min(next ?? due, due);
     }
-    if (next !== null) await this.ctx.storage.setAlarm(next);
+    return next;
+  }
+
+  /** The object has one alarm: it is set for the earliest of the hello timeout and the next beacon, and cleared when neither is needed. */
+  private rearm(): Promise<void> {
+    // One at a time, each reading fresh deadlines, so a slow caller can't overwrite a sooner alarm.
+    const run = this.rearming.then(() => this.setAlarmForNext());
+    this.rearming = run.catch(() => {});
+    return run;
+  }
+
+  private async setAlarmForNext(): Promise<void> {
+    const hello = this.helloDue();
+    const beacon = this.beacons.nextDue();
+    const next = hello === null ? beacon : beacon === null ? hello : Math.min(hello, beacon);
+    const current = await this.ctx.storage.getAlarm();
+    if (next === null) {
+      if (current !== null) await this.ctx.storage.deleteAlarm();
+    } else if (current === null || Math.abs(current - next) > 50) {
+      await this.ctx.storage.setAlarm(next);
+    }
   }
 
   private async hello(

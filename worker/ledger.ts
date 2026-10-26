@@ -137,6 +137,12 @@ export class Ledger {
     }));
   }
 
+  /** Countersigns a hash (a commitment id) with the current key, making the key on first use. The secret stays here. */
+  countersign(hash: string): { authSig: string; keyId: string } {
+    const key = this.key();
+    return { authSig: authoritySign(key.secret, hash), keyId: key.id };
+  }
+
   /** Every authority key ever used, public halves only; makes the first key when there is none. */
   pubkeys(): KeyEntry[] {
     this.key();
