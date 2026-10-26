@@ -113,7 +113,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `karyotype.ts` (164 bytes per haplotype, 328 per genome; one `LOCI` table with `rank`, `dominance` and `novelFrom` per `mendel` locus) and `codec.ts`; goldens in `__golden__/genome-hash.json`. DESIGN §6 now lists a `texture` locus (incomplete dominance) so every dominance kind has a locus, plus the encoding rules.
   - Gotcha: genome bytes fold to canonical form (`mendel` mod size, `load` low bit, absent module zeroed), so mutation (T8) must act on canonical values; haplotype order is part of the hash.
 
-- [ ] T4 Expression: dominance, polygenic sums, homozygous load (in progress)
+- [x] T4 Expression: dominance, polygenic sums, homozygous load
   - Acceptance:
     - `express(genome): Traits` is a total function that returns finite numbers inside each trait's range for 10,000 random genomes and for the extreme genomes (all zero, all 0xFF, alternating).
     - Order invariance: swapping the two haplotypes gives deep-equal `Traits` (1,000 genomes).
@@ -123,6 +123,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Modules: a slot is expressed when present in either haplotype; when present in both, parameters average with a deterministic rounding rule (test odd sums and the 0/255 extremes); the absent module's parameter bytes do not influence any trait.
     - Segments: the segmentation drive maps to 1–8, and every genome from `genesisGenome` (T7) expresses 1. Max size: `maxBiomass = 300 · 2^(13·t)` per DESIGN §6; `t = 0` gives 300, `t = 1` gives 300·8192.
   - Notes: `Traits` is plain data, grouped (`body`, `skin`, `modules`, `mouth`, `senses`, `behaviour`, `colour`, `physiology`, `defects`). Tables of ranges live in `RULES.genes` and in DESIGN §6. Behaviour genes are expressed now and used in M7.
+  - Done: `express.ts` returns `Traits` (groups `body`, `skin`, `modules`, `mouth`, `behaviour`, `colour`, `physiology`, `defects`; the gait genes sit under `behaviour` and no locus feeds a `senses` group), and `RULES.genes` holds the ranges and load factors (DESIGN §6). `QUANT_TRAITS` is the one table of linear traits; the tests walk it.
+  - Gotcha: the "every genesis genome has 1 segment" check waits for T7 (`genesisGenome`). Max size multiplies whole octaves exactly, so t = 0 and t = 1 give exactly 300 and 2,457,600; `express` also tolerates non-canonical hand-built genomes.
 
 - [ ] T5 Development: bounded, repaired body plans
   - Acceptance:
