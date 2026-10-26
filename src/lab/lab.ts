@@ -7,8 +7,8 @@ import { pick } from '../game/dom';
 import { genomeFromBase64url } from '../genome/codec';
 import { CreatureCache } from '../render/creature-cache';
 import { CreatureView, type CreatureViewState } from '../render/creature-view';
-import { cellAt, cellRect, coreRadius, HOVER_SCALE } from './grid';
-import type { LabCreature, LabHook, LabRenderInfo, LabView } from './hook';
+import { cellAt, cellRect, cellSize, coreRadius, HOVER_SCALE } from './grid';
+import type { LabCreature, LabHook, LabView } from './hook';
 import { LAB_COUNT, type LabMode, labGenomes, type Specimen, specimenOf } from './specimens';
 
 const WATER = 0x04090b;
@@ -20,6 +20,8 @@ const ADVANCE_STEP = 0.05;
 export interface LabOptions {
   seed: string;
   mode: LabMode;
+  /** Adds `window.__lab.debug` (test helpers). */
+  debug: boolean;
 }
 
 /** A fresh set for every visit; tests pass `?seed=` to pin it. */
@@ -28,7 +30,9 @@ export const randomSeed = (): string => {
   return `lab-${bytes[0]?.toString(36)}${bytes[1]?.toString(36)}`;
 };
 
-export function startLab(options: LabOptions): LabHook {
+const capitalise = (text: string): string => `${text[0]?.toUpperCase()}${text.slice(1)}`;
+
+export function startLab(options: LabOptions): void {
   const canvas = pick<HTMLCanvasElement>('#lab-canvas');
   const stage = pick('[data-testid="lab-stage"]');
   const hoverRing = pick('[data-ring="hover"]');
@@ -43,8 +47,31 @@ export function startLab(options: LabOptions): LabHook {
     wild: pick('[data-testid="mode-wild"]'),
   } as const;
 
+  let renderer: THREE.WebGLRenderer;
+  try {
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+  } catch (error) {
+    // `window.__lab` stays unset, so the page never reports ready.
+    errorLine.hidden = false;
+    errorLine.textContent = 'This browser cannot draw the Lab (WebGL2 is needed).';
+    console.error(error);
+    return;
+  }
+  renderer.setClearColor(WATER);
+  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  const scene = new THREE.Scene();
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
+  camera.position.z = 5;
+  const cache = new CreatureCache();
+  const views = Array.from({ length: LAB_COUNT }, () => {
+    const view = new CreatureView(cache);
+    scene.add(view.mesh);
+    return view;
+  });
+
   let seed = options.seed;
-  let mode: LabView = options.mode;
+  // `show` below sets the first mode; 'custom' keeps its early return from skipping it.
+  let mode: LabView = 'custom';
   let specimens: Specimen[] = [];
   let hovered: number | null = null;
   let selected: number | null = null;
@@ -53,6 +80,23 @@ export function startLab(options: LabOptions): LabHook {
   let clock = 0;
   let paused = false;
   let last: number | null = null;
+  // Where each cell's creature sits (pixels from the stage centre, y up) and its core radius;
+  // set on resize so that drawing allocates nothing.
+  const cellX = new Float64Array(LAB_COUNT);
+  const cellY = new Float64Array(LAB_COUNT);
+  let radius = 1;
+  /** The scratch state handed to every view; its creature is set before each update. */
+  const frame: Omit<CreatureViewState, 'creature'> & { creature: Specimen['creature'] | null } = {
+    creature: null,
+    x: 0,
+    y: 0,
+    heading: 0,
+    radius: 1,
+    beat: SWIM,
+    hurt: 0,
+    dissolve: 0,
+    pxPerWu: 1,
+  };
 
   const hook: LabHook = {
     ready: false,
@@ -66,61 +110,29 @@ export function startLab(options: LabOptions): LabHook {
     }),
     select,
     setMode: (next) => show(next, seed),
-    renderInfo: () => ({ calls: 0, triangles: 0, programs: 0, geometries: 0 }),
-    showGenomes,
-    pause: () => {
-      paused = true;
-    },
-    advance: (seconds) => {
-      paused = true;
-      for (let left = seconds; left > 1e-9; left -= ADVANCE_STEP) {
-        clock += Math.min(ADVANCE_STEP, left);
+    renderInfo: () => ({
+      calls: renderer.info.render.calls,
+      triangles: renderer.info.render.triangles,
+      programs: renderer.info.programs?.length ?? 0,
+      geometries: renderer.info.memory.geometries,
+    }),
+  };
+  if (options.debug) {
+    hook.debug = {
+      showGenomes,
+      pause: () => {
+        paused = true;
+      },
+      advance: (seconds) => {
+        paused = true;
+        for (let left = seconds; left > 1e-9; left -= ADVANCE_STEP) {
+          clock += Math.min(ADVANCE_STEP, left);
+          updateViews();
+        }
         draw();
-      }
-      draw();
-    },
-  };
-  window.__lab = hook;
-
-  let renderer: THREE.WebGLRenderer;
-  try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
-  } catch (error) {
-    errorLine.hidden = false;
-    errorLine.textContent = 'This browser cannot draw the Lab (WebGL2 is needed).';
-    console.error(error);
-    hook.ready = true;
-    return hook;
+      },
+    };
   }
-  renderer.setClearColor(WATER);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
-  const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
-  camera.position.z = 5;
-  const cache = new CreatureCache();
-  const views = Array.from({ length: LAB_COUNT }, () => {
-    const view = new CreatureView(cache);
-    scene.add(view.mesh);
-    return view;
-  });
-  const frame: CreatureViewState = {
-    creature: undefined as unknown as CreatureViewState['creature'],
-    x: 0,
-    y: 0,
-    heading: 0,
-    radius: 1,
-    beat: SWIM,
-    hurt: 0,
-    dissolve: 0,
-    pxPerWu: 1,
-  };
-
-  hook.renderInfo = (): LabRenderInfo => ({
-    calls: renderer.info.render.calls,
-    triangles: renderer.info.render.triangles,
-    programs: renderer.info.programs?.length ?? 0,
-    geometries: renderer.info.memory.geometries,
-  });
 
   function summary(s: Specimen, index: number): LabCreature {
     return {
@@ -134,14 +146,29 @@ export function startLab(options: LabOptions): LabHook {
     };
   }
 
-  function show(next: LabMode, nextSeed: string): void {
-    seed = nextSeed;
-    mode = next;
-    install(labGenomes(seed, next).map(specimenOf));
-    seedLabel.textContent = `set ${seed}`;
+  /** Shows these specimens as `view` and clears the hover and selection. */
+  function setView(view: LabView, next: Specimen[]): void {
+    mode = view;
     for (const [m, button] of Object.entries(modeButtons)) {
-      button.setAttribute('aria-pressed', String(m === next));
+      button.setAttribute('aria-pressed', String(m === view));
     }
+    specimens = next;
+    for (const [i, s] of specimens.entries()) {
+      if (s.violations.length > 0) {
+        console.error(`creature ${i} breaks body rules: ${s.violations.join('; ')}`);
+      }
+    }
+    hovered = null;
+    placeRing(hoverRing, null);
+    select(null);
+    draw();
+  }
+
+  function show(next: LabMode, nextSeed: string): void {
+    if (next === mode && nextSeed === seed) return;
+    seed = nextSeed;
+    seedLabel.textContent = `set ${seed}`;
+    setView(next, labGenomes(seed, next).map(specimenOf));
     const url = new URL(window.location.href);
     url.searchParams.set('seed', seed);
     if (next === 'wild') url.searchParams.set('mode', 'wild');
@@ -150,61 +177,52 @@ export function startLab(options: LabOptions): LabHook {
   }
 
   function showGenomes(texts: readonly string[]): boolean {
-    const genomes = texts.slice(0, LAB_COUNT).map(genomeFromBase64url);
-    if (texts.length > LAB_COUNT || genomes.some((g) => g === null)) return false;
-    mode = 'custom';
-    for (const button of Object.values(modeButtons)) button.setAttribute('aria-pressed', 'false');
-    install(genomes.map((g) => specimenOf(g as NonNullable<typeof g>)));
+    if (texts.length > LAB_COUNT) return false;
+    const next: Specimen[] = [];
+    for (const text of texts) {
+      const genome = genomeFromBase64url(text);
+      if (genome === null) return false;
+      next.push(specimenOf(genome));
+    }
+    setView('custom', next);
     return true;
   }
 
-  function install(next: Specimen[]): void {
-    specimens = next;
-    for (const [i, s] of specimens.entries()) {
-      if (s.violations.length > 0) {
-        console.error(`creature ${i} breaks body rules: ${s.violations.join('; ')}`);
-      }
-    }
-    hovered = null;
-    select(null);
-    draw();
-  }
-
   function select(index: number | null): void {
-    selected = index !== null && specimens[index] ? index : null;
-    const s = selected === null ? undefined : specimens[selected];
+    const s = index === null ? undefined : specimens[index];
+    selected = s ? (index as number) : null;
+    placeRing(selectRing, selected);
     if (!s) {
       name.textContent = 'Click a creature to inspect it.';
       facts.hidden = true;
       lines.replaceChildren();
-    } else {
-      name.textContent = s.species;
-      lines.replaceChildren(
-        ...s.lines.map((text) => {
-          const li = document.createElement('li');
-          li.textContent = text;
-          return li;
-        }),
-      );
-      facts.hidden = false;
-      const rows: [string, string][] = [
-        ['Rarity', `${s.rarity[0]?.toUpperCase()}${s.rarity.slice(1)}`],
-        ['Size tier', String(s.tier)],
-        ['Mesh vertices', String(s.vertices)],
-        ['Genome', s.creature.hash.slice(0, 12)],
-      ];
-      facts.replaceChildren(
-        ...rows.flatMap(([term, value]) => {
-          const dt = document.createElement('dt');
-          dt.textContent = term;
-          const dd = document.createElement('dd');
-          dd.textContent = value;
-          if (term === 'Genome') dd.title = s.creature.hash;
-          return [dt, dd];
-        }),
-      );
+      return;
     }
-    placeRing(selectRing, selected);
+    name.textContent = s.species;
+    lines.replaceChildren(
+      ...s.lines.map((text) => {
+        const li = document.createElement('li');
+        li.textContent = text;
+        return li;
+      }),
+    );
+    facts.hidden = false;
+    const rows: [term: string, value: string, title?: string][] = [
+      ['Rarity', capitalise(s.rarity)],
+      ['Size tier', String(s.tier)],
+      ['Mesh vertices', String(s.vertices)],
+      ['Genome', s.creature.hash.slice(0, 12), s.creature.hash],
+    ];
+    facts.replaceChildren(
+      ...rows.flatMap(([term, value, title]) => {
+        const dt = document.createElement('dt');
+        dt.textContent = term;
+        const dd = document.createElement('dd');
+        dd.textContent = value;
+        if (title) dd.title = title;
+        return [dt, dd];
+      }),
+    );
   }
 
   function placeRing(ring: HTMLElement, index: number | null): void {
@@ -217,21 +235,23 @@ export function startLab(options: LabOptions): LabHook {
     ring.style.height = `${r.h - 4}px`;
   }
 
-  function draw(): void {
-    const radius = coreRadius(width / 6, height / 4);
+  function updateViews(): void {
     for (const [i, view] of views.entries()) {
       const s = specimens[i];
       if (!s) {
         view.update(null, clock);
         continue;
       }
-      const r = cellRect(i, width, height);
       frame.creature = s.creature;
-      frame.x = r.x + r.w / 2 - width / 2;
-      frame.y = height / 2 - (r.y + r.h / 2);
+      frame.x = cellX[i] as number;
+      frame.y = cellY[i] as number;
       frame.radius = i === hovered ? radius * HOVER_SCALE : radius;
-      view.update(frame, clock);
+      view.update(frame as CreatureViewState, clock);
     }
+  }
+
+  function draw(): void {
+    updateViews();
     renderer.render(scene, camera);
   }
 
@@ -244,9 +264,17 @@ export function startLab(options: LabOptions): LabHook {
     camera.top = height / 2;
     camera.bottom = -height / 2;
     camera.updateProjectionMatrix();
+    const cell = cellSize(width, height);
+    radius = coreRadius(cell.w, cell.h);
+    for (let i = 0; i < LAB_COUNT; i++) {
+      const r = cellRect(i, width, height);
+      cellX[i] = r.x + r.w / 2 - width / 2;
+      cellY[i] = height / 2 - (r.y + r.h / 2);
+    }
     placeRing(selectRing, selected);
     placeRing(hoverRing, hovered);
-    draw();
+    // The loop redraws a running Lab; a paused one needs the frame now.
+    if (paused) draw();
   }
 
   function cellOf(event: PointerEvent): number | null {
@@ -255,20 +283,21 @@ export function startLab(options: LabOptions): LabHook {
     return i >= 0 && specimens[i] ? i : null;
   }
 
-  canvas.addEventListener('pointermove', (event) => {
-    hovered = cellOf(event);
-    placeRing(hoverRing, hovered);
-  });
-  canvas.addEventListener('pointerleave', () => {
-    hovered = null;
-    placeRing(hoverRing, null);
-  });
+  function hover(index: number | null): void {
+    if (index === hovered) return;
+    hovered = index;
+    placeRing(hoverRing, index);
+  }
+
+  canvas.addEventListener('pointermove', (event) => hover(cellOf(event)));
+  canvas.addEventListener('pointerleave', () => hover(null));
   canvas.addEventListener('click', (event) => {
     const i = cellOf(event);
-    if (i !== null) select(i);
+    if (i !== null && i !== selected) select(i);
   });
-  modeButtons.genesis.addEventListener('click', () => show('genesis', seed));
-  modeButtons.wild.addEventListener('click', () => show('wild', seed));
+  for (const [m, button] of Object.entries(modeButtons)) {
+    button.addEventListener('click', () => show(m as LabMode, seed));
+  }
   pick('[data-testid="lab-shuffle"]').addEventListener('click', () => {
     show(mode === 'wild' ? 'wild' : 'genesis', randomSeed());
   });
@@ -283,9 +312,9 @@ export function startLab(options: LabOptions): LabHook {
     requestAnimationFrame(loop);
   }
 
+  window.__lab = hook;
   resize();
   show(options.mode, options.seed);
   requestAnimationFrame(loop);
   hook.ready = true;
-  return hook;
 }

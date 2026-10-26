@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { COLS, cellAt, cellRect, coreRadius, ROWS } from './grid';
+import { COLS, cellAt, cellRect, coreRadius, HOVER_SCALE, REACH, ROWS } from './grid';
 
 describe('Lab grid', () => {
   it('tiles the stage with no gap or overlap', () => {
@@ -27,7 +27,7 @@ describe('Lab grid', () => {
       [300, 800],
     ] as const) {
       const r = cellRect(0, w, h);
-      const reach = coreRadius(r.w, r.h) * 2.5 * 1.05 * 1.15;
+      const reach = coreRadius(r.w, r.h) * REACH * HOVER_SCALE;
       expect(reach).toBeLessThanOrEqual(Math.min(r.w, r.h) / 2);
     }
   });

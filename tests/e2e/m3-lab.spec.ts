@@ -12,11 +12,12 @@ import { ARCHETYPES, buildBytes } from '../archetypes';
 // screenshots (one connected body, a lit silhouette against the water), never pixel baselines.
 
 const SEED = 'lab-e2e';
+const QUERY = `?seed=${SEED}&debug=1`;
 const WATER = [0x04, 0x09, 0x0b] as const;
 const lab = <T>(page: Page, run: (hook: LabHook) => T) =>
   page.evaluate(`(${run.toString()})(window.__lab)`) as Promise<T>;
 
-async function openLab(page: Page, query = `?seed=${SEED}`): Promise<void> {
+async function openLab(page: Page, query = QUERY): Promise<void> {
   await page.goto(`./lab.html${query}`);
   await page.waitForFunction(() => window.__lab?.ready === true);
 }
@@ -291,28 +292,28 @@ test('every sample body is one connected shape at four gait phases', async ({ pa
   await openLab(page);
   expect(SAMPLES).toHaveLength(12);
   const ok = await page.evaluate(
-    (texts) => window.__lab?.showGenomes(texts),
+    (texts) => window.__lab?.debug?.showGenomes(texts),
     SAMPLES.map(genomeToBase64url),
   );
   expect(ok).toBe(true);
-  await lab(page, (l) => l.pause());
+  await lab(page, (l) => l.debug?.pause());
   for (let phase = 0; phase < 4; phase++) {
     const stats = await measureCells(page, range(12));
     for (const [i, s] of stats.entries()) {
       expect(s.lit, `sample ${i} phase ${phase} is drawn`).toBeGreaterThan(50);
       expect(s.connected, `sample ${i} phase ${phase} is one body`).toBeGreaterThanOrEqual(0.98);
     }
-    await lab(page, (l) => l.advance(0.17));
+    await lab(page, (l) => l.debug?.advance(0.17));
   }
 });
 
 test('the starter cell has a whip that touches its wall', async ({ page }) => {
   await openLab(page);
   await page.evaluate(
-    (text) => window.__lab?.showGenomes([text]),
+    (text) => window.__lab?.debug?.showGenomes([text]),
     genomeToBase64url(starterGenome()),
   );
-  await lab(page, (l) => l.pause());
+  await lab(page, (l) => l.debug?.pause());
   const box = (await stage(page).boundingBox()) as { width: number; height: number };
   const cell = cellRect(0, box.width, box.height);
   const core = coreRadius(cell.w, cell.h);
@@ -322,6 +323,6 @@ test('the starter cell has a whip that touches its wall', async ({ page }) => {
     // The whip pair trails past the cell wall (one core radius from the centre).
     expect(s?.left ?? 0).toBeGreaterThan(core * 1.15);
     expect(s?.right ?? 0).toBeLessThan(core * 1.3);
-    await lab(page, (l) => l.advance(0.17));
+    await lab(page, (l) => l.debug?.advance(0.17));
   }
 });

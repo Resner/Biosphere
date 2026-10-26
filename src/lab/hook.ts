@@ -35,7 +35,17 @@ export interface LabRenderInfo {
   geometries: number;
 }
 
-/** `window.__lab`: always present on the Lab page. */
+/** Test helpers under `?debug=1`; they change what the Lab shows, so they are never always-on. */
+export interface LabDebug {
+  /** Replaces the grid with these base64url genomes (at most 24); false when any is not a genome. */
+  showGenomes(texts: readonly string[]): boolean;
+  /** Freezes the animation clock; `advance` then steps it. */
+  pause(): void;
+  /** Runs the gait forward by this many seconds (pauses the clock). */
+  advance(seconds: number): void;
+}
+
+/** `window.__lab`: read-only views and the mode switch are always present. */
 export interface LabHook {
   ready: boolean;
   state(): LabState;
@@ -43,12 +53,7 @@ export interface LabHook {
   setMode(mode: LabMode): void;
   /** Counters of the last drawn frame. */
   renderInfo(): LabRenderInfo;
-  /** Replaces the grid with these base64url genomes (at most 24); false when any is not a genome. */
-  showGenomes(texts: readonly string[]): boolean;
-  /** Freezes the animation clock; `advance` then steps it. */
-  pause(): void;
-  /** Runs the gait forward by this many seconds (pauses the clock). */
-  advance(seconds: number): void;
+  debug?: LabDebug;
 }
 
 declare global {
