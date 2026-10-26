@@ -125,17 +125,18 @@ Death is common and never total: you fall back to your pending offspring or your
 
 ## 6. Genetics and development (M3; ADR 0006)
 
-**Karyotype v1.** Diploid, 6 chromosomes (initial layout; M3 may refine it and must update this table):
+**Karyotype v1.** Diploid, 6 chromosomes, 164 bytes per haplotype and 328 per genome (`src/genome/karyotype.ts` is the source of truth; this table mirrors it):
 
 | Chr | Theme | Loci |
 |-----|-------|------|
 | 1 | Body plan | segmentation drive (quant ×2 → 1–8 segments), aspect, taper, flexibility, max size (quant ×3 → max biomass), load L1 (membrane integrity) |
-| 2 | Integument | membrane thickness, translucency, plating (quant ×2), spines, iridescence (mendel: plain dominant, iridescent recessive), load L2 |
+| 2 | Integument | membrane thickness, translucency, plating (quant ×2), spines, iridescence (mendel: plain dominant, iridescent recessive), texture (mendel, incomplete: smooth ↔ grainy blend), load L2 |
 | 3 | Locomotion | module slots M1–M4, gait amplitude, gait frequency, load L3 (beat strength) |
 | 4 | Feeding and weapons | mouth size, mouth type (filter ↔ jaw), digestion efficiency, module slots M5–M6 |
 | 5 | Senses and behaviour | module slots M7–M8, aggression, caution, curiosity, reflex, target preference (mendel: nearest, weakest, largest) |
 | 6 | Pigment and physiology | hue (quant ×3), saturation, value, pattern (mendel: none < rings < spots ≡ stripes, codominant), pattern scale, albino (mendel recessive), luminescence (mendel: on dominant), luminescence hue, lifespan, metabolism, growth, UV tolerance, pressure tolerance, load L4 (metabolic) |
 
+- **Encoding**: one byte per locus, in chromosome order, haplotype A then B; a module slot is 15 bytes. Any byte string decodes: short input is zero-padded, extra bytes are ignored, a `mendel` byte wraps into its table (`byte mod size`), a `load` byte keeps its low bit (1 = loss of function), and a module's presence is its low bit with all parameters zeroed when absent. Every `mendel` table ends with at least one novel allele (oil iridescence, ridged texture, pulse luminescence, strongest target, bands pattern, pale albino) that genesis never produces. The genome hash is SHA-256 of `bs/genome/v1\n` and the canonical bytes.
 - **Module genes** (8 slots): a presence flag plus 14 parameters — length, thickness, taper, curvature, joints (1–4), branching (0–2), tip shape, stiffness, beat, phase, attach start, attach span, angle, pairs (1–3 per side). Tip shape is a continuum: blunt → point → hook → paddle → whip. Duplication copies a module into an empty slot; the copies then diverge.
 - **Genesis distribution**:
   - Segmentation alleles are low (exactly 1 segment: a single cell). Slot M1 holds a whip-like flagellum, and slot M2 is present half the time (a ciliary band).
