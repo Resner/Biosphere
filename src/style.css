@@ -464,3 +464,17 @@ body {
     Consolas,
     monospace;
 }
+
+.lab-link {
+  margin-top: 1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.lab-link:hover,
+.lab-link:focus-visible {
+  color: var(--text);
+}
