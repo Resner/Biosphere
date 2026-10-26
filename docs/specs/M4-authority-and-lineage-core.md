@@ -102,7 +102,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Done: `canonical.ts`, `record.ts` (also `recordProblems`, `requestMessage`, `authorityPublicKey`, `authorityKeyId`, `PubKey`), `signWithSecret` in `identity.ts`, goldens in `src/ledger/__golden__/records.json`. An owner signs `requestMessage` (the JCS bytes) under `bs/req/v1`; the authority signs the hash bytes under `bs/auth/v1`.
   - Gotcha: `JSON.parse` reorders integer-like keys, so key-order tests compare the canonical text, not parsed keys.
 
-- [ ] T3 drand client and recorded fixtures
+- [x] T3 drand client and recorded fixtures
   - Acceptance:
     - `npx -y npm@11 install @noble/curves`; `QUICKNET` carries the pinned chain hash `52db9ba7…e971`, the public key from the chain's `/info`, genesis 1692803367 and period 3. `roundAt(1692803367000) = 1`, `roundAt(1692803369999) = 1`, `roundAt(1692803370000) = 2`, and rounds strictly increase every 3 s.
     - `tools/record-drand.ts` fetches `/info` and 600 consecutive rounds (about 30 min of beacons) from `api.drand.sh` with fallbacks, verifies each, and writes `tests/fixtures/drand/info.json` and `rounds.json` (`{ first, last, beacons: [{ round, signature }] }`). The recorded files are committed. The tool is run once in this task (cloud sessions can reach the hosts); a test fails if the fixtures are missing or stale in shape.
@@ -110,6 +110,8 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
     - `fetchBeacon` with a fake `fetch`: tries hosts in order, skips a host that errors, returns a bad signature, answers with the wrong round or times out, and returns the first verified beacon; with every host failing it throws, and never returns an unverified beacon. `'latest'` and a numeric round use the v1 paths `/{chain}/public/latest` and `/{chain}/public/{round}`.
     - Cost: verifying one beacon takes under 250 ms in Node (record the measured value in the task note) and the module is loaded lazily by the client (an import-graph test shows `src/game/app.ts` has no static path to `@noble/curves`).
   - Notes: no test touches the network; only the recording tool does. If a host later changes its response format, the tool is the only thing to update. The DST for `bls-unchained-g1-rfc9380` is `BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_`; the message is SHA-256 of the 8-byte big-endian round.
+  - Done: `src/ledger/drand.ts` (also `roundTime`, `DRAND_HOSTS`, a `timeoutMs` argument on `fetchBeacon`), `tools/record-drand.{ts,mjs}` (`npm run record:drand`), 600 rounds 33409837 to 33410436 recorded in `tests/fixtures/drand/`. `verifyBeacon` costs about 28 ms in Node.
+  - Gotcha: verifying 600 beacons one by one takes 17 s, so the unit test checks all 600 as one aggregate (about 7 s) plus ten single ones; the recorder verifies each singly. Biome ignores `tests/fixtures`.
 
 - [ ] T4 Ledger store: the UTXO rule, heads and the authority key
   - Acceptance (workerd tests, written first):

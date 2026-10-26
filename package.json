@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "report:diversity": "node tools/diversity.mjs",
+    "record:drand": "node tools/record-drand.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "check": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run",
@@ -22,6 +23,7 @@
     "verify": "npm run check && npm run build && npm run test:e2e:full"
   },
   "dependencies": {
+    "@noble/curves": "^2.4.0",
     "@noble/ed25519": "^3.2.0",
     "@noble/hashes": "^2.4.0",
     "three": "^0.186.1"
