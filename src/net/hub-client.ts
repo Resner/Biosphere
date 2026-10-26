@@ -14,13 +14,13 @@ import {
   parseHubMsg,
 } from './protocol';
 
-/** `outdated`: the hub speaks another protocol version, so this page needs a reload. */
 /** A place in the admission line: 1 is next, `etaS` the estimated wait. */
 export interface QueuePlace {
   position: number;
   etaS: number;
 }
 
+/** `outdated`: the hub speaks another protocol version, so this page needs a reload. */
 export type HubStatus = 'connecting' | 'online' | 'offline' | 'replaced' | 'outdated';
 /** Statuses the client does not leave on its own: no reconnect follows. */
 export const isFinalStatus = (s: HubStatus): boolean => s === 'replaced' || s === 'outdated';
@@ -86,7 +86,6 @@ export class HubClient {
   private memberListeners: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeListeners: ((w: Welcome) => void)[] = [];
   private lifeListeners: ((m: LifeMsg) => void)[] = [];
-  private queueListeners: ((q: QueuePlace | null) => void)[] = [];
   private _queue: QueuePlace | null = null;
 
   constructor(private readonly opts: HubClientOptions) {
@@ -141,10 +140,6 @@ export class HubClient {
   /** Fires for every message about the player's own creature. */
   onLife(fn: (m: LifeMsg) => void): () => void {
     return subscribe(this.lifeListeners, fn);
-  }
-  /** Fires when the place in line changes, and with null when the wait ends. */
-  onQueue(fn: (q: QueuePlace | null) => void): () => void {
-    return subscribe(this.queueListeners, fn);
   }
   /** Fires on every welcome, including after a reconnect. */
   onWelcome(fn: (w: Welcome) => void): () => void {
@@ -323,9 +318,7 @@ export class HubClient {
   }
 
   private setQueue(q: QueuePlace | null): void {
-    if (q?.position === this._queue?.position && q?.etaS === this._queue?.etaS) return;
     this._queue = q;
-    for (const fn of [...this.queueListeners]) guarded(() => fn(q));
   }
 
   private setStatus(s: HubStatus): void {

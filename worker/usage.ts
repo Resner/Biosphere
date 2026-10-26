@@ -16,6 +16,9 @@ interface UsageRow extends Record<string, SqlStorageValue> {
  */
 export class UsageMeter {
   private day = '';
+  /** The day's span in ms, so the common call is two comparisons. */
+  private dayStart = 0;
+  private dayEnd = 0;
   /** Requests in 1/20ths, so counting stays in integers. */
   private ticks = 0;
   private messages = 0;
@@ -31,16 +34,11 @@ export class UsageMeter {
   ) {}
 
   upgrade(now: number): void {
-    this.touch(now);
-    this.ticks += MESSAGES_PER_REQUEST;
-    this.changed(now);
+    this.count(now, MESSAGES_PER_REQUEST, 0);
   }
 
   message(now: number): void {
-    this.touch(now);
-    this.ticks++;
-    this.messages++;
-    this.changed(now);
+    this.count(now, 1, 1);
   }
 
   /** Request-equivalents counted today (UTC). */
@@ -68,15 +66,20 @@ export class UsageMeter {
     this.flushedAt = now;
   }
 
-  private changed(now: number): void {
+  private count(now: number, ticks: number, messages: number): void {
+    this.touch(now);
+    this.ticks += ticks;
+    this.messages += messages;
     this.dirty = true;
     if (now - this.flushedAt >= FLUSH_EVERY_MS) this.flush(now);
   }
 
   /** Moves to the day of `now`: the finished day's row is written, the new day's row (if the object was evicted) is picked up. */
   private touch(now: number): void {
-    const day = new Date(Math.floor(now / DAY_MS) * DAY_MS).toISOString().slice(0, 10);
-    if (day === this.day) return;
+    if (now >= this.dayStart && now < this.dayEnd) return;
+    this.dayStart = Math.floor(now / DAY_MS) * DAY_MS;
+    this.dayEnd = this.dayStart + DAY_MS;
+    const day = new Date(this.dayStart).toISOString().slice(0, 10);
     if (this.day !== '') this.flush(now);
     this.day = day;
     const [stored] = this.sql

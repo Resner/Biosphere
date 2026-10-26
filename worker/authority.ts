@@ -256,7 +256,8 @@ export class Authority extends DurableObject<Env> {
     try {
       // The budget resets at midnight with no message to say so, so the queue is looked at on a timer.
       if (this.queued().length > 0) await this.promote();
-      this.queueTickAt = this.queued().length > 0 ? now + QUEUE_TICK_MS : null;
+      // The next tick is armed again by `rearm` if anyone is still waiting.
+      this.queueTickAt = null;
       for (const id of await this.beacons.alarm()) {
         // One commitment failing must not strand the others this pass resolved.
         await this.deliverGenesis(id).catch(() => {});

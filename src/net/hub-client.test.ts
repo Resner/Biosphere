@@ -94,8 +94,6 @@ afterEach(() => vi.useRealTimers());
 describe('HubClient queue', () => {
   it('tracks the place in line until the welcome ends the wait', async () => {
     const client = make();
-    const seen: unknown[] = [];
-    client.onQueue((q) => seen.push(q));
     void client.connect();
     const s = last();
     s.open();
@@ -105,11 +103,11 @@ describe('HubClient queue', () => {
     expect(client.queue).toEqual({ position: 3, etaS: 90 });
     expect(client.status).toBe('connecting');
     s.receive({ t: 'queued', position: 2, etaS: 60 });
+    expect(client.queue).toEqual({ position: 2, etaS: 60 });
     s.receive(welcome());
     await vi.advanceTimersByTimeAsync(0);
     expect(client.status).toBe('online');
     expect(client.queue).toBeNull();
-    expect(seen).toEqual([{ position: 3, etaS: 90 }, { position: 2, etaS: 60 }, null]);
   });
 
   it('forgets the place when the connection drops', async () => {
