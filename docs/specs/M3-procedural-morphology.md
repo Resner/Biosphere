@@ -222,7 +222,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `material-params.ts` (`materialParams`, pure) maps genes to the `creatureMaterial` uniforms, which the cache sets once per genome; the view rewrites only the six per-frame ones (`uTime` is new). The program-count and 24-creature readability E2E checks move to T13 (no Lab yet); unit tests cover the mappings, the single shader source and the per-frame uniform set, and a throwaway Chromium render of 24 genesis creatures gave one program, 24 draw calls and visibly different bodies.
   - Gotcha: the shader repeats `PATTERN` and the part kinds as literals; renumbering either needs a matching edit in `creature.frag.glsl`. Dark bodies still sit close to the water colour, so T13's readability check may need a higher `MIN_CORE_LUMINANCE`.
 
-- [ ] T13 Creature Lab: grid and inspector
+- [ ] T13 Creature Lab: grid and inspector (in progress)
   - Acceptance:
     - `lab.html` is a second entry of the Vite build (`vite.config.ts` `build.rollupOptions.input`), so `npm run build` emits `dist/lab.html`. The title screen has a "Creature Lab" link (`data-testid="lab-link"`), and the Lab links back.
     - The Lab shows a grid of 24 creatures from `?seed=` (random when absent); a toggle switches between "genesis" and "wild" (random genome bytes, to show the extremes). Hovering lifts a creature; clicking selects it and fills the inspect panel from `describeCreature` (body, movement, feeding, defence, looks, rarity, species name, tier, vertices, genome hash).
