@@ -74,7 +74,6 @@ describe('Beacons.latest and get', () => {
   it('steps back one round when the newest is not published yet', async () => {
     await rig(async (r) => {
       const current = roundAt(r.clock.now);
-      const real = r.beacons;
       // The network is a round behind the clock.
       const behind: BeaconSource = {
         now: () => r.clock.now,
@@ -90,7 +89,6 @@ describe('Beacons.latest and get', () => {
         rearm: async () => {},
       });
       expect((await lagging.latest())?.round).toBe(current - 1);
-      expect(real).toBeDefined();
     });
   });
 

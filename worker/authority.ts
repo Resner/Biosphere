@@ -59,7 +59,7 @@ export class Authority extends DurableObject<Env> {
       storage: ctx.storage,
       source: this.beaconSource(),
       countersign: (hash) => this.ledger.countersign(hash),
-      rearm: () => this.rearm(this.helloDue()),
+      rearm: () => this.rearm(),
     });
     ctx.blockConcurrencyWhile(async () => migrate(ctx.storage.sql));
   }
@@ -88,7 +88,7 @@ export class Authority extends DurableObject<Env> {
       signals: 0,
     } satisfies Session);
     send(pair[1], { t: 'challenge', nonce });
-    await this.rearm(this.helloDue());
+    await this.rearm();
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -158,24 +158,22 @@ export class Authority extends DurableObject<Env> {
   /** Closes sockets that never said hello, resolves due commitments, and re-arms for whatever is still waiting. */
   override async alarm(): Promise<void> {
     const now = Date.now();
-    let next: number | null = null;
     for (const ws of this.ctx.getWebSockets()) {
       const session = sessionOf(ws);
-      if (session?.phase !== 'challenged') continue;
-      const due = session.openedAt + HELLO_TIMEOUT_MS;
-      if (due <= now) ws.close(CLOSE_BAD_HELLO, 'hello timeout');
-      else next = Math.min(next ?? due, due);
+      if (session?.phase === 'challenged' && session.openedAt + HELLO_TIMEOUT_MS <= now) {
+        ws.close(CLOSE_BAD_HELLO, 'hello timeout');
+      }
     }
     await this.beacons.alarm();
-    await this.rearm(next);
+    await this.rearm();
   }
 
-  /** When the earliest socket that hasn't said hello times out, or null. */
+  /** When the earliest socket that hasn't said hello times out, or null. Sockets already closing don't count. */
   private helloDue(): number | null {
     let next: number | null = null;
     for (const ws of this.ctx.getWebSockets()) {
       const session = sessionOf(ws);
-      if (session?.phase !== 'challenged') continue;
+      if (session?.phase !== 'challenged' || ws.readyState > WebSocket.READY_STATE_OPEN) continue;
       const due = session.openedAt + HELLO_TIMEOUT_MS;
       next = Math.min(next ?? due, due);
     }
@@ -183,11 +181,16 @@ export class Authority extends DurableObject<Env> {
   }
 
   /** The object has one alarm: it is set for the earliest of the hello timeout and the next beacon, and cleared when neither is needed. */
-  private async rearm(hello: number | null): Promise<void> {
+  private async rearm(): Promise<void> {
+    const hello = this.helloDue();
     const beacon = this.beacons.nextDue();
     const next = hello === null ? beacon : beacon === null ? hello : Math.min(hello, beacon);
-    if (next === null) await this.ctx.storage.deleteAlarm();
-    else await this.ctx.storage.setAlarm(next);
+    const current = await this.ctx.storage.getAlarm();
+    if (next === null) {
+      if (current !== null) await this.ctx.storage.deleteAlarm();
+    } else if (current === null || Math.abs(current - next) > 50) {
+      await this.ctx.storage.setAlarm(next);
+    }
   }
 
   private async hello(

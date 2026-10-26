@@ -48,25 +48,8 @@ export function roundMessage(round: number): Uint8Array {
   return sha256(out);
 }
 
-/** Beacons that verified, so a beacon fetched and then checked again costs one pairing, not two. */
-const verifiedBeacons = new Map<string, true>();
-const VERIFIED_MAX = 32;
-
 /** True when the beacon's signature verifies for its round under the pinned chain key. Never throws. */
 export function verifyBeacon(b: Beacon): boolean {
-  const memo = `${b.round}:${b.signature}`;
-  if (verifiedBeacons.has(memo)) return true;
-  const ok = verifyUncached(b);
-  if (ok) {
-    verifiedBeacons.set(memo, true);
-    if (verifiedBeacons.size > VERIFIED_MAX) {
-      verifiedBeacons.delete(verifiedBeacons.keys().next().value as string);
-    }
-  }
-  return ok;
-}
-
-function verifyUncached(b: Beacon): boolean {
   try {
     if (!Number.isSafeInteger(b.round) || b.round < 1) return false;
     if (typeof b.signature !== 'string' || !SIGNATURE_HEX.test(b.signature)) return false;

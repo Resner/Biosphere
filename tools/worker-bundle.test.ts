@@ -11,12 +11,12 @@ import rounds from '../tests/fixtures/drand/rounds.json';
 const out = mkdtempSync(join(tmpdir(), 'bs-bundle-'));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
-function bundle(config: string, main: string): string {
-  const dir = join(out, config);
-  const path = fileURLToPath(new URL(`../worker/${config}`, import.meta.url));
+function bundle(e2e: boolean, main: string): string {
+  const dir = join(out, main);
+  const tool = fileURLToPath(new URL('./worker.mjs', import.meta.url));
   const run = spawnSync(
-    'npx',
-    ['wrangler', 'deploy', '--dry-run', '--outdir', dir, '-c', path, '--define', '__VERSION__:"t"'],
+    'node',
+    [tool, 'deploy', '--dry-run', '--outdir', dir, ...(e2e ? ['--e2e'] : [])],
     { encoding: 'utf8' },
   );
   expect(run.status, run.stderr).toBe(0);
@@ -27,13 +27,13 @@ describe('worker bundles', () => {
   const marker = rounds.beacons[0]?.signature as string;
 
   it('production has no fixture data', () => {
-    const code = bundle('wrangler.jsonc', 'index.js');
+    const code = bundle(false, 'index.js');
     expect(code).not.toContain(marker);
     expect(code).not.toContain('fixtureSource');
   }, 60_000);
 
   it('the E2E entry carries the recorded rounds', () => {
-    const code = bundle('wrangler.e2e.jsonc', 'e2e-entry.js');
+    const code = bundle(true, 'e2e-entry.js');
     expect(code).toContain(marker);
   }, 60_000);
 });

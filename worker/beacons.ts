@@ -44,6 +44,8 @@ export interface SignedCommitment {
 }
 
 export type CommitStatus = 'awaiting' | 'ready';
+const statusOf = (resolved: SqlStorageValue | undefined): CommitStatus =>
+  resolved === null ? 'awaiting' : 'ready';
 
 export function commitmentId(c: Commitment): string {
   return hashWithDomain(COMMIT_DOMAIN, canonicalize(c as unknown as Canonical));
@@ -68,6 +70,8 @@ export class Beacons {
   private readonly recent = new Map<number, Beacon>();
   private readonly inFlight = new Map<number, Promise<Beacon | null>>();
   private retryAt = 0;
+  /** Unresolved commitments (id to round), loaded once so the alarm paths never scan the table. */
+  private waiting: Map<string, number> | null = null;
 
   constructor(private readonly deps: BeaconsDeps) {}
 
@@ -138,14 +142,14 @@ export class Beacons {
       );
       return { commitment, id, authSig, keyId, status: 'awaiting' as const };
     });
+    if (out.status === 'awaiting') this.pendingSet().set(out.id, out.commitment.round);
     await this.deps.rearm();
     return out;
   }
 
   status(id: string): CommitStatus | null {
     const row = this.run('SELECT resolved FROM commitments WHERE id = ?', id)[0];
-    if (!row) return null;
-    return row.resolved === null ? 'awaiting' : 'ready';
+    return row ? statusOf(row.resolved) : null;
   }
 
   /** The commitment's beacon once its round is published; null while it is not (or unknown). */
@@ -157,36 +161,43 @@ export class Beacons {
     const beacon = await this.get(round);
     if (beacon && row.resolved === null) {
       this.run('UPDATE commitments SET resolved = ? WHERE id = ?', this.deps.source.now(), id);
+      this.pendingSet().delete(id);
     }
     return beacon;
   }
 
   pending(): number {
-    return this.run('SELECT COUNT(*) AS n FROM commitments WHERE resolved IS NULL')[0]?.n as number;
+    return this.pendingSet().size;
   }
 
   /** The wall-clock time of the next alarm this service needs, or null when nothing is pending. */
   nextDue(): number | null {
-    const row = this.run('SELECT MIN(round) AS round FROM commitments WHERE resolved IS NULL')[0];
-    if (!row || row.round === null) return null;
-    const sourceNow = this.deps.source.now();
-    const due = Math.max(roundTime(row.round as number) + ALARM_MARGIN_MS, this.retryAt);
-    return Date.now() + Math.max(0, due - sourceNow);
+    const rounds = [...this.pendingSet().values()];
+    if (rounds.length === 0) return null;
+    const due = Math.max(roundTime(Math.min(...rounds)) + ALARM_MARGIN_MS, this.retryAt);
+    return Date.now() + Math.max(0, due - this.deps.source.now());
   }
 
   /** Resolves every pending commitment whose round the network now serves. */
   async alarm(): Promise<void> {
-    const now = this.deps.source.now();
-    const due = this.run(
-      'SELECT id FROM commitments WHERE resolved IS NULL AND round <= ? ORDER BY round',
-      roundAt(now),
-    );
+    const current = roundAt(this.deps.source.now());
+    const due = [...this.pendingSet()].filter(([, round]) => round <= current);
+    due.sort((a, b) => a[1] - b[1]);
     let failed = false;
-    for (const { id } of due) {
-      const beacon = await this.beaconFor(id as string);
-      if (!beacon) failed = true;
+    for (const [id] of due) {
+      if (!(await this.beaconFor(id))) failed = true;
     }
     this.retryAt = failed ? this.deps.source.now() + RETRY_MS : 0;
+  }
+
+  private pendingSet(): Map<string, number> {
+    this.waiting ??= new Map(
+      this.run('SELECT id, round FROM commitments WHERE resolved IS NULL').map((r) => [
+        r.id as string,
+        r.round as number,
+      ]),
+    );
+    return this.waiting;
   }
 
   private byReq(req: string): SignedCommitment | null {
@@ -197,7 +208,7 @@ export class Beacons {
           id: row.id as string,
           authSig: row.auth_sig as string,
           keyId: row.key_id as string,
-          status: row.resolved === null ? 'awaiting' : 'ready',
+          status: statusOf(row.resolved),
         }
       : null;
   }
