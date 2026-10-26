@@ -31,6 +31,8 @@ describe('canonicalize', () => {
   });
 
   it('rejects everything that is not an integer or a string', () => {
+    const sparse: unknown[] = [1];
+    sparse[2] = 3;
     const bad: unknown[] = [
       -0,
       2 ** 53,
@@ -47,7 +49,7 @@ describe('canonicalize', () => {
       { a: undefined },
       new Date(0),
       new Map(),
-      [1, , 3],
+      sparse,
       { a: 1.25 },
       [null],
     ];
