@@ -1,0 +1,30 @@
+{
+  "rulesVersion": 3,
+  "rarity": {
+    "starter": {
+      "score": 0,
+      "tier": "common",
+      "features": []
+    },
+    "plain": {
+      "score": 0,
+      "tier": "common",
+      "features": []
+    },
+    "glowStripes": {
+      "score": 3.3673595241343683,
+      "tier": "common",
+      "features": ["stripes", "luminescent"]
+    },
+    "iridescentAlbinoStriped": {
+      "score": 20.327497245655312,
+      "tier": "exotic",
+      "features": ["iridescent", "albino", "stripes"]
+    },
+    "mutantBig": {
+      "score": 36,
+      "tier": "exotic",
+      "features": ["modules", "novel", "size"]
+    }
+  }
+}

@@ -1,0 +1,232 @@
+import { readFileSync, writeFileSync } from 'node:fs';
+import { describe, expect, it } from 'vitest';
+import { type Seed, seedFromString } from '../sim/prng';
+import { RULES_VERSION } from '../sim/rules';
+import { decodeGenome, encodeGenome, type Genome } from './codec';
+import { express } from './express';
+import { genesisGenome } from './genesis';
+import { HAPLOTYPE_BYTES, LOCI, MODULE_BYTES } from './karyotype';
+import { featureBits, NEVER_BITS, RARITY_TIERS, rarityOf } from './rarity';
+import { starterGenome } from './starter';
+
+const seedOf = (i: number): Seed => seedFromString(`rarity-test-${i}`);
+const N = 20_000;
+const genomes = Array.from({ length: N }, (_, i) => genesisGenome(seedOf(i)));
+const rarities = genomes.map(rarityOf);
+
+const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
+
+/** `base` with these single-byte loci set per haplotype (`[first, second]`). */
+function withAlleles(base: Genome, set: Record<string, [number, number]>): Genome {
+  const bytes = encodeGenome(base);
+  for (const [id, [x, y]] of Object.entries(set)) {
+    bytes[locus(id).offset] = x;
+    bytes[HAPLOTYPE_BYTES + locus(id).offset] = y;
+  }
+  return decodeGenome(bytes);
+}
+
+/** A module present in both haplotypes with the given first parameter bytes. */
+function withModule(base: Genome, id: string): Genome {
+  const bytes = encodeGenome(base);
+  for (let hap = 0; hap < 2; hap++) {
+    const o = hap * HAPLOTYPE_BYTES + locus(id).offset;
+    bytes[o] = 1;
+    bytes[o + 1] = 100;
+    bytes[o + 2] = 40;
+    bytes[o + MODULE_BYTES - 1] = 0;
+  }
+  return decodeGenome(bytes);
+}
+
+const plain = (): Genome =>
+  withAlleles(starterGenome(), {
+    pattern: [0, 0],
+    iridescence: [0, 0],
+    albino: [0, 0],
+    luminescence: [0, 0],
+    texture: [0, 0],
+  });
+
+const withoutRare = (g: Genome): Genome =>
+  withAlleles(g, {
+    iridescence: [0, 0],
+    albino: [0, 0],
+    luminescence: [0, 0],
+    pattern: [0, 0],
+    texture: [0, 0],
+  });
+
+/** Edits that each add one listed rare feature to a genome without rare features, and keep the earlier ones. */
+const STEPS: [string, (g: Genome) => Genome][] = [
+  ['luminescent', (g) => withAlleles(g, { luminescence: [1, 0] })],
+  ['iridescent', (g) => withAlleles(g, { iridescence: [1, 1] })],
+  ['albino', (g) => withAlleles(g, { albino: [1, 1] })],
+  ['stripes', (g) => withAlleles(g, { pattern: [3, 0] })],
+  ['spots', (g) => withAlleles(g, { pattern: [3, 2] })],
+  ['segments', (g) => withAlleles(g, { segDrive1: [255, 255], segDrive2: [255, 255] })],
+  ['modules', (g) => withModule(g, 'M5')],
+  ['novel', (g) => withAlleles(g, { texture: [2, 2] })],
+  ['size', (g) => withAlleles(g, { size1: [255, 255] })],
+];
+
+/** Each feature on its own, from a plain base. */
+const ALONE: Record<string, (g: Genome) => Genome> = {
+  ...Object.fromEntries(STEPS),
+  stripes: (g) => withAlleles(g, { pattern: [3, 3] }),
+  spots: (g) => withAlleles(g, { pattern: [2, 2] }),
+  rings: (g) => withAlleles(g, { pattern: [1, 1] }),
+  novel: (g) => withAlleles(g, { albino: [2, 2] }),
+};
+
+describe('rarityOf', () => {
+  it('scores a genome with no rare features 0, and calls it common', () => {
+    for (const g of [plain(), starterGenome()]) {
+      expect(rarityOf(g)).toEqual({ score: 0, tier: 'common', features: [] });
+    }
+  });
+
+  it('prices a feature at -log2 of its exact genesis frequency, and 12 bits when genesis never makes it', () => {
+    // Per-allele frequencies 0.05 and 0.04 give homozygous phenotypes of 0.25% and 0.16%.
+    expect(featureBits.iridescent).toBeCloseTo(-Math.log2(0.05 ** 2), 9);
+    expect(featureBits.albino).toBeCloseTo(-Math.log2(0.04 ** 2), 9);
+    // Pattern: stripes show with one stripes allele (0.1) whatever the other is, spots likewise (0.3).
+    expect(featureBits.stripes).toBeCloseTo(-Math.log2(1 - 0.9 ** 2), 9);
+    expect(featureBits.spots).toBeCloseTo(-Math.log2(1 - 0.7 ** 2), 9);
+    // Rings show only without spots or stripes: (0.6² − 0.4²).
+    expect(featureBits.rings).toBeCloseTo(-Math.log2(0.6 ** 2 - 0.4 ** 2), 9);
+    expect(featureBits.luminescent).toBeCloseTo(-Math.log2(1 - 0.7 ** 2), 9);
+    for (const name of ['segments', 'modules', 'novel', 'size']) {
+      expect(featureBits[name], name).toBe(NEVER_BITS);
+    }
+    expect(NEVER_BITS).toBe(12);
+  });
+
+  it('matches the measured genesis frequencies of the features it prices', () => {
+    for (const name of ['iridescent', 'albino', 'stripes', 'spots', 'rings', 'luminescent']) {
+      const p = 2 ** -(featureBits[name] as number);
+      const count = rarities.filter((r) => r.features.includes(name)).length;
+      const sd = Math.sqrt((p * (1 - p)) / N);
+      expect(Math.abs(count / N - p), `${name}: ${count}/${N} vs ${p}`).toBeLessThanOrEqual(4 * sd);
+    }
+  });
+
+  it('never sees a 12-bit feature in genesis', () => {
+    for (const r of rarities) {
+      for (const name of ['segments', 'modules', 'novel', 'size']) {
+        expect(r.features).not.toContain(name);
+      }
+    }
+  });
+
+  it('sums the listed features, and tiers follow the cut-offs', () => {
+    for (const r of rarities.slice(0, 2000)) {
+      const sum = r.features.reduce((a, f) => a + (featureBits[f] as number), 0);
+      expect(r.score).toBeCloseTo(sum, 9);
+      const expected = RARITY_TIERS.reduce(
+        (t, [name, from]) => (r.score >= from ? name : t),
+        'common',
+      );
+      expect(r.tier).toBe(expected);
+    }
+    expect(RARITY_TIERS).toEqual([
+      ['common', 0],
+      ['uncommon', 4],
+      ['rare', 8],
+      ['exotic', 14],
+    ]);
+  });
+
+  it('is monotone: adding a listed rare feature never lowers the score', () => {
+    for (let i = 0; i < 300; i++) {
+      let g = withoutRare(genomes[i] as Genome);
+      let last = rarityOf(g);
+      expect(last.score).toBe(0);
+      for (const [name, add] of STEPS) {
+        g = add(g);
+        const next = rarityOf(g);
+        expect(next.features, `${name} #${i}`).toContain(name);
+        expect(next.score, `${name} #${i}`).toBeGreaterThan(last.score);
+        last = next;
+      }
+    }
+  });
+
+  it('counts each expressed feature exactly once on a plain base', () => {
+    const base = plain();
+    for (const [name, add] of Object.entries(ALONE)) {
+      const r = rarityOf(add(base));
+      expect(r.features, name).toEqual([name]);
+      expect(r.score, name).toBeCloseTo(featureBits[name] as number, 9);
+    }
+  });
+
+  it('keeps most genesis cells common, a few uncommon, almost none exotic', () => {
+    const count = (p: (t: string) => boolean): number => rarities.filter((r) => p(r.tier)).length;
+    expect(count((t) => t === 'common') / N).toBeGreaterThanOrEqual(0.8);
+    const higher = count((t) => t !== 'common') / N;
+    expect(higher).toBeGreaterThanOrEqual(0.03);
+    expect(higher).toBeLessThanOrEqual(0.2);
+    expect(count((t) => t === 'exotic') / N).toBeLessThan(0.01);
+  });
+
+  it('calls an iridescent, albino, striped genome exotic', () => {
+    const g = withAlleles(plain(), {
+      iridescence: [1, 1],
+      albino: [1, 1],
+      pattern: [3, 3],
+    });
+    const r = rarityOf(g);
+    expect(r.tier).toBe('exotic');
+    expect(r.features).toEqual(['iridescent', 'albino', 'stripes']);
+  });
+
+  it('prices a novel allele, an extra module, extra segments and a big body at 12 bits each', () => {
+    expect(rarityOf(withAlleles(plain(), { albino: [2, 2] })).features).toEqual(['novel']);
+    // A novel allele beside a genesis one still shows in an incomplete-dominance blend (ridged + grainy).
+    expect(rarityOf(withAlleles(plain(), { texture: [2, 1] })).features).toEqual(['novel']);
+    expect(rarityOf(withModule(plain(), 'M5')).features).toEqual(['modules']);
+    const long = withAlleles(plain(), { segDrive1: [255, 255], segDrive2: [255, 255] });
+    expect(express(long).body.segments).toBeGreaterThan(1);
+    expect(rarityOf(long).features).toEqual(['segments']);
+    const big = withAlleles(plain(), { size1: [255, 255] });
+    expect(express(big).body.maxBiomass).toBeGreaterThanOrEqual(1024);
+    expect(rarityOf(big).features).toEqual(['size']);
+    expect(rarityOf(withoutRare(big)).score).toBe(NEVER_BITS);
+  });
+
+  it('is a total, finite function of any genome', () => {
+    for (const fill of [0, 255]) {
+      const r = rarityOf(decodeGenome(new Uint8Array(2 * HAPLOTYPE_BYTES).fill(fill)));
+      expect(Number.isFinite(r.score)).toBe(true);
+    }
+  });
+
+  it('matches the goldens for five fixed genomes', () => {
+    const fixed: Record<string, Genome> = {
+      starter: starterGenome(),
+      plain: plain(),
+      glowStripes: withAlleles(plain(), { luminescence: [1, 1], pattern: [3, 0] }),
+      iridescentAlbinoStriped: withAlleles(plain(), {
+        iridescence: [1, 1],
+        albino: [1, 1],
+        pattern: [3, 3],
+      }),
+      mutantBig: withAlleles(withModule(plain(), 'M6'), { size1: [255, 255], texture: [2, 2] }),
+    };
+    const actual = Object.fromEntries(Object.entries(fixed).map(([k, g]) => [k, rarityOf(g)]));
+    const file = new URL('./__golden__/rarity.json', import.meta.url);
+    if (process.env.UPDATE_GOLDENS === '1') {
+      writeFileSync(
+        file,
+        `${JSON.stringify({ rulesVersion: RULES_VERSION, rarity: actual }, null, 2)}\n`,
+      );
+    }
+    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
+      rulesVersion: number;
+      rarity: unknown;
+    };
+    expect(golden.rulesVersion).toBe(RULES_VERSION);
+    expect(actual).toEqual(golden.rarity);
+  });
+});
