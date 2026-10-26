@@ -24,7 +24,13 @@ export class Hud {
   private readonly healthBar = pick('[data-bar="health"]');
 
   private readonly energyMeter = pick('[data-meter="energy"]');
+  private readonly species = pick('[data-testid="hud-species"]');
   private low = false;
+
+  /** Names the body of the life that has just started. */
+  setBody(label: string): void {
+    setText(this.species, label);
+  }
 
   /** Restarts the short brightening of the energy readout after eating. */
   pulseEnergy(): void {

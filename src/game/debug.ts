@@ -1,8 +1,10 @@
+import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { RenderInfo } from '../render/scene';
+import type { PhysStats } from '../sim/body';
 import type { InputLog } from '../sim/replay';
-import type { FoodItem } from '../sim/types';
+import type { FoodItem, FoodKind } from '../sim/types';
 import type { DeathSummary, Screen } from './screens';
 
 /** Read-only views of the running game for tests and tools (`window.__bs`). */
@@ -23,6 +25,14 @@ export interface BsState {
     energy: number;
     health: number;
     alive: boolean;
+    /** The body this life hatched with (M3). */
+    genomeHash: string;
+    species: string;
+    rarity: RarityTier;
+    /** Size tier of the fully grown body. */
+    tier: number;
+    /** What the sim sees of the body. */
+    stats: PhysStats;
   } | null;
   /** Set once the player has died. */
   death: DeathSummary | null;
@@ -94,8 +104,8 @@ export interface BsDebug {
   setBiomass(biomass: number): void;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
-  /** The food item closest to the player, or null. */
-  nearestFood(): FoodItem | null;
+  /** The food item closest to the player (of this kind, if given), or null. */
+  nearestFood(kind?: FoodKind): FoodItem | null;
   /** Swims at full throttle towards a target; resolves true once it is eaten or reached, false on a timeout or if it vanished. */
   steerTo(target: { id?: string; x: number; y: number }): Promise<boolean>;
   /** Adds a toxic plume to the world. */

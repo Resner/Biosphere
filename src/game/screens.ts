@@ -8,6 +8,8 @@ export interface DeathSummary {
   /** Seconds of sim time between hatching and dying. */
   survivedSeconds: number;
   peakBiomass: number;
+  /** Species and rarity of the body that died. */
+  body: string;
 }
 
 /** What the death screen says: a short name and one line of advice. */
@@ -29,6 +31,7 @@ export class Screens {
   private readonly hint = pick('[data-testid="death-hint"]');
   private readonly survived = pick('[data-testid="death-survived"]');
   private readonly peak = pick('[data-testid="death-peak"]');
+  private readonly species = pick('[data-testid="death-species"]');
 
   private readonly buttons: HTMLButtonElement[] = [];
 
@@ -59,6 +62,7 @@ export class Screens {
     this.hint.textContent = text.hint;
     this.survived.textContent = `${Math.floor(summary.survivedSeconds)} s`;
     this.peak.textContent = String(Math.round(summary.peakBiomass));
+    this.species.textContent = summary.body;
     this.show('dead');
   }
 }

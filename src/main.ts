@@ -11,6 +11,7 @@ if (canvas) {
   startApp(canvas, {
     seed: params.get('seed') ?? randomSeed(),
     debug: params.has('debug'),
+    genome: params.get('genome'),
   });
 }
 
