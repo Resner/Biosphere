@@ -211,7 +211,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `gait.ts` (CPU reference), `creature.vert/frag.glsl`, `creatureMaterial`, `CreatureView` (clones the cached material per view, since gait uniforms are per creature) and the cache's default material. The shader is a spine sway plus one part beat; at rest only `BREATH` (12%) of the swing remains. The M1 look E2E, the Lab screenshot and the 12-creature connectivity check move to T15 and T13 (no player or Lab uses the mesh yet); a throwaway Chromium render of the six archetypes at 5 beat states showed no shader errors and tails attached.
   - Gotcha: `uFreq` only sets how fast the phase is integrated (`advanceBeatPhase(…, freq)`), never the pose, because a spatial use would jump the pose when it changes; the test raises it by 0.5 after an hour.
 
-- [ ] T12 Materials from genes
+- [x] T12 Materials from genes
   - Acceptance:
     - `materialParams(traits)` (pure, in `src/render/`) maps genes to uniforms: base colour from hue, saturation and value (HSV with fixed lightness rules); translucency and membrane thickness; pattern kind and scale (none, rings, spots, stripes, spots and stripes together); albino (saturation ≤ 0.1, a pale pink body); iridescence (> 0 only when expressed, a thin-film hue shift with view angle); luminescence (an emissive pulse with its own hue; 0 when not expressed); plating opacity; a rim light strength that keeps the silhouette readable. Unit tests per mapping with exact expectations (for example albino → saturation ≤ 0.1; iridescence 0 for the dominant plain allele).
     - One shader program serves every creature: adding 24 distinct creatures to a scene leaves `renderer.info.programs.length` unchanged (E2E in the Lab).
@@ -219,6 +219,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Readability (E2E, Lab, software GL): for 24 creatures on the Lab background, the mean luminance of the creature's silhouette differs from the water background by at least 0.12 (0–1 scale), the silhouette is not blank, and the mean colour distance between any two creatures of different hue bins exceeds 0.08.
     - The hue-tinted remote cell of M2 keeps working as the fallback for peers whose genome has not arrived (T16).
   - Notes: follow the art direction in `render.md`: translucent membranes with internal glints, rim and back light, macro look. Pattern, iridescence and glow are shader terms, not textures.
+  - Done: `material-params.ts` (`materialParams`, pure) maps genes to the `creatureMaterial` uniforms, which the cache sets once per genome; the view rewrites only the six per-frame ones (`uTime` is new). The program-count and 24-creature readability E2E checks move to T13 (no Lab yet); unit tests cover the mappings, the single shader source and the per-frame uniform set, and a throwaway Chromium render of 24 genesis creatures gave one program, 24 draw calls and visibly different bodies.
+  - Gotcha: the shader repeats `PATTERN` and the part kinds as literals; renumbering either needs a matching edit in `creature.frag.glsl`. Dark bodies still sit close to the water colour, so T13's readability check may need a higher `MIN_CORE_LUMINANCE`.
 
 - [ ] T13 Creature Lab: grid and inspector
   - Acceptance:

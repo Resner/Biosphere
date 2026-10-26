@@ -4,7 +4,9 @@
 
 import type * as THREE from 'three';
 import type { BodyPlan, Detail } from '../genome/develop';
+import type { Traits } from '../genome/express';
 import { buildCreatureGeometry } from './creature-mesh';
+import { materialParams } from './material-params';
 import { creatureMaterial } from './materials';
 
 /** A body smaller than this many pixels across (radius) drops to low detail; larger than `FULL_ABOVE` returns to full. */
@@ -25,6 +27,12 @@ export interface CreatureAsset {
   readonly material: THREE.Material;
 }
 
+export interface CreatureSource {
+  hash: string;
+  plan: BodyPlan;
+  traits: Traits;
+}
+
 interface Entry {
   asset: CreatureAsset;
   refs: number;
@@ -34,9 +42,12 @@ export class CreatureCache {
   private readonly entries = new Map<string, Entry>();
 
   /** `makeMaterial` must return a fresh material each call: the cache disposes it with the geometry. */
-  constructor(private readonly makeMaterial: () => THREE.Material = creatureMaterial) {}
+  constructor(
+    private readonly makeMaterial: (creature: CreatureSource) => THREE.Material = (c) =>
+      creatureMaterial(materialParams(c.traits)),
+  ) {}
 
-  acquire(creature: { hash: string; plan: BodyPlan }, detail: Detail): CreatureAsset {
+  acquire(creature: CreatureSource, detail: Detail): CreatureAsset {
     const key = `${creature.hash}/${detail}`;
     let entry = this.entries.get(key);
     if (!entry) {
@@ -45,7 +56,7 @@ export class CreatureCache {
           key,
           detail,
           geometry: buildCreatureGeometry(creature.plan, detail),
-          material: this.makeMaterial(),
+          material: this.makeMaterial(creature),
         },
         refs: 0,
       };

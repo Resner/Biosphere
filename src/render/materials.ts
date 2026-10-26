@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import type { MaterialParams } from './material-params';
 import cellFragment from './shaders/cell.frag.glsl?raw';
 import cellVertex from './shaders/cell.vert.glsl?raw';
 import creatureFragment from './shaders/creature.frag.glsl?raw';
@@ -59,15 +60,30 @@ export const cellMaterial = (extent: number): THREE.ShaderMaterial =>
     uAlpha: { value: 1 },
   });
 
-/** The creature mesh's material (M3 T11); a view clones it, since the gait uniforms are per creature. */
-export const creatureMaterial = (): THREE.ShaderMaterial =>
+/**
+ * The creature mesh's material (M3 T11, T12): the genes' look is set once from `params`, then only
+ * `uTime`, `uPhase`, `uBeat`, `uHurt`, `uDissolve` and `uAlpha` change. A view clones it, since the
+ * gait uniforms are per creature.
+ */
+export const creatureMaterial = (params: MaterialParams): THREE.ShaderMaterial =>
   layer(creatureVertex, noise + creatureFragment, {
     uAmp: { value: 0 },
     uPhase: { value: 0 },
     uBeat: { value: 0 },
     uBend: { value: 0 },
-    uCore: { value: new THREE.Color(0.04, 0.15, 0.16) },
-    uRim: { value: new THREE.Color(0.56, 0.95, 0.86) },
+    uTime: { value: 0 },
+    uCore: { value: new THREE.Color(...params.core) },
+    uRim: { value: new THREE.Color(...params.rim) },
+    uLumColor: { value: new THREE.Color(...params.lumColor) },
+    uTranslucency: { value: params.translucency },
+    uMembrane: { value: params.membrane },
+    uPattern: { value: params.pattern },
+    uPatternCount: { value: params.patternCount },
+    uIrid: { value: params.iridescence },
+    uLum: { value: params.luminescence },
+    uLumPulse: { value: params.lumPulse },
+    uPlating: { value: params.plating },
+    uRimStrength: { value: params.rimStrength },
     uHurt: { value: 0 },
     uDissolve: { value: 0 },
     uAlpha: { value: 1 },

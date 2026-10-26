@@ -2,15 +2,19 @@
 // swims it. The mesh is in core radii, so the view scales it by the creature's radius in world units.
 
 import * as THREE from 'three';
-import type { BodyPlan, Detail } from '../genome/develop';
-import type { Traits } from '../genome/express';
+import type { Detail } from '../genome/develop';
 import { advanceBeatPhase } from './beat';
-import { type CreatureAsset, type CreatureCache, lodFor } from './creature-cache';
+import {
+  type CreatureAsset,
+  type CreatureCache,
+  type CreatureSource,
+  lodFor,
+} from './creature-cache';
 import { gaitOf } from './gait';
 import { setUniform } from './materials';
 
 export interface CreatureViewState {
-  creature: { hash: string; plan: BodyPlan; traits: Traits };
+  creature: CreatureSource;
   x: number;
   y: number;
   /** Radians, 0 pointing east and growing counter-clockwise. */
@@ -65,6 +69,7 @@ export class CreatureView {
     this.mesh.scale.setScalar(view.radius);
     this.phase = advanceBeatPhase(this.phase, view.beat, time - (this.lastTime ?? time), this.freq);
     this.lastTime = time;
+    setUniform(material, 'uTime', time);
     setUniform(material, 'uPhase', this.phase);
     setUniform(material, 'uBeat', view.beat);
     setUniform(material, 'uHurt', view.hurt);
