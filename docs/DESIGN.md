@@ -1,6 +1,6 @@
 # Game design reference
 
-The living description of how Biosphere plays, with **initial values** for rules version 3. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
+The living description of how Biosphere plays, with **initial values** for rules version 4. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
 
 - **Code is the source of truth for numbers.** Values below start in `src/sim/rules.ts` (and the genome and combat tables that follow). When a spec or playtest changes a mechanic or a value, update this file in the same PR.
 - **Units**: world units (wu; think 1 wu ≈ 1 µm), seconds, and sim ticks at 30 Hz. "r" is a creature's size radius in wu.
@@ -107,7 +107,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
 ## 5. Lifecycle and lineage (M4–M5)
 
-- **Lifespan**: 75 min of active time, scaled ×0.6–1.4 by genes. Active time counts only while the creature is your active creature and you're online, or while it's locked in a committed encounter. Checkpoints and offline creatures are paused.
+- **Lifespan** (M4, ADR 0019): 75 min of active time, scaled ×0.6–1.6 by the lifespan gene (45–120 min). Active time is accrued by the authority from your progress reports as `min(ticks played ÷ 30, real time passed + 2 s)`, so a hidden tab, an offline player and a checkpoint accrue nothing, and nobody ages faster than real time. It also counts while the creature is locked in a committed encounter (M8). A creature you hatch is yours alone: no one else's session advances it.
 - **Maturity** needs active time ≥ max(12 min, 20% of lifespan) **and** biomass ≥ 60% of the creature's maximum.
 - **Old age** starts at 85% of lifespan (−20% thrust, +20% basal metabolism). Death comes at 100%.
 - **Mating**:
@@ -121,7 +121,9 @@ Death is common and never total: you fall back to your pending offspring or your
   - Generation = max(parents' generations) + 1.
 - **Promotion**: becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition and remaining lifespan, frozen. The child hatches beside it.
 - **Death**: choose between your pending offspring (if any) and your **nearest surviving ancestor** in your checkpoint chain, which comes back with its saved condition and remaining lifespan. Dead or exhausted ancestors are skipped. If nothing survives, hatch a new genesis cell; the old lineage remains as history.
-- **Genesis**: DNA from a committed future drand round (ADR 0010). At most one genesis per identity at a time, and at most 1 per 10 min. Genesis cells come from a narrow starter distribution (§6). Rare traits mostly arise through breeding.
+- **Genesis**: DNA from a committed future drand round (ADR 0010), recomputable by anyone from the commitment and the beacon (ADR 0019). At most one living creature per identity, and a bucket of 3 hatches that refills 1 per 5 minutes (M4; 1 per 10 minutes would have broken the loop). An empty bucket shows a countdown, and the player may swim as an unrecorded practice cell. Genesis cells come from a narrow starter distribution (§6). Rare traits mostly arise through breeding.
+- **Progress and resume** (M4): while you play, the client reports your condition (biomass, energy, health) every 30 s. The authority clamps and flags implausible values, keeps the latest in memory, and writes a checkpoint when you disconnect, every 15 min of active time and at death. Coming back resumes the same creature at the pond's spawn point with that condition; a reload rewinds at most 30 s and never refills lifespan or the hatch bucket.
+- **Recovery code** (M4): a 55-character code (Crockford base32, groups of 5, checksummed) shows your identity's key on request. Importing it replaces the identity of that browser.
 
 ## 6. Genetics and development (M3; ADR 0006)
 
@@ -222,7 +224,7 @@ Death is common and never total: you fall back to your pending offspring or your
   - Newcomers spawn on a ring around a compatible group, at least 3× the attack reach of larger creatures away and away from recent spawn points. The ring expands as the area fills.
   - After 120 s alone you may "ride the current" to a group.
   - Crowded spots split into bounded instances that never separate interacting creatures.
-- **Admission (M4, M13)**: past capacity or 90% of the daily budget, new players are queued with a position and an estimated wait.
+- **Admission (M4, M13)**: past 200 concurrent sessions or 90% of the daily request budget (100,000), new players are queued with a position and an estimated wait (30 s per place until M13 measures it). A queued player can swim as a practice cell meanwhile.
 
 ## 9. Social (M2)
 
@@ -243,6 +245,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Dash | ripple | whoosh |
 | Windup aimed at you (M7) | glow on the attacker's weapon | rising tick |
 | Death | dissolve; death screen naming the cause | descending tone |
+| Old age (M4) | stage word on the life bar, grey tint, "Feeling old" toast at 85% of the lifespan | slow low swell (M6) |
 | Court, mate, hatch (M5) | bioluminescent dance; egg crack | chime; bright chime |
 | Growth into a new tier | zoom-out swell | soft swell |
 
@@ -255,6 +258,7 @@ Presentation timings (v1, `FX` in `src/render/effects.ts`): eat pop 0.55 s, dash
 - Survival costs (metabolism, hazards), finite lifespan, and maturity and cooldown gates on the authority clock.
 - A genesis limit per identity. Genesis cells are simple; rarity mostly comes from breeding and survival.
 - Mating costs, a same-partner cooldown that doubles, and inbreeding that expresses load alleles.
+- The hatch bucket and the authority's progress clamps (M4); a client's reload can undo at most 30 s of play, so a death is not an escape (audits come in M10).
 - Kill-reward decay for repeated victims and new identities (M8). Witness eligibility needs play history (M10).
 - Many bot identities still mean more attempts, but none of them skips the time gates or upkeep (M10 runs a bot-farm simulation to check this).
 
