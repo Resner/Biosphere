@@ -22,16 +22,20 @@ const MAX_SAMPLES = 16;
 const SEQ_RANGE = 0x10000;
 /** Steady swimming speed, so a remote's flagellum beats in proportion to how fast it moves. */
 const CRUISE = RULES.movement.thrust / RULES.movement.drag;
-/** A remote is drawn within this range of biomass whatever its peer claims (DESIGN: up to 900). */
+/** A remote is drawn within this range of biomass whatever its peer claims (a body can reach 2.4 million). */
 const MIN_DRAWN_BIOMASS = 10;
-const MAX_DRAWN_BIOMASS = 1000;
+const MAX_DRAWN_BIOMASS = 2 ** 24;
 /** A dash shows for this many ticks after it starts. */
 const DASH_SHOWN_TICKS = 8;
 
 export type SnapshotFields = Omit<Snapshot, 'seq'>;
 
 /** The creature as peers see it. Energy and health are fractions of their maxima. */
-export function snapshotOf(creature: CreatureState, tick: number): SnapshotFields {
+export function snapshotOf(
+  creature: CreatureState,
+  tick: number,
+  genomeRef: number,
+): SnapshotFields {
   const sinceDash = tick - (creature.dashReadyTick - RULES.movement.dashCooldownTicks);
   return {
     tick,
@@ -45,6 +49,7 @@ export function snapshotOf(creature: CreatureState, tick: number): SnapshotField
     health: clamp(creature.health / maxHealth(creature.biomass), 0, 1),
     alive: creature.alive,
     dashing: sinceDash >= 0 && sinceDash < DASH_SHOWN_TICKS,
+    genomeRef,
   };
 }
 
@@ -185,6 +190,8 @@ export interface RemoteView {
   alpha: number;
   /** 0..1, a stable colour from the player id. */
   hue: number;
+  /** The genome ref of the newest snapshot (see `genomeRefOf`). */
+  genomeRef: number;
 }
 
 interface Remote {
@@ -227,12 +234,16 @@ export class RemoteSet {
           beat: 0,
           alpha: 1,
           hue: hueOf(id),
+          genomeRef: snapshot.genomeRef,
         },
       };
       this.remotes.set(id, remote);
     }
     // Only news counts as life: a peer repeating old packets must still fade away.
-    if (remote.buffer.push(snapshot)) remote.lastHeardMs = localMs;
+    if (remote.buffer.push(snapshot)) {
+      remote.lastHeardMs = localMs;
+      remote.view.genomeRef = snapshot.genomeRef;
+    }
   }
 
   /**

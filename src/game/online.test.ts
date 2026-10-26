@@ -236,6 +236,16 @@ describe('OnlineSession', () => {
     expect(session.openCount()).toBe(1);
   });
 
+  it('has a link to roster members the mesh holds, open or not', () => {
+    const { hub, mesh, session } = setup();
+    hub.welcome(welcome(['a', 'b']));
+    mesh.open.add('a');
+    mesh.open.add('stranger');
+    expect(session.hasLink('a')).toBe(true);
+    expect(session.hasLink('b')).toBe(false);
+    expect(session.hasLink('stranger')).toBe(false);
+  });
+
   it('reports ready once online with a clock sample', async () => {
     const { hub, session } = setup();
     vi.useFakeTimers();

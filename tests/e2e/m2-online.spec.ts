@@ -70,6 +70,67 @@ test('three players share a pond, see each other and keep it after dying', async
   }
 });
 
+test("players see each other's bodies, and a rehatch changes the view (M3 T16)", async ({
+  browser,
+}) => {
+  test.setTimeout(60_000);
+  // `genome=random` is not a genome: each life hatches fresh genesis DNA.
+  const query = `?debug=1&hub=${HUB}&genome=random`;
+  const [a, b] = await Promise.all([player(browser, query), player(browser, query)]);
+  try {
+    await Promise.all([a, b].map((p) => p.waitForFunction(() => window.__bs?.state().playerId)));
+    await hatch(a);
+    await hatch(b);
+    const ownHash = async (p: Page) => (await state(p)).player?.genomeHash as string;
+    for (const p of [a, b]) {
+      await p.waitForFunction(() => window.__bs?.state().net.open === 1, undefined, {
+        timeout: 15_000,
+      });
+    }
+    const hashes = [await ownHash(a), await ownHash(b)] as [string, string];
+    expect(hashes[0]).not.toBe(hashes[1]);
+    await a.waitForFunction(
+      (want) => window.__bs?.state().remotes.some((r) => r.genomeHash === want),
+      hashes[1],
+      { timeout: 3000 },
+    );
+    await b.waitForFunction(
+      (want) => window.__bs?.state().remotes.some((r) => r.genomeHash === want),
+      hashes[0],
+      { timeout: 3000 },
+    );
+    await a.waitForFunction(
+      () => (window.__bs as BsHook).render.info().remoteBodies === 1,
+      undefined,
+      {
+        timeout: 3000,
+      },
+    );
+
+    // B dies and hatches again with a new genome; A's view of B follows.
+    await b.evaluate(() => {
+      const bs = window.__bs as BsHook;
+      const { x, y } = bs.state().player as { x: number; y: number };
+      bs.debug?.spawnPlume(x, y, 120);
+      bs.debug?.setEnergy(0);
+    });
+    await b.waitForFunction(() => window.__bs?.state().screen === 'dead', undefined, {
+      timeout: 15_000,
+    });
+    await b.getByRole('button', { name: 'Hatch again' }).click();
+    await b.waitForFunction(() => window.__bs?.state().screen === 'playing');
+    const next = await ownHash(b);
+    expect(next).not.toBe(hashes[1]);
+    await a.waitForFunction(
+      (want) => window.__bs?.state().remotes.some((r) => r.genomeHash === want),
+      next,
+      { timeout: 3000 },
+    );
+  } finally {
+    await Promise.all([a, b].map((p) => p.context().close()));
+  }
+});
+
 test('an unreachable hub means a local pond and an offline chip', async ({ browser }) => {
   const page = await player(browser, '?debug=1&hub=http://localhost:1');
   try {

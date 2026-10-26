@@ -31,6 +31,7 @@ function snap(over: Partial<Snapshot> = {}): Snapshot {
     health: 1,
     alive: true,
     dashing: false,
+    genomeRef: 0,
     ...over,
   };
 }
@@ -199,11 +200,23 @@ describe('RemoteSet', () => {
 
   it('bounds the drawn size whatever a peer claims', () => {
     const set = new RemoteSet();
-    send(set, 'big', snap({ seq: 0, biomass: 6500 }), 0);
+    send(set, 'big', snap({ seq: 0, biomass: 1e9 }), 0);
     send(set, 'tiny', snap({ seq: 0, biomass: 0 }), 0);
     const radii = Object.fromEntries(set.sample(0, 1000).map((r) => [r.id, r.radius]));
-    expect(radii.big).toBeLessThanOrEqual(Math.sqrt(1000));
+    expect(radii.big).toBeLessThanOrEqual(Math.sqrt(2 ** 24));
+    expect(radii.big).toBeGreaterThan(1000);
     expect(radii.tiny).toBeGreaterThan(1);
+  });
+
+  it('shows the genome ref of the newest snapshot', () => {
+    const set = new RemoteSet();
+    send(set, 'a', snap({ seq: 0, tick: 0, genomeRef: 0xaaaa }), 0);
+    expect(set.sample(10, 10)[0]?.genomeRef).toBe(0xaaaa);
+    send(set, 'a', snap({ seq: 1, tick: 3, genomeRef: 0xbbbb }), 100);
+    expect(set.sample(110, 110)[0]?.genomeRef).toBe(0xbbbb);
+    // An old packet does not bring the old ref back.
+    send(set, 'a', snap({ seq: 0, tick: 0, genomeRef: 0xaaaa }), 120);
+    expect(set.sample(130, 130)[0]?.genomeRef).toBe(0xbbbb);
   });
 
   it('forgets a member who left the roster', () => {
@@ -256,17 +269,18 @@ describe('snapshotOf', () => {
   };
 
   it('turns energy and health into fractions of their maxima', () => {
-    const s = snapshotOf(creature, 40);
+    const s = snapshotOf(creature, 40, 0xbeef);
     expect(s.energy).toBeCloseTo(0.5, 6);
     expect(s.health).toBe(1);
     expect(s.dashing).toBe(false);
+    expect(s.genomeRef).toBe(0xbeef);
   });
 
   it('shows a dash for a few ticks after it starts', () => {
     const dashed = { ...creature, dashReadyTick: 100 + RULES.movement.dashCooldownTicks };
-    expect(snapshotOf(dashed, 100).dashing).toBe(true);
-    expect(snapshotOf(dashed, 103).dashing).toBe(true);
-    expect(snapshotOf(dashed, 120).dashing).toBe(false);
-    expect(snapshotOf(dashed, 99).dashing).toBe(false);
+    expect(snapshotOf(dashed, 100, 0).dashing).toBe(true);
+    expect(snapshotOf(dashed, 103, 0).dashing).toBe(true);
+    expect(snapshotOf(dashed, 120, 0).dashing).toBe(false);
+    expect(snapshotOf(dashed, 99, 0).dashing).toBe(false);
   });
 });

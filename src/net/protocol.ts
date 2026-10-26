@@ -14,7 +14,9 @@ export const WELCOME_MAX_BYTES = 8192;
 export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;
 export const EVENT_MAX_BYTES = 2048;
-export const SNAPSHOT_BYTES = 24;
+export const SNAPSHOT_BYTES = 25;
+/** The snapshot layout version, the last byte of every snapshot. */
+export const SNAPSHOT_VERSION = 2;
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;
@@ -33,6 +35,9 @@ const NONCE_RE = /^[A-Za-z0-9_-]{22}$/;
 const SLOT_RE = /^[A-Za-z0-9_]{1,24}$/;
 const CODE_RE = /^[a-z0-9-]{1,32}$/;
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
+/** Genome text: base64url, and short enough that its event stays within `EVENT_MAX_BYTES`. */
+export const GENOME_DATA_MAX_CHARS = 1900;
+const GENOME_DATA_RE = new RegExp(`^[A-Za-z0-9_-]{1,${GENOME_DATA_MAX_CHARS}}$`);
 
 export interface Vec2 {
   x: number;
@@ -96,6 +101,8 @@ export type PeerEvent =
       entries: [slot: string, k: number, until: number][];
     }
   | { t: 'chat'; text: string }
+  /** The sender's genome as base64url text; a receiver checks it against the snapshots' `genomeRef`. */
+  | { t: 'genome'; data: string }
   | { t: 'emote'; id: number }
   | { t: 'ping'; kind: number; x: number; y: number };
 
@@ -113,17 +120,24 @@ export interface Snapshot {
   health: number;
   alive: boolean;
   dashing: boolean;
+  /** The first two bytes of the sender's genome hash, as a u16 (see `genomeRefOf`). */
+  genomeRef: number;
 }
 
-// Snapshot layout, little endian, 24 bytes:
+// Snapshot layout (version 2), little endian, 25 bytes:
 //  0 seq u16 | 2 tick u32 | 6 x u16 | 8 y u16 | 10 heading u8 | 11 flags u8 |
-// 12 vx i16 | 14 vy i16 | 16 biomass u16 | 18 energy u16 | 20 health u16 | 22 reserved (zero)
-// Positions are in 0.125 wu steps (0 to 8192 wu), heading in 2π/256, velocity in 0.25 wu/s,
-// biomass in 0.1; energy and health are fractions in 1/65535.
+// 12 vx i16 | 14 vy i16 | 16 biomass u16 | 18 energy u16 | 20 health u16 | 22 genomeRef u16 |
+// 24 version u8 (2)
+// Positions are in 0.125 wu steps (0 to 8192 wu), heading in 2π/256, velocity in 0.25 wu/s;
+// energy and health are fractions of the creature's maximum, in 1/65535. Biomass is quantised on a
+// log scale: q = round(log2(biomass) · 65535 / 24) covers 1 to 2^24 (a body can reach 2.4 million),
+// so the relative error is at most 2^(12/65535) - 1 = 0.013%; smaller values read back as 1.
+// Version 1 snapshots are 24 bytes and fail the length check.
 const TAU = 2 * Math.PI;
 const POS_STEP = 0.125;
 const VEL_STEP = 0.25;
-const BIOMASS_STEP = 0.1;
+/** log2 of the largest biomass a snapshot carries. */
+const BIOMASS_LOG2_MAX = 24;
 const HEADING_STEPS = 256;
 const FLAG_ALIVE = 1;
 const FLAG_DASHING = 2;
@@ -133,6 +147,17 @@ function quantize(value: number, step: number, min: number, max: number): number
   if (!Number.isFinite(value)) return 0;
   const q = Math.round(value / step);
   return Math.max(min, Math.min(max, q));
+}
+
+function encodeBiomass(biomass: number): number {
+  if (!Number.isFinite(biomass) || biomass <= 1) return 0;
+  return Math.min(0xffff, Math.round((Math.log2(biomass) / BIOMASS_LOG2_MAX) * 0xffff));
+}
+
+/** The first two bytes of a hex genome hash: the `genomeRef` that a snapshot carries. */
+export function genomeRefOf(hash: string): number {
+  const ref = Number.parseInt(hash.slice(0, 4), 16);
+  return Number.isNaN(ref) ? 0 : ref;
 }
 
 export function encodeSnapshot(s: Snapshot): Uint8Array {
@@ -147,9 +172,11 @@ export function encodeSnapshot(s: Snapshot): Uint8Array {
   v.setUint8(11, (s.alive ? FLAG_ALIVE : 0) | (s.dashing ? FLAG_DASHING : 0));
   v.setInt16(12, quantize(s.vx, VEL_STEP, -0x8000, 0x7fff), true);
   v.setInt16(14, quantize(s.vy, VEL_STEP, -0x8000, 0x7fff), true);
-  v.setUint16(16, quantize(s.biomass, BIOMASS_STEP, 0, 0xffff), true);
+  v.setUint16(16, encodeBiomass(s.biomass), true);
   v.setUint16(18, quantize(s.energy, 1 / 0xffff, 0, 0xffff), true);
   v.setUint16(20, quantize(s.health, 1 / 0xffff, 0, 0xffff), true);
+  v.setUint16(22, s.genomeRef & 0xffff, true);
+  v.setUint8(24, SNAPSHOT_VERSION);
   return out;
 }
 
@@ -158,7 +185,7 @@ export function decodeSnapshot(b: Uint8Array): Snapshot | null {
   if (!(b instanceof Uint8Array) || b.length !== SNAPSHOT_BYTES) return null;
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
   const flags = v.getUint8(11);
-  if ((flags & ~FLAG_MASK) !== 0) return null;
+  if ((flags & ~FLAG_MASK) !== 0 || v.getUint8(24) !== SNAPSHOT_VERSION) return null;
   return {
     seq: v.getUint16(0, true),
     tick: v.getUint32(2, true),
@@ -167,11 +194,12 @@ export function decodeSnapshot(b: Uint8Array): Snapshot | null {
     heading: (v.getUint8(10) * TAU) / HEADING_STEPS,
     vx: v.getInt16(12, true) * VEL_STEP,
     vy: v.getInt16(14, true) * VEL_STEP,
-    biomass: v.getUint16(16, true) * BIOMASS_STEP,
+    biomass: 2 ** ((v.getUint16(16, true) * BIOMASS_LOG2_MAX) / 0xffff),
     energy: v.getUint16(18, true) / 0xffff,
     health: v.getUint16(20, true) / 0xffff,
     alive: (flags & FLAG_ALIVE) !== 0,
     dashing: (flags & FLAG_DASHING) !== 0,
+    genomeRef: v.getUint16(22, true),
   };
 }
 
@@ -390,6 +418,8 @@ export function parsePeerEvent(raw: string): PeerEvent | null {
       return typeof o.text === 'string' && o.text.length > 0 && o.text.length <= CHAT_MAX_CHARS
         ? { t: 'chat', text: o.text }
         : null;
+    case 'genome':
+      return isStr(o.data, GENOME_DATA_RE) ? { t: 'genome', data: o.data } : null;
     case 'emote':
       return isInt(o.id, 0, EMOTE_COUNT - 1) ? { t: 'emote', id: o.id } : null;
     case 'ping':

@@ -37,7 +37,18 @@ export interface BsState {
   /** Set once the player has died. */
   death: DeathSummary | null;
   /** The other players in the pond, as drawn (alpha fades when they go quiet). */
-  remotes: { id: string; name: string; x: number; y: number; alpha: number }[];
+  remotes: {
+    id: string;
+    name: string;
+    x: number;
+    y: number;
+    alpha: number;
+    /** World units, from the snapshot's biomass. */
+    radius: number;
+    /** The genome hash of the body drawn, or null while the tinted fallback cell stands in. */
+    genomeHash: string | null;
+    species: string | null;
+  }[];
   /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
   pond: { id: string; seed: string; members: string[] } | null;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
@@ -50,10 +61,11 @@ export interface BsState {
     dropped: number;
   };
   /**
-   * The status chip's text, the hub's state ('none' without a hub), open peer connections and
-   * food claims ignored as implausible.
+   * The status chip's text, the hub's state ('none' without a hub), open peer connections, food
+   * claims ignored as implausible and genome events dropped (too frequent, from a peer with no
+   * link, or not a genome).
    */
-  net: { text: string; status: string; open: number; foodIgnored: number };
+  net: { text: string; status: string; open: number; foodIgnored: number; dropped: number };
 }
 
 /** A scripted remote creature for tests: it swims in a straight line and sends real snapshots. */
@@ -67,6 +79,10 @@ export interface ScriptedRemote {
   vy?: number;
   /** Default 100. */
   biomass?: number;
+  /** The remote's genome (base64url, any text): its snapshots carry the ref and the body is delivered. */
+  genome?: string;
+  /** With `genome`: send the ref but never deliver the genome event. */
+  withholdGenome?: boolean;
 }
 
 export interface BsHook {
@@ -122,7 +138,10 @@ export interface BsDebug {
     hubNow: number;
     send(event: PeerEvent): void;
   }): void;
-  /** Delivers a peer's `event` message as if its data channel had; invalid ones are dropped. */
+  /**
+   * Delivers a peer's `event` message as if its data channel had; invalid ones are dropped. A
+   * genome event skips the link and rate checks, which the unit tests cover.
+   */
   deliver(from: string, event: unknown): void;
   /** Whether the food item (`c3_5_s2_k0`) is in the field now. */
   hasFood(id: string): boolean;
