@@ -78,7 +78,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
 
 ## Tasks
 
-- [ ] T1 Life rules (rules version 4): lifespan, old age, maturity in the sim
+- [ ] T1 Life rules (rules version 4): lifespan, old age, maturity in the sim (in progress)
   - Acceptance (unit tests, written first):
     - `lifespanMs(1) = 4,500,000` (75 min); `lifespanMs(0.6) = 2,700,000`; `lifespanMs(1.6) = 7,200,000`. `lifeStage` is `young` before max(12 min, 20% of the lifespan) of active time or below 60% of max biomass, `mature` when both hold, `old` from 85% of the lifespan (old beats mature). Boundary cases at exactly each limit are pinned.
     - `accrue(prev, ticks, wallMs)`: 900 ticks claimed (30 s) in 30,000 ms wall → 30,000; claimed 900 ticks but wall 10 s → 12,000 (wall + 2 s); `ticks < prev` or `wallMs < 0` → 0; zero ticks → 0.
