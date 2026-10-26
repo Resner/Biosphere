@@ -6,10 +6,14 @@ import { RULES_VERSION } from '../sim/rules';
 import {
   decodeGenome,
   encodeGenome,
+  GENOME_TEXT_LENGTH,
+  type Genome,
   genomeFromBase64url,
   genomeHash,
   genomeToBase64url,
+  parseGenomeText,
 } from './codec';
+import { genesisGenome } from './genesis';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI } from './karyotype';
 
 const rng = createRng(seedFromString('genome-codec-tests'), 'bytes');
@@ -230,5 +234,23 @@ describe('base64url', () => {
     expect(genomeFromBase64url('A')).toBeNull();
     expect(genomeFromBase64url('')).not.toBeNull();
     expect(genomeFromBase64url('A'.repeat(5000))).not.toBeNull();
+  });
+});
+
+describe('parseGenomeText', () => {
+  const g = genesisGenome(seedFromString('parse-text'));
+
+  it('round-trips the text of a genome, ignoring surrounding space', () => {
+    const text = genomeToBase64url(g);
+    expect(text).toHaveLength(GENOME_TEXT_LENGTH);
+    expect(genomeHash(parseGenomeText(` ${text}\n`) as Genome)).toBe(genomeHash(g));
+  });
+
+  it('rejects anything that is not exactly one genome', () => {
+    const text = genomeToBase64url(g);
+    for (const bad of ['', 'hello', 'not a genome', text.slice(1), `${text}A`, `${text}=`]) {
+      expect(parseGenomeText(bad), bad).toBeNull();
+    }
+    expect(parseGenomeText(`${text.slice(0, -1)}!`)).toBeNull();
   });
 });

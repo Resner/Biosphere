@@ -105,3 +105,15 @@ export function genomeFromBase64url(text: string): Genome | null {
   }
   return decodeGenome(bytes);
 }
+
+/** The length of `genomeToBase64url` text, which is the same for every genome. */
+export const GENOME_TEXT_LENGTH: number = Math.ceil((GENOME_BYTES * 4) / 3);
+
+/**
+ * A genome typed or pasted by a person: surrounding space is ignored and the text must be
+ * exactly one genome long. `genomeFromBase64url` alone would also turn "hello" into a genome.
+ */
+export function parseGenomeText(text: string): Genome | null {
+  const trimmed = text.trim();
+  return trimmed.length === GENOME_TEXT_LENGTH ? genomeFromBase64url(trimmed) : null;
+}

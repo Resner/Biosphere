@@ -107,6 +107,28 @@
   border: 2px solid var(--text);
 }
 
+.lab-ring[data-ring="parent"] {
+  border: 2px dashed var(--muted);
+}
+
+.lab-ring[data-ring="parent"]::after {
+  content: attr(data-label);
+  position: absolute;
+  top: 0.2rem;
+  left: 0.4rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+.lab-strip-label {
+  position: absolute;
+  margin: 0;
+  padding-left: 0.5rem;
+  pointer-events: none;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
 .lab-panel {
   width: 17.5rem;
   padding: 1rem;
@@ -144,6 +166,68 @@
   color: var(--text);
   font-family: ui-monospace, Menlo, Consolas, monospace;
   font-size: 0.8rem;
+}
+
+.lab-inherit h3,
+.lab-tools label {
+  margin: 1rem 0 0.25rem;
+  font-size: 0.85rem;
+  font-weight: 400;
+}
+
+.lab-inherit ul {
+  margin: 0;
+  padding-left: 1.1rem;
+}
+
+.lab-tools {
+  display: flex;
+  flex-direction: column;
+  gap: 0.4rem;
+  margin-top: 1rem;
+}
+
+.lab-buttons {
+  display: flex;
+  gap: 0.4rem;
+}
+
+.lab-tools button {
+  padding: 0.25rem 0.8rem;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  background: transparent;
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.lab-tools button:hover:not(:disabled),
+.lab-tools button:focus-visible {
+  background: rgb(227 244 240 / 0.15);
+}
+
+.lab-tools button:disabled {
+  opacity: 0.4;
+  cursor: default;
+}
+
+.lab-hint {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.lab-text {
+  box-sizing: border-box;
+  width: 100%;
+  border: 1px solid var(--muted);
+  background: transparent;
+  color: var(--text);
+  font-family: ui-monospace, Menlo, Consolas, monospace;
+  font-size: 0.7rem;
+  word-break: break-all;
+  resize: vertical;
 }
 
 .lab-error {
