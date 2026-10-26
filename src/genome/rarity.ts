@@ -3,6 +3,7 @@
 // allele frequencies and the real dominance rules, so it cannot drift from `genesis.ts`. A feature
 // genesis never makes (extra segments, more modules, a novel allele, a big body) costs 12 bits.
 
+import { log } from '../sim/math';
 import { decodeGenome, type Genome } from './codec';
 import { express, type Traits } from './express';
 import { GENESIS_FREQ } from './genesis';
@@ -61,7 +62,7 @@ const has =
 /** A rare feature that genesis makes: its price follows from how often genesis shows it. */
 function common(name: string, locus: string, weights: readonly number[], test: Test): Feature {
   const share = genesisShare(locus, weights, test);
-  return [name, test, share > 0 ? -Math.log2(share) : NEVER_BITS];
+  return [name, test, share > 0 ? -log(share) * Math.LOG2E : NEVER_BITS];
 }
 
 const iridescent: Test = (t) => t.skin.iridescence === 'iridescent';

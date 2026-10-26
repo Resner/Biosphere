@@ -51,6 +51,13 @@ function hueWord(hue: number, saturation: number, value: number): string {
   return `${shade}${name}`;
 }
 
+const PATTERN_WORDS: Readonly<Record<string, string>> = {
+  rings: 'ringed',
+  spots: 'spotted',
+  stripes: 'striped',
+  bands: 'banded',
+};
+
 const FEATURE_WORDS: Readonly<Record<string, string>> = {
   iridescent: 'an iridescent sheen',
   albino: 'albino colouring',
@@ -118,7 +125,8 @@ export function describeCreature(c: Creature): string[] {
   const looks: string[] = [
     traits.colour.albino === 'normal' ? `${colour} colouring` : 'pale, colourless skin',
   ];
-  if (pattern.length > 0) looks.push(`${pattern.join(' and ')} markings`);
+  if (pattern.length > 0)
+    looks.push(`${joinList(pattern.map((p) => PATTERN_WORDS[p] ?? p))} markings`);
   if (traits.skin.iridescence !== 'plain') looks.push('a rainbow sheen');
   if (traits.colour.luminescence !== 'off') looks.push('a faint glow');
   if (traits.skin.translucency > 0.7) looks.push('see-through skin');

@@ -3,6 +3,7 @@
 // pairs and the suffixes and epithets are fixed words, so no name can spell a word the chat filter
 // blocks (a test walks every possible genus).
 
+import { log } from '../sim/math';
 import { RULES } from '../sim/rules';
 import { type Genome, genomeHash } from './codec';
 import { express, type Traits } from './express';
@@ -54,7 +55,7 @@ const EPITHET_SCORES: readonly (readonly [string, (t: Traits) => number])[] = [
   ['iridescens', (t) => (t.skin.iridescence === 'plain' ? 0 : 0.65)],
   ['albus', (t) => (t.colour.albino === 'normal' ? 0 : 0.65)],
   // Size in octaves above the smallest cell: the biggest body scores 1.
-  ['magnus', (t) => Math.log2(t.body.maxBiomass / size.base) / size.octaves],
+  ['magnus', (t) => (log(t.body.maxBiomass / size.base) * Math.LOG2E) / size.octaves],
   ['serpens', (t) => (t.body.segments > 1 ? 0.3 + 0.1 * t.body.segments : 0)],
   // The default: a swimmer, a little more so when the gait is wide.
   ['natans', (t) => 0.25 + 0.5 * t.behaviour.gaitAmp],

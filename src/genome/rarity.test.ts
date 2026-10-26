@@ -201,7 +201,13 @@ describe('rarityOf', () => {
       }),
       mutantBig: withAlleles(withModule(plain(), 'M6'), { size1: [255, 255], texture: [2, 2] }),
     };
-    const actual = Object.fromEntries(Object.entries(fixed).map(([k, g]) => [k, rarityOf(g)]));
+    // Scores are logs, so compare them to 6 decimals rather than to the last bit.
+    const actual = Object.fromEntries(
+      Object.entries(fixed).map(([k, g]) => {
+        const r = rarityOf(g);
+        return [k, { ...r, score: Number(r.score.toFixed(6)) }];
+      }),
+    );
     const file = new URL('./__golden__/rarity.json', import.meta.url);
     if (process.env.UPDATE_GOLDENS === '1') {
       writeFileSync(

@@ -12,12 +12,12 @@
       "features": []
     },
     "glowStripes": {
-      "score": 3.3673595241343683,
+      "score": 3.36736,
       "tier": "common",
       "features": ["stripes", "luminescent"]
     },
     "iridescentAlbinoStriped": {
-      "score": 20.327497245655312,
+      "score": 20.327497,
       "tier": "exotic",
       "features": ["iridescent", "albino", "stripes"]
     },

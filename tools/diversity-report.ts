@@ -23,7 +23,7 @@ export function parseArgs(argv: readonly string[]): ReportOptions {
   for (let i = 0; i < argv.length; i += 2) {
     const key = (argv[i] ?? '').replace(/^--/, '');
     const value = Number(argv[i + 1]);
-    if (!(key in DEFAULTS) || !Number.isInteger(value) || value < 1) {
+    if (!Object.hasOwn(DEFAULTS, key) || !Number.isInteger(value) || value < 1) {
       throw new Error(
         `Bad option ${argv[i]} ${argv[i + 1]}: use --genesis, --bred, --generations with whole numbers`,
       );
@@ -41,7 +41,7 @@ function breedGenerations(
 ): Genome[] {
   const rng = createRng(seedFromString('diversity-report'), 'pairs');
   const perGeneration = Math.ceil(total / generations);
-  let pool = genesis.slice(0, Math.min(genesis.length, 64));
+  let pool = genesis.slice(0, 256);
   const out: Genome[] = [];
   for (let gen = 1; gen <= generations && out.length < total; gen++) {
     const count = Math.min(perGeneration, total - out.length);
@@ -58,10 +58,18 @@ function breedGenerations(
 const percentile = (sorted: readonly number[], p: number): number =>
   sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] as number;
 
-function histogram(title: string, values: readonly (string | number)[]): string[] {
+function histogram(
+  title: string,
+  values: readonly (string | number)[],
+  order: readonly (string | number)[] = [],
+): string[] {
   const counts = new Map<string | number, number>();
   for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
-  const rows = [...counts].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
+  const rank = (v: string | number): number =>
+    order.includes(v) ? order.indexOf(v) : order.length;
+  const rows = [...counts].sort(
+    (a, b) => rank(a[0]) - rank(b[0]) || (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0),
+  );
   return [
     `## ${title}`,
     '',
@@ -131,6 +139,7 @@ export function diversityReport(options: ReportOptions): string {
     ...histogram(
       'Rarity',
       rarities.map((r) => r.tier),
+      RARITY_TIERS.map(([name]) => name),
     ),
     '## Looks',
     '',

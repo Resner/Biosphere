@@ -11,7 +11,10 @@ const server = await createServer({
 });
 try {
   const { diversityReport, parseArgs } = await server.ssrLoadModule('/tools/diversity-report.ts');
-  process.stdout.write(`${diversityReport(parseArgs(process.argv.slice(2)))}\n`);
+  const report = diversityReport(parseArgs(process.argv.slice(2)));
+  process.stdout.write(`${report}\n`);
+  // Every body must be valid: a regression fails the run.
+  if (!report.includes('(0 invalid)')) process.exitCode = 1;
 } finally {
   await server.close();
 }
