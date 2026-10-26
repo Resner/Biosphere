@@ -311,6 +311,8 @@ export class Authority extends DurableObject<Env> {
     }
     if (!commit) {
       if (this.ledger.active(owner)) {
+        // The client may have missed it (a late genesis): the creature comes first, then the refusal.
+        this.sendLife(ws, owner);
         sendIfOpen(ws, { t: 'refused', reason: 'active' });
         return;
       }
