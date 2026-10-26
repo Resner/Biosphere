@@ -51,6 +51,7 @@ export class Authority extends DurableObject<Env> {
   readonly turn = new TurnCredentials();
   readonly ledger: Ledger;
   readonly beacons: Beacons;
+  private rearming: Promise<void> = Promise.resolve();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -164,8 +165,11 @@ export class Authority extends DurableObject<Env> {
         ws.close(CLOSE_BAD_HELLO, 'hello timeout');
       }
     }
-    await this.beacons.alarm();
-    await this.rearm();
+    try {
+      await this.beacons.alarm();
+    } finally {
+      await this.rearm();
+    }
   }
 
   /** When the earliest socket that hasn't said hello times out, or null. Sockets already closing don't count. */
@@ -181,7 +185,14 @@ export class Authority extends DurableObject<Env> {
   }
 
   /** The object has one alarm: it is set for the earliest of the hello timeout and the next beacon, and cleared when neither is needed. */
-  private async rearm(): Promise<void> {
+  private rearm(): Promise<void> {
+    // One at a time, each reading fresh deadlines, so a slow caller can't overwrite a sooner alarm.
+    const run = this.rearming.then(() => this.setAlarmForNext());
+    this.rearming = run.catch(() => {});
+    return run;
+  }
+
+  private async setAlarmForNext(): Promise<void> {
     const hello = this.helloDue();
     const beacon = this.beacons.nextDue();
     const next = hello === null ? beacon : beacon === null ? hello : Math.min(hello, beacon);

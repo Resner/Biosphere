@@ -9,8 +9,9 @@ export const COMMIT_DOMAIN = 'bs/commit/v1';
 const REQUEST_DOMAIN = 'bs/creq/v1';
 /** After a round is due, the network is given this long to publish it before the first fetch. */
 const ALARM_MARGIN_MS = 500;
-/** Between failed fetches of a due round. */
+/** Between failed fetches of a due round: doubles from the first to the cap while the network stays down. */
 const RETRY_MS = 5000;
+const RETRY_MAX_MS = 60_000;
 const RECENT_MAX = 8;
 
 /** Where beacons come from, and what time it is for them. Tests and the e2e entry fake both. */
@@ -70,6 +71,7 @@ export class Beacons {
   private readonly recent = new Map<number, Beacon>();
   private readonly inFlight = new Map<number, Promise<Beacon | null>>();
   private retryAt = 0;
+  private retryMs = RETRY_MS;
   /** Unresolved commitments (id to round), loaded once so the alarm paths never scan the table. */
   private waiting: Map<string, number> | null = null;
 
@@ -79,7 +81,7 @@ export class Beacons {
   async latest(): Promise<Beacon | null> {
     const target = roundAt(this.deps.source.now());
     for (const round of [target, target - 1]) {
-      const beacon = round >= 1 ? await this.verified(round) : null;
+      const beacon = round >= 1 ? (this.cached(round) ?? (await this.verified(round))) : null;
       if (beacon) return beacon;
     }
     const newest = await this.fetchVerified('latest');
@@ -172,9 +174,10 @@ export class Beacons {
 
   /** The wall-clock time of the next alarm this service needs, or null when nothing is pending. */
   nextDue(): number | null {
-    const rounds = [...this.pendingSet().values()];
-    if (rounds.length === 0) return null;
-    const due = Math.max(roundTime(Math.min(...rounds)) + ALARM_MARGIN_MS, this.retryAt);
+    let first = Infinity;
+    for (const round of this.pendingSet().values()) first = Math.min(first, round);
+    if (first === Infinity) return null;
+    const due = Math.max(roundTime(first) + ALARM_MARGIN_MS, this.retryAt);
     return Date.now() + Math.max(0, due - this.deps.source.now());
   }
 
@@ -183,11 +186,19 @@ export class Beacons {
     const current = roundAt(this.deps.source.now());
     const due = [...this.pendingSet()].filter(([, round]) => round <= current);
     due.sort((a, b) => a[1] - b[1]);
-    let failed = false;
-    for (const [id] of due) {
-      if (!(await this.beaconFor(id))) failed = true;
+    // A round that failed is not asked again in this pass, however many commitments name it.
+    const failed = new Set<number>();
+    for (const [id, round] of due) {
+      if (failed.has(round)) continue;
+      if (!(await this.beaconFor(id))) failed.add(round);
     }
-    this.retryAt = failed ? this.deps.source.now() + RETRY_MS : 0;
+    if (failed.size === 0) {
+      this.retryAt = 0;
+      this.retryMs = RETRY_MS;
+    } else {
+      this.retryAt = this.deps.source.now() + this.retryMs;
+      this.retryMs = Math.min(this.retryMs * 2, RETRY_MAX_MS);
+    }
   }
 
   private pendingSet(): Map<string, number> {
@@ -236,7 +247,7 @@ export class Beacons {
 
   /** A beacon for `round` that verified, from memory or the source; never stored here. */
   private async verified(round: number): Promise<Beacon | null> {
-    const held = this.recent.get(round) ?? this.cached(round);
+    const held = this.recent.get(round);
     if (held) return held;
     const beacon = await this.fetchVerified(round);
     if (beacon) this.remember(beacon);
