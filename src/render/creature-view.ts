@@ -65,6 +65,7 @@ export class CreatureView {
     this.mesh.scale.setScalar(view.radius);
     this.phase = advanceBeatPhase(this.phase, view.beat, time - (this.lastTime ?? time), this.freq);
     this.lastTime = time;
+    setUniform(material, 'uTime', time);
     setUniform(material, 'uPhase', this.phase);
     setUniform(material, 'uBeat', view.beat);
     setUniform(material, 'uHurt', view.hurt);

@@ -1,9 +1,12 @@
 import type * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
+import { genesisGenome } from '../genome/genesis';
 import { starterGenome } from '../genome/starter';
 import { buildCreature } from '../genome/stats';
+import { createRng, seedFromString } from '../sim/prng';
 import { CreatureCache } from './creature-cache';
 import { CreatureView, type CreatureViewState } from './creature-view';
+import { materialParams } from './material-params';
 
 const creature = buildCreature(starterGenome());
 const state = (over: Partial<CreatureViewState> = {}): CreatureViewState => ({
@@ -17,6 +20,8 @@ const state = (over: Partial<CreatureViewState> = {}): CreatureViewState => ({
   dissolve: 0,
   ...over,
 });
+const colour = (m: THREE.ShaderMaterial, name: string): THREE.Color =>
+  (m.uniforms[name] as THREE.IUniform<THREE.Color>).value;
 const uniform = (view: CreatureView, name: string): number =>
   (view.mesh.material as THREE.ShaderMaterial).uniforms[name]?.value;
 
@@ -53,5 +58,49 @@ describe('CreatureView', () => {
     expect(cache.live()).toBe(1);
     view.dispose();
     expect(cache.live()).toBe(0);
+  });
+
+  it('puts the genes into the material once and rewrites only the per-frame uniforms', () => {
+    const cache = new CreatureCache();
+    const view = new CreatureView(cache);
+    const c = buildCreature(genesisGenome(seedFromString('view-uniforms')));
+    view.update(state({ creature: c }), 0);
+    const material = view.mesh.material as THREE.ShaderMaterial;
+    const params = materialParams(c.traits);
+    expect(material.uniforms.uPattern?.value).toBe(params.pattern);
+    expect(material.uniforms.uIrid?.value).toBe(params.iridescence);
+    expect(material.uniforms.uLum?.value).toBe(params.luminescence);
+    expect(colour(material, 'uCore').r).toBeCloseTo(params.core[0], 5);
+    expect(colour(material, 'uLumColor').g).toBeCloseTo(params.lumColor[1], 5);
+
+    const snapshot = (): Record<string, string> =>
+      Object.fromEntries(
+        Object.entries(material.uniforms).map(([k, u]) => [k, JSON.stringify(u.value)]),
+      );
+    const before = snapshot();
+    view.update(state({ creature: c, beat: 0.4, hurt: 0.5, dissolve: 0.2, alpha: 0.5 }), 0.5);
+    const after = snapshot();
+    const changed = Object.keys(after).filter((k) => after[k] !== before[k]);
+    const perFrame = ['uTime', 'uPhase', 'uBeat', 'uHurt', 'uDissolve', 'uAlpha'];
+    expect(changed.every((k) => perFrame.includes(k))).toBe(true);
+    expect(changed).toContain('uTime');
+  });
+
+  it('serves 24 distinct creatures from one shader program', () => {
+    const cache = new CreatureCache();
+    const rng = createRng(seedFromString('programs'), 'bytes');
+    const sources = new Set<string>();
+    for (let i = 0; i < 24; i++) {
+      const view = new CreatureView(cache);
+      view.update(
+        state({
+          creature: buildCreature(genesisGenome(seedFromString(`prog-${i}-${rng.nextU32()}`))),
+        }),
+        0,
+      );
+      const m = view.mesh.material as THREE.ShaderMaterial;
+      sources.add(m.vertexShader + m.fragmentShader + m.customProgramCacheKey());
+    }
+    expect(sources.size).toBe(1);
   });
 });
