@@ -213,8 +213,6 @@ export const RULES = deepFreeze({
     /** Collider radius is the part's base width times this. */
     colliderWidth: 0.5,
     colliderAlong: 0.65,
-    /** Parts thinner than this (cilia, whips) get no collision circle. */
-    colliderMinWidth: 0.15,
     /** The mouth: radius = size × (this − type); the jaw half (type > 0.5) moves forward and narrows. */
     mouthRadiusBase: 1.5,
     /** Mouth types above this move the mouth forward and narrow it. */
@@ -242,8 +240,7 @@ export const RULES = deepFreeze({
     weaponSpread: 0.25,
     /** Thrust is × (floor + (1 − floor) × gait amplitude). */
     ampFloor: 0.7,
-    /** Mass: appendages, plates (density per unit area) and spines (fraction of the body). */
-    appendageMass: 1,
+    /** Mass: plates (density per unit area) and spines (fraction of the body). */
     plateDensity: 4,
     spineMass: 0.1,
     /** Drag: body fineness term, rear taper relief, appendages, plates and spines. */
@@ -259,8 +256,7 @@ export const RULES = deepFreeze({
     basal: { segment: 0.1, appendage: 0.04, plating: 0.2, glow: 0.1 },
     /** Luminescence alleles to glow. */
     glow: { off: 0, pulse: 0.5, on: 1 },
-    /** Combat: weapon power per unit of stiffness × length, and the bite of a full jaw. */
-    weaponPower: 1,
+    /** Combat: the bite of a full jaw (a weapon part's power is its tip share × stiffness × length). */
     bite: 0.5,
     /** Detection ring: each unit of slender, still, forward length adds this. */
     senseGain: 0.5,

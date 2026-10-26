@@ -1,4 +1,4 @@
-import { decodeGenome, genomeFromBase64url } from '../genome/codec';
+import { genomeFromBase64url } from '../genome/codec';
 import { hashPlan } from '../genome/develop';
 import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
@@ -754,7 +754,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const genome: BsGenome = {
     hashes: (list) =>
       list.map((text) => {
-        const c = buildCreature(genomeFromBase64url(text) ?? decodeGenome(new Uint8Array(0)));
+        const g = genomeFromBase64url(text);
+        if (!g) throw new RangeError('not a base64url genome');
+        const c = buildCreature(g);
         return { planHash: hashPlan(c.plan), statsHash: hashStats(c.stats) };
       }),
   };

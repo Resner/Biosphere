@@ -9,7 +9,14 @@ import { clamp, cos, length as hypot, PI, pow, sin } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { Genome } from './codec';
 import { genomeHash } from './codec';
-import { type Appendage, type BodyPlan, develop, type PlanMouth, rootOf } from './develop';
+import {
+  type BodyPlan,
+  branchWeight,
+  develop,
+  type PlanMouth,
+  type PlanSegment,
+  rootOf,
+} from './develop';
 import { express, type Traits } from './express';
 import { starterGenome } from './starter';
 
@@ -17,8 +24,6 @@ const S = RULES.stats;
 const D = RULES.develop;
 
 export interface Stats {
-  /** The biomass these stats were computed at (thrust efficiency depends on size). */
-  size: number;
   maxBiomass: number;
   /** Multipliers relative to the reference cell. */
   thrust: number;
@@ -58,27 +63,25 @@ export interface Creature {
   phys: PhysStats;
 }
 
-const branchWeight = (a: Pick<Appendage, 'branches'>): number =>
-  1 + a.branches * D.branchScale * D.branchScale;
+/** 1 at `centre`, falling linearly to 0 at `spread` either side. */
+const peak = (x: number, centre: number, spread: number): number =>
+  clamp(1 - Math.abs(x - centre) / spread, 0, 1);
 
-/** How whip-like and how paddle-like a tip is, each 0-1 (blunt, point and hook have neither). */
-function tipShares(tip: number): { whip: number; paddle: number } {
-  return {
-    whip: clamp((tip - S.paddleTip) / (1 - S.paddleTip), 0, 1),
-    paddle: clamp(1 - Math.abs(tip - S.paddleTip) / S.paddleSpread, 0, 1),
+const segmentArea = (s: PlanSegment): number => PI * s.rx * s.ry;
+
+/** Thrust efficiency of each tip at one body size: whips fall with size, paddles rise. */
+function efficiencyAt(biomass: number): (tip: number) => number {
+  const e = S.efficiency;
+  const scale = biomass / e.cross;
+  const down = pow(scale, -e.exponent);
+  const up = pow(scale, e.exponent);
+  return (tip) => {
+    const whip = clamp((tip - S.paddleTip) / (1 - S.paddleTip), 0, 1);
+    return e.base + whip * down + peak(tip, S.paddleTip, S.paddleSpread) * up;
   };
 }
 
-/** Thrust efficiency of a tip at a body size: whips fall with size, paddles rise. */
-function efficiencyOf(tip: number, biomass: number): number {
-  const e = S.efficiency;
-  const { whip, paddle } = tipShares(tip);
-  const scale = biomass / e.cross;
-  return e.base + whip * pow(scale, -e.exponent) + paddle * pow(scale, e.exponent);
-}
-
-const weaponShare = (tip: number): number =>
-  clamp(1 - Math.abs(tip - S.weaponTip) / S.weaponSpread, 0, 1);
+const weaponShare = (tip: number): number => peak(tip, S.weaponTip, S.weaponSpread);
 
 interface Raw {
   force: number;
@@ -91,10 +94,11 @@ interface Raw {
 }
 
 const glowOf = (traits: Traits): number =>
-  (S.glow as Record<string, number>)[traits.colour.luminescence] ?? 0;
+  (S.glow as Record<string, number | undefined>)[traits.colour.luminescence] ?? 0;
 
 /** The unnormalised numbers; `statsAt` divides them by the reference cell's. */
 function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
+  const efficiency = efficiencyAt(biomass);
   const amp = S.ampFloor + (1 - S.ampFloor) * traits.behaviour.gaitAmp;
   let force = 0;
   let steer = S.baseSteer + S.flexSteer * plan.flexibility;
@@ -103,10 +107,10 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   let appendageInertia = 0;
   for (const a of plan.appendages) {
     const area = a.length * a.width * branchWeight(a);
-    const root = rootOf(plan.segments[a.segment] as BodyPlan['segments'][number], a.angle);
+    const root = rootOf(plan.segments[a.segment] as PlanSegment, a.angle);
     const arm = hypot(root.x, root.y);
     if (a.beat >= D.minBeat) {
-      const f = area * a.beat * efficiencyOf(a.tip, biomass) * traits.defects.beatStrength * amp;
+      const f = area * a.beat * efficiency(a.tip) * traits.defects.beatStrength * amp;
       force += f;
       steer += f * arm;
     }
@@ -121,7 +125,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   let front = 0;
   let rear = 0;
   for (const s of plan.segments) {
-    const m = PI * s.rx * s.ry;
+    const m = segmentArea(s);
     bodyArea += m;
     inertia += m * (s.x * s.x + (s.rx * s.rx + s.ry * s.ry) / 4);
     width = Math.max(width, s.ry);
@@ -130,19 +134,16 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   }
   let plateArea = 0;
   for (const p of plan.plates) {
-    const s = plan.segments[p.segment] as BodyPlan['segments'][number];
+    const s = plan.segments[p.segment] as PlanSegment;
     const m = p.coverage * p.thickness * PI * (s.rx + s.ry);
     plateArea += m;
     inertia += S.plateDensity * m * (s.x * s.x + (s.rx * s.rx + s.ry * s.ry) / 2);
   }
   const spines = traits.skin.spines;
-  const mass =
-    bodyArea * (1 + S.spineMass * spines) +
-    S.appendageMass * appendageArea +
-    S.plateDensity * plateArea;
-  inertia += S.appendageMass * appendageInertia;
+  const mass = bodyArea * (1 + S.spineMass * spines) + appendageArea + S.plateDensity * plateArea;
+  inertia += appendageInertia;
 
-  const last = plan.segments[plan.segments.length - 1] as BodyPlan['segments'][number];
+  const last = plan.segments[plan.segments.length - 1] as PlanSegment;
   const taper = width > 0 ? 1 - last.ry / width : 0;
   const fineness = (front - rear) / (2 * width);
   const drag =
@@ -163,15 +164,11 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   return { force, mass, drag, inertia, steer, basal, growth: traits.physiology.growth };
 }
 
-let reference: Raw | undefined;
-
-function referenceRaw(): Raw {
-  if (!reference) {
-    const traits = express(starterGenome());
-    reference = raw(develop(traits), traits, traits.body.maxBiomass);
-  }
-  return reference;
-}
+/** The reference cell's numbers, which every multiplier is divided by. */
+const REFERENCE: Raw = (() => {
+  const traits = express(starterGenome());
+  return raw(develop(traits), traits, traits.body.maxBiomass);
+})();
 
 /** The weapon numbers: pointed and hooked tips × stiffness × length, plus the bite of a jaw. */
 function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
@@ -181,9 +178,8 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
   for (const a of plan.appendages) {
     const w = weaponShare(a.tip);
     if (w <= 0) continue;
-    const s = plan.segments[a.segment] as BodyPlan['segments'][number];
-    const root = rootOf(s, a.angle);
-    power += S.weaponPower * w * a.stiffness * a.length;
+    const root = rootOf(plan.segments[a.segment] as PlanSegment, a.angle);
+    power += w * a.stiffness * a.length;
     reach = Math.max(reach, hypot(root.x + a.length * cos(a.dir), root.y + a.length * sin(a.dir)));
     arc = Math.max(arc, a.dir);
   }
@@ -194,13 +190,11 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
     arc = Math.max(arc, plan.mouth.arc);
   }
 
-  let covered = 0;
   let area = 0;
-  for (const [i, s] of plan.segments.entries()) {
-    const a = PI * s.rx * s.ry;
-    area += a;
-    const plate = plan.plates.find((p) => p.segment === i);
-    if (plate) covered += a * plate.coverage * plate.thickness;
+  for (const s of plan.segments) area += segmentArea(s);
+  let covered = 0;
+  for (const p of plan.plates) {
+    covered += segmentArea(plan.segments[p.segment] as PlanSegment) * p.coverage * p.thickness;
   }
   return {
     reach,
@@ -225,10 +219,9 @@ function senseOf(plan: BodyPlan): number {
 /** The stats of a body at a given biomass (thrust efficiency depends on size). */
 export function statsAt(plan: BodyPlan, traits: Traits, biomass: number): Stats {
   const r = raw(plan, traits, biomass);
-  const ref = referenceRaw();
+  const ref = REFERENCE;
   const mass = r.mass / ref.mass;
   return {
-    size: biomass,
     maxBiomass: traits.body.maxBiomass,
     thrust: r.force / ref.force / mass,
     drag: r.drag / ref.drag,
@@ -236,8 +229,8 @@ export function statsAt(plan: BodyPlan, traits: Traits, biomass: number): Stats 
     basal: r.basal / ref.basal,
     growth: r.growth / ref.growth,
     mass,
-    mouth: { ...plan.mouth },
-    colliders: plan.colliders.map((c) => ({ ...c })),
+    mouth: plan.mouth,
+    colliders: plan.colliders,
     combat: combatOf(plan, traits),
     sense: senseOf(plan),
     glow: glowOf(traits),
@@ -284,7 +277,7 @@ export function hashStats(s: Stats): string {
   const f = (...values: number[]): void => {
     for (const v of values) h.f64(v);
   };
-  f(s.size, s.maxBiomass, s.thrust, s.drag, s.turn, s.basal, s.growth, s.mass);
+  f(s.maxBiomass, s.thrust, s.drag, s.turn, s.basal, s.growth, s.mass);
   f(s.mouth.offset, s.mouth.radius, s.mouth.arc, s.mouth.type, s.mouth.digestion);
   f(s.colliders.length);
   for (const c of s.colliders) f(c.x, c.y, c.r);

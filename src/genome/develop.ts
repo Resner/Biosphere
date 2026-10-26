@@ -83,6 +83,9 @@ const CURVATURE = range(D.curvature);
 const PLATE_THICKNESS = range(D.plateThickness);
 
 const unit = (byte: number): number => byte / 255;
+/** Area weight of a part counting its branches. */
+export const branchWeight = (a: Pick<Appendage, 'branches'>): number =>
+  1 + a.branches * D.branchScale * D.branchScale;
 const branchFactor = (branches: number): number => (branches > 0 ? 1 + D.branchScale : 1);
 const maxAngle = PI - D.angleMargin;
 
@@ -195,7 +198,7 @@ export function motileArea(appendages: readonly Piece[]): number {
   let area = 0;
   for (const a of appendages) {
     if (a.beat >= D.minBeat) {
-      area += a.length * a.width * a.beat * (1 + a.branches * D.branchScale * D.branchScale);
+      area += a.length * a.width * a.beat * branchWeight(a);
     }
   }
   return area;
@@ -286,7 +289,11 @@ function buildColliders(segments: PlanSegment[], appendages: Appendage[]): Colli
   // The biggest pairs get what circles are left, both sides or neither; ties keep instance order.
   const ranked = appendages
     .map((a, i) => ({ i, score: a.length * a.width }))
-    .filter(({ i }) => i % 2 === 0 && (appendages[i] as Appendage).width >= D.colliderMinWidth)
+    .filter(
+      ({ i }) =>
+        i % 2 === 0 &&
+        (appendages[i] as Appendage).width * D.colliderWidth >= RULES.body.minColliderRadius,
+    )
     .sort((p, q) => q.score - p.score || p.i - q.i);
   for (const { i } of ranked) {
     if (out.length + 2 > D.caps.colliders) break;

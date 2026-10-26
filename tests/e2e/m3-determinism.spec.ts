@@ -13,18 +13,13 @@ test('the golden genomes develop and measure identically in Chromium', async ({ 
   const golden = JSON.parse(
     readFileSync(new URL('../../src/genome/__golden__/stats.json', import.meta.url), 'utf8'),
   ) as Golden;
-  const names = Object.keys(golden.vectors);
-  expect(names).toHaveLength(20);
+  const vectors = Object.values(golden.vectors);
+  expect(vectors).toHaveLength(20);
 
   await openGame(page, '?debug=1&seed=m3-determinism');
   const hashes = await page.evaluate(
     (list) => window.__bs?.genome?.hashes(list) ?? [],
-    names.map((n) => (golden.vectors[n] as Golden['vectors'][string]).genome),
+    vectors.map((v) => v.genome),
   );
-  expect(hashes).toEqual(
-    names.map((n) => {
-      const { planHash, statsHash } = golden.vectors[n] as Golden['vectors'][string];
-      return { planHash, statsHash };
-    }),
-  );
+  expect(hashes).toEqual(vectors.map(({ planHash, statsHash }) => ({ planHash, statsHash })));
 });

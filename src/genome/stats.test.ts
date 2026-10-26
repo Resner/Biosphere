@@ -1,31 +1,27 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ARCHETYPES, buildBytes, METRICS, type Metric, metricsAt } from '../../tests/archetypes';
+import {
+  ARCHETYPES,
+  buildBytes,
+  locus,
+  METRICS,
+  type Metric,
+  metricsAt,
+  withLoci,
+} from '../../tests/archetypes';
 import { STARTER_PHYS, sanitizePhys } from '../sim/body';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome, genomeToBase64url } from './codec';
 import { develop, hashPlan } from './develop';
 import { express } from './express';
-import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI } from './karyotype';
+import { GENOME_BYTES, HAPLOTYPE_BYTES, MODULE_PARAMS } from './karyotype';
 import { starterGenome } from './starter';
 import { buildCreature, computeStats, hashStats, physOf, type Stats, statsAt } from './stats';
 
 const rng = createRng(seedFromString('genome-stats-tests'), 'bytes');
 const randomBytes = (): Uint8Array =>
   Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff);
-
-const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
-
-/** A copy of the bytes with `set` loci written in both haplotypes. */
-function withLoci(bytes: Uint8Array, set: Record<string, number>): Uint8Array {
-  const out = bytes.slice();
-  for (const [id, v] of Object.entries(set)) {
-    out[locus(id).offset] = v;
-    out[HAPLOTYPE_BYTES + locus(id).offset] = v;
-  }
-  return out;
-}
 
 const statsOf = (bytes: Uint8Array): Stats => {
   const c = buildCreature(decodeGenome(bytes));
@@ -40,24 +36,7 @@ const extremes: Record<string, Uint8Array> = {
     Object.fromEntries(
       ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8'].map((id) => [
         id,
-        Object.fromEntries(
-          [
-            'length',
-            'thickness',
-            'taper',
-            'curvature',
-            'joints',
-            'branching',
-            'tipShape',
-            'stiffness',
-            'beat',
-            'phase',
-            'attachStart',
-            'attachSpan',
-            'angle',
-            'pairs',
-          ].map((p) => [p, 255]),
-        ),
+        Object.fromEntries(MODULE_PARAMS.map((p) => [p, 255])),
       ]),
     ),
   ),
@@ -120,6 +99,29 @@ describe('computeStats: totality and the body seam', () => {
     expect(a.hash).toBe(b.hash);
     expect(hashStats(structuredClone(a.stats))).toBe(hashStats(b.stats));
     expect(JSON.parse(JSON.stringify(a.phys))).toEqual(a.phys);
+  });
+
+  it('hashes every number in the stats', () => {
+    const stats = buildCreature(
+      decodeGenome(
+        buildBytes({ M1: { length: 100, thickness: 100, beat: 200 } }, { mouthType: 255 }),
+      ),
+    ).stats;
+    const base = hashStats(stats);
+    const leaves = (value: unknown, path: string[] = []): string[][] =>
+      typeof value === 'number'
+        ? [path]
+        : typeof value === 'object' && value !== null
+          ? Object.entries(value).flatMap(([k, v]) => leaves(v, [...path, k]))
+          : [];
+    for (const path of leaves(stats)) {
+      const copy = structuredClone(stats);
+      let holder = copy as unknown as Record<string, unknown>;
+      for (const key of path.slice(0, -1)) holder = holder[key] as Record<string, unknown>;
+      const last = path[path.length - 1] as string;
+      holder[last] = (holder[last] as number) + 0.5;
+      expect(hashStats(copy), path.join('.')).not.toBe(base);
+    }
   });
 
   it('takes the plan and traits it is given, and no part label', () => {

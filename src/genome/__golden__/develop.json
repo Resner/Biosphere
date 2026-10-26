@@ -1,10 +1,10 @@
 {
   "rulesVersion": 3,
   "vectors": {
-    "zero": "d428285f74ff6078",
+    "zero": "ed4f3336f9aade54",
     "ones": "e28da1d70e18a67d",
-    "alternating": "ac2502cbc663e2ab",
-    "modulesZero": "3f36e1c3f144578d",
+    "alternating": "63fd1c14d4bb0abe",
+    "modulesZero": "6b7b05051f41f41d",
     "modulesFull": "bae76660b7def640",
     "eightSegmentsModulesFull": "08b611473fd977ad",
     "random0": "c4fc592690748546",

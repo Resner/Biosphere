@@ -10,15 +10,14 @@ import { RULES } from '../src/sim/rules';
 
 export type Params = Partial<Record<(typeof MODULE_PARAMS)[number], number>>;
 
-const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
+export const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
 
 /** Bytes of a genome with the given modules present in both haplotypes and `set` loci written in both. */
 export function buildBytes(
   modules: Record<string, Params> = {},
   set: Record<string, number> = {},
-  base = 0,
 ): Uint8Array {
-  const bytes = new Uint8Array(GENOME_BYTES).fill(base);
+  const bytes = new Uint8Array(GENOME_BYTES);
   for (let hap = 0; hap < 2; hap++) {
     const at = hap * HAPLOTYPE_BYTES;
     for (const [id, v] of Object.entries(set)) bytes[at + locus(id).offset] = v;
@@ -31,6 +30,16 @@ export function buildBytes(
     }
   }
   return bytes;
+}
+
+/** A copy of `bytes` with `set` loci written in both haplotypes. */
+export function withLoci(bytes: Uint8Array, set: Record<string, number>): Uint8Array {
+  const out = bytes.slice();
+  for (const [id, v] of Object.entries(set)) {
+    out[locus(id).offset] = v;
+    out[HAPLOTYPE_BYTES + locus(id).offset] = v;
+  }
+  return out;
 }
 
 export const buildGenome = (
