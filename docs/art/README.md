@@ -14,9 +14,16 @@ The owner's reference: a copepod-like creature lit from behind in dark water. Ta
 - **Marine snow**: a sparse field of tiny specks at several depths, drifting slowly.
 - **Accent colours**: small saturated accents against the cool background. Chlorophyll-green spheres and chains, and an amber, star-shaped diatom-like shell. In Biosphere these become nonliving food and decorative particles, never organisms with behaviour.
 
-## reference-02.jpg to reference-04.jpg
+## reference-02.jpg to reference-05.jpg
 
-The owner's bar for the creature look overhaul (#90, M6): photoreal, translucent micro-organisms seen from above, with inner organs, fine appendages, a pale silvery-blue palette and rare jewel-like glints. The written brief is in #90. Judge the game's creatures against these critically.
+The owner's bar for the creature look overhaul (#90, M6). Each sheet shows 20 micro-organisms seen from above on dark water. The written brief is in #90; judge the game's creatures against both, critically.
+
+- **Silhouettes**: oval copepods with long sweeping antennae; crab-like bodies with clawed, jointed legs; spherical larvae ringed with setae or bulb-tipped spines; S-curved worms; tadpole and fish larvae with big dark eyes and feathery tails; jellyfish bells with bead-tipped tentacles; manta- and butterfly-winged plankton with veined membranes; spiral nautilus-like coils; flower-like petal bodies; segmented shrimp and amphipods with fan tails. No two neighbours share a silhouette.
+- **Anatomy**: a clear outer shell over visible inner organs: a gut line, clusters of round fluid chambers and oil droplets, eyes, segment boundaries. The inner parts carry the colour; the shell stays glassy.
+- **Fine detail**: hair-thin antennae and setae with evenly spaced beads and joints, feathery fans, veined wing membranes. They stay crisp and bright against the dark water.
+- **Light**: luminous white rims, tiny specular points along edges and joints, soft glow from inside.
+- **Colour and rarity**: 02 and 03 match the written palette best: crystal-clear and silvery bodies with amber, violet, cyan, emerald and pink only inside. 04 and 05 are far more saturated and glittering. Take that intensity as the ceiling for the rarest creatures, not the norm: the brief says sparkles must feel exceptionally rare, so common creatures look like 02 and 03, and glow and glints rise with rarity.
+- **Not to copy**: the names, size labels and icons under each creature are presentation only, though the plain card (name, size in µm) is a good model for the inspect card.
 
 ## How it maps to the game
 
