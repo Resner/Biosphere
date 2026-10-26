@@ -21,7 +21,7 @@ export const DRAND_HOSTS: readonly string[] = [
 ];
 
 /** The hash-to-curve tag of the `bls-unchained-g1-rfc9380` scheme. */
-const DST = 'BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_';
+export const DST = 'BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_';
 const SIGNATURE_HEX = /^[0-9a-f]{96}$/;
 const FETCH_TIMEOUT_MS = 5000;
 
@@ -41,7 +41,7 @@ export function roundTime(round: number): number {
   return (QUICKNET.genesis + (round - 1) * QUICKNET.period) * 1000;
 }
 
-function roundMessage(round: number): Uint8Array {
+export function roundMessage(round: number): Uint8Array {
   const out = new Uint8Array(8);
   new DataView(out.buffer).setBigUint64(0, BigInt(round));
   return sha256(out);
@@ -74,10 +74,10 @@ async function fetchFrom(
   f: typeof fetch,
   timeoutMs: number,
 ): Promise<Beacon | null> {
-  const controller = new AbortController();
-  const timer = setTimeout(() => controller.abort(), timeoutMs);
   try {
-    const res = await f(`${host}/${QUICKNET.chain}/public/${round}`, { signal: controller.signal });
+    const res = await f(`${host}/${QUICKNET.chain}/public/${round}`, {
+      signal: AbortSignal.timeout(timeoutMs),
+    });
     if (!res.ok) return null;
     const body: unknown = await res.json();
     if (typeof body !== 'object' || body === null) return null;
@@ -88,8 +88,6 @@ async function fetchFrom(
     return verifyBeacon(beacon) ? beacon : null;
   } catch {
     return null;
-  } finally {
-    clearTimeout(timer);
   }
 }
 

@@ -17,13 +17,13 @@ export interface RoundsFixture {
   beacons: { round: number; signature: string }[];
 }
 
-export const RECORDED_ROUNDS = 600;
+const RECORDED_ROUNDS = 600;
 const BATCH = 20;
 
 export async function fetchInfo(f: typeof fetch, hosts: readonly string[] = DRAND_HOSTS) {
   for (const host of hosts) {
     try {
-      const res = await f(`${host}/${QUICKNET.chain}/info`);
+      const res = await f(`${host}/${QUICKNET.chain}/info`, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) continue;
       const { public_key, period, genesis_time, hash, schemeID } = (await res.json()) as ChainInfo;
       return { public_key, period, genesis_time, hash, schemeID } satisfies ChainInfo;

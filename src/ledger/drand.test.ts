@@ -6,10 +6,12 @@ import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 import {
   type Beacon,
+  DST,
   fetchBeacon,
   QUICKNET,
   randomnessOf,
   roundAt,
+  roundMessage,
   roundTime,
   verifyBeacon,
 } from './drand';
@@ -19,7 +21,7 @@ const read = (name: string) =>
 const info = read('info.json');
 const rounds: { first: number; last: number; beacons: Beacon[] } = read('rounds.json');
 const beacon = (i: number): Beacon => rounds.beacons[i] as Beacon;
-const HOSTS = ['https://a.test', 'https://b.test', 'https://c.test'];
+const HOSTS = ['https://a.test', 'https://b.test', 'https://c.test'] as const;
 
 describe('quicknet constants', () => {
   it('match the recorded /info', () => {
@@ -59,12 +61,7 @@ describe('verifyBeacon', () => {
     // One aggregate check over all 600 (about 7 s) instead of 600 single ones (about 17 s); the
     // recorder already verified each beacon singly. Ten spread beacons also go through the real path.
     const sigs = bls12_381.shortSignatures;
-    const dst = 'BLS_SIG_BLS12381G1_XMD:SHA-256_SSWU_RO_NUL_';
-    const message = (round: number) => {
-      const bytes = new Uint8Array(8);
-      new DataView(bytes.buffer).setBigUint64(0, BigInt(round));
-      return sigs.hash(sha256(bytes), dst);
-    };
+    const message = (round: number) => sigs.hash(roundMessage(round), DST);
     const publicKey = hexToBytes(QUICKNET.publicKey);
     const aggregate = sigs.aggregateSignatures(rounds.beacons.map((b) => hexToBytes(b.signature)));
     const items = rounds.beacons.map((b) => ({ message: message(b.round), publicKey }));
@@ -156,11 +153,11 @@ describe('fetchBeacon', () => {
 
   it('uses the v1 paths', async () => {
     const calls: string[] = [];
-    const f = fakeFetch({ [HOSTS[0] as string]: { body: goodBody } }, calls);
+    const f = fakeFetch({ [HOSTS[0]]: { body: goodBody } }, calls);
     expect(await fetchBeacon(good.round, f, HOSTS)).toEqual(good);
     expect(calls).toEqual([`${HOSTS[0]}/${QUICKNET.chain}/public/${good.round}`]);
     const latestCalls: string[] = [];
-    const g = fakeFetch({ [HOSTS[0] as string]: { body: goodBody } }, latestCalls);
+    const g = fakeFetch({ [HOSTS[0]]: { body: goodBody } }, latestCalls);
     expect(await fetchBeacon('latest', g, HOSTS)).toEqual(good);
     expect(latestCalls).toEqual([`${HOSTS[0]}/${QUICKNET.chain}/public/latest`]);
   });
@@ -170,17 +167,17 @@ describe('fetchBeacon', () => {
     const wrongRound = { round: beacon(8).round, signature: beacon(8).signature };
     const calls: string[] = [];
     const replies = {
-      [HOSTS[0] as string]: { throws: true },
-      [HOSTS[1] as string]: { status: 500 },
-      [HOSTS[2] as string]: { body: goodBody },
+      [HOSTS[0]]: { throws: true },
+      [HOSTS[1]]: { status: 500 },
+      [HOSTS[2]]: { body: goodBody },
     };
     expect(await fetchBeacon(good.round, fakeFetch(replies, calls), HOSTS)).toEqual(good);
-    expect(calls.map((c) => c.slice(0, 14))).toEqual(HOSTS.map((h) => h));
+    expect(calls.map((c) => new URL(c).origin)).toEqual([...HOSTS]);
 
     for (const bad of [tampered, wrongRound, 'nope', null, { round: 'x', signature: 1 }]) {
       const f = fakeFetch({
-        [HOSTS[0] as string]: { body: bad },
-        [HOSTS[1] as string]: { body: goodBody },
+        [HOSTS[0]]: { body: bad },
+        [HOSTS[1]]: { body: goodBody },
       });
       expect(await fetchBeacon(good.round, f, HOSTS)).toEqual(good);
     }
@@ -188,8 +185,8 @@ describe('fetchBeacon', () => {
 
   it('times out a host that never answers', async () => {
     const f = fakeFetch({
-      [HOSTS[0] as string]: { hang: true },
-      [HOSTS[1] as string]: { body: goodBody },
+      [HOSTS[0]]: { hang: true },
+      [HOSTS[1]]: { body: goodBody },
     });
     expect(await fetchBeacon(good.round, f, HOSTS, 50)).toEqual(good);
   });
@@ -197,19 +194,12 @@ describe('fetchBeacon', () => {
   it('throws when every host fails, and never returns an unverified beacon', async () => {
     const bad = { round: good.round, signature: beacon(9).signature };
     const f = fakeFetch({
-      [HOSTS[0] as string]: { body: bad },
-      [HOSTS[1] as string]: { throws: true },
-      [HOSTS[2] as string]: { status: 503 },
+      [HOSTS[0]]: { body: bad },
+      [HOSTS[1]]: { throws: true },
+      [HOSTS[2]]: { status: 503 },
     });
     await expect(fetchBeacon(good.round, f, HOSTS)).rejects.toThrow(/no drand host/);
     await expect(fetchBeacon('latest', f, HOSTS)).rejects.toThrow(/no drand host/);
-  });
-
-  it("accepts any verified round for 'latest'", async () => {
-    const f = fakeFetch({
-      [HOSTS[0] as string]: { body: { round: good.round, signature: good.signature } },
-    });
-    expect((await fetchBeacon('latest', f, HOSTS)).round).toBe(good.round);
   });
 });
 

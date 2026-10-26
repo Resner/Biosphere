@@ -16,7 +16,7 @@
       "!**/package-lock.json",
       "!.claude",
       "!docs",
-      "!tests/fixtures"
+      "!tests/fixtures/**/*.json"
     ]
   },
   "formatter": {
