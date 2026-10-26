@@ -1,3 +1,4 @@
+import * as THREE from 'three';
 import { lerp } from '../sim/math';
 import { RULES } from '../sim/rules';
 
@@ -41,4 +42,19 @@ export class FollowCamera {
     this.started = false;
     this.update(0, target);
   }
+}
+
+/**
+ * Half the depth range of the orthographic cameras, in world units. A body is scaled by its radius
+ * in every axis (up to √2^24 = 4,096), so its dorsal height can reach a few thousand units; a
+ * small fixed range clips the middle of a big body into a hole. Layers draw without a depth test,
+ * so the wide range costs them nothing.
+ */
+export const CAMERA_DEPTH = 20_000;
+
+/** A top-down camera looking down -z whose range covers the tallest possible body. */
+export function topDownCamera(): THREE.OrthographicCamera {
+  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -CAMERA_DEPTH, CAMERA_DEPTH);
+  camera.position.z = 5;
+  return camera;
 }

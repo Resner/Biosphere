@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { FoodItem, Plume } from '../sim/types';
 import { BodyLayer } from './body-layer';
+import { topDownCamera } from './camera';
 import { Cell, type CellView } from './cell';
 import type { CreatureSource } from './creature-cache';
 import type { CreatureViewState } from './creature-view';
@@ -61,7 +62,7 @@ const ORDER = {
 export class GameScene {
   private readonly renderer: THREE.WebGLRenderer;
   private readonly scene = new THREE.Scene();
-  private readonly camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
+  private readonly camera = topDownCamera();
   private readonly water: Water;
   private readonly far: ParticleLayer;
   private readonly mid: ParticleLayer;
@@ -95,7 +96,6 @@ export class GameScene {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x04090b);
-    this.camera.position.z = 5;
 
     this.remotes = new RemoteLayer(this.scene, ORDER.cell - 0.1);
     this.body = new BodyLayer(this.scene, ORDER.cell + 0.5);

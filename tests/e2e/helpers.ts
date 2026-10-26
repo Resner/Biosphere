@@ -63,3 +63,42 @@ export async function bundleForBrowser(entry: string, globalName: string): Promi
   if (!chunk || chunk.type !== 'chunk') throw new Error(`no bundle for ${entry}`);
   return chunk.code;
 }
+
+/** Mean luminance (0..1) of the square patches of `2 * half + 1` pixels around each point of a PNG. */
+export async function patchLuma(
+  page: Page,
+  png: Buffer,
+  points: { x: number; y: number }[],
+  half = 4,
+): Promise<number[]> {
+  return page.evaluate(
+    async ({ base64, points, half }) => {
+      const image = new Image();
+      image.src = `data:image/png;base64,${base64}`;
+      await image.decode();
+      const scratch = document.createElement('canvas');
+      scratch.width = image.width;
+      scratch.height = image.height;
+      const context = scratch.getContext('2d');
+      if (!context) throw new Error('2D canvas unavailable');
+      context.drawImage(image, 0, 0);
+      return points.map((p) => {
+        const size = 2 * half + 1;
+        const { data } = context.getImageData(
+          Math.round(p.x) - half,
+          Math.round(p.y) - half,
+          size,
+          size,
+        );
+        let sum = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          sum +=
+            (0.2126 * (data[i] ?? 0) + 0.7152 * (data[i + 1] ?? 0) + 0.0722 * (data[i + 2] ?? 0)) /
+            255;
+        }
+        return sum / (size * size);
+      });
+    },
+    { base64: png.toString('base64'), points, half },
+  );
+}
