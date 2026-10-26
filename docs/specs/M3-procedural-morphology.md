@@ -101,7 +101,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `efficiency()` and `applyFeeding` use the mouth disc and arc (arc is measured from the creature centre; an `eat` event's `value` is the yield); `applyHazards` uses collider exposure; `findClearSpot(world, x, y, reach)` takes `colliderReach(phys, biomass)` (the game passes 0 until T15). Goldens regenerated under v3: a starter's type-0.5 mouth pays crystals 36 and detritus 6.4, so `hazard-dash` grows 1 time, not 3. A 24-creature, 12-collider tick takes about 1.2 ms in Node.
   - Gotcha: `sanitizePhys` pulls a collider to within `2.5 − r` of the core, so the acceptance example `{ x: −2.5, r: 0.6 }` lands at −1.9; the tests use −1.9 (same 0.36 / 1.36 share).
 
-- [ ] T3 Karyotype v1, the total codec and the genome hash
+- [x] T3 Karyotype v1, the total codec and the genome hash
   - Acceptance:
     - The loci table (`karyotype.ts`) follows DESIGN §6 and ADR 0006: 6 chromosomes, `quant`, `mendel` (with complete, co-dominant or incomplete dominance), `load` and 8 `module` slots of 15 bytes. `GENOME_BYTES` is the diploid size. If the layout differs from the DESIGN table, update the table in the same PR. Each `mendel` table also has at least one allele that genesis never produces (a "novel" allele, reachable by mutation only).
     - `decodeGenome` never throws for 10,000 random byte strings of lengths 0, 1, `GENOME_BYTES − 1`, `GENOME_BYTES`, `GENOME_BYTES + 1` and 4096, nor for the all-zero and all-0xFF strings.
@@ -110,6 +110,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - `genomeToBase64url` and `genomeFromBase64url` round-trip 1,000 random genomes; `genomeFromBase64url('')`, text with characters outside the alphabet and text of 5,000 characters return `null` or a decoded genome, and never throw.
     - `src/genome` imports nothing from `src/render`, `src/net`, `src/game` or the DOM, and `src/sim` imports nothing from `src/genome` (a test greps the import graph).
   - Notes: arithmetic follows `sim.md` (use `math.ts`). SHA-256 comes from `@noble/hashes`. Add `.claude/rules/genome.md` lines for the codec only if a gotcha shows up.
+  - Done: `karyotype.ts` (164 bytes per haplotype, 328 per genome; one `LOCI` table with `rank`, `dominance` and `novelFrom` per `mendel` locus) and `codec.ts`; goldens in `__golden__/genome-hash.json`. DESIGN §6 now lists a `texture` locus (incomplete dominance) so every dominance kind has a locus, plus the encoding rules.
+  - Gotcha: genome bytes fold to canonical form (`mendel` mod size, `load` low bit, absent module zeroed), so mutation (T8) must act on canonical values; haplotype order is part of the hash.
 
 - [ ] T4 Expression: dominance, polygenic sums, homozygous load
   - Acceptance:
