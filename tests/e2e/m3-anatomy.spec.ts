@@ -146,7 +146,12 @@ test.describe('hatching', () => {
     await expect(page.getByTestId('hud-species')).toContainText(first.species);
     await expect(page.getByTestId('hud-species')).toContainText(first.rarity);
 
-    await page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(0));
+    await page.evaluate(() => {
+      const debug = (window.__bs as BsHook).debug;
+      debug?.setEnergy(0);
+      // Starving takes about 15 s of game time; sped up it fits CI's software rendering.
+      debug?.timeScale(4);
+    });
     await page.waitForFunction(() => window.__bs?.state().screen === 'dead', null, {
       timeout: 20_000,
     });
