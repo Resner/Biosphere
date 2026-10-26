@@ -29,8 +29,11 @@ export interface CreatureViewState {
   pxPerWu?: number;
 }
 
+const NO_GEOMETRY = new THREE.BufferGeometry();
+
 export class CreatureView {
   readonly mesh = new THREE.Mesh();
+  private readonly blank = this.mesh.material;
   private asset: CreatureAsset | null = null;
   private material: THREE.ShaderMaterial | null = null;
   private detail: Detail = 'full';
@@ -87,6 +90,9 @@ export class CreatureView {
   }
 
   private release(): void {
+    // The mesh must not keep pointing at what the cache is about to dispose.
+    this.mesh.geometry = NO_GEOMETRY;
+    this.mesh.material = this.blank;
     if (this.asset) this.cache.release(this.asset);
     this.material?.dispose();
     this.asset = null;
