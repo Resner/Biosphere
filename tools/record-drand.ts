@@ -26,6 +26,7 @@ export async function fetchInfo(f: typeof fetch, hosts: readonly string[] = DRAN
       const res = await f(`${host}/${QUICKNET.chain}/info`, { signal: AbortSignal.timeout(5000) });
       if (!res.ok) continue;
       const { public_key, period, genesis_time, hash, schemeID } = (await res.json()) as ChainInfo;
+      if (hash !== QUICKNET.chain || public_key !== QUICKNET.publicKey) continue;
       return { public_key, period, genesis_time, hash, schemeID } satisfies ChainInfo;
     } catch {}
   }

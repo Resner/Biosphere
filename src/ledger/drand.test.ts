@@ -42,6 +42,7 @@ describe('quicknet constants', () => {
     for (let r = 1; r < 50; r++) expect(roundAt(roundTime(r + 1) - 1)).toBe(r);
     for (let r = 1; r < 50; r++) expect(roundAt(roundTime(r))).toBe(r);
     expect(roundTime(2) - roundTime(1)).toBe(3000);
+    expect(() => roundAt(Number.NaN)).toThrow(RangeError);
   });
 });
 

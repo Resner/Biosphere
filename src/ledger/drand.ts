@@ -32,6 +32,7 @@ export interface Beacon {
 
 /** The round that is current at a wall-clock time (0 before the chain started). */
 export function roundAt(ms: number): number {
+  if (!Number.isFinite(ms)) throw new RangeError(`not a time: ${ms}`);
   const rounds = Math.floor((ms - QUICKNET.genesis * 1000) / (QUICKNET.period * 1000)) + 1;
   return Math.max(0, rounds);
 }
@@ -91,7 +92,10 @@ async function fetchFrom(
   }
 }
 
-/** A verified beacon from the first host that serves one; throws when none does. */
+/**
+ * A verified beacon from the first host that serves one; throws when none does. A host can answer
+ * 'latest' with an old but genuine round, so callers that need freshness compare it with `roundAt`.
+ */
 export async function fetchBeacon(
   round: number | 'latest',
   f: typeof fetch,
