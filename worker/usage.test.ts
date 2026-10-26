@@ -87,7 +87,7 @@ describe('UsageMeter', () => {
       meter.flush(early);
       expect(rows().map((r) => [r.day, r.requests, r.messages])).toEqual([
         ['2031-01-05', 5, 100],
-        ['2031-01-06', 0, 1],
+        ['2031-01-06', 1, 1],
       ]);
     });
   });

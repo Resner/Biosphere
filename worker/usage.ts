@@ -19,7 +19,7 @@ export class UsageMeter {
   /** The day's span in ms, so the common call is two comparisons. */
   private dayStart = 0;
   private dayEnd = 0;
-  /** Requests in 1/20ths, so counting stays in integers. */
+  /** Requests in 1/20ths, so counting stays in integers (stored rounded up, so a reload never under-counts). */
   private ticks = 0;
   private messages = 0;
   private rows = 0;
@@ -58,7 +58,7 @@ export class UsageMeter {
       `INSERT INTO usage (day, requests, messages, rows_written) VALUES (?, ?, ?, ?)
        ON CONFLICT (day) DO UPDATE SET requests = excluded.requests, messages = excluded.messages, rows_written = excluded.rows_written`,
       this.day,
-      Math.round(this.ticks / MESSAGES_PER_REQUEST),
+      Math.ceil(this.ticks / MESSAGES_PER_REQUEST),
       this.messages,
       this.rows,
     );

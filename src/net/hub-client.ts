@@ -185,10 +185,10 @@ export class HubClient {
         this.hello(msg.nonce);
         break;
       case 'queued':
-        this.setQueue({ position: msg.position, etaS: msg.etaS });
+        this._queue = { position: msg.position, etaS: msg.etaS };
         break;
       case 'welcome':
-        this.setQueue(null);
+        this._queue = null;
         this.attempt = 0;
         this.healthChecked = false;
         this.setStatus('online');
@@ -241,7 +241,7 @@ export class HubClient {
   private lost(code: number): void {
     this.socket = null;
     this.clearTimers();
-    this.setQueue(null);
+    this._queue = null;
     if (code === CLOSE_REPLACED) {
       this.setStatus('replaced');
       this.settle(new Error('replaced by another session'));
@@ -315,10 +315,6 @@ export class HubClient {
 
   private settle(err: Error): void {
     for (const w of this.waiting.splice(0)) w.reject(err);
-  }
-
-  private setQueue(q: QueuePlace | null): void {
-    this._queue = q;
   }
 
   private setStatus(s: HubStatus): void {
