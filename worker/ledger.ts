@@ -378,12 +378,13 @@ export class Ledger {
   ): void {
     this.run(
       `INSERT INTO flags (kind, owner, creature, hash, t)
-       SELECT ?1, ?2, ?3, ?4, ?5 WHERE NOT EXISTS (SELECT 1 FROM flags WHERE kind = ?1 AND ${uniqueBy} = ?${uniqueBy === 'hash' ? 4 : 3})`,
+       SELECT ?1, ?2, ?3, ?4, ?5 WHERE NOT EXISTS (SELECT 1 FROM flags WHERE kind = ?1 AND ${uniqueBy} = ?6)`,
       kind,
       owner,
       creature,
       hash,
       t,
+      uniqueBy === 'hash' ? hash : creature,
     );
   }
 

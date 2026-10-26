@@ -34,6 +34,9 @@ export interface LifeState extends Condition {
   t: number;
   /** The creature's life clock including everything credited so far. */
   activeMs: number;
+  /** When this connection started crediting, and the life clock then: the wall-time cap counts from here. */
+  boundT: number;
+  boundMs: number;
   /** The life clock when the creature's last record was written. */
   savedMs: number;
   /** The report number that the last record covers. */
@@ -63,6 +66,8 @@ export function bindLife(
     ticks: 0,
     t: now,
     activeMs: head.activeMs,
+    boundT: now,
+    boundMs: head.activeMs,
     savedMs: head.activeMs,
     savedN: 0,
     biomass: head.biomass,
@@ -84,7 +89,11 @@ export function applyReport(
   report: Report,
   now: number,
 ): { life: LifeState; newFlags: Implausible[] } {
-  const gained = Math.floor(accrue(life.ticks, report.ticks, now - life.t));
+  // `accrue` caps one report at its own wall time plus slack; the connection as a whole gets the slack once.
+  const allowed = now - life.boundT + RULES.life.accrueSlackMs - (life.activeMs - life.boundMs);
+  const gained = Math.floor(
+    Math.max(0, Math.min(accrue(life.ticks, report.ticks, now - life.t), allowed)),
+  );
   const seconds = gained / 1000;
   const clamped: Implausible[] = [];
   const clamp = (value: number, cap: number, kind: Implausible): number => {

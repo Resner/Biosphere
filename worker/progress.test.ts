@@ -107,6 +107,18 @@ describe('progress and the life clock', () => {
     expect(await nextOf(slow.c, 'ack')).toMatchObject({ activeMs: 30_000 });
   });
 
+  it('gives a connection the 2 s of slack once, not on every report', async () => {
+    const { c } = await newPlayer();
+    // Twelve reports within 6 s of wall time, each claiming a minute of play.
+    for (let i = 1; i <= 12; i++) {
+      advance(500);
+      report(c, i * 1800);
+    }
+    const acks = (await flush(c)).filter((m) => m.t === 'ack');
+    expect(acks).toHaveLength(12);
+    expect(acks.at(-1)).toMatchObject({ activeMs: 8000 });
+  });
+
   it('credits nothing without ticks, whatever the wall clock says', async () => {
     const { c } = await newPlayer();
     advance(600_000);

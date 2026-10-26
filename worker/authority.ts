@@ -555,7 +555,11 @@ export class Authority extends DurableObject<Env> {
     const session = sessionOf(ws);
     if (session?.phase === 'active') {
       ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
-      this.saveOnClose(session);
+      try {
+        this.saveOnClose(session);
+      } catch {
+        // A failed save must not keep the others from seeing this player leave; the next login resumes from the last record.
+      }
       this.broadcast(session.pondId, ws, {
         t: 'member',
         op: 'leave',
