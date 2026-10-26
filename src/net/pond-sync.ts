@@ -22,9 +22,9 @@ const MAX_SAMPLES = 16;
 const SEQ_RANGE = 0x10000;
 /** Steady swimming speed, so a remote's flagellum beats in proportion to how fast it moves. */
 const CRUISE = RULES.movement.thrust / RULES.movement.drag;
-/** A remote is drawn within this range of biomass whatever its peer claims (a body can reach 2.4 million). */
+/** A remote is drawn within this range of biomass whatever its peer claims (the snapshot can carry up to 2^24). */
 const MIN_DRAWN_BIOMASS = 10;
-const MAX_DRAWN_BIOMASS = 2 ** 24;
+const MAX_DRAWN_BIOMASS = RULES.body.maxBiomassCeiling;
 /** A dash shows for this many ticks after it starts. */
 const DASH_SHOWN_TICKS = 8;
 

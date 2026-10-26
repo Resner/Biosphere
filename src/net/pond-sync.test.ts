@@ -203,7 +203,7 @@ describe('RemoteSet', () => {
     send(set, 'big', snap({ seq: 0, biomass: 1e9 }), 0);
     send(set, 'tiny', snap({ seq: 0, biomass: 0 }), 0);
     const radii = Object.fromEntries(set.sample(0, 1000).map((r) => [r.id, r.radius]));
-    expect(radii.big).toBeLessThanOrEqual(Math.sqrt(2 ** 24));
+    expect(radii.big).toBeLessThanOrEqual(Math.sqrt(RULES.body.maxBiomassCeiling));
     expect(radii.big).toBeGreaterThan(1000);
     expect(radii.tiny).toBeGreaterThan(1);
   });
@@ -247,6 +247,16 @@ describe('RemoteSet', () => {
     send(set, 'a', decoded, 0);
     const out = set.sample(0, 1000)[0];
     expect(out?.radius).toBeCloseTo(20, 0);
+  });
+
+  it('draws a claimed body no larger than any genome can grow', () => {
+    const set = new RemoteSet();
+    const decoded = decodeSnapshot(encodeSnapshot(snap({ seq: 1, tick: 30, biomass: 2 ** 24 })));
+    if (!decoded) throw new Error('decode failed');
+    send(set, 'a', decoded, 0);
+    expect(set.sample(0, 1000)[0]?.radius).toBeLessThanOrEqual(
+      Math.sqrt(RULES.body.maxBiomassCeiling),
+    );
   });
 });
 
