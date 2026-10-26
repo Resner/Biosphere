@@ -22,7 +22,10 @@ export function applyMetabolism(
 
   const effort = input.throttle / RULES.movement.maxThrottle;
   const drain =
-    m.basal * creature.phys.basal * pow(creature.biomass, m.basalExp) +
+    m.basal *
+      creature.phys.basal *
+      (creature.elder ? RULES.life.elderBasal : 1) *
+      pow(creature.biomass, m.basalExp) +
     m.move * creature.biomass * effort * effort;
   creature.energy = Math.max(0, creature.energy - drain * DT);
 

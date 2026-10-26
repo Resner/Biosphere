@@ -49,7 +49,11 @@ export function applyMovement(
   }
 
   const thrust =
-    m.thrust * creature.phys.thrust * (input.throttle / m.maxThrottle) * pow(scale, m.thrustExp);
+    m.thrust *
+    creature.phys.thrust *
+    (creature.elder ? RULES.life.elderThrust : 1) *
+    (input.throttle / m.maxThrottle) *
+    pow(scale, m.thrustExp);
   const drag = m.drag * creature.phys.drag;
   let ax = dirX * thrust - drag * creature.vx;
   let ay = dirY * thrust - drag * creature.vy;

@@ -16,6 +16,7 @@ export function hashWorld(world: World): string {
     h.f64(c.biomass).f64(c.energy).f64(c.health);
     h.u32(c.dashReadyTick)
       .u32(c.alive ? 1 : 0)
+      .u32(c.elder ? 1 : 0)
       .str(c.cause ?? '')
       .u32(c.bornTick);
     const p = c.phys;

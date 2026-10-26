@@ -1,5 +1,5 @@
 {
-  "rulesVersion": 3,
+  "rulesVersion": 4,
   "vectors": {
     "zero": "ed4f3336f9aade54",
     "ones": "e28da1d70e18a67d",

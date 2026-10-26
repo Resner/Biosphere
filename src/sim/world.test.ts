@@ -12,7 +12,7 @@ const deepFrozen = (value: unknown): boolean => {
 
 describe('RULES', () => {
   it('is deep-frozen', () => {
-    expect(RULES_VERSION).toBe(3);
+    expect(RULES_VERSION).toBe(4);
     expect(deepFrozen(RULES)).toBe(true);
   });
 
@@ -54,6 +54,7 @@ describe('createWorld and spawnCreature', () => {
       health: 100,
       dashReadyTick: 0,
       alive: true,
+      elder: false,
       cause: null,
       bornTick: 0,
       phys: STARTER_PHYS,
@@ -111,6 +112,7 @@ describe('hashWorld', () => {
       { health: 99 },
       { dashReadyTick: 1 },
       { alive: false },
+      { elder: true },
       { cause: 'toxin' satisfies DeathCause },
       { bornTick: 1 },
       { phys: { ...STARTER_PHYS, thrust: 1.1 } },

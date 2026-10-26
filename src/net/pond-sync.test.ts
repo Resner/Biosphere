@@ -273,6 +273,7 @@ describe('snapshotOf', () => {
     health: maxHealth(100),
     dashReadyTick: 0,
     alive: true,
+    elder: false,
     cause: null,
     bornTick: 0,
     phys: STARTER_PHYS,
