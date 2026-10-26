@@ -34,6 +34,8 @@ export interface RenderInfo {
   foodInstances: number;
   /** Other players' cells drawn this frame. */
   remoteCells: number;
+  /** Other players drawn with their genome's body. */
+  remoteBodies: number;
   /** Whether the player is drawn with its genome's body rather than the plain cell. */
   playerBody: boolean;
   /** CSS pixels per world unit. */
@@ -196,7 +198,7 @@ export class GameScene {
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(this.drawBody(view) ? null : view.creature, view.time);
-    this.remotes.set(view.remotes, view.time);
+    this.remotes.set(view.remotes, view.time, this.pxPerWu);
     this.rings.set(view.rings);
 
     this.renderer.render(this.scene, camera);
@@ -226,6 +228,7 @@ export class GameScene {
       triangles: render.triangles,
       foodInstances: this.food.instances(),
       remoteCells: this.remotes.count(),
+      remoteBodies: this.remotes.bodyCount(),
       playerBody: this.body.shown(),
       pxPerWu: this.pxPerWu,
     };

@@ -1,19 +1,24 @@
 // What a player hatches as (M3 T15): a genome, built into a creature once. Genesis DNA comes from a
 // browser-local random number, never from `sim` or `genome`, which stay deterministic.
 
-import { type Genome, parseGenomeText } from '../genome/codec';
+import { type Genome, genomeToBase64url, parseGenomeText } from '../genome/codec';
 import { genesisGenome } from '../genome/genesis';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import { sizeTier } from '../genome/size';
 import { starterGenome } from '../genome/starter';
 import { buildCreature, type Creature } from '../genome/stats';
+import { genomeRefOf } from '../net/protocol';
 import { seedFromString } from '../sim/prng';
 
 /** A genome built into everything the game needs to play and draw it. */
 export interface Body {
   creature: Creature;
   hash: string;
+  /** The genome as base64url text, which is what peers receive. */
+  text: string;
+  /** The first two bytes of the hash: what this creature's snapshots carry. */
+  ref: number;
   species: string;
   rarity: RarityTier;
   /** Size tier of the fully grown body (DESIGN §3). */
@@ -25,6 +30,8 @@ export function hatchBody(genome: Genome): Body {
   return {
     creature,
     hash: creature.hash,
+    text: genomeToBase64url(genome),
+    ref: genomeRefOf(creature.hash),
     species: speciesName(genome),
     rarity: rarityOfTraits(creature.traits).tier,
     tier: sizeTier(creature.stats.maxBiomass),

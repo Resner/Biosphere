@@ -5,6 +5,8 @@ import {
   decodeSnapshot,
   EVENT_MAX_BYTES,
   encodeSnapshot,
+  GENOME_DATA_MAX_CHARS,
+  genomeRefOf,
   HUB_MAX_BYTES,
   type HubMsg,
   parseClientMsg,
@@ -35,13 +37,15 @@ const snap: Snapshot = {
   health: 0.5,
   alive: true,
   dashing: true,
+  genomeRef: 0xbeef,
 };
 
 describe('snapshot codec', () => {
-  it('is exactly 24 bytes and round trips within quantization', () => {
+  it('is exactly 25 bytes and round trips within quantization', () => {
     const bytes = encodeSnapshot(snap);
     expect(bytes.length).toBe(SNAPSHOT_BYTES);
-    expect(SNAPSHOT_BYTES).toBe(24);
+    expect(SNAPSHOT_BYTES).toBe(25);
+    expect(bytes[24]).toBe(2);
     const d = decodeSnapshot(bytes);
     expect(d).not.toBeNull();
     if (!d) return;
@@ -52,7 +56,8 @@ describe('snapshot codec', () => {
     expect(Math.abs(d.heading - snap.heading)).toBeLessThanOrEqual(TAU / 512 + 1e-9);
     expect(Math.abs(d.vx - snap.vx)).toBeLessThanOrEqual(0.125 + 1e-9);
     expect(Math.abs(d.vy - snap.vy)).toBeLessThanOrEqual(0.125 + 1e-9);
-    expect(Math.abs(d.biomass - snap.biomass)).toBeLessThanOrEqual(0.05 + 1e-9);
+    expect(Math.abs(d.biomass / snap.biomass - 1)).toBeLessThanOrEqual(0.0003);
+    expect(d.genomeRef).toBe(0xbeef);
     expect(Math.abs(d.energy - snap.energy)).toBeLessThanOrEqual(0.005);
     expect(Math.abs(d.health - snap.health)).toBeLessThanOrEqual(0.005);
     expect(d.alive).toBe(true);
@@ -104,9 +109,38 @@ describe('snapshot codec', () => {
     expect(d?.x).toBeLessThanOrEqual(8192);
     expect(d?.y).toBe(0);
     expect(d?.vx).toBe(0);
-    expect(d?.biomass).toBe(0);
+    expect(d?.biomass).toBe(1);
     expect(d?.energy).toBe(1);
     expect(d?.health).toBe(0);
+  });
+
+  it('carries biomass from 1 to 2^24 within 0.03% (100, 900 and 1e6)', () => {
+    for (const biomass of [1, 100, 900, 12_345, 1e6, 2 ** 24]) {
+      const d = decodeSnapshot(encodeSnapshot({ ...snap, biomass }));
+      expect(Math.abs((d?.biomass ?? 0) / biomass - 1), String(biomass)).toBeLessThanOrEqual(
+        0.0003,
+      );
+    }
+    expect(decodeSnapshot(encodeSnapshot({ ...snap, biomass: 0.2 }))?.biomass).toBe(1);
+    expect(decodeSnapshot(encodeSnapshot({ ...snap, biomass: 1e12 }))?.biomass).toBeCloseTo(
+      2 ** 24,
+      -3,
+    );
+  });
+
+  it('drops a version 1 snapshot (24 bytes) and a wrong version byte', () => {
+    expect(decodeSnapshot(encodeSnapshot(snap).subarray(0, 24))).toBeNull();
+    for (const version of [0, 1, 3, 255]) {
+      const bytes = encodeSnapshot(snap);
+      bytes[24] = version;
+      expect(decodeSnapshot(bytes), String(version)).toBeNull();
+    }
+  });
+
+  it('derives the genome ref from the first two bytes of the hash', () => {
+    expect(genomeRefOf('beef0123')).toBe(0xbeef);
+    expect(genomeRefOf('0000ffff')).toBe(0);
+    expect(genomeRefOf('zz')).toBe(0);
   });
 
   it('covers the whole world at 0.125 wu', () => {
@@ -117,19 +151,22 @@ describe('snapshot codec', () => {
 });
 
 describe('snapshot fuzz', () => {
-  it('never throws, and decodes only 24-byte arrays with a valid flag byte', () => {
+  it('never throws, and decodes only 25-byte arrays with a valid flag and version byte', () => {
     const rng = createRng(seedFromString('fuzz-snapshot'), 'net');
     let decoded = 0;
     for (let i = 0; i < 100_000; i++) {
       const len = rng.int(0, 64);
       const b = new Uint8Array(len);
       for (let j = 0; j < len; j++) b[j] = rng.int(0, 255);
+      // Random bytes almost never carry version 2, so half the arrays get it.
+      if (len === 25 && rng.int(0, 1) === 1) b[24] = 2;
       const d = decodeSnapshot(b);
       if (d) {
         decoded++;
-        expect(len).toBe(24);
+        expect(len).toBe(25);
         expect((b[11] as number) & ~3).toBe(0);
-      } else if (len === 24) {
+        expect(b[24]).toBe(2);
+      } else if (len === 25 && b[24] === 2) {
         expect((b[11] as number) & ~3).not.toBe(0);
       }
     }
@@ -181,6 +218,7 @@ const peerEvents = [
   { t: 'claim', slot: 'c3_5_s2', k: 2, tick: 900 },
   { t: 'consumed', part: 0, of: 2, entries: [['c3_5_s2', 2, 1500]] },
   { t: 'chat', text: 'hello pond' },
+  { t: 'genome', data: 'Ab-_09'.repeat(100) },
   { t: 'emote', id: 5 },
   { t: 'ping', kind: 3, x: 100.5, y: -20 },
 ];
@@ -297,6 +335,21 @@ describe('rejections', () => {
     expect(parsePeerEvent(JSON.stringify({ t: 'chat', text: 'a'.repeat(141) }))).toBeNull();
     expect(parsePeerEvent(JSON.stringify({ t: 'chat', text: '' }))).toBeNull();
     expect(parsePeerEvent('{"t":"consumed","part":2,"of":2,"entries":[]}')).toBeNull();
+  });
+
+  it('accepts a genome event only as base64url text that fits the 2 KB event cap', () => {
+    const genome = (data: unknown) => parsePeerEvent(JSON.stringify({ t: 'genome', data }));
+    expect(genome('A'.repeat(GENOME_DATA_MAX_CHARS))).not.toBeNull();
+    expect(
+      JSON.stringify({ t: 'genome', data: 'A'.repeat(GENOME_DATA_MAX_CHARS) }).length,
+    ).toBeLessThan(EVENT_MAX_BYTES);
+    expect(genome('A'.repeat(5000))).toBeNull();
+    expect(genome('A'.repeat(GENOME_DATA_MAX_CHARS + 1))).toBeNull();
+    expect(genome('')).toBeNull();
+    expect(genome('not base64url!')).toBeNull();
+    expect(genome('AB+/')).toBeNull();
+    expect(genome(12)).toBeNull();
+    expect(genome(undefined)).toBeNull();
   });
 
   it('limits emote and ping kinds', () => {

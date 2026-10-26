@@ -107,6 +107,11 @@ export class OnlineSession {
     return [...this.roster.values()];
   }
 
+  /** Whether there is a connection to this roster member, open or coming up. */
+  hasLink(id: string): boolean {
+    return this.roster.has(id) && this.mesh?.peers().includes(id) === true;
+  }
+
   openCount(): number {
     let open = 0;
     this.eachOpen(() => open++);

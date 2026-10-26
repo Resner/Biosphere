@@ -23,6 +23,7 @@ const SNAP: Snapshot = {
   health: 1,
   alive: true,
   dashing: false,
+  genomeRef: 0x1234,
 };
 
 class FakeChannel implements DataChannelLike {

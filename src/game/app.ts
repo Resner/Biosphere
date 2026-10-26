@@ -1,4 +1,4 @@
-import { genomeFromBase64url } from '../genome/codec';
+import { genomeFromBase64url, genomeHash, parseGenomeText } from '../genome/codec';
 import { hashPlan } from '../genome/develop';
 import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
@@ -6,10 +6,12 @@ import type { Identity } from '../ledger/identity';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
 import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
+import { GenomeSync } from '../net/genome-sync';
 import { isFinalStatus, type Welcome } from '../net/hub-client';
-import { RemoteSet, type RemoteView, SnapshotSender, snapshotOf } from '../net/pond-sync';
+import { RemoteSet, SnapshotSender, snapshotOf } from '../net/pond-sync';
 import {
   decodeSnapshot,
+  genomeRefOf,
   type Member,
   type PeerEvent,
   parsePeerEvent,
@@ -56,6 +58,7 @@ import {
 import { OnlineKeeper } from './online-keeper';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
+import { type DrawnRemote, RemoteBodies } from './remote-bodies';
 import { type DeathSummary, type Screen, Screens } from './screens';
 import { MuteList, Social } from './social';
 import { type Anchor, SocialUi } from './social-ui';
@@ -75,7 +78,7 @@ const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
 /** With `timeScale`, a slow software-GL frame must still catch up: 120 ticks is 4 s of sim. */
 const DEBUG_MAX_TICKS_PER_FRAME = 120;
 const MAX_THROTTLE = RULES.movement.maxThrottle;
-const NO_REMOTES: readonly RemoteView[] = [];
+const NO_REMOTES: readonly DrawnRemote[] = [];
 const NO_MEMBERS: readonly Member[] = [];
 /** A hatch waits this long for the hub before the player swims in a local pond. */
 const HATCH_WAIT_MS = 4000;
@@ -163,11 +166,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const remotes = new RemoteSet();
   let pond: Pond | null = null;
   const pondMs = (): number => (pond ? pond.time.pondMs(performance.now()) : performance.now());
-  let remoteViews: readonly RemoteView[] = [];
+  const remoteBodies = new RemoteBodies();
+  let remoteViews: readonly DrawnRemote[] = [];
   interface Scripted {
     spec: ScriptedRemote;
     sender: SnapshotSender;
     startedMs: number;
+    /** The genome ref its snapshots carry. */
+    ref: number;
   }
   let scripted: Scripted[] = [];
 
@@ -227,7 +233,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     scene.setHalfHeight(camera.halfHeight);
     field.now();
     hud.update(player);
-    if (!session.demo) hud.setBody(bodyLabel(session.body));
+    if (!session.demo) {
+      hud.setBody(bodyLabel(session.body));
+      genomeSync.setOwn(session.body.text);
+    }
     view.body = session.body.creature;
     screen = nextScreen;
     screenShownAt = performance.now();
@@ -244,7 +253,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       return startOnline(name, identity as Identity);
     },
     stop: (link) => {
-      for (const { playerId: id } of link.others()) remotes.removeMember(id);
+      for (const { playerId: id } of link.others()) dropPeer(id);
       link.dispose();
     },
     isFinal: (link) => isFinalStatus(link.status),
@@ -257,6 +266,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const aloneElement = pick('[data-testid="alone-hint"]');
   const alone = new AloneHint();
   const sender = new SnapshotSender((bytes) => keeper.current?.broadcastState(bytes));
+  // Bodies on the wire (M3 T16): the genome goes out when a link opens and after every rehatch.
+  const dropPeer = (id: string): void => {
+    remotes.removeMember(id);
+    remoteBodies.remove(id);
+    genomeSync.forget(id);
+  };
+  const genomeSync = new GenomeSync({
+    send: (id, event) => keeper.current?.sendEvent(id, event),
+    broadcast: (event) => keeper.current?.broadcastEvent(event),
+    hasLink: (id) => keeper.current?.hasLink(id) === true,
+    accept: (id, text) => remoteBodies.add(id, text),
+  });
 
   // Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`.
   const selfKey = (): string => playerId ?? 'local';
@@ -315,12 +336,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           social.worldSize = w.pond.size;
         },
         member(op, member) {
-          if (op === 'join') remotes.setMember(member.playerId, member.name);
-          else remotes.removeMember(member.playerId);
+          if (op === 'join') {
+            remotes.setMember(member.playerId, member.name);
+          } else {
+            dropPeer(member.playerId);
+          }
         },
         peerOpen(id) {
           // The new peer learns what has been eaten; the reliable channel keeps the parts in order.
           if (pond) for (const part of consumedParts(pond.world)) link.sendEvent(id, part);
+          genomeSync.peerOpen(id);
         },
         state(id, snapshot) {
           remotes.receive(id, snapshot, performance.now());
@@ -328,6 +353,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         event(id, event) {
           receiveFoodEvent(id, event);
           social.receive(id, event);
+          genomeSync.receive(id, event, performance.now());
         },
       },
     });
@@ -554,7 +580,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     halfHeight: 1,
     creature: null as CellView | null,
     body: null as CreatureSource | null,
-    remotes: [] as readonly RemoteView[],
+    remotes: [] as readonly DrawnRemote[],
     rings: fx.rings,
   };
   const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0, hurt: 0, dissolve: 0 };
@@ -568,7 +594,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   /** A scripted remote's snapshot goes through the real codec and into the set, as a peer's would. */
-  const feedScripted = ({ spec, sender, startedMs }: Scripted, now: number): void => {
+  const feedScripted = ({ spec, sender, startedMs, ref }: Scripted, now: number): void => {
     sender.update(now, false, () => {
       const seconds = (now - startedMs) / 1000;
       const vx = spec.vx ?? 0;
@@ -585,6 +611,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         health: 1,
         alive: true,
         dashing: false,
+        genomeRef: ref,
       };
     });
   };
@@ -623,10 +650,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     for (const script of scripted) feedScripted(script, now);
     const joined = livePond();
     if (joined && joined === pond && (keeper.current?.openCount() ?? 0) > 0) {
-      sender.update(now, document.hidden, () => snapshotOf(player, session.world.tick));
+      sender.update(now, document.hidden, () =>
+        snapshotOf(player, session.world.tick, session.body.ref),
+      );
     }
     // A local pond life does not show the players of the hub's pond.
-    remoteViews = !keeper.current || joined ? remotes.sample(now, pondMs()) : NO_REMOTES;
+    remoteViews =
+      !keeper.current || joined
+        ? remoteBodies.resolve(remotes.sample(now, pondMs()), now)
+        : NO_REMOTES;
     updateNetUi(now, joined);
     view.remotes = remoteViews;
     const projection = {
@@ -733,14 +765,20 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       field.now();
     },
     setRemotes(specs) {
-      for (const { spec } of scripted) remotes.removeMember(spec.id);
+      for (const { spec } of scripted) {
+        dropPeer(spec.id);
+      }
       scripted = specs.map((spec) => {
         remotes.setMember(spec.id, spec.name);
+        if (spec.genome !== undefined && !spec.withholdGenome)
+          remoteBodies.add(spec.id, spec.genome);
         const sender = new SnapshotSender((bytes) => {
           const snapshot = decodeSnapshot(bytes);
           if (snapshot) remotes.receive(spec.id, snapshot, performance.now());
         });
-        return { spec, sender, startedMs: performance.now() };
+        const genome = spec.genome === undefined ? null : parseGenomeText(spec.genome);
+        const ref = genome ? genomeRefOf(genomeHash(genome)) : 0;
+        return { spec, sender, startedMs: performance.now(), ref };
       });
     },
     joinPond(spec) {
@@ -761,7 +799,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     deliver(from, raw) {
       const event = parsePeerEvent(JSON.stringify(raw));
-      if (event) receiveFoodEvent(from, event);
+      if (!event) return;
+      receiveFoodEvent(from, event);
+      if (event.t === 'genome') remoteBodies.add(from, event.data);
     },
     hasFood: (id) => food.some((f) => f.id === id),
     timeScale(next) {
@@ -804,7 +844,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             stats: session.player.phys,
           },
       death: session.death,
-      remotes: remoteViews.map(({ id, name, x, y, alpha }) => ({ id, name, x, y, alpha })),
+      remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species }) => ({
+        id,
+        name,
+        x,
+        y,
+        alpha,
+        radius,
+        genomeHash,
+        species,
+      })),
       pond: pond
         ? {
             id: pond.id,
@@ -827,6 +876,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         status: keeper.current?.status ?? 'none',
         open: keeper.current?.openCount() ?? 0,
         foodIgnored: pond?.food.ignored ?? 0,
+        dropped: genomeSync.dropped + remoteBodies.dropped,
       },
     }),
     events: () => ({ ...session.counts }),
