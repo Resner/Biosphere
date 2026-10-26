@@ -21,7 +21,7 @@ Go in this order; the first item that applies is this run's step.
 - An open `Blocked: …` issue with no owner reply → stop and report it. If the owner replied, apply the answer, close the issue and unblock the task.
 - An open `Playtest: …` issue for a milestone marked `gate` in the roadmap, with no owner reply → stop with `WAITING: playtest <version>`. A reply (or closing the issue) opens the gate; its feedback becomes owner issues or tasks in the next spec.
 - Another open PR from a `claude/` branch, draft or not, updated within the last 90 minutes → another run is still working; stop with `IDLE: another run is working`.
-- An older open factory PR → merge its branch into yours, finish it as your PR, and close the old one with a link.
+- An older open factory PR → if its step is already done on `main` (a parallel duplicate), close it with a link and carry on; otherwise merge its branch into yours, finish it as your PR, and close the old one with a link **before your last push**: CI fails a `claude/` PR while a lower-numbered one is open (ADR 0020), and only a push re-runs it.
 - Dependabot PRs are yours to settle; the owner never handles them:
   - green and right for the repo → squash-merge, and carry on;
   - wrong for the repo (conflicts with `engines`, an ADR or a deliberate pin) → add an `ignore` rule to `.github/dependabot.yml` in this run's PR, close the Dependabot PR with a comment saying why, and carry on;
@@ -52,7 +52,8 @@ Before any real work, claim the step so that no other run starts it too:
    - a spec: create the spec file with just its title;
    - a milestone close: append ` (closing)` to the milestone's status in `docs/ROADMAP.md`.
 3. Push it and open a **draft** PR titled after the step. This draft is the lock that "Clear the line" checks.
-4. If another open `claude/` PR claims the same step and was created before yours, close yours and stop with `IDLE: <step> already claimed`.
+4. List the open PRs again. If another open `claude/` PR from this repository has a lower number than yours, close yours and stop with `IDLE: <step> already claimed`. PR numbers are assigned atomically, so the lowest number always wins (ADR 0020). Two runs can start or wake within seconds of each other (a merge and the hourly schedule, or the end of a shared release wait), so never skip this check.
+   Repeat it right before you mark the PR ready. CI's `verify` also enforces it, so a PR that loses the race stays red and never merges.
 
 Clear the marker before you ship.
 
