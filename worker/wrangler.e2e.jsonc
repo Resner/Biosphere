@@ -3,7 +3,11 @@
   "name": "biosphere-authority-e2e",
   "main": "e2e-entry.ts",
   "compatibility_date": "2026-10-01",
-  "vars": { "DRAND_SOURCE": "fixture" },
+  "vars": {
+    "DRAND_SOURCE": "fixture",
+    "MAX_SESSIONS": "200",
+    "DAILY_REQUEST_BUDGET": "100000"
+  },
   "durable_objects": {
     "bindings": [{ "name": "AUTHORITY", "class_name": "Authority" }]
   },

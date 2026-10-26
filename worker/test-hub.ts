@@ -91,7 +91,8 @@ export async function nextOf<T extends HubMsg['t']>(
   }
 }
 
-export async function login(id?: Identity, store = memoryKeyStore()) {
+/** Opens a socket and says hello; the caller reads what the hub answers (`welcome` or `queued`). */
+export async function signIn(id?: Identity, store = memoryKeyStore()) {
   const who = id ?? (await createIdentity(store));
   const c = await open();
   const challenge = await nextOf(c, 'challenge');
@@ -100,6 +101,11 @@ export async function login(id?: Identity, store = memoryKeyStore()) {
     who.sign(HELLO_DOMAIN, helloMessage(challenge.nonce, name) ?? new Uint8Array()),
   );
   c.send({ t: 'hello', v: 1, playerId: who.playerId, name, sig });
+  return { c, id: who };
+}
+
+export async function login(id?: Identity, store = memoryKeyStore()) {
+  const { c, id: who } = await signIn(id, store);
   await nextOf(c, 'welcome');
   const life = await nextOf(c, 'life');
   return { c, id: who, life };

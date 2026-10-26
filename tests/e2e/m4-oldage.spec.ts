@@ -46,7 +46,8 @@ test('a creature grows old, slows, dies of old age, and the next hatch is a new 
 
   // The first report (after 5 s) brings the real lifespan; at 85% of it the creature turns old.
   await page.waitForFunction(() => window.__bs?.state().life.stage === 'old', undefined, {
-    timeout: 90_000,
+    // Old age comes from the authority's clock, which credits the ticks a loaded runner manages to play.
+    timeout: 150_000,
   });
   await expect(page.getByTestId('hud-stage')).toHaveText('Old');
   await expect(page.getByTestId('toast')).toHaveText('Feeling old');

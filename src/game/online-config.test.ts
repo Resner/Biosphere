@@ -4,6 +4,7 @@ import {
   defaultName,
   hubSocketUrl,
   loadName,
+  ordinal,
   ringSpawn,
   saveName,
   statusText,
@@ -120,6 +121,13 @@ describe('statusText', () => {
     expect(statusText('online', 3)).toBe('Online · 3 in pond');
     expect(statusText('connecting', 1)).toBe('Connecting…');
     expect(statusText('offline', 1)).toBe('Offline · playing alone');
+    expect(statusText('connecting', 1, { position: 3, etaS: 90 })).toBe(
+      'Waiting for a place (3rd in line)',
+    );
+    expect(statusText('online', 2, { position: 1, etaS: 30 })).toBe('Online · 2 in pond');
+    expect(
+      ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '103rd'].join(),
+    ).toBe([1, 2, 3, 4, 11, 12, 13, 21, 22, 103].map(ordinal).join());
     expect(statusText('none', 1)).toBe('Offline · playing alone');
     expect(statusText('replaced', 1)).toBe('Playing in another tab');
     expect(statusText('outdated', 1)).toBe('Update available, reload');

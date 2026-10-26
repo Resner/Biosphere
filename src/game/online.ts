@@ -8,6 +8,7 @@ import {
   type HubStatus,
   isFinalStatus,
   type LifeMsg,
+  type QueuePlace,
   HubClient as RealHub,
   type SignalMsg,
   type Welcome,
@@ -18,6 +19,7 @@ import type { ClientMsg, IceServer, Member, PeerEvent, Snapshot } from '../net/p
 export type OnlineHub = Pick<
   HubClient,
   | 'status'
+  | 'queue'
   | 'clock'
   | 'connect'
   | 'close'
@@ -87,6 +89,11 @@ export class OnlineSession {
 
   get status(): HubStatus {
     return this.opts.hub.status;
+  }
+
+  /** The place in the hub's admission line while it keeps this session waiting, else null. */
+  get queue(): QueuePlace | null {
+    return this.opts.hub.queue;
   }
 
   /** The pond clock, sampled by the hub client's pings. */

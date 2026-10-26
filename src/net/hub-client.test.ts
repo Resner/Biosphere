@@ -91,6 +91,36 @@ beforeEach(async () => {
 });
 afterEach(() => vi.useRealTimers());
 
+describe('HubClient queue', () => {
+  it('tracks the place in line until the welcome ends the wait', async () => {
+    const client = make();
+    void client.connect();
+    const s = last();
+    s.open();
+    s.receive({ t: 'challenge', nonce: NONCE });
+    expect(client.queue).toBeNull();
+    s.receive({ t: 'queued', position: 3, etaS: 90 });
+    expect(client.queue).toEqual({ position: 3, etaS: 90 });
+    expect(client.status).toBe('connecting');
+    s.receive({ t: 'queued', position: 2, etaS: 60 });
+    expect(client.queue).toEqual({ position: 2, etaS: 60 });
+    s.receive(welcome());
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.status).toBe('online');
+    expect(client.queue).toBeNull();
+  });
+
+  it('forgets the place when the connection drops', async () => {
+    const client = make();
+    void client.connect();
+    const s = last();
+    s.open();
+    s.receive({ t: 'queued', position: 1, etaS: 30 });
+    s.drop();
+    expect(client.queue).toBeNull();
+  });
+});
+
 describe('HubClient connect', () => {
   it('answers the challenge with a verifiable hello and resolves with the welcome', async () => {
     const client = make();

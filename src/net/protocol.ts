@@ -56,6 +56,8 @@ const BEACON_SIG_RE = /^[0-9a-f]{96}$/;
 const KEY_ID_RE = /^[A-Za-z0-9_-]{8}$/;
 /** A species name: two words of letters, as `speciesName` makes them. */
 const SPECIES_RE = /^[A-Za-z]{2,40} [A-Za-z]{2,40}$/;
+/** Far above any queue the free tier lets build up. */
+const MAX_QUEUE = 1_000_000;
 const REASON_RE = /^[a-z0-9:-]{1,48}$/;
 /** The most a record body may nest and hold, so a hostile body stays small. */
 const BODY_MAX_DEPTH = 4;
@@ -181,6 +183,8 @@ export type HubMsg =
       genome: string;
     }
   | { t: 'refused'; reason: string; genesisIn?: number }
+  /** Admission is full: the session waits in line (1 = next) instead of getting a `welcome`; sent again when its place changes. */
+  | { t: 'queued'; position: number; etaS: number }
   | { t: 'error'; code: string };
 
 /** Peer `event` channel: JSON, at most `EVENT_MAX_BYTES`. */
@@ -513,6 +517,10 @@ export function parseHubMsg(raw: string): HubMsg | null {
       if (o.genesisIn === undefined) return capped(raw, { t: 'refused', reason: o.reason });
       return isInt(o.genesisIn, 0, MAX_TIME)
         ? capped(raw, { t: 'refused', reason: o.reason, genesisIn: o.genesisIn })
+        : null;
+    case 'queued':
+      return isInt(o.position, 1, MAX_QUEUE) && isInt(o.etaS, 0, MAX_TIME)
+        ? capped(raw, { t: 'queued', position: o.position, etaS: o.etaS })
         : null;
     default:
       return null;

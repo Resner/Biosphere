@@ -28,7 +28,8 @@ test('after three quick deaths the fourth hatch waits, and the practice cell pla
     await page.waitForFunction(() => window.__bs?.state().screen === 'dead', undefined, {
       timeout: 20_000,
     });
-    expect((await state(page)).death?.cause).toBe('starved');
+    // A drifting plume can get to a starving cell first; this test is about the hatch bucket, not the cause.
+    expect(['starved', 'toxin']).toContain((await state(page)).death?.cause);
     if (life < 3) {
       await page.getByTestId('hatch-again').click();
       await waitPlaying(page);

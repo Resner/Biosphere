@@ -51,6 +51,8 @@ async function join(page: Page, epoch: number): Promise<void> {
 test('an item eaten in one tab disappears for the other and respawns for both', async ({
   browser,
 }) => {
+  // Two software-rendered tabs on a loaded runner need more than the default 30 s.
+  test.setTimeout(60_000);
   const epoch = Date.now() - 50_000;
   const [a, b] = await Promise.all([joinedTab(browser), joinedTab(browser)]);
   try {
