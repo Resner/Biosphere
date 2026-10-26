@@ -291,7 +291,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     Winners: hunter, armoured, swimmer, flagellate. Ciliate and filter place first or second twice.
   - Gotcha: the gauntlet hatches each body at its adult biomass, so a big body (more hit points, √biomass) beats a small fast one; hatched small, it only ranked speed, the same order as the sprint, and no scenario could favour the armoured or filter feeders. Forage lifts every body's maximum biomass to 6,000 so nobody stops growing within the 3 minutes (the score is biomass gained, which saturates at the genetic maximum). The sim keeps the adult stats for the whole life, so a big whip body is slower than it looks at hatching (whip efficiency falls with size). `m3-anatomy` needs the armoured body at least 20% slower than the flagellate, so its paddles are kept thin. Forage costs about 12 s of the test's 20 s; `npm run check` grew by about 10 s of wall time.
 
-- [ ] T18 Render budget with many bodies
+- [ ] T18 Render budget with many bodies (in progress)
   - Acceptance:
     - Worst case: take the genome with the most vertices among 1,500 random and the extreme genomes, and 24 copies with different tints (24 distinct hashes by a one-byte change that leaves the geometry, or 24 maximal genomes): `renderer.info.render.calls ≤ 150` and `triangles ≤ 300,000` (DESIGN §12 medium) in the game scene with water, food and plumes; the 24 creatures take 24 calls. The `low` LOD is used for small ones: each creature under 12 px on screen has ≤ 1,500 vertices.
     - Dispose: 200 creatures added and removed over 50 distinct genomes leave `renderer.info.memory.geometries` and `textures` at their baseline, and `CreatureCache.live()` at 0.
