@@ -187,13 +187,25 @@ export const RULES = deepFreeze({
     minBeat: 0.1,
     /** Motile area below this gets the default ciliary band. */
     minThrustArea: 0.06,
-    band: { length: 0.4, width: 0.12, beat: 0.8, pairs: 2, tip: 0 },
+    band: {
+      length: 0.4,
+      width: 0.12,
+      beat: 0.8,
+      pairs: 2,
+      tip: 0.9,
+      taper: 0.3,
+      joints: 2,
+      stiffness: 0.3,
+    },
+    /** Slack for comparing angles and distances. */
+    epsilon: 1e-9,
     /** A segment carrying plating below this has no plates; the plate thickness runs over this range with the plating. */
     plateMin: 0.05,
     plateThickness: [0.03, 0.2],
     /** Collider radius is the part's base width times this. */
     colliderWidth: 0.5,
     colliderAlong: 0.65,
+    colliderMaxRadius: 0.5,
     /** The mouth: radius = size × (this − type); the jaw half (type > 0.5) moves forward and narrows. */
     mouthRadiusBase: 1.5,
     mouthReach: 1.2,

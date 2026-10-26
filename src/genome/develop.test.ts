@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { sanitizePhys } from '../sim/body';
+import { STARTER_PHYS, sanitizePhys } from '../sim/body';
+import { lerp } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
@@ -79,6 +80,12 @@ const complete = (name: string, g: Genome): void => {
 };
 
 describe('develop: caps and guarantees', () => {
+  it('agrees with the body limits the sim enforces', () => {
+    expect(D.caps.colliders).toBe(RULES.body.maxColliders);
+    expect(D.caps.bounds).toBe(RULES.body.maxReach);
+    expect(D.caps.segments).toBe(RULES.genes.segments);
+  });
+
   it('repairs 10,000 random genomes into valid plans', () => {
     for (let i = 0; i < 10_000; i++) {
       const p = plan(decodeGenome(randomBytes()));
@@ -134,16 +141,7 @@ describe('develop: caps and guarantees', () => {
   it('hands the rules a body they accept as it is', () => {
     for (let i = 0; i < 500; i++) {
       const p = plan(decodeGenome(randomBytes()));
-      const phys = {
-        maxBiomass: 400,
-        thrust: 1,
-        drag: 1,
-        turn: 1,
-        basal: 1,
-        growth: 1,
-        mouth: p.mouth,
-        colliders: p.colliders,
-      };
+      const phys = { ...STARTER_PHYS, mouth: p.mouth, colliders: p.colliders };
       expect(sanitizePhys(phys)).toEqual(phys);
     }
   });
@@ -156,7 +154,7 @@ describe('develop: repairs', () => {
     const p = plan(decodeGenome(new Uint8Array(GENOME_BYTES)));
     expect(p.appendages.length).toBeGreaterThan(0);
     expect(p.appendages.every((a) => a.module === -1)).toBe(true);
-    expect(motileArea(p)).toBeGreaterThanOrEqual(D.minThrustArea);
+    expect(motileArea(p.appendages)).toBeGreaterThanOrEqual(D.minThrustArea);
     // A present module that never beats is not propulsion either.
     const still = plan(decodeGenome(build(slot('M1', { length: 200, thickness: 200 }))));
     expect(still.appendages.some((a) => a.module === -1)).toBe(true);
@@ -208,7 +206,7 @@ describe('develop: repairs', () => {
     const left = p.appendages.filter((a) => a.side === 1);
     expect(left.length).toBeLessThan(12);
     const [lo, hi] = D.width as readonly [number, number];
-    expect(Math.max(...left.map((a) => a.width))).toBeGreaterThan(lo + (hi - lo) * (100 / 255));
+    expect(Math.max(...left.map((a) => a.width))).toBeGreaterThan(lerp(lo, hi, 100 / 255));
   });
 
   it('clamps lengths so the bounds hold', () => {
@@ -345,7 +343,7 @@ describe('bodyViolations: each rule', () => {
   it('flags non-finite numbers', () => {
     const p = base();
     first(p).length = Number.NaN;
-    expect(bodyViolations(p)).toEqual(['non-finite number in the plan']);
+    expect(bodyViolations(p).join()).toMatch(/malformed/);
   });
 });
 

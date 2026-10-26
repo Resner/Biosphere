@@ -5,7 +5,7 @@
 
 import type { Collider } from '../sim/body';
 import { Hasher } from '../sim/hash';
-import { clamp, cos, length as hypot, PI, sin } from '../sim/math';
+import { clamp, cos, length as hypot, lerp, PI, sin } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { Traits } from './express';
 
@@ -70,14 +70,19 @@ export interface BodyPlan {
 
 export type Detail = 'full' | 'low';
 
-type Part = Omit<Appendage, 'side'> & { pair: number };
+/** One left-side appendage; `develop` builds these and mirrors them at the end. */
+type Part = Omit<Appendage, 'side'>;
+type Range = readonly [number, number];
 
-const STRETCH = D.stretch as readonly [number, number];
-const WIDTH = D.width as readonly [number, number];
+const range = (r: readonly number[]): Range => [r[0] as number, r[1] as number];
+const STRETCH = range(D.stretch);
+const LENGTH = range(D.length);
+const WIDTH = range(D.width);
+const TAPER = range(D.taper);
+const CURVATURE = range(D.curvature);
+const PLATE_THICKNESS = range(D.plateThickness);
 
 const unit = (byte: number): number => byte / 255;
-const span = (range: readonly [number, number] | readonly number[], f: number): number =>
-  (range[0] as number) + ((range[1] as number) - (range[0] as number)) * f;
 const branchFactor = (branches: number): number => (branches > 0 ? 1 + D.branchScale : 1);
 const maxAngle = PI - D.angleMargin;
 
@@ -104,7 +109,7 @@ function buildSegments(body: Traits['body']): PlanSegment[] {
   return out;
 }
 
-/** Distance from the core centre to where an appendage leaves segment `s` at `angle`. */
+/** Where an appendage leaves segment `s` at `angle`, from the core centre. */
 function rootOf(s: PlanSegment, angle: number): { x: number; y: number } {
   return { x: s.x + s.rx * cos(angle), y: s.ry * sin(angle) };
 }
@@ -125,14 +130,13 @@ function buildParts(traits: Traits, segments: PlanSegment[]): Part[] {
       const t = pairs > 1 ? t0 + (reach * k) / (pairs - 1) : t0;
       parts.push({
         module: slot,
-        pair: k,
         segment: Math.min(n - 1, Math.floor(t * n)),
         angle: D.angleMargin + (PI - 2 * D.angleMargin) * unit(p.angle),
         dir: 0,
-        length: span(D.length, unit(p.length)) * scale,
-        width: span(D.width, unit(p.thickness)) * scale,
-        taper: span(D.taper, unit(p.taper)),
-        curvature: span(D.curvature, unit(p.curvature)),
+        length: lerp(LENGTH[0], LENGTH[1], unit(p.length)) * scale,
+        width: lerp(WIDTH[0], WIDTH[1], unit(p.thickness)) * scale,
+        taper: lerp(TAPER[0], TAPER[1], unit(p.taper)),
+        curvature: lerp(CURVATURE[0], CURVATURE[1], unit(p.curvature)),
         joints: 1 + Math.floor((p.joints * D.caps.joints) / 256),
         branches: Math.floor((p.branching * (D.caps.branches + 1)) / 256),
         tip: unit(p.tipShape),
@@ -145,92 +149,81 @@ function buildParts(traits: Traits, segments: PlanSegment[]): Part[] {
   return parts;
 }
 
-const byAngle = (a: Part, b: Part): number =>
-  a.angle - b.angle || a.module - b.module || a.pair - b.pair;
-
-/** Parts on one segment keep `minAngleGap` apart: later ones are pushed round, and one with no room merges into its neighbour. */
+/**
+ * Parts on one segment keep `minAngleGap` apart: later ones are pushed round, and one with no room
+ * merges into its neighbour. Edits the parts in place; the stable sort keeps module and pair order
+ * among equal angles.
+ */
 function separate(parts: Part[], count: number): Part[] {
-  const fate = new Map<Part, Part | null>();
+  const dropped = new Set<Part>();
   for (let s = 0; s < count; s++) {
-    const kept: Part[] = [];
-    for (const p of parts.filter((q) => q.segment === s).sort(byAngle)) {
-      const prev = kept[kept.length - 1];
+    let prev: Part | undefined;
+    for (const p of parts.filter((q) => q.segment === s).sort((x, y) => x.angle - y.angle)) {
       if (prev === undefined) {
-        kept.push(p);
-        fate.set(p, p);
+        prev = p;
         continue;
       }
       const angle = Math.max(p.angle, prev.angle + D.minAngleGap);
-      if (angle <= maxAngle + 1e-12) {
-        const moved = { ...p, angle };
-        kept.push(moved);
-        fate.set(p, moved);
+      if (angle <= maxAngle + D.epsilon) {
+        p.angle = angle;
+        prev = p;
       } else {
-        const merged = { ...prev, width: Math.min(WIDTH[1], hypot(prev.width, p.width)) };
-        kept[kept.length - 1] = merged;
-        for (const [from, to] of fate) if (to === prev) fate.set(from, merged);
-        fate.set(p, null);
+        prev.width = Math.min(WIDTH[1], hypot(prev.width, p.width));
+        dropped.add(p);
       }
     }
   }
-  const out: Part[] = [];
-  for (const p of parts) {
-    const to = fate.get(p);
-    if (to) out.push(to);
-  }
-  return out;
+  return parts.filter((p) => !dropped.has(p));
 }
 
-/** Sets the growth direction and clamps lengths so root plus reach stays inside the bounds. */
+/** Sets the growth direction and clamps lengths so root plus reach stays inside the bounds. Edits in place. */
 function shape(parts: Part[], segments: PlanSegment[]): Part[] {
-  return parts.map((p) => {
+  for (const p of parts) {
     const root = rootOf(segments[p.segment] as PlanSegment, p.angle);
     const room = (D.caps.bounds - D.boundsSlack - hypot(root.x, root.y)) / branchFactor(p.branches);
-    return {
-      ...p,
-      dir: p.angle + D.sweep * (PI - p.angle),
-      length: Math.min(p.length, room),
-    };
-  });
+    p.dir = p.angle + D.sweep * (PI - p.angle);
+    p.length = Math.min(p.length, room);
+  }
+  return parts;
 }
 
-/** Motile area: length × width × beat over parts that beat at all, both sides, counting branches. */
-export function motileArea(plan: BodyPlan): number {
+type Piece = Pick<Appendage, 'length' | 'width' | 'beat' | 'branches'>;
+
+/** Motile area: length × width × beat over parts that beat at all, counting branches. */
+export function motileArea(appendages: readonly Piece[]): number {
   let area = 0;
-  for (const a of plan.appendages) {
-    if (a.beat >= D.minBeat) area += partArea(a);
+  for (const a of appendages) {
+    if (a.beat >= D.minBeat) {
+      area += a.length * a.width * a.beat * (1 + a.branches * D.branchScale * D.branchScale);
+    }
   }
   return area;
 }
 
-const partArea = (a: Pick<Appendage, 'length' | 'width' | 'beat' | 'branches'>): number =>
-  a.length * a.width * a.beat * (1 + a.branches * D.branchScale * D.branchScale);
-
 export function estimateVertices(plan: BodyPlan, detail: Detail): number {
-  return verticesOf(plan.segments.length, plan.appendages, detail);
+  return verticesOf(plan.segments.length, plan.appendages, 1, detail);
 }
 
+/** Mesh vertices for a body and `sides` copies of each appendage. */
 function verticesOf(
   segments: number,
   appendages: readonly Pick<Appendage, 'joints' | 'branches'>[],
+  sides: number,
   detail: Detail,
 ): number {
   const v = D.vertices[detail];
   let total = segments * v.bodyRings * v.bodyRing;
   for (const a of appendages) {
-    total += (1 + a.branches) * ((a.joints * v.jointRings + 1) * v.partRing + 1);
+    total += sides * (1 + a.branches) * ((a.joints * v.jointRings + 1) * v.partRing + 1);
   }
   return total;
 }
 
-const fits = (segments: number, parts: Part[]): boolean => {
-  const both = parts.flatMap((p) => [p, p]);
-  return (
-    both.length <= D.caps.appendages &&
-    verticesOf(segments, both, 'full') <= D.vertices.full.cap &&
-    verticesOf(segments, both, 'low') <= D.vertices.low.cap
-  );
-};
+/** Whether the left-side `parts`, mirrored, hold the instance and vertex caps. */
+const fits = (segments: number, parts: Part[]): boolean =>
+  parts.length * 2 <= D.caps.appendages &&
+  verticesOf(segments, parts, 2, 'full') <= D.vertices.full.cap &&
+  verticesOf(segments, parts, 2, 'low') <= D.vertices.low.cap;
 
 function bandParts(parts: Part[], segment: number): Part[] | null {
   // The free angles on the rear segment, rearmost first.
@@ -239,21 +232,20 @@ function bandParts(parts: Part[], segment: number): Part[] | null {
   const band: Part[] = [];
   for (let j = slots; j >= 0 && band.length < D.band.pairs; j--) {
     const angle = D.angleMargin + j * D.minAngleGap;
-    if (taken.every((a) => Math.abs(a - angle) >= D.minAngleGap - 1e-9)) {
+    if (taken.every((a) => Math.abs(a - angle) >= D.minAngleGap - D.epsilon)) {
       band.push({
         module: -1,
-        pair: band.length,
         segment,
         angle,
         dir: 0,
         length: D.band.length,
         width: D.band.width,
-        taper: 0.3,
+        taper: D.band.taper,
         curvature: 0,
-        joints: 2,
+        joints: D.band.joints,
         branches: 0,
         tip: D.band.tip,
-        stiffness: 0.3,
+        stiffness: D.band.stiffness,
         beat: D.band.beat,
         phase: band.length / D.band.pairs,
       });
@@ -263,13 +255,11 @@ function bandParts(parts: Part[], segment: number): Part[] | null {
 }
 
 /** Both sides of every part, pairs adjacent: left then right. */
-function mirror(parts: Part[]): Appendage[] {
-  const out: Appendage[] = [];
-  for (const { pair: _pair, ...rest } of parts) {
-    out.push({ ...rest, side: 1 }, { ...rest, side: -1 });
-  }
-  return out;
-}
+const mirror = (parts: Part[]): Appendage[] =>
+  parts.flatMap((p) => [
+    { ...p, side: 1 as const },
+    { ...p, side: -1 as const },
+  ]);
 
 function buildMouth(m: Traits['mouth']): PlanMouth {
   const jaw = Math.max(0, m.type - 0.5);
@@ -303,7 +293,7 @@ function buildColliders(segments: PlanSegment[], appendages: Appendage[]): Colli
     out.push({
       x: root.x + along * cos(a.dir),
       y: a.side * (root.y + along * sin(a.dir)),
-      r: clamp(a.width * D.colliderWidth, RULES.body.minColliderRadius, 0.5),
+      r: clamp(a.width * D.colliderWidth, RULES.body.minColliderRadius, D.colliderMaxRadius),
     });
   }
   return out;
@@ -316,8 +306,7 @@ export function develop(traits: Traits): BodyPlan {
   // Trim in module order, pair by pair, until the plan fits the caps and the vertex budget.
   while (!fits(count, parts)) parts = parts.slice(0, -1);
 
-  const probe = (list: Part[]): number => motileArea({ appendages: mirror(list) } as BodyPlan);
-  if (probe(parts) < D.minThrustArea) {
+  if (2 * motileArea(parts) < D.minThrustArea) {
     for (;;) {
       const band = bandParts(parts, count - 1);
       const trial = band && shape(band, segments);
@@ -337,7 +326,7 @@ export function develop(traits: Traits): BodyPlan {
       : segments.map((_, segment) => ({
           segment,
           coverage: plating,
-          thickness: span(D.plateThickness, plating),
+          thickness: lerp(PLATE_THICKNESS[0], PLATE_THICKNESS[1], plating),
         }));
   return {
     segments,
@@ -362,23 +351,19 @@ export function planBounds(plan: BodyPlan): number {
   return bound;
 }
 
-function allFinite(value: unknown): boolean {
-  if (typeof value === 'number') return Number.isFinite(value);
-  if (Array.isArray(value)) return value.every(allFinite);
-  if (typeof value === 'object' && value !== null) return Object.values(value).every(allFinite);
-  return true;
-}
-
 /** Every ADR 0006 cap and guarantee a plan must hold; an empty list means the plan is valid. */
 export function bodyViolations(plan: BodyPlan): string[] {
   const bad: string[] = [];
-  if (!allFinite(plan)) return ['non-finite number in the plan'];
+  try {
+    hashPlan(plan); // throws on a non-finite number or a missing field
+  } catch {
+    return ['malformed plan: a number is missing or not finite'];
+  }
   const { caps } = D;
   const n = plan.segments.length;
   if (n < 1 || n > caps.segments) bad.push(`segments: ${n} is outside 1-${caps.segments}`);
-  const core = plan.colliders[0];
-  if (!core || core.x !== 0 || core.y !== 0 || core.r !== 1)
-    bad.push('colliders: the core must come first');
+  const core = plan.colliders[0] ?? { x: NaN, y: NaN, r: NaN };
+  if (core.x !== 0 || core.y !== 0 || core.r !== 1) bad.push('colliders: the core must come first');
   if (plan.colliders.length < 1 || plan.colliders.length > caps.colliders) {
     bad.push(`colliders: ${plan.colliders.length} is outside 1-${caps.colliders}`);
   }
@@ -399,15 +384,19 @@ export function bodyViolations(plan: BodyPlan): string[] {
   for (const [key, angles] of seen) {
     angles.sort((p, q) => p - q);
     for (let i = 1; i < angles.length; i++) {
-      if ((angles[i] as number) - (angles[i - 1] as number) < D.minAngleGap - 1e-9) {
+      if ((angles[i] as number) - (angles[i - 1] as number) < D.minAngleGap - D.epsilon) {
         bad.push(`appendages overlap on segment/side ${key}`);
         break;
       }
     }
   }
+  for (const c of plan.colliders) {
+    if (hypot(c.x, c.y) + c.r > RULES.body.maxReach)
+      bad.push('colliders: a circle reaches past the body limit');
+  }
   const m = plan.mouth;
   if (!m || !(m.radius > 0) || !(m.arc > 0) || !(m.offset >= 0)) bad.push('no mouth at the front');
-  if (motileArea(plan) < D.minThrustArea) bad.push('no propulsion source');
+  if (motileArea(plan.appendages) < D.minThrustArea) bad.push('no propulsion source');
   const bound = planBounds(plan);
   if (bound > caps.bounds) bad.push(`bounds: ${bound} is beyond ${caps.bounds} core radii`);
   if (estimateVertices(plan, 'full') > D.vertices.full.cap)
