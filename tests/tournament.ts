@@ -17,7 +17,7 @@ import { ARCHETYPES } from './archetypes';
 
 export const SCENARIOS = ['forage', 'gauntlet', 'sprint', 'cruise'] as const;
 export type Scenario = (typeof SCENARIOS)[number];
-export const SEEDS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'] as const;
+const SEEDS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'] as const;
 
 const ID = 'bot';
 const SECONDS = 1 / DT;
@@ -36,8 +36,8 @@ const GAUNTLET = { startX: 200, endX: 1700, y: 4096, plumes: 3, spacing: 280, ra
 const SPRINT = { distance: 2000, startX: 1000, y: 4096, arrive: 60 };
 const CRUISE = { energyFraction: 0.4, throttle: 8, maxSeconds: 600 };
 
-const eaten = (world: World): void => {
-  // Every food slot stays empty for good.
+/** Empties every food slot for good. */
+const emptyPond = (world: World): void => {
   const n = Math.floor(world.size / RULES.world.cellSize);
   for (let cx = 0; cx < n; cx++)
     for (let cy = 0; cy < n; cy++)
@@ -109,14 +109,7 @@ function forageTarget(world: World, c: CreatureState): { x: number; y: number } 
   };
 }
 
-export interface Run {
-  /** Higher is better. */
-  score: number;
-  /** A readable value for the report. */
-  detail: string;
-}
-
-function forage(archetype: string, seed: string): Run {
+function forage(archetype: string, seed: string): number {
   const world = createWorld({ seed });
   const c = spawn(world, archetype, world.size / 2, world.size / 2);
   c.phys.maxBiomass = FORAGE_CAP;
@@ -127,10 +120,10 @@ function forage(archetype: string, seed: string): Run {
     step(world, { [ID]: approach(c, target.x, target.y) });
   }
   const gained = c.biomass - start;
-  return { score: gained, detail: `${gained.toFixed(1)} biomass` };
+  return gained;
 }
 
-function gauntlet(archetype: string, seed: string): Run {
+function gauntlet(archetype: string, seed: string): number {
   const g = GAUNTLET;
   const world = createWorld({ seed, hazards: false });
   for (let i = 0; i < g.plumes; i++)
@@ -144,16 +137,10 @@ function gauntlet(archetype: string, seed: string): Run {
   const seconds = ticks / SECONDS;
   // Health left is what counts; the time breaks ties between bodies that took the same damage.
   const finished = c.alive && c.x >= g.endX;
-  const score = finished ? c.health - seconds * 0.01 : -seconds;
-  return {
-    score,
-    detail: finished
-      ? `${c.health.toFixed(1)} hp, ${seconds.toFixed(1)} s`
-      : `died, ${seconds.toFixed(1)} s`,
-  };
+  return finished ? c.health - seconds * 0.01 : -seconds;
 }
 
-function sprint(archetype: string, seed: string): Run {
+function sprint(archetype: string, seed: string): number {
   const s = SPRINT;
   const world = createWorld({ seed, hazards: false });
   const c = spawn(world, archetype, s.startX, s.y);
@@ -164,13 +151,12 @@ function sprint(archetype: string, seed: string): Run {
     step(world, { [ID]: { ...input, dash: world.tick >= c.dashReadyTick } });
     ticks++;
   }
-  const seconds = ticks / SECONDS;
-  return { score: -seconds, detail: `${seconds.toFixed(1)} s` };
+  return -ticks / SECONDS;
 }
 
-function cruise(archetype: string, seed: string): Run {
+function cruise(archetype: string, seed: string): number {
   const world = createWorld({ seed, hazards: false });
-  eaten(world);
+  emptyPond(world);
   const c = spawn(world, archetype, world.size / 2, world.size / 2);
   c.energy = CRUISE.energyFraction * maxEnergy(c.biomass);
   let ticks = 0;
@@ -187,11 +173,10 @@ function cruise(archetype: string, seed: string): Run {
     });
     ticks++;
   }
-  const seconds = ticks / SECONDS;
-  return { score: seconds, detail: `${seconds.toFixed(1)} s` };
+  return ticks / SECONDS;
 }
 
-const RUN: Record<Scenario, (archetype: string, seed: string) => Run> = {
+const RUN: Record<Scenario, (archetype: string, seed: string) => number> = {
   forage,
   gauntlet,
   sprint,
@@ -202,8 +187,6 @@ export interface Tournament {
   archetypes: string[];
   /** Mean score over the seeds, `[archetype][scenario]`. */
   means: Record<string, Record<Scenario, number>>;
-  /** Readable mean per cell for the report. */
-  details: Record<string, Record<Scenario, string>>;
   winners: Record<Scenario, string>;
   /** Archetypes by rank, best first, per scenario. */
   ranking: Record<Scenario, string[]>;
@@ -214,15 +197,11 @@ export interface Tournament {
 export function runTournament(scenarios: readonly Scenario[] = SCENARIOS): Tournament {
   const archetypes = Object.keys(ARCHETYPES);
   const means = {} as Tournament['means'];
-  const details = {} as Tournament['details'];
   for (const a of archetypes) {
     means[a] = {} as Record<Scenario, number>;
-    details[a] = {} as Record<Scenario, string>;
     for (const sc of scenarios) {
-      const runs = SEEDS.map((seed) => RUN[sc](a, seed));
-      const mean = runs.reduce((sum, r) => sum + r.score, 0) / runs.length;
-      means[a][sc] = mean;
-      details[a][sc] = runs.map((r) => r.detail).join(' | ');
+      const scores = SEEDS.map((seed) => RUN[sc](a, seed));
+      means[a][sc] = scores.reduce((sum, v) => sum + v, 0) / scores.length;
     }
   }
   const ranking = {} as Tournament['ranking'];
@@ -236,7 +215,7 @@ export function runTournament(scenarios: readonly Scenario[] = SCENARIOS): Tourn
     winners[sc] = order[0] as string;
   }
   for (const a of archetypes) for (const sc of scenarios) h.f64(means[a]?.[sc] ?? 0);
-  return { archetypes, means, details, winners, ranking, hash: h.digest() };
+  return { archetypes, means, winners, ranking, hash: h.digest() };
 }
 
 /** The archetype × scenario table of mean scores, with each cell's rank. */
