@@ -15,6 +15,12 @@ import {
 } from './protocol';
 
 /** `outdated`: the hub speaks another protocol version, so this page needs a reload. */
+/** A place in the admission line: 1 is next, `etaS` the estimated wait. */
+export interface QueuePlace {
+  position: number;
+  etaS: number;
+}
+
 export type HubStatus = 'connecting' | 'online' | 'offline' | 'replaced' | 'outdated';
 /** Statuses the client does not leave on its own: no reconnect follows. */
 export const isFinalStatus = (s: HubStatus): boolean => s === 'replaced' || s === 'outdated';
@@ -80,6 +86,8 @@ export class HubClient {
   private memberListeners: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeListeners: ((w: Welcome) => void)[] = [];
   private lifeListeners: ((m: LifeMsg) => void)[] = [];
+  private queueListeners: ((q: QueuePlace | null) => void)[] = [];
+  private _queue: QueuePlace | null = null;
 
   constructor(private readonly opts: HubClientOptions) {
     this.rng = createRng(seedFromString(opts.seed ?? opts.identity.playerId), 'hub-backoff');
@@ -91,6 +99,11 @@ export class HubClient {
 
   get status(): HubStatus {
     return this._status;
+  }
+
+  /** Where the hub has this session in the admission line, or null when it is not waiting. */
+  get queue(): QueuePlace | null {
+    return this._queue;
   }
 
   /** Connects now and resolves with the first welcome; retries in the background until then. */
@@ -128,6 +141,10 @@ export class HubClient {
   /** Fires for every message about the player's own creature. */
   onLife(fn: (m: LifeMsg) => void): () => void {
     return subscribe(this.lifeListeners, fn);
+  }
+  /** Fires when the place in line changes, and with null when the wait ends. */
+  onQueue(fn: (q: QueuePlace | null) => void): () => void {
+    return subscribe(this.queueListeners, fn);
   }
   /** Fires on every welcome, including after a reconnect. */
   onWelcome(fn: (w: Welcome) => void): () => void {
@@ -172,7 +189,11 @@ export class HubClient {
       case 'challenge':
         this.hello(msg.nonce);
         break;
+      case 'queued':
+        this.setQueue({ position: msg.position, etaS: msg.etaS });
+        break;
       case 'welcome':
+        this.setQueue(null);
         this.attempt = 0;
         this.healthChecked = false;
         this.setStatus('online');
@@ -225,6 +246,7 @@ export class HubClient {
   private lost(code: number): void {
     this.socket = null;
     this.clearTimers();
+    this.setQueue(null);
     if (code === CLOSE_REPLACED) {
       this.setStatus('replaced');
       this.settle(new Error('replaced by another session'));
@@ -298,6 +320,12 @@ export class HubClient {
 
   private settle(err: Error): void {
     for (const w of this.waiting.splice(0)) w.reject(err);
+  }
+
+  private setQueue(q: QueuePlace | null): void {
+    if (q?.position === this._queue?.position && q?.etaS === this._queue?.etaS) return;
+    this._queue = q;
+    for (const fn of [...this.queueListeners]) guarded(() => fn(q));
   }
 
   private setStatus(s: HubStatus): void {

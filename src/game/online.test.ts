@@ -6,6 +6,7 @@ import { type OnlineHub, type OnlineMesh, OnlineSession } from './online';
 
 class FakeHub implements OnlineHub {
   status: HubStatus = 'connecting';
+  queue = null;
   readonly clock = new PondClock();
   sent: unknown[] = [];
   closed = false;

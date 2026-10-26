@@ -1,6 +1,6 @@
 // Where the hub is and what the player is called: small, DOM-free helpers for the online session.
 
-import type { HubStatus } from '../net/hub-client';
+import type { HubStatus, QueuePlace } from '../net/hub-client';
 import { SPAWN_GOLDEN_ANGLE, type Vec2 } from '../net/protocol';
 import { validName } from '../net/text';
 
@@ -107,8 +107,24 @@ export function ringSpawn(centre: Vec2, hint: Vec2, life: number): Vec2 {
   return { x: centre.x + Math.cos(angle) * radius, y: centre.y + Math.sin(angle) * radius };
 }
 
-/** The status chip's text. `count` is the players in the pond, this one included. */
-export function statusText(status: HubStatus | 'none', count: number): string {
+/** "1st", "2nd", "3rd", "4th", "11th", "22nd". */
+export function ordinal(n: number): string {
+  const tens = n % 100;
+  const suffix = tens >= 11 && tens <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
+  return `${n}${suffix}`;
+}
+
+/**
+ * The status chip's text. `count` is the players in the pond, this one included; `queue` is the
+ * place in the admission line while the hub keeps this session waiting.
+ */
+export function statusText(
+  status: HubStatus | 'none',
+  count: number,
+  queue: QueuePlace | null = null,
+): string {
+  if (queue && status === 'connecting')
+    return `Waiting for a place (${ordinal(queue.position)} in line)`;
   switch (status) {
     case 'online':
       return `Online · ${count} in pond`;

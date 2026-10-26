@@ -20,6 +20,7 @@ import {
   type ClientMsg,
   HISTORY_MAX,
   type HubMsg,
+  type IceServer,
   isCause,
   isOtherVersionHello,
   type LifeInfo,
@@ -49,6 +50,7 @@ import {
 } from './life';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
+import { UsageMeter } from './usage';
 
 const HELLO_TIMEOUT_MS = 10_000;
 const RATE_WINDOW_MS = 10_000;
@@ -56,6 +58,14 @@ const RATE_MAX_MESSAGES = 20;
 /** Signals have their own window cap: joining a pond of 24 sends one offer per member (at most 23), plus retries. */
 const RATE_MAX_SIGNALS = 60;
 const POND_CAPACITY = 24;
+/** New sessions queue once the day's requests reach this share of the budget (DESIGN §8). */
+const BUDGET_SHARE = 0.9;
+/** A queued session's estimated wait per place, until M13 measures it. */
+const ETA_S_PER_PLACE = 30;
+/** While anyone waits, the object looks at the queue this often (the budget resets at midnight UTC without any message). */
+const QUEUE_TICK_MS = 15_000;
+const DEFAULT_MAX_SESSIONS = 200;
+const DEFAULT_DAILY_REQUEST_BUDGET = 100_000;
 /** A joiner takes the first free slot `i` of its pond: angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · i` (DESIGN.md). */
 const RING_BASE = 300;
 const RING_STEP = 40;
@@ -72,6 +82,16 @@ type Session = (
       /** The creature this connection is playing and what it has reported (absent without one). */
       life?: LifeState | undefined;
     }
+  | {
+      /** Signed in, but admission is full: waits for a place and is in no pond. */
+      phase: 'queued';
+      playerId: string;
+      name: string;
+      /** Arrival order; the lowest ticket is next. */
+      ticket: number;
+      /** The place last announced (1 = next), so only a change is sent again. */
+      place: number;
+    }
   | { phase: 'retired' }
 ) & { openedAt: number; windowStart: number; count: number; signals: number };
 
@@ -80,14 +100,26 @@ export class Authority extends DurableObject<Env> {
   readonly turn = new TurnCredentials();
   readonly ledger: Ledger;
   readonly beacons: Beacons;
+  readonly usage: UsageMeter;
   private rearming: Promise<void> = Promise.resolve();
   /** Genesis requests run one at a time per player, so a second can't slip past the checks of the first. */
   private readonly asking = new Map<string, Promise<void>>();
   private source: BeaconSource;
+  /** Promotions run one at a time: each reads who is waiting and how much room there is fresh. */
+  private promoting: Promise<void> = Promise.resolve();
+  private nextTicket = 0;
+  /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
+  private queueTickAt: number | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ledger = new Ledger(ctx.storage);
+    this.usage = new UsageMeter(ctx.storage.sql, () => this.ledger.rowsWritten);
+    for (const ws of ctx.getWebSockets()) {
+      const session = sessionOf(ws);
+      if (session?.phase === 'queued')
+        this.nextTicket = Math.max(this.nextTicket, session.ticket + 1);
+    }
     this.source = this.beaconSource();
     this.beacons = new Beacons({
       storage: ctx.storage,
@@ -113,6 +145,7 @@ export class Authority extends DurableObject<Env> {
     const pair = new WebSocketPair();
     this.ctx.acceptWebSocket(pair[1]);
     const now = Date.now();
+    this.usage.upgrade(now);
     const nonce = randomToken(NONCE_BYTES);
     pair[1].serializeAttachment({
       phase: 'challenged',
@@ -135,6 +168,7 @@ export class Authority extends DurableObject<Env> {
     }
     if (session.phase === 'retired') return;
     const now = Date.now();
+    this.usage.message(now);
     const msg = typeof data === 'string' ? parseClientMsg(data) : null;
     if (now - session.windowStart >= RATE_WINDOW_MS) {
       session.windowStart = now;
@@ -163,6 +197,14 @@ export class Authority extends DurableObject<Env> {
     }
     if (!msg) {
       send(ws, { t: 'error', code: 'bad-message' });
+      return;
+    }
+    if (session.phase === 'queued') {
+      // A waiting session may keep the link alive or leave; everything else needs a place first.
+      if (msg.t === 'ping') send(ws, { t: 'pong', id: msg.id, now });
+      else if (msg.t === 'leave') this.drop(ws, 1000, 'bye');
+      else if (msg.t === 'hello') this.drop(ws, CLOSE_BAD_HELLO, 'already signed in');
+      else send(ws, { t: 'refused', reason: 'queued' });
       return;
     }
     switch (msg.t) {
@@ -212,6 +254,9 @@ export class Authority extends DurableObject<Env> {
       }
     }
     try {
+      // The budget resets at midnight with no message to say so, so the queue is looked at on a timer.
+      if (this.queued().length > 0) await this.promote();
+      this.queueTickAt = this.queued().length > 0 ? now + QUEUE_TICK_MS : null;
       for (const id of await this.beacons.alarm()) {
         // One commitment failing must not strand the others this pass resolved.
         await this.deliverGenesis(id).catch(() => {});
@@ -481,7 +526,17 @@ export class Authority extends DurableObject<Env> {
     return next;
   }
 
-  /** The object has one alarm: it is set for the earliest of the hello timeout and the next beacon, and cleared when neither is needed. */
+  /** When the admission queue is looked at next, or null while it is empty. */
+  private queueDue(): number | null {
+    if (this.queued().length === 0) {
+      this.queueTickAt = null;
+      return null;
+    }
+    this.queueTickAt ??= Date.now() + QUEUE_TICK_MS;
+    return this.queueTickAt;
+  }
+
+  /** The object has one alarm: it is set for the earliest of the hello timeout, the next beacon and the queue tick, and cleared when none is needed. */
   private rearm(): Promise<void> {
     // One at a time, each reading fresh deadlines, so a slow caller can't overwrite a sooner alarm.
     const run = this.rearming.then(() => this.setAlarmForNext());
@@ -492,7 +547,8 @@ export class Authority extends DurableObject<Env> {
   private async setAlarmForNext(): Promise<void> {
     const hello = this.helloDue();
     const beacon = this.beacons.nextDue();
-    const next = hello === null ? beacon : beacon === null ? hello : Math.min(hello, beacon);
+    const queue = this.queueDue();
+    const next = earliest(hello, beacon, queue);
     const current = await this.ctx.storage.getAlarm();
     if (next === null) {
       if (current !== null) await this.ctx.storage.deleteAlarm();
@@ -526,28 +582,117 @@ export class Authority extends DurableObject<Env> {
     // signal to the joiner or learn of it first.
     const current = ws.readyState === WebSocket.OPEN ? sessionOf(ws) : null;
     if (current?.phase !== 'challenged') return;
-    for (const [other, theirs] of this.activeSessions(ws)) {
-      if (theirs.playerId === msg.playerId) {
-        this.drop(other, CLOSE_REPLACED, 'replaced by a newer session');
-      }
+    // The new tab takes over the old one's place: its pond seat, or its spot in line.
+    let held: LiveSession | undefined;
+    for (const [other, theirs] of this.liveSessions(ws)) {
+      if (theirs.playerId !== msg.playerId) continue;
+      if (theirs.phase === 'active' || held?.phase !== 'active') held = theirs;
+      // Quietly: the new socket takes over the place, so nobody moves up and no seat is offered.
+      this.drop(other, CLOSE_REPLACED, 'replaced by a newer session', true);
     }
+    const who = { playerId: msg.playerId, name: msg.name };
+    // Admission never drops or re-queues a player who already has a seat.
+    if (held?.phase !== 'active' && (this.queued().length > 0 || !this.canAdmit(Date.now()))) {
+      const ticket = held?.phase === 'queued' ? held.ticket : this.nextTicket++;
+      ws.serializeAttachment({
+        ...current,
+        phase: 'queued',
+        ...who,
+        ticket,
+        place: 0,
+      } satisfies Session);
+    } else {
+      this.enter(ws, current, who, { ice, turn });
+    }
+    this.announceQueue();
+    await this.rearm();
+  }
+
+  /** Whether one more session fits: under the session cap and short of 90% of the day's request budget. */
+  private canAdmit(now: number): boolean {
+    const sessions = [...this.activeSessions()].length;
+    return (
+      sessions < limit(this.env.MAX_SESSIONS, DEFAULT_MAX_SESSIONS) &&
+      this.usage.requests(now) <
+        BUDGET_SHARE * limit(this.env.DAILY_REQUEST_BUDGET, DEFAULT_DAILY_REQUEST_BUDGET)
+    );
+  }
+
+  /** The waiting sessions, next first. */
+  private queued(): [WebSocket, Session & { phase: 'queued' }][] {
+    const out: [WebSocket, Session & { phase: 'queued' }][] = [];
+    for (const [ws, session] of this.liveSessions()) {
+      if (session.phase === 'queued') out.push([ws, session]);
+    }
+    return out.sort((a, b) => a[1].ticket - b[1].ticket);
+  }
+
+  /** Tells each waiting session its place when that changed (the first time included). */
+  private announceQueue(): void {
+    this.queued().forEach(([ws, session], i) => {
+      const place = i + 1;
+      if (session.place === place) return;
+      ws.serializeAttachment({ ...session, place } satisfies Session);
+      sendIfOpen(ws, { t: 'queued', position: place, etaS: place * ETA_S_PER_PLACE });
+    });
+  }
+
+  /** Seats waiting sessions, in arrival order, for as long as there is room. */
+  private promote(): Promise<void> {
+    const run = this.promoting.then(() => this.promoteWaiting());
+    this.promoting = run.catch(() => {});
+    return run;
+  }
+
+  private async promoteWaiting(): Promise<void> {
+    try {
+      for (;;) {
+        const first = this.queued()[0];
+        if (!first || !this.canAdmit(Date.now())) return;
+        const { ice, turn } = await this.turn.ice(this.env);
+        // The line may have changed while the lookup ran. No await from here to the welcome.
+        const next = this.queued()[0];
+        if (next?.[0] !== first[0] || !this.canAdmit(Date.now())) continue;
+        const [ws, session] = next;
+        this.enter(ws, session, { playerId: session.playerId, name: session.name }, { ice, turn });
+      }
+    } finally {
+      this.announceQueue();
+      await this.rearm();
+    }
+  }
+
+  /** Seats a signed-in session in a pond and welcomes it. */
+  private enter(
+    ws: WebSocket,
+    from: Pick<Session, 'openedAt' | 'windowStart' | 'count' | 'signals'>,
+    who: { playerId: string; name: string },
+    link: { ice: IceServer[]; turn: boolean },
+  ): void {
     const { pond, spawnHint, members, slot } = this.place();
+    const { openedAt, windowStart, count, signals } = from;
     ws.serializeAttachment({
-      ...current,
       phase: 'active',
-      playerId: msg.playerId,
-      name: msg.name,
+      openedAt,
+      windowStart,
+      count,
+      signals,
+      ...who,
       pondId: pond.id,
       slot,
-      life: this.bind(msg.playerId, Date.now()),
+      life: this.bind(who.playerId, Date.now()),
     } satisfies Session);
-    this.broadcast(pond.id, ws, {
-      t: 'member',
-      op: 'join',
-      member: { playerId: msg.playerId, name: msg.name },
+    this.broadcast(pond.id, ws, { t: 'member', op: 'join', member: who });
+    sendIfOpen(ws, {
+      t: 'welcome',
+      pond,
+      you: { spawnHint },
+      members,
+      ice: link.ice,
+      turn: link.turn,
+      now: Date.now(),
     });
-    sendIfOpen(ws, { t: 'welcome', pond, you: { spawnHint }, members, ice, turn, now: Date.now() });
-    this.sendLife(ws, msg.playerId);
+    this.sendLife(ws, who.playerId);
   }
 
   /** The player's active creature (null for a new player) and when the next recorded hatch is allowed. */
@@ -636,6 +781,15 @@ export class Authority extends DurableObject<Env> {
     }
   }
 
+  /** Every signed-in socket (except `except`), seated or waiting. */
+  private *liveSessions(except?: WebSocket): Generator<[WebSocket, LiveSession]> {
+    for (const other of this.ctx.getWebSockets()) {
+      if (other === except) continue;
+      const theirs = sessionOf(other);
+      if (theirs?.phase === 'active' || theirs?.phase === 'queued') yield [other, theirs];
+    }
+  }
+
   private broadcast(pondId: string, except: WebSocket, msg: HubMsg): void {
     for (const [other, theirs] of this.activeSessions(except)) {
       if (theirs.pondId === pondId) send(other, msg);
@@ -663,8 +817,15 @@ export class Authority extends DurableObject<Env> {
   }
 
   /** Closes a socket; an active one first leaves its pond so the others see it go exactly once. */
-  private drop(ws: WebSocket, code: number, reason?: string): void {
+  private drop(ws: WebSocket, code: number, reason?: string, replaced = false): void {
     const session = sessionOf(ws);
+    if (session?.phase === 'queued') {
+      ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
+      if (!replaced) {
+        this.announceQueue();
+        this.rearm().catch(() => {});
+      }
+    }
     if (session?.phase === 'active') {
       ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
       try {
@@ -677,6 +838,8 @@ export class Authority extends DurableObject<Env> {
         op: 'leave',
         member: { playerId: session.playerId, name: session.name },
       });
+      // The seat is free: the first in line takes it.
+      if (!replaced && this.queued().length > 0) this.promote().catch(() => {});
     }
     try {
       ws.close(code, reason);
@@ -687,6 +850,17 @@ export class Authority extends DurableObject<Env> {
 }
 
 type ActiveSession = Session & { phase: 'active' };
+type LiveSession = Session & { phase: 'active' | 'queued' };
+
+/** The earliest of the times that are set. */
+const earliest = (...times: (number | null)[]): number | null =>
+  times.reduce<number | null>((a, b) => (a === null ? b : b === null ? a : Math.min(a, b)), null);
+
+/** A positive whole number from a `vars` entry, else the default. */
+function limit(value: string | undefined, fallback: number): number {
+  const n = Number(value);
+  return Number.isInteger(n) && n > 0 ? n : fallback;
+}
 
 /** A commitment as the wire carries it: without the id and status the client recomputes or doesn't need. */
 const signedOf = ({ commitment, authSig, keyId }: SignedCommitment): SignedCommit => ({

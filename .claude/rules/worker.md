@@ -17,7 +17,8 @@ ADR 0008 is the contract: one Worker and one SQLite Durable Object, minimal by d
 - Accept requests only from the Pages origin and localhost. Validate every message with the shared codecs. Rate-limit each session.
 - Secrets (TURN key, the Cloudflare token for deploys) come only from Worker secrets or GitHub secrets. Never put them in code, logs, responses or tests.
 - Tests run offline in workerd (`@cloudflare/vitest-plugin`) and through local `wrangler dev`, with drand and Cloudflare APIs faked or replayed from fixtures.
-- The object has one alarm slot. Only `Authority.rearm` sets or clears it, as the earliest of the hello timeout and `Beacons.nextDue()`; new alarm users extend it instead of calling `setAlarm`.
+- The object has one alarm slot. Only `Authority.rearm` sets or clears it, as the earliest of the hello timeout, `Beacons.nextDue()` and the 15 s admission-queue tick (held only while someone is queued); new alarm users extend it instead of calling `setAlarm`.
 - The Worker has two entries: `index.ts` (production, live drand) and `e2e-entry.ts` (recorded rounds, `node tools/worker.mjs dev --e2e`). Fixture code is imported only from the latter; `tools/worker-bundle.test.ts` guards that.
 - Hub tests that need beacons swap the live object's `source` field (`worker/test-hub.ts`: `login`, `hatch`, `useFakeBeacons`, `publish(round)` moves a fake clock and runs the alarm), so no test waits for real rounds. Tests that need the wall clock (progress, lifespan) mock `Date.now` (`worker/progress.test.ts`).
 - A creature's per-connection state (`LifeState`, `worker/life.ts`) lives in the socket attachment and is written to SQLite only as checkpoint records; keep it small (2 KB limit).
+- Admission (`worker/usage.ts`, `Authority.canAdmit`): `MAX_SESSIONS` and `DAILY_REQUEST_BUDGET` are `vars`; a hub test sets them on the live object's `env` (`worker/queue.test.ts`). A queued socket has phase `queued` in its attachment and costs no SQLite writes.

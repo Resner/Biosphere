@@ -207,7 +207,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Done: `src/ledger/recovery.ts` (golden codes checked against a BigInt reference), `Identity.exportRecoveryCode` and `importRecoveryCode`, `src/game/recovery-panel.ts` with the title-screen panel and reminder, `m4-recovery.spec.ts`.
   - Gotchas: the panel stops key events at its root, because Enter in the import field would otherwise hatch (the input controller listens on `window`). The code is written into the DOM only while the panel is open. Without IndexedDB (a memory key store) an import is refused, because the reload would lose it.
 
-- [ ] T12 Usage meter and the admission queue (in progress)
+- [x] T12 Usage meter and the admission queue
   - Acceptance (workerd tests, fake clock; client unit tests):
     - Meter: upgrades count 1 request each, incoming messages 1/20 of a request, and every SQLite write counts as a write; counters are per UTC day, kept in memory and flushed to `usage` at most once a minute (and not at all while nothing changed); crossing midnight UTC starts a new row. After 3,000 messages and 40 upgrades in one day the `usage` row shows 190 requests (±1) and 3,000 messages. Flushing costs at most 1 row write a minute (test: 1 hour of constant traffic writes at most 60 usage rows).
     - Queue: with `MAX_SESSIONS=3`, the 4th and 5th signed-in sessions receive `queued { position: 1 | 2, etaS }` instead of `welcome`, appear in no pond and cannot send other messages (answered `refused { reason: 'queued' }`); when one of the three leaves, the first queued session is promoted (gets `welcome` and `life`) within one alarm tick (15 s of fake time at most) and the second becomes position 1 (`queued` again). The queue order is by arrival. A queued session that leaves is removed and the positions update.
@@ -216,6 +216,8 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
     - Client: a `queued` message shows "Waiting for a place (3rd in line)" on the title screen with live position updates and does not block the practice cell (T9); a later `welcome` ends the wait without a reload.
     - Defaults: `MAX_SESSIONS` 200, `DAILY_REQUEST_BUDGET` 100,000, both `vars` in `wrangler.jsonc`; the test config overrides them.
   - Notes: the queue state lives in socket attachments (a queued socket is a socket in phase `queued`); no SQLite writes for queueing. DESIGN §8 gains the exact numbers.
+  - Done: `worker/usage.ts` (`UsageMeter`), the queue in `worker/authority.ts`, the `queued` hub message, `HubClient.queue` and the "Waiting for a place" chip text.
+  - Gotchas: a replaced tab is dropped quietly (no promotion, no place announcement), because it takes over the old seat or place. A flush lost to eviction costs at most a minute of counts. Rows written by the beacon service are not metered, only the ledger's.
 
 - [ ] T13 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:

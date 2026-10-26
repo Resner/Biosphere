@@ -743,7 +743,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (hubUrl) {
       text = apart
         ? statusText('offline', 1)
-        : statusText(keeper.current?.status ?? 'connecting', keeper.current?.count ?? 1);
+        : statusText(
+            keeper.current?.status ?? 'connecting',
+            keeper.current?.count ?? 1,
+            keeper.current?.queue ?? null,
+          );
     }
     if (text !== shownStatus) {
       shownStatus = text;

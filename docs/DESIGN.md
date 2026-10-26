@@ -226,7 +226,9 @@ Death is common and never total: you fall back to your pending offspring or your
   - Newcomers spawn on a ring around a compatible group, at least 3× the attack reach of larger creatures away and away from recent spawn points. The ring expands as the area fills.
   - After 120 s alone you may "ride the current" to a group.
   - Crowded spots split into bounded instances that never separate interacting creatures.
-- **Admission (M4, M13)**: past 200 concurrent sessions or 90% of the daily request budget (100,000), new players are queued with a position and an estimated wait (30 s per place until M13 measures it). A queued player can swim as a practice cell meanwhile.
+- **Admission (M4, M13)**: past 200 concurrent sessions (`MAX_SESSIONS`) or 90% of the daily request budget (`DAILY_REQUEST_BUDGET`, 100,000), new players are queued with a position and an estimated wait (30 s per place until M13 measures it). A queued player can swim as a practice cell meanwhile.
+  - **Meter**: an upgrade counts as 1 request, an incoming message as 1/20, per UTC day; counts are flushed to the `usage` table at most once a minute and only when something changed.
+  - **Queue**: a queued session is in no pond and may only ping or leave. Seats go to the queue in arrival order the moment one frees, and every 15 s while anyone waits (the budget resets at midnight UTC). Players who already hold a seat are never dropped or re-queued; a second tab takes over its place in line.
 
 ## 9. Social (M2)
 

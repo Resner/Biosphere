@@ -3,6 +3,7 @@
   "name": "biosphere-authority",
   "main": "index.ts",
   "compatibility_date": "2026-10-01",
+  "vars": { "MAX_SESSIONS": "200", "DAILY_REQUEST_BUDGET": "100000" },
   "durable_objects": {
     "bindings": [{ "name": "AUTHORITY", "class_name": "Authority" }]
   },

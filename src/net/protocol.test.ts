@@ -275,6 +275,7 @@ const hubMsgs: HubMsg[] = [
   { t: 'commit', commit, hatchesLeft: 2 },
   genesisMsg as unknown as HubMsg,
   { t: 'refused', reason: 'active' },
+  { t: 'queued', position: 3, etaS: 90 },
   { t: 'refused', reason: 'limit', genesisIn: 300_000 },
   { t: 'ack', n: 7, activeMs: 400_000, lifespanMs: 4_500_000 },
   { t: 'died', cause: 'old-age', record: genesisMsg.record },
@@ -498,6 +499,10 @@ describe('genesis messages', () => {
     expect(
       hubBad({ t: 'commit', commit: { ...commit, authSig: 'no' }, hatchesLeft: 1 }),
     ).toBeNull();
+    expect(hubBad({ t: 'queued', position: 0, etaS: 0 })).toBeNull();
+    expect(hubBad({ t: 'queued', position: 1.5, etaS: 0 })).toBeNull();
+    expect(hubBad({ t: 'queued', position: 1, etaS: -1 })).toBeNull();
+    expect(hubBad({ t: 'queued', position: 1 })).toBeNull();
     expect(hubBad({ t: 'refused', reason: 'Not Allowed' })).toBeNull();
     expect(hubBad({ t: 'refused', reason: 'limit', genesisIn: 'soon' })).toBeNull();
   });
