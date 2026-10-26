@@ -1,0 +1,39 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="Biosphere Creature Lab: browse and inspect the creatures that DNA can make." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Creature Lab · Biosphere</title>
+  </head>
+  <body>
+    <div class="lab">
+      <header class="lab-bar">
+        <a class="lab-back" data-testid="lab-back" href="./">&larr; Biosphere</a>
+        <h1>Creature Lab</h1>
+        <div class="lab-modes">
+          <button type="button" data-testid="mode-genesis" aria-pressed="true">Genesis</button>
+          <button type="button" data-testid="mode-wild" aria-pressed="false">Wild</button>
+        </div>
+        <button type="button" class="lab-shuffle" data-testid="lab-shuffle">New set</button>
+        <span class="lab-seed" data-testid="lab-seed"></span>
+      </header>
+      <div class="lab-body">
+        <div class="lab-stage" data-testid="lab-stage">
+          <canvas id="lab-canvas" data-testid="lab-canvas" aria-label="Creature grid"></canvas>
+          <div class="lab-ring" data-ring="hover" hidden></div>
+          <div class="lab-ring" data-ring="select" hidden></div>
+        </div>
+        <aside class="lab-panel" aria-label="Inspector">
+          <h2 data-testid="inspect-name">Click a creature to inspect it.</h2>
+          <ul class="lab-lines" data-testid="inspect-lines"></ul>
+          <dl class="lab-facts" data-testid="inspect-facts" hidden></dl>
+          <p class="lab-error" data-testid="lab-error" role="alert" hidden></p>
+        </aside>
+      </div>
+    </div>
+    <footer class="build-label" data-testid="build-label"></footer>
+    <script type="module" src="/src/lab/main.ts"></script>
+  </body>
+</html>
