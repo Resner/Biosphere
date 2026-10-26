@@ -118,15 +118,17 @@ export interface PastLife {
   diedT: number;
 }
 
-/** Every cause a death record can name. A client may report all but `old-age`, which only the authority decides. */
-export const DEATH_CAUSES: readonly DeathCause[] = [
-  'starved',
-  'toxin',
-  'old-age',
-  'uv',
-  'pressure',
-  'killed',
-];
+/** Every cause a death record can name (a `Record`, so a new `DeathCause` fails to compile until it is listed). A client may report all but `old-age`, which only the authority decides. */
+const CAUSES: Record<DeathCause, true> = {
+  starved: true,
+  toxin: true,
+  'old-age': true,
+  uv: true,
+  pressure: true,
+  killed: true,
+};
+export const isCause = (v: unknown): v is DeathCause =>
+  typeof v === 'string' && Object.hasOwn(CAUSES, v);
 /** Past lives one `history` answer carries. */
 export const HISTORY_MAX = 20;
 
@@ -515,9 +517,6 @@ export function parseHubMsg(raw: string): HubMsg | null {
       return null;
   }
 }
-
-const isCause = (v: unknown): v is DeathCause =>
-  typeof v === 'string' && (DEATH_CAUSES as readonly string[]).includes(v);
 
 function pastLife(v: unknown): PastLife | null {
   return isObj(v) &&

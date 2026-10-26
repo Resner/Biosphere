@@ -22,9 +22,9 @@ import {
   CLOSE_RATE_LIMITED,
   CLOSE_REPLACED,
   type ClientMsg,
-  DEATH_CAUSES,
   HISTORY_MAX,
   type HubMsg,
+  isCause,
   isOtherVersionHello,
   type LifeInfo,
   type Member,
@@ -407,20 +407,21 @@ export class Authority extends DurableObject<Env> {
 
   /** The player's finished lives, newest first. */
   private history(ws: WebSocket, playerId: string): void {
+    // Field by field: this is a network message, so a column added to the row later isn't sent by accident.
     const lives = this.ledger.history(playerId, HISTORY_MAX).flatMap((row) => {
       const genome = genomeFromBase64url(row.genome);
-      return genome
-        ? [
-            {
-              creature: row.creature,
-              species: speciesName(genome),
-              cause: causeOf(row.cause),
-              activeMs: row.activeMs,
-              bornT: row.bornT,
-              diedT: row.diedT,
-            },
-          ]
-        : [];
+      if (!genome) return [];
+      const { creature, activeMs, bornT, diedT } = row;
+      return [
+        {
+          creature,
+          species: speciesName(genome),
+          cause: causeOf(row.cause),
+          activeMs,
+          bornT,
+          diedT,
+        },
+      ];
     });
     sendIfOpen(ws, { t: 'history', lives });
   }
@@ -698,10 +699,8 @@ const signedOf = ({ commitment, authSig, keyId }: SignedCommitment): SignedCommi
   keyId,
 });
 
-/** A death record's cause; only the authority writes them, so anything else is a bug and reads as old age's opposite: `killed`. */
-function causeOf(value: unknown): DeathCause {
-  return (DEATH_CAUSES as readonly unknown[]).includes(value) ? (value as DeathCause) : 'killed';
-}
+/** A stored death cause; anything unrecognised reads as `killed`. */
+const causeOf = (value: unknown): DeathCause => (isCause(value) ? value : 'killed');
 
 /** `bytes` of randomness as base64url. */
 function randomToken(bytes: number): string {

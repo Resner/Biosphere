@@ -58,7 +58,7 @@ export interface PastLifeRow {
   activeMs: number;
   bornT: number;
   diedT: number;
-  cause: Canonical | null;
+  cause: Canonical | null | undefined;
 }
 
 export interface Flag {
@@ -208,7 +208,7 @@ export class Ledger {
   history(owner: string, limit: number): PastLifeRow[] {
     return this.run(
       `SELECT c.id, c.genome, c.active_ms, c.born_t, c.died_t,
-         (SELECT json FROM records r WHERE r.creature = c.id AND r.kind = 'death') AS death
+         (SELECT json FROM records r WHERE r.creature = c.id AND r.seq = c.seq AND r.kind = 'death') AS death
        FROM creatures c WHERE c.owner = ? AND c.status = 'dead'
        ORDER BY c.died_t DESC, c.born_t DESC LIMIT ?`,
       owner,
@@ -219,7 +219,7 @@ export class Ledger {
       activeMs: r.active_ms as number,
       bornT: r.born_t as number,
       diedT: r.died_t as number,
-      cause: (r.death ? (JSON.parse(r.death as string) as LedgerRecord).body.cause : null) ?? null,
+      cause: r.death ? (JSON.parse(r.death as string) as LedgerRecord).body.cause : null,
     }));
   }
 
