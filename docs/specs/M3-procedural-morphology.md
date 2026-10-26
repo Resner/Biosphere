@@ -179,7 +179,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `inherit.ts` (`offspringSeed`, `meiosis`, `mutateHaplotype`, `applyMutation`, `breed`, `mutateGenome`), `RULES.genetics` and DESIGN §6; goldens in `__golden__/inherit.json`. The 10,000-genome mutated set in `develop.test.ts` now uses `mutateGenome` ×4.
   - Gotcha: an end-to-end linkage check needs quant markers, because load and `mendel` bytes fold to 0/1 (a 0/255 marker cannot survive canonical form). Many `expect` calls in 10,000-genome loops are slow; test with plain booleans and `expect` only the first failure.
 
-- [ ] T9 Rarity, species names and the diversity report
+- [ ] T9 Rarity, species names and the diversity report (in progress)
   - Acceptance:
     - `rarityOf(genome)`: score is Σ −log2(frequency) over the expressed rare features, where the frequency of a feature is its exact expressed-phenotype frequency under the genesis distribution (T7), and a feature genesis never produces (extra segments, a module kind outside genesis, a novel allele, a size beyond genesis) counts 12 bits. Features: iridescent, albino, stripes, spots, rings, luminescent, segments > 1, extra modules, novel alleles, size tier ≥ 1. Tiers: common < 4, uncommon 4–8, rare 8–14, exotic ≥ 14 (DESIGN §6). `features` lists the names.
     - Monotone: adding any listed rare feature to a genome never lowers the score; a genome with no rare features scores 0. Over 20,000 genesis genomes: at least 80% are common, between 3% and 20% uncommon or higher, and under 1% exotic. A hand-built iridescent + albino + striped genome is exotic. Goldens for five fixed genomes.
