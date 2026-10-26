@@ -1,3 +1,4 @@
+import { type PhysStats, STARTER_PHYS, sanitizePhys } from './body';
 import { seedFromString } from './prng';
 import { RULES, RULES_VERSION } from './rules';
 import type { CreatureState, World } from './types';
@@ -26,7 +27,7 @@ export function createWorld(opts: WorldOptions): World {
 
 export function spawnCreature(
   world: World,
-  spec: { id: string; x: number; y: number; biomass?: number },
+  spec: { id: string; x: number; y: number; biomass?: number; phys?: PhysStats },
 ): CreatureState {
   const biomass = spec.biomass ?? RULES.starter.biomass;
   const creature: CreatureState = {
@@ -43,6 +44,7 @@ export function spawnCreature(
     alive: true,
     cause: null,
     bornTick: world.tick,
+    phys: sanitizePhys(spec.phys ?? STARTER_PHYS),
   };
   // world.creatures is sorted by id, so a duplicate sits right at the insertion point.
   let at = world.creatures.length;

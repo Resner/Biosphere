@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { type PhysStats, STARTER_PHYS } from './body';
 import { IDLE, type Input } from './input';
 import { applyMetabolism } from './metabolism';
 import { RULES } from './rules';
@@ -38,12 +39,12 @@ describe('applyMetabolism', () => {
     expect(start - c.energy).toBeLessThan(14 * 1.01);
   });
 
-  it('grows 0.5 biomass/s above 75% energy and pays 3 energy per biomass', () => {
+  it('grows 1.2 biomass/s above 75% energy and pays 3 energy per biomass', () => {
     const [world, c] = setup();
     c.energy = 160;
     const events = run(world, c, 30, IDLE);
-    expect(c.biomass - 100).toBeGreaterThan(0.5 * 0.97);
-    expect(c.biomass - 100).toBeLessThan(0.5 * 1.03);
+    expect(c.biomass - 100).toBeGreaterThan(1.2 * 0.97);
+    expect(c.biomass - 100).toBeLessThan(1.2 * 1.03);
     expect(160 - c.energy).toBeCloseTo(0.8 * 1.0 + 3 * (c.biomass - 100), 1);
     expect(events.every((e) => e.type === 'grow')).toBe(true);
   });
@@ -63,7 +64,7 @@ describe('applyMetabolism', () => {
     const [w2, big] = setup(399.99);
     big.energy = 800;
     run(w2, big, 90, IDLE);
-    expect(big.biomass).toBe(RULES.growth.maxBiomass);
+    expect(big.biomass).toBe(STARTER_PHYS.maxBiomass);
   });
 
   it('announces a grow event when the whole biomass changes', () => {
@@ -118,5 +119,58 @@ describe('step: death', () => {
     expect(events).toEqual([]);
     world.tick = tick;
     expect(hashWorld(world)).toBe(hash);
+  });
+});
+
+describe('applyMetabolism with a body', () => {
+  const withPhys = (phys: Partial<PhysStats>, biomass = 100): [World, CreatureState] => {
+    const world = createWorld({ seed: 'meta', currents: false, hazards: false });
+    return [
+      world,
+      spawnCreature(world, {
+        id: 'a',
+        x: 4096,
+        y: 4096,
+        biomass,
+        phys: { ...STARTER_PHYS, ...phys },
+      }),
+    ];
+  };
+
+  it('drains the basal rate times the basal multiplier', () => {
+    const drain = (basal: number): number => {
+      const [world, c] = withPhys({ basal });
+      const start = c.energy;
+      run(world, c, 300, IDLE);
+      return start - c.energy;
+    };
+    expect(drain(1.5) / drain(1)).toBeCloseTo(1.5, 9);
+  });
+
+  it('multiplies the growth rate while energy is above 75%', () => {
+    const grown = (growth: number): number => {
+      const [world, c] = withPhys({ growth, maxBiomass: 4000 });
+      c.energy = 200;
+      run(world, c, 1, IDLE);
+      return c.biomass - 100;
+    };
+    expect(grown(2) / grown(1)).toBeCloseTo(2, 6);
+  });
+
+  it('stops growing at the genetic maximum without paying energy there', () => {
+    for (const maxBiomass of [150, 900]) {
+      const [world, c] = withPhys({ maxBiomass }, 100);
+      for (let i = 0; i < 30 * 600; i++) {
+        c.energy = 2 * c.biomass; // held full
+        run(world, c, 1, IDLE);
+        if (c.biomass >= maxBiomass - 1e-9) break;
+      }
+      expect(Math.abs(c.biomass - maxBiomass)).toBeLessThan(1);
+      c.energy = 2 * c.biomass;
+      const before = c.energy;
+      const events = run(world, c, 1, IDLE);
+      expect(events.filter((e) => e.type === 'grow')).toEqual([]);
+      expect(before - c.energy).toBeLessThan(0.1 * 2); // basal drain only
+    }
   });
 });

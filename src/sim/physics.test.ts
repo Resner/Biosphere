@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { type PhysStats, STARTER_PHYS } from './body';
 import { IDLE, type Input } from './input';
 import { length } from './math';
 import { applyMovement } from './physics';
@@ -133,5 +134,54 @@ describe('applyMovement', () => {
     run(w1, small, 30, full);
     run(w2, big, 30, full);
     expect(big.x - 4096).toBeLessThan(small.x - 4096);
+  });
+});
+
+describe('applyMovement with a body', () => {
+  const withPhys = (phys: Partial<PhysStats>): [World, CreatureState] => {
+    const world = createWorld({ seed: 'phys', currents: false, hazards: false });
+    return [
+      world,
+      spawnCreature(world, { id: 'a', x: 4096, y: 4096, phys: { ...STARTER_PHYS, ...phys } }),
+    ];
+  };
+  const topSpeed = (phys: Partial<PhysStats>): number => {
+    const [world, c] = withPhys(phys);
+    run(world, c, 600, full);
+    return length(c.vx, c.vy);
+  };
+  const near = (actual: number, expected: number): void => {
+    expect(Math.abs(actual / expected - 1)).toBeLessThan(0.01);
+  };
+
+  it('scales the top speed with thrust and against drag', () => {
+    const base = topSpeed({});
+    near(topSpeed({ thrust: 2 }), base * 2);
+    near(topSpeed({ drag: 2 }), base / 2);
+  });
+
+  it('scales the turn rate', () => {
+    const ticksToTurn = (turn: number): number => {
+      const [world, c] = withPhys({ turn });
+      const input: Input = { steer: 64, throttle: 1, dash: false }; // 90 degrees
+      let ticks = 0;
+      while (c.heading < Math.PI / 2 - 1e-9) {
+        run(world, c, 1, input);
+        ticks++;
+      }
+      return ticks;
+    };
+    const slow = ticksToTurn(1);
+    expect(ticksToTurn(2)).toBe(Math.ceil(slow / 2));
+  });
+
+  it('scales a dash with the square root of thrust over drag', () => {
+    const dashSpeed = (phys: Partial<PhysStats>): number => {
+      const [world, c] = withPhys(phys);
+      run(world, c, 1, { steer: 0, throttle: 0, dash: true });
+      return c.vx / (1 - (RULES.movement.drag * c.phys.drag) / 30); // undo the tick's drag
+    };
+    near(dashSpeed({ thrust: 2, drag: 0.5 }), dashSpeed({}) * 2);
+    near(dashSpeed({ thrust: 1.4, drag: 0.8 }), dashSpeed({}) * Math.sqrt(1.4 / 0.8));
   });
 });

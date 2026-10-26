@@ -1,6 +1,7 @@
 // Input logs and deterministic replay (ADR 0005): a seed, a spawn and run-length-coded inputs
 // reproduce a world bit for bit in Node, workerd and every browser.
 
+import { isPhysShape, type PhysStats } from './body';
 import { decodeInput, encodeInput, IDLE, type Input } from './input';
 import { RULES_VERSION } from './rules';
 import { hashWorld } from './state-hash';
@@ -14,7 +15,7 @@ export type InputRun = readonly [tick: number, input: number];
 export interface InputLog {
   rules: number;
   seed: string;
-  spawn: { id: string; x: number; y: number };
+  spawn: { id: string; x: number; y: number; phys?: PhysStats };
   ticks: number;
   /** Strictly ascending ticks in [0, ticks). Before the first run the creature idles. */
   runs: InputRun[];
@@ -59,6 +60,8 @@ export function expandRuns(runs: InputLog['runs'], ticks: number): Input[] {
 function validate(log: InputLog): void {
   if (log.rules !== RULES_VERSION)
     throw new Error(`log is for rules v${log.rules}, this build runs v${RULES_VERSION}`);
+  if (log.spawn.phys !== undefined && !isPhysShape(log.spawn.phys))
+    throw new RangeError('spawn.phys is not a body');
   if (!Number.isInteger(log.ticks) || log.ticks < 0) throw new RangeError('bad tick count');
   let previous = -1;
   for (const [tick, code] of log.runs) {

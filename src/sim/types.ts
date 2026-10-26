@@ -1,6 +1,7 @@
 // Plain-data simulation state (ADR 0005): no classes, closures, NaN or Infinity, so it survives
 // structuredClone and hashes identically everywhere.
 
+import type { PhysStats } from './body';
 import type { Seed } from './prng';
 
 export interface Vec2 {
@@ -24,6 +25,7 @@ export interface CreatureState {
   alive: boolean;
   cause: DeathCause | null;
   bornTick: number;
+  phys: PhysStats;
 }
 
 export type FoodKind = 'detritus' | 'globule' | 'crystal';

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { STARTER_PHYS } from './body';
 import { RULES, RULES_VERSION } from './rules';
 import { hashWorld } from './state-hash';
 import type { CreatureState, DeathCause, World } from './types';
@@ -11,7 +12,7 @@ const deepFrozen = (value: unknown): boolean => {
 
 describe('RULES', () => {
   it('is deep-frozen', () => {
-    expect(RULES_VERSION).toBe(2);
+    expect(RULES_VERSION).toBe(3);
     expect(deepFrozen(RULES)).toBe(true);
   });
 
@@ -55,6 +56,7 @@ describe('createWorld and spawnCreature', () => {
       alive: true,
       cause: null,
       bornTick: 0,
+      phys: STARTER_PHYS,
     });
     expect(world.creatures).toEqual([c]);
   });
@@ -111,6 +113,7 @@ describe('hashWorld', () => {
       { alive: false },
       { cause: 'toxin' satisfies DeathCause },
       { bornTick: 1 },
+      { phys: { ...STARTER_PHYS, thrust: 1.1 } },
     ];
     const covered = new Set(['id', ...mutations.flatMap((m) => Object.keys(m))]);
     expect([...covered].sort()).toEqual(Object.keys(base.creatures[0] as CreatureState).sort());

@@ -28,7 +28,7 @@ export function applyMovement(
   const events: StepEvent[] = [];
 
   if (input.throttle > 0) {
-    const maxTurn = m.turn * pow(scale, m.turnExp) * DT;
+    const maxTurn = m.turn * creature.phys.turn * pow(scale, m.turnExp) * DT;
     const diff = wrapAngle(steerToAngle(input.steer) - creature.heading);
     creature.heading = wrapAngle(creature.heading + clamp(diff, -maxTurn, maxTurn));
   }
@@ -38,7 +38,8 @@ export function applyMovement(
   if (input.dash && world.tick >= creature.dashReadyTick) {
     const cost = m.dashEnergyPerBiomass * creature.biomass;
     if (creature.energy >= cost) {
-      const speed = m.dashSpeed * pow(scale, m.dashExp);
+      const speed =
+        m.dashSpeed * pow(scale, m.dashExp) * Math.sqrt(creature.phys.thrust / creature.phys.drag);
       creature.vx += dirX * speed;
       creature.vy += dirY * speed;
       creature.energy -= cost;
@@ -47,9 +48,11 @@ export function applyMovement(
     }
   }
 
-  const thrust = m.thrust * (input.throttle / m.maxThrottle) * pow(scale, m.thrustExp);
-  let ax = dirX * thrust - m.drag * creature.vx;
-  let ay = dirY * thrust - m.drag * creature.vy;
+  const thrust =
+    m.thrust * creature.phys.thrust * (input.throttle / m.maxThrottle) * pow(scale, m.thrustExp);
+  const drag = m.drag * creature.phys.drag;
+  let ax = dirX * thrust - drag * creature.vx;
+  let ay = dirY * thrust - drag * creature.vy;
 
   ax += wallAccel(creature.x, world.size);
   ay += wallAccel(creature.y, world.size);
