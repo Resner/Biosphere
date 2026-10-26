@@ -88,6 +88,8 @@ const NO_MEMBERS: readonly Member[] = [];
 const HATCH_WAIT_MS = 4000;
 /** The creature's condition goes to the hub every 30 s of play (ADR 0019). */
 const REPORT_EVERY_TICKS = 30 * TICK_HZ;
+/** The first report comes early, so the life clock knows the hub's lifespan within seconds. */
+const FIRST_REPORT_TICKS = 5 * TICK_HZ;
 /** Once its time is up the creature asks the hub for the verdict every 2 s until it answers. */
 const EXPIRY_RETRY_TICKS = 2 * TICK_HZ;
 
@@ -172,7 +174,7 @@ function newSession(
     death: null,
     pond,
     ticks: 0,
-    nextReport: REPORT_EVERY_TICKS,
+    nextReport: FIRST_REPORT_TICKS,
     lastExpiryAsk: -1,
   };
 }

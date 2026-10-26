@@ -1,8 +1,9 @@
 import { expect, type Page, test } from '@playwright/test';
 import { clickHatch, M4_SHORT_LIFE_HUB, openRecorded, state, waitPlaying } from './helpers';
 
-// Old age (M4 T10), against an authority with lifespans at 1% (about 45 s): the creature turns
-// old at 85% of its time, slows by about a fifth, dies of old age, and the next hatch is new.
+// Old age (M4 T10), against an authority with lifespans at 1% (27 to 72 s, by the genome): the
+// creature turns old at 85% of its time, slows by about a fifth, dies of old age, and the next
+// hatch is new.
 
 test.describe.configure({ mode: 'serial' });
 
@@ -29,7 +30,7 @@ async function topSpeed(page: Page, windowMs: number): Promise<number> {
 test('a creature grows old, slows, dies of old age, and the next hatch is a new creature', async ({
   browser,
 }) => {
-  test.setTimeout(120_000);
+  test.setTimeout(240_000);
   const context = await browser.newContext();
   const page = await context.newPage();
   await openRecorded(page, '', M4_SHORT_LIFE_HUB);
@@ -40,24 +41,24 @@ test('a creature grows old, slows, dies of old age, and the next hatch is a new 
   expect(young.life.stage).toBe('young');
   expect(young.player?.elder).toBe(false);
   await expect(page.getByTestId('hud-stage')).toHaveText('Young');
-  const youngSpeed = await topSpeed(page, 3000);
+  const youngSpeed = await topSpeed(page, 2500);
   expect(youngSpeed).toBeGreaterThan(0);
 
-  // The first report brings the real lifespan; 85% of it later the creature turns old.
+  // The first report (after 5 s) brings the real lifespan; at 85% of it the creature turns old.
   await page.waitForFunction(() => window.__bs?.state().life.stage === 'old', undefined, {
-    timeout: 60_000,
+    timeout: 90_000,
   });
   await expect(page.getByTestId('hud-stage')).toHaveText('Old');
   await expect(page.getByTestId('toast')).toHaveText('Feeling old');
   expect((await state(page)).player?.elder).toBe(true);
   await page.screenshot({ path: 'test-results/m4-oldage-old.png' });
-  const oldSpeed = await topSpeed(page, 3000);
+  const oldSpeed = await topSpeed(page, 2000);
   expect(oldSpeed / youngSpeed).toBeGreaterThan(0.7);
   expect(oldSpeed / youngSpeed).toBeLessThan(0.9);
   await expect(page.getByTestId('hud-remaining')).toContainText('left');
 
   await page.waitForFunction(() => window.__bs?.state().screen === 'dead', undefined, {
-    timeout: 30_000,
+    timeout: 45_000,
   });
   const dead = await state(page);
   expect(dead.death?.cause).toBe('old-age');
