@@ -1,0 +1,25 @@
+{
+  "rulesVersion": 3,
+  "vectors": {
+    "zero": "ed4f3336f9aade54",
+    "ones": "e28da1d70e18a67d",
+    "alternating": "63fd1c14d4bb0abe",
+    "modulesZero": "fe3dc8e769a48b84",
+    "modulesFull": "bae76660b7def640",
+    "eightSegmentsModulesFull": "08b611473fd977ad",
+    "random0": "c4fc592690748546",
+    "random1": "b939f641a2c1c1ae",
+    "random2": "10381b3020c7c371",
+    "random3": "690b33199776cf8c",
+    "random4": "8fda57bdbbac1c43",
+    "random5": "2a79f97f3e53a1ff",
+    "random6": "24b18b9d5fb21918",
+    "random7": "1d4a856038245edc",
+    "random8": "10bf3c1a5cad0399",
+    "random9": "3f23c1c84e182b20",
+    "random10": "f241bc42e5d87cfb",
+    "random11": "2dee7fc3be927c39",
+    "random12": "94b29ad35773d83a",
+    "random13": "47576955173ecf9b"
+  }
+}

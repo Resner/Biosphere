@@ -157,6 +157,74 @@ export const RULES = deepFreeze({
     /** A homozygous loss of function (L1-L4) sets its defect factor to this; heterozygotes are unaffected. */
     lof: { membraneIntegrity: 0.6, partScale: 0.6, beatStrength: 0.7, metabolismCost: 1.3 },
   },
+  /** Development (M3, DESIGN §6): how traits become a body plan, and the repairs that keep every plan valid. All lengths are in core radii. */
+  develop: {
+    caps: {
+      segments: 8,
+      appendages: 24,
+      joints: 4,
+      branches: 2,
+      colliders: 12,
+      bounds: 2.5,
+      pairs: 3,
+    },
+    /** Segments stay within this reach of the core; appendages within `caps.bounds` less `boundsSlack`. */
+    segmentReach: 1.8,
+    boundsSlack: 0.05,
+    /** Each segment starts this share of its neighbours' radii from the previous one. */
+    segmentSpacing: 0.8,
+    /** The rearmost segment's radius is `1 - taper × this` of the core's. */
+    taperDrop: 0.6,
+    /** A segment's half-length is its radius × aspect ÷ this, within `stretch`. */
+    aspectNeutral: 1.6,
+    stretch: [0.6, 1.2],
+    /** Appendage length, base width, taper and curvature at byte 0 and byte 255. */
+    length: [0.1, 1.5],
+    width: [0.04, 0.4],
+    taper: [0, 0.9],
+    curvature: [-1, 1],
+    /** A branch is this fraction of its parent's length and width. */
+    branchScale: 0.6,
+    /** Attach angles stay this far from the heading and the tail (radians). */
+    angleMargin: 0.2,
+    /** Appendages on one segment and side keep at least this angle apart (radians). */
+    minAngleGap: 0.3,
+    /** The growth direction bends from the attach angle toward the tail by this share of the way. */
+    sweep: 0.3,
+    /** A part with a beat below this does not count as motile. */
+    minBeat: 0.1,
+    /** Motile area below this gets the default ciliary band. */
+    minThrustArea: 0.06,
+    band: {
+      length: 0.4,
+      width: 0.12,
+      beat: 0.8,
+      pairs: 2,
+      tip: 0.9,
+      taper: 0.3,
+      joints: 2,
+      stiffness: 0.3,
+    },
+    /** Slack for comparing angles and distances. */
+    epsilon: 1e-9,
+    /** A segment carrying plating below this has no plates; the plate thickness runs over this range with the plating. */
+    plateMin: 0.05,
+    plateThickness: [0.03, 0.2],
+    /** Collider radius is the part's base width times this. */
+    colliderWidth: 0.5,
+    colliderAlong: 0.65,
+    /** The mouth: radius = size × (this − type); the jaw half (type > 0.5) moves forward and narrows. */
+    mouthRadiusBase: 1.5,
+    /** Mouth types above this move the mouth forward and narrow it. */
+    jawStart: 0.5,
+    mouthReach: 1.2,
+    mouthNarrow: 1.6,
+    /** Mesh vertices per body ring and part ring, and rings per segment or joint, by detail. */
+    vertices: {
+      full: { cap: 6000, bodyRings: 9, bodyRing: 12, jointRings: 3, partRing: 8 },
+      low: { cap: 1500, bodyRings: 5, bodyRing: 6, jointRings: 1, partRing: 4 },
+    },
+  },
   spawn: {
     /** Hatching looks for a plume-free spot on rings this far apart (wu). */
     searchStep: 50,
