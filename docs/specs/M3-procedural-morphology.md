@@ -75,7 +75,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
 
 ## Tasks
 
-- [ ] T1 Body seam and the rules-version-3 retune
+- [ ] T1 Body seam and the rules-version-3 retune (in progress)
   - Acceptance (unit tests unless noted):
     - `STARTER_PHYS` and `PhysStats` as in the interface above; `spawnCreature` defaults to `STARTER_PHYS` and rejects nothing (a `phys` with out-of-range values is clamped by `sanitizePhys`, which also enforces the 1–12 colliders with the core first).
     - Movement: `thrust: 2` doubles the steady-state top speed of a full-throttle run (within 1%); `drag: 2` halves it; `turn: 2` doubles the heading change rate (a 90° turn takes half the ticks); a dash scales with √(thrust ÷ drag).
