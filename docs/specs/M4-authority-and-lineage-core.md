@@ -123,7 +123,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Notes: `worker/ledger.ts` is plain functions over `SqlStorage` so tests don't need sockets. The ledger imports `src/ledger` for hashing and signatures; it never trusts a client-supplied hash. Keep all SQL in one place. `players` stores `playerId`, first seen and last seen only (no names; names stay in the hub).
   - Done: `worker/ledger.ts` (`Ledger.accept/head/chain/flags/pubkeys`, `rowsWritten` counter for the usage meter), migration 2, `/v1/pubkeys`. A checkpoint writes 2 rows (the `records` and `creatures` tables are WITHOUT ROWID so no hidden index rows). Gotchas: `accept` trusts the caller to have authenticated `owner`; T6 must check the genesis genome text against `body.genome` before calling it; T7 owns plausibility of `rules` and condition values.
 
-- [ ] T5 Beacon service: cache, commitments, alarms and the fixture entry
+- [ ] T5 Beacon service: cache, commitments, alarms and the fixture entry (in progress)
   - Acceptance (workerd tests; time is faked):
     - `Beacons.latest()` returns the highest verified round the object knows by wall time (`roundAt(now)` minus a one-round margin when the newest is not yet published); `Beacons.get(round)` serves from the `beacons` table without a fetch when cached, otherwise fetches, verifies, stores (one write) and returns; an unverifiable response is never stored.
     - `commit(kind, ownerData)` names `round = latestPublished + 2` (never earlier), stores the commitment, countersigns it, and returns it; the same request returns the same commitment and the same round; there is no function that changes a stored round (a test greps the module's exports).
