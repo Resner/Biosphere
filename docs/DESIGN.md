@@ -109,7 +109,9 @@ Death is common and never total: you fall back to your pending offspring or your
 
 - **Lifespan** (M4, ADR 0019): 75 min of active time, scaled ×0.6–1.6 by the lifespan gene (45–120 min). Active time is accrued by the authority from your progress reports as `min(ticks played ÷ 30, real time passed + 2 s)`, so a hidden tab, an offline player and a checkpoint accrue nothing, and nobody ages faster than real time. It also counts while the creature is locked in a committed encounter (M8). A creature you hatch is yours alone: no one else's session advances it.
 - **Maturity** needs active time ≥ max(12 min, 20% of lifespan) **and** biomass ≥ 60% of the creature's maximum.
-- **Old age** starts at 85% of lifespan (−20% thrust, so −20% top speed, and +20% basal metabolism; a dash is unaffected). Death comes at 100%.
+- **Old age** starts at 85% of lifespan (−20% thrust, so −20% top speed, and +20% basal metabolism; a dash is unaffected). Death comes at 100%. The client keeps the life clock between reports (the hub's last word plus the ticks played since), shows it as a thin **Life** bar with the stage word (Young, Mature, Old) and, in the last 10 minutes, "About N min left"; it turns the creature elder at 85% and, when its own clock reaches 100%, reports every 2 s until the authority ends the life. The authority has the last word.
+- **Hatch limit** (M4): the genesis bucket holds 3 hatches and refills one per 5 min. With it empty the death and title screens say "Next recorded hatch in m:ss", disable Hatch and offer the practice cell.
+- **History** (M4): the title screen lists the last 10 lives (species, how it ended, time lived, when), or "No creatures yet".
 - **Mating**:
   - Both creatures must be mature, have no pending offspring, be within ±1 tier and within 3 body lengths, and not be locked.
   - **Consent**: A courts (E), B accepts within 15 s, and both sign within 20 s.
@@ -245,7 +247,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Dash | ripple | whoosh |
 | Windup aimed at you (M7) | glow on the attacker's weapon | rising tick |
 | Death | dissolve; death screen naming the cause | descending tone |
-| Old age (M4) | stage word on the life bar, grey tint, "Feeling old" toast at 85% of the lifespan | slow low swell (M6) |
+| Old age (M4) | stage word and dashed bar on the life meter, "Feeling old" toast (no tint on the body yet) at 85% of the lifespan | slow low swell (M6) |
 | Court, mate, hatch (M5) | bioluminescent dance; egg crack | chime; bright chime |
 | Growth into a new tier | zoom-out swell | soft swell |
 

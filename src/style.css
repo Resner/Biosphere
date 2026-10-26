@@ -527,3 +527,98 @@ body {
 .lab-link:focus-visible {
   color: var(--text);
 }
+
+/* Life: a thin bar that empties as the creature ages, its stage word and the time left near the end. */
+.meter[hidden],
+.action[hidden],
+.history[hidden],
+.toast[hidden] {
+  display: none;
+}
+
+[data-bar="life"] {
+  background: #7fa39c;
+}
+
+.life .bar {
+  height: 3px;
+}
+
+.life-left {
+  grid-column: 1 / -1;
+  min-height: 1em;
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+/* An old creature greys out and its bar turns dashed, so the stage never rests on colour alone. */
+.life[data-old] .meter-value {
+  font-style: italic;
+}
+
+.life[data-old] [data-bar="life"] {
+  background: repeating-linear-gradient(90deg, #9aa5a3 0 4px, transparent 4px 7px);
+}
+
+.toast {
+  position: fixed;
+  top: 22%;
+  left: 50%;
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 0.3rem 1rem;
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.6);
+  color: var(--text);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+.action.quiet {
+  margin-top: 0.75rem;
+  border-color: var(--muted);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* Past lives sit at the left of the title screen, out of the way of the Hatch button. */
+.history {
+  position: fixed;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  width: 15rem;
+  max-height: 55vh;
+  overflow: auto;
+  font-size: 0.8rem;
+  text-shadow: 0 0 6px rgb(0 0 0 / 0.9);
+}
+
+.history h2 {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.history ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history li {
+  display: grid;
+}
+
+.history-detail,
+.history p {
+  color: var(--muted);
+}
+
+.history p {
+  margin: 0;
+}

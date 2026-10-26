@@ -3,6 +3,7 @@ import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { RenderInfo } from '../render/scene';
 import type { PhysStats } from '../sim/body';
+import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
 import type { LifeView } from './life';
@@ -26,6 +27,10 @@ export interface BsState {
     energy: number;
     health: number;
     alive: boolean;
+    /** World units per second now. */
+    speed: number;
+    /** Past 85% of the lifespan: slower and hungrier. */
+    elder: boolean;
     /** The body this life hatched with (M3). */
     genomeHash: string;
     species: string;
@@ -40,9 +45,16 @@ export interface BsState {
   /**
    * The recorded life (M4): `status` is the client's state machine (`idle`, `requesting`,
    * `awaiting`, `verifying`, `playing`, `dead`, `practice`), `genome` the hash of the body now
-   * played (null on the title screen), `lastAckN` the last progress report the hub took.
+   * played (null on the title screen), `lastAckN` the last progress report the hub took, `stage`
+   * the life stage now (null without a recorded life), `remainingMs` the time left in it, and
+   * `limitMs` how long until the next recorded hatch (0 when one is free).
    */
-  life: LifeView & { genome: string | null };
+  life: LifeView & {
+    genome: string | null;
+    stage: LifeStage | null;
+    remainingMs: number | null;
+    limitMs: number;
+  };
   /** The other players in the pond, as drawn (alpha fades when they go quiet). */
   remotes: {
     id: string;

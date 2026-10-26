@@ -26,6 +26,7 @@ import { colliderReach } from '../sim/body';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { angleToSteer, IDLE, type Input } from '../sim/input';
+import { applyLife, lifespanMs } from '../sim/life';
 import { atan2, lerp, wrapAngle } from '../sim/math';
 import { replay } from '../sim/replay';
 import { RULES, TICK_HZ } from '../sim/rules';
@@ -39,11 +40,13 @@ import { type Body, bodyLabel, Hatcher, hatchBody } from './body';
 import { type BsDebug, type BsGenome, installHook, type ScriptedRemote } from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
+import { HistoryPanel } from './history';
 import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
 import { RemoteLabels } from './labels';
-import { LifeFlow, type Started, VERIFY_FAILED } from './life';
+import { type LifeClock, LifeFlow, type Started, VERIFY_FAILED } from './life';
 import { resetLife } from './life-reset';
+import { countdownText } from './life-text';
 import { attachVisibilityPause, createLoop } from './loop';
 import { connectOnline, type OnlineSession } from './online';
 import {
@@ -85,6 +88,8 @@ const NO_MEMBERS: readonly Member[] = [];
 const HATCH_WAIT_MS = 4000;
 /** The creature's condition goes to the hub every 30 s of play (ADR 0019). */
 const REPORT_EVERY_TICKS = 30 * TICK_HZ;
+/** Once its time is up the creature asks the hub for the verdict every 2 s until it answers. */
+const EXPIRY_RETRY_TICKS = 2 * TICK_HZ;
 
 /** Local storage, or null where the browser blocks it. */
 function safeStorage(): Storage | null {
@@ -111,6 +116,8 @@ interface Session {
   /** Ticks this life has been simulated, and the count at which its next report is due. */
   ticks: number;
   nextReport: number;
+  /** The tick count of the last report sent because the lifespan ran out; -1 before any. */
+  lastExpiryAsk: number;
 }
 
 interface Steering {
@@ -166,6 +173,7 @@ function newSession(
     pond,
     ticks: 0,
     nextReport: REPORT_EVERY_TICKS,
+    lastExpiryAsk: -1,
   };
 }
 
@@ -175,6 +183,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const camera = new FollowCamera();
   const controller = new InputController();
   const hud = new Hud();
+  const history = new HistoryPanel();
   const fx = new Effects();
   const vignette = pick('[data-testid="vignette"]');
   const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
@@ -220,6 +229,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const practiceBadge = pick('[data-testid="practice-badge"]');
   /** Why the last hatch did not start; shown until the next one. */
   let hatchError = '';
+  /** When the recorded hatches are used up: the time (performance.now) the next one frees; 0 when free. */
+  let limitUntil = 0;
+  const limitLeft = (): number => Math.max(0, limitUntil - performance.now());
+  /** The life clock as of the last tick; null for a practice cell and between lives. */
+  let lastClock: LifeClock | null = null;
 
   let scale = 1;
   // Genesis DNA needs a number the sim never sees; the browser supplies it.
@@ -272,6 +286,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       genomeSync.setOwn(session.body.text);
     }
     view.body = session.body.creature;
+    lastClock = null;
+    hud.setLife(null);
     practiceBadge.hidden = session.demo || flow.view().status !== 'practice';
     screen = nextScreen;
     screenShownAt = performance.now();
@@ -372,6 +388,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         },
         life(msg) {
           flow.receive(msg);
+          if (msg.t === 'history') history.show(msg.lives, Date.now());
+          // Past lives are asked for once the hub has said who the player is, and after each death.
+          if (msg.t === 'life' || msg.t === 'died') link.send({ t: 'history' });
         },
         member(op, member) {
           if (op === 'join') {
@@ -435,7 +454,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   let hatching = false;
   const hatch = (): void => {
-    if (hatching) return;
+    if (hatching || limitLeft() > 0) return;
+    limitUntil = 0;
     if (!hubUrl) {
       flow.practice();
       begin(pond !== null);
@@ -467,7 +487,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         if (outcome.kind === 'failed') {
           hatchError = outcome.message;
         } else if (outcome.kind === 'practice') {
-          begin(true);
+          // Out of recorded hatches: wait out the countdown or swim in a practice cell.
+          if (outcome.reason === 'limit' && (outcome.genesisIn ?? 0) > 0) {
+            limitUntil = performance.now() + (outcome.genesisIn ?? 0);
+          } else {
+            begin(true);
+          }
         } else {
           const genome = parseGenomeText(outcome.start.genome);
           if (genome) begin(true, { body: hatchBody(genome), start: outcome.start });
@@ -483,7 +508,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         screens.setBusy(false);
       });
   };
-  const screens = new Screens({ hatch });
+  const screens = new Screens({
+    hatch,
+    practice: () => {
+      limitUntil = 0;
+      flow.practice();
+      begin(pond !== null);
+    },
+  });
   if (hubUrl) {
     nameField.hidden = false;
     nameInput.value = loadName(storage);
@@ -587,6 +619,40 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** The pond, while a real life (not the title screen's cell) is running in it. */
   const livePond = (): Pond | null => (session.demo ? null : session.pond);
 
+  /**
+   * The life clock of a recorded creature: it turns elder at 85% of its lifespan, and the hub's
+   * word that its time is up ends it. A creature past its time asks the hub for that verdict.
+   */
+  const ageCreature = (): void => {
+    const { world, player } = session;
+    if (flow.expired) {
+      // The sim's own `expire` call, the one a replayed log carries.
+      applyLife(world, player.id, 'expire');
+      return;
+    }
+    const { creature } = session.body;
+    lastClock = flow.clock(
+      session.ticks,
+      player.biomass,
+      creature.stats.maxBiomass,
+      lifespanMs(creature.traits.physiology.lifespan),
+    );
+    hud.setLife(lastClock);
+    if (!lastClock) return;
+    if (lastClock.stage === 'old' && !player.elder) {
+      applyLife(world, player.id, 'elder');
+      hud.toast('Feeling old');
+    }
+    const lastAsk = session.lastExpiryAsk;
+    if (
+      lastClock.remainingMs <= 0 &&
+      (lastAsk < 0 || session.ticks - lastAsk >= EXPIRY_RETRY_TICKS)
+    ) {
+      session.lastExpiryAsk = session.ticks;
+      flow.report(session.ticks, player);
+    }
+  };
+
   const tick = (): void => {
     const { world, player, counts } = session;
     // The world stops when the player has died: nothing changes behind the death screen.
@@ -622,11 +688,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       session.nextReport += REPORT_EVERY_TICKS;
       if (!document.hidden) flow.report(session.ticks, player);
     }
+    if (!session.demo && player.cause === null) ageCreature();
     if (!session.demo && player.cause !== null) {
+      // A recorded creature lived by its life clock; a practice cell by sim time.
+      const lived = lastClock
+        ? lastClock.activeMs / 1000
+        : (world.tick - player.bornTick) / TICK_HZ;
       flow.died(player.cause, session.ticks);
+      lastClock = null;
+      hud.setLife(null);
       session.death = {
         cause: player.cause,
-        survivedSeconds: (world.tick - player.bornTick) / TICK_HZ,
+        survivedSeconds: lived,
         peakBiomass: session.peakBiomass,
         body: bodyLabel(session.body),
       };
@@ -658,10 +731,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   let shownNote = '';
+  let shownLimit = false;
   const updateHatchNote = (): void => {
     const status = flow.state;
     const waiting = hatching && (status === 'awaiting' || status === 'verifying');
+    const left = limitLeft();
+    if (limitUntil > 0 && left <= 0) limitUntil = 0;
+    if (left > 0 !== shownLimit) {
+      shownLimit = left > 0;
+      screens.setLimited(shownLimit);
+    }
     let text = hatchError;
+    if (left > 0) text = countdownText(left);
     if (waiting) text = status === 'awaiting' ? 'Awaiting beacon…' : 'Checking your creature…';
     if (text !== shownNote) {
       shownNote = text;
@@ -939,6 +1020,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             energy: session.player.energy,
             health: session.player.health,
             alive: session.player.alive,
+            speed: Math.hypot(session.player.vx, session.player.vy),
+            elder: session.player.elder,
             genomeHash: session.body.hash,
             species: session.body.species,
             rarity: session.body.rarity,
@@ -946,7 +1029,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             stats: session.player.phys,
           },
       death: session.death,
-      life: { ...flow.view(), genome: session.demo ? null : session.body.hash },
+      life: {
+        ...flow.view(),
+        genome: session.demo ? null : session.body.hash,
+        stage: lastClock?.stage ?? null,
+        remainingMs: lastClock?.remainingMs ?? null,
+        limitMs: limitLeft(),
+      },
       remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species }) => ({
         id,
         name,
