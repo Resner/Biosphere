@@ -327,6 +327,13 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
 
   - Seen and left alone (record, no task): `ConnectionPolicy` is only used by tests until M7/M11 need its eviction (kept, noted in `net.md`); `render()` allocates a few small objects per frame (revisit in the M6 performance pass); `PondAuthority` never deletes pond rows and reuses the oldest epoch (u32 ticks last about 4.5 years, so M13 owns it).
 
+- [x] T24 The full E2E run is stable
+  - Found by `npm run verify` at the M2 close: `m2-food` failed under the full parallel load, which also skipped the `social` and `pond` projects that depend on it.
+  - Acceptance:
+    - `m2-food` no longer races the idle cell: it stays full while the second tab is checked, then goes hungry and steers in one step; six runs on three workers pass, and `npm run test:e2e:full` passes twice in a row.
+  - Done: only the test changed (`setEnergy(1e9)`, pick the item, wait for B, then `setEnergy(10)` and `steerTo` in one `evaluate`).
+  - Gotcha: at spawn the cell sits within eating range of food, so any await between picking an item and steering lets it eat the item first and `steerTo` resolves false ("gone"). More than three Playwright workers on 4 cores time out at 30 s; that is overload, not a bug.
+
 ## End-to-end check
 
 `tests/e2e/m2-pond.spec.ts` (T17) plus `m2-webrtc.spec.ts` (T9), `m2-identity.spec.ts` (T3) and the chat scenario from T15, all offline against local `wrangler dev`. Exit-criteria map:

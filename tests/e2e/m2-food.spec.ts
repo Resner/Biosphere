@@ -66,7 +66,9 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
     );
     expect(Math.abs((tickA ?? 0) - (tickB ?? 0))).toBeLessThanOrEqual(30);
 
-    await a.page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(10));
+    // A full cell does not eat, so the item stays put while B is checked; then A goes hungry and
+    // steers to it in one synchronous step, with no tick in between for the idle cell to eat it first.
+    await a.page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(1e9));
     const item = await a.page.evaluate(() => (window.__bs as BsHook).debug?.nearestFood());
     expect(item).toBeTruthy();
     const id = item?.id as string;
@@ -74,11 +76,11 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
     expect(m).toBeTruthy();
     await b.page.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id);
 
-    const reached = await a.page.evaluate(
-      (item) =>
-        (window.__bs as BsHook).debug?.steerTo(item as { id: string; x: number; y: number }),
-      item,
-    );
+    const reached = await a.page.evaluate((item) => {
+      const debug = (window.__bs as BsHook).debug;
+      debug?.setEnergy(10);
+      return debug?.steerTo(item as { id: string; x: number; y: number });
+    }, item);
     expect(reached).toBe(true);
     await b.page.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
       timeout: 2000,
