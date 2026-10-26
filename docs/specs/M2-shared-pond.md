@@ -327,6 +327,13 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
 
   - Seen and left alone (record, no task): `ConnectionPolicy` is only used by tests until M7/M11 need its eviction (kept, noted in `net.md`); `render()` allocates a few small objects per frame (revisit in the M6 performance pass); `PondAuthority` never deletes pond rows and reuses the oldest epoch (u32 ticks last about 4.5 years, so M13 owns it).
 
+- [x] T24 The full E2E run is stable
+  - Found by `npm run verify` and then CI at the M2 close: `m2-food` failed under the full parallel load (which also skipped the `social` and `pond` projects that depend on it), and `m2-pond` counted the shared bite before the loser's `stolen` event arrived.
+  - Acceptance:
+    - `m2-food` freezes both sims (`timeScale(0)`) while it picks the item and checks B, then A goes hungry and steers in one step; the full chromium project passes three times in a row.
+    - `m2-pond` polls (5 s) for the one-bite count instead of waiting a fixed 500 ms, then checks it holds, and waits up to 6 s (not 2 s) for the item to vanish for C, because three software-GL browsers on a loaded runner tick every few hundred ms; its mean-error check compares B's view of A with A's position `INTERPOLATION_MS` earlier, because the 120 ms delay is by design and a full-throttle cell moves about a bound's worth in that time.
+  - Done: tests only. Gotcha: a cell hatched beside food eats it in either tab, and `setEnergy(1e9)` does not keep a cell full (growth drains it below max), so "stay full" is not a way to hold a test still; freeze the sim instead. More than three Playwright workers on 4 cores time out at 30 s: overload, not a bug.
+
 ## End-to-end check
 
 `tests/e2e/m2-pond.spec.ts` (T17) plus `m2-webrtc.spec.ts` (T9), `m2-identity.spec.ts` (T3) and the chat scenario from T15, all offline against local `wrangler dev`. Exit-criteria map:

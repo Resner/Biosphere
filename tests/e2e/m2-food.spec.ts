@@ -66,7 +66,12 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
     );
     expect(Math.abs((tickA ?? 0) - (tickB ?? 0))).toBeLessThanOrEqual(30);
 
-    await a.page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(10));
+    // Freeze both sims while the item is picked and B is checked: a cell hatched beside the item
+    // would otherwise eat it, or grow out of "full", between two steps of this test. Then A goes
+    // hungry and steers to it in one synchronous step; B resumes once A has eaten.
+    for (const { page } of [a, b]) {
+      await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(0));
+    }
     const item = await a.page.evaluate(() => (window.__bs as BsHook).debug?.nearestFood());
     expect(item).toBeTruthy();
     const id = item?.id as string;
@@ -74,12 +79,14 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
     expect(m).toBeTruthy();
     await b.page.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id);
 
-    const reached = await a.page.evaluate(
-      (item) =>
-        (window.__bs as BsHook).debug?.steerTo(item as { id: string; x: number; y: number }),
-      item,
-    );
+    const reached = await a.page.evaluate((item) => {
+      const debug = (window.__bs as BsHook).debug;
+      debug?.setEnergy(10);
+      debug?.timeScale(1);
+      return debug?.steerTo(item as { id: string; x: number; y: number });
+    }, item);
     expect(reached).toBe(true);
+    await b.page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
     await b.page.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
       timeout: 2000,
     });
