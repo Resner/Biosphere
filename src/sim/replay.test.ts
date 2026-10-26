@@ -20,7 +20,7 @@ interface Golden {
   events: Record<string, number>;
 }
 
-const NAMES = ['idle-starve', 'forage-route', 'hazard-dash', 'body-forage'] as const;
+const NAMES = ['idle-starve', 'forage-route', 'hazard-dash', 'body-forage', 'old-age'] as const;
 const file = (name: string) => new URL(`./__golden__/${name}.json`, import.meta.url);
 const ID = 'p1';
 
@@ -97,7 +97,16 @@ function build(): Record<(typeof NAMES)[number], InputLog> {
     600,
     (_world, tick) => ({ steer: 0, throttle: 15, dash: tick === 20 }),
   );
+  // The forage route, with the authority calling elder at 20 s and the end of life at 50 s.
+  const oldAge: InputLog = {
+    ...forage,
+    life: [
+      [600, 'elder'],
+      [1500, 'expire'],
+    ],
+  };
   return {
+    'old-age': oldAge,
     'idle-starve': idle,
     'forage-route': forage,
     'hazard-dash': hazard,
@@ -144,6 +153,16 @@ describe('golden scenarios', () => {
     const body = replay(load('body-forage').log);
     expect(body.events.eat).toBeGreaterThanOrEqual(3);
     expect(body.world.creatures[0]?.phys.thrust).toBe(1.4);
+
+    const old = replay(load('old-age').log);
+    expect(old.events.death).toBe(1);
+    expect(old.world.creatures[0]).toMatchObject({ alive: false, cause: 'old-age', elder: true });
+  });
+
+  it('a life call changes the hash', () => {
+    const { log, hash } = load('old-age');
+    expect(replay({ ...log, life: [[600, 'elder']] }).hash).not.toBe(hash);
+    expect(replay({ ...log, life: [] }).hash).not.toBe(hash);
   });
 
   it('changing one input changes the hash', () => {
@@ -291,5 +310,22 @@ describe('replay validation', () => {
     ).toThrow(RangeError);
     expect(() => replay({ ...base, runs: [[10, 0]] })).toThrow(RangeError);
     expect(() => replay({ ...base, runs: [[0, 0x10000]] })).toThrow(RangeError);
+  });
+
+  it('rejects unordered, out-of-range and unknown life events', () => {
+    const life = (events: unknown) => replay({ ...base, life: events as never });
+    expect(() =>
+      life([
+        [5, 'elder'],
+        [5, 'expire'],
+      ]),
+    ).toThrow(RangeError);
+    expect(() => life([[10, 'expire']])).toThrow(RangeError);
+    expect(() => life([[1.5, 'expire']])).toThrow(RangeError);
+    expect(() => life([[1, 'retire']])).toThrow(RangeError);
+    expect(() => life([null])).toThrow(RangeError);
+    expect(() => life([[1]])).toThrow(RangeError);
+    expect(() => life('expire')).toThrow(RangeError);
+    expect(life([[9, 'expire']]).events.death).toBe(1);
   });
 });

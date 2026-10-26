@@ -6,7 +6,7 @@ import { hatch, openGame } from './helpers';
 // The whole M1 loop through the real UI and the `window.__bs` hook: hatch, forage, starve, hatch
 // again. Time is sped up with `debug.timeScale`, never with sleeps.
 
-const goldenNames = ['idle-starve', 'forage-route', 'hazard-dash', 'body-forage'];
+const goldenNames = ['idle-starve', 'forage-route', 'hazard-dash', 'body-forage', 'old-age'];
 
 test.describe('the M1 loop', () => {
   test('the title screen offers Hatch, and hatching shows a full HUD', async ({ page }) => {

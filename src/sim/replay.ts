@@ -3,10 +3,11 @@
 
 import { isPhysShape, type PhysStats } from './body';
 import { decodeInput, encodeInput, IDLE, type Input } from './input';
+import { applyLife, type LifeEvent } from './life';
 import { RULES_VERSION } from './rules';
 import { hashWorld } from './state-hash';
 import { step } from './step';
-import type { World } from './types';
+import type { StepEvent, World } from './types';
 import { createWorld, spawnCreature } from './world';
 
 /** `runs[i] = [tick, code]`: from `tick` on, the creature holds the u16 input `code`. */
@@ -19,6 +20,11 @@ export interface InputLog {
   ticks: number;
   /** Strictly ascending ticks in [0, ticks). Before the first run the creature idles. */
   runs: InputRun[];
+  /**
+   * The authority's life calls for the spawned creature, strictly ascending ticks in [0, ticks).
+   * A call at tick `t` is applied before that tick's `step`, so it already shapes tick `t`.
+   */
+  life?: LifeEvent[];
 }
 
 export interface ReplayResult {
@@ -71,6 +77,18 @@ function validate(log: InputLog): void {
       throw new RangeError(`run input ${code} is not a u16`);
     previous = tick;
   }
+  previous = -1;
+  if (log.life !== undefined && !Array.isArray(log.life))
+    throw new RangeError('life is not a list');
+  for (const call of log.life ?? []) {
+    if (!Array.isArray(call) || call.length !== 2) throw new RangeError('life event is not a pair');
+    const [tick, kind] = call;
+    if (!Number.isInteger(tick) || tick <= previous || tick >= log.ticks)
+      throw new RangeError(`life event at tick ${tick} is out of order or out of range`);
+    if (kind !== 'elder' && kind !== 'expire')
+      throw new RangeError(`unknown life event ${String(kind)}`);
+    previous = tick;
+  }
 }
 
 /** Re-runs a log from its seed and spawn, and returns the final state hash. */
@@ -79,16 +97,25 @@ export function replay(log: InputLog): ReplayResult {
   const world = createWorld({ seed: log.seed });
   spawnCreature(world, log.spawn);
   const events: Record<string, number> = {};
+  const life = log.life ?? [];
   let next = 0;
+  let nextLife = 0;
   let input: Input = IDLE;
+  const count = (event: StepEvent) => {
+    events[event.type] = (events[event.type] ?? 0) + 1;
+  };
   for (let tick = 0; tick < log.ticks; tick++) {
+    const call = life[nextLife];
+    if (call !== undefined && call[0] === tick) {
+      for (const event of applyLife(world, log.spawn.id, call[1])) count(event);
+      nextLife++;
+    }
     const run = log.runs[next];
     if (run !== undefined && run[0] === tick) {
       input = decodeInput(run[1]);
       next++;
     }
-    for (const event of step(world, { [log.spawn.id]: input }))
-      events[event.type] = (events[event.type] ?? 0) + 1;
+    for (const event of step(world, { [log.spawn.id]: input })) count(event);
   }
   return { hash: hashWorld(world), world, events };
 }

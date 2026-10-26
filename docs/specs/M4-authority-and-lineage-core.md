@@ -78,7 +78,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
 
 ## Tasks
 
-- [ ] T1 Life rules (rules version 4): lifespan, old age, maturity in the sim (in progress)
+- [x] T1 Life rules (rules version 4): lifespan, old age, maturity in the sim
   - Acceptance (unit tests, written first):
     - `lifespanMs(1) = 4,500,000` (75 min); `lifespanMs(0.6) = 2,700,000`; `lifespanMs(1.6) = 7,200,000`. `lifeStage` is `young` before max(12 min, 20% of the lifespan) of active time or below 60% of max biomass, `mature` when both hold, `old` from 85% of the lifespan (old beats mature). Boundary cases at exactly each limit are pinned.
     - `accrue(prev, ticks, wallMs)`: 900 ticks claimed (30 s) in 30,000 ms wall → 30,000; claimed 900 ticks but wall 10 s → 12,000 (wall + 2 s); `ticks < prev` or `wallMs < 0` → 0; zero ticks → 0.
@@ -86,6 +86,8 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
     - Sim: the input log gains `life: [tick, 'elder' | 'expire'][]` (optional, ascending, validated). `expire` sets the creature's health to 0 with cause `old-age` on that tick (a `death` event is emitted once, with `cause: 'old-age'`); `elder` sets the flag. A replay with both events is identical in Node and Chromium (a new golden, run in the existing determinism E2E).
     - `RULES_VERSION` is 4; `hashWorld` covers `elder`; every sim golden is regenerated under version 4 and the PR says so. The hash still rejects NaN and Infinity.
     - Numbers live in `RULES.life` (`lifespanBaseMs` 4,500,000; `elderAt` 0.85; `elderThrust` 0.8; `elderBasal` 1.2; `matureMinMs` 720,000; `matureMinShare` 0.2; `matureBiomassShare` 0.6; `accrueSlackMs` 2000).
+  - Done: `src/sim/life.ts` (`lifespanMs`, `lifeStage`, `accrue`, `applyLife`), `CreatureState.elder`, `InputLog.life`, `RULES.life`, rules v4 with every golden regenerated (hashes and `rulesVersion` only) plus a new `old-age` golden replayed in Chromium.
+  - Gotcha: `lifeStage` takes the lifespan, so 20% of a 75 min life (15 min) beats the 12 min floor; only lifespans under 60 min use the floor.
   - Notes: no genome import in `src/sim`: `lifespanMs` takes the trait value. Update DESIGN §5 (the trait range is 0.6 to 1.6) and the header ("rules version 4") in the same PR.
 
 - [ ] T2 Canonical JSON, record hashing, authority signatures

@@ -109,7 +109,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
 - **Lifespan** (M4, ADR 0019): 75 min of active time, scaled ×0.6–1.6 by the lifespan gene (45–120 min). Active time is accrued by the authority from your progress reports as `min(ticks played ÷ 30, real time passed + 2 s)`, so a hidden tab, an offline player and a checkpoint accrue nothing, and nobody ages faster than real time. It also counts while the creature is locked in a committed encounter (M8). A creature you hatch is yours alone: no one else's session advances it.
 - **Maturity** needs active time ≥ max(12 min, 20% of lifespan) **and** biomass ≥ 60% of the creature's maximum.
-- **Old age** starts at 85% of lifespan (−20% thrust, +20% basal metabolism). Death comes at 100%.
+- **Old age** starts at 85% of lifespan (−20% thrust, so −20% top speed, and +20% basal metabolism; a dash is unaffected). Death comes at 100%.
 - **Mating**:
   - Both creatures must be mature, have no pending offspring, be within ±1 tier and within 3 body lengths, and not be locked.
   - **Consent**: A courts (E), B accepts within 15 s, and both sign within 20 s.

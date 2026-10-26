@@ -23,6 +23,8 @@ export interface CreatureState {
   health: number;
   dashReadyTick: number;
   alive: boolean;
+  /** Past 85% of the lifespan: slower and hungrier (DESIGN §5). Set by a `life` input, never by the sim. */
+  elder: boolean;
   cause: DeathCause | null;
   bornTick: number;
   phys: PhysStats;

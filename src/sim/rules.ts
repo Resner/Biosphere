@@ -1,7 +1,7 @@
-// Rules v3 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v4 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 3;
+export const RULES_VERSION = 4;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -280,6 +280,23 @@ export const RULES = deepFreeze({
     bite: 0.5,
     /** Detection ring: each unit of slender, still, forward length adds this. */
     senseGain: 0.5,
+  },
+  /** Life (M4, DESIGN §5, ADR 0019): lifespan, old age and maturity, on active time. */
+  life: {
+    /** Lifespan in ms of active time at lifespan trait 1 (75 min). */
+    lifespanBaseMs: 4_500_000,
+    /** Old age starts at this share of the lifespan. */
+    elderAt: 0.85,
+    /** An elder's thrust multiplier (top speed follows it) and basal metabolism multiplier. */
+    elderThrust: 0.8,
+    elderBasal: 1.2,
+    /** Maturity needs active time of at least max(this, `matureMinShare` of the lifespan)... */
+    matureMinMs: 720_000,
+    matureMinShare: 0.2,
+    /** ...and this share of the creature's maximum biomass. */
+    matureBiomassShare: 0.6,
+    /** Active time credited per report is at most the wall time plus this. */
+    accrueSlackMs: 2000,
   },
   spawn: {
     /** Hatching looks for a plume-free spot on rings this far apart (wu). */

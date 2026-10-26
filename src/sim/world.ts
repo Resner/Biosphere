@@ -42,6 +42,7 @@ export function spawnCreature(
     health: maxHealth(biomass),
     dashReadyTick: 0,
     alive: true,
+    elder: false,
     cause: null,
     bornTick: world.tick,
     phys: sanitizePhys(spec.phys ?? STARTER_PHYS),
