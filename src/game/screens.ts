@@ -1,29 +1,17 @@
 import type { DeathCause } from '../sim/types';
 import { pick } from './dom';
+import { DEATH_TEXT, livedText } from './life-text';
 
 export type Screen = 'title' | 'playing' | 'dead';
 
 export interface DeathSummary {
   cause: DeathCause;
-  /** Seconds of sim time between hatching and dying. */
+  /** Seconds the creature lived: its life clock when it has one, else sim time since hatching. */
   survivedSeconds: number;
   peakBiomass: number;
   /** Species and rarity of the body that died. */
   body: string;
 }
-
-/** What the death screen says: a short name and one line of advice. */
-const DEATH_TEXT: Readonly<Record<DeathCause, { name: string; hint: string }>> = {
-  starved: { name: 'Starved', hint: 'Your energy ran out. Eat drifting food to keep it up.' },
-  toxin: {
-    name: 'Poisoned',
-    hint: 'You drifted into a toxic cloud. Steer clear of the dark haze.',
-  },
-  'old-age': { name: 'Old age', hint: 'Your cell lived out its time.' },
-  uv: { name: 'Burned', hint: 'Sunlight was too strong up here.' },
-  pressure: { name: 'Crushed', hint: 'The deep water was too heavy.' },
-  killed: { name: 'Killed', hint: 'Another creature got you.' },
-};
 
 /** Title and death screens over the live scene; `body[data-screen]` shows exactly one layer. */
 export class Screens {
@@ -34,20 +22,40 @@ export class Screens {
   private readonly species = pick('[data-testid="death-species"]');
 
   private readonly buttons: HTMLButtonElement[] = [];
+  private readonly practice: HTMLButtonElement[] = [];
+  private busy = false;
+  private limited = false;
 
-  constructor(handlers: { hatch(): void }) {
-    for (const id of ['hatch', 'hatch-again']) {
-      const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
-      this.buttons.push(button);
-      button.addEventListener('click', () => {
-        handlers.hatch();
-      });
-    }
+  constructor(handlers: { hatch(): void; practice(): void }) {
+    const bind = (ids: string[], into: HTMLButtonElement[], click: () => void): void => {
+      for (const id of ids) {
+        const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
+        into.push(button);
+        button.addEventListener('click', click);
+      }
+    };
+    bind(['hatch', 'hatch-again'], this.buttons, handlers.hatch);
+    bind(['practice', 'practice-again'], this.practice, handlers.practice);
   }
 
   /** Greys out the hatch buttons while a hatch waits for the hub. */
   setBusy(busy: boolean): void {
-    for (const button of this.buttons) button.disabled = busy;
+    this.busy = busy;
+    this.refresh();
+  }
+
+  /** While the recorded hatches are used up, Hatch waits and the practice cell is offered instead. */
+  setLimited(limited: boolean): void {
+    this.limited = limited;
+    this.refresh();
+  }
+
+  private refresh(): void {
+    for (const button of this.buttons) button.disabled = this.busy || this.limited;
+    for (const button of this.practice) {
+      button.hidden = !this.limited;
+      button.disabled = this.busy;
+    }
   }
 
   show(screen: Screen): void {
@@ -60,7 +68,7 @@ export class Screens {
     const text = DEATH_TEXT[summary.cause];
     this.cause.textContent = text.name;
     this.hint.textContent = text.hint;
-    this.survived.textContent = `${Math.floor(summary.survivedSeconds)} s`;
+    this.survived.textContent = livedText(summary.survivedSeconds * 1000);
     this.peak.textContent = String(Math.round(summary.peakBiomass));
     this.species.textContent = summary.body;
     this.show('dead');

@@ -106,9 +106,12 @@ export async function patchLuma(
 /** The authority the M4 specs share: `wrangler dev --e2e`, serving recorded drand rounds. */
 export const M4_HUB = 'http://localhost:8790';
 
-/** Opens the game against the M4 hub with no pinned body, so a hatch goes through the ledger. */
-export async function openRecorded(page: Page, extra = ''): Promise<void> {
-  await page.goto(`./?debug=1&hub=${M4_HUB}${extra}`);
+/** The M4 authority with lifespans at 1% (about 45 s), for the old-age spec. */
+export const M4_SHORT_LIFE_HUB = 'http://localhost:8791';
+
+/** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
+export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
+  await page.goto(`./?debug=1&hub=${hub}${extra}`);
   await page.waitForFunction(() => window.__bs?.ready === true);
   await page.waitForFunction(() => window.__bs?.state().playerId);
 }

@@ -109,7 +109,9 @@ Death is common and never total: you fall back to your pending offspring or your
 
 - **Lifespan** (M4, ADR 0019): 75 min of active time, scaled ×0.6–1.6 by the lifespan gene (45–120 min). Active time is accrued by the authority from your progress reports as `min(ticks played ÷ 30, real time passed + 2 s)`, so a hidden tab, an offline player and a checkpoint accrue nothing, and nobody ages faster than real time. It also counts while the creature is locked in a committed encounter (M8). A creature you hatch is yours alone: no one else's session advances it.
 - **Maturity** needs active time ≥ max(12 min, 20% of lifespan) **and** biomass ≥ 60% of the creature's maximum.
-- **Old age** starts at 85% of lifespan (−20% thrust, so −20% top speed, and +20% basal metabolism; a dash is unaffected). Death comes at 100%.
+- **Old age** starts at 85% of lifespan (−20% thrust, so −20% top speed, and +20% basal metabolism; a dash is unaffected). Death comes at 100%. The client keeps the life clock between reports (the hub's last word plus the ticks played since), shows it as a thin **Life** bar with the stage word (Young, Mature, Old) and, in the last 10 minutes, "About N min left"; it turns the creature elder at 85% and, when its own clock reaches 100%, reports every 2 s until the authority ends the life. The authority has the last word.
+- **Hatch limit** (M4): the genesis bucket holds 3 hatches and refills one per 5 min. With it empty the death and title screens say "Next recorded hatch in m:ss", disable Hatch and offer the practice cell.
+- **History** (M4): the title screen lists the last 10 lives (species, how it ended, time lived, when), or "No creatures yet".
 - **Mating**:
   - Both creatures must be mature, have no pending offspring, be within ±1 tier and within 3 body lengths, and not be locked.
   - **Consent**: A courts (E), B accepts within 15 s, and both sign within 20 s.
@@ -122,7 +124,7 @@ Death is common and never total: you fall back to your pending offspring or your
 - **Promotion**: becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition and remaining lifespan, frozen. The child hatches beside it.
 - **Death**: choose between your pending offspring (if any) and your **nearest surviving ancestor** in your checkpoint chain, which comes back with its saved condition and remaining lifespan. Dead or exhausted ancestors are skipped. If nothing survives, hatch a new genesis cell; the old lineage remains as history.
 - **Genesis**: DNA from a committed future drand round (ADR 0010), recomputable by anyone from the commitment and the beacon (ADR 0019). At most one living creature per identity, and a bucket of 3 hatches that refills 1 per 5 minutes (M4; 1 per 10 minutes would have broken the loop). An empty bucket shows a countdown, and the player may swim as an unrecorded practice cell. Genesis cells come from a narrow starter distribution (§6). Rare traits mostly arise through breeding.
-- **Progress and resume** (M4): while you play, the client reports your condition (biomass, energy, health) every 30 s. The authority clamps and flags implausible values, keeps the latest in memory, and writes a checkpoint when you disconnect, every 15 min of active time and at death. Coming back resumes the same creature at the pond's spawn point with that condition; a reload rewinds at most 30 s and never refills lifespan or the hatch bucket.
+- **Progress and resume** (M4): while you play, the client reports your condition (biomass, energy, health) after the first 5 s, then every 30 s. The authority clamps and flags implausible values, keeps the latest in memory, and writes a checkpoint when you disconnect, every 15 min of active time and at death. Coming back resumes the same creature at the pond's spawn point with that condition; a reload rewinds at most 30 s and never refills lifespan or the hatch bucket.
 - **Recovery code** (M4): a 55-character code (Crockford base32, groups of 5, checksummed) shows your identity's key on request. Importing it replaces the identity of that browser.
 
 ## 6. Genetics and development (M3; ADR 0006)
@@ -245,7 +247,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Dash | ripple | whoosh |
 | Windup aimed at you (M7) | glow on the attacker's weapon | rising tick |
 | Death | dissolve; death screen naming the cause | descending tone |
-| Old age (M4) | stage word on the life bar, grey tint, "Feeling old" toast at 85% of the lifespan | slow low swell (M6) |
+| Old age (M4) | stage word and dashed bar on the life meter, "Feeling old" toast (no tint on the body yet) at 85% of the lifespan | slow low swell (M6) |
 | Court, mate, hatch (M5) | bioluminescent dance; egg crack | chime; bright chime |
 | Growth into a new tier | zoom-out swell | soft swell |
 

@@ -317,6 +317,8 @@ describe('history', () => {
     // 24 more dead creatures of the same owner, each with the death record the history reads its cause from.
     for (let i = 0; i < 24; i++) {
       const copy = `${i.toString(16).padStart(2, '0')}${creature.slice(2)}`;
+      // The real creature's own id is a (random) one of these about one run in ten.
+      if (copy === creature) continue;
       await sql(
         `INSERT INTO creatures (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t)
          VALUES (?1, ?2, 'dead', 1, ?1, ?3, 1000, 0, 0, 0, ?4, ?5)`,

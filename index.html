@@ -18,17 +18,25 @@
       </label>
       <p class="name-error" data-testid="name-error" hidden>Pick another name</p>
       <button type="button" class="action" data-testid="hatch">Hatch</button>
+      <button type="button" class="action quiet" data-testid="practice" hidden>Practice cell</button>
       <p class="hint">Enter to hatch · Mouse or WASD to swim · Space to dash</p>
       <a class="lab-link" data-testid="lab-link" href="lab.html">Creature Lab</a>
     </main>
+    <aside class="history" data-for="title" data-testid="history" aria-label="History" hidden>
+      <h2>History</h2>
+      <ul data-testid="history-list"></ul>
+      <p data-testid="history-empty">No creatures yet</p>
+    </aside>
     <section class="hud" data-for="playing" aria-label="Status">
       <p class="species" data-testid="hud-species"></p>
       <div class="meter"><span class="meter-name">Biomass</span><span class="meter-value" data-testid="hud-biomass"></span></div>
       <div class="meter" data-meter="energy"><span class="meter-name">Energy</span><span class="meter-value" data-testid="hud-energy"></span><span class="bar"><i data-bar="energy"></i></span></div>
       <div class="meter"><span class="meter-name">Health</span><span class="meter-value" data-testid="hud-health"></span><span class="bar"><i data-bar="health"></i></span></div>
+      <div class="meter life" data-meter="life" data-testid="hud-life" hidden><span class="meter-name">Life</span><span class="meter-value" data-testid="hud-stage"></span><span class="bar"><i data-bar="life"></i></span><span class="life-left" data-testid="hud-remaining"></span></div>
       <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
       <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping</p>
     </section>
+    <p class="toast" data-for="playing" data-testid="toast" role="status" hidden></p>
     <p class="net-status" data-testid="net-status" role="status"></p>
     <p class="practice-badge" data-for="playing" data-testid="practice-badge" hidden>Not recorded</p>
     <p class="hatch-note" data-testid="hatch-note" role="status" hidden></p>
@@ -50,6 +58,7 @@
         <div><dt>Peak biomass</dt><dd data-testid="death-peak"></dd></div>
       </dl>
       <button type="button" class="action" data-testid="hatch-again">Hatch again</button>
+      <button type="button" class="action quiet" data-testid="practice-again" hidden>Practice cell</button>
       <p class="hint">or press Enter</p>
     </main>
     <footer class="build-label" data-testid="build-label"></footer>

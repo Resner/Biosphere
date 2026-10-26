@@ -23,11 +23,18 @@ test('closing the tab and coming back resumes the same creature', async ({ brows
     }
     bs.debug?.timeScale(30);
   });
-  await first.waitForFunction(() => (window.__bs?.state().life.lastAckN ?? 0) >= 1, undefined, {
-    timeout: 20_000,
-  });
-  // Back to real time, so no second report lands before the tab closes.
-  await first.evaluate(() => window.__bs?.debug?.timeScale(1));
+  // Back to real time in the same breath as the first ack is seen, so no second report (due 30 s of
+  // sim later, one second away at this speed) can land before the tab closes.
+  await first.waitForFunction(
+    () => {
+      const bs = window.__bs as BsHook;
+      if (bs.state().life.lastAckN < 1) return false;
+      bs.debug?.timeScale(1);
+      return true;
+    },
+    undefined,
+    { timeout: 20_000 },
+  );
   await first.waitForTimeout(300);
   const before = await state(first);
   expect(before.life.activeMs).toBeGreaterThan(0);

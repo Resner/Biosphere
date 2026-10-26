@@ -197,6 +197,16 @@ describe('hatching', () => {
     expect(flow.view().status).toBe('practice');
   });
 
+  it('asks the hub again after a wait instead of trusting the stale countdown', async () => {
+    feed({ t: 'life', life: null, genesisIn: 90_000 });
+    expect((await flow.hatch(WAIT)).kind).toBe('practice');
+    const pending = flow.hatch(WAIT);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ofType('genesis-request')).toHaveLength(1);
+    feed(genesisMsg());
+    expect((await pending).kind).toBe('recorded');
+  });
+
   it('plays unrecorded when the hub never says what the player has', async () => {
     const pending = flow.hatch(WAIT);
     await vi.advanceTimersByTimeAsync(WAIT);
@@ -330,5 +340,100 @@ describe('death', () => {
     await flow.hatch(WAIT);
     flow.died('starved', 10);
     expect(sent).toEqual([]);
+  });
+});
+
+describe('life clock', () => {
+  const MAX = 10_000;
+  const FALLBACK = 4_500_000;
+  const play = async (over: Partial<LifeInfo> = {}): Promise<void> => {
+    feed({ t: 'life', life: info(over), genesisIn: 0 });
+    await flow.hatch(WAIT);
+  };
+
+  it('counts on from the saved time with the ticks played since', async () => {
+    await play({ activeMs: 600_000 });
+    expect(flow.clock(0, 100, MAX, FALLBACK)).toMatchObject({
+      activeMs: 600_000,
+      lifespanMs: 4_500_000,
+      remainingMs: 3_900_000,
+    });
+    expect(flow.clock(900, 100, MAX, FALLBACK)?.activeMs).toBe(630_000);
+  });
+
+  it('starts from the genome’s own lifespan until the hub says', async () => {
+    await play({ lifespanMs: 0, activeMs: 0 });
+    expect(flow.clock(30, 100, MAX, 2_700_000)?.lifespanMs).toBe(2_700_000);
+    flow.report(900, { biomass: 1, energy: 1, health: 1 });
+    feed({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 45_000 });
+    expect(flow.clock(900, 100, MAX, 2_700_000)).toMatchObject({
+      activeMs: 30_000,
+      lifespanMs: 45_000,
+      remainingMs: 15_000,
+    });
+  });
+
+  it('measures from the ticks the acked report carried, not from when the ack came', async () => {
+    await play({ activeMs: 0 });
+    flow.report(900, { biomass: 1, energy: 1, health: 1 });
+    // 3 s of play go by before the ack arrives.
+    feed({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 });
+    expect(flow.clock(990, 100, MAX, FALLBACK)?.activeMs).toBe(33_000);
+  });
+
+  it('keeps counting through a reconnect, which numbers reports again from 1', async () => {
+    await play({ activeMs: 0 });
+    flow.report(900, { biomass: 1, energy: 1, health: 1 });
+    feed({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 });
+    flow.attach({ send: (m) => sent.push(m) });
+    feed({ t: 'life', life: info({ activeMs: 30_000 }), genesisIn: 0 });
+    flow.report(1800, { biomass: 1, energy: 1, health: 1 });
+    feed({ t: 'ack', n: 1, activeMs: 60_000, lifespanMs: 4_500_000 });
+    expect(flow.clock(1800, 100, MAX, FALLBACK)?.activeMs).toBe(60_000);
+    expect(flow.clock(2700, 100, MAX, FALLBACK)?.activeMs).toBe(90_000);
+  });
+
+  it('reads the stage from the clock: old from 85% of the lifespan', async () => {
+    await play({ activeMs: 3_800_000 });
+    expect(flow.clock(0, 7000, MAX, FALLBACK)?.stage).toBe('mature');
+    expect(flow.clock(0, 100, MAX, FALLBACK)?.stage).toBe('young');
+    await play({ activeMs: 3_825_000 });
+    expect(flow.clock(0, 100, MAX, FALLBACK)?.stage).toBe('old');
+    await play({ activeMs: 10_000 });
+    expect(flow.clock(0, 100, MAX, FALLBACK)?.stage).toBe('young');
+  });
+
+  it('has no clock for a practice cell or a dead creature', async () => {
+    feed({ t: 'life', life: null, genesisIn: 600_000 });
+    await flow.hatch(WAIT);
+    expect(flow.clock(10, 100, MAX, FALLBACK)).toBeNull();
+    await play();
+    flow.died('toxin', 5);
+    expect(flow.clock(10, 100, MAX, FALLBACK)).toBeNull();
+  });
+
+  it('never goes below zero remaining', async () => {
+    await play({ activeMs: 4_499_000 });
+    expect(flow.clock(300, 100, MAX, FALLBACK)?.remainingMs).toBe(0);
+  });
+
+  it('knows the authority ended it of old age, and forgets that on the next hatch', async () => {
+    await play();
+    expect(flow.expired).toBe(false);
+    feed({ t: 'died', cause: 'toxin', record: genesisMsg().record });
+    expect(flow.expired).toBe(false);
+    await play();
+    feed({ t: 'died', cause: 'old-age', record: genesisMsg().record });
+    expect(flow.expired).toBe(true);
+    await play();
+    expect(flow.expired).toBe(false);
+  });
+
+  it('does not carry an old-age ending into a practice cell', async () => {
+    await play();
+    feed({ t: 'died', cause: 'old-age', record: genesisMsg().record });
+    expect(flow.expired).toBe(true);
+    flow.practice();
+    expect(flow.expired).toBe(false);
   });
 });
