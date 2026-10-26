@@ -151,7 +151,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `stats.ts` (`computeStats`, `statsAt`, `physOf`, `buildCreature`, `hashStats`), `starter.ts` (`starterGenome`), constants in `RULES.stats` and DESIGN §6; goldens in `__golden__/stats.json`; `tests/archetypes.ts`; `m3-determinism.spec.ts` through `__bs.genome.hashes` (`?debug=1`). `develop` + `computeStats` run in about 75 µs at the median.
   - Gotcha: `computeStats(plan, traits)` is the adult value (`statsAt` takes a size, which only thrust efficiency uses); the sim keeps it for the whole life. Multipliers are normalised to the reference cell, so the starter equals `STARTER_PHYS` by construction. To make its colliders match exactly, parts too thin for a minimum-radius circle (width × 0.5 below `minColliderRadius`: cilia, whips) now get no collision circle (two develop goldens regenerated under rules version 3). The "genesis median speed within 0.8-1.2x" check waits for T7 (`genesisGenome`).
 
-- [ ] T7 Genesis distribution and unique DNA
+- [x] T7 Genesis distribution and unique DNA
   - Acceptance:
     - `genesisGenome(seed)` is a pure function of the seed. Every genesis genome expresses exactly 1 segment (a single cell), has a propulsion source (M1 slot holds a whip-like flagellum; M2 slot is present in half of them as a ciliary band), `maxBiomass` in 300–900, and an empty `bodyViolations`.
     - 20,000 seeds: all genome hashes are different; the number of distinct appearance keys (hue bin of 24 × pattern 4 × membrane band 3 × albino × iridescent × luminescent) exceeds 400 for the first 1,000 seeds; the hue histogram over 12 bins has no bin under 5% or over 14%.
@@ -160,6 +160,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Genesis speed (carried from T6): the median top speed over 1,000 `genesisGenome` seeds is within 0.8–1.2× of the M1 cell's (`STARTER_PHYS`); `starterGenome()` already exists (`starter.ts`).
     - Look and shape distinctness: no two of the first 200 genesis creatures have identical (appearance key, appendage count, mouth type band) triples more than 3 times (a loose guard against a distribution collapsing).
   - Notes: genesis uses its own PRNG stream (`createRng(seed, 'genesis')`). Rare alleles mostly arise through breeding (DESIGN §5), so keep the genesis frequencies as listed. Update the DESIGN §6 genesis lines if the implementation differs.
+  - Done: `genesis.ts` (`genesisGenome(seed: Seed)`, `GENESIS_FREQ`), tests in `genesis.test.ts` (20,000 seeds, about 450 appearance keys in the first 1,000, median speed about 1.1× the M1 cell's), golden hashes in `__golden__/genesis.json`.
+  - Gotcha: the M1 whip must keep `length × width × beat` above `RULES.develop.minThrustArea`, or development adds its own band and the speed jumps. A cell with the malformed-part defect (L2, about 1 in 1,100) can fall below it by design. Trait loci are scattered around a target mean (`Builder.mean`) so cells are heterozygous but their traits are exact. The starter's gait amplitude is 0 and the speed grows with size, so genesis keeps gait low and sizes skewed small to hold the median speed near 1.1×.
 
 - [ ] T8 Meiosis, mutation and inheritance
   - Acceptance:
