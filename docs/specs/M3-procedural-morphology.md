@@ -302,6 +302,15 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `creature-budget.test.ts` (worst-body build under 100 ms, cache hit builds nothing, no `THREE` vector/colour/matrix allocation in 10,000 updates) and `m3-budget.spec.ts` (`RenderInfo` gained `creatureAssets` and GL `memory`): 24 maximal tinted bodies draw in 31 calls and 272k triangles; 200 bodies over 50 genomes leave geometries, textures and cache at baseline.
   - Gotcha: the triangle count has only 9% headroom under the 300k medium budget, so any growth of the builder's ring counts must be paid for in the builder, not the budget.
 
+- [x] T19 Bodies are never clipped by the camera
+  - Found by the close review: a body is scaled by its radius in all three axes, but both orthographic cameras (`GameScene`, the Lab) clip at z = ±10 around z = 5. A body whose dorsal height passes the near plane loses its middle: the Lab at 1280×720 and the game at biomass 1,600 (radius 40) draw a hollow ring.
+  - Acceptance:
+    - Game: at biomass 100, 1,600 and 100,000 the pixels at the centre of the player's body are lit (mean luminance of a 9×9 patch at least 0.12 above the water), for the starter and the worst body.
+    - Lab: at 1600×900 the centre of every one of the 24 genesis cells shows body, not bare water (a 9×9 patch at least 0.04 above the water: a dark purple body is dim but never a hole).
+    - The depth range of both cameras covers the largest body (radius √2^24 times its tallest part) (layers draw without a depth test, so the wider range cannot reorder them; a unit test pins the range against `maxReach`, `BODY_DEPTH` and the plate lift).
+  - Notes: fix the camera range, never shrink the body or flatten the plates.
+  - Done: `topDownCamera()` and `CAMERA_DEPTH` (±20,000) in `render/camera.ts` for `GameScene` and the Lab; `m3-clip.spec.ts` fails on the old ±10 range (game at biomass 1,600, Lab at 1600×900) and `camera.test.ts` pins the range against the tallest plated body. Gotcha: the M3 look specs only ran small bodies at 960×540, which is why the near plane clip went unseen; the Lab's dark bodies (luma 0.1) are the reason the Lab check is 0.04, not 0.12.
+
 ## End-to-end check
 
 `tests/e2e/m3-morphology.spec.ts` plus the T6, T11, T13 to T16 specs together cover the scenario below. Anything long goes in `test:e2e:full` (`@slow`), the rest runs in the PR suite.

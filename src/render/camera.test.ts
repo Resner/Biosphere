@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { RULES } from '../sim/rules';
-import { FollowCamera, viewHalfHeight } from './camera';
+import { CAMERA_DEPTH, FollowCamera, topDownCamera, viewHalfHeight } from './camera';
+import { BODY_DEPTH } from './creature-mesh';
 
 describe('viewHalfHeight', () => {
   it('keeps the longest body (maxReach core radii) inside the view at every size', () => {
@@ -64,5 +65,17 @@ describe('FollowCamera', () => {
     cam.update(1 / 60, { x: 0, y: 0, radius: 10 });
     cam.update(1 / 60, { x: 33, y: 44, radius: 10 });
     expect([cam.x, cam.y]).toEqual([33, 44]);
+  });
+});
+
+describe('topDownCamera', () => {
+  it('reaches past the top of the tallest body at the largest radius a snapshot can carry', () => {
+    const camera = topDownCamera();
+    // The dorsal peak: half-width times the body depth times the tallest plate lift, in core radii.
+    const lift = 1 + (RULES.develop.plateThickness[1] as number);
+    const tallest = RULES.body.maxReach * BODY_DEPTH * lift * Math.sqrt(2 ** 24);
+    expect(CAMERA_DEPTH).toBeGreaterThan(tallest);
+    expect(camera.position.z - camera.near).toBeGreaterThan(tallest);
+    expect(camera.position.z - camera.far).toBeLessThan(-tallest);
   });
 });

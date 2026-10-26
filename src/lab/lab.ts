@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { pick } from '../game/dom';
 import { genomeToBase64url, parseGenomeText } from '../genome/codec';
 import { explainChild, type TraitExplanation } from '../genome/explain';
+import { topDownCamera } from '../render/camera';
 import { CreatureCache } from '../render/creature-cache';
 import { CreatureView, type CreatureViewState } from '../render/creature-view';
 import { breedBatch, labRandomness, mutateStep } from './breed';
@@ -87,8 +88,7 @@ export function startLab(options: LabOptions): void {
   renderer.setClearColor(WATER);
   renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
   const scene = new THREE.Scene();
-  const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
-  camera.position.z = 5;
+  const camera = topDownCamera();
   const cache = new CreatureCache();
   const views = Array.from({ length: CELL_COUNT }, () => {
     const view = new CreatureView(cache);
