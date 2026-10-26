@@ -16,7 +16,15 @@ const modules = (value: number) =>
     ]),
   );
 
-export function worstBody(): { genome: Genome; vertices: number } {
+let worst: { genome: Genome; vertices: number; lowVertices: number } | undefined;
+
+/** The costliest genome, and the most low-detail vertices of any candidate. */
+export function worstBody(): NonNullable<typeof worst> {
+  worst ??= findWorst();
+  return worst;
+}
+
+function findWorst(): NonNullable<typeof worst> {
   const rng = createRng(seedFromString('creature-budget'), 'bytes');
   const randoms = Array.from({ length: 1_500 }, () =>
     decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff)),
@@ -26,10 +34,12 @@ export function worstBody(): { genome: Genome; vertices: number } {
     buildBytes(modules(255)),
     buildBytes(modules(255), { segDrive1: 255, segDrive2: 255 }),
   ].map(decodeGenome);
-  let best = { genome: extremes[0] as Genome, vertices: -1 };
+  let best = { genome: extremes[0] as Genome, vertices: -1, lowVertices: 0 };
   for (const genome of [...Object.values(ARCHETYPES), ...extremes, ...randoms]) {
-    const vertices = estimateVertices(develop(express(genome)), 'full');
-    if (vertices > best.vertices) best = { genome, vertices };
+    const plan = develop(express(genome));
+    const vertices = estimateVertices(plan, 'full');
+    best.lowVertices = Math.max(best.lowVertices, estimateVertices(plan, 'low'));
+    if (vertices > best.vertices) best = { genome, vertices, lowVertices: best.lowVertices };
   }
   return best;
 }

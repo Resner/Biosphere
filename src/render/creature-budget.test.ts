@@ -1,6 +1,6 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
 import { worstBody } from '../../tests/worst-body';
-import { develop, estimateVertices } from '../genome/develop';
+import { develop } from '../genome/develop';
 import { express } from '../genome/express';
 import { buildCreature } from '../genome/stats';
 import { RULES } from '../sim/rules';
@@ -54,8 +54,8 @@ describe('the render budget of one body', () => {
     expect(ms).toBeLessThan(100);
   });
 
-  it('keeps the low level of detail of every body within its vertex cap', () => {
-    expect(estimateVertices(plan, 'low')).toBeLessThanOrEqual(RULES.develop.vertices.low.cap);
+  it('keeps the low level of detail of every candidate body within its vertex cap', () => {
+    expect(worst.lowVertices).toBeLessThanOrEqual(RULES.develop.vertices.low.cap);
     expect(RULES.develop.vertices.low.cap).toBeLessThanOrEqual(1_500);
   });
 });
