@@ -2,12 +2,14 @@ import { describe, expect, it } from 'vitest';
 import {
   createIdentity,
   fromBase64Url,
+  importRecoveryCode,
   type KeyStore,
   memoryKeyStore,
   playerIdOf,
   toBase64Url,
   verify,
 } from './identity';
+import { decodeRecoveryCode, encodeRecoveryCode } from './recovery';
 
 const text = (s: string) => new TextEncoder().encode(s);
 const hex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
@@ -43,7 +45,9 @@ describe('createIdentity', () => {
     const dump = JSON.stringify(id);
     expect(dump).not.toContain(KAT_SEED);
     expect(dump).not.toContain(btoa(String.fromCharCode(...seed)));
-    expect(Object.keys(id).sort()).toEqual(['playerId', 'sign']);
+    expect(Object.keys(id).sort()).toEqual(['exportRecoveryCode', 'playerId', 'sign']);
+    // Only the explicit export carries the seed, and only as the recovery code.
+    expect(dump).not.toContain(id.exportRecoveryCode());
   });
 });
 
@@ -109,5 +113,44 @@ describe('playerId canonical form', () => {
     const sig = id.sign('bs/hello/v1', text('x'));
     expect(verify(KAT_PLAYER, 'bs/hello/v1', text('x'), sig)).toBe(true);
     expect(verify(variant, 'bs/hello/v1', text('x'), sig)).toBe(false);
+  });
+});
+
+describe('recovery code', () => {
+  it('exports the stored seed, and importing it elsewhere gives the same playerId', async () => {
+    const a = await createIdentity(memoryKeyStore());
+    const code = a.exportRecoveryCode();
+    const store = memoryKeyStore();
+    const b = await importRecoveryCode(store, code);
+    expect(b.playerId).toBe(a.playerId);
+    expect((await createIdentity(store)).playerId).toBe(a.playerId);
+    expect(b.exportRecoveryCode()).toBe(code);
+    expect(b.sign('d', text('m'))).toEqual(a.sign('d', text('m')));
+  });
+
+  it('replaces, not merges, the identity already in the store', async () => {
+    const a = await createIdentity(memoryKeyStore());
+    const store = memoryKeyStore();
+    const old = await createIdentity(store);
+    const next = await importRecoveryCode(store, a.exportRecoveryCode());
+    expect(next.playerId).toBe(a.playerId);
+    expect(next.playerId).not.toBe(old.playerId);
+    expect((await createIdentity(store)).playerId).toBe(a.playerId);
+  });
+
+  it('leaves the store alone when the code is bad', async () => {
+    const store = memoryKeyStore();
+    const before = await createIdentity(store);
+    const code = encodeRecoveryCode(new Uint8Array(32));
+    const bad = `${code.slice(0, -1)}${code.endsWith('0') ? '1' : '0'}`;
+    await expect(importRecoveryCode(store, bad)).rejects.toThrow('recovery code');
+    await expect(importRecoveryCode(store, 'nope')).rejects.toThrow('recovery code');
+    expect((await createIdentity(store)).playerId).toBe(before.playerId);
+  });
+
+  it('exports a code that decodes to the 32-byte seed', async () => {
+    const seed = Uint8Array.from({ length: 32 }, (_, i) => i + 7);
+    const id = await createIdentity(memoryKeyStore(seed));
+    expect(decodeRecoveryCode(id.exportRecoveryCode())).toEqual(seed);
   });
 });

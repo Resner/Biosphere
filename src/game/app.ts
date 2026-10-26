@@ -3,7 +3,12 @@ import { hashPlan } from '../genome/develop';
 import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import type { Identity } from '../ledger/identity';
-import { createIdentity, memoryKeyStore, toBase64Url } from '../ledger/identity';
+import {
+  createIdentity,
+  importRecoveryCode,
+  memoryKeyStore,
+  toBase64Url,
+} from '../ledger/identity';
 import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
 import { GenomeSync } from '../net/genome-sync';
@@ -62,6 +67,7 @@ import {
 import { OnlineKeeper } from './online-keeper';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
+import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
 import { type DeathSummary, type Screen, Screens } from './screens';
 import { MuteList, Social } from './social';
@@ -209,12 +215,31 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   // Without IndexedDB (a private window, say) the identity lasts for this visit only.
   let playerId: string | null = null;
   let identity: Identity | null = null;
-  const identityReady = createIdentity(indexedDbKeyStore())
-    .catch(() => createIdentity(memoryKeyStore()))
+  let keyStore = indexedDbKeyStore();
+  let keyKept = true;
+  const identityReady = createIdentity(keyStore)
+    .catch(() => {
+      keyStore = memoryKeyStore();
+      keyKept = false;
+      return createIdentity(keyStore);
+    })
     .then((loaded) => {
       identity = loaded;
       playerId = loaded.playerId;
     });
+
+  // A recovery code moves the identity to another browser. After a replace the page reloads, so
+  // the new identity connects and the old tab's session is replaced by the hub (single session).
+  new RecoveryPanel({
+    code: () => identity?.exportRecoveryCode() ?? '',
+    replace: async (code) => {
+      await identityReady;
+      // A reload would lose a code kept only in memory.
+      if (!keyKept) throw new Error('this browser cannot keep a code');
+      await importRecoveryCode(keyStore, code);
+      location.reload();
+    },
+  });
 
   // The recorded life (M4): genesis from the hub, resume, progress and death. A cell it does not
   // know (a pinned body, no hub, an empty hatch bucket) is a practice cell and sends nothing.
