@@ -244,7 +244,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `src/lab/breed.ts` (`breedBatch`, `mutateStep`, `labRandomness`), `src/genome/explain.ts` (`explainTrait` with 20 exact cases, `explainChild`) and `parseGenomeText` in the codec (exact length, so "hello" is not a genome). The grid gained an 8-cell offspring strip under it (indices 24-31, `stageCoreRadius` sizes both), and the inspector lists where each simple trait came from; Undo covers Mutate and Load.
   - Gotcha: Mutate retries with sub-seeds until the hash changes (a pass can fire no event). Click, then shift-click picks the parents; inspecting a child keeps them.
 
-- [ ] T15 The game hatches a body
+- [ ] T15 The game hatches a body (in progress)
   - Acceptance:
     - Hatching builds `genesisGenome(seed)` from a browser-local random seed (created in `src/game/`, never in `sim` or `genome`), `buildCreature`, and spawns with `phys`. A new hatch after death gives a different genome (hashes differ across 10 hatches). `?genome=<base64url>` (or `?genome=starter`) pins the body for tests and the Lab export; an invalid value falls back to genesis and the console warns once.
     - The player is drawn with `CreatureView` and the creature cache (not the old `Cell`), scaled to the creature's radius, with gait driven by throttle and speed. The old `Cell` stays as the fallback for peers without a genome and if building a mesh throws (caught, logged once).
