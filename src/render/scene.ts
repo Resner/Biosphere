@@ -1,6 +1,9 @@
 import * as THREE from 'three';
 import type { FoodItem, Plume } from '../sim/types';
+import { BodyLayer } from './body-layer';
 import { Cell, type CellView } from './cell';
+import type { CreatureSource } from './creature-cache';
+import type { CreatureViewState } from './creature-view';
 import type { Ring } from './effects';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';
@@ -17,6 +20,8 @@ export interface SceneView {
   /** Visible half-height in world units. */
   halfHeight: number;
   creature: CellView | null;
+  /** The player's body to draw in place of the plain cell; the cell stays the fallback. */
+  body: CreatureSource | null;
   /** The other players in the pond. */
   remotes: readonly RemoteCellView[];
   /** Eat pops and dash ripples alive right now. */
@@ -29,6 +34,8 @@ export interface RenderInfo {
   foodInstances: number;
   /** Other players' cells drawn this frame. */
   remoteCells: number;
+  /** Whether the player is drawn with its genome's body rather than the plain cell. */
+  playerBody: boolean;
   /** CSS pixels per world unit. */
   pxPerWu: number;
 }
@@ -56,6 +63,18 @@ export class GameScene {
   private readonly plumes = new PlumeLayer();
   private readonly food = new FoodLayer();
   private readonly cell = new Cell();
+  private readonly body: BodyLayer;
+  private readonly bodyState: CreatureViewState = {
+    creature: null as unknown as CreatureSource,
+    x: 0,
+    y: 0,
+    heading: 0,
+    radius: 1,
+    beat: 0,
+    hurt: 0,
+    dissolve: 0,
+    pxPerWu: 1,
+  };
   private readonly rings = new RingLayer();
   private readonly remotes: RemoteLayer;
   private cssWidth = 1;
@@ -73,6 +92,7 @@ export class GameScene {
     this.camera.position.z = 5;
 
     this.remotes = new RemoteLayer(this.scene, ORDER.cell - 0.1);
+    this.body = new BodyLayer(this.scene, ORDER.cell + 0.5);
     this.water = new Water(worldSize);
     // Fake depth of field until M6: big soft bokeh far below and near above the plane.
     this.far = new ParticleLayer(290, 11, {
@@ -175,11 +195,28 @@ export class GameScene {
     this.near.update(view, pxPerWu);
     this.plumes.update(view.time);
     this.food.update(view.time);
-    this.cell.update(view.creature, view.time);
+    this.cell.update(this.drawBody(view) ? null : view.creature, view.time);
     this.remotes.set(view.remotes, view.time);
     this.rings.set(view.rings);
 
     this.renderer.render(this.scene, camera);
+  }
+
+  /** Draws the player's genome body; false means the plain cell must stand in. */
+  private drawBody(view: SceneView): boolean {
+    const { creature, body } = view;
+    if (!creature || !body) return this.body.set(null, view.time);
+    const state = this.bodyState;
+    state.creature = body;
+    state.x = creature.x;
+    state.y = creature.y;
+    state.heading = creature.heading;
+    state.radius = creature.radius;
+    state.beat = creature.beat;
+    state.hurt = creature.hurt;
+    state.dissolve = creature.dissolve;
+    state.pxPerWu = this.pxPerWu;
+    return this.body.set(state, view.time);
   }
 
   info(): RenderInfo {
@@ -189,6 +226,7 @@ export class GameScene {
       triangles: render.triangles,
       foodInstances: this.food.instances(),
       remoteCells: this.remotes.count(),
+      playerBody: this.body.shown(),
       pxPerWu: this.pxPerWu,
     };
   }
@@ -213,6 +251,7 @@ export class GameScene {
       this.plumes,
       this.food,
       this.cell,
+      this.body,
       this.rings,
       this.remotes,
     ]) {

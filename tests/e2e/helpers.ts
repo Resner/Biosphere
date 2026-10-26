@@ -1,9 +1,15 @@
 import { expect, type Page } from '@playwright/test';
 import type { BsHook, BsState } from '../../src/game/debug';
 
-/** Opens the game on the title screen and waits for the test hook. */
+/**
+ * Opens the game on the title screen and waits for the test hook. A test that does not pin a body
+ * with `genome=` gets the starter cell, so the thresholds of the M1 and M2 specs stay meaningful.
+ */
 export async function openGame(page: Page, query: string): Promise<void> {
-  await page.goto(`./${query}`);
+  const pinned = /[?&]genome=/.test(query)
+    ? query
+    : `${query}${query.includes('?') ? '&' : '?'}genome=starter`;
+  await page.goto(`./${pinned}`);
   await page.waitForFunction(() => window.__bs?.ready === true);
 }
 

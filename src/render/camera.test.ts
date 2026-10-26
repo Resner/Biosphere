@@ -1,7 +1,14 @@
 import { describe, expect, it } from 'vitest';
+import { RULES } from '../sim/rules';
 import { FollowCamera, viewHalfHeight } from './camera';
 
 describe('viewHalfHeight', () => {
+  it('keeps the longest body (maxReach core radii) inside the view at every size', () => {
+    for (let r = 5; r <= 4096; r *= 1.05) {
+      expect(RULES.body.maxReach * r).toBeLessThan(viewHalfHeight(r));
+    }
+  });
+
   it('is about 71 wu for a starter', () => {
     expect(viewHalfHeight(10)).toBeCloseTo(71.4, 0);
   });

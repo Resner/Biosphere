@@ -17,9 +17,10 @@ import {
 } from '../net/protocol';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
+import type { CreatureSource } from '../render/creature-cache';
 import { Effects } from '../render/effects';
 import { GameScene } from '../render/scene';
-import { colliderReach, STARTER_PHYS } from '../sim/body';
+import { colliderReach } from '../sim/body';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { angleToSteer, IDLE, type Input } from '../sim/input';
@@ -32,6 +33,7 @@ import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { AloneHint } from './alone-hint';
+import { type Body, Hatcher } from './body';
 import { type BsDebug, type BsGenome, installHook, type ScriptedRemote } from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
@@ -61,6 +63,8 @@ import { type Anchor, SocialUi } from './social-ui';
 export interface GameParams {
   seed: string;
   debug: boolean;
+  /** `?genome=`: pins the body to hatch with (a base64url genome or "starter"). */
+  genome?: string | null;
 }
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
@@ -89,6 +93,8 @@ function safeStorage(): Storage | null {
 interface Session {
   world: World;
   player: CreatureState;
+  /** The genome this life hatched with. */
+  body: Body;
   /** The title screen's cell: harmless, fed, and steered by a script. */
   demo: boolean;
   counts: Record<string, number>;
@@ -122,6 +128,7 @@ interface Pond {
 function newSession(
   seed: string,
   demo: boolean,
+  body: Body,
   pond: Pond | null = null,
   spawn: Vec2 | null = null,
 ): Session {
@@ -134,10 +141,11 @@ function newSession(
     world.consumed = pond.world.consumed;
     pond.time.join(world, performance.now());
   }
-  const reach = colliderReach(STARTER_PHYS, RULES.starter.biomass);
+  const { phys } = body.creature;
+  const reach = colliderReach(phys, RULES.starter.biomass);
   const spot = findClearSpot(world, spawn?.x ?? world.size / 2, spawn?.y ?? world.size / 2, reach);
-  const player = spawnCreature(world, { id: 'player', ...spot });
-  return { world, player, demo, counts: {}, peakBiomass: player.biomass, death: null, pond };
+  const player = spawnCreature(world, { id: 'player', ...spot, phys });
+  return { world, player, body, demo, counts: {}, peakBiomass: player.biomass, death: null, pond };
 }
 
 /** Starts the title screen; the player hatches into the same scene. */
@@ -174,7 +182,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     });
 
   let scale = 1;
-  let session = newSession(params.seed, true);
+  // Genesis DNA needs a number the sim never sees; the browser supplies it.
+  const hatcher = new Hatcher({
+    pinned: params.genome ?? null,
+    random: () => {
+      const [a = 0, b = 0] = crypto.getRandomValues(new Uint32Array(2));
+      return a * 2 ** 32 + b;
+    },
+    warn: (message) => console.warn(message),
+  });
+  let session = newSession(params.seed, true, hatcher.title());
   let screen: Screen = 'title';
   let food: FoodItem[] = [];
   let input: Input = IDLE;
@@ -213,6 +230,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     scene.setHalfHeight(camera.halfHeight);
     field.now();
     hud.update(player);
+    if (!session.demo) hud.setBody(session.body.species, session.body.rarity);
     screen = nextScreen;
     screenShownAt = performance.now();
     screens.show(nextScreen);
@@ -334,7 +352,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     let spawn: Vec2 | null = null;
     if (target?.ring) spawn = ringSpawn(target.ring.centre, target.ring.hint, target.lives);
     if (target) target.lives++;
-    enter(newSession(target ? target.seed : seed, false, target, spawn), 'playing');
+    enter(newSession(target ? target.seed : seed, false, hatcher.next(), target, spawn), 'playing');
   };
 
   let hatching = false;
@@ -501,6 +519,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         cause: player.cause,
         survivedSeconds: (world.tick - player.bornTick) / TICK_HZ,
         peakBiomass: session.peakBiomass,
+        species: session.body.species,
+        rarity: session.body.rarity,
       };
       fx.startDissolve();
       endLifeState();
@@ -536,6 +556,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     camY: 0,
     halfHeight: 1,
     creature: null as CellView | null,
+    body: null as CreatureSource | null,
     remotes: [] as readonly RemoteView[],
     rings: fx.rings,
   };
@@ -595,6 +616,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     cell.hurt = fx.vignette;
     cell.dissolve = fx.dissolve;
     view.creature = fx.dissolved ? null : cell;
+    view.body = session.body.creature;
     setVignette(fx.vignette);
     // The death screen waits for the body to dissolve, so the player sees what killed them.
     if (session.death !== null && fx.dissolved && screen === 'playing') {
@@ -687,11 +709,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       prev.x = x;
       prev.y = y;
     },
-    nearestFood() {
+    nearestFood(kind) {
       const { player } = session;
       let best: FoodItem | null = null;
       let bestDistance = Number.POSITIVE_INFINITY;
       for (const item of food) {
+        if (kind !== undefined && item.kind !== kind) continue;
         const distance = Math.hypot(item.x - player.x, item.y - player.y);
         if (distance < bestDistance) {
           best = item;
@@ -778,6 +801,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             energy: session.player.energy,
             health: session.player.health,
             alive: session.player.alive,
+            genomeHash: session.body.hash,
+            species: session.body.species,
+            rarity: session.body.rarity,
+            tier: session.body.tier,
+            stats: session.player.phys,
           },
       death: session.death,
       remotes: remoteViews.map(({ id, name, x, y, alpha }) => ({ id, name, x, y, alpha })),
