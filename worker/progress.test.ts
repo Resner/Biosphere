@@ -3,14 +3,17 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { genomeFromBase64url } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
 import { recordHash } from '../src/ledger/record';
-import { CLOSE_RATE_LIMITED, type HubMsg } from '../src/net/protocol';
+import { CLOSE_RATE_LIMITED } from '../src/net/protocol';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import {
+  CALM,
   type Client,
   closeSockets,
+  flush,
   hatch,
   login,
   nextOf,
+  report,
   rowsWritten,
   sql,
   stub,
@@ -36,13 +39,6 @@ afterEach(async () => {
   await closeSockets();
 });
 
-interface Condition {
-  biomass: number;
-  energy: number;
-  health: number;
-}
-const CALM: Condition = { biomass: 10_000, energy: 12_000, health: 10_000 };
-
 /** Logs in and hatches a creature; its clock starts at the current fake wall time. */
 async function newPlayer() {
   const { c, id } = await login();
@@ -50,24 +46,6 @@ async function newPlayer() {
   const creature = recordHash(g.record.record);
   const stats = buildCreature(genomeFromBase64url(g.genome) as never).stats;
   return { c, id, creature, stats };
-}
-
-let reports = 0;
-/** Sends a `progress` for `c`; `n` counts up by default. */
-function report(c: Client, ticks: number, cond: Condition = CALM, n = ++reports) {
-  c.send({ t: 'progress', n, ticks, ...cond });
-}
-
-/** Everything the hub sends up to the answer to a ping, so a silent message shows as nothing. */
-async function flush(c: Client): Promise<HubMsg[]> {
-  const id = 1 + (++reports % 1000);
-  c.send({ t: 'ping', id });
-  const out: HubMsg[] = [];
-  for (;;) {
-    const msg = await c.next();
-    if (msg.t === 'pong' && msg.id === id) return out;
-    out.push(msg);
-  }
 }
 
 const head = async (creature: string) =>
@@ -138,7 +116,7 @@ describe('progress and the life clock', () => {
     for (let i = 1; i <= 3; i++) {
       advance(30_000);
       report(c, i * TICKS_PER_30S, CALM, 10 * i);
-      expect(await nextOf(c, 'ack')).toEqual({ t: 'ack', n: 10 * i, activeMs: 30_000 * i });
+      expect(await nextOf(c, 'ack')).toMatchObject({ n: 10 * i, activeMs: 30_000 * i });
     }
   });
 

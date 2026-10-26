@@ -41,6 +41,10 @@ export interface LifeState extends Condition {
   savedMs: number;
   /** The report number that the last record covers. */
   savedN: number;
+  /** The active time at which this creature dies of old age (the genome's lifespan, scaled in fixture mode). */
+  lifespanMs: number;
+  /** Set once the creature has died on this connection: it takes no more reports. */
+  over: boolean;
   /** What the genome allows (`physOf`): the largest body and the growth multiplier. */
   maxBiomass: number;
   growth: number;
@@ -58,6 +62,7 @@ export function bindLife(
   head: Pick<Head, 'id' | 'activeMs' | 'biomass' | 'energy' | 'health'>,
   genome: Genome,
   now: number,
+  lifespanMs: number,
 ): LifeState {
   const { maxBiomass, growth } = buildCreature(genome).phys;
   return {
@@ -73,11 +78,34 @@ export function bindLife(
     biomass: head.biomass,
     energy: head.energy,
     health: head.health,
+    lifespanMs,
+    over: false,
     maxBiomass,
     growth,
     flagged: 0,
   };
 }
+
+/** Active time to credit for `ticks` now: `accrue`, within this connection's wall-time cap and the lifespan. */
+function credited(life: LifeState, ticks: number, now: number): number {
+  // `accrue` caps one report at its own wall time plus slack; the connection as a whole gets the slack once.
+  const allowed = now - life.boundT + RULES.life.accrueSlackMs - (life.activeMs - life.boundMs);
+  const left = life.lifespanMs - life.activeMs;
+  return Math.floor(Math.max(0, Math.min(accrue(life.ticks, ticks, now - life.t), allowed, left)));
+}
+
+/** Credits the ticks played since the last report, as a death request carries them; no condition changes. */
+export function creditTicks(life: LifeState, ticks: number, now: number): LifeState {
+  return {
+    ...life,
+    ticks: Math.max(life.ticks, ticks),
+    t: now,
+    activeMs: life.activeMs + credited(life, ticks, now),
+  };
+}
+
+/** Whether the creature's active time has reached its lifespan. */
+export const isOld = (life: LifeState): boolean => life.activeMs >= life.lifespanMs;
 
 /**
  * Credits a report: advances the life clock by `accrue`, and clamps the reported condition to what
@@ -89,11 +117,7 @@ export function applyReport(
   report: Report,
   now: number,
 ): { life: LifeState; newFlags: Implausible[] } {
-  // `accrue` caps one report at its own wall time plus slack; the connection as a whole gets the slack once.
-  const allowed = now - life.boundT + RULES.life.accrueSlackMs - (life.activeMs - life.boundMs);
-  const gained = Math.floor(
-    Math.max(0, Math.min(accrue(life.ticks, report.ticks, now - life.t), allowed)),
-  );
+  const gained = credited(life, report.ticks, now);
   const seconds = gained / 1000;
   const clamped: Implausible[] = [];
   const clamp = (value: number, cap: number, kind: Implausible): number => {
