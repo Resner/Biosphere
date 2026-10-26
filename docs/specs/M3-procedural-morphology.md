@@ -138,7 +138,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `develop.ts` (`develop`, `bodyViolations`, `estimateVertices`, `motileArea`, `planBounds`, `hashPlan`) with `RULES.develop` and DESIGN §6; goldens in `__golden__/develop.json`. 20,000 genomes (10k random, 10k byte-flipped stand-ins for `mutateGenome`) develop and check in about 2.7 s; `develop` alone takes about 50 µs at the median (so T6's `computeStats` has the other 50).
   - Gotcha: parts are built for the left side and mirrored, so every repair is symmetric. Beat strength (L3), membrane integrity (L1) and metabolism cost (L4) are applied by `computeStats` (T6), not here; only the malformed part (L2) is a development effect. The mutated set switches to `mutateGenome` when T8 lands.
 
-- [ ] T6 Stats from form, with costs
+- [ ] T6 Stats from form, with costs (in progress)
   - Acceptance:
     - `computeStats(plan, traits)` returns thrust, drag, turn, mass, basal multiplier, mouth, colliders, `combat` (reach, arc, power, armour, spines), `sense` (detection ring), `glow` and the physiology multipliers (lifespan, UV and pressure tolerance, kept for M4 and M6). `physOf(stats)` returns a `PhysStats` that `sanitizePhys` leaves unchanged.
     - Formulas (DESIGN §6): thrust sums over motile parts of length × thickness × beat × efficiency (tip shape and size); weapon reach and power come from pointed or hooked tips × stiffness × length; armour is plating × coverage; spines add contact damage; the basal multiplier is `1 + 0.1(segments − 1) + 0.04·appendages + 0.2·plating + 0.1·luminescence`. No stat reads a part label (a plan has none); renaming nothing matters.
