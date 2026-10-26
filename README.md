@@ -1,60 +1,14 @@
 # Biosphere
 
-**A peer-to-peer creature-evolution game in a living micro-ocean, playable in the browser.**
+**A browser game about evolving creatures in a shared micro-ocean, built entirely by AI agents.**
 
-▶ **Play:** https://resner.github.io/Biosphere/ · 🧬 **Creature Lab:** https://resner.github.io/Biosphere/lab.html
+▶ **Play it at https://resner.github.io/Biosphere/** (no install or account needed), or explore creature genetics in the [Creature Lab](https://resner.github.io/Biosphere/lab.html).
 
-You hatch a single cell from unique DNA and drift into one continuous body of water, from sunlit shallows down to dark, bioluminescent depths. You swim, feed, grow and avoid hazards, fight creatures of your own size and mate with other players. Every mating gives *both* players a distinct offspring whose body grows from the parents' genes by Mendelian rules. When you die, you continue as your pending offspring or your nearest surviving ancestor, so what you're really playing is your lineage.
+In Biosphere you start as a single cell hatched from unique DNA, in one continuous body of water that you share with everyone else playing. You swim, eat, grow and try to survive. Every other creature you meet is another player, because there are no computer-controlled creatures. When two players mate, each gets their own offspring, whose body is grown from both parents' genes. When you die, you carry on as one of your descendants or ancestors, so over time you're playing a whole lineage rather than a single creature.
 
-There are no NPCs: every other creature in the water is another player. Claude Code builds the game as an unattended "factory" and releases it milestone by milestone (see [The agent loop](#the-agent-loop)).
+The game runs peer to peer in the browser, rendered in WebGL with a look inspired by macro photography of plankton. A small serverless backend keeps lineages honest and verifiable. The game is still being built and released milestone by milestone, so what you can play today is an early version of the plan in [docs/ROADMAP.md](docs/ROADMAP.md).
 
-## The game
-
-### Survive and grow
-
-Steer a translucent organism through the water, dash away from danger, and eat drifting detritus, nutrient globules, vent crystals and carrion. Food becomes energy, and spare energy becomes biomass: you grow, and the camera zooms out with you. Basal metabolism and every movement cost energy. Toxic plumes, currents, UV in the shallows and pressure in the deep each wear you down in their own way. Starving, poison or old age ends a life, and the death screen always says why.
-
-### Bodies from DNA
-
-Every creature carries a diploid genome. That genome grows into a body within fixed bounds, so every genome is viable: segments, fins, whips, paddles, spines, plates, jaws, antennae and inner organs. Form drives function. Anatomy sets how fast you swim and turn, what and how you eat, how you fight, and which hazards you tolerate. Every advantage has a cost, so no single build wins. Small whip-tailed cells thrive where big paddlers struggle, and the other way round. Rare alleles and combinations make striking creatures worth showing off. The Creature Lab lets you inspect bodies in plain words, mutate them and breed them.
-
-### Mate and carry on
-
-Mature creatures court other players, and mating happens only with consent. It costs both partners energy and biomass and starts a cooldown. Each partner receives a different offspring. Its genes are drawn by meiosis from both parents, and the random seed comes from a public beacon round that nobody knows in advance, so nobody can reroll a child. You can switch to your offspring at any time and leave the parent behind as a checkpoint. When you die, you return to your pending offspring or your nearest surviving ancestor. Breeding with close relatives expresses hidden harmful genes, so diversity pays.
-
-### Fight fair
-
-Creatures of comparable size can fight. Attacks come from your anatomy: bites, rams, stings and spines. You steer, pick a stance, choose a target and time a brace. Fights are refereed and deterministic, so every client sees the same outcome. Closing the tab doesn't end a fight: your creature fights on by its instincts until the fight is settled. The winner feeds on the loser, and what's left becomes carrion for everyone.
-
-### A shared ocean
-
-Players connect directly to each other. You spawn near other players of your size, see everyone who can affect you, and talk through filtered chat, emotes and pings. As you grow, your view widens and tiny creatures fade into ambient swarms. Players gather in habitats; new players hatch safely at their edge, and crowded areas split into instances.
-
-### A lineage anyone can verify
-
-Every life event (genesis, mating, birth, promotion, checkpoint, death, fight) is a signed record chained to the one before it. Anyone can verify a creature's whole ancestry back to its genesis, even when the original players are offline. Shareable creature cards show a verified creature and its family tree. Your identity is a key in your browser, and a recovery code moves it to another device.
-
-### Controls
-
-| Action | Mouse | Keyboard |
-|--------|-------|----------|
-| Steer | point where to go; the farther the cursor, the faster | WASD |
-| Dash | — | Space |
-| Court or accept | click a creature, then the button | E |
-| Attack | click a creature in range | F |
-| Stance, target, brace (in a fight) | HUD buttons, click, right button | 1–3, Tab, Shift |
-| Chat, emote, ping | middle button pings | Enter, quick keys |
-| Menu | — | Esc |
-
-### How it works
-
-- **Peer to peer.** Players connect directly over WebRTC. Each client simulates its own creature with a deterministic 30 Hz simulation (our own math and seeded random streams), so recorded inputs replay to the same result in every browser and in Node.
-- **A minimal authority.** One Cloudflare Worker with a single SQLite Durable Object handles sessions, signaling, short-lived TURN relay credentials, the lineage ledger, the clock, commitments and admission. It runs no game loop and stays within the free tier.
-- **Witnesses.** Peers picked by the public beacon referee and attest fights and matings. The authority checks them and settles when witnesses fail.
-- **Honest randomness.** Genesis DNA and offspring are seeded from a future round of the public [drand](https://drand.love) beacon. Every commitment names its round before that round exists.
-- **Rendering.** Three.js on WebGL2 with custom shaders. The look is macro photography of plankton: dark water, backlit translucent bodies, inner sparkle, shallow depth of field, caustics, and bioluminescence in the deep. Quality presets keep it smooth on ordinary laptops.
-
-The plan and progress are in [docs/ROADMAP.md](docs/ROADMAP.md), the mechanics and their numbers in [docs/DESIGN.md](docs/DESIGN.md), and the architecture decisions in [docs/decisions/](docs/decisions/). The art direction comes from the references in [docs/art/](docs/art/).
+What makes this repository unusual is how it's built: Claude Code agents plan, write, test and release the game on their own, as described below.
 
 ## The agent loop
 
