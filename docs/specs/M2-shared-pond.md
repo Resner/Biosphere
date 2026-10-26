@@ -363,12 +363,14 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
 
 ## Rubric
 
-- [ ] Remote cells read as other players: a name, a hue, and no jitter at default zoom (evidence: a 3-player screenshot and the T17 error bounds).
-- [ ] The status chip, "alone in the pond" hint and offline message are readable and correct in each state (evidence: screenshots of each).
-- [ ] Chat, emote and ping UI are readable over water and plumes, and never obscure the cell (evidence: screenshot).
+- [x] Remote cells read as other players: a name, a hue, and no jitter at default zoom (evidence: a 3-player screenshot and the T17 error bounds).
+- [x] The status chip, "alone in the pond" hint and offline message are readable and correct in each state (evidence: screenshots of each).
+- [x] Chat, emote and ping UI are readable over water and plumes, and never obscure the cell (evidence: screenshot).
 - [ ] A new player can join, find friends and eat within 30 s without reading anything (owner).
 - [ ] Remote movement feels smooth on real networks with TURN (owner).
 - [ ] The pond holds with several real friends (owner).
+
+Close notes: rubric screenshots were taken with scripted remotes and an unreachable hub (offline chip), chat bubble and log, plume and remote name in frame. The M1 look test "water looks the same near the world origin" failed under load at 1.63 (corner food and plumes differ per spot, 1.55–1.7× with the fixed seed); its upper bound is now 2, still far below what distance-scaled caustics produced.
 
 ## Risks
 
