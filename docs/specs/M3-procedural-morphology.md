@@ -113,7 +113,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `karyotype.ts` (164 bytes per haplotype, 328 per genome; one `LOCI` table with `rank`, `dominance` and `novelFrom` per `mendel` locus) and `codec.ts`; goldens in `__golden__/genome-hash.json`. DESIGN §6 now lists a `texture` locus (incomplete dominance) so every dominance kind has a locus, plus the encoding rules.
   - Gotcha: genome bytes fold to canonical form (`mendel` mod size, `load` low bit, absent module zeroed), so mutation (T8) must act on canonical values; haplotype order is part of the hash.
 
-- [ ] T4 Expression: dominance, polygenic sums, homozygous load
+- [ ] T4 Expression: dominance, polygenic sums, homozygous load (in progress)
   - Acceptance:
     - `express(genome): Traits` is a total function that returns finite numbers inside each trait's range for 10,000 random genomes and for the extreme genomes (all zero, all 0xFF, alternating).
     - Order invariance: swapping the two haplotypes gives deep-equal `Traits` (1,000 genomes).
