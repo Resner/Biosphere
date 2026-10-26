@@ -242,3 +242,13 @@ describe('lazy loading', () => {
     expect(seen.size).toBeGreaterThan(5);
   });
 });
+
+describe('verifyBeacon memo', () => {
+  it('answers a repeated beacon the same, and never remembers a forgery', () => {
+    expect(verifyBeacon(beacon(3))).toBe(true);
+    expect(verifyBeacon(beacon(3))).toBe(true);
+    const forged = { round: beacon(3).round, signature: beacon(4).signature };
+    expect(verifyBeacon(forged)).toBe(false);
+    expect(verifyBeacon(forged)).toBe(false);
+  });
+});

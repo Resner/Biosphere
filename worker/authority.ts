@@ -24,6 +24,7 @@ import {
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
+import { type BeaconSource, Beacons, liveSource } from './beacons';
 import { type KeyEntry, Ledger } from './ledger';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
@@ -49,11 +50,23 @@ type Session = (
 export class Authority extends DurableObject<Env> {
   readonly turn = new TurnCredentials();
   readonly ledger: Ledger;
+  readonly beacons: Beacons;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ledger = new Ledger(ctx.storage);
+    this.beacons = new Beacons({
+      storage: ctx.storage,
+      source: this.beaconSource(),
+      countersign: (hash) => this.ledger.countersign(hash),
+      rearm: () => this.rearm(this.helloDue()),
+    });
     ctx.blockConcurrencyWhile(async () => migrate(ctx.storage.sql));
+  }
+
+  /** Live drand by default; the E2E entry (`worker/e2e-entry.ts`) overrides it with recorded rounds. */
+  protected beaconSource(): BeaconSource {
+    return liveSource();
   }
 
   /** The public halves of every authority key (`GET /v1/pubkeys`). */
@@ -75,9 +88,7 @@ export class Authority extends DurableObject<Env> {
       signals: 0,
     } satisfies Session);
     send(pair[1], { t: 'challenge', nonce });
-    if ((await this.ctx.storage.getAlarm()) === null) {
-      await this.ctx.storage.setAlarm(now + HELLO_TIMEOUT_MS);
-    }
+    await this.rearm(this.helloDue());
     return new Response(null, { status: 101, webSocket: pair[0] });
   }
 
@@ -144,7 +155,7 @@ export class Authority extends DurableObject<Env> {
     this.drop(ws, 1011, 'error');
   }
 
-  /** Closes sockets that never said hello, and reschedules while some still may. */
+  /** Closes sockets that never said hello, resolves due commitments, and re-arms for whatever is still waiting. */
   override async alarm(): Promise<void> {
     const now = Date.now();
     let next: number | null = null;
@@ -155,7 +166,28 @@ export class Authority extends DurableObject<Env> {
       if (due <= now) ws.close(CLOSE_BAD_HELLO, 'hello timeout');
       else next = Math.min(next ?? due, due);
     }
-    if (next !== null) await this.ctx.storage.setAlarm(next);
+    await this.beacons.alarm();
+    await this.rearm(next);
+  }
+
+  /** When the earliest socket that hasn't said hello times out, or null. */
+  private helloDue(): number | null {
+    let next: number | null = null;
+    for (const ws of this.ctx.getWebSockets()) {
+      const session = sessionOf(ws);
+      if (session?.phase !== 'challenged') continue;
+      const due = session.openedAt + HELLO_TIMEOUT_MS;
+      next = Math.min(next ?? due, due);
+    }
+    return next;
+  }
+
+  /** The object has one alarm: it is set for the earliest of the hello timeout and the next beacon, and cleared when neither is needed. */
+  private async rearm(hello: number | null): Promise<void> {
+    const beacon = this.beacons.nextDue();
+    const next = hello === null ? beacon : beacon === null ? hello : Math.min(hello, beacon);
+    if (next === null) await this.ctx.storage.deleteAlarm();
+    else await this.ctx.storage.setAlarm(next);
   }
 
   private async hello(

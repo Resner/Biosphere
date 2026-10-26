@@ -1,0 +1,11 @@
+{
+  "$schema": "../node_modules/wrangler/config-schema.json",
+  "name": "biosphere-authority-e2e",
+  "main": "e2e-entry.ts",
+  "compatibility_date": "2026-10-01",
+  "vars": { "DRAND_SOURCE": "fixture" },
+  "durable_objects": {
+    "bindings": [{ "name": "AUTHORITY", "class_name": "Authority" }]
+  },
+  "migrations": [{ "tag": "v1", "new_sqlite_classes": ["Authority"] }]
+}
