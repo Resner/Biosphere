@@ -163,7 +163,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `genesis.ts` (`genesisGenome(seed: Seed)`, `GENESIS_FREQ`), tests in `genesis.test.ts` (20,000 seeds, about 450 appearance keys in the first 1,000, median speed about 1.1× the M1 cell's), golden hashes in `__golden__/genesis.json`.
   - Gotcha: the M1 whip must keep `length × width × beat` above `RULES.develop.minThrustArea`, or development adds its own band and the speed jumps. A cell with the malformed-part defect (L2, about 1 in 1,100) can fall below it by design. Trait loci are scattered around a target mean (`Builder.mean`) so cells are heterozygous but their traits are exact. The starter's gait amplitude is 0 and the speed grows with size, so genesis keeps gait low and sizes skewed small to hold the median speed near 1.1×.
 
-- [ ] T8 Meiosis, mutation and inheritance
+- [ ] T8 Meiosis, mutation and inheritance (in progress)
   - Acceptance:
     - `offspringSeed(randomness, commitId, slot)` is `SHA-256('bs/offspring/v1' ‖ randomness ‖ commitId ‖ slot)` reduced to a four-word `Seed`; a known-answer vector is committed. Slots 0 and 1 differ.
     - `breed(a, b, seed, { mutation })`: the child is `gamete(a) + gamete(b)` with named streams `meiosis-a`, `meiosis-b`, `mutation-a`, `mutation-b`. The child's first haplotype is built from `a`'s two haplotypes only, and the second from `b`'s.
