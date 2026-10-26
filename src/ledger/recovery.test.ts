@@ -75,6 +75,12 @@ describe('recovery code', () => {
     expect(decodeRecoveryCode(code.replaceAll('1', 'l').replaceAll('0', 'o'))).toEqual(seed);
   });
 
+  it('ignores typographic dashes and invisible characters from pasted text', () => {
+    const code = encodeRecoveryCode(randomSeed);
+    expect(decodeRecoveryCode(code.replaceAll('-', '\u2013'))).toEqual(randomSeed);
+    expect(decodeRecoveryCode(code.replaceAll('-', '\u200b-'))).toEqual(randomSeed);
+  });
+
   it('round-trips many seeds', () => {
     for (let i = 0; i < 200; i++) {
       const seed = sha256(text(`seed-${i}`));

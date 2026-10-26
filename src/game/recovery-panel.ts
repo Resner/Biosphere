@@ -36,12 +36,13 @@ export class RecoveryPanel {
   private readonly input = pick<HTMLInputElement>('[data-testid="recovery-input"]');
   private readonly confirm = pick('[data-testid="recovery-confirm"]');
   private readonly error = pick('[data-testid="recovery-error"]');
+  private readonly opener = pick('[data-testid="recovery-open"]');
   private readonly reminder = pick('[data-testid="recovery-reminder"]');
   private readonly importButton = pick<HTMLButtonElement>('[data-testid="recovery-import"]');
 
   constructor(private readonly handlers: RecoveryHandlers) {
     this.reminder.hidden = seenBefore();
-    pick('[data-testid="recovery-open"]').addEventListener('click', () => this.open());
+    this.opener.addEventListener('click', () => this.open());
     pick('[data-testid="recovery-close"]').addEventListener('click', () => this.close());
     this.code.addEventListener('click', () => this.reveal());
     pick('[data-testid="recovery-copy"]').addEventListener('click', () => void this.copy());
@@ -54,6 +55,10 @@ export class RecoveryPanel {
       this.error.hidden = true;
       this.confirm.hidden = true;
     });
+    // Leaving the title screen closes the panel, so the code never stays in the page during play.
+    new MutationObserver(() => {
+      if (document.body.dataset.screen !== 'title') this.close();
+    }).observe(document.body, { attributes: true, attributeFilter: ['data-screen'] });
     // Typing here must not hatch (Enter) or steer; Enter imports and Escape closes instead.
     this.panel.addEventListener('keydown', (e) => {
       e.stopPropagation();
@@ -63,6 +68,12 @@ export class RecoveryPanel {
         this.ask();
       }
     });
+  }
+
+  /** Hides the button and the reminder where an import could not last (no storage). */
+  disable(): void {
+    this.reminder.hidden = true;
+    this.opener.hidden = true;
   }
 
   private open(): void {

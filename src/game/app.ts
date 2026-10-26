@@ -224,18 +224,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       return createIdentity(keyStore);
     })
     .then((loaded) => {
+      // A reload would lose a code kept only in memory, so there is nothing to import into.
+      if (!keyKept) recovery.disable();
       identity = loaded;
       playerId = loaded.playerId;
     });
 
   // A recovery code moves the identity to another browser. After a replace the page reloads, so
   // the new identity connects and the old tab's session is replaced by the hub (single session).
-  new RecoveryPanel({
+  const recovery = new RecoveryPanel({
     code: () => identity?.exportRecoveryCode() ?? '',
     replace: async (code) => {
       await identityReady;
-      // A reload would lose a code kept only in memory.
-      if (!keyKept) throw new Error('this browser cannot keep a code');
       await importRecoveryCode(keyStore, code);
       location.reload();
     },

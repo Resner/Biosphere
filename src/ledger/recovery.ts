@@ -40,7 +40,11 @@ export function encodeRecoveryCode(seed: Uint8Array): string {
 
 /** The seed a code names, or null for anything that is not exactly one of our codes. */
 export function decodeRecoveryCode(text: string): Uint8Array | null {
-  const chars = text.toUpperCase().replace(/[\s-]/g, '').replace(/[IL]/g, '1').replace(/O/g, '0');
+  const chars = text
+    .toUpperCase()
+    .replace(/[\s\p{Pd}\u200b-\u200d\ufeff]/gu, '')
+    .replace(/[IL]/g, '1')
+    .replace(/O/g, '0');
   if (chars.length !== CHARS) return null;
   const bytes: number[] = [];
   let bits = 0;
