@@ -1,4 +1,4 @@
-import { clamp, cos, sin, TAU } from './math';
+import { clamp, cos, length, lerp, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { RULES } from './rules';
 import type { CreatureState, FoodItem, FoodKind, StepEvent, Vec2, World } from './types';
@@ -210,9 +210,7 @@ export function applyRemoteClaim(
 /** How much of a food kind's value a mouth of `type` (0 filter to 1 jaw) takes in, 0 to 1. */
 export function efficiency(kind: FoodKind, type: number): number {
   const { filter, middle, jaw } = RULES.feeding.efficiency[kind];
-  return type <= 0.5
-    ? filter + (middle - filter) * (type / 0.5)
-    : middle + (jaw - middle) * ((type - 0.5) / 0.5);
+  return type <= 0.5 ? lerp(filter, middle, type * 2) : lerp(middle, jaw, (type - 0.5) * 2);
 }
 
 /**
@@ -242,7 +240,7 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
     if (dx * dx + dy * dy >= reach * reach) continue;
     const ax = item.x - creature.x;
     const ay = item.y - creature.y;
-    const away = Math.sqrt(ax * ax + ay * ay);
+    const away = length(ax, ay);
     if (away > 0 && ax * hx + ay * hy < away * cosArc) continue;
     const yielded = item.value * efficiency(item.kind, mouth.type) * mouth.digestion;
     if (yielded <= 0) continue;

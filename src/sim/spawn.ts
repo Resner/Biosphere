@@ -8,8 +8,8 @@ const { searchStep, plumeClearance, lookaheadTicks, lookaheadStride } = RULES.sp
 /**
  * The point nearest to (x, y), on the search lattice, that is clear of every toxic plume now and
  * for the next 10 s of drift; (x, y) itself when it is already clear. `reach` is how far the body's
- * farthest collider centre lies from the core (wu, `colliderReach`): the clearance is kept from there. A pond with no clear spot at
- * all keeps the original point.
+ * farthest collider centre lies from the core (wu, `colliderReach`): the clearance is kept from
+ * there. A pond with no clear spot at all keeps the original point.
  */
 export function findClearSpot(world: World, x: number, y: number, reach = 0): Vec2 {
   const future: World[] = [];

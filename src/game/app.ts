@@ -16,6 +16,7 @@ import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import { Effects } from '../render/effects';
 import { GameScene } from '../render/scene';
+import { colliderReach, STARTER_PHYS } from '../sim/body';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { angleToSteer, IDLE, type Input } from '../sim/input';
@@ -130,7 +131,8 @@ function newSession(
     world.consumed = pond.world.consumed;
     pond.time.join(world, performance.now());
   }
-  const spot = findClearSpot(world, spawn?.x ?? world.size / 2, spawn?.y ?? world.size / 2);
+  const reach = colliderReach(STARTER_PHYS, RULES.starter.biomass);
+  const spot = findClearSpot(world, spawn?.x ?? world.size / 2, spawn?.y ?? world.size / 2, reach);
   const player = spawnCreature(world, { id: 'player', ...spot });
   return { world, player, demo, counts: {}, peakBiomass: player.biomass, death: null, pond };
 }

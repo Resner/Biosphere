@@ -97,10 +97,11 @@ export function applyHazards(world: World, creature: CreatureState): StepEvent[]
     total += area;
     const px = creature.x + (c.x * hx - c.y * hy) * radius;
     const py = creature.y + (c.x * hy + c.y * hx) * radius;
-    if (
-      plumes.some((p) => (p.x - px) * (p.x - px) + (p.y - py) * (p.y - py) <= p.radius * p.radius)
-    ) {
-      exposed += area;
+    for (const p of plumes) {
+      if ((p.x - px) * (p.x - px) + (p.y - py) * (p.y - py) <= p.radius * p.radius) {
+        exposed += area;
+        break;
+      }
     }
   }
   if (exposed === 0) return [];
