@@ -109,6 +109,9 @@ export const M4_HUB = 'http://localhost:8790';
 /** The M4 authority with lifespans at 1% (about 45 s), for the old-age spec. */
 export const M4_SHORT_LIFE_HUB = 'http://localhost:8791';
 
+/** The M4 authority with two seats (`MAX_SESSIONS=2`), for the lifecycle spec's admission queue. */
+export const M4_TWO_SEAT_HUB = 'http://localhost:8792';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
