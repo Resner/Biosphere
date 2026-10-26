@@ -186,7 +186,10 @@ export class Authority extends DurableObject<Env> {
       }
     }
     try {
-      for (const id of await this.beacons.alarm()) await this.deliverGenesis(id);
+      for (const id of await this.beacons.alarm()) {
+        // One commitment failing must not strand the others this pass resolved.
+        await this.deliverGenesis(id).catch(() => {});
+      }
     } finally {
       await this.rearm();
     }
@@ -218,8 +221,18 @@ export class Authority extends DurableObject<Env> {
       return;
     }
     const data = { nonce: ask.nonce, sig: ask.sig };
-    let hatchesLeft = this.ledger.hatches(owner, Date.now()).left;
+    const bucket = this.ledger.hatches(owner, Date.now());
+    let hatchesLeft = bucket.left;
     let commit = this.beacons.find('genesis', owner, data);
+    if (
+      commit &&
+      commit.id !== this.ledger.pendingCommit(owner) &&
+      !this.isActiveBirth(owner, commit.id)
+    ) {
+      // A signed ask is good for one creature: replaying it after that creature is gone gets nothing.
+      sendIfOpen(ws, { t: 'refused', reason: 'used' });
+      return;
+    }
     if (!commit) {
       const waiting = this.ledger.pendingCommit(owner);
       commit = waiting ? this.beacons.commitment(waiting) : null;
@@ -230,8 +243,7 @@ export class Authority extends DurableObject<Env> {
         return;
       }
       if (hatchesLeft < 1) {
-        const { genesisIn } = this.ledger.hatches(owner, Date.now());
-        sendIfOpen(ws, { t: 'refused', reason: 'limit', genesisIn });
+        sendIfOpen(ws, { t: 'refused', reason: 'limit', genesisIn: bucket.genesisIn });
         return;
       }
       commit = await this.beacons.commit('genesis', owner, data);
@@ -239,6 +251,12 @@ export class Authority extends DurableObject<Env> {
     }
     sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
     await this.deliverGenesis(commit.id);
+  }
+
+  /** Whether the player's active creature came from this commitment. */
+  private isActiveBirth(owner: string, commitId: string): boolean {
+    const head = this.ledger.active(owner);
+    return head !== null && this.ledger.chain(head.id)[0]?.record.body.commit === commitId;
   }
 
   /** Writes the genesis record once the commitment's beacon exists (idempotent) and sends it to the owner's open sessions. */
@@ -252,7 +270,14 @@ export class Authority extends DurableObject<Env> {
     const request = genesisRequest(RULES_VERSION, commit.commitment, genome);
     const text = genomeToBase64url(genome);
     const accepted = this.ledger.accept({ request, genome: text });
-    if (!accepted.ok) return;
+    if (!accepted.ok) {
+      // Nothing will ever follow: free the player to ask again instead of waiting on a dead commitment.
+      this.ledger.clearPending(owner, commitId);
+      for (const [other, theirs] of this.activeSessions()) {
+        if (theirs.playerId === owner) sendIfOpen(other, { t: 'refused', reason: accepted.reason });
+      }
+      return;
+    }
     const ask = commit.commitment.data as GenesisAsk;
     const msg: HubMsg = {
       t: 'genesis',

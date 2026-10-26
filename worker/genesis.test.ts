@@ -242,6 +242,38 @@ describe('genesis request', () => {
     expect(count?.n).toBe(1);
   });
 
+  it('does not hand a dead creature to a replayed ask', async () => {
+    const { c, id } = await login();
+    const nonce = freshNonce();
+    const first = await ask(c, id, nonce);
+    await publish(first.commit.commitment.round);
+    const g = await nextOf(c, 'genesis');
+    await kill(recordHash(g.record.record));
+    c.send(genesisRequest(id, nonce));
+    expect(await nextOf(c, 'refused')).toMatchObject({ reason: 'used' });
+    expect(c.inbox.filter((m) => m.t === 'genesis' || m.t === 'commit')).toHaveLength(0);
+  });
+
+  it('frees a player whose genesis the ledger refuses', async () => {
+    const { c, id } = await login();
+    const { commit } = await ask(c, id);
+    // Something else made the player's account active before the round came.
+    await sql(
+      `INSERT INTO creatures (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t)
+       VALUES (?, ?, 'active', 0, ?, '', 0, 0, 0, 0, 1)`,
+      'f'.repeat(64),
+      id.playerId,
+      'f'.repeat(64),
+    );
+    await publish(commit.commitment.round);
+    expect(await nextOf(c, 'refused')).toMatchObject({ reason: 'already-active' });
+    const [row] = await sql<{ pending: string }>(
+      'SELECT pending FROM players WHERE id = ?',
+      id.playerId,
+    );
+    expect(row?.pending).toBe('');
+  });
+
   it('keeps a player to one waiting round, whatever nonce they send', async () => {
     const { c, id } = await login();
     const first = await ask(c, id);

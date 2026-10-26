@@ -141,6 +141,11 @@ export class Ledger {
     return row ? (row.pending as string) : '';
   }
 
+  /** Forgets a pending commitment that can't become a creature. */
+  clearPending(owner: string, commitId: string): void {
+    this.run("UPDATE players SET pending = '' WHERE id = ? AND pending = ?", owner, commitId);
+  }
+
   /** Spends one hatch for a new commitment and remembers it as the player's pending one. */
   takeHatch(owner: string, commitId: string, now: number): number {
     const row = this.run('SELECT hatches, hatch_t FROM players WHERE id = ?', owner)[0];
