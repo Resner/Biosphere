@@ -324,14 +324,16 @@ Exit criteria map: "DNA → bounded development → body, stats and mesh" T3–T
 
 ## Rubric
 
-- [ ] The genesis creatures in the Lab look different from each other at a glance: shape, colour, pattern and mouth (evidence: a 24-creature Lab screenshot, `state()` appearance keys, and the T7 distinctness numbers).
-- [ ] Silhouettes are readable over the water: body, mouth and appendages are recognisable at default zoom (evidence: Lab and game screenshots, the T12 contrast numbers).
-- [ ] Each creature reads as one connected, wriggling body, never as separate sprites (evidence: the T11 connectivity check at 4 phases and a screenshot strip).
-- [ ] The Lab inspector explains a creature in plain words with no genetics jargon (evidence: the T9 banned-word test and screenshots).
-- [ ] Wild genomes never produce a degenerate body: no zero-size, spiky mess, or hidden mouth (evidence: the 30,000-genome property suites and a wild-mode screenshot).
+- [x] The genesis creatures in the Lab look different from each other at a glance: shape, colour, pattern and mouth (evidence: a 24-creature Lab screenshot, `state()` appearance keys, and the T7 distinctness numbers).
+- [x] Silhouettes are readable over the water: body, mouth and appendages are recognisable at default zoom (evidence: Lab and game screenshots, the T12 contrast numbers).
+- [x] Each creature reads as one connected, wriggling body, never as separate sprites (evidence: the T11 connectivity check at 4 phases and a screenshot strip).
+- [x] The Lab inspector explains a creature in plain words with no genetics jargon (evidence: the T9 banned-word test and screenshots).
+- [x] Wild genomes never produce a degenerate body: no zero-size, spiky mess, or hidden mouth (evidence: the 30,000-genome property suites and a wild-mode screenshot).
 - [ ] Growth pace feels right and the maximum size matches the genome (owner, with the Playtest v0.4.0 issue).
 - [ ] Different bodies feel different to swim and eat with, yet none is clearly the best (owner; evidence: the T17 tournament table).
 - [ ] Other players' bodies look right on real networks and appear quickly after a join (owner).
+
+Close notes: `npm run verify` is green (861 unit tests, 63 E2E). Rubric screenshots (1280×720: 24 genesis creatures, 24 wild extremes, the wild inspector in plain words, the hatched game body with HUD) show distinct hues, shapes and mouths, attached appendages, readable silhouettes and no hollow bodies. The close review (`/code-review` medium over v0.3.0..main) found one gap worth a fix now: a remote's drawn biomass was clamped to 2^24, so a hostile peer could draw a body 2.6 times larger than any genome can grow; it is now clamped to `maxBiomassCeiling` (unit test). Left as is: a rehatch inside the 2 s genome window shows the tinted cell (accepted in T16), and the remaining findings need a throwing builder or mesh, which the total development and property suites rule out.
 
 ## Risks
 
