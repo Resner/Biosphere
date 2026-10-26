@@ -194,6 +194,11 @@ describe('meiosis: linkage', () => {
 describe('mutation', () => {
   const haplotype = (i: number): number[] => [...(parent(i).haplotypes[0]?.alleles ?? [])];
 
+  it('treats a non-finite mutation factor as off', () => {
+    const h = [...(parent(1).haplotypes[0]?.alleles ?? [])];
+    expect(mutateHaplotype(h, createRng(seedOf('nan', 0), 'm'), Number.NaN)).toEqual([]);
+  });
+
   it('is off at mutation 0 and fires at most three events', () => {
     const events: number[] = [0, 0, 0, 0];
     for (let i = 0; i < 20_000; i++) {

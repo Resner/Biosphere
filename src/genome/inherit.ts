@@ -108,7 +108,7 @@ const step = (rng: Rng): number => (rng.next() < 0.5 ? -1 : 1) * rng.int(1, G.ma
 
 /**
  * Applies one mutation of `kind` to a haplotype in place. Returns false when the kind has nothing
- * to act on (no module to drift, no empty slot to duplicate into); the draws are still consumed.
+ * to act on (no module to drift, no empty slot to duplicate into).
  */
 export function applyMutation(h: number[], kind: MutationKind, rng: Rng): boolean {
   switch (kind) {
@@ -137,11 +137,9 @@ export function applyMutation(h: number[], kind: MutationKind, rng: Rng): boolea
     }
     case 'paramDrift': {
       const slots = MODULES.filter((m) => present(h, m));
-      const slot = pickOf(rng, slots.length > 0 ? slots : MODULES);
-      const at = slot.offset + 1 + rng.int(0, MODULE_BYTES - 2);
-      const d = step(rng);
-      if (!present(h, slot)) return false;
-      h[at] = clampByte((h[at] as number) + d);
+      if (slots.length === 0) return false;
+      const at = pickOf(rng, slots).offset + 1 + rng.int(0, MODULE_BYTES - 2);
+      h[at] = clampByte((h[at] as number) + step(rng));
       return true;
     }
     case 'moduleDuplicate': {
@@ -173,7 +171,7 @@ export interface MutationEvent {
 
 /** The mutation pass of one gamete, in place: up to three events. Returns every event that fired. */
 export function mutateHaplotype(h: number[], rng: Rng, mutation = 1): MutationEvent[] {
-  const chance = Math.min(1, Math.max(0, G.eventChance * mutation));
+  const chance = Number.isFinite(mutation) ? Math.min(1, Math.max(0, G.eventChance * mutation)) : 0;
   const events: MutationEvent[] = [];
   for (let trial = 0; trial < G.maxEvents; trial++) {
     if (rng.next() >= chance) continue;
