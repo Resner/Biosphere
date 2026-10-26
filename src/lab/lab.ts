@@ -1,15 +1,18 @@
-// The Creature Lab page (M3 T13): a grid of 24 creatures drawn with the game's own creature view,
-// an inspector that explains the selected one in plain words, and `window.__lab` for tests.
-// It makes no network calls and has no post-processing: one small renderer on a dark backdrop.
+// The Creature Lab page (M3 T13, T14): a grid of 24 creatures drawn with the game's own creature
+// view, an inspector that explains the selected one in plain words, tools to mutate, breed, export
+// and import genomes, and `window.__lab` for tests. It makes no network calls and has no
+// post-processing: one small renderer on a dark backdrop.
 
 import * as THREE from 'three';
 import { pick } from '../game/dom';
-import { genomeFromBase64url } from '../genome/codec';
+import { genomeToBase64url, parseGenomeText } from '../genome/codec';
+import { explainChild, type TraitExplanation } from '../genome/explain';
 import { CreatureCache } from '../render/creature-cache';
 import { CreatureView, type CreatureViewState } from '../render/creature-view';
-import { cellAt, cellRect, cellSize, coreRadius, HOVER_SCALE } from './grid';
+import { breedBatch, labRandomness, mutateStep } from './breed';
+import { CELL_COUNT, cellAt, cellRect, GRID_COUNT, HOVER_SCALE, stageCoreRadius } from './grid';
 import type { LabCreature, LabHook, LabView } from './hook';
-import { LAB_COUNT, type LabMode, labGenomes, type Specimen, specimenOf } from './specimens';
+import { type LabMode, labGenomes, type Specimen, specimenOf } from './specimens';
 
 const WATER = 0x04090b;
 /** How hard the creatures swim on the grid (0..1). */
@@ -30,6 +33,15 @@ export const randomSeed = (): string => {
   return `lab-${bytes[0]?.toString(36)}${bytes[1]?.toString(36)}`;
 };
 
+/** A change that Undo can take back: this grid cell used to hold this creature. */
+interface Edit {
+  index: number;
+  was: Specimen;
+}
+
+/** How many Mutate and Load steps Undo remembers. */
+const MAX_EDITS = 64;
+
 const capitalise = (text: string): string => `${text[0]?.toUpperCase()}${text.slice(1)}`;
 
 export function startLab(options: LabOptions): void {
@@ -41,6 +53,21 @@ export function startLab(options: LabOptions): void {
   const lines = pick('[data-testid="inspect-lines"]');
   const facts = pick('[data-testid="inspect-facts"]');
   const errorLine = pick('[data-testid="lab-error"]');
+  const inheritBox = pick('[data-testid="inspect-inherit"]');
+  const inheritLines = pick('[data-testid="inspect-inherit-lines"]');
+  const stripLabel = pick('[data-testid="strip-label"]');
+  const hint = pick('[data-testid="tool-hint"]');
+  const copyText = pick<HTMLTextAreaElement>('[data-testid="genome-copy"]');
+  const loadText = pick<HTMLTextAreaElement>('[data-testid="genome-load"]');
+  const tools = {
+    mutate: pick<HTMLButtonElement>('[data-testid="tool-mutate"]'),
+    undo: pick<HTMLButtonElement>('[data-testid="tool-undo"]'),
+    breed: pick<HTMLButtonElement>('[data-testid="tool-breed"]'),
+    copy: pick<HTMLButtonElement>('[data-testid="tool-copy"]'),
+    load: pick<HTMLButtonElement>('[data-testid="tool-load"]'),
+  } as const;
+  const parentRingA = pick('[data-ring="parent"][data-label="A"]');
+  const parentRingB = pick('[data-ring="parent"][data-label="B"]');
   const seedLabel = pick('[data-testid="lab-seed"]');
   const modeButtons = {
     genesis: pick('[data-testid="mode-genesis"]'),
@@ -63,7 +90,7 @@ export function startLab(options: LabOptions): void {
   const camera = new THREE.OrthographicCamera(-1, 1, 1, -1, -10, 10);
   camera.position.z = 5;
   const cache = new CreatureCache();
-  const views = Array.from({ length: LAB_COUNT }, () => {
+  const views = Array.from({ length: CELL_COUNT }, () => {
     const view = new CreatureView(cache);
     scene.add(view.mesh);
     return view;
@@ -73,8 +100,16 @@ export function startLab(options: LabOptions): void {
   // `show` below sets the first mode; 'custom' keeps its early return from skipping it.
   let mode: LabView = 'custom';
   let specimens: Specimen[] = [];
+  /** The last Breed: its eight children and where each trait came from. */
+  let offspring: Specimen[] = [];
+  let inheritance: TraitExplanation[][] = [];
   let hovered: number | null = null;
+  /** The cell in the inspector: 0-23 the grid, 24-31 the offspring. */
   let selected: number | null = null;
+  /** The two grid cells Breed would mate: the last plain click, then the shift-click. */
+  let parents: [number | null, number | null] = [null, null];
+  let edits: Edit[] = [];
+  let mutations = 0;
   let width = 1;
   let height = 1;
   let clock = 0;
@@ -82,8 +117,8 @@ export function startLab(options: LabOptions): void {
   let last: number | null = null;
   // Where each cell's creature sits (pixels from the stage centre, y up) and its core radius;
   // set on resize so that drawing allocates nothing.
-  const cellX = new Float64Array(LAB_COUNT);
-  const cellY = new Float64Array(LAB_COUNT);
+  const cellX = new Float64Array(CELL_COUNT);
+  const cellY = new Float64Array(CELL_COUNT);
   let radius = 1;
   /** The scratch state handed to every view; its creature is set before each update. */
   const frame: Omit<CreatureViewState, 'creature'> & { creature: Specimen['creature'] | null } = {
@@ -105,9 +140,10 @@ export function startLab(options: LabOptions): void {
       creatures: specimens.map(summary),
       hovered,
       selected,
-      offspring: [],
+      parents: [...parents],
+      offspring: offspring.map(summary),
     }),
-    select,
+    select: (index, options) => select(index, options?.second === true),
     setMode: (next) => show(next, seed),
     renderInfo: () => ({
       calls: renderer.info.render.calls,
@@ -157,10 +193,25 @@ export function startLab(options: LabOptions): void {
         console.error(`creature ${i} breaks body rules: ${s.violations.join('; ')}`);
       }
     }
+    offspring = [];
+    inheritance = [];
+    edits = [];
+    mutations = 0;
+    parents = [null, null];
     hovered = null;
     placeRing(hoverRing, null);
+    showError(null);
     select(null);
     draw();
+  }
+
+  function specimenAt(index: number): Specimen | undefined {
+    return index < GRID_COUNT ? specimens[index] : offspring[index - GRID_COUNT];
+  }
+
+  function showError(message: string | null): void {
+    errorLine.hidden = message === null;
+    errorLine.textContent = message ?? '';
   }
 
   function show(next: LabMode, nextSeed: string): void {
@@ -176,10 +227,10 @@ export function startLab(options: LabOptions): void {
   }
 
   function showGenomes(texts: readonly string[]): boolean {
-    if (texts.length > LAB_COUNT) return false;
+    if (texts.length > GRID_COUNT) return false;
     const next: Specimen[] = [];
     for (const text of texts) {
-      const genome = genomeFromBase64url(text);
+      const genome = parseGenomeText(text);
       if (genome === null) return false;
       next.push(specimenOf(genome));
     }
@@ -187,24 +238,43 @@ export function startLab(options: LabOptions): void {
     return true;
   }
 
-  function select(index: number | null): void {
-    const s = index === null ? undefined : specimens[index];
+  /** Chooses a cell to inspect; a grid cell also becomes a parent (the second with shift-click). */
+  function select(index: number | null, second = false): void {
+    const s = index === null ? undefined : specimenAt(index);
     selected = s ? (index as number) : null;
-    placeRing(selectRing, selected);
-    if (!s) {
+    if (selected === null) parents = [null, null];
+    else if (selected < GRID_COUNT) {
+      if (second && parents[0] === selected) {
+        // Shift-clicking parent A again only inspects it.
+      } else if (second && parents[0] !== null) parents[1] = selected;
+      else parents = [selected, null];
+    }
+    inspect();
+  }
+
+  /** Shows the new state: the inspector, rings and tools, and a frame when the clock is stopped. */
+  function refresh(): void {
+    inspect();
+    if (paused) draw();
+  }
+
+  /** Fills the inspector, the rings and the tools for the current selection. */
+  function inspect(): void {
+    placeRings();
+    const s = selected === null ? undefined : specimenAt(selected);
+    updateTools();
+    if (!s || selected === null) {
       name.textContent = 'Click a creature to inspect it.';
       facts.hidden = true;
+      inheritBox.hidden = true;
       lines.replaceChildren();
       return;
     }
     name.textContent = s.species;
-    lines.replaceChildren(
-      ...s.lines.map((text) => {
-        const li = document.createElement('li');
-        li.textContent = text;
-        return li;
-      }),
-    );
+    lines.replaceChildren(...s.lines.map(listItem));
+    const where = selected < GRID_COUNT ? undefined : inheritance[selected - GRID_COUNT];
+    inheritBox.hidden = where === undefined;
+    inheritLines.replaceChildren(...(where ?? []).map((line) => listItem(line.text)));
     facts.hidden = false;
     const rows: [term: string, value: string, title?: string][] = [
       ['Rarity', capitalise(s.rarity)],
@@ -224,6 +294,94 @@ export function startLab(options: LabOptions): void {
     );
   }
 
+  function listItem(text: string): HTMLElement {
+    const li = document.createElement('li');
+    li.textContent = text;
+    return li;
+  }
+
+  function updateTools(): void {
+    const inGrid = selected !== null && selected < GRID_COUNT;
+    const [a, b] = parents;
+    tools.mutate.disabled = !inGrid;
+    tools.undo.disabled = edits.length === 0;
+    tools.breed.disabled = a === null || b === null;
+    tools.copy.disabled = selected === null;
+    tools.load.disabled = !inGrid;
+    hint.textContent =
+      a === null
+        ? 'Click a creature, then shift-click a second one to breed them.'
+        : b === null
+          ? 'Shift-click a second creature to breed with it.'
+          : 'Press Breed to see eight children of A and B.';
+    stripLabel.textContent =
+      offspring.length > 0 ? 'Children of the last Breed' : 'Children appear here after Breed.';
+  }
+
+  /** Puts a creature in a grid cell; Undo can take it back. */
+  function replace(index: number, genome: Specimen['genome']): void {
+    edits.push({ index, was: specimens[index] as Specimen });
+    if (edits.length > MAX_EDITS) edits.shift();
+    specimens[index] = specimenOf(genome);
+    refresh();
+  }
+
+  function mutate(): void {
+    const s = selected === null || selected >= GRID_COUNT ? undefined : specimens[selected];
+    if (!s || selected === null) return;
+    replace(selected, mutateStep(s.genome, seed, mutations++));
+  }
+
+  function undo(): void {
+    const edit = edits.pop();
+    if (!edit) return;
+    specimens[edit.index] = edit.was;
+    refresh();
+  }
+
+  function breedParents(): void {
+    const a = parents[0] === null ? undefined : specimens[parents[0]];
+    const b = parents[1] === null ? undefined : specimens[parents[1]];
+    if (!a || !b) return;
+    const kids = breedBatch(a.genome, b.genome, labRandomness(seed));
+    offspring = kids.map(specimenOf);
+    inheritance = kids.map((kid) => explainChild(kid, a.genome, b.genome));
+    for (const [k, kid] of offspring.entries()) {
+      if (kid.violations.length > 0) {
+        console.error(`child ${k} breaks body rules: ${kid.violations.join('; ')}`);
+      }
+    }
+    refresh();
+  }
+
+  function copyGenome(): void {
+    const s = selected === null ? undefined : specimenAt(selected);
+    if (!s) return;
+    const text = genomeToBase64url(s.genome);
+    copyText.value = text;
+    showError(null);
+    // The text field is the dependable part: a clipboard can be blocked by the browser.
+    navigator.clipboard?.writeText(text).catch(() => {});
+  }
+
+  function loadGenome(): void {
+    const genome = parseGenomeText(loadText.value);
+    if (genome === null) {
+      showError('That text is not a creature genome.');
+    } else if (selected === null || selected >= GRID_COUNT) {
+      showError('Click a creature in the grid first; the genome replaces it.');
+    } else {
+      showError(null);
+      replace(selected, genome);
+    }
+  }
+
+  function placeRings(): void {
+    placeRing(selectRing, selected);
+    placeRing(parentRingA, parents[0]);
+    placeRing(parentRingB, parents[1]);
+  }
+
   function placeRing(ring: HTMLElement, index: number | null): void {
     ring.hidden = index === null;
     if (index === null) return;
@@ -235,8 +393,9 @@ export function startLab(options: LabOptions): void {
   }
 
   function updateViews(): void {
-    for (const [i, view] of views.entries()) {
-      const s = specimens[i];
+    for (let i = 0; i < views.length; i++) {
+      const view = views[i] as CreatureView;
+      const s = specimenAt(i);
       if (!s) {
         view.update(null, clock);
         continue;
@@ -263,15 +422,17 @@ export function startLab(options: LabOptions): void {
     camera.top = height / 2;
     camera.bottom = -height / 2;
     camera.updateProjectionMatrix();
-    const cell = cellSize(width, height);
-    radius = coreRadius(cell.w, cell.h);
-    for (let i = 0; i < LAB_COUNT; i++) {
+    radius = stageCoreRadius(width, height);
+    for (let i = 0; i < CELL_COUNT; i++) {
       const r = cellRect(i, width, height);
       cellX[i] = r.x + r.w / 2 - width / 2;
       cellY[i] = height / 2 - (r.y + r.h / 2);
     }
-    placeRing(selectRing, selected);
+    placeRings();
     placeRing(hoverRing, hovered);
+    const label = cellRect(GRID_COUNT, width, height);
+    stripLabel.style.left = `${label.x}px`;
+    stripLabel.style.top = `${label.y + 4}px`;
     // The loop redraws a running Lab; a paused one needs the frame now.
     if (paused) draw();
   }
@@ -279,7 +440,7 @@ export function startLab(options: LabOptions): void {
   function cellOf(event: PointerEvent): number | null {
     const box = canvas.getBoundingClientRect();
     const i = cellAt(event.clientX - box.left, event.clientY - box.top, box.width, box.height);
-    return i >= 0 && specimens[i] ? i : null;
+    return i >= 0 && specimenAt(i) ? i : null;
   }
 
   function hover(index: number | null): void {
@@ -293,8 +454,13 @@ export function startLab(options: LabOptions): void {
   canvas.addEventListener('pointerleave', () => hover(null));
   canvas.addEventListener('click', (event) => {
     const i = cellOf(event);
-    if (i !== null && i !== selected) select(i);
+    if (i !== null && (i !== selected || event.shiftKey)) select(i, event.shiftKey);
   });
+  tools.mutate.addEventListener('click', mutate);
+  tools.undo.addEventListener('click', undo);
+  tools.breed.addEventListener('click', breedParents);
+  tools.copy.addEventListener('click', copyGenome);
+  tools.load.addEventListener('click', loadGenome);
   for (const [m, button] of Object.entries(modeButtons)) {
     button.addEventListener('click', () => show(m as LabMode, seed));
   }
@@ -313,6 +479,7 @@ export function startLab(options: LabOptions): void {
   }
 
   window.__lab = hook;
+  updateTools();
   resize();
   show(options.mode, options.seed);
   requestAnimationFrame(loop);

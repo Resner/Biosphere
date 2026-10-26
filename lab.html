@@ -23,12 +23,32 @@
         <div class="lab-stage" data-testid="lab-stage">
           <canvas id="lab-canvas" data-testid="lab-canvas" aria-label="Creature grid"></canvas>
           <div class="lab-ring" data-ring="hover" hidden></div>
+          <div class="lab-ring" data-ring="parent" data-label="A" hidden></div>
+          <div class="lab-ring" data-ring="parent" data-label="B" hidden></div>
           <div class="lab-ring" data-ring="select" hidden></div>
+          <p class="lab-strip-label" data-testid="strip-label"></p>
         </div>
         <aside class="lab-panel" aria-label="Inspector">
           <h2 data-testid="inspect-name">Click a creature to inspect it.</h2>
           <ul class="lab-lines" data-testid="inspect-lines"></ul>
           <dl class="lab-facts" data-testid="inspect-facts" hidden></dl>
+          <section class="lab-inherit" data-testid="inspect-inherit" hidden>
+            <h3>Where it comes from</h3>
+            <ul data-testid="inspect-inherit-lines"></ul>
+          </section>
+          <section class="lab-tools" aria-label="Tools">
+            <div class="lab-buttons">
+              <button type="button" data-testid="tool-mutate">Mutate</button>
+              <button type="button" data-testid="tool-undo">Undo</button>
+              <button type="button" data-testid="tool-breed">Breed</button>
+            </div>
+            <p class="lab-hint" data-testid="tool-hint"></p>
+            <button type="button" data-testid="tool-copy">Copy genome</button>
+            <textarea class="lab-text" data-testid="genome-copy" rows="3" readonly aria-label="Genome text"></textarea>
+            <label for="genome-load">Load genome</label>
+            <textarea id="genome-load" class="lab-text" data-testid="genome-load" rows="3" placeholder="Paste a genome here"></textarea>
+            <button type="button" data-testid="tool-load">Load into the selected cell</button>
+          </section>
           <p class="lab-error" data-testid="lab-error" role="alert" hidden></p>
         </aside>
       </div>

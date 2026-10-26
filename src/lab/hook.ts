@@ -22,9 +22,11 @@ export interface LabState {
   creatures: LabCreature[];
   /** The cell under the pointer, or null. */
   hovered: number | null;
-  /** The cell shown in the inspector, or null. */
+  /** The cell shown in the inspector (0-23 grid, 24-31 offspring), or null. */
   selected: number | null;
-  /** Filled by the breeding tools (T14). */
+  /** The two grid cells that Breed would mate: the last plain click, then the shift-click. */
+  parents: [number | null, number | null];
+  /** The eight children of the last Breed, or none. */
   offspring: LabCreature[];
 }
 
@@ -45,11 +47,12 @@ export interface LabDebug {
   advance(seconds: number): void;
 }
 
-/** `window.__lab`: read-only views and the mode switch are always present. */
+/** `window.__lab`: read-only views, selection and the mode switch are always present. */
 export interface LabHook {
   ready: boolean;
   state(): LabState;
-  select(index: number): void;
+  /** Inspects a cell; a grid cell also becomes a parent, the second one when `second` is set. */
+  select(index: number, options?: { second?: boolean }): void;
   setMode(mode: LabMode): void;
   /** Counters of the last drawn frame. */
   renderInfo(): LabRenderInfo;

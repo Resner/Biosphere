@@ -233,7 +233,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `lab.html` is a second Vite input (`rolldownOptions.input`, the non-deprecated name in Vite 8); `src/lab/` holds `specimens.ts` (seed to 24 genomes and everything the inspector shows, pure), `grid.ts` (cell rectangles and the core radius that keeps the longest body and the hover lift inside a cell), `lab.ts` (one `WebGLRenderer`, 24 `CreatureView`s on one cache, hover, select, mode toggle, "New set") and `hook.ts` (`window.__lab`, plus `showGenomes`, `pause` and `advance` so screenshots can pin a gait phase). `m3-lab.spec.ts` covers the budget (24 creatures: calls ≤ 40, triangles < 150k, one program), the inspector, wild mode, readability against the water (silhouette luminance at least 0.12 above it, no hue pair under 0.08 apart in mean colour) and silhouette connectivity at four phases for 12 samples; a 24-creature genesis render drew one program.
   - Gotcha: hue "bins" put 0.166 and 0.168 on opposite sides of an edge, so the colour-distance check compares pairs a sixth of the wheel apart (albinos excluded). The starter genome draws as a cell with a mirrored pair of short, curved whips (T5's plan, 0.76 core radii), not one long whip; T15 judges that look. A screenshot of the canvas also trips Chromium's "GPU stall due to ReadPixels" console warning, so specs fail on console errors only.
 
-- [ ] T14 Creature Lab: mutate, breed, import and export (in progress)
+- [x] T14 Creature Lab: mutate, breed, import and export
   - Acceptance:
     - "Mutate" replaces the selected creature by `mutateGenome(selected, seed, { mutation: 4 })` (a visible step in the grid, a new hash, a valid body); "Undo" restores the previous one.
     - "Breed" with two selected creatures (click, then shift-click) shows exactly 8 offspring: for k = 0..7 the child is `breed(A, B, offspringSeed(labRandomness, 'lab-' + (k >> 1), k & 1))`. All 8 are valid; at least 6 have different hashes from each other and from both parents (fixed seed); the same selection and seed always give the same 8; with mutation off, every child's alleles come from its parents (reuse the T8 check on the Lab's batch function `breedBatch`).
@@ -241,6 +241,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Inspect for an offspring names which parent each Mendelian trait shows (for example "iridescence: from neither, hidden in both parents") using exact genotype enumeration from the karyotype (unit tests on `explainTrait`: 20 cases). No percentages promised to the player yet (Punnett hints are M5).
     - E2E: select two creatures, press Breed, `state().offspring.length === 8`, each with a hash and species; press Mutate and see the selected hash change; export then import round-trips the hash.
   - Notes: the Lab seed for offspring is a local fake "randomness" (hash of the page seed); real beacons arrive in M5.
+  - Done: `src/lab/breed.ts` (`breedBatch`, `mutateStep`, `labRandomness`), `src/genome/explain.ts` (`explainTrait` with 20 exact cases, `explainChild`) and `parseGenomeText` in the codec (exact length, so "hello" is not a genome). The grid gained an 8-cell offspring strip under it (indices 24-31, `stageCoreRadius` sizes both), and the inspector lists where each simple trait came from; Undo covers Mutate and Load.
+  - Gotcha: Mutate retries with sub-seeds until the hash changes (a pass can fire no event). Click, then shift-click picks the parents; inspecting a child keeps them.
 
 - [ ] T15 The game hatches a body
   - Acceptance:

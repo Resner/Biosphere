@@ -120,7 +120,7 @@ const MODULE_IDS = LOCI.filter((l) => l.kind === 'module').map((l) => l.id);
 
 const byId = new Map<string, Locus>(LOCI.map((l) => [l.id, l]));
 
-function locusOf(id: string): Locus {
+export function locusOf(id: string): Locus {
   return byId.get(id) as Locus;
 }
 
@@ -149,7 +149,7 @@ function ranged(group: RangedGroup, key: string, f: number): number {
   return v < lo ? lo : v > hi ? hi : v;
 }
 
-function allele(g: Genome, locus: MendelLocus, hap: 0 | 1): number {
+export function allele(g: Genome, locus: MendelLocus, hap: 0 | 1): number {
   return byte(g.haplotypes[hap], locus.offset) % locus.alleles.length;
 }
 
@@ -157,7 +157,7 @@ function allele(g: Genome, locus: MendelLocus, hap: 0 | 1): number {
  * Complete dominance: the higher rank shows; equal ranks of different alleles show both (table
  * order), and a co-dominant locus always shows both.
  */
-function dominant(g: Genome, id: string): string[] {
+export function dominant(g: Genome, id: string): string[] {
   const locus = locusOf(id) as MendelLocus;
   const a = allele(g, locus, 0);
   const b = allele(g, locus, 1);
@@ -170,7 +170,7 @@ function dominant(g: Genome, id: string): string[] {
   return [...new Set([a, b].sort((x, y) => x - y))].map((i) => locus.alleles[i] as string);
 }
 
-function blended(g: Genome, id: string): number {
+export function blended(g: Genome, id: string): number {
   const locus = locusOf(id) as MendelLocus;
   const ra = locus.rank[allele(g, locus, 0)] as number;
   const rb = locus.rank[allele(g, locus, 1)] as number;
