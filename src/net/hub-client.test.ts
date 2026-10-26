@@ -144,6 +144,31 @@ describe('HubClient connect', () => {
 });
 
 describe('HubClient listeners', () => {
+  it('forwards the hub’s word about the creature, and sends the player’s own messages', async () => {
+    const client = make();
+    const heard: unknown[] = [];
+    client.onLife((m) => heard.push(m));
+    void client.connect().catch(() => {});
+    const s = await handshake();
+    s.receive({ t: 'life', life: null, genesisIn: 0 });
+    s.receive({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 });
+    s.receive({ t: 'refused', reason: 'limit', genesisIn: 5 });
+    expect(heard).toEqual([
+      { t: 'life', life: null, genesisIn: 0 },
+      { t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 },
+      { t: 'refused', reason: 'limit', genesisIn: 5 },
+    ]);
+    client.send({ t: 'progress', n: 1, ticks: 900, biomass: 1, energy: 1, health: 1 });
+    expect(s.sent.at(-1)).toEqual({
+      t: 'progress',
+      n: 1,
+      ticks: 900,
+      biomass: 1,
+      energy: 1,
+      health: 1,
+    });
+  });
+
   it('a throwing listener does not stop the others or the receive path', async () => {
     const client = make();
     const signals: unknown[] = [];

@@ -1,6 +1,7 @@
+import type { GenesisAsk } from '../ledger/ask';
 import type { Canonical } from '../ledger/canonical';
 import type { Beacon } from '../ledger/drand';
-import type { Commitment, GenesisAsk } from '../ledger/genesis';
+import type { Commitment } from '../ledger/genesis';
 import type { StoredRecord } from '../ledger/record';
 import type { DeathCause } from '../sim/types';
 

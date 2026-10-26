@@ -20,6 +20,11 @@ export type HubStatus = 'connecting' | 'online' | 'offline' | 'replaced' | 'outd
 export const isFinalStatus = (s: HubStatus): boolean => s === 'replaced' || s === 'outdated';
 export type Welcome = Extract<HubMsg, { t: 'welcome' }>;
 export type SignalMsg = Extract<HubMsg, { t: 'signal' }>;
+/** The hub's answers about the player's own creature (M4). */
+export type LifeMsg = Extract<
+  HubMsg,
+  { t: 'life' | 'ack' | 'died' | 'history' | 'commit' | 'genesis' | 'refused' }
+>;
 
 /** The slice of `WebSocket` the client uses, so tests can fake it. */
 export interface SocketLike {
@@ -74,6 +79,7 @@ export class HubClient {
   private signalListeners: ((m: SignalMsg) => void)[] = [];
   private memberListeners: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeListeners: ((w: Welcome) => void)[] = [];
+  private lifeListeners: ((m: LifeMsg) => void)[] = [];
 
   constructor(private readonly opts: HubClientOptions) {
     this.rng = createRng(seedFromString(opts.seed ?? opts.identity.playerId), 'hub-backoff');
@@ -118,6 +124,10 @@ export class HubClient {
   }
   onMember(fn: (op: 'join' | 'leave', m: Member) => void): () => void {
     return subscribe(this.memberListeners, fn);
+  }
+  /** Fires for every message about the player's own creature. */
+  onLife(fn: (m: LifeMsg) => void): () => void {
+    return subscribe(this.lifeListeners, fn);
   }
   /** Fires on every welcome, including after a reconnect. */
   onWelcome(fn: (w: Welcome) => void): () => void {
@@ -183,6 +193,15 @@ export class HubClient {
         break;
       case 'signal':
         for (const fn of [...this.signalListeners]) guarded(() => fn(msg));
+        break;
+      case 'life':
+      case 'ack':
+      case 'died':
+      case 'history':
+      case 'commit':
+      case 'genesis':
+      case 'refused':
+        for (const fn of [...this.lifeListeners]) guarded(() => fn(msg));
         break;
       case 'error':
         if (msg.code === 'version') this.versionError = true;

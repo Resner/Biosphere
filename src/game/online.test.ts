@@ -1,6 +1,6 @@
 import { describe, expect, it, vi } from 'vitest';
 import { PondClock } from '../net/clock';
-import type { HubStatus, SignalMsg, Welcome } from '../net/hub-client';
+import type { HubStatus, LifeMsg, SignalMsg, Welcome } from '../net/hub-client';
 import type { Member, PeerEvent, Snapshot } from '../net/protocol';
 import { type OnlineHub, type OnlineMesh, OnlineSession } from './online';
 
@@ -13,6 +13,7 @@ class FakeHub implements OnlineHub {
   private signalFns: ((m: SignalMsg) => void)[] = [];
   private memberFns: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeFns: ((w: Welcome) => void)[] = [];
+  private lifeFns: ((m: LifeMsg) => void)[] = [];
   connect(): Promise<Welcome> {
     return new Promise(() => {});
   }
@@ -34,6 +35,10 @@ class FakeHub implements OnlineHub {
     this.memberFns.push(fn);
     return () => {};
   }
+  onLife(fn: (m: LifeMsg) => void) {
+    this.lifeFns.push(fn);
+    return () => {};
+  }
   onWelcome(fn: (w: Welcome) => void) {
     this.welcomeFns.push(fn);
     return () => {};
@@ -48,6 +53,9 @@ class FakeHub implements OnlineHub {
   }
   member(op: 'join' | 'leave', m: Member): void {
     for (const fn of this.memberFns) fn(op, m);
+  }
+  life(m: LifeMsg): void {
+    for (const fn of this.lifeFns) fn(m);
   }
   signal(m: SignalMsg): void {
     for (const fn of this.signalFns) fn(m);
@@ -127,6 +135,7 @@ function setup() {
     peerOpen: vi.fn(),
     state: vi.fn(),
     event: vi.fn(),
+    life: vi.fn(),
   };
   const session = new OnlineSession({
     selfId: 'me',
@@ -223,6 +232,14 @@ describe('OnlineSession', () => {
     mesh.state('a', snapshot);
     mesh.state('zed', snapshot);
     expect(handlers.state).toHaveBeenCalledTimes(1);
+  });
+
+  it('passes the hub’s word about the creature on, and sends the player’s own messages', () => {
+    const { hub, handlers, session } = setup();
+    hub.life({ t: 'life', life: null, genesisIn: 0 });
+    expect(handlers.life).toHaveBeenCalledWith({ t: 'life', life: null, genesisIn: 0 });
+    session.send({ t: 'history' });
+    expect(hub.sent).toContainEqual({ t: 'history' });
   });
 
   it('broadcasts to open peers only', () => {

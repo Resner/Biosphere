@@ -3,10 +3,10 @@ import { genesisGenome } from '../genome/genesis';
 import { deriveSeed } from '../genome/inherit';
 import { KARYOTYPE_VERSION } from '../genome/karyotype';
 import type { Seed } from '../sim/prng';
+import { type GenesisAsk, verifyGenesisAsk } from './ask';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import { type Beacon, randomnessOf, verifyBeacon } from './drand';
-import { fromBase64Url, verify } from './identity';
-import { type LedgerRecord, REQUEST_DOMAIN, type RecordRequest, recordProblems } from './record';
+import { type LedgerRecord, type RecordRequest, recordProblems } from './record';
 
 // Genesis (ADR 0010, 0019): a creature's first DNA comes from a drand round that did not exist
 // when the player asked for it. Everything here is pure, so the client and (from M9) the verifier
@@ -27,21 +27,8 @@ export interface Commitment {
   data: Canonical;
 }
 
-/** The owner's signed ask for a genesis creature: `nonce` makes each ask distinct. */
-export type GenesisAsk = { nonce: string; sig: string };
-
 export function commitmentId(c: Commitment): string {
   return hashWithDomain(COMMIT_DOMAIN, canonicalize(c as unknown as Canonical));
-}
-
-/** What the owner signs (under `bs/req/v1`) to ask for a genesis creature. */
-export function genesisAskMessage(owner: string, nonce: string): Uint8Array {
-  return new TextEncoder().encode(canonicalize({ v: 1, kind: 'genesis', owner, nonce }));
-}
-
-export function verifyGenesisAsk(owner: string, ask: GenesisAsk): boolean {
-  const sig = fromBase64Url(ask.sig);
-  return sig !== null && verify(owner, REQUEST_DOMAIN, genesisAskMessage(owner, ask.nonce), sig);
 }
 
 /** SHA-256 of the domain, the randomness, the commit id and a zero byte, as four words. */

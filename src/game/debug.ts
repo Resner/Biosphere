@@ -5,6 +5,7 @@ import type { RenderInfo } from '../render/scene';
 import type { PhysStats } from '../sim/body';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
+import type { LifeView } from './life';
 import type { DeathSummary, Screen } from './screens';
 
 /** Read-only views of the running game for tests and tools (`window.__bs`). */
@@ -36,6 +37,12 @@ export interface BsState {
   } | null;
   /** Set once the player has died. */
   death: DeathSummary | null;
+  /**
+   * The recorded life (M4): `status` is the client's state machine (`idle`, `requesting`,
+   * `awaiting`, `verifying`, `playing`, `dead`, `practice`), `genome` the hash of the body now
+   * played (null on the title screen), `lastAckN` the last progress report the hub took.
+   */
+  life: LifeView & { genome: string | null };
   /** The other players in the pond, as drawn (alpha fades when they go quiet). */
   remotes: {
     id: string;
@@ -93,6 +100,10 @@ export interface BsHook {
   /** Re-runs an input log in a fresh world and returns its final state hash. */
   replay(log: InputLog): { hash: string; events: Record<string, number> };
   render: { info(): RenderInfo; fx(): FxState };
+  life: {
+    /** The DNA of the last genesis, recomputed from its beacon and commitment; null before one. */
+    recompute(): Promise<{ round: number; commit: string; genomeHash: string } | null>;
+  };
   /** Genome code run in this engine; present only with `?debug=1`. */
   genome?: BsGenome;
   /** Mutating helpers; present only with `?debug=1`. */

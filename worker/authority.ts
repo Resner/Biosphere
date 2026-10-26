@@ -2,13 +2,9 @@ import { DurableObject } from 'cloudflare:workers';
 import { type Genome, genomeFromBase64url, genomeToBase64url } from '../src/genome/codec';
 import { express } from '../src/genome/express';
 import { speciesName } from '../src/genome/names';
+import { type GenesisAsk, verifyGenesisAsk } from '../src/ledger/ask';
 import { randomnessOf } from '../src/ledger/drand';
-import {
-  type GenesisAsk,
-  genesisFor,
-  genesisRequest,
-  verifyGenesisAsk,
-} from '../src/ledger/genesis';
+import { genesisFor, genesisRequest } from '../src/ledger/genesis';
 import {
   fromBase64Url,
   HELLO_DOMAIN,
