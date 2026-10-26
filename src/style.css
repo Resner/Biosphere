@@ -622,3 +622,93 @@ body {
 .history p {
   margin: 0;
 }
+
+/* Recovery code: a panel over the title screen; the code stays blurred until it is clicked. */
+.recovery-reminder {
+  margin: 0.75rem 0 0;
+  color: #e8b04a;
+  font-size: 0.8rem;
+}
+
+.recovery[hidden],
+.recovery [hidden],
+.recovery-reminder[hidden] {
+  display: none;
+}
+
+.recovery {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  display: grid;
+  gap: 0.6rem;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1rem 1.25rem;
+  transform: translate(-50%, -50%);
+  border: 1px solid var(--muted);
+  border-radius: 1rem;
+  background: rgb(4 9 11 / 0.92);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.recovery h2,
+.recovery p {
+  margin: 0;
+}
+
+.recovery h2 {
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.recovery p {
+  color: var(--muted);
+}
+
+.recovery .action {
+  justify-self: center;
+  margin: 0;
+}
+
+.recovery-code {
+  padding: 0.5rem;
+  border: 1px dashed var(--muted);
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--text);
+  font:
+    0.8rem ui-monospace,
+    monospace;
+  letter-spacing: 0.05em;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.recovery-code[data-revealed="false"] {
+  filter: blur(6px);
+}
+
+.recovery-import {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted);
+}
+
+.recovery-import input {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.55);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+}
+
+.recovery .recovery-error {
+  color: #e8b04a;
+}

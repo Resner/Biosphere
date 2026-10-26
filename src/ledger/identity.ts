@@ -1,5 +1,6 @@
 import * as ed from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha2.js';
+import { decodeRecoveryCode, encodeRecoveryCode } from './recovery';
 
 // Browser identity (ADR 0009): an Ed25519 seed per profile, `playerId` = base64url of the public
 // key. Runs in browsers, Node and workerd, so it uses only the synchronous noble API.
@@ -22,6 +23,8 @@ export interface Identity {
   playerId: string;
   /** Signs `domain ‖ 0x0A ‖ message`. */
   sign(domain: string, message: Uint8Array): Uint8Array;
+  /** The seed as a recovery code. Call it only when the player asks for the code. */
+  exportRecoveryCode(): string;
 }
 
 /** Loads the stored seed, or makes and stores a new one. The seed never leaves this closure. */
@@ -35,7 +38,16 @@ export async function createIdentity(store: KeyStore): Promise<Identity> {
   return {
     playerId: playerIdOf(publicKeyFromSecret(secret)),
     sign: (domain, message) => signWithSecret(secret, domain, message),
+    exportRecoveryCode: () => encodeRecoveryCode(secret),
   };
+}
+
+/** Replaces the stored seed with the one a recovery code names; the old identity is gone. */
+export async function importRecoveryCode(store: KeyStore, code: string): Promise<Identity> {
+  const seed = decodeRecoveryCode(code);
+  if (!seed) throw new Error('not a valid recovery code');
+  await store.save(seed);
+  return createIdentity(store);
 }
 
 /** Signs with a bare secret; for keys that are not a player's, such as the authority's. */

@@ -19,9 +19,32 @@
       <p class="name-error" data-testid="name-error" hidden>Pick another name</p>
       <button type="button" class="action" data-testid="hatch">Hatch</button>
       <button type="button" class="action quiet" data-testid="practice" hidden>Practice cell</button>
+      <button type="button" class="action quiet" data-testid="recovery-open">Recovery code</button>
+      <p class="recovery-reminder" data-testid="recovery-reminder">Save your recovery code</p>
       <p class="hint">Enter to hatch · Mouse or WASD to swim · Space to dash</p>
       <a class="lab-link" data-testid="lab-link" href="lab.html">Creature Lab</a>
     </main>
+    <section class="recovery" data-for="title" data-testid="recovery" aria-label="Recovery code" hidden>
+      <h2>Recovery code</h2>
+      <p>This code brings your creature to another browser. Keep it private and safe.</p>
+      <button type="button" class="recovery-code" data-testid="recovery-code" aria-label="Show the code" data-revealed="false"></button>
+      <p class="recovery-row">
+        <button type="button" class="action quiet" data-testid="recovery-copy">Copy</button>
+        <span data-testid="recovery-copied" role="status" hidden></span>
+      </p>
+      <label class="recovery-import">
+        <span>Use another code</span>
+        <input type="text" data-testid="recovery-input" autocomplete="off" spellcheck="false" />
+      </label>
+      <button type="button" class="action quiet" data-testid="recovery-import">Import</button>
+      <p class="recovery-confirm" data-testid="recovery-confirm" hidden>
+        This replaces the creature you are playing with. Continue?
+        <button type="button" class="action quiet" data-testid="recovery-yes">Replace</button>
+        <button type="button" class="action quiet" data-testid="recovery-no">Cancel</button>
+      </p>
+      <p class="recovery-error" data-testid="recovery-error" role="alert" hidden>That code could not be used. Check it and try again.</p>
+      <button type="button" class="action quiet" data-testid="recovery-close">Close</button>
+    </section>
     <aside class="history" data-for="title" data-testid="history" aria-label="History" hidden>
       <h2>History</h2>
       <ul data-testid="history-list"></ul>
