@@ -29,7 +29,8 @@ const ALBINO_HUE = 0.96;
 const ALBINO_SATURATION = 0.08;
 const PALE_SATURATION_SCALE = 0.4;
 const IRIDESCENCE = { plain: 0, iridescent: 0.55, oil: 1 } as const;
-const GLOW = 0.8;
+/** Glow strength and whether it pulses, per luminescence allele; an unknown allele does not glow. */
+const GLOW = { off: [0, 0], on: [0.8, 0], pulse: [0.8, 1] } as const;
 
 export interface MaterialParams {
   /** The body's deep colour and its lit rim, 0..1 per channel. */
@@ -92,6 +93,7 @@ export function materialParams(t: Pick<Traits, 'colour' | 'skin'>): MaterialPara
     : colour.albino === 'pale'
       ? colour.saturation * PALE_SATURATION_SCALE
       : colour.saturation;
+  const glow = GLOW[colour.luminescence as keyof typeof GLOW] ?? GLOW.off;
   const value = albino ? Math.max(colour.value, 0.85) : colour.value;
   const body = hsv(hue, saturation, value);
 
@@ -104,10 +106,11 @@ export function materialParams(t: Pick<Traits, 'colour' | 'skin'>): MaterialPara
     pattern: patternKind(colour.pattern),
     patternCount: 3 + Math.round(clamp(colour.patternScale, 0, 1) * 9),
     iridescence: IRIDESCENCE[skin.iridescence as keyof typeof IRIDESCENCE] ?? 0,
-    luminescence: colour.luminescence === 'off' ? 0 : GLOW,
-    lumPulse: colour.luminescence === 'pulse' ? 1 : 0,
+    luminescence: glow[0],
+    lumPulse: glow[1],
     lumColor: hsv(colour.lumHue, 0.85, 1),
     plating: 0.5 + 0.5 * clamp(skin.plating, 0, 1),
-    rimStrength: 1.1 + 0.5 * clamp(skin.membrane, 0, 1) + 0.5 * (1 - clamp(value, 0, 1)),
+    // Up to 1.5, so a dark, membranous body's rim stays coloured instead of clipping to white.
+    rimStrength: 1 + 0.25 * clamp(skin.membrane, 0, 1) + 0.25 * (1 - clamp(value, 0, 1)),
   };
 }
