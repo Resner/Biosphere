@@ -38,6 +38,7 @@ import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from './beacons';
 import { type Head, type KeyEntry, Ledger } from './ledger';
+import { applyReport, bindLife, checkpointDue, type LifeState, limitsOf, unsaved } from './life';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
 
@@ -54,7 +55,15 @@ const RING_STEP = 40;
 /** Per-socket state, kept in the hibernation attachment (survives eviction, never touches SQLite). */
 type Session = (
   | { phase: 'challenged'; nonce: string }
-  | { phase: 'active'; playerId: string; name: string; pondId: string; slot: number }
+  | {
+      phase: 'active';
+      playerId: string;
+      name: string;
+      pondId: string;
+      slot: number;
+      /** The creature this connection is playing and what it has reported (absent without one). */
+      life?: LifeState;
+    }
   | { phase: 'retired' }
 ) & { openedAt: number; windowStart: number; count: number; signals: number };
 
@@ -163,6 +172,9 @@ export class Authority extends DurableObject<Env> {
         return;
       case 'genesis-request':
         this.queueGenesis(ws, session, msg);
+        return;
+      case 'progress':
+        this.progress(ws, session, msg, now);
         return;
     }
   }
@@ -287,9 +299,73 @@ export class Authority extends DurableObject<Env> {
       beacon,
       genome: text,
     };
+    const head = this.ledger.head(accepted.stored.hash);
     for (const [other, theirs] of this.activeSessions()) {
-      if (theirs.playerId === owner) sendIfOpen(other, msg);
+      if (theirs.playerId !== owner) continue;
+      // A new creature starts its clock when it reaches the player; a repeat delivery leaves it be.
+      if (head && theirs.life?.creature !== head.id) {
+        other.serializeAttachment({
+          ...theirs,
+          life: bindLife(head, Date.now()),
+        } satisfies Session);
+      }
+      sendIfOpen(other, msg);
     }
+  }
+
+  /**
+   * Credits a life report to the connection's creature (ADR 0019). It writes no record by itself:
+   * the condition waits in the socket attachment until a checkpoint is due or the socket closes.
+   */
+  private progress(
+    ws: WebSocket,
+    session: ActiveSession,
+    msg: ClientMsg & { t: 'progress' },
+    now: number,
+  ): void {
+    const bound = session.life ?? this.bind(session.playerId, now);
+    if (!bound || msg.n <= bound.n) return;
+    const head = this.ledger.head(bound.creature);
+    if (head?.status !== 'active') return;
+    const { life, flags } = applyReport(bound, msg, now, limitsOf(head.genome));
+    for (const kind of flags) this.ledger.flagOnce(kind, head.owner, head.id, now);
+    const next = checkpointDue(life) ? this.checkpoint(head, life) : life;
+    ws.serializeAttachment({ ...session, life: next } satisfies Session);
+    sendIfOpen(ws, { t: 'ack', n: msg.n, activeMs: next.activeMs });
+  }
+
+  /** The player's active creature as a fresh connection state, or undefined without one. */
+  private bind(playerId: string, now: number): LifeState | undefined {
+    const head = this.ledger.active(playerId);
+    return head ? bindLife(head, now) : undefined;
+  }
+
+  /** `bind` as a session field, which is left out when there is no creature. */
+  private bound(playerId: string, now: number): { life?: LifeState } {
+    const life = this.bind(playerId, now);
+    return life ? { life } : {};
+  }
+
+  /** Writes the creature's condition as a checkpoint record; the state comes back marked saved only if the ledger took it. */
+  private checkpoint(head: Head, life: LifeState): LifeState {
+    const accepted = this.ledger.accept({
+      request: {
+        v: 1,
+        rules: RULES_VERSION,
+        kind: 'checkpoint',
+        creature: head.id,
+        seq: head.seq + 1,
+        prev: head.hash,
+        owner: head.owner,
+        body: {
+          biomass: life.biomass,
+          energy: life.energy,
+          health: life.health,
+          activeMs: life.activeMs,
+        },
+      },
+    });
+    return accepted.ok ? { ...life, savedMs: life.activeMs, savedN: life.n } : life;
   }
 
   /** When the earliest socket that hasn't said hello times out, or null. Sockets already closing don't count. */
@@ -362,6 +438,7 @@ export class Authority extends DurableObject<Env> {
       name: msg.name,
       pondId: pond.id,
       slot,
+      ...this.bound(msg.playerId, Date.now()),
     } satisfies Session);
     this.broadcast(pond.id, ws, {
       t: 'member',
@@ -479,11 +556,19 @@ export class Authority extends DurableObject<Env> {
     send(ws, { t: 'error', code: 'no-peer' });
   }
 
+  /** A connection that reported anything since the last record leaves its condition behind as a checkpoint. */
+  private saveOnClose({ life }: ActiveSession): void {
+    if (!life || !unsaved(life)) return;
+    const head = this.ledger.head(life.creature);
+    if (head?.status === 'active') this.checkpoint(head, life);
+  }
+
   /** Closes a socket; an active one first leaves its pond so the others see it go exactly once. */
   private drop(ws: WebSocket, code: number, reason?: string): void {
     const session = sessionOf(ws);
     if (session?.phase === 'active') {
       ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
+      this.saveOnClose(session);
       this.broadcast(session.pondId, ws, {
         t: 'member',
         op: 'leave',

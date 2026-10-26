@@ -107,6 +107,8 @@ export interface LifeInfo {
 export type ClientMsg =
   | { t: 'hello'; v: 1; playerId: string; name: string; sig: string }
   | { t: 'genesis-request'; nonce: string; sig: string }
+  /** Life report, about every 30 s: `n` counts up, `ticks` is cumulative for this connection, the rest is the condition in hundredths. */
+  | { t: 'progress'; n: number; ticks: number; biomass: number; energy: number; health: number }
   | { t: 'ping'; id: number }
   | { t: 'signal'; to: string; kind: 'offer' | 'answer'; sdp: string }
   | { t: 'leave' };
@@ -128,6 +130,8 @@ export type HubMsg =
   | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string }
   /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
   | { t: 'life'; life: LifeInfo | null; genesisIn: number }
+  /** A `progress` was taken: `activeMs` is the creature's life clock after crediting it. */
+  | { t: 'ack'; n: number; activeMs: number }
   /** A genesis request was accepted: the committed round, and how many hatches are left. */
   | { t: 'commit'; commit: SignedCommit; hatchesLeft: number }
   /** The committed round's beacon exists: everything a client needs to recompute the DNA. */
@@ -301,6 +305,8 @@ const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !
 
 const MAX_TICK = 0xffffffff;
 const MAX_TIME = Number.MAX_SAFE_INTEGER;
+/** A condition value in hundredths: far above any body (maxBiomass is a few thousand wu), still safe to multiply. */
+const MAX_CONDITION = 1_000_000_000;
 
 function vec(v: unknown): Vec2 | null {
   return isObj(v) && isNum(v.x) && isNum(v.y) ? { x: v.x, y: v.y } : null;
@@ -364,6 +370,21 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return isStr(o.nonce, NONCE_RE) && isStr(o.sig, SIG_RE)
         ? capped(raw, { t: 'genesis-request', nonce: o.nonce, sig: o.sig })
         : null;
+    case 'progress':
+      return isInt(o.n, 0, MAX_TICK) &&
+        isInt(o.ticks, 0, MAX_TICK) &&
+        isInt(o.biomass, 0, MAX_CONDITION) &&
+        isInt(o.energy, 0, MAX_CONDITION) &&
+        isInt(o.health, 0, MAX_CONDITION)
+        ? capped(raw, {
+            t: 'progress',
+            n: o.n,
+            ticks: o.ticks,
+            biomass: o.biomass,
+            energy: o.energy,
+            health: o.health,
+          })
+        : null;
     default:
       return null;
   }
@@ -398,6 +419,10 @@ export function parseHubMsg(raw: string): HubMsg | null {
         ? capped(raw, { t: 'life', life, genesisIn: o.genesisIn })
         : null;
     }
+    case 'ack':
+      return isInt(o.n, 0, MAX_TICK) && isInt(o.activeMs, 0, MAX_TIME)
+        ? capped(raw, { t: 'ack', n: o.n, activeMs: o.activeMs })
+        : null;
     case 'commit': {
       const commit = signedCommit(o.commit);
       return commit && isInt(o.hatchesLeft, 0, 100)

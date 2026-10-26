@@ -293,17 +293,18 @@ export class Ledger {
     const record: LedgerRecord = { ...request, t };
     const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
     const dead = request.kind === 'death';
+    // `status` is in a partial index, so a checkpoint leaves it out and costs one row less.
     this.run(
-      `UPDATE creatures SET status = ?, seq = ?, hash = ?, active_ms = ?, biomass = ?,
-         energy = ?, health = ?, died_t = ? WHERE id = ?`,
-      dead ? 'dead' : 'active',
+      `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?${
+        dead ? ", status = 'dead', died_t = ?" : ''
+      } WHERE id = ?`,
       request.seq,
       stored.hash,
       field(request.body, 'activeMs', head.activeMs),
       field(request.body, 'biomass', head.biomass),
       field(request.body, 'energy', head.energy),
       field(request.body, 'health', head.health),
-      dead ? t : null,
+      ...(dead ? [t] : []),
       request.creature,
     );
     return { ok: true, stored, fresh: true };
@@ -345,6 +346,18 @@ export class Ledger {
       request.owner,
       request.creature,
       hash,
+      t,
+    );
+  }
+
+  /** Notes an implausible report: one row per kind and creature, so a client that keeps sending it can't grow the log. */
+  flagOnce(kind: string, owner: string, creature: string, t: number): void {
+    this.run(
+      `INSERT INTO flags (kind, owner, creature, hash, t)
+       SELECT ?1, ?2, ?3, '', ?4 WHERE NOT EXISTS (SELECT 1 FROM flags WHERE kind = ?1 AND creature = ?3)`,
+      kind,
+      owner,
+      creature,
       t,
     );
   }

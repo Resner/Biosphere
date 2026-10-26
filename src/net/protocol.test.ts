@@ -239,6 +239,7 @@ const clientMsgs = [
   { t: 'signal', to: PID2, kind: 'answer', sdp: 'v=0' },
   { t: 'leave' },
   { t: 'genesis-request', nonce: NONCE, sig: SIG },
+  { t: 'progress', n: 7, ticks: 12_000, biomass: 14_250, energy: 20_000, health: 3_700 },
 ];
 
 const hubMsgs: HubMsg[] = [
@@ -272,6 +273,7 @@ const hubMsgs: HubMsg[] = [
   genesisMsg as unknown as HubMsg,
   { t: 'refused', reason: 'active' },
   { t: 'refused', reason: 'limit', genesisIn: 300_000 },
+  { t: 'ack', n: 7, activeMs: 400_000 },
 ];
 
 const peerEvents = [
@@ -450,6 +452,23 @@ describe('genesis messages', () => {
     expect(clientBad({ t: 'genesis-request', nonce: NONCE })).toBeNull();
   });
 
+  it('rejects a malformed progress or ack', () => {
+    const ok = { t: 'progress', n: 1, ticks: 30, biomass: 10_000, energy: 100, health: 100 };
+    expect(clientBad(ok)).toEqual(ok);
+    for (const key of ['n', 'ticks', 'biomass', 'energy', 'health']) {
+      expect(clientBad({ ...ok, [key]: -1 })).toBeNull();
+      expect(clientBad({ ...ok, [key]: 1.5 })).toBeNull();
+      expect(clientBad({ ...ok, [key]: '3' })).toBeNull();
+      expect(clientBad({ ...ok, [key]: null })).toBeNull();
+      const { [key]: _gone, ...missing } = ok as Record<string, unknown>;
+      expect(clientBad(missing)).toBeNull();
+    }
+    expect(clientBad({ ...ok, biomass: Number.MAX_SAFE_INTEGER })).toBeNull();
+    expect(hubBad({ t: 'ack', n: 1 })).toBeNull();
+    expect(hubBad({ t: 'ack', n: -1, activeMs: 0 })).toBeNull();
+    expect(hubBad({ t: 'ack', n: 1, activeMs: 1.5 })).toBeNull();
+  });
+
   it('rejects wrong-typed or malformed life, commit and refused', () => {
     expect(hubBad({ t: 'life', life: null })).toBeNull();
     expect(hubBad({ t: 'life', life: null, genesisIn: -1 })).toBeNull();
@@ -550,6 +569,8 @@ describe('genesis messages', () => {
       { t: 'commit', commit, hatchesLeft: 1 },
       genesisMsg,
       { t: 'refused', reason: 'limit', genesisIn: 5 },
+      { t: 'progress', n: 1, ticks: 30, biomass: 10_000, energy: 100, health: 100 },
+      { t: 'ack', n: 1, activeMs: 1000 },
     ].map((m) => JSON.stringify(m));
     const alphabet = '{}[]":,0123456789abt_-.\\ \nxé€';
     let threw = 0;

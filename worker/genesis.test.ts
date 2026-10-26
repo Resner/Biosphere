@@ -1,143 +1,31 @@
-import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
-import { env, exports } from 'cloudflare:workers';
+import { evictDurableObject, runDurableObjectAlarm } from 'cloudflare:test';
+import { exports } from 'cloudflare:workers';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { genomeHash, genomeToBase64url } from '../src/genome/codec';
-import { type Beacon, randomnessOf, roundAt, roundTime } from '../src/ledger/drand';
-import {
-  checkGenesis,
-  commitmentId,
-  genesisAskMessage,
-  genesisFor,
-  verifyGenesisAsk,
-} from '../src/ledger/genesis';
-import {
-  createIdentity,
-  fromBase64Url,
-  HELLO_DOMAIN,
-  helloMessage,
-  type Identity,
-  memoryKeyStore,
-  toBase64Url,
-  verify,
-} from '../src/ledger/identity';
-import { AUTH_DOMAIN, checkStored, REQUEST_DOMAIN, recordHash } from '../src/ledger/record';
-import { type HubMsg, parseHubMsg } from '../src/net/protocol';
+import { randomnessOf, roundAt } from '../src/ledger/drand';
+import { checkGenesis, commitmentId, genesisFor, verifyGenesisAsk } from '../src/ledger/genesis';
+import { createIdentity, fromBase64Url, memoryKeyStore, verify } from '../src/ledger/identity';
+import { AUTH_DOMAIN, checkStored, recordHash } from '../src/ledger/record';
 import rounds from '../tests/fixtures/drand/rounds.json';
-import type { BeaconSource } from './beacons';
-import { fixtureSource } from './fixture-beacons';
 import { HATCH_REFILL_MS } from './ledger';
-
-const ORIGIN = 'https://resner.github.io';
-const all = rounds.beacons as Beacon[];
-const beaconOf = (round: number): Beacon => all[round - rounds.first] as Beacon;
-const stub = () => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
-
-/** Drand time for the object: starts 20 rounds into the fixture and only moves when a test says so. */
-const clock = { wall: 20 * 3000 + 100 };
-const source: BeaconSource = fixtureSource(0, () => clock.wall);
-const useFakeBeacons = () =>
-  runInDurableObject(stub(), (authority) => {
-    (authority as unknown as { source: BeaconSource }).source = source;
-  });
-/** The network publishes `round`; the object's alarm then resolves what waited for it. */
-async function publish(round: number): Promise<void> {
-  clock.wall = Math.max(clock.wall, roundTime(round) - roundTime(rounds.first) + 600);
-  await runDurableObjectAlarm(stub());
-}
-
-interface Client {
-  ws: WebSocket;
-  inbox: HubMsg[];
-  closed: Promise<number>;
-  next(): Promise<HubMsg>;
-  send(msg: unknown): void;
-}
-
-const sockets: Client[] = [];
-async function open(): Promise<Client> {
-  const res = await exports.default.fetch('https://authority.test/v1/hub', {
-    headers: { Upgrade: 'websocket', Origin: ORIGIN },
-  });
-  const ws = res.webSocket;
-  if (!ws) throw new Error(`no WebSocket (status ${res.status})`);
-  const inbox: HubMsg[] = [];
-  const waiting: Array<(m: HubMsg) => void> = [];
-  ws.addEventListener('message', (e) => {
-    const msg = parseHubMsg(String(e.data));
-    if (!msg) throw new Error(`unparseable hub message: ${String(e.data)}`);
-    const waiter = waiting.shift();
-    if (waiter) waiter(msg);
-    else inbox.push(msg);
-  });
-  const closed = new Promise<number>((resolve) =>
-    ws.addEventListener('close', (e) => resolve(e.code)),
-  );
-  ws.accept();
-  const c: Client = {
-    ws,
-    inbox,
-    closed,
-    next: () => {
-      const queued = inbox.shift();
-      return queued
-        ? Promise.resolve(queued)
-        : new Promise<HubMsg>((resolve) => waiting.push(resolve));
-    },
-    send: (msg) => ws.send(typeof msg === 'string' ? msg : JSON.stringify(msg)),
-  };
-  sockets.push(c);
-  return c;
-}
-
-/** The next message of type `t`, skipping others (member joins). */
-async function nextOf<T extends HubMsg['t']>(c: Client, t: T): Promise<Extract<HubMsg, { t: T }>> {
-  for (;;) {
-    const msg = await c.next();
-    if (msg.t === t) return msg as Extract<HubMsg, { t: T }>;
-  }
-}
-
-async function login(id?: Identity, store = memoryKeyStore()) {
-  const who = id ?? (await createIdentity(store));
-  const c = await open();
-  const challenge = await nextOf(c, 'challenge');
-  const name = 'Tester';
-  const sig = toBase64Url(
-    who.sign(HELLO_DOMAIN, helloMessage(challenge.nonce, name) ?? new Uint8Array()),
-  );
-  c.send({ t: 'hello', v: 1, playerId: who.playerId, name, sig });
-  await nextOf(c, 'welcome');
-  const life = await nextOf(c, 'life');
-  return { c, id: who, life };
-}
-
-let nonces = 0;
-const freshNonce = () => toBase64Url(new Uint8Array(16).fill(++nonces % 256)).padEnd(22, 'A');
-
-function genesisRequest(id: Identity, nonce = freshNonce(), as: Identity = id) {
-  const sig = toBase64Url(as.sign(REQUEST_DOMAIN, genesisAskMessage(id.playerId, nonce)));
-  return { t: 'genesis-request', nonce, sig };
-}
-
-const sql = <T extends Record<string, SqlStorageValue>>(query: string, ...b: SqlStorageValue[]) =>
-  runInDurableObject(stub(), (_o, state) => state.storage.sql.exec<T>(query, ...b).toArray());
-
-/** Asks for a creature and returns the commit message. */
-async function ask(c: Client, id: Identity, nonce?: string) {
-  c.send(genesisRequest(id, nonce));
-  return nextOf(c, 'commit');
-}
-
-/** Asks, publishes the committed round and returns the creature's genesis message. */
-async function hatch(c: Client, id: Identity) {
-  const { commit } = await ask(c, id);
-  await publish(commit.commitment.round);
-  return nextOf(c, 'genesis');
-}
-
-const kill = (creature: string) =>
-  sql("UPDATE creatures SET status = 'dead', died_t = 1 WHERE id = ?", creature);
+import {
+  ask,
+  beaconOf,
+  closeSockets,
+  freshNonce,
+  genesisRequest,
+  hatch,
+  kill,
+  login,
+  nextOf,
+  ORIGIN,
+  publish,
+  source,
+  sql,
+  stub,
+  useFakeBeacons,
+} from './test-hub';
 
 beforeEach(async () => {
   await useFakeBeacons();
@@ -145,16 +33,7 @@ beforeEach(async () => {
 
 afterEach(async () => {
   vi.restoreAllMocks();
-  const done = sockets.splice(0);
-  for (const c of done) {
-    try {
-      c.ws.close(1000, 'done');
-    } catch {
-      // already closed
-    }
-  }
-  await Promise.all(done.map((c) => c.closed));
-  await sql('DELETE FROM ponds');
+  await closeSockets();
 });
 
 describe('life after welcome', () => {
