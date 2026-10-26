@@ -14,6 +14,7 @@ Nothing ships unless it meets the spec. Be strict about requirements, not about 
 3. A gap that breaks a requirement becomes a new task in this spec. Ship that as the PR and stop; the release waits.
 4. Prune while it's cheap: dead code, unused dependencies, and stale or duplicated lines in CLAUDE.md and `.claude/rules/`.
 5. Update the roadmap: mark this row `done` and record its release. If what you learned changes later milestones, adjust their outcomes and exit criteria; keep the order, and record scope changes in an ADR.
-6. Bump `VERSION` to this milestone's release: a minor bump, or 1.0.0 for the final milestone.
-7. Ship as `chore(release): v<version> <milestone title>`, with player-facing release notes in the PR body. The merge runs the full tests, deploys to Pages and tags the release.
-8. Once the Release workflow is green, open an issue `Playtest: v<version>` with the Pages link, what changed, what to try, and the spec's `(owner)` checks. For a `gate` milestone, say that the factory waits for the owner's reply. Close the owner issues this milestone fully delivered, each with a comment linking the release; leave open those that wait for the owner's acceptance, and say so in the Playtest issue.
+6. Update `README.md` for players: the version and list under "What you can do today", the controls, and the "Where it's going" table. Keep the rest as it is.
+7. Bump `VERSION` to this milestone's release: a minor bump, or 1.0.0 for the final milestone.
+8. Ship as `chore(release): v<version> <milestone title>`, with player-facing release notes in the PR body. The merge runs the full tests, deploys to Pages and tags the release.
+9. Once the Release workflow is green, open an issue `Playtest: v<version>` with the Pages link, what changed, what to try, and the spec's `(owner)` checks. For a `gate` milestone, say that the factory waits for the owner's reply. Close the owner issues this milestone fully delivered, each with a comment linking the release; leave open those that wait for the owner's acceptance, and say so in the Playtest issue.
