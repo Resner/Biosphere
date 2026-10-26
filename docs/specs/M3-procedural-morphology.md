@@ -151,7 +151,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `stats.ts` (`computeStats`, `statsAt`, `physOf`, `buildCreature`, `hashStats`), `starter.ts` (`starterGenome`), constants in `RULES.stats` and DESIGN §6; goldens in `__golden__/stats.json`; `tests/archetypes.ts`; `m3-determinism.spec.ts` through `__bs.genome.hashes` (`?debug=1`). `develop` + `computeStats` run in about 75 µs at the median.
   - Gotcha: `computeStats(plan, traits)` is the adult value (`statsAt` takes a size, which only thrust efficiency uses); the sim keeps it for the whole life. Multipliers are normalised to the reference cell, so the starter equals `STARTER_PHYS` by construction. To make its colliders match exactly, parts too thin for a minimum-radius circle (width × 0.5 below `minColliderRadius`: cilia, whips) now get no collision circle (two develop goldens regenerated under rules version 3). The "genesis median speed within 0.8-1.2x" check waits for T7 (`genesisGenome`).
 
-- [ ] T7 Genesis distribution and unique DNA
+- [ ] T7 Genesis distribution and unique DNA (in progress)
   - Acceptance:
     - `genesisGenome(seed)` is a pure function of the seed. Every genesis genome expresses exactly 1 segment (a single cell), has a propulsion source (M1 slot holds a whip-like flagellum; M2 slot is present in half of them as a ciliary band), `maxBiomass` in 300–900, and an empty `bodyViolations`.
     - 20,000 seeds: all genome hashes are different; the number of distinct appearance keys (hue bin of 24 × pattern 4 × membrane band 3 × albino × iridescent × luminescent) exceeds 400 for the first 1,000 seeds; the hue histogram over 12 bins has no bin under 5% or over 14%.
