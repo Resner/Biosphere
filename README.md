@@ -4,18 +4,35 @@
 
 ▶ **Play:** https://resner.github.io/Biosphere/ · 🧬 **Creature Lab:** https://resner.github.io/Biosphere/lab.html
 
-You hatch a single cell from unique DNA and drift into dark, sunlit-to-abyssal water. You swim, feed, grow and avoid hazards. Later you fight creatures of your own size and mate with other players. Every mating gives *both* players a distinct offspring whose body is grown from the parents' genes by Mendelian rules. When you die, you continue as your pending offspring or your nearest surviving ancestor, so your lineage is what you're really playing.
+You hatch a single cell from unique DNA and drift into one continuous body of water, from sunlit shallows down to dark, bioluminescent depths. You swim, feed, grow and avoid hazards, fight creatures of your own size and mate with other players. Every mating gives *both* players a distinct offspring whose body grows from the parents' genes by Mendelian rules. When you die, you continue as your pending offspring or your nearest surviving ancestor, so what you're really playing is your lineage.
 
-There are no NPCs: every other creature in the water is another player. The game is built and released milestone by milestone by an unattended Claude Code "factory" (see [The agent loop](#the-agent-loop)).
+There are no NPCs: every other creature in the water is another player. Claude Code builds the game as an unattended "factory" and releases it milestone by milestone (see [The agent loop](#the-agent-loop)).
 
 ## The game
 
-### What you can do today (v0.4.0)
+### Survive and grow
 
-- **Swim and feed:** steer a translucent cell, dash, eat drifting food, grow (the camera zooms out as you do), and stay clear of toxic plumes. Starving or poisoning ends in a death screen that names the cause; then you hatch again.
-- **Share a pond:** everyone who opens the link joins a pond of up to 24 players. You spawn near each other, see each other swim smoothly, compete for the same food, and use filtered chat, emotes and pings.
-- **Procedural bodies:** each creature's DNA grows into its own body: shape, colour, pattern, mouth and tail. Anatomy changes how it swims, turns, eats and copes with toxins, and how big it can grow. The HUD shows your species name and rarity.
-- **Creature Lab:** browse genesis creatures, read their traits in plain words, mutate them, breed two into eight offspring, and copy or load genomes.
+Steer a translucent organism through the water, dash away from danger, and eat drifting detritus, nutrient globules, vent crystals and carrion. Food becomes energy, and spare energy becomes biomass: you grow, and the camera zooms out with you. Basal metabolism and every movement cost energy. Toxic plumes, currents, UV in the shallows and pressure in the deep each wear you down in their own way. Starving, poison or old age ends a life, and the death screen always says why.
+
+### Bodies from DNA
+
+Every creature carries a diploid genome. That genome grows into a body within fixed bounds, so every genome is viable: segments, fins, whips, paddles, spines, plates, jaws, antennae and inner organs. Form drives function. Anatomy sets how fast you swim and turn, what and how you eat, how you fight, and which hazards you tolerate. Every advantage has a cost, so no single build wins. Small whip-tailed cells thrive where big paddlers struggle, and the other way round. Rare alleles and combinations make striking creatures worth showing off. The Creature Lab lets you inspect bodies in plain words, mutate them and breed them.
+
+### Mate and carry on
+
+Mature creatures court other players, and mating happens only with consent. It costs both partners energy and biomass and starts a cooldown. Each partner receives a different offspring. Its genes are drawn by meiosis from both parents, and the random seed comes from a public beacon round that nobody knows in advance, so nobody can reroll a child. You can switch to your offspring at any time and leave the parent behind as a checkpoint. When you die, you return to your pending offspring or your nearest surviving ancestor. Breeding with close relatives expresses hidden harmful genes, so diversity pays.
+
+### Fight fair
+
+Creatures of comparable size can fight. Attacks come from your anatomy: bites, rams, stings and spines. You steer, pick a stance, choose a target and time a brace. Fights are refereed and deterministic, so every client sees the same outcome. Closing the tab doesn't end a fight: your creature fights on by its instincts until the fight is settled. The winner feeds on the loser, and what's left becomes carrion for everyone.
+
+### A shared ocean
+
+Players connect directly to each other. You spawn near other players of your size, see everyone who can affect you, and talk through filtered chat, emotes and pings. As you grow, your view widens and tiny creatures fade into ambient swarms. Players gather in habitats; new players hatch safely at their edge, and crowded areas split into instances.
+
+### A lineage anyone can verify
+
+Every life event (genesis, mating, birth, promotion, checkpoint, death, fight) is a signed record chained to the one before it. Anyone can verify a creature's whole ancestry back to its genesis, even when the original players are offline. Shareable creature cards show a verified creature and its family tree. Your identity is a key in your browser, and a recovery code moves it to another device.
 
 ### Controls
 
@@ -23,33 +40,21 @@ There are no NPCs: every other creature in the water is another player. The game
 |--------|-------|----------|
 | Steer | point where to go; the farther the cursor, the faster | WASD |
 | Dash | — | Space |
-| Chat | — | Enter |
-| Emote, ping | middle button pings | T, G |
-| Hatch (again) | button | Enter |
-
-Courting (E) and fighting (F, stances 1–3, brace with Shift) arrive with their milestones.
-
-### Where it's going
-
-| Next | What it adds |
-|------|--------------|
-| v0.5.0 Authority and lineage core | Your creature and lifespan persist; genesis DNA from a public randomness beacon; recovery code |
-| v0.6.0 Mating and offspring | Consent-based mating, two distinct offspring, lineage fallback on death |
-| v0.7.0 Look, sound and performance | Creature look overhaul to the [art references](docs/art/), depth zones, procedural sound, quality presets |
-| v0.8.0–v0.9.0 Encounters | Refereed real-time fights between comparable sizes that survive disconnects |
-| v0.10.0–v0.14.0 Verifiable lineage, witnesses, one large world, scale | Anyone can verify a creature's ancestry; area of interest and size tiers; load-tested to 10,000 players |
-| v1.0.0 | About 200 real players at once in Chrome, Edge, Firefox and Safari |
-
-The full plan, with exit criteria for every milestone, is [docs/ROADMAP.md](docs/ROADMAP.md). The mechanics and their numbers are in [docs/DESIGN.md](docs/DESIGN.md).
+| Court or accept | click a creature, then the button | E |
+| Attack | click a creature in range | F |
+| Stance, target, brace (in a fight) | HUD buttons, click, right button | 1–3, Tab, Shift |
+| Chat, emote, ping | middle button pings | Enter, quick keys |
+| Menu | — | Esc |
 
 ### How it works
 
 - **Peer to peer.** Players connect directly over WebRTC. Each client simulates its own creature with a deterministic 30 Hz simulation (our own math and seeded random streams), so recorded inputs replay to the same result in every browser and in Node.
-- **A minimal authority.** One Cloudflare Worker with a single SQLite Durable Object handles sessions, signaling, short-lived TURN relay credentials and, from v0.5.0, the lineage ledger, clock and commitments. It runs no game loop and stays within the free tier.
-- **Honest randomness and verifiable lineage.** Genesis DNA and offspring are seeded from a future round of the public [drand](https://drand.love) beacon, so nobody can reroll. Every life event is a signed record chained to the previous one.
-- **Rendering.** Three.js on WebGL2 with custom shaders aims for the look of macro photography of plankton: dark water, backlit translucent bodies, shallow depth of field.
+- **A minimal authority.** One Cloudflare Worker with a single SQLite Durable Object handles sessions, signaling, short-lived TURN relay credentials, the lineage ledger, the clock, commitments and admission. It runs no game loop and stays within the free tier.
+- **Witnesses.** Peers picked by the public beacon referee and attest fights and matings. The authority checks them and settles when witnesses fail.
+- **Honest randomness.** Genesis DNA and offspring are seeded from a future round of the public [drand](https://drand.love) beacon. Every commitment names its round before that round exists.
+- **Rendering.** Three.js on WebGL2 with custom shaders. The look is macro photography of plankton: dark water, backlit translucent bodies, inner sparkle, shallow depth of field, caustics, and bioluminescence in the deep. Quality presets keep it smooth on ordinary laptops.
 
-Architecture decisions are recorded as ADRs in [docs/decisions/](docs/decisions/).
+The plan and progress are in [docs/ROADMAP.md](docs/ROADMAP.md), the mechanics and their numbers in [docs/DESIGN.md](docs/DESIGN.md), and the architecture decisions in [docs/decisions/](docs/decisions/). The art direction comes from the references in [docs/art/](docs/art/).
 
 ## The agent loop
 
