@@ -159,6 +159,9 @@ describe('creature ids and record shape', () => {
       { ...checkpoint, seq: -1 },
       { ...checkpoint, t: 2 ** 53 },
       { ...checkpoint, owner: 'short' },
+      // The same key with spare bits set in the last character is not a second playerId.
+      { ...checkpoint, owner: `${OWNER.slice(0, 42)}Z` },
+      { ...checkpoint, extra: 1 },
       { ...checkpoint, body: null },
       { ...checkpoint, body: [] },
       { ...checkpoint, body: { a: true } },
@@ -174,6 +177,7 @@ describe('creature ids and record shape', () => {
     expect(Object.is(hundredths(-0.001), 0)).toBe(true);
     expect(() => hundredths(Number.NaN)).toThrow(RangeError);
     expect(() => hundredths(Number.POSITIVE_INFINITY)).toThrow(RangeError);
+    expect(() => hundredths(1e15)).toThrow(RangeError);
     const withFloat = { ...checkpoint, body: { biomass: 1.2345 } };
     expect(recordProblems(withFloat)).not.toEqual([]);
     expect(() => recordHash(withFloat)).toThrow(RangeError);
@@ -211,7 +215,8 @@ describe('authority signatures', () => {
       ['signature text', { ...good, authSig: 'zz' }, keys, 'bad-auth-signature'],
       ['key id', { ...good, keyId: flipB64(good.keyId) }, keys, 'unknown-key'],
       ['no keys', good, [], 'unknown-key'],
-      ['wrong key', good, [{ ...otherKeys[0], id: good.keyId } as PubKey], 'bad-auth-signature'],
+      ['wrong key', good, otherKeys, 'unknown-key'],
+      ['key id not bound', good, [{ ...otherKeys[0], id: good.keyId } as PubKey], 'unknown-key'],
       ['bad record', stored({ ...checkpoint, seq: 0 }), keys, 'invalid-record'],
     ];
     for (const [name, s, list, failure] of cases) {

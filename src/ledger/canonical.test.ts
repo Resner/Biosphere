@@ -45,6 +45,9 @@ describe('canonicalize', () => {
       10n,
       () => 1,
       { a: undefined },
+      new Date(0),
+      new Map(),
+      [1, , 3],
       { a: 1.25 },
       [null],
     ];

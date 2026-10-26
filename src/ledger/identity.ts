@@ -70,6 +70,11 @@ export function playerIdOf(publicKey: Uint8Array): string {
   return toBase64Url(publicKey);
 }
 
+/** True when `text` is the canonical playerId of some public key. */
+export function isPlayerId(text: string): boolean {
+  return publicKeyOf(text) !== null;
+}
+
 /** The public key a playerId names, or null when it is not 43 base64url characters. */
 function publicKeyOf(playerId: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]{43}$/.test(playerId)) return null;

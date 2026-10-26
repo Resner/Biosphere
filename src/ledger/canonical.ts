@@ -24,7 +24,13 @@ export function canonicalize(value: Canonical): string {
       return String(value);
     case 'object': {
       if (value === null) break;
-      if (Array.isArray(value)) return `[${value.map(canonicalize).join(',')}]`;
+      if (Array.isArray(value)) {
+        // `map` skips holes, which would silently drop them from the text.
+        if (Object.keys(value).length !== value.length) throw new RangeError('sparse array');
+        return `[${value.map(canonicalize).join(',')}]`;
+      }
+      const proto = Object.getPrototypeOf(value);
+      if (proto !== Object.prototype && proto !== null) throw new RangeError('not a plain object');
       const object = value as { readonly [key: string]: Canonical };
       // Default sort compares UTF-16 code units, which is the order RFC 8785 asks for.
       const members = Object.keys(object)

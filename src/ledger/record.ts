@@ -3,6 +3,7 @@ import { hexToBytes } from '@noble/hashes/utils.js';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import {
   fromBase64Url,
+  isPlayerId,
   playerIdOf,
   publicKeyFromSecret,
   signWithSecret,
@@ -48,12 +49,14 @@ export interface PubKey {
 }
 
 const HEX64 = /^[0-9a-f]{64}$/;
-const PLAYER_ID = /^[A-Za-z0-9_-]{43}$/;
+const FIELDS = ['v', 'rules', 'kind', 'creature', 'seq', 'prev', 'owner', 't', 'body'];
 
 /** The one way to put a float in a record body. */
 export function hundredths(x: number): number {
   if (!Number.isFinite(x)) throw new RangeError(`not finite: ${x}`);
-  return Math.round(x * 100) || 0;
+  const scaled = Math.round(x * 100) || 0;
+  if (!Number.isSafeInteger(scaled)) throw new RangeError(`out of range: ${x}`);
+  return scaled;
 }
 
 export function recordHash(r: LedgerRecord): string {
@@ -90,13 +93,14 @@ export function recordProblems(value: unknown): string[] {
   if (typeof value !== 'object' || value === null || Array.isArray(value)) return ['not-an-object'];
   const r = value as Record<string, unknown>;
   const problems: string[] = [];
+  if (Object.keys(r).some((key) => !FIELDS.includes(key))) problems.push('unknown-field');
   const uint = (x: unknown): boolean => Number.isSafeInteger(x) && (x as number) >= 0;
   if (r.v !== 1) problems.push('version');
   if (!uint(r.rules)) problems.push('rules');
   if (typeof r.kind !== 'string' || !KINDS.includes(r.kind)) problems.push('kind');
   if (!uint(r.seq)) problems.push('seq');
   if (!uint(r.t)) problems.push('t');
-  if (typeof r.owner !== 'string' || !PLAYER_ID.test(r.owner)) problems.push('owner');
+  if (typeof r.owner !== 'string' || !isPlayerId(r.owner)) problems.push('owner');
   if (typeof r.body !== 'object' || r.body === null || Array.isArray(r.body)) {
     problems.push('body');
   } else {
@@ -144,7 +148,8 @@ export function checkStored(s: StoredRecord, keys: readonly PubKey[]): string[] 
     const failures: string[] = [];
     if (typeof s.hash !== 'string' || s.hash !== recordHash(s.record))
       failures.push('hash-mismatch');
-    const key = keys.find((k) => k.id === s.keyId);
+    // An entry only counts when its id is derived from its key.
+    const key = keys.find((k) => k.id === s.keyId && authorityKeyId(k.publicKey) === k.id);
     if (!key) {
       failures.push('unknown-key');
     } else if (
