@@ -1,30 +1,20 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { locus, withAlleles } from '../../tests/archetypes';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
 import { decodeGenome, encodeGenome, type Genome } from './codec';
 import { express } from './express';
 import { genesisGenome } from './genesis';
-import { HAPLOTYPE_BYTES, LOCI, MODULE_BYTES } from './karyotype';
+import { HAPLOTYPE_BYTES, MODULE_BYTES } from './karyotype';
 import { featureBits, NEVER_BITS, RARITY_TIERS, rarityOf } from './rarity';
+import { sizeTier } from './size';
 import { starterGenome } from './starter';
 
 const seedOf = (i: number): Seed => seedFromString(`rarity-test-${i}`);
 const N = 20_000;
 const genomes = Array.from({ length: N }, (_, i) => genesisGenome(seedOf(i)));
 const rarities = genomes.map(rarityOf);
-
-const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
-
-/** `base` with these single-byte loci set per haplotype (`[first, second]`). */
-function withAlleles(base: Genome, set: Record<string, [number, number]>): Genome {
-  const bytes = encodeGenome(base);
-  for (const [id, [x, y]] of Object.entries(set)) {
-    bytes[locus(id).offset] = x;
-    bytes[HAPLOTYPE_BYTES + locus(id).offset] = y;
-  }
-  return decodeGenome(bytes);
-}
 
 /** A module present in both haplotypes with the given first parameter bytes. */
 function withModule(base: Genome, id: string): Genome {
@@ -112,11 +102,8 @@ describe('rarityOf', () => {
   });
 
   it('never sees a 12-bit feature in genesis', () => {
-    for (const r of rarities) {
-      for (const name of ['segments', 'modules', 'novel', 'size']) {
-        expect(r.features).not.toContain(name);
-      }
-    }
+    const never = new Set(['segments', 'modules', 'novel', 'size']);
+    expect(rarities.filter((r) => r.features.some((f) => never.has(f)))).toEqual([]);
   });
 
   it('sums the listed features, and tiers follow the cut-offs', () => {
@@ -228,5 +215,14 @@ describe('rarityOf', () => {
     };
     expect(golden.rulesVersion).toBe(RULES_VERSION);
     expect(actual).toEqual(golden.rarity);
+  });
+});
+
+describe('sizeTier', () => {
+  it('follows ADR 0013: ×4 steps in radius from 32', () => {
+    expect(
+      [0, 1023, 1024, 16_383, 16_384, 262_143, 262_144, 4_194_304, 1e12].map(sizeTier),
+    ).toEqual([0, 0, 1, 1, 2, 2, 3, 4, 4]);
+    expect(sizeTier(Number.NaN)).toBe(0);
   });
 });

@@ -4,17 +4,22 @@
 
 import type { Appendage } from './develop';
 import { type Rarity, rarityOfTraits } from './rarity';
+import { sizeTier } from './size';
 import type { Creature } from './stats';
 
-const article = (word: string): string => (/^[aeiou]/.test(word) ? 'An' : 'A');
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;
 
+/** "a", "a and b", "a, b and c". */
+function joinList(items: readonly string[]): string {
+  return items.length > 1
+    ? `${items.slice(0, -1).join(', ')} and ${items[items.length - 1]}`
+    : (items[0] ?? '');
+}
+
 function sizeWord(maxBiomass: number): string {
-  if (maxBiomass < 500) return 'tiny';
-  if (maxBiomass < 1024) return 'small';
-  if (maxBiomass < 16_384) return 'medium';
-  if (maxBiomass < 262_144) return 'large';
-  return 'giant';
+  const tier = sizeTier(maxBiomass);
+  if (tier === 0) return maxBiomass < 500 ? 'tiny' : 'small';
+  return ['', 'medium', 'large'][tier] ?? 'giant';
 }
 
 const TIPS = ['blunt tip', 'pointed spike', 'hook', 'paddle', 'whip'] as const;
@@ -25,24 +30,23 @@ function appendageWords(appendages: readonly Appendage[]): string {
     const kind = TIPS[Math.round(a.tip * 4)] ?? 'blunt tip';
     counts.set(kind, (counts.get(kind) ?? 0) + 1);
   }
-  const parts = [...counts].map(([kind, n]) => plural(n, kind));
-  return parts.length > 1
-    ? `${parts.slice(0, -1).join(', ')} and ${parts[parts.length - 1]}`
-    : (parts[0] ?? '');
+  return joinList([...counts].map(([kind, n]) => plural(n, kind)));
 }
 
+/** Each hue name up to its upper edge on the 0-1 colour wheel. */
+const WHEEL: readonly (readonly [number, string])[] = [
+  [0.04, 'red'],
+  [0.1, 'orange'],
+  [0.18, 'yellow'],
+  [0.42, 'green'],
+  [0.52, 'teal'],
+  [0.7, 'blue'],
+  [0.83, 'purple'],
+  [0.96, 'pink'],
+];
+
 function hueWord(hue: number, saturation: number, value: number): string {
-  const wheel: readonly (readonly [number, string])[] = [
-    [0.04, 'red'],
-    [0.1, 'orange'],
-    [0.18, 'yellow'],
-    [0.42, 'green'],
-    [0.52, 'teal'],
-    [0.7, 'blue'],
-    [0.83, 'purple'],
-    [0.96, 'pink'],
-  ];
-  const name = wheel.find(([upTo]) => hue < upTo)?.[1] ?? 'red';
+  const name = WHEEL.find(([upTo]) => hue < upTo)?.[1] ?? 'red';
   const shade = value < 0.55 ? 'dark ' : value > 0.85 && saturation < 0.6 ? 'light ' : '';
   return `${shade}${name}`;
 }
@@ -62,12 +66,7 @@ const FEATURE_WORDS: Readonly<Record<string, string>> = {
 
 function rarityLine(r: Rarity): string {
   if (r.features.length === 0) return `Rarity: ${r.tier}, with nothing that stands out.`;
-  const words = r.features.map((f) => FEATURE_WORDS[f] ?? f);
-  const list =
-    words.length === 1
-      ? (words[0] as string)
-      : `${words.slice(0, -1).join(', ')} and ${words[words.length - 1]}`;
-  return `Rarity: ${r.tier}, thanks to ${list}.`;
+  return `Rarity: ${r.tier}, thanks to ${joinList(r.features.map((f) => FEATURE_WORDS[f] ?? f))}.`;
 }
 
 /** Six sentences: body, movement, feeding, defence, looks and rarity. */
@@ -77,7 +76,7 @@ export function describeCreature(c: Creature): string[] {
   const shape = traits.body.aspect < 1.1 ? 'round' : traits.body.aspect < 1.7 ? 'oval' : 'long';
   const limbs = plan.appendages.length;
   const body =
-    `${article(shape)} ${shape}${segments === 1 ? ', single-celled body' : ` body of ${segments} linked segments`}` +
+    `${shape === 'oval' ? 'An' : 'A'} ${shape}${segments === 1 ? ', single-celled body' : ` body of ${segments} linked segments`}` +
     ` that grows to a ${sizeWord(stats.maxBiomass)} size` +
     (limbs > 0 ? `, with ${appendageWords(plan.appendages)}.` : ', with no limbs.');
 

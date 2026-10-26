@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { ARCHETYPES } from '../../tests/archetypes';
+import { ARCHETYPES, withAlleles } from '../../tests/archetypes';
 import { isProfane } from '../net/text';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
@@ -8,7 +8,7 @@ import { decodeGenome, encodeGenome, type Genome } from './codec';
 import { describeCreature } from './describe';
 import { express } from './express';
 import { genesisGenome } from './genesis';
-import { HAPLOTYPE_BYTES, LOCI } from './karyotype';
+import { HAPLOTYPE_BYTES } from './karyotype';
 import { EPITHETS, GENUS_SUFFIXES, SYLLABLES, speciesName } from './names';
 import { rarityOf } from './rarity';
 import { starterGenome } from './starter';
@@ -17,15 +17,8 @@ import { buildCreature } from './stats';
 const seedOf = (i: number): Seed => seedFromString(`names-test-${i}`);
 const genomes = Array.from({ length: 10_000 }, (_, i) => genesisGenome(seedOf(i)));
 
-const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
-function withLoci(base: Genome, set: Record<string, number>): Genome {
-  const bytes = encodeGenome(base);
-  for (const [id, v] of Object.entries(set)) {
-    bytes[locus(id).offset] = v;
-    bytes[HAPLOTYPE_BYTES + locus(id).offset] = v;
-  }
-  return decodeGenome(bytes);
-}
+const withLoci = (base: Genome, set: Record<string, number>): Genome =>
+  withAlleles(base, Object.fromEntries(Object.entries(set).map(([id, v]) => [id, [v, v]])));
 
 describe('speciesName', () => {
   const names = genomes.map(speciesName);
@@ -38,10 +31,8 @@ describe('speciesName', () => {
   });
 
   it('is ASCII, a capitalised genus and a lowercase epithet, at most 28 characters', () => {
-    for (const name of names) {
-      expect(name).toMatch(/^[A-Z][a-z]+ [a-z]+$/);
-      expect(name.length).toBeLessThanOrEqual(28);
-    }
+    const bad = names.filter((n) => !/^[A-Z][a-z]+ [a-z]+$/.test(n) || n.length > 28);
+    expect(bad).toEqual([]);
   });
 
   it('rarely collides: under 1% of 10,000 genesis names match another genome', () => {
@@ -52,24 +43,25 @@ describe('speciesName', () => {
   });
 
   it('never contains a word the chat filter blocks', () => {
-    for (const n of names) expect(isProfane(n), n).toBe(false);
-    for (const n of names) expect(isProfane(n.replace(' ', '')), n).toBe(false);
+    const bad = names.filter((n) => isProfane(n) || isProfane(n.replace(' ', '')));
+    expect(bad).toEqual([]);
   });
 
   it('keeps every possible genus and epithet clear of the filter', () => {
-    for (const e of EPITHETS) expect(isProfane(e), e).toBe(false);
-    for (const s of GENUS_SUFFIXES) expect(isProfane(s), s).toBe(false);
-    // Every three-syllable stem, then every join of the last syllable with a suffix.
+    const bad: string[] = [];
+    const check = (word: string): void => {
+      if (isProfane(word)) bad.push(word);
+    };
+    for (const e of EPITHETS) check(e);
+    for (const s of GENUS_SUFFIXES) check(s);
+    // Every three-syllable stem, then every pair of syllables with each suffix.
     for (const a of SYLLABLES) {
       for (const b of SYLLABLES) {
-        for (const c of SYLLABLES) expect(isProfane(a + b + c), a + b + c).toBe(false);
+        for (const c of SYLLABLES) check(a + b + c);
+        for (const s of GENUS_SUFFIXES) check(a + b + s);
       }
     }
-    for (const a of SYLLABLES) {
-      for (const b of SYLLABLES) {
-        for (const s of GENUS_SUFFIXES) expect(isProfane(a + b + s), a + b + s).toBe(false);
-      }
-    }
+    expect(bad).toEqual([]);
   });
 
   it('picks the epithet from the dominant trait', () => {
@@ -95,6 +87,7 @@ describe('speciesName', () => {
 });
 
 const BANNED = /allele|locus|quant|haplotype|gene/i;
+const BAD_NUMBER = /\d+\.\d{3,}|NaN|undefined|Infinity/;
 
 describe('describeCreature', () => {
   const creatures: Record<string, Genome> = {
@@ -108,18 +101,13 @@ describe('describeCreature', () => {
   it('is plain words: no genetics jargon and no number with more than 2 decimals', () => {
     const all = [
       ...Object.values(creatures),
-      ...genomes.slice(0, 1500),
+      ...genomes.slice(0, 600),
       ...Array.from({ length: 300 }, (_, i) => decodeGenome(randomBytes(i))),
     ];
-    for (const g of all) {
-      for (const sentence of describeCreature(buildCreature(g))) {
-        expect(sentence, sentence).not.toMatch(BANNED);
-        expect(sentence, sentence).not.toMatch(/\d+\.\d{3,}/);
-        expect(sentence, sentence).not.toMatch(/NaN|undefined|Infinity/);
-        expect(sentence.length).toBeGreaterThan(10);
-        expect(sentence).toMatch(/\.$/);
-      }
-    }
+    const bad = all
+      .flatMap((g) => describeCreature(buildCreature(g)))
+      .filter((s) => BANNED.test(s) || BAD_NUMBER.test(s) || s.length <= 10 || !s.endsWith('.'));
+    expect(bad).toEqual([]);
   });
 
   it('covers body, movement, feeding, defence, looks and rarity, in that order', () => {

@@ -3,6 +3,7 @@
 // pairs and the suffixes and epithets are fixed words, so no name can spell a word the chat filter
 // blocks (a test walks every possible genus).
 
+import { RULES } from '../sim/rules';
 import { type Genome, genomeHash } from './codec';
 import { express, type Traits } from './express';
 
@@ -41,6 +42,7 @@ export const GENUS_SUFFIXES: readonly string[] = [
 ];
 
 const STEM_SYLLABLES = 3;
+const size = RULES.genes.size;
 
 /** How strongly a trait makes the body what the epithet says, 0-1; the strongest one names it. */
 const EPITHET_SCORES: readonly (readonly [string, (t: Traits) => number])[] = [
@@ -51,8 +53,8 @@ const EPITHET_SCORES: readonly (readonly [string, (t: Traits) => number])[] = [
   ['lucens', (t) => (t.colour.luminescence === 'off' ? 0 : 0.6)],
   ['iridescens', (t) => (t.skin.iridescence === 'plain' ? 0 : 0.65)],
   ['albus', (t) => (t.colour.albino === 'normal' ? 0 : 0.65)],
-  // Size in octaves above the smallest cell: a giant (13 octaves) scores 1.
-  ['magnus', (t) => Math.log2(t.body.maxBiomass / 300) / 13],
+  // Size in octaves above the smallest cell: the biggest body scores 1.
+  ['magnus', (t) => Math.log2(t.body.maxBiomass / size.base) / size.octaves],
   ['serpens', (t) => (t.body.segments > 1 ? 0.3 + 0.1 * t.body.segments : 0)],
   // The default: a swimmer, a little more so when the gait is wide.
   ['natans', (t) => 0.25 + 0.5 * t.behaviour.gaitAmp],

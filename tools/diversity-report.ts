@@ -5,7 +5,8 @@ import { type Genome, genomeHash } from '../src/genome/codec';
 import { bodyViolations, estimateVertices } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
 import { breed } from '../src/genome/inherit';
-import { RARITY_TIERS, rarityOf } from '../src/genome/rarity';
+import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
+import { sizeTier } from '../src/genome/size';
 import { buildCreature, type Creature } from '../src/genome/stats';
 import { createRng, seedFromString } from '../src/sim/prng';
 
@@ -43,15 +44,13 @@ function breedGenerations(
   let pool = genesis.slice(0, Math.min(genesis.length, 64));
   const out: Genome[] = [];
   for (let gen = 1; gen <= generations && out.length < total; gen++) {
-    const next: Genome[] = [];
-    for (let i = 0; i < perGeneration && out.length < total; i++) {
+    const count = Math.min(perGeneration, total - out.length);
+    pool = Array.from({ length: count }, (_, i) => {
       const a = pool[rng.int(0, pool.length - 1)] as Genome;
       const b = pool[rng.int(0, pool.length - 1)] as Genome;
-      const child = breed(a, b, seedFromString(`diversity-${gen}-${i}`));
-      next.push(child);
-      out.push(child);
-    }
-    pool = next;
+      return breed(a, b, seedFromString(`diversity-${gen}-${i}`));
+    });
+    out.push(...pool);
   }
   return out;
 }
@@ -59,25 +58,19 @@ function breedGenerations(
 const percentile = (sorted: readonly number[], p: number): number =>
   sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] as number;
 
-function histogram(title: string, values: readonly (string | number)[], label = 'Count'): string[] {
+function histogram(title: string, values: readonly (string | number)[]): string[] {
   const counts = new Map<string | number, number>();
   for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
   const rows = [...counts].sort((a, b) => (a[0] < b[0] ? -1 : a[0] > b[0] ? 1 : 0));
   return [
     `## ${title}`,
     '',
-    `| Value | ${label} | Share |`,
+    `| Value | Count | Share |`,
     '|---|---|---|',
     ...rows.map(([v, n]) => `| ${v} | ${n} | ${((100 * n) / values.length).toFixed(1)}% |`),
     '',
   ];
 }
-
-const sizeTier = (maxBiomass: number): string => {
-  // ADR 0013: the radius is √biomass and a tier is a ×4 step from 32.
-  const tier = Math.max(0, Math.floor(Math.log2(Math.sqrt(maxBiomass) / 8) / 2));
-  return `T${tier}`;
-};
 
 const appearanceKey = (c: Creature): string =>
   [
@@ -110,7 +103,7 @@ export function diversityReport(options: ReportOptions): string {
     return c;
   });
   const invalid = creatures.filter((c) => bodyViolations(c.plan).length > 0).length;
-  const rarities = genomes.map(rarityOf);
+  const rarities = creatures.map((c) => rarityOfTraits(c.traits));
   const vertices = creatures.map((c) => estimateVertices(c.plan, 'full'));
 
   const lines = [
@@ -133,7 +126,7 @@ export function diversityReport(options: ReportOptions): string {
     ),
     ...histogram(
       'Size tiers',
-      creatures.map((c) => sizeTier(c.stats.maxBiomass)),
+      creatures.map((c) => `T${sizeTier(c.stats.maxBiomass)}`),
     ),
     ...histogram(
       'Rarity',
