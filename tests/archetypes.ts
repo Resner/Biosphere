@@ -101,7 +101,7 @@ export const ARCHETYPES: Record<string, Genome> = {
     {
       M1: {
         length: 110,
-        thickness: 120,
+        thickness: 90,
         tipShape: 191,
         beat: 200,
         angle: 150,

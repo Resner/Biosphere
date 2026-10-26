@@ -284,12 +284,12 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     | flagellate | 362.70 (#3) | 105.31 (#6) | −13.58 (#3) | 82.43 (#1) |
     | ciliate | 386.76 (#2) | 111.13 (#4) | −12.78 (#2) | 73.47 (#3) |
     | swimmer | 340.28 (#4) | 121.92 (#3) | −10.64 (#1) | 57.77 (#6) |
-    | armoured | 303.90 (#5) | 2404.11 (#1) | −17.12 (#5) | 64.67 (#5) |
+    | armoured | 270.65 (#5) | 2381.06 (#1) | −20.05 (#5) | 64.67 (#5) |
     | filter | 142.68 (#6) | 600.90 (#2) | −27.36 (#6) | 77.70 (#2) |
     | hunter | 484.83 (#1) | 106.72 (#5) | −14.11 (#4) | 73.47 (#4) |
 
     Winners: hunter, armoured, swimmer, flagellate. Ciliate and filter place first or second twice.
-  - Gotcha: the gauntlet hatches each body at its adult biomass, so a big body (more hit points, √biomass) beats a small fast one; hatched small, it only ranked speed, the same order as the sprint, and no scenario could favour the armoured or filter feeders. Forage lifts every body's maximum biomass to 6,000 so nobody stops growing within the 3 minutes (the score is biomass gained, which saturates at the genetic maximum). The sim keeps the adult stats for the whole life, so a big whip body is slower than it looks at hatching (whip efficiency falls with size). Forage costs about 12 s of the test's 20 s; `npm run check` grew by about 10 s of wall time.
+  - Gotcha: the gauntlet hatches each body at its adult biomass, so a big body (more hit points, √biomass) beats a small fast one; hatched small, it only ranked speed, the same order as the sprint, and no scenario could favour the armoured or filter feeders. Forage lifts every body's maximum biomass to 6,000 so nobody stops growing within the 3 minutes (the score is biomass gained, which saturates at the genetic maximum). The sim keeps the adult stats for the whole life, so a big whip body is slower than it looks at hatching (whip efficiency falls with size). `m3-anatomy` needs the armoured body at least 20% slower than the flagellate, so its paddles are kept thin. Forage costs about 12 s of the test's 20 s; `npm run check` grew by about 10 s of wall time.
 
 - [ ] T18 Render budget with many bodies
   - Acceptance:
