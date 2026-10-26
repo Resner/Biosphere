@@ -90,7 +90,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Gotcha: `lifeStage` takes the lifespan, so 20% of a 75 min life (15 min) beats the 12 min floor; only lifespans under 60 min use the floor.
   - Notes: no genome import in `src/sim`: `lifespanMs` takes the trait value. Update DESIGN §5 (the trait range is 0.6 to 1.6) and the header ("rules version 4") in the same PR.
 
-- [ ] T2 Canonical JSON, record hashing, authority signatures
+- [ ] T2 Canonical JSON, record hashing, authority signatures (in progress)
   - Acceptance (unit tests, written first):
     - `canonicalize` follows RFC 8785 for integer and string data: the RFC's key-ordering example (keys `"\r"`, `"1"`, `"\u0080"`, `"ö"`, `"€"`, `"😀"` (U+1F600), `"דּ"` (U+FB33)) sorts by UTF-16 code units in that order; string escapes are exactly `\"` `\\` `\b` `\f` `\n` `\r` `\t` and `\u00xx` (lower case hex) for other control characters, with no escaping of `/` or non-ASCII; no whitespace; nested arrays and objects; `-0` is rejected; `2**53` and `1.5` and `NaN` and `true` and `null` and `undefined` throw `RangeError`; a lone surrogate throws.
     - `canonicalize` is deterministic under key insertion order (100 shuffled copies of one object give one string).
