@@ -219,7 +219,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Done: `worker/usage.ts` (`UsageMeter`), the queue in `worker/authority.ts`, the `queued` hub message, `HubClient.queue` and the "Waiting for a place" chip text.
   - Gotchas: a replaced tab is dropped quietly (no promotion, no place announcement), because it takes over the old seat or place. A flush lost to eviction costs at most a minute of counts. Rows written by the beacon service are not metered, only the ledger's.
 
-- [ ] T13 End-to-end scenario, owner-facing checks, documentation sync (in progress)
+- [x] T13 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:
     - `m4-lifecycle.spec.ts` (`@slow`, release gate): hatch → play with scripted steering to eat and grow → reload (resume, same creature) → export the recovery code → import it in a second context → die of starvation → History shows both lives in order → the bucket empties after three quick deaths → the practice cell works → a queued fourth tab (`MAX_SESSIONS` reduced through the e2e config of its own hub port) sees its position and is promoted when a tab closes.
     - Every exit criterion of M4 has a test named in the mapping below and the whole PR suite for M4 runs in under 3 minutes in CI (record the time).
@@ -227,6 +227,8 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
     - `window.__bs` and the testing notes in `.claude/rules/tests.md` list the new `life` state, the debug helper and the M4 hub port.
     - A `docs/SETUP.md` note says the Worker needs no new secrets for M4 and that the authority generates its own key; if live drand cannot be reached from the Worker, the game shows "awaiting beacon" and retries (verified by a unit test of the pending path).
   - Notes: this task only adds the long scenario and the sync; do not move work from earlier tasks here.
+  - Done: `m4-lifecycle.spec.ts` (`@slow`) on its own two-seat hub (8792); DESIGN §5, §8, §10 and §11 already matched the shipped numbers; `tests.md` and `SETUP.md` updated.
+  - Gotchas: end-to-end step 7 (ledger check against `/v1/pubkeys`) stays covered by the worker tests (`checkStored` over stored records), because no endpoint lists records. The lifecycle scenario takes about 55 s locally.
 
 ## End-to-end check
 
