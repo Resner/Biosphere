@@ -32,7 +32,7 @@ export interface PhysStats {
   basal: number;
   growth: number;
   mouth: Mouth;
-  /** 1 to 12 circles; the first is the core `{ x: 0, y: 0, r: 1 }`. */
+  /** 1 to 12 circles; the first is always the core `{ x: 0, y: 0, r: 1 }` (sanitising replaces it). */
   colliders: Collider[];
 }
 
@@ -75,10 +75,11 @@ export function sanitizePhys(phys: PhysStats): PhysStats {
   for (const c of phys.colliders.slice(1)) {
     if (colliders.length >= b.maxColliders) break;
     if (!Number.isFinite(c.x) || !Number.isFinite(c.y) || !Number.isFinite(c.r)) continue;
-    const r = clampTo(c.r, b.minColliderRadius, b.maxColliderRadius, 1);
+    const r = Math.min(b.maxColliderRadius, Math.max(b.minColliderRadius, c.r));
     const distance = Math.sqrt(c.x * c.x + c.y * c.y);
     const room = b.maxReach - r;
-    const scale = distance > room ? room / distance : 1;
+    // Land just inside the cap so that a second pass leaves the circle where it is.
+    const scale = distance > room ? (room - 1e-9) / distance : 1;
     colliders.push({ x: c.x * scale, y: c.y * scale, r });
   }
 
@@ -106,9 +107,9 @@ export function sanitizePhys(phys: PhysStats): PhysStats {
   };
 }
 
-const isNumber = (v: unknown): v is number => typeof v === 'number';
+const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 
-/** Whether `value` has the shape of a `PhysStats` (numbers may still be out of range). */
+/** Whether `value` has the shape of a `PhysStats` with finite numbers (they may be out of range). */
 export function isPhysShape(value: unknown): value is PhysStats {
   if (typeof value !== 'object' || value === null) return false;
   const p = value as Record<string, unknown>;

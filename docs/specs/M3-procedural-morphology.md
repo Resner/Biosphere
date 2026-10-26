@@ -86,7 +86,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - `InputLog.spawn.phys` is optional, validated, and replayed (Node and Chromium agree: extend the existing determinism E2E with the new golden).
   - Notes: update the DESIGN.md header ("rules version 3") in the same PR. Dash: `dashSpeed · (b/100)^dashExp · sqrt(thrust/drag)`. No genome code yet; tests build `PhysStats` by hand. The state hash must keep rejecting NaN and Infinity inside `phys`.
   - Done: `src/sim/body.ts` (`PhysStats`, `STARTER_PHYS`, `sanitizePhys`, `isPhysShape`), caps in `RULES.body`, rules v3, five goldens regenerated (`math.json` untouched) plus the new `body-forage` golden (also run in Chromium).
-  - Pace: a value-per-distance forager that avoids plumes (`maxBiomass: 900`) has 194 at 60 s, 398 at 120 s (doubles in 60 s) and 515 at 150 s. A forager that ignores plumes died at 100 s in that pond. `STARTER_PHYS.mouth` is a placeholder (type 0.5, all-round) until T2.
+  - Pace: a value-per-distance forager that avoids plumes (`maxBiomass: 900`) has 194 at 60 s, 398 at 120 s (doubles in 60 s) and 515 at 150 s; the starter's cap of 400 is only lifted when T15 hatches genome bodies. A forager that ignores plumes died at 100 s in that pond. `STARTER_PHYS.mouth` is a placeholder (type 0.5, all-round) until T2.
 
 - [ ] T2 Feeding through the mouth, toxin through the colliders
   - Acceptance:

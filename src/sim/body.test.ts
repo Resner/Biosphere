@@ -100,6 +100,15 @@ describe('sanitizePhys', () => {
   it('is idempotent and does not mutate its input', () => {
     const wild = { ...STARTER_PHYS, thrust: 99, colliders: [] };
     const once = sanitizePhys(wild);
+    const far = sanitizePhys({
+      ...STARTER_PHYS,
+      colliders: [
+        { x: 0, y: 0, r: 1 },
+        { x: -13.7, y: 8.1, r: 0.9 },
+        { x: 3.3, y: -40, r: 1.2 },
+      ],
+    });
+    expect(sanitizePhys(far)).toEqual(far);
     expect(sanitizePhys(once)).toEqual(once);
     expect(wild.colliders).toEqual([]);
   });

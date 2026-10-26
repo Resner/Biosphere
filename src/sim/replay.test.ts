@@ -274,6 +274,8 @@ describe('replay validation', () => {
     expect(replay(log).hash).not.toBe(replay(base).hash);
     const bad = { ...log, spawn: { ...base.spawn, phys: { thrust: 1 } as never } };
     expect(() => replay(bad)).toThrow(RangeError);
+    const nan = { ...log, spawn: { ...base.spawn, phys: { ...phys, drag: Number.NaN } } };
+    expect(() => replay(nan)).toThrow(RangeError);
   });
 
   it('rejects unordered, out-of-range and non-u16 runs', () => {
