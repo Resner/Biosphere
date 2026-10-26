@@ -161,7 +161,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Look and shape distinctness: no two of the first 200 genesis creatures have identical (appearance key, appendage count, mouth type band) triples more than 3 times (a loose guard against a distribution collapsing).
   - Notes: genesis uses its own PRNG stream (`createRng(seed, 'genesis')`). Rare alleles mostly arise through breeding (DESIGN §5), so keep the genesis frequencies as listed. Update the DESIGN §6 genesis lines if the implementation differs.
   - Done: `genesis.ts` (`genesisGenome(seed: Seed)`, `GENESIS_FREQ`), tests in `genesis.test.ts` (20,000 seeds, about 450 appearance keys in the first 1,000, median speed about 1.1× the M1 cell's), golden hashes in `__golden__/genesis.json`.
-  - Gotcha: the M1 whip must keep `length × width × beat` above `RULES.develop.minThrustArea`, or development adds its own band and the speed jumps. Trait loci are scattered around a target mean (`Builder.mean`) so cells are heterozygous but their traits are exact.
+  - Gotcha: the M1 whip must keep `length × width × beat` above `RULES.develop.minThrustArea`, or development adds its own band and the speed jumps. A cell with the malformed-part defect (L2, about 1 in 1,100) can fall below it by design. Trait loci are scattered around a target mean (`Builder.mean`) so cells are heterozygous but their traits are exact. The starter's gait amplitude is 0 and the speed grows with size, so genesis keeps gait low and sizes skewed small to hold the median speed near 1.1×.
 
 - [ ] T8 Meiosis, mutation and inheritance
   - Acceptance:

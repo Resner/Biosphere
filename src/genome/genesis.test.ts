@@ -3,7 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { metricsAt } from '../../tests/archetypes';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
-import { genomeHash } from './codec';
+import { type Genome, genomeHash } from './codec';
 import { bodyViolations } from './develop';
 import { GENESIS_FREQ, genesisGenome } from './genesis';
 import { LOCI } from './karyotype';
@@ -52,6 +52,9 @@ describe('genesisGenome', () => {
       expect(c.traits.body.maxBiomass).toBeLessThanOrEqual(900);
       expect(c.plan.segments).toHaveLength(1);
       expect(bodyViolations(c.plan)).toEqual([]);
+      // The whip alone drives the cell: development added no band of its own (a malformed whip, L2, may need one).
+      if (!c.traits.modules[1]?.present && c.traits.defects.partScale === 1)
+        expect(c.plan.appendages).toHaveLength(2);
     }
   });
 
@@ -116,10 +119,9 @@ describe('genesisGenome', () => {
 
   it('swims about as fast as the M1 cell (median within 0.8-1.2x)', () => {
     const ref = metricsAt(starterGenome(), 400).speed;
-    const ratios = genomes
+    const ratios = creatures
       .slice(0, 1000)
-      .map((g, i) => metricsAt(g, (creatures[i] as (typeof creatures)[number]).stats.maxBiomass))
-      .map((m) => m.speed / ref)
+      .map((c, i) => metricsAt(genomes[i] as Genome, c.stats.maxBiomass).speed / ref)
       .sort((a, b) => a - b);
     const median = ratios[500] as number;
     expect(median).toBeGreaterThan(0.8);

@@ -4,11 +4,14 @@
 
 import { createRng, type Rng, type Seed } from '../sim/prng';
 import { decodeGenome, type Genome } from './codec';
-import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, type MendelLocus, MODULE_PARAMS } from './karyotype';
+import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from './karyotype';
 
 type Param = (typeof MODULE_PARAMS)[number];
 
-/** Allele frequencies of the genesis pool (the rare ones are DESIGN §6; the rest are common). */
+/**
+ * Allele frequencies of the genesis pool (the rare ones are DESIGN §6). These are per allele: a
+ * dominant allele shows in more cells than its frequency (luminescent 30% glows in about half).
+ */
 export const GENESIS_FREQ = {
   iridescent: 0.05,
   albino: 0.04,
@@ -25,7 +28,6 @@ export const GENESIS_FREQ = {
 
 const offsets = new Map<string, number>(LOCI.map((l) => [l.id, l.offset]));
 const offsetOf = (id: string): number => offsets.get(id) as number;
-const mendelOf = (id: string): MendelLocus => LOCI.find((l) => l.id === id) as MendelLocus;
 
 /** The index of the first cumulative weight above `u` (weights need not sum to exactly 1). */
 function pick(weights: readonly number[], u: number): number {
@@ -88,16 +90,17 @@ class Builder {
       const o = hap * HAPLOTYPE_BYTES + offsetOf(id);
       this.bytes[o] = 1;
       MODULE_PARAMS.forEach((name, k) => {
-        const v = params[name] ?? 0;
-        // Each haplotype's copy differs a little; the expressed value is their mean.
-        this.bytes[o + 1 + k] = Math.min(255, Math.max(0, v + this.rng.int(-6, 6)));
+        const v = params[name];
+        // Each haplotype's copy of a named parameter differs a little; the rest stay 0.
+        if (v !== undefined)
+          this.bytes[o + 1 + k] = Math.min(255, Math.max(0, v + this.rng.int(-6, 6)));
       });
     }
   }
 }
 
-/** Probabilities for a two-allele locus where index 1 is the rare allele. */
-const rare = (p: number): number[] => [1 - p, p];
+/** Probabilities for a two-allele locus where index 1 has frequency `p`. */
+const biallelic = (p: number): number[] => [1 - p, p];
 
 /** A fresh genesis genome: a pure function of the seed. */
 export function genesisGenome(seed: Seed): Genome {
@@ -106,7 +109,8 @@ export function genesisGenome(seed: Seed): Genome {
 
   // One cell: the drive stays below 1/8 of its range. Size 300-900 biomass.
   b.between(['segDrive1', 'segDrive2'], 0, 0.1);
-  b.mean(['size1', 'size2', 'size3'], rng.range(0, 0.119), 12);
+  // Two draws multiplied, so most cells stay near the small end.
+  b.mean(['size1', 'size2', 'size3'], rng.next() * rng.next() * 0.119, 12);
   b.between(['aspect'], 0.1, 0.6);
   b.between(['taper'], 0, 1);
   b.between(['flexibility'], 0, 1);
@@ -116,8 +120,8 @@ export function genesisGenome(seed: Seed): Genome {
   b.between(['translucency'], 0, 1);
   b.between(['plating1', 'plating2'], 0, 0.12);
   b.between(['spines'], 0, 0.15);
-  b.alleles('iridescence', rare(GENESIS_FREQ.iridescent));
-  b.alleles('texture', rare(GENESIS_FREQ.grainy));
+  b.alleles('iridescence', biallelic(GENESIS_FREQ.iridescent));
+  b.alleles('texture', biallelic(GENESIS_FREQ.grainy));
 
   // Mouth: all-round to leaning towards a filter or a jaw.
   b.between(['mouthSize'], 0.6, 1);
@@ -125,7 +129,7 @@ export function genesisGenome(seed: Seed): Genome {
   b.between(['digestion'], 0.4, 0.8);
 
   // Behaviour.
-  b.between(['gaitAmp'], 0.4, 0.9);
+  b.between(['gaitAmp'], 0, 0.35);
   b.between(['gaitFreq'], 0.3, 0.7);
   for (const id of ['aggression', 'caution', 'curiosity', 'reflex']) b.between([id], 0, 1);
   b.alleles('targetPref', GENESIS_FREQ.targetPref);
@@ -137,8 +141,8 @@ export function genesisGenome(seed: Seed): Genome {
   b.between(['patternScale'], 0, 1);
   b.between(['lumHue'], 0, 1);
   b.alleles('pattern', GENESIS_FREQ.pattern);
-  b.alleles('albino', rare(GENESIS_FREQ.albino));
-  b.alleles('luminescence', rare(GENESIS_FREQ.luminescent));
+  b.alleles('albino', biallelic(GENESIS_FREQ.albino));
+  b.alleles('luminescence', biallelic(GENESIS_FREQ.luminescent));
 
   // Physiology around the middle.
   b.between(['lifespan'], 0.3, 0.7);
@@ -153,13 +157,13 @@ export function genesisGenome(seed: Seed): Genome {
 
   // M1: a whip like the starter's, varied.
   b.module('M1', {
-    length: rng.int(88, 112),
-    thickness: rng.int(16, 26),
+    length: rng.int(108, 125),
+    thickness: rng.int(22, 27),
     curvature: rng.int(0, 255),
     joints: rng.int(80, 120),
     tipShape: rng.int(240, 255),
     stiffness: rng.int(0, 60),
-    beat: rng.int(185, 215),
+    beat: rng.int(195, 215),
     phase: rng.int(0, 255),
     attachStart: 255,
     angle: rng.int(215, 245),
