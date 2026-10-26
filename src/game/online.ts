@@ -7,6 +7,7 @@ import {
   type HubClient,
   type HubStatus,
   isFinalStatus,
+  type LifeMsg,
   HubClient as RealHub,
   type SignalMsg,
   type Welcome,
@@ -25,6 +26,7 @@ export type OnlineHub = Pick<
   | 'onSignal'
   | 'onMember'
   | 'onWelcome'
+  | 'onLife'
 >;
 
 export type OnlineMesh = Pick<
@@ -52,6 +54,8 @@ export interface OnlineHandlers {
   peerOpen(id: string): void;
   state(id: string, snapshot: Snapshot): void;
   event(id: string, event: PeerEvent): void;
+  /** The hub's word about this player's creature (resume, genesis, acks, death). */
+  life(msg: LifeMsg): void;
 }
 
 export interface OnlineOptions {
@@ -76,6 +80,7 @@ export class OnlineSession {
     hub.onWelcome((w) => this.welcomed(w));
     hub.onMember((op, member) => this.member(op, member));
     hub.onSignal((m) => this.signalled(m));
+    hub.onLife((m) => opts.handlers.life(m));
     // Rejections (replaced, closed) are reported through the status, not here.
     hub.connect().catch(() => {});
   }
@@ -141,6 +146,11 @@ export class OnlineSession {
       const poll = setInterval(check, READY_POLL_MS);
       check();
     });
+  }
+
+  /** A message to the hub itself (not a peer): genesis asks, progress, death. */
+  send(msg: ClientMsg): void {
+    this.opts.hub.send(msg);
   }
 
   broadcastState(bytes: Uint8Array): void {

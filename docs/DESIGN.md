@@ -18,7 +18,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
 - **One body of water, seen from above** (ADR 0014). Gameplay is 2D in the x–y plane; z is presentation only.
 - **Ponds, then one world**: M1 is a single-player square world (8,192 × 8,192 wu with soft walls). M2 groups players into separate ponds of up to 24, each with its own seed and spawn centre. From M11 the world is one large continuous plane with a spatial directory (ADR 0013).
-- **Hatching (M1)**: from M3 the body is fresh genesis DNA each life (browser-local random seed; `?genome=` pins it for tests). A new cell appears at the world centre, or at the nearest point at least 120 wu clear of any toxic plume, now and at every second of the next 10 s of drift (`RULES.spawn.lookaheadTicks`, `lookaheadStride`), so nobody is born poisoned.
+- **Hatching (M1)**: from M4 with a hub, the body is the genesis creature the authority records: the player waits 3 to 6 s ("Awaiting beacon") for a drand round, and the client recomputes the DNA before the cell appears; a saved creature is resumed instead. Without a hub, with an empty hatch bucket or with `?genome=` pinning a body for tests, the cell is an unrecorded practice cell ("Not recorded" badge) with a browser-local random body. A new cell appears at the world centre, or at the nearest point at least 120 wu clear of any toxic plume, now and at every second of the next 10 s of drift (`RULES.spawn.lookaheadTicks`, `lookaheadStride`), so nobody is born poisoned.
 - **Depth zones (M6)** come from a deterministic bathymetry field (smooth noise of the world seed):
 
 | Zone | Light | Food | Hazard | Adaptation that helps |

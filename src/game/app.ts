@@ -3,7 +3,7 @@ import { hashPlan } from '../genome/develop';
 import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import type { Identity } from '../ledger/identity';
-import { createIdentity, memoryKeyStore } from '../ledger/identity';
+import { createIdentity, memoryKeyStore, toBase64Url } from '../ledger/identity';
 import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
 import { GenomeSync } from '../net/genome-sync';
@@ -35,13 +35,14 @@ import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { AloneHint } from './alone-hint';
-import { type Body, bodyLabel, Hatcher } from './body';
+import { type Body, bodyLabel, Hatcher, hatchBody } from './body';
 import { type BsDebug, type BsGenome, installHook, type ScriptedRemote } from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
 import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
 import { RemoteLabels } from './labels';
+import { LifeFlow, type Started, VERIFY_FAILED } from './life';
 import { resetLife } from './life-reset';
 import { attachVisibilityPause, createLoop } from './loop';
 import { connectOnline, type OnlineSession } from './online';
@@ -82,6 +83,8 @@ const NO_REMOTES: readonly DrawnRemote[] = [];
 const NO_MEMBERS: readonly Member[] = [];
 /** A hatch waits this long for the hub before the player swims in a local pond. */
 const HATCH_WAIT_MS = 4000;
+/** The creature's condition goes to the hub every 30 s of play (ADR 0019). */
+const REPORT_EVERY_TICKS = 30 * TICK_HZ;
 
 /** Local storage, or null where the browser blocks it. */
 function safeStorage(): Storage | null {
@@ -105,6 +108,9 @@ interface Session {
   death: DeathSummary | null;
   /** The pond this life is in; null for the title cell and for a local pond. */
   pond: Pond | null;
+  /** Ticks this life has been simulated, and the count at which its next report is due. */
+  ticks: number;
+  nextReport: number;
 }
 
 interface Steering {
@@ -148,7 +154,18 @@ function newSession(
   const reach = colliderReach(phys, RULES.starter.biomass);
   const spot = findClearSpot(world, spawn?.x ?? world.size / 2, spawn?.y ?? world.size / 2, reach);
   const player = spawnCreature(world, { id: 'player', ...spot, phys });
-  return { world, player, body, demo, counts: {}, peakBiomass: player.biomass, death: null, pond };
+  return {
+    world,
+    player,
+    body,
+    demo,
+    counts: {},
+    peakBiomass: player.biomass,
+    death: null,
+    pond,
+    ticks: 0,
+    nextReport: REPORT_EVERY_TICKS,
+  };
 }
 
 /** Starts the title screen; the player hatches into the same scene. */
@@ -186,6 +203,22 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       identity = loaded;
       playerId = loaded.playerId;
     });
+
+  // The recorded life (M4): genesis from the hub, resume, progress and death. A cell it does not
+  // know (a pinned body, no hub, an empty hatch bucket) is a practice cell and sends nothing.
+  const flow = new LifeFlow({
+    identity: () => identity as Identity,
+    nonce: () => toBase64Url(crypto.getRandomValues(new Uint8Array(16))),
+    // BLS12-381 is heavy: its code loads when the first genesis arrives.
+    verify: async (g) => {
+      const { checkGenesis } = await import('../ledger/genesis');
+      return checkGenesis(g.record.record, g.commit.commitment, g.beacon, g.genome);
+    },
+  });
+  const hatchNote = pick('[data-testid="hatch-note"]');
+  const practiceBadge = pick('[data-testid="practice-badge"]');
+  /** Why the last hatch did not start; shown until the next one. */
+  let hatchError = '';
 
   let scale = 1;
   // Genesis DNA needs a number the sim never sees; the browser supplies it.
@@ -238,6 +271,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       genomeSync.setOwn(session.body.text);
     }
     view.body = session.body.creature;
+    practiceBadge.hidden = session.demo || flow.view().status !== 'practice';
     screen = nextScreen;
     screenShownAt = performance.now();
     screens.show(nextScreen);
@@ -335,6 +369,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           }
           social.worldSize = w.pond.size;
         },
+        life(msg) {
+          flow.receive(msg);
+        },
         member(op, member) {
           if (op === 'join') {
             remotes.setMember(member.playerId, member.name);
@@ -357,6 +394,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         },
       },
     });
+    flow.attach(link);
     return link;
   };
 
@@ -369,20 +407,37 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** Starts a life, in the joined pond or (`inPond` false) in a local one. */
   // The first local hatch uses the pond seed as given; each later one gets its own pond.
   let hatches = 0;
-  const begin = (inPond: boolean): void => {
+  const begin = (inPond: boolean, recorded?: { body: Body; start: Started }): void => {
     const target = inPond ? pond : null;
     const seed = hatches === 0 ? params.seed : `${params.seed}/${hatches}`;
     hatches++;
     let spawn: Vec2 | null = null;
     if (target?.ring) spawn = ringSpawn(target.ring.centre, target.ring.hint, target.lives);
     if (target) target.lives++;
-    enter(newSession(target ? target.seed : seed, false, hatcher.next(), target, spawn), 'playing');
+    hatchError = '';
+    const next = newSession(
+      target ? target.seed : seed,
+      false,
+      recorded?.body ?? hatcher.next(),
+      target,
+      spawn,
+    );
+    const saved = recorded?.start.condition;
+    if (saved) {
+      const { player } = next;
+      player.biomass = saved.biomass;
+      player.energy = Math.min(saved.energy, maxEnergy(saved.biomass));
+      player.health = Math.min(saved.health, maxHealth(saved.biomass));
+      next.peakBiomass = player.biomass;
+    }
+    enter(next, 'playing');
   };
 
   let hatching = false;
   const hatch = (): void => {
     if (hatching) return;
     if (!hubUrl) {
+      flow.practice();
       begin(pond !== null);
       return;
     }
@@ -391,6 +446,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (!name) return;
     saveName(storage, name);
     hatching = true;
+    hatchError = '';
     screens.setBusy(true);
     // A hub that cannot be reached (or a failing connector) means a local pond, never a stuck screen.
     void tryOnline(() =>
@@ -398,11 +454,34 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         ensureOnline(name);
         return keeper.current?.whenReady(HATCH_WAIT_MS) ?? null;
       }),
-    ).then((welcome) => {
-      hatching = false;
-      screens.setBusy(false);
-      begin(welcome !== null && pond !== null);
-    });
+    )
+      .then(async (welcome) => {
+        const joined = welcome !== null && pond !== null;
+        // A pinned body is a test or a debug cell: it never touches the ledger.
+        if (!joined || params.genome) {
+          flow.practice();
+          begin(joined);
+          return;
+        }
+        const outcome = await flow.hatch(HATCH_WAIT_MS);
+        if (outcome.kind === 'failed') {
+          hatchError = outcome.message;
+        } else if (outcome.kind === 'practice') {
+          begin(true);
+        } else {
+          const genome = parseGenomeText(outcome.start.genome);
+          if (genome) begin(true, { body: hatchBody(genome), start: outcome.start });
+          else hatchError = VERIFY_FAILED;
+        }
+      })
+      .catch((error: unknown) => {
+        console.warn('hatch failed', error);
+        hatchError = 'Could not hatch. Try again.';
+      })
+      .finally(() => {
+        hatching = false;
+        screens.setBusy(false);
+      });
   };
   const screens = new Screens({ hatch });
   if (hubUrl) {
@@ -520,6 +599,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (live && scale === 1) loop.setSpeed(live.time.update(world, performance.now()));
     const at = world.tick;
     const events = step(world, { [player.id]: input });
+    session.ticks++;
     live?.food.onEat(events, at);
     for (const event of events) {
       if (event.creature !== player.id) continue;
@@ -538,7 +618,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     field.markDirty();
     settleSteering(events);
+    if (!session.demo && player.cause === null && session.ticks >= session.nextReport) {
+      session.nextReport += REPORT_EVERY_TICKS;
+      if (!document.hidden) flow.report(session.ticks, player);
+    }
     if (!session.demo && player.cause !== null) {
+      flow.died(player.cause, session.ticks);
       session.death = {
         cause: player.cause,
         survivedSeconds: (world.tick - player.bornTick) / TICK_HZ,
@@ -570,6 +655,22 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       (keeper.current?.count ?? 1) - 1,
     );
     if (aloneElement.hidden === lonely) aloneElement.hidden = !lonely;
+  };
+
+  let shownNote = '';
+  const updateHatchNote = (): void => {
+    const { status } = flow.view();
+    const waiting = hatching && (status === 'awaiting' || status === 'verifying');
+    let text = hatchError;
+    if (waiting) text = status === 'awaiting' ? 'Awaiting beacon…' : 'Checking your creature…';
+    if (text !== shownNote) {
+      shownNote = text;
+      hatchNote.textContent = text;
+      hatchNote.hidden = text === '';
+    }
+    if (hatchNote.hasAttribute('data-waiting') !== waiting) {
+      hatchNote.toggleAttribute('data-waiting', waiting);
+    }
   };
 
   let lastMs = performance.now();
@@ -660,6 +761,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         ? remoteBodies.resolve(remotes.sample(now, pondMs()), now)
         : NO_REMOTES;
     updateNetUi(now, joined);
+    updateHatchNote();
     view.remotes = remoteViews;
     const projection = {
       camX: camera.x,
@@ -844,6 +946,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             stats: session.player.phys,
           },
       death: session.death,
+      life: { ...flow.view(), genome: session.demo ? null : session.body.hash },
       remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species }) => ({
         id,
         name,
@@ -883,6 +986,23 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     replay: (log) => {
       const { hash, events } = replay(log);
       return { hash, events };
+    },
+    life: {
+      // Recomputes the DNA from the genesis the hub sent, so a test can compare it with the fixtures.
+      recompute: async () => {
+        const g = flow.lastGenesis();
+        if (!g) return null;
+        const [{ commitmentId, genesisFor }, { randomnessOf }] = await Promise.all([
+          import('../ledger/genesis'),
+          import('../ledger/drand'),
+        ]);
+        const commit = commitmentId(g.commit.commitment);
+        return {
+          round: g.beacon.round,
+          commit,
+          genomeHash: genomeHash(genesisFor(randomnessOf(g.beacon), commit)),
+        };
+      },
     },
     render: {
       info: () => scene.info(),

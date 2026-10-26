@@ -102,3 +102,26 @@ export async function patchLuma(
     { base64: png.toString('base64'), points, half },
   );
 }
+
+/** The authority the M4 specs share: `wrangler dev --e2e`, serving recorded drand rounds. */
+export const M4_HUB = 'http://localhost:8790';
+
+/** Opens the game against the M4 hub with no pinned body, so a hatch goes through the ledger. */
+export async function openRecorded(page: Page, extra = ''): Promise<void> {
+  await page.goto(`./?debug=1&hub=${M4_HUB}${extra}`);
+  await page.waitForFunction(() => window.__bs?.ready === true);
+  await page.waitForFunction(() => window.__bs?.state().playerId);
+}
+
+/** Clicks Hatch on the title screen without waiting for play to start. */
+export const clickHatch = (page: Page) =>
+  page.getByRole('button', { name: 'Hatch', exact: true }).click();
+
+/** Waits for play to start after a recorded hatch, which takes a beacon round (3 to 6 s). */
+export async function waitPlaying(page: Page): Promise<void> {
+  await page.waitForFunction(() => window.__bs?.state().screen === 'playing', undefined, {
+    timeout: 15_000,
+  });
+  const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
+  await page.mouse.move(width / 2, height / 2);
+}

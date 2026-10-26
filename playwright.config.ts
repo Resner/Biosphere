@@ -10,9 +10,12 @@ const executablePath =
 const port = 4173;
 const hubPort = 8787;
 // Files run in parallel and a hub fills the fullest pond first, so each file that uses a hub gets
-// its own (m2-online.spec.ts: 8787, m2-social.spec.ts: 8788, m2-pond.spec.ts: 8789).
+// its own (m2-online.spec.ts: 8787, m2-social.spec.ts: 8788, m2-pond.spec.ts: 8789). The M4 specs
+// share one (8790): they use one identity per context, so a crowded pond does not matter to them.
+// Every hub runs with `--e2e`, so a hatch without a pinned body finds its drand rounds on disk.
 const socialHubPort = 8788;
 const pondHubPort = 8789;
+const m4HubPort = 8790;
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 
@@ -59,20 +62,26 @@ export default defineConfig({
     },
     {
       // The authority, locally: the same Worker and Durable Object, with fresh state per run.
-      command: `npm run worker:dev -- --port ${hubPort} --persist-to .wrangler/e2e-state`,
+      command: `npm run worker:dev -- --e2e --port ${hubPort} --persist-to .wrangler/e2e-state`,
       url: `http://localhost:${hubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
     {
-      command: `npm run worker:dev -- --port ${socialHubPort} --persist-to .wrangler/e2e-state-social`,
+      command: `npm run worker:dev -- --e2e --port ${socialHubPort} --persist-to .wrangler/e2e-state-social`,
       url: `http://localhost:${socialHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
     {
-      command: `npm run worker:dev -- --port ${pondHubPort} --persist-to .wrangler/e2e-state-pond`,
+      command: `npm run worker:dev -- --e2e --port ${pondHubPort} --persist-to .wrangler/e2e-state-pond`,
       url: `http://localhost:${pondHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m4HubPort} --persist-to .wrangler/e2e-state-m4`,
+      url: `http://localhost:${m4HubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

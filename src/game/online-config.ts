@@ -115,7 +115,7 @@ export function statusText(status: HubStatus | 'none', count: number): string {
     case 'connecting':
       return 'Connecting…';
     case 'replaced':
-      return 'Signed in elsewhere';
+      return 'Playing in another tab';
     case 'outdated':
       return 'Update available, reload';
     default:

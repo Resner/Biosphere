@@ -176,6 +176,55 @@ body {
   display: none;
 }
 
+/* A small badge for a cell the hub does not record: text, so colour is never the only signal. */
+.practice-badge {
+  position: fixed;
+  top: 2.9rem;
+  right: 0.75rem;
+  margin: 0;
+  padding: 0.15rem 0.6rem;
+  border: 1px dashed rgb(127 163 156 / 0.6);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.55);
+  color: var(--muted);
+  font-size: 0.75rem;
+  pointer-events: none;
+}
+
+/* The wait for a genesis beacon, and why a hatch did not start. */
+.hatch-note {
+  position: fixed;
+  left: 50%;
+  bottom: 3.5rem;
+  margin: 0;
+  transform: translateX(-50%);
+  color: var(--text);
+  font-size: 0.95rem;
+  text-align: center;
+}
+
+.hatch-note[data-waiting] {
+  animation: hatch-wait 1.2s ease-in-out infinite;
+}
+
+@keyframes hatch-wait {
+  50% {
+    opacity: 0.4;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .hatch-note[data-waiting] {
+    animation: none;
+  }
+}
+
+[data-screen="playing"] .hatch-note,
+.practice-badge[hidden],
+.hatch-note[hidden] {
+  display: none;
+}
+
 .alone-hint {
   position: fixed;
   left: 50%;
