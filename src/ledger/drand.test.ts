@@ -229,6 +229,8 @@ describe('lazy loading', () => {
       seen.add(file);
       const text = readFileSync(file, 'utf8');
       for (const m of text.matchAll(STATIC_IMPORT)) {
+        // A type-only import is erased at build time, so it can't pull in code.
+        if (/^\s*(?:import|export)\s+type\s/.test(m[0])) continue;
         const spec = (m[1] ?? m[2]) as string;
         expect(spec, `${file} imports ${spec}`).not.toMatch(/@noble\/curves/);
         if (!spec.startsWith('.')) continue;

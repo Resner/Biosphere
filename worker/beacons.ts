@@ -1,11 +1,14 @@
 import { type Canonical, canonicalize, hashWithDomain } from '../src/ledger/canonical';
 import { type Beacon, fetchBeacon, roundAt, roundTime, verifyBeacon } from '../src/ledger/drand';
+import { type Commitment, commitmentId } from '../src/ledger/genesis';
+
+export type { Commitment };
+export { commitmentId };
 
 // The beacon service (ADR 0010): verified drand beacons cached in SQLite, and commitments that
 // name a future round before it exists. A commitment's round is fixed when it is made; nothing in
 // this module can change it, cancel it or substitute a value.
 
-export const COMMIT_DOMAIN = 'bs/commit/v1';
 const REQUEST_DOMAIN = 'bs/creq/v1';
 /** After a round is due, the network is given this long to publish it before the first fetch. */
 const ALARM_MARGIN_MS = 500;
@@ -25,17 +28,6 @@ export function liveSource(): BeaconSource {
   return { now: () => Date.now(), fetch: (round) => fetchBeacon(round, (...a) => fetch(...a)) };
 }
 
-export interface Commitment {
-  v: 1;
-  kind: string;
-  owner: string;
-  round: number;
-  /** Hash of the request, so a repeated request finds this commitment. */
-  req: string;
-  t: number;
-  data: Canonical;
-}
-
 export interface SignedCommitment {
   commitment: Commitment;
   id: string;
@@ -48,11 +40,18 @@ export type CommitStatus = 'awaiting' | 'ready';
 const statusOf = (resolved: SqlStorageValue | undefined): CommitStatus =>
   resolved === null ? 'awaiting' : 'ready';
 
-export function commitmentId(c: Commitment): string {
-  return hashWithDomain(COMMIT_DOMAIN, canonicalize(c as unknown as Canonical));
-}
-
 type Row = Record<string, SqlStorageValue>;
+
+const requestKey = (kind: string, owner: string, data: Canonical): string =>
+  hashWithDomain(REQUEST_DOMAIN, canonicalize({ kind, owner, data }));
+
+const asSigned = (row: Row): SignedCommitment => ({
+  commitment: JSON.parse(row.json as string) as Commitment,
+  id: row.id as string,
+  authSig: row.auth_sig as string,
+  keyId: row.key_id as string,
+  status: statusOf(row.resolved),
+});
 
 export interface BeaconsDeps {
   storage: {
@@ -115,7 +114,7 @@ export class Beacons {
    * return the same commitment, so callers put a fresh nonce in `data` for each new request.
    */
   async commit(kind: string, owner: string, data: Canonical): Promise<SignedCommitment> {
-    const req = hashWithDomain(REQUEST_DOMAIN, canonicalize({ kind, owner, data }));
+    const req = requestKey(kind, owner, data);
     const known = this.byReq(req);
     if (known) return known;
     const latest = await this.latest();
@@ -147,6 +146,17 @@ export class Beacons {
     if (out.status === 'awaiting') this.pendingSet().set(out.id, out.commitment.round);
     await this.deps.rearm();
     return out;
+  }
+
+  /** The commitment an earlier `commit` with the same arguments made, or null. Writes nothing. */
+  find(kind: string, owner: string, data: Canonical): SignedCommitment | null {
+    return this.byReq(requestKey(kind, owner, data));
+  }
+
+  /** A commitment by id, or null. */
+  commitment(id: string): SignedCommitment | null {
+    const row = this.run('SELECT * FROM commitments WHERE id = ?', id)[0];
+    return row ? asSigned(row) : null;
   }
 
   status(id: string): CommitStatus | null {
@@ -181,16 +191,18 @@ export class Beacons {
     return Date.now() + Math.max(0, due - this.deps.source.now());
   }
 
-  /** Resolves every pending commitment whose round the network now serves. */
-  async alarm(): Promise<void> {
+  /** Resolves every pending commitment whose round the network now serves, and returns their ids. */
+  async alarm(): Promise<string[]> {
     const current = roundAt(this.deps.source.now());
     const due = [...this.pendingSet()].filter(([, round]) => round <= current);
     due.sort((a, b) => a[1] - b[1]);
     // A round that failed is not asked again in this pass, however many commitments name it.
     const failed = new Set<number>();
+    const resolved: string[] = [];
     for (const [id, round] of due) {
       if (failed.has(round)) continue;
-      if (!(await this.beaconFor(id))) failed.add(round);
+      if (await this.beaconFor(id)) resolved.push(id);
+      else failed.add(round);
     }
     if (failed.size === 0) {
       this.retryAt = 0;
@@ -199,6 +211,7 @@ export class Beacons {
       this.retryAt = this.deps.source.now() + this.retryMs;
       this.retryMs = Math.min(this.retryMs * 2, RETRY_MAX_MS);
     }
+    return resolved;
   }
 
   private pendingSet(): Map<string, number> {
@@ -213,15 +226,7 @@ export class Beacons {
 
   private byReq(req: string): SignedCommitment | null {
     const row = this.run('SELECT * FROM commitments WHERE req = ?', req)[0];
-    return row
-      ? {
-          commitment: JSON.parse(row.json as string) as Commitment,
-          id: row.id as string,
-          authSig: row.auth_sig as string,
-          keyId: row.key_id as string,
-          status: statusOf(row.resolved),
-        }
-      : null;
+    return row ? asSigned(row) : null;
   }
 
   private cached(round: number): Beacon | null {

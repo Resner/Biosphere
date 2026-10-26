@@ -89,6 +89,8 @@ async function login(name = 'Alice', store = memoryKeyStore()) {
   const { id, hello } = await makeHello(await challenge(c), name, store);
   c.send(hello);
   const welcome = await c.next();
+  // Every welcome is followed by the player's `life` (M4).
+  if (welcome.t === 'welcome') expect((await c.next()).t).toBe('life');
   return { c, id, welcome };
 }
 
@@ -455,7 +457,7 @@ describe('ponds', () => {
           )
           .one().n,
     );
-    expect(rows).toBe(3); // the pond and the two schema versions
+    expect(rows).toBe(4); // the pond and the three schema versions
   });
 
   it('keeps the pond and the roster across hibernation', async () => {
@@ -697,7 +699,8 @@ describe('TURN credentials', () => {
     expect((await bob.next()).t).toBe('welcome');
     expect(await alice.c.next()).toMatchObject({ t: 'member', op: 'join' });
     await new Promise((resolve) => setTimeout(resolve, 300));
-    expect(bob.inbox).toEqual([]);
+    // One welcome, then its `life`, and nothing from the second hello.
+    expect(bob.inbox.map((m) => m.t)).toEqual(['life']);
     expect(alice.c.inbox).toEqual([]);
   });
 

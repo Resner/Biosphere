@@ -5,6 +5,7 @@ import {
   decodeSnapshot,
   EVENT_MAX_BYTES,
   encodeSnapshot,
+  GENESIS_MAX_BYTES,
   GENOME_DATA_MAX_CHARS,
   genomeRefOf,
   HUB_MAX_BYTES,
@@ -179,12 +180,65 @@ describe('snapshot fuzz', () => {
   });
 });
 
+const HEX = 'ab'.repeat(32);
+const BEACON_SIG = 'cd'.repeat(48);
+const KEY_ID = 'AbCdEf_-';
+const commit = {
+  commitment: {
+    v: 1,
+    kind: 'genesis',
+    owner: PID,
+    round: 33_409_900,
+    req: HEX,
+    t: 1_700_000_000_000,
+    data: { nonce: NONCE, sig: SIG },
+  },
+  authSig: SIG,
+  keyId: KEY_ID,
+} as const;
+const storedRecord = {
+  record: {
+    v: 1,
+    rules: 4,
+    kind: 'genesis',
+    creature: '',
+    seq: 0,
+    prev: '',
+    owner: PID,
+    t: 1_700_000_005_000,
+    body: { commit: HEX, round: 33_409_900, genome: HEX, generation: 0, karyotype: 1 },
+  },
+  hash: HEX,
+  ownerSig: null,
+  authSig: SIG,
+  keyId: KEY_ID,
+} as const;
+const genesisMsg = {
+  t: 'genesis',
+  record: storedRecord,
+  ownerRequest: { nonce: NONCE, sig: SIG },
+  commit,
+  beacon: { round: 33_409_900, signature: BEACON_SIG },
+  genome: 'Ab-_09'.repeat(100),
+} as const;
+const life = {
+  creature: HEX,
+  seq: 3,
+  genome: 'Ab-_09'.repeat(100),
+  biomass: 40_000,
+  energy: 9_000,
+  health: 5_000,
+  activeMs: 600_000,
+  lifespanMs: 4_500_000,
+} as const;
+
 const clientMsgs = [
   { t: 'hello', v: 1, playerId: PID, name: 'Alice_9', sig: SIG },
   { t: 'ping', id: 42 },
   { t: 'signal', to: PID2, kind: 'offer', sdp: 'v=0\r\no=- 1 2 IN IP4 0.0.0.0\r\n' },
   { t: 'signal', to: PID2, kind: 'answer', sdp: 'v=0' },
   { t: 'leave' },
+  { t: 'genesis-request', nonce: NONCE, sig: SIG },
 ];
 
 const hubMsgs: HubMsg[] = [
@@ -212,6 +266,12 @@ const hubMsgs: HubMsg[] = [
   { t: 'member', op: 'leave', member: { playerId: PID, name: 'bob' } },
   { t: 'signal', from: PID, kind: 'offer', sdp: 'v=0' },
   { t: 'error', code: 'no-peer' },
+  { t: 'life', life: null, genesisIn: 0 },
+  { t: 'life', life, genesisIn: 299_000 },
+  { t: 'commit', commit, hatchesLeft: 2 },
+  genesisMsg as unknown as HubMsg,
+  { t: 'refused', reason: 'active' },
+  { t: 'refused', reason: 'limit', genesisIn: 300_000 },
 ];
 
 const peerEvents = [
@@ -378,6 +438,148 @@ describe('rejections', () => {
   });
 });
 
+describe('genesis messages', () => {
+  const hubBad = (m: unknown) => parseHubMsg(JSON.stringify(m));
+  const clientBad = (m: unknown) => parseClientMsg(JSON.stringify(m));
+  const rec = storedRecord.record;
+
+  it('rejects a malformed genesis-request', () => {
+    expect(clientBad({ t: 'genesis-request', nonce: 'short', sig: SIG })).toBeNull();
+    expect(clientBad({ t: 'genesis-request', nonce: NONCE, sig: 'short' })).toBeNull();
+    expect(clientBad({ t: 'genesis-request', nonce: 5, sig: SIG })).toBeNull();
+    expect(clientBad({ t: 'genesis-request', nonce: NONCE })).toBeNull();
+  });
+
+  it('rejects wrong-typed or malformed life, commit and refused', () => {
+    expect(hubBad({ t: 'life', life: null })).toBeNull();
+    expect(hubBad({ t: 'life', life: null, genesisIn: -1 })).toBeNull();
+    expect(hubBad({ t: 'life', life: { ...life, creature: 'x' }, genesisIn: 0 })).toBeNull();
+    expect(hubBad({ t: 'life', life: { ...life, seq: 1.5 }, genesisIn: 0 })).toBeNull();
+    expect(hubBad({ t: 'life', life: 'none', genesisIn: 0 })).toBeNull();
+    expect(hubBad({ t: 'commit', commit, hatchesLeft: -1 })).toBeNull();
+    expect(hubBad({ t: 'commit', commit: { ...commit, keyId: 'no' }, hatchesLeft: 1 })).toBeNull();
+    expect(
+      hubBad({ t: 'commit', commit: { ...commit, authSig: 'no' }, hatchesLeft: 1 }),
+    ).toBeNull();
+    expect(hubBad({ t: 'refused', reason: 'Not Allowed' })).toBeNull();
+    expect(hubBad({ t: 'refused', reason: 'limit', genesisIn: 'soon' })).toBeNull();
+  });
+
+  it('rejects a commitment of another kind, a float round or a bad owner', () => {
+    const c = commit.commitment;
+    const with_ = (commitment: object) =>
+      hubBad({ t: 'commit', commit: { ...commit, commitment }, hatchesLeft: 1 });
+    expect(with_({ ...c, kind: 'mate' })).toBeNull();
+    expect(with_({ ...c, round: 1.5 })).toBeNull();
+    expect(with_({ ...c, owner: 'short' })).toBeNull();
+    expect(with_({ ...c, data: { nonce: 'x' } })).toBeNull();
+    expect(with_({ ...c, v: 2 })).toBeNull();
+  });
+
+  it('rejects a malformed genesis', () => {
+    const g = genesisMsg as unknown as Record<string, unknown>;
+    expect(hubBad({ ...g, genome: 'not base64 !' })).toBeNull();
+    expect(hubBad({ ...g, genome: 'A'.repeat(GENOME_DATA_MAX_CHARS + 1) })).toBeNull();
+    expect(hubBad({ ...g, beacon: { round: 5, signature: 'zz' } })).toBeNull();
+    expect(hubBad({ ...g, beacon: { round: 0, signature: BEACON_SIG } })).toBeNull();
+    expect(hubBad({ ...g, ownerRequest: { nonce: NONCE } })).toBeNull();
+    expect(hubBad({ ...g, record: { ...storedRecord, hash: 'abc' } })).toBeNull();
+    expect(hubBad({ ...g, record: { ...storedRecord, ownerSig: 'short' } })).toBeNull();
+    expect(
+      hubBad({ ...g, record: { ...storedRecord, record: { ...rec, kind: 'mate' } } }),
+    ).toBeNull();
+    expect(hubBad({ ...g, record: { ...storedRecord, record: { ...rec, v: 2 } } })).toBeNull();
+    expect(
+      hubBad({ ...g, record: { ...storedRecord, record: { ...rec, owner: 'x' } } }),
+    ).toBeNull();
+    expect(hubBad({ ...g, record: { ...storedRecord, record: { ...rec, body: [1] } } })).toBeNull();
+    expect(
+      hubBad({ ...g, record: { ...storedRecord, record: { ...rec, body: { a: 1.5 } } } }),
+    ).toBeNull();
+    expect(
+      hubBad({ ...g, record: { ...storedRecord, record: { ...rec, body: { a: null } } } }),
+    ).toBeNull();
+    expect(
+      hubBad({ ...g, record: { ...storedRecord, record: { ...rec, body: { a: true } } } }),
+    ).toBeNull();
+  });
+
+  it('bounds a record body by depth, entries and string length', () => {
+    const g = genesisMsg as unknown as Record<string, unknown>;
+    const withBody = (body: unknown) =>
+      hubBad({ ...g, record: { ...storedRecord, record: { ...rec, body } } });
+    expect(withBody({ a: { b: { c: { d: { e: 1 } } } } })).toBeNull();
+    expect(withBody({ a: 'x'.repeat(257) })).toBeNull();
+    expect(
+      withBody(Object.fromEntries(Array.from({ length: 33 }, (_, i) => [`k${i}`, i]))),
+    ).toBeNull();
+    expect(withBody({ list: Array.from({ length: 33 }, (_, i) => i) })).toBeNull();
+    expect(withBody({ a: { b: 1 }, list: [1, 2, 'x'] })).not.toBeNull();
+  });
+
+  it('keeps the largest genesis within GENESIS_MAX_BYTES and caps anything bigger', () => {
+    const body = Object.fromEntries(
+      Array.from({ length: 32 }, (_, i) => [`k${String(i).padStart(2, '0')}`, 'x'.repeat(40)]),
+    );
+    const big = {
+      ...genesisMsg,
+      record: { ...storedRecord, record: { ...rec, body } },
+      genome: 'A'.repeat(GENOME_DATA_MAX_CHARS),
+    };
+    const raw = JSON.stringify(big);
+    expect(raw.length).toBeGreaterThan(HUB_MAX_BYTES);
+    expect(raw.length).toBeLessThanOrEqual(GENESIS_MAX_BYTES);
+    expect(parseHubMsg(raw)).not.toBeNull();
+    expect(parseHubMsg(JSON.stringify({ ...big, pad: 'x'.repeat(GENESIS_MAX_BYTES) }))).toBeNull();
+  });
+
+  it('caps the other new messages at HUB_MAX_BYTES', () => {
+    const pad = 'x'.repeat(HUB_MAX_BYTES);
+    expect(parseHubMsg(JSON.stringify({ t: 'life', life: null, genesisIn: 0, pad }))).toBeNull();
+    expect(parseHubMsg(JSON.stringify({ t: 'commit', commit, hatchesLeft: 1, pad }))).toBeNull();
+    expect(
+      parseClientMsg(JSON.stringify({ t: 'genesis-request', nonce: NONCE, sig: SIG, pad })),
+    ).toBeNull();
+  });
+
+  it('never throws on 2,000 random strings or mutated valid messages', () => {
+    const rng = createRng(seedFromString('fuzz-genesis'), 'net');
+    const samples = [
+      { t: 'genesis-request', nonce: NONCE, sig: SIG },
+      { t: 'life', life, genesisIn: 1 },
+      { t: 'commit', commit, hatchesLeft: 1 },
+      genesisMsg,
+      { t: 'refused', reason: 'limit', genesisIn: 5 },
+    ].map((m) => JSON.stringify(m));
+    const alphabet = '{}[]":,0123456789abt_-.\\ \nxé€';
+    let threw = 0;
+    for (let i = 0; i < 2000; i++) {
+      let text: string;
+      if (i % 2 === 0) {
+        text = Array.from(
+          { length: rng.int(0, 79) },
+          () => alphabet[rng.int(0, alphabet.length - 1)],
+        ).join('');
+      } else {
+        const chars = (samples[rng.int(0, samples.length - 1)] as string).split('');
+        for (let e = rng.int(1, 4); e > 0; e--) {
+          const at = rng.int(0, chars.length - 1);
+          chars[at] = alphabet[rng.int(0, alphabet.length - 1)] as string;
+        }
+        text = chars.join('');
+      }
+      for (const parse of [parseClientMsg, parseHubMsg]) {
+        try {
+          parse(text);
+        } catch {
+          threw++;
+        }
+      }
+    }
+    expect(threw).toBe(0);
+  });
+});
+
 describe('parser fuzz', () => {
   const samples = [...clientMsgs, ...hubMsgs, ...peerEvents].map((m) => JSON.stringify(m));
   const parsers = [parseClientMsg, parseHubMsg, parsePeerEvent];
@@ -419,11 +621,12 @@ describe('parser fuzz', () => {
 });
 
 describe('module hygiene', () => {
-  it('imports nothing and uses no DOM, Node or runtime globals', () => {
+  it('imports no runtime module and uses no DOM, Node or runtime globals', () => {
     const code = readFileSync(new URL('./protocol.ts', import.meta.url), 'utf8')
       .replace(/\/\*[\s\S]*?\*\//g, '')
       .replace(/\/\/.*$/gm, '');
-    expect(code).not.toMatch(/^\s*import\s/m);
+    // Type-only imports are erased, so they pull in no code.
+    expect(code).not.toMatch(/^\s*import\s(?!type\s)/m);
     expect(code).not.toMatch(
       /\b(window|document|navigator|process|Buffer|require|TextEncoder|TextDecoder|btoa|atob|performance|crypto|setTimeout|Date)\b/,
     );

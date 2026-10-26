@@ -19,6 +19,9 @@ import {
 // accepted record is one transaction that appends to a creature's chain and moves its head.
 
 const SECRET_BYTES = 32;
+/** The genesis bucket: a burst of 3 hatches that refills one per 5 minutes. */
+export const HATCH_BUCKET = 3;
+export const HATCH_REFILL_MS = 300_000;
 
 export interface AcceptInput {
   request: RecordRequest;
@@ -120,6 +123,46 @@ export class Ledger {
     return row ? asHead(row) : null;
   }
 
+  /** The player's active creature, or null. */
+  active(owner: string): Head | null {
+    const row = this.run("SELECT * FROM creatures WHERE owner = ? AND status = 'active'", owner)[0];
+    return row ? asHead(row) : null;
+  }
+
+  /** Hatches left at `now`, and the ms until the next one when none is. */
+  hatches(owner: string, now: number): { left: number; genesisIn: number } {
+    const row = this.run('SELECT hatches, hatch_t FROM players WHERE id = ?', owner)[0];
+    return row ? reconcile(row.hatches as number, row.hatch_t as number, now).state : FULL_BUCKET;
+  }
+
+  /** The commitment the player's genesis is waiting on, or ''. */
+  pendingCommit(owner: string): string {
+    const row = this.run('SELECT pending FROM players WHERE id = ?', owner)[0];
+    return row ? (row.pending as string) : '';
+  }
+
+  /** Spends one hatch for a new commitment and remembers it as the player's pending one. */
+  takeHatch(owner: string, commitId: string, now: number): number {
+    const row = this.run('SELECT hatches, hatch_t FROM players WHERE id = ?', owner)[0];
+    const { state, hatches, t } = reconcile(
+      row ? (row.hatches as number) : HATCH_BUCKET,
+      row ? (row.hatch_t as number) : now,
+      now,
+    );
+    const left = Math.max(0, state.left - 1);
+    // A full bucket restarts its clock when it first drops; otherwise the fraction of a refill already earned is kept.
+    this.run(
+      `INSERT INTO players (id, first_seen, last_seen, hatches, hatch_t, pending) VALUES (?1, ?2, ?2, ?3, ?4, ?5)
+       ON CONFLICT (id) DO UPDATE SET last_seen = ?2, hatches = ?3, hatch_t = ?4, pending = ?5`,
+      owner,
+      now,
+      left,
+      hatches >= HATCH_BUCKET ? now : t,
+      commitId,
+    );
+    return left;
+  }
+
   /** A creature's records in order. */
   chain(creature: string): StoredRecord[] {
     return this.run('SELECT * FROM records WHERE creature = ? ORDER BY seq', creature).map(
@@ -196,11 +239,12 @@ export class Ledger {
     const hash = creatureId(record);
     const stored = this.store(record, hash, req, ownerSig, hash);
     this.run(
-      `INSERT INTO players (id, first_seen, last_seen) VALUES (?, ?, ?)
-       ON CONFLICT (id) DO UPDATE SET last_seen = excluded.last_seen`,
+      `INSERT INTO players (id, first_seen, last_seen) VALUES (?1, ?2, ?2)
+       ON CONFLICT (id) DO UPDATE SET last_seen = ?2,
+         pending = CASE WHEN pending = ?3 THEN '' ELSE pending END`,
       request.owner,
       t,
-      t,
+      String(request.body.commit ?? ''),
     );
     this.run(
       `INSERT INTO creatures
@@ -334,6 +378,22 @@ export class Ledger {
     this.rowsWritten += cursor.rowsWritten;
     return rows;
   }
+}
+
+const FULL_BUCKET = { left: HATCH_BUCKET, genesisIn: 0 };
+
+/** The bucket at `now` from what was stored: the count refilled, and the clock moved on by whole refills. */
+function reconcile(
+  stored: number,
+  storedT: number,
+  now: number,
+): { state: { left: number; genesisIn: number }; hatches: number; t: number } {
+  if (stored >= HATCH_BUCKET) return { state: FULL_BUCKET, hatches: HATCH_BUCKET, t: now };
+  const earned = Math.max(0, Math.floor((now - storedT) / HATCH_REFILL_MS));
+  const left = Math.min(HATCH_BUCKET, stored + earned);
+  const t = storedT + earned * HATCH_REFILL_MS;
+  const genesisIn = left > 0 ? 0 : Math.max(0, t + HATCH_REFILL_MS - now);
+  return { state: { left, genesisIn }, hatches: left, t };
 }
 
 function refuse(reason: string): AcceptResult {
