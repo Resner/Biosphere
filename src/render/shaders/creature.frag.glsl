@@ -38,16 +38,12 @@ float spotMask(vec2 uv, float count) {
 }
 
 float markings(vec2 uv) {
-  float rings = stripeMask(uv.y * uPatternCount, 0.35);
-  float bands = stripeMask(uv.y * uPatternCount * 0.5, 0.55);
-  float stripes = stripeMask(uv.x * uPatternCount, 0.45);
-  float spots = spotMask(uv, uPatternCount);
   if (uPattern < 0.5) return 0.0;
-  if (uPattern < 1.5) return rings;
-  if (uPattern < 2.5) return spots;
-  if (uPattern < 3.5) return stripes;
-  if (uPattern < 4.5) return max(spots, stripes);
-  return bands;
+  if (uPattern < 1.5) return stripeMask(uv.y * uPatternCount, 0.35);
+  if (uPattern < 2.5) return spotMask(uv, uPatternCount);
+  if (uPattern < 3.5) return stripeMask(uv.x * uPatternCount, 0.45);
+  if (uPattern < 4.5) return max(spotMask(uv, uPatternCount), stripeMask(uv.x * uPatternCount, 0.45));
+  return stripeMask(uv.y * uPatternCount * 0.5, 0.55);
 }
 
 void main() {
@@ -60,13 +56,17 @@ void main() {
   col = mix(col, uRim * 1.1, markings(vUv) * 0.55);
 
   // Thin-film shimmer: the hue slides with the view angle.
-  vec3 film = 0.5 + 0.5 * cos(6.28318 * (fres * 1.4 + vec3(0.0, 0.33, 0.67)));
-  col = mix(col, film * (0.45 + 0.7 * fres), uIrid * (0.25 + 0.55 * fres));
+  if (uIrid > 0.0) {
+    vec3 film = 0.5 + 0.5 * cos(6.28318 * (fres * 1.4 + vec3(0.0, 0.33, 0.67)));
+    col = mix(col, film * (0.45 + 0.7 * fres), uIrid * (0.25 + 0.55 * fres));
+  }
 
   // Glow in its own hue, pulsing along the body when the pulse allele is expressed.
-  float pulse = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.2 + vUv.y * 6.0 + vPart * 1.3), uLumPulse);
-  float glint = 0.55 + 0.45 * fbm(vUv * 5.0 + uTime * 0.15);
-  col += uLumColor * uLum * pulse * (0.25 + 0.5 * fres) * glint;
+  if (uLum > 0.0) {
+    float pulse = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.2 + vUv.y * 6.0 + vPart * 1.3), uLumPulse);
+    float glint = 0.55 + 0.45 * fbm(vUv * 5.0 + uTime * 0.15);
+    col += uLumColor * uLum * pulse * (0.25 + 0.5 * fres) * glint;
+  }
 
   float alpha = mix(0.85, 0.35, uTranslucency) * (1.0 - fres) + fres;
   if (kind == 2) {
