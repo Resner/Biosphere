@@ -257,7 +257,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `src/game/body.ts` (`Hatcher`, `hatchBody`; genesis seed from `crypto` in `app.ts`), `src/render/body-layer.ts` (mesh with the plain `Cell` as fallback, logged once) and `GameScene` draws the player's body; HUD and death screen show `species · rarity`; `state().player` gained `genomeHash`, `species`, `rarity`, `tier`, `stats` and `nearestFood(kind?)` exists. `openGame` adds `genome=starter` unless the test pins one. E2E: `m3-anatomy.spec.ts`.
   - Gotcha: the genes cannot make a body below 300 biomass (the spec said 150), so the growth test uses 300. The starter genome is within 1% of `STARTER_PHYS`, not equal. The title screen's cell is the starter mesh. Camera needs no change: `viewHalfHeight(r)` already exceeds `maxReach × r` (unit test). `m2-social` times out in this cloud sandbox on `main` too (CI passes it).
 
-- [ ] T16 Bodies on the wire
+- [ ] T16 Bodies on the wire (in progress)
   - Acceptance:
     - Protocol: `PeerEvent` gains `{ t: 'genome', data }` (base64url, ≤ 2 KB, validated by `parsePeerEvent`; anything else returns `null`); the snapshot version byte is 2 and its reserved bytes carry `genomeRef` (the first two bytes of the genome hash). A version 1 snapshot is dropped and counted. Because a creature can now reach 2.4 million biomass, `biomass` in the snapshot is quantised on a log scale (u16 over 1 to 2^24, relative error ≤ 0.03%); energy and health are quantised against the creature's maximum (state the encoding in the codec comment and test the round trip at 100, 900 and 1e6 biomass).
     - Codec tests extend the existing fuzz tests: random bytes never throw; a genome event of 5,000 characters or non-base64url text is rejected.
