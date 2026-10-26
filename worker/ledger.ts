@@ -14,6 +14,7 @@ import {
   requestMessage,
   type StoredRecord,
 } from '../src/ledger/record';
+import { RULES_VERSION } from '../src/sim/rules';
 
 // The ledger store (ADR 0019): plain functions over SQLite, so tests need no sockets. Every
 // accepted record is one transaction that appends to a creature's chain and moves its head.
@@ -121,6 +122,22 @@ export class Ledger {
   head(creature: string): Head | null {
     const row = this.run('SELECT * FROM creatures WHERE id = ?', creature)[0];
     return row ? asHead(row) : null;
+  }
+
+  /** Appends an authority-started record to a creature's chain (`checkpoint` or `death`), on top of the head the caller read. */
+  append(head: Head, kind: 'checkpoint' | 'death', body: LedgerRecord['body']): AcceptResult {
+    return this.accept({
+      request: {
+        v: 1,
+        rules: RULES_VERSION,
+        kind,
+        creature: head.id,
+        seq: head.seq + 1,
+        prev: head.hash,
+        owner: head.owner,
+        body,
+      },
+    });
   }
 
   /** The player's active creature, or null. */
@@ -292,21 +309,25 @@ export class Ledger {
     }
     const record: LedgerRecord = { ...request, t };
     const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
-    const dead = request.kind === 'death';
-    // `status` is in a partial index, so a checkpoint leaves it out and costs one row less.
+    // `status` is in a partial index, so only a death assigns it and a checkpoint costs one row less.
     this.run(
-      `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?${
-        dead ? ", status = 'dead', died_t = ?" : ''
-      } WHERE id = ?`,
+      `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?
+       WHERE id = ?`,
       request.seq,
       stored.hash,
       field(request.body, 'activeMs', head.activeMs),
       field(request.body, 'biomass', head.biomass),
       field(request.body, 'energy', head.energy),
       field(request.body, 'health', head.health),
-      ...(dead ? [t] : []),
       request.creature,
     );
+    if (request.kind === 'death') {
+      this.run(
+        "UPDATE creatures SET status = 'dead', died_t = ? WHERE id = ?",
+        t,
+        request.creature,
+      );
+    }
     return { ok: true, stored, fresh: true };
   }
 
@@ -339,25 +360,29 @@ export class Ledger {
 
   private flag(kind: string, request: RecordRequest, hash: string, t: number): void {
     // One row per distinct request, so a replayed bad request can't grow the log.
-    this.run(
-      `INSERT INTO flags (kind, owner, creature, hash, t)
-       SELECT ?1, ?2, ?3, ?4, ?5 WHERE NOT EXISTS (SELECT 1 FROM flags WHERE kind = ?1 AND hash = ?4)`,
-      kind,
-      request.owner,
-      request.creature,
-      hash,
-      t,
-    );
+    this.insertFlag(kind, request.owner, request.creature, hash, t, 'hash');
   }
 
-  /** Notes an implausible report: one row per kind and creature, so a client that keeps sending it can't grow the log. */
-  flagOnce(kind: string, owner: string, creature: string, t: number): void {
+  /** Notes an implausible report: one row per kind and creature, however many connections send it. */
+  flagImplausible(kind: string, owner: string, creature: string, t: number): void {
+    this.insertFlag(kind, owner, creature, '', t, 'creature');
+  }
+
+  private insertFlag(
+    kind: string,
+    owner: string,
+    creature: string,
+    hash: string,
+    t: number,
+    uniqueBy: 'hash' | 'creature',
+  ): void {
     this.run(
       `INSERT INTO flags (kind, owner, creature, hash, t)
-       SELECT ?1, ?2, ?3, '', ?4 WHERE NOT EXISTS (SELECT 1 FROM flags WHERE kind = ?1 AND creature = ?3)`,
+       SELECT ?1, ?2, ?3, ?4, ?5 WHERE NOT EXISTS (SELECT 1 FROM flags WHERE kind = ?1 AND ${uniqueBy} = ?${uniqueBy === 'hash' ? 4 : 3})`,
       kind,
       owner,
       creature,
+      hash,
       t,
     );
   }

@@ -2,7 +2,6 @@ import { evictDurableObject } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { genomeFromBase64url } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
-import type { Identity } from '../src/ledger/identity';
 import { recordHash } from '../src/ledger/record';
 import { CLOSE_RATE_LIMITED, type HubMsg } from '../src/net/protocol';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
@@ -12,6 +11,7 @@ import {
   hatch,
   login,
   nextOf,
+  rowsWritten,
   sql,
   stub,
   useFakeBeacons,
@@ -48,12 +48,12 @@ async function newPlayer() {
   const { c, id } = await login();
   const g = await hatch(c, id);
   const creature = recordHash(g.record.record);
-  const genome = buildCreature(genomeFromBase64url(g.genome) as never);
-  return { c, id, creature, genome: g.genome, stats: genome.stats };
+  const stats = buildCreature(genomeFromBase64url(g.genome) as never).stats;
+  return { c, id, creature, stats };
 }
 
 let reports = 0;
-/** Sends the next `progress` for `c` and returns the answer, if there is one before a following ping. */
+/** Sends a `progress` for `c`; `n` counts up by default. */
 function report(c: Client, ticks: number, cond: Condition = CALM, n = ++reports) {
   c.send({ t: 'progress', n, ticks, ...cond });
 }
@@ -327,15 +327,6 @@ describe('write and message budgets', () => {
   });
 });
 
-/** Rows written through the object's ledger since it was made. */
-async function rowsWritten(): Promise<number> {
-  const { runInDurableObject } = await import('cloudflare:test');
-  return runInDurableObject(
-    stub(),
-    (o) => (o as unknown as { ledger: { rowsWritten: number } }).ledger.rowsWritten,
-  );
-}
-
 describe('resume', () => {
   it('sends the last checkpointed condition and clock in life', async () => {
     const { c, id, creature } = await newPlayer();
@@ -386,7 +377,7 @@ describe('resume', () => {
     advance(30_000);
     report(c, TICKS_PER_30S);
     await nextOf(c, 'ack');
-    const next = await login(id as Identity);
+    const next = await login(id);
     expect(await c.closed).toBe(4001);
     expect(next.life.life).toMatchObject({ creature, seq: 1, activeMs: 30_000 });
   });

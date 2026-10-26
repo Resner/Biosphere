@@ -24,7 +24,7 @@ export const beaconOf = (round: number): Beacon => all[round - rounds.first] as 
 export const stub = () => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
 
 /** Drand time for the object: starts 20 rounds into the fixture and only moves when a test says so. */
-export const clock = { wall: 20 * 3000 + 100 };
+const clock = { wall: 20 * 3000 + 100 };
 export const source: BeaconSource = fixtureSource(0, () => clock.wall);
 export const useFakeBeacons = () =>
   runInDurableObject(stub(), (authority) => {
@@ -45,7 +45,7 @@ export interface Client {
 }
 
 export const sockets: Client[] = [];
-export async function open(): Promise<Client> {
+async function open(): Promise<Client> {
   const res = await exports.default.fetch('https://authority.test/v1/hub', {
     headers: { Upgrade: 'websocket', Origin: ORIGIN },
   });
@@ -105,7 +105,7 @@ export async function login(id?: Identity, store = memoryKeyStore()) {
   return { c, id: who, life };
 }
 
-export let nonces = 0;
+let nonces = 0;
 export const freshNonce = () =>
   toBase64Url(new Uint8Array(16).fill(++nonces % 256)).padEnd(22, 'A');
 
@@ -148,3 +148,10 @@ export async function closeSockets(): Promise<void> {
   await Promise.all(done.map((c) => c.closed));
   await sql('DELETE FROM ponds');
 }
+
+/** Rows written through the object's ledger since it was made. */
+export const rowsWritten = () =>
+  runInDurableObject(
+    stub(),
+    (authority) => (authority as unknown as { ledger: { rowsWritten: number } }).ledger.rowsWritten,
+  );

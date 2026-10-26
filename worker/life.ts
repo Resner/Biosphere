@@ -1,8 +1,9 @@
-import { genomeFromBase64url } from '../src/genome/codec';
+import type { Genome } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
 import { accrue } from '../src/sim/life';
 import { RULES } from '../src/sim/rules';
 import { maxEnergy, maxHealth } from '../src/sim/vitals';
+import type { Head } from './ledger';
 
 // The authority's view of one creature's current session (ADR 0019): what the client last
 // reported and the life clock it earned, kept in the socket's hibernation attachment (small, so
@@ -16,7 +17,14 @@ const GROWTH_SLACK = 1.1;
 const BIOMASS_SLACK = 1;
 const HUNDREDTHS = 100;
 
-export interface LifeState {
+/** A creature's condition in hundredths. */
+interface Condition {
+  biomass: number;
+  energy: number;
+  health: number;
+}
+
+export interface LifeState extends Condition {
   creature: string;
   /** The last accepted report number (0 before any). */
   n: number;
@@ -30,49 +38,25 @@ export interface LifeState {
   savedMs: number;
   /** The report number that the last record covers. */
   savedN: number;
-  /** The condition after clamping, in hundredths. */
-  biomass: number;
-  energy: number;
-  health: number;
-}
-
-export interface Report {
-  n: number;
-  ticks: number;
-  biomass: number;
-  energy: number;
-  health: number;
-}
-
-/** What a creature's genome allows: the largest body and how fast it can grow. */
-interface Limits {
+  /** What the genome allows (`physOf`): the largest body and the growth multiplier. */
   maxBiomass: number;
   growth: number;
+  /** Bit `i` is set once `FLAG_KINDS[i]` was noted on this connection, so a client that keeps sending it costs no more reads. */
+  flagged: number;
 }
 
-const limitsCache = new Map<string, Limits>();
-const LIMITS_CACHE_MAX = 64;
+export type Report = Condition & { n: number; ticks: number };
 
-/** The limits of a genome text; a genome that doesn't decode gets the unbounded-growth-free reference. */
-export function limitsOf(genomeText: string): Limits {
-  const cached = limitsCache.get(genomeText);
-  if (cached) return cached;
-  const genome = genomeFromBase64url(genomeText);
-  const stats = genome ? buildCreature(genome).stats : null;
-  const limits = {
-    maxBiomass: stats?.maxBiomass ?? RULES.starter.biomass,
-    growth: stats?.growth ?? 1,
-  };
-  if (limitsCache.size >= LIMITS_CACHE_MAX) limitsCache.clear();
-  limitsCache.set(genomeText, limits);
-  return limits;
-}
+const FLAG_KINDS = ['biomass-over-max', 'growth-too-fast', 'energy-over', 'health-over'] as const;
+export type Implausible = (typeof FLAG_KINDS)[number];
 
 /** A session starts crediting the creature from `now`, with the condition and clock the ledger has. */
 export function bindLife(
-  head: { id: string; activeMs: number; biomass: number; energy: number; health: number },
+  head: Pick<Head, 'id' | 'activeMs' | 'biomass' | 'energy' | 'health'>,
+  genome: Genome,
   now: number,
 ): LifeState {
+  const { maxBiomass, growth } = buildCreature(genome).phys;
   return {
     creature: head.id,
     n: 0,
@@ -84,47 +68,58 @@ export function bindLife(
     biomass: head.biomass,
     energy: head.energy,
     health: head.health,
+    maxBiomass,
+    growth,
+    flagged: 0,
   };
 }
 
-export type Implausible = 'biomass-over-max' | 'growth-too-fast' | 'energy-over' | 'health-over';
-
 /**
  * Credits a report: advances the life clock by `accrue`, and clamps the reported condition to what
- * the genome and the elapsed active time allow. Never rejects; the reasons it clamped come back.
+ * the genome and the elapsed active time allow. Never rejects; the kinds it clamped for and had not
+ * noted before on this connection come back.
  */
 export function applyReport(
   life: LifeState,
   report: Report,
   now: number,
-  limits: Limits,
-): { life: LifeState; flags: Implausible[] } {
+): { life: LifeState; newFlags: Implausible[] } {
   const gained = Math.floor(accrue(life.ticks, report.ticks, now - life.t));
   const seconds = gained / 1000;
-  const flags: Implausible[] = [];
+  const clamped: Implausible[] = [];
+  const clamp = (value: number, cap: number, kind: Implausible): number => {
+    if (value <= cap) return value;
+    clamped.push(kind);
+    return cap;
+  };
 
   // The curve a creature of this genome can follow from where the last report left it.
   const from = Math.max(life.biomass / HUNDREDTHS, RULES.starter.biomass);
   const reach =
-    from * Math.exp(RULES.growth.maxRate * limits.growth * GROWTH_SLACK * seconds) + BIOMASS_SLACK;
-  let biomass = report.biomass;
-  const cap = Math.floor(limits.maxBiomass * HUNDREDTHS);
-  if (biomass > cap) {
-    biomass = cap;
-    flags.push('biomass-over-max');
-  }
-  const grown = Math.floor(reach * HUNDREDTHS);
-  if (biomass > grown) {
-    biomass = grown;
-    flags.push('growth-too-fast');
-  }
-  const energyCap = Math.floor(maxEnergy(biomass / HUNDREDTHS) * HUNDREDTHS);
-  const healthCap = Math.floor(maxHealth(biomass / HUNDREDTHS) * HUNDREDTHS);
-  const energy = Math.min(report.energy, energyCap);
-  const health = Math.min(report.health, healthCap);
-  if (energy < report.energy) flags.push('energy-over');
-  if (health < report.health) flags.push('health-over');
+    from * Math.exp(RULES.growth.maxRate * life.growth * GROWTH_SLACK * seconds) + BIOMASS_SLACK;
+  const biomass = clamp(
+    clamp(report.biomass, Math.floor(life.maxBiomass * HUNDREDTHS), 'biomass-over-max'),
+    Math.floor(reach * HUNDREDTHS),
+    'growth-too-fast',
+  );
+  const energy = clamp(
+    report.energy,
+    Math.floor(maxEnergy(biomass / HUNDREDTHS) * HUNDREDTHS),
+    'energy-over',
+  );
+  const health = clamp(
+    report.health,
+    Math.floor(maxHealth(biomass / HUNDREDTHS) * HUNDREDTHS),
+    'health-over',
+  );
 
+  let flagged = life.flagged;
+  const newFlags = clamped.filter((kind) => {
+    const bit = 1 << FLAG_KINDS.indexOf(kind);
+    const isNew = (flagged & bit) === 0;
+    flagged |= bit;
+    return isNew;
+  });
   return {
     life: {
       ...life,
@@ -135,8 +130,9 @@ export function applyReport(
       biomass,
       energy,
       health,
+      flagged,
     },
-    flags,
+    newFlags,
   };
 }
 
