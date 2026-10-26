@@ -20,6 +20,9 @@ const lab = <T>(page: Page, run: (hook: LabHook) => T) =>
 async function openLab(page: Page, query = QUERY): Promise<void> {
   await page.goto(`./lab.html${query}`);
   await page.waitForFunction(() => window.__lab?.ready === true);
+  // A running Lab renders 24 creatures every frame in software GL. The specs read single frames,
+  // and the CI runner is shared with the multi-browser pond specs, so stop the loop.
+  await page.evaluate(() => window.__lab?.debug?.pause());
 }
 
 const stage = (page: Page): Locator => page.getByTestId('lab-canvas');
@@ -296,7 +299,6 @@ test('every sample body is one connected shape at four gait phases', async ({ pa
     SAMPLES.map(genomeToBase64url),
   );
   expect(ok).toBe(true);
-  await lab(page, (l) => l.debug?.pause());
   for (let phase = 0; phase < 4; phase++) {
     const stats = await measureCells(page, range(12));
     for (const [i, s] of stats.entries()) {
@@ -313,7 +315,6 @@ test('the starter cell has a whip that touches its wall', async ({ page }) => {
     (text) => window.__lab?.debug?.showGenomes([text]),
     genomeToBase64url(starterGenome()),
   );
-  await lab(page, (l) => l.debug?.pause());
   const box = (await stage(page).boundingBox()) as { width: number; height: number };
   const cell = cellRect(0, box.width, box.height);
   const core = coreRadius(cell.w, cell.h);
