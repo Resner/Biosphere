@@ -321,7 +321,7 @@ export class LifeFlow {
   }
 }
 
-/** A condition value as the hub takes it: hundredths, never negative. */
+/** A condition value as the hub takes it: hundredths, never negative. A broken value is 0, not a throw in the game loop. */
 function wire(value: number): number {
-  return Math.max(0, hundredths(value));
+  return Number.isFinite(value) ? Math.max(0, hundredths(value)) : 0;
 }

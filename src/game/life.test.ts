@@ -245,6 +245,14 @@ describe('progress', () => {
     ]);
   });
 
+  it('sends a broken value as zero instead of throwing into the game loop', async () => {
+    await play();
+    expect(() =>
+      flow.report(900, { biomass: Number.NaN, energy: Number.POSITIVE_INFINITY, health: -5 }),
+    ).not.toThrow();
+    expect(sent).toEqual([{ t: 'progress', n: 1, ticks: 900, biomass: 0, energy: 0, health: 0 }]);
+  });
+
   it('takes the ack as the new life clock', async () => {
     await play();
     flow.report(900, { biomass: 1, energy: 1, health: 1 });
