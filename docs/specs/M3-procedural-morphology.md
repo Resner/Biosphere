@@ -163,7 +163,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `genesis.ts` (`genesisGenome(seed: Seed)`, `GENESIS_FREQ`), tests in `genesis.test.ts` (20,000 seeds, about 450 appearance keys in the first 1,000, median speed about 1.1× the M1 cell's), golden hashes in `__golden__/genesis.json`.
   - Gotcha: the M1 whip must keep `length × width × beat` above `RULES.develop.minThrustArea`, or development adds its own band and the speed jumps. A cell with the malformed-part defect (L2, about 1 in 1,100) can fall below it by design. Trait loci are scattered around a target mean (`Builder.mean`) so cells are heterozygous but their traits are exact. The starter's gait amplitude is 0 and the speed grows with size, so genesis keeps gait low and sizes skewed small to hold the median speed near 1.1×.
 
-- [ ] T8 Meiosis, mutation and inheritance
+- [x] T8 Meiosis, mutation and inheritance
   - Acceptance:
     - `offspringSeed(randomness, commitId, slot)` is `SHA-256('bs/offspring/v1' ‖ randomness ‖ commitId ‖ slot)` reduced to a four-word `Seed`; a known-answer vector is committed. Slots 0 and 1 differ.
     - `breed(a, b, seed, { mutation })`: the child is `gamete(a) + gamete(b)` with named streams `meiosis-a`, `meiosis-b`, `mutation-a`, `mutation-b`. The child's first haplotype is built from `a`'s two haplotypes only, and the second from `b`'s.
@@ -176,6 +176,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Viability: 10,000 children of random genesis pairs and 10,000 descendants after 5 generations of repeated breeding at mutation ×4 all have an empty `bodyViolations`, and `express` and `computeStats` return finite numbers. (Reuse the sets of T5.)
     - Determinism: the same inputs give the same child; three child hashes are committed as goldens (`RULES_VERSION`).
   - Notes: `mutateGenome` is the single-parent path for the Lab (a child of one genome with a mutation pass). All randomness comes from the seed (ADR 0006); no `Math.random`.
+  - Done: `inherit.ts` (`offspringSeed`, `meiosis`, `mutateHaplotype`, `applyMutation`, `breed`, `mutateGenome`), `RULES.genetics` and DESIGN §6; goldens in `__golden__/inherit.json`. The 10,000-genome mutated set in `develop.test.ts` now uses `mutateGenome` ×4.
+  - Gotcha: an end-to-end linkage check needs quant markers, because load and `mendel` bytes fold to 0/1 (a 0/255 marker cannot survive canonical form). Many `expect` calls in 10,000-genome loops are slow; test with plain booleans and `expect` only the first failure.
 
 - [ ] T9 Rarity, species names and the diversity report
   - Acceptance:
