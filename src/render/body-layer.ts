@@ -29,7 +29,8 @@ export class BodyLayer {
         return false;
       }
     }
-    this.view.update(null, time);
+    // Let go of the geometry while the death screen is up.
+    if (this.view.mesh.visible) this.view.dispose();
     return false;
   }
 

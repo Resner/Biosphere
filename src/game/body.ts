@@ -1,8 +1,7 @@
 // What a player hatches as (M3 T15): a genome, built into a creature once. Genesis DNA comes from a
 // browser-local random number, never from `sim` or `genome`, which stay deterministic.
 
-import type { Genome } from '../genome/codec';
-import { parseGenomeText } from '../genome/codec';
+import { type Genome, parseGenomeText } from '../genome/codec';
 import { genesisGenome } from '../genome/genesis';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
@@ -13,7 +12,6 @@ import { seedFromString } from '../sim/prng';
 
 /** A genome built into everything the game needs to play and draw it. */
 export interface Body {
-  genome: Genome;
   creature: Creature;
   hash: string;
   species: string;
@@ -25,7 +23,6 @@ export interface Body {
 export function hatchBody(genome: Genome): Body {
   const creature = buildCreature(genome);
   return {
-    genome,
     creature,
     hash: creature.hash,
     species: speciesName(genome),
@@ -34,39 +31,44 @@ export function hatchBody(genome: Genome): Body {
   };
 }
 
+/** The one-line name shown on the HUD and the death screen. */
+export const bodyLabel = (body: Pick<Body, 'species' | 'rarity'>): string =>
+  `${body.species} · ${body.rarity}`;
+
 export interface HatcherOptions {
   /** `?genome=`: a base64url genome, "starter", or null for a fresh genesis body each hatch. */
   pinned: string | null;
-  /** A fresh number on every call; the only source of randomness. */
-  random(): number;
+  /** Fresh text on every call; the only source of randomness. */
+  random(): string;
   warn(message: string): void;
 }
 
-/** Chooses the body of each hatch. */
+/** Chooses the body of each hatch; bodies are built on first use and then reused. */
 export class Hatcher {
-  private readonly pinned: Genome | null;
-  private starter: Body | null = null;
+  private starterBody: Body | null = null;
+  private pinnedBody: Body | null = null;
+  /** `?genome=` when it names a genome (not "starter"). */
+  private readonly pinnedGenome: Genome | null = null;
+  private readonly pinStarter: boolean;
 
   constructor(private readonly options: HatcherOptions) {
     const { pinned, warn } = options;
-    if (pinned === null) this.pinned = null;
-    else if (pinned === 'starter') this.pinned = starterGenome();
-    else {
-      this.pinned = parseGenomeText(pinned);
-      if (!this.pinned) warn('?genome= is not a genome; hatching a fresh one instead');
+    this.pinStarter = pinned === 'starter';
+    if (pinned !== null && !this.pinStarter) {
+      this.pinnedGenome = parseGenomeText(pinned);
+      if (!this.pinnedGenome) warn('?genome= is not a genome; hatching a fresh one instead');
     }
   }
 
   /** The body for the next life. */
   next(): Body {
-    const genome =
-      this.pinned ?? genesisGenome(seedFromString(`hatch/${this.options.random().toString(36)}`));
-    return hatchBody(genome);
+    if (this.pinStarter) return this.title();
+    if (this.pinnedGenome) return (this.pinnedBody ??= hatchBody(this.pinnedGenome));
+    return hatchBody(genesisGenome(seedFromString(`hatch/${this.options.random()}`)));
   }
 
   /** The title screen's drifting cell: always the starter. */
   title(): Body {
-    this.starter ??= hatchBody(starterGenome());
-    return this.starter;
+    return (this.starterBody ??= hatchBody(starterGenome()));
   }
 }

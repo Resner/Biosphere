@@ -28,8 +28,8 @@ export class Hud {
   private low = false;
 
   /** Names the body of the life that has just started. */
-  setBody(species: string, rarity: string): void {
-    setText(this.species, `${species} · ${rarity}`);
+  setBody(label: string): void {
+    setText(this.species, label);
   }
 
   /** Restarts the short brightening of the energy readout after eating. */

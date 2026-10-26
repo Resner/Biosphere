@@ -8,8 +8,8 @@ export interface DeathSummary {
   /** Seconds of sim time between hatching and dying. */
   survivedSeconds: number;
   peakBiomass: number;
-  species: string;
-  rarity: string;
+  /** Species and rarity of the body that died. */
+  body: string;
 }
 
 /** What the death screen says: a short name and one line of advice. */
@@ -62,7 +62,7 @@ export class Screens {
     this.hint.textContent = text.hint;
     this.survived.textContent = `${Math.floor(summary.survivedSeconds)} s`;
     this.peak.textContent = String(Math.round(summary.peakBiomass));
-    this.species.textContent = `${summary.species} · ${summary.rarity}`;
+    this.species.textContent = summary.body;
     this.show('dead');
   }
 }

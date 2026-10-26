@@ -6,9 +6,9 @@ import { STARTER_PHYS } from '../sim/body';
 import { seedFromString } from '../sim/prng';
 import { Hatcher, hatchBody } from './body';
 
-const counter = (): (() => number) => {
+const counter = (): (() => string) => {
   let n = 0;
-  return () => ++n;
+  return () => String(++n);
 };
 
 describe('hatchBody', () => {

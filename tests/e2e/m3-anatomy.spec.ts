@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook, BsState } from '../../src/game/debug';
-import { genomeToBase64url } from '../../src/genome/codec';
+import { type Genome, genomeToBase64url } from '../../src/genome/codec';
 import { currentAt } from '../../src/sim/currents';
 import { RULES, TICK_HZ } from '../../src/sim/rules';
 import { createWorld } from '../../src/sim/world';
@@ -51,7 +51,7 @@ async function measureSpeed(page: Page): Promise<{ measured: number; predicted: 
 
 test.describe('anatomy changes play', () => {
   test('the debug state names the body', async ({ page }) => {
-    await play(page, genomeToBase64url(ARCHETYPES.flagellate as never));
+    await play(page, genomeToBase64url(ARCHETYPES.flagellate as Genome));
     const player = await playerOf(page);
     expect(player.genomeHash).toMatch(/^[0-9a-f]{64}$/);
     expect(player.species).toMatch(/^[A-Z][a-z]+ [a-z]+$/);
@@ -64,7 +64,7 @@ test.describe('anatomy changes play', () => {
   test('swimming speed follows the stats, and bodies differ', async ({ page }) => {
     const speeds: Record<string, number> = {};
     for (const name of ['flagellate', 'armoured']) {
-      await play(page, genomeToBase64url(ARCHETYPES[name] as never));
+      await play(page, genomeToBase64url(ARCHETYPES[name] as Genome));
       const { measured, predicted } = await measureSpeed(page);
       expect(
         Math.abs(measured / predicted - 1),

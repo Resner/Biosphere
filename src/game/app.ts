@@ -33,7 +33,7 @@ import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { AloneHint } from './alone-hint';
-import { type Body, Hatcher } from './body';
+import { type Body, bodyLabel, Hatcher } from './body';
 import { type BsDebug, type BsGenome, installHook, type ScriptedRemote } from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
@@ -185,10 +185,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   // Genesis DNA needs a number the sim never sees; the browser supplies it.
   const hatcher = new Hatcher({
     pinned: params.genome ?? null,
-    random: () => {
-      const [a = 0, b = 0] = crypto.getRandomValues(new Uint32Array(2));
-      return a * 2 ** 32 + b;
-    },
+    random: () => crypto.getRandomValues(new Uint32Array(2)).join('-'),
     warn: (message) => console.warn(message),
   });
   let session = newSession(params.seed, true, hatcher.title());
@@ -230,7 +227,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     scene.setHalfHeight(camera.halfHeight);
     field.now();
     hud.update(player);
-    if (!session.demo) hud.setBody(session.body.species, session.body.rarity);
+    if (!session.demo) hud.setBody(bodyLabel(session.body));
+    view.body = session.body.creature;
     screen = nextScreen;
     screenShownAt = performance.now();
     screens.show(nextScreen);
@@ -519,8 +517,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         cause: player.cause,
         survivedSeconds: (world.tick - player.bornTick) / TICK_HZ,
         peakBiomass: session.peakBiomass,
-        species: session.body.species,
-        rarity: session.body.rarity,
+        body: bodyLabel(session.body),
       };
       fx.startDissolve();
       endLifeState();
@@ -616,7 +613,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     cell.hurt = fx.vignette;
     cell.dissolve = fx.dissolve;
     view.creature = fx.dissolved ? null : cell;
-    view.body = session.body.creature;
     setVignette(fx.vignette);
     // The death screen waits for the body to dissolve, so the player sees what killed them.
     if (session.death !== null && fx.dissolved && screen === 'playing') {

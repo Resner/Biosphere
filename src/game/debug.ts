@@ -1,3 +1,4 @@
+import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { RenderInfo } from '../render/scene';
@@ -27,7 +28,7 @@ export interface BsState {
     /** The body this life hatched with (M3). */
     genomeHash: string;
     species: string;
-    rarity: string;
+    rarity: RarityTier;
     /** Size tier of the fully grown body. */
     tier: number;
     /** What the sim sees of the body. */
