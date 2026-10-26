@@ -1,5 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { INTERPOLATION_MS } from '../../src/net/pond-sync';
 import { chatTexts, hatch, openGame, say, state } from './helpers';
 
 // The milestone's end-to-end check: three real browser contexts share a pond through the local
@@ -98,7 +99,8 @@ test('three players see each other move smoothly, share food and chat', async ({
     const steps = stepsOf(seen);
     expect(Math.max(...steps)).toBeLessThan(25);
     const errors = seen.map((s) => {
-      const o = nearestInTime(own, s.t);
+      // B draws A as it was INTERPOLATION_MS ago, by design; the error is against that moment.
+      const o = nearestInTime(own, s.t - INTERPOLATION_MS);
       return Math.hypot(s.x - o.x, s.y - o.y);
     });
     expect(errors.reduce((sum, e) => sum + e, 0) / errors.length).toBeLessThan(12);
@@ -147,13 +149,16 @@ test('three players see each other move smoothly, share food and chat', async ({
         p.evaluate(({ x, y }) => (window.__bs as BsHook).debug?.teleport(x, y), { x, y }),
       ),
     );
+    // Three software-GL browsers on a busy runner tick slowly; the claims need a few frames.
     await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
-      timeout: 2000,
+      timeout: 6000,
     });
-    // Let the claims settle, then count the bites each keeps: eaten minus given back.
+    // Count the bites each keeps (eaten minus given back). The loser's "stolen" event travels over
+    // the channel, so wait for the count to settle at one, then check that it holds.
+    const gained = async () => (await bitesKept(a)) + (await bitesKept(b)) - before;
+    await expect.poll(gained, { timeout: 5000 }).toBe(1);
     await a.waitForTimeout(500);
-    const after = (await bitesKept(a)) + (await bitesKept(b));
-    expect(after - before).toBe(1);
+    expect(await gained()).toBe(1);
 
     // Chat reaches both others; a muted sender does not reach B.
     await say(a, 'hello pond');
