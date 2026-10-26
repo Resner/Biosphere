@@ -219,6 +219,7 @@ export class LifeFlow {
   practice(): void {
     this.status = 'practice';
     this.creature = null;
+    this.oldAge = false;
   }
 
   /** Cheap to read every frame; `view()` builds a new object. */

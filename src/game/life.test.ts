@@ -428,4 +428,12 @@ describe('life clock', () => {
     await play();
     expect(flow.expired).toBe(false);
   });
+
+  it('does not carry an old-age ending into a practice cell', async () => {
+    await play();
+    feed({ t: 'died', cause: 'old-age', record: genesisMsg().record });
+    expect(flow.expired).toBe(true);
+    flow.practice();
+    expect(flow.expired).toBe(false);
+  });
 });
