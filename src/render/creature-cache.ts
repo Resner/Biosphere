@@ -2,9 +2,10 @@
 // on the first acquire and disposed when the last holder lets go. Sessions last hours, so every
 // geometry and material has an owner that releases it.
 
-import * as THREE from 'three';
+import type * as THREE from 'three';
 import type { BodyPlan, Detail } from '../genome/develop';
 import { buildCreatureGeometry } from './creature-mesh';
+import { creatureMaterial } from './materials';
 
 /** A body smaller than this many pixels across (radius) drops to low detail; larger than `FULL_ABOVE` returns to full. */
 export const LOW_BELOW = 12;
@@ -29,15 +30,11 @@ interface Entry {
   refs: number;
 }
 
-/** Stands in until the creature shaders (T11, T12) give every body its look. */
-const plainMaterial = (): THREE.Material =>
-  new THREE.MeshBasicMaterial({ color: 0x66ddcc, transparent: true, opacity: 0.8 });
-
 export class CreatureCache {
   private readonly entries = new Map<string, Entry>();
 
   /** `makeMaterial` must return a fresh material each call: the cache disposes it with the geometry. */
-  constructor(private readonly makeMaterial: () => THREE.Material = plainMaterial) {}
+  constructor(private readonly makeMaterial: () => THREE.Material = creatureMaterial) {}
 
   acquire(creature: { hash: string; plan: BodyPlan }, detail: Detail): CreatureAsset {
     const key = `${creature.hash}/${detail}`;
