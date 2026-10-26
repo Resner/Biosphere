@@ -36,6 +36,7 @@ const plainMaterial = (): THREE.Material =>
 export class CreatureCache {
   private readonly entries = new Map<string, Entry>();
 
+  /** `makeMaterial` must return a fresh material each call: the cache disposes it with the geometry. */
   constructor(private readonly makeMaterial: () => THREE.Material = plainMaterial) {}
 
   acquire(creature: { hash: string; plan: BodyPlan }, detail: Detail): CreatureAsset {

@@ -18,9 +18,9 @@ export const BODY_DEPTH = 0.85;
 const TUBE_DEPTH = 0.8;
 /** Total turn of a tube with curvature ±1, in radians. */
 const CURVE = 1.2;
-/** Where on its parent a branch grows, and how far it fans out (radians). */
 /** Share of the bend radius a tube may fill. */
 const FOLD = 0.8;
+/** Where on its parent a branch grows, and how far it fans out (radians). */
 const BRANCH_AT = 0.7;
 const BRANCH_FAN = 0.5;
 /** The tip cap is this many end radii long for a blunt tip, plus this many more for a sharp one. */
@@ -102,7 +102,7 @@ function addBody(m: Mesh, plan: BodyPlan, spine: Spine, detail: Detail): void {
       const fromTop = Math.abs(((phi - PI / 2 + 3 * PI) % TAU) - PI);
       const plated = plate !== undefined && fromTop <= plate.coverage * PI;
       const kind = mouth ? PART_MOUTH : plated ? PART_PLATE : PART_BODY;
-      const lift = plated && plate ? 1 + plate.thickness : 1;
+      const lift = kind === PART_PLATE && plate ? 1 + plate.thickness : 1;
       m.vertex(
         [ring.x, w * cos(phi), w * BODY_DEPTH * lift * sin(phi)],
         [j / bodyRing, spineHere],
