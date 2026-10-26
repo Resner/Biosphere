@@ -33,8 +33,8 @@ export async function createIdentity(store: KeyStore): Promise<Identity> {
   }
   const secret = seed.slice();
   return {
-    playerId: playerIdOf(ed.getPublicKey(secret)),
-    sign: (domain, message) => ed.sign(signedBytes(domain, message), secret),
+    playerId: playerIdOf(publicKeyFromSecret(secret)),
+    sign: (domain, message) => signWithSecret(secret, domain, message),
   };
 }
 

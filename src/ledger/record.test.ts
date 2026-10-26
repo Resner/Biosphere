@@ -1,5 +1,4 @@
 import { readFileSync, writeFileSync } from 'node:fs';
-import { bytesToHex } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 import { RULES_VERSION } from '../sim/rules';
 import { canonicalize } from './canonical';
@@ -248,6 +247,5 @@ describe('authority signatures', () => {
     const hash = recordHash(death);
     expect(authoritySign(secret, hash)).toBe(authoritySign(secret, hash));
     expect(authoritySign(secret, hash)).not.toBe(authoritySign(secret, recordHash(checkpoint)));
-    expect(bytesToHex(new Uint8Array(1))).toBe('00');
   });
 });

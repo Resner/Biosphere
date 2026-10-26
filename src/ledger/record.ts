@@ -70,11 +70,15 @@ function withoutTime(r: RecordRequest): Canonical {
 
 /** What an owner signs to start a transition: the record without the authority's `t`. */
 export function requestMessage(r: RecordRequest): Uint8Array {
-  return new TextEncoder().encode(canonicalize(withoutTime(r)));
+  return new TextEncoder().encode(requestText(r));
+}
+
+function requestText(r: RecordRequest): string {
+  return canonicalize(withoutTime(r));
 }
 
 export function requestHash(r: RecordRequest): string {
-  return hashWithDomain(REQUEST_DOMAIN, canonicalize(withoutTime(r)));
+  return hashWithDomain(REQUEST_DOMAIN, requestText(r));
 }
 
 export function creatureId(genesis: LedgerRecord): string {
@@ -123,7 +127,8 @@ export function authorityPublicKey(secret: Uint8Array): string {
 /** First 6 bytes of SHA-256(public key), base64url. */
 export function authorityKeyId(publicKey: string): string {
   const bytes = fromBase64Url(publicKey);
-  return toBase64Url(sha256(bytes ?? new Uint8Array(0)).slice(0, 6));
+  if (!bytes) throw new RangeError('not a base64url public key');
+  return toBase64Url(sha256(bytes).slice(0, 6));
 }
 
 /** The authority's countersignature over a record hash, base64url. */
