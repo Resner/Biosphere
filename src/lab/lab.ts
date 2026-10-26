@@ -95,7 +95,6 @@ export function startLab(options: LabOptions): void {
     beat: SWIM,
     hurt: 0,
     dissolve: 0,
-    pxPerWu: 1,
   };
 
   const hook: LabHook = {
@@ -129,7 +128,7 @@ export function startLab(options: LabOptions): void {
           clock += Math.min(ADVANCE_STEP, left);
           updateViews();
         }
-        draw();
+        renderer.render(scene, camera);
       },
     };
   }
@@ -287,6 +286,7 @@ export function startLab(options: LabOptions): void {
     if (index === hovered) return;
     hovered = index;
     placeRing(hoverRing, index);
+    if (paused) draw();
   }
 
   canvas.addEventListener('pointermove', (event) => hover(cellOf(event)));

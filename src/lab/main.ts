@@ -8,7 +8,7 @@ if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
 
 const params = new URLSearchParams(window.location.search);
 startLab({
-  seed: params.get('seed') ?? randomSeed(),
+  seed: params.get('seed') || randomSeed(),
   mode: params.get('mode') === 'wild' ? 'wild' : 'genesis',
   debug: params.has('debug'),
 });
