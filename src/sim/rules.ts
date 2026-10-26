@@ -159,7 +159,15 @@ export const RULES = deepFreeze({
   },
   /** Development (M3, DESIGN §6): how traits become a body plan, and the repairs that keep every plan valid. All lengths are in core radii. */
   develop: {
-    caps: { segments: 8, appendages: 24, joints: 4, branches: 2, colliders: 12, bounds: 2.5 },
+    caps: {
+      segments: 8,
+      appendages: 24,
+      joints: 4,
+      branches: 2,
+      colliders: 12,
+      bounds: 2.5,
+      pairs: 3,
+    },
     /** Segments stay within this reach of the core; appendages within `caps.bounds` less `boundsSlack`. */
     segmentReach: 1.8,
     boundsSlack: 0.05,
@@ -205,9 +213,10 @@ export const RULES = deepFreeze({
     /** Collider radius is the part's base width times this. */
     colliderWidth: 0.5,
     colliderAlong: 0.65,
-    colliderMaxRadius: 0.5,
     /** The mouth: radius = size × (this − type); the jaw half (type > 0.5) moves forward and narrows. */
     mouthRadiusBase: 1.5,
+    /** Mouth types above this move the mouth forward and narrow it. */
+    jawStart: 0.5,
     mouthReach: 1.2,
     mouthNarrow: 1.6,
     /** Mesh vertices per body ring and part ring, and rings per segment or joint, by detail. */

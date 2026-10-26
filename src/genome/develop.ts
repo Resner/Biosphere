@@ -123,7 +123,7 @@ function buildParts(traits: Traits, segments: PlanSegment[]): Part[] {
     const p = mod.params;
     const scale = malformed;
     malformed = 1; // only the first present module is the malformed part
-    const pairs = 1 + Math.floor((p.pairs * 3) / 256);
+    const pairs = 1 + Math.floor((p.pairs * D.caps.pairs) / 256);
     const t0 = unit(p.attachStart);
     const reach = unit(p.attachSpan) * (1 - t0);
     for (let k = 0; k < pairs; k++) {
@@ -169,6 +169,7 @@ function separate(parts: Part[], count: number): Part[] {
         prev = p;
       } else {
         prev.width = Math.min(WIDTH[1], hypot(prev.width, p.width));
+        prev.beat = Math.max(prev.beat, p.beat);
         dropped.add(p);
       }
     }
@@ -262,7 +263,7 @@ const mirror = (parts: Part[]): Appendage[] =>
   ]);
 
 function buildMouth(m: Traits['mouth']): PlanMouth {
-  const jaw = Math.max(0, m.type - 0.5);
+  const jaw = Math.max(0, m.type - D.jawStart);
   return {
     offset: D.mouthReach * jaw,
     radius: m.size * (D.mouthRadiusBase - m.type),
@@ -282,19 +283,26 @@ function buildColliders(segments: PlanSegment[], appendages: Appendage[]): Colli
       r: clamp(s.ry, RULES.body.minColliderRadius, RULES.body.maxColliderRadius),
     });
   }
-  // The biggest parts get what circles are left; ties keep instance order.
+  // The biggest pairs get what circles are left, both sides or neither; ties keep instance order.
   const ranked = appendages
-    .map((a, i) => ({ a, i, score: a.length * a.width }))
+    .map((a, i) => ({ i, score: a.length * a.width }))
+    .filter(({ i }) => i % 2 === 0)
     .sort((p, q) => q.score - p.score || p.i - q.i);
-  for (const { a } of ranked) {
-    if (out.length >= D.caps.colliders) break;
-    const root = rootOf(segments[a.segment] as PlanSegment, a.angle);
-    const along = a.length * D.colliderAlong;
-    out.push({
-      x: root.x + along * cos(a.dir),
-      y: a.side * (root.y + along * sin(a.dir)),
-      r: clamp(a.width * D.colliderWidth, RULES.body.minColliderRadius, D.colliderMaxRadius),
-    });
+  for (const { i } of ranked) {
+    if (out.length + 2 > D.caps.colliders) break;
+    for (const a of [appendages[i], appendages[i + 1]] as Appendage[]) {
+      const root = rootOf(segments[a.segment] as PlanSegment, a.angle);
+      const along = a.length * D.colliderAlong;
+      out.push({
+        x: root.x + along * cos(a.dir),
+        y: a.side * (root.y + along * sin(a.dir)),
+        r: clamp(
+          a.width * D.colliderWidth,
+          RULES.body.minColliderRadius,
+          RULES.body.maxColliderRadius,
+        ),
+      });
+    }
   }
   return out;
 }
@@ -307,11 +315,18 @@ export function develop(traits: Traits): BodyPlan {
   while (!fits(count, parts)) parts = parts.slice(0, -1);
 
   if (2 * motileArea(parts) < D.minThrustArea) {
-    for (;;) {
-      const band = bandParts(parts, count - 1);
-      const trial = band && shape(band, segments);
-      if (trial && fits(count, [...parts, ...trial])) {
-        parts = [...parts, ...trial];
+    // Try the rear segment first, then the ones in front of it, before giving up any part.
+    const withBand = (): Part[] | null => {
+      for (let seg = count - 1; seg >= 0; seg--) {
+        const band = bandParts(parts, seg);
+        const trial = band && shape(band, segments);
+        if (trial && fits(count, [...parts, ...trial])) return [...parts, ...trial];
+      }
+      return null;
+    };
+    for (let banded = withBand(); ; banded = withBand()) {
+      if (banded) {
+        parts = banded;
         break;
       }
       parts = parts.slice(0, -1);
@@ -394,8 +409,34 @@ export function bodyViolations(plan: BodyPlan): string[] {
     if (hypot(c.x, c.y) + c.r > RULES.body.maxReach)
       bad.push('colliders: a circle reaches past the body limit');
   }
+  for (const c of plan.colliders) {
+    if (c.r < RULES.body.minColliderRadius || c.r > RULES.body.maxColliderRadius) {
+      bad.push(`colliders: radius ${c.r} is outside the body limits`);
+    }
+  }
+  for (const a of plan.appendages) {
+    if (!(a.length > 0) || !(a.width > 0)) bad.push('appendage with no length or width');
+    if (a.angle < 0 || a.angle > PI) bad.push(`appendage angle ${a.angle} is outside 0-π`);
+  }
+  for (let i = 0; i + 1 < plan.appendages.length; i += 2) {
+    const [l, r] = [plan.appendages[i], plan.appendages[i + 1]] as [Appendage, Appendage];
+    if (l.side !== 1 || r.side !== -1 || l.segment !== r.segment || l.angle !== r.angle) {
+      bad.push('appendages are not mirrored in pairs');
+      break;
+    }
+  }
+  if (plan.appendages.length % 2 === 1) bad.push('appendages are not mirrored in pairs');
   const m = plan.mouth;
-  if (!m || !(m.radius > 0) || !(m.arc > 0) || !(m.offset >= 0)) bad.push('no mouth at the front');
+  const b = RULES.body;
+  if (
+    !m ||
+    !(m.offset >= 0 && m.offset <= b.maxReach) ||
+    !(m.radius >= b.minMouthRadius && m.radius <= b.maxMouthRadius) ||
+    !(m.arc >= b.minMouthArc && m.arc <= PI) ||
+    !(m.digestion >= b.digestionMin && m.digestion <= b.digestionMax)
+  ) {
+    bad.push('no usable mouth at the front');
+  }
   if (motileArea(plan.appendages) < D.minThrustArea) bad.push('no propulsion source');
   const bound = planBounds(plan);
   if (bound > caps.bounds) bad.push(`bounds: ${bound} is beyond ${caps.bounds} core radii`);
