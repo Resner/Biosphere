@@ -121,7 +121,7 @@ Death is common and never total: you fall back to your pending offspring or your
   - Generation = max(parents' generations) + 1.
 - **Promotion**: becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition and remaining lifespan, frozen. The child hatches beside it.
 - **Death**: choose between your pending offspring (if any) and your **nearest surviving ancestor** in your checkpoint chain, which comes back with its saved condition and remaining lifespan. Dead or exhausted ancestors are skipped. If nothing survives, hatch a new genesis cell; the old lineage remains as history.
-- **Genesis**: DNA from a committed future drand round (ADR 0010). At most one genesis per identity at a time, and at most 1 per 10 min. Genesis cells come from a narrow starter distribution (§6). Rare traits mostly arise through breeding.
+- **Genesis**: DNA from a committed future drand round (ADR 0010, 0019). At most one living genesis creature per identity, and hatches come from a token bucket: burst 5, one token back every 5 min (M4; replaces "1 per 10 min" so early deaths don't mean a long wait). While rate limited, queued or offline you can swim an **unregistered** cell: a local random body that writes nothing and can't mate. Genesis cells come from a narrow starter distribution (§6). Rare traits mostly arise through breeding.
 
 ## 6. Genetics and development (M3; ADR 0006)
 

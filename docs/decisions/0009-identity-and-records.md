@@ -1,6 +1,6 @@
 # 0009: Identity and UTXO-like lineage records
 
-- Status: accepted
+- Status: accepted (amended by 0019: `t` and `age` live in the authority's acceptance, not in the owner-signed record)
 - Date: 2026-10-25
 
 ## Context
