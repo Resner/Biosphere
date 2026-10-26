@@ -113,7 +113,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Done: `src/ledger/drand.ts` (also `roundTime`, `DRAND_HOSTS`, a `timeoutMs` argument on `fetchBeacon`), `tools/record-drand.{ts,mjs}` (`npm run record:drand`), 600 rounds 33409837 to 33410436 recorded in `tests/fixtures/drand/`. `verifyBeacon` costs about 28 ms in Node.
   - Gotcha: verifying 600 beacons one by one takes 17 s, so the unit test checks all 600 as one aggregate (about 7 s) plus ten single ones; the recorder verifies each singly. Biome ignores `tests/fixtures`.
 
-- [ ] T4 Ledger store: the UTXO rule, heads and the authority key (in progress)
+- [x] T4 Ledger store: the UTXO rule, heads and the authority key
   - Acceptance (workerd tests, written first):
     - Migration 2 creates `players`, `creatures` (head: `id`, `owner`, `status`, `seq`, `hash`, `genome`, `activeMs`, condition, `bornT`, `diedT`), `records`, `commitments`, `beacons`, `keys`, `usage`, `flags`, `genesis_log`. Migrations are append-only (the existing ones are untouched) and a second start applies nothing.
     - `Ledger.accept(request)` is one SQLite transaction: a transition with `prev` equal to the creature's head hash and `seq` equal to head `seq + 1` is accepted, countersigned and returned; the head moves; an identical resubmission (same request hash) returns the same stored record and writes nothing; a request with a stale `prev` or a wrong `seq` is rejected as `conflict` and logged in `flags` (kind, owner, creature, hash, time); an unknown creature, a record for another owner's creature, a transition on a `dead` creature, and a non-genesis record without a creature are rejected with named reasons.
@@ -121,6 +121,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
     - The authority key is generated on first use (`crypto.getRandomValues`, 32 bytes), stored in `keys`, reused after an eviction (`evictDurableObject`), and never appears in any response, log line or error. `GET /v1/pubkeys` (origin-checked like health) returns `{ keys: [{ id, publicKey, from }] }` and every stored record passes `checkStored` with it.
     - Writes: accepting one checkpoint costs at most 3 row writes (record, head, and nothing else); the test counts rows written through the SQL cursor's `rowsWritten`.
   - Notes: `worker/ledger.ts` is plain functions over `SqlStorage` so tests don't need sockets. The ledger imports `src/ledger` for hashing and signatures; it never trusts a client-supplied hash. Keep all SQL in one place. `players` stores `playerId`, first seen and last seen only (no names; names stay in the hub).
+  - Done: `worker/ledger.ts` (`Ledger.accept/head/chain/flags/pubkeys`, `rowsWritten` counter for the usage meter), migration 2, `/v1/pubkeys`. A checkpoint writes 2 rows (the `records` and `creatures` tables are WITHOUT ROWID so no hidden index rows). Gotchas: `accept` trusts the caller to have authenticated `owner`; T6 must check the genesis genome text against `body.genome` before calling it; T7 owns plausibility of `rules` and condition values.
 
 - [ ] T5 Beacon service: cache, commitments, alarms and the fixture entry
   - Acceptance (workerd tests; time is faked):

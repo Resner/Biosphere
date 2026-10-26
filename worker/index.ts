@@ -12,14 +12,15 @@ function json(body: unknown, status: number, headers: Record<string, string> = {
   });
 }
 
-function health(origin: string | null): Response {
-  // A request without Origin (curl, uptime checks) is fine here: the endpoint holds nothing private.
+/** A public read-only answer. A request without Origin (curl, uptime checks) is fine: these endpoints hold nothing private. */
+async function publicJson(
+  origin: string | null,
+  body: () => unknown,
+  headers: Record<string, string> = {},
+): Promise<Response> {
   if (origin !== null && !isAllowedOrigin(origin)) return json({ error: 'origin' }, 403);
   const cors = origin ? { 'Access-Control-Allow-Origin': origin } : {};
-  return json({ ok: true, version: __VERSION__, protocol: PROTOCOL_VERSION }, 200, {
-    ...cors,
-    Vary: 'Origin',
-  });
+  return json(await body(), 200, { ...cors, ...headers, Vary: 'Origin' });
 }
 
 function hub(request: Request, env: Env): Response | Promise<Response> {
@@ -40,7 +41,24 @@ function hub(request: Request, env: Env): Response | Promise<Response> {
 export default {
   fetch(request: Request, env: Env): Response | Promise<Response> {
     const { pathname } = new URL(request.url);
-    if (pathname === '/v1/health') return health(request.headers.get('Origin'));
+    const origin = request.headers.get('Origin');
+    if (pathname === '/v1/health') {
+      return publicJson(origin, () => ({
+        ok: true,
+        version: __VERSION__,
+        protocol: PROTOCOL_VERSION,
+      }));
+    }
+    if (pathname === '/v1/pubkeys') {
+      // Keys are never rotated, so browsers and the edge may keep the list for a while.
+      return publicJson(
+        origin,
+        async () => ({
+          keys: await env.AUTHORITY.get(env.AUTHORITY.idFromName('global')).pubkeys(),
+        }),
+        { 'Cache-Control': 'public, max-age=300' },
+      );
+    }
     if (pathname === '/v1/hub') return hub(request, env);
     return json({ error: 'not-found' }, 404);
   },
