@@ -24,6 +24,7 @@ import {
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
+import { type KeyEntry, Ledger } from './ledger';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
 
@@ -47,10 +48,17 @@ type Session = (
 /** The one authority object (ADR 0008). Handles messages and alarms only: no game loop. */
 export class Authority extends DurableObject<Env> {
   readonly turn = new TurnCredentials();
+  readonly ledger: Ledger;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
+    this.ledger = new Ledger(ctx.storage);
     ctx.blockConcurrencyWhile(async () => migrate(ctx.storage.sql));
+  }
+
+  /** The public halves of every authority key (`GET /v1/pubkeys`). */
+  pubkeys(): KeyEntry[] {
+    return this.ledger.pubkeys();
   }
 
   override async fetch(): Promise<Response> {
