@@ -27,20 +27,15 @@ export class Screens {
   private limited = false;
 
   constructor(handlers: { hatch(): void; practice(): void }) {
-    for (const id of ['hatch', 'hatch-again']) {
-      const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
-      this.buttons.push(button);
-      button.addEventListener('click', () => {
-        handlers.hatch();
-      });
-    }
-    for (const id of ['practice', 'practice-again']) {
-      const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
-      this.practice.push(button);
-      button.addEventListener('click', () => {
-        handlers.practice();
-      });
-    }
+    const bind = (ids: string[], into: HTMLButtonElement[], click: () => void): void => {
+      for (const id of ids) {
+        const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
+        into.push(button);
+        button.addEventListener('click', click);
+      }
+    };
+    bind(['hatch', 'hatch-again'], this.buttons, handlers.hatch);
+    bind(['practice', 'practice-again'], this.practice, handlers.practice);
   }
 
   /** Greys out the hatch buttons while a hatch waits for the hub. */

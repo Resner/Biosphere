@@ -46,8 +46,10 @@ export class Hud {
     if (!clock) return;
     setText(this.stage, stageWord(clock.stage));
     setText(this.lifeLeft, remainingText(clock.remainingMs));
-    setBar(this.lifeBar, clock.lifespanMs > 0 ? clock.remainingMs / clock.lifespanMs : 0);
-    this.lifeMeter.toggleAttribute('data-old', clock.stage === 'old');
+    setBar(this.lifeBar, clock.remainingMs / clock.lifespanMs);
+    const old = clock.stage === 'old';
+    if (this.lifeMeter.hasAttribute('data-old') !== old)
+      this.lifeMeter.toggleAttribute('data-old', old);
   }
 
   /** A short line in the middle of the screen. */

@@ -112,8 +112,8 @@ export class LifeFlow {
   private lastTicks = 0;
   private rebase = false;
   private last: GenesisMsg | null = null;
-  /** The hub's last word on the life clock, and the game's tick count when it was true. */
-  private base = { activeMs: 0, ticks: 0 };
+  /** The game's tick count when the hub's last word on the life clock (`activeMs`) was true. */
+  private baseTicks = 0;
   private sentReports: { n: number; ticks: number }[] = [];
   private oldAge = false;
 
@@ -150,7 +150,7 @@ export class LifeFlow {
   ): LifeClock | null {
     if (this.status !== 'playing') return null;
     const lifespanMs = this.lifespanMs > 0 ? this.lifespanMs : fallbackLifespanMs;
-    const activeMs = this.base.activeMs + Math.max(0, ticks - this.base.ticks) * MS_PER_TICK;
+    const activeMs = this.activeMs + Math.max(0, ticks - this.baseTicks) * MS_PER_TICK;
     return {
       activeMs,
       lifespanMs,
@@ -183,7 +183,7 @@ export class LifeFlow {
         this.lastAckN = Math.max(this.lastAckN, msg.n);
         this.activeMs = msg.activeMs;
         this.lifespanMs = msg.lifespanMs;
-        this.base = { activeMs: msg.activeMs, ticks: this.ticksOf(msg.n) };
+        this.baseTicks = this.ticksOf(msg.n);
         break;
       case 'commit':
         if (this.status === 'requesting') this.status = 'awaiting';
@@ -305,7 +305,7 @@ export class LifeFlow {
     this.tickBase = 0;
     this.lastTicks = 0;
     this.rebase = false;
-    this.base = { activeMs: start.activeMs, ticks: 0 };
+    this.baseTicks = 0;
     this.sentReports = [];
     this.oldAge = false;
     return { kind: 'recorded', start };
