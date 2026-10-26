@@ -2,6 +2,7 @@ import type { Canonical } from '../ledger/canonical';
 import type { Beacon } from '../ledger/drand';
 import type { Commitment, GenesisAsk } from '../ledger/genesis';
 import type { StoredRecord } from '../ledger/record';
+import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
 export const PROTOCOL_VERSION = 1;
@@ -20,6 +21,8 @@ export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;
 /** A `genesis` carries a record, a commitment, a beacon and a genome text. */
 export const GENESIS_MAX_BYTES = 8192;
+/** A `history` carries up to `HISTORY_MAX` past lives of about 250 bytes each. */
+export const HISTORY_MAX_BYTES = 8192;
 export const EVENT_MAX_BYTES = 2048;
 export const SNAPSHOT_BYTES = 25;
 /** The snapshot layout version, the last byte of every snapshot. */
@@ -50,6 +53,8 @@ const HEX64_RE = /^[0-9a-f]{64}$/;
 const BEACON_SIG_RE = /^[0-9a-f]{96}$/;
 /** An authority key id: 6 bytes of base64url. */
 const KEY_ID_RE = /^[A-Za-z0-9_-]{8}$/;
+/** A species name: two words of letters, as `speciesName` makes them. */
+const SPECIES_RE = /^[A-Za-z]{2,40} [A-Za-z]{2,40}$/;
 const REASON_RE = /^[a-z0-9:-]{1,48}$/;
 /** The most a record body may nest and hold, so a hostile body stays small. */
 const BODY_MAX_DEPTH = 4;
@@ -103,12 +108,40 @@ export interface LifeInfo {
   lifespanMs: number;
 }
 
+/** A finished life as the history lists it (ADR 0019); the species name is derived from the genome. */
+export interface PastLife {
+  creature: string;
+  species: string;
+  cause: DeathCause;
+  activeMs: number;
+  bornT: number;
+  diedT: number;
+}
+
+/** Every cause a death record can name (a `Record`, so a new `DeathCause` fails to compile until it is listed). A client may report all but `old-age`, which only the authority decides. */
+const CAUSES: Record<DeathCause, true> = {
+  starved: true,
+  toxin: true,
+  'old-age': true,
+  uv: true,
+  pressure: true,
+  killed: true,
+};
+export const isCause = (v: unknown): v is DeathCause =>
+  typeof v === 'string' && Object.hasOwn(CAUSES, v);
+/** Past lives one `history` answer carries. */
+export const HISTORY_MAX = 20;
+
 /** Hub WebSocket, client to hub. */
 export type ClientMsg =
   | { t: 'hello'; v: 1; playerId: string; name: string; sig: string }
   | { t: 'genesis-request'; nonce: string; sig: string }
   /** Life report, about every 30 s: `n` counts up, `ticks` is cumulative for this connection, the rest is the condition in hundredths. */
   | { t: 'progress'; n: number; ticks: number; biomass: number; energy: number; health: number }
+  /** The creature died of `cause`; `ticks` is the cumulative count as in `progress`, so the last stretch is credited. */
+  | { t: 'death'; cause: DeathCause; ticks: number }
+  /** The player's past lives, newest first. */
+  | { t: 'history' }
   | { t: 'ping'; id: number }
   | { t: 'signal'; to: string; kind: 'offer' | 'answer'; sdp: string }
   | { t: 'leave' };
@@ -130,8 +163,11 @@ export type HubMsg =
   | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string }
   /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
   | { t: 'life'; life: LifeInfo | null; genesisIn: number }
-  /** A `progress` was taken: `activeMs` is the creature's life clock after crediting it. */
-  | { t: 'ack'; n: number; activeMs: number }
+  /** A `progress` was taken: `activeMs` is the creature's life clock after crediting it, `lifespanMs` its total. */
+  | { t: 'ack'; n: number; activeMs: number; lifespanMs: number }
+  /** The creature's life is over: the cause and the `death` record that closes its chain. */
+  | { t: 'died'; cause: DeathCause; record: StoredRecord }
+  | { t: 'history'; lives: PastLife[] }
   /** A genesis request was accepted: the committed round, and how many hatches are left. */
   | { t: 'commit'; commit: SignedCommit; hatchesLeft: number }
   /** The committed round's beacon exists: everything a client needs to recompute the DNA. */
@@ -385,6 +421,12 @@ export function parseClientMsg(raw: string): ClientMsg | null {
             health: o.health,
           })
         : null;
+    case 'death':
+      return isCause(o.cause) && isInt(o.ticks, 0, MAX_TICK)
+        ? capped(raw, { t: 'death', cause: o.cause, ticks: o.ticks })
+        : null;
+    case 'history':
+      return capped(raw, { t: 'history' });
     default:
       return null;
   }
@@ -420,9 +462,32 @@ export function parseHubMsg(raw: string): HubMsg | null {
         : null;
     }
     case 'ack':
-      return isInt(o.n, 0, MAX_TICK) && isInt(o.activeMs, 0, MAX_TIME)
-        ? capped(raw, { t: 'ack', n: o.n, activeMs: o.activeMs })
+      return isInt(o.n, 0, MAX_TICK) &&
+        isInt(o.activeMs, 0, MAX_TIME) &&
+        isInt(o.lifespanMs, 0, MAX_TIME)
+        ? capped(raw, {
+            t: 'ack',
+            n: o.n,
+            activeMs: o.activeMs,
+            lifespanMs: o.lifespanMs,
+          })
         : null;
+    case 'died': {
+      const record = storedRecord(o.record);
+      return isCause(o.cause) && record
+        ? capped(raw, { t: 'died', cause: o.cause, record }, GENESIS_MAX_BYTES)
+        : null;
+    }
+    case 'history': {
+      if (!Array.isArray(o.lives) || o.lives.length > HISTORY_MAX) return null;
+      const lives: PastLife[] = [];
+      for (const raw of o.lives) {
+        const life = pastLife(raw);
+        if (!life) return null;
+        lives.push(life);
+      }
+      return capped(raw, { t: 'history', lives }, HISTORY_MAX_BYTES);
+    }
     case 'commit': {
       const commit = signedCommit(o.commit);
       return commit && isInt(o.hatchesLeft, 0, 100)
@@ -451,6 +516,25 @@ export function parseHubMsg(raw: string): HubMsg | null {
     default:
       return null;
   }
+}
+
+function pastLife(v: unknown): PastLife | null {
+  return isObj(v) &&
+    isStr(v.creature, HEX64_RE) &&
+    isStr(v.species, SPECIES_RE) &&
+    isCause(v.cause) &&
+    isInt(v.activeMs, 0, MAX_TIME) &&
+    isInt(v.bornT, 0, MAX_TIME) &&
+    isInt(v.diedT, 0, MAX_TIME)
+    ? {
+        creature: v.creature,
+        species: v.species,
+        cause: v.cause,
+        activeMs: v.activeMs,
+        bornT: v.bornT,
+        diedT: v.diedT,
+      }
+    : null;
 }
 
 function genesisAsk(v: unknown): GenesisAsk | null {

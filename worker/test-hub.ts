@@ -155,3 +155,28 @@ export const rowsWritten = () =>
     stub(),
     (authority) => (authority as unknown as { ledger: { rowsWritten: number } }).ledger.rowsWritten,
   );
+
+export interface Condition {
+  biomass: number;
+  energy: number;
+  health: number;
+}
+export const CALM: Condition = { biomass: 10_000, energy: 12_000, health: 10_000 };
+
+let reports = 0;
+/** Sends a `progress` for `c`; `n` counts up by default. */
+export function report(c: Client, ticks: number, cond: Condition = CALM, n = ++reports) {
+  c.send({ t: 'progress', n, ticks, ...cond });
+}
+
+/** Everything the hub sends up to the answer to a ping, so a silent message shows as nothing. */
+export async function flush(c: Client): Promise<HubMsg[]> {
+  const id = 1 + (++reports % 1000);
+  c.send({ t: 'ping', id });
+  const out: HubMsg[] = [];
+  for (;;) {
+    const msg = await c.next();
+    if (msg.t === 'pong' && msg.id === id) return out;
+    out.push(msg);
+  }
+}

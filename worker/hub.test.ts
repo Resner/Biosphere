@@ -457,7 +457,7 @@ describe('ponds', () => {
           )
           .one().n,
     );
-    expect(rows).toBe(4); // the pond and the three schema versions
+    expect(rows).toBe(5); // the pond and the four schema versions
   });
 
   it('keeps the pond and the roster across hibernation', async () => {

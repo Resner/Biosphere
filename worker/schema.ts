@@ -100,6 +100,8 @@ const MIGRATIONS = [
   `ALTER TABLE players ADD COLUMN hatches INTEGER NOT NULL DEFAULT 3;
   ALTER TABLE players ADD COLUMN hatch_t INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE players ADD COLUMN pending TEXT NOT NULL DEFAULT ''`,
+  // A player's finished lives, newest first (the history list).
+  `CREATE INDEX creatures_dead ON creatures (owner, died_t) WHERE status = 'dead'`,
 ];
 
 /** Applies pending migrations, recorded in `migrations` (`PRAGMA user_version` is not permitted in a Durable Object). */

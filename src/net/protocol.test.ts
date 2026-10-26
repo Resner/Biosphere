@@ -240,6 +240,9 @@ const clientMsgs = [
   { t: 'leave' },
   { t: 'genesis-request', nonce: NONCE, sig: SIG },
   { t: 'progress', n: 7, ticks: 12_000, biomass: 14_250, energy: 20_000, health: 3_700 },
+  { t: 'death', cause: 'toxin', ticks: 12_345 },
+  { t: 'death', cause: 'old-age', ticks: 0 },
+  { t: 'history' },
 ];
 
 const hubMsgs: HubMsg[] = [
@@ -273,7 +276,22 @@ const hubMsgs: HubMsg[] = [
   genesisMsg as unknown as HubMsg,
   { t: 'refused', reason: 'active' },
   { t: 'refused', reason: 'limit', genesisIn: 300_000 },
-  { t: 'ack', n: 7, activeMs: 400_000 },
+  { t: 'ack', n: 7, activeMs: 400_000, lifespanMs: 4_500_000 },
+  { t: 'died', cause: 'old-age', record: genesisMsg.record },
+  { t: 'history', lives: [] },
+  {
+    t: 'history',
+    lives: [
+      {
+        creature: HEX,
+        species: 'Aquoris natans',
+        cause: 'starved',
+        activeMs: 1000,
+        bornT: 5,
+        diedT: 9,
+      },
+    ],
+  },
 ];
 
 const peerEvents = [
@@ -570,7 +588,10 @@ describe('genesis messages', () => {
       genesisMsg,
       { t: 'refused', reason: 'limit', genesisIn: 5 },
       { t: 'progress', n: 1, ticks: 30, biomass: 10_000, energy: 100, health: 100 },
-      { t: 'ack', n: 1, activeMs: 1000 },
+      { t: 'ack', n: 1, activeMs: 1000, lifespanMs: 4_500_000 },
+      { t: 'death', cause: 'uv', ticks: 90 },
+      { t: 'died', cause: 'uv', record: genesisMsg.record },
+      { t: 'history', lives: [] },
     ].map((m) => JSON.stringify(m));
     const alphabet = '{}[]":,0123456789abt_-.\\ \nxé€';
     let threw = 0;
@@ -598,6 +619,29 @@ describe('genesis messages', () => {
       }
     }
     expect(threw).toBe(0);
+  });
+});
+
+describe('death and history messages', () => {
+  it('rejects an unknown cause, a missing tick count and more than 20 lives', () => {
+    expect(parseClientMsg(JSON.stringify({ t: 'death', cause: 'boredom', ticks: 1 }))).toBeNull();
+    expect(parseClientMsg(JSON.stringify({ t: 'death', cause: 'toxin' }))).toBeNull();
+    expect(parseClientMsg(JSON.stringify({ t: 'death', cause: 'toxin', ticks: -1 }))).toBeNull();
+    const one = {
+      creature: HEX,
+      species: 'Aquoris natans',
+      cause: 'uv',
+      activeMs: 1,
+      bornT: 1,
+      diedT: 2,
+    };
+    const many = (n: number) => JSON.stringify({ t: 'history', lives: Array(n).fill(one) });
+    expect(parseHubMsg(many(20))).not.toBeNull();
+    expect(parseHubMsg(many(21))).toBeNull();
+    expect(
+      parseHubMsg(JSON.stringify({ t: 'history', lives: [{ ...one, species: '<b>x</b>' }] })),
+    ).toBeNull();
+    expect(parseHubMsg(JSON.stringify({ t: 'ack', n: 1, activeMs: 2 }))).toBeNull();
   });
 });
 

@@ -1,3 +1,4 @@
+import type { Canonical } from '../src/ledger/canonical';
 import { fromBase64Url, verify } from '../src/ledger/identity';
 import {
   authorityKeyId,
@@ -49,6 +50,15 @@ export interface Head {
   health: number;
   bornT: number;
   diedT: number | null;
+}
+
+export interface PastLifeRow {
+  creature: string;
+  genome: string;
+  activeMs: number;
+  bornT: number;
+  diedT: number;
+  cause: Canonical | null | undefined;
 }
 
 export interface Flag {
@@ -183,6 +193,34 @@ export class Ledger {
       commitId,
     );
     return left;
+  }
+
+  /** The record that ended the creature's life, or null while it lives. */
+  deathRecord(creature: string): StoredRecord | null {
+    const row = this.run(
+      "SELECT * FROM records WHERE creature = ? AND kind = 'death'",
+      creature,
+    )[0];
+    return row ? asStored(row) : null;
+  }
+
+  /** The player's finished lives, newest death first, with the cause their death record names. */
+  history(owner: string, limit: number): PastLifeRow[] {
+    return this.run(
+      `SELECT c.id, c.genome, c.active_ms, c.born_t, c.died_t,
+         (SELECT json FROM records r WHERE r.creature = c.id AND r.seq = c.seq AND r.kind = 'death') AS death
+       FROM creatures c WHERE c.owner = ? AND c.status = 'dead'
+       ORDER BY c.died_t DESC, c.born_t DESC LIMIT ?`,
+      owner,
+      limit,
+    ).map((r) => ({
+      creature: r.id as string,
+      genome: r.genome as string,
+      activeMs: r.active_ms as number,
+      bornT: r.born_t as number,
+      diedT: r.died_t as number,
+      cause: r.death ? (JSON.parse(r.death as string) as LedgerRecord).body.cause : null,
+    }));
   }
 
   /** A creature's records in order. */
@@ -361,6 +399,11 @@ export class Ledger {
   private flag(kind: string, request: RecordRequest, hash: string, t: number): void {
     // One row per distinct request, so a replayed bad request can't grow the log.
     this.insertFlag(kind, request.owner, request.creature, hash, t, 'hash');
+  }
+
+  /** Notes a death report that names no creature of the player's: one row per player, however often it repeats. */
+  flagStray(owner: string, t: number): void {
+    this.insertFlag('stray-death', owner, '', owner, t, 'hash');
   }
 
   /** Notes an implausible report: one row per kind and creature, however many connections send it. */

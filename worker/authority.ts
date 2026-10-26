@@ -1,6 +1,7 @@
 import { DurableObject } from 'cloudflare:workers';
-import { genomeFromBase64url, genomeToBase64url } from '../src/genome/codec';
+import { type Genome, genomeFromBase64url, genomeToBase64url } from '../src/genome/codec';
 import { express } from '../src/genome/express';
+import { speciesName } from '../src/genome/names';
 import { randomnessOf } from '../src/ledger/drand';
 import {
   type GenesisAsk,
@@ -21,7 +22,9 @@ import {
   CLOSE_RATE_LIMITED,
   CLOSE_REPLACED,
   type ClientMsg,
+  HISTORY_MAX,
   type HubMsg,
+  isCause,
   isOtherVersionHello,
   type LifeInfo,
   type Member,
@@ -36,9 +39,18 @@ import {
 import { isProfane } from '../src/net/text';
 import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
+import type { DeathCause } from '../src/sim/types';
 import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from './beacons';
 import { type Head, type KeyEntry, Ledger } from './ledger';
-import { applyReport, bindLife, checkpointDue, type LifeState, unsaved } from './life';
+import {
+  applyReport,
+  bindLife,
+  checkpointDue,
+  creditTicks,
+  isOld,
+  type LifeState,
+  unsaved,
+} from './life';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
 
@@ -175,6 +187,12 @@ export class Authority extends DurableObject<Env> {
         return;
       case 'progress':
         this.progress(ws, session, msg, now);
+        return;
+      case 'death':
+        this.death(ws, session, msg, now);
+        return;
+      case 'history':
+        this.history(ws, session.playerId);
         return;
     }
   }
@@ -323,13 +341,111 @@ export class Authority extends DurableObject<Env> {
   ): void {
     // No creature bound (none yet, or it is gone): nothing to credit.
     if (!session.life || msg.n <= session.life.n) return;
+    if (session.life.over) {
+      sendIfOpen(ws, { t: 'refused', reason: 'dead' });
+      return;
+    }
     const { life, newFlags } = applyReport(session.life, msg, now);
     for (const kind of newFlags) {
       this.ledger.flagImplausible(kind, session.playerId, life.creature, now);
     }
-    const next = checkpointDue(life) ? this.checkpoint(life, session.playerId) : life;
+    let next = checkpointDue(life) ? this.checkpoint(life, session.playerId) : life;
+    sendIfOpen(ws, { t: 'ack', n: msg.n, activeMs: next.activeMs, lifespanMs: next.lifespanMs });
+    // Old age is decided here, on the authority's clock: the client counts down, but never has the last word.
+    if (isOld(next)) next = this.finish(ws, next, session.playerId, 'old-age');
     ws.serializeAttachment({ ...session, life: next } satisfies Session);
-    sendIfOpen(ws, { t: 'ack', n: msg.n, activeMs: next.activeMs });
+  }
+
+  /** A client's report that its creature died; the ticks since its last report are credited first. */
+  private death(
+    ws: WebSocket,
+    session: ActiveSession,
+    msg: ClientMsg & { t: 'death' },
+    now: number,
+  ): void {
+    if (msg.cause === 'old-age') {
+      sendIfOpen(ws, { t: 'refused', reason: 'cause' });
+      return;
+    }
+    if (!session.life) {
+      // Nothing of this player's to end: note it once and say nothing.
+      this.ledger.flagStray(session.playerId, now);
+      return;
+    }
+    if (session.life.over) {
+      // A repeat gets the first answer, whatever cause it names.
+      const record = this.ledger.deathRecord(session.life.creature);
+      if (record) sendIfOpen(ws, { t: 'died', cause: causeOf(record.record.body.cause), record });
+      return;
+    }
+    // The checkpoint keeps what the last report said; the stretch since then is credited to the death.
+    const saved = unsaved(session.life)
+      ? this.checkpoint(session.life, session.playerId)
+      : session.life;
+    const life = this.finish(ws, creditTicks(saved, msg.ticks, now), session.playerId, msg.cause);
+    ws.serializeAttachment({ ...session, life } satisfies Session);
+  }
+
+  /**
+   * Ends the creature's life: a checkpoint of its last condition (when it has played since the last
+   * record), then the `death` record, and `died` to the owner. A ledger that refuses leaves the
+   * creature as it was, and the next report or request tries again.
+   */
+  private finish(ws: WebSocket, life: LifeState, owner: string, cause: DeathCause): LifeState {
+    const saved = unsaved(life) ? this.checkpoint(life, owner) : life;
+    const head = this.ledger.head(life.creature);
+    if (head?.status !== 'active' || head.owner !== owner) return { ...saved, over: true };
+    const accepted = this.ledger.append(head, 'death', {
+      cause,
+      activeMs: saved.activeMs,
+      biomass: saved.biomass,
+    });
+    if (!accepted.ok) return saved;
+    sendIfOpen(ws, { t: 'died', cause, record: accepted.stored });
+    return { ...saved, savedMs: saved.activeMs, savedN: saved.n, over: true };
+  }
+
+  /** The player's finished lives, newest first. */
+  private history(ws: WebSocket, playerId: string): void {
+    // Field by field: this is a network message, so a column added to the row later isn't sent by accident.
+    const lives = this.ledger.history(playerId, HISTORY_MAX).flatMap((row) => {
+      const genome = genomeFromBase64url(row.genome);
+      if (!genome) return [];
+      const { creature, activeMs, bornT, diedT } = row;
+      return [
+        {
+          creature,
+          species: speciesName(genome),
+          cause: causeOf(row.cause),
+          activeMs,
+          bornT,
+          diedT,
+        },
+      ];
+    });
+    sendIfOpen(ws, { t: 'history', lives });
+  }
+
+  /** The head as the client resumes it. */
+  private lifeOf(head: Head): LifeInfo {
+    const genome = genomeFromBase64url(head.genome);
+    return {
+      creature: head.id,
+      seq: head.seq,
+      genome: head.genome,
+      biomass: head.biomass,
+      energy: head.energy,
+      health: head.health,
+      activeMs: head.activeMs,
+      lifespanMs: genome ? this.lifespanOf(genome) : 0,
+    };
+  }
+
+  /** The lifespan this object gives a genome: its trait, shortened by `LIFESPAN_SCALE` in fixture mode only. */
+  private lifespanOf(genome: Genome): number {
+    const scale = Number(this.env.LIFESPAN_SCALE);
+    const shortened = this.env.DRAND_SOURCE === 'fixture' && scale > 0 && scale <= 1 ? scale : 1;
+    return Math.round(lifespanMs(express(genome).physiology.lifespan) * shortened);
   }
 
   /** The player's active creature as a fresh connection state, or undefined without one. */
@@ -341,7 +457,7 @@ export class Authority extends DurableObject<Env> {
   /** A connection's state for `head`; none when its genome doesn't decode, so nothing is credited to it. */
   private bindHead(head: Head, now: number): LifeState | undefined {
     const genome = genomeFromBase64url(head.genome);
-    return genome ? bindLife(head, genome, now) : undefined;
+    return genome ? bindLife(head, genome, now, this.lifespanOf(genome)) : undefined;
   }
 
   /** Writes the creature's condition as a checkpoint record; the state comes back marked saved only if the ledger took it. */
@@ -442,7 +558,7 @@ export class Authority extends DurableObject<Env> {
   private sendLife(ws: WebSocket, playerId: string): void {
     const head = this.ledger.active(playerId);
     const { left, genesisIn } = this.ledger.hatches(playerId, Date.now());
-    sendIfOpen(ws, { t: 'life', life: head ? lifeOf(head) : null, genesisIn });
+    sendIfOpen(ws, { t: 'life', life: head ? this.lifeOf(head) : null, genesisIn });
     // A genesis still waiting on its round is announced again, and its creature follows when the round comes.
     const waiting = this.ledger.pendingCommit(playerId);
     const commit = waiting ? this.beacons.commitment(waiting) : null;
@@ -583,20 +699,8 @@ const signedOf = ({ commitment, authSig, keyId }: SignedCommitment): SignedCommi
   keyId,
 });
 
-/** The head as the client resumes it; the lifespan comes from the genome's lifespan trait. */
-function lifeOf(head: Head): LifeInfo {
-  const genome = genomeFromBase64url(head.genome);
-  return {
-    creature: head.id,
-    seq: head.seq,
-    genome: head.genome,
-    biomass: head.biomass,
-    energy: head.energy,
-    health: head.health,
-    activeMs: head.activeMs,
-    lifespanMs: Math.round(genome ? lifespanMs(express(genome).physiology.lifespan) : 0),
-  };
-}
+/** A stored death cause; anything unrecognised reads as `killed`. */
+const causeOf = (value: unknown): DeathCause => (isCause(value) ? value : 'killed');
 
 /** `bytes` of randomness as base64url. */
 function randomToken(bytes: number): string {
