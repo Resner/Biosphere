@@ -102,7 +102,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Done: `canonical.ts`, `record.ts` (also `recordProblems`, `requestMessage`, `authorityPublicKey`, `authorityKeyId`, `PubKey`), `signWithSecret` in `identity.ts`, goldens in `src/ledger/__golden__/records.json`. An owner signs `requestMessage` (the JCS bytes) under `bs/req/v1`; the authority signs the hash bytes under `bs/auth/v1`.
   - Gotcha: `JSON.parse` reorders integer-like keys, so key-order tests compare the canonical text, not parsed keys.
 
-- [ ] T3 drand client and recorded fixtures
+- [ ] T3 drand client and recorded fixtures (in progress)
   - Acceptance:
     - `npx -y npm@11 install @noble/curves`; `QUICKNET` carries the pinned chain hash `52db9ba7…e971`, the public key from the chain's `/info`, genesis 1692803367 and period 3. `roundAt(1692803367000) = 1`, `roundAt(1692803369999) = 1`, `roundAt(1692803370000) = 2`, and rounds strictly increase every 3 s.
     - `tools/record-drand.ts` fetches `/info` and 600 consecutive rounds (about 30 min of beacons) from `api.drand.sh` with fallbacks, verifies each, and writes `tests/fixtures/drand/info.json` and `rounds.json` (`{ first, last, beacons: [{ round, signature }] }`). The recorded files are committed. The tool is run once in this task (cloud sessions can reach the hosts); a test fails if the fixtures are missing or stale in shape.
