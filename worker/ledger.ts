@@ -229,12 +229,7 @@ export class Ledger {
       )[0];
       if (first) return { ok: true, stored: asStored(first), fresh: false };
     }
-    if (
-      this.run("SELECT 1 FROM creatures WHERE owner = ? AND status = 'active'", request.owner)
-        .length > 0
-    ) {
-      return refuse('already-active');
-    }
+    if (this.active(request.owner)) return refuse('already-active');
     const record: LedgerRecord = { ...request, t };
     const hash = creatureId(record);
     const stored = this.store(record, hash, req, ownerSig, hash);

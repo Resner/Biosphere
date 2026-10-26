@@ -2,9 +2,6 @@ import { type Canonical, canonicalize, hashWithDomain } from '../src/ledger/cano
 import { type Beacon, fetchBeacon, roundAt, roundTime, verifyBeacon } from '../src/ledger/drand';
 import { type Commitment, commitmentId } from '../src/ledger/genesis';
 
-export type { Commitment };
-export { commitmentId };
-
 // The beacon service (ADR 0010): verified drand beacons cached in SQLite, and commitments that
 // name a future round before it exists. A commitment's round is fixed when it is made; nothing in
 // this module can change it, cancel it or substitute a value.

@@ -25,6 +25,7 @@ import { AUTH_DOMAIN, checkStored, REQUEST_DOMAIN, recordHash } from '../src/led
 import { type HubMsg, parseHubMsg } from '../src/net/protocol';
 import rounds from '../tests/fixtures/drand/rounds.json';
 import type { BeaconSource } from './beacons';
+import { fixtureSource } from './fixture-beacons';
 import { HATCH_REFILL_MS } from './ledger';
 
 const ORIGIN = 'https://resner.github.io';
@@ -32,23 +33,16 @@ const all = rounds.beacons as Beacon[];
 const beaconOf = (round: number): Beacon => all[round - rounds.first] as Beacon;
 const stub = () => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
 
-/** Drand time for the object: starts mid-fixture and only moves when a test says so. */
-const clock = { now: roundTime(rounds.first + 20) + 100 };
-const source: BeaconSource = {
-  now: () => clock.now,
-  async fetch(round) {
-    const r = round === 'latest' ? roundAt(clock.now) : round;
-    if (r > roundAt(clock.now)) throw new Error('not yet published');
-    return beaconOf(r);
-  },
-};
+/** Drand time for the object: starts 20 rounds into the fixture and only moves when a test says so. */
+const clock = { wall: 20 * 3000 + 100 };
+const source: BeaconSource = fixtureSource(0, () => clock.wall);
 const useFakeBeacons = () =>
   runInDurableObject(stub(), (authority) => {
     (authority as unknown as { source: BeaconSource }).source = source;
   });
 /** The network publishes `round`; the object's alarm then resolves what waited for it. */
 async function publish(round: number): Promise<void> {
-  clock.now = Math.max(clock.now, roundTime(round) + 600);
+  clock.wall = Math.max(clock.wall, roundTime(round) - roundTime(rounds.first) + 600);
   await runDurableObjectAlarm(stub());
 }
 
@@ -186,7 +180,7 @@ describe('life after welcome', () => {
 describe('genesis request', () => {
   it('commits at once to a future round and then sends a verifiable genesis', async () => {
     const { c, id } = await login();
-    const latest = roundAt(clock.now);
+    const latest = roundAt(source.now());
     const { commit, hatchesLeft } = await ask(c, id);
     expect(commit.commitment.round).toBe(latest + 2);
     expect(hatchesLeft).toBe(2);

@@ -29,13 +29,14 @@ import {
   type PondInfo,
   parseClientMsg,
   SDP_MAX_BYTES,
+  type SignedCommit,
   SPAWN_GOLDEN_ANGLE,
   type Vec2,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
-import { type BeaconSource, Beacons, liveSource } from './beacons';
+import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from './beacons';
 import { type Head, type KeyEntry, Ledger } from './ledger';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
@@ -217,6 +218,7 @@ export class Authority extends DurableObject<Env> {
       return;
     }
     const data = { nonce: ask.nonce, sig: ask.sig };
+    let hatchesLeft = this.ledger.hatches(owner, Date.now()).left;
     let commit = this.beacons.find('genesis', owner, data);
     if (!commit) {
       const waiting = this.ledger.pendingCommit(owner);
@@ -227,19 +229,15 @@ export class Authority extends DurableObject<Env> {
         sendIfOpen(ws, { t: 'refused', reason: 'active' });
         return;
       }
-      const { left, genesisIn } = this.ledger.hatches(owner, Date.now());
-      if (left < 1) {
+      if (hatchesLeft < 1) {
+        const { genesisIn } = this.ledger.hatches(owner, Date.now());
         sendIfOpen(ws, { t: 'refused', reason: 'limit', genesisIn });
         return;
       }
       commit = await this.beacons.commit('genesis', owner, data);
-      this.ledger.takeHatch(owner, commit.id, Date.now());
+      hatchesLeft = this.ledger.takeHatch(owner, commit.id, Date.now());
     }
-    sendIfOpen(ws, {
-      t: 'commit',
-      commit: { commitment: commit.commitment, authSig: commit.authSig, keyId: commit.keyId },
-      hatchesLeft: this.ledger.hatches(owner, Date.now()).left,
-    });
+    sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
     await this.deliverGenesis(commit.id);
   }
 
@@ -252,16 +250,17 @@ export class Authority extends DurableObject<Env> {
     const owner = commit.commitment.owner;
     const genome = genesisFor(randomnessOf(beacon), commitId);
     const request = genesisRequest(RULES_VERSION, commit.commitment, genome);
-    const accepted = this.ledger.accept({ request, genome: genomeToBase64url(genome) });
+    const text = genomeToBase64url(genome);
+    const accepted = this.ledger.accept({ request, genome: text });
     if (!accepted.ok) return;
     const ask = commit.commitment.data as GenesisAsk;
     const msg: HubMsg = {
       t: 'genesis',
       record: accepted.stored,
       ownerRequest: { nonce: ask.nonce, sig: ask.sig },
-      commit: { commitment: commit.commitment, authSig: commit.authSig, keyId: commit.keyId },
+      commit: signedOf(commit),
       beacon,
-      genome: genomeToBase64url(genome),
+      genome: text,
     };
     for (const [other, theirs] of this.activeSessions()) {
       if (theirs.playerId === owner) sendIfOpen(other, msg);
@@ -351,7 +350,7 @@ export class Authority extends DurableObject<Env> {
   /** The player's active creature (null for a new player) and when the next recorded hatch is allowed. */
   private sendLife(ws: WebSocket, playerId: string): void {
     const head = this.ledger.active(playerId);
-    const { genesisIn } = this.ledger.hatches(playerId, Date.now());
+    const { left, genesisIn } = this.ledger.hatches(playerId, Date.now());
     sendIfOpen(ws, { t: 'life', life: head ? lifeOf(head) : null, genesisIn });
     // A genesis still waiting on its round is announced again, and its creature follows when the round comes.
     const waiting = this.ledger.pendingCommit(playerId);
@@ -359,8 +358,8 @@ export class Authority extends DurableObject<Env> {
     if (commit) {
       sendIfOpen(ws, {
         t: 'commit',
-        commit: { commitment: commit.commitment, authSig: commit.authSig, keyId: commit.keyId },
-        hatchesLeft: this.ledger.hatches(playerId, Date.now()).left,
+        commit: signedOf(commit),
+        hatchesLeft: left,
       });
       this.deliverGenesis(commit.id).catch(() => {});
     }
@@ -475,6 +474,13 @@ export class Authority extends DurableObject<Env> {
 }
 
 type ActiveSession = Session & { phase: 'active' };
+
+/** A commitment as the wire carries it: without the id and status the client recomputes or doesn't need. */
+const signedOf = ({ commitment, authSig, keyId }: SignedCommitment): SignedCommit => ({
+  commitment,
+  authSig,
+  keyId,
+});
 
 /** The head as the client resumes it; the lifespan comes from the genome's lifespan trait. */
 function lifeOf(head: Head): LifeInfo {
