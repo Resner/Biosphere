@@ -3,6 +3,7 @@
 import { HELLO_DOMAIN, helloMessage, type Identity, toBase64Url } from '../ledger/identity';
 import { createRng, type Rng, seedFromString } from '../sim/prng';
 import { PondClock } from './clock';
+import { guarded } from './guarded';
 import {
   CLOSE_ORIGIN,
   CLOSE_REPLACED,
@@ -168,7 +169,7 @@ export class HubClient {
         this.startPings();
         this.lastWelcome = msg;
         this.settleWith(msg);
-        for (const fn of [...this.welcomeListeners]) fn(msg);
+        for (const fn of [...this.welcomeListeners]) guarded(() => fn(msg));
         break;
       case 'pong': {
         const sent = this.pending.get(msg.id);
@@ -178,10 +179,10 @@ export class HubClient {
         break;
       }
       case 'member':
-        for (const fn of [...this.memberListeners]) fn(msg.op, msg.member);
+        for (const fn of [...this.memberListeners]) guarded(() => fn(msg.op, msg.member));
         break;
       case 'signal':
-        for (const fn of [...this.signalListeners]) fn(msg);
+        for (const fn of [...this.signalListeners]) guarded(() => fn(msg));
         break;
       case 'error':
         if (msg.code === 'version') this.versionError = true;

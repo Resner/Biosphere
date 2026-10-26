@@ -1,6 +1,7 @@
 // WebRTC peer mesh: perfect negotiation over the hub's signal relay, non-trickle ICE, and two data
 // channels per peer (`state`: unordered, lossy; `event`: ordered, reliable).
 
+import { guarded } from './guarded';
 import {
   byteLength,
   decodeSnapshot,
@@ -284,6 +285,7 @@ export class PeerMesh {
     this.teardown(link);
     if (!retry) return;
     const delay = Math.min(RETRY_DELAY_MS * 2 ** (attempt - 1), RETRY_DELAY_MAX_MS);
+    this.clearRetry(peerId);
     this.retries.set(
       peerId,
       setTimeout(() => {
@@ -370,7 +372,7 @@ export class PeerMesh {
         this.droppedCount += 1;
         return;
       }
-      for (const fn of this.stateListeners) fn(link.peerId, snapshot);
+      for (const fn of this.stateListeners) guarded(() => fn(link.peerId, snapshot));
       return;
     }
     const event =
@@ -379,7 +381,7 @@ export class PeerMesh {
       this.droppedCount += 1;
       return;
     }
-    for (const fn of this.eventListeners) fn(link.peerId, event);
+    for (const fn of this.eventListeners) guarded(() => fn(link.peerId, event));
   }
 }
 

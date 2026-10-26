@@ -49,8 +49,10 @@ export class TurnCredentials {
     }
     this.inflight ??= mint(keyId, token)
       .then((entries) => {
-        this.cached = entries && { entries, expires: Date.now() + TURN_TTL_S * 1000 };
-        return entries;
+        // A failed refresh keeps serving the old credentials while they are still valid.
+        if (entries) this.cached = { entries, expires: Date.now() + TURN_TTL_S * 1000 };
+        else if (this.cached && this.cached.expires <= Date.now()) this.cached = null;
+        return entries ?? this.cached?.entries ?? null;
       })
       .finally(() => {
         this.inflight = null;

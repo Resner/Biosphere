@@ -104,7 +104,7 @@ export class Authority extends DurableObject<Env> {
         ws.close(CLOSE_BAD_HELLO, 'hello expected');
         return;
       }
-      void this.hello(ws, session, msg);
+      this.hello(ws, session, msg).catch(() => this.drop(ws, CLOSE_BAD_HELLO, 'hello failed'));
       return;
     }
     if (!msg) {
@@ -169,6 +169,10 @@ export class Authority extends DurableObject<Env> {
       ws.close(CLOSE_BAD_HELLO, 'bad hello');
       return;
     }
+    // Replacing an older session, placement, the join broadcast and the welcome follow in one synchronous run, so nobody can
+    // relay a signal to the joiner or learn of it before its welcome is sent.
+    const { ice, turn } = await this.turn.ice(this.env);
+    if (ws.readyState !== WebSocket.OPEN) return;
     for (const [other, theirs] of this.activeSessions(ws)) {
       if (theirs.playerId === msg.playerId) {
         this.drop(other, CLOSE_REPLACED, 'replaced by a newer session');
@@ -188,8 +192,6 @@ export class Authority extends DurableObject<Env> {
       op: 'join',
       member: { playerId: msg.playerId, name: msg.name },
     });
-    // The session is already placed, so a slow or failed TURN lookup only delays this welcome.
-    const { ice, turn } = await this.turn.ice(this.env);
     sendIfOpen(ws, { t: 'welcome', pond, you: { spawnHint }, members, ice, turn, now: Date.now() });
   }
 
