@@ -88,7 +88,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `src/sim/body.ts` (`PhysStats`, `STARTER_PHYS`, `sanitizePhys`, `isPhysShape`), caps in `RULES.body`, rules v3, five goldens regenerated (`math.json` untouched) plus the new `body-forage` golden (also run in Chromium).
   - Pace: a value-per-distance forager that avoids plumes (`maxBiomass: 900`) has 194 at 60 s, 398 at 120 s (doubles in 60 s) and 515 at 150 s; the starter's cap of 400 is only lifted when T15 hatches genome bodies. A forager that ignores plumes died at 100 s in that pond. `STARTER_PHYS.mouth` is a placeholder (type 0.5, all-round) until T2.
 
-- [ ] T2 Feeding through the mouth, toxin through the colliders
+- [x] T2 Feeding through the mouth, toxin through the colliders
   - Acceptance:
     - `STARTER_PHYS` feeds exactly as before: an item at distance `r + item.radius − 0.1` is eaten, one at `+ 0.1` is not, in every direction (the M1 forage golden, regenerated only if T1 already changed it, shows no feeding difference).
     - A jaw mouth `{ offset: 0.9, radius: 0.35, arc: 0.6, type: 1 }` eats a crystal straight ahead at `1.2·r` from the centre, and does not eat the same crystal behind the creature or 60° off the heading.
@@ -98,6 +98,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - `findClearSpot` keeps its clearance for the creature's body: with a body whose farthest collider reaches `2.5·r`, the spot is at least `plumeClearance` from every plume for the next 10 s measured from the farthest collider centre (compare with a brute-force scan on a 20-point sample).
     - Performance: a tick of 24 creatures with 12 colliders and a mouth each in a world with plumes and food stays under 2 ms in Node (`sim.md` budget; record the number).
   - Notes: `RULES.feeding` holds the anchors; efficiency is linear between them. Item "size" plays no further role in M3. Update DESIGN §2 only if the numbers change.
+  - Done: `efficiency()` and `applyFeeding` use the mouth disc and arc (arc is measured from the creature centre; an `eat` event's `value` is the yield); `applyHazards` uses collider exposure; `findClearSpot(world, x, y, reach)` takes `colliderReach(phys, biomass)` (the game passes 0 until T15). Goldens regenerated under v3: a starter's type-0.5 mouth pays crystals 36 and detritus 6.4, so `hazard-dash` grows 1 time, not 3. A 24-creature, 12-collider tick takes about 1.2 ms in Node.
+  - Gotcha: `sanitizePhys` pulls a collider to within `2.5 − r` of the core, so the acceptance example `{ x: −2.5, r: 0.6 }` lands at −1.9; the tests use −1.9 (same 0.36 / 1.36 share).
 
 - [ ] T3 Karyotype v1, the total codec and the genome hash
   - Acceptance:

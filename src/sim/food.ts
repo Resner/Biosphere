@@ -1,4 +1,4 @@
-import { clamp, sin, TAU } from './math';
+import { clamp, cos, length, lerp, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { RULES } from './rules';
 import type { CreatureState, FoodItem, FoodKind, StepEvent, Vec2, World } from './types';
@@ -207,25 +207,47 @@ export function applyRemoteClaim(
   return true;
 }
 
+/** How much of a food kind's value a mouth of `type` (0 filter to 1 jaw) takes in, 0 to 1. */
+export function efficiency(kind: FoodKind, type: number): number {
+  const { filter, middle, jaw } = RULES.feeding.efficiency[kind];
+  return type <= 0.5 ? lerp(filter, middle, type * 2) : lerp(middle, jaw, (type - 0.5) * 2);
+}
+
 /**
- * Eats every item the creature overlaps (distance < radius + item radius), unless its energy is
- * already at the cap: then the item stays for someone hungrier.
+ * Eats every item the creature's mouth reaches, unless its energy is already at the cap: then the
+ * item stays for someone hungrier. The mouth disc sits `offset` radii ahead of the centre; an item
+ * is reached when it overlaps the disc and lies within `arc` of the heading, seen from the centre.
+ * An item the mouth cannot digest (efficiency 0) is never eaten. The yield is
+ * `value × efficiency × digestion`.
  */
 export function applyFeeding(world: World, creature: CreatureState): StepEvent[] {
   if (!creature.alive) return [];
-  const radius = Math.sqrt(creature.biomass);
   const energyCap = maxEnergy(creature.biomass);
   if (creature.energy >= energyCap) return [];
+  const radius = Math.sqrt(creature.biomass);
+  const { mouth } = creature.phys;
+  const hx = cos(creature.heading);
+  const hy = sin(creature.heading);
+  const mx = creature.x + hx * mouth.offset * radius;
+  const my = creature.y + hy * mouth.offset * radius;
+  const mouthRadius = mouth.radius * radius;
+  const cosArc = cos(mouth.arc);
   const events: StepEvent[] = [];
-  for (const item of foodNear(world, creature.x, creature.y, radius + MAX_ITEM_RADIUS)) {
-    const dx = item.x - creature.x;
-    const dy = item.y - creature.y;
-    const reach = radius + item.radius;
+  for (const item of foodNear(world, mx, my, mouthRadius + MAX_ITEM_RADIUS)) {
+    const reach = mouthRadius + item.radius;
+    const dx = item.x - mx;
+    const dy = item.y - my;
     if (dx * dx + dy * dy >= reach * reach) continue;
+    const ax = item.x - creature.x;
+    const ay = item.y - creature.y;
+    const away = length(ax, ay);
+    if (away > 0 && ax * hx + ay * hy < away * cosArc) continue;
+    const yielded = item.value * efficiency(item.kind, mouth.type) * mouth.digestion;
+    if (yielded <= 0) continue;
     if (creature.energy >= energyCap) break;
     consumeFood(world, item.id);
-    creature.energy = Math.min(creature.energy + item.value, energyCap);
-    events.push({ type: 'eat', creature: creature.id, food: item.id, value: item.value });
+    creature.energy = Math.min(creature.energy + yielded, energyCap);
+    events.push({ type: 'eat', creature: creature.id, food: item.id, value: yielded });
   }
   return events;
 }

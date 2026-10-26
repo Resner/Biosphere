@@ -227,7 +227,8 @@ describe('pace', () => {
     }
     expect(me.alive).toBe(true);
     expect((at[150] as number) / (at[60] as number)).toBeGreaterThanOrEqual(2);
-  });
+    // 5,400 ticks with a forager that scans food and plumes each tick: slow on a loaded CI runner.
+  }, 30_000);
 });
 
 describe('recordInputs', () => {

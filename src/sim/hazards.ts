@@ -1,5 +1,6 @@
+import { colliderReach } from './body';
 import { currentDriftAt } from './currents';
-import { TAU } from './math';
+import { cos, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { DT, RULES, TICK_HZ } from './rules';
 import type { CreatureState, Plume, StepEvent, World } from './types';
@@ -71,10 +72,40 @@ export function plumesNear(world: World, x: number, y: number, radius: number): 
   return found;
 }
 
-/** Toxin damage while the creature's centre is inside any plume; overlapping plumes don't stack. */
+/**
+ * Toxin damage scaled by the creature's exposure: the share of its collider area (`r²` per circle)
+ * whose centre, rotated by the heading and scaled by the core radius, lies inside a plume.
+ * Overlapping plumes don't stack. A single-circle body takes all or nothing.
+ */
 export function applyHazards(world: World, creature: CreatureState): StepEvent[] {
-  if (!creature.alive || plumesNear(world, creature.x, creature.y, 0).length === 0) return [];
-  const amount = RULES.damage.toxin * DT;
+  if (!creature.alive) return [];
+  const { colliders } = creature.phys;
+  const radius = Math.sqrt(creature.biomass);
+  const plumes = plumesNear(
+    world,
+    creature.x,
+    creature.y,
+    colliderReach(creature.phys, creature.biomass),
+  );
+  if (plumes.length === 0) return [];
+  const hx = cos(creature.heading);
+  const hy = sin(creature.heading);
+  let exposed = 0;
+  let total = 0;
+  for (const c of colliders) {
+    const area = c.r * c.r;
+    total += area;
+    const px = creature.x + (c.x * hx - c.y * hy) * radius;
+    const py = creature.y + (c.x * hy + c.y * hx) * radius;
+    for (const p of plumes) {
+      if ((p.x - px) * (p.x - px) + (p.y - py) * (p.y - py) <= p.radius * p.radius) {
+        exposed += area;
+        break;
+      }
+    }
+  }
+  if (exposed === 0) return [];
+  const amount = RULES.damage.toxin * DT * (exposed / total);
   creature.health -= amount;
   return [{ type: 'damage', creature: creature.id, amount, cause: 'toxin' }];
 }

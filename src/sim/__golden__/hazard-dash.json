@@ -10,11 +10,11 @@
     "ticks": 600,
     "runs": [[0, 3840], [20, 7936], [21, 3840]]
   },
-  "hash": "dfcab7839e40dde7",
+  "hash": "28ffad07b8280091",
   "events": {
     "eat": 7,
     "dash": 1,
     "damage": 100,
-    "grow": 3
+    "grow": 1
   }
 }

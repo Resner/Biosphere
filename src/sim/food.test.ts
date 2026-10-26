@@ -1,15 +1,17 @@
 import { describe, expect, it } from 'vitest';
+import { type Mouth, STARTER_PHYS } from './body';
 import {
   applyFeeding,
   applyRemoteClaim,
   consumeFood,
+  efficiency,
   foodInCell,
   foodNear,
   slotAnchor,
 } from './food';
 import { RULES } from './rules';
 import { step } from './step';
-import type { FoodKind } from './types';
+import type { FoodItem, FoodKind, World } from './types';
 import { createWorld, spawnCreature } from './world';
 
 const world = (seed = 'food') => createWorld({ seed, currents: false, hazards: false });
@@ -124,10 +126,13 @@ describe('feeding', () => {
     const before = creature.energy;
     const events = step(w, {});
     expect(events.filter((e) => e.type === 'eat')).toEqual([
-      { type: 'eat', creature: 'p', food: item.id, value: item.value },
+      { type: 'eat', creature: 'p', food: item.id, value: item.value * efficiency(item.kind, 0.5) },
     ]);
     // The step also bills one tick of basal metabolism (0.8/s).
-    expect(creature.energy).toBeCloseTo(before + item.value - 0.8 / 30, 4);
+    expect(creature.energy).toBeCloseTo(
+      before + item.value * efficiency(item.kind, 0.5) - 0.8 / 30,
+      4,
+    );
     expect(foodInCell(w, 8, 8).map((i) => i.id)).not.toContain(item.id);
   });
 
@@ -245,5 +250,128 @@ describe('applyRemoteClaim', () => {
       expect(applyRemoteClaim(w, { slot, k: 0, tick: 1 })).toBe(false);
     }
     expect(w.consumed).toEqual({});
+  });
+});
+
+describe('feeding through the mouth', () => {
+  const JAW: Mouth = { offset: 0.9, radius: 0.35, arc: 0.6, type: 1, digestion: 1 };
+
+  /** A live item of `kind` and a starter-sized creature that can eat it, its mouth set to `mouth`. */
+  const setup = (kind: FoodKind, mouth: Mouth, bearing = 0, distance = 0, heading = 0) => {
+    const w = world('mouth');
+    let item: FoodItem | undefined;
+    for (let cx = 6; cx < 20 && !item; cx++) {
+      item = foodInCell(w, cx, 8).find((i) => i.kind === kind);
+    }
+    if (!item) throw new Error(`no ${kind}`);
+    const r = 10;
+    const creature = spawnCreature(w, {
+      id: 'p',
+      x: item.x - distance * r * Math.cos(heading + bearing),
+      y: item.y - distance * r * Math.sin(heading + bearing),
+      phys: { ...STARTER_PHYS, mouth },
+    });
+    creature.heading = heading;
+    creature.energy = 20;
+    return { w, item, creature };
+  };
+
+  const ate = (w: World, creature: ReturnType<typeof spawnCreature>) =>
+    applyFeeding(w, creature).flatMap((e) => (e.type === 'eat' ? [e] : []));
+
+  it('lets a starter eat at exactly the old reach, in every direction', () => {
+    for (const kind of ['detritus', 'globule', 'crystal'] as const) {
+      for (let k = 0; k < 8; k++) {
+        const heading = (k * Math.PI) / 4 + 0.3;
+        const near = setup(kind, STARTER_PHYS.mouth, 0, 0, heading);
+        const r = Math.sqrt(near.creature.biomass);
+        const place = (d: number) => {
+          near.creature.x = near.item.x - d * Math.cos(heading + 1);
+          near.creature.y = near.item.y - d * Math.sin(heading + 1);
+        };
+        place(r + near.item.radius + 0.1);
+        // Another item may sit within reach by chance, so judge this item alone.
+        expect(ate(near.w, near.creature).map((e) => e.food)).not.toContain(near.item.id);
+        place(r + near.item.radius - 0.1);
+        // A starter's mouth is type 0.5, so a crystal still feeds (efficiency 0.6).
+        expect(ate(near.w, near.creature).map((e) => e.food)).toContain(near.item.id);
+      }
+    }
+  });
+
+  it('lets a jaw eat a crystal straight ahead at 1.2 r, but not behind or 60 degrees off', () => {
+    const ahead = setup('crystal', JAW, 0, 1.2);
+    expect(ate(ahead.w, ahead.creature)).toHaveLength(1);
+    const behind = setup('crystal', JAW, Math.PI, 1.2);
+    expect(ate(behind.w, behind.creature)).toEqual([]);
+    const off = setup('crystal', JAW, Math.PI / 3, 1.2);
+    expect(ate(off.w, off.creature)).toEqual([]);
+    const edge = setup('crystal', JAW, 0.5, 1.2);
+    expect(ate(edge.w, edge.creature)).toHaveLength(1);
+  });
+
+  it('yields value x efficiency x digestion, linear in the mouth type', () => {
+    const table: [number, FoodKind, number][] = [
+      [0, 'detritus', 8],
+      [0, 'globule', 15],
+      [1, 'crystal', 60],
+      [1, 'globule', 20],
+      [1, 'detritus', 3.2],
+      [0.5, 'detritus', 6.4],
+      [0.5, 'globule', 25],
+      [0.5, 'crystal', 36],
+    ];
+    for (const [type, kind, expected] of table) {
+      for (const digestion of [1, 0.5]) {
+        const mouth = { ...STARTER_PHYS.mouth, type, digestion };
+        const { w, creature } = setup(kind, mouth);
+        const before = creature.energy;
+        const events = ate(w, creature);
+        expect(events).toHaveLength(1);
+        expect(creature.energy - before).toBeCloseTo(expected * digestion, 9);
+        expect(events[0]).toMatchObject({ value: expect.closeTo(expected * digestion, 9) });
+      }
+    }
+    expect(efficiency('crystal', 0.25)).toBeCloseTo(0.3, 9);
+    expect(efficiency('detritus', 0.75)).toBeCloseTo(0.6, 9);
+  });
+
+  it('never eats food with efficiency 0, and leaves its slot alone', () => {
+    const { w, item, creature } = setup('crystal', { ...STARTER_PHYS.mouth, type: 0 });
+    expect(applyFeeding(w, creature)).toEqual([]);
+    expect(creature.energy).toBe(20);
+    expect(foodNear(w, item.x, item.y, 1).map((i) => i.id)).toContain(item.id);
+    expect(w.consumed).toEqual({});
+  });
+
+  it('caps energy at the maximum and leaves food to a full creature', () => {
+    const { w, item, creature } = setup('crystal', JAW, 0, 1.2);
+    creature.energy = 2 * creature.biomass - 1;
+    expect(ate(w, creature)).toHaveLength(1);
+    expect(creature.energy).toBe(2 * creature.biomass);
+    const full = setup('crystal', JAW, 0, 1.2);
+    full.creature.energy = 2 * full.creature.biomass;
+    expect(applyFeeding(full.w, full.creature)).toEqual([]);
+    expect(foodNear(full.w, item.x, item.y, 1).map((i) => i.id)).toContain(item.id);
+  });
+
+  it('keeps a tick of 24 armed creatures in a full pond under 2 ms', () => {
+    const w = createWorld({ seed: 'perf' });
+    const colliders = [{ x: 0, y: 0, r: 1 }];
+    for (let i = 1; i < 12; i++) colliders.push({ x: -0.2 * i, y: 0.1 * i, r: 0.4 });
+    for (let i = 0; i < 24; i++) {
+      spawnCreature(w, {
+        id: `c${String(i).padStart(2, '0')}`,
+        x: 3000 + (i % 6) * 40,
+        y: 3000 + Math.floor(i / 6) * 40,
+        phys: { ...STARTER_PHYS, mouth: JAW, colliders },
+      });
+    }
+    for (let i = 0; i < 30; i++) step(w, {});
+    const runs = 60;
+    const start = process.hrtime.bigint();
+    for (let i = 0; i < runs; i++) step(w, {});
+    const ms = Number(process.hrtime.bigint() - start) / 1e6 / runs;
+    expect(ms).toBeLessThan(2);
   });
 });

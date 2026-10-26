@@ -7,10 +7,11 @@ const { searchStep, plumeClearance, lookaheadTicks, lookaheadStride } = RULES.sp
 
 /**
  * The point nearest to (x, y), on the search lattice, that is clear of every toxic plume now and
- * for the next 10 s of drift; (x, y) itself when it is already clear. A pond with no clear spot at
- * all keeps the original point.
+ * for the next 10 s of drift; (x, y) itself when it is already clear. `reach` is how far the body's
+ * farthest collider centre lies from the core (wu, `colliderReach`): the clearance is kept from
+ * there. A pond with no clear spot at all keeps the original point.
  */
-export function findClearSpot(world: World, x: number, y: number): Vec2 {
+export function findClearSpot(world: World, x: number, y: number, reach = 0): Vec2 {
   const future: World[] = [];
   for (let t = 0; t <= lookaheadTicks; t += lookaheadStride) {
     future.push({ ...world, tick: world.tick + t });
@@ -20,7 +21,7 @@ export function findClearSpot(world: World, x: number, y: number): Vec2 {
     py >= 0 &&
     px <= world.size &&
     py <= world.size &&
-    future.every((w) => plumesNear(w, px, py, plumeClearance).length === 0);
+    future.every((w) => plumesNear(w, px, py, plumeClearance + reach).length === 0);
   if (clear(x, y)) return { x, y };
   // Walk square rings outward. A ring's points are at least ring * step away, so once a spot is
   // found only rings that could still hold a nearer one are scanned.

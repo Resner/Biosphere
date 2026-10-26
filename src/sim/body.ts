@@ -2,6 +2,7 @@
 // M3's genome code computes a `PhysStats` from a body plan; until then tests build them by hand.
 // Plain data, part of the state hash.
 
+import { length } from './math';
 import { RULES } from './rules';
 
 /** A mouth in the body frame, in units of the core radius. `type` runs from 0 (filter) to 1 (jaw). */
@@ -126,4 +127,11 @@ export function isPhysShape(value: unknown): value is PhysStats {
       return typeof o === 'object' && o !== null && ['x', 'y', 'r'].every((k) => isNumber(o[k]));
     })
   );
+}
+
+/** How far the farthest collider centre lies from the core centre, in wu at this biomass. */
+export function colliderReach(phys: PhysStats, biomass: number): number {
+  let far = 0;
+  for (const c of phys.colliders) far = Math.max(far, length(c.x, c.y));
+  return far * Math.sqrt(biomass);
 }
