@@ -157,6 +157,26 @@ export const RULES = deepFreeze({
     /** A homozygous loss of function (L1-L4) sets its defect factor to this; heterozygotes are unaffected. */
     lof: { membraneIntegrity: 0.6, partScale: 0.6, beatStrength: 0.7, metabolismCost: 1.3 },
   },
+  /** Inheritance (M3, DESIGN §6): meiosis and mutation. Frozen per rules version. */
+  genetics: {
+    /** Chance of 0, 1 and 2 crossovers on a chromosome in one meiosis; each lands on a uniform locus boundary. */
+    crossovers: [0.4, 0.4, 0.2],
+    /** A gamete gets up to `maxEvents` mutation trials, each firing with `eventChance` × the mutation factor (capped at 1). */
+    maxEvents: 3,
+    eventChance: 0.15,
+    /** Relative weights of the mutation kinds, in `MUTATION_KINDS` order. */
+    kinds: {
+      quantStep: 30,
+      alleleChange: 14,
+      loadFlip: 10,
+      paramDrift: 20,
+      moduleDuplicate: 8,
+      moduleDelete: 8,
+      novelAllele: 10,
+    },
+    /** A quant step or parameter drift moves a byte by 1..this. */
+    maxStep: 24,
+  },
   /** Development (M3, DESIGN §6): how traits become a body plan, and the repairs that keep every plan valid. All lengths are in core radii. */
   develop: {
     caps: {

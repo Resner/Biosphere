@@ -14,6 +14,7 @@ import {
   motileArea,
 } from './develop';
 import { express } from './express';
+import { mutateGenome } from './inherit';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from './karyotype';
 
 const D = RULES.develop;
@@ -56,7 +57,7 @@ function allModules(value: number): Record<string, Params> {
   return Object.fromEntries(MODULE_IDS.map((id) => [id, params]));
 }
 
-/** Stands in for `mutateGenome` (T8): flips 1-6 random bytes of a random genome. */
+/** A cruder stand-in for `mutateGenome`: flips 1-6 random bytes of a random genome. */
 function flipped(): Uint8Array {
   const bytes = randomBytes();
   const flips = 1 + (rng.nextU32() % 6);
@@ -94,9 +95,19 @@ describe('develop: caps and guarantees', () => {
     }
   });
 
-  it('repairs 10,000 mutated genomes into valid plans', () => {
+  it('repairs 10,000 byte-flipped genomes into valid plans', () => {
     for (let i = 0; i < 10_000; i++) {
       const bad = bodyViolations(plan(decodeGenome(flipped())));
+      if (bad.length > 0) expect(bad, `flipped genome ${i}`).toEqual([]);
+    }
+  });
+
+  it('repairs 10,000 random genomes after mutateGenome at mutation ×4', () => {
+    for (let i = 0; i < 10_000; i++) {
+      const g = mutateGenome(decodeGenome(randomBytes()), seedFromString(`mutated-${i}`), {
+        mutation: 4,
+      });
+      const bad = bodyViolations(plan(g));
       if (bad.length > 0) expect(bad, `mutated genome ${i}`).toEqual([]);
     }
   });
