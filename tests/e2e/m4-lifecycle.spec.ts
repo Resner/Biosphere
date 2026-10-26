@@ -24,7 +24,7 @@ async function starve(page: Page): Promise<void> {
 }
 
 /** The recovery code, read on a page that stays offline so it does not take the session over. */
-async function readCode(page: Page, playerId: string): Promise<string> {
+async function readCode(page: Page, playerId: string | null): Promise<string> {
   const reader = await page.context().newPage();
   await reader.goto('./?debug=1');
   await reader.waitForFunction(() => window.__bs?.ready === true);
