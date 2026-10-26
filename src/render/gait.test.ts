@@ -9,14 +9,14 @@ import { createRng, seedFromString } from '../sim/prng';
 import { advanceBeatPhase } from './beat';
 import { buildCreatureGeometry, PART_APPENDAGE, partKind } from './creature-mesh';
 import {
-  BREATH,
-  GAIT_REST,
+  GAIT_CONSTANTS,
   type GaitUniforms,
   type GaitVertex,
   gaitOf,
   gaitOffset,
   spineOffset,
 } from './gait';
+import vertexShader from './shaders/creature.vert.glsl?raw';
 
 const rng = createRng(seedFromString('gait-tests'), 'bytes');
 const randomGenome = (): Genome =>
@@ -43,7 +43,7 @@ const genomes: Genome[] = [
 
 interface Sample {
   verts: GaitVertex[];
-  genes: Pick<GaitUniforms, 'amp' | 'freq' | 'bend'>;
+  genes: ReturnType<typeof gaitOf>;
 }
 
 const samples: Sample[] = genomes.map((g) => {
@@ -52,17 +52,11 @@ const samples: Sample[] = genomes.map((g) => {
   const geo = buildCreatureGeometry(plan, 'full');
   const attr = (name: string) => geo.getAttribute(name).array as Float32Array;
   const pos = attr('position');
-  const [spine, attach, weight, part] = [
-    attr('aSpine'),
-    attr('aAttach'),
-    attr('aWeight'),
-    attr('aPart'),
-  ];
+  const [attach, weight, part] = [attr('aAttach'), attr('aWeight'), attr('aPart')];
   const verts: GaitVertex[] = [];
   for (let i = 0; i < part.length; i++) {
     verts.push({
       y: pos[i * 3 + 1] as number,
-      spine: spine[i] as number,
       attach: attach[i] as number,
       weight: weight[i] as number,
       part: part[i] as number,
@@ -112,7 +106,7 @@ describe('gaitOffset', () => {
       for (const phase of PHASES) {
         // The swing grows with the beat, so full beat is the worst case.
         expect(reach(s, uniforms(s, phase, 1))).toBeLessThanOrEqual(0.6);
-        expect(reach(s, { amp: 1, freq: 2, bend: 1, phase, beat: 1 })).toBeLessThanOrEqual(0.6);
+        expect(reach(s, { amp: 1, bend: 1, phase, beat: 1 })).toBeLessThanOrEqual(0.6);
       }
     }
   });
@@ -127,7 +121,7 @@ describe('gaitOffset', () => {
       }
       expect(resting).toBeLessThanOrEqual(moving * 0.15 + 1e-9);
     }
-    expect(BREATH).toBeLessThan(0.15);
+    expect(GAIT_CONSTANTS.BREATH).toBeLessThan(0.15);
   });
 
   it('swims: a starter cell moves its tail clearly at full beat', () => {
@@ -138,7 +132,7 @@ describe('gaitOffset', () => {
   });
 
   it('does nothing for a creature with no amplitude', () => {
-    expect(Math.abs(spineOffset(1, { ...GAIT_REST, beat: 1, phase: 1 }))).toBe(0);
+    expect(Math.abs(spineOffset(1, { amp: 0, bend: 1, beat: 1, phase: 1 }))).toBe(0);
   });
 
   it('does not jump the pose when the frequency rises mid-run', () => {
@@ -161,5 +155,12 @@ describe('gaitOffset', () => {
       }
     }
     expect(worst).toBeLessThanOrEqual(0.05);
+  });
+
+  it('repeats the tuning of the shader exactly', () => {
+    const found = Object.fromEntries(
+      [...vertexShader.matchAll(/const float (\w+) = ([\d.]+);/g)].map((m) => [m[1], Number(m[2])]),
+    );
+    for (const [name, value] of Object.entries(GAIT_CONSTANTS)) expect(found[name]).toBe(value);
   });
 });

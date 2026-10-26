@@ -1,8 +1,7 @@
 // The gait of a creature mesh; `gaitOffset` in gait.ts is the CPU reference with the same formulas.
 // A vertex takes the spine's sway at the position its part hangs from, then its own beat weighted
 // by distance from the part's base. `uPhase` is integrated on the CPU, so a changed frequency
-// never jumps the pose, and the genome's frequency (`uFreq`) only sets how fast it runs.
-attribute float aSpine;
+// never jumps the pose: the genome's frequency only sets how fast it runs there.
 attribute float aAttach;
 attribute float aWeight;
 attribute float aPart;
