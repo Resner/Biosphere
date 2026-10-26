@@ -140,6 +140,7 @@ function newSession(
   body: Body,
   pond: Pond | null = null,
   spawn: Vec2 | null = null,
+  biomass: number = RULES.starter.biomass,
 ): Session {
   const world = createWorld({
     seed: demo ? `${seed}/title` : seed,
@@ -151,9 +152,9 @@ function newSession(
     pond.time.join(world, performance.now());
   }
   const { phys } = body.creature;
-  const reach = colliderReach(phys, RULES.starter.biomass);
+  const reach = colliderReach(phys, biomass);
   const spot = findClearSpot(world, spawn?.x ?? world.size / 2, spawn?.y ?? world.size / 2, reach);
-  const player = spawnCreature(world, { id: 'player', ...spot, phys });
+  const player = spawnCreature(world, { id: 'player', ...spot, phys, biomass });
   return {
     world,
     player,
@@ -421,14 +422,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       recorded?.body ?? hatcher.next(),
       target,
       spawn,
+      recorded?.start.condition?.biomass,
     );
     const saved = recorded?.start.condition;
     if (saved) {
       const { player } = next;
-      player.biomass = saved.biomass;
       player.energy = Math.min(saved.energy, maxEnergy(saved.biomass));
       player.health = Math.min(saved.health, maxHealth(saved.biomass));
-      next.peakBiomass = player.biomass;
     }
     enter(next, 'playing');
   };
@@ -659,7 +659,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   let shownNote = '';
   const updateHatchNote = (): void => {
-    const { status } = flow.view();
+    const status = flow.state;
     const waiting = hatching && (status === 'awaiting' || status === 'verifying');
     let text = hatchError;
     if (waiting) text = status === 'awaiting' ? 'Awaiting beacon…' : 'Checking your creature…';

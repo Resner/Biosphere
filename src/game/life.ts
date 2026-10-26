@@ -4,7 +4,7 @@
 
 import { signGenesisAsk } from '../ledger/ask';
 import type { Identity } from '../ledger/identity';
-import { recordHash } from '../ledger/record';
+import { hundredths, recordHash } from '../ledger/record';
 import type { LifeMsg } from '../net/hub-client';
 import type { ClientMsg, HubMsg, LifeInfo } from '../net/protocol';
 import type { DeathCause } from '../sim/types';
@@ -34,13 +34,20 @@ export interface LifeDeps {
   verify(genesis: GenesisMsg): Promise<string[]>;
 }
 
+/** Biomass, energy and health in world units. */
+export interface Condition {
+  biomass: number;
+  energy: number;
+  health: number;
+}
+
 /** What the creature starts with. `condition` is in world units; null means the genome's own start. */
 export interface Started {
   creature: string;
   seq: number;
   /** The genome as base64url text. */
   genome: string;
-  condition: { biomass: number; energy: number; health: number } | null;
+  condition: Condition | null;
   activeMs: number;
   /** 0 until the hub says (the first `ack` for a fresh creature). */
   lifespanMs: number;
@@ -72,8 +79,6 @@ export const VERIFY_FAILED = 'Could not verify your creature';
 const SLOW = 'The pond is slow to answer. Try again.';
 const ELSEWHERE = 'Your creature is playing in another tab. Reload the page.';
 const NOT_HATCHED = 'Could not hatch. Try again.';
-
-type Condition = { biomass: number; energy: number; health: number };
 
 export class LifeFlow {
   private link: LifeLink | null = null;
@@ -168,6 +173,11 @@ export class LifeFlow {
     this.creature = null;
   }
 
+  /** Cheap to read every frame; `view()` builds a new object. */
+  get state(): LifeStatus {
+    return this.status;
+  }
+
   /** The creature's condition, from the game's tick count since it hatched. */
   report(ticks: number, condition: Condition): void {
     if (this.status !== 'playing' || !this.link) return;
@@ -177,9 +187,9 @@ export class LifeFlow {
       t: 'progress',
       n: this.n,
       ticks: counted,
-      biomass: hundredths(condition.biomass),
-      energy: hundredths(condition.energy),
-      health: hundredths(condition.health),
+      biomass: wire(condition.biomass),
+      energy: wire(condition.energy),
+      health: wire(condition.health),
     });
   }
 
@@ -265,7 +275,6 @@ export class LifeFlow {
       if (reply.reason === 'limit') return this.practiceCell('limit', reply.genesisIn ?? 0);
       return this.fail(reply.reason === 'active' ? ELSEWHERE : NOT_HATCHED);
     }
-    if (reply.t !== 'genesis') return this.fail(NOT_HATCHED);
     if (!(await this.checked(reply))) return this.fail(VERIFY_FAILED);
     this.known = { life: null, genesisIn: this.genesisIn };
     this.last = reply;
@@ -312,6 +321,7 @@ export class LifeFlow {
   }
 }
 
-function hundredths(value: number): number {
-  return Math.max(0, Math.round(value * HUNDREDTHS));
+/** A condition value as the hub takes it: hundredths, never negative. */
+function wire(value: number): number {
+  return Math.max(0, hundredths(value));
 }

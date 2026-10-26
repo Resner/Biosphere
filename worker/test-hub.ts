@@ -1,7 +1,7 @@
 import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
+import { genesisAskMessage } from '../src/ledger/ask';
 import { type Beacon, roundTime } from '../src/ledger/drand';
-import { genesisAskMessage } from '../src/ledger/genesis';
 import {
   createIdentity,
   HELLO_DOMAIN,

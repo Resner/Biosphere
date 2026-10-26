@@ -2,17 +2,15 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { genomeHash, genomeToBase64url } from '../genome/codec';
 import { RULES_VERSION } from '../sim/rules';
+import { type GenesisAsk, genesisAskMessage, verifyGenesisAsk } from './ask';
 import { type Beacon, randomnessOf } from './drand';
 import {
   type Commitment,
   checkGenesis,
   commitmentId,
-  type GenesisAsk,
-  genesisAskMessage,
   genesisFor,
   genesisRequest,
   genesisSeed,
-  verifyGenesisAsk,
 } from './genesis';
 import { createIdentity, memoryKeyStore, toBase64Url } from './identity';
 import { type LedgerRecord, REQUEST_DOMAIN, recordHash } from './record';

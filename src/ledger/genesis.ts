@@ -12,8 +12,6 @@ import { type LedgerRecord, type RecordRequest, recordProblems } from './record'
 // when the player asked for it. Everything here is pure, so the client and (from M9) the verifier
 // recompute what the authority claims.
 
-export { type GenesisAsk, genesisAskMessage, signGenesisAsk, verifyGenesisAsk } from './ask';
-
 const COMMIT_DOMAIN = 'bs/commit/v1';
 const GENESIS_DOMAIN = 'bs/genesis/v1';
 
