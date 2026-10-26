@@ -10,18 +10,25 @@ import { HAPLOTYPE_BYTES, LOCI, type MendelLocus, MODULE_BYTES } from './karyoty
 const G = RULES.genetics;
 
 const ENCODER = new TextEncoder();
-const DOMAIN = ENCODER.encode('bs/offspring/v1');
+const OFFSPRING_DOMAIN = 'bs/offspring/v1';
 
 /**
- * The seed of one child: SHA-256 of the domain tag, the beacon randomness, the commit id (UTF-8)
- * and the slot byte, read as four big-endian words. Slot 0 is player A's child, slot 1 player B's.
+ * A seed from a domain tag, the beacon randomness, the commit id (UTF-8) and a slot byte:
+ * SHA-256 of the four, read as four big-endian words. The domain keeps one commitment from
+ * seeding two different things the same way.
  */
-export function offspringSeed(randomness: Uint8Array, commitId: string, slot: 0 | 1): Seed {
+export function deriveSeed(
+  domain: string,
+  randomness: Uint8Array,
+  commitId: string,
+  slot: number,
+): Seed {
+  const tag = ENCODER.encode(domain);
   const id = ENCODER.encode(commitId);
-  const input = new Uint8Array(DOMAIN.length + randomness.length + id.length + 1);
-  input.set(DOMAIN);
-  input.set(randomness, DOMAIN.length);
-  input.set(id, DOMAIN.length + randomness.length);
+  const input = new Uint8Array(tag.length + randomness.length + id.length + 1);
+  input.set(tag);
+  input.set(randomness, tag.length);
+  input.set(id, tag.length + randomness.length);
   input[input.length - 1] = slot;
   const d = sha256(input);
   const word = (i: number): number =>
@@ -31,6 +38,11 @@ export function offspringSeed(randomness: Uint8Array, commitId: string, slot: 0 
       (d[i + 3] as number)) >>>
     0;
   return [word(0), word(4), word(8), word(12)];
+}
+
+/** The seed of one child. Slot 0 is player A's child, slot 1 player B's. */
+export function offspringSeed(randomness: Uint8Array, commitId: string, slot: 0 | 1): Seed {
+  return deriveSeed(OFFSPRING_DOMAIN, randomness, commitId, slot);
 }
 
 // Loci grouped by chromosome, in karyotype order.

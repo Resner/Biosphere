@@ -1,3 +1,8 @@
+import type { Canonical } from '../ledger/canonical';
+import type { Beacon } from '../ledger/drand';
+import type { Commitment, GenesisAsk } from '../ledger/genesis';
+import type { StoredRecord } from '../ledger/record';
+
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
 export const PROTOCOL_VERSION = 1;
 
@@ -13,6 +18,8 @@ export const HUB_MAX_BYTES = 4096;
 export const WELCOME_MAX_BYTES = 8192;
 export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;
+/** A `genesis` carries a record, a commitment, a beacon and a genome text. */
+export const GENESIS_MAX_BYTES = 8192;
 export const EVENT_MAX_BYTES = 2048;
 export const SNAPSHOT_BYTES = 25;
 /** The snapshot layout version, the last byte of every snapshot. */
@@ -38,6 +45,16 @@ const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 /** Genome text: base64url, and short enough that its event stays within `EVENT_MAX_BYTES`. */
 export const GENOME_DATA_MAX_CHARS = 1900;
 const GENOME_DATA_RE = new RegExp(`^[A-Za-z0-9_-]{1,${GENOME_DATA_MAX_CHARS}}$`);
+const HEX64_RE = /^[0-9a-f]{64}$/;
+/** A drand quicknet signature: 48 bytes of hex. */
+const BEACON_SIG_RE = /^[0-9a-f]{96}$/;
+/** An authority key id: 6 bytes of base64url. */
+const KEY_ID_RE = /^[A-Za-z0-9_-]{8}$/;
+const REASON_RE = /^[a-z0-9:-]{1,48}$/;
+/** The most a record body may nest and hold, so a hostile body stays small. */
+const BODY_MAX_DEPTH = 4;
+const BODY_MAX_ENTRIES = 32;
+const BODY_MAX_STRING = 256;
 
 export interface Vec2 {
   x: number;
@@ -67,9 +84,29 @@ export interface PondInfo {
   size: number;
 }
 
+/** A commitment with the authority's countersignature over its id. */
+export interface SignedCommit {
+  commitment: Commitment;
+  authSig: string;
+  keyId: string;
+}
+
+/** The creature a player resumes: its head and condition (hundredths) and its life clock. */
+export interface LifeInfo {
+  creature: string;
+  seq: number;
+  genome: string;
+  biomass: number;
+  energy: number;
+  health: number;
+  activeMs: number;
+  lifespanMs: number;
+}
+
 /** Hub WebSocket, client to hub. */
 export type ClientMsg =
   | { t: 'hello'; v: 1; playerId: string; name: string; sig: string }
+  | { t: 'genesis-request'; nonce: string; sig: string }
   | { t: 'ping'; id: number }
   | { t: 'signal'; to: string; kind: 'offer' | 'answer'; sdp: string }
   | { t: 'leave' };
@@ -89,6 +126,20 @@ export type HubMsg =
   | { t: 'pong'; id: number; now: number }
   | { t: 'member'; op: 'join' | 'leave'; member: Member }
   | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string }
+  /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
+  | { t: 'life'; life: LifeInfo | null; genesisIn: number }
+  /** A genesis request was accepted: the committed round, and how many hatches are left. */
+  | { t: 'commit'; commit: SignedCommit; hatchesLeft: number }
+  /** The committed round's beacon exists: everything a client needs to recompute the DNA. */
+  | {
+      t: 'genesis';
+      record: StoredRecord;
+      ownerRequest: GenesisAsk;
+      commit: SignedCommit;
+      beacon: Beacon;
+      genome: string;
+    }
+  | { t: 'refused'; reason: string; genesisIn?: number }
   | { t: 'error'; code: string };
 
 /** Peer `event` channel: JSON, at most `EVENT_MAX_BYTES`. */
@@ -309,6 +360,10 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return { t: 'signal', to: o.to, kind: o.kind, sdp: o.sdp };
     case 'leave':
       return capped(raw, { t: 'leave' });
+    case 'genesis-request':
+      return isStr(o.nonce, NONCE_RE) && isStr(o.sig, SIG_RE)
+        ? capped(raw, { t: 'genesis-request', nonce: o.nonce, sig: o.sig })
+        : null;
     default:
       return null;
   }
@@ -337,9 +392,169 @@ export function parseHubMsg(raw: string): HubMsg | null {
       return { t: 'signal', from: o.from, kind: o.kind, sdp: o.sdp };
     case 'error':
       return isStr(o.code, CODE_RE) ? capped(raw, { t: 'error', code: o.code }) : null;
+    case 'life': {
+      const life = o.life === null ? null : lifeInfo(o.life);
+      return (o.life === null || life) && isInt(o.genesisIn, 0, MAX_TIME)
+        ? capped(raw, { t: 'life', life, genesisIn: o.genesisIn })
+        : null;
+    }
+    case 'commit': {
+      const commit = signedCommit(o.commit);
+      return commit && isInt(o.hatchesLeft, 0, 100)
+        ? capped(raw, { t: 'commit', commit, hatchesLeft: o.hatchesLeft })
+        : null;
+    }
+    case 'genesis': {
+      const record = storedRecord(o.record);
+      const commit = signedCommit(o.commit);
+      const ask = genesisAsk(o.ownerRequest);
+      const beacon = parseBeacon(o.beacon);
+      return record && commit && ask && beacon && isStr(o.genome, GENOME_DATA_RE)
+        ? capped(
+            raw,
+            { t: 'genesis', record, ownerRequest: ask, commit, beacon, genome: o.genome },
+            GENESIS_MAX_BYTES,
+          )
+        : null;
+    }
+    case 'refused':
+      if (!isStr(o.reason, REASON_RE)) return null;
+      if (o.genesisIn === undefined) return capped(raw, { t: 'refused', reason: o.reason });
+      return isInt(o.genesisIn, 0, MAX_TIME)
+        ? capped(raw, { t: 'refused', reason: o.reason, genesisIn: o.genesisIn })
+        : null;
     default:
       return null;
   }
+}
+
+function genesisAsk(v: unknown): GenesisAsk | null {
+  return isObj(v) && isStr(v.nonce, NONCE_RE) && isStr(v.sig, SIG_RE)
+    ? { nonce: v.nonce, sig: v.sig }
+    : null;
+}
+
+function parseBeacon(v: unknown): Beacon | null {
+  return isObj(v) && isInt(v.round, 1, MAX_TICK) && isStr(v.signature, BEACON_SIG_RE)
+    ? { round: v.round, signature: v.signature }
+    : null;
+}
+
+function lifeInfo(v: unknown): LifeInfo | null {
+  if (
+    !isObj(v) ||
+    !isStr(v.creature, HEX64_RE) ||
+    !isInt(v.seq, 0, MAX_TIME) ||
+    !isStr(v.genome, GENOME_DATA_RE) ||
+    !isInt(v.biomass, 0, MAX_TIME) ||
+    !isInt(v.energy, 0, MAX_TIME) ||
+    !isInt(v.health, 0, MAX_TIME) ||
+    !isInt(v.activeMs, 0, MAX_TIME) ||
+    !isInt(v.lifespanMs, 0, MAX_TIME)
+  )
+    return null;
+  return {
+    creature: v.creature,
+    seq: v.seq,
+    genome: v.genome,
+    biomass: v.biomass,
+    energy: v.energy,
+    health: v.health,
+    activeMs: v.activeMs,
+    lifespanMs: v.lifespanMs,
+  };
+}
+
+/** A canonical value (integers and strings only), bounded in depth, size and string length. */
+function canonicalValue(v: unknown, depth: number): Canonical | null {
+  if (typeof v === 'string') return v.length <= BODY_MAX_STRING ? v : null;
+  if (typeof v === 'number') return Number.isSafeInteger(v) ? v : null;
+  if (depth >= BODY_MAX_DEPTH) return null;
+  if (Array.isArray(v)) {
+    return v.length <= BODY_MAX_ENTRIES ? listOf(v, depth) : null;
+  }
+  if (!isObj(v)) return null;
+  const keys = Object.keys(v);
+  if (keys.length > BODY_MAX_ENTRIES) return null;
+  const out: { [key: string]: Canonical } = {};
+  for (const key of keys) {
+    const value = canonicalValue(v[key], depth + 1);
+    if (value === null || key.length > BODY_MAX_STRING) return null;
+    out[key] = value;
+  }
+  return out;
+}
+
+function listOf(v: unknown[], depth: number): Canonical[] | null {
+  const out: Canonical[] = [];
+  for (const x of v) {
+    const value = canonicalValue(x, depth + 1);
+    if (value === null) return null;
+    out.push(value);
+  }
+  return out;
+}
+
+function signedCommit(v: unknown): SignedCommit | null {
+  if (!isObj(v) || !isStr(v.authSig, SIG_RE) || !isStr(v.keyId, KEY_ID_RE)) return null;
+  const c = isObj(v.commitment) ? v.commitment : null;
+  const data = c ? genesisAsk(c.data) : null;
+  if (
+    !c ||
+    !data ||
+    c.v !== 1 ||
+    c.kind !== 'genesis' ||
+    !isStr(c.owner, PLAYER_ID_RE) ||
+    !isInt(c.round, 1, MAX_TICK) ||
+    !isStr(c.req, HEX64_RE) ||
+    !isInt(c.t, 0, MAX_TIME)
+  )
+    return null;
+  return {
+    commitment: { v: 1, kind: 'genesis', owner: c.owner, round: c.round, req: c.req, t: c.t, data },
+    authSig: v.authSig,
+    keyId: v.keyId,
+  };
+}
+
+function storedRecord(v: unknown): StoredRecord | null {
+  if (!isObj(v) || !isStr(v.hash, HEX64_RE) || !isStr(v.authSig, SIG_RE)) return null;
+  if (!isStr(v.keyId, KEY_ID_RE)) return null;
+  if (v.ownerSig !== null && !isStr(v.ownerSig, SIG_RE)) return null;
+  const r = isObj(v.record) ? v.record : null;
+  const body = r ? canonicalValue(r.body, 0) : null;
+  if (
+    !r ||
+    !body ||
+    typeof body !== 'object' ||
+    Array.isArray(body) ||
+    r.v !== 1 ||
+    !isInt(r.rules, 0, MAX_TICK) ||
+    (r.kind !== 'genesis' && r.kind !== 'checkpoint' && r.kind !== 'death') ||
+    !(r.creature === '' || isStr(r.creature, HEX64_RE)) ||
+    !isInt(r.seq, 0, MAX_TIME) ||
+    !(r.prev === '' || isStr(r.prev, HEX64_RE)) ||
+    !isStr(r.owner, PLAYER_ID_RE) ||
+    !isInt(r.t, 0, MAX_TIME)
+  )
+    return null;
+  return {
+    record: {
+      v: 1,
+      rules: r.rules,
+      kind: r.kind,
+      creature: r.creature as string,
+      seq: r.seq,
+      prev: r.prev as string,
+      owner: r.owner,
+      t: r.t,
+      body: body as { [key: string]: Canonical },
+    },
+    hash: v.hash,
+    ownerSig: v.ownerSig as string | null,
+    authSig: v.authSig,
+    keyId: v.keyId,
+  };
 }
 
 function isSignalPayload(o: Obj): o is Obj & { kind: 'offer' | 'answer'; sdp: string } {

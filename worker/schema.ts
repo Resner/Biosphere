@@ -95,6 +95,11 @@ const MIGRATIONS = [
     owner TEXT NOT NULL,
     t INTEGER NOT NULL
   ) WITHOUT ROWID`,
+  // The genesis bucket (ADR 0019): hatches left, when the count was last reconciled, and the
+  // commitment the player's next genesis is waiting on.
+  `ALTER TABLE players ADD COLUMN hatches INTEGER NOT NULL DEFAULT 3;
+  ALTER TABLE players ADD COLUMN hatch_t INTEGER NOT NULL DEFAULT 0;
+  ALTER TABLE players ADD COLUMN pending TEXT NOT NULL DEFAULT ''`,
 ];
 
 /** Applies pending migrations, recorded in `migrations` (`PRAGMA user_version` is not permitted in a Durable Object). */

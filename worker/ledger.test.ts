@@ -103,7 +103,7 @@ describe('migration 2', () => {
     ]) {
       expect(result.names).toContain(table);
     }
-    expect(result.before.map((r) => r.version)).toEqual([1, 2]);
+    expect(result.before.map((r) => r.version)).toEqual([1, 2, 3]);
     expect(result.after).toEqual(result.before);
   });
 });

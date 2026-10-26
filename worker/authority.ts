@@ -1,4 +1,13 @@
 import { DurableObject } from 'cloudflare:workers';
+import { genomeFromBase64url, genomeToBase64url } from '../src/genome/codec';
+import { express } from '../src/genome/express';
+import { randomnessOf } from '../src/ledger/drand';
+import {
+  type GenesisAsk,
+  genesisFor,
+  genesisRequest,
+  verifyGenesisAsk,
+} from '../src/ledger/genesis';
 import {
   fromBase64Url,
   HELLO_DOMAIN,
@@ -14,18 +23,21 @@ import {
   type ClientMsg,
   type HubMsg,
   isOtherVersionHello,
+  type LifeInfo,
   type Member,
   NONCE_BYTES,
   type PondInfo,
   parseClientMsg,
   SDP_MAX_BYTES,
+  type SignedCommit,
   SPAWN_GOLDEN_ANGLE,
   type Vec2,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
-import { RULES } from '../src/sim/rules';
-import { type BeaconSource, Beacons, liveSource } from './beacons';
-import { type KeyEntry, Ledger } from './ledger';
+import { lifespanMs } from '../src/sim/life';
+import { RULES, RULES_VERSION } from '../src/sim/rules';
+import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from './beacons';
+import { type Head, type KeyEntry, Ledger } from './ledger';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
 
@@ -52,13 +64,18 @@ export class Authority extends DurableObject<Env> {
   readonly ledger: Ledger;
   readonly beacons: Beacons;
   private rearming: Promise<void> = Promise.resolve();
+  /** Genesis requests run one at a time per player, so a second can't slip past the checks of the first. */
+  private readonly asking = new Map<string, Promise<void>>();
+  private source: BeaconSource;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ledger = new Ledger(ctx.storage);
+    this.source = this.beaconSource();
     this.beacons = new Beacons({
       storage: ctx.storage,
-      source: this.beaconSource(),
+      // Looked up on each use, so a test can swap the source of a live object.
+      source: { now: () => this.source.now(), fetch: (round) => this.source.fetch(round) },
       countersign: (hash) => this.ledger.countersign(hash),
       rearm: () => this.rearm(),
     });
@@ -144,6 +161,9 @@ export class Authority extends DurableObject<Env> {
       case 'signal':
         this.relay(ws, session, msg);
         return;
+      case 'genesis-request':
+        this.queueGenesis(ws, session, msg);
+        return;
     }
   }
 
@@ -166,9 +186,109 @@ export class Authority extends DurableObject<Env> {
       }
     }
     try {
-      await this.beacons.alarm();
+      for (const id of await this.beacons.alarm()) {
+        // One commitment failing must not strand the others this pass resolved.
+        await this.deliverGenesis(id).catch(() => {});
+      }
     } finally {
       await this.rearm();
+    }
+  }
+
+  /** Starts a genesis request after any earlier one from the same player has finished. */
+  private queueGenesis(
+    ws: WebSocket,
+    session: ActiveSession,
+    msg: ClientMsg & { t: 'genesis-request' },
+  ): void {
+    const earlier = this.asking.get(session.playerId) ?? Promise.resolve();
+    const run: Promise<void> = earlier
+      .then(() => this.genesisRequest(ws, session.playerId, msg))
+      .catch(() => sendIfOpen(ws, { t: 'error', code: 'genesis-failed' }))
+      .finally(() => {
+        if (this.asking.get(session.playerId) === run) this.asking.delete(session.playerId);
+      });
+    this.asking.set(session.playerId, run);
+  }
+
+  /**
+   * ADR 0019: commits to a future round for the player's next creature. The same request returns the
+   * same commitment, and a player who already has one waiting gets that one back, never a second round.
+   */
+  private async genesisRequest(ws: WebSocket, owner: string, ask: GenesisAsk): Promise<void> {
+    if (!verifyGenesisAsk(owner, ask)) {
+      sendIfOpen(ws, { t: 'refused', reason: 'bad-signature' });
+      return;
+    }
+    const data = { nonce: ask.nonce, sig: ask.sig };
+    const bucket = this.ledger.hatches(owner, Date.now());
+    let hatchesLeft = bucket.left;
+    let commit = this.beacons.find('genesis', owner, data);
+    if (
+      commit &&
+      commit.id !== this.ledger.pendingCommit(owner) &&
+      !this.isActiveBirth(owner, commit.id)
+    ) {
+      // A signed ask is good for one creature: replaying it after that creature is gone gets nothing.
+      sendIfOpen(ws, { t: 'refused', reason: 'used' });
+      return;
+    }
+    if (!commit) {
+      const waiting = this.ledger.pendingCommit(owner);
+      commit = waiting ? this.beacons.commitment(waiting) : null;
+    }
+    if (!commit) {
+      if (this.ledger.active(owner)) {
+        sendIfOpen(ws, { t: 'refused', reason: 'active' });
+        return;
+      }
+      if (hatchesLeft < 1) {
+        sendIfOpen(ws, { t: 'refused', reason: 'limit', genesisIn: bucket.genesisIn });
+        return;
+      }
+      commit = await this.beacons.commit('genesis', owner, data);
+      hatchesLeft = this.ledger.takeHatch(owner, commit.id, Date.now());
+    }
+    sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
+    await this.deliverGenesis(commit.id);
+  }
+
+  /** Whether the player's active creature came from this commitment. */
+  private isActiveBirth(owner: string, commitId: string): boolean {
+    const head = this.ledger.active(owner);
+    return head !== null && this.ledger.chain(head.id)[0]?.record.body.commit === commitId;
+  }
+
+  /** Writes the genesis record once the commitment's beacon exists (idempotent) and sends it to the owner's open sessions. */
+  private async deliverGenesis(commitId: string): Promise<void> {
+    const commit = this.beacons.commitment(commitId);
+    if (commit?.commitment.kind !== 'genesis') return;
+    const beacon = await this.beacons.beaconFor(commitId);
+    if (!beacon) return;
+    const owner = commit.commitment.owner;
+    const genome = genesisFor(randomnessOf(beacon), commitId);
+    const request = genesisRequest(RULES_VERSION, commit.commitment, genome);
+    const text = genomeToBase64url(genome);
+    const accepted = this.ledger.accept({ request, genome: text });
+    if (!accepted.ok) {
+      // Nothing will ever follow: free the player to ask again instead of waiting on a dead commitment.
+      this.ledger.clearPending(owner, commitId);
+      for (const [other, theirs] of this.activeSessions()) {
+        if (theirs.playerId === owner) sendIfOpen(other, { t: 'refused', reason: accepted.reason });
+      }
+      return;
+    }
+    const ask = commit.commitment.data as GenesisAsk;
+    const msg: HubMsg = {
+      t: 'genesis',
+      record: accepted.stored,
+      ownerRequest: { nonce: ask.nonce, sig: ask.sig },
+      commit: signedOf(commit),
+      beacon,
+      genome: text,
+    };
+    for (const [other, theirs] of this.activeSessions()) {
+      if (theirs.playerId === owner) sendIfOpen(other, msg);
     }
   }
 
@@ -249,6 +369,25 @@ export class Authority extends DurableObject<Env> {
       member: { playerId: msg.playerId, name: msg.name },
     });
     sendIfOpen(ws, { t: 'welcome', pond, you: { spawnHint }, members, ice, turn, now: Date.now() });
+    this.sendLife(ws, msg.playerId);
+  }
+
+  /** The player's active creature (null for a new player) and when the next recorded hatch is allowed. */
+  private sendLife(ws: WebSocket, playerId: string): void {
+    const head = this.ledger.active(playerId);
+    const { left, genesisIn } = this.ledger.hatches(playerId, Date.now());
+    sendIfOpen(ws, { t: 'life', life: head ? lifeOf(head) : null, genesisIn });
+    // A genesis still waiting on its round is announced again, and its creature follows when the round comes.
+    const waiting = this.ledger.pendingCommit(playerId);
+    const commit = waiting ? this.beacons.commitment(waiting) : null;
+    if (commit) {
+      sendIfOpen(ws, {
+        t: 'commit',
+        commit: signedOf(commit),
+        hatchesLeft: left,
+      });
+      this.deliverGenesis(commit.id).catch(() => {});
+    }
   }
 
   /** Picks the fullest pond with a free place (creating one if none), and the joiner's spawn hint. */
@@ -360,6 +499,28 @@ export class Authority extends DurableObject<Env> {
 }
 
 type ActiveSession = Session & { phase: 'active' };
+
+/** A commitment as the wire carries it: without the id and status the client recomputes or doesn't need. */
+const signedOf = ({ commitment, authSig, keyId }: SignedCommitment): SignedCommit => ({
+  commitment,
+  authSig,
+  keyId,
+});
+
+/** The head as the client resumes it; the lifespan comes from the genome's lifespan trait. */
+function lifeOf(head: Head): LifeInfo {
+  const genome = genomeFromBase64url(head.genome);
+  return {
+    creature: head.id,
+    seq: head.seq,
+    genome: head.genome,
+    biomass: head.biomass,
+    energy: head.energy,
+    health: head.health,
+    activeMs: head.activeMs,
+    lifespanMs: Math.round(genome ? lifespanMs(express(genome).physiology.lifespan) : 0),
+  };
+}
 
 /** `bytes` of randomness as base64url. */
 function randomToken(bytes: number): string {

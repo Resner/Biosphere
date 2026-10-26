@@ -112,6 +112,8 @@ Beautiful and smooth within browser budgets (ADR 0004).
 - Caustics, god rays, marine snow v2. Membrane, chitin and iridescence materials. Bioluminescence and dark-zone vision.
 - Procedural Web Audio: depth ambience and effects for every event; volume, mute and reduced-motion settings.
 - Readability pass (rim and contrast, threat outline by tier), including crispness: the cell and UI looked blurry in browsers (owner, Playtest v0.2.0).
+- Creature look overhaul (owner, #90, Playtest v0.4.0): translucent, glass-like micro-organisms in a strict top-down view, with visible internal organs, fine setae and appendages, varied silhouettes (copepod, larva, worm, jellyfish, winged plankton), a pale silvery-blue palette with rare iridescent glints, and macro lighting. The issue's three reference images are the completion bar: judge screenshots critically against them.
+- Quick social messages (owner, #89, Playtest v0.4.0): pings and emotes chosen on purpose, not by the G key's random pick. A radial wheel (touch-friendly for the mobile work after 1.0) or number hotkeys, one key press from play, and edge arrows toward a nearby off-screen ping. Redraw the emote and ping icons to production quality.
 - No per-frame allocations, budget report, per-preset screenshots.
 
 ### M7 Encounters (gate 3: combat feel)
