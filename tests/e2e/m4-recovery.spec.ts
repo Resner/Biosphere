@@ -10,6 +10,8 @@ const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2,
 test('a recovery code moves the creature to another browser and replaces the old tab', async ({
   browser,
 }) => {
+  // Two recorded hatches, each waiting for a beacon round, plus the reload: slow on a CI runner.
+  test.setTimeout(90_000);
   const a = await browser.newContext({ permissions: ['clipboard-read', 'clipboard-write'] });
   const pageA = await a.newPage();
   await openRecorded(pageA);
