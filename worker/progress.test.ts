@@ -157,7 +157,12 @@ describe('plausibility', () => {
   });
 
   it('clamps growth faster than the growth rate allows', async () => {
-    const { c, creature, stats } = await newPlayer();
+    // The report must be above what growth allows yet under the body's maximum, so a body whose maximum is 300 can't show the clamp.
+    let player = await newPlayer();
+    for (let tries = 0; player.stats.maxBiomass <= 300 && tries < 20; tries++) {
+      player = await newPlayer();
+    }
+    const { c, creature, stats } = player;
     expect(stats.maxBiomass).toBeGreaterThan(300);
     advance(30_000);
     report(c, TICKS_PER_30S, { ...CALM, biomass: 30_000 });
