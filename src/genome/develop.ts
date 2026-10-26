@@ -110,7 +110,7 @@ function buildSegments(body: Traits['body']): PlanSegment[] {
 }
 
 /** Where an appendage leaves segment `s` at `angle`, from the core centre. */
-function rootOf(s: PlanSegment, angle: number): { x: number; y: number } {
+export function rootOf(s: PlanSegment, angle: number): { x: number; y: number } {
   return { x: s.x + s.rx * cos(angle), y: s.ry * sin(angle) };
 }
 
@@ -286,7 +286,7 @@ function buildColliders(segments: PlanSegment[], appendages: Appendage[]): Colli
   // The biggest pairs get what circles are left, both sides or neither; ties keep instance order.
   const ranked = appendages
     .map((a, i) => ({ i, score: a.length * a.width }))
-    .filter(({ i }) => i % 2 === 0)
+    .filter(({ i }) => i % 2 === 0 && (appendages[i] as Appendage).width >= D.colliderMinWidth)
     .sort((p, q) => q.score - p.score || p.i - q.i);
   for (const { i } of ranked) {
     if (out.length + 2 > D.caps.colliders) break;

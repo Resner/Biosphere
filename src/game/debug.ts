@@ -67,8 +67,15 @@ export interface BsHook {
   /** Re-runs an input log in a fresh world and returns its final state hash. */
   replay(log: InputLog): { hash: string; events: Record<string, number> };
   render: { info(): RenderInfo; fx(): FxState };
+  /** Genome code run in this engine; present only with `?debug=1`. */
+  genome?: BsGenome;
   /** Mutating helpers; present only with `?debug=1`. */
   debug?: BsDebug;
+}
+
+export interface BsGenome {
+  /** The plan and stats hashes of each genome (base64url), for comparing engines against the Node goldens. */
+  hashes(genomes: readonly string[]): { planHash: string; statsHash: string }[];
 }
 
 /** The feedback cues now showing: counts since hatching, plus the camera's current zoom. */

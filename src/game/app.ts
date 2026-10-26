@@ -1,3 +1,6 @@
+import { decodeGenome, genomeFromBase64url } from '../genome/codec';
+import { hashPlan } from '../genome/develop';
+import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import type { Identity } from '../ledger/identity';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
@@ -29,7 +32,7 @@ import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { AloneHint } from './alone-hint';
-import { type BsDebug, installHook, type ScriptedRemote } from './debug';
+import { type BsDebug, type BsGenome, installHook, type ScriptedRemote } from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
 import { Hud } from './hud';
@@ -748,6 +751,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
   };
 
+  const genome: BsGenome = {
+    hashes: (list) =>
+      list.map((text) => {
+        const c = buildCreature(genomeFromBase64url(text) ?? decodeGenome(new Uint8Array(0)));
+        return { planHash: hashPlan(c.plan), statsHash: hashStats(c.stats) };
+      }),
+  };
+
   installHook({
     ready: true,
     state: () => ({
@@ -806,6 +817,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         camY: camera.y,
       }),
     },
-    ...(params.debug ? { debug } : {}),
+    ...(params.debug ? { debug, genome } : {}),
   });
 }

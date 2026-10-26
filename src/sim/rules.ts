@@ -213,6 +213,8 @@ export const RULES = deepFreeze({
     /** Collider radius is the part's base width times this. */
     colliderWidth: 0.5,
     colliderAlong: 0.65,
+    /** Parts thinner than this (cilia, whips) get no collision circle. */
+    colliderMinWidth: 0.15,
     /** The mouth: radius = size × (this − type); the jaw half (type > 0.5) moves forward and narrows. */
     mouthRadiusBase: 1.5,
     /** Mouth types above this move the mouth forward and narrow it. */
@@ -224,6 +226,44 @@ export const RULES = deepFreeze({
       full: { cap: 6000, bodyRings: 9, bodyRing: 12, jointRings: 3, partRing: 8 },
       low: { cap: 1500, bodyRings: 5, bodyRing: 6, jointRings: 1, partRing: 4 },
     },
+  },
+  /** Stats from form (M3, DESIGN §6): how a body plan becomes thrust, drag, turning, costs and combat numbers. */
+  stats: {
+    /**
+     * Thrust efficiency of one motile part: `base` plus the whip share × (size ÷ `cross`)^−`exponent`
+     * plus the paddle share × (size ÷ `cross`)^`exponent`. Whips win below `cross`, paddles above.
+     */
+    efficiency: { base: 0.25, cross: 16384, exponent: 0.25 },
+    /** Tip shape (0 blunt, point, hook, paddle, 1 whip): the paddle peak, and how far the paddle and weapon shares reach either side. */
+    paddleTip: 0.75,
+    paddleSpread: 0.25,
+    /** Pointed to hooked tips (peak between point and hook) make weapons. */
+    weaponTip: 0.375,
+    weaponSpread: 0.25,
+    /** Thrust is × (floor + (1 − floor) × gait amplitude). */
+    ampFloor: 0.7,
+    /** Mass: appendages, plates (density per unit area) and spines (fraction of the body). */
+    appendageMass: 1,
+    plateDensity: 4,
+    spineMass: 0.1,
+    /** Drag: body fineness term, rear taper relief, appendages, plates and spines. */
+    finenessDrag: 0.6,
+    taperRelief: 0.2,
+    appendageDrag: 0.25,
+    plateDrag: 0.3,
+    spineDrag: 0.1,
+    /** Turning: a rudder term and a flexibility term next to the differential thrust of the parts. */
+    baseSteer: 1,
+    flexSteer: 0.5,
+    /** Basal multiplier terms (DESIGN §6). */
+    basal: { segment: 0.1, appendage: 0.04, plating: 0.2, glow: 0.1 },
+    /** Luminescence alleles to glow. */
+    glow: { off: 0, pulse: 0.5, on: 1 },
+    /** Combat: weapon power per unit of stiffness × length, and the bite of a full jaw. */
+    weaponPower: 1,
+    bite: 0.5,
+    /** Detection ring: each unit of slender, still, forward length adds this. */
+    senseGain: 0.5,
   },
   spawn: {
     /** Hatching looks for a plume-free spot on rings this far apart (wu). */
