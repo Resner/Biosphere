@@ -143,6 +143,27 @@ describe('HubClient connect', () => {
   });
 });
 
+describe('HubClient listeners', () => {
+  it('a throwing listener does not stop the others or the receive path', async () => {
+    const client = make();
+    const signals: unknown[] = [];
+    const welcomes: unknown[] = [];
+    client.onSignal(() => {
+      throw new Error('boom');
+    });
+    client.onSignal((m) => signals.push(m));
+    client.onWelcome(() => {
+      throw new Error('boom');
+    });
+    client.onWelcome((m) => welcomes.push(m.t));
+    void client.connect().catch(() => {});
+    const s = await handshake();
+    s.receive({ t: 'signal', from: 'A'.repeat(43), kind: 'offer', sdp: 'v=0' });
+    expect(signals).toHaveLength(1);
+    expect(welcomes).toEqual(['welcome']);
+  });
+});
+
 describe('HubClient reconnect', () => {
   it('backs off 1, 2, 4, 8, 16, 30, 30 s with ±20% jitter', async () => {
     const client = make();

@@ -516,6 +516,24 @@ describe('PeerMesh inbound hygiene', () => {
     expect(b.stats().dropped).toBe(0);
   });
 
+  it('a throwing listener neither stops the others nor escapes the channel handler', async () => {
+    const { a, b } = await pair();
+    const seen: string[] = [];
+    b.onState(() => {
+      throw new Error('boom');
+    });
+    b.onState(() => seen.push('state'));
+    b.onEvent(() => {
+      throw new Error('boom');
+    });
+    b.onEvent(() => seen.push('event'));
+    expect(() => {
+      a.sendState('b', encodeSnapshot(SNAP));
+      a.sendEvent('b', { t: 'chat', text: 'hi' });
+    }).not.toThrow();
+    expect(seen).toEqual(['state', 'event']);
+  });
+
   it('counts malformed, oversized and misrouted messages and never delivers them', async () => {
     const { b, rx, toB } = await pair();
     toB('event', 'not json');

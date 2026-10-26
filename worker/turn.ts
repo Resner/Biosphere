@@ -4,6 +4,8 @@ import type { IceServer } from '../src/net/protocol';
 export const TURN_TTL_S = 86_400;
 /** A cached entry is replaced once less than this remains. */
 export const TURN_REFRESH_MARGIN_MS = 3_600_000;
+/** After a failed mint the next one waits this long, so an outage costs one wait, not one per join. */
+export const TURN_RETRY_MS = 30_000;
 /** The welcome never waits longer than this for Cloudflare. */
 export const TURN_TIMEOUT_MS = 2_000;
 export const STUN_SERVERS: IceServer[] = [
@@ -28,6 +30,7 @@ interface Cached {
  */
 export class TurnCredentials {
   private cached: Cached | null = null;
+  private failedAt = 0;
   private inflight: Promise<IceServer[] | null> | null = null;
 
   async ice(secrets: TurnSecrets): Promise<{ ice: IceServer[]; turn: boolean }> {
@@ -39,18 +42,24 @@ export class TurnCredentials {
 
   reset(): void {
     this.cached = null;
+    this.failedAt = 0;
   }
 
   private turnEntries(secrets: TurnSecrets): Promise<IceServer[] | null> {
     const { CF_TURN_KEY_ID: keyId, CF_TURN_KEY_API_TOKEN: token } = secrets;
     if (!keyId || !token) return Promise.resolve(null);
-    if (this.cached && this.cached.expires - Date.now() > TURN_REFRESH_MARGIN_MS) {
-      return Promise.resolve(this.cached.entries);
-    }
+    const now = Date.now();
+    const left = this.cached ? this.cached.expires - now : 0;
+    if (left > TURN_REFRESH_MARGIN_MS) return Promise.resolve(this.cached?.entries ?? null);
+    // Within the margin the old credentials still work (while `left` > 0), so a failed or
+    // backed-off refresh keeps serving them.
+    const stale = left > 0 ? (this.cached?.entries ?? null) : null;
+    if (now - this.failedAt < TURN_RETRY_MS) return Promise.resolve(stale);
     this.inflight ??= mint(keyId, token)
       .then((entries) => {
-        this.cached = entries && { entries, expires: Date.now() + TURN_TTL_S * 1000 };
-        return entries;
+        if (entries) this.cached = { entries, expires: Date.now() + TURN_TTL_S * 1000 };
+        this.failedAt = entries ? 0 : Date.now();
+        return entries ?? stale;
       })
       .finally(() => {
         this.inflight = null;

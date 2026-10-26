@@ -640,6 +640,67 @@ describe('TURN credentials', () => {
     });
   });
 
+  it('keeps the cached credentials when a refresh fails', async () => {
+    await secrets(true);
+    cloudflare();
+    await login('Alice');
+    skip(86_400_000 - 3_600_000 + 1_000); // under 1 h left: due for a refresh
+    vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'));
+    const { welcome } = await login('Bob');
+    expect(welcome).toMatchObject({ t: 'welcome', turn: true });
+  });
+
+  it('does not ask Cloudflare again for 30 s after a failure', async () => {
+    await secrets(true);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'));
+    await login('Alice');
+    await login('Bob');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    skip(31_000);
+    await login('Cara');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
+  it('announces a joiner only once its welcome is sent', async () => {
+    await secrets(true);
+    cloudflare();
+    const alice = await login('Alice');
+    await secrets(true); // forget the cache so Bob's hello waits for Cloudflare
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 400));
+      return Response.json({ iceServers: [{ urls: STUN }, TURN_ENTRY] });
+    });
+    const bob = await open();
+    const { id, hello } = await makeHello(await challenge(bob), 'Bob', memoryKeyStore());
+    bob.send(hello);
+    await new Promise((resolve) => setTimeout(resolve, 100));
+    expect(alice.c.inbox).toEqual([]);
+    alice.c.send({ t: 'signal', to: id.playerId, kind: 'offer', sdp: 'v=0' });
+    expect(await alice.c.next()).toEqual({ t: 'error', code: 'no-peer' });
+    expect(bob.inbox).toEqual([]);
+    expect((await bob.next()).t).toBe('welcome');
+    expect(await alice.c.next()).toMatchObject({ t: 'member', op: 'join' });
+  });
+
+  it('welcomes and announces a joiner once, even if it says hello twice while waiting', async () => {
+    await secrets(true);
+    const alice = await login('Alice');
+    await secrets(true);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return Response.json({ iceServers: [{ urls: STUN }, TURN_ENTRY] });
+    });
+    const bob = await open();
+    const { hello } = await makeHello(await challenge(bob), 'Bob', memoryKeyStore());
+    bob.send(hello);
+    bob.send(hello);
+    expect((await bob.next()).t).toBe('welcome');
+    expect(await alice.c.next()).toMatchObject({ t: 'member', op: 'join' });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(bob.inbox).toEqual([]);
+    expect(alice.c.inbox).toEqual([]);
+  });
+
   it('does not wait more than 2 s for a hanging Cloudflare', async () => {
     await secrets(true);
     vi.spyOn(globalThis, 'fetch').mockImplementation(

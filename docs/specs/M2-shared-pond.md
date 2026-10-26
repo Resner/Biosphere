@@ -334,6 +334,18 @@ Close codes: 4001 replaced by a newer session, 4002 bad hello, 4003 rate limited
     - `m2-pond` polls (5 s) for the one-bite count instead of waiting a fixed 500 ms, then checks it holds, and waits up to 6 s (not 2 s) for the item to vanish for C, because three software-GL browsers on a loaded runner tick every few hundred ms; its mean-error check compares B's view of A with A's position `INTERPOLATION_MS` earlier, because the 120 ms delay is by design and a full-throttle cell moves about a bound's worth in that time.
   - Done: tests only. Gotcha: a cell hatched beside food eats it in either tab, and `setEnergy(1e9)` does not keep a cell full (growth drains it below max), so "stay full" is not a way to hold a test still; freeze the sim instead. More than three Playwright workers on 4 cores time out at 30 s: overload, not a bug.
 
+- [x] T25 Hub and mesh hardening from the milestone review
+  - Found by the milestone `/code-review` of f69634a..T24; each can leave friends unable to connect or play on a bad day.
+  - Acceptance:
+    - A failed TURN refresh keeps the still-valid cached credentials (unit: refresh fails inside the last hour, the next welcome still says `turn: true`).
+    - A joiner is placed, announced and made relayable only when its welcome is sent: the TURN lookup happens before placement, so no signal or member event can reach it first (unit: with Cloudflare held, the existing member sees no `join` and the joiner no signal until the welcome).
+    - A throwing `HubClient` or `PeerMesh` listener never stops the other listeners or the receive path (unit).
+    - An error inside the hello handler closes the socket with an error code instead of leaving it to the hello timeout.
+    - `PeerMesh.failed` clears a pending retry before it sets a new one.
+  - Done: `TurnCredentials` keeps valid cached credentials when a refresh fails; the hello handler fetches the ICE list before placing the joiner, so placement, the join broadcast and the welcome run in one synchronous step; `guarded` (`src/net/guarded.ts`, logs with `console.error`) wraps every `HubClient` and `PeerMesh` listener call; a hello that fails inside closes with 1011, and one that arrives twice during the lookup is welcomed once (the session is re-read after the await); a failed Cloudflare mint is not retried for 30 s (`TURN_RETRY_MS`); `failed` clears a pending retry first.
+  - Gotcha: a test that resolves a mocked `fetch` promise from the test side never wakes the Durable Object; delay with `setTimeout` inside the mock instead.
+  - Seen and left alone (record, no task): protocol pings wake the object because the pong carries the server clock, which auto-response cannot supply (the budget in `worker.md` holds at one ping per minute; ADR 0008 covers the cost); `findClearSpot` allocates per candidate (outcome-neutral, revisit in the M6 performance pass); a repeated `applyRemoteClaim` for the same cycle follows the claim book's lowest-tick rule and is bounded by `claimTickWindow`.
+
 ## End-to-end check
 
 `tests/e2e/m2-pond.spec.ts` (T17) plus `m2-webrtc.spec.ts` (T9), `m2-identity.spec.ts` (T3) and the chat scenario from T15, all offline against local `wrangler dev`. Exit-criteria map:

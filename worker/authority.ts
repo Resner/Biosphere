@@ -104,7 +104,7 @@ export class Authority extends DurableObject<Env> {
         ws.close(CLOSE_BAD_HELLO, 'hello expected');
         return;
       }
-      void this.hello(ws, session, msg);
+      this.hello(ws, session, msg).catch(() => this.drop(ws, 1011, 'hello failed'));
       return;
     }
     if (!msg) {
@@ -169,6 +169,12 @@ export class Authority extends DurableObject<Env> {
       ws.close(CLOSE_BAD_HELLO, 'bad hello');
       return;
     }
+    const { ice, turn } = await this.turn.ice(this.env);
+    // The socket may have closed, said hello again or sent messages while the lookup ran: go on
+    // from its current state. From here to the welcome there is no await, so nobody can relay a
+    // signal to the joiner or learn of it first.
+    const current = ws.readyState === WebSocket.OPEN ? sessionOf(ws) : null;
+    if (current?.phase !== 'challenged') return;
     for (const [other, theirs] of this.activeSessions(ws)) {
       if (theirs.playerId === msg.playerId) {
         this.drop(other, CLOSE_REPLACED, 'replaced by a newer session');
@@ -176,7 +182,7 @@ export class Authority extends DurableObject<Env> {
     }
     const { pond, spawnHint, members, slot } = this.place();
     ws.serializeAttachment({
-      ...session,
+      ...current,
       phase: 'active',
       playerId: msg.playerId,
       name: msg.name,
@@ -188,8 +194,6 @@ export class Authority extends DurableObject<Env> {
       op: 'join',
       member: { playerId: msg.playerId, name: msg.name },
     });
-    // The session is already placed, so a slow or failed TURN lookup only delays this welcome.
-    const { ice, turn } = await this.turn.ice(this.env);
     sendIfOpen(ws, { t: 'welcome', pond, you: { spawnHint }, members, ice, turn, now: Date.now() });
   }
 
