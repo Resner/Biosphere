@@ -101,7 +101,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `efficiency()` and `applyFeeding` use the mouth disc and arc (arc is measured from the creature centre; an `eat` event's `value` is the yield); `applyHazards` uses collider exposure; `findClearSpot(world, x, y, reach)` takes `colliderReach(phys, biomass)` (the game passes 0 until T15). Goldens regenerated under v3: a starter's type-0.5 mouth pays crystals 36 and detritus 6.4, so `hazard-dash` grows 1 time, not 3. A 24-creature, 12-collider tick takes about 1.2 ms in Node.
   - Gotcha: `sanitizePhys` pulls a collider to within `2.5 − r` of the core, so the acceptance example `{ x: −2.5, r: 0.6 }` lands at −1.9; the tests use −1.9 (same 0.36 / 1.36 share).
 
-- [ ] T3 Karyotype v1, the total codec and the genome hash
+- [ ] T3 Karyotype v1, the total codec and the genome hash (in progress)
   - Acceptance:
     - The loci table (`karyotype.ts`) follows DESIGN §6 and ADR 0006: 6 chromosomes, `quant`, `mendel` (with complete, co-dominant or incomplete dominance), `load` and 8 `module` slots of 15 bytes. `GENOME_BYTES` is the diploid size. If the layout differs from the DESIGN table, update the table in the same PR. Each `mendel` table also has at least one allele that genesis never produces (a "novel" allele, reachable by mutation only).
     - `decodeGenome` never throws for 10,000 random byte strings of lengths 0, 1, `GENOME_BYTES − 1`, `GENOME_BYTES`, `GENOME_BYTES + 1` and 4096, nor for the all-zero and all-0xFF strings.
