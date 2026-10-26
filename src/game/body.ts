@@ -63,12 +63,16 @@ export class Hatcher {
   /** The body for the next life. */
   next(): Body {
     if (this.pinStarter) return this.title();
-    if (this.pinnedGenome) return (this.pinnedBody ??= hatchBody(this.pinnedGenome));
+    if (this.pinnedGenome) {
+      this.pinnedBody ??= hatchBody(this.pinnedGenome);
+      return this.pinnedBody;
+    }
     return hatchBody(genesisGenome(seedFromString(`hatch/${this.options.random()}`)));
   }
 
   /** The title screen's drifting cell: always the starter. */
   title(): Body {
-    return (this.starterBody ??= hatchBody(starterGenome()));
+    this.starterBody ??= hatchBody(starterGenome());
+    return this.starterBody;
   }
 }
