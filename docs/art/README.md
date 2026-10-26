@@ -14,6 +14,10 @@ The owner's reference: a copepod-like creature lit from behind in dark water. Ta
 - **Marine snow**: a sparse field of tiny specks at several depths, drifting slowly.
 - **Accent colours**: small saturated accents against the cool background. Chlorophyll-green spheres and chains, and an amber, star-shaped diatom-like shell. In Biosphere these become nonliving food and decorative particles, never organisms with behaviour.
 
+## reference-02.jpg to reference-04.jpg
+
+The owner's bar for the creature look overhaul (#90, M6): photoreal, translucent micro-organisms seen from above, with inner organs, fine appendages, a pale silvery-blue palette and rare jewel-like glints. The written brief is in #90. Judge the game's creatures against these critically.
+
 ## How it maps to the game
 
 - The camera looks down on the gameplay plane, not from the side as in the photo; the lighting ideas carry over unchanged: backlight, rim, glints, bokeh.

@@ -7,7 +7,7 @@ effort: high
 
 # Milestone close
 
-Nothing ships unless it meets the spec. Be strict about requirements, not about taste.
+Nothing ships unless it meets the spec. Be strict about requirements, not about taste. A bar the owner set in an issue (a look matched against references, a feel) is a requirement: judge it critically against the owner's references, and never pass it because the tests are green.
 
 1. On an up-to-date `main`, run `npm run verify`. If it's red, fixing it is this run's work.
 2. Review everything since the last release (`git describe --tags --abbrev=0`; on the first release, the whole tree) against the spec's exit criteria, end-to-end check and rubric. Gather evidence for rubric items (screenshots, timings), and run `/code-review` on that range for correctness.
@@ -16,4 +16,4 @@ Nothing ships unless it meets the spec. Be strict about requirements, not about 
 5. Update the roadmap: mark this row `done` and record its release. If what you learned changes later milestones, adjust their outcomes and exit criteria; keep the order, and record scope changes in an ADR.
 6. Bump `VERSION` to this milestone's release: a minor bump, or 1.0.0 for the final milestone.
 7. Ship as `chore(release): v<version> <milestone title>`, with player-facing release notes in the PR body. The merge runs the full tests, deploys to Pages and tags the release.
-8. Once the Release workflow is green, open an issue `Playtest: v<version>` with the Pages link, what changed, what to try, and the spec's `(owner)` checks. For a `gate` milestone, say that the factory waits for the owner's reply.
+8. Once the Release workflow is green, open an issue `Playtest: v<version>` with the Pages link, what changed, what to try, and the spec's `(owner)` checks. For a `gate` milestone, say that the factory waits for the owner's reply. Close the owner issues this milestone fully delivered, each with a comment linking the release; leave open those that wait for the owner's acceptance, and say so in the Playtest issue.

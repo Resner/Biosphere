@@ -10,7 +10,7 @@ The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` wrote them, a
 | M3 | Procedural morphology | DNA → bounded development → body, stats and mesh; zero invalid bodies over 10k random and mutated genomes; anatomy changes movement, collision and feeding; Creature Lab page; unique genesis DNA | — | done | [M3](specs/M3-procedural-morphology.md) | v0.4.0 |
 | M4 | Authority and lineage core | identities and genesis creatures registered (drand-seeded); one accepted head per creature; single session; lifespan on the authority clock (paused offline); durable resume; recovery code; extinct lineages kept as history | — | specced | [M4](specs/M4-authority-and-lineage-core.md) | v0.5.0 |
 | M5 | Mating and offspring | consent, eligibility, cost and cooldown; future-round commitment, no rerolls; two distinct offspring by Mendelian rules; one pending offspring; promotion → checkpoint; death → nearest surviving ancestor; old age walks the chain | gate | planned | — | v0.6.0 |
-| M6 | Look, sound and performance | art pass to the reference (DOF, caustics, membranes, bioluminescence by depth); depth zones with gameplay; low, medium and high presets with budgets; procedural sound; (owner) 60 fps at the default preset | — | planned | — | v0.7.0 |
+| M6 | Look, sound and performance | creature look overhaul to the owner's references (#90); art pass to the reference (DOF, caustics, membranes, bioluminescence by depth); depth zones with gameplay; low, medium and high presets with budgets; procedural sound; deliberate pings and emotes (#89); (owner) creatures hold up next to the references; (owner) 60 fps at the default preset | gate | planned | — | v0.7.0 |
 | M7 | Encounters | refereed deterministic combat for comparable sizes: instant lock-in, steering, stance, target, brace, deadlines and autopilot, anatomy-driven outcomes; identical results on all clients | gate | planned | — | v0.8.0 |
 | M8 | Disconnect-safe settlement | closing a tab never cancels or escapes a fight; reconnect resumes; the authority settles when everyone leaves; backdated inputs rejected; settlement records verifiable | — | planned | — | v0.9.0 |
 | M9 | Verifiable lineage and showcase | independent verifier for the ancestry graph that rejects tampering; proof bundles served while peers are offline; lineage viewer; shareable verified creature cards | — | planned | — | v0.10.0 |
@@ -102,9 +102,9 @@ The breeding loop with real players. It proves heredity is fun and readable.
 - Inbreeding load and kinship; a lineage view (the player's chain plus the family graph).
 - Pacing simulation, with values recorded in DESIGN.md.
 
-### M6 Look, sound and performance
+### M6 Look, sound and performance (gate: the look)
 
-Beautiful and smooth within browser budgets (ADR 0004).
+Beautiful and smooth within browser budgets (ADR 0004). The owner judges the creature look before the factory moves on.
 
 - Presets low, medium and high with budgets, auto-detect and adaptive resolution.
 - Post chain (half-res DOF with CoC, bloom, grade, vignette, grain, chromatic aberration).
@@ -112,8 +112,15 @@ Beautiful and smooth within browser budgets (ADR 0004).
 - Caustics, god rays, marine snow v2. Membrane, chitin and iridescence materials. Bioluminescence and dark-zone vision.
 - Procedural Web Audio: depth ambience and effects for every event; volume, mute and reduced-motion settings.
 - Readability pass (rim and contrast, threat outline by tier), including crispness: the cell and UI looked blurry in browsers (owner, Playtest v0.2.0).
-- Creature look overhaul (owner, #90, Playtest v0.4.0): translucent, glass-like micro-organisms in a strict top-down view, with visible internal organs, fine setae and appendages, varied silhouettes (copepod, larva, worm, jellyfish, winged plankton), a pale silvery-blue palette with rare iridescent glints, and macro lighting. The issue's three reference images are the completion bar: judge screenshots critically against them.
-- Quick social messages (owner, #89, Playtest v0.4.0): pings and emotes chosen on purpose, not by the G key's random pick. A radial wheel (touch-friendly for the mobile work after 1.0) or number hotkeys, one key press from play, and edge arrows toward a nearby off-screen ping. Redraw the emote and ping icons to production quality.
+- Creature look overhaul (owner, #90, Playtest v0.4.0). This is the milestone's centrepiece and an owner requirement, not a matter of taste. It needs its own group of tasks, not one task or a shader tweak:
+  - The bar: `docs/art/reference-02.jpg` to `reference-04.jpg` (from #90) and the issue's written brief. Cloud sessions can't download GitHub image attachments, so if these files are missing when M6 is specced, open a `Blocked:` issue asking the owner to add them. Translucent, glass-like micro-organisms in a strict top-down view; visible internal organs, gut and fluid chambers; fine setae, antennae and articulated appendages; a pale silvery-blue palette with subtle amber, violet, cyan and pink pigment; rare iridescent glints (rare, never glitter); macro lighting with luminous edges and restrained bloom.
+  - Body-plan diversity: distinct silhouettes (shrimp- and copepod-like, curled worm, tiny crab, tadpole, spherical larva, jellyfish-like, winged plankton) need new development and module options in `src/genome`, not just new meshes. That is a rules-version change with an ADR, and it keeps ADR 0006's bounds, caps and repair.
+  - Mesh detail: setae, antennae, limbs and segmented tails as fine geometry or shader detail, with level of detail per preset.
+  - Internal anatomy: an inner layer (organs, gut, chambers, veins) seen through the body, derived from the genome.
+  - Materials: glass and chitin translucency, refraction, wet gloss, pores and cell texture, small imperfections.
+  - Look passes: a fixed gallery (the same genomes, seeds and camera every time) rendered next to the references. Each pass task attaches the gallery and an honest written comparison with each reference to its PR, lists the largest gaps, and fixes them. There are at least two passes, and more until the rubric holds. Never call a pass done because the tests are green.
+  - Rubric: the gallery holds up next to each reference (silhouette variety, translucency, inner detail, fine appendages, palette, rare glints, lighting); plus an `(owner)` check on the Playtest issue. Close #90 when the owner accepts it.
+- Quick social messages (owner, #89, Playtest v0.4.0): pings and emotes chosen on purpose, not by the G key's random pick. A radial wheel (touch-friendly for the mobile work after 1.0) or number hotkeys, one key press from play, and edge arrows toward a nearby off-screen ping. Redraw the emote and ping icons to production quality. Close #89 when it ships.
 - No per-frame allocations, budget report, per-preset screenshots.
 
 ### M7 Encounters (gate 3: combat feel)
@@ -301,7 +308,7 @@ Every requirement in `docs/BRIEF.md`, mapped to the milestone that delivers it.
 | **Social** | |
 | Text chat with a profanity filter, emotes and pings | M2 |
 | **Playtesting** | |
-| Gates after the first playable loop, after breeding and morphology, and before v1.0; works from the Pages build without setup | M2, M5, M7, M14 |
+| Gates after the first playable loop, after breeding and morphology, after the look overhaul (owner, #90), and before v1.0; works from the Pages build without setup | M2, M5, M6, M7, M14 |
 | **Testing** | |
 | No NPCs in the live world; headless clients, recordings and simulated populations only in tests and load simulations | all (`.claude/rules/tests.md`), M13 |
 | **Owner decisions at scaffold** | |
