@@ -1,7 +1,7 @@
 // Six hand-built body plans for the stats tests (M3 T6): each is made through the karyotype and
 // nothing else, then measured with the sim's own movement and feeding formulas.
 
-import { decodeGenome, type Genome } from '../src/genome/codec';
+import { decodeGenome, encodeGenome, type Genome } from '../src/genome/codec';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from '../src/genome/karyotype';
 import { buildCreature, statsAt } from '../src/genome/stats';
 import { efficiency } from '../src/sim/food';
@@ -40,6 +40,16 @@ export function withLoci(bytes: Uint8Array, set: Record<string, number>): Uint8A
     out[HAPLOTYPE_BYTES + locus(id).offset] = v;
   }
   return out;
+}
+
+/** `base` with these single-byte loci set per haplotype (`[first, second]`). */
+export function withAlleles(base: Genome, set: Record<string, [number, number]>): Genome {
+  const bytes = encodeGenome(base);
+  for (const [id, [x, y]] of Object.entries(set)) {
+    bytes[locus(id).offset] = x;
+    bytes[HAPLOTYPE_BYTES + locus(id).offset] = y;
+  }
+  return decodeGenome(bytes);
 }
 
 export const buildGenome = (

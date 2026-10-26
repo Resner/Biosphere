@@ -1,8 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { locus, withAlleles } from '../../tests/archetypes';
 import { createRng, type Rng, type Seed, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
-import { decodeGenome, encodeGenome, type Genome, genomeHash } from './codec';
+import type { Genome } from './codec';
+import { genomeHash } from './codec';
 import { bodyViolations, develop } from './develop';
 import { express } from './express';
 import { genesisGenome } from './genesis';
@@ -29,21 +31,10 @@ const parent = (i: number): Genome => {
   parents.set(i, g);
   return g;
 };
-const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
 const tol = (p: number, n: number): number => 4 * Math.sqrt((p * (1 - p)) / n);
 const near = (count: number, p: number, n: number): void => {
   expect(Math.abs(count / n - p), `${count}/${n} vs ${p}`).toBeLessThanOrEqual(tol(p, n));
 };
-
-/** `base` with these loci set per haplotype (`[first, second]`). */
-function withAlleles(base: Genome, set: Record<string, [number, number]>): Genome {
-  const bytes = encodeGenome(base);
-  for (const [id, [x, y]] of Object.entries(set)) {
-    bytes[locus(id).offset] = x;
-    bytes[HAPLOTYPE_BYTES + locus(id).offset] = y;
-  }
-  return decodeGenome(bytes);
-}
 
 const alleleAt = (g: Genome, hap: 0 | 1, id: string): number =>
   g.haplotypes[hap].alleles[locus(id).offset] as number;

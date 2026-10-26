@@ -185,7 +185,8 @@ Death is common and never total: you fall back to your pending offspring or your
 - **Rarity (M3)**:
   - Score = Σ −log2(genesis frequency) over expressed rare features.
   - Tiers: common < 4, uncommon 4–8, rare 8–14, exotic ≥ 14.
-  - Each creature gets a deterministic species-like name from its genome hash (for example "Velothrix ambulans").
+  - Features: iridescent, albino, stripes, spots, rings, luminescent (priced from their exact genesis frequency), and 12 bits each for extra segments, extra modules (beyond the whip and cilia), a novel allele, or a max size of tier 1 and up (1,024 biomass).
+  - Each creature gets a deterministic species-like name: a genus from its genome hash (three syllables and a suffix) and an epithet from its strongest trait (for example "Dabelothrix natans").
 - **Inbreeding**: recessive load alleles show only when homozygous, so related parents produce weaker children more often (M5).
 
 ## 7. Combat (M7–M8; ADR 0011)
