@@ -104,7 +104,7 @@ export class Authority extends DurableObject<Env> {
         ws.close(CLOSE_BAD_HELLO, 'hello expected');
         return;
       }
-      this.hello(ws, session, msg).catch(() => this.drop(ws, CLOSE_BAD_HELLO, 'hello failed'));
+      this.hello(ws, session, msg).catch(() => this.drop(ws, 1011, 'hello failed'));
       return;
     }
     if (!msg) {
@@ -169,10 +169,12 @@ export class Authority extends DurableObject<Env> {
       ws.close(CLOSE_BAD_HELLO, 'bad hello');
       return;
     }
-    // Replacing an older session, placement, the join broadcast and the welcome follow in one synchronous run, so nobody can
-    // relay a signal to the joiner or learn of it before its welcome is sent.
     const { ice, turn } = await this.turn.ice(this.env);
-    if (ws.readyState !== WebSocket.OPEN) return;
+    // The socket may have closed, said hello again or sent messages while the lookup ran: go on
+    // from its current state. From here to the welcome there is no await, so nobody can relay a
+    // signal to the joiner or learn of it first.
+    const current = ws.readyState === WebSocket.OPEN ? sessionOf(ws) : null;
+    if (current?.phase !== 'challenged') return;
     for (const [other, theirs] of this.activeSessions(ws)) {
       if (theirs.playerId === msg.playerId) {
         this.drop(other, CLOSE_REPLACED, 'replaced by a newer session');
@@ -180,7 +182,7 @@ export class Authority extends DurableObject<Env> {
     }
     const { pond, spawnHint, members, slot } = this.place();
     ws.serializeAttachment({
-      ...session,
+      ...current,
       phase: 'active',
       playerId: msg.playerId,
       name: msg.name,

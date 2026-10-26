@@ -2,7 +2,7 @@
 export function guarded(run: () => void): void {
   try {
     run();
-  } catch {
-    // The listener's bug is its own: the next listener and the next message still run.
+  } catch (err) {
+    console.error('listener threw', err);
   }
 }

@@ -650,6 +650,17 @@ describe('TURN credentials', () => {
     expect(welcome).toMatchObject({ t: 'welcome', turn: true });
   });
 
+  it('does not ask Cloudflare again for 30 s after a failure', async () => {
+    await secrets(true);
+    const fetchMock = vi.spyOn(globalThis, 'fetch').mockRejectedValue(new Error('down'));
+    await login('Alice');
+    await login('Bob');
+    expect(fetchMock).toHaveBeenCalledTimes(1);
+    skip(31_000);
+    await login('Cara');
+    expect(fetchMock).toHaveBeenCalledTimes(2);
+  });
+
   it('announces a joiner only once its welcome is sent', async () => {
     await secrets(true);
     cloudflare();
@@ -669,6 +680,25 @@ describe('TURN credentials', () => {
     expect(bob.inbox).toEqual([]);
     expect((await bob.next()).t).toBe('welcome');
     expect(await alice.c.next()).toMatchObject({ t: 'member', op: 'join' });
+  });
+
+  it('welcomes and announces a joiner once, even if it says hello twice while waiting', async () => {
+    await secrets(true);
+    const alice = await login('Alice');
+    await secrets(true);
+    vi.spyOn(globalThis, 'fetch').mockImplementation(async () => {
+      await new Promise((resolve) => setTimeout(resolve, 200));
+      return Response.json({ iceServers: [{ urls: STUN }, TURN_ENTRY] });
+    });
+    const bob = await open();
+    const { hello } = await makeHello(await challenge(bob), 'Bob', memoryKeyStore());
+    bob.send(hello);
+    bob.send(hello);
+    expect((await bob.next()).t).toBe('welcome');
+    expect(await alice.c.next()).toMatchObject({ t: 'member', op: 'join' });
+    await new Promise((resolve) => setTimeout(resolve, 300));
+    expect(bob.inbox).toEqual([]);
+    expect(alice.c.inbox).toEqual([]);
   });
 
   it('does not wait more than 2 s for a hanging Cloudflare', async () => {
