@@ -1,0 +1,62 @@
+{
+  "rulesVersion": 4,
+  "genesis": {
+    "record": {
+      "v": 1,
+      "rules": 4,
+      "kind": "genesis",
+      "creature": "",
+      "seq": 0,
+      "prev": "",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "commit": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "round": 12345,
+        "genome": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "generation": 0,
+        "karyotype": 1
+      }
+    },
+    "hash": "9869fea33982210c238541f319f61f866fe8fd9b78c5a9e007d05a56d8ce52a0",
+    "requestHash": "f1999547f9561b76bd8516d09dde392f77d7f07a0b0fc161f5ab378dec179184"
+  },
+  "checkpoint": {
+    "record": {
+      "v": 1,
+      "rules": 4,
+      "kind": "checkpoint",
+      "creature": "9869fea33982210c238541f319f61f866fe8fd9b78c5a9e007d05a56d8ce52a0",
+      "seq": 1,
+      "prev": "9869fea33982210c238541f319f61f866fe8fd9b78c5a9e007d05a56d8ce52a0",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000900000,
+      "body": {
+        "activeMs": 900000,
+        "biomass": 123,
+        "energy": 8100,
+        "health": 10000
+      }
+    },
+    "hash": "86c573c86ecb1731d5c9ffe8bc743ca37103e71e1a0fc820e27a87b763378377",
+    "requestHash": "9845c923ee222b02cfec09f7d92f1b9ff61143220bfe2f37662391e2e440b80c"
+  },
+  "death": {
+    "record": {
+      "v": 1,
+      "rules": 4,
+      "kind": "death",
+      "creature": "9869fea33982210c238541f319f61f866fe8fd9b78c5a9e007d05a56d8ce52a0",
+      "seq": 2,
+      "prev": "86c573c86ecb1731d5c9ffe8bc743ca37103e71e1a0fc820e27a87b763378377",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700001800000,
+      "body": {
+        "cause": "old-age",
+        "activeMs": 4500000
+      }
+    },
+    "hash": "9dcf959b20237c13882a82ddd931cb76dc48cf7cec9c8581f9939b219ba7f8d1",
+    "requestHash": "d8a99285de2011bc21c9dbffc67a6f5335e855c2bb66d69196e43f31ed1749bd"
+  }
+}

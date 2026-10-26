@@ -38,6 +38,19 @@ export async function createIdentity(store: KeyStore): Promise<Identity> {
   };
 }
 
+/** Signs with a bare secret; for keys that are not a player's, such as the authority's. */
+export function signWithSecret(
+  secret: Uint8Array,
+  domain: string,
+  message: Uint8Array,
+): Uint8Array {
+  return ed.sign(signedBytes(domain, message), secret);
+}
+
+export function publicKeyFromSecret(secret: Uint8Array): Uint8Array {
+  return ed.getPublicKey(secret);
+}
+
 export function verify(
   playerId: string,
   domain: string,
