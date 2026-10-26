@@ -120,6 +120,43 @@ export const RULES = deepFreeze({
       crystal: { filter: 0, middle: 0.6, jaw: 1 },
     },
   },
+  /** Gene expression (M3, DESIGN §6): trait ranges for the quantitative loci and the loss-of-function amounts. */
+  genes: {
+    /** Maximum segments; the segmentation drive 0-1 maps onto 1..max in equal steps. */
+    segments: 8,
+    /** maxBiomass = base × 2^(octaves × t), with t the mean of the size loci scaled to 0-1. */
+    size: { base: 300, octaves: 13 },
+    /** [low, high] for each quantitative trait, by trait group. */
+    range: {
+      body: { aspect: [0.8, 2.4], taper: [0, 0.8], flexibility: [0, 1] },
+      skin: { membrane: [0, 1], translucency: [0, 1], plating: [0, 1], spines: [0, 1] },
+      mouth: { size: [0.2, 1], type: [0, 1], digestion: [0.7, 1.2] },
+      behaviour: {
+        gaitAmp: [0, 1],
+        gaitFreq: [0.5, 2],
+        aggression: [0, 1],
+        caution: [0, 1],
+        curiosity: [0, 1],
+        reflex: [0, 1],
+      },
+      colour: {
+        hue: [0, 1],
+        saturation: [0.3, 1],
+        value: [0.35, 1],
+        patternScale: [0, 1],
+        lumHue: [0, 1],
+      },
+      physiology: {
+        lifespan: [0.6, 1.6],
+        metabolism: [0.7, 1.4],
+        growth: [0.7, 1.4],
+        uvTolerance: [0, 1],
+        pressureTolerance: [0, 1],
+      },
+    },
+    /** A homozygous loss of function (L1-L4) sets its defect factor to this; heterozygotes are unaffected. */
+    lof: { membraneIntegrity: 0.6, partScale: 0.6, beatStrength: 0.7, metabolismCost: 1.3 },
+  },
   spawn: {
     /** Hatching looks for a plume-free spot on rings this far apart (wu). */
     searchStep: 50,
