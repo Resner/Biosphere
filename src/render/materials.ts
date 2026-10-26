@@ -1,6 +1,8 @@
 import * as THREE from 'three';
 import cellFragment from './shaders/cell.frag.glsl?raw';
 import cellVertex from './shaders/cell.vert.glsl?raw';
+import creatureFragment from './shaders/creature.frag.glsl?raw';
+import creatureVertex from './shaders/creature.vert.glsl?raw';
 import flagellumFragment from './shaders/flagellum.frag.glsl?raw';
 import flagellumVertex from './shaders/flagellum.vert.glsl?raw';
 import foodFragment from './shaders/food.frag.glsl?raw';
@@ -52,6 +54,20 @@ export const cellMaterial = (extent: number): THREE.ShaderMaterial =>
     uCore: { value: new THREE.Color(0.04, 0.15, 0.16) },
     uRim: { value: new THREE.Color(0.56, 0.95, 0.86) },
     uNucleus: { value: new THREE.Color(0.6, 0.9, 0.55) },
+    uHurt: { value: 0 },
+    uDissolve: { value: 0 },
+    uAlpha: { value: 1 },
+  });
+
+/** The creature mesh's material (M3 T11); a view clones it, since the gait uniforms are per creature. */
+export const creatureMaterial = (): THREE.ShaderMaterial =>
+  layer(creatureVertex, noise + creatureFragment, {
+    uAmp: { value: 0 },
+    uPhase: { value: 0 },
+    uBeat: { value: 0 },
+    uBend: { value: 0 },
+    uCore: { value: new THREE.Color(0.04, 0.15, 0.16) },
+    uRim: { value: new THREE.Color(0.56, 0.95, 0.86) },
     uHurt: { value: 0 },
     uDissolve: { value: 0 },
     uAlpha: { value: 1 },

@@ -200,7 +200,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Notes: the part geometry is a loft of ellipses along the spine (body) and a swept tapered tube along a curved path with up to 4 joints (appendages), plates as thin shells, the mouth as an opening ring. Ring and path samples scale with detail. A thin, flat creature is fine; readable silhouettes matter (render rules).
   - Done: the draw-call and triangle E2E moved to T13. The body is one loft through rings of every segment sorted by x (union of the ellipses), so segments never leave a gap; plates lift the dorsal vertices in z and the mouth marks the front vertices through `aPart` (kind in the low two bits, appendage number above), adding no vertices. Tubes cannot bend tighter than their radius (a short fat curved part otherwise folds inside out). `CreatureCache` uses a plain placeholder material until T11 and T12.
 
-- [ ] T11 Shader gait: one attached, living body (in progress)
+- [x] T11 Shader gait: one attached, living body
   - Acceptance:
     - `creature.vert.glsl` moves the whole mesh from per-genome uniforms (`uAmp`, `uFreq`, `uPhase`, `uBeat`, `uBend`): a wave travels along `aSpine`; an appendage vertex first takes the spine displacement at `aAttach` and then its own beat displacement weighted by `aWeight` (0 at the base). The phase is integrated per frame from speed (reuse `beat.ts`); changing the frequency never jumps the pose (no `uTime * rate`).
     - `gaitOffset` in `gait.ts` is the CPU reference with the same formulas. Unit tests over 500 random genomes, the extreme genomes and 8 phases: (a) the offset of an appendage's base ring equals the spine offset at its attach position within 0.01 core radii (it cannot detach); (b) no vertex moves more than 0.6 core radii from its rest position; (c) at throttle 0 the body only breathes (offset ≤ 15% of the moving amplitude); (d) raising `uFreq` mid-run changes the pose by at most 0.05 core radii per frame step at 60 fps.
@@ -208,6 +208,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Hurt and dissolve effects (`uHurt`, `uDissolve`) exist in the new shader with the same meaning as `cell.frag.glsl`.
     - Silhouette connectivity (E2E, Lab): 12 sample creatures (the six archetypes and six extreme genomes) at 4 gait phases each; the decoded screenshot's lit mask has one connected component holding at least 98% of the lit pixels.
   - Notes: addresses the owner's Playtest v0.2.0 note (tail and body are one attached mesh). GLSL cannot run in unit tests, so the CPU reference plus the screenshot connectivity check carry it. Keep the vertex shader cheap: no loops over parts, one wave and one beat term.
+  - Done: `gait.ts` (CPU reference), `creature.vert/frag.glsl`, `creatureMaterial`, `CreatureView` (clones the cached material per view, since gait uniforms are per creature) and the cache's default material. The shader is a spine sway plus one part beat; at rest only `BREATH` (12%) of the swing remains. The M1 look E2E, the Lab screenshot and the 12-creature connectivity check move to T15 and T13 (no player or Lab uses the mesh yet); a throwaway Chromium render of the six archetypes at 5 beat states showed no shader errors and tails attached.
+  - Gotcha: `uFreq` only sets how fast the phase is integrated (`advanceBeatPhase(…, freq)`), never the pose, because a spatial use would jump the pose when it changes; the test raises it by 0.5 after an hour.
 
 - [ ] T12 Materials from genes
   - Acceptance:
