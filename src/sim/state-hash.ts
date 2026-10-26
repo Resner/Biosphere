@@ -18,6 +18,11 @@ export function hashWorld(world: World): string {
       .u32(c.alive ? 1 : 0)
       .str(c.cause ?? '')
       .u32(c.bornTick);
+    const p = c.phys;
+    h.f64(p.maxBiomass).f64(p.thrust).f64(p.drag).f64(p.turn).f64(p.basal).f64(p.growth);
+    h.f64(p.mouth.offset).f64(p.mouth.radius).f64(p.mouth.arc).f64(p.mouth.type);
+    h.f64(p.mouth.digestion).u32(p.colliders.length);
+    for (const k of p.colliders) h.f64(k.x).f64(k.y).f64(k.r);
   }
 
   const eaten = Object.entries(world.consumed).sort(([a], [b]) => (a < b ? -1 : 1));

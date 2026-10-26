@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { STARTER_PHYS } from '../sim/body';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import type { CreatureState } from '../sim/types';
@@ -251,6 +252,7 @@ describe('snapshotOf', () => {
     alive: true,
     cause: null,
     bornTick: 0,
+    phys: STARTER_PHYS,
   };
 
   it('turns energy and health into fractions of their maxima', () => {

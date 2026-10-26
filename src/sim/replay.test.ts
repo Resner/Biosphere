@@ -1,14 +1,17 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { type PhysStats, STARTER_PHYS } from './body';
 import { foodNear } from './food';
 import { plumesNear } from './hazards';
 import { angleToSteer, encodeInput, IDLE, type Input } from './input';
-import { atan2 } from './math';
+import { atan2, length } from './math';
 import { createRng, seedFromString } from './prng';
 import { expandRuns, type InputLog, recordInputs, replay } from './replay';
-import { RULES_VERSION } from './rules';
+import { RULES, RULES_VERSION } from './rules';
+import { findClearSpot } from './spawn';
 import { hashWorld } from './state-hash';
 import { step } from './step';
+import type { World } from './types';
 import { createWorld, spawnCreature } from './world';
 
 interface Golden {
@@ -17,14 +20,14 @@ interface Golden {
   events: Record<string, number>;
 }
 
-const NAMES = ['idle-starve', 'forage-route', 'hazard-dash'] as const;
+const NAMES = ['idle-starve', 'forage-route', 'hazard-dash', 'body-forage'] as const;
 const file = (name: string) => new URL(`./__golden__/${name}.json`, import.meta.url);
 const ID = 'p1';
 
 /** Plays a policy against a live world, one input per tick, and returns the log it produced. */
 function record(
   seed: string,
-  spawn: { x: number; y: number },
+  spawn: { x: number; y: number; phys?: PhysStats },
   ticks: number,
   policy: (world: ReturnType<typeof createWorld>, tick: number) => Input,
 ): InputLog {
@@ -45,6 +48,25 @@ function record(
   };
 }
 
+/** Greedy forager: swim at the nearest food, dashing every three seconds. */
+function forager(world: World, tick: number): Input {
+  const me = world.creatures[0];
+  if (me === undefined) return IDLE;
+  const items = foodNear(world, me.x, me.y, 400);
+  let best = items[0];
+  let bestD = Number.POSITIVE_INFINITY;
+  for (const item of items) {
+    const d = (item.x - me.x) ** 2 + (item.y - me.y) ** 2;
+    if (d < bestD) [best, bestD] = [item, d];
+  }
+  if (best === undefined) return { steer: 0, throttle: 15, dash: false };
+  return {
+    steer: angleToSteer(atan2(best.y - me.y, best.x - me.x)),
+    throttle: 15,
+    dash: tick % 90 === 0,
+  };
+}
+
 function build(): Record<(typeof NAMES)[number], InputLog> {
   // Food is dense, so an idler only starves if nothing drifts into reach: take the first spawn
   // on a coarse grid where that holds.
@@ -57,24 +79,13 @@ function build(): Record<(typeof NAMES)[number], InputLog> {
   }
   if (idle === null) throw new Error('golden-idle: no spawn starves');
 
-  // Greedy forager: swim at the nearest food, dashing every three seconds.
-  const forage = record('golden-forage', { x: 3000, y: 3000 }, 1800, (world, tick) => {
-    const me = world.creatures[0];
-    if (me === undefined) return IDLE;
-    const items = foodNear(world, me.x, me.y, 400);
-    let best = items[0];
-    let bestD = Number.POSITIVE_INFINITY;
-    for (const item of items) {
-      const d = (item.x - me.x) ** 2 + (item.y - me.y) ** 2;
-      if (d < bestD) [best, bestD] = [item, d];
-    }
-    if (best === undefined) return { steer: 0, throttle: 15, dash: false };
-    return {
-      steer: angleToSteer(atan2(best.y - me.y, best.x - me.x)),
-      throttle: 15,
-      dash: tick % 90 === 0,
-    };
-  });
+  const forage = record('golden-forage', { x: 3000, y: 3000 }, 1800, forager);
+  const body = record(
+    'golden-body',
+    { x: 3000, y: 3000, phys: { ...STARTER_PHYS, thrust: 1.4, drag: 0.8, basal: 1.2 } },
+    1800,
+    forager,
+  );
 
   // Starts just west of a plume and dashes straight through it.
   const probe = createWorld({ seed: 'golden-hazard' });
@@ -86,7 +97,12 @@ function build(): Record<(typeof NAMES)[number], InputLog> {
     600,
     (_world, tick) => ({ steer: 0, throttle: 15, dash: tick === 20 }),
   );
-  return { 'idle-starve': idle, 'forage-route': forage, 'hazard-dash': hazard };
+  return {
+    'idle-starve': idle,
+    'forage-route': forage,
+    'hazard-dash': hazard,
+    'body-forage': body,
+  };
 }
 
 function regenerate(): void {
@@ -124,6 +140,10 @@ describe('golden scenarios', () => {
     expect(hazard.events.damage).toBeGreaterThan(0);
     expect(hazard.events.dash).toBe(1);
     expect(hazard.world.creatures[0]?.alive).toBe(true);
+
+    const body = replay(load('body-forage').log);
+    expect(body.events.eat).toBeGreaterThanOrEqual(3);
+    expect(body.world.creatures[0]?.phys.thrust).toBe(1.4);
   });
 
   it('changing one input changes the hash', () => {
@@ -171,6 +191,45 @@ describe('golden scenarios', () => {
   });
 });
 
+/** Forages for the best value per distance and keeps clear of toxic plumes, so a long run measures growth. */
+function carefulForager(world: World, _tick: number): Input {
+  const me = world.creatures[0];
+  if (me === undefined) return IDLE;
+  const margin = 80;
+  for (const p of plumesNear(world, me.x, me.y, RULES.hazards.plumeMaxRadius + margin)) {
+    if (length(me.x - p.x, me.y - p.y) < p.radius + margin)
+      return { steer: angleToSteer(atan2(me.y - p.y, me.x - p.x)), throttle: 15, dash: false };
+  }
+  const safe = foodNear(world, me.x, me.y, 400).filter(
+    (item) => plumesNear(world, item.x, item.y, margin).length === 0,
+  );
+  // Worth per distance: a crystal 100 wu away beats a detritus 20 wu away.
+  let best = safe[0];
+  let bestScore = -1;
+  for (const item of safe) {
+    const score = item.value / (length(item.x - me.x, item.y - me.y) + 20);
+    if (score > bestScore) [best, bestScore] = [item, score];
+  }
+  if (best === undefined) return { steer: 0, throttle: 15, dash: false };
+  return { steer: angleToSteer(atan2(best.y - me.y, best.x - me.x)), throttle: 15, dash: false };
+}
+
+describe('pace', () => {
+  it('a forager with room to grow at least doubles its biomass between 60 s and 150 s', () => {
+    const world = createWorld({ seed: 'pace' });
+    const phys = { ...STARTER_PHYS, maxBiomass: 900 };
+    const spot = findClearSpot(world, 4096, 4096);
+    const me = spawnCreature(world, { id: ID, ...spot, phys });
+    const at: Record<number, number> = {};
+    for (let tick = 0; tick < 180 * 30; tick++) {
+      step(world, { [ID]: carefulForager(world, tick) });
+      if (tick % 30 === 29) at[(tick + 1) / 30] = me.biomass;
+    }
+    expect(me.alive).toBe(true);
+    expect((at[150] as number) / (at[60] as number)).toBeGreaterThanOrEqual(2);
+  });
+});
+
 describe('recordInputs', () => {
   it('round-trips per-tick inputs through the runs', () => {
     const r = createRng(seedFromString('record'), 'inputs');
@@ -206,6 +265,17 @@ describe('replay validation', () => {
 
   it('rejects a log from other rules', () => {
     expect(() => replay({ ...base, rules: RULES_VERSION + 1 })).toThrow(/rules/);
+  });
+
+  it('replays a log with a body and rejects a malformed one', () => {
+    const phys = { ...STARTER_PHYS, thrust: 1.4 };
+    const log = { ...base, spawn: { ...base.spawn, phys } };
+    expect(replay(log).world.creatures[0]?.phys.thrust).toBe(1.4);
+    expect(replay(log).hash).not.toBe(replay(base).hash);
+    const bad = { ...log, spawn: { ...base.spawn, phys: { thrust: 1 } as never } };
+    expect(() => replay(bad)).toThrow(RangeError);
+    const nan = { ...log, spawn: { ...base.spawn, phys: { ...phys, drag: Number.NaN } } };
+    expect(() => replay(nan)).toThrow(RangeError);
   });
 
   it('rejects unordered, out-of-range and non-u16 runs', () => {

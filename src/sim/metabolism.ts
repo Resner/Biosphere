@@ -22,7 +22,8 @@ export function applyMetabolism(
 
   const effort = input.throttle / RULES.movement.maxThrottle;
   const drain =
-    m.basal * pow(creature.biomass, m.basalExp) + m.move * creature.biomass * effort * effort;
+    m.basal * creature.phys.basal * pow(creature.biomass, m.basalExp) +
+    m.move * creature.biomass * effort * effort;
   creature.energy = Math.max(0, creature.energy - drain * DT);
 
   if (creature.energy <= 0) {
@@ -33,10 +34,13 @@ export function applyMetabolism(
 
   if (
     creature.energy > g.energyThreshold * maxEnergy(creature.biomass) &&
-    creature.biomass < g.maxBiomass
+    creature.biomass < creature.phys.maxBiomass
   ) {
     const before = creature.biomass;
-    const gained = Math.min(g.maxRate * before * DT, g.maxBiomass - before);
+    const gained = Math.min(
+      g.maxRate * creature.phys.growth * before * DT,
+      creature.phys.maxBiomass - before,
+    );
     creature.biomass = before + gained;
     creature.energy -= gained * g.energyPerBiomass;
     creature.health +=

@@ -75,7 +75,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
 
 ## Tasks
 
-- [ ] T1 Body seam and the rules-version-3 retune
+- [x] T1 Body seam and the rules-version-3 retune
   - Acceptance (unit tests unless noted):
     - `STARTER_PHYS` and `PhysStats` as in the interface above; `spawnCreature` defaults to `STARTER_PHYS` and rejects nothing (a `phys` with out-of-range values is clamped by `sanitizePhys`, which also enforces the 1–12 colliders with the core first).
     - Movement: `thrust: 2` doubles the steady-state top speed of a full-throttle run (within 1%); `drag: 2` halves it; `turn: 2` doubles the heading change rate (a 90° turn takes half the ticks); a dash scales with √(thrust ÷ drag).
@@ -85,6 +85,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - `RULES_VERSION` is 3. `hashWorld` covers `phys`. All sim goldens are regenerated under version 3 (`replay.test.ts`, `__golden__/*`); the PR says so. Add one golden replay for a non-starter `phys` (thrust 1.4, drag 0.8, basal 1.2).
     - `InputLog.spawn.phys` is optional, validated, and replayed (Node and Chromium agree: extend the existing determinism E2E with the new golden).
   - Notes: update the DESIGN.md header ("rules version 3") in the same PR. Dash: `dashSpeed · (b/100)^dashExp · sqrt(thrust/drag)`. No genome code yet; tests build `PhysStats` by hand. The state hash must keep rejecting NaN and Infinity inside `phys`.
+  - Done: `src/sim/body.ts` (`PhysStats`, `STARTER_PHYS`, `sanitizePhys`, `isPhysShape`), caps in `RULES.body`, rules v3, five goldens regenerated (`math.json` untouched) plus the new `body-forage` golden (also run in Chromium).
+  - Pace: a value-per-distance forager that avoids plumes (`maxBiomass: 900`) has 194 at 60 s, 398 at 120 s (doubles in 60 s) and 515 at 150 s; the starter's cap of 400 is only lifted when T15 hatches genome bodies. A forager that ignores plumes died at 100 s in that pond. `STARTER_PHYS.mouth` is a placeholder (type 0.5, all-round) until T2.
 
 - [ ] T2 Feeding through the mouth, toxin through the colliders
   - Acceptance:

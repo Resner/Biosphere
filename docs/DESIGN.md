@@ -1,6 +1,6 @@
 # Game design reference
 
-The living description of how Biosphere plays, with **initial values** for rules version 2. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
+The living description of how Biosphere plays, with **initial values** for rules version 3. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
 
 - **Code is the source of truth for numbers.** Values below start in `src/sim/rules.ts` (and the genome and combat tables that follow). When a spec or playtest changes a mechanic or a value, update this file in the same PR.
 - **Units**: world units (wu; think 1 wu ≈ 1 µm), seconds, and sim ticks at 30 Hz. "r" is a creature's size radius in wu.
@@ -153,6 +153,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
   Filter mouths are wide and sit on the body (large `radius`, small `offset`); jaws are small and reach ahead (small `radius`, large `offset`, narrow arc). Digestion multiplies every yield.
 - **Colliders** (M3): up to 12 circles in the body frame, in units of the core radius `r = √b`, the first always the core at the origin with radius 1. They give toxin exposure now and creature hit shapes later (M5, M7). Creatures still pass through each other until M5.
+- **Body limits** (`RULES.body`, enforced on every body entering the sim): thrust, drag, turn, basal and growth multipliers 0.1–4; max biomass 100–2,457,600; 1–12 collision circles of radius 0.05–1.5 whose far edge stays within 2.5 core radii; mouth radius 0.05–3, half-arc 0.05–π, digestion 0.1–1.5.
 - **Development caps**: 8 segments, 24 appendages, 4 joints, 1 branch level (≤2 branches), 12 collision circles, bounds ≤2.5× core radius, mesh ≤6,000 vertices (≤1,500 at low detail). Repair guarantees a propulsion source and a mouth.
 - **Function from form**:
   - Thrust is the sum over motile parts of length × thickness × beat × efficiency. Whip efficiency falls with size and paddle efficiency rises with it, crossing around T1–T2.

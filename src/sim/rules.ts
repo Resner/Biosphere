@@ -1,7 +1,7 @@
-// Rules v2 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v3 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 2;
+export const RULES_VERSION = 3;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -67,8 +67,26 @@ export const RULES = deepFreeze({
     energyThreshold: 0.75,
     energyPerBiomass: 3,
     /** Biomass/s as a fraction of current biomass. */
-    maxRate: 0.005,
-    maxBiomass: 400,
+    maxRate: 0.012,
+  },
+  /** Caps on what a body may hand to the rules (ADR 0006); `sanitizePhys` enforces them. */
+  body: {
+    /** Range of the thrust, drag, turn, basal and growth multipliers. */
+    multiplierMin: 0.1,
+    multiplierMax: 4,
+    maxBiomassFloor: 100,
+    /** 300 * 2^13: the top of the max-size gene (DESIGN §6). */
+    maxBiomassCeiling: 2457600,
+    maxColliders: 12,
+    minColliderRadius: 0.05,
+    maxColliderRadius: 1.5,
+    /** Farthest edge of any collider from the core centre, in core radii. */
+    maxReach: 2.5,
+    minMouthRadius: 0.05,
+    maxMouthRadius: 3,
+    minMouthArc: 0.05,
+    digestionMin: 0.1,
+    digestionMax: 1.5,
   },
   damage: {
     /** hp/s */
