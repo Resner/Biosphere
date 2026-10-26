@@ -115,6 +115,11 @@ export class RemoteLayer {
     return this.bodies;
   }
 
+  /** Geometries the cache holds. */
+  assets(): number {
+    return this.cache.live();
+  }
+
   dispose(): void {
     for (const cell of this.cells) {
       this.scene.remove(cell.flagellum, cell.body);
