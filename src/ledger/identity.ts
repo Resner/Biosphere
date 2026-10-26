@@ -33,9 +33,22 @@ export async function createIdentity(store: KeyStore): Promise<Identity> {
   }
   const secret = seed.slice();
   return {
-    playerId: playerIdOf(ed.getPublicKey(secret)),
-    sign: (domain, message) => ed.sign(signedBytes(domain, message), secret),
+    playerId: playerIdOf(publicKeyFromSecret(secret)),
+    sign: (domain, message) => signWithSecret(secret, domain, message),
   };
+}
+
+/** Signs with a bare secret; for keys that are not a player's, such as the authority's. */
+export function signWithSecret(
+  secret: Uint8Array,
+  domain: string,
+  message: Uint8Array,
+): Uint8Array {
+  return ed.sign(signedBytes(domain, message), secret);
+}
+
+export function publicKeyFromSecret(secret: Uint8Array): Uint8Array {
+  return ed.getPublicKey(secret);
 }
 
 export function verify(
@@ -55,6 +68,11 @@ export function verify(
 
 export function playerIdOf(publicKey: Uint8Array): string {
   return toBase64Url(publicKey);
+}
+
+/** True when `text` is the canonical playerId of some public key. */
+export function isPlayerId(text: string): boolean {
+  return publicKeyOf(text) !== null;
 }
 
 /** The public key a playerId names, or null when it is not 43 base64url characters. */
