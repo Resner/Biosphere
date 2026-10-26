@@ -113,7 +113,7 @@ hub → client:  { t:'life', life: Life | null, genesisIn: ms }   { t:'commit', 
   - Done: `src/ledger/drand.ts` (also `roundTime`, `DRAND_HOSTS`, a `timeoutMs` argument on `fetchBeacon`), `tools/record-drand.{ts,mjs}` (`npm run record:drand`), 600 rounds 33409837 to 33410436 recorded in `tests/fixtures/drand/`. `verifyBeacon` costs about 28 ms in Node.
   - Gotcha: verifying 600 beacons one by one takes 17 s, so the unit test checks all 600 as one aggregate (about 7 s) plus ten single ones; the recorder verifies each singly. Biome ignores `tests/fixtures`.
 
-- [ ] T4 Ledger store: the UTXO rule, heads and the authority key
+- [ ] T4 Ledger store: the UTXO rule, heads and the authority key (in progress)
   - Acceptance (workerd tests, written first):
     - Migration 2 creates `players`, `creatures` (head: `id`, `owner`, `status`, `seq`, `hash`, `genome`, `activeMs`, condition, `bornT`, `diedT`), `records`, `commitments`, `beacons`, `keys`, `usage`, `flags`, `genesis_log`. Migrations are append-only (the existing ones are untouched) and a second start applies nothing.
     - `Ledger.accept(request)` is one SQLite transaction: a transition with `prev` equal to the creature's head hash and `seq` equal to head `seq + 1` is accepted, countersigned and returned; the head moves; an identical resubmission (same request hash) returns the same stored record and writes nothing; a request with a stale `prev` or a wrong `seq` is rejected as `conflict` and logged in `flags` (kind, owner, creature, hash, time); an unknown creature, a record for another owner's creature, a transition on a `dead` creature, and a non-genesis record without a creature are rejected with named reasons.
