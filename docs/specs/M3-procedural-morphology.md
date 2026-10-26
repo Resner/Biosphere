@@ -138,7 +138,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `develop.ts` (`develop`, `bodyViolations`, `estimateVertices`, `motileArea`, `planBounds`, `hashPlan`) with `RULES.develop` and DESIGN §6; goldens in `__golden__/develop.json`. 20,000 genomes (10k random, 10k byte-flipped stand-ins for `mutateGenome`) develop and check in about 2.7 s; `develop` alone takes about 50 µs at the median (so T6's `computeStats` has the other 50).
   - Gotcha: parts are built for the left side and mirrored, so every repair is symmetric. Beat strength (L3), membrane integrity (L1) and metabolism cost (L4) are applied by `computeStats` (T6), not here; only the malformed part (L2) is a development effect. The mutated set switches to `mutateGenome` when T8 lands.
 
-- [ ] T6 Stats from form, with costs
+- [x] T6 Stats from form, with costs
   - Acceptance:
     - `computeStats(plan, traits)` returns thrust, drag, turn, mass, basal multiplier, mouth, colliders, `combat` (reach, arc, power, armour, spines), `sense` (detection ring), `glow` and the physiology multipliers (lifespan, UV and pressure tolerance, kept for M4 and M6). `physOf(stats)` returns a `PhysStats` that `sanitizePhys` leaves unchanged.
     - Formulas (DESIGN §6): thrust sums over motile parts of length × thickness × beat × efficiency (tip shape and size); weapon reach and power come from pointed or hooked tips × stiffness × length; armour is plating × coverage; spines add contact damage; the basal multiplier is `1 + 0.1(segments − 1) + 0.04·appendages + 0.2·plating + 0.1·luminescence`. No stat reads a part label (a plan has none); renaming nothing matters.
@@ -148,6 +148,8 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - Genesis starters: the median top speed over 1,000 `genesisGenome` seeds is within 0.8–1.2× of the M1 cell's (`STARTER_PHYS`), and `physOf(buildCreature(starterGenome()))` is within 1% of `STARTER_PHYS` on every multiplier (the mouth and colliders match exactly).
     - Determinism across engines (E2E, `m3-determinism.spec.ts`, chromium): with `?debug=1`, `__bs.genome.hashes(list)` returns `{ planHash, statsHash }` for the 20 golden genomes and they equal the Node goldens (the same floating-point operations in every engine).
   - Notes: normalise so the starter flagellate ≈ `STARTER_PHYS`. All constants are in `RULES.genes` and DESIGN §6; function follows form, never a hard-coded bonus for a named part.
+  - Done: `stats.ts` (`computeStats`, `statsAt`, `physOf`, `buildCreature`, `hashStats`), `starter.ts` (`starterGenome`), constants in `RULES.stats` and DESIGN §6; goldens in `__golden__/stats.json`; `tests/archetypes.ts`; `m3-determinism.spec.ts` through `__bs.genome.hashes` (`?debug=1`). `develop` + `computeStats` run in about 75 µs at the median.
+  - Gotcha: `computeStats(plan, traits)` is the adult value (`statsAt` takes a size, which only thrust efficiency uses); the sim keeps it for the whole life. Multipliers are normalised to the reference cell, so the starter equals `STARTER_PHYS` by construction. To make its colliders match exactly, parts too thin for a minimum-radius circle (width × 0.5 below `minColliderRadius`: cilia, whips) now get no collision circle (two develop goldens regenerated under rules version 3). The "genesis median speed within 0.8-1.2x" check waits for T7 (`genesisGenome`).
 
 - [ ] T7 Genesis distribution and unique DNA
   - Acceptance:
@@ -155,6 +157,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
     - 20,000 seeds: all genome hashes are different; the number of distinct appearance keys (hue bin of 24 × pattern 4 × membrane band 3 × albino × iridescent × luminescent) exceeds 400 for the first 1,000 seeds; the hue histogram over 12 bins has no bin under 5% or over 14%.
     - Allele frequencies (counted over the alleles themselves, ±4σ): iridescent 5%, albino 4%, stripes 10%, each load allele 3%. The expressed phenotype frequencies match their exact values from the allele frequencies within ±4σ (for example iridescent expressed 0.25%).
     - Golden: three fixed seeds produce the committed genome hashes. `starterGenome()` is a fixed constant whose `physOf` matches T6, with no rare features.
+    - Genesis speed (carried from T6): the median top speed over 1,000 `genesisGenome` seeds is within 0.8–1.2× of the M1 cell's (`STARTER_PHYS`); `starterGenome()` already exists (`starter.ts`).
     - Look and shape distinctness: no two of the first 200 genesis creatures have identical (appearance key, appendage count, mouth type band) triples more than 3 times (a loose guard against a distribution collapsing).
   - Notes: genesis uses its own PRNG stream (`createRng(seed, 'genesis')`). Rare alleles mostly arise through breeding (DESIGN §5), so keep the genesis frequencies as listed. Update the DESIGN §6 genesis lines if the implementation differs.
 
