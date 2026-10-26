@@ -19,4 +19,5 @@ ADR 0008 is the contract: one Worker and one SQLite Durable Object, minimal by d
 - Tests run offline in workerd (`@cloudflare/vitest-plugin`) and through local `wrangler dev`, with drand and Cloudflare APIs faked or replayed from fixtures.
 - The object has one alarm slot. Only `Authority.rearm` sets or clears it, as the earliest of the hello timeout and `Beacons.nextDue()`; new alarm users extend it instead of calling `setAlarm`.
 - The Worker has two entries: `index.ts` (production, live drand) and `e2e-entry.ts` (recorded rounds, `node tools/worker.mjs dev --e2e`). Fixture code is imported only from the latter; `tools/worker-bundle.test.ts` guards that.
-- Hub tests that need beacons swap the live object's `source` field (`worker/genesis.test.ts`: `useFakeBeacons`, `publish(round)` moves a fake clock and runs the alarm), so no test waits for real rounds.
+- Hub tests that need beacons swap the live object's `source` field (`worker/test-hub.ts`: `login`, `hatch`, `useFakeBeacons`, `publish(round)` moves a fake clock and runs the alarm), so no test waits for real rounds. Tests that need the wall clock (progress, lifespan) mock `Date.now` (`worker/progress.test.ts`).
+- A creature's per-connection state (`LifeState`, `worker/life.ts`) lives in the socket attachment and is written to SQLite only as checkpoint records; keep it small (2 KB limit).
