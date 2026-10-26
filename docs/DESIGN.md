@@ -38,10 +38,10 @@ Death is common and never total: you fall back to your pending offspring or your
 | Vent crystal | 60 | 2.5 | near vents and plumes (risk for reward) |
 | Carrion | share of a dead creature's biomass (M7) | scales with victim | where a creature died |
 
-- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) (M1: they do not drift with currents). A creature eats every item it overlaps (distance below its radius plus the item's) unless its energy is at the maximum; then the item stays (M2). In a pond, two players reaching the same item are settled by the lower claim tick, then the lower id; the loser gives the energy back (ADR 0016). A claim or consumed entry outside 900 ticks (30 s) of the local pond clock, or for a cycle the slot cannot have reached (each cycle takes at least 600 ticks), is ignored and counted. A peer link that was up and dropped is re-called by the lower id, up to 5 times with a doubling wait (3 s first).
+- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) (M1: they do not drift with currents). A creature eats an item when it overlaps the creature's **mouth disc** (distance below the mouth radius plus the item's) unless its energy is at the maximum; then the item stays (M2). The mouth disc is centred `offset·r` ahead of the centre with radius `radius·r`, and the item must lie within the mouth's arc; a starter cell's mouth is its whole body (offset 0, radius 1, full arc), as in M1. The yield is `value × efficiency(kind, mouth type) × digestion`, and an item with efficiency 0 is left alone (M3, §6). In a pond, two players reaching the same item are settled by the lower claim tick, then the lower id; the loser gives the energy back (ADR 0016). A claim or consumed entry outside 900 ticks (30 s) of the local pond clock, or for a cycle the slot cannot have reached (each cycle takes at least 600 ticks), is ignored and counted. A peer link that was up and dropped is re-called by the lower id, up to 5 times with a doubling wait (3 s first).
 - Each tier has food sized for it (M11). Tiny items are noise to giants, so larger tiers feed on denser drifts, vent beds and carrion, and big filter-feeding mouths sweep detritus in bulk.
 - **Hazards are nonliving**:
-  - toxic plumes: radius 60–160 wu, 15 hp/s while the creature's centre is inside (overlapping plumes don't stack), about one per 9 food cells. Each grid cell anchors at most one plume, which drifts at half the local current (bounded, periodic with the currents);
+  - toxic plumes: radius 60–160 wu, 15 hp/s × the creature's exposure (overlapping plumes don't stack), about one per 9 food cells. Exposure (M3) is the share of the body's collider area whose centre lies inside a plume (§6), so a single cell is 0 or 1 as in M1 and a long body can trail a hand into the edge. Each grid cell anchors at most one plume, which drifts at half the local current (bounded, periodic with the currents);
   - currents (above);
   - UV and pressure (M6).
 
@@ -66,7 +66,7 @@ Death is common and never total: you fall back to your pending offspring or your
 - **Size**: biomass b; radius `r = √b` (starter b = 100, r = 10).
 - **Energy**: `maxEnergy = 2·b`; a new creature starts at 60%.
 - **Health**: `maxHealth = 10·r` (starter 100).
-- **Movement** (M1 values; from M3 they come from anatomy):
+- **Movement** (M1 values; from M3 each is multiplied by the body's stat multipliers from anatomy, §6: thrust, drag and turn; a dash scales with √(thrust ÷ drag)):
 
 | Quantity | Value |
 |----------|-------|
@@ -84,7 +84,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Movement | `0.006 · b · (throttle/15)²` energy/s |
 
   From M3 the basal rate is multiplied by an anatomy complexity factor (§6).
-- **Growth**: while energy is above 75% of max, the creature converts 3 energy into 1 biomass, at up to `0.005·b` biomass/s, until its genetic maximum (M1: 400).
+- **Growth**: while energy is above 75% of max, the creature converts 3 energy into 1 biomass, at up to `0.012·b` biomass/s (rules version 3; M1's `0.005·b` was too slow, owner, Playtest v0.2.0), times the growth gene, until its genetic maximum (M1: 400; M3: the max-size gene, §6).
   Growth also raises health by 10 per unit of radius gained, so a grown creature is as healthy as its size allows; there is no regeneration in M1. Energy never goes below 0.
 - **Damage over time**:
 
@@ -142,6 +142,17 @@ Death is common and never total: you fall back to your pending offspring or your
   - Maximum size gives 300–900 biomass.
   - Colours, patterns and membrane vary widely, so every starter looks distinct.
   - Rare alleles: iridescent (allele frequency 5%), albino (4%), stripes (10%), each load allele (3%).
+- **Max size** (M3): `maxBiomass = 300 · 2^(13·t)`, with `t` the mean of three quant loci scaled to 0–1 (genesis 300–900; the top is about tier 3). Growth stops there.
+- **Mouth and feeding** (M3): the mouth type runs from 0 (filter) to 1 (jaw). Efficiency by food kind, linear between anchors:
+
+| Mouth type | Detritus | Globule | Crystal |
+|------------|----------|---------|---------|
+| 0 (filter) | 1.0 | 0.6 | 0 |
+| 0.5 | 0.8 | 1.0 | 0.6 |
+| 1 (jaw) | 0.4 | 0.8 | 1.0 |
+
+  Filter mouths are wide and sit on the body (large `radius`, small `offset`); jaws are small and reach ahead (small `radius`, large `offset`, narrow arc). Digestion multiplies every yield.
+- **Colliders** (M3): up to 12 circles in the body frame, in units of the core radius `r = √b`, the first always the core at the origin with radius 1. They give toxin exposure now and creature hit shapes later (M5, M7). Creatures still pass through each other until M5.
 - **Development caps**: 8 segments, 24 appendages, 4 joints, 1 branch level (≤2 branches), 12 collision circles, bounds ≤2.5× core radius, mesh ≤6,000 vertices (≤1,500 at low detail). Repair guarantees a propulsion source and a mouth.
 - **Function from form**:
   - Thrust is the sum over motile parts of length × thickness × beat × efficiency. Whip efficiency falls with size and paddle efficiency rises with it, crossing around T1–T2.
@@ -182,6 +193,7 @@ Death is common and never total: you fall back to your pending offspring or your
 
 - **Ponds (M2)**: up to 24 players, all connected to each other. A joiner goes to the fullest pond that isn't full. A pond's spawn centre is the world centre; a joiner takes the first free slot i of the pond and spawns on a ring around it at angle i × 2.399963 rad, 300 + 40 × i wu away (slot 0 is the centre), moved clear of plumes.
   - **Pond clock**: the hub's clock gives every pond tick (30 Hz from the pond's epoch), so food and plumes agree between players. Each browser simulates only its own creature; others are drawn from 10 Hz snapshots, 120 ms behind. A silent player fades after 2 s and disappears after 6 s. A hidden tab freezes your cell and fades you out for the others (ADR 0016).
+  - **Bodies (M3)**: a browser sends its genome (about 330 bytes) once to each peer when a link opens and again when it hatches a new body; snapshots carry a 2-byte reference to it (ADR 0018). Until a peer's genome arrives, it is drawn as a plain tinted cell.
   - **Offline**: if the hub can't be reached you play alone in a local pond and the status says so.
 - **AoI and tiers (M11)**: connect only to creatures within ±1 tier inside the AoI (1.3 × the visible half-diagonal), plus boundary neighbours and duties. The default cap is 24, the hard cap 32 (ADR 0013). Giants see smaller life as ambient swarms.
 - **Spawning and regrouping (M12)**:
