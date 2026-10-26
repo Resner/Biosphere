@@ -126,7 +126,7 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Done: `express.ts` returns `Traits` (groups `body`, `skin`, `modules`, `mouth`, `behaviour`, `colour`, `physiology`, `defects`; the gait genes sit under `behaviour` and no locus feeds a `senses` group), and `RULES.genes` holds the ranges and load factors (DESIGN §6). `QUANT_TRAITS` is the one table of linear traits; the tests walk it.
   - Gotcha: the "every genesis genome has 1 segment" check waits for T7 (`genesisGenome`). Max size multiplies whole octaves exactly, so t = 0 and t = 1 give exactly 300 and 2,457,600; `express` also tolerates non-canonical hand-built genomes.
 
-- [ ] T5 Development: bounded, repaired body plans
+- [ ] T5 Development: bounded, repaired body plans (in progress)
   - Acceptance:
     - `develop(traits): BodyPlan` is total and deterministic. A plan has 1–8 segments along a bilateral axis, at most 24 appendage instances of at most 4 joints each, at most one branching level with at most 2 branches, at most 12 colliders with the core first, plates, a mouth, and a bounding radius ≤ 2.5 core radii.
     - `bodyViolations(plan)` returns `[]` for the repaired plan of every genome in these sets: 10,000 random genomes (seeded), the extreme genomes (all zero, all 0xFF, alternating, every module present with all parameters 0 and with all 255, all 8 modules present in both haplotypes), and 10,000 mutated genomes (random genome → `mutateGenome` with mutation ×4, if T8 is not built yet use a local helper that flips 1–6 random bytes). A test also feeds `bodyViolations` a hand-made bad plan for each rule (too many segments, an overlapping appendage pair, no mouth, no propulsion, oversized bounds) and sees the matching message.
