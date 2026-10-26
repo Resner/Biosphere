@@ -203,6 +203,11 @@ body {
   text-align: center;
 }
 
+/* The title screen ends with the Creature Lab link, 12vh from the bottom: keep the note below it. */
+[data-screen="title"] .hatch-note {
+  bottom: 0.5rem;
+}
+
 .hatch-note[data-waiting] {
   animation: hatch-wait 1.2s ease-in-out infinite;
 }

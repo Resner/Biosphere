@@ -274,8 +274,9 @@ export class LifeFlow {
 
   private ended(): void {
     this.status = 'dead';
-    // Whatever the hub said before, the player has no creature now; a hatch asks for a genesis.
-    this.known = { life: null, genesisIn: this.genesisIn };
+    // Whatever the hub said before, the player has no creature now; a hatch asks for a genesis, and
+    // the hub's bucket (not a countdown from earlier) decides whether it is refused.
+    this.known = { life: null, genesisIn: 0 };
   }
 
   private practiceCell(reason: 'offline' | 'limit', genesisIn?: number): HatchOutcome {
@@ -340,10 +341,14 @@ export class LifeFlow {
     if (!reply) return this.fail(SLOW);
     if (reply.t === 'refused') {
       if (reply.reason === 'limit') return this.practiceCell('limit', reply.genesisIn ?? 0);
-      return this.fail(reply.reason === 'active' ? ELSEWHERE : NOT_HATCHED);
+      if (reply.reason === 'active') {
+        // The hub sends the creature before this refusal: a genesis that came in after the client gave up.
+        return this.known?.life ? this.resume(this.known.life) : this.fail(ELSEWHERE);
+      }
+      return this.fail(NOT_HATCHED);
     }
     if (!(await this.checked(reply))) return this.fail(VERIFY_FAILED);
-    this.known = { life: null, genesisIn: this.genesisIn };
+    this.known = { life: null, genesisIn: 0 };
     this.last = reply;
     return this.begin({
       creature: reply.record.hash,

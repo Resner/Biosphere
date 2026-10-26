@@ -246,13 +246,19 @@ Exit criteria map: "identities and genesis creatures registered (drand-seeded)" 
 
 ## Rubric
 
-- [ ] Hatching feels like an event, not a wait: "awaiting beacon" shows a lively state for 3 to 6 seconds, then the creature appears without a visible jump (evidence: a screenshot pair and the measured wait in the E2E, under 15 s with the fixture clock).
-- [ ] Old age is readable before it kills: the stage word, the remaining-time hint, the tint and the slower swim each show before death (evidence: HUD screenshots at young, old and dead, and the E2E speed ratio).
-- [ ] The death screen names the cause in plain words and tells the player what happens next (evidence: screenshots for starved, toxin and old age; the countdown text test).
-- [ ] The Recovery code and History panels use no technical jargon and fit at 960×540 (evidence: banned-word tests and screenshots).
+- [x] Hatching feels like an event, not a wait: "awaiting beacon" shows a lively state for 3 to 6 seconds, then the creature appears without a visible jump (evidence: a screenshot pair and the measured wait in the E2E, under 15 s with the fixture clock).
+  Evidence: `ev-awaiting` screenshot ("Awaiting beacon…" under the title, pulsing; it overlapped the Creature Lab link, fixed at close with an E2E bound) and the fixture-clock wait under 15 s in `m4-genesis.spec.ts`.
+- [x] Old age is readable before it kills: the stage word, the remaining-time hint, the tint and the slower swim each show before death (evidence: HUD screenshots at young, old and dead, and the E2E speed ratio).
+  Evidence: `m4-oldage-old.png` (stage "Old", "About 7 s left", toast "Feeling old") and the E2E speed ratio 0.7–0.9; the tint is subtle at this scale.
+- [x] The death screen names the cause in plain words and tells the player what happens next (evidence: screenshots for starved, toxin and old age; the countdown text test).
+  Evidence: "Died of old age" and "Starved" screenshots with "Next recorded hatch in 4:31" and the Practice cell; toxin text is covered by `life-text.test.ts`.
+- [x] The Recovery code and History panels use no technical jargon and fit at 960×540 (evidence: banned-word tests and screenshots).
+  Evidence: recovery panel and History list screenshots at 960×540 fit; `life-text.test.ts` bans jargon.
 - [ ] Genesis creatures resolve within 10 s on the live Pages build against live drand (owner).
 - [ ] A reload mid-game feels safe: you are back where you were, not rewound in a way that feels unfair (owner).
 - [ ] Rehatching is quick enough for the loop: three fast deaths followed by a countdown does not feel punishing (owner; the practice cell is the escape).
+
+Close notes: `npm run verify` was green (76 E2E). The close review (`/code-review` medium over v0.4.0..main, 10 findings) led to three fixes with tests: a stale hatch countdown made the first hatch after a death a practice cell without asking the hub (`life.ts`); a genesis that arrived after the client gave up left the next Hatch blaming "another tab" (the hub now sends the creature before the refusal and the client resumes it); the hatch note overlapped the Creature Lab link on the title screen (E2E bound). Accepted and carried to M5: the usage meter does not count the beacon service's writes or `/v1/pubkeys` RPCs (M13 does the capacity model); `takeHatch` is not refunded when `accept` refuses after a commit; a client `death` report that exhausts the lifespan keeps the client's cause instead of `old-age`; a duplicate BLS check in `worker/beacons.ts`; a stray `refused` can abort a waiting genesis; the unscaled lifespan fallback before the first ack matters only under `LIFESPAN_SCALE`.
 
 ## Risks
 

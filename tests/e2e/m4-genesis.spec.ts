@@ -24,6 +24,11 @@ test('a hatch waits for the beacon, then the creature appears with its recorded 
   await expect(page.getByTestId('hatch-note')).toHaveText('Awaiting beacon…');
   expect((await state(page)).life.awaitingBeacon).toBe(true);
   expect((await state(page)).screen).toBe('title');
+  // The note must not sit on top of the Creature Lab link (960×540).
+  const note = await page.getByTestId('hatch-note').boundingBox();
+  const lab = await page.getByTestId('lab-link').boundingBox();
+  if (!note || !lab) throw new Error('missing boxes');
+  expect(note.y).toBeGreaterThanOrEqual(lab.y + lab.height);
   await waitPlaying(page);
   // Under the fixture clock the wait is a round or two; the PR suite bound is 15 s.
   expect(Date.now() - started).toBeLessThan(15_000);

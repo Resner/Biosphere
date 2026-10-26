@@ -207,6 +207,33 @@ describe('hatching', () => {
     expect((await pending).kind).toBe('recorded');
   });
 
+  it('asks the hub for the next hatch after a death, not the countdown from long ago', async () => {
+    feed({ t: 'life', life: null, genesisIn: 300_000 });
+    expect((await flow.hatch(WAIT)).kind).toBe('practice');
+    let pending = flow.hatch(WAIT);
+    await vi.advanceTimersByTimeAsync(0);
+    feed(genesisMsg());
+    expect((await pending).kind).toBe('recorded');
+    flow.died('starved', 100);
+    pending = flow.hatch(WAIT);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ofType('genesis-request')).toHaveLength(2);
+    feed({ t: 'refused', reason: 'limit', genesisIn: 1_000 });
+    expect(await pending).toEqual({ kind: 'practice', reason: 'limit', genesisIn: 1_000 });
+  });
+
+  it('resumes the creature the hub says is active instead of blaming another tab', async () => {
+    feed({ t: 'life', life: null, genesisIn: 0 });
+    const pending = flow.hatch(WAIT);
+    await vi.advanceTimersByTimeAsync(0);
+    // A genesis that arrived after the client gave up left a creature on the hub.
+    feed({ t: 'life', life: info(), genesisIn: 0 });
+    feed({ t: 'refused', reason: 'active' });
+    const outcome = await pending;
+    expect(outcome.kind).toBe('recorded');
+    expect(outcome.kind === 'recorded' && outcome.start.creature).toBe('c'.repeat(64));
+  });
+
   it('plays unrecorded when the hub never says what the player has', async () => {
     const pending = flow.hatch(WAIT);
     await vi.advanceTimersByTimeAsync(WAIT);
