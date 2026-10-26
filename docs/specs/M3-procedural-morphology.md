@@ -270,13 +270,26 @@ Wire (`src/net/protocol.ts`): `PeerEvent` gains `{ t: 'genome'; data: string }` 
   - Gotcha: "no link" means no connection at all, open or coming up: the sender's channels can open before the receiver's `connectionState` is `connected`, and the genome arrives in that gap. A rehatch within 2 s of the first genome is ignored by the rate limit (the peer then shows the tinted cell after 5 s); a death screen takes longer than that.
   - Notes: a joiner receives genomes from the peers it connects to, and the existing in-pond tests keep their timing budgets. `PROTOCOL_VERSION` for the hub stays 1 (the hub only relays); only the snapshot version changes. Peers on an old cached page won't see new ones; accepted before 1.0.
 
-- [ ] T17 Archetype tournament: nobody wins everything (in progress)
+- [x] T17 Archetype tournament: nobody wins everything
   - Acceptance:
     - `tools/` or `src/genome/tournament.test.ts` runs the six archetypes of T6 through four sim scenarios, each with a simple deterministic bot, 8 seeds each: (1) forage for 3 simulated minutes in the default world (score: biomass gained); (2) a plume gauntlet (a line of `extraPlumes` to cross; score: health left and time); (3) a sprint to a point 2,000 wu away (score: time); (4) a hungry cruise (no food, 40% energy; score: time until starvation). Each scenario has a different winner or at least a different ranking: no archetype wins more than 2 of the 4 scenarios, and every archetype wins at least one scenario or is ranked first or second in two.
     - Determinism: two runs give identical results (a hash of the scores), and the summary hash is a golden under `RULES_VERSION`.
     - If the tournament fails, retune the formula constants in `RULES.genes` and DESIGN §6 (never the test) and note the change; a retune that moves a T6 expectation updates that test's data, not its rules.
     - The report prints a table (archetype × scenario) to the task note.
   - Notes: this is the M3 form of "no build is best at everything" (M7 repeats it for combat). Bots use `step` and the real feeding rule from T2.
+  - Done: `tests/tournament.ts` (bots, scenarios, report) and `src/genome/tournament.test.ts` (the criteria, a two-run hash check of the quick scenarios, and the golden `__golden__/tournament.json`: ranking and summary hash under rules version 3). No rules changed; the archetypes were retuned instead (`tests/archetypes.ts`: ciliate, swimmer, armoured, filter, hunter), so `describe.json` was regenerated for the two whose sentences changed. Mean score (rank), 8 seeds:
+
+    | archetype | forage (biomass gained) | gauntlet (hp left) | sprint (−seconds) | cruise (seconds) |
+    |---|---|---|---|---|
+    | flagellate | 362.70 (#3) | 105.31 (#6) | −13.58 (#3) | 82.43 (#1) |
+    | ciliate | 386.76 (#2) | 111.13 (#4) | −12.78 (#2) | 73.47 (#3) |
+    | swimmer | 340.28 (#4) | 121.92 (#3) | −10.64 (#1) | 57.77 (#6) |
+    | armoured | 303.90 (#5) | 2404.11 (#1) | −17.12 (#5) | 64.67 (#5) |
+    | filter | 142.68 (#6) | 600.90 (#2) | −27.36 (#6) | 77.70 (#2) |
+    | hunter | 484.83 (#1) | 106.72 (#5) | −14.11 (#4) | 73.47 (#4) |
+
+    Winners: hunter, armoured, swimmer, flagellate. Ciliate and filter place first or second twice.
+  - Gotcha: the gauntlet hatches each body at its adult biomass, so a big body (more hit points, √biomass) beats a small fast one; hatched small, it only ranked speed, the same order as the sprint, and no scenario could favour the armoured or filter feeders. Forage lifts every body's maximum biomass to 6,000 so nobody stops growing within the 3 minutes (the score is biomass gained, which saturates at the genetic maximum). The sim keeps the adult stats for the whole life, so a big whip body is slower than it looks at hatching (whip efficiency falls with size). Forage costs about 12 s of the test's 20 s; `npm run check` grew by about 10 s of wall time.
 
 - [ ] T18 Render budget with many bodies
   - Acceptance:

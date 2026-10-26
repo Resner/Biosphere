@@ -69,7 +69,7 @@ export const ARCHETYPES: Record<string, Genome> = {
   ciliate: buildGenome(
     {
       M1: {
-        length: 60,
+        length: 70,
         thickness: 25,
         tipShape: 230,
         beat: 255,
@@ -85,7 +85,7 @@ export const ARCHETYPES: Record<string, Genome> = {
     {
       M1: {
         length: 200,
-        thickness: 150,
+        thickness: 220,
         tipShape: 191,
         beat: 200,
         angle: 120,
@@ -96,23 +96,53 @@ export const ARCHETYPES: Record<string, Genome> = {
     },
     { ...MOUTH_MID, segDrive1: 140, segDrive2: 140, aspect: 255, taper: 200 },
   ),
-  // Plates and spines over a short paddle.
+  // Plates and spines over a stout paddle pair: slow, but toxin barely touches it.
   armoured: buildGenome(
-    { M1: { length: 90, thickness: 120, tipShape: 191, beat: 200, angle: 150 } },
-    { ...MOUTH_MID, plating1: 255, plating2: 255, spines: 255, membrane: 255 },
+    {
+      M1: {
+        length: 110,
+        thickness: 120,
+        tipShape: 191,
+        beat: 200,
+        angle: 150,
+        pairs: 255,
+        attachSpan: 255,
+      },
+    },
+    {
+      ...MOUTH_MID,
+      plating1: 255,
+      plating2: 255,
+      spines: 255,
+      membrane: 255,
+      size1: 255,
+      size2: 200,
+    },
   ),
-  // A wide filter mouth on a slow body with weak cilia.
+  // A wide filter mouth on a big, plain body, pulled along by whips.
   filter: buildGenome(
-    { M1: { length: 60, thickness: 30, tipShape: 230, beat: 70, angle: 255, pairs: 128 } },
+    {
+      M1: { length: 200, thickness: 20, tipShape: 255, beat: 220, angle: 255, joints: 130 },
+      M2: {
+        length: 60,
+        thickness: 60,
+        tipShape: 230,
+        beat: 140,
+        angle: 200,
+        pairs: 128,
+        attachSpan: 255,
+      },
+    },
     { mouthSize: 255, mouthType: 0, digestion: 255, aspect: 255, size1: 255 },
   ),
   // A jaw up front and a hooked spike beside it.
   hunter: buildGenome(
     {
-      M1: { length: 120, thickness: 25, tipShape: 255, beat: 160, angle: 255, joints: 130 },
+      M1: { length: 180, thickness: 35, tipShape: 255, beat: 220, angle: 255, joints: 130 },
       M5: { length: 190, thickness: 90, tipShape: 96, stiffness: 255, beat: 0, angle: 30 },
+      M6: { length: 190, thickness: 90, tipShape: 96, stiffness: 255, beat: 0, angle: 330 },
     },
-    { mouthSize: 255, mouthType: 255, digestion: 200 },
+    { mouthSize: 255, mouthType: 255, digestion: 255, growth: 255 },
   ),
 };
 
