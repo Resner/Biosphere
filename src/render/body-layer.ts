@@ -39,6 +39,11 @@ export class BodyLayer {
     return this.view.mesh.visible;
   }
 
+  /** Geometries the cache holds. */
+  assets(): number {
+    return this.cache.live();
+  }
+
   dispose(): void {
     this.view.dispose();
     this.view.mesh.removeFromParent();

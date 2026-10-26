@@ -40,6 +40,10 @@ export interface RenderInfo {
   playerBody: boolean;
   /** CSS pixels per world unit. */
   pxPerWu: number;
+  /** Creature geometries built and held by the player's and the remotes' caches. */
+  creatureAssets: number;
+  /** GPU resources alive in the renderer. */
+  memory: { geometries: number; textures: number };
 }
 
 const ORDER = {
@@ -222,7 +226,7 @@ export class GameScene {
   }
 
   info(): RenderInfo {
-    const { render } = this.renderer.info;
+    const { render, memory } = this.renderer.info;
     return {
       calls: render.calls,
       triangles: render.triangles,
@@ -231,6 +235,8 @@ export class GameScene {
       remoteBodies: this.remotes.bodyCount(),
       playerBody: this.body.shown(),
       pxPerWu: this.pxPerWu,
+      creatureAssets: this.body.assets() + this.remotes.assets(),
+      memory: { geometries: memory.geometries, textures: memory.textures },
     };
   }
 
