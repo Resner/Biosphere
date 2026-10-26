@@ -112,6 +112,14 @@ export const RULES = deepFreeze({
       crystal: { value: 60, radius: 2.5, weight: 5 },
     },
   },
+  /** Food efficiency by mouth type, at the anchors type 0 (filter), 0.5 (middle) and 1 (jaw); linear between. */
+  feeding: {
+    efficiency: {
+      detritus: { filter: 1, middle: 0.8, jaw: 0.4 },
+      globule: { filter: 0.6, middle: 1, jaw: 0.8 },
+      crystal: { filter: 0, middle: 0.6, jaw: 1 },
+    },
+  },
   spawn: {
     /** Hatching looks for a plume-free spot on rings this far apart (wu). */
     searchStep: 50,

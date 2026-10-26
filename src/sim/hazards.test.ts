@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { STARTER_PHYS } from './body';
 import { applyHazards, plumesNear } from './hazards';
 import { TAU } from './math';
-import { RULES, TICK_HZ } from './rules';
+import { DT, RULES, TICK_HZ } from './rules';
 import { hashWorld } from './state-hash';
 import { step } from './step';
 import type { Plume, StepEvent, World } from './types';
@@ -120,5 +121,53 @@ describe('extra plumes', () => {
     expect(hashWorld(world)).toBe(plain);
     world.extraPlumes = [{ id: 'debug0', x: 1, y: 2, radius: 3 }];
     expect(hashWorld(world)).not.toBe(plain);
+  });
+});
+
+describe('toxin exposure through the colliders', () => {
+  const TAIL = [
+    { x: 0, y: 0, r: 1 },
+    { x: -1.9, y: 0, r: 0.6 },
+  ];
+
+  /** A creature of radius 10 heading `heading` with a tail, and a plume over only the tail's centre. */
+  const tailed = (heading: number) => {
+    const world = createWorld({ seed: 'tail', currents: false, hazards: false });
+    const c = spawnCreature(world, {
+      id: 'a',
+      x: 3000,
+      y: 3000,
+      biomass: 100,
+      phys: { ...STARTER_PHYS, colliders: TAIL },
+    });
+    c.heading = heading;
+    // The tail circle's centre sits 19 wu behind the core centre.
+    world.extraPlumes = [{ id: 'd0', x: 3000 - 19, y: 3000, radius: 6 }];
+    return { world, c };
+  };
+
+  it('is the share of collider area whose centre lies in a plume', () => {
+    const { world, c } = tailed(0);
+    const events = applyHazards(world, c);
+    expect(events).toHaveLength(1);
+    const amount = (events[0] as { amount: number }).amount;
+    expect(amount).toBeCloseTo(((RULES.damage.toxin * 0.36) / 1.36) * DT, 6);
+  });
+
+  it('depends on which way the creature faces', () => {
+    const { world, c } = tailed(Math.PI);
+    expect(applyHazards(world, c)).toEqual([]);
+  });
+
+  it('does not stack overlapping plumes and keeps the starter at all or nothing', () => {
+    const { world, c } = tailed(0);
+    world.extraPlumes.push({ id: 'd1', x: 3000 - 19, y: 3001, radius: 6 });
+    const events = applyHazards(world, c);
+    expect((events[0] as { amount: number }).amount).toBeCloseTo(((15 * 0.36) / 1.36) * DT, 6);
+    const plain = spawnCreature(world, { id: 'b', x: 3000, y: 3000 });
+    world.extraPlumes = [{ id: 'd2', x: 3000, y: 3000, radius: 1 }];
+    expect(applyHazards(world, plain)).toEqual([
+      { type: 'damage', creature: 'b', amount: RULES.damage.toxin * DT, cause: 'toxin' },
+    ]);
   });
 });

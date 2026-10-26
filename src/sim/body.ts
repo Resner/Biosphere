@@ -127,3 +127,10 @@ export function isPhysShape(value: unknown): value is PhysStats {
     })
   );
 }
+
+/** How far the farthest collider centre lies from the core centre, in wu at this biomass. */
+export function colliderReach(phys: PhysStats, biomass: number): number {
+  let far = 0;
+  for (const c of phys.colliders) far = Math.max(far, c.x * c.x + c.y * c.y);
+  return Math.sqrt(far) * Math.sqrt(biomass);
+}

@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { colliderReach, STARTER_PHYS } from './body';
 import { plumesNear } from './hazards';
 import { RULES } from './rules';
 import { findClearSpot } from './spawn';
@@ -94,5 +95,49 @@ describe('findClearSpot, nearest and stable', () => {
       }
       world.tick = start;
     }
+  });
+});
+
+describe('findClearSpot for a long body', () => {
+  const { plumeClearance, lookaheadTicks, lookaheadStride } = RULES.spawn;
+  const c = RULES.world.size / 2;
+  // A body whose farthest collider centre is 2 radii out (edge at 2.5), at biomass 100 (radius 10).
+  const reach = colliderReach(
+    {
+      ...STARTER_PHYS,
+      colliders: [
+        { x: 0, y: 0, r: 1 },
+        { x: 2, y: 0, r: 0.5 },
+      ],
+    },
+    100,
+  );
+
+  it('measures reach as the farthest collider centre in wu', () => {
+    expect(reach).toBe(20);
+    expect(colliderReach(STARTER_PHYS, 100)).toBe(0);
+  });
+
+  it('keeps the farthest collider centre clear of every plume for 10 s', () => {
+    let checked = 0;
+    for (let i = 0; i < 2000 && checked < 20; i++) {
+      const world = createWorld({ seed: `long-${i}` });
+      if (plumesNear(world, c, c, plumeClearance).length === 0) continue;
+      checked++;
+      const spot = findClearSpot(world, c, c, reach);
+      const start = world.tick;
+      // 20 sample points on the circle the farthest collider centre can reach.
+      for (let t = 0; t <= lookaheadTicks; t += lookaheadStride) {
+        world.tick = start + t;
+        for (let k = 0; k < 20; k++) {
+          const a = (k / 20) * 2 * Math.PI;
+          const px = spot.x + reach * Math.cos(a);
+          const py = spot.y + reach * Math.sin(a);
+          expect(plumesNear(world, px, py, plumeClearance)).toEqual([]);
+        }
+      }
+      world.tick = start;
+    }
+    expect(checked).toBe(20);
   });
 });
