@@ -318,6 +318,15 @@ describe('progress', () => {
     ]);
   });
 
+  it('keeps the biomass of the report the hub took, not of a later one', async () => {
+    await play();
+    flow.report(900, { biomass: 12.5, energy: 1, health: 1 });
+    flow.report(1800, { biomass: 9, energy: 1, health: 1 });
+    expect(flow.view().ackedBiomass).toBe(0);
+    feed({ t: 'ack', n: 1, activeMs: 1, lifespanMs: 2, matureAtMs: 0, cooldownUntilMs: 0 });
+    expect(flow.view().ackedBiomass).toBe(12.5);
+  });
+
   it('sends a broken value as zero instead of throwing into the game loop', async () => {
     await play();
     expect(() =>
@@ -341,6 +350,7 @@ describe('progress', () => {
       activeMs: 630_000,
       lifespanMs: 4_500_000,
       lastAckN: 1,
+      ackedBiomass: 1,
     });
   });
 
