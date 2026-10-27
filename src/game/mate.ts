@@ -57,8 +57,6 @@ export interface Invite {
 
 export interface MateViewModel {
   state: MateState;
-  /** The player being courted or the one who courts. */
-  partner: string | null;
   /** One line about what is going on or why it ended; empty when there is nothing to say. */
   note: string;
   invite: Invite | null;
@@ -109,7 +107,6 @@ export class MateFlow {
     const left = this.invite ? ACCEPT_MS - (this.deps.now() - this.since) : 0;
     return {
       state: this.state,
-      partner: this.partner,
       note: this.note,
       invite: this.invite,
       inviteLeftMs: Math.max(0, left),
@@ -121,7 +118,6 @@ export class MateFlow {
     this.link = link;
     this.infos.clear();
     this.asked.clear();
-    this.invite = null;
     this.enter('idle');
   }
 
@@ -192,7 +188,6 @@ export class MateFlow {
       nonce: invite.ask.nonce,
     });
     this.link?.send({ t: 'accept', ask });
-    this.invite = null;
     this.enter('signing');
   }
 
@@ -201,7 +196,6 @@ export class MateFlow {
     const { invite } = this;
     if (this.state !== 'invited' || !invite) return;
     this.link?.send({ t: 'decline', partner: invite.from });
-    this.invite = null;
     this.end('declined', '');
   }
 
@@ -248,7 +242,6 @@ export class MateFlow {
       case 'mating':
         if (this.state === 'courting' || this.state === 'signing') {
           this.owed = true;
-          this.invite = null;
           this.enter('awaiting');
           this.note = 'Awaiting beacon';
         }
@@ -258,7 +251,6 @@ export class MateFlow {
         break;
       case 'refused':
         if (BUSY.has(this.state) && this.state !== 'awaiting' && !LIFE_REFUSALS.has(msg.reason)) {
-          this.invite = null;
           this.end('declined', refusalText(msg.reason, 0, this.deps.nameOf(this.partner ?? '')));
         }
         break;
@@ -287,13 +279,6 @@ export class MateFlow {
   }
 
   private checked(info: Info): void {
-    if (info.reason || !info.creature) {
-      this.end(
-        'declined',
-        refusalText(info.reason ?? 'not-here', info.cooldownLeftMs, this.deps.nameOf(info.partner)),
-      );
-      return;
-    }
     this.start(info.partner, info, this.deps.nameOf(info.partner) ?? 'They');
   }
 
@@ -335,6 +320,7 @@ export class MateFlow {
 
   private enter(state: MateState): void {
     this.state = state;
+    if (state !== 'invited') this.invite = null;
     if (this.visited.push(state) > VISITED_KEPT) this.visited.shift();
     this.since = this.deps.now();
     this.note = '';

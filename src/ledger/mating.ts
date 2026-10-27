@@ -6,16 +6,14 @@ import { type Beacon, randomnessOf } from './drand';
 import { beaconProblems, type Commitment, commitmentId } from './genesis';
 import { checkMatePair, type MateAsk } from './mate-ask';
 import {
-  HEX64,
   type LedgerRecord,
-  REQUEST_DOMAIN,
   type RecordRequest,
   recordHash,
   recordProblems,
   type StoredRecord,
 } from './record';
 
-export { checkMatePair, isAsk, type MateAsk, signedBy, signMateAsk } from './mate-ask';
+export { checkMatePair, type MateAsk, signedBy, signMateAsk } from './mate-ask';
 
 // Birth checks for a mating (ADR 0021). The asks live in `mate-ask.ts`. Pure and shared: no DOM, no Node APIs.
 

@@ -4,12 +4,7 @@ import { rarityOfTraits } from '../genome/rarity';
 import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import type { Identity } from '../ledger/identity';
-import {
-  createIdentity,
-  importRecoveryCode,
-  memoryKeyStore,
-  toBase64Url,
-} from '../ledger/identity';
+import { createIdentity, importRecoveryCode, memoryKeyStore } from '../ledger/identity';
 import { consumedParts } from '../net/claims';
 import { PondClock } from '../net/clock';
 import { GenomeSync } from '../net/genome-sync';
@@ -44,7 +39,13 @@ import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { AloneHint } from './alone-hint';
 import { type Body, bodyLabel, Hatcher, hatchBody } from './body';
-import { type BsDebug, type BsGenome, installHook, type ScriptedRemote } from './debug';
+import {
+  type BsDebug,
+  type BsGenome,
+  type BsState,
+  installHook,
+  type ScriptedRemote,
+} from './debug';
 import { pick } from './dom';
 import { createFieldSync } from './field';
 import { HistoryPanel } from './history';
@@ -255,7 +256,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   // know (a pinned body, no hub, an empty hatch bucket) is a practice cell and sends nothing.
   const flow = new LifeFlow({
     identity: () => identity as Identity,
-    nonce: () => toBase64Url(crypto.getRandomValues(new Uint8Array(16))),
+    nonce: randomNonce,
     // BLS12-381 is heavy: its code loads when the first genesis arrives.
     verify: async (g) => {
       const { checkGenesis } = await import('../ledger/genesis');
@@ -307,6 +308,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** The creature in reach that E would court, as of the last frame. */
   let nearby: Nearby | null = null;
   let reminded = false;
+  let readyShown = '';
+  const setIfChanged = (el: HTMLElement, text: string): void => {
+    if (el.textContent !== text) el.textContent = text;
+  };
 
   let scale = 1;
   // Genesis DNA needs a number the sim never sees; the browser supplies it.
@@ -836,26 +841,32 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     mate.tick();
     const { player } = session;
     nearby = null;
-    if (playingNow && player.alive) {
+    if (playingNow && player.alive && remoteViews.length > 0) {
+      const own = Math.sqrt(player.biomass);
       let best = Number.POSITIVE_INFINITY;
+      let near: DrawnRemote | null = null;
       for (const r of remoteViews) {
         if (r.alpha < 0.5) continue;
         const gap = Math.hypot(r.x - player.x, r.y - player.y);
-        const reach = RULES.mating.reachBodies * 2 * Math.max(r.radius, Math.sqrt(player.biomass));
+        const reach = RULES.mating.reachBodies * 2 * Math.max(r.radius, own);
         if (gap > reach || gap >= best) continue;
         best = gap;
-        nearby = { id: r.id, name: r.name, biomass: r.radius * r.radius };
+        near = r;
       }
+      if (near) nearby = { id: near.id, name: near.name, biomass: near.radius * near.radius };
     }
     if (nearby) mate.check(nearby.id);
     const view = mate.view();
     const hint = nearby ? mate.hint(nearby) : null;
     const text = view.invite ? '' : (hint?.text ?? view.note);
     if (mateHint.textContent !== text) mateHint.textContent = text;
-    mateHint.toggleAttribute('hidden', !playingNow || text === '');
-    mateHint.dataset.court = String(hint?.court === true);
+    const hideHint = !playingNow || text === '';
+    if (mateHint.hidden !== hideHint) mateHint.hidden = hideHint;
+    const court = String(hint?.court === true);
+    if (mateHint.dataset.court !== court) mateHint.dataset.court = court;
     const { invite } = view;
-    invitePanel.toggleAttribute('hidden', !playingNow || !invite);
+    const hideInvite = !playingNow || !invite;
+    if (invitePanel.hidden !== hideInvite) invitePanel.hidden = hideInvite;
     if (invite) {
       const remote = remoteViews.find((r) => r.id === invite.from);
       const body = [
@@ -864,19 +875,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         remote ? `size ${sizeTier(remote.radius * remote.radius)}` : '',
         `generation ${invite.generation}`,
       ].filter(Boolean);
-      inviteName.textContent = `${invite.name} wants to mate`;
-      inviteBody.textContent = body.join(' · ');
-      inviteBand.textContent = invite.band;
-      inviteLeft.textContent = `${Math.ceil(view.inviteLeftMs / 1000)} s`;
+      setIfChanged(inviteName, `${invite.name} wants to mate`);
+      setIfChanged(inviteBody, body.join(' · '));
+      setIfChanged(inviteBand, invite.band);
+      setIfChanged(inviteLeft, `${Math.ceil(view.inviteLeftMs / 1000)} s`);
     }
     const life = flow.view();
-    const rest = life.cooldownUntilMs - (lastClock?.activeMs ?? life.activeMs);
-    const ready =
-      playingNow &&
-      lastClock !== null &&
-      life.matureAtMs > 0 &&
-      lastClock.activeMs >= life.matureAtMs;
-    hud.setReady(ready ? readyText(rest) : '');
+    const active = lastClock?.activeMs ?? life.activeMs;
+    const ready = playingNow && life.matureAtMs > 0 && active >= life.matureAtMs;
+    readyShown = ready ? readyText(life.cooldownUntilMs - active) : '';
+    hud.setReady(readyShown);
   };
 
   let shownNote = '';
@@ -1143,6 +1151,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
   };
 
+  const mateState = (): BsState['mate'] => {
+    const m = mate.view();
+    return {
+      state: m.state,
+      text: mateHint.textContent ?? '',
+      invite: m.invite && { name: m.invite.name, from: m.invite.from, leftMs: m.inviteLeftMs },
+      visited: [...mate.visited],
+      ready: readyShown,
+    };
+  };
+
   const genome: BsGenome = {
     hashes: (list) =>
       list.map((text) => {
@@ -1186,17 +1205,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         remainingMs: lastClock?.remainingMs ?? null,
         limitMs: limitLeft(),
       },
-      mate: {
-        state: mate.view().state,
-        text: mateHint.textContent ?? '',
-        invite: mate.view().invite && {
-          name: mate.view().invite?.name ?? '',
-          from: mate.view().invite?.from ?? '',
-          leftMs: mate.view().inviteLeftMs,
-        },
-        visited: [...mate.visited],
-        ready: pick('[data-testid="hud-ready"]').textContent ?? '',
-      },
+      mate: mateState(),
       remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species }) => ({
         id,
         name,

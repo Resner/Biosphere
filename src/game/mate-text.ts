@@ -30,7 +30,7 @@ const clock = (ms: number): string => {
 };
 
 /** "Rest for 3:20": the wait before the next mating, rounded up. */
-export const cooldownText = (ms: number): string => `Rest for ${clock(ms)}`;
+const cooldownText = (ms: number): string => `Rest for ${clock(ms)}`;
 
 /** The life meter's word for the cooldown: ready, or the wait. */
 export const readyText = (leftMs: number): string =>

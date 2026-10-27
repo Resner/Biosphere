@@ -31,7 +31,7 @@ export function signMateAsk(identity: Identity, a: Omit<MateAsk, 'v' | 'kind' | 
   return { ...ask, sig: toBase64Url(identity.sign(REQUEST_DOMAIN, askMessage(ask))) };
 }
 
-export function isAsk(x: unknown): x is MateAsk {
+function isAsk(x: unknown): x is MateAsk {
   if (typeof x !== 'object' || x === null || Array.isArray(x)) return false;
   const a = x as Record<string, unknown>;
   const str = (k: string, ok: (s: string) => boolean) =>
