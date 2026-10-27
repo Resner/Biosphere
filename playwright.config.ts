@@ -25,6 +25,8 @@ const lifecycleHubPort = 8792;
 const m5HubPort = 8793;
 // The inspect spec has its own (8794): its creatures would otherwise share a pond with the M5 specs running beside it.
 const m5InspectHubPort = 8794;
+// The promote spec has its own (8795) for the same reason.
+const m5PromoteHubPort = 8795;
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 
@@ -109,6 +111,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m5HubPort} --persist-to .wrangler/e2e-state-m5 --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
       url: `http://localhost:${m5HubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m5PromoteHubPort} --persist-to .wrangler/e2e-state-m5-promote --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m5PromoteHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

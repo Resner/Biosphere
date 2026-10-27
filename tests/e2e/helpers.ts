@@ -118,6 +118,9 @@ export const M5_HUB = 'http://localhost:8793';
 /** A second M5 authority, alone in its pond, for the inspect spec. */
 export const M5_INSPECT_HUB = 'http://localhost:8794';
 
+/** A third, for the promote spec. */
+export const M5_PROMOTE_HUB = 'http://localhost:8795';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);

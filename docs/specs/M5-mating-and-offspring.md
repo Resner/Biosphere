@@ -226,7 +226,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Notes: the card reads only what the client already has (the peer's genome) plus one `mate-check` answer per card; it never sends more than one check per second. Keep text short.
 
   - Done: click a creature for the card (`mate-card.ts` view model, `genome/hints.ts` wording over `punnett`, `badge.ts` shared by the card, invitation and Lab); it sits on the side of the screen the creature is not on and shows three trait sentences. Covered by `m5-inspect.spec.ts`.
-  - Gotcha: the card is rebuilt only when its inputs change (identity compare), and the hint percentages are checked against `punnett` in unit tests, not in the E2E. M5 E2E files on one hub share one pond and disturb each other, so the inspect spec has its own hub (8794).
+  - Gotcha: the card is rebuilt only when its inputs change (identity compare), and the hint percentages are checked against `punnett` in unit tests, not in the E2E. M5 E2E files on one hub share one pond and disturb each other, so the inspect and promote specs have their own hubs (8794, 8795).
 
 - [ ] T13 Lineage view
   - Acceptance (unit tests on the view model; E2E screenshot):
