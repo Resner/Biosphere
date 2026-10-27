@@ -1,6 +1,19 @@
+import { type Genome, genomeHash } from '../genome/codec';
+import { KARYOTYPE_VERSION } from '../genome/karyotype';
+import { offspringPair } from '../genome/offspring';
 import { type Canonical, canonicalize } from './canonical';
+import { type Beacon, randomnessOf, verifyBeacon } from './drand';
+import { type Commitment, commitmentId } from './genesis';
 import { fromBase64Url, type Identity, isPlayerId, toBase64Url, verify } from './identity';
-import { HEX64, REQUEST_DOMAIN } from './record';
+import {
+  HEX64,
+  type LedgerRecord,
+  REQUEST_DOMAIN,
+  type RecordRequest,
+  recordHash,
+  recordProblems,
+  type StoredRecord,
+} from './record';
 
 // Mate asks (ADR 0021): one transaction touches two players' creatures, so each player signs an
 // ask, as with genesis, instead of both signing one record. Pure and shared: no DOM, no Node APIs.
@@ -72,5 +85,160 @@ export function checkMatePair(a: MateAsk, aOwner: string, b: MateAsk, bOwner: st
     return failures;
   } catch {
     return ['bad-ask'];
+  }
+}
+
+/**
+ * The `birth` request for one child of a mating. `mates` are the hashes of the two `mate-commit`
+ * records (A's, then B's), `parents` the two creature ids, `slot` the slot byte the child used, and
+ * `owner` the player who gets this child.
+ */
+export function birthRequest(
+  rules: number,
+  commit: Commitment,
+  mates: [string, string],
+  slot: number,
+  parents: [string, string],
+  child: Genome,
+  generation: number,
+  owner: string,
+): RecordRequest {
+  return {
+    v: 1,
+    rules,
+    kind: 'birth',
+    creature: '',
+    seq: 0,
+    prev: '',
+    owner,
+    body: {
+      commit: commitmentId(commit),
+      round: commit.round,
+      slot,
+      parents,
+      mates,
+      genome: genomeHash(child),
+      generation,
+      karyotype: KARYOTYPE_VERSION,
+    },
+  };
+}
+
+/** Pairs a mate-commit's expected fields with what the commitment and the parents say. */
+function mateProblems(
+  mate: StoredRecord,
+  commitId: string,
+  round: number,
+  role: 'a' | 'b',
+  owner: string,
+  partnerOwner: string,
+  creature: string,
+  partnerCreature: string,
+  mine: string,
+  theirs: string,
+): string[] {
+  const r = mate?.record;
+  const failures: string[] = [];
+  if (!r || recordProblems(r).length > 0 || typeof mate.hash !== 'string') {
+    return ['mate-commit-mismatch'];
+  }
+  if (mate.hash !== recordHash(r)) failures.push('mate-hash');
+  const b = r.body;
+  if (
+    r.kind !== 'mate-commit' ||
+    r.owner !== owner ||
+    r.creature !== creature ||
+    b.commit !== commitId ||
+    b.round !== round ||
+    b.role !== role ||
+    b.partner !== partnerOwner ||
+    b.partnerCreature !== partnerCreature
+  ) {
+    failures.push('mate-commit-mismatch');
+  }
+  if (b.genome !== mine || b.partnerGenome !== theirs) failures.push('parent-genome-mismatch');
+  return failures;
+}
+
+/**
+ * Why `record` is not the child that `commit`, `beacon` and the two parents produce; empty when it
+ * is. The child is recomputed from the committed round and never trusted from the record. The
+ * `mates` hashes are checked against the records' contents; their signatures are `checkStored`'s.
+ * Never throws.
+ */
+export function checkBirth(
+  record: LedgerRecord,
+  commit: Commitment,
+  beacon: Beacon,
+  parents: [Genome, Genome],
+  mates: [StoredRecord, StoredRecord],
+): string[] {
+  try {
+    const shape = recordProblems(record);
+    if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
+    if (record.kind !== 'birth') return ['not-birth'];
+    if (commit.kind !== 'mate') return ['not-mate'];
+    const pair = commit.data as { a?: MateAsk; b?: MateAsk } | null;
+    const askA = pair?.a as MateAsk;
+    const askB = pair?.b as MateAsk;
+    const ownerA = commit.owner;
+    const ownerB = askA?.partner as string;
+    const failures = checkMatePair(askA, ownerA, askB, ownerB).map((f) => `pair:${f}`);
+    if (failures.length > 0) return failures;
+    const id = commitmentId(commit);
+    const body = record.body;
+    const child = record.owner === ownerA ? 0 : record.owner === ownerB ? 1 : null;
+    if (child === null) failures.push('owner-mismatch');
+    if (body.commit !== id) failures.push('commit-mismatch');
+    if (body.round !== commit.round) failures.push('round-mismatch');
+    if (beacon.round !== commit.round) failures.push('beacon-round');
+    else if (!verifyBeacon(beacon)) failures.push('bad-beacon');
+    const wanted = [askA.creature, askB.creature];
+    if (canonicalize(body.parents as Canonical) !== canonicalize(wanted))
+      failures.push('parent-mismatch');
+    const hashes = [genomeHash(parents[0]), genomeHash(parents[1])] as const;
+    failures.push(
+      ...mateProblems(
+        mates[0],
+        id,
+        commit.round,
+        'a',
+        ownerA,
+        ownerB,
+        askA.creature,
+        askB.creature,
+        hashes[0],
+        hashes[1],
+      ),
+      ...mateProblems(
+        mates[1],
+        id,
+        commit.round,
+        'b',
+        ownerB,
+        ownerA,
+        askB.creature,
+        askA.creature,
+        hashes[1],
+        hashes[0],
+      ),
+    );
+    if (canonicalize(body.mates as Canonical) !== canonicalize([mates[0].hash, mates[1].hash])) {
+      failures.push('mate-hash');
+    }
+    if (failures.length > 0) return [...new Set(failures)];
+    const { children, slots } = offspringPair(randomnessOf(beacon), id, parents[0], parents[1]);
+    const generation =
+      Math.max(
+        mates[0].record.body.generation as number,
+        mates[1].record.body.generation as number,
+      ) + 1;
+    if (body.slot !== slots[child as 0 | 1]) failures.push('slot-mismatch');
+    if (body.genome !== genomeHash(children[child as 0 | 1])) failures.push('genome-mismatch');
+    if (body.generation !== generation) failures.push('generation-mismatch');
+    if (body.karyotype !== KARYOTYPE_VERSION) failures.push('karyotype-mismatch');
+    return failures;
+  } catch {
+    return ['invalid-record:unreadable'];
   }
 }
