@@ -120,11 +120,13 @@ test('three players see each other move smoothly, share food and chat', async ({
       }
     }
 
-    const bitesKept = (p: Page) =>
-      p.evaluate(() => {
+    // Only the contested item counts: a cell given a bite back is hungry again and may eat a
+    // neighbour, which says nothing about who holds the contested one.
+    const bitesKept = (p: Page, id: string) =>
+      p.evaluate((id) => {
         const e = (window.__bs as BsHook).events();
-        return (e.eat ?? 0) - (e.stolen ?? 0);
-      });
+        return (e[`eat@${id}`] ?? 0) - (e[`stolen@${id}`] ?? 0);
+      }, id);
     // A and B reach the same item at once: exactly one of them keeps it, and C loses it.
     const item = await a.evaluate(() => {
       const bs = window.__bs as BsHook;
@@ -143,7 +145,6 @@ test('three players see each other move smoothly, share food and chat', async ({
     );
     await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id);
     await b.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(10));
-    const before = (await bitesKept(a)) + (await bitesKept(b));
     await Promise.all(
       [a, b].map((p) =>
         p.evaluate(({ x, y }) => (window.__bs as BsHook).debug?.teleport(x, y), { x, y }),
@@ -155,7 +156,7 @@ test('three players see each other move smoothly, share food and chat', async ({
     });
     // Count the bites each keeps (eaten minus given back). The loser's "stolen" event travels over
     // the channel, so wait for the count to settle at one, then check that it holds.
-    const gained = async () => (await bitesKept(a)) + (await bitesKept(b)) - before;
+    const gained = async () => (await bitesKept(a, id)) + (await bitesKept(b, id));
     await expect.poll(gained, { timeout: 5000 }).toBe(1);
     await a.waitForTimeout(500);
     expect(await gained()).toBe(1);

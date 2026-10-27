@@ -51,8 +51,9 @@ async function join(page: Page, epoch: number): Promise<void> {
 test('an item eaten in one tab disappears for the other and respawns for both', async ({
   browser,
 }) => {
-  // Two software-rendered tabs on a loaded runner need more than the default 30 s.
-  test.setTimeout(60_000);
+  // Two software-rendered tabs on a loaded runner need more than the default 30 s: the release
+  // runner, sharing its cores with the other files, did not finish in 60 s (v0.5.0).
+  test.setTimeout(120_000);
   const epoch = Date.now() - 50_000;
   const [a, b] = await Promise.all([joinedTab(browser), joinedTab(browser)]);
   try {
@@ -79,7 +80,9 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
     const id = item?.id as string;
     const m = /^c(\d+)_(\d+)_s(\d+)_k0$/.exec(id);
     expect(m).toBeTruthy();
-    await b.page.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id);
+    await b.page.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id, {
+      timeout: 20_000,
+    });
 
     const reached = await a.page.evaluate((item) => {
       const debug = (window.__bs as BsHook).debug;

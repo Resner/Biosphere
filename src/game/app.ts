@@ -108,6 +108,12 @@ function safeStorage(): Storage | null {
   }
 }
 
+/** Tallies one item's bites and give-backs under `<type>@<id>`, so a test can follow a single item. */
+const countItem = (counts: Record<string, number>, type: string, id: string): void => {
+  const key = `${type}@${id}`;
+  counts[key] = (counts[key] ?? 0) + 1;
+};
+
 /** One creature in one world: the title screen's drifting cell, or a real hatch. */
 interface Session {
   world: World;
@@ -640,6 +646,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const { player, counts } = session;
     player.energy = Math.max(0, player.energy - stolen.value);
     counts.stolen = (counts.stolen ?? 0) + 1;
+    countItem(counts, 'stolen', `${stolen.slot}_k${stolen.k}`);
     hud.update(player);
   };
 
@@ -705,7 +712,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       player.energy = starterEnergy(player.biomass);
       player.health = maxHealth(player.biomass);
     } else {
-      for (const event of events) counts[event.type] = (counts[event.type] ?? 0) + 1;
+      for (const event of events) {
+        counts[event.type] = (counts[event.type] ?? 0) + 1;
+        if (event.type === 'eat') countItem(counts, 'eat', event.food);
+      }
       session.peakBiomass = Math.max(session.peakBiomass, player.biomass);
       hud.update(player);
     }
