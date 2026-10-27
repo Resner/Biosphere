@@ -548,6 +548,7 @@ body {
   position: fixed;
   left: 1rem;
   top: 13.5rem;
+  box-sizing: border-box;
   width: 15rem;
   max-height: calc(100vh - 14.5rem);
   overflow-y: auto;
