@@ -110,9 +110,15 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   await expect(a.getByTestId('hatch-again')).toBeHidden();
   await a.screenshot({ path: 'test-results/m5-promote-death.png' });
   await a.getByTestId('death-fallback-ancestor').click();
-  await a.waitForFunction((parent) => window.__bs?.state().life.creature === parent, parentA, {
-    timeout: 20_000,
-  });
+  // The creature id changes before the status does: wait for play, not just the id.
+  await a.waitForFunction(
+    (parent) => {
+      const { life } = window.__bs?.state() ?? {};
+      return life?.creature === parent && life.status === 'playing';
+    },
+    parentA,
+    { timeout: 20_000 },
+  );
   const back = await state(a);
   expect(back.life.status).toBe('playing');
   expect(back.life.activeMs).toBeGreaterThanOrEqual(frozenAt);
