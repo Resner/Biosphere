@@ -38,6 +38,7 @@ import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { AloneHint } from './alone-hint';
+import { setBadge } from './badge';
 import { type Body, bodyLabel, Hatcher, hatchBody } from './body';
 import {
   type BsDebug,
@@ -46,7 +47,7 @@ import {
   installHook,
   type ScriptedRemote,
 } from './debug';
-import { pick } from './dom';
+import { listItem, pick } from './dom';
 import { createFieldSync } from './field';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
@@ -57,6 +58,7 @@ import { resetLife } from './life-reset';
 import { countdownText } from './life-text';
 import { attachVisibilityPause, createLoop } from './loop';
 import { MateFlow, type Nearby, randomNonce } from './mate';
+import { inspectCard } from './mate-card';
 import { readyText } from './mate-text';
 import { OffspringFlow } from './offspring';
 import { drawPreview } from './offspring-preview';
@@ -199,6 +201,9 @@ function newSession(
   };
 }
 
+/** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
+const INSPECT_MIN_PX = 24;
+
 /** Starts the title screen; the player hatches into the same scene. */
 export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const scene = new GameScene(canvas, RULES.world.size);
@@ -319,6 +324,37 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const inviteBody = pick('[data-testid="invite-body"]');
   const inviteBand = pick('[data-testid="invite-band"]');
   const inviteLeft = pick('[data-testid="invite-left"]');
+  const inviteBadge = pick('[data-testid="invite-badge"]');
+  // The inspect card (M5 T12): click another creature to read it before courting.
+  const inspectPanel = pick('[data-testid="inspect"]');
+  const inspectName = pick('[data-testid="inspect-name"]');
+  const inspectBadge = pick('[data-testid="inspect-badge"]');
+  const inspectSpecies = pick('[data-testid="inspect-species"]');
+  const inspectMeta = pick('[data-testid="inspect-meta"]');
+  const inspectTraits = pick('[data-testid="inspect-traits"]');
+  const inspectKinship = pick('[data-testid="inspect-kinship"]');
+  const inspectVerdict = pick('[data-testid="inspect-verdict"]');
+  const inspectHints = pick('[data-testid="inspect-hints"]');
+  let inspected: string | null = null;
+  /** What the card on screen was built from; it is rebuilt only when one of these changes. */
+  let inspectFrom: readonly unknown[] = [];
+  pick('[data-testid="inspect-close"]').addEventListener('click', () => {
+    inspected = null;
+  });
+  canvas.addEventListener('click', (e) => {
+    if (!playing() || !session.player.alive || controller.typing) return;
+    const rect = canvas.getBoundingClientRect();
+    const at = worldAt(e.clientX - rect.left, e.clientY - rect.top);
+    let best = Number.POSITIVE_INFINITY;
+    inspected = null;
+    for (const r of remoteViews) {
+      if (r.alpha < 0.5) continue;
+      const gap = Math.hypot(r.x - at.x, r.y - at.y);
+      if (gap > Math.max(r.radius, INSPECT_MIN_PX / scene.pxPerWu) || gap >= best) continue;
+      best = gap;
+      inspected = r.id;
+    }
+  });
   /** The creature in reach that E would court, as of the last frame. */
   let nearby: Nearby | null = null;
   let reminded = false;
@@ -712,6 +748,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         if (mate.view().state === 'invited') {
           if (key === 'e' || key === 'E') mate.accept();
           else if (key === 'Escape') mate.decline();
+        } else if (key === 'Escape' && inspected) {
+          inspected = null;
         } else if ((key === 'e' || key === 'E') && nearby) {
           mate.court(nearby.id);
         }
@@ -969,6 +1007,52 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
   };
 
+  /** The inspect card beside a clicked creature: closed when it leaves, dies or the game stops. */
+  const updateInspectUi = (playingNow: boolean, invited: boolean): void => {
+    if (!playingNow || invited) inspected = null;
+    const remote = inspected ? remoteViews.find((r) => r.id === inspected) : undefined;
+    if (inspected && !remote) inspected = null;
+    if (!remote || remote.alpha < 0.5) {
+      if (!inspectPanel.hidden) inspectPanel.hidden = true;
+      return;
+    }
+    mate.check(remote.id);
+    const info = mate.info(remote.id);
+    const from = [
+      remote.id,
+      remote.body,
+      remote.genomeText,
+      session.body.text,
+      info,
+      sizeTier(remote.radius * remote.radius),
+    ];
+    if (from.some((v, i) => v !== inspectFrom[i])) {
+      inspectFrom = from;
+      const card = inspectCard({
+        name: remote.name,
+        radius: remote.radius,
+        species: remote.species,
+        body: remote.body,
+        genomeText: remote.genomeText,
+        ownGenomeText: session.body.text,
+        info,
+      });
+      setIfChanged(inspectName, card.name);
+      setBadge(inspectBadge, card.rarity);
+      setIfChanged(inspectSpecies, card.species);
+      setIfChanged(inspectMeta, card.meta);
+      inspectTraits.replaceChildren(...card.traits.map(listItem));
+      setIfChanged(inspectKinship, card.kinship);
+      setIfChanged(inspectVerdict, card.verdict);
+      inspectVerdict.dataset.can = String(card.canMate);
+      inspectHints.replaceChildren(...(card.hints?.lines ?? []).map(listItem));
+    }
+    // Beside the creature, never over it: on the side of the screen it is not on.
+    const side = remote.x < camera.x ? 'right' : 'left';
+    if (inspectPanel.dataset.side !== side) inspectPanel.dataset.side = side;
+    if (inspectPanel.hidden) inspectPanel.hidden = false;
+  };
+
   /** Courting on screen: the key beside a creature in reach, the invitation, and the cooldown. */
   const updateMateUi = (): void => {
     const playingNow = screen === 'playing' && !session.demo;
@@ -998,14 +1082,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (mateHint.hidden !== hideHint) mateHint.hidden = hideHint;
     const court = String(hint?.court === true);
     if (mateHint.dataset.court !== court) mateHint.dataset.court = court;
+    updateInspectUi(playingNow, view.invite !== null);
     const { invite } = view;
     const hideInvite = !playingNow || !invite;
     if (invitePanel.hidden !== hideInvite) invitePanel.hidden = hideInvite;
     if (invite) {
       const remote = remoteViews.find((r) => r.id === invite.from);
+      setBadge(inviteBadge, remote?.body ? rarityOfTraits(remote.body.traits).tier : '');
       const body = [
         remote?.species ?? 'A new creature',
-        remote?.body ? rarityOfTraits(remote.body.traits).tier : '',
         remote ? `size ${sizeTier(remote.radius * remote.radius)}` : '',
         `generation ${invite.generation}`,
       ].filter(Boolean);

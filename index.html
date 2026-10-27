@@ -64,9 +64,19 @@
     <p class="mate-hint" data-for="playing" data-testid="mate-hint" role="status" hidden></p>
     <section class="invite" data-for="playing" data-testid="invite" aria-label="Invitation" hidden>
       <p class="invite-name" data-testid="invite-name"></p>
-      <p data-testid="invite-body"></p>
+      <p><span data-testid="invite-badge"></span> <span data-testid="invite-body"></span></p>
       <p data-testid="invite-band"></p>
       <p class="invite-keys"><span data-testid="invite-left"></span> · E accept · Esc decline</p>
+    </section>
+    <section class="inspect" data-for="playing" data-testid="inspect" aria-label="Creature" hidden>
+      <p class="inspect-name"><span data-testid="inspect-name"></span> <span data-testid="inspect-badge"></span></p>
+      <p data-testid="inspect-species"></p>
+      <p class="inspect-meta" data-testid="inspect-meta"></p>
+      <ul class="inspect-traits" data-testid="inspect-traits"></ul>
+      <p data-testid="inspect-kinship"></p>
+      <p class="inspect-verdict" data-testid="inspect-verdict"></p>
+      <ul class="inspect-hints" data-testid="inspect-hints"></ul>
+      <button type="button" class="action quiet" data-testid="inspect-close">Close (Esc)</button>
     </section>
     <div class="egg" data-for="playing" data-testid="egg" role="img" aria-label="Your offspring is hatching" hidden></div>
     <section class="offspring" data-for="playing" data-testid="offspring" aria-label="Offspring" hidden>

@@ -63,7 +63,7 @@ export interface MateViewModel {
   inviteLeftMs: number;
 }
 
-type Info = Extract<LifeMsg, { t: 'mate-info' }>;
+export type Info = Extract<LifeMsg, { t: 'mate-info' }>;
 
 const SIGN_WINDOW_MS = RULES.mating.signWindowMs;
 const ACCEPT_MS = RULES.mating.acceptShownMs;
@@ -137,6 +137,11 @@ export class MateFlow {
     if (last !== undefined && now - last < CHECK_GAP_MS) return;
     this.asked.set(partner, now);
     this.link?.send({ t: 'mate-check', partner });
+  }
+
+  /** The latest `mate-check` answer about a player, or null before one arrives. */
+  info(partner: string): Info | null {
+    return this.infos.get(partner)?.info ?? null;
   }
 
   /** The line beside a creature in reach: the court key, or the plain reason why not. */

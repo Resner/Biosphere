@@ -1,6 +1,6 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, M5_HUB, openRecorded, state, waitPlaying } from './helpers';
+import { clickHatch, M5_PROMOTE_HUB, openRecorded, state, waitPlaying } from './helpers';
 
 // The offspring (M5 T11): after a mating both players get an egg and then a card with a different
 // child; A becomes theirs with H, starves it, and is offered the parent, who comes back with the
@@ -10,7 +10,7 @@ test.describe.configure({ mode: 'serial' });
 
 async function hatched(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
-  await openRecorded(page, '', M5_HUB);
+  await openRecorded(page, '', M5_PROMOTE_HUB);
   await clickHatch(page);
   await waitPlaying(page);
   return page;

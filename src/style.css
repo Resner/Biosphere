@@ -539,6 +539,82 @@ body {
 .history[hidden],
 .toast[hidden],
 .mate-hint[hidden],
+.inspect[hidden],
+.badge[hidden] {
+  display: none;
+}
+
+.inspect {
+  position: fixed;
+  left: 1rem;
+  top: 13.5rem;
+  box-sizing: border-box;
+  width: 15rem;
+  max-height: calc(100vh - 14.5rem);
+  overflow-y: auto;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgb(190 235 255 / 0.7);
+  border-radius: 0.6rem;
+  background: rgb(4 9 11 / 0.85);
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.inspect[data-side="right"] {
+  left: auto;
+  right: 1rem;
+  top: 3.5rem;
+  max-height: calc(100vh - 17rem);
+}
+
+.inspect p,
+.inspect ul {
+  margin: 0.2rem 0;
+}
+
+.inspect ul {
+  padding-left: 1rem;
+}
+
+.inspect-name {
+  font-size: 0.95rem;
+}
+
+.inspect-meta,
+.inspect-hints {
+  color: var(--muted);
+}
+
+.inspect-verdict[data-can="true"] {
+  color: #8de88a;
+}
+
+.inspect .action {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border: 1px solid currentcolor;
+  border-radius: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+.badge[data-tier="uncommon"] {
+  color: #8de88a;
+}
+
+.badge[data-tier="rare"] {
+  color: #7ac8ff;
+}
+
+.badge[data-tier="exotic"] {
+  color: #ffd27a;
+}
+
 .invite[hidden] {
   display: none;
 }
