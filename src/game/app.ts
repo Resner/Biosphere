@@ -1,5 +1,6 @@
 import { genomeFromBase64url, genomeHash, parseGenomeText } from '../genome/codec';
 import { hashPlan } from '../genome/develop';
+import { rarityOfTraits } from '../genome/rarity';
 import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import type { Identity } from '../ledger/identity';
@@ -35,6 +36,7 @@ import { applyLife, lifespanMs } from '../sim/life';
 import { atan2, lerp, wrapAngle } from '../sim/math';
 import { replay } from '../sim/replay';
 import { RULES, TICK_HZ } from '../sim/rules';
+import { sizeTier } from '../sim/size';
 import { findClearSpot } from '../sim/spawn';
 import { step } from '../sim/step';
 import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
@@ -53,6 +55,8 @@ import { type LifeClock, LifeFlow, type Started, VERIFY_FAILED } from './life';
 import { resetLife } from './life-reset';
 import { countdownText } from './life-text';
 import { attachVisibilityPause, createLoop } from './loop';
+import { MateFlow, type Nearby, randomNonce } from './mate';
+import { readyText } from './mate-text';
 import { connectOnline, type OnlineSession } from './online';
 import {
   cleanName,
@@ -268,6 +272,42 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** The life clock as of the last tick; null for a practice cell and between lives. */
   let lastClock: LifeClock | null = null;
 
+  // Courting (M5): the creature as the mating rules see it, and what the hub is asked.
+  const mate = new MateFlow({
+    identity: () => identity as Identity,
+    nonce: randomNonce,
+    now: () => performance.now(),
+    nameOf: (id) => keeper.current?.nameOf(id),
+    own: () => {
+      const life = flow.view();
+      const { player } = session;
+      if (session.demo || life.status !== 'playing' || !life.creature || !player.alive) return null;
+      return {
+        creature: life.creature,
+        owner: playerId ?? '',
+        active: true,
+        activeMs: lastClock?.activeMs ?? life.activeMs,
+        // The first ack brings the real numbers; until then nobody is mature.
+        matureAtMs: life.matureAtMs > 0 ? life.matureAtMs : Number.POSITIVE_INFINITY,
+        cooldownUntilMs: life.cooldownUntilMs,
+        biomass: player.biomass,
+        energy: player.energy,
+        hasPending: life.pending,
+        inFlight: false,
+        locked: false,
+      };
+    },
+  });
+  const mateHint = pick('[data-testid="mate-hint"]');
+  const invitePanel = pick('[data-testid="invite"]');
+  const inviteName = pick('[data-testid="invite-name"]');
+  const inviteBody = pick('[data-testid="invite-body"]');
+  const inviteBand = pick('[data-testid="invite-band"]');
+  const inviteLeft = pick('[data-testid="invite-left"]');
+  /** The creature in reach that E would court, as of the last frame. */
+  let nearby: Nearby | null = null;
+  let reminded = false;
+
   let scale = 1;
   // Genesis DNA needs a number the sim never sees; the browser supplies it.
   const hatcher = new Hatcher({
@@ -418,9 +458,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             }
           }
           social.worldSize = w.pond.size;
+          mate.attach(link);
         },
         life(msg) {
           flow.receive(msg);
+          mate.receive(msg);
+          if (msg.t === 'born') hud.toast('Your offspring is ready');
           if (msg.t === 'history') history.show(msg.lives, Date.now());
           // Past lives are asked for once the hub has said who the player is, and after each death.
           if (msg.t === 'life' || msg.t === 'died') link.send({ t: 'history' });
@@ -448,6 +491,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       },
     });
     flow.attach(link);
+    mate.attach(link);
     return link;
   };
 
@@ -572,6 +616,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     {
       key: (key) => {
         if (!playing()) return;
+        if (mate.view().state === 'invited') {
+          if (key === 'e' || key === 'E') mate.accept();
+          else if (key === 'Escape') mate.decline();
+        } else if ((key === 'e' || key === 'E') && nearby) {
+          mate.court(nearby.id);
+        }
         const at = controller.pointerAt();
         social.key(key, selfKey(), at && worldAt(at.x, at.y));
       },
@@ -695,6 +745,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     prev.y = player.y;
     prev.heading = player.heading;
     input = chooseInput();
+    // The authority committed a mating: pay its cost here, at a tick boundary.
+    if (!session.demo && mate.takeCost()) {
+      applyLife(world, player.id, 'mate');
+      fx.matePulse({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) });
+      if (recovery.needsSaving && !reminded) {
+        reminded = true;
+        hud.toast('Save your recovery code');
+      }
+    }
     const live = livePond();
     if (live && scale === 1) loop.setSpeed(live.time.update(world, performance.now()));
     const at = world.tick;
@@ -769,6 +828,55 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       (keeper.current?.count ?? 1) - 1,
     );
     if (aloneElement.hidden === lonely) aloneElement.hidden = !lonely;
+  };
+
+  /** Courting on screen: the key beside a creature in reach, the invitation, and the cooldown. */
+  const updateMateUi = (): void => {
+    const playingNow = screen === 'playing' && !session.demo;
+    mate.tick();
+    const { player } = session;
+    nearby = null;
+    if (playingNow && player.alive) {
+      let best = Number.POSITIVE_INFINITY;
+      for (const r of remoteViews) {
+        if (r.alpha < 0.5) continue;
+        const gap = Math.hypot(r.x - player.x, r.y - player.y);
+        const reach = RULES.mating.reachBodies * 2 * Math.max(r.radius, Math.sqrt(player.biomass));
+        if (gap > reach || gap >= best) continue;
+        best = gap;
+        nearby = { id: r.id, name: r.name, biomass: r.radius * r.radius };
+      }
+    }
+    if (nearby) mate.check(nearby.id);
+    const view = mate.view();
+    const hint = nearby ? mate.hint(nearby) : null;
+    const text = view.invite ? '' : (hint?.text ?? view.note);
+    if (mateHint.textContent !== text) mateHint.textContent = text;
+    mateHint.toggleAttribute('hidden', !playingNow || text === '');
+    mateHint.dataset.court = String(hint?.court === true);
+    const { invite } = view;
+    invitePanel.toggleAttribute('hidden', !playingNow || !invite);
+    if (invite) {
+      const remote = remoteViews.find((r) => r.id === invite.from);
+      const body = [
+        remote?.species ?? 'A new creature',
+        remote?.body ? rarityOfTraits(remote.body.traits).tier : '',
+        remote ? `size ${sizeTier(remote.radius * remote.radius)}` : '',
+        `generation ${invite.generation}`,
+      ].filter(Boolean);
+      inviteName.textContent = `${invite.name} wants to mate`;
+      inviteBody.textContent = body.join(' · ');
+      inviteBand.textContent = invite.band;
+      inviteLeft.textContent = `${Math.ceil(view.inviteLeftMs / 1000)} s`;
+    }
+    const life = flow.view();
+    const rest = life.cooldownUntilMs - (lastClock?.activeMs ?? life.activeMs);
+    const ready =
+      playingNow &&
+      lastClock !== null &&
+      life.matureAtMs > 0 &&
+      lastClock.activeMs >= life.matureAtMs;
+    hud.setReady(ready ? readyText(rest) : '');
   };
 
   let shownNote = '';
@@ -884,6 +992,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         : NO_REMOTES;
     updateNetUi(now, joined);
     updateHatchNote();
+    updateMateUi();
     view.remotes = remoteViews;
     const projection = {
       camX: camera.x,
@@ -1076,6 +1185,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         stage: lastClock?.stage ?? null,
         remainingMs: lastClock?.remainingMs ?? null,
         limitMs: limitLeft(),
+      },
+      mate: {
+        state: mate.view().state,
+        text: mateHint.textContent ?? '',
+        invite: mate.view().invite && {
+          name: mate.view().invite?.name ?? '',
+          from: mate.view().invite?.from ?? '',
+          leftMs: mate.view().inviteLeftMs,
+        },
+        visited: [...mate.visited],
+        ready: pick('[data-testid="hud-ready"]').textContent ?? '',
       },
       remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species }) => ({
         id,

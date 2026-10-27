@@ -330,6 +330,7 @@ const hubMsgs: HubMsg[] = [
   {
     t: 'mate-info',
     partner: PID2,
+    creature: mateAsk.creature,
     reason: 'partner-cooldown',
     kinship: 0.125,
     generation: 2,
@@ -339,6 +340,7 @@ const hubMsgs: HubMsg[] = [
   {
     t: 'mate-info',
     partner: PID2,
+    creature: null,
     reason: null,
     kinship: 0,
     generation: 0,
@@ -691,6 +693,7 @@ describe('genesis messages', () => {
         JSON.stringify({
           t: 'mate-info',
           partner: PID2,
+          creature: null,
           reason: null,
           kinship: 2,
           generation: 0,

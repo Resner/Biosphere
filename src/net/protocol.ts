@@ -2,7 +2,7 @@ import type { GenesisAsk } from '../ledger/ask';
 import type { Canonical } from '../ledger/canonical';
 import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
-import type { MateAsk } from '../ledger/mating';
+import type { MateAsk } from '../ledger/mate-ask';
 import type { RecordKind, RecordRequest, Status, StoredRecord } from '../ledger/record';
 import type { DeathCause } from '../sim/types';
 
@@ -281,6 +281,8 @@ export type HubMsg =
   | {
       t: 'mate-info';
       partner: string;
+      /** The partner's active creature (what a court must name), or null when they are not here. */
+      creature: string | null;
       reason: string | null;
       kinship: number;
       generation: number;
@@ -658,6 +660,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
         : null;
     case 'mate-info':
       return isStr(o.partner, PLAYER_ID_RE) &&
+        (o.creature === null || isStr(o.creature, HEX64_RE)) &&
         (o.reason === null || isStr(o.reason, REASON_RE)) &&
         isKinship(o.kinship) &&
         isInt(o.generation, 0, MAX_TICK) &&
@@ -666,6 +669,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
         ? capped(raw, {
             t: 'mate-info',
             partner: o.partner,
+            creature: o.creature,
             reason: o.reason,
             kinship: o.kinship,
             generation: o.generation,

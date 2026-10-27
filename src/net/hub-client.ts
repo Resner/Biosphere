@@ -26,10 +26,26 @@ export type HubStatus = 'connecting' | 'online' | 'offline' | 'replaced' | 'outd
 export const isFinalStatus = (s: HubStatus): boolean => s === 'replaced' || s === 'outdated';
 export type Welcome = Extract<HubMsg, { t: 'welcome' }>;
 export type SignalMsg = Extract<HubMsg, { t: 'signal' }>;
-/** The hub's answers about the player's own creature (M4). */
+/** The hub's answers about the player's own creature (M4) and its matings (M5). */
 export type LifeMsg = Extract<
   HubMsg,
-  { t: 'life' | 'ack' | 'died' | 'history' | 'commit' | 'genesis' | 'refused' }
+  {
+    t:
+      | 'life'
+      | 'ack'
+      | 'died'
+      | 'history'
+      | 'commit'
+      | 'genesis'
+      | 'refused'
+      | 'mate-info'
+      | 'invite'
+      | 'declined'
+      | 'mating'
+      | 'born'
+      | 'promoted'
+      | 'restored';
+  }
 >;
 
 /** The slice of `WebSocket` the client uses, so tests can fake it. */
@@ -217,6 +233,13 @@ export class HubClient {
       case 'commit':
       case 'genesis':
       case 'refused':
+      case 'mate-info':
+      case 'invite':
+      case 'declined':
+      case 'mating':
+      case 'born':
+      case 'promoted':
+      case 'restored':
         for (const fn of [...this.lifeListeners]) guarded(() => fn(msg));
         break;
       case 'error':

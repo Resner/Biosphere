@@ -21,6 +21,8 @@ const m4HubPort = 8790;
 const oldAgeHubPort = 8791;
 // The lifecycle spec fills a two-seat authority to see the admission queue.
 const lifecycleHubPort = 8792;
+// The M5 specs share one (8793) with `LIFESPAN_SCALE=0.05` and `MATING_SCALE=0.01`: lives of about 4 min and maturity in seconds.
+const m5HubPort = 8793;
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 
@@ -99,6 +101,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${lifecycleHubPort} --persist-to .wrangler/e2e-state-lifecycle --var MAX_SESSIONS:2`,
       url: `http://localhost:${lifecycleHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m5HubPort} --persist-to .wrangler/e2e-state-m5 --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m5HubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

@@ -55,11 +55,18 @@
       <div class="meter"><span class="meter-name">Biomass</span><span class="meter-value" data-testid="hud-biomass"></span></div>
       <div class="meter" data-meter="energy"><span class="meter-name">Energy</span><span class="meter-value" data-testid="hud-energy"></span><span class="bar"><i data-bar="energy"></i></span></div>
       <div class="meter"><span class="meter-name">Health</span><span class="meter-value" data-testid="hud-health"></span><span class="bar"><i data-bar="health"></i></span></div>
-      <div class="meter life" data-meter="life" data-testid="hud-life" hidden><span class="meter-name">Life</span><span class="meter-value" data-testid="hud-stage"></span><span class="bar"><i data-bar="life"></i></span><span class="life-left" data-testid="hud-remaining"></span></div>
+      <div class="meter life" data-meter="life" data-testid="hud-life" hidden><span class="meter-name">Life</span><span class="meter-value" data-testid="hud-stage"></span><span class="bar"><i data-bar="life"></i></span><span class="life-left" data-testid="hud-remaining"></span><span class="life-left" data-testid="hud-ready"></span></div>
       <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
       <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping</p>
     </section>
     <p class="toast" data-for="playing" data-testid="toast" role="status" hidden></p>
+    <p class="mate-hint" data-for="playing" data-testid="mate-hint" role="status" hidden></p>
+    <section class="invite" data-for="playing" data-testid="invite" aria-label="Invitation" hidden>
+      <p class="invite-name" data-testid="invite-name"></p>
+      <p data-testid="invite-body"></p>
+      <p data-testid="invite-band"></p>
+      <p class="invite-keys"><span data-testid="invite-left"></span> · E accept · Esc decline</p>
+    </section>
     <p class="net-status" data-testid="net-status" role="status"></p>
     <p class="practice-badge" data-for="playing" data-testid="practice-badge" hidden>Not recorded</p>
     <p class="hatch-note" data-testid="hatch-note" role="status" hidden></p>

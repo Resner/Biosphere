@@ -12,6 +12,15 @@ describe('Effects', () => {
     expect(fx.rings.map((ring) => ring.kind)).toEqual(['pop', 'ripple']);
   });
 
+  it('marks a committed mating with a wide, slow ring', () => {
+    const fx = new Effects();
+    fx.matePulse(AT);
+    expect(fx.rings).toEqual([
+      { kind: 'ripple', x: 3, y: 4, size: 10 * FX.mateRadii, age: 0, life: FX.mateSeconds },
+    ]);
+    expect(fx.snapshot()).toMatchObject({ eat: 0, dash: 0 });
+  });
+
   it('retires rings once their time is up', () => {
     const fx = new Effects();
     fx.onEvent({ type: 'eat', creature: 'p', food: 'f', value: 5 }, AT);
