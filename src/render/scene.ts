@@ -151,11 +151,12 @@ export class GameScene {
     }
 
     window.addEventListener('resize', this.onResize);
-    this.setPreset(this.preset);
+    this.resize();
   }
 
   /** Applies a quality preset: pixel ratio and particle share, with no reload. */
   setPreset(preset: PresetName): void {
+    if (preset === this.preset) return;
     this.preset = preset;
     const share = PRESETS[preset].particles;
     for (const layer of [this.far, this.mid, this.near]) layer.setShare(share);
@@ -165,7 +166,8 @@ export class GameScene {
   resize(): void {
     this.cssWidth = this.canvas.clientWidth || window.innerWidth;
     this.cssHeight = this.canvas.clientHeight || window.innerHeight;
-    this.renderer.setPixelRatio(pixelRatio(this.preset, window.devicePixelRatio));
+    const ratio = pixelRatio(this.preset, window.devicePixelRatio);
+    if (ratio !== this.renderer.getPixelRatio()) this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(this.cssWidth, this.cssHeight, false);
   }
 

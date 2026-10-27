@@ -24,7 +24,6 @@ import type { CreatureSource } from '../render/creature-cache';
 import { Effects } from '../render/effects';
 import { type PresetName, resolvePreset } from '../render/presets';
 import { GameScene } from '../render/scene';
-import { loadSettings, type Settings, saveSettings } from '../render/settings';
 import { colliderReach } from '../sim/body';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
@@ -83,6 +82,7 @@ import { PondTime } from './pond-time';
 import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
 import { type DeathSummary, type Screen, Screens } from './screens';
+import { loadSettings, type Settings, saveSettings } from './settings';
 import { SettingsPanel } from './settings-panel';
 import { MuteList, Social } from './social';
 import { type Anchor, SocialUi } from './social-ui';
@@ -220,8 +220,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** The hub link of the current online session, for the Lineage panel's question. */
   let hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
   const lineagePanel = new LineagePanel(() => hubLink?.send({ t: 'lineage' }));
+  const storage = safeStorage();
   // The stored setting, or this visit's `?quality=` until the player picks one in the panel.
-  let settings: Settings = params.quality ? { quality: params.quality } : loadSettings();
+  let settings: Settings = params.quality ? { quality: params.quality } : loadSettings(storage);
   const applySettings = (): void => {
     const preset = resolvePreset(settings.quality);
     scene.setPreset(preset);
@@ -230,7 +231,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const settingsPanel = new SettingsPanel(
     (next) => {
       settings = next;
-      saveSettings(settings);
+      saveSettings(settings, storage);
       applySettings();
     },
     ['settings-open', 'lineage-settings'],
@@ -462,7 +463,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     isFinal: (link) => isFinalStatus(link.status),
   });
-  const storage = safeStorage();
   const nameField = pick('[data-testid="name-field"]');
   const nameInput = pick<HTMLInputElement>('[data-testid="name-input"]');
   const nameError = pick('[data-testid="name-error"]');

@@ -1,7 +1,8 @@
 // Player settings kept in the browser (`localStorage['bs.settings']`). A blocked or damaged store
 // never breaks the game: it just means the defaults.
 
-import { isPresetName, type PresetName, type QualitySetting } from './presets';
+import { isPresetName, type PresetName, type QualitySetting } from '../render/presets';
+import type { Store } from './online-config';
 
 export interface Settings {
   quality: QualitySetting;
@@ -9,24 +10,9 @@ export interface Settings {
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = { quality: 'auto' };
 
-export const SETTINGS_KEY = 'bs.settings';
+const SETTINGS_KEY = 'bs.settings';
 
-/** The part of `Storage` the settings use. */
-export interface SettingsStore {
-  getItem(key: string): string | null;
-  setItem(key: string, value: string): void;
-}
-
-/** The browser's store, or null when reaching it throws (private windows, blocked site data). */
-export function browserStore(): SettingsStore | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
-
-export function loadSettings(store: SettingsStore | null = browserStore()): Settings {
+export function loadSettings(store: Store | null): Settings {
   try {
     const text = store?.getItem(SETTINGS_KEY);
     if (!text) return { ...DEFAULT_SETTINGS };
@@ -40,10 +26,7 @@ export function loadSettings(store: SettingsStore | null = browserStore()): Sett
   return { ...DEFAULT_SETTINGS };
 }
 
-export function saveSettings(
-  settings: Settings,
-  store: SettingsStore | null = browserStore(),
-): void {
+export function saveSettings(settings: Settings, store: Store | null): void {
   try {
     store?.setItem(SETTINGS_KEY, JSON.stringify(settings));
   } catch {

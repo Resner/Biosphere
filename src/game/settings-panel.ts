@@ -2,8 +2,8 @@
 // no state: the app hands it the current settings and applies what it reports.
 
 import type { PresetName, QualitySetting } from '../render/presets';
-import type { Settings } from '../render/settings';
 import { pick } from './dom';
+import type { Settings } from './settings';
 
 const QUALITIES: readonly QualitySetting[] = ['auto', 'low', 'medium', 'high'];
 
@@ -13,7 +13,6 @@ export class SettingsPanel {
   private readonly radios = new Map<QualitySetting, HTMLInputElement>(
     QUALITIES.map((q) => [q, pick<HTMLInputElement>(`[data-testid="quality-${q}"]`)]),
   );
-  private resolved: PresetName = 'medium';
 
   constructor(
     private readonly onChange: (settings: Settings) => void,
@@ -39,7 +38,6 @@ export class SettingsPanel {
 
   /** Shows the settings in force and the preset they resolve to. */
   show(settings: Settings, resolved: PresetName): void {
-    this.resolved = resolved;
     const radio = this.radios.get(settings.quality);
     if (radio) radio.checked = true;
     this.note.textContent =
@@ -48,15 +46,10 @@ export class SettingsPanel {
 
   open(): void {
     this.panel.hidden = false;
-    (this.radios.get(this.checked()) ?? this.radios.get('auto'))?.focus();
+    this.panel.querySelector<HTMLInputElement>('input:checked')?.focus();
   }
 
   close(): void {
     this.panel.hidden = true;
-  }
-
-  private checked(): QualitySetting {
-    for (const [quality, radio] of this.radios) if (radio.checked) return quality;
-    return this.resolved;
   }
 }

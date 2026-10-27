@@ -14,7 +14,6 @@ export class ParticleLayer {
   readonly points: THREE.Points;
   private readonly material: THREE.ShaderMaterial;
   private readonly geometry = new THREE.BufferGeometry();
-  private drawn = 0;
 
   constructor(
     private readonly count: number,
@@ -43,16 +42,12 @@ export class ParticleLayer {
 
   /** Draws this share of the full count; no buffer is rebuilt. */
   setShare(share: number): void {
-    this.drawn = Math.min(
-      Math.round(this.count * share),
-      this.geometry.getAttribute('aSeed').count,
-    );
-    this.geometry.setDrawRange(0, this.drawn);
+    this.geometry.setDrawRange(0, Math.round(this.count * share));
   }
 
   /** How many particles are drawn. */
   get drawnCount(): number {
-    return this.drawn;
+    return this.geometry.drawRange.count;
   }
 
   update(view: SceneView, pxPerWu: number): void {

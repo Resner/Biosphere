@@ -25,11 +25,8 @@ async function choose(page: Page, quality: string): Promise<void> {
   await page.getByTestId('lineage-close').click();
 }
 
-const EXPECT: Record<PresetName, { ratio: number }> = {
-  low: { ratio: 1 },
-  medium: { ratio: 1.5 },
-  high: { ratio: 2 },
-};
+// Independent of PRESETS: the pixel ratios DESIGN §12 lists, at a device ratio of 2.
+const RATIO: Record<PresetName, number> = { low: 1, medium: 1.5, high: 2 };
 
 test('?quality= starts the game on that preset', async ({ page }) => {
   for (const preset of ['low', 'high'] as const) {
@@ -37,7 +34,7 @@ test('?quality= starts the game on that preset', async ({ page }) => {
     await hatch(page);
     const now = await info(page);
     expect(now.preset).toBe(preset);
-    expect(now.pixelRatio).toBe(EXPECT[preset].ratio);
+    expect(now.pixelRatio).toBe(RATIO[preset]);
     expect(now.calls).toBeLessThanOrEqual(PRESETS[preset].budget.calls);
   }
 });
