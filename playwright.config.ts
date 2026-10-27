@@ -31,7 +31,7 @@ const m5PromoteHubPort = 8795;
 const m5LifecycleHubPort = 8796;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
-const grepInvert = process.env.E2E_SKIP_SLOW ? /@slow/ : undefined;
+const skipSlow = process.env.E2E_SKIP_SLOW ? { grepInvert: /@slow/ } : {};
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 
@@ -53,7 +53,7 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: 'chromium', testIgnore: [SOCIAL, POND], use: { browserName: 'chromium' }, grepInvert },
+    { name: 'chromium', testIgnore: [SOCIAL, POND], use: { browserName: 'chromium' }, ...skipSlow },
     // Three-browser scenarios are CPU-bound under software GL: running this one after the rest
     // keeps CI runners from starving the online spec into its timeout.
     {
@@ -61,7 +61,7 @@ export default defineConfig({
       testMatch: SOCIAL,
       dependencies: ['chromium'],
       use: { browserName: 'chromium' },
-      grepInvert,
+      ...skipSlow,
     },
     // The same for the three-context pond check, after the social one.
     {
@@ -69,7 +69,7 @@ export default defineConfig({
       testMatch: POND,
       dependencies: ['social'],
       use: { browserName: 'chromium' },
-      grepInvert,
+      ...skipSlow,
     },
   ],
   webServer: [
