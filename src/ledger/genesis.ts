@@ -60,6 +60,12 @@ export function genesisRequest(rules: number, commit: Commitment, genome: Genome
   };
 }
 
+/** Why `beacon` cannot decide `commit`: another round, or a signature that does not verify. */
+export function beaconProblems(commit: Commitment, beacon: Beacon): string[] {
+  if (beacon.round !== commit.round) return ['beacon-round'];
+  return verifyBeacon(beacon) ? [] : ['bad-beacon'];
+}
+
 /** Why `record` is not the genesis that `commit` and `beacon` produce; empty when it is. Never throws. */
 export function checkGenesis(
   record: LedgerRecord,
@@ -84,8 +90,7 @@ export function checkGenesis(
     }
     if (record.body.commit !== id) failures.push('commit-mismatch');
     if (record.body.round !== commit.round) failures.push('round-mismatch');
-    if (beacon.round !== commit.round) failures.push('beacon-round');
-    else if (!verifyBeacon(beacon)) failures.push('bad-beacon');
+    failures.push(...beaconProblems(commit, beacon));
     if (failures.length > 0) return failures;
     const genome = genesisFor(randomnessOf(beacon), id);
     const expected = genesisRequest(record.rules, commit, genome);

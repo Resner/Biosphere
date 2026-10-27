@@ -118,7 +118,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Notes: the ask's signing domain is `bs/req/v1` over its JCS bytes without `sig`, as the genesis ask (`src/ledger/ask.ts`). Keep the `src/ledger` rules: no DOM, no Node APIs.
     - Done: `bodyProblems`, `Status` and `transitionOutcome` live in `record.ts`; the M4 kinds' bodies stay unchecked. `transitionOutcome` returns `status:none` for "no creature" and `role` for a promote without a known role. `checkMatePair` also returns `bad-ask` for a malformed ask, and the pair shares one nonce.
 
-- [ ] T4 Offspring: the pair, the birth check, Mendelian proof
+- [x] T4 Offspring: the pair, the birth check, Mendelian proof
   - Acceptance (unit tests first, recorded fixtures only):
     - `offspringPair` is deterministic: the same inputs give the same two genome hashes, and five golden vectors (fixture beacons from three rounds × two parent pairs made with `genesisFor`) are committed under `src/genome/__golden__/offspring.json` with the rules version. Slot 0's child equals `breed(a, b, offspringSeed(r, id, 0))`.
     - Distinct: over 2,000 pairs (random genesis parents, 500 sibling pairs, 500 pairs of identical clones) the two children's genome hashes always differ; `slots[1]` is 1 for every pair that differs at slot 1 and larger only when the slot-1 child equalled slot 0's (then at most 255).
@@ -127,6 +127,8 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
     - Mendelian: with mutation off, 6,000 children of two albino carriers (one recessive allele each) show albino in 25% ± 4σ and the same for the other recessive traits; carrier × albino gives 50% ± 4σ; a dominant-trait parent pair gives exactly the enumerated shares. Seeds are fixed, so the test is deterministic.
     - `birthRequest` / `checkBirth`: a record, commitment, fixture beacon, both parent genomes and both `mate-commit` records that agree return `[]`; each tamper (a swapped child genome, a wrong slot, a different parent, a wrong round, another round's beacon, a `mate-commit` hash that is not in the commitment, a commitment of another kind, a wrong generation) returns its named failure.
   - Notes: `generation = max(parent generations) + 1`; each parent's generation is in its `mate-commit` body, so the check needs no ledger lookup. `checkBirth` recomputes the child from `offspringPair`; it never trusts the genome text.
+  - Done: `src/genome/offspring.ts`, `birthRequest` and `checkBirth` in `src/ledger/mating.ts`; goldens are 3 fixture rounds × 2 parent pairs (6 vectors). The mating commitment is `kind: 'mate'`, `owner` the courting player, `data: { a, b }` (both signed asks); `checkBirth` names `bad-commit`, `pair:*`, `rules-mismatch`, `parent-mismatch`, `mate-hash`, `mate-commit-mismatch`, `parent-genome-mismatch`, `slot-mismatch`, `genome-mismatch`, `generation-mismatch`.
+  - Gotcha: a mate-commit cannot be "in the commitment" (it names the commit id), so the check is that each names this commit and its hash is in the birth; signatures stay `checkStored`'s. `offspringSeed` takes any slot byte; the Mendelian ratios use `breed` with `mutation: 0`, since `offspringPair` always mutates.
 
 - [ ] T5 Pedigree, kinship, inbreeding, Punnett hints
   - Acceptance (unit tests first):
