@@ -107,7 +107,7 @@ export interface ScriptedRemote {
 export interface BsHook {
   ready: true;
   state(): BsState;
-  /** How many events of each type the sim has emitted since the player hatched. */
+  /** How many events of each type the sim has emitted since the player hatched; `eat@<id>` and `stolen@<id>` follow single items. */
   events(): Record<string, number>;
   /** Re-runs an input log in a fresh world and returns its final state hash. */
   replay(log: InputLog): { hash: string; events: Record<string, number> };
