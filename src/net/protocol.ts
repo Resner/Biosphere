@@ -3,7 +3,7 @@ import type { Canonical } from '../ledger/canonical';
 import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
 import type { MateAsk } from '../ledger/mating';
-import type { RecordKind, StoredRecord } from '../ledger/record';
+import type { RecordKind, RecordRequest, Status, StoredRecord } from '../ledger/record';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
@@ -27,6 +27,10 @@ export const GENESIS_MAX_BYTES = 8192;
 export const BORN_MAX_BYTES = 32_768;
 /** A `history` carries up to `HISTORY_MAX` past lives of about 250 bytes each. */
 export const HISTORY_MAX_BYTES = 8192;
+/** A `lineage`: up to `LINEAGE_MAX` creatures and `PEDIGREE_MAX` ancestors, each with a 438-character genome text (about 60 KB at worst). */
+export const LINEAGE_MAX_BYTES = 98_304;
+export const LINEAGE_MAX = 64;
+export const PEDIGREE_MAX = 64;
 export const EVENT_MAX_BYTES = 2048;
 export const SNAPSHOT_BYTES = 25;
 /** The snapshot layout version, the last byte of every snapshot. */
@@ -129,6 +133,46 @@ export interface LifeInfo {
   cooldownUntilMs: number;
 }
 
+/** A frozen ancestor the player can return to: its saved condition and the head hash a `restore` must follow. */
+export interface Ancestor extends LifeInfo {
+  hash: string;
+}
+
+/** What a player can fall back on when no creature is active: a pending child, and the nearest surviving ancestor. */
+export interface FallbackInfo {
+  pending: boolean;
+  ancestor: Ancestor | null;
+}
+
+const STATUSES: Record<Status, true> = {
+  pending: true,
+  active: true,
+  checkpoint: true,
+  dead: true,
+};
+const isStatus = (v: unknown): v is Status => typeof v === 'string' && Object.hasOwn(STATUSES, v);
+
+/** One of the player's creatures in the lineage view. */
+export interface LineageEntry {
+  creature: string;
+  status: Status;
+  generation: number;
+  species: string;
+  genome: string;
+  activeMs: number;
+  lifespanMs: number;
+  hash: string;
+  chainParent: string | null;
+}
+
+/** A creature in the pedigree: its parents (null for a genesis creature), name and genome. No owner is named. */
+export interface PedigreeNode {
+  id: string;
+  parents: [string, string] | null;
+  species: string;
+  genome: string;
+}
+
 /** A newborn with everything a client needs to recompute it: the birth record, its commitment and beacon, and both parents. */
 export interface Born {
   record: StoredRecord;
@@ -176,6 +220,12 @@ export type ClientMsg =
   | { t: 'death'; cause: DeathCause; ticks: number }
   /** The player's past lives, newest first. */
   | { t: 'history' }
+  /** The player's creatures and their pedigree. */
+  | { t: 'lineage' }
+  /** Promotes the pending child: an owner-signed `promote` request with role `child`. */
+  | { t: 'promote'; request: RecordRequest; sig: string }
+  /** Restores the nearest surviving ancestor: an owner-signed `restore` request. */
+  | { t: 'restore'; request: RecordRequest; sig: string }
   /** Asks whether this player's creature and the partner's could mate now, and what the partner's card says. */
   | { t: 'mate-check'; partner: string }
   /** Courts the partner: a signed ask that names them; the partner has `RULES.mating.signWindowMs` to answer. */
@@ -203,7 +253,19 @@ export type HubMsg =
   | { t: 'member'; op: 'join' | 'leave'; member: Member }
   | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string }
   /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
-  | { t: 'life'; life: LifeInfo | null; genesisIn: number; pending?: Born }
+  | {
+      t: 'life';
+      life: LifeInfo | null;
+      genesisIn: number;
+      pending?: Born;
+      /** With no active creature: what the player can fall back on. */
+      fallback?: FallbackInfo;
+    }
+  /** The pending child is now the active creature; `parent` is the record that froze the old one (null when it was already dead). */
+  | { t: 'promoted'; life: LifeInfo; parent: StoredRecord | null }
+  /** The ancestor is active again with its saved condition. */
+  | { t: 'restored'; life: LifeInfo }
+  | { t: 'lineage'; creatures: LineageEntry[]; pedigree: PedigreeNode[] }
   /** A mating's round is published: the player's child, waiting to be promoted. */
   | ({ t: 'born' } & Born)
   /** A `progress` was taken: `activeMs` is the creature's life clock after crediting it, `lifespanMs` its total. */
@@ -231,7 +293,7 @@ export type HubMsg =
   /** The mating is committed to a future round: the countersigned commitment and this parent's `mate-commit` record. */
   | { t: 'mating'; commit: SignedCommit; record: StoredRecord }
   /** The creature's life is over: the cause and the `death` record that closes its chain. */
-  | { t: 'died'; cause: DeathCause; record: StoredRecord }
+  | { t: 'died'; cause: DeathCause; record: StoredRecord; fallback?: FallbackInfo }
   | { t: 'history'; lives: PastLife[] }
   /** A genesis request was accepted: the committed round, and how many hatches are left. */
   | { t: 'commit'; commit: SignedCommit; hatchesLeft: number }
@@ -494,6 +556,13 @@ export function parseClientMsg(raw: string): ClientMsg | null {
         : null;
     case 'history':
       return capped(raw, { t: 'history' });
+    case 'lineage':
+      return capped(raw, { t: 'lineage' });
+    case 'promote':
+    case 'restore': {
+      const request = recordRequest(o.request);
+      return request && isStr(o.sig, SIG_RE) ? capped(raw, { t: o.t, request, sig: o.sig }) : null;
+    }
     case 'mate-check':
     case 'decline':
       return isStr(o.partner, PLAYER_ID_RE) ? capped(raw, { t: o.t, partner: o.partner }) : null;
@@ -508,7 +577,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
 }
 
 export function parseHubMsg(raw: string): HubMsg | null {
-  const o = parseObject(raw, BORN_MAX_BYTES);
+  const o = parseObject(raw, LINEAGE_MAX_BYTES);
   if (!o) return null;
   switch (o.t) {
     case 'challenge':
@@ -533,12 +602,40 @@ export function parseHubMsg(raw: string): HubMsg | null {
     case 'life': {
       const life = o.life === null ? null : lifeInfo(o.life);
       const pending = o.pending === undefined ? undefined : bornOf(o.pending);
+      const fallback = o.fallback === undefined ? undefined : fallbackOf(o.fallback);
       if (!(o.life === null || life) || !isInt(o.genesisIn, 0, MAX_TIME) || pending === null) {
         return null;
       }
-      return pending
-        ? capped(raw, { t: 'life', life, genesisIn: o.genesisIn, pending }, BORN_MAX_BYTES)
-        : capped(raw, { t: 'life', life, genesisIn: o.genesisIn });
+      if (fallback === null) return null;
+      return capped(
+        raw,
+        {
+          t: 'life',
+          life,
+          genesisIn: o.genesisIn,
+          ...(pending ? { pending } : {}),
+          ...(fallback ? { fallback } : {}),
+        },
+        pending ? BORN_MAX_BYTES : HUB_MAX_BYTES,
+      );
+    }
+    case 'promoted': {
+      const life = lifeInfo(o.life);
+      const parent = o.parent === null ? null : storedRecord(o.parent);
+      return life && (o.parent === null || parent)
+        ? capped(raw, { t: 'promoted', life, parent }, GENESIS_MAX_BYTES)
+        : null;
+    }
+    case 'restored': {
+      const life = lifeInfo(o.life);
+      return life ? capped(raw, { t: 'restored', life }) : null;
+    }
+    case 'lineage': {
+      const creatures = list(o.creatures, LINEAGE_MAX, lineageEntry);
+      const pedigree = list(o.pedigree, PEDIGREE_MAX, pedigreeNode);
+      return creatures && pedigree
+        ? capped(raw, { t: 'lineage', creatures, pedigree }, LINEAGE_MAX_BYTES)
+        : null;
     }
     case 'born': {
       const born = bornOf(o);
@@ -602,8 +699,13 @@ export function parseHubMsg(raw: string): HubMsg | null {
     }
     case 'died': {
       const record = storedRecord(o.record);
-      return isCause(o.cause) && record
-        ? capped(raw, { t: 'died', cause: o.cause, record }, GENESIS_MAX_BYTES)
+      const fallback = o.fallback === undefined ? undefined : fallbackOf(o.fallback);
+      return isCause(o.cause) && record && fallback !== null
+        ? capped(
+            raw,
+            { t: 'died', cause: o.cause, record, ...(fallback ? { fallback } : {}) },
+            GENESIS_MAX_BYTES,
+          )
         : null;
     }
     case 'history': {
@@ -763,6 +865,86 @@ function listOf(v: unknown[], depth: number): Canonical[] | null {
     out.push(value);
   }
   return out;
+}
+
+function recordRequest(v: unknown): RecordRequest | null {
+  if (!isObj(v)) return null;
+  const body = canonicalValue(v.body, 0);
+  if (
+    !body ||
+    typeof body !== 'object' ||
+    Array.isArray(body) ||
+    v.v !== 1 ||
+    !isInt(v.rules, 0, MAX_TICK) ||
+    !isRecordKind(v.kind) ||
+    !isStr(v.creature, HEX64_RE) ||
+    !isInt(v.seq, 0, MAX_TIME) ||
+    !isStr(v.prev, HEX64_RE) ||
+    !isStr(v.owner, PLAYER_ID_RE) ||
+    v.t !== undefined
+  )
+    return null;
+  return {
+    v: 1,
+    rules: v.rules,
+    kind: v.kind,
+    creature: v.creature,
+    seq: v.seq,
+    prev: v.prev,
+    owner: v.owner,
+    body: body as { [key: string]: Canonical },
+  };
+}
+
+function fallbackOf(v: unknown): FallbackInfo | null {
+  if (!isObj(v) || typeof v.pending !== 'boolean') return null;
+  if (v.ancestor === null) return { pending: v.pending, ancestor: null };
+  const life = lifeInfo(v.ancestor);
+  return life && isObj(v.ancestor) && isStr(v.ancestor.hash, HEX64_RE)
+    ? { pending: v.pending, ancestor: { ...life, hash: v.ancestor.hash } }
+    : null;
+}
+
+function lineageEntry(v: unknown): LineageEntry | null {
+  if (
+    !isObj(v) ||
+    !isStr(v.creature, HEX64_RE) ||
+    !isStatus(v.status) ||
+    !isInt(v.generation, 0, MAX_TICK) ||
+    !isStr(v.species, SPECIES_RE) ||
+    !isStr(v.genome, GENOME_DATA_RE) ||
+    !isInt(v.activeMs, 0, MAX_TIME) ||
+    !isInt(v.lifespanMs, 0, MAX_TIME) ||
+    !isStr(v.hash, HEX64_RE) ||
+    !(v.chainParent === null || isStr(v.chainParent, HEX64_RE))
+  )
+    return null;
+  return {
+    creature: v.creature,
+    status: v.status,
+    generation: v.generation,
+    species: v.species,
+    genome: v.genome,
+    activeMs: v.activeMs,
+    lifespanMs: v.lifespanMs,
+    hash: v.hash,
+    chainParent: v.chainParent,
+  };
+}
+
+function pedigreeNode(v: unknown): PedigreeNode | null {
+  if (
+    !isObj(v) ||
+    !isStr(v.id, HEX64_RE) ||
+    !isStr(v.species, SPECIES_RE) ||
+    !isStr(v.genome, GENOME_DATA_RE)
+  )
+    return null;
+  if (v.parents === null) return { id: v.id, parents: null, species: v.species, genome: v.genome };
+  const [p0, p1] = Array.isArray(v.parents) && v.parents.length === 2 ? v.parents : [];
+  return isStr(p0, HEX64_RE) && isStr(p1, HEX64_RE)
+    ? { id: v.id, parents: [p0, p1], species: v.species, genome: v.genome }
+    : null;
 }
 
 function bornOf(v: unknown): Born | null {

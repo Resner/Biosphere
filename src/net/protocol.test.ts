@@ -12,6 +12,7 @@ import {
   genomeRefOf,
   HUB_MAX_BYTES,
   type HubMsg,
+  LINEAGE_MAX_BYTES,
   parseClientMsg,
   parseHubMsg,
   parsePeerEvent,
@@ -724,6 +725,11 @@ describe('genesis messages', () => {
       { t: 'court', ask: mateAsk },
       { t: 'mating', commit: mateCommit, record: mateRecord },
       { t: 'invite', from: PID2, ask: mateAsk, kinship: 0.5, generation: 3 },
+      { t: 'promote', request: promoteRequest, sig: SIG },
+      { t: 'restored', life },
+      { t: 'promoted', life, parent: null },
+      { t: 'lineage', creatures: [lineageEntry], pedigree: [pedigreeNode] },
+      { t: 'life', life: null, genesisIn: 0, fallback: { pending: true, ancestor } },
     ].map((m) => JSON.stringify(m));
     const alphabet = '{}[]":,0123456789abt_-.\\ \nxé€';
     let threw = 0;
@@ -751,6 +757,90 @@ describe('genesis messages', () => {
       }
     }
     expect(threw).toBe(0);
+  });
+});
+
+const promoteRequest = {
+  v: 1,
+  rules: 5,
+  kind: 'promote',
+  creature: HEX,
+  seq: 1,
+  prev: HEX,
+  owner: PID,
+  body: { role: 'child', parent: HEX },
+};
+const ancestor = { ...life, hash: HEX };
+const lineageEntry = {
+  creature: HEX,
+  status: 'checkpoint',
+  generation: 2,
+  species: 'Aquoris natans',
+  genome: 'A'.repeat(438),
+  activeMs: 5,
+  lifespanMs: 10,
+  hash: HEX,
+  chainParent: null,
+};
+const pedigreeNode = {
+  id: HEX,
+  parents: [HEX, HEX],
+  species: 'Aquoris natans',
+  genome: 'A'.repeat(438),
+};
+
+describe('promotion, restore and lineage messages', () => {
+  it('round trips requests, answers and the fallback', () => {
+    for (const t of ['promote', 'restore'] as const) {
+      const msg = { t, request: { ...promoteRequest, kind: t }, sig: SIG };
+      expect(parseClientMsg(JSON.stringify(msg))).toEqual(msg);
+    }
+    expect(parseClientMsg('{"t":"lineage"}')).toEqual({ t: 'lineage' });
+    for (const msg of [
+      { t: 'restored', life },
+      { t: 'promoted', life, parent: null },
+      { t: 'promoted', life, parent: storedRecord },
+      { t: 'lineage', creatures: [lineageEntry], pedigree: [pedigreeNode] },
+      { t: 'life', life: null, genesisIn: 3, fallback: { pending: false, ancestor } },
+      { t: 'died', cause: 'uv', record: storedRecord, fallback: { pending: true, ancestor: null } },
+    ]) {
+      expect(parseHubMsg(JSON.stringify(msg))).toEqual(msg);
+    }
+  });
+
+  it('rejects malformed requests, fallbacks and lineage entries', () => {
+    const bad = (m: unknown) => parseClientMsg(JSON.stringify(m));
+    expect(bad({ t: 'promote', request: { ...promoteRequest, t: 1 }, sig: SIG })).toBeNull();
+    expect(bad({ t: 'promote', request: { ...promoteRequest, seq: 1.5 }, sig: SIG })).toBeNull();
+    expect(bad({ t: 'promote', request: { ...promoteRequest, owner: 'x' }, sig: SIG })).toBeNull();
+    expect(bad({ t: 'promote', request: promoteRequest, sig: 'short' })).toBeNull();
+    expect(bad({ t: 'restore', request: promoteRequest })).toBeNull();
+    const hub = (m: unknown) => parseHubMsg(JSON.stringify(m));
+    expect(
+      hub({ t: 'life', life: null, genesisIn: 0, fallback: { pending: 1, ancestor: null } }),
+    ).toBeNull();
+    expect(
+      hub({ t: 'life', life: null, genesisIn: 0, fallback: { pending: true, ancestor: life } }),
+    ).toBeNull();
+    expect(
+      hub({ t: 'lineage', creatures: [{ ...lineageEntry, status: 'zombie' }], pedigree: [] }),
+    ).toBeNull();
+    expect(
+      hub({ t: 'lineage', creatures: [], pedigree: [{ ...pedigreeNode, parents: [HEX] }] }),
+    ).toBeNull();
+    expect(hub({ t: 'lineage', creatures: Array(65).fill(lineageEntry), pedigree: [] })).toBeNull();
+    expect(hub({ t: 'lineage', creatures: [], pedigree: Array(65).fill(pedigreeNode) })).toBeNull();
+    expect(hub({ t: 'died', cause: 'uv', record: storedRecord, fallback: 3 })).toBeNull();
+  });
+
+  it('fits a full lineage in LINEAGE_MAX_BYTES', () => {
+    const full = JSON.stringify({
+      t: 'lineage',
+      creatures: Array(64).fill(lineageEntry),
+      pedigree: Array(64).fill(pedigreeNode),
+    });
+    expect(full.length).toBeLessThan(LINEAGE_MAX_BYTES);
+    expect(parseHubMsg(full)).not.toBeNull();
   });
 });
 

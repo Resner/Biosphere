@@ -887,14 +887,27 @@ export class Ledger {
     return { ok: true, stored, frozen, fresh: true };
   }
 
+  /** The player's most recently dead creature, or null. */
+  lastDead(owner: string): Head | null {
+    const row = this.run(
+      "SELECT * FROM creatures WHERE owner = ? AND status = 'dead' ORDER BY died_t DESC, born_t DESC LIMIT 1",
+      owner,
+    )[0];
+    return row ? asHead(row) : null;
+  }
+
+  /** The player's creatures in any state, newest first. */
+  creatures(owner: string, limit: number): Head[] {
+    return this.run(
+      'SELECT * FROM creatures WHERE owner = ? ORDER BY born_t DESC, id DESC LIMIT ?',
+      owner,
+      limit,
+    ).map(asHead);
+  }
+
   /** Whether `head` is the player's most recently dead creature. */
   private isLastDead(head: Head): boolean {
-    if (head.status !== 'dead') return false;
-    const last = this.run(
-      "SELECT id FROM creatures WHERE owner = ? AND status = 'dead' ORDER BY died_t DESC, born_t DESC LIMIT 1",
-      head.owner,
-    )[0];
-    return last?.id === head.id;
+    return head.status === 'dead' && this.lastDead(head.owner)?.id === head.id;
   }
 
   private restoreInTransaction(
@@ -1037,7 +1050,8 @@ export class Ledger {
 /** The kinds `accept` takes: one record on one chain. The others have their own operations. */
 const SINGLE_RECORD_KINDS: readonly string[] = ['genesis', 'checkpoint', 'death'];
 
-const conditionOf = (head: Head): Condition => ({
+/** The five fields a record body saves of a creature; a `Head` and a connection's `LifeState` both carry them. */
+export const conditionOf = (head: Condition): Condition => ({
   activeMs: head.activeMs,
   biomass: head.biomass,
   energy: head.energy,
