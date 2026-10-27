@@ -55,6 +55,9 @@ export interface Started {
   lifespanMs: number;
 }
 
+/** Refusals the hub sends about something other than a genesis ask: progress after death, a bad cause, a queued session. */
+const STRAY_REFUSALS: ReadonlySet<string> = new Set(['dead', 'cause', 'queued']);
+
 export type HatchOutcome =
   | { kind: 'recorded'; start: Started }
   | { kind: 'practice'; reason: 'offline' | 'limit'; genesisIn?: number }
@@ -336,7 +339,7 @@ export class LifeFlow {
     const ask = signGenesisAsk(this.deps.identity(), this.deps.nonce());
     this.link?.send({ t: 'genesis-request', nonce: ask.nonce, sig: ask.sig });
     const reply = await this.wait(GENESIS_WAIT_MS, (m) =>
-      m.t === 'genesis' || m.t === 'refused' ? m : undefined,
+      m.t === 'genesis' || (m.t === 'refused' && !STRAY_REFUSALS.has(m.reason)) ? m : undefined,
     );
     if (!reply) return this.fail(SLOW);
     if (reply.t === 'refused') {

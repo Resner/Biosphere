@@ -168,9 +168,22 @@ export class Ledger {
     return row ? (row.pending as string) : '';
   }
 
-  /** Forgets a pending commitment that can't become a creature. */
-  clearPending(owner: string, commitId: string): void {
-    this.run("UPDATE players SET pending = '' WHERE id = ? AND pending = ?", owner, commitId);
+  /**
+   * Forgets a pending commitment that can't become a creature and gives its hatch back (never above
+   * the full bucket). Only a commitment still pending is refunded, so a repeat delivery refunds nothing.
+   */
+  refundHatch(owner: string, commitId: string, now: number): void {
+    this.storage.transactionSync(() => {
+      const row = this.run('SELECT hatches, hatch_t, pending FROM players WHERE id = ?', owner)[0];
+      if (!row || row.pending !== commitId) return;
+      const { state, t } = reconcile(row.hatches as number, row.hatch_t as number, now);
+      this.run(
+        "UPDATE players SET pending = '', hatches = ?, hatch_t = ? WHERE id = ?",
+        Math.min(HATCH_BUCKET, state.left + 1),
+        t,
+        owner,
+      );
+    });
   }
 
   /** Spends one hatch for a new commitment and remembers it as the player's pending one. */

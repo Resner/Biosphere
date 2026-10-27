@@ -90,11 +90,12 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
 
 ## Tasks
 
-- [ ] T1 M4 carry-overs
+- [x] T1 M4 carry-overs
   - Acceptance (workerd and unit tests, written first):
     - Hatch refund: when `accept` refuses a genesis after its commitment was taken (the bucket went 3 → 2), the bucket is back at 3, the pending commitment is cleared, the owner gets `refused`, and a redelivery refunds nothing a second time. The bucket never exceeds 3.
     - A client `death` report whose ticks bring `activeMs` to the lifespan is recorded with cause `old-age` and answered `died { cause: 'old-age' }`; one that falls short keeps the client's cause (`starved`).
     - A `LifeFlow` waiting for its genesis ignores a stray `refused` about something else (`dead`, `cause`, `queued`) and keeps waiting; a `refused` that answers the ask (`limit`, `bad-signature`, `used`, `active`) ends the wait with its message. A table-driven unit test lists every reason string the hub can send and which group it is in.
+  - Done: `Ledger.refundHatch` replaces `clearPending` (refunds only a still-pending commitment, capped at 3); a client `death` that reaches the lifespan is recorded as `old-age`; `LifeFlow` skips `STRAY_REFUSALS` (`dead`, `cause`, `queued`) while waiting for a genesis. Gotcha: a stray `queued` refusal no longer fails the hatch at once; it waits out `GENESIS_WAIT_MS`.
   - Notes: from the M4 close notes. The duplicate BLS check in `worker/beacons.ts` and the unscaled lifespan fallback were judged not worth code; the beacon service's uncounted writes are M13's.
 
 - [ ] T2 Rules version 5: mating rules in the sim
