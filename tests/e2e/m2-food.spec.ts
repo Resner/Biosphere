@@ -63,11 +63,22 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
     await hatch(a.page);
     await hatch(b.page);
 
-    // Same pond seed and clock: both tabs hatched at the same tick, on the same spot.
+    // Same pond seed and clock: both tabs hatched within a second of each other.
     const [tickA, tickB] = await Promise.all(
       [a.page, b.page].map((p) => p.evaluate(() => (window.__bs as BsHook).state().tick)),
     );
     expect(Math.abs((tickA ?? 0) - (tickB ?? 0))).toBeLessThanOrEqual(30);
+
+    // Not necessarily on the same spot: a drifting plume near the centre moves the nearest clear
+    // spot between ticks, which left B 400 wu from A (and from the item) on a loaded runner. Put B
+    // where A is, so both fields hold the same items.
+    const at = await a.page.evaluate(() => {
+      const { player } = (window.__bs as BsHook).state() as unknown as {
+        player: { x: number; y: number };
+      };
+      return { x: player.x, y: player.y };
+    });
+    await b.page.evaluate(({ x, y }) => (window.__bs as BsHook).debug?.teleport(x, y), at);
 
     // Freeze both sims while the item is picked and B is checked: a cell hatched beside the item
     // would otherwise eat it, or grow out of "full", between two steps of this test. Then A goes
