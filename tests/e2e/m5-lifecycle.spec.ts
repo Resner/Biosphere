@@ -17,8 +17,6 @@ import {
 // offers the one before it until nothing is left and a new genesis starts. B kept their child
 // pending throughout (their own creature dies of old age meanwhile) and takes it at the end.
 
-test.describe.configure({ mode: 'serial' });
-
 async function hatched(context: BrowserContext): Promise<Page> {
   const page = await context.newPage();
   await openRecorded(page, '', HUB);
@@ -79,7 +77,7 @@ async function become(page: Page, creature: string | null): Promise<void> {
   });
 }
 
-test('@slow a line of three creatures, promoted, grown old and walked back to a new genesis', async ({
+test('a line of three creatures, promoted, grown old and walked back to a new genesis @slow', async ({
   browser,
 }) => {
   test.setTimeout(600_000);

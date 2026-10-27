@@ -18,7 +18,7 @@
     "test:unit": "vitest",
     "worker:dev": "node tools/worker.mjs dev",
     "worker:deploy": "node tools/worker.mjs deploy",
-    "test:e2e": "playwright test --grep-invert @slow",
+    "test:e2e": "E2E_SKIP_SLOW=1 playwright test",
     "test:e2e:full": "playwright test",
     "e2e:setup": "playwright install --with-deps --only-shell chromium",
     "verify": "npm run check && npm run build && npm run test:e2e:full"
