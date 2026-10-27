@@ -208,6 +208,12 @@ describe('bodyProblems', () => {
     );
   });
 
+  it('does not take inherited names for fields', () => {
+    expect(bodyProblems('restore', { ...restore, constructor: 1 })).toContain(
+      'unknown:constructor',
+    );
+  });
+
   it('never throws on junk', () => {
     for (const body of [null, 1, 'x', [], { role: {} }, { role: 'child', parent: [] }]) {
       for (const kind of ['mate-commit', 'birth', 'promote', 'restore'] as const) {

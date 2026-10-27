@@ -1,11 +1,10 @@
 import { type Canonical, canonicalize } from './canonical';
 import { fromBase64Url, type Identity, isPlayerId, toBase64Url, verify } from './identity';
-import { REQUEST_DOMAIN } from './record';
+import { HEX64, REQUEST_DOMAIN } from './record';
 
 // Mate asks (ADR 0021): one transaction touches two players' creatures, so each player signs an
 // ask, as with genesis, instead of both signing one record. Pure and shared: no DOM, no Node APIs.
 
-const HEX64 = /^[0-9a-f]{64}$/;
 const NONCE_RE = /^[A-Za-z0-9_-]{22}$/;
 const SIG_RE = /^[A-Za-z0-9_-]{86}$/;
 const FIELDS = ['v', 'kind', 'creature', 'partner', 'partnerCreature', 'nonce', 'sig'];
@@ -26,14 +25,8 @@ function askMessage(a: Omit<MateAsk, 'sig'>): Uint8Array {
 }
 
 export function signMateAsk(identity: Identity, a: Omit<MateAsk, 'v' | 'kind' | 'sig'>): MateAsk {
-  const ask = {
-    v: 1 as const,
-    kind: 'mate' as const,
-    creature: a.creature,
-    partner: a.partner,
-    partnerCreature: a.partnerCreature,
-    nonce: a.nonce,
-  };
+  const { creature, partner, partnerCreature, nonce } = a;
+  const ask = { v: 1 as const, kind: 'mate' as const, creature, partner, partnerCreature, nonce };
   return { ...ask, sig: toBase64Url(identity.sign(REQUEST_DOMAIN, askMessage(ask))) };
 }
 

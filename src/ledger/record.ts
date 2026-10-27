@@ -63,7 +63,7 @@ export interface PubKey {
   publicKey: string;
 }
 
-const HEX64 = /^[0-9a-f]{64}$/;
+export const HEX64 = /^[0-9a-f]{64}$/;
 const FIELDS = ['v', 'rules', 'kind', 'creature', 'seq', 'prev', 'owner', 't', 'body'];
 
 /** The one way to put a float in a record body. */
@@ -142,7 +142,7 @@ export function recordProblems(value: unknown): string[] {
   return problems;
 }
 
-type FieldType = 'uint' | 'hex' | 'player' | 'hexpair' | 'slot' | 'role-ab' | 'tag';
+type FieldType = 'uint' | 'hex' | 'player' | 'hexpair' | 'slot' | 'role-ab' | 'promote-role';
 
 const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
   uint: (x) => Number.isSafeInteger(x) && (x as number) >= 0,
@@ -151,8 +151,7 @@ const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
   hexpair: (x) => Array.isArray(x) && x.length === 2 && x.every((h) => FIELD_TYPES.hex(h)),
   slot: (x) => FIELD_TYPES.uint(x) && (x as number) <= 255,
   'role-ab': (x) => x === 'a' || x === 'b',
-  // A promote's role is checked before its fields, to pick them.
-  tag: () => true,
+  'promote-role': (x) => x === 'child' || x === 'parent',
 };
 
 const CONDITION = {
@@ -190,8 +189,8 @@ const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
 };
 
 const PROMOTE_BODIES: Record<string, Record<string, FieldType>> = {
-  child: { role: 'tag', parent: 'hex' },
-  parent: { role: 'tag', child: 'hex', ...CONDITION },
+  child: { role: 'promote-role', parent: 'hex' },
+  parent: { role: 'promote-role', child: 'hex', ...CONDITION },
 };
 
 /** Why `body` is not a valid body for `kind`: `missing:`, `unknown:` or `bad:` plus the field. Never throws. */
@@ -200,7 +199,7 @@ export function bodyProblems(kind: RecordKind, body: unknown): string[] {
   const b = body as Record<string, unknown>;
   let fields = BODIES[kind];
   if (kind === 'promote') {
-    if (!('role' in b)) return ['missing:role'];
+    if (!Object.hasOwn(b, 'role')) return ['missing:role'];
     const role = b.role;
     fields =
       typeof role === 'string' && Object.hasOwn(PROMOTE_BODIES, role)
@@ -211,10 +210,12 @@ export function bodyProblems(kind: RecordKind, body: unknown): string[] {
   if (!fields) return [];
   const problems: string[] = [];
   for (const [key, type] of Object.entries(fields)) {
-    if (!(key in b)) problems.push(`missing:${key}`);
+    if (!Object.hasOwn(b, key)) problems.push(`missing:${key}`);
     else if (!FIELD_TYPES[type](b[key])) problems.push(`bad:${key}`);
   }
-  for (const key of Object.keys(b)) if (!(key in fields)) problems.push(`unknown:${key}`);
+  for (const key of Object.keys(b)) {
+    if (!Object.hasOwn(fields, key)) problems.push(`unknown:${key}`);
+  }
   return problems;
 }
 
