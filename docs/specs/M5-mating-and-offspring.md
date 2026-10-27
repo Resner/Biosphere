@@ -98,7 +98,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `Ledger.refundHatch` replaces `clearPending` (refunds only a still-pending commitment, capped at 3); a client `death` that reaches the lifespan is recorded as `old-age`; `LifeFlow` skips `STRAY_REFUSALS` (`dead`, `cause`, `queued`) while waiting for a genesis. Gotcha: a stray `queued` refusal no longer fails the hatch at once; it waits out `GENESIS_WAIT_MS`.
   - Notes: from the M4 close notes. The duplicate BLS check in `worker/beacons.ts` and the unscaled lifespan fallback were judged not worth code; the beacon service's uncounted writes are M13's.
 
-- [ ] T2 Rules version 5: mating rules in the sim
+- [ ] T2 Rules version 5: mating rules in the sim (in progress)
   - Acceptance (unit tests first):
     - `RULES_VERSION` is 5, `RULES.mating` has the numbers above, every sim golden is regenerated under version 5 (hashes and version only) and the PR says so; a new golden with a `mate` life event replays equally in Node and Chromium (the existing determinism E2E).
     - `mateCost(500, 800)` → biomass 425, energy 560. `applyLife(world, id, 'mate')` does the same to the creature, recomputes the radius (√biomass), clamps health to the new maximum and emits no event; the input log's `life` list accepts `'mate'` (ascending ticks, validated) and a replay with it reproduces.
