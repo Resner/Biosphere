@@ -1,6 +1,6 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, M5_HUB, openRecorded, state, waitPlaying } from './helpers';
+import { clickHatch, goTo, M5_HUB, openRecorded, ripe, state, topUp, waitPlaying } from './helpers';
 
 // Courting (M5 T10) on an authority with lives of about 4 min and maturity in seconds: one player
 // courts another in reach, the other accepts, both pay and wait for the round. A third, newly
@@ -14,41 +14,6 @@ async function hatched(context: BrowserContext): Promise<Page> {
   await clickHatch(page);
   await waitPlaying(page);
   return page;
-}
-
-const topUp = (page: Page) =>
-  page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(Number.MAX_SAFE_INTEGER));
-
-/**
- * Runs the sim fast until the hub has credited the creature's maturity (about 8 s here). The hub
- * credits at most the wall time (plus 2 s) per report, so fast play sends the reports sooner.
- * The belly is filled all the while, since 30x time would starve it.
- */
-const ripe = (page: Page) =>
-  page.waitForFunction(
-    () => {
-      const bs = window.__bs as BsHook;
-      bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-      bs.debug?.timeScale(30);
-      const { activeMs, matureAtMs } = bs.state().life;
-      if (matureAtMs === 0 || activeMs < matureAtMs) return false;
-      bs.debug?.timeScale(1);
-      return true;
-    },
-    undefined,
-    { timeout: 30_000 },
-  );
-
-/** Parks the player beside a remote, as soon as the remote is drawn. */
-async function goTo(page: Page, id: string): Promise<void> {
-  await page.waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
-    timeout: 20_000,
-  });
-  await page.evaluate((who) => {
-    const bs = window.__bs as BsHook;
-    const r = bs.state().remotes.find((x) => x.id === who);
-    if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
-  }, id);
 }
 
 const idOf = async (page: Page): Promise<string> => (await state(page)).playerId as string;

@@ -39,7 +39,7 @@ async function readCode(page: Page, playerId: string | null): Promise<string> {
   return code;
 }
 
-test('@slow hatch, reload, recovery code, three deaths, history, practice and the queue', async ({
+test('hatch, reload, recovery code, three deaths, history, practice and the queue @slow', async ({
   browser,
 }) => {
   test.setTimeout(300_000);
