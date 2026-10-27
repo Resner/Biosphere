@@ -26,7 +26,7 @@ async function joined(browser: Browser): Promise<[Page, Page]> {
   return pages as [Page, Page];
 }
 
-test('chat is filtered, typing does not steer, mute hides a sender, and cues cross the pond', async ({
+test('chat is filtered, typing does not steer, mute hides a sender, and cues cross the pond @slow', async ({
   browser,
 }) => {
   const [a, b] = await joined(browser);

@@ -7,7 +7,7 @@ import { clickHatch, openRecorded, state, waitPlaying } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
-test('after three quick deaths the fourth hatch waits, and the practice cell plays unrecorded', async ({
+test('after three quick deaths the fourth hatch waits, and the practice cell plays unrecorded @slow', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
