@@ -9,6 +9,7 @@ import type { Ring } from './effects';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';
 import { ParticleLayer } from './particles';
+import { PRESETS, type PresetName, pixelRatio } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
 import { Water } from './water';
@@ -43,6 +44,12 @@ export interface RenderInfo {
   pxPerWu: number;
   /** Creature geometries built and held by the player's and the remotes' caches. */
   creatureAssets: number;
+  /** The quality preset in force. */
+  preset: PresetName;
+  /** The renderer's pixel ratio. */
+  pixelRatio: number;
+  /** Particles drawn across the three layers. */
+  particles: number;
   /** GPU resources alive in the renderer. */
   memory: { geometries: number; textures: number };
 }
@@ -87,6 +94,7 @@ export class GameScene {
   private cssWidth = 1;
   private cssHeight = 1;
   private half = 1;
+  private preset: PresetName = 'medium';
   private readonly onResize = () => this.resize();
 
   constructor(
@@ -94,7 +102,6 @@ export class GameScene {
     worldSize: number,
   ) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
-    this.renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
     this.renderer.setClearColor(0x04090b);
 
     this.remotes = new RemoteLayer(this.scene, ORDER.cell - 0.1);
@@ -144,12 +151,21 @@ export class GameScene {
     }
 
     window.addEventListener('resize', this.onResize);
+    this.setPreset(this.preset);
+  }
+
+  /** Applies a quality preset: pixel ratio and particle share, with no reload. */
+  setPreset(preset: PresetName): void {
+    this.preset = preset;
+    const share = PRESETS[preset].particles;
+    for (const layer of [this.far, this.mid, this.near]) layer.setShare(share);
     this.resize();
   }
 
   resize(): void {
     this.cssWidth = this.canvas.clientWidth || window.innerWidth;
     this.cssHeight = this.canvas.clientHeight || window.innerHeight;
+    this.renderer.setPixelRatio(pixelRatio(this.preset, window.devicePixelRatio));
     this.renderer.setSize(this.cssWidth, this.cssHeight, false);
   }
 
@@ -236,6 +252,9 @@ export class GameScene {
       playerBody: this.body.shown(),
       pxPerWu: this.pxPerWu,
       creatureAssets: this.body.assets() + this.remotes.assets(),
+      preset: this.preset,
+      pixelRatio: this.renderer.getPixelRatio(),
+      particles: this.far.drawnCount + this.mid.drawnCount + this.near.drawnCount,
       memory: { geometries: memory.geometries, textures: memory.textures },
     };
   }

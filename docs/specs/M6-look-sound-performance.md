@@ -41,11 +41,13 @@ M6 is large, so the tasks run in layers: render foundations (T1 to T5), depth zo
 
 ### Render foundations
 
-- [ ] T1 Render settings and presets [opus] (in progress)
+- [x] T1 Render settings and presets [opus]
   - Acceptance (unit tests first):
     - `PRESETS` equals the table above and DESIGN §12 (a test pins every number). `resolvePreset(setting, detected)` returns the setting unless it is `auto`, then the detected preset (`medium` until T5 detects). `pixelRatio(preset, devicePixelRatio)` is `min(dpr, preset max)`, at least 1.
     - `loadSettings()` reads `localStorage['bs.settings']`: invalid JSON, wrong types, unknown preset names and a throwing `localStorage` all give the defaults (`quality: 'auto'`); `saveSettings` swallows a throwing store. `?quality=low|medium|high` in the URL beats the stored value without writing it (E2E and tests use it).
     - E2E (`m6-presets.spec.ts`): `?quality=low` and `?quality=high` start the game with `__bs.render().preset` set; the settings panel in the Esc menu switches preset at runtime and the pixel ratio, particle count and `renderer.info.render.calls` follow without a reload; the choice survives a reload; with `localStorage` blocked the game still runs.
+  - Done: `presets.ts`, `settings.ts`, `SettingsPanel` (title and the Esc lineage panel link to it); `GameScene.setPreset` sets ratio and particle share (a draw range over a 150% buffer, no rebuild). `render.info()` gains `preset`, `pixelRatio`, `particles`.
+  - Gotcha: the hook is `__bs.render.info()` (not `render()`, later tasks read it there too), and the draw-call count cannot differ by preset before the post chain (T2), so the E2E asserts calls stay within the preset budget and particles and pixel ratio follow.
   - Notes: this task owns the settings panel shell (quality now; T21 adds volume and T9 reduced motion reuse it). Particle counts scale with the preset in `ParticleLayer`. Presets only change presentation: nothing in `src/sim` reads them.
 
 - [ ] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus]

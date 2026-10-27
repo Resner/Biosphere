@@ -21,6 +21,7 @@
       <button type="button" class="action" data-testid="hatch">Hatch</button>
       <button type="button" class="action quiet" data-testid="practice" hidden>Practice cell</button>
       <button type="button" class="action quiet" data-testid="lineage-open">Lineage</button>
+      <button type="button" class="action quiet" data-testid="settings-open">Settings</button>
       <button type="button" class="action quiet" data-testid="recovery-open">Recovery code</button>
       <p class="recovery-reminder" data-testid="recovery-reminder">Save your recovery code</p>
       <p class="hint">Enter to hatch · Mouse or WASD to swim · Space to dash</p>
@@ -58,7 +59,22 @@
       <ul class="lineage-chain" data-testid="lineage-chain"></ul>
       <svg class="lineage-graph" data-testid="lineage-graph" role="img" aria-label="Family graph" hidden></svg>
       <p data-testid="lineage-more" hidden>and more</p>
-      <button type="button" class="action quiet" data-testid="lineage-close">Close (Esc)</button>
+      <p class="lineage-row">
+        <button type="button" class="action quiet" data-testid="lineage-settings">Settings</button>
+        <button type="button" class="action quiet" data-testid="lineage-close">Close (Esc)</button>
+      </p>
+    </section>
+    <section class="settings" data-testid="settings" aria-label="Settings" hidden>
+      <h2>Settings</h2>
+      <fieldset class="settings-quality" data-testid="quality">
+        <legend>Graphics quality</legend>
+        <label><input type="radio" name="quality" value="auto" data-testid="quality-auto" /> Auto</label>
+        <label><input type="radio" name="quality" value="low" data-testid="quality-low" /> Low</label>
+        <label><input type="radio" name="quality" value="medium" data-testid="quality-medium" /> Medium</label>
+        <label><input type="radio" name="quality" value="high" data-testid="quality-high" /> High</label>
+      </fieldset>
+      <p class="settings-note" data-testid="quality-note"></p>
+      <button type="button" class="action quiet" data-testid="settings-close">Close (Esc)</button>
     </section>
     <section class="hud" data-for="playing" aria-label="Status">
       <p class="species" data-testid="hud-species"></p>

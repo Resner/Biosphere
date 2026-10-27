@@ -22,7 +22,9 @@ import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import type { CreatureSource } from '../render/creature-cache';
 import { Effects } from '../render/effects';
+import { type PresetName, resolvePreset } from '../render/presets';
 import { GameScene } from '../render/scene';
+import { loadSettings, type Settings, saveSettings } from '../render/settings';
 import { colliderReach } from '../sim/body';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
@@ -81,6 +83,7 @@ import { PondTime } from './pond-time';
 import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
 import { type DeathSummary, type Screen, Screens } from './screens';
+import { SettingsPanel } from './settings-panel';
 import { MuteList, Social } from './social';
 import { type Anchor, SocialUi } from './social-ui';
 
@@ -89,6 +92,8 @@ export interface GameParams {
   debug: boolean;
   /** `?genome=`: pins the body to hatch with (a base64url genome or "starter"). */
   genome?: string | null;
+  /** `?quality=`: a preset for this visit that beats the stored setting and is never written. */
+  quality?: PresetName | null;
 }
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
@@ -215,6 +220,22 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** The hub link of the current online session, for the Lineage panel's question. */
   let hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
   const lineagePanel = new LineagePanel(() => hubLink?.send({ t: 'lineage' }));
+  // The stored setting, or this visit's `?quality=` until the player picks one in the panel.
+  let settings: Settings = params.quality ? { quality: params.quality } : loadSettings();
+  const applySettings = (): void => {
+    const preset = resolvePreset(settings.quality);
+    scene.setPreset(preset);
+    settingsPanel.show(settings, preset);
+  };
+  const settingsPanel = new SettingsPanel(
+    (next) => {
+      settings = next;
+      saveSettings(settings);
+      applySettings();
+    },
+    ['settings-open', 'lineage-settings'],
+  );
+  applySettings();
   const fx = new Effects();
   const vignette = pick('[data-testid="vignette"]');
   const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
@@ -739,7 +760,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     window,
     document,
     () => {
-      if (lineagePanel.isOpen) return;
+      if (lineagePanel.isOpen || settingsPanel.isOpen) return;
       if (playing()) socialUi.open();
       else if (enterHatches(screen, performance.now() - screenShownAt)) {
         const first = screens.firstOption;
@@ -749,6 +770,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     {
       key: (key) => {
+        if (settingsPanel.isOpen) {
+          if (key === 'Escape') settingsPanel.close();
+          return;
+        }
         if (lineagePanel.isOpen) {
           if (key === 'Escape') lineagePanel.close();
           return;
