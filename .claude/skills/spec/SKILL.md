@@ -14,6 +14,7 @@ Fresh sessions will build from this spec one task at a time, with nobody to ask.
 3. Write `docs/specs/<id>-<slug>.md` from `template.md` in this folder:
    - Tasks in build order. Each one fits one session and one PR, and can be finished and verified in a single run.
    - Every task lists concrete acceptance tests (input → expected result) that can be written before the code.
+   - Append `[opus]` to a task's title when its main work is UI or look (`src/render/`, `src/lab/`, HUD, screens and other UI in `src/game/`), netcode (`src/net/`, signaling, relay and referee in `worker/`) or security (signatures, records and verification in `src/ledger/`, admission, validation of untrusted input). /next runs those on Opus at high effort, the rest on Sonnet (ADR 0023).
    - Every exit criterion from the roadmap maps to tasks and to the end-to-end check.
    - Subjective quality (look, feel, responsiveness) goes in the rubric as checkable statements, each with the evidence that settles it.
 4. Set the milestone's status to `specced` in `docs/ROADMAP.md`. Leave the other rows alone.
