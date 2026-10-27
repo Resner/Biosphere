@@ -1,6 +1,7 @@
 import type { DeathCause } from '../sim/types';
 import { pick } from './dom';
 import { DEATH_TEXT, livedText } from './life-text';
+import type { FallbackId, FallbackOption } from './offspring-text';
 
 export type Screen = 'title' | 'playing' | 'dead';
 
@@ -23,10 +24,18 @@ export class Screens {
 
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly practice: HTMLButtonElement[] = [];
+  private readonly fallbackBoxes = [
+    pick('[data-testid="title-fallback"]'),
+    pick('[data-testid="death-fallback"]'),
+  ];
+  private fallbackButtons: HTMLButtonElement[] = [];
+  private options: FallbackOption[] = [];
   private busy = false;
   private limited = false;
 
-  constructor(handlers: { hatch(): void; practice(): void }) {
+  constructor(
+    private readonly handlers: { hatch(): void; practice(): void; choose(id: FallbackId): void },
+  ) {
     const bind = (ids: string[], into: HTMLButtonElement[], click: () => void): void => {
       for (const id of ids) {
         const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
@@ -50,8 +59,50 @@ export class Screens {
     this.refresh();
   }
 
+  /** What the player can become instead of hatching: the offspring and the nearest ancestor. Empty means hatch. */
+  setFallback(options: FallbackOption[]): void {
+    const same =
+      options.length === this.options.length &&
+      options.every((o, i) => o.id === this.options[i]?.id && o.label === this.options[i]?.label);
+    if (same) return;
+    this.options = options;
+    this.fallbackButtons = [];
+    this.fallbackBoxes.forEach((box, i) => {
+      const prefix = i === 0 ? 'title' : 'death';
+      box.replaceChildren(
+        ...options.map((option) => {
+          const button = document.createElement('button');
+          button.type = 'button';
+          button.className = 'action';
+          button.dataset.testid = `${prefix}-fallback-${option.id}`;
+          button.textContent = option.label;
+          button.addEventListener('click', () => this.handlers.choose(option.id));
+          this.fallbackButtons.push(button);
+          return button;
+        }),
+      );
+      box.hidden = options.length === 0;
+    });
+    this.refresh();
+  }
+
+  /** The ids of the choices on offer, first one first. */
+  get optionIds(): FallbackId[] {
+    return this.options.map((o) => o.id);
+  }
+
+  /** The option Enter takes, or null when Enter hatches. */
+  get firstOption(): FallbackId | null {
+    return this.options[0]?.id ?? null;
+  }
+
   private refresh(): void {
-    for (const button of this.buttons) button.disabled = this.busy || this.limited;
+    const choosing = this.options.length > 0;
+    for (const button of this.fallbackButtons) button.disabled = this.busy;
+    for (const button of this.buttons) {
+      button.hidden = choosing;
+      button.disabled = this.busy || this.limited;
+    }
     for (const button of this.practice) {
       button.hidden = !this.limited;
       button.disabled = this.busy;

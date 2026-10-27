@@ -44,7 +44,8 @@ export type LifeMsg = Extract<
       | 'mating'
       | 'born'
       | 'promoted'
-      | 'restored';
+      | 'restored'
+      | 'lineage';
   }
 >;
 
@@ -240,6 +241,7 @@ export class HubClient {
       case 'born':
       case 'promoted':
       case 'restored':
+      case 'lineage':
         for (const fn of [...this.lifeListeners]) guarded(() => fn(msg));
         break;
       case 'error':

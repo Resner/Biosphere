@@ -67,6 +67,22 @@ export interface BsState {
     visited: string[];
     ready: string;
   };
+  /**
+   * The pending child (M5 T11): the offspring flow's `kind` (`none`, `verifying`, `failed`, `egg`,
+   * `card`), the child's creature id, species, rarity, generation and genome hash, whether the card
+   * and the egg are on screen, and the ids of the choices the death and title screens offer.
+   */
+  offspring: {
+    kind: string;
+    creature: string | null;
+    species: string | null;
+    rarity: string | null;
+    generation: number | null;
+    genomeHash: string | null;
+    cardShown: boolean;
+    eggShown: boolean;
+    options: string[];
+  };
   /** The other players in the pond, as drawn (alpha fades when they go quiet). */
   remotes: {
     id: string;
