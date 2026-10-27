@@ -17,6 +17,7 @@
         <input type="text" data-testid="name-input" maxlength="16" autocomplete="off" spellcheck="false" />
       </label>
       <p class="name-error" data-testid="name-error" hidden>Pick another name</p>
+      <div class="fallback" data-testid="title-fallback" hidden></div>
       <button type="button" class="action" data-testid="hatch">Hatch</button>
       <button type="button" class="action quiet" data-testid="practice" hidden>Practice cell</button>
       <button type="button" class="action quiet" data-testid="recovery-open">Recovery code</button>
@@ -67,6 +68,17 @@
       <p data-testid="invite-band"></p>
       <p class="invite-keys"><span data-testid="invite-left"></span> · E accept · Esc decline</p>
     </section>
+    <div class="egg" data-for="playing" data-testid="egg" role="img" aria-label="Your offspring is hatching" hidden></div>
+    <section class="offspring" data-for="playing" data-testid="offspring" aria-label="Offspring" hidden>
+      <p class="offspring-title">Your offspring</p>
+      <canvas class="offspring-preview" data-testid="offspring-preview" width="144" height="72" aria-hidden="true"></canvas>
+      <p class="offspring-name" data-testid="offspring-name"></p>
+      <p data-testid="offspring-line"></p>
+      <div class="offspring-buttons">
+        <button type="button" class="action" data-testid="offspring-become">Become it (H)</button>
+        <button type="button" class="action quiet" data-testid="offspring-later">Later</button>
+      </div>
+    </section>
     <p class="net-status" data-testid="net-status" role="status"></p>
     <p class="practice-badge" data-for="playing" data-testid="practice-badge" hidden>Not recorded</p>
     <p class="hatch-note" data-testid="hatch-note" role="status" hidden></p>
@@ -87,6 +99,7 @@
         <div><dt>Survived</dt><dd data-testid="death-survived"></dd></div>
         <div><dt>Peak biomass</dt><dd data-testid="death-peak"></dd></div>
       </dl>
+      <div class="fallback" data-testid="death-fallback" hidden></div>
       <button type="button" class="action" data-testid="hatch-again">Hatch again</button>
       <button type="button" class="action quiet" data-testid="practice-again" hidden>Practice cell</button>
       <p class="hint">or press Enter</p>

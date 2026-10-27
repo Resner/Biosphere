@@ -58,6 +58,9 @@ import { countdownText } from './life-text';
 import { attachVisibilityPause, createLoop } from './loop';
 import { MateFlow, type Nearby, randomNonce } from './mate';
 import { readyText } from './mate-text';
+import { OffspringFlow } from './offspring';
+import { drawPreview } from './offspring-preview';
+import { childLine, type FallbackId, fallbackOptions } from './offspring-text';
 import { connectOnline, type OnlineSession } from './online';
 import {
   cleanName,
@@ -263,6 +266,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       return checkGenesis(g.record.record, g.commit.commitment, g.beacon, g.genome);
     },
   });
+  // The pending child (M5): verified here, drawn as an egg and a card, become-able with H.
+  const offspring = new OffspringFlow({
+    now: () => performance.now(),
+    verify: async (born) => {
+      const { birthProblems } = await import('./offspring-check');
+      return birthProblems(born, playerId ?? '');
+    },
+  });
+  /** Generation of each of the player's creatures, from the hub's lineage answers (for the return choice). */
+  const generations = new Map<string, number>();
+  let generationsSeen = 0;
   const hatchNote = pick('[data-testid="hatch-note"]');
   const practiceBadge = pick('[data-testid="practice-badge"]');
   /** Why the last hatch did not start; shown until the next one. */
@@ -468,6 +482,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         life(msg) {
           flow.receive(msg);
           mate.receive(msg);
+          offspring.receive(msg);
+          if (msg.t === 'lineage') {
+            for (const c of msg.creatures) generations.set(c.creature, c.generation);
+            generationsSeen++;
+          }
+          // The return choice names the ancestor's generation, which only the lineage knows.
+          const ancestor = msg.t === 'life' || msg.t === 'died' ? msg.fallback?.ancestor : null;
+          if (ancestor && !generations.has(ancestor.creature)) {
+            link.send({ t: 'lineage' });
+          }
           if (msg.t === 'born') hud.toast('Your offspring is ready');
           if (msg.t === 'history') history.show(msg.lives, Date.now());
           // Past lives are asked for once the hub has said who the player is, and after each death.
@@ -509,12 +533,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   /** Starts a life, in the joined pond or (`inPond` false) in a local one. */
   // The first local hatch uses the pond seed as given; each later one gets its own pond.
   let hatches = 0;
-  const begin = (inPond: boolean, recorded?: { body: Body; start: Started }): void => {
+  const begin = (inPond: boolean, recorded?: { body: Body; start: Started }, at?: Vec2): void => {
     const target = inPond ? pond : null;
     const seed = hatches === 0 ? params.seed : `${params.seed}/${hatches}`;
     hatches++;
     let spawn: Vec2 | null = null;
-    if (target?.ring) spawn = ringSpawn(target.ring.centre, target.ring.hint, target.lives);
+    if (at) spawn = at;
+    else if (target?.ring) spawn = ringSpawn(target.ring.centre, target.ring.hint, target.lives);
     if (target) target.lives++;
     hatchError = '';
     const next = newSession(
@@ -590,8 +615,63 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         screens.setBusy(false);
       });
   };
+  // Becoming the pending child, or returning to the nearest ancestor (M5 T11).
+  let switching = false;
+  const become = (choice: FallbackId): void => {
+    if (switching || hatching) return;
+    const child = offspring.child();
+    const ancestor = flow.view().fallback?.ancestor ?? null;
+    const task =
+      choice === 'child' && child
+        ? () => flow.promote(child.born)
+        : ancestor && choice === 'ancestor'
+          ? () => flow.restore(ancestor)
+          : null;
+    if (!task) return;
+    if (!hubUrl || pond === null || !playerId) {
+      hud.toast('Not connected to the pond');
+      return;
+    }
+    switching = true;
+    hatchError = '';
+    screens.setBusy(true);
+    // A living parent hands over to the child, which swims out where it was.
+    const at =
+      screen === 'playing' && session.player.alive
+        ? { x: session.player.x, y: session.player.y }
+        : undefined;
+    void task()
+      .then((outcome) => {
+        if (outcome.kind === 'failed') {
+          hatchError = outcome.message;
+          hud.toast(outcome.message);
+          return;
+        }
+        if (outcome.kind !== 'recorded') return;
+        const genome = parseGenomeText(outcome.start.genome);
+        if (!genome) {
+          hatchError = VERIFY_FAILED;
+          return;
+        }
+        begin(true, { body: hatchBody(genome), start: outcome.start }, at);
+        hud.toast(
+          choice === 'child'
+            ? `You are now ${session.body.species}`
+            : `Back as ${session.body.species}`,
+        );
+      })
+      .catch((error: unknown) => {
+        console.warn('switch failed', error);
+        hatchError = 'Could not switch creatures. Try again.';
+      })
+      .finally(() => {
+        switching = false;
+        screens.setBusy(false);
+      });
+  };
   const screens = new Screens({
     hatch,
+    choose: become,
     practice: () => {
       limitUntil = 0;
       flow.practice();
@@ -616,11 +696,19 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     document,
     () => {
       if (playing()) socialUi.open();
-      else if (enterHatches(screen, performance.now() - screenShownAt)) hatch();
+      else if (enterHatches(screen, performance.now() - screenShownAt)) {
+        const first = screens.firstOption;
+        if (first) become(first);
+        else hatch();
+      }
     },
     {
       key: (key) => {
         if (!playing()) return;
+        if ((key === 'h' || key === 'H') && offspring.child()) {
+          become('child');
+          return;
+        }
         if (mate.view().state === 'invited') {
           if (key === 'e' || key === 'E') mate.accept();
           else if (key === 'Escape') mate.decline();
@@ -835,6 +923,52 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (aloneElement.hidden === lonely) aloneElement.hidden = !lonely;
   };
 
+  // The egg, the offspring card and the choice after a death (M5 T11).
+  const eggElement = pick('[data-testid="egg"]');
+  const cardElement = pick('[data-testid="offspring"]');
+  const cardPreview = pick<HTMLCanvasElement>('[data-testid="offspring-preview"]');
+  const cardName = pick('[data-testid="offspring-name"]');
+  const cardLine = pick('[data-testid="offspring-line"]');
+  pick('[data-testid="offspring-become"]').addEventListener('click', () => become('child'));
+  pick('[data-testid="offspring-later"]').addEventListener('click', () => offspring.postpone());
+  let previewOf: string | null = null;
+  let offspringKind = 'none';
+  let optionsKey: unknown[] = [];
+  const updateOffspringUi = (): void => {
+    offspring.tick();
+    const playingNow = screen === 'playing' && !session.demo && session.death === null;
+    const state = offspring.view();
+    const egg = playingNow && state.kind === 'egg';
+    if (eggElement.hidden === egg) eggElement.hidden = !egg;
+    if (egg) {
+      const x = scene.width / 2 + (session.player.x - camera.x) * scene.pxPerWu;
+      const y = scene.height / 2 - (session.player.y - camera.y) * scene.pxPerWu;
+      const off = Math.sqrt(session.player.biomass) * scene.pxPerWu + 18;
+      eggElement.style.left = `${Math.round(x + off)}px`;
+      eggElement.style.top = `${Math.round(y)}px`;
+    }
+    const card = playingNow && state.kind === 'card' && !state.later;
+    if (cardElement.hidden === card) cardElement.hidden = !card;
+    if (state.kind === 'card' || state.kind === 'egg') {
+      setIfChanged(cardName, state.child.body.species);
+      setIfChanged(cardLine, childLine(state.child));
+      if (previewOf !== state.child.body.hash) {
+        previewOf = state.child.body.hash;
+        drawPreview(cardPreview, state.child.body);
+      }
+    }
+    if (state.kind === 'failed' && offspringKind !== 'failed') hud.toast(state.message);
+    offspringKind = state.kind;
+    // The choice for a dead or not-yet-hatched player, rebuilt only when what it names changes.
+    const fallback = flow.view().fallback;
+    const child = offspring.child();
+    const key = [fallback, child, generationsSeen];
+    if (key.some((v, i) => v !== optionsKey[i])) {
+      optionsKey = key;
+      screens.setFallback(fallbackOptions(fallback, child, (id) => generations.get(id)));
+    }
+  };
+
   /** Courting on screen: the key beside a creature in reach, the invitation, and the cooldown. */
   const updateMateUi = (): void => {
     const playingNow = screen === 'playing' && !session.demo;
@@ -1002,6 +1136,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     updateNetUi(now, joined);
     updateHatchNote();
     updateMateUi();
+    updateOffspringUi();
     view.remotes = remoteViews;
     const projection = {
       camX: camera.x,
@@ -1163,6 +1298,22 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     };
   };
 
+  const offspringState = (): BsState['offspring'] => {
+    const view = offspring.view();
+    const child = offspring.child();
+    return {
+      kind: view.kind,
+      creature: child?.born.record.hash ?? null,
+      species: child?.body.species ?? null,
+      rarity: child?.body.rarity ?? null,
+      generation: child?.generation ?? null,
+      genomeHash: child?.body.hash ?? null,
+      cardShown: !cardElement.hidden,
+      eggShown: !eggElement.hidden,
+      options: screens.optionIds,
+    };
+  };
+
   const genome: BsGenome = {
     hashes: (list) =>
       list.map((text) => {
@@ -1207,6 +1358,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         limitMs: limitLeft(),
       },
       mate: mateState(),
+      offspring: offspringState(),
       remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species }) => ({
         id,
         name,

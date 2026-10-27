@@ -1,9 +1,15 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { type GenesisAsk, verifyGenesisAsk } from '../ledger/ask';
-import { createIdentity, fromBase64Url, type Identity, memoryKeyStore } from '../ledger/identity';
-import { recordHash, type StoredRecord } from '../ledger/record';
+import {
+  createIdentity,
+  fromBase64Url,
+  type Identity,
+  memoryKeyStore,
+  verify,
+} from '../ledger/identity';
+import { REQUEST_DOMAIN, recordHash, requestMessage, type StoredRecord } from '../ledger/record';
 import type { LifeMsg } from '../net/hub-client';
-import type { ClientMsg, HubMsg, LifeInfo } from '../net/protocol';
+import type { Born, ClientMsg, HubMsg, LifeInfo } from '../net/protocol';
 import { LifeFlow } from './life';
 
 type Genesis = Extract<HubMsg, { t: 'genesis' }>;
@@ -364,8 +370,9 @@ describe('progress', () => {
     expect(flow.view().pending).toBe(false);
     feed({ t: 'born' } as unknown as LifeMsg);
     expect(flow.view().pending).toBe(true);
+    // Returning to an ancestor does not use the child up: it still waits.
     feed({ t: 'restored', life: info() });
-    expect(flow.view().pending).toBe(false);
+    expect(flow.view().pending).toBe(true);
   });
 
   it('counts ticks per connection: a reconnect starts again from the next report', async () => {
@@ -557,5 +564,112 @@ describe('life clock', () => {
     expect(flow.expired).toBe(true);
     flow.practice();
     expect(flow.expired).toBe(false);
+  });
+});
+
+describe('fallback and taking over', () => {
+  const HASH = 'b'.repeat(64);
+  const PARENT = 'a'.repeat(64);
+  const born = {
+    record: {
+      record: {
+        v: 1,
+        rules: 5,
+        kind: 'birth',
+        creature: '',
+        seq: 0,
+        prev: '',
+        owner: 'o',
+        t: 1,
+        body: {},
+      },
+      hash: HASH,
+    },
+  } as unknown as Born;
+  const ancestor = { ...info({ creature: 'd'.repeat(64), seq: 4 }), hash: 'e'.repeat(64) };
+
+  it('keeps what the hub says the player can fall back on, and forgets it once used', async () => {
+    feed({ t: 'life', life: null, genesisIn: 0, fallback: { pending: true, ancestor } });
+    expect(flow.view().fallback?.ancestor?.creature).toBe(ancestor.creature);
+    feed({ t: 'life', life: info(), genesisIn: 0 });
+    expect(flow.view().fallback).toBeNull();
+    await flow.hatch(WAIT);
+    feed({
+      t: 'died',
+      cause: 'old-age',
+      record: genesisMsg().record,
+      fallback: { pending: false, ancestor },
+    });
+    expect(flow.view().fallback?.pending).toBe(false);
+    feed({ t: 'restored', life: ancestor });
+    expect(flow.view().fallback).toBeNull();
+  });
+
+  it('promotes with a signed child request naming the creature that just died', async () => {
+    feed({ t: 'life', life: info(), genesisIn: 0 });
+    await flow.hatch(WAIT);
+    flow.died('toxin', 10);
+    const pending = flow.promote(born);
+    await vi.advanceTimersByTimeAsync(0);
+    const msg = ofType('promote')[0] as Extract<ClientMsg, { t: 'promote' }>;
+    expect(msg.request).toMatchObject({
+      kind: 'promote',
+      creature: HASH,
+      seq: 1,
+      prev: HASH,
+      owner: identity.playerId,
+      rules: 5,
+      body: { role: 'child', parent: 'c'.repeat(64) },
+    });
+    expect(
+      verify(
+        identity.playerId,
+        REQUEST_DOMAIN,
+        requestMessage(msg.request),
+        fromBase64Url(msg.sig) as Uint8Array,
+      ),
+    ).toBe(true);
+    feed({ t: 'promoted', life: info({ creature: HASH, seq: 1, activeMs: 0 }), parent: null });
+    const outcome = await pending;
+    expect(outcome.kind === 'recorded' && outcome.start.creature).toBe(HASH);
+    expect(flow.view()).toMatchObject({ status: 'playing', creature: HASH, pending: false });
+  });
+
+  it('says why when the hub refuses, and stays as it was', async () => {
+    feed({ t: 'life', life: info(), genesisIn: 0 });
+    await flow.hatch(WAIT);
+    const pending = flow.promote(born);
+    await vi.advanceTimersByTimeAsync(0);
+    feed({ t: 'refused', reason: 'conflict' });
+    const outcome = await pending;
+    expect(outcome.kind).toBe('failed');
+    expect(flow.view()).toMatchObject({ status: 'playing', creature: 'c'.repeat(64) });
+  });
+
+  it('returns to the ancestor with its saved condition, asking the lineage when it has no creature', async () => {
+    feed({ t: 'life', life: null, genesisIn: 0, fallback: { pending: false, ancestor } });
+    const pending = flow.restore(ancestor);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(ofType('lineage')).toHaveLength(1);
+    feed({
+      t: 'lineage',
+      pedigree: [],
+      creatures: [
+        { creature: PARENT, status: 'dead' },
+        { creature: 'f'.repeat(64), status: 'dead' },
+      ] as never,
+    });
+    await vi.advanceTimersByTimeAsync(0);
+    const msg = ofType('restore')[0] as Extract<ClientMsg, { t: 'restore' }>;
+    expect(msg.request).toMatchObject({
+      kind: 'restore',
+      creature: ancestor.creature,
+      seq: 5,
+      prev: ancestor.hash,
+      body: { from: PARENT, activeMs: ancestor.activeMs, energy: ancestor.energy },
+    });
+    feed({ t: 'restored', life: ancestor });
+    expect((await pending).kind).toBe('recorded');
+    expect(flow.view().creature).toBe(ancestor.creature);
   });
 });

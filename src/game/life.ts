@@ -4,11 +4,18 @@
 
 import { signGenesisAsk } from '../ledger/ask';
 import type { Identity } from '../ledger/identity';
-import { hundredths, recordHash } from '../ledger/record';
+import { toBase64Url } from '../ledger/identity';
+import {
+  hundredths,
+  REQUEST_DOMAIN,
+  type RecordRequest,
+  recordHash,
+  requestMessage,
+} from '../ledger/record';
 import type { LifeMsg } from '../net/hub-client';
-import type { ClientMsg, HubMsg, LifeInfo } from '../net/protocol';
+import type { Ancestor, Born, ClientMsg, FallbackInfo, HubMsg, LifeInfo } from '../net/protocol';
 import { type LifeStage, lifeStage } from '../sim/life';
-import { TICK_HZ } from '../sim/rules';
+import { RULES_VERSION, TICK_HZ } from '../sim/rules';
 import type { DeathCause } from '../sim/types';
 
 type GenesisMsg = Extract<HubMsg, { t: 'genesis' }>;
@@ -79,6 +86,8 @@ export interface LifeView {
   cooldownUntilMs: number;
   /** An offspring is waiting to be promoted. */
   pending: boolean;
+  /** With no creature active: what the player can fall back on (null when nothing, or while playing). */
+  fallback: FallbackInfo | null;
 }
 
 /** The creature's age as the game counts it: the hub's last word plus the ticks played since. */
@@ -101,6 +110,26 @@ export const VERIFY_FAILED = 'Could not verify your creature';
 const SLOW = 'The pond is slow to answer. Try again.';
 const ELSEWHERE = 'Your creature is playing in another tab. Reload the page.';
 const NOT_HATCHED = 'Could not hatch. Try again.';
+const NOT_BECOME = 'Could not switch creatures. Try again.';
+const NO_HUB = 'Not connected to the pond. Try again.';
+const LINEAGE_WAIT_MS = 5000;
+const TAKE_OVER_WAIT_MS = 10_000;
+
+/** Why the hub refused a promotion or a return, in plain words. */
+function refusalWords(reason: string): string {
+  switch (reason) {
+    case 'active-exists':
+      return 'You already have a creature swimming.';
+    case 'not-nearest':
+    case 'bad-parent':
+    case 'conflict':
+      return 'Your family changed. Reload the page.';
+    case 'dead':
+      return 'That creature is gone.';
+    default:
+      return NOT_BECOME;
+  }
+}
 
 export class LifeFlow {
   private link: LifeLink | null = null;
@@ -127,6 +156,7 @@ export class LifeFlow {
   private matureAtMs = 0;
   private cooldownUntilMs = 0;
   private pending = false;
+  private fallback: FallbackInfo | null = null;
 
   constructor(private readonly deps: LifeDeps) {}
 
@@ -144,6 +174,7 @@ export class LifeFlow {
       matureAtMs: this.matureAtMs,
       cooldownUntilMs: this.cooldownUntilMs,
       pending: this.pending,
+      fallback: this.fallback,
     };
   }
 
@@ -190,6 +221,7 @@ export class LifeFlow {
         this.known = { life: msg.life, genesisIn: msg.genesisIn };
         this.genesisIn = msg.genesisIn;
         this.pending = msg.pending !== undefined;
+        this.fallback = msg.fallback ?? null;
         // The hub binds the creature again on every connection and counts from zero.
         if (this.status === 'playing') this.rebase = true;
         break;
@@ -211,8 +243,11 @@ export class LifeFlow {
         this.pending = true;
         break;
       case 'promoted':
-      case 'restored':
         this.pending = false;
+        this.fallback = null;
+        break;
+      case 'restored':
+        this.fallback = null;
         break;
       case 'commit':
         if (this.status === 'requesting') this.status = 'awaiting';
@@ -225,6 +260,8 @@ export class LifeFlow {
           this.oldAge = msg.cause === 'old-age';
           this.ended();
         }
+        // The hub's `died` follows the client's own report of a death, which has already ended it.
+        this.fallback = msg.fallback ?? null;
         break;
       default:
         break;
@@ -271,6 +308,84 @@ export class LifeFlow {
       energy: wire(condition.energy),
       health: wire(condition.health),
     });
+  }
+
+  /**
+   * Becomes the pending child: the owner signs its `promote` request naming `parent`, the creature
+   * that is active now or died last. The hub freezes an active parent and answers `promoted`.
+   */
+  async promote(born: Born): Promise<HatchOutcome> {
+    if (!this.link) return this.failed(NO_HUB);
+    const parent = await this.parentId();
+    if (!parent) return this.failed(NOT_BECOME);
+    const { record, hash } = born.record;
+    const request: RecordRequest = {
+      v: 1,
+      rules: record.rules,
+      kind: 'promote',
+      creature: hash,
+      seq: 1,
+      prev: hash,
+      owner: this.deps.identity().playerId,
+      body: { role: 'child', parent },
+    };
+    return this.takeOver({ t: 'promote', ...this.signed(request) }, 'promoted');
+  }
+
+  /** Returns to the nearest surviving ancestor with the condition the hub saved. */
+  async restore(ancestor: Ancestor): Promise<HatchOutcome> {
+    if (!this.link) return this.failed(NO_HUB);
+    const from = await this.parentId();
+    if (!from) return this.failed(NOT_BECOME);
+    const request: RecordRequest = {
+      v: 1,
+      rules: RULES_VERSION,
+      kind: 'restore',
+      creature: ancestor.creature,
+      seq: ancestor.seq + 1,
+      prev: ancestor.hash,
+      owner: this.deps.identity().playerId,
+      body: {
+        from,
+        activeMs: ancestor.activeMs,
+        biomass: ancestor.biomass,
+        energy: ancestor.energy,
+        health: ancestor.health,
+        cooldownUntilMs: ancestor.cooldownUntilMs,
+      },
+    };
+    return this.takeOver({ t: 'restore', ...this.signed(request) }, 'restored');
+  }
+
+  /** The creature that is active or died last: known here, else the newest dead one in the hub's lineage. */
+  private async parentId(): Promise<string | null> {
+    if (this.creature) return this.creature;
+    this.link?.send({ t: 'lineage' });
+    const reply = await this.wait(LINEAGE_WAIT_MS, (m) => (m.t === 'lineage' ? m : undefined));
+    return reply?.creatures.find((c) => c.status === 'dead')?.creature ?? null;
+  }
+
+  private signed(request: RecordRequest): { request: RecordRequest; sig: string } {
+    const sig = toBase64Url(this.deps.identity().sign(REQUEST_DOMAIN, requestMessage(request)));
+    return { request, sig };
+  }
+
+  private async takeOver(
+    msg: Extract<ClientMsg, { t: 'promote' | 'restore' }>,
+    answer: 'promoted' | 'restored',
+  ): Promise<HatchOutcome> {
+    this.link?.send(msg);
+    const reply = await this.wait(TAKE_OVER_WAIT_MS, (m) =>
+      m.t === answer || (m.t === 'refused' && m.reason !== 'queued') ? m : undefined,
+    );
+    if (!reply) return this.failed(SLOW);
+    if (reply.t === 'refused') return this.failed(refusalWords(reply.reason));
+    if (reply.t !== answer) return this.failed(NOT_BECOME);
+    return this.resume(reply.life);
+  }
+
+  private failed(message: string): HatchOutcome {
+    return { kind: 'failed', message };
   }
 
   /** The creature died; the hub hears once. Old age is the hub's own call. */
