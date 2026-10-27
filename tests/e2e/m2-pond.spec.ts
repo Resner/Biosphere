@@ -125,12 +125,18 @@ test('three players see each other move smoothly, share food and chat', async ({
         const e = (window.__bs as BsHook).events();
         return (e.eat ?? 0) - (e.stolen ?? 0);
       });
+    // A cell eats every item its mouth reaches until it is full, so A and B start a hair below full:
+    // the first item fills them, and a neighbouring item in the random pond cannot add a bite.
+    const nearlyFull = (p: Page) =>
+      p.evaluate(() => {
+        const debug = (window.__bs as BsHook).debug;
+        debug?.setEnergy(1e9);
+        const cap = (window.__bs as BsHook).state().player?.energy ?? 0;
+        debug?.setEnergy(cap - 0.1);
+      });
     // A and B reach the same item at once: exactly one of them keeps it, and C loses it.
-    const item = await a.evaluate(() => {
-      const bs = window.__bs as BsHook;
-      bs.debug?.setEnergy(10);
-      return bs.debug?.nearestFood() ?? null;
-    });
+    const item = await a.evaluate(() => (window.__bs as BsHook).debug?.nearestFood() ?? null);
+    await nearlyFull(a);
     expect(item).toBeTruthy();
     const { id, x, y } = item as { id: string; x: number; y: number };
     await c.evaluate(
@@ -142,7 +148,7 @@ test('three players see each other move smoothly, share food and chat', async ({
       { x, y },
     );
     await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id);
-    await b.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(10));
+    await nearlyFull(b);
     const before = (await bitesKept(a)) + (await bitesKept(b));
     await Promise.all(
       [a, b].map((p) =>
