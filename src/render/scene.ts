@@ -9,6 +9,7 @@ import type { Ring } from './effects';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';
 import { ParticleLayer } from './particles';
+import { PostChain, type PostInfo } from './post/chain';
 import { PRESETS, type PresetName, pixelRatio } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
@@ -30,7 +31,8 @@ export interface SceneView {
   rings: readonly Ring[];
 }
 
-export interface RenderInfo {
+/** `calls` and `triangles` count the whole frame: the scene and every post pass. */
+export interface RenderInfo extends PostInfo {
   calls: number;
   triangles: number;
   foodInstances: number;
@@ -91,6 +93,7 @@ export class GameScene {
   };
   private readonly rings = new RingLayer();
   private readonly remotes: RemoteLayer;
+  private readonly post: PostChain;
   private cssWidth = 1;
   private cssHeight = 1;
   private half = 1;
@@ -103,6 +106,8 @@ export class GameScene {
   ) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     this.renderer.setClearColor(0x04090b);
+    this.post = new PostChain(this.renderer);
+    this.post.setPreset(this.preset);
 
     this.remotes = new RemoteLayer(this.scene, ORDER.cell - 0.1);
     this.body = new BodyLayer(this.scene, ORDER.cell + 0.5);
@@ -154,10 +159,11 @@ export class GameScene {
     this.resize();
   }
 
-  /** Applies a quality preset: pixel ratio and particle share, with no reload. */
+  /** Applies a quality preset: pixel ratio, particle share and post passes, with no reload. */
   setPreset(preset: PresetName): void {
     if (preset === this.preset) return;
     this.preset = preset;
+    this.post.setPreset(preset);
     const share = PRESETS[preset].particles;
     for (const layer of [this.far, this.mid, this.near]) layer.setShare(share);
     this.resize();
@@ -169,6 +175,7 @@ export class GameScene {
     const ratio = pixelRatio(this.preset, window.devicePixelRatio);
     if (ratio !== this.renderer.getPixelRatio()) this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(this.cssWidth, this.cssHeight, false);
+    this.post.resize(this.cssWidth, this.cssHeight, ratio);
   }
 
   /** Sets the zoom before the first draw, so input mapping starts right. */
@@ -223,7 +230,7 @@ export class GameScene {
     this.remotes.set(view.remotes, view.time, this.pxPerWu);
     this.rings.set(view.rings);
 
-    this.renderer.render(this.scene, camera);
+    this.post.render(this.scene, camera);
   }
 
   /** Draws the player's genome body; false means the plain cell must stand in. */
@@ -258,6 +265,7 @@ export class GameScene {
       pixelRatio: this.renderer.getPixelRatio(),
       particles: this.far.drawnCount + this.mid.drawnCount + this.near.drawnCount,
       memory: { geometries: memory.geometries, textures: memory.textures },
+      ...this.post.info(),
     };
   }
 
@@ -287,6 +295,7 @@ export class GameScene {
     ]) {
       part.dispose();
     }
+    this.post.dispose();
     this.renderer.dispose();
   }
 }

@@ -8,6 +8,12 @@ import type { LabHook } from '../../src/lab/hook';
 export const SEED = 'lab-e2e';
 export const QUERY = `?seed=${SEED}&debug=1`;
 export const WATER = [0x04, 0x09, 0x0b] as const;
+/**
+ * What the post chain adds to every Lab frame (M6 T2, high preset): the prefilter, down, up and
+ * composite programs, and the draws of a 5-level bloom (1 + 4 + 4) plus the composite. Neither
+ * grows with the number of creatures, so the creature budgets stay as they were.
+ */
+export const LAB_POST = { programs: 4, calls: 10 } as const;
 export const lab = <T>(page: Page, run: (hook: LabHook) => T) =>
   page.evaluate(`(${run.toString()})(window.__lab)`) as Promise<T>;
 

@@ -3,7 +3,7 @@ import { type Genome, genomeHash, parseGenomeText } from '../../src/genome/codec
 import { breedBatch, labRandomness } from '../../src/lab/breed';
 import { cellRect, GRID_COUNT } from '../../src/lab/grid';
 import { labGenomes } from '../../src/lab/specimens';
-import { lab, measureCells, openLab, range, SEED, stage } from './lab-helpers';
+import { LAB_POST, lab, measureCells, openLab, range, SEED, stage } from './lab-helpers';
 
 // The Creature Lab tools (M3 T14): mutate and undo, breed two creatures into eight children and
 // see where each trait came from, and copy a genome out and load it back in.
@@ -85,11 +85,11 @@ test('Breed shows eight valid children of the two selected creatures', async ({ 
   await page.getByTestId('tool-breed').click();
   expect((await lab(page, (l) => l.state())).offspring.map((c) => c.hash)).toEqual(kids);
 
-  // The nine drawn creatures stay within the render budget and every child is visible.
+  // The 32 drawn creatures stay within the render budget and every child is visible.
   const info = await lab(page, (l) => l.renderInfo());
-  expect(info.calls).toBeLessThanOrEqual(40);
+  expect(info.calls).toBeLessThanOrEqual(40 + LAB_POST.calls);
   expect(info.triangles).toBeLessThan(150_000);
-  expect(info.programs).toBe(1);
+  expect(info.programs).toBe(1 + LAB_POST.programs);
   const stats = await measureCells(
     page,
     range(8).map((k) => GRID_COUNT + k),

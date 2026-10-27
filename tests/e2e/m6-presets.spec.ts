@@ -39,9 +39,9 @@ test('?quality= starts the game on that preset', async ({ page }) => {
   }
 });
 
-test('the settings panel switches preset at runtime and the choice survives a reload', async ({
-  page,
-}) => {
+// Split in two since the post chain (M6 T2): high at a device ratio of 2 renders slowly in software,
+// and one test doing both ran past the 20 s a PR-gate scenario may take.
+test('the settings panel switches preset at runtime', async ({ page }) => {
   await openGame(page, '?debug=1&seed=presets');
   await hatch(page);
   await waitForFrames(page);
@@ -67,10 +67,20 @@ test('the settings panel switches preset at runtime and the choice survives a re
   expect(high.pixelRatio).toBe(2);
   expect(high.particles).toBeGreaterThan(medium.particles);
   expect(high.calls).toBeLessThanOrEqual(PRESETS.high.budget.calls);
+});
+
+test('the choice survives a reload, and ?quality= beats it without overwriting it', async ({
+  page,
+}) => {
+  // The same panel from the title screen, so no hatch is needed.
+  await openGame(page, '?debug=1&seed=presets');
+  await page.getByTestId('settings-open').click();
+  await page.getByTestId('quality-high').check();
+  await page.getByTestId('settings-close').click();
+  expect((await info(page)).preset).toBe('high');
 
   await openGame(page, '?debug=1&seed=presets');
   expect((await info(page)).preset).toBe('high');
-  // ?quality= beats the stored value without overwriting it.
   await openGame(page, '?debug=1&seed=presets&quality=low');
   expect((await info(page)).preset).toBe('low');
   await openGame(page, '?debug=1&seed=presets');

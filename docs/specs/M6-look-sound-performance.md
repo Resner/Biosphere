@@ -136,7 +136,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Notes: this task owns the settings panel shell (quality now; T21 adds volume and T9 reduced motion reuse it). Particle counts scale with the preset in `ParticleLayer`. Presets only change presentation: nothing in `src/sim` reads them.
   - Rewrite note: T1 was built from the first M6 spec. In this spec, auto-detect is T4, volume is T22 and reduced motion is T22; the panel shell is unchanged.
 
-- [ ] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus] (in progress)
+- [x] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus] (in progress)
   - Acceptance (unit tests first, then E2E):
     - `postPlan(preset)` (pure) lists the passes and target scales:
       - low: `[]` (direct render to the canvas);
@@ -160,6 +160,8 @@ A look pass never starts before the tasks it judges are ticked.
     - The grade must keep the dark teal water of `reference-01.jpg`; check it against the reference by eye before ticking.
     - Use `THREE.WebGLRenderTarget` with `HalfFloatType`, falling back to `UnsignedByteType` when half float is not renderable, and check that path.
     - Allocate nothing per frame (uniform objects and full-screen triangles are reused).
+  - Done: `render/post/{plan,chain}.ts`, `bloom`/`post` shaders; the chain resets `renderer.info` each frame, clears targets in display values, and the Lab runs high with `{ samples: 4, lens: false }` (no vignette or aberration, which vary by cell position and broke the Lab's per-cell checks). `setFocus` waits for T3.
+  - Gotcha: half-float blending doubles software-GL frame time (dsf 2 high ~150 ms), so the T1 runtime-switch E2E is split in two to stay under 20 s; the Lab budgets add `LAB_POST` (4 programs, 10 calls).
 
 - [ ] T3 Depth of field [opus]
   - Acceptance:

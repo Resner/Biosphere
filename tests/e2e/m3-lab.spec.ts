@@ -7,6 +7,7 @@ import { labGenomes, specimenOf } from '../../src/lab/specimens';
 import { ARCHETYPES, buildBytes } from '../archetypes';
 import {
   type CellStats,
+  LAB_POST,
   lab,
   measureCells,
   openLab,
@@ -60,11 +61,11 @@ test('the Lab shows 24 different creatures within the render budget, offline', a
   expect(state.creatures.map((c) => c.hash)).toEqual(expected);
 
   const info = await lab(page, (l) => l.renderInfo());
-  expect(info.calls).toBeLessThanOrEqual(40);
+  expect(info.calls).toBeLessThanOrEqual(40 + LAB_POST.calls);
   expect(info.triangles).toBeLessThan(150_000);
   expect(info.triangles).toBeGreaterThan(0);
-  // One shader program serves every creature (and nothing else is drawn).
-  expect(info.programs).toBe(1);
+  // One shader program serves every creature (and nothing else is drawn but the post chain).
+  expect(info.programs).toBe(1 + LAB_POST.programs);
 
   const stats = await measureCells(page, range(24));
   expect(stats.every((s) => s.lit > 50)).toBe(true);
@@ -118,7 +119,7 @@ test('wild mode shows 24 valid bodies and the toggle switches back', async ({ pa
   expect(wild.creatures).toHaveLength(24);
   expect(new Set(wild.creatures.map((c) => c.hash)).size).toBe(24);
   expect(wild.creatures.every((c) => c.valid)).toBe(true);
-  expect((await lab(page, (l) => l.renderInfo())).calls).toBeLessThanOrEqual(40);
+  expect((await lab(page, (l) => l.renderInfo())).calls).toBeLessThanOrEqual(40 + LAB_POST.calls);
   const stats = await measureCells(page, range(24));
   expect(stats.every((s) => s.lit > 50)).toBe(true);
 
