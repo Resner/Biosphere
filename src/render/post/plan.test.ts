@@ -20,6 +20,10 @@ describe('postPlan', () => {
       bloom: { scale: 0.5, levels: 5 },
     });
   });
+
+  it('drops the vignette and chromatic aberration without the lens', () => {
+    expect(postPlan('high', { lens: false }).passes).toEqual(['scene', 'bloom', 'grade', 'grain']);
+  });
 });
 
 describe('mipSizes', () => {

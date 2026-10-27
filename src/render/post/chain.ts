@@ -122,9 +122,7 @@ export class PostChain {
   setPreset(preset: PresetName): void {
     if (preset === this.preset) return;
     this.preset = preset;
-    const plan = postPlan(preset);
-    if (!this.lens) plan.passes = plan.passes.filter((p) => p !== 'vignette' && p !== 'chromatic');
-    this.plan = plan;
+    this.plan = postPlan(preset, { lens: this.lens });
     this.composite?.dispose();
     this.composite = this.plan.passes.length > 0 ? this.compositeMaterial() : null;
     this.rebuild();
@@ -178,20 +176,10 @@ export class PostChain {
     const first = mips[0];
     if (first) {
       this.pass(this.prefilter, target, first);
-      for (let i = 1; i < mips.length; i++) {
-        this.pass(
-          this.down,
-          mips[i - 1] as THREE.WebGLRenderTarget,
-          mips[i] as THREE.WebGLRenderTarget,
-        );
-      }
-      for (let i = mips.length - 1; i > 0; i--) {
-        this.pass(
-          this.up,
-          mips[i] as THREE.WebGLRenderTarget,
-          mips[i - 1] as THREE.WebGLRenderTarget,
-        );
-      }
+      for (let i = 1; i < mips.length; i++)
+        this.pass(this.down, mips[i - 1] ?? first, mips[i] ?? first);
+      for (let i = mips.length - 1; i > 0; i--)
+        this.pass(this.up, mips[i] ?? first, mips[i - 1] ?? first);
     }
     const u = composite.uniforms;
     (u.tScene as THREE.IUniform).value = target.texture;

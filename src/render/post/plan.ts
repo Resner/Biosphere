@@ -14,17 +14,25 @@ export interface PostPlan {
 }
 
 /** Bloom levels per preset: each one doubles the reach of the glow. */
-const BLOOM_LEVELS: Record<PresetName, number> = { low: 0, medium: 4, high: 5 };
+const BLOOM_LEVELS: Record<Exclude<PresetName, 'low'>, number> = { medium: 4, high: 5 };
 
-export function postPlan(preset: PresetName): PostPlan {
+/** `lens: false` drops the vignette and the chromatic aberration, which depend on where in the frame a thing is. */
+export function postPlan(preset: PresetName, options: { lens?: boolean } = {}): PostPlan {
   const p = PRESETS[preset];
+  const lens = options.lens ?? true;
   if (!p.bloom && !p.grade) return { passes: [], bloom: null };
   const passes: PostPass[] = ['scene'];
   if (p.bloom) passes.push('bloom');
-  if (p.grade) passes.push('grade', 'vignette');
+  if (p.grade) passes.push('grade');
+  if (p.grade && lens) passes.push('vignette');
   if (p.grain) passes.push('grain');
-  if (p.chromaticAberration) passes.push('chromatic');
-  return { passes, bloom: p.bloom ? { scale: 0.5, levels: BLOOM_LEVELS[preset] } : null };
+  if (p.chromaticAberration && lens) passes.push('chromatic');
+  return {
+    passes,
+    bloom: p.bloom
+      ? { scale: 0.5, levels: BLOOM_LEVELS[preset as keyof typeof BLOOM_LEVELS] }
+      : null,
+  };
 }
 
 /** Pixel sizes of the bloom mips: the first at `scale`, then each half the one before. */

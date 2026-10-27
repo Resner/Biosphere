@@ -37,6 +37,8 @@ float hash12(vec2 p) {
   return fract((p3.x + p3.y) * p3.z);
 }
 
+const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
+
 void main() {
   vec3 c = sceneAt(vUv);
 #ifdef BLOOM
@@ -44,7 +46,7 @@ void main() {
 #endif
 
   // Grade: the shadows lean teal and the highlights roll off towards white, never past it.
-  float luma = dot(c, vec3(0.2126, 0.7152, 0.0722));
+  float luma = dot(c, LUMA);
   c += uLift * (1.0 - smoothstep(0.0, 0.3, luma));
   vec3 over = max(c - uKnee, 0.0);
   c = min(c, vec3(uKnee)) + (1.0 - uKnee) * (1.0 - exp(-over / (1.0 - uKnee)));
@@ -55,7 +57,7 @@ void main() {
 
 #ifdef GRAIN
   // Strongest in the mid-tones: the dark water stays clean and glows fade out smoothly.
-  float grain = uGrain * smoothstep(0.02, 0.4, dot(c, vec3(0.2126, 0.7152, 0.0722)));
+  float grain = uGrain * smoothstep(0.02, 0.4, dot(c, LUMA));
   c += (hash12(gl_FragCoord.xy + uSeed) - 0.5) * grain;
 #endif
   gl_FragColor = vec4(clamp(c, 0.0, 1.0), 1.0);

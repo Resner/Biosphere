@@ -13,6 +13,7 @@ import { topDownCamera } from '../render/camera';
 import { CreatureCache } from '../render/creature-cache';
 import { CreatureView, type CreatureViewState } from '../render/creature-view';
 import { PostChain } from '../render/post/chain';
+import { pixelRatio } from '../render/presets';
 import { breedBatch, labRandomness, mutateStep } from './breed';
 import { CELL_COUNT, cellAt, cellRect, GRID_COUNT, HOVER_SCALE, stageCoreRadius } from './grid';
 import type { LabCreature, LabHook, LabView } from './hook';
@@ -90,7 +91,7 @@ export function startLab(options: LabOptions): void {
     return;
   }
   renderer.setClearColor(WATER);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(pixelRatio('high', window.devicePixelRatio));
   const post = new PostChain(renderer, { samples: 4, lens: false });
   post.setPreset('high');
   const scene = new THREE.Scene();
