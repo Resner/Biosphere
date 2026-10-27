@@ -6,8 +6,8 @@
 
 import { RULES } from '../sim/rules';
 import type { Genome } from './codec';
-import { allele, blended, dominant } from './express';
-import { HAPLOTYPE_BYTES, LOCI, type MendelLocus } from './karyotype';
+import { allele, blended, byte, dominant } from './express';
+import { HAPLOTYPE_BYTES, LOAD_LOCI, MENDEL_LOCI, type MendelLocus } from './karyotype';
 
 export interface PunnettOutcome {
   /** Allele names joined with `+` when both show; for a blended locus the rank in words. */
@@ -34,9 +34,6 @@ export interface PunnettHints {
   /** The chance that at least one mutation event fires while the child is made. */
   mutationChance: number;
 }
-
-const MENDEL = LOCI.filter((l): l is MendelLocus => l.kind === 'mendel');
-const LOAD = LOCI.filter((l) => l.kind === 'load');
 
 /** A genome of zeros with one Mendelian locus set, so the shared expression code reads the pair. */
 function probe(locus: MendelLocus, x: number, y: number): Genome {
@@ -74,7 +71,7 @@ function traitOf(a: Genome, b: Genome, locus: MendelLocus): PunnettTrait {
 
 /** The share of a parent's two haplotypes that carry the loss of function: its gamete carries it with this chance. */
 function lofShare(g: Genome, offset: number): number {
-  return g.haplotypes.reduce((n, h) => n + ((h.alleles[offset] as number) & 1), 0) / 2;
+  return g.haplotypes.reduce((n, h) => n + (byte(h, offset) & 1), 0) / 2;
 }
 
 export function punnett(a: Genome, b: Genome): PunnettHints {
@@ -82,8 +79,11 @@ export function punnett(a: Genome, b: Genome): PunnettHints {
   let none = 1;
   for (let i = 0; i < 2 * maxEvents; i++) none *= 1 - eventChance;
   return {
-    traits: MENDEL.map((l) => traitOf(a, b, l)),
-    load: LOAD.map((l) => ({ id: l.id, chance: lofShare(a, l.offset) * lofShare(b, l.offset) })),
+    traits: MENDEL_LOCI.map((l) => traitOf(a, b, l)),
+    load: LOAD_LOCI.map((l) => ({
+      id: l.id,
+      chance: lofShare(a, l.offset) * lofShare(b, l.offset),
+    })),
     mutationChance: 1 - none,
   };
 }

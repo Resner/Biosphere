@@ -177,6 +177,8 @@ function layout(): readonly Locus[] {
 }
 
 export const LOCI: readonly Locus[] = Object.freeze(layout());
+export const MENDEL_LOCI: readonly MendelLocus[] = LOCI.filter((l) => l.kind === 'mendel');
+export const LOAD_LOCI: readonly LoadLocus[] = LOCI.filter((l) => l.kind === 'load');
 
 export const HAPLOTYPE_BYTES: number = LOCI.reduce((n, l) => n + l.size, 0);
 /** Two haplotypes, back to back. */
