@@ -181,11 +181,25 @@ describe('HubClient listeners', () => {
     void client.connect().catch(() => {});
     const s = await handshake();
     s.receive({ t: 'life', life: null, genesisIn: 0 });
-    s.receive({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 });
+    s.receive({
+      t: 'ack',
+      n: 1,
+      activeMs: 30_000,
+      lifespanMs: 4_500_000,
+      matureAtMs: 900_000,
+      cooldownUntilMs: 0,
+    });
     s.receive({ t: 'refused', reason: 'limit', genesisIn: 5 });
     expect(heard).toEqual([
       { t: 'life', life: null, genesisIn: 0 },
-      { t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 },
+      {
+        t: 'ack',
+        n: 1,
+        activeMs: 30_000,
+        lifespanMs: 4_500_000,
+        matureAtMs: 900_000,
+        cooldownUntilMs: 0,
+      },
       { t: 'refused', reason: 'limit', genesisIn: 5 },
     ]);
     client.send({ t: 'progress', n: 1, ticks: 900, biomass: 1, energy: 1, health: 1 });
@@ -311,7 +325,7 @@ describe('HubClient reconnect', () => {
     const urls: string[] = [];
     const client = make(async (url) => {
       urls.push(url);
-      return { ok: true, version: '9.9.9', protocol: 2 };
+      return { ok: true, version: '9.9.9', protocol: 3 };
     });
     void client.connect().catch(() => {});
     last().open();

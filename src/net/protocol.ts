@@ -2,11 +2,12 @@ import type { GenesisAsk } from '../ledger/ask';
 import type { Canonical } from '../ledger/canonical';
 import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
-import type { StoredRecord } from '../ledger/record';
+import type { MateAsk } from '../ledger/mating';
+import type { RecordKind, StoredRecord } from '../ledger/record';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 1;
+export const PROTOCOL_VERSION = 2;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -63,6 +64,15 @@ const REASON_RE = /^[a-z0-9:-]{1,48}$/;
 const BODY_MAX_DEPTH = 4;
 const BODY_MAX_ENTRIES = 32;
 const BODY_MAX_STRING = 256;
+const RECORD_KINDS: readonly string[] = [
+  'genesis',
+  'birth',
+  'checkpoint',
+  'mate-commit',
+  'promote',
+  'restore',
+  'death',
+];
 
 export interface Vec2 {
   x: number;
@@ -109,6 +119,9 @@ export interface LifeInfo {
   health: number;
   activeMs: number;
   lifespanMs: number;
+  /** The active time from which it may mate, and until which it is in cooldown (ADR 0021). */
+  matureAtMs: number;
+  cooldownUntilMs: number;
 }
 
 /** A finished life as the history lists it (ADR 0019); the species name is derived from the genome. */
@@ -137,7 +150,7 @@ export const HISTORY_MAX = 20;
 
 /** Hub WebSocket, client to hub. */
 export type ClientMsg =
-  | { t: 'hello'; v: 1; playerId: string; name: string; sig: string }
+  | { t: 'hello'; v: 2; playerId: string; name: string; sig: string }
   | { t: 'genesis-request'; nonce: string; sig: string }
   /** Life report, about every 30 s: `n` counts up, `ticks` is cumulative for this connection, the rest is the condition in hundredths. */
   | { t: 'progress'; n: number; ticks: number; biomass: number; energy: number; health: number }
@@ -145,6 +158,13 @@ export type ClientMsg =
   | { t: 'death'; cause: DeathCause; ticks: number }
   /** The player's past lives, newest first. */
   | { t: 'history' }
+  /** Asks whether this player's creature and the partner's could mate now, and what the partner's card says. */
+  | { t: 'mate-check'; partner: string }
+  /** Courts the partner: a signed ask that names them; the partner has `RULES.mating.signWindowMs` to answer. */
+  | { t: 'court'; ask: MateAsk }
+  /** Accepts a court with the accepter's own ask (same nonce, naming the courting player). */
+  | { t: 'accept'; ask: MateAsk }
+  | { t: 'decline'; partner: string }
   | { t: 'ping'; id: number }
   | { t: 'signal'; to: string; kind: 'offer' | 'answer'; sdp: string }
   | { t: 'leave' };
@@ -167,7 +187,29 @@ export type HubMsg =
   /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
   | { t: 'life'; life: LifeInfo | null; genesisIn: number }
   /** A `progress` was taken: `activeMs` is the creature's life clock after crediting it, `lifespanMs` its total. */
-  | { t: 'ack'; n: number; activeMs: number; lifespanMs: number }
+  | {
+      t: 'ack';
+      n: number;
+      activeMs: number;
+      lifespanMs: number;
+      matureAtMs: number;
+      cooldownUntilMs: number;
+    }
+  /** The answer to `mate-check`: `reason` is null when they could mate, else why not (`partner-` prefix when it is theirs, `not-here` when unreachable). */
+  | {
+      t: 'mate-info';
+      partner: string;
+      reason: string | null;
+      kinship: number;
+      generation: number;
+      tier: number;
+      cooldownLeftMs: number;
+    }
+  /** Someone courts you: their ask, and what the card shows without any species or look. */
+  | { t: 'invite'; from: string; ask: MateAsk; kinship: number; generation: number }
+  | { t: 'declined'; by: string }
+  /** The mating is committed to a future round: the countersigned commitment and this parent's `mate-commit` record. */
+  | { t: 'mating'; commit: SignedCommit; record: StoredRecord }
   /** The creature's life is over: the cause and the `death` record that closes its chain. */
   | { t: 'died'; cause: DeathCause; record: StoredRecord }
   | { t: 'history'; lives: PastLife[] }
@@ -399,7 +441,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       if (o.v !== PROTOCOL_VERSION) return null;
       if (!isStr(o.playerId, PLAYER_ID_RE) || !isStr(o.name, NAME_RE) || !isStr(o.sig, SIG_RE))
         return null;
-      return capped(raw, { t: 'hello', v: 1, playerId: o.playerId, name: o.name, sig: o.sig });
+      return capped(raw, { t: 'hello', v: 2, playerId: o.playerId, name: o.name, sig: o.sig });
     case 'ping':
       return isInt(o.id, 0, MAX_TICK) ? capped(raw, { t: 'ping', id: o.id }) : null;
     case 'signal':
@@ -432,6 +474,14 @@ export function parseClientMsg(raw: string): ClientMsg | null {
         : null;
     case 'history':
       return capped(raw, { t: 'history' });
+    case 'mate-check':
+    case 'decline':
+      return isStr(o.partner, PLAYER_ID_RE) ? capped(raw, { t: o.t, partner: o.partner }) : null;
+    case 'court':
+    case 'accept': {
+      const ask = mateAsk(o.ask);
+      return ask ? capped(raw, { t: o.t, ask }) : null;
+    }
     default:
       return null;
   }
@@ -469,14 +519,59 @@ export function parseHubMsg(raw: string): HubMsg | null {
     case 'ack':
       return isInt(o.n, 0, MAX_TICK) &&
         isInt(o.activeMs, 0, MAX_TIME) &&
-        isInt(o.lifespanMs, 0, MAX_TIME)
+        isInt(o.lifespanMs, 0, MAX_TIME) &&
+        isInt(o.matureAtMs, 0, MAX_TIME) &&
+        isInt(o.cooldownUntilMs, 0, MAX_TIME)
         ? capped(raw, {
             t: 'ack',
             n: o.n,
             activeMs: o.activeMs,
             lifespanMs: o.lifespanMs,
+            matureAtMs: o.matureAtMs,
+            cooldownUntilMs: o.cooldownUntilMs,
           })
         : null;
+    case 'mate-info':
+      return isStr(o.partner, PLAYER_ID_RE) &&
+        (o.reason === null || isStr(o.reason, REASON_RE)) &&
+        isKinship(o.kinship) &&
+        isInt(o.generation, 0, MAX_TICK) &&
+        isInt(o.tier, 0, MAX_TICK) &&
+        isInt(o.cooldownLeftMs, 0, MAX_TIME)
+        ? capped(raw, {
+            t: 'mate-info',
+            partner: o.partner,
+            reason: o.reason,
+            kinship: o.kinship,
+            generation: o.generation,
+            tier: o.tier,
+            cooldownLeftMs: o.cooldownLeftMs,
+          })
+        : null;
+    case 'invite': {
+      const ask = mateAsk(o.ask);
+      return ask &&
+        isStr(o.from, PLAYER_ID_RE) &&
+        isKinship(o.kinship) &&
+        isInt(o.generation, 0, MAX_TICK)
+        ? capped(raw, {
+            t: 'invite',
+            from: o.from,
+            ask,
+            kinship: o.kinship,
+            generation: o.generation,
+          })
+        : null;
+    }
+    case 'declined':
+      return isStr(o.by, PLAYER_ID_RE) ? capped(raw, { t: 'declined', by: o.by }) : null;
+    case 'mating': {
+      const commit = signedCommit(o.commit);
+      const record = storedRecord(o.record);
+      return commit && record
+        ? capped(raw, { t: 'mating', commit, record }, GENESIS_MAX_BYTES)
+        : null;
+    }
     case 'died': {
       const record = storedRecord(o.record);
       return isCause(o.cause) && record
@@ -568,7 +663,9 @@ function lifeInfo(v: unknown): LifeInfo | null {
     !isInt(v.energy, 0, MAX_TIME) ||
     !isInt(v.health, 0, MAX_TIME) ||
     !isInt(v.activeMs, 0, MAX_TIME) ||
-    !isInt(v.lifespanMs, 0, MAX_TIME)
+    !isInt(v.lifespanMs, 0, MAX_TIME) ||
+    !isInt(v.matureAtMs, 0, MAX_TIME) ||
+    !isInt(v.cooldownUntilMs, 0, MAX_TIME)
   )
     return null;
   return {
@@ -580,7 +677,34 @@ function lifeInfo(v: unknown): LifeInfo | null {
     health: v.health,
     activeMs: v.activeMs,
     lifespanMs: v.lifespanMs,
+    matureAtMs: v.matureAtMs,
+    cooldownUntilMs: v.cooldownUntilMs,
   };
+}
+
+/** A kinship coefficient: a share between 0 and 1. */
+const isKinship = (v: unknown): v is number => isNum(v) && v >= 0 && v <= 1;
+
+/** A signed mate ask, copied field by field. */
+function mateAsk(v: unknown): MateAsk | null {
+  return isObj(v) &&
+    v.v === 1 &&
+    v.kind === 'mate' &&
+    isStr(v.creature, HEX64_RE) &&
+    isStr(v.partner, PLAYER_ID_RE) &&
+    isStr(v.partnerCreature, HEX64_RE) &&
+    isStr(v.nonce, NONCE_RE) &&
+    isStr(v.sig, SIG_RE)
+    ? {
+        v: 1,
+        kind: 'mate',
+        creature: v.creature,
+        partner: v.partner,
+        partnerCreature: v.partnerCreature,
+        nonce: v.nonce,
+        sig: v.sig,
+      }
+    : null;
 }
 
 /** A canonical value (integers and strings only), bounded in depth, size and string length. */
@@ -616,20 +740,23 @@ function listOf(v: unknown[], depth: number): Canonical[] | null {
 function signedCommit(v: unknown): SignedCommit | null {
   if (!isObj(v) || !isStr(v.authSig, SIG_RE) || !isStr(v.keyId, KEY_ID_RE)) return null;
   const c = isObj(v.commitment) ? v.commitment : null;
-  const data = c ? genesisAsk(c.data) : null;
   if (
-    !c ||
-    !data ||
-    c.v !== 1 ||
-    c.kind !== 'genesis' ||
+    c?.v !== 1 ||
     !isStr(c.owner, PLAYER_ID_RE) ||
     !isInt(c.round, 1, MAX_TICK) ||
     !isStr(c.req, HEX64_RE) ||
     !isInt(c.t, 0, MAX_TIME)
   )
     return null;
+  let data: Commitment['data'] | null = null;
+  if (c.kind === 'genesis') data = genesisAsk(c.data);
+  else if (c.kind === 'mate' && isObj(c.data)) {
+    const [a, b] = [mateAsk(c.data.a), mateAsk(c.data.b)];
+    data = a && b ? { a: { ...a }, b: { ...b } } : null;
+  }
+  if (!data || (c.kind !== 'genesis' && c.kind !== 'mate')) return null;
   return {
-    commitment: { v: 1, kind: 'genesis', owner: c.owner, round: c.round, req: c.req, t: c.t, data },
+    commitment: { v: 1, kind: c.kind, owner: c.owner, round: c.round, req: c.req, t: c.t, data },
     authSig: v.authSig,
     keyId: v.keyId,
   };
@@ -648,7 +775,7 @@ function storedRecord(v: unknown): StoredRecord | null {
     Array.isArray(body) ||
     r.v !== 1 ||
     !isInt(r.rules, 0, MAX_TICK) ||
-    (r.kind !== 'genesis' && r.kind !== 'checkpoint' && r.kind !== 'death') ||
+    !RECORD_KINDS.includes(r.kind as RecordKind) ||
     !(r.creature === '' || isStr(r.creature, HEX64_RE)) ||
     !isInt(r.seq, 0, MAX_TIME) ||
     !(r.prev === '' || isStr(r.prev, HEX64_RE)) ||
@@ -660,7 +787,7 @@ function storedRecord(v: unknown): StoredRecord | null {
     record: {
       v: 1,
       rules: r.rules,
-      kind: r.kind,
+      kind: r.kind as RecordKind,
       creature: r.creature as string,
       seq: r.seq,
       prev: r.prev as string,

@@ -60,7 +60,8 @@ function isAsk(x: unknown): x is MateAsk {
   );
 }
 
-function signedBy(owner: string, a: MateAsk): boolean {
+/** Whether `owner` signed the ask (the shape is the caller's to have checked). */
+export function signedBy(owner: string, a: MateAsk): boolean {
   const { sig, ...rest } = a;
   const bytes = fromBase64Url(sig);
   return bytes !== null && verify(owner, REQUEST_DOMAIN, askMessage(rest), bytes);

@@ -100,7 +100,7 @@ export async function signIn(id?: Identity, store = memoryKeyStore()) {
   const sig = toBase64Url(
     who.sign(HELLO_DOMAIN, helloMessage(challenge.nonce, name) ?? new Uint8Array()),
   );
-  c.send({ t: 'hello', v: 1, playerId: who.playerId, name, sig });
+  c.send({ t: 'hello', v: 2, playerId: who.playerId, name, sig });
   return { c, id: who };
 }
 

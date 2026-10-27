@@ -230,10 +230,34 @@ const life = {
   health: 5_000,
   activeMs: 600_000,
   lifespanMs: 4_500_000,
+  matureAtMs: 900_000,
+  cooldownUntilMs: 0,
+} as const;
+
+const mateAsk = {
+  v: 1,
+  kind: 'mate',
+  creature: HEX,
+  partner: PID2,
+  partnerCreature: HEX,
+  nonce: NONCE,
+  sig: SIG,
+} as const;
+const mateCommit = {
+  ...commit,
+  commitment: {
+    ...commit.commitment,
+    kind: 'mate',
+    data: { a: mateAsk, b: { ...mateAsk, partner: PID, creature: HEX } },
+  },
+} as const;
+const mateRecord = {
+  ...storedRecord,
+  record: { ...storedRecord.record, kind: 'mate-commit' },
 } as const;
 
 const clientMsgs = [
-  { t: 'hello', v: 1, playerId: PID, name: 'Alice_9', sig: SIG },
+  { t: 'hello', v: 2, playerId: PID, name: 'Alice_9', sig: SIG },
   { t: 'ping', id: 42 },
   { t: 'signal', to: PID2, kind: 'offer', sdp: 'v=0\r\no=- 1 2 IN IP4 0.0.0.0\r\n' },
   { t: 'signal', to: PID2, kind: 'answer', sdp: 'v=0' },
@@ -243,6 +267,10 @@ const clientMsgs = [
   { t: 'death', cause: 'toxin', ticks: 12_345 },
   { t: 'death', cause: 'old-age', ticks: 0 },
   { t: 'history' },
+  { t: 'mate-check', partner: PID2 },
+  { t: 'court', ask: mateAsk },
+  { t: 'accept', ask: mateAsk },
+  { t: 'decline', partner: PID2 },
 ];
 
 const hubMsgs: HubMsg[] = [
@@ -277,8 +305,36 @@ const hubMsgs: HubMsg[] = [
   { t: 'refused', reason: 'active' },
   { t: 'queued', position: 3, etaS: 90 },
   { t: 'refused', reason: 'limit', genesisIn: 300_000 },
-  { t: 'ack', n: 7, activeMs: 400_000, lifespanMs: 4_500_000 },
+  {
+    t: 'ack',
+    n: 7,
+    activeMs: 400_000,
+    lifespanMs: 4_500_000,
+    matureAtMs: 900_000,
+    cooldownUntilMs: 0,
+  },
   { t: 'died', cause: 'old-age', record: genesisMsg.record },
+  {
+    t: 'mate-info',
+    partner: PID2,
+    reason: 'partner-cooldown',
+    kinship: 0.125,
+    generation: 2,
+    tier: 1,
+    cooldownLeftMs: 4000,
+  },
+  {
+    t: 'mate-info',
+    partner: PID2,
+    reason: null,
+    kinship: 0,
+    generation: 0,
+    tier: 0,
+    cooldownLeftMs: 0,
+  },
+  { t: 'invite', from: PID2, ask: mateAsk, kinship: 0.0625, generation: 3 },
+  { t: 'declined', by: PID2 },
+  { t: 'mating', commit: mateCommit, record: mateRecord },
   { t: 'history', lives: [] },
   {
     t: 'history',
@@ -367,7 +423,7 @@ describe('rejections', () => {
 
   it('rejects unknown t, wrong v, bad names and bad ids', () => {
     expect(bad({ t: 'nope' })).toBeNull();
-    expect(bad({ ...hello, v: 2 })).toBeNull();
+    expect(bad({ ...hello, v: 1 })).toBeNull();
     expect(bad({ ...hello, v: undefined })).toBeNull();
     expect(bad({ ...hello, name: 'x'.repeat(17) })).toBeNull();
     expect(bad({ ...hello, name: 'ab' })).toBeNull();
@@ -584,6 +640,40 @@ describe('genesis messages', () => {
     ).toBeNull();
   });
 
+  it.each([
+    { t: 'court', ask: { ...mateAsk, kind: 'genesis' } },
+    { t: 'court', ask: { ...mateAsk, nonce: 'short' } },
+    { t: 'accept', ask: 'nope' },
+    { t: 'mate-check', partner: 'short' },
+    { t: 'decline' },
+  ])('rejects the malformed client message %j', (m) => {
+    expect(parseClientMsg(JSON.stringify(m))).toBeNull();
+  });
+
+  it('rejects a mating whose commitment is not a pair of asks, and an oversized one', () => {
+    const bad = { ...mateCommit, commitment: { ...mateCommit.commitment, data: { a: mateAsk } } };
+    expect(
+      parseHubMsg(JSON.stringify({ t: 'mating', commit: bad, record: mateRecord })),
+    ).toBeNull();
+    const pad = 'x'.repeat(GENESIS_MAX_BYTES);
+    expect(
+      parseHubMsg(JSON.stringify({ t: 'mating', commit: mateCommit, record: mateRecord, pad })),
+    ).toBeNull();
+    expect(
+      parseHubMsg(
+        JSON.stringify({
+          t: 'mate-info',
+          partner: PID2,
+          reason: null,
+          kinship: 2,
+          generation: 0,
+          tier: 0,
+          cooldownLeftMs: 0,
+        }),
+      ),
+    ).toBeNull();
+  });
+
   it('never throws on 2,000 random strings or mutated valid messages', () => {
     const rng = createRng(seedFromString('fuzz-genesis'), 'net');
     const samples = [
@@ -593,10 +683,21 @@ describe('genesis messages', () => {
       genesisMsg,
       { t: 'refused', reason: 'limit', genesisIn: 5 },
       { t: 'progress', n: 1, ticks: 30, biomass: 10_000, energy: 100, health: 100 },
-      { t: 'ack', n: 1, activeMs: 1000, lifespanMs: 4_500_000 },
+      {
+        t: 'ack',
+        n: 1,
+        activeMs: 1000,
+        lifespanMs: 4_500_000,
+        matureAtMs: 900_000,
+        cooldownUntilMs: 0,
+      },
       { t: 'death', cause: 'uv', ticks: 90 },
       { t: 'died', cause: 'uv', record: genesisMsg.record },
       { t: 'history', lives: [] },
+      { t: 'mate-check', partner: PID2 },
+      { t: 'court', ask: mateAsk },
+      { t: 'mating', commit: mateCommit, record: mateRecord },
+      { t: 'invite', from: PID2, ask: mateAsk, kinship: 0.5, generation: 3 },
     ].map((m) => JSON.stringify(m));
     const alphabet = '{}[]":,0123456789abt_-.\\ \nxé€';
     let threw = 0;

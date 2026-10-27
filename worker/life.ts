@@ -1,6 +1,7 @@
 import type { Genome } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
 import { accrue } from '../src/sim/life';
+import { mateCost } from '../src/sim/mating';
 import { RULES } from '../src/sim/rules';
 import { maxEnergy, maxHealth } from '../src/sim/vitals';
 import type { Head } from './ledger';
@@ -43,6 +44,9 @@ export interface LifeState extends Condition {
   savedN: number;
   /** The active time at which this creature dies of old age (the genome's lifespan, scaled in fixture mode). */
   lifespanMs: number;
+  /** The active time from which the creature may mate (ADR 0021) and until which it is in cooldown. */
+  matureAtMs: number;
+  cooldownUntilMs: number;
   /** Set once the creature has died on this connection: it takes no more reports. */
   over: boolean;
   /** What the genome allows (`physOf`): the largest body and the growth multiplier. */
@@ -59,10 +63,11 @@ export type Implausible = (typeof FLAG_KINDS)[number];
 
 /** A session starts crediting the creature from `now`, with the condition and clock the ledger has. */
 export function bindLife(
-  head: Pick<Head, 'id' | 'activeMs' | 'biomass' | 'energy' | 'health'>,
+  head: Pick<Head, 'id' | 'activeMs' | 'biomass' | 'energy' | 'health' | 'cooldownUntilMs'>,
   genome: Genome,
   now: number,
   lifespanMs: number,
+  matureAtMs: number,
 ): LifeState {
   const { maxBiomass, growth } = buildCreature(genome).phys;
   return {
@@ -79,6 +84,8 @@ export function bindLife(
     energy: head.energy,
     health: head.health,
     lifespanMs,
+    matureAtMs,
+    cooldownUntilMs: head.cooldownUntilMs,
     over: false,
     maxBiomass,
     growth,
@@ -175,3 +182,15 @@ export const unsaved = (life: LifeState): boolean => life.n > life.savedN;
 /** Whether a progress report is due a checkpoint of its own: 15 minutes of active time since the last. */
 export const checkpointDue = (life: LifeState): boolean =>
   life.activeMs - life.savedMs >= CHECKPOINT_EVERY_MS;
+
+/** The condition after paying for a mating (hundredths, rounded down), as the `mate-commit` record keeps it. */
+export function paidFor(life: Condition): Condition {
+  const left = mateCost(life.biomass / HUNDREDTHS, life.energy / HUNDREDTHS);
+  const biomass = Math.floor(left.biomass * HUNDREDTHS);
+  return {
+    biomass,
+    energy: Math.floor(left.energy * HUNDREDTHS),
+    // Health can't exceed what the smaller body allows.
+    health: Math.min(life.health, Math.floor(maxHealth(biomass / HUNDREDTHS) * HUNDREDTHS)),
+  };
+}

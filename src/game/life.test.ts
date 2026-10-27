@@ -47,6 +47,8 @@ const info = (over: Partial<LifeInfo> = {}): LifeInfo => ({
   health: 1_500,
   activeMs: 600_000,
   lifespanMs: 4_500_000,
+  matureAtMs: 900_000,
+  cooldownUntilMs: 0,
   ...over,
 });
 
@@ -321,7 +323,14 @@ describe('progress', () => {
   it('takes the ack as the new life clock', async () => {
     await play();
     flow.report(900, { biomass: 1, energy: 1, health: 1 });
-    feed({ t: 'ack', n: 1, activeMs: 630_000, lifespanMs: 4_500_000 });
+    feed({
+      t: 'ack',
+      n: 1,
+      activeMs: 630_000,
+      lifespanMs: 4_500_000,
+      matureAtMs: 900_000,
+      cooldownUntilMs: 0,
+    });
     expect(flow.view()).toMatchObject({
       activeMs: 630_000,
       lifespanMs: 4_500_000,
@@ -420,7 +429,14 @@ describe('life clock', () => {
     await play({ lifespanMs: 0, activeMs: 0 });
     expect(flow.clock(30, 100, MAX, 2_700_000)?.lifespanMs).toBe(2_700_000);
     flow.report(900, { biomass: 1, energy: 1, health: 1 });
-    feed({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 45_000 });
+    feed({
+      t: 'ack',
+      n: 1,
+      activeMs: 30_000,
+      lifespanMs: 45_000,
+      matureAtMs: 9_000,
+      cooldownUntilMs: 0,
+    });
     expect(flow.clock(900, 100, MAX, 2_700_000)).toMatchObject({
       activeMs: 30_000,
       lifespanMs: 45_000,
@@ -432,18 +448,39 @@ describe('life clock', () => {
     await play({ activeMs: 0 });
     flow.report(900, { biomass: 1, energy: 1, health: 1 });
     // 3 s of play go by before the ack arrives.
-    feed({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 });
+    feed({
+      t: 'ack',
+      n: 1,
+      activeMs: 30_000,
+      lifespanMs: 4_500_000,
+      matureAtMs: 900_000,
+      cooldownUntilMs: 0,
+    });
     expect(flow.clock(990, 100, MAX, FALLBACK)?.activeMs).toBe(33_000);
   });
 
   it('keeps counting through a reconnect, which numbers reports again from 1', async () => {
     await play({ activeMs: 0 });
     flow.report(900, { biomass: 1, energy: 1, health: 1 });
-    feed({ t: 'ack', n: 1, activeMs: 30_000, lifespanMs: 4_500_000 });
+    feed({
+      t: 'ack',
+      n: 1,
+      activeMs: 30_000,
+      lifespanMs: 4_500_000,
+      matureAtMs: 900_000,
+      cooldownUntilMs: 0,
+    });
     flow.attach({ send: (m) => sent.push(m) });
     feed({ t: 'life', life: info({ activeMs: 30_000 }), genesisIn: 0 });
     flow.report(1800, { biomass: 1, energy: 1, health: 1 });
-    feed({ t: 'ack', n: 1, activeMs: 60_000, lifespanMs: 4_500_000 });
+    feed({
+      t: 'ack',
+      n: 1,
+      activeMs: 60_000,
+      lifespanMs: 4_500_000,
+      matureAtMs: 900_000,
+      cooldownUntilMs: 0,
+    });
     expect(flow.clock(1800, 100, MAX, FALLBACK)?.activeMs).toBe(60_000);
     expect(flow.clock(2700, 100, MAX, FALLBACK)?.activeMs).toBe(90_000);
   });

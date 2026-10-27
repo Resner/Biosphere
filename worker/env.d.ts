@@ -8,6 +8,8 @@ interface Env {
   DRAND_SOURCE?: string;
   /** A fraction in (0, 1] that shortens every lifespan for E2E; honoured only together with `DRAND_SOURCE=fixture`. */
   LIFESPAN_SCALE?: string;
+  /** A fraction in (0, 1] that shortens maturity, cooldown and the repeat window for E2E; fixture mode only (ADR 0021). */
+  MATING_SCALE?: string;
   /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */
   MAX_SESSIONS?: string;
   DAILY_REQUEST_BUDGET?: string;

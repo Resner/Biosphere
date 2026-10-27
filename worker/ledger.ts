@@ -1,5 +1,6 @@
 import type { Canonical } from '../src/ledger/canonical';
 import { fromBase64Url, verify } from '../src/ledger/identity';
+import { KINSHIP_GENERATIONS } from '../src/ledger/pedigree';
 import {
   authorityKeyId,
   authorityPublicKey,
@@ -309,6 +310,46 @@ export class Ledger {
       this.pending(owner) !== null ||
       this.run("SELECT 1 FROM creatures WHERE owner = ? AND status = 'checkpoint' LIMIT 1", owner)
         .length > 0
+    );
+  }
+
+  /** Whether the player has a mating that has not produced its children yet. */
+  hasOpenMating(owner: string): boolean {
+    return (
+      this.run('SELECT 1 FROM matings WHERE resolved = 0 AND (owner_a = ?1 OR owner_b = ?1)', owner)
+        .length > 0
+    );
+  }
+
+  /**
+   * The parents of each given creature and of their ancestors, up to `KINSHIP_GENERATIONS` levels:
+   * what `kinship` needs. A creature the table lacks, or a genesis creature, is a founder.
+   */
+  pedigree(ids: string[]): Map<string, [string, string] | null> {
+    const out = new Map<string, [string, string] | null>();
+    let level = ids;
+    for (let depth = 0; depth <= KINSHIP_GENERATIONS && level.length > 0; depth++) {
+      const next: string[] = [];
+      for (const id of level) {
+        if (out.has(id)) continue;
+        const row = this.run('SELECT parent_a, parent_b FROM creatures WHERE id = ?', id)[0];
+        const parents =
+          row?.parent_a && row.parent_b ? ([row.parent_a, row.parent_b] as [string, string]) : null;
+        out.set(id, parents);
+        if (parents) next.push(...parents);
+      }
+      level = next;
+    }
+    return out;
+  }
+
+  /** Whether any mating commitment already carries this ask nonce (a signed ask is good for one mating). */
+  nonceUsed(nonce: string): boolean {
+    return (
+      this.run(
+        "SELECT 1 FROM commitments WHERE kind = 'mate' AND json LIKE ? LIMIT 1",
+        `%"nonce":"${nonce}"%`,
+      ).length > 0
     );
   }
 
