@@ -106,6 +106,11 @@ export class Beacons {
     }
   }
 
+  /** A beacon the table already holds (every resolved commitment's is), or null. Never fetches. */
+  stored(round: number): Beacon | null {
+    return this.cached(round);
+  }
+
   /**
    * Commits to the round after the newest published one. The same `kind`, `owner` and `data` always
    * return the same commitment, so callers put a fresh nonce in `data` for each new request.

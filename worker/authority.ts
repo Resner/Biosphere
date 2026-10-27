@@ -2,6 +2,8 @@ import { DurableObject } from 'cloudflare:workers';
 import { type Genome, genomeFromBase64url, genomeToBase64url } from '../src/genome/codec';
 import { express } from '../src/genome/express';
 import { speciesName } from '../src/genome/names';
+import { offspringPair } from '../src/genome/offspring';
+import { buildCreature } from '../src/genome/stats';
 import { type GenesisAsk, verifyGenesisAsk } from '../src/ledger/ask';
 import type { Canonical } from '../src/ledger/canonical';
 import { randomnessOf } from '../src/ledger/drand';
@@ -13,9 +15,11 @@ import {
   toBase64Url,
   verify,
 } from '../src/ledger/identity';
-import { checkMatePair, type MateAsk, signedBy } from '../src/ledger/mating';
+import { birthRequest, checkMatePair, type MateAsk, signedBy } from '../src/ledger/mating';
 import { kinship } from '../src/ledger/pedigree';
+import type { StoredRecord } from '../src/ledger/record';
 import {
+  type Born,
   byteLength,
   CLOSE_BAD_HELLO,
   CLOSE_RATE_LIMITED,
@@ -38,11 +42,13 @@ import {
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { lifespanMs } from '../src/sim/life';
+import { hatchling } from '../src/sim/mating';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import { sizeTier } from '../src/sim/size';
 import type { DeathCause } from '../src/sim/types';
+import { maxHealth } from '../src/sim/vitals';
 import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from './beacons';
-import { type Head, type KeyEntry, Ledger } from './ledger';
+import { type BirthChild, type Head, type KeyEntry, Ledger } from './ledger';
 import {
   applyReport,
   bindLife,
@@ -293,6 +299,10 @@ export class Authority extends DurableObject<Env> {
         // One commitment failing must not strand the others this pass resolved.
         await this.deliverGenesis(id).catch(() => {});
       }
+      // Matings whose round is published, including one marked resolved whose children were not written (an eviction in between).
+      for (const id of this.ledger.openMatingCommits()) {
+        if (this.beacons.status(id) === 'ready') await this.deliverBirth(id).catch(() => {});
+      }
     } finally {
       await this.rearm();
     }
@@ -402,6 +412,95 @@ export class Authority extends DurableObject<Env> {
       }
       sendIfOpen(other, msg);
     }
+  }
+
+  /**
+   * Writes a mating's two `birth` records once its round is published (idempotent) and sends each
+   * owner their child. The children are recomputed from the beacon and the parents' genomes, never
+   * taken from anywhere else.
+   */
+  private async deliverBirth(commitId: string): Promise<void> {
+    const commit = this.beacons.commitment(commitId);
+    if (commit?.commitment.kind !== 'mate') return;
+    const beacon = await this.beacons.beaconFor(commitId);
+    if (!beacon) return;
+    const { a: askA, b: askB } = commit.commitment.data as unknown as { a: MateAsk; b: MateAsk };
+    const owners: [string, string] = [commit.commitment.owner, askA.partner];
+    const parentIds: [string, string] = [askA.creature, askB.creature];
+    const heads = parentIds.map((id) => this.ledger.head(id));
+    const [headA, headB] = heads;
+    const genomes = heads.map((h) => (h ? genomeFromBase64url(h.genome) : null));
+    const [genomeA, genomeB] = genomes;
+    if (!headA || !headB || !genomeA || !genomeB) return;
+    const mates = parentIds.map((id) => this.mateRecord(id, commitId));
+    if (!mates[0] || !mates[1]) return;
+    const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
+    const generation = Math.max(headA.generation, headB.generation) + 1;
+    const mateHashes: [string, string] = [mates[0].hash, mates[1].hash];
+    const result = this.ledger.birth({
+      commit: commitId,
+      children: children.map((child, i) => {
+        const { biomass, energy } = hatchling(buildCreature(child).phys.maxBiomass);
+        return {
+          request: birthRequest(
+            RULES_VERSION,
+            commit.commitment,
+            mateHashes,
+            slots[i] as number,
+            parentIds,
+            child,
+            generation,
+            owners[i] as string,
+          ),
+          genome: genomeToBase64url(child),
+          condition: {
+            biomass: Math.floor(biomass * 100),
+            energy: Math.floor(energy * 100),
+            health: Math.floor(maxHealth(biomass) * 100),
+          },
+        };
+      }) as [BirthChild, BirthChild],
+    });
+    if (!result.ok || !result.fresh) return;
+    for (const [i, stored] of result.stored.entries()) {
+      const child = this.ledger.head(stored.hash);
+      const born = child ? this.bornFor(child) : null;
+      if (!born) continue;
+      for (const [other, theirs] of this.activeSessions()) {
+        if (theirs.playerId === owners[i]) sendIfOpen(other, { t: 'born', ...born });
+      }
+    }
+  }
+
+  /** The `mate-commit` record the creature's chain holds for this commitment. */
+  private mateRecord(creature: string, commitId: string): StoredRecord | undefined {
+    return this.ledger
+      .chain(creature)
+      .find((r) => r.record.kind === 'mate-commit' && r.record.body.commit === commitId);
+  }
+
+  /** Everything a client needs to check a pending child: its record, commitment, beacon and both parents. */
+  private bornFor(child: Head): Born | null {
+    const record = this.ledger.chain(child.id)[0];
+    const commitId = record?.record.kind === 'birth' ? String(record.record.body.commit) : '';
+    const commit = this.beacons.commitment(commitId);
+    const beacon = commit ? this.beacons.stored(commit.commitment.round) : null;
+    const ids = record?.record.body.parents as [string, string] | undefined;
+    if (!record || !commit || !beacon || !ids) return null;
+    const parents = ids.map((id) => this.ledger.head(id)?.genome);
+    const mates = ids.map((id) => this.mateRecord(id, commitId));
+    const [p0, p1] = parents;
+    const [m0, m1] = mates;
+    return p0 && p1 && m0 && m1
+      ? {
+          record,
+          commit: signedOf(commit),
+          beacon,
+          genome: child.genome,
+          parents: [p0, p1],
+          mates: [m0, m1],
+        }
+      : null;
   }
 
   /**
@@ -984,7 +1083,18 @@ export class Authority extends DurableObject<Env> {
   private sendLife(ws: WebSocket, playerId: string): void {
     const head = this.ledger.active(playerId);
     const { left, genesisIn } = this.ledger.hatches(playerId, Date.now());
-    sendIfOpen(ws, { t: 'life', life: head ? this.lifeOf(head) : null, genesisIn });
+    const child = this.ledger.pending(playerId);
+    const pending = child ? this.bornFor(child) : null;
+    sendIfOpen(ws, {
+      t: 'life',
+      life: head ? this.lifeOf(head) : null,
+      genesisIn,
+      ...(pending ? { pending } : {}),
+    });
+    // A mating whose children were never written (an eviction between its round and the write) is finished now.
+    for (const id of this.ledger.openMatingCommits(playerId)) {
+      if (this.beacons.status(id) === 'ready') this.deliverBirth(id).catch(() => {});
+    }
     // A genesis still waiting on its round is announced again, and its creature follows when the round comes.
     const waiting = this.ledger.pendingCommit(playerId);
     const commit = waiting ? this.beacons.commitment(waiting) : null;

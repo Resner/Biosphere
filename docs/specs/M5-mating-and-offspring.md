@@ -166,7 +166,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: protocol version 2 (`mate-check`, `court`, `accept`, `decline`; `mate-info`, `invite`, `declined`, `mating`; `ack` and `LifeInfo` carry `matureAtMs` and `cooldownUntilMs`), `worker/mating.ts` (pure views, scale, requests), the handlers in `worker/authority.ts`, `Ledger.hasOpenMating`, `pedigree` and `nonceUsed`, tests in `worker/mating.test.ts`. A `v: 1` hello still gets `error: version` (the code the client already handles), not `outdated`.
   - Gotcha: the invitation lives in the courting session's attachment as `court` (`{ ask, sentAt }`, then `{ done, nonce }` so a duplicate accept resends the same commitment); acceptances are serialised in `matingQueue` and re-checked after the beacon await. A signed ask is single-use through `Ledger.nonceUsed`, a `json_extract` scan over mate commitments that became matings (M13 must index it if it shows). `cooldownLeftMs` in `mate-info` is the longer of the two creatures'. The size-tier refusal is covered by a pure test, since the growth clamp keeps fixture creatures in one tier. `MATING_SCALE` scales maturity (from the unscaled lifespan), cooldown and the repeat window; the commitment is made after all checks, so a refusal never leaves one behind.
 
-- [ ] T8 Birth: resolve the round, deliver the children (in progress)
+- [x] T8 Birth: resolve the round, deliver the children
   - Acceptance (workerd tests):
     - When the committed round is published, the alarm writes both `birth` records and creates both `pending` creatures in one transaction (generation = max parent generation + 1, hatchling condition from T2, `chain_parent` empty, cooldown zero), marks the mating resolved, and sends `born` to each connected owner: the record, commitment, beacon, the child's genome text, both parents' genome texts and both `mate-commit` records. `checkBirth` returns `[]` on that message.
     - Slot 0 is the courting player's child and equals `offspringPair(...)[0]`; slot 1 is the accepter's. Over 200 fixture matings with random parents the two children always differ.
@@ -176,6 +176,8 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
     - A tampered `born` (each variant of T4's table, at the message level) fails the client-side check; the client check is the lazy `@noble/curves` path, never loaded before a `born` arrives (the import-graph test of M4 still passes).
     - Rows: a birth costs ≤ 6.
   - Notes: reuse the `Beacons.alarm()` list of resolved ids and add the `mate` branch beside `deliverGenesis`. The parents' genome texts come from the heads at birth (they are immutable, so that is the genome the `mate-commit` hash names).
+  - Done: `Authority.deliverBirth` (alarm sweep over `Ledger.openMatingCommits`, also at hello) writes both `birth` rows through `Ledger.birth` and pushes `born` (`Born` in `protocol.ts`, also `life.pending` at hello); tests in `worker/birth.test.ts`, codec cases in `protocol.test.ts`.
+  - Gotcha: a birth costs 7 row writes (index entries count, as T6 found), not 6. Hub message parse cap is now `BORN_MAX_BYTES` (32 KB) up front with per-message caps after; `born` is pushed only on the fresh write, a reconnect gets it through `life.pending`.
 
 - [ ] T9 Promotion, restore, death fallback, lineage on the hub
   - Acceptance (workerd tests):

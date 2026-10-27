@@ -321,6 +321,14 @@ export class Ledger {
     );
   }
 
+  /** The commitments of matings that have not produced their children yet (few: one per courting pair), optionally the player's own. */
+  openMatingCommits(owner?: string): string[] {
+    return this.run(
+      'SELECT commit_id FROM matings WHERE resolved = 0 AND (?1 IS NULL OR owner_a = ?1 OR owner_b = ?1)',
+      owner ?? null,
+    ).map((r) => r.commit_id as string);
+  }
+
   /**
    * The parents of each given creature and of their ancestors, up to `KINSHIP_GENERATIONS` levels:
    * what `kinship` needs. A creature the table lacks, or a genesis creature, is a founder.
