@@ -274,12 +274,12 @@ Exit criteria map: "consent, eligibility, cost and cooldown" T2, T3, T7, T10; "f
 
 ## Rubric
 
-- [ ] The courtship is readable at a glance: the player sees who they can court and why not otherwise, the invitation names the partner and a countdown, and both players see the cost land (evidence: HUD and invitation screenshots at 960×540, the E2E bars before and after).
-- [ ] The two children of one mating look like their parents and unlike each other (evidence: a screenshot of both bodies beside both parents' bodies for three matings, and the distinct-genome E2E assertion).
-- [ ] The offspring card and the death choice use plain words and fit at 960×540 (evidence: banned-word tests and screenshots).
-- [ ] The Punnett hints equal the exact enumeration and say that mutation can still surprise (evidence: `punnett` unit tests against enumeration and a DOM read in the E2E).
-- [ ] Nothing a player loses is silent: a death shows what is left, a restore shows how much life remains, and a frozen parent is marked as frozen (evidence: screenshots of the death screen with each fallback and of the lineage view).
-- [ ] The breeding loop works with the genetics UI closed: court, wait, promote with two keys and no panel (evidence: the E2E drives it with `E` and `H` only).
+- [x] The courtship is readable at a glance: the player sees who they can court and why not otherwise, the invitation names the partner and a countdown, and both players see the cost land (evidence: HUD and invitation screenshots at 960×540, the E2E bars before and after).
+- [x] The two children of one mating look like their parents and unlike each other (evidence: a screenshot of both bodies beside both parents' bodies for three matings, and the distinct-genome E2E assertion).
+- [x] The offspring card and the death choice use plain words and fit at 960×540 (evidence: banned-word tests and screenshots).
+- [x] The Punnett hints equal the exact enumeration and say that mutation can still surprise (evidence: `punnett` unit tests against enumeration and a DOM read in the E2E).
+- [x] Nothing a player loses is silent: a death shows what is left, a restore shows how much life remains, and a frozen parent is marked as frozen (evidence: screenshots of the death screen with each fallback and of the lineage view).
+- [x] The breeding loop works with the genetics UI closed: court, wait, promote with two keys and no panel (evidence: the E2E drives it with `E` and `H` only).
 - [ ] (owner) Choosing a mate matters and is fun: you look at candidates, weigh size, rarity and kinship, and are curious about the child.
 - [ ] (owner) The first mating arrives at a pace that feels earned and the cooldown does not feel like a wall (the pacing table gives the numbers).
 - [ ] (owner) Offspring feel inherited: you can see both parents in a child, and a surprise now and then feels like a gift.
