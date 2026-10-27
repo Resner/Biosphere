@@ -1,11 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { IDLE, type Input } from './input';
 import { accrue, applyLife, type LifeStage, lifeStage, lifespanMs } from './life';
+import { mateCost } from './mating';
 import { applyMetabolism } from './metabolism';
 import { applyMovement } from './physics';
 import { RULES } from './rules';
 import { hashWorld } from './state-hash';
 import { step } from './step';
+import { maxHealth } from './vitals';
 import { createWorld, spawnCreature } from './world';
 
 describe('lifespanMs', () => {
@@ -152,6 +154,51 @@ describe('applyLife', () => {
     const before = hashWorld(world);
     young.elder = true;
     expect(hashWorld(world)).not.toBe(before);
+  });
+});
+
+describe('lifeStage with matureAtMs', () => {
+  const span = 4_500_000;
+  it('uses the given maturity time instead of the M4 rule', () => {
+    expect(lifeStage(100_000, span, 1000, 1000, 100_000)).toBe('mature');
+    expect(lifeStage(99_999, span, 1000, 1000, 100_000)).toBe('young');
+    expect(lifeStage(3_825_000, span, 1000, 1000, 100_000)).toBe('old');
+  });
+
+  it('keeps the maturity biomass share', () => {
+    expect(lifeStage(100_000, span, 599, 1000, 100_000)).toBe('young');
+  });
+});
+
+describe('applyLife mate', () => {
+  it('pays the cost, shrinks the radius, clamps health and emits nothing', () => {
+    const { world, young } = elderPair();
+    young.biomass = 500;
+    young.energy = 800;
+    young.health = maxHealth(500);
+    const cost = mateCost(500, 800);
+    expect(applyLife(world, young.id, 'mate')).toEqual([]);
+    expect(young.biomass).toBe(cost.biomass);
+    expect(young.energy).toBe(cost.energy);
+    expect(young.health).toBe(maxHealth(cost.biomass));
+    expect(young.health).toBeLessThan(maxHealth(500));
+    expect(young.alive).toBe(true);
+  });
+
+  it('keeps health that is already below the new maximum', () => {
+    const { world, young } = elderPair();
+    young.health = 5;
+    applyLife(world, young.id, 'mate');
+    expect(young.health).toBe(5);
+  });
+
+  it('ignores the dead and unknown creatures', () => {
+    const { world, young } = elderPair();
+    young.alive = false;
+    const before = young.biomass;
+    expect(applyLife(world, young.id, 'mate')).toEqual([]);
+    expect(young.biomass).toBe(before);
+    expect(applyLife(world, 'nobody', 'mate')).toEqual([]);
   });
 });
 

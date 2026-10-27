@@ -20,7 +20,14 @@ interface Golden {
   events: Record<string, number>;
 }
 
-const NAMES = ['idle-starve', 'forage-route', 'hazard-dash', 'body-forage', 'old-age'] as const;
+const NAMES = [
+  'idle-starve',
+  'forage-route',
+  'hazard-dash',
+  'body-forage',
+  'old-age',
+  'mate',
+] as const;
 const file = (name: string) => new URL(`./__golden__/${name}.json`, import.meta.url);
 const ID = 'p1';
 
@@ -105,7 +112,16 @@ function build(): Record<(typeof NAMES)[number], InputLog> {
       [1500, 'expire'],
     ],
   };
+  // The forage route, with the authority charging a mating cost at 10 s and 40 s.
+  const mate: InputLog = {
+    ...forage,
+    life: [
+      [300, 'mate'],
+      [1200, 'mate'],
+    ],
+  };
   return {
+    mate,
     'old-age': oldAge,
     'idle-starve': idle,
     'forage-route': forage,
@@ -157,6 +173,30 @@ describe('golden scenarios', () => {
     const old = replay(load('old-age').log);
     expect(old.events.death).toBe(1);
     expect(old.world.creatures[0]).toMatchObject({ alive: false, cause: 'old-age', elder: true });
+  });
+
+  it('the mate golden pays the cost twice and keeps going', () => {
+    const { log, hash } = load('mate');
+    const result = replay(log);
+    const plain = replay({ ...log, life: [] });
+    expect(result.world.creatures[0]?.alive).toBe(true);
+    expect(result.hash).not.toBe(plain.hash);
+    expect(result.events.death ?? 0).toBe(0);
+    expect(replay({ ...log, life: [[300, 'mate']] }).hash).not.toBe(hash);
+  });
+
+  it('rejects a life list that is out of order or unknown', () => {
+    const { log } = load('mate');
+    expect(() =>
+      replay({
+        ...log,
+        life: [
+          [400, 'mate'],
+          [400, 'mate'],
+        ],
+      }),
+    ).toThrow(RangeError);
+    expect(() => replay({ ...log, life: [[1, 'breed' as never]] })).toThrow(RangeError);
   });
 
   it('a life call changes the hash', () => {
