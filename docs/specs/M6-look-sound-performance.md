@@ -136,7 +136,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Notes: this task owns the settings panel shell (quality now; T21 adds volume and T9 reduced motion reuse it). Particle counts scale with the preset in `ParticleLayer`. Presets only change presentation: nothing in `src/sim` reads them.
   - Rewrite note: T1 was built from the first M6 spec. In this spec, auto-detect is T4, volume is T22 and reduced motion is T22; the panel shell is unchanged.
 
-- [ ] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus]
+- [ ] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus] (in progress)
   - Acceptance (unit tests first, then E2E):
     - `postPlan(preset)` (pure) lists the passes and target scales:
       - low: `[]` (direct render to the canvas);
