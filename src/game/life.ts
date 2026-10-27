@@ -78,6 +78,8 @@ export interface LifeView {
   lifespanMs: number;
   awaitingBeacon: boolean;
   lastAckN: number;
+  /** The biomass in the report the hub last took (0 before the first). */
+  ackedBiomass: number;
   /** Ms until the next recorded hatch, as the hub last said (0 = now). */
   genesisIn: number;
   practice: boolean;
@@ -141,6 +143,7 @@ export class LifeFlow {
   private activeMs = 0;
   private lifespanMs = 0;
   private lastAckN = 0;
+  private ackedBiomass = 0;
   private genesisIn = 0;
   private waiter: ((msg: LifeMsg) => void) | null = null;
   /** Counters the hub sees: `n` and `ticks` start again on every connection. */
@@ -151,7 +154,7 @@ export class LifeFlow {
   private last: GenesisMsg | null = null;
   /** The game's tick count when the hub's last word on the life clock (`activeMs`) was true. */
   private baseTicks = 0;
-  private sentReports: { n: number; ticks: number }[] = [];
+  private sentReports: { n: number; ticks: number; biomass: number }[] = [];
   private oldAge = false;
   private matureAtMs = 0;
   private cooldownUntilMs = 0;
@@ -169,6 +172,7 @@ export class LifeFlow {
       lifespanMs: this.lifespanMs,
       awaitingBeacon: this.status === 'awaiting',
       lastAckN: this.lastAckN,
+      ackedBiomass: this.ackedBiomass,
       genesisIn: this.genesisIn,
       practice: this.status === 'practice',
       matureAtMs: this.matureAtMs,
@@ -228,9 +232,10 @@ export class LifeFlow {
       case 'ack':
         if (this.status !== 'playing') break;
         this.lastAckN = Math.max(this.lastAckN, msg.n);
+        this.ackedBiomass = this.sentOf(msg.n)?.biomass ?? this.ackedBiomass;
         this.activeMs = msg.activeMs;
         this.lifespanMs = msg.lifespanMs;
-        this.baseTicks = this.ticksOf(msg.n);
+        this.baseTicks = this.sentOf(msg.n)?.ticks ?? this.lastTicks;
         this.matureAtMs = msg.matureAtMs;
         this.cooldownUntilMs = msg.cooldownUntilMs;
         break;
@@ -298,7 +303,7 @@ export class LifeFlow {
     if (this.status !== 'playing' || !this.link) return;
     const counted = this.count(ticks);
     this.n++;
-    this.sentReports.push({ n: this.n, ticks });
+    this.sentReports.push({ n: this.n, ticks, biomass: condition.biomass });
     if (this.sentReports.length > SENT_KEPT) this.sentReports.shift();
     this.link.send({
       t: 'progress',
@@ -396,13 +401,13 @@ export class LifeFlow {
     if (cause !== 'old-age') this.link?.send({ t: 'death', cause, ticks: sent });
   }
 
-  /** The game's tick count when report `n` went out (the newest with that number), else the latest report's. */
-  private ticksOf(n: number): number {
+  /** Report `n` as it went out (the newest with that number). */
+  private sentOf(n: number): { ticks: number; biomass: number } | undefined {
     for (let i = this.sentReports.length - 1; i >= 0; i--) {
       const sent = this.sentReports[i];
-      if (sent?.n === n) return sent.ticks;
+      if (sent?.n === n) return sent;
     }
-    return this.lastTicks;
+    return undefined;
   }
 
   /** `ticks` as this connection counts them, from the first report after a (re)connection. */
@@ -447,6 +452,7 @@ export class LifeFlow {
     this.activeMs = start.activeMs;
     this.lifespanMs = start.lifespanMs;
     this.lastAckN = 0;
+    this.ackedBiomass = 0;
     this.n = 0;
     this.tickBase = 0;
     this.lastTicks = 0;

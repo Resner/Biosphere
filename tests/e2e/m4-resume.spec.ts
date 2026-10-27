@@ -38,7 +38,9 @@ test('closing the tab and coming back resumes the same creature @slow', async ({
   await first.waitForTimeout(300);
   const before = await state(first);
   expect(before.life.activeMs).toBeGreaterThan(0);
-  const ackedBiomass = before.player?.biomass ?? 0;
+  // The condition in the report the hub took; the creature has changed since (it feeds and burns).
+  const ackedBiomass = before.life.ackedBiomass;
+  expect(ackedBiomass).toBeGreaterThan(0);
   await first.close();
 
   // Time away is not life: the same clock comes back after a pause.
