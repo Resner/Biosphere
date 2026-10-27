@@ -25,14 +25,19 @@ import {
   CLOSE_RATE_LIMITED,
   CLOSE_REPLACED,
   type ClientMsg,
+  type FallbackInfo,
   HISTORY_MAX,
   type HubMsg,
   type IceServer,
   isCause,
   isOtherVersionHello,
+  LINEAGE_MAX,
   type LifeInfo,
+  type LineageEntry,
   type Member,
   NONCE_BYTES,
+  PEDIGREE_MAX,
+  type PedigreeNode,
   type PondInfo,
   parseClientMsg,
   SDP_MAX_BYTES,
@@ -48,7 +53,14 @@ import { sizeTier } from '../src/sim/size';
 import type { DeathCause } from '../src/sim/types';
 import { maxHealth } from '../src/sim/vitals';
 import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from './beacons';
-import { type BirthChild, type Head, type KeyEntry, Ledger } from './ledger';
+import {
+  type BirthChild,
+  type Condition,
+  type Exhaustion,
+  type Head,
+  type KeyEntry,
+  Ledger,
+} from './ledger';
 import {
   applyReport,
   bindLife,
@@ -257,6 +269,15 @@ export class Authority extends DurableObject<Env> {
       case 'history':
         this.history(ws, session.playerId);
         return;
+      case 'lineage':
+        this.lineage(ws, session.playerId);
+        return;
+      case 'promote':
+        this.promoteChild(ws, session, msg, now);
+        return;
+      case 'restore':
+        this.restoreAncestor(ws, session, msg, now);
+        return;
       case 'mate-check':
         this.mateCheck(ws, session, msg.partner);
         return;
@@ -355,6 +376,12 @@ export class Authority extends DurableObject<Env> {
         // The client may have missed it (a late genesis): the creature comes first, then the refusal.
         this.sendLife(ws, owner);
         sendIfOpen(ws, { t: 'refused', reason: 'active' });
+        return;
+      }
+      // Frozen ancestors with no life left end now, so only a real way back blocks a new genesis.
+      this.fallbackAfter(this.ledger.lastDead(owner));
+      if (this.ledger.alive(owner)) {
+        sendIfOpen(ws, { t: 'refused', reason: 'has-lineage' });
         return;
       }
       if (hatchesLeft < 1) {
@@ -556,7 +583,10 @@ export class Authority extends DurableObject<Env> {
     if (session.life.over) {
       // A repeat gets the first answer, whatever cause it names.
       const record = this.ledger.deathRecord(session.life.creature);
-      if (record) sendIfOpen(ws, { t: 'died', cause: causeOf(record.record.body.cause), record });
+      if (record) {
+        const fallback = this.fallbackAfter(this.ledger.head(session.life.creature));
+        sendIfOpen(ws, { t: 'died', cause: causeOf(record.record.body.cause), record, fallback });
+      }
       return;
     }
     // The checkpoint keeps what the last report said; the stretch since then is credited to the death.
@@ -585,7 +615,8 @@ export class Authority extends DurableObject<Env> {
       biomass: saved.biomass,
     });
     if (!accepted.ok) return saved;
-    sendIfOpen(ws, { t: 'died', cause, record: accepted.stored });
+    const fallback = this.fallbackAfter(this.ledger.head(life.creature));
+    sendIfOpen(ws, { t: 'died', cause, record: accepted.stored, fallback });
     return { ...saved, savedMs: saved.activeMs, savedN: saved.n, over: true };
   }
 
@@ -840,6 +871,122 @@ export class Authority extends DurableObject<Env> {
     sendIfOpen(ws, { t: 'history', lives });
   }
 
+  /** What makes a frozen creature too old to restore: its lifespan and the least life worth coming back for. */
+  private exhaustion(): Exhaustion {
+    return {
+      lifespanOf: (head) => {
+        const genome = genomeFromBase64url(head.genome);
+        return genome ? this.lifespanOf(genome) : 0;
+      },
+      restoreMinMs: Math.round(
+        RULES.mating.restoreMinMs * fixtureScale(this.env, this.env.MATING_SCALE),
+      ),
+    };
+  }
+
+  /**
+   * What the player can fall back on after `dead`: a pending child and the nearest surviving ancestor.
+   * Frozen creatures walked over with too little life left end here, with an `old-age` death.
+   */
+  private fallbackAfter(dead: Head | null): FallbackInfo {
+    const rule = this.exhaustion();
+    const found = dead
+      ? this.ledger.fallback(dead.id, rule)
+      : { pending: null, ancestor: null, exhausted: [] };
+    for (const head of found.exhausted) this.ledger.markExhausted(head.id, rule);
+    return {
+      pending: found.pending !== null,
+      ancestor: found.ancestor
+        ? { ...this.lifeOf(found.ancestor), hash: found.ancestor.hash }
+        : null,
+    };
+  }
+
+  /** The player's creatures and their pedigree: no other player is named. */
+  private lineage(ws: WebSocket, owner: string): void {
+    const heads = this.ledger.creatures(owner, LINEAGE_MAX);
+    const creatures = heads.flatMap((head): LineageEntry[] => {
+      const genome = genomeFromBase64url(head.genome);
+      if (!genome) return [];
+      return [
+        {
+          creature: head.id,
+          status: head.status,
+          generation: head.generation,
+          species: speciesName(genome),
+          genome: head.genome,
+          activeMs: head.activeMs,
+          lifespanMs: this.lifespanOf(genome),
+          hash: head.hash,
+          chainParent: head.chainParent,
+        },
+      ];
+    });
+    const pedigree: PedigreeNode[] = [];
+    for (const [id, parents] of this.ledger.pedigree(heads.map((h) => h.id))) {
+      if (pedigree.length >= PEDIGREE_MAX) break;
+      const genomeText = this.ledger.head(id)?.genome;
+      const genome = genomeText ? genomeFromBase64url(genomeText) : null;
+      if (genomeText && genome) {
+        pedigree.push({ id, parents, species: speciesName(genome), genome: genomeText });
+      }
+    }
+    sendIfOpen(ws, { t: 'lineage', creatures, pedigree });
+  }
+
+  /** Makes the pending child the active creature; the active parent, if any, is frozen with the condition this session last reported. */
+  private promoteChild(
+    ws: WebSocket,
+    session: ActiveSession,
+    msg: ClientMsg & { t: 'promote' },
+    now: number,
+  ): void {
+    const { request, sig } = msg;
+    if (request.owner !== session.playerId) {
+      sendIfOpen(ws, { t: 'refused', reason: 'wrong-owner' });
+      return;
+    }
+    const mine = session.life;
+    const freeze: Condition | null =
+      mine && !mine.over && mine.creature === request.body.parent ? conditionOf(mine) : null;
+    const result = this.ledger.promote(request, sig, freeze);
+    if (!result.ok) {
+      sendIfOpen(ws, { t: 'refused', reason: result.reason });
+      return;
+    }
+    const head = this.ledger.head(request.creature);
+    if (!head) return;
+    // A repeat of a promotion already taken must not rewind the child's clock.
+    const life = !result.fresh && mine?.creature === head.id ? mine : this.bindHead(head, now);
+    ws.serializeAttachment({ ...session, life, court: undefined } satisfies Session);
+    sendIfOpen(ws, { t: 'promoted', life: this.lifeOf(head), parent: result.frozen });
+  }
+
+  /** Brings the nearest surviving ancestor back with its saved condition and life clock. */
+  private restoreAncestor(
+    ws: WebSocket,
+    session: ActiveSession,
+    msg: ClientMsg & { t: 'restore' },
+    now: number,
+  ): void {
+    const { request, sig } = msg;
+    if (request.owner !== session.playerId) {
+      sendIfOpen(ws, { t: 'refused', reason: 'wrong-owner' });
+      return;
+    }
+    const result = this.ledger.restore(request, sig, this.exhaustion());
+    if (!result.ok) {
+      sendIfOpen(ws, { t: 'refused', reason: result.reason });
+      return;
+    }
+    const head = this.ledger.head(request.creature);
+    if (!head) return;
+    const mine = session.life;
+    const life = !result.fresh && mine?.creature === head.id ? mine : this.bindHead(head, now);
+    ws.serializeAttachment({ ...session, life, court: undefined } satisfies Session);
+    sendIfOpen(ws, { t: 'restored', life: this.lifeOf(head) });
+  }
+
   /** The head as the client resumes it. */
   private lifeOf(head: Head): LifeInfo {
     const genome = genomeFromBase64url(head.genome);
@@ -1085,11 +1232,13 @@ export class Authority extends DurableObject<Env> {
     const { left, genesisIn } = this.ledger.hatches(playerId, Date.now());
     const child = this.ledger.pending(playerId);
     const pending = child ? this.bornFor(child) : null;
+    const fallback = head ? null : this.fallbackAfter(this.ledger.lastDead(playerId));
     sendIfOpen(ws, {
       t: 'life',
       life: head ? this.lifeOf(head) : null,
       genesisIn,
       ...(pending ? { pending } : {}),
+      ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
     });
     // A mating whose children were never written (an eviction between its round and the write) is finished now.
     for (const id of this.ledger.openMatingCommits(playerId)) {
@@ -1288,3 +1437,12 @@ function sendIfOpen(ws: WebSocket, msg: HubMsg): void {
     // closed while waiting
   }
 }
+
+/** The condition a record body saves of a connection's creature. */
+const conditionOf = (life: LifeState): Condition => ({
+  activeMs: life.activeMs,
+  biomass: life.biomass,
+  energy: life.energy,
+  health: life.health,
+  cooldownUntilMs: life.cooldownUntilMs,
+});
