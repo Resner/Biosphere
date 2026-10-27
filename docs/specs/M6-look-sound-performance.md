@@ -163,7 +163,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `render/post/{plan,chain}.ts`, `bloom`/`post` shaders; the chain resets `renderer.info` each frame, clears targets in display values, and the Lab runs high with `{ samples: 4, lens: false }` (no vignette or aberration, which vary by cell position and broke the Lab's per-cell checks). `setFocus` waits for T3.
   - Gotcha: half-float blending doubles software-GL frame time (dsf 2 high ~150 ms), so the T1 runtime-switch E2E is split in two to stay under 20 s; the Lab budgets add `LAB_POST` (4 programs, 10 calls).
 
-- [ ] T3 Depth of field [opus]
+- [ ] T3 Depth of field [opus] (in progress)
   - Acceptance:
     - `circleOfConfusion(z, focusZ, preset)` (pure) is 0 at the focus plane and grows linearly with distance, up to a cap: 6 px at half resolution on medium, 12 px at full resolution on high. Its tests pin the curve.
     - The focus plane follows the player's creature at the gameplay plane. Creatures, food and plumes on the plane stay sharp. The far and near particle layers are blurred by their depth into round bokeh discs; on high, bright discs get a chromatic fringe.
