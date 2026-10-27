@@ -63,7 +63,7 @@ export interface MateViewModel {
   inviteLeftMs: number;
 }
 
-type Info = Extract<LifeMsg, { t: 'mate-info' }>;
+export type Info = Extract<LifeMsg, { t: 'mate-info' }>;
 
 const SIGN_WINDOW_MS = RULES.mating.signWindowMs;
 const ACCEPT_MS = RULES.mating.acceptShownMs;

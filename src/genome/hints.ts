@@ -3,7 +3,7 @@
 // show", never how DNA is encoded. The numbers are `punnett`'s, rounded to whole percent.
 
 import type { Genome } from './codec';
-import { type PunnettHints, type PunnettOutcome, punnett } from './punnett';
+import { type PunnettOutcome, punnett } from './punnett';
 
 export interface HintItem {
   word: string;
@@ -57,10 +57,10 @@ function isPlain(o: PunnettOutcome): boolean {
 }
 
 /** What a cross of `a` and `b` may show, from the exact enumeration in `punnett`. */
-export function mateHints(a: Genome, b: Genome, hints: PunnettHints = punnett(a, b)): MateHints {
+export function mateHints(a: Genome, b: Genome): MateHints {
+  const hints = punnett(a, b);
   const shows: HintItem[] = [];
   for (const trait of hints.traits) {
-    if (trait.outcomes.every(isPlain)) continue;
     for (const o of trait.outcomes) {
       if (isPlain(o)) continue;
       const pct = percent(o.chance);

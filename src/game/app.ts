@@ -47,12 +47,12 @@ import {
   installHook,
   type ScriptedRemote,
 } from './debug';
-import { pick } from './dom';
+import { listItem, pick } from './dom';
 import { createFieldSync } from './field';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
-import { RemoteLabels, screenX, screenY } from './labels';
+import { RemoteLabels } from './labels';
 import { type LifeClock, LifeFlow, type Started, VERIFY_FAILED } from './life';
 import { resetLife } from './life-reset';
 import { countdownText } from './life-text';
@@ -201,10 +201,10 @@ function newSession(
   };
 }
 
-/** Starts the title screen; the player hatches into the same scene. */
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
 const INSPECT_MIN_PX = 24;
 
+/** Starts the title screen; the player hatches into the same scene. */
 export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const scene = new GameScene(canvas, RULES.world.size);
   const camera = new FollowCamera();
@@ -336,29 +336,21 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const inspectVerdict = pick('[data-testid="inspect-verdict"]');
   const inspectHints = pick('[data-testid="inspect-hints"]');
   let inspected: string | null = null;
-  let inspectKey = '';
+  /** What the card on screen was built from; it is rebuilt only when one of these changes. */
+  let inspectFrom: readonly unknown[] = [];
   pick('[data-testid="inspect-close"]').addEventListener('click', () => {
     inspected = null;
   });
   canvas.addEventListener('click', (e) => {
     if (screen !== 'playing' || session.demo) return;
     const rect = canvas.getBoundingClientRect();
-    const p = {
-      camX: camera.x,
-      camY: camera.y,
-      pxPerWu: scene.pxPerWu,
-      width: scene.width,
-      height: scene.height,
-    };
+    const at = worldAt(e.clientX - rect.left, e.clientY - rect.top);
     let best = Number.POSITIVE_INFINITY;
     inspected = null;
     for (const r of remoteViews) {
       if (r.alpha < 0.5) continue;
-      const gap = Math.hypot(
-        screenX(r.x, p) - (e.clientX - rect.left),
-        screenY(r.y, p) - (e.clientY - rect.top),
-      );
-      if (gap > Math.max(r.radius * p.pxPerWu, INSPECT_MIN_PX) || gap >= best) continue;
+      const gap = Math.hypot(r.x - at.x, r.y - at.y);
+      if (gap > Math.max(r.radius, INSPECT_MIN_PX / scene.pxPerWu) || gap >= best) continue;
       best = gap;
       inspected = r.id;
     }
@@ -367,11 +359,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let nearby: Nearby | null = null;
   let reminded = false;
   let readyShown = '';
-  const listItem = (text: string): HTMLElement => {
-    const li = document.createElement('li');
-    li.textContent = text;
-    return li;
-  };
   const setIfChanged = (el: HTMLElement, text: string): void => {
     if (el.textContent !== text) el.textContent = text;
   };
@@ -1021,36 +1008,39 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   /** The inspect card beside a clicked creature: closed when it leaves, dies or the game stops. */
-  const updateInspectUi = (allowed: boolean): void => {
-    const remote = allowed && inspected ? remoteViews.find((r) => r.id === inspected) : undefined;
-    if (!remote || remote.alpha < 0.5) {
-      if (inspected && allowed && !remote) inspected = null;
+  const updateInspectUi = (playingNow: boolean, invited: boolean): void => {
+    if (!playingNow) inspected = null;
+    const remote = inspected ? remoteViews.find((r) => r.id === inspected) : undefined;
+    if (inspected && !remote) inspected = null;
+    if (!remote || remote.alpha < 0.5 || invited) {
       if (!inspectPanel.hidden) inspectPanel.hidden = true;
-      inspectKey = '';
       return;
     }
     mate.check(remote.id);
-    const card = inspectCard({
-      name: remote.name,
-      radius: remote.radius,
-      species: remote.species,
-      body: remote.body,
-      genomeText: remote.genomeText,
-      ownGenomeText: session.body.text,
-      info: mate.info(remote.id),
-    });
-    const key = JSON.stringify([remote.id, card]);
-    if (key !== inspectKey) {
-      inspectKey = key;
+    const info = mate.info(remote.id);
+    const from = [
+      remote.id,
+      remote.body,
+      remote.genomeText,
+      session.body.text,
+      info,
+      sizeTier(remote.radius * remote.radius),
+    ];
+    if (from.some((v, i) => v !== inspectFrom[i])) {
+      inspectFrom = from;
+      const card = inspectCard({
+        name: remote.name,
+        radius: remote.radius,
+        species: remote.species,
+        body: remote.body,
+        genomeText: remote.genomeText,
+        ownGenomeText: session.body.text,
+        info,
+      });
       setIfChanged(inspectName, card.name);
       setBadge(inspectBadge, card.rarity);
       setIfChanged(inspectSpecies, card.species);
-      setIfChanged(
-        inspectMeta,
-        [card.size, card.generation === null ? '' : `generation ${card.generation}`]
-          .filter(Boolean)
-          .join(' · '),
-      );
+      setIfChanged(inspectMeta, card.meta);
       inspectTraits.replaceChildren(...card.traits.map(listItem));
       setIfChanged(inspectKinship, card.kinship);
       setIfChanged(inspectVerdict, card.verdict);
@@ -1058,17 +1048,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       inspectHints.replaceChildren(...(card.hints?.lines ?? []).map(listItem));
     }
     // Beside the creature, never over it: on the side of the screen it is not on.
-    const side =
-      screenX(remote.x, {
-        camX: camera.x,
-        camY: camera.y,
-        pxPerWu: scene.pxPerWu,
-        width: scene.width,
-        height: scene.height,
-      }) <
-      scene.width / 2
-        ? 'right'
-        : 'left';
+    const side = remote.x < camera.x ? 'right' : 'left';
     if (inspectPanel.dataset.side !== side) inspectPanel.dataset.side = side;
     if (inspectPanel.hidden) inspectPanel.hidden = false;
   };
@@ -1102,7 +1082,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (mateHint.hidden !== hideHint) mateHint.hidden = hideHint;
     const court = String(hint?.court === true);
     if (mateHint.dataset.court !== court) mateHint.dataset.court = court;
-    updateInspectUi(playingNow && !view.invite);
+    updateInspectUi(playingNow, view.invite !== null);
     const { invite } = view;
     const hideInvite = !playingNow || !invite;
     if (invitePanel.hidden !== hideInvite) invitePanel.hidden = hideInvite;

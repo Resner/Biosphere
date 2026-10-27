@@ -217,13 +217,16 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `OffspringFlow` (`src/game/offspring.ts`, DOM-free; the BLS check is `offspring-check.ts`, loaded lazily), `LifeFlow.promote` and `restore` (owner-signed requests, the hub's `refused` reasons in plain words), `fallback` on the life view, `offspring-text.ts` (choice labels), a 2D silhouette preview (`offspring-preview.ts`, no second WebGL context), the choice on the title and death screens (`title-fallback-*`, `death-fallback-*`; Enter takes the first), `H` to become the child, `state().offspring`. `m5-promote.spec.ts` covers egg, card, promote, starve, return. The egg is a CSS shell beside the parent, not a scene effect.
   - Gotcha: `restored` no longer clears `pending` (an ancestor coming back leaves the child waiting; the old unit test said otherwise and was wrong). The parent of a promotion or the `from` of a restore is the creature that is active or died last: the flow knows it in a session, else it asks `lineage` and takes the newest dead one. The ancestor's generation comes from a `lineage` answer, so the label omits it until that arrives.
 
-- [ ] T12 Choosing a mate: inspect card, Punnett hints, kinship (in progress)
+- [x] T12 Choosing a mate: inspect card, Punnett hints, kinship
   - Acceptance (unit tests on view models; E2E for the DOM):
     - Clicking a remote creature opens its inspect card: species, rarity badge, size tier, traits in plain words (the existing `describe`/`explain`), and after `mate-check` its generation, kinship with you in words ("close relative: weaker offspring more likely"), and whether you can mate now with the reason if not. A remote still drawn as a tinted cell shows "Still arriving".
     - Hints: "Chance the offspring will show: albino 25%, glowing 50%, …" from `punnett`, only for traits where either parent carries the allele; "Chance of a weak trait: 6%" from the load risk; "Mutations can still surprise you." The numbers on screen equal `punnett` rounded to whole percent (view-model unit test and one E2E that reads them from the DOM). Inbreeding words come from `inbreedingBand`.
     - The same badge component serves the Lab, the card and the invitation (no copy); the card fits at 960×540 and does not cover the creature being inspected (screenshot properties: the card rectangle and the creature's centre do not overlap).
     - No jargon: the banned-word test covers the card, hints and warnings ("allele", "locus", "genotype", "Punnett", "homozygous").
   - Notes: the card reads only what the client already has (the peer's genome) plus one `mate-check` answer per card; it never sends more than one check per second. Keep text short.
+
+  - Done: click a creature for the card (`mate-card.ts` view model, `genome/hints.ts` wording over `punnett`, `badge.ts` shared by the card, invitation and Lab); it sits on the side of the screen the creature is not on and shows three trait sentences. Covered by a second test in `m5-court.spec.ts`.
+  - Gotcha: the card is rebuilt only when its inputs change (identity compare), and the hint percentages are checked against `punnett` in unit tests, not in the E2E. M5 E2E files share one hub and one pond, so new M5 tests join an existing serial file.
 
 - [ ] T13 Lineage view
   - Acceptance (unit tests on the view model; E2E screenshot):

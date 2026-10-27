@@ -6,11 +6,9 @@ import { describeCreature } from '../genome/describe';
 import { type MateHints, mateHints } from '../genome/hints';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import type { Creature } from '../genome/stats';
-import type { LifeMsg } from '../net/hub-client';
 import { sizeTier } from '../sim/size';
+import type { Info } from './mate';
 import { bandWords, refusalText } from './mate-text';
-
-type Info = Extract<LifeMsg, { t: 'mate-info' }>;
 
 /** What the shell knows of the creature being looked at. */
 export interface InspectInput {
@@ -28,13 +26,11 @@ export interface InspectInput {
 
 export interface InspectCard {
   name: string;
-  /** False while the body has not arrived: only the name and a note show. */
-  arrived: boolean;
   species: string;
   rarity: RarityTier | '';
-  size: string;
+  /** "Size 1 · generation 3": the generation joins once the check answers. */
+  meta: string;
   traits: string[];
-  generation: number | null;
   kinship: string;
   /** Whether you can mate now, with the reason if not; empty before the check answers. */
   verdict: string;
@@ -50,8 +46,12 @@ export function inspectCard(input: InspectInput): InspectCard {
   const { name, info, body } = input;
   const base = {
     name,
-    size: `Size ${sizeTier(input.radius * input.radius)}`,
-    generation: info ? info.generation : null,
+    meta: [
+      `Size ${sizeTier(input.radius * input.radius)}`,
+      info ? `generation ${info.generation}` : '',
+    ]
+      .filter(Boolean)
+      .join(' · '),
     kinship: info ? bandWords(info.kinship) : '',
     verdict: !info
       ? ''
@@ -63,21 +63,20 @@ export function inspectCard(input: InspectInput): InspectCard {
   if (!body) {
     return {
       ...base,
-      arrived: false,
       species: input.species ?? ARRIVING,
       rarity: '',
       traits: [ARRIVING],
       hints: null,
     };
   }
+  const lines = describeCreature(body);
   const theirs = input.genomeText === null ? null : parseGenomeText(input.genomeText);
   const own = input.ownGenomeText === null ? null : parseGenomeText(input.ownGenomeText);
   return {
     ...base,
-    arrived: true,
     species: input.species ?? 'A new creature',
     rarity: rarityOfTraits(body.traits).tier,
-    traits: TRAIT_LINES.flatMap((i) => describeCreature(body)[i] ?? []),
+    traits: TRAIT_LINES.flatMap((i) => lines[i] ?? []),
     hints: own && theirs ? mateHints(own, theirs) : null,
   };
 }

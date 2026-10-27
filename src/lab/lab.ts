@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { rarityBadge } from '../game/badge';
-import { pick } from '../game/dom';
+import { listItem, pick } from '../game/dom';
 import { genomeToBase64url, parseGenomeText } from '../genome/codec';
 import { explainChild, type TraitExplanation } from '../genome/explain';
 import { topDownCamera } from '../render/camera';
@@ -292,12 +292,6 @@ export function startLab(options: LabOptions): void {
         return [dt, dd];
       }),
     );
-  }
-
-  function listItem(text: string): HTMLElement {
-    const li = document.createElement('li');
-    li.textContent = text;
-    return li;
   }
 
   function updateTools(): void {

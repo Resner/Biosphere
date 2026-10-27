@@ -33,17 +33,15 @@ const BANNED = /allele|locus|genotype|punnett|homozygous|commit|ledger|checkpoin
 describe('inspectCard', () => {
   it('shows species, rarity, size and traits for an arrived body', () => {
     const card = inspectCard(input);
-    expect(card.arrived).toBe(true);
     expect(card.species).toBe(speciesName(carrier));
     expect(card.rarity).not.toBe('');
-    expect(card.size).toBe('Size 1');
+    expect(card.meta).toBe('Size 1');
     expect(card.traits.length).toBe(3);
     expect(card.verdict).toBe('');
   });
 
   it('says "Still arriving" for a tinted cell and shows no hints', () => {
     const card = inspectCard({ ...input, body: null, genomeText: null, species: null });
-    expect(card.arrived).toBe(false);
     expect(card.traits).toEqual(['Still arriving']);
     expect(card.hints).toBeNull();
   });
@@ -54,7 +52,7 @@ describe('inspectCard', () => {
 
   it('adds generation, kinship words and the verdict once the check answers', () => {
     const ok = inspectCard({ ...input, info });
-    expect(ok.generation).toBe(3);
+    expect(ok.meta).toBe('Size 1 · generation 3');
     expect(ok.kinship).toMatch(/Not related/);
     expect(ok.verdict).toBe('You can mate now');
     expect(ok.canMate).toBe(true);
@@ -71,7 +69,7 @@ describe('inspectCard', () => {
     const card = inspectCard({ ...input, info: { ...info, kinship: 0.15 } });
     const text = [
       card.species,
-      card.size,
+      card.meta,
       ...card.traits,
       card.kinship,
       card.verdict,

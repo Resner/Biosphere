@@ -5,14 +5,16 @@ import type { RarityTier } from '../genome/rarity';
 
 const capitalise = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
-/** Sets `el` to the badge for `tier`; an empty tier clears it. */
+/** Sets `el` to the badge for `tier`; an empty tier hides it. Writes only what changed. */
 export function setBadge(el: HTMLElement, tier: RarityTier | ''): void {
   const text = tier === '' ? '' : capitalise(tier);
   if (el.textContent !== text) el.textContent = text;
-  el.className = 'badge';
-  if (tier !== '') el.dataset.tier = tier;
-  else delete el.dataset.tier;
-  el.hidden = tier === '';
+  if (!el.classList.contains('badge')) el.classList.add('badge');
+  if (el.dataset.tier !== tier) {
+    if (tier === '') delete el.dataset.tier;
+    else el.dataset.tier = tier;
+  }
+  if (el.hidden !== (tier === '')) el.hidden = tier === '';
 }
 
 /** A new badge element. */
