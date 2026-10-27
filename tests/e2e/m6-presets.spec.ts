@@ -5,7 +5,12 @@ import { hatch, openGame } from './helpers';
 
 // Quality presets (M6 T1): the URL, the stored setting and the settings panel all end in the same
 // `render.info()`. A device ratio of 2 makes every preset's pixel ratio distinguishable.
-test.use({ deviceScaleFactor: 2, storageState: { cookies: [], origins: [] } });
+// A small viewport keeps the software-rendered high preset affordable on CI runners.
+test.use({
+  deviceScaleFactor: 2,
+  viewport: { width: 640, height: 360 },
+  storageState: { cookies: [], origins: [] },
+});
 
 const info = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
 
@@ -23,6 +28,13 @@ async function choose(page: Page, quality: string): Promise<void> {
   await page.getByTestId(`quality-${quality}`).check();
   await page.getByTestId('settings-close').click();
   await page.getByTestId('lineage-close').click();
+}
+
+// The same panel from the title screen: no hatch, which the slow software renderer makes costly.
+async function chooseOnTitle(page: Page, quality: string): Promise<void> {
+  await page.getByTestId('settings-open').click();
+  await page.getByTestId(`quality-${quality}`).check();
+  await page.getByTestId('settings-close').click();
 }
 
 // Independent of PRESETS: the pixel ratios DESIGN §12 lists, at a device ratio of 2.
@@ -43,13 +55,12 @@ test('?quality= starts the game on that preset', async ({ page }) => {
 // software, and a test doing both ran past the 20 s a PR-gate scenario may take.
 test('the settings panel switches from medium to low at runtime', async ({ page }) => {
   await openGame(page, '?debug=1&seed=presets');
-  await hatch(page);
   await waitForFrames(page);
   const medium = await info(page);
   expect(medium.preset).toBe('medium');
   expect(medium.pixelRatio).toBe(1.5);
 
-  await choose(page, 'low');
+  await chooseOnTitle(page, 'low');
   await waitForFrames(page);
   const low = await info(page);
   expect(low.preset).toBe('low');
@@ -63,12 +74,11 @@ test('the settings panel switches from medium to low at runtime', async ({ page 
 
 test('the settings panel switches from low to high at runtime', async ({ page }) => {
   await openGame(page, '?debug=1&seed=presets&quality=low');
-  await hatch(page);
   await waitForFrames(page);
   const low = await info(page);
   expect(low.preset).toBe('low');
 
-  await choose(page, 'high');
+  await chooseOnTitle(page, 'high');
   await waitForFrames(page);
   const high = await info(page);
   expect(high.preset).toBe('high');
