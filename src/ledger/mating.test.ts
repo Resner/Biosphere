@@ -411,6 +411,15 @@ describe('checkBirth', () => {
     expect(check(m, 0, { record: thief })).toContain('owner-mismatch');
   });
 
+  it('names a rules version that differs from the mate-commits, and a commitment without asks', async () => {
+    const m = await mating();
+    const r = { ...(m.births[0] as LedgerRecord), rules: RULES_VERSION + 1 };
+    expect(check(m, 0, { record: r })).toContain('rules-mismatch');
+    const empty = { ...m.commit, data: {} };
+    expect(check(m, 0, { commit: empty })).toEqual(['bad-commit']);
+    expect(check(m, 0, { commit: { ...m.commit, data: null as never } })).toEqual(['bad-commit']);
+  });
+
   it('names a record that is not a birth, and never throws on junk', async () => {
     const m = await mating();
     const notBirth = { ...(m.births[0] as LedgerRecord), kind: 'genesis' } as LedgerRecord;

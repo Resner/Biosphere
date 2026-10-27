@@ -182,7 +182,11 @@ export function checkBirth(
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
     if (record.kind !== 'birth') return ['not-birth'];
     if (commit.kind !== 'mate') return ['not-mate'];
-    const { a: askA, b: askB } = commit.data as unknown as { a: MateAsk; b: MateAsk };
+    const data = commit.data as { a?: unknown; b?: unknown } | null;
+    if (typeof data?.a !== 'object' || data.a === null || typeof data.b !== 'object') {
+      return ['bad-commit'];
+    }
+    const { a: askA, b: askB } = data as { a: MateAsk; b: MateAsk };
     const ownerA = commit.owner;
     const ownerB = askA.partner;
     const failures = checkMatePair(askA, ownerA, askB, ownerB).map((f) => `pair:${f}`);
@@ -193,6 +197,7 @@ export function checkBirth(
     if (child === null) failures.push('owner-mismatch');
     if (body.commit !== id) failures.push('commit-mismatch');
     if (body.round !== commit.round) failures.push('round-mismatch');
+    if (mates.some((m) => m.record.rules !== record.rules)) failures.push('rules-mismatch');
     failures.push(...beaconProblems(commit, beacon));
     if (canonicalize(body.parents as Canonical) !== canonicalize([askA.creature, askB.creature])) {
       failures.push('parent-mismatch');
