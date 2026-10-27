@@ -172,25 +172,28 @@ export class PostChain {
     // Full-screen passes overwrite or add onto their whole target; clearing first would waste fill.
     const autoClear = r.autoClear;
     r.autoClear = false;
-    const mips = this.mips;
-    const first = mips[0];
-    if (first) {
-      this.pass(this.prefilter, target, first);
-      for (let i = 1; i < mips.length; i++)
-        this.pass(this.down, mips[i - 1] ?? first, mips[i] ?? first);
-      for (let i = mips.length - 1; i > 0; i--)
-        this.pass(this.up, mips[i] ?? first, mips[i - 1] ?? first);
+    try {
+      const mips = this.mips;
+      const first = mips[0];
+      if (first) {
+        this.pass(this.prefilter, target, first);
+        for (let i = 1; i < mips.length; i++)
+          this.pass(this.down, mips[i - 1] ?? first, mips[i] ?? first);
+        for (let i = mips.length - 1; i > 0; i--)
+          this.pass(this.up, mips[i] ?? first, mips[i - 1] ?? first);
+      }
+      const u = composite.uniforms;
+      (u.tScene as THREE.IUniform).value = target.texture;
+      (u.tBloom as THREE.IUniform).value = first ? first.texture : null;
+      (u.uAspect as THREE.IUniform).value = this.width / this.height;
+      this.frame = (this.frame + 1) % 4096;
+      (u.uSeed as THREE.IUniform).value = this.frame * 17.31;
+      this.quad.material = composite;
+      r.setRenderTarget(null);
+      r.render(this.quadScene, this.quadCamera);
+    } finally {
+      r.autoClear = autoClear;
     }
-    const u = composite.uniforms;
-    (u.tScene as THREE.IUniform).value = target.texture;
-    (u.tBloom as THREE.IUniform).value = first ? first.texture : null;
-    (u.uAspect as THREE.IUniform).value = this.width / this.height;
-    this.frame = (this.frame + 1) % 4096;
-    (u.uSeed as THREE.IUniform).value = this.frame * 17.31;
-    this.quad.material = composite;
-    r.setRenderTarget(null);
-    r.render(this.quadScene, this.quadCamera);
-    r.autoClear = autoClear;
   }
 
   info(): PostInfo {
