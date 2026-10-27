@@ -196,6 +196,31 @@ describe('death requests', () => {
     },
   );
 
+  it('records a client death that spends the last of the lifespan as old age', async () => {
+    const { c, creature, lifespan } = await newPlayer();
+    advance(lifespan);
+    c.send({ t: 'death', cause: 'starved', ticks: ticksFor(lifespan) });
+    const died = await nextOf(c, 'died');
+    expect(died.cause).toBe('old-age');
+    expect(died.record.record.body).toMatchObject({ cause: 'old-age', activeMs: lifespan });
+    expect(await status(creature)).toBe('dead');
+  });
+
+  it('keeps the client cause for a death short of the lifespan', async () => {
+    const { c, lifespan } = await newPlayer();
+    advance(lifespan - 60_000);
+    c.send({ t: 'death', cause: 'starved', ticks: ticksFor(lifespan - 60_000) });
+    expect((await nextOf(c, 'died')).cause).toBe('starved');
+  });
+
+  it('does not let inflated ticks turn a real death into old age', async () => {
+    const { c, lifespan } = await newPlayer();
+    // Wall time is short, so the report is clamped and the creature is nowhere near its lifespan.
+    advance(30_000);
+    c.send({ t: 'death', cause: 'toxin', ticks: ticksFor(lifespan * 2) });
+    expect((await nextOf(c, 'died')).cause).toBe('toxin');
+  });
+
   it('answers a second death for the same creature with the same record', async () => {
     const { c, creature } = await newPlayer();
     advance(5000);

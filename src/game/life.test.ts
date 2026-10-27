@@ -257,6 +257,34 @@ describe('hatching', () => {
     expect(flow.view()).toMatchObject({ status: 'idle', awaitingBeacon: false });
   });
 
+  // Every reason string the hub sends in `refused`, and whether it answers a genesis ask.
+  const REASONS: [string, 'answer' | 'stray'][] = [
+    ['limit', 'answer'],
+    ['bad-signature', 'answer'],
+    ['used', 'answer'],
+    ['active', 'answer'],
+    ['already-active', 'answer'],
+    ['bad-owner-signature', 'answer'],
+    ['invalid-record:shape', 'answer'],
+    ['dead', 'stray'],
+    ['cause', 'stray'],
+    ['queued', 'stray'],
+  ];
+
+  it.each(REASONS)('treats a refusal for "%s" as %s', async (reason, group) => {
+    feed({ t: 'life', life: null, genesisIn: 0 });
+    const pending = flow.hatch(WAIT);
+    await vi.advanceTimersByTimeAsync(0);
+    feed({ t: 'refused', reason });
+    if (group === 'answer') {
+      expect((await pending).kind === 'recorded').toBe(false);
+      return;
+    }
+    // A stray refusal about something else keeps the wait going until the genesis comes.
+    feed(genesisMsg());
+    expect((await pending).kind).toBe('recorded');
+  });
+
   it('reports a creature that plays elsewhere', async () => {
     feed({ t: 'life', life: null, genesisIn: 0 });
     const pending = flow.hatch(WAIT);

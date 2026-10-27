@@ -345,8 +345,8 @@ export class Authority extends DurableObject<Env> {
     const text = genomeToBase64url(genome);
     const accepted = this.ledger.accept({ request, genome: text });
     if (!accepted.ok) {
-      // Nothing will ever follow: free the player to ask again instead of waiting on a dead commitment.
-      this.ledger.clearPending(owner, commitId);
+      // Nothing will ever follow: give the hatch back and free the player to ask again instead of waiting on a dead commitment.
+      this.ledger.refundHatch(owner, commitId, Date.now());
       for (const [other, theirs] of this.activeSessions()) {
         if (theirs.playerId === owner) sendIfOpen(other, { t: 'refused', reason: accepted.reason });
       }
@@ -426,7 +426,10 @@ export class Authority extends DurableObject<Env> {
     const saved = unsaved(session.life)
       ? this.checkpoint(session.life, session.playerId)
       : session.life;
-    const life = this.finish(ws, creditTicks(saved, msg.ticks, now), session.playerId, msg.cause);
+    // Ticks that spend the last of the lifespan are old age whatever the client says: the authority's clock decides.
+    const credited = creditTicks(saved, msg.ticks, now);
+    const cause = isOld(credited) ? 'old-age' : msg.cause;
+    const life = this.finish(ws, credited, session.playerId, cause);
     ws.serializeAttachment({ ...session, life } satisfies Session);
   }
 

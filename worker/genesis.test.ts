@@ -1,4 +1,4 @@
-import { evictDurableObject, runDurableObjectAlarm } from 'cloudflare:test';
+import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { exports } from 'cloudflare:workers';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
@@ -152,6 +152,34 @@ describe('genesis request', () => {
       id.playerId,
     );
     expect(row?.pending).toBe('');
+  });
+
+  it('gives the hatch back when the ledger refuses, once', async () => {
+    const { c, id } = await login();
+    const { commit, hatchesLeft } = await ask(c, id);
+    expect(hatchesLeft).toBe(2);
+    await sql(
+      `INSERT INTO creatures (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t)
+       VALUES (?, ?, 'active', 0, ?, '', 0, 0, 0, 0, 1)`,
+      'e'.repeat(64),
+      id.playerId,
+      'e'.repeat(64),
+    );
+    await publish(commit.commitment.round);
+    expect(await nextOf(c, 'refused')).toMatchObject({ reason: 'already-active' });
+    const bucket = () =>
+      sql<{ hatches: number; pending: string }>(
+        'SELECT hatches, pending FROM players WHERE id = ?',
+        id.playerId,
+      );
+    expect(await bucket()).toEqual([{ hatches: 3, pending: '' }]);
+    // The same commitment is delivered again: nothing more to refund, and the bucket stays full.
+    await runInDurableObject(stub(), (authority) =>
+      (authority as unknown as { deliverGenesis(id: string): Promise<void> }).deliverGenesis(
+        commitmentId(commit.commitment),
+      ),
+    );
+    expect(await bucket()).toEqual([{ hatches: 3, pending: '' }]);
   });
 
   it('keeps a player to one waiting round, whatever nonce they send', async () => {
