@@ -81,7 +81,7 @@ async function challenge(c: Client): Promise<string> {
 async function makeHello(nonce: string, name = 'Alice', store = memoryKeyStore()) {
   const id = await createIdentity(store);
   const sig = toBase64Url(id.sign(HELLO_DOMAIN, helloMessage(nonce, name) ?? new Uint8Array()));
-  return { id, hello: { t: 'hello', v: 1, playerId: id.playerId, name, sig } };
+  return { id, hello: { t: 'hello', v: 2, playerId: id.playerId, name, sig } };
 }
 
 async function login(name = 'Alice', store = memoryKeyStore()) {
@@ -164,7 +164,7 @@ describe('hub hello', () => {
   it('closes 4002 for a wrong protocol version', async () => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
-    c.send({ ...hello, v: 2 });
+    c.send({ ...hello, v: 1 });
     expect(await c.next()).toEqual({ t: 'error', code: 'version' });
     expect(await c.closed).toBe(CLOSE_BAD_HELLO);
   });

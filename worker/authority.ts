@@ -3,6 +3,7 @@ import { type Genome, genomeFromBase64url, genomeToBase64url } from '../src/geno
 import { express } from '../src/genome/express';
 import { speciesName } from '../src/genome/names';
 import { type GenesisAsk, verifyGenesisAsk } from '../src/ledger/ask';
+import type { Canonical } from '../src/ledger/canonical';
 import { randomnessOf } from '../src/ledger/drand';
 import { genesisFor, genesisRequest } from '../src/ledger/genesis';
 import {
@@ -12,6 +13,8 @@ import {
   toBase64Url,
   verify,
 } from '../src/ledger/identity';
+import { checkMatePair, type MateAsk, signedBy } from '../src/ledger/mating';
+import { kinship } from '../src/ledger/pedigree';
 import {
   byteLength,
   CLOSE_BAD_HELLO,
@@ -36,6 +39,7 @@ import {
 import { isProfane } from '../src/net/text';
 import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
+import { sizeTier } from '../src/sim/size';
 import type { DeathCause } from '../src/sim/types';
 import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from './beacons';
 import { type Head, type KeyEntry, Ledger } from './ledger';
@@ -48,6 +52,17 @@ import {
   type LifeState,
   unsaved,
 } from './life';
+import {
+  askLive,
+  type Court,
+  cooldownFor,
+  fixtureScale,
+  mateRequests,
+  matureAtMsOf,
+  refusalFor,
+  repeatWindowMs,
+  viewOf,
+} from './mating';
 import { migrate, type PondRow } from './schema';
 import { TurnCredentials } from './turn';
 import { UsageMeter } from './usage';
@@ -81,6 +96,8 @@ type Session = (
       slot: number;
       /** The creature this connection is playing and what it has reported (absent without one). */
       life?: LifeState | undefined;
+      /** The mating this player has offered, until the partner answers (lazy expiry, no timer). */
+      court?: Court | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is in no pond. */
@@ -107,6 +124,8 @@ export class Authority extends DurableObject<Env> {
   private source: BeaconSource;
   /** Promotions run one at a time: each reads who is waiting and how much room there is fresh. */
   private promoting: Promise<void> = Promise.resolve();
+  /** Acceptances run one at a time: each commits to a round and then re-reads both creatures. */
+  private matingQueue: Promise<void> = Promise.resolve();
   private nextTicket = 0;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
@@ -231,6 +250,18 @@ export class Authority extends DurableObject<Env> {
         return;
       case 'history':
         this.history(ws, session.playerId);
+        return;
+      case 'mate-check':
+        this.mateCheck(ws, session, msg.partner);
+        return;
+      case 'court':
+        this.court(ws, session, msg.ask, now);
+        return;
+      case 'accept':
+        this.queueAccept(ws, msg.ask);
+        return;
+      case 'decline':
+        this.decline(ws, session, msg.partner);
         return;
     }
   }
@@ -394,7 +425,14 @@ export class Authority extends DurableObject<Env> {
       this.ledger.flagImplausible(kind, session.playerId, life.creature, now);
     }
     let next = checkpointDue(life) ? this.checkpoint(life, session.playerId) : life;
-    sendIfOpen(ws, { t: 'ack', n: msg.n, activeMs: next.activeMs, lifespanMs: next.lifespanMs });
+    sendIfOpen(ws, {
+      t: 'ack',
+      n: msg.n,
+      activeMs: next.activeMs,
+      lifespanMs: next.lifespanMs,
+      matureAtMs: next.matureAtMs,
+      cooldownUntilMs: next.cooldownUntilMs,
+    });
     // Old age is decided here, on the authority's clock: the client counts down, but never has the last word.
     if (isOld(next)) next = this.finish(ws, next, session.playerId, 'old-age');
     ws.serializeAttachment({ ...session, life: next } satisfies Session);
@@ -452,6 +490,236 @@ export class Authority extends DurableObject<Env> {
     return { ...saved, savedMs: saved.activeMs, savedN: saved.n, over: true };
   }
 
+  /** The other seated session of `playerId` in the sender's pond, or null. */
+  private peerOf(ws: WebSocket, session: ActiveSession, playerId: string) {
+    for (const [other, theirs] of this.activeSessions(ws)) {
+      if (theirs.pondId === session.pondId && theirs.playerId === playerId) {
+        return { ws: other, session: theirs };
+      }
+    }
+    return null;
+  }
+
+  /** The peer, when it is playing a creature (the `life` is narrowed for the caller). */
+  private partnerOf(ws: WebSocket, session: ActiveSession, playerId: string) {
+    const peer = this.peerOf(ws, session, playerId);
+    return peer?.session.life
+      ? { ws: peer.ws, session: peer.session, life: peer.session.life }
+      : null;
+  }
+
+  /** Why these two sessions' creatures cannot mate now (the first player's view first), or null. */
+  private mateRefusal(
+    a: { playerId: string; life?: LifeState | undefined },
+    b: { playerId: string; life?: LifeState | undefined },
+  ): string | null {
+    if (!a.life || !b.life) return 'no-creature';
+    const view = (s: { playerId: string }, life: LifeState) =>
+      viewOf(life, s.playerId, this.ledger.head(life.creature), {
+        pending: this.ledger.pending(s.playerId) !== null,
+        inFlight: this.ledger.hasOpenMating(s.playerId),
+      });
+    return refusalFor(view(a, a.life), view(b, b.life));
+  }
+
+  /** What the mate card shows about a partner: kinship, generation and size tier, and the longer cooldown left. */
+  private cardOf(a: LifeState, b: LifeState) {
+    const pedigree = this.ledger.pedigree([a.creature, b.creature]);
+    return {
+      kinship: kinship(pedigree, a.creature, b.creature),
+      generation: this.ledger.head(b.creature)?.generation ?? 0,
+      tier: sizeTier(b.biomass / 100),
+      cooldownLeftMs: Math.max(0, a.cooldownUntilMs - a.activeMs, b.cooldownUntilMs - b.activeMs),
+    };
+  }
+
+  private mateCheck(ws: WebSocket, session: ActiveSession, partnerId: string): void {
+    const other = session.life ? this.partnerOf(ws, session, partnerId) : null;
+    if (!session.life || !other) {
+      sendIfOpen(ws, {
+        t: 'mate-info',
+        partner: partnerId,
+        reason: 'not-here',
+        kinship: 0,
+        generation: 0,
+        tier: 0,
+        cooldownLeftMs: 0,
+      });
+      return;
+    }
+    sendIfOpen(ws, {
+      t: 'mate-info',
+      partner: partnerId,
+      reason: this.mateRefusal(session, other.session),
+      ...this.cardOf(session.life, other.life),
+    });
+  }
+
+  /** The courting player offers a mating: kept in the session's attachment until the partner answers. */
+  private court(ws: WebSocket, session: ActiveSession, ask: MateAsk, now: number): boolean {
+    const refuse = (reason: string): false => {
+      sendIfOpen(ws, { t: 'refused', reason });
+      return false;
+    };
+    if (!session.life) return refuse('no-creature');
+    if (ask.partner === session.playerId) return refuse('self');
+    if (ask.creature !== session.life.creature || !signedBy(session.playerId, ask)) {
+      return refuse('bad-signature');
+    }
+    const other = this.partnerOf(ws, session, ask.partner);
+    if (!other) return refuse('not-here');
+    if (ask.partnerCreature !== other.life.creature) return refuse('pair-mismatch');
+    if (this.ledger.nonceUsed(ask.nonce)) return refuse('used');
+    const reason = this.mateRefusal(session, other.session);
+    if (reason) return refuse(reason);
+    // A second court replaces the first: the earlier invitation is void.
+    ws.serializeAttachment({ ...session, court: { ask, sentAt: now } } satisfies Session);
+    const card = this.cardOf(session.life, other.life);
+    sendIfOpen(other.ws, {
+      t: 'invite',
+      from: session.playerId,
+      ask,
+      kinship: card.kinship,
+      generation: this.ledger.head(session.life.creature)?.generation ?? 0,
+    });
+    return true;
+  }
+
+  private decline(ws: WebSocket, session: ActiveSession, courter: string): void {
+    const peer = this.peerOf(ws, session, courter);
+    const court = peer?.session.court;
+    if (peer && court && 'ask' in court && court.ask.partner === session.playerId) {
+      peer.ws.serializeAttachment({ ...peer.session, court: undefined } satisfies Session);
+      sendIfOpen(peer.ws, { t: 'declined', by: session.playerId });
+    }
+  }
+
+  /** Runs an acceptance after any earlier one has finished. */
+  private queueAccept(ws: WebSocket, ask: MateAsk): void {
+    const run = this.matingQueue
+      .then(async () => {
+        await this.accept(ws, ask);
+      })
+      .catch(() => sendIfOpen(ws, { t: 'error', code: 'mate-failed' }));
+    this.matingQueue = run;
+  }
+
+  /**
+   * ADR 0021: the accepting player's ask turns the courtship into one commitment to a future round
+   * and two `mate-commit` records. Nothing is written until every check passes, and nothing reverses it.
+   */
+  private async accept(ws: WebSocket, ask: MateAsk): Promise<boolean> {
+    const refuse = (reason: string): false => {
+      sendIfOpen(ws, { t: 'refused', reason });
+      return false;
+    };
+    const me = sessionOf(ws);
+    if (me?.phase !== 'active' || !me.life) return refuse('no-creature');
+    if (ask.partner === me.playerId) return refuse('self');
+    if (ask.creature !== me.life.creature || !signedBy(me.playerId, ask)) {
+      return refuse('bad-signature');
+    }
+    const found = this.peerOf(ws, me, ask.partner);
+    if (!found) return refuse('no-court');
+    const { court } = found.session;
+    if (court && 'done' in court) {
+      // The same acceptance again: the same commitment, nothing written.
+      if (court.nonce !== ask.nonce) return refuse('no-court');
+      this.resend(ws, me.life.creature, court.done);
+      return true;
+    }
+    if (!court || court.ask.partner !== me.playerId) return refuse('no-court');
+    if (!askLive(court.sentAt, Date.now())) return refuse('expired');
+    if (this.ledger.nonceUsed(ask.nonce)) return refuse('used');
+    const failures = checkMatePair(court.ask, found.session.playerId, ask, me.playerId);
+    if (failures.length > 0) return refuse(failures[0] as string);
+    const reason = this.mateRefusal(me, found.session);
+    if (reason) return refuse(reason);
+
+    const scale = fixtureScale(this.env, this.env.MATING_SCALE);
+    const prior = this.ledger.pairMatings(
+      found.session.playerId,
+      me.playerId,
+      Date.now() - repeatWindowMs(scale),
+    );
+    const data = { a: court.ask, b: ask } as unknown as Canonical;
+    const commit = await this.beacons.commit('mate', found.session.playerId, data);
+
+    // The network call let others in: read both sessions and their creatures again.
+    const [mine, theirs] = [sessionOf(ws), sessionOf(found.ws)];
+    if (mine?.phase !== 'active' || theirs?.phase !== 'active' || !mine.life || !theirs.life) {
+      return refuse('not-here');
+    }
+    const again = theirs.court;
+    // The same offer, and the same two creatures: a re-court, a decline or a death during the wait voids it.
+    if (!again || 'done' in again || again.sentAt !== court.sentAt) return refuse('no-court');
+    if (mine.life.creature !== ask.creature || theirs.life.creature !== court.ask.creature) {
+      return refuse('pair-mismatch');
+    }
+    const stale = this.mateRefusal(mine, theirs);
+    if (stale) return refuse(stale);
+    const [headA, headB] = [
+      this.ledger.head(theirs.life.creature),
+      this.ledger.head(mine.life.creature),
+    ];
+    const [genomeA, genomeB] = [headA, headB].map((h) =>
+      h ? genomeFromBase64url(h.genome) : null,
+    );
+    if (!headA || !headB || !genomeA || !genomeB) return refuse('unknown-creature');
+    const cooldown = cooldownFor(prior, scale);
+    const requests = mateRequests(
+      { id: commit.id, round: commit.commitment.round },
+      { head: headA, life: theirs.life, genome: genomeA },
+      { head: headB, life: mine.life, genome: genomeB },
+      cooldown,
+    );
+    const result = this.ledger.mate({
+      commit: commit.id,
+      round: commit.commitment.round,
+      requests,
+    });
+    if (!result.ok) {
+      sendIfOpen(found.ws, { t: 'refused', reason: result.reason });
+      return refuse(result.reason);
+    }
+    const signed = signedOf(commit);
+    const settle = (socket: WebSocket, s: ActiveSession, i: 0 | 1, court?: Court) => {
+      const body = (requests[i] as { body: Record<string, number> }).body;
+      const life = s.life as LifeState;
+      socket.serializeAttachment({
+        ...s,
+        court,
+        life: {
+          ...life,
+          biomass: body.biomass as number,
+          energy: body.energy as number,
+          health: body.health as number,
+          cooldownUntilMs: body.cooldownUntilMs as number,
+          // The record covers everything reported so far.
+          savedMs: life.activeMs,
+          savedN: life.n,
+        },
+      } satisfies Session);
+      sendIfOpen(socket, { t: 'mating', commit: signed, record: result.stored[i] });
+    };
+    if (result.fresh) {
+      settle(found.ws, theirs, 0, { done: commit.id, nonce: ask.nonce });
+      settle(ws, mine, 1);
+    } else {
+      this.resend(ws, mine.life.creature, commit.id);
+    }
+    return true;
+  }
+
+  /** Sends a player the commitment and their `mate-commit` record of an earlier mating again. */
+  private resend(ws: WebSocket, creature: string, commitId: string): void {
+    const commit = this.beacons.commitment(commitId);
+    const record = this.ledger
+      .chain(creature)
+      .find((r) => r.record.kind === 'mate-commit' && r.record.body.commit === commitId);
+    if (commit && record) sendIfOpen(ws, { t: 'mating', commit: signedOf(commit), record });
+  }
+
   /** The player's finished lives, newest first. */
   private history(ws: WebSocket, playerId: string): void {
     // Field by field: this is a network message, so a column added to the row later isn't sent by accident.
@@ -485,13 +753,22 @@ export class Authority extends DurableObject<Env> {
       health: head.health,
       activeMs: head.activeMs,
       lifespanMs: genome ? this.lifespanOf(genome) : 0,
+      matureAtMs: genome ? this.matureAtMsOf(genome) : 0,
+      cooldownUntilMs: head.cooldownUntilMs,
     };
+  }
+
+  /** The active time from which a creature of this genome may mate, shortened by `MATING_SCALE` in fixture mode only. */
+  private matureAtMsOf(genome: Genome): number {
+    return matureAtMsOf(
+      lifespanMs(express(genome).physiology.lifespan),
+      fixtureScale(this.env, this.env.MATING_SCALE),
+    );
   }
 
   /** The lifespan this object gives a genome: its trait, shortened by `LIFESPAN_SCALE` in fixture mode only. */
   private lifespanOf(genome: Genome): number {
-    const scale = Number(this.env.LIFESPAN_SCALE);
-    const shortened = this.env.DRAND_SOURCE === 'fixture' && scale > 0 && scale <= 1 ? scale : 1;
+    const shortened = fixtureScale(this.env, this.env.LIFESPAN_SCALE);
     return Math.round(lifespanMs(express(genome).physiology.lifespan) * shortened);
   }
 
@@ -504,7 +781,9 @@ export class Authority extends DurableObject<Env> {
   /** A connection's state for `head`; none when its genome doesn't decode, so nothing is credited to it. */
   private bindHead(head: Head, now: number): LifeState | undefined {
     const genome = genomeFromBase64url(head.genome);
-    return genome ? bindLife(head, genome, now, this.lifespanOf(genome)) : undefined;
+    return genome
+      ? bindLife(head, genome, now, this.lifespanOf(genome), this.matureAtMsOf(genome))
+      : undefined;
   }
 
   /** Writes the creature's condition as a checkpoint record; the state comes back marked saved only if the ledger took it. */

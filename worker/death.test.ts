@@ -404,10 +404,11 @@ describe('the life clock never gains', () => {
         const roll = below(10);
         if (!life) {
           life = bindLife(
-            { id: 'c', activeMs: saved, biomass: 0, energy: 0, health: 0 },
+            { id: 'c', activeMs: saved, biomass: 0, energy: 0, health: 0, cooldownUntilMs: 0 },
             genome,
             wallNow,
             10 ** 12,
+            0,
           );
           sessions++;
           ticks = 0;
@@ -433,10 +434,11 @@ describe('the life clock never gains', () => {
   it('ends a life at its lifespan however much is claimed', () => {
     const genome = starterGenome();
     const life = bindLife(
-      { id: 'c', activeMs: 0, biomass: 0, energy: 0, health: 0 },
+      { id: 'c', activeMs: 0, biomass: 0, energy: 0, health: 0, cooldownUntilMs: 0 },
       genome,
       0,
       60_000,
+      0,
     );
     const next = applyReport(life, { n: 1, ticks: 2_000_000, ...CALM }, 10 ** 9).life;
     expect(next.activeMs).toBe(60_000);
