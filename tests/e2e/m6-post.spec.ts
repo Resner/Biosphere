@@ -16,8 +16,8 @@ const bs = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.in
 // Independent of the code: what the M6 spec lists for each preset.
 const PASSES: Record<PresetName, string[]> = {
   low: [],
-  medium: ['scene', 'bloom', 'grade', 'vignette'],
-  high: ['scene', 'bloom', 'grade', 'vignette', 'grain', 'chromatic'],
+  medium: ['scene', 'dof', 'bloom', 'grade', 'vignette'],
+  high: ['scene', 'dof', 'bloom', 'grade', 'vignette', 'grain', 'chromatic'],
 };
 const BLOOM_LEVELS: Record<PresetName, number> = { low: 0, medium: 4, high: 5 };
 

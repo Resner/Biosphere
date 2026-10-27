@@ -286,12 +286,14 @@ Presentation timings (v1, `FX` in `src/render/effects.ts`): eat pop 0.55 s, dash
 | Preset | Pixel ratio | Post-processing | Particles | Budget (draw calls / triangles) |
 |--------|-------------|-----------------|-----------|---------------------------------|
 | Low | 1 | none (fake bokeh sprites only) | 30% | 80 / 150k |
-| Medium (default) | up to 1.5 | half-res DOF, bloom, grade | 100% | 150 / 300k |
+| Medium (default) | up to 1.5 | half-strength DOF, bloom, grade | 100% | 150 / 300k |
 | High | up to 2 | full DOF, bloom, chromatic aberration, grain | 150% | 250 / 600k |
 
 Players pick Auto, Low, Medium or High in Settings (title screen, or Esc then Settings); the choice is stored in the browser and `?quality=` overrides it for one visit. The automatic default picks a preset from a short benchmark (medium until it exists); adaptive resolution steps down when frames run over budget.
 
 The post chain (`src/render/post/`) renders the scene into a half-float target (8-bit where half float cannot be rendered), then composites onto the canvas: a half-resolution dual-filter bloom (4 levels on medium, 5 on high), a grade (a teal lift in the shadows, a filmic shoulder that rolls highlights off to white) and a vignette, plus film grain and radial chromatic aberration on high. Low renders straight to the canvas. The Creature Lab uses high without the vignette and the aberration, which depend on a cell's place in the frame.
+
+Depth of field (ADR 0027): the camera focuses on the gameplay plane, where creatures, food and plumes stay sharp. Only the particle layers lie off it: far bokeh below (depth −0.82 camera heights), near bokeh above (+0.375) and marine snow up to 0.2 either side of the plane. Each speck draws its own circle of confusion, 24 px per camera height off focus (at a pixel ratio of 1), up to 6 px on medium and 12 px on high, and spreads its light over the larger disc; on high bright discs get a chromatic fringe (red out, blue in, 20% of the CoC). Low keeps the plain sprites. The pass adds no render target.
 
 ## Glossary
 

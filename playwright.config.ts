@@ -46,7 +46,7 @@ const lowQuality = {
 const skipSlow = process.env.E2E_SKIP_SLOW ? { grepInvert: /@slow/ } : {};
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
-const POST = /m6-post\.spec\.ts/;
+const POST = /m6-(post|dof)\.spec\.ts/;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -90,7 +90,7 @@ export default defineConfig({
       use: { browserName: 'chromium' },
       ...skipSlow,
     },
-    // The post chain's screenshot checks render the high preset in software; beside the old-age spec
+    // The post chain and DOF screenshot checks render the high preset in software; beside the old-age spec
     // (which counts the ticks a loaded runner manages to play) they starve it.
     {
       name: 'post',

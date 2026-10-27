@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { MaterialParams } from './material-params';
+import { depthOfParallax } from './post/dof';
 import cellFragment from './shaders/cell.frag.glsl?raw';
 import cellVertex from './shaders/cell.vert.glsl?raw';
 import creatureFragment from './shaders/creature.frag.glsl?raw';
@@ -124,6 +125,8 @@ export interface ParticleStyle {
   period: number;
   /** How much of the camera motion the layer follows; above 1 sits in front of the plane. */
   parallax: number;
+  /** Specks lie up to this far (camera heights) either side of the layer's depth; default 0. */
+  spread?: number;
 }
 
 export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
@@ -133,13 +136,19 @@ export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
     {
       uCam: { value: new THREE.Vector2() },
       uPeriod: { value: style.period },
-      uParallax: { value: style.parallax },
+      uDepth: { value: depthOfParallax(style.parallax) },
+      uSpread: { value: style.spread ?? 0 },
       uTime: { value: 0 },
       uSize: { value: style.size },
       uPxPerWu: { value: 1 },
+      uMaxSize: { value: 256 },
       uColor: { value: new THREE.Color(style.color) },
       uOpacity: { value: style.opacity },
       uBokeh: { value: style.bokeh },
+      uFocus: { value: 0 },
+      uCocSlope: { value: 0 },
+      uCocMax: { value: 0 },
+      uFringe: { value: 0 },
     },
     { blending: THREE.AdditiveBlending },
   );

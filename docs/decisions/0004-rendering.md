@@ -1,6 +1,6 @@
 # 0004: Rendering with Three.js and WebGL2 over a 2D gameplay plane
 
-- Status: accepted
+- Status: accepted (the half-resolution depth of field superseded by 0027)
 - Date: 2026-10-25
 
 ## Context
