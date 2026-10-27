@@ -811,6 +811,29 @@ describe('Ledger.fallback, restore and markExhausted', () => {
   });
 });
 
+describe('the creature that died last', () => {
+  it('is not displaced by a frozen ancestor that the walk marks dead afterwards', async () => {
+    await inLedger(async (ledger) => {
+      const { A, B, a, b } = await pair(ledger);
+      const [c1, cb] = bear(ledger, mated(ledger, a, b));
+      mustPromote(ledger, A, c1, a.id);
+      mustPromote(ledger, B, cb, b.id);
+      const [c2] = bear(ledger, mated(ledger, must(ledger.head(c1.id)), must(ledger.head(cb.id))));
+      const dead = die(ledger, must(ledger.head(c1.id)));
+      // G has less than restoreMinMs of life left, so the walk marks it dead after C1.
+      const rule: Exhaustion = {
+        lifespanOf: (head) => (head.id === a.id ? head.activeMs + 1000 : LIFESPAN),
+        restoreMinMs: 120_000,
+      };
+      const walked = ledger.fallback(dead.id, rule).exhausted;
+      expect(walked.map((h) => h.id)).toEqual([a.id]);
+      expect(ledger.markExhausted(a.id, rule)).toMatchObject({ ok: true });
+      expect(ledger.head(a.id)?.diedT).toBeLessThanOrEqual(must(ledger.head(c1.id)?.diedT));
+      expect(promote(ledger, A, c2, dead.id)).toMatchObject({ ok: true, frozen: null });
+    });
+  });
+});
+
 describe('Ledger.alive', () => {
   it('is true while a creature is active, pending or frozen, false when all are dead', async () => {
     await inLedger(async (ledger) => {

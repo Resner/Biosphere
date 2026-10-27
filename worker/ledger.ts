@@ -217,12 +217,12 @@ export class Ledger {
   /**
    * Promotes a pending child (`request` is owner-signed, role `child`): the child becomes active and
    * its chain parent is the creature named in the body, which is frozen in the same transaction when
-   * it is still active (`freeze` overrides the condition it keeps, otherwise its head's).
+   * it is still active (`freeze` is the condition it keeps, otherwise its head's).
    */
   promote(
     request: RecordRequest,
     ownerSig: string,
-    freeze: Partial<Condition> = {},
+    freeze: Condition | null = null,
   ): PromoteResult {
     this.key();
     return this.storage.transactionSync(() => this.promoteInTransaction(request, ownerSig, freeze));
@@ -260,7 +260,15 @@ export class Ledger {
         body: { cause: 'old-age', ...conditionOf(head) },
       };
       const stored = this.store(record, recordHash(record), requestHash(record), null, creature);
-      this.advance(head, record, stored.hash, 'dead');
+      // Its life ended when it was put aside, so it never counts as the creature that died last.
+      const frozenAt = this.run(
+        'SELECT t FROM records WHERE creature = ? AND seq = ?',
+        creature,
+        head.seq,
+      )[0];
+      this.advance(head, record, stored.hash, 'dead', {
+        diedT: (frozenAt?.t as number) ?? record.t,
+      });
       return { ok: true, stored, fresh: true };
     });
   }
@@ -542,14 +550,13 @@ export class Ledger {
     );
     this.run(
       `INSERT INTO creatures
-         (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t, generation)
-       VALUES (?, ?, 'active', 0, ?, ?, 0, 0, 0, 0, ?, NULL, ?)`,
+         (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t)
+       VALUES (?, ?, 'active', 0, ?, ?, 0, 0, 0, 0, ?, NULL)`,
       hash,
       request.owner,
       hash,
       genome,
       t,
-      field(request.body, 'generation', 0),
     );
     this.run(
       'INSERT INTO genesis_log (req, creature, owner, t) VALUES (?, ?, ?, ?)',
@@ -602,7 +609,10 @@ export class Ledger {
     record: LedgerRecord,
     hash: string,
     next: Status,
-    chainParent: string | null = head.chainParent,
+    {
+      chainParent = head.chainParent,
+      diedT = record.t,
+    }: { chainParent?: string | null; diedT?: number } = {},
   ): void {
     const { body } = record;
     const values: SqlStorageValue[] = [
@@ -616,7 +626,7 @@ export class Ledger {
       chainParent,
     ];
     const changed = next !== head.status;
-    if (changed) values.push(next, next === 'dead' ? record.t : head.diedT);
+    if (changed) values.push(next, next === 'dead' ? diedT : head.diedT);
     this.run(
       `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?,
          cooldown_until_ms = ?, chain_parent = ?${changed ? ', status = ?, died_t = ?' : ''} WHERE id = ?`,
@@ -764,7 +774,7 @@ export class Ledger {
   private promoteInTransaction(
     request: RecordRequest,
     ownerSig: string,
-    freeze: Partial<Condition>,
+    freeze: Condition | null,
   ): PromoteResult {
     const t = this.now();
     const bad = this.ownerSigned(request, ownerSig, t);
@@ -780,17 +790,11 @@ export class Ledger {
     const again = this.byReq(request.creature, request.seq, req);
     if (again) {
       const frozen = this.run(
-        "SELECT * FROM records WHERE creature = ? AND kind = 'promote' ORDER BY seq DESC LIMIT 1",
+        "SELECT * FROM records WHERE creature = ? AND kind = 'promote' AND json_extract(json, '$.body.child') = ?",
         String(request.body.parent),
+        child.id,
       )[0];
-      const mine = frozen ? asStored(frozen) : null;
-      return {
-        ok: true,
-        stored: again,
-        frozen:
-          mine?.record.body.role === 'parent' && mine.record.body.child === child.id ? mine : null,
-        fresh: false,
-      };
+      return { ok: true, stored: again, frozen: frozen ? asStored(frozen) : null, fresh: false };
     }
     if (child.status === 'dead') return refuse('dead');
     const outcome = transitionOutcome('promote', 'child', child.status);
@@ -821,8 +825,7 @@ export class Ledger {
         body: {
           role: 'parent',
           child: child.id,
-          ...conditionOf(parent),
-          ...freeze,
+          ...(freeze ?? conditionOf(parent)),
         },
       };
       frozen = this.store(record, recordHash(record), requestHash(record), null, parent.id);
@@ -830,7 +833,7 @@ export class Ledger {
     }
     const record: LedgerRecord = { ...request, t };
     const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
-    this.advance(child, record, stored.hash, outcome.next, parent.id);
+    this.advance(child, record, stored.hash, outcome.next, { chainParent: parent.id });
     return { ok: true, stored, frozen, fresh: true };
   }
 
@@ -984,7 +987,6 @@ export class Ledger {
 /** The kinds `accept` takes: one record on one chain. The others have their own operations. */
 const SINGLE_RECORD_KINDS: readonly string[] = ['genesis', 'checkpoint', 'death'];
 
-/** Whether a frozen creature's remaining life is under the restore minimum. */
 const conditionOf = (head: Head): Condition => ({
   activeMs: head.activeMs,
   biomass: head.biomass,
@@ -993,6 +995,7 @@ const conditionOf = (head: Head): Condition => ({
   cooldownUntilMs: head.cooldownUntilMs,
 });
 
+/** Whether a frozen creature's remaining life is under the restore minimum. */
 const isExhausted = (head: Head, rule: Exhaustion): boolean =>
   rule.lifespanOf(head) - head.activeMs < rule.restoreMinMs;
 
