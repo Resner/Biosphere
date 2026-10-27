@@ -13,9 +13,9 @@ import { type LifeState, paidFor } from './life';
 
 const HUNDREDTHS = 100;
 
-/** `MATING_SCALE` in (0, 1] shortens maturity, cooldown and the repeat window; only fixture mode honours it. */
-export function matingScale(env: { DRAND_SOURCE?: string; MATING_SCALE?: string }): number {
-  const scale = Number(env.MATING_SCALE);
+/** A fraction in (0, 1] that shortens a clock for E2E (`LIFESPAN_SCALE`, `MATING_SCALE`); only fixture mode honours it. */
+export function fixtureScale(env: { DRAND_SOURCE?: string }, value: string | undefined): number {
+  const scale = Number(value);
   return env.DRAND_SOURCE === 'fixture' && scale > 0 && scale <= 1 ? scale : 1;
 }
 

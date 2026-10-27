@@ -64,15 +64,18 @@ const REASON_RE = /^[a-z0-9:-]{1,48}$/;
 const BODY_MAX_DEPTH = 4;
 const BODY_MAX_ENTRIES = 32;
 const BODY_MAX_STRING = 256;
-const RECORD_KINDS: readonly string[] = [
-  'genesis',
-  'birth',
-  'checkpoint',
-  'mate-commit',
-  'promote',
-  'restore',
-  'death',
-];
+/** Every record kind (a `Record`, so a new `RecordKind` fails to compile until it is listed). */
+const RECORD_KINDS: Record<RecordKind, true> = {
+  genesis: true,
+  birth: true,
+  checkpoint: true,
+  'mate-commit': true,
+  promote: true,
+  restore: true,
+  death: true,
+};
+const isRecordKind = (v: unknown): v is RecordKind =>
+  typeof v === 'string' && Object.hasOwn(RECORD_KINDS, v);
 
 export interface Vec2 {
   x: number;
@@ -775,7 +778,7 @@ function storedRecord(v: unknown): StoredRecord | null {
     Array.isArray(body) ||
     r.v !== 1 ||
     !isInt(r.rules, 0, MAX_TICK) ||
-    !RECORD_KINDS.includes(r.kind as RecordKind) ||
+    !isRecordKind(r.kind) ||
     !(r.creature === '' || isStr(r.creature, HEX64_RE)) ||
     !isInt(r.seq, 0, MAX_TIME) ||
     !(r.prev === '' || isStr(r.prev, HEX64_RE)) ||
@@ -787,7 +790,7 @@ function storedRecord(v: unknown): StoredRecord | null {
     record: {
       v: 1,
       rules: r.rules,
-      kind: r.kind as RecordKind,
+      kind: r.kind,
       creature: r.creature as string,
       seq: r.seq,
       prev: r.prev as string,

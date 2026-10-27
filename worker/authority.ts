@@ -56,8 +56,8 @@ import {
   askLive,
   type Court,
   cooldownFor,
+  fixtureScale,
   mateRequests,
-  matingScale,
   matureAtMsOf,
   refusalFor,
   repeatWindowMs,
@@ -490,18 +490,22 @@ export class Authority extends DurableObject<Env> {
     return { ...saved, savedMs: saved.activeMs, savedN: saved.n, over: true };
   }
 
-  /** The other connected player in the sender's pond who is playing a creature, or null. */
-  private partnerOf(
-    ws: WebSocket,
-    session: ActiveSession,
-    playerId: string,
-  ): [WebSocket, ActiveSession & { life: LifeState }] | null {
+  /** The other seated session of `playerId` in the sender's pond, or null. */
+  private peerOf(ws: WebSocket, session: ActiveSession, playerId: string) {
     for (const [other, theirs] of this.activeSessions(ws)) {
-      if (theirs.pondId === session.pondId && theirs.playerId === playerId && theirs.life) {
-        return [other, { ...theirs, life: theirs.life }];
+      if (theirs.pondId === session.pondId && theirs.playerId === playerId) {
+        return { ws: other, session: theirs };
       }
     }
     return null;
+  }
+
+  /** The peer, when it is playing a creature (the `life` is narrowed for the caller). */
+  private partnerOf(ws: WebSocket, session: ActiveSession, playerId: string) {
+    const peer = this.peerOf(ws, session, playerId);
+    return peer?.session.life
+      ? { ws: peer.ws, session: peer.session, life: peer.session.life }
+      : null;
   }
 
   /** Why these two sessions' creatures cannot mate now (the first player's view first), or null. */
@@ -546,8 +550,8 @@ export class Authority extends DurableObject<Env> {
     sendIfOpen(ws, {
       t: 'mate-info',
       partner: partnerId,
-      reason: this.mateRefusal(session, other[1]),
-      ...this.cardOf(session.life, other[1].life),
+      reason: this.mateRefusal(session, other.session),
+      ...this.cardOf(session.life, other.life),
     });
   }
 
@@ -564,14 +568,14 @@ export class Authority extends DurableObject<Env> {
     }
     const other = this.partnerOf(ws, session, ask.partner);
     if (!other) return refuse('not-here');
-    if (ask.partnerCreature !== other[1].life.creature) return refuse('pair-mismatch');
+    if (ask.partnerCreature !== other.life.creature) return refuse('pair-mismatch');
     if (this.ledger.nonceUsed(ask.nonce)) return refuse('used');
-    const reason = this.mateRefusal(session, other[1]);
+    const reason = this.mateRefusal(session, other.session);
     if (reason) return refuse(reason);
     // A second court replaces the first: the earlier invitation is void.
     ws.serializeAttachment({ ...session, court: { ask, sentAt: now } } satisfies Session);
-    const card = this.cardOf(session.life, other[1].life);
-    sendIfOpen(other[0], {
+    const card = this.cardOf(session.life, other.life);
+    sendIfOpen(other.ws, {
       t: 'invite',
       from: session.playerId,
       ask,
@@ -582,13 +586,11 @@ export class Authority extends DurableObject<Env> {
   }
 
   private decline(ws: WebSocket, session: ActiveSession, courter: string): void {
-    for (const [other, theirs] of this.activeSessions(ws)) {
-      if (theirs.pondId !== session.pondId || theirs.playerId !== courter) continue;
-      const court = theirs.court;
-      if (court && 'ask' in court && court.ask.partner === session.playerId) {
-        other.serializeAttachment({ ...theirs, court: undefined } satisfies Session);
-        sendIfOpen(other, { t: 'declined', by: session.playerId });
-      }
+    const peer = this.peerOf(ws, session, courter);
+    const court = peer?.session.court;
+    if (peer && court && 'ask' in court && court.ask.partner === session.playerId) {
+      peer.ws.serializeAttachment({ ...peer.session, court: undefined } satisfies Session);
+      sendIfOpen(peer.ws, { t: 'declined', by: session.playerId });
     }
   }
 
@@ -617,7 +619,7 @@ export class Authority extends DurableObject<Env> {
     if (ask.creature !== me.life.creature || !signedBy(me.playerId, ask)) {
       return refuse('bad-signature');
     }
-    const found = this.courterOf(ws, me, ask.partner);
+    const found = this.peerOf(ws, me, ask.partner);
     if (!found) return refuse('no-court');
     const { court } = found.session;
     if (court && 'done' in court) {
@@ -634,7 +636,7 @@ export class Authority extends DurableObject<Env> {
     const reason = this.mateRefusal(me, found.session);
     if (reason) return refuse(reason);
 
-    const scale = matingScale(this.env);
+    const scale = fixtureScale(this.env, this.env.MATING_SCALE);
     const prior = this.ledger.pairMatings(
       found.session.playerId,
       me.playerId,
@@ -649,7 +651,11 @@ export class Authority extends DurableObject<Env> {
       return refuse('not-here');
     }
     const again = theirs.court;
-    if (!again || 'done' in again || again.ask.nonce !== ask.nonce) return refuse('no-court');
+    // The same offer, and the same two creatures: a re-court, a decline or a death during the wait voids it.
+    if (!again || 'done' in again || again.sentAt !== court.sentAt) return refuse('no-court');
+    if (mine.life.creature !== ask.creature || theirs.life.creature !== court.ask.creature) {
+      return refuse('pair-mismatch');
+    }
     const stale = this.mateRefusal(mine, theirs);
     if (stale) return refuse(stale);
     const [headA, headB] = [
@@ -699,18 +705,10 @@ export class Authority extends DurableObject<Env> {
     if (result.fresh) {
       settle(found.ws, theirs, 0, { done: commit.id, nonce: ask.nonce });
       settle(ws, mine, 1);
+    } else {
+      this.resend(ws, mine.life.creature, commit.id);
     }
     return true;
-  }
-
-  /** The session of `playerId` in the same pond that holds a court (or a finished one) as the answer to this ask. */
-  private courterOf(ws: WebSocket, me: ActiveSession, playerId: string) {
-    for (const [other, theirs] of this.activeSessions(ws)) {
-      if (theirs.pondId === me.pondId && theirs.playerId === playerId) {
-        return { ws: other, session: theirs };
-      }
-    }
-    return null;
   }
 
   /** Sends a player the commitment and their `mate-commit` record of an earlier mating again. */
@@ -762,13 +760,15 @@ export class Authority extends DurableObject<Env> {
 
   /** The active time from which a creature of this genome may mate, shortened by `MATING_SCALE` in fixture mode only. */
   private matureAtMsOf(genome: Genome): number {
-    return matureAtMsOf(lifespanMs(express(genome).physiology.lifespan), matingScale(this.env));
+    return matureAtMsOf(
+      lifespanMs(express(genome).physiology.lifespan),
+      fixtureScale(this.env, this.env.MATING_SCALE),
+    );
   }
 
   /** The lifespan this object gives a genome: its trait, shortened by `LIFESPAN_SCALE` in fixture mode only. */
   private lifespanOf(genome: Genome): number {
-    const scale = Number(this.env.LIFESPAN_SCALE);
-    const shortened = this.env.DRAND_SOURCE === 'fixture' && scale > 0 && scale <= 1 ? scale : 1;
+    const shortened = fixtureScale(this.env, this.env.LIFESPAN_SCALE);
     return Math.round(lifespanMs(express(genome).physiology.lifespan) * shortened);
   }
 

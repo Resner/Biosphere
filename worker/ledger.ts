@@ -343,12 +343,13 @@ export class Ledger {
     return out;
   }
 
-  /** Whether any mating commitment already carries this ask nonce (a signed ask is good for one mating). */
+  /** Whether a mating was made from an ask with this nonce (a signed ask is good for one mating; a commitment that never became one does not count). */
   nonceUsed(nonce: string): boolean {
     return (
       this.run(
-        "SELECT 1 FROM commitments WHERE kind = 'mate' AND json LIKE ? LIMIT 1",
-        `%"nonce":"${nonce}"%`,
+        `SELECT 1 FROM commitments c JOIN matings m ON m.commit_id = c.id
+         WHERE c.kind = 'mate' AND json_extract(c.json, '$.data.a.nonce') = ? LIMIT 1`,
+        nonce,
       ).length > 0
     );
   }
