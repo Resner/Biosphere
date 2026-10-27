@@ -283,10 +283,13 @@ export class MateFlow {
   }
 
   private start(partner: string, info: Info, name: string): void {
-    const view = this.mine();
-    if (!view || !this.link) return;
     if (info.reason || !info.creature) {
       this.end('declined', refusalText(info.reason ?? 'not-here', info.cooldownLeftMs, name));
+      return;
+    }
+    const view = this.mine();
+    if (!view || !this.link) {
+      this.enter('idle');
       return;
     }
     const ask = signMateAsk(this.deps.identity(), {

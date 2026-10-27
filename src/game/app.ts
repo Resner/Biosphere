@@ -882,7 +882,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     const life = flow.view();
     const active = lastClock?.activeMs ?? life.activeMs;
-    const ready = playingNow && life.matureAtMs > 0 && active >= life.matureAtMs;
+    const ready =
+      playingNow && lastClock !== null && life.matureAtMs > 0 && active >= life.matureAtMs;
     readyShown = ready ? readyText(life.cooldownUntilMs - active) : '';
     hud.setReady(readyShown);
   };
