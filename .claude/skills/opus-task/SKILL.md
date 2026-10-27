@@ -1,14 +1,25 @@
 ---
 name: opus-task
-description: Implement one Biosphere task marked [opus] (UI and look, netcode, security) on Opus 5.5 at high effort. Use only when /next routes here.
+description: Implement one Biosphere task marked [opus] (UI and look, netcode, security) in a forked subagent on Opus 5.5 at high effort. Use only when /next routes here; pass the task id, the spec path and the branch as arguments.
+context: fork
 model: opus
 effort: high
+background: false
 ---
 
 # Opus task
 
-This skill changes only the model: the task /next picked runs on Opus 5.5 at high effort, because UI and look, netcode and security work gains the most from the stronger model (ADR 0023).
+You are implementing one task of the Biosphere factory on Opus 5.5, because UI and look, netcode and security work gains the most from the stronger model (ADRs 0023, 0026). The run that called you has already claimed the task with a draft PR, and it ships the result after you return. Nobody is watching: don't ask questions, decide.
 
-1. Implement the task exactly as the `next` skill's "Implementing a task" says: tests first, `npm run check`, `/simplify`, `/code-review`, tick it with a short note.
-2. For a look or UI task, open the references the task or its owner issue names (`docs/art/`, `docs/art/README.md`) and compare your screenshots with them before you call it done. Green tests never settle a look.
-3. Then continue with the `next` skill's "Ship" section. Everything else stays as /next says: one step, one PR, the same claim and the same report line.
+Task: $ARGUMENTS
+
+Read `CLAUDE.md` first; its rules apply to you. Then:
+
+1. Stay on the current branch. Run `npm run check` before changing anything. If it's already red, fix that first and say so in your report.
+2. Read the task in the spec, its acceptance tests and notes, and the code and `.claude/rules/` it touches. Nothing more.
+3. Write the acceptance tests first and watch them fail, then implement until `npm run check` and the relevant E2E pass. Scenarios over about 20 s get `@slow`. Keep the diff to the task; if the spec is wrong, fix the spec and say why. Never weaken a test to make it pass.
+4. For a look or UI task, open the references the task or its owner issue names (`docs/art/`, `docs/art/README.md`) and compare your screenshots with them before you call it done. Green tests never settle a look.
+5. Tick the task in the spec with a note of two lines at most: what changed and any gotcha. Leave its ` (in progress)` marker for the caller.
+6. Commit with a Conventional Commit title. Don't push, don't touch the PR, and don't run `/simplify` or `/code-review`: the caller does that.
+
+Report in a few lines: what changed, the commands you ran with their results, and anything left open.

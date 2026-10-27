@@ -1,6 +1,6 @@
 # 0023: Opus for UI, netcode and security tasks
 
-- Status: accepted (refines the task model in "Model by phase" of 0001)
+- Status: accepted (refines the task model in "Model by phase" of 0001; "Still one loop" superseded by 0026)
 - Date: 2026-10-27
 
 ## Context
