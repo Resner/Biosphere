@@ -1,0 +1,120 @@
+{
+  "rulesVersion": 5,
+  "mate-commit": {
+    "record": {
+      "v": 1,
+      "rules": 5,
+      "kind": "mate-commit",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "commit": "1111111111111111111111111111111111111111111111111111111111111111",
+        "round": 12345,
+        "role": "a",
+        "partner": "qrlqoNAN6mF3o4fT2RCvu0uJ8ZeXWk5eXbq5ZGCxXQs",
+        "partnerCreature": "2222222222222222222222222222222222222222222222222222222222222222",
+        "genome": "3333333333333333333333333333333333333333333333333333333333333333",
+        "partnerGenome": "4444444444444444444444444444444444444444444444444444444444444444",
+        "generation": 2,
+        "activeMs": 900000,
+        "biomass": 4200,
+        "energy": 5100,
+        "health": 10000,
+        "cooldownUntilMs": 1260000
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "128604e3d1fb959d8f3fef58db712e45636fbaaa5412c02d2bd1a9578ae1c5e7"
+  },
+  "birth": {
+    "record": {
+      "v": 1,
+      "rules": 5,
+      "kind": "birth",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "commit": "1111111111111111111111111111111111111111111111111111111111111111",
+        "round": 12345,
+        "slot": 0,
+        "parents": [
+          "5555555555555555555555555555555555555555555555555555555555555555",
+          "6666666666666666666666666666666666666666666666666666666666666666"
+        ],
+        "mates": [
+          "7777777777777777777777777777777777777777777777777777777777777777",
+          "8888888888888888888888888888888888888888888888888888888888888888"
+        ],
+        "genome": "9999999999999999999999999999999999999999999999999999999999999999",
+        "generation": 3,
+        "karyotype": 1
+      },
+      "creature": "",
+      "seq": 0,
+      "prev": ""
+    },
+    "hash": "28b252322ae0a71ab53a22ad4a1fe2daa8975b3901cdf36c0559c4e8d39d8446"
+  },
+  "promote-child": {
+    "record": {
+      "v": 1,
+      "rules": 5,
+      "kind": "promote",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "role": "child",
+        "parent": "5555555555555555555555555555555555555555555555555555555555555555"
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "66574c9317b88ca6cabf996977a5b1450f35306e014eecd47724955ca61be27b"
+  },
+  "promote-parent": {
+    "record": {
+      "v": 1,
+      "rules": 5,
+      "kind": "promote",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "role": "parent",
+        "child": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa",
+        "activeMs": 900000,
+        "biomass": 4200,
+        "energy": 5100,
+        "health": 9000,
+        "cooldownUntilMs": 1260000
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "c021c106bb6947b78f89840677eb38d041af5a098efd7579fc10098d063e10b1"
+  },
+  "restore": {
+    "record": {
+      "v": 1,
+      "rules": 5,
+      "kind": "restore",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "from": "bbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbbb",
+        "activeMs": 900000,
+        "biomass": 4200,
+        "energy": 5100,
+        "health": 9000,
+        "cooldownUntilMs": 1260000
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "25e4b202ecb8c8263bcafa3d4f7be77781548136641bdc7792497e9e43261cbe"
+  }
+}

@@ -19,8 +19,23 @@ export const RECORD_DOMAIN = 'bs/rec/v1';
 export const REQUEST_DOMAIN = 'bs/req/v1';
 export const AUTH_DOMAIN = 'bs/auth/v1';
 
-export type RecordKind = 'genesis' | 'checkpoint' | 'death';
-const KINDS: readonly string[] = ['genesis', 'checkpoint', 'death'];
+export type RecordKind =
+  | 'genesis'
+  | 'birth'
+  | 'checkpoint'
+  | 'mate-commit'
+  | 'promote'
+  | 'restore'
+  | 'death';
+const KINDS: readonly string[] = [
+  'genesis',
+  'birth',
+  'checkpoint',
+  'mate-commit',
+  'promote',
+  'restore',
+  'death',
+];
 
 export interface LedgerRecord {
   v: 1;
@@ -106,11 +121,14 @@ export function recordProblems(value: unknown): string[] {
   } else {
     try {
       canonicalize(r.body as Canonical);
+      if (typeof r.kind === 'string') {
+        for (const p of bodyProblems(r.kind as RecordKind, r.body)) problems.push(`body:${p}`);
+      }
     } catch {
       problems.push('body');
     }
   }
-  if (r.kind === 'genesis') {
+  if (r.kind === 'genesis' || r.kind === 'birth') {
     if (r.creature !== '' || r.seq !== 0 || r.prev !== '') problems.push('genesis-shape');
   } else if (
     typeof r.creature !== 'string' ||
@@ -122,6 +140,112 @@ export function recordProblems(value: unknown): string[] {
     problems.push('chain-shape');
   }
   return problems;
+}
+
+type FieldType = 'uint' | 'hex' | 'player' | 'hexpair' | 'slot' | 'role-ab' | 'tag';
+
+const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
+  uint: (x) => Number.isSafeInteger(x) && (x as number) >= 0,
+  hex: (x) => typeof x === 'string' && HEX64.test(x),
+  player: (x) => typeof x === 'string' && isPlayerId(x),
+  hexpair: (x) => Array.isArray(x) && x.length === 2 && x.every((h) => FIELD_TYPES.hex(h)),
+  slot: (x) => FIELD_TYPES.uint(x) && (x as number) <= 255,
+  'role-ab': (x) => x === 'a' || x === 'b',
+  // A promote's role is checked before its fields, to pick them.
+  tag: () => true,
+};
+
+const CONDITION = {
+  activeMs: 'uint',
+  biomass: 'uint',
+  energy: 'uint',
+  health: 'uint',
+  cooldownUntilMs: 'uint',
+} as const;
+
+/** The body of each kind that M5 added; the M4 kinds (genesis, checkpoint, death) keep theirs. */
+const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
+  'mate-commit': {
+    commit: 'hex',
+    round: 'uint',
+    role: 'role-ab',
+    partner: 'player',
+    partnerCreature: 'hex',
+    genome: 'hex',
+    partnerGenome: 'hex',
+    generation: 'uint',
+    ...CONDITION,
+  },
+  birth: {
+    commit: 'hex',
+    round: 'uint',
+    slot: 'slot',
+    parents: 'hexpair',
+    mates: 'hexpair',
+    genome: 'hex',
+    generation: 'uint',
+    karyotype: 'uint',
+  },
+  restore: { from: 'hex', ...CONDITION },
+};
+
+const PROMOTE_BODIES: Record<string, Record<string, FieldType>> = {
+  child: { role: 'tag', parent: 'hex' },
+  parent: { role: 'tag', child: 'hex', ...CONDITION },
+};
+
+/** Why `body` is not a valid body for `kind`: `missing:`, `unknown:` or `bad:` plus the field. Never throws. */
+export function bodyProblems(kind: RecordKind, body: unknown): string[] {
+  if (typeof body !== 'object' || body === null || Array.isArray(body)) return ['not-an-object'];
+  const b = body as Record<string, unknown>;
+  let fields = BODIES[kind];
+  if (kind === 'promote') {
+    if (!('role' in b)) return ['missing:role'];
+    const role = b.role;
+    fields =
+      typeof role === 'string' && Object.hasOwn(PROMOTE_BODIES, role)
+        ? PROMOTE_BODIES[role]
+        : undefined;
+    if (!fields) return ['bad:role'];
+  }
+  if (!fields) return [];
+  const problems: string[] = [];
+  for (const [key, type] of Object.entries(fields)) {
+    if (!(key in b)) problems.push(`missing:${key}`);
+    else if (!FIELD_TYPES[type](b[key])) problems.push(`bad:${key}`);
+  }
+  for (const key of Object.keys(b)) if (!(key in fields)) problems.push(`unknown:${key}`);
+  return problems;
+}
+
+export type Status = 'pending' | 'active' | 'checkpoint' | 'dead';
+
+type Outcome = { ok: true; next: Status } | { ok: false; reason: string };
+
+/** The ADR 0021 matrix: which statuses (null: no creature yet) a record of this kind may follow. */
+const MATRIX: Record<string, Partial<Record<Status | 'none', Status>>> = {
+  genesis: { none: 'active' },
+  birth: { none: 'pending' },
+  checkpoint: { active: 'active' },
+  'mate-commit': { active: 'active' },
+  'promote:child': { pending: 'active' },
+  'promote:parent': { active: 'checkpoint' },
+  restore: { checkpoint: 'active' },
+  death: { active: 'dead', checkpoint: 'dead' },
+};
+
+/** Whether a record of `kind` (and `role`, for promote) may follow a creature in `status`, and the status it leaves. */
+export function transitionOutcome(
+  kind: RecordKind,
+  role: string | null,
+  status: Status | null,
+): Outcome {
+  if (kind === 'promote' && role !== 'child' && role !== 'parent')
+    return { ok: false, reason: 'role' };
+  const row = MATRIX[kind === 'promote' ? `promote:${role}` : kind];
+  const from = status ?? 'none';
+  const next = row?.[from];
+  return next ? { ok: true, next } : { ok: false, reason: `status:${from}` };
 }
 
 export function authorityPublicKey(secret: Uint8Array): string {
