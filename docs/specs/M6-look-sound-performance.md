@@ -1,4 +1,4 @@
-# M6: Look, sound and performance
+# M6: Look, sound and performance (rewriting)
 
 Release: v0.7.0 · Gate: yes
 
