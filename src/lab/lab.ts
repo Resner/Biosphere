@@ -27,6 +27,8 @@ export interface LabOptions {
   mode: LabMode;
   /** Adds `window.__lab.debug` (test helpers). */
   debug: boolean;
+  /** A genome text to show alone (the Lineage panel's link); ignored when it does not parse. */
+  genome?: string | undefined;
 }
 
 /** A fresh set for every visit; tests pass `?seed=` to pin it. */
@@ -476,6 +478,7 @@ export function startLab(options: LabOptions): void {
   updateTools();
   resize();
   show(options.mode, options.seed);
+  if (options.genome) showGenomes([options.genome]);
   requestAnimationFrame(loop);
   hook.ready = true;
 }

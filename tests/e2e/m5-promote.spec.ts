@@ -101,6 +101,22 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   // B keeps the child waiting.
   expect((await state(b)).offspring.kind).toBe('card');
 
+  // The lineage view: the frozen parent, the other parent and the child, with both parents drawn.
+  await a.keyboard.press('Escape');
+  const panel = a.getByTestId('lineage');
+  await expect(panel).toBeVisible();
+  await expect(a.getByTestId('lineage-node')).toHaveCount(3, { timeout: 10_000 });
+  await expect(a.getByTestId('lineage-edge')).toHaveCount(2);
+  await expect(a.getByTestId('lineage-chain').locator('li')).toHaveCount(2);
+  expect(await panel.textContent()).not.toMatch(/pedigree|ledger|chain_parent|checkpoint/i);
+  const box = await panel.boundingBox();
+  expect(
+    box && box.x >= 0 && box.y >= 0 && box.x + box.width <= 960 && box.y + box.height <= 540,
+  ).toBe(true);
+  await a.screenshot({ path: 'test-results/m5-promote-lineage.png' });
+  await a.keyboard.press('Escape');
+  await expect(panel).toBeHidden();
+
   // Starving the child: the death screen offers the parent, with how much life is left.
   await a.evaluate(() => {
     const bs = window.__bs as BsHook;
