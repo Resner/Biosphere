@@ -10,8 +10,8 @@ The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` wrote them, a
 | M3 | Procedural morphology | DNA → bounded development → body, stats and mesh; zero invalid bodies over 10k random and mutated genomes; anatomy changes movement, collision and feeding; Creature Lab page; unique genesis DNA | — | done | [M3](specs/M3-procedural-morphology.md) | v0.4.0 |
 | M4 | Authority and lineage core | identities and genesis creatures registered (drand-seeded); one accepted head per creature; single session; lifespan on the authority clock (paused offline); durable resume; recovery code; extinct lineages kept as history | — | done | [M4](specs/M4-authority-and-lineage-core.md) | v0.5.0 |
 | M5 | Mating and offspring | consent, eligibility, cost and cooldown; future-round commitment, no rerolls; two distinct offspring by Mendelian rules; one pending offspring; promotion → checkpoint; death → nearest surviving ancestor; old age walks the chain | gate | done | [M5](specs/M5-mating-and-offspring.md) | v0.6.0 |
-| M6 | Look, sound and performance | creature look overhaul to the owner's references (#90); art pass to the reference (DOF, caustics, membranes, bioluminescence by depth); depth zones with gameplay; low, medium and high presets with budgets; procedural sound; deliberate pings and emotes (#89); (owner) creatures hold up next to the references; (owner) 60 fps at the default preset | gate | planned | — | v0.7.0 |
-| M7 | Encounters | refereed deterministic combat for comparable sizes: instant lock-in, steering, stance, target, brace, deadlines and autopilot, anatomy-driven outcomes; identical results on all clients | gate | planned | — | v0.8.0 |
+| M6 | Look, sound and performance | creature look overhaul to the owner's references (#90); art pass to the reference (DOF, caustics, membranes, bioluminescence by depth); depth zones with gameplay; low, medium and high presets with budgets; procedural sound; deliberate pings and emotes (#89); (owner) creatures hold up next to the references; (owner) 60 fps at the default preset | gate | specced | [M6](specs/M6-look-sound-performance.md) | v0.7.0 |
+| M7 | Encounters | refereed deterministic combat for comparable sizes: instant lock-in, steering, stance, target, brace, deadlines and autopilot, anatomy-driven outcomes; identical results on all clients; killing is a faster way to grow than plankton and size is a real advantage; a pending egg can be eaten by a predator (owner, Playtest v0.6.0) | gate | planned | — | v0.8.0 |
 | M8 | Disconnect-safe settlement | closing a tab never cancels or escapes a fight; reconnect resumes; the authority settles when everyone leaves; backdated inputs rejected; settlement records verifiable | — | planned | — | v0.9.0 |
 | M9 | Verifiable lineage and showcase | independent verifier for the ancestry graph that rejects tampering; proof bundles served while peers are offline; lineage viewer; shareable verified creature cards | — | planned | — | v0.10.0 |
 | M10 | Witnesses, audits and anti-farming | drand-selected witnesses with no rerolls; witness referees with authority fallback; authority-only settlements flagged; signed inputs; bot-farm simulation shows no shortcut | — | planned | — | v0.11.0 |
@@ -124,6 +124,7 @@ Beautiful and smooth within browser budgets (ADR 0004). The owner judges the cre
   - Rubric: the gallery holds up next to each reference (silhouette variety, translucency, inner detail, fine appendages, palette, rare glints, lighting); plus an `(owner)` check on the Playtest issue. Close #90 when the owner accepts it.
 - Quick social messages (owner, #89, Playtest v0.4.0): pings and emotes chosen on purpose, not by the G key's random pick. A radial wheel (touch-friendly for the mobile work after 1.0) or number hotkeys, one key press from play, and edge arrows toward a nearby off-screen ping. Redraw the emote and ping icons to production quality. Close #89 when it ships.
 - No per-frame allocations, budget report, per-preset screenshots.
+- Owner feedback on v0.6.0 (Playtest #134), folded in as T18 to T20, T24 and T25 of the spec: an exciting egg reveal while waiting for the beacon; findable players (edge chevrons and a pond map); faster, visible growth; a carried egg that feels meaningful. Kills as the main way to grow and eggs as predator prey need combat, so they are M7 criteria.
 
 ### M7 Encounters (gate 3: combat feel)
 
@@ -137,6 +138,8 @@ Fun, fair combat under real latency (ADR 0011).
 - Client prediction and rollback (≤10 frames).
 - Combat HUD and telegraphs; multi-party joins (up to 4) and targeting.
 - Rewards and carrion; spawn protection and tier enforcement.
+- Growth through combat (owner, Playtest v0.6.0): killing a comparable creature must grow you faster than eating plankton, and size must be a meaningful advantage in a fight. Kill rewards and carrion value scale with the victim's size and the tier gap, tuned with the tournament tool; the plankton economy stays for the first minutes. Reward decay for repeated victims stays (M8).
+- Predators eat eggs (owner, Playtest v0.6.0): a pending egg is a high-value target, much richer than plankton, so carrying one is a risk worth protecting. Needs an ADR first: the pending child is a ledger record, so losing it must settle through the authority, stay consistent with the death fallback of ADR 0021 and be recoverable by its owner when it is not eaten. M6 draws the carried egg (T20).
 - Combat tournament tool (no archetype above 70% overall).
 
 ### M8 Disconnect-safe settlement
