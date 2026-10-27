@@ -17,7 +17,7 @@ import {
 } from '../src/ledger/identity';
 import { birthRequest, checkMatePair, type MateAsk, signedBy } from '../src/ledger/mating';
 import { kinship } from '../src/ledger/pedigree';
-import type { StoredRecord } from '../src/ledger/record';
+import type { RecordRequest, StoredRecord } from '../src/ledger/record';
 import {
   type Born,
   byteLength,
@@ -56,6 +56,7 @@ import { type BeaconSource, Beacons, liveSource, type SignedCommitment } from '.
 import {
   type BirthChild,
   type Condition,
+  conditionOf,
   type Exhaustion,
   type Head,
   type KeyEntry,
@@ -273,10 +274,10 @@ export class Authority extends DurableObject<Env> {
         this.lineage(ws, session.playerId);
         return;
       case 'promote':
-        this.promoteChild(ws, session, msg, now);
+        if (this.owns(ws, session, msg.request)) this.promoteChild(ws, session, msg, now);
         return;
       case 'restore':
-        this.restoreAncestor(ws, session, msg, now);
+        if (this.owns(ws, session, msg.request)) this.restoreAncestor(ws, session, msg, now);
         return;
       case 'mate-check':
         this.mateCheck(ws, session, msg.partner);
@@ -934,47 +935,48 @@ export class Authority extends DurableObject<Env> {
     sendIfOpen(ws, { t: 'lineage', creatures, pedigree });
   }
 
+  /** Whether the request names this connection's player as its owner; if not, the sender is told. */
+  private owns(ws: WebSocket, session: ActiveSession, request: RecordRequest): boolean {
+    if (request.owner === session.playerId) return true;
+    sendIfOpen(ws, { t: 'refused', reason: 'wrong-owner' });
+    return false;
+  }
+
   /** Makes the pending child the active creature; the active parent, if any, is frozen with the condition this session last reported. */
   private promoteChild(
     ws: WebSocket,
     session: ActiveSession,
-    msg: ClientMsg & { t: 'promote' },
+    { request, sig }: ClientMsg & { t: 'promote' },
     now: number,
   ): void {
-    const { request, sig } = msg;
-    if (request.owner !== session.playerId) {
-      sendIfOpen(ws, { t: 'refused', reason: 'wrong-owner' });
-      return;
-    }
     const mine = session.life;
     const freeze: Condition | null =
       mine && !mine.over && mine.creature === request.body.parent ? conditionOf(mine) : null;
     const result = this.ledger.promote(request, sig, freeze);
-    if (!result.ok) {
-      sendIfOpen(ws, { t: 'refused', reason: result.reason });
-      return;
-    }
-    const head = this.ledger.head(request.creature);
-    if (!head) return;
-    // A repeat of a promotion already taken must not rewind the child's clock.
-    const life = !result.fresh && mine?.creature === head.id ? mine : this.bindHead(head, now);
-    ws.serializeAttachment({ ...session, life, court: undefined } satisfies Session);
-    sendIfOpen(ws, { t: 'promoted', life: this.lifeOf(head), parent: result.frozen });
+    const parent = result.ok ? result.frozen : null;
+    this.takeOver(ws, session, request, now, result, (life) => ({ t: 'promoted', life, parent }));
   }
 
   /** Brings the nearest surviving ancestor back with its saved condition and life clock. */
   private restoreAncestor(
     ws: WebSocket,
     session: ActiveSession,
-    msg: ClientMsg & { t: 'restore' },
+    { request, sig }: ClientMsg & { t: 'restore' },
     now: number,
   ): void {
-    const { request, sig } = msg;
-    if (request.owner !== session.playerId) {
-      sendIfOpen(ws, { t: 'refused', reason: 'wrong-owner' });
-      return;
-    }
     const result = this.ledger.restore(request, sig, this.exhaustion());
+    this.takeOver(ws, session, request, now, result, (life) => ({ t: 'restored', life }));
+  }
+
+  /** Answers a promotion or restore: a refusal, or the connection now plays `request.creature` (a repeat keeps its running clock). */
+  private takeOver(
+    ws: WebSocket,
+    session: ActiveSession,
+    request: RecordRequest,
+    now: number,
+    result: { ok: true; fresh: boolean } | { ok: false; reason: string },
+    reply: (life: LifeInfo) => HubMsg,
+  ): void {
     if (!result.ok) {
       sendIfOpen(ws, { t: 'refused', reason: result.reason });
       return;
@@ -984,7 +986,7 @@ export class Authority extends DurableObject<Env> {
     const mine = session.life;
     const life = !result.fresh && mine?.creature === head.id ? mine : this.bindHead(head, now);
     ws.serializeAttachment({ ...session, life, court: undefined } satisfies Session);
-    sendIfOpen(ws, { t: 'restored', life: this.lifeOf(head) });
+    sendIfOpen(ws, reply(this.lifeOf(head)));
   }
 
   /** The head as the client resumes it. */
@@ -1437,12 +1439,3 @@ function sendIfOpen(ws: WebSocket, msg: HubMsg): void {
     // closed while waiting
   }
 }
-
-/** The condition a record body saves of a connection's creature. */
-const conditionOf = (life: LifeState): Condition => ({
-  activeMs: life.activeMs,
-  biomass: life.biomass,
-  energy: life.energy,
-  health: life.health,
-  cooldownUntilMs: life.cooldownUntilMs,
-});

@@ -179,7 +179,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `Authority.deliverBirth` (alarm sweep over `Ledger.openMatingCommits`, also at hello) writes both `birth` rows through `Ledger.birth` and pushes `born` (`Born` in `protocol.ts`, also `life.pending` at hello); tests in `worker/birth.test.ts`, codec cases in `protocol.test.ts`.
   - Gotcha: a birth costs 7 row writes (index entries count, as T6 found), not 6. Hub message parse cap is now `BORN_MAX_BYTES` (32 KB) up front with per-message caps after; `born` is pushed only on the fresh write, a reconnect gets it through `life.pending`.
 
-- [ ] T9 Promotion, restore, death fallback, lineage on the hub (in progress)
+- [x] T9 Promotion, restore, death fallback, lineage on the hub
   - Acceptance (workerd tests):
     - `promote` with the owner-signed child request (`prev` the birth hash, `seq` 1, body `{ role: 'child', parent }`) is accepted: the child is `active`, the parent is frozen by an attested `promote` record (role `parent`) that keeps its condition, `activeMs` and cooldown, the session rebinds to the child (progress is now credited to it, with the hatchling condition), and `promoted` carries the child's `life`. Refused with a named reason and no change: a bad signature, someone else's pending child, a child that is not pending, a stale `prev`, a `parent` that is not the player's active or most recently dead creature, a second promote of the same child (idempotent: the same stored record comes back).
     - A parent that already died is only linked (no freeze). A player can promote while their active creature lives or once it is dead.
@@ -191,6 +191,8 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
     - `lineage` answers the player's creatures (status, generation, species name, genome text, `activeMs`, `lifespanMs`, head hash, chain parent) and a pedigree (ids and parents, species and genome text per node, six generations back, at most 64 nodes) with no other player's identity; it is within the message cap.
     - Rows: promote with a freeze ≤ 6, restore ≤ 3.
   - Notes: `promoted` and `restored` also tell the other sessions of that player nothing: one session per player. Position is client-side: the client spawns the child where the parent was and a restored creature at the spawn hint.
+  - Done: `promote`, `restore` and `lineage` messages (owner-signed requests, wrong owner refused in the hub), `promoted`, `restored` and `lineage` answers; `died` and `life` carry `fallback { pending, ancestor }` (the ancestor is a `LifeInfo` plus its head `hash`, which a `restore` must follow); exhausted ancestors are ended by `Authority.fallbackAfter`; `genesis-request` is refused `has-lineage` while anything survives. Tests in `worker/promote.test.ts`, codec cases in `protocol.test.ts`.
+  - Gotcha: `ticks` in `progress` count per connection, so a client restarts at 0 after `promoted` or `restored`. The `fallback` on `life` is sent only when there is something to fall back on. `lineage` is capped at 64 creatures and 64 pedigree nodes (`LINEAGE_MAX_BYTES` 96 KB), and the hub parser's up-front size cap is now that value, with a per-message cap in each case.
 
 - [ ] T10 Client: courting, the cost in the sim, the invitation
   - Acceptance (unit tests with a fake hub, then E2E; E2E hub `m5` on a new port with the scaled test hooks):

@@ -8,7 +8,7 @@ import {
   recordHash,
   requestMessage,
 } from '../src/ledger/record';
-import type { Ancestor, Born, ClientMsg, FallbackInfo } from '../src/net/protocol';
+import type { Ancestor, Born, ClientMsg, FallbackInfo, LifeInfo } from '../src/net/protocol';
 import { RULES_VERSION, TICK_HZ } from '../src/sim/rules';
 import {
   CALM,
@@ -141,14 +141,19 @@ const restoreReq = (p: Player, a: Ancestor, from: string) =>
     },
   }) satisfies RecordRequest;
 
+/** The connection now plays `life`, and its tick count starts again. */
+function adopt(p: Player, life: LifeInfo) {
+  p.creature = life.creature;
+  p.ticks = 0;
+  p.activeMs = life.activeMs;
+  p.lifespan = life.lifespanMs;
+}
+
 /** Promotes `born` and moves the player's connection to the child. */
 async function promote(p: Player, born: Born) {
   p.c.send({ t: 'promote', request: promoteReq(p, born), sig: signed(p.id, promoteReq(p, born)) });
   const msg = await nextOf(p.c, 'promoted');
-  p.creature = msg.life.creature;
-  p.ticks = 0;
-  p.activeMs = msg.life.activeMs;
-  p.lifespan = msg.life.lifespanMs;
+  adopt(p, msg.life);
   return msg;
 }
 
@@ -156,10 +161,7 @@ async function restore(p: Player, a: Ancestor, from: string) {
   const req = restoreReq(p, a, from);
   p.c.send({ t: 'restore', request: req, sig: signed(p.id, req) });
   const msg = await nextOf(p.c, 'restored');
-  p.creature = msg.life.creature;
-  p.ticks = 0;
-  p.activeMs = msg.life.activeMs;
-  p.lifespan = msg.life.lifespanMs;
+  adopt(p, msg.life);
   return msg;
 }
 

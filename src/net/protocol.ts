@@ -3,7 +3,7 @@ import type { Canonical } from '../ledger/canonical';
 import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
 import type { MateAsk } from '../ledger/mating';
-import type { RecordKind, RecordRequest, StoredRecord } from '../ledger/record';
+import type { RecordKind, RecordRequest, Status, StoredRecord } from '../ledger/record';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
@@ -144,12 +144,18 @@ export interface FallbackInfo {
   ancestor: Ancestor | null;
 }
 
-const STATUSES: readonly string[] = ['pending', 'active', 'checkpoint', 'dead'];
+const STATUSES: Record<Status, true> = {
+  pending: true,
+  active: true,
+  checkpoint: true,
+  dead: true,
+};
+const isStatus = (v: unknown): v is Status => typeof v === 'string' && Object.hasOwn(STATUSES, v);
 
 /** One of the player's creatures in the lineage view. */
 export interface LineageEntry {
   creature: string;
-  status: 'pending' | 'active' | 'checkpoint' | 'dead';
+  status: Status;
   generation: number;
   species: string;
   genome: string;
@@ -903,8 +909,7 @@ function lineageEntry(v: unknown): LineageEntry | null {
   if (
     !isObj(v) ||
     !isStr(v.creature, HEX64_RE) ||
-    typeof v.status !== 'string' ||
-    !STATUSES.includes(v.status) ||
+    !isStatus(v.status) ||
     !isInt(v.generation, 0, MAX_TICK) ||
     !isStr(v.species, SPECIES_RE) ||
     !isStr(v.genome, GENOME_DATA_RE) ||
@@ -916,7 +921,7 @@ function lineageEntry(v: unknown): LineageEntry | null {
     return null;
   return {
     creature: v.creature,
-    status: v.status as LineageEntry['status'],
+    status: v.status,
     generation: v.generation,
     species: v.species,
     genome: v.genome,
