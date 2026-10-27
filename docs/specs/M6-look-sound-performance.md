@@ -41,7 +41,7 @@ M6 is large, so the tasks run in layers: render foundations (T1 to T5), depth zo
 
 ### Render foundations
 
-- [ ] T1 Render settings and presets [opus]
+- [ ] T1 Render settings and presets [opus] (in progress)
   - Acceptance (unit tests first):
     - `PRESETS` equals the table above and DESIGN §12 (a test pins every number). `resolvePreset(setting, detected)` returns the setting unless it is `auto`, then the detected preset (`medium` until T5 detects). `pixelRatio(preset, devicePixelRatio)` is `min(dpr, preset max)`, at least 1.
     - `loadSettings()` reads `localStorage['bs.settings']`: invalid JSON, wrong types, unknown preset names and a throwing `localStorage` all give the defaults (`quality: 'auto'`); `saveSettings` swallows a throwing store. `?quality=low|medium|high` in the URL beats the stored value without writing it (E2E and tests use it).
