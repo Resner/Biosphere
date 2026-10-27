@@ -238,7 +238,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `lineage-view.ts` (view model, unit tested) and `lineage-panel.ts` (DOM and SVG); the Lineage button on the title screen and Esc while playing open it, Esc or Close shuts it; the Lab opens `lab.html?genome=<text>`. The branch is the newest creature and its chain back.
   - Gotcha: the hub's lineage answer holds only your creatures and their ancestors, so a sibling that belongs to another player is not in the graph; the E2E expects the 3 nodes and 2 edges A can know (parent, other parent, child). The game keeps running under the panel (no pause in a live pond).
 
-- [ ] T14 Pacing simulation and DESIGN sync
+- [ ] T14 Pacing simulation and DESIGN sync (in progress)
   - Acceptance:
     - `npm run sim:pacing` (`tools/pacing.ts`) runs a headless population in the real sim with real genesis genomes and a food-seeking bot, and prints: time from hatch to maturity (median and 10th and 90th percentile), time from a mating to being eligible again (refeed plus cooldown), matings per life, children per hour, and how a pair's repeated matings slow down (the doubling). A unit test runs a short deterministic smoke of the tool.
     - Targets, stated before the run: median hatch to first eligibility between 14 and 25 min of active time; 4 to 9 matings possible in a life; a pair's fourth mating within 24 h waits at least 8× the base cooldown. When a target fails, adjust `RULES.mating` or `RULES.life` (not the tool) and say why in the task note; changing a sim value regenerates the goldens with a rules version bump only if sim behaviour changes.
