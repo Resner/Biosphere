@@ -118,7 +118,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Notes: the ask's signing domain is `bs/req/v1` over its JCS bytes without `sig`, as the genesis ask (`src/ledger/ask.ts`). Keep the `src/ledger` rules: no DOM, no Node APIs.
     - Done: `bodyProblems`, `Status` and `transitionOutcome` live in `record.ts`; the M4 kinds' bodies stay unchecked. `transitionOutcome` returns `status:none` for "no creature" and `role` for a promote without a known role. `checkMatePair` also returns `bad-ask` for a malformed ask, and the pair shares one nonce.
 
-- [ ] T4 Offspring: the pair, the birth check, Mendelian proof
+- [ ] T4 Offspring: the pair, the birth check, Mendelian proof (in progress)
   - Acceptance (unit tests first, recorded fixtures only):
     - `offspringPair` is deterministic: the same inputs give the same two genome hashes, and five golden vectors (fixture beacons from three rounds × two parent pairs made with `genesisFor`) are committed under `src/genome/__golden__/offspring.json` with the rules version. Slot 0's child equals `breed(a, b, offspringSeed(r, id, 0))`.
     - Distinct: over 2,000 pairs (random genesis parents, 500 sibling pairs, 500 pairs of identical clones) the two children's genome hashes always differ; `slots[1]` is 1 for every pair that differs at slot 1 and larger only when the slot-1 child equalled slot 0's (then at most 255).
