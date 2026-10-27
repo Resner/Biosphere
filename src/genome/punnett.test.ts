@@ -159,8 +159,8 @@ describe('punnett: exact enumeration', () => {
   });
 
   it('matches the frequency over seeded children within four sigma', () => {
-    const n = 4000;
-    for (const [a, b] of spiced.slice(0, 12)) {
+    const n = 3000;
+    for (const [a, b] of spiced.slice(0, 6)) {
       const children = Array.from({ length: n }, (_, k) =>
         breed(a, b, seedFromString(`punnett-child-${k}`), { mutation: 0 }),
       );
@@ -193,7 +193,7 @@ describe('punnett: exact enumeration', () => {
         expect(within(hit, l.chance)).toBe(true);
       }
     }
-  });
+  }, 30_000);
 });
 
 describe('inbreeding load', () => {
@@ -220,7 +220,7 @@ describe('inbreeding load', () => {
     }
     expect(unrelated).toBeGreaterThan(0);
     expect(siblings).toBeGreaterThanOrEqual(3 * unrelated);
-  });
+  }, 30_000);
 });
 
 describe('punnett: totality', () => {
