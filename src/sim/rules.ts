@@ -1,7 +1,7 @@
-// Rules v4 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v5 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 4;
+export const RULES_VERSION = 5;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -297,6 +297,30 @@ export const RULES = deepFreeze({
     matureBiomassShare: 0.6,
     /** Active time credited per report is at most the wall time plus this. */
     accrueSlackMs: 2000,
+  },
+  /** Mating (M5, DESIGN §5, ADR 0021). */
+  mating: {
+    /** Shares of current energy and biomass, paid at commitment. */
+    costEnergy: 0.3,
+    costBiomass: 0.15,
+    /** Energy needed to mate, as a share of the maximum. */
+    minEnergyShare: 0.5,
+    /** Cooldown in active ms (6 min); doubles per earlier mating of the same pair in the window. */
+    cooldownMs: 360_000,
+    repeatWindowMs: 86_400_000,
+    repeatMaxDoublings: 5,
+    /** The accept is shown for 15 s; the authority takes it up to 20 s after the court. */
+    acceptShownMs: 15_000,
+    signWindowMs: 20_000,
+    /** Size tiers apart, and body lengths apart (checked by clients only). */
+    tierSpread: 1,
+    reachBodies: 3,
+    /** A hatchling has max(80, 10% of its maximum) biomass and 60% of its maximum energy. */
+    hatchlingMinBiomass: 80,
+    hatchlingShare: 0.1,
+    hatchlingEnergyShare: 0.6,
+    /** A checkpoint with less life left than this (2 min) is exhausted. */
+    restoreMinMs: 120_000,
   },
   spawn: {
     /** Hatching looks for a plume-free spot on rings this far apart (wu). */

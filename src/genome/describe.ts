@@ -2,9 +2,9 @@
 // `names.ts` are the only places where user-facing genetics wording lives: it says what a body
 // does and looks like, never how it is encoded.
 
+import { sizeTier } from '../sim/size';
 import type { Appendage } from './develop';
 import { type Rarity, rarityOfTraits } from './rarity';
-import { sizeTier } from './size';
 import type { Creature } from './stats';
 
 const plural = (n: number, word: string): string => `${n} ${word}${n === 1 ? '' : 's'}`;

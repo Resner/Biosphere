@@ -1,6 +1,6 @@
 # Game design reference
 
-The living description of how Biosphere plays, with **initial values** for rules version 4. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
+The living description of how Biosphere plays, with **initial values** for rules version 5. The brief (`docs/BRIEF.md`) is the intent and the ADRs are the lasting decisions; this file explains mechanics in one place so every milestone builds the same game.
 
 - **Code is the source of truth for numbers.** Values below start in `src/sim/rules.ts` (and the genome and combat tables that follow). When a spec or playtest changes a mechanic or a value, update this file in the same PR.
 - **Units**: world units (wu; think 1 wu ≈ 1 µm), seconds, and sim ticks at 30 Hz. "r" is a creature's size radius in wu.
@@ -118,6 +118,7 @@ Death is common and never total: you fall back to your pending offspring or your
   - **Consent**: A courts (E), the partner sees an invitation (name, species, rarity, size, inbreeding band) and accepts (E) within 15 s; the authority takes an accept up to 20 s after the court, which leaves 5 s for signing and transit. Esc or the timeout declines. A has one court outstanding at a time.
   - **Cost**: paid when the commitment is made, never refunded, no cancel: each parent loses 30% of current energy and 15% of biomass.
   - **Cooldown**: 6 min of active time (so a checkpoint's cooldown stays paused), doubled for each earlier mating of the same two players in the previous 24 h of wall time, at most ×32.
+  - **Numbers** (`RULES.mating`, rules version 5): cost 30% energy and 15% biomass; 50% of maximum energy to mate; cooldown 360 s of active time doubling up to ×32 (`repeatWindowMs` 24 h); accept shown 15 s, taken up to 20 s; ±1 tier; reach 3 body lengths; hatchling biomass max(80, 10% of maximum) with energy 60% of its maximum energy; a checkpoint with under 120 s of life left is exhausted. `mate` is a life event that pays the cost in the sim.
   - **Awaiting beacon**: after the commitment both players play on while the round (3–6 s) arrives; closing a tab changes nothing.
 - **Offspring**: two distinct children, one per player (seed slot 0 for the courting player's child, slot 1 for the accepter's; if slot 1 happens to equal slot 0 it takes the next slot until it differs), born when the committed drand round arrives (about 3–6 s; ADR 0010). Parent A is the courting player's creature and B the accepter's; the child's first haplotype is a gamete of A and its second a gamete of B.
   - Each player holds **one pending offspring** at most (an egg: visible to its owner, with a card showing its body).

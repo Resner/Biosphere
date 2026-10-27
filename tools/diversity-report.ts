@@ -6,9 +6,9 @@ import { bodyViolations, estimateVertices } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
 import { breed } from '../src/genome/inherit';
 import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
-import { sizeTier } from '../src/genome/size';
 import { buildCreature, type Creature } from '../src/genome/stats';
 import { createRng, seedFromString } from '../src/sim/prng';
+import { sizeTier } from '../src/sim/size';
 
 export interface ReportOptions {
   genesis: number;

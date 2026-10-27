@@ -8,9 +8,9 @@ import { genesisGenome } from '../genome/genesis';
 import { GENOME_BYTES } from '../genome/karyotype';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
-import { sizeTier } from '../genome/size';
 import { buildCreature, type Creature } from '../genome/stats';
 import { createRng, seedFromString } from '../sim/prng';
+import { sizeTier } from '../sim/size';
 
 /** Genesis cells, or random genome bytes that show the extremes. */
 export type LabMode = 'genesis' | 'wild';

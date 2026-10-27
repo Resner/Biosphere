@@ -85,7 +85,7 @@ function validate(log: InputLog): void {
     const [tick, kind] = call;
     if (!Number.isInteger(tick) || tick <= previous || tick >= log.ticks)
       throw new RangeError(`life event at tick ${tick} is out of order or out of range`);
-    if (kind !== 'elder' && kind !== 'expire')
+    if (kind !== 'elder' && kind !== 'expire' && kind !== 'mate')
       throw new RangeError(`unknown life event ${String(kind)}`);
     previous = tick;
   }
