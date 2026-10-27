@@ -37,9 +37,9 @@ Go in this order; the first item that applies is this run's step.
 
 The current milestone is the first row in `docs/ROADMAP.md` that isn't `done`.
 
-- No spec for the milestone → run the `spec` skill.
+- No spec for the milestone → after the claim, run the `spec` skill with the milestone id and your branch as arguments. It writes and commits the spec in a subagent on Opus (ADR 0026); you ship it.
 - Unticked tasks → implement the first one that isn't blocked (below).
-  If it's marked `[opus]`, run the `opus-task` skill for it (ADR 0023). In a spec without marks, treat a task as marked when its main work is UI or look (`src/render/`, `src/lab/`, HUD and screens), netcode (`src/net/`, signaling, relay, referee) or security (signatures, records, verification, admission, untrusted input).
+  If it's marked `[opus]`, claim it as usual, then run the `opus-task` skill with the task id, the spec path and your branch as arguments instead of steps 1–4 and 6 below (ADRs 0023, 0026). It implements, tests, ticks and commits in a subagent on Opus and reports back; you then do step 5 and ship. Hand correctness findings from step 5 back to `opus-task` with the findings as arguments. In a spec without marks, treat a task as marked when its main work is UI or look (`src/render/`, `src/lab/`, HUD and screens), netcode (`src/net/`, signaling, relay, referee) or security (signatures, records, verification, admission, untrusted input).
 - Every task ticked → run the `milestone` skill.
 - Every row `done` → report that the roadmap is complete and stop.
 
