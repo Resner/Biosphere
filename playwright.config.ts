@@ -46,6 +46,7 @@ const lowQuality = {
 const skipSlow = process.env.E2E_SKIP_SLOW ? { grepInvert: /@slow/ } : {};
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
+const POST = /m6-post\.spec\.ts/;
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -66,7 +67,12 @@ export default defineConfig({
     },
   },
   projects: [
-    { name: 'chromium', testIgnore: [SOCIAL, POND], use: { browserName: 'chromium' }, ...skipSlow },
+    {
+      name: 'chromium',
+      testIgnore: [SOCIAL, POND, POST],
+      use: { browserName: 'chromium' },
+      ...skipSlow,
+    },
     // Three-browser scenarios are CPU-bound under software GL: running this one after the rest
     // keeps CI runners from starving the online spec into its timeout.
     {
@@ -81,6 +87,15 @@ export default defineConfig({
       name: 'pond',
       testMatch: POND,
       dependencies: ['social'],
+      use: { browserName: 'chromium' },
+      ...skipSlow,
+    },
+    // The post chain's screenshot checks render the high preset in software; beside the old-age spec
+    // (which counts the ticks a loaded runner manages to play) they starve it.
+    {
+      name: 'post',
+      testMatch: POST,
+      dependencies: ['pond'],
       use: { browserName: 'chromium' },
       ...skipSlow,
     },
