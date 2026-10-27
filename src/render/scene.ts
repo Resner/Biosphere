@@ -241,7 +241,9 @@ export class GameScene {
     this.water.update(view, halfWidth);
     this.post.setFocus(PLANE_DEPTH);
     const sprites = this.post.spriteDof(this.sprites);
-    for (const layer of [this.far, this.mid, this.near]) layer.update(view, this.pxPerWu, sprites);
+    this.far.update(view, this.pxPerWu, sprites);
+    this.mid.update(view, this.pxPerWu, sprites);
+    this.near.update(view, this.pxPerWu, sprites);
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(this.drawBody(view) ? null : view.creature, view.time);

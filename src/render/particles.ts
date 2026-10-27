@@ -1,7 +1,8 @@
 import * as THREE from 'three';
+import { TAU } from '../sim/math';
 import { type ParticleStyle, particleMaterial, setUniform, vec2Uniform } from './materials';
 import type { SpriteDof } from './post/chain';
-import { depthOfParallax } from './post/dof';
+import { depthOfParallax, parallaxOfDepth } from './post/dof';
 import { PRESETS } from './presets';
 import type { SceneView } from './scene';
 
@@ -109,9 +110,9 @@ export class ParticleLayer {
     for (let i = 0; i < this.drawnCount; i++) {
       const s = this.seeds[i] ?? 0;
       const z = depth + spread * (2 * (this.positions[i * 3 + 2] ?? 0) - 1);
-      const parallax = 1 / (1 - z);
+      const parallax = parallaxOfDepth(z);
       const dx = (0.8 + 1.2 * s) * t;
-      const dy = 0.3 * Math.sin(t * 0.3 + s * 6.2831) * t;
+      const dy = 0.3 * Math.sin(t * 0.3 + s * TAU) * t;
       const rx = mod((this.positions[i * 3] ?? 0) * period + dx - cam.x * parallax, period);
       const ry = mod((this.positions[i * 3 + 1] ?? 0) * period + dy - cam.y * parallax, period);
       const x = width / 2 + (rx - period / 2) * pxPerWu;

@@ -250,9 +250,6 @@ test('medium keeps the creature sharp, spreads off-plane specks into discs and s
   };
   const sharpEdge = await edge(off, far.off);
   const softEdge = await edge(on, far.on);
-  console.log(
-    JSON.stringify({ sharp, kept, speck: pick, sharpCover, blurCover, far, sharpEdge, softEdge }),
-  );
 
   expect(sharp).toBeGreaterThan(20);
   expect(Math.abs(kept - sharp)).toBeLessThanOrEqual(0.1 * sharp);
@@ -269,7 +266,6 @@ test('high runs a full-strength depth of field and keeps the creature sharp @slo
   expectDof('high', off, on);
   const sharp = await cellEdge(page, off);
   const kept = await cellEdge(page, on);
-  console.log(JSON.stringify({ sharp, kept }));
   expect(sharp).toBeGreaterThan(20);
   expect(Math.abs(kept - sharp)).toBeLessThanOrEqual(0.1 * sharp);
   expect(on.mid.some((s) => s.blur > 0)).toBe(true);
