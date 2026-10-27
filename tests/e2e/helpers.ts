@@ -173,9 +173,15 @@ export async function goTo(page: Page, id: string): Promise<void> {
   await page.waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
     timeout: 20_000,
   });
-  await page.evaluate((who) => {
-    const bs = window.__bs as BsHook;
-    const r = bs.state().remotes.find((x) => x.id === who);
-    if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
-  }, id);
+  // Teleport until the HUD sees the creature in reach: on a loaded runner the remote is still fading
+  // in or has drifted by the time the first jump lands, and the mate hint stays hidden.
+  const hint = page.getByTestId('mate-hint');
+  await expect(async () => {
+    await page.evaluate((who) => {
+      const bs = window.__bs as BsHook;
+      const r = bs.state().remotes.find((x) => x.id === who);
+      if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
+    }, id);
+    await expect(hint).toBeVisible({ timeout: 2_000 });
+  }).toPass({ timeout: 20_000 });
 }

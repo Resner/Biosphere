@@ -1,4 +1,5 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
+import type { BsHook } from '../../src/game/debug';
 import { clickHatch, goTo, M5_HUB, openRecorded, ripe, state, topUp, waitPlaying } from './helpers';
 
 // Courting (M5 T10) on an authority with lives of about 4 min and maturity in seconds: one player
@@ -30,11 +31,8 @@ test('a court is answered, both pay, and a newborn is refused for being too youn
 
   // A third creature has not been reported yet: the hub counts it as not mature.
   const c = await hatched(ctxC);
-  // Under a loaded run the remote's position can lag the teleport; keep closing in until the hint shows.
-  await expect(async () => {
-    await goTo(a, await idOf(c));
-    await expect(a.getByTestId('mate-hint')).toContainText('Not mature yet', { timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  await goTo(a, await idOf(c));
+  await expect(a.getByTestId('mate-hint')).toContainText('Not mature yet');
   await a.keyboard.press('e');
   await expect(a.getByTestId('mate-hint')).toContainText('Not mature yet');
   expect((await state(a)).mate.visited).not.toContain('courting');
