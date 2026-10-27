@@ -52,9 +52,12 @@ test('closing the tab and coming back resumes the same creature @slow', async ({
   expect(after.life.creature).toBe(before.life.creature);
   expect(after.player?.genomeHash).toBe(before.player?.genomeHash);
   expect(after.life.activeMs).toBe(before.life.activeMs);
-  // The hub held the condition it clamped from the last report: never more than was reported.
+  // The hub held the condition it clamped from the last report: never more than was reported, plus
+  // what the resumed creature has grown since it spawned (a slow runner reaches this check later).
+  const growth = after.player?.stats.growth ?? 1;
+  const grownBound = ackedBiomass * Math.exp((0.012 * growth * after.tick) / 30);
   expect(after.player?.biomass).toBeGreaterThan(0);
-  expect(after.player?.biomass).toBeLessThanOrEqual(ackedBiomass + 0.01);
+  expect(after.player?.biomass).toBeLessThanOrEqual(grownBound + 0.01);
   await context.close();
 });
 
