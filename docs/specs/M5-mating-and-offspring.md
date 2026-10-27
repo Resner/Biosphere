@@ -90,7 +90,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
 
 ## Tasks
 
-- [ ] T1 M4 carry-overs
+- [ ] T1 M4 carry-overs (in progress)
   - Acceptance (workerd and unit tests, written first):
     - Hatch refund: when `accept` refuses a genesis after its commitment was taken (the bucket went 3 → 2), the bucket is back at 3, the pending commitment is cleared, the owner gets `refused`, and a redelivery refunds nothing a second time. The bucket never exceeds 3.
     - A client `death` report whose ticks bring `activeMs` to the lifespan is recorded with cause `old-age` and answered `died { cause: 'old-age' }`; one that falls short keeps the client's cause (`starved`).
