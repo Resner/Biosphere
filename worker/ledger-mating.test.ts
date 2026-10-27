@@ -408,7 +408,7 @@ describe('Ledger.mate', () => {
         round: ROUND,
         requests,
       });
-      expect(result).toMatchObject({ ok: false, reason: 'conflict', conflict: true });
+      expect(result).toMatchObject({ ok: false, reason: 'conflict' });
       expect(ledger.rowsWritten - rows).toBeLessThanOrEqual(1); // the flag only
       expect(ledger.head(a.id)?.seq).toBe(0);
       expect(ledger.chain(a.id)).toHaveLength(1);

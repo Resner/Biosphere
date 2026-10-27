@@ -82,9 +82,12 @@ export interface MateInput {
   requests: [RecordRequest, RecordRequest];
 }
 
-export type MateResult =
+/** The outcome of an operation that writes one record on each of two chains. */
+export type PairResult =
   | { ok: true; stored: [StoredRecord, StoredRecord]; fresh: boolean }
-  | { ok: false; reason: string; conflict?: true };
+  | { ok: false; reason: string };
+
+export type MateResult = PairResult;
 
 export interface BirthChild {
   request: RecordRequest;
@@ -99,9 +102,7 @@ export interface BirthInput {
   children: [BirthChild, BirthChild];
 }
 
-export type BirthResult =
-  | { ok: true; stored: [StoredRecord, StoredRecord]; fresh: boolean }
-  | { ok: false; reason: string };
+export type BirthResult = PairResult;
 
 export type PromoteResult =
   | { ok: true; stored: StoredRecord; frozen: StoredRecord | null; fresh: boolean }
@@ -193,7 +194,7 @@ export class Ledger {
    */
   accept(input: AcceptInput): AcceptResult {
     this.key();
-    return this.storage.transactionSync(() => this.acceptInTransaction(input, false));
+    return this.storage.transactionSync(() => this.acceptInTransaction(input));
   }
 
   /**
@@ -247,27 +248,20 @@ export class Ledger {
       }
       if (head.status !== 'checkpoint') return refuse(`status:${head.status}`);
       if (!isExhausted(head, rule)) return refuse('not-exhausted');
-      return this.acceptInTransaction(
-        {
-          request: {
-            v: 1,
-            rules: RULES_VERSION,
-            kind: 'death',
-            creature,
-            seq: head.seq + 1,
-            prev: head.hash,
-            owner: head.owner,
-            body: {
-              cause: 'old-age',
-              activeMs: head.activeMs,
-              biomass: head.biomass,
-              energy: head.energy,
-              health: head.health,
-            },
-          },
-        },
-        true,
-      );
+      const record: LedgerRecord = {
+        v: 1,
+        rules: RULES_VERSION,
+        kind: 'death',
+        creature,
+        seq: head.seq + 1,
+        prev: head.hash,
+        owner: head.owner,
+        t: this.now(),
+        body: { cause: 'old-age', ...conditionOf(head) },
+      };
+      const stored = this.store(record, recordHash(record), requestHash(record), null, creature);
+      this.advance(head, record, stored.hash, 'dead');
+      return { ok: true, stored, fresh: true };
     });
   }
 
@@ -279,30 +273,33 @@ export class Ledger {
   fallback(creature: string, rule: Exhaustion): Fallback {
     const start = this.head(creature);
     if (!start) return { pending: null, ancestor: null, exhausted: [] };
-    const pendingRow = this.run(
-      "SELECT * FROM creatures WHERE owner = ? AND status = 'pending'",
-      start.owner,
-    )[0];
-    const pending = pendingRow ? asHead(pendingRow) : null;
+    return { pending: this.pending(start.owner), ...this.ancestorOf(start, rule) };
+  }
+
+  /** The nearest frozen ancestor on the checkpoint chain with life left, and the exhausted ones walked over. */
+  private ancestorOf(start: Head, rule: Exhaustion): Pick<Fallback, 'ancestor' | 'exhausted'> {
     const exhausted: Head[] = [];
-    const seen = new Set<string>([creature]);
+    const seen = new Set<string>([start.id]);
     for (let at = start.chainParent; at && !seen.has(at); ) {
       seen.add(at);
       const head = this.head(at);
       if (!head) break;
       if (head.status === 'checkpoint') {
-        if (!isExhausted(head, rule)) return { pending, ancestor: head, exhausted };
+        if (!isExhausted(head, rule)) return { ancestor: head, exhausted };
         exhausted.push(head);
       }
       at = head.chainParent;
     }
-    return { pending, ancestor: null, exhausted };
+    return { ancestor: null, exhausted };
   }
 
   /** Whether the player has a creature that is not dead: active, pending or frozen. */
   alive(owner: string): boolean {
+    // Active and pending hit partial indexes; the scan for a frozen one only runs for a player with neither.
     return (
-      this.run("SELECT 1 FROM creatures WHERE owner = ? AND status != 'dead' LIMIT 1", owner)
+      this.active(owner) !== null ||
+      this.pending(owner) !== null ||
+      this.run("SELECT 1 FROM creatures WHERE owner = ? AND status = 'checkpoint' LIMIT 1", owner)
         .length > 0
     );
   }
@@ -338,6 +335,34 @@ export class Ledger {
         body,
       },
     });
+  }
+
+  /** The player's pending child, or null. */
+  pending(owner: string): Head | null {
+    const row = this.run(
+      "SELECT * FROM creatures WHERE owner = ? AND status = 'pending'",
+      owner,
+    )[0];
+    return row ? asHead(row) : null;
+  }
+
+  /** Whether either player has a pending child. */
+  private anyPending(a: string, b: string): boolean {
+    return (
+      this.run("SELECT 1 FROM creatures WHERE status = 'pending' AND owner IN (?1, ?2)", a, b)
+        .length > 0
+    );
+  }
+
+  /** The record stored for exactly this request, if any: how a resubmission is recognised. */
+  private byReq(creature: string, seq: number, req: string): StoredRecord | null {
+    const row = this.run(
+      'SELECT * FROM records WHERE creature = ? AND seq = ? AND req = ?',
+      creature,
+      seq,
+      req,
+    )[0];
+    return row ? asStored(row) : null;
   }
 
   /** The player's active creature, or null. */
@@ -459,11 +484,11 @@ export class Ledger {
     }));
   }
 
-  /** `frozenDeath` lets a `death` follow a `checkpoint` creature; only `markExhausted` sets it. */
-  private acceptInTransaction(
-    { request, ownerSig = null, genome = '' }: AcceptInput,
-    frozenDeath: boolean,
-  ): AcceptResult {
+  private acceptInTransaction({
+    request,
+    ownerSig = null,
+    genome = '',
+  }: AcceptInput): AcceptResult {
     const t = this.now();
     if (request.kind !== 'genesis' && request.creature === '') return refuse('no-creature');
     // The kinds that touch two chains or need an owner's word have their own operations.
@@ -476,7 +501,7 @@ export class Ledger {
     }
     return request.kind === 'genesis'
       ? this.genesis(request, req, ownerSig, genome, t)
-      : this.transition(request, req, ownerSig, t, frozenDeath);
+      : this.transition(request, req, ownerSig, t);
   }
 
   /** The reason an owner-signed request is refused before any state is read; null when it is fine. */
@@ -541,7 +566,6 @@ export class Ledger {
     req: string,
     ownerSig: string | null,
     t: number,
-    frozenDeath = false,
   ): AcceptResult {
     const head = this.head(request.creature);
     if (!head) return refuse('unknown-creature');
@@ -549,19 +573,14 @@ export class Ledger {
       this.flag('wrong-owner', request, req, t);
       return refuse('wrong-owner');
     }
-    const again = this.run(
-      'SELECT * FROM records WHERE creature = ? AND seq = ? AND req = ?',
-      request.creature,
-      request.seq,
-      req,
-    )[0];
-    if (again) return { ok: true, stored: asStored(again), fresh: false };
+    const again = this.byReq(request.creature, request.seq, req);
+    if (again) return { ok: true, stored: again, fresh: false };
     if (head.status === 'dead') return refuse('dead');
     const role = request.kind === 'promote' ? String(request.body.role) : null;
     const outcome = transitionOutcome(request.kind, role, head.status);
     if (!outcome.ok) return refuse(outcome.reason);
-    // A frozen creature dies only when it is exhausted, which `markExhausted` has checked.
-    if (request.kind === 'death' && head.status === 'checkpoint' && !frozenDeath) {
+    // A frozen creature dies only when it is exhausted, which only `markExhausted` can establish.
+    if (request.kind === 'death' && head.status === 'checkpoint') {
       return refuse('not-exhausted');
     }
     if (request.seq !== head.seq + 1 || request.prev !== head.hash) {
@@ -570,7 +589,7 @@ export class Ledger {
     }
     const record: LedgerRecord = { ...request, t };
     const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
-    this.advance(head, record, stored.hash, outcome.next, t);
+    this.advance(head, record, stored.hash, outcome.next);
     return { ok: true, stored, fresh: true };
   }
 
@@ -578,31 +597,30 @@ export class Ledger {
    * Moves a head to the record just stored: the condition the body saves, and the status when it
    * changes. `status` is in partial indexes, so it is only assigned when it changes.
    */
-  private advance(head: Head, record: LedgerRecord, hash: string, next: Status, t: number): void {
-    const condition = [
+  private advance(
+    head: Head,
+    record: LedgerRecord,
+    hash: string,
+    next: Status,
+    chainParent: string | null = head.chainParent,
+  ): void {
+    const { body } = record;
+    const values: SqlStorageValue[] = [
       record.seq,
       hash,
-      field(record.body, 'activeMs', head.activeMs),
-      field(record.body, 'biomass', head.biomass),
-      field(record.body, 'energy', head.energy),
-      field(record.body, 'health', head.health),
-      field(record.body, 'cooldownUntilMs', head.cooldownUntilMs),
+      field(body, 'activeMs', head.activeMs),
+      field(body, 'biomass', head.biomass),
+      field(body, 'energy', head.energy),
+      field(body, 'health', head.health),
+      field(body, 'cooldownUntilMs', head.cooldownUntilMs),
+      chainParent,
     ];
-    if (next === head.status) {
-      this.run(
-        `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?,
-           cooldown_until_ms = ? WHERE id = ?`,
-        ...condition,
-        head.id,
-      );
-      return;
-    }
+    const changed = next !== head.status;
+    if (changed) values.push(next, next === 'dead' ? record.t : head.diedT);
     this.run(
       `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?,
-         cooldown_until_ms = ?, status = ?, died_t = ? WHERE id = ?`,
-      ...condition,
-      next,
-      next === 'dead' ? t : head.diedT,
+         cooldown_until_ms = ?, chain_parent = ?${changed ? ', status = ?, died_t = ?' : ''} WHERE id = ?`,
+      ...values,
       head.id,
     );
   }
@@ -611,19 +629,12 @@ export class Ledger {
     const t = this.now();
     const hashes = requests.map((r) => requestHash(r));
     if (this.run('SELECT 1 FROM matings WHERE commit_id = ?', commit).length > 0) {
-      const found = requests.map(
-        (r, i) =>
-          this.run(
-            'SELECT * FROM records WHERE creature = ? AND seq = ? AND req = ?',
-            r.creature,
-            r.seq,
-            hashes[i] as string,
-          )[0],
+      const [first, second] = requests.map((r, i) =>
+        this.byReq(r.creature, r.seq, hashes[i] as string),
       );
-      const [first, second] = found;
       return first && second
-        ? { ok: true, stored: [asStored(first), asStored(second)], fresh: false }
-        : { ok: false, reason: 'commit-used' };
+        ? { ok: true, stored: [first, second], fresh: false }
+        : refuse('commit-used');
     }
     const [ra, rb] = requests;
     const [a, b] = [this.head(ra.creature), this.head(rb.creature)];
@@ -652,37 +663,24 @@ export class Ledger {
       const outcome = transitionOutcome('mate-commit', null, head.status);
       if (!outcome.ok) return refuse(head.status === 'dead' ? 'dead' : outcome.reason);
     }
-    const owners = [a.owner, b.owner];
-    const [oa, ob] = owners;
-    if (
-      this.run(
-        'SELECT 1 FROM matings WHERE resolved = 0 AND (owner_a IN (?1, ?2) OR owner_b IN (?1, ?2))',
-        oa as string,
-        ob as string,
-      ).length > 0
-    ) {
-      return refuse('in-flight');
-    }
-    if (
-      this.run(
-        "SELECT 1 FROM creatures WHERE status = 'pending' AND owner IN (?1, ?2)",
-        oa as string,
-        ob as string,
-      ).length > 0
-    ) {
-      return refuse('pending');
-    }
+    const open = this.run(
+      'SELECT 1 FROM matings WHERE resolved = 0 AND (owner_a IN (?1, ?2) OR owner_b IN (?1, ?2))',
+      a.owner,
+      b.owner,
+    );
+    if (open.length > 0) return refuse('in-flight');
+    if (this.anyPending(a.owner, b.owner)) return refuse('pending');
     for (const [i, r] of requests.entries()) {
       const head = heads[i] as Head;
       if (r.seq !== head.seq + 1 || r.prev !== head.hash) {
         this.flag('conflict', r, hashes[i] as string, t);
-        return { ok: false, reason: 'conflict', conflict: true };
+        return refuse('conflict');
       }
     }
     const stored = requests.map((r, i) => {
       const record: LedgerRecord = { ...r, t };
       const s = this.store(record, recordHash(record), hashes[i] as string, null, r.creature);
-      this.advance(heads[i] as Head, record, s.hash, 'active', t);
+      this.advance(heads[i] as Head, record, s.hash, 'active');
       return s;
     }) as [StoredRecord, StoredRecord];
     this.run(
@@ -706,19 +704,12 @@ export class Ledger {
     const owners = [mating.owner_a as string, mating.owner_b as string];
     const hashes = children.map((c) => requestHash(c.request));
     if (mating.resolved) {
-      const found = [mating.child_a, mating.child_b].map((id, i) =>
-        id
-          ? this.run(
-              'SELECT * FROM records WHERE creature = ? AND seq = 0 AND req = ?',
-              id as string,
-              hashes[i] as string,
-            )[0]
-          : undefined,
+      const [first, second] = [mating.child_a, mating.child_b].map((id, i) =>
+        this.byReq(id as string, 0, hashes[i] as string),
       );
-      const [first, second] = found;
       return first && second
-        ? { ok: true, stored: [asStored(first), asStored(second)], fresh: false }
-        : { ok: false, reason: 'resolved' };
+        ? { ok: true, stored: [first, second], fresh: false }
+        : refuse('resolved');
     }
     for (const [i, child] of children.entries()) {
       const r = child.request;
@@ -737,15 +728,7 @@ export class Ledger {
         return refuse('birth-mismatch');
       }
     }
-    if (
-      this.run(
-        "SELECT 1 FROM creatures WHERE status = 'pending' AND owner IN (?1, ?2)",
-        owners[0] as string,
-        owners[1] as string,
-      ).length > 0
-    ) {
-      return refuse('pending');
-    }
+    if (this.anyPending(owners[0] as string, owners[1] as string)) return refuse('pending');
     const stored = children.map((child, i) => {
       const record: LedgerRecord = { ...child.request, t };
       const hash = creatureId(record);
@@ -794,12 +777,7 @@ export class Ledger {
       this.flag('wrong-owner', request, req, t);
       return refuse('wrong-owner');
     }
-    const again = this.run(
-      'SELECT * FROM records WHERE creature = ? AND seq = ? AND req = ?',
-      request.creature,
-      request.seq,
-      req,
-    )[0];
+    const again = this.byReq(request.creature, request.seq, req);
     if (again) {
       const frozen = this.run(
         "SELECT * FROM records WHERE creature = ? AND kind = 'promote' ORDER BY seq DESC LIMIT 1",
@@ -808,7 +786,7 @@ export class Ledger {
       const mine = frozen ? asStored(frozen) : null;
       return {
         ok: true,
-        stored: asStored(again),
+        stored: again,
         frozen:
           mine?.record.body.role === 'parent' && mine.record.body.child === child.id ? mine : null,
         fresh: false,
@@ -824,13 +802,13 @@ export class Ledger {
     const parent = this.head(String(request.body.parent));
     if (!parent || parent.owner !== child.owner || parent.id === child.id)
       return refuse('bad-parent');
-    const active = this.active(child.owner);
+    const active = parent.status === 'active' ? parent : this.active(child.owner);
     // The parent is the player's active creature (frozen now), or, with none active, the one that died last.
     if (active ? active.id !== parent.id : !this.isLastDead(parent)) return refuse('bad-parent');
     let frozen: StoredRecord | null = null;
     if (active) {
-      const outcomeParent = transitionOutcome('promote', 'parent', parent.status);
-      if (!outcomeParent.ok) return refuse('bad-parent');
+      const parentOutcome = transitionOutcome('promote', 'parent', parent.status);
+      if (!parentOutcome.ok) return refuse('bad-parent');
       const record: LedgerRecord = {
         v: 1,
         rules: request.rules,
@@ -843,20 +821,16 @@ export class Ledger {
         body: {
           role: 'parent',
           child: child.id,
-          activeMs: freeze.activeMs ?? parent.activeMs,
-          biomass: freeze.biomass ?? parent.biomass,
-          energy: freeze.energy ?? parent.energy,
-          health: freeze.health ?? parent.health,
-          cooldownUntilMs: freeze.cooldownUntilMs ?? parent.cooldownUntilMs,
+          ...conditionOf(parent),
+          ...freeze,
         },
       };
       frozen = this.store(record, recordHash(record), requestHash(record), null, parent.id);
-      this.advance(parent, record, frozen.hash, outcomeParent.next, t);
+      this.advance(parent, record, frozen.hash, parentOutcome.next);
     }
     const record: LedgerRecord = { ...request, t };
     const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
-    this.advance(child, record, stored.hash, outcome.next, t);
-    this.run('UPDATE creatures SET chain_parent = ? WHERE id = ?', parent.id, child.id);
+    this.advance(child, record, stored.hash, outcome.next, parent.id);
     return { ok: true, stored, frozen, fresh: true };
   }
 
@@ -886,13 +860,8 @@ export class Ledger {
       this.flag('wrong-owner', request, req, t);
       return refuse('wrong-owner');
     }
-    const again = this.run(
-      'SELECT * FROM records WHERE creature = ? AND seq = ? AND req = ?',
-      request.creature,
-      request.seq,
-      req,
-    )[0];
-    if (again) return { ok: true, stored: asStored(again), fresh: false };
+    const again = this.byReq(request.creature, request.seq, req);
+    if (again) return { ok: true, stored: again, fresh: false };
     if (head.status === 'dead') return refuse('dead');
     const outcome = transitionOutcome('restore', null, head.status);
     if (!outcome.ok) return refuse(outcome.reason);
@@ -901,14 +870,7 @@ export class Ledger {
       return refuse('conflict');
     }
     if (this.active(head.owner)) return refuse('active-exists');
-    const saved: Condition = {
-      activeMs: head.activeMs,
-      biomass: head.biomass,
-      energy: head.energy,
-      health: head.health,
-      cooldownUntilMs: head.cooldownUntilMs,
-    };
-    if (Object.entries(saved).some(([key, value]) => request.body[key] !== value)) {
+    if (Object.entries(conditionOf(head)).some(([key, value]) => request.body[key] !== value)) {
       return refuse('condition-mismatch');
     }
     const from = this.head(String(request.body.from));
@@ -916,13 +878,13 @@ export class Ledger {
       !from ||
       from.owner !== head.owner ||
       from.status !== 'dead' ||
-      this.fallback(from.id, rule).ancestor?.id !== head.id
+      this.ancestorOf(from, rule).ancestor?.id !== head.id
     ) {
       return refuse('not-nearest');
     }
     const record: LedgerRecord = { ...request, t };
     const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
-    this.advance(head, record, stored.hash, outcome.next, t);
+    this.advance(head, record, stored.hash, outcome.next);
     return { ok: true, stored, fresh: true };
   }
 
@@ -1023,6 +985,14 @@ export class Ledger {
 const SINGLE_RECORD_KINDS: readonly string[] = ['genesis', 'checkpoint', 'death'];
 
 /** Whether a frozen creature's remaining life is under the restore minimum. */
+const conditionOf = (head: Head): Condition => ({
+  activeMs: head.activeMs,
+  biomass: head.biomass,
+  energy: head.energy,
+  health: head.health,
+  cooldownUntilMs: head.cooldownUntilMs,
+});
+
 const isExhausted = (head: Head, rule: Exhaustion): boolean =>
   rule.lifespanOf(head) - head.activeMs < rule.restoreMinMs;
 
