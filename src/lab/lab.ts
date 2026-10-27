@@ -1,7 +1,8 @@
 // The Creature Lab page (M3 T13, T14): a grid of 24 creatures drawn with the game's own creature
 // view, an inspector that explains the selected one in plain words, tools to mutate, breed, export
-// and import genomes, and `window.__lab` for tests. It makes no network calls and has no
-// post-processing: one small renderer on a dark backdrop.
+// and import genomes, and `window.__lab` for tests. It makes no network calls, and it draws through
+// the game's post chain on the high preset (M6 T2), so the Lab and the gallery show the real look;
+// only the lens effects that depend on a cell's place in the frame are off.
 
 import * as THREE from 'three';
 import { rarityBadge } from '../game/badge';
@@ -11,6 +12,8 @@ import { explainChild, type TraitExplanation } from '../genome/explain';
 import { topDownCamera } from '../render/camera';
 import { CreatureCache } from '../render/creature-cache';
 import { CreatureView, type CreatureViewState } from '../render/creature-view';
+import { PostChain } from '../render/post/chain';
+import { pixelRatio } from '../render/presets';
 import { breedBatch, labRandomness, mutateStep } from './breed';
 import { CELL_COUNT, cellAt, cellRect, GRID_COUNT, HOVER_SCALE, stageCoreRadius } from './grid';
 import type { LabCreature, LabHook, LabView } from './hook';
@@ -78,7 +81,8 @@ export function startLab(options: LabOptions): void {
 
   let renderer: THREE.WebGLRenderer;
   try {
-    renderer = new THREE.WebGLRenderer({ canvas, antialias: true });
+    // The scene target is multisampled instead: the canvas only receives the composite.
+    renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
   } catch (error) {
     // `window.__lab` stays unset, so the page never reports ready.
     errorLine.hidden = false;
@@ -87,7 +91,9 @@ export function startLab(options: LabOptions): void {
     return;
   }
   renderer.setClearColor(WATER);
-  renderer.setPixelRatio(Math.min(window.devicePixelRatio, 2));
+  renderer.setPixelRatio(pixelRatio('high', window.devicePixelRatio));
+  const post = new PostChain(renderer, { samples: 4, lens: false });
+  post.setPreset('high');
   const scene = new THREE.Scene();
   const camera = topDownCamera();
   const cache = new CreatureCache();
@@ -165,7 +171,7 @@ export function startLab(options: LabOptions): void {
           clock += Math.min(ADVANCE_STEP, left);
           updateViews();
         }
-        renderer.render(scene, camera);
+        post.render(scene, camera);
       },
     };
   }
@@ -406,13 +412,14 @@ export function startLab(options: LabOptions): void {
 
   function draw(): void {
     updateViews();
-    renderer.render(scene, camera);
+    post.render(scene, camera);
   }
 
   function resize(): void {
     width = Math.max(1, stage.clientWidth);
     height = Math.max(1, stage.clientHeight);
     renderer.setSize(width, height, false);
+    post.resize(width, height, renderer.getPixelRatio());
     camera.left = -width / 2;
     camera.right = width / 2;
     camera.top = height / 2;

@@ -291,6 +291,8 @@ Presentation timings (v1, `FX` in `src/render/effects.ts`): eat pop 0.55 s, dash
 
 Players pick Auto, Low, Medium or High in Settings (title screen, or Esc then Settings); the choice is stored in the browser and `?quality=` overrides it for one visit. The automatic default picks a preset from a short benchmark (medium until it exists); adaptive resolution steps down when frames run over budget.
 
+The post chain (`src/render/post/`) renders the scene into a half-float target (8-bit where half float cannot be rendered), then composites onto the canvas: a half-resolution dual-filter bloom (4 levels on medium, 5 on high), a grade (a teal lift in the shadows, a filmic shoulder that rolls highlights off to white) and a vignette, plus film grain and radial chromatic aberration on high. Low renders straight to the canvas. The Creature Lab uses high without the vignette and the aberration, which depend on a cell's place in the frame.
+
 ## Glossary
 
 - **Active creature**: the one creature a player currently plays (one per player).
