@@ -31,6 +31,18 @@ const m5PromoteHubPort = 8795;
 const m5LifecycleHubPort = 8796;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
+// The post chain (M6 T2) makes software rendering several times slower, which starves specs that
+// do not look at the picture. Every context starts on the low preset; the look and preset specs
+// clear this and choose their own (`?quality=`).
+const lowQuality = {
+  cookies: [],
+  origins: [
+    {
+      origin: `http://localhost:${port}`,
+      localStorage: [{ name: 'bs.settings', value: JSON.stringify({ quality: 'low' }) }],
+    },
+  ],
+};
 const skipSlow = process.env.E2E_SKIP_SLOW ? { grepInvert: /@slow/ } : {};
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
@@ -43,6 +55,7 @@ export default defineConfig({
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {
     baseURL: `http://localhost:${port}/`,
+    storageState: lowQuality,
     viewport: { width: 960, height: 540 },
     trace: 'retain-on-failure',
     // Chromium hides local IPs behind mDNS names that the sandbox cannot resolve; the E2E peers

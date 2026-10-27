@@ -8,6 +8,9 @@ import { hatch, openGame } from './helpers';
 // and medium frame the same food in the same place. The DOM HUD is hidden for each shot: it is
 // never post-processed, and it would cover the corners.
 
+// The suite default is the low preset (playwright.config.ts); these specs choose their own.
+test.use({ storageState: { cookies: [], origins: [] } });
+
 const bs = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
 
 // Independent of the code: what the M6 spec lists for each preset.

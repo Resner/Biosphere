@@ -5,7 +5,7 @@ import { hatch, openGame } from './helpers';
 
 // Quality presets (M6 T1): the URL, the stored setting and the settings panel all end in the same
 // `render.info()`. A device ratio of 2 makes every preset's pixel ratio distinguishable.
-test.use({ deviceScaleFactor: 2 });
+test.use({ deviceScaleFactor: 2, storageState: { cookies: [], origins: [] } });
 
 const info = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
 
@@ -39,9 +39,9 @@ test('?quality= starts the game on that preset', async ({ page }) => {
   }
 });
 
-// Split in two since the post chain (M6 T2): high at a device ratio of 2 renders slowly in software,
-// and one test doing both ran past the 20 s a PR-gate scenario may take.
-test('the settings panel switches preset at runtime', async ({ page }) => {
+// One switch per test since the post chain (M6 T2): high at a device ratio of 2 renders slowly in
+// software, and a test doing both ran past the 20 s a PR-gate scenario may take.
+test('the settings panel switches from medium to low at runtime', async ({ page }) => {
   await openGame(page, '?debug=1&seed=presets');
   await hatch(page);
   await waitForFrames(page);
@@ -59,13 +59,21 @@ test('the settings panel switches preset at runtime', async ({ page }) => {
   const canvasWidth = await page.locator('#scene').evaluate((c) => (c as HTMLCanvasElement).width);
   const cssWidth = await page.locator('#scene').evaluate((c) => c.clientWidth);
   expect(canvasWidth).toBe(cssWidth);
+});
+
+test('the settings panel switches from low to high at runtime', async ({ page }) => {
+  await openGame(page, '?debug=1&seed=presets&quality=low');
+  await hatch(page);
+  await waitForFrames(page);
+  const low = await info(page);
+  expect(low.preset).toBe('low');
 
   await choose(page, 'high');
   await waitForFrames(page);
   const high = await info(page);
   expect(high.preset).toBe('high');
   expect(high.pixelRatio).toBe(2);
-  expect(high.particles).toBeGreaterThan(medium.particles);
+  expect(high.particles).toBeGreaterThan(low.particles);
   expect(high.calls).toBeLessThanOrEqual(PRESETS.high.budget.calls);
 });
 
@@ -75,16 +83,16 @@ test('the choice survives a reload, and ?quality= beats it without overwriting i
   // The same panel from the title screen, so no hatch is needed.
   await openGame(page, '?debug=1&seed=presets');
   await page.getByTestId('settings-open').click();
-  await page.getByTestId('quality-high').check();
+  await page.getByTestId('quality-low').check();
   await page.getByTestId('settings-close').click();
-  expect((await info(page)).preset).toBe('high');
+  expect((await info(page)).preset).toBe('low');
 
   await openGame(page, '?debug=1&seed=presets');
-  expect((await info(page)).preset).toBe('high');
-  await openGame(page, '?debug=1&seed=presets&quality=low');
   expect((await info(page)).preset).toBe('low');
+  await openGame(page, '?debug=1&seed=presets&quality=medium');
+  expect((await info(page)).preset).toBe('medium');
   await openGame(page, '?debug=1&seed=presets');
-  expect((await info(page)).preset).toBe('high');
+  expect((await info(page)).preset).toBe('low');
 });
 
 test('Auto resolves to a preset and says which', async ({ page }) => {
