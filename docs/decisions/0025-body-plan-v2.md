@@ -1,6 +1,6 @@
 # 0025: Body plan v2: silhouettes from development, karyotype v2
 
-- Status: accepted (extends 0006 and 0018; the vertex cap of 0006 moves from development to rendering)
+- Status: accepted (extends 0006 and 0018; supersedes the development vertex cap of 0006, which moves to rendering)
 - Date: 2026-10-27
 
 ## Context

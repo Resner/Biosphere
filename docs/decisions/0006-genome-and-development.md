@@ -1,6 +1,6 @@
 # 0006: Genome, inheritance and bounded development
 
-- Status: accepted
+- Status: accepted (the mesh vertex cap moves from development to rendering, and karyotype v2 extends the genome: 0025)
 - Date: 2026-10-25
 
 ## Context
