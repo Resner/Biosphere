@@ -46,7 +46,7 @@ The npm script contract: CI, hooks and skills call these names; the tools behind
 - Nobody reviews PRs. The gates are tests written first, `npm run check`, `/simplify`, `/code-review` and the required CI check `verify`, then auto-merge. Never leave a PR red.
 - Never push to `main`, create tags or releases, or weaken a test or CI check to get green. Releases happen only through a `VERSION` change merged to `main`.
 - Unattended runs don't ask questions or use plan mode: decide, record lasting decisions as ADRs, and continue. Open a `Blocked: …` issue and stop only for what the owner alone can provide: secrets, accounts, settings, or intent the docs leave open (`next` skill, "When stuck").
-- Work in the main loop; use subagents only for disposable review passes and for `[opus]` tasks, which the `opus-task` skill implements in a forked subagent on Opus (ADR 0026).
+- Work in the main loop; use subagents only for disposable review passes, for specs and for `[opus]` tasks, which the `spec` and `opus-task` skills run in a forked subagent on Opus (ADR 0026).
 - Fun, feel on real hardware and real-world networking are the owner's call. Specs mark those checks `(owner)`, each release opens a `Playtest: v<version>` issue, and a `gate` milestone waits for the owner's reply.
 - Credentials (hosting, TURN, domains) come from the owner. Never commit secrets or ask for their values in a session; open a `Blocked:` issue with exact setup steps and the secret name the workflow reads.
 - Commits and PRs belong to the repository owner: no `Co-Authored-By` trailers and no "Generated with Claude Code" lines. The session hook sets the git identity.

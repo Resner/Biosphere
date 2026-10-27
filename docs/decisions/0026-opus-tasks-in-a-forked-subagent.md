@@ -1,4 +1,4 @@
-# 0026: Opus tasks run in a forked subagent
+# 0026: Opus tasks and specs run in a forked subagent
 
 - Status: accepted (supersedes "Still one loop" in 0023 and the project `model` setting from 0001)
 - Date: 2026-10-27
@@ -14,13 +14,14 @@ A skill with `context: fork` runs in a subagent, and its `model` field sets that
 ## Decision
 
 - **`opus-task` forks.** It runs with `context: fork`, `model: opus`, `effort: high` and `background: false`. The subagent gets the task id, the spec path and the branch as arguments, implements the task test-first, ticks it and commits. It doesn't push or touch the PR.
+- **The `spec` skill forks too** (`model: opus`, `effort: xhigh`): it writes and commits the spec, and /next ships it.
 - **The main loop keeps the rest.** /next claims the task, runs `/simplify` and `/code-review` on the result, hands correctness findings back to `opus-task`, and ships, as for any other task.
 - **No project model.** `.claude/settings.json` no longer sets `model`; the `Factory` task's model decides the main loop.
 
 ## Consequences
 
 - `[opus]` tasks really run on Opus, at the cost of one handoff: the subagent starts from the skill text and the repository, not the run's conversation. The claim, the PR and the reviews stay in the main loop, so the handoff carries only the task.
-- The `spec` and `milestone` skills run on the `Factory` task's model until they get the same treatment.
+- The `milestone` skill still runs on the `Factory` task's model: closing a milestone bumps `VERSION` and works the release and its issues, which belong to the main loop.
 - Rejected:
   - the in-loop switch through skill frontmatter (it didn't take effect in factory runs);
   - Opus for every run (most tasks don't need it, and it costs more);
