@@ -115,6 +115,9 @@ export const M4_TWO_SEAT_HUB = 'http://localhost:8792';
 /** The M5 authority: lives of about 4 min (`LIFESPAN_SCALE=0.05`) and maturity in seconds (`MATING_SCALE=0.01`). */
 export const M5_HUB = 'http://localhost:8793';
 
+/** A second M5 authority, alone in its pond, for the inspect spec. */
+export const M5_INSPECT_HUB = 'http://localhost:8794';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
