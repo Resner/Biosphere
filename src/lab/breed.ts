@@ -30,7 +30,7 @@ export function breedBatch(
   options: MutationOptions = {},
 ): Genome[] {
   return Array.from({ length: BREED_COUNT }, (_, k) =>
-    breed(a, b, offspringSeed(randomness, `lab-${k >> 1}`, (k & 1) as 0 | 1), options),
+    breed(a, b, offspringSeed(randomness, `lab-${k >> 1}`, k & 1), options),
   );
 }
 

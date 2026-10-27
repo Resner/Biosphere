@@ -175,7 +175,7 @@ const stored = (record: LedgerRecord): StoredRecord => ({
 
 /** A whole mating: two players, their creatures, the commitment, both mate-commits and both births. */
 async function mating(generations: [number, number] = [2, 5]) {
-  const { a, b, askA, askB } = await pair();
+  const [a, b] = [await id(1), await id(2)];
   const genomeA = genesisGenome(seedFromString('birth-a'));
   const genomeB = genesisGenome(seedFromString('birth-b'));
   const creatureA = H('c');
@@ -188,8 +188,6 @@ async function mating(generations: [number, number] = [2, 5]) {
       nonce: NONCE,
     });
   const asks = [ask(a, creatureA, creatureB, b), ask(b, creatureB, creatureA, a)] as const;
-  void askA;
-  void askB;
   const beacon = beaconOf(4);
   const commit: Commitment = {
     v: 1,
@@ -241,7 +239,7 @@ async function mating(generations: [number, number] = [2, 5]) {
     stored(mateRecord(a, b, creatureA, creatureB, 'a', hashA, hashB, generations[0])),
     stored(mateRecord(b, a, creatureB, creatureA, 'b', hashB, hashA, generations[1])),
   ];
-  const { children, slots } = offspringPair(randomness(beacon), commitId, genomeA, genomeB);
+  const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
   const generation = Math.max(...generations) + 1;
   const births = [0, 1].map((i): LedgerRecord => {
     const request = birthRequest(
@@ -268,10 +266,6 @@ async function mating(generations: [number, number] = [2, 5]) {
     children,
     slots,
   };
-}
-
-function randomness(b: Beacon): Uint8Array {
-  return randomnessOf(b);
 }
 
 describe('birthRequest', () => {

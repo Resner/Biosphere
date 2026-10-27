@@ -40,7 +40,7 @@ export function deriveSeed(
   return [word(0), word(4), word(8), word(12)];
 }
 
-/** The seed of one child: slot 0 is player A's child, slot 1 (or the first later slot that differs) player B's. */
+/** The seed of one child; `slot` is a byte (see `offspringPair` for which slot each child uses). */
 export function offspringSeed(randomness: Uint8Array, commitId: string, slot: number): Seed {
   return deriveSeed(OFFSPRING_DOMAIN, randomness, commitId, slot);
 }
