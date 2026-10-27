@@ -13,7 +13,9 @@ import {
   recordProblems,
   requestHash,
   requestMessage,
+  type Status,
   type StoredRecord,
+  transitionOutcome,
 } from '../src/ledger/record';
 import { RULES_VERSION } from '../src/sim/rules';
 
@@ -40,7 +42,7 @@ export type AcceptResult =
 export interface Head {
   id: string;
   owner: string;
-  status: 'active' | 'dead';
+  status: Status;
   seq: number;
   hash: string;
   genome: string;
@@ -50,6 +52,67 @@ export interface Head {
   health: number;
   bornT: number;
   diedT: number | null;
+  generation: number;
+  parentA: string | null;
+  parentB: string | null;
+  /** The creature that was active when this one was promoted (the checkpoint chain, ADR 0021). */
+  chainParent: string | null;
+  cooldownUntilMs: number;
+}
+
+/** What a record body saves of a creature's state. */
+export interface Condition {
+  activeMs: number;
+  biomass: number;
+  energy: number;
+  health: number;
+  cooldownUntilMs: number;
+}
+
+/** When a frozen creature has too little life left to be worth restoring (ADR 0021). */
+export interface Exhaustion {
+  lifespanOf(head: Head): number;
+  restoreMinMs: number;
+}
+
+export interface MateInput {
+  commit: string;
+  round: number;
+  /** A's then B's `mate-commit` request, already carrying the costs and the cooldown. */
+  requests: [RecordRequest, RecordRequest];
+}
+
+/** The outcome of an operation that writes one record on each of two chains. */
+export type PairResult =
+  | { ok: true; stored: [StoredRecord, StoredRecord]; fresh: boolean }
+  | { ok: false; reason: string };
+
+export type MateResult = PairResult;
+
+export interface BirthChild {
+  request: RecordRequest;
+  genome: string;
+  /** The hatchling's condition; its `activeMs` and cooldown start at zero. */
+  condition: Pick<Condition, 'biomass' | 'energy' | 'health'>;
+}
+
+export interface BirthInput {
+  commit: string;
+  /** The courting player's child, then the accepting player's. */
+  children: [BirthChild, BirthChild];
+}
+
+export type BirthResult = PairResult;
+
+export type PromoteResult =
+  | { ok: true; stored: StoredRecord; frozen: StoredRecord | null; fresh: boolean }
+  | { ok: false; reason: string };
+
+export interface Fallback {
+  pending: Head | null;
+  ancestor: Head | null;
+  /** Frozen creatures walked over that have too little life left; callers mark them dead. */
+  exhausted: Head[];
 }
 
 export interface PastLifeRow {
@@ -94,6 +157,11 @@ const asHead = (r: Row): Head => ({
   health: r.health as number,
   bornT: r.born_t as number,
   diedT: r.died_t as number | null,
+  generation: r.generation as number,
+  parentA: r.parent_a as string | null,
+  parentB: r.parent_b as string | null,
+  chainParent: r.chain_parent as string | null,
+  cooldownUntilMs: r.cooldown_until_ms as number,
 });
 
 const asStored = (r: Row): StoredRecord => ({
@@ -129,6 +197,133 @@ export class Ledger {
     return this.storage.transactionSync(() => this.acceptInTransaction(input));
   }
 
+  /**
+   * Starts a mating (ADR 0021): both `mate-commit` records, both heads and the `matings` row in one
+   * transaction, or nothing. The caller has checked the pair against its view and built the
+   * requests (costs and cooldown included); this checks that they agree with each other, with the
+   * heads and with the rules a store can see. A head that moved is a `conflict`.
+   */
+  mate(input: MateInput): MateResult {
+    this.key();
+    return this.storage.transactionSync(() => this.mateInTransaction(input));
+  }
+
+  /** Delivers a mating's two children as `pending` creatures, once; the parents' chains are untouched. */
+  birth(input: BirthInput): BirthResult {
+    this.key();
+    return this.storage.transactionSync(() => this.birthInTransaction(input));
+  }
+
+  /**
+   * Promotes a pending child (`request` is owner-signed, role `child`): the child becomes active and
+   * its chain parent is the creature named in the body, which is frozen in the same transaction when
+   * it is still active (`freeze` is the condition it keeps, otherwise its head's).
+   */
+  promote(
+    request: RecordRequest,
+    ownerSig: string,
+    freeze: Condition | null = null,
+  ): PromoteResult {
+    this.key();
+    return this.storage.transactionSync(() => this.promoteInTransaction(request, ownerSig, freeze));
+  }
+
+  /** Makes the nearest surviving ancestor active again with its saved condition (`request` is owner-signed). */
+  restore(request: RecordRequest, ownerSig: string, rule: Exhaustion): AcceptResult {
+    this.key();
+    return this.storage.transactionSync(() => this.restoreInTransaction(request, ownerSig, rule));
+  }
+
+  /** Ends a frozen creature whose remaining life is under `restoreMinMs`, with cause `old-age`. */
+  markExhausted(creature: string, rule: Exhaustion): AcceptResult {
+    this.key();
+    return this.storage.transactionSync(() => {
+      const head = this.head(creature);
+      if (!head) return refuse('unknown-creature');
+      if (head.status === 'dead') {
+        const death = this.deathRecord(creature);
+        return death && death.record.body.cause === 'old-age' && death.ownerSig === null
+          ? { ok: true, stored: death, fresh: false }
+          : refuse('dead');
+      }
+      if (head.status !== 'checkpoint') return refuse(`status:${head.status}`);
+      if (!isExhausted(head, rule)) return refuse('not-exhausted');
+      const record: LedgerRecord = {
+        v: 1,
+        rules: RULES_VERSION,
+        kind: 'death',
+        creature,
+        seq: head.seq + 1,
+        prev: head.hash,
+        owner: head.owner,
+        t: this.now(),
+        body: { cause: 'old-age', ...conditionOf(head) },
+      };
+      const stored = this.store(record, recordHash(record), requestHash(record), null, creature);
+      // Its life ended when it was put aside, so it never counts as the creature that died last.
+      const frozenAt = this.run(
+        'SELECT t FROM records WHERE creature = ? AND seq = ?',
+        creature,
+        head.seq,
+      )[0];
+      this.advance(head, record, stored.hash, 'dead', {
+        diedT: (frozenAt?.t as number) ?? record.t,
+      });
+      return { ok: true, stored, fresh: true };
+    });
+  }
+
+  /**
+   * What the player can fall back on after `creature` (usually just dead): their pending child, and
+   * the nearest surviving ancestor on the checkpoint chain. Frozen creatures with too little life
+   * left are skipped and listed; this is read only, so the caller marks them.
+   */
+  fallback(creature: string, rule: Exhaustion): Fallback {
+    const start = this.head(creature);
+    if (!start) return { pending: null, ancestor: null, exhausted: [] };
+    return { pending: this.pending(start.owner), ...this.ancestorOf(start, rule) };
+  }
+
+  /** The nearest frozen ancestor on the checkpoint chain with life left, and the exhausted ones walked over. */
+  private ancestorOf(start: Head, rule: Exhaustion): Pick<Fallback, 'ancestor' | 'exhausted'> {
+    const exhausted: Head[] = [];
+    const seen = new Set<string>([start.id]);
+    for (let at = start.chainParent; at && !seen.has(at); ) {
+      seen.add(at);
+      const head = this.head(at);
+      if (!head) break;
+      if (head.status === 'checkpoint') {
+        if (!isExhausted(head, rule)) return { ancestor: head, exhausted };
+        exhausted.push(head);
+      }
+      at = head.chainParent;
+    }
+    return { ancestor: null, exhausted };
+  }
+
+  /** Whether the player has a creature that is not dead: active, pending or frozen. */
+  alive(owner: string): boolean {
+    // Active and pending hit partial indexes; the scan for a frozen one only runs for a player with neither.
+    return (
+      this.active(owner) !== null ||
+      this.pending(owner) !== null ||
+      this.run("SELECT 1 FROM creatures WHERE owner = ? AND status = 'checkpoint' LIMIT 1", owner)
+        .length > 0
+    );
+  }
+
+  /** Matings between the two players (either way round) made at or after `since`. */
+  pairMatings(ownerA: string, ownerB: string, since: number): number {
+    const row = this.run(
+      `SELECT COUNT(*) AS n FROM matings WHERE t >= ?3 AND
+         ((owner_a = ?1 AND owner_b = ?2) OR (owner_a = ?2 AND owner_b = ?1))`,
+      ownerA,
+      ownerB,
+      since,
+    )[0];
+    return row ? (row.n as number) : 0;
+  }
+
   head(creature: string): Head | null {
     const row = this.run('SELECT * FROM creatures WHERE id = ?', creature)[0];
     return row ? asHead(row) : null;
@@ -148,6 +343,34 @@ export class Ledger {
         body,
       },
     });
+  }
+
+  /** The player's pending child, or null. */
+  pending(owner: string): Head | null {
+    const row = this.run(
+      "SELECT * FROM creatures WHERE owner = ? AND status = 'pending'",
+      owner,
+    )[0];
+    return row ? asHead(row) : null;
+  }
+
+  /** Whether either player has a pending child. */
+  private anyPending(a: string, b: string): boolean {
+    return (
+      this.run("SELECT 1 FROM creatures WHERE status = 'pending' AND owner IN (?1, ?2)", a, b)
+        .length > 0
+    );
+  }
+
+  /** The record stored for exactly this request, if any: how a resubmission is recognised. */
+  private byReq(creature: string, seq: number, req: string): StoredRecord | null {
+    const row = this.run(
+      'SELECT * FROM records WHERE creature = ? AND seq = ? AND req = ?',
+      creature,
+      seq,
+      req,
+    )[0];
+    return row ? asStored(row) : null;
   }
 
   /** The player's active creature, or null. */
@@ -276,6 +499,8 @@ export class Ledger {
   }: AcceptInput): AcceptResult {
     const t = this.now();
     if (request.kind !== 'genesis' && request.creature === '') return refuse('no-creature');
+    // The kinds that touch two chains or need an owner's word have their own operations.
+    if (!SINGLE_RECORD_KINDS.includes(request.kind)) return refuse('use-operation');
     const problems = recordProblems({ ...request, t });
     if (problems.length > 0) return refuse(`invalid-record:${problems[0]}`);
     const req = requestHash(request);
@@ -285,6 +510,15 @@ export class Ledger {
     return request.kind === 'genesis'
       ? this.genesis(request, req, ownerSig, genome, t)
       : this.transition(request, req, ownerSig, t);
+  }
+
+  /** The reason an owner-signed request is refused before any state is read; null when it is fine. */
+  private ownerSigned(request: RecordRequest, ownerSig: string, t: number): string | null {
+    const problems = recordProblems({ ...request, t });
+    if (problems.length > 0) return `invalid-record:${problems[0]}`;
+    return verifySig(request.owner, requestMessage(request), ownerSig)
+      ? null
+      : 'bad-owner-signature';
   }
 
   private genesis(
@@ -346,39 +580,314 @@ export class Ledger {
       this.flag('wrong-owner', request, req, t);
       return refuse('wrong-owner');
     }
-    const again = this.run(
-      'SELECT * FROM records WHERE creature = ? AND seq = ? AND req = ?',
-      request.creature,
-      request.seq,
-      req,
-    )[0];
-    if (again) return { ok: true, stored: asStored(again), fresh: false };
+    const again = this.byReq(request.creature, request.seq, req);
+    if (again) return { ok: true, stored: again, fresh: false };
     if (head.status === 'dead') return refuse('dead');
+    const role = request.kind === 'promote' ? String(request.body.role) : null;
+    const outcome = transitionOutcome(request.kind, role, head.status);
+    if (!outcome.ok) return refuse(outcome.reason);
+    // A frozen creature dies only when it is exhausted, which only `markExhausted` can establish.
+    if (request.kind === 'death' && head.status === 'checkpoint') {
+      return refuse('not-exhausted');
+    }
     if (request.seq !== head.seq + 1 || request.prev !== head.hash) {
       this.flag('conflict', request, req, t);
       return refuse('conflict');
     }
     const record: LedgerRecord = { ...request, t };
     const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
-    // `status` is in a partial index, so only a death assigns it and a checkpoint costs one row less.
+    this.advance(head, record, stored.hash, outcome.next);
+    return { ok: true, stored, fresh: true };
+  }
+
+  /**
+   * Moves a head to the record just stored: the condition the body saves, and the status when it
+   * changes. `status` is in partial indexes, so it is only assigned when it changes.
+   */
+  private advance(
+    head: Head,
+    record: LedgerRecord,
+    hash: string,
+    next: Status,
+    {
+      chainParent = head.chainParent,
+      diedT = record.t,
+    }: { chainParent?: string | null; diedT?: number } = {},
+  ): void {
+    const { body } = record;
+    const values: SqlStorageValue[] = [
+      record.seq,
+      hash,
+      field(body, 'activeMs', head.activeMs),
+      field(body, 'biomass', head.biomass),
+      field(body, 'energy', head.energy),
+      field(body, 'health', head.health),
+      field(body, 'cooldownUntilMs', head.cooldownUntilMs),
+      chainParent,
+    ];
+    const changed = next !== head.status;
+    if (changed) values.push(next, next === 'dead' ? diedT : head.diedT);
     this.run(
-      `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?
-       WHERE id = ?`,
-      request.seq,
-      stored.hash,
-      field(request.body, 'activeMs', head.activeMs),
-      field(request.body, 'biomass', head.biomass),
-      field(request.body, 'energy', head.energy),
-      field(request.body, 'health', head.health),
-      request.creature,
+      `UPDATE creatures SET seq = ?, hash = ?, active_ms = ?, biomass = ?, energy = ?, health = ?,
+         cooldown_until_ms = ?, chain_parent = ?${changed ? ', status = ?, died_t = ?' : ''} WHERE id = ?`,
+      ...values,
+      head.id,
     );
-    if (request.kind === 'death') {
-      this.run(
-        "UPDATE creatures SET status = 'dead', died_t = ? WHERE id = ?",
-        t,
-        request.creature,
+  }
+
+  private mateInTransaction({ commit, round, requests }: MateInput): MateResult {
+    const t = this.now();
+    const hashes = requests.map((r) => requestHash(r));
+    if (this.run('SELECT 1 FROM matings WHERE commit_id = ?', commit).length > 0) {
+      const [first, second] = requests.map((r, i) =>
+        this.byReq(r.creature, r.seq, hashes[i] as string),
       );
+      return first && second
+        ? { ok: true, stored: [first, second], fresh: false }
+        : refuse('commit-used');
     }
+    const [ra, rb] = requests;
+    const [a, b] = [this.head(ra.creature), this.head(rb.creature)];
+    if (!a || !b) return refuse('unknown-creature');
+    const heads = [a, b];
+    for (const [i, r] of requests.entries()) {
+      const problems = recordProblems({ ...r, t });
+      if (r.kind !== 'mate-commit' || problems.length > 0) {
+        return refuse(`invalid-record:${problems[0] ?? 'kind'}`);
+      }
+      if ((heads[i] as Head).owner !== r.owner) {
+        this.flag('wrong-owner', r, hashes[i] as string, t);
+        return refuse('wrong-owner');
+      }
+    }
+    if (a.owner === b.owner) return refuse('self');
+    const agrees = (self: Head, other: Head, r: RecordRequest, role: 'a' | 'b') =>
+      r.body.commit === commit &&
+      r.body.round === round &&
+      r.body.role === role &&
+      r.body.partner === other.owner &&
+      r.body.partnerCreature === other.id &&
+      r.body.generation === self.generation;
+    if (!agrees(a, b, ra, 'a') || !agrees(b, a, rb, 'b')) return refuse('pair-mismatch');
+    for (const head of heads) {
+      const outcome = transitionOutcome('mate-commit', null, head.status);
+      if (!outcome.ok) return refuse(head.status === 'dead' ? 'dead' : outcome.reason);
+    }
+    const open = this.run(
+      'SELECT 1 FROM matings WHERE resolved = 0 AND (owner_a IN (?1, ?2) OR owner_b IN (?1, ?2))',
+      a.owner,
+      b.owner,
+    );
+    if (open.length > 0) return refuse('in-flight');
+    if (this.anyPending(a.owner, b.owner)) return refuse('pending');
+    for (const [i, r] of requests.entries()) {
+      const head = heads[i] as Head;
+      if (r.seq !== head.seq + 1 || r.prev !== head.hash) {
+        this.flag('conflict', r, hashes[i] as string, t);
+        return refuse('conflict');
+      }
+    }
+    const stored = requests.map((r, i) => {
+      const record: LedgerRecord = { ...r, t };
+      const s = this.store(record, recordHash(record), hashes[i] as string, null, r.creature);
+      this.advance(heads[i] as Head, record, s.hash, 'active');
+      return s;
+    }) as [StoredRecord, StoredRecord];
+    this.run(
+      `INSERT INTO matings (commit_id, owner_a, owner_b, creature_a, creature_b, round, t)
+       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      commit,
+      a.owner,
+      b.owner,
+      a.id,
+      b.id,
+      round,
+      t,
+    );
+    return { ok: true, stored, fresh: true };
+  }
+
+  private birthInTransaction({ commit, children }: BirthInput): BirthResult {
+    const t = this.now();
+    const mating = this.run('SELECT * FROM matings WHERE commit_id = ?', commit)[0];
+    if (!mating) return refuse('unknown-commit');
+    const owners = [mating.owner_a as string, mating.owner_b as string];
+    const hashes = children.map((c) => requestHash(c.request));
+    if (mating.resolved) {
+      const [first, second] = [mating.child_a, mating.child_b].map((id, i) =>
+        this.byReq(id as string, 0, hashes[i] as string),
+      );
+      return first && second
+        ? { ok: true, stored: [first, second], fresh: false }
+        : refuse('resolved');
+    }
+    for (const [i, child] of children.entries()) {
+      const r = child.request;
+      const problems = recordProblems({ ...r, t });
+      if (r.kind !== 'birth' || problems.length > 0) {
+        return refuse(`invalid-record:${problems[0] ?? 'kind'}`);
+      }
+      const parents = r.body.parents as string[];
+      if (
+        r.owner !== owners[i] ||
+        r.body.commit !== commit ||
+        r.body.round !== mating.round ||
+        parents[0] !== mating.creature_a ||
+        parents[1] !== mating.creature_b
+      ) {
+        return refuse('birth-mismatch');
+      }
+    }
+    if (this.anyPending(owners[0] as string, owners[1] as string)) return refuse('pending');
+    const stored = children.map((child, i) => {
+      const record: LedgerRecord = { ...child.request, t };
+      const hash = creatureId(record);
+      const s = this.store(record, hash, hashes[i] as string, null, hash);
+      this.run(
+        `INSERT INTO creatures
+           (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t,
+            generation, parent_a, parent_b, chain_parent, cooldown_until_ms)
+         VALUES (?, ?, 'pending', 0, ?, ?, 0, ?, ?, ?, ?, NULL, ?, ?, ?, NULL, 0)`,
+        hash,
+        record.owner,
+        hash,
+        child.genome,
+        child.condition.biomass,
+        child.condition.energy,
+        child.condition.health,
+        t,
+        field(record.body, 'generation', 0),
+        mating.creature_a as string,
+        mating.creature_b as string,
+      );
+      return s;
+    }) as [StoredRecord, StoredRecord];
+    this.run(
+      'UPDATE matings SET resolved = 1, child_a = ?, child_b = ? WHERE commit_id = ?',
+      stored[0].hash,
+      stored[1].hash,
+      commit,
+    );
+    return { ok: true, stored, fresh: true };
+  }
+
+  private promoteInTransaction(
+    request: RecordRequest,
+    ownerSig: string,
+    freeze: Condition | null,
+  ): PromoteResult {
+    const t = this.now();
+    const bad = this.ownerSigned(request, ownerSig, t);
+    if (bad) return refuse(bad);
+    if (request.kind !== 'promote' || request.body.role !== 'child') return refuse('role');
+    const req = requestHash(request);
+    const child = this.head(request.creature);
+    if (!child) return refuse('unknown-creature');
+    if (child.owner !== request.owner) {
+      this.flag('wrong-owner', request, req, t);
+      return refuse('wrong-owner');
+    }
+    const again = this.byReq(request.creature, request.seq, req);
+    if (again) {
+      const frozen = this.run(
+        "SELECT * FROM records WHERE creature = ? AND kind = 'promote' AND json_extract(json, '$.body.child') = ?",
+        String(request.body.parent),
+        child.id,
+      )[0];
+      return { ok: true, stored: again, frozen: frozen ? asStored(frozen) : null, fresh: false };
+    }
+    if (child.status === 'dead') return refuse('dead');
+    const outcome = transitionOutcome('promote', 'child', child.status);
+    if (!outcome.ok) return refuse(outcome.reason);
+    if (request.seq !== child.seq + 1 || request.prev !== child.hash) {
+      this.flag('conflict', request, req, t);
+      return refuse('conflict');
+    }
+    const parent = this.head(String(request.body.parent));
+    if (!parent || parent.owner !== child.owner || parent.id === child.id)
+      return refuse('bad-parent');
+    const active = parent.status === 'active' ? parent : this.active(child.owner);
+    // The parent is the player's active creature (frozen now), or, with none active, the one that died last.
+    if (active ? active.id !== parent.id : !this.isLastDead(parent)) return refuse('bad-parent');
+    let frozen: StoredRecord | null = null;
+    if (active) {
+      const parentOutcome = transitionOutcome('promote', 'parent', parent.status);
+      if (!parentOutcome.ok) return refuse('bad-parent');
+      const record: LedgerRecord = {
+        v: 1,
+        rules: request.rules,
+        kind: 'promote',
+        creature: parent.id,
+        seq: parent.seq + 1,
+        prev: parent.hash,
+        owner: parent.owner,
+        t,
+        body: {
+          role: 'parent',
+          child: child.id,
+          ...(freeze ?? conditionOf(parent)),
+        },
+      };
+      frozen = this.store(record, recordHash(record), requestHash(record), null, parent.id);
+      this.advance(parent, record, frozen.hash, parentOutcome.next);
+    }
+    const record: LedgerRecord = { ...request, t };
+    const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
+    this.advance(child, record, stored.hash, outcome.next, { chainParent: parent.id });
+    return { ok: true, stored, frozen, fresh: true };
+  }
+
+  /** Whether `head` is the player's most recently dead creature. */
+  private isLastDead(head: Head): boolean {
+    if (head.status !== 'dead') return false;
+    const last = this.run(
+      "SELECT id FROM creatures WHERE owner = ? AND status = 'dead' ORDER BY died_t DESC, born_t DESC LIMIT 1",
+      head.owner,
+    )[0];
+    return last?.id === head.id;
+  }
+
+  private restoreInTransaction(
+    request: RecordRequest,
+    ownerSig: string,
+    rule: Exhaustion,
+  ): AcceptResult {
+    const t = this.now();
+    const bad = this.ownerSigned(request, ownerSig, t);
+    if (bad) return refuse(bad);
+    if (request.kind !== 'restore') return refuse('kind');
+    const req = requestHash(request);
+    const head = this.head(request.creature);
+    if (!head) return refuse('unknown-creature');
+    if (head.owner !== request.owner) {
+      this.flag('wrong-owner', request, req, t);
+      return refuse('wrong-owner');
+    }
+    const again = this.byReq(request.creature, request.seq, req);
+    if (again) return { ok: true, stored: again, fresh: false };
+    if (head.status === 'dead') return refuse('dead');
+    const outcome = transitionOutcome('restore', null, head.status);
+    if (!outcome.ok) return refuse(outcome.reason);
+    if (request.seq !== head.seq + 1 || request.prev !== head.hash) {
+      this.flag('conflict', request, req, t);
+      return refuse('conflict');
+    }
+    if (this.active(head.owner)) return refuse('active-exists');
+    if (Object.entries(conditionOf(head)).some(([key, value]) => request.body[key] !== value)) {
+      return refuse('condition-mismatch');
+    }
+    const from = this.head(String(request.body.from));
+    if (
+      !from ||
+      from.owner !== head.owner ||
+      from.status !== 'dead' ||
+      this.ancestorOf(from, rule).ancestor?.id !== head.id
+    ) {
+      return refuse('not-nearest');
+    }
+    const record: LedgerRecord = { ...request, t };
+    const stored = this.store(record, recordHash(record), req, ownerSig, request.creature);
+    this.advance(head, record, stored.hash, outcome.next);
     return { ok: true, stored, fresh: true };
   }
 
@@ -475,6 +984,21 @@ export class Ledger {
   }
 }
 
+/** The kinds `accept` takes: one record on one chain. The others have their own operations. */
+const SINGLE_RECORD_KINDS: readonly string[] = ['genesis', 'checkpoint', 'death'];
+
+const conditionOf = (head: Head): Condition => ({
+  activeMs: head.activeMs,
+  biomass: head.biomass,
+  energy: head.energy,
+  health: head.health,
+  cooldownUntilMs: head.cooldownUntilMs,
+});
+
+/** Whether a frozen creature's remaining life is under the restore minimum. */
+const isExhausted = (head: Head, rule: Exhaustion): boolean =>
+  rule.lifespanOf(head) - head.activeMs < rule.restoreMinMs;
+
 const FULL_BUCKET = { left: HATCH_BUCKET, genesisIn: 0 };
 
 /** The bucket at `now` from what was stored: the count refilled, and the clock moved on by whole refills. */
@@ -491,7 +1015,7 @@ function reconcile(
   return { state: { left, genesisIn }, hatches: left, t };
 }
 
-function refuse(reason: string): AcceptResult {
+function refuse(reason: string): { ok: false; reason: string } {
   return { ok: false, reason };
 }
 
