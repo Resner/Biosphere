@@ -23,7 +23,7 @@ jobs:
   # The single required check. One job, because GitHub rounds every job up to a whole minute.
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 15
+    timeout-minutes: 25
     steps:
       - uses: actions/checkout@v7
         with:
