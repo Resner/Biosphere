@@ -121,6 +121,9 @@ export const M5_INSPECT_HUB = 'http://localhost:8794';
 /** A third, for the promote spec. */
 export const M5_PROMOTE_HUB = 'http://localhost:8795';
 
+/** A fourth, for the lifecycle spec. */
+export const M5_LIFECYCLE_HUB = 'http://localhost:8796';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
@@ -139,4 +142,40 @@ export async function waitPlaying(page: Page): Promise<void> {
   });
   const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
   await page.mouse.move(width / 2, height / 2);
+}
+
+/** Fills the creature's belly. */
+export const topUp = (page: Page) =>
+  page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(Number.MAX_SAFE_INTEGER));
+
+/**
+ * Runs the sim fast until the hub has credited the creature's maturity (seconds, on the M5
+ * authorities). The hub credits at most the wall time (plus 2 s) per report, so fast play sends
+ * the reports sooner. The belly is filled all the while, since 30x time would starve it.
+ */
+export const ripe = (page: Page, timeout = 40_000) =>
+  page.waitForFunction(
+    () => {
+      const bs = window.__bs as BsHook;
+      bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      bs.debug?.timeScale(30);
+      const { activeMs, matureAtMs } = bs.state().life;
+      if (matureAtMs === 0 || activeMs < matureAtMs) return false;
+      bs.debug?.timeScale(1);
+      return true;
+    },
+    undefined,
+    { timeout },
+  );
+
+/** Parks the player beside a remote, as soon as the remote is drawn. */
+export async function goTo(page: Page, id: string): Promise<void> {
+  await page.waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
+    timeout: 20_000,
+  });
+  await page.evaluate((who) => {
+    const bs = window.__bs as BsHook;
+    const r = bs.state().remotes.find((x) => x.id === who);
+    if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
+  }, id);
 }

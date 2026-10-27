@@ -27,6 +27,8 @@ const m5HubPort = 8793;
 const m5InspectHubPort = 8794;
 // The promote spec has its own (8795) for the same reason.
 const m5PromoteHubPort = 8795;
+// The lifecycle spec has its own (8796) too.
+const m5LifecycleHubPort = 8796;
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 
@@ -123,6 +125,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m5InspectHubPort} --persist-to .wrangler/e2e-state-m5-inspect --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
       url: `http://localhost:${m5InspectHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m5LifecycleHubPort} --persist-to .wrangler/e2e-state-m5-lifecycle --var LIFESPAN_SCALE:0.02 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m5LifecycleHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

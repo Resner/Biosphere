@@ -1,6 +1,15 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, M5_PROMOTE_HUB, openRecorded, state, waitPlaying } from './helpers';
+import {
+  clickHatch,
+  goTo,
+  M5_PROMOTE_HUB,
+  openRecorded,
+  ripe,
+  state,
+  topUp,
+  waitPlaying,
+} from './helpers';
 
 // The offspring (M5 T11): after a mating both players get an egg and then a card with a different
 // child; A becomes theirs with H, starves it, and is offered the parent, who comes back with the
@@ -14,35 +23,6 @@ async function hatched(context: BrowserContext): Promise<Page> {
   await clickHatch(page);
   await waitPlaying(page);
   return page;
-}
-
-const topUp = (page: Page) =>
-  page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(Number.MAX_SAFE_INTEGER));
-
-const ripe = (page: Page) =>
-  page.waitForFunction(
-    () => {
-      const bs = window.__bs as BsHook;
-      bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-      bs.debug?.timeScale(30);
-      const { activeMs, matureAtMs } = bs.state().life;
-      if (matureAtMs === 0 || activeMs < matureAtMs) return false;
-      bs.debug?.timeScale(1);
-      return true;
-    },
-    undefined,
-    { timeout: 30_000 },
-  );
-
-async function goTo(page: Page, id: string): Promise<void> {
-  await page.waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
-    timeout: 20_000,
-  });
-  await page.evaluate((who) => {
-    const bs = window.__bs as BsHook;
-    const r = bs.state().remotes.find((x) => x.id === who);
-    if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
-  }, id);
 }
 
 const BANNED = /commit|ledger|checkpoint|nonce|beacon|allele|locus|genotype|hash/i;

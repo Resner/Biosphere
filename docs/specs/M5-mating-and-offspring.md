@@ -248,13 +248,16 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `tools/pacing-report.ts` (run by `npm run sim:pacing`, about 2 min) and a smoke test; the first run missed the mating target (11 per life), so the base cooldown went from 6 to 9 min (ADR 0022, no rules-version bump: only the authority reads it). Table in DESIGN §5.
   - Gotcha: a tool and its runner must not share a basename (`pacing.mjs` shadowed `pacing.ts` in imports), hence `pacing-report.ts`; the bot has to flee toxin clouds or it dies in minutes.
 
-- [ ] T15 End-to-end scenario, owner-facing checks, documentation sync (in progress)
+- [x] T15 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:
     - `m5-lifecycle.spec.ts` (`@slow`, release gate, its own hub port, scaled hooks): two identities hatch, mature and mate; both receive distinct children; A promotes; A's child mates with a third identity; A promotes again and dies of old age; the walk offers the chain parent; A returns to it, then to the genesis creature; at the end nothing survives and a new genesis starts; the lineage view lists all of them; B kept their child pending throughout (one pending) and finally promotes it.
     - Every exit criterion of M5 maps to a named test in the mapping below; the PR E2E suite stays under 4 minutes in CI (record the time; if it does not, move `m5-promote` to `@slow`).
     - DESIGN.md §3 (controls: `E`, `H`), §5, §10 (feedback table), §11 and the glossary match the shipped numbers. ROADMAP status is set by the milestone step.
     - `.claude/rules/ledger.md` (asks and the matrix), `.claude/rules/worker.md` (`MATING_SCALE`, the mating commitments), `.claude/rules/tests.md` (the M5 hub ports, `state().life` additions, debug helpers) and `docs/SETUP.md` (no new secrets) are updated.
   - Notes: this task adds the long scenario and the sync only; do not move work from earlier tasks here.
+
+  - Done: `m5-lifecycle.spec.ts` (`@slow`, hub 8796, `LIFESPAN_SCALE=0.02`, about 6 min): three identities, two matings, promotions, old age walked back to a new genesis, B takes the pending child from the death screen (B's own creature aged out while standing by). The PR suite gained no time; rules and SETUP synced, DESIGN §3/§5/§10 already matched.
+  - Gotcha: the authority credits at most wall time, so old age cannot be fast-forwarded past real time (hence short lifespans); the waiting creature must step out of toxin clouds or it dies of toxin instead.
 
 ## End-to-end check
 

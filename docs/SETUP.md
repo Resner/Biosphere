@@ -74,6 +74,8 @@ The game's minimal authority (signaling, short-lived TURN relay credentials, and
 
 M4 needs no new secrets or variables. The authority generates its own signing key on first use and keeps it in its Durable Object's SQLite (the public half is served at `/v1/pubkeys`). Genesis creatures are seeded from the live drand network (HTTPS from the Worker, nothing to configure); if drand cannot be reached, a hatch shows "Awaiting beacon…" and the authority retries until a round arrives, and never substitutes its own randomness (unit test: `worker/beacons.test.ts`, "survives a 60 s outage").
 
+M5 needs no new secrets or variables either. Mating commitments use the same drand source, and `MATING_SCALE` exists only in fixture mode (E2E), never in production.
+
 The free plan stops at its daily limits instead of billing you, and the game queues new players before it gets there. Switching to the $5 Workers Paid plan is optional and only raises capacity (`docs/CAPACITY.md`, from M13).
 
 ## What only you provide
