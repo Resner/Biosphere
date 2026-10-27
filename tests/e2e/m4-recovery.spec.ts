@@ -7,7 +7,7 @@ import { clickHatch, openRecorded, state, waitPlaying } from './helpers';
 
 const toHex = (b: Uint8Array) => Array.from(b, (x) => x.toString(16).padStart(2, '0')).join('');
 
-test('a recovery code moves the creature to another browser and replaces the old tab', async ({
+test('a recovery code moves the creature to another browser and replaces the old tab @slow', async ({
   browser,
 }) => {
   // Two recorded hatches, each waiting for a beacon round, plus the reload: slow on a CI runner.

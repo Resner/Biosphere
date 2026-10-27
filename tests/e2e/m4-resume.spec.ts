@@ -7,7 +7,7 @@ import { clickHatch, openRecorded, state, waitPlaying } from './helpers';
 
 test.describe.configure({ mode: 'serial' });
 
-test('closing the tab and coming back resumes the same creature', async ({ browser }) => {
+test('closing the tab and coming back resumes the same creature @slow', async ({ browser }) => {
   const context = await browser.newContext();
   const first = await context.newPage();
   await openRecorded(first);
@@ -82,7 +82,7 @@ test('a second tab with the same identity takes over, and the first stops', asyn
   await context.close();
 });
 
-test('a death ends the creature: even after a reload the next hatch is a new genesis', async ({
+test('a death ends the creature: even after a reload the next hatch is a new genesis @slow', async ({
   browser,
 }) => {
   const context = await browser.newContext();

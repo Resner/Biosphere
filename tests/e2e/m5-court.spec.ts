@@ -18,7 +18,7 @@ async function hatched(context: BrowserContext): Promise<Page> {
 
 const idOf = async (page: Page): Promise<string> => (await state(page)).playerId as string;
 
-test('a court is answered, both pay, and a newborn is refused for being too young', async ({
+test('a court is answered, both pay, and a newborn is refused for being too young @slow', async ({
   browser,
 }) => {
   test.setTimeout(120_000);
