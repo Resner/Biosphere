@@ -305,8 +305,8 @@ export const RULES = deepFreeze({
     costBiomass: 0.15,
     /** Energy needed to mate, as a share of the maximum. */
     minEnergyShare: 0.5,
-    /** Cooldown in active ms (6 min); doubles per earlier mating of the same pair in the window. */
-    cooldownMs: 360_000,
+    /** Cooldown in active ms (9 min); doubles per earlier mating of the same pair in the window. */
+    cooldownMs: 540_000,
     repeatWindowMs: 86_400_000,
     repeatMaxDoublings: 5,
     /** The accept is shown for 15 s; the authority takes it up to 20 s after the court. */
