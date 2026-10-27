@@ -179,7 +179,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `Authority.deliverBirth` (alarm sweep over `Ledger.openMatingCommits`, also at hello) writes both `birth` rows through `Ledger.birth` and pushes `born` (`Born` in `protocol.ts`, also `life.pending` at hello); tests in `worker/birth.test.ts`, codec cases in `protocol.test.ts`.
   - Gotcha: a birth costs 7 row writes (index entries count, as T6 found), not 6. Hub message parse cap is now `BORN_MAX_BYTES` (32 KB) up front with per-message caps after; `born` is pushed only on the fresh write, a reconnect gets it through `life.pending`.
 
-- [ ] T9 Promotion, restore, death fallback, lineage on the hub
+- [ ] T9 Promotion, restore, death fallback, lineage on the hub (in progress)
   - Acceptance (workerd tests):
     - `promote` with the owner-signed child request (`prev` the birth hash, `seq` 1, body `{ role: 'child', parent }`) is accepted: the child is `active`, the parent is frozen by an attested `promote` record (role `parent`) that keeps its condition, `activeMs` and cooldown, the session rebinds to the child (progress is now credited to it, with the hatchling condition), and `promoted` carries the child's `life`. Refused with a named reason and no change: a bad signature, someone else's pending child, a child that is not pending, a stale `prev`, a `parent` that is not the player's active or most recently dead creature, a second promote of the same child (idempotent: the same stored record comes back).
     - A parent that already died is only linked (no freeze). A player can promote while their active creature lives or once it is dead.
