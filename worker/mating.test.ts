@@ -138,6 +138,7 @@ describe('mate-check', () => {
       cooldownLeftMs: 0,
     });
     expect(info.tier).toBeGreaterThanOrEqual(0);
+    expect(info.creature).toMatch(/^[0-9a-f]{64}$/);
   });
 
   it('names my reason, then the partner’s with a partner- prefix', async () => {

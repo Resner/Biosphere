@@ -30,6 +30,7 @@ export class Hud {
   private readonly lifeMeter = pick('[data-testid="hud-life"]');
   private readonly stage = pick('[data-testid="hud-stage"]');
   private readonly lifeLeft = pick('[data-testid="hud-remaining"]');
+  private readonly ready = pick('[data-testid="hud-ready"]');
   private readonly lifeBar = pick('[data-bar="life"]');
   private readonly toastElement = pick('[data-testid="toast"]');
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -55,6 +56,11 @@ export class Hud {
     const old = clock.stage === 'old';
     if (this.lifeMeter.hasAttribute('data-old') !== old)
       this.lifeMeter.toggleAttribute('data-old', old);
+  }
+
+  /** The mating readiness under the life bar: "Ready to mate", "Ready in 2:10", or nothing. */
+  setReady(text: string): void {
+    setText(this.ready, text);
   }
 
   /** A short line in the middle of the screen. */

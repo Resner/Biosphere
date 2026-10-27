@@ -537,7 +537,9 @@ body {
 .meter[hidden],
 .action[hidden],
 .history[hidden],
-.toast[hidden] {
+.toast[hidden],
+.mate-hint[hidden],
+.invite[hidden] {
   display: none;
 }
 
@@ -716,4 +718,50 @@ body {
 
 .recovery .recovery-error {
   color: #e8b04a;
+}
+
+/* Courting: the key beside a creature in reach, and the invitation a partner sends. */
+.mate-hint {
+  position: fixed;
+  left: 50%;
+  bottom: 4.5rem;
+  margin: 0;
+  transform: translateX(-50%);
+  padding: 0.3rem 1rem;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.6);
+  color: var(--text);
+  font-size: 0.9rem;
+  pointer-events: none;
+}
+
+.mate-hint[data-court="true"] {
+  border-color: #8de88a;
+}
+
+.invite {
+  position: fixed;
+  right: 1rem;
+  top: 30%;
+  max-width: 17rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid #8de88a;
+  border-radius: 0.6rem;
+  background: rgb(4 9 11 / 0.8);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.invite .invite-name {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+}
+
+.invite p {
+  margin: 0.2rem 0;
+}
+
+.invite-keys {
+  color: var(--muted);
 }

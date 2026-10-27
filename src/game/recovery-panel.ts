@@ -40,6 +40,11 @@ export class RecoveryPanel {
   private readonly reminder = pick('[data-testid="recovery-reminder"]');
   private readonly importButton = pick<HTMLButtonElement>('[data-testid="recovery-import"]');
 
+  /** Whether the title screen still asks the player to save the code. */
+  get needsSaving(): boolean {
+    return !this.reminder.hidden;
+  }
+
   constructor(private readonly handlers: RecoveryHandlers) {
     this.reminder.hidden = seenBefore();
     this.opener.addEventListener('click', () => this.open());

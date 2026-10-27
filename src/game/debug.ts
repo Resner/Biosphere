@@ -55,6 +55,18 @@ export interface BsState {
     remainingMs: number | null;
     limitMs: number;
   };
+  /**
+   * Courting (M5): the flow's `state`, the line it shows (`text`: the hint beside a creature in
+   * reach, else the note), the invitation's `invite` name and seconds `left`, `visited` states, and
+   * the cooldown line under the life bar.
+   */
+  mate: {
+    state: string;
+    text: string;
+    invite: { name: string; from: string; leftMs: number } | null;
+    visited: string[];
+    ready: string;
+  };
   /** The other players in the pond, as drawn (alpha fades when they go quiet). */
   remotes: {
     id: string;

@@ -338,6 +338,36 @@ describe('progress', () => {
     });
   });
 
+  it('keeps when it may mate from the ack, the mating record and a resume', async () => {
+    feed({ t: 'life', life: info({ matureAtMs: 5, cooldownUntilMs: 7 }), genesisIn: 0 });
+    await flow.hatch(WAIT);
+    expect(flow.view()).toMatchObject({ matureAtMs: 5, cooldownUntilMs: 7, pending: false });
+    feed({
+      t: 'ack',
+      n: 0,
+      activeMs: 630_000,
+      lifespanMs: 4_500_000,
+      matureAtMs: 100,
+      cooldownUntilMs: 300,
+    });
+    expect(flow.view()).toMatchObject({ matureAtMs: 100, cooldownUntilMs: 300 });
+    const record = { record: { body: { cooldownUntilMs: 900 } } } as unknown as StoredRecord;
+    feed({ t: 'mating', commit: {}, record } as unknown as LifeMsg);
+    expect(flow.view().cooldownUntilMs).toBe(900);
+  });
+
+  it('knows whether an offspring is waiting', async () => {
+    feed({ t: 'life', life: info(), genesisIn: 0, pending: {} } as unknown as LifeMsg);
+    await flow.hatch(WAIT);
+    expect(flow.view().pending).toBe(true);
+    feed({ t: 'promoted', life: info(), parent: null });
+    expect(flow.view().pending).toBe(false);
+    feed({ t: 'born' } as unknown as LifeMsg);
+    expect(flow.view().pending).toBe(true);
+    feed({ t: 'restored', life: info() });
+    expect(flow.view().pending).toBe(false);
+  });
+
   it('counts ticks per connection: a reconnect starts again from the next report', async () => {
     await play();
     flow.report(900, { biomass: 1, energy: 1, health: 1 });

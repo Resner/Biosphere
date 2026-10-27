@@ -17,6 +17,9 @@ export const FX = {
   /** Size of an eat pop and of a dash ripple, in cell radii. */
   popRadii: 1.7,
   rippleRadii: 3.2,
+  /** The ring that marks a committed mating. */
+  mateRadii: 4.5,
+  mateSeconds: 1.4,
   /** The longest the first update after a pause may advance the cues, in seconds. */
   resumeCapSeconds: 0.1,
 } as const;
@@ -91,6 +94,11 @@ export class Effects {
         );
         break;
     }
+  }
+
+  /** A slow ring around the creature when a mating is committed (the ripple art, wider and longer). */
+  matePulse(at: FxAnchor): void {
+    this.addRing('ripple', at, FX.mateRadii, FX.mateSeconds);
   }
 
   /** Starts the death dissolve; later calls do nothing. */

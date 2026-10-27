@@ -670,6 +670,7 @@ export class Authority extends DurableObject<Env> {
       sendIfOpen(ws, {
         t: 'mate-info',
         partner: partnerId,
+        creature: null,
         reason: 'not-here',
         kinship: 0,
         generation: 0,
@@ -681,6 +682,7 @@ export class Authority extends DurableObject<Env> {
     sendIfOpen(ws, {
       t: 'mate-info',
       partner: partnerId,
+      creature: other.life.creature,
       reason: this.mateRefusal(session, other.session),
       ...this.cardOf(session.life, other.life),
     });

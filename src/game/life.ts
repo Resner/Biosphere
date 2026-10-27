@@ -74,6 +74,11 @@ export interface LifeView {
   /** Ms until the next recorded hatch, as the hub last said (0 = now). */
   genesisIn: number;
   practice: boolean;
+  /** The active time from which the creature may mate, and until which it rests (the hub's numbers). */
+  matureAtMs: number;
+  cooldownUntilMs: number;
+  /** An offspring is waiting to be promoted. */
+  pending: boolean;
 }
 
 /** The creature's age as the game counts it: the hub's last word plus the ticks played since. */
@@ -119,6 +124,9 @@ export class LifeFlow {
   private baseTicks = 0;
   private sentReports: { n: number; ticks: number }[] = [];
   private oldAge = false;
+  private matureAtMs = 0;
+  private cooldownUntilMs = 0;
+  private pending = false;
 
   constructor(private readonly deps: LifeDeps) {}
 
@@ -133,6 +141,9 @@ export class LifeFlow {
       lastAckN: this.lastAckN,
       genesisIn: this.genesisIn,
       practice: this.status === 'practice',
+      matureAtMs: this.matureAtMs,
+      cooldownUntilMs: this.cooldownUntilMs,
+      pending: this.pending,
     };
   }
 
@@ -178,6 +189,7 @@ export class LifeFlow {
       case 'life':
         this.known = { life: msg.life, genesisIn: msg.genesisIn };
         this.genesisIn = msg.genesisIn;
+        this.pending = msg.pending !== undefined;
         // The hub binds the creature again on every connection and counts from zero.
         if (this.status === 'playing') this.rebase = true;
         break;
@@ -187,6 +199,20 @@ export class LifeFlow {
         this.activeMs = msg.activeMs;
         this.lifespanMs = msg.lifespanMs;
         this.baseTicks = this.ticksOf(msg.n);
+        this.matureAtMs = msg.matureAtMs;
+        this.cooldownUntilMs = msg.cooldownUntilMs;
+        break;
+      case 'mating': {
+        const rested = msg.record.record.body.cooldownUntilMs;
+        if (typeof rested === 'number') this.cooldownUntilMs = rested;
+        break;
+      }
+      case 'born':
+        this.pending = true;
+        break;
+      case 'promoted':
+      case 'restored':
+        this.pending = false;
         break;
       case 'commit':
         if (this.status === 'requesting') this.status = 'awaiting';
@@ -313,13 +339,15 @@ export class LifeFlow {
     this.baseTicks = 0;
     this.sentReports = [];
     this.oldAge = false;
+    this.matureAtMs = 0;
+    this.cooldownUntilMs = 0;
     return { kind: 'recorded', start };
   }
 
   private resume(life: LifeInfo): HatchOutcome {
     // A creature that was never reported has no condition yet: it starts from its genome.
     const fresh = life.biomass === 0;
-    return this.begin({
+    const outcome = this.begin({
       creature: life.creature,
       seq: life.seq,
       genome: life.genome,
@@ -333,6 +361,9 @@ export class LifeFlow {
       activeMs: life.activeMs,
       lifespanMs: life.lifespanMs,
     });
+    this.matureAtMs = life.matureAtMs;
+    this.cooldownUntilMs = life.cooldownUntilMs;
+    return outcome;
   }
 
   private async genesis(): Promise<HatchOutcome> {
