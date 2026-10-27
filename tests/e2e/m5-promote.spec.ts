@@ -27,7 +27,7 @@ async function hatched(context: BrowserContext): Promise<Page> {
 
 const BANNED = /commit|ledger|checkpoint|nonce|beacon|allele|locus|genotype|hash/i;
 
-test('a mating gives each player an egg, a card and a choice that brings the parent back', async ({
+test('a mating gives each player an egg, a card and a choice that brings the parent back @slow', async ({
   browser,
 }) => {
   test.setTimeout(150_000);
