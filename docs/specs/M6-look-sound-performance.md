@@ -50,7 +50,7 @@ M6 is large, so the tasks run in layers: render foundations (T1 to T5), depth zo
   - Gotcha: the hook is `__bs.render.info()` (not `render()`, later tasks read it there too), and the draw-call count cannot differ by preset before the post chain (T2), so the E2E asserts calls stay within the preset budget and particles and pixel ratio follow.
   - Notes: this task owns the settings panel shell (quality now; T21 adds volume and T9 reduced motion reuse it). Particle counts scale with the preset in `ParticleLayer`. Presets only change presentation: nothing in `src/sim` reads them.
 
-- [ ] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus]
+- [ ] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus] (in progress)
   - Acceptance (unit tests first, then E2E screenshot properties):
     - A render-to-target scene pass feeds a short chain; `__bs.render().passes` lists the pass names: low `[]` (the scene goes straight to the screen), medium `['scene', 'bloom', 'composite']`, high the same plus `'ca'` and `'grain'` inside the composite. Bloom is a dual-filter down/up chain at half resolution on medium and high.
     - Pure functions with unit tests: vignette is 1 at the centre, non-increasing with distance, and at least 0.7 in the corners; grain is deterministic for (seed, time), zero-mean within 1e-3 over 100,000 samples and bounded by ±0.04; chromatic aberration offset is 0 at the centre and grows with radius, at most 1.5 pixels at the corner on high.
