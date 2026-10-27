@@ -289,7 +289,7 @@ Presentation timings (v1, `FX` in `src/render/effects.ts`): eat pop 0.55 s, dash
 | Medium (default) | up to 1.5 | half-res DOF, bloom, grade | 100% | 150 / 300k |
 | High | up to 2 | full DOF, bloom, chromatic aberration, grain | 150% | 250 / 600k |
 
-The automatic default picks a preset from a short benchmark; adaptive resolution steps down when frames run over budget.
+Players pick Auto, Low, Medium or High in Settings (title screen, or Esc then Settings); the choice is stored in the browser and `?quality=` overrides it for one visit. The automatic default picks a preset from a short benchmark (medium until it exists); adaptive resolution steps down when frames run over budget.
 
 ## Glossary
 

@@ -1,6 +1,7 @@
 import './style.css';
 import { startApp } from './game/app';
 import { formatBuildLabel } from './game/build-label';
+import { qualityFromSearch } from './game/settings';
 
 const label = document.querySelector<HTMLElement>('[data-testid="build-label"]');
 if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
@@ -12,6 +13,7 @@ if (canvas) {
     seed: params.get('seed') ?? randomSeed(),
     debug: params.has('debug'),
     genome: params.get('genome'),
+    quality: qualityFromSearch(window.location.search),
   });
 }
 
