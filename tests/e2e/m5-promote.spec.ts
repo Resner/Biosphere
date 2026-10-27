@@ -109,6 +109,8 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   expect(label).not.toMatch(BANNED);
   await expect(a.getByTestId('hatch-again')).toBeHidden();
   await a.screenshot({ path: 'test-results/m5-promote-death.png' });
+  // Back to real time first: at 30x the restored parent can starve between the wait and the read.
+  await a.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
   await a.getByTestId('death-fallback-ancestor').click();
   // The creature id changes before the status does: wait for play, not just the id.
   await a.waitForFunction(
