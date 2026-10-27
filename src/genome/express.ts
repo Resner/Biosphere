@@ -125,7 +125,7 @@ export function locusOf(id: string): Locus {
 }
 
 /** An allele byte, whatever the haplotype holds. */
-function byte(h: Haplotype, offset: number): number {
+export function byte(h: Haplotype, offset: number): number {
   const v = h.alleles[offset];
   return typeof v === 'number' && Number.isFinite(v) ? v & 0xff : 0;
 }

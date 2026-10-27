@@ -5,7 +5,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { createRng, type Rng, type Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
-import { HAPLOTYPE_BYTES, LOCI, type MendelLocus, MODULE_BYTES } from './karyotype';
+import { HAPLOTYPE_BYTES, LOAD_LOCI, LOCI, MENDEL_LOCI, MODULE_BYTES } from './karyotype';
 
 const G = RULES.genetics;
 
@@ -52,8 +52,6 @@ const CHROMOSOMES: readonly (readonly (typeof LOCI)[number][])[] = Array.from(
 );
 
 const QUANT = LOCI.filter((l) => l.kind === 'quant');
-const MENDEL = LOCI.filter((l): l is MendelLocus => l.kind === 'mendel');
-const LOAD = LOCI.filter((l) => l.kind === 'load');
 const MODULES = LOCI.filter((l) => l.kind === 'module');
 
 /** How many crossovers one chromosome gets, from the probabilities in `RULES.genetics`. */
@@ -130,7 +128,7 @@ export function applyMutation(h: number[], kind: MutationKind, rng: Rng): boolea
       return true;
     }
     case 'alleleChange': {
-      const locus = pickOf(rng, MENDEL);
+      const locus = pickOf(rng, MENDEL_LOCI);
       // Genesis-range alleles only; the novel ones come from `novelAllele`.
       const now = h[locus.offset] as number;
       const others = Array.from({ length: locus.novelFrom }, (_, i) => i).filter((i) => i !== now);
@@ -138,12 +136,12 @@ export function applyMutation(h: number[], kind: MutationKind, rng: Rng): boolea
       return true;
     }
     case 'loadFlip': {
-      const at = pickOf(rng, LOAD).offset;
+      const at = pickOf(rng, LOAD_LOCI).offset;
       h[at] = (h[at] as number) ^ 1;
       return true;
     }
     case 'novelAllele': {
-      const locus = pickOf(rng, MENDEL);
+      const locus = pickOf(rng, MENDEL_LOCI);
       h[locus.offset] = rng.int(locus.novelFrom, locus.alleles.length - 1);
       return true;
     }
