@@ -1,43 +1,127 @@
-# M6: Look, sound and performance (rewriting)
+# M6: Look, sound and performance
 
 Release: v0.7.0 · Gate: yes
 
 ## Goal
 
-Biosphere looks, sounds and runs like the game the brief describes. In the pond the water is deep and layered: light, fog and food change with depth, the shallows glitter with caustics and burn with UV, the abyss is dark and crushing, and bioluminescence is what you see by down there. Creatures are the centrepiece: diverse, glass-like, strictly top-down micro-organisms with visible inner organs, fine antennae and setae, wet gloss and rare, never-glittery glints, held to the owner's references (#90, `docs/art/reference-02.jpg` to `reference-05.jpg`) on a committed gallery (ADR 0024). Three quality presets (low, medium, high) with budgets, an automatic default and adaptive resolution keep it smooth. Every event in DESIGN §10 has a procedural sound, with volume, mute and reduced-motion settings. Pings and emotes are chosen on purpose from a wheel, with edge arrows toward off-screen pings (#89), and finding other players is easy. The owner's playtest feedback on v0.6.0 is folded in: waiting for the beacon is an exciting egg reveal, carrying a pending egg feels meaningful, and progression is visibly faster.
+Biosphere looks like the owner's references and plays better while doing it.
 
-This milestone is a **gate**: after v0.7.0 the factory waits for the owner's reply on the `Playtest: v0.7.0` issue (the look, brief gate 2 continued).
+- **Creatures** are glassy micro-organisms seen from above. They have visible organs inside a clear shell, hair-thin antennae and setae, jointed legs, claws, veined wings and fan tails. Their silhouettes range from round larvae and tadpoles to copepods, shrimp, curled worms, crabs, jellyfish bells and winged plankton. Genesis cells are small larvae, and breeding carries a lineage towards the complex forms. Rare creatures glint; common ones stay crystal-clear and silvery.
+- **The water** has depth. Bright, caustic shallows burn with UV, a calmer blue twilight surrounds the spawn, the deep is lit mostly by bioluminescence, and the abyss crushes creatures without pressure tolerance.
+- **The camera** looks like macro photography: shallow depth of field, a luminous rim on every body, restrained bloom and a graded image. Three presets keep it within budget, and the default runs at 60 fps on a mid-range laptop with integrated graphics (owner check).
+- **The game sounds alive**: procedural ambience by depth and a cue for every event, with volume, mute and reduced-motion settings.
+- **The owner's v0.6.0 feedback is in.**
+  - Growth is visible and faster.
+  - Other players are easy to find: edge indicators and a pond map.
+  - Waiting for a beacon is an exciting egg reveal.
+  - A carried egg shows on the parent for everyone to see.
+- **Pings and emotes** are chosen on purpose from a wheel or hotkeys, with production-quality icons and edge arrows for nearby off-screen pings (#89).
+
+ADR 0004 is the rendering contract, ADR 0024 the look-pass method, ADR 0025 body plan v2 and ADR 0014 the pillars (zones, procedural audio).
+
+This milestone is a **gate**: after v0.7.0 the factory waits for the owner's reply on the `Playtest: v0.7.0` issue. The owner judges the creatures against the references (#90) before M7 starts.
 
 ## Out of scope
 
-- Combat, carrion, kill rewards, and anything that lets a predator eat a pending egg (M7; the owner's v0.6.0 feedback on kills and eggs goes into the M7 outline, see T18 and T20).
-- Mobile and touch controls (after 1.0). The wheel and the map are built so touch can use them later, nothing more.
-- WebGPU, a second render path, or any new runtime dependency. Everything is GLSL on `THREE.WebGLRenderer` (ADR 0004).
-- Music. Sound is ambience and event effects, all synthesised; no audio files ship.
-- The area-of-interest world (M11). Pond maps show the pond only.
-- Changing the mating rules, the authority's records or the wire protocol except where a task says so.
+- **Combat**: killing as the main way to grow, size as a fighting advantage, and predators eating eggs. An egg incubation period that makes carrying an egg risky belongs with predation (ROADMAP M7, from Playtest v0.6.0). M6 draws the carried egg and its reveal only.
+- **Touch and mobile controls.** The social wheel is laid out so it can take touch later, but M6 ships mouse and keyboard only.
+- **One continuous world, AoI and habitats** (M11, M12). Zones live inside today's 8,192 wu pond world.
+- **New food kinds and carrion** (M7). Zones re-weight the three existing kinds and move vents.
+- **Recorded audio files and music tracks.** Sound is procedural Web Audio only (ADR 0014).
+- **WebGPU, `three/webgpu`, TSL** and post-processing libraries as hard dependencies (ADR 0004).
+- **Shareable creature cards and the lineage viewer polish** (M9). The inspect card only picks up the new look.
 
 ## Touches
 
-New: `src/render/presets.ts`, `src/game/settings.ts`, `post/` (chain, passes, `dof.ts`, `adaptive.ts`, `benchmark.ts`), `src/render/shaders/{bloom,dof,composite,caustics,godrays,anatomy}.glsl`, `src/sim/bathymetry.ts`, `src/render/zones.ts`, `src/genome/` body-plan v2 files (T10 decides names), `src/render/anatomy.ts`, `src/audio/` (`engine.ts`, `synth.ts`, `ambience.ts`, `events.ts`, `settings.ts`), `src/game/wheel.ts`, `radar.ts`, `hatch.ts`, `progress.ts`, `src/lab/gallery.ts`, `tools/gallery.mjs`, `tools/budget-report.mjs`, `tests/fixtures/gallery/`, `docs/art/gallery/`, `tests/e2e/m6-*.spec.ts`, `docs/decisions/0025-*.md` (body plan v2).
+New:
+- render and post: `src/render/post/` (chain, passes, `dof.ts`, `adaptive.ts`, `benchmark.ts`), `src/render/anatomy.ts`, `src/render/zones.ts`, `src/render/egg.ts`, `src/render/indicators.ts`;
+- shaders: `src/render/shaders/{post,bloom,dof,caustics,godrays,anatomy,egg}.glsl`;
+- sim and genome: `src/sim/bathymetry.ts`, `src/genome/silhouette.ts`, `src/genome/karyotype-v1.ts` (the frozen v1 table);
+- audio: `src/audio/` (`engine.ts`, `ambience.ts`, `cues.ts`, `voices.ts`);
+- game UI: `src/game/wheel.ts`, `src/game/pond-map.ts`, `src/game/icons.ts`;
+- lab and tools: `src/lab/gallery.ts`, `tools/gallery.mjs`, `tools/specimen.ts`, `tools/budget-report.mjs`;
+- data and docs: `tests/fixtures/gallery/`, `docs/art/gallery/`, `docs/perf/`;
+- tests: `tests/e2e/m6-*.spec.ts`.
 
-Changed: `src/sim/rules.ts` (rules version 6), `src/sim/{food,spawn,step,life,types}.ts`, `src/genome/{karyotype,genesis,express,develop,stats,codec,offspring}.ts` (karyotype v2), `src/render/{scene,creature-mesh,materials,material-params,water,particles,effects}.ts` and shaders, `src/game/{app,hud,screens,input,social,social-ui,offspring,debug}.ts`, `src/lab/*`, `index.html`, `playwright.config.ts`, `docs/DESIGN.md`, `docs/ROADMAP.md`.
+Changed:
+- render: `src/render/{scene,camera,creature-mesh,creature-cache,materials,material-params,gait,particles,water,food,hazards,remotes,effects}.ts`, the creature and water shaders;
+- genome: `src/genome/{karyotype,codec,express,develop,stats,genesis,inherit,offspring,rarity,names,describe}.ts`;
+- sim and ledger: `src/sim/{rules,body,food,hazards,spawn,vitals,step,types}.ts`, `src/ledger/mating.ts` (rules-versioned recomputation);
+- net: `src/net/protocol.ts` (genome size cap, the egg flag);
+- worker: `worker/authority.ts` (rules version 6, maturity numbers);
+- game: `src/game/{app,hud,screens,settings,settings-panel,social,social-ui,input,offspring,life,debug}.ts`;
+- lab: `src/lab/*`;
+- config and docs: `playwright.config.ts`, `package.json` (scripts `gallery`, `report:budget`), `docs/DESIGN.md` §2–§6, §9, §10, §12.
 
-Rules numbers (rules version 6; DESIGN §2, §4 and §12 mirror them as each task lands):
+Presets (DESIGN §12, `src/render/presets.ts`; T1 pins them):
+
+| Preset | Pixel ratio | Post-processing | Particles | Budget (draw calls / triangles) |
+|--------|-------------|-----------------|-----------|---------------------------------|
+| Low | 1 | none (fake bokeh sprites only) | 30% | 80 / 150k |
+| Medium (default) | up to 1.5 | half-res DOF, bloom, grade | 100% | 150 / 300k |
+| High | up to 2 | full DOF, bloom, chromatic aberration, grain | 150% | 250 / 600k |
+
+Creature vertex budgets per preset (ADR 0025, render only): high 12,000, medium 6,000, low 1,500.
+
+Interfaces (shapes may be refined in a task note, with the reason):
 
 ```ts
-// src/sim/rules.ts additions
-zones: { shallowsBelow: 0.25, twilightBelow: 0.5, deepBelow: 0.75 },   // depth 0 (surface) to 1 (abyss) from the bathymetry field
-hazards: { uvHpPerS: 2, pressureHpPerS: 3 },                            // times (1 - tolerance), see DESIGN §4
+// src/render/post/chain.ts
+export interface PostInfo { passes: string[]; targets: number; targetBytes: number; renderScale: number }
+export class PostChain {
+  constructor(renderer: THREE.WebGLRenderer);
+  setPreset(preset: PresetName): void;          // turns passes on and off, sizes targets; low = direct render
+  setRenderScale(scale: number): void;          // 0.5..1, adaptive resolution (T4)
+  setFocus(z: number): void;                    // the focus plane for DOF (T3)
+  render(scene: THREE.Scene, camera: THREE.Camera): void;
+  info(): PostInfo;
+  dispose(): void;
+}
+
+// src/sim/bathymetry.ts (sim math only, deterministic)
+export type Zone = 'shallows' | 'twilight' | 'deep' | 'abyss';
+export function depthAt(seed: number, x: number, y: number): number;   // 0 (surface) .. 1 (abyss floor)
+export function zoneAt(seed: number, x: number, y: number): Zone;
+
+// src/genome/silhouette.ts (tests, Lab, gallery, reports; never stats or the sim)
+export type Silhouette = 'cell' | 'ciliate' | 'spiny-larva' | 'bell' | 'tadpole' | 'copepod' | 'shrimp'
+  | 'worm' | 'coil' | 'crab' | 'winged' | 'fan-tail' | 'other';
+export function silhouetteOf(plan: BodyPlan): Silhouette;
+
+// src/audio/engine.ts
+export type Cue = 'eat' | 'hurt' | 'low-energy' | 'hazard-near' | 'dash' | 'death' | 'old-age' | 'court' | 'mate'
+  | 'hatch' | 'reveal' | 'grow' | 'tier' | 'ping' | 'emote' | 'chat' | 'uv' | 'pressure';
+export interface Sound { cue(c: Cue, at?: { x: number; y: number }): void; setZone(z: Zone, depth: number): void;
+  setVolume(v: number): void; setMuted(m: boolean): void; dispose(): void }
 ```
 
-Presets (T1; DESIGN §12 is the table): low = pixel ratio 1, no post chain, 30% particles, 80 draw calls / 150k triangles; medium = up to 1.5, half-resolution depth of field, bloom and grade, 100% particles, 150 / 300k; high = up to 2, full-resolution depth of field, bloom, chromatic aberration and grain, 150% particles, 250 / 600k.
+Hub E2E: each new M6 spec file that needs the authority gets its own `wrangler dev` port from 8797 on (`playwright.config.ts`, `.claude/rules/tests.md`), because files run in parallel.
 
-Keys: hold `G` for the wheel (T24), `M` toggles the pond map (T25). Existing keys are unchanged.
+`window.__bs` additions (documented in `.claude/rules/tests.md` by the task that adds them):
+- `render.info()` gains `passes`, `targets`, `targetBytes`, `renderScale`, `vertices` (the player body's) and `lod`.
+- `state()` gains:
+  - `zone` and `depth`;
+  - `audio`: `{ state, cues }`, where `cues` counts per cue since hatching;
+  - `indicators`: what the edge markers point at;
+  - `wheel`: `{ open, items }`;
+  - `egg`: `{ phase, carried }`;
+  - `growth`: `{ share, matureInMs }`.
+- Under `?debug=1`, `debug` gains `setZone`, `setBench(ms)` and `revealNow()`.
 
 ## Tasks
 
-M6 is large, so the tasks run in layers: render foundations (T1 to T5), depth zones (T6 to T9), the creature overhaul (T10 to T17), progression and the egg (T18 to T20), sound (T21, T22), social (T23 to T26), performance (T27) and closing (T28, T29). A look pass task does not start before its predecessors are ticked.
+The tasks run in layers:
+- render foundations: T1 to T5;
+- the creature overhaul: T6 to T14 (the centrepiece; genome first, because the silhouette is decided in development);
+- the world in depth: T15 to T17;
+- the owner's v0.6.0 feedback: T18 to T20;
+- readability: T21;
+- sound: T22, T23;
+- social (#89): T24, T25;
+- performance: T26;
+- closing: T27 to T29.
+
+A look pass never starts before the tasks it judges are ticked.
 
 ### Render foundations
 
@@ -49,276 +133,435 @@ M6 is large, so the tasks run in layers: render foundations (T1 to T5), depth zo
   - Done: `render/presets.ts`, `game/settings.ts`, `SettingsPanel` (title and the Esc lineage panel link to it); `GameScene.setPreset` sets ratio and particle share (a draw range over a 150% buffer, no rebuild). `render.info()` gains `preset`, `pixelRatio`, `particles`.
   - Gotcha: the hook is `__bs.render.info()` (not `render()`, later tasks read it there too), and the draw-call count cannot differ by preset before the post chain (T2), so the E2E asserts calls stay within the preset budget and particles and pixel ratio follow.
   - Notes: this task owns the settings panel shell (quality now; T21 adds volume and T9 reduced motion reuse it). Particle counts scale with the preset in `ParticleLayer`. Presets only change presentation: nothing in `src/sim` reads them.
+  - Rewrite note: T1 was built from the first M6 spec. In this spec, auto-detect is T4, volume is T22 and reduced motion is T22; the panel shell is unchanged.
 
 - [ ] T2 Post chain: scene target, bloom, grade, vignette, grain, chromatic aberration [opus]
-  - Acceptance (unit tests first, then E2E screenshot properties):
-    - A render-to-target scene pass feeds a short chain; `__bs.render().passes` lists the pass names: low `[]` (the scene goes straight to the screen), medium `['scene', 'bloom', 'composite']`, high the same plus `'ca'` and `'grain'` inside the composite. Bloom is a dual-filter down/up chain at half resolution on medium and high.
-    - Pure functions with unit tests: vignette is 1 at the centre, non-increasing with distance, and at least 0.7 in the corners; grain is deterministic for (seed, time), zero-mean within 1e-3 over 100,000 samples and bounded by ±0.04; chromatic aberration offset is 0 at the centre and grows with radius, at most 1.5 pixels at the corner on high.
-    - Resize and preset switches dispose and recreate targets: after 20 switches between presets `renderer.info.memory.textures` and `geometries` return to their baseline (no growth), and `__bs.render().targetBytes` equals the sum of the live targets.
-    - Screenshot properties (decoded PNG, 960×540): on medium a bright point against a dark scene has glow pixels at least 8 px beyond its radius, and none on low; corner mean luminance is at least 10% below centre mean luminance on medium; a screenshot on every preset is non-blank and has contrast (existing helper).
-  - Notes: no new dependency (ADR 0004). The creature and cell shaders keep working unchanged when the chain is off. Reuse scratch objects: no per-frame allocation in the pass loop.
+  - Acceptance (unit tests first, then E2E):
+    - `postPlan(preset)` (pure) lists the passes and target scales:
+      - low: `[]` (direct render to the canvas);
+      - medium: `['scene', 'bloom', 'grade', 'vignette']`, with bloom at half resolution and 4 mip levels;
+      - high: those plus `'grain'` and `'chromatic'`, with bloom at 5 levels.
+      A test pins each list. DOF joins the list in T3.
+    - `PostChain` renders the scene into a half-float target, then:
+      - bloom: threshold, dual-filter down and up, added back;
+      - grade: a filmic tone curve and a cool teal lift in the shadows, with highlights kept neutral;
+      - vignette, film grain and radial chromatic aberration on the composite.
+      Every target is disposed on `setPreset`, `resize` and `dispose`; `renderer.info.memory.textures` returns to its old count after a preset round trip.
+    - E2E (`m6-post.spec.ts`, a pinned genome, `?quality=…`):
+      - `render.info().passes` matches `postPlan`, and `calls` and `triangles` stay within the preset budget;
+      - in decoded screenshots, at medium the four corner patches are at least 10% darker than the centre patch (vignette), and a bright food item has a halo: the ring 3–6 px around it is at least 8 luminance levels brighter than at low (bloom);
+      - at high, the red and blue channel edges of a bright item are offset by at least 1 px near the frame edge (chromatic aberration);
+      - low renders with no target (`targets: 0`).
+    - The Creature Lab draws through the same chain (high preset), so the gallery (T5) shows the real look.
+  - Notes:
+    - Render order stays as in `scene.ts`; the DOM HUD is never post-processed.
+    - The grade must keep the dark teal water of `reference-01.jpg`; check it against the reference by eye before ticking.
+    - Use `THREE.WebGLRenderTarget` with `HalfFloatType`, falling back to `UnsignedByteType` when half float is not renderable, and check that path.
+    - Allocate nothing per frame (uniform objects and full-screen triangles are reused).
 
 - [ ] T3 Depth of field [opus]
   - Acceptance:
-    - `coc(z, focusZ, aperture)` is pure: 0 at the focus plane, symmetric in distance, monotone, clamped to `maxCoc`; table tests pin five points. Layers sit at fixed z: far bokeh below the plane, creatures, food and the player on it, near particles above.
-    - Medium runs the DOF pass at half resolution, high at full resolution; low keeps the existing fake bokeh sprites and no pass (`passes` reports `'dof'` accordingly).
-    - The focus plane is never blurred: on medium the mean gradient magnitude of the player's outline in a 960×540 screenshot is at least 85% of the same crop on low (set `?quality`), and far particles are visibly softer than mid particles (a crop of the far layer has gradient below 60% of a mid-layer crop).
-    - The DOF samples are bounded (a constant tap count per preset, listed in `presets.ts`), and a pass run costs no allocations.
-  - Notes: depth comes from the layer's z written to a target channel, not from a depth buffer readback.
+    - `circleOfConfusion(z, focusZ, preset)` (pure) is 0 at the focus plane and grows linearly with distance, up to a cap: 6 px at half resolution on medium, 12 px at full resolution on high. Its tests pin the curve.
+    - The focus plane follows the player's creature at the gameplay plane. Creatures, food and plumes on the plane stay sharp. The far and near particle layers are blurred by their depth into round bokeh discs; on high, bright discs get a chromatic fringe.
+    - E2E (`m6-dof.spec.ts`), measured on decoded screenshots:
+      - at medium and high, the player creature's edge contrast is within 10% of low's (it stays sharp);
+      - a near-layer particle's footprint is at least 3× wider than at low;
+      - `render.info().passes` contains `'dof'` (half on medium, full on high).
+    - Low keeps today's fake bokeh sprites and adds no pass.
+  - Notes: ADR 0004 asks for CoC from depth. Gameplay is a plane with known layer depths, so a layered gather (blur the off-plane layers by their CoC) satisfies it at a fraction of the cost of a full-screen depth gather. Record the choice in the task note.
 
 - [ ] T4 Auto-detect and adaptive resolution [opus]
-  - Acceptance (unit tests first, fake clocks and fake frame times):
-    - `pickPreset(medianFrameMs, rendererName)`: a software renderer (`SwiftShader`, `llvmpipe`, `Software`) → `low` whatever the time; otherwise below 6 ms → `high`, below 11 ms → `medium`, else `low`; boundaries pinned.
-    - The benchmark renders 30 frames of a fixed test scene (no sim, no network) off the gameplay loop on the first start, stores `{ preset, at }` in the settings, and is skipped when the setting is not `auto`, when `?quality` is given, or when a result younger than 30 days exists. Choosing Auto again re-runs it.
-    - `AdaptiveScale` (pure): input is frame milliseconds; steady 30 ms steps the render scale down through `1, 0.85, 0.7, 0.6` and stops at 0.6 within 10 s of frames; steady 8 ms never steps; alternating 8/25 ms produces at most one change in 30 s; steps up one level after 10 s of frames below 13 ms; never more than one change per 2 s; a tab that was hidden (a frame over 1 s) is ignored, not counted.
-    - E2E: with the scale forced by `__bs.render().forceScale` the canvas drawing buffer follows (`width = round(css × ratio × scale)`), HUD text stays DOM (unscaled), and `?quality=low` never changes the scale in a short run.
-  - Notes: adaptive resolution scales the scene and chain targets; the HUD is DOM and is never scaled.
+  - Acceptance (unit tests first, on synthetic frame times):
+    - `pickPreset(frameTimesMs)` takes the 75th percentile of a 2 s benchmark at medium and maps it: up to 11 ms → high, up to 20 ms → medium, otherwise low. The result is stored per GPU (`bs.bench` keyed by the unmasked renderer string when available), so another machine benchmarks again. `auto` in Settings shows "Auto (Medium)" with the detected preset.
+    - `AdaptiveScale` steps the render scale between 0.6 and 1.0 by 0.1:
+      - down when the 90th-percentile frame time over the last 2 s exceeds 1.25 × 16.7 ms;
+      - up when it stays below 0.8 × 16.7 ms for 5 s;
+      - never more than one step per 2 s, so it never oscillates (a test feeds alternating loads).
+      The HUD and the DOM are never scaled.
+    - E2E (`m6-auto.spec.ts`): `?debug=1` with `debug.setBench(8)`, `(15)` and `(30)` picks high, medium and low, and the stored choice skips the benchmark on reload. A forced slow frame budget (`setBench`) steps `render.info().renderScale` down, and a later fast budget steps it back up.
+  - Notes: the benchmark runs behind the title screen while it is shown, never during play. `?quality=` skips it (tests).
 
 - [ ] T5 Gallery tool and the baseline pass [opus]
-  - Acceptance:
-    - ADR 0024 is the contract. `tests/fixtures/gallery/` holds 24 specimens as hex genomes with names (`g01` to `g24`): 12 distinct genesis cells (rarity common to exotic, with and without iridescence, luminescence, patterns), 6 bred multi-segment bodies, 6 hand-built showcase genomes (long antennae, many appendages, plates). A test decodes and develops every one (valid, within the caps) and checks the file hashes against a committed list, so a specimen cannot change silently.
-    - `lab.html?gallery=1` renders them in a 4×6 grid at the fixed camera, time and backdrop of ADR 0024, with name labels; `npm run gallery -- --pass 0` writes `docs/art/gallery/pass-0.png`; two runs from one build produce byte-identical files (an E2E test captures twice and compares).
-    - `docs/art/gallery/pass-0.md` is the honest baseline of the look before M6: the gap table (7 aspects × references 02 to 05, ratings 0 to 3, one sentence each) and "Largest gaps". A unit test parses every `pass-*.md`: all 28 cells present, ratings are integers 0 to 3, a sentence follows each rating, the gaps list is non-empty whenever any rating is above 1.
-    - `tools/gallery.mjs` uses the shared Chromium (`/opt/pw-browsers`, as the other tools do) and never downloads a browser.
-  - Notes: the sheet is a PNG of at most about 1.5 MB (palette-reduce or crop if needed). Read the sheet and each reference with the image reader and write the comparison from what you see, not from what the code intends.
+  - Acceptance (as ADR 0024 decides):
+    - `lab.html?gallery=1` draws the specimens from `tests/fixtures/gallery/*.hex` with:
+      - a fixed camera, a 1600×1000 viewport at pixel ratio 1 and the high preset;
+      - a fixed animation time (`debug.pause`, `advance`) and the dark-water backdrop;
+      - specimens in file-name order, in a grid sized to fit them all (8×4 for the 32 of T9).
+    - `npm run gallery -- --pass <n>` renders it with the shared Chromium to `docs/art/gallery/pass-<n>.png`. Two captures from one build are byte-identical (a test captures twice).
+    - The baseline set has 20 v1 specimens: 6 genesis cells and 14 picks from the Lab's wild mode and bred children. They are chosen to show the most varied v1 bodies and stored as hex with a one-line comment each. They are never re-drawn from seeds.
+    - `docs/art/gallery/pass-0.png` and `pass-0.md` are committed. The note holds the ADR 0024 gap table: aspects × references 02–05, each cell 0–3 with a sentence. It is honest: the baseline is expected to score mostly 3. A "Largest gaps" list follows, which T6–T13 address.
+    - A unit test parses every `pass-*.md` and fails on a missing cell, a value outside 0–3 or a missing "Largest gaps" list.
+  - Notes: open each reference image and the sheet side by side before writing the table; never score from memory. Specimens added later extend the set and never replace one (ADR 0024).
 
-### Depth zones
+### Creature overhaul (#90)
 
-- [ ] T6 Rules version 6: bathymetry, zone food and spawn
+- [ ] T6 Karyotype v2 and rules version 6 [opus]
   - Acceptance (unit tests first):
-    - `RULES_VERSION` is 6 and every golden regenerates under it with the PR saying so (hashes and version only for tasks that do not change outcomes; this task changes food and spawn, so say which goldens change and why). `bathymetry.ts` exports `depthAt(seed, x, y)` in [0, 1], `zoneOf(depth)` using `RULES.zones`, and pure `gradient`.
-    - Deterministic: five golden `depthAt` values on two seeds are committed. Smooth: over 10,000 random point pairs at most 100 wu apart `|Δdepth| ≤ 100/500`. Fair: over 20 seeds × 10,000 points the shares are shallows 15% to 35%, twilight 25% to 40%, deep 20% to 35%, abyss 8% to 20%.
-    - `spawnPoint` never returns a point in the abyss or the shallows (twilight or deep only), keeps the M1 clearance from plumes, and still passes the existing spawn tests.
-    - Food by zone over 20,000 slots per zone: shallows and twilight give detritus and globules and no vent crystals; deep gives vent crystals only within 300 wu of a plume anchor and otherwise detritus; abyss gives at least 3× the crystal share of the deep. The existing food respawn and claim tests pass untouched.
-    - The pond's world seed is the only input, so peers and the authority agree: a test builds two worlds from one seed in separate modules and compares 1,000 samples.
-  - Notes: update DESIGN §2 and the header. This is the only rules bump of the milestone: later tasks that change an outcome regenerate goldens under version 6 and say so in the PR. The authority does not simulate the world (ADR 0008), so no Worker change is expected; confirm and say so in the note.
+    - `KARYOTYPE_VERSION` is 2. The v1 table lives on in `karyotype-v1.ts`. The v2 layout appends to each haplotype:
+      - the new body loci of ADR 0025: spine curve amount and mode, head scale, trunk swell, tail length, tail taper, fusion, symmetry, drape, eye size, eye stalk;
+      - per module slot: webbing, setae density, setae length, bulb, chela, beads.
+      The v1 bytes are untouched. DESIGN §6 gets the v2 table.
+    - Decoding is total for any length. A 328-byte v1 genome decodes with every new locus 0, and its traits equal the v1 traits field by field. This is a property over 10,000 random v1 genomes.
+    - `genomeHash` hashes a genome's own canonical bytes at its own length. A v1 genome keeps its hash (golden), and `upgrade(v1)` pads it to v2 with a different, stable hash.
+    - Expression maps every new locus onto its range, with 0 meaning "off" or "v1": no curl, bilateral, no fusion, no eyes, no webbing, no setae.
+    - Rules versions:
+      - `RULES_VERSION` is 6, and every sim and genome golden is regenerated (the PR lists which and says the hashes changed for the version only).
+      - `offspringPair` and `checkBirth` take the rules version from the record: v5 birth goldens (M5 T4) still verify through the v1 path, and v6 births pad v1 parents before meiosis.
+      - Mutation under v6 can touch the new loci.
+    - The worker accepts v2 genomes:
+      - the genesis and birth paths write v2;
+      - a v1 creature resumes unchanged;
+      - `net/protocol.ts` raises the genome event cap to the v2 size;
+      - the Lab's paste box takes both lengths.
+  - Notes: this task changes no body: the new loci are expressed but unused until T7 and T8. Keep the v1 decoder and v5 inheritance callable for M9; mark them `frozen`.
 
-- [ ] T7 UV and pressure hazards, tolerance genes
+- [ ] T7 Development v2: body (curve, tagmata, fusion, symmetry, eyes) [opus]
   - Acceptance (unit tests first):
-    - `hazardDamage(zone, uvTolerance, pressureTolerance)`: shallows `2 × (1 − uvTol)` hp/s, abyss `3 × (1 − pressureTol)` hp/s, twilight and deep 0; tolerance 1 → 0, tolerance 0 → the full number. `PhysStats` carries both tolerances (from the existing `uvTolerance` and `pressureTolerance` traits, clamped 0 to 1; the starter cell has 0.5).
-    - The sim applies the damage per tick with the existing damage-over-time path, emits `damage` events with causes `uv` and `pressure`, and a death with that cause; `DeathCause` and every place that lists causes (HUD, death screen text, history, the protocol's death report and the ledger's accepted causes) accept them. A replay golden with a UV death replays equally in Node and Chromium.
-    - A genesis cell with the starter tolerance dies in the shallows after about 100 s and in the abyss after about 67 s (the test steps a creature held in each zone); a cell with tolerance 1 lives on.
-    - Genesis tolerance distribution: over 10,000 genesis genomes the median of each tolerance is between 0.35 and 0.65 and fewer than 5% are above 0.9, so zones are a real choice.
-    - The death screen names the cause in plain words ("Burned by sunlight", "Crushed by the deep") and the HUD shows a hazard cue (outline/vignette) while taking zone damage; the existing cue tests extend to the two causes.
-  - Notes: DESIGN §4 gets the causes; DESIGN §10's rule stays (no silent death). Check `worker/` and `src/net/protocol.ts` accept the new causes; extend them and their tests if they validate against a list.
+    - **v1 equivalence**: a plan developed from all-zero new loci equals the v5 plan, and its stats equal v5's. This is checked over 10,000 random v1 genomes, except bodies whose v5 plan dropped parts for the vertex budget. The test counts them and reports the share; it must stay under 2%.
+    - **Spine curve**: the segment chain bends along a curve with total turn `curve × π` (C-mode), as two opposite arcs (S-mode), or as a coil (a spiral that tightens) above 0.8. Segments keep overlapping neighbours, and colliders follow the curve.
+    - **Tagmata**: head scale enlarges the first segment, trunk swell the middle, and tail length and taper set the rear. Tests pin each extreme's segment radii.
+    - **Fusion**: the front `round(fusion × segments)` segments get one carapace outline (an ellipse hull over them) that colliders and plates use. The segments inside stay in the plan for the gut and joints.
+    - **Symmetry**: at symmetry ≥ 0.5 the body becomes round (aspect towards 1), and appendages are placed radially at even angles around the outline. With drape > 0 they bend rearward and trail (tentacles). A radial body has no mouth offset (the mouth is central).
+    - **Eyes**: size above 0.15 gives a pair on the head segment, with an eye stalk length. They are plan data for rendering and the detection ring.
+    - **Caps and repair hold** over 10,000 random and 10,000 mutated v2 genomes: no throw, caps, bounds within 2.5, a propulsion source, a mouth, and colliders 1–12. `bodyViolations` gains checks for the new fields.
+    - `silhouetteOf(plan)` classifies by geometry only: segment count, curve, symmetry, fusion, tail and webbing share, appendage reach. Hand-built plans for each class are classified correctly, and the classifier is total (`other` is allowed).
+    - **Stats** follow form, as ADR 0025 lists. Curl lowers turning inertia and raises drag. A carapace adds armour coverage and mass. Radial symmetry raises turning and lowers forward thrust efficiency. Eyes add detection and metabolism. The archetype tests gain a radial, a coiled and a carapaced archetype, and none is best at everything.
+    - The development vertex rule is gone under v6: parts are capped by count only (ADR 0025). `estimateVertices` moves to `src/render`.
+  - Notes: the Lab inspector shows the silhouette name. Update DESIGN §6 (development, stats).
 
-- [ ] T8 Zones on screen: light, fog, colour and a depth gauge [opus]
-  - Acceptance:
-    - `zoneLook(depth)` (pure, in `src/render/zones.ts`) returns light level, fog colour and density, water tint, and particle tint, continuous in depth (a test samples 1,000 depths: no step above 0.02 between neighbours) and ordered: light strictly decreases from shallows to abyss.
-    - The water shader and particle layers follow the player's local depth with a 1 s smoothing; crossing a zone boundary never jumps.
-    - A depth gauge in the HUD shows the zone name and a depth number (0 to 1,000 m, depth × 1,000), both from the same `zoneOf`; a hazard zone shows a short plain-words line ("Sunlight burns here. Pigment helps.").
-    - E2E (`m6-zones.spec.ts`, using the debug hook to place the player at a known depth): mean luminance of the 960×540 screenshot decreases shallows > twilight > deep > abyss by at least 15% per step; the gauge text matches `zoneOf` at each stop.
-  - Notes: presentation only; the render reads `depthAt` through the sim module and never writes sim state.
-
-- [ ] T9 Caustics, god rays and marine snow v2 [opus]
-  - Acceptance:
-    - Caustics (animated bright network on the water, strength = shallows light only) and god rays (soft shafts from above, shallows and upper twilight) are shader effects; medium has caustics and no rays, high has both, low has neither. Marine snow v2 is a deterministic particle field with per-layer size, speed and a slow downward drift; density rises with depth on every preset (scaled by the preset's particle share).
-    - The reduced-motion setting (new in the settings panel, also on when `prefers-reduced-motion: reduce`) freezes caustic animation, halves particle drift and removes shake and flashes from effects; a unit test reads the setting from a fake `matchMedia`.
-    - E2E: in the shallows the water crop's local contrast (standard deviation of a 128×128 crop) on medium is at least 20% above the same crop in the deep; with reduced motion on, two screenshots 1 s apart of the water crop are identical (animation frozen) except the player's own motion.
-    - Budgets: `renderer.info` for the shallows scene stays inside the preset budget (checked in `m6-budget`, T27).
-
-### Creature overhaul
-
-- [ ] T10 Body plan v2: ADR 0025, karyotype v2, genesis spread
+- [ ] T8 Development v2: fine parts (webbing, setae, bulbs, claws, beads) [opus]
   - Acceptance (unit tests first):
-    - ADR 0025 records the decisions: how karyotype v2 extends v1 (appended loci that default to the v1 behaviour when zero, so a v1 genome padded with zeros develops to the same body it did before, and v1 `birth` records still verify under their own rules version), the new body classes, and what changes for existing creatures. Existing goldens (`src/genome/__golden__`, ledger birth vectors) stay valid for v1 genomes; new goldens cover v2.
-    - Codec totality holds: any byte string of v2 length decodes, shorter input zero-pads, longer is ignored; 10,000 random strings round-trip.
-    - New expressed traits give the owner's silhouettes without labels: spine curl (S-curve and spiral), body shape (oval, round larva, bell, wing-flat), eye pair, claw pair (articulated chains with a pincer tip), antenna length and setae density, fan-tail fringe, wing membrane (flat webbed part with veins), and an inner anatomy block (gut line, chamber count, droplet count, organ hue). All are `quant` or `mendel` loci under the ADR 0006 rules, with dominance tables where needed, rare novel alleles for the rare forms, and load alleles unchanged in meaning.
-    - Genesis spread: over 10,000 genesis genomes at least six classifier buckets (`bodyClass`: copepod, larva, tadpole, bell, winged, worm; the classifier is read-only and used by tests and the Lab, never by the sim) each hold at least 3%, no bucket holds over 35%, genesis cells still have exactly one segment (worms and copepods come from small curl and shape differences on one segment), and the median top speed stays within 0.9× to 1.2× the M1 cell's.
-    - `inherit` (meiosis, mutation) handles the new loci: the Mendelian ratio tests of M3 pass for a new `mendel` locus; all 10,000-genome viability property tests run on v2.
-  - Notes: change one thing at a time inside the task (loci, then expression, then genesis). The inner anatomy block and the new part kinds are only data here; T11 develops them and T12 to T14 draw them.
+    - **Webbing**: a part with webbing > 0 gets a membrane spanning to its branches and its neighbouring part on the same side (`webSpan`). A tail fan forms when webbing sits on the rearmost parts. The plan stores membrane polygons in core radii, inside the bounds.
+    - **Setae**: density 0–1 gives 0–24 bristles per part, evenly spaced along it, each with length = setae length × part width × 6. The body total is capped at 240, and the excess is dropped from the shortest parts first, deterministically.
+    - **Bulbs and beads**: bulb > 0.3 gives a bead tip of radius bulb × width × 2. Beads mark each joint with a swelling.
+    - **Chela**: on a hooked or pointed tip, chela > 0.5 gives an opposable last joint. A chela's weapon power counts in `stats.weapons`.
+    - **Stats**:
+      - webbing area adds paddle thrust (rising with size, like the paddle share), drag and mass;
+      - setae add drag, widen the filter mouth's passive arc (by up to 25%) and add to the detection ring;
+      - bulbs add contact damage like spines;
+      - every feature adds to the basal complexity factor.
+      The archetype tests gain a winged and a setose archetype, and none is best at everything.
+    - Property tests over 10,000 random and 10,000 mutated genomes: totals within caps, no NaN, and membranes non-degenerate (area > 0, convex or split).
+  - Notes: setae and membranes are detail on parts, not parts (ADR 0025). The sim sees them only through `PhysStats`. Update DESIGN §6.
 
-- [ ] T11 Development v2: new parts, caps and stats
+- [ ] T9 Genesis spread, rarity, names and the specimen set
   - Acceptance (unit tests first):
-    - `develop` produces the new forms inside the ADR 0006 limits: 1 to 8 segments, at most 24 appendage instances, 4 joints, 1 branch level, 12 colliders, bound ≤2.5 core radii, ≤6,000 vertices (≤1,500 low detail). Property tests over 10,000 random and 10,000 mutated v2 genomes (and 5,000 offspring) find zero invalid plans, zero NaN, a propulsion source and a mouth in every body, and no overlapping appendages.
-    - New plan data: spine curve (control points), bell flag and radial tentacle count, wing parts (membrane polygon with veins), claw chains, eye positions, fringe setae counts, and the anatomy block. Each has a cap and a repair rule, listed in DESIGN §6 and pinned by tests (a wing larger than the bound is scaled, not dropped).
-    - Stats: bells thrust by pulsing (jet: lower top speed than a flagellate of the same size, better acceleration from rest), wings paddle at large sizes (the same crossing as paddles), claws add reach and weapon score (M7 reads it) and drag, eyes and antennae extend the detection ring. No archetype is best at everything: the archetype test (existing, extended) shows each `bodyClass` is top-two in at least one stat and bottom-two in at least one over 2,000 genesis-plus-bred genomes.
-    - The starter genome (`starterGenome`) still reproduces `STARTER_PHYS` exactly.
-  - Notes: the gait and beat code in `src/render` consumes new part kinds in T12; here they only exist in the plan. Keep `estimateVertices` an upper bound that equals the mesh.
+    - **Genesis** (ADR 0025): every genesis plan has one body unit and at most 3 module slots present. Over 1,000 seeds, at least 4 silhouette classes appear and none takes more than 40%. Rare alleles keep their DESIGN frequencies. The median top speed stays within ±15% of v5's (a test pins the band).
+    - **Wild variety**: the Lab's wild mode (24 cells) shows at least 8 silhouette classes for 9 of 10 seeds.
+    - **Rarity**: new rare features are priced from exact genesis frequencies: coil, radial symmetry, carapace, chela, webbing, eyes. `npm run report:diversity` adds a silhouette histogram.
+    - **Names**: species epithets can come from the new traits (for example *alata* for winged, *spiralis* for coil). The names stay deterministic per genome hash.
+    - **Specimen set**: `tools/specimen.ts` builds a v2 genome for a target silhouette by deterministic search from a seed. The gallery gains one specimen per silhouette class except `other`: cell, ciliate, spiny larva (the spherical larva of #90), bell (jellyfish-like), tadpole, copepod, shrimp, worm (S-curved), coil (the curled worm and the nautilus coil), crab, winged and fan-tail. That makes 12, each verified by `silhouetteOf`, added after the baseline 20.
+  - Notes: DESIGN §6 (genesis, rarity) gets the new numbers. The pacing tool (T18) uses v2 genesis.
 
-- [ ] T12 Creature mesh v2: curves, bells, wings, claws, fine appendages [opus]
-  - Acceptance (unit tests first, then gallery):
-    - The mesh builder draws every v2 plan: a curved spine lofts without folds (no triangle flips over 1,000 random curled plans: the signed area sign is stable), bells are a dome with tentacles, wings are a flat membrane with vein geometry, claws are jointed chains, eyes are domes. The vertex count still equals `estimateVertices`, and the cap holds over 2,000 random v2 plans.
-    - Fine detail: antennae with evenly spaced setae/beads, feathery fans and fringes are produced as thin strip geometry or shader detail with a separate per-preset budget (high ≤ 2,000 extra triangles per creature, medium ≤ 800, low none); the budget test is part of `creature-budget.test.ts`. LOD: `lowDetail` meshes drop setae and veins and keep the silhouette (the silhouette area differs from the full mesh by at most 8%).
-    - Gait: the vertex shader animates curl, bell pulse, wing flutter and tail fans from the existing uniforms; a spine curve with zero beat is static; the gait tests extend to the new parts and still show attachment (an appendage root never detaches from its segment over a full cycle).
-    - Gallery: the Lab gets the v2 specimens (new hex files added, ADR 0024: `g25` to `g36`, two per `bodyClass`), and a distinct silhouette test: for the twelve new specimens the pairwise silhouette IoU (rendered to a mask at a fixed size) is below 0.8 for every pair.
-  - Notes: the owner's silhouettes are in `docs/art/README.md`; no two neighbours may share one.
+- [ ] T10 Creature mesh v2 [opus]
+  - Acceptance (unit tests first):
+    - The body is a smooth loft along the curved spine: a Catmull-Rom centre line, with ring counts by level of detail. It follows the tagma profile, and a carapace adds a thin outer shell over the fused segments.
+    - Appendages are tapered tubes with visible joint beads, curvature, bulb tips and chela pincers.
+    - Setae are thin tapered ribbons from the parts. Membranes are triangle sheets with a vein UV, drawn double-sided. Eyes are small lens spheres.
+    - **Budgets** (ADR 0025): for every gallery specimen and 10,000 random v2 plans, the vertex count is at most 12,000 on high, 6,000 on medium and 1,500 on low. The builder lowers detail to fit (rings, setae drawn, membrane subdivision) and never drops a part: the appendage count in `aPart` ids equals the plan's on every preset.
+    - One merged geometry per creature per LOD, cached by genome hash and preset, and disposed at zero references. Attributes are finite and indices valid. `aAttach` and weights keep every vertex of a part attached to its root, which T11's property test checks.
+    - **Screenshots** (`m6-creature-mesh.spec.ts`, gallery specimens at 1600×1000), on decoded images:
+      - the crab's legs and the copepod's antennae reach beyond the body hull: bright pixels at more than 1.6 core radii from the centre in at least 6 directions;
+      - setae show as at least 20 separate thin bright strokes on the setose specimen;
+      - the winged specimen's membranes cover an area at least as large as its body.
+    - The player's body at default zoom (960×540) stays within the medium budget, and its rim reads at least 40 luminance levels above the water.
+  - Notes: keep one draw call per creature. The inner anatomy (T12) joins the same geometry with its own part kind.
 
-- [ ] T13 Inner anatomy layer [opus]
+- [ ] T11 Motion v2: flexible bodies [opus]
+  - Acceptance (unit tests first, on the CPU reference in `gait.ts`):
+    - The travelling wave runs along the curved spine, so a worm undulates and a coil breathes. Legs row in a metachronal wave (phase offset per segment). A radial bell pulses by contracting and recovering, with its tentacles lagging. Wings beat in a slow flap-and-glide cycle.
+    - Secondary motion:
+      - setae flutter with a small, fast, phase-shifted wiggle;
+      - antennae sway with turning and lag behind heading changes by about 0.3 s;
+      - when the creature is still, it breathes (a slow idle at 20% amplitude).
+    - **No part detaches**: over 10,000 plans at 50 time samples, every appendage vertex's distance to its attach point stays within its rest distance × 1.15. The wave phase is integrated from speed (ADR 0018).
+    - E2E: two screenshots 0.25 s apart differ on the moving creature's appendages (a mean absolute difference of at least 2 levels inside its box) and match outside it.
+  - Notes: the owner called v1 creatures "rigid". Motion is half of looking alive, so check a short screen capture of each gallery class by eye.
+
+- [ ] T12 Inner anatomy [opus]
+  - Acceptance (unit tests first):
+    - `anatomyOf(plan, traits, genomeHash)` (render data, deterministic) places organs inside the hull, never outside it:
+      - a gut line along the curved spine, with a stomach swelling;
+      - fluid chambers and oil droplets: their count grows with body size and metabolism trait, 3–14, at hash-seeded positions without overlap;
+      - a heart or ganglion spot;
+      - eye pigment.
+      A test checks containment for 10,000 plans.
+    - **Pigment moves inside**: organs carry the hue gene's colour at the gene's saturation, while the shell stays nearly clear. `materialParams` gives the shell a saturation of at most 0.15 for every genome (a property).
+    - The organs are drawn in the creature's merged geometry, inside the shell, with their own part kind. They use at most 20% of each LOD budget.
+    - **Screenshots** (gallery): inside each body's hull, the hue variance is at least 3× the shell rim's (colour lives inside), and at least 3 distinct bright blobs show inside each bilateral specimen of size class copepod or larger.
+  - Notes: reference 02 and 03 are the bar for how much shows through. Organs are presentation only: nothing in the sim or stats reads `anatomyOf`.
+
+- [ ] T13 Materials v2: glass, wet gloss, surface detail, rare glints [opus]
+  - Acceptance (unit tests first):
+    - **The shell** is glass:
+      - a fresnel rim of at least the `MIN_RIM_LUMINANCE` of today;
+      - wet specular from a fixed key light, plus a backlight;
+      - on medium and high, a refraction that offsets the water behind the body by the normal (sampled from the scene target, so the post chain renders the backdrop first);
+      - on low, plain translucency.
+    - **Surface detail**: procedural pores, a cell texture, vein networks on membranes and small hash-based imperfections. All scale with screen size, so they never alias into noise at default zoom; a test pins the fade-out band.
+    - **Palette**: shells are silvery pale blue, with up to 15% saturation of the gene hue. Pigment lives in the organs (T12). Iridescence and luminescence alleles still show (thin film, glow).
+    - **Rare glints**: `glintsFor(rarity, iridescence)` (pure) gives the count, size and brightness of jewel-like glints:
+      - common: 0–1, dim;
+      - uncommon: up to 3;
+      - rare: up to 8;
+      - exotic: up to 16, at reference 04/05 intensity.
+      Count and brightness never fall as the tier rises (a test). Positions are hash-seeded on joints and organs.
+    - **Screenshots**:
+      - over the 32 gallery specimens, the median count of saturated pixels (S > 0.6) on shells is below 5% of the body area;
+      - the exotic specimen has at least 8 glint maxima and the common ones at most 2;
+      - every specimen's rim stays the brightest ring of its body.
+  - Notes: the rule from #90 is "sparkles must feel exceptionally rare". When in doubt, fewer glints.
+
+- [ ] T14 Look pass 1 [opus]
+  - Acceptance (ADR 0024):
+    - `npm run gallery -- --pass 1` is committed with `pass-1.md`. The gap table is filled honestly against references 02–05 and its "Largest gaps" list is ordered by visual impact.
+    - Fix the top gaps in this task, as far as one session allows: shader, mesh, anatomy or palette tuning, but no new mechanics. Re-render, and commit the sheet and table after the fixes.
+    - The PR body states which cells improved and which gaps remain for passes 2 and 3.
+    - Also check the in-game look: a 960×540 screenshot at default zoom with six different bodies (`debug.setRemotes` with gallery genomes). Note in `pass-1.md` whether the bodies stay readable at that size; detail must never fight the silhouette (`docs/art/README.md`).
+  - Notes: never call a pass done because the tests are green.
+
+### The world in depth
+
+- [ ] T15 Rules v6: bathymetry, zones, food and hazards
+  - Acceptance (unit tests first, sim math only, deterministic in Node and Chromium):
+    - **Bathymetry**: `depthAt(seed, x, y)` is smooth fractal noise on a 2,048 wu period. The zones are shallows below 0.25, twilight up to 0.55, deep up to 0.8 and abyss above that.
+      - A disc of 600 wu around the pond's spawn centre is twilight.
+      - The nearest shallows and the nearest deep are each at most 1,800 wu from it.
+      - Over 20 seeds, the world shares are: shallows 20–30%, twilight 30–40%, deep 20–30%, abyss 5–15%.
+      Goldens pin `depthAt` samples.
+    - **Food by zone**: a slot's food kind is weighted by its zone, per DESIGN §2: globules in shallows and twilight, vent crystals near vents in deep and abyss. Vents sit in deep and abyss only, and at least 80% of plumes lie in deep and abyss.
+    - **Hazards**:
+      - UV in the shallows deals `2 × (1 − uvTolerance)` hp/s;
+      - pressure in the abyss deals `3 × (1 − pressureTolerance)` hp/s;
+      - both ramp in over a 64 wu band at the zone edge;
+      - the death causes `uv` and `pressure` are named on the death screen.
+      `PhysStats` gains `uvTolerance` and `pressureTolerance`, and the state hash covers them.
+    - Spawn stays inside the twilight disc and clear of plumes. The M2 food-claim and pond-clock rules are unchanged.
+    - Goldens are regenerated under rules version 6, and the replay determinism E2E passes.
+  - Notes: DESIGN §2 and §4 are updated (zones, food, hazards). Plume density changes the early game, so run the pacing tool and record any change in starvation or toxin deaths in the PR.
+
+- [ ] T16 Zones on screen: light, fog, colour, bioluminescence, depth gauge [opus]
   - Acceptance:
-    - An inner layer inside the body (gut line, round fluid chambers, oil droplets, veins, an eye spot), derived only from the genome's anatomy block and drawn as part of the creature's single draw (no extra draw call per creature beyond the existing mesh count; `renderer.info.render.calls` for 20 creatures equals the T12 count). It parallaxes slightly against the shell with the view angle so it reads as inside.
-    - Deterministic: the same genome gives the same anatomy (a hash of the anatomy parameters is pinned for five genomes); two different genomes give different anatomy (500 random pairs, no equal hashes); anatomy never changes with time except the gut's slow peristalsis and a heartbeat pulse (amplitude ≤ 10%).
-    - The inner parts carry the colour and the shell stays glassy: in a screenshot of a common specimen the shell edge ring is brighter than the body interior, and the interior has at least three distinct hue clusters on a rare specimen and at most two on a common one (decoded pixels, loose bounds).
-    - Low preset draws a simple dark core and one chamber, medium three chambers, high the full layer; budgets hold (T27).
+    - **The water** takes its colour, brightness and fog density from the bathymetry under each pixel: a 256² `DataTexture` per pond seed, built once. The zones blend over their edge bands.
+      - shallows: bright cyan-green;
+      - twilight: blue;
+      - deep: blue-black;
+      - abyss: near black.
+    - **Bioluminescence and dark-zone vision**: in deep and abyss, luminescent creatures light a pool around themselves, and vent crystals glow. The player sees clearly within its detection ring, while beyond it the water and food dim. Creatures always keep their rim, so a creature is dimmed but never invisible. (The brief: never hide an opponent who can still affect you.)
+    - **The HUD** shows a small depth gauge: zone name and depth bar. The UV shimmer and pressure vignette cues appear when the hazard applies.
+    - E2E (`m6-zones.spec.ts`, `debug.setZone`):
+      - mean water luminance falls strictly from shallows to twilight to deep to abyss;
+      - a luminescent creature in the abyss has a brighter surround than a dark one;
+      - `state().zone` matches `zoneAt`;
+      - the UV cue appears only in the shallows and only for a creature with tolerance below 1.
+  - Notes: presentation reads the sim's `depthAt` and never writes back.
 
-- [ ] T14 Materials v2 and rare glints [opus]
+- [ ] T17 Caustics, god rays and marine snow v2 [opus]
   - Acceptance:
-    - Materials from genes: glass versus chitin translucency, refraction of the scene behind the body on medium and high (sampling the T2 scene target with a small offset along the normal; low uses plain alpha), wet gloss (tiny specular points along edges and joints), pores and cell texture, small per-creature imperfections (hash-seeded). `materialParams` stays pure and pinned by tests; every new parameter has a range test over 10,000 genomes.
-    - Rare glints are rarity-gated: `glintBudget(rarityTier)` gives expected glints per creature of 0 (common), at most 1 (uncommon), at most 3 (rare), at most 8 (exotic); a unit test over 10,000 genomes shows 95% or more of common creatures have no glint at all and the share of creatures with any glint is below 12% in the genesis distribution. Glints vary in shape, hue and size, are deterministic from the genome and time, and never look like screen-wide glitter.
-    - Iridescence follows the existing iridescent allele; common bodies are pale silvery-blue with subtle amber, violet, cyan and pink only inside (palette test: mean saturation of the shell below 0.25 for common specimens, inner parts above 0.35).
-    - The hurt, dissolve and plate/mouth readability behaviours of `creature.frag.glsl` are kept (existing tests pass).
+    - **Caustics**: animated bright caustic lines on the water and over bodies (additive, top-down projection). They are strongest in the shallows, fade through twilight and are absent in the deep and abyss.
+    - **God rays**: in the shallows and twilight, slow-moving light shafts cross the plane from a fixed light direction. They are off on low.
+    - **Marine snow v2**: three depth layers of drifting specks carried by the currents. Through the DOF (T3) they become bokeh above and below the plane, with occasional bright specks on high. Particle counts follow the preset share.
+    - E2E: in the shallows, a 2 s screenshot pair shows moving caustics (a mean difference of at least 2 levels on open water) and in the abyss none. `render.info()` stays within budget with every effect on.
+    - Check the result by eye against `reference-01.jpg`: water never flat, haze clouds, sparse snow.
+  - Notes: keep total full-screen passes on medium at most 4 including the post chain. Fold caustics into the water shader rather than adding a pass.
 
-- [ ] T15 Bioluminescence and dark-zone vision [opus]
+### Owner feedback from v0.6.0 (Playtest #134)
+
+- [ ] T18 Visible growth and faster progression
+  - Acceptance (unit tests first):
+    - **The camera curve**: the visible half-height becomes `k · r^e` with `e` between 0.6 and 0.75 (DESIGN §3), keeping today's view for a hatchling (r = 10). Tests pin it:
+      - a creature that triples its radius is at least 1.35× larger on screen;
+      - at the genetic maximum the view still shows at least 6 body radii from the centre to the top edge.
+    - **The growth meter**: the HUD shows "Size 62% of adult" and, once size is enough, "Mature in 4:10", from the authority's `matureAtMs` and the local life clock. Each time size crosses another 10% of adult size, a cue plays: a soft ring pulse, and a sound after T23. Crossing a tier plays the bigger tier cue.
+    - **Pacing retune** (rules version 6, `npm run sim:pacing`):
+      - hatch to first eligibility, as the bot's median, falls from 17.3 min to 7–10 min;
+      - matings per full life stay at 10 or fewer;
+      - the cooldown (ADR 0022) is unchanged.
+      Tune `RULES.life.matureMinMs`, `matureMinShare` and `RULES.growth.maxRate`, and the worker enforces the same numbers.
+    - DESIGN §3, §4 and §5 and the pacing table are updated with the run date and commit.
+  - Notes: kills as the main way to grow wait for combat (M7). Do not add a kill-like shortcut here.
+
+- [ ] T19 Finding other players: edge indicators and the pond map [opus]
   - Acceptance:
-    - Luminescent creatures glow in their own hue and light the water around them in the deep and the abyss (a soft additive light, radius from `Glow` stat × body size, cheap: one sprite per luminous creature in an instanced layer, capped at 32 per frame by distance). Pulse genes pulse the light.
-    - Dark-zone vision (render only, ADR 0004): below the twilight the visible radius around the player shrinks with depth to a floor of 3 body lengths, extended by the detection ring (antennae, eyes) and by the player's own glow; creatures and food outside it fade to black, except luminous creatures, which stay visible at their glow radius. It hides nothing the sim does: collisions, hazards and feeding are unchanged, and the readability rule holds (a threat within 3 body lengths is always visible).
-    - Unit tests: `visibleRadius(depth, stats)` is monotone in depth, never below 3 body lengths, grows with the detection ring and with glow; E2E: in the abyss a luminous remote creature at 12 body lengths is visible and a dark one is not (screenshot luminance at its position), while a dark creature at 2 body lengths is visible.
-    - The reduced-motion setting turns pulses into a steady glow.
+    - **Edge indicators**: every pond player outside the view gets an indicator on the screen edge, pointing at them, with the distance in body lengths. The nearest 6 are shown, plus every ping.
+      - The shape shows relative size (smaller, comparable, bigger) and a mate-ready mark when the hub's `mate-check` says so, asked at most every 5 s per player.
+      - A ping within 2 view radii that is off screen shows its icon on the edge for its lifetime (#89).
+    - **The pond map** (`M`): an overlay with the pond bounds, the zone map (T15), every player as a dot (yourself highlighted, mate-ready players marked) and live pings. `M` or Esc closes it. Steering continues under it.
+    - Text stays plain, and colour is never the only signal (shape and a label too).
+    - E2E (`m6-find.spec.ts`, two contexts on the M6 hub):
+      - B is placed 3 views away: A's `state().indicators` points at B within 5°, and the edge element is visible;
+      - B pings off screen: A sees the ping indicator;
+      - `M` lists both players at positions within 2% of the map size.
+  - Notes: positions come from pond snapshots (every pond member already streams them). No new hub load except the rate-limited `mate-check`.
 
-- [ ] T16 Look pass 1 [opus]
+- [ ] T20 The egg: beacon reveal, carried egg, hatch [opus]
   - Acceptance:
-    - Renders the gallery (`npm run gallery -- --pass 1`), commits `docs/art/gallery/pass-1.png` and `pass-1.md` (ADR 0024) with an honest comparison against each of references 02 to 05, then fixes the largest gaps it lists (shape, inner detail, translucency, appendages, palette, glints, lighting) in `src/render`, `src/genome` and the shaders, and re-renders into `pass-1.png` after the fixes. The note records which gaps were fixed and which remain.
-    - Every rating in the pass-1 table is no worse than pass 0's, and at least half of the cells that were 3 are now 2 or better (a unit test compares the two tables).
-    - All earlier tests stay green; no budget is exceeded.
-  - Notes: be critical. A pass is done when its largest gaps are fixed, not when the tests are green.
+    - **The reveal**: while a genesis or a mating waits for its beacon, an egg appears over the creature or beside the parent.
+      - It wiggles with rising frequency and glow (the owner's Pokéball moment). On the beacon it cracks and bursts, and the card slides in.
+      - The flourish scales with the child's rarity tier: common is a soft pop; exotic is a bright burst with a short slow-motion of the effects.
+      - A beacon later than 10 s settles the egg into a calm idle (it never builds forever).
+      - Reduced motion (T22) replaces the shake with a fade.
+      `state().egg.phase` goes `waiting` → `cracking` → `revealed`.
+    - **The carried egg**: a pending child is drawn as an egg on a short tether behind the parent. It follows with a spring, in render only, and glows faintly by rarity.
+      - Pond peers see it: a snapshot flag bit, with `PROTOCOL_VERSION` raised if the flag mask needs it, and older clients get `outdated`.
+      - The HUD says "Egg: H to hatch".
+    - **The hatch**: promoting cracks the egg, the child grows out of it with a pop, and the frozen parent fades to its checkpoint ghost.
+    - E2E (`m6-egg.spec.ts`, M5 hub hooks): a genesis shows the phases in order. After a mating, both players' eggs are visible to the other (snapshot flag), and `H` plays the hatch with `egg.carried` false afterwards.
+  - Notes: the egg cannot be harmed in M6. Predation and incubation are M7 (ROADMAP).
 
-- [ ] T17 Readability, crispness and the threat outline [opus]
+### Readability
+
+- [ ] T21 Readability, crispness and the size outline [opus]
   - Acceptance:
-    - Crispness (owner, Playtest v0.2.0): the canvas uses `devicePixelRatio` up to the preset cap, sized from the CSS size so a 960×540 viewport at dpr 2 on high has a 1920×1080 drawing buffer; HUD, labels and the card text are DOM text or SVG, never scaled canvas bitmaps. E2E asserts the buffer size at dpr 1 and 2 (Playwright device scale factor) and that the player's outline gradient at dpr 2 is at least 90% of the theoretical edge sharpness (the 10 to 90% edge width is at most 1.5 CSS pixels).
-    - A threat outline by relative size tier: creatures at least one tier above the player get a warm outline, comparable ones a neutral rim and smaller ones none (a unit test over `outlineFor(playerTier, otherTier)`); the outline does not hide anatomy and respects the reduced-motion setting (no pulse).
-    - Gameplay parts stay recognisable at the default zoom: mouths, plates and weapons keep a distinct tint and brightness (the T14 behaviour) and a screenshot test of five specimens at default zoom finds the mouth region at least 20% brighter or redder than the body next to it.
-    - The mate card, courtship and death screens remain readable over the new look (contrast of text on its panel at least 4.5:1, a computed check on the CSS colours).
-
-- [ ] T18 Progression pace and visible growth
-  - Acceptance (unit tests first, then the pacing tool):
-    - Owner feedback on v0.6.0: growth feels slow, size barely shows, and being bigger should matter. This task retunes the existing growth economy only; kill rewards and size advantage in fights belong to M7 (the M7 outline in `docs/ROADMAP.md` records them).
-    - Targets, measured with `npm run sim:pacing` (12 genesis cells, the bot, as the M5 table; the new table goes in DESIGN §5 with the date and commit): median time from hatch to double the starting biomass 2 to 4 min; median time to 60% of the maximum biomass 8 to 14 min; hatch to first mating eligibility stays 14 to 25 min (the maturity gate of 12 min active time still decides; ADR 0022's cooldown is unchanged); at least four zoom steps visible in a life (camera half-height grows by 25% or more per step). The tuning knobs are the globule and detritus energy values, the conversion rate and the growth cap, all in `RULES`, and the PR states the old and new values and why.
-    - A growth cue: a soft swell and a "Grew to X µm" tick in the HUD every time biomass crosses a 25% step since the last cue (at most one per 3 s), and a progress meter in the HUD, "Size 62% of adult · Mature in 4:10", from the existing life clock and biomass fraction (`progressText(life, biomass, maxBiomass)` pure, pinned by tests for young, grown-but-young, old-enough-but-small and mature).
-    - Any change to an outcome regenerates goldens under rules version 6 and says so.
-  - Notes: update DESIGN §4 (growth) and §5 (pacing). Do not change the lifespan or mating numbers.
-
-- [ ] T19 The hatch reveal: an egg, not a spinner [opus]
-  - Acceptance:
-    - Owner feedback: "Awaiting beacon" should feel exciting, like catching a Pokémon or opening a loot box. The wait is real, 3 to 6 s for the drand round, so the sequence is driven by progress and ends on the actual arrival. Stages on the existing screens: a glowing egg wiggles left and right with rising speed and glow (the wiggle starts gentle, then swings wider and adds a flash each swing), sparks and ring pulses, then on arrival a crack, a burst and the creature emerging into its first frame.
-    - `hatchSequence(elapsedMs, arrived)` is pure and unit-tested: before arrival it returns stage `wiggle` with intensity rising to a plateau at 3.5 s (never past it, so a slow beacon does not look broken); on arrival it returns `crack` (0.45 s) then `burst` (0.6 s) then `done`; with arrival before 1.2 s of wiggle it still shows at least 1.2 s of wiggle and the whole reveal never delays the play start by more than 1.2 s beyond arrival.
-    - The flourish scales with the rarity tier of the hatched genome (known only at arrival, so the reveal is the climax): common = a clean burst, uncommon = a coloured ring, rare = rays and a longer glint, exotic = a full-screen bloom flash (bounded; off under reduced motion, which keeps the crack and burst as a fade). The tier word appears as the burst settles.
-    - The same sequence plays for a mating egg when the child's round arrives (the existing egg-crack cue), reusing the stages in the offspring card; resuming a saved creature plays no sequence.
-    - E2E (`m6-hatch.spec.ts`): the title-to-hatch path with the fixture hub shows `hatch.stage` from `__bs.state()` going wiggle → crack → burst → done in order, the creature is controllable within 1.2 s of arrival, and a screenshot during `wiggle` is not blank and differs between two moments.
-
-- [ ] T20 Carrying the egg: breeding that feels heavy and rewarding [opus]
-  - Acceptance:
-    - Owner feedback: after breeding, carrying the egg should be exciting and meaningful, and breeding should take effort and feel rewarding. While a child is pending, the parent visibly carries a small egg that trails behind it on a short tether (a spring toward the tail, bobbing with the gait, glowing with the child's rarity tint and a slow heartbeat); it is drawn for the owner and for remotes who can see the creature. The egg is presentation only: the sim and the records are unchanged.
-    - The cost lands visibly: at the commitment the energy bar chunk drops with a flash and the body shrinks with a small ripple; a toast says "Giving X energy and Y size" (existing numbers). At the birth a short sequence plays (T19 stages, shorter) and a card shows the child's body, species, rarity and "Promote with H or keep playing" (existing text).
-    - A predator-eats-the-egg mechanic is not built here. The decision it needs (the pending child is a ledger record, so eating the egg must settle through the authority) goes to M7 with the owner's request, recorded in the M7 exit criteria and outline in `docs/ROADMAP.md` (done by the spec PR).
-    - Unit tests: `eggTether(parent, dt)` is a stable spring (no divergence over 10 minutes of fixed steps, distance bounded by 3 body lengths); E2E: the pending egg is present in `__bs.state().egg` and in the render info while pending and gone after promotion; a screenshot shows a second small body behind the parent.
+    - **Crispness** (owner, Playtest v0.2.0: "the cell and UI looked blurry"):
+      - the canvas backing size equals CSS size × pixel ratio, with no CSS scaling of the canvas;
+      - HUD text sits on whole pixels (no fractional transforms on text containers);
+      - icons are SVG.
+      E2E: at a pixel ratio of 2 (Playwright `deviceScaleFactor`), the canvas backing is twice its CSS size, and HUD text edges in a screenshot have a 10–90% rise of at most 2 device pixels.
+    - **The size outline**: a creature at least one tier bigger than the player gets an outline that differs in shape (a broken ring) and pulse, not only colour. A comparable creature gets none, and a smaller one a faint dot ring. This prepares M7 threats.
+    - **Readable parts**: at default zoom, mouths, claws and plates stay recognisable, checked by eye on six gallery bodies at 960×540, with a note in the PR.
+  - Notes: the outline follows the game rules: colour is never the only signal.
 
 ### Sound
 
-- [ ] T21 Audio engine, depth ambience and settings [opus]
-  - Acceptance (unit tests first):
-    - `src/audio/engine.ts` creates one `AudioContext` lazily after the first user gesture (key, click or tap) and resumes it on visibility return; before the gesture no context exists (tested with a fake `AudioContext`). Master gain, an effects bus and an ambience bus, each with volume 0 to 1, and a mute that sets gains to 0 within 50 ms with no clicks (a ramp, tested on the fake param).
-    - `synth.ts` has pure parameter builders (`bubblePop`, `thud`, `whoosh`, `chime`, `swell`, `pulse`, `rumble`, `tone`) returning small descriptions (oscillator type, frequency curve, filter, envelope, duration); unit tests pin their durations (every effect under 1.5 s except swells under 3 s), peak gain ≤ 0.5 and determinism (a seed gives the same parameters).
-    - Depth ambience: a low filtered-noise bed plus slow tones whose brightness and level follow `zoneLook(depth)`; crossing zones cross-fades over 2 s; a unit test checks the ambience parameters are continuous in depth.
-    - The settings panel gains master, effects and ambience volume sliders and a mute toggle, stored in the settings (T1); defaults master 0.6, ambience 0.5, effects 0.8; reduced-motion also lowers the ambience's slow swell depth. The tab hidden → ambience paused.
-    - `__bs.audio()` reports `{ state, master, muted, bus levels, played: last 50 effect names }` for E2E. E2E: no `AudioContext` before a key press, one after; mute drops the reported levels to 0; the sliders persist across reload.
-  - Notes: no audio files; everything is synthesised. Autoplay rules differ per browser, so the engine must never throw when the context is blocked.
+- [ ] T22 Audio engine, ambience by depth, settings [opus]
+  - Acceptance (unit tests first, on `OfflineAudioContext`):
+    - **The engine**: one `AudioContext`, started on the first user gesture, with a master gain, a limiter and per-cue voices with a polyphony cap (4 per cue, 16 total). A hidden tab suspends it, and it resumes on return.
+    - **Ambience by zone**: filtered noise and slow drones whose filter and level follow `setZone(zone, depth)`, cross-fading over 2 s. The shallows are airy, the abyss low and pressured.
+    - **Settings**: volume 0–100 and mute in the Settings panel, stored with the other settings; mute is instant. Reduced motion defaults to `prefers-reduced-motion`, and the egg (T20) and camera effects read it.
+    - Unit tests:
+      - an offline render of each zone's ambience is not silent (RMS above −50 dBFS) and never clips (peak at most −1 dBFS);
+      - mute gives digital silence;
+      - two renders with the same seed are sample-identical.
+    - E2E: `state().audio.state` is `running` after a click and `suspended` while hidden. Changing the zone changes the ambience parameters (`debug.setZone`).
+  - Notes: no audio files (ADR 0014). Keep it quiet and organic; the reference is a microscope, not an arcade.
 
-- [ ] T22 Event sounds for every cue
+- [ ] T23 Event sounds for every cue [opus]
   - Acceptance:
-    - Every row of DESIGN §10's audio column plays through `events.ts` from the same `StepEvent`/UI events that drive the visuals: eat (soft bubble pop, pitch varies with food kind), damage (dull hit, level with damage), low energy (slow low pulse below 20%), hazard near (rumble that rises with proximity), dash (whoosh), death (descending tone), old age (slow low swell at 85%), court/accept/mate commitment (chime), hatch/birth (bright chime, rarity adds a shimmer), growth step (soft swell), UV and pressure damage (a crackle and a deep groan), plus UI sounds (invitation, toast, wheel select).
-    - A table test maps each event name to a synth recipe: no event of the sim or UI event unions lacks one (the test enumerates the unions' names), and an unknown event is a no-op, not a throw.
-    - Limits: at most 8 simultaneous voices (the oldest low-priority voice is stolen), the same effect at most once per 80 ms, and eat pops are throttled to 6 per second; a pure scheduler is unit-tested with fake time.
-    - E2E: eating, dashing and taking toxin damage each append the right name to `__bs.audio().played` within 200 ms; with mute on, nothing is appended as audible but the names are still logged as `muted`.
-  - Notes: `.claude/rules/game.md` already says every damage source has a cue "audible from M6"; keep it true.
+    - Every row of DESIGN §10 has its sound: eat, hurt, low energy, hazard near, dash, death, old age, court, mate, hatch and reveal (T20), growth and tier (T18), ping, emote, chat, UV and pressure (T15). Death causes each play the death tone, so a death is never silent.
+    - Positional cues (another player's emote or ping) pan by screen position and fall off with distance.
+    - Unit tests: each cue renders non-silent and below clipping, and its length is pinned (eat ≤ 0.25 s, death 1–2 s).
+    - E2E: `state().audio.cues` counts `eat` after eating, `hurt` in a plume, `death` on dying, `ping` when a peer pings, `reveal` on a beacon. A starved death plays `death`.
+  - Notes: update DESIGN §10's audio column with the shipped sounds in words.
 
-### Social
+### Social (#89)
 
-- [ ] T23 Quick social wheel (#89) [opus]
+- [ ] T24 The quick social wheel [opus]
   - Acceptance:
-    - Holding `G` opens a radial wheel at the cursor with 10 slots (4 pings and 6 emotes, each with its icon and a number 1 to 0); releasing over a slot sends it; releasing in the dead centre or pressing Esc cancels; a quick tap of `G` (under 180 ms) repeats the last choice, or opens the wheel if none yet. Number keys 1 to 0 pick a slot while the wheel is open. The old random `G` pick is gone. Chat's `T` then digit path keeps working.
-    - Pings are sent at the cursor's world position (look, danger, food, mate); emotes show on the creature (existing rules: 4 s pings, 1 ping per second). The wheel works with the mouse only, with the keyboard only, and is laid out so touch can drive it later (slots at least 48 px).
-    - `wheelSlot(dx, dy, count)` is pure: the dead zone is 20 px, slots are equal angles starting at the top and clockwise, boundaries are pinned for 10 slots; unit tests cover the tap/hold timing with fake time.
-    - E2E: hold `G`, move to the "danger" slot and release → the remote context receives a `ping` event with kind danger at the cursor world position; tap `G` again → the same ping; `G` held and Esc → nothing sent.
-  - Notes: closes the control half of #89; the icons come in T26 and the arrows in T24.
+    - `G` opens a radial wheel at the cursor: 4 pings (look, danger, food, mate) and 6 emotes. While it is open, `1`–`0` pick directly.
+      - Holding `G` and releasing over an item sends it; a click sends it too; Esc or releasing in the centre cancels.
+      - A ping lands at the cursor's world position and an emote over your creature.
+      - Middle-click still sends a quick "look" ping. `T` + `1`–`6` keeps working for chat users.
+      The random pick is gone.
+    - Steering pauses only while the wheel is open. Combat keys are untouched (M7 uses 1–3 only in combat).
+    - Targets are at least 44 px, and the wheel lays out for a future touch hold (no hover-only actions).
+    - E2E (`m6-wheel.spec.ts`, two contexts):
+      - A opens the wheel, presses `3`: B sees the food ping at A's cursor position (within 2 wu);
+      - releasing over "happy" shows the emote over A for B;
+      - Esc sends nothing;
+      - `state().wheel` reflects open and closed.
+    - DESIGN §3 and §9 are updated (controls, wheel).
+  - Notes: close #89 only after T25 and the owner's check.
 
-- [ ] T24 Edge arrows, and finding other players [opus]
+- [ ] T25 Production-quality emote and ping icons [opus]
   - Acceptance:
-    - Owner feedback: finding other players is very hard. Players already in the pond (≤24) are known from snapshots, so this is client-only. Off-screen pings within 6 screen-heights show an edge arrow at the screen border pointing to them, tinted by kind and fading as the 4 s ping ends. Off-screen mate-eligible players (by the existing `pairRefusal`/`ownRefusal` data the client holds) within the pond show a small chevron with the distance in body lengths; at most 4 chevrons at once, nearest first; smaller and larger-tier players do not get chevrons by default.
-    - `edgeMarker(playerPos, targetPos, viewHalfW, viewHalfH, margin)` is pure: returns the point on the margin-inset rectangle along the ray and the angle; unit tests pin the four edges, the corners, a target inside the view (returns null) and a target at the player's position (null).
-    - Markers never overlap the HUD panels (they are inset by the HUD's measured safe area), and respect reduced motion (no pulse).
-    - E2E: two contexts in one pond; far apart, the first sees a chevron toward the second (`__bs.state().markers`) and its angle points within 5 degrees of the true bearing; a ping from the second shows an arrow that disappears after 4 s; a creature in view shows neither.
-  - Notes: the pond map in T25 completes "finding players".
+    - 10 original SVG icons: wave, happy, love, angry, scared, question, look, danger, food, mate. They share one line weight and style (glowing line art that fits the dark water) and are drawn on a 24 px grid. They are used in the wheel, over creatures, on edge indicators (T19) and in chat. No emoji glyphs remain.
+    - Each is legible at 20 px and 40 px: a screenshot at 20 px shows each with a distinct shape, judged by eye and noted in the PR. A test checks every icon has a `title` for screen readers.
+    - E2E: every emote and ping renders an `svg` element and no text glyph.
+  - Notes: no third-party icon sets (licences); draw them.
 
-- [ ] T25 Pond map [opus]
+### Performance
+
+- [ ] T26 Budgets, allocations and the budget report [opus]
   - Acceptance:
-    - `M` toggles a pond map (default on, small, bottom-right; larger when held with Shift) showing the pond bounds, the player and every other player as dots (colour by relative size tier, ring for mate-eligible, a bright tick for a recent ping), the depth zones as faint bands from `depthAt` (sampled once per pond seed on a 64×64 grid into an offscreen canvas) and plumes as dark dots. It updates at 10 Hz. It shows only what the client already knows.
-    - `mapPoint(world, pond, size)` is pure with tests for the corners and centre; the zone grid is deterministic from the seed (a hash of the grid is pinned for two seeds).
-    - Clicking the map pings "look" at that place (using T23's ping path); the map is a DOM canvas element sized in CSS pixels and crisp at dpr 2.
-    - E2E: with two contexts the map shows two dots (`__bs.state().map.dots` length 2), toggling `M` hides it, and the other player's dot moves when they swim.
-
-- [ ] T26 Production-quality emote and ping icons [opus]
-  - Acceptance:
-    - The six emotes (wave, happy, love, angry, scared, question) and four pings (look, danger, food, mate) are redrawn as SVG icons in one style: 48×48 grid, a 2 px stroke with soft fills, a shared palette matching the HUD, a luminous edge, legible at 24 px. They are inline SVG strings in `src/game/icons.ts` (no files, no new dependency), used by the wheel, the chat bubbles, the ping markers and the map.
-    - A test renders each icon at 24 px and 48 px in Chromium (E2E, `m6-icons.spec.ts`) and checks it is non-blank, within the bounds, distinct from every other icon (mean pixel difference above a threshold), and that the stroke colour contrast against the HUD panel is at least 3:1. Unit tests check each SVG is valid (parsed with `DOMParser`) and uses no external references.
-    - An icon contact sheet is added to `docs/art/gallery/icons.png` for the owner (generated by the same test).
-  - Notes: closes #89 when T23, T24, T25 and T26 are all ticked (the milestone step closes it after the owner accepts).
-
-### Performance and budgets
-
-- [ ] T27 Budgets, allocations and the per-preset report [opus]
-  - Acceptance:
-    - `tests/e2e/m6-budget.spec.ts` runs a fixed scene (a pond of 12 creatures in the twilight, one in the shallows with caustics, one in the abyss with luminous creatures) on each preset and checks `renderer.info`: draw calls and triangles within the preset budget (80/150k, 150/300k, 250/600k), render-target bytes within the preset's budget (listed in `presets.ts`), geometries and textures not growing across 60 s of play.
-    - No per-frame allocations: a Chromium CDP check (`HeapProfiler.collectGarbage`, then `Performance.getMetrics` `JSHeapUsedSize`) before and after 600 rendered frames in the fixed scene grows by less than 2 MB on every preset; the render loop's scratch objects are named in the test so a failure is easy to read.
-    - `npm run report:budget` prints a table of measured draw calls, triangles, target bytes and texture counts per preset and writes one screenshot per preset into `docs/art/gallery/budget-<preset>.png` (small, 960×540, JPEG at 80% if needed); DESIGN §12 gets a "Measured" column with the date and commit.
-    - Mesh and shader compile on first use do not stall: building the 36 gallery meshes costs under 250 ms of main-thread time per mesh on the CI runner (a loose bound, to catch regressions), and meshes are cached by genome hash (existing).
-  - Notes: CI is software-rendered; frame rate is never asserted. 60 fps at the default preset is an `(owner)` check.
+    - **A crowded scene** (`m6-budget.spec.ts`, `@slow`): 24 remotes with gallery genomes, every zone effect on. Per preset, `calls`, `triangles` and `targetBytes` stay within the DESIGN §12 budgets plus a render-target memory budget: medium ≤ 48 MB and high ≤ 96 MB at 1920×1080.
+    - **No per-frame allocations**: over 1,200 frames in the crowded scene, after a forced GC (`--js-flags=--expose-gc`), JS heap growth is below 1 MB, and `renderer.info.memory` geometries and textures are constant. A code review of the render loop and the post chain finds no `new` in per-frame paths, with a note in the PR.
+    - `npm run report:budget` writes `docs/perf/budget.md`: per preset, the calls, triangles, targets and memory for an empty pond, a crowded pond and the abyss. It also saves per-preset screenshots to `test-results/` (not committed).
+    - **Low** keeps the game playable: no post targets, and every effect falls back.
+  - Notes: frame rate on real hardware is the owner's check (60 fps at the default preset). CI renders in software, so judge budgets, not fps.
 
 ### Closing
 
-- [ ] T28 Look pass 2 and 3 [opus]
+- [ ] T27 Look pass 2 [opus]
   - Acceptance:
-    - Pass 2: re-render the gallery after T17 and T18's changes (`--pass 2`), commit the sheet and the honest table, fix the largest gaps, re-render. Pass 3: after T27, repeat, and keep going until no cell in the table is above 1 (extra passes are numbered 4, 5, … and each is committed). The final note also records in one paragraph how the common, uncommon, rare and exotic specimens compare with the references and what the remaining differences are.
-    - The final pass table has no cell above 1; the unit test that compares tables shows no cell got worse than the previous pass without a stated reason in its sentence.
-    - `docs/art/README.md` links the gallery folder and says how the passes are numbered; older sheets other than pass 0 and the last two may be deleted to keep the repository small (pass 0 is kept as the baseline).
-  - Notes: this is a task for patient, critical work. If a gap needs a new body-plan feature, add it here and extend the gallery with a new specimen file (ADR 0024).
+    - `pass-2.png` and `pass-2.md` are rendered after T15–T26, with the honest gap table. The top gaps are fixed, the sheet and table re-rendered after the fixes, and every cell improved since pass 1 is named in the PR.
+    - The in-game check at 960×540 is repeated, in the shallows and in the deep.
 
-- [ ] T29 End-to-end scenario, owner checks and documentation sync
+- [ ] T28 Look pass 3 [opus]
   - Acceptance:
-    - `tests/e2e/m6-lifecycle.spec.ts` (`@slow` if over 20 s): see the end-to-end check below.
-    - DESIGN.md is synced: §2 (zones, hazards and food), §3 (G wheel, M map), §4 (causes, growth, tolerances), §5 (new pacing table), §6 (body plan v2, anatomy, glints), §9 (wheel, markers, map), §10 (audio column marked as shipped), §12 (presets with measured numbers and the adaptive and benchmark rules). `.claude/rules/render.md`, `game.md`, `tests.md` and `docs/SETUP.md` are updated for the new hooks (`__bs.render()`, `__bs.audio()`, `__bs.state().markers`, `.map`, `.hatch`, `.egg`), the `?quality` parameter, the gallery commands and the audio rule (no files).
-    - `docs/ROADMAP.md` keeps the M7 criteria for the owner's v0.6.0 feedback (kills as the main way to grow, size as an advantage, predators eating eggs); check they are still there and update them with anything the M6 playtest changes.
-    - The Playtest issue text for v0.7.0 (written by the milestone step) lists the `(owner)` checks below; this task lists them in the PR body so the milestone step can copy them.
-  - Notes: this task adds the long scenario and the sync only; do not move work from earlier tasks here.
+    - `pass-3.png` and `pass-3.md` are committed. The bar for M6 is no cell above 1 (ADR 0024).
+    - If cells above 1 remain after this pass's fixes, the task adds `T28b Look pass 4` to this spec with the remaining gaps, rather than ticking the rubric. Passes continue until the bar holds.
+    - The PR body links #90 and summarises the journey from pass 0.
+
+- [ ] T29 End-to-end scenario, owner-facing checks, documentation sync
+  - Acceptance:
+    - `m6-lifecycle.spec.ts` (`@slow`, its own hub port) at `?quality=medium`:
+      1. A hatches; the egg reveal plays.
+      2. A swims from the twilight spawn into the shallows (the UV cue and sound, a uv hit) and the abyss (pressure, the dark-zone view).
+      3. A finds B by its edge indicator and the pond map.
+      4. A pings and emotes through the wheel.
+      5. A and B court and mate; both see the other's carried egg.
+      6. A promotes, with the hatch sequence.
+      Every step asserts `render.info()` budgets and `audio.cues`.
+    - The exit criteria map below names a test for each criterion. The PR E2E suite stays under 5 minutes in CI: record the time, and move any new spec over 20 s to `@slow`.
+    - Docs:
+      - DESIGN §2–§6, §9, §10 and §12 match the shipped numbers;
+      - `.claude/rules/render.md` gains the post chain, budgets and LOD;
+      - `.claude/rules/genome.md` gains karyotype v2 and the v1 equivalence rule;
+      - `.claude/rules/tests.md` gains the M6 hooks and hub ports;
+      - `docs/art/README.md` links the gallery passes.
+  - Notes: this task adds the scenario and the sync only. The milestone step sets ROADMAP status and opens the Playtest issue with the owner checks below.
 
 ## End-to-end check
 
-Against the fixture authority (`wrangler dev --e2e`, scaled hooks, no live drand) and `?quality=medium`:
+Against the fixture authority and a build at `?quality=medium` (`m6-lifecycle.spec.ts`, release gate):
 
-1. Start the game: the hatch reveal plays (wiggle → crack → burst → done) and the creature is controllable; the settings panel switches presets live; no `AudioContext` exists until the first key press.
-2. Swim from the twilight into the shallows: the gauge says "Sunlit shallows" and the screenshot is brighter; a cell with tolerance 0 takes UV damage and the HUD cue shows; a forced death names "Burned by sunlight" and a sound named `death` is logged. The same in the abyss with pressure.
-3. In the abyss a luminous remote is visible at distance and a dark one is not; a dark one at 2 body lengths is.
-4. Two identities in one pond: the first sees a chevron and the map dot toward the second; the second holds `G`, picks danger and releases; the first sees the ping arrow for 4 s and hears the `ping` cue. They court and mate; the parent carries an egg; the birth sequence plays; the child promotes.
-5. The gallery tool renders twice with identical bytes; the committed pass tables parse; `m6-budget` holds on all three presets with no heap growth over 600 frames.
+1. Hatching shows the egg reveal: `waiting` → `cracking` → `revealed`. The new body is a v2 genesis larva whose `silhouetteOf` is one of the genesis classes.
+2. The post chain is on (`passes`). The creature is sharp and the off-plane particles are bokeh, while the frame stays within the medium budget.
+3. Each zone shows its look and, where it applies, its hazard with its cue and sound. A death in the abyss names `pressure` and plays the death sound.
+4. Growth shows on the meter, and the size cue plays on each 10% step.
+5. A second player is found through an edge indicator and the pond map. Wheel pings and emotes reach them with icons.
+6. A mating shows both carried eggs to both players, and promotion plays the hatch.
+7. `audio.cues` has counted a cue for every event above. Allocation and memory counters are stable over the run.
 
-Exit criteria map: "creature look overhaul to the owner's references (#90)" T5, T10 to T17, T28; "art pass to the reference (DOF, caustics, membranes, bioluminescence by depth)" T2, T3, T9, T14, T15; "depth zones with gameplay" T6 to T8; "low, medium and high presets with budgets" T1 to T4, T27; "procedural sound" T21, T22; "deliberate pings and emotes (#89)" T23 to T26; "(owner) creatures hold up next to the references" the rubric and the Playtest issue; "(owner) 60 fps at the default preset" the Playtest issue; readability and crispness T17; the v0.6.0 owner feedback T18 to T20, T24, T25 and the M7 note in T29; no per-frame allocations and the budget report T27; the end-to-end check T29.
+Exit criteria map (ROADMAP M6):
+- creature look overhaul to the owner's references (#90): T5–T14, T27, T28;
+- art pass to the reference (DOF, caustics, membranes, bioluminescence by depth): T2, T3, T13, T16, T17;
+- depth zones with gameplay: T15, T16;
+- low, medium and high presets with budgets: T1, T4, T26;
+- procedural sound: T22, T23;
+- deliberate pings and emotes (#89): T19, T24, T25;
+- owner feedback from v0.6.0 (#134): T18, T19, T20;
+- readability and crispness: T21;
+- end-to-end: T29.
 
 ## Rubric
 
-- [ ] Creatures are diverse at a glance: no two neighbours in the gallery share a silhouette, and the twelve v2 specimens' pairwise silhouette overlap is below 0.8 (evidence: the gallery sheet and the IoU test).
-- [ ] Creatures read as glass-like top-down micro-organisms with visible inner organs, fine antennae and setae, wet gloss and a luminous rim (evidence: the final pass sheet and its table with no cell above 1).
-- [ ] Glints are rare: under 12% of genesis creatures show any, and common bodies show none (evidence: the T14 distribution test and the sheet).
-- [ ] The zones are distinct at a glance and the hazards are never silent (evidence: the four-stop screenshot set in the E2E, the luminance steps, the cue tests).
-- [ ] Dark-zone vision never hides a nearby threat (evidence: the T15 unit and E2E tests at 2 body lengths).
-- [ ] Every preset stays inside its budget with no heap growth (evidence: `m6-budget` and `npm run report:budget`).
-- [ ] Every cue in DESIGN §10 has a sound and mute silences all of them (evidence: the event table test and the E2E).
-- [ ] Pings and emotes take one held key and a release; off-screen pings and mate-eligible players are findable in under 5 s with the map and chevrons (evidence: the E2E bearings and dot assertions).
-- [ ] The text and cards stay readable and crisp over the new look at 960×540 and at dpr 2 (evidence: the contrast and edge-width checks).
-- [ ] (owner) Creatures hold up next to the references in #90: diversity, translucency, inner detail, fine appendages, palette, rare glints and lighting. Close #90 when you accept it.
-- [ ] (owner) 60 fps at the default preset on the player's hardware, and the automatic preset picks a sensible one.
-- [ ] (owner) The hatch reveal feels like opening a loot box without dragging, and carrying an egg feels meaningful.
-- [ ] (owner) Finding other players is now easy, and progression feels brisk with growth you can see.
-- [ ] (owner) The sound fits the world and is never annoying after an hour; the ambience in the deep feels like a different place.
+- [ ] The gallery holds up next to references 02–05: the final pass has no gap-table cell above 1 (evidence: `docs/art/gallery/pass-*.png` and `.md`, ADR 0024).
+- [ ] Silhouette variety: the gallery's 12 v2 specimens are 12 distinct `silhouetteOf` classes, and each reads as its class on the sheet by eye (evidence: the classifier test and the sheet).
+- [ ] Colour lives inside: shells stay near-clear and silvery, organs carry the hue (evidence: T12/T13 saturation measurements on the gallery).
+- [ ] Glints are rare: common creatures show at most 2, and only exotic ones reach reference 04/05 intensity (evidence: `glintsFor` tests and the gallery measurement).
+- [ ] Bodies stay readable in play: at 960×540 and default zoom, six different bodies keep distinct silhouettes and a bright rim (evidence: the in-game screenshots in passes 1–3).
+- [ ] Every zone looks and sounds different, and every hazard has a visible and an audible cue (evidence: the T16 luminance order, T23 cue counts).
+- [ ] Every preset stays within its budgets in a crowded pond, and nothing allocates per frame (evidence: `docs/perf/budget.md`, the T26 E2E).
+- [ ] Growth is visible: tripling the radius makes the creature at least 1.35× larger on screen (evidence: the T18 camera test and before and after screenshots).
+- [ ] Pings and emotes are chosen on purpose in one key press and drawn with production icons (evidence: the T24 E2E and the T25 icon sheet).
+- [ ] (owner) The creatures hold up next to the references: diverse, glassy, alive, with colour inside and rare sparkles (#90).
+- [ ] (owner) 60 fps at the default preset on a mid-range laptop with integrated graphics, and Auto picks a sensible preset.
+- [ ] (owner) The egg reveal is exciting, and carrying an egg feels meaningful.
+- [ ] (owner) Finding other players is easy, and growth feels fast and visible.
+- [ ] (owner) Sound adds to the mood and never annoys over a long session.
+- [ ] (owner) The social wheel feels natural, and the icons look production quality (#89).
 
 ## Risks
 
-- The look is subjective and the factory cannot see like the owner → ADR 0024: a fixed committed gallery, an honest per-reference table, at least three passes and an `(owner)` gate; the owner's reply drives the next passes.
-- Karyotype v2 invalidates live creatures or old records → zero-default appended loci, v1 genomes pad to the same body, v1 records verify under their rules version, and ADR 0025 says what changes (T10); the M3 and M5 goldens stay.
-- Software rendering in CI is slow and the post chain makes the E2E suite long → the PR suite runs the chain on one preset, the full budget scene is `@slow` if over 20 s, and tests set `?quality`.
-- Fine detail (setae, veins, inner layers) blows the triangle or draw-call budget → separate per-preset detail budgets, an extra-triangle cap per creature, LODs that keep the silhouette, and `m6-budget` as the guard.
-- A rules bump changes live behaviour (zones, hazards, growth) → one bump (version 6) in T6, goldens regenerated in the PRs that change outcomes, DESIGN synced, the authority unchanged (it clamps progress, ADR 0008); the pacing tool measures growth before and after (T18).
-- Zone hazards make the game unfair (spawn in the shallows, UV with tolerance 0) → spawn only in the twilight or deep, tolerance medians pinned, damage rates from DESIGN, and the owner playtest.
-- Dark-zone vision hides threats → render only, a floor of 3 body lengths, a test at 2 body lengths.
-- Audio is blocked or crackles on some browsers → one lazy context after a gesture, ramped gains, a voice cap, and the engine never throws; sound quality is an `(owner)` check.
-- The wheel conflicts with chat or movement keys → `G` is held, WASD and Space are untouched, and the wheel closes on blur and Esc (tested).
-- The gallery sheets grow the repository → a size cap of about 1.5 MB, only pass 0 and the last two sheets are kept at the milestone step.
-- T28 never converges → the loop continues in numbered passes; the PR for each pass is still one step. If a task has failed across three runs the plan changes (split or simplify) with an ADR, per `/next`.
+- **Karyotype v2 breaks living creatures or old records.** v1 equivalence is a property test, hashes are length-preserving, v5 inheritance stays for verification, and the M5 birth goldens must still pass (T6, T7).
+- **Body plan v2 unbalances the game.** Archetype tests gain the new forms (T7, T8). Genesis stays the cell stage, with top speed held within ±15% (T9). The pacing tool reruns (T15, T18).
+- **The look stalls below the bar**, because software rendering in CI hides problems and taste is hard to test. The gallery is fixed and committed (ADR 0024), passes are judged against the references image by image, and T28 adds passes until the bar holds. The owner has the final word at the gate.
+- **Fine detail turns to noise at gameplay zoom.** Detail fades with screen size (T13), every pass checks the in-game view at 960×540, and the readability task (T21) protects the silhouette.
+- **The post chain and new materials blow the budget on integrated GPUs.** Per-preset budgets, the auto-detect benchmark, adaptive resolution and a post-free low preset (T2–T4, T26). The owner checks real fps.
+- **Refraction needs the backdrop before creatures**, which adds a pass. It is medium and high only, drawn into the post chain's scene target, with plain translucency on low (T13).
+- **Audio annoys or fails on some browsers.** It starts on a gesture, has a limiter and polyphony caps, mute and volume, and suspends in hidden tabs (T22). Offline renders are tested for silence and clipping.
+- **The egg flag breaks older clients.** The snapshot flag mask rejects unknown bits, so the protocol version rises with it, and old clients are told to reload (T20).
+- **The PR E2E suite grows past its budget.** New long scenarios are `@slow` from the start, and T29 records the suite time.
+- **M6 is long (29 tasks).** The layers are independent after T9, so a blocked task does not stall the rest. The milestone ships only when the gate's look bar holds.

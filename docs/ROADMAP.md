@@ -124,7 +124,7 @@ Beautiful and smooth within browser budgets (ADR 0004). The owner judges the cre
   - Rubric: the gallery holds up next to each reference (silhouette variety, translucency, inner detail, fine appendages, palette, rare glints, lighting); plus an `(owner)` check on the Playtest issue. Close #90 when the owner accepts it.
 - Quick social messages (owner, #89, Playtest v0.4.0): pings and emotes chosen on purpose, not by the G key's random pick. A radial wheel (touch-friendly for the mobile work after 1.0) or number hotkeys, one key press from play, and edge arrows toward a nearby off-screen ping. Redraw the emote and ping icons to production quality. Close #89 when it ships.
 - No per-frame allocations, budget report, per-preset screenshots.
-- Owner feedback on v0.6.0 (Playtest #134), folded in as T18 to T20, T24 and T25 of the spec: an exciting egg reveal while waiting for the beacon; findable players (edge chevrons and a pond map); faster, visible growth; a carried egg that feels meaningful. Kills as the main way to grow and eggs as predator prey need combat, so they are M7 criteria.
+- Owner feedback on v0.6.0 (Playtest #134), folded in as T18 to T20 of the spec: an exciting egg reveal while waiting for the beacon; findable players (edge chevrons and a pond map); faster, visible growth; a carried egg that feels meaningful. Kills as the main way to grow and eggs as predator prey need combat, so they are M7 criteria.
 
 ### M7 Encounters (gate 3: combat feel)
 
