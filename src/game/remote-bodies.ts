@@ -17,6 +17,8 @@ export interface DrawnRemote extends RemoteView {
   /** The body to draw, or null for the fallback cell. */
   body: Creature | null;
   genomeHash: string | null;
+  /** The genome as text, for the inspect card's hints. */
+  genomeText: string | null;
   species: string | null;
 }
 
@@ -81,6 +83,7 @@ export class RemoteBodies {
       Object.assign(drawn, view);
       drawn.body = peer.shown?.creature ?? null;
       drawn.genomeHash = peer.shown?.hash ?? null;
+      drawn.genomeText = peer.shown?.text ?? null;
       drawn.species = peer.shown?.species ?? null;
       this.out.push(drawn);
     }
@@ -94,7 +97,12 @@ export class RemoteBodies {
         known: new Map(),
         shown: null,
         staleSince: null,
-        drawn: { body: null, genomeHash: null, species: null } as unknown as DrawnRemote,
+        drawn: {
+          body: null,
+          genomeHash: null,
+          genomeText: null,
+          species: null,
+        } as unknown as DrawnRemote,
       };
       this.peers.set(id, peer);
     }

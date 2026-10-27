@@ -139,6 +139,11 @@ export class MateFlow {
     this.link?.send({ t: 'mate-check', partner });
   }
 
+  /** The latest `mate-check` answer about a player, or null before one arrives. */
+  info(partner: string): Info | null {
+    return this.infos.get(partner)?.info ?? null;
+  }
+
   /** The line beside a creature in reach: the court key, or the plain reason why not. */
   hint(near: Nearby): { court: boolean; text: string } | null {
     const view = this.mine();

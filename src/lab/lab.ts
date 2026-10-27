@@ -4,6 +4,7 @@
 // post-processing: one small renderer on a dark backdrop.
 
 import * as THREE from 'three';
+import { rarityBadge } from '../game/badge';
 import { pick } from '../game/dom';
 import { genomeToBase64url, parseGenomeText } from '../genome/codec';
 import { explainChild, type TraitExplanation } from '../genome/explain';
@@ -42,8 +43,6 @@ interface Edit {
 
 /** How many Mutate and Load steps Undo remembers. */
 const MAX_EDITS = 64;
-
-const capitalise = (text: string): string => `${text[0]?.toUpperCase()}${text.slice(1)}`;
 
 export function startLab(options: LabOptions): void {
   const canvas = pick<HTMLCanvasElement>('#lab-canvas');
@@ -277,7 +276,7 @@ export function startLab(options: LabOptions): void {
     inheritLines.replaceChildren(...(where ?? []).map((line) => listItem(line.text)));
     facts.hidden = false;
     const rows: [term: string, value: string, title?: string][] = [
-      ['Rarity', capitalise(s.rarity)],
+      ['Rarity', s.rarity],
       ['Size tier', String(s.tier)],
       ['Mesh vertices', String(s.vertices)],
       ['Genome', s.creature.hash.slice(0, 12), s.creature.hash],
@@ -287,7 +286,8 @@ export function startLab(options: LabOptions): void {
         const dt = document.createElement('dt');
         dt.textContent = term;
         const dd = document.createElement('dd');
-        dd.textContent = value;
+        if (term === 'Rarity') dd.append(rarityBadge(s.rarity));
+        else dd.textContent = value;
         if (title) dd.title = title;
         return [dt, dd];
       }),
