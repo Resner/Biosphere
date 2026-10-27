@@ -117,9 +117,19 @@ Death is common and never total: you fall back to your pending offspring or your
   - Both creatures must be in the same pond and mature (`matureAtMs`), have at least 50% of their maximum energy, have no pending offspring and no mating in flight, be out of cooldown, be within ±1 size tier and within 3 body lengths, and not be locked (M7). The authority checks everything except the distance: positions are peer-to-peer, so only the two clients check it.
   - **Consent**: A courts (E), the partner sees an invitation (name, species, rarity, size, inbreeding band) and accepts (E) within 15 s; the authority takes an accept up to 20 s after the court, which leaves 5 s for signing and transit. Esc or the timeout declines. A has one court outstanding at a time.
   - **Cost**: paid when the commitment is made, never refunded, no cancel: each parent loses 30% of current energy and 15% of biomass.
-  - **Cooldown**: 6 min of active time (so a checkpoint's cooldown stays paused), doubled for each earlier mating of the same two players in the previous 24 h of wall time, at most ×32.
-  - **Numbers** (`RULES.mating`, rules version 5): cost 30% energy and 15% biomass; 50% of maximum energy to mate; cooldown 360 s of active time doubling up to ×32 (`repeatWindowMs` 24 h); accept shown 15 s, taken up to 20 s; ±1 tier; reach 3 body lengths; hatchling biomass max(80, 10% of maximum) with energy 60% of its maximum energy; a checkpoint with under 120 s of life left is exhausted. `mate` is a life event that pays the cost in the sim.
+  - **Cooldown**: 9 min of active time (so a checkpoint's cooldown stays paused), doubled for each earlier mating of the same two players in the previous 24 h of wall time, at most ×32.
+  - **Numbers** (`RULES.mating`, rules version 5): cost 30% energy and 15% biomass; 50% of maximum energy to mate; cooldown 540 s of active time doubling up to ×32 (`repeatWindowMs` 24 h); accept shown 15 s, taken up to 20 s; ±1 tier; reach 3 body lengths; hatchling biomass max(80, 10% of maximum) with energy 60% of its maximum energy; a checkpoint with under 120 s of life left is exhausted. `mate` is a life event that pays the cost in the sim.
   - **Awaiting beacon**: after the commitment both players play on while the round (3–6 s) arrives; closing a tab changes nothing.
+- **Pacing** (M5 T14, ADR 0022; `npm run sim:pacing`, 12 genesis cells, a food-seeking solo bot that avoids toxin clouds and mates as soon as it may, run on 2026-10-27 on top of main commit 6c88917): the bot is a test aid, not a player model, and a real player will be slower, so read these as the fastest pace.
+
+  | Measure | Result | Target |
+  |---|---|---|
+  | Hatch to first eligibility (median, p10, p90) | 17.3, 14.3, 18.7 min | median 14–25 min |
+  | Mating to eligible again | 9.0 min (a refeed takes seconds, so the cooldown decides) | — |
+  | Matings in a full life (median, min, max) | 8, 7, 9 (9 of 12 bots reached old age; 3 died first) | 4–9 |
+  | Children per hour of active time | 5.6 | — |
+  | A pair's repeated matings | 1×, 2×, 4×, 8× (72 min), 16×, 32× the 9 min base | 4th ≥ 8× |
+
 - **Offspring**: two distinct children, one per player (seed slot 0 for the courting player's child, slot 1 for the accepter's; if slot 1 happens to equal slot 0 it takes the next slot until it differs), born when the committed drand round arrives (about 3–6 s; ADR 0010). Parent A is the courting player's creature and B the accepter's; the child's first haplotype is a gamete of A and its second a gamete of B.
   - Each player holds **one pending offspring** at most (an egg: visible to its owner, with a card showing its body).
   - Hatchling biomass is max(80, 10% of the child's maximum), energy 60% of its maximum, full health, lifespan clock at zero.

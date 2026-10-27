@@ -29,7 +29,7 @@ Rules numbers (`RULES.mating`, rules version 5; DESIGN §5 mirrors them):
 mating: {
   costEnergy: 0.3, costBiomass: 0.15,      // shares of current energy and biomass, paid at commitment
   minEnergyShare: 0.5,                      // energy needed, as a share of the maximum
-  cooldownMs: 360_000,                      // active time; doubles per earlier mating of the pair in repeatWindowMs
+  cooldownMs: 540_000,                      // active time; doubles per earlier mating of the pair in repeatWindowMs
   repeatWindowMs: 86_400_000, repeatMaxDoublings: 5,
   acceptShownMs: 15_000, signWindowMs: 20_000,
   tierSpread: 1, reachBodies: 3,            // size tiers apart; body lengths apart (clients only)
@@ -48,7 +48,7 @@ export type MateRefusal = 'not-active' | 'locked' | 'in-flight' | 'pending' | 'n
 export function ownRefusal(v: MateView): MateRefusal | null;                  // first failing check, in this order
 export function pairRefusal(a: MateView, b: MateView): MateRefusal | null;    // 'self' or 'tier'
 export function mateCost(biomass: number, energy: number): { biomass: number; energy: number };   // what remains after the cost
-export function cooldownMs(priorMatings: number): number;                     // 360 s × 2^min(n, 5)
+export function cooldownMs(priorMatings: number): number;                     // 540 s × 2^min(n, 5)
 export function hatchling(maxBiomass: number): { biomass: number; energy: number };
 
 // src/ledger/record.ts: RecordKind adds 'birth' | 'mate-commit' | 'promote' | 'restore'
@@ -102,7 +102,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Acceptance (unit tests first):
     - `RULES_VERSION` is 5, `RULES.mating` has the numbers above, every sim golden is regenerated under version 5 (hashes and version only) and the PR says so; a new golden with a `mate` life event replays equally in Node and Chromium (the existing determinism E2E).
     - `mateCost(500, 800)` → biomass 425, energy 560. `applyLife(world, id, 'mate')` does the same to the creature, recomputes the radius (√biomass), clamps health to the new maximum and emits no event; the input log's `life` list accepts `'mate'` (ascending ticks, validated) and a replay with it reproduces.
-    - `cooldownMs(n)`: n = 0 → 360,000; 1 → 720,000; 2 → 1,440,000; 5 → 11,520,000; 6 and 40 → 11,520,000.
+    - `cooldownMs(n)`: n = 0 → 540,000; 1 → 1,080,000; 2 → 2,160,000; 5 → 17,280,000; 6 and 40 → 17,280,000.
     - `ownRefusal` returns the first failing reason in the order `not-active`, `locked`, `in-flight`, `pending`, `not-mature` (activeMs below `matureAtMs`), `cooldown` (activeMs below `cooldownUntilMs`), `low-energy` (below 50% of the maximum); boundaries at exactly each limit are pinned, and one case per reason has only that check failing. `pairRefusal` returns `self` for equal owners and `tier` when the size tiers (`sizeTier` on biomass) differ by more than 1: 1,000 vs 1,100 biomass is allowed (T0 and T1), T0 vs T2 is refused; the boundaries at 1,024 and 16,384 are pinned.
     - `hatchling(300)` → biomass 80; `hatchling(800)` → 80; `hatchling(1000)` → 100; `hatchling(2_457_600)` → 245,760; energy is 60% of `2·biomass`.
     - `lifeStage` takes an optional `matureAtMs`; without it the M4 behaviour is unchanged (every M4 test passes untouched).
@@ -238,12 +238,15 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `lineage-view.ts` (view model, unit tested) and `lineage-panel.ts` (DOM and SVG); the Lineage button on the title screen and Esc while playing open it, Esc or Close shuts it; the Lab opens `lab.html?genome=<text>`. The branch is the newest creature and its chain back.
   - Gotcha: the hub's lineage answer holds only your creatures and their ancestors, so a sibling that belongs to another player is not in the graph; the E2E expects the 3 nodes and 2 edges A can know (parent, other parent, child). The game keeps running under the panel (no pause in a live pond).
 
-- [ ] T14 Pacing simulation and DESIGN sync (in progress)
+- [x] T14 Pacing simulation and DESIGN sync
   - Acceptance:
     - `npm run sim:pacing` (`tools/pacing.ts`) runs a headless population in the real sim with real genesis genomes and a food-seeking bot, and prints: time from hatch to maturity (median and 10th and 90th percentile), time from a mating to being eligible again (refeed plus cooldown), matings per life, children per hour, and how a pair's repeated matings slow down (the doubling). A unit test runs a short deterministic smoke of the tool.
     - Targets, stated before the run: median hatch to first eligibility between 14 and 25 min of active time; 4 to 9 matings possible in a life; a pair's fourth mating within 24 h waits at least 8× the base cooldown. When a target fails, adjust `RULES.mating` or `RULES.life` (not the tool) and say why in the task note; changing a sim value regenerates the goldens with a rules version bump only if sim behaviour changes.
     - The measured table goes into DESIGN §5 with the date and the commit it was run on.
   - Notes: the bot is a test aid, not a player model; the owner judges the pacing in the playtest (rubric).
+
+  - Done: `tools/pacing-report.ts` (run by `npm run sim:pacing`, about 2 min) and a smoke test; the first run missed the mating target (11 per life), so the base cooldown went from 6 to 9 min (ADR 0022, no rules-version bump: only the authority reads it). Table in DESIGN §5.
+  - Gotcha: a tool and its runner must not share a basename (`pacing.mjs` shadowed `pacing.ts` in imports), hence `pacing-report.ts`; the bot has to flee toxin clouds or it dies in minutes.
 
 - [ ] T15 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:

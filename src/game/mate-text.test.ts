@@ -51,7 +51,7 @@ describe('refusalText', () => {
 describe('cooldown and ready words', () => {
   it('rounds the wait up to whole seconds', () => {
     expect(refusalText('cooldown', 1)).toBe('Rest for 0:01');
-    expect(refusalText('cooldown', 360_000)).toBe('Rest for 6:00');
+    expect(refusalText('cooldown', 540_000)).toBe('Rest for 9:00');
   });
   it('reads Ready to mate, or Ready in m:ss', () => {
     expect(readyText(0)).toBe('Ready to mate');

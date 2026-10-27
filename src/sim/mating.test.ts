@@ -31,7 +31,7 @@ describe('RULES.mating', () => {
       costEnergy: 0.3,
       costBiomass: 0.15,
       minEnergyShare: 0.5,
-      cooldownMs: 360_000,
+      cooldownMs: 540_000,
       repeatWindowMs: 86_400_000,
       repeatMaxDoublings: 5,
       acceptShownMs: 15_000,
@@ -53,13 +53,13 @@ describe('mateCost', () => {
 });
 
 describe('cooldownMs', () => {
-  it('starts at 6 minutes and doubles per earlier mating, up to five doublings', () => {
-    expect(cooldownMs(0)).toBe(360_000);
-    expect(cooldownMs(1)).toBe(720_000);
-    expect(cooldownMs(2)).toBe(1_440_000);
-    expect(cooldownMs(5)).toBe(11_520_000);
-    expect(cooldownMs(6)).toBe(11_520_000);
-    expect(cooldownMs(40)).toBe(11_520_000);
+  it('starts at 9 minutes and doubles per earlier mating, up to five doublings', () => {
+    expect(cooldownMs(0)).toBe(540_000);
+    expect(cooldownMs(1)).toBe(1_080_000);
+    expect(cooldownMs(2)).toBe(2_160_000);
+    expect(cooldownMs(5)).toBe(17_280_000);
+    expect(cooldownMs(6)).toBe(17_280_000);
+    expect(cooldownMs(40)).toBe(17_280_000);
   });
 });
 

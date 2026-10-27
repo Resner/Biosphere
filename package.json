@@ -8,6 +8,7 @@
   },
   "scripts": {
     "dev": "vite",
+    "sim:pacing": "node tools/pacing.mjs",
     "report:diversity": "node tools/diversity.mjs",
     "record:drand": "node tools/record-drand.mjs",
     "build": "vite build",

@@ -30,7 +30,7 @@ import {
 } from './test-hub';
 
 // M5 T7: courtship to commitment on the hub, with fake beacons and a hand-moved wall clock.
-// MATING_SCALE 0.01 turns minutes into seconds: maturity ~9 s, cooldown 3.6 s, repeat window 864 s.
+// MATING_SCALE 0.01 turns minutes into seconds: maturity ~9 s, cooldown 5.4 s, repeat window 864 s.
 
 const TICKS_PER_S = 30;
 const SCALE = '0.01';
@@ -205,7 +205,7 @@ describe('courtship', () => {
     // 85% of the biomass and 70% of the energy the authority last saw.
     expect(sa[0]?.biomass).toBe(Math.floor(CALM.biomass * 0.85));
     expect(sa[0]?.energy).toBe(Math.floor(CALM.energy * 0.7));
-    expect(sa[0]?.cooldown_until_ms).toBe((sa[0]?.active_ms ?? 0) + 3600);
+    expect(sa[0]?.cooldown_until_ms).toBe((sa[0]?.active_ms ?? 0) + 5400);
     expect(await matings()).toBe(1);
   });
 
@@ -441,9 +441,9 @@ describe('refusals change nothing', () => {
       return refused?.t === 'refused' ? refused.reason : invited ? 'invited' : 'nothing';
     };
     expect(await reason()).toBe('cooldown');
-    // 3.6 s of cooldown after the first mating, doubled for a second one with this partner: 7.2 s.
-    await play(a, 4000);
-    await play(b, 4000);
+    // 5.4 s of cooldown after the first mating.
+    await play(a, 6000);
+    await play(b, 6000);
     expect(await reason()).toBe('invited');
   });
 
@@ -482,8 +482,8 @@ describe('cooldown doubling for the same pair', () => {
       return (r[0]?.cooldown_until_ms ?? 0) - (r[0]?.active_ms ?? 0);
     };
     await courtship(a, b);
-    expect(await cooldownOf(a)).toBe(3600);
-    for (const want of [7200, 14_400]) {
+    expect(await cooldownOf(a)).toBe(5400);
+    for (const want of [10_800, 21_600]) {
       await resolveAll();
       await play(a, 20_000);
       await play(b, 20_000);
@@ -495,7 +495,7 @@ describe('cooldown doubling for the same pair', () => {
     await play(a, 60_000);
     await play(c, 1000);
     await courtship(a, c);
-    expect(await cooldownOf(a)).toBe(3600);
+    expect(await cooldownOf(a)).toBe(5400);
   });
 });
 
