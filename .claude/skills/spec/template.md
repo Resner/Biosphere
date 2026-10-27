@@ -19,7 +19,7 @@ Release: v<x.y.z> · Gate: <yes/no>
 - [ ] T1 <title>
   - Acceptance: <input → expected result>; <…>
   - Notes:
-- [ ] T2 <title>
+- [ ] T2 <title> [opus]
   - Acceptance: <…>
   - Notes:
 

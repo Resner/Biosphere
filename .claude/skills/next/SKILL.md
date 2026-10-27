@@ -39,6 +39,7 @@ The current milestone is the first row in `docs/ROADMAP.md` that isn't `done`.
 
 - No spec for the milestone → run the `spec` skill.
 - Unticked tasks → implement the first one that isn't blocked (below).
+  If it's marked `[opus]`, run the `opus-task` skill for it (ADR 0023). In a spec without marks, treat a task as marked when its main work is UI or look (`src/render/`, `src/lab/`, HUD and screens), netcode (`src/net/`, signaling, relay, referee) or security (signatures, records, verification, admission, untrusted input).
 - Every task ticked → run the `milestone` skill.
 - Every row `done` → report that the roadmap is complete and stop.
 
