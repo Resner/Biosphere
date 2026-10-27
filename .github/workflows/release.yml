@@ -42,7 +42,7 @@ jobs:
   build:
     needs: preflight
     runs-on: ubuntu-latest
-    timeout-minutes: 20
+    timeout-minutes: 40
     outputs:
       tag: ${{ steps.version.outputs.tag }}
     steps:
