@@ -342,7 +342,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     inspected = null;
   });
   canvas.addEventListener('click', (e) => {
-    if (screen !== 'playing' || session.demo) return;
+    if (!playing() || !session.player.alive || controller.typing) return;
     const rect = canvas.getBoundingClientRect();
     const at = worldAt(e.clientX - rect.left, e.clientY - rect.top);
     let best = Number.POSITIVE_INFINITY;
@@ -1009,10 +1009,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   /** The inspect card beside a clicked creature: closed when it leaves, dies or the game stops. */
   const updateInspectUi = (playingNow: boolean, invited: boolean): void => {
-    if (!playingNow) inspected = null;
+    if (!playingNow || invited) inspected = null;
     const remote = inspected ? remoteViews.find((r) => r.id === inspected) : undefined;
     if (inspected && !remote) inspected = null;
-    if (!remote || remote.alpha < 0.5 || invited) {
+    if (!remote || remote.alpha < 0.5) {
       if (!inspectPanel.hidden) inspectPanel.hidden = true;
       return;
     }
