@@ -80,9 +80,34 @@ test('an item eaten in one tab disappears for the other and respawns for both', 
     const id = item?.id as string;
     const m = /^c(\d+)_(\d+)_s(\d+)_k0$/.exec(id);
     expect(m).toBeTruthy();
-    await b.page.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id, {
-      timeout: 20_000,
-    });
+    try {
+      await b.page.waitForFunction(
+        (id) => (window.__bs as BsHook).debug?.hasFood(id) === true,
+        id,
+        { timeout: 20_000 },
+      );
+    } catch (error) {
+      // Name the cause in the report: where each tab's cell is and what each has eaten.
+      const [stateA, stateB] = await Promise.all(
+        [a.page, b.page].map((p) =>
+          p.evaluate(() => {
+            const bs = window.__bs as BsHook;
+            const { player, tick, visibleFood } = bs.state() as unknown as {
+              player: { x: number; y: number; energy: number };
+              tick: number;
+              visibleFood: number;
+            };
+            return { player, tick, visibleFood, events: bs.events() };
+          }),
+        ),
+      );
+      throw new Error(
+        `tab B never saw ${id}: A ${JSON.stringify(stateA)} B ${JSON.stringify(stateB)}`,
+        {
+          cause: error,
+        },
+      );
+    }
 
     const reached = await a.page.evaluate((item) => {
       const debug = (window.__bs as BsHook).debug;
