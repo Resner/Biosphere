@@ -130,7 +130,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: `src/genome/offspring.ts`, `birthRequest` and `checkBirth` in `src/ledger/mating.ts`; goldens are 3 fixture rounds × 2 parent pairs (6 vectors). The mating commitment is `kind: 'mate'`, `owner` the courting player, `data: { a, b }` (both signed asks); `checkBirth` names `bad-commit`, `pair:*`, `rules-mismatch`, `parent-mismatch`, `mate-hash`, `mate-commit-mismatch`, `parent-genome-mismatch`, `slot-mismatch`, `genome-mismatch`, `generation-mismatch`.
   - Gotcha: a mate-commit cannot be "in the commitment" (it names the commit id), so the check is that each names this commit and its hash is in the birth; signatures stay `checkStored`'s. `offspringSeed` takes any slot byte; the Mendelian ratios use `breed` with `mutation: 0`, since `offspringPair` always mutates.
 
-- [ ] T5 Pedigree, kinship, inbreeding, Punnett hints
+- [ ] T5 Pedigree, kinship, inbreeding, Punnett hints (in progress)
   - Acceptance (unit tests first):
     - `kinship` on hand-built pedigrees, compared with `===` (the values are dyadic): unrelated founders 0; parent and child 0.25; full siblings 0.25; half-siblings 0.125; uncle and niece 0.125; first cousins 0.0625; a creature with itself `½(1 + F)`; the child of full siblings has `inbreeding` 0.25 and kinship with a parent `0.375`. Ancestors more than six generations up are ignored, deterministically (a long chain pins the cut).
     - `inbreedingBand(F)` gives `none` below 0.03, `low` below 0.10, `moderate` below 0.20, else `high`; the plain-words text for each has no jargon (banned-word test).
