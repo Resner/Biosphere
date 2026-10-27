@@ -5,11 +5,11 @@ import { type Genome, genomeToBase64url, parseGenomeText } from '../genome/codec
 import { genesisGenome } from '../genome/genesis';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
-import { sizeTier } from '../genome/size';
 import { starterGenome } from '../genome/starter';
 import { buildCreature, type Creature } from '../genome/stats';
 import { genomeRefOf } from '../net/protocol';
 import { seedFromString } from '../sim/prng';
+import { sizeTier } from '../sim/size';
 
 /** A genome built into everything the game needs to play and draw it. */
 export interface Body {

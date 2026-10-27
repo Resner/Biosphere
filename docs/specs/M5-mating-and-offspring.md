@@ -43,7 +43,7 @@ Interfaces (shapes may be refined in a task note, with the reason):
 ```ts
 // src/sim/mating.ts (pure, shared)
 export interface MateView { creature: string; owner: string; active: boolean; activeMs: number; matureAtMs: number; cooldownUntilMs: number;
-  biomass: number; energy: number; maxEnergy: number; hasPending: boolean; inFlight: boolean; locked: boolean }
+  biomass: number; energy: number; hasPending: boolean; inFlight: boolean; locked: boolean }
 export type MateRefusal = 'not-active' | 'locked' | 'in-flight' | 'pending' | 'not-mature' | 'cooldown' | 'low-energy' | 'tier' | 'self';
 export function ownRefusal(v: MateView): MateRefusal | null;                  // first failing check, in this order
 export function pairRefusal(a: MateView, b: MateView): MateRefusal | null;    // 'self' or 'tier'
@@ -107,7 +107,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
     - `hatchling(300)` → biomass 80; `hatchling(800)` → 80; `hatchling(1000)` → 100; `hatchling(2_457_600)` → 245,760; energy is 60% of `2·biomass`.
     - `lifeStage` takes an optional `matureAtMs`; without it the M4 behaviour is unchanged (every M4 test passes untouched).
   - Notes: update the DESIGN.md header ("rules version 5") and §5 in the same PR. The sim imports no genome code, so `sizeTier` stays where it is and callers pass biomass.
-  - Done: rules version 5, `RULES.mating`, `src/sim/mating.ts`, the `mate` life event and `lifeStage`'s `matureAtMs`; all goldens regenerated (version and hashes only; the genome goldens change one line, the new `mate` replay is added). Gotcha: `sizeTier` moved to `src/sim/size.ts` (`src/genome/size.ts` re-exports it), because `pairRefusal` needs it and the sim may not import genome code; `**` is banned in the sim, so `cooldownMs` shifts.
+  - Done: rules version 5, `RULES.mating`, `src/sim/mating.ts`, the `mate` life event and `lifeStage`'s `matureAtMs`; all goldens regenerated (version and hashes only; the genome goldens change one line, the new `mate` replay is added). Gotcha: `sizeTier` moved to `src/sim/size.ts` (importers repointed), because `pairRefusal` needs it and the sim may not import genome code; `**` is banned in the sim, so `cooldownMs` shifts. `MateView.maxEnergy` is dropped: `ownRefusal` derives it from `biomass`.
 
 - [ ] T3 Record kinds, per-kind bodies, the transition matrix, mate asks
   - Acceptance (unit tests first):

@@ -3,12 +3,12 @@ import { describe, expect, it } from 'vitest';
 import { locus, withAlleles } from '../../tests/archetypes';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
+import { sizeTier } from '../sim/size';
 import { decodeGenome, encodeGenome, type Genome } from './codec';
 import { express } from './express';
 import { genesisGenome } from './genesis';
 import { HAPLOTYPE_BYTES, MODULE_BYTES } from './karyotype';
 import { featureBits, NEVER_BITS, RARITY_TIERS, rarityOf } from './rarity';
-import { sizeTier } from './size';
 import { starterGenome } from './starter';
 
 const seedOf = (i: number): Seed => seedFromString(`rarity-test-${i}`);

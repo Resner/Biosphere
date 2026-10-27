@@ -19,7 +19,6 @@ const GOOD: MateView = {
   cooldownUntilMs: 0,
   biomass: 500,
   energy: 600,
-  maxEnergy: 1000,
   hasPending: false,
   inFlight: false,
   locked: false,
@@ -89,7 +88,18 @@ describe('ownRefusal', () => {
   });
 
   it('reports the first failing check in the documented order', () => {
-    const everything = view({
+    // Each step fixes the check that was just reported, so the next one shows.
+    const steps: [MateRefusal | null, Partial<MateView>][] = [
+      ['not-active', { active: true }],
+      ['locked', { locked: false }],
+      ['in-flight', { inFlight: false }],
+      ['pending', { hasPending: false }],
+      ['not-mature', { activeMs: 1_000_000 }],
+      ['cooldown', { cooldownUntilMs: 0 }],
+      ['low-energy', { energy: 600 }],
+      [null, {}],
+    ];
+    let v = view({
       active: false,
       locked: true,
       inFlight: true,
@@ -98,29 +108,10 @@ describe('ownRefusal', () => {
       cooldownUntilMs: 9e9,
       energy: 0,
     });
-    const order: MateRefusal[] = [
-      'not-active',
-      'locked',
-      'in-flight',
-      'pending',
-      'not-mature',
-      'cooldown',
-      'low-energy',
-    ];
-    const over: Partial<MateView> = { ...everything };
-    const fixes: Partial<MateView>[] = [
-      { active: true },
-      { locked: false },
-      { inFlight: false },
-      { hasPending: false },
-      { activeMs: 1_000_000 },
-      { cooldownUntilMs: 0 },
-    ];
-    for (let i = 0; i < order.length; i++) {
-      expect(ownRefusal(view(over))).toBe(order[i]);
-      Object.assign(over, fixes[i]);
+    for (const [reason, fix] of steps) {
+      expect(ownRefusal(v)).toBe(reason);
+      v = { ...v, ...fix };
     }
-    expect(ownRefusal(view({ ...over, energy: 600 }))).toBeNull();
   });
 });
 
@@ -129,19 +120,22 @@ describe('pairRefusal', () => {
     expect(pairRefusal(view(), view({ creature: 'c2' }))).toBe('self');
   });
 
-  it('allows neighbouring size tiers and refuses two apart', () => {
-    const at = (biomass: number) => view({ owner: 'p2', biomass });
-    expect(pairRefusal(view({ biomass: 1000 }), at(1100))).toBeNull(); // T0 and T1
-    expect(pairRefusal(view({ biomass: 500 }), at(20_000))).toBe('tier'); // T0 vs T2
-    expect(pairRefusal(at(20_000), view({ biomass: 500 }))).toBe('tier');
-  });
-
-  it('pins the tier boundaries at 1,024 and 16,384 biomass', () => {
-    const at = (biomass: number) => view({ owner: 'p2', biomass });
-    expect(pairRefusal(view({ biomass: 1023 }), at(16_383))).toBeNull();
-    expect(pairRefusal(view({ biomass: 1023 }), at(16_384))).toBe('tier');
-    expect(pairRefusal(view({ biomass: 1024 }), at(16_384))).toBeNull();
-    expect(pairRefusal(view({ biomass: 1023 }), at(1024))).toBeNull();
+  it('allows neighbouring size tiers and refuses two apart, whichever way round', () => {
+    const rows: [number, number, MateRefusal | null][] = [
+      [1000, 1100, null], // T0 and T1
+      [500, 20_000, 'tier'], // T0 and T2
+      [20_000, 500, 'tier'],
+      // The tier edges at 1,024 and 16,384 biomass.
+      [1023, 16_383, null],
+      [1023, 16_384, 'tier'],
+      [1024, 16_384, null],
+      [1023, 1024, null],
+    ];
+    for (const [a, b, expected] of rows)
+      expect(
+        pairRefusal(view({ biomass: a }), view({ owner: 'p2', biomass: b })),
+        `${a} ${b}`,
+      ).toBe(expected);
   });
 });
 

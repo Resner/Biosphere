@@ -4,11 +4,11 @@
 // genesis never makes (extra segments, more modules, a novel allele, a big body) costs 12 bits.
 
 import { log } from '../sim/math';
+import { sizeTier } from '../sim/size';
 import { decodeGenome, type Genome } from './codec';
 import { express, type Traits } from './express';
 import { GENESIS_FREQ } from './genesis';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, type MendelLocus } from './karyotype';
-import { sizeTier } from './size';
 
 export type RarityTier = 'common' | 'uncommon' | 'rare' | 'exotic';
 

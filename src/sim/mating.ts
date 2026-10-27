@@ -15,7 +15,6 @@ export interface MateView {
   cooldownUntilMs: number;
   biomass: number;
   energy: number;
-  maxEnergy: number;
   hasPending: boolean;
   inFlight: boolean;
   /** In a committed encounter (M7); always false until then. */
@@ -41,7 +40,7 @@ export function ownRefusal(v: MateView): MateRefusal | null {
   if (v.hasPending) return 'pending';
   if (v.activeMs < v.matureAtMs) return 'not-mature';
   if (v.activeMs < v.cooldownUntilMs) return 'cooldown';
-  if (v.energy < RULES.mating.minEnergyShare * v.maxEnergy) return 'low-energy';
+  if (v.energy < RULES.mating.minEnergyShare * maxEnergy(v.biomass)) return 'low-energy';
   return null;
 }
 
