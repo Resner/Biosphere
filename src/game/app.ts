@@ -56,6 +56,7 @@ import { RemoteLabels } from './labels';
 import { type LifeClock, LifeFlow, type Started, VERIFY_FAILED } from './life';
 import { resetLife } from './life-reset';
 import { countdownText } from './life-text';
+import { LineagePanel } from './lineage-panel';
 import { attachVisibilityPause, createLoop } from './loop';
 import { MateFlow, type Nearby, randomNonce } from './mate';
 import { inspectCard } from './mate-card';
@@ -211,6 +212,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const controller = new InputController();
   const hud = new Hud();
   const history = new HistoryPanel();
+  /** The hub link of the current online session, for the Lineage panel's question. */
+  let hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
+  const lineagePanel = new LineagePanel(() => hubLink?.send({ t: 'lineage' }));
   const fx = new Effects();
   const vignette = pick('[data-testid="vignette"]');
   const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
@@ -520,6 +524,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           mate.receive(msg);
           offspring.receive(msg);
           if (msg.t === 'lineage') {
+            lineagePanel.receive(msg.creatures, msg.pedigree);
             for (const c of msg.creatures) generations.set(c.creature, c.generation);
             generationsSeen++;
           }
@@ -557,6 +562,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     });
     flow.attach(link);
     mate.attach(link);
+    hubLink = link;
+    // A panel opened before the link was up asks again once it is.
+    if (lineagePanel.isOpen) link.send({ t: 'lineage' });
     return link;
   };
 
@@ -731,6 +739,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     window,
     document,
     () => {
+      if (lineagePanel.isOpen) return;
       if (playing()) socialUi.open();
       else if (enterHatches(screen, performance.now() - screenShownAt)) {
         const first = screens.firstOption;
@@ -740,6 +749,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     {
       key: (key) => {
+        if (lineagePanel.isOpen) {
+          if (key === 'Escape') lineagePanel.close();
+          return;
+        }
         if (!playing()) return;
         if ((key === 'h' || key === 'H') && offspring.child()) {
           become('child');
@@ -750,6 +763,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           else if (key === 'Escape') mate.decline();
         } else if (key === 'Escape' && inspected) {
           inspected = null;
+        } else if (key === 'Escape') {
+          lineagePanel.open();
         } else if ((key === 'e' || key === 'E') && nearby) {
           mate.court(nearby.id);
         }

@@ -20,6 +20,7 @@
       <div class="fallback" data-testid="title-fallback" hidden></div>
       <button type="button" class="action" data-testid="hatch">Hatch</button>
       <button type="button" class="action quiet" data-testid="practice" hidden>Practice cell</button>
+      <button type="button" class="action quiet" data-testid="lineage-open">Lineage</button>
       <button type="button" class="action quiet" data-testid="recovery-open">Recovery code</button>
       <p class="recovery-reminder" data-testid="recovery-reminder">Save your recovery code</p>
       <p class="hint">Enter to hatch · Mouse or WASD to swim · Space to dash</p>
@@ -51,6 +52,14 @@
       <ul data-testid="history-list"></ul>
       <p data-testid="history-empty">No creatures yet</p>
     </aside>
+    <section class="lineage" data-testid="lineage" aria-label="Lineage" hidden>
+      <h2>Lineage</h2>
+      <p data-testid="lineage-empty" hidden>No lineage yet</p>
+      <ul class="lineage-chain" data-testid="lineage-chain"></ul>
+      <svg class="lineage-graph" data-testid="lineage-graph" role="img" aria-label="Family graph" hidden></svg>
+      <p data-testid="lineage-more" hidden>and more</p>
+      <button type="button" class="action quiet" data-testid="lineage-close">Close (Esc)</button>
+    </section>
     <section class="hud" data-for="playing" aria-label="Status">
       <p class="species" data-testid="hud-species"></p>
       <div class="meter"><span class="meter-name">Biomass</span><span class="meter-value" data-testid="hud-biomass"></span></div>
