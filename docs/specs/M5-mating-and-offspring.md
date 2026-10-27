@@ -228,7 +228,7 @@ Test hooks (fixture entry only, ignored in production; `tools/worker-bundle.test
   - Done: click a creature for the card (`mate-card.ts` view model, `genome/hints.ts` wording over `punnett`, `badge.ts` shared by the card, invitation and Lab); it sits on the side of the screen the creature is not on and shows three trait sentences. Covered by `m5-inspect.spec.ts`.
   - Gotcha: the card is rebuilt only when its inputs change (identity compare), and the hint percentages are checked against `punnett` in unit tests, not in the E2E. M5 E2E files on one hub share one pond and disturb each other, so the inspect and promote specs have their own hubs (8794, 8795).
 
-- [ ] T13 Lineage view
+- [ ] T13 Lineage view (in progress)
   - Acceptance (unit tests on the view model; E2E screenshot):
     - A **Lineage** panel opens from the title screen and the menu (Esc): your chain (active, pending, checkpoints, newest first, each with species, generation, rarity badge and "frozen" or remaining life) and the family graph: nodes for creatures and edges from both parents, six generations back at most, the chosen branch highlighted, other players' creatures anonymous. View-model tests from sample pedigrees: ordering, branch highlight, both parents drawn, truncation at 64 nodes with a visible "and more", a genesis creature shown as a root, empty state "No lineage yet".
     - Each node can open its body in the Creature Lab through the existing genome link.
