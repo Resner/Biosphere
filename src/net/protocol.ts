@@ -23,6 +23,8 @@ export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;
 /** A `genesis` carries a record, a commitment, a beacon and a genome text. */
 export const GENESIS_MAX_BYTES = 8192;
+/** A `born`: three genomes, three records and a commitment with two asks. */
+export const BORN_MAX_BYTES = 32_768;
 /** A `history` carries up to `HISTORY_MAX` past lives of about 250 bytes each. */
 export const HISTORY_MAX_BYTES = 8192;
 export const EVENT_MAX_BYTES = 2048;
@@ -127,6 +129,19 @@ export interface LifeInfo {
   cooldownUntilMs: number;
 }
 
+/** A newborn with everything a client needs to recompute it: the birth record, its commitment and beacon, and both parents. */
+export interface Born {
+  record: StoredRecord;
+  commit: SignedCommit;
+  beacon: Beacon;
+  /** The child's genome as base64url text. */
+  genome: string;
+  /** Both parents' genome texts, in the commitment's order (the courting player's first). */
+  parents: [string, string];
+  /** Both `mate-commit` records, in the same order. */
+  mates: [StoredRecord, StoredRecord];
+}
+
 /** A finished life as the history lists it (ADR 0019); the species name is derived from the genome. */
 export interface PastLife {
   creature: string;
@@ -188,7 +203,9 @@ export type HubMsg =
   | { t: 'member'; op: 'join' | 'leave'; member: Member }
   | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string }
   /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
-  | { t: 'life'; life: LifeInfo | null; genesisIn: number }
+  | { t: 'life'; life: LifeInfo | null; genesisIn: number; pending?: Born }
+  /** A mating's round is published: the player's child, waiting to be promoted. */
+  | ({ t: 'born' } & Born)
   /** A `progress` was taken: `activeMs` is the creature's life clock after crediting it, `lifespanMs` its total. */
   | {
       t: 'ack';
@@ -491,7 +508,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
 }
 
 export function parseHubMsg(raw: string): HubMsg | null {
-  const o = parseObject(raw, SIGNAL_MAX_BYTES);
+  const o = parseObject(raw, BORN_MAX_BYTES);
   if (!o) return null;
   switch (o.t) {
     case 'challenge':
@@ -515,9 +532,17 @@ export function parseHubMsg(raw: string): HubMsg | null {
       return isStr(o.code, CODE_RE) ? capped(raw, { t: 'error', code: o.code }) : null;
     case 'life': {
       const life = o.life === null ? null : lifeInfo(o.life);
-      return (o.life === null || life) && isInt(o.genesisIn, 0, MAX_TIME)
-        ? capped(raw, { t: 'life', life, genesisIn: o.genesisIn })
-        : null;
+      const pending = o.pending === undefined ? undefined : bornOf(o.pending);
+      if (!(o.life === null || life) || !isInt(o.genesisIn, 0, MAX_TIME) || pending === null) {
+        return null;
+      }
+      return pending
+        ? capped(raw, { t: 'life', life, genesisIn: o.genesisIn, pending }, BORN_MAX_BYTES)
+        : capped(raw, { t: 'life', life, genesisIn: o.genesisIn });
+    }
+    case 'born': {
+      const born = bornOf(o);
+      return born ? capped(raw, { t: 'born', ...born }, BORN_MAX_BYTES) : null;
     }
     case 'ack':
       return isInt(o.n, 0, MAX_TICK) &&
@@ -738,6 +763,21 @@ function listOf(v: unknown[], depth: number): Canonical[] | null {
     out.push(value);
   }
   return out;
+}
+
+function bornOf(v: unknown): Born | null {
+  if (!isObj(v)) return null;
+  const record = storedRecord(v.record);
+  const commit = signedCommit(v.commit);
+  const beacon = parseBeacon(v.beacon);
+  const mates = Array.isArray(v.mates) ? v.mates.map(storedRecord) : [];
+  const parents = Array.isArray(v.parents) ? v.parents : [];
+  if (!record || !commit || !beacon || !isStr(v.genome, GENOME_DATA_RE)) return null;
+  if (mates.length !== 2 || parents.length !== 2) return null;
+  const [m0, m1] = mates;
+  const [p0, p1] = parents;
+  if (!m0 || !m1 || !isStr(p0, GENOME_DATA_RE) || !isStr(p1, GENOME_DATA_RE)) return null;
+  return { record, commit, beacon, genome: v.genome, parents: [p0, p1], mates: [m0, m1] };
 }
 
 function signedCommit(v: unknown): SignedCommit | null {

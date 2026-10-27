@@ -2,6 +2,8 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { createRng, seedFromString } from '../sim/prng';
 import {
+  BORN_MAX_BYTES,
+  type Born,
   decodeSnapshot,
   EVENT_MAX_BYTES,
   encodeSnapshot,
@@ -234,6 +236,16 @@ const life = {
   cooldownUntilMs: 0,
 } as const;
 
+const GENOME = 'Ab-_09'.repeat(100);
+const born = {
+  record: storedRecord,
+  commit,
+  beacon: { round: 33_409_900, signature: BEACON_SIG },
+  genome: GENOME,
+  parents: [GENOME, GENOME],
+  mates: [storedRecord, storedRecord],
+} as unknown as Born;
+
 const mateAsk = {
   v: 1,
   kind: 'mate',
@@ -335,6 +347,8 @@ const hubMsgs: HubMsg[] = [
   { t: 'invite', from: PID2, ask: mateAsk, kinship: 0.0625, generation: 3 },
   { t: 'declined', by: PID2 },
   { t: 'mating', commit: mateCommit, record: mateRecord },
+  { t: 'born', ...born },
+  { t: 'life', life: null, genesisIn: 0, pending: born },
   { t: 'history', lives: [] },
   {
     t: 'history',
@@ -629,6 +643,18 @@ describe('genesis messages', () => {
     expect(raw.length).toBeLessThanOrEqual(GENESIS_MAX_BYTES);
     expect(parseHubMsg(raw)).not.toBeNull();
     expect(parseHubMsg(JSON.stringify({ ...big, pad: 'x'.repeat(GENESIS_MAX_BYTES) }))).toBeNull();
+  });
+
+  it('caps born at BORN_MAX_BYTES and rejects a malformed one', () => {
+    const msg = { t: 'born', ...born };
+    expect(parseHubMsg(JSON.stringify(msg))).not.toBeNull();
+    expect(parseHubMsg(JSON.stringify({ ...msg, pad: 'x'.repeat(BORN_MAX_BYTES) }))).toBeNull();
+    expect(parseHubMsg(JSON.stringify({ ...msg, parents: [GENOME] }))).toBeNull();
+    expect(parseHubMsg(JSON.stringify({ ...msg, mates: [msg.mates[0]] }))).toBeNull();
+    expect(parseHubMsg(JSON.stringify({ ...msg, genome: 'no spaces allowed' }))).toBeNull();
+    expect(
+      parseHubMsg(JSON.stringify({ t: 'life', life: null, genesisIn: 0, pending: { x: 1 } })),
+    ).toBeNull();
   });
 
   it('caps the other new messages at HUB_MAX_BYTES', () => {
