@@ -52,6 +52,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Steer | cursor direction; distance from the creature sets throttle (dead zone within 0.5 r, linear ramp to full throttle at 3 r) | WASD (overrides the mouse while held) |
 | Dash | — | Space (cooldown 2.5 s) |
 | Court or accept (M5) | click the creature, then the button | E on the nearest eligible creature |
+| Become your offspring (M5) | the Offspring card button | H |
 | Attack (M7) | click a creature in range | F on the nearest target |
 | Stance (M7, in combat) | HUD buttons | 1 aggressive, 2 balanced, 3 evasive |
 | Target (M7, 3+ participants) | click | Tab cycles |
@@ -112,17 +113,20 @@ Death is common and never total: you fall back to your pending offspring or your
 - **Old age** starts at 85% of lifespan (−20% thrust, so −20% top speed, and +20% basal metabolism; a dash is unaffected). Death comes at 100%. The client keeps the life clock between reports (the hub's last word plus the ticks played since), shows it as a thin **Life** bar with the stage word (Young, Mature, Old) and, in the last 10 minutes, "About N min left"; it turns the creature elder at 85% and, when its own clock reaches 100%, reports every 2 s until the authority ends the life. The authority has the last word.
 - **Hatch limit** (M4): the genesis bucket holds 3 hatches and refills one per 5 min. With it empty the death and title screens say "Next recorded hatch in m:ss", disable Hatch and offer the practice cell.
 - **History** (M4): the title screen lists the last 10 lives (species, how it ended, time lived, when), or "No creatures yet".
-- **Mating**:
-  - Both creatures must be mature, have no pending offspring, be within ±1 tier and within 3 body lengths, and not be locked.
-  - **Consent**: A courts (E), B accepts within 15 s, and both sign within 20 s.
-  - **Cost**: each parent pays 30% of current energy and 15% of biomass.
-  - **Cooldown**: 6 min of active time, doubled for each repeat with the same partner within 24 h.
-- **Offspring**: two distinct children, one per player (seed slot 0 for A, slot 1 for B), born when the committed drand round arrives (about 3–6 s; ADR 0010).
-  - Each player holds **one pending offspring** at most.
-  - Hatchling biomass is max(80, 10% of the child's maximum).
+- **Mating** (M5, ADR 0021; `RULES.mating`):
+  - Both creatures must be in the same pond and mature (`matureAtMs`), have at least 50% of their maximum energy, have no pending offspring and no mating in flight, be out of cooldown, be within ±1 size tier and within 3 body lengths, and not be locked (M7). The authority checks everything except the distance: positions are peer-to-peer, so only the two clients check it.
+  - **Consent**: A courts (E), the partner sees an invitation (name, species, rarity, size, inbreeding band) and accepts (E) within 15 s; the authority takes an accept up to 20 s after the court, which leaves 5 s for signing and transit. Esc or the timeout declines. A has one court outstanding at a time.
+  - **Cost**: paid when the commitment is made, never refunded, no cancel: each parent loses 30% of current energy and 15% of biomass.
+  - **Cooldown**: 6 min of active time (so a checkpoint's cooldown stays paused), doubled for each earlier mating of the same two players in the previous 24 h of wall time, at most ×32.
+  - **Awaiting beacon**: after the commitment both players play on while the round (3–6 s) arrives; closing a tab changes nothing.
+- **Offspring**: two distinct children, one per player (seed slot 0 for the courting player's child, slot 1 for the accepter's; if slot 1 happens to equal slot 0 it takes the next slot until it differs), born when the committed drand round arrives (about 3–6 s; ADR 0010). Parent A is the courting player's creature and B the accepter's; the child's first haplotype is a gamete of A and its second a gamete of B.
+  - Each player holds **one pending offspring** at most (an egg: visible to its owner, with a card showing its body).
+  - Hatchling biomass is max(80, 10% of the child's maximum), energy 60% of its maximum, full health, lifespan clock at zero.
   - Generation = max(parents' generations) + 1.
-- **Promotion**: becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition and remaining lifespan, frozen. The child hatches beside it.
-- **Death**: choose between your pending offspring (if any) and your **nearest surviving ancestor** in your checkpoint chain, which comes back with its saved condition and remaining lifespan. Dead or exhausted ancestors are skipped. If nothing survives, hatch a new genesis cell; the old lineage remains as history.
+  - A pending child can only be left by promoting it: no discard (ADR 0021).
+- **Promotion** (key H): becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition, cooldown and remaining lifespan, frozen. The child hatches where the parent was.
+- **Death**: choose between your pending offspring (if any) and your **nearest surviving ancestor** along your checkpoint chain, which comes back with its saved condition, cooldown and remaining lifespan at the pond's spawn point. Dead ancestors and exhausted ones (under 2 min of life left) are skipped, and an exhausted one is marked dead. If nothing survives, hatch a new genesis cell; the old lineage remains as history. Genesis is refused while any of your creatures is active, pending or a surviving checkpoint.
+- **Kinship**: Malécot's coefficient of kinship on the birth records, six generations deep. A child's inbreeding is the kinship of its parents (full siblings 25%, first cousins about 6%). The card says none (under 3%), low (under 10%), moderate (under 20%) or high.
 - **Genesis**: DNA from a committed future drand round (ADR 0010), recomputable by anyone from the commitment and the beacon (ADR 0019). At most one living creature per identity, and a bucket of 3 hatches that refills 1 per 5 minutes (M4; 1 per 10 minutes would have broken the loop). An empty bucket shows a countdown, and the player may swim as an unrecorded practice cell. Genesis cells come from a narrow starter distribution (§6). Rare traits mostly arise through breeding.
 - **Progress and resume** (M4): while you play, the client reports your condition (biomass, energy, health) after the first 5 s, then every 30 s. The authority clamps and flags implausible values, keeps the latest in memory, and writes a checkpoint when you disconnect, every 15 min of active time and at death. Coming back resumes the same creature at the pond's spawn point with that condition; a reload rewinds at most 30 s and never refills lifespan or the hatch bucket.
 - **Recovery code** (M4): a 55-character code (Crockford base32, groups of 5, checksummed) shows your identity's key on request. Importing it replaces the identity of that browser.
