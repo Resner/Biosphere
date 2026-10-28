@@ -32,12 +32,12 @@ async function waitForFrames(page: Page, frames = 3): Promise<void> {
 async function play(page: Page, preset: Preset, dof: boolean): Promise<void> {
   await openGame(page, `?debug=1&seed=dof&light=0&quality=${preset}${dof ? '' : '&dof=0'}`);
   await hatch(page);
-  // `light=0` leaves the water plain of caustics and rays (M6 T17). The snow's drift is zeroed once
-  // frozen, so both pages of a pair hold the same specks in the same places.
+  // `light=0` leaves the water plain of caustics and rays (M6 T17). The water's flow and clock are
+  // zeroed once frozen, so both pages of a pair hold the same specks in the same places.
   await page.evaluate(() => {
     const debug = (window.__bs as BsHook).debug;
     debug?.timeScale(0);
-    debug?.resetFlow();
+    debug?.resetWater();
   });
   await waitForFrames(page);
 }

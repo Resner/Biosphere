@@ -225,8 +225,8 @@ export interface BsDebug {
   setBench(ms: number): void;
   /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
-  /** Zeroes the water's drift of the marine snow, so frozen shots start from the same place (M6 T17). */
-  resetFlow(): void;
+  /** Zeroes the marine snow's flow and, in a frozen world, the shaders' clock: frozen shots then agree (M6 T17). */
+  resetWater(): void;
 }
 
 declare global {

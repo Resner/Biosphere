@@ -1474,9 +1474,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       clock();
       scale = next;
     },
-    resetFlow() {
+    resetWater() {
       view.flow.x = 0;
       view.flow.y = 0;
+      heldMs = lastMs;
     },
   };
 
