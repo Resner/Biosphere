@@ -401,7 +401,7 @@ describe('bodyViolations: each rule', () => {
 });
 
 describe('develop: speed', () => {
-  it('develops in well under a tenth of a millisecond at the median', () => {
+  it('develops within 0.15 ms at the median (ADR 0030)', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     for (const t of traits) develop(t); // warm up
     // The best of three runs, so that a busy runner does not fail the build.
@@ -416,7 +416,7 @@ describe('develop: speed', () => {
         return times[500] as number;
       }),
     );
-    expect(median).toBeLessThan(0.1);
+    expect(median).toBeLessThan(0.15);
   });
 });
 

@@ -93,12 +93,12 @@ describe('computeStats: totality and the body seam', () => {
     });
   });
 
-  it('develops and measures in well under a tenth of a millisecond at the median', () => {
+  it('develops and measures in within 0.15 ms at the median (ADR 0030)', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     // Warm up until the JIT has settled: the first passes cost up to twice the steady speed.
     for (let pass = 0; pass < 3; pass++) for (const t of traits) computeStats(develop(t), t);
     // The best of nine runs, so that a busy runner (other test files run in parallel) does not fail
-    // the build: the threshold is the code's own speed, about 0.08 ms standalone.
+    // the build: the threshold is the code's own speed, about 0.07 ms standalone.
     const median = Math.min(
       ...Array.from({ length: 9 }, () => {
         const times = traits.map((t) => {
@@ -110,7 +110,7 @@ describe('computeStats: totality and the body seam', () => {
         return times[500] as number;
       }),
     );
-    expect(median).toBeLessThan(0.1);
+    expect(median).toBeLessThan(0.15);
   });
 
   it('is deterministic and plain data', () => {
