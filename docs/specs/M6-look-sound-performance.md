@@ -207,7 +207,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Creature overhaul (#90)
 
-- [ ] T6 Karyotype v2 and rules version 6 [opus]
+- [ ] T6 Karyotype v2 and rules version 6 [opus] (in progress)
   - Acceptance (unit tests first):
     - `KARYOTYPE_VERSION` is 2. The v1 table lives on in `karyotype-v1.ts`. The v2 layout appends to each haplotype:
       - the new body loci of ADR 0025: spine curve amount and mode, head scale, trunk swell, tail length, tail taper, fusion, symmetry, drape, eye size, eye stalk;
