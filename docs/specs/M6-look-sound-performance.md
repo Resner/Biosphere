@@ -246,21 +246,23 @@ A look pass never starts before the tasks it judges are ticked.
   - Gotcha: the reach scale undoes any uniform shrink of the chain, so head scale applies after it; in the sim tournament the radial bell placed last everywhere, worth a look when the pacing tool reruns (T15, T18).
   - Carried: `develop`/`computeStats` always run v2 code (v5 copies are verified by test only; wire by `record.rules` if a pre-v6 record ever needs a non-v1 genome developed); `senseOf` still reads the raw attach angle, not the body-frame heading (T8 revisits stats).
 
-- [ ] T8 Development v2: fine parts (webbing, setae, bulbs, claws, beads) [opus] (in progress)
+- [x] T8 Development v2: fine parts (webbing, setae, bulbs, claws, beads) [opus] (in progress)
   - Acceptance (unit tests first):
     - **Webbing**: a part with webbing > 0 gets a membrane spanning to its branches and its neighbouring part on the same side (`webSpan`). A tail fan forms when webbing sits on the rearmost parts. The plan stores membrane polygons in core radii, inside the bounds.
     - **Setae**: density 0–1 gives 0–24 bristles per part, evenly spaced along it, each with length = setae length × part width × 6. The body total is capped at 240, and the excess is dropped from the shortest parts first, deterministically.
     - **Bulbs and beads**: bulb > 0.3 gives a bead tip of radius bulb × width × 2. Beads mark each joint with a swelling.
-    - **Chela**: on a hooked or pointed tip, chela > 0.5 gives an opposable last joint. A chela's weapon power counts in `stats.weapons`.
+    - **Chela**: on a hooked or pointed tip, chela > 0.5 gives an opposable last joint. A chela's weapon power counts in `stats.combat.power`.
     - **Stats**:
       - webbing area adds paddle thrust (rising with size, like the paddle share), drag and mass;
-      - setae add drag, widen the filter mouth's passive arc (by up to 25%) and add to the detection ring;
+      - setae add drag, widen the filter mouth's passive intake (its radius by up to 25%: a filter mouth's arc is already the full π) and add to the detection ring;
       - bulbs add contact damage like spines;
       - every feature adds to the basal complexity factor.
       The archetype tests gain a winged and a setose archetype, and none is best at everything.
     - Property tests over 10,000 random and 10,000 mutated genomes: totals within caps, no NaN, and membranes non-degenerate (area > 0, convex or split).
     - `silhouetteOf(plan)` classifies by geometry only: segment count, curve, symmetry, fusion, tail and webbing share, appendage reach. Hand-built plans for each class are classified correctly, and the classifier is total (`other` is allowed). The Lab inspector shows the silhouette name.
   - Notes: setae and membranes are detail on parts, not parts (ADR 0025). The sim sees them only through `PhysStats`. Update DESIGN §6.
+  - Done: appendages gain `webbing`, `setae`, `setaeLength`, `bulb`, `chela`, `beads` and the plan convex `membranes` (`RULES.develop.detail`, `RULES.stats.v2.{web,setae,bulb,chela,beads}`); `silhouetteOf` in `genome/silhouette.ts`, shown in the Lab inspector; archetypes gain winged and setose plus a `sense` metric (setose's niche).
+  - Gotcha: a sheet's push grows with (size ÷ 16,384)^0.5, steeper than a paddle, or winged out-rows the swimmer and coiled everywhere; v1 and T7 cost properties now run on bare parts (webs and the setae cap move with layout), fine parts have their own.
 
 - [ ] T9 Genesis spread, rarity, names and the specimen set
   - Acceptance (unit tests first):

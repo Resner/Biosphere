@@ -15,13 +15,32 @@ import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome, genomeToBase64url } from './codec';
 import { develop, hashPlan } from './develop';
 import { express } from './express';
-import { GENOME_BYTES, HAPLOTYPE_BYTES, MODULE_PARAMS } from './karyotype';
+import {
+  GENOME_BYTES,
+  HAPLOTYPE_BYTES,
+  MODULE_EXT_BYTES,
+  MODULE_LOCI,
+  MODULE_PARAMS,
+} from './karyotype';
 import { starterGenome } from './starter';
 import { buildCreature, computeStats, hashStats, physOf, type Stats, statsAt } from './stats';
 
 const rng = createRng(seedFromString('genome-stats-tests'), 'bytes');
 const randomBytes = (): Uint8Array =>
   Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff);
+
+/**
+ * A copy with every module's fine-part extension at 0 (M6 T8). Webs and the setae cap depend on
+ * where the parts sit, so the v1 and T7 properties below compare bare parts; the fine parts have
+ * their own properties here and in `develop-detail.test.ts`.
+ */
+const bare = (bytes: Uint8Array): Uint8Array => {
+  const out = bytes.slice();
+  for (const hap of [0, HAPLOTYPE_BYTES]) {
+    for (const m of MODULE_LOCI) out.fill(0, hap + m.ext, hap + m.ext + MODULE_EXT_BYTES);
+  }
+  return out;
+};
 
 const statsOf = (bytes: Uint8Array): Stats => {
   const c = buildCreature(decodeGenome(bytes));
@@ -227,7 +246,7 @@ describe('computeStats: formulas', () => {
 });
 
 describe('computeStats: every benefit has a cost', () => {
-  const bytesList = Array.from({ length: 1_000 }, () => randomBytes());
+  const bytesList = Array.from({ length: 1_000 }, () => bare(randomBytes()));
 
   it('never lowers drag when an appendage is added', () => {
     let tested = 0;
@@ -295,7 +314,7 @@ describe('computeStats: every benefit has a cost', () => {
 
 describe('computeStats: development v2 follows form (ADR 0025)', () => {
   const bytesList = Array.from({ length: 1_000 }, () =>
-    withLoci(randomBytes(), {
+    withLoci(bare(randomBytes()), {
       curve: 0,
       curveMode: 0,
       fusion: 0,
@@ -361,6 +380,45 @@ describe('computeStats: development v2 follows form (ADR 0025)', () => {
       expect(eyed.stats.basal).toBeGreaterThan(blind.stats.basal);
     }
   });
+
+  /** `bytes` with one extension byte set on every module slot, in both haplotypes. */
+  const withExt = (bytes: Uint8Array, k: number, value: number): Uint8Array => {
+    const out = bytes.slice();
+    for (const hap of [0, HAPLOTYPE_BYTES])
+      for (const m of MODULE_LOCI) out[hap + m.ext + k] = value;
+    return out;
+  };
+  const EXT = { webbing: 0, setaeDensity: 1, setaeLength: 2, bulb: 3, chela: 4, beads: 5 };
+
+  it('prices every fine part: never lighter, cheaper or less draggy (M6 T8)', () => {
+    let webbed = 0;
+    for (const bytes of bytesList) {
+      const plain = build(bytes);
+      const web = build(withExt(bytes, EXT.webbing, 255));
+      const hairy = build(withExt(withExt(bytes, EXT.setaeDensity, 255), EXT.setaeLength, 128));
+      const bulbs = build(withExt(bytes, EXT.bulb, 255));
+      const claws = build(withExt(bytes, EXT.chela, 255));
+      const beads = build(withExt(bytes, EXT.beads, 255));
+      // Webbing and setae never move a part; a bulb can shorten one to make room.
+      expect(parts(web)).toBe(parts(plain));
+      expect(parts(hairy)).toBe(parts(plain));
+      if (web.plan.membranes.length > 0) {
+        webbed++;
+        expect(web.stats.drag).toBeGreaterThan(plain.stats.drag);
+        expect(web.stats.mass).toBeGreaterThan(plain.stats.mass);
+        expect(web.stats.basal).toBeGreaterThan(plain.stats.basal);
+      }
+      expect(hairy.stats.drag).toBeGreaterThan(plain.stats.drag);
+      expect(hairy.stats.basal).toBeGreaterThan(plain.stats.basal);
+      expect(hairy.stats.sense).toBeGreaterThan(plain.stats.sense);
+      expect(bulbs.stats.basal).toBeGreaterThan(plain.stats.basal);
+      expect(bulbs.stats.combat.spines).toBeGreaterThanOrEqual(plain.stats.combat.spines);
+      expect(claws.stats.basal).toBeGreaterThanOrEqual(plain.stats.basal);
+      expect(claws.stats.mass).toBeGreaterThanOrEqual(plain.stats.mass);
+      expect(beads.stats.basal).toBeGreaterThan(plain.stats.basal);
+    }
+    expect(webbed).toBeGreaterThan(300);
+  });
 });
 
 describe('archetypes: nobody wins everything', () => {
@@ -402,7 +460,7 @@ describe('archetypes: nobody wins everything', () => {
     }
   });
 
-  it('gives nobody more than 3 of the 8 metrics at any size', () => {
+  it('gives nobody more than 3 of the 9 metrics at any size', () => {
     table.forEach((row, i) => {
       for (const name of names) {
         const best = METRICS.filter((m) =>

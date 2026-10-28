@@ -1,4 +1,5 @@
 import type { RarityTier } from '../genome/rarity';
+import type { Silhouette } from '../genome/silhouette';
 import type { LabMode } from './specimens';
 
 /** What the Lab's grid shows: a seeded set, or genomes handed in with `showGenomes`. */
@@ -11,6 +12,8 @@ export interface LabCreature {
   /** Size tier of the fully grown body. */
   tier: number;
   rarity: RarityTier;
+  /** The body plan's shape class (M6 T8). */
+  silhouette: Silhouette;
   vertices: number;
   /** False when the body breaks a development rule (never expected). */
   valid: boolean;

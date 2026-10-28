@@ -55,13 +55,23 @@ describe('development v2: v1 equivalence', () => {
       const traits = express(decodeGenome(v1Bytes(rng)));
       const v5 = developV5(traits);
       const v6 = develop(traits);
-      // Development v2 adds fields; with every new locus at 0 they hold the straight v1 body.
+      // Development v2 adds fields; with every new locus at 0 they hold the straight v1 body, bare.
       const expected: BodyPlan = {
         ...v5,
+        appendages: v5.appendages.map((x) => ({
+          ...x,
+          webbing: 0,
+          setae: 0,
+          setaeLength: 0,
+          bulb: 0,
+          chela: 0,
+          beads: 0,
+        })),
         segments: v5.segments.map((s) => ({ x: s.x, y: 0, rx: s.rx, ry: s.ry, angle: 0 })),
         form: { turn: 0, mode: 0, radial: 0 },
         carapace: { count: 0, x: 0, y: 0, rx: 0, ry: 0, angle: 0, thickness: 0 },
         eyes: { count: 0, size: 0, stalk: 0, angle: 0, x: 0, y: 0 },
+        membranes: [],
       };
       if (hashPlan(v6) !== hashPlan(expected)) expect(v6, `genome ${i}`).toEqual(expected);
       const a = computeStats(v6, traits);

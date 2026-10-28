@@ -2,8 +2,9 @@
 // deterministic; the caps live here, never in the renderer. Lengths are in core radii (the core is
 // radius 1 at the origin, x forward, y left). Appendages are built for the left side and mirrored,
 // so every repair keeps the body bilateral. Development v2 (rules 6) bends, profiles and fuses the
-// segment chain, rings a radial body's parts and adds eyes; with every v2 locus at 0 it builds the
-// v1 body exactly as `develop-v5.ts` does (a property test pins that).
+// segment chain, rings a radial body's parts and adds eyes, and dresses parts with fine detail
+// (webbing, setae, bulbs, chelae, joint beads: M6 T8); with every v2 locus at 0 it builds the v1
+// body exactly as `develop-v5.ts` does (a property test pins that).
 
 import type { Collider } from '../sim/body';
 import { Hasher } from '../sim/hash';
@@ -50,6 +51,27 @@ export interface Appendage {
   beat: number;
   /** Fraction of a beat cycle. */
   phase: number;
+  /** Fine detail (M6 T8); each 0 is off. How far along its rays the part's membranes reach, 0-1. */
+  webbing: number;
+  /** Bristles, 0-24, evenly spaced along the part at (k + 0.5) ÷ count of its length, each `setaeLength` long. */
+  setae: number;
+  setaeLength: number;
+  /** Radius of the bead on the tip. */
+  bulb: number;
+  /** 0, or how strongly the last joint opposes (0.5-1]: a claw. */
+  chela: number;
+  /** Joint swelling 0-1: each joint's radius is the part's × (1 + beads). */
+  beads: number;
+}
+
+/**
+ * A sheet of membrane in core radii: a convex polygon, counter-clockwise, inside the bounds. `part`
+ * is the webbed appendage instance; `to` is the instance it spans to (itself for its branches).
+ */
+export interface Membrane {
+  part: number;
+  to: number;
+  points: Point[];
 }
 
 export interface Plate {
@@ -109,6 +131,7 @@ export interface BodyPlan {
   form: PlanForm;
   carapace: Carapace;
   eyes: PlanEyes;
+  membranes: Membrane[];
 }
 
 export type Detail = 'full' | 'low';
@@ -116,7 +139,7 @@ export type Detail = 'full' | 'low';
 /** One left-side appendage; `develop` builds these and mirrors them at the end. */
 type Part = Omit<Appendage, 'side'>;
 type Range = readonly [number, number];
-type Point = { x: number; y: number };
+export type Point = { x: number; y: number };
 
 const range = (r: readonly number[]): Range => [r[0] as number, r[1] as number];
 const STRETCH = range(D.stretch);
@@ -127,6 +150,7 @@ const CURVATURE = range(D.curvature);
 const PLATE_THICKNESS = range(D.plateThickness);
 const EYE_SIZE = range(D.eyes.size);
 const EYE_STALK = range(D.eyes.stalk);
+const X = D.detail;
 
 const unit = (byte: number): number => byte / 255;
 /** Area weight of a part counting its branches. */
@@ -271,11 +295,14 @@ function buildParts(traits: Traits, segments: PlanSegment[]): Part[] {
   traits.modules.forEach((mod, slot) => {
     if (!mod.present) return;
     const p = mod.params;
+    const x = mod.ext;
     const scale = malformed;
     malformed = 1; // only the first present module is the malformed part
     const pairs = 1 + Math.floor((p.pairs * D.caps.pairs) / 256);
     const t0 = unit(p.attachStart);
     const reach = unit(p.attachSpan) * (1 - t0);
+    const width = lerp(WIDTH[0], WIDTH[1], unit(p.thickness)) * scale;
+    const tip = unit(p.tipShape);
     for (let k = 0; k < pairs; k++) {
       const t = pairs > 1 ? t0 + (reach * k) / (pairs - 1) : t0;
       parts.push({
@@ -284,20 +311,34 @@ function buildParts(traits: Traits, segments: PlanSegment[]): Part[] {
         angle: D.angleMargin + (PI - 2 * D.angleMargin) * unit(p.angle),
         dir: 0,
         length: lerp(LENGTH[0], LENGTH[1], unit(p.length)) * scale,
-        width: lerp(WIDTH[0], WIDTH[1], unit(p.thickness)) * scale,
+        width,
         taper: lerp(TAPER[0], TAPER[1], unit(p.taper)),
         curvature: lerp(CURVATURE[0], CURVATURE[1], unit(p.curvature)),
         joints: 1 + Math.floor((p.joints * D.caps.joints) / 256),
         branches: Math.floor((p.branching * (D.caps.branches + 1)) / 256),
-        tip: unit(p.tipShape),
+        tip,
         stiffness: unit(p.stiffness),
         beat: unit(p.beat),
         phase: unit(p.phase),
+        webbing: x.webbing,
+        setae: x.setaeLength > 0 ? Math.round(x.setaeDensity * X.setae.perPart) : 0,
+        // The gene for now: `dress` turns it into a length once the part's reach is known.
+        setaeLength: x.setaeLength,
+        bulb: x.bulb > X.bulb.min ? x.bulb * width * X.bulb.scale : 0,
+        chela: x.chela > X.chela.min && isWeaponTip(tip) ? x.chela : 0,
+        beads: x.beads,
       });
     }
   });
   return parts;
 }
+
+/** Pointed to hooked tips: the ones whose weapon share (`RULES.stats`) is above 0. */
+export const isWeaponTip = (tip: number): boolean =>
+  peak(tip, RULES.stats.weaponTip, RULES.stats.weaponSpread) > 0;
+
+/** No fine detail: a v1 part. */
+const PLAIN = { webbing: 0, setae: 0, setaeLength: 0, bulb: 0, chela: 0, beads: 0 } as const;
 
 /**
  * Parts on one segment keep `minAngleGap` apart: later ones are pushed round, and one with no room
@@ -336,10 +377,11 @@ function shape(parts: Part[], segments: PlanSegment[], sweep: number): Part[] {
     // On a turned segment the two sides' roots lie at different distances; the farther one counts.
     const s = segments[p.segment] as PlanSegment;
     const [l, r] = [rootOf(s, p.angle, 1), rootOf(s, p.angle, -1)];
-    const far = Math.max(hypot(l.x, l.y), hypot(r.x, r.y));
-    const room = (D.caps.bounds - D.boundsSlack - far) / branchFactor(p.branches);
+    const free = D.caps.bounds - D.boundsSlack - Math.max(hypot(l.x, l.y), hypot(r.x, r.y));
+    // A bulb takes at most its share of the free reach, and the part shortens to make room for it.
+    p.bulb = Math.min(p.bulb, X.bulb.room * Math.max(0, free));
     p.dir = p.angle + sweep * (PI - p.angle);
-    p.length = Math.min(p.length, room);
+    p.length = Math.min(p.length, (free - p.bulb) / branchFactor(p.branches));
   }
   return parts;
 }
@@ -407,6 +449,7 @@ function bandPart(segment: number, angle: number, index: number): Part {
     stiffness: D.band.stiffness,
     beat: D.band.beat,
     phase: index / D.band.pairs,
+    ...PLAIN,
   };
 }
 
@@ -463,6 +506,169 @@ function radialParts(traits: Traits, segments: PlanSegment[], sweep: number): Pa
     if (fits(count, trial)) return trial;
   }
   return ring(band, segments, sweep);
+}
+
+/** Where bristle `k` of `count` sits along a part, as a share of its length. */
+export const bristleAt = (k: number, count: number): number => (k + 0.5) / count;
+
+/** The farthest a point between `t0` and `t1` of a part's length lies from the core, on either side. */
+function farAlong(s: PlanSegment, p: Part, t0: number, t1: number): number {
+  let far = 0;
+  for (const side of [1, -1] as const) {
+    const root = rootOf(s, p.angle, side);
+    const dir = dirOf(s, { dir: p.dir, side });
+    for (const t of [t0, t1]) {
+      far = Math.max(far, hypot(root.x + t * p.length * dir.x, root.y + t * p.length * dir.y));
+    }
+  }
+  return far;
+}
+
+/**
+ * Setae on the final parts: the gene becomes a length (setae length × width × `length`, shortened
+ * so every bristle stays in the bounds), then the body keeps `perBody`, cutting the shortest parts'
+ * bristles first (ties: the later part first). Edits in place; mirror pairs stay equal.
+ */
+function dress(parts: Part[], segments: PlanSegment[]): Part[] {
+  const S = X.setae;
+  for (const p of parts) {
+    if (p.setae === 0) {
+      p.setaeLength = 0;
+      continue;
+    }
+    const s = segments[p.segment] as PlanSegment;
+    const far = farAlong(s, p, bristleAt(0, p.setae), bristleAt(p.setae - 1, p.setae));
+    const length = Math.min(
+      p.setaeLength * p.width * S.length,
+      D.caps.bounds - D.boundsSlack - far,
+    );
+    if (!(length > D.epsilon)) {
+      p.setae = 0;
+      p.setaeLength = 0;
+    } else {
+      p.setaeLength = length;
+    }
+  }
+  let excess = parts.reduce((sum, p) => sum + p.setae, 0) - S.perBody / 2;
+  const order = parts
+    .map((p, i) => ({ p, i }))
+    .sort((a, b) => a.p.length - b.p.length || b.i - a.i);
+  for (const { p } of order) {
+    if (excess <= 0) break;
+    const cut = Math.min(p.setae, excess);
+    p.setae -= cut;
+    excess -= cut;
+    if (p.setae === 0) p.setaeLength = 0;
+  }
+  return parts;
+}
+
+/** The signed area of a polygon: positive when it runs counter-clockwise. */
+export function polygonArea(points: readonly Point[]): number {
+  let twice = 0;
+  for (let i = 0; i < points.length; i++) {
+    const a = points[i] as Point;
+    const b = points[(i + 1) % points.length] as Point;
+    twice += a.x * b.y - b.x * a.y;
+  }
+  return twice / 2;
+}
+
+/** The turn at `b` on the way from `a` to `c`: positive to the left. */
+const turnAt = (a: Point, b: Point, c: Point): number =>
+  (b.x - a.x) * (c.y - b.y) - (b.y - a.y) * (c.x - b.x);
+
+/** Where segments `ab` and `cd` cross, strictly inside both, or null. */
+function crossing(a: Point, b: Point, c: Point, d: Point): Point | null {
+  const den = (b.x - a.x) * (d.y - c.y) - (b.y - a.y) * (d.x - c.x);
+  if (den === 0) return null;
+  const t = ((c.x - a.x) * (d.y - c.y) - (c.y - a.y) * (d.x - c.x)) / den;
+  const u = ((c.x - a.x) * (b.y - a.y) - (c.y - a.y) * (b.x - a.x)) / den;
+  if (!(t > 0 && t < 1 && u > 0 && u < 1)) return null;
+  return { x: a.x + t * (b.x - a.x), y: a.y + t * (b.y - a.y) };
+}
+
+/** A sheet as convex, counter-clockwise pieces of real area: whole, or split at a crossing or a reflex corner. */
+function pieces(q: Point[]): Point[][] {
+  let out: Point[][] = [q];
+  if (q.length === 4) {
+    const [a, b, c, d] = q as [Point, Point, Point, Point];
+    const x = crossing(a, b, c, d);
+    const y = x ? null : crossing(b, c, d, a);
+    if (x)
+      out = [
+        [a, x, d],
+        [x, b, c],
+      ];
+    else if (y)
+      out = [
+        [a, b, y],
+        [y, c, d],
+      ];
+    else {
+      const sign = polygonArea(q) >= 0 ? 1 : -1;
+      const k = [0, 1, 2, 3].findIndex(
+        (i) => sign * turnAt(q[i] as Point, q[(i + 1) % 4] as Point, q[(i + 2) % 4] as Point) < 0,
+      );
+      if (k >= 0) {
+        const r = (k + 1) % 4;
+        const at = (i: number): Point => q[(r + i) % 4] as Point;
+        out = [
+          [at(0), at(1), at(2)],
+          [at(0), at(2), at(3)],
+        ];
+      }
+    }
+  }
+  return out
+    .map((p) => (polygonArea(p) < 0 ? [...p].reverse() : p))
+    .filter((p) => polygonArea(p) >= X.minArea);
+}
+
+/**
+ * The membranes of webbed parts, side by side: each spans `webbing` of the way along its own rays
+ * to its branches, and to the next part rearward on its side when their roots lie within `webSpan`.
+ * The rearmost left part spans to its own mirror instead: a tail fan.
+ */
+function buildMembranes(segments: PlanSegment[], appendages: Appendage[]): Membrane[] {
+  const out: Membrane[] = [];
+  const at = (p: Point, d: Point, t: number): Point => ({ x: p.x + t * d.x, y: p.y + t * d.y });
+  const ray = (i: number) => {
+    const a = appendages[i] as Appendage;
+    const s = segments[a.segment] as PlanSegment;
+    return { a, s, root: rootOf(s, a.angle, a.side), dir: dirOf(s, a) };
+  };
+  const add = (part: number, to: number, points: Point[]): void => {
+    for (const p of pieces(points)) out.push({ part, to, points: p });
+  };
+  for (const side of [1, -1] as const) {
+    const order = appendages
+      .map((a, i) => ({ a, i }))
+      .filter(({ a }) => a.side === side)
+      .sort((p, q) => p.a.segment - q.a.segment || p.a.angle - q.a.angle)
+      .map(({ i }) => i);
+    order.forEach((i, j) => {
+      const { a, s, root, dir } = ray(i);
+      const w = a.webbing;
+      if (!(w > 0)) return;
+      const reach = w * a.length;
+      if (a.branches > 0) {
+        const fork = at(root, dir, D.branchAt * a.length);
+        const tip = at(fork, dir, (1 - D.branchAt) * reach);
+        for (let b = 0; b < a.branches; b++) {
+          const fan = b === 0 ? D.branchFan : -D.branchFan;
+          const branch = dirOf(s, { dir: a.dir + fan, side });
+          add(i, i, [fork, tip, at(fork, branch, D.branchScale * reach)]);
+        }
+      }
+      const next = order[j + 1] ?? (side === 1 ? i + 1 : undefined);
+      if (next === undefined) return;
+      const q = ray(next);
+      if (hypot(q.root.x - root.x, q.root.y - root.y) > X.webSpan) return;
+      add(i, next, [root, at(root, dir, reach), at(q.root, q.dir, w * q.a.length), q.root]);
+    });
+  }
+  return out;
 }
 
 function buildMouth(m: Traits['mouth'], radial: number): PlanMouth {
@@ -607,7 +813,7 @@ export function develop(traits: Traits): BodyPlan {
     ? radialParts(traits, segments, shape.drape * R.drapeSweep)
     : bilateralParts(traits, segments, lerp(D.sweep, R.drapeSweep, shape.drape));
 
-  const appendages = mirror(parts);
+  const appendages = mirror(dress(parts, segments));
   const plating = traits.skin.plating;
   const carapace = buildCarapace(segments, shape.fusion, plating);
   const plates: Plate[] =
@@ -630,6 +836,7 @@ export function develop(traits: Traits): BodyPlan {
     form: { turn: form.turn, mode: form.mode, radial: form.radial },
     carapace,
     eyes: buildEyes(shape, segments[0] as PlanSegment),
+    membranes: buildMembranes(segments, appendages),
   };
 }
 
@@ -641,7 +848,17 @@ export function planBounds(plan: BodyPlan): number {
     const s = plan.segments[a.segment];
     if (s === undefined) return Number.POSITIVE_INFINITY;
     const root = rootOf(s, a.angle, a.side);
-    bound = Math.max(bound, hypot(root.x, root.y) + a.length * branchFactor(a.branches));
+    bound = Math.max(bound, hypot(root.x, root.y) + a.length * branchFactor(a.branches) + a.bulb);
+    if (a.setae > 0) {
+      const dir = dirOf(s, a);
+      for (const t of [bristleAt(0, a.setae), bristleAt(a.setae - 1, a.setae)]) {
+        const p = { x: root.x + t * a.length * dir.x, y: root.y + t * a.length * dir.y };
+        bound = Math.max(bound, hypot(p.x, p.y) + a.setaeLength);
+      }
+    }
+  }
+  for (const m of plan.membranes) {
+    for (const p of m.points) bound = Math.max(bound, hypot(p.x, p.y));
   }
   const c = plan.carapace;
   if (c.count > 0) bound = Math.max(bound, hypot(c.x, c.y) + Math.max(c.rx, c.ry));
@@ -691,7 +908,48 @@ function shapeViolations(plan: BodyPlan): string[] {
     });
     if (plan.mouth.offset !== 0) bad.push('radial body: the mouth is not central');
   }
+  bad.push(...detailViolations(plan));
   return bad.length < 2 ? bad : [...new Set(bad)];
+}
+
+/** The fine-part checks (M6 T8): detail ranges, setae counts, chelae on weapon tips, sound membranes. */
+function detailViolations(plan: BodyPlan): string[] {
+  const bad: string[] = [];
+  const S = X.setae;
+  let setae = 0;
+  for (const a of plan.appendages) {
+    setae += a.setae;
+    const inUnit = (v: number): boolean => v >= 0 && v <= 1;
+    if (!inUnit(a.webbing) || !inUnit(a.beads) || !(a.bulb >= 0) || !(a.setaeLength >= 0)) {
+      bad.push('appendage detail out of range');
+    }
+    if (a.setae < 0 || a.setae > S.perPart || a.setae !== Math.floor(a.setae)) {
+      bad.push(`setae: ${a.setae} on a part is outside 0-${S.perPart}`);
+    }
+    if (a.setae > 0 && !(a.setaeLength > 0)) bad.push('setae with no length');
+    if (a.chela !== 0 && !(a.chela > X.chela.min && a.chela <= 1 && isWeaponTip(a.tip))) {
+      bad.push('chela on a tip that is not pointed or hooked');
+    }
+  }
+  if (setae > S.perBody) bad.push(`setae: ${setae} on the body is more than ${S.perBody}`);
+  plan.membranes.forEach((m, i) => {
+    const n = plan.appendages.length;
+    const owns = (k: number): boolean => k >= 0 && k < n && k === Math.floor(k);
+    if (!owns(m.part) || !owns(m.to) || !((plan.appendages[m.part] as Appendage).webbing > 0)) {
+      bad.push(`membrane ${i}: no webbed part ${m.part} or ${m.to}`);
+    }
+    const ps = m.points;
+    if (ps.length < 3 || !(polygonArea(ps) >= X.minArea)) bad.push(`membrane ${i} is degenerate`);
+    else if (
+      ps.some(
+        (p, k) =>
+          turnAt(p, ps[(k + 1) % ps.length] as Point, ps[(k + 2) % ps.length] as Point) < -1e-12,
+      )
+    ) {
+      bad.push(`membrane ${i} is not convex`);
+    }
+  });
+  return bad;
 }
 
 /** Every ADR 0006 and ADR 0025 cap and guarantee a plan must hold; an empty list means the plan is valid. */
@@ -788,6 +1046,7 @@ export function hashPlan(plan: BodyPlan): string {
   for (const a of plan.appendages) {
     f(a.module, a.side, a.segment, a.angle, a.dir, a.length, a.width, a.taper, a.curvature);
     f(a.joints, a.branches, a.tip, a.stiffness, a.beat, a.phase);
+    f(a.webbing, a.setae, a.setaeLength, a.bulb, a.chela, a.beads);
   }
   f(plan.plates.length);
   for (const p of plan.plates) f(p.segment, p.coverage, p.thickness);
@@ -799,5 +1058,10 @@ export function hashPlan(plan: BodyPlan): string {
   f(o.turn, o.mode, o.radial);
   f(c.count, c.x, c.y, c.rx, c.ry, c.angle, c.thickness);
   f(e.count, e.size, e.stalk, e.angle, e.x, e.y);
+  f(plan.membranes.length);
+  for (const m of plan.membranes) {
+    f(m.part, m.to, m.points.length);
+    for (const p of m.points) f(p.x, p.y);
+  }
   return h.digest();
 }

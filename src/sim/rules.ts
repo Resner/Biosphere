@@ -307,6 +307,21 @@ export const RULES = deepFreeze({
       stalk: [0, 0.6],
       angle: 0.6,
     },
+    /** Fine parts (M6 T8, ADR 0025): detail on parts, never parts. Each at 0 leaves the v1 body. */
+    detail: {
+      /** A webbed part spans a sheet `webbing` of the way along its rays: to its branches, and to the next part rearward on its side (or, the rearmost, to its own mirror: a tail fan) when their roots lie at most `webSpan` apart. Pieces under `minArea` are dropped. */
+      webSpan: 1.2,
+      minArea: 1e-4,
+      /** Density 0-1 gives 0-`perPart` bristles along a part, each setae length × width × `length` long; the body keeps at most `perBody`. */
+      setae: { perPart: 24, perBody: 240, length: 6 },
+      /** Bulb above `min` tips a part with a bead of radius bulb × width × `scale`, at most `room` of the free reach past the root. */
+      bulb: { min: 0.3, scale: 2, room: 0.5 },
+      /** Chela above `min` on a pointed or hooked tip (a weapon share above 0) makes the last joint opposable. */
+      chela: { min: 0.5 },
+    },
+    /** Branches leave their part at `branchAt` of its length, fanned `branchFan` radians either way. */
+    branchAt: 0.7,
+    branchFan: 0.5,
     /** Mesh vertices per body ring and part ring, and rings per segment or joint, by detail. */
     vertices: {
       full: { cap: 6000, bodyRings: 9, bodyRing: 12, jointRings: 3, partRing: 8 },
@@ -356,6 +371,23 @@ export const RULES = deepFreeze({
       /** Each eye adds this × radius × (1 + stalk) to the detection ring and `eyeBasal` × radius to the basal multiplier. */
       eyeSense: 1.5,
       eyeBasal: 0.3,
+      /**
+       * Fine parts (M6 T8). A web on a beating part rows like a paddle, but a flapping sheet only
+       * pushes at high Reynolds numbers: per unit of area it pushes `thrust` × (size ÷
+       * `efficiency.cross`)^`exponent`, steeper than a paddle, and adds `drag`, `mass` and `basal`.
+       */
+      web: { thrust: 1, exponent: 0.5, drag: 0.5, mass: 0.5, basal: 0.2 },
+      /**
+       * Setae, by fringe (bristles × length, summed): `drag` each; up to `sense` on the detection
+       * ring and up to `mouth` wider filter mouth at a fringe of `full`; `basal` per bristle.
+       */
+      setae: { drag: 0.004, sense: 1, mouth: 0.25, full: 30, basal: 0.002 },
+      /** A bulb adds `spines` × radius to the spine share (capped at 1), its disc × `mass`, and `basal`. */
+      bulb: { spines: 1.5, mass: 1, basal: 0.02 },
+      /** A chela grips with `power` × chela × stiffness × its last joint's length, weighs `mass` × its area, costs `basal`. */
+      chela: { power: 1.5, mass: 1, basal: 0.03 },
+      /** Joint beads cost `basal` × beads per part. */
+      beads: { basal: 0.01 },
     },
   },
   /** Life (M4, DESIGN §5, ADR 0019): lifespan, old age and maturity, on active time. */

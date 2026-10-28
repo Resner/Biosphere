@@ -2,13 +2,23 @@
 // nothing else, then measured with the sim's own movement and feeding formulas.
 
 import { decodeGenome, encodeGenome, type Genome } from '../src/genome/codec';
-import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from '../src/genome/karyotype';
+import {
+  GENOME_BYTES,
+  HAPLOTYPE_BYTES,
+  LOCI,
+  MODULE_EXT,
+  MODULE_PARAMS,
+  type ModuleLocus,
+} from '../src/genome/karyotype';
 import { buildCreature, statsAt } from '../src/genome/stats';
 import { efficiency } from '../src/sim/food';
 import { pow } from '../src/sim/math';
 import { RULES } from '../src/sim/rules';
 
-export type Params = Partial<Record<(typeof MODULE_PARAMS)[number], number>>;
+/** A module's v1 parameters and its karyotype v2 extension (webbing, setae, bulb, chela, beads), 0-255. */
+export type Params = Partial<
+  Record<(typeof MODULE_PARAMS)[number] | (typeof MODULE_EXT)[number], number>
+>;
 
 export const locus = (id: string) => LOCI.find((l) => l.id === id) as (typeof LOCI)[number];
 
@@ -26,6 +36,10 @@ export function buildBytes(
       bytes[o] = 1;
       MODULE_PARAMS.forEach((name, k) => {
         bytes[o + 1 + k] = params[name] ?? 0;
+      });
+      const ext = at + (locus(id) as ModuleLocus).ext;
+      MODULE_EXT.forEach((name, k) => {
+        bytes[ext + k] = params[name] ?? 0;
       });
     }
   }
@@ -197,6 +211,40 @@ export const ARCHETYPES: Record<string, Genome> = {
     },
     { ...MOUTH_MID, segDrive1: 80, segDrive2: 80, fusion: 255, aspect: 200 },
   ),
+  // Development v2 fine parts (M6 T8): forked paddles webbed into broad wings. A sheet only rows
+  // well at large sizes, so it is slow when small and the fastest of all when big.
+  winged: buildGenome(
+    {
+      M1: {
+        length: 255,
+        thickness: 80,
+        tipShape: 191,
+        beat: 160,
+        angle: 115,
+        pairs: 230,
+        attachSpan: 180,
+        branching: 170,
+        webbing: 255,
+      },
+    },
+    { ...MOUTH_MID, segDrive1: 94, segDrive2: 94, aspect: 25, taper: 175 },
+  ),
+  // A filter feeder with setose antennae: the bristles widen its intake and its senses, and drag.
+  setose: buildGenome(
+    {
+      M1: { length: 200, thickness: 20, tipShape: 255, beat: 220, angle: 255, joints: 130 },
+      M2: {
+        length: 200,
+        thickness: 40,
+        tipShape: 0,
+        beat: 0,
+        angle: 20,
+        setaeDensity: 255,
+        setaeLength: 255,
+      },
+    },
+    { mouthSize: 180, mouthType: 0, digestion: 255, aspect: 120 },
+  ),
 };
 
 export const METRICS = [
@@ -208,6 +256,7 @@ export const METRICS = [
   'crystal',
   'armour',
   'weapon',
+  'sense',
 ] as const;
 export type Metric = (typeof METRICS)[number];
 
@@ -237,5 +286,6 @@ export function metricsAt(g: Genome, biomass: number): Record<Metric, number> {
     crystal: reach * efficiency('crystal', mouth.type),
     armour: stats.combat.armour,
     weapon: stats.combat.power,
+    sense: stats.sense,
   };
 }

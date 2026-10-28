@@ -8,6 +8,7 @@ import { genesisGenome } from '../genome/genesis';
 import { GENOME_BYTES } from '../genome/karyotype';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
+import { type Silhouette, silhouetteOf } from '../genome/silhouette';
 import { buildCreature, type Creature } from '../genome/stats';
 import { createRng, seedFromString } from '../sim/prng';
 import { sizeTier } from '../sim/size';
@@ -24,6 +25,8 @@ export interface Specimen {
   rarity: RarityTier;
   /** Size tier of the fully grown body (DESIGN §3). */
   tier: number;
+  /** The shape class of the body plan (M6 T8). */
+  silhouette: Silhouette;
   /** Vertices of the full-detail mesh. */
   vertices: number;
   /** Plain-words description, six sentences. */
@@ -40,6 +43,7 @@ export function specimenOf(genome: Genome): Specimen {
     species: speciesName(genome),
     rarity: rarityOfTraits(creature.traits).tier,
     tier: sizeTier(creature.stats.maxBiomass),
+    silhouette: silhouetteOf(creature.plan),
     vertices: estimateVertices(creature.plan, 'full'),
     lines: describeCreature(creature),
     violations: bodyViolations(creature.plan),

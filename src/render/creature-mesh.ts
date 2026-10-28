@@ -20,9 +20,9 @@ const TUBE_DEPTH = 0.8;
 const CURVE = 1.2;
 /** Share of the bend radius a tube may fill. */
 const FOLD = 0.8;
-/** Where on its parent a branch grows, and how far it fans out (radians). */
-const BRANCH_AT = 0.7;
-const BRANCH_FAN = 0.5;
+/** Where on its parent a branch grows, and how far it fans out (radians): development's, so membranes meet the tubes. */
+const BRANCH_AT = RULES.develop.branchAt;
+const BRANCH_FAN = RULES.develop.branchFan;
 /** The tip cap is this many end radii long for a blunt tip, plus this many more for a sharp one. */
 const CAP_BLUNT = 0.3;
 const CAP_SHARP = 2.2;

@@ -99,6 +99,11 @@ test('hovering and clicking a creature fills the inspector', async ({ page }) =>
   expect(lines).toHaveLength(6);
   await expect(page.getByTestId('inspect-facts')).toContainText(creature?.hash.slice(0, 12) ?? 'x');
   await expect(page.getByTestId('inspect-facts')).toContainText(String(creature?.vertices));
+  // The silhouette class (M6 T8) names the body's shape.
+  expect(creature?.silhouette).toMatch(/^[a-z-]+$/);
+  await expect(page.getByTestId('inspect-facts')).toContainText(
+    `Silhouette${creature?.silhouette}`,
+  );
   await expect(page.getByTestId('inspect-facts')).toContainText(creature?.rarity ?? 'x', {
     ignoreCase: true,
   });
@@ -177,8 +182,9 @@ const SAMPLES = [
 
 test('every sample body is one connected shape at four gait phases', async ({ page }) => {
   await openLab(page);
-  // The six M3 archetypes, the three of development v2 (M6 T7) and six extremes.
-  expect(SAMPLES).toHaveLength(15);
+  // The six M3 archetypes, the three of development v2 (M6 T7), the two of fine parts (M6 T8) and
+  // six extremes.
+  expect(SAMPLES).toHaveLength(17);
   const ok = await page.evaluate(
     (texts) => window.__lab?.debug?.showGenomes(texts),
     SAMPLES.map(genomeToBase64url),

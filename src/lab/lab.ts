@@ -183,6 +183,7 @@ export function startLab(options: LabOptions): void {
       species: s.species,
       tier: s.tier,
       rarity: s.rarity,
+      silhouette: s.silhouette,
       vertices: s.vertices,
       valid: s.violations.length === 0,
     };
@@ -286,6 +287,7 @@ export function startLab(options: LabOptions): void {
     const rows: [term: string, value: string, title?: string][] = [
       ['Rarity', s.rarity],
       ['Size tier', String(s.tier)],
+      ['Silhouette', s.silhouette],
       ['Mesh vertices', String(s.vertices)],
       ['Genome', s.creature.hash.slice(0, 12), s.creature.hash],
     ];
