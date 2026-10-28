@@ -18,6 +18,9 @@ import ringsFragment from './shaders/rings.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
 
+/** The largest sprite in canvas pixels: big discs cost fill, and some GPUs cap point sizes there. */
+export const MAX_SPRITE_PX = 256;
+
 /** Every layer is ordered by `renderOrder` alone: no depth test, no depth write. */
 function layer(
   vertexShader: string,
@@ -141,7 +144,7 @@ export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
       uTime: { value: 0 },
       uSize: { value: style.size },
       uPxPerWu: { value: 1 },
-      uMaxSize: { value: 256 },
+      uMaxSize: { value: MAX_SPRITE_PX },
       uColor: { value: new THREE.Color(style.color) },
       uOpacity: { value: style.opacity },
       uBokeh: { value: style.bokeh },

@@ -1,6 +1,12 @@
 import * as THREE from 'three';
 import { TAU } from '../sim/math';
-import { type ParticleStyle, particleMaterial, setUniform, vec2Uniform } from './materials';
+import {
+  MAX_SPRITE_PX,
+  type ParticleStyle,
+  particleMaterial,
+  setUniform,
+  vec2Uniform,
+} from './materials';
 import type { SpriteDof } from './post/chain';
 import { depthOfParallax, parallaxOfDepth } from './post/dof';
 import { PRESETS } from './presets';
@@ -8,8 +14,6 @@ import type { SceneView } from './scene';
 
 /** Room for the largest preset's share of particles. */
 const MAX_SHARE = Math.max(...Object.values(PRESETS).map((p) => p.particles));
-/** The largest sprite in canvas pixels: big discs cost fill, and some GPUs cap point sizes there. */
-const MAX_SPRITE_PX = 256;
 
 /** One speck as drawn, for tests (`__bs.render.specks`). */
 export interface Speck {
@@ -120,9 +124,9 @@ export class ParticleLayer {
       if (x < 0 || y < 0 || x >= width || y >= height) continue;
       const coc = Math.min(value('uCocMax'), value('uCocSlope') * Math.abs(z - value('uFocus')));
       const fringe = value('uFringe') * coc;
-      const drawn = Math.min(
-        size * (0.6 + s) * pxPerWu * this.pixels,
-        value('uMaxSize') - 2 * (coc + fringe),
+      const drawn = Math.max(
+        Math.min(size * (0.6 + s) * pxPerWu * this.pixels, value('uMaxSize') - 2 * (coc + fringe)),
+        0.5,
       );
       out.push({ index: i, x, y, size: drawn / this.pixels, z, blur: coc / this.pixels });
     }
