@@ -1,7 +1,7 @@
-// The post chain (M6 T2, ADR 0004): the scene renders into a half-float target, then dual-filter
-// bloom, the grade, the vignette, film grain and chromatic aberration composite it onto the canvas.
-// Low renders straight to the canvas with no target. The DOM HUD sits above the canvas and is never
-// post-processed. The depth of field (T3, `dof.ts`) adds no pass of its own: the sprites off the focus
+// The post chain (M6 T2, ADR 0004): the scene renders into a half-float target, then god rays
+// (M6 T17, no target of their own), dual-filter bloom, the grade, the vignette, film grain and
+// chromatic aberration composite it onto the canvas. Low renders straight to the canvas with no
+// target. The DOM HUD sits above the canvas and is never post-processed. The depth of field (T3, `dof.ts`) adds no pass of its own: the sprites off the focus
 // plane draw their circle of confusion themselves, with the uniforms `spriteDof` gives them.
 // Refraction (T13): a pass cannot sample the target it draws into, so the objects on
 // `BACKDROP_LAYER` (the water, far particles, plumes and food) first draw into a half-resolution
@@ -11,6 +11,7 @@ import * as THREE from 'three';
 import { BACKDROP } from '../materials';
 import { type DofMode, PRESETS, type PresetName } from '../presets';
 import bloomFragment from '../shaders/bloom.frag.glsl?raw';
+import godrays from '../shaders/godrays.glsl?raw';
 import postFragment from '../shaders/post.frag.glsl?raw';
 import postVertex from '../shaders/post.vert.glsl?raw';
 import { DOF_LOOK } from './dof';
@@ -33,6 +34,20 @@ export interface PostInfo {
   renderScale: number;
   /** The depth of field in force: half (medium) or full strength (high), or none (low, `?dof=0`). */
   dof: DofMode;
+  /** The god rays' strength drawn by the composite (M6 T17); 0 with none, and always on low. */
+  rays: number;
+}
+
+/** Where the god rays (M6 T17) cross the plane: the view in wu, their strength and their clock. */
+export interface RayView {
+  /** 0 draws none. */
+  strength: number;
+  camX: number;
+  camY: number;
+  halfWidth: number;
+  halfHeight: number;
+  /** Seconds. */
+  time: number;
 }
 
 /** What a particle layer needs to draw its circle of confusion, in pixels of its own target. */
@@ -107,6 +122,14 @@ export class PostChain {
   private sceneTarget: THREE.WebGLRenderTarget | null = null;
   private backdrop: THREE.WebGLRenderTarget | null = null;
   private focus = 0;
+  private rays: RayView = {
+    strength: 0,
+    camX: 0,
+    camY: 0,
+    halfWidth: 1,
+    halfHeight: 1,
+    time: 0,
+  };
   private mips: THREE.WebGLRenderTarget[] = [];
   private readonly type: THREE.TextureDataType;
   private readonly samples: number;
@@ -197,6 +220,11 @@ export class PostChain {
     this.focus = z;
   }
 
+  /** The god rays to draw over the next frames (M6 T17); the composite draws them, low has none. */
+  setRays(view: RayView): void {
+    this.rays = view;
+  }
+
   /** Fills `out` with how sprites draw their circle of confusion into the scene target. */
   spriteDof(out: SpriteDof): SpriteDof {
     const dof = this.plan.dof;
@@ -262,6 +290,11 @@ export class PostChain {
       (u.uAspect as THREE.IUniform).value = this.width / this.height;
       if (!this.still) this.frame = (this.frame + 1) % 4096;
       (u.uSeed as THREE.IUniform).value = this.frame * 17.31;
+      const rays = this.rays;
+      (u.uRays as THREE.IUniform).value = rays.strength;
+      ((u.uRayCam as THREE.IUniform).value as THREE.Vector2).set(rays.camX, rays.camY);
+      ((u.uRayHalf as THREE.IUniform).value as THREE.Vector2).set(rays.halfWidth, rays.halfHeight);
+      (u.uRayTime as THREE.IUniform).value = rays.time;
       this.quad.material = composite;
       r.setRenderTarget(null);
       r.render(this.quadScene, this.quadCamera);
@@ -285,6 +318,7 @@ export class PostChain {
       targetBytes,
       renderScale: this.renderScale,
       dof: this.plan.dof && this.preset ? PRESETS[this.preset].dof : 'none',
+      rays: this.composite ? this.rays.strength : 0,
     };
   }
 
@@ -319,7 +353,7 @@ export class PostChain {
     for (let i = 0; i < (this.plan.bloom?.levels ?? 1); i++) weight += POST_LOOK.scatter ** i;
     return new THREE.ShaderMaterial({
       vertexShader: postVertex,
-      fragmentShader: postFragment,
+      fragmentShader: godrays + postFragment,
       defines,
       uniforms: {
         tScene: { value: null },
@@ -332,6 +366,10 @@ export class PostChain {
         uChromatic: { value: POST_LOOK.chromatic },
         uGrain: { value: POST_LOOK.grain },
         uSeed: { value: 0 },
+        uRays: { value: 0 },
+        uRayCam: { value: new THREE.Vector2() },
+        uRayHalf: { value: new THREE.Vector2(1, 1) },
+        uRayTime: { value: 0 },
       },
       blending: THREE.NoBlending,
       depthTest: false,

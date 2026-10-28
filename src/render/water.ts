@@ -19,10 +19,11 @@ export class Water {
     this.mesh = new THREE.Mesh(this.geometry, this.material);
   }
 
-  update(view: SceneView, halfWidth: number): void {
+  update(view: SceneView, halfWidth: number, light: boolean): void {
     vec2Uniform(this.material, 'uCam').set(view.camX, view.camY);
     vec2Uniform(this.material, 'uHalf').set(halfWidth, view.halfHeight);
     setUniform(this.material, 'uTime', view.time);
+    setUniform(this.material, 'uLight', light ? 1 : 0);
   }
 
   dispose(): void {

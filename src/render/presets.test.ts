@@ -13,6 +13,7 @@ describe('PRESETS', () => {
         grade: false,
         chromaticAberration: false,
         grain: false,
+        sparkle: false,
         budget: { calls: 80, triangles: 150_000 },
       },
       medium: {
@@ -23,6 +24,7 @@ describe('PRESETS', () => {
         grade: true,
         chromaticAberration: false,
         grain: false,
+        sparkle: false,
         budget: { calls: 150, triangles: 300_000 },
       },
       high: {
@@ -33,6 +35,7 @@ describe('PRESETS', () => {
         grade: true,
         chromaticAberration: true,
         grain: true,
+        sparkle: true,
         budget: { calls: 250, triangles: 600_000 },
       },
     });

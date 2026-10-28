@@ -30,9 +30,15 @@ async function waitForFrames(page: Page, frames = 3): Promise<void> {
 
 /** Hatches the starter cell on `preset`, with or without the DOF, and freezes the world. */
 async function play(page: Page, preset: Preset, dof: boolean): Promise<void> {
-  await openGame(page, `?debug=1&seed=dof&quality=${preset}${dof ? '' : '&dof=0'}`);
+  await openGame(page, `?debug=1&seed=dof&light=0&quality=${preset}${dof ? '' : '&dof=0'}`);
   await hatch(page);
-  await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(0));
+  // `light=0` leaves the water plain of caustics and rays (M6 T17). The water's flow and clock are
+  // zeroed once frozen, so both pages of a pair hold the same specks in the same places.
+  await page.evaluate(() => {
+    const debug = (window.__bs as BsHook).debug;
+    debug?.timeScale(0);
+    debug?.resetWater();
+  });
   await waitForFrames(page);
 }
 

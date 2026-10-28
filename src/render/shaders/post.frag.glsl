@@ -1,4 +1,5 @@
-// The composite onto the canvas: radial chromatic aberration (CHROMATIC), bloom added back, the
+// The composite onto the canvas: radial chromatic aberration (CHROMATIC), god rays (M6 T17,
+// godrays.glsl) where the sunlight reaches, bloom added back, the
 // grade (a teal lift in the shadows and a filmic shoulder that keeps highlights neutral), the
 // vignette and animated film grain (GRAIN). The scene's shaders write display values, so nothing
 // here converts colour spaces.
@@ -13,7 +14,15 @@ uniform float uKnee;
 uniform float uChromatic;
 uniform float uGrain;
 uniform float uSeed;
+/** The god rays' strength (0: none), the view's centre and half size in wu, and their clock. */
+uniform float uRays;
+uniform vec2 uRayCam;
+uniform vec2 uRayHalf;
+uniform float uRayTime;
 varying vec2 vUv;
+
+/** The shafts' colour at full strength: a pale, sunlit cyan. */
+const vec3 RAY_LIGHT = vec3(0.22, 0.34, 0.31);
 
 vec3 sceneAt(vec2 uv) {
 #ifdef CHROMATIC
@@ -41,6 +50,8 @@ const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 
 void main() {
   vec3 c = sceneAt(vUv);
+  // Light in the water between the camera and the plane: over the water and the bodies alike.
+  if (uRays > 0.0) c += RAY_LIGHT * (godRays(uRayCam + (vUv * 2.0 - 1.0) * uRayHalf, uRayTime) * uRays);
 #ifdef BLOOM
   c += texture2D(tBloom, vUv).rgb * uBloom;
 #endif

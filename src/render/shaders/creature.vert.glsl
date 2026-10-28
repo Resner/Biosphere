@@ -26,6 +26,8 @@ varying float vPart;
 varying vec2 vRest;
 varying vec2 vScreen;
 varying vec2 vUnit;
+// Where the vertex lies in the world, for the caustics projected from above (M6 T17).
+varying vec2 vWorld;
 
 const float TAU = 6.28318530718;
 const float SPINE_SWAY = 0.16;
@@ -116,6 +118,7 @@ void main() {
   vUv = uv;
   vPart = aPart;
   vRest = position.xy;
+  vWorld = (modelMatrix * vec4(p, 1.0)).xy;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
   vScreen = gl_Position.xy / gl_Position.w * 0.5 + 0.5;
   vUnit = 0.5 * vec2(projectionMatrix[0][0], projectionMatrix[1][1]) * length(modelViewMatrix[0].xyz);

@@ -4,6 +4,7 @@ import {
   MAX_SPRITE_PX,
   type ParticleStyle,
   particleMaterial,
+  SPARKLE,
   setUniform,
   vec2Uniform,
 } from './materials';
@@ -28,7 +29,15 @@ export interface Speck {
   z: number;
   /** The radius of its circle of confusion in CSS pixels; 0 without a depth of field. */
   blur: number;
+  /** One of the occasional bright specks (M6 T17, high only). */
+  bright: boolean;
 }
+
+/** Whether the speck of this seed is one of a `share` of bright ones (`particles.vert.glsl`). */
+const sparkles = (seed: number, share: number): boolean => {
+  const k = seed * 113;
+  return k - Math.floor(k) < share;
+};
 
 /** GLSL's `mod`: the result takes the sign of the divisor. */
 const mod = (a: number, b: number): number => a - b * Math.floor(a / b);
@@ -45,6 +54,8 @@ export class ParticleLayer {
   private readonly seeds: Float32Array;
   /** Target pixels per CSS pixel at the last update. */
   private pixels = 1;
+  /** The share of specks drawn bright: the style's `sparkle` while `setSparkle(true)`, else 0. */
+  private sparkle = 0;
 
   constructor(
     private readonly count: number,
@@ -80,6 +91,12 @@ export class ParticleLayer {
     this.geometry.setDrawRange(0, Math.round(this.count * share));
   }
 
+  /** Turns the style's occasional bright specks on (high) or off (M6 T17). */
+  setSparkle(on: boolean): void {
+    this.sparkle = on ? (this.style.sparkle ?? 0) : 0;
+    setUniform(this.material, 'uSparkle', this.sparkle);
+  }
+
   /** How many particles are drawn. */
   get drawnCount(): number {
     return this.geometry.drawRange.count;
@@ -87,10 +104,20 @@ export class ParticleLayer {
 
   /**
    * `pxPerWu` is in CSS pixels; `dof` says how the sprites draw their blur into their target;
-   * `light` scales their brightness with the zone around the camera (M6 T16).
+   * `light` scales their brightness with the zone around the camera (M6 T16); `flow` is how far
+   * the currents have carried the water so far, in wu (M6 T17).
    */
-  update(view: SceneView, pxPerWu: number, dof: SpriteDof, light = 1): void {
+  update(
+    view: SceneView,
+    pxPerWu: number,
+    dof: SpriteDof,
+    light: number,
+    flow: { readonly x: number; readonly y: number },
+  ): void {
     const m = this.material;
+    // Wrapped to the tile, so that a long drift keeps its precision in the shader.
+    const { period } = this.style;
+    vec2Uniform(m, 'uFlow').set(mod(flow.x, period), mod(flow.y, period));
     setUniform(m, 'uOpacity', this.style.opacity * light);
     this.pixels = dof.pixels;
     vec2Uniform(m, 'uCam').set(view.camX, view.camY);
@@ -111,6 +138,7 @@ export class ParticleLayer {
     const u = this.material.uniforms;
     const value = (name: string) => (u[name] as THREE.IUniform).value as number;
     const cam = (u.uCam as THREE.IUniform).value as THREE.Vector2;
+    const flow = (u.uFlow as THREE.IUniform).value as THREE.Vector2;
     const t = value('uTime');
     const { period, size, spread = 0 } = this.style;
     const depth = depthOfParallax(this.style.parallax);
@@ -119,8 +147,8 @@ export class ParticleLayer {
       const s = this.seeds[i] ?? 0;
       const z = depth + spread * (2 * (this.positions[i * 3 + 2] ?? 0) - 1);
       const parallax = parallaxOfDepth(z);
-      const dx = (0.8 + 1.2 * s) * t;
-      const dy = 0.3 * Math.sin(t * 0.3 + s * TAU) * t;
+      const dx = (0.8 + 1.2 * s) * t + flow.x;
+      const dy = 0.3 * Math.sin(t * 0.3 + s * TAU) * t + flow.y;
       const rx = mod((this.positions[i * 3] ?? 0) * period + dx - cam.x * parallax, period);
       const ry = mod((this.positions[i * 3 + 1] ?? 0) * period + dy - cam.y * parallax, period);
       const x = width / 2 + (rx - period / 2) * pxPerWu;
@@ -128,11 +156,16 @@ export class ParticleLayer {
       if (x < 0 || y < 0 || x >= width || y >= height) continue;
       const coc = Math.min(value('uCocMax'), value('uCocSlope') * Math.abs(z - value('uFocus')));
       const fringe = value('uFringe') * coc;
+      const bright = sparkles(s, this.sparkle);
+      const grown = bright ? SPARKLE.size : 1;
       const drawn = Math.max(
-        Math.min(size * (0.6 + s) * pxPerWu * this.pixels, value('uMaxSize') - 2 * (coc + fringe)),
+        Math.min(
+          size * grown * (0.6 + s) * pxPerWu * this.pixels,
+          value('uMaxSize') - 2 * (coc + fringe),
+        ),
         0.5,
       );
-      out.push({ index: i, x, y, size: drawn / this.pixels, z, blur: coc / this.pixels });
+      out.push({ index: i, x, y, size: drawn / this.pixels, z, blur: coc / this.pixels, bright });
     }
     return out;
   }

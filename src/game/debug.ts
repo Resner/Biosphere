@@ -2,8 +2,8 @@ import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { Speck } from '../render/particles';
-import type { PresetName, QualitySetting } from '../render/presets';
-import type { ParticleLayerName, RenderInfo } from '../render/scene';
+import type { ParticleLayerName, PresetName, QualitySetting } from '../render/presets';
+import type { RenderInfo } from '../render/scene';
 import type { Zone } from '../sim/bathymetry';
 import type { PhysStats } from '../sim/body';
 import type { LifeStage } from '../sim/life';
@@ -225,6 +225,8 @@ export interface BsDebug {
   setBench(ms: number): void;
   /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
+  /** Zeroes the marine snow's flow and, in a frozen world, the shaders' clock: frozen shots then agree (M6 T17). */
+  resetWater(): void;
 }
 
 declare global {

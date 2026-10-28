@@ -31,6 +31,8 @@ uniform float uDissolve;
 uniform float uAlpha;
 // How clearly the player sees this body in dark water (M6 T16, `sightAt`): 1 is clear.
 uniform float uSight;
+// The sunlight's caustics at this body (M6 T17, `sunlight`): 0 in the deep and the abyss.
+uniform float uCaustic;
 // The water behind the creatures and how far (core radii at a grazing angle) the glass bends it;
 // 0 with no backdrop copy (low).
 uniform sampler2D tBackdrop;
@@ -41,6 +43,7 @@ varying float vPart;
 varying vec2 vRest;
 varying vec2 vScreen;
 varying vec2 vUnit;
+varying vec2 vWorld;
 
 // `aPart` is the appendage number times this, plus the part kind (creature-mesh.ts).
 const float PART_KINDS = 16.0;
@@ -56,6 +59,8 @@ const float MEMBRANE_VEINS = 6.0;
 // The key light, low and to the upper left, as its half vector toward the camera: the wet highlight
 // lands on the upper-left shoulder of each body, outside the organs, which would hide it.
 const vec3 KEY_HALF = vec3(-0.42, 0.46, 0.782);
+// The caustic lines' colour over a body: brighter than on the water, as the glass is seen through.
+const vec3 CAUSTIC_BODY = vec3(0.45, 0.8, 0.72);
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
@@ -257,6 +262,14 @@ void main() {
       vec3 bent = texture2D(tBackdrop, vScreen - bend).rgb;
       col = max(col + (bent - straight) * min((1.0 - alpha) / max(alpha, 0.3), 1.0), 0.0);
     }
+  }
+
+  // Caustics (M6 T17, caustics.glsl): the water's light lines, projected straight down, play over
+  // the body in the same places, so they run on across it. They light the glass a little denser.
+  if (uCaustic > 0.0 && kind != PART_GLINT) {
+    float lines = causticAt(vWorld, uTime) * uCaustic;
+    col += CAUSTIC_BODY * lines;
+    alpha = min(alpha + 0.5 * lines * (1.0 - alpha), 1.0);
   }
 
   // Dark water (M6 T16): beyond the player's sight in the deep and the abyss the body fades into

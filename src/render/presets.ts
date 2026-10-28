@@ -15,9 +15,23 @@ export interface Preset {
   grade: boolean;
   chromaticAberration: boolean;
   grain: boolean;
+  /** Marine snow catches the light now and then (M6 T17). */
+  sparkle: boolean;
   /** Checked against `renderer.info` in E2E. */
   budget: { calls: number; triangles: number };
 }
+
+export type ParticleLayerName = 'far' | 'mid' | 'near';
+
+/**
+ * Each particle layer's full (100%) count: far bokeh below the plane, marine snow around it and
+ * near bokeh above it. A preset draws its `particles` share of each.
+ */
+export const PARTICLE_COUNTS: Readonly<Record<ParticleLayerName, number>> = {
+  far: 290,
+  mid: 2500,
+  near: 60,
+};
 
 export const PRESET_NAMES: readonly PresetName[] = ['low', 'medium', 'high'];
 
@@ -30,6 +44,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
     grade: false,
     chromaticAberration: false,
     grain: false,
+    sparkle: false,
     budget: { calls: 80, triangles: 150_000 },
   },
   medium: {
@@ -40,6 +55,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
     grade: true,
     chromaticAberration: false,
     grain: false,
+    sparkle: false,
     budget: { calls: 150, triangles: 300_000 },
   },
   high: {
@@ -50,6 +66,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
     grade: true,
     chromaticAberration: true,
     grain: true,
+    sparkle: true,
     budget: { calls: 250, triangles: 600_000 },
   },
 };

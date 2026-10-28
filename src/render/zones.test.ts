@@ -11,6 +11,7 @@ import {
   SIGHT_MIN_RADII,
   sightAt,
   sightRadius,
+  sunlight,
   wellInside,
   ZONE_LOOK,
   ZONES,
@@ -96,7 +97,39 @@ describe('zone look', () => {
       `const vec4 ZONE_DARK = vec4(${ZONES.map((z) => ZONE_LOOK[z].dark.toFixed(4)).join(', ')})`,
     );
     expect(glsl).toContain('float zoneSight(');
+    expect(glsl).toContain(
+      `const vec4 ZONE_CAUSTIC = vec4(${ZONES.map((z) => ZONE_LOOK[z].caustic.toFixed(4)).join(', ')})`,
+    );
+    expect(glsl).toContain('float zoneSun(');
   });
+});
+
+describe('sunlight (M6 T17)', () => {
+  const depths = Array.from({ length: 201 }, (_, i) => i / 200);
+  const e = RULES.bathymetry.zones;
+
+  for (const key of ['caustic', 'rays'] as const) {
+    it(`${key}: strongest in the shallows, fading through the twilight, gone in the deep and the abyss`, () => {
+      const top = sunlight(mid('shallows'), key);
+      expect(top).toBeGreaterThan(0);
+      for (const d of depths) expect(sunlight(d, key)).toBeLessThanOrEqual(top + 1e-12);
+      // Never brighter deeper down.
+      for (let i = 1; i < depths.length; i++) {
+        expect(sunlight(depths[i] as number, key)).toBeLessThanOrEqual(
+          sunlight(depths[i - 1] as number, key) + 1e-12,
+        );
+      }
+      // It fades through the twilight rather than stepping down at its edges.
+      const upper = sunlight(e.shallows + 0.03, key);
+      const lower = sunlight(e.twilight - 0.03, key);
+      expect(upper).toBeLessThan(top);
+      expect(lower).toBeGreaterThan(0);
+      expect(lower).toBeLessThan(0.5 * upper);
+      expect(sunlight(mid('deep'), key)).toBe(0);
+      expect(sunlight(mid('abyss'), key)).toBe(0);
+      expect(sunlight(e.twilight + 0.02, key)).toBe(0);
+    });
+  }
 });
 
 describe('depthGrid', () => {

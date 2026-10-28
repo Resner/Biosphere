@@ -4,16 +4,18 @@
 uniform vec2 uCam;
 uniform vec2 uHalf;
 varying vec2 vNdc;
-// The zone's trough and haze colours, and its fog and caustic strengths.
+// The zone's trough and haze colours, and its fog and caustic strengths (the caustics fading
+// through the twilight with the sunlight, `zoneSun`).
 varying vec3 vLow;
 varying vec3 vHaze;
 varying vec2 vZone;
 
 void main() {
   vNdc = position.xy;
-  vec4 zone = zoneWeights(zoneDepth(uCam + position.xy * uHalf));
+  float depth = zoneDepth(uCam + position.xy * uHalf);
+  vec4 zone = zoneWeights(depth);
   vLow = zoneMix(zone, ZONE_WATER_0, ZONE_WATER_1, ZONE_WATER_2, ZONE_WATER_3);
   vHaze = zoneMix(zone, ZONE_HAZE_0, ZONE_HAZE_1, ZONE_HAZE_2, ZONE_HAZE_3);
-  vZone = vec2(dot(zone, ZONE_DARK), dot(zone, ZONE_CAUSTIC));
+  vZone = vec2(dot(zone, ZONE_DARK), dot(zone, ZONE_CAUSTIC) * zoneSun(depth));
   gl_Position = vec4(position.xy, 0.0, 1.0);
 }

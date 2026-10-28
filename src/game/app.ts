@@ -27,6 +27,7 @@ import { GameScene } from '../render/scene';
 import { nearestInZone, sightRadius } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
 import { colliderReach } from '../sim/body';
+import { currentAt } from '../sim/currents';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { angleToSteer, IDLE, type Input } from '../sim/input';
@@ -100,12 +101,16 @@ export interface GameParams {
   quality?: PresetName | null;
   /** `?dof=0`: a test switch that draws every preset without its depth of field. */
   dof?: boolean;
+  /** `?light=0`: a test switch that draws no caustics and no god rays (M6 T17). */
+  light?: boolean;
 }
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
 const FIELD_MARGIN = RULES.food.driftRadius + RULES.food.kinds.globule.radius;
 const MAX_FRAME_SECONDS = 0.1;
 /** `debug.steerTo` gives up after this many ticks (30 s). */
+/** The most sim ticks of water flow one frame integrates: a stalled tab must not fling the snow. */
+const MAX_FLOW_TICKS = TICK_HZ;
 const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
 /** With `timeScale`, a slow software-GL frame must still catch up: 120 ticks is 4 s of sim. */
 const DEBUG_MAX_TICKS_PER_FRAME = 120;
@@ -218,7 +223,10 @@ const INSPECT_MIN_PX = 24;
 
 /** Starts the title screen; the player hatches into the same scene. */
 export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
-  const scene = new GameScene(canvas, RULES.world.size, { dof: params.dof ?? true });
+  const scene = new GameScene(canvas, RULES.world.size, {
+    dof: params.dof ?? true,
+    light: params.light ?? true,
+  });
   const camera = new FollowCamera();
   const controller = new InputController();
   const hud = new Hud();
@@ -1200,8 +1208,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     remotes: [] as readonly DrawnRemote[],
     rings: fx.rings,
     sight: 1,
+    flow: { x: 0, y: 0 },
   };
   const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0, hurt: 0, dissolve: 0 };
+  let flowTick = 0;
   let shownVignette = -1;
   const setVignette = (amount: number): void => {
     // Rounded so a steady fade does not rewrite the style every frame.
@@ -1255,6 +1265,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     view.camX = camera.x;
     view.camY = camera.y;
     view.halfHeight = camera.halfHeight;
+    // The water's flow carries the marine snow (M6 T17). It follows sim ticks, so a frozen world
+    // holds it still and a new life (the tick starts over) leaves it as it is.
+    const flowTicks = session.world.tick - flowTick;
+    flowTick = session.world.tick;
+    if (flowTicks > 0 && flowTicks <= MAX_FLOW_TICKS) {
+      const water = currentAt(session.world, camera.x, camera.y);
+      view.flow.x += (water.x * flowTicks) / TICK_HZ;
+      view.flow.y += (water.y * flowTicks) / TICK_HZ;
+    }
     // Cues run on wall-clock time: a slow frame must not stretch the dissolve.
     fx.update(elapsed);
     cell.hurt = fx.vignette;
@@ -1454,6 +1473,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     timeScale(next) {
       clock();
       scale = next;
+    },
+    resetWater() {
+      view.flow.x = 0;
+      view.flow.y = 0;
+      heldMs = lastMs;
     },
   };
 
