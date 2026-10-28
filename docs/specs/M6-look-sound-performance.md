@@ -176,7 +176,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: ADR 0027: each off-plane speck draws its own CoC (`post/dof.ts`, `particles.vert.glsl`; depth from parallax, marine snow ±0.2), so the DOF adds no target; half-res layer targets were built first and cost a third of a medium frame. Spec changed from half/full resolution to half/full strength.
   - Gotcha: shaders animate on wall-clock time, so `timeScale(0)` now holds that clock too, or `render.specks()` and the screenshot disagree; `?dof=0` is the test switch.
 
-- [ ] T4 Auto-detect and adaptive resolution [opus]
+- [x] T4 Auto-detect and adaptive resolution [opus]
   - Acceptance (unit tests first, on synthetic frame times):
     - `pickPreset(frameTimesMs)` takes the 75th percentile of a 2 s benchmark at medium and maps it: up to 11 ms → high, up to 20 ms → medium, otherwise low. The result is stored per GPU (`bs.bench` keyed by the unmasked renderer string when available), so another machine benchmarks again. `auto` in Settings shows "Auto (Medium)" with the detected preset.
     - `AdaptiveScale` steps the render scale between 0.6 and 1.0 by 0.1:
@@ -188,6 +188,8 @@ A look pass never starts before the tasks it judges are ticked.
   - Notes:
     - The benchmark runs behind the title screen while it is shown, never during play.
     - CI renders in software, so frames are always slow there. With `?quality=`, in the gallery and when `navigator.webdriver` is true, the benchmark is skipped (auto means medium) and the render scale is pinned at 1, unless `debug.setBench` is called. This keeps every other E2E and the gallery stable.
+  - Done: `post/benchmark.ts`, `post/adaptive.ts` and `game/auto-quality.ts` (when to run, `bs.bench` per GPU); `state().quality` shows the result. Low has no scene target, so its scale shrinks the canvas's backing store (and `pixelRatio`).
+  - Gotcha: a stored result counts even under automation (the reload E2E relies on it); each step empties the 2 s window, so stepping up takes 7 s after a step down. Frame intervals are vsync-capped: on a locked 60 Hz display the benchmark reads medium and the scale never steps up (the owner's 60 fps check decides whether T26 needs GPU-time measurement).
 
 - [ ] T5 Gallery tool and the baseline pass [opus]
   - Acceptance (as ADR 0024 decides):

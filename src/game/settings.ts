@@ -39,3 +39,39 @@ export function qualityFromSearch(search: string): PresetName | null {
   const value = new URLSearchParams(search).get('quality');
   return isPresetName(value) ? value : null;
 }
+
+const BENCH_KEY = 'bs.bench';
+/** A browser keeps the benchmark results of this many GPUs (a laptop docked and undocked). */
+export const BENCH_GPUS = 8;
+
+function readBench(store: Store | null): Map<string, PresetName> {
+  const out = new Map<string, PresetName>();
+  try {
+    const text = store?.getItem(BENCH_KEY);
+    const data: unknown = text ? JSON.parse(text) : null;
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) return out;
+    for (const [gpu, preset] of Object.entries(data))
+      if (isPresetName(preset)) out.set(gpu, preset);
+  } catch {
+    // A throwing store or damaged JSON: nothing is known.
+  }
+  return out;
+}
+
+/** The auto-detected preset stored for this GPU (`bs.bench`), or null: then it benchmarks. */
+export function loadBench(store: Store | null, gpu: string): PresetName | null {
+  return readBench(store).get(gpu) ?? null;
+}
+
+/** Stores the auto-detected preset for this GPU; the oldest GPUs past `BENCH_GPUS` are dropped. */
+export function saveBench(store: Store | null, gpu: string, preset: PresetName): void {
+  const results = readBench(store);
+  results.delete(gpu);
+  results.set(gpu, preset);
+  const kept = [...results].slice(-BENCH_GPUS);
+  try {
+    store?.setItem(BENCH_KEY, JSON.stringify(Object.fromEntries(kept)));
+  } catch {
+    // Not saving means benchmarking again next visit.
+  }
+}

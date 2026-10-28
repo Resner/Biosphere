@@ -2,17 +2,24 @@ import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { Speck } from '../render/particles';
+import type { PresetName, QualitySetting } from '../render/presets';
 import type { ParticleLayerName, RenderInfo } from '../render/scene';
 import type { PhysStats } from '../sim/body';
 import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
+import type { BenchStatus } from './auto-quality';
 import type { LifeView } from './life';
 import type { DeathSummary, Screen } from './screens';
 
 /** Read-only views of the running game for tests and tools (`window.__bs`). */
 export interface BsState {
   screen: Screen;
+  /**
+   * Graphics quality (M6 T4): the setting in force, the preset `auto` resolves to, and the
+   * benchmark's status (`stored` means this GPU's result was read and no benchmark ran).
+   */
+  quality: { setting: QualitySetting; detected: PresetName; bench: BenchStatus };
   tick: number;
   /** This browser's identity; null until the key is loaded. */
   playerId: string | null;
@@ -202,6 +209,11 @@ export interface BsDebug {
   deliver(from: string, event: unknown): void;
   /** Whether the food item (`c3_5_s2_k0`) is in the field now. */
   hasFood(id: string): boolean;
+  /**
+   * Replaces every measured frame time with `ms` and re-runs the auto-detect benchmark on it at
+   * once; adaptive resolution then follows `ms` too, even where it is otherwise pinned at 1.
+   */
+  setBench(ms: number): void;
   /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
 }
