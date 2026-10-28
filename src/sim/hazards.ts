@@ -114,6 +114,8 @@ export function applyHazards(world: World, creature: CreatureState): StepEvent[]
 function applyZoneHazards(world: World, creature: CreatureState, events: StepEvent[]): void {
   const depth = depthAt(world.seed32, creature.x, creature.y);
   const z = RULES.bathymetry.zones;
+  // Most of the pond is neither sunlit nor crushing.
+  if (depth >= z.shallows && depth <= H.pressureStart) return;
   const hurt = (cause: 'uv' | 'pressure', rate: number, exposure: number, tolerance: number) => {
     const amount = rate * DT * exposure * (1 - tolerance);
     if (!(amount > 0)) return;

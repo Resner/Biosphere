@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { zoneAt } from './bathymetry';
+import { depthAt, zoneAt } from './bathymetry';
 import { type Mouth, STARTER_PHYS } from './body';
 import {
   applyFeeding,
@@ -423,5 +423,25 @@ describe('feeding through the mouth', () => {
     for (let i = 0; i < runs; i++) step(w, {});
     const ms = Number(process.hrtime.bigint() - start) / 1e6 / runs;
     expect(ms).toBeLessThan(2);
+  });
+
+  it('keeps a tick of 24 creatures in the deep, where vents are scanned, under 2 ms', () => {
+    const w = createWorld({ seed: 'perf2' });
+    let at = { x: 0, y: 0 };
+    for (let y = 100; y < 8000; y += 100) {
+      for (let x = 100; x < 8000; x += 100) {
+        const depth = depthAt(w.seed32, x, y);
+        if (depth > 0.6 && depth < 0.68) at = { x, y };
+      }
+    }
+    for (let i = 0; i < 24; i++) {
+      const id = `c${String(i).padStart(2, '0')}`;
+      spawnCreature(w, { id, x: at.x + (i % 6) * 40, y: at.y + Math.floor(i / 6) * 40 });
+    }
+    for (let i = 0; i < 30; i++) step(w, {});
+    const runs = 60;
+    const start = process.hrtime.bigint();
+    for (let i = 0; i < runs; i++) step(w, {});
+    expect(Number(process.hrtime.bigint() - start) / 1e6 / runs).toBeLessThan(2);
   });
 });
