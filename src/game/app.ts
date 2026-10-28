@@ -33,6 +33,7 @@ import { plumesNear } from '../sim/hazards';
 import { angleToSteer, IDLE, type Input } from '../sim/input';
 import { applyLife, lifespanMs } from '../sim/life';
 import { atan2, lerp, wrapAngle } from '../sim/math';
+import { type MateView, ownRefusal } from '../sim/mating';
 import { replay } from '../sim/replay';
 import { RULES, TICK_HZ } from '../sim/rules';
 import { sizeTier } from '../sim/size';
@@ -349,30 +350,31 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let lastClock: LifeClock | null = null;
 
   // Courting (M5): the creature as the mating rules see it, and what the hub is asked.
+  const ownMateView = (): MateView | null => {
+    const life = flow.view();
+    const { player } = session;
+    if (session.demo || life.status !== 'playing' || !life.creature || !player.alive) return null;
+    return {
+      creature: life.creature,
+      owner: playerId ?? '',
+      active: true,
+      activeMs: lastClock?.activeMs ?? life.activeMs,
+      // The first ack brings the real numbers; until then nobody is mature.
+      matureAtMs: life.matureAtMs > 0 ? life.matureAtMs : Number.POSITIVE_INFINITY,
+      cooldownUntilMs: life.cooldownUntilMs,
+      biomass: player.biomass,
+      energy: player.energy,
+      hasPending: life.pending,
+      inFlight: false,
+      locked: false,
+    };
+  };
   const mate = new MateFlow({
     identity: () => identity as Identity,
     nonce: randomNonce,
     now: () => performance.now(),
     nameOf: (id) => keeper.current?.nameOf(id),
-    own: () => {
-      const life = flow.view();
-      const { player } = session;
-      if (session.demo || life.status !== 'playing' || !life.creature || !player.alive) return null;
-      return {
-        creature: life.creature,
-        owner: playerId ?? '',
-        active: true,
-        activeMs: lastClock?.activeMs ?? life.activeMs,
-        // The first ack brings the real numbers; until then nobody is mature.
-        matureAtMs: life.matureAtMs > 0 ? life.matureAtMs : Number.POSITIVE_INFINITY,
-        cooldownUntilMs: life.cooldownUntilMs,
-        biomass: player.biomass,
-        energy: player.energy,
-        hasPending: life.pending,
-        inFlight: false,
-        locked: false,
-      };
-    },
+    own: ownMateView,
   });
   const mateHint = pick('[data-testid="mate-hint"]');
   const invitePanel = pick('[data-testid="invite"]');
@@ -1211,7 +1213,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const ready =
       playingNow && lastClock !== null && life.matureAtMs > 0 && active >= life.matureAtMs;
     readyShown = ready ? readyText(life.cooldownUntilMs - active) : '';
-    mateReady = ready && life.cooldownUntilMs <= active && !life.pending;
+    const own = ready ? ownMateView() : null;
+    mateReady = own !== null && ownRefusal(own) === null;
     hud.setReady(readyShown);
     if (playingNow && player.alive) updateGrowth(life.matureAtMs);
   };

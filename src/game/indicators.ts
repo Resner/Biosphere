@@ -4,7 +4,8 @@
 // Positions come from the pond snapshots the game already receives, so this costs no traffic.
 
 import { sizeTier } from '../sim/size';
-import { type LabelProjection, placeAt } from './labels';
+import { setText } from './dom';
+import { type LabelProjection, placeAt, screenX, screenY } from './labels';
 import { PINGS } from './social-ui';
 
 /** At most this many players get an indicator: the nearest. Pings come on top. */
@@ -183,8 +184,8 @@ function nudge(v: number, other: number, gap: number, lo: number, hi: number): n
 
 /** Where the line from the screen's centre to a world point leaves the inset frame, in CSS pixels. */
 function edgePoint(x: number, y: number, p: LabelProjection): { x: number; y: number } {
-  const dx = (x - p.camX) * p.pxPerWu;
-  const dy = -(y - p.camY) * p.pxPerWu;
+  const dx = screenX(x, p) - p.width / 2;
+  const dy = screenY(y, p) - p.height / 2;
   const halfW = Math.max(1, p.width / 2 - EDGE_INSET_PX);
   const halfH = Math.max(1, p.height / 2 - EDGE_INSET_PX);
   const t = Math.min(
@@ -307,8 +308,4 @@ export class EdgeIndicatorsUi {
     }
     return s;
   }
-}
-
-function setText(el: HTMLElement, text: string): void {
-  if (el.textContent !== text) el.textContent = text;
 }

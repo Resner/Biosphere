@@ -2,14 +2,13 @@
 // ringed, mate-ready players as hearts) and the live pings. It lies over the water without taking
 // the pointer, so steering carries on under it; `M` or Esc closes it.
 
-import { depthGrid } from '../render/zones';
+import { depthGrid, ZONE_TEXTURE_SIZE } from '../render/zones';
 import { type Zone, zoneOfDepth } from '../sim/bathymetry';
+import { clamp } from '../sim/math';
 import type { Seed } from '../sim/prng';
-import { pick } from './dom';
+import { pick, setText } from './dom';
 import { PINGS } from './social-ui';
 
-/** Texels per side of the zone picture (32 wu each in the 8,192 wu pond, as the water uses). */
-const MAP_TEXELS = 256;
 /** How far an edge texel is lightened, so zones are told apart by a line as well as a colour. */
 const EDGE_LIGHTEN = 0.45;
 
@@ -26,8 +25,7 @@ export const MAP_COLOURS: Readonly<Record<Zone, readonly [number, number, number
 
 /** A world position on the map, 0..1 from the left and from the top (north up). */
 export function mapSpot(x: number, y: number, size: number): { u: number; v: number } {
-  const clamp01 = (t: number) => Math.min(1, Math.max(0, t));
-  return { u: clamp01(x / size), v: clamp01(1 - y / size) };
+  return { u: clamp(x / size, 0, 1), v: clamp(1 - y / size, 0, 1) };
 }
 
 /**
@@ -165,7 +163,7 @@ export class PondMap {
         this.pingEls[i] = el;
       }
       const kind = PINGS[ping.kind];
-      if (el.textContent !== (kind?.glyph ?? '')) el.textContent = kind?.glyph ?? '';
+      setText(el, kind?.glyph ?? '');
       el.dataset.kind = String(ping.kind);
       el.setAttribute('aria-label', `${kind?.name ?? ''} ping`);
       el.style.transform = this.place(ping.x, ping.y, view.size);
@@ -201,14 +199,8 @@ export class PondMap {
     dot.root.dataset.self = String(self);
     dot.root.dataset.ready = String(player.ready);
     // Names come from other players: text only.
-    const text = self
-      ? player.ready
-        ? 'You · ready'
-        : 'You'
-      : player.ready
-        ? `${player.name} · ready`
-        : player.name;
-    if (dot.label.textContent !== text) dot.label.textContent = text;
+    const who = self ? 'You' : player.name;
+    setText(dot.label, player.ready ? `${who} · ready` : who);
     dot.root.style.transform = this.place(player.x, player.y, size);
   }
 
@@ -226,7 +218,7 @@ export class PondMap {
     const key = `${seed.join('.')}/${size}`;
     if (key === this.zonesKey) return;
     this.zonesKey = key;
-    const n = MAP_TEXELS;
+    const n = ZONE_TEXTURE_SIZE;
     this.canvas.width = n;
     this.canvas.height = n;
     const context = this.canvas.getContext('2d');
