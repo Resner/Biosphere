@@ -15,6 +15,7 @@ import {
   type PlanSegment,
   rootOf,
 } from '../genome/develop';
+import { clamp } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { PresetName } from './presets';
 
@@ -287,7 +288,7 @@ function centreLine(segments: readonly PlanSegment[]): Line {
 
 /** The point at arc share `s` (0 front, 1 rear) and the unit forward direction there. */
 function along(line: Line, s: number): { x: number; y: number; fx: number; fy: number } {
-  const target = Math.min(Math.max(s, 0), 1) * line.length;
+  const target = clamp(s, 0, 1) * line.length;
   let lo = 0;
   let hi = line.at.length - 1;
   while (hi - lo > 1) {
@@ -658,10 +659,11 @@ function addAppendage(
   plan: BodyPlan,
   spine: Spine,
   a: Appendage,
+  frame: ReturnType<typeof rootFrame>,
   id: number,
   d: MeshDetail,
 ): void {
-  const { root, heading, attach } = rootFrame(plan, spine, a);
+  const { root, heading, attach } = frame;
   const part = id * PART_KINDS + PART_APPENDAGE;
   const radius = a.width / 2;
   // The tip cap counts toward the part's length, so no part reaches past what development allowed.
@@ -670,7 +672,7 @@ function addAppendage(
   // A tube cannot bend tighter than its own radius, or its inside folds over itself; a webbed part
   // straightens toward the rays its membrane spans.
   const fold = (FOLD * length) / radius;
-  const bend = Math.min(Math.max(a.curvature * CURVE * (1 - a.webbing), -fold), fold);
+  const bend = clamp(a.curvature * CURVE * (1 - a.webbing), -fold, fold);
   const path: Path = { x0: root.x, y0: root.y, heading, turn: a.side * bend, len: length };
   const rings = d.jointRings > 0 ? a.joints * d.jointRings + 1 : 2;
   const bead = 1 + max(JOINT_BEAD, a.beads);
@@ -808,7 +810,7 @@ function addSetae(
         at.x + dx * len * share + nx * half,
         at.y + dy * len * share + ny * half,
         0,
-        0.5 + (half === 0 ? 0 : half > 0 ? 0.5 : -0.5),
+        0.5 + 0.5 * Math.sign(half),
         v,
         attach,
         attach,
@@ -917,11 +919,12 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
 
 function addCreature(m: Mesh, plan: BodyPlan, d: MeshDetail): void {
   const spine = stations(plan, centreLine(plan.segments), d);
-  const attach = plan.appendages.map((a) => rootFrame(plan, spine, a).attach);
+  const frames = plan.appendages.map((a) => rootFrame(plan, spine, a));
   // Draw order (one draw call, no depth test): membranes, parts and bristles, the body, the shell, the eyes.
-  for (const sheet of plan.membranes) addMembrane(m, plan, sheet, attach[sheet.part] ?? 0, d);
+  for (const sheet of plan.membranes)
+    addMembrane(m, plan, sheet, frames[sheet.part]?.attach ?? 0, d);
   plan.appendages.forEach((a, i) => {
-    addAppendage(m, plan, spine, a, i + 1, d);
+    addAppendage(m, plan, spine, a, frames[i] as ReturnType<typeof rootFrame>, i + 1, d);
   });
   addBody(m, plan, spine, d);
   addShell(m, plan, spine, d);
@@ -937,14 +940,22 @@ export function countVertices(plan: BodyPlan, detail: MeshDetail): number {
 
 /** The richest detail that keeps `plan` within its level's budget. */
 export function meshDetail(plan: BodyPlan, lod: Lod): MeshDetail {
+  return fit(plan, lod).detail;
+}
+
+function fit(plan: BodyPlan, lod: Lod): { detail: MeshDetail; count: number } {
   const ladder = FALLBACK[lod];
-  for (const d of ladder) if (countVertices(plan, d) <= LOD_BUDGET[lod]) return d;
-  return ladder[ladder.length - 1] as MeshDetail;
+  let count = 0;
+  for (const detail of ladder) {
+    count = countVertices(plan, detail);
+    if (count <= LOD_BUDGET[lod]) return { detail, count };
+  }
+  return { detail: ladder[ladder.length - 1] as MeshDetail, count };
 }
 
 /** The vertices `buildCreatureGeometry(plan, lod)` makes. */
 export function estimateVertices(plan: BodyPlan, lod: Lod): number {
-  return countVertices(plan, meshDetail(plan, lod));
+  return fit(plan, lod).count;
 }
 
 /** One indexed geometry for the whole creature. Attributes: position, normal, uv, aSpine, aAttach, aWeight, aPart. */
