@@ -32,6 +32,8 @@ async function waitForFrames(page: Page, frames = 3): Promise<void> {
 async function play(page: Page, preset: Preset, dof: boolean): Promise<void> {
   await openGame(page, `?debug=1&seed=dof&quality=${preset}${dof ? '' : '&dof=0'}`);
   await hatch(page);
+  // The deep has no caustics (M6 T17): the water behind a disc stays plain.
+  await page.evaluate(() => (window.__bs as BsHook).debug?.setZone('deep'));
   await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(0));
   await waitForFrames(page);
 }
