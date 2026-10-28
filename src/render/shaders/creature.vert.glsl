@@ -21,6 +21,11 @@ uniform float uTurn;
 varying vec3 vNormal;
 varying vec2 vUv;
 varying float vPart;
+// The rest position in core radii, for the surface detail (M6 T13); where the vertex falls on the
+// screen (0..1), and screen shares per core radius, for the refraction.
+varying vec2 vRest;
+varying vec2 vScreen;
+varying vec2 vUnit;
 
 const float TAU = 6.28318530718;
 const float SPINE_SWAY = 0.16;
@@ -110,5 +115,8 @@ void main() {
   vNormal = normalize(normalMatrix * n);
   vUv = uv;
   vPart = aPart;
+  vRest = position.xy;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);
+  vScreen = gl_Position.xy / gl_Position.w * 0.5 + 0.5;
+  vUnit = 0.5 * vec2(projectionMatrix[0][0], projectionMatrix[1][1]) * length(modelViewMatrix[0].xyz);
 }

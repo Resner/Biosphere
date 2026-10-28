@@ -1,11 +1,20 @@
 // What the post chain does on each preset (M6 T2, ADR 0004), as plain data the chain and its tests
 // read. The depth of field (T3) draws the off-plane layers with their circle of confusion (`dof.ts`).
+// Refraction (T13) first draws the backdrop into a half-resolution copy the creatures' glass samples.
 
 import * as THREE from 'three';
 import { PRESETS, type PresetName } from '../presets';
 import { DOF_LOOK } from './dof';
 
-export type PostPass = 'scene' | 'dof' | 'bloom' | 'grade' | 'vignette' | 'grain' | 'chromatic';
+export type PostPass =
+  | 'scene'
+  | 'refraction'
+  | 'dof'
+  | 'bloom'
+  | 'grade'
+  | 'vignette'
+  | 'grain'
+  | 'chromatic';
 
 export interface PostPlan {
   /** In order; empty means the scene renders straight to the canvas. */
@@ -14,6 +23,8 @@ export interface PostPlan {
   bloom: { scale: number; levels: number } | null;
   /** The largest circle of confusion (pixels at a pixel ratio of 1) and whether discs get a fringe. */
   dof: { maxPx: number; fringe: boolean } | null;
+  /** The backdrop copy the glass refracts (T13): its size relative to the scene target. */
+  backdrop: { scale: number } | null;
 }
 
 /** Bloom levels per preset: each one doubles the reach of the glow. */
@@ -29,8 +40,9 @@ export function postPlan(
 ): PostPlan {
   const p = PRESETS[preset];
   const lens = options.lens ?? true;
-  if (!p.bloom && !p.grade) return { passes: [], bloom: null, dof: null };
-  const passes: PostPass[] = ['scene'];
+  if (!p.bloom && !p.grade) return { passes: [], bloom: null, dof: null, backdrop: null };
+  // Refraction needs the scene target: a pass cannot sample the canvas it draws into.
+  const passes: PostPass[] = ['scene', 'refraction'];
   const dof = options.dof !== false && p.dof !== 'none';
   if (dof) passes.push('dof');
   if (p.bloom) passes.push('bloom');
@@ -49,6 +61,7 @@ export function postPlan(
           fringe: p.chromaticAberration && lens,
         }
       : null,
+    backdrop: { scale: 0.5 },
   };
 }
 

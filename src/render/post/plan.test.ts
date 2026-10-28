@@ -4,22 +4,24 @@ import { bytesPerPixel, mipSizes, postPlan, targetType } from './plan';
 
 describe('postPlan', () => {
   it('renders low straight to the canvas', () => {
-    expect(postPlan('low')).toEqual({ passes: [], bloom: null, dof: null });
+    expect(postPlan('low')).toEqual({ passes: [], bloom: null, dof: null, backdrop: null });
   });
 
-  it('gives medium a half-strength depth of field, a half-resolution bloom of 4 levels, a grade and a vignette', () => {
+  it('gives medium a half-resolution backdrop for refraction, a half-strength depth of field, a half-resolution bloom of 4 levels, a grade and a vignette', () => {
     expect(postPlan('medium')).toEqual({
-      passes: ['scene', 'dof', 'bloom', 'grade', 'vignette'],
+      passes: ['scene', 'refraction', 'dof', 'bloom', 'grade', 'vignette'],
       bloom: { scale: 0.5, levels: 4 },
       dof: { maxPx: 6, fringe: false },
+      backdrop: { scale: 0.5 },
     });
   });
 
   it('adds a full-strength depth of field with a fringe, grain and chromatic aberration on high, with a 5-level bloom', () => {
     expect(postPlan('high')).toEqual({
-      passes: ['scene', 'dof', 'bloom', 'grade', 'vignette', 'grain', 'chromatic'],
+      passes: ['scene', 'refraction', 'dof', 'bloom', 'grade', 'vignette', 'grain', 'chromatic'],
       bloom: { scale: 0.5, levels: 5 },
       dof: { maxPx: 12, fringe: true },
+      backdrop: { scale: 0.5 },
     });
   });
 
@@ -27,6 +29,7 @@ describe('postPlan', () => {
     expect(postPlan('high', { lens: false }).dof).toEqual({ maxPx: 12, fringe: false });
     expect(postPlan('high', { lens: false }).passes).toEqual([
       'scene',
+      'refraction',
       'dof',
       'bloom',
       'grade',
@@ -36,9 +39,10 @@ describe('postPlan', () => {
 
   it('drops the depth of field when it is switched off', () => {
     expect(postPlan('medium', { dof: false })).toEqual({
-      passes: ['scene', 'bloom', 'grade', 'vignette'],
+      passes: ['scene', 'refraction', 'bloom', 'grade', 'vignette'],
       bloom: { scale: 0.5, levels: 4 },
       dof: null,
+      backdrop: { scale: 0.5 },
     });
     expect(postPlan('high', { dof: false }).passes).not.toContain('dof');
   });

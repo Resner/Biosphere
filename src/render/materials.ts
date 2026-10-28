@@ -17,6 +17,7 @@ import plumeVertex from './shaders/plume.vert.glsl?raw';
 import ringsFragment from './shaders/rings.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
+import { DETAIL_FADE, DETAIL_SIZE } from './surface';
 
 /** The largest sprite in canvas pixels: big discs cost fill, and some GPUs cap point sizes there. */
 export const MAX_SPRITE_PX = 256;
@@ -64,13 +65,46 @@ export const cellMaterial = (extent: number): THREE.ShaderMaterial =>
     uAlpha: { value: 1 },
   });
 
+/** A GLSL float literal. */
+const glslFloat = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
+
+/** The surface detail's fade band and sizes (`surface.ts`), as the creature shader's defines. */
+export const SURFACE_DEFINES: Readonly<Record<string, string>> = {
+  DETAIL_FROM: glslFloat(DETAIL_FADE.from),
+  DETAIL_TO: glslFloat(DETAIL_FADE.to),
+  DETAIL_PORE: glslFloat(DETAIL_SIZE.pore),
+  DETAIL_CELL: glslFloat(DETAIL_SIZE.cell),
+  DETAIL_VEIN: glslFloat(DETAIL_SIZE.vein),
+  DETAIL_FLAW: glslFloat(DETAIL_SIZE.flaw),
+};
+
 /**
- * The creature mesh's material (M3 T11, T12): the genes' look is set once from `params`, then only
- * `uTime`, `uPhase`, `uBeat`, `uTurn`, `uHurt`, `uDissolve` and `uAlpha` change. A view clones it, since the
- * gait uniforms are per creature.
+ * The water behind the creatures (M6 T13): the post chain's half-resolution backdrop copy and how
+ * far the glass bends it, shared by every creature material (`shareBackdrop`). The chain sets them
+ * before each frame; with no copy (low) the strength is 0 and the glass is plain translucency.
  */
-export const creatureMaterial = (params: MaterialParams): THREE.ShaderMaterial =>
-  layer(creatureVertex, noise + creatureFragment, {
+export const BACKDROP: {
+  readonly texture: THREE.IUniform<THREE.Texture | null>;
+  readonly strength: THREE.IUniform<number>;
+} = { texture: { value: null }, strength: { value: 0 } };
+
+/**
+ * Points a creature material at the shared backdrop. A clone copies its uniforms (and three cannot
+ * clone a render target's texture), so each view links its own clone after cloning.
+ */
+export function shareBackdrop(material: THREE.ShaderMaterial): void {
+  material.uniforms.tBackdrop = BACKDROP.texture;
+  material.uniforms.uRefract = BACKDROP.strength;
+}
+
+/**
+ * The creature mesh's material (M3 T11, T12, M6 T13): the genes' look is set once from `params` and
+ * the glints' brightness (`glintsFor`), then only `uTime`, `uPhase`, `uBeat`, `uTurn`, `uHurt`,
+ * `uDissolve` and `uAlpha` change. A view clones it, since the gait uniforms are per creature, and
+ * links the clone to the shared backdrop.
+ */
+export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.ShaderMaterial => {
+  const material = layer(creatureVertex, noise + creatureFragment, {
     uAmp: { value: 0 },
     uPhase: { value: 0 },
     uBeat: { value: 0 },
@@ -91,10 +125,17 @@ export const creatureMaterial = (params: MaterialParams): THREE.ShaderMaterial =
     uLumPulse: { value: params.lumPulse },
     uPlating: { value: params.plating },
     uRimStrength: { value: params.rimStrength },
+    uGlint: { value: glint },
+    // Linked to the shared backdrop by `shareBackdrop`; declared here so an unlinked material still draws.
+    tBackdrop: { value: null },
+    uRefract: { value: 0 },
     uHurt: { value: 0 },
     uDissolve: { value: 0 },
     uAlpha: { value: 1 },
   });
+  material.defines = { ...SURFACE_DEFINES };
+  return material;
+};
 
 export const flagellumMaterial = (): THREE.ShaderMaterial =>
   layer(flagellumVertex, flagellumFragment, {

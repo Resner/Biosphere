@@ -5,6 +5,7 @@ import { genomeToBase64url } from '../../src/genome/codec';
 import type { BodyPlan, Point } from '../../src/genome/develop';
 import { buildCreature } from '../../src/genome/stats';
 import { galleryCell, galleryGrid, LABEL_HEIGHT, parseSpecimen } from '../../src/lab/gallery';
+import { anatomyOf } from '../../src/render/anatomy';
 import { captureGallery, GALLERY_VIEWPORT } from '../../tools/gallery-capture.mjs';
 import { hatch, openGame } from './helpers';
 
@@ -375,7 +376,137 @@ test.describe('the gallery sheet', () => {
     });
     expect(counted.length).toBeGreaterThanOrEqual(3);
   });
+
+  // Materials v2 (M6 T13): silvery glass shells, colour inside, and glints that rise with rarity.
+  test('shells stay pale: the median share of saturated shell pixels is below 5% of the body', () => {
+    const shares: number[] = [];
+    const rows: string[] = [];
+    FILES.forEach((file, index) => {
+      const s = specimen(file.slice(0, 3));
+      const place = placeOf(index, { radius });
+      const { hull, shell } = shellPixels(place, s);
+      const saturated = shell.filter((p) => saturation(luma.rgb(p.x, p.y)) > 0.6).length;
+      shares.push(saturated / hull.length);
+      rows.push(`${file.slice(0, 24)} ${((100 * saturated) / hull.length).toFixed(1)}%`);
+    });
+    console.log(`saturated shell pixels (share of the body):\n${rows.join('\n')}`);
+    expect(median(shares)).toBeLessThan(0.05);
+  });
+
+  test('the exotic specimen glints at least 8 times and the common one at most twice', () => {
+    const counts: Record<string, number> = {};
+    for (const file of FILES) {
+      const s = specimen(file.slice(0, 3));
+      counts[file.slice(0, 24)] = glintMaxima(luma, placeOf(s.index, { radius }));
+    }
+    console.log('glint maxima:', counts);
+    const exotic = specimen('36-specimen-tier-exotic');
+    const common = specimen('33-specimen-tier-common');
+    expect(glintMaxima(luma, placeOf(exotic.index, { radius }))).toBeGreaterThanOrEqual(8);
+    expect(glintMaxima(luma, placeOf(common.index, { radius }))).toBeLessThanOrEqual(2);
+  });
+
+  test("every specimen's rim stays the brightest ring of its body", () => {
+    const failures: string[] = [];
+    const rows: string[] = [];
+    FILES.forEach((file, index) => {
+      const s = specimen(file.slice(0, 3));
+      const rings = ringMeans(luma, placeOf(index, { radius }), s.plan);
+      rows.push(`${file.slice(0, 24)} ${rings.map((v) => v.toFixed(0)).join(' ')}`);
+      const [rim = 0, ...inner] = rings;
+      if (inner.some((v) => v > rim)) failures.push(`${file}: rings ${rings.map(Math.round)}`);
+    });
+    console.log(`mean luminance, rim ring first:\n${rows.join('\n')}`);
+    expect(failures).toEqual([]);
+  });
 });
+
+const saturation = ([r, g, b]: readonly [number, number, number]): number => {
+  const max = Math.max(r, g, b);
+  return max === 0 ? 0 : (max - Math.min(r, g, b)) / max;
+};
+
+/**
+ * A specimen's hull pixels, and those of its shell: the hull less its organs (each disc widened by
+ * half, plus 2 px for the glow) and its gut line, where the pigment lives (T12).
+ */
+function shellPixels(place: ReturnType<typeof placeOf>, s: ReturnType<typeof specimen>) {
+  const creature = buildCreature(s.genome);
+  const { organs, gut } = anatomyOf(creature.plan, creature.traits, creature.hash);
+  const margin = 2 / place.r;
+  const inOrgan = (x: number, y: number): boolean =>
+    organs.some((o) => Math.hypot(x - o.x, y - o.y) <= o.r * 1.5 + margin) ||
+    gut.some((g) => Math.hypot(x - g.x, y - g.y) <= g.r * 1.5 + margin + 0.04);
+  const hull: { x: number; y: number }[] = [];
+  const shell: { x: number; y: number }[] = [];
+  const reach = 2.6 * place.r;
+  for (let py = Math.floor(place.y - reach); py <= place.y + reach; py++) {
+    for (let px = Math.floor(place.x - reach); px <= place.x + reach; px++) {
+      const [x, y] = [(px - place.x) / place.r, (place.y - py) / place.r];
+      if (!insideScaled(creature.plan, x, y, 1)) continue;
+      hull.push({ x: px, y: py });
+      if (!inOrgan(x, y)) shell.push({ x: px, y: py });
+    }
+  }
+  return { hull, shell };
+}
+
+/**
+ * Glints: isolated white-hot points within 2.6 core radii of a specimen. A glint is a pixel of at
+ * least 250 luminance that stands 30 levels above every pixel on the circle 3 px round it (so a rim,
+ * a seta or an organ's broad glow, which run through the circle as bright, never counts) and 100
+ * above the circle's median (so the star's own thin rays do not hide it, while it still outshines a
+ * bright part it sits on), and is at least 4 px from a brighter one.
+ */
+function glintMaxima(luma: Luma, place: ReturnType<typeof placeOf>): number {
+  const reach = 2.6 * place.r;
+  const peaks: { x: number; y: number; v: number }[] = [];
+  const ring = Array.from({ length: 24 }, (_, k) => {
+    const a = (2 * Math.PI * k) / 24;
+    return [3 * Math.cos(a), 3 * Math.sin(a)] as const;
+  });
+  for (let y = Math.floor(place.y - reach); y <= place.y + reach; y++) {
+    for (let x = Math.floor(place.x - reach); x <= place.x + reach; x++) {
+      const v = luma.at(x, y);
+      if (v < 250 || Math.hypot(x - place.x, y - place.y) > reach) continue;
+      const around = ring.map(([dx, dy]) => luma.at(x + dx, y + dy)).sort((a, b) => a - b);
+      const [middle, top] = [
+        around[around.length >> 1] as number,
+        around[around.length - 1] as number,
+      ];
+      if (v - top >= 30 && v - middle >= 100) peaks.push({ x, y, v });
+    }
+  }
+  peaks.sort((a, b) => b.v - a.v);
+  const kept: typeof peaks = [];
+  for (const p of peaks) {
+    if (kept.every((q) => Math.hypot(p.x - q.x, p.y - q.y) >= 4)) kept.push(p);
+  }
+  return kept.length;
+}
+
+/** Mean luminance of the hull's bands, rim first: [0.88, 1], [0.66, 0.88], [0.44, 0.66], [0, 0.44] of the hull. */
+function ringMeans(luma: Luma, place: ReturnType<typeof placeOf>, plan: BodyPlan): number[] {
+  const edges = [1, 0.88, 0.66, 0.44, 0];
+  const sums = new Array<number>(4).fill(0);
+  const counts = new Array<number>(4).fill(0);
+  const reach = 2.6 * place.r;
+  for (let py = Math.floor(place.y - reach); py <= place.y + reach; py++) {
+    for (let px = Math.floor(place.x - reach); px <= place.x + reach; px++) {
+      const [x, y] = [(px - place.x) / place.r, (place.y - py) / place.r];
+      const band = edges.findIndex(
+        (outer, i) =>
+          i < 4 &&
+          insideScaled(plan, x, y, outer) &&
+          !insideScaled(plan, x, y, edges[i + 1] as number),
+      );
+      if (band < 0) continue;
+      sums[band] = (sums[band] as number) + luma.at(px, py);
+      counts[band] = (counts[band] as number) + 1;
+    }
+  }
+  return sums.map((s, i) => s / Math.max(1, counts[i] as number));
+}
 
 test("the player's body at default zoom keeps the medium budget and a bright rim", async ({
   page,

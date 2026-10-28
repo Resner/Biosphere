@@ -3,8 +3,12 @@
 // Low renders straight to the canvas with no target. The DOM HUD sits above the canvas and is never
 // post-processed. The depth of field (T3, `dof.ts`) adds no pass of its own: the sprites off the focus
 // plane draw their circle of confusion themselves, with the uniforms `spriteDof` gives them.
+// Refraction (T13): a pass cannot sample the target it draws into, so the objects on
+// `BACKDROP_LAYER` (the water, far particles, plumes and food) first draw into a half-resolution
+// backdrop copy, which the creatures' glass samples through `BACKDROP` while the scene draws.
 
 import * as THREE from 'three';
+import { BACKDROP } from '../materials';
 import { type DofMode, PRESETS, type PresetName } from '../presets';
 import bloomFragment from '../shaders/bloom.frag.glsl?raw';
 import postFragment from '../shaders/post.frag.glsl?raw';
@@ -65,7 +69,12 @@ export const POST_LOOK = {
   chromatic: 0.006,
   /** Peak-to-peak grain amplitude. */
   grain: 0.03,
+  /** How far the creatures' glass bends the water behind it, in core radii at a grazing angle. */
+  refraction: 0.2,
 } as const;
+
+/** The layer (besides the default 0) of everything drawn behind the creatures, which the glass refracts. */
+export const BACKDROP_LAYER = 1;
 
 /** Render scale bounds for adaptive resolution (T4). */
 const MIN_SCALE = 0.6;
@@ -96,6 +105,7 @@ export class PostChain {
   private pixelRatio = 1;
   private renderScale = 1;
   private sceneTarget: THREE.WebGLRenderTarget | null = null;
+  private backdrop: THREE.WebGLRenderTarget | null = null;
   private focus = 0;
   private mips: THREE.WebGLRenderTarget[] = [];
   private readonly type: THREE.TextureDataType;
@@ -204,6 +214,9 @@ export class PostChain {
     r.info.reset();
     const target = this.sceneTarget;
     const composite = this.composite;
+    const backdrop = this.backdrop;
+    BACKDROP.texture.value = backdrop ? backdrop.texture : null;
+    BACKDROP.strength.value = backdrop ? POST_LOOK.refraction : 0;
     if (!target || !composite) {
       r.setRenderTarget(null);
       r.render(scene, camera);
@@ -219,6 +232,13 @@ export class PostChain {
       this.targetClear.setRGB(rgb.r, rgb.g, rgb.b, THREE.LinearSRGBColorSpace),
       alpha,
     );
+    if (backdrop) {
+      const mask = camera.layers.mask;
+      camera.layers.set(BACKDROP_LAYER);
+      r.setRenderTarget(backdrop);
+      r.render(scene, camera);
+      camera.layers.mask = mask;
+    }
     r.setRenderTarget(target);
     r.render(scene, camera);
     r.setClearColor(this.clearColor, alpha);
@@ -257,10 +277,11 @@ export class PostChain {
       const { width, height } = this.sceneTarget;
       targetBytes += width * height * bpp * (1 + this.samples);
     }
+    if (this.backdrop) targetBytes += this.backdrop.width * this.backdrop.height * bpp;
     for (const mip of this.mips) targetBytes += mip.width * mip.height * bpp;
     return {
       passes: [...this.plan.passes],
-      targets: (this.sceneTarget ? 1 : 0) + this.mips.length,
+      targets: (this.sceneTarget ? 1 : 0) + (this.backdrop ? 1 : 0) + this.mips.length,
       targetBytes,
       renderScale: this.renderScale,
       dof: this.plan.dof && this.preset ? PRESETS[this.preset].dof : 'none',
@@ -337,6 +358,14 @@ export class PostChain {
     const width = Math.max(1, Math.floor(this.width * this.pixelRatio * this.renderScale));
     const height = Math.max(1, Math.floor(this.height * this.pixelRatio * this.renderScale));
     this.sceneTarget = this.target(width, height, this.samples);
+    const backdrop = this.plan.backdrop;
+    if (backdrop) {
+      this.backdrop = this.target(
+        Math.max(1, Math.round(width * backdrop.scale)),
+        Math.max(1, Math.round(height * backdrop.scale)),
+        0,
+      );
+    }
     const bloom = this.plan.bloom;
     if (bloom) {
       this.mips = mipSizes(width, height, bloom.scale, bloom.levels).map(([w, h]) =>
@@ -348,6 +377,8 @@ export class PostChain {
   private release(): void {
     this.sceneTarget?.dispose();
     this.sceneTarget = null;
+    this.backdrop?.dispose();
+    this.backdrop = null;
     for (const mip of this.mips) mip.dispose();
     this.mips = [];
   }

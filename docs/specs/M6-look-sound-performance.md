@@ -320,7 +320,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `render/anatomy.ts` (`anatomyOf`, spine helpers moved to `render/spine.ts`) feeds organ part kinds 9–13 into the cached geometry (`ORGAN_RESERVE` comes off each level's budget); shells take 15% of the gene saturation, organs the full hue (albino organs pink), glow lives in the organs, plates are glass.
   - Gotcha: "hue variance" is the spread of chroma vectors (max − min along the hue angle): HSV saturation calls dark water pixels saturated; a rim-coloured glow or mouth tint alone failed the 3× ratio.
 
-- [ ] T13 Materials v2: glass, wet gloss, surface detail, rare glints [opus]
+- [x] T13 Materials v2: glass, wet gloss, surface detail, rare glints [opus]
   - Acceptance (unit tests first):
     - **The shell** is glass:
       - a fresnel rim of at least the `MIN_RIM_LUMINANCE` of today;
@@ -340,6 +340,8 @@ A look pass never starts before the tasks it judges are ticked.
       - the exotic rarity specimen (T9) has at least 8 glint maxima and the common one at most 2;
       - every specimen's rim stays the brightest ring of its body.
   - Notes: the rule from #90 is "sparkles must feel exceptionally rare". When in doubt, fewer glints.
+  - Done: `render/surface.ts` (`glintsFor`, `detailFade` 2–5 px), glint quads (`PART_GLINT`, `glintSpots`) drawn last; shells silvery blue; the chain's `refraction` pass draws `BACKDROP_LAYER` into a half-res copy that `BACKDROP` shares with every creature material.
+  - Gotcha: a glint maximum is ≥250 luminance, 30 above its 3 px ring's max and 100 above its median (glints sit on bright legs); silver saturation is 4%, because more broke T12's rim hue-variance ratio.
 
 - [ ] T14 Look pass 1 [opus]
   - Acceptance (ADR 0024):

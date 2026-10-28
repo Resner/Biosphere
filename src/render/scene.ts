@@ -10,7 +10,7 @@ import type { Ring } from './effects';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';
 import { ParticleLayer, type Speck } from './particles';
-import { PostChain, type PostInfo, type SpriteDof } from './post/chain';
+import { BACKDROP_LAYER, PostChain, type PostInfo, type SpriteDof } from './post/chain';
 import { PRESETS, type PresetName, pixelRatio } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
@@ -176,6 +176,8 @@ export class GameScene {
     for (const [object, order] of items) {
       object.renderOrder = order;
       object.frustumCulled = false;
+      // What lies behind the creatures also draws into the backdrop copy their glass refracts (T13).
+      if (order < ORDER.cell - 0.1) object.layers.enable(BACKDROP_LAYER);
       this.scene.add(object);
     }
 

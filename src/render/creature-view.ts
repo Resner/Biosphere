@@ -11,7 +11,7 @@ import {
 } from './creature-cache';
 import type { Lod } from './creature-mesh';
 import { GAIT_WRAP, gaitOf, trailHeading, turnLag } from './gait';
-import { setUniform } from './materials';
+import { setUniform, shareBackdrop } from './materials';
 import type { PresetName } from './presets';
 
 export interface CreatureViewState {
@@ -102,6 +102,7 @@ export class CreatureView {
     const asset = this.cache.acquire(view.creature, detail);
     // The cached material is a template: the gait uniforms belong to this creature alone.
     const material = (asset.material as THREE.ShaderMaterial).clone();
+    shareBackdrop(material);
     const gait = gaitOf(view.creature.traits, view.creature.plan);
     setUniform(material, 'uAmp', gait.amp);
     setUniform(material, 'uBend', gait.bend);

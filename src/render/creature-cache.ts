@@ -10,6 +10,7 @@ import { anatomyOf } from './anatomy';
 import { buildCreatureGeometry, type Lod } from './creature-mesh';
 import { materialParams } from './material-params';
 import { creatureMaterial } from './materials';
+import { glintPlanOf, glintsOf } from './surface';
 
 /** A body smaller than this many pixels (radius) drops to low detail; larger than `FULL_ABOVE` returns to the preset's. */
 export const LOW_BELOW = 12;
@@ -50,8 +51,10 @@ export class CreatureCache {
 
   /** `makeMaterial` must return a fresh material each call: the cache disposes it with the geometry. */
   constructor(
-    private readonly makeMaterial: (creature: CreatureSource) => THREE.Material = (c) =>
-      creatureMaterial(materialParams(c.traits)),
+    private readonly makeMaterial: (creature: CreatureSource) => THREE.Material = (c) => {
+      const params = materialParams(c.traits);
+      return creatureMaterial(params, glintsOf(c.traits, params).brightness);
+    },
   ) {}
 
   acquire(creature: CreatureSource, lod: Lod): CreatureAsset {
@@ -59,7 +62,12 @@ export class CreatureCache {
     let entry = this.entries.get(key);
     if (!entry) {
       const { plan, traits, hash } = creature;
-      const geometry = buildCreatureGeometry(plan, lod, anatomyOf(plan, traits, hash));
+      const geometry = buildCreatureGeometry(
+        plan,
+        lod,
+        anatomyOf(plan, traits, hash),
+        glintPlanOf(creature),
+      );
       entry = {
         asset: {
           key,

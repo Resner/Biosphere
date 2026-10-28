@@ -7,6 +7,7 @@ import { express } from '../src/genome/express';
 import { GENOME_BYTES, LOCI, MODULE_PARAMS } from '../src/genome/karyotype';
 import { anatomyOf } from '../src/render/anatomy';
 import { estimateVertices } from '../src/render/creature-mesh';
+import { glintPlanOf } from '../src/render/surface';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { ARCHETYPES, buildBytes, withLoci } from './archetypes';
 
@@ -40,9 +41,11 @@ function findWorst(): NonNullable<typeof worst> {
   for (const genome of [...Object.values(ARCHETYPES), ...extremes, ...randoms]) {
     const traits = express(genome);
     const plan = develop(traits);
-    const anatomy = anatomyOf(plan, traits, genomeHash(genome));
-    const vertices = estimateVertices(plan, 'high', anatomy);
-    best.lowVertices = Math.max(best.lowVertices, estimateVertices(plan, 'low', anatomy));
+    const hash = genomeHash(genome);
+    const anatomy = anatomyOf(plan, traits, hash);
+    const glints = glintPlanOf({ hash, plan, traits });
+    const vertices = estimateVertices(plan, 'high', anatomy, glints);
+    best.lowVertices = Math.max(best.lowVertices, estimateVertices(plan, 'low', anatomy, glints));
     if (vertices > best.vertices) best = { genome, vertices, lowVertices: best.lowVertices };
   }
   return best;

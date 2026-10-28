@@ -30,6 +30,13 @@ const MIN_CORE_LUMINANCE = 0.1;
  * more saturated than this. The pigment lives in the organs, at the gene's own saturation.
  */
 export const SHELL_SATURATION = 0.15;
+/**
+ * Every shell is silvery pale blue (M6 T13): this hue at this saturation, with the gene's tint
+ * (`SHELL_SATURATION` of its saturation) added as a chroma vector and the sum capped there. An
+ * albino has no pigment and no tint: its shell stays clear.
+ */
+const SILVER_HUE = 0.58;
+const SILVER_SATURATION = 0.04;
 /** Organs are at least this bright, so their colour reads through the shell. */
 const ORGAN_VALUE = 0.75;
 /** Oil droplets are lipid: the hue gene turned this share of the way toward amber. */
@@ -87,10 +94,25 @@ const toward = (c: Rgb, to: number, t: number): Rgb => [
   lerp(c[2], to, t),
 ];
 
-/** Lightens `c` toward white until it reaches `min` luminance; a bright colour is returned as it is. */
-function liftTo(c: Rgb, min: number): Rgb {
+/** Lightens `c` toward `to` (white by default) until it reaches `min` luminance; a bright colour is returned as it is. */
+function liftTo(c: Rgb, min: number, to: Rgb = [1, 1, 1]): Rgb {
   const l = luminance(c);
-  return l >= min ? c : toward(c, 1, (min - l) / (1 - l));
+  const top = luminance(to);
+  if (l >= min || top <= l) return c;
+  const t = (min - l) / (top - l);
+  return [lerp(c[0], to[0], t), lerp(c[1], to[1], t), lerp(c[2], to[2], t)];
+}
+
+/** The shell's hue and saturation: the silver's chroma plus the gene's, capped at `SHELL_SATURATION`. */
+function shellTint(hue: number, saturation: number): [number, number] {
+  const gene = saturation * SHELL_SATURATION;
+  const x =
+    SILVER_SATURATION * Math.cos(2 * Math.PI * SILVER_HUE) + gene * Math.cos(2 * Math.PI * hue);
+  const y =
+    SILVER_SATURATION * Math.sin(2 * Math.PI * SILVER_HUE) + gene * Math.sin(2 * Math.PI * hue);
+  const s = Math.min(Math.hypot(x, y), SHELL_SATURATION);
+  const h = s > 0 ? (((Math.atan2(y, x) / (2 * Math.PI)) % 1) + 1) % 1 : SILVER_HUE;
+  return [h, s];
 }
 
 /** Hue `h` turned share `t` of the short way round the wheel toward `to`. */
@@ -120,13 +142,18 @@ export function materialParams(t: Pick<Traits, 'colour' | 'skin'>): MaterialPara
       : colour.saturation;
   const glow = GLOW[colour.luminescence as keyof typeof GLOW] ?? GLOW.off;
   const value = albino ? Math.max(colour.value, 0.85) : colour.value;
-  const body = hsv(hue, saturation * SHELL_SATURATION, value);
+  const [shellHue, shellSaturation] = albino
+    ? [hue, saturation * SHELL_SATURATION]
+    : shellTint(hue, saturation);
+  const body = hsv(shellHue, shellSaturation, value);
+  // A dark shell lifts toward its own silver, not toward white.
+  const light: Rgb = albino ? [1, 1, 1] : hsv(shellHue, shellSaturation, 1);
   const inside = Math.max(value, ORGAN_VALUE);
   const organSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
 
   return {
-    core: liftTo(toward(body, 0, 0.5), MIN_CORE_LUMINANCE),
-    rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE),
+    core: liftTo(toward(body, 0, 0.5), MIN_CORE_LUMINANCE, light),
+    rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE, light),
     saturation,
     organ: hsv(hue, organSaturation, inside),
     oil: hsv(towardHue(hue, OIL_HUE, OIL_SHIFT), organSaturation, 1),

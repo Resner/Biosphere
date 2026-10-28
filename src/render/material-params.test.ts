@@ -135,6 +135,22 @@ describe('materialParams', () => {
     }
   });
 
+  it('makes every shell silvery pale blue, with a hint of the gene hue (M6 T13)', () => {
+    for (const value of [0, 0.5, 1]) {
+      const grey = materialParams(withColour({ saturation: 0, value }));
+      for (const c of [grey.core, grey.rim]) {
+        expect(c[2]).toBeGreaterThan(c[0]);
+        expect(c[2]).toBeGreaterThanOrEqual(c[1]);
+        expect(hsvSaturation(c)).toBeGreaterThan(0.02);
+      }
+    }
+    // A vivid gene still tints its shell: a red gene's shell leans red, a green one's green.
+    const red = materialParams(withColour({ hue: 0, saturation: 1, value: 1 }));
+    expect(red.rim[0]).toBeGreaterThan(red.rim[2]);
+    const green = materialParams(withColour({ hue: 0.33, saturation: 1, value: 1 }));
+    expect(green.rim[1]).toBeGreaterThan(green.rim[0]);
+  });
+
   it('puts the pigment inside: the organs carry the hue gene at the gene saturation', () => {
     const hueOf = ([r, g, b]: readonly number[]): number => {
       const [max, min] = [Math.max(r ?? 0, g ?? 0, b ?? 0), Math.min(r ?? 0, g ?? 0, b ?? 0)];

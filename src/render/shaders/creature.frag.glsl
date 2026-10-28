@@ -1,10 +1,15 @@
-// A translucent membrane for the creature mesh, coloured by the genes (`materialParams`): a fresnel
-// rim and backlight, a marking (rings, spots, stripes), a thin-film shimmer, a glow that may pulse,
-// denser glass plates and a marked mouth, with the same hurt and dissolve effects as `cell.frag.glsl`.
-// The fine parts of body plan v2 (M6 T10) have their own looks: a clear carapace shell, bright
-// hair-thin setae, veined membrane sheets and dark lens eyes. The inner anatomy (M6 T12) carries
-// the pigment: a gut line, fluid chambers, amber-leaning oil droplets, a beating heart and eye pigment show
-// through the near-clear body. One program serves every creature; only the uniforms differ.
+// A creature's glass (M6 T13), coloured by the genes (`materialParams`): a silvery shell with a
+// fresnel rim, a backlight and a wet specular from a fixed key light; on medium and high it bends
+// the water behind it (the chain's backdrop copy, `tBackdrop`), on low it is plain translucency.
+// Procedural pores, a cell texture, the vein network of membranes and small flaws fade in with their
+// size on screen (`detailFade`), so a small body never turns to noise. A marking (rings, spots,
+// stripes), a thin-film shimmer, a glow that may pulse, denser glass plates and a marked mouth, with
+// the same hurt and dissolve effects as `cell.frag.glsl`. The fine parts of body plan v2 (M6 T10)
+// have their own looks: a clear carapace shell, bright hair-thin setae, veined membrane sheets and
+// dark lens eyes. The inner anatomy (M6 T12) carries the pigment: a gut line, fluid chambers,
+// amber-leaning oil droplets, a beating heart and eye pigment show through the near-clear body. Rare
+// glints are star points over joints and organs, as many and as bright as the rarity tier allows.
+// One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
 uniform vec3 uOrgan;
@@ -20,23 +25,39 @@ uniform float uLum;
 uniform float uLumPulse;
 uniform float uPlating;
 uniform float uRimStrength;
+uniform float uGlint;
 uniform float uHurt;
 uniform float uDissolve;
 uniform float uAlpha;
+// The water behind the creatures and how far (core radii at a grazing angle) the glass bends it;
+// 0 with no backdrop copy (low).
+uniform sampler2D tBackdrop;
+uniform float uRefract;
 varying vec3 vNormal;
 varying vec2 vUv;
 varying float vPart;
+varying vec2 vRest;
+varying vec2 vScreen;
+varying vec2 vUnit;
 
 // `aPart` is the appendage number times this, plus the part kind (creature-mesh.ts).
 const float PART_KINDS = 16.0;
-// The organs' part kinds (creature-mesh.ts).
+// The organs' part kinds and the glints' (creature-mesh.ts).
 const int PART_GUT = 9;
 const int PART_CHAMBER = 10;
 const int PART_DROPLET = 11;
 const int PART_HEART = 12;
 const int PART_PIGMENT = 13;
+const int PART_GLINT = 14;
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
+// The key light, low and to the upper left, as its half vector toward the camera: the wet highlight
+// lands on the upper-left shoulder of each body, outside the organs, which would hide it.
+const vec3 KEY_HALF = vec3(-0.42, 0.46, 0.782);
+// The wet gloss: how tight the highlight is and how bright.
+const float GLOSS = 60.0;
+const float SHINE = 0.6;
+// DETAIL_FROM, DETAIL_TO and the DETAIL_* sizes are defines from `surface.ts`.
 
 // Marking weight 0..1 over the body's own coordinates: u runs around the body (it closes at 1,
 // so the repeat count is a whole number) and v runs along it.
@@ -62,11 +83,43 @@ float markings(vec2 uv) {
   return stripeMask(uv.y * uPatternCount * 0.5, 0.55);
 }
 
+// Cells of jittered points: the distance to the nearest point, and how far the next one is beyond
+// it (0 on a wall between two cells).
+vec2 cells(vec2 p) {
+  vec2 i = floor(p);
+  vec2 f = fract(p);
+  float d1 = 8.0;
+  float d2 = 8.0;
+  for (int y = -1; y <= 1; y++) {
+    for (int x = -1; x <= 1; x++) {
+      vec2 g = vec2(float(x), float(y));
+      vec2 o = vec2(hash21(i + g), hash21(i + g + 19.7));
+      float d = length(g + o - f);
+      if (d < d1) {
+        d2 = d1;
+        d1 = d;
+      } else if (d < d2) {
+        d2 = d;
+      }
+    }
+  }
+  return vec2(d1, d2 - d1);
+}
+
+// How much of a detail `size` core radii across is drawn, at `px` pixels a core radius (surface.ts).
+float detailFade(float size, float px) {
+  return smoothstep(DETAIL_FROM, DETAIL_TO, size * px);
+}
+
 void main() {
-  float z = abs(normalize(vNormal).z);
+  vec3 normal = normalize(vNormal);
+  float z = abs(normal.z);
   float fres = pow(1.0 - z, mix(2.6, 1.6, uMembrane));
-  float back = pow(max(dot(normalize(vNormal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * fres;
+  float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * fres;
+  float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
+  // Screen pixels per core radius, for the detail's fade.
+  float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
 
   // The shell is nearly clear face-on (M6 T12): a dim core lets the organs show, the rim carries the edge.
   vec3 col = uCore * (0.35 + 0.55 * z) + uRim * ((fres * 1.55 + back * 0.9) * uRimStrength);
@@ -85,6 +138,7 @@ void main() {
   vec3 glow = uLumColor * uLum * pulse;
 
   float alpha = mix(0.7, 0.3, uTranslucency) * (1.0 - fres) + fres;
+  bool glass = kind <= 4;
   if (kind == 2) {
     // A plate: denser glass, not an opaque lid, so the organs still show through.
     col = mix(col, uRim * 0.7 + 0.04, 0.25);
@@ -102,22 +156,44 @@ void main() {
     col = uRim * 1.3 + 0.06;
     alpha = 0.9;
   } else if (kind == 6) {
-    // A membrane: a thin sheet, its veins running out from the root and across, a bright free edge.
+    // A membrane: a thin sheet, its veins running out from the root and across, a fine network
+    // between them, and a bright free edge.
     float ray = 1.0 - smoothstep(0.03, 0.09, abs(fract(vUv.x * MEMBRANE_VEINS + 0.5) - 0.5));
     float arc = 1.0 - smoothstep(0.02, 0.06, abs(fract(vUv.y * 3.0 + 0.5) - 0.5));
     float edge = smoothstep(0.86, 1.0, vUv.y);
-    float vein = max(ray * smoothstep(0.0, 0.15, vUv.y), max(arc * 0.5, edge));
+    // Each detail costs a neighbourhood search, so it is skipped while its fade is zero.
+    float netFade = detailFade(DETAIL_VEIN, px);
+    float net = netFade > 0.0
+      ? (1.0 - smoothstep(0.02, 0.07, cells(vRest / DETAIL_VEIN + 5.3).y)) * netFade
+      : 0.0;
+    float vein = max(ray * smoothstep(0.0, 0.15, vUv.y), max(max(arc * 0.5, net * 0.35), edge));
     col = uRim * (0.45 + 1.0 * vein) + uCore * 0.2;
     alpha = 0.16 + 0.6 * vein;
   } else if (kind == 7) {
     // An eye: a dark lens with one bright highlight toward the light.
-    vec2 n = normalize(vNormal).xy;
+    vec2 n = normal.xy;
     float spot = 1.0 - smoothstep(0.12, 0.3, length(n - vec2(-0.3, 0.35)));
     col = vec3(0.02, 0.025, 0.03) + vec3(0.95) * spot + uRim * fres * 0.7;
     alpha = 0.96;
+  } else if (kind == PART_GLINT) {
+    // A glint: a white-hot point with four thin rays and four fainter ones, twinkling slowly.
+    float id = floor(vUv.y * 0.5);
+    vec2 q = vec2(vUv.x, vUv.y - 2.0 * id) * 2.0 - 1.0;
+    float r = length(q);
+    vec2 d = abs(vec2(q.x + q.y, q.x - q.y)) * 0.7071;
+    float rays = exp(-abs(q.x) * 12.0) * pow(max(1.0 - abs(q.y), 0.0), 2.0) +
+      exp(-abs(q.y) * 12.0) * pow(max(1.0 - abs(q.x), 0.0), 2.0);
+    float diagonal = exp(-d.x * 16.0) * pow(max(1.0 - d.y * 1.6, 0.0), 2.0) +
+      exp(-d.y * 16.0) * pow(max(1.0 - d.x * 1.6, 0.0), 2.0);
+    float star = exp(-r * r * 40.0) * 2.4 + 0.45 * rays + 0.15 * diagonal;
+    float twinkle = 0.85 + 0.15 * sin(uTime * 2.7 + id * 2.39);
+    // Iridescent bodies throw a faint colour into the rays.
+    vec3 tint = mix(vec3(1.0, 0.97, 0.92), uRim, 0.25 * uIrid);
+    col = tint * star * twinkle * uGlint;
+    alpha = clamp(star * uGlint, 0.0, 1.0);
   } else if (kind >= PART_GUT) {
     // The organs, seen through the body: lit through from behind, so their centres glow.
-    vec2 n = normalize(vNormal).xy;
+    vec2 n = normal.xy;
     float spot = 1.0 - smoothstep(0.1, 0.32, length(n - vec2(-0.3, 0.35)));
     if (kind == PART_GUT) {
       col = uOrgan * (0.35 + 0.45 * z);
@@ -141,6 +217,38 @@ void main() {
     }
     // Luminous organs are the photophores.
     if (kind != PART_PIGMENT) col += glow * (0.15 + 0.4 * z);
+  }
+
+  if (glass) {
+    // The glass's surface: faint cell walls, small pits and an uneven thickness, each fading in
+    // with its size on screen; then the wet highlight of the key light.
+    // Each costs a neighbourhood search (or noise), so it is skipped while its fade is zero.
+    float wallFade = detailFade(DETAIL_CELL, px);
+    float poreFade = detailFade(DETAIL_PORE, px);
+    float flawFade = detailFade(DETAIL_FLAW, px);
+    float wall = wallFade > 0.0
+      ? (1.0 - smoothstep(0.03, 0.1, cells(vRest / DETAIL_CELL).y)) * wallFade
+      : 0.0;
+    float pore = poreFade > 0.0
+      ? (1.0 - smoothstep(0.1, 0.2, cells(vRest / DETAIL_PORE + 31.7).x)) * poreFade
+      : 0.0;
+    float flaw = flawFade > 0.0 ? (fbm(vRest / DETAIL_FLAW + 3.1) - 0.5) * flawFade : 0.0;
+    // The rim stays clean: the detail fades toward the grazing edge, where it would crowd.
+    float face = 1.0 - fres;
+    col += uRim * (wall * 0.16 * face);
+    col *= (1.0 - 0.45 * pore * face) * (1.0 + 0.4 * flaw * face);
+    alpha = clamp(alpha * (1.0 + 0.4 * flaw) + wall * 0.08, 0.0, 1.0);
+    col += vec3(spec);
+    alpha = max(alpha, min(spec * 1.5, 1.0));
+    // Refraction: the water behind is drawn bent by the normal. The blend lays this colour over
+    // the water straight behind, so the glass adds the difference the bend makes, scaled to show
+    // through its transparency.
+    if (uRefract > 0.0) {
+      vec2 bend = normal.xy * vUnit * uRefract;
+      vec3 straight = texture2D(tBackdrop, vScreen).rgb;
+      vec3 bent = texture2D(tBackdrop, vScreen - bend).rgb;
+      col = max(col + (bent - straight) * min((1.0 - alpha) / max(alpha, 0.3), 1.0), 0.0);
+    }
   }
 
   vec3 hurtCol = vec3(1.0, 0.18, 0.12);
