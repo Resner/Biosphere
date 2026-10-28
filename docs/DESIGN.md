@@ -66,7 +66,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Chat, emote, ping (M2) | ping: middle button | Enter, T then 1–6, G |
 | Menu | — | Esc |
 
-- **Camera**: top-down perspective, following the creature. The visible half-height is `9 · r^0.9` wu (about 71 wu for a starter), so the on-screen size grows slowly as the creature grows, like Agar.io. Zoom changes are smoothed over about 1 s.
+- **Camera**: top-down perspective, following the creature. The visible half-height is `9 · R^0.9 · (r / R)^0.6` wu (M6 T18, ADR 0029), where `r` is the creature's radius and `R` the radius at its genetic maximum biomass. An adult sees `9 · R^0.9` (about 134 wu for the starter, whose `R` is 20), and a smaller creature sees less, so tripling the radius makes it 3^0.4 ≈ 1.55× larger on screen and growth shows within one life. A hatchling never sees fewer body lengths than the old `9 · r^0.9` curve gave. Zoom changes are smoothed over about 1 s.
 
 ## 4. Creature state and survival (M1, extended by M3)
 
@@ -116,7 +116,7 @@ Death is common and never total: you fall back to your pending offspring or your
 ## 5. Lifecycle and lineage (M4–M5)
 
 - **Lifespan** (M4, ADR 0019): 75 min of active time, scaled ×0.6–1.6 by the lifespan gene (45–120 min). Active time is accrued by the authority from your progress reports as `min(ticks played ÷ 30, real time passed + 2 s)`, so a hidden tab, an offline player and a checkpoint accrue nothing, and nobody ages faster than real time. It also counts while the creature is locked in a committed encounter (M8). A creature you hatch is yours alone: no one else's session advances it.
-- **Maturity** needs active time ≥ max(12 min, 20% of lifespan) **and** biomass ≥ 60% of the creature's maximum.
+- **Maturity** needs active time ≥ max(7 min, 10% of lifespan) **and** biomass ≥ 60% of the creature's maximum (M6 T18, ADR 0029; before, 12 min and 20%). The HUD shows "Size 62% of adult" under the biomass, with "Mature in 4:10" once the size is enough, and a soft ring each time the creature passes another tenth of its adult size (a wider one on entering a new size tier).
 - **Old age** starts at 85% of lifespan (−20% thrust, so −20% top speed, and +20% basal metabolism; a dash is unaffected). Death comes at 100%. The client keeps the life clock between reports (the hub's last word plus the ticks played since), shows it as a thin **Life** bar with the stage word (Young, Mature, Old) and, in the last 10 minutes, "About N min left"; it turns the creature elder at 85% and, when its own clock reaches 100%, reports every 2 s until the authority ends the life. The authority has the last word.
 - **Hatch limit** (M4): the genesis bucket holds 3 hatches and refills one per 5 min. With it empty the death and title screens say "Next recorded hatch in m:ss", disable Hatch and offer the practice cell.
 - **History** (M4): the title screen lists the last 10 lives (species, how it ended, time lived, when), or "No creatures yet".
@@ -127,14 +127,16 @@ Death is common and never total: you fall back to your pending offspring or your
   - **Cooldown**: 9 min of active time (so a checkpoint's cooldown stays paused), doubled for each earlier mating of the same two players in the previous 24 h of wall time, at most ×32.
   - **Numbers** (`RULES.mating`, rules version 5): cost 30% energy and 15% biomass; 50% of maximum energy to mate; cooldown 540 s of active time doubling up to ×32 (`repeatWindowMs` 24 h); accept shown 15 s, taken up to 20 s; ±1 tier; reach 3 body lengths; hatchling biomass max(80, 10% of maximum) with energy 60% of its maximum energy; a checkpoint with under 120 s of life left is exhausted. `mate` is a life event that pays the cost in the sim.
   - **Awaiting beacon**: after the commitment both players play on while the round (3–6 s) arrives; closing a tab changes nothing.
-- **Pacing** (M5 T14, ADR 0022; `npm run sim:pacing`, 12 genesis cells, a food-seeking solo bot that avoids toxin clouds and mates as soon as it may, run on 2026-10-27 on top of main commit 6c88917): the bot is a test aid, not a player model, and a real player will be slower, so read these as the fastest pace.
+- **Pacing** (M5 T14, ADR 0022; retuned in M6 T18, ADR 0029; `npm run sim:pacing`, 12 genesis cells, a food-seeking solo bot that avoids toxin clouds and mates as soon as it may, run on 2026-10-28 on top of main commit 6f41a05): the bot is a test aid, not a player model, and a real player will be slower (2 to 3 times as slow to grow), so read these as the fastest pace.
 
   | Measure | Result | Target |
   |---|---|---|
-  | Hatch to first eligibility (median, p10, p90) | 17.3, 14.3, 18.7 min | median 14–25 min |
+  | Biomass doubles (median, p10, p90) | 1.4, 0.7, 3.7 min | median within 4 min |
+  | 60% of adult size (median, p10, p90) | 1.5, 1.0, 3.3 min | median within 10 min |
+  | Hatch to first eligibility (median, p10, p90) | 8.7, 7.0, 9.4 min | median 7–10 min |
   | Mating to eligible again | 9.0 min (a refeed takes seconds, so the cooldown decides) | — |
-  | Matings in a full life (median, min, max) | 8, 7, 9 (9 of 12 bots reached old age; 3 died first) | 4–9 |
-  | Children per hour of active time | 5.6 | — |
+  | Matings in a full life (median, min, max) | 9, 8, 10 (4 of 12 bots reached old age; 8 died first) | 4–9 |
+  | Children per hour of active time | 6.1 | — |
   | A pair's repeated matings | 1×, 2×, 4×, 8× (72 min), 16×, 32× the 9 min base | 4th ≥ 8× |
 
 - **Offspring**: two distinct children, one per player (seed slot 0 for the courting player's child, slot 1 for the accepter's; if slot 1 happens to equal slot 0 it takes the next slot until it differs), born when the committed drand round arrives (about 3–6 s; ADR 0010). Parent A is the courting player's creature and B the accepter's; the child's first haplotype is a gamete of A and its second a gamete of B.

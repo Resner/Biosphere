@@ -418,7 +418,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Owner feedback from v0.6.0 (Playtest #134)
 
-- [ ] T18 Visible growth and faster progression
+- [x] T18 Visible growth and faster progression
   - Acceptance (unit tests first):
     - **The camera curve**: growth within one life must show. Today's half-height `9 · r^0.9` grows almost as fast as the creature, so tripling the radius looks only 12% bigger. The new curve anchors on the genetic maximum radius `R` (from `phys.maxBiomass`): `halfHeight = 9 · R^0.9 · (r / R)^0.6` (DESIGN §3). At the adult size the view equals today's. Tests pin:
       - a creature that triples its radius within its life is at least 1.5× larger on screen;
@@ -432,9 +432,11 @@ A look pass never starts before the tasks it judges are ticked.
       - hatch to first eligibility in 7–10 min (from 17.3);
       - matings per full life stay within ADR 0022's 4–9, and the cooldown is unchanged.
       Tune `RULES.life.matureMinMs`, `matureMinShare` and `RULES.growth.maxRate`, and the worker enforces the same numbers. The pacing tool's targets and verdicts follow.
-    - **ADR 0027** supersedes ADR 0019's maturity minimum (max(12 min, 20% of the lifespan)) with the new numbers.
+    - **ADR 0029** (0027 and 0028 were taken) supersedes ADR 0019's maturity minimum (max(12 min, 20% of the lifespan)) with the new numbers.
     - DESIGN §3, §4 and §5 and the pacing table are updated with the run date and commit.
   - Notes: kills as the main way to grow wait for combat (M7). Do not add a kill-like shortcut here.
+  - Done: camera `9 · R^0.9 · (r / R)^0.6` (tripling shows 1.55×); `growth.ts` meter text and `GrowthWatch` cues drive the HUD line, bar and `Effects.growPulse`; maturity now max(7 min, 10% of the lifespan) (ADR 0029), first eligibility 17.4 → 8.7 min.
+  - Gotcha: the bot already doubled in 1.4 min and hit 60% in 1.5 min, so the 2–4 and 6–10 min bands became upper bounds (a player is 2–3× slower); `maxRate` stays.
 
 - [ ] T19 Finding other players: edge indicators and the pond map [opus]
   - Acceptance:

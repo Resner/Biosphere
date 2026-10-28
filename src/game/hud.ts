@@ -23,6 +23,8 @@ export class Hud {
   private readonly biomass = pick('[data-testid="hud-biomass"]');
   private readonly energy = pick('[data-testid="hud-energy"]');
   private readonly health = pick('[data-testid="hud-health"]');
+  private readonly growth = pick('[data-testid="hud-growth"]');
+  private readonly growthBar = pick('[data-bar="growth"]');
   private readonly energyBar = pick('[data-bar="energy"]');
   private readonly healthBar = pick('[data-bar="health"]');
 
@@ -62,6 +64,12 @@ export class Hud {
     const old = clock.stage === 'old';
     if (this.lifeMeter.hasAttribute('data-old') !== old)
       this.lifeMeter.toggleAttribute('data-old', old);
+  }
+
+  /** The size line under the biomass: "Size 62% of adult · Mature in 4:10", with its bar. */
+  setGrowth(text: string, share: number): void {
+    setText(this.growth, text);
+    setBar(this.growthBar, share);
   }
 
   /** The mating readiness under the life bar: "Ready to mate", "Ready in 2:10", or nothing. */

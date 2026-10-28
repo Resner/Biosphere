@@ -24,7 +24,8 @@ const REASONS: Readonly<Record<string, string>> = {
 const FALLBACK = 'Cannot mate right now';
 const PARTNER = 'partner-';
 
-const clock = (ms: number): string => {
+/** "3:20", rounded up so a zero never shows while a wait is on. */
+export const clock = (ms: number): string => {
   const total = Math.max(0, Math.ceil(ms / SECOND));
   return `${Math.floor(total / 60)}:${String(total % 60).padStart(2, '0')}`;
 };

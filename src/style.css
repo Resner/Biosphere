@@ -690,7 +690,12 @@ body {
   background: #7fa39c;
 }
 
-.life .bar {
+[data-bar="growth"] {
+  background: #8de88a;
+}
+
+.life .bar,
+.growth .bar {
   height: 3px;
 }
 
