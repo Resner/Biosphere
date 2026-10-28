@@ -133,13 +133,18 @@ describe('development v2: tagmata', () => {
     for (const r of plain.slice(2)) expect(r).toBeCloseTo(plain[1] as number, 12);
   });
 
-  it('pins the head-scale extreme: everything behind the head shrinks by 1 ÷ (1 + head)', () => {
+  it('pins the head-scale extreme: the v1 head, and the chain narrows by 1 ÷ (1 + head)', () => {
+    // Without head scale the head in front of a chain is `chain.head` of the v1 head (ADR 0028).
+    expect(plain[0]).toBeCloseTo(D.chain.head, 12);
     const r = radii({ headScale: 255 });
     expect(r[0]).toBe(1);
     for (const x of r.slice(2)) expect(x).toBeCloseTo(r[1] as number, 12);
-    // The head is the unit: the shrink comes after the chain is scaled to stay in reach.
-    expect((r[1] as number) / (plain[1] as number)).toBeCloseTo(1 / (1 + T.head), 12);
-    expect(r).toEqual([1, ...Array(7).fill(0.048561)].map((x) => expect.closeTo(x, 5)));
+    // The head is the unit: the narrowing comes after the chain is fitted to its reach, so the
+    // trunk ends up far narrower next to the head than without head scale.
+    expect((r[1] as number) / (r[0] as number)).toBeLessThan(
+      ((plain[1] as number) / (plain[0] as number)) * (1 / (1 + T.head)),
+    );
+    expect(r).toEqual([1, ...Array(7).fill(0.200092)].map((x) => expect.closeTo(x, 5)));
   });
 
   it('pins the trunk-swell extreme: the middle widens most', () => {
@@ -153,7 +158,7 @@ describe('development v2: tagmata', () => {
       9,
     );
     expect(r).toEqual(
-      [1, 0.089141, 0.098624, 0.104313, 0.09483, 0.085347, 0.075864, 0.066381].map((x) =>
+      [0.65, 0.470172, 0.52019, 0.550201, 0.500183, 0.450164, 0.400146, 0.350128].map((x) =>
         expect.closeTo(x, 5),
       ),
     );
@@ -171,7 +176,7 @@ describe('development v2: tagmata', () => {
     expect((r[7] as number) / (r[1] as number)).toBeCloseTo(1 - T.tailTaper, 9);
     expect((r[3] as number) / (r[1] as number)).toBeCloseTo(1, 12);
     expect(r).toEqual(
-      [1, 0.114538, 0.114538, 0.114538, 0.103084, 0.080176, 0.057269, 0.034361].map((x) =>
+      [0.65, 0.646116, 0.646116, 0.646116, 0.581504, 0.452281, 0.323058, 0.193835].map((x) =>
         expect.closeTo(x, 5),
       ),
     );
@@ -247,13 +252,20 @@ describe('development v2: symmetry', () => {
     expect(bilateral.segments[0]?.rx).toBeGreaterThan(1.05);
   });
 
-  it('trails the ring rearward with drape, like tentacles', () => {
+  it('trails the ring rearward with drape, like tentacles, and keeps it a ring', () => {
     const p = plan(MANY, { symmetry: 255, drape: 255 });
     valid(p);
-    for (const a of p.appendages) {
-      expect(a.dir).toBeCloseTo(a.angle + D.radial.drapeSweep * (PI - a.angle), 12);
-      expect(a.dir).toBeGreaterThan(PI * 0.9 - 1e-9);
+    const left = p.appendages.filter((a) => a.side === 1);
+    for (const a of left) {
+      // A ring drapes `ringDrape` as far as a bilateral body: the front parts turn sideways and
+      // the rear ones back, so the tips stay spread round the body (M6 T14b).
+      const draped = a.angle + D.radial.drapeSweep * D.radial.ringDrape * (PI - a.angle);
+      expect(a.dir).toBeGreaterThanOrEqual(draped - 1e-12);
+      expect(a.dir).toBeLessThanOrEqual(PI);
+      expect(a.dir).toBeGreaterThan(a.angle);
     }
+    expect(left[0]?.dir).toBeLessThan(PI / 2 + 0.3);
+    expect(left[left.length - 1]?.dir).toBeGreaterThan(PI * 0.9);
   });
 
   it('puts a radial body’s mouth at the centre', () => {

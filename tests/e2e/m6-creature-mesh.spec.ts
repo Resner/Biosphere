@@ -104,14 +104,25 @@ function waterIn(luma: Luma, place: ReturnType<typeof placeOf>): number {
   return median(values);
 }
 
-/** How many of eight 45° directions hold bright pixels past 1.6 core radii from the core's centre. */
-function directionsReached(luma: Luma, place: ReturnType<typeof placeOf>, bright: number): number {
+/**
+ * How many of eight 45° directions hold bright pixels clearly past the body: outside its outline
+ * (segments, carapace and eyes) grown by 30%. Karyotype v2 heads in front of a chain are drawn
+ * smaller than the core (M6 T14b), so a fixed radius from the core would no longer mean "past the
+ * body".
+ */
+function directionsReached(
+  luma: Luma,
+  place: ReturnType<typeof placeOf>,
+  bright: number,
+  plan: BodyPlan,
+): number {
   const counts = new Array<number>(8).fill(0);
   const reach = 2.6 * place.r;
   for (let y = Math.floor(place.y - reach); y <= place.y + reach; y++) {
     for (let x = Math.floor(place.x - reach); x <= place.x + reach; x++) {
       const d = Math.hypot(x - place.x, y - place.y);
-      if (d <= 1.6 * place.r || d > reach || luma.at(x, y) < bright) continue;
+      if (d > reach || luma.at(x, y) < bright) continue;
+      if (withinBody(plan, (x - place.x) / place.r, (place.y - y) / place.r, 1.3)) continue;
       const sector = Math.floor(
         ((Math.atan2(place.y - y, x - place.x) + 2 * Math.PI) % (2 * Math.PI)) / (Math.PI / 4),
       );
@@ -119,6 +130,22 @@ function directionsReached(luma: Luma, place: ReturnType<typeof placeOf>, bright
     }
   }
   return counts.filter((n) => n >= 4).length;
+}
+
+/** Inside the body's segments, carapace or eyes, each grown to `scale` about its centre. */
+function withinBody(plan: BodyPlan, x: number, y: number, scale: number): boolean {
+  const c = plan.carapace;
+  const shells = c.count > 0 ? [...plan.segments, c] : plan.segments;
+  const inEllipse = shells.some((s) => {
+    const [dx, dy] = [x - s.x, y - s.y];
+    const u = (dx * Math.cos(s.angle) + dy * Math.sin(s.angle)) / (s.rx * scale);
+    const v = (-dx * Math.sin(s.angle) + dy * Math.cos(s.angle)) / (s.ry * scale);
+    return u * u + v * v <= 1;
+  });
+  const e = plan.eyes;
+  const inEye =
+    e.count > 0 && [1, -1].some((side) => Math.hypot(x - e.x, y - side * e.y) <= e.size * scale);
+  return inEllipse || inEye;
 }
 
 /**
@@ -285,9 +312,9 @@ test.describe('the gallery sheet', () => {
     for (const prefix of ['30-specimen-crab', '23-specimen-spiny-larva', '01-genesis']) {
       const s = specimen(prefix);
       const place = placeOf(s.index, { radius });
-      reached[prefix] = directionsReached(luma, place, waterIn(luma, place) + 40);
+      reached[prefix] = directionsReached(luma, place, waterIn(luma, place) + 40, s.plan);
     }
-    console.log('directions reached past 1.6 core radii:', reached);
+    console.log('directions reached past the body:', reached);
     expect(reached['30-specimen-crab']).toBeGreaterThanOrEqual(6);
     expect(reached['23-specimen-spiny-larva']).toBeGreaterThanOrEqual(6);
     // The measure means something: a plain genesis cell with two short flagella does not reach round.

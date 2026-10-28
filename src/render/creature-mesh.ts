@@ -13,6 +13,7 @@ import {
   dirOf,
   type Membrane,
   type PlanSegment,
+  partCurve,
   rootOf,
 } from '../genome/develop';
 import { clamp } from '../sim/math';
@@ -131,17 +132,15 @@ const ORGAN_DEPTH = 0.5;
 /** The body is this much thinner than wide, so the creature reads as a flat swimmer from above. */
 export const BODY_DEPTH = 0.65;
 const TUBE_DEPTH = 0.8;
-/** Total turn of a tube with curvature ±1, in radians. */
-const CURVE = 1.2;
-/** Share of the bend radius a tube may fill. */
-const FOLD = 0.8;
 /** Where on its parent a branch grows, and how far it fans out (radians): development's, so membranes meet the tubes. */
 const BRANCH_AT = RULES.develop.branchAt;
 const BRANCH_FAN = RULES.develop.branchFan;
-/** The tip cap is this many end radii long for a blunt tip, plus this many more for a sharp one. */
-const CAP_BLUNT = 0.3;
-const CAP_SHARP = 2.2;
-const CAP_SHARE = 0.3;
+/** Share of the bend radius a tube may fill: development's (`partCurve`). */
+const FOLD = RULES.develop.part.fold;
+/** The tip cap is this many end radii long for a blunt tip, plus this many more for a sharp one: development's (`partCurve`). */
+const CAP_BLUNT = RULES.develop.part.capBlunt;
+const CAP_SHARP = RULES.develop.part.capSharp;
+const CAP_SHARE = RULES.develop.part.capShare;
 /** Every inner joint swells by at least this share, so jointed parts read as jointed. */
 const JOINT_BEAD = 0.3;
 /** A chela's palm swells by up to this share; its movable finger opens this far (radians) and is this long and wide. */
@@ -711,28 +710,13 @@ function rootFrame(plan: BodyPlan, spine: Spine, a: Appendage, webbed: boolean) 
 }
 
 /**
- * A part's main tube: its path from the root (the tip cap beyond it), its radius and cap. The cap
- * counts toward the part's length, so no part reaches past what development allowed. A tube
- * cannot bend tighter than its own radius, or its inside folds over itself; a webbed part
- * straightens toward the rays its membrane spans.
+ * A part's main tube: development's centre line (`partCurve`: an arc from the root, then the tip cap
+ * beyond it, which counts toward the part's length), its radius and cap.
  */
 function partPath(plan: BodyPlan, a: Appendage) {
-  const s = plan.segments[a.segment] as PlanSegment;
-  const root = rootOf(s, a.angle, a.side);
-  const dir = dirOf(s, a);
-  const radius = a.width / 2;
-  const cap = min(radius * (1 - a.taper) * (CAP_BLUNT + CAP_SHARP * a.tip), CAP_SHARE * a.length);
-  const length = a.length - cap;
-  const fold = (FOLD * length) / radius;
-  const bend = clamp(a.curvature * CURVE * (1 - a.webbing), -fold, fold);
-  const path: Path = {
-    x0: root.x,
-    y0: root.y,
-    heading: atan2(dir.y, dir.x),
-    turn: a.side * bend,
-    len: length,
-  };
-  return { path, radius, cap, length };
+  const c = partCurve(plan.segments[a.segment] as PlanSegment, a);
+  const path: Path = c;
+  return { path, radius: a.width / 2, cap: c.cap, length: c.len };
 }
 
 /** The point at share `t` (0 root, 1 the end of the tube before its cap) along part `a`'s main tube. */

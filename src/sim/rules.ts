@@ -299,6 +299,8 @@ export const RULES = deepFreeze({
       maxPairs: 8,
       /** Drape 1 bends growth this share of the way to the tail (bilateral parts start from `sweep`, radial ones from 0). */
       drapeSweep: 0.9,
+      /** A ring drapes only this share as far, so it trails as a ring: the front parts turn sideways, the rear ones back (M6 T14b). */
+      ringDrape: 0.5,
     },
     eyes: {
       /** Eye size above `min` gives a pair on the head at ±`angle`; radius and stalk length in core radii. */
@@ -307,10 +309,37 @@ export const RULES = deepFreeze({
       stalk: [0, 0.6],
       angle: 0.6,
     },
+    /**
+     * The karyotype v2 chain (M6 T14b, ADR 0028). In front of a chain the head is `head` of the v1
+     * head's size (v1's at head scale 1, and as symmetry rounds it); the core collider stays the
+     * unit. The segments behind it are `width` core radii wide along the tagma profile, and the
+     * chain fits `reach` by shortening its segments to as little as `squash` of their width before
+     * it narrows, then narrows by 1 ÷ (1 + `tagmata.head` × head scale). A radial body's reach falls
+     * over the radial range to the head's own half-length.
+     */
+    chain: {
+      head: 0.65,
+      width: 0.8,
+      reach: 2.1,
+      squash: 0.25,
+    },
+    /**
+     * How parts fit the bounds under karyotype v2 (M6 T14b): a part that would leave them sweeps
+     * toward the core, along the body, by at most `max` radians (the least sweep that fits, to
+     * 2^−`sweeps` of it); a part that still leaves them is cut by the v1 rule.
+     */
+    fit: { max: 1.6, sweeps: 2 },
+    /**
+     * How a part is drawn, which the bounds follow (M6 T14b): its centre line is an arc that turns
+     * `turn` × curvature (less with webbing, and never tighter than `fold` of its own half-width),
+     * then a straight tip cap of (`capBlunt` + `capSharp` × tip) × its end half-width, at most
+     * `capShare` of its length, which the length includes.
+     */
+    part: { turn: 1.2, fold: 0.8, capBlunt: 0.3, capSharp: 2.2, capShare: 0.3 },
     /** Fine parts (M6 T8, ADR 0025): detail on parts, never parts. Each at 0 leaves the v1 body. */
     detail: {
       /** A webbed part spans a sheet `webbing` of the way along its rays: to its branches, and to the next part rearward on its side (or, the rearmost, to its own mirror: a tail fan) when their roots lie at most `webSpan` apart. Pieces under `minArea` are dropped. */
-      webSpan: 1.2,
+      webSpan: 1.6,
       minArea: 1e-4,
       /** Density 0-1 gives 0-`perPart` bristles along a part, each setae length × width × `length` long; the body keeps at most `perBody`. */
       setae: { perPart: 24, perBody: 240, length: 6 },

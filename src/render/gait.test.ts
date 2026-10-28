@@ -74,6 +74,21 @@ const fixed: Genome[] = [
     buildBytes(allModules(0)),
     buildBytes(allModules(255)),
     buildBytes(allModules(255), { segDrive1: 255, segDrive2: 255 }),
+    // Short legs along a long body: they fit as they grow, so every pair rows alike (M6 T14b).
+    buildBytes(
+      {
+        M1: {
+          length: 60,
+          thickness: 60,
+          tipShape: 191,
+          beat: 220,
+          angle: 128,
+          pairs: 255,
+          attachSpan: 255,
+        },
+      },
+      { segDrive1: 255, segDrive2: 255 },
+    ),
   ].map(decodeGenome),
 ];
 // 500 plans, the size of the M3 gait test.

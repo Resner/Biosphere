@@ -170,7 +170,7 @@ export const ARCHETYPES: Record<string, Genome> = {
         length: 200,
         thickness: 220,
         tipShape: 180,
-        beat: 200,
+        beat: 255,
         angle: 128,
         pairs: 255,
         attachStart: 255,

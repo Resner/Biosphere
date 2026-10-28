@@ -16,6 +16,7 @@ import {
   develop,
   dirOf,
   extentOf,
+  onAxis,
   type PlanMouth,
   type PlanSegment,
   peak,
@@ -131,10 +132,20 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   let appendageDrag = 0;
   let appendageInertia = 0;
   let detailMass = 0;
-  for (const a of plan.appendages) {
+  // Each instance's distance from the core; a mirror pair on an unturned axis segment shares it.
+  const arms: number[] = [];
+  plan.appendages.forEach((a, i) => {
+    const s = plan.segments[a.segment] as PlanSegment;
+    const twin = i % 2 === 1 && onAxis(s) ? arms[i - 1] : undefined;
+    if (twin !== undefined) arms.push(twin);
+    else {
+      const root = rootOf(s, a.angle, a.side);
+      arms.push(hypot(root.x, root.y));
+    }
+  });
+  plan.appendages.forEach((a, i) => {
     const area = a.length * a.width * branchWeight(a);
-    const root = rootOf(plan.segments[a.segment] as PlanSegment, a.angle, a.side);
-    const arm = hypot(root.x, root.y);
+    const arm = arms[i] as number;
     if (a.beat >= D.minBeat) {
       const f = area * a.beat * efficiency(a.tip) * traits.defects.beatStrength * amp;
       if (radial) {
@@ -153,7 +164,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
     const extra = V2.bulb.mass * PI * a.bulb * a.bulb + V2.chela.mass * fingerOf(a) * a.width;
     detailMass += extra;
     appendageInertia += extra * (arm + a.length) * (arm + a.length);
-  }
+  });
 
   // Membranes row on a beating part, more and more as the body grows, and weigh and drag.
   const sheet = V2.web.thrust * pow(biomass / S.efficiency.cross, V2.web.exponent);
@@ -169,13 +180,14 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
     if (a.beat < D.minBeat) continue;
     const f = area * a.beat * sheet * traits.defects.beatStrength * amp;
     force += radial ? f * V2.radialThrust * ((1 - dirOf(s, a).x) / 2) : f;
-    const root = rootOf(s, a.angle, a.side);
-    steer += f * hypot(root.x, root.y);
+    steer += f * (arms[m.part] as number);
   }
 
   let bodyArea = 0;
   let inertia = 0;
-  let width = 0;
+  // The core collider is the unit body: a head drawn narrower than it in front of a chain
+  // (ADR 0028) still meets the water at the core's width.
+  let width = 1;
   let front = 0;
   let rear = 0;
   const outline = (x: number, y: number, e: { rx: number; ry: number; angle: number }): void => {
