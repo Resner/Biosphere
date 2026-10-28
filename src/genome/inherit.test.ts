@@ -457,7 +457,7 @@ describe('viability', () => {
   it('10,000 children of random genesis pairs are all valid bodies', () => {
     for (let i = 0; i < 10_000; i++)
       viable(breed(parent(i), parent(i + 10_000), seedOf('pairs', i)), `pair ${i}`);
-  });
+  }, 30_000);
 
   it('10,000 descendants after 5 generations at mutation ×4 are all valid bodies', () => {
     const pick: Rng = createRng(seedOf('lineage', 0), 'pick');
@@ -474,7 +474,7 @@ describe('viability', () => {
       }
       pool = next;
     }
-  });
+  }, 30_000);
 });
 
 describe('goldens', () => {

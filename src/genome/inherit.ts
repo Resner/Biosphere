@@ -7,7 +7,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { createRng, type Rng, type Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
-import { decodeGenome, type Genome, upgrade } from './codec';
+import { decodeGenome, type Genome } from './codec';
 import {
   HAPLOTYPE_BYTES,
   LOAD_LOCI,
@@ -90,7 +90,7 @@ function copyBytes(
 /**
  * One gamete by meiosis: per chromosome a random starting haplotype, then 0-2 crossovers at locus
  * boundaries, each flipping which of the parent's haplotypes is copied from there on. A v1 parent
- * reads as zeros past its own bytes, which is the padding `upgrade` gives.
+ * reads as zeros past its own bytes, which is the padding `upgrade` gives (so breeding needs no upgrade).
  */
 export function meiosis(parent: Genome, rng: Rng): number[] {
   const out = new Array<number>(HAPLOTYPE_BYTES).fill(0);
@@ -234,16 +234,13 @@ function gamete(parent: Genome, seed: Seed, tag: 'a' | 'b', mutation: number): n
 /** The child of `a` and `b`: haplotype one is a gamete of `a`, haplotype two a gamete of `b`. */
 export function breed(a: Genome, b: Genome, seed: Seed, options: MutationOptions = {}): Genome {
   const mutation = options.mutation ?? 1;
-  return fromHaplotypes(
-    gamete(upgrade(a), seed, 'a', mutation),
-    gamete(upgrade(b), seed, 'b', mutation),
-  );
+  return fromHaplotypes(gamete(a, seed, 'a', mutation), gamete(b, seed, 'b', mutation));
 }
 
 /** The single-parent path for the Creature Lab: both haplotypes of `g` get a mutation pass, with no meiosis. */
 export function mutateGenome(g: Genome, seed: Seed, options: MutationOptions = {}): Genome {
   const mutation = options.mutation ?? 1;
-  const [x, y] = upgrade(g).haplotypes.map((h) =>
+  const [x, y] = g.haplotypes.map((h) =>
     Array.from({ length: HAPLOTYPE_BYTES }, (_, k) => h.alleles[k] ?? 0),
   );
   mutateHaplotype(x as number[], createRng(seed, 'mutation-a'), mutation);
