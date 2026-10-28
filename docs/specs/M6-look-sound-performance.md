@@ -292,7 +292,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `creature-mesh.ts` lofts the body on a Catmull-Rom spine and steps down per-LOD ladders (`LOD_BUDGET`, `meshDetail`) without dropping parts; development caps parts by count only; setae fan from the part's chord and flip away from the body; `render.info()` gains `lod` and `vertices`.
   - Gotcha: the T9 copepod has no antennae and its bulb stubs read as bubble clusters (look-pass gaps, T14); the `post` project depends on every other project, so run the spec with `--project post --no-deps`.
 
-- [x] T11 Motion v2: flexible bodies [opus] (in progress)
+- [x] T11 Motion v2: flexible bodies [opus]
   - Acceptance (unit tests first, on the CPU reference in `gait.ts`):
     - The travelling wave runs along the curved spine, so a worm undulates and a coil breathes. Legs row in a metachronal wave (phase offset per segment). A radial bell pulses by contracting and recovering, with its tentacles lagging. Wings beat in a slow flap-and-glide cycle.
     - Secondary motion:
