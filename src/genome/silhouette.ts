@@ -6,22 +6,7 @@
 import { PI } from '../sim/math';
 import { type BodyPlan, dirOf, type PlanSegment, polygonArea, rootOf } from './develop';
 
-export type Silhouette =
-  | 'cell'
-  | 'ciliate'
-  | 'spiny-larva'
-  | 'bell'
-  | 'tadpole'
-  | 'copepod'
-  | 'shrimp'
-  | 'worm'
-  | 'coil'
-  | 'crab'
-  | 'winged'
-  | 'fan-tail'
-  | 'other';
-
-export const SILHOUETTES: readonly Silhouette[] = [
+export const SILHOUETTES = [
   'cell',
   'ciliate',
   'spiny-larva',
@@ -35,7 +20,9 @@ export const SILHOUETTES: readonly Silhouette[] = [
   'winged',
   'fan-tail',
   'other',
-];
+] as const;
+
+export type Silhouette = (typeof SILHOUETTES)[number];
 
 /** The classifier's thresholds: shape reading, not rules, so they live here. */
 const T = {

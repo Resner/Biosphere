@@ -21,6 +21,7 @@ import {
   peak,
   polygonArea,
   rootOf,
+  weaponShare,
 } from './develop';
 import { express, type Traits } from './express';
 import { starterGenome } from './starter';
@@ -82,8 +83,6 @@ function efficiencyAt(biomass: number): (tip: number) => number {
     return e.base + whip * down + peak(tip, S.paddleTip, S.paddleSpread) * up;
   };
 }
-
-const weaponShare = (tip: number): number => peak(tip, S.weaponTip, S.weaponSpread);
 
 interface Raw {
   force: number;
@@ -304,7 +303,7 @@ function mouthOf(plan: BodyPlan): PlanMouth {
   const m = plan.mouth;
   const filter = Math.max(0, 1 - m.type / D.jawStart);
   const share = setaeShare(plan);
-  if (!(share > 0 && filter > 0)) return { ...m };
+  if (!(share > 0 && filter > 0)) return m;
   const radius = m.radius * (1 + V2.setae.mouth * share * filter);
   return { ...m, radius: Math.min(radius, RULES.body.maxMouthRadius) };
 }

@@ -333,9 +333,11 @@ function buildParts(traits: Traits, segments: PlanSegment[]): Part[] {
   return parts;
 }
 
-/** Pointed to hooked tips: the ones whose weapon share (`RULES.stats`) is above 0. */
-export const isWeaponTip = (tip: number): boolean =>
-  peak(tip, RULES.stats.weaponTip, RULES.stats.weaponSpread) > 0;
+/** How much of a weapon a tip is (pointed to hooked tips); stats prices it, chela needs it above 0. */
+export const weaponShare = (tip: number): number =>
+  peak(tip, RULES.stats.weaponTip, RULES.stats.weaponSpread);
+
+const isWeaponTip = (tip: number): boolean => weaponShare(tip) > 0;
 
 /** No fine detail: a v1 part. */
 const PLAIN = { webbing: 0, setae: 0, setaeLength: 0, bulb: 0, chela: 0, beads: 0 } as const;
@@ -509,7 +511,7 @@ function radialParts(traits: Traits, segments: PlanSegment[], sweep: number): Pa
 }
 
 /** Where bristle `k` of `count` sits along a part, as a share of its length. */
-export const bristleAt = (k: number, count: number): number => (k + 0.5) / count;
+const bristleAt = (k: number, count: number): number => (k + 0.5) / count;
 
 /** The farthest a point between `t0` and `t1` of a part's length lies from the core, on either side. */
 function farAlong(s: PlanSegment, p: Part, t0: number, t1: number): number {
@@ -550,6 +552,7 @@ function dress(parts: Part[], segments: PlanSegment[]): Part[] {
     }
   }
   let excess = parts.reduce((sum, p) => sum + p.setae, 0) - S.perBody / 2;
+  if (excess <= 0) return parts;
   const order = parts
     .map((p, i) => ({ p, i }))
     .sort((a, b) => a.p.length - b.p.length || b.i - a.i);
@@ -631,6 +634,7 @@ function pieces(q: Point[]): Point[][] {
  * The rearmost left part spans to its own mirror instead: a tail fan.
  */
 function buildMembranes(segments: PlanSegment[], appendages: Appendage[]): Membrane[] {
+  if (!appendages.some((a) => a.webbing > 0)) return [];
   const out: Membrane[] = [];
   const at = (p: Point, d: Point, t: number): Point => ({ x: p.x + t * d.x, y: p.y + t * d.y });
   const ray = (i: number) => {
@@ -912,6 +916,8 @@ function shapeViolations(plan: BodyPlan): string[] {
   return bad.length < 2 ? bad : [...new Set(bad)];
 }
 
+const inUnit = (v: number): boolean => v >= 0 && v <= 1;
+
 /** The fine-part checks (M6 T8): detail ranges, setae counts, chelae on weapon tips, sound membranes. */
 function detailViolations(plan: BodyPlan): string[] {
   const bad: string[] = [];
@@ -919,7 +925,6 @@ function detailViolations(plan: BodyPlan): string[] {
   let setae = 0;
   for (const a of plan.appendages) {
     setae += a.setae;
-    const inUnit = (v: number): boolean => v >= 0 && v <= 1;
     if (!inUnit(a.webbing) || !inUnit(a.beads) || !(a.bulb >= 0) || !(a.setaeLength >= 0)) {
       bad.push('appendage detail out of range');
     }
@@ -932,9 +937,9 @@ function detailViolations(plan: BodyPlan): string[] {
     }
   }
   if (setae > S.perBody) bad.push(`setae: ${setae} on the body is more than ${S.perBody}`);
+  const n = plan.appendages.length;
+  const owns = (k: number): boolean => k >= 0 && k < n && k === Math.floor(k);
   plan.membranes.forEach((m, i) => {
-    const n = plan.appendages.length;
-    const owns = (k: number): boolean => k >= 0 && k < n && k === Math.floor(k);
     if (!owns(m.part) || !owns(m.to) || !((plan.appendages[m.part] as Appendage).webbing > 0)) {
       bad.push(`membrane ${i}: no webbed part ${m.part} or ${m.to}`);
     }
