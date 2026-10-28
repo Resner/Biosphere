@@ -135,7 +135,7 @@ export const branchWeight = (a: Pick<Appendage, 'branches'>): number =>
 const branchFactor = (branches: number): number => (branches > 0 ? 1 + D.branchScale : 1);
 const maxAngle = PI - D.angleMargin;
 /** 1 at `centre`, falling linearly to 0 at `spread` either side. */
-const peak = (x: number, centre: number, spread: number): number =>
+export const peak = (x: number, centre: number, spread: number): number =>
   clamp(1 - Math.abs(x - centre) / spread, 0, 1);
 
 /** A direction given in segment `s`'s own frame, in body coordinates. Exact on an unturned segment. */
@@ -204,7 +204,7 @@ function buildSegments(traits: Traits, form: ReturnType<typeof formOf>): PlanSeg
   const n = clamp(Math.floor(body.segments), 1, D.caps.segments);
   const aspect = clamp(body.aspect / D.aspectNeutral, STRETCH[0], STRETCH[1]);
   // Symmetry rounds the body toward an aspect of 1.
-  const stretch = aspect + (1 - aspect) * shape.symmetry;
+  const stretch = lerp(aspect, 1, shape.symmetry);
   const tail = (i: number): number =>
     n > 1 ? clamp((i / (n - 1) - (1 - T.tailShare)) / T.tailShare, 0, 1) : 0;
   // The tagma profile behind the head: swollen in the trunk, tapered in the tail.
@@ -520,7 +520,7 @@ function buildCarapace(segments: PlanSegment[], fusion: number, plating: number)
     rx: rx * fit,
     ry: ry * fit,
     angle,
-    thickness: D.fusion.thickness + (PLATE_THICKNESS[1] - D.fusion.thickness) * plating,
+    thickness: lerp(D.fusion.thickness, PLATE_THICKNESS[1], plating),
   };
 }
 
@@ -605,7 +605,7 @@ export function develop(traits: Traits): BodyPlan {
   const R = D.radial;
   const parts = form.radial
     ? radialParts(traits, segments, shape.drape * R.drapeSweep)
-    : bilateralParts(traits, segments, D.sweep + shape.drape * (R.drapeSweep - D.sweep));
+    : bilateralParts(traits, segments, lerp(D.sweep, R.drapeSweep, shape.drape));
 
   const appendages = mirror(parts);
   const plating = traits.skin.plating;
@@ -691,7 +691,7 @@ function shapeViolations(plan: BodyPlan): string[] {
     });
     if (plan.mouth.offset !== 0) bad.push('radial body: the mouth is not central');
   }
-  return [...new Set(bad)];
+  return bad.length < 2 ? bad : [...new Set(bad)];
 }
 
 /** Every ADR 0006 and ADR 0025 cap and guarantee a plan must hold; an empty list means the plan is valid. */

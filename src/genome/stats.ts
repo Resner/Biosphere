@@ -17,6 +17,7 @@ import {
   extentOf,
   type PlanMouth,
   type PlanSegment,
+  peak,
   rootOf,
 } from './develop';
 import { express, type Traits } from './express';
@@ -65,10 +66,6 @@ export interface Creature {
   stats: Stats;
   phys: PhysStats;
 }
-
-/** 1 at `centre`, falling linearly to 0 at `spread` either side. */
-const peak = (x: number, centre: number, spread: number): number =>
-  clamp(1 - Math.abs(x - centre) / spread, 0, 1);
 
 const segmentArea = (s: PlanSegment): number => PI * s.rx * s.ry;
 

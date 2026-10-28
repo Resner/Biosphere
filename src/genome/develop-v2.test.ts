@@ -32,8 +32,8 @@ const inside = (
 };
 
 const outline = (s: PlanSegment): number[][] =>
-  Array.from({ length: 16 }, (_, j) => {
-    const a = (2 * PI * j) / 16;
+  Array.from({ length: D.fusion.samples }, (_, j) => {
+    const a = (2 * PI * j) / D.fusion.samples;
     const [lx, ly] = [s.rx * cos(a), s.ry * sin(a)];
     const [c, n] = [cos(s.angle), sin(s.angle)];
     return [s.x + lx * c - ly * n, s.y + lx * n + ly * c];
