@@ -85,9 +85,13 @@ export class ParticleLayer {
     return this.geometry.drawRange.count;
   }
 
-  /** `pxPerWu` is in CSS pixels; `dof` says how the sprites draw their blur into their target. */
-  update(view: SceneView, pxPerWu: number, dof: SpriteDof): void {
+  /**
+   * `pxPerWu` is in CSS pixels; `dof` says how the sprites draw their blur into their target;
+   * `light` scales their brightness with the zone around the camera (M6 T16).
+   */
+  update(view: SceneView, pxPerWu: number, dof: SpriteDof, light = 1): void {
     const m = this.material;
+    setUniform(m, 'uOpacity', this.style.opacity * light);
     this.pixels = dof.pixels;
     vec2Uniform(m, 'uCam').set(view.camX, view.camY);
     setUniform(m, 'uTime', view.time);

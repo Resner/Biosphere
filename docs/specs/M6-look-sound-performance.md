@@ -386,7 +386,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `src/sim/bathymetry.ts` calibrates the noise-and-slope field once per seed so every pond has the same zone shares; plumes rise only from deep and abyss vents at least 1,800 wu out; food kind weights follow the zone at the slot anchor (`RULES.food.zoneWeights`, richer crystals within 300 wu of a vent); `PhysStats` carries `uvTolerance` and `pressureTolerance` (hashed); UV and pressure follow `options.hazards`. Rules stayed at v6 (unreleased); goldens were regenerated.
   - Gotcha: the pacing bot now avoids depths outside 0.27–0.68 as a player would with the depth gauge (medians: eligibility 17.4 min, 8 matings). Tests that need a plume find one with `plumesNear` over the whole world, because none lie near the centre.
 
-- [ ] T16 Zones on screen: light, fog, colour, bioluminescence, depth gauge [opus]
+- [x] T16 Zones on screen: light, fog, colour, bioluminescence, depth gauge [opus]
   - Acceptance:
     - **The water** takes its colour, brightness and fog density from the bathymetry under each pixel: a 256² `DataTexture` per pond seed, built once. The zones blend over their edge bands.
       - shallows: bright cyan-green;
@@ -402,6 +402,8 @@ A look pass never starts before the tasks it judges are ticked.
       - `state().zone` matches `zoneAt`;
       - the UV cue appears only in the shallows and only for a creature with tolerance below 1.
   - Notes: presentation reads the sim's `depthAt` and never writes back.
+  - Done: `render/zones.ts` (a 256² depth map per seed, the `zoneGlsl` chunk of water and food, a per-body `sightAt`, `nearestInZone`), glow pools as additive quads (`glows.ts`), `game/zone-readout.ts` with the HUD gauge, UV shimmer and pressure vignette; `state().zone`/`depth`, `debug.setZone`.
+  - Gotcha: software GL pays for every per-pixel lookup or light loop (even behind a uniform branch), so water reads the zone per vertex of a 12×7 grid and bodies get one fog value each; the spawn disc can sit at depth 0.54, so edge bands are ±0.01 (wider tinted spawn water and broke m6-post); m1-look's origin probes moved to twilight (seed `look-78`).
 
 - [ ] T17 Caustics, god rays and marine snow v2 [opus]
   - Acceptance:

@@ -20,6 +20,9 @@ export interface RemoteCellView {
   body?: CreatureSource | null;
 }
 
+/** Full sight everywhere: the default outside the game's zones. */
+const CLEAR = (): number => 1;
+
 /** Below this opacity a remote is not worth a draw call. */
 const MIN_ALPHA = 0.01;
 
@@ -61,6 +64,7 @@ export class RemoteLayer {
   private shown = 0;
   private bodies = 0;
   private frame = 0;
+  private sight: (x: number, y: number) => number = CLEAR;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -69,15 +73,18 @@ export class RemoteLayer {
 
   /**
    * Draws these remotes (and hides the rest). `pxPerWu` and `preset` pick the level of detail of
-   * bodies. Allocates only when the pond grows.
+   * bodies; `sight` says how clearly the player sees a body at a point (M6 T16). Allocates only
+   * when the pond grows.
    */
   set(
     remotes: readonly RemoteCellView[],
     time: number,
     pxPerWu: number,
     preset: PresetName = 'high',
+    sight: (x: number, y: number) => number = CLEAR,
   ): void {
     this.bodyState.preset = preset;
+    this.sight = sight;
     this.frame++;
     let used = 0;
     let bodies = 0;
@@ -158,6 +165,7 @@ export class RemoteLayer {
     state.beat = remote.beat;
     state.alpha = remote.alpha;
     state.pxPerWu = pxPerWu;
+    state.sight = this.sight(remote.x, remote.y);
     try {
       slot.view.update(state, time);
       return true;

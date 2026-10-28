@@ -1,4 +1,6 @@
 import * as THREE from 'three';
+import { depthAt } from '../sim/bathymetry';
+import type { Seed } from '../sim/prng';
 import type { FoodItem, Plume } from '../sim/types';
 import { BodyLayer } from './body-layer';
 import { topDownCamera } from './camera';
@@ -8,13 +10,26 @@ import type { Lod } from './creature-mesh';
 import type { CreatureViewState } from './creature-view';
 import type { Ring } from './effects';
 import { FoodLayer } from './food';
+import { GlowLayer } from './glows';
 import { PlumeLayer } from './hazards';
+import { materialParams } from './material-params';
 import { ParticleLayer, type Speck } from './particles';
 import { BACKDROP_LAYER, PostChain, type PostInfo, type SpriteDof } from './post/chain';
 import { PRESETS, type PresetName, pixelRatio } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
 import { Water } from './water';
+import {
+  glowAt,
+  LIGHT_WATER,
+  type Light,
+  lightOf,
+  MAX_LIGHTS,
+  sightAt,
+  ZONE_UNIFORMS,
+  ZoneMap,
+  zoneBlend,
+} from './zones';
 
 export interface SceneView {
   /** Seconds, for animation only. */
@@ -30,7 +45,14 @@ export interface SceneView {
   remotes: readonly RemoteCellView[];
   /** Eat pops and dash ripples alive right now. */
   rings: readonly Ring[];
+  /** How far the player sees clearly in dark water, in wu (`sightRadius`, M6 T16). */
+  sight: number;
 }
+
+/** A creature's glow at a radius of 1 wu, by genome hash; null for one that does not glow. */
+type Glow = Light | null;
+/** Glows remembered at once; a pond holds 24 bodies. */
+const GLOW_CACHE = 64;
 
 /** `calls` and `triangles` count the whole frame: the scene and every post pass. */
 export interface RenderInfo extends PostInfo {
@@ -70,6 +92,7 @@ const MID_SPREAD = 0.2;
 
 const ORDER = {
   water: 0,
+  glows: 0.5,
   far: 1,
   plumes: 2,
   food: 3,
@@ -85,6 +108,12 @@ export class GameScene {
   private readonly scene = new THREE.Scene();
   private readonly camera = topDownCamera();
   private readonly water: Water;
+  /** The pond's depth map (M6 T16) and its seed, which the zone shaders read. */
+  private readonly zones = new ZoneMap();
+  private seed: Seed | null = null;
+  private readonly glows = new Map<string, Glow>();
+  private lights = 0;
+  private readonly pools = new GlowLayer();
   private readonly far: ParticleLayer;
   private readonly mid: ParticleLayer;
   private readonly near: ParticleLayer;
@@ -164,6 +193,7 @@ export class GameScene {
 
     const items: [THREE.Object3D, number][] = [
       [this.water.mesh, ORDER.water],
+      [this.pools.mesh, ORDER.glows],
       [this.far.points, ORDER.far],
       [this.plumes.mesh, ORDER.plumes],
       ...this.food.meshes.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
@@ -250,6 +280,12 @@ export class GameScene {
     return this.cssHeight;
   }
 
+  /** Loads the depth map of the pond being drawn; a no-op for the one already loaded. */
+  setZones(seed: Seed, size: number): void {
+    this.seed = seed;
+    this.zones.set(seed, size);
+  }
+
   /** Replaces the food and plumes to draw; call when the sim ticks, not every frame. */
   setField(food: readonly FoodItem[], plumes: readonly Plume[]): void {
     this.food.set(food);
@@ -269,19 +305,76 @@ export class GameScene {
     camera.updateProjectionMatrix();
 
     this.water.update(view, halfWidth);
+    this.updateZones(view);
     this.post.setFocus(PLANE_DEPTH);
     const sprites = this.post.spriteDof(this.sprites);
-    this.far.update(view, this.pxPerWu, sprites);
-    this.mid.update(view, this.pxPerWu, sprites);
-    this.near.update(view, this.pxPerWu, sprites);
+    const snow = this.seed ? zoneBlend(depthAt(this.seed, view.camX, view.camY), 'snow') : 1;
+    this.far.update(view, this.pxPerWu, sprites, snow);
+    this.mid.update(view, this.pxPerWu, sprites, snow);
+    this.near.update(view, this.pxPerWu, sprites, snow);
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(this.drawBody(view) ? null : view.creature, view.time);
-    this.remotes.set(view.remotes, view.time, this.pxPerWu, this.preset);
+    this.remotes.set(view.remotes, view.time, this.pxPerWu, this.preset, this.sightOf);
     this.rings.set(view.rings);
 
     this.post.render(this.scene, camera);
   }
+
+  /** Where the player sees from, and the glows of the player and the remotes in view (M6 T16). */
+  private updateZones(view: SceneView): void {
+    const { creature, body } = view;
+    if (creature) ZONE_UNIFORMS.uViewer.value.set(creature.x, creature.y, view.sight);
+    this.lights = 0;
+    this.pools.clear();
+    if (creature && body) this.addLight(body, creature.x, creature.y, creature.radius, 1);
+    for (const r of view.remotes) {
+      if (r.body && r.alpha >= 0.01) this.addLight(r.body, r.x, r.y, r.radius, r.alpha);
+    }
+    ZONE_UNIFORMS.uLightCount.value = this.lights;
+    this.pools.flush();
+  }
+
+  private addLight(
+    body: CreatureSource,
+    x: number,
+    y: number,
+    radius: number,
+    alpha: number,
+  ): void {
+    if (this.lights >= MAX_LIGHTS) return;
+    let glow = this.glows.get(body.hash);
+    if (glow === undefined) {
+      if (this.glows.size >= GLOW_CACHE) this.glows.clear();
+      glow = lightOf(materialParams(body.traits), 1);
+      this.glows.set(body.hash, glow);
+    }
+    if (!glow) return;
+    const i = this.lights++;
+    const [r, g, b] = glow.color;
+    const reach = glow.radius * radius;
+    const strength = glow.strength * alpha;
+    (ZONE_UNIFORMS.uLights.value[i] as THREE.Vector4).set(x, y, reach, strength);
+    // The pool on the water, as bright as the zone under the creature lets glow show.
+    const k = this.seed ? strength * zoneBlend(depthAt(this.seed, x, y), 'glow') * LIGHT_WATER : 0;
+    if (k > 0) this.pools.add(x, y, reach, r * k, g * k, b * k);
+  }
+
+  /**
+   * How clearly the player sees a body at (x, y): the creature shader's fog, worked out once per
+   * body from the zone under it, the distance to the viewer and the glows (`sightAt`).
+   */
+  private readonly sightOf = (x: number, y: number): number => {
+    if (!this.seed) return 1;
+    const viewer = ZONE_UNIFORMS.uViewer.value;
+    let lit = 0;
+    for (let i = 0; i < this.lights; i++) {
+      const l = ZONE_UNIFORMS.uLights.value[i] as THREE.Vector4;
+      lit = Math.max(lit, glowAt(Math.sqrt((x - l.x) ** 2 + (y - l.y) ** 2), l.z, l.w));
+    }
+    const distance = Math.hypot(x - viewer.x, y - viewer.y);
+    return sightAt(depthAt(this.seed, x, y), distance, viewer.z, lit);
+  };
 
   /** Draws the player's genome body; false means the plain cell must stand in. */
   private drawBody(view: SceneView): boolean {
@@ -340,7 +433,9 @@ export class GameScene {
     this.stop();
     window.removeEventListener('resize', this.onResize);
     for (const part of [
+      this.zones,
       this.water,
+      this.pools,
       this.far,
       this.mid,
       this.near,

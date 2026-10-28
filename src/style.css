@@ -323,6 +323,73 @@ body {
   background: radial-gradient(ellipse at center, transparent 45%, rgb(190 20 20 / 0.55) 100%);
 }
 
+/* The depth gauge (M6 T16): zone name, a bar and the hazard in words, so colour is never the only cue. */
+.zone-warning {
+  grid-column: 1 / -1;
+  color: #f0c870;
+  font-size: 0.8rem;
+}
+
+.zone-warning:empty {
+  display: none;
+}
+
+/* UV in the shallows: a pale violet glare that flickers and drifts over the view. */
+.uv-cue {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  background:
+    radial-gradient(ellipse at 30% 25%, rgb(232 222 255 / 0.1), transparent 40%),
+    radial-gradient(ellipse at 70% 75%, rgb(232 222 255 / 0.08), transparent 45%),
+    radial-gradient(ellipse at center, transparent 50%, rgb(212 192 255 / 0.2) 100%);
+  background-size:
+    200% 200%,
+    200% 200%,
+    100% 100%;
+  mix-blend-mode: screen;
+  animation: uv-shimmer 1.7s ease-in-out infinite alternate;
+}
+
+@keyframes uv-shimmer {
+  from {
+    opacity: 0.6;
+    background-position:
+      0% 0%,
+      100% 100%,
+      0 0;
+  }
+  to {
+    opacity: 1;
+    background-position:
+      40% 30%,
+      60% 70%,
+      0 0;
+  }
+}
+
+/* Pressure in the abyss: a dark band squeezing in from the edges. */
+.pressure-cue {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  box-shadow: inset 0 0 16vmin 5vmin rgb(12 4 34 / 0.85);
+  animation: pressure-squeeze 2.4s ease-in-out infinite;
+}
+
+@keyframes pressure-squeeze {
+  50% {
+    box-shadow: inset 0 0 22vmin 8vmin rgb(12 4 34 / 0.92);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .uv-cue,
+  .pressure-cue {
+    animation: none;
+  }
+}
+
 /* Chat, roster and cues over the water. Only the roster and the chat input take the pointer. */
 .social-cues {
   position: fixed;

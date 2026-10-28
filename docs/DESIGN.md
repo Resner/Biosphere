@@ -30,6 +30,8 @@ Death is common and never total: you fall back to your pending offspring or your
 
   UV ramps in over 0.02 of depth (about 64 wu) below the shallows' edge; pressure ramps linearly from depth 0.7 to 0.8, the abyss' edge. Both are measured at the creature's centre. The weights are per food kind (detritus, globule, crystal) of a slot, by the zone at its anchor. UV and pressure follow the world's `hazards` option, like plumes.
 
+- **Zones on screen (M6 T16, `src/render/zones.ts`)**: the water takes its colour, brightness and fog from a 256 × 256 depth map of the pond (32 wu a texel, linearly filtered), the zones blending over ±0.03 of depth at each edge: bright cyan-green shallows, blue twilight (the dark teal-blue of reference-01 around the spawn), blue-black deep and a near-black abyss. In the deep and the abyss the player sees clearly within its detection ring (`sense` core radii, at least 2.5); by twice that the water, food and other bodies fade into the zone's fog (deep 50%, abyss 75%), but a body always keeps its rim, so nobody who can still affect you is hidden. A luminescent creature lights a pool 6 core radii wide in its glow colour that also clears the fog (8 glows at most are drawn: the player's first), and vent crystals glow by themselves in dark water. Marine snow dims to 60% in the deep and 35% in the abyss. The HUD shows a depth gauge (zone name, a depth bar, and "UV burns" or "Pressure crushes" while that hazard hurts the player), and a violet UV shimmer or a dark, squeezing pressure vignette covers the view at the same time.
+
 - **Currents**: a smooth, divergence-free velocity field (max 12 wu/s, spatial period about 2,048 wu, slowly changing with a period of about 120 s; M1: three shear waves) carries creatures on top of their own velocity (a passive creature drifts exactly with the water) and moves plumes. Food only bobs in M1: it does not drift.
 - **Food is nonliving** (ADR 0014):
 
@@ -293,6 +295,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Damage | red pulse on the body; edge vignette | dull hit |
 | Low energy (<20%) | HUD pulse | slow low pulse |
 | Hazard near | hazard outline brightens | rumble |
+| UV or pressure (M6) | violet shimmer (UV) or a dark squeezing vignette (pressure); the depth gauge says "UV burns" or "Pressure crushes" | (T23) |
 | Dash | ripple | whoosh |
 | Windup aimed at you (M7) | glow on the attacker's weapon | rising tick |
 | Death | dissolve; death screen naming the cause | descending tone |
