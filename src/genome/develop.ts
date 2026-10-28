@@ -178,7 +178,13 @@ export function placeOn(s: PlanSegment, lx: number, ly: number): Point {
 
 /** Where an appendage on `side` leaves segment `s` at `angle`, from the core centre. */
 export function rootOf(s: PlanSegment, angle: number, side: 1 | -1 = 1): Point {
-  return placeOn(s, s.rx * cos(angle), side * (s.ry * sin(angle)));
+  // `placeOn` written out: this runs per appendage in development, stats and the checks.
+  const lx = s.rx * cos(angle);
+  const ly = side * (s.ry * sin(angle));
+  if (s.angle === 0) return { x: s.x + lx, y: s.y + ly };
+  const c = cos(s.angle);
+  const n = sin(s.angle);
+  return { x: s.x + (lx * c - ly * n), y: s.y + (lx * n + ly * c) };
 }
 
 /** The body-frame growth direction of an appendage: a unit vector. */
@@ -378,7 +384,8 @@ function shape(parts: Part[], segments: PlanSegment[], sweep: number): Part[] {
   for (const p of parts) {
     // On a turned segment the two sides' roots lie at different distances; the farther one counts.
     const s = segments[p.segment] as PlanSegment;
-    const [l, r] = [rootOf(s, p.angle, 1), rootOf(s, p.angle, -1)];
+    const l = rootOf(s, p.angle, 1);
+    const r = rootOf(s, p.angle, -1);
     const free = D.caps.bounds - D.boundsSlack - Math.max(hypot(l.x, l.y), hypot(r.x, r.y));
     // A bulb takes at most its share of the free reach, and the part shortens to make room for it.
     p.bulb = Math.min(p.bulb, X.bulb.room * Math.max(0, free));
@@ -623,9 +630,14 @@ function pieces(q: Point[]): Point[][] {
       }
     }
   }
-  return out
-    .map((p) => (polygonArea(p) < 0 ? [...p].reverse() : p))
-    .filter((p) => polygonArea(p) >= X.minArea);
+  const kept: Point[][] = [];
+  for (const piece of out) {
+    let area = polygonArea(piece);
+    const ccw = area < 0 ? [...piece].reverse() : piece;
+    if (ccw !== piece) area = polygonArea(ccw);
+    if (area >= X.minArea) kept.push(ccw);
+  }
+  return kept;
 }
 
 /**
@@ -637,11 +649,11 @@ function buildMembranes(segments: PlanSegment[], appendages: Appendage[]): Membr
   if (!appendages.some((a) => a.webbing > 0)) return [];
   const out: Membrane[] = [];
   const at = (p: Point, d: Point, t: number): Point => ({ x: p.x + t * d.x, y: p.y + t * d.y });
-  const ray = (i: number) => {
-    const a = appendages[i] as Appendage;
+  const rays = appendages.map((a) => {
     const s = segments[a.segment] as PlanSegment;
     return { a, s, root: rootOf(s, a.angle, a.side), dir: dirOf(s, a) };
-  };
+  });
+  const ray = (i: number) => rays[i] as (typeof rays)[number];
   const add = (part: number, to: number, points: Point[]): void => {
     for (const p of pieces(points)) out.push({ part, to, points: p });
   };
@@ -707,14 +719,24 @@ function buildCarapace(segments: PlanSegment[], fusion: number, plating: number)
   const angle = count > 1 && (last.y !== 0 || last.angle !== 0) ? atan2(-last.y, -last.x) : 0;
   const axis: PlanSegment = { x: 0, y: 0, rx: 1, ry: 1, angle };
   // The points in the hull's frame: u along its axis, v across.
-  const pts = segments.slice(0, count).flatMap(outline);
-  const local = pts.map((p) => turnTo({ ...axis, angle: -angle }, p.x, p.y));
-  const us = local.map((p) => p.x);
-  const vs = local.map((p) => p.y);
-  const cu = (Math.max(...us) + Math.min(...us)) / 2;
-  const cv = (Math.max(...vs) + Math.min(...vs)) / 2;
-  let rx = (Math.max(...us) - Math.min(...us)) / 2;
-  let ry = (Math.max(...vs) - Math.min(...vs)) / 2;
+  const back: PlanSegment = { ...axis, angle: -angle };
+  const local = segments
+    .slice(0, count)
+    .flatMap((s) => outline(s).map((p) => turnTo(back, p.x, p.y)));
+  let uLo = local[0]?.x as number;
+  let uHi = uLo;
+  let vLo = local[0]?.y as number;
+  let vHi = vLo;
+  for (const p of local) {
+    uLo = Math.min(uLo, p.x);
+    uHi = Math.max(uHi, p.x);
+    vLo = Math.min(vLo, p.y);
+    vHi = Math.max(vHi, p.y);
+  }
+  const cu = (uHi + uLo) / 2;
+  const cv = (vHi + vLo) / 2;
+  let rx = (uHi - uLo) / 2;
+  let ry = (vHi - vLo) / 2;
   // Grow the box's ellipse until it holds every outline point, then keep it inside the bounds.
   let grow = 1;
   for (const p of local) grow = Math.max(grow, hypot((p.x - cu) / rx, (p.y - cv) / ry));
