@@ -1,7 +1,7 @@
 import { depthAt, zoneOfDepth } from './bathymetry';
 import { ventNear } from './hazards';
 import { clamp, cos, length, lerp, sin, TAU } from './math';
-import { hashU32 } from './prng';
+import { hashU32, type Seed } from './prng';
 import { RULES } from './rules';
 import type { CreatureState, FoodItem, FoodKind, StepEvent, Vec2, World } from './types';
 import { maxEnergy } from './vitals';
@@ -54,6 +54,40 @@ function weightsAt(world: World, anchor: Vec2): Record<FoodKind, number> {
   return RULES.food.zoneWeights[zone];
 }
 
+/** The kind of cycle `k` of a slot: a pure function of the seed, remembered because zones cost a field sample. */
+interface KindMemo {
+  k: Int32Array;
+  kind: Uint8Array;
+}
+const kindMemos = new WeakMap<Seed, KindMemo>();
+
+function kindOf(world: World, cx: number, cy: number, slot: number, k: number, anchor: Vec2) {
+  const side = cellsPerSide(world);
+  const slots = side * side * RULES.food.slotsPerCell;
+  let memo = kindMemos.get(world.seed32);
+  if (memo === undefined || memo.k.length !== slots) {
+    memo = { k: new Int32Array(slots).fill(-1), kind: new Uint8Array(slots) };
+    kindMemos.set(world.seed32, memo);
+  }
+  const at = (cy * side + cx) * RULES.food.slotsPerCell + slot;
+  if (memo.k[at] === k) return KINDS[memo.kind[at] as number] as FoodKind;
+  const weights = weightsAt(world, anchor);
+  let total = 0;
+  for (const kind of KINDS) total += weights[kind];
+  let roll = slotHash(world, cx, cy, slot, k, SALT.kind) % total;
+  let index = KINDS.length - 1;
+  for (let i = 0; i < KINDS.length; i++) {
+    roll -= weights[KINDS[i] as FoodKind];
+    if (roll < 0) {
+      index = i;
+      break;
+    }
+  }
+  memo.k[at] = k;
+  memo.kind[at] = index;
+  return KINDS[index] as FoodKind;
+}
+
 function itemFor(
   world: World,
   cx: number,
@@ -63,18 +97,7 @@ function itemFor(
 ): FoodItem {
   const k = eaten?.k ?? 0;
   const anchor = slotAnchor(world, cx, cy, slot, k);
-  const weights = weightsAt(world, anchor);
-  let total = 0;
-  for (const kind of KINDS) total += weights[kind];
-  let roll = slotHash(world, cx, cy, slot, k, SALT.kind) % total;
-  let kind = KINDS[KINDS.length - 1] as FoodKind;
-  for (const candidate of KINDS) {
-    roll -= weights[candidate];
-    if (roll < 0) {
-      kind = candidate;
-      break;
-    }
-  }
+  const kind = kindOf(world, cx, cy, slot, k, anchor);
   const spec = RULES.food.kinds[kind];
   return {
     id: `${slotKey(cx, cy, slot)}_k${k}`,
