@@ -9,7 +9,7 @@
 
 import type { Collider } from '../sim/body';
 import { Hasher } from '../sim/hash';
-import { atan2, clamp, cos, length as hypot, lerp, PI, pow, sin } from '../sim/math';
+import { atan2, clamp, cos, length as hypot, lerp, PI, pow, sin, TAU } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { Traits } from './express';
 
@@ -176,7 +176,7 @@ export function placeOn(s: PlanSegment, lx: number, ly: number): Point {
 }
 
 /** Whether segment `s` lies on the axis, unturned: its two sides then mirror each other exactly. */
-const onAxis = (s: PlanSegment): boolean => s.angle === 0 && s.y === 0;
+export const onAxis = (s: PlanSegment): boolean => s.angle === 0 && s.y === 0;
 
 /** Where an appendage on `side` leaves segment `s` at `angle`, from the core centre. */
 export function rootOf(s: PlanSegment, angle: number, side: 1 | -1 = 1): Point {
@@ -516,8 +516,6 @@ export function curveAt(c: PartCurve, t: number): Point & { heading: number } {
     heading,
   };
 }
-
-const TAU = 2 * PI;
 
 /** Scratch for `arcFar`: the arc's end and its heading's cosine and sine there. */
 const END = { x: 0, y: 0, c: 0, s: 0 };

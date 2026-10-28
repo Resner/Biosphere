@@ -715,7 +715,7 @@ function rootFrame(plan: BodyPlan, spine: Spine, a: Appendage, webbed: boolean) 
  */
 function partPath(plan: BodyPlan, a: Appendage) {
   const c = partCurve(plan.segments[a.segment] as PlanSegment, a);
-  const path: Path = { x0: c.x0, y0: c.y0, heading: c.heading, turn: c.turn, len: c.len };
+  const path: Path = c;
   return { path, radius: a.width / 2, cap: c.cap, length: c.len };
 }
 

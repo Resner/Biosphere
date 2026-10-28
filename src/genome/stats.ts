@@ -16,6 +16,7 @@ import {
   develop,
   dirOf,
   extentOf,
+  onAxis,
   type PlanMouth,
   type PlanSegment,
   peak,
@@ -135,7 +136,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   const arms: number[] = [];
   plan.appendages.forEach((a, i) => {
     const s = plan.segments[a.segment] as PlanSegment;
-    const twin = i % 2 === 1 && s.angle === 0 && s.y === 0 ? arms[i - 1] : undefined;
+    const twin = i % 2 === 1 && onAxis(s) ? arms[i - 1] : undefined;
     if (twin !== undefined) arms.push(twin);
     else {
       const root = rootOf(s, a.angle, a.side);
