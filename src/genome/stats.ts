@@ -10,6 +10,7 @@ import { RULES } from '../sim/rules';
 import type { Genome } from './codec';
 import { genomeHash } from './codec';
 import {
+  type Appendage,
   type BodyPlan,
   branchWeight,
   develop,
@@ -18,7 +19,9 @@ import {
   type PlanMouth,
   type PlanSegment,
   peak,
+  polygonArea,
   rootOf,
+  weaponShare,
 } from './develop';
 import { express, type Traits } from './express';
 import { starterGenome } from './starter';
@@ -81,8 +84,6 @@ function efficiencyAt(biomass: number): (tip: number) => number {
   };
 }
 
-const weaponShare = (tip: number): number => peak(tip, S.weaponTip, S.weaponSpread);
-
 interface Raw {
   force: number;
   mass: number;
@@ -91,6 +92,29 @@ interface Raw {
   steer: number;
   basal: number;
   growth: number;
+}
+
+/** Total bristle length over the body: what setae drag and sense with. */
+const fringeOf = (plan: BodyPlan): number =>
+  plan.appendages.reduce((sum, a) => sum + a.setae * a.setaeLength, 0);
+
+/** The share of the setae effects a fringe gets: linear up to `full`, then whole. */
+const setaeShare = (plan: BodyPlan): number => Math.min(1, fringeOf(plan) / V2.setae.full);
+
+/** The opposable finger of a chela: its last joint's length. */
+const fingerOf = (a: Appendage): number => (a.chela > 0 ? a.length / a.joints : 0);
+
+/** The fine-part terms of the basal multiplier (M6 T8): each feature costs upkeep. */
+function detailBasal(plan: BodyPlan, webArea: number): number {
+  let parts = 0;
+  for (const a of plan.appendages) {
+    parts +=
+      V2.setae.basal * a.setae +
+      V2.bulb.basal * (a.bulb > 0 ? 1 : 0) +
+      V2.chela.basal * a.chela +
+      V2.beads.basal * a.beads;
+  }
+  return V2.web.basal * webArea + parts;
 }
 
 const glowOf = (traits: Traits): number =>
@@ -106,6 +130,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   let appendageArea = 0;
   let appendageDrag = 0;
   let appendageInertia = 0;
+  let detailMass = 0;
   for (const a of plan.appendages) {
     const area = a.length * a.width * branchWeight(a);
     const root = rootOf(plan.segments[a.segment] as PlanSegment, a.angle, a.side);
@@ -124,6 +149,28 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
     appendageArea += area;
     appendageDrag += a.width * (1 + a.length) * (1 + a.branches * D.branchScale);
     appendageInertia += area * (arm * arm + (a.length * a.length) / 3);
+    // A bulb and a chela's finger weigh at the part's reach.
+    const extra = V2.bulb.mass * PI * a.bulb * a.bulb + V2.chela.mass * fingerOf(a) * a.width;
+    detailMass += extra;
+    appendageInertia += extra * (arm + a.length) * (arm + a.length);
+  }
+
+  // Membranes row on a beating part, more and more as the body grows, and weigh and drag.
+  const sheet = V2.web.thrust * pow(biomass / S.efficiency.cross, V2.web.exponent);
+  let webArea = 0;
+  for (const m of plan.membranes) {
+    const a = plan.appendages[m.part] as Appendage;
+    const s = plan.segments[a.segment] as PlanSegment;
+    const area = polygonArea(m.points);
+    const centre = m.points.reduce((c, p) => ({ x: c.x + p.x, y: c.y + p.y }), { x: 0, y: 0 });
+    const [cx, cy] = [centre.x / m.points.length, centre.y / m.points.length];
+    webArea += area;
+    appendageInertia += V2.web.mass * area * (cx * cx + cy * cy);
+    if (a.beat < D.minBeat) continue;
+    const f = area * a.beat * sheet * traits.defects.beatStrength * amp;
+    force += radial ? f * V2.radialThrust * ((1 - dirOf(s, a).x) / 2) : f;
+    const root = rootOf(s, a.angle, a.side);
+    steer += f * hypot(root.x, root.y);
   }
 
   let bodyArea = 0;
@@ -163,7 +210,12 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   inertia += eyeArea * (e.x * e.x + e.y * e.y);
   const spines = traits.skin.spines;
   const mass =
-    bodyArea * (1 + S.spineMass * spines) + appendageArea + S.plateDensity * plateArea + eyeArea;
+    bodyArea * (1 + S.spineMass * spines) +
+    appendageArea +
+    S.plateDensity * plateArea +
+    eyeArea +
+    V2.web.mass * webArea +
+    detailMass;
   inertia += appendageInertia;
 
   const last = plan.segments[plan.segments.length - 1] as PlanSegment;
@@ -173,7 +225,9 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
     2 * width * (1 + S.finenessDrag / fineness) * (1 - S.taperRelief * taper) +
     S.appendageDrag * appendageDrag +
     S.plateDrag * plateArea +
-    S.spineDrag * spines * 2 * width;
+    S.spineDrag * spines * 2 * width +
+    V2.web.drag * webArea +
+    V2.setae.drag * fringeOf(plan);
 
   // A ring rows in any direction, so all of its steering is stronger.
   if (radial) steer *= 1 + V2.radialSteer;
@@ -185,7 +239,8 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
       b.appendage * plan.appendages.length +
       b.plating * traits.skin.plating +
       b.glow * glowOf(traits) +
-      V2.eyeBasal * e.count * e.size) *
+      V2.eyeBasal * e.count * e.size +
+      detailBasal(plan, webArea)) *
     traits.physiology.metabolism *
     traits.defects.metabolismCost;
   return { force, mass, drag, inertia, steer, basal, growth: traits.physiology.growth };
@@ -197,7 +252,7 @@ const REFERENCE: Raw = (() => {
   return raw(develop(traits), traits, traits.body.maxBiomass);
 })();
 
-/** The weapon numbers: pointed and hooked tips × stiffness × length, plus the bite of a jaw. */
+/** The weapon numbers: pointed and hooked tips × stiffness × length, a chela's grip, the bite of a jaw, and bulbs as spines. */
 function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
   let power = 0;
   let reach = 1;
@@ -208,7 +263,7 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
     const s = plan.segments[a.segment] as PlanSegment;
     const root = rootOf(s, a.angle, a.side);
     const dir = dirOf(s, a);
-    power += w * a.stiffness * a.length;
+    power += w * a.stiffness * a.length + V2.chela.power * a.chela * a.stiffness * fingerOf(a);
     reach = Math.max(reach, hypot(root.x + a.length * dir.x, root.y + a.length * dir.y));
     arc = Math.max(arc, s.angle === 0 ? a.dir : Math.abs(atan2(dir.y, dir.x)));
   }
@@ -218,6 +273,9 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
     reach = Math.max(reach, plan.mouth.offset + plan.mouth.radius);
     arc = Math.max(arc, plan.mouth.arc);
   }
+
+  let bulbs = 0;
+  for (const a of plan.appendages) bulbs += a.bulb;
 
   let area = 0;
   for (const s of plan.segments) area += segmentArea(s);
@@ -235,11 +293,22 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
     arc,
     power,
     armour: area > 0 ? covered / area / (D.plateThickness[1] as number) : 0,
-    spines: traits.skin.spines,
+    spines:
+      bulbs > 0 ? Math.min(1, traits.skin.spines + V2.bulb.spines * bulbs) : traits.skin.spines,
   };
 }
 
-/** Slender, still, forward-pointing stalks and eyes extend the detection ring. */
+/** Setae widen a filter mouth (the filter share of its type) by up to `RULES.stats.v2.setae.mouth`. */
+function mouthOf(plan: BodyPlan): PlanMouth {
+  const m = plan.mouth;
+  const filter = Math.max(0, 1 - m.type / D.jawStart);
+  const share = setaeShare(plan);
+  if (!(share > 0 && filter > 0)) return m;
+  const radius = m.radius * (1 + V2.setae.mouth * share * filter);
+  return { ...m, radius: Math.min(radius, RULES.body.maxMouthRadius) };
+}
+
+/** Slender, still, forward-pointing stalks, eyes and setae extend the detection ring. */
 function senseOf(plan: BodyPlan): number {
   let reach = 0;
   for (const a of plan.appendages) {
@@ -248,7 +317,12 @@ function senseOf(plan: BodyPlan): number {
     reach += a.length * forward * slender * (1 - a.beat);
   }
   const e = plan.eyes;
-  return 1 + S.senseGain * reach + V2.eyeSense * e.count * e.size * (1 + e.stalk);
+  return (
+    1 +
+    S.senseGain * reach +
+    V2.eyeSense * e.count * e.size * (1 + e.stalk) +
+    V2.setae.sense * setaeShare(plan)
+  );
 }
 
 /** The stats of a body at a given biomass (thrust efficiency depends on size). */
@@ -264,7 +338,7 @@ export function statsAt(plan: BodyPlan, traits: Traits, biomass: number): Stats 
     basal: r.basal / ref.basal,
     growth: r.growth / ref.growth,
     mass,
-    mouth: plan.mouth,
+    mouth: mouthOf(plan),
     colliders: plan.colliders,
     combat: combatOf(plan, traits),
     sense: senseOf(plan),
