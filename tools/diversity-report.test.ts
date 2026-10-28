@@ -10,6 +10,8 @@ describe('diversity report', () => {
       '## Bodies',
       '## Segments',
       '## Appendages',
+      '## Silhouettes',
+      '## Genesis silhouettes',
       '## Size tiers',
       '## Rarity',
       '## Looks',

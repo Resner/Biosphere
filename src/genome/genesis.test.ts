@@ -5,9 +5,11 @@ import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
 import { type Genome, genomeHash, genomeKaryotype, upgrade } from './codec';
 import { bodyViolations } from './develop';
-import { GENESIS_FREQ, genesisGenome } from './genesis';
+import { express } from './express';
+import { GENESIS_EYES, GENESIS_FORMS, GENESIS_FREQ, genesisGenome } from './genesis';
 import { genesisGenomeV5 } from './genesis-v5';
 import { LOCI } from './karyotype';
+import { silhouetteOf } from './silhouette';
 import { starterGenome } from './starter';
 import { buildCreature } from './stats';
 
@@ -59,9 +61,18 @@ describe('genesisGenome', () => {
     }
   });
 
-  it('adds a ciliary band to half of the cells', () => {
-    const share = creatures.filter((c) => c.traits.modules[1]?.present).length / N;
-    expect(Math.abs(share - GENESIS_FREQ.band)).toBeLessThan(tol(GENESIS_FREQ.band, N));
+  it('keeps the v5 band draw: half of the cells, plus the forms that need one', () => {
+    const n = 4000;
+    let plain = 0;
+    for (let i = 0; i < n; i++) {
+      const v5 = express(genesisGenomeV5(seedOf(i))).modules[1]?.present === true;
+      if (v5) plain++;
+      if (v5) expect(creatures[i]?.traits.modules[1]?.present).toBe(true);
+    }
+    expect(Math.abs(plain / n - GENESIS_FREQ.band)).toBeLessThan(tol(GENESIS_FREQ.band, n));
+    expect(creatures.filter((c) => c.traits.modules[1]?.present).length / N).toBeGreaterThan(
+      GENESIS_FREQ.band,
+    );
   });
 
   it('gives all-different DNA over 20,000 seeds', () => {
@@ -152,13 +163,73 @@ describe('genesisGenome', () => {
     });
   });
 
-  it('writes karyotype v2 under rules 6: the v5 cell, padded (the body changes in M6 T9)', () => {
+  it('writes karyotype v2 under rules 6 and keeps the v5 cell it grows from (colours, size, physiology)', () => {
     for (let i = 0; i < 50; i++) {
-      const v5 = genesisGenomeV5(seedOf(i));
-      expect(genomeKaryotype(v5)).toBe(1);
+      const v5 = buildCreature(genesisGenomeV5(seedOf(i))).traits;
+      expect(genomeKaryotype(genesisGenomeV5(seedOf(i)))).toBe(1);
       expect(genomeKaryotype(genomes[i] as Genome)).toBe(2);
-      expect(genomes[i]).toEqual(upgrade(v5));
+      const t = (creatures[i] as (typeof creatures)[number]).traits;
+      expect(t.colour).toEqual(v5.colour);
+      expect(t.body.maxBiomass).toBe(v5.body.maxBiomass);
+      expect(t.skin.iridescence).toBe(v5.skin.iridescence);
+      expect(t.behaviour).toEqual(v5.behaviour);
     }
+  });
+
+  it('is one body unit with at most three module slots', () => {
+    for (const c of creatures) {
+      expect(c.plan.segments).toHaveLength(1);
+      expect(c.plan.carapace.count).toBe(0);
+      expect(c.traits.modules.filter((m) => m.present).length).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('spreads over silhouettes: at least four classes, none above 40% (1,000 seeds)', () => {
+    const counts = new Map<string, number>();
+    for (const c of creatures.slice(0, 1000)) {
+      const s = silhouetteOf(c.plan);
+      counts.set(s, (counts.get(s) ?? 0) + 1);
+    }
+    expect(counts.size).toBeGreaterThanOrEqual(4);
+    expect(Math.max(...counts.values())).toBeLessThanOrEqual(400);
+  });
+
+  it('makes a body for every form in the table, and no coil, carapace or chela', () => {
+    expect(GENESIS_FORMS.reduce((sum, f) => sum + f.weight, 0)).toBeCloseTo(1, 9);
+    const seen = new Set(creatures.slice(0, 2000).map((c) => silhouetteOf(c.plan)));
+    for (const f of GENESIS_FORMS) expect(seen.has(f.silhouette), f.name).toBe(true);
+    for (const c of creatures) {
+      expect(c.traits.shape.curve).toBe(0);
+      expect(c.traits.shape.fusion).toBe(0);
+      expect(c.traits.modules.every((m) => m.ext.chela === 0)).toBe(true);
+    }
+  });
+
+  it('draws eyes, radial bodies and webbing at the table frequencies', () => {
+    const share = (test: (c: (typeof creatures)[number]) => boolean): number =>
+      creatures.filter(test).length / N;
+    const radial = GENESIS_FORMS.filter((f) => f.radial).reduce((sum, f) => sum + f.weight, 0);
+    const webbed = GENESIS_FORMS.filter((f) => f.webbed).reduce((sum, f) => sum + f.weight, 0);
+    expect(Math.abs(share((c) => c.plan.eyes.count > 0) - GENESIS_EYES)).toBeLessThan(
+      tol(GENESIS_EYES, N),
+    );
+    expect(Math.abs(share((c) => c.plan.form.radial === 1) - radial)).toBeLessThan(tol(radial, N));
+    expect(
+      Math.abs(share((c) => c.traits.modules.some((m) => m.present && m.ext.webbing > 0)) - webbed),
+    ).toBeLessThan(tol(webbed, N));
+  });
+
+  it('swims about as fast as the v5 cell (median within 15%)', () => {
+    const median = (gs: readonly Genome[]): number => {
+      const v = gs
+        .map((g) => metricsAt(g, buildCreature(g).stats.maxBiomass).speed)
+        .sort((a, b) => a - b);
+      return v[v.length >> 1] as number;
+    };
+    const v5 = Array.from({ length: 1000 }, (_, i) => upgrade(genesisGenomeV5(seedOf(i))));
+    const ratio = median(genomes.slice(0, 1000)) / median(v5);
+    expect(ratio).toBeGreaterThan(0.85);
+    expect(ratio).toBeLessThan(1.15);
   });
 
   it('keeps the frozen v5 genesis hashes (karyotype v1)', () => {

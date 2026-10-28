@@ -45,6 +45,12 @@ export const GENUS_SUFFIXES: readonly string[] = [
 const STEM_SYLLABLES = 3;
 const size = RULES.genes.size;
 
+/** 0, or 0.3 to 1 by the strongest present module's detail `of` (0-1). */
+const detail = (t: Traits, of: (m: Traits['modules'][number]) => number): number => {
+  const best = Math.max(0, ...t.modules.filter((m) => m.present).map(of));
+  return best > 0 ? 0.3 + 0.7 * best : 0;
+};
+
 /** How strongly a trait makes the body what the epithet says, 0-1; the strongest one names it. */
 const EPITHET_SCORES: readonly (readonly [string, (t: Traits) => number])[] = [
   ['armatus', (t) => t.skin.plating],
@@ -56,6 +62,15 @@ const EPITHET_SCORES: readonly (readonly [string, (t: Traits) => number])[] = [
   ['albus', (t) => (t.colour.albino === 'normal' ? 0 : 0.65)],
   // Size in octaves above the smallest cell: the biggest body scores 1.
   ['magnus', (t) => (log(t.body.maxBiomass / size.base) * Math.LOG2E) / size.octaves],
+  // Karyotype v2 (ADR 0025); each is 0 when its trait is off, so a v1 body never takes one.
+  ['alata', (t) => detail(t, (m) => m.ext.webbing)],
+  ['spiralis', (t) => (t.shape.curve > 0.1 ? 0.35 + 0.65 * t.shape.curve : 0)],
+  [
+    'radiatus',
+    (t) => (t.shape.symmetry >= RULES.develop.radial.at ? 0.3 + 0.5 * t.shape.symmetry : 0),
+  ],
+  ['oculatus', (t) => (t.shape.eyeSize > RULES.develop.eyes.min ? 0.2 + 0.6 * t.shape.eyeSize : 0)],
+  ['setosus', (t) => detail(t, (m) => m.ext.setaeDensity * m.ext.setaeLength)],
   ['serpens', (t) => (t.body.segments > 1 ? 0.3 + 0.1 * t.body.segments : 0)],
   // The default: a swimmer, a little more so when the gait is wide.
   ['natans', (t) => 0.25 + 0.5 * t.behaviour.gaitAmp],

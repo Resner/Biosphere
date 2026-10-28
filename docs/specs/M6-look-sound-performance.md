@@ -264,7 +264,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: appendages gain `webbing`, `setae`, `setaeLength`, `bulb`, `chela`, `beads` and the plan convex `membranes` (`RULES.develop.detail`, `RULES.stats.v2.{web,setae,bulb,chela,beads}`); `silhouetteOf` in `genome/silhouette.ts`, shown in the Lab inspector; archetypes gain winged and setose plus a `sense` metric (setose's niche).
   - Gotcha: a sheet's push grows with (size ÷ 16,384)^0.5, steeper than a paddle, or winged out-rows the swimmer and coiled everywhere; v1 and T7 cost properties now run on bare parts (webs and the setae cap move with layout), fine parts have their own.
 
-- [ ] T9 Genesis spread, rarity, names and the specimen set (in progress)
+- [x] T9 Genesis spread, rarity, names and the specimen set
   - Acceptance (unit tests first):
     - **Genesis** (ADR 0025, under rules version 6 only; v5 genesis stays frozen for verifying old records, T6): every genesis plan has one body unit and at most 3 module slots present. Over 1,000 seeds, at least 4 silhouette classes appear and none takes more than 40%. Rare alleles keep their DESIGN frequencies. The median top speed stays within ±15% of v5's (a test pins the band).
     - **Wild variety**: the Lab's wild mode (24 cells) shows at least 8 silhouette classes for 9 of 10 seeds.
@@ -272,6 +272,8 @@ A look pass never starts before the tasks it judges are ticked.
     - **Names**: species epithets can come from the new traits (for example *alata* for winged, *spiralis* for coil). The names stay deterministic per genome hash.
     - **Specimen set**: `tools/specimen.ts` builds a v2 genome for a target silhouette by deterministic search from a seed. The gallery gains one specimen per silhouette class except `other`: cell, ciliate, spiny larva (the spherical larva of #90), bell (jellyfish-like), tadpole, copepod, shrimp, worm (S-curved), coil (the curled worm and the nautilus coil), crab, winged and fan-tail. That makes 12, each verified by `silhouetteOf`, added after the baseline 20. Four more specimens, one per rarity tier (common, uncommon, rare, exotic, by `rarity`), complete the set at 36; T13 measures glints on them.
   - Notes: DESIGN §6 (genesis, rarity) gets the new numbers. The pacing tool (T18) uses v2 genesis.
+  - Done: `genesis.ts` draws one of six larval forms (cell, ciliate, spiny larva, bell, tadpole, fan tail) over the v5 cell from its own stream; rarity prices radial, webbing and eyes from the form table and coil, carapace and chela at 12 bits; five new epithets; the report's silhouette histograms; `tools/specimen.ts` and `npm run specimens`, with files 21–36 in the gallery. The Lab's wild mode zeroes v2 bytes 60% of the time (`wildGenome`).
+  - Gotcha: a third of the v5 band cells already have three pairs and read as ciliates, so the plain-cell form is 35%, not more; rarity's common share drops to about 70% (its test band moved), and the genesis, inherit and offspring goldens were regenerated (rules 6 is unreleased).
 
 - [ ] T10 Creature mesh v2 [opus]
   - Acceptance (unit tests first):

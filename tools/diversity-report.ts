@@ -6,6 +6,7 @@ import { bodyViolations, estimateVertices } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
 import { breed } from '../src/genome/inherit';
 import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
+import { SILHOUETTES, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { sizeTier } from '../src/sim/size';
@@ -131,6 +132,16 @@ export function diversityReport(options: ReportOptions): string {
     ...histogram(
       'Appendages',
       creatures.map((c) => c.plan.appendages.length),
+    ),
+    ...histogram(
+      'Silhouettes',
+      creatures.map((c) => silhouetteOf(c.plan)),
+      SILHOUETTES,
+    ),
+    ...histogram(
+      'Genesis silhouettes',
+      creatures.slice(0, genesis.length).map((c) => silhouetteOf(c.plan)),
+      SILHOUETTES,
     ),
     ...histogram(
       'Size tiers',

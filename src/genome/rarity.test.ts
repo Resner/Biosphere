@@ -6,8 +6,8 @@ import { RULES_VERSION } from '../sim/rules';
 import { sizeTier } from '../sim/size';
 import { decodeGenome, encodeGenome, type Genome } from './codec';
 import { express } from './express';
-import { genesisGenome } from './genesis';
-import { HAPLOTYPE_BYTES, MODULE_BYTES } from './karyotype';
+import { GENESIS_EYES, GENESIS_FORMS, genesisGenome } from './genesis';
+import { HAPLOTYPE_BYTES, MODULE_BYTES, MODULE_EXT, MODULE_LOCI } from './karyotype';
 import { featureBits, NEVER_BITS, RARITY_TIERS, rarityOf } from './rarity';
 import { starterGenome } from './starter';
 
@@ -29,6 +29,19 @@ function withModule(base: Genome, id: string): Genome {
   return decodeGenome(bytes);
 }
 
+/** M1 with fine detail set on both haplotypes (and a pointed tip, which a chela needs). */
+function withExt(base: Genome, set: Partial<Record<(typeof MODULE_EXT)[number], number>>): Genome {
+  const bytes = encodeGenome(base);
+  const slot = MODULE_LOCI[0] as (typeof MODULE_LOCI)[number];
+  for (let hap = 0; hap < 2; hap++) {
+    const o = hap * HAPLOTYPE_BYTES;
+    for (const [name, v] of Object.entries(set))
+      bytes[o + slot.ext + MODULE_EXT.indexOf(name as (typeof MODULE_EXT)[number])] = v;
+    if (set.chela) bytes[o + slot.offset + 1 + 6] = 96;
+  }
+  return decodeGenome(bytes);
+}
+
 const plain = (): Genome =>
   withAlleles(starterGenome(), {
     pattern: [0, 0],
@@ -39,13 +52,19 @@ const plain = (): Genome =>
   });
 
 const withoutRare = (g: Genome): Genome =>
-  withAlleles(g, {
-    iridescence: [0, 0],
-    albino: [0, 0],
-    luminescence: [0, 0],
-    pattern: [0, 0],
-    texture: [0, 0],
-  });
+  withExt(
+    withAlleles(g, {
+      iridescence: [0, 0],
+      albino: [0, 0],
+      luminescence: [0, 0],
+      pattern: [0, 0],
+      texture: [0, 0],
+      symmetry: [0, 0],
+      drape: [0, 0],
+      eyeSize: [0, 0],
+    }),
+    { webbing: 0 },
+  );
 
 /** Edits that each add one listed rare feature to a genome without rare features, and keep the earlier ones. */
 const STEPS: [string, (g: Genome) => Genome][] = [
@@ -58,6 +77,12 @@ const STEPS: [string, (g: Genome) => Genome][] = [
   ['modules', (g) => withModule(g, 'M5')],
   ['novel', (g) => withAlleles(g, { texture: [2, 2] })],
   ['size', (g) => withAlleles(g, { size1: [255, 255] })],
+  ['radial', (g) => withAlleles(g, { symmetry: [255, 255] })],
+  ['eyes', (g) => withAlleles(g, { eyeSize: [255, 255] })],
+  ['webbing', (g) => withExt(g, { webbing: 200 })],
+  ['chela', (g) => withExt(g, { chela: 255 })],
+  ['coil', (g) => withAlleles(g, { curve: [255, 255] })],
+  ['carapace', (g) => withAlleles(g, { fusion: [255, 255] })],
 ];
 
 /** Each feature on its own, from a plain base. */
@@ -67,6 +92,12 @@ const ALONE: Record<string, (g: Genome) => Genome> = {
   spots: (g) => withAlleles(g, { pattern: [2, 2] }),
   rings: (g) => withAlleles(g, { pattern: [1, 1] }),
   novel: (g) => withAlleles(g, { albino: [2, 2] }),
+  coil: (g) => withAlleles(g, { curve: [255, 255] }),
+  radial: (g) => withAlleles(g, { symmetry: [255, 255] }),
+  carapace: (g) => withAlleles(g, { fusion: [255, 255] }),
+  eyes: (g) => withAlleles(g, { eyeSize: [255, 255] }),
+  webbing: (g) => withExt(g, { webbing: 200 }),
+  chela: (g) => withExt(g, { chela: 255 }),
 };
 
 describe('rarityOf', () => {
@@ -86,14 +117,30 @@ describe('rarityOf', () => {
     // Rings show only without spots or stripes: (0.6² − 0.4²).
     expect(featureBits.rings).toBeCloseTo(-Math.log2(0.6 ** 2 - 0.4 ** 2), 9);
     expect(featureBits.luminescent).toBeCloseTo(-Math.log2(1 - 0.7 ** 2), 9);
-    for (const name of ['segments', 'modules', 'novel', 'size']) {
+    for (const name of ['segments', 'modules', 'novel', 'size', 'coil', 'carapace', 'chela']) {
       expect(featureBits[name], name).toBe(NEVER_BITS);
     }
     expect(NEVER_BITS).toBe(12);
+    // The v2 features genesis makes are priced from the form table and the eye chance.
+    const share = (pick: (f: (typeof GENESIS_FORMS)[number]) => boolean): number =>
+      GENESIS_FORMS.filter(pick).reduce((sum, f) => sum + f.weight, 0);
+    expect(featureBits.radial).toBeCloseTo(-Math.log2(share((f) => f.radial)), 9);
+    expect(featureBits.webbing).toBeCloseTo(-Math.log2(share((f) => f.webbed)), 9);
+    expect(featureBits.eyes).toBeCloseTo(-Math.log2(GENESIS_EYES), 9);
   });
 
   it('matches the measured genesis frequencies of the features it prices', () => {
-    for (const name of ['iridescent', 'albino', 'stripes', 'spots', 'rings', 'luminescent']) {
+    for (const name of [
+      'iridescent',
+      'albino',
+      'stripes',
+      'spots',
+      'rings',
+      'luminescent',
+      'radial',
+      'webbing',
+      'eyes',
+    ]) {
       const p = 2 ** -(featureBits[name] as number);
       const count = rarities.filter((r) => r.features.includes(name)).length;
       const sd = Math.sqrt((p * (1 - p)) / N);
@@ -102,7 +149,7 @@ describe('rarityOf', () => {
   });
 
   it('never sees a 12-bit feature in genesis', () => {
-    const never = new Set(['segments', 'modules', 'novel', 'size']);
+    const never = new Set(['segments', 'modules', 'novel', 'size', 'coil', 'carapace', 'chela']);
     expect(rarities.filter((r) => r.features.some((f) => never.has(f)))).toEqual([]);
   });
 
@@ -150,10 +197,11 @@ describe('rarityOf', () => {
 
   it('keeps most genesis cells common, a few uncommon, almost none exotic', () => {
     const count = (p: (t: string) => boolean): number => rarities.filter((r) => p(r.tier)).length;
-    expect(count((t) => t === 'common') / N).toBeGreaterThanOrEqual(0.8);
+    // The larval forms (a radial body at 27%, eyes at 12%) add to the lower tiers: about 70% stay common.
+    expect(count((t) => t === 'common') / N).toBeGreaterThanOrEqual(0.65);
     const higher = count((t) => t !== 'common') / N;
     expect(higher).toBeGreaterThanOrEqual(0.03);
-    expect(higher).toBeLessThanOrEqual(0.2);
+    expect(higher).toBeLessThanOrEqual(0.35);
     expect(count((t) => t === 'exotic') / N).toBeLessThan(0.01);
   });
 

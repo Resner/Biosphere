@@ -11,6 +11,7 @@
     "sim:pacing": "node tools/pacing.mjs",
     "report:diversity": "node tools/diversity.mjs",
     "gallery": "node tools/gallery.mjs",
+    "specimens": "node tools/specimens.mjs",
     "record:drand": "node tools/record-drand.mjs",
     "build": "vite build",
     "preview": "vite preview",

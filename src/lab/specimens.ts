@@ -5,18 +5,22 @@ import { decodeGenome, type Genome } from '../genome/codec';
 import { describeCreature } from '../genome/describe';
 import { bodyViolations, estimateVertices } from '../genome/develop';
 import { genesisGenome } from '../genome/genesis';
-import { GENOME_BYTES } from '../genome/karyotype';
+import { GENOME_BYTES, HAPLOTYPE_BYTES } from '../genome/karyotype';
+import { HAPLOTYPE_BYTES_V1 } from '../genome/karyotype-v1';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import { type Silhouette, silhouetteOf } from '../genome/silhouette';
 import { buildCreature, type Creature } from '../genome/stats';
-import { createRng, seedFromString } from '../sim/prng';
+import { createRng, type Seed, seedFromString } from '../sim/prng';
 import { sizeTier } from '../sim/size';
 
 /** Genesis cells, or random genome bytes that show the extremes. */
 export type LabMode = 'genesis' | 'wild';
 
 export const LAB_COUNT = 24;
+
+/** The chance that a wild cell leaves one v2 byte (a shape locus or a part detail) at 0. */
+const WILD_V2_OFF = 0.6;
 
 export interface Specimen {
   genome: Genome;
@@ -50,11 +54,25 @@ export function specimenOf(genome: Genome): Specimen {
   };
 }
 
+/** A wild cell: random bytes with most of the v2 bytes off, from a seed. */
+export function wildGenome(at: Seed): Genome {
+  const rng = createRng(at, 'lab-wild');
+  const bytes = Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff);
+  // Each v2 byte (body shape and part detail) is off in most cells, or half of them would be radial
+  // bells and a third winged: wild cells mix a few new axes into a v1 body, the way breeding does.
+  const extra = HAPLOTYPE_BYTES - HAPLOTYPE_BYTES_V1;
+  for (let i = 0; i < extra; i++) {
+    if (rng.next() < WILD_V2_OFF) {
+      bytes[HAPLOTYPE_BYTES_V1 + i] = 0;
+      bytes[HAPLOTYPE_BYTES + HAPLOTYPE_BYTES_V1 + i] = 0;
+    }
+  }
+  return decodeGenome(bytes);
+}
+
 export function labGenomes(seed: string, mode: LabMode, count = LAB_COUNT): Genome[] {
   return Array.from({ length: count }, (_, i) => {
     const at = seedFromString(`${seed}/${mode}/${i}`);
-    if (mode === 'genesis') return genesisGenome(at);
-    const rng = createRng(at, 'lab-wild');
-    return decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
+    return mode === 'genesis' ? genesisGenome(at) : wildGenome(at);
   });
 }

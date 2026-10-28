@@ -25,6 +25,13 @@ describe('Lab specimens', () => {
     expect(wild).not.toEqual(genesis);
   });
 
+  it('shows at least eight silhouette classes in the wild mode for 9 of 10 seeds', () => {
+    const rich = Array.from({ length: 10 }, (_, i) => `wild-variety-${i}`).filter(
+      (seed) => new Set(labGenomes(seed, 'wild').map((g) => specimenOf(g).silhouette)).size >= 8,
+    );
+    expect(rich.length).toBeGreaterThanOrEqual(9);
+  });
+
   it('describes a creature in plain words with a species name, rarity and vertex count', () => {
     const [genome] = labGenomes('plain', 'genesis');
     const s = specimenOf(genome as NonNullable<typeof genome>);
