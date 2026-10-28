@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { depthAt, zoneAt } from './bathymetry';
 import { STARTER_PHYS } from './body';
 import { applyHazards, plumesNear } from './hazards';
 import { TAU } from './math';
@@ -22,17 +23,45 @@ describe('plumesNear', () => {
     expect(allPlumes(createWorld({ seed: 'haz2' }))).not.toEqual(allPlumes(w));
   });
 
-  it('places about one plume per 9 food cells with radii of 60-160 wu', () => {
+  it('raises plumes from vents in the deep and the abyss, about one per 9 cells there', () => {
     const w = createWorld({ seed: 'haz', currents: false });
     const plumes = allPlumes(w);
-    const cells = (w.size / RULES.world.cellSize) ** 2;
-    expect(plumes.length).toBeGreaterThan((cells / 9) * 0.75);
-    expect(plumes.length).toBeLessThan((cells / 9) * 1.25);
+    const cell = RULES.world.cellSize;
+    const side = w.size / cell;
+    let eligible = 0;
+    for (let cy = 0; cy < side; cy++) {
+      for (let cx = 0; cx < side; cx++) {
+        const x = (cx + 0.5) * cell;
+        const y = (cy + 0.5) * cell;
+        const far = Math.hypot(x - w.size / 2, y - w.size / 2) >= RULES.hazards.ventMinDistance;
+        if (far && depthAt(w.seed32, x, y) >= RULES.bathymetry.zones.twilight) eligible++;
+      }
+    }
+    expect(plumes.length).toBeGreaterThan((eligible / 9) * 0.6);
+    expect(plumes.length).toBeLessThan((eligible / 9) * 1.4);
     for (const p of plumes) {
       expect(p.radius).toBeGreaterThanOrEqual(RULES.hazards.plumeMinRadius);
       expect(p.radius).toBeLessThanOrEqual(RULES.hazards.plumeMaxRadius);
+      expect(Math.hypot(p.x - w.size / 2, p.y - w.size / 2)).toBeGreaterThanOrEqual(
+        RULES.hazards.ventMinDistance,
+      );
     }
     expect(new Set(plumes.map((p) => p.id)).size).toBe(plumes.length);
+  });
+
+  it('keeps at least 80% of the plumes in the deep or the abyss, drift included', () => {
+    for (const seed of ['haz', 'haz2', 'haz3']) {
+      const w = createWorld({ seed });
+      for (const tick of [0, 900, 1800]) {
+        w.tick = tick;
+        const plumes = allPlumes(w);
+        const down = plumes.filter((p) => {
+          const zone = zoneAt(w.seed32, p.x, p.y);
+          return zone === 'deep' || zone === 'abyss';
+        });
+        expect(down.length / plumes.length).toBeGreaterThanOrEqual(0.8);
+      }
+    }
   });
 
   it('finds every plume whose area reaches the query disc', () => {
@@ -73,7 +102,11 @@ describe('plumesNear', () => {
 describe('toxin', () => {
   const inPlume = (): [World, string] => {
     const world = createWorld({ seed: 'haz', currents: false });
-    const plume = allPlumes(world)[3] as Plume;
+    // A plume in the upper deep: no pressure there, so toxin is the only damage.
+    const plume = allPlumes(world).find((p) => {
+      const depth = depthAt(world.seed32, p.x, p.y);
+      return depth > 0.58 && depth < 0.66;
+    }) as Plume;
     const c = spawnCreature(world, { id: 'a', x: plume.x, y: plume.y });
     // At the growth threshold: more energy would grow the creature, and growth adds health.
     c.energy = 150;
@@ -169,5 +202,82 @@ describe('toxin exposure through the colliders', () => {
     expect(applyHazards(world, plain)).toEqual([
       { type: 'damage', creature: 'b', amount: RULES.damage.toxin * DT, cause: 'toxin' },
     ]);
+  });
+});
+
+describe('UV and pressure', () => {
+  /** A point whose depth lies in [lo, hi], found on a coarse scan. */
+  const spotWithDepth = (world: World, lo: number, hi: number): { x: number; y: number } => {
+    for (let y = 100; y < world.size; y += 100) {
+      for (let x = 100; x < world.size; x += 100) {
+        const depth = depthAt(world.seed32, x, y);
+        if (depth >= lo && depth <= hi) return { x, y };
+      }
+    }
+    throw new Error('no such depth');
+  };
+  const tolerant = (uv: number, pressure: number) => ({
+    ...STARTER_PHYS,
+    uvTolerance: uv,
+    pressureTolerance: pressure,
+  });
+  const at = (phys = STARTER_PHYS, lo: number, hi: number, options = {}) => {
+    const world = createWorld({ seed: 'zones', currents: false, ...options });
+    const spot = spotWithDepth(world, lo, hi);
+    const c = spawnCreature(world, { id: 'a', ...spot, phys });
+    return { world, c };
+  };
+
+  it('burns 2 hp/s × (1 − tolerance) in the shallows, and nothing in twilight', () => {
+    const { world, c } = at(tolerant(0, 1), 0.1, 0.15);
+    expect(applyHazards(world, c)).toEqual([
+      { type: 'damage', creature: 'a', amount: 2 * DT, cause: 'uv' },
+    ]);
+    const half = at(tolerant(0.5, 1), 0.1, 0.15);
+    expect(applyHazards(half.world, half.c)[0]).toMatchObject({ cause: 'uv', amount: DT });
+    const twilight = at(tolerant(0, 0), 0.3, 0.5);
+    expect(applyHazards(twilight.world, twilight.c)).toEqual([]);
+  });
+
+  it('ramps UV in over a band below the edge of the shallows', () => {
+    const { world, c } = at(tolerant(0, 1), 0.24, 0.245);
+    const [event] = applyHazards(world, c);
+    expect(event?.type === 'damage' && event.amount).toBeGreaterThan(0);
+    expect(event?.type === 'damage' && event.amount).toBeLessThan(0.5 * 2 * DT);
+  });
+
+  it('crushes 3 hp/s × (1 − tolerance) in the abyss, ramping in from depth 0.7', () => {
+    const abyss = at(tolerant(1, 0), 0.85, 0.95);
+    expect(applyHazards(abyss.world, abyss.c)).toEqual([
+      { type: 'damage', creature: 'a', amount: 3 * DT, cause: 'pressure' },
+    ]);
+    const lower = at(tolerant(1, 0), 0.74, 0.76);
+    const [event] = applyHazards(lower.world, lower.c);
+    expect(event?.type === 'damage' && event.amount).toBeGreaterThan(0);
+    expect(event?.type === 'damage' && event.amount).toBeLessThan(3 * DT);
+    const upper = at(tolerant(1, 0), 0.6, 0.68);
+    expect(applyHazards(upper.world, upper.c)).toEqual([]);
+  });
+
+  it('takes no damage with full tolerance, or with hazards off', () => {
+    const safe = at(tolerant(1, 1), 0.85, 0.95);
+    expect(applyHazards(safe.world, safe.c)).toEqual([]);
+    const off = at(tolerant(0, 0), 0.1, 0.15, { hazards: false });
+    expect(applyHazards(off.world, off.c)).toEqual([]);
+  });
+
+  it('names the cause on death', () => {
+    const { world, c } = at(tolerant(0, 1), 0.1, 0.15);
+    c.energy = 150;
+    const events: StepEvent[] = [];
+    while (c.alive && world.tick < 3000) events.push(...step(world, {}));
+    expect(c.cause).toBe('uv');
+    expect(events).toContainEqual({ type: 'death', creature: 'a', cause: 'uv' });
+  });
+
+  it('covers the tolerances in the state hash', () => {
+    const a = at(tolerant(0.2, 0.3), 0.3, 0.5);
+    const b = at(tolerant(0.2, 0.4), 0.3, 0.5);
+    expect(hashWorld(a.world)).not.toBe(hashWorld(b.world));
   });
 });

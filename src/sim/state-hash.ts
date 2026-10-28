@@ -21,6 +21,7 @@ export function hashWorld(world: World): string {
       .u32(c.bornTick);
     const p = c.phys;
     h.f64(p.maxBiomass).f64(p.thrust).f64(p.drag).f64(p.turn).f64(p.basal).f64(p.growth);
+    h.f64(p.uvTolerance).f64(p.pressureTolerance);
     h.f64(p.mouth.offset).f64(p.mouth.radius).f64(p.mouth.arc).f64(p.mouth.type);
     h.f64(p.mouth.digestion).u32(p.colliders.length);
     for (const k of p.colliders) h.f64(k.x).f64(k.y).f64(k.r);

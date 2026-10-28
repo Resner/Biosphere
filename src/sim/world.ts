@@ -1,3 +1,4 @@
+import { depthAt } from './bathymetry';
 import { type PhysStats, STARTER_PHYS, sanitizePhys } from './body';
 import { seedFromString } from './prng';
 import { RULES, RULES_VERSION } from './rules';
@@ -12,7 +13,7 @@ export interface WorldOptions {
 }
 
 export function createWorld(opts: WorldOptions): World {
-  return {
+  const world = {
     rules: RULES_VERSION,
     seed: opts.seed,
     seed32: seedFromString(opts.seed),
@@ -22,7 +23,10 @@ export function createWorld(opts: WorldOptions): World {
     consumed: {},
     options: { currents: opts.currents ?? true, hazards: opts.hazards ?? true },
     extraPlumes: [],
-  };
+  } satisfies World;
+  // Calibrate the pond's bathymetry now rather than inside the first tick.
+  depthAt(world.seed32, world.size / 2, world.size / 2);
+  return world;
 }
 
 export function spawnCreature(

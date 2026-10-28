@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { depthAt, zoneAt } from './bathymetry';
 import { type Mouth, STARTER_PHYS } from './body';
 import {
   applyFeeding,
@@ -9,6 +10,7 @@ import {
   foodNear,
   slotAnchor,
 } from './food';
+import { ventNear } from './hazards';
 import { RULES } from './rules';
 import { step } from './step';
 import type { FoodItem, FoodKind, World } from './types';
@@ -57,25 +59,49 @@ describe('foodInCell', () => {
     expect(after.some((item, i) => item.x !== (before[i]?.x ?? 0))).toBe(true);
   });
 
-  it('puts about 8 items in a cell and splits kinds 70:25:5', () => {
+  it('puts about 8 items in a cell', () => {
     const w = world('stats');
-    const counts: Record<FoodKind, number> = { detritus: 0, globule: 0, crystal: 0 };
     let total = 0;
+    const side = w.size / RULES.world.cellSize;
+    for (let cy = 0; cy < side; cy++) {
+      for (let cx = 0; cx < side; cx++) total += foodInCell(w, cx, cy).length;
+    }
+    expect(total / (side * side)).toBeGreaterThanOrEqual(6);
+    expect(total / (side * side)).toBeLessThanOrEqual(10);
+  });
+
+  it('weights each slot by the zone at its anchor, crystals richest near a vent', () => {
+    const kinds: FoodKind[] = ['detritus', 'globule', 'crystal'];
+    const counts: Record<string, Record<FoodKind, number>> = {};
+    const w = world('zones');
     const side = w.size / RULES.world.cellSize;
     for (let cy = 0; cy < side; cy++) {
       for (let cx = 0; cx < side; cx++) {
         for (const item of foodInCell(w, cx, cy)) {
-          counts[item.kind]++;
-          total++;
+          // The item sits within the drift radius of its anchor; judge by the cell's slot kind only.
+          const zone = zoneAt(w.seed32, item.x, item.y);
+          const bucket = counts[zone] ?? { detritus: 0, globule: 0, crystal: 0 };
+          counts[zone] = bucket;
+          bucket[item.kind]++;
         }
       }
     }
-    const cells = side * side;
-    expect(total / cells).toBeGreaterThanOrEqual(6);
-    expect(total / cells).toBeLessThanOrEqual(10);
-    expect(Math.abs((counts.detritus / total) * 100 - 70)).toBeLessThan(5);
-    expect(Math.abs((counts.globule / total) * 100 - 25)).toBeLessThan(5);
-    expect(Math.abs((counts.crystal / total) * 100 - 5)).toBeLessThan(5);
+    // No crystals above the deep and no globules below twilight, whatever the rounding at an edge.
+    for (const zone of ['shallows', 'twilight']) {
+      const c = counts[zone] as Record<FoodKind, number>;
+      expect(c.crystal / (c.detritus + c.globule + c.crystal)).toBeLessThan(0.02);
+    }
+    for (const zone of ['deep', 'abyss']) {
+      const c = counts[zone] as Record<FoodKind, number>;
+      expect(c.globule / (c.detritus + c.globule + c.crystal)).toBeLessThan(0.02);
+    }
+    const share = (zone: string, kind: FoodKind): number => {
+      const c = counts[zone] as Record<FoodKind, number>;
+      return c[kind] / kinds.reduce((sum, k) => sum + c[k], 0);
+    };
+    expect(share('shallows', 'globule')).toBeGreaterThan(share('twilight', 'globule') - 0.02);
+    expect(share('abyss', 'crystal')).toBeGreaterThan(share('deep', 'crystal'));
+    expect(share('deep', 'crystal')).toBeGreaterThan(0.05);
   });
 
   it('keeps every item inside the world', () => {
@@ -91,6 +117,30 @@ describe('foodInCell', () => {
         expect(item.y).toBeLessThanOrEqual(w.size);
       }
     }
+  });
+});
+
+describe('vent crystals', () => {
+  it('are richer within reach of a vent than elsewhere in the deep', () => {
+    const w = world('vents');
+    const cell = RULES.world.cellSize;
+    const side = w.size / cell;
+    const near = { crystal: 0, all: 0 };
+    const far = { crystal: 0, all: 0 };
+    for (let cy = 0; cy < side; cy++) {
+      for (let cx = 0; cx < side; cx++) {
+        for (const slot of foodInCell(w, cx, cy)) {
+          const anchor = slotAnchor(w, cx, cy, Number(slot.id.split('_s')[1]?.split('_')[0]), 0);
+          if (zoneAt(w.seed32, anchor.x, anchor.y) !== 'deep') continue;
+          const bucket = ventNear(w, anchor.x, anchor.y, RULES.food.ventRange) ? near : far;
+          bucket.all++;
+          if (slot.kind === 'crystal') bucket.crystal++;
+        }
+      }
+    }
+    expect(near.all).toBeGreaterThan(100);
+    expect(far.all).toBeGreaterThan(100);
+    expect(near.crystal / near.all).toBeGreaterThan(2 * (far.crystal / far.all));
   });
 });
 
@@ -373,5 +423,25 @@ describe('feeding through the mouth', () => {
     for (let i = 0; i < runs; i++) step(w, {});
     const ms = Number(process.hrtime.bigint() - start) / 1e6 / runs;
     expect(ms).toBeLessThan(2);
+  });
+
+  it('keeps a tick of 24 creatures in the deep, where vents are scanned, under 2 ms', () => {
+    const w = createWorld({ seed: 'perf2' });
+    let at = { x: 0, y: 0 };
+    for (let y = 100; y < 8000; y += 100) {
+      for (let x = 100; x < 8000; x += 100) {
+        const depth = depthAt(w.seed32, x, y);
+        if (depth > 0.6 && depth < 0.68) at = { x, y };
+      }
+    }
+    for (let i = 0; i < 24; i++) {
+      const id = `c${String(i).padStart(2, '0')}`;
+      spawnCreature(w, { id, x: at.x + (i % 6) * 40, y: at.y + Math.floor(i / 6) * 40 });
+    }
+    for (let i = 0; i < 30; i++) step(w, {});
+    const runs = 60;
+    const start = process.hrtime.bigint();
+    for (let i = 0; i < runs; i++) step(w, {});
+    expect(Number(process.hrtime.bigint() - start) / 1e6 / runs).toBeLessThan(2);
   });
 });

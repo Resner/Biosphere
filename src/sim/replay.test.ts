@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { depthAt } from './bathymetry';
 import { type PhysStats, STARTER_PHYS } from './body';
 import { foodNear } from './food';
 import { plumesNear } from './hazards';
@@ -96,8 +97,16 @@ function build(): Record<(typeof NAMES)[number], InputLog> {
 
   // Starts just west of a plume and dashes straight through it.
   const probe = createWorld({ seed: 'golden-hazard' });
-  const plume = plumesNear(probe, 4096, 4096, 1500)[0];
-  if (plume === undefined) throw new Error('golden-hazard has no plume near the centre');
+  // Plumes rise from vents in the deep: take the first one with room to its west, in water too
+  // shallow for pressure and too deep for UV, so the dash meets only the toxin.
+  const mild = (x: number, y: number): boolean => {
+    const depth = depthAt(probe.seed32, x, y);
+    return depth > 0.3 && depth < 0.65;
+  };
+  const plume = plumesNear(probe, 4096, 4096, 8192).find(
+    (p) => p.x - p.radius > 200 && mild(p.x, p.y) && mild(p.x - p.radius - 40, p.y),
+  );
+  if (plume === undefined) throw new Error('golden-hazard has no plume');
   const hazard = record(
     'golden-hazard',
     { x: Math.round(plume.x - plume.radius - 40), y: Math.round(plume.y) },

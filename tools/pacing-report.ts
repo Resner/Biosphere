@@ -5,6 +5,7 @@
 
 import { genesisGenome } from '../src/genome/genesis';
 import { buildCreature } from '../src/genome/stats';
+import { depthAt } from '../src/sim/bathymetry';
 import { foodNear } from '../src/sim/food';
 import { plumesNear } from '../src/sim/hazards';
 import { angleToSteer } from '../src/sim/input';
@@ -14,6 +15,7 @@ import { cooldownMs } from '../src/sim/mating';
 import { hashU32, seedFromString } from '../src/sim/prng';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import { step } from '../src/sim/step';
+import type { World } from '../src/sim/types';
 import { maxEnergy } from '../src/sim/vitals';
 import { createWorld, spawnCreature } from '../src/sim/world';
 
@@ -56,6 +58,12 @@ const SENSE = 400;
 /** How far from a cloud's edge the bot turns away (wu), on top of its own radius. */
 const PLUME_MARGIN = 60;
 const MS_PER_TICK = 1000 / TICK_HZ;
+/** The depths a bot stays within (a player reads the depth gauge): clear of UV above and pressure below. */
+const SAFE_DEPTH: readonly [number, number] = [0.27, 0.68];
+const safeDepth = (world: World, x: number, y: number): boolean => {
+  const depth = depthAt(world.seed32, x, y);
+  return depth >= SAFE_DEPTH[0] && depth <= SAFE_DEPTH[1];
+};
 
 /** One bot life: seek the nearest food, wander when nothing is in sight, mate when allowed. */
 export function simulateLife(name: string, capMs: number): Life {
@@ -100,6 +108,7 @@ export function simulateLife(name: string, capMs: number): Life {
       }
       for (const f of foodNear(world, me.x, me.y, SENSE)) {
         if (clouds.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.radius + margin)) continue;
+        if (!safeDepth(world, f.x, f.y)) continue;
         const d = (f.x - me.x) ** 2 + (f.y - me.y) ** 2;
         if (d < bestD) {
           bestD = d;
@@ -110,12 +119,16 @@ export function simulateLife(name: string, capMs: number): Life {
         wander = (hashU32(world.tick, name.length) % 628) / 100;
       }
     }
+    // Heading out of the safe depths turns the bot back towards the spawn centre.
+    const adrift = !safeDepth(world, me.x, me.y);
     const aim =
       flee !== null
         ? atan2(me.y - flee.y, me.x - flee.x)
-        : target === null
-          ? wander
-          : atan2(target.y - me.y, target.x - me.x);
+        : adrift
+          ? atan2(world.size / 2 - me.y, world.size / 2 - me.x)
+          : target === null
+            ? wander
+            : atan2(target.y - me.y, target.x - me.x);
     step(world, { bot: { steer: angleToSteer(aim), throttle: 15, dash: false } });
 
     const now = world.tick * MS_PER_TICK;

@@ -32,6 +32,9 @@ export interface PhysStats {
   /** Multipliers on metabolism and growth rate. */
   basal: number;
   growth: number;
+  /** 0-1: the share of UV and of deep-water pressure damage the body shrugs off (M6 T15). */
+  uvTolerance: number;
+  pressureTolerance: number;
   mouth: Mouth;
   /** 1 to 12 circles; the first is always the core `{ x: 0, y: 0, r: 1 }` (sanitising replaces it). */
   colliders: Collider[];
@@ -53,6 +56,8 @@ export const STARTER_PHYS: PhysStats = deepFreeze({
   turn: 1,
   basal: 1,
   growth: 1,
+  uvTolerance: 0.5,
+  pressureTolerance: 0.5,
   mouth: { offset: 0, radius: 1, arc: Math.PI, type: 0.5, digestion: 1 },
   colliders: [{ x: 0, y: 0, r: 1 }],
 });
@@ -97,6 +102,8 @@ export function sanitizePhys(phys: PhysStats): PhysStats {
     turn: mult(phys.turn, 1),
     basal: mult(phys.basal, 1),
     growth: mult(phys.growth, 1),
+    uvTolerance: clampTo(phys.uvTolerance, 0, 1, STARTER_PHYS.uvTolerance),
+    pressureTolerance: clampTo(phys.pressureTolerance, 0, 1, STARTER_PHYS.pressureTolerance),
     mouth: {
       offset: clampTo(m.offset, 0, b.maxReach, 0),
       radius: clampTo(m.radius, b.minMouthRadius, b.maxMouthRadius, 1),
@@ -116,7 +123,16 @@ export function isPhysShape(value: unknown): value is PhysStats {
   const p = value as Record<string, unknown>;
   const m = p.mouth as Record<string, unknown> | null | undefined;
   return (
-    ['maxBiomass', 'thrust', 'drag', 'turn', 'basal', 'growth'].every((k) => isNumber(p[k])) &&
+    [
+      'maxBiomass',
+      'thrust',
+      'drag',
+      'turn',
+      'basal',
+      'growth',
+      'uvTolerance',
+      'pressureTolerance',
+    ].every((k) => isNumber(p[k])) &&
     typeof m === 'object' &&
     m !== null &&
     ['offset', 'radius', 'arc', 'type', 'digestion'].every((k) => isNumber(m[k])) &&

@@ -380,6 +380,8 @@ export function physOf(stats: Stats): PhysStats {
     turn: mult(stats.turn),
     basal: mult(stats.basal),
     growth: mult(stats.growth),
+    uvTolerance: clamp(stats.physiology.uvTolerance, 0, 1),
+    pressureTolerance: clamp(stats.physiology.pressureTolerance, 0, 1),
     mouth: { ...stats.mouth },
     colliders: stats.colliders.map((c) => ({ ...c })),
   };
