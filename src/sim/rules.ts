@@ -322,11 +322,6 @@ export const RULES = deepFreeze({
     /** Branches leave their part at `branchAt` of its length, fanned `branchFan` radians either way. */
     branchAt: 0.7,
     branchFan: 0.5,
-    /** Mesh vertices per body ring and part ring, and rings per segment or joint, by detail. */
-    vertices: {
-      full: { cap: 6000, bodyRings: 9, bodyRing: 12, jointRings: 3, partRing: 8 },
-      low: { cap: 1500, bodyRings: 5, bodyRing: 6, jointRings: 1, partRing: 4 },
-    },
   },
   /** Stats from form (M3, DESIGN §6): how a body plan becomes thrust, drag, turning, costs and combat numbers. */
   stats: {

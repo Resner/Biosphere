@@ -5,7 +5,7 @@
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { encodeGenome, type Genome, genomeHash } from '../src/genome/codec';
-import { bodyViolations, estimateVertices } from '../src/genome/develop';
+import { bodyViolations } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
 import { type RarityTier, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, type Silhouette, silhouetteOf } from '../src/genome/silhouette';
@@ -19,8 +19,6 @@ export const SPECIMEN_TIERS: readonly RarityTier[] = ['common', 'uncommon', 'rar
 
 /** Candidates tried before giving up. */
 const BUDGET = 20_000;
-/** A specimen must draw within the medium budget of the mesh (M6 T10 sets the real ones). */
-const MAX_VERTICES = 6000;
 
 export interface Found {
   genome: Genome;
@@ -43,12 +41,7 @@ function search(
     const genome = candidate(seed, i);
     // Only the cheap parts of a specimen: its text and name are built for the winner alone.
     const c = buildCreature(genome);
-    if (
-      accept(c) &&
-      bodyViolations(c.plan).length === 0 &&
-      estimateVertices(c.plan, 'full') <= MAX_VERTICES &&
-      !taken.has(genomeHash(genome))
-    )
+    if (accept(c) && bodyViolations(c.plan).length === 0 && !taken.has(genomeHash(genome)))
       return { genome, tried: i };
   }
   return null;

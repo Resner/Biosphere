@@ -2,6 +2,7 @@ import type * as THREE from 'three';
 import { Cell, type CellView } from './cell';
 import { CreatureCache, type CreatureSource } from './creature-cache';
 import { CreatureView, type CreatureViewState } from './creature-view';
+import type { PresetName } from './presets';
 
 /** One other player's creature, as the renderer needs it. */
 export interface RemoteCellView {
@@ -67,10 +68,16 @@ export class RemoteLayer {
   ) {}
 
   /**
-   * Draws these remotes (and hides the rest). `pxPerWu` picks the level of detail of bodies.
-   * Allocates only when the pond grows.
+   * Draws these remotes (and hides the rest). `pxPerWu` and `preset` pick the level of detail of
+   * bodies. Allocates only when the pond grows.
    */
-  set(remotes: readonly RemoteCellView[], time: number, pxPerWu: number): void {
+  set(
+    remotes: readonly RemoteCellView[],
+    time: number,
+    pxPerWu: number,
+    preset: PresetName = 'high',
+  ): void {
+    this.bodyState.preset = preset;
     this.frame++;
     let used = 0;
     let bodies = 0;

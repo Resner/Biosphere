@@ -2,7 +2,6 @@
 // swims it. The mesh is in core radii, so the view scales it by the creature's radius in world units.
 
 import * as THREE from 'three';
-import type { Detail } from '../genome/develop';
 import { advanceBeatPhase } from './beat';
 import {
   type CreatureAsset,
@@ -10,8 +9,10 @@ import {
   type CreatureSource,
   lodFor,
 } from './creature-cache';
+import type { Lod } from './creature-mesh';
 import { gaitOf } from './gait';
 import { setUniform } from './materials';
+import type { PresetName } from './presets';
 
 export interface CreatureViewState {
   creature: CreatureSource;
@@ -29,8 +30,10 @@ export interface CreatureViewState {
   dissolve: number;
   /** 0..1, opacity; a missing value means opaque. */
   alpha?: number;
-  /** Screen pixels per world unit, for the level of detail; a missing value keeps full detail. */
+  /** Screen pixels per world unit, for the level of detail; a missing value keeps the preset's. */
   pxPerWu?: number;
+  /** The quality preset, whose level of detail the body is drawn at; a missing value is high (the Lab). */
+  preset?: PresetName;
 }
 
 const NO_GEOMETRY = new THREE.BufferGeometry();
@@ -40,7 +43,7 @@ export class CreatureView {
   private readonly blank = this.mesh.material;
   private asset: CreatureAsset | null = null;
   private material: THREE.ShaderMaterial | null = null;
-  private detail: Detail = 'full';
+  private detail: Lod = 'high';
   private hash: string | null = null;
   private freq = 1;
   private phase = 0;
@@ -57,8 +60,9 @@ export class CreatureView {
       this.lastTime = null;
       return;
     }
+    const preset = view.preset ?? 'high';
     const detail =
-      view.pxPerWu === undefined ? 'full' : lodFor(view.radius * view.pxPerWu, this.detail);
+      view.pxPerWu === undefined ? preset : lodFor(view.radius * view.pxPerWu, preset, this.detail);
     if (view.creature.hash !== this.hash || detail !== this.detail || !this.asset) {
       this.attach(view, detail);
     }
@@ -77,7 +81,16 @@ export class CreatureView {
     setUniform(material, 'uAlpha', view.alpha ?? 1);
   }
 
-  private attach(view: CreatureViewState, detail: Detail): void {
+  /** The level of detail drawn, and its vertex count (0 with no body). */
+  get lod(): Lod | null {
+    return this.asset?.lod ?? null;
+  }
+
+  get vertices(): number {
+    return this.asset?.vertices ?? 0;
+  }
+
+  private attach(view: CreatureViewState, detail: Lod): void {
     this.release();
     const asset = this.cache.acquire(view.creature, detail);
     // The cached material is a template: the gait uniforms belong to this creature alone.

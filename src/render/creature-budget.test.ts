@@ -3,7 +3,6 @@ import { worstBody } from '../../tests/worst-body';
 import { develop } from '../genome/develop';
 import { express } from '../genome/express';
 import { buildCreature } from '../genome/stats';
-import { RULES } from '../sim/rules';
 import * as mesh from './creature-mesh';
 
 // The instances created by user code (not by three.js itself) since the last reset; see the
@@ -43,20 +42,18 @@ const plan = develop(express(worst.genome));
 afterEach(() => vi.restoreAllMocks());
 
 describe('the render budget of one body', () => {
-  it('builds the worst-case body in under 100 ms', () => {
-    mesh.buildCreatureGeometry(plan, 'full'); // warm up the JIT
+  it('builds the worst-case body on high in under 100 ms, within its budget', () => {
+    mesh.buildCreatureGeometry(plan, 'high'); // warm up the JIT
     const start = performance.now();
-    const geometry = mesh.buildCreatureGeometry(plan, 'full');
+    const geometry = mesh.buildCreatureGeometry(plan, 'high');
     const ms = performance.now() - start;
-    expect(geometry.getAttribute('position').count).toBeLessThanOrEqual(
-      RULES.develop.vertices.full.cap,
-    );
+    expect(geometry.getAttribute('position').count).toBeLessThanOrEqual(mesh.LOD_BUDGET.high);
     expect(ms).toBeLessThan(100);
   });
 
-  it('keeps the low level of detail of every candidate body within its vertex cap', () => {
-    expect(worst.lowVertices).toBeLessThanOrEqual(RULES.develop.vertices.low.cap);
-    expect(RULES.develop.vertices.low.cap).toBeLessThanOrEqual(1_500);
+  it('keeps the low level of detail of every candidate body within 1,500 vertices', () => {
+    expect(worst.lowVertices).toBeLessThanOrEqual(mesh.LOD_BUDGET.low);
+    expect(mesh.LOD_BUDGET.low).toBeLessThanOrEqual(1_500);
   });
 });
 
@@ -65,8 +62,8 @@ describe('building bodies only once', () => {
     const cache = new CreatureCache();
     const creature = buildCreature(worst.genome);
     const builds = vi.spyOn(mesh, 'buildCreatureGeometry');
-    const first = cache.acquire(creature, 'full');
-    const second = cache.acquire(creature, 'full');
+    const first = cache.acquire(creature, 'high');
+    const second = cache.acquire(creature, 'high');
     expect(builds).toHaveBeenCalledTimes(1);
     expect(second.geometry).toBe(first.geometry);
   });

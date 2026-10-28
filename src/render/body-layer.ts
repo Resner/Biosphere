@@ -3,6 +3,7 @@
 
 import type * as THREE from 'three';
 import { CreatureCache } from './creature-cache';
+import type { Lod } from './creature-mesh';
 import { CreatureView, type CreatureViewState } from './creature-view';
 
 export class BodyLayer {
@@ -37,6 +38,15 @@ export class BodyLayer {
   /** Whether the mesh is on screen. */
   shown(): boolean {
     return this.view.mesh.visible;
+  }
+
+  /** The level of detail and vertex count of the body on screen (null and 0 with none). */
+  lod(): Lod | null {
+    return this.view.mesh.visible ? this.view.lod : null;
+  }
+
+  vertices(): number {
+    return this.view.mesh.visible ? this.view.vertices : 0;
   }
 
   /** Geometries the cache holds. */

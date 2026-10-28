@@ -39,7 +39,7 @@ describe('Lab specimens', () => {
     expect(['common', 'uncommon', 'rare', 'exotic']).toContain(s.rarity);
     expect(s.lines).toHaveLength(6);
     expect(s.vertices).toBeGreaterThan(0);
-    expect(s.vertices).toBeLessThanOrEqual(6000);
+    expect(s.vertices).toBeLessThanOrEqual(12_000);
     expect(s.tier).toBeGreaterThanOrEqual(0);
   });
 

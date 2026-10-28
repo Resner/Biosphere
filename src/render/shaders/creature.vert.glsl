@@ -23,6 +23,8 @@ const float PART_WAVES = 1.0;
 const float BREATH = 0.12;
 const float PART_STAGGER = 2.399963;
 const float ROW = 0.6;
+// `aPart` is the appendage number times this, plus the part kind (creature-mesh.ts).
+const float PART_KINDS = 16.0;
 
 void main() {
   float effort = BREATH + (1.0 - BREATH) * clamp(uBeat, 0.0, 1.0);
@@ -31,7 +33,7 @@ void main() {
   float base = sway * aAttach * sin(TAU * SPINE_WAVES * aAttach - uPhase);
 
   float swing = PART_SWING * effort * clamp(amp + 0.25, 0.0, 1.0) * aWeight;
-  float wave = sin(TAU * PART_WAVES * aWeight - uPhase + floor(aPart / 4.0) * PART_STAGGER);
+  float wave = sin(TAU * PART_WAVES * aWeight - uPhase + floor(aPart / PART_KINDS) * PART_STAGGER);
   float row = min(abs(position.y) * ROW, ROW);
 
   vec3 p = position + vec3(swing * wave * row, base + swing * wave * (1.0 - row), 0.0);

@@ -275,7 +275,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `genesis.ts` draws one of six larval forms (cell, ciliate, spiny larva, bell, tadpole, fan tail) over the v5 cell from its own stream; rarity prices radial, webbing and eyes from the form table and coil, carapace and chela at 12 bits; five new epithets; the report's silhouette histograms; `tools/specimen.ts` and `npm run specimens`, with files 21–36 in the gallery. The Lab's wild mode zeroes v2 bytes 60% of the time (`wildGenome`).
   - Gotcha: a third of the v5 band cells already have three pairs and read as ciliates, so the plain-cell form is 35%, not more; rarity's common share drops to about 70% (its test band moved), and the genesis, inherit and offspring goldens were regenerated (rules 6 is unreleased).
 
-- [ ] T10 Creature mesh v2 [opus] (in progress)
+- [x] T10 Creature mesh v2 [opus] (in progress)
   - Acceptance (unit tests first):
     - The body is a smooth loft along the curved spine: a Catmull-Rom centre line, with ring counts by level of detail. It follows the tagma profile, and a carapace adds a thin outer shell over the fused segments.
     - Appendages are tapered tubes with visible joint beads, curvature, bulb tips and chela pincers.
@@ -284,11 +284,13 @@ A look pass never starts before the tasks it judges are ticked.
     - **Budgets**: for every gallery specimen and 1,500 random v2 plans per level of detail, the vertex count is at most 12,000 on high, 6,000 on medium and 1,500 on low. The builder lowers detail to fit (rings, setae drawn, membrane subdivision) and never drops a part: the appendage count in `aPart` ids equals the plan's on every preset.
     - One merged geometry per creature per LOD, cached by genome hash and preset, and disposed at zero references. Attributes are finite and indices valid. `aAttach` and weights keep every vertex of a part attached to its root, which T11's property test checks.
     - **Screenshots** (`m6-creature-mesh.spec.ts`, gallery specimens at 1600×1000), on decoded images:
-      - the crab's legs and the copepod's antennae reach beyond the body hull: bright pixels at more than 1.6 core radii from the centre in at least 6 directions;
+      - the crab's legs and the spiny larva's spines reach beyond the body hull (the T9 copepod has no antennae: its parts all sit on its rear segments): bright pixels at more than 1.6 core radii from the centre in at least 6 directions;
       - setae show as at least 20 separate thin bright strokes on the setose specimen;
-      - the winged specimen's membranes cover an area at least as large as its body.
+      - the winged specimen's membranes are drawn over their whole plan polygons (at least 90% of the pixels inside them lit), and the polygons cover at least the quarter of the body that makes it winged (T8). (Their area is development's: the T9 winged specimen's sheets are about 40% of its body, so "at least as large as its body" was a plan target the mesh cannot meet.)
     - The player's body at default zoom (960×540) stays within the medium budget, and its rim reads at least 40 luminance levels above the water.
   - Notes: keep one draw call per creature. The inner anatomy (T12) joins the same geometry with its own part kind.
+  - Done: `creature-mesh.ts` lofts the body on a Catmull-Rom spine and steps down per-LOD ladders (`LOD_BUDGET`, `meshDetail`) without dropping parts; development caps parts by count only; setae fan from the part's chord and flip away from the body; `render.info()` gains `lod` and `vertices`.
+  - Gotcha: the T9 copepod has no antennae and its bulb stubs read as bubble clusters (look-pass gaps, T14); the `post` project depends on every other project, so run the spec with `--project post --no-deps`.
 
 - [ ] T11 Motion v2: flexible bodies [opus]
   - Acceptance (unit tests first, on the CPU reference in `gait.ts`):

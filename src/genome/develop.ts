@@ -134,8 +134,6 @@ export interface BodyPlan {
   membranes: Membrane[];
 }
 
-export type Detail = 'full' | 'low';
-
 /** One left-side appendage; `develop` builds these and mirrors them at the end. */
 type Part = Omit<Appendage, 'side'>;
 type Range = readonly [number, number];
@@ -410,30 +408,8 @@ export function motileArea(appendages: readonly Piece[]): number {
   return area;
 }
 
-export function estimateVertices(plan: BodyPlan, detail: Detail): number {
-  return verticesOf(plan.segments.length, plan.appendages, 1, detail);
-}
-
-/** Mesh vertices for a body and `sides` copies of each appendage. */
-function verticesOf(
-  segments: number,
-  appendages: readonly Pick<Appendage, 'joints' | 'branches'>[],
-  sides: number,
-  detail: Detail,
-): number {
-  const v = D.vertices[detail];
-  let total = segments * v.bodyRings * v.bodyRing;
-  for (const a of appendages) {
-    total += sides * (1 + a.branches) * ((a.joints * v.jointRings + 1) * v.partRing + 1);
-  }
-  return total;
-}
-
-/** Whether the left-side `parts`, mirrored, hold the instance and vertex caps. */
-const fits = (segments: number, parts: Part[]): boolean =>
-  parts.length * 2 <= D.caps.appendages &&
-  verticesOf(segments, parts, 2, 'full') <= D.vertices.full.cap &&
-  verticesOf(segments, parts, 2, 'low') <= D.vertices.low.cap;
+/** Whether the left-side `parts`, mirrored, hold the instance cap: parts are capped by count only (ADR 0025). */
+const fits = (parts: Part[]): boolean => parts.length * 2 <= D.caps.appendages;
 
 function bandPart(segment: number, angle: number, index: number): Part {
   return {
@@ -480,15 +456,15 @@ const mirror = (parts: Part[]): Appendage[] =>
 function bilateralParts(traits: Traits, segments: PlanSegment[], sweep: number): Part[] {
   const count = segments.length;
   let parts = shape(separate(buildParts(traits, segments), count), segments, sweep);
-  // Trim in module order, pair by pair, until the plan fits the caps and the vertex budget.
-  while (!fits(count, parts)) parts = parts.slice(0, -1);
+  // Trim in module order, pair by pair, until the plan fits the part cap.
+  while (!fits(parts)) parts = parts.slice(0, -1);
   if (2 * motileArea(parts) >= D.minThrustArea) return parts;
   // Try the rear segment first, then the ones in front of it, before giving up any part.
   for (;;) {
     for (let seg = count - 1; seg >= 0; seg--) {
       const band = bandParts(parts, seg);
       const trial = band && shape(band, segments, sweep);
-      if (trial && fits(count, [...parts, ...trial])) return [...parts, ...trial];
+      if (trial && fits([...parts, ...trial])) return [...parts, ...trial];
     }
     parts = parts.slice(0, -1);
   }
@@ -496,16 +472,15 @@ function bilateralParts(traits: Traits, segments: PlanSegment[], sweep: number):
 
 /** Radial parts: ringed, trimmed in module order, and a ciliary band joins the ring if nothing swims. */
 function radialParts(traits: Traits, segments: PlanSegment[], sweep: number): Part[] {
-  const count = segments.length;
   const all = buildParts(traits, segments);
   let keep = Math.min(all.length, D.radial.maxPairs);
   let parts = ring(all.slice(0, keep), segments, sweep);
-  while (keep > 0 && !fits(count, parts)) parts = ring(all.slice(0, --keep), segments, sweep);
+  while (keep > 0 && !fits(parts)) parts = ring(all.slice(0, --keep), segments, sweep);
   if (2 * motileArea(parts) >= D.minThrustArea) return parts;
   const band = Array.from({ length: D.band.pairs }, (_, j) => bandPart(0, 0, j));
   for (keep = Math.min(keep, D.radial.maxPairs - D.band.pairs); keep > 0; keep--) {
     const trial = ring([...all.slice(0, keep), ...band], segments, sweep);
-    if (fits(count, trial)) return trial;
+    if (fits(trial)) return trial;
   }
   return ring(band, segments, sweep);
 }
@@ -1031,10 +1006,6 @@ export function bodyViolations(plan: BodyPlan): string[] {
   if (motileArea(plan.appendages) < D.minThrustArea) bad.push('no propulsion source');
   const bound = planBounds(plan);
   if (bound > caps.bounds) bad.push(`bounds: ${bound} is beyond ${caps.bounds} core radii`);
-  if (estimateVertices(plan, 'full') > D.vertices.full.cap)
-    bad.push('too many vertices at full detail');
-  if (estimateVertices(plan, 'low') > D.vertices.low.cap)
-    bad.push('too many vertices at low detail');
   bad.push(...shapeViolations(plan));
   return bad;
 }
