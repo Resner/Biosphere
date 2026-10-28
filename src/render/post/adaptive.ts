@@ -3,7 +3,8 @@
 // 2 s window after every step and the 5 s wait to step up keep it from oscillating. The scale only
 // shrinks what the scene draws into; the HUD and the rest of the DOM are never scaled.
 
-import { percentile } from './benchmark';
+import { clamp } from '../../sim/math';
+import { CAPACITY, percentile } from './benchmark';
 
 export const ADAPTIVE = {
   min: 0.6,
@@ -24,8 +25,6 @@ const DOWN_MS = ADAPTIVE.down * ADAPTIVE.budgetMs;
 const UP_MS = ADAPTIVE.up * ADAPTIVE.budgetMs;
 /** Steps below full resolution: 0 is 1.0, 4 is 0.6. */
 const MAX_LEVEL = Math.round((ADAPTIVE.max - ADAPTIVE.min) / ADAPTIVE.step);
-/** Room for 2 s of frames at 500 Hz; older ones are dropped first. */
-const CAPACITY = 1024;
 
 export class AdaptiveScale {
   private level = 0;
@@ -47,7 +46,7 @@ export class AdaptiveScale {
   reset(now: number, scale?: number): void {
     if (scale !== undefined) {
       const level = Math.round((ADAPTIVE.max - scale) / ADAPTIVE.step);
-      this.level = Math.min(MAX_LEVEL, Math.max(0, level));
+      this.level = clamp(level, 0, MAX_LEVEL);
     }
     this.head = 0;
     this.count = 0;

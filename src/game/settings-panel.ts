@@ -2,6 +2,7 @@
 // no state: the app hands it the current settings and applies what it reports.
 
 import type { PresetName, QualitySetting } from '../render/presets';
+import { capitalise } from './badge';
 import { pick } from './dom';
 import type { Settings } from './settings';
 
@@ -41,7 +42,7 @@ export class SettingsPanel {
   show(settings: Settings, resolved: PresetName, detected: PresetName): void {
     const radio = this.radios.get(settings.quality);
     if (radio) radio.checked = true;
-    this.autoName.textContent = `Auto (${detected[0]?.toUpperCase()}${detected.slice(1)})`;
+    this.autoName.textContent = `Auto (${capitalise(detected)})`;
     this.note.textContent =
       settings.quality === 'auto' ? `Auto uses the ${resolved} preset on this device.` : '';
   }

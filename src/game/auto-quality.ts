@@ -72,8 +72,7 @@ export class AutoQuality {
     }
     if (this.status === 'running') {
       if (!title || !auto) {
-        this.bench.cancel();
-        this.status = 'pending';
+        this.abort();
       } else {
         const picked = this.bench.sample(frameMs, now);
         if (picked) this.detect(picked);
@@ -87,10 +86,7 @@ export class AutoQuality {
 
   /** After a pause: an interrupted benchmark starts over and the frame window empties. */
   resume(now: number): void {
-    if (this.status === 'running') {
-      this.bench.cancel();
-      this.status = 'pending';
-    }
+    if (this.status === 'running') this.abort();
     this.adaptive.reset(now);
   }
 
@@ -100,6 +96,11 @@ export class AutoQuality {
     this.bench.cancel();
     this.adaptive.reset(now);
     this.detect(pickPreset([ms]));
+  }
+
+  private abort(): void {
+    this.bench.cancel();
+    this.status = 'pending';
   }
 
   private detect(preset: PresetName): void {

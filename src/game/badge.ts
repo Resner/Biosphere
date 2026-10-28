@@ -3,7 +3,7 @@
 
 import type { RarityTier } from '../genome/rarity';
 
-const capitalise = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
+export const capitalise = (s: string): string => s.charAt(0).toUpperCase() + s.slice(1);
 
 /** Sets `el` to the badge for `tier`; an empty tier hides it. Writes only what changed. */
 export function setBadge(el: HTMLElement, tier: RarityTier | ''): void {

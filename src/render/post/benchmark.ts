@@ -14,7 +14,8 @@ export const BENCH = {
 
 /**
  * The nearest-rank `p` quantile of the first `count` values; NaN without any. `scratch` holds the
- * copy it reorders, so the caller's values stay as they are and a frame loop allocates nothing.
+ * copy it reorders (pass the values themselves to reorder them in place), so a frame loop allocates
+ * nothing.
  */
 export function percentile(
   values: ArrayLike<number>,
@@ -23,7 +24,7 @@ export function percentile(
   scratch: Float64Array = new Float64Array(count),
 ): number {
   if (count <= 0) return Number.NaN;
-  for (let i = 0; i < count; i++) scratch[i] = values[i] ?? 0;
+  if (values !== scratch) for (let i = 0; i < count; i++) scratch[i] = values[i] ?? 0;
   const k = Math.min(count - 1, Math.max(0, Math.ceil(p * count) - 1));
   return select(scratch, count, k);
 }
@@ -67,7 +68,7 @@ export function pickPreset(
 }
 
 /** Up to 2 s of frames at 500 Hz. */
-const CAPACITY = 1024;
+export const CAPACITY = 1024;
 
 /** Collects the frames of one benchmark run; `sample` answers once it has 2 s after the warm-up. */
 export class Benchmark {
