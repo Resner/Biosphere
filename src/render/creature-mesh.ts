@@ -1306,7 +1306,7 @@ export function buildCreatureGeometry(
   g.setAttribute('aMotion', new THREE.Float32BufferAttribute(m.motion, 4));
   g.setAttribute('aFlutter', new THREE.Float32BufferAttribute(m.flutter, 1));
   // Normals from the closed surfaces and one side of each sheet; sheets, bristles and glints keep their own.
-  g.setIndex([...m.index, ...m.sheets, ...m.glints]);
+  g.setIndex([...m.index, ...m.sheets]);
   g.computeVertexNormals();
   const normal = g.getAttribute('normal') as THREE.BufferAttribute;
   for (let k = 0; k < m.fixed.length; k += 4) {

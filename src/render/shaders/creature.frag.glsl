@@ -161,8 +161,11 @@ void main() {
     float ray = 1.0 - smoothstep(0.03, 0.09, abs(fract(vUv.x * MEMBRANE_VEINS + 0.5) - 0.5));
     float arc = 1.0 - smoothstep(0.02, 0.06, abs(fract(vUv.y * 3.0 + 0.5) - 0.5));
     float edge = smoothstep(0.86, 1.0, vUv.y);
-    float net = (1.0 - smoothstep(0.02, 0.07, cells(vRest / DETAIL_VEIN + 5.3).y)) *
-      detailFade(DETAIL_VEIN, px);
+    // Each detail costs a neighbourhood search, so it is skipped while its fade is zero.
+    float netFade = detailFade(DETAIL_VEIN, px);
+    float net = netFade > 0.0
+      ? (1.0 - smoothstep(0.02, 0.07, cells(vRest / DETAIL_VEIN + 5.3).y)) * netFade
+      : 0.0;
     float vein = max(ray * smoothstep(0.0, 0.15, vUv.y), max(max(arc * 0.5, net * 0.35), edge));
     col = uRim * (0.45 + 1.0 * vein) + uCore * 0.2;
     alpha = 0.16 + 0.6 * vein;
@@ -219,11 +222,17 @@ void main() {
   if (glass) {
     // The glass's surface: faint cell walls, small pits and an uneven thickness, each fading in
     // with its size on screen; then the wet highlight of the key light.
-    float wall = (1.0 - smoothstep(0.03, 0.1, cells(vRest / DETAIL_CELL).y)) *
-      detailFade(DETAIL_CELL, px);
-    float pore = (1.0 - smoothstep(0.1, 0.2, cells(vRest / DETAIL_PORE + 31.7).x)) *
-      detailFade(DETAIL_PORE, px);
-    float flaw = (fbm(vRest / DETAIL_FLAW + 3.1) - 0.5) * detailFade(DETAIL_FLAW, px);
+    // Each costs a neighbourhood search (or noise), so it is skipped while its fade is zero.
+    float wallFade = detailFade(DETAIL_CELL, px);
+    float poreFade = detailFade(DETAIL_PORE, px);
+    float flawFade = detailFade(DETAIL_FLAW, px);
+    float wall = wallFade > 0.0
+      ? (1.0 - smoothstep(0.03, 0.1, cells(vRest / DETAIL_CELL).y)) * wallFade
+      : 0.0;
+    float pore = poreFade > 0.0
+      ? (1.0 - smoothstep(0.1, 0.2, cells(vRest / DETAIL_PORE + 31.7).x)) * poreFade
+      : 0.0;
+    float flaw = flawFade > 0.0 ? (fbm(vRest / DETAIL_FLAW + 3.1) - 0.5) * flawFade : 0.0;
     // The rim stays clean: the detail fades toward the grazing edge, where it would crowd.
     float face = 1.0 - fres;
     col += uRim * (wall * 0.16 * face);

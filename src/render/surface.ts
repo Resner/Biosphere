@@ -9,7 +9,7 @@ import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import { clamp } from '../sim/math';
 import type { CreatureSource } from './creature-cache';
 import type { GlintPlan } from './creature-mesh';
-import { materialParams } from './material-params';
+import { type MaterialParams, materialParams } from './material-params';
 
 export interface Glints {
   /** Star points on the body, 0..`MAX_GLINTS`. */
@@ -52,8 +52,8 @@ export function glintsFor(tier: RarityTier, iridescence: number): Glints {
 }
 
 /** A creature's rare glints: by its rarity tier and its iridescence. */
-export const glintsOf = (traits: Traits): Glints =>
-  glintsFor(rarityOfTraits(traits).tier, materialParams(traits).iridescence);
+export const glintsOf = (traits: Traits, params: MaterialParams = materialParams(traits)): Glints =>
+  glintsFor(rarityOfTraits(traits).tier, params.iridescence);
 
 /** Where and how large a creature's glints are drawn: `glintsOf`, placed by its genome hash. */
 export function glintPlanOf(creature: CreatureSource): GlintPlan {

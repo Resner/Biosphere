@@ -51,8 +51,10 @@ export class CreatureCache {
 
   /** `makeMaterial` must return a fresh material each call: the cache disposes it with the geometry. */
   constructor(
-    private readonly makeMaterial: (creature: CreatureSource) => THREE.Material = (c) =>
-      creatureMaterial(materialParams(c.traits), glintsOf(c.traits).brightness),
+    private readonly makeMaterial: (creature: CreatureSource) => THREE.Material = (c) => {
+      const params = materialParams(c.traits);
+      return creatureMaterial(params, glintsOf(c.traits, params).brightness);
+    },
   ) {}
 
   acquire(creature: CreatureSource, lod: Lod): CreatureAsset {
