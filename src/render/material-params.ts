@@ -25,8 +25,21 @@ export const MIN_RIM_LUMINANCE = 0.5;
 /** The body's deep colour is never darker than this. */
 const MIN_CORE_LUMINANCE = 0.1;
 
+/**
+ * The shell is nearly clear (M6 T12): it takes this share of the gene's saturation, so no shell is
+ * more saturated than this. The pigment lives in the organs, at the gene's own saturation.
+ */
+export const SHELL_SATURATION = 0.15;
+/** Organs are at least this bright, so their colour reads through the shell. */
+const ORGAN_VALUE = 0.75;
+/** Oil droplets are lipid: the hue gene turned this share of the way toward amber. */
+const OIL_HUE = 0.11;
+const OIL_SHIFT = 0.4;
+
 const ALBINO_HUE = 0.96;
 const ALBINO_SATURATION = 0.08;
+/** An albino has no pigment of its own, so its organs show the pink of the blood through clear tissue. */
+const ALBINO_ORGAN_SATURATION = 0.45;
 const PALE_SATURATION_SCALE = 0.4;
 const IRIDESCENCE = { plain: 0, iridescent: 0.55, oil: 1 } as const;
 /** Glow strength and whether it pulses, per luminescence allele; an unknown allele does not glow. */
@@ -36,8 +49,14 @@ export interface MaterialParams {
   /** The body's deep colour and its lit rim, 0..1 per channel. */
   core: Rgb;
   rim: Rgb;
-  /** The gene colour after the albino rule (HSV saturation, 0..1). */
+  /** The gene colour after the albino rule (HSV saturation, 0..1); the shell takes `SHELL_SATURATION` of it. */
   saturation: number;
+  /**
+   * The inner organs' colour: the hue gene at its saturation (an albino's blood pink); oil droplets
+   * at the same saturation, their hue turned toward amber.
+   */
+  organ: Rgb;
+  oil: Rgb;
   translucency: number;
   membrane: number;
   pattern: number;
@@ -74,6 +93,12 @@ function liftTo(c: Rgb, min: number): Rgb {
   return l >= min ? c : toward(c, 1, (min - l) / (1 - l));
 }
 
+/** Hue `h` turned share `t` of the short way round the wheel toward `to`. */
+function towardHue(h: number, to: number, t: number): number {
+  const d = ((((to - h) % 1) + 1.5) % 1) - 0.5;
+  return (((h + d * t) % 1) + 1) % 1;
+}
+
 function patternKind(alleles: readonly string[]): number {
   const has = (a: string): boolean => alleles.includes(a);
   if (has('spots') && has('stripes')) return PATTERN.spotsStripes;
@@ -95,12 +120,16 @@ export function materialParams(t: Pick<Traits, 'colour' | 'skin'>): MaterialPara
       : colour.saturation;
   const glow = GLOW[colour.luminescence as keyof typeof GLOW] ?? GLOW.off;
   const value = albino ? Math.max(colour.value, 0.85) : colour.value;
-  const body = hsv(hue, saturation, value);
+  const body = hsv(hue, saturation * SHELL_SATURATION, value);
+  const inside = Math.max(value, ORGAN_VALUE);
+  const organSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
 
   return {
     core: liftTo(toward(body, 0, 0.5), MIN_CORE_LUMINANCE),
     rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE),
     saturation,
+    organ: hsv(hue, organSaturation, inside),
+    oil: hsv(towardHue(hue, OIL_HUE, OIL_SHIFT), organSaturation, 1),
     translucency: clamp(skin.translucency, 0, 1),
     membrane: clamp(skin.membrane, 0, 1),
     pattern: patternKind(colour.pattern),

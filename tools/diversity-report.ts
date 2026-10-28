@@ -8,6 +8,7 @@ import { breed } from '../src/genome/inherit';
 import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
+import { anatomyOf } from '../src/render/anatomy';
 import { estimateVertices } from '../src/render/creature-mesh';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { sizeTier } from '../src/sim/size';
@@ -115,7 +116,9 @@ export function diversityReport(options: ReportOptions): string {
   const invalid = creatures.filter((c) => bodyViolations(c.plan).length > 0).length;
   const rarities = creatures.map((c) => rarityOfTraits(c.traits));
   const silhouettes = creatures.map((c) => silhouetteOf(c.plan));
-  const vertices = creatures.map((c) => estimateVertices(c.plan, 'high'));
+  const vertices = creatures.map((c) =>
+    estimateVertices(c.plan, 'high', anatomyOf(c.plan, c.traits, c.hash)),
+  );
 
   const lines = [
     '# Diversity report',

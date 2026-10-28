@@ -17,7 +17,9 @@ import {
 } from '../genome/develop';
 import { clamp } from '../sim/math';
 import { RULES } from '../sim/rules';
+import { type Anatomy, CHAMBERS, NO_ANATOMY, type OrganKind } from './anatomy';
 import type { PresetName } from './presets';
+import { along, centreLine, type Line } from './spine';
 
 const { cos, sin, sqrt, atan2, hypot, abs, min, max, PI } = Math;
 const TAU = 2 * PI;
@@ -93,6 +95,33 @@ const FALLBACK: Readonly<Record<Lod, readonly MeshDetail[]>> = {
   low: LOD_LADDER.low,
 };
 
+/** How finely the organs are drawn on each level: vertices round a ball's equator, gut rings and vertices round the gut. */
+interface OrganDetail {
+  ball: number;
+  gutRings: number;
+  gutRing: number;
+}
+const ORGAN_DETAIL: Readonly<Record<Lod, OrganDetail>> = {
+  high: { ball: 10, gutRings: 20, gutRing: 6 },
+  medium: { ball: 6, gutRings: 12, gutRing: 5 },
+  low: { ball: 4, gutRings: 6, gutRing: 4 },
+};
+/** A ball's vertices (`addBall`): its bands' rings and the two poles. */
+const ballVertices = (lon: number): number => (max(2, lon >> 1) - 1) * lon + 2;
+/** The organs' vertices on one level; at most one heart, two pigment spots and `CHAMBERS.max` chambers. */
+const organVertices = (lod: Lod, organs: number, gut: boolean): number => {
+  const o = ORGAN_DETAIL[lod];
+  return organs * ballVertices(o.ball) + (gut ? o.gutRings * o.gutRing : 0);
+};
+/** The vertices each level keeps for the organs, whatever the anatomy: the body fits the rest. */
+export const ORGAN_RESERVE: Readonly<Record<Lod, number>> = {
+  high: organVertices('high', 3 + CHAMBERS.max, true),
+  medium: organVertices('medium', 3 + CHAMBERS.max, true),
+  low: organVertices('low', 3 + CHAMBERS.max, true),
+};
+/** An organ ball is this flat; the gut this flat. */
+const ORGAN_DEPTH = 0.5;
+
 /** The body is this much thinner than wide, so the creature reads as a flat swimmer from above. */
 export const BODY_DEPTH = 0.85;
 const TUBE_DEPTH = 0.8;
@@ -125,8 +154,6 @@ const SETA_SWEEP = 0.9;
 /** An eye is this flat; its stalk this share of its radius wide. */
 const EYE_DEPTH = 0.8;
 const STALK_WIDTH = 0.3;
-/** Samples per span of the spine's Catmull-Rom centre line. */
-const SPAN_SAMPLES = 24;
 
 /** What a vertex belongs to, the low four bits of `aPart`; the rest is the appendage number (0 for none). */
 export const PART_KINDS = 16;
@@ -139,6 +166,19 @@ export const PART_SETA = 5;
 export const PART_MEMBRANE = 6;
 export const PART_EYE = 7;
 export const PART_STALK = 8;
+/** The inner anatomy (M6 T12): the gut line, fluid chambers, oil droplets, the heart or ganglion, and eye pigment. */
+export const PART_GUT = 9;
+export const PART_CHAMBER = 10;
+export const PART_DROPLET = 11;
+export const PART_HEART = 12;
+export const PART_PIGMENT = 13;
+export const ORGAN_KINDS: readonly number[] = [
+  PART_GUT,
+  PART_CHAMBER,
+  PART_DROPLET,
+  PART_HEART,
+  PART_PIGMENT,
+];
 export const partKind = (aPart: number): number => aPart % PART_KINDS;
 export const partId = (aPart: number): number => Math.floor(aPart / PART_KINDS);
 
@@ -270,102 +310,6 @@ class Mesh {
 
 // ---------------------------------------------------------------------------------------------
 // The spine
-
-/** The body's centre line: a dense polyline from the front tip (s = 0) to the rear tip (s = 1). */
-interface Line {
-  x: number[];
-  y: number[];
-  /** Arc length from the front at each point. */
-  at: number[];
-  length: number;
-}
-
-const forwardOf = (s: PlanSegment): { x: number; y: number } => ({
-  x: cos(s.angle),
-  y: sin(s.angle),
-});
-
-/** A centripetal Catmull-Rom curve through the front tip, every segment centre and the rear tip. */
-function centreLine(segments: readonly PlanSegment[]): Line {
-  const head = segments[0] as PlanSegment;
-  const tail = segments[segments.length - 1] as PlanSegment;
-  const hf = forwardOf(head);
-  const tf = forwardOf(tail);
-  const pts = [
-    { x: head.x + hf.x * head.rx, y: head.y + hf.y * head.rx },
-    ...segments.map((s) => ({ x: s.x, y: s.y })),
-    { x: tail.x - tf.x * tail.rx, y: tail.y - tf.y * tail.rx },
-  ];
-  const n = pts.length;
-  const p = (i: number) => {
-    if (i < 0) {
-      const [a, b] = [pts[0], pts[1]] as [(typeof pts)[0], (typeof pts)[0]];
-      return { x: 2 * a.x - b.x, y: 2 * a.y - b.y };
-    }
-    if (i >= n) {
-      const [a, b] = [pts[n - 1], pts[n - 2]] as [(typeof pts)[0], (typeof pts)[0]];
-      return { x: 2 * a.x - b.x, y: 2 * a.y - b.y };
-    }
-    return pts[i] as (typeof pts)[0];
-  };
-  const line: Line = { x: [], y: [], at: [], length: 0 };
-  const push = (x: number, y: number) => {
-    const k = line.x.length;
-    if (k > 0) line.length += hypot(x - (line.x[k - 1] as number), y - (line.y[k - 1] as number));
-    line.x.push(x);
-    line.y.push(y);
-    line.at.push(line.length);
-  };
-  push(p(0).x, p(0).y);
-  for (let i = 0; i + 1 < n; i++) {
-    const [p0, p1, p2, p3] = [p(i - 1), p(i), p(i + 1), p(i + 2)];
-    const knot = (a: { x: number; y: number }, b: { x: number; y: number }) =>
-      max(sqrt(hypot(b.x - a.x, b.y - a.y)), 1e-6);
-    const t1 = knot(p0, p1);
-    const t2 = t1 + knot(p1, p2);
-    const t3 = t2 + knot(p2, p3);
-    const lerp = (
-      a: { x: number; y: number },
-      b: { x: number; y: number },
-      ta: number,
-      tb: number,
-      t: number,
-    ) => {
-      const w = (t - ta) / (tb - ta);
-      return { x: a.x + (b.x - a.x) * w, y: a.y + (b.y - a.y) * w };
-    };
-    for (let k = 1; k <= SPAN_SAMPLES; k++) {
-      const t = t1 + ((t2 - t1) * k) / SPAN_SAMPLES;
-      const a1 = lerp(p0, p1, 0, t1, t);
-      const a2 = lerp(p1, p2, t1, t2, t);
-      const a3 = lerp(p2, p3, t2, t3, t);
-      const b1 = lerp(a1, a2, 0, t2, t);
-      const b2 = lerp(a2, a3, t1, t3, t);
-      const c = lerp(b1, b2, t1, t2, t);
-      push(c.x, c.y);
-    }
-  }
-  return line;
-}
-
-/** The point at arc share `s` (0 front, 1 rear) and the unit forward direction there. */
-function along(line: Line, s: number): { x: number; y: number; fx: number; fy: number } {
-  const target = clamp(s, 0, 1) * line.length;
-  let lo = 0;
-  let hi = line.at.length - 1;
-  while (hi - lo > 1) {
-    const mid = (lo + hi) >> 1;
-    if ((line.at[mid] as number) <= target) lo = mid;
-    else hi = mid;
-  }
-  const span = (line.at[hi] as number) - (line.at[lo] as number);
-  const w = span > 0 ? (target - (line.at[lo] as number)) / span : 0;
-  const [x0, y0] = [line.x[lo] as number, line.y[lo] as number];
-  const [x1, y1] = [line.x[hi] as number, line.y[hi] as number];
-  const d = hypot(x1 - x0, y1 - y0) || 1;
-  // The line runs rearward, so forward is its reverse.
-  return { x: x0 + (x1 - x0) * w, y: y0 + (y1 - y0) * w, fx: (x0 - x1) / d, fy: (y0 - y1) / d };
-}
 
 /** Ring `k` of `rings`, rear (0) to front: its arc share, denser toward both tips. */
 function ringShare(k: number, rings: number): number {
@@ -1022,13 +966,76 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
   }
 }
 
-function addCreature(m: Mesh, plan: BodyPlan, d: MeshDetail): void {
+const ORGAN_PART: Readonly<Record<OrganKind, number>> = {
+  chamber: PART_CHAMBER,
+  droplet: PART_DROPLET,
+  heart: PART_HEART,
+  ganglion: PART_HEART,
+  pigment: PART_PIGMENT,
+};
+
+/**
+ * The inner anatomy (M6 T12): the gut as a thin tube along its line, then each organ as a flat
+ * ball. They ride the body (its wave or a bell's pulse) where they lie, like the body's own rings.
+ */
+function addOrgans(m: Mesh, plan: BodyPlan, spine: Spine, anatomy: Anatomy, o: OrganDetail): void {
+  const { gut } = anatomy;
+  if (gut.length >= 2) {
+    const first = m.count;
+    for (let k = 0; k < o.gutRings; k++) {
+      const at = (k / (o.gutRings - 1)) * (gut.length - 1);
+      const i = min(gut.length - 2, Math.floor(at));
+      const w = at - i;
+      const [p, q] = [gut[i], gut[i + 1]] as [Anatomy['gut'][0], Anatomy['gut'][0]];
+      const [x, y, r] = [p.x + (q.x - p.x) * w, p.y + (q.y - p.y) * w, p.r + (q.r - p.r) * w];
+      const d = hypot(q.x - p.x, q.y - p.y) || 1;
+      const [nx, ny] = [(p.y - q.y) / d, (q.x - p.x) / d];
+      const st = nearestStation(spine, x, y);
+      m.gait = bodyMotion(plan, st);
+      for (let j = 0; j < o.gutRing; j++) {
+        const phi = (TAU * j) / o.gutRing;
+        const across = r * cos(phi);
+        m.vertex(
+          x + nx * across,
+          y + ny * across,
+          r * ORGAN_DEPTH * sin(phi),
+          j / o.gutRing,
+          k / (o.gutRings - 1),
+          st.s,
+          st.s,
+          0,
+          PART_GUT,
+        );
+      }
+    }
+    m.stitch(first, o.gutRings, o.gutRing);
+  }
+  for (const organ of anatomy.organs) {
+    const st = nearestStation(spine, organ.x, organ.y);
+    m.gait = bodyMotion(plan, st);
+    addBall(m, organ.x, organ.y, organ.r, 0, ORGAN_DEPTH, o.ball, {
+      spine: st.s,
+      attach: st.s,
+      weight: 0,
+      part: ORGAN_PART[organ.kind],
+    });
+  }
+}
+
+function addCreature(
+  m: Mesh,
+  plan: BodyPlan,
+  d: MeshDetail,
+  anatomy: Anatomy = NO_ANATOMY,
+  organs: OrganDetail = ORGAN_DETAIL.high,
+): void {
   const spine = stations(plan, centreLine(plan.segments), d);
   const webbed = new Set(plan.membranes.flatMap((sheet) => [sheet.part, sheet.to]));
   const frames = plan.appendages.map((a, i) =>
     rootFrame(plan, spine, a, a.webbing > 0 || webbed.has(i)),
   );
-  // Draw order (one draw call, no depth test): membranes, parts and bristles, the body, the shell, the eyes.
+  // Draw order (one draw call, no depth test): membranes, parts and bristles, the body, the organs
+  // inside it, the shell, the eyes.
   for (const sheet of plan.membranes) {
     const frame = frames[sheet.part];
     if (frame) addMembrane(m, plan, sheet, frame, d);
@@ -1038,6 +1045,7 @@ function addCreature(m: Mesh, plan: BodyPlan, d: MeshDetail): void {
   });
   m.gait = NO_MOTION;
   addBody(m, plan, spine, d);
+  addOrgans(m, plan, spine, anatomy, organs);
   addShell(m, plan, spine, d);
   addEyes(m, plan, spine, d);
 }
@@ -1073,14 +1081,14 @@ function fitReach(m: Mesh): void {
   }
 }
 
-/** The vertices `plan` takes at one rung of detail. */
+/** The vertices `plan`'s body and parts take at one rung of detail, without organs. */
 export function countVertices(plan: BodyPlan, detail: MeshDetail): number {
   const m = new Mesh(true);
   addCreature(m, plan, detail);
   return m.count;
 }
 
-/** The richest detail that keeps `plan` within its level's budget. */
+/** The richest detail that keeps `plan` within its level's budget, less the organs' reserve. */
 export function meshDetail(plan: BodyPlan, lod: Lod): MeshDetail {
   return fit(plan, lod).detail;
 }
@@ -1103,26 +1111,32 @@ function fit(plan: BodyPlan, lod: Lod): Fit {
 
 function search(plan: BodyPlan, lod: Lod): Fit {
   const ladder = FALLBACK[lod];
+  const budget = LOD_BUDGET[lod] - ORGAN_RESERVE[lod];
   let count = 0;
   for (const detail of ladder) {
     count = countVertices(plan, detail);
-    if (count <= LOD_BUDGET[lod]) return { detail, count };
+    if (count <= budget) return { detail, count };
   }
   return { detail: ladder[ladder.length - 1] as MeshDetail, count };
 }
 
-/** The vertices `buildCreatureGeometry(plan, lod)` makes. */
-export function estimateVertices(plan: BodyPlan, lod: Lod): number {
-  return fit(plan, lod).count;
+/** The vertices `buildCreatureGeometry(plan, lod, anatomy)` makes. */
+export function estimateVertices(plan: BodyPlan, lod: Lod, anatomy: Anatomy = NO_ANATOMY): number {
+  return fit(plan, lod).count + organVertices(lod, anatomy.organs.length, anatomy.gut.length >= 2);
 }
 
 /**
- * One indexed geometry for the whole creature. Attributes: position, normal, uv, aSpine, aAttach,
- * aWeight, aPart, and the motion's aFrame, aMotion and aFlutter (`gait.ts`).
+ * One indexed geometry for the whole creature, its organs (`anatomyOf`) included. Attributes:
+ * position, normal, uv, aSpine, aAttach, aWeight, aPart, and the motion's aFrame, aMotion and
+ * aFlutter (`gait.ts`).
  */
-export function buildCreatureGeometry(plan: BodyPlan, lod: Lod): THREE.BufferGeometry {
+export function buildCreatureGeometry(
+  plan: BodyPlan,
+  lod: Lod,
+  anatomy: Anatomy = NO_ANATOMY,
+): THREE.BufferGeometry {
   const m = new Mesh(false);
-  addCreature(m, plan, meshDetail(plan, lod));
+  addCreature(m, plan, meshDetail(plan, lod), anatomy, ORGAN_DETAIL[lod]);
   fitReach(m);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(m.position, 3));

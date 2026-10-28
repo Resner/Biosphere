@@ -79,6 +79,8 @@ export const creatureMaterial = (params: MaterialParams): THREE.ShaderMaterial =
     uTime: { value: 0 },
     uCore: { value: new THREE.Color(...params.core) },
     uRim: { value: new THREE.Color(...params.rim) },
+    uOrgan: { value: new THREE.Color(...params.organ) },
+    uOil: { value: new THREE.Color(...params.oil) },
     uLumColor: { value: new THREE.Color(...params.lumColor) },
     uTranslucency: { value: params.translucency },
     uMembrane: { value: params.membrane },

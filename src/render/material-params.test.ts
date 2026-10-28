@@ -125,6 +125,58 @@ describe('materialParams', () => {
     expect(blue.core[2]).toBeGreaterThan(blue.core[0]);
   });
 
+  it('keeps every shell nearly clear: a saturation of at most 0.15 for every genome (M6 T12)', () => {
+    const vivid = [0, 0.3, 0.6, 0.9].map((hue) => withColour({ hue, saturation: 1, value: 1 }));
+    const dark = withColour({ hue: 0.7, saturation: 1, value: 0 });
+    for (const t of [...vivid, dark, ...Array.from({ length: 1000 }, randomTraits)]) {
+      const p = materialParams(t);
+      expect(hsvSaturation(p.core)).toBeLessThanOrEqual(0.15 + 1e-9);
+      expect(hsvSaturation(p.rim)).toBeLessThanOrEqual(0.15 + 1e-9);
+    }
+  });
+
+  it('puts the pigment inside: the organs carry the hue gene at the gene saturation', () => {
+    const hueOf = ([r, g, b]: readonly number[]): number => {
+      const [max, min] = [Math.max(r ?? 0, g ?? 0, b ?? 0), Math.min(r ?? 0, g ?? 0, b ?? 0)];
+      const d = max - min;
+      if (d === 0) return 0;
+      const h =
+        max === r
+          ? ((g ?? 0) - (b ?? 0)) / d
+          : max === g
+            ? 2 + ((b ?? 0) - (r ?? 0)) / d
+            : 4 + ((r ?? 0) - (g ?? 0)) / d;
+      return (((h / 6) % 1) + 1) % 1;
+    };
+    for (const t of Array.from({ length: 500 }, randomTraits)) {
+      const p = materialParams(t);
+      const albino = t.colour.albino === 'albino';
+      expect(hsvSaturation(p.organ)).toBeCloseTo(albino ? 0.45 : p.saturation, 6);
+      expect(Math.max(...p.organ)).toBeGreaterThanOrEqual(0.75 - 1e-9);
+      if (p.saturation > 0.05) {
+        const d = Math.abs(hueOf(p.organ) - (albino ? 0.96 : t.colour.hue));
+        expect(Math.min(d, 1 - d)).toBeLessThan(1e-6);
+      }
+      // Oil droplets are lipid at the same saturation, their hue turned toward amber (0.11).
+      expect(hsvSaturation(p.oil)).toBeCloseTo(hsvSaturation(p.organ), 6);
+      if (p.saturation > 0.05) {
+        const arc = (a: number, b: number) => Math.min(Math.abs(a - b), 1 - Math.abs(a - b));
+        const organHue = hueOf(p.organ);
+        expect(arc(hueOf(p.oil), 0.11)).toBeLessThanOrEqual(arc(organHue, 0.11) + 1e-6);
+        expect(arc(hueOf(p.oil), organHue)).toBeLessThanOrEqual(0.5 * 0.4 + 1e-6);
+      }
+    }
+    // A vivid gene: a saturated inside under a near-clear shell.
+    const vivid = materialParams(withColour({ hue: 0.8, saturation: 0.9, value: 0.8 }));
+    expect(hsvSaturation(vivid.organ)).toBeCloseTo(0.9, 6);
+    expect(hsvSaturation(vivid.rim)).toBeLessThanOrEqual(0.15);
+    // An albino's shell is clear and its organs show the pink of the blood.
+    const albino = materialParams(withColour({ hue: 0.3, saturation: 1, albino: 'albino' }));
+    expect(hsvSaturation(albino.rim)).toBeLessThanOrEqual(0.02);
+    expect(hsvSaturation(albino.organ)).toBeGreaterThan(0.3);
+    expect(albino.organ[0]).toBeGreaterThan(albino.organ[1]);
+  });
+
   it('is deterministic', () => {
     const t = randomTraits();
     expect(materialParams(t)).toEqual(materialParams(t));

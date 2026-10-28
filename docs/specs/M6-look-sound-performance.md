@@ -305,7 +305,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: parts turn about their roots (`aFrame`, `aMotion`, `aFlutter`; classes beat, antenna, wing, tentacle, bell in `creature-mesh.ts`), so none can stretch; long parts' gain is scaled to `PART_REACH` and the phase wraps at 4 beats (`GAIT_WRAP`); `uTurn` trails turns in `CreatureView`; `m6-motion.spec.ts`.
   - Gotcha: "equal outside every creature" allows 1 level (the bloom's widest mip spreads glow across the Lab), with ≥ 99% of pixels exact; a paused Lab now holds the grain (`PostChain.still`).
 
-- [ ] T12 Inner anatomy [opus]
+- [x] T12 Inner anatomy [opus]
   - Acceptance (unit tests first):
     - `anatomyOf(plan, traits, genomeHash)` (render data, deterministic) places organs inside the hull, never outside it:
       - a gut line along the curved spine, with a stomach swelling;
@@ -317,6 +317,8 @@ A look pass never starts before the tasks it judges are ticked.
     - The organs are drawn in the creature's merged geometry, inside the shell, with their own part kind. They use at most 20% of each LOD budget.
     - **Screenshots** (gallery): inside each body's hull, the hue variance is at least 3× the shell rim's (colour lives inside), and at least 3 distinct bright blobs show inside each bilateral specimen with 3 or more segments.
   - Notes: reference 02 and 03 are the bar for how much shows through. Organs are presentation only: nothing in the sim or stats reads `anatomyOf`.
+  - Done: `render/anatomy.ts` (`anatomyOf`, spine helpers moved to `render/spine.ts`) feeds organ part kinds 9–13 into the cached geometry (`ORGAN_RESERVE` comes off each level's budget); shells take 15% of the gene saturation, organs the full hue (albino organs pink), glow lives in the organs, plates are glass.
+  - Gotcha: "hue variance" is the spread of chroma vectors (max − min along the hue angle): HSV saturation calls dark water pixels saturated; a rim-coloured glow or mouth tint alone failed the 3× ratio.
 
 - [ ] T13 Materials v2: glass, wet gloss, surface detail, rare glints [opus]
   - Acceptance (unit tests first):
