@@ -1,13 +1,16 @@
 // Rarity (M3 T9, DESIGN §6): how surprising a creature's looks and body are, as bits. Each rare
 // feature costs -log2 of its exact frequency among genesis cells, worked out here from the genesis
-// allele frequencies and the real dominance rules, so it cannot drift from `genesis.ts`. A feature
-// genesis never makes (extra segments, more modules, a novel allele, a big body) costs 12 bits.
+// allele frequencies and the real dominance rules, or from the genesis form table, so it cannot
+// drift from `genesis.ts`. A feature genesis never makes (extra segments, more modules, a novel
+// allele, a big body, a coil, a carapace, a chela) costs 12 bits.
 
 import { log } from '../sim/math';
+import { RULES } from '../sim/rules';
 import { sizeTier } from '../sim/size';
 import { decodeGenome, type Genome } from './codec';
+import { weaponShare } from './develop';
 import { express, type Traits } from './express';
-import { GENESIS_FREQ } from './genesis';
+import { GENESIS_EYES, GENESIS_FORMS, GENESIS_FREQ } from './genesis';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, type MendelLocus } from './karyotype';
 
 export type RarityTier = 'common' | 'uncommon' | 'rare' | 'exotic';
@@ -59,10 +62,12 @@ const has =
   (t) =>
     t.colour.pattern.includes(name);
 
+/** The price of a feature that genesis makes in `share` of its cells (none: it never does). */
+const bitsOf = (share: number): number => (share > 0 ? -log(share) * Math.LOG2E : NEVER_BITS);
+
 /** A rare feature that genesis makes: its price follows from how often genesis shows it. */
 function common(name: string, locus: string, weights: readonly number[], test: Test): Feature {
-  const share = genesisShare(locus, weights, test);
-  return [name, test, share > 0 ? -log(share) * Math.LOG2E : NEVER_BITS];
+  return [name, test, bitsOf(genesisShare(locus, weights, test))];
 }
 
 const iridescent: Test = (t) => t.skin.iridescence === 'iridescent';
@@ -94,6 +99,21 @@ const NOVEL: readonly Test[] = (() => {
 
 const never = (name: string, test: Test): Feature => [name, test, NEVER_BITS];
 
+/** The v2 body (ADR 0025). Genesis forms and eyes are drawn from tables, so their shares are exact. */
+const D = RULES.develop;
+const formShare = (pick: (f: (typeof GENESIS_FORMS)[number]) => boolean): number =>
+  GENESIS_FORMS.filter(pick).reduce((sum, f) => sum + f.weight, 0);
+const coil: Test = (t) => t.shape.curve > D.curve.coilStart;
+const radial: Test = (t) => t.shape.symmetry >= D.radial.at;
+const carapace: Test = (t) => Math.round(t.shape.fusion * t.body.segments) >= 1;
+const chela: Test = (t) =>
+  t.modules.some(
+    (m) =>
+      m.present && m.ext.chela > D.detail.chela.min && weaponShare(m.params.tipShape / 255) > 0,
+  );
+const webbing: Test = (t) => t.modules.some((m) => m.present && m.ext.webbing > 0);
+const eyes: Test = (t) => t.shape.eyeSize > D.eyes.min;
+
 /** Every rare feature with its price in bits, in listing order. */
 const FEATURES: readonly Feature[] = [
   common('iridescent', 'iridescence', biallelic(GENESIS_FREQ.iridescent), iridescent),
@@ -102,6 +122,12 @@ const FEATURES: readonly Feature[] = [
   common('spots', 'pattern', GENESIS_FREQ.pattern, has('spots')),
   common('rings', 'pattern', GENESIS_FREQ.pattern, has('rings')),
   common('luminescent', 'luminescence', biallelic(GENESIS_FREQ.luminescent), luminescent),
+  ['radial', radial, bitsOf(formShare((f) => f.radial))],
+  ['webbing', webbing, bitsOf(formShare((f) => f.webbed))],
+  ['eyes', eyes, bitsOf(GENESIS_EYES)],
+  never('coil', coil),
+  never('carapace', carapace),
+  never('chela', chela),
   never('segments', (t) => t.body.segments > 1),
   never('modules', (t) => t.modules.slice(GENESIS_MODULES).some((m) => m.present)),
   never('novel', (t) => NOVEL.some((shows) => shows(t))),

@@ -3,6 +3,7 @@ import { describe, expect, it } from 'vitest';
 import { encodeGenome, genomeHash } from '../genome/codec';
 import { GENOME_BYTES } from '../genome/karyotype';
 import { GENOME_BYTES_V1 } from '../genome/karyotype-v1';
+import { SILHOUETTES } from '../genome/silhouette';
 import {
   GALLERY_FILL,
   GALLERY_SIZE,
@@ -158,6 +159,37 @@ describe('gallery specimen files', () => {
     }
     // 6 genesis cells, then 14 picks from the Lab's wild mode and bred children.
     expect(BASELINE.filter(([f]) => f.includes('-genesis-'))).toHaveLength(6);
+  });
+});
+
+describe('gallery specimens added by M6 T9', () => {
+  const set = gallerySpecimens(fixtures()).slice(BASELINE.length);
+  const classes = SILHOUETTES.filter((s) => s !== 'other');
+
+  it('adds 16 karyotype v2 specimens after the baseline 20, 36 in all', () => {
+    expect(set).toHaveLength(16);
+    expect(gallerySpecimens(fixtures())).toHaveLength(36);
+    for (const s of set) {
+      expect(s.file).toMatch(/^\d\d-specimen-/);
+      expect(s.bytes).toBe(GENOME_BYTES);
+    }
+  });
+
+  it('has one specimen per silhouette class except other, each verified by silhouetteOf', () => {
+    const got = set.slice(0, classes.length);
+    expect(got.map((s) => specimenOf(s.genome).silhouette)).toEqual(classes);
+    for (const [i, s] of got.entries()) expect(s.file).toContain(`-specimen-${classes[i]}-`);
+  });
+
+  it('has one specimen per rarity tier, by rarity', () => {
+    const tiers = set.slice(classes.length);
+    expect(tiers.map((s) => specimenOf(s.genome).rarity)).toEqual([
+      'common',
+      'uncommon',
+      'rare',
+      'exotic',
+    ]);
+    for (const s of tiers) expect(s.file).toContain('-specimen-tier-');
   });
 });
 

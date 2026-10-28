@@ -28,7 +28,7 @@ const GOLDEN = {
   commitId: 'ab'.repeat(32),
   beaconIndex: 2,
   genomeHash: 'f3f00a538769f2625bf8059c78d6d50f1b99424e9f098f6691db299475d2e7d3',
-  genomeHashV6: '537b450fcc11ea7a7bed4c83a49956684c09d7039fbe56e757c42bfbb474a34b',
+  genomeHashV6: 'eacba69a06de03be8480bbd6a9f706f043dfb24788481be4bebde32b9027a127',
 };
 
 async function ask(nonce = 'n'.repeat(22)) {

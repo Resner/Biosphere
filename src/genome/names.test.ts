@@ -8,7 +8,8 @@ import { decodeGenome, encodeGenome, type Genome } from './codec';
 import { describeCreature } from './describe';
 import { express } from './express';
 import { genesisGenome } from './genesis';
-import { HAPLOTYPE_BYTES } from './karyotype';
+import { HAPLOTYPE_BYTES, MODULE_EXT, MODULE_LOCI } from './karyotype';
+import { HAPLOTYPE_BYTES_V1 } from './karyotype-v1';
 import { EPITHETS, GENUS_SUFFIXES, SYLLABLES, speciesName } from './names';
 import { rarityOf } from './rarity';
 import { starterGenome } from './starter';
@@ -71,6 +72,33 @@ describe('speciesName', () => {
     expect(epithet(ARCHETYPES.armoured as Genome)).toBe('armatus');
     expect(epithet(ARCHETYPES.flagellate as Genome)).toBe('natans');
     expect(EPITHETS.length).toBeGreaterThanOrEqual(8);
+  });
+
+  it('names the new traits: alata, spiralis, radiatus, oculatus and setosus', () => {
+    const epithet = (g: Genome): string => speciesName(g).split(' ')[1] as string;
+    const slot = MODULE_LOCI[0] as (typeof MODULE_LOCI)[number];
+    const ext = (name: (typeof MODULE_EXT)[number], v: number): Genome => {
+      const bytes = encodeGenome(starterGenome());
+      for (let hap = 0; hap < 2; hap++)
+        bytes[hap * HAPLOTYPE_BYTES + slot.ext + MODULE_EXT.indexOf(name)] = v;
+      return decodeGenome(bytes);
+    };
+    const base = starterGenome();
+    expect(epithet(ext('webbing', 255))).toBe('alata');
+    expect(epithet(withLoci(base, { curve: 255 }))).toBe('spiralis');
+    expect(epithet(withLoci(base, { symmetry: 255 }))).toBe('radiatus');
+    expect(epithet(withLoci(base, { eyeSize: 255 }))).toBe('oculatus');
+    const setose = decodeGenome(
+      Uint8Array.from(encodeGenome(ext('setaeDensity', 255))).map((b, i) =>
+        i % HAPLOTYPE_BYTES === slot.ext + MODULE_EXT.indexOf('setaeLength') ? 255 : b,
+      ),
+    );
+    expect(epithet(setose)).toBe('setosus');
+    // A v1 body takes none of them.
+    for (const g of [starterGenome(), ...Object.values(ARCHETYPES)].filter(
+      (g) => g.haplotypes[0].alleles.length === HAPLOTYPE_BYTES_V1,
+    ))
+      expect(['alata', 'spiralis', 'radiatus', 'oculatus', 'setosus']).not.toContain(epithet(g));
   });
 
   it('does not change with the haplotype order', () => {
