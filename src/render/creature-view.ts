@@ -66,6 +66,7 @@ export class CreatureView {
     const preset = view.preset ?? 'high';
     const detail =
       view.pxPerWu === undefined ? preset : lodFor(view.radius * view.pxPerWu, preset, this.detail);
+    if (view.creature.hash !== this.hash) this.trail = null;
     if (view.creature.hash !== this.hash || detail !== this.detail || !this.asset) {
       this.attach(view, detail);
     }
