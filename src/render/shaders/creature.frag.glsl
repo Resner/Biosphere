@@ -1,11 +1,14 @@
 // A translucent membrane for the creature mesh, coloured by the genes (`materialParams`): a fresnel
 // rim and backlight, a marking (rings, spots, stripes), a thin-film shimmer, a glow that may pulse,
-// opaque plates and a marked mouth, with the same hurt and dissolve effects as `cell.frag.glsl`.
+// denser glass plates and a marked mouth, with the same hurt and dissolve effects as `cell.frag.glsl`.
 // The fine parts of body plan v2 (M6 T10) have their own looks: a clear carapace shell, bright
-// hair-thin setae, veined membrane sheets and dark lens eyes. One program serves every creature;
-// only the uniforms differ.
+// hair-thin setae, veined membrane sheets and dark lens eyes. The inner anatomy (M6 T12) carries
+// the pigment: a gut line, fluid chambers, amber-leaning oil droplets, a beating heart and eye pigment show
+// through the near-clear body. One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
+uniform vec3 uOrgan;
+uniform vec3 uOil;
 uniform vec3 uLumColor;
 uniform float uTime;
 uniform float uTranslucency;
@@ -26,6 +29,12 @@ varying float vPart;
 
 // `aPart` is the appendage number times this, plus the part kind (creature-mesh.ts).
 const float PART_KINDS = 16.0;
+// The organs' part kinds (creature-mesh.ts).
+const int PART_GUT = 9;
+const int PART_CHAMBER = 10;
+const int PART_DROPLET = 11;
+const int PART_HEART = 12;
+const int PART_PIGMENT = 13;
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
 
@@ -59,28 +68,30 @@ void main() {
   float back = pow(max(dot(normalize(vNormal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * fres;
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
 
-  vec3 col = uCore * (0.6 + 0.9 * z) + uRim * ((fres * 1.55 + back * 0.9) * uRimStrength);
-  col = mix(col, uRim * 1.1, markings(vUv) * 0.55);
+  // The shell is nearly clear face-on (M6 T12): a dim core lets the organs show, the rim carries the edge.
+  vec3 col = uCore * (0.35 + 0.55 * z) + uRim * ((fres * 1.55 + back * 0.9) * uRimStrength);
+  col = mix(col, uRim * 0.8, markings(vUv) * 0.35);
 
-  // Thin-film shimmer: the hue slides with the view angle.
+  // Thin-film shimmer: the hue slides with the view angle, a pale sheen on the clear shell.
   if (uIrid > 0.0) {
     vec3 film = 0.5 + 0.5 * cos(6.28318 * (fres * 1.4 + vec3(0.0, 0.33, 0.67)));
-    col = mix(col, film * (0.45 + 0.7 * fres), uIrid * (0.25 + 0.55 * fres));
+    film = mix(vec3(dot(film, vec3(0.3333))), film, 0.5);
+    col = mix(col, film * (0.45 + 0.7 * fres), uIrid * (0.2 + 0.4 * fres));
   }
 
-  // Glow in its own hue, pulsing along the body when the pulse allele is expressed.
-  if (uLum > 0.0) {
-    float pulse = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.2 + vUv.y * 6.0 + vPart * 1.3), uLumPulse);
-    float glint = 0.55 + 0.45 * fbm(vUv * 5.0 + uTime * 0.15);
-    col += uLumColor * uLum * pulse * (0.25 + 0.5 * fres) * glint;
-  }
+  // Glow in its own hue, pulsing along the body when the pulse allele is expressed. It comes from
+  // inside: the organs are the photophores (below), so the shell stays clear.
+  float pulse = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.2 + vUv.y * 6.0 + vPart * 1.3), uLumPulse);
+  vec3 glow = uLumColor * uLum * pulse;
 
-  float alpha = mix(0.85, 0.35, uTranslucency) * (1.0 - fres) + fres;
+  float alpha = mix(0.7, 0.3, uTranslucency) * (1.0 - fres) + fres;
   if (kind == 2) {
-    col = mix(col, uRim * 1.2 + 0.05, 0.3);
-    alpha = mix(alpha, 1.0, uPlating);
+    // A plate: denser glass, not an opaque lid, so the organs still show through.
+    col = mix(col, uRim * 0.7 + 0.04, 0.25);
+    alpha = mix(alpha, 1.0, 0.6 * uPlating);
   } else if (kind == 3) {
-    col = mix(col, vec3(0.95, 0.5, 0.42), 0.35) + 0.05;
+    // The mouth: a bright, dense lip, pale like the rest of the shell.
+    col = mix(col, vec3(0.95, 0.82, 0.78), 0.4) + 0.05;
     alpha = max(alpha, 0.92);
   } else if (kind == 4) {
     // The carapace: clear glass over the body, a bright rim, a little denser with plating.
@@ -104,6 +115,32 @@ void main() {
     float spot = 1.0 - smoothstep(0.12, 0.3, length(n - vec2(-0.3, 0.35)));
     col = vec3(0.02, 0.025, 0.03) + vec3(0.95) * spot + uRim * fres * 0.7;
     alpha = 0.96;
+  } else if (kind >= PART_GUT) {
+    // The organs, seen through the body: lit through from behind, so their centres glow.
+    vec2 n = normalize(vNormal).xy;
+    float spot = 1.0 - smoothstep(0.1, 0.32, length(n - vec2(-0.3, 0.35)));
+    if (kind == PART_GUT) {
+      col = uOrgan * (0.35 + 0.45 * z);
+      alpha = 0.3 + 0.35 * z;
+    } else if (kind == PART_CHAMBER) {
+      // A fluid sac: a clear centre in the gene's colour and a denser wall.
+      col = uOrgan * (0.6 + 0.35 * z + 0.3 * fres) + 0.2 * spot;
+      alpha = 0.75 + 0.25 * z;
+    } else if (kind == PART_DROPLET) {
+      // An oil droplet: amber-leaning lipid with one bright point toward the light.
+      col = uOil * (0.6 + 0.35 * z) + 0.6 * spot;
+      alpha = 0.7 + 0.25 * z;
+    } else if (kind == PART_HEART) {
+      float beat = 0.85 + 0.15 * sin(uTime * 5.0);
+      col = uOrgan * (0.6 + 0.4 * z) * beat;
+      alpha = 0.6 + 0.3 * z;
+    } else {
+      // Eye pigment: a dark cup, tinted by the gene.
+      col = uOrgan * 0.12 + vec3(0.03, 0.01, 0.015);
+      alpha = 0.85 * (0.4 + 0.6 * z);
+    }
+    // Luminous organs are the photophores.
+    if (kind != PART_PIGMENT) col += glow * (0.15 + 0.4 * z);
   }
 
   vec3 hurtCol = vec3(1.0, 0.18, 0.12);

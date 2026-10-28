@@ -31,9 +31,11 @@ interface Luma {
   width: number;
   height: number;
   at(x: number, y: number): number;
+  /** The pixel's colour, 0-255 per channel (black outside the image). */
+  rgb(x: number, y: number): [number, number, number];
 }
 
-/** A PNG's luminance, 0-255 per pixel, decoded by the browser. */
+/** A PNG's luminance (0-255 per pixel) and colour, decoded by the browser. */
 async function lumaOf(page: Page, png: Buffer): Promise<Luma> {
   const { width, height, base64 } = await page.evaluate(async (data) => {
     const image = new Image();
@@ -46,24 +48,28 @@ async function lumaOf(page: Page, png: Buffer): Promise<Luma> {
     if (!g) throw new Error('2D canvas unavailable');
     g.drawImage(image, 0, 0);
     const rgba = g.getImageData(0, 0, image.width, image.height).data;
-    const out = new Uint8Array(image.width * image.height);
-    for (let i = 0; i < out.length; i++) {
-      const [r, gr, b] = [rgba[i * 4] ?? 0, rgba[i * 4 + 1] ?? 0, rgba[i * 4 + 2] ?? 0];
-      out[i] = Math.round(0.2126 * r + 0.7152 * gr + 0.0722 * b);
-    }
     let text = '';
-    for (let i = 0; i < out.length; i += 0x8000) {
-      text += String.fromCharCode(...out.subarray(i, i + 0x8000));
+    for (let i = 0; i < rgba.length; i += 0x8000) {
+      text += String.fromCharCode(...rgba.subarray(i, i + 0x8000));
     }
     return { width: image.width, height: image.height, base64: btoa(text) };
   }, png.toString('base64'));
-  const luma = Buffer.from(base64, 'base64');
+  const rgba = Buffer.from(base64, 'base64');
+  const index = (x: number, y: number): number => {
+    const [i, j] = [Math.round(x), Math.round(y)];
+    return i < 0 || j < 0 || i >= width || j >= height ? -1 : (j * width + i) * 4;
+  };
+  const rgb = (x: number, y: number): [number, number, number] => {
+    const k = index(x, y);
+    return k < 0 ? [0, 0, 0] : [rgba[k] as number, rgba[k + 1] as number, rgba[k + 2] as number];
+  };
   return {
     width,
     height,
+    rgb,
     at: (x, y) => {
-      const [i, j] = [Math.round(x), Math.round(y)];
-      return i < 0 || j < 0 || i >= width || j >= height ? 0 : (luma[j * width + i] as number);
+      const [r, g, b] = rgb(x, y);
+      return Math.round(0.2126 * r + 0.7152 * g + 0.0722 * b);
     },
   };
 }
@@ -174,6 +180,82 @@ const insideBody = (plan: BodyPlan, x: number, y: number): boolean =>
     return u * u + v * v <= 1;
   });
 
+/** Inside the body with every segment ellipse shrunk to `scale` about its centre. */
+const insideScaled = (plan: BodyPlan, x: number, y: number, scale: number): boolean =>
+  plan.segments.some((s) => {
+    const [dx, dy] = [x - s.x, y - s.y];
+    const u = (dx * Math.cos(s.angle) + dy * Math.sin(s.angle)) / (s.rx * scale);
+    const v = (-dx * Math.sin(s.angle) + dy * Math.cos(s.angle)) / (s.ry * scale);
+    return u * u + v * v <= 1;
+  });
+
+/**
+ * The hue variance of a set of pixels: the spread of their chroma vectors (chroma, max − min, along
+ * the hue angle), so grey and dark pixels, whose hue means nothing, count as no colour rather than
+ * as noise.
+ */
+function hueVariance(pixels: readonly [number, number, number][]): number {
+  const chroma = pixels.map(([r, g, b]) => {
+    const [max, min] = [Math.max(r, g, b), Math.min(r, g, b)];
+    const s = (max - min) / 255;
+    const d = max - min || 1;
+    const h = max === r ? (g - b) / d : max === g ? 2 + (b - r) / d : 4 + (r - g) / d;
+    const a = (Math.PI / 3) * h;
+    return [s * Math.cos(a), s * Math.sin(a)] as const;
+  });
+  const n = chroma.length || 1;
+  const [mx, my] = chroma.reduce(([x, y], [cx, cy]) => [x + cx / n, y + cy / n], [0, 0]);
+  return chroma.reduce((v, [cx, cy]) => v + ((cx - mx) ** 2 + (cy - my) ** 2) / n, 0);
+}
+
+/** The inside is the hull shrunk to this; the rim band lies between `RIM` and the hull. */
+const INNER = 0.8;
+const RIM = 0.88;
+
+/** A specimen's pixels, by where they lie: deep inside the hull, or in the shell's rim band. */
+function bodyPixels(place: ReturnType<typeof placeOf>, plan: BodyPlan) {
+  const inside: { x: number; y: number }[] = [];
+  const rim: { x: number; y: number }[] = [];
+  const reach = 2.6 * place.r;
+  for (let py = Math.floor(place.y - reach); py <= place.y + reach; py++) {
+    for (let px = Math.floor(place.x - reach); px <= place.x + reach; px++) {
+      const [x, y] = [(px - place.x) / place.r, (place.y - py) / place.r];
+      if (insideScaled(plan, x, y, INNER)) inside.push({ x: px, y: py });
+      else if (insideScaled(plan, x, y, 1) && !insideScaled(plan, x, y, RIM)) {
+        rim.push({ x: px, y: py });
+      }
+    }
+  }
+  return { inside, rim };
+}
+
+/** Separate bright blobs among `pixels`: 4-connected groups of at least `least` pixels above `bright`. */
+function blobs(
+  luma: Luma,
+  pixels: readonly { x: number; y: number }[],
+  bright: number,
+  least: number,
+): number {
+  const lit = new Set(
+    pixels.filter((p) => luma.at(p.x, p.y) >= bright).map((p) => `${p.x},${p.y}`),
+  );
+  let count = 0;
+  for (const start of lit) {
+    lit.delete(start);
+    let size = 0;
+    const stack = [start];
+    while (stack.length > 0) {
+      const [x, y] = (stack.pop() as string).split(',').map(Number) as [number, number];
+      size++;
+      for (const key of [`${x + 1},${y}`, `${x - 1},${y}`, `${x},${y + 1}`, `${x},${y - 1}`]) {
+        if (lit.delete(key)) stack.push(key);
+      }
+    }
+    if (size >= least) count++;
+  }
+  return count;
+}
+
 test.describe('the gallery sheet', () => {
   test.use({ viewport: GALLERY_VIEWPORT, deviceScaleFactor: 1 });
 
@@ -264,6 +346,34 @@ test.describe('the gallery sheet', () => {
     expect(sheetArea).toBeGreaterThanOrEqual(bodyArea.n * 0.25);
     expect(inside).toBeGreaterThan(200);
     expect(shown / inside).toBeGreaterThanOrEqual(0.9);
+  });
+  // Inner anatomy (M6 T12): the colour lives inside, and the organs show through the shell.
+  test('colour lives inside every body, and bilateral bodies of 3+ segments show 3+ bright organs', () => {
+    const rows: string[] = [];
+    const failures: string[] = [];
+    FILES.forEach((file, index) => {
+      const s = specimen(file.slice(0, 3));
+      const place = placeOf(index, { radius });
+      const { inside, rim } = bodyPixels(place, s.plan);
+      const ratio =
+        hueVariance(inside.map((p) => luma.rgb(p.x, p.y))) /
+        Math.max(hueVariance(rim.map((p) => luma.rgb(p.x, p.y))), 1e-6);
+      const values = inside.map((p) => luma.at(p.x, p.y));
+      const lit = blobs(luma, inside, median(values) + 25, 3);
+      const counted = !s.plan.form.radial && s.plan.segments.length >= 3;
+      rows.push(`${file.slice(0, 24)} hue x${ratio.toFixed(1)} blobs ${lit}${counted ? ' *' : ''}`);
+      if (ratio < 3)
+        failures.push(`${file}: inside hue variance only x${ratio.toFixed(2)} the rim's`);
+      if (counted && lit < 3) failures.push(`${file}: ${lit} bright blobs inside`);
+    });
+    console.log(rows.join('\n'));
+    expect(failures).toEqual([]);
+    // The blob count applies to some specimens at all.
+    const counted = FILES.filter((f) => {
+      const { plan } = specimen(f.slice(0, 3));
+      return !plan.form.radial && plan.segments.length >= 3;
+    });
+    expect(counted.length).toBeGreaterThanOrEqual(3);
   });
 });
 

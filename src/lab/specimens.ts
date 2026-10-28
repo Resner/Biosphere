@@ -11,6 +11,7 @@ import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import { type Silhouette, silhouetteOf } from '../genome/silhouette';
 import { buildCreature, type Creature } from '../genome/stats';
+import { anatomyOf } from '../render/anatomy';
 import { estimateVertices } from '../render/creature-mesh';
 import { createRng, type Seed, seedFromString } from '../sim/prng';
 import { sizeTier } from '../sim/size';
@@ -49,7 +50,11 @@ export function specimenOf(genome: Genome): Specimen {
     rarity: rarityOfTraits(creature.traits).tier,
     tier: sizeTier(creature.stats.maxBiomass),
     silhouette: silhouetteOf(creature.plan),
-    vertices: estimateVertices(creature.plan, 'high'),
+    vertices: estimateVertices(
+      creature.plan,
+      'high',
+      anatomyOf(creature.plan, creature.traits, creature.hash),
+    ),
     lines: describeCreature(creature),
     violations: bodyViolations(creature.plan),
   };

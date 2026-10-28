@@ -3,7 +3,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { describe, expect, it, vi } from 'vitest';
 import { ARCHETYPES, buildBytes } from '../../tests/archetypes';
-import { decodeGenome, type Genome } from '../genome/codec';
+import { decodeGenome, type Genome, genomeHash } from '../genome/codec';
 import { type BodyPlan, develop, polygonArea } from '../genome/develop';
 import { express } from '../genome/express';
 import { genesisGenome } from '../genome/genesis';
@@ -13,6 +13,7 @@ import { buildCreature } from '../genome/stats';
 import { parseSpecimen } from '../lab/gallery';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
+import { type Anatomy, anatomyOf } from './anatomy';
 import { CreatureCache, FULL_ABOVE, LOW_BELOW, lodFor } from './creature-cache';
 import {
   buildCreatureGeometry,
@@ -22,13 +23,22 @@ import {
   LOD_LADDER,
   type Lod,
   type MeshDetail,
+  MOTION_BELL,
+  MOTION_RIGID,
   meshDetail,
+  ORGAN_KINDS,
+  ORGAN_RESERVE,
   PART_APPENDAGE,
   PART_BODY,
+  PART_CHAMBER,
+  PART_DROPLET,
   PART_EYE,
+  PART_GUT,
+  PART_HEART,
   PART_KINDS,
   PART_MEMBRANE,
   PART_MOUTH,
+  PART_PIGMENT,
   PART_PLATE,
   PART_SETA,
   PART_SHELL,
@@ -101,6 +111,17 @@ const planOf = (g: Genome): BodyPlan => {
   return p;
 };
 
+// The inner anatomy (M6 T12) of each genome, built once like its plan.
+const anatomies = new Map<Genome, Anatomy>();
+const anatomyFor = (g: Genome): Anatomy => {
+  let a = anatomies.get(g);
+  if (!a) {
+    a = anatomyOf(planOf(g), express(g), genomeHash(g));
+    anatomies.set(g, a);
+  }
+  return a;
+};
+
 type Geometry = ReturnType<typeof buildCreatureGeometry>;
 const attr = (g: Geometry, name: string): Float32Array =>
   g.getAttribute(name).array as Float32Array;
@@ -126,11 +147,12 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
     let built = 0;
     for (const genome of [...named, ...randoms]) {
       const p = planOf(genome);
+      const inner = anatomyFor(genome);
       for (const lod of LODS) {
-        const geometry = buildCreatureGeometry(p, lod);
+        const geometry = buildCreatureGeometry(p, lod, inner);
         const position = attr(geometry, 'position');
         const count = position.length / 3;
-        expect(count).toBe(estimateVertices(p, lod));
+        expect(count).toBe(estimateVertices(p, lod, inner));
         expect(count).toBeLessThanOrEqual(LOD_BUDGET[lod]);
         let reach = 0;
         let bad = 0;
@@ -388,6 +410,118 @@ describe('buildCreatureGeometry v2: the body', () => {
   });
 });
 
+describe('buildCreatureGeometry v2: the inner anatomy', () => {
+  const organKind = (v: number): boolean => ORGAN_KINDS.includes(partKind(v));
+
+  it('keeps the organs within 20% of each level-of-detail budget, and the whole body within its budget', () => {
+    for (const lod of LODS) expect(ORGAN_RESERVE[lod]).toBeLessThanOrEqual(0.2 * LOD_BUDGET[lod]);
+    for (const genome of [...named, ...randoms.slice(0, 100)]) {
+      const p = planOf(genome);
+      const inner = anatomyFor(genome);
+      for (const lod of LODS) {
+        const part = attr(buildCreatureGeometry(p, lod, inner), 'aPart');
+        let organs = 0;
+        for (const v of part) if (organKind(v)) organs++;
+        expect(organs, lod).toBeGreaterThan(0);
+        expect(organs, lod).toBeLessThanOrEqual(ORGAN_RESERVE[lod]);
+        expect(estimateVertices(p, lod, inner)).toBe(estimateVertices(p, lod) + organs);
+        expect(part.length).toBeLessThanOrEqual(LOD_BUDGET[lod]);
+      }
+    }
+  }, 60_000);
+
+  it('draws the gut, the chambers and droplets, the heart and the eye pigment with their own part kinds', () => {
+    expect(ORGAN_KINDS).toEqual([PART_GUT, PART_CHAMBER, PART_DROPLET, PART_HEART, PART_PIGMENT]);
+    expect(new Set([...ORGAN_KINDS, PART_BODY, PART_SHELL, PART_EYE]).size).toBe(8);
+    for (const kind of ORGAN_KINDS) expect(kind).toBeLessThan(PART_KINDS);
+    const body = gallery.values().next().value as Genome;
+    const kinds = new Set(
+      Array.from(
+        attr(buildCreatureGeometry(planOf(body), 'high', anatomyFor(body)), 'aPart'),
+        partKind,
+      ),
+    );
+    for (const kind of [PART_GUT, PART_HEART, PART_PIGMENT]) expect(kinds.has(kind)).toBe(true);
+    expect(kinds.has(PART_CHAMBER) || kinds.has(PART_DROPLET)).toBe(true);
+    // A body built without anatomy has no organs.
+    const bare = attr(buildCreatureGeometry(planOf(body), 'high'), 'aPart');
+    expect(Array.from(bare).some(organKind)).toBe(false);
+    // The shader knows each organ kind by the same number.
+    const names = { PART_GUT, PART_CHAMBER, PART_DROPLET, PART_HEART, PART_PIGMENT };
+    for (const [name, value] of Object.entries(names)) {
+      expect(fragmentShader).toMatch(new RegExp(`const int ${name} = ${value};`));
+    }
+  });
+
+  it('draws the organs inside the shell: over the body and under the carapace and the eyes, within the hull', () => {
+    for (const genome of [...gallery.values(), ...randoms.slice(0, 100)]) {
+      const p = planOf(genome);
+      const g = buildCreatureGeometry(p, 'high', anatomyFor(genome));
+      const part = attr(g, 'aPart');
+      const position = attr(g, 'position');
+      const index = indexOf(g);
+      // Draw order is index order (one draw call, no depth test): the first triangle of each kind.
+      const firstTriangle = new Map<string, number>();
+      const lastTriangle = new Map<string, number>();
+      const tag = (v: number) => {
+        const k = partKind(v);
+        return organKind(v)
+          ? 'organ'
+          : k === PART_SHELL
+            ? 'shell'
+            : k === PART_EYE
+              ? 'eye'
+              : k <= PART_MOUTH && partId(v) === 0
+                ? 'body'
+                : 'other';
+      };
+      for (let t = 0; t < index.length; t += 3) {
+        const key = tag(part[index[t] as number] as number);
+        if (!firstTriangle.has(key)) firstTriangle.set(key, t);
+        lastTriangle.set(key, t);
+      }
+      const organFirst = firstTriangle.get('organ') as number;
+      expect(organFirst).toBeGreaterThan(lastTriangle.get('body') as number);
+      for (const later of ['shell', 'eye']) {
+        if (firstTriangle.has(later)) {
+          expect(firstTriangle.get(later) as number).toBeGreaterThan(
+            lastTriangle.get('organ') as number,
+          );
+        }
+      }
+      // Every organ vertex lies inside the body's outline (balls flatten to their disc).
+      for (let i = 0; i < part.length; i++) {
+        if (!organKind(part[i] as number)) continue;
+        const [x, y] = [position[i * 3] as number, position[i * 3 + 1] as number];
+        const inside = p.segments.some((s) => {
+          const [dx, dy] = [x - s.x, y - s.y];
+          const u = (dx * Math.cos(s.angle) + dy * Math.sin(s.angle)) / s.rx;
+          const v = (-dx * Math.sin(s.angle) + dy * Math.cos(s.angle)) / s.ry;
+          return u * u + v * v <= 1 + 1e-6;
+        });
+        expect(inside).toBe(true);
+      }
+    }
+  });
+
+  it('moves the organs with the body: rigid on a bilateral body, pulsing on a bell, never turning like a part', () => {
+    for (const genome of [...gallery.values(), ...randoms.slice(0, 100)]) {
+      const p = planOf(genome);
+      const g = buildCreatureGeometry(p, 'high', anatomyFor(genome));
+      const part = attr(g, 'aPart');
+      const motion = attr(g, 'aMotion');
+      const weight = attr(g, 'aWeight');
+      for (let i = 0; i < part.length; i++) {
+        if (!organKind(part[i] as number)) continue;
+        expect(partId(part[i] as number)).toBe(0);
+        expect(motion[i * 4]).toBe(p.form.radial ? MOTION_BELL : MOTION_RIGID);
+        expect(motion[i * 4 + 2]).toBe(0);
+        expect(weight[i]).toBe(0);
+      }
+    }
+  }, 60_000);
+});
+
 describe('buildCreatureGeometry v2: parts and fine detail', () => {
   it('roots every appendage on its segment outline', () => {
     for (const genome of [...gallery.values(), ...randoms.slice(0, 300)]) {
@@ -628,7 +762,7 @@ describe('CreatureCache', () => {
     expect(cache.acquire(c, 'medium')).not.toBe(a);
     expect(cache.acquire(c, 'low')).not.toBe(a);
     expect(cache.live()).toBe(3);
-    expect(a.vertices).toBe(estimateVertices(c.plan, 'high'));
+    expect(a.vertices).toBe(estimateVertices(c.plan, 'high', anatomyOf(c.plan, c.traits, c.hash)));
   });
 
   it('disposes the geometry and material when the last holder releases', () => {

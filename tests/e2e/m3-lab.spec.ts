@@ -141,7 +141,9 @@ test('creatures read against the water, and different hues look different', asyn
     expect(s.luma - waterLuma, `creature ${i} against the water`).toBeGreaterThanOrEqual(0.12);
   }
   // Every pair with clearly different hues (a sixth of the wheel apart; albinos have no hue of
-  // their own) differs in mean colour. Bins would pit 0.166 against 0.168 at an edge.
+  // their own) differs in the mean colour of its pigment. Bins would pit 0.166 against 0.168 at an
+  // edge. Since M6 T12 the shell is nearly clear and the organs carry the hue, so the colour is
+  // measured where it is: the most colourful tenth of the creature's pixels.
   const hueOf = (i: number) => {
     const c = (specimens[i] as ReturnType<typeof specimenOf>).creature.traits.colour;
     return c.albino === 'normal' ? c.hue : null;
@@ -156,8 +158,8 @@ test('creatures read against the water, and different hues look different', asyn
       const apart = Math.abs(ha - hb);
       if (Math.min(apart, 1 - apart) < 1 / 6) continue;
       pairs++;
-      const [ra, ga, ba] = (stats[a] as CellStats).rgb;
-      const [rb, gb, bb] = (stats[b] as CellStats).rgb;
+      const [ra, ga, ba] = (stats[a] as CellStats).pigment;
+      const [rb, gb, bb] = (stats[b] as CellStats).pigment;
       closest = Math.min(closest, Math.hypot(ra - rb, ga - gb, ba - bb));
     }
   }

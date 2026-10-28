@@ -38,6 +38,11 @@ export interface CellStats {
   /** Mean luminance and colour (0..1) of the lit pixels. */
   luma: number;
   rgb: [number, number, number];
+  /**
+   * Mean colour (0..1) of the most colourful tenth of the lit pixels (by chroma, max − min): where
+   * the pigment is, since the organs carry it under a near-clear shell (M6 T12).
+   */
+  pigment: [number, number, number];
 }
 
 /** Decodes a screenshot of the stage inside the page and measures the lit pixels of each cell. */
@@ -71,6 +76,7 @@ export async function measureCells(page: Page, cells: number[]): Promise<CellSta
         let sumR = 0;
         let sumG = 0;
         let sumB = 0;
+        const colours: [number, number, number][] = [];
         for (let y = 0; y < h; y++) {
           for (let x = 0; x < w; x++) {
             const i = ((y0 + y) * image.width + x0 + x) * 4;
@@ -86,6 +92,7 @@ export async function measureCells(page: Page, cells: number[]): Promise<CellSta
               sumR += data[i] ?? 0;
               sumG += data[i + 1] ?? 0;
               sumB += data[i + 2] ?? 0;
+              colours.push([data[i] ?? 0, data[i + 1] ?? 0, data[i + 2] ?? 0]);
             }
           }
         }
@@ -122,8 +129,14 @@ export async function measureCells(page: Page, cells: number[]): Promise<CellSta
           number,
           number,
         ];
+        const chroma = (c: [number, number, number]) => Math.max(...c) - Math.min(...c);
+        const vivid = colours.sort((a, b) => chroma(b) - chroma(a)).slice(0, Math.ceil(lit / 10));
+        const pigment = [0, 1, 2].map((k) =>
+          vivid.length > 0 ? vivid.reduce((a, c) => a + (c[k] ?? 0), 0) / vivid.length / 255 : 0,
+        ) as [number, number, number];
         out.push({
           lit,
+          pigment,
           left,
           right,
           connected: lit > 0 ? best / lit : 0,

@@ -6,6 +6,7 @@
 import type * as THREE from 'three';
 import type { BodyPlan } from '../genome/develop';
 import type { Traits } from '../genome/express';
+import { anatomyOf } from './anatomy';
 import { buildCreatureGeometry, type Lod } from './creature-mesh';
 import { materialParams } from './material-params';
 import { creatureMaterial } from './materials';
@@ -57,7 +58,8 @@ export class CreatureCache {
     const key = `${creature.hash}/${lod}`;
     let entry = this.entries.get(key);
     if (!entry) {
-      const geometry = buildCreatureGeometry(creature.plan, lod);
+      const { plan, traits, hash } = creature;
+      const geometry = buildCreatureGeometry(plan, lod, anatomyOf(plan, traits, hash));
       entry = {
         asset: {
           key,
