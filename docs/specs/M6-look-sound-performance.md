@@ -275,7 +275,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `genesis.ts` draws one of six larval forms (cell, ciliate, spiny larva, bell, tadpole, fan tail) over the v5 cell from its own stream; rarity prices radial, webbing and eyes from the form table and coil, carapace and chela at 12 bits; five new epithets; the report's silhouette histograms; `tools/specimen.ts` and `npm run specimens`, with files 21–36 in the gallery. The Lab's wild mode zeroes v2 bytes 60% of the time (`wildGenome`).
   - Gotcha: a third of the v5 band cells already have three pairs and read as ciliates, so the plain-cell form is 35%, not more; rarity's common share drops to about 70% (its test band moved), and the genesis, inherit and offspring goldens were regenerated (rules 6 is unreleased).
 
-- [x] T10 Creature mesh v2 [opus] (in progress)
+- [x] T10 Creature mesh v2 [opus]
   - Acceptance (unit tests first):
     - The body is a smooth loft along the curved spine: a Catmull-Rom centre line, with ring counts by level of detail. It follows the tagma profile, and a carapace adds a thin outer shell over the fused segments.
     - Appendages are tapered tubes with visible joint beads, curvature, bulb tips and chela pincers.

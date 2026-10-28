@@ -767,7 +767,7 @@ function addAppendage(
 
 /** Which of `count` bristles a share draws: evenly spread, all of them at 1. */
 const drawn = (k: number, share: number): boolean =>
-  Math.floor((k + 1) * share) > Math.floor(k * share);
+  Math.ceil((k + 1) * share) > Math.ceil(k * share);
 
 /** The part's bristles: thin tapered ribbons, alternating sides (away from the body), fanned toward the tip. */
 function addSetae(
@@ -943,7 +943,23 @@ export function meshDetail(plan: BodyPlan, lod: Lod): MeshDetail {
   return fit(plan, lod).detail;
 }
 
-function fit(plan: BodyPlan, lod: Lod): { detail: MeshDetail; count: number } {
+const fitted = new WeakMap<BodyPlan, Partial<Record<Lod, Fit>>>();
+
+interface Fit {
+  detail: MeshDetail;
+  count: number;
+}
+
+/** Plans are immutable, so the ladder search runs once per plan and level. */
+function fit(plan: BodyPlan, lod: Lod): Fit {
+  const byLod = fitted.get(plan) ?? {};
+  fitted.set(plan, byLod);
+  const found = byLod[lod] ?? search(plan, lod);
+  byLod[lod] = found;
+  return found;
+}
+
+function search(plan: BodyPlan, lod: Lod): Fit {
   const ladder = FALLBACK[lod];
   let count = 0;
   for (const detail of ladder) {
