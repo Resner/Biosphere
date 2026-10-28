@@ -1,5 +1,4 @@
-import { type Genome, genomeHash } from '../genome/codec';
-import { KARYOTYPE_VERSION } from '../genome/karyotype';
+import { type Genome, genomeHash, genomeKaryotype } from '../genome/codec';
 import { offspringPair } from '../genome/offspring';
 import { type Canonical, canonicalize } from './canonical';
 import { type Beacon, randomnessOf } from './drand';
@@ -48,7 +47,7 @@ export function birthRequest(
       mates,
       genome: genomeHash(child),
       generation,
-      karyotype: KARYOTYPE_VERSION,
+      karyotype: genomeKaryotype(child),
     },
   };
 }
@@ -156,7 +155,14 @@ export function checkBirth(
       failures.push('mate-hash');
     }
     if (child === null || failures.length > 0) return [...new Set(failures)];
-    const { children, slots } = offspringPair(randomnessOf(beacon), id, parents[0], parents[1]);
+    // Recomputed under the record's own rules version, so births of older versions keep verifying.
+    const { children, slots } = offspringPair(
+      randomnessOf(beacon),
+      id,
+      parents[0],
+      parents[1],
+      record.rules,
+    );
     const generation =
       Math.max(
         mates[0].record.body.generation as number,
@@ -165,7 +171,7 @@ export function checkBirth(
     if (body.slot !== slots[child]) failures.push('slot-mismatch');
     if (body.genome !== genomeHash(children[child])) failures.push('genome-mismatch');
     if (body.generation !== generation) failures.push('generation-mismatch');
-    if (body.karyotype !== KARYOTYPE_VERSION) failures.push('karyotype-mismatch');
+    if (body.karyotype !== genomeKaryotype(children[child])) failures.push('karyotype-mismatch');
     return failures;
   } catch {
     return ['invalid-record:unreadable'];

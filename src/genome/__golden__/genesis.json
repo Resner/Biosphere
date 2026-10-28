@@ -1,8 +1,8 @@
 {
-  "rulesVersion": 5,
+  "rulesVersion": 6,
   "hashes": {
-    "alpha": "5510760e23e724f3c8a27eb3e076b28a7be6bc4d9d6f00aeb3b0556c3798cdbe",
-    "beta": "2fb170e57078821237ca2c119d54e74499aef2523deda9546ebb509ec1391bf5",
-    "gamma": "4e4aaa7dbaa4160491822c7ac03cd3e8fe0dad8761982dbab09b012e6e556f55"
+    "alpha": "be6671dbba24f10759335129d335f148837a79be4ed35506f64d741b153b3dd9",
+    "beta": "e9cbc6259ed9fd77958a8ce36b375c56a46562fe2d231dcbdfe7d5c3ce9e6902",
+    "gamma": "d75d1a5bff14f120e4f8162be90cc0915677e81be68d59936cdd83469c911cfa"
   }
 }

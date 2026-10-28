@@ -1,7 +1,7 @@
-// Rules v5 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v6 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 5;
+export const RULES_VERSION = 6;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -152,6 +152,29 @@ export const RULES = deepFreeze({
         growth: [0.7, 1.4],
         uvTolerance: [0, 1],
         pressureTolerance: [0, 1],
+      },
+      /** Karyotype v2 body shape (ADR 0025): 0 is off, the v1 body; development reads them from M6 T7. */
+      shape: {
+        curve: [0, 1],
+        curveMode: [0, 1],
+        headScale: [0, 1],
+        trunkSwell: [0, 1],
+        tailLength: [0, 1],
+        tailTaper: [0, 1],
+        fusion: [0, 1],
+        symmetry: [0, 1],
+        drape: [0, 1],
+        eyeSize: [0, 1],
+        eyeStalk: [0, 1],
+      },
+      /** Karyotype v2 module-slot extension (ADR 0025): 0 is off; development reads them from M6 T8. */
+      part: {
+        webbing: [0, 1],
+        setaeDensity: [0, 1],
+        setaeLength: [0, 1],
+        bulb: [0, 1],
+        chela: [0, 1],
+        beads: [0, 1],
       },
     },
     /** A homozygous loss of function (L1-L4) sets its defect factor to this; heterozygotes are unaffected. */

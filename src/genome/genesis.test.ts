@@ -3,9 +3,10 @@ import { describe, expect, it } from 'vitest';
 import { metricsAt } from '../../tests/archetypes';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
-import { type Genome, genomeHash } from './codec';
+import { type Genome, genomeHash, genomeKaryotype, upgrade } from './codec';
 import { bodyViolations } from './develop';
 import { GENESIS_FREQ, genesisGenome } from './genesis';
+import { genesisGenomeV5 } from './genesis-v5';
 import { LOCI } from './karyotype';
 import { starterGenome } from './starter';
 import { buildCreature } from './stats';
@@ -149,6 +150,26 @@ describe('genesisGenome', () => {
       beatStrength: 1,
       metabolismCost: 1,
     });
+  });
+
+  it('writes karyotype v2 under rules 6: the v5 cell, padded (the body changes in M6 T9)', () => {
+    for (let i = 0; i < 50; i++) {
+      const v5 = genesisGenomeV5(seedOf(i));
+      expect(genomeKaryotype(v5)).toBe(1);
+      expect(genomeKaryotype(genomes[i] as Genome)).toBe(2);
+      expect(genomes[i]).toEqual(upgrade(v5));
+    }
+  });
+
+  it('keeps the frozen v5 genesis hashes (karyotype v1)', () => {
+    const file = new URL('./__golden__/genesis-v5.json', import.meta.url);
+    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
+      rulesVersion: number;
+      hashes: Record<string, string>;
+    };
+    expect(golden.rulesVersion).toBe(5);
+    for (const [s, hash] of Object.entries(golden.hashes))
+      expect(genomeHash(genesisGenomeV5(seedFromString(s)))).toBe(hash);
   });
 
   it('matches the committed hashes for three seeds', () => {

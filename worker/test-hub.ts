@@ -11,7 +11,7 @@ import {
   toBase64Url,
 } from '../src/ledger/identity';
 import { REQUEST_DOMAIN } from '../src/ledger/record';
-import { type HubMsg, parseHubMsg } from '../src/net/protocol';
+import { type HubMsg, PROTOCOL_VERSION, parseHubMsg } from '../src/net/protocol';
 import rounds from '../tests/fixtures/drand/rounds.json';
 import type { BeaconSource } from './beacons';
 import { fixtureSource } from './fixture-beacons';
@@ -100,7 +100,7 @@ export async function signIn(id?: Identity, store = memoryKeyStore()) {
   const sig = toBase64Url(
     who.sign(HELLO_DOMAIN, helloMessage(challenge.nonce, name) ?? new Uint8Array()),
   );
-  c.send({ t: 'hello', v: 2, playerId: who.playerId, name, sig });
+  c.send({ t: 'hello', v: PROTOCOL_VERSION, playerId: who.playerId, name, sig });
   return { c, id: who };
 }
 

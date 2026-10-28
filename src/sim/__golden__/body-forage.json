@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 5,
+    "rules": 6,
     "seed": "golden-body",
     "spawn": {
       "id": "p1",
@@ -1640,7 +1640,7 @@
       [1798, 4044]
     ]
   },
-  "hash": "23bad70a84f757cd",
+  "hash": "6bc02921d8c080d9",
   "events": {
     "dash": 20,
     "eat": 56,

@@ -12,9 +12,11 @@ import {
   genomeHash,
   genomeToBase64url,
   parseGenomeText,
+  upgrade,
 } from './codec';
 import { genesisGenome } from './genesis';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI } from './karyotype';
+import { GENOME_BYTES_V1, HAPLOTYPE_BYTES_V1, LOCI_V1 } from './karyotype-v1';
 
 const rng = createRng(seedFromString('genome-codec-tests'), 'bytes');
 
@@ -24,29 +26,31 @@ function randomBytes(length: number): Uint8Array {
   return out;
 }
 
-const counter = Uint8Array.from({ length: GENOME_BYTES }, (_, i) => i & 0xff);
-const goldenInputs = {
-  zero: new Uint8Array(GENOME_BYTES),
-  counter,
+/** The golden inputs at one length: zeros, a counter and seeded random bytes. */
+const inputsOf = (length: number) => ({
+  zero: new Uint8Array(length),
+  counter: Uint8Array.from({ length }, (_, i) => i & 0xff),
   random: (() => {
     const r = createRng(seedFromString('genome-golden'), 'bytes');
-    return Uint8Array.from({ length: GENOME_BYTES }, () => r.nextU32() & 0xff);
+    return Uint8Array.from({ length }, () => r.nextU32() & 0xff);
   })(),
-};
+});
+const goldenInputs = inputsOf(GENOME_BYTES);
+const counter = goldenInputs.counter;
 
 const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString('hex');
 
 describe('karyotype', () => {
-  it('lays loci out contiguously over six chromosomes', () => {
+  it('lays the v1 loci out contiguously over six chromosomes', () => {
     let offset = 0;
-    for (const locus of LOCI) {
+    for (const locus of LOCI_V1) {
       expect(locus.offset).toBe(offset);
       offset += locus.size;
     }
-    expect(offset).toBe(HAPLOTYPE_BYTES);
-    expect(GENOME_BYTES).toBe(2 * HAPLOTYPE_BYTES);
-    expect(new Set(LOCI.map((l) => l.chr))).toEqual(new Set([1, 2, 3, 4, 5, 6]));
-    expect(LOCI.map((l) => l.chr)).toEqual([...LOCI.map((l) => l.chr)].sort());
+    expect(offset).toBe(HAPLOTYPE_BYTES_V1);
+    expect(GENOME_BYTES_V1).toBe(2 * HAPLOTYPE_BYTES_V1);
+    expect(new Set(LOCI_V1.map((l) => l.chr))).toEqual(new Set([1, 2, 3, 4, 5, 6]));
+    expect(LOCI_V1.map((l) => l.chr)).toEqual([...LOCI_V1.map((l) => l.chr)].sort());
     expect(new Set(LOCI.map((l) => l.id)).size).toBe(LOCI.length);
   });
 
@@ -167,33 +171,58 @@ describe('genomeHash', () => {
     }
   });
 
-  const file = new URL('./__golden__/genome-hash.json', import.meta.url);
-  if (process.env.UPDATE_GOLDENS) {
-    const vectors = Object.fromEntries(
-      Object.entries(goldenInputs).map(([name, bytes]) => {
-        const g = decodeGenome(bytes);
-        return [name, { input: hex(bytes), canonical: hex(encodeGenome(g)), hash: genomeHash(g) }];
-      }),
-    );
-    writeFileSync(
-      file,
-      `${JSON.stringify({ rulesVersion: RULES_VERSION, karyotype: 1, vectors }, null, 2)}\n`,
-    );
-  }
-
-  it('matches the committed golden vectors', () => {
+  it('keeps the karyotype v1 golden hashes (frozen, ADR 0025)', () => {
+    const file = new URL('./__golden__/genome-hash-v1.json', import.meta.url);
     const golden = JSON.parse(readFileSync(file, 'utf8')) as {
       rulesVersion: number;
       karyotype: number;
       vectors: Record<string, { input: string; canonical: string; hash: string }>;
     };
-    expect(golden.rulesVersion).toBe(RULES_VERSION);
-    expect(Object.keys(golden.vectors)).toEqual(['zero', 'counter', 'random']);
-    for (const v of Object.values(golden.vectors)) {
-      const g = decodeGenome(Uint8Array.from(Buffer.from(v.input, 'hex')));
+    expect(golden).toMatchObject({ rulesVersion: 5, karyotype: 1 });
+    const inputs = inputsOf(GENOME_BYTES_V1);
+    expect(Object.keys(golden.vectors)).toEqual(Object.keys(inputs));
+    for (const [name, bytes] of Object.entries(inputs)) {
+      const v = golden.vectors[name] as { input: string; canonical: string; hash: string };
+      expect(v.input).toBe(hex(bytes));
+      const g = decodeGenome(bytes);
       expect(hex(encodeGenome(g))).toBe(v.canonical);
       expect(genomeHash(g)).toBe(v.hash);
     }
+  });
+
+  const file = new URL('./__golden__/genome-hash.json', import.meta.url);
+  const vectorsOf = (inputs: Record<string, Uint8Array>) =>
+    Object.fromEntries(
+      Object.entries(inputs).map(([name, bytes]) => {
+        const g = decodeGenome(bytes);
+        return [name, { input: hex(bytes), canonical: hex(encodeGenome(g)), hash: genomeHash(g) }];
+      }),
+    );
+  /** The v2 vectors, and the v1 inputs upgraded to v2 (`upgrade`). */
+  const compute = () => ({
+    vectors: vectorsOf(goldenInputs),
+    upgraded: Object.fromEntries(
+      Object.entries(inputsOf(GENOME_BYTES_V1)).map(([name, bytes]) => [
+        name,
+        genomeHash(upgrade(decodeGenome(bytes))),
+      ]),
+    ),
+  });
+  if (process.env.UPDATE_GOLDENS) {
+    writeFileSync(
+      file,
+      `${JSON.stringify({ rulesVersion: RULES_VERSION, karyotype: 2, ...compute() }, null, 2)}\n`,
+    );
+  }
+
+  it('matches the committed karyotype v2 golden vectors', () => {
+    const { rulesVersion, karyotype, ...vectors } = JSON.parse(readFileSync(file, 'utf8')) as {
+      rulesVersion: number;
+      karyotype: number;
+    };
+    expect(rulesVersion).toBe(RULES_VERSION);
+    expect(karyotype).toBe(2);
+    expect(compute()).toEqual(vectors);
   });
 });
 

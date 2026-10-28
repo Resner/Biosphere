@@ -5,14 +5,27 @@
 import { pow } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { Genome, Haplotype } from './codec';
-import { LOCI, type Locus, type MendelLocus, MODULE_PARAMS } from './karyotype';
+import {
+  LOCI,
+  type Locus,
+  type MendelLocus,
+  MODULE_EXT,
+  MODULE_LOCI,
+  MODULE_PARAMS,
+  type ModuleLocus,
+  SHAPE_LOCI,
+} from './karyotype';
 
 export type ModuleParam = (typeof MODULE_PARAMS)[number];
+export type ModuleExt = (typeof MODULE_EXT)[number];
+export type ShapeTrait = (typeof SHAPE_LOCI)[number];
 
 /** A module slot as expressed; parameters are raw 0-255 values (T5 maps them to lengths and angles). */
 export interface ModuleTrait {
   present: boolean;
   params: Record<ModuleParam, number>;
+  /** Karyotype v2 detail on the slot's parts, each on its `RULES.genes.range.part` range; 0 is off. */
+  ext: Record<ModuleExt, number>;
 }
 
 export interface Traits {
@@ -64,6 +77,8 @@ export interface Traits {
     uvTolerance: number;
     pressureTolerance: number;
   };
+  /** Karyotype v2 body shape (ADR 0025) on the `RULES.genes.range.shape` ranges: all 0 is the v1 body. */
+  shape: Record<ShapeTrait, number>;
   /** Factors that are 1 unless the matching load locus is homozygous loss of function. */
   defects: {
     membraneIntegrity: number;
@@ -110,13 +125,12 @@ export const QUANT_TRAITS: readonly QuantTrait[] = [
   { group: 'physiology', key: 'growth', loci: ['growth'] },
   { group: 'physiology', key: 'uvTolerance', loci: ['uvTolerance'] },
   { group: 'physiology', key: 'pressureTolerance', loci: ['pressureTolerance'] },
+  ...SHAPE_LOCI.map((id): QuantTrait => ({ group: 'shape', key: id, loci: [id] })),
 ];
 
 /** The segmentation drive and the size loci are polygenic but map nonlinearly. */
 export const SEGMENT_LOCI = ['segDrive1', 'segDrive2'] as const;
 export const SIZE_LOCI = ['size1', 'size2', 'size3'] as const;
-
-const MODULE_IDS = LOCI.filter((l) => l.kind === 'module').map((l) => l.id);
 
 const byId = new Map<string, Locus>(LOCI.map((l) => [l.id, l]));
 
@@ -182,19 +196,27 @@ function homozygousLof(g: Genome, id: string): boolean {
   return (byte(g.haplotypes[0], at) & 1) === 1 && (byte(g.haplotypes[1], at) & 1) === 1;
 }
 
-function expressModule(g: Genome, id: string): ModuleTrait {
-  const at = locusOf(id).offset;
+function expressModule(g: Genome, slot: ModuleLocus): ModuleTrait {
+  const at = slot.offset;
   const [a, b] = g.haplotypes;
   const inA = (byte(a, at) & 1) === 1;
   const inB = (byte(b, at) & 1) === 1;
+  // The mean rounds half up, so both haplotype orders agree.
+  const value = (offset: number): number => {
+    const pa = byte(a, offset);
+    const pb = byte(b, offset);
+    return inA && inB ? (pa + pb + 1) >> 1 : inA ? pa : inB ? pb : 0;
+  };
   const params = {} as Record<ModuleParam, number>;
   MODULE_PARAMS.forEach((name, k) => {
-    const pa = byte(a, at + 1 + k);
-    const pb = byte(b, at + 1 + k);
-    // The mean rounds half up, so both haplotype orders agree.
-    params[name] = inA && inB ? (pa + pb + 1) >> 1 : inA ? pa : inB ? pb : 0;
+    params[name] = value(at + 1 + k);
   });
-  return { present: inA || inB, params };
+  // The extension follows its slot: a v1 genome has none, so it reads as zeros (off).
+  const ext = {} as Record<ModuleExt, number>;
+  MODULE_EXT.forEach((name, k) => {
+    ext[name] = ranged('part', name, value(slot.ext + k) / 255);
+  });
+  return { present: inA || inB, params, ext };
 }
 
 /** Max size: 300 · 2^(13·t), with the whole octaves multiplied exactly so t = 0 and t = 1 give the endpoints. */
@@ -238,7 +260,7 @@ export function express(g: Genome): Traits {
       iridescence: dominant(g, 'iridescence')[0] as string,
       texture: blended(g, 'texture'),
     },
-    modules: MODULE_IDS.map((id) => expressModule(g, id)),
+    modules: MODULE_LOCI.map((slot) => expressModule(g, slot)),
     mouth: quantGroup(g, 'mouth') as Traits['mouth'],
     behaviour: {
       ...(quantGroup(g, 'behaviour') as Omit<Traits['behaviour'], 'targetPref'>),
@@ -254,6 +276,7 @@ export function express(g: Genome): Traits {
       luminescence: dominant(g, 'luminescence')[0] as string,
     },
     physiology: quantGroup(g, 'physiology') as Traits['physiology'],
+    shape: quantGroup(g, 'shape') as Traits['shape'],
     defects: {
       membraneIntegrity: homozygousLof(g, 'L1') ? lof.membraneIntegrity : 1,
       partScale: homozygousLof(g, 'L2') ? lof.partScale : 1,

@@ -1,9 +1,9 @@
 {
-  "rulesVersion": 5,
+  "rulesVersion": 6,
   "mate-commit": {
     "record": {
       "v": 1,
-      "rules": 5,
+      "rules": 6,
       "kind": "mate-commit",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -26,12 +26,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "128604e3d1fb959d8f3fef58db712e45636fbaaa5412c02d2bd1a9578ae1c5e7"
+    "hash": "49b8be27249cc40df4b1383aa54590d0af73e950f546eebceac1993ae8bd4727"
   },
   "birth": {
     "record": {
       "v": 1,
-      "rules": 5,
+      "rules": 6,
       "kind": "birth",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -55,12 +55,12 @@
       "seq": 0,
       "prev": ""
     },
-    "hash": "28b252322ae0a71ab53a22ad4a1fe2daa8975b3901cdf36c0559c4e8d39d8446"
+    "hash": "4ea21bd93a79e71ae4c5becc116e8d997d9890bd34fd5230691e4a2a22a1edfe"
   },
   "promote-child": {
     "record": {
       "v": 1,
-      "rules": 5,
+      "rules": 6,
       "kind": "promote",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -72,12 +72,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "66574c9317b88ca6cabf996977a5b1450f35306e014eecd47724955ca61be27b"
+    "hash": "0dcf7d60a051fd4dd0b3bfe032a86020b9d58eba7ebd102dfa900143e0b8b531"
   },
   "promote-parent": {
     "record": {
       "v": 1,
-      "rules": 5,
+      "rules": 6,
       "kind": "promote",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -94,12 +94,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "c021c106bb6947b78f89840677eb38d041af5a098efd7579fc10098d063e10b1"
+    "hash": "3c77b30428000c86466c3fcdebb44716349bcc0e8b6065e75ada5c2822b74867"
   },
   "restore": {
     "record": {
       "v": 1,
-      "rules": 5,
+      "rules": 6,
       "kind": "restore",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -115,6 +115,6 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "25e4b202ecb8c8263bcafa3d4f7be77781548136641bdc7792497e9e43261cbe"
+    "hash": "a4e5361cb3d738e44249184793f559923c8741170f6fec7336262716ebcc5776"
   }
 }

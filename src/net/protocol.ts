@@ -7,7 +7,7 @@ import type { RecordKind, RecordRequest, Status, StoredRecord } from '../ledger/
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 2;
+export const PROTOCOL_VERSION = 3;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -27,8 +27,8 @@ export const GENESIS_MAX_BYTES = 8192;
 export const BORN_MAX_BYTES = 32_768;
 /** A `history` carries up to `HISTORY_MAX` past lives of about 250 bytes each. */
 export const HISTORY_MAX_BYTES = 8192;
-/** A `lineage`: up to `LINEAGE_MAX` creatures and `PEDIGREE_MAX` ancestors, each with a 438-character genome text (about 60 KB at worst). */
-export const LINEAGE_MAX_BYTES = 98_304;
+/** A `lineage`: up to `LINEAGE_MAX` creatures and `PEDIGREE_MAX` ancestors, each with a genome text of up to 595 characters (karyotype v2; about 110 KB at worst). */
+export const LINEAGE_MAX_BYTES = 131_072;
 export const LINEAGE_MAX = 64;
 export const PEDIGREE_MAX = 64;
 export const EVENT_MAX_BYTES = 2048;
@@ -212,7 +212,7 @@ export const HISTORY_MAX = 20;
 
 /** Hub WebSocket, client to hub. */
 export type ClientMsg =
-  | { t: 'hello'; v: 2; playerId: string; name: string; sig: string }
+  | { t: 'hello'; v: typeof PROTOCOL_VERSION; playerId: string; name: string; sig: string }
   | { t: 'genesis-request'; nonce: string; sig: string }
   /** Life report, about every 30 s: `n` counts up, `ticks` is cumulative for this connection, the rest is the condition in hundredths. */
   | { t: 'progress'; n: number; ticks: number; biomass: number; energy: number; health: number }
@@ -525,7 +525,13 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       if (o.v !== PROTOCOL_VERSION) return null;
       if (!isStr(o.playerId, PLAYER_ID_RE) || !isStr(o.name, NAME_RE) || !isStr(o.sig, SIG_RE))
         return null;
-      return capped(raw, { t: 'hello', v: 2, playerId: o.playerId, name: o.name, sig: o.sig });
+      return capped(raw, {
+        t: 'hello',
+        v: PROTOCOL_VERSION,
+        playerId: o.playerId,
+        name: o.name,
+        sig: o.sig,
+      });
     case 'ping':
       return isInt(o.id, 0, MAX_TICK) ? capped(raw, { t: 'ping', id: o.id }) : null;
     case 'signal':
