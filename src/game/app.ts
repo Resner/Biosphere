@@ -101,6 +101,8 @@ export interface GameParams {
   quality?: PresetName | null;
   /** `?dof=0`: a test switch that draws every preset without its depth of field. */
   dof?: boolean;
+  /** `?light=0`: a test switch that draws no caustics and no god rays (M6 T17). */
+  light?: boolean;
 }
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
@@ -221,7 +223,10 @@ const INSPECT_MIN_PX = 24;
 
 /** Starts the title screen; the player hatches into the same scene. */
 export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
-  const scene = new GameScene(canvas, RULES.world.size, { dof: params.dof ?? true });
+  const scene = new GameScene(canvas, RULES.world.size, {
+    dof: params.dof ?? true,
+    light: params.light ?? true,
+  });
   const camera = new FollowCamera();
   const controller = new InputController();
   const hud = new Hud();

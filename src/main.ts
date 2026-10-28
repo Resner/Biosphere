@@ -15,6 +15,7 @@ if (canvas) {
     genome: params.get('genome'),
     quality: qualityFromSearch(window.location.search),
     dof: params.get('dof') !== '0',
+    light: params.get('light') !== '0',
   });
 }
 

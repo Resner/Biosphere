@@ -173,14 +173,19 @@ export class GameScene {
     time: 0,
   };
   private caustic = 0;
+  private readonly light: boolean;
   private readonly onResize = () => this.resize();
 
-  /** `dof: false` is the `?dof=0` test switch: every preset draws without its depth of field. */
+  /**
+   * `dof: false` is the `?dof=0` test switch: every preset draws without its depth of field.
+   * `light: false` is `?light=0`: no caustics and no god rays.
+   */
   constructor(
     private readonly canvas: HTMLCanvasElement,
     worldSize: number,
-    options: { dof?: boolean } = {},
+    options: { dof?: boolean; light?: boolean } = {},
   ) {
+    this.light = options.light ?? true;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     this.renderer.setClearColor(0x04090b);
     this.post = new PostChain(this.renderer, { dof: options.dof ?? true });
@@ -334,7 +339,7 @@ export class GameScene {
     camera.position.y = view.camY;
     camera.updateProjectionMatrix();
 
-    this.water.update(view, halfWidth);
+    this.water.update(view, halfWidth, this.light);
     this.updateZones(view);
     this.post.setFocus(PLANE_DEPTH);
     const sprites = this.post.spriteDof(this.sprites);
@@ -366,9 +371,9 @@ export class GameScene {
    * draws the rays, so low has none).
    */
   private updateLight(view: SceneView, halfWidth: number, depth: number | null): void {
-    this.caustic = depth === null ? 0 : sunlight(depth, 'caustic');
+    this.caustic = this.causticAt(depth);
     const rays = this.rays;
-    rays.strength = depth === null ? 0 : sunlight(depth, 'rays');
+    rays.strength = depth === null || !this.light ? 0 : sunlight(depth, 'rays');
     rays.camX = view.camX;
     rays.camY = view.camY;
     rays.halfWidth = halfWidth;
@@ -379,7 +384,11 @@ export class GameScene {
 
   /** The caustics' strength over a body at (x, y): the sunlight at its depth (M6 T17). */
   private readonly causticOf = (x: number, y: number): number =>
-    this.seed ? sunlight(depthAt(this.seed, x, y), 'caustic') : 0;
+    this.causticAt(this.seed ? depthAt(this.seed, x, y) : null);
+
+  private causticAt(depth: number | null): number {
+    return depth === null || !this.light ? 0 : sunlight(depth, 'caustic');
+  }
 
   /** Where the player sees from, and the glows of the player and the remotes in view (M6 T16). */
   private updateZones(view: SceneView): void {

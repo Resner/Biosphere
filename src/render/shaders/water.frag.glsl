@@ -5,6 +5,7 @@ uniform vec2 uCam;
 uniform vec2 uHalf;
 uniform float uTime;
 uniform float uWorld;
+uniform float uLight;
 varying vec2 vNdc;
 varying vec3 vLow;
 varying vec3 vHaze;
@@ -18,7 +19,7 @@ void main() {
   vec3 col = mix(vLow, vHaze, body);
 
   // Caustics (caustics.glsl), as strong as the sunlight that reaches this depth (`zoneSun`).
-  col += CAUSTIC_WATER * causticAt(w, uTime) * (0.35 + body) * vZone.y;
+  col += CAUSTIC_WATER * causticAt(w, uTime) * (0.35 + body) * vZone.y * uLight;
 
   // Beyond the player's sight the dark zones' water fades into fog. (Glow pools are drawn over it
   // by glows.ts: a loop over the lights per pixel is too slow for software GL.)

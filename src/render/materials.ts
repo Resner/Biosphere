@@ -57,6 +57,7 @@ export const waterMaterial = (): THREE.ShaderMaterial =>
       uHalf: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 },
       uWorld: { value: 0 },
+      uLight: { value: 1 },
     },
     { blending: THREE.NoBlending },
   );
