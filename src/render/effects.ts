@@ -20,6 +20,11 @@ export const FX = {
   /** The ring that marks a committed mating. */
   mateRadii: 4.5,
   mateSeconds: 1.4,
+  /** The soft ring each time the creature grows another tenth, and the wider one for a size tier. */
+  growRadii: 2.4,
+  growSeconds: 0.9,
+  tierRadii: 6,
+  tierSeconds: 1.8,
   /** The longest the first update after a pause may advance the cues, in seconds. */
   resumeCapSeconds: 0.1,
 } as const;
@@ -41,6 +46,9 @@ export interface FxSnapshot {
   eat: number;
   dash: number;
   damage: number;
+  /** Growth cues shown: every tenth of the adult size, and size tiers entered. */
+  grow: number;
+  tier: number;
   /** Rings alive right now. */
   rings: number;
   /** 0..1, how much red edge the screen shows. */
@@ -71,6 +79,8 @@ export class Effects {
   private eat = 0;
   private dash = 0;
   private damage = 0;
+  private grow = 0;
+  private tier = 0;
 
   /**
    * Reacts to one sim event. `at` is where an eat or dash cue belongs: the food for an eat, the
@@ -99,6 +109,17 @@ export class Effects {
   /** A slow ring around the creature when a mating is committed (the ripple art, wider and longer). */
   matePulse(at: FxAnchor): void {
     this.addRing('ripple', at, FX.mateRadii, FX.mateSeconds);
+  }
+
+  /** A soft ring when the creature has grown another tenth; `tier` makes it the bigger one for a new size tier. */
+  growPulse(at: FxAnchor, tier: boolean): void {
+    if (tier) {
+      this.tier++;
+      this.addRing('ripple', at, FX.tierRadii, FX.tierSeconds);
+    } else {
+      this.grow++;
+      this.addRing('ripple', at, FX.growRadii, FX.growSeconds);
+    }
   }
 
   /** Starts the death dissolve; later calls do nothing. */
@@ -147,6 +168,8 @@ export class Effects {
     this.eat = 0;
     this.dash = 0;
     this.damage = 0;
+    this.grow = 0;
+    this.tier = 0;
   }
 
   snapshot(): FxSnapshot {
@@ -154,6 +177,8 @@ export class Effects {
       eat: this.eat,
       dash: this.dash,
       damage: this.damage,
+      grow: this.grow,
+      tier: this.tier,
       rings: this.rings.length,
       vignette: this.vignette,
       dissolve: this.dissolve,

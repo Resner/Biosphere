@@ -21,6 +21,19 @@ describe('Effects', () => {
     expect(fx.snapshot()).toMatchObject({ eat: 0, dash: 0 });
   });
 
+  it('marks growth with a ring, and a tier change with a wider, slower one', () => {
+    const fx = new Effects();
+    fx.growPulse(AT, false);
+    fx.growPulse(AT, true);
+    expect(fx.rings).toEqual([
+      { kind: 'ripple', x: 3, y: 4, size: 10 * FX.growRadii, age: 0, life: FX.growSeconds },
+      { kind: 'ripple', x: 3, y: 4, size: 10 * FX.tierRadii, age: 0, life: FX.tierSeconds },
+    ]);
+    expect(fx.snapshot()).toMatchObject({ grow: 1, tier: 1 });
+    expect(FX.tierRadii).toBeGreaterThan(FX.growRadii);
+    expect(FX.tierSeconds).toBeGreaterThan(FX.growSeconds);
+  });
+
   it('retires rings once their time is up', () => {
     const fx = new Effects();
     fx.onEvent({ type: 'eat', creature: 'p', food: 'f', value: 5 }, AT);
@@ -118,7 +131,15 @@ describe('Effects', () => {
     fx.startDissolve();
     fx.update(0.3);
     fx.reset();
-    expect(fx.snapshot()).toMatchObject({ eat: 0, dash: 0, damage: 0, rings: 0, vignette: 0 });
+    expect(fx.snapshot()).toMatchObject({
+      eat: 0,
+      dash: 0,
+      damage: 0,
+      grow: 0,
+      tier: 0,
+      rings: 0,
+      vignette: 0,
+    });
     expect(fx.dissolve).toBe(0);
     expect(fx.dissolved).toBe(false);
   });

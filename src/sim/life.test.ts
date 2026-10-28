@@ -24,22 +24,22 @@ describe('lifeStage', () => {
   const stage = (active: number, biomass = max, lifespan = span): LifeStage =>
     lifeStage(active, lifespan, biomass, max);
 
-  it('is young before 12 minutes when 20% of the lifespan is less, whatever the biomass', () => {
-    const short = 2_700_000; // 20% = 9 min
-    expect(stage(719_999, max, short)).toBe('young');
-    expect(stage(720_000, max, short)).toBe('mature');
+  it('is young before 7 minutes when 10% of the lifespan is less, whatever the biomass', () => {
+    const short = 2_700_000; // 10% = 4.5 min
+    expect(stage(419_999, max, short)).toBe('young');
+    expect(stage(420_000, max, short)).toBe('mature');
   });
 
   it('is young below 60% of the maximum biomass, mature at exactly 60%', () => {
     expect(stage(1_000_000, 599.9)).toBe('young');
     expect(stage(1_000_000, 600)).toBe('mature');
-    expect(stage(899_999, 600)).toBe('young'); // 20% of 75 min is 15 min
+    expect(stage(449_999, 600)).toBe('young'); // 10% of 75 min is 7.5 min
   });
 
-  it('needs 20% of the lifespan when that is more than 12 minutes', () => {
-    const long = 7_200_000; // 20% = 24 min
-    expect(stage(1_439_999, max, long)).toBe('young');
-    expect(stage(1_440_000, max, long)).toBe('mature');
+  it('needs 10% of the lifespan when that is more than 7 minutes', () => {
+    const long = 7_200_000; // 10% = 12 min
+    expect(stage(719_999, max, long)).toBe('young');
+    expect(stage(720_000, max, long)).toBe('mature');
   });
 
   it('is old from 85% of the lifespan, and old beats mature and young', () => {
@@ -47,7 +47,7 @@ describe('lifeStage', () => {
     expect(stage(3_825_000)).toBe('old');
     expect(stage(4_500_000)).toBe('old');
     expect(stage(3_825_000, 1)).toBe('old');
-    const short = 2_700_000; // 20% = 9 min, so 12 min decides; old starts at 38.25 min
+    const short = 2_700_000; // 10% = 4.5 min, so 7 min decides; old starts at 38.25 min
     expect(stage(2_295_000, 1, short)).toBe('old');
   });
 });
@@ -209,8 +209,8 @@ describe('RULES.life', () => {
       elderAt: 0.85,
       elderThrust: 0.8,
       elderBasal: 1.2,
-      matureMinMs: 720_000,
-      matureMinShare: 0.2,
+      matureMinMs: 420_000,
+      matureMinShare: 0.1,
       matureBiomassShare: 0.6,
       accrueSlackMs: 2000,
     });

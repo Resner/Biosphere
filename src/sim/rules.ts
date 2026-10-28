@@ -442,8 +442,8 @@ export const RULES = deepFreeze({
     elderThrust: 0.8,
     elderBasal: 1.2,
     /** Maturity needs active time of at least max(this, `matureMinShare` of the lifespan)... */
-    matureMinMs: 720_000,
-    matureMinShare: 0.2,
+    matureMinMs: 420_000,
+    matureMinShare: 0.1,
     /** ...and this share of the creature's maximum biomass. */
     matureBiomassShare: 0.6,
     /** Active time credited per report is at most the wall time plus this. */
@@ -538,9 +538,10 @@ export const RULES = deepFreeze({
     fullThrottleRadii: 3,
   },
   camera: {
-    /** Visible half-height = heightCoeff * r^heightExp wu. */
+    /** Visible half-height = heightCoeff * R^heightExp * (r / R)^growExp wu, R the adult radius (DESIGN §3). */
     heightCoeff: 9,
     heightExp: 0.9,
+    growExp: 0.6,
     /** Zoom smoothing time in seconds. */
     smoothSeconds: 1,
   },

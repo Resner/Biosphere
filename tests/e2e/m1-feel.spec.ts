@@ -105,6 +105,24 @@ test.describe('feel and feedback', () => {
     expect((await playerOf(page)).alive).toBe(true);
   });
 
+  test('the size line follows growth, and each tenth of the adult size shows a ring (M6 T18)', async ({
+    page,
+  }) => {
+    await play(page, 'feel-growth');
+    const line = page.getByTestId('hud-growth');
+    // The starter hatches at 100 biomass and grows to 400.
+    await expect(line).toHaveText(/^Size 2\d% of adult$/);
+    const before = await page.evaluate(() => window.__bs?.render.fx().grow ?? 0);
+    await page.evaluate(() => window.__bs?.debug?.setBiomass(250));
+    await expect(line).toHaveText(/^Size 62% of adult/);
+    await expect
+      .poll(() => page.evaluate(() => window.__bs?.render.fx().grow ?? 0))
+      .toBeGreaterThan(before);
+    // Past the adult size the line stays at 100%.
+    await page.evaluate(() => window.__bs?.debug?.setBiomass(500));
+    await expect(line).toHaveText('Size 100% of adult');
+  });
+
   test('growing from 100 to 400 biomass eases the zoom out without overshoot', async ({ page }) => {
     await play(page, 'feel-zoom');
     const run = await page.evaluate(
@@ -113,6 +131,7 @@ test.describe('feel and feedback', () => {
           const bs = window.__bs as BsHook;
           const from = bs.render.fx().halfHeight;
           bs.debug?.setBiomass(400);
+          // The starter's adult radius is 20 (maximum biomass 400), where the view is 9 * 20^0.9.
           const to = 9 * 20 ** 0.9;
           const start = performance.now();
           let peak = from;

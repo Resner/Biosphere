@@ -43,6 +43,10 @@ export function parseArgs(argv: readonly string[]): PacingOptions {
 }
 
 export interface Life {
+  /** Active ms when biomass first reached twice its hatching value, or null. */
+  doubledAtMs: number | null;
+  /** Active ms when biomass first reached `matureBiomassShare` of the maximum, or null. */
+  sixtyAtMs: number | null;
   /** Active ms when the creature first counted as mature, or null. */
   matureAtMs: number | null;
   /** Active ms when it was first mature, fed and out of cooldown. */
@@ -71,7 +75,10 @@ export function simulateLife(name: string, capMs: number): Life {
   const lifespan = lifespanMs(stats.physiology.lifespan);
   const world = createWorld({ seed: `pacing/${name}` });
   const me = spawnCreature(world, { id: 'bot', x: world.size / 2, y: world.size / 2, phys });
+  const startBiomass = me.biomass;
   const life: Life = {
+    doubledAtMs: null,
+    sixtyAtMs: null,
     matureAtMs: null,
     firstEligibleMs: null,
     matingsMs: [],
@@ -132,6 +139,10 @@ export function simulateLife(name: string, capMs: number): Life {
     step(world, { bot: { steer: angleToSteer(aim), throttle: 15, dash: false } });
 
     const now = world.tick * MS_PER_TICK;
+    if (life.doubledAtMs === null && me.biomass >= 2 * startBiomass) life.doubledAtMs = now;
+    if (life.sixtyAtMs === null && me.biomass >= RULES.life.matureBiomassShare * stats.maxBiomass) {
+      life.sixtyAtMs = now;
+    }
     if (
       life.matureAtMs === null &&
       lifeStage(now, lifespan, me.biomass, stats.maxBiomass) !== 'young'
@@ -161,6 +172,10 @@ export function pacingReport(options: PacingOptions): string {
   const lives = Array.from({ length: options.creatures }, (_, i) =>
     simulateLife(String(i), options.minutes * 60_000),
   );
+  const times = (pick: (l: Life) => number | null): number[] =>
+    lives.flatMap((l) => pick(l) ?? []).sort(ascending);
+  const doubled = times((l) => l.doubledAtMs);
+  const sixty = times((l) => l.sixtyAtMs);
   const first = lives
     .flatMap((l) => (l.firstEligibleMs === null ? [] : [l.firstEligibleMs]))
     .sort(ascending);
@@ -173,6 +188,10 @@ export function pacingReport(options: PacingOptions): string {
   const matings = lives.reduce((sum, l) => sum + l.matingsMs.length, 0);
   const base = RULES.mating.cooldownMs;
   const medianFirst = percentile(first, 0.5);
+  const medianDoubled = percentile(doubled, 0.5);
+  const medianSixty = percentile(sixty, 0.5);
+  const spread = (sorted: number[]): string =>
+    `${min(percentile(sorted, 0.5))}, ${min(percentile(sorted, 0.1))}, ${min(percentile(sorted, 0.9))}`;
   const medianLife = percentile(perLife, 0.5);
   const verdict = (ok: boolean): string => (ok ? 'met' : 'MISSED');
   return [
@@ -184,8 +203,10 @@ export function pacingReport(options: PacingOptions): string {
     '',
     '| Measure | Value |',
     '|---|---|',
-    `| Hatch to first eligibility (median, p10, p90) | ${min(medianFirst)}, ${min(percentile(first, 0.1))}, ${min(percentile(first, 0.9))} |`,
-    `| Mating to eligible again (median, p10, p90) | ${min(percentile(gaps, 0.5))}, ${min(percentile(gaps, 0.1))}, ${min(percentile(gaps, 0.9))} |`,
+    `| Biomass doubles (median, p10, p90) | ${spread(doubled)} |`,
+    `| 60% of adult size (median, p10, p90) | ${spread(sixty)} |`,
+    `| Hatch to first eligibility (median, p10, p90) | ${spread(first)} |`,
+    `| Mating to eligible again (median, p10, p90) | ${spread(gaps)} |`,
     `| Matings per full life (median, min, max) | ${medianLife}, ${perLife[0] ?? 'n/a'}, ${perLife[perLife.length - 1] ?? 'n/a'} |`,
     `| Children per hour of active time (one per mating) | ${(matings / hours).toFixed(2)} |`,
     '',
@@ -193,7 +214,9 @@ export function pacingReport(options: PacingOptions): string {
     '',
     '| Target | Result |',
     '|---|---|',
-    `| Median hatch to first eligibility between 14 and 25 min | ${verdict(medianFirst >= 14 * 60_000 && medianFirst <= 25 * 60_000)} |`,
+    `| Median biomass doubling within 4 min (a player takes 2 to 3 times as long) | ${verdict(medianDoubled <= 4 * 60_000)} |`,
+    `| Median 60% of adult size within 10 min | ${verdict(medianSixty <= 10 * 60_000)} |`,
+    `| Median hatch to first eligibility between 7 and 10 min | ${verdict(medianFirst >= 7 * 60_000 && medianFirst <= 10 * 60_000)} |`,
     `| 4 to 9 matings possible in a life (median) | ${verdict(medianLife >= 4 && medianLife <= 9)} |`,
     `| A pair's 4th mating within 24 h waits at least 8× the base cooldown | ${verdict(cooldownMs(3) >= 8 * base)} |`,
     '',

@@ -2,30 +2,39 @@ import * as THREE from 'three';
 import { lerp } from '../sim/math';
 import { RULES } from '../sim/rules';
 
-const { heightCoeff, heightExp, smoothSeconds } = RULES.camera;
+const { heightCoeff, heightExp, growExp, smoothSeconds } = RULES.camera;
 /** `smoothSeconds` is the time to cover ~98% of a zoom change: exp(-4) ≈ 0.018. */
 const SETTLE_TIME_CONSTANTS = 4;
 
-/** Visible half-height in world units for a creature of radius `r`. */
-export function viewHalfHeight(r: number): number {
-  return heightCoeff * r ** heightExp;
+/**
+ * Visible half-height in world units for a creature of radius `r` whose genetic maximum radius is
+ * `adult`. An adult sees `heightCoeff · adult^heightExp`; a smaller creature sees a view that
+ * shrinks as `(r / adult)^growExp`, so tripling the radius makes it 3^(1 − growExp) ≈ 1.55× larger
+ * on screen. A creature past its maximum counts as an adult.
+ */
+export function viewHalfHeight(r: number, adult: number): number {
+  const top = Math.max(r, adult);
+  if (!(top > 0)) return 0;
+  return heightCoeff * top ** heightExp * (r / top) ** growExp;
 }
 
 export interface CameraTarget {
   x: number;
   y: number;
   radius: number;
+  /** The radius at the genetic maximum biomass. */
+  adult: number;
 }
 
 /** Follows a creature exactly and eases the zoom, with no overshoot. */
 export class FollowCamera {
   x = 0;
   y = 0;
-  halfHeight = viewHalfHeight(1);
+  halfHeight = viewHalfHeight(1, 1);
   private started = false;
 
   update(dt: number, target: CameraTarget): void {
-    const wanted = viewHalfHeight(target.radius);
+    const wanted = viewHalfHeight(target.radius, target.adult);
     this.x = target.x;
     this.y = target.y;
     if (!this.started) {

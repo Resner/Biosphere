@@ -54,6 +54,7 @@ import {
 } from './debug';
 import { listItem, pick } from './dom';
 import { createFieldSync } from './field';
+import { GrowthWatch, growthText, sizeShare } from './growth';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
 import { enterHatches, InputController } from './input';
@@ -428,10 +429,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let steering: Steering | null = null;
   const prev = { x: 0, y: 0, heading: 0 };
 
+  const adultRadius = (c: CreatureState): number => Math.sqrt(c.phys.maxBiomass);
+
   const refreshField = (): void => {
     const { world, player } = session;
     const radius = Math.sqrt(player.biomass);
-    const half = Math.max(camera.halfHeight, viewHalfHeight(radius));
+    const half = Math.max(camera.halfHeight, viewHalfHeight(radius, adultRadius(player)));
     const reach = Math.hypot(half * scene.aspect, half) + FIELD_MARGIN;
     food = foodNear(world, player.x, player.y, reach);
     scene.setField(food, plumesNear(world, player.x, player.y, reach));
@@ -443,10 +446,33 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const endLifeState = (): void =>
     resetLife({ setSpeed: (speed) => loop.setSpeed(speed), closeChat: () => socialUi.close() });
 
+  const growth = new GrowthWatch();
+
+  /** The size line and bar, and a ring each time the creature has grown another tenth. */
+  const updateGrowth = (matureAtMs: number): void => {
+    const { player } = session;
+    const { maxBiomass } = player.phys;
+    hud.setGrowth(
+      growthText({
+        biomass: player.biomass,
+        maxBiomass,
+        activeMs: lastClock?.activeMs ?? 0,
+        matureAtMs,
+        stage: lastClock?.stage ?? 'young',
+      }),
+      sizeShare(player.biomass, maxBiomass),
+    );
+    const cue = growth.update(player.biomass, maxBiomass);
+    if (cue) {
+      fx.growPulse({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) }, cue === 'tier');
+    }
+  };
+
   const enter = (next: Session, nextScreen: Screen): void => {
     session = next;
     endLifeState();
     fx.reset();
+    growth.reset();
     controller.reset();
     steering?.done(false);
     steering = null;
@@ -454,7 +480,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     prev.x = player.x;
     prev.y = player.y;
     prev.heading = player.heading;
-    camera.snap({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) });
+    camera.snap({
+      x: player.x,
+      y: player.y,
+      radius: Math.sqrt(player.biomass),
+      adult: adultRadius(player),
+    });
     scene.setHalfHeight(camera.halfHeight);
     scene.setZones(session.world.seed32, session.world.size);
     field.now();
@@ -1169,6 +1200,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       playingNow && lastClock !== null && life.matureAtMs > 0 && active >= life.matureAtMs;
     readyShown = ready ? readyText(life.cooldownUntilMs - active) : '';
     hud.setReady(readyShown);
+    if (playingNow && player.alive) updateGrowth(life.matureAtMs);
   };
 
   let shownNote = '';
@@ -1259,7 +1291,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     beat = lerp(beat, input.throttle / MAX_THROTTLE, Math.min(1, dt * 6));
     cell.beat = beat;
 
-    camera.update(dt, { x: cell.x, y: cell.y, radius: cell.radius });
+    camera.update(dt, {
+      x: cell.x,
+      y: cell.y,
+      radius: cell.radius,
+      adult: adultRadius(player),
+    });
     // Shaders animate on wall-clock time; a frozen world holds still, so `render.specks` matches a shot.
     view.time = (now - heldMs) / 1000;
     view.camX = camera.x;
@@ -1396,7 +1433,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       const { world, player } = session;
       const at = nearestInZone(world.seed32, world.size, player.x, player.y, zone);
       debug.teleport(at.x, at.y);
-      camera.snap({ x: at.x, y: at.y, radius: Math.sqrt(player.biomass) });
+      camera.snap({
+        x: at.x,
+        y: at.y,
+        radius: Math.sqrt(player.biomass),
+        adult: adultRadius(player),
+      });
       field.now();
       return at;
     },
