@@ -305,7 +305,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: parts turn about their roots (`aFrame`, `aMotion`, `aFlutter`; classes beat, antenna, wing, tentacle, bell in `creature-mesh.ts`), so none can stretch; long parts' gain is scaled to `PART_REACH` and the phase wraps at 4 beats (`GAIT_WRAP`); `uTurn` trails turns in `CreatureView`; `m6-motion.spec.ts`.
   - Gotcha: "equal outside every creature" allows 1 level (the bloom's widest mip spreads glow across the Lab), with ≥ 99% of pixels exact; a paused Lab now holds the grain (`PostChain.still`).
 
-- [ ] T12 Inner anatomy [opus]
+- [ ] T12 Inner anatomy [opus] (in progress)
   - Acceptance (unit tests first):
     - `anatomyOf(plan, traits, genomeHash)` (render data, deterministic) places organs inside the hull, never outside it:
       - a gut line along the curved spine, with a stomach swelling;
