@@ -418,7 +418,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Owner feedback from v0.6.0 (Playtest #134)
 
-- [ ] T18 Visible growth and faster progression
+- [ ] T18 Visible growth and faster progression (in progress)
   - Acceptance (unit tests first):
     - **The camera curve**: growth within one life must show. Today's half-height `9 · r^0.9` grows almost as fast as the creature, so tripling the radius looks only 12% bigger. The new curve anchors on the genetic maximum radius `R` (from `phys.maxBiomass`): `halfHeight = 9 · R^0.9 · (r / R)^0.6` (DESIGN §3). At the adult size the view equals today's. Tests pin:
       - a creature that triples its radius within its life is at least 1.5× larger on screen;
