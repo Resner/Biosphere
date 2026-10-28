@@ -102,7 +102,8 @@ export class PostChain {
   private readonly samples: number;
   private readonly lens: boolean;
   private readonly dof: boolean;
-  private readonly still: boolean;
+  /** Keeps the film grain's pattern from frame to frame (the gallery; a paused Lab). */
+  still: boolean;
   private readonly quadScene = new THREE.Scene();
   private readonly quadCamera = new THREE.Camera();
   private readonly geometry = new THREE.BufferGeometry();

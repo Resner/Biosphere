@@ -44,7 +44,7 @@ export interface LabRenderInfo {
 export interface LabDebug {
   /** Replaces the grid with these base64url genomes (at most 24); false when any is not a genome. */
   showGenomes(texts: readonly string[]): boolean;
-  /** Freezes the animation clock; `advance` then steps it. */
+  /** Freezes the animation clock and the film grain; `advance` then steps the clock. */
   pause(): void;
   /** Runs the gait forward by this many seconds (pauses the clock). */
   advance(seconds: number): void;

@@ -164,9 +164,11 @@ export function startLab(options: LabOptions): void {
       showGenomes,
       pause: () => {
         paused = true;
+        post.still = true;
       },
       advance: (seconds) => {
         paused = true;
+        post.still = true;
         for (let left = seconds; left > 1e-9; left -= ADVANCE_STEP) {
           clock += Math.min(ADVANCE_STEP, left);
           updateViews();
