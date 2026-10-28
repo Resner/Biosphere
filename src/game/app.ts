@@ -24,6 +24,8 @@ import type { CreatureSource } from '../render/creature-cache';
 import { Effects } from '../render/effects';
 import { type PresetName, resolvePreset } from '../render/presets';
 import { GameScene } from '../render/scene';
+import { nearestInZone, sightRadius } from '../render/zones';
+import { depthAt, zoneOfDepth } from '../sim/bathymetry';
 import { colliderReach } from '../sim/body';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
@@ -87,6 +89,7 @@ import { loadSettings, type Settings, saveSettings } from './settings';
 import { SettingsPanel } from './settings-panel';
 import { MuteList, Social } from './social';
 import { type Anchor, SocialUi } from './social-ui';
+import { zoneReadout } from './zone-readout';
 
 export interface GameParams {
   seed: string;
@@ -445,6 +448,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     prev.heading = player.heading;
     camera.snap({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) });
     scene.setHalfHeight(camera.halfHeight);
+    scene.setZones(session.world.seed32, session.world.size);
     field.now();
     hud.update(player);
     if (!session.demo) {
@@ -1195,6 +1199,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     body: null as CreatureSource | null,
     remotes: [] as readonly DrawnRemote[],
     rings: fx.rings,
+    sight: 1,
   };
   const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0, hurt: 0, dissolve: 0 };
   let shownVignette = -1;
@@ -1255,6 +1260,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     cell.hurt = fx.vignette;
     cell.dissolve = fx.dissolve;
     view.creature = fx.dissolved ? null : cell;
+    view.sight = sightRadius(session.body.creature.stats.sense, cell.radius);
+    if (!session.demo) {
+      const { world } = session;
+      const depth = depthAt(world.seed32, player.x, player.y);
+      hud.setZone(zoneReadout(depth, player.phys, world.options.hazards && player.alive));
+    }
     setVignette(fx.vignette);
     // The death screen waits for the body to dissolve, so the player sees what killed them.
     if (session.death !== null && fx.dissolved && screen === 'playing') {
@@ -1362,6 +1373,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       prev.x = x;
       prev.y = y;
     },
+    setZone(zone) {
+      const { world, player } = session;
+      const at = nearestInZone(world.seed32, world.size, player.x, player.y, zone);
+      debug.teleport(at.x, at.y);
+      camera.snap({ x: at.x, y: at.y, radius: Math.sqrt(player.biomass) });
+      field.now();
+      return at;
+    },
     nearestFood(kind) {
       const { player } = session;
       let best: FoodItem | null = null;
@@ -1438,6 +1457,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
   };
 
+  /** The zone and depth under the player (M6 T16); null on the title screen. */
+  const zoneState = (): Pick<BsState, 'zone' | 'depth'> => {
+    if (session.demo) return { zone: null, depth: null };
+    const { world, player } = session;
+    const depth = depthAt(world.seed32, player.x, player.y);
+    return { zone: zoneOfDepth(depth), depth };
+  };
+
   const mateState = (): BsState['mate'] => {
     const m = mate.view();
     return {
@@ -1485,6 +1512,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         bench: autoQuality.status,
       },
       tick: session.world.tick,
+      ...zoneState(),
       playerId,
       visibleFood: food.length,
       player: session.demo

@@ -29,6 +29,8 @@ uniform float uGlint;
 uniform float uHurt;
 uniform float uDissolve;
 uniform float uAlpha;
+// How clearly the player sees this body in dark water (M6 T16, `sightAt`): 1 is clear.
+uniform float uSight;
 // The water behind the creatures and how far (core radii at a grazing angle) the glass bends it;
 // 0 with no backdrop copy (low).
 uniform sampler2D tBackdrop;
@@ -256,6 +258,10 @@ void main() {
       col = max(col + (bent - straight) * min((1.0 - alpha) / max(alpha, 0.3), 1.0), 0.0);
     }
   }
+
+  // Dark water (M6 T16): beyond the player's sight in the deep and the abyss the body fades into
+  // the fog unless glow lights it, but its rim always stays, so a creature is never invisible.
+  col = mix(uRim * (fres * 1.8 + back * 0.9) * uRimStrength, col, uSight);
 
   vec3 hurtCol = vec3(1.0, 0.18, 0.12);
   if (uHurt > 0.0) col = mix(col, col * 0.5 + hurtCol * (0.35 + 0.8 * fres), uHurt * 0.7);

@@ -76,12 +76,16 @@
       <p class="settings-note" data-testid="quality-note"></p>
       <button type="button" class="action quiet" data-testid="settings-close">Close (Esc)</button>
     </section>
+    <!-- The zone hazard cues lie under the HUD, so they never dim its text. -->
+    <div class="uv-cue" data-for="playing" data-testid="uv-cue" aria-hidden="true" hidden></div>
+    <div class="pressure-cue" data-for="playing" data-testid="pressure-cue" aria-hidden="true" hidden></div>
     <section class="hud" data-for="playing" aria-label="Status">
       <p class="species" data-testid="hud-species"></p>
       <div class="meter"><span class="meter-name">Biomass</span><span class="meter-value" data-testid="hud-biomass"></span></div>
       <div class="meter" data-meter="energy"><span class="meter-name">Energy</span><span class="meter-value" data-testid="hud-energy"></span><span class="bar"><i data-bar="energy"></i></span></div>
       <div class="meter"><span class="meter-name">Health</span><span class="meter-value" data-testid="hud-health"></span><span class="bar"><i data-bar="health"></i></span></div>
       <div class="meter life" data-meter="life" data-testid="hud-life" hidden><span class="meter-name">Life</span><span class="meter-value" data-testid="hud-stage"></span><span class="bar"><i data-bar="life"></i></span><span class="life-left" data-testid="hud-remaining"></span><span class="life-left" data-testid="hud-ready"></span></div>
+      <div class="meter depth" data-testid="hud-depth"><span class="meter-name">Depth</span><span class="meter-value" data-testid="hud-zone"></span><span class="bar"><i data-bar="depth"></i></span><span class="zone-warning" data-testid="hud-zone-warning"></span></div>
       <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
       <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping</p>
     </section>

@@ -4,6 +4,7 @@ import type { FxSnapshot } from '../render/effects';
 import type { Speck } from '../render/particles';
 import type { PresetName, QualitySetting } from '../render/presets';
 import type { ParticleLayerName, RenderInfo } from '../render/scene';
+import type { Zone } from '../sim/bathymetry';
 import type { PhysStats } from '../sim/body';
 import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
@@ -21,6 +22,9 @@ export interface BsState {
    */
   quality: { setting: QualitySetting; detected: PresetName; bench: BenchStatus };
   tick: number;
+  /** The depth zone under the player and its depth, 0..1 (M6 T16); null on the title screen. */
+  zone: Zone | null;
+  depth: number | null;
   /** This browser's identity; null until the key is loaded. */
   playerId: string | null;
   /** Food items handed to the renderer this tick. */
@@ -184,6 +188,11 @@ export interface BsDebug {
   setBiomass(biomass: number): void;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
+  /**
+   * Moves the player (as `teleport`) to the nearest point well inside that zone, clear of its edge
+   * bands with its surround in the zone too, and returns it (M6 T16).
+   */
+  setZone(zone: Zone): { x: number; y: number };
   /** The food item closest to the player (of this kind, if given), or null. */
   nearestFood(kind?: FoodKind): FoodItem | null;
   /** Swims at full throttle towards a target; resolves true once it is eaten or reached, false on a timeout or if it vanished. */

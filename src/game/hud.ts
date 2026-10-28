@@ -3,6 +3,7 @@ import { maxEnergy, maxHealth } from '../sim/vitals';
 import { pick } from './dom';
 import type { LifeClock } from './life';
 import { remainingText, stageWord } from './life-text';
+import type { ZoneReadout } from './zone-readout';
 
 /** Writes only when the text changed, so a steady readout costs no DOM work. */
 function setText(element: HTMLElement, text: string): void {
@@ -33,6 +34,11 @@ export class Hud {
   private readonly ready = pick('[data-testid="hud-ready"]');
   private readonly lifeBar = pick('[data-bar="life"]');
   private readonly toastElement = pick('[data-testid="toast"]');
+  private readonly zone = pick('[data-testid="hud-zone"]');
+  private readonly depthBar = pick('[data-bar="depth"]');
+  private readonly zoneWarning = pick('[data-testid="hud-zone-warning"]');
+  private readonly uvCue = pick('[data-testid="uv-cue"]');
+  private readonly pressureCue = pick('[data-testid="pressure-cue"]');
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
   private low = false;
 
@@ -61,6 +67,18 @@ export class Hud {
   /** The mating readiness under the life bar: "Ready to mate", "Ready in 2:10", or nothing. */
   setReady(text: string): void {
     setText(this.ready, text);
+  }
+
+  /**
+   * The depth gauge (zone name, depth bar and the hazard in words) and the UV shimmer and pressure
+   * vignette over the view while that hazard hurts the player (M6 T16).
+   */
+  setZone(readout: ZoneReadout): void {
+    setText(this.zone, readout.name);
+    setBar(this.depthBar, readout.depth);
+    setText(this.zoneWarning, readout.uv ? 'UV burns' : readout.pressure ? 'Pressure crushes' : '');
+    if (this.uvCue.hidden === readout.uv) this.uvCue.hidden = !readout.uv;
+    if (this.pressureCue.hidden === readout.pressure) this.pressureCue.hidden = !readout.pressure;
   }
 
   /** A short line in the middle of the screen. */

@@ -1,13 +1,15 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { nearestInZone } from '../../src/render/zones';
 import { RULES } from '../../src/sim/rules';
+import { createWorld } from '../../src/sim/world';
 import { hatch, openGame, playerOf } from './helpers';
 
 // The macro look is judged by properties of decoded screenshots and renderer budgets, never by
 // pixel-exact baselines: software rendering differs between browser versions.
 
-async function play(page: Page): Promise<void> {
-  await openGame(page, '?debug=1&seed=look');
+async function play(page: Page, seed = 'look'): Promise<void> {
+  await openGame(page, `?debug=1&seed=${seed}`);
   await hatch(page);
 }
 
@@ -146,19 +148,33 @@ test.describe('macro look', () => {
   test('the water looks the same near the world origin as in the middle of the world', async ({
     page,
   }) => {
-    await play(page);
+    // The water's colour follows the depth zone under it (M6 T16), so every probe must lie in the
+    // spawn's zone, twilight (the middle of the world always is). This pond's seed has twilight by
+    // the three spots near the origin; each of those probes is the nearest point well inside
+    // twilight, checked to stay by its spot.
+    const seed = 'look-78';
+    await play(page, seed);
     await waitForFrames(page);
     const size = RULES.world.size;
+    const seed32 = createWorld({ seed }).seed32;
+    const near = [
+      [150, size / 2],
+      [150, 150],
+      [size / 2, 150],
+    ] as const;
+    const probes = [
+      [size / 2, size / 2] as const,
+      ...near.map(([x, y]) => {
+        const at = nearestInZone(seed32, size, x, y, 'twilight');
+        expect(Math.hypot(at.x - x, at.y - y)).toBeLessThan(400);
+        return [at.x, at.y] as const;
+      }),
+    ];
     const player = await playerOf(page);
     const { pxPerWu } = await page.evaluate(() => (window.__bs as BsHook).render.info());
     const query = { radiusPx: player.radius * pxPerWu };
     const fields: number[] = [];
-    for (const [x, y] of [
-      [size / 2, size / 2],
-      [150, size / 2],
-      [150, 150],
-      [size / 2, 150],
-    ] as const) {
+    for (const [x, y] of probes) {
       await page.evaluate(
         (to) => {
           const debug = (window.__bs as BsHook).debug;

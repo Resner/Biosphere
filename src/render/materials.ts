@@ -9,6 +9,8 @@ import flagellumFragment from './shaders/flagellum.frag.glsl?raw';
 import flagellumVertex from './shaders/flagellum.vert.glsl?raw';
 import foodFragment from './shaders/food.frag.glsl?raw';
 import foodVertex from './shaders/food.vert.glsl?raw';
+import glowFragment from './shaders/glow.frag.glsl?raw';
+import glowVertex from './shaders/glow.vert.glsl?raw';
 import noise from './shaders/noise.glsl?raw';
 import particlesFragment from './shaders/particles.frag.glsl?raw';
 import particlesVertex from './shaders/particles.vert.glsl?raw';
@@ -18,6 +20,7 @@ import ringsFragment from './shaders/rings.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
 import { DETAIL_FADE, DETAIL_SIZE } from './surface';
+import { ZONE_UNIFORMS, zoneGlsl } from './zones';
 
 /** The largest sprite in canvas pixels: big discs cost fill, and some GPUs cap point sizes there. */
 export const MAX_SPRITE_PX = 256;
@@ -40,11 +43,15 @@ function layer(
   });
 }
 
+/** The zone chunk (M6 T16) the water and food shaders share, with its uniforms. */
+const ZONE_GLSL = zoneGlsl();
+
 export const waterMaterial = (): THREE.ShaderMaterial =>
   layer(
-    waterVertex,
-    noise + waterFragment,
+    ZONE_GLSL + waterVertex,
+    noise + ZONE_GLSL + waterFragment,
     {
+      ...ZONE_UNIFORMS,
       uCam: { value: new THREE.Vector2() },
       uHalf: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 },
@@ -132,6 +139,7 @@ export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.Shade
     uHurt: { value: 0 },
     uDissolve: { value: 0 },
     uAlpha: { value: 1 },
+    uSight: { value: 1 },
   });
   material.defines = { ...SURFACE_DEFINES };
   return material;
@@ -148,7 +156,8 @@ export const flagellumMaterial = (): THREE.ShaderMaterial =>
   });
 
 export const foodMaterial = (kind: number, color: number): THREE.ShaderMaterial =>
-  layer(foodVertex, foodFragment, {
+  layer(foodVertex, ZONE_GLSL + foodFragment, {
+    ...ZONE_UNIFORMS,
     uKind: { value: kind },
     uTime: { value: 0 },
     uColor: { value: new THREE.Color(color) },
@@ -156,6 +165,10 @@ export const foodMaterial = (kind: number, color: number): THREE.ShaderMaterial 
 
 export const plumeMaterial = (): THREE.ShaderMaterial =>
   layer(plumeVertex, noise + plumeFragment, { uTime: { value: 0 } });
+
+/** Glow pools over the water (M6 T16): additive, coloured per instance. */
+export const glowMaterial = (): THREE.ShaderMaterial =>
+  layer(glowVertex, glowFragment, {}, { blending: THREE.AdditiveBlending });
 
 /** Pops and ripples reuse the plume's instanced-quad vertex shader; only the fragment differs. */
 export const ringMaterial = (): THREE.ShaderMaterial =>

@@ -4,10 +4,16 @@ uniform float uTime;
 uniform vec3 uColor;
 varying vec2 vP;
 varying float vPhase;
+varying vec2 vWorld;
 
 void main() {
   float d = length(vP);
   float pulse = 0.85 + 0.15 * sin(uTime * 2.0 + vPhase * 6.2831);
+  // The zone under the item (M6 T16): beyond the player's sight in dark water it dims, unless glow
+  // lights it; a vent crystal glows by itself there instead.
+  vec4 zone = zoneWeights(zoneDepth(vWorld));
+  float dark = dot(zone, ZONE_DARK);
+  float sight = zoneSight(vWorld, dark);
   vec3 col;
   float alpha;
   if (uKind < 0.5) {
@@ -32,7 +38,12 @@ void main() {
     float shade = 0.55 + 0.45 * fract(sector * 0.618 + 0.3);
     float halo = exp(-d * 5.0) * 0.4;
     col = uColor * shade + vec3(0.8, 0.9, 1.0) * (1.0 - smoothstep(0.0, 0.35, d)) * 0.5 * pulse;
-    alpha = max(body, halo * pulse);
+    // Vent crystals glow in the dark: a brighter core and a wider halo the darker the water.
+    float glow = dark * exp(-d * 3.0) * 0.6;
+    col += uColor * dark * 0.5 * pulse;
+    alpha = max(body, (halo + glow) * pulse);
+    sight = 1.0;
   }
+  col *= sight;
   gl_FragColor = vec4(col, alpha);
 }

@@ -30,6 +30,8 @@ export interface CreatureViewState {
   dissolve: number;
   /** 0..1, opacity; a missing value means opaque. */
   alpha?: number;
+  /** How clearly the player sees it in dark water (M6 T16, `sightAt`); a missing value is clear. */
+  sight?: number;
   /** Screen pixels per world unit, for the level of detail; a missing value keeps the preset's. */
   pxPerWu?: number;
   /** The quality preset, whose level of detail the body is drawn at; a missing value is high (the Lab). */
@@ -86,6 +88,7 @@ export class CreatureView {
     setUniform(material, 'uHurt', view.hurt);
     setUniform(material, 'uDissolve', view.dissolve);
     setUniform(material, 'uAlpha', view.alpha ?? 1);
+    setUniform(material, 'uSight', view.sight ?? 1);
   }
 
   /** The level of detail drawn, and its vertex count (0 with no body). */

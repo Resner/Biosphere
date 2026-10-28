@@ -2,11 +2,17 @@ import * as THREE from 'three';
 import { setUniform, vec2Uniform, waterMaterial } from './materials';
 import type { SceneView } from './scene';
 
-/** A full-screen quad in clip space: the shader rebuilds world coordinates from the camera. */
+/**
+ * A full-screen grid in clip space: the shader rebuilds world coordinates from the camera. Each
+ * vertex looks up the depth zone under it (M6 T16), so the grid is fine enough to show a zone's
+ * edge band at any zoom while costing a fraction of a lookup per pixel.
+ */
+const GRID = { x: 12, y: 7 } as const;
+
 export class Water {
   readonly mesh: THREE.Mesh;
   private readonly material = waterMaterial();
-  private readonly geometry = new THREE.PlaneGeometry(2, 2);
+  private readonly geometry = new THREE.PlaneGeometry(2, 2, GRID.x, GRID.y);
 
   constructor(worldSize: number) {
     setUniform(this.material, 'uWorld', worldSize);

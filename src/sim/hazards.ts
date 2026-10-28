@@ -107,33 +107,35 @@ export function applyHazards(world: World, creature: CreatureState): StepEvent[]
 }
 
 /**
- * UV in the shallows and pressure in the lower deep and the abyss (M6 T15), by the depth under the
- * creature's centre. UV ramps in over `uvBand` of depth below the shallows' edge; pressure ramps in
- * from `pressureStart` to the abyss' edge. A tolerance of 1 takes no damage.
+ * How exposed a creature centred at this depth is to UV and to pressure (M6 T15), each 0..1 before
+ * its tolerance. UV ramps in over `uvBand` of depth below the shallows' edge; pressure ramps in
+ * from `pressureStart` to the abyss' edge. Presentation reads it for the hazard cues (T16).
+ */
+export function zoneExposure(depth: number): { uv: number; pressure: number } {
+  const z = RULES.bathymetry.zones;
+  return {
+    uv: clamp((z.shallows - depth) / H.uvBand, 0, 1),
+    pressure: clamp((depth - H.pressureStart) / (z.deep - H.pressureStart), 0, 1),
+  };
+}
+
+/**
+ * UV in the shallows and pressure in the lower deep and the abyss, by the depth under the
+ * creature's centre (`zoneExposure`). A tolerance of 1 takes no damage.
  */
 function applyZoneHazards(world: World, creature: CreatureState, events: StepEvent[]): void {
   const depth = depthAt(world.seed32, creature.x, creature.y);
-  const z = RULES.bathymetry.zones;
   // Most of the pond is neither sunlit nor crushing.
-  if (depth >= z.shallows && depth <= H.pressureStart) return;
+  if (depth >= RULES.bathymetry.zones.shallows && depth <= H.pressureStart) return;
   const hurt = (cause: 'uv' | 'pressure', rate: number, exposure: number, tolerance: number) => {
     const amount = rate * DT * exposure * (1 - tolerance);
     if (!(amount > 0)) return;
     creature.health -= amount;
     events.push({ type: 'damage', creature: creature.id, amount, cause });
   };
-  hurt(
-    'uv',
-    RULES.damage.uv,
-    clamp((z.shallows - depth) / H.uvBand, 0, 1),
-    creature.phys.uvTolerance,
-  );
-  hurt(
-    'pressure',
-    RULES.damage.pressure,
-    clamp((depth - H.pressureStart) / (z.deep - H.pressureStart), 0, 1),
-    creature.phys.pressureTolerance,
-  );
+  const exposure = zoneExposure(depth);
+  hurt('uv', RULES.damage.uv, exposure.uv, creature.phys.uvTolerance);
+  hurt('pressure', RULES.damage.pressure, exposure.pressure, creature.phys.pressureTolerance);
 }
 
 function applyToxin(world: World, creature: CreatureState): StepEvent[] {

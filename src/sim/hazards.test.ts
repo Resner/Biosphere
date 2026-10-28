@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { depthAt, zoneAt } from './bathymetry';
 import { STARTER_PHYS } from './body';
-import { applyHazards, plumesNear } from './hazards';
+import { applyHazards, plumesNear, zoneExposure } from './hazards';
 import { TAU } from './math';
 import { DT, RULES, TICK_HZ } from './rules';
 import { hashWorld } from './state-hash';
@@ -273,6 +273,14 @@ describe('UV and pressure', () => {
     while (c.alive && world.tick < 3000) events.push(...step(world, {}));
     expect(c.cause).toBe('uv');
     expect(events).toContainEqual({ type: 'death', creature: 'a', cause: 'uv' });
+  });
+
+  it('shares its exposure with presentation: none in twilight, full deep in each hazard', () => {
+    expect(zoneExposure(0.4)).toEqual({ uv: 0, pressure: 0 });
+    expect(zoneExposure(0.1)).toEqual({ uv: 1, pressure: 0 });
+    expect(zoneExposure(0.9)).toEqual({ uv: 0, pressure: 1 });
+    expect(zoneExposure(0.75).pressure).toBeCloseTo(0.5, 9);
+    expect(zoneExposure(0.24).uv).toBeCloseTo(0.5, 9);
   });
 
   it('covers the tolerances in the state hash', () => {
