@@ -320,7 +320,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `render/anatomy.ts` (`anatomyOf`, spine helpers moved to `render/spine.ts`) feeds organ part kinds 9–13 into the cached geometry (`ORGAN_RESERVE` comes off each level's budget); shells take 15% of the gene saturation, organs the full hue (albino organs pink), glow lives in the organs, plates are glass.
   - Gotcha: "hue variance" is the spread of chroma vectors (max − min along the hue angle): HSV saturation calls dark water pixels saturated; a rim-coloured glow or mouth tint alone failed the 3× ratio.
 
-- [x] T13 Materials v2: glass, wet gloss, surface detail, rare glints [opus] (in progress)
+- [x] T13 Materials v2: glass, wet gloss, surface detail, rare glints [opus]
   - Acceptance (unit tests first):
     - **The shell** is glass:
       - a fresnel rim of at least the `MIN_RIM_LUMINANCE` of today;

@@ -98,7 +98,7 @@ const toward = (c: Rgb, to: number, t: number): Rgb => [
 function liftTo(c: Rgb, min: number, to: Rgb = [1, 1, 1]): Rgb {
   const l = luminance(c);
   const top = luminance(to);
-  if (l >= min) return c;
+  if (l >= min || top <= l) return c;
   const t = (min - l) / (top - l);
   return [lerp(c[0], to[0], t), lerp(c[1], to[1], t), lerp(c[2], to[2], t)];
 }

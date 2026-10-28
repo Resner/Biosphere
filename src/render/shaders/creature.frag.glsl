@@ -247,7 +247,7 @@ void main() {
       vec2 bend = normal.xy * vUnit * uRefract;
       vec3 straight = texture2D(tBackdrop, vScreen).rgb;
       vec3 bent = texture2D(tBackdrop, vScreen - bend).rgb;
-      col = max(col + (bent - straight) * (1.0 - alpha) / max(alpha, 0.3), 0.0);
+      col = max(col + (bent - straight) * min((1.0 - alpha) / max(alpha, 0.3), 1.0), 0.0);
     }
   }
 

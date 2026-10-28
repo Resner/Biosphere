@@ -126,6 +126,9 @@ export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.Shade
     uPlating: { value: params.plating },
     uRimStrength: { value: params.rimStrength },
     uGlint: { value: glint },
+    // Linked to the shared backdrop by `shareBackdrop`; declared here so an unlinked material still draws.
+    tBackdrop: { value: null },
+    uRefract: { value: 0 },
     uHurt: { value: 0 },
     uDissolve: { value: 0 },
     uAlpha: { value: 1 },
