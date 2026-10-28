@@ -1,7 +1,9 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook, BsState } from '../../src/game/debug';
 import { type Genome, genomeToBase64url } from '../../src/genome/codec';
+import { depthAt } from '../../src/sim/bathymetry';
 import { currentAt } from '../../src/sim/currents';
+import { foodInCell } from '../../src/sim/food';
 import { RULES, TICK_HZ } from '../../src/sim/rules';
 import { createWorld } from '../../src/sim/world';
 import { ARCHETYPES, buildGenome } from '../archetypes';
@@ -102,23 +104,45 @@ test.describe('anatomy changes play', () => {
   test('a filter mouth eats detritus and ignores crystal', async ({ page }) => {
     const filter = buildGenome({}, { mouthSize: 255, mouthType: 0, digestion: 255 });
     await play(page, genomeToBase64url(filter));
-    const sitOn = async (kind: 'detritus' | 'crystal'): Promise<string> => {
-      // Look for the kind around the world's middle, then sit right on it.
-      const id = await page.evaluate(async (wanted) => {
-        const bs = window.__bs as BsHook;
-        const middle = (bs.state().player as PlayerState).x;
-        for (let step = 0; step < 40; step++) {
-          bs.debug?.teleport(middle + step * 120, middle);
-          const before = bs.state().tick;
-          while (bs.state().tick < before + 2) await new Promise((r) => setTimeout(r, 10));
-          const item = bs.debug?.nearestFood(wanted);
-          if (item) {
-            bs.debug?.teleport(item.x, item.y);
-            return item.id;
+    // Crystals grow in the deep (M6 T15): start from the crystal nearest the middle in water too
+    // shallow for pressure, found on the same world the page runs.
+    const world = createWorld({ seed: SEED });
+    const middle = RULES.world.size / 2;
+    let crystal = { x: middle, y: middle };
+    let best = Number.POSITIVE_INFINITY;
+    const cells = RULES.world.size / RULES.world.cellSize;
+    for (let cy = 0; cy < cells; cy++) {
+      for (let cx = 0; cx < cells; cx++) {
+        for (const item of foodInCell(world, cx, cy)) {
+          if (item.kind !== 'crystal' || depthAt(world.seed32, item.x, item.y) > 0.66) continue;
+          const away = Math.hypot(item.x - middle, item.y - middle);
+          if (away < best) {
+            best = away;
+            crystal = item;
           }
         }
-        throw new Error(`no ${wanted} found`);
-      }, kind);
+      }
+    }
+    const sitOn = async (kind: 'detritus' | 'crystal'): Promise<string> => {
+      const id = await page.evaluate(
+        async ({ wanted, start }) => {
+          const bs = window.__bs as BsHook;
+          const middle = (bs.state().player as PlayerState).x;
+          for (let step = 0; step < 40; step++) {
+            if (wanted === 'crystal') bs.debug?.teleport(start.x, start.y);
+            else bs.debug?.teleport(middle + step * 120, middle);
+            const before = bs.state().tick;
+            while (bs.state().tick < before + 2) await new Promise((r) => setTimeout(r, 10));
+            const item = bs.debug?.nearestFood(wanted);
+            if (item) {
+              bs.debug?.teleport(item.x, item.y);
+              return item.id;
+            }
+          }
+          throw new Error(`no ${wanted} found`);
+        },
+        { wanted: kind, start: crystal },
+      );
       const { tick } = await state(page);
       await page.waitForFunction((t) => (window.__bs as BsHook).state().tick >= t + 45, tick);
       return id;

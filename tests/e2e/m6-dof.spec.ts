@@ -204,7 +204,7 @@ test('medium keeps the creature sharp, spreads off-plane specks into discs and s
       frame.screen,
       frame.mid.map((o) => ({ x: o.x, y: o.y, reach: o.size / 2 + 6 })),
     );
-  const pick = on.mid
+  const candidates = on.mid
     .filter((s) => s.blur >= 3 && s.size >= 5)
     .map((s) => ({ on: s, off: off.mid.find((o) => o.index === s.index) }))
     .filter(
@@ -212,18 +212,29 @@ test('medium keeps the creature sharp, spreads off-plane specks into discs and s
         !!p.off && isolated(on, p.on, reachOf(p.on)) && isolated(off, p.off, reachOf(p.on)),
     )
     // The most blurred, of the larger specks.
-    .sort((a, b) => b.on.blur - a.on.blur)[0];
-  expect(pick, 'an isolated mid-layer speck off the plane').toBeDefined();
-  if (!pick) return;
-  const r = reachOf(pick.on);
-  const cover = async (frame: Look, s: Speck) => {
+    .sort((a, b) => b.on.blur - a.on.blur);
+  const cover = async (frame: Look, s: Speck, r: number) => {
     const [[count = 0] = []] = await measure(page, frame.png, [
       { kind: 'cover', x: s.x, y: s.y, r, delta: 3 },
     ]);
     return count;
   };
-  const sharpCover = await cover(off, pick.off);
-  const blurCover = await cover(on, pick.on);
+  // Nothing else lit sits behind the speck: its sharp disc fills its own area and not more (a
+  // haze disc or a food item behind it would count as cover in both pages).
+  let pick: { on: Speck; off: Speck } | undefined;
+  for (const candidate of candidates) {
+    const own = Math.PI * (candidate.off.size / 2 + 2) ** 2;
+    const lit = await cover(off, candidate.off, reachOf(candidate.on));
+    if (lit > 0 && lit <= own) {
+      pick = candidate;
+      break;
+    }
+  }
+  expect(pick, 'an isolated mid-layer speck off the plane').toBeDefined();
+  if (!pick) return;
+  const r = reachOf(pick.on);
+  const sharpCover = await cover(off, pick.off, r);
+  const blurCover = await cover(on, pick.on, r);
 
   // A far-layer bokeh disc clear of the other far and near discs in both pages.
   const discs = (frame: Look) =>
