@@ -27,6 +27,7 @@ import { GameScene } from '../render/scene';
 import { nearestInZone, sightRadius } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
 import { colliderReach } from '../sim/body';
+import { currentAt } from '../sim/currents';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { angleToSteer, IDLE, type Input } from '../sim/input';
@@ -1200,6 +1201,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     remotes: [] as readonly DrawnRemote[],
     rings: fx.rings,
     sight: 1,
+    current: { x: 0, y: 0 },
   };
   const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0, hurt: 0, dissolve: 0 };
   let shownVignette = -1;
@@ -1255,6 +1257,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     view.camX = camera.x;
     view.camY = camera.y;
     view.halfHeight = camera.halfHeight;
+    // The water's flow carries the marine snow (M6 T17).
+    view.current = currentAt(session.world, camera.x, camera.y);
     // Cues run on wall-clock time: a slow frame must not stretch the dissolve.
     fx.update(elapsed);
     cell.hurt = fx.vignette;

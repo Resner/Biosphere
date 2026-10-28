@@ -405,7 +405,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `render/zones.ts` (a 256² depth map per seed, the `zoneGlsl` chunk of water and food, a per-body `sightAt`, `nearestInZone`), glow pools as additive quads (`glows.ts`), `game/zone-readout.ts` with the HUD gauge, UV shimmer and pressure vignette; `state().zone`/`depth`, `debug.setZone`.
   - Gotcha: software GL pays for every per-pixel lookup or light loop (even behind a uniform branch), so water reads the zone per vertex of a 12×7 grid and bodies get one fog value each; the spawn disc can sit at depth 0.54, so edge bands are ±0.01 (wider tinted spawn water and broke m6-post); m1-look's origin probes moved to twilight (seed `look-78`).
 
-- [ ] T17 Caustics, god rays and marine snow v2 [opus] (in progress)
+- [x] T17 Caustics, god rays and marine snow v2 [opus] (in progress)
   - Acceptance:
     - **Caustics**: animated bright caustic lines on the water and over bodies (additive, top-down projection). They are strongest in the shallows, fade through twilight and are absent in the deep and abyss.
     - **God rays**: in the shallows and twilight, slow-moving light shafts cross the plane from a fixed light direction. They are off on low.
@@ -413,6 +413,8 @@ A look pass never starts before the tasks it judges are ticked.
     - E2E: on open water, the mean difference between two frames 2 s apart is at least 3× larger in the shallows than in the abyss (caustics move; snow drifts in both). `render.info()` stays within budget with every effect on.
     - Check the result by eye against `reference-01.jpg`: water never flat, haze clouds, sparse snow.
   - Notes: caustics and god rays add no render target: fold them into the water shader and the existing composite.
+  - Done: `sunlight(depth)` fades caustics (shared `caustics.glsl`, also projected over bodies via `uCaustic`) and god rays (`godrays.glsl` in the composite, `PostChain.setRays`) through twilight to 0 deeper; snow drifts with `currentAt` at the camera, 3% bright specks on high; `render.info()` gains `caustic` and `rays`.
+  - Gotcha: the motion E2E masks food (it bobs and glows) using the same pond rebuilt in Node; vent crystals otherwise dominate the abyss's frame difference.
 
 ### Owner feedback from v0.6.0 (Playtest #134)
 

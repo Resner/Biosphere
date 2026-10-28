@@ -14,8 +14,20 @@ import { GlowLayer } from './glows';
 import { PlumeLayer } from './hazards';
 import { materialParams } from './material-params';
 import { ParticleLayer, type Speck } from './particles';
-import { BACKDROP_LAYER, PostChain, type PostInfo, type SpriteDof } from './post/chain';
-import { PRESETS, type PresetName, pixelRatio } from './presets';
+import {
+  BACKDROP_LAYER,
+  PostChain,
+  type PostInfo,
+  type RayView,
+  type SpriteDof,
+} from './post/chain';
+import {
+  PARTICLE_COUNTS,
+  type ParticleLayerName,
+  PRESETS,
+  type PresetName,
+  pixelRatio,
+} from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
 import { Water } from './water';
@@ -26,6 +38,7 @@ import {
   lightOf,
   MAX_LIGHTS,
   sightAt,
+  sunlight,
   ZONE_UNIFORMS,
   ZoneMap,
   zoneBlend,
@@ -47,6 +60,8 @@ export interface SceneView {
   rings: readonly Ring[];
   /** How far the player sees clearly in dark water, in wu (`sightRadius`, M6 T16). */
   sight: number;
+  /** The water's velocity at the camera in wu/s (the sim's currents): it carries the snow (M6 T17). */
+  current: { readonly x: number; readonly y: number };
 }
 
 /** A creature's glow at a radius of 1 wu, by genome hash; null for one that does not glow. */
@@ -80,15 +95,23 @@ export interface RenderInfo extends PostInfo {
   particles: number;
   /** GPU resources alive in the renderer. */
   memory: { geometries: number; textures: number };
+  /** The caustics' strength at the camera (M6 T17, `sunlight`); `rays` is the god rays' drawn. */
+  caustic: number;
 }
 
 /** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
 const PLANE_DEPTH = 0;
 
-export type ParticleLayerName = 'far' | 'mid' | 'near';
+export type { ParticleLayerName };
 
 /** Marine snow lies up to this far (camera heights) above and below the plane. */
 const MID_SPREAD = 0.2;
+/** The share of marine snow that catches the light on high (M6 T17). */
+const SNOW_SPARKLE = 0.03;
+/** The presets that draw the occasional bright specks. */
+const SPARKLES: Readonly<Record<PresetName, boolean>> = { low: false, medium: false, high: true };
+/** The longest frame step the snow's drift integrates: a stalled tab must not fling it. */
+const MAX_FLOW_STEP = 0.25;
 
 const ORDER = {
   water: 0,
@@ -147,6 +170,18 @@ export class GameScene {
   private cssHeight = 1;
   private half = 1;
   private preset: PresetName = 'medium';
+  /** How far the currents have carried the water (wu, M6 T17), and the time it was last advanced. */
+  private readonly flow = { x: 0, y: 0 };
+  private flowTime: number | null = null;
+  private readonly rays: RayView = {
+    strength: 0,
+    camX: 0,
+    camY: 0,
+    halfWidth: 1,
+    halfHeight: 1,
+    time: 0,
+  };
+  private caustic = 0;
   private readonly onResize = () => this.resize();
 
   /** `dof: false` is the `?dof=0` test switch: every preset draws without its depth of field. */
@@ -165,7 +200,7 @@ export class GameScene {
     this.water = new Water(worldSize);
     // Big bokeh far below and near above the plane, and marine snow on and around it: low draws them
     // as they are, the depth of field (T3) blurs each speck by its depth.
-    this.far = new ParticleLayer(290, 11, {
+    this.far = new ParticleLayer(PARTICLE_COUNTS.far, 11, {
       size: 16,
       period: 640,
       color: 0x7fb8ad,
@@ -173,7 +208,7 @@ export class GameScene {
       bokeh: 1,
       parallax: 0.55,
     });
-    this.mid = new ParticleLayer(2500, 23, {
+    this.mid = new ParticleLayer(PARTICLE_COUNTS.mid, 23, {
       size: 1.1,
       period: 640,
       color: 0xd8efe8,
@@ -181,8 +216,9 @@ export class GameScene {
       bokeh: 0,
       parallax: 1,
       spread: MID_SPREAD,
+      sparkle: SNOW_SPARKLE,
     });
-    this.near = new ParticleLayer(60, 37, {
+    this.near = new ParticleLayer(PARTICLE_COUNTS.near, 37, {
       size: 42,
       period: 640,
       color: 0x9ad7c4,
@@ -244,7 +280,10 @@ export class GameScene {
     this.preset = preset;
     this.post.setPreset(preset);
     const share = PRESETS[preset].particles;
-    for (const layer of [this.far, this.mid, this.near]) layer.setShare(share);
+    for (const layer of [this.far, this.mid, this.near]) {
+      layer.setShare(share);
+      layer.setSparkle(SPARKLES[preset]);
+    }
     this.resize();
   }
 
@@ -308,18 +347,53 @@ export class GameScene {
     this.updateZones(view);
     this.post.setFocus(PLANE_DEPTH);
     const sprites = this.post.spriteDof(this.sprites);
-    const snow = this.seed ? zoneBlend(depthAt(this.seed, view.camX, view.camY), 'snow') : 1;
-    this.far.update(view, this.pxPerWu, sprites, snow);
-    this.mid.update(view, this.pxPerWu, sprites, snow);
-    this.near.update(view, this.pxPerWu, sprites, snow);
+    const depth = this.seed ? depthAt(this.seed, view.camX, view.camY) : null;
+    const snow = depth === null ? 1 : zoneBlend(depth, 'snow');
+    this.updateLight(view, halfWidth, depth);
+    const { flow } = this;
+    this.far.update(view, this.pxPerWu, sprites, snow, flow);
+    this.mid.update(view, this.pxPerWu, sprites, snow, flow);
+    this.near.update(view, this.pxPerWu, sprites, snow, flow);
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(this.drawBody(view) ? null : view.creature, view.time);
-    this.remotes.set(view.remotes, view.time, this.pxPerWu, this.preset, this.sightOf);
+    this.remotes.set(
+      view.remotes,
+      view.time,
+      this.pxPerWu,
+      this.preset,
+      this.sightOf,
+      this.causticOf,
+    );
     this.rings.set(view.rings);
 
     this.post.render(this.scene, camera);
   }
+
+  /**
+   * Sunlight and currents (M6 T17): the god rays take the sunlight at the camera (the composite draws
+   * them, so low has none), and the snow is carried by the water's flow at the camera.
+   */
+  private updateLight(view: SceneView, halfWidth: number, depth: number | null): void {
+    const step = this.flowTime === null ? 0 : view.time - this.flowTime;
+    this.flowTime = view.time;
+    const dt = Math.min(Math.max(step, 0), MAX_FLOW_STEP);
+    this.flow.x += view.current.x * dt;
+    this.flow.y += view.current.y * dt;
+    this.caustic = depth === null ? 0 : sunlight(depth, 'caustic');
+    const rays = this.rays;
+    rays.strength = depth === null ? 0 : sunlight(depth, 'rays');
+    rays.camX = view.camX;
+    rays.camY = view.camY;
+    rays.halfWidth = halfWidth;
+    rays.halfHeight = view.halfHeight;
+    rays.time = view.time;
+    this.post.setRays(rays);
+  }
+
+  /** The caustics' strength over a body at (x, y): the sunlight at its depth (M6 T17). */
+  private readonly causticOf = (x: number, y: number): number =>
+    this.seed ? sunlight(depthAt(this.seed, x, y), 'caustic') : 0;
 
   /** Where the player sees from, and the glows of the player and the remotes in view (M6 T16). */
   private updateZones(view: SceneView): void {
@@ -391,6 +465,7 @@ export class GameScene {
     state.dissolve = creature.dissolve;
     state.pxPerWu = this.pxPerWu;
     state.preset = this.preset;
+    state.caustic = this.causticOf(creature.x, creature.y);
     return this.body.set(state, view.time);
   }
 
@@ -411,6 +486,7 @@ export class GameScene {
       pixelRatio: this.renderer.getPixelRatio(),
       particles: this.far.drawnCount + this.mid.drawnCount + this.near.drawnCount,
       memory: { geometries: memory.geometries, textures: memory.textures },
+      caustic: this.caustic,
       ...this.post.info(),
     };
   }

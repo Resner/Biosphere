@@ -22,6 +22,8 @@ export interface RemoteCellView {
 
 /** Full sight everywhere: the default outside the game's zones. */
 const CLEAR = (): number => 1;
+/** No sunlight: the default outside the game's zones. */
+const DARK = (): number => 0;
 
 /** Below this opacity a remote is not worth a draw call. */
 const MIN_ALPHA = 0.01;
@@ -65,6 +67,7 @@ export class RemoteLayer {
   private bodies = 0;
   private frame = 0;
   private sight: (x: number, y: number) => number = CLEAR;
+  private caustic: (x: number, y: number) => number = DARK;
 
   constructor(
     private readonly scene: THREE.Scene,
@@ -73,8 +76,8 @@ export class RemoteLayer {
 
   /**
    * Draws these remotes (and hides the rest). `pxPerWu` and `preset` pick the level of detail of
-   * bodies; `sight` says how clearly the player sees a body at a point (M6 T16). Allocates only
-   * when the pond grows.
+   * bodies; `sight` says how clearly the player sees a body at a point (M6 T16), and `caustic` how
+   * strong the caustics over it are (M6 T17). Allocates only when the pond grows.
    */
   set(
     remotes: readonly RemoteCellView[],
@@ -82,9 +85,11 @@ export class RemoteLayer {
     pxPerWu: number,
     preset: PresetName = 'high',
     sight: (x: number, y: number) => number = CLEAR,
+    caustic: (x: number, y: number) => number = DARK,
   ): void {
     this.bodyState.preset = preset;
     this.sight = sight;
+    this.caustic = caustic;
     this.frame++;
     let used = 0;
     let bodies = 0;
@@ -166,6 +171,7 @@ export class RemoteLayer {
     state.alpha = remote.alpha;
     state.pxPerWu = pxPerWu;
     state.sight = this.sight(remote.x, remote.y);
+    state.caustic = this.caustic(remote.x, remote.y);
     try {
       slot.view.update(state, time);
       return true;

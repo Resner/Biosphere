@@ -19,6 +19,18 @@ export interface Preset {
   budget: { calls: number; triangles: number };
 }
 
+export type ParticleLayerName = 'far' | 'mid' | 'near';
+
+/**
+ * Each particle layer's full (100%) count: far bokeh below the plane, marine snow around it and
+ * near bokeh above it. A preset draws its `particles` share of each.
+ */
+export const PARTICLE_COUNTS: Readonly<Record<ParticleLayerName, number>> = {
+  far: 290,
+  mid: 2500,
+  near: 60,
+};
+
 export const PRESET_NAMES: readonly PresetName[] = ['low', 'medium', 'high'];
 
 export const PRESETS: Readonly<Record<PresetName, Preset>> = {

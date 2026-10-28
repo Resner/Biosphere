@@ -21,8 +21,10 @@ export interface ZoneLook {
   dark: number;
   /** How strongly a creature's glow lights the water around it. */
   glow: number;
-  /** The caustics' strength (T17 refines them). */
+  /** The caustics' strength at the zone's top (T17); `sunlight` fades it through the twilight. */
   caustic: number;
+  /** The god rays' strength at the zone's top (T17), faded the same way. */
+  rays: number;
   /** The marine snow's brightness. */
   snow: number;
 }
@@ -39,6 +41,7 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     dark: 0,
     glow: 0.2,
     caustic: 1.4,
+    rays: 1,
     snow: 1,
   },
   twilight: {
@@ -47,6 +50,7 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     dark: 0,
     glow: 0.5,
     caustic: 1,
+    rays: 0.8,
     snow: 1,
   },
   deep: {
@@ -54,7 +58,8 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     haze: [0.01, 0.026, 0.056],
     dark: 0.5,
     glow: 1,
-    caustic: 0.1,
+    caustic: 0,
+    rays: 0,
     snow: 0.6,
   },
   abyss: {
@@ -63,6 +68,7 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     dark: 0.75,
     glow: 1.2,
     caustic: 0,
+    rays: 0,
     snow: 0.35,
   },
 };
@@ -105,7 +111,10 @@ export function zoneWeights(depth: number): [number, number, number, number] {
  * One of the zone look's scalars at a depth, blended over the edge bands as the shaders blend
  * them (`zoneWeights`), without allocating: the scene asks it every frame.
  */
-export function zoneBlend(depth: number, key: 'dark' | 'glow' | 'caustic' | 'snow'): number {
+export function zoneBlend(
+  depth: number,
+  key: 'dark' | 'glow' | 'caustic' | 'rays' | 'snow',
+): number {
   const e = RULES.bathymetry.zones;
   const t0 = smoothstep(e.shallows - ZONE_BAND, e.shallows + ZONE_BAND, depth);
   const t1 = smoothstep(e.twilight - ZONE_BAND, e.twilight + ZONE_BAND, depth);
@@ -116,6 +125,22 @@ export function zoneBlend(depth: number, key: 'dark' | 'glow' | 'caustic' | 'sno
     L.twilight[key] * (t0 - t1) +
     L.deep[key] * (t1 - t2) +
     L.abyss[key] * t2
+  );
+}
+
+/** Through the twilight the sunlight fades to this share of its strength at the zone's top (T17). */
+export const TWILIGHT_SUN = 0.25;
+
+/**
+ * Sunlight from above (M6 T17): the caustics' or the god rays' strength at a depth. Each zone's
+ * strength (`ZONE_LOOK`) fades from the shallows' edge to `TWILIGHT_SUN` of itself by the twilight's
+ * floor, so the light dies away through the twilight; the deep and the abyss have none. The
+ * shaders' `zoneSun` is the same fade.
+ */
+export function sunlight(depth: number, key: 'caustic' | 'rays'): number {
+  const e = RULES.bathymetry.zones;
+  return (
+    zoneBlend(depth, key) * (1 - (1 - TWILIGHT_SUN) * smoothstep(e.shallows, e.twilight, depth))
   );
 }
 
@@ -246,6 +271,7 @@ const float ZONE_NEUTRAL = ${f(NEUTRAL_DEPTH)};
 const float SIGHT_FADE = ${f(SIGHT_FADE)};
 const vec4 ZONE_DARK = ${perZone('dark')};
 const vec4 ZONE_CAUSTIC = ${perZone('caustic')};
+const float ZONE_TWILIGHT_SUN = ${f(TWILIGHT_SUN)};
 ${ZONES.map((z, i) => `const vec3 ZONE_WATER_${i} = ${vec3(ZONE_LOOK[z].water)};\nconst vec3 ZONE_HAZE_${i} = ${vec3(ZONE_LOOK[z].haze)};`).join('\n')}
 
 // Depth under a world point, from the pond's depth map; mid-twilight with no pond loaded.
@@ -257,6 +283,11 @@ float zoneDepth(vec2 w) {
 vec4 zoneWeights(float d) {
   vec3 t = smoothstep(ZONE_EDGES - ZONE_BAND, ZONE_EDGES + ZONE_BAND, vec3(d));
   return vec4(1.0 - t.x, t.x - t.y, t.y - t.z, t.z);
+}
+
+// Sunlight's fade through the twilight (T17, \`sunlight\` in zones.ts): 1 in the shallows.
+float zoneSun(float d) {
+  return 1.0 - (1.0 - ZONE_TWILIGHT_SUN) * smoothstep(ZONE_EDGES.x, ZONE_EDGES.y, d);
 }
 
 vec3 zoneMix(vec4 w, vec3 a, vec3 b, vec3 c, vec3 d) {

@@ -4,6 +4,8 @@
 // and, with the depth of field (M6 T3), the radius of its circle of confusion: the sprite grows by
 // it and spreads its light over the larger disc (`bokehShape` in `post/dof.ts` mirrors this).
 uniform vec2 uCam;
+/** How far the currents have carried the water, wrapped to the tile (M6 T17). */
+uniform vec2 uFlow;
 uniform float uPeriod;
 uniform float uDepth;
 uniform float uSpread;
@@ -18,8 +20,14 @@ uniform float uFocus;
 uniform float uCocSlope;
 uniform float uCocMax;
 uniform float uFringe;
+/** The share of specks drawn bright (M6 T17, high only), and how much larger and brighter. */
+uniform float uSparkle;
+uniform float uSparkleSize;
+uniform float uSparkleLight;
 attribute float aSeed;
 varying float vSeed;
+/** The speck's brightness: 1, or `uSparkleLight` for a bright one. */
+varying float vLight;
 /**
  * The profile of each channel: `vPeak` inside `vInner`, falling to 0 at `vOuter` (pixels). With the
  * fringe, red reaches further out and blue stops short, each keeping the light it carries.
@@ -39,13 +47,21 @@ float profileEnergy(float a, float w) {
 void main() {
   float z = uDepth + uSpread * (2.0 * position.z - 1.0);
   float parallax = 1.0 / (1.0 - z);
-  vec2 drift = vec2(0.8 + 1.2 * aSeed, 0.3 * sin(uTime * 0.3 + aSeed * 6.2831)) * uTime;
+  // Its own slow drift, and the currents that carry all the water (M6 T17).
+  vec2 drift = vec2(0.8 + 1.2 * aSeed, 0.3 * sin(uTime * 0.3 + aSeed * 6.2831)) * uTime + uFlow;
   vec2 rel = mod(position.xy * uPeriod + drift - uCam * parallax, uPeriod) - 0.5 * uPeriod;
   vSeed = aSeed;
 
   float coc = min(uCocMax, uCocSlope * abs(z - uFocus));
   float fringe = uFringe * coc;
-  float size = max(min(uSize * (0.6 + aSeed) * uPxPerWu, uMaxSize - 2.0 * (coc + fringe)), 0.5);
+  // A few specks catch the light (`sparkles` in particles.ts mirrors the choice).
+  bool bright = fract(aSeed * 113.0) < uSparkle;
+  vLight = bright ? uSparkleLight : 1.0;
+  float grown = bright ? uSparkleSize : 1.0;
+  float size = max(
+    min(uSize * grown * (0.6 + aSeed) * uPxPerWu, uMaxSize - 2.0 * (coc + fringe)),
+    0.5
+  );
   float radius = size * (0.25 + 0.21 * uBokeh);
   float edge = size * (0.25 - 0.21 * uBokeh);
   float inner = max(abs(radius - coc) - edge, 0.0);

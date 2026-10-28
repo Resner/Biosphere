@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import type { MaterialParams } from './material-params';
 import { depthOfParallax } from './post/dof';
+import caustics from './shaders/caustics.glsl?raw';
 import cellFragment from './shaders/cell.frag.glsl?raw';
 import cellVertex from './shaders/cell.vert.glsl?raw';
 import creatureFragment from './shaders/creature.frag.glsl?raw';
@@ -49,7 +50,7 @@ const ZONE_GLSL = zoneGlsl();
 export const waterMaterial = (): THREE.ShaderMaterial =>
   layer(
     ZONE_GLSL + waterVertex,
-    noise + ZONE_GLSL + waterFragment,
+    noise + caustics + ZONE_GLSL + waterFragment,
     {
       ...ZONE_UNIFORMS,
       uCam: { value: new THREE.Vector2() },
@@ -107,11 +108,11 @@ export function shareBackdrop(material: THREE.ShaderMaterial): void {
 /**
  * The creature mesh's material (M3 T11, T12, M6 T13): the genes' look is set once from `params` and
  * the glints' brightness (`glintsFor`), then only `uTime`, `uPhase`, `uBeat`, `uTurn`, `uHurt`,
- * `uDissolve` and `uAlpha` change. A view clones it, since the gait uniforms are per creature, and
+ * `uDissolve`, `uAlpha`, `uSight` and `uCaustic` change. A view clones it, since the gait uniforms are per creature, and
  * links the clone to the shared backdrop.
  */
 export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.ShaderMaterial => {
-  const material = layer(creatureVertex, noise + creatureFragment, {
+  const material = layer(creatureVertex, noise + caustics + creatureFragment, {
     uAmp: { value: 0 },
     uPhase: { value: 0 },
     uBeat: { value: 0 },
@@ -140,6 +141,7 @@ export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.Shade
     uDissolve: { value: 0 },
     uAlpha: { value: 1 },
     uSight: { value: 1 },
+    uCaustic: { value: 0 },
   });
   material.defines = { ...SURFACE_DEFINES };
   return material;
@@ -174,6 +176,9 @@ export const glowMaterial = (): THREE.ShaderMaterial =>
 export const ringMaterial = (): THREE.ShaderMaterial =>
   layer(plumeVertex, ringsFragment, {}, { blending: THREE.AdditiveBlending });
 
+/** An occasional bright speck (M6 T17) is this much larger and brighter than its plain self. */
+export const SPARKLE = { size: 1.6, light: 5 } as const;
+
 export interface ParticleStyle {
   /** Sprite diameter in world units. */
   size: number;
@@ -187,6 +192,8 @@ export interface ParticleStyle {
   parallax: number;
   /** Specks lie up to this far (camera heights) either side of the layer's depth; default 0. */
   spread?: number;
+  /** The share of specks that turn bright on high (M6 T17, `ParticleLayer.setSparkle`); default 0. */
+  sparkle?: number;
 }
 
 export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
@@ -195,6 +202,7 @@ export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
     particlesFragment,
     {
       uCam: { value: new THREE.Vector2() },
+      uFlow: { value: new THREE.Vector2() },
       uPeriod: { value: style.period },
       uDepth: { value: depthOfParallax(style.parallax) },
       uSpread: { value: style.spread ?? 0 },
@@ -209,6 +217,9 @@ export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
       uCocSlope: { value: 0 },
       uCocMax: { value: 0 },
       uFringe: { value: 0 },
+      uSparkle: { value: 0 },
+      uSparkleSize: { value: SPARKLE.size },
+      uSparkleLight: { value: SPARKLE.light },
     },
     { blending: THREE.AdditiveBlending },
   );
