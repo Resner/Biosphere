@@ -144,6 +144,59 @@ export const ARCHETYPES: Record<string, Genome> = {
     },
     { mouthSize: 255, mouthType: 255, digestion: 255, growth: 255 },
   ),
+  // Development v2 (M6 T7): a round bell ringed with trailing tentacles; it turns on the spot.
+  radial: buildGenome(
+    { M1: { length: 110, thickness: 30, tipShape: 200, beat: 160, pairs: 255, joints: 200 } },
+    { ...MOUTH_MID, symmetry: 255, drape: 255, flexibility: 128 },
+  ),
+  // A coiled worm rowing with broad paddles along its curl: punchy, but the curl costs streamlining.
+  coiled: buildGenome(
+    {
+      M1: {
+        length: 200,
+        thickness: 220,
+        tipShape: 180,
+        beat: 200,
+        angle: 128,
+        pairs: 255,
+        attachStart: 255,
+        attachSpan: 255,
+        joints: 130,
+      },
+    },
+    {
+      ...MOUTH_MID,
+      segDrive1: 100,
+      segDrive2: 100,
+      curve: 255,
+      tailTaper: 200,
+      flexibility: 255,
+    },
+  ),
+  // A crab-like body under one carapace, paddling, with two pairs of stiff hooked legs forward.
+  carapaced: buildGenome(
+    {
+      M1: {
+        length: 200,
+        thickness: 160,
+        tipShape: 191,
+        beat: 255,
+        angle: 160,
+        pairs: 255,
+        attachSpan: 255,
+      },
+      M5: {
+        length: 220,
+        thickness: 20,
+        tipShape: 96,
+        stiffness: 255,
+        beat: 0,
+        angle: 30,
+        pairs: 128,
+      },
+    },
+    { ...MOUTH_MID, segDrive1: 80, segDrive2: 80, fusion: 255, aspect: 200 },
+  ),
 };
 
 export const METRICS = [

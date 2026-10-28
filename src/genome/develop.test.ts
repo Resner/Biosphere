@@ -307,7 +307,7 @@ describe('bodyViolations: each rule', () => {
 
   it('flags too many segments', () => {
     const p = base();
-    for (let i = 0; i < 9; i++) p.segments.push({ x: -0.1 * i, rx: 0.1, ry: 0.1 });
+    for (let i = 0; i < 9; i++) p.segments.push({ x: -0.1 * i, y: 0, rx: 0.1, ry: 0.1, angle: 0 });
     expect(bodyViolations(p).join()).toMatch(/segments/);
   });
 

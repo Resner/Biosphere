@@ -1,4 +1,4 @@
-// The archetype tournament (M3 T17): the six bodies of `archetypes.ts` run four sim scenarios with
+// The archetype tournament (M3 T17): the six M3 bodies of `archetypes.ts` run four sim scenarios with
 // simple deterministic bots, through the real `step`, so movement, feeding, metabolism and toxin
 // all come from the rules. Higher scores are better in every scenario.
 
@@ -16,6 +16,15 @@ import { createWorld, spawnCreature } from '../src/sim/world';
 import { ARCHETYPES } from './archetypes';
 
 export const SCENARIOS = ['forage', 'gauntlet', 'sprint', 'cruise'] as const;
+/** The M3 bodies; the development v2 archetypes (M6 T7) are measured by the stats tests only, until the pacing tool reruns (M6 T15, T18). */
+export const TOURNAMENT_ARCHETYPES = [
+  'flagellate',
+  'ciliate',
+  'swimmer',
+  'armoured',
+  'filter',
+  'hunter',
+] as const;
 export type Scenario = (typeof SCENARIOS)[number];
 const SEEDS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'] as const;
 
@@ -195,7 +204,7 @@ export interface Tournament {
 
 /** Runs every archetype through `scenarios` on all seeds. Pure: the same call gives the same result. */
 export function runTournament(scenarios: readonly Scenario[] = SCENARIOS): Tournament {
-  const archetypes = Object.keys(ARCHETYPES);
+  const archetypes: string[] = [...TOURNAMENT_ARCHETYPES];
   const means = {} as Tournament['means'];
   for (const a of archetypes) {
     means[a] = {} as Record<Scenario, number>;

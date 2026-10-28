@@ -177,14 +177,15 @@ const SAMPLES = [
 
 test('every sample body is one connected shape at four gait phases', async ({ page }) => {
   await openLab(page);
-  expect(SAMPLES).toHaveLength(12);
+  // The six M3 archetypes, the three of development v2 (M6 T7) and six extremes.
+  expect(SAMPLES).toHaveLength(15);
   const ok = await page.evaluate(
     (texts) => window.__lab?.debug?.showGenomes(texts),
     SAMPLES.map(genomeToBase64url),
   );
   expect(ok).toBe(true);
   for (let phase = 0; phase < 4; phase++) {
-    const stats = await measureCells(page, range(12));
+    const stats = await measureCells(page, range(SAMPLES.length));
     for (const [i, s] of stats.entries()) {
       expect(s.lit, `sample ${i} phase ${phase} is drawn`).toBeGreaterThan(50);
       expect(s.connected, `sample ${i} phase ${phase} is one body`).toBeGreaterThanOrEqual(0.98);
