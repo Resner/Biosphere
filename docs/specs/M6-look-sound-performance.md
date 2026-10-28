@@ -284,7 +284,7 @@ A look pass never starts before the tasks it judges are ticked.
     - **Budgets**: for every gallery specimen and 1,500 random v2 plans per level of detail, the vertex count is at most 12,000 on high, 6,000 on medium and 1,500 on low. The builder lowers detail to fit (rings, setae drawn, membrane subdivision) and never drops a part: the appendage count in `aPart` ids equals the plan's on every preset.
     - One merged geometry per creature per LOD, cached by genome hash and preset, and disposed at zero references. Attributes are finite and indices valid. `aAttach` and weights keep every vertex of a part attached to its root, which T11's property test checks.
     - **Screenshots** (`m6-creature-mesh.spec.ts`, gallery specimens at 1600×1000), on decoded images:
-      - the crab's legs and the spiny larva's spines reach beyond the body hull (the T9 copepod has no antennae: its parts all sit on its rear segments): bright pixels at more than 1.6 core radii from the centre in at least 6 directions;
+      - the crab's legs and the spiny larva's spines reach beyond the body hull (the T9 copepod has no antennae: its parts all sit on its rear segments): bright pixels at more than 1.6 core radii from the centre in at least 6 directions (since T14b, past the body's outline grown by 30%: a v2 head can be smaller than the core);
       - setae show as at least 20 separate thin bright strokes on the setose specimen;
       - the winged specimen's membranes are drawn over their whole plan polygons (at least 90% of the pixels inside them lit), and the polygons cover at least the quarter of the body that makes it winged (T8). (Their area is development's: the T9 winged specimen's sheets are about 40% of its body, so "at least as large as its body" was a plan target the mesh cannot meet.)
     - The player's body at default zoom (960×540) stays within the medium budget, and its rim reads at least 40 luminance levels above the water.
@@ -353,7 +353,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-1.{png,md}`; clear shells (flatter loft `BODY_DEPTH` 0.65, darker face, steeper and brighter rim), a lip for the mouth, organs clustered on the midline, legs lit through.
   - Gotcha: the top three gaps (tiny trunk segments behind a unit core, short parts, radial bodies) are development, not look tuning; pass 2 needs a body-proportion task first.
 
-- [ ] T14b Body proportions (pass 1 gaps 1 to 3) [opus] (in progress)
+- [x] T14b Body proportions (pass 1 gaps 1 to 3) [opus] (in progress)
   - Added by T14: look pass 1 found that the three biggest gaps against references 02–05 are development, not look (`docs/art/gallery/pass-1.md`, "Largest gaps"). Development v2 is still unreleased (rules version 6), so the change fits here.
   - Acceptance:
     - Trunk and tail segments carry the body: the median trunk segment radius over the 12 gallery specimens is at least 0.5 of the core radius (pass 1: 0.1–0.2), by shrinking the head or widening the reach, not by raising the body bound (`RULES.body.maxReach` stays).
@@ -361,6 +361,8 @@ A look pass never starts before the tasks it judges are ticked.
     - Over 10,000 random and mutated genomes there are still zero invalid bodies, v1 equivalence holds where it held before, and top speed of the genesis cell stage stays within ±15% (T9). The pacing tool is re-run and its medians are noted.
     - `npm run gallery -- --pass 1` re-renders `pass-1.png`; the pass-1 gap table is updated for gaps 1 to 3 and the PR body names the cells that moved.
   - Notes: update DESIGN §6 for any changed value. Colliders and stats move with the plan, so rerun the archetype tests.
+  - Done: v2 genomes (`traits.karyotype`, ADR 0028) draw a 0.65 head before a 0.8-wide chain fitted to reach 2.1 (trunk median 0.53); parts fit by their drawn arc (`partCurve`, now development's), sweeping toward the core before the v1 cut; rings drape half; pacing unchanged (eligibility 17.3 min, 8 matings).
+  - Gotcha: the core collider stays radius 1 and drag takes its width, so a v2 head can be smaller than its core (M7 hit shapes); the fit ignores webbing, the coiled archetype's beat rose to keep its niche, and T10's reach check now measures past the body's outline.
 
 ### The world in depth
 

@@ -45,9 +45,9 @@ const stable = (v: unknown): string =>
           .join(',')}}`
       : JSON.stringify(v);
 
-/** The traits as karyotype v1 expressed them: no shape group and no slot extensions. */
+/** The traits as karyotype v1 expressed them: no shape group, no slot extensions, no karyotype. */
 function v1Fields(t: Traits): unknown {
-  const { shape: _shape, ...rest } = t;
+  const { shape: _shape, karyotype: _karyotype, ...rest } = t;
   return { ...rest, modules: t.modules.map(({ ext: _ext, ...m }) => m) };
 }
 
@@ -196,7 +196,13 @@ describe('v1 genomes under karyotype v2', () => {
       for (const [k, v] of Object.entries(t.shape)) if (v !== 0) expect({ i, k, v }).toBeNull();
       for (const m of t.modules)
         for (const [k, v] of Object.entries(m.ext)) if (v !== 0) expect({ i, k, v }).toBeNull();
-      if (i % 50 === 0) expect(express(upgrade(g))).toEqual(t);
+      if (i % 50 === 0) {
+        // Padding keeps every trait; only the karyotype, which picks the chain layout, moves to 2.
+        const up = express(upgrade(g));
+        expect(t.karyotype).toBe(1);
+        expect(up.karyotype).toBe(2);
+        expect({ ...up, karyotype: 1 }).toEqual(t);
+      }
     }
     // The digest of the same 10,000 genomes' traits under karyotype v1 (rules v5), before v2 existed.
     expect(digest.digest('hex')).toBe(
