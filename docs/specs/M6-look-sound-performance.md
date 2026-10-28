@@ -343,13 +343,24 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `render/surface.ts` (`glintsFor`, `detailFade` 2–5 px), glint quads (`PART_GLINT`, `glintSpots`) drawn last; shells silvery blue; the chain's `refraction` pass draws `BACKDROP_LAYER` into a half-res copy that `BACKDROP` shares with every creature material.
   - Gotcha: a glint maximum is ≥250 luminance, 30 above its 3 px ring's max and 100 above its median (glints sit on bright legs); silver saturation is 4%, because more broke T12's rim hue-variance ratio.
 
-- [ ] T14 Look pass 1 [opus]
+- [x] T14 Look pass 1 [opus]
   - Acceptance (ADR 0024):
     - `npm run gallery -- --pass 1` is committed with `pass-1.md`. The gap table is filled honestly against references 02–05 and its "Largest gaps" list is ordered by visual impact.
     - Fix the top gaps in this task, as far as one session allows: shader, mesh, anatomy or palette tuning, but no new mechanics. Re-render, and commit the sheet and table after the fixes.
     - The PR body states which cells improved and which gaps remain for passes 2 and 3.
     - Also check the in-game look: a 960×540 screenshot at default zoom with six different bodies (`debug.setRemotes` with gallery genomes). Note in `pass-1.md` whether the bodies stay readable at that size; detail must never fight the silhouette (`docs/art/README.md`).
   - Notes: never call a pass done because the tests are green.
+  - Done: `pass-1.{png,md}`; clear shells (flatter loft `BODY_DEPTH` 0.65, darker face, steeper and brighter rim), a lip for the mouth, organs clustered on the midline, legs lit through.
+  - Gotcha: the top three gaps (tiny trunk segments behind a unit core, short parts, radial bodies) are development, not look tuning; pass 2 needs a body-proportion task first.
+
+- [ ] T14b Body proportions (pass 1 gaps 1 to 3) [opus]
+  - Added by T14: look pass 1 found that the three biggest gaps against references 02–05 are development, not look (`docs/art/gallery/pass-1.md`, "Largest gaps"). Development v2 is still unreleased (rules version 6), so the change fits here.
+  - Acceptance:
+    - Trunk and tail segments carry the body: the median trunk segment radius over the 12 gallery specimens is at least 0.5 of the core radius (pass 1: 0.1–0.2), by shrinking the head or widening the reach, not by raising the body bound (`RULES.body.maxReach` stays).
+    - Parts (antennae, tentacles, wings) reach at least their gene length without leaving the bounds; radial bodies place their parts as an even ring.
+    - Over 10,000 random and mutated genomes there are still zero invalid bodies, v1 equivalence holds where it held before, and top speed of the genesis cell stage stays within ±15% (T9). The pacing tool is re-run and its medians are noted.
+    - `npm run gallery -- --pass 1` re-renders `pass-1.png`; the pass-1 gap table is updated for gaps 1 to 3 and the PR body names the cells that moved.
+  - Notes: update DESIGN §6 for any changed value. Colliders and stats move with the plan, so rerun the archetype tests.
 
 ### The world in depth
 

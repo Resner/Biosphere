@@ -206,6 +206,8 @@ test('each preset runs its passes within its budget, and low renders with no tar
 test('the counters add up every pass, and targets are freed on a preset round trip', async ({
   page,
 }) => {
+  // Three preset switches in software rendering: about 15 s here, over 30 s on a busy runner.
+  test.setTimeout(60_000);
   await play(page, 'medium');
   await freeze(page, 0);
   await waitForFrames(page);

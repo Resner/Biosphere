@@ -32,20 +32,27 @@ test('clicking another creature opens a card that sits beside it', async ({ brow
     idB,
     { timeout: 20_000 },
   );
-  const at = await a.evaluate((who) => {
-    const bs = window.__bs as BsHook;
-    const s = bs.state();
-    const r = s.remotes.find((x) => x.id === who);
-    const { halfHeight, camX, camY } = bs.render.fx();
-    const px = innerHeight / (2 * halfHeight);
-    return r
-      ? { x: innerWidth / 2 + (r.x - camX) * px, y: innerHeight / 2 - (r.y - camY) * px }
-      : null;
-  }, idB);
-  expect(at).not.toBeNull();
-  await a.mouse.click(at?.x ?? 0, at?.y ?? 0);
-
+  // Aim at B's current position on every try: on a busy runner B can still be fading in or settling
+  // between reading its position and the click.
   const card = a.getByTestId('inspect');
+  const aim = { x: 0, y: 0 };
+  await expect(async () => {
+    const at = await a.evaluate((who) => {
+      const bs = window.__bs as BsHook;
+      const s = bs.state();
+      const r = s.remotes.find((x) => x.id === who);
+      const { halfHeight, camX, camY } = bs.render.fx();
+      const px = innerHeight / (2 * halfHeight);
+      return r
+        ? { x: innerWidth / 2 + (r.x - camX) * px, y: innerHeight / 2 - (r.y - camY) * px }
+        : null;
+    }, idB);
+    expect(at).not.toBeNull();
+    aim.x = at?.x ?? 0;
+    aim.y = at?.y ?? 0;
+    await a.mouse.click(aim.x, aim.y);
+    await expect(card).toBeVisible({ timeout: 1000 });
+  }).toPass({ timeout: 15_000 });
   await expect(card).toBeVisible();
   await expect(a.getByTestId('inspect-species')).not.toBeEmpty();
   await expect(a.getByTestId('inspect-badge')).toHaveText(/^(Common|Uncommon|Rare|Exotic)$/);
@@ -65,7 +72,7 @@ test('clicking another creature opens a card that sits beside it', async ({ brow
   expect(box).not.toBeNull();
   const b0 = box as NonNullable<typeof box>;
   expect(
-    at && at.x >= b0.x && at.x <= b0.x + b0.width && at.y >= b0.y && at.y <= b0.y + b0.height,
+    aim.x >= b0.x && aim.x <= b0.x + b0.width && aim.y >= b0.y && aim.y <= b0.y + b0.height,
   ).toBe(false);
   expect(b0.x).toBeGreaterThanOrEqual(0);
   expect(b0.y + b0.height).toBeLessThanOrEqual(540);

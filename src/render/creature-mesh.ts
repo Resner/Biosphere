@@ -129,7 +129,7 @@ export const GLINT_GAP = 0.18;
 const ORGAN_DEPTH = 0.5;
 
 /** The body is this much thinner than wide, so the creature reads as a flat swimmer from above. */
-export const BODY_DEPTH = 0.85;
+export const BODY_DEPTH = 0.65;
 const TUBE_DEPTH = 0.8;
 /** Total turn of a tube with curvature ±1, in radians. */
 const CURVE = 1.2;
