@@ -1056,7 +1056,7 @@ function fitReach(m: Mesh): void {
     const dx = (m.position[i * 3] as number) - (m.frame[i * 4 + 2] as number);
     const dy = (m.position[i * 3 + 1] as number) - (m.frame[i * 4 + 3] as number);
     const dz = m.position[i * 3 + 2] as number;
-    reach.set(id, max(reach.get(id) ?? 0, sqrt(dx * dx + dy * dy + dz * dz)));
+    reach.set(id, max(reach.get(id) ?? 0, hypot(dx, dy, dz)));
   }
   const scale = (id: number): number => min(1, PART_REACH / max(reach.get(id) ?? 0, 1e-9));
   let wing = Number.POSITIVE_INFINITY;

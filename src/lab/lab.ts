@@ -162,13 +162,9 @@ export function startLab(options: LabOptions): void {
   if (options.debug) {
     hook.debug = {
       showGenomes,
-      pause: () => {
-        paused = true;
-        post.still = true;
-      },
+      pause,
       advance: (seconds) => {
-        paused = true;
-        post.still = true;
+        pause();
         for (let left = seconds; left > 1e-9; left -= ADVANCE_STEP) {
           clock += Math.min(ADVANCE_STEP, left);
           updateViews();
@@ -176,6 +172,11 @@ export function startLab(options: LabOptions): void {
         post.render(scene, camera);
       },
     };
+  }
+
+  function pause(): void {
+    paused = true;
+    post.still = true;
   }
 
   function summary(s: Specimen, index: number): LabCreature {

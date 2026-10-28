@@ -253,7 +253,8 @@ export function gaitPosition(out: { x: number; y: number }, v: GaitVertex, g: Ga
   const dx = (v.x + v.normalX * f - v.rootX) * k;
   const dy = (v.y + v.normalY * f - v.rootY) * k;
   const a = partAngle(v, g);
-  const [c, s] = [Math.cos(a), Math.sin(a)];
+  const c = Math.cos(a);
+  const s = Math.sin(a);
   attachPoint(root, v, g);
   out.x = root.x + c * dx - s * dy;
   out.y = root.y + s * dx + c * dy;
