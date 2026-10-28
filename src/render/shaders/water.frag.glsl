@@ -8,7 +8,7 @@ uniform float uWorld;
 varying vec2 vNdc;
 varying vec3 vLow;
 varying vec3 vHaze;
-varying vec3 vZone;
+varying vec2 vZone;
 
 // Folded sine caustics: bright filaments where the folded waves converge. The filament width is a
 // constant: scaling it with `p` (as the shader this comes from does) makes it depend on the origin.
@@ -35,7 +35,7 @@ void main() {
   // The sine terms repeat every 2 pi, so the coordinate is wrapped to one tile and the look does
   // not depend on where in the world the camera is.
   float c = caustic(mod(w / 55.0, 6.2831853), uTime * 0.35);
-  col += vec3(0.09, 0.27, 0.24) * clamp(c, 0.0, 1.0) * (0.35 + body) * vZone.z;
+  col += vec3(0.09, 0.27, 0.24) * clamp(c, 0.0, 1.0) * (0.35 + body) * vZone.y;
 
   // Beyond the player's sight the dark zones' water fades into fog. (Glow pools are drawn over it
   // by glows.ts: a loop over the lights per pixel is too slow for software GL.)

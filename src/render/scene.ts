@@ -355,7 +355,6 @@ export class GameScene {
     const reach = glow.radius * radius;
     const strength = glow.strength * alpha;
     (ZONE_UNIFORMS.uLights.value[i] as THREE.Vector4).set(x, y, reach, strength);
-    (ZONE_UNIFORMS.uLightColors.value[i] as THREE.Vector3).set(r, g, b);
     // The pool on the water, as bright as the zone under the creature lets glow show.
     const k = this.seed ? strength * zoneBlend(depthAt(this.seed, x, y), 'glow') * LIGHT_WATER : 0;
     if (k > 0) this.pools.add(x, y, reach, r * k, g * k, b * k);
@@ -371,7 +370,7 @@ export class GameScene {
     let lit = 0;
     for (let i = 0; i < this.lights; i++) {
       const l = ZONE_UNIFORMS.uLights.value[i] as THREE.Vector4;
-      lit = Math.max(lit, glowAt(Math.hypot(x - l.x, y - l.y), l.z, l.w));
+      lit = Math.max(lit, glowAt(Math.sqrt((x - l.x) ** 2 + (y - l.y) ** 2), l.z, l.w));
     }
     const distance = Math.hypot(x - viewer.x, y - viewer.y);
     return sightAt(depthAt(this.seed, x, y), distance, viewer.z, lit);

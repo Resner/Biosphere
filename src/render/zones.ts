@@ -4,7 +4,8 @@
 // the sim's `depthAt` and never writes back.
 
 import * as THREE from 'three';
-import { depthAt, type Zone, zoneAt } from '../sim/bathymetry';
+import { depthAt, type Zone, zoneAt, zoneOfDepth } from '../sim/bathymetry';
+import { clamp } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 
@@ -87,7 +88,7 @@ const NEUTRAL_DEPTH = 0.4;
 export const ZONE_TEXTURE_SIZE = 256;
 
 const smoothstep = (a: number, b: number, x: number): number => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  const t = clamp((x - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 };
 
@@ -127,7 +128,7 @@ export function sightAt(depth: number, distance: number, ring: number, lit: numb
   const dark = zoneBlend(depth, 'dark');
   if (dark <= 0) return 1;
   const beyond = smoothstep(ring, ring * SIGHT_FADE, distance);
-  return 1 - dark * beyond * (1 - Math.min(1, Math.max(0, lit)));
+  return 1 - dark * beyond * (1 - clamp(lit, 0, 1));
 }
 
 /** The share of a glow of `reach` wu and `strength` that lights a point `distance` away (`zoneLight`). */
@@ -179,13 +180,8 @@ const SEARCH_INSET = 256;
 
 /** Whether a point lies well inside a zone: clear of its depth edges, and so is its surround. */
 export function wellInside(seed: Seed, x: number, y: number, zone: Zone): boolean {
-  const e = RULES.bathymetry.zones;
-  const edges = [0, e.shallows, e.twilight, e.deep, 1];
-  const i = ZONES.indexOf(zone);
-  const lo = edges[i] as number;
-  const hi = edges[i + 1] as number;
   const depth = depthAt(seed, x, y);
-  if (depth < (lo > 0 ? lo + INSIDE_MARGIN : 0) || depth > (hi < 1 ? hi - INSIDE_MARGIN : 1)) {
+  if (zoneOfDepth(depth - INSIDE_MARGIN) !== zone || zoneOfDepth(depth + INSIDE_MARGIN) !== zone) {
     return false;
   }
   const r = INSIDE_REACH;
@@ -227,7 +223,7 @@ export function nearestInZone(
 
 const f = (v: number): string => v.toFixed(4);
 const vec3 = ([r, g, b]: Rgb): string => `vec3(${f(r)}, ${f(g)}, ${f(b)})`;
-const perZone = (key: 'dark' | 'glow' | 'caustic'): string =>
+const perZone = (key: 'dark' | 'caustic'): string =>
   `vec4(${ZONES.map((z) => f(ZONE_LOOK[z][key])).join(', ')})`;
 
 /**
@@ -243,14 +239,12 @@ uniform float uZoneOn;
 uniform float uZoneWorld;
 uniform vec3 uViewer;
 uniform vec4 uLights[ZONE_LIGHTS];
-uniform vec3 uLightColors[ZONE_LIGHTS];
 uniform float uLightCount;
 const vec3 ZONE_EDGES = vec3(${f(e.shallows)}, ${f(e.twilight)}, ${f(e.deep)});
 const float ZONE_BAND = ${f(ZONE_BAND)};
 const float ZONE_NEUTRAL = ${f(NEUTRAL_DEPTH)};
 const float SIGHT_FADE = ${f(SIGHT_FADE)};
 const vec4 ZONE_DARK = ${perZone('dark')};
-const vec4 ZONE_GLOW = ${perZone('glow')};
 const vec4 ZONE_CAUSTIC = ${perZone('caustic')};
 ${ZONES.map((z, i) => `const vec3 ZONE_WATER_${i} = ${vec3(ZONE_LOOK[z].water)};\nconst vec3 ZONE_HAZE_${i} = ${vec3(ZONE_LOOK[z].haze)};`).join('\n')}
 
@@ -269,18 +263,17 @@ vec3 zoneMix(vec4 w, vec3 a, vec3 b, vec3 c, vec3 d) {
   return a * w.x + b * w.y + c * w.z + d * w.w;
 }
 
-// The creatures' glow reaching a world point: its colour summed, and the strongest share in a.
-vec4 zoneLight(vec2 w) {
-  vec4 sum = vec4(0.0);
+// The strongest share of any creature's glow reaching a world point.
+float zoneLight(vec2 w) {
+  float lit = 0.0;
   for (int i = 0; i < ZONE_LIGHTS; i++) {
     if (float(i) >= uLightCount) break;
     vec4 l = uLights[i];
     float k = 1.0 - smoothstep(0.0, l.z, length(w - l.xy));
     k = k * k * l.w;
-    sum.rgb += uLightColors[i] * k;
-    sum.a = max(sum.a, k);
+    lit = max(lit, k);
   }
-  return sum;
+  return lit;
 }
 
 // 1 within the viewer's sight ring or where glow lights the water, falling to 1 - the zone's fog
@@ -289,7 +282,7 @@ float zoneSight(vec2 w, float dark) {
   if (uZoneOn < 0.5 || dark <= 0.0) return 1.0;
   float beyond = smoothstep(uViewer.z, uViewer.z * SIGHT_FADE, length(w - uViewer.xy));
   if (beyond <= 0.0) return 1.0;
-  return 1.0 - dark * beyond * (1.0 - clamp(zoneLight(w).a, 0.0, 1.0));
+  return 1.0 - dark * beyond * (1.0 - clamp(zoneLight(w), 0.0, 1.0));
 }
 `;
 }
@@ -305,7 +298,6 @@ export const ZONE_UNIFORMS: {
   readonly uZoneWorld: THREE.IUniform<number>;
   readonly uViewer: THREE.IUniform<THREE.Vector3>;
   readonly uLights: THREE.IUniform<THREE.Vector4[]>;
-  readonly uLightColors: THREE.IUniform<THREE.Vector3[]>;
   readonly uLightCount: THREE.IUniform<number>;
 } = {
   tZoneDepth: { value: null },
@@ -313,7 +305,6 @@ export const ZONE_UNIFORMS: {
   uZoneWorld: { value: RULES.world.size },
   uViewer: { value: new THREE.Vector3(0, 0, 1) },
   uLights: { value: Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector4()) },
-  uLightColors: { value: Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector3()) },
   uLightCount: { value: 0 },
 };
 

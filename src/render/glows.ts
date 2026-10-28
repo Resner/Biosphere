@@ -13,7 +13,6 @@ export class GlowLayer {
   private readonly geometry = new THREE.PlaneGeometry(2, 2);
   private readonly material = glowMaterial();
   private readonly colors = new Float32Array(MAX_LIGHTS * 3);
-  private count = 0;
 
   constructor() {
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, MAX_LIGHTS);
@@ -25,13 +24,13 @@ export class GlowLayer {
 
   /** Starts a frame's pools. */
   clear(): void {
-    this.count = 0;
+    this.mesh.count = 0;
   }
 
   /** Adds a pool of `radius` wu whose centre takes `r, g, b` (already scaled); beyond capacity it is dropped. */
   add(x: number, y: number, radius: number, r: number, g: number, b: number): void {
-    if (this.count >= MAX_LIGHTS) return;
-    const i = this.count++;
+    if (this.mesh.count >= MAX_LIGHTS) return;
+    const i = this.mesh.count++;
     writeInstance(this.mesh.instanceMatrix.array, i, x, y, radius, 0, 0);
     this.colors[i * 3] = r;
     this.colors[i * 3 + 1] = g;
@@ -40,8 +39,7 @@ export class GlowLayer {
 
   /** Ends the frame: uploads the pools (with none, three issues no draw call). */
   flush(): void {
-    this.mesh.count = this.count;
-    if (this.count === 0) return;
+    if (this.mesh.count === 0) return;
     this.mesh.instanceMatrix.needsUpdate = true;
     (this.mesh.instanceColor as THREE.InstancedBufferAttribute).needsUpdate = true;
   }
