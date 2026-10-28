@@ -4,6 +4,7 @@ import { BodyLayer } from './body-layer';
 import { topDownCamera } from './camera';
 import { Cell, type CellView } from './cell';
 import type { CreatureSource } from './creature-cache';
+import type { Lod } from './creature-mesh';
 import type { CreatureViewState } from './creature-view';
 import type { Ring } from './effects';
 import { FoodLayer } from './food';
@@ -48,6 +49,9 @@ export interface RenderInfo extends PostInfo {
   creatureAssets: number;
   /** The quality preset in force. */
   preset: PresetName;
+  /** The player's body: its level of detail (null with no body) and mesh vertices (M6 T10). */
+  lod: Lod | null;
+  vertices: number;
   /** The renderer's pixel ratio. */
   pixelRatio: number;
   /** Particles drawn across the three layers. */
@@ -271,7 +275,7 @@ export class GameScene {
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(this.drawBody(view) ? null : view.creature, view.time);
-    this.remotes.set(view.remotes, view.time, this.pxPerWu);
+    this.remotes.set(view.remotes, view.time, this.pxPerWu, this.preset);
     this.rings.set(view.rings);
 
     this.post.render(this.scene, camera);
@@ -291,6 +295,7 @@ export class GameScene {
     state.hurt = creature.hurt;
     state.dissolve = creature.dissolve;
     state.pxPerWu = this.pxPerWu;
+    state.preset = this.preset;
     return this.body.set(state, view.time);
   }
 
@@ -306,6 +311,8 @@ export class GameScene {
       pxPerWu: this.pxPerWu,
       creatureAssets: this.body.assets() + this.remotes.assets(),
       preset: this.preset,
+      lod: this.body.lod(),
+      vertices: this.body.vertices(),
       pixelRatio: this.renderer.getPixelRatio(),
       particles: this.far.drawnCount + this.mid.drawnCount + this.near.drawnCount,
       memory: { geometries: memory.geometries, textures: memory.textures },

@@ -3,7 +3,11 @@ import { describe, expect, it } from 'vitest';
 import { createRng, seedFromString } from '../sim/prng';
 import { decodeGenome, genomeToBase64url } from './codec';
 import { type BodyPlan, develop, hashPlan } from './develop';
-import { develop as developV5, hashPlan as hashPlanV5 } from './develop-v5';
+import {
+  develop as developV5,
+  estimateVertices as estimateVerticesV5,
+  hashPlan as hashPlanV5,
+} from './develop-v5';
 import { express } from './express';
 import { GENOME_BYTES_V1 } from './karyotype-v1';
 import { computeStats, hashStats } from './stats';
@@ -48,9 +52,14 @@ describe('development and stats under rules v5 (frozen, ADR 0025)', () => {
   });
 });
 
+/** Whether rules v5 would have dropped parts of `plan` for its mesh vertex budget (6,000, low 1,500). */
+const overV5Budget = (plan: BodyPlan): boolean =>
+  estimateVerticesV5(plan, 'full') > 6000 || estimateVerticesV5(plan, 'low') > 1500;
+
 describe('development v2: v1 equivalence', () => {
   it('develops 10,000 random v1 genomes to the v5 plan and the v5 stats', () => {
     const rng = createRng(seedFromString('genome-develop-v1-equivalence'), 'bytes');
+    let regained = 0;
     for (let i = 0; i < 10_000; i++) {
       const traits = express(decodeGenome(v1Bytes(rng)));
       const v5 = developV5(traits);
@@ -73,11 +82,22 @@ describe('development v2: v1 equivalence', () => {
         eyes: { count: 0, size: 0, stalk: 0, angle: 0, x: 0, y: 0 },
         membranes: [],
       };
-      if (hashPlan(v6) !== hashPlan(expected)) expect(v6, `genome ${i}`).toEqual(expected);
+      if (hashPlan(v6) !== hashPlan(expected)) {
+        // The one exception (ADR 0025): v6 caps parts by count only, so a body whose parts v5 dropped
+        // for its mesh vertex budget gets them back. Every other v1 body is the v5 body.
+        if (v6.appendages.length > v5.appendages.length && overV5Budget(v6)) {
+          regained++;
+          continue;
+        }
+        expect(v6, `genome ${i}`).toEqual(expected);
+      }
       const a = computeStats(v6, traits);
       const b = computeStatsV5(v5, traits);
       if (hashStats(a) !== hashStatsV5(b)) expect(a, `genome ${i}`).toEqual(b);
     }
+    // The exception is real but rare: most v1 bodies never reached the old budget.
+    expect(regained).toBeGreaterThan(0);
+    expect(regained).toBeLessThan(2_000);
   });
 
   it('gives v1 genomes new plan hashes but the v5 stats hashes', () => {

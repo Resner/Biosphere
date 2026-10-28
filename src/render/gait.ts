@@ -27,7 +27,7 @@ export interface GaitVertex {
   attach: number;
   /** 0 at a part's base, 1 at its tip. */
   weight: number;
-  /** `aPart`: kind in the low two bits, appendage number above. */
+  /** `aPart`: the appendage number × `PART_KINDS` plus the part kind (`creature-mesh.ts`). */
   part: number;
 }
 

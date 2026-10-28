@@ -8,7 +8,7 @@ paths:
 ADR 0006 is the contract. This code is shared and deterministic, so `.claude/rules/sim.md` applies too.
 
 - Decoding and development are total functions: any byte string decodes, and any genome develops into a valid body. Clamp and repair; never throw and never reject.
-- Hard caps from ADR 0006 (segments, appendages, joints, collision circles, bounds, vertices) are enforced in development, not in rendering.
+- Hard caps from ADR 0006 (segments, appendages, joints, collision circles, bounds) are enforced in development, not in rendering. Under rules 6 parts are capped by count only: mesh vertex budgets belong to `src/render/creature-mesh.ts`, which lowers detail and never drops a part (ADR 0025; frozen `develop-v5.ts` keeps the v5 vertex rule).
 - Property tests over at least 10,000 random genomes plus 10,000 mutated or recombined descendants run on every change: no throw, caps hold, there is always a propulsion source and a mouth.
 - Function follows form: abilities come from geometry and material parameters through formulas. Never hard-code a stat on a named part ("spike = +10 attack").
 - Every benefit has a cost (mass, metabolism, drag, cooldown). Archetype tests must show that no genome is best at everything.

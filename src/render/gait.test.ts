@@ -49,7 +49,7 @@ interface Sample {
 const samples: Sample[] = genomes.map((g) => {
   const traits = express(g);
   const plan = develop(traits);
-  const geo = buildCreatureGeometry(plan, 'full');
+  const geo = buildCreatureGeometry(plan, 'medium');
   const attr = (name: string) => geo.getAttribute(name).array as Float32Array;
   const pos = attr('position');
   const [attach, weight, part] = [attr('aAttach'), attr('aWeight'), attr('aPart')];

@@ -3,7 +3,7 @@
 
 import { decodeGenome, type Genome } from '../genome/codec';
 import { describeCreature } from '../genome/describe';
-import { bodyViolations, estimateVertices } from '../genome/develop';
+import { bodyViolations } from '../genome/develop';
 import { genesisGenome } from '../genome/genesis';
 import { GENOME_BYTES, HAPLOTYPE_BYTES } from '../genome/karyotype';
 import { HAPLOTYPE_BYTES_V1 } from '../genome/karyotype-v1';
@@ -11,6 +11,7 @@ import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import { type Silhouette, silhouetteOf } from '../genome/silhouette';
 import { buildCreature, type Creature } from '../genome/stats';
+import { estimateVertices } from '../render/creature-mesh';
 import { createRng, type Seed, seedFromString } from '../sim/prng';
 import { sizeTier } from '../sim/size';
 
@@ -31,7 +32,7 @@ export interface Specimen {
   tier: number;
   /** The shape class of the body plan (M6 T8). */
   silhouette: Silhouette;
-  /** Vertices of the full-detail mesh. */
+  /** Vertices of the mesh on the high preset, which the Lab and the gallery draw. */
   vertices: number;
   /** Plain-words description, six sentences. */
   lines: string[];
@@ -48,7 +49,7 @@ export function specimenOf(genome: Genome): Specimen {
     rarity: rarityOfTraits(creature.traits).tier,
     tier: sizeTier(creature.stats.maxBiomass),
     silhouette: silhouetteOf(creature.plan),
-    vertices: estimateVertices(creature.plan, 'full'),
+    vertices: estimateVertices(creature.plan, 'high'),
     lines: describeCreature(creature),
     violations: bodyViolations(creature.plan),
   };

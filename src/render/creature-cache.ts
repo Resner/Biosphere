@@ -1,29 +1,35 @@
-// Reference-counted creature geometry (M3 T10): one asset per genome hash and detail level, built
-// on the first acquire and disposed when the last holder lets go. Sessions last hours, so every
-// geometry and material has an owner that releases it.
+// Reference-counted creature geometry (M3 T10, M6 T10): one asset per genome hash and level of
+// detail (the preset's, or low for a body small on screen), built on the first acquire and disposed
+// when the last holder lets go. Sessions last hours, so every geometry and material has an owner
+// that releases it.
 
 import type * as THREE from 'three';
-import type { BodyPlan, Detail } from '../genome/develop';
+import type { BodyPlan } from '../genome/develop';
 import type { Traits } from '../genome/express';
-import { buildCreatureGeometry } from './creature-mesh';
+import { buildCreatureGeometry, type Lod } from './creature-mesh';
 import { materialParams } from './material-params';
 import { creatureMaterial } from './materials';
 
-/** A body smaller than this many pixels across (radius) drops to low detail; larger than `FULL_ABOVE` returns to full. */
+/** A body smaller than this many pixels (radius) drops to low detail; larger than `FULL_ABOVE` returns to the preset's. */
 export const LOW_BELOW = 12;
 export const FULL_ABOVE = 16;
 
-/** The detail level for a creature of the given on-screen radius; between the two limits it keeps `current`. */
-export function lodFor(screenRadiusPx: number, current: Detail = 'full'): Detail {
+/**
+ * The level of detail for a creature of the given on-screen radius under `preset`: the preset's own
+ * level, or low when small. Between the two limits a body that is already low stays low.
+ */
+export function lodFor(screenRadiusPx: number, preset: Lod, current: Lod = preset): Lod {
   if (screenRadiusPx < LOW_BELOW) return 'low';
-  if (screenRadiusPx > FULL_ABOVE) return 'full';
-  return current;
+  if (screenRadiusPx > FULL_ABOVE) return preset;
+  return current === 'low' ? 'low' : preset;
 }
 
 export interface CreatureAsset {
   readonly key: string;
-  readonly detail: Detail;
+  readonly lod: Lod;
   readonly geometry: THREE.BufferGeometry;
+  /** The geometry's vertex count. */
+  readonly vertices: number;
   readonly material: THREE.Material;
 }
 
@@ -47,15 +53,17 @@ export class CreatureCache {
       creatureMaterial(materialParams(c.traits)),
   ) {}
 
-  acquire(creature: CreatureSource, detail: Detail): CreatureAsset {
-    const key = `${creature.hash}/${detail}`;
+  acquire(creature: CreatureSource, lod: Lod): CreatureAsset {
+    const key = `${creature.hash}/${lod}`;
     let entry = this.entries.get(key);
     if (!entry) {
+      const geometry = buildCreatureGeometry(creature.plan, lod);
       entry = {
         asset: {
           key,
-          detail,
-          geometry: buildCreatureGeometry(creature.plan, detail),
+          lod,
+          geometry,
+          vertices: geometry.getAttribute('position').count,
           material: this.makeMaterial(creature),
         },
         refs: 0,

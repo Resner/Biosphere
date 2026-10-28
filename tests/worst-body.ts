@@ -1,10 +1,11 @@
-// The most expensive body to draw (M3 T18): the genome with the most full-detail vertices among
-// 1,500 random genomes, the archetypes and the extremes, and copies of it that differ only in tint.
+// The most expensive body to draw (M3 T18, M6 T10): the genome with the most high-detail vertices
+// among 1,500 random genomes, the archetypes and the extremes, and copies of it that differ only in tint.
 
 import { decodeGenome, encodeGenome, type Genome } from '../src/genome/codec';
-import { develop, estimateVertices } from '../src/genome/develop';
+import { develop } from '../src/genome/develop';
 import { express } from '../src/genome/express';
 import { GENOME_BYTES, LOCI, MODULE_PARAMS } from '../src/genome/karyotype';
+import { estimateVertices } from '../src/render/creature-mesh';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { ARCHETYPES, buildBytes, withLoci } from './archetypes';
 
@@ -37,7 +38,7 @@ function findWorst(): NonNullable<typeof worst> {
   let best = { genome: extremes[0] as Genome, vertices: -1, lowVertices: 0 };
   for (const genome of [...Object.values(ARCHETYPES), ...extremes, ...randoms]) {
     const plan = develop(express(genome));
-    const vertices = estimateVertices(plan, 'full');
+    const vertices = estimateVertices(plan, 'high');
     best.lowVertices = Math.max(best.lowVertices, estimateVertices(plan, 'low'));
     if (vertices > best.vertices) best = { genome, vertices, lowVertices: best.lowVertices };
   }

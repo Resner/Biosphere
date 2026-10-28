@@ -5,14 +5,8 @@ import { lerp } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
-import {
-  type BodyPlan,
-  bodyViolations,
-  develop,
-  estimateVertices,
-  hashPlan,
-  motileArea,
-} from './develop';
+import { type BodyPlan, bodyViolations, develop, hashPlan, motileArea } from './develop';
+import { estimateVertices as estimateVerticesV5 } from './develop-v5';
 import { express } from './express';
 import { mutateGenome } from './inherit';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from './karyotype';
@@ -116,15 +110,18 @@ describe('develop: caps and guarantees', () => {
     for (const [name, bytes] of Object.entries(extremes)) complete(name, decodeGenome(bytes));
   });
 
-  it('keeps meshes inside the vertex budget', () => {
-    const genomes = [
-      ...Object.values(extremes),
-      ...Array.from({ length: 2_000 }, () => randomBytes()),
-    ].map((b) => plan(decodeGenome(b)));
-    for (const p of genomes) {
-      expect(estimateVertices(p, 'full')).toBeLessThanOrEqual(D.vertices.full.cap);
-      expect(estimateVertices(p, 'low')).toBeLessThanOrEqual(D.vertices.low.cap);
+  it('caps parts by count only: no part is dropped for a mesh budget (ADR 0025)', () => {
+    // v5 trimmed pairs until the mesh fit 6,000 vertices; v6 trims by the part cap alone, so some
+    // random bodies now hold more than the old budget allowed (the renderer fits them per preset).
+    let overOldBudget = 0;
+    for (let i = 0; i < 2_000; i++) {
+      const p = plan(decodeGenome(randomBytes()));
+      expect(p.appendages.length).toBeLessThanOrEqual(D.caps.appendages);
+      if (estimateVerticesV5(p, 'full') > 6000 || estimateVerticesV5(p, 'low') > 1500)
+        overOldBudget++;
     }
+    expect(overOldBudget).toBeGreaterThan(0);
+    expect('vertices' in D).toBe(false);
   });
 
   it('is plain data: a clone hashes the same and nothing is NaN', () => {
@@ -359,15 +356,16 @@ describe('bodyViolations: each rule', () => {
     expect(bodyViolations(q).join()).toMatch(/colliders: 13/);
   });
 
-  it('flags a vertex budget overrun', () => {
+  it('never flags mesh vertices: the renderer fits them (ADR 0025)', () => {
     const p = base();
     p.appendages = Array.from({ length: 24 }, (_, i) => ({
       ...first(p),
+      side: i % 2 ? (-1 as const) : (1 as const),
       joints: 4,
       branches: 2,
-      angle: 0.3 + 0.1 * i,
+      angle: 0.3 + 0.35 * Math.floor(i / 2),
     }));
-    expect(bodyViolations(p).join()).toMatch(/vertices/);
+    expect(bodyViolations(p).join()).not.toMatch(/vert/);
   });
 
   it('flags values outside the body limits', () => {

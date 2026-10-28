@@ -2,12 +2,13 @@
 // their bodies. `npm run report:diversity -- --genesis 2000 --bred 2000 --generations 6`.
 
 import { type Genome, genomeHash } from '../src/genome/codec';
-import { bodyViolations, estimateVertices } from '../src/genome/develop';
+import { bodyViolations } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
 import { breed } from '../src/genome/inherit';
 import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
+import { estimateVertices } from '../src/render/creature-mesh';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { sizeTier } from '../src/sim/size';
 
@@ -114,7 +115,7 @@ export function diversityReport(options: ReportOptions): string {
   const invalid = creatures.filter((c) => bodyViolations(c.plan).length > 0).length;
   const rarities = creatures.map((c) => rarityOfTraits(c.traits));
   const silhouettes = creatures.map((c) => silhouetteOf(c.plan));
-  const vertices = creatures.map((c) => estimateVertices(c.plan, 'full'));
+  const vertices = creatures.map((c) => estimateVertices(c.plan, 'high'));
 
   const lines = [
     '# Diversity report',
@@ -154,7 +155,7 @@ export function diversityReport(options: ReportOptions): string {
     '',
     '## Mesh vertices',
     '',
-    `- Full detail: ${stats(vertices, '')}`,
+    `- High detail: ${stats(vertices, '')}`,
     '',
     '## Development time',
     '',
