@@ -231,7 +231,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: v2 appends 11 shape loci (`traits.shape`) and 6 bytes per slot (`modules[i].ext`, at `ModuleLocus.ext`) for 223 bytes a haplotype; frozen `karyotype-v1`, `genesis-v5`, `inherit-v5` and `*-v5`/`-v1` goldens; births take the mate-commits' rules; `PROTOCOL_VERSION` 3, `LINEAGE_MAX_BYTES` 128 KiB.
   - Gotcha: v6 genesis is `upgrade(v5 cell)` until T9; develop/stats are still shared with v5, so T7 must freeze v5 copies before changing them (v1 bodies checked unchanged against the old stats golden).
 
-- [ ] T7 Development v2: body (curve, tagmata, fusion, symmetry, eyes) [opus]
+- [ ] T7 Development v2: body (curve, tagmata, fusion, symmetry, eyes) [opus] (in progress)
   - Acceptance (unit tests first):
     - **v1 equivalence**: a plan developed from all-zero new loci equals the frozen v5 plan, and its stats equal v5's, over 10,000 random v1 genomes. (The vertex rule stays in development until T10 removes it, so there is no exception yet.)
     - **Spine curve**: the segment chain bends along a curve with total turn `curve × π` (C-mode), as two opposite arcs (S-mode), or as a coil (a spiral that tightens) above 0.8. Segments keep overlapping neighbours, and colliders follow the curve.
