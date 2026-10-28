@@ -2,7 +2,7 @@
 // function of the pond seed and a position, so peers, witnesses and the authority all agree, and
 // presentation reads the same field. Depth runs from 0 (the sunlit surface) to 1 (the abyss floor).
 
-import { clamp, cos, length, sin, TAU } from './math';
+import { clamp, cos, length, lerp, sin, TAU } from './math';
 import { hashU32, type Seed } from './prng';
 import { RULES } from './rules';
 
@@ -22,13 +22,17 @@ interface Field {
   knots: number[];
 }
 
-const fields = new Map<string, Field>();
+// A pond's world keeps one seed array for its whole life, so the identity lookup is the hot path;
+// ponds rebuilt from the same seed text land in the keyed map instead of calibrating again.
+const byIdentity = new WeakMap<Seed, Field>();
+const byKey = new Map<string, Field>();
+const MAX_KEYED = 16;
+
+const unit = (hash: number): number => (hash >>> 0) / 4294967296;
 
 /** A lattice value in [-1, 1]. */
 const lattice = (seed: Seed, octave: number, ix: number, iy: number): number =>
-  ((hashU32(seed[0], seed[1], seed[2], seed[3], SALT.noise, octave, ix, iy) >>> 0) / 4294967296) *
-    2 -
-  1;
+  unit(hashU32(seed[0], seed[1], seed[2], seed[3], SALT.noise, octave, ix, iy)) * 2 - 1;
 
 const fade = (t: number): number => t * t * t * (t * (t * 6 - 15) + 10);
 
@@ -44,8 +48,7 @@ function noise(seed: Seed, octave: number, wavelength: number, x: number, y: num
   const b = lattice(seed, octave, ix + 1, iy);
   const c = lattice(seed, octave, ix, iy + 1);
   const d = lattice(seed, octave, ix + 1, iy + 1);
-  const top = a + (b - a) * u;
-  return top + (c + (d - c) * u - top) * v;
+  return lerp(lerp(a, b, u), lerp(c, d, u), v);
 }
 
 /** The uncalibrated field: fractal noise plus a slope towards the deep side. */
@@ -64,22 +67,26 @@ function rawField(seed: Seed, tx: number, ty: number, x: number, y: number): num
  * zone edges and every pond ends up with the same shares of shallows, twilight, deep and abyss.
  */
 function fieldFor(seed: Seed): Field {
-  const key = `${seed[0]}.${seed[1]}.${seed[2]}.${seed[3]}`;
-  const cached = fields.get(key);
-  if (cached !== undefined) return cached;
-  const angle =
-    ((hashU32(seed[0], seed[1], seed[2], seed[3], SALT.angle) >>> 0) / 4294967296) * TAU;
+  const known = byIdentity.get(seed);
+  if (known !== undefined) return known;
+  const key = seed.join('.');
+  const cached = byKey.get(key);
+  if (cached !== undefined) {
+    byIdentity.set(seed, cached);
+    return cached;
+  }
+  const angle = unit(hashU32(seed[0], seed[1], seed[2], seed[3], SALT.angle)) * TAU;
   const tx = cos(angle);
   const ty = sin(angle);
   const n = B.calibrationSamples;
   const step = RULES.world.size / n;
-  const samples: number[] = [];
+  const samples = new Float64Array(n * n);
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
-      samples.push(rawField(seed, tx, ty, (i + 0.5) * step, (j + 0.5) * step));
+      samples[j * n + i] = rawField(seed, tx, ty, (i + 0.5) * step, (j + 0.5) * step);
     }
   }
-  samples.sort((a, b) => a - b);
+  samples.sort();
   const at = (share: number): number =>
     samples[Math.min(samples.length - 1, Math.floor(share * samples.length))] as number;
   const q = B.shares;
@@ -91,8 +98,9 @@ function fieldFor(seed: Seed): Field {
     at(1),
   ];
   const field = { tx, ty, knots };
-  if (fields.size >= 16) fields.clear();
-  fields.set(key, field);
+  if (byKey.size >= MAX_KEYED) byKey.clear();
+  byKey.set(key, field);
+  byIdentity.set(seed, field);
   return field;
 }
 
@@ -112,7 +120,7 @@ export function depthAt(seed: Seed, x: number, y: number): number {
   const lo = k[i] as number;
   const hi = k[i + 1] as number;
   const t = hi > lo ? (f - lo) / (hi - lo) : 0;
-  const depth = (EDGES[i] as number) + t * ((EDGES[i + 1] as number) - (EDGES[i] as number));
+  const depth = lerp(EDGES[i] as number, EDGES[i + 1] as number, t);
   const away = Math.max(0, length(x - CENTRE, y - CENTRE) - B.centreRadius);
   const cap = B.centreCap + B.capGrowth * away;
   return clamp(B.base + clamp(depth - B.base, -cap, cap), 0, 1);

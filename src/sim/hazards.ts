@@ -102,7 +102,7 @@ export function plumesNear(world: World, x: number, y: number, radius: number): 
 export function applyHazards(world: World, creature: CreatureState): StepEvent[] {
   if (!creature.alive) return [];
   const events = applyToxin(world, creature);
-  if (world.options.hazards) events.push(...applyZoneHazards(world, creature));
+  if (world.options.hazards) applyZoneHazards(world, creature, events);
   return events;
 }
 
@@ -111,34 +111,29 @@ export function applyHazards(world: World, creature: CreatureState): StepEvent[]
  * creature's centre. UV ramps in over `uvBand` of depth below the shallows' edge; pressure ramps in
  * from `pressureStart` to the abyss' edge. A tolerance of 1 takes no damage.
  */
-function applyZoneHazards(world: World, creature: CreatureState): StepEvent[] {
-  const events: StepEvent[] = [];
+function applyZoneHazards(world: World, creature: CreatureState, events: StepEvent[]): void {
   const depth = depthAt(world.seed32, creature.x, creature.y);
   const z = RULES.bathymetry.zones;
-  const uv = clamp((z.shallows - depth) / H.uvBand, 0, 1);
-  if (uv > 0) {
-    const amount = RULES.damage.uv * DT * uv * (1 - creature.phys.uvTolerance);
-    if (amount > 0) {
-      creature.health -= amount;
-      events.push({ type: 'damage', creature: creature.id, amount, cause: 'uv' });
-    }
-  }
-  const pressure = clamp((depth - H.pressureStart) / (z.deep - H.pressureStart), 0, 1);
-  if (pressure > 0) {
-    const amount = RULES.damage.pressure * DT * pressure * (1 - creature.phys.pressureTolerance);
-    if (amount > 0) {
-      creature.health -= amount;
-      events.push({ type: 'damage', creature: creature.id, amount, cause: 'pressure' });
-    }
-  }
-  return events;
+  const hurt = (cause: 'uv' | 'pressure', rate: number, exposure: number, tolerance: number) => {
+    const amount = rate * DT * exposure * (1 - tolerance);
+    if (!(amount > 0)) return;
+    creature.health -= amount;
+    events.push({ type: 'damage', creature: creature.id, amount, cause });
+  };
+  hurt(
+    'uv',
+    RULES.damage.uv,
+    clamp((z.shallows - depth) / H.uvBand, 0, 1),
+    creature.phys.uvTolerance,
+  );
+  hurt(
+    'pressure',
+    RULES.damage.pressure,
+    clamp((depth - H.pressureStart) / (z.deep - H.pressureStart), 0, 1),
+    creature.phys.pressureTolerance,
+  );
 }
 
-/**
- * Toxin damage scaled by the creature's exposure: the share of its collider area (`r²` per circle)
- * whose centre, rotated by the heading and scaled by the core radius, lies inside a plume.
- * Overlapping plumes don't stack. A single-circle body takes all or nothing.
- */
 function applyToxin(world: World, creature: CreatureState): StepEvent[] {
   const { colliders } = creature.phys;
   const radius = Math.sqrt(creature.biomass);
