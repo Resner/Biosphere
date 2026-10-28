@@ -230,7 +230,8 @@
   resize: vertical;
 }
 
-.lab-error {
+.lab-error,
+.gallery-error {
   color: #ff8a80;
 }
 
@@ -274,5 +275,4 @@
   position: absolute;
   inset: 1rem;
   margin: 0;
-  color: #ff8a80;
 }

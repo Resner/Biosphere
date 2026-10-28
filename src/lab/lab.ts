@@ -19,11 +19,11 @@ import { CELL_COUNT, cellAt, cellRect, GRID_COUNT, HOVER_SCALE, stageCoreRadius 
 import type { LabCreature, LabHook, LabView } from './hook';
 import { type LabMode, labGenomes, type Specimen, specimenOf } from './specimens';
 
-const WATER = 0x04090b;
+export const WATER = 0x04090b;
 /** How hard the creatures swim on the grid (0..1). */
-const SWIM = 0.6;
+export const SWIM = 0.6;
 /** The longest gait step the clock takes at once (the view caps a step at 0.1 s anyway). */
-const ADVANCE_STEP = 0.05;
+export const ADVANCE_STEP = 0.05;
 
 export interface LabOptions {
   seed: string;

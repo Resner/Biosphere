@@ -4,7 +4,6 @@
 // time. The page draws once and holds still, so `npm run gallery` captures the same bytes every time.
 
 import * as THREE from 'three';
-import { genomeHash } from '../genome/codec';
 import { topDownCamera } from '../render/camera';
 import { CreatureCache } from '../render/creature-cache';
 import { CreatureView, type CreatureViewState } from '../render/creature-view';
@@ -17,14 +16,11 @@ import {
   gallerySpecimens,
   LABEL_HEIGHT,
 } from './gallery';
+import { ADVANCE_STEP, SWIM, WATER } from './lab';
 import { specimenOf } from './specimens';
 
-const WATER = 0x04090b;
-/** How hard the creatures swim (the Lab's value), and the gait time the sheet shows. */
-const SWIM = 0.6;
+/** The gait time the sheet shows; the clock steps there like the Lab's `debug.advance`. */
 const GALLERY_TIME = 0.6;
-/** The clock steps there in these increments, like the Lab's `debug.advance`. */
-const STEP = 0.05;
 
 const FILES = import.meta.glob<string>('../../tests/fixtures/gallery/*.hex', {
   query: '?raw',
@@ -150,7 +146,7 @@ export async function startGallery(): Promise<void> {
     const entry: GalleryEntry = {
       file: s.file,
       comment: s.comment,
-      hash: genomeHash(s.genome),
+      hash: specimen.creature.hash,
       species: specimen.species,
       rarity: specimen.rarity,
       vertices: specimen.vertices,
@@ -160,9 +156,9 @@ export async function startGallery(): Promise<void> {
   });
 
   // A fixed gait time, reached in fixed steps from rest: the same pose on every capture.
-  const steps = Math.round(GALLERY_TIME / STEP);
+  const steps = Math.round(GALLERY_TIME / ADVANCE_STEP);
   for (let k = 0; k <= steps; k++) {
-    for (const { view, state } of shown) view.update(state, k * STEP);
+    for (const { view, state } of shown) view.update(state, k * ADVANCE_STEP);
   }
   post.render(scene, camera);
   const info = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };

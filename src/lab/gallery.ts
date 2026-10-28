@@ -2,6 +2,7 @@
 // `tests/fixtures/gallery/`, never re-drawn from seeds, laid out on a fixed 1600×1000 sheet. Pure:
 // the file format and the layout. `gallery-page.ts` draws it (`lab.html?gallery=1`).
 
+import { hexToBytes } from '@noble/hashes/utils.js';
 import { decodeGenome, type Genome } from '../genome/codec';
 import type { Rect } from './grid';
 import { REACH } from './grid';
@@ -41,9 +42,7 @@ export function parseSpecimen(file: string, text: string): GallerySpecimen | nul
     .join('')
     .toLowerCase();
   if (comment.length === 0 || !HEX.test(hex)) return null;
-  const bytes = Uint8Array.from({ length: hex.length / 2 }, (_, i) =>
-    Number.parseInt(hex.slice(2 * i, 2 * i + 2), 16),
-  );
+  const bytes = hexToBytes(hex);
   return { file, comment, bytes: bytes.length, genome: decodeGenome(bytes) };
 }
 

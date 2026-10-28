@@ -191,7 +191,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `post/benchmark.ts`, `post/adaptive.ts` and `game/auto-quality.ts` (when to run, `bs.bench` per GPU); `state().quality` shows the result. Low has no scene target, so its scale shrinks the canvas's backing store (and `pixelRatio`).
   - Gotcha: a stored result counts even under automation (the reload E2E relies on it); each step empties the 2 s window, so stepping up takes 7 s after a step down. Frame intervals are vsync-capped: on a locked 60 Hz display the benchmark reads medium and the scale never steps up (the owner's 60 fps check decides whether T26 needs GPU-time measurement).
 
-- [x] T5 Gallery tool and the baseline pass [opus] (in progress)
+- [x] T5 Gallery tool and the baseline pass [opus]
   - Acceptance (as ADR 0024 decides):
     - `lab.html?gallery=1` draws the specimens from `tests/fixtures/gallery/*.hex` with:
       - a fixed camera, a 1600×1000 viewport at pixel ratio 1 and the high preset;

@@ -17,8 +17,7 @@ const server = await preview({ logLevel: 'error', preview: { port: 0, open: fals
 const executablePath = chromiumPath(chromium.executablePath());
 const browser = await chromium.launch(executablePath ? { executablePath } : {});
 try {
-  const address = server.httpServer.address();
-  const port = typeof address === 'object' && address ? address.port : 4173;
+  const { port } = server.httpServer.address();
   const page = await browser.newPage({ viewport: GALLERY_VIEWPORT, deviceScaleFactor: 1 });
   const png = await captureGallery(page, `http://localhost:${port}/`);
   const dir = new URL('../docs/art/gallery/', import.meta.url);
