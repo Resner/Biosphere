@@ -5,7 +5,7 @@
 
 import type { Collider, PhysStats } from '../sim/body';
 import { Hasher } from '../sim/hash';
-import { clamp, cos, length as hypot, PI, pow, sin } from '../sim/math';
+import { atan2, clamp, length as hypot, PI, pow } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { Genome } from './codec';
 import { genomeHash } from './codec';
@@ -13,8 +13,11 @@ import {
   type BodyPlan,
   branchWeight,
   develop,
+  dirOf,
+  extentOf,
   type PlanMouth,
   type PlanSegment,
+  peak,
   rootOf,
 } from './develop';
 import { express, type Traits } from './express';
@@ -22,6 +25,7 @@ import { starterGenome } from './starter';
 
 const S = RULES.stats;
 const D = RULES.develop;
+const V2 = S.v2;
 
 export interface Stats {
   maxBiomass: number;
@@ -63,10 +67,6 @@ export interface Creature {
   phys: PhysStats;
 }
 
-/** 1 at `centre`, falling linearly to 0 at `spread` either side. */
-const peak = (x: number, centre: number, spread: number): number =>
-  clamp(1 - Math.abs(x - centre) / spread, 0, 1);
-
 const segmentArea = (s: PlanSegment): number => PI * s.rx * s.ry;
 
 /** Thrust efficiency of each tip at one body size: whips fall with size, paddles rise. */
@@ -100,6 +100,7 @@ const glowOf = (traits: Traits): number =>
 function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   const efficiency = efficiencyAt(biomass);
   const amp = S.ampFloor + (1 - S.ampFloor) * traits.behaviour.gaitAmp;
+  const radial = plan.form.radial === 1;
   let force = 0;
   let steer = S.baseSteer + S.flexSteer * plan.flexibility;
   let appendageArea = 0;
@@ -107,11 +108,17 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   let appendageInertia = 0;
   for (const a of plan.appendages) {
     const area = a.length * a.width * branchWeight(a);
-    const root = rootOf(plan.segments[a.segment] as PlanSegment, a.angle);
+    const root = rootOf(plan.segments[a.segment] as PlanSegment, a.angle, a.side);
     const arm = hypot(root.x, root.y);
     if (a.beat >= D.minBeat) {
       const f = area * a.beat * efficiency(a.tip) * traits.defects.beatStrength * amp;
-      force += f;
+      if (radial) {
+        // A ring pushes along its parts: only the rearward share drives it forward, the rest turns it.
+        const share = (1 - dirOf(plan.segments[a.segment] as PlanSegment, a).x) / 2;
+        force += f * V2.radialThrust * share;
+      } else {
+        force += f;
+      }
       steer += f * arm;
     }
     appendageArea += area;
@@ -124,27 +131,43 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   let width = 0;
   let front = 0;
   let rear = 0;
+  const outline = (x: number, y: number, e: { rx: number; ry: number; angle: number }): void => {
+    const ext = extentOf(e);
+    width = Math.max(width, Math.abs(y) + ext.y);
+    front = Math.max(front, x + ext.x);
+    rear = Math.min(rear, x - ext.x);
+  };
   for (const s of plan.segments) {
     const m = segmentArea(s);
     bodyArea += m;
-    inertia += m * (s.x * s.x + (s.rx * s.rx + s.ry * s.ry) / 4);
-    width = Math.max(width, s.ry);
-    front = Math.max(front, s.x + s.rx);
-    rear = Math.min(rear, s.x - s.rx);
+    inertia += m * (s.x * s.x + s.y * s.y + (s.rx * s.rx + s.ry * s.ry) / 4);
+    outline(s.x, s.y, s);
   }
   let plateArea = 0;
   for (const p of plan.plates) {
     const s = plan.segments[p.segment] as PlanSegment;
     const m = p.coverage * p.thickness * PI * (s.rx + s.ry);
     plateArea += m;
-    inertia += S.plateDensity * m * (s.x * s.x + (s.rx * s.rx + s.ry * s.ry) / 2);
+    inertia += S.plateDensity * m * (s.x * s.x + s.y * s.y + (s.rx * s.rx + s.ry * s.ry) / 2);
   }
+  const c = plan.carapace;
+  if (c.count > 0) {
+    // The shell weighs like a plate over its outline and widens the body to its own.
+    const m = c.thickness * PI * (c.rx + c.ry);
+    plateArea += m;
+    inertia += S.plateDensity * m * (c.x * c.x + c.y * c.y + (c.rx * c.rx + c.ry * c.ry) / 2);
+    outline(c.x, c.y, c);
+  }
+  const e = plan.eyes;
+  const eyeArea = e.count * PI * e.size * e.size;
+  inertia += eyeArea * (e.x * e.x + e.y * e.y);
   const spines = traits.skin.spines;
-  const mass = bodyArea * (1 + S.spineMass * spines) + appendageArea + S.plateDensity * plateArea;
+  const mass =
+    bodyArea * (1 + S.spineMass * spines) + appendageArea + S.plateDensity * plateArea + eyeArea;
   inertia += appendageInertia;
 
   const last = plan.segments[plan.segments.length - 1] as PlanSegment;
-  const taper = width > 0 ? 1 - last.ry / width : 0;
+  const taper = width > 0 ? Math.max(0, 1 - last.ry / width) : 0;
   const fineness = (front - rear) / (2 * width);
   const drag =
     2 * width * (1 + S.finenessDrag / fineness) * (1 - S.taperRelief * taper) +
@@ -152,13 +175,17 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
     S.plateDrag * plateArea +
     S.spineDrag * spines * 2 * width;
 
+  // A ring rows in any direction, so all of its steering is stronger.
+  if (radial) steer *= 1 + V2.radialSteer;
+
   const b = S.basal;
   const basal =
     (1 +
       b.segment * (plan.segments.length - 1) +
       b.appendage * plan.appendages.length +
       b.plating * traits.skin.plating +
-      b.glow * glowOf(traits)) *
+      b.glow * glowOf(traits) +
+      V2.eyeBasal * e.count * e.size) *
     traits.physiology.metabolism *
     traits.defects.metabolismCost;
   return { force, mass, drag, inertia, steer, basal, growth: traits.physiology.growth };
@@ -178,10 +205,12 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
   for (const a of plan.appendages) {
     const w = weaponShare(a.tip);
     if (w <= 0) continue;
-    const root = rootOf(plan.segments[a.segment] as PlanSegment, a.angle);
+    const s = plan.segments[a.segment] as PlanSegment;
+    const root = rootOf(s, a.angle, a.side);
+    const dir = dirOf(s, a);
     power += w * a.stiffness * a.length;
-    reach = Math.max(reach, hypot(root.x + a.length * cos(a.dir), root.y + a.length * sin(a.dir)));
-    arc = Math.max(arc, a.dir);
+    reach = Math.max(reach, hypot(root.x + a.length * dir.x, root.y + a.length * dir.y));
+    arc = Math.max(arc, s.angle === 0 ? a.dir : Math.abs(atan2(dir.y, dir.x)));
   }
   const jaw = Math.max(0, (traits.mouth.type - D.jawStart) / (1 - D.jawStart));
   if (jaw > 0) {
@@ -196,6 +225,11 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
   for (const p of plan.plates) {
     covered += segmentArea(plan.segments[p.segment] as PlanSegment) * p.coverage * p.thickness;
   }
+  // The carapace covers its fused segments whole.
+  const c = plan.carapace;
+  for (let i = 0; i < c.count; i++) {
+    covered += segmentArea(plan.segments[i] as PlanSegment) * c.thickness;
+  }
   return {
     reach,
     arc,
@@ -205,7 +239,7 @@ function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
   };
 }
 
-/** Slender, still, forward-pointing stalks extend the detection ring. */
+/** Slender, still, forward-pointing stalks and eyes extend the detection ring. */
 function senseOf(plan: BodyPlan): number {
   let reach = 0;
   for (const a of plan.appendages) {
@@ -213,7 +247,8 @@ function senseOf(plan: BodyPlan): number {
     const slender = clamp(1 - a.width / (D.width[1] as number), 0, 1);
     reach += a.length * forward * slender * (1 - a.beat);
   }
-  return 1 + S.senseGain * reach;
+  const e = plan.eyes;
+  return 1 + S.senseGain * reach + V2.eyeSense * e.count * e.size * (1 + e.stalk);
 }
 
 /** The stats of a body at a given biomass (thrust efficiency depends on size). */

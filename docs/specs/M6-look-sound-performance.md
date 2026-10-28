@@ -231,7 +231,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: v2 appends 11 shape loci (`traits.shape`) and 6 bytes per slot (`modules[i].ext`, at `ModuleLocus.ext`) for 223 bytes a haplotype; frozen `karyotype-v1`, `genesis-v5`, `inherit-v5` and `*-v5`/`-v1` goldens; births take the mate-commits' rules; `PROTOCOL_VERSION` 3, `LINEAGE_MAX_BYTES` 128 KiB.
   - Gotcha: v6 genesis is `upgrade(v5 cell)` until T9; develop/stats are still shared with v5, so T7 must freeze v5 copies before changing them (v1 bodies checked unchanged against the old stats golden).
 
-- [ ] T7 Development v2: body (curve, tagmata, fusion, symmetry, eyes) [opus]
+- [x] T7 Development v2: body (curve, tagmata, fusion, symmetry, eyes) [opus]
   - Acceptance (unit tests first):
     - **v1 equivalence**: a plan developed from all-zero new loci equals the frozen v5 plan, and its stats equal v5's, over 10,000 random v1 genomes. (The vertex rule stays in development until T10 removes it, so there is no exception yet.)
     - **Spine curve**: the segment chain bends along a curve with total turn `curve × π` (C-mode), as two opposite arcs (S-mode), or as a coil (a spiral that tightens) above 0.8. Segments keep overlapping neighbours, and colliders follow the curve.
@@ -242,6 +242,9 @@ A look pass never starts before the tasks it judges are ticked.
     - **Caps and repair hold** over 10,000 random and 10,000 mutated v2 genomes: no throw, caps, bounds within 2.5, a propulsion source, a mouth, and colliders 1–12. `bodyViolations` gains checks for the new fields.
     - **Stats** follow form, as ADR 0025 lists. Curl lowers turning inertia and raises drag. A carapace adds armour coverage and mass. Radial symmetry raises turning and lowers forward thrust efficiency. Eyes add detection and metabolism. The archetype tests gain a radial, a coiled and a carapaced archetype, and none is best at everything.
   - Notes: update DESIGN §6 (development, stats). The render tests stay green: the mesh builder still draws v2 plans with its v1 code (straight loft) until T10.
+  - Done: frozen `develop-v5.ts`/`stats-v5.ts` (+ `develop-v5.json`, written before the change); plans gain segment `y`/`angle`, `form`, `carapace` and `eyes` (`RULES.develop.{curve,tagmata,fusion,radial,eyes}`, `RULES.stats.v2`); goldens `develop.json`/`stats.json` regenerated for rules 6; three archetypes added, the tournament keeps the six M3 bodies.
+  - Gotcha: the reach scale undoes any uniform shrink of the chain, so head scale applies after it; in the sim tournament the radial bell placed last everywhere, worth a look when the pacing tool reruns (T15, T18).
+  - Carried: `develop`/`computeStats` always run v2 code (v5 copies are verified by test only; wire by `record.rules` if a pre-v6 record ever needs a non-v1 genome developed); `senseOf` still reads the raw attach angle, not the body-frame heading (T8 revisits stats).
 
 - [ ] T8 Development v2: fine parts (webbing, setae, bulbs, claws, beads) [opus]
   - Acceptance (unit tests first):

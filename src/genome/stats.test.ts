@@ -293,6 +293,76 @@ describe('computeStats: every benefit has a cost', () => {
   });
 });
 
+describe('computeStats: development v2 follows form (ADR 0025)', () => {
+  const bytesList = Array.from({ length: 1_000 }, () =>
+    withLoci(randomBytes(), {
+      curve: 0,
+      curveMode: 0,
+      fusion: 0,
+      symmetry: 0,
+      drape: 0,
+      eyeSize: 0,
+      eyeStalk: 0,
+    }),
+  );
+  const build = (bytes: Uint8Array) => buildCreature(decodeGenome(bytes));
+  // Curling or ringing can free a part that the bounds had clamped, which is a different body; the
+  // comparisons below keep to bodies whose parts are the same before and after.
+  const parts = (c: ReturnType<typeof build>): string =>
+    c.plan.appendages
+      .map((a) => a.length * a.width)
+      .sort((x, y) => x - y)
+      .join();
+
+  it('makes a curl turn faster and swim draggier', () => {
+    let tested = 0;
+    // Few random bodies keep every part's length when they curl, so this draws more of them.
+    for (const bytes of [...bytesList, ...bytesList.map((b) => withLoci(b, { segDrive1: 255 }))]) {
+      const straight = build(bytes);
+      if (straight.plan.segments.length < 3) continue;
+      const curled = build(withLoci(bytes, { curve: 230 }));
+      if (parts(curled) !== parts(straight)) continue;
+      tested++;
+      expect(curled.stats.turn).toBeGreaterThan(straight.stats.turn);
+      expect(curled.stats.drag).toBeGreaterThan(straight.stats.drag);
+    }
+    expect(tested).toBeGreaterThan(80);
+  });
+
+  it('makes a carapace add armour and mass to an unplated body, and stiffen it', () => {
+    for (const bytes of bytesList) {
+      const plain = build(withLoci(bytes, { plating1: 0, plating2: 0 }));
+      const shelled = build(withLoci(bytes, { plating1: 0, plating2: 0, fusion: 255 }));
+      expect(shelled.stats.combat.armour).toBeGreaterThan(plain.stats.combat.armour);
+      expect(shelled.stats.mass).toBeGreaterThan(plain.stats.mass);
+      expect(shelled.plan.flexibility).toBeLessThanOrEqual(plain.plan.flexibility);
+    }
+  });
+
+  it('makes a radial body turn better and thrust worse forward', () => {
+    let tested = 0;
+    for (const bytes of bytesList) {
+      const bilateral = build(bytes);
+      const radial = build(withLoci(bytes, { symmetry: 255 }));
+      // Ringing moves every part to the core, so only the number of parts can stay the same.
+      if (radial.plan.appendages.length !== bilateral.plan.appendages.length) continue;
+      tested++;
+      expect(radial.stats.turn).toBeGreaterThan(bilateral.stats.turn);
+      expect(radial.stats.thrust).toBeLessThan(bilateral.stats.thrust);
+    }
+    expect(tested).toBeGreaterThan(100);
+  });
+
+  it('makes eyes widen the detection ring and cost metabolism', () => {
+    for (const bytes of bytesList) {
+      const blind = build(bytes);
+      const eyed = build(withLoci(bytes, { eyeSize: 200, eyeStalk: 128 }));
+      expect(eyed.stats.sense).toBeGreaterThan(blind.stats.sense);
+      expect(eyed.stats.basal).toBeGreaterThan(blind.stats.basal);
+    }
+  });
+});
+
 describe('archetypes: nobody wins everything', () => {
   const sizes = [100, 3_000, 30_000];
   const names = Object.keys(ARCHETYPES);

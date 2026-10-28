@@ -262,6 +262,51 @@ export const RULES = deepFreeze({
     jawStart: 0.5,
     mouthReach: 1.2,
     mouthNarrow: 1.6,
+    /** Development v2 (M6 T7, ADR 0025): the karyotype v2 shape loci. Each at 0 leaves the v1 body. */
+    curve: {
+      /** The curve amount 0-1 turns the spine by amount × π; a mode at or above `sMode` splits it into two opposite arcs (S). */
+      sMode: 0.5,
+      /** Above this amount the spine coils: the turn grows to `coilTurn` × π at 1, bunches toward the tail (t^(1 + `coilBunch` × k)) and its links shrink by up to `coilShrink`. */
+      coilStart: 0.8,
+      coilTurn: 2.4,
+      coilBunch: 1.5,
+      coilShrink: 0.4,
+      /** Curved neighbours stay at most this share of their summed radii along the link apart. */
+      overlap: 0.9,
+    },
+    tagmata: {
+      /** The head is the unit, so head scale 1 shrinks every segment behind it by 1 ÷ (1 + this). */
+      head: 0.8,
+      /** Trunk swell 1 widens the chain by this share at `trunkAt` along it, falling to 0 at `trunkSpread` either side. */
+      trunk: 0.6,
+      trunkAt: 0.4,
+      trunkSpread: 0.6,
+      /** The tail is the rear `tailShare` of the chain: tail length 1 stretches its tip by `tailLength`, tail taper 1 narrows it by `tailTaper`. */
+      tailShare: 0.5,
+      tailLength: 0.8,
+      tailTaper: 0.7,
+    },
+    fusion: {
+      /** The carapace's thickness at plating 0 (it reaches the thickest plate at plating 1), and the flexibility lost by a fully fused body. */
+      thickness: 0.08,
+      stiffen: 0.8,
+      /** Outline points per fused segment that the hull must contain. */
+      samples: 16,
+    },
+    radial: {
+      /** Symmetry at or above this rings the parts round the core at even angles; the body rounds with symmetry all along. */
+      at: 0.5,
+      maxPairs: 8,
+      /** Drape 1 bends growth this share of the way to the tail (bilateral parts start from `sweep`, radial ones from 0). */
+      drapeSweep: 0.9,
+    },
+    eyes: {
+      /** Eye size above `min` gives a pair on the head at ±`angle`; radius and stalk length in core radii. */
+      min: 0.15,
+      size: [0.08, 0.3],
+      stalk: [0, 0.6],
+      angle: 0.6,
+    },
     /** Mesh vertices per body ring and part ring, and rings per segment or joint, by detail. */
     vertices: {
       full: { cap: 6000, bodyRings: 9, bodyRing: 12, jointRings: 3, partRing: 8 },
@@ -303,6 +348,15 @@ export const RULES = deepFreeze({
     bite: 0.5,
     /** Detection ring: each unit of slender, still, forward length adds this. */
     senseGain: 0.5,
+    /** Development v2 (M6 T7, ADR 0025). */
+    v2: {
+      /** A radial ring thrusts forward at this × its rearward share ((1 − cos dir) ÷ 2), and its base steer is × (1 + `radialSteer`). */
+      radialThrust: 0.7,
+      radialSteer: 0.6,
+      /** Each eye adds this × radius × (1 + stalk) to the detection ring and `eyeBasal` × radius to the basal multiplier. */
+      eyeSense: 1.5,
+      eyeBasal: 0.3,
+    },
   },
   /** Life (M4, DESIGN §5, ADR 0019): lifespan, old age and maturity, on active time. */
   life: {
