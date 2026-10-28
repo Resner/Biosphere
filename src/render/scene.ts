@@ -60,8 +60,8 @@ export interface SceneView {
   rings: readonly Ring[];
   /** How far the player sees clearly in dark water, in wu (`sightRadius`, M6 T16). */
   sight: number;
-  /** The water's velocity at the camera in wu/s (the sim's currents): it carries the snow (M6 T17). */
-  current: { readonly x: number; readonly y: number };
+  /** How far the sim's currents have carried the water since the pond began, in wu: it carries the snow (M6 T17). */
+  flow: { readonly x: number; readonly y: number };
 }
 
 /** A creature's glow at a radius of 1 wu, by genome hash; null for one that does not glow. */
@@ -106,8 +106,6 @@ const PLANE_DEPTH = 0;
 const MID_SPREAD = 0.2;
 /** The share of marine snow that catches the light on high (M6 T17). */
 const SNOW_SPARKLE = 0.03;
-/** The longest frame step the snow's drift integrates: a stalled tab must not fling it. */
-const MAX_FLOW_STEP = 0.25;
 
 const ORDER = {
   water: 0,
@@ -166,9 +164,6 @@ export class GameScene {
   private cssHeight = 1;
   private half = 1;
   private preset: PresetName = 'medium';
-  /** How far the currents have carried the water (wu, M6 T17), and the time it was last advanced. */
-  private readonly flow = { x: 0, y: 0 };
-  private flowTime: number | null = null;
   private readonly rays: RayView = {
     strength: 0,
     camX: 0,
@@ -346,7 +341,7 @@ export class GameScene {
     const depth = this.seed ? depthAt(this.seed, view.camX, view.camY) : null;
     const snow = depth === null ? 1 : zoneBlend(depth, 'snow');
     this.updateLight(view, halfWidth, depth);
-    const { flow } = this;
+    const { flow } = view;
     this.far.update(view, this.pxPerWu, sprites, snow, flow);
     this.mid.update(view, this.pxPerWu, sprites, snow, flow);
     this.near.update(view, this.pxPerWu, sprites, snow, flow);
@@ -367,15 +362,10 @@ export class GameScene {
   }
 
   /**
-   * Sunlight and currents (M6 T17): the god rays take the sunlight at the camera (the composite draws
-   * them, so low has none), and the snow is carried by the water's flow at the camera.
+   * Sunlight (M6 T17): the caustics and the god rays take the sunlight at the camera (the composite
+   * draws the rays, so low has none).
    */
   private updateLight(view: SceneView, halfWidth: number, depth: number | null): void {
-    const step = this.flowTime === null ? 0 : view.time - this.flowTime;
-    this.flowTime = view.time;
-    const dt = Math.min(Math.max(step, 0), MAX_FLOW_STEP);
-    this.flow.x += view.current.x * dt;
-    this.flow.y += view.current.y * dt;
     this.caustic = depth === null ? 0 : sunlight(depth, 'caustic');
     const rays = this.rays;
     rays.strength = depth === null ? 0 : sunlight(depth, 'rays');
