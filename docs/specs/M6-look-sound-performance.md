@@ -246,7 +246,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Gotcha: the reach scale undoes any uniform shrink of the chain, so head scale applies after it; in the sim tournament the radial bell placed last everywhere, worth a look when the pacing tool reruns (T15, T18).
   - Carried: `develop`/`computeStats` always run v2 code (v5 copies are verified by test only; wire by `record.rules` if a pre-v6 record ever needs a non-v1 genome developed); `senseOf` still reads the raw attach angle, not the body-frame heading (T8 revisits stats).
 
-- [ ] T8 Development v2: fine parts (webbing, setae, bulbs, claws, beads) [opus]
+- [ ] T8 Development v2: fine parts (webbing, setae, bulbs, claws, beads) [opus] (in progress)
   - Acceptance (unit tests first):
     - **Webbing**: a part with webbing > 0 gets a membrane spanning to its branches and its neighbouring part on the same side (`webSpan`). A tail fan forms when webbing sits on the rearmost parts. The plan stores membrane polygons in core radii, inside the bounds.
     - **Setae**: density 0–1 gives 0–24 bristles per part, evenly spaced along it, each with length = setae length × part width × 6. The body total is capped at 240, and the excess is dropped from the shortest parts first, deterministically.
