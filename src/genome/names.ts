@@ -47,7 +47,8 @@ const size = RULES.genes.size;
 
 /** 0, or 0.3 to 1 by the strongest present module's detail `of` (0-1). */
 const detail = (t: Traits, of: (m: Traits['modules'][number]) => number): number => {
-  const best = Math.max(0, ...t.modules.filter((m) => m.present).map(of));
+  let best = 0;
+  for (const m of t.modules) if (m.present) best = Math.max(best, of(m));
   return best > 0 ? 0.3 + 0.7 * best : 0;
 };
 

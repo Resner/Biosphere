@@ -7,7 +7,7 @@ import { sizeTier } from '../sim/size';
 import { decodeGenome, encodeGenome, type Genome } from './codec';
 import { express } from './express';
 import { GENESIS_EYES, GENESIS_FORMS, genesisGenome } from './genesis';
-import { HAPLOTYPE_BYTES, MODULE_BYTES, MODULE_EXT, MODULE_LOCI } from './karyotype';
+import { HAPLOTYPE_BYTES, MODULE_BYTES, MODULE_EXT, MODULE_LOCI, MODULE_PARAMS } from './karyotype';
 import { featureBits, NEVER_BITS, RARITY_TIERS, rarityOf } from './rarity';
 import { starterGenome } from './starter';
 
@@ -37,7 +37,7 @@ function withExt(base: Genome, set: Partial<Record<(typeof MODULE_EXT)[number], 
     const o = hap * HAPLOTYPE_BYTES;
     for (const [name, v] of Object.entries(set))
       bytes[o + slot.ext + MODULE_EXT.indexOf(name as (typeof MODULE_EXT)[number])] = v;
-    if (set.chela) bytes[o + slot.offset + 1 + 6] = 96;
+    if (set.chela) bytes[o + slot.offset + 1 + MODULE_PARAMS.indexOf('tipShape')] = 96;
   }
   return decodeGenome(bytes);
 }

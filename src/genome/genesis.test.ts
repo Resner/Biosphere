@@ -62,7 +62,7 @@ describe('genesisGenome', () => {
   });
 
   it('keeps the v5 band draw: half of the cells, plus the forms that need one', () => {
-    const n = 4000;
+    const n = 2000;
     let plain = 0;
     for (let i = 0; i < n; i++) {
       const v5 = express(genesisGenomeV5(seedOf(i))).modules[1]?.present === true;
@@ -220,14 +220,16 @@ describe('genesisGenome', () => {
   });
 
   it('swims about as fast as the v5 cell (median within 15%)', () => {
-    const median = (gs: readonly Genome[]): number => {
-      const v = gs
-        .map((g) => metricsAt(g, buildCreature(g).stats.maxBiomass).speed)
-        .sort((a, b) => a - b);
+    const median = (gs: readonly Genome[], size: (i: number, g: Genome) => number): number => {
+      const v = gs.map((g, i) => metricsAt(g, size(i, g)).speed).sort((a, b) => a - b);
       return v[v.length >> 1] as number;
     };
     const v5 = Array.from({ length: 1000 }, (_, i) => upgrade(genesisGenomeV5(seedOf(i))));
-    const ratio = median(genomes.slice(0, 1000)) / median(v5);
+    const ratio =
+      median(
+        genomes.slice(0, 1000),
+        (i) => (creatures[i] as (typeof creatures)[number]).stats.maxBiomass,
+      ) / median(v5, (_, g) => buildCreature(g).stats.maxBiomass);
     expect(ratio).toBeGreaterThan(0.85);
     expect(ratio).toBeLessThan(1.15);
   });

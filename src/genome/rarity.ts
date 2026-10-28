@@ -62,15 +62,12 @@ const has =
   (t) =>
     t.colour.pattern.includes(name);
 
+/** The price of a feature that genesis makes in `share` of its cells (none: it never does). */
+const bitsOf = (share: number): number => (share > 0 ? -log(share) * Math.LOG2E : NEVER_BITS);
+
 /** A rare feature that genesis makes: its price follows from how often genesis shows it. */
 function common(name: string, locus: string, weights: readonly number[], test: Test): Feature {
-  const share = genesisShare(locus, weights, test);
-  return [name, test, share > 0 ? -log(share) * Math.LOG2E : NEVER_BITS];
-}
-
-/** A rare feature whose exact genesis share is known from the form table (0: genesis never makes it). */
-function shared(name: string, test: Test, share: number): Feature {
-  return [name, test, share > 0 ? -log(share) * Math.LOG2E : NEVER_BITS];
+  return [name, test, bitsOf(genesisShare(locus, weights, test))];
 }
 
 const iridescent: Test = (t) => t.skin.iridescence === 'iridescent';
@@ -125,17 +122,9 @@ const FEATURES: readonly Feature[] = [
   common('spots', 'pattern', GENESIS_FREQ.pattern, has('spots')),
   common('rings', 'pattern', GENESIS_FREQ.pattern, has('rings')),
   common('luminescent', 'luminescence', biallelic(GENESIS_FREQ.luminescent), luminescent),
-  shared(
-    'radial',
-    radial,
-    formShare((f) => f.radial),
-  ),
-  shared(
-    'webbing',
-    webbing,
-    formShare((f) => f.webbed),
-  ),
-  shared('eyes', eyes, GENESIS_EYES),
+  ['radial', radial, bitsOf(formShare((f) => f.radial))],
+  ['webbing', webbing, bitsOf(formShare((f) => f.webbed))],
+  ['eyes', eyes, bitsOf(GENESIS_EYES)],
   never('coil', coil),
   never('carapace', carapace),
   never('chela', chela),

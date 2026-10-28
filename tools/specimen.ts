@@ -3,10 +3,13 @@
 // first valid body that matches. The gallery's added specimens come from here and are then stored
 // as hex, never re-drawn (`npm run specimens -- --write`).
 
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { encodeGenome, type Genome, genomeHash } from '../src/genome/codec';
+import { bodyViolations, estimateVertices } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
-import type { RarityTier } from '../src/genome/rarity';
-import { SILHOUETTES, type Silhouette } from '../src/genome/silhouette';
+import { type RarityTier, rarityOfTraits } from '../src/genome/rarity';
+import { SILHOUETTES, type Silhouette, silhouetteOf } from '../src/genome/silhouette';
+import { buildCreature, type Creature } from '../src/genome/stats';
 import { specimenOf, wildGenome } from '../src/lab/specimens';
 import { seedFromString } from '../src/sim/prng';
 
@@ -34,15 +37,16 @@ function candidate(seed: string, i: number): Genome {
 function search(
   seed: string,
   taken: ReadonlySet<string>,
-  accept: (s: ReturnType<typeof specimenOf>) => boolean,
+  accept: (c: Creature) => boolean,
 ): Found | null {
   for (let i = 0; i < BUDGET; i++) {
     const genome = candidate(seed, i);
-    const s = specimenOf(genome);
+    // Only the cheap parts of a specimen: its text and name are built for the winner alone.
+    const c = buildCreature(genome);
     if (
-      s.violations.length === 0 &&
-      s.vertices <= MAX_VERTICES &&
-      accept(s) &&
+      accept(c) &&
+      bodyViolations(c.plan).length === 0 &&
+      estimateVertices(c.plan, 'full') <= MAX_VERTICES &&
       !taken.has(genomeHash(genome))
     )
       return { genome, tried: i };
@@ -56,7 +60,7 @@ export function findSpecimen(
   seed: string,
   taken: ReadonlySet<string> = new Set(),
 ): Found | null {
-  return search(seed, taken, (s) => s.silhouette === target);
+  return search(seed, taken, (c) => silhouetteOf(c.plan) === target);
 }
 
 /** The first valid body of rarity tier `tier` whose genome hash is not in `taken`, or null. */
@@ -65,11 +69,8 @@ export function findTier(
   seed: string,
   taken: ReadonlySet<string> = new Set(),
 ): Found | null {
-  return search(seed, taken, (s) => s.rarity === tier);
+  return search(seed, taken, (c) => rarityOfTraits(c.traits).tier === tier);
 }
-
-const hex = (bytes: Uint8Array): string =>
-  Array.from(bytes, (b) => b.toString(16).padStart(2, '0')).join('');
 
 /** A gallery file for `genome`: its name (`NN-specimen-<what>-<genus>-<epithet>.hex`) and text (a comment, then hex). */
 export function specimenFile(
@@ -80,8 +81,7 @@ export function specimenFile(
 ): { name: string; text: string } {
   const s = specimenOf(genome);
   const c = s.creature;
-  const parts = c.plan.appendages.length / 2;
   const name = `${String(index).padStart(2, '0')}-specimen-${what}-${s.species.toLowerCase().replace(' ', '-')}.hex`;
-  const comment = `${s.species}, ${what} specimen (search seed ${seed}): ${c.plan.segments.length} segments, ${parts} parts, ${s.silhouette}, ${s.rarity}.`;
-  return { name, text: `# ${comment}\n${hex(encodeGenome(genome))}\n` };
+  const comment = `${s.species}, ${what} specimen (search seed ${seed}): ${c.plan.segments.length} segments, ${c.plan.appendages.length / 2} parts, ${s.silhouette}, ${s.rarity}.`;
+  return { name, text: `# ${comment}\n${bytesToHex(encodeGenome(genome))}\n` };
 }

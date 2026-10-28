@@ -7,6 +7,7 @@
 // verifying old genesis records.
 
 import { createRng, type Rng, type Seed } from '../sim/prng';
+import { RULES } from '../sim/rules';
 import { decodeGenome, encodeGenome, type Genome, upgrade } from './codec';
 import { genesisGenomeV5 } from './genesis-v5';
 import { HAPLOTYPE_BYTES, MODULE_EXT, MODULE_LOCI, MODULE_PARAMS, SHAPE_LOCI } from './karyotype';
@@ -22,14 +23,14 @@ type Shape = (typeof SHAPE_LOCI)[number];
 /** The chance that a genesis cell of any form has a pair of eyes. */
 export const GENESIS_EYES = 0.12;
 
-/** A larval form: its share of genesis cells and the silhouette it develops into. */
+/** A larval form: its share of genesis cells and the silhouette it mostly develops into. */
 export interface GenesisForm {
   readonly name: string;
   readonly weight: number;
   readonly silhouette: Silhouette;
-  /** Symmetry at or above `RULES.develop.radial.at`: the parts ring the core. */
+  /** Symmetry at or above `RULES.develop.radial.at`: the parts ring the core (from the recipe). */
   readonly radial: boolean;
-  /** A module with webbing. */
+  /** A module with webbing (from the recipe). */
   readonly webbed: boolean;
 }
 
@@ -48,16 +49,16 @@ interface Recipe {
   ext2?: Partial<Record<Ext, Span>>;
 }
 
-const FORMS: readonly (GenesisForm & { recipe: Recipe })[] = [
+type Form = Omit<GenesisForm, 'radial' | 'webbed'> & { recipe: Recipe };
+
+const FORMS: readonly Form[] = [
   // The v5 cell as it was: a whip, and a band of cilia in half of them (a third of those with three pairs read as ciliates).
-  { name: 'cell', weight: 0.35, silhouette: 'cell', radial: false, webbed: false, recipe: {} },
+  { name: 'cell', weight: 0.35, silhouette: 'cell', recipe: {} },
   // A fringe of cilia (the band at its three pairs), bristled in some.
   {
     name: 'ciliate',
     weight: 0.15,
     silhouette: 'ciliate',
-    radial: false,
-    webbed: false,
     recipe: {
       m2: { pairs: [250, 255], length: [30, 55] },
       ext2: { setaeDensity: [0, 0.6], setaeLength: [0, 0.5] },
@@ -68,10 +69,8 @@ const FORMS: readonly (GenesisForm & { recipe: Recipe })[] = [
     name: 'spiny larva',
     weight: 0.17,
     silhouette: 'spiny-larva',
-    radial: true,
-    webbed: false,
     recipe: {
-      shape: { symmetry: [0.6, 1], drape: [0, 0] },
+      shape: { symmetry: [0.6, 1] },
       m2: {
         pairs: [250, 255],
         length: [110, 150],
@@ -89,8 +88,6 @@ const FORMS: readonly (GenesisForm & { recipe: Recipe })[] = [
     name: 'bell',
     weight: 0.1,
     silhouette: 'bell',
-    radial: true,
-    webbed: false,
     recipe: {
       shape: { symmetry: [0.6, 1], drape: [0.8, 1] },
       m2: {
@@ -110,8 +107,6 @@ const FORMS: readonly (GenesisForm & { recipe: Recipe })[] = [
     name: 'tadpole',
     weight: 0.15,
     silhouette: 'tadpole',
-    radial: false,
-    webbed: false,
     recipe: {
       m1: { length: [170, 210], thickness: [150, 190], angle: [235, 250] },
       ext1: { beads: [0, 0.5] },
@@ -122,8 +117,6 @@ const FORMS: readonly (GenesisForm & { recipe: Recipe })[] = [
     name: 'fan tail',
     weight: 0.08,
     silhouette: 'fan-tail',
-    radial: false,
-    webbed: true,
     recipe: {
       m1: { length: [170, 210], thickness: [150, 190], angle: [235, 250] },
       ext1: { webbing: [0.6, 1] },
@@ -131,20 +124,25 @@ const FORMS: readonly (GenesisForm & { recipe: Recipe })[] = [
   },
 ];
 
-export const GENESIS_FORMS: readonly GenesisForm[] = FORMS;
+/** The table with the features the recipes make, so rarity prices what the draw does. */
+export const GENESIS_FORMS: readonly GenesisForm[] = FORMS.map(({ recipe, ...form }) => ({
+  ...form,
+  radial: (recipe.shape?.symmetry?.[0] ?? 0) >= RULES.develop.radial.at,
+  webbed: (recipe.ext1?.webbing?.[0] ?? 0) > 0 || (recipe.ext2?.webbing?.[0] ?? 0) > 0,
+}));
 
 const m1 = MODULE_LOCI[0] as (typeof MODULE_LOCI)[number];
 const m2 = MODULE_LOCI[1] as (typeof MODULE_LOCI)[number];
 const shapeOffset = (id: Shape): number => HAPLOTYPE_BYTES_V1 + SHAPE_LOCI.indexOf(id);
 const paramAt = (name: Param): number => MODULE_PARAMS.indexOf(name);
 
-function pickForm(rng: Rng): (typeof FORMS)[number] {
+function pickForm(rng: Rng): Form {
   let u = rng.next();
   for (const f of FORMS) {
     if (u < f.weight) return f;
     u -= f.weight;
   }
-  return FORMS[0] as (typeof FORMS)[number];
+  return FORMS[0] as Form;
 }
 
 class Writer {

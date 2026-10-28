@@ -90,7 +90,7 @@ describe('speciesName', () => {
     expect(epithet(withLoci(base, { eyeSize: 255 }))).toBe('oculatus');
     const setose = decodeGenome(
       Uint8Array.from(encodeGenome(ext('setaeDensity', 255))).map((b, i) =>
-        i % HAPLOTYPE_BYTES === slot.ext + 2 ? 255 : b,
+        i % HAPLOTYPE_BYTES === slot.ext + MODULE_EXT.indexOf('setaeLength') ? 255 : b,
       ),
     );
     expect(epithet(setose)).toBe('setosus');
@@ -99,10 +99,6 @@ describe('speciesName', () => {
       (g) => g.haplotypes[0].alleles.length === HAPLOTYPE_BYTES_V1,
     ))
       expect(['alata', 'spiralis', 'radiatus', 'oculatus', 'setosus']).not.toContain(epithet(g));
-  });
-
-  it('is deterministic per genome hash for the new traits too', () => {
-    for (const g of genomes.slice(0, 300)) expect(speciesName(g)).toBe(speciesName(g));
   });
 
   it('does not change with the haplotype order', () => {

@@ -113,6 +113,7 @@ export function diversityReport(options: ReportOptions): string {
   });
   const invalid = creatures.filter((c) => bodyViolations(c.plan).length > 0).length;
   const rarities = creatures.map((c) => rarityOfTraits(c.traits));
+  const silhouettes = creatures.map((c) => silhouetteOf(c.plan));
   const vertices = creatures.map((c) => estimateVertices(c.plan, 'full'));
 
   const lines = [
@@ -133,16 +134,8 @@ export function diversityReport(options: ReportOptions): string {
       'Appendages',
       creatures.map((c) => c.plan.appendages.length),
     ),
-    ...histogram(
-      'Silhouettes',
-      creatures.map((c) => silhouetteOf(c.plan)),
-      SILHOUETTES,
-    ),
-    ...histogram(
-      'Genesis silhouettes',
-      creatures.slice(0, genesis.length).map((c) => silhouetteOf(c.plan)),
-      SILHOUETTES,
-    ),
+    ...histogram('Silhouettes', silhouettes, SILHOUETTES),
+    ...histogram('Genesis silhouettes', silhouettes.slice(0, genesis.length), SILHOUETTES),
     ...histogram(
       'Size tiers',
       creatures.map((c) => `T${sizeTier(c.stats.maxBiomass)}`),
