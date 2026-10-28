@@ -58,7 +58,7 @@ Presets (DESIGN §12, `src/render/presets.ts`; T1 pins them):
 | Preset | Pixel ratio | Post-processing | Particles | Budget (draw calls / triangles) |
 |--------|-------------|-----------------|-----------|---------------------------------|
 | Low | 1 | none (fake bokeh sprites only) | 30% | 80 / 150k |
-| Medium (default) | up to 1.5 | half-res DOF, bloom, grade | 100% | 150 / 300k |
+| Medium (default) | up to 1.5 | half-strength DOF, bloom, grade | 100% | 150 / 300k |
 | High | up to 2 | full DOF, bloom, chromatic aberration, grain | 150% | 250 / 600k |
 
 Creature vertex budgets per preset (ADR 0025, render only): high 12,000, medium 6,000, low 1,500.
@@ -163,16 +163,18 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `render/post/{plan,chain}.ts`, `bloom`/`post` shaders; the chain resets `renderer.info` each frame, clears targets in display values, and the Lab runs high with `{ samples: 4, lens: false }` (no vignette or aberration, which vary by cell position and broke the Lab's per-cell checks). `setFocus` waits for T3.
   - Gotcha: half-float blending doubles software-GL frame time (dsf 2 high ~150 ms), so the T1 runtime-switch E2E is split in two to stay under 20 s; the Lab budgets add `LAB_POST` (4 programs, 10 calls).
 
-- [ ] T3 Depth of field [opus]
+- [x] T3 Depth of field [opus]
   - Acceptance:
-    - `circleOfConfusion(z, focusZ, preset)` (pure) is 0 at the focus plane and grows linearly with distance, up to a cap: 6 px at half resolution on medium, 12 px at full resolution on high. Its tests pin the curve.
+    - `circleOfConfusion(z, focusZ, preset)` (pure) is 0 at the focus plane and grows linearly with distance, up to a cap: 6 px on medium (half strength), 12 px on high (full strength), at a pixel ratio of 1. Its tests pin the curve.
     - The focus plane follows the player's creature at the gameplay plane. Creatures, food and plumes on the plane stay sharp. The far and near particle layers are blurred by their depth into round bokeh discs; on high, bright discs get a chromatic fringe.
     - E2E (`m6-dof.spec.ts`), measured on decoded screenshots:
       - at medium and high, the player creature's edge contrast is within 10% of the same preset with DOF off (`?dof=0`, a test switch): it stays sharp;
       - a mid-layer speck off the focus plane covers at least 3× more pixels than with DOF off, and a far-layer bokeh disc's edge is softer (a wider 10–90% ramp);
-      - `render.info().passes` contains `'dof'` (half on medium, full on high).
+      - `render.info().passes` contains `'dof'`, and `render.info().dof` is `'half'` on medium and `'full'` on high.
     - Low keeps today's fake bokeh sprites and adds no pass.
   - Notes: ADR 0004 asks for CoC from depth. Gameplay is a plane with known layer depths, so a layered gather (blur the off-plane layers by their CoC) satisfies it at a fraction of the cost of a full-screen depth gather. Record the choice in the task note.
+  - Done: ADR 0027: each off-plane speck draws its own CoC (`post/dof.ts`, `particles.vert.glsl`; depth from parallax, marine snow ±0.2), so the DOF adds no target; half-res layer targets were built first and cost a third of a medium frame. Spec changed from half/full resolution to half/full strength.
+  - Gotcha: shaders animate on wall-clock time, so `timeScale(0)` now holds that clock too, or `render.specks()` and the screenshot disagree; `?dof=0` is the test switch.
 
 - [ ] T4 Auto-detect and adaptive resolution [opus]
   - Acceptance (unit tests first, on synthetic frame times):

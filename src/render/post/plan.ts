@@ -1,27 +1,38 @@
 // What the post chain does on each preset (M6 T2, ADR 0004), as plain data the chain and its tests
-// read. DOF joins the list in T3.
+// read. The depth of field (T3) draws the off-plane layers with their circle of confusion (`dof.ts`).
 
 import * as THREE from 'three';
 import { PRESETS, type PresetName } from '../presets';
+import { DOF_LOOK } from './dof';
 
-export type PostPass = 'scene' | 'bloom' | 'grade' | 'vignette' | 'grain' | 'chromatic';
+export type PostPass = 'scene' | 'dof' | 'bloom' | 'grade' | 'vignette' | 'grain' | 'chromatic';
 
 export interface PostPlan {
   /** In order; empty means the scene renders straight to the canvas. */
   passes: PostPass[];
   /** The first bloom mip's size relative to the scene target, and how many halvings follow it. */
   bloom: { scale: number; levels: number } | null;
+  /** The largest circle of confusion (pixels at a pixel ratio of 1) and whether discs get a fringe. */
+  dof: { maxPx: number; fringe: boolean } | null;
 }
 
 /** Bloom levels per preset: each one doubles the reach of the glow. */
 const BLOOM_LEVELS: Record<Exclude<PresetName, 'low'>, number> = { medium: 4, high: 5 };
 
-/** `lens: false` drops the vignette and the chromatic aberration, which depend on where in the frame a thing is. */
-export function postPlan(preset: PresetName, options: { lens?: boolean } = {}): PostPlan {
+/**
+ * `lens: false` drops the vignette and the chromatic aberration, which depend on where in the frame a
+ * thing is; `dof: false` (the `?dof=0` test switch) drops the depth of field.
+ */
+export function postPlan(
+  preset: PresetName,
+  options: { lens?: boolean; dof?: boolean } = {},
+): PostPlan {
   const p = PRESETS[preset];
   const lens = options.lens ?? true;
-  if (!p.bloom && !p.grade) return { passes: [], bloom: null };
+  if (!p.bloom && !p.grade) return { passes: [], bloom: null, dof: null };
   const passes: PostPass[] = ['scene'];
+  const dof = options.dof !== false && p.dof !== 'none';
+  if (dof) passes.push('dof');
   if (p.bloom) passes.push('bloom');
   if (p.grade) passes.push('grade');
   if (p.grade && lens) passes.push('vignette');
@@ -31,6 +42,12 @@ export function postPlan(preset: PresetName, options: { lens?: boolean } = {}): 
     passes,
     bloom: p.bloom
       ? { scale: 0.5, levels: BLOOM_LEVELS[preset as keyof typeof BLOOM_LEVELS] }
+      : null,
+    dof: dof
+      ? {
+          maxPx: DOF_LOOK.maxPx[preset as keyof typeof DOF_LOOK.maxPx],
+          fringe: p.chromaticAberration && lens,
+        }
       : null,
   };
 }

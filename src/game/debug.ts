@@ -1,7 +1,8 @@
 import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
-import type { RenderInfo } from '../render/scene';
+import type { Speck } from '../render/particles';
+import type { ParticleLayerName, RenderInfo } from '../render/scene';
 import type { PhysStats } from '../sim/body';
 import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
@@ -139,7 +140,12 @@ export interface BsHook {
   events(): Record<string, number>;
   /** Re-runs an input log in a fresh world and returns its final state hash. */
   replay(log: InputLog): { hash: string; events: Record<string, number> };
-  render: { info(): RenderInfo; fx(): FxState };
+  render: {
+    info(): RenderInfo;
+    fx(): FxState;
+    /** The specks of a particle layer as last drawn: on-screen position, size, depth and blur. */
+    specks(layer: ParticleLayerName): Speck[];
+  };
   life: {
     /** The DNA of the last genesis, recomputed from its beacon and commitment; null before one. */
     recompute(): Promise<{ round: number; commit: string; genomeHash: string } | null>;
@@ -196,7 +202,7 @@ export interface BsDebug {
   deliver(from: string, event: unknown): void;
   /** Whether the food item (`c3_5_s2_k0`) is in the field now. */
   hasFood(id: string): boolean;
-  /** Runs the sim this many times faster than real time. */
+  /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
 }
 

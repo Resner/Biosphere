@@ -14,6 +14,7 @@ if (canvas) {
     debug: params.has('debug'),
     genome: params.get('genome'),
     quality: qualityFromSearch(window.location.search),
+    dof: params.get('dof') !== '0',
   });
 }
 

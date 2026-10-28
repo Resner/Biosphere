@@ -1,13 +1,15 @@
 // The post chain (M6 T2, ADR 0004): the scene renders into a half-float target, then dual-filter
 // bloom, the grade, the vignette, film grain and chromatic aberration composite it onto the canvas.
 // Low renders straight to the canvas with no target. The DOM HUD sits above the canvas and is never
-// post-processed.
+// post-processed. The depth of field (T3, `dof.ts`) adds no pass of its own: the sprites off the focus
+// plane draw their circle of confusion themselves, with the uniforms `spriteDof` gives them.
 
 import * as THREE from 'three';
-import type { PresetName } from '../presets';
+import { type DofMode, PRESETS, type PresetName } from '../presets';
 import bloomFragment from '../shaders/bloom.frag.glsl?raw';
 import postFragment from '../shaders/post.frag.glsl?raw';
 import postVertex from '../shaders/post.vert.glsl?raw';
+import { DOF_LOOK } from './dof';
 import {
   bytesPerPixel,
   mipSizes,
@@ -25,6 +27,23 @@ export interface PostInfo {
   targetBytes: number;
   /** The scene target's share of the canvas resolution in each axis. */
   renderScale: number;
+  /** The depth of field in force: half (medium) or full strength (high), or none (low, `?dof=0`). */
+  dof: DofMode;
+}
+
+/** What a particle layer needs to draw its circle of confusion, in pixels of its own target. */
+export interface SpriteDof {
+  /** Target pixels per CSS pixel. */
+  pixels: number;
+  /** Target pixels per canvas pixel: below 1 when adaptive resolution (T4) shrinks the scene target. */
+  shrink: number;
+  /** The depth of the focus plane, in camera heights. */
+  focus: number;
+  /** CoC radius in target pixels per camera height off focus, and its cap; 0 without a DOF. */
+  slope: number;
+  max: number;
+  /** The chromatic fringe as a share of the CoC; 0 below high. */
+  fringe: number;
 }
 
 /** The look of the chain: tuned by eye against `docs/art/reference-01.jpg`. */
@@ -77,10 +96,12 @@ export class PostChain {
   private pixelRatio = 1;
   private renderScale = 1;
   private sceneTarget: THREE.WebGLRenderTarget | null = null;
+  private focus = 0;
   private mips: THREE.WebGLRenderTarget[] = [];
   private readonly type: THREE.TextureDataType;
   private readonly samples: number;
   private readonly lens: boolean;
+  private readonly dof: boolean;
   private readonly quadScene = new THREE.Scene();
   private readonly quadCamera = new THREE.Camera();
   private readonly geometry = new THREE.BufferGeometry();
@@ -97,17 +118,19 @@ export class PostChain {
   /**
    * `samples` multisamples the scene target. `lens: false` drops the vignette and the chromatic
    * aberration, which depend on where in the frame a thing is: the Lab's grid compares creatures
-   * cell by cell, so a corner cell must not look different from a central one.
+   * cell by cell, so a corner cell must not look different from a central one. `dof: false` (the
+   * `?dof=0` test switch) turns the depth of field off.
    */
   constructor(
     private readonly renderer: THREE.WebGLRenderer,
-    options: { samples?: number; lens?: boolean } = {},
+    options: { samples?: number; lens?: boolean; dof?: boolean } = {},
   ) {
     // The chain resets the counters once a frame, so they add up every pass.
     renderer.info.autoReset = false;
     this.type = targetType((name) => renderer.extensions.has(name));
     this.samples = options.samples ?? 0;
     this.lens = options.lens ?? true;
+    this.dof = options.dof ?? true;
     // One triangle that covers the screen: no seam down the diagonal, and a third fewer vertices.
     this.geometry.setAttribute(
       'position',
@@ -122,7 +145,7 @@ export class PostChain {
   setPreset(preset: PresetName): void {
     if (preset === this.preset) return;
     this.preset = preset;
-    this.plan = postPlan(preset, { lens: this.lens });
+    this.plan = postPlan(preset, { lens: this.lens, dof: this.dof });
     this.composite?.dispose();
     this.composite = this.plan.passes.length > 0 ? this.compositeMaterial() : null;
     this.rebuild();
@@ -143,6 +166,23 @@ export class PostChain {
     if (next === this.renderScale) return;
     this.renderScale = next;
     this.rebuild();
+  }
+
+  /** The depth of the focus plane, in camera heights (0: the gameplay plane). */
+  setFocus(z: number): void {
+    this.focus = z;
+  }
+
+  /** Fills `out` with how sprites draw their circle of confusion into the scene target. */
+  spriteDof(out: SpriteDof): SpriteDof {
+    const dof = this.plan.dof;
+    out.shrink = this.sceneTarget ? this.renderScale : 1;
+    out.pixels = this.pixelRatio * out.shrink;
+    out.focus = this.focus;
+    out.slope = dof ? DOF_LOOK.slope * out.pixels : 0;
+    out.max = dof ? dof.maxPx * out.pixels : 0;
+    out.fringe = dof?.fringe ? DOF_LOOK.fringe : 0;
+    return out;
   }
 
   render(scene: THREE.Scene, camera: THREE.Camera): void {
@@ -209,6 +249,7 @@ export class PostChain {
       targets: (this.sceneTarget ? 1 : 0) + this.mips.length,
       targetBytes,
       renderScale: this.renderScale,
+      dof: this.plan.dof && this.preset ? PRESETS[this.preset].dof : 'none',
     };
   }
 

@@ -8,8 +8,8 @@ import type { CreatureViewState } from './creature-view';
 import type { Ring } from './effects';
 import { FoodLayer } from './food';
 import { PlumeLayer } from './hazards';
-import { ParticleLayer } from './particles';
-import { PostChain, type PostInfo } from './post/chain';
+import { ParticleLayer, type Speck } from './particles';
+import { PostChain, type PostInfo, type SpriteDof } from './post/chain';
 import { PRESETS, type PresetName, pixelRatio } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
@@ -56,6 +56,14 @@ export interface RenderInfo extends PostInfo {
   memory: { geometries: number; textures: number };
 }
 
+/** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
+const PLANE_DEPTH = 0;
+
+export type ParticleLayerName = 'far' | 'mid' | 'near';
+
+/** Marine snow lies up to this far (camera heights) above and below the plane. */
+const MID_SPREAD = 0.2;
+
 const ORDER = {
   water: 0,
   far: 1,
@@ -94,25 +102,36 @@ export class GameScene {
   private readonly rings = new RingLayer();
   private readonly remotes: RemoteLayer;
   private readonly post: PostChain;
+  private readonly sprites: SpriteDof = {
+    pixels: 1,
+    shrink: 1,
+    focus: 0,
+    slope: 0,
+    max: 0,
+    fringe: 0,
+  };
   private cssWidth = 1;
   private cssHeight = 1;
   private half = 1;
   private preset: PresetName = 'medium';
   private readonly onResize = () => this.resize();
 
+  /** `dof: false` is the `?dof=0` test switch: every preset draws without its depth of field. */
   constructor(
     private readonly canvas: HTMLCanvasElement,
     worldSize: number,
+    options: { dof?: boolean } = {},
   ) {
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
     this.renderer.setClearColor(0x04090b);
-    this.post = new PostChain(this.renderer);
+    this.post = new PostChain(this.renderer, { dof: options.dof ?? true });
     this.post.setPreset(this.preset);
 
     this.remotes = new RemoteLayer(this.scene, ORDER.cell - 0.1);
     this.body = new BodyLayer(this.scene, ORDER.cell + 0.5);
     this.water = new Water(worldSize);
-    // Fake depth of field until M6: big soft bokeh far below and near above the plane.
+    // Big bokeh far below and near above the plane, and marine snow on and around it: low draws them
+    // as they are, the depth of field (T3) blurs each speck by its depth.
     this.far = new ParticleLayer(290, 11, {
       size: 16,
       period: 640,
@@ -128,6 +147,7 @@ export class GameScene {
       opacity: 0.7,
       bokeh: 0,
       parallax: 1,
+      spread: MID_SPREAD,
     });
     this.near = new ParticleLayer(60, 37, {
       size: 42,
@@ -219,11 +239,11 @@ export class GameScene {
     camera.updateProjectionMatrix();
 
     this.water.update(view, halfWidth);
-    // Point sizes are in device pixels.
-    const pxPerWu = this.pxPerWu * this.renderer.getPixelRatio();
-    this.far.update(view, pxPerWu);
-    this.mid.update(view, pxPerWu);
-    this.near.update(view, pxPerWu);
+    this.post.setFocus(PLANE_DEPTH);
+    const sprites = this.post.spriteDof(this.sprites);
+    this.far.update(view, this.pxPerWu, sprites);
+    this.mid.update(view, this.pxPerWu, sprites);
+    this.near.update(view, this.pxPerWu, sprites);
     this.plumes.update(view.time);
     this.food.update(view.time);
     this.cell.update(this.drawBody(view) ? null : view.creature, view.time);
@@ -267,6 +287,11 @@ export class GameScene {
       memory: { geometries: memory.geometries, textures: memory.textures },
       ...this.post.info(),
     };
+  }
+
+  /** The specks of a particle layer as last drawn, for tests. */
+  specks(layer: ParticleLayerName): Speck[] {
+    return this[layer].specks(this.pxPerWu, this.cssWidth, this.cssHeight);
   }
 
   /** Runs `frame` once per display frame until `stop()`. */

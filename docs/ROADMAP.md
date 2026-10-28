@@ -109,7 +109,7 @@ The breeding loop with real players. It proves heredity is fun and readable.
 Beautiful and smooth within browser budgets (ADR 0004). The owner judges the creature look before the factory moves on.
 
 - Presets low, medium and high with budgets, auto-detect and adaptive resolution.
-- Post chain (half-res DOF with CoC, bloom, grade, vignette, grain, chromatic aberration).
+- Post chain (DOF with CoC, bloom, grade, vignette, grain, chromatic aberration).
 - Depth zones from deterministic bathymetry: light, fog and food by zone; UV and pressure hazards tied to tolerance genes.
 - Caustics, god rays, marine snow v2. Membrane, chitin and iridescence materials. Bioluminescence and dark-zone vision.
 - Procedural Web Audio: depth ambience and effects for every event; volume, mute and reduced-motion settings.

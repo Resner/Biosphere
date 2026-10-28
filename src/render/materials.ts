@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { MaterialParams } from './material-params';
+import { depthOfParallax } from './post/dof';
 import cellFragment from './shaders/cell.frag.glsl?raw';
 import cellVertex from './shaders/cell.vert.glsl?raw';
 import creatureFragment from './shaders/creature.frag.glsl?raw';
@@ -16,6 +17,9 @@ import plumeVertex from './shaders/plume.vert.glsl?raw';
 import ringsFragment from './shaders/rings.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
+
+/** The largest sprite in canvas pixels: big discs cost fill, and some GPUs cap point sizes there. */
+export const MAX_SPRITE_PX = 256;
 
 /** Every layer is ordered by `renderOrder` alone: no depth test, no depth write. */
 function layer(
@@ -124,6 +128,8 @@ export interface ParticleStyle {
   period: number;
   /** How much of the camera motion the layer follows; above 1 sits in front of the plane. */
   parallax: number;
+  /** Specks lie up to this far (camera heights) either side of the layer's depth; default 0. */
+  spread?: number;
 }
 
 export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
@@ -133,13 +139,19 @@ export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
     {
       uCam: { value: new THREE.Vector2() },
       uPeriod: { value: style.period },
-      uParallax: { value: style.parallax },
+      uDepth: { value: depthOfParallax(style.parallax) },
+      uSpread: { value: style.spread ?? 0 },
       uTime: { value: 0 },
       uSize: { value: style.size },
       uPxPerWu: { value: 1 },
+      uMaxSize: { value: MAX_SPRITE_PX },
       uColor: { value: new THREE.Color(style.color) },
       uOpacity: { value: style.opacity },
       uBokeh: { value: style.bokeh },
+      uFocus: { value: 0 },
+      uCocSlope: { value: 0 },
+      uCocMax: { value: 0 },
+      uFringe: { value: 0 },
     },
     { blending: THREE.AdditiveBlending },
   );

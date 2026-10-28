@@ -94,6 +94,8 @@ export interface GameParams {
   genome?: string | null;
   /** `?quality=`: a preset for this visit that beats the stored setting and is never written. */
   quality?: PresetName | null;
+  /** `?dof=0`: a test switch that draws every preset without its depth of field. */
+  dof?: boolean;
 }
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
@@ -212,7 +214,7 @@ const INSPECT_MIN_PX = 24;
 
 /** Starts the title screen; the player hatches into the same scene. */
 export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
-  const scene = new GameScene(canvas, RULES.world.size);
+  const scene = new GameScene(canvas, RULES.world.size, { dof: params.dof ?? true });
   const camera = new FollowCamera();
   const controller = new InputController();
   const hud = new Hud();
@@ -1172,6 +1174,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   let lastMs = performance.now();
+  /** Wall-clock time spent with the world frozen (`timeScale(0)`), which the animation clock skips. */
+  let heldMs = 0;
   const view = {
     time: 0,
     camX: 0,
@@ -1220,6 +1224,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const now = performance.now();
     const elapsed = (now - lastMs) / 1000;
     const dt = Math.min(elapsed, MAX_FRAME_SECONDS);
+    if (scale === 0) heldMs += now - lastMs;
     lastMs = now;
 
     cell.x = lerp(prev.x, player.x, alpha);
@@ -1230,7 +1235,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     cell.beat = beat;
 
     camera.update(dt, { x: cell.x, y: cell.y, radius: cell.radius });
-    view.time = now / 1000;
+    // Shaders animate on wall-clock time; a frozen world holds still, so `render.specks` matches a shot.
+    view.time = (now - heldMs) / 1000;
     view.camX = camera.x;
     view.camY = camera.y;
     view.halfHeight = camera.halfHeight;
@@ -1543,6 +1549,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     },
     render: {
       info: () => scene.info(),
+      specks: (layer) => scene.specks(layer),
       fx: () => ({
         ...fx.snapshot(),
         halfHeight: camera.halfHeight,
