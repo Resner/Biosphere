@@ -230,7 +230,8 @@
   resize: vertical;
 }
 
-.lab-error {
+.lab-error,
+.gallery-error {
   color: #ff8a80;
 }
 
@@ -245,4 +246,33 @@
     border-left: 0;
     border-top: 1px solid rgb(127 163 156 / 0.25);
   }
+}
+
+/* The look-pass gallery (M6 T5): one fixed sheet, captured by `npm run gallery`. */
+.gallery {
+  position: relative;
+  overflow: hidden;
+  background: var(--water);
+}
+
+.gallery canvas {
+  display: block;
+}
+
+.gallery-label {
+  position: absolute;
+  margin: 0;
+  overflow: hidden;
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 28px;
+  text-align: center;
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.gallery-error {
+  position: absolute;
+  inset: 1rem;
+  margin: 0;
 }
