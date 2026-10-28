@@ -455,7 +455,7 @@ function radialParts(traits: Traits, segments: PlanSegment[], sweep: number): Pa
   const all = buildParts(traits, segments);
   let keep = Math.min(all.length, D.radial.maxPairs);
   let parts = ring(all.slice(0, keep), segments, sweep);
-  while (!fits(count, parts)) parts = ring(all.slice(0, --keep), segments, sweep);
+  while (keep > 0 && !fits(count, parts)) parts = ring(all.slice(0, --keep), segments, sweep);
   if (2 * motileArea(parts) >= D.minThrustArea) return parts;
   const band = Array.from({ length: D.band.pairs }, (_, j) => bandPart(0, 0, j));
   for (keep = Math.min(keep, D.radial.maxPairs - D.band.pairs); keep > 0; keep--) {
@@ -512,7 +512,7 @@ function buildCarapace(segments: PlanSegment[], fusion: number, plating: number)
   ry *= grow;
   const centre = placeOn(axis, cu, cv);
   const room = D.caps.bounds - D.boundsSlack - hypot(centre.x, centre.y);
-  const fit = Math.min(1, room / Math.max(rx, ry));
+  const fit = clamp(room / Math.max(rx, ry), D.epsilon, 1);
   return {
     count,
     x: centre.x,
