@@ -48,7 +48,7 @@ export const CHAMBERS = { min: 3, max: 14 } as const;
 /** How much the count follows the genetic maximum size; the metabolism takes the rest. */
 const SIZE_SHARE = 0.65;
 /** Points along the gut line, and the share of the spine it spans. */
-export const GUT_POINTS = 24;
+const GUT_POINTS = 24;
 const GUT_FROM = 0.1;
 const GUT_TO = 0.9;
 /** The gut's radius and the stomach's swelling (× the gut), centred somewhere in this span of the gut, this wide. */
@@ -149,12 +149,7 @@ function intoHull(plan: BodyPlan, x: number, y: number): { x: number; y: number 
   return { x: x + (best.x - x) * t, y: y + (best.y - y) * t };
 }
 
-/** The body's scale: the radius of a disc as large as its segments together. */
-const scaleOf = (plan: BodyPlan): number =>
-  sqrt(plan.segments.reduce((a, s) => a + s.rx * s.ry, 0));
-
-function gutOf(plan: BodyPlan, rng: Rng, scale: number): GutPoint[] {
-  const line = centreLine(plan.segments);
+function gutOf(plan: BodyPlan, line: Line, rng: Rng, scale: number): GutPoint[] {
   const stomach = rng.range(STOMACH_AT[0], STOMACH_AT[1]);
   const out: GutPoint[] = [];
   for (let i = 0; i < GUT_POINTS; i++) {
@@ -232,11 +227,24 @@ function samplePoint(plan: BodyPlan, rng: Rng, total: number): { x: number; y: n
  * position, so two genomes with one plan still differ inside.
  */
 export function anatomyOf(plan: BodyPlan, traits: Traits, genomeHash: string): Anatomy {
+  const hit = memo.get(plan);
+  if (hit && hit.hash === genomeHash) return hit.anatomy;
+  const anatomy = placeOrgans(plan, traits, genomeHash);
+  memo.set(plan, { hash: genomeHash, anatomy });
+  return anatomy;
+}
+
+/** The last result per plan: every level of detail and the Lab ask for the same organs. */
+const memo = new WeakMap<BodyPlan, { hash: string; anatomy: Anatomy }>();
+
+function placeOrgans(plan: BodyPlan, traits: Traits, genomeHash: string): Anatomy {
   if (plan.segments.length === 0) return NO_ANATOMY;
   const rng = createRng(seedFromString(genomeHash), 'anatomy');
-  const scale = scaleOf(plan);
-  const gut = gutOf(plan, rng, scale);
+  const total = plan.segments.reduce((a, s) => a + s.rx * s.ry, 0);
+  /** The body's scale: the radius of a disc as large as its segments together. */
+  const scale = sqrt(total);
   const line = centreLine(plan.segments);
+  const gut = gutOf(plan, line, rng, scale);
 
   const fixed: Organ[] = [];
   const heart = rng.next() < 0.5;
@@ -271,7 +279,6 @@ export function anatomyOf(plan: BodyPlan, traits: Traits, genomeHash: string): A
       r: size * spread * (droplet ? DROPLET : 1),
     };
   });
-  const total = plan.segments.reduce((a, s) => a + s.rx * s.ry, 0);
   let shrink = 1;
   for (let round = 0; ; round++) {
     const placed: Organ[] = [...fixed];
