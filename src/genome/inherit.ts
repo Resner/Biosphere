@@ -65,7 +65,6 @@ const CHROMOSOMES: readonly (readonly (typeof LOCI)[number][])[] = Array.from(
 );
 
 const QUANT = LOCI.filter((l) => l.kind === 'quant');
-const MODULES = MODULE_LOCI;
 
 /** How many crossovers one chromosome gets, from the probabilities in `RULES.genetics`. */
 function crossoverCount(rng: Rng): number {
@@ -76,6 +75,16 @@ function crossoverCount(rng: Rng): number {
     if (u < acc) return i;
   }
   return G.crossovers.length - 1;
+}
+
+/** Copies `size` bytes at `from` out of a parent haplotype; bytes past a v1 parent's own length read 0. */
+function copyBytes(
+  out: number[],
+  source: ArrayLike<number> | undefined,
+  from: number,
+  size: number,
+): void {
+  for (let k = 0; k < size; k++) out[from + k] = source?.[from + k] ?? 0;
 }
 
 /**
@@ -95,12 +104,8 @@ export function meiosis(parent: Genome, rng: Rng): number[] {
       let flips = 0;
       for (const cut of cuts) if (cut <= j) flips++;
       const source = parent.haplotypes[(start + flips) & 1]?.alleles;
-      const copy = (from: number, size: number): void => {
-        for (let k = 0; k < size; k++)
-          out[from + k] = (source?.[from + k] as number | undefined) ?? 0;
-      };
-      copy(locus.offset, locus.size);
-      if (locus.kind === 'module') copy(locus.ext, MODULE_EXT_BYTES);
+      copyBytes(out, source, locus.offset, locus.size);
+      if (locus.kind === 'module') copyBytes(out, source, locus.ext, MODULE_EXT_BYTES);
     });
   }
   return out;
@@ -169,15 +174,15 @@ export function applyMutation(h: number[], kind: MutationKind, rng: Rng): boolea
       return true;
     }
     case 'paramDrift': {
-      const slots = MODULES.filter((m) => present(h, m));
+      const slots = MODULE_LOCI.filter((m) => present(h, m));
       if (slots.length === 0) return false;
       const at = pickOf(rng, slotBytes(pickOf(rng, slots)));
       h[at] = clampByte((h[at] as number) + step(rng));
       return true;
     }
     case 'moduleDuplicate': {
-      const from = pickOf(rng, MODULES);
-      const to = pickOf(rng, MODULES);
+      const from = pickOf(rng, MODULE_LOCI);
+      const to = pickOf(rng, MODULE_LOCI);
       if (!present(h, from) || present(h, to)) return false;
       h[to.offset] = 1;
       const source = slotBytes(from);
@@ -187,7 +192,7 @@ export function applyMutation(h: number[], kind: MutationKind, rng: Rng): boolea
       return true;
     }
     case 'moduleDelete': {
-      const slot = pickOf(rng, MODULES);
+      const slot = pickOf(rng, MODULE_LOCI);
       if (!present(h, slot)) return false;
       h[slot.offset] = 0;
       for (const at of slotBytes(slot)) h[at] = 0;

@@ -5,6 +5,7 @@
 // as it did under v1. Changing the layout is a new karyotype version; the old table stays.
 
 import {
+  HAPLOTYPE_BYTES_V1,
   LOCI_V1,
   type LoadLocus,
   type MendelLocus,
@@ -22,11 +23,11 @@ export {
   type QuantLocus,
 } from './karyotype-v1';
 
-export const KARYOTYPE_VERSION = 2;
+export const KARYOTYPE_VERSION = 2 as const;
 
 /** The karyotype that births and genesis write under a rules version: v1 up to rules 5, v2 from 6. */
 export function karyotypeForRules(rules: number): 1 | 2 {
-  return rules <= 5 ? 1 : 2;
+  return rules <= 5 ? 1 : KARYOTYPE_VERSION;
 }
 
 /** The body-shape loci, appended to chromosome 1 in this order (ADR 0025: curve, tagmata, fusion, symmetry, eyes). */
@@ -62,16 +63,14 @@ export interface ModuleLocus extends ModuleLocusV1 {
 
 export type Locus = QuantLocus | MendelLocus | LoadLocus | ModuleLocus;
 
-const V1_BYTES = LOCI_V1.reduce((n, l) => n + l.size, 0);
-
 function layout(): readonly Locus[] {
-  const extStart = V1_BYTES + SHAPE_LOCI.length;
+  const extStart = HAPLOTYPE_BYTES_V1 + SHAPE_LOCI.length;
   let slot = 0;
   const v1 = LOCI_V1.map(
     (l): Locus => (l.kind === 'module' ? { ...l, ext: extStart + MODULE_EXT_BYTES * slot++ } : l),
   );
   const shape = SHAPE_LOCI.map(
-    (id, i): QuantLocus => ({ kind: 'quant', id, chr: 1, offset: V1_BYTES + i, size: 1 }),
+    (id, i): QuantLocus => ({ kind: 'quant', id, chr: 1, offset: HAPLOTYPE_BYTES_V1 + i, size: 1 }),
   );
   return [...v1, ...shape];
 }
@@ -83,6 +82,6 @@ export const LOAD_LOCI: readonly LoadLocus[] = LOCI.filter((l) => l.kind === 'lo
 export const MODULE_LOCI: readonly ModuleLocus[] = LOCI.filter((l) => l.kind === 'module');
 
 export const HAPLOTYPE_BYTES: number =
-  V1_BYTES + SHAPE_LOCI.length + MODULE_LOCI.length * MODULE_EXT_BYTES;
+  HAPLOTYPE_BYTES_V1 + SHAPE_LOCI.length + MODULE_LOCI.length * MODULE_EXT_BYTES;
 /** Two haplotypes, back to back. */
 export const GENOME_BYTES: number = 2 * HAPLOTYPE_BYTES;

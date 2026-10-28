@@ -24,10 +24,9 @@ export function offspringPair(
   b: Genome,
   rules: number = RULES_VERSION,
 ): { children: [Genome, Genome]; slots: [number, number] } {
-  const child = (slot: number): Genome => {
-    const seed = offspringSeed(randomness, commitId, slot);
-    return karyotypeForRules(rules) === 1 ? breedV5(a, b, seed) : breed(a, b, seed);
-  };
+  const breedWith = karyotypeForRules(rules) === 1 ? breedV5 : breed;
+  const child = (slot: number): Genome =>
+    breedWith(a, b, offspringSeed(randomness, commitId, slot));
   const first = child(0);
   const firstHash = genomeHash(first);
   let slot = 1;
