@@ -142,6 +142,58 @@ export const PART_STALK = 8;
 export const partKind = (aPart: number): number => aPart % PART_KINDS;
 export const partId = (aPart: number): number => Math.floor(aPart / PART_KINDS);
 
+/**
+ * How a vertex moves (`aMotion.x`, M6 T11; `gait.ts` has the motion): with the body (rigid on a
+ * bilateral body, pulsing on a radial bell), or turning about its part's root as a beating part,
+ * an antenna, a wing or a bell's tentacle.
+ */
+export const MOTION_RIGID = 0;
+export const MOTION_BEAT = 1;
+export const MOTION_ANTENNA = 2;
+export const MOTION_WING = 3;
+export const MOTION_TENTACLE = 4;
+export const MOTION_BELL = 5;
+/** The beat phase between the legs of neighbouring segments (radians): a metachronal wave from the rear forward. */
+export const METACHRONAL = 0.9;
+/** A part turns as if it reached at most this far from its root: longer parts turn less, so none sweeps further. */
+export const PART_REACH = 0.7;
+/** A part pointing within this angle of forward is an antenna. */
+const ANTENNA_CONE = PI / 3;
+
+/** One part's (or the body's) `aFrame` and `aMotion`: the spine normal, the root, the motion class, phase offset, side × gain and rowing share. */
+interface Motion {
+  spineX: number;
+  spineY: number;
+  rootX: number;
+  rootY: number;
+  motion: number;
+  offset: number;
+  gain: number;
+  row: number;
+}
+
+const bodyMotion = (plan: BodyPlan, st: Station): Motion => ({
+  spineX: st.nx,
+  spineY: st.ny,
+  rootX: 0,
+  rootY: 0,
+  motion: plan.form.radial ? MOTION_BELL : MOTION_RIGID,
+  offset: 0,
+  gain: 0,
+  row: 0,
+});
+
+const NO_MOTION: Motion = {
+  spineX: 0,
+  spineY: 1,
+  rootX: 0,
+  rootY: 0,
+  motion: MOTION_RIGID,
+  offset: 0,
+  gain: 0,
+  row: 0,
+};
+
 /** Vertex and index buffers, or only a vertex count when `counting`. */
 class Mesh {
   readonly position: number[] = [];
@@ -150,6 +202,12 @@ class Mesh {
   readonly attach: number[] = [];
   readonly weight: number[] = [];
   readonly part: number[] = [];
+  readonly frame: number[] = [];
+  readonly motion: number[] = [];
+  readonly flutter: number[] = [];
+  /** How the next vertices move, and a bristle vertex's distance along its bristle. */
+  gait: Motion = NO_MOTION;
+  flutterAt = 0;
   /** Triangles of closed surfaces, then those of flat sheets drawn from both sides. */
   readonly index: number[] = [];
   readonly sheets: number[] = [];
@@ -177,6 +235,10 @@ class Mesh {
       this.attach.push(attach);
       this.weight.push(weight);
       this.part.push(part);
+      const g = this.gait;
+      this.frame.push(g.spineX, g.spineY, g.rootX, g.rootY);
+      this.motion.push(g.motion, g.offset, g.gain, g.row);
+      this.flutter.push(this.flutterAt);
     }
     return this.count++;
   }
@@ -380,13 +442,13 @@ function widthAt(
 /** The loft rings, whose centres are where parts find the spine share they hang from. */
 type Spine = readonly Station[];
 
-/** The spine share of the loft ring centred nearest to `(x, y)`. */
-function nearestShare(spine: Spine, x: number, y: number): number {
-  let best = 0;
+/** The loft ring centred nearest to `(x, y)`: the spine share a part there hangs from. */
+function nearestStation(spine: Spine, x: number, y: number): Station {
+  let best = spine[0] as Station;
   let near = Number.POSITIVE_INFINITY;
   for (const st of spine) {
     const d = hypot(st.x - x, st.y - y);
-    if (d < near) [near, best] = [d, st.s];
+    if (d < near) [near, best] = [d, st];
   }
   return best;
 }
@@ -463,6 +525,7 @@ function addBody(m: Mesh, plan: BodyPlan, rings: readonly Station[], d: MeshDeta
   const mouthReach = plan.mouth.radius * 0.5;
   const first = m.count;
   for (const st of rings) {
+    m.gait = bodyMotion(plan, st);
     const depth = (BODY_DEPTH * (st.left + st.right)) / 2;
     const plate = plan.plates.find((p) => p.segment === st.seg);
     const mouth = st.from <= mouthReach;
@@ -501,7 +564,9 @@ function addShell(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
     const a = -c.rx * cos((PI * k) / (rings - 1));
     const half = c.ry * sqrt(max(0, 1 - (a / c.rx) * (a / c.rx)));
     const [x, y] = [c.x + fx * a, c.y + fy * a];
-    const s = nearestShare(spine, x, y);
+    const st = nearestStation(spine, x, y);
+    const s = st.s;
+    m.gait = bodyMotion(plan, st);
     for (let j = 0; j < ring; j++) {
       const phi = (TAU * j) / ring;
       const across = half * cos(phi);
@@ -646,12 +711,45 @@ function addBall(
   }
 }
 
-/** Where part `a` leaves its segment, the way it grows, and the spine share it hangs from. */
-function rootFrame(plan: BodyPlan, spine: Spine, a: Appendage) {
+/**
+ * Where part `a` leaves its segment, the way it grows, the spine share it hangs from, and how it
+ * moves: a radial body's parts are tentacles, a webbed part (or one a membrane spans to) a wing, a
+ * part pointing forward an antenna, and any other part beats, rowing as far as it stands out to
+ * the side and whipping as far as it lies along the spine. Legs of one module beat `METACHRONAL`
+ * apart per segment. The gain is the part's beat; `fitReach` lowers it for long parts.
+ */
+function rootFrame(plan: BodyPlan, spine: Spine, a: Appendage, webbed: boolean) {
   const s = plan.segments[a.segment] as PlanSegment;
   const root = rootOf(s, a.angle, a.side);
   const dir = dirOf(s, a);
-  return { root, heading: atan2(dir.y, dir.x), attach: nearestShare(spine, root.x, root.y) };
+  const st = nearestStation(spine, root.x, root.y);
+  // The spine's forward at the root is its left normal turned back a right angle.
+  const [fx, fy] = [st.ny, -st.nx];
+  const rel = atan2(fx * dir.y - fy * dir.x, fx * dir.x + fy * dir.y);
+  const motion = plan.form.radial
+    ? MOTION_TENTACLE
+    : webbed
+      ? MOTION_WING
+      : abs(rel) < ANTENNA_CONE
+        ? MOTION_ANTENNA
+        : MOTION_BEAT;
+  const offset =
+    motion === MOTION_BEAT
+      ? TAU * a.phase - METACHRONAL * a.segment
+      : motion === MOTION_ANTENNA
+        ? TAU * a.phase
+        : 0;
+  const gait: Motion = {
+    spineX: st.nx,
+    spineY: st.ny,
+    rootX: root.x,
+    rootY: root.y,
+    motion,
+    offset,
+    gain: a.side * (0.2 + 0.8 * clamp(a.beat, 0, 1)),
+    row: motion === MOTION_BEAT ? abs(sin(rel)) : 0,
+  };
+  return { root, heading: atan2(dir.y, dir.x), attach: st.s, gait };
 }
 
 function addAppendage(
@@ -664,6 +762,7 @@ function addAppendage(
   d: MeshDetail,
 ): void {
   const { root, heading, attach } = frame;
+  m.gait = frame.gait;
   const part = id * PART_KINDS + PART_APPENDAGE;
   const radius = a.width / 2;
   // The tip cap counts toward the part's length, so no part reaches past what development allowed.
@@ -806,6 +905,7 @@ function addSetae(
       -ahead + sqrt(max(0, ahead * ahead - (at.x * at.x + at.y * at.y - BOUNDS * BOUNDS)));
     const len = max(0, min(a.setaeLength, room));
     const point = (share: number, half: number, v: number): number => {
+      m.flutterAt = len * share;
       const i = m.vertex(
         at.x + dx * len * share + nx * half,
         at.y + dy * len * share + ny * half,
@@ -834,6 +934,7 @@ function addSetae(
       m.sheet(l0, r0, tip);
     }
   }
+  m.flutterAt = 0;
 }
 
 /**
@@ -844,9 +945,11 @@ function addMembrane(
   m: Mesh,
   plan: BodyPlan,
   sheet: Membrane,
-  attach: number,
+  frame: ReturnType<typeof rootFrame>,
   d: MeshDetail,
 ): void {
+  const { attach } = frame;
+  m.gait = frame.gait;
   const owner = plan.appendages[sheet.part] as Appendage;
   const part = (sheet.part + 1) * PART_KINDS + PART_MEMBRANE;
   const pts = sheet.points;
@@ -891,7 +994,9 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
   const e = plan.eyes;
   if (e.count < 2) return;
   const head = plan.segments[0] as PlanSegment;
-  const attach = nearestShare(spine, e.x, e.y);
+  const st = nearestStation(spine, e.x, e.y);
+  const attach = st.s;
+  m.gait = bodyMotion(plan, st);
   const gait = { spine: attach, attach, weight: 0, part: PART_EYE };
   for (const side of [1, -1] as const) {
     const [x, y] = [e.x, side * e.y];
@@ -919,16 +1024,53 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
 
 function addCreature(m: Mesh, plan: BodyPlan, d: MeshDetail): void {
   const spine = stations(plan, centreLine(plan.segments), d);
-  const frames = plan.appendages.map((a) => rootFrame(plan, spine, a));
+  const webbed = new Set(plan.membranes.flatMap((sheet) => [sheet.part, sheet.to]));
+  const frames = plan.appendages.map((a, i) =>
+    rootFrame(plan, spine, a, a.webbing > 0 || webbed.has(i)),
+  );
   // Draw order (one draw call, no depth test): membranes, parts and bristles, the body, the shell, the eyes.
-  for (const sheet of plan.membranes)
-    addMembrane(m, plan, sheet, frames[sheet.part]?.attach ?? 0, d);
+  for (const sheet of plan.membranes) {
+    const frame = frames[sheet.part];
+    if (frame) addMembrane(m, plan, sheet, frame, d);
+  }
   plan.appendages.forEach((a, i) => {
     addAppendage(m, plan, spine, a, frames[i] as ReturnType<typeof rootFrame>, i + 1, d);
   });
+  m.gait = NO_MOTION;
   addBody(m, plan, spine, d);
   addShell(m, plan, spine, d);
   addEyes(m, plan, spine, d);
+}
+
+/**
+ * Scales each part's gain so it turns as if it reached `PART_REACH` at most: a long part sweeps no
+ * further than a short one. Wings share the smallest gain, so a membrane moves with the parts it
+ * spans between.
+ */
+function fitReach(m: Mesh): void {
+  const reach = new Map<number, number>();
+  const n = m.count;
+  for (let i = 0; i < n; i++) {
+    const id = partId(m.part[i] as number);
+    if (id === 0) continue;
+    const dx = (m.position[i * 3] as number) - (m.frame[i * 4 + 2] as number);
+    const dy = (m.position[i * 3 + 1] as number) - (m.frame[i * 4 + 3] as number);
+    const dz = m.position[i * 3 + 2] as number;
+    reach.set(id, max(reach.get(id) ?? 0, hypot(dx, dy, dz)));
+  }
+  const scale = (id: number): number => min(1, PART_REACH / max(reach.get(id) ?? 0, 1e-9));
+  let wing = Number.POSITIVE_INFINITY;
+  for (let i = 0; i < n; i++) {
+    if (m.motion[i * 4] !== MOTION_WING) continue;
+    wing = min(wing, abs(m.motion[i * 4 + 2] as number) * scale(partId(m.part[i] as number)));
+  }
+  for (let i = 0; i < n; i++) {
+    const id = partId(m.part[i] as number);
+    if (id === 0) continue;
+    const k = i * 4 + 2;
+    const gain = m.motion[k] as number;
+    m.motion[k] = m.motion[i * 4] === MOTION_WING ? Math.sign(gain) * wing : gain * scale(id);
+  }
 }
 
 /** The vertices `plan` takes at one rung of detail. */
@@ -974,10 +1116,14 @@ export function estimateVertices(plan: BodyPlan, lod: Lod): number {
   return fit(plan, lod).count;
 }
 
-/** One indexed geometry for the whole creature. Attributes: position, normal, uv, aSpine, aAttach, aWeight, aPart. */
+/**
+ * One indexed geometry for the whole creature. Attributes: position, normal, uv, aSpine, aAttach,
+ * aWeight, aPart, and the motion's aFrame, aMotion and aFlutter (`gait.ts`).
+ */
 export function buildCreatureGeometry(plan: BodyPlan, lod: Lod): THREE.BufferGeometry {
   const m = new Mesh(false);
   addCreature(m, plan, meshDetail(plan, lod));
+  fitReach(m);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(m.position, 3));
   g.setAttribute('uv', new THREE.Float32BufferAttribute(m.uv, 2));
@@ -985,6 +1131,9 @@ export function buildCreatureGeometry(plan: BodyPlan, lod: Lod): THREE.BufferGeo
   g.setAttribute('aAttach', new THREE.Float32BufferAttribute(m.attach, 1));
   g.setAttribute('aWeight', new THREE.Float32BufferAttribute(m.weight, 1));
   g.setAttribute('aPart', new THREE.Float32BufferAttribute(m.part, 1));
+  g.setAttribute('aFrame', new THREE.Float32BufferAttribute(m.frame, 4));
+  g.setAttribute('aMotion', new THREE.Float32BufferAttribute(m.motion, 4));
+  g.setAttribute('aFlutter', new THREE.Float32BufferAttribute(m.flutter, 1));
   // Normals from the closed surfaces and one side of each sheet; sheets and bristles keep their own.
   g.setIndex([...m.index, ...m.sheets]);
   g.computeVertexNormals();

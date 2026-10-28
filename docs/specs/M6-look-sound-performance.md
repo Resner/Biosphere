@@ -292,7 +292,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `creature-mesh.ts` lofts the body on a Catmull-Rom spine and steps down per-LOD ladders (`LOD_BUDGET`, `meshDetail`) without dropping parts; development caps parts by count only; setae fan from the part's chord and flip away from the body; `render.info()` gains `lod` and `vertices`.
   - Gotcha: the T9 copepod has no antennae and its bulb stubs read as bubble clusters (look-pass gaps, T14); the `post` project depends on every other project, so run the spec with `--project post --no-deps`.
 
-- [ ] T11 Motion v2: flexible bodies [opus]
+- [x] T11 Motion v2: flexible bodies [opus]
   - Acceptance (unit tests first, on the CPU reference in `gait.ts`):
     - The travelling wave runs along the curved spine, so a worm undulates and a coil breathes. Legs row in a metachronal wave (phase offset per segment). A radial bell pulses by contracting and recovering, with its tentacles lagging. Wings beat in a slow flap-and-glide cycle.
     - Secondary motion:
@@ -302,6 +302,8 @@ A look pass never starts before the tasks it judges are ticked.
     - **No part detaches**: over 500 plans at 8 phases (the size of today's gait test), every appendage vertex's distance to its attach point stays within its rest distance × 1.15. The wave phase is integrated from speed (ADR 0018).
     - E2E in the Lab (`debug.pause`, `advance`, so nothing else moves): two frames 0.25 s apart differ inside a specimen's appendage box (a mean absolute difference of at least 2 levels) and are equal outside every creature.
   - Notes: the owner called v1 creatures "rigid". Motion is half of looking alive, so check a short screen capture of each gallery class by eye.
+  - Done: parts turn about their roots (`aFrame`, `aMotion`, `aFlutter`; classes beat, antenna, wing, tentacle, bell in `creature-mesh.ts`), so none can stretch; long parts' gain is scaled to `PART_REACH` and the phase wraps at 4 beats (`GAIT_WRAP`); `uTurn` trails turns in `CreatureView`; `m6-motion.spec.ts`.
+  - Gotcha: "equal outside every creature" allows 1 level (the bloom's widest mip spreads glow across the Lab), with ≥ 99% of pixels exact; a paused Lab now holds the grain (`PostChain.still`).
 
 - [ ] T12 Inner anatomy [opus]
   - Acceptance (unit tests first):
