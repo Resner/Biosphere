@@ -35,19 +35,17 @@ try {
     ...SPECIMEN_TIERS.map((t) => [`tier-${t}`, take(findTier(t, seed, taken))]),
   ];
   const dir = new URL('../tests/fixtures/gallery/', import.meta.url);
-  wanted.forEach(([what, found], i) => {
-    if (!found) {
-      process.stderr.write(`no specimen found for ${what}\n`);
-      process.exitCode = 1;
-      return;
-    }
-    const { name, text } = specimenFile(from + i, what, found.genome, seed);
-    process.stdout.write(`${name} (candidate ${found.tried})\n`);
-    if (!write) return;
-    const file = new URL(name, dir);
-    if (existsSync(file)) throw new Error(`${name} exists: specimens never replace one (ADR 0024)`);
-    writeFileSync(file, text);
-  });
+  // Check everything first, so a run never leaves a half-written set.
+  const missing = wanted.filter(([, found]) => !found).map(([what]) => what);
+  if (missing.length > 0) throw new Error(`no specimen found for ${missing.join(', ')}`);
+  const files = wanted.map(([what, found], i) => specimenFile(from + i, what, found.genome, seed));
+  const clash = files.filter(({ name }) => existsSync(new URL(name, dir)));
+  if (write && clash.length > 0)
+    throw new Error(`${clash[0].name} exists: specimens never replace one (ADR 0024)`);
+  for (const { name, text } of files) {
+    process.stdout.write(`${name}\n`);
+    if (write) writeFileSync(new URL(name, dir), text);
+  }
 } finally {
   await server.close();
 }

@@ -540,6 +540,7 @@ A look pass never starts before the tasks it judges are ticked.
       - `.claude/rules/genome.md` gains karyotype v2 and the v1 equivalence rule;
       - `.claude/rules/tests.md` gains the M6 hooks and hub ports;
       - `docs/art/README.md` links the gallery passes.
+    - Freeze v6 genesis before the release: copy `genesis.ts` and its form table to `genesis-v6.ts` (rarity reads the table), with a golden, and make `genesisFor` pick by `rules` (T9 left it free to change).
   - Notes: this task adds the scenario and the sync only. The milestone step sets ROADMAP status and opens the Playtest issue with the owner checks below.
 
 ## End-to-end check
