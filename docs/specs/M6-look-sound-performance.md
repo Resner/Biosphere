@@ -353,7 +353,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-1.{png,md}`; clear shells (flatter loft `BODY_DEPTH` 0.65, darker face, steeper and brighter rim), a lip for the mouth, organs clustered on the midline, legs lit through.
   - Gotcha: the top three gaps (tiny trunk segments behind a unit core, short parts, radial bodies) are development, not look tuning; pass 2 needs a body-proportion task first.
 
-- [x] T14b Body proportions (pass 1 gaps 1 to 3) [opus] (in progress)
+- [x] T14b Body proportions (pass 1 gaps 1 to 3) [opus]
   - Added by T14: look pass 1 found that the three biggest gaps against references 02–05 are development, not look (`docs/art/gallery/pass-1.md`, "Largest gaps"). Development v2 is still unreleased (rules version 6), so the change fits here.
   - Acceptance:
     - Trunk and tail segments carry the body: the median trunk segment radius over the 12 gallery specimens is at least 0.5 of the core radius (pass 1: 0.1–0.2), by shrinking the head or widening the reach, not by raising the body bound (`RULES.body.maxReach` stays).
