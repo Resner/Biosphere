@@ -264,7 +264,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: appendages gain `webbing`, `setae`, `setaeLength`, `bulb`, `chela`, `beads` and the plan convex `membranes` (`RULES.develop.detail`, `RULES.stats.v2.{web,setae,bulb,chela,beads}`); `silhouetteOf` in `genome/silhouette.ts`, shown in the Lab inspector; archetypes gain winged and setose plus a `sense` metric (setose's niche).
   - Gotcha: a sheet's push grows with (size ÷ 16,384)^0.5, steeper than a paddle, or winged out-rows the swimmer and coiled everywhere; v1 and T7 cost properties now run on bare parts (webs and the setae cap move with layout), fine parts have their own.
 
-- [ ] T9 Genesis spread, rarity, names and the specimen set
+- [ ] T9 Genesis spread, rarity, names and the specimen set (in progress)
   - Acceptance (unit tests first):
     - **Genesis** (ADR 0025, under rules version 6 only; v5 genesis stays frozen for verifying old records, T6): every genesis plan has one body unit and at most 3 module slots present. Over 1,000 seeds, at least 4 silhouette classes appear and none takes more than 40%. Rare alleles keep their DESIGN frequencies. The median top speed stays within ±15% of v5's (a test pins the band).
     - **Wild variety**: the Lab's wild mode (24 cells) shows at least 8 silhouette classes for 9 of 10 seeds.
