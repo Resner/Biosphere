@@ -102,6 +102,7 @@ export class PostChain {
   private readonly samples: number;
   private readonly lens: boolean;
   private readonly dof: boolean;
+  private readonly still: boolean;
   private readonly quadScene = new THREE.Scene();
   private readonly quadCamera = new THREE.Camera();
   private readonly geometry = new THREE.BufferGeometry();
@@ -119,11 +120,12 @@ export class PostChain {
    * `samples` multisamples the scene target. `lens: false` drops the vignette and the chromatic
    * aberration, which depend on where in the frame a thing is: the Lab's grid compares creatures
    * cell by cell, so a corner cell must not look different from a central one. `dof: false` (the
-   * `?dof=0` test switch) turns the depth of field off.
+   * `?dof=0` test switch) turns the depth of field off. `still: true` keeps the film grain's pattern
+   * from frame to frame, so the gallery (T5) gives the same picture however many frames it draws.
    */
   constructor(
     private readonly renderer: THREE.WebGLRenderer,
-    options: { samples?: number; lens?: boolean; dof?: boolean } = {},
+    options: { samples?: number; lens?: boolean; dof?: boolean; still?: boolean } = {},
   ) {
     // The chain resets the counters once a frame, so they add up every pass.
     renderer.info.autoReset = false;
@@ -131,6 +133,7 @@ export class PostChain {
     this.samples = options.samples ?? 0;
     this.lens = options.lens ?? true;
     this.dof = options.dof ?? true;
+    this.still = options.still ?? false;
     // One triangle that covers the screen: no seam down the diagonal, and a third fewer vertices.
     this.geometry.setAttribute(
       'position',
@@ -236,7 +239,7 @@ export class PostChain {
       (u.tScene as THREE.IUniform).value = target.texture;
       (u.tBloom as THREE.IUniform).value = first ? first.texture : null;
       (u.uAspect as THREE.IUniform).value = this.width / this.height;
-      this.frame = (this.frame + 1) % 4096;
+      if (!this.still) this.frame = (this.frame + 1) % 4096;
       (u.uSeed as THREE.IUniform).value = this.frame * 17.31;
       this.quad.material = composite;
       r.setRenderTarget(null);

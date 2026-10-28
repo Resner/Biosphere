@@ -191,7 +191,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `post/benchmark.ts`, `post/adaptive.ts` and `game/auto-quality.ts` (when to run, `bs.bench` per GPU); `state().quality` shows the result. Low has no scene target, so its scale shrinks the canvas's backing store (and `pixelRatio`).
   - Gotcha: a stored result counts even under automation (the reload E2E relies on it); each step empties the 2 s window, so stepping up takes 7 s after a step down. Frame intervals are vsync-capped: on a locked 60 Hz display the benchmark reads medium and the scale never steps up (the owner's 60 fps check decides whether T26 needs GPU-time measurement).
 
-- [ ] T5 Gallery tool and the baseline pass [opus] (in progress)
+- [x] T5 Gallery tool and the baseline pass [opus] (in progress)
   - Acceptance (as ADR 0024 decides):
     - `lab.html?gallery=1` draws the specimens from `tests/fixtures/gallery/*.hex` with:
       - a fixed camera, a 1600×1000 viewport at pixel ratio 1 and the high preset;
@@ -202,6 +202,8 @@ A look pass never starts before the tasks it judges are ticked.
     - `docs/art/gallery/pass-0.png` and `pass-0.md` are committed. The note holds the ADR 0024 gap table: aspects × references 02–05, each cell 0–3 with a sentence. It is honest: the baseline is expected to score mostly 3. A "Largest gaps" list follows, which T6–T13 address.
     - A unit test parses every `pass-*.md` and fails on a missing cell, a value outside 0–3 or a missing "Largest gaps" list.
   - Notes: open each reference image and the sheet side by side before writing the table; never score from memory. Specimens added later extend the set and never replace one (ADR 0024).
+  - Done: `lab/gallery{,-page}.ts` draw the sheet once (`window.__gallery`; gait stepped to 0.6 s at load instead of `debug.advance`, grain held by `PostChain({ still })`); `tools/gallery{,-capture}.mjs` build, serve and capture; `tools/gallery-notes.ts` checks every `pass-*.md`; the 20 baseline files are pinned by hash. Pass 0 scores 3 everywhere except palette vs 04/05 and lighting vs 02/03 (2).
+  - Gotcha: the layout maximises the shared core radius, so 20 specimens sit 7×3 (36 still give 9×4); every cell keeps room for a 2.5-radius body, so compact v1 bodies look small.
 
 ### Creature overhaul (#90)
 
