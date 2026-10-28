@@ -13,6 +13,7 @@ import { type Silhouette, silhouetteOf } from '../genome/silhouette';
 import { buildCreature, type Creature } from '../genome/stats';
 import { anatomyOf } from '../render/anatomy';
 import { estimateVertices } from '../render/creature-mesh';
+import { glintPlanOf } from '../render/surface';
 import { createRng, type Seed, seedFromString } from '../sim/prng';
 import { sizeTier } from '../sim/size';
 
@@ -54,6 +55,7 @@ export function specimenOf(genome: Genome): Specimen {
       creature.plan,
       'high',
       anatomyOf(creature.plan, creature.traits, creature.hash),
+      glintPlanOf(creature),
     ),
     lines: describeCreature(creature),
     violations: bodyViolations(creature.plan),

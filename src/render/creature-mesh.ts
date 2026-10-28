@@ -16,10 +16,12 @@ import {
   rootOf,
 } from '../genome/develop';
 import { clamp } from '../sim/math';
+import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { type Anatomy, CHAMBERS, NO_ANATOMY, type OrganKind } from './anatomy';
 import type { PresetName } from './presets';
 import { along, centreLine, type Line } from './spine';
+import { MAX_GLINTS } from './surface';
 
 const { cos, sin, sqrt, atan2, hypot, abs, min, max, PI } = Math;
 const TAU = 2 * PI;
@@ -119,6 +121,10 @@ export const ORGAN_RESERVE: Readonly<Record<Lod, number>> = {
   medium: organVertices('medium', 3 + CHAMBERS.max, true),
   low: organVertices('low', 3 + CHAMBERS.max, true),
 };
+/** Every level keeps room for the most glints (M6 T13): one quad each. */
+export const GLINT_RESERVE = 4 * MAX_GLINTS;
+/** Glints sit at least this far apart (core radii), so each reads as its own star. */
+export const GLINT_GAP = 0.18;
 /** An organ ball is this flat; the gut this flat. */
 const ORGAN_DEPTH = 0.5;
 
@@ -172,6 +178,8 @@ export const PART_CHAMBER = 10;
 export const PART_DROPLET = 11;
 export const PART_HEART = 12;
 export const PART_PIGMENT = 13;
+/** A rare glint (M6 T13): a star quad over a joint or an organ, drawn last. */
+export const PART_GLINT = 14;
 export const ORGAN_KINDS: readonly number[] = [
   PART_GUT,
   PART_CHAMBER,
@@ -251,6 +259,8 @@ class Mesh {
   /** Triangles of closed surfaces, then those of flat sheets drawn from both sides. */
   readonly index: number[] = [];
   readonly sheets: number[] = [];
+  /** Glint quads, drawn after everything else. */
+  readonly glints: number[] = [];
   /** Vertices whose normal is set, not computed: [vertex, x, y, z]. */
   readonly fixed: number[] = [];
   count = 0;
@@ -289,6 +299,10 @@ class Mesh {
 
   sheet(a: number, b: number, c: number): void {
     if (!this.counting) this.sheets.push(a, b, c);
+  }
+
+  glint(a: number, b: number, c: number): void {
+    if (!this.counting) this.glints.push(a, b, c);
   }
 
   normal(v: number, x: number, y: number, z: number): void {
@@ -693,7 +707,38 @@ function rootFrame(plan: BodyPlan, spine: Spine, a: Appendage, webbed: boolean) 
     gain: a.side * (0.2 + 0.8 * clamp(a.beat, 0, 1)),
     row: motion === MOTION_BEAT ? abs(sin(rel)) : 0,
   };
-  return { root, heading: atan2(dir.y, dir.x), attach: st.s, gait };
+  return { attach: st.s, gait };
+}
+
+/**
+ * A part's main tube: its path from the root (the tip cap beyond it), its radius and cap. The cap
+ * counts toward the part's length, so no part reaches past what development allowed. A tube
+ * cannot bend tighter than its own radius, or its inside folds over itself; a webbed part
+ * straightens toward the rays its membrane spans.
+ */
+function partPath(plan: BodyPlan, a: Appendage) {
+  const s = plan.segments[a.segment] as PlanSegment;
+  const root = rootOf(s, a.angle, a.side);
+  const dir = dirOf(s, a);
+  const radius = a.width / 2;
+  const cap = min(radius * (1 - a.taper) * (CAP_BLUNT + CAP_SHARP * a.tip), CAP_SHARE * a.length);
+  const length = a.length - cap;
+  const fold = (FOLD * length) / radius;
+  const bend = clamp(a.curvature * CURVE * (1 - a.webbing), -fold, fold);
+  const path: Path = {
+    x0: root.x,
+    y0: root.y,
+    heading: atan2(dir.y, dir.x),
+    turn: a.side * bend,
+    len: length,
+  };
+  return { path, radius, cap, length };
+}
+
+/** The point at share `t` (0 root, 1 the end of the tube before its cap) along part `a`'s main tube. */
+export function partPoint(plan: BodyPlan, a: Appendage, t: number): { x: number; y: number } {
+  const at = pathAt(partPath(plan, a).path, t);
+  return { x: at.x, y: at.y };
 }
 
 function addAppendage(
@@ -705,18 +750,10 @@ function addAppendage(
   id: number,
   d: MeshDetail,
 ): void {
-  const { root, heading, attach } = frame;
+  const { attach } = frame;
   m.gait = frame.gait;
   const part = id * PART_KINDS + PART_APPENDAGE;
-  const radius = a.width / 2;
-  // The tip cap counts toward the part's length, so no part reaches past what development allowed.
-  const cap = min(radius * (1 - a.taper) * (CAP_BLUNT + CAP_SHARP * a.tip), CAP_SHARE * a.length);
-  const length = a.length - cap;
-  // A tube cannot bend tighter than its own radius, or its inside folds over itself; a webbed part
-  // straightens toward the rays its membrane spans.
-  const fold = (FOLD * length) / radius;
-  const bend = clamp(a.curvature * CURVE * (1 - a.webbing), -fold, fold);
-  const path: Path = { x0: root.x, y0: root.y, heading, turn: a.side * bend, len: length };
+  const { path, radius, cap, length } = partPath(plan, a);
   const rings = d.jointRings > 0 ? a.joints * d.jointRings + 1 : 2;
   const bead = 1 + max(JOINT_BEAD, a.beads);
   const joint = (i: number): boolean =>
@@ -1022,12 +1059,113 @@ function addOrgans(m: Mesh, plan: BodyPlan, spine: Spine, anatomy: Anatomy, o: O
   }
 }
 
+/** How many rare glints a body carries (`glintsFor`), how large (core radii), and the genome hash that places them. */
+export interface GlintPlan {
+  count: number;
+  size: number;
+  seed: string;
+}
+
+export const NO_GLINT_PLAN: GlintPlan = { count: 0, size: 0, seed: '' };
+
+/** Where a glint sits: on part `part` (-1: an organ) at share `t` of its main tube (its `aWeight`). */
+export interface GlintSpot {
+  x: number;
+  y: number;
+  part: number;
+  t: number;
+}
+
+/**
+ * Up to `count` glints of a body (M6 T13), seeded by `seed`: on its organs (not the eye pigment) and
+ * on the joints of its parts' main tubes, in a shuffled order, each at least `GLINT_GAP` from those
+ * before it. Fewer glints are the first of more, so a rarer tier only adds to them.
+ */
+export function glintSpots(
+  plan: BodyPlan,
+  anatomy: Anatomy,
+  count: number,
+  seed: string,
+): GlintSpot[] {
+  if (count <= 0) return [];
+  const candidates: GlintSpot[] = anatomy.organs
+    .filter((o) => o.kind !== 'pigment')
+    .map((o) => ({ x: o.x, y: o.y, part: -1, t: 0 }));
+  plan.appendages.forEach((a, part) => {
+    const { path } = partPath(plan, a);
+    for (let i = 1; i <= a.joints; i++) {
+      const t = i / a.joints;
+      const at = pathAt(path, t);
+      candidates.push({ x: at.x, y: at.y, part, t });
+    }
+  });
+  const rng = createRng(seedFromString(seed), 'glints');
+  for (let i = candidates.length - 1; i > 0; i--) {
+    const j = rng.int(0, i);
+    [candidates[i], candidates[j]] = [candidates[j] as GlintSpot, candidates[i] as GlintSpot];
+  }
+  const spots: GlintSpot[] = [];
+  for (const c of candidates) {
+    if (spots.length >= count) break;
+    if (spots.every((s) => hypot(s.x - c.x, s.y - c.y) >= GLINT_GAP)) spots.push(c);
+  }
+  return spots;
+}
+
+/**
+ * The glints as flat quads `size` core radii from their centre to each side. Each rides what it sits
+ * on: an organ's glint the body where it lies, a joint's glint its part at the joint's weight. The
+ * quad's uv runs 0..1 across it, plus 2 per glint in v, so the shader can tell them apart.
+ */
+function addGlints(
+  m: Mesh,
+  plan: BodyPlan,
+  spine: Spine,
+  spots: readonly GlintSpot[],
+  size: number,
+  frames: readonly ReturnType<typeof rootFrame>[],
+): void {
+  spots.forEach((s, k) => {
+    const frame = s.part >= 0 ? frames[s.part] : undefined;
+    let attach: number;
+    if (frame) {
+      m.gait = frame.gait;
+      attach = frame.attach;
+    } else {
+      const st = nearestStation(spine, s.x, s.y);
+      m.gait = bodyMotion(plan, st);
+      attach = st.s;
+    }
+    const part = (s.part + 1) * PART_KINDS + PART_GLINT;
+    const corner = (u: number, v: number): number => {
+      const i = m.vertex(
+        s.x + (2 * u - 1) * size,
+        s.y + (2 * v - 1) * size,
+        0,
+        u,
+        v + 2 * k,
+        attach,
+        attach,
+        s.t,
+        part,
+      );
+      m.normal(i, 0, 0, 1);
+      return i;
+    };
+    const [a, b, c, d] = [corner(0, 0), corner(1, 0), corner(1, 1), corner(0, 1)];
+    m.glint(a, b, c);
+    m.glint(a, c, d);
+  });
+  m.gait = NO_MOTION;
+}
+
 function addCreature(
   m: Mesh,
   plan: BodyPlan,
   d: MeshDetail,
   anatomy: Anatomy = NO_ANATOMY,
   organs: OrganDetail = ORGAN_DETAIL.high,
+  glints: GlintPlan = NO_GLINT_PLAN,
 ): void {
   const spine = stations(plan, centreLine(plan.segments), d);
   const webbed = new Set(plan.membranes.flatMap((sheet) => [sheet.part, sheet.to]));
@@ -1048,6 +1186,14 @@ function addCreature(
   addOrgans(m, plan, spine, anatomy, organs);
   addShell(m, plan, spine, d);
   addEyes(m, plan, spine, d);
+  addGlints(
+    m,
+    plan,
+    spine,
+    glintSpots(plan, anatomy, glints.count, glints.seed),
+    glints.size,
+    frames,
+  );
 }
 
 /**
@@ -1060,7 +1206,8 @@ function fitReach(m: Mesh): void {
   const n = m.count;
   for (let i = 0; i < n; i++) {
     const id = partId(m.part[i] as number);
-    if (id === 0) continue;
+    // A glint rides its part but is not part of its reach.
+    if (id === 0 || partKind(m.part[i] as number) === PART_GLINT) continue;
     const dx = (m.position[i * 3] as number) - (m.frame[i * 4 + 2] as number);
     const dy = (m.position[i * 3 + 1] as number) - (m.frame[i * 4 + 3] as number);
     const dz = m.position[i * 3 + 2] as number;
@@ -1088,7 +1235,7 @@ export function countVertices(plan: BodyPlan, detail: MeshDetail): number {
   return m.count;
 }
 
-/** The richest detail that keeps `plan` within its level's budget, less the organs' reserve. */
+/** The richest detail that keeps `plan` within its level's budget, less the organs' and glints' reserves. */
 export function meshDetail(plan: BodyPlan, lod: Lod): MeshDetail {
   return fit(plan, lod).detail;
 }
@@ -1111,7 +1258,7 @@ function fit(plan: BodyPlan, lod: Lod): Fit {
 
 function search(plan: BodyPlan, lod: Lod): Fit {
   const ladder = FALLBACK[lod];
-  const budget = LOD_BUDGET[lod] - ORGAN_RESERVE[lod];
+  const budget = LOD_BUDGET[lod] - ORGAN_RESERVE[lod] - GLINT_RESERVE;
   let count = 0;
   for (const detail of ladder) {
     count = countVertices(plan, detail);
@@ -1120,13 +1267,22 @@ function search(plan: BodyPlan, lod: Lod): Fit {
   return { detail: ladder[ladder.length - 1] as MeshDetail, count };
 }
 
-/** The vertices `buildCreatureGeometry(plan, lod, anatomy)` makes. */
-export function estimateVertices(plan: BodyPlan, lod: Lod, anatomy: Anatomy = NO_ANATOMY): number {
-  return fit(plan, lod).count + organVertices(lod, anatomy.organs.length, anatomy.gut.length >= 2);
+/** The vertices `buildCreatureGeometry(plan, lod, anatomy, glints)` makes. */
+export function estimateVertices(
+  plan: BodyPlan,
+  lod: Lod,
+  anatomy: Anatomy = NO_ANATOMY,
+  glints: GlintPlan = NO_GLINT_PLAN,
+): number {
+  return (
+    fit(plan, lod).count +
+    organVertices(lod, anatomy.organs.length, anatomy.gut.length >= 2) +
+    4 * glintSpots(plan, anatomy, glints.count, glints.seed).length
+  );
 }
 
 /**
- * One indexed geometry for the whole creature, its organs (`anatomyOf`) included. Attributes:
+ * One indexed geometry for the whole creature, its organs (`anatomyOf`) and rare glints included. Attributes:
  * position, normal, uv, aSpine, aAttach, aWeight, aPart, and the motion's aFrame, aMotion and
  * aFlutter (`gait.ts`).
  */
@@ -1134,9 +1290,10 @@ export function buildCreatureGeometry(
   plan: BodyPlan,
   lod: Lod,
   anatomy: Anatomy = NO_ANATOMY,
+  glints: GlintPlan = NO_GLINT_PLAN,
 ): THREE.BufferGeometry {
   const m = new Mesh(false);
-  addCreature(m, plan, meshDetail(plan, lod), anatomy, ORGAN_DETAIL[lod]);
+  addCreature(m, plan, meshDetail(plan, lod), anatomy, ORGAN_DETAIL[lod], glints);
   fitReach(m);
   const g = new THREE.BufferGeometry();
   g.setAttribute('position', new THREE.Float32BufferAttribute(m.position, 3));
@@ -1148,8 +1305,8 @@ export function buildCreatureGeometry(
   g.setAttribute('aFrame', new THREE.Float32BufferAttribute(m.frame, 4));
   g.setAttribute('aMotion', new THREE.Float32BufferAttribute(m.motion, 4));
   g.setAttribute('aFlutter', new THREE.Float32BufferAttribute(m.flutter, 1));
-  // Normals from the closed surfaces and one side of each sheet; sheets and bristles keep their own.
-  g.setIndex([...m.index, ...m.sheets]);
+  // Normals from the closed surfaces and one side of each sheet; sheets, bristles and glints keep their own.
+  g.setIndex([...m.index, ...m.sheets, ...m.glints]);
   g.computeVertexNormals();
   const normal = g.getAttribute('normal') as THREE.BufferAttribute;
   for (let k = 0; k < m.fixed.length; k += 4) {
@@ -1165,7 +1322,8 @@ export function buildCreatureGeometry(
   for (let k = 0; k < m.sheets.length; k += 3) {
     back.push(m.sheets[k] as number, m.sheets[k + 2] as number, m.sheets[k + 1] as number);
   }
-  g.setIndex([...m.index, ...m.sheets, ...back]);
+  // The glints last, over everything.
+  g.setIndex([...m.index, ...m.sheets, ...back, ...m.glints]);
   g.computeBoundingSphere();
   return g;
 }

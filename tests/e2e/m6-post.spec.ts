@@ -16,8 +16,8 @@ const bs = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.in
 // Independent of the code: what the M6 spec lists for each preset.
 const PASSES: Record<PresetName, string[]> = {
   low: [],
-  medium: ['scene', 'dof', 'bloom', 'grade', 'vignette'],
-  high: ['scene', 'dof', 'bloom', 'grade', 'vignette', 'grain', 'chromatic'],
+  medium: ['scene', 'refraction', 'dof', 'bloom', 'grade', 'vignette'],
+  high: ['scene', 'refraction', 'dof', 'bloom', 'grade', 'vignette', 'grain', 'chromatic'],
 };
 const BLOOM_LEVELS: Record<PresetName, number> = { low: 0, medium: 4, high: 5 };
 
@@ -195,8 +195,9 @@ test('each preset runs its passes within its budget, and low renders with no tar
       expect(info.targets).toBe(0);
       expect(info.targetBytes).toBe(0);
     } else {
-      // The scene target and one per bloom level.
-      expect(info.targets).toBe(1 + BLOOM_LEVELS[preset]);
+      // The scene target, the half-resolution backdrop copy the glass refracts (T13) and one per
+      // bloom level.
+      expect(info.targets).toBe(2 + BLOOM_LEVELS[preset]);
       expect(info.targetBytes).toBeGreaterThan(0);
     }
   }
@@ -213,7 +214,7 @@ test('the counters add up every pass, and targets are freed on a preset round tr
   const low = await bs(page);
   // Bloom draws a prefilter, its downs and ups, then the composite: two per level.
   expect(medium.calls).toBeGreaterThanOrEqual(low.calls + 2 * BLOOM_LEVELS.medium);
-  expect(low.memory.textures).toBe(medium.memory.textures - (1 + BLOOM_LEVELS.medium));
+  expect(low.memory.textures).toBe(medium.memory.textures - (2 + BLOOM_LEVELS.medium));
 
   await choose(page, 'medium');
   const back = await bs(page);

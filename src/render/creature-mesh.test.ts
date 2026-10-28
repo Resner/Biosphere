@@ -19,6 +19,8 @@ import {
   buildCreatureGeometry,
   countVertices,
   estimateVertices,
+  GLINT_GAP,
+  glintSpots,
   LOD_BUDGET,
   LOD_LADDER,
   type Lod,
@@ -33,6 +35,7 @@ import {
   PART_CHAMBER,
   PART_DROPLET,
   PART_EYE,
+  PART_GLINT,
   PART_GUT,
   PART_HEART,
   PART_KINDS,
@@ -44,9 +47,11 @@ import {
   PART_SHELL,
   partId,
   partKind,
+  partPoint,
 } from './creature-mesh';
 import fragmentShader from './shaders/creature.frag.glsl?raw';
 import vertexShader from './shaders/creature.vert.glsl?raw';
+import { glintsFor, MAX_GLINTS } from './surface';
 
 const D = RULES.develop;
 const LODS: Lod[] = ['high', 'medium', 'low'];
@@ -520,6 +525,123 @@ describe('buildCreatureGeometry v2: the inner anatomy', () => {
       }
     }
   }, 60_000);
+});
+
+describe('buildCreatureGeometry v2: rare glints (M6 T13)', () => {
+  const exotic = { ...glintsFor('exotic', 1), seed: 'glint-seed' };
+  const hashOf = (g: Genome): string => genomeHash(g);
+
+  /** Where glints may sit: organ centres (not the eye pigment) and the joints of each part's main tube. */
+  const candidates = (p: BodyPlan, a: Anatomy) => {
+    const out = a.organs.filter((o) => o.kind !== 'pigment').map((o) => ({ x: o.x, y: o.y }));
+    p.appendages.forEach((part) => {
+      for (let i = 1; i <= part.joints; i++) out.push(partPoint(p, part, i / part.joints));
+    });
+    return out;
+  };
+
+  it('places the glints on joints and organs, apart from each other, deterministic per seed', () => {
+    let full = 0;
+    for (const genome of [...gallery.values(), ...randoms.slice(0, 200)]) {
+      const p = planOf(genome);
+      const inner = anatomyFor(genome);
+      const seed = hashOf(genome);
+      const spots = glintSpots(p, inner, MAX_GLINTS, seed);
+      expect(spots).toEqual(glintSpots(p, inner, MAX_GLINTS, seed));
+      expect(spots.length).toBeLessThanOrEqual(MAX_GLINTS);
+      if (spots.length === MAX_GLINTS) full++;
+      const where = candidates(p, inner);
+      for (const s of spots) {
+        expect(where.some((c) => Math.hypot(c.x - s.x, c.y - s.y) < 1e-9)).toBe(true);
+        if (s.part >= 0) expect(s.part).toBeLessThan(p.appendages.length);
+      }
+      for (let i = 0; i < spots.length; i++) {
+        for (let j = i + 1; j < spots.length; j++) {
+          const [a, b] = [spots[i], spots[j]] as [(typeof spots)[0], (typeof spots)[0]];
+          expect(Math.hypot(a.x - b.x, a.y - b.y)).toBeGreaterThanOrEqual(GLINT_GAP - 1e-9);
+        }
+      }
+      // Fewer glints are the first of more, so a rarer relative only adds to them.
+      expect(glintSpots(p, inner, 3, seed)).toEqual(spots.slice(0, 3));
+      expect(glintSpots(p, inner, 0, seed)).toEqual([]);
+    }
+    // Most bodies have room for the exotic's full count.
+    expect(full).toBeGreaterThan(100);
+    const g = gallery.values().next().value as Genome;
+    expect(glintSpots(planOf(g), anatomyFor(g), 8, 'a')).not.toEqual(
+      glintSpots(planOf(g), anatomyFor(g), 8, 'b'),
+    );
+  });
+
+  it('draws each glint as one quad of its own part kind, last, within every budget', () => {
+    expect(PART_GLINT).toBeLessThan(PART_KINDS);
+    expect(fragmentShader).toMatch(new RegExp(`const int PART_GLINT = ${PART_GLINT};`));
+    for (const genome of [...named, ...randoms.slice(0, 100)]) {
+      const p = planOf(genome);
+      const inner = anatomyFor(genome);
+      const glints = { ...exotic, seed: hashOf(genome) };
+      const spots = glintSpots(p, inner, glints.count, glints.seed);
+      for (const lod of LODS) {
+        const geometry = buildCreatureGeometry(p, lod, inner, glints);
+        const part = attr(geometry, 'aPart');
+        const count = part.length;
+        expect(count).toBe(estimateVertices(p, lod, inner, glints));
+        expect(count).toBe(estimateVertices(p, lod, inner) + 4 * spots.length);
+        expect(count, lod).toBeLessThanOrEqual(LOD_BUDGET[lod]);
+        const index = indexOf(geometry);
+        const glinted = (t: number) => partKind(part[index[t] as number] as number) === PART_GLINT;
+        let first = -1;
+        for (let t = 0; t < index.length; t += 3) {
+          if (glinted(t) && first < 0) first = t;
+          if (first >= 0) expect(glinted(t)).toBe(true);
+        }
+        if (spots.length > 0) expect((index.length - first) / 3).toBe(2 * spots.length);
+        // A glint on a part rides that part: its id, root and weight; one on an organ rides the body.
+        const position = attr(geometry, 'position');
+        const weight = attr(geometry, 'aWeight');
+        const motion = attr(geometry, 'aMotion');
+        const quads: number[] = [];
+        for (let i = 0; i < count; i++)
+          if (partKind(part[i] as number) === PART_GLINT) quads.push(i);
+        expect(quads.length).toBe(4 * spots.length);
+        spots.forEach((s, k) => {
+          const quad = quads.slice(4 * k, 4 * k + 4);
+          const mean = (axis: number) =>
+            quad.reduce((sum, i) => sum + (position[i * 3 + axis] as number), 0) / 4;
+          expect(mean(0)).toBeCloseTo(s.x, 6);
+          expect(mean(1)).toBeCloseTo(s.y, 6);
+          for (const i of quad) {
+            expect(Math.abs((position[i * 3] as number) - s.x)).toBeCloseTo(glints.size, 6);
+            expect(partId(part[i] as number)).toBe(s.part + 1);
+            if (s.part < 0) {
+              expect(weight[i]).toBe(0);
+              expect(motion[i * 4]).toBe(p.form.radial ? MOTION_BELL : MOTION_RIGID);
+            } else expect(weight[i]).toBeCloseTo(s.t, 6);
+          }
+        });
+        geometry.dispose();
+      }
+    }
+  }, 60_000);
+
+  it("keeps the glints out of a part's reach, so the part moves as without them", () => {
+    const genome = specimen('36-specimen-tier-exotic');
+    const p = planOf(genome);
+    const inner = anatomyFor(genome);
+    const bare = buildCreatureGeometry(p, 'high', inner);
+    const glinted = buildCreatureGeometry(p, 'high', inner, { ...exotic, seed: hashOf(genome) });
+    const gains = (g: Geometry) => {
+      const part = attr(g, 'aPart');
+      const motion = attr(g, 'aMotion');
+      const out = new Map<number, number>();
+      for (let i = 0; i < part.length; i++) {
+        if (partKind(part[i] as number) === PART_APPENDAGE)
+          out.set(partId(part[i] as number), motion[i * 4 + 2] as number);
+      }
+      return out;
+    };
+    expect(gains(glinted)).toEqual(gains(bare));
+  });
 });
 
 describe('buildCreatureGeometry v2: parts and fine detail', () => {
