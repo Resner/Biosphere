@@ -366,7 +366,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### The world in depth
 
-- [ ] T15 Rules v6: bathymetry, zones, food and hazards
+- [ ] T15 Rules v6: bathymetry, zones, food and hazards (in progress)
   - Acceptance (unit tests first, sim math only, deterministic in Node and Chromium):
     - **Bathymetry**: `depthAt(seed, x, y)` is smooth fractal noise with a feature wavelength of about 2,048 wu (not periodic), shaped around the world centre, which is every pond's spawn centre. The zones are shallows below 0.25, twilight up to 0.55, deep up to 0.8 and abyss above that.
       - A disc of 1,400 wu around the centre is twilight, which holds the whole spawn ring (300 + 40 × 23 = 1,220 wu).
