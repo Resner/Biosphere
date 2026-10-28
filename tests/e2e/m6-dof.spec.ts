@@ -239,7 +239,7 @@ test('medium keeps the creature sharp, spreads off-plane specks into discs and s
   // A far-layer bokeh disc clear of the other far and near discs in both pages.
   const discs = (frame: Look) =>
     [...frame.far, ...frame.near].map((d) => ({ x: d.x, y: d.y, reach: d.size / 2 + d.blur + 4 }));
-  const far = on.far
+  const farCandidates = on.far
     .map((s) => ({ on: s, off: off.far.find((o) => o.index === s.index) }))
     .filter((p): p is { on: Speck; off: Speck } => {
       if (!p.off) return false;
@@ -248,14 +248,36 @@ test('medium keeps the creature sharp, spreads off-plane specks into discs and s
         clear(p.on, reach, on.screen, discs(on)) && clear(p.off, reach, off.screen, discs(off))
       );
     })
-    .sort((a, b) => b.on.size - a.on.size)[0];
-  expect(far, 'a far-layer disc clear of the others').toBeDefined();
-  if (!far) return;
-  const max = Math.ceil(far.on.size / 2 + far.on.blur + 12);
-  const edge = async (frame: Look, s: Speck) => {
+    .sort((a, b) => b.on.size - a.on.size);
+  const profileOf = async (frame: Look, s: Speck, max: number) => {
     const [profile = []] = await measure(page, frame.png, [
       { kind: 'profile', x: s.x, y: s.y, max },
     ]);
+    return profile;
+  };
+  // A disc on plain water: the profile ends flat and the disc stands out of it, so no haze or
+  // food behind the disc shapes the edge that is measured.
+  const plain = (profile: number[]): boolean => {
+    const tail = profile.slice(-6);
+    const level = tail.reduce((a, b) => a + b, 0) / tail.length;
+    return Math.max(...tail) - Math.min(...tail) <= 2 && Math.max(...profile) - level >= 4;
+  };
+  let far: { on: Speck; off: Speck } | undefined;
+  let max = 0;
+  for (const candidate of farCandidates) {
+    max = Math.ceil(candidate.on.size / 2 + candidate.on.blur + 12);
+    if (
+      plain(await profileOf(off, candidate.off, max)) &&
+      plain(await profileOf(on, candidate.on, max))
+    ) {
+      far = candidate;
+      break;
+    }
+  }
+  expect(far, 'a far-layer disc on plain water, clear of the others').toBeDefined();
+  if (!far) return;
+  const edge = async (frame: Look, s: Speck) => {
+    const profile = await profileOf(frame, s, max);
     const background = profile.slice(-3).reduce((a, b) => a + b, 0) / 3;
     return ramp(profile, background);
   };
