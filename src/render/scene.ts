@@ -102,14 +102,10 @@ export interface RenderInfo extends PostInfo {
 /** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
 const PLANE_DEPTH = 0;
 
-export type { ParticleLayerName };
-
 /** Marine snow lies up to this far (camera heights) above and below the plane. */
 const MID_SPREAD = 0.2;
 /** The share of marine snow that catches the light on high (M6 T17). */
 const SNOW_SPARKLE = 0.03;
-/** The presets that draw the occasional bright specks. */
-const SPARKLES: Readonly<Record<PresetName, boolean>> = { low: false, medium: false, high: true };
 /** The longest frame step the snow's drift integrates: a stalled tab must not fling it. */
 const MAX_FLOW_STEP = 0.25;
 
@@ -282,7 +278,7 @@ export class GameScene {
     const share = PRESETS[preset].particles;
     for (const layer of [this.far, this.mid, this.near]) {
       layer.setShare(share);
-      layer.setSparkle(SPARKLES[preset]);
+      layer.setSparkle(PRESETS[preset].sparkle);
     }
     this.resize();
   }

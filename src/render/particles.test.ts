@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
-import type { ParticleStyle } from './materials';
-import { ParticleLayer, SPARKLE } from './particles';
+import { type ParticleStyle, SPARKLE } from './materials';
+import { ParticleLayer } from './particles';
 import type { SpriteDof } from './post/chain';
 import type { SceneView } from './scene';
 

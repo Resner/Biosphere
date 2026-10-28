@@ -122,7 +122,7 @@ export class PostChain {
   private sceneTarget: THREE.WebGLRenderTarget | null = null;
   private backdrop: THREE.WebGLRenderTarget | null = null;
   private focus = 0;
-  private readonly rays: RayView = {
+  private rays: RayView = {
     strength: 0,
     camX: 0,
     camY: 0,
@@ -222,7 +222,7 @@ export class PostChain {
 
   /** The god rays to draw over the next frames (M6 T17); the composite draws them, low has none. */
   setRays(view: RayView): void {
-    Object.assign(this.rays, view);
+    this.rays = view;
   }
 
   /** Fills `out` with how sprites draw their circle of confusion into the scene target. */

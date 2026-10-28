@@ -13,8 +13,6 @@ import { depthOfParallax, parallaxOfDepth } from './post/dof';
 import { PRESETS } from './presets';
 import type { SceneView } from './scene';
 
-export { SPARKLE };
-
 /** Room for the largest preset's share of particles. */
 const MAX_SHARE = Math.max(...Object.values(PRESETS).map((p) => p.particles));
 
