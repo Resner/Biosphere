@@ -64,6 +64,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Target (M7, 3+ participants) | click | Tab cycles |
 | Brace (M7, in combat) | right button | Shift |
 | Chat, emote, ping (M2) | ping: middle button | Enter, T then 1–6, G |
+| Pond map (M6) | — | M (M or Esc closes it; steering carries on under it) |
 | Menu | — | Esc |
 
 - **Camera**: top-down perspective, following the creature. The visible half-height is `9 · R^0.9 · (r / R)^0.6` wu (M6 T18, ADR 0029), where `r` is the creature's radius and `R` the radius at its genetic maximum biomass. An adult sees `9 · R^0.9` (about 134 wu for the starter, whose `R` is 20), and a smaller creature sees less, so tripling the radius makes it 3^0.4 ≈ 1.55× larger on screen and growth shows within one life. A hatchling never sees fewer body lengths than the old `9 · r^0.9` curve gave. Zoom changes are smoothed over about 1 s.
@@ -271,7 +272,7 @@ Death is common and never total: you fall back to your pending offspring or your
 ## 8. Multiplayer and scale
 
 - **Ponds (M2)**: up to 24 players, all connected to each other. A joiner goes to the fullest pond that isn't full. A pond's spawn centre is the world centre; a joiner takes the first free slot i of the pond and spawns on a ring around it at angle i × 2.399963 rad, 300 + 40 × i wu away (slot 0 is the centre), moved clear of plumes.
-  - **Pond clock**: the hub's clock gives every pond tick (30 Hz from the pond's epoch), so food and plumes agree between players. Each browser simulates only its own creature; others are drawn from 10 Hz snapshots, 120 ms behind. A silent player fades after 2 s and disappears after 6 s. A hidden tab freezes your cell and fades you out for the others (ADR 0016).
+  - **Pond clock**: the hub's clock gives every pond tick (30 Hz from the pond's epoch), so food and plumes agree between players. Each browser simulates only its own creature; others are drawn from 10 Hz snapshots, 120 ms behind. A snapshot (25 bytes, version 3 from M6) also carries flag bits for alive, dashing, ready to mate and carrying an egg; any other bit drops it. A silent player fades after 2 s and disappears after 6 s. A hidden tab freezes your cell and fades you out for the others (ADR 0016).
   - **Bodies (M3)**: a browser sends its genome (about 330 bytes) once to each peer when a link opens and again when it hatches a new body; snapshots carry a 2-byte reference to it (ADR 0018). Until a peer's genome arrives, it is drawn as a plain tinted cell.
   - **Offline**: if the hub can't be reached you play alone in a local pond and the status says so.
 - **AoI and tiers (M11)**: connect only to creatures within ±1 tier inside the AoI (1.3 × the visible half-diagonal), plus boundary neighbours and duties. The default cap is 24, the hard cap 32 (ADR 0013). Giants see smaller life as ambient swarms.
@@ -289,6 +290,7 @@ Death is common and never total: you fall back to your pending offspring or your
 - **Display names**: 3–16 characters from `A–Z a–z 0–9 _ -`, also filtered.
 - **Emotes** (6): wave, happy, love, angry, scared, question.
 - **Pings** (4, lasting 4 s, at most 1 per second): look, danger, food, mate.
+- **Finding players (M6 T19, `src/game/indicators.ts`, `src/game/pond-map.ts`)**: every pond player with no part on screen gets an arrow on the screen's edge (44 px in), pointing at them, with their name and the distance in your body lengths; the nearest 6 are shown, and indicators that would overlap slide apart along the edge. The arrow's shape gives their size by tier (an open chevron smaller, a solid head comparable, a doubled head bigger, also written out), and a heart and the word "ready" mark a player whose snapshot says it could mate (mature, rested, no pending child: a hint only, the authority checks everything at `court`). A ping off screen within 2 view radii (the view's centre-to-corner distance) shows as a ring with its kind on the edge for its lifetime. The pond map (`M`) shows the pond's bounds and depth zones (darker with depth, outlined and named in a legend), you as a ring, other players as dots or hearts with their names, and live pings. Positions come from the pond snapshots, so finding costs no hub traffic.
 - **Mute** a player locally.
 
 ## 10. Feedback (readability)

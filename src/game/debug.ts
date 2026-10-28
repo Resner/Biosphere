@@ -10,6 +10,7 @@ import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
 import type { BenchStatus } from './auto-quality';
+import type { Indicator } from './indicators';
 import type { LifeView } from './life';
 import type { DeathSummary, Screen } from './screens';
 
@@ -125,6 +126,15 @@ export interface BsState {
    * link, or not a genome).
    */
   net: { text: string; status: string; open: number; foodIgnored: number; dropped: number };
+  /**
+   * Edge indicators as last drawn (M6 T19): the nearest six pond players off screen and the
+   * nearby pings off screen. `angle` is the world bearing from the player in degrees
+   * (counter-clockwise from east), `lengths` the distance in the player's body lengths, `x`, `y`
+   * the indicator's CSS-pixel position.
+   */
+  indicators: Indicator[];
+  /** The pond map (M): whether it is open, and the player dots and pings it shows. */
+  map: { open: boolean; players: number; pings: number };
 }
 
 /** A scripted remote creature for tests: it swims in a straight line and sends real snapshots. */
@@ -142,6 +152,8 @@ export interface ScriptedRemote {
   genome?: string;
   /** With `genome`: send the ref but never deliver the genome event. */
   withholdGenome?: boolean;
+  /** Its snapshots carry the ready-to-mate mark (M6 T19). */
+  ready?: boolean;
 }
 
 export interface BsHook {

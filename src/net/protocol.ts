@@ -7,7 +7,7 @@ import type { RecordKind, RecordRequest, Status, StoredRecord } from '../ledger/
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 3;
+export const PROTOCOL_VERSION = 4;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -34,7 +34,7 @@ export const PEDIGREE_MAX = 64;
 export const EVENT_MAX_BYTES = 2048;
 export const SNAPSHOT_BYTES = 25;
 /** The snapshot layout version, the last byte of every snapshot. */
-export const SNAPSHOT_VERSION = 2;
+export const SNAPSHOT_VERSION = 3;
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;
@@ -342,19 +342,27 @@ export interface Snapshot {
   health: number;
   alive: boolean;
   dashing: boolean;
+  /**
+   * The sender says its creature could mate now: mature, rested and with no pending child (M6
+   * T19). A hint for finding partners only; the authority checks everything again at `court`.
+   */
+  ready: boolean;
+  /** The sender carries a pending child, drawn as an egg (M6 T20). */
+  egg: boolean;
   /** The first two bytes of the sender's genome hash, as a u16 (see `genomeRefOf`). */
   genomeRef: number;
 }
 
-// Snapshot layout (version 2), little endian, 25 bytes:
+// Snapshot layout (version 3), little endian, 25 bytes:
 //  0 seq u16 | 2 tick u32 | 6 x u16 | 8 y u16 | 10 heading u8 | 11 flags u8 |
 // 12 vx i16 | 14 vy i16 | 16 biomass u16 | 18 energy u16 | 20 health u16 | 22 genomeRef u16 |
-// 24 version u8 (2)
+// 24 version u8 (3)
+// Flags: 1 alive, 2 dashing, 4 ready to mate, 8 carrying an egg; any other bit drops the snapshot.
 // Positions are in 0.125 wu steps (0 to 8192 wu), heading in 2π/256, velocity in 0.25 wu/s;
 // energy and health are fractions of the creature's maximum, in 1/65535. Biomass is quantised on a
 // log scale: q = round(log2(biomass) · 65535 / 24) covers 1 to 2^24 (a body can reach 2.4 million),
 // so the relative error is at most 2^(12/65535) - 1 = 0.013%; smaller values read back as 1.
-// Version 1 snapshots are 24 bytes and fail the length check.
+// Version 1 snapshots are 24 bytes and fail the length check; version 2 lacked the ready and egg bits.
 const TAU = 2 * Math.PI;
 const POS_STEP = 0.125;
 const VEL_STEP = 0.25;
@@ -363,7 +371,9 @@ const BIOMASS_LOG2_MAX = 24;
 const HEADING_STEPS = 256;
 const FLAG_ALIVE = 1;
 const FLAG_DASHING = 2;
-const FLAG_MASK = FLAG_ALIVE | FLAG_DASHING;
+const FLAG_READY = 4;
+const FLAG_EGG = 8;
+const FLAG_MASK = FLAG_ALIVE | FLAG_DASHING | FLAG_READY | FLAG_EGG;
 
 function quantize(value: number, step: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -391,7 +401,13 @@ export function encodeSnapshot(s: Snapshot): Uint8Array {
   v.setUint16(8, quantize(s.y, POS_STEP, 0, 0xffff), true);
   const turns = Number.isFinite(s.heading) ? s.heading / TAU : 0;
   v.setUint8(10, Math.round((turns - Math.floor(turns)) * HEADING_STEPS) & (HEADING_STEPS - 1));
-  v.setUint8(11, (s.alive ? FLAG_ALIVE : 0) | (s.dashing ? FLAG_DASHING : 0));
+  v.setUint8(
+    11,
+    (s.alive ? FLAG_ALIVE : 0) |
+      (s.dashing ? FLAG_DASHING : 0) |
+      (s.ready ? FLAG_READY : 0) |
+      (s.egg ? FLAG_EGG : 0),
+  );
   v.setInt16(12, quantize(s.vx, VEL_STEP, -0x8000, 0x7fff), true);
   v.setInt16(14, quantize(s.vy, VEL_STEP, -0x8000, 0x7fff), true);
   v.setUint16(16, encodeBiomass(s.biomass), true);
@@ -421,6 +437,8 @@ export function decodeSnapshot(b: Uint8Array): Snapshot | null {
     health: v.getUint16(20, true) / 0xffff,
     alive: (flags & FLAG_ALIVE) !== 0,
     dashing: (flags & FLAG_DASHING) !== 0,
+    ready: (flags & FLAG_READY) !== 0,
+    egg: (flags & FLAG_EGG) !== 0,
     genomeRef: v.getUint16(22, true),
   };
 }

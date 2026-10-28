@@ -438,7 +438,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: camera `9 · R^0.9 · (r / R)^0.6` (tripling shows 1.55×); `growth.ts` meter text and `GrowthWatch` cues drive the HUD line, bar and `Effects.growPulse`; maturity now max(7 min, 10% of the lifespan) (ADR 0029), first eligibility 17.4 → 8.7 min.
   - Gotcha: the bot already doubled in 1.4 min and hit 60% in 1.5 min, so the 2–4 and 6–10 min bands became upper bounds (a player is 2–3× slower); `maxRate` stays.
 
-- [ ] T19 Finding other players: edge indicators and the pond map [opus] (in progress)
+- [x] T19 Finding other players: edge indicators and the pond map [opus] (in progress)
   - Acceptance:
     - **Edge indicators**: every pond player outside the view gets an indicator on the screen edge, pointing at them, with the distance in body lengths. The nearest 6 are shown, plus every ping.
       - The shape shows relative size (smaller, comparable, bigger) and a mate-ready mark. Ready is a new snapshot flag bit each client sets for its own creature (mature, out of cooldown, no pending child). It is a hint only; the authority still checks everything at `court`. No `mate-check` polling: the worker's message budget forbids it.
@@ -450,6 +450,8 @@ A look pass never starts before the tasks it judges are ticked.
       - B pings a point within 2 view radii of A but off A's screen: A sees the ping indicator;
       - `M` lists both players at positions within 2% of the map size.
   - Notes: positions come from pond snapshots (every pond member already streams them), so this adds no hub load. The ready flag joins the snapshot change of T20; whichever task lands first raises `PROTOCOL_VERSION` and `SNAPSHOT_VERSION` for both bits.
+  - Done: snapshot v3 / protocol 4 carry ready (4) and egg (8, set from the pending child; T20 draws it); DOM HUD in `game/indicators.ts` and `game/pond-map.ts` (not `render/`: they are HTML, not three.js); overlapping indicators slide apart along the edge; `m6-find` hub on 8797.
+  - Gotcha: "view radius" is centre-to-corner; indicators overlap the left HUD and top-right roster text, so labels sit on a dark plate (T21 may move them clear).
 
 - [ ] T20 The egg: beacon reveal, carried egg, hatch [opus]
   - Acceptance:

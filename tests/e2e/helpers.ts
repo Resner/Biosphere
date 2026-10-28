@@ -124,6 +124,9 @@ export const M5_PROMOTE_HUB = 'http://localhost:8795';
 /** A fourth, for the lifecycle spec. */
 export const M5_LIFECYCLE_HUB = 'http://localhost:8796';
 
+/** The M6 authority for the finding spec (edge indicators and the pond map), alone in its pond. */
+export const M6_FIND_HUB = 'http://localhost:8797';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
