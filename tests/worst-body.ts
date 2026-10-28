@@ -1,10 +1,11 @@
 // The most expensive body to draw (M3 T18, M6 T10): the genome with the most high-detail vertices
 // among 1,500 random genomes, the archetypes and the extremes, and copies of it that differ only in tint.
 
-import { decodeGenome, encodeGenome, type Genome } from '../src/genome/codec';
+import { decodeGenome, encodeGenome, type Genome, genomeHash } from '../src/genome/codec';
 import { develop } from '../src/genome/develop';
 import { express } from '../src/genome/express';
 import { GENOME_BYTES, LOCI, MODULE_PARAMS } from '../src/genome/karyotype';
+import { anatomyOf } from '../src/render/anatomy';
 import { estimateVertices } from '../src/render/creature-mesh';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { ARCHETYPES, buildBytes, withLoci } from './archetypes';
@@ -37,9 +38,11 @@ function findWorst(): NonNullable<typeof worst> {
   ].map(decodeGenome);
   let best = { genome: extremes[0] as Genome, vertices: -1, lowVertices: 0 };
   for (const genome of [...Object.values(ARCHETYPES), ...extremes, ...randoms]) {
-    const plan = develop(express(genome));
-    const vertices = estimateVertices(plan, 'high');
-    best.lowVertices = Math.max(best.lowVertices, estimateVertices(plan, 'low'));
+    const traits = express(genome);
+    const plan = develop(traits);
+    const anatomy = anatomyOf(plan, traits, genomeHash(genome));
+    const vertices = estimateVertices(plan, 'high', anatomy);
+    best.lowVertices = Math.max(best.lowVertices, estimateVertices(plan, 'low', anatomy));
     if (vertices > best.vertices) best = { genome, vertices, lowVertices: best.lowVertices };
   }
   return best;
