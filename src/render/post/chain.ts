@@ -1,7 +1,7 @@
 // The post chain (M6 T2, ADR 0004): the scene renders into a half-float target, then god rays
 // (M6 T17, no target of their own), dual-filter bloom, the grade, the vignette, film grain and
-// chromatic aberration composite it onto the canvas. Low renders straight to the canvas with no target. The DOM HUD sits above the canvas and is never
-// post-processed. The depth of field (T3, `dof.ts`) adds no pass of its own: the sprites off the focus
+// chromatic aberration composite it onto the canvas. Low renders straight to the canvas with no
+// target. The DOM HUD sits above the canvas and is never post-processed. The depth of field (T3, `dof.ts`) adds no pass of its own: the sprites off the focus
 // plane draw their circle of confusion themselves, with the uniforms `spriteDof` gives them.
 // Refraction (T13): a pass cannot sample the target it draws into, so the objects on
 // `BACKDROP_LAYER` (the water, far particles, plumes and food) first draw into a half-resolution
