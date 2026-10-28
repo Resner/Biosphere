@@ -114,7 +114,7 @@ float detailFade(float size, float px) {
 void main() {
   vec3 normal = normalize(vNormal);
   float z = abs(normal.z);
-  float fres = pow(1.0 - z, mix(2.6, 1.6, uMembrane));
+  float fres = pow(1.0 - z, mix(2.0, 1.4, uMembrane));
   float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * fres;
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
@@ -122,8 +122,8 @@ void main() {
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
 
   // The shell is nearly clear face-on (M6 T12): a dim core lets the organs show, the rim carries the edge.
-  vec3 col = uCore * (0.35 + 0.55 * z) + uRim * ((fres * 1.55 + back * 0.9) * uRimStrength);
-  col = mix(col, uRim * 0.8, markings(vUv) * 0.35);
+  vec3 col = uCore * (0.15 + 0.3 * z) + uRim * ((fres * 1.8 + back * 0.9) * uRimStrength);
+  col = mix(col, uRim * 0.8, markings(vUv) * 0.2);
 
   // Thin-film shimmer: the hue slides with the view angle, a pale sheen on the clear shell.
   if (uIrid > 0.0) {
@@ -137,16 +137,22 @@ void main() {
   float pulse = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.2 + vUv.y * 6.0 + vPart * 1.3), uLumPulse);
   vec3 glow = uLumColor * uLum * pulse;
 
-  float alpha = mix(0.7, 0.3, uTranslucency) * (1.0 - fres) + fres;
+  float alpha = mix(0.5, 0.2, uTranslucency) * (1.0 - fres) + fres;
   bool glass = kind <= 4;
-  if (kind == 2) {
+  if (kind == 1) {
+    // A leg, antenna or bead: thin glass lit through, so its whole width reads bright against the
+    // water, not only its edges (a hollow ring reads as a bubble).
+    col += uRim * 0.3 * z;
+    alpha = max(alpha, 0.5 + 0.3 * fres);
+  } else if (kind == 2) {
     // A plate: denser glass, not an opaque lid, so the organs still show through.
     col = mix(col, uRim * 0.7 + 0.04, 0.25);
     alpha = mix(alpha, 1.0, 0.6 * uPlating);
   } else if (kind == 3) {
-    // The mouth: a bright, dense lip, pale like the rest of the shell.
-    col = mix(col, vec3(0.95, 0.82, 0.78), 0.4) + 0.05;
-    alpha = max(alpha, 0.92);
+    // The mouth: a warm, denser lip, brightest at its edge, so it reads at default zoom without
+    // filling the front of the body with an opaque cap (look pass 1).
+    col = mix(col, vec3(0.95, 0.82, 0.78), 0.35 + 0.45 * fres) + 0.03;
+    alpha = max(alpha, 0.7 + 0.3 * fres);
   } else if (kind == 4) {
     // The carapace: clear glass over the body, a bright rim, a little denser with plating.
     col = uRim * (0.3 + 1.5 * fres + 0.6 * back) + uCore * 0.15;
@@ -199,9 +205,9 @@ void main() {
       col = uOrgan * (0.35 + 0.45 * z);
       alpha = 0.3 + 0.35 * z;
     } else if (kind == PART_CHAMBER) {
-      // A fluid sac: a clear centre in the gene's colour and a denser wall.
-      col = uOrgan * (0.6 + 0.35 * z + 0.3 * fres) + 0.2 * spot;
-      alpha = 0.75 + 0.25 * z;
+      // A fluid sac: a clear centre in the gene's colour and a brighter, denser wall.
+      col = uOrgan * (0.45 + 0.3 * z + 0.6 * fres) + 0.25 * spot;
+      alpha = 0.55 + 0.25 * z + 0.2 * fres;
     } else if (kind == PART_DROPLET) {
       // An oil droplet: amber-leaning lipid with one bright point toward the light.
       col = uOil * (0.6 + 0.35 * z) + 0.6 * spot;

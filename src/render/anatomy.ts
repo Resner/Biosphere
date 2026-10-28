@@ -64,7 +64,7 @@ const DROPLET = 0.7;
 const HEART = 0.1;
 const PIGMENT = 0.075;
 /** Each chamber is ±this share of its size; this share of them are oil droplets, at most. */
-const CHAMBER_SPREAD = 0.25;
+const CHAMBER_SPREAD = 0.45;
 const DROPLET_SHARE = [0.25, 0.55] as const;
 /** Where the heart (behind the head) or the ganglion (in the head) sits on the spine. */
 const HEART_AT = [0.3, 0.45] as const;
@@ -72,6 +72,11 @@ const GANGLION_AT = [0.1, 0.2] as const;
 /** A median eye spot sits this far back along the spine; paired pigment this far in from the eyes. */
 const EYE_SPOT_AT = 0.08;
 const PIGMENT_IN = 0.4;
+/**
+ * Chambers cluster along the midline, as in references 02 and 03: drawn within this share of each
+ * segment's half-width, so the outer band of the shell stays clear glass.
+ */
+const ACROSS = 0.55;
 /** Organs keep within the hull shrunk to this share, and this far apart (share of their radii). */
 const INNER = 0.85;
 const GAP = 1.2;
@@ -204,7 +209,7 @@ function spot(
   return { kind, x: p.x, y: p.y, r: max(radius, 0) };
 }
 
-/** A point drawn evenly inside the shrunk hull: a segment by area, then a point in its ellipse. */
+/** A point inside the shrunk hull, near the midline: a segment by area, then a point in the middle band of its ellipse. */
 function samplePoint(plan: BodyPlan, rng: Rng, total: number): { x: number; y: number } {
   let pick = rng.next() * total;
   let seg = plan.segments[plan.segments.length - 1] as PlanSegment;
@@ -217,7 +222,7 @@ function samplePoint(plan: BodyPlan, rng: Rng, total: number): { x: number; y: n
   }
   const a = rng.next() * TAU;
   const rho = sqrt(rng.next()) * INNER;
-  const [u, v] = [seg.rx * rho * cos(a), seg.ry * rho * sin(a)];
+  const [u, v] = [seg.rx * rho * cos(a), seg.ry * rho * sin(a) * ACROSS];
   const [c, n] = [cos(seg.angle), sin(seg.angle)];
   return { x: seg.x + u * c - v * n, y: seg.y + u * n + v * c };
 }
