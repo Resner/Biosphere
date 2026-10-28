@@ -176,7 +176,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: ADR 0027: each off-plane speck draws its own CoC (`post/dof.ts`, `particles.vert.glsl`; depth from parallax, marine snow ±0.2), so the DOF adds no target; half-res layer targets were built first and cost a third of a medium frame. Spec changed from half/full resolution to half/full strength.
   - Gotcha: shaders animate on wall-clock time, so `timeScale(0)` now holds that clock too, or `render.specks()` and the screenshot disagree; `?dof=0` is the test switch.
 
-- [ ] T4 Auto-detect and adaptive resolution [opus]
+- [ ] T4 Auto-detect and adaptive resolution [opus] (in progress)
   - Acceptance (unit tests first, on synthetic frame times):
     - `pickPreset(frameTimesMs)` takes the 75th percentile of a 2 s benchmark at medium and maps it: up to 11 ms → high, up to 20 ms → medium, otherwise low. The result is stored per GPU (`bs.bench` keyed by the unmasked renderer string when available), so another machine benchmarks again. `auto` in Settings shows "Auto (Medium)" with the detected preset.
     - `AdaptiveScale` steps the render scale between 0.6 and 1.0 by 0.1:
