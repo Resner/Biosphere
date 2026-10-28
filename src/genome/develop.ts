@@ -1227,7 +1227,7 @@ function buildColliders(
       if (v2) {
         // On the drawn centre line, pulled in if a part swept to the bounds would push it past them.
         const c = partCurve(s, a);
-        const at = curveAt(c, Math.min(1, along / c.len));
+        const at = curveAt(c, Math.min(1, along / Math.max(c.len, D.epsilon)));
         const far = hypot(at.x, at.y);
         const room = RULES.body.maxReach - D.epsilon - r;
         const pull = far > room ? room / far : 1;
