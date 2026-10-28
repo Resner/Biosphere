@@ -1,8 +1,10 @@
-import { type Genome, genomeHash, genomeToBase64url } from '../genome/codec';
+import { type Genome, genomeHash, genomeKaryotype, genomeToBase64url } from '../genome/codec';
 import { genesisGenome } from '../genome/genesis';
+import { genesisGenomeV5 } from '../genome/genesis-v5';
 import { deriveSeed } from '../genome/inherit';
-import { KARYOTYPE_VERSION } from '../genome/karyotype';
+import { karyotypeForRules } from '../genome/karyotype';
 import type { Seed } from '../sim/prng';
+import { RULES_VERSION } from '../sim/rules';
 import { type GenesisAsk, verifyGenesisAsk } from './ask';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import { type Beacon, randomnessOf, verifyBeacon } from './drand';
@@ -36,8 +38,14 @@ export function genesisSeed(randomness: Uint8Array, commitId: string): Seed {
   return deriveSeed(GENESIS_DOMAIN, randomness, commitId, 0);
 }
 
-export function genesisFor(randomness: Uint8Array, commitId: string): Genome {
-  return genesisGenome(genesisSeed(randomness, commitId));
+/** The genesis DNA under `rules`: the frozen v5 code (karyotype v1) up to rules 5, v2 from 6. */
+export function genesisFor(
+  randomness: Uint8Array,
+  commitId: string,
+  rules: number = RULES_VERSION,
+): Genome {
+  const seed = genesisSeed(randomness, commitId);
+  return karyotypeForRules(rules) === 1 ? genesisGenomeV5(seed) : genesisGenome(seed);
 }
 
 /** The record request that turns a commitment and its beacon into a creature. */
@@ -55,7 +63,7 @@ export function genesisRequest(rules: number, commit: Commitment, genome: Genome
       round: commit.round,
       genome: genomeHash(genome),
       generation: 0,
-      karyotype: KARYOTYPE_VERSION,
+      karyotype: genomeKaryotype(genome),
     },
   };
 }
@@ -92,7 +100,7 @@ export function checkGenesis(
     if (record.body.round !== commit.round) failures.push('round-mismatch');
     failures.push(...beaconProblems(commit, beacon));
     if (failures.length > 0) return failures;
-    const genome = genesisFor(randomnessOf(beacon), id);
+    const genome = genesisFor(randomnessOf(beacon), id, record.rules);
     const expected = genesisRequest(record.rules, commit, genome);
     if (canonicalize(expected.body) !== canonicalize(record.body)) failures.push('body-mismatch');
     if (genomeText !== undefined && genomeText !== genomeToBase64url(genome)) {

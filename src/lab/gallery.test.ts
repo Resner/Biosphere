@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { encodeGenome, genomeHash } from '../genome/codec';
 import { GENOME_BYTES } from '../genome/karyotype';
+import { GENOME_BYTES_V1 } from '../genome/karyotype-v1';
 import {
   GALLERY_FILL,
   GALLERY_SIZE,
@@ -146,7 +147,8 @@ describe('gallery specimen files', () => {
     for (const [i, [file, hash]] of BASELINE.entries()) {
       const s = set[i];
       expect(s?.file).toBe(file);
-      expect(s?.bytes).toBe(GENOME_BYTES);
+      // Karyotype v1 genomes, which keep their hashes under v2 (ADR 0025).
+      expect(s?.bytes).toBe(GENOME_BYTES_V1);
       expect(genomeHash(s?.genome as NonNullable<typeof s>['genome'])).toBe(hash);
     }
     expect(new Set(set.map((s) => genomeHash(s.genome))).size).toBe(set.length);

@@ -462,7 +462,17 @@ export class Authority extends DurableObject<Env> {
     if (!headA || !headB || !genomeA || !genomeB) return;
     const mates = parentIds.map((id) => this.mateRecord(id, commitId));
     if (!mates[0] || !mates[1]) return;
-    const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
+    // The births take the rules version the mate-commits were written under (checkBirth requires
+    // it), so a mating that spans a rules change still verifies; v6 pads v1 parents to karyotype v2.
+    const rules = mates[0].record.rules;
+    if (mates[1].record.rules !== rules) return;
+    const { children, slots } = offspringPair(
+      randomnessOf(beacon),
+      commitId,
+      genomeA,
+      genomeB,
+      rules,
+    );
     const generation = Math.max(headA.generation, headB.generation) + 1;
     const mateHashes: [string, string] = [mates[0].hash, mates[1].hash];
     const result = this.ledger.birth({
@@ -471,7 +481,7 @@ export class Authority extends DurableObject<Env> {
         const { biomass, energy } = hatchling(buildCreature(child).phys.maxBiomass);
         return {
           request: birthRequest(
-            RULES_VERSION,
+            rules,
             commit.commitment,
             mateHashes,
             slots[i] as number,

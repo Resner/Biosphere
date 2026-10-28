@@ -207,7 +207,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Creature overhaul (#90)
 
-- [ ] T6 Karyotype v2 and rules version 6 [opus]
+- [x] T6 Karyotype v2 and rules version 6 [opus]
   - Acceptance (unit tests first):
     - `KARYOTYPE_VERSION` is 2. The v1 table lives on in `karyotype-v1.ts`. The v2 layout appends to each haplotype:
       - the new body loci of ADR 0025: spine curve amount and mode, head scale, trunk swell, tail length, tail taper, fusion, symmetry, drape, eye size, eye stalk;
@@ -228,6 +228,8 @@ A look pass never starts before the tasks it judges are ticked.
       - `PROTOCOL_VERSION` rises (a v2 genome event is a wire change), and the genome event checks accept both lengths;
       - the Lab's paste box takes both lengths.
   - Notes: this task changes no body: the new loci are expressed but unused until T7 and T8. Mark the frozen v1/v5 code `frozen` and list it in `.claude/rules/genome.md`.
+  - Done: v2 appends 11 shape loci (`traits.shape`) and 6 bytes per slot (`modules[i].ext`, at `ModuleLocus.ext`) for 223 bytes a haplotype; frozen `karyotype-v1`, `genesis-v5`, `inherit-v5` and `*-v5`/`-v1` goldens; births take the mate-commits' rules; `PROTOCOL_VERSION` 3, `LINEAGE_MAX_BYTES` 128 KiB.
+  - Gotcha: v6 genesis is `upgrade(v5 cell)` until T9; develop/stats are still shared with v5, so T7 must freeze v5 copies before changing them (v1 bodies checked unchanged against the old stats golden).
 
 - [ ] T7 Development v2: body (curve, tagmata, fusion, symmetry, eyes) [opus]
   - Acceptance (unit tests first):

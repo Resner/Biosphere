@@ -1,11 +1,23 @@
-// Inheritance (M3 T8, ADR 0006): meiosis, bounded mutation and breeding. Every random draw comes
-// from a seed through named streams, so a child can be verified from the commitment alone.
+// Inheritance under rules version 6 (M3 T8, ADR 0006, ADR 0025): meiosis, bounded mutation and
+// breeding over karyotype v2. A v1 parent is padded to v2 first, so every child is a v2 genome. The
+// shape loci sit on chromosome 1 after its v1 loci, and a module slot's extension moves, mutates and
+// clears with its slot. Every random draw comes from a seed through named streams, so a child can be
+// verified from the commitment alone. Rules v5 and older breed with the frozen `inherit-v5.ts`.
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { createRng, type Rng, type Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
-import { HAPLOTYPE_BYTES, LOAD_LOCI, LOCI, MENDEL_LOCI, MODULE_BYTES } from './karyotype';
+import {
+  HAPLOTYPE_BYTES,
+  LOAD_LOCI,
+  LOCI,
+  MENDEL_LOCI,
+  MODULE_BYTES,
+  MODULE_EXT_BYTES,
+  MODULE_LOCI,
+  type ModuleLocus,
+} from './karyotype';
 
 const G = RULES.genetics;
 
@@ -13,6 +25,7 @@ const ENCODER = new TextEncoder();
 const OFFSPRING_DOMAIN = 'bs/offspring/v1';
 
 /**
+ * Shared by every rules version (genesis, births, the frozen v5 code): never change it.
  * A seed from a domain tag, the beacon randomness, the commit id (UTF-8) and a slot byte:
  * SHA-256 of the four, read as four big-endian words. The domain keeps one commitment from
  * seeding two different things the same way.
@@ -45,14 +58,13 @@ export function offspringSeed(randomness: Uint8Array, commitId: string, slot: nu
   return deriveSeed(OFFSPRING_DOMAIN, randomness, commitId, slot);
 }
 
-// Loci grouped by chromosome, in karyotype order.
+// Loci grouped by chromosome, in byte order: chromosome 1 ends with the shape loci.
 const CHROMOSOMES: readonly (readonly (typeof LOCI)[number][])[] = Array.from(
   { length: 6 },
   (_, c) => LOCI.filter((l) => l.chr === c + 1),
 );
 
 const QUANT = LOCI.filter((l) => l.kind === 'quant');
-const MODULES = LOCI.filter((l) => l.kind === 'module');
 
 /** How many crossovers one chromosome gets, from the probabilities in `RULES.genetics`. */
 function crossoverCount(rng: Rng): number {
@@ -65,9 +77,20 @@ function crossoverCount(rng: Rng): number {
   return G.crossovers.length - 1;
 }
 
+/** Copies `size` bytes at `from` out of a parent haplotype; bytes past a v1 parent's own length read 0. */
+function copyBytes(
+  out: number[],
+  source: ArrayLike<number> | undefined,
+  from: number,
+  size: number,
+): void {
+  for (let k = 0; k < size; k++) out[from + k] = source?.[from + k] ?? 0;
+}
+
 /**
  * One gamete by meiosis: per chromosome a random starting haplotype, then 0-2 crossovers at locus
- * boundaries, each flipping which of the parent's haplotypes is copied from there on.
+ * boundaries, each flipping which of the parent's haplotypes is copied from there on. A v1 parent
+ * reads as zeros past its own bytes, which is the padding `upgrade` gives (so breeding needs no upgrade).
  */
 export function meiosis(parent: Genome, rng: Rng): number[] {
   const out = new Array<number>(HAPLOTYPE_BYTES).fill(0);
@@ -81,8 +104,8 @@ export function meiosis(parent: Genome, rng: Rng): number[] {
       let flips = 0;
       for (const cut of cuts) if (cut <= j) flips++;
       const source = parent.haplotypes[(start + flips) & 1]?.alleles;
-      for (let k = 0; k < locus.size; k++)
-        out[locus.offset + k] = (source?.[locus.offset + k] as number | undefined) ?? 0;
+      copyBytes(out, source, locus.offset, locus.size);
+      if (locus.kind === 'module') copyBytes(out, source, locus.ext, MODULE_EXT_BYTES);
     });
   }
   return out;
@@ -101,7 +124,12 @@ export type MutationKind = (typeof MUTATION_KINDS)[number];
 
 const pickOf = <T>(rng: Rng, items: readonly T[]): T => items[rng.int(0, items.length - 1)] as T;
 const clampByte = (v: number): number => Math.min(255, Math.max(0, v));
-const present = (h: number[], slot: (typeof LOCI)[number]): boolean => h[slot.offset] === 1;
+const present = (h: number[], slot: ModuleLocus): boolean => h[slot.offset] === 1;
+/** The bytes a slot owns after its presence byte: its 14 parameters, then its extension. */
+const slotBytes = (slot: ModuleLocus): number[] => [
+  ...Array.from({ length: MODULE_BYTES - 1 }, (_, k) => slot.offset + 1 + k),
+  ...Array.from({ length: MODULE_EXT_BYTES }, (_, k) => slot.ext + k),
+];
 
 function pickKind(rng: Rng): MutationKind {
   const weights = MUTATION_KINDS.map((k) => G.kinds[k]);
@@ -146,23 +174,28 @@ export function applyMutation(h: number[], kind: MutationKind, rng: Rng): boolea
       return true;
     }
     case 'paramDrift': {
-      const slots = MODULES.filter((m) => present(h, m));
+      const slots = MODULE_LOCI.filter((m) => present(h, m));
       if (slots.length === 0) return false;
-      const at = pickOf(rng, slots).offset + 1 + rng.int(0, MODULE_BYTES - 2);
+      const at = pickOf(rng, slotBytes(pickOf(rng, slots)));
       h[at] = clampByte((h[at] as number) + step(rng));
       return true;
     }
     case 'moduleDuplicate': {
-      const from = pickOf(rng, MODULES);
-      const to = pickOf(rng, MODULES);
+      const from = pickOf(rng, MODULE_LOCI);
+      const to = pickOf(rng, MODULE_LOCI);
       if (!present(h, from) || present(h, to)) return false;
-      for (let k = 0; k < MODULE_BYTES; k++) h[to.offset + k] = h[from.offset + k] as number;
+      h[to.offset] = 1;
+      const source = slotBytes(from);
+      slotBytes(to).forEach((at, k) => {
+        h[at] = h[source[k] as number] as number;
+      });
       return true;
     }
     case 'moduleDelete': {
-      const slot = pickOf(rng, MODULES);
+      const slot = pickOf(rng, MODULE_LOCI);
       if (!present(h, slot)) return false;
-      h.fill(0, slot.offset, slot.offset + MODULE_BYTES);
+      h[slot.offset] = 0;
+      for (const at of slotBytes(slot)) h[at] = 0;
       return true;
     }
   }

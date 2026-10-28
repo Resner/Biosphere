@@ -1,12 +1,20 @@
 import { evictDurableObject, runInDurableObject } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { genomeFromBase64url } from '../src/genome/codec';
+import {
+  GENOME_TEXT_LENGTH,
+  GENOME_TEXT_LENGTH_V1,
+  genomeFromBase64url,
+  genomeToBase64url,
+} from '../src/genome/codec';
+import { genesisGenomeV5 } from '../src/genome/genesis-v5';
 import { type Beacon, roundTime } from '../src/ledger/drand';
 import { commitmentId } from '../src/ledger/genesis';
 import type { Identity } from '../src/ledger/identity';
 import { checkBirth, type MateAsk, signMateAsk } from '../src/ledger/mating';
 import { recordHash } from '../src/ledger/record';
 import type { Born, HubMsg } from '../src/net/protocol';
+import { seedFromString } from '../src/sim/prng';
+import { RULES_VERSION } from '../src/sim/rules';
 import {
   CALM,
   type Client,
@@ -122,6 +130,28 @@ describe('birth', () => {
     expect(rows).toBeLessThanOrEqual(8);
     const [mating] = await sql<{ resolved: number }>('SELECT resolved FROM matings');
     expect(mating?.resolved).toBe(1);
+  });
+
+  it('pads karyotype v1 parents under rules 6 and writes v2 children', async () => {
+    const [a, b] = [await adult(), await adult()];
+    // Both parents were hatched under rules 5: their stored genomes are v1 texts.
+    for (const [i, p] of [a, b].entries()) {
+      const v1 = genomeToBase64url(genesisGenomeV5(seedFromString(`v1-parent-${i}`)));
+      expect(v1).toHaveLength(GENOME_TEXT_LENGTH_V1);
+      await sql('UPDATE creatures SET genome = ? WHERE id = ?', v1, p.creature);
+    }
+    const commit = await mate(a, b);
+    await publish(commit.commitment.round);
+    const [ba, bb] = await Promise.all([nextOf(a.c, 'born'), nextOf(b.c, 'born')]);
+    for (const born of [ba, bb]) {
+      expect(born.parents.map((t) => t.length)).toEqual([
+        GENOME_TEXT_LENGTH_V1,
+        GENOME_TEXT_LENGTH_V1,
+      ]);
+      expect(born.genome).toHaveLength(GENOME_TEXT_LENGTH);
+      expect(born.record.record).toMatchObject({ rules: RULES_VERSION, body: { karyotype: 2 } });
+      expect(check(born)).toEqual([]);
+    }
   });
 
   it('is idempotent: another alarm writes nothing and sends nothing', async () => {

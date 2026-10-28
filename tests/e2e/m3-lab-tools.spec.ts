@@ -1,8 +1,17 @@
 import { expect, type Page, test } from '@playwright/test';
-import { type Genome, genomeHash, parseGenomeText } from '../../src/genome/codec';
+import {
+  GENOME_TEXT_LENGTH,
+  GENOME_TEXT_LENGTH_V1,
+  type Genome,
+  genomeHash,
+  genomeToBase64url,
+  parseGenomeText,
+} from '../../src/genome/codec';
+import { genesisGenomeV5 } from '../../src/genome/genesis-v5';
 import { breedBatch, labRandomness } from '../../src/lab/breed';
 import { cellRect, GRID_COUNT } from '../../src/lab/grid';
 import { labGenomes } from '../../src/lab/specimens';
+import { seedFromString } from '../../src/sim/prng';
 import { LAB_POST, lab, measureCells, openLab, range, SEED, stage } from './lab-helpers';
 
 // The Creature Lab tools (M3 T14): mutate and undo, breed two creatures into eight children and
@@ -142,4 +151,29 @@ test('a genome copied out loads back in with the same hash; garbage changes noth
   // Undo puts the loaded cell back as it was.
   await page.getByTestId('tool-undo').click();
   expect(await hashes(page)).toEqual(before);
+});
+
+test('the paste box takes a karyotype v1 genome as well as a v2 one, each keeping its hash', async ({
+  page,
+}) => {
+  await openLab(page);
+  const v1 = genesisGenomeV5(seedFromString('lab-paste-v1'));
+  const v1Text = genomeToBase64url(v1);
+  expect(v1Text).toHaveLength(GENOME_TEXT_LENGTH_V1);
+  await clickCell(page, 3);
+  await page.getByTestId('tool-copy').click();
+  const v2Text = await page.getByTestId('genome-copy').inputValue();
+  expect(v2Text).toHaveLength(GENOME_TEXT_LENGTH);
+
+  await clickCell(page, 7);
+  await page.getByTestId('genome-load').fill(v1Text);
+  await page.getByTestId('tool-load').click();
+  await expect(page.getByTestId('lab-error')).toBeHidden();
+  await clickCell(page, 8);
+  await page.getByTestId('genome-load').fill(v2Text);
+  await page.getByTestId('tool-load').click();
+  await expect(page.getByTestId('lab-error')).toBeHidden();
+  const after = await hashes(page);
+  expect(after[7]).toBe(genomeHash(v1));
+  expect(after[8]).toBe(genomeHash(parseGenomeText(v2Text) as Genome));
 });

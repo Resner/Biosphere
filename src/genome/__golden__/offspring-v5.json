@@ -1,0 +1,77 @@
+{
+  "rulesVersion": 5,
+  "vectors": [
+    {
+      "round": 33409838,
+      "parents": [
+        "c5c7c3ed76d1b43b3c0c4b66a2ad2a0b6da7c24a63b96ee751e0f1acb1b71730",
+        "12c26d3c20f0bd6ac05452130c607931e608c37ef81be6f4d2f59dfce876755f"
+      ],
+      "children": [
+        "8493af4abc8cd91de25295fa43baecded4dd0c27967319eeba3971598e4a8b67",
+        "e4b01cf84ad132ae757f37825b570437ea33026a7d12ed8cbe601fbad025f087"
+      ],
+      "slots": [0, 1]
+    },
+    {
+      "round": 33409838,
+      "parents": [
+        "adff2528b703c5a4989e234ca5b269c2d5ed752308af3e1cf594bfaa254a8d2a",
+        "3bfd3a651771535b4e9d22e96884f03a5dc96c834f8ca6badd204b330ecd15d3"
+      ],
+      "children": [
+        "1477c10f05942eaa06a76eb876bdb808d6e014b0f82d49fa68966586e86591f4",
+        "c614694b4553d8c39a419ddfc4222b083841d7d9336119693c0639961565bf03"
+      ],
+      "slots": [0, 1]
+    },
+    {
+      "round": 33409839,
+      "parents": [
+        "c5c7c3ed76d1b43b3c0c4b66a2ad2a0b6da7c24a63b96ee751e0f1acb1b71730",
+        "12c26d3c20f0bd6ac05452130c607931e608c37ef81be6f4d2f59dfce876755f"
+      ],
+      "children": [
+        "7e29fb0ddaf9d6c2446d82d8cca5479059f557109f056b10b8dcf62af6b76f05",
+        "569354fb4260f394c8e7ac5eefc8ef1da41156dddb2c4859714f227bc84f2275"
+      ],
+      "slots": [0, 1]
+    },
+    {
+      "round": 33409839,
+      "parents": [
+        "adff2528b703c5a4989e234ca5b269c2d5ed752308af3e1cf594bfaa254a8d2a",
+        "3bfd3a651771535b4e9d22e96884f03a5dc96c834f8ca6badd204b330ecd15d3"
+      ],
+      "children": [
+        "5fd9785e69a2f9b2ddd25e78806b388fbd3e822200c783da1220d145da329dad",
+        "49952bfc7ce72978435fe1ee924a61ed2c4c1d844272e0c22fb2de696a4c2365"
+      ],
+      "slots": [0, 1]
+    },
+    {
+      "round": 33409840,
+      "parents": [
+        "c5c7c3ed76d1b43b3c0c4b66a2ad2a0b6da7c24a63b96ee751e0f1acb1b71730",
+        "12c26d3c20f0bd6ac05452130c607931e608c37ef81be6f4d2f59dfce876755f"
+      ],
+      "children": [
+        "b240c145a0c63e903e9e4c71a5ff1583c40d5ae5a82c917e3fe0ec47098549e9",
+        "9198d558147d42099437f571b60495a7bc4afdedf8711b749f3a02f55d6601b2"
+      ],
+      "slots": [0, 1]
+    },
+    {
+      "round": 33409840,
+      "parents": [
+        "adff2528b703c5a4989e234ca5b269c2d5ed752308af3e1cf594bfaa254a8d2a",
+        "3bfd3a651771535b4e9d22e96884f03a5dc96c834f8ca6badd204b330ecd15d3"
+      ],
+      "children": [
+        "7a7902f2a7cf72ef7f07cb2fd9767a359a1bbb42f4cccec687e51aa1ffb8eaef",
+        "73accc83375de3bde59a5e85cf245b91ce429c8357cd81ccee8e5c505b2c4f53"
+      ],
+      "slots": [0, 1]
+    }
+  ]
+}

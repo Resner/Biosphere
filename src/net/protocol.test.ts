@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { GENOME_TEXT_LENGTH } from '../genome/codec';
 import { createRng, seedFromString } from '../sim/prng';
 import {
   BORN_MAX_BYTES,
@@ -13,6 +14,7 @@ import {
   HUB_MAX_BYTES,
   type HubMsg,
   LINEAGE_MAX_BYTES,
+  PROTOCOL_VERSION,
   parseClientMsg,
   parseHubMsg,
   parsePeerEvent,
@@ -270,7 +272,7 @@ const mateRecord = {
 } as const;
 
 const clientMsgs = [
-  { t: 'hello', v: 2, playerId: PID, name: 'Alice_9', sig: SIG },
+  { t: 'hello', v: PROTOCOL_VERSION, playerId: PID, name: 'Alice_9', sig: SIG },
   { t: 'ping', id: 42 },
   { t: 'signal', to: PID2, kind: 'offer', sdp: 'v=0\r\no=- 1 2 IN IP4 0.0.0.0\r\n' },
   { t: 'signal', to: PID2, kind: 'answer', sdp: 'v=0' },
@@ -441,6 +443,9 @@ describe('rejections', () => {
   it('rejects unknown t, wrong v, bad names and bad ids', () => {
     expect(bad({ t: 'nope' })).toBeNull();
     expect(bad({ ...hello, v: 1 })).toBeNull();
+    // Karyotype v2 genomes are a wire change: a version 2 client is turned away.
+    expect(PROTOCOL_VERSION).toBe(3);
+    expect(bad({ ...hello, v: 2 })).toBeNull();
     expect(bad({ ...hello, v: undefined })).toBeNull();
     expect(bad({ ...hello, name: 'x'.repeat(17) })).toBeNull();
     expect(bad({ ...hello, name: 'ab' })).toBeNull();
@@ -779,7 +784,7 @@ const lineageEntry = {
   status: 'checkpoint',
   generation: 2,
   species: 'Aquoris natans',
-  genome: 'A'.repeat(438),
+  genome: 'A'.repeat(GENOME_TEXT_LENGTH),
   activeMs: 5,
   lifespanMs: 10,
   hash: HEX,
@@ -789,7 +794,7 @@ const pedigreeNode = {
   id: HEX,
   parents: [HEX, HEX],
   species: 'Aquoris natans',
-  genome: 'A'.repeat(438),
+  genome: 'A'.repeat(GENOME_TEXT_LENGTH),
 };
 
 describe('promotion, restore and lineage messages', () => {
@@ -836,7 +841,7 @@ describe('promotion, restore and lineage messages', () => {
     expect(hub({ t: 'died', cause: 'uv', record: storedRecord, fallback: 3 })).toBeNull();
   });
 
-  it('fits a full lineage in LINEAGE_MAX_BYTES', () => {
+  it('fits a full lineage of karyotype v2 genomes in LINEAGE_MAX_BYTES', () => {
     const full = JSON.stringify({
       t: 'lineage',
       creatures: Array(64).fill(lineageEntry),

@@ -9,7 +9,13 @@ import {
   verify,
 } from '../ledger/identity';
 import { HubClient, type HubClientOptions, type HubStatus, type SocketLike } from './hub-client';
-import { CLOSE_BAD_HELLO, CLOSE_REPLACED, type ClientMsg, type HubMsg } from './protocol';
+import {
+  CLOSE_BAD_HELLO,
+  CLOSE_REPLACED,
+  type ClientMsg,
+  type HubMsg,
+  PROTOCOL_VERSION,
+} from './protocol';
 
 const NONCE = `${'d'.repeat(21)}Q`;
 const NAME = 'Tester_1';
@@ -325,7 +331,7 @@ describe('HubClient reconnect', () => {
     const urls: string[] = [];
     const client = make(async (url) => {
       urls.push(url);
-      return { ok: true, version: '9.9.9', protocol: 3 };
+      return { ok: true, version: '9.9.9', protocol: PROTOCOL_VERSION + 1 };
     });
     void client.connect().catch(() => {});
     last().open();

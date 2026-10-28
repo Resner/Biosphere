@@ -4,10 +4,11 @@ import { locus, withAlleles } from '../../tests/archetypes';
 import { createRng, type Rng, type Seed, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import type { Genome } from './codec';
-import { genomeHash } from './codec';
+import { decodeGenome, genomeHash, genomeKaryotype, upgrade } from './codec';
 import { bodyViolations, develop } from './develop';
 import { express } from './express';
 import { genesisGenome } from './genesis';
+import { genesisGenomeV5 } from './genesis-v5';
 import {
   applyMutation,
   breed,
@@ -18,7 +19,16 @@ import {
   mutateHaplotype,
   offspringSeed,
 } from './inherit';
-import { HAPLOTYPE_BYTES, LOCI, MODULE_BYTES } from './karyotype';
+import { breedV5 } from './inherit-v5';
+import {
+  GENOME_BYTES,
+  HAPLOTYPE_BYTES,
+  LOCI,
+  MODULE_BYTES,
+  MODULE_EXT_BYTES,
+  type ModuleLocus,
+  SHAPE_LOCI,
+} from './karyotype';
 import { buildCreature } from './stats';
 
 const G = RULES.genetics;
@@ -91,6 +101,95 @@ describe('breed: structure', () => {
       if (genomeHash(c0) !== genomeHash(c1)) differ++;
     }
     expect(differ).toBeGreaterThanOrEqual(990);
+  });
+});
+
+describe('karyotype v2 inheritance (rules 6)', () => {
+  const slots = LOCI.filter((l): l is ModuleLocus => l.kind === 'module');
+  /** A v2 genome whose haplotype one carries `x` and haplotype two `y` in every quant byte, slot parameter and slot extension, with every slot present. */
+  function marked(x: number, y: number): Genome {
+    const bytes = new Uint8Array(GENOME_BYTES);
+    [x, y].forEach((v, hap) => {
+      const base = hap * HAPLOTYPE_BYTES;
+      for (const l of LOCI) {
+        if (l.kind === 'quant') bytes[base + l.offset] = v;
+        if (l.kind !== 'module') continue;
+        bytes[base + l.offset] = 1;
+        bytes.fill(v, base + l.offset + 1, base + l.offset + l.size);
+        bytes.fill(v, base + l.ext, base + l.ext + MODULE_EXT_BYTES);
+      }
+    });
+    return decodeGenome(bytes);
+  }
+
+  it('pads v1 parents and always breeds a v2 child', () => {
+    for (let i = 0; i < 200; i++) {
+      const a = genesisGenomeV5(seedOf('pad-a', i));
+      const b = genesisGenomeV5(seedOf('pad-b', i));
+      const seed = seedOf('pad', i);
+      const child = breed(a, b, seed);
+      expect(genomeKaryotype(child)).toBe(2);
+      expect(genomeHash(child)).toBe(genomeHash(breed(upgrade(a), upgrade(b), seed)));
+      expect(genomeKaryotype(mutateGenome(a, seed))).toBe(2);
+    }
+  });
+
+  it('moves a slot extension with its slot, and the shape loci linked to chromosome 1', () => {
+    const a = marked(10, 20);
+    const b = marked(30, 40);
+    const N = 4000;
+    let linked = 0;
+    let unlinked = 0;
+    for (let i = 0; i < N; i++) {
+      const child = breed(a, b, seedOf('linkage-v2', i), { mutation: 0 });
+      const h = child.haplotypes[0].alleles;
+      for (const slot of slots) {
+        const params = h[slot.offset + 1];
+        for (let k = 0; k < MODULE_EXT_BYTES; k++)
+          if (h[slot.ext + k] !== params) expect({ i, slot: slot.id, k }).toBeNull();
+      }
+      // size3 is the last quant locus of chromosome 1 in v1; curve the first shape locus after it.
+      if (h[locus('curve').offset] === h[locus('size3').offset]) linked++;
+      if (h[locus('curve').offset] === h[locus('membrane').offset]) unlinked++;
+    }
+    expect(linked / N).toBeGreaterThan(0.85);
+    near(unlinked, 0.5, N);
+  });
+
+  it('lets mutation reach every shape locus and every slot extension byte', () => {
+    const rng = createRng(seedOf('reach', 0), 'm');
+    const touched = new Set<number>();
+    const h = [...marked(100, 100).haplotypes[0].alleles];
+    for (let i = 0; i < 6000; i++) {
+      const before = [...h];
+      applyMutation(h, i % 2 ? 'quantStep' : 'paramDrift', rng);
+      h.forEach((v, at) => {
+        if (v !== before[at]) touched.add(at);
+      });
+    }
+    for (const id of SHAPE_LOCI) expect(touched.has(locus(id).offset), id).toBe(true);
+    for (const slot of slots)
+      for (let k = 0; k < MODULE_EXT_BYTES; k++)
+        expect(touched.has(slot.ext + k), `${slot.id} ext ${k}`).toBe(true);
+  });
+
+  it('duplicates a slot with its extension and deletes both', () => {
+    const rng = createRng(seedOf('dup-ext', 0), 'm');
+    const g = marked(100, 100);
+    const h = [...g.haplotypes[0].alleles];
+    const m1 = locus('M1') as ModuleLocus;
+    for (const slot of slots) if (slot !== m1) h.fill(0, slot.offset, slot.offset + slot.size);
+    for (const slot of slots) if (slot !== m1) h.fill(0, slot.ext, slot.ext + MODULE_EXT_BYTES);
+    h.fill(77, m1.ext, m1.ext + MODULE_EXT_BYTES);
+    while (slots.filter((l) => h[l.offset] === 1).length < 2)
+      applyMutation(h, 'moduleDuplicate', rng);
+    const copy = slots.find((l) => l !== m1 && h[l.offset] === 1) as ModuleLocus;
+    expect(h.slice(copy.ext, copy.ext + MODULE_EXT_BYTES)).toEqual(
+      new Array(MODULE_EXT_BYTES).fill(77),
+    );
+    while (h[copy.offset] === 1 || h[m1.offset] === 1) applyMutation(h, 'moduleDelete', rng);
+    for (const slot of [m1, copy])
+      expect(h.slice(slot.ext, slot.ext + MODULE_EXT_BYTES).every((v) => v === 0)).toBe(true);
   });
 });
 
@@ -358,7 +457,7 @@ describe('viability', () => {
   it('10,000 children of random genesis pairs are all valid bodies', () => {
     for (let i = 0; i < 10_000; i++)
       viable(breed(parent(i), parent(i + 10_000), seedOf('pairs', i)), `pair ${i}`);
-  });
+  }, 30_000);
 
   it('10,000 descendants after 5 generations at mutation ×4 are all valid bodies', () => {
     const pick: Rng = createRng(seedOf('lineage', 0), 'pick');
@@ -375,10 +474,26 @@ describe('viability', () => {
       }
       pool = next;
     }
-  });
+  }, 30_000);
 });
 
 describe('goldens', () => {
+  it('keeps the frozen rules v5 child hashes (karyotype v1)', () => {
+    const file = new URL('./__golden__/inherit-v5.json', import.meta.url);
+    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
+      rulesVersion: number;
+      hashes: Record<string, string>;
+    };
+    expect(golden.rulesVersion).toBe(5);
+    const parentV5 = (i: number): Genome => genesisGenomeV5(seedOf('inherit-parent', i));
+    for (const i of [0, 1, 2]) {
+      const seed = offspringSeed(new Uint8Array(32).fill(i), `golden-${i}`, 0);
+      const child = breedV5(parentV5(i), parentV5(i + 100), seed);
+      expect(genomeKaryotype(child)).toBe(1);
+      expect(genomeHash(child)).toBe(golden.hashes[`child-${i}`]);
+    }
+  });
+
   it('matches three committed child hashes', () => {
     const file = new URL('./__golden__/inherit.json', import.meta.url);
     const actual = Object.fromEntries(
