@@ -465,6 +465,7 @@ export class Authority extends DurableObject<Env> {
     // The births take the rules version the mate-commits were written under (checkBirth requires
     // it), so a mating that spans a rules change still verifies; v6 pads v1 parents to karyotype v2.
     const rules = mates[0].record.rules;
+    if (mates[1].record.rules !== rules) return;
     const { children, slots } = offspringPair(
       randomnessOf(beacon),
       commitId,
