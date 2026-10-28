@@ -366,7 +366,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### The world in depth
 
-- [ ] T15 Rules v6: bathymetry, zones, food and hazards (in progress)
+- [x] T15 Rules v6: bathymetry, zones, food and hazards
   - Acceptance (unit tests first, sim math only, deterministic in Node and Chromium):
     - **Bathymetry**: `depthAt(seed, x, y)` is smooth fractal noise with a feature wavelength of about 2,048 wu (not periodic), shaped around the world centre, which is every pond's spawn centre. The zones are shallows below 0.25, twilight up to 0.55, deep up to 0.8 and abyss above that.
       - A disc of 1,400 wu around the centre is twilight, which holds the whole spawn ring (300 + 40 × 23 = 1,220 wu).
@@ -383,6 +383,8 @@ A look pass never starts before the tasks it judges are ticked.
     - Spawn stays inside the twilight disc and clear of plumes (a test over 20 seeds and all 24 slots). The M2 food-claim and pond-clock rules are unchanged.
     - Goldens are regenerated under rules version 6, and the replay determinism E2E passes.
   - Notes: DESIGN §2 and §4 are updated (zones, food, hazards). Plume density changes the early game, so run the pacing tool and record any change in starvation or toxin deaths in the PR.
+  - Done: `src/sim/bathymetry.ts` calibrates the noise-and-slope field once per seed so every pond has the same zone shares; plumes rise only from deep and abyss vents at least 1,800 wu out; food kind weights follow the zone at the slot anchor (`RULES.food.zoneWeights`, richer crystals within 300 wu of a vent); `PhysStats` carries `uvTolerance` and `pressureTolerance` (hashed); UV and pressure follow `options.hazards`. Rules stayed at v6 (unreleased); goldens were regenerated.
+  - Gotcha: the pacing bot now avoids depths outside 0.27–0.68 as a player would with the depth gauge (medians: eligibility 17.4 min, 8 matings). Tests that need a plume find one with `plumesNear` over the whole world, because none lie near the centre.
 
 - [ ] T16 Zones on screen: light, fog, colour, bioluminescence, depth gauge [opus]
   - Acceptance:

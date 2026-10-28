@@ -192,3 +192,19 @@ describe('the state hash and phys', () => {
     ).toThrow();
   });
 });
+
+describe('tolerances', () => {
+  it('are clamped to 0-1, with the starter value for junk', () => {
+    expect(sanitizePhys({ ...STARTER_PHYS, uvTolerance: 7, pressureTolerance: -2 })).toMatchObject({
+      uvTolerance: 1,
+      pressureTolerance: 0,
+    });
+    const junk = sanitizePhys({
+      ...STARTER_PHYS,
+      uvTolerance: Number.NaN,
+      pressureTolerance: Number.POSITIVE_INFINITY,
+    });
+    expect(junk.uvTolerance).toBe(STARTER_PHYS.uvTolerance);
+    expect(junk.pressureTolerance).toBe(STARTER_PHYS.pressureTolerance);
+  });
+});

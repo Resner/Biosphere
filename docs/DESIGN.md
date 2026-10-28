@@ -19,14 +19,16 @@ Death is common and never total: you fall back to your pending offspring or your
 - **One body of water, seen from above** (ADR 0014). Gameplay is 2D in the x–y plane; z is presentation only.
 - **Ponds, then one world**: M1 is a single-player square world (8,192 × 8,192 wu with soft walls). M2 groups players into separate ponds of up to 24, each with its own seed and spawn centre. From M11 the world is one large continuous plane with a spatial directory (ADR 0013).
 - **Hatching (M1)**: from M4 with a hub, the body is the genesis creature the authority records: the player waits 3 to 6 s ("Awaiting beacon") for a drand round, and the client recomputes the DNA before the cell appears; a saved creature is resumed instead. Without a hub, with an empty hatch bucket or with `?genome=` pinning a body for tests, the cell is an unrecorded practice cell ("Not recorded" badge) with a browser-local random body. A new cell appears at the world centre, or at the nearest point at least 120 wu clear of any toxic plume, now and at every second of the next 10 s of drift (`RULES.spawn.lookaheadTicks`, `lookaheadStride`), so nobody is born poisoned.
-- **Depth zones (M6)** come from a deterministic bathymetry field (smooth noise of the world seed):
+- **Depth zones (M6)** come from a deterministic bathymetry field of the pond seed (`src/sim/bathymetry.ts`, `RULES.bathymetry`): depth 0 (surface) to 1 (abyss floor) from three octaves of smooth value noise (wavelengths 2,048, 1,024 and 512 wu) plus a slope towards one side of the pond. The field is calibrated once per seed so every pond has the same shares of the world: shallows (depth below 0.25) about 25%, twilight (to 0.55) about 35%, deep (to 0.8) about 25%, abyss about 10%. A disc of 1,400 wu around the world centre, which holds the whole spawn ring (300 + 40 × 23 = 1,220 wu), is always twilight, and the nearest shallows and nearest deep are each within 2,200 wu of it.
 
 | Zone | Light | Food | Hazard | Adaptation that helps |
 |------|-------|------|--------|-----------------------|
-| Sunlit shallows | bright caustics, god rays | detritus, globules | UV (2 hp/s × (1 − UV tolerance)) | pigment, UV tolerance |
-| Twilight | dimmer, blue | globules, detritus | — | balanced builds |
-| Deep | dark; bioluminescence dominates | vent crystals near vents | toxic plumes around vents | luminescence, senses |
-| Abyss | near black | rich vent beds | pressure (3 hp/s × (1 − pressure tolerance)) | pressure tolerance, armour |
+| Sunlit shallows | bright caustics, god rays | detritus 55, globules 45 | UV (2 hp/s × (1 − UV tolerance)) | pigment, UV tolerance |
+| Twilight | dimmer, blue | detritus 62, globules 38 | — | balanced builds |
+| Deep | dark; bioluminescence dominates | detritus 90, crystals 10; within 300 wu of a vent detritus 60, crystals 40 | toxic plumes around vents; pressure ramps in from depth 0.7 | luminescence, senses |
+| Abyss | near black | detritus 40, crystals 60; within 300 wu of a vent detritus 20, crystals 80 | pressure (3 hp/s × (1 − pressure tolerance)) | pressure tolerance, armour |
+
+  UV ramps in over 0.02 of depth (about 64 wu) below the shallows' edge; pressure ramps linearly from depth 0.7 to 0.8, the abyss' edge. Both are measured at the creature's centre. The weights are per food kind (detritus, globule, crystal) of a slot, by the zone at its anchor. UV and pressure follow the world's `hazards` option, like plumes.
 
 - **Currents**: a smooth, divergence-free velocity field (max 12 wu/s, spatial period about 2,048 wu, slowly changing with a period of about 120 s; M1: three shear waves) carries creatures on top of their own velocity (a passive creature drifts exactly with the water) and moves plumes. Food only bobs in M1: it does not drift.
 - **Food is nonliving** (ADR 0014):
@@ -35,15 +37,15 @@ Death is common and never total: you fall back to your pending offspring or your
 |------|----------------|-------------|-------|
 | Detritus | 8 | 1.5 | everywhere; filter feeders also absorb it passively (M3) |
 | Nutrient globule | 25 | 3 | shallows and twilight |
-| Vent crystal | 60 | 2.5 | near vents and plumes (risk for reward) |
+| Vent crystal | 60 | 2.5 | deep and abyss, richest near vents and plumes (risk for reward) |
 | Carrion | share of a dead creature's biomass (M7) | scales with victim | where a creature died |
 
-- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by zone. After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) (M1: they do not drift with currents). A creature eats an item when it overlaps the creature's **mouth disc** (distance below the mouth radius plus the item's) unless its energy is at the maximum; then the item stays (M2). The mouth disc is centred `offset·r` ahead of the centre with radius `radius·r`, and the item must lie within the mouth's arc; a starter cell's mouth is its whole body (offset 0, radius 1, full arc), as in M1. The yield is `value × efficiency(kind, mouth type) × digestion`, and an item with efficiency 0 is left alone (M3, §6). In a pond, two players reaching the same item are settled by the lower claim tick, then the lower id; the loser gives the energy back (ADR 0016). A claim or consumed entry outside 900 ticks (30 s) of the local pond clock, or for a cycle the slot cannot have reached (each cycle takes at least 600 ticks), is ignored and counted. A peer link that was up and dropped is re-called by the lower id, up to 5 times with a doubling wait (3 s first).
+- Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by the zone at its anchor (table above). After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the slot's next item at a new position. Items bob within 12 wu of their anchor (a sine per axis, period 4–8 s) (M1: they do not drift with currents). A creature eats an item when it overlaps the creature's **mouth disc** (distance below the mouth radius plus the item's) unless its energy is at the maximum; then the item stays (M2). The mouth disc is centred `offset·r` ahead of the centre with radius `radius·r`, and the item must lie within the mouth's arc; a starter cell's mouth is its whole body (offset 0, radius 1, full arc), as in M1. The yield is `value × efficiency(kind, mouth type) × digestion`, and an item with efficiency 0 is left alone (M3, §6). In a pond, two players reaching the same item are settled by the lower claim tick, then the lower id; the loser gives the energy back (ADR 0016). A claim or consumed entry outside 900 ticks (30 s) of the local pond clock, or for a cycle the slot cannot have reached (each cycle takes at least 600 ticks), is ignored and counted. A peer link that was up and dropped is re-called by the lower id, up to 5 times with a doubling wait (3 s first).
 - Each tier has food sized for it (M11). Tiny items are noise to giants, so larger tiers feed on denser drifts, vent beds and carrion, and big filter-feeding mouths sweep detritus in bulk.
 - **Hazards are nonliving**:
-  - toxic plumes: radius 60–160 wu, 15 hp/s × the creature's exposure (overlapping plumes don't stack), about one per 9 food cells. Exposure (M3) is the share of the body's collider area whose centre lies inside a plume (§6), so a single cell is 0 or 1 as in M1 and a long body can trail a hand into the edge. Each grid cell anchors at most one plume, which drifts at half the local current (bounded, periodic with the currents);
+  - toxic plumes: radius 60–160 wu, 15 hp/s × the creature's exposure (overlapping plumes don't stack). A plume rises from a vent: about one per 9 food cells in the deep and the abyss, at least 1,800 wu from the spawn centre (M6; none in the shallows or twilight, so at least 80% of plumes, drift included, lie in deep water). Exposure (M3) is the share of the body's collider area whose centre lies inside a plume (§6), so a single cell is 0 or 1 as in M1 and a long body can trail a hand into the edge. Each grid cell anchors at most one plume, which drifts at half the local current (bounded, periodic with the currents);
   - currents (above);
-  - UV and pressure (M6).
+  - UV and pressure (M6, the zone table above): a creature's `uvTolerance` and `pressureTolerance` (0–1, from its physiology genes) are part of its body stats and of the state hash.
 
 ## 3. Controls and camera
 
@@ -93,7 +95,8 @@ Death is common and never total: you fall back to your pending offspring or your
 |-------|-------|
 | Starvation (energy at 0) | 8 hp/s |
 | Toxic plume | 15 hp/s |
-| UV, pressure (M6) | per zone |
+| UV | 2 hp/s × (1 − UV tolerance), in the shallows |
+| Pressure | 3 hp/s × (1 − pressure tolerance), in the lower deep and the abyss |
 
   At 0 health the creature dies with a **cause** (the last damage taken that tick): starved, toxin, UV, pressure, killed by `<name>`, old age.
 - **Tiers** (ADR 0013), with the biomass equivalents:

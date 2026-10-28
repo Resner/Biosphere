@@ -1,9 +1,20 @@
 import { describe, expect, it } from 'vitest';
+import { zoneAt } from './bathymetry';
 import { colliderReach, STARTER_PHYS } from './body';
 import { plumesNear } from './hazards';
 import { RULES } from './rules';
 import { findClearSpot } from './spawn';
 import { createWorld } from './world';
+
+type TestWorld = ReturnType<typeof createWorld>;
+
+/** The centre of the first plume of a world: a point that is certainly poisoned. */
+const ventPoint = (world: TestWorld) => {
+  const size = RULES.world.size;
+  const plume = plumesNear(world, size / 2, size / 2, size)[0];
+  if (plume === undefined) throw new Error('no plume');
+  return { x: plume.x, y: plume.y };
+};
 
 describe('findClearSpot', () => {
   it('keeps a point that is already clear', () => {
@@ -12,26 +23,21 @@ describe('findClearSpot', () => {
   });
 
   it('moves a point out of a plume, close by', () => {
-    const c = RULES.world.size / 2;
-    let found = 0;
-    for (let i = 0; i < 400 && found < 5; i++) {
+    for (let i = 0; i < 5; i++) {
       const world = createWorld({ seed: `spot-${i}` });
-      if (plumesNear(world, c, c, 0).length === 0) continue;
-      found++;
-      const spot = findClearSpot(world, c, c);
+      const at = ventPoint(world);
+      const spot = findClearSpot(world, at.x, at.y);
       expect(plumesNear(world, spot.x, spot.y, RULES.spawn.plumeClearance)).toEqual([]);
-      expect(Math.hypot(spot.x - c, spot.y - c)).toBeLessThan(
+      expect(Math.hypot(spot.x - at.x, spot.y - at.y)).toBeLessThan(
         2 * (RULES.hazards.plumeMaxRadius + RULES.spawn.plumeClearance) + 100,
       );
     }
-    expect(found).toBeGreaterThan(0);
   });
 });
 
 describe('findClearSpot, nearest and stable', () => {
   const { searchStep, plumeClearance } = RULES.spawn;
-  const c = RULES.world.size / 2;
-  const clearNow = (world: ReturnType<typeof createWorld>, x: number, y: number) =>
+  const clearNow = (world: TestWorld, x: number, y: number) =>
     plumesNear(world, x, y, plumeClearance).length === 0;
 
   /** The nearest clear point of the search lattice around (x, y), by a full scan. */
@@ -51,11 +57,8 @@ describe('findClearSpot, nearest and stable', () => {
   };
 
   const blockedWorlds = (count: number) => {
-    const worlds: ReturnType<typeof createWorld>[] = [];
-    for (let i = 0; i < 2000 && worlds.length < count; i++) {
-      const world = createWorld({ seed: `near-${i}` });
-      if (!clearNow(world, c, c)) worlds.push(world);
-    }
+    const worlds: TestWorld[] = [];
+    for (let i = 0; i < count; i++) worlds.push(createWorld({ seed: `near-${i}` }));
     return worlds;
   };
 
@@ -63,20 +66,25 @@ describe('findClearSpot, nearest and stable', () => {
     const worlds = blockedWorlds(20);
     expect(worlds).toHaveLength(20);
     for (const world of worlds) {
+      const at = ventPoint(world);
       // Judge by the instant a spot is chosen: the same worlds, at tick 0, with no drift check.
-      const spot = findClearSpot(world, c, c);
+      const spot = findClearSpot(world, at.x, at.y);
       expect(clearNow(world, spot.x, spot.y)).toBe(true);
-      const distance = Math.hypot(spot.x - c, spot.y - c);
+      const distance = Math.hypot(spot.x - at.x, spot.y - at.y);
       // Drift clearance can push the answer out, never closer than the instant-clear optimum.
-      expect(distance).toBeGreaterThanOrEqual(bruteNearest(world, c, c) - 1e-9);
+      expect(distance).toBeGreaterThanOrEqual(bruteNearest(world, at.x, at.y) - 1e-9);
     }
   });
 
   it('matches the brute-force nearest when nothing drifts', () => {
     for (const world of blockedWorlds(20)) {
       const calm = { ...world, options: { ...world.options, currents: false } };
-      const spot = findClearSpot(calm, c, c);
-      expect(Math.hypot(spot.x - c, spot.y - c)).toBeCloseTo(bruteNearest(calm, c, c), 6);
+      const at = ventPoint(calm);
+      const spot = findClearSpot(calm, at.x, at.y);
+      expect(Math.hypot(spot.x - at.x, spot.y - at.y)).toBeCloseTo(
+        bruteNearest(calm, at.x, at.y),
+        6,
+      );
     }
   });
 
@@ -87,7 +95,8 @@ describe('findClearSpot, nearest and stable', () => {
 
   it('stays clear of every plume for the next 10 s of drift', () => {
     for (const world of blockedWorlds(20)) {
-      const spot = findClearSpot(world, c, c);
+      const at = ventPoint(world);
+      const spot = findClearSpot(world, at.x, at.y);
       const start = world.tick;
       for (let t = 0; t <= RULES.spawn.lookaheadTicks; t++) {
         world.tick = start + t;
@@ -100,7 +109,6 @@ describe('findClearSpot, nearest and stable', () => {
 
 describe('findClearSpot for a long body', () => {
   const { plumeClearance, lookaheadTicks, lookaheadStride } = RULES.spawn;
-  const c = RULES.world.size / 2;
   // A body whose farthest collider centre is 2 radii out (edge at 2.5), at biomass 100 (radius 10).
   const reach = colliderReach(
     {
@@ -119,12 +127,10 @@ describe('findClearSpot for a long body', () => {
   });
 
   it('keeps the farthest collider centre clear of every plume for 10 s', () => {
-    let checked = 0;
-    for (let i = 0; i < 2000 && checked < 20; i++) {
+    for (let i = 0; i < 20; i++) {
       const world = createWorld({ seed: `long-${i}` });
-      if (plumesNear(world, c, c, plumeClearance).length === 0) continue;
-      checked++;
-      const spot = findClearSpot(world, c, c, reach);
+      const at = ventPoint(world);
+      const spot = findClearSpot(world, at.x, at.y, reach);
       const start = world.tick;
       // 20 sample points on the circle the farthest collider centre can reach.
       for (let t = 0; t <= lookaheadTicks; t += lookaheadStride) {
@@ -138,6 +144,23 @@ describe('findClearSpot for a long body', () => {
       }
       world.tick = start;
     }
-    expect(checked).toBe(20);
+  });
+});
+
+describe('the spawn ring', () => {
+  const GOLDEN_ANGLE = 2.399963;
+  const c = RULES.world.size / 2;
+
+  it('stays in twilight and clear of plumes for all 24 slots on 20 seeds', () => {
+    for (let i = 0; i < 20; i++) {
+      const world = createWorld({ seed: `ring-${i}` });
+      for (let slot = 0; slot < 24; slot++) {
+        const radius = slot === 0 ? 0 : 300 + 40 * slot;
+        const x = c + radius * Math.cos(slot * GOLDEN_ANGLE);
+        const y = c + radius * Math.sin(slot * GOLDEN_ANGLE);
+        expect(zoneAt(world.seed32, x, y)).toBe('twilight');
+        expect(findClearSpot(world, x, y)).toEqual({ x, y });
+      }
+    }
   });
 });

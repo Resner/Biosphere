@@ -1,6 +1,7 @@
+import { depthAt } from './bathymetry';
 import { colliderReach } from './body';
 import { currentDriftAt } from './currents';
-import { cos, sin, TAU } from './math';
+import { clamp, cos, length, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { DT, RULES, TICK_HZ } from './rules';
 import type { CreatureState, Plume, StepEvent, World } from './types';
@@ -16,18 +17,43 @@ const cellHash = (world: World, cx: number, cy: number, salt: number): number =>
   hashU32(...world.seed32, cx, cy, salt, 0x70) >>> 0;
 const unit = (hash: number): number => hash / 4294967296;
 
-/** The plume anchored in a cell, before drift (its anchor and radius), or null. */
+/**
+ * The plume anchored in a cell, before drift (its anchor and radius), or null. A plume rises from
+ * a vent, which lies in the deep or the abyss and well clear of the spawn centre (M6 T15).
+ */
 function anchorInCell(world: World, cx: number, cy: number): Plume | null {
   if (cellHash(world, cx, cy, SALT.roll) % H.cellsPerPlume !== 0) return null;
   const cell = RULES.world.cellSize;
+  const x = cx * cell + unit(cellHash(world, cx, cy, SALT.x)) * cell;
+  const y = cy * cell + unit(cellHash(world, cx, cy, SALT.y)) * cell;
+  const centre = world.size / 2;
+  if (length(x - centre, y - centre) < H.ventMinDistance) return null;
+  if (depthAt(world.seed32, x, y) < RULES.bathymetry.zones.twilight) return null;
   return {
     id: `p${cx}_${cy}`,
-    x: cx * cell + unit(cellHash(world, cx, cy, SALT.x)) * cell,
-    y: cy * cell + unit(cellHash(world, cx, cy, SALT.y)) * cell,
+    x,
+    y,
     radius:
       H.plumeMinRadius +
       unit(cellHash(world, cx, cy, SALT.radius)) * (H.plumeMaxRadius - H.plumeMinRadius),
   };
+}
+
+/** Whether a vent (a plume's anchor, before drift) lies within `range` wu of a point. */
+export function ventNear(world: World, x: number, y: number, range: number): boolean {
+  const cell = RULES.world.cellSize;
+  const n = Math.floor(world.size / cell);
+  const x0 = Math.max(0, Math.floor((x - range) / cell));
+  const x1 = Math.min(n - 1, Math.floor((x + range) / cell));
+  const y0 = Math.max(0, Math.floor((y - range) / cell));
+  const y1 = Math.min(n - 1, Math.floor((y + range) / cell));
+  for (let cy = y0; cy <= y1; cy++) {
+    for (let cx = x0; cx <= x1; cx++) {
+      const vent = anchorInCell(world, cx, cy);
+      if (vent !== null && length(vent.x - x, vent.y - y) <= range) return true;
+    }
+  }
+  return false;
 }
 
 /**
@@ -72,13 +98,48 @@ export function plumesNear(world: World, x: number, y: number, radius: number): 
   return found;
 }
 
+/** Every damage a creature takes from the water this tick: toxic plumes, then UV and pressure. */
+export function applyHazards(world: World, creature: CreatureState): StepEvent[] {
+  if (!creature.alive) return [];
+  const events = applyToxin(world, creature);
+  if (world.options.hazards) events.push(...applyZoneHazards(world, creature));
+  return events;
+}
+
+/**
+ * UV in the shallows and pressure in the lower deep and the abyss (M6 T15), by the depth under the
+ * creature's centre. UV ramps in over `uvBand` of depth below the shallows' edge; pressure ramps in
+ * from `pressureStart` to the abyss' edge. A tolerance of 1 takes no damage.
+ */
+function applyZoneHazards(world: World, creature: CreatureState): StepEvent[] {
+  const events: StepEvent[] = [];
+  const depth = depthAt(world.seed32, creature.x, creature.y);
+  const z = RULES.bathymetry.zones;
+  const uv = clamp((z.shallows - depth) / H.uvBand, 0, 1);
+  if (uv > 0) {
+    const amount = RULES.damage.uv * DT * uv * (1 - creature.phys.uvTolerance);
+    if (amount > 0) {
+      creature.health -= amount;
+      events.push({ type: 'damage', creature: creature.id, amount, cause: 'uv' });
+    }
+  }
+  const pressure = clamp((depth - H.pressureStart) / (z.deep - H.pressureStart), 0, 1);
+  if (pressure > 0) {
+    const amount = RULES.damage.pressure * DT * pressure * (1 - creature.phys.pressureTolerance);
+    if (amount > 0) {
+      creature.health -= amount;
+      events.push({ type: 'damage', creature: creature.id, amount, cause: 'pressure' });
+    }
+  }
+  return events;
+}
+
 /**
  * Toxin damage scaled by the creature's exposure: the share of its collider area (`r²` per circle)
  * whose centre, rotated by the heading and scaled by the core radius, lies inside a plume.
  * Overlapping plumes don't stack. A single-circle body takes all or nothing.
  */
-export function applyHazards(world: World, creature: CreatureState): StepEvent[] {
-  if (!creature.alive) return [];
+function applyToxin(world: World, creature: CreatureState): StepEvent[] {
   const { colliders } = creature.phys;
   const radius = Math.sqrt(creature.biomass);
   const plumes = plumesNear(

@@ -1,3 +1,5 @@
+import { depthAt, zoneOfDepth } from './bathymetry';
+import { ventNear } from './hazards';
 import { clamp, cos, length, lerp, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { RULES } from './rules';
@@ -7,7 +9,6 @@ import { maxEnergy } from './vitals';
 // Independent hash streams per property of a slot's cycle, so adding one never shifts another.
 const SALT = { kind: 1, x: 2, y: 3, delay: 4, bobX: 5, bobY: 6 } as const;
 const KINDS = Object.keys(RULES.food.kinds) as FoodKind[];
-const TOTAL_WEIGHT = KINDS.reduce((sum, kind) => sum + RULES.food.kinds[kind].weight, 0);
 const MAX_ITEM_RADIUS = Math.max(...KINDS.map((kind) => RULES.food.kinds[kind].radius));
 const ID_PATTERN = /^c(\d+)_(\d+)_s(\d+)_k(\d+)$/;
 
@@ -41,6 +42,18 @@ function bob(world: World, cx: number, cy: number, slot: number, k: number, salt
   return f.driftRadius * f.bobFraction * sin(phase + ((world.tick % period) / period) * TAU);
 }
 
+/** The kind weights at a slot anchor: by the zone there, and richer in crystals near a vent. */
+function weightsAt(world: World, anchor: Vec2): Record<FoodKind, number> {
+  const zone = zoneOfDepth(depthAt(world.seed32, anchor.x, anchor.y));
+  if (
+    (zone === 'deep' || zone === 'abyss') &&
+    ventNear(world, anchor.x, anchor.y, RULES.food.ventRange)
+  ) {
+    return RULES.food.nearVentWeights[zone];
+  }
+  return RULES.food.zoneWeights[zone];
+}
+
 function itemFor(
   world: World,
   cx: number,
@@ -49,16 +62,19 @@ function itemFor(
   eaten: { k: number; until: number } | undefined,
 ): FoodItem {
   const k = eaten?.k ?? 0;
-  let roll = slotHash(world, cx, cy, slot, k, SALT.kind) % TOTAL_WEIGHT;
+  const anchor = slotAnchor(world, cx, cy, slot, k);
+  const weights = weightsAt(world, anchor);
+  let total = 0;
+  for (const kind of KINDS) total += weights[kind];
+  let roll = slotHash(world, cx, cy, slot, k, SALT.kind) % total;
   let kind = KINDS[KINDS.length - 1] as FoodKind;
   for (const candidate of KINDS) {
-    roll -= RULES.food.kinds[candidate].weight;
+    roll -= weights[candidate];
     if (roll < 0) {
       kind = candidate;
       break;
     }
   }
-  const anchor = slotAnchor(world, cx, cy, slot, k);
   const spec = RULES.food.kinds[kind];
   return {
     id: `${slotKey(cx, cy, slot)}_k${k}`,

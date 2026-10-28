@@ -92,6 +92,9 @@ export const RULES = deepFreeze({
     /** hp/s */
     starvation: 8,
     toxin: 15,
+    /** hp/s at full exposure, times (1 − tolerance) (M6 T15). */
+    uv: 2,
+    pressure: 3,
   },
   food: {
     slotsPerCell: 10,
@@ -107,10 +110,25 @@ export const RULES = deepFreeze({
     bobPeriodMinTicks: 120,
     bobPeriodMaxTicks: 240,
     kinds: {
-      detritus: { value: 8, radius: 1.5, weight: 70 },
-      globule: { value: 25, radius: 3, weight: 25 },
-      crystal: { value: 60, radius: 2.5, weight: 5 },
+      detritus: { value: 8, radius: 1.5 },
+      globule: { value: 25, radius: 3 },
+      crystal: { value: 60, radius: 2.5 },
     },
+    /**
+     * Relative weights of a slot's food kind by the zone at its anchor (M6 T15). Vent crystals
+     * grow in the deep and the abyss, and richest within `ventRange` wu of a vent (a plume anchor).
+     */
+    zoneWeights: {
+      shallows: { detritus: 55, globule: 45, crystal: 0 },
+      twilight: { detritus: 62, globule: 38, crystal: 0 },
+      deep: { detritus: 90, globule: 0, crystal: 10 },
+      abyss: { detritus: 40, globule: 0, crystal: 60 },
+    },
+    nearVentWeights: {
+      deep: { detritus: 60, globule: 0, crystal: 40 },
+      abyss: { detritus: 20, globule: 0, crystal: 80 },
+    },
+    ventRange: 300,
   },
   /** Food efficiency by mouth type, at the anchors type 0 (filter), 0.5 (middle) and 1 (jaw); linear between. */
   feeding: {
@@ -465,6 +483,32 @@ export const RULES = deepFreeze({
     /** ...checked this often (1 s; a plume moves a few wu per second). */
     lookaheadStride: 30,
   },
+  /** Depth zones (M6 T15, DESIGN §2): the bathymetry field, the zone edges and what each zone does. */
+  bathymetry: {
+    /** Depth with no slope or noise: the middle of twilight. */
+    base: 0.4,
+    /** Octaves of value noise: wavelength in wu and weight. The first is the feature size. */
+    octaves: [
+      { wavelength: 2048, weight: 1 },
+      { wavelength: 1024, weight: 0.5 },
+      { wavelength: 512, weight: 0.25 },
+    ],
+    /** Depth swing of the noise, before the centre cap. */
+    noiseAmplitude: 0.5,
+    /** The share of the pond each zone gets before the centre cap: shallows, twilight, deep (abyss is the rest). */
+    shares: { shallows: 0.27, twilight: 0.3, deep: 0.29 },
+    /** The raw field is sampled on this many points per side to find those quantiles. */
+    calibrationSamples: 48,
+    /** Raw slope per wu towards the deep side of the pond. */
+    tilt: 0.0001,
+    /** Within this many wu of the centre the depth stays within `centreCap` of `base`: all twilight. */
+    centreRadius: 1400,
+    centreCap: 0.14,
+    /** The cap opens by this much depth per wu beyond `centreRadius`. */
+    capGrowth: 0.002,
+    /** A zone ends where the depth reaches this value. */
+    zones: { shallows: 0.25, twilight: 0.55, deep: 0.8 },
+  },
   hazards: {
     plumeMinRadius: 60,
     plumeMaxRadius: 160,
@@ -472,6 +516,12 @@ export const RULES = deepFreeze({
     cellsPerPlume: 9,
     /** A plume drifts at this fraction of the local current. */
     driftFactor: 0.5,
+    /** Vents, and so plumes, sit in the deep and the abyss at least this far (wu) from the spawn centre. */
+    ventMinDistance: 1800,
+    /** UV ramps in over this much depth below the shallows' edge (about 64 wu at the typical slope). */
+    uvBand: 0.02,
+    /** Pressure ramps in from this depth to the abyss' edge. */
+    pressureStart: 0.7,
   },
   currents: {
     /** Maximum speed in wu/s. */
