@@ -343,7 +343,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `render/surface.ts` (`glintsFor`, `detailFade` 2–5 px), glint quads (`PART_GLINT`, `glintSpots`) drawn last; shells silvery blue; the chain's `refraction` pass draws `BACKDROP_LAYER` into a half-res copy that `BACKDROP` shares with every creature material.
   - Gotcha: a glint maximum is ≥250 luminance, 30 above its 3 px ring's max and 100 above its median (glints sit on bright legs); silver saturation is 4%, because more broke T12's rim hue-variance ratio.
 
-- [ ] T14 Look pass 1 [opus]
+- [ ] T14 Look pass 1 [opus] (in progress)
   - Acceptance (ADR 0024):
     - `npm run gallery -- --pass 1` is committed with `pass-1.md`. The gap table is filled honestly against references 02–05 and its "Largest gaps" list is ordered by visual impact.
     - Fix the top gaps in this task, as far as one session allows: shader, mesh, anatomy or palette tuning, but no new mechanics. Re-render, and commit the sheet and table after the fixes.
