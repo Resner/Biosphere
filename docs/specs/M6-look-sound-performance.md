@@ -386,7 +386,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `src/sim/bathymetry.ts` calibrates the noise-and-slope field once per seed so every pond has the same zone shares; plumes rise only from deep and abyss vents at least 1,800 wu out; food kind weights follow the zone at the slot anchor (`RULES.food.zoneWeights`, richer crystals within 300 wu of a vent); `PhysStats` carries `uvTolerance` and `pressureTolerance` (hashed); UV and pressure follow `options.hazards`. Rules stayed at v6 (unreleased); goldens were regenerated.
   - Gotcha: the pacing bot now avoids depths outside 0.27–0.68 as a player would with the depth gauge (medians: eligibility 17.4 min, 8 matings). Tests that need a plume find one with `plumesNear` over the whole world, because none lie near the centre.
 
-- [ ] T16 Zones on screen: light, fog, colour, bioluminescence, depth gauge [opus]
+- [ ] T16 Zones on screen: light, fog, colour, bioluminescence, depth gauge [opus] (in progress)
   - Acceptance:
     - **The water** takes its colour, brightness and fog density from the bathymetry under each pixel: a 256² `DataTexture` per pond seed, built once. The zones blend over their edge bands.
       - shallows: bright cyan-green;
