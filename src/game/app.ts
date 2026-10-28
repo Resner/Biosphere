@@ -39,6 +39,7 @@ import type { CreatureState, FoodItem, StepEvent, World } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import { createWorld, spawnCreature } from '../sim/world';
 import { AloneHint } from './alone-hint';
+import { AutoQuality } from './auto-quality';
 import { setBadge } from './badge';
 import { type Body, bodyLabel, Hatcher, hatchBody } from './body';
 import {
@@ -225,10 +226,19 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const storage = safeStorage();
   // The stored setting, or this visit's `?quality=` until the player picks one in the panel.
   let settings: Settings = params.quality ? { quality: params.quality } : loadSettings(storage);
+  // Auto-detect and adaptive resolution (M6 T4). Test automation and `?quality=` never measure, so
+  // every other E2E and the gallery draw at medium and full resolution unless a test forces it.
+  const autoQuality = new AutoQuality({
+    store: storage,
+    gpu: scene.gpu(),
+    measure: !navigator.webdriver && !params.quality,
+    onDetect: () => applySettings(),
+    onScale: (scale) => scene.setRenderScale(scale),
+  });
   const applySettings = (): void => {
-    const preset = resolvePreset(settings.quality);
+    const preset = resolvePreset(settings.quality, autoQuality.detected);
     scene.setPreset(preset);
-    settingsPanel.show(settings, preset);
+    settingsPanel.show(settings, preset, autoQuality.detected);
   };
   const settingsPanel = new SettingsPanel(
     (next) => {
@@ -1303,6 +1313,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     maxTicksPerFrame: params.debug ? DEBUG_MAX_TICKS_PER_FRAME : 5,
   });
   attachVisibilityPause(document, loop);
+  let lastFrameMs = performance.now();
   document.addEventListener('visibilitychange', () => {
     if (document.hidden) return;
     // The pond moved on while the tab was hidden: skip ahead instead of simulating it.
@@ -1310,6 +1321,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     // Cues run on wall-clock time: hidden time must not skip the death dissolve.
     lastMs = performance.now();
     fx.resume();
+    lastFrameMs = performance.now();
+    autoQuality.resume(lastFrameMs);
   });
 
   let frames = 0;
@@ -1317,6 +1330,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     loop.frame();
     frames += 1;
     canvas.dataset.frames = String(frames);
+    const now = performance.now();
+    const auto = settings.quality === 'auto';
+    autoQuality.frame(now - lastFrameMs, now, screen === 'title', auto, scene.quality);
+    lastFrameMs = now;
   });
 
   enter(session, 'title');
@@ -1412,6 +1429,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       if (event.t === 'genome') remoteBodies.add(from, event.data);
     },
     hasFood: (id) => food.some((f) => f.id === id),
+    setBench(ms) {
+      autoQuality.setBench(ms, performance.now());
+    },
     timeScale(next) {
       clock();
       scale = next;
@@ -1459,6 +1479,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     ready: true,
     state: () => ({
       screen,
+      quality: {
+        setting: settings.quality,
+        detected: autoQuality.detected,
+        bench: autoQuality.status,
+      },
       tick: session.world.tick,
       playerId,
       visibleFood: food.length,

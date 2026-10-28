@@ -10,6 +10,7 @@ const QUALITIES: readonly QualitySetting[] = ['auto', 'low', 'medium', 'high'];
 export class SettingsPanel {
   private readonly panel = pick('[data-testid="settings"]');
   private readonly note = pick('[data-testid="quality-note"]');
+  private readonly autoName = pick('[data-testid="quality-auto-name"]');
   private readonly radios = new Map<QualitySetting, HTMLInputElement>(
     QUALITIES.map((q) => [q, pick<HTMLInputElement>(`[data-testid="quality-${q}"]`)]),
   );
@@ -36,10 +37,11 @@ export class SettingsPanel {
     return !this.panel.hidden;
   }
 
-  /** Shows the settings in force and the preset they resolve to. */
-  show(settings: Settings, resolved: PresetName): void {
+  /** Shows the settings in force, the preset they resolve to and the one Auto detected. */
+  show(settings: Settings, resolved: PresetName, detected: PresetName): void {
     const radio = this.radios.get(settings.quality);
     if (radio) radio.checked = true;
+    this.autoName.textContent = `Auto (${detected[0]?.toUpperCase()}${detected.slice(1)})`;
     this.note.textContent =
       settings.quality === 'auto' ? `Auto uses the ${resolved} preset on this device.` : '';
   }

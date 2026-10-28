@@ -179,6 +179,29 @@ export class GameScene {
     this.resize();
   }
 
+  /** The quality preset in force. */
+  get quality(): PresetName {
+    return this.preset;
+  }
+
+  /**
+   * Adaptive resolution (T4): the share of the canvas resolution the scene draws at, 0.6 to 1. The
+   * post chain shrinks its scene target; low, which has none, shrinks the canvas's backing store.
+   * The canvas keeps its CSS size either way, so the HUD and the DOM are never scaled.
+   */
+  setRenderScale(scale: number): void {
+    this.post.setRenderScale(scale);
+    this.resize();
+  }
+
+  /** The GPU's name (unmasked where the browser allows), which the benchmark result is stored by. */
+  gpu(): string {
+    const gl = this.renderer.getContext();
+    const debug = gl.getExtension('WEBGL_debug_renderer_info');
+    const name: unknown = gl.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : gl.RENDERER);
+    return typeof name === 'string' && name ? name : 'unknown';
+  }
+
   /** Applies a quality preset: pixel ratio, particle share and post passes, with no reload. */
   setPreset(preset: PresetName): void {
     if (preset === this.preset) return;
@@ -192,7 +215,8 @@ export class GameScene {
   resize(): void {
     this.cssWidth = this.canvas.clientWidth || window.innerWidth;
     this.cssHeight = this.canvas.clientHeight || window.innerHeight;
-    const ratio = pixelRatio(this.preset, window.devicePixelRatio);
+    const preset = pixelRatio(this.preset, window.devicePixelRatio);
+    const ratio = this.post.direct ? preset * this.post.scale : preset;
     if (ratio !== this.renderer.getPixelRatio()) this.renderer.setPixelRatio(ratio);
     this.renderer.setSize(this.cssWidth, this.cssHeight, false);
     this.post.resize(this.cssWidth, this.cssHeight, ratio);

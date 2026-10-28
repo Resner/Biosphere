@@ -168,6 +168,16 @@ export class PostChain {
     this.rebuild();
   }
 
+  /** The render scale in force. */
+  get scale(): number {
+    return this.renderScale;
+  }
+
+  /** No pass and no target (low): the scene draws straight onto the canvas. */
+  get direct(): boolean {
+    return this.plan.passes.length === 0;
+  }
+
   /** The depth of the focus plane, in camera heights (0: the gameplay plane). */
   setFocus(z: number): void {
     this.focus = z;
