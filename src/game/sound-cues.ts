@@ -5,14 +5,13 @@
 
 import type { Cue } from '../audio/cues';
 import type { StepEvent } from '../sim/types';
+import { LOW_ENERGY } from './hud';
 
 export const CUE_WATCH = {
   /** A hit (toxin, starvation, a bite) sounds at most this often while damage goes on: 0.4 s. */
   hurtGapTicks: 12,
   /** UV's sizzle and pressure's squeeze, at most once a second each. */
   zoneGapTicks: 30,
-  /** Low energy is under this share of the maximum (the HUD's pulse). */
-  lowShare: 0.2,
   /** Its pulse repeats every 3 s while it lasts. */
   lowGapTicks: 90,
   /** A plume is near once its edge is this many body radii away, and clear past `clearGap`. */
@@ -35,7 +34,6 @@ const NEVER = Number.NEGATIVE_INFINITY;
 
 export class CueWatch {
   private last = new Map<Cue, number>();
-  private low = false;
   private near = false;
   private dead = false;
 
@@ -44,7 +42,6 @@ export class CueWatch {
   /** A new life: every repeat and the death tone start over. */
   reset(): void {
     this.last.clear();
-    this.low = false;
     this.near = false;
     this.dead = false;
   }
@@ -68,10 +65,9 @@ export class CueWatch {
 
   /** Once per tick of a living creature: its energy share and the nearest plume, if any. */
   vitals(tick: number, energyShare: number, hazard: NearHazard | null): void {
-    const low = energyShare < CUE_WATCH.lowShare;
-    if (low && !this.low) this.sound('low-energy', tick);
-    else if (low) this.every('low-energy', tick, CUE_WATCH.lowGapTicks);
-    this.low = low;
+    // Leaving low energy forgets the last pulse, so the next dip sounds at once.
+    if (energyShare < LOW_ENERGY) this.every('low-energy', tick, CUE_WATCH.lowGapTicks);
+    else this.last.delete('low-energy');
 
     if (hazard && hazard.gap <= CUE_WATCH.nearGap) {
       if (!this.near) {
@@ -94,8 +90,7 @@ export class CueWatch {
 
   private sound(cue: Cue, tick: number, at?: { x: number; y: number }): void {
     this.last.set(cue, tick);
-    if (at) this.play(cue, at);
-    else this.play(cue);
+    this.play(cue, at);
   }
 }
 

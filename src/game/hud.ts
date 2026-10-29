@@ -20,7 +20,7 @@ function setBar(bar: HTMLElement, fraction: number): void {
 }
 
 /** Below this share of its energy the readout pulses (DESIGN §10). */
-const LOW_ENERGY = 0.2;
+export const LOW_ENERGY = 0.2;
 
 /** Biomass, energy and health readouts; text and bars, so colour is never the only signal. */
 export class Hud {
