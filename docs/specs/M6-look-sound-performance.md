@@ -544,7 +544,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Performance
 
-- [x] T26 Budgets, allocations and the budget report [opus] (in progress)
+- [x] T26 Budgets, allocations and the budget report [opus]
   - Acceptance:
     - **A crowded scene** (`m6-budget.spec.ts`, `@slow`): 24 remotes with gallery genomes, every zone effect on. Per preset, `calls`, `triangles` and `targetBytes` stay within the DESIGN §12 budgets plus a render-target memory budget: medium ≤ 48 MB and high ≤ 96 MB for a 1920×1080 drawing buffer (CSS size × pixel ratio).
     - **No per-frame allocations**: over 1,200 frames in the crowded scene, after a forced GC (`--js-flags=--expose-gc`), JS heap growth is below 1 MB, and `renderer.info.memory` geometries and textures are constant. A code review of the render loop and the post chain finds no `new` in per-frame paths, with a note in the PR.

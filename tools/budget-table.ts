@@ -1,6 +1,7 @@
 // The budget report's text (M6 T26): `npm run report:budget` (`budget-report.mjs`) stages the budget
 // scenes (`budget-scene.mjs`) on every preset, and this turns what `render.info()` read into `docs/perf/budget.md`.
 
+import { capitalise } from '../src/game/badge';
 import { PRESET_NAMES, PRESETS, type PresetName } from '../src/render/presets';
 
 export type BudgetSceneName = 'empty' | 'crowded' | 'abyss';
@@ -17,9 +18,6 @@ export interface BudgetRow {
   passes: readonly string[];
   /** Bodies drawn: the player's and the remotes'. */
   bodies: number;
-  /** The drawing buffer in device pixels. */
-  width: number;
-  height: number;
 }
 
 export interface BudgetMeta {
@@ -77,7 +75,7 @@ export function budgetReport(rows: readonly BudgetRow[], meta: BudgetMeta): stri
     if (mine.length === 0) continue;
     out.push(
       '',
-      `## ${preset[0]?.toUpperCase()}${preset.slice(1)}`,
+      `## ${capitalise(preset)}`,
       '',
       `Budget: ${b.calls} calls, ${thousands(b.triangles)} triangles, ${b.targetBytes > 0 ? `${mb(b.targetBytes)} MB of render targets` : 'no render target'}. ` +
         `Passes: ${mine[0]?.passes.length ? mine[0].passes.join(', ') : 'none (direct to the canvas)'}.`,

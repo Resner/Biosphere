@@ -16,7 +16,6 @@ import {
 } from './budget-scene.mjs';
 import { chromiumPath } from './gallery-capture.mjs';
 
-const PRESETS = ['low', 'medium', 'high'];
 const args = process.argv.slice(2);
 for (const arg of args) if (arg !== '--no-build') throw new Error(`unknown argument ${arg}`);
 if (!args.includes('--no-build')) await build({ logLevel: 'warn' });
@@ -34,6 +33,7 @@ const executablePath = chromiumPath(chromium.executablePath());
 const browser = await chromium.launch(executablePath ? { executablePath } : {});
 try {
   const { budgetReport, overBudget } = await vite.ssrLoadModule('/tools/budget-table.ts');
+  const { PRESET_NAMES } = await vite.ssrLoadModule('/src/render/presets.ts');
   const { port } = server.httpServer.address();
   const base = `http://localhost:${port}/`;
   const { player, crowd } = budgetCast();
@@ -41,7 +41,7 @@ try {
   await mkdir(shots, { recursive: true });
   // One page per preset, side by side: software GL takes about a second a frame at 1920×1080.
   const perPreset = await Promise.all(
-    PRESETS.map(async (preset) => {
+    PRESET_NAMES.map(async (preset) => {
       const context = await browser.newContext({ viewport: BUDGET_VIEWPORT, deviceScaleFactor: 1 });
       try {
         const page = await context.newPage();
@@ -49,10 +49,6 @@ try {
         const rows = [];
         for (const scene of BUDGET_SCENES) {
           const info = await stageScene(page, scene, crowd);
-          const canvas = await page.evaluate(() => {
-            const el = document.querySelector('#scene');
-            return { width: el.width, height: el.height };
-          });
           await page.screenshot({ path: new URL(`${preset}-${scene}.png`, shots).pathname });
           rows.push({
             preset,
@@ -63,8 +59,6 @@ try {
             targetBytes: info.targetBytes,
             passes: info.passes,
             bodies: info.remoteBodies + (info.playerBody ? 1 : 0),
-            width: canvas.width,
-            height: canvas.height,
           });
           process.stdout.write(`${preset} ${scene}: ${info.calls} calls, ${info.triangles} triangles\n`);
         }

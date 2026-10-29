@@ -10,8 +10,6 @@ const row = (over: Partial<BudgetRow>): BudgetRow => ({
   targetBytes: 26_244_480,
   passes: ['scene', 'refraction', 'dof', 'bloom', 'grade', 'vignette'],
   bodies: 25,
-  width: 1920,
-  height: 1080,
   ...over,
 });
 const META = { date: '2026-10-29', commit: 'abc1234', browser: 'Chromium 140' };
