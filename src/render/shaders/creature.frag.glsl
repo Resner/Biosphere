@@ -197,7 +197,8 @@ void main() {
     float near = abs(vWall - floor(vWall + 0.5));
     float step_ = max(fwidth(vWall), 1e-5);
     float width = step_ * WALL_PX;
-    float wall = (1.0 - smoothstep(width * 0.5, width * 1.5, near)) * step(1.0, vWall) *
+    // Below 0.75 lies only the front span (from 0.5), never a wall: both halves of the first wall draw.
+    float wall = (1.0 - smoothstep(width * 0.5, width * 1.5, near)) * step(0.75, vWall) *
       smoothstep(WALL_FADE.x, WALL_FADE.y, 1.0 / step_);
     col += uRim * wall * WALL * (0.6 + 0.4 * fres);
     alpha = max(alpha, wall * 0.5);

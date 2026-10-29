@@ -73,6 +73,13 @@ export interface Creature {
 
 const segmentArea = (s: PlanSegment): number => PI * s.rx * s.ry;
 
+/**
+ * A segment as the water meets it: a chain slimmed to read long is laterally compressed (look pass
+ * 4, ADR 0031), as deep as it was wide, so it weighs, drags and tapers as its girth does.
+ */
+const girthOf = (s: PlanSegment, slim: number): PlanSegment =>
+  slim === 1 ? s : { ...s, ry: s.ry / slim };
+
 /** Thrust efficiency of each tip at one body size: whips fall with size, paddles rise. */
 function efficiencyAt(biomass: number): (tip: number) => number {
   const e = S.efficiency;
@@ -190,21 +197,25 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   let width = 1;
   let front = 0;
   let rear = 0;
-  const outline = (x: number, y: number, e: { rx: number; ry: number; angle: number }): void => {
-    const ext = extentOf(e);
-    width = Math.max(width, Math.abs(y) + ext.y);
-    front = Math.max(front, x + ext.x);
-    rear = Math.min(rear, x - ext.x);
+  type Ellipse = { rx: number; ry: number; angle: number };
+  /** Widens the body to `across` (its girth, when slimmed) and lengthens it to `along` (as drawn). */
+  const outline = (x: number, y: number, across: Ellipse, along = across): void => {
+    width = Math.max(width, Math.abs(y) + extentOf(across).y);
+    const ext = extentOf(along).x;
+    front = Math.max(front, x + ext);
+    rear = Math.min(rear, x - ext);
   };
-  for (const s of plan.segments) {
+  for (const drawn of plan.segments) {
+    const s = girthOf(drawn, plan.form.slim);
     const m = segmentArea(s);
     bodyArea += m;
     inertia += m * (s.x * s.x + s.y * s.y + (s.rx * s.rx + s.ry * s.ry) / 4);
-    outline(s.x, s.y, s);
+    // A compressed segment is deep across the flow; turned along it, it is as long as drawn.
+    outline(s.x, s.y, s, drawn);
   }
   let plateArea = 0;
   for (const p of plan.plates) {
-    const s = plan.segments[p.segment] as PlanSegment;
+    const s = girthOf(plan.segments[p.segment] as PlanSegment, plan.form.slim);
     const m = p.coverage * p.thickness * PI * (s.rx + s.ry);
     plateArea += m;
     inertia += S.plateDensity * m * (s.x * s.x + s.y * s.y + (s.rx * s.rx + s.ry * s.ry) / 2);
@@ -231,7 +242,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   inertia += appendageInertia;
 
   const last = plan.segments[plan.segments.length - 1] as PlanSegment;
-  const taper = width > 0 ? Math.max(0, 1 - last.ry / width) : 0;
+  const taper = width > 0 ? Math.max(0, 1 - last.ry / plan.form.slim / width) : 0;
   const fineness = (front - rear) / (2 * width);
   const drag =
     2 * width * (1 + S.finenessDrag / fineness) * (1 - S.taperRelief * taper) +

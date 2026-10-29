@@ -70,8 +70,10 @@ export function silhouetteOf(plan: BodyPlan): Silhouette {
   }
   if (plan.form.mode === 2) return 'coil';
 
+  // The body's size is its girth: slimming a long chain to read long compresses it sideways and
+  // keeps its bulk (ADR 0031), so the webs and the head are weighed against that.
   let body = 0;
-  for (const s of segments) body += area(s);
+  for (const s of segments) body += area(s) / plan.form.slim;
   const rearX = (segments[n - 1] as PlanSegment).x;
   let web = 0;
   let tail = 0;
@@ -88,7 +90,7 @@ export function silhouetteOf(plan: BodyPlan): Silhouette {
   if (n >= 2 && fused >= T.crab * n) return 'crab';
   if (fused >= 2 && n - fused >= 2) return 'copepod';
 
-  const headShare = area(segments[0] as PlanSegment) / body;
+  const headShare = area(segments[0] as PlanSegment) / plan.form.slim / body;
   if (n >= T.long) {
     if (Math.abs(plan.form.turn) >= T.curl) return 'worm';
     if (left.length >= T.legs) return 'shrimp';

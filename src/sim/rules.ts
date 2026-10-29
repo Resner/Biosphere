@@ -340,7 +340,21 @@ export const RULES = deepFreeze({
       width: 0.8,
       reach: 2.1,
       squash: 0.25,
+      /**
+       * Body proportions v3 (look pass 4, ADR 0031): a bilateral chain of `slimFrom` segments or
+       * more is at least `aspect` times as long along its spine as its widest segment is wide. A
+       * wider one narrows, every segment by one factor, so the head and trunk keep their profile.
+       * The chain is measured laid straight: a curl is a pose and never changes the width.
+       */
+      aspect: 2.5,
+      slimFrom: 3,
     },
+    /**
+     * Long parts under karyotype v2 (look pass 4): the length gene keeps the v1 range up to `knee`
+     * of its span, then reaches `max` core radii at its top, (share past the knee)² of the way. A
+     * part keeps what of that reach fits the bounds whole, found to 2^−`steps` of it.
+     */
+    long: { knee: 0.8, max: 2.4, steps: 3 },
     /**
      * How parts fit the bounds under karyotype v2 (M6 T14b): a part that would leave them sweeps
      * toward the core, along the body, by at most `max` radians (the least sweep that fits, to

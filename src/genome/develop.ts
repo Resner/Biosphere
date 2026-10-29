@@ -95,6 +95,12 @@ export interface PlanForm {
   mode: number;
   /** 1 when the parts ring the core at even angles (symmetry ≥ `RULES.develop.radial.at`). */
   radial: number;
+  /**
+   * The factor every segment's half-width was narrowed by so that a long chain reads long (look
+   * pass 4, ADR 0031), else 1. The body is laterally compressed, not thinned: seen from above it is
+   * narrower, but it is 1 ÷ `slim` as deep, so its cross-section, mass and drag hold.
+   */
+  slim: number;
 }
 
 /**
@@ -135,8 +141,11 @@ export interface BodyPlan {
   membranes: Membrane[];
 }
 
-/** One left-side appendage; `develop` builds these and mirrors them at the end. */
-type Part = Omit<Appendage, 'side'>;
+/**
+ * One left-side appendage; `develop` builds these and mirrors them at the end. `base` is the length
+ * the v1 gene range gives it: a v2 part longer than that keeps what of the rest fits (look pass 4).
+ */
+type Part = Omit<Appendage, 'side'> & { base: number };
 type Range = readonly [number, number];
 export type Point = { x: number; y: number };
 
@@ -215,7 +224,10 @@ function heading(turn: number, mode: number, bunch: number, t: number): number {
   return turn * t;
 }
 
-function formOf(shape: Traits['shape'], count: number): PlanForm & { coil: number } {
+/** How the spine bends: everything of `PlanForm` but `slim`, which the chain's layout decides. */
+type Bending = Omit<PlanForm, 'slim'> & { coil: number };
+
+function formOf(shape: Traits['shape'], count: number): Bending {
   const C = D.curve;
   const radial = shape.symmetry >= D.radial.at ? 1 : 0;
   if (count < 2 || !(shape.curve > 0)) return { turn: 0, mode: 0, radial, coil: 0 };
@@ -245,9 +257,32 @@ function chainProfile(traits: Traits) {
   return { n, radius, stretchOf };
 }
 
-function buildSegments(traits: Traits, form: ReturnType<typeof formOf>): PlanSegment[] {
-  const out = traits.karyotype === 1 ? chainV1(traits) : chainV2(traits);
-  return form.turn > 0 ? bend(out, form) : out;
+function buildSegments(traits: Traits, form: Bending): { segments: PlanSegment[]; slim: number } {
+  const chain = traits.karyotype === 1 ? chainV1(traits) : chainV2(traits);
+  const narrow = traits.karyotype === 1 ? 1 : slimming(chain, form);
+  const straight = narrow < 1 ? chain.map((s) => ({ ...s, ry: s.ry * narrow })) : chain;
+  return { segments: form.turn > 0 ? bend(straight, form) : straight, slim: narrow };
+}
+
+/** A straight chain's length (the head's front to the tail's end) per width (its widest segment). */
+function aspectOf(segments: readonly PlanSegment[]): number {
+  const head = segments[0] as PlanSegment;
+  const tail = segments[segments.length - 1] as PlanSegment;
+  let width = 0;
+  for (const s of segments) width = Math.max(width, 2 * s.ry);
+  return (head.x + head.rx - (tail.x - tail.rx)) / width;
+}
+
+/**
+ * Body proportions v3 (look pass 4, ADR 0031): the factor that narrows a bilateral chain of
+ * `chain.slimFrom` segments or more to `chain.aspect` times as long as wide, every segment alike,
+ * so the head and trunk keep their profile and the chain keeps its length; 1 for any other body.
+ * The straight chain is measured: a curl is a pose of the same body, and never changes its width.
+ */
+function slimming(straight: PlanSegment[], form: Bending): number {
+  const C = D.chain;
+  if (form.radial === 1 || straight.length < C.slimFrom) return 1;
+  return Math.min(1, aspectOf(straight) / C.aspect);
 }
 
 /**
@@ -353,7 +388,7 @@ function chainV2(traits: Traits): PlanSegment[] {
 }
 
 /** Lays the straight chain along the curve: same links, turned by the tangent, a coil's shrinking. */
-function bend(straight: PlanSegment[], form: ReturnType<typeof formOf>): PlanSegment[] {
+function bend(straight: PlanSegment[], form: Bending): PlanSegment[] {
   const C = D.curve;
   const n = straight.length;
   const bunch = C.coilBunch * form.coil;
@@ -388,6 +423,7 @@ function buildParts(traits: Traits, n: number): Part[] {
     const reach = unit(p.attachSpan) * (1 - t0);
     const width = lerp(WIDTH[0], WIDTH[1], unit(p.thickness)) * scale;
     const tip = unit(p.tipShape);
+    const base = lerp(LENGTH[0], LENGTH[1], unit(p.length)) * scale;
     for (let k = 0; k < pairs; k++) {
       const t = pairs > 1 ? t0 + (reach * k) / (pairs - 1) : t0;
       parts.push({
@@ -395,7 +431,8 @@ function buildParts(traits: Traits, n: number): Part[] {
         segment: Math.min(n - 1, Math.floor(t * n)),
         angle: D.angleMargin + (PI - 2 * D.angleMargin) * unit(p.angle),
         dir: 0,
-        length: lerp(LENGTH[0], LENGTH[1], unit(p.length)) * scale,
+        length: partLength(p.length, traits.karyotype) * scale,
+        base,
         width,
         taper: lerp(TAPER[0], TAPER[1], unit(p.taper)),
         curvature: lerp(CURVATURE[0], CURVATURE[1], unit(p.curvature)),
@@ -416,6 +453,19 @@ function buildParts(traits: Traits, n: number): Part[] {
     }
   });
   return parts;
+}
+
+/**
+ * A part's gene length in core radii: the v1 range, and under karyotype v2 a long end that reaches
+ * `long.max` at the top of the gene (look pass 4), so antennae and tentacles can sweep round the
+ * body. Below `long.knee` both agree.
+ */
+export function partLength(byte: number, karyotype: number): number {
+  const u = unit(byte);
+  const v1 = lerp(LENGTH[0], LENGTH[1], u);
+  if (karyotype === 1) return v1;
+  const past = Math.max(0, (u - D.long.knee) / (1 - D.long.knee));
+  return v1 + (D.long.max - LENGTH[1]) * past * past;
 }
 
 /** How much of a weapon a tip is (pointed to hooked tips); stats prices it, chela needs it above 0. */
@@ -712,6 +762,38 @@ function roughReach(
  * Edits in place.
  */
 function fitPart(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, from = 0): void {
+  const wish = p.length;
+  if (!v2 || !(wish > p.base)) {
+    fitAt(p, segments, sweep, v2, from);
+    return;
+  }
+  if (fitLength(p, segments, sweep, from, wish)) return;
+  // A long v2 part (look pass 4) keeps as much of its reach past the v1 gene length as fits whole,
+  // to 2^−`long.steps` of it; if not even that length fits, it is cut as any part is.
+  let [lo, hi] = [p.base, wish];
+  if (!fitLength(p, segments, sweep, from, lo)) return;
+  for (let k = 0; k < D.long.steps; k++) {
+    const mid = (lo + hi) / 2;
+    if (fitLength(p, segments, sweep, from, mid)) lo = mid;
+    else hi = mid;
+  }
+  fitLength(p, segments, sweep, from, lo);
+}
+
+/** `fitPart` at one length: whether the part keeps it whole. */
+function fitLength(
+  p: Part,
+  segments: PlanSegment[],
+  sweep: number,
+  from: number,
+  length: number,
+): boolean {
+  p.length = length;
+  fitAt(p, segments, sweep, true, from);
+  return p.length === length;
+}
+
+function fitAt(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, from: number): void {
   // On a turned segment the two sides' roots lie at different distances; the farther one counts.
   const s = segments[p.segment] as PlanSegment;
   const mirrored = onAxis(s);
@@ -825,6 +907,7 @@ function bandPart(segment: number, angle: number, index: number): Part {
     angle,
     dir: 0,
     length: D.band.length,
+    base: D.band.length,
     width: D.band.width,
     taper: D.band.taper,
     curvature: 0,
@@ -854,7 +937,7 @@ function bandParts(parts: Part[], segment: number): Part[] | null {
 
 /** Both sides of every part, pairs adjacent: left then right. */
 const mirror = (parts: Part[]): Appendage[] =>
-  parts.flatMap((p) => [
+  parts.flatMap(({ base: _, ...p }) => [
     { ...p, side: 1 as const },
     { ...p, side: -1 as const },
   ]);
@@ -1247,7 +1330,7 @@ export function develop(traits: Traits): BodyPlan {
   const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
   const form = formOf(shape, n);
   const built = buildParts(traits, n);
-  const segments = buildSegments(traits, form);
+  const { segments, slim } = buildSegments(traits, form);
   const count = segments.length;
   const R = D.radial;
   const parts = form.radial
@@ -1274,7 +1357,7 @@ export function develop(traits: Traits): BodyPlan {
     mouth: buildMouth(traits.mouth, form.radial),
     colliders: buildColliders(segments, appendages, carapace, traits.karyotype !== 1),
     flexibility: traits.body.flexibility * (1 - (D.fusion.stiffen * carapace.count) / count),
-    form: { turn: form.turn, mode: form.mode, radial: form.radial },
+    form: { turn: form.turn, mode: form.mode, radial: form.radial, slim },
     carapace,
     eyes: buildEyes(shape, segments[0] as PlanSegment),
     membranes: buildMembranes(segments, appendages),
@@ -1342,6 +1425,7 @@ function shapeViolations(plan: BodyPlan): string[] {
     bad.push(`eyes: radius ${e.size} or stalk ${e.stalk} is outside the limits`);
   }
   if (plan.form.radial !== 0 && plan.form.radial !== 1) bad.push('form: radial is not 0 or 1');
+  if (!(plan.form.slim > 0 && plan.form.slim <= 1)) bad.push('form: slim is outside (0, 1]');
   if (plan.form.radial === 1) {
     const left = plan.appendages.filter((a) => a.side === 1);
     if (left.length > D.radial.maxPairs) bad.push(`radial ring: ${left.length} pairs`);
@@ -1496,7 +1580,7 @@ export function hashPlan(plan: BodyPlan): string {
   f(plan.colliders.length);
   for (const c of plan.colliders) f(c.x, c.y, c.r);
   const { form: o, carapace: c, eyes: e } = plan;
-  f(o.turn, o.mode, o.radial);
+  f(o.turn, o.mode, o.radial, o.slim);
   f(c.count, c.x, c.y, c.rx, c.ry, c.angle, c.thickness);
   f(e.count, e.size, e.stalk, e.angle, e.x, e.y);
   f(plan.membranes.length);

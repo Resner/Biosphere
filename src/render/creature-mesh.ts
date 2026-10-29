@@ -486,8 +486,8 @@ export function wallsAlong(plan: BodyPlan, line: Line): number[] {
     }
     if (best > owner) {
       // Only a waist where both segments hold the point draws a wall; a gap or a part buried in its
-      // neighbour does not.
-      const prev = local(segs[best - 1] as PlanSegment, x, y);
+      // neighbour does not. Where the owner skips a buried segment, the two that meet are checked.
+      const prev = local(segs[owner] as PlanSegment, x, y);
       if (near <= 1 && hypot(prev.u, prev.v) <= 1) out.push(line.at[k] as number);
       owner = best;
     }
@@ -515,9 +515,13 @@ function wallAt(walls: readonly number[], length: number, from: number): number 
  * outline there. Where the spine bends tighter than the body is wide, neighbouring rings would cross
  * and fold the surface, so each ring stops short of where its neighbours' lines cross it.
  */
+/** Each plan's walls: plans are immutable and every rung of the detail ladder asks again. */
+const WALLS = new WeakMap<BodyPlan, number[]>();
+
 function stations(plan: BodyPlan, line: Line, d: MeshDetail): Station[] {
   const rings = d.bodyRings * plan.segments.length + 1;
-  const walls = wallsAlong(plan, line);
+  const walls = WALLS.get(plan) ?? wallsAlong(plan, line);
+  WALLS.set(plan, walls);
   const out: Station[] = [];
   for (let k = 0; k < rings; k++) {
     const s = ringShare(k, rings);
