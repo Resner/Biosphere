@@ -563,7 +563,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-2.{png,md}`; organs larger and wrapped in overlapping glows (`Organ.halo`), two organ hues by number (`ORGAN_HUES`, wider and more vivid with rarity), pearl bulb tips, joint wet points, clearer plates and sheets, larger claws; five cells 2 → 1.
   - Gotcha: T13's "rim stays the brightest ring" caps the inner glow (yellow and green organs are dimmed toward one luminance for it); silhouettes stay 2–3, a body-plan change pass 3 cannot make by look tuning.
 
-- [ ] T28 Look pass 3 [opus]
+- [ ] T28 Look pass 3 [opus] (in progress)
   - Acceptance:
     - `pass-3.png` and `pass-3.md` are committed. The bar for M6 is no cell above 1 (ADR 0024).
     - If cells above 1 remain after this pass's fixes, the task adds `T28b Look pass 4` to this spec with the remaining gaps, rather than ticking the rubric. At most two extra passes (4 and 5): if the bar still fails after pass 5, open an owner issue `Look: <the gaps>` with the latest sheet and table and the options, mark the next pass `blocked (#n)`, and continue with the other tasks.
