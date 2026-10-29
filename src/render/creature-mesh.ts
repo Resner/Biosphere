@@ -98,29 +98,37 @@ const FALLBACK: Readonly<Record<Lod, readonly MeshDetail[]>> = {
   low: LOD_LADDER.low,
 };
 
-/** How finely the organs are drawn on each level: vertices round a ball's equator, gut rings and vertices round the gut. */
+/**
+ * How finely the organs are drawn on each level: vertices round a ball's equator, round an organ's
+ * glow (a flat disc, look pass 2), gut rings and vertices round the gut.
+ */
 interface OrganDetail {
   ball: number;
+  halo: number;
   gutRings: number;
   gutRing: number;
 }
 const ORGAN_DETAIL: Readonly<Record<Lod, OrganDetail>> = {
-  high: { ball: 10, gutRings: 20, gutRing: 6 },
-  medium: { ball: 6, gutRings: 12, gutRing: 5 },
-  low: { ball: 4, gutRings: 6, gutRing: 4 },
+  high: { ball: 10, halo: 16, gutRings: 20, gutRing: 6 },
+  medium: { ball: 6, halo: 10, gutRings: 12, gutRing: 5 },
+  low: { ball: 4, halo: 6, gutRings: 6, gutRing: 4 },
 };
 /** A ball's vertices (`addBall`): its bands' rings and the two poles. */
 const ballVertices = (lon: number): number => (max(2, lon >> 1) - 1) * lon + 2;
-/** The organs' vertices on one level; at most one heart, two pigment spots and `CHAMBERS.max` chambers. */
-const organVertices = (lod: Lod, organs: number, gut: boolean): number => {
+/**
+ * The organs' vertices on one level: each ball, each glow (its rim and centre) and the gut. A body
+ * has at most one heart, two pigment spots and `CHAMBERS.max` chambers, and the pigment has no glow.
+ */
+const organVertices = (lod: Lod, organs: number, halos: number, gut: boolean): number => {
   const o = ORGAN_DETAIL[lod];
-  return organs * ballVertices(o.ball) + (gut ? o.gutRings * o.gutRing : 0);
+  return organs * ballVertices(o.ball) + halos * (o.halo + 1) + (gut ? o.gutRings * o.gutRing : 0);
 };
+const MOST_ORGANS = 3 + CHAMBERS.max;
 /** The vertices each level keeps for the organs, whatever the anatomy: the body fits the rest. */
 export const ORGAN_RESERVE: Readonly<Record<Lod, number>> = {
-  high: organVertices('high', 3 + CHAMBERS.max, true),
-  medium: organVertices('medium', 3 + CHAMBERS.max, true),
-  low: organVertices('low', 3 + CHAMBERS.max, true),
+  high: organVertices('high', MOST_ORGANS, MOST_ORGANS - 2, true),
+  medium: organVertices('medium', MOST_ORGANS, MOST_ORGANS - 2, true),
+  low: organVertices('low', MOST_ORGANS, MOST_ORGANS - 2, true),
 };
 /** Every level keeps room for the most glints (M6 T13): one quad each. */
 export const GLINT_RESERVE = 4 * MAX_GLINTS;
@@ -143,12 +151,26 @@ const CAP_SHARP = RULES.develop.part.capSharp;
 const CAP_SHARE = RULES.develop.part.capShare;
 /** Every inner joint swells by at least this share, so jointed parts read as jointed. */
 const JOINT_BEAD = 0.3;
-/** A chela's palm swells by up to this share; its movable finger opens this far (radians) and is this long and wide. */
-const PALM = 0.8;
-const FINGER_OPEN = 0.45;
-const FINGER_LENGTH = 0.9;
-const FINGER_WIDTH = 0.55;
+/**
+ * A chela's palm swells by up to this share; its movable finger opens this far (radians) and is this
+ * long and wide. Look pass 2 enlarged the claw (palm 0.8, finger 0.9 long and 0.55 wide), which was
+ * lost in the setae at default zoom (M6 T21).
+ */
+const PALM = 1.3;
+const FINGER_OPEN = 0.5;
+const FINGER_LENGTH = 1.1;
+const FINGER_WIDTH = 0.8;
 const FINGER_TAPER = 0.8;
+/**
+ * A bulb tip is drawn at this share of its plan radius, as a small solid pearl (look pass 2): at its
+ * full size it read as a large glass bubble and bulbs clumped into bubble clusters.
+ */
+const PEARL = 0.55;
+/** `uv.x` tags (`addBall`): a pearl tip; an organ's number is `ORGAN_TAG` × (its index + 1). */
+const PEARL_TAG = 2;
+const ORGAN_TAG = 2;
+/** An organ glow's `uv.y` at its centre; its rim is one more. */
+const HALO_V = 2;
 /** The mouth marks the front of the body this far back (core radii) at least, so a small jaw still reads (M6 T21). */
 const MOUTH_MIN_REACH = 0.2;
 /**
@@ -624,7 +646,11 @@ function addTube(m: Mesh, tube: Tube, rings: number, ring: number): void {
   for (let j = 0; j < ring; j++) m.tri(last + j, last + ((j + 1) % ring), tipVertex);
 }
 
-/** A sphere of `lon` vertices round its equator (`lon` ÷ 2 bands), squashed to `depth` in z, along `heading`. */
+/**
+ * A sphere of `lon` vertices round its equator (`lon` ÷ 2 bands), squashed to `depth` in z, along
+ * `heading`. `u0` (a whole even number) is added to every `uv.x`: the shader reads it as a tag (a
+ * pearl tip, an organ's number) and the markings, which repeat a whole number of times, ignore it.
+ */
 function addBall(
   m: Mesh,
   x: number,
@@ -634,6 +660,7 @@ function addBall(
   depth: number,
   lon: number,
   gait: { spine: number; attach: number; weight: number; part: number },
+  u0 = 0,
 ): void {
   const lat = max(2, lon >> 1);
   const [fx, fy] = [cos(heading), sin(heading)];
@@ -649,7 +676,7 @@ function addBall(
       gait.weight,
       gait.part,
     );
-  const rear = vertex(-radius, 0, 0, 0.5, 0);
+  const rear = vertex(-radius, 0, 0, u0 + 0.5, 0);
   const first = m.count;
   for (let i = 1; i < lat; i++) {
     const theta = (PI * i) / lat;
@@ -657,10 +684,10 @@ function addBall(
     const half = radius * sin(theta);
     for (let j = 0; j < lon; j++) {
       const phi = (TAU * j) / lon;
-      vertex(a, half * cos(phi), half * depth * sin(phi), j / lon, i / lat);
+      vertex(a, half * cos(phi), half * depth * sin(phi), u0 + j / lon, i / lat);
     }
   }
-  const front = vertex(radius, 0, 0, 0.5, 1);
+  const front = vertex(radius, 0, 0, u0 + 0.5, 1);
   m.stitch(first, lat - 1, lon);
   const last = first + (lat - 2) * lon;
   for (let j = 0; j < lon; j++) {
@@ -754,7 +781,7 @@ function addAppendage(
     (t: number, i: number): number => {
       const r = r0 * (1 - taper * t);
       if (i < 0) return r;
-      if (flatBulb && i === rings - 1) return max(r, bulb);
+      if (flatBulb && i === rings - 1) return max(r, bulb * PEARL);
       return r * (joint(i) ? bead : 1) * palm(t);
     };
   const main: Tube = {
@@ -769,7 +796,7 @@ function addAppendage(
   const gait = { spine: attach, attach, weight: 1, part };
   if (a.bulb > 0 && !flatBulb) {
     const end = pathAt(path, 1);
-    addBall(m, end.x, end.y, a.bulb, end.heading, TUBE_DEPTH, d.ball, gait);
+    addBall(m, end.x, end.y, a.bulb * PEARL, end.heading, 1, d.ball, gait, PEARL_TAG);
   }
   if (a.chela > 0) {
     const from = pathAt(path, palmAt);
@@ -825,7 +852,7 @@ function addAppendage(
     );
     if (branchBulb > 0 && !flatBulb) {
       const end = pathAt(branchPath, 1);
-      addBall(m, end.x, end.y, branchBulb, end.heading, TUBE_DEPTH, d.ball, gait);
+      addBall(m, end.x, end.y, branchBulb * PEARL, end.heading, 1, d.ball, gait, PEARL_TAG);
     }
   }
   addSetae(m, plan, a, path, length, attach, id, d);
@@ -1033,16 +1060,55 @@ function addOrgans(m: Mesh, plan: BodyPlan, spine: Spine, anatomy: Anatomy, o: O
     }
     m.stitch(first, o.gutRings, o.gutRing);
   }
-  for (const organ of anatomy.organs) {
+  // The glows first, so every organ lies over them all.
+  anatomy.organs.forEach((organ, k) => {
+    if (organ.halo <= 0) return;
     const st = nearestStation(spine, organ.x, organ.y);
     m.gait = bodyMotion(plan, st);
-    addBall(m, organ.x, organ.y, organ.r, 0, ORGAN_DEPTH, o.ball, {
-      spine: st.s,
-      attach: st.s,
-      weight: 0,
-      part: ORGAN_PART[organ.kind],
-    });
+    addHalo(m, organ, o.halo, st.s, ORGAN_PART[organ.kind], ORGAN_TAG * (k + 1));
+  });
+  anatomy.organs.forEach((organ, k) => {
+    const st = nearestStation(spine, organ.x, organ.y);
+    m.gait = bodyMotion(plan, st);
+    addBall(
+      m,
+      organ.x,
+      organ.y,
+      organ.r,
+      0,
+      ORGAN_DEPTH,
+      o.ball,
+      { spine: st.s, attach: st.s, weight: 0, part: ORGAN_PART[organ.kind] },
+      ORGAN_TAG * (k + 1),
+    );
+  });
+}
+
+/**
+ * An organ's glow (look pass 2): a flat disc of `ring` vertices round a centre, facing the camera,
+ * of the organ's part kind. `uv.y` runs from `HALO_V` at the centre to `HALO_V + 1` at the rim (the
+ * shader tells a glow by it and fades it outward); `uv.x` carries the organ's tag.
+ */
+function addHalo(
+  m: Mesh,
+  organ: Anatomy['organs'][number],
+  ring: number,
+  spine: number,
+  part: number,
+  tag: number,
+): void {
+  const at = (x: number, y: number, u: number, v: number): number => {
+    const i = m.vertex(x, y, 0, tag + u, HALO_V + v, spine, spine, 0, part);
+    m.normal(i, 0, 0, 1);
+    return i;
+  };
+  const centre = at(organ.x, organ.y, 0.5, 0);
+  const first = m.count;
+  for (let j = 0; j < ring; j++) {
+    const phi = (TAU * j) / ring;
+    at(organ.x + organ.halo * cos(phi), organ.y + organ.halo * sin(phi), j / ring, 1);
   }
+  for (let j = 0; j < ring; j++) m.tri(centre, first + j, first + ((j + 1) % ring));
 }
 
 /** How many rare glints a body carries (`glintsFor`), how large (core radii), and the genome hash that places them. */
@@ -1262,7 +1328,12 @@ export function estimateVertices(
 ): number {
   return (
     fit(plan, lod).count +
-    organVertices(lod, anatomy.organs.length, anatomy.gut.length >= 2) +
+    organVertices(
+      lod,
+      anatomy.organs.length,
+      anatomy.organs.filter((o) => o.halo > 0).length,
+      anatomy.gut.length >= 2,
+    ) +
     4 * glintSpots(plan, anatomy, glints.count, glints.seed).length
   );
 }

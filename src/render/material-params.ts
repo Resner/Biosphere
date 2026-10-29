@@ -3,6 +3,7 @@
 // differ, and they are set once per genome (the cache keeps them with the geometry).
 
 import type { Traits } from '../genome/express';
+import type { RarityTier } from '../genome/rarity';
 import { clamp, lerp } from '../sim/math';
 
 export type Rgb = readonly [number, number, number];
@@ -43,6 +44,19 @@ const ORGAN_VALUE = 0.75;
 const OIL_HUE = 0.11;
 const OIL_SHIFT = 0.4;
 
+/**
+ * A second organ hue (look pass 2): references 02 and 03 mix several colours inside one clear body,
+ * and 04 and 05, the ceiling for the rarest, are far more varied and vivid. Per rarity tier: how far
+ * round the wheel (turns) the second hue lies from the gene's, and `vivid` (0..1), how far its
+ * saturation rises toward full and how brightly the organs glow from within. The shell never changes.
+ */
+export const ORGAN_HUES: Readonly<Record<RarityTier, { spread: number; vivid: number }>> = {
+  common: { spread: 0.08, vivid: 0 },
+  uncommon: { spread: 0.14, vivid: 0.2 },
+  rare: { spread: 0.22, vivid: 0.45 },
+  exotic: { spread: 0.32, vivid: 0.8 },
+};
+
 const ALBINO_HUE = 0.96;
 const ALBINO_SATURATION = 0.08;
 /** An albino has no pigment of its own, so its organs show the pink of the blood through clear tissue. */
@@ -63,7 +77,11 @@ export interface MaterialParams {
    * at the same saturation, their hue turned toward amber.
    */
   organ: Rgb;
+  /** The second organ hue (`ORGAN_HUES`): the shader gives each organ one of the two. */
+  organ2: Rgb;
   oil: Rgb;
+  /** 0..1 by rarity tier (`ORGAN_HUES`): how vivid the second hue is and how the organs glow. */
+  vivid: number;
   translucency: number;
   membrane: number;
   pattern: number;
@@ -131,7 +149,11 @@ function patternKind(alleles: readonly string[]): number {
   return PATTERN.none;
 }
 
-export function materialParams(t: Pick<Traits, 'colour' | 'skin'>): MaterialParams {
+/** `tier` is the body's rarity tier (`rarityOfTraits`); it sets only the organs' second hue and glow. */
+export function materialParams(
+  t: Pick<Traits, 'colour' | 'skin'>,
+  tier: RarityTier = 'common',
+): MaterialParams {
   const { colour, skin } = t;
   const albino = colour.albino === 'albino';
   const hue = albino ? ALBINO_HUE : colour.hue;
@@ -150,12 +172,19 @@ export function materialParams(t: Pick<Traits, 'colour' | 'skin'>): MaterialPara
   const light: Rgb = albino ? [1, 1, 1] : hsv(shellHue, shellSaturation, 1);
   const inside = Math.max(value, ORGAN_VALUE);
   const organSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
+  const second = ORGAN_HUES[tier];
 
   return {
     core: liftTo(toward(body, 0, 0.5), MIN_CORE_LUMINANCE, light),
     rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE, light),
     saturation,
     organ: hsv(hue, organSaturation, inside),
+    organ2: hsv(
+      (hue + second.spread) % 1,
+      lerp(organSaturation, 1, second.vivid),
+      lerp(inside, 1, second.vivid),
+    ),
+    vivid: second.vivid,
     oil: hsv(towardHue(hue, OIL_HUE, OIL_SHIFT), organSaturation, 1),
     translucency: clamp(skin.translucency, 0, 1),
     membrane: clamp(skin.membrane, 0, 1),

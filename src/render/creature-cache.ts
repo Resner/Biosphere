@@ -6,6 +6,7 @@
 import type * as THREE from 'three';
 import type { BodyPlan } from '../genome/develop';
 import type { Traits } from '../genome/express';
+import { rarityOfTraits } from '../genome/rarity';
 import { anatomyOf } from './anatomy';
 import { buildCreatureGeometry, type Lod } from './creature-mesh';
 import { materialParams } from './material-params';
@@ -52,7 +53,7 @@ export class CreatureCache {
   /** `makeMaterial` must return a fresh material each call: the cache disposes it with the geometry. */
   constructor(
     private readonly makeMaterial: (creature: CreatureSource) => THREE.Material = (c) => {
-      const params = materialParams(c.traits);
+      const params = materialParams(c.traits, rarityOfTraits(c.traits).tier);
       return creatureMaterial(params, glintsOf(c.traits, params).brightness);
     },
   ) {}

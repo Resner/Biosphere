@@ -1,7 +1,7 @@
 // Inner anatomy (M6 T12, references 02 and 03): the organs that show through a creature's clear
 // shell. A gut line runs along the curved spine and swells into a stomach; fluid chambers and oil
-// droplets sit at hash-seeded places without overlapping; a heart or ganglion spot and eye pigment
-// complete it. Everything lies inside the hull (the union of the plan's segment ellipses). This is
+// droplets sit at hash-seeded places without overlapping, each in a soft glow that may overlap its
+// neighbours' (look pass 2); a heart or ganglion spot and eye pigment complete it. Everything lies inside the hull (the union of the plan's segment ellipses). This is
 // render data only: nothing in the sim or the stats reads it, and it is fixed per genome, because
 // the mesh is cached per genome hash and level of detail.
 
@@ -18,12 +18,17 @@ const TAU = 2 * PI;
 
 export type OrganKind = 'chamber' | 'droplet' | 'heart' | 'ganglion' | 'pigment';
 
-/** A round organ: its kind, centre and radius in the body frame (core radii). */
+/**
+ * A round organ: its kind, centre and radius in the body frame (core radii), and the radius of the
+ * soft glow of tissue round it (look pass 2; 0 for eye pigment). Organs never overlap; their glows
+ * do, so neighbouring lobes read as one organ mass, as in references 02 and 03.
+ */
 export interface Organ {
   kind: OrganKind;
   x: number;
   y: number;
   r: number;
+  halo: number;
 }
 
 /** A point of the gut line: its spine share (0 front, 1 rear), centre and radius. */
@@ -59,9 +64,9 @@ const STOMACH_SPREAD = 0.12;
 /** The gut thins toward its ends to this share of its width. */
 const GUT_END = 0.45;
 /** Organ radii, in units of the body's scale (√ of its hull area ÷ π). */
-const CHAMBER = 0.23;
+const CHAMBER = 0.36;
 const DROPLET = 0.7;
-const HEART = 0.1;
+const HEART = 0.12;
 const PIGMENT = 0.075;
 /** Each chamber is ±this share of its size; this share of them are oil droplets, at most. */
 const CHAMBER_SPREAD = 0.45;
@@ -74,12 +79,15 @@ const EYE_SPOT_AT = 0.08;
 const PIGMENT_IN = 0.4;
 /**
  * Chambers cluster along the midline, as in references 02 and 03: drawn within this share of each
- * segment's half-width, so the outer band of the shell stays clear glass.
+ * segment's half-width, so the outer band of the shell stays clear glass. Look pass 2 widened it
+ * from 0.55 and packed the organs closer, so they fill the trunk as one mass of lobes.
  */
-const ACROSS = 0.55;
+const ACROSS = 0.7;
 /** Organs keep within the hull shrunk to this share, and this far apart (share of their radii). */
 const INNER = 0.85;
-const GAP = 1.2;
+const GAP = 1.05;
+/** An organ's glow reaches this many times its radius, as far as the shrunk hull allows. */
+export const HALO = 2.4;
 /** Placement tries per organ before every chamber shrinks by `SHRINK` and placement starts over. */
 const TRIES = 60;
 const SHRINK = 0.85;
@@ -87,7 +95,7 @@ const ROUNDS = 16;
 /** Spine shares a spot may move by to find room, in order. */
 const NUDGES = [0, 0.04, -0.04, 0.08, -0.08, 0.12, -0.12, 0.18, -0.18];
 /** Boundary points checked round a disc. */
-const EDGE = 16;
+const EDGE = 32;
 
 /** Fluid chambers and oil droplets: grows with the genetic maximum size and the metabolism, 3–14. */
 export function chamberCount(t: Pick<Traits, 'body' | 'physiology'>): number {
@@ -154,6 +162,12 @@ function intoHull(plan: BodyPlan, x: number, y: number): { x: number; y: number 
   return { x: x + (best.x - x) * t, y: y + (best.y - y) * t };
 }
 
+/** The organ with its glow: `HALO` times its radius, or as far as fits inside the shrunk hull (never below its own radius). */
+function withHalo(plan: BodyPlan, o: Organ): Organ {
+  if (o.kind === 'pigment' || o.r <= 0) return o;
+  return { ...o, halo: max(o.r, fitRadius(plan, o.x, o.y, o.r * HALO)) };
+}
+
 function gutOf(plan: BodyPlan, line: Line, rng: Rng, scale: number): GutPoint[] {
   const stomach = rng.range(STOMACH_AT[0], STOMACH_AT[1]);
   const out: GutPoint[] = [];
@@ -206,7 +220,7 @@ function spot(
     const room = hypot(o.x - p.x, o.y - p.y) / GAP - o.r;
     radius = min(radius, room);
   }
-  return { kind, x: p.x, y: p.y, r: max(radius, 0) };
+  return { kind, x: p.x, y: p.y, r: max(radius, 0), halo: 0 };
 }
 
 /** A point inside the shrunk hull, near the midline: a segment by area, then a point in the middle band of its ellipse. */
@@ -294,7 +308,7 @@ function placeOrgans(plan: BodyPlan, traits: Traits, genomeHash: string): Anatom
       for (let k = 0; k < TRIES && !fits; k++) {
         const p = samplePoint(plan, rng, total);
         fits = discFits(plan, p.x, p.y, r) && apart(placed, p.x, p.y, r);
-        if (fits) placed.push({ kind: c.kind, x: p.x, y: p.y, r });
+        if (fits) placed.push({ kind: c.kind, x: p.x, y: p.y, r, halo: 0 });
       }
       if (!fits) missed.push(c);
     }
@@ -304,7 +318,7 @@ function placeOrgans(plan: BodyPlan, traits: Traits, genomeHash: string): Anatom
         const s = (k + 0.5) / missed.length;
         placed.push(spineSpot(plan, line, s, c.r * shrink, c.kind, placed));
       });
-      return { gut, organs: placed };
+      return { gut, organs: placed.map((o) => withHalo(plan, o)) };
     }
     shrink *= SHRINK;
   }
