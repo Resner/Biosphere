@@ -42,11 +42,6 @@ test('a court is answered, both pay, and a newborn is refused for being too youn
   await goTo(a, idB);
   await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /);
   await expect(a.getByTestId('hud-ready')).toHaveText('Ready to mate');
-  await Promise.all([topUp(a), topUp(b)]);
-  const before = {
-    a: (await state(a)).player,
-    b: (await state(b)).player,
-  };
   await a.keyboard.press('e');
   await a.keyboard.press('e');
   await expect(b.getByTestId('invite')).toBeVisible();
@@ -55,6 +50,12 @@ test('a court is answered, both pay, and a newborn is refused for being too youn
   await expect(b.getByTestId('invite-band')).not.toBeEmpty();
   await expect(b.getByTestId('invite-left')).toHaveText(/^\d+ s$/);
   await b.screenshot({ path: 'test-results/m5-court-invite.png' });
+  // The cost lands on the accept: measure from here, so growth during the screenshot is not counted.
+  await Promise.all([topUp(a), topUp(b)]);
+  const before = {
+    a: (await state(a)).player,
+    b: (await state(b)).player,
+  };
   await b.keyboard.press('e');
 
   for (const page of [a, b]) {
