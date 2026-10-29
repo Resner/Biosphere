@@ -1,28 +1,29 @@
-// What the social layer looks like: the chat panel and input, the roster (click a name to mute),
-// and the bubbles, emotes and pings drawn over the water. Text only, never markup, because every
-// string except the glyphs comes from another player.
+// What the social layer looks like: the chat panel and input, T's emote strip, the roster (click a
+// name to mute), and the bubbles, emotes and pings drawn over the water. Text only, never markup,
+// because every string except the icons (our own SVG, `icons.ts`) comes from another player.
 
 import type { Member } from '../net/protocol';
 import { pick } from './dom';
+import { type IconName, makeIcon, showIcon } from './icons';
 import { type LabelProjection, placeAt, screenX, screenY } from './labels';
 import type { PingCue, Social } from './social';
 
 /** Wave, happy, love, angry, scared, question; indexed by the emote id. */
-export const EMOTES = [
-  { glyph: '≋', name: 'wave' },
-  { glyph: '☺', name: 'happy' },
-  { glyph: '♥', name: 'love' },
-  { glyph: '✖', name: 'angry' },
-  { glyph: '!', name: 'scared' },
-  { glyph: '?', name: 'question' },
-] as const;
+export const EMOTES: readonly { name: IconName }[] = [
+  { name: 'wave' },
+  { name: 'happy' },
+  { name: 'love' },
+  { name: 'angry' },
+  { name: 'scared' },
+  { name: 'question' },
+];
 /** Look, danger, food, mate; indexed by the ping kind. */
-export const PINGS = [
-  { glyph: '◎', name: 'look' },
-  { glyph: '▲', name: 'danger' },
-  { glyph: '◆', name: 'food' },
-  { glyph: '♥', name: 'mate' },
-] as const;
+export const PINGS: readonly { name: IconName }[] = [
+  { name: 'look' },
+  { name: 'danger' },
+  { name: 'food' },
+  { name: 'mate' },
+];
 
 /** Gap between a cell's edge and the cues above it: room for the name label. */
 const GAP_PX = 30;
@@ -52,6 +53,7 @@ export class SocialUi {
   private readonly input = pick<HTMLInputElement>('[data-testid="chat-input"]');
   private readonly roster = pick('[data-testid="roster"]');
   private readonly cues = pick('[data-testid="social-cues"]');
+  private readonly strip = pick('[data-testid="emote-strip"]');
   private readonly byId = new Map<string, Cue>();
   private readonly pingEls = new Map<PingCue, HTMLElement>();
   private readonly live = new Set<string>();
@@ -75,6 +77,16 @@ export class SocialUi {
         this.input.value = text;
       }
     });
+    this.strip.replaceChildren(
+      ...EMOTES.map(({ name }, id) => {
+        const choice = document.createElement('li');
+        choice.dataset.testid = 'emote-choice';
+        const key = document.createElement('kbd');
+        key.textContent = String(id + 1);
+        choice.append(makeIcon(name), key);
+        return choice;
+      }),
+    );
     this.input.addEventListener('blur', () => {
       if (!this.input.hidden) this.close();
     });
@@ -109,6 +121,7 @@ export class SocialUi {
     p: LabelProjection,
   ): void {
     this.drawLog();
+    this.strip.hidden = !this.social.emoteArmed;
     this.drawRoster(others);
     this.drawCues(now, anchors, p);
     this.drawPings(now, p);
@@ -181,10 +194,9 @@ export class SocialUi {
       const emote = emotes.get(id);
       cue.emote.hidden = !emote;
       if (emote) {
-        const { glyph, name } = EMOTES[emote.id] as (typeof EMOTES)[number];
+        const { name } = EMOTES[emote.id] as (typeof EMOTES)[number];
         cue.emote.dataset.emote = String(emote.id);
-        cue.emote.textContent = glyph;
-        cue.emote.setAttribute('aria-label', name);
+        showIcon(cue.emote, name);
         cue.emote.style.opacity = fade(emote.until - now);
       }
       // Placed once its content is set: the anchor needs its size.
@@ -209,12 +221,11 @@ export class SocialUi {
     for (const ping of pings) {
       let element = this.pingEls.get(ping);
       if (!element) {
-        const { glyph, name } = PINGS[ping.kind] as (typeof PINGS)[number];
+        const { name } = PINGS[ping.kind] as (typeof PINGS)[number];
         element = document.createElement('div');
         element.className = 'ping';
         element.dataset.kind = String(ping.kind);
-        element.setAttribute('aria-label', name);
-        element.textContent = glyph;
+        showIcon(element, name);
         this.cues.append(element);
         this.pingEls.set(ping, element);
       }

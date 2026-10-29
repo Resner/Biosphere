@@ -226,6 +226,11 @@ export class Social {
     return true;
   }
 
+  /** `T` waits for the number of an emote (the chat shows the six to pick from). */
+  get emoteArmed(): boolean {
+    return this.opts.now() < this.armedUntil;
+  }
+
   /** A pressed key: `T` then 1–6 is an emote (the chat users' shortcut; `G` is the wheel's). */
   key(key: string, self: string): void {
     const now = this.opts.now();

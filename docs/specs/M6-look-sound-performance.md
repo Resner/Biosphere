@@ -533,12 +533,14 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `game/wheel.ts` (`Wheel` state, picked by direction, and `WheelUi`); `Social.ping` takes the kind; `state().wheel`; `m6-wheel` (hub 8799): the one-page test runs in the PR gate, the two-context check is `@slow` (two hatches take ~11 s).
   - Gotcha: a tap of `G` (under 250 ms) leaves the wheel open, or "press G, then 3" could never work; glyphs are still text until T25.
 
-- [ ] T25 Production-quality emote and ping icons [opus]
+- [x] T25 Production-quality emote and ping icons [opus]
   - Acceptance:
     - 10 original SVG icons: wave, happy, love, angry, scared, question, look, danger, food, mate. They share one line weight and style (glowing line art that fits the dark water) and are drawn on a 24 px grid. They are used in the wheel, over creatures, on edge indicators (T19) and in chat. No emoji glyphs remain.
     - Each is legible at 20 px and 40 px: a screenshot at 20 px shows each with a distinct shape, judged by eye and noted in the PR. A test checks every icon has a `title` for screen readers.
     - E2E: every emote and ping renders an `svg` element and no text glyph.
   - Notes: no third-party icon sets (licences); draw them.
+  - Done: `game/icons.ts` (10 line icons, `.icon` glow and tints in CSS) in the wheel, emotes, ping rings, edge, map and a `T` emote strip in chat (`emote-strip`); `m6-icons.spec.ts` checks every place and saves `docs/art/icons-sheet.png`.
+  - Gotcha: three round faces overlapped 78% at 20 px, so angry bristles and scared shivers (outline, not just features); emotes and pings expire on wall time, so the E2E reads each place in one poll.
 
 ### Performance
 

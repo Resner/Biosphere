@@ -25,6 +25,10 @@ The owner's bar for the creature look overhaul (#90, M6). Each sheet shows 20 mi
 - **Colour and rarity**: 02 and 03 match the written palette best: crystal-clear and silvery bodies with amber, violet, cyan, emerald and pink only inside. 04 and 05 are far more saturated and glittering. Take that intensity as the ceiling for the rarest creatures, not the norm: the brief says sparkles must feel exceptionally rare, so common creatures look like 02 and 03, and glow and glints rise with rarity.
 - **Not to copy**: the names, size labels and icons under each creature are presentation only, though the plain card (name, size in µm) is a good model for the inspect card.
 
+## icons-sheet.png
+
+The ping and emote icons (M6 T25, `src/game/icons.ts`) at 20 and 40 px, as `m6-icons.spec.ts` saves them: look, danger, food, mate, wave, happy, love, angry, scared, question. Original line art, drawn for Biosphere; no third-party icon set.
+
 ## How it maps to the game
 
 - The camera looks down on the gameplay plane, not from the side as in the photo; the lighting ideas carry over unchanged: backlight, rim, glints, bokeh.

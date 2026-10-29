@@ -7,6 +7,7 @@ import { type Zone, zoneOfDepth } from '../sim/bathymetry';
 import { clamp } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { pick, setText } from './dom';
+import { showIcon } from './icons';
 import { PINGS } from './social-ui';
 
 /** How far an edge texel is lightened, so zones are told apart by a line as well as a colour. */
@@ -163,7 +164,7 @@ export class PondMap {
         this.pingEls[i] = el;
       }
       const kind = PINGS[ping.kind];
-      setText(el, kind?.glyph ?? '');
+      showIcon(el, kind?.name ?? null);
       el.dataset.kind = String(ping.kind);
       el.setAttribute('aria-label', `${kind?.name ?? ''} ping`);
       el.style.transform = this.place(ping.x, ping.y, view.size);

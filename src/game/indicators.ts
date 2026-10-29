@@ -5,6 +5,7 @@
 
 import { type SizeClass, sizeClass } from '../sim/size';
 import { setText } from './dom';
+import { showIcon } from './icons';
 import { type LabelProjection, placeAt, screenX, screenY } from './labels';
 import { PINGS } from './social-ui';
 
@@ -199,7 +200,7 @@ const ARROWS: Record<SizeClass | 'ping', string> = {
   comparable: '<path class="edge-fill" d="M-5 -8 L11 0 L-5 8 L-1 0 Z"/>',
   bigger:
     '<path class="edge-line" d="M-14 -11 L-6 0 L-14 11"/><path class="edge-fill" d="M-7 -12 L15 0 L-7 12 L-2 0 Z"/>',
-  ping: '<circle class="edge-ring" r="10"/><path class="edge-fill" d="M12 -5 L18 0 L12 5 Z"/>',
+  ping: '<circle class="edge-ring" r="13"/><path class="edge-fill" d="M15 -5 L21 0 L15 5 Z"/>',
 };
 /** A heart beside the arrow: the creature says it could mate. */
 const HEART = '<path class="edge-heart" d="M0 4 C-7 -1 -4 -7 0 -3 C4 -7 7 -1 0 4 Z"/>';
@@ -242,7 +243,7 @@ export class EdgeIndicatorsUi {
     s.heart.style.display = ind.ready ? '' : 'none';
     s.root.dataset.ready = String(ind.ready);
     const ping = ind.kind === 'ping' ? PINGS[ind.ping] : undefined;
-    setText(s.glyph, ping?.glyph ?? '');
+    showIcon(s.glyph, ping?.name ?? null);
     const lengths = lengthsText(ind.lengths);
     const name = ping ? `${ping.name} ping` : ind.name;
     const detail = [lengths];
