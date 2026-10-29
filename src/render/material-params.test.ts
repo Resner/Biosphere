@@ -56,7 +56,7 @@ describe('materialParams', () => {
     expect(hi).toBeGreaterThan(lo);
   });
 
-  it('keeps an albino\'s organs one pink whatever its rarity tier', () => {
+  it("keeps an albino's organs one pink whatever its rarity tier", () => {
     const albino = withColour({ hue: 0.3, saturation: 1, value: 0.9, albino: 'albino' });
     for (const tier of ['common', 'uncommon', 'rare', 'exotic'] as const) {
       const p = materialParams(albino, tier);
