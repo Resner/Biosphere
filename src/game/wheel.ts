@@ -140,7 +140,10 @@ export class Wheel {
     const opened = this.opened;
     if (!opened?.held) return;
     opened.held = false;
-    const index = this.highlighted(pointer);
+    // Near a screen edge the ring is pushed inward, so an unmoved cursor can sit over an item.
+    const moved =
+      pointer && Math.hypot(pointer.x - opened.target.x, pointer.y - opened.target.y) > 8;
+    const index = moved ? this.highlighted(pointer) : null;
     if (index !== null) this.choose(WHEEL_ITEMS[index] as WheelItem);
     else if (now - opened.at >= WHEEL.holdMs) this.cancel();
   }

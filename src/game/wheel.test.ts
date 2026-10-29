@@ -85,6 +85,16 @@ describe('wheel items', () => {
 });
 
 describe('Wheel', () => {
+  it('a tap of G near an edge, where the ring is pushed inward, does not pick the item under the cursor', () => {
+    const { picks, wheel } = setup();
+    // At y=100 the ring centres at y=148, so the unmoved cursor sits 48 px from it, over an item.
+    wheel.press({ x: 480, y: 100 }, { x: 1, y: 2 }, VIEW, 0);
+    expect(wheel.highlighted({ x: 480, y: 100 })).not.toBeNull();
+    wheel.release({ x: 480, y: 100 }, 40);
+    expect(picks).toEqual([]);
+    expect(wheel.isOpen).toBe(true);
+  });
+
   it('a tap of G opens it and leaves it open; a number then picks directly', () => {
     const { open, picks, wheel } = setup();
     expect(wheel.pick('3')).toBe(false);
