@@ -35,6 +35,15 @@ body {
   text-shadow: 0 0 24px rgb(0 0 0 / 0.8);
 }
 
+/* While a genesis egg waits for its beacon, the menu steps back so the egg is the moment (M6 T20). */
+.title > * {
+  transition: opacity 0.6s ease;
+}
+
+[data-egg] .title > :not(h1) {
+  opacity: 0.12;
+}
+
 .title h1 {
   margin: 0;
   font-size: clamp(2.5rem, 7vw, 5rem);
@@ -1245,7 +1254,7 @@ body {
 
 .fallback[hidden],
 .offspring[hidden],
-.egg[hidden] {
+.hud-egg[hidden] {
   display: none;
 }
 
@@ -1260,6 +1269,21 @@ body {
   background: rgb(4 9 11 / 0.8);
   color: var(--text);
   font-size: 0.8rem;
+  /* The card slides in as the egg bursts (M6 T20). */
+  animation: offspring-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+
+@keyframes offspring-in {
+  from {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+@keyframes offspring-fade {
+  from {
+    opacity: 0;
+  }
 }
 
 .offspring p {
@@ -1291,28 +1315,16 @@ body {
   font-size: 0.8rem;
 }
 
-.egg {
-  position: fixed;
-  width: 1.6rem;
-  height: 2.1rem;
-  margin: -1rem 0 0 -0.8rem;
-  border: 1px solid rgb(190 235 255 / 0.9);
-  border-radius: 50% 50% 50% 50% / 60% 60% 40% 40%;
-  background: radial-gradient(circle at 35% 30%, rgb(255 255 255 / 0.55), rgb(120 200 230 / 0.15));
-  box-shadow: 0 0 12px rgb(141 232 138 / 0.5);
-  pointer-events: none;
-  animation: egg-pulse 1.2s ease-in-out infinite;
-}
-
-@keyframes egg-pulse {
-  50% {
-    transform: scale(1.12);
-  }
+/* The carried egg's key, under the life bar: the egg itself is drawn in the scene (M6 T20). */
+.hud-egg {
+  margin: 0;
+  color: #8de88a;
+  font-size: 0.8rem;
 }
 
 @media (prefers-reduced-motion: reduce) {
-  .egg {
-    animation: none;
+  .offspring {
+    animation-name: offspring-fade;
   }
 }
 

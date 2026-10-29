@@ -9,6 +9,7 @@ import type { CreatureSource } from './creature-cache';
 import type { Lod } from './creature-mesh';
 import type { CreatureViewState } from './creature-view';
 import type { Ring } from './effects';
+import { EggLayer, type EggView } from './egg';
 import { FoodLayer } from './food';
 import { GlowLayer } from './glows';
 import { PlumeLayer } from './hazards';
@@ -58,6 +59,8 @@ export interface SceneView {
   remotes: readonly RemoteCellView[];
   /** Eat pops and dash ripples alive right now. */
   rings: readonly Ring[];
+  /** Eggs to draw (M6 T20): the reveal, carried eggs and their tethers. */
+  eggs: readonly EggView[];
   /** How far the player sees clearly in dark water, in wu (`sightRadius`, M6 T16). */
   sight: number;
   /** How far the sim's currents have carried the water since the pond began, in wu: it carries the snow (M6 T17). */
@@ -97,6 +100,8 @@ export interface RenderInfo extends PostInfo {
   memory: { geometries: number; textures: number };
   /** The caustics' strength at the camera (M6 T17, `sunlight`); `rays` is the god rays' drawn. */
   caustic: number;
+  /** Eggs drawn this frame, the player's and its peers' (M6 T20). */
+  eggs: number;
 }
 
 /** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
@@ -114,6 +119,7 @@ const ORDER = {
   plumes: 2,
   food: 3,
   cell: 4,
+  eggs: 4.7,
   rings: 4.8,
   mid: 5,
   near: 6,
@@ -150,6 +156,17 @@ export class GameScene {
     pxPerWu: 1,
   };
   private readonly rings = new RingLayer();
+  private readonly eggs = new EggLayer();
+  /** The plain cell drawn at a scaled size (a pop or a shrink), so the view itself is never written. */
+  private readonly scaledCell: CellView = {
+    x: 0,
+    y: 0,
+    heading: 0,
+    radius: 1,
+    beat: 0,
+    hurt: 0,
+    dissolve: 0,
+  };
   private readonly remotes: RemoteLayer;
   private readonly post: PostChain;
   private readonly sprites: SpriteDof = {
@@ -231,6 +248,7 @@ export class GameScene {
       ...this.food.meshes.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
       [this.cell.flagellum, ORDER.cell],
       [this.cell.body, ORDER.cell + 0.5],
+      [this.eggs.mesh, ORDER.eggs],
       [this.rings.mesh, ORDER.rings],
       [this.mid.points, ORDER.mid],
       [this.near.points, ORDER.near],
@@ -352,7 +370,7 @@ export class GameScene {
     this.near.update(view, this.pxPerWu, sprites, snow, flow);
     this.plumes.update(view.time);
     this.food.update(view.time);
-    this.cell.update(this.drawBody(view) ? null : view.creature, view.time);
+    this.cell.update(this.drawBody(view) ? null : this.cellOf(view.creature), view.time);
     this.remotes.set(
       view.remotes,
       view.time,
@@ -361,6 +379,7 @@ export class GameScene {
       this.sightOf,
       this.causticOf,
     );
+    this.eggs.set(view.eggs, view.time);
     this.rings.set(view.rings);
 
     this.post.render(this.scene, camera);
@@ -445,6 +464,14 @@ export class GameScene {
     return sightAt(depthAt(this.seed, x, y), distance, viewer.z, lit);
   };
 
+  /** The plain cell's view at its drawn size. */
+  private cellOf(creature: CellView | null): CellView | null {
+    if (!creature || (creature.scale ?? 1) === 1) return creature;
+    const cell = Object.assign(this.scaledCell, creature);
+    cell.radius = creature.radius * (creature.scale ?? 1);
+    return cell;
+  }
+
   /** Draws the player's genome body; false means the plain cell must stand in. */
   private drawBody(view: SceneView): boolean {
     const { creature, body } = view;
@@ -454,11 +481,13 @@ export class GameScene {
     state.x = creature.x;
     state.y = creature.y;
     state.heading = creature.heading;
-    state.radius = creature.radius;
+    // A pop or a shrink scales the drawn body; the level of detail still follows its real size.
+    const scale = creature.scale ?? 1;
+    state.radius = creature.radius * scale;
     state.beat = creature.beat;
     state.hurt = creature.hurt;
     state.dissolve = creature.dissolve;
-    state.pxPerWu = this.pxPerWu;
+    state.pxPerWu = scale > 0 ? this.pxPerWu / scale : this.pxPerWu;
     state.preset = this.preset;
     state.caustic = this.causticOf(creature.x, creature.y);
     return this.body.set(state, view.time);
@@ -482,6 +511,7 @@ export class GameScene {
       particles: this.far.drawnCount + this.mid.drawnCount + this.near.drawnCount,
       memory: { geometries: memory.geometries, textures: memory.textures },
       caustic: this.caustic,
+      eggs: this.eggs.count(),
       ...this.post.info(),
     };
   }
@@ -514,6 +544,7 @@ export class GameScene {
       this.food,
       this.cell,
       this.body,
+      this.eggs,
       this.rings,
       this.remotes,
     ]) {

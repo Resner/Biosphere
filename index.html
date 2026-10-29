@@ -85,6 +85,7 @@
       <div class="meter" data-meter="energy"><span class="meter-name">Energy</span><span class="meter-value" data-testid="hud-energy"></span><span class="bar"><i data-bar="energy"></i></span></div>
       <div class="meter"><span class="meter-name">Health</span><span class="meter-value" data-testid="hud-health"></span><span class="bar"><i data-bar="health"></i></span></div>
       <div class="meter life" data-meter="life" data-testid="hud-life" hidden><span class="meter-name">Life</span><span class="meter-value" data-testid="hud-stage"></span><span class="bar"><i data-bar="life"></i></span><span class="life-left" data-testid="hud-remaining"></span><span class="life-left" data-testid="hud-ready"></span></div>
+      <p class="hud-egg" data-testid="hud-egg" hidden>Egg: H to hatch</p>
       <div class="meter depth" data-testid="hud-depth"><span class="meter-name">Depth</span><span class="meter-value" data-testid="hud-zone"></span><span class="bar"><i data-bar="depth"></i></span><span class="zone-warning" data-testid="hud-zone-warning"></span></div>
       <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
       <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping · M map</p>
@@ -107,7 +108,6 @@
       <ul class="inspect-hints" data-testid="inspect-hints"></ul>
       <button type="button" class="action quiet" data-testid="inspect-close">Close (Esc)</button>
     </section>
-    <div class="egg" data-for="playing" data-testid="egg" role="img" aria-label="Your offspring is hatching" hidden></div>
     <section class="offspring" data-for="playing" data-testid="offspring" aria-label="Offspring" hidden>
       <p class="offspring-title">Your offspring</p>
       <canvas class="offspring-preview" data-testid="offspring-preview" width="144" height="72" aria-hidden="true"></canvas>

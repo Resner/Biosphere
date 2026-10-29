@@ -6,6 +6,8 @@ import cellFragment from './shaders/cell.frag.glsl?raw';
 import cellVertex from './shaders/cell.vert.glsl?raw';
 import creatureFragment from './shaders/creature.frag.glsl?raw';
 import creatureVertex from './shaders/creature.vert.glsl?raw';
+import eggFragment from './shaders/egg.frag.glsl?raw';
+import eggVertex from './shaders/egg.vert.glsl?raw';
 import flagellumFragment from './shaders/flagellum.frag.glsl?raw';
 import flagellumVertex from './shaders/flagellum.vert.glsl?raw';
 import foodFragment from './shaders/food.frag.glsl?raw';
@@ -176,6 +178,16 @@ export const glowMaterial = (): THREE.ShaderMaterial =>
 /** Pops and ripples reuse the plume's instanced-quad vertex shader; only the fragment differs. */
 export const ringMaterial = (): THREE.ShaderMaterial =>
   layer(plumeVertex, ringsFragment, {}, { blending: THREE.AdditiveBlending });
+
+/**
+ * Eggs and their tethers (M6 T20): premultiplied, so the glassy shell covers what lies under it
+ * and the light inside, the cracks and the burst add to it.
+ */
+export const eggMaterial = (): THREE.ShaderMaterial => {
+  const material = layer(eggVertex, noise + eggFragment, { uTime: { value: 0 } });
+  material.premultipliedAlpha = true;
+  return material;
+};
 
 /** An occasional bright speck (M6 T17) is this much larger and brighter than its plain self. */
 export const SPARKLE = { size: 1.6, light: 5 } as const;

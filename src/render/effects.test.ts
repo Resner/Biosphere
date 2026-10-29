@@ -34,6 +34,40 @@ describe('Effects', () => {
     expect(FX.tierSeconds).toBeGreaterThan(FX.growSeconds);
   });
 
+  it('bursts an egg with one ring per step of rarity, each wider than the last', () => {
+    const fx = new Effects();
+    fx.burst(AT, 3);
+    expect(fx.rings).toHaveLength(3);
+    expect(fx.rings[0]?.kind).toBe('pop');
+    const sizes = fx.rings.map((ring) => ring.size);
+    expect(sizes[1]).toBeGreaterThan(sizes[0] as number);
+    expect(sizes[2]).toBeGreaterThan(sizes[1] as number);
+    expect(fx.snapshot().bursts).toBe(1);
+    fx.burst(AT, 0);
+    expect(fx.rings).toHaveLength(3);
+    expect(fx.snapshot().bursts).toBe(2);
+  });
+
+  it('shrinks the drawn body with a pulse when a mating is paid for (M6 T20)', () => {
+    const fx = new Effects();
+    expect(fx.drawnRadius(10)).toBe(10);
+    fx.costPulse(12);
+    expect(fx.snapshot().cost).toBe(1);
+    expect(fx.drawnRadius(10)).toBeCloseTo(12, 6);
+    const sizes: number[] = [];
+    for (let t = 0; t < FX.shrinkSeconds; t += 1 / 60) {
+      fx.update(1 / 60);
+      sizes.push(fx.drawnRadius(10));
+    }
+    // It dips below the new size before it settles there: the pulse.
+    expect(Math.min(...sizes)).toBeLessThan(10 * 0.97);
+    fx.update(0.1);
+    expect(fx.drawnRadius(10)).toBe(10);
+    fx.costPulse(12);
+    fx.reset();
+    expect(fx.drawnRadius(10)).toBe(10);
+  });
+
   it('retires rings once their time is up', () => {
     const fx = new Effects();
     fx.onEvent({ type: 'eat', creature: 'p', food: 'f', value: 5 }, AT);

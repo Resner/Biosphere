@@ -25,6 +25,13 @@ export const FX = {
   growSeconds: 0.9,
   tierRadii: 6,
   tierSeconds: 1.8,
+  /** An egg's burst (M6 T20): the first ring's size in egg radii, how much wider each next one is, and how long it runs. */
+  burstRadii: 2.2,
+  burstStep: 1.6,
+  burstSeconds: 0.9,
+  /** Paying for a mating (M6 T20): the drawn body eases to its new size, dipping this far below it. */
+  shrinkSeconds: 0.7,
+  shrinkDip: 0.08,
   /** The longest the first update after a pause may advance the cues, in seconds. */
   resumeCapSeconds: 0.1,
 } as const;
@@ -49,6 +56,9 @@ export interface FxSnapshot {
   /** Growth cues shown: every tenth of the adult size, and size tiers entered. */
   grow: number;
   tier: number;
+  /** Egg bursts shown, and matings paid for with the shrinking pulse (M6 T20). */
+  bursts: number;
+  cost: number;
   /** Rings alive right now. */
   rings: number;
   /** 0..1, how much red edge the screen shows. */
@@ -81,6 +91,11 @@ export class Effects {
   private damage = 0;
   private grow = 0;
   private tier = 0;
+  private bursts = 0;
+  private cost = 0;
+  /** The paid-for shrink: the drawn radius it starts from and its age in seconds; age < 0 when none. */
+  private shrinkFrom = 0;
+  private shrinkAge = -1;
 
   /**
    * Reacts to one sim event. `at` is where an eat or dash cue belongs: the food for an eat, the
@@ -122,6 +137,34 @@ export class Effects {
     }
   }
 
+  /**
+   * An egg bursting (M6 T20): `rings` rings, each wider and slower than the last, so a rarer child
+   * gets a bigger flourish. The first is a pop, the rest ripples.
+   */
+  burst(at: FxAnchor, rings: number): void {
+    this.bursts++;
+    for (let i = 0; i < rings; i++) {
+      const radii = FX.burstRadii * FX.burstStep ** i;
+      this.addRing(i === 0 ? 'pop' : 'ripple', at, radii, FX.burstSeconds * (1 + 0.3 * i));
+    }
+  }
+
+  /** A mating was paid for: the drawn body shrinks from `fromRadius` to its new size with a pulse. */
+  costPulse(fromRadius: number): void {
+    this.cost++;
+    this.shrinkFrom = fromRadius;
+    this.shrinkAge = 0;
+  }
+
+  /** The radius to draw a body of `radius` at: itself, unless the paid-for shrink is still running. */
+  drawnRadius(radius: number): number {
+    if (this.shrinkAge < 0) return radius;
+    const t = Math.min(1, this.shrinkAge / FX.shrinkSeconds);
+    const eased = 1 - (1 - t) ** 3;
+    const dip = 1 - FX.shrinkDip * Math.sin(Math.PI * t);
+    return (this.shrinkFrom + (radius - this.shrinkFrom) * eased) * dip;
+  }
+
   /** Starts the death dissolve; later calls do nothing. */
   startDissolve(): void {
     if (!this.dissolving) this.dissolveFresh = true;
@@ -152,6 +195,10 @@ export class Effects {
     this.vignette *= Math.exp(-dt / FX.vignetteFadeSeconds);
     // Snap to exactly 0 so the shaders can skip the hurt tint.
     if (this.vignette < 0.002) this.vignette = 0;
+    if (this.shrinkAge >= 0) {
+      this.shrinkAge += dt;
+      if (this.shrinkAge >= FX.shrinkSeconds) this.shrinkAge = -1;
+    }
     if (this.dissolveFresh) this.dissolveFresh = false;
     else if (this.dissolving) {
       this.dissolve = Math.min(1, this.dissolve + dt / FX.dissolveSeconds);
@@ -170,6 +217,9 @@ export class Effects {
     this.damage = 0;
     this.grow = 0;
     this.tier = 0;
+    this.bursts = 0;
+    this.cost = 0;
+    this.shrinkAge = -1;
   }
 
   snapshot(): FxSnapshot {
@@ -179,6 +229,8 @@ export class Effects {
       damage: this.damage,
       grow: this.grow,
       tier: this.tier,
+      bursts: this.bursts,
+      cost: this.cost,
       rings: this.rings.length,
       vignette: this.vignette,
       dissolve: this.dissolve,

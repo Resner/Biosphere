@@ -453,7 +453,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: snapshot v3 / protocol 4 carry ready (4) and egg (8, set from the pending child; T20 draws it); DOM HUD in `game/indicators.ts` and `game/pond-map.ts` (not `render/`: they are HTML, not three.js); overlapping indicators slide apart along the edge; `m6-find` hub on 8797.
   - Gotcha: "view radius" is centre-to-corner; indicators overlap the left HUD and top-right roster text, so labels sit on a dark plate (T21 may move them clear).
 
-- [ ] T20 The egg: beacon reveal, carried egg, hatch [opus]
+- [x] T20 The egg: beacon reveal, carried egg, hatch [opus]
   - Acceptance:
     - **The reveal**: while a genesis or a mating waits for its beacon, an egg appears over the creature or beside the parent.
       - It wiggles with rising frequency and glow (the owner's Pokéball moment). On the beacon it cracks and bursts, and the card slides in.
@@ -468,6 +468,8 @@ A look pass never starts before the tasks it judges are ticked.
     - **The hatch**: promoting cracks the egg, and the child grows out of it with a pop. The parent, now a frozen checkpoint, dissolves softly over 1 s where it stood: nothing of it stays in the world.
     - E2E (`m6-egg.spec.ts`, M5 hub hooks): a genesis shows the phases in order. After a mating, both players' eggs are visible to the other (snapshot flag), and `H` plays the hatch with `egg.carried` false afterwards.
   - Notes: the egg cannot be harmed in M6. Predation and incubation are M7 (ROADMAP).
+  - Done: `render/egg.ts` (reveal timeline, spring tether, one instanced layer, `egg.*.glsl`) and `game/eggs.ts` replace the DOM egg; the child hatches out of the egg's spot and the parent dissolves as a ghost remote; the title menu fades while a genesis egg waits. The protocol bit already shipped with T19.
+  - Gotcha: the egg clock is wall time held by `timeScale(0)` (freeze it to screenshot a phase); the mating E2E re-parks A beside B before each court press, since the two drift apart on a loaded runner.
 
 ### Readability
 

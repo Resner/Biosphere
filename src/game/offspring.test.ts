@@ -53,6 +53,23 @@ describe('OffspringFlow', () => {
     expect(flow.view().kind).toBe('card');
   });
 
+  it('keeps the egg as long as its reveal takes, by the child (M6 T20)', async () => {
+    const timed = new OffspringFlow({
+      now: () => clock,
+      verify: async () => [],
+      eggMs: (child) => (child.body.rarity === 'common' ? 1000 : 2000),
+    });
+    timed.receive({ t: 'born', ...bornOf('a') });
+    await settle();
+    const ms = timed.child()?.body.rarity === 'common' ? 1000 : 2000;
+    clock = ms - 1;
+    timed.tick();
+    expect(timed.view().kind).toBe('egg');
+    clock = ms;
+    timed.tick();
+    expect(timed.view().kind).toBe('card');
+  });
+
   it('keeps the egg closed when the check fails', async () => {
     problems = ['genome-mismatch'];
     flow.receive({ t: 'born', ...bornOf('a') });
