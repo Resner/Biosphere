@@ -98,7 +98,7 @@
       <p class="hud-egg" data-testid="hud-egg" hidden>Egg: H to hatch</p>
       <div class="meter depth" data-testid="hud-depth"><span class="meter-name">Depth</span><span class="meter-value" data-testid="hud-zone"></span><span class="bar"><i data-bar="depth"></i></span><span class="zone-warning" data-testid="hud-zone-warning"></span></div>
       <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
-      <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping · M map</p>
+      <p class="hint" data-testid="social-hint">Enter chat · G pings and emotes · middle click look · M map</p>
     </section>
     <p class="toast" data-for="playing" data-testid="toast" role="status" hidden></p>
     <p class="mate-hint" data-for="playing" data-testid="mate-hint" role="status" hidden></p>
@@ -153,6 +153,7 @@
       </ul>
       <p class="hint">M or Esc to close · you can keep swimming</p>
     </section>
+    <div class="wheel" data-for="playing" data-testid="wheel" role="menu" aria-label="Pings and emotes: 1 to 0, Esc cancels" hidden></div>
     <ul class="roster" data-for="playing" data-testid="roster" aria-label="Players (click a name to mute)" hidden></ul>
     <section class="chat" data-for="playing" aria-label="Chat">
       <ul class="chat-log" data-testid="chat-log" aria-live="polite"></ul>

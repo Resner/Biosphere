@@ -84,6 +84,8 @@ function inTextField(target: EventTarget | null): boolean {
 export interface InputHooks {
   /** A fresh key press while not typing (never a repeat); the key as the browser names it. */
   key?(key: string): void;
+  /** A key went up while not typing (the social wheel sends on releasing `G`). */
+  keyUp?(key: string): void;
   /** The middle button went down at this screen position. */
   middle?(x: number, y: number): void;
 }
@@ -168,7 +170,9 @@ export class InputController {
       }
     };
     const up = (e: KeyboardEvent) => {
-      if (!this.typing) this.keyUp(e.key);
+      if (this.typing) return;
+      this.keyUp(e.key);
+      hooks.keyUp?.(e.key);
     };
     const noMiddle = (e: MouseEvent) => {
       if (e.button === 1) e.preventDefault();

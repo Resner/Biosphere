@@ -71,7 +71,9 @@ test('chat is filtered, typing does not steer, mute hides a sender, and cues cro
     );
     const { width, height } = a.viewportSize() ?? { width: 960, height: 540 };
     await a.mouse.move(width / 2 + 100, height / 2);
+    // G opens the wheel at the cursor (M6 T24) and 1 picks the look ping.
     await a.keyboard.press('g');
+    await a.keyboard.press('1');
     await b.waitForFunction(() => window.__bs?.state().social.pings.length === 1, undefined, {
       timeout: 2000,
     });

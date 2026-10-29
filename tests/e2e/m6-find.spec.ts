@@ -92,8 +92,23 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
     const near = { x: pa.x - 1.5 * view.halfW, y: pa.y };
     await teleport(b, near.x, near.y);
     const ping = async () => {
-      await b.waitForTimeout(150);
+      // B's cursor sits on its cell, so the ping lands there once the camera has caught up with the
+      // teleport (a loaded runner draws few frames, and the camera eases after its target).
+      await expect
+        .poll(
+          () =>
+            b.evaluate(() => {
+              const hook = window.__bs as BsHook;
+              const { camX, camY } = hook.render.fx();
+              const p = hook.state().player;
+              return p ? Math.hypot(camX - p.x, camY - p.y) : 999;
+            }),
+          { timeout: 5_000 },
+        )
+        .toBeLessThan(2);
+      // The wheel (M6 T24): G at the cursor, then 1 for a look ping.
       await b.keyboard.press('g');
+      await b.keyboard.press('1');
     };
     await ping();
     await expect

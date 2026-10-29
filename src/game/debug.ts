@@ -22,6 +22,7 @@ import type { BenchStatus } from './auto-quality';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
 import type { DeathSummary, Screen } from './screens';
+import type { WheelInfo } from './wheel';
 
 /** Read-only views of the running game for tests and tools (`window.__bs`). */
 export interface BsState {
@@ -162,6 +163,11 @@ export interface BsState {
   indicators: Indicator[];
   /** The pond map (M): whether it is open, and the player dots and pings it shows. */
   map: { open: boolean; players: number; pings: number };
+  /**
+   * The social wheel (M6 T24): open, its items (with each one's CSS-pixel centre while open), the
+   * world point a ping would land on, the wheel's centre and the cursor it opened at.
+   */
+  wheel: WheelInfo;
   /**
    * Sound (M6 T22): the context's state (`idle` before the first gesture), cues asked for since
    * hatching, volume, mute, the master gain's target, the ambience's zone and parameter targets,

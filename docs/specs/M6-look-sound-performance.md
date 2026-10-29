@@ -514,7 +514,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Social (#89)
 
-- [ ] T24 The quick social wheel [opus] (in progress)
+- [x] T24 The quick social wheel [opus] (in progress)
   - Acceptance:
     - `G` opens a radial wheel at the cursor: 4 pings (look, danger, food, mate) and 6 emotes. While it is open, `1`–`0` pick directly.
       - Holding `G` and releasing over an item sends it; a click sends it too; Esc or releasing in the centre cancels.
@@ -530,6 +530,8 @@ A look pass never starts before the tasks it judges are ticked.
       - `state().wheel` reflects open and closed.
     - DESIGN §3 and §9 are updated (controls, wheel).
   - Notes: #89 closes when T25 ships (ROADMAP: "Close #89 when it ships"); the owner's check stays on the Playtest issue.
+  - Done: `game/wheel.ts` (`Wheel` state, picked by direction, and `WheelUi`); `Social.ping` takes the kind; `state().wheel`; `m6-wheel` (hub 8799): the one-page test runs in the PR gate, the two-context check is `@slow` (two hatches take ~11 s).
+  - Gotcha: a tap of `G` (under 250 ms) leaves the wheel open, or "press G, then 3" could never work; glyphs are still text until T25.
 
 - [ ] T25 Production-quality emote and ping icons [opus]
   - Acceptance:

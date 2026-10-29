@@ -8,7 +8,7 @@ import { type LabelProjection, placeAt, screenX, screenY } from './labels';
 import type { PingCue, Social } from './social';
 
 /** Wave, happy, love, angry, scared, question; indexed by the emote id. */
-const EMOTES = [
+export const EMOTES = [
   { glyph: '≋', name: 'wave' },
   { glyph: '☺', name: 'happy' },
   { glyph: '♥', name: 'love' },
