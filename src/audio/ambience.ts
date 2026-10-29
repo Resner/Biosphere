@@ -5,6 +5,7 @@
 // `BaseAudioContext`, so the same code renders offline for the render checks.
 
 import type { Zone } from '../sim/bathymetry';
+import { clamp, lerp } from '../sim/math';
 import { createRng, hashU32 } from '../sim/prng';
 
 export interface AmbienceParams {
@@ -91,6 +92,7 @@ export const AMBIENCE = {
 } as const;
 
 const ORDER: readonly Zone[] = ['shallows', 'twilight', 'deep', 'abyss'];
+const ROWS: readonly Row[] = ORDER.map((z) => AMBIENCE.rows[z]);
 
 /** The time constant of `setTargetAtTime` that lands 98% of a change in `fadeSeconds`. */
 export function fadeTimeConstant(): number {
@@ -104,19 +106,18 @@ const geo = (a: number, b: number, t: number): number => a * (b / a) ** t;
  * continuously; the zone adds its character (the shallows' shimmer, the abyss's pressure).
  */
 export function ambienceParams(zone: Zone, depth: number): AmbienceParams {
-  const d = Math.min(1, Math.max(0, Number.isFinite(depth) ? depth : 0));
-  const rows = ORDER.map((z) => AMBIENCE.rows[z]);
+  const d = clamp(Number.isFinite(depth) ? depth : 0, 0, 1);
   let i = 0;
-  while (i < rows.length - 2 && d > (rows[i + 1] as Row).depth) i++;
-  const lo = rows[i] as Row;
-  const hi = rows[i + 1] as Row;
-  const t = Math.min(1, Math.max(0, (d - lo.depth) / (hi.depth - lo.depth)));
+  while (i < ROWS.length - 2 && d > (ROWS[i + 1] as Row).depth) i++;
+  const lo = ROWS[i] as Row;
+  const hi = ROWS[i + 1] as Row;
+  const t = clamp((d - lo.depth) / (hi.depth - lo.depth), 0, 1);
   return {
-    air: lo.air + (hi.air - lo.air) * t,
+    air: lerp(lo.air, hi.air, t),
     airHz: geo(lo.airHz, hi.airHz, t),
-    body: lo.body + (hi.body - lo.body) * t,
+    body: lerp(lo.body, hi.body, t),
     bodyHz: geo(lo.bodyHz, hi.bodyHz, t),
-    drone: lo.drone + (hi.drone - lo.drone) * t,
+    drone: lerp(lo.drone, hi.drone, t),
     droneHz: geo(lo.droneHz, hi.droneHz, t),
     swellHz: geo(lo.swellHz, hi.swellHz, t),
     shimmer: zone === 'shallows' ? AMBIENCE.shimmer : 0,
@@ -289,6 +290,7 @@ export class Ambience {
         param.cancelScheduledValues(now);
         param.setValueAtTime(value, now);
       } else {
+        param.cancelScheduledValues(now);
         param.setTargetAtTime(value, now, tau);
       }
     };
@@ -312,11 +314,7 @@ export class Ambience {
 
   dispose(): void {
     for (const s of this.sources) {
-      try {
-        if (this.started) s.stop();
-      } catch {
-        // Already stopped.
-      }
+      if (this.started) s.stop();
       s.disconnect();
     }
     this.out.disconnect();

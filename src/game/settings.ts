@@ -2,6 +2,7 @@
 // never breaks the game: it just means the defaults.
 
 import { isPresetName, type PresetName, type QualitySetting } from '../render/presets';
+import { clamp } from '../sim/math';
 import type { Store } from './online-config';
 
 export interface Settings {
@@ -33,7 +34,7 @@ export function loadSettings(store: Store | null): Settings {
     const { quality, volume, muted, reducedMotion } = data as Record<string, unknown>;
     if (quality === 'auto' || isPresetName(quality)) out.quality = quality;
     if (typeof volume === 'number' && Number.isFinite(volume))
-      out.volume = Math.min(100, Math.max(0, Math.round(volume)));
+      out.volume = clamp(Math.round(volume), 0, 100);
     if (typeof muted === 'boolean') out.muted = muted;
     if (typeof reducedMotion === 'boolean' || reducedMotion === null)
       out.reducedMotion = reducedMotion;

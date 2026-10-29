@@ -194,11 +194,13 @@ export class AudioGraph {
   }
 
   setVolume(volume: number): void {
+    if (volume === this.volume) return;
     this.volume = volume;
     this.applyGain();
   }
 
   setMuted(muted: boolean): void {
+    if (muted === this.muted) return;
     this.muted = muted;
     this.applyGain();
   }
@@ -330,7 +332,10 @@ export class GameSound implements Sound {
   }
 
   setZone(zone: Zone, depth: number): void {
-    this.zone = { zone, depth };
+    if (this.zone) {
+      this.zone.zone = zone;
+      this.zone.depth = depth;
+    } else this.zone = { zone, depth };
     this.graph?.setZone(zone, depth);
   }
 
