@@ -582,7 +582,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-4.{png,md}`; long chains narrow by one factor (`form.slim`, ADR 0031) as lateral compression, so stats read the girth and the balance holds untouched; the length gene reaches 2.4 past 0.8 of its span; the three wall leftovers are fixed. One cell 3 → 2, 15 above 1, so T28c follows.
   - Gotcha: ADR 0028's "median trunk ≥ 0.5" cannot hold at 2.5 to 1 inside the bounds (now 0.38 drawn, 0.53 girth; the test bar is 0.35); slimming the bent chain instead of the straight one made curls lighter and lost the curl-drag test.
 
-- [ ] T28c Look pass 5 [opus]
+- [ ] T28c Look pass 5 [opus] (in progress)
   - Acceptance:
     - `pass-5.png` and `pass-5.md` are committed with the honest gap table, and the in-game check at 960×540 is repeated. If cells above 1 remain, open the owner issue `Look: <the gaps>` of T28 with the latest sheet and table and the options, and continue with T29.
     - The largest gaps of `pass-4.md` are worked in order: the round baseline (v2 bodies on the sheet: an ADR on adding v2 descendants of the baseline under ADR 0024, or weighing the v2 specimens), worms and coils that read as tangles, bristles along legs (04), big eyes set into the head (05), and a specimen that shows the long antennae.
