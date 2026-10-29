@@ -590,7 +590,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-5.{png,md}`; the gallery draws v1 files as their v2 upgrade and adds feature specimens 37–39 (ADR 0032); eyes set into the head (`eyes.set`), plumose setae (`PART_SETULE`), broad parts as clear glass, a fainter gut. Three cells 3 → 2, 15 above 1: owner issue #177.
   - Gotcha: a spiral needs a chain longer than the reach laid straight (a curl is only a pose, ADR 0031), so 39 is a hook; under heavy load `npm run check`'s 10,000-genome property tests can pass 5 s.
 
-- [ ] T29 End-to-end scenario, owner-facing checks, documentation sync (in progress)
+- [x] T29 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:
     - `m6-lifecycle.spec.ts` (`@slow`, its own hub port) at `?quality=medium`:
       1. A hatches; the egg reveal plays.
@@ -610,6 +610,8 @@ A look pass never starts before the tasks it judges are ticked.
       - `docs/art/README.md` links the gallery passes.
     - Freeze v6 genesis before the release: copy `genesis.ts` and its form table to `genesis-v6.ts` (rarity reads the table), with a golden, and make `genesisFor` pick by `rules` (T9 left it free to change).
   - Notes: this task adds the scenario and the sync only. The milestone step sets ROADMAP status and opens the Playtest issue with the owner checks below.
+  - Done: `m6-lifecycle.spec.ts` (`@slow`, hub 8800, medium, about 1.6 min) walks steps 1–7 with budget and cue checks; `genesis-v6.ts` and `genesis-v6.json` freeze v6 genesis (`genesisFor` picks by `rules`, rarity reads the v6 table); DESIGN, the render, genome and tests rules and the art README are synced (DESIGN was checked against the code tables).
+  - Gotcha: `state().player.silhouette` is new for the scenario's genesis-class check. PR E2E suite time: see the PR's CI run (the new spec is `@slow`, so it adds none).
 
 ## End-to-end check
 

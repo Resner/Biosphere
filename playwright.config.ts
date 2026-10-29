@@ -35,6 +35,8 @@ const m6FindHubPort = 8797;
 const m6EggHubPort = 8798;
 // The M6 wheel spec (8799): two players alone in a pond send pings and emotes from the wheel.
 const m6WheelHubPort = 8799;
+// The M6 lifecycle spec (8800), with the M5 hooks: two players hatch, grow, find each other, mate and promote.
+const m6LifecycleHubPort = 8800;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -188,6 +190,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m6WheelHubPort} --persist-to .wrangler/e2e-state-m6-wheel`,
       url: `http://localhost:${m6WheelHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m6LifecycleHubPort} --persist-to .wrangler/e2e-state-m6-lifecycle --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m6LifecycleHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

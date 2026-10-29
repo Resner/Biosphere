@@ -2,6 +2,7 @@ import { GameSound, renderCueOffline, renderOffline } from '../audio/engine';
 import { genomeFromBase64url, genomeHash, parseGenomeText } from '../genome/codec';
 import { hashPlan } from '../genome/develop';
 import { rarityOfTraits } from '../genome/rarity';
+import { silhouetteOf } from '../genome/silhouette';
 import { buildCreature, hashStats } from '../genome/stats';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import type { Identity } from '../ledger/identity';
@@ -1844,6 +1845,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             elder: session.player.elder,
             genomeHash: session.body.hash,
             species: session.body.species,
+            silhouette: silhouetteOf(session.body.creature.plan),
             rarity: session.body.rarity,
             tier: session.body.tier,
             stats: session.player.phys,

@@ -1,7 +1,7 @@
 // Rarity (M3 T9, DESIGN §6): how surprising a creature's looks and body are, as bits. Each rare
 // feature costs -log2 of its exact frequency among genesis cells, worked out here from the genesis
 // allele frequencies and the real dominance rules, or from the genesis form table, so it cannot
-// drift from `genesis.ts`. A feature genesis never makes (extra segments, more modules, a novel
+// drift from `genesis-v6.ts`. A feature genesis never makes (extra segments, more modules, a novel
 // allele, a big body, a coil, a carapace, a chela) costs 12 bits.
 
 import { log } from '../sim/math';
@@ -10,7 +10,7 @@ import { sizeTier } from '../sim/size';
 import { decodeGenome, type Genome } from './codec';
 import { weaponShare } from './develop';
 import { express, type Traits } from './express';
-import { GENESIS_EYES, GENESIS_FORMS, GENESIS_FREQ } from './genesis';
+import { GENESIS_EYES, GENESIS_FORMS, GENESIS_FREQ } from './genesis-v6';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, type MendelLocus } from './karyotype';
 
 export type RarityTier = 'common' | 'uncommon' | 'rare' | 'exotic';

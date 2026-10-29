@@ -64,6 +64,7 @@ describe('genesis DNA', () => {
     expect(genesisSeed(r, GOLDEN.commitId)).toEqual(genesisSeed(r, GOLDEN.commitId));
     expect(genomeHash(genesisFor(r, GOLDEN.commitId, 5))).toBe(GOLDEN.genomeHash);
     expect(genomeHash(a)).toBe(GOLDEN.genomeHashV6);
+    expect(genomeHash(genesisFor(r, GOLDEN.commitId, 6))).toBe(GOLDEN.genomeHashV6);
   });
 
   it('differs for another commit id or another round', () => {
