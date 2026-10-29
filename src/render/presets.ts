@@ -17,8 +17,11 @@ export interface Preset {
   grain: boolean;
   /** Marine snow catches the light now and then (M6 T17). */
   sparkle: boolean;
-  /** Checked against `renderer.info` in E2E. */
-  budget: { calls: number; triangles: number };
+  /**
+   * Checked against `renderer.info` in E2E (`m6-budget.spec.ts`, M6 T26): draw calls and triangles a
+   * frame, and the post chain's render-target colour memory for a 1920×1080 drawing buffer, in bytes.
+   */
+  budget: { calls: number; triangles: number; targetBytes: number };
 }
 
 export type ParticleLayerName = 'far' | 'mid' | 'near';
@@ -45,7 +48,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
     chromaticAberration: false,
     grain: false,
     sparkle: false,
-    budget: { calls: 80, triangles: 150_000 },
+    budget: { calls: 80, triangles: 150_000, targetBytes: 0 },
   },
   medium: {
     maxPixelRatio: 1.5,
@@ -56,7 +59,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
     chromaticAberration: false,
     grain: false,
     sparkle: false,
-    budget: { calls: 150, triangles: 300_000 },
+    budget: { calls: 150, triangles: 300_000, targetBytes: 48_000_000 },
   },
   high: {
     maxPixelRatio: 2,
@@ -67,7 +70,7 @@ export const PRESETS: Readonly<Record<PresetName, Preset>> = {
     chromaticAberration: true,
     grain: true,
     sparkle: true,
-    budget: { calls: 250, triangles: 600_000 },
+    budget: { calls: 250, triangles: 600_000, targetBytes: 96_000_000 },
   },
 };
 

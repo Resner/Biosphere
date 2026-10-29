@@ -83,6 +83,46 @@ export function mipSizes(
   return sizes;
 }
 
+/** The pixel sizes of the targets a plan needs for a drawing buffer of `width` × `height`. */
+export interface TargetSizes {
+  /** The scene target; null renders straight to the canvas. */
+  scene: [number, number] | null;
+  backdrop: [number, number] | null;
+  mips: [number, number][];
+}
+
+export function targetSizes(plan: PostPlan, width: number, height: number): TargetSizes {
+  if (plan.passes.length === 0) return { scene: null, backdrop: null, mips: [] };
+  const w = Math.max(1, Math.floor(width));
+  const h = Math.max(1, Math.floor(height));
+  const { backdrop, bloom } = plan;
+  return {
+    scene: [w, h],
+    backdrop: backdrop
+      ? [Math.max(1, Math.round(w * backdrop.scale)), Math.max(1, Math.round(h * backdrop.scale))]
+      : null,
+    mips: bloom ? mipSizes(w, h, bloom.scale, bloom.levels) : [],
+  };
+}
+
+/**
+ * The colour memory of a plan's targets in bytes (M6 T26): `samples` multisample buffers of the
+ * scene target count on top of its resolve target.
+ */
+export function targetBytes(
+  plan: PostPlan,
+  width: number,
+  height: number,
+  bytesPerPixel: number,
+  samples = 0,
+): number {
+  const { scene, backdrop, mips } = targetSizes(plan, width, height);
+  let pixels = scene ? scene[0] * scene[1] * (1 + samples) : 0;
+  if (backdrop) pixels += backdrop[0] * backdrop[1];
+  for (const [w, h] of mips) pixels += w * h;
+  return pixels * bytesPerPixel;
+}
+
 /** Half float keeps highlights above 1 for bloom; without a float colour buffer, 8 bits must do. */
 export const targetType = (has: (extension: string) => boolean): THREE.TextureDataType =>
   has('EXT_color_buffer_float') || has('EXT_color_buffer_half_float')

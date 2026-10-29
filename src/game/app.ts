@@ -64,7 +64,7 @@ import { HistoryPanel } from './history';
 import { Hud } from './hud';
 import { EdgeIndicatorsUi, edgeIndicators, type Indicator } from './indicators';
 import { enterHatches, InputController } from './input';
-import { RemoteLabels } from './labels';
+import { type LabelProjection, RemoteLabels } from './labels';
 import { type LifeClock, LifeFlow, type Started, VERIFY_FAILED } from './life';
 import { resetLife } from './life-reset';
 import { countdownText } from './life-text';
@@ -1412,6 +1412,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
   /** The remotes plus a parent dissolving after a hatch; reused. */
   const withGhost: RemoteCellView[] = [];
+  /** World to screen for the labels, indicators and social cues; reused every frame. */
+  const projection: LabelProjection = { camX: 0, camY: 0, pxPerWu: 1, width: 1, height: 1 };
   /** The pending child as the eggs need it; reused. */
   const eggChild = { tier: 'common' as Body['rarity'], maxBiomass: 1 };
 
@@ -1579,13 +1581,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     } else {
       view.remotes = remoteViews;
     }
-    const projection = {
-      camX: camera.x,
-      camY: camera.y,
-      pxPerWu: scene.pxPerWu,
-      width: scene.width,
-      height: scene.height,
-    };
+    projection.camX = camera.x;
+    projection.camY = camera.y;
+    projection.pxPerWu = scene.pxPerWu;
+    projection.width = scene.width;
+    projection.height = scene.height;
     labels.update(remoteViews, projection);
     const finding = playing() && session.player.alive;
     indicators = finding ? edgeIndicators(cell, remoteViews, social.pings(), projection) : [];
