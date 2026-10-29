@@ -45,7 +45,9 @@ import {
   PART_PIGMENT,
   PART_PLATE,
   PART_SETA,
+  PART_SETULE,
   PART_SHELL,
+  PART_STALK,
   partId,
   partKind,
   partPoint,
@@ -358,7 +360,8 @@ describe('buildCreatureGeometry v2: the body', () => {
       }
       for (const [key, list] of merged) {
         const kind = Number(key.split('/')[0]);
-        if (kind === PART_SETA || kind === PART_MEMBRANE) continue;
+        // Bristles, their setules and membranes are open sheets.
+        if (kind === PART_SETA || kind === PART_SETULE || kind === PART_MEMBRANE) continue;
         // The topmost vertex of a closed surface faces up, and its leftmost and rightmost face out.
         const top = list.reduce((a, b) =>
           (position[b * 3 + 2] as number) > (position[a * 3 + 2] as number) ? b : a,
@@ -412,6 +415,8 @@ describe('buildCreatureGeometry v2: the body', () => {
 
   it('shares the part kinds with both shaders', () => {
     expect(PART_KINDS).toBe(16);
+    expect(fragmentShader).toMatch(new RegExp(`const int PART_SETULE = ${PART_SETULE};`));
+    expect(fragmentShader).toMatch(new RegExp(`const int PART_GLINT = ${PART_GLINT};`));
     for (const shader of [vertexShader, fragmentShader]) {
       expect(shader).toMatch(new RegExp(`const float PART_KINDS = ${PART_KINDS}\\.0;`));
     }
@@ -687,7 +692,8 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
             if (weight[i] !== 0) bad.push(`kind ${kind} weighs ${weight[i]}`);
             continue;
           }
-          if (kind !== PART_APPENDAGE && kind !== PART_SETA && kind !== PART_MEMBRANE) {
+          const ofPart = [PART_APPENDAGE, PART_SETA, PART_SETULE, PART_MEMBRANE];
+          if (!ofPart.includes(kind)) {
             bad.push(`kind ${kind} on part ${id}`);
           }
           const a = rootAttach.get(id);
@@ -811,6 +817,38 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
     expect(ratios[ratios.length >> 1]).toBeGreaterThanOrEqual(2);
   });
 
+  it('draws plumose bristles on the 5-vertex rungs: setule pairs of their own kind, within the bounds (look pass 5)', () => {
+    for (const prefix of ['23-', '24-', '27-', '31-']) {
+      const p = planOf(specimen(prefix));
+      const g = buildCreatureGeometry(p, 'high');
+      const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];
+      const setule = Array.from(part).filter((v) => partKind(v) === PART_SETULE);
+      const seta = Array.from(part).filter((v) => partKind(v) === PART_SETA).length;
+      const bristles = seta / meshDetail(p, 'high').setaVertices;
+      expect(meshDetail(p, 'high').setaVertices).toBe(5);
+      // Three pairs of 3-vertex setules per bristle, but for any a bristle at the bounds drops.
+      expect(setule.length, prefix).toBeGreaterThan(bristles * 3 * 2 * 3 * 0.8);
+      expect(setule.length).toBeLessThanOrEqual(bristles * 3 * 2 * 3);
+      // Each belongs to its bristle's part.
+      const ids = new Set(
+        Array.from(part)
+          .filter((v) => partKind(v) === PART_SETA)
+          .map(partId),
+      );
+      for (const v of setule) expect(ids.has(partId(v))).toBe(true);
+      for (let i = 0; i < part.length; i++) {
+        if (partKind(part[i] as number) !== PART_SETULE) continue;
+        const r = Math.hypot(position[i * 3] as number, position[i * 3 + 1] as number);
+        expect(r).toBeLessThanOrEqual(RULES.develop.caps.bounds + 1e-6);
+      }
+      g.dispose();
+    }
+    // A 3-vertex rung draws plain bristles.
+    const low = planOf(specimen('27-'));
+    const g = buildCreatureGeometry(low, 'low');
+    expect(Array.from(attr(g, 'aPart')).some((v) => partKind(v) === PART_SETULE)).toBe(false);
+  });
+
   it('draws the plan membranes as double-sided sheets of their full area, with a vein UV', () => {
     const p = planOf(specimen('31-'));
     expect(p.membranes.length).toBeGreaterThan(4);
@@ -872,6 +910,26 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
       );
       expect(far).toBeCloseTo(e.size, 3);
     }
+  });
+});
+
+describe('buildCreatureGeometry: eyes set into the head (look pass 5)', () => {
+  it('draws no stalk for an eye whose stalk the head hides, and keeps a long stalk', () => {
+    const set = planOf(specimen('38-'));
+    expect(set.eyes.count).toBe(2);
+    expect(set.eyes.stalk).toBeLessThanOrEqual(0.05);
+    const head = set.segments[0] as PlanSegment;
+    // Most of the eye lies inside the head's outline.
+    const u = (set.eyes.x - head.x) / head.rx;
+    const v = (set.eyes.y - head.y) / head.ry;
+    expect(u * u + v * v).toBeLessThan(1);
+    const kinds = new Set(Array.from(attr(buildCreatureGeometry(set, 'high'), 'aPart'), partKind));
+    expect(kinds.has(PART_EYE)).toBe(true);
+    expect(kinds.has(PART_STALK)).toBe(false);
+    const stalked = planOf(specimen('25-'));
+    expect(stalked.eyes.stalk).toBeGreaterThan(0.3);
+    const parts = Array.from(attr(buildCreatureGeometry(stalked, 'high'), 'aPart'), partKind);
+    expect(parts.includes(PART_STALK)).toBe(true);
   });
 });
 

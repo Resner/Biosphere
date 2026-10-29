@@ -4,7 +4,13 @@ import type { BsHook } from '../../src/game/debug';
 import { genomeToBase64url } from '../../src/genome/codec';
 import type { BodyPlan, Point } from '../../src/genome/develop';
 import { buildCreature } from '../../src/genome/stats';
-import { galleryCell, galleryGrid, LABEL_HEIGHT, parseSpecimen } from '../../src/lab/gallery';
+import {
+  galleryCell,
+  galleryGrid,
+  LABEL_HEIGHT,
+  parseSpecimen,
+  shownGenome,
+} from '../../src/lab/gallery';
 import { anatomyOf } from '../../src/render/anatomy';
 import { captureGallery, GALLERY_VIEWPORT } from '../../tools/gallery-capture.mjs';
 import { hatch, openGame } from './helpers';
@@ -25,7 +31,8 @@ const specimen = (prefix: string) => {
   const file = FILES[index] as string;
   const parsed = parseSpecimen(file, readFileSync(new URL(file, DIR), 'utf8'));
   if (!parsed) throw new Error(`no specimen ${prefix}`);
-  return { index, genome: parsed.genome, plan: buildCreature(parsed.genome).plan };
+  const genome = shownGenome(parsed);
+  return { index, genome, plan: buildCreature(genome).plan };
 };
 
 interface Luma {

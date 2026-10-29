@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { encodeGenome, genomeHash } from '../genome/codec';
+import { encodeGenome, genomeHash, genomeKaryotype, upgrade } from '../genome/codec';
 import { GENOME_BYTES } from '../genome/karyotype';
 import { GENOME_BYTES_V1 } from '../genome/karyotype-v1';
 import { SILHOUETTES } from '../genome/silhouette';
@@ -13,6 +13,7 @@ import {
   gallerySpecimens,
   LABEL_HEIGHT,
   parseSpecimen,
+  shownGenome,
 } from './gallery';
 import { REACH } from './grid';
 import { specimenOf } from './specimens';
@@ -162,13 +163,33 @@ describe('gallery specimen files', () => {
   });
 });
 
+describe('the body the sheet shows (look pass 5, ADR 0032)', () => {
+  const set = gallerySpecimens(fixtures());
+
+  it('draws a v1 specimen as its v2 upgrade and a v2 specimen as stored', () => {
+    for (const s of set) {
+      const shown = shownGenome(s);
+      expect(genomeKaryotype(shown)).toBe(2);
+      if (s.bytes === GENOME_BYTES) expect(shown).toBe(s.genome);
+      else expect(genomeHash(shown)).toBe(genomeHash(upgrade(s.genome)));
+    }
+  });
+
+  it('gives the baseline chains the v2 proportions, and leaves the files as they are', () => {
+    const baseline = set.slice(0, BASELINE.length);
+    const long = baseline.filter((s) => specimenOf(shownGenome(s)).creature.plan.form.slim < 1);
+    // 07, 09, 10, 11, 12, 18 and 19 are chains of 3 or more segments: rules 6 draws them long.
+    expect(long.map((s) => s.file.slice(0, 2))).toEqual(['07', '09', '10', '11', '12', '18', '19']);
+    for (const s of baseline) expect(s.bytes).toBe(GENOME_BYTES_V1);
+  });
+});
+
 describe('gallery specimens added by M6 T9', () => {
-  const set = gallerySpecimens(fixtures()).slice(BASELINE.length);
+  const set = gallerySpecimens(fixtures()).slice(BASELINE.length, BASELINE.length + 16);
   const classes = SILHOUETTES.filter((s) => s !== 'other');
 
-  it('adds 16 karyotype v2 specimens after the baseline 20, 36 in all', () => {
+  it('adds 16 karyotype v2 specimens after the baseline 20', () => {
     expect(set).toHaveLength(16);
-    expect(gallerySpecimens(fixtures())).toHaveLength(36);
     for (const s of set) {
       expect(s.file).toMatch(/^\d\d-specimen-/);
       expect(s.bytes).toBe(GENOME_BYTES);
@@ -193,6 +214,18 @@ describe('gallery specimens added by M6 T9', () => {
   });
 });
 
+describe('gallery specimens added by look pass 5 (M6 T28c, ADR 0032)', () => {
+  it('adds one karyotype v2 specimen per look feature after the 36, 39 in all', () => {
+    const all = gallerySpecimens(fixtures());
+    expect(all).toHaveLength(39);
+    const added = all.slice(36);
+    expect(
+      added.map((s) => s.file.replace(/^(\d\d-specimen-[a-z-]+?)-[a-z]+-[a-z]+\.hex$/, '$1')),
+    ).toEqual(['37-specimen-antennae', '38-specimen-big-eyes', '39-specimen-spiral']);
+    for (const s of added) expect(s.bytes).toBe(GENOME_BYTES);
+  });
+});
+
 describe('gallery grid', () => {
   const fits = (g: GalleryGrid, count: number) => {
     expect(g.cols * g.rows).toBeGreaterThanOrEqual(count);
@@ -201,10 +234,11 @@ describe('gallery grid', () => {
     expect(2 * REACH * g.radius).toBeLessThanOrEqual(g.cellH - LABEL_HEIGHT);
   };
 
-  it('lays the baseline 20 out 7 by 3 and the full 36 out 9 by 4', () => {
+  it('lays the baseline 20 out 7 by 3, 36 out 9 by 4 and the 39 of pass 5 out 8 by 5', () => {
     const { width, height } = GALLERY_SIZE;
     expect(galleryGrid(20, width, height)).toMatchObject({ cols: 7, rows: 3 });
     expect(galleryGrid(36, width, height)).toMatchObject({ cols: 9, rows: 4 });
+    expect(galleryGrid(39, width, height)).toMatchObject({ cols: 8, rows: 5 });
     for (const n of [1, 2, 7, 20, 24, 36, 37, 48, 60]) fits(galleryGrid(n, width, height), n);
   });
 

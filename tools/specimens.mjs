@@ -1,7 +1,9 @@
 // Searches the specimens M6 T9 adds to the gallery (one per silhouette class, one per rarity tier) and
 // prints them, or with `--write` stores them under tests/fixtures/gallery/ as numbered hex files:
 // `npm run specimens -- --write --seed gallery-m6 --from 21`. Existing files are never replaced.
-import { existsSync, writeFileSync } from 'node:fs';
+// `--features` searches the look-feature specimens of look pass 5 instead (ADR 0032):
+// `npm run specimens -- --features --write --seed gallery-m6 --from 37`.
+import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
 const args = process.argv.slice(2);
@@ -12,6 +14,7 @@ const flag = (name, fallback) => {
 const seed = flag('seed', 'gallery-m6');
 const from = Number(flag('from', '21'));
 const write = args.includes('--write');
+const features = args.includes('--features');
 
 const server = await createServer({
   configFile: false,
@@ -21,20 +24,41 @@ const server = await createServer({
   optimizeDeps: { noDiscovery: true, include: [] },
 });
 try {
-  const { findSpecimen, findTier, specimenFile, SPECIMEN_SILHOUETTES, SPECIMEN_TIERS } =
-    await server.ssrLoadModule('/tools/specimen.ts');
+  const {
+    FEATURES,
+    findFeature,
+    findSpecimen,
+    findTier,
+    specimenFile,
+    SPECIMEN_SILHOUETTES,
+    SPECIMEN_TIERS,
+  } = await server.ssrLoadModule('/tools/specimen.ts');
   const { genomeHash } = await server.ssrLoadModule('/src/genome/codec.ts');
-  // The specimens are all different genomes: each search skips what an earlier one took.
-  const taken = new Set();
+  const { parseSpecimen } = await server.ssrLoadModule('/src/lab/gallery.ts');
+  const dir = new URL('../tests/fixtures/gallery/', import.meta.url);
+  // The specimens are all different genomes: each search skips what an earlier one took, and the
+  // feature search also skips every specimen already in the gallery.
+  const taken = new Set(
+    features
+      ? readdirSync(dir)
+          .filter((f) => f.endsWith('.hex'))
+          .map((f) => {
+            const specimen = parseSpecimen(f, readFileSync(new URL(f, dir), 'utf8'));
+            if (!specimen) throw new Error(`${f}: not a gallery specimen`);
+            return genomeHash(specimen.genome);
+          })
+      : [],
+  );
   const take = (found) => {
     if (found) taken.add(genomeHash(found.genome));
     return found;
   };
-  const wanted = [
-    ...SPECIMEN_SILHOUETTES.map((s) => [s, take(findSpecimen(s, seed, taken))]),
-    ...SPECIMEN_TIERS.map((t) => [`tier-${t}`, take(findTier(t, seed, taken))]),
-  ];
-  const dir = new URL('../tests/fixtures/gallery/', import.meta.url);
+  const wanted = features
+    ? Object.keys(FEATURES).map((f) => [f, take(findFeature(f, seed, taken))])
+    : [
+        ...SPECIMEN_SILHOUETTES.map((s) => [s, take(findSpecimen(s, seed, taken))]),
+        ...SPECIMEN_TIERS.map((t) => [`tier-${t}`, take(findTier(t, seed, taken))]),
+      ];
   // Check everything first, so a run never leaves a half-written set.
   const missing = wanted.filter(([, found]) => !found).map(([what]) => what);
   if (missing.length > 0) throw new Error(`no specimen found for ${missing.join(', ')}`);

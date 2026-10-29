@@ -4,6 +4,8 @@ import { SILHOUETTES } from '../src/genome/silhouette';
 import { parseSpecimen } from '../src/lab/gallery';
 import { specimenOf } from '../src/lab/specimens';
 import {
+  FEATURES,
+  findFeature,
   findSpecimen,
   findTier,
   SPECIMEN_SILHOUETTES,
@@ -36,6 +38,37 @@ describe('specimen search', () => {
       const s = specimenOf(found?.genome as NonNullable<typeof found>['genome']);
       expect(s.rarity, tier).toBe(tier);
       expect(s.violations, tier).toEqual([]);
+    }
+  });
+
+  it('finds a body for each look feature of pass 5 (ADR 0032), each valid and karyotype v2', () => {
+    expect(Object.keys(FEATURES)).toEqual(['antennae', 'big-eyes', 'spiral']);
+    for (const feature of Object.keys(FEATURES) as (keyof typeof FEATURES)[]) {
+      const found = findFeature(feature, 'specimen-test');
+      expect(found, feature).not.toBeNull();
+      const genome = found?.genome as NonNullable<typeof found>['genome'];
+      const s = specimenOf(genome);
+      expect(s.violations, feature).toEqual([]);
+      expect(genomeKaryotype(genome)).toBe(2);
+      const plan = s.creature.plan;
+      if (feature === 'antennae') {
+        // A bilateral chain with a slender front pair reaching past 1.8 core radii (02's copepods).
+        expect(plan.form.radial).toBe(0);
+        expect(plan.segments.length).toBeGreaterThanOrEqual(3);
+        const front = plan.appendages.filter((a) => a.segment === 0 && a.length >= 1.8);
+        expect(front.length).toBeGreaterThanOrEqual(2);
+      } else if (feature === 'big-eyes') {
+        // Big eyes set into the head (05's larvae).
+        expect(plan.eyes.count).toBe(2);
+        expect(plan.eyes.size).toBeGreaterThanOrEqual(0.25);
+        expect(plan.eyes.stalk).toBeLessThanOrEqual(0.05);
+      } else {
+        // A coiled chain with only short parts round it (03's and 05's spirals).
+        expect(plan.form.mode).toBe(2);
+        expect(plan.form.radial).toBe(0);
+        expect(plan.segments.length).toBeGreaterThanOrEqual(4);
+        for (const a of plan.appendages) expect(a.length).toBeLessThanOrEqual(0.75);
+      }
     }
   });
 

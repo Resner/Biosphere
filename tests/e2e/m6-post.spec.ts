@@ -184,6 +184,8 @@ function measure(page: Page, png: Buffer, probes: Probe[]): Promise<number[][]> 
 test('each preset runs its passes within its budget, and low renders with no target', async ({
   page,
 }) => {
+  // Three presets in software rendering: close to 30 s on a busy runner.
+  test.setTimeout(60_000);
   for (const preset of ['low', 'medium', 'high'] as const) {
     await play(page, preset);
     const info = await bs(page);
@@ -225,6 +227,8 @@ test('the counters add up every pass, and targets are freed on a preset round tr
 });
 
 test('medium darkens the corners and makes bright food glow', async ({ page }) => {
+  // Two presets and a full-frame readback in software rendering, over 30 s on a busy runner.
+  test.setTimeout(60_000);
   await play(page, 'low');
   const item = await placeGlobule(page, 140);
   const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
