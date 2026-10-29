@@ -14,7 +14,7 @@ describe('PRESETS', () => {
         chromaticAberration: false,
         grain: false,
         sparkle: false,
-        budget: { calls: 80, triangles: 150_000 },
+        budget: { calls: 80, triangles: 150_000, targetBytes: 0 },
       },
       medium: {
         maxPixelRatio: 1.5,
@@ -25,7 +25,7 @@ describe('PRESETS', () => {
         chromaticAberration: false,
         grain: false,
         sparkle: false,
-        budget: { calls: 150, triangles: 300_000 },
+        budget: { calls: 150, triangles: 300_000, targetBytes: 48_000_000 },
       },
       high: {
         maxPixelRatio: 2,
@@ -36,7 +36,7 @@ describe('PRESETS', () => {
         chromaticAberration: true,
         grain: true,
         sparkle: true,
-        budget: { calls: 250, triangles: 600_000 },
+        budget: { calls: 250, triangles: 600_000, targetBytes: 96_000_000 },
       },
     });
   });

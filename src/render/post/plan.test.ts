@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
-import { bytesPerPixel, mipSizes, postPlan, targetType } from './plan';
+import { PRESET_NAMES, PRESETS } from '../presets';
+import { bytesPerPixel, mipSizes, postPlan, targetBytes, targetSizes, targetType } from './plan';
 
 describe('postPlan', () => {
   it('renders low straight to the canvas', () => {
@@ -77,5 +78,53 @@ describe('targetType', () => {
   it('counts 8 bytes a pixel for half float and 4 for bytes', () => {
     expect(bytesPerPixel(THREE.HalfFloatType)).toBe(8);
     expect(bytesPerPixel(THREE.UnsignedByteType)).toBe(4);
+  });
+});
+
+describe('targetSizes', () => {
+  it('gives low no target at all', () => {
+    expect(targetSizes(postPlan('low'), 1920, 1080)).toEqual({
+      scene: null,
+      backdrop: null,
+      mips: [],
+    });
+  });
+
+  it('sizes the scene target, the half-resolution backdrop and the bloom mips from the drawing buffer', () => {
+    expect(targetSizes(postPlan('medium'), 1920, 1080)).toEqual({
+      scene: [1920, 1080],
+      backdrop: [960, 540],
+      mips: [
+        [960, 540],
+        [480, 270],
+        [240, 135],
+        [120, 68],
+      ],
+    });
+    expect(targetSizes(postPlan('high'), 1920, 1080).mips).toHaveLength(5);
+  });
+});
+
+describe('targetBytes (M6 T26)', () => {
+  it('pins the render-target memory of a 1920×1080 drawing buffer in half float', () => {
+    const bpp = bytesPerPixel(THREE.HalfFloatType);
+    expect(targetBytes(postPlan('low'), 1920, 1080, bpp)).toBe(0);
+    // Scene 1920×1080, backdrop 960×540 and the bloom mips, at 8 bytes a pixel.
+    expect(targetBytes(postPlan('medium'), 1920, 1080, bpp)).toBe(26_244_480);
+    expect(targetBytes(postPlan('high'), 1920, 1080, bpp)).toBe(26_260_800);
+  });
+
+  it('counts a multisampled scene target once per sample on top of its resolve target', () => {
+    const plain = targetBytes(postPlan('high'), 100, 100, 8);
+    expect(targetBytes(postPlan('high'), 100, 100, 8, 4)).toBe(plain + 4 * 100 * 100 * 8);
+  });
+
+  it('keeps every preset within its memory budget at 1920×1080, in half float or bytes', () => {
+    for (const preset of PRESET_NAMES) {
+      for (const type of [THREE.HalfFloatType, THREE.UnsignedByteType]) {
+        const bytes = targetBytes(postPlan(preset), 1920, 1080, bytesPerPixel(type));
+        expect(bytes, preset).toBeLessThanOrEqual(PRESETS[preset].budget.targetBytes);
+      }
+    }
   });
 });

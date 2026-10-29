@@ -544,13 +544,15 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Performance
 
-- [ ] T26 Budgets, allocations and the budget report [opus] (in progress)
+- [x] T26 Budgets, allocations and the budget report [opus] (in progress)
   - Acceptance:
     - **A crowded scene** (`m6-budget.spec.ts`, `@slow`): 24 remotes with gallery genomes, every zone effect on. Per preset, `calls`, `triangles` and `targetBytes` stay within the DESIGN §12 budgets plus a render-target memory budget: medium ≤ 48 MB and high ≤ 96 MB for a 1920×1080 drawing buffer (CSS size × pixel ratio).
     - **No per-frame allocations**: over 1,200 frames in the crowded scene, after a forced GC (`--js-flags=--expose-gc`), JS heap growth is below 1 MB, and `renderer.info.memory` geometries and textures are constant. A code review of the render loop and the post chain finds no `new` in per-frame paths, with a note in the PR.
     - `npm run report:budget` writes `docs/perf/budget.md`: per preset, the calls, triangles, targets and memory for an empty pond, a crowded pond and the abyss. It also saves per-preset screenshots to `test-results/` (not committed).
     - **Low** keeps the game playable: no post targets, and every effect falls back.
   - Notes: frame rate on real hardware is the owner's check (60 fps at the default preset). CI renders in software, so judge budgets, not fps.
+  - Done: `budget.targetBytes` in `PRESETS` (medium and high use 26.2 MB at 1920×1080), `targetSizes`/`targetBytes` in `post/plan.ts` size the chain; `tools/budget-scene.mjs` stages the scenes for `m6-budget.spec.ts` and `npm run report:budget` (`budget-table.ts`); the render loop and chain have no `new` per frame.
+  - Gotcha: the heap check forces GC over CDP (`HeapProfiler.collectGarbage`) instead of relaunching with `--expose-gc`; it levels off at ~0.25 MB after warm-up. Software GL draws the 1920×1080 crowd at ~1 s a frame, so the allocation run uses 640×400.
 
 ### Closing
 

@@ -17,10 +17,11 @@ import postVertex from '../shaders/post.vert.glsl?raw';
 import { DOF_LOOK } from './dof';
 import {
   bytesPerPixel,
-  mipSizes,
   type PostPass,
   type PostPlan,
   postPlan,
+  targetBytes,
+  targetSizes,
   targetType,
 } from './plan';
 
@@ -304,18 +305,13 @@ export class PostChain {
   }
 
   info(): PostInfo {
-    const bpp = bytesPerPixel(this.type);
-    let targetBytes = 0;
-    if (this.sceneTarget) {
-      const { width, height } = this.sceneTarget;
-      targetBytes += width * height * bpp * (1 + this.samples);
-    }
-    if (this.backdrop) targetBytes += this.backdrop.width * this.backdrop.height * bpp;
-    for (const mip of this.mips) targetBytes += mip.width * mip.height * bpp;
+    const scene = this.sceneTarget;
     return {
       passes: [...this.plan.passes],
-      targets: (this.sceneTarget ? 1 : 0) + (this.backdrop ? 1 : 0) + this.mips.length,
-      targetBytes,
+      targets: (scene ? 1 : 0) + (this.backdrop ? 1 : 0) + this.mips.length,
+      targetBytes: scene
+        ? targetBytes(this.plan, scene.width, scene.height, bytesPerPixel(this.type), this.samples)
+        : 0,
       renderScale: this.renderScale,
       dof: this.plan.dof && this.preset ? PRESETS[this.preset].dof : 'none',
       rays: this.composite ? this.rays.strength : 0,
@@ -392,24 +388,15 @@ export class PostChain {
   /** Frees the old targets and makes the ones the plan needs at today's size. */
   private rebuild(): void {
     this.release();
-    if (this.plan.passes.length === 0) return;
-    const width = Math.max(1, Math.floor(this.width * this.pixelRatio * this.renderScale));
-    const height = Math.max(1, Math.floor(this.height * this.pixelRatio * this.renderScale));
-    this.sceneTarget = this.target(width, height, this.samples);
-    const backdrop = this.plan.backdrop;
-    if (backdrop) {
-      this.backdrop = this.target(
-        Math.max(1, Math.round(width * backdrop.scale)),
-        Math.max(1, Math.round(height * backdrop.scale)),
-        0,
-      );
-    }
-    const bloom = this.plan.bloom;
-    if (bloom) {
-      this.mips = mipSizes(width, height, bloom.scale, bloom.levels).map(([w, h]) =>
-        this.target(w, h, 0),
-      );
-    }
+    const sizes = targetSizes(
+      this.plan,
+      this.width * this.pixelRatio * this.renderScale,
+      this.height * this.pixelRatio * this.renderScale,
+    );
+    if (!sizes.scene) return;
+    this.sceneTarget = this.target(sizes.scene[0], sizes.scene[1], this.samples);
+    if (sizes.backdrop) this.backdrop = this.target(sizes.backdrop[0], sizes.backdrop[1], 0);
+    this.mips = sizes.mips.map(([w, h]) => this.target(w, h, 0));
   }
 
   private release(): void {
