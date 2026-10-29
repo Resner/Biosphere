@@ -4,7 +4,7 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import { describe, expect, it, vi } from 'vitest';
 import { ARCHETYPES, buildBytes } from '../../tests/archetypes';
 import { decodeGenome, type Genome, genomeHash } from '../genome/codec';
-import { type BodyPlan, develop, polygonArea } from '../genome/develop';
+import { type BodyPlan, develop, type PlanSegment, polygonArea } from '../genome/develop';
 import { express } from '../genome/express';
 import { genesisGenome } from '../genome/genesis';
 import { GENOME_BYTES, LOCI, MODULE_EXT, MODULE_PARAMS, SHAPE_LOCI } from '../genome/karyotype';
@@ -996,5 +996,31 @@ describe('buildCreatureGeometry: segment walls (look pass 3, M6 T28)', () => {
     expect(vertexShader).toMatch(/attribute float aWall;/);
     expect(vertexShader).toMatch(/vWall = aWall;/);
     expect(fragmentShader).toMatch(/varying float vWall;/);
+    // Every wall draws at full width (look pass 4): the mask below the first wall only keeps the
+    // front span (from 0.5) clear, and never cuts the first wall's front half.
+    expect(fragmentShader).not.toMatch(/step\(1\.0, vWall\)/);
+    expect(fragmentShader).toMatch(/step\(0\.75, vWall\)/);
+  });
+
+  it('draws a wall where the owner skips a buried segment, between the two that meet (look pass 4)', () => {
+    const p = planOf(specimen('27-'));
+    // Segment 1 is a small copy of segment 2 inside it, so it owns no point of the line: the
+    // owner goes from 0 straight to 2, where those two overlap.
+    const segments: PlanSegment[] = [
+      { x: 0, y: 0, rx: 1, ry: 0.5, angle: 0 },
+      { x: -1.6, y: 0, rx: 0.5, ry: 0.25, angle: 0 },
+      { x: -1.6, y: 0, rx: 1, ry: 0.5, angle: 0 },
+    ];
+    const n = 361;
+    const line = { x: [] as number[], y: [] as number[], at: [] as number[], length: 3.6 };
+    for (let k = 0; k < n; k++) {
+      line.x.push(1 - (3.6 * k) / (n - 1));
+      line.y.push(0);
+      line.at.push((3.6 * k) / (n - 1));
+    }
+    const walls = wallsAlong({ ...p, segments }, line);
+    expect(walls).toHaveLength(1);
+    // Where segments 0 and 2 meet, at x = −0.8.
+    expect(walls[0] as number).toBeCloseTo(1.8, 1);
   });
 });

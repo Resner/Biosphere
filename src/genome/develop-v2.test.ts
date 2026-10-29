@@ -52,7 +52,12 @@ describe('development v2: spine curve', () => {
     expect(angles[0]).toBe(0);
     expect(angles[7]).toBeCloseTo((128 / 255) * PI, 9);
     for (let i = 1; i < 8; i++) expect(angles[i]).toBeGreaterThan(angles[i - 1] as number);
-    expect(curved.form).toEqual({ turn: (128 / 255) * PI, mode: 0, radial: 0 });
+    expect(curved.form).toEqual({
+      turn: (128 / 255) * PI,
+      mode: 0,
+      radial: 0,
+      slim: expect.any(Number),
+    });
     // Every link keeps its straight length, so the curl only folds the body.
     for (let i = 1; i < 8; i++) {
       const [a, b] = [curved.segments[i - 1], curved.segments[i]] as [PlanSegment, PlanSegment];
@@ -103,7 +108,12 @@ describe('development v2: spine curve', () => {
       expect(links[i]).toBeLessThan(links[i - 1] as number);
     }
     // Just below the threshold the C arc still has its plain turn.
-    expect(body({ curve: 204 }).form).toEqual({ turn: (204 / 255) * PI, mode: 0, radial: 0 });
+    expect(body({ curve: 204 }).form).toEqual({
+      turn: (204 / 255) * PI,
+      mode: 0,
+      radial: 0,
+      slim: expect.any(Number),
+    });
   });
 
   it('keeps neighbours overlapping and puts the colliders on the curve', () => {
@@ -126,7 +136,15 @@ describe('development v2: spine curve', () => {
 
 describe('development v2: tagmata', () => {
   const T = D.tagmata;
-  const radii = (set: Record<string, number>): number[] => body(set).segments.map((s) => s.ry);
+  /**
+   * Each segment's girth: its half-width before the chain was slimmed to read long (look pass 4,
+   * ADR 0031). Slimming narrows every segment by one factor, so the tagma profile holds in it.
+   */
+  const radii = (set: Record<string, number>): number[] => {
+    const p = body(set);
+    expect(p.form.slim).toBeLessThan(1);
+    return p.segments.map((s) => s.ry / p.form.slim);
+  };
   const plain = radii({});
 
   it('keeps an even chain without them', () => {

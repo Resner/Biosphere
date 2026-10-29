@@ -571,7 +571,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-3.{png,md}`; render only: segment walls (`aWall`, `wallsAlong`), light scattered inside the rim, clean glass parts, clearer webs, lens eyes, soft chambers, denser glows at play zoom, varied glints; no score moved, 15 cells above 1, so T28b follows.
   - Gotcha: a slimmer v2 chain (width 0.5–0.65, head 0.55–0.65) breaks the archetype, radial-turn and wild-silhouette tests, so it was reverted for T28b; the shader's `px` is half a core radius's pixels.
 
-- [ ] T28b Look pass 4 [opus]
+- [x] T28b Look pass 4 [opus]
   - Acceptance:
     - **Body proportions v3** for karyotype v2 (rules 6 is unreleased, so its goldens are regenerated, as in ADR 0028; a new ADR amends 0028): a bilateral v2 chain of 3+ segments is at least 2.5 times as long as it is wide (body only, parts excluded), so copepods, shrimps, worms and coils read by outline. The 12 silhouette specimens (21–32) stay 12 distinct `silhouetteOf` classes.
     - **The balance holds** with it: `stats.test.ts` (every archetype best at one metric at some size; a radial body turns better and thrusts worse than its bilateral twin), the archetype tournament, `npm run sim:pacing` and the Lab's wild diversity (8+ classes for 9 of 10 seeds), re-tuned in `RULES.stats` where needed and recorded in DESIGN §6.
@@ -579,6 +579,14 @@ A look pass never starts before the tasks it judges are ticked.
     - `pass-4.png` and `pass-4.md` are committed with the honest gap table, and the in-game check at 960×540 is repeated. If cells above 1 remain, this task adds `T28c Look pass 5` with the remaining gaps (after pass 5, the owner issue of T28).
   - Notes: pass 3 tried chain width 0.5, 0.6 and 0.65 (from 0.8) and head 0.55 to 0.65: the flagellate was never best, slim bilateral bodies out-turned radial ones, and the wild mode showed 8 classes for only 7 of 10 seeds. Bristle density along legs (gap 3), eyes set into the head (gap 4) and the 04/05 ceiling (gap 5) are the next look gaps after the outline (`pass-3.md`).
     - Review leftovers from pass 3 to fix while the sheet is re-rendered: the first segment wall draws half-width because the shader multiplies by `step(1.0, vWall)`; `wallsAlong` records one wall per owner change even when the owner skips a segment; `wallsAlong` is recomputed on every ladder rung and could be cached per plan.
+  - Done: `pass-4.{png,md}`; long chains narrow by one factor (`form.slim`, ADR 0031) as lateral compression, so stats read the girth and the balance holds untouched; the length gene reaches 2.4 past 0.8 of its span; the three wall leftovers are fixed. One cell 3 → 2, 15 above 1, so T28c follows.
+  - Gotcha: ADR 0028's "median trunk ≥ 0.5" cannot hold at 2.5 to 1 inside the bounds (now 0.38 drawn, 0.53 girth; the test bar is 0.35); slimming the bent chain instead of the straight one made curls lighter and lost the curl-drag test.
+
+- [ ] T28c Look pass 5 [opus]
+  - Acceptance:
+    - `pass-5.png` and `pass-5.md` are committed with the honest gap table, and the in-game check at 960×540 is repeated. If cells above 1 remain, open the owner issue `Look: <the gaps>` of T28 with the latest sheet and table and the options, and continue with T29.
+    - The largest gaps of `pass-4.md` are worked in order: the round baseline (v2 bodies on the sheet: an ADR on adding v2 descendants of the baseline under ADR 0024, or weighing the v2 specimens), worms and coils that read as tangles, bristles along legs (04), big eyes set into the head (05), and a specimen that shows the long antennae.
+  - Notes: development changes keep the balance as T28b did (stats on the girth, archetype tests, the tournament, `npm run sim:pacing`, the Lab's wild diversity).
 
 - [ ] T29 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:
@@ -614,7 +622,7 @@ Against the fixture authority and a build at `?quality=medium` (`m6-lifecycle.sp
 7. `audio.cues` has counted a cue for every event above. Allocation and memory counters are stable over the run.
 
 Exit criteria map (ROADMAP M6):
-- creature look overhaul to the owner's references (#90): T5–T14, T27, T28, T28b;
+- creature look overhaul to the owner's references (#90): T5–T14, T27, T28, T28b, T28c;
 - art pass to the reference (DOF, caustics, membranes, bioluminescence by depth): T2, T3, T13, T16, T17;
 - depth zones with gameplay: T15, T16;
 - low, medium and high presets with budgets: T1, T4, T26;

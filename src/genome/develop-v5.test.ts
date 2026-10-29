@@ -77,7 +77,7 @@ describe('development v2: v1 equivalence', () => {
           beads: 0,
         })),
         segments: v5.segments.map((s) => ({ x: s.x, y: 0, rx: s.rx, ry: s.ry, angle: 0 })),
-        form: { turn: 0, mode: 0, radial: 0 },
+        form: { turn: 0, mode: 0, radial: 0, slim: 1 },
         carapace: { count: 0, x: 0, y: 0, rx: 0, ry: 0, angle: 0, thickness: 0 },
         eyes: { count: 0, size: 0, stalk: 0, angle: 0, x: 0, y: 0 },
         membranes: [],

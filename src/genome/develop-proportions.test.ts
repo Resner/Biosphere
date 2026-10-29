@@ -13,6 +13,7 @@ import {
   develop,
   dirOf,
   type PlanSegment,
+  partLength,
   partReach,
   rootOf,
 } from './develop';
@@ -52,13 +53,16 @@ const median = (xs: number[]): number => {
   return s.length % 2 ? (s[m] as number) : ((s[m - 1] as number) + (s[m] as number)) / 2;
 };
 
-/** The length a part's genes ask for, before any repair (the band's is fixed). */
-function geneLength(traits: Traits, a: Appendage): number {
+/**
+ * The length a part's genes ask for in the v1 range, before any repair (the band's is fixed), and
+ * with `long`, the length the karyotype v2 range asks for (look pass 4), which may not all fit.
+ */
+function geneLength(traits: Traits, a: Appendage, long = false): number {
   if (a.module < 0) return D.band.length;
   const first = traits.modules.findIndex((m) => m.present);
   const scale = a.module === first ? traits.defects.partScale : 1;
   const mod = traits.modules[a.module] as Traits['modules'][number];
-  return lerp(D.length[0] as number, D.length[1] as number, mod.params.length / 255) * scale;
+  return partLength(mod.params.length, long ? traits.karyotype : 1) * scale;
 }
 
 /**
@@ -86,7 +90,10 @@ describe('proportions: the trunk carries the body (karyotype v2)', () => {
     expect(SPECIMENS).toHaveLength(12);
   });
 
-  it('gives the 12 specimens a median trunk segment of at least half the core radius', () => {
+  it('gives the 12 specimens a median trunk segment of at least 0.35 core radii', () => {
+    // ADR 0028 asked for half a core radius; look pass 4 (ADR 0031) slims long chains to 2.5 times
+    // as long as wide, which no trunk that wide can be inside the bounds. The trunk still carries
+    // the body: the v1 layout left it 0.1 to 0.2 core radii.
     const perBody: number[] = [];
     for (const { genome } of SPECIMENS) {
       const { plan } = developed(genome);
@@ -99,7 +106,7 @@ describe('proportions: the trunk carries the body (karyotype v2)', () => {
       if (trunk.length > 0) perBody.push(median(trunk));
     }
     expect(perBody.length).toBeGreaterThanOrEqual(8);
-    expect(median(perBody)).toBeGreaterThanOrEqual(0.5);
+    expect(median(perBody)).toBeGreaterThanOrEqual(0.35);
     // By laying the chain out differently, not by raising the body bound.
     expect(RULES.body.maxReach).toBe(2.5);
     expect(D.caps.bounds).toBe(2.5);
@@ -124,6 +131,72 @@ describe('proportions: the trunk carries the body (karyotype v2)', () => {
   });
 });
 
+/**
+ * A body's outline without its parts (look pass 4): its length along the spine, from the head's
+ * front through every link to the tail's end, and its width, the widest segment's.
+ */
+function outlineOf(plan: BodyPlan): { length: number; width: number } {
+  const s = plan.segments;
+  let length = (s[0] as PlanSegment).rx + (s[s.length - 1] as PlanSegment).rx;
+  for (let i = 1; i < s.length; i++) {
+    const [a, b] = [s[i - 1], s[i]] as [PlanSegment, PlanSegment];
+    length += Math.hypot(b.x - a.x, b.y - a.y);
+  }
+  return { length, width: 2 * Math.max(...s.map((x) => x.ry)) };
+}
+
+/** A bilateral chain of three or more segments: the bodies that must read long. */
+const isLongChain = (plan: BodyPlan): boolean =>
+  plan.form.radial === 0 && plan.segments.length >= 3;
+
+describe('proportions v3: long bodies read by outline (look pass 4)', () => {
+  const ratioOf = (plan: BodyPlan): number => {
+    const o = outlineOf(plan);
+    return o.length / o.width;
+  };
+
+  it('makes every bilateral v2 chain of 3+ segments at least 2.5 times as long as wide', () => {
+    let long = 0;
+    let curved = 0;
+    for (let i = 0; i < 3_000; i++) {
+      const random = randomV2();
+      for (const g of [
+        random,
+        mutateGenome(random, seedFromString(`long-${i}`), { mutation: 4 }),
+      ]) {
+        const { traits, plan } = developed(g);
+        if (!isLongChain(plan)) continue;
+        long++;
+        expect(bodyViolations(plan)).toEqual([]);
+        // A curl is a pose: the body is measured laid straight, and curling keeps its width.
+        const straight = develop({ ...traits, shape: { ...traits.shape, curve: 0 } });
+        if (plan.form.turn > 0) {
+          curved++;
+          expect(plan.segments.map((s) => s.ry)).toEqual(straight.segments.map((s) => s.ry));
+        }
+        const ratio = ratioOf(straight);
+        if (!(ratio >= D.chain.aspect - 1e-9)) expect.fail(`genome ${i}: ${ratio} long per wide`);
+      }
+    }
+    expect(long).toBeGreaterThan(1_000);
+    expect(curved).toBeGreaterThan(200);
+    expect(D.chain.aspect).toBeGreaterThanOrEqual(2.5);
+  });
+
+  it('gives the segmented specimens long outlines', () => {
+    let long = 0;
+    for (const { file, genome } of SPECIMENS) {
+      const { traits, plan } = developed(genome);
+      if (!isLongChain(plan)) continue;
+      long++;
+      const straight = develop({ ...traits, shape: { ...traits.shape, curve: 0 } });
+      expect(ratioOf(straight), file).toBeGreaterThanOrEqual(2.5 - 1e-9);
+    }
+    // Copepod, shrimp, worm, coil, crab, winged and fan tail.
+    expect(long).toBeGreaterThanOrEqual(7);
+  });
+});
+
 describe('proportions: parts keep their gene length', () => {
   it('gives every antenna, tentacle and wing of the 12 specimens its gene length', () => {
     let named = 0;
@@ -132,7 +205,11 @@ describe('proportions: parts keep their gene length', () => {
       for (const a of plan.appendages) {
         if (!isNamedPart(plan, a)) continue;
         named++;
-        expect(a.length, `${file} module ${a.module}`).toBeCloseTo(geneLength(traits, a), 9);
+        // At least the v1 gene length, and at most what the long range asks for.
+        expect(a.length, `${file} module ${a.module}`).toBeGreaterThanOrEqual(
+          geneLength(traits, a) - 1e-9,
+        );
+        expect(a.length).toBeLessThanOrEqual(geneLength(traits, a, true) + 1e-9);
       }
     }
     expect(named).toBeGreaterThan(30);
@@ -202,13 +279,73 @@ describe('proportions: parts keep their gene length', () => {
     const antenna = p.appendages.find((a) => a.module === 0) as Appendage;
     expect(antenna.segment).toBe(0);
     expect(antenna.branches).toBe(2);
-    expect(antenna.length).toBeCloseTo(D.length[1] as number, 9);
+    expect(antenna.length).toBeGreaterThanOrEqual(D.length[1] as number);
     const free = antenna.angle + D.sweep * (PI - antenna.angle);
     expect(antenna.dir).toBeGreaterThan(free);
     expect(antenna.dir).toBeLessThanOrEqual(PI);
     // Pointing where it would grow freely, it would not fit.
     const s = p.segments[0] as PlanSegment;
     expect(partReach(s, { ...antenna, dir: free }, 1)).toBeGreaterThan(D.caps.bounds);
+  });
+});
+
+describe('proportions: longer parts sweep round the body (look pass 4)', () => {
+  it('maps the length gene past 1.5 core radii under karyotype v2 only, unchanged below the knee', () => {
+    expect(partLength(255, 1)).toBeCloseTo(D.length[1] as number, 12);
+    expect(partLength(255, 2)).toBeGreaterThanOrEqual(2.2);
+    for (let b = 0; b < 256; b++) {
+      expect(partLength(b, 1)).toBeCloseTo(
+        lerp(D.length[0] as number, D.length[1] as number, b / 255),
+        12,
+      );
+      expect(partLength(b, 2)).toBeGreaterThanOrEqual(partLength(b, 1));
+      if (b > 0) expect(partLength(b, 2)).toBeGreaterThan(partLength(b - 1, 2));
+    }
+    // Most genes keep their v1 length: only the long end reaches further.
+    expect(partLength(128, 2)).toBe(partLength(128, 1));
+  });
+
+  it('lets antennae and tentacles reach past 1.5 core radii, inside the bounds', () => {
+    const long = { antenna: 0, tentacle: 0 };
+    for (let i = 0; i < 3_000; i++) {
+      const { plan } = developed(randomV2());
+      let any = false;
+      for (const a of plan.appendages) {
+        const kind = kindOf(plan, a);
+        if ((kind === 'antenna' || kind === 'tentacle') && a.length > 1.5 + 1e-9) {
+          long[kind]++;
+          any = true;
+        }
+      }
+      if (any) expect(bodyViolations(plan)).toEqual([]);
+    }
+    expect(long.antenna).toBeGreaterThan(200);
+    expect(long.tentacle).toBeGreaterThan(50);
+  });
+
+  it('sweeps a long antenna round the body instead of cutting it', () => {
+    const p = develop(
+      express(
+        decodeGenome(
+          buildBytes(
+            {
+              M1: { length: 255, thickness: 30, tipShape: 255, beat: 30, angle: 40, curvature: 90 },
+              M2: { length: 150, thickness: 60, tipShape: 255, beat: 220, angle: 200 },
+            },
+            { segDrive1: 160, segDrive2: 160 },
+          ),
+        ),
+      ),
+    );
+    expect(bodyViolations(p)).toEqual([]);
+    const antenna = p.appendages.find((a) => a.module === 0) as Appendage;
+    expect(antenna.segment).toBe(0);
+    expect(antenna.length).toBeCloseTo(partLength(255, 2), 9);
+    // It lies back along the body: its tip is behind the head.
+    const s = p.segments[0] as PlanSegment;
+    const root = rootOf(s, antenna.angle, 1);
+    const d = dirOf(s, antenna);
+    expect(root.x + antenna.length * d.x).toBeLessThan(0);
   });
 });
 

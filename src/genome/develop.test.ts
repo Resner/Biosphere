@@ -254,8 +254,9 @@ describe('develop: repairs', () => {
     const p = plan(g);
     expect(bodyViolations(p)).toEqual([]);
     const raw = D.length[1] as number;
-    // Karyotype v2 sweeps these along the body and keeps them whole (M6 T14b)...
-    expect(Math.max(...p.appendages.map((a) => a.length))).toBeLessThanOrEqual(raw);
+    // Karyotype v2 sweeps these along the body and keeps them whole (M6 T14b), up to the long
+    // range's top (look pass 4)...
+    expect(Math.max(...p.appendages.map((a) => a.length))).toBeLessThanOrEqual(D.long.max);
     // ...and the v1 rule cuts every one of these to root plus reach.
     const v1 = develop({ ...express(g), karyotype: 1 });
     expect(bodyViolations(v1)).toEqual([]);
