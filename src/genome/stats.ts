@@ -242,7 +242,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
   inertia += appendageInertia;
 
   const last = plan.segments[plan.segments.length - 1] as PlanSegment;
-  const taper = width > 0 ? Math.max(0, 1 - last.ry / plan.form.slim / width) : 0;
+  const taper = width > 0 ? Math.max(0, 1 - girthOf(last, plan.form.slim).ry / width) : 0;
   const fineness = (front - rear) / (2 * width);
   const drag =
     2 * width * (1 + S.finenessDrag / fineness) * (1 - S.taperRelief * taper) +

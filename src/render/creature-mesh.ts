@@ -510,18 +510,18 @@ function wallAt(walls: readonly number[], length: number, from: number): number 
   return lerp(lo, hi, t);
 }
 
+/** Each plan's walls: plans are immutable and every rung of the detail ladder asks again. */
+const WALLS = new WeakMap<BodyPlan, number[]>();
+
 /**
  * The loft's rings, rear to front: on the centre line, across its normal, as wide as the body
  * outline there. Where the spine bends tighter than the body is wide, neighbouring rings would cross
  * and fold the surface, so each ring stops short of where its neighbours' lines cross it.
  */
-/** Each plan's walls: plans are immutable and every rung of the detail ladder asks again. */
-const WALLS = new WeakMap<BodyPlan, number[]>();
-
 function stations(plan: BodyPlan, line: Line, d: MeshDetail): Station[] {
   const rings = d.bodyRings * plan.segments.length + 1;
   const walls = WALLS.get(plan) ?? wallsAlong(plan, line);
-  WALLS.set(plan, walls);
+  if (!WALLS.has(plan)) WALLS.set(plan, walls);
   const out: Station[] = [];
   for (let k = 0; k < rings; k++) {
     const s = ringShare(k, rings);

@@ -423,7 +423,7 @@ function buildParts(traits: Traits, n: number): Part[] {
     const reach = unit(p.attachSpan) * (1 - t0);
     const width = lerp(WIDTH[0], WIDTH[1], unit(p.thickness)) * scale;
     const tip = unit(p.tipShape);
-    const base = lerp(LENGTH[0], LENGTH[1], unit(p.length)) * scale;
+    const base = partLength(p.length, 1) * scale;
     for (let k = 0; k < pairs; k++) {
       const t = pairs > 1 ? t0 + (reach * k) / (pairs - 1) : t0;
       parts.push({
@@ -772,12 +772,14 @@ function fitPart(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, f
   // to 2^−`long.steps` of it; if not even that length fits, it is cut as any part is.
   let [lo, hi] = [p.base, wish];
   if (!fitLength(p, segments, sweep, from, lo)) return;
+  let kept = true;
   for (let k = 0; k < D.long.steps; k++) {
     const mid = (lo + hi) / 2;
-    if (fitLength(p, segments, sweep, from, mid)) lo = mid;
+    kept = fitLength(p, segments, sweep, from, mid);
+    if (kept) lo = mid;
     else hi = mid;
   }
-  fitLength(p, segments, sweep, from, lo);
+  if (!kept) fitLength(p, segments, sweep, from, lo);
 }
 
 /** `fitPart` at one length: whether the part keeps it whole. */
