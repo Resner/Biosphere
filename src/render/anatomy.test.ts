@@ -9,7 +9,7 @@ import { GENOME_BYTES } from '../genome/karyotype';
 import { starterGenome } from '../genome/starter';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
-import { type Anatomy, anatomyOf, CHAMBERS, chamberCount, type Organ } from './anatomy';
+import { type Anatomy, anatomyOf, CHAMBERS, chamberCount, HALO, type Organ } from './anatomy';
 
 // Inner anatomy (M6 T12): render data only, placed inside the hull and seeded by the genome hash.
 
@@ -73,6 +73,28 @@ describe('anatomyOf', () => {
       }
     }
     expect(outside).toBe(0);
+  }, 60_000);
+
+  it('wraps each organ but the eye pigment in a glow of tissue inside the hull, up to HALO times its radius (look pass 2)', () => {
+    let outside = 0;
+    let wide = 0;
+    let organs = 0;
+    for (const b of bodies) {
+      for (const o of anatomy(b).organs) {
+        if (o.kind === 'pigment') {
+          expect(o.halo).toBe(0);
+          continue;
+        }
+        organs++;
+        expect(o.halo).toBeGreaterThanOrEqual(o.r);
+        expect(o.halo).toBeLessThanOrEqual(o.r * HALO + 1e-9);
+        if (!discInside(b.plan, o.x, o.y, o.halo)) outside++;
+        if (o.halo >= o.r * 1.5) wide++;
+      }
+    }
+    expect(outside).toBe(0);
+    // Most glows reach well past their organ, so neighbouring lobes merge into one mass.
+    expect(wide / organs).toBeGreaterThan(0.5);
   }, 60_000);
 
   it('runs a gut line along the curved spine, front to rear, with a stomach swelling', () => {

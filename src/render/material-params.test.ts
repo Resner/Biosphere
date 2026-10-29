@@ -4,7 +4,13 @@ import { express, type Traits } from '../genome/express';
 import { GENOME_BYTES } from '../genome/karyotype';
 import { starterGenome } from '../genome/starter';
 import { createRng, seedFromString } from '../sim/prng';
-import { luminance, MIN_RIM_LUMINANCE, materialParams, PATTERN } from './material-params';
+import {
+  luminance,
+  MIN_RIM_LUMINANCE,
+  materialParams,
+  ORGAN_HUES,
+  PATTERN,
+} from './material-params';
 
 const rng = createRng(seedFromString('material-params'), 'bytes');
 const randomTraits = (): Traits =>
@@ -48,6 +54,15 @@ describe('materialParams', () => {
     const lo = materialParams(withColour({ patternScale: 0 })).patternCount;
     const hi = materialParams(withColour({ patternScale: 1 })).patternCount;
     expect(hi).toBeGreaterThan(lo);
+  });
+
+  it("keeps an albino's organs one pink whatever its rarity tier", () => {
+    const albino = withColour({ hue: 0.3, saturation: 1, value: 0.9, albino: 'albino' });
+    for (const tier of ['common', 'uncommon', 'rare', 'exotic'] as const) {
+      const p = materialParams(albino, tier);
+      expect(p.organ2).toEqual(p.organ);
+      expect(p.vivid).toBe(0);
+    }
   });
 
   it('turns an albino body pale pink and a pale one only washed out', () => {
@@ -191,6 +206,39 @@ describe('materialParams', () => {
     expect(hsvSaturation(albino.rim)).toBeLessThanOrEqual(0.02);
     expect(hsvSaturation(albino.organ)).toBeGreaterThan(0.3);
     expect(albino.organ[0]).toBeGreaterThan(albino.organ[1]);
+  });
+
+  it('mixes a second organ hue, further round the wheel and more vivid as rarity rises (look pass 2)', () => {
+    const tiers = ['common', 'uncommon', 'rare', 'exotic'] as const;
+    // The HSV hue of a colour, in turns.
+    const hueOf = ([r, g, bl]: readonly number[]): number => {
+      const [x, y, z] = [r as number, g as number, bl as number];
+      const [max, min] = [Math.max(x, y, z), Math.min(x, y, z)];
+      const d = max - min || 1;
+      const h = max === x ? (y - z) / d : max === y ? 2 + (z - x) / d : 4 + (x - y) / d;
+      return (((h / 6) % 1) + 1) % 1;
+    };
+    const arc = (a: readonly number[], b: readonly number[]): number => {
+      const d = Math.abs(hueOf(a) - hueOf(b));
+      return Math.min(d, 1 - d);
+    };
+    for (const t of Array.from({ length: 200 }, randomTraits)) {
+      if (t.colour.albino !== 'normal' || t.colour.saturation < 0.3) continue;
+      let [lastArc, lastVivid] = [0, 0];
+      for (const tier of tiers) {
+        const p = materialParams(t, tier);
+        const spread = arc(p.organ, p.organ2);
+        expect(spread).toBeCloseTo(ORGAN_HUES[tier].spread, 2);
+        expect(spread).toBeGreaterThan(lastArc);
+        expect(p.vivid).toBeGreaterThanOrEqual(lastVivid);
+        expect(hsvSaturation(p.organ2)).toBeGreaterThanOrEqual(hsvSaturation(p.organ) - 1e-9);
+        [lastArc, lastVivid] = [spread, p.vivid];
+      }
+      // The tier never touches the shell: the colour lives inside.
+      expect(materialParams(t, 'exotic').rim).toEqual(materialParams(t, 'common').rim);
+      expect(materialParams(t, 'exotic').organ).toEqual(materialParams(t).organ);
+    }
+    expect(materialParams(base).vivid).toBe(0);
   });
 
   it('is deterministic', () => {

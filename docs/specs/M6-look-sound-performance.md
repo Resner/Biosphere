@@ -556,10 +556,12 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Closing
 
-- [ ] T27 Look pass 2 [opus]
+- [x] T27 Look pass 2 [opus]
   - Acceptance:
     - `pass-2.png` and `pass-2.md` are rendered after T15–T26, with the honest gap table. The top gaps are fixed, the sheet and table re-rendered after the fixes, and every cell improved since pass 1 is named in the PR.
     - The in-game check at 960×540 is repeated, in the shallows and in the deep.
+  - Done: `pass-2.{png,md}`; organs larger and wrapped in overlapping glows (`Organ.halo`), two organ hues by number (`ORGAN_HUES`, wider and more vivid with rarity), pearl bulb tips, joint wet points, clearer plates and sheets, larger claws; five cells 2 → 1.
+  - Gotcha: T13's "rim stays the brightest ring" caps the inner glow (yellow and green organs are dimmed toward one luminance for it); silhouettes stay 2–3, a body-plan change pass 3 cannot make by look tuning.
 
 - [ ] T28 Look pass 3 [opus]
   - Acceptance:
