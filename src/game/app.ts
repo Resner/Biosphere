@@ -716,6 +716,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   let hatching = false;
+  let titleEggShown = false;
   const hatch = (): void => {
     if (hatching || limitLeft() > 0) return;
     limitUntil = 0;
@@ -1342,7 +1343,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     // While a genesis egg waits on the title screen, the menu steps back so the egg is the moment.
     const titleEgg = eggs.mode === 'genesis' && screen === 'title';
-    if (document.body.hasAttribute('data-egg') !== titleEgg) {
+    if (titleEggShown !== titleEgg) {
+      titleEggShown = titleEgg;
       document.body.toggleAttribute('data-egg', titleEgg);
     }
     const alive = playingNow && session.player.alive;

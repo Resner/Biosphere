@@ -96,7 +96,6 @@ export class EggShow {
   private readonly own = new EggTether();
   private readonly ownPose = emptyPose();
   private readonly ownView = newView(this.ownPose, OWN_SEED);
-  private readonly ownParent: TetherParent = { x: 0, y: 0, heading: 0, radius: 1 };
   private readonly peers = new Map<string, PeerEgg>();
   private readonly out: EggView[] = [];
   private frameNo = 0;
@@ -274,16 +273,11 @@ export class EggShow {
       ? Math.min(MAX_EGG * self.radius, CHILD_EGG * Math.sqrt(hatchling(child.maxBiomass).biomass))
       : UNKNOWN_EGG * self.radius;
     this.own.follow(input.dt, self, radius);
-    const parent = this.ownParent;
-    parent.x = self.x;
-    parent.y = self.y;
-    parent.heading = self.heading;
-    parent.radius = self.radius;
     view.x = this.own.x;
     view.y = this.own.y;
     view.radius = radius;
     view.heading = Math.atan2(view.y - self.y, view.x - self.x);
-    view.parent = parent;
+    view.parent = self;
     return true;
   }
 
@@ -295,19 +289,14 @@ export class EggShow {
       if (!peer) {
         const pose = carriedPose(null, emptyPose());
         peer = { tether: new EggTether(), pose, view: newView(pose, idFraction(r.id)), frame: 0 };
-        peer.view.parent = { x: 0, y: 0, heading: 0, radius: 1 };
         this.peers.set(r.id, peer);
       }
       peer.frame = this.frameNo;
       const radius = PEER_EGG * r.radius;
       peer.tether.follow(input.dt, r, radius);
-      carriedPose(null, peer.pose).alpha = r.alpha;
+      peer.pose.alpha = r.alpha;
       const { view } = peer;
-      const parent = view.parent as TetherParent;
-      parent.x = r.x;
-      parent.y = r.y;
-      parent.heading = r.heading;
-      parent.radius = r.radius;
+      view.parent = r;
       view.x = peer.tether.x;
       view.y = peer.tether.y;
       view.radius = radius;

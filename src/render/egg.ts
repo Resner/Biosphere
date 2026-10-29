@@ -5,6 +5,7 @@
 
 import * as THREE from 'three';
 import type { RarityTier } from '../genome/rarity';
+import { clamp } from '../sim/math';
 import { writeInstance } from './instances';
 import { eggMaterial, setUniform } from './materials';
 
@@ -95,7 +96,8 @@ export const emptyPose = (): EggPose => ({
 });
 
 const TAU = Math.PI * 2;
-const clamp01 = (v: number): number => Math.min(1, Math.max(0, v));
+const INSTANCE_ATTRIBUTES = ['aEggA', 'aEggB', 'aEggTint'] as const;
+const clamp01 = (v: number): number => clamp(v, 0, 1);
 const smooth = (v: number): number => {
   const t = clamp01(v);
   return t * t * (3 - 2 * t);
@@ -520,7 +522,7 @@ export class EggLayer {
     if (n === 0) return;
     setUniform(this.material, 'uTime', time);
     this.mesh.instanceMatrix.needsUpdate = true;
-    for (const name of ['aEggA', 'aEggB', 'aEggTint']) {
+    for (const name of INSTANCE_ATTRIBUTES) {
       (this.geometry.getAttribute(name) as THREE.InstancedBufferAttribute).needsUpdate = true;
     }
   }

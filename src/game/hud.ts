@@ -10,8 +10,12 @@ function setText(element: HTMLElement, text: string): void {
   if (element.textContent !== text) element.textContent = text;
 }
 
+function percent(fraction: number): string {
+  return `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
+}
+
 function setBar(bar: HTMLElement, fraction: number): void {
-  const width = `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
+  const width = percent(fraction);
   if (bar.style.width !== width) bar.style.width = width;
 }
 
@@ -100,7 +104,6 @@ export class Hud {
    * their new ones with a warm highlight, so the cost is felt as well as read.
    */
   drain(from: { energy: number; size: number }, to: { energy: number; size: number }): void {
-    const pct = (share: number): string => `${Math.round(Math.min(1, Math.max(0, share)) * 100)}%`;
     const highlight = 'brightness(2) drop-shadow(0 0 6px #ffd27a)';
     for (const [bar, a, b] of [
       [this.energyBar, from.energy, to.energy],
@@ -108,9 +111,9 @@ export class Hud {
     ] as const) {
       bar.animate(
         [
-          { width: pct(a), filter: highlight },
-          { width: pct(a), filter: highlight, offset: 0.25 },
-          { width: pct(b), filter: 'none' },
+          { width: percent(a), filter: highlight },
+          { width: percent(a), filter: highlight, offset: 0.25 },
+          { width: percent(b), filter: 'none' },
         ],
         { duration: 1100, easing: 'ease-in-out' },
       );
