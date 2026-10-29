@@ -13,3 +13,15 @@ export function sizeTier(biomass: number): number {
   }
   return tier;
 }
+
+/** How another creature compares with one's own by size tier: the edge indicators and outlines (M6 T19, T21). */
+export type SizeClass = 'smaller' | 'comparable' | 'bigger';
+
+/** The size class of a creature of `otherRadius` seen by one of `ownRadius` (radius² is biomass). */
+export function sizeClass(ownRadius: number, otherRadius: number): SizeClass {
+  const own = sizeTier(ownRadius * ownRadius);
+  const other = sizeTier(otherRadius * otherRadius);
+  if (other > own) return 'bigger';
+  if (other < own) return 'smaller';
+  return 'comparable';
+}

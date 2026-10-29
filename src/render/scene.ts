@@ -14,6 +14,7 @@ import { FoodLayer } from './food';
 import { GlowLayer } from './glows';
 import { PlumeLayer } from './hazards';
 import { materialParams } from './material-params';
+import { type DrawnOutline, OutlineLayer } from './outlines';
 import { ParticleLayer, type Speck } from './particles';
 import {
   BACKDROP_LAYER,
@@ -102,6 +103,8 @@ export interface RenderInfo extends PostInfo {
   caustic: number;
   /** Eggs drawn this frame, the player's and its peers' (M6 T20). */
   eggs: number;
+  /** Size outlines drawn this frame, by kind (M6 T21). */
+  outlines: { bigger: number; smaller: number };
 }
 
 /** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
@@ -121,6 +124,7 @@ const ORDER = {
   cell: 4,
   eggs: 4.7,
   rings: 4.8,
+  outlines: 4.9,
   mid: 5,
   near: 6,
 } as const;
@@ -157,6 +161,8 @@ export class GameScene {
   };
   private readonly rings = new RingLayer();
   private readonly eggs = new EggLayer();
+  private readonly outlines = new OutlineLayer();
+  private readonly outlineView = { camX: 0, camY: 0, pxPerWu: 1, width: 1, height: 1 };
   /** The plain cell drawn at a scaled size (a pop or a shrink), so the view itself is never written. */
   private readonly scaledCell: CellView = {
     x: 0,
@@ -250,6 +256,7 @@ export class GameScene {
       [this.cell.body, ORDER.cell + 0.5],
       [this.eggs.mesh, ORDER.eggs],
       [this.rings.mesh, ORDER.rings],
+      [this.outlines.mesh, ORDER.outlines],
       [this.mid.points, ORDER.mid],
       [this.near.points, ORDER.near],
     ];
@@ -381,8 +388,20 @@ export class GameScene {
     );
     this.eggs.set(view.eggs, view.time);
     this.rings.set(view.rings);
+    this.updateOutlines(view);
 
     this.post.render(this.scene, camera);
+  }
+
+  /** Size outlines (M6 T21): remotes a tier bigger or smaller than the player. */
+  private updateOutlines(view: SceneView): void {
+    const o = this.outlineView;
+    o.camX = view.camX;
+    o.camY = view.camY;
+    o.pxPerWu = this.pxPerWu;
+    o.width = this.cssWidth;
+    o.height = this.cssHeight;
+    this.outlines.set(view.remotes, view.creature?.radius ?? null, view.time, o);
   }
 
   /**
@@ -512,8 +531,14 @@ export class GameScene {
       memory: { geometries: memory.geometries, textures: memory.textures },
       caustic: this.caustic,
       eggs: this.eggs.count(),
+      outlines: this.outlines.counts(),
       ...this.post.info(),
     };
+  }
+
+  /** The size outlines as last drawn, in CSS pixels, for tests. */
+  outlinesDrawn(): DrawnOutline[] {
+    return this.outlines.drawn();
   }
 
   /** The specks of a particle layer as last drawn, for tests. */
@@ -546,6 +571,7 @@ export class GameScene {
       this.body,
       this.eggs,
       this.rings,
+      this.outlines,
       this.remotes,
     ]) {
       part.dispose();

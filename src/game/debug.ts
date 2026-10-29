@@ -2,6 +2,7 @@ import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { EggPhase } from '../render/egg';
+import type { DrawnOutline } from '../render/outlines';
 import type { Speck } from '../render/particles';
 import type { ParticleLayerName, PresetName, QualitySetting } from '../render/presets';
 import type { RenderInfo } from '../render/scene';
@@ -188,6 +189,8 @@ export interface BsHook {
     fx(): FxState;
     /** The specks of a particle layer as last drawn: on-screen position, size, depth and blur. */
     specks(layer: ParticleLayerName): Speck[];
+    /** The size outlines as last drawn (M6 T21): kind, CSS-pixel centre and radius, pulse 0..1. */
+    outlines(): DrawnOutline[];
   };
   life: {
     /** The DNA of the last genesis, recomputed from its beacon and commitment; null before one. */

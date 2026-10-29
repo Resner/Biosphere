@@ -1833,6 +1833,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     render: {
       info: () => scene.info(),
       specks: (layer) => scene.specks(layer),
+      outlines: () => scene.outlinesDrawn(),
       fx: () => ({
         ...fx.snapshot(),
         halfHeight: camera.halfHeight,

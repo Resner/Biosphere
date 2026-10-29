@@ -149,6 +149,8 @@ const FINGER_OPEN = 0.45;
 const FINGER_LENGTH = 0.9;
 const FINGER_WIDTH = 0.55;
 const FINGER_TAPER = 0.8;
+/** The mouth marks the front of the body this far back (core radii) at least, so a small jaw still reads (M6 T21). */
+const MOUTH_MIN_REACH = 0.2;
 /**
  * A bristle's base half-width, and its angle off its part's chord: near square at the base, swept
  * toward the tip along the part, so the bristles fan apart (on a curved part's inner side too).
@@ -479,7 +481,7 @@ function stations(plan: BodyPlan, line: Line, d: MeshDetail): Station[] {
 
 function addBody(m: Mesh, plan: BodyPlan, rings: readonly Station[], d: MeshDetail): void {
   const ring = d.bodyRing;
-  const mouthReach = plan.mouth.radius * 0.5;
+  const mouthReach = max(plan.mouth.radius * 0.5, MOUTH_MIN_REACH);
   const first = m.count;
   for (const st of rings) {
     m.gait = bodyMotion(plan, st);

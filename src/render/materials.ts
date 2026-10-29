@@ -15,6 +15,8 @@ import foodVertex from './shaders/food.vert.glsl?raw';
 import glowFragment from './shaders/glow.frag.glsl?raw';
 import glowVertex from './shaders/glow.vert.glsl?raw';
 import noise from './shaders/noise.glsl?raw';
+import outlineFragment from './shaders/outline.frag.glsl?raw';
+import outlineVertex from './shaders/outline.vert.glsl?raw';
 import particlesFragment from './shaders/particles.frag.glsl?raw';
 import particlesVertex from './shaders/particles.vert.glsl?raw';
 import plumeFragment from './shaders/plume.frag.glsl?raw';
@@ -178,6 +180,10 @@ export const glowMaterial = (): THREE.ShaderMaterial =>
 /** Pops and ripples reuse the plume's instanced-quad vertex shader; only the fragment differs. */
 export const ringMaterial = (): THREE.ShaderMaterial =>
   layer(plumeVertex, ringsFragment, {}, { blending: THREE.AdditiveBlending });
+
+/** Size outlines (M6 T21): `ring` is the ring's radius in quad units. */
+export const outlineMaterial = (ring: number): THREE.ShaderMaterial =>
+  layer(outlineVertex, outlineFragment, { uRing: { value: ring } });
 
 /**
  * Eggs and their tethers (M6 T20): premultiplied, so the glassy shell covers what lies under it

@@ -3,7 +3,7 @@
 // when they say they could mate. Pings nearby but off screen show the same way for their lifetime.
 // Positions come from the pond snapshots the game already receives, so this costs no traffic.
 
-import { sizeTier } from '../sim/size';
+import { type SizeClass, sizeClass } from '../sim/size';
 import { setText } from './dom';
 import { type LabelProjection, placeAt, screenX, screenY } from './labels';
 import { PINGS } from './social-ui';
@@ -18,8 +18,6 @@ export const EDGE_INSET_PX = 44;
 const LABEL_ROOM_PX = 96;
 /** Players drawn fainter than this are going quiet (a hidden tab) and get no indicator. */
 const MIN_ALPHA = 0.5;
-
-export type SizeClass = 'smaller' | 'comparable' | 'bigger';
 
 export interface IndicatorPlayer {
   id: string;
@@ -63,15 +61,6 @@ export interface Indicator {
 /** From the view's centre to a corner, in world units. */
 export function viewRadius(p: LabelProjection): number {
   return Math.hypot(p.width, p.height) / 2 / p.pxPerWu;
-}
-
-/** How another creature compares with one's own, by size tier (DESIGN §4). */
-export function sizeClass(ownRadius: number, otherRadius: number): SizeClass {
-  const own = sizeTier(ownRadius * ownRadius);
-  const other = sizeTier(otherRadius * otherRadius);
-  if (other > own) return 'bigger';
-  if (other < own) return 'smaller';
-  return 'comparable';
 }
 
 export function lengthsText(lengths: number): string {
@@ -267,8 +256,8 @@ export class EdgeIndicatorsUi {
     s.root.dataset.label = ind.y > p.height - LABEL_ROOM_PX ? 'above' : 'below';
     s.root.dataset.align =
       ind.x < LABEL_ROOM_PX ? 'start' : ind.x > p.width - LABEL_ROOM_PX ? 'end' : 'centre';
-    s.root.style.transform = placeAt(ind.x, ind.y, 'centre');
     if (s.root.hidden) s.root.hidden = false;
+    placeAt(s.root, ind.x, ind.y, 'centre');
   }
 
   private at(i: number): Shown {
