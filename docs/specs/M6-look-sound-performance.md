@@ -502,7 +502,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `src/audio/` (`engine.ts` `GameSound`/`AudioGraph`, `ambience.ts`, `voices.ts`; cue patches are a table T23 fills); settings gain `volume`, `muted`, `reducedMotion` (null follows the system); `__bs.audio.render` and `state().audio`.
   - Gotcha: Chromium sums a node's inputs in a run-dependent order, so every ambience mix point takes at most two inputs (float addition only commutes for two); "camera effects" today are the exotic burst's slow motion and rings (there is no camera shake).
 
-- [x] T23 Event sounds for every cue [opus] (in progress)
+- [x] T23 Event sounds for every cue [opus]
   - Acceptance:
     - Every row of DESIGN §10 has its sound: eat, hurt, low energy, hazard near, dash, death, old age, court, mate, hatch and reveal (T20), growth and tier (T18), ping, emote, chat, UV and pressure (T15). Death causes each play the death tone, so a death is never silent.
     - Positional cues (another player's emote or ping) pan by screen position and fall off with distance.

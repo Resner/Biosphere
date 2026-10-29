@@ -3,6 +3,7 @@ import { maxEnergy, maxHealth } from '../sim/vitals';
 import { pick } from './dom';
 import type { LifeClock } from './life';
 import { remainingText, stageWord } from './life-text';
+import { LOW_ENERGY } from './low-energy';
 import type { ZoneReadout } from './zone-readout';
 
 /** Writes only when the text changed, so a steady readout costs no DOM work. */
@@ -18,9 +19,6 @@ function setBar(bar: HTMLElement, fraction: number): void {
   const width = percent(fraction);
   if (bar.style.width !== width) bar.style.width = width;
 }
-
-/** Below this share of its energy the readout pulses (DESIGN §10). */
-export const LOW_ENERGY = 0.2;
 
 /** Biomass, energy and health readouts; text and bars, so colour is never the only signal. */
 export class Hud {

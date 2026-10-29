@@ -621,9 +621,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         sound.cue(kind, at ?? undefined);
         return;
       }
-      // A peer's emote sounds over its creature.
+      // A peer's emote sounds over its creature; one that is not drawn here is not heard.
       const r = remoteViews.find((v) => v.id === from);
-      sound.cue('emote', r ? { x: r.x, y: r.y } : undefined);
+      if (r) sound.cue('emote', { x: r.x, y: r.y });
     },
   });
   const socialUi = new SocialUi(social, {
@@ -1292,10 +1292,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     if (nearby) mate.check(nearby.id);
     const view = mate.view();
-    // Courting starts with a chime, sent or received.
-    if (view.state !== mateNow && (view.state === 'courting' || view.state === 'invited')) {
-      sound.cue('court');
-    }
+    // Courting starts with a chime, sent or received (one per courtship, not per state change).
+    const courtingNow = (state: string) => state === 'courting' || state === 'invited';
+    if (courtingNow(view.state) && !courtingNow(mateNow)) sound.cue('court');
     mateNow = view.state;
     const hint = nearby ? mate.hint(nearby) : null;
     const text = view.invite ? '' : (hint?.text ?? view.note);

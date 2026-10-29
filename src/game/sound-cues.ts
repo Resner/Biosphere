@@ -5,7 +5,7 @@
 
 import type { Cue } from '../audio/cues';
 import type { StepEvent } from '../sim/types';
-import { LOW_ENERGY } from './hud';
+import { LOW_ENERGY } from './low-energy';
 
 export const CUE_WATCH = {
   /** A hit (toxin, starvation, a bite) sounds at most this often while damage goes on: 0.4 s. */
