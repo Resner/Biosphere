@@ -206,6 +206,10 @@ test('the UV cue shows only in the shallows, and only below full UV tolerance', 
   await goToZone(page, 'shallows');
   await expect(cue).toBeVisible();
   await expect(page.getByTestId('hud-zone-warning')).toHaveText('UV burns');
+  // The burn has its sizzle once time runs (M6 T23).
+  expect((await state(page)).audio.cues.uv ?? 0).toBe(0);
+  await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
+  await expect.poll(async () => (await state(page)).audio.cues.uv ?? 0).toBeGreaterThan(0);
 
   await play(page, UV_PROOF);
   expect((await state(page)).player?.stats.uvTolerance).toBe(1);
@@ -223,4 +227,6 @@ test('the pressure cue shows in the abyss for a creature that feels it', async (
   await goToZone(page, 'abyss');
   await expect(cue).toBeVisible();
   await expect(page.getByTestId('hud-zone-warning')).toHaveText('Pressure crushes');
+  await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
+  await expect.poll(async () => (await state(page)).audio.cues.pressure ?? 0).toBeGreaterThan(0);
 });

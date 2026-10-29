@@ -1,4 +1,10 @@
-import type { AudioRenderOptions, AudioRenderResult, AudioView } from '../audio/engine';
+import type {
+  AudioRenderOptions,
+  AudioRenderResult,
+  AudioView,
+  CueRenderOptions,
+  CueRenderResult,
+} from '../audio/engine';
 import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
@@ -195,6 +201,8 @@ export interface BsHook {
   audio: {
     /** Renders the sound engine's ambience on an `OfflineAudioContext` and measures it (M6 T22). */
     render(options: AudioRenderOptions): Promise<AudioRenderResult>;
+    /** Renders one cue alone on an `OfflineAudioContext`: its measures, length and channels (M6 T23). */
+    renderCue(options: CueRenderOptions): Promise<CueRenderResult>;
   };
   render: {
     info(): RenderInfo;
@@ -260,7 +268,8 @@ export interface BsDebug {
   }): void;
   /**
    * Delivers a peer's `event` message as if its data channel had; invalid ones are dropped. A
-   * genome event skips the link and rate checks, which the unit tests cover.
+   * genome event skips the link and rate checks, which the unit tests cover. Chat, emotes and
+   * pings go through `Social`, from a scripted remote's id (it is in the roster).
    */
   deliver(from: string, event: unknown): void;
   /** Whether the food item (`c3_5_s2_k0`) is in the field now. */

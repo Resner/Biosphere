@@ -1,5 +1,5 @@
 import { expect, type Page, test } from '@playwright/test';
-import type { AudioRenderOptions } from '../../src/audio/engine';
+import type { AudioRenderOptions, CueRenderOptions } from '../../src/audio/engine';
 import type { BsHook } from '../../src/game/debug';
 import { openGame } from './helpers';
 
@@ -56,4 +56,71 @@ test('two renders with the same seed are sample-identical', async ({ page }) => 
   expect(a.length).toBe(b.length);
   const other = await render(page, { zone: 'deep', seed: 12, seconds: 2, volume: 80 });
   expect(other.hash).not.toBe(a.hash);
+});
+
+// Event sounds (M6 T23): each cue rendered alone, through the same voice, master and limiter.
+const CUE_NAMES = [
+  'eat',
+  'hurt',
+  'low-energy',
+  'hazard-near',
+  'dash',
+  'death',
+  'old-age',
+  'court',
+  'mate',
+  'hatch',
+  'reveal',
+  'grow',
+  'tier',
+  'ping',
+  'emote',
+  'chat',
+  'uv',
+  'pressure',
+] as const;
+
+const renderCue = (page: Page, options: CueRenderOptions) =>
+  page.evaluate((o) => (window.__bs as BsHook).audio.renderCue(o), options);
+
+test('every cue renders audible, below clipping and within its length', async ({ page }) => {
+  for (const cue of CUE_NAMES) {
+    const r = await renderCue(page, { cue, seconds: 2.5, volume: 100 });
+    expect(r.silent, cue).toBe(false);
+    expect(r.peakDb, `${cue} peak`).toBeGreaterThan(-30);
+    expect(r.peakDb, `${cue} peak`).toBeLessThanOrEqual(-1);
+    // Nothing sounds past the cue's pinned length (plus the limiter's look-ahead).
+    expect(r.tail, `${cue} tail`).toBeLessThanOrEqual(r.seconds + 0.02);
+    expect(r.tail, `${cue} tail`).toBeGreaterThan(0);
+  }
+});
+
+test('the eat pop is short and the death tone long', async ({ page }) => {
+  const eat = await renderCue(page, { cue: 'eat', seconds: 1, volume: 100 });
+  expect(eat.tail).toBeLessThanOrEqual(0.25);
+  const death = await renderCue(page, { cue: 'death', seconds: 3, volume: 100 });
+  expect(death.tail).toBeGreaterThanOrEqual(1);
+  expect(death.tail).toBeLessThanOrEqual(2);
+});
+
+test('a placed cue pans and falls off; mute silences a cue', async ({ page }) => {
+  const centre = await renderCue(page, { cue: 'ping', seconds: 0.6, volume: 100 });
+  const right = await renderCue(page, {
+    cue: 'ping',
+    seconds: 0.6,
+    volume: 100,
+    place: { pan: 0.8, gain: 1 },
+  });
+  // `left` and `right` are each channel's linear RMS.
+  expect(right.right).toBeGreaterThan(right.left * 3);
+  expect(centre.right / centre.left).toBeCloseTo(1, 2);
+  const far = await renderCue(page, {
+    cue: 'ping',
+    seconds: 0.6,
+    volume: 100,
+    place: { pan: 0, gain: 0.1 },
+  });
+  expect(far.rmsDb).toBeLessThan(centre.rmsDb - 15);
+  const muted = await renderCue(page, { cue: 'death', seconds: 2, volume: 100, muted: true });
+  expect(muted.silent).toBe(true);
 });

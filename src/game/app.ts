@@ -1,4 +1,4 @@
-import { GameSound, renderOffline } from '../audio/engine';
+import { GameSound, renderCueOffline, renderOffline } from '../audio/engine';
 import { genomeFromBase64url, genomeHash, parseGenomeText } from '../genome/codec';
 import { hashPlan } from '../genome/develop';
 import { rarityOfTraits } from '../genome/rarity';
@@ -98,6 +98,7 @@ import { loadSettings, reducedMotion, type Settings, saveSettings } from './sett
 import { SettingsPanel } from './settings-panel';
 import { MuteList, Social } from './social';
 import { type Anchor, SocialUi } from './social-ui';
+import { CueWatch, nearestHazard } from './sound-cues';
 import { zoneReadout } from './zone-readout';
 
 export interface GameParams {
@@ -241,6 +242,9 @@ const motionQuery = (): MediaQueryList | null => {
 /** The ambience's noise seed: one sound for every pond, so the water sounds the same to everyone. */
 const AUDIO_SEED = 1;
 
+/** Plumes are looked for this far, in body radii from the centre: past the hazard cue's clear line. */
+const CUE_REACH_RADII = 5;
+
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
 const INSPECT_MIN_PX = 24;
 
@@ -269,6 +273,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   // Sound (M6 T22): one context, started on the first gesture, quiet while the tab is hidden.
   const sound = new GameSound({ seed: AUDIO_SEED, volume: settings.volume, muted: settings.muted });
   sound.attach(window, document);
+  // Event sounds (M6 T23): the life's cues, from its sim events and its state each tick.
+  const cueWatch = new CueWatch((c, at) => sound.cue(c, at));
   // Auto-detect and adaptive resolution (M6 T4). Test automation and `?quality=` never measure, so
   // every other E2E and the gallery draw at medium and full resolution unless a test forces it.
   const autoQuality = new AutoQuality({
@@ -305,7 +311,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   );
   const fx = new Effects();
   // The egg (M6 T20): the beacon reveal, the carried egg, peers' eggs and the hatch.
-  const eggs = new EggShow((x, y, radius, rings) => fx.burst({ x, y, radius }, rings));
+  const eggs = new EggShow((x, y, radius, rings) => {
+    fx.burst({ x, y, radius }, rings);
+    sound.cue('reveal');
+  });
   /** The life whose creature grows out of an egg; its drawn size follows the egg's pop. */
   let emerging: Session | null = null;
   /** The eggs' clock: wall time, held still while the world is frozen (`timeScale(0)`), as the shaders' is. */
@@ -522,6 +531,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const cue = growth.update(player.biomass, maxBiomass);
     if (cue) {
       fx.growPulse({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) }, cue === 'tier');
+      sound.cue(cue === 'tier' ? 'tier' : 'grow');
     }
   };
 
@@ -549,6 +559,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     hud.update(player);
     if (!session.demo) {
       sound.resetCues();
+      cueWatch.reset();
       hud.setBody(bodyLabel(session.body));
       genomeSync.setOwn(session.body.text);
     }
@@ -600,10 +611,20 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const selfKey = (): string => playerId ?? 'local';
   const social = new Social({
     now: () => performance.now(),
-    nameOf: (id) => keeper.current?.nameOf(id),
+    // Scripted remotes (`?debug=1` only) are in the roster as a peer is.
+    nameOf: (id) => keeper.current?.nameOf(id) ?? scripted.find((r) => r.spec.id === id)?.spec.name,
     send: (event) => keeper.current?.broadcastEvent(event),
     muted: new MuteList(storage),
     selfName: 'You',
+    heard: ({ kind, from, at }) => {
+      if (kind !== 'emote' || from === selfKey()) {
+        sound.cue(kind, at ?? undefined);
+        return;
+      }
+      // A peer's emote sounds over its creature.
+      const r = remoteViews.find((v) => v.id === from);
+      sound.cue('emote', r ? { x: r.x, y: r.y } : undefined);
+    },
   });
   const socialUi = new SocialUi(social, {
     submit: (text) => social.sendChat(text, selfKey()),
@@ -737,6 +758,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     enter(next, 'playing');
     // After a genesis or a hatch, the creature grows out of its egg.
     emerging = eggs.hatched(eggClock(), next.body.rarity) ? next : null;
+    if (emerging) sound.cue('hatch');
   };
 
   let hatching = false;
@@ -1036,6 +1058,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (lastClock.stage === 'old' && !player.elder) {
       applyLife(world, player.id, 'elder');
       hud.toast('Feeling old');
+      sound.cue('old-age');
     }
     const lastAsk = session.lastExpiryAsk;
     if (
@@ -1067,6 +1090,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       applyLife(world, player.id, 'mate');
       fx.matePulse({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) });
       fx.costPulse(fromRadius);
+      sound.cue('mate');
       hud.drain(before, shares());
       if (recovery.needsSaving && !reminded) {
         reminded = true;
@@ -1082,6 +1106,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     for (const event of events) {
       if (event.creature !== player.id) continue;
       fx.onEvent(event, anchorFor(event));
+      if (!session.demo) cueWatch.onEvent(event, session.ticks);
       if (event.type === 'eat') hud.pulseEnergy();
     }
     if (session.demo) {
@@ -1096,6 +1121,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       }
       session.peakBiomass = Math.max(session.peakBiomass, player.biomass);
       hud.update(player);
+      if (player.alive) {
+        const radius = Math.sqrt(player.biomass);
+        const reach = radius * CUE_REACH_RADII;
+        cueWatch.vitals(
+          session.ticks,
+          player.energy / maxEnergy(player.biomass),
+          nearestHazard(plumesNear(world, player.x, player.y, reach), player.x, player.y, radius),
+        );
+      }
     }
     field.markDirty();
     settleSteering(events);
@@ -1119,6 +1153,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         body: bodyLabel(session.body),
       };
       fx.startDissolve();
+      // Never a silent death: every cause ends in the death tone.
+      cueWatch.died();
       endLifeState();
     }
   };
@@ -1256,6 +1292,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     if (nearby) mate.check(nearby.id);
     const view = mate.view();
+    // Courting starts with a chime, sent or received.
+    if (view.state !== mateNow && (view.state === 'courting' || view.state === 'invited')) {
+      sound.cue('court');
+    }
     mateNow = view.state;
     const hint = nearby ? mate.hint(nearby) : null;
     const text = view.invite ? '' : (hint?.text ?? view.note);
@@ -1474,6 +1514,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       hud.setZone(zoneReadout(depth, player.phys, world.options.hazards && player.alive));
       sound.setZone(zoneOfDepth(depth), depth);
     }
+    sound.setListener(camera.x, camera.y, scene.width / 2 / scene.pxPerWu);
     setVignette(fx.vignette);
     // The death screen waits for the body to dissolve, so the player sees what killed them.
     if (session.death !== null && fx.dissolved && screen === 'playing') {
@@ -1683,6 +1724,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       const event = parsePeerEvent(JSON.stringify(raw));
       if (!event) return;
       receiveFoodEvent(from, event);
+      social.receive(from, event);
       if (event.t === 'genome') remoteBodies.add(from, event.data);
     },
     hasFood: (id) => food.some((f) => f.id === id),
@@ -1835,7 +1877,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       },
     }),
     events: () => ({ ...session.counts }),
-    audio: { render: renderOffline },
+    audio: { render: renderOffline, renderCue: renderCueOffline },
     replay: (log) => {
       const { hash, events } = replay(log);
       return { hash, events };

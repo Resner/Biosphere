@@ -297,18 +297,19 @@ Death is common and never total: you fall back to your pending offspring or your
 
 | Event | Visual | Audio (M6) |
 |-------|--------|------------|
-| Eat | pop and sparkle; energy bar pulse | soft bubble pop |
-| Damage | red pulse on the body; edge vignette | dull hit |
-| Low energy (<20%) | HUD pulse | slow low pulse |
-| Hazard near | hazard outline brightens | rumble |
-| UV or pressure (M6) | violet shimmer (UV) or a dark squeezing vignette (pressure); the depth gauge says "UV burns" or "Pressure crushes" | (T23) |
-| Dash | ripple | whoosh |
+| Eat | pop and sparkle; energy bar pulse | soft bubble pop: a quick upward blip with a wet click (0.16 s) |
+| Damage | red pulse on the body; edge vignette | dull hit: a falling thud and a muffled knock (0.26 s), at most every 0.4 s while it lasts (toxin, starvation, bites) |
+| Low energy (<20%) | HUD pulse | slow low pulse: two soft heartbeats near 60 Hz, on dropping below 20% and every 3 s while it lasts |
+| Hazard near | hazard outline brightens | rumble: a swell of dark noise over a 44 Hz tone, once as a plume's edge comes within 2 body radii (again after it is 3 radii away), placed at the plume |
+| UV or pressure (M6) | violet shimmer (UV) or a dark squeezing vignette (pressure); the depth gauge says "UV burns" or "Pressure crushes" | UV a thin high sizzle, pressure a low falling squeeze, each at most once a second while it hurts |
+| Dash | ripple | whoosh: noise sweeping up from 500 Hz to 2.4 kHz |
 | Windup aimed at you (M7) | glow on the attacker's weapon | rising tick |
-| Death | dissolve; death screen naming the cause | descending tone |
-| Old age (M4) | stage word and dashed bar on the life meter, "Feeling old" toast (no tint on the body yet) at 85% of the lifespan | slow low swell (M6) |
-| Court, mate, hatch (M5) | bioluminescent dance; at the commitment the body shrinks with a pulse and the energy and size bars drain with a highlight (M6); egg crack | chime; bright chime |
-| Beacon reveal (M6) | an egg over the title cell (genesis; the menu fades back) or beside the parent (mating) wiggles with rising frequency and glow, settling into a calm idle after 10 s; on the beacon it cracks and bursts by the child's rarity (common a soft pop, exotic a bright burst with slow motion), and the card slides in. Reduced motion fades instead of shaking | (T23) |
-| Growth into a new tier | zoom-out swell | soft swell |
+| Death | dissolve; death screen naming the cause | descending tone: a slow fall from 440 to 140 Hz over a hollow undertone (1.5 s), for every cause |
+| Old age (M4) | stage word and dashed bar on the life meter, "Feeling old" toast (no tint on the body yet) at 85% of the lifespan | slow low swell: a soft low fifth rising and falling over 2 s |
+| Court, mate, hatch (M5) | bioluminescent dance; at the commitment the body shrinks with a pulse and the energy and size bars drain with a highlight (M6); egg crack | court (sent or received) a chime of two soft bells; mate (the commitment) a bright rising triad; hatch two dry cracks and a soft pop as the creature comes out of its egg |
+| Beacon reveal (M6) | an egg over the title cell (genesis; the menu fades back) or beside the parent (mating) wiggles with rising frequency and glow, settling into a calm idle after 10 s; on the beacon it cracks and bursts by the child's rarity (common a soft pop, exotic a bright burst with slow motion), and the card slides in. Reduced motion fades instead of shaking | a shimmer of three high bells over a breath of air, at the burst |
+| Growth into a new tier | zoom-out swell | each tenth of the adult size a soft swell (one warm tone); a new tier a bigger, longer rising fifth |
+| Ping, emote, chat (M2) | a ping mark, an emote over the creature, a chat bubble | ping a sonar blip and its echo; emote a short rising chirp; a peer's chat line two small bubbles. A peer's ping and emote are placed where they are |
 
 Never a silent death: every source of damage and every death cause has a cue.
 
@@ -319,6 +320,8 @@ Size outlines (M6 T21, `OUTLINE` in `src/render/outlines.ts`): another creature 
 Crispness (M6 T21): the canvas's backing store is its CSS size times the pixel ratio and is never scaled by CSS (adaptive resolution aside, T4); DOM text sits on whole pixels (labels, cues and indicators are placed by whole-pixel transforms that measure their box, never by a percentage offset), and the HUD's icons (edge arrows, map marks) are SVG, with no raster images; the ping and emote glyphs become SVG icons with M6 T25.
 
 The egg (M6, `EGG` in `src/render/egg.ts`): the wait's wiggle rises from 0.6 to 3.2 Hz and 0.1 to 0.3 rad over 10 s, then eases to 0.35 Hz and 0.05 rad. Crack, burst, rings and burst light by rarity: common 0.9 s, 0.6 s, 1 ring, 0.35; uncommon 1.2 s, 0.8 s, 2, 0.6; rare 1.6 s, 1.0 s, 3, 0.9; exotic 2.1 s, 1.5 s, 5, 1.6, with the effects at 30% speed for the burst's first 0.9 s. A hatchling pops out over 0.45 s.
+
+Event sounds (M6 T23, `CUE_SOUNDS` in `src/audio/cues.ts`, `CUE_WATCH` in `src/game/sound-cues.ts`): each cue is a few enveloped sine or triangle tones and filtered seeded noise, with a pinned length (eat 0.16 s, death 1.5 s, the longest the old-age swell at 2 s), quiet and soft-edged. A placed cue (a peer's ping or emote, a plume's rumble) pans by its side of the screen, up to 0.85 at the edge, and falls off with distance d in half-screen widths as 1 / (1 + d²).
 
 Sound (M6 T22, `src/audio/`, ADR 0014: procedural Web Audio, no files): one audio context, started on the first click or key press and suspended while the tab is hidden, plays everything through a master gain and a limiter (a −6 dB, 20:1 compressor), with event voices capped at 4 per cue and 16 in all (the oldest is cut short). The ambience (`AMBIENCE` in `src/audio/ambience.ts`) is seeded noise and a slow drone that follow depth and cross-fade over 2 s: the shallows an airy hiss (band-passed at 3.2 kHz) that flickers like caustics, twilight a softer wash, the deep a dark wash (low-passed at 260 Hz) under a drone on 73 Hz, the abyss a low rumble (130 Hz), a 49 Hz drone and a pressure throb (41 Hz pulsing at 0.4 Hz). It is quiet by design (about −35 dBFS at the default volume). Settings (title screen, or Esc then Settings) hold the volume (0–100, default 60, a squared curve), mute (instant) and Reduce motion, which follows the system's `prefers-reduced-motion` until the player picks; reduced motion fades the egg instead of shaking it and drops an exotic burst's slow motion and extra rings.
 

@@ -328,3 +328,32 @@ describe('reset', () => {
     expect(social.muted.has('bob')).toBe(true);
   });
 });
+
+describe('heard (M6 T23)', () => {
+  it('reports each cue shown: peers’ chat, emotes and pings, and the player’s own emotes and pings', () => {
+    const heard: unknown[] = [];
+    const { social, clock } = setup({ heard: (cue) => heard.push(cue) });
+    social.receive('alice', { t: 'chat', text: 'hi' });
+    social.receive('alice', { t: 'emote', id: 1 });
+    social.receive('alice', { t: 'ping', kind: 2, x: 30, y: 40 });
+    social.sendChat('hello', 'self');
+    social.sendEmote(0, 'self');
+    social.ping({ x: 5, y: 6 }, 'self');
+    expect(heard).toEqual([
+      { kind: 'chat', from: 'alice', at: null },
+      { kind: 'emote', from: 'alice', at: null },
+      { kind: 'ping', from: 'alice', at: { x: 30, y: 40 } },
+      { kind: 'emote', from: 'self', at: null },
+      { kind: 'ping', from: 'self', at: { x: 5, y: 6 } },
+    ]);
+    // Dropped, muted and refused cues make no sound.
+    social.receive('mallory', { t: 'ping', kind: 0, x: 1, y: 1 });
+    social.receive('alice', { t: 'ping', kind: 0, x: 1, y: 1 });
+    social.toggleMute('bob');
+    social.receive('bob', { t: 'emote', id: 1 });
+    social.receive('alice', { t: 'chat', text: '   ' });
+    social.ping({ x: 5, y: 6 }, 'self');
+    clock.now = 10;
+    expect(heard).toHaveLength(5);
+  });
+});
