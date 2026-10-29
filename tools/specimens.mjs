@@ -42,7 +42,11 @@ try {
     features
       ? readdirSync(dir)
           .filter((f) => f.endsWith('.hex'))
-          .map((f) => genomeHash(parseSpecimen(f, readFileSync(new URL(f, dir), 'utf8')).genome))
+          .map((f) => {
+            const specimen = parseSpecimen(f, readFileSync(new URL(f, dir), 'utf8'));
+            if (!specimen) throw new Error(`${f}: not a gallery specimen`);
+            return genomeHash(specimen.genome);
+          })
       : [],
   );
   const take = (found) => {
