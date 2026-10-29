@@ -139,19 +139,17 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
   // 5. A pings and emotes through the wheel; B receives both.
   await goTo(a, idB);
   const heard = await cues(a);
-  await a.keyboard.press('g');
-  await a.keyboard.press('1');
-  await a.keyboard.press('g');
-  await a.keyboard.press('6');
-  await expect
-    .poll(async () => {
-      const s = await state(b);
-      return [
-        s.social.pings.some((p) => p.from === idA),
-        s.social.emotes.some((e) => e.from === idA),
-      ];
-    })
-    .toEqual([true, true]);
+  const heardB = await cues(b);
+  // G is held while the number picks: at the medium preset in software a frame can outlast the
+  // wheel's 250 ms tap window, so a press and release would count as a cancelling hold.
+  for (const key of ['1', '6']) {
+    await a.keyboard.down('g');
+    await a.keyboard.press(key);
+    await a.keyboard.up('g');
+  }
+  // The cues outlast the marks (a ping 4 s, an emote 2 s), which a slow frame can miss.
+  await expect.poll(async () => (await cues(b)).ping ?? 0).toBeGreaterThan(heardB.ping ?? 0);
+  await expect.poll(async () => (await cues(b)).emote ?? 0).toBeGreaterThan(heardB.emote ?? 0);
   expect((await cues(a)).ping ?? 0).toBeGreaterThan(heard.ping ?? 0);
   expect((await cues(a)).emote ?? 0).toBeGreaterThan(heard.emote ?? 0);
   await withinBudget(a, 'wheel');

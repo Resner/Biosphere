@@ -638,15 +638,15 @@ Exit criteria map (ROADMAP M6):
 
 ## Rubric
 
-- [ ] The gallery holds up next to references 02–05: the final pass has no gap-table cell above 1 (evidence: `docs/art/gallery/pass-*.png` and `.md`, ADR 0024).
-- [ ] Silhouette variety: the gallery's 12 v2 specimens are 12 distinct `silhouetteOf` classes, and each reads as its class on the sheet by eye (evidence: the classifier test and the sheet).
-- [ ] Colour lives inside: shells stay near-clear and silvery, organs carry the hue (evidence: T12/T13 saturation measurements on the gallery).
-- [ ] Glints are rare: common creatures show at most 2, and only exotic ones reach reference 04/05 intensity (evidence: `glintsFor` tests and the gallery measurement).
-- [ ] Bodies stay readable in play: at 960×540 and default zoom, six different bodies keep distinct silhouettes and a bright rim (evidence: the in-game screenshots in passes 1–3).
-- [ ] Every zone looks and sounds different, and every hazard has a visible and an audible cue (evidence: the T16 luminance order, T23 cue counts).
-- [ ] Every preset stays within its budgets in a crowded pond, and nothing allocates per frame (evidence: `docs/perf/budget.md`, the T26 E2E).
-- [ ] Growth is visible: tripling the radius makes the creature at least 1.35× larger on screen (evidence: the T18 camera test and before and after screenshots).
-- [ ] Pings and emotes are chosen on purpose in one key press and drawn with production icons (evidence: the T24 E2E and the T25 icon sheet).
+- [ ] The gallery holds up next to references 02–05: the final pass has no gap-table cell above 1 (evidence: `docs/art/gallery/pass-*.png` and `.md`, ADR 0024). **Open at the close:** 15 cells above 1 after pass 5 (`pass-5.md`); shipped at the gate, ADR 0033, owner issue #177.
+- [x] Silhouette variety: the gallery's 12 v2 specimens are 12 distinct `silhouetteOf` classes, and each reads as its class on the sheet by eye (evidence: the classifier test and the sheet).
+- [x] Colour lives inside: shells stay near-clear and silvery, organs carry the hue (evidence: T12/T13 saturation measurements on the gallery).
+- [x] Glints are rare: common creatures show at most 2, and only exotic ones reach reference 04/05 intensity (evidence: `glintsFor` tests and the gallery measurement).
+- [x] Bodies stay readable in play: at 960×540 and default zoom, six different bodies keep distinct silhouettes and a bright rim (evidence: the in-game screenshots in passes 1–3).
+- [x] Every zone looks and sounds different, and every hazard has a visible and an audible cue (evidence: the T16 luminance order, T23 cue counts).
+- [x] Every preset stays within its budgets in a crowded pond, and nothing allocates per frame (evidence: `docs/perf/budget.md`, the T26 E2E).
+- [x] Growth is visible: tripling the radius makes the creature at least 1.35× larger on screen (evidence: the T18 camera test and before and after screenshots).
+- [x] Pings and emotes are chosen on purpose in one key press and drawn with production icons (evidence: the T24 E2E and the T25 icon sheet).
 - [ ] (owner) The creatures hold up next to the references: diverse, glassy, alive, with colour inside and rare sparkles (#90).
 - [ ] (owner) 60 fps at the default preset on a mid-range laptop with integrated graphics, and Auto picks a sensible preset.
 - [ ] (owner) The egg reveal is exciting, and carrying an egg feels meaningful.
