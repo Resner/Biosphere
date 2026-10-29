@@ -514,7 +514,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Social (#89)
 
-- [ ] T24 The quick social wheel [opus]
+- [ ] T24 The quick social wheel [opus] (in progress)
   - Acceptance:
     - `G` opens a radial wheel at the cursor: 4 pings (look, danger, food, mate) and 6 emotes. While it is open, `1`–`0` pick directly.
       - Holding `G` and releasing over an item sends it; a click sends it too; Esc or releasing in the centre cancels.
