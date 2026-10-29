@@ -1379,6 +1379,19 @@ body {
   margin: 0;
   color: var(--muted);
 }
+.settings-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.settings-volume input {
+  width: 9rem;
+  accent-color: var(--muted);
+}
+.settings-volume output {
+  min-width: 2ch;
+  font-variant-numeric: tabular-nums;
+}
 .lineage-row {
   display: flex;
   gap: 0.5rem;

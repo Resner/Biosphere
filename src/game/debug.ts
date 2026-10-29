@@ -1,3 +1,4 @@
+import type { AudioRenderOptions, AudioRenderResult, AudioView } from '../audio/engine';
 import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
@@ -117,7 +118,8 @@ export interface BsState {
    * The egg (M6 T20): the reveal's `phase` (`none`, `waiting` for a beacon, `cracking`, `revealed`)
    * and the `phases` it went through (the last 16), whether a pending child is `carried`, whether
    * the player's egg is `shown` this frame, the `peers` drawn with one, whether a parent left by a
-   * hatch is still dissolving (`ghost`), and `motion` (`fade` under `prefers-reduced-motion`).
+   * hatch is still dissolving (`ghost`), and `motion` (`fade` when motion is reduced: the setting,
+   * else `prefers-reduced-motion`; M6 T22).
    */
   egg: {
     phase: EggPhase;
@@ -154,6 +156,12 @@ export interface BsState {
   indicators: Indicator[];
   /** The pond map (M): whether it is open, and the player dots and pings it shows. */
   map: { open: boolean; players: number; pings: number };
+  /**
+   * Sound (M6 T22): the context's state (`idle` before the first gesture), cues asked for since
+   * hatching, volume, mute, the master gain's target, the ambience's zone and parameter targets,
+   * and the cue voices sounding.
+   */
+  audio: AudioView;
 }
 
 /** A scripted remote creature for tests: it swims in a straight line and sends real snapshots. */
@@ -184,6 +192,10 @@ export interface BsHook {
   events(): Record<string, number>;
   /** Re-runs an input log in a fresh world and returns its final state hash. */
   replay(log: InputLog): { hash: string; events: Record<string, number> };
+  audio: {
+    /** Renders the sound engine's ambience on an `OfflineAudioContext` and measures it (M6 T22). */
+    render(options: AudioRenderOptions): Promise<AudioRenderResult>;
+  };
   render: {
     info(): RenderInfo;
     fx(): FxState;

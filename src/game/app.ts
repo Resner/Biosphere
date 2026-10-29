@@ -1,3 +1,4 @@
+import { GameSound, renderOffline } from '../audio/engine';
 import { genomeFromBase64url, genomeHash, parseGenomeText } from '../genome/codec';
 import { hashPlan } from '../genome/develop';
 import { rarityOfTraits } from '../genome/rarity';
@@ -93,7 +94,7 @@ import { PondTime } from './pond-time';
 import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
 import { type DeathSummary, type Screen, Screens } from './screens';
-import { loadSettings, type Settings, saveSettings } from './settings';
+import { loadSettings, reducedMotion, type Settings, saveSettings } from './settings';
 import { SettingsPanel } from './settings-panel';
 import { MuteList, Social } from './social';
 import { type Anchor, SocialUi } from './social-ui';
@@ -228,7 +229,7 @@ function newSession(
 /** The offspring card slides in this long after its egg's crack time, just as the egg bursts (M6 T20). */
 const CARD_AFTER_CRACK_MS = 250;
 
-/** `prefers-reduced-motion` (T22 adds a setting that defaults to it): the egg fades instead of shaking. */
+/** `prefers-reduced-motion`: the Reduce motion setting follows it until the player picks (M6 T22). */
 const motionQuery = (): MediaQueryList | null => {
   try {
     return typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
@@ -236,6 +237,9 @@ const motionQuery = (): MediaQueryList | null => {
     return null;
   }
 };
+
+/** The ambience's noise seed: one sound for every pond, so the water sounds the same to everyone. */
+const AUDIO_SEED = 1;
 
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
 const INSPECT_MIN_PX = 24;
@@ -254,8 +258,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
   const lineagePanel = new LineagePanel(() => hubLink?.send({ t: 'lineage' }));
   const storage = safeStorage();
-  // The stored setting, or this visit's `?quality=` until the player picks one in the panel.
-  let settings: Settings = params.quality ? { quality: params.quality } : loadSettings(storage);
+  // The stored settings; this visit's `?quality=` beats the stored quality without being written,
+  // until the player picks one in the panel.
+  const stored = loadSettings(storage);
+  let settings: Settings = params.quality ? { ...stored, quality: params.quality } : stored;
+  let qualityPinned = Boolean(params.quality);
+  const systemMotion = motionQuery();
+  /** Reduced motion now: the player's choice, else the system's (M6 T22). */
+  const motionReduced = (): boolean => reducedMotion(settings, systemMotion?.matches === true);
+  // Sound (M6 T22): one context, started on the first gesture, quiet while the tab is hidden.
+  const sound = new GameSound({ seed: AUDIO_SEED, volume: settings.volume, muted: settings.muted });
+  sound.attach(window, document);
   // Auto-detect and adaptive resolution (M6 T4). Test automation and `?quality=` never measure, so
   // every other E2E and the gallery draw at medium and full resolution unless a test forces it.
   const autoQuality = new AutoQuality({
@@ -268,21 +281,31 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const applySettings = (): void => {
     const preset = resolvePreset(settings.quality, autoQuality.detected);
     scene.setPreset(preset);
-    settingsPanel.show(settings, preset, autoQuality.detected);
+    sound.setVolume(settings.volume);
+    sound.setMuted(settings.muted);
+    settingsPanel.show(settings, preset, autoQuality.detected, motionReduced());
   };
   const settingsPanel = new SettingsPanel(
     (next) => {
+      if (next.quality !== settings.quality) qualityPinned = false;
       settings = next;
-      saveSettings(settings, storage);
+      saveSettings(qualityPinned ? { ...next, quality: stored.quality } : next, storage);
       applySettings();
     },
     ['settings-open', 'lineage-settings'],
   );
   applySettings();
+  systemMotion?.addEventListener?.('change', () =>
+    settingsPanel.show(
+      settings,
+      resolvePreset(settings.quality, autoQuality.detected),
+      autoQuality.detected,
+      motionReduced(),
+    ),
+  );
   const fx = new Effects();
   // The egg (M6 T20): the beacon reveal, the carried egg, peers' eggs and the hatch.
   const eggs = new EggShow((x, y, radius, rings) => fx.burst({ x, y, radius }, rings));
-  const reducedMotion = motionQuery();
   /** The life whose creature grows out of an egg; its drawn size follows the egg's pop. */
   let emerging: Session | null = null;
   /** The eggs' clock: wall time, held still while the world is frozen (`timeScale(0)`), as the shaders' is. */
@@ -525,6 +548,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     field.now();
     hud.update(player);
     if (!session.demo) {
+      sound.resetCues();
       hud.setBody(bodyLabel(session.body));
       genomeSync.setOwn(session.body.text);
     }
@@ -1434,7 +1458,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     // Cues run on wall-clock time: a slow frame must not stretch the dissolve. An exotic egg's
     // burst runs them in slow motion for a moment (M6 T20).
-    const reduced = reducedMotion?.matches === true;
+    const reduced = motionReduced();
     const eggNow = now - heldMs;
     fx.update(elapsed * eggs.reveal.slowFactor(eggNow, reduced));
     // The drawn size: the shrink of a mating's cost, and a hatchling's pop out of its egg.
@@ -1448,6 +1472,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       const { world } = session;
       const depth = depthAt(world.seed32, player.x, player.y);
       hud.setZone(zoneReadout(depth, player.phys, world.options.hazards && player.alive));
+      sound.setZone(zoneOfDepth(depth), depth);
     }
     setVignette(fx.vignette);
     // The death screen waits for the body to dissolve, so the player sees what killed them.
@@ -1772,6 +1797,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         species,
         egg,
       })),
+      audio: sound.view(),
       egg: {
         phase: eggs.reveal.phase,
         phases: [...eggs.reveal.visited],
@@ -1779,7 +1805,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         shown: eggs.ownShown,
         peers: [...eggs.peerIds],
         ghost: eggs.ghostOf(eggClock()) !== null,
-        motion: reducedMotion?.matches === true ? 'fade' : 'shake',
+        motion: motionReduced() ? 'fade' : 'shake',
       },
       pond: pond
         ? {
@@ -1809,6 +1835,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       },
     }),
     events: () => ({ ...session.counts }),
+    audio: { render: renderOffline },
     replay: (log) => {
       const { hash, events } = replay(log);
       return { hash, events };

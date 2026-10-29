@@ -74,6 +74,16 @@
         <label><input type="radio" name="quality" value="high" data-testid="quality-high" /> High</label>
       </fieldset>
       <p class="settings-note" data-testid="quality-note"></p>
+      <fieldset class="settings-sound" data-testid="sound">
+        <legend>Sound</legend>
+        <label class="settings-volume">Volume <input type="range" min="0" max="100" step="1" data-testid="volume" /> <output data-testid="volume-value"></output></label>
+        <label><input type="checkbox" data-testid="mute" /> Mute</label>
+      </fieldset>
+      <fieldset class="settings-motion" data-testid="motion">
+        <legend>Motion</legend>
+        <label><input type="checkbox" data-testid="reduced-motion" /> Reduce motion</label>
+      </fieldset>
+      <p class="settings-note" data-testid="motion-note"></p>
       <button type="button" class="action quiet" data-testid="settings-close">Close (Esc)</button>
     </section>
     <!-- The zone hazard cues lie under the HUD, so they never dim its text. -->
