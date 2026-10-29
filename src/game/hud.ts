@@ -41,6 +41,7 @@ export class Hud {
   private readonly zoneWarning = pick('[data-testid="hud-zone-warning"]');
   private readonly uvCue = pick('[data-testid="uv-cue"]');
   private readonly pressureCue = pick('[data-testid="pressure-cue"]');
+  private readonly egg = pick('[data-testid="hud-egg"]');
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
   private low = false;
 
@@ -87,6 +88,33 @@ export class Hud {
     setText(this.zoneWarning, readout.uv ? 'UV burns' : readout.pressure ? 'Pressure crushes' : '');
     if (this.uvCue.hidden === readout.uv) this.uvCue.hidden = !readout.uv;
     if (this.pressureCue.hidden === readout.pressure) this.pressureCue.hidden = !readout.pressure;
+  }
+
+  /** "Egg: H to hatch" while a pending child is carried (M6 T20). */
+  setEgg(carried: boolean): void {
+    if (this.egg.hidden === carried) this.egg.hidden = !carried;
+  }
+
+  /**
+   * The price of a mating lands (M6 T20): the energy and size bars drain from their old shares to
+   * their new ones with a warm highlight, so the cost is felt as well as read.
+   */
+  drain(from: { energy: number; size: number }, to: { energy: number; size: number }): void {
+    const pct = (share: number): string => `${Math.round(Math.min(1, Math.max(0, share)) * 100)}%`;
+    const highlight = 'brightness(2) drop-shadow(0 0 6px #ffd27a)';
+    for (const [bar, a, b] of [
+      [this.energyBar, from.energy, to.energy],
+      [this.growthBar, from.size, to.size],
+    ] as const) {
+      bar.animate(
+        [
+          { width: pct(a), filter: highlight },
+          { width: pct(a), filter: highlight, offset: 0.25 },
+          { width: pct(b), filter: 'none' },
+        ],
+        { duration: 1100, easing: 'ease-in-out' },
+      );
+    }
   }
 
   /** A short line in the middle of the screen. */

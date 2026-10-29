@@ -20,6 +20,8 @@ export interface CellView {
   dissolve: number;
   /** 0..1, opacity; a missing value means opaque. */
   alpha?: number;
+  /** The drawn size against `radius` (M6 T20: a hatchling's pop, the shrink of a mating's cost); a missing value is 1. Only the player's view sets it. */
+  scale?: number;
   /** 0..1, tints the cell for another player; a missing value keeps the player's own teal; a cell is tinted or not for its whole life. */
   hue?: number;
 }

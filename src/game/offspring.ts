@@ -29,6 +29,8 @@ export interface OffspringDeps {
   now(): number;
   /** Why this birth is not the child its parents and the committed round produce; empty when it is. */
   verify(born: Born): Promise<string[]>;
+  /** How long this child stays an egg before its card (its reveal, M6 T20); `EGG_MS` without it. */
+  eggMs?(child: Child): number;
 }
 
 export class OffspringFlow {
@@ -76,7 +78,9 @@ export class OffspringFlow {
 
   /** Egg to card once its moment has passed. */
   tick(): void {
-    if (this.state.kind === 'egg' && this.deps.now() - this.eggAt >= EGG_MS) {
+    if (this.state.kind !== 'egg') return;
+    const ms = this.deps.eggMs?.(this.state.child) ?? EGG_MS;
+    if (this.deps.now() - this.eggAt >= ms) {
       this.state = { kind: 'card', child: this.state.child, later: this.later };
     }
   }

@@ -1,6 +1,7 @@
 import type { RarityTier } from '../genome/rarity';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
+import type { EggPhase } from '../render/egg';
 import type { Speck } from '../render/particles';
 import type { ParticleLayerName, PresetName, QualitySetting } from '../render/presets';
 import type { RenderInfo } from '../render/scene';
@@ -108,7 +109,24 @@ export interface BsState {
     /** The genome hash of the body drawn, or null while the tinted fallback cell stands in. */
     genomeHash: string | null;
     species: string | null;
+    /** Its snapshots say it carries an egg (M6 T20). */
+    egg: boolean;
   }[];
+  /**
+   * The egg (M6 T20): the reveal's `phase` (`none`, `waiting` for a beacon, `cracking`, `revealed`)
+   * and the `phases` it went through (the last 16), whether a pending child is `carried`, whether
+   * the player's egg is `shown` this frame, the `peers` drawn with one, whether a parent left by a
+   * hatch is still dissolving (`ghost`), and `motion` (`fade` under `prefers-reduced-motion`).
+   */
+  egg: {
+    phase: EggPhase;
+    phases: EggPhase[];
+    carried: boolean;
+    shown: boolean;
+    peers: string[];
+    ghost: boolean;
+    motion: 'shake' | 'fade';
+  };
   /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
   pond: { id: string; seed: string; members: string[] } | null;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
@@ -154,6 +172,8 @@ export interface ScriptedRemote {
   withholdGenome?: boolean;
   /** Its snapshots carry the ready-to-mate mark (M6 T19). */
   ready?: boolean;
+  /** Its snapshots carry the egg mark (M6 T20). */
+  egg?: boolean;
 }
 
 export interface BsHook {

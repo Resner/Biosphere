@@ -54,7 +54,8 @@ test('a mating gives each player an egg, a card and a choice that brings the par
       { timeout: 40_000 },
     );
   }
-  await expect(a.getByTestId('egg')).toBeVisible();
+  // The egg is drawn in the scene (M6 T20), beside the parent.
+  expect((await state(a)).offspring.eggShown).toBe(true);
   await a.screenshot({ path: 'test-results/m5-promote-egg.png' });
   for (const page of [a, b]) {
     await expect(page.getByTestId('offspring')).toBeVisible({ timeout: 10_000 });

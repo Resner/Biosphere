@@ -141,11 +141,11 @@ Death is common and never total: you fall back to your pending offspring or your
   | A pair's repeated matings | 1×, 2×, 4×, 8× (72 min), 16×, 32× the 9 min base | 4th ≥ 8× |
 
 - **Offspring**: two distinct children, one per player (seed slot 0 for the courting player's child, slot 1 for the accepter's; if slot 1 happens to equal slot 0 it takes the next slot until it differs), born when the committed drand round arrives (about 3–6 s; ADR 0010). Parent A is the courting player's creature and B the accepter's; the child's first haplotype is a gamete of A and its second a gamete of B.
-  - Each player holds **one pending offspring** at most (an egg: visible to its owner, with a card showing its body).
+  - Each player holds **one pending offspring** at most: an egg carried on a short tether behind the parent (M6), glowing faintly by the child's rarity for its owner, with a card showing its body. Pond peers see a plain glowing egg (the snapshot's egg mark, set from the commitment on).
   - Hatchling biomass is max(80, 10% of the child's maximum), energy 60% of its maximum, full health, lifespan clock at zero.
   - Generation = max(parents' generations) + 1.
   - A pending child can only be left by promoting it: no discard (ADR 0021).
-- **Promotion** (key H): becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition, cooldown and remaining lifespan, frozen. The child hatches where the parent was.
+- **Promotion** (key H): becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition, cooldown and remaining lifespan, frozen. The child hatches out of the carried egg, beside where the parent was (M6: the egg cracks open, the child grows out with a pop, and the parent dissolves over 1 s where it stood).
 - **Death**: choose between your pending offspring (if any) and your **nearest surviving ancestor** along your checkpoint chain, which comes back with its saved condition, cooldown and remaining lifespan at the pond's spawn point. Dead ancestors and exhausted ones (under 2 min of life left) are skipped, and an exhausted one is marked dead. If nothing survives, hatch a new genesis cell; the old lineage remains as history. Genesis is refused while any of your creatures is active, pending or a surviving checkpoint.
 - **Kinship**: Malécot's coefficient of kinship on the birth records, six generations deep. A child's inbreeding is the kinship of its parents (full siblings 25%, first cousins about 6%). The card says none (under 3%), low (under 10%), moderate (under 20%) or high.
 - **Genesis**: DNA from a committed future drand round (ADR 0010), recomputable by anyone from the commitment and the beacon (ADR 0019). At most one living creature per identity, and a bucket of 3 hatches that refills 1 per 5 minutes (M4; 1 per 10 minutes would have broken the loop). An empty bucket shows a countdown, and the player may swim as an unrecorded practice cell. Genesis cells come from a narrow starter distribution (§6). Rare traits mostly arise through breeding.
@@ -306,12 +306,15 @@ Death is common and never total: you fall back to your pending offspring or your
 | Windup aimed at you (M7) | glow on the attacker's weapon | rising tick |
 | Death | dissolve; death screen naming the cause | descending tone |
 | Old age (M4) | stage word and dashed bar on the life meter, "Feeling old" toast (no tint on the body yet) at 85% of the lifespan | slow low swell (M6) |
-| Court, mate, hatch (M5) | bioluminescent dance; egg crack | chime; bright chime |
+| Court, mate, hatch (M5) | bioluminescent dance; at the commitment the body shrinks with a pulse and the energy and size bars drain with a highlight (M6); egg crack | chime; bright chime |
+| Beacon reveal (M6) | an egg over the title cell (genesis; the menu fades back) or beside the parent (mating) wiggles with rising frequency and glow, settling into a calm idle after 10 s; on the beacon it cracks and bursts by the child's rarity (common a soft pop, exotic a bright burst with slow motion), and the card slides in. Reduced motion fades instead of shaking | (T23) |
 | Growth into a new tier | zoom-out swell | soft swell |
 
 Never a silent death: every source of damage and every death cause has a cue.
 
-Presentation timings (v1, `FX` in `src/render/effects.ts`): eat pop 0.55 s, dash ripple 0.85 s, damage vignette at least 40% on any hit and fading with a 0.25 s time constant, death dissolve 1.2 s before the death screen, low-energy pulse below 20%.
+Presentation timings (v1, `FX` in `src/render/effects.ts`): eat pop 0.55 s, dash ripple 0.85 s, damage vignette at least 40% on any hit and fading with a 0.25 s time constant, death dissolve 1.2 s before the death screen, low-energy pulse below 20%, mating cost shrink 0.7 s.
+
+The egg (M6, `EGG` in `src/render/egg.ts`): the wait's wiggle rises from 0.6 to 3.2 Hz and 0.1 to 0.3 rad over 10 s, then eases to 0.35 Hz and 0.05 rad. Crack, burst, rings and burst light by rarity: common 0.9 s, 0.6 s, 1 ring, 0.35; uncommon 1.2 s, 0.8 s, 2, 0.6; rare 1.6 s, 1.0 s, 3, 0.9; exotic 2.1 s, 1.5 s, 5, 1.6, with the effects at 30% speed for the burst's first 0.9 s. A hatchling pops out over 0.45 s.
 
 ## 11. Supply control and anti-farming
 

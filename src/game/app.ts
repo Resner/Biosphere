@@ -22,7 +22,9 @@ import { FollowCamera, viewHalfHeight } from '../render/camera';
 import type { CellView } from '../render/cell';
 import type { CreatureSource } from '../render/creature-cache';
 import { Effects } from '../render/effects';
+import { EGG } from '../render/egg';
 import { type PresetName, resolvePreset } from '../render/presets';
+import type { RemoteCellView } from '../render/remotes';
 import { GameScene } from '../render/scene';
 import { nearestInZone, sightRadius } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
@@ -54,6 +56,7 @@ import {
   type ScriptedRemote,
 } from './debug';
 import { listItem, pick } from './dom';
+import { EggShow } from './eggs';
 import { createFieldSync } from './field';
 import { GrowthWatch, growthText, sizeShare } from './growth';
 import { HistoryPanel } from './history';
@@ -222,6 +225,18 @@ function newSession(
   };
 }
 
+/** The offspring card slides in this long after its egg's crack time, just as the egg bursts (M6 T20). */
+const CARD_AFTER_CRACK_MS = 250;
+
+/** `prefers-reduced-motion` (T22 adds a setting that defaults to it): the egg fades instead of shaking. */
+const motionQuery = (): MediaQueryList | null => {
+  try {
+    return typeof matchMedia === 'function' ? matchMedia('(prefers-reduced-motion: reduce)') : null;
+  } catch {
+    return null;
+  }
+};
+
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
 const INSPECT_MIN_PX = 24;
 
@@ -265,6 +280,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   );
   applySettings();
   const fx = new Effects();
+  // The egg (M6 T20): the beacon reveal, the carried egg, peers' eggs and the hatch.
+  const eggs = new EggShow((x, y, radius, rings) => fx.burst({ x, y, radius }, rings));
+  const reducedMotion = motionQuery();
+  /** The life whose creature grows out of an egg; its drawn size follows the egg's pop. */
+  let emerging: Session | null = null;
+  /** The eggs' clock: wall time, held still while the world is frozen (`timeScale(0)`), as the shaders' is. */
+  const eggClock = (): number => performance.now() - heldMs;
   const vignette = pick('[data-testid="vignette"]');
   const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
   // Finding other players (M6 T19): arrows on the screen's edge and the pond map.
@@ -335,6 +357,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       const { birthProblems } = await import('./offspring-check');
       return birthProblems(born, playerId ?? '');
     },
+    eggMs: (child) => EGG.crackMs[child.body.rarity] + CARD_AFTER_CRACK_MS,
   });
   /** Generation of each of the player's creatures, from the hub's lineage answers (for the return choice). */
   const generations = new Map<string, number>();
@@ -688,6 +711,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       player.health = Math.min(saved.health, maxHealth(saved.biomass));
     }
     enter(next, 'playing');
+    // After a genesis or a hatch, the creature grows out of its egg.
+    emerging = eggs.hatched(eggClock(), next.body.rarity) ? next : null;
   };
 
   let hatching = false;
@@ -766,11 +791,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     switching = true;
     hatchError = '';
     screens.setBusy(true);
-    // A living parent hands over to the child, which swims out where it was.
-    const at =
-      screen === 'playing' && session.player.alive
-        ? { x: session.player.x, y: session.player.y }
-        : undefined;
+    // A living parent hands over to the child, which hatches out of the egg it carries.
+    const alive = screen === 'playing' && session.player.alive;
+    const hatchingChild = choice === 'child' && child !== null;
+    const at = alive
+      ? ((hatchingChild ? eggs.ownAt() : null) ?? { x: session.player.x, y: session.player.y })
+      : undefined;
+    if (hatchingChild) eggs.hatchStart(eggClock(), child.body.rarity, alive && eggs.ownShown);
+    let begun = false;
     void task()
       .then((outcome) => {
         if (outcome.kind === 'failed') {
@@ -784,6 +812,21 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           hatchError = VERIFY_FAILED;
           return;
         }
+        // The parent stays behind as it was and dissolves there.
+        if (hatchingChild && alive) {
+          eggs.leave(
+            {
+              x: cell.x,
+              y: cell.y,
+              heading: cell.heading,
+              radius: cell.radius,
+              body: session.body.creature,
+              hue: 0,
+            },
+            eggClock(),
+          );
+        }
+        begun = true;
         begin(true, { body: hatchBody(genome), start: outcome.start }, at);
         hud.toast(
           choice === 'child'
@@ -798,6 +841,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       .finally(() => {
         switching = false;
         screens.setBusy(false);
+        // A hatch the hub did not make puts the carried egg back.
+        if (hatchingChild && !begun && eggs.mode === 'hatch') eggs.cancel();
       });
   };
   const screens = new Screens({
@@ -987,8 +1032,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     input = chooseInput();
     // The authority committed a mating: pay its cost here, at a tick boundary.
     if (!session.demo && mate.takeCost()) {
+      // The price lands where it is felt: the body shrinks with a pulse, the bars drain (M6 T20).
+      const shares = () => ({
+        energy: player.energy / maxEnergy(player.biomass),
+        size: sizeShare(player.biomass, player.phys.maxBiomass),
+      });
+      const before = shares();
+      const fromRadius = fx.drawnRadius(Math.sqrt(player.biomass));
       applyLife(world, player.id, 'mate');
       fx.matePulse({ x: player.x, y: player.y, radius: Math.sqrt(player.biomass) });
+      fx.costPulse(fromRadius);
+      hud.drain(before, shares());
       if (recovery.needsSaving && !reminded) {
         reminded = true;
         hud.toast('Save your recovery code');
@@ -1070,8 +1124,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (aloneElement.hidden === lonely) aloneElement.hidden = !lonely;
   };
 
-  // The egg, the offspring card and the choice after a death (M5 T11).
-  const eggElement = pick('[data-testid="egg"]');
+  // The offspring card and the choice after a death (M5 T11); the egg is drawn in the scene (M6 T20).
   const cardElement = pick('[data-testid="offspring"]');
   const cardPreview = pick<HTMLCanvasElement>('[data-testid="offspring-preview"]');
   const cardName = pick('[data-testid="offspring-name"]');
@@ -1085,15 +1138,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     offspring.tick();
     const playingNow = screen === 'playing' && !session.demo && session.death === null;
     const state = offspring.view();
-    const egg = playingNow && state.kind === 'egg';
-    if (eggElement.hidden === egg) eggElement.hidden = !egg;
-    if (egg) {
-      const x = scene.width / 2 + (session.player.x - camera.x) * scene.pxPerWu;
-      const y = scene.height / 2 - (session.player.y - camera.y) * scene.pxPerWu;
-      const off = Math.sqrt(session.player.biomass) * scene.pxPerWu + 18;
-      eggElement.style.left = `${Math.round(x + off)}px`;
-      eggElement.style.top = `${Math.round(y)}px`;
-    }
+    hud.setEgg(playingNow && session.player.alive && offspring.child() !== null);
     const card = playingNow && state.kind === 'card' && !state.later;
     if (cardElement.hidden === card) cardElement.hidden = !card;
     if (state.kind === 'card' || state.kind === 'egg') {
@@ -1162,6 +1207,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (inspectPanel.hidden) inspectPanel.hidden = false;
   };
 
+  /** The mating flow's state as of the last frame (the egg waits while it is `awaiting`). */
+  let mateNow = 'idle';
   /** Courting on screen: the key beside a creature in reach, the invitation, and the cooldown. */
   const updateMateUi = (): void => {
     const playingNow = screen === 'playing' && !session.demo;
@@ -1184,6 +1231,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     if (nearby) mate.check(nearby.id);
     const view = mate.view();
+    mateNow = view.state;
     const hint = nearby ? mate.hint(nearby) : null;
     const text = view.invite ? '' : (hint?.text ?? view.note);
     if (mateHint.textContent !== text) mateHint.textContent = text;
@@ -1253,12 +1301,65 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     halfHeight: 1,
     creature: null as CellView | null,
     body: null as CreatureSource | null,
-    remotes: [] as readonly DrawnRemote[],
+    remotes: [] as readonly RemoteCellView[],
     rings: fx.rings,
+    eggs: [] as ReturnType<EggShow['frame']>,
     sight: 1,
     flow: { x: 0, y: 0 },
   };
-  const cell: CellView = { x: 0, y: 0, heading: 0, radius: 1, beat: 0, hurt: 0, dissolve: 0 };
+  const cell: CellView = {
+    x: 0,
+    y: 0,
+    heading: 0,
+    radius: 1,
+    beat: 0,
+    hurt: 0,
+    dissolve: 0,
+    scale: 1,
+  };
+  /** The remotes plus a parent dissolving after a hatch; reused. */
+  const withGhost: RemoteCellView[] = [];
+  /** The pending child as the eggs need it; reused. */
+  const eggChild = { tier: 'common' as Body['rarity'], maxBiomass: 1 };
+
+  /**
+   * The egg (M6 T20): a genesis waits on the title screen, a mating beside the parent; the child's
+   * check cracks it; a pending child is carried. Returns the eggs to draw.
+   */
+  const updateEggs = (now: number, dt: number, reduced: boolean): ReturnType<EggShow['frame']> => {
+    const status = flow.state;
+    if (hatching && status === 'awaiting') eggs.awaitGenesis(now);
+    else if (hatching && status === 'verifying') eggs.genesisBeacon(now);
+    else if (!hatching && eggs.mode === 'genesis' && session.demo) eggs.cancel();
+    const playingNow = playing();
+    const kid = offspring.view();
+    if (playingNow && mateNow === 'awaiting') eggs.awaitMate(now);
+    else if (kid.kind === 'egg')
+      eggs.childRevealed(now, kid.child.born.record.hash, kid.child.body.rarity);
+    else if (eggs.mode === 'mate' && eggs.reveal.phase === 'waiting' && kid.kind !== 'verifying') {
+      // The mating ended without a child to show (a failed check, a lost connection).
+      eggs.cancel();
+    }
+    // While a genesis egg waits on the title screen, the menu steps back so the egg is the moment.
+    const titleEgg = eggs.mode === 'genesis' && screen === 'title';
+    if (document.body.hasAttribute('data-egg') !== titleEgg) {
+      document.body.toggleAttribute('data-egg', titleEgg);
+    }
+    const alive = playingNow && session.player.alive;
+    const child = offspring.child();
+    if (child) {
+      eggChild.tier = child.body.rarity;
+      eggChild.maxBiomass = child.body.creature.stats.maxBiomass;
+    }
+    return eggs.frame({
+      now,
+      dt,
+      reduced,
+      self: alive || eggs.mode === 'genesis' ? cell : null,
+      child: alive && child ? eggChild : null,
+      remotes: playingNow ? remoteViews : NO_REMOTES,
+    });
+  };
   let flowTick = 0;
   let shownVignette = -1;
   const setVignette = (amount: number): void => {
@@ -1288,7 +1389,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         alive: true,
         dashing: false,
         ready: spec.ready === true,
-        egg: false,
+        egg: spec.egg === true,
         genomeRef: ref,
       };
     });
@@ -1329,8 +1430,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       view.flow.x += (water.x * flowTicks) / TICK_HZ;
       view.flow.y += (water.y * flowTicks) / TICK_HZ;
     }
-    // Cues run on wall-clock time: a slow frame must not stretch the dissolve.
-    fx.update(elapsed);
+    // Cues run on wall-clock time: a slow frame must not stretch the dissolve. An exotic egg's
+    // burst runs them in slow motion for a moment (M6 T20).
+    const reduced = reducedMotion?.matches === true;
+    const eggNow = now - heldMs;
+    fx.update(elapsed * eggs.reveal.slowFactor(eggNow, reduced));
+    // The drawn size: the shrink of a mating's cost, and a hatchling's pop out of its egg.
+    const emerge = session === emerging ? eggs.reveal.emerge(eggNow) : 1;
+    cell.scale = (fx.drawnRadius(cell.radius) / cell.radius) * emerge;
     cell.hurt = fx.vignette;
     cell.dissolve = fx.dissolve;
     view.creature = fx.dissolved ? null : cell;
@@ -1352,7 +1459,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (joined && joined === pond && (keeper.current?.openCount() ?? 0) > 0) {
       sender.update(now, document.hidden, () => {
         marks.ready = mateReady;
-        marks.egg = offspring.child() !== null;
+        // Peers see the egg from the commitment on, as the owner does (M6 T20).
+        marks.egg = offspring.child() !== null || mateNow === 'awaiting';
         return snapshotOf(player, session.world.tick, session.body.ref, marks);
       });
     }
@@ -1365,7 +1473,16 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     updateHatchNote();
     updateMateUi();
     updateOffspringUi();
-    view.remotes = remoteViews;
+    view.eggs = updateEggs(eggNow, dt, reduced);
+    const ghost = eggs.ghostOf(eggNow);
+    if (ghost) {
+      withGhost.length = 0;
+      for (const r of remoteViews) withGhost.push(r);
+      withGhost.push(ghost);
+      view.remotes = withGhost;
+    } else {
+      view.remotes = remoteViews;
+    }
     const projection = {
       camX: camera.x,
       camY: camera.y,
@@ -1586,7 +1703,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       generation: child?.generation ?? null,
       genomeHash: child?.body.hash ?? null,
       cardShown: !cardElement.hidden,
-      eggShown: !eggElement.hidden,
+      eggShown: eggs.ownShown,
       options: screens.optionIds,
     };
   };
@@ -1642,7 +1759,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       },
       mate: mateState(),
       offspring: offspringState(),
-      remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species }) => ({
+      remotes: remoteViews.map(({ id, name, x, y, alpha, radius, genomeHash, species, egg }) => ({
         id,
         name,
         x,
@@ -1651,7 +1768,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         radius,
         genomeHash,
         species,
+        egg,
       })),
+      egg: {
+        phase: eggs.reveal.phase,
+        phases: [...eggs.reveal.visited],
+        carried: offspring.child() !== null,
+        shown: eggs.ownShown,
+        peers: [...eggs.peerIds],
+        ghost: eggs.ghostOf(eggClock()) !== null,
+        motion: reducedMotion?.matches === true ? 'fade' : 'shake',
+      },
       pond: pond
         ? {
             id: pond.id,

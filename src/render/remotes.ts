@@ -18,6 +18,8 @@ export interface RemoteCellView {
   hue: number;
   /** The creature's body; null or missing draws the tinted cell. */
   body?: CreatureSource | null;
+  /** 0..1, how far it has dissolved (M6 T20: a parent left behind by a hatch); missing is 0. */
+  dissolve?: number;
 }
 
 /** Full sight everywhere: the default outside the game's zones. */
@@ -109,6 +111,7 @@ export class RemoteLayer {
       view.beat = remote.beat;
       view.alpha = remote.alpha;
       view.hue = remote.hue;
+      view.dissolve = remote.dissolve ?? 0;
       cell.update(view, time);
     }
     for (let i = used; i < this.shown; i++) (this.cells[i] as Cell).update(null, time);
@@ -169,6 +172,7 @@ export class RemoteLayer {
     state.radius = remote.radius;
     state.beat = remote.beat;
     state.alpha = remote.alpha;
+    state.dissolve = remote.dissolve ?? 0;
     state.pxPerWu = pxPerWu;
     state.sight = this.sight(remote.x, remote.y);
     state.caustic = this.caustic(remote.x, remote.y);
