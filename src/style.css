@@ -489,6 +489,327 @@ body {
   }
 }
 
+/* Edge indicators (M6 T19): an arrow on the screen's edge for each player off screen, its shape
+   by size, a heart when they could mate, and a ring for a nearby ping. Text is always there too. */
+.edge-indicators {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.edge {
+  position: absolute;
+  left: 0;
+  top: 0;
+  width: 2.5rem;
+  height: 2.5rem;
+  color: var(--text);
+  text-shadow: 0 0 4px rgb(0 0 0 / 0.95);
+  will-change: transform;
+}
+
+.edge[hidden] {
+  display: none;
+}
+
+.edge-icon {
+  position: relative;
+  display: grid;
+  place-items: center;
+  width: 100%;
+  height: 100%;
+}
+
+.edge-icon svg {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: visible;
+}
+
+.edge-fill {
+  fill: var(--text);
+  stroke: rgb(2 8 10 / 0.85);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+}
+
+.edge-line {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 2.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.edge[data-size="smaller"] .edge-line {
+  stroke: var(--muted);
+}
+
+.edge[data-size="bigger"] .edge-fill {
+  fill: #ffc98a;
+}
+
+.edge[data-size="bigger"] .edge-line {
+  stroke: #ffc98a;
+}
+
+.edge-heart {
+  fill: #ff9cc0;
+  stroke: rgb(40 6 18 / 0.9);
+  stroke-width: 1;
+}
+
+.edge-ring {
+  fill: rgb(4 9 11 / 0.45);
+  stroke: var(--text);
+  stroke-width: 1.75;
+}
+
+.edge[data-ping="1"] .edge-ring {
+  stroke-dasharray: 4 3;
+}
+
+.edge[data-ping="2"] .edge-ring {
+  stroke-dasharray: 1.2 2.8;
+  stroke-linecap: round;
+}
+
+.edge[data-ping="3"] .edge-ring {
+  stroke-width: 3;
+}
+
+.edge[data-kind="ping"] .edge-icon {
+  animation: edge-pulse 1.2s ease-out infinite;
+}
+
+.edge-glyph {
+  position: relative;
+  font-size: 0.8rem;
+  line-height: 1;
+}
+
+.edge-text {
+  position: absolute;
+  top: 100%;
+  left: 50%;
+  display: flex;
+  justify-content: center;
+  width: 9rem;
+  margin-left: -4.5rem;
+  font-size: 0.72rem;
+  line-height: 1.2;
+  text-align: center;
+  white-space: nowrap;
+}
+
+/* A dark plate under the words, so they read over the HUD and bright water alike. */
+.edge-plate {
+  display: grid;
+  max-width: 100%;
+  padding: 0.1rem 0.4rem 0.15rem;
+  border-radius: 0.4rem;
+  background: rgb(4 9 11 / 0.62);
+}
+
+.edge[data-label="above"] .edge-text {
+  top: auto;
+  bottom: 100%;
+}
+
+.edge[data-align="start"] .edge-text {
+  left: 0;
+  justify-content: flex-start;
+  margin-left: -0.25rem;
+  text-align: left;
+}
+
+.edge[data-align="end"] .edge-text {
+  left: auto;
+  right: 0;
+  justify-content: flex-end;
+  margin: 0 -0.25rem 0 0;
+  text-align: right;
+}
+
+.edge-name {
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.edge-detail {
+  color: var(--muted);
+}
+
+@keyframes edge-pulse {
+  50% {
+    opacity: 0.6;
+  }
+}
+
+/* The pond map (M): beside the player, never over it, and it never takes the pointer. */
+.pond-map {
+  position: fixed;
+  top: 2.5rem;
+  right: 1rem;
+  z-index: 15;
+  display: grid;
+  gap: 0.45rem;
+  padding: 0.6rem 0.75rem;
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  background: rgb(4 14 24 / 0.88);
+  font-size: 0.8rem;
+  pointer-events: none;
+}
+
+.pond-map[hidden] {
+  display: none;
+}
+
+.pond-map h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.pond-map .hint {
+  margin: 0;
+  font-size: 0.72rem;
+}
+
+.map-frame {
+  position: relative;
+  width: min(52vh, 40vw);
+  aspect-ratio: 1;
+  outline: 1px solid rgb(227 244 240 / 0.55);
+}
+
+.map-zones,
+.map-marks {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+}
+
+.map-marks {
+  overflow: hidden;
+}
+
+.map-dot,
+.map-ping {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.map-dot[hidden],
+.map-ping[hidden] {
+  display: none;
+}
+
+.map-dot svg {
+  position: absolute;
+  left: -10px;
+  top: -10px;
+  width: 20px;
+  height: 20px;
+  overflow: visible;
+}
+
+.map-label {
+  position: absolute;
+  left: 9px;
+  top: -8px;
+  font-size: 0.68rem;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 0 3px rgb(0 0 0 / 0.95);
+}
+
+.map-dot[data-self="true"] .map-label {
+  font-weight: 700;
+}
+
+.map-ring {
+  fill: none;
+  stroke: #fff;
+  stroke-width: 2.5;
+}
+
+.map-core {
+  fill: var(--text);
+  stroke: rgb(2 8 10 / 0.9);
+  stroke-width: 1;
+}
+
+.map-heart {
+  fill: #ff9cc0;
+  stroke: rgb(40 6 18 / 0.9);
+  stroke-width: 1;
+}
+
+.map-ping-ring {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.5;
+  stroke-dasharray: 3 2;
+}
+
+.map-ping {
+  display: grid;
+  place-items: center;
+  width: 18px;
+  height: 18px;
+  margin: -10px 0 0 -10px;
+  border: 1px dashed var(--text);
+  border-radius: 50%;
+  background: rgb(4 9 11 / 0.5);
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+.map-legend {
+  display: grid;
+  grid-template-columns: auto auto;
+  gap: 0.2rem 0.9rem;
+  margin: 0;
+  padding: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  list-style: none;
+}
+
+.map-legend li {
+  display: flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.map-legend svg {
+  width: 0.9rem;
+  height: 0.9rem;
+  overflow: visible;
+}
+
+.map-swatch {
+  width: 0.8rem;
+  height: 0.8rem;
+  outline: 1px solid rgb(227 244 240 / 0.45);
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .edge[data-kind="ping"] .edge-icon {
+    animation: none;
+  }
+}
+
 .chat {
   position: fixed;
   left: 0.75rem;

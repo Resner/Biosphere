@@ -30,11 +30,20 @@ const DASH_SHOWN_TICKS = 8;
 
 export type SnapshotFields = Omit<Snapshot, 'seq'>;
 
+/** What the life around the creature adds to its snapshot (see `Snapshot`). */
+export interface SnapshotMarks {
+  ready: boolean;
+  egg: boolean;
+}
+
+const NO_MARKS: SnapshotMarks = { ready: false, egg: false };
+
 /** The creature as peers see it. Energy and health are fractions of their maxima. */
 export function snapshotOf(
   creature: CreatureState,
   tick: number,
   genomeRef: number,
+  marks: SnapshotMarks = NO_MARKS,
 ): SnapshotFields {
   const sinceDash = tick - (creature.dashReadyTick - RULES.movement.dashCooldownTicks);
   return {
@@ -49,6 +58,8 @@ export function snapshotOf(
     health: clamp(creature.health / maxHealth(creature.biomass), 0, 1),
     alive: creature.alive,
     dashing: sinceDash >= 0 && sinceDash < DASH_SHOWN_TICKS,
+    ready: marks.ready,
+    egg: marks.egg,
     genomeRef,
   };
 }
@@ -192,6 +203,9 @@ export interface RemoteView {
   hue: number;
   /** The genome ref of the newest snapshot (see `genomeRefOf`). */
   genomeRef: number;
+  /** The newest snapshot's ready-to-mate and egg marks (a hint; see `Snapshot`). */
+  ready: boolean;
+  egg: boolean;
 }
 
 interface Remote {
@@ -235,6 +249,8 @@ export class RemoteSet {
           alpha: 1,
           hue: hueOf(id),
           genomeRef: snapshot.genomeRef,
+          ready: snapshot.ready,
+          egg: snapshot.egg,
         },
       };
       this.remotes.set(id, remote);
@@ -243,6 +259,8 @@ export class RemoteSet {
     if (remote.buffer.push(snapshot)) {
       remote.lastHeardMs = localMs;
       remote.view.genomeRef = snapshot.genomeRef;
+      remote.view.ready = snapshot.ready;
+      remote.view.egg = snapshot.egg;
     }
   }
 

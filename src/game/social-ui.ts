@@ -17,7 +17,7 @@ const EMOTES = [
   { glyph: '?', name: 'question' },
 ] as const;
 /** Look, danger, food, mate; indexed by the ping kind. */
-const PINGS = [
+export const PINGS = [
   { glyph: '◎', name: 'look' },
   { glyph: '▲', name: 'danger' },
   { glyph: '◆', name: 'food' },

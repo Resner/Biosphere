@@ -31,6 +31,8 @@ function snap(over: Partial<Snapshot> = {}): Snapshot {
     health: 1,
     alive: true,
     dashing: false,
+    ready: false,
+    egg: false,
     genomeRef: 0,
     ...over,
   };
@@ -191,6 +193,14 @@ describe('RemoteSet', () => {
     expect(back?.alpha).toBe(1);
   });
 
+  it('shows the newest ready and egg marks (M6 T19)', () => {
+    const set = new RemoteSet();
+    send(set, 'a', snap({ seq: 0, tick: 0, ready: true }), 0);
+    expect(set.sample(200, 200)[0]).toMatchObject({ ready: true, egg: false });
+    send(set, 'a', snap({ seq: 1, tick: 3, ready: false, egg: true }), 100);
+    expect(set.sample(300, 300)[0]).toMatchObject({ ready: false, egg: true });
+  });
+
   it('does not count repeated packets as signs of life', () => {
     const set = new RemoteSet();
     send(set, 'a', swimming(3, 300), 0);
@@ -285,6 +295,12 @@ describe('snapshotOf', () => {
     expect(s.health).toBe(1);
     expect(s.dashing).toBe(false);
     expect(s.genomeRef).toBe(0xbeef);
+    expect([s.ready, s.egg]).toEqual([false, false]);
+  });
+
+  it('carries the ready and egg marks it is given', () => {
+    const s = snapshotOf(creature, 40, 0, { ready: true, egg: true });
+    expect([s.ready, s.egg]).toEqual([true, true]);
   });
 
   it('shows a dash for a few ticks after it starts', () => {

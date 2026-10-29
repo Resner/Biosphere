@@ -87,7 +87,7 @@
       <div class="meter life" data-meter="life" data-testid="hud-life" hidden><span class="meter-name">Life</span><span class="meter-value" data-testid="hud-stage"></span><span class="bar"><i data-bar="life"></i></span><span class="life-left" data-testid="hud-remaining"></span><span class="life-left" data-testid="hud-ready"></span></div>
       <div class="meter depth" data-testid="hud-depth"><span class="meter-name">Depth</span><span class="meter-value" data-testid="hud-zone"></span><span class="bar"><i data-bar="depth"></i></span><span class="zone-warning" data-testid="hud-zone-warning"></span></div>
       <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
-      <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping</p>
+      <p class="hint" data-testid="social-hint">Enter chat · T then 1–6 emote · G or middle click ping · M map</p>
     </section>
     <p class="toast" data-for="playing" data-testid="toast" role="status" hidden></p>
     <p class="mate-hint" data-for="playing" data-testid="mate-hint" role="status" hidden></p>
@@ -124,6 +124,25 @@
     <p class="alone-hint" data-for="playing" data-testid="alone-hint" hidden>Alone in the pond. Share the link.</p>
     <div class="remote-labels" data-for="playing" data-testid="remote-labels" aria-hidden="true"></div>
     <div class="social-cues" data-for="playing" data-testid="social-cues" aria-hidden="true"></div>
+    <section class="edge-indicators" data-for="playing" data-testid="edge-indicators" aria-label="Off screen"></section>
+    <section class="pond-map" data-for="playing" data-testid="pond-map" aria-label="Pond map" hidden>
+      <h2>Pond map</h2>
+      <div class="map-frame" data-testid="map-frame">
+        <canvas class="map-zones" data-testid="map-zones" aria-hidden="true"></canvas>
+        <div class="map-marks" data-testid="map-marks"></div>
+      </div>
+      <ul class="map-legend">
+        <li><i class="map-swatch" data-zone="shallows"></i>Shallows · UV</li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle class="map-ring" r="7" /><circle class="map-core" r="2.5" /></svg>You</li>
+        <li><i class="map-swatch" data-zone="twilight"></i>Twilight</li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle class="map-core" r="4" /></svg>Player</li>
+        <li><i class="map-swatch" data-zone="deep"></i>Deep</li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><path class="map-heart" d="M0 5 C-9 -1 -5 -9 0 -4 C5 -9 9 -1 0 5 Z" /></svg>Ready to mate</li>
+        <li><i class="map-swatch" data-zone="abyss"></i>Abyss · pressure</li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle class="map-ping-ring" r="7" /></svg>Ping</li>
+      </ul>
+      <p class="hint">M or Esc to close · you can keep swimming</p>
+    </section>
     <ul class="roster" data-for="playing" data-testid="roster" aria-label="Players (click a name to mute)" hidden></ul>
     <section class="chat" data-for="playing" aria-label="Chat">
       <ul class="chat-log" data-testid="chat-log" aria-live="polite"></ul>

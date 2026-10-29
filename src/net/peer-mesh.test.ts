@@ -23,6 +23,8 @@ const SNAP: Snapshot = {
   health: 1,
   alive: true,
   dashing: false,
+  ready: false,
+  egg: false,
   genomeRef: 0x1234,
 };
 

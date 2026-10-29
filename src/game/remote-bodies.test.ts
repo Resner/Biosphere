@@ -20,6 +20,8 @@ const view = (genomeRef: number, id = 'a'): RemoteView => ({
   alpha: 1,
   hue: 0.5,
   genomeRef,
+  ready: false,
+  egg: false,
 });
 
 describe('RemoteBodies', () => {

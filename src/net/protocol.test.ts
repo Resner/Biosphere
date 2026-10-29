@@ -43,6 +43,8 @@ const snap: Snapshot = {
   health: 0.5,
   alive: true,
   dashing: true,
+  ready: true,
+  egg: false,
   genomeRef: 0xbeef,
 };
 
@@ -51,7 +53,7 @@ describe('snapshot codec', () => {
     const bytes = encodeSnapshot(snap);
     expect(bytes.length).toBe(SNAPSHOT_BYTES);
     expect(SNAPSHOT_BYTES).toBe(25);
-    expect(bytes[24]).toBe(2);
+    expect(bytes[24]).toBe(3);
     const d = decodeSnapshot(bytes);
     expect(d).not.toBeNull();
     if (!d) return;
@@ -68,16 +70,30 @@ describe('snapshot codec', () => {
     expect(Math.abs(d.health - snap.health)).toBeLessThanOrEqual(0.005);
     expect(d.alive).toBe(true);
     expect(d.dashing).toBe(true);
+    expect(d.ready).toBe(true);
+    expect(d.egg).toBe(false);
   });
 
-  it('keeps the flags independent', () => {
-    for (const [alive, dashing] of [
-      [true, false],
-      [false, true],
-      [false, false],
-    ] as const) {
-      const d = decodeSnapshot(encodeSnapshot({ ...snap, alive, dashing }));
-      expect([d?.alive, d?.dashing]).toEqual([alive, dashing]);
+  it('keeps the four flags independent', () => {
+    for (let bits = 0; bits < 16; bits++) {
+      const flags = {
+        alive: (bits & 1) !== 0,
+        dashing: (bits & 2) !== 0,
+        ready: (bits & 4) !== 0,
+        egg: (bits & 8) !== 0,
+      };
+      const d = decodeSnapshot(encodeSnapshot({ ...snap, ...flags }));
+      expect(d && { alive: d.alive, dashing: d.dashing, ready: d.ready, egg: d.egg }).toEqual(
+        flags,
+      );
+    }
+  });
+
+  it('drops a snapshot with a flag bit it does not know', () => {
+    for (const bit of [16, 32, 64, 128]) {
+      const bytes = encodeSnapshot(snap);
+      bytes[11] = (bytes[11] as number) | bit;
+      expect(decodeSnapshot(bytes), String(bit)).toBeNull();
     }
   });
 
@@ -136,7 +152,8 @@ describe('snapshot codec', () => {
 
   it('drops a version 1 snapshot (24 bytes) and a wrong version byte', () => {
     expect(decodeSnapshot(encodeSnapshot(snap).subarray(0, 24))).toBeNull();
-    for (const version of [0, 1, 3, 255]) {
+    // Version 2 had the same length but no ready or egg bits (M6 T19).
+    for (const version of [0, 1, 2, 4, 255]) {
       const bytes = encodeSnapshot(snap);
       bytes[24] = version;
       expect(decodeSnapshot(bytes), String(version)).toBeNull();
@@ -164,16 +181,16 @@ describe('snapshot fuzz', () => {
       const len = rng.int(0, 64);
       const b = new Uint8Array(len);
       for (let j = 0; j < len; j++) b[j] = rng.int(0, 255);
-      // Random bytes almost never carry version 2, so half the arrays get it.
-      if (len === 25 && rng.int(0, 1) === 1) b[24] = 2;
+      // Random bytes almost never carry version 3, so half the arrays get it.
+      if (len === 25 && rng.int(0, 1) === 1) b[24] = 3;
       const d = decodeSnapshot(b);
       if (d) {
         decoded++;
         expect(len).toBe(25);
-        expect((b[11] as number) & ~3).toBe(0);
-        expect(b[24]).toBe(2);
-      } else if (len === 25 && b[24] === 2) {
-        expect((b[11] as number) & ~3).not.toBe(0);
+        expect((b[11] as number) & ~15).toBe(0);
+        expect(b[24]).toBe(3);
+      } else if (len === 25 && b[24] === 3) {
+        expect((b[11] as number) & ~15).not.toBe(0);
       }
     }
     expect(decoded).toBeGreaterThan(0);
@@ -443,9 +460,11 @@ describe('rejections', () => {
   it('rejects unknown t, wrong v, bad names and bad ids', () => {
     expect(bad({ t: 'nope' })).toBeNull();
     expect(bad({ ...hello, v: 1 })).toBeNull();
-    // Karyotype v2 genomes are a wire change: a version 2 client is turned away.
-    expect(PROTOCOL_VERSION).toBe(3);
+    // Karyotype v2 genomes were a wire change (version 3), and so are the snapshot's ready and
+    // egg bits (version 4, M6 T19): older clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(4);
     expect(bad({ ...hello, v: 2 })).toBeNull();
+    expect(bad({ ...hello, v: 3 })).toBeNull();
     expect(bad({ ...hello, v: undefined })).toBeNull();
     expect(bad({ ...hello, name: 'x'.repeat(17) })).toBeNull();
     expect(bad({ ...hello, name: 'ab' })).toBeNull();

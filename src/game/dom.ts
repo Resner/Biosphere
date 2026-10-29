@@ -5,6 +5,11 @@ export function pick<T extends Element = HTMLElement>(selector: string): T {
   return element;
 }
 
+/** Sets an element's text, touching the DOM only when it changed. */
+export function setText(el: HTMLElement, text: string): void {
+  if (el.textContent !== text) el.textContent = text;
+}
+
 /** A list item holding plain text. */
 export function listItem(text: string): HTMLLIElement {
   const li = document.createElement('li');

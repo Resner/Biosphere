@@ -33,6 +33,7 @@ import { plumesNear } from '../sim/hazards';
 import { angleToSteer, IDLE, type Input } from '../sim/input';
 import { applyLife, lifespanMs } from '../sim/life';
 import { atan2, lerp, wrapAngle } from '../sim/math';
+import { type MateView, ownRefusal } from '../sim/mating';
 import { replay } from '../sim/replay';
 import { RULES, TICK_HZ } from '../sim/rules';
 import { sizeTier } from '../sim/size';
@@ -57,6 +58,7 @@ import { createFieldSync } from './field';
 import { GrowthWatch, growthText, sizeShare } from './growth';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
+import { EdgeIndicatorsUi, edgeIndicators, type Indicator } from './indicators';
 import { enterHatches, InputController } from './input';
 import { RemoteLabels } from './labels';
 import { type LifeClock, LifeFlow, type Started, VERIFY_FAILED } from './life';
@@ -83,6 +85,7 @@ import {
 } from './online-config';
 import { OnlineKeeper } from './online-keeper';
 import { PondFood } from './pond-food';
+import { PondMap } from './pond-map';
 import { PondTime } from './pond-time';
 import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
@@ -264,6 +267,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const fx = new Effects();
   const vignette = pick('[data-testid="vignette"]');
   const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
+  // Finding other players (M6 T19): arrows on the screen's edge and the pond map.
+  const indicatorsUi = new EdgeIndicatorsUi(pick('[data-testid="edge-indicators"]'));
+  let indicators: Indicator[] = [];
+  const pondMap = new PondMap();
 
   // Other players, drawn from the snapshots they send. Pond time is the hub's clock once a pond is
   // joined; until then it is this tab's own clock.
@@ -343,30 +350,31 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let lastClock: LifeClock | null = null;
 
   // Courting (M5): the creature as the mating rules see it, and what the hub is asked.
+  const ownMateView = (): MateView | null => {
+    const life = flow.view();
+    const { player } = session;
+    if (session.demo || life.status !== 'playing' || !life.creature || !player.alive) return null;
+    return {
+      creature: life.creature,
+      owner: playerId ?? '',
+      active: true,
+      activeMs: lastClock?.activeMs ?? life.activeMs,
+      // The first ack brings the real numbers; until then nobody is mature.
+      matureAtMs: life.matureAtMs > 0 ? life.matureAtMs : Number.POSITIVE_INFINITY,
+      cooldownUntilMs: life.cooldownUntilMs,
+      biomass: player.biomass,
+      energy: player.energy,
+      hasPending: life.pending,
+      inFlight: false,
+      locked: false,
+    };
+  };
   const mate = new MateFlow({
     identity: () => identity as Identity,
     nonce: randomNonce,
     now: () => performance.now(),
     nameOf: (id) => keeper.current?.nameOf(id),
-    own: () => {
-      const life = flow.view();
-      const { player } = session;
-      if (session.demo || life.status !== 'playing' || !life.creature || !player.alive) return null;
-      return {
-        creature: life.creature,
-        owner: playerId ?? '',
-        active: true,
-        activeMs: lastClock?.activeMs ?? life.activeMs,
-        // The first ack brings the real numbers; until then nobody is mature.
-        matureAtMs: life.matureAtMs > 0 ? life.matureAtMs : Number.POSITIVE_INFINITY,
-        cooldownUntilMs: life.cooldownUntilMs,
-        biomass: player.biomass,
-        energy: player.energy,
-        hasPending: life.pending,
-        inFlight: false,
-        locked: false,
-      };
-    },
+    own: ownMateView,
   });
   const mateHint = pick('[data-testid="mate-hint"]');
   const invitePanel = pick('[data-testid="invite"]');
@@ -409,6 +417,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let nearby: Nearby | null = null;
   let reminded = false;
   let readyShown = '';
+  /** Mature, rested and with no pending child: the snapshot's ready mark (a hint for peers). */
+  let mateReady = false;
+  const marks = { ready: false, egg: false };
   const setIfChanged = (el: HTMLElement, text: string): void => {
     if (el.textContent !== text) el.textContent = text;
   };
@@ -838,7 +849,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           become('child');
           return;
         }
-        if (mate.view().state === 'invited') {
+        if (key === 'm' || key === 'M') pondMap.toggle();
+        if (key === 'Escape' && pondMap.isOpen) {
+          pondMap.close();
+        } else if (mate.view().state === 'invited') {
           if (key === 'e' || key === 'E') mate.accept();
           else if (key === 'Escape') mate.decline();
         } else if (key === 'Escape' && inspected) {
@@ -1199,6 +1213,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const ready =
       playingNow && lastClock !== null && life.matureAtMs > 0 && active >= life.matureAtMs;
     readyShown = ready ? readyText(life.cooldownUntilMs - active) : '';
+    const own = ready ? ownMateView() : null;
+    mateReady = own !== null && ownRefusal(own) === null;
     hud.setReady(readyShown);
     if (playingNow && player.alive) updateGrowth(life.matureAtMs);
   };
@@ -1271,6 +1287,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         health: 1,
         alive: true,
         dashing: false,
+        ready: spec.ready === true,
+        egg: false,
         genomeRef: ref,
       };
     });
@@ -1332,9 +1350,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     for (const script of scripted) feedScripted(script, now);
     const joined = livePond();
     if (joined && joined === pond && (keeper.current?.openCount() ?? 0) > 0) {
-      sender.update(now, document.hidden, () =>
-        snapshotOf(player, session.world.tick, session.body.ref),
-      );
+      sender.update(now, document.hidden, () => {
+        marks.ready = mateReady;
+        marks.egg = offspring.child() !== null;
+        return snapshotOf(player, session.world.tick, session.body.ref, marks);
+      });
     }
     // A local pond life does not show the players of the hub's pond.
     remoteViews =
@@ -1354,6 +1374,19 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       height: scene.height,
     };
     labels.update(remoteViews, projection);
+    const finding = playing() && session.player.alive;
+    indicators = finding ? edgeIndicators(cell, remoteViews, social.pings(), projection) : [];
+    indicatorsUi.update(indicators, projection);
+    if (!finding) pondMap.close();
+    else if (pondMap.isOpen) {
+      pondMap.update({
+        seed: session.world.seed32,
+        size: session.world.size,
+        self: { id: selfKey(), name: social.selfName, x: cell.x, y: cell.y, ready: mateReady },
+        players: remoteViews,
+        pings: social.pings(),
+      });
+    }
     if (screen === 'playing') {
       anchors.clear();
       anchors.set(selfKey(), { x: cell.x, y: cell.y, radius: cell.radius });
@@ -1636,6 +1669,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         pings: social.pings().map(({ from, kind, x, y }) => ({ from, kind, x, y })),
         dropped: social.dropped,
       },
+      indicators: indicators.map((i) => ({ ...i })),
+      map: pondMap.info(),
       net: {
         text: shownStatus,
         status: keeper.current?.status ?? 'none',
