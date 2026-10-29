@@ -1264,13 +1264,16 @@ function buildEyes(shape: Traits['shape'], head: PlanSegment): PlanEyes {
   const room = D.caps.bounds - D.boundsSlack - hypot(root.x, root.y) - 2 * size;
   const stalk = clamp(lerp(EYE_STALK[0], EYE_STALK[1], shape.eyeStalk), 0, Math.max(0, room));
   const out = turnTo(head, cos(E.angle), sin(E.angle));
+  // A short stalk sinks the eye into the head (look pass 5): `set` of its diameter in at no stalk.
+  const sink = E.set * (1 - stalk / EYE_STALK[1]);
+  const from = stalk + size * (1 - 2 * sink);
   return {
     count: 2,
     size,
     stalk,
     angle: E.angle,
-    x: root.x + (stalk + size) * out.x,
-    y: root.y + (stalk + size) * out.y,
+    x: root.x + from * out.x,
+    y: root.y + from * out.y,
   };
 }
 

@@ -62,6 +62,7 @@ const int PART_DROPLET = 11;
 const int PART_HEART = 12;
 const int PART_PIGMENT = 13;
 const int PART_GLINT = 14;
+const int PART_SETULE = 15;
 // `uv.x` tags (creature-mesh.ts `addBall`): a pearl tip, and each organ's number times ORGAN_TAG.
 const float PEARL_TAG = 2.0;
 const float ORGAN_TAG = 2.0;
@@ -77,6 +78,8 @@ const vec2 HALO_SMALL_PX = vec2(7.0, 14.0);
 // The wet points on a part's joints: how tight and how bright.
 const float JOINT_GLOSS = 14.0;
 const float JOINT_SHINE = 0.7;
+// A part's half-width on screen (pixels) over which it turns from a bright stroke to clear glass.
+const vec2 PART_CLEAR_PX = vec2(2.5, 6.0);
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
 // Light scattered through the body's tissue (look pass 3): its peak strength, and the extra a
@@ -214,8 +217,12 @@ void main() {
     // A leg, antenna or bead: thin glass lit through, so its whole width reads bright against the
     // water, not only its edges (a hollow ring reads as a bubble). Its swellings catch the key light
     // in small wet points along the joints (look pass 2).
-    col += uRim * 0.3 * z + vec3(pow(max(dot(normal, KEY_HALF), 0.0), JOINT_GLOSS) * JOINT_SHINE);
-    alpha = max(alpha, 0.5 + 0.3 * fres);
+    // A wide part (a paddle or a broad leg several pixels across) is clear glass like the body, its
+    // edges bright and its face open (look pass 5): lit through, stacked paddles read as a white cloud.
+    float across = 1.0 / max(length(fwidth(normal.xy)), 1e-3);
+    float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
+    col += uRim * 0.3 * z * thin + vec3(pow(max(dot(normal, KEY_HALF), 0.0), JOINT_GLOSS) * JOINT_SHINE);
+    alpha = max(alpha, mix(alpha, 0.5 + 0.3 * fres, thin));
   } else if (kind == 2) {
     // A plate: denser, brighter glass with a sheen across its face, so armour reads at default zoom
     // (M6 T21), but not an opaque lid: the organs still show through, and the body stays clear
@@ -237,6 +244,11 @@ void main() {
     // A seta: a hair-thin bright stroke.
     col = uRim * 1.3 + 0.06;
     alpha = 0.9;
+  } else if (kind == PART_SETULE) {
+    // A setule (look pass 5): a fainter side hair of a plumose bristle, so a comb stays fine hair
+    // and stacked combs do not fill into a white cloud.
+    col = uRim * 0.8 + 0.04;
+    alpha = 0.45;
   } else if (kind == 6) {
     // A membrane: a thin sheet, its veins running out from the root and across, a fine network
     // between them, and a bright free edge.
@@ -308,8 +320,10 @@ void main() {
       float small = mix(HALO_SMALL, 1.0, smoothstep(HALO_SMALL_PX.x, HALO_SMALL_PX.y, px));
       alpha = min(fall * (HALO_ALPHA + 0.12 * uVivid) * small, 0.85);
     } else if (kind == PART_GUT) {
-      col = tame(mix(uOrgan, uOrgan2, 0.35)) * (0.35 + 0.45 * z);
-      alpha = 0.3 + 0.35 * z;
+      // A faint line (look pass 5): on a slim trunk the organs sit along it, and a gut as bright as
+      // they are joined them into one streak.
+      col = tame(mix(uOrgan, uOrgan2, 0.35)) * (0.25 + 0.3 * z);
+      alpha = 0.18 + 0.22 * z;
     } else if (kind == PART_CHAMBER) {
       // A fluid lobe: a body of colour glowing from its centre, its edge soft, so lobes packed side
       // by side read as one organ mass (references 02 and 03). Look pass 3 took the bright wall and

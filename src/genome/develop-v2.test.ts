@@ -322,6 +322,29 @@ describe('development v2: eyes', () => {
     expect(small.size).toBeLessThan(e.size);
     expect(small.stalk).toBe(0);
   });
+
+  it('sets a stalkless eye into the head, as reference 05 draws big dark eyes (look pass 5)', () => {
+    const p = body({ eyeSize: 255, eyeStalk: 0 });
+    valid(p);
+    const e = p.eyes;
+    expect(e.stalk).toBe(0);
+    const head = p.segments[0] as PlanSegment;
+    const root = { x: head.rx * cos(e.angle), y: head.ry * sin(e.angle) };
+    // Its centre lies `set` of its radius in from where a stalked eye would start: inside the
+    // head's outline, toward its middle, so most of the eye is within the head.
+    const inward = Math.hypot(e.x - head.x, e.y - head.y) < Math.hypot(root.x, root.y);
+    expect(inward).toBe(true);
+    expect(Math.hypot(e.x - root.x, e.y - root.y)).toBeCloseTo(e.size * (2 * D.eyes.set - 1), 12);
+    expect(D.eyes.set).toBeGreaterThan(0.5);
+    // A half-length stalk sinks it half as far.
+    const half = body({ eyeSize: 255, eyeStalk: 128 }).eyes;
+    const sink = D.eyes.set * (1 - half.stalk / (D.eyes.stalk[1] as number));
+    const r2 = { x: head.rx * cos(half.angle), y: head.ry * sin(half.angle) };
+    expect(Math.hypot(half.x - r2.x, half.y - r2.y)).toBeCloseTo(
+      Math.abs(half.stalk + half.size * (1 - 2 * sink)),
+      12,
+    );
+  });
 });
 
 describe('bodyViolations: the v2 rules', () => {

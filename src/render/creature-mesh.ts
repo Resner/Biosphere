@@ -180,6 +180,16 @@ const MOUTH_MIN_REACH = 0.2;
 const SETA_WIDTH = 0.022;
 const SETA_BASE = 1.5;
 const SETA_SWEEP = 0.9;
+/**
+ * Plumose setae (look pass 5): pairs of setules at these shares along each bristle (drawn on the
+ * 5-vertex rungs only), each `SETULE_LENGTH` of the bristle long near its root, shorter toward its
+ * tip, angled `SETULE_ANGLE` off it toward the tip, its root `SETULE_BASE` of the bristle wide.
+ */
+const SETULES_AT = [0.3, 0.55, 0.8] as const;
+const SETULE_LENGTH = 0.35;
+const SETULE_ANGLE = 0.7;
+const SETULE_BASE = 0.06;
+const SETULE_WIDTH = 0.5;
 /** An eye is this flat; its stalk this share of its radius wide. */
 const EYE_DEPTH = 0.8;
 const STALK_WIDTH = 0.3;
@@ -205,6 +215,8 @@ export const PART_HEART = 12;
 export const PART_PIGMENT = 13;
 /** A rare glint (M6 T13): a star quad over a joint or an organ, drawn last. */
 export const PART_GLINT = 14;
+/** A setule (look pass 5): a fine side hair of a plumose bristle, drawn fainter than the bristle. */
+export const PART_SETULE = 15;
 export const ORGAN_KINDS: readonly number[] = [
   PART_GUT,
   PART_CHAMBER,
@@ -962,7 +974,7 @@ function addSetae(
     const room =
       -ahead + sqrt(max(0, ahead * ahead - (at.x * at.x + at.y * at.y - BOUNDS * BOUNDS)));
     const len = max(0, min(a.setaeLength, room));
-    const point = (share: number, half: number, v: number): number => {
+    const point = (share: number, half: number, v: number, kind = part): number => {
       m.flutterAt = len * share;
       const i = m.vertex(
         at.x + dx * len * share + nx * half,
@@ -973,7 +985,7 @@ function addSetae(
         attach,
         attach,
         t,
-        part,
+        kind,
       );
       m.normal(i, nx, ny, 0);
       return i;
@@ -987,6 +999,25 @@ function addSetae(
       m.sheet(l0, r0, r1);
       m.sheet(l0, r1, l1);
       m.sheet(l1, r1, tip);
+      // Plumose setae (look pass 5): fine setules leave each bristle in pairs, angled toward its
+      // tip, so a bristled leg reads as a feathered comb (reference 04) and not as a few spokes.
+      const setule = id * PART_KINDS + PART_SETULE;
+      for (const along of SETULES_AT) {
+        const reach = len * SETULE_LENGTH * (1 - 0.5 * along);
+        const [cx, cy] = [at.x + dx * len * along, at.y + dy * len * along];
+        for (const side of [1, -1] as const) {
+          const [sx, sy] = [cos(SETULE_ANGLE), side * sin(SETULE_ANGLE)];
+          const [ex, ey] = [cx + (dx * sx - dy * sy) * reach, cy + (dy * sx + dx * sy) * reach];
+          // Like its bristle, a setule stays within the bounds.
+          if (hypot(ex, ey) > BOUNDS) continue;
+          const b0 = point(along, SETA_WIDTH * SETULE_WIDTH, along, setule);
+          const b1 = point(along + SETULE_BASE, -SETA_WIDTH * SETULE_WIDTH, along, setule);
+          m.flutterAt = len * along;
+          const end = m.vertex(ex, ey, 0, 0.5, along, attach, attach, t, setule);
+          m.normal(end, nx, ny, 0);
+          m.sheet(b0, b1, end);
+        }
+      }
     } else {
       const tip = point(1, 0, 1);
       m.sheet(l0, r0, tip);
@@ -1060,7 +1091,9 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
     const [x, y] = [e.x, side * e.y];
     const root = rootOf(head, e.angle, side);
     const len = hypot(x - root.x, y - root.y);
-    if (e.stalk > 0.02 && len > 1e-6) {
+    // An eye set into the head (look pass 5) hides what stalk it has: one shows only past the eye.
+    const outward = hypot(x - head.x, y - head.y) > hypot(root.x - head.x, root.y - head.y);
+    if (e.stalk > 0.02 && outward && len > e.size + 0.02) {
       const r = e.size * STALK_WIDTH;
       addTube(
         m,

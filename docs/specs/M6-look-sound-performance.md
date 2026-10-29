@@ -582,11 +582,13 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-4.{png,md}`; long chains narrow by one factor (`form.slim`, ADR 0031) as lateral compression, so stats read the girth and the balance holds untouched; the length gene reaches 2.4 past 0.8 of its span; the three wall leftovers are fixed. One cell 3 → 2, 15 above 1, so T28c follows.
   - Gotcha: ADR 0028's "median trunk ≥ 0.5" cannot hold at 2.5 to 1 inside the bounds (now 0.38 drawn, 0.53 girth; the test bar is 0.35); slimming the bent chain instead of the straight one made curls lighter and lost the curl-drag test.
 
-- [ ] T28c Look pass 5 [opus] (in progress)
+- [x] T28c Look pass 5 [opus] (in progress)
   - Acceptance:
     - `pass-5.png` and `pass-5.md` are committed with the honest gap table, and the in-game check at 960×540 is repeated. If cells above 1 remain, open the owner issue `Look: <the gaps>` of T28 with the latest sheet and table and the options, and continue with T29.
     - The largest gaps of `pass-4.md` are worked in order: the round baseline (v2 bodies on the sheet: an ADR on adding v2 descendants of the baseline under ADR 0024, or weighing the v2 specimens), worms and coils that read as tangles, bristles along legs (04), big eyes set into the head (05), and a specimen that shows the long antennae.
   - Notes: development changes keep the balance as T28b did (stats on the girth, archetype tests, the tournament, `npm run sim:pacing`, the Lab's wild diversity).
+  - Done: `pass-5.{png,md}`; the gallery draws v1 files as their v2 upgrade and adds feature specimens 37–39 (ADR 0032); eyes set into the head (`eyes.set`), plumose setae (`PART_SETULE`), broad parts as clear glass, a fainter gut. Three cells 3 → 2, 15 above 1: owner issue #177.
+  - Gotcha: a spiral needs a chain longer than the reach laid straight (a curl is only a pose, ADR 0031), so 39 is a hook; under heavy load `npm run check`'s 10,000-genome property tests can pass 5 s.
 
 - [ ] T29 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:

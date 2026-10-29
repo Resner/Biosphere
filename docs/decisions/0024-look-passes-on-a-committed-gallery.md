@@ -1,6 +1,6 @@
 # 0024: Look passes are judged on a committed gallery
 
-- Status: accepted
+- Status: accepted, amended by 0032
 - Date: 2026-10-27
 
 ## Context

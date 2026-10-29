@@ -65,6 +65,38 @@ export function findTier(
   return search(seed, taken, (c) => rarityOfTraits(c.traits).tier === tier);
 }
 
+/**
+ * The look features look pass 5 adds a specimen for (ADR 0032): bodies the references show that no
+ * class or tier specimen happened to: 02's long sweeping antennae, 05's big eyes set into the head,
+ * and 03's and 05's spirals, a bilateral coiled chain of 4 or more segments with only short parts round it.
+ */
+export const FEATURES = {
+  antennae: (c: Creature): boolean =>
+    c.plan.form.radial === 0 &&
+    c.plan.segments.length >= 3 &&
+    c.plan.appendages.filter(
+      (a) => a.segment === 0 && a.length >= 1.8 && a.width <= 0.15 && a.dir <= 1.9,
+    ).length >= 2,
+  'big-eyes': (c: Creature): boolean =>
+    c.plan.eyes.count === 2 && c.plan.eyes.size >= 0.25 && c.plan.eyes.stalk <= 0.05,
+  spiral: (c: Creature): boolean =>
+    c.plan.form.mode === 2 &&
+    c.plan.form.radial === 0 &&
+    c.plan.segments.length >= 4 &&
+    c.plan.appendages.every((a) => a.length <= 0.75),
+} as const satisfies Record<string, (c: Creature) => boolean>;
+
+export type Feature = keyof typeof FEATURES;
+
+/** The first valid body showing `feature` whose genome hash is not in `taken`, or null. */
+export function findFeature(
+  feature: Feature,
+  seed: string,
+  taken: ReadonlySet<string> = new Set(),
+): Found | null {
+  return search(seed, taken, FEATURES[feature]);
+}
+
 /** A gallery file for `genome`: its name (`NN-specimen-<what>-<genus>-<epithet>.hex`) and text (a comment, then hex). */
 export function specimenFile(
   index: number,
