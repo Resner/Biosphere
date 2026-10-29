@@ -45,16 +45,16 @@ export function outlinePulse(kind: OutlineKind, time: number, phase: number): nu
 
 export interface Hull {
   /** Centre in core radii, in the body's frame. */
-  x: number;
-  y: number;
-  radius: number;
+  readonly x: number;
+  readonly y: number;
+  readonly radius: number;
 }
 
 const CELL_HULL: Hull = { x: 0, y: 0, radius: 1 };
 
 /** The circle around a plan's body segments (and carapace), in core radii; the unit circle for the plain cell. */
 export function hullOf(plan: BodyPlan | null): Hull {
-  if (!plan || plan.segments.length === 0) return { ...CELL_HULL };
+  if (!plan || plan.segments.length === 0) return CELL_HULL;
   let minX = Number.POSITIVE_INFINITY;
   let minY = Number.POSITIVE_INFINITY;
   let maxX = Number.NEGATIVE_INFINITY;
@@ -149,8 +149,8 @@ export class OutlineLayer {
           ring * OUTLINE.quad,
           0,
           (kind === 'bigger' ? 1 : 0) + pulse * 0.99,
+          r.alpha,
         );
-        array[n * 16 + 11] = r.alpha;
         this.record(n, r.id, kind, x, y, ring, pulse, view);
         if (kind === 'bigger') bigger++;
         n++;

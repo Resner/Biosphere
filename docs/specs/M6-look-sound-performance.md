@@ -473,7 +473,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Readability
 
-- [x] T21 Readability, crispness and the size outline [opus] (in progress)
+- [x] T21 Readability, crispness and the size outline [opus]
   - Acceptance:
     - **Crispness** (owner, Playtest v0.2.0: "the cell and UI looked blurry"):
       - the canvas backing size equals CSS size × pixel ratio, with no CSS scaling of the canvas;

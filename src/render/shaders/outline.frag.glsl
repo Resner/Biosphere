@@ -16,6 +16,9 @@ void main() {
   float px = max(fwidth(d), 1e-5);
   float kind = floor(vPhase + 0.001);
   float pulse = vPhase - kind;
+  // The quad is much wider than the ring: skip the angular maths outside its widest halo.
+  float ringR = uRing * (kind > 0.5 ? 1.0 + 0.035 * pulse : 1.0);
+  if (abs(d - ringR) / px > 4.2) discard;
   float turn = atan(vP.y, vP.x) / TAU + 0.5;
   float core;
   float halo;

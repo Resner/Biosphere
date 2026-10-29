@@ -7,7 +7,7 @@ export function idFraction(id: string): number {
 
 /**
  * Writes a 2D transform into slot `n` of an instance matrix array: rotation by `angle`, uniform
- * `size`, a translation, and `phase` in the otherwise unused z scale (the shaders read it back).
+ * `size`, a translation, and `phase` in the otherwise unused z scale and `alpha` in the unused w row (the shaders read them back).
  */
 export function writeInstance(
   array: ArrayLike<number> & { [index: number]: number },
@@ -17,6 +17,7 @@ export function writeInstance(
   size: number,
   angle: number,
   phase: number,
+  alpha = 0,
 ): void {
   const c = Math.cos(angle) * size;
   const s = Math.sin(angle) * size;
@@ -32,7 +33,7 @@ export function writeInstance(
   array[o + 8] = 0;
   array[o + 9] = 0;
   array[o + 10] = phase;
-  array[o + 11] = 0;
+  array[o + 11] = alpha;
   array[o + 12] = x;
   array[o + 13] = y;
   array[o + 14] = 0;
