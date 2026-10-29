@@ -183,6 +183,8 @@ const SETA_SWEEP = 0.9;
 /** An eye is this flat; its stalk this share of its radius wide. */
 const EYE_DEPTH = 0.8;
 const STALK_WIDTH = 0.3;
+/** An eye takes this many more sides than a bulb at the same level (look pass 3). */
+const EYE_SIDES = 4;
 
 /** What a vertex belongs to, the low four bits of `aPart`; the rest is the appendage number (0 for none). */
 export const PART_KINDS = 16;
@@ -276,9 +278,12 @@ class Mesh {
   readonly frame: number[] = [];
   readonly motion: number[] = [];
   readonly flutter: number[] = [];
+  readonly wall: number[] = [];
   /** How the next vertices move, and a bristle vertex's distance along its bristle. */
   gait: Motion = NO_MOTION;
   flutterAt = 0;
+  /** The next vertices' segment-wall coordinate: the body's loft sets it, everything else has none. */
+  wallCoord = NO_WALL;
   /** Triangles of closed surfaces, then those of flat sheets drawn from both sides. */
   readonly index: number[] = [];
   readonly sheets: number[] = [];
@@ -312,6 +317,7 @@ class Mesh {
       this.frame.push(g.spineX, g.spineY, g.rootX, g.rootY);
       this.motion.push(g.motion, g.offset, g.gain, g.row);
       this.flutter.push(this.flutterAt);
+      this.wall.push(this.wallCoord);
     }
     return this.count++;
   }
@@ -452,6 +458,56 @@ interface Station {
   left: number;
   right: number;
   seg: number;
+  /** Its segment-wall coordinate (`wallsAlong`): a whole number on each wall between two segments. */
+  wall: number;
+}
+
+/** The wall coordinate off the body: half-way between two walls, so nothing draws one. */
+export const NO_WALL = 0.5;
+
+/**
+ * Where the walls between segments cross the centre line (look pass 3): the arc lengths at which
+ * the segment an ellipse's own measure says a point belongs to steps rearward, where neighbours
+ * overlap. A radial body's chain lies inside its bell, so it has none, nor has a lone cell.
+ */
+export function wallsAlong(plan: BodyPlan, line: Line): number[] {
+  const segs = plan.segments;
+  if (plan.form.radial === 1 || segs.length < 2) return [];
+  const out: number[] = [];
+  let owner = 0;
+  for (let k = 0; k < line.x.length; k++) {
+    const [x, y] = [line.x[k] as number, line.y[k] as number];
+    let best = owner;
+    let near = Number.POSITIVE_INFINITY;
+    for (let i = owner; i < segs.length; i++) {
+      const p = local(segs[i] as PlanSegment, x, y);
+      const r = hypot(p.u, p.v);
+      if (r < near) [near, best] = [r, i];
+    }
+    if (best > owner) {
+      // Only a waist where both segments hold the point draws a wall; a gap or a part buried in its
+      // neighbour does not.
+      const prev = local(segs[best - 1] as PlanSegment, x, y);
+      if (near <= 1 && hypot(prev.u, prev.v) <= 1) out.push(line.at[k] as number);
+      owner = best;
+    }
+  }
+  return out;
+}
+
+/** The wall coordinate at arc length `from`: 0.5 at the front tip, n on the nth wall, half a step past the last at the rear. */
+function wallAt(walls: readonly number[], length: number, from: number): number {
+  const knots = [0, ...walls, length];
+  for (let i = 0; i + 1 < knots.length; i++) {
+    const [a, b] = [knots[i] as number, knots[i + 1] as number];
+    if (from > b && i + 2 < knots.length) continue;
+    const t = b > a ? clamp((from - a) / (b - a), 0, 1) : 0;
+    // Between walls the coordinate runs a whole step; the end spans run half a step.
+    const lo = i === 0 ? NO_WALL : i;
+    const hi = i + 2 === knots.length ? i + NO_WALL : i + 1;
+    return walls.length === 0 ? NO_WALL : lo + (hi - lo) * t;
+  }
+  return NO_WALL;
 }
 
 /**
@@ -461,6 +517,7 @@ interface Station {
  */
 function stations(plan: BodyPlan, line: Line, d: MeshDetail): Station[] {
   const rings = d.bodyRings * plan.segments.length + 1;
+  const walls = wallsAlong(plan, line);
   const out: Station[] = [];
   for (let k = 0; k < rings; k++) {
     const s = ringShare(k, rings);
@@ -478,6 +535,7 @@ function stations(plan: BodyPlan, line: Line, d: MeshDetail): Station[] {
       left: w.left,
       right: w.right,
       seg: w.seg,
+      wall: wallAt(walls, line.length, s * line.length),
     });
   }
   const limit = out.map((st) => ({ left: st.left, right: st.right }));
@@ -507,6 +565,7 @@ function addBody(m: Mesh, plan: BodyPlan, rings: readonly Station[], d: MeshDeta
   const first = m.count;
   for (const st of rings) {
     m.gait = bodyMotion(plan, st);
+    m.wallCoord = st.wall;
     const depth = (BODY_DEPTH * (st.left + st.right)) / 2;
     const plate = plan.plates.find((p) => p.segment === st.seg);
     const mouth = st.from <= mouthReach;
@@ -530,6 +589,7 @@ function addBody(m: Mesh, plan: BodyPlan, rings: readonly Station[], d: MeshDeta
       );
     }
   }
+  m.wallCoord = NO_WALL;
   m.stitch(first, rings.length, ring);
 }
 
@@ -1012,7 +1072,8 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
         min(d.partRing, 6),
       );
     }
-    addBall(m, x, y, e.size, 0, EYE_DEPTH, max(4, d.ball), gait);
+    // Rounder than a bulb (look pass 3): a big dark eye with too few sides reads as a polygon.
+    addBall(m, x, y, e.size, 0, EYE_DEPTH, d.ball > 0 ? d.ball + EYE_SIDES : 4, gait);
   }
 }
 
@@ -1340,8 +1401,8 @@ export function estimateVertices(
 
 /**
  * One indexed geometry for the whole creature, its organs (`anatomyOf`) and rare glints included. Attributes:
- * position, normal, uv, aSpine, aAttach, aWeight, aPart, and the motion's aFrame, aMotion and
- * aFlutter (`gait.ts`).
+ * position, normal, uv, aSpine, aAttach, aWeight, aPart, the motion's aFrame, aMotion and
+ * aFlutter (`gait.ts`), and aWall, the body's segment-wall coordinate (look pass 3).
  */
 export function buildCreatureGeometry(
   plan: BodyPlan,
@@ -1362,6 +1423,7 @@ export function buildCreatureGeometry(
   g.setAttribute('aFrame', new THREE.Float32BufferAttribute(m.frame, 4));
   g.setAttribute('aMotion', new THREE.Float32BufferAttribute(m.motion, 4));
   g.setAttribute('aFlutter', new THREE.Float32BufferAttribute(m.flutter, 1));
+  g.setAttribute('aWall', new THREE.Float32BufferAttribute(m.wall, 1));
   // Normals from the closed surfaces and one side of each sheet; sheets, bristles and glints keep their own.
   g.setIndex([...m.index, ...m.sheets]);
   g.computeVertexNormals();
