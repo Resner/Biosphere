@@ -1073,7 +1073,16 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
       );
     }
     // Rounder than a bulb (look pass 3): a big dark eye with too few sides reads as a polygon.
-    addBall(m, x, y, e.size, 0, EYE_DEPTH, d.ball > EYE_SIDES ? d.ball + EYE_SIDES : d.ball, gait);
+    addBall(
+      m,
+      x,
+      y,
+      e.size,
+      0,
+      EYE_DEPTH,
+      max(EYE_SIDES, d.ball > EYE_SIDES ? d.ball + EYE_SIDES : d.ball),
+      gait,
+    );
   }
 }
 

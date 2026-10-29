@@ -578,6 +578,7 @@ A look pass never starts before the tasks it judges are ticked.
     - **Longer parts** (pass 3 gap 2): antennae and tentacles may reach past 1.5 core radii, sweeping round the body within the bounds, as in 02 and 05.
     - `pass-4.png` and `pass-4.md` are committed with the honest gap table, and the in-game check at 960×540 is repeated. If cells above 1 remain, this task adds `T28c Look pass 5` with the remaining gaps (after pass 5, the owner issue of T28).
   - Notes: pass 3 tried chain width 0.5, 0.6 and 0.65 (from 0.8) and head 0.55 to 0.65: the flagellate was never best, slim bilateral bodies out-turned radial ones, and the wild mode showed 8 classes for only 7 of 10 seeds. Bristle density along legs (gap 3), eyes set into the head (gap 4) and the 04/05 ceiling (gap 5) are the next look gaps after the outline (`pass-3.md`).
+    - Review leftovers from pass 3 to fix while the sheet is re-rendered: the first segment wall draws half-width because the shader multiplies by `step(1.0, vWall)`; `wallsAlong` records one wall per owner change even when the owner skips a segment; `wallsAlong` is recomputed on every ladder rung and could be cached per plan.
 
 - [ ] T29 End-to-end scenario, owner-facing checks, documentation sync
   - Acceptance:
