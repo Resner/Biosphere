@@ -145,7 +145,15 @@ export class EggReveal {
 
   /** The beacon arrived (or a hatch began): the shell cracks, and bursts after the tier's crack time. */
   crack(now: number, options: CrackOptions): void {
-    if (this.phase === 'cracking') return;
+    if (this.phase === 'cracking') {
+      // A hatch that starts mid-crack takes over the burst: the child must grow out of it.
+      if (options.opens && !this.opens) {
+        this.opens = true;
+        this.held = options.hold === true;
+        this.releasedAt = 0;
+      }
+      return;
+    }
     this.enter('cracking');
     this.crackAt = now;
     this.tier = options.tier;
@@ -442,7 +450,7 @@ export interface EggView {
 }
 
 /** Eggs and tethers drawn at once: the player's, 24 peers' and their tethers. */
-export const EGG_CAPACITY = 64;
+export const EGG_CAPACITY = 72;
 /** The quad's half-extent in egg half-heights: room for the halo and for an opened shell's halves. */
 export const EGG_QUAD = 2.4;
 

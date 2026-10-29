@@ -146,6 +146,16 @@ describe('EggReveal', () => {
     expect(reveal.done(10_050 + EGG.burstMs.rare)).toBe(true);
   });
 
+  it('a hatch that starts mid-crack takes over the burst and holds it', () => {
+    const reveal = new EggReveal();
+    reveal.crack(0, { tier: 'rare', opens: false });
+    reveal.crack(100, { tier: 'rare', opens: true, hold: true });
+    expect(reveal.opens).toBe(true);
+    expect(reveal.update(10_000)).toBe(false);
+    reveal.release(10_000);
+    expect(reveal.update(10_000)).toBe(true);
+  });
+
   it('a release before the crack time still waits for it', () => {
     const reveal = new EggReveal();
     reveal.crack(0, { tier: 'common', opens: true, hold: true });

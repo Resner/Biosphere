@@ -93,6 +93,7 @@ export class EggShow {
   private frozen = false;
   /** The child of the last reveal, so a reveal plays once per child. */
   private revealedFor: string | null = null;
+  private readonly ownParent: TetherParent = { x: 0, y: 0, heading: 0, radius: 1 };
   private readonly own = new EggTether();
   private readonly ownPose = emptyPose();
   private readonly ownView = newView(this.ownPose, OWN_SEED);
@@ -193,6 +194,7 @@ export class EggShow {
   /** The parent a hatch left where it stood: it dissolves over `GHOST_MS`. */
   leave(parent: Ghost, now: number): void {
     this.ghost = { ...parent };
+    this.ghostView.id = `ghost:${parent.body.hash}`;
     this.ghostAt = now;
   }
 
@@ -206,7 +208,6 @@ export class EggShow {
       return null;
     }
     const v = this.ghostView;
-    v.id = `ghost:${ghost.body.hash}`;
     v.x = ghost.x;
     v.y = ghost.y;
     v.heading = ghost.heading;
@@ -277,7 +278,13 @@ export class EggShow {
     view.y = this.own.y;
     view.radius = radius;
     view.heading = Math.atan2(view.y - self.y, view.x - self.x);
-    view.parent = self;
+    // A copy: a frozen hatch keeps the tether where it was while the live parent moves on.
+    const parent = this.ownParent;
+    parent.x = self.x;
+    parent.y = self.y;
+    parent.heading = self.heading;
+    parent.radius = self.radius;
+    view.parent = parent;
     return true;
   }
 

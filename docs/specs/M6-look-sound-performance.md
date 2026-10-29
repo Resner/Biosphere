@@ -453,7 +453,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: snapshot v3 / protocol 4 carry ready (4) and egg (8, set from the pending child; T20 draws it); DOM HUD in `game/indicators.ts` and `game/pond-map.ts` (not `render/`: they are HTML, not three.js); overlapping indicators slide apart along the edge; `m6-find` hub on 8797.
   - Gotcha: "view radius" is centre-to-corner; indicators overlap the left HUD and top-right roster text, so labels sit on a dark plate (T21 may move them clear).
 
-- [x] T20 The egg: beacon reveal, carried egg, hatch [opus] (in progress)
+- [x] T20 The egg: beacon reveal, carried egg, hatch [opus]
   - Acceptance:
     - **The reveal**: while a genesis or a mating waits for its beacon, an egg appears over the creature or beside the parent.
       - It wiggles with rising frequency and glow (the owner's Pokéball moment). On the beacon it cracks and bursts, and the card slides in.
