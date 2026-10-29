@@ -850,11 +850,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           return;
         }
         if (key === 'm' || key === 'M') pondMap.toggle();
-        if (mate.view().state === 'invited') {
+        if (key === 'Escape' && pondMap.isOpen) {
+          pondMap.close();
+        } else if (mate.view().state === 'invited') {
           if (key === 'e' || key === 'E') mate.accept();
           else if (key === 'Escape') mate.decline();
-        } else if (key === 'Escape' && pondMap.isOpen) {
-          pondMap.close();
         } else if (key === 'Escape' && inspected) {
           inspected = null;
         } else if (key === 'Escape') {

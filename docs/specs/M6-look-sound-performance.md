@@ -438,7 +438,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: camera `9 · R^0.9 · (r / R)^0.6` (tripling shows 1.55×); `growth.ts` meter text and `GrowthWatch` cues drive the HUD line, bar and `Effects.growPulse`; maturity now max(7 min, 10% of the lifespan) (ADR 0029), first eligibility 17.4 → 8.7 min.
   - Gotcha: the bot already doubled in 1.4 min and hit 60% in 1.5 min, so the 2–4 and 6–10 min bands became upper bounds (a player is 2–3× slower); `maxRate` stays.
 
-- [x] T19 Finding other players: edge indicators and the pond map [opus] (in progress)
+- [x] T19 Finding other players: edge indicators and the pond map [opus]
   - Acceptance:
     - **Edge indicators**: every pond player outside the view gets an indicator on the screen edge, pointing at them, with the distance in body lengths. The nearest 6 are shown, plus every ping.
       - The shape shows relative size (smaller, comparable, bigger) and a mate-ready mark. Ready is a new snapshot flag bit each client sets for its own creature (mature, out of cooldown, no pending child). It is a hint only; the authority still checks everything at `court`. No `mate-check` polling: the worker's message budget forbids it.
