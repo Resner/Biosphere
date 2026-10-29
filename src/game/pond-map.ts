@@ -7,7 +7,8 @@ import { type Zone, zoneOfDepth } from '../sim/bathymetry';
 import { clamp } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { pick, setText } from './dom';
-import { PINGS, showIcon } from './social-ui';
+import { showIcon } from './icons';
+import { PINGS } from './social-ui';
 
 /** How far an edge texel is lightened, so zones are told apart by a line as well as a colour. */
 const EDGE_LIGHTEN = 0.45;

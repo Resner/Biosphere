@@ -168,3 +168,10 @@ export function makeIcon(name: IconName): SVGSVGElement {
   }
   return template.cloneNode(true) as SVGSVGElement;
 }
+
+/** Puts `icon` in `el` unless it already shows it; null empties it. */
+export function showIcon(el: Element, icon: IconName | null): void {
+  if ((el.firstElementChild?.getAttribute('data-icon') ?? null) === icon) return;
+  if (icon) el.replaceChildren(makeIcon(icon));
+  else el.replaceChildren();
+}

@@ -4,7 +4,7 @@
 
 import type { Member } from '../net/protocol';
 import { pick } from './dom';
-import { type IconName, makeIcon } from './icons';
+import { type IconName, makeIcon, showIcon } from './icons';
 import { type LabelProjection, placeAt, screenX, screenY } from './labels';
 import type { PingCue, Social } from './social';
 
@@ -24,13 +24,6 @@ export const PINGS: readonly { name: IconName }[] = [
   { name: 'food' },
   { name: 'mate' },
 ];
-
-/** Puts `icon` in `el` unless it already shows it; null empties it. */
-export function showIcon(el: Element, icon: IconName | null): void {
-  if ((el.firstElementChild?.getAttribute('data-icon') ?? null) === icon) return;
-  if (icon) el.replaceChildren(makeIcon(icon));
-  else el.replaceChildren();
-}
 
 /** Gap between a cell's edge and the cues above it: room for the name label. */
 const GAP_PX = 30;
@@ -128,8 +121,7 @@ export class SocialUi {
     p: LabelProjection,
   ): void {
     this.drawLog();
-    const armed = this.social.emoteArmed;
-    if (this.strip.hidden === armed) this.strip.hidden = !armed;
+    this.strip.hidden = !this.social.emoteArmed;
     this.drawRoster(others);
     this.drawCues(now, anchors, p);
     this.drawPings(now, p);

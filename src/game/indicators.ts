@@ -5,8 +5,9 @@
 
 import { type SizeClass, sizeClass } from '../sim/size';
 import { setText } from './dom';
+import { showIcon } from './icons';
 import { type LabelProjection, placeAt, screenX, screenY } from './labels';
-import { PINGS, showIcon } from './social-ui';
+import { PINGS } from './social-ui';
 
 /** At most this many players get an indicator: the nearest. Pings come on top. */
 export const MAX_PLAYER_INDICATORS = 6;
