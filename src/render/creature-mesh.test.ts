@@ -28,6 +28,7 @@ import {
   MOTION_BELL,
   MOTION_RIGID,
   meshDetail,
+  NO_WALL,
   ORGAN_KINDS,
   ORGAN_RESERVE,
   PART_APPENDAGE,
@@ -48,9 +49,11 @@ import {
   partId,
   partKind,
   partPoint,
+  wallsAlong,
 } from './creature-mesh';
 import fragmentShader from './shaders/creature.frag.glsl?raw';
 import vertexShader from './shaders/creature.vert.glsl?raw';
+import { centreLine } from './spine';
 import { glintsFor, MAX_GLINTS } from './surface';
 
 const D = RULES.develop;
@@ -935,5 +938,63 @@ describe('lodFor', () => {
     }
     // A preset change takes effect at once, whatever the size.
     expect(lodFor(14, 'medium', 'high')).toBe('medium');
+  });
+});
+
+describe('buildCreatureGeometry: segment walls (look pass 3, M6 T28)', () => {
+  it('puts one wall between each pair of overlapping segments, in order along the body', () => {
+    for (const prefix of ['26-', '27-', '28-', '30-', '07-']) {
+      const p = planOf(specimen(prefix));
+      const line = centreLine(p.segments);
+      const walls = wallsAlong(p, line);
+      expect(walls, prefix).toHaveLength(p.segments.length - 1);
+      for (let k = 0; k < walls.length; k++) {
+        expect(walls[k] as number).toBeGreaterThan(k > 0 ? (walls[k - 1] as number) : 0);
+        expect(walls[k] as number).toBeLessThan(line.length);
+      }
+    }
+  });
+
+  it('gives a lone cell and a radial bell no walls', () => {
+    for (const prefix of ['01-', '21-', '24-', '36-']) {
+      const p = planOf(specimen(prefix));
+      expect(p.segments.length === 1 || p.form.radial === 1).toBe(true);
+      expect(wallsAlong(p, centreLine(p.segments)), prefix).toEqual([]);
+    }
+  });
+
+  it('marks only the body: whole numbers between its ends, and none on any other part', () => {
+    for (const genome of [...gallery.values(), ...randoms.slice(0, 200)]) {
+      const p = planOf(genome);
+      const walls = wallsAlong(p, centreLine(p.segments)).length;
+      for (const lod of LODS) {
+        const g = buildCreatureGeometry(p, lod, anatomyFor(genome));
+        const [wall, part] = [attr(g, 'aWall'), attr(g, 'aPart')];
+        expect(wall.length).toBe(part.length);
+        let lo = Number.POSITIVE_INFINITY;
+        let hi = Number.NEGATIVE_INFINITY;
+        for (let i = 0; i < part.length; i++) {
+          const kind = partKind(part[i] as number);
+          const w = wall[i] as number;
+          if (kind !== PART_BODY && kind !== PART_PLATE && kind !== PART_MOUTH) {
+            expect(w).toBe(NO_WALL);
+            continue;
+          }
+          lo = Math.min(lo, w);
+          hi = Math.max(hi, w);
+        }
+        // The front tip sits half a step before the first wall and the rear half a step past the
+        // last, so the shader's whole numbers fall only on walls.
+        expect(lo).toBeCloseTo(NO_WALL, 9);
+        expect(hi).toBeCloseTo(walls + NO_WALL, 9);
+        g.dispose();
+      }
+    }
+  }, 60_000);
+
+  it('declares the wall coordinate in the vertex shader and draws it in the fragment shader', () => {
+    expect(vertexShader).toMatch(/attribute float aWall;/);
+    expect(vertexShader).toMatch(/vWall = aWall;/);
+    expect(fragmentShader).toMatch(/varying float vWall;/);
   });
 });

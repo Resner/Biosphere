@@ -11,6 +11,8 @@ attribute float aPart;
 attribute vec4 aFrame;
 attribute vec4 aMotion;
 attribute float aFlutter;
+// The body's segment-wall coordinate (look pass 3): a whole number on each wall.
+attribute float aWall;
 
 uniform float uAmp;
 uniform float uPhase;
@@ -28,6 +30,7 @@ varying vec2 vScreen;
 varying vec2 vUnit;
 // Where the vertex lies in the world, for the caustics projected from above (M6 T17).
 varying vec2 vWorld;
+varying float vWall;
 
 const float TAU = 6.28318530718;
 const float SPINE_SWAY = 0.16;
@@ -117,6 +120,7 @@ void main() {
   vNormal = normalize(normalMatrix * n);
   vUv = uv;
   vPart = aPart;
+  vWall = aWall;
   vRest = position.xy;
   vWorld = (modelMatrix * vec4(p, 1.0)).xy;
   gl_Position = projectionMatrix * modelViewMatrix * vec4(p, 1.0);

@@ -171,7 +171,8 @@ describe('offspringPair: viability', () => {
         if (bad.length > 0) expect({ i, bad }).toBeNull();
       }
     }
-  });
+    // About 6.5 s alone, so the default 5 s limit failed under the full suite's load.
+  }, 30_000);
 });
 
 describe('Mendelian shares of the children (mutation off)', () => {
