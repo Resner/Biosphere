@@ -120,9 +120,18 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
       `[data-testid="edge-indicator"][data-kind="ping"][data-id="${idB}"]`,
     );
     await expect(pingEdge).toBeVisible({ timeout: 5_000 });
-    const pinged = (await state(a)).indicators.find((i) => i.kind === 'ping' && i.id === idB);
+    // The indicator points at where the ping landed, seen from where A is in the same snapshot
+    // (A drifts a little on a loaded runner, so a fixed 180° would be a moving target).
+    const seen = await state(a);
+    const pinged = seen.indicators.find((i) => i.kind === 'ping' && i.id === idB);
+    const landed = seen.social.pings.find((p) => p.from === idB);
     expect(pinged).toBeDefined();
-    expect(turn(pinged?.angle ?? 0, 180)).toBeLessThan(10);
+    expect(landed).toBeDefined();
+    if (pinged && landed && seen.player) {
+      const bearing = Math.atan2(landed.y - seen.player.y, landed.x - seen.player.x) * DEG;
+      expect(turn(pinged.angle, bearing)).toBeLessThan(10);
+      expect(landed.x).toBeLessThan(seen.player.x);
+    }
     await a.screenshot({ path: 'test-results/m6-find-ping.png' });
 
     // The pond map lists both players where they are, and the ping.

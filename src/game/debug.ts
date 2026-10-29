@@ -6,6 +6,7 @@ import type {
   CueRenderResult,
 } from '../audio/engine';
 import type { RarityTier } from '../genome/rarity';
+import type { Silhouette } from '../genome/silhouette';
 import type { PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { EggPhase } from '../render/egg';
@@ -57,6 +58,8 @@ export interface BsState {
     /** The body this life hatched with (M3). */
     genomeHash: string;
     species: string;
+    /** The body's silhouette class (M6 T8). */
+    silhouette: Silhouette;
     rarity: RarityTier;
     /** Size tier of the fully grown body. */
     tier: number;
