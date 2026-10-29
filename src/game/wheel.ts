@@ -7,22 +7,23 @@
 
 import { clamp } from '../sim/math';
 import { pick as pickEl, setText } from './dom';
+import { type IconName, makeIcon } from './icons';
 import { EMOTES, PINGS } from './social-ui';
 
 export interface WheelItem {
   kind: 'ping' | 'emote';
   /** The ping kind or the emote id. */
   id: number;
-  name: string;
-  glyph: string;
+  /** Its name, which is also its icon's. */
+  name: IconName;
   /** The number key that picks it while the wheel is open. */
   key: string;
 }
 
 /** The pings on 1–4, then the emotes on 5–0, clockwise from the top. */
 export const WHEEL_ITEMS: readonly WheelItem[] = [
-  ...PINGS.map((p, id) => ({ kind: 'ping' as const, id, name: p.name, glyph: p.glyph })),
-  ...EMOTES.map((e, id) => ({ kind: 'emote' as const, id, name: e.name, glyph: e.glyph })),
+  ...PINGS.map((p, id) => ({ kind: 'ping' as const, id, name: p.name })),
+  ...EMOTES.map((e, id) => ({ kind: 'emote' as const, id, name: e.name })),
 ].map((item, i) => ({ ...item, key: String((i + 1) % 10) }));
 
 /** Sizes in CSS pixels. */
@@ -198,7 +199,7 @@ export class Wheel {
 
 /**
  * The wheel on screen: a layer over the water that takes the pointer only while open (a click
- * anywhere picks by direction or cancels), the ring of items with their glyph, name and key, a
+ * anywhere picks by direction or cancels), the ring of items with their icon, name and key, a
  * hub naming the item under the pointer, and a mark where the ping would land.
  */
 export class WheelUi {
@@ -229,7 +230,7 @@ export class WheelUi {
       button.setAttribute('aria-label', `${item.name} ${item.kind} (${item.key})`);
       const glyph = document.createElement('span');
       glyph.className = 'wheel-glyph';
-      glyph.textContent = item.glyph;
+      glyph.append(makeIcon(item.name));
       const name = document.createElement('span');
       name.className = 'wheel-name';
       name.textContent = item.name;

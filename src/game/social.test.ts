@@ -313,6 +313,18 @@ describe('edges', () => {
     expect(sent).toEqual([{ t: 'emote', id: 5 }]);
   });
 
+  it('says while T waits for its number, so chat can show the emote icons', () => {
+    const { social, clock } = setup();
+    expect(social.emoteArmed).toBe(false);
+    social.key('t', 'self');
+    expect(social.emoteArmed).toBe(true);
+    social.key('2', 'self');
+    expect(social.emoteArmed).toBe(false);
+    social.key('t', 'self');
+    clock.now += 3000;
+    expect(social.emoteArmed).toBe(false);
+  });
+
   it('tells a view to redraw after a reset', () => {
     const { social } = setup();
     social.sendChat('hi', 'self');
