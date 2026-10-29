@@ -17,5 +17,5 @@ Look passes 1 to 3 (`docs/art/gallery/pass-3.md`) left every silhouette cell at 
 
 - Segmented specimens read long on the sheet and in play (look pass 4); the median trunk segment of the silhouette specimens is 0.38 core radii as drawn (ADR 0028's test asked for 0.5, which no 2.5-to-1 trunk inside the bounds can be) and 0.53 in girth.
 - Rules 6 is unreleased, so its plan, stats and tournament goldens are regenerated. Living v1 creatures are untouched.
-- Segment colliders follow the drawn half-width, so they narrow; today they only weigh toxin exposure, and M7's hit shapes must decide whether depth counts.
+- Only the stats model the depth. Segment colliders and the mesh's depth follow the drawn half-width, so they narrow (the mesh draws the body flat, as before); colliders today only weigh toxin exposure, and M7's hit shapes must decide whether the girth counts.
 - Rejected: re-tuning `RULES.stats` around lighter bodies (pass 3 found every archetype test moving at once, and a raised segment cost alone left the coiled body best at seven metrics); narrowing only the widest segments (it flattens the head and trunk profile that the tagma loci set); stretching parts for every gene (it moved every archetype, not only the long-antenna ones).

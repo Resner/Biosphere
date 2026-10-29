@@ -571,7 +571,7 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `pass-3.{png,md}`; render only: segment walls (`aWall`, `wallsAlong`), light scattered inside the rim, clean glass parts, clearer webs, lens eyes, soft chambers, denser glows at play zoom, varied glints; no score moved, 15 cells above 1, so T28b follows.
   - Gotcha: a slimmer v2 chain (width 0.5–0.65, head 0.55–0.65) breaks the archetype, radial-turn and wild-silhouette tests, so it was reverted for T28b; the shader's `px` is half a core radius's pixels.
 
-- [x] T28b Look pass 4 [opus] (in progress)
+- [x] T28b Look pass 4 [opus]
   - Acceptance:
     - **Body proportions v3** for karyotype v2 (rules 6 is unreleased, so its goldens are regenerated, as in ADR 0028; a new ADR amends 0028): a bilateral v2 chain of 3+ segments is at least 2.5 times as long as it is wide (body only, parts excluded), so copepods, shrimps, worms and coils read by outline. The 12 silhouette specimens (21–32) stay 12 distinct `silhouetteOf` classes.
     - **The balance holds** with it: `stats.test.ts` (every archetype best at one metric at some size; a radial body turns better and thrusts worse than its bilateral twin), the archetype tournament, `npm run sim:pacing` and the Lab's wild diversity (8+ classes for 9 of 10 seeds), re-tuned in `RULES.stats` where needed and recorded in DESIGN §6.

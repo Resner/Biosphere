@@ -98,7 +98,8 @@ export interface PlanForm {
   /**
    * The factor every segment's half-width was narrowed by so that a long chain reads long (look
    * pass 4, ADR 0031), else 1. The body is laterally compressed, not thinned: seen from above it is
-   * narrower, but it is 1 ÷ `slim` as deep, so its cross-section, mass and drag hold.
+   * narrower, but stats model it 1 ÷ `slim` as deep, so its cross-section, mass and drag hold (the
+   * colliders and the mesh follow the drawn width).
    */
   slim: number;
 }
