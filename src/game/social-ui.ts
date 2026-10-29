@@ -172,7 +172,6 @@ export class SocialUi {
       const cue = this.cueFor(id);
       const x = screenX(anchor.x, p);
       const y = screenY(anchor.y, p) - anchor.radius * p.pxPerWu - GAP_PX;
-      cue.root.style.transform = placeAt(x, y, 'above');
       const bubble = bubbles.get(id);
       cue.bubble.hidden = !bubble;
       if (bubble) {
@@ -188,6 +187,8 @@ export class SocialUi {
         cue.emote.setAttribute('aria-label', name);
         cue.emote.style.opacity = fade(emote.until - now);
       }
+      // Placed once its content is set: the anchor needs its size.
+      placeAt(cue.root, x, y, 'above');
     }
     for (const [id, cue] of this.byId) {
       if (live.has(id)) continue;
@@ -217,7 +218,7 @@ export class SocialUi {
         this.cues.append(element);
         this.pingEls.set(ping, element);
       }
-      element.style.transform = placeAt(screenX(ping.x, p), screenY(ping.y, p), 'centre');
+      placeAt(element, screenX(ping.x, p), screenY(ping.y, p), 'centre');
       element.style.opacity = fade(ping.until - now);
     }
   }

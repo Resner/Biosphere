@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { sizeClass } from '../sim/size';
 import {
   EDGE_INSET_PX,
   edgeIndicators,
@@ -7,7 +8,6 @@ import {
   lengthsText,
   MAX_PLAYER_INDICATORS,
   SPREAD_PX,
-  sizeClass,
   viewRadius,
 } from './indicators';
 import type { LabelProjection } from './labels';

@@ -50,7 +50,7 @@ const lowQuality = {
 const skipSlow = process.env.E2E_SKIP_SLOW ? { grepInvert: /@slow/ } : {};
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
-const POST = /m6-(post|dof|gallery|creature-mesh)\.spec\.ts/;
+const POST = /m6-(post|dof|gallery|creature-mesh|readable)\.spec\.ts/;
 
 export default defineConfig({
   testDir: 'tests/e2e',

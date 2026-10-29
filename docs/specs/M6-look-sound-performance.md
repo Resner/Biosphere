@@ -473,7 +473,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Readability
 
-- [ ] T21 Readability, crispness and the size outline [opus]
+- [x] T21 Readability, crispness and the size outline [opus]
   - Acceptance:
     - **Crispness** (owner, Playtest v0.2.0: "the cell and UI looked blurry"):
       - the canvas backing size equals CSS size × pixel ratio, with no CSS scaling of the canvas;
@@ -483,6 +483,8 @@ A look pass never starts before the tasks it judges are ticked.
     - **The size outline**: a creature at least one tier bigger than the player gets an outline that differs in shape (a broken ring) and pulse, not only colour. A comparable creature gets none, and a smaller one a faint dot ring. This prepares M7 threats.
     - **Readable parts**: at default zoom, mouths, claws and plates stay recognisable, checked by eye on six gallery bodies at 960×540, with a note in the PR.
   - Notes: the outline follows the game rules: colour is never the only signal.
+  - Done: `render/outlines.ts` (8 pulsing amber dashes for bigger, 16 still dots for smaller, round the body hull; `sizeClass` moved to `sim/size.ts`); labels, cues and indicators measure their box and place on whole pixels, centred HUD notes centre by layout; the mouth is a dark opening with a bright lip, plates a brighter sheen; `m6-readable.spec.ts`.
+  - Gotcha: claws are not recognisable at hatchling zoom (bodies ~50 px; the chela specimens' claws are lost in setae even on the gallery sheet), a gap for look pass 2 (T27); ping and emote glyphs are still text until T25.
 
 ### Sound
 

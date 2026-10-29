@@ -18,10 +18,32 @@ export function screenY(wy: number, p: LabelProjection): number {
   return p.height / 2 - (wy - p.camY) * p.pxPerWu;
 }
 
-/** A CSS transform that puts an absolutely positioned element's anchor point at (x, y). */
-export function placeAt(x: number, y: number, anchor: 'above' | 'centre'): string {
-  const offset = anchor === 'above' ? '-50%, -100%' : '-50%, -50%';
-  return `translate(${Math.round(x)}px, ${Math.round(y)}px) translate(${offset})`;
+export type Anchor = 'above' | 'centre';
+
+/**
+ * A CSS transform that puts the anchor point of a box of `width` × `height` CSS pixels at (x, y):
+ * its bottom centre (`above`) or its centre. Whole pixels only, so text never blurs (M6 T21): a
+ * percentage offset lands on half pixels whenever the box's size is odd.
+ */
+export function anchorTransform(
+  x: number,
+  y: number,
+  width: number,
+  height: number,
+  anchor: Anchor,
+): string {
+  const left = Math.round(x - width / 2);
+  const top = Math.round(anchor === 'above' ? y - height : y - height / 2);
+  return `translate(${left}px, ${top}px)`;
+}
+
+/**
+ * Moves an absolutely positioned element so its anchor point sits at (x, y), on whole pixels. Its
+ * size is read back, which costs a layout only when its content changed since the last read.
+ */
+export function placeAt(element: HTMLElement, x: number, y: number, anchor: Anchor): void {
+  const transform = anchorTransform(x, y, element.offsetWidth, element.offsetHeight, anchor);
+  if (element.style.transform !== transform) element.style.transform = transform;
 }
 
 /** Gap between a cell's edge and its name, in CSS pixels. */
@@ -44,9 +66,9 @@ export class RemoteLabels {
       used++;
       // Names come from other players: text only, never markup.
       if (element.textContent !== remote.name) element.textContent = remote.name;
-      element.style.transform = placeAt(x, y, 'above');
-      element.style.opacity = String(Math.round(remote.alpha * 100) / 100);
       element.hidden = false;
+      placeAt(element, x, y, 'above');
+      element.style.opacity = String(Math.round(remote.alpha * 100) / 100);
     }
     for (let i = used; i < this.elements.length; i++)
       (this.elements[i] as HTMLElement).hidden = true;

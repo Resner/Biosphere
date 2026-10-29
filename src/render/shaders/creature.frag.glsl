@@ -152,14 +152,17 @@ void main() {
     col += uRim * 0.3 * z;
     alpha = max(alpha, 0.5 + 0.3 * fres);
   } else if (kind == 2) {
-    // A plate: denser glass, not an opaque lid, so the organs still show through.
-    col = mix(col, uRim * 0.7 + 0.04, 0.25);
-    alpha = mix(alpha, 1.0, 0.6 * uPlating);
+    // A plate: denser, brighter glass with a sheen across its face, so armour reads at default zoom
+    // (M6 T21), but not an opaque lid: the organs still show through.
+    col = mix(col, uRim * (0.75 + 0.35 * z) + 0.06, 0.45) + vec3(spec * 1.5);
+    alpha = mix(alpha, 1.0, 0.75 * uPlating);
   } else if (kind == 3) {
-    // The mouth: a warm, denser lip, brightest at its edge, so it reads at default zoom without
-    // filling the front of the body with an opaque cap (look pass 1).
-    col = mix(col, vec3(0.95, 0.82, 0.78), 0.35 + 0.45 * fres) + 0.03;
-    alpha = max(alpha, 0.7 + 0.3 * fres);
+    // The mouth: a dark opening ringed by a bright lip, so it reads at default zoom as a mouth, not
+    // as a pale cap on the front of the body (look pass 1, M6 T21). The lip stays near white: colour
+    // lives inside (T12), and a tinted rim would compete with the organs.
+    float lip = smoothstep(0.06, 0.4, fres);
+    col = mix(vec3(0.03, 0.02, 0.025), vec3(1.0, 0.95, 0.9) * 1.3, lip);
+    alpha = mix(0.8, 1.0, lip);
   } else if (kind == 4) {
     // The carapace: clear glass over the body, a bright rim, a little denser with plating.
     col = uRim * (0.3 + 1.5 * fres + 0.6 * back) + uCore * 0.15;
