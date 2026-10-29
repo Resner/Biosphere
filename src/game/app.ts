@@ -99,6 +99,7 @@ import { SettingsPanel } from './settings-panel';
 import { MuteList, Social } from './social';
 import { type Anchor, SocialUi } from './social-ui';
 import { CueWatch, nearestHazard } from './sound-cues';
+import { Wheel, WheelUi } from './wheel';
 import { zoneReadout } from './zone-readout';
 
 export interface GameParams {
@@ -626,11 +627,21 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       if (r) sound.cue('emote', { x: r.x, y: r.y });
     },
   });
+  // The quick social wheel (M6 T24): G picks a ping or an emote on purpose.
+  const wheel = new Wheel(({ item, world }) => {
+    if (item.kind === 'ping') social.ping(world, selfKey(), item.id);
+    else social.sendEmote(item.id, selfKey());
+  });
+  const wheelUi = new WheelUi(wheel);
+  window.addEventListener('blur', () => wheel.cancel());
   const socialUi = new SocialUi(social, {
     submit: (text) => social.sendChat(text, selfKey()),
     typing: (on) => {
       controller.typing = on;
-      if (on) controller.reset();
+      if (on) {
+        controller.reset();
+        wheel.cancel();
+      }
     },
   });
   const worldAt = (px: number, py: number): Vec2 => ({
@@ -913,7 +924,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     window.addEventListener('pageshow', () => keeper.resume());
   }
   // Enter hatches from the title and death screens (Space stays the dash key).
-  // Enter opens the chat input while playing. T then 1-6, G and the middle button are social keys.
+  // Enter opens the chat input while playing. G (the wheel), T then 1-6 and the middle button are
+  // social keys.
   controller.attach(
     window,
     document,
@@ -937,6 +949,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           return;
         }
         if (!playing()) return;
+        // While the wheel is open, Esc and the numbers are its own.
+        if (wheel.isOpen && key === 'Escape') {
+          wheel.cancel();
+          return;
+        }
+        if (wheel.pick(key)) return;
+        if (key === 'g' || key === 'G') {
+          const at = controller.pointerAt() ?? { x: scene.width / 2, y: scene.height / 2 };
+          const view = { width: scene.width, height: scene.height };
+          wheel.press(at, worldAt(at.x, at.y), view, performance.now());
+          return;
+        }
         if ((key === 'h' || key === 'H') && offspring.child()) {
           become('child');
           return;
@@ -954,11 +978,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         } else if ((key === 'e' || key === 'E') && nearby) {
           mate.court(nearby.id);
         }
-        const at = controller.pointerAt();
-        social.key(key, selfKey(), at && worldAt(at.x, at.y));
+        social.key(key, selfKey());
       },
+      keyUp: (key) => {
+        if (key === 'g' || key === 'G') wheel.release(controller.pointerAt(), performance.now());
+      },
+      // A quick "look" ping.
       middle: (x, y) => {
-        if (playing()) social.ping(worldAt(x, y), selfKey());
+        if (playing()) social.ping(worldAt(x, y), selfKey(), 0);
       },
     },
   );
@@ -974,11 +1001,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       const dy = steering.target.y - player.y;
       return { steer: angleToSteer(atan2(dy, dx)), throttle: MAX_THROTTLE, dash: false };
     }
-    return controller.sample(
+    const sampled = controller.sample(
       { x: scene.width / 2, y: scene.height / 2 },
       scene.pxPerWu,
       Math.sqrt(player.biomass),
     );
+    // The cursor is choosing on the social wheel: steering pauses while it is open (M6 T24).
+    return wheel.isOpen ? IDLE : sampled;
   };
 
   const settleSteering = (events: StepEvent[]): void => {
@@ -1571,6 +1600,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         pings: social.pings(),
       });
     }
+    if (!finding) wheel.cancel();
+    wheelUi.update(wheel.isOpen ? controller.pointerAt() : null);
     if (screen === 'playing') {
       anchors.clear();
       anchors.set(selfKey(), { x: cell.x, y: cell.y, radius: cell.radius });
@@ -1866,6 +1897,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         dropped: social.dropped,
       },
       indicators: indicators.map((i) => ({ ...i })),
+      wheel: wheel.info(),
       map: pondMap.info(),
       net: {
         text: shownStatus,

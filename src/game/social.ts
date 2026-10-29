@@ -146,7 +146,6 @@ export class Social {
   private readonly pingList: PingCue[] = [];
   private readonly mine = makeLimits();
   private readonly theirs = new Map<string, Limits>();
-  private nextPing = 0;
   private armedUntil = -1;
 
   constructor(private readonly opts: SocialOptions) {
@@ -215,27 +214,24 @@ export class Social {
     return true;
   }
 
-  /** Marks a world position; each ping placed moves on to the next of the four kinds. */
-  ping(at: { x: number; y: number }, self: string): boolean {
+  /** Marks a world position with a ping of the kind chosen (look, danger, food, mate). */
+  ping(at: { x: number; y: number }, self: string, kind: number): boolean {
+    if (!Number.isInteger(kind) || kind < 0 || kind >= PING_KINDS) return false;
     const now = this.opts.now();
     if (this.worldSize !== undefined && !inside(at.x, at.y, this.worldSize)) return false;
     if (!this.mine.ping.allow(now)) return false;
-    const kind = this.nextPing;
-    this.nextPing = (kind + 1) % PING_KINDS;
     this.opts.send({ t: 'ping', kind, x: at.x, y: at.y });
     this.pingList.push({ from: self, kind, x: at.x, y: at.y, until: now + PING_MS });
     this.opts.heard?.({ kind: 'ping', from: self, at: { x: at.x, y: at.y } });
     return true;
   }
 
-  /** A pressed key: `T` then 1–6 is an emote, `G` pings at the cursor (world units, or null). */
-  key(key: string, self: string, cursor: { x: number; y: number } | null): void {
+  /** A pressed key: `T` then 1–6 is an emote (the chat users' shortcut; `G` is the wheel's). */
+  key(key: string, self: string): void {
     const now = this.opts.now();
     const k = key.toLowerCase();
     if (k === 't') {
       this.armedUntil = now + EMOTE_ARM_MS;
-    } else if (k === 'g') {
-      if (cursor) this.ping(cursor, self);
     } else if (/^[1-9]$/.test(k) && Number(k) <= EMOTE_COUNT && now < this.armedUntil) {
       this.armedUntil = -1;
       this.sendEmote(Number(k) - 1, self);

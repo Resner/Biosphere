@@ -502,6 +502,146 @@ body {
   }
 }
 
+/* The social wheel (M6 T24): a ring of pings (round) and emotes (rounded squares) around the
+   cursor. It takes the pointer only while open: a click anywhere picks by direction or cancels. */
+.wheel {
+  position: fixed;
+  inset: 0;
+  z-index: 16;
+  overflow: hidden;
+  cursor: default;
+  user-select: none;
+}
+
+.wheel[hidden] {
+  display: none;
+}
+
+.wheel-ring {
+  position: absolute;
+  left: 0;
+  top: 0;
+}
+
+.wheel-ring::before {
+  position: absolute;
+  left: -112px;
+  top: -112px;
+  width: 224px;
+  height: 224px;
+  border: 1px solid rgb(227 244 240 / 0.14);
+  border-radius: 50%;
+  content: "";
+  pointer-events: none;
+}
+
+.wheel-hub {
+  position: absolute;
+  left: -36px;
+  top: -36px;
+  display: grid;
+  place-items: center;
+  width: 72px;
+  height: 72px;
+  box-sizing: border-box;
+  padding: 0 6px;
+  border: 1px dashed rgb(227 244 240 / 0.45);
+  border-radius: 50%;
+  background: rgb(4 14 24 / 0.72);
+  color: var(--muted);
+  font-size: 0.66rem;
+  line-height: 1.15;
+  text-align: center;
+}
+
+.wheel-item {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  grid-template-rows: auto auto;
+  place-content: center;
+  justify-items: center;
+  gap: 1px;
+  width: 56px;
+  height: 56px;
+  padding: 0;
+  border: 1.5px solid rgb(227 244 240 / 0.7);
+  border-radius: 50%;
+  background: rgb(4 14 24 / 0.82);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+  box-shadow: 0 0 6px rgb(160 230 220 / 0.18);
+}
+
+.wheel-item[data-kind="emote"] {
+  border-radius: 14px;
+}
+
+/* Ping kinds keep the ring styles of the ping marks, so the wheel teaches them. */
+.wheel-item[data-kind="ping"][data-id="1"] {
+  border-style: dashed;
+}
+
+.wheel-item[data-kind="ping"][data-id="2"] {
+  border-style: dotted;
+  border-width: 2px;
+}
+
+.wheel-item[data-kind="ping"][data-id="3"] {
+  border-style: double;
+  border-width: 3px;
+}
+
+.wheel-item[data-lit="true"] {
+  border-color: #fff;
+  background: rgb(18 52 64 / 0.92);
+  box-shadow: 0 0 14px rgb(170 240 230 / 0.6);
+}
+
+.wheel-glyph {
+  font-size: 1.2rem;
+  line-height: 1;
+  text-shadow: 0 0 5px rgb(170 240 230 / 0.55);
+}
+
+.wheel-name {
+  font-size: 0.6rem;
+  line-height: 1;
+  letter-spacing: 0.02em;
+}
+
+.wheel-key {
+  position: absolute;
+  right: -5px;
+  top: -5px;
+  display: grid;
+  place-items: center;
+  width: 17px;
+  height: 17px;
+  border: 1px solid rgb(227 244 240 / 0.55);
+  border-radius: 50%;
+  background: rgb(2 8 10 / 0.95);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.6rem;
+  line-height: 1;
+}
+
+/* Where a ping would land: the cursor as the wheel opened (the ring moves in from the edges). */
+.wheel-target {
+  position: absolute;
+  left: -7px;
+  top: -7px;
+  width: 14px;
+  height: 14px;
+  box-sizing: border-box;
+  border: 1.5px solid var(--text);
+  border-radius: 50%;
+  pointer-events: none;
+}
+
 /* Edge indicators (M6 T19): an arrow on the screen's edge for each player off screen, its shape
    by size, a heart when they could mate, and a ring for a nearby ping. Text is always there too. */
 .edge-indicators {

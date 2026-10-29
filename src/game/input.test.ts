@@ -220,9 +220,11 @@ describe('InputController social hooks', () => {
     const win = new EventTarget();
     const controller = new InputController();
     const keys: string[] = [];
+    const ups: string[] = [];
     const middles: number[][] = [];
     controller.attach(win as unknown as Window, undefined, undefined, {
       key: (k) => keys.push(k),
+      keyUp: (k) => ups.push(k),
       middle: (x, y) => middles.push([x, y]),
     });
     const key = (type: 'keydown' | 'keyup', k: string, repeat = false) => {
@@ -238,8 +240,17 @@ describe('InputController social hooks', () => {
           clientY: y,
         }),
       );
-    return { controller, key, keys, middles, pointer, win };
+    return { controller, key, keys, middles, pointer, ups, win };
   };
+
+  it('reports key releases (the wheel sends on releasing G), but not while typing', () => {
+    const { controller, key, ups } = setup();
+    key('keydown', 'g');
+    key('keyup', 'g');
+    controller.typing = true;
+    key('keyup', 'x');
+    expect(ups).toEqual(['g']);
+  });
 
   it('reports fresh key presses, not repeats', () => {
     const { key, keys } = setup();

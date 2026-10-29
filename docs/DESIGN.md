@@ -63,7 +63,8 @@ Death is common and never total: you fall back to your pending offspring or your
 | Stance (M7, in combat) | HUD buttons | 1 aggressive, 2 balanced, 3 evasive |
 | Target (M7, 3+ participants) | click | Tab cycles |
 | Brace (M7, in combat) | right button | Shift |
-| Chat, emote, ping (M2) | ping: middle button | Enter, T then 1–6, G |
+| Chat (M2) | — | Enter |
+| Ping or emote (M6 wheel) | pick on the wheel (release over an item or click it); middle button: a quick look ping | G opens the wheel at the cursor, then 1–0 or release over an item; Esc cancels; T then 1–6 still emotes |
 | Pond map (M6) | — | M (M or Esc closes it; steering carries on under it) |
 | Menu | — | Esc |
 
@@ -290,6 +291,7 @@ Death is common and never total: you fall back to your pending offspring or your
 - **Display names**: 3–16 characters from `A–Z a–z 0–9 _ -`, also filtered.
 - **Emotes** (6): wave, happy, love, angry, scared, question.
 - **Pings** (4, lasting 4 s, at most 1 per second): look, danger, food, mate.
+- **The social wheel (M6 T24, `src/game/wheel.ts`)**: `G` opens a ring of 10 items around the cursor, clockwise from the top: the pings on 1–4 (look, danger, food, mate) and the emotes on 5–0 (wave, happy, love, angry, scared, question). Each item is a 56 px target (pings round, emotes rounded squares) with its glyph, name and key; the ring's centre is 112 px from each item and moves in from the screen's edges so the whole ring shows. Holding `G` and releasing over an item sends it, as does a click; a number picks directly while it is open. Esc, a second `G`, a click in the centre or far outside, or releasing in the centre after holding `G` for 250 ms cancels (a quicker tap leaves it open). Items are picked by direction from the centre (from 36 to 168 px out), so the wheel can take a touch hold later, and hovering only highlights. A ping lands on the world point the cursor showed when the wheel opened; an emote shows over your creature. Steering pauses while the wheel is open; other keys keep working. The middle button still sends a quick look ping, and `T` then 1–6 an emote, for chat users.
 - **Finding players (M6 T19, `src/game/indicators.ts`, `src/game/pond-map.ts`)**: every pond player with no part on screen gets an arrow on the screen's edge (44 px in), pointing at them, with their name and the distance in your body lengths; the nearest 6 are shown, and indicators that would overlap slide apart along the edge. The arrow's shape gives their size by tier (an open chevron smaller, a solid head comparable, a doubled head bigger, also written out; on screen, the size outline of §10 does the same), and a heart and the word "ready" mark a player whose snapshot says it could mate (mature, rested, no pending child: a hint only, the authority checks everything at `court`). A ping off screen within 2 view radii (the view's centre-to-corner distance) shows as a ring with its kind on the edge for its lifetime. The pond map (`M`) shows the pond's bounds and depth zones (darker with depth, outlined and named in a legend), you as a ring, other players as dots or hearts with their names, and live pings. Positions come from the pond snapshots, so finding costs no hub traffic.
 - **Mute** a player locally.
 

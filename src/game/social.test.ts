@@ -198,27 +198,33 @@ describe('emotes', () => {
 });
 
 describe('pings', () => {
-  it('cycles the kind on each ping placed and shows it for 4 s', () => {
+  it('sends the kind chosen (M6 T24: the wheel picks it) and shows it for 4 s', () => {
     const { social, sent, clock } = setup();
-    const kinds: number[] = [];
-    for (let i = 0; i < 5; i++) {
+    for (const [i, kind] of [2, 0, 3, 1].entries()) {
       clock.now = i * 1000;
-      social.ping({ x: 10, y: 20 }, 'self');
-      kinds.push((sent.at(-1) as { kind: number }).kind);
+      expect(social.ping({ x: 10, y: 20 }, 'self', kind)).toBe(true);
     }
-    expect(kinds).toEqual([0, 1, 2, 3, 0]);
-    // The first ping (placed at 0) is gone at 4000; the four later ones are still up.
+    expect(sent.map((e) => (e as { kind: number }).kind)).toEqual([2, 0, 3, 1]);
+    // The first ping (placed at 0) is gone at 4000; the three later ones are still up.
     clock.now = 4000;
-    expect(social.pings().map((p) => p.kind)).toEqual([1, 2, 3, 0]);
+    expect(social.pings().map((p) => p.kind)).toEqual([0, 3, 1]);
   });
 
-  it('allows one per second and does not advance the kind when refused', () => {
+  it('refuses a kind that is not one of the four', () => {
+    const { social, sent } = setup();
+    expect(social.ping({ x: 1, y: 2 }, 'self', 4)).toBe(false);
+    expect(social.ping({ x: 1, y: 2 }, 'self', -1)).toBe(false);
+    expect(social.ping({ x: 1, y: 2 }, 'self', 1.5)).toBe(false);
+    expect(sent).toHaveLength(0);
+  });
+
+  it('allows one per second', () => {
     const { social, sent, clock } = setup();
-    expect(social.ping({ x: 1, y: 2 }, 'self')).toBe(true);
+    expect(social.ping({ x: 1, y: 2 }, 'self', 0)).toBe(true);
     clock.now = 500;
-    expect(social.ping({ x: 1, y: 2 }, 'self')).toBe(false);
+    expect(social.ping({ x: 1, y: 2 }, 'self', 1)).toBe(false);
     clock.now = 1000;
-    social.ping({ x: 1, y: 2 }, 'self');
+    social.ping({ x: 1, y: 2 }, 'self', 1);
     expect(sent.map((e) => (e as { kind: number }).kind)).toEqual([0, 1]);
   });
 
@@ -244,31 +250,30 @@ describe('pings', () => {
 describe('hotkeys', () => {
   it('T then 1-6 sends an emote; a lone number does nothing', () => {
     const { social, sent, clock } = setup();
-    social.key('3', 'self', null);
+    social.key('3', 'self');
     expect(sent).toHaveLength(0);
-    social.key('t', 'self', null);
-    social.key('3', 'self', null);
+    social.key('t', 'self');
+    social.key('3', 'self');
     expect(sent).toEqual([{ t: 'emote', id: 2 }]);
     // T is spent: the next number needs another T.
     clock.now = 2000;
-    social.key('4', 'self', null);
+    social.key('4', 'self');
     expect(sent).toHaveLength(1);
   });
 
   it('forgets a T after 3 s', () => {
     const { social, sent, clock } = setup();
-    social.key('t', 'self', null);
+    social.key('t', 'self');
     clock.now = 3001;
-    social.key('2', 'self', null);
+    social.key('2', 'self');
     expect(sent).toHaveLength(0);
   });
 
-  it('G pings at the cursor, and does nothing without one', () => {
+  it('leaves G to the wheel (M6 T24): it sends nothing by itself', () => {
     const { social, sent } = setup();
-    social.key('g', 'self', null);
+    social.key('g', 'self');
+    social.key('G', 'self');
     expect(sent).toHaveLength(0);
-    social.key('G', 'self', { x: 5, y: 6 });
-    expect(sent).toEqual([{ t: 'ping', kind: 0, x: 5, y: 6 }]);
   });
 });
 
@@ -294,17 +299,17 @@ describe('mute clears what is showing', () => {
 describe('edges', () => {
   it('refuses to ping outside the world, as peers would drop it', () => {
     const { social, sent } = setup({ worldSize: 1000 });
-    expect(social.ping({ x: -5, y: 10 }, 'self')).toBe(false);
-    expect(social.ping({ x: 10, y: 10 }, 'self')).toBe(true);
+    expect(social.ping({ x: -5, y: 10 }, 'self', 0)).toBe(false);
+    expect(social.ping({ x: 10, y: 10 }, 'self', 0)).toBe(true);
     expect(sent).toHaveLength(1);
   });
 
   it('keeps T armed through a number that is not an emote', () => {
     const { social, sent } = setup();
-    social.key('t', 'self', null);
-    social.key('7', 'self', null);
+    social.key('t', 'self');
+    social.key('7', 'self');
     expect(sent).toHaveLength(0);
-    social.key('6', 'self', null);
+    social.key('6', 'self');
     expect(sent).toEqual([{ t: 'emote', id: 5 }]);
   });
 
@@ -338,7 +343,7 @@ describe('heard (M6 T23)', () => {
     social.receive('alice', { t: 'ping', kind: 2, x: 30, y: 40 });
     social.sendChat('hello', 'self');
     social.sendEmote(0, 'self');
-    social.ping({ x: 5, y: 6 }, 'self');
+    social.ping({ x: 5, y: 6 }, 'self', 0);
     expect(heard).toEqual([
       { kind: 'chat', from: 'alice', at: null },
       { kind: 'emote', from: 'alice', at: null },
@@ -352,7 +357,7 @@ describe('heard (M6 T23)', () => {
     social.toggleMute('bob');
     social.receive('bob', { t: 'emote', id: 1 });
     social.receive('alice', { t: 'chat', text: '   ' });
-    social.ping({ x: 5, y: 6 }, 'self');
+    social.ping({ x: 5, y: 6 }, 'self', 0);
     clock.now = 10;
     expect(heard).toHaveLength(5);
   });

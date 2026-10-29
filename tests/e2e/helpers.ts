@@ -130,6 +130,9 @@ export const M6_FIND_HUB = 'http://localhost:8797';
 /** The M6 authority for the egg spec, with the M5 hooks (short lives, maturity in seconds), alone in its pond. */
 export const M6_EGG_HUB = 'http://localhost:8798';
 
+/** The M6 authority for the social wheel spec, alone in its pond. */
+export const M6_WHEEL_HUB = 'http://localhost:8799';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
