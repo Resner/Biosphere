@@ -502,13 +502,15 @@ A look pass never starts before the tasks it judges are ticked.
   - Done: `src/audio/` (`engine.ts` `GameSound`/`AudioGraph`, `ambience.ts`, `voices.ts`; cue patches are a table T23 fills); settings gain `volume`, `muted`, `reducedMotion` (null follows the system); `__bs.audio.render` and `state().audio`.
   - Gotcha: Chromium sums a node's inputs in a run-dependent order, so every ambience mix point takes at most two inputs (float addition only commutes for two); "camera effects" today are the exotic burst's slow motion and rings (there is no camera shake).
 
-- [ ] T23 Event sounds for every cue [opus]
+- [x] T23 Event sounds for every cue [opus]
   - Acceptance:
     - Every row of DESIGN §10 has its sound: eat, hurt, low energy, hazard near, dash, death, old age, court, mate, hatch and reveal (T20), growth and tier (T18), ping, emote, chat, UV and pressure (T15). Death causes each play the death tone, so a death is never silent.
     - Positional cues (another player's emote or ping) pan by screen position and fall off with distance.
     - Render checks (Chromium, `OfflineAudioContext`): each cue renders non-silent and below clipping, and its length is pinned (eat ≤ 0.25 s, death 1–2 s).
     - E2E: `state().audio.cues` counts `eat` after eating, `hurt` in a plume, `death` on dying, `ping` when a peer pings, `reveal` on a beacon. A starved death plays `death`.
   - Notes: update DESIGN §10's audio column with the shipped sounds in words.
+  - Done: `audio/cues.ts` (`CUE_SOUNDS` patch table, `placeCue`), `game/sound-cues.ts` (`CueWatch`: repeat gaps, low-energy and plume edges, one death tone per life), `Social`'s `heard`; `__bs.audio.renderCue`, `state().audio.placed`; `m6-cues.spec.ts`.
+  - Gotcha: the limiter starts clamped, so offline cue renders start 0.5 s in; an envelope gain must start at 0, not its default 1, or a noise layer clicks at its first sample.
 
 ### Social (#89)
 

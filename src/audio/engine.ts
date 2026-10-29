@@ -6,29 +6,21 @@
 
 import type { Zone } from '../sim/bathymetry';
 import { AMBIENCE, Ambience, type AmbienceParams, ambienceParams } from './ambience';
+import {
+  CUE_PATCHES,
+  CUE_SOUNDS,
+  type Cue,
+  type Listener,
+  type Placement,
+  placeCue,
+  type Voice,
+} from './cues';
 import { VoicePool } from './voices';
 
-export type Cue =
-  | 'eat'
-  | 'hurt'
-  | 'low-energy'
-  | 'hazard-near'
-  | 'dash'
-  | 'death'
-  | 'old-age'
-  | 'court'
-  | 'mate'
-  | 'hatch'
-  | 'reveal'
-  | 'grow'
-  | 'tier'
-  | 'ping'
-  | 'emote'
-  | 'chat'
-  | 'uv'
-  | 'pressure';
+export type { Cue, Placement, Voice } from './cues';
 
 export interface Sound {
+  /** Plays a cue; `at` (world units) places it on screen: panned by side, quieter far away. */
   cue(c: Cue, at?: { x: number; y: number }): void;
   setZone(z: Zone, depth: number): void;
   setVolume(v: number): void;
@@ -36,13 +28,7 @@ export interface Sound {
   dispose(): void;
 }
 
-/** A sounding cue: when it ends on the audio clock, and how to cut it short. */
-export interface Voice {
-  end: number;
-  stop(at: number): void;
-}
-
-/** Plays one cue into `out` at `when`; T23 supplies one per cue. */
+/** Plays one cue into `out` at `when` (`CUE_PATCHES` in `cues.ts`). */
 export type CuePatch = (ctx: BaseAudioContext, out: AudioNode, when: number) => Voice;
 
 /** The limiter after the master gain: a fast, hard compressor just under full scale. */
@@ -113,6 +99,7 @@ export interface GraphOptions {
   seed: number;
   volume: number;
   muted: boolean;
+  /** Defaults to `CUE_PATCHES`. */
   patches?: Partial<Record<Cue, CuePatch>>;
 }
 
@@ -124,6 +111,8 @@ export class AudioGraph {
   private readonly ambience: Ambience;
   private readonly pool = new VoicePool();
   private readonly voices = new Map<number, Voice>();
+  /** The pan and gain of placed voices, let go once their voice has ended. */
+  private readonly placings: { end: number; nodes: AudioNode[] }[] = [];
   private readonly patches: Partial<Record<Cue, CuePatch>>;
   private volume: number;
   private muted: boolean;
@@ -135,7 +124,7 @@ export class AudioGraph {
   ) {
     this.volume = options.volume;
     this.muted = options.muted;
-    this.patches = options.patches ?? {};
+    this.patches = options.patches ?? CUE_PATCHES;
     this.limiter = ctx.createDynamicsCompressor();
     this.limiter.threshold.value = LIMITER.threshold;
     this.limiter.knee.value = LIMITER.knee;
@@ -169,12 +158,31 @@ export class AudioGraph {
     return this.pool.active(undefined, this.ctx.currentTime);
   }
 
-  /** Plays a cue if it has a patch (T23 adds them), within the polyphony caps. */
-  cue(c: Cue): void {
+  /** Plays a cue if it has a patch, within the polyphony caps; `place` pans and quietens it. */
+  cue(c: Cue, place?: Placement): void {
     const patch = this.patches[c];
     if (!patch) return;
     const now = this.ctx.currentTime;
-    const voice = patch(this.ctx, this.cues, now);
+    for (let i = this.placings.length - 1; i >= 0; i--) {
+      const p = this.placings[i] as { end: number; nodes: AudioNode[] };
+      if (p.end + STEAL_SECONDS < now) {
+        for (const n of p.nodes) n.disconnect();
+        this.placings.splice(i, 1);
+      }
+    }
+    let out: AudioNode = this.cues;
+    let placing: AudioNode[] | null = null;
+    if (place) {
+      const gain = this.ctx.createGain();
+      gain.gain.value = place.gain;
+      const panner = this.ctx.createStereoPanner();
+      panner.pan.value = place.pan;
+      gain.connect(panner).connect(this.cues);
+      out = gain;
+      placing = [gain, panner];
+    }
+    const voice = patch(this.ctx, out, now);
+    if (placing) this.placings.push({ end: voice.end, nodes: placing });
     const { id, stolen } = this.pool.acquire(c, now, voice.end);
     for (const old of stolen) {
       this.voices.get(old)?.stop(now + STEAL_SECONDS);
@@ -239,6 +247,8 @@ export interface AudioView {
   ambience: AmbienceParams | null;
   /** Cue voices sounding now. */
   voices: number;
+  /** The last placed cue (a peer's ping or emote, a plume): its pan and gain; null before one. */
+  placed: ({ cue: Cue } & Placement) | null;
 }
 
 export interface GameSoundOptions {
@@ -272,6 +282,8 @@ export class GameSound implements Sound {
   private volume: number;
   private muted: boolean;
   private zone: { zone: Zone; depth: number } | null = null;
+  private listener: Listener = { x: 0, y: 0, halfWidth: 1 };
+  private placed: ({ cue: Cue } & Placement) | null = null;
   private hidden = false;
   private readonly detach: (() => void)[] = [];
 
@@ -321,14 +333,24 @@ export class GameSound implements Sound {
     else void this.ctx.resume().catch(() => {});
   }
 
-  cue(c: Cue, _at?: { x: number; y: number }): void {
+  cue(c: Cue, at?: { x: number; y: number }): void {
     this.counts[c] = (this.counts[c] ?? 0) + 1;
-    if (!this.muted && this.ctx?.state === 'running') this.graph?.cue(c);
+    const place = at ? placeCue(at, this.listener) : undefined;
+    if (place) this.placed = { cue: c, ...place };
+    if (!this.muted && this.ctx?.state === 'running') this.graph?.cue(c, place);
+  }
+
+  /** Where the player hears from: the camera's centre and the visible half-width (world units). */
+  setListener(x: number, y: number, halfWidth: number): void {
+    this.listener.x = x;
+    this.listener.y = y;
+    this.listener.halfWidth = halfWidth;
   }
 
   /** Clears the cue counts (a new hatch). */
   resetCues(): void {
     this.counts = {};
+    this.placed = null;
   }
 
   setZone(zone: Zone, depth: number): void {
@@ -359,6 +381,7 @@ export class GameSound implements Sound {
       zone: this.graph?.zone ?? null,
       ambience: this.graph?.params ? { ...this.graph.params } : null,
       voices: this.graph?.activeVoices() ?? 0,
+      placed: this.placed ? { ...this.placed } : null,
     };
   }
 
@@ -386,6 +409,77 @@ export interface AudioRenderOptions {
 export interface AudioRenderResult extends Measure {
   hash: string;
   length: number;
+}
+
+/** One cue rendered alone, without the ambience (the render checks, M6 T23). */
+export interface CueRenderOptions {
+  cue: Cue;
+  /** The render's length; default the cue's own plus half a second. */
+  seconds?: number;
+  /** 0..100; default 100. */
+  volume?: number;
+  muted?: boolean;
+  /** Pans and quietens the cue, as a placed cue in the game. */
+  place?: Placement;
+  sampleRate?: number;
+}
+
+export interface CueRenderResult extends AudioRenderResult {
+  /** The cue's pinned length (`CUE_SOUNDS`). */
+  seconds: number;
+  /** When the last sample above -60 dBFS sounds, seconds after the cue starts; 0 for none. */
+  tail: number;
+  /** Each channel's linear RMS. */
+  left: number;
+  right: number;
+}
+
+/** A rendered cue starts this long into the render. */
+const CUE_LEAD_SECONDS = 0.5;
+/** The level `tail` listens down to: -60 dBFS. */
+const TAIL_LEVEL = 1e-3;
+
+export async function renderCueOffline(o: CueRenderOptions): Promise<CueRenderResult> {
+  const rate = o.sampleRate ?? 44100;
+  const seconds = CUE_SOUNDS[o.cue].seconds;
+  // The limiter starts out clamped and lets go over its release; in the game it has long settled
+  // by the first cue, so the cue starts after a lead-in (a whole number of render quanta).
+  const lead = Math.round((CUE_LEAD_SECONDS * rate) / 128) * 128;
+  const length = lead + Math.round((o.seconds ?? seconds + 0.5) * rate);
+  const ctx = new OfflineAudioContext(2, length, rate);
+  const graph = new AudioGraph(ctx, { seed: 1, volume: o.volume ?? 100, muted: o.muted ?? false });
+  void ctx.suspend(lead / rate).then(() => {
+    graph.cue(o.cue, o.place);
+    void ctx.resume();
+  });
+  const buffer = await ctx.startRendering();
+  const channels = Array.from({ length: buffer.numberOfChannels }, (_, i) =>
+    buffer.getChannelData(i).subarray(lead),
+  );
+  let last = -1;
+  for (const data of channels) {
+    for (let i = data.length - 1; i > last; i--) {
+      if (Math.abs(data[i] as number) > TAIL_LEVEL) {
+        last = i;
+        break;
+      }
+    }
+  }
+  const rms = (data: Float32Array | undefined): number => {
+    if (!data || data.length === 0) return 0;
+    let sum = 0;
+    for (let i = 0; i < data.length; i++) sum += (data[i] as number) ** 2;
+    return Math.sqrt(sum / data.length);
+  };
+  return {
+    ...measure(channels),
+    hash: hashSamples(channels),
+    length: buffer.length - lead,
+    seconds,
+    tail: last < 0 ? 0 : (last + 1) / rate,
+    left: rms(channels[0]),
+    right: rms(channels[1]),
+  };
 }
 
 /** Renders the engine's ambience offline (the render checks, M6 T22). */

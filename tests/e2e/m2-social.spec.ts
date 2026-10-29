@@ -79,6 +79,8 @@ test('chat is filtered, typing does not steer, mute hides a sender, and cues cro
     const seen = (await state(b)).social.pings[0];
     expect(seen).toEqual(own);
     expect(seen?.kind).toBe(0);
+    // A peer's ping and emote have their sounds (M6 T23).
+    expect((await state(b)).audio.cues).toMatchObject({ ping: 1, emote: 1, chat: 2 });
     await expect(b.locator('.ping')).toHaveCount(1);
 
     // B mutes A by clicking A's name in the roster: the next message never shows.

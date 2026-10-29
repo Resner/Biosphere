@@ -16,6 +16,9 @@ async function waitForFrames(page: Page, frames = 3): Promise<void> {
 const freeze = (page: Page, scale: number) =>
   page.evaluate((s) => (window.__bs as BsHook).debug?.timeScale(s), scale);
 
+/** A still water for a ring measurement: no marine snow or shader clock drifting across the ring. */
+const stillWater = (page: Page) => page.evaluate(() => (window.__bs as BsHook).debug?.resetWater());
+
 /** Places scripted remotes `dx` CSS pixels right of the player (still), and waits until all are in. */
 async function placeRemotes(
   page: Page,
@@ -212,10 +215,15 @@ async function ringProfile(
   );
 }
 
-/** The bright runs along a circular profile: how many, and their mean length in samples. */
+/**
+ * The bright runs along a circular profile: how many, and their mean length in samples. `max` and
+ * `min` are the 95th and 5th percentiles, so a food pellet or a tail crossing the ring does not
+ * stretch the range.
+ */
 function runs(profile: number[]): { count: number; mean: number; max: number; min: number } {
-  const max = Math.max(...profile);
-  const min = Math.min(...profile);
+  const sorted = [...profile].sort((a, b) => a - b);
+  const max = sorted[Math.floor(0.95 * (sorted.length - 1))] as number;
+  const min = sorted[Math.floor(0.05 * (sorted.length - 1))] as number;
   const mid = (max + min) / 2;
   const lit = profile.map((v) => v > mid);
   // Start counting at an unlit sample so a run across 0 degrees counts once.
@@ -266,6 +274,7 @@ test('a bigger creature gets a pulsing broken ring, a smaller one a faint dot ri
   expect(pulses.size).toBeGreaterThanOrEqual(3);
 
   await freeze(page, 0);
+  await stillWater(page);
   await waitForFrames(page);
   const [big] = await outlines();
   if (!big) throw new Error('no outline');
@@ -300,6 +309,7 @@ test('a bigger creature gets a pulsing broken ring, a smaller one a faint dot ri
   expect(second[0]?.pulse).toBe(0);
 
   await freeze(page, 0);
+  await stillWater(page);
   await waitForFrames(page);
   const [small] = await outlines();
   if (!small) throw new Error('no outline');

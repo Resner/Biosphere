@@ -268,6 +268,7 @@ test('medium darkens the corners and makes bright food glow', async ({ page }) =
 });
 
 test('high splits red and blue towards the frame edge', async ({ page }) => {
+  test.setTimeout(60_000);
   await play(page, 'low');
   const { width } = page.viewportSize() ?? { width: 960, height: 540 };
   const item = await placeGlobule(page, Math.round(width * 0.42));

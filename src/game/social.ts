@@ -109,6 +109,13 @@ export interface PingCue {
   until: number;
 }
 
+/** A cue that went on screen (M6 T23 plays its sound): a ping carries where it landed. */
+export interface Heard {
+  kind: 'chat' | 'emote' | 'ping';
+  from: string;
+  at: { x: number; y: number } | null;
+}
+
 export interface SocialOptions {
   /** Milliseconds on any steady clock. */
   now(): number;
@@ -119,6 +126,8 @@ export interface SocialOptions {
   selfName: string;
   /** Pings outside 0..worldSize are ignored. */
   worldSize?: number;
+  /** Each peer's chat line, emote and ping shown, and the player's own emotes and pings. */
+  heard?: (cue: Heard) => void;
 }
 
 export class Social {
@@ -202,6 +211,7 @@ export class Social {
     if (!this.mine.emote.allow(now)) return false;
     this.opts.send({ t: 'emote', id });
     this.emoteMap.set(self, { id, until: now + EMOTE_MS });
+    this.opts.heard?.({ kind: 'emote', from: self, at: null });
     return true;
   }
 
@@ -214,6 +224,7 @@ export class Social {
     this.nextPing = (kind + 1) % PING_KINDS;
     this.opts.send({ t: 'ping', kind, x: at.x, y: at.y });
     this.pingList.push({ from: self, kind, x: at.x, y: at.y, until: now + PING_MS });
+    this.opts.heard?.({ kind: 'ping', from: self, at: { x: at.x, y: at.y } });
     return true;
   }
 
@@ -249,11 +260,15 @@ export class Social {
     switch (event.t) {
       case 'chat': {
         const text = filterText(event.text);
-        if (text.trim() !== '') this.addChat(from, name, text);
+        if (text.trim() !== '') {
+          this.addChat(from, name, text);
+          this.opts.heard?.({ kind: 'chat', from, at: null });
+        }
         break;
       }
       case 'emote':
         this.emoteMap.set(from, { id: event.id, until: now + EMOTE_MS });
+        this.opts.heard?.({ kind: 'emote', from, at: null });
         break;
       case 'ping': {
         const { worldSize } = this;
@@ -265,6 +280,7 @@ export class Social {
           y: event.y,
           until: now + PING_MS,
         });
+        this.opts.heard?.({ kind: 'ping', from, at: { x: event.x, y: event.y } });
         break;
       }
     }

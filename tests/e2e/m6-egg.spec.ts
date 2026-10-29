@@ -44,6 +44,8 @@ test('a genesis egg waits for the beacon, cracks and bursts, and the creature gr
   });
   expect((await state(page)).egg.phases).toEqual(['waiting', 'cracking', 'revealed']);
   expect((await page.evaluate(() => (window.__bs as BsHook).render.fx())).bursts).toBe(1);
+  // The beacon's burst has its sound, and the creature's hatch out of the shell (M6 T23).
+  expect((await state(page)).audio.cues).toMatchObject({ reveal: 1, hatch: 1 });
   // The burst plays out, and nothing of the shell stays.
   await page.waitForFunction(() => window.__bs?.render.info().eggs === 0, undefined, {
     timeout: 5_000,
@@ -140,6 +142,9 @@ test('after a mating both eggs show to both players, and H hatches the child out
       { timeout: 40_000 },
     );
     expect((await state(page)).egg.phases.slice(-3)).toEqual(['waiting', 'cracking', 'revealed']);
+    // The courting chime, the commitment's bright chime and the burst each sounded (M6 T23); the
+    // first reveal was this life's own genesis.
+    expect((await state(page)).audio.cues).toMatchObject({ court: 1, mate: 1, reveal: 2 });
     await expect(page.getByTestId('offspring')).toBeVisible({ timeout: 10_000 });
     await expect(page.getByTestId('hud-egg')).toHaveText('Egg: H to hatch');
   }
@@ -181,6 +186,8 @@ test('after a mating both eggs show to both players, and H hatches the child out
     timeout: 5_000,
   });
   expect((await state(a)).egg.phases.slice(-2)).toEqual(['cracking', 'revealed']);
+  // The new life's counts start with its hatch out of the shell.
+  expect((await state(a)).audio.cues.hatch).toBe(1);
   await a.screenshot({ path: 'test-results/m6-egg-hatch.png' });
   expect(await ghost).toBe(true);
   // Within a second and a bit the parent is gone: B's body is the only other one drawn.
