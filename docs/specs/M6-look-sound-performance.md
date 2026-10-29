@@ -488,7 +488,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Sound
 
-- [x] T22 Audio engine, ambience by depth, settings [opus] (in progress)
+- [x] T22 Audio engine, ambience by depth, settings [opus]
   - Acceptance (tests first; the synthesis takes any `BaseAudioContext`, so the render checks run on `OfflineAudioContext` in Chromium through Playwright, and the pure parameter mapping runs in Node):
     - **The engine**: one `AudioContext`, started on the first user gesture, with a master gain, a limiter and per-cue voices with a polyphony cap (4 per cue, 16 total). A hidden tab suspends it, and it resumes on return.
     - **Ambience by zone**: filtered noise and slow drones whose filter and level follow `setZone(zone, depth)`, cross-fading over 2 s. The shallows are airy, the abyss low and pressured.

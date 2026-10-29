@@ -7,7 +7,6 @@ export const POLYPHONY = { perCue: 4, total: 16 } as const;
 interface Held {
   id: number;
   key: string;
-  start: number;
   end: number;
 }
 
@@ -23,7 +22,7 @@ export class VoicePool {
     if (own.length >= POLYPHONY.perCue) stolen.push(this.drop(own[0] as Held));
     else if (this.voices.length >= POLYPHONY.total) stolen.push(this.drop(this.voices[0] as Held));
     const id = this.nextId++;
-    this.voices.push({ id, key, start: now, end });
+    this.voices.push({ id, key, end });
     return { id, stolen };
   }
 

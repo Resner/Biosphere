@@ -295,7 +295,14 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     ['settings-open', 'lineage-settings'],
   );
   applySettings();
-  systemMotion?.addEventListener?.('change', applySettings);
+  systemMotion?.addEventListener?.('change', () =>
+    settingsPanel.show(
+      settings,
+      resolvePreset(settings.quality, autoQuality.detected),
+      autoQuality.detected,
+      motionReduced(),
+    ),
+  );
   const fx = new Effects();
   // The egg (M6 T20): the beacon reveal, the carried egg, peers' eggs and the hatch.
   const eggs = new EggShow((x, y, radius, rings) => fx.burst({ x, y, radius }, rings));

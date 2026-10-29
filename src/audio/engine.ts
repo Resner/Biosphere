@@ -311,7 +311,7 @@ export class GameSound implements Sound {
       else this.graph.setZone('twilight', AMBIENCE.rows.twilight.depth);
     }
     if (this.hidden) void this.ctx.suspend().catch(() => {});
-    else if (this.ctx.state === 'suspended') void this.ctx.resume().catch(() => {});
+    else if (this.ctx.state !== 'running') void this.ctx.resume().catch(() => {});
   }
 
   setHidden(hidden: boolean): void {
