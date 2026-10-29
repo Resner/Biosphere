@@ -16,7 +16,7 @@ import {
   partCurve,
   rootOf,
 } from '../genome/develop';
-import { clamp } from '../sim/math';
+import { clamp, lerp } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { type Anatomy, CHAMBERS, NO_ANATOMY, type OrganKind } from './anatomy';
@@ -183,7 +183,7 @@ const SETA_SWEEP = 0.9;
 /** An eye is this flat; its stalk this share of its radius wide. */
 const EYE_DEPTH = 0.8;
 const STALK_WIDTH = 0.3;
-/** An eye takes this many more sides than a bulb at the same level (look pass 3). */
+/** An eye takes this many more sides than a bulb above the lowest level (look pass 3); the low level keeps its budget. */
 const EYE_SIDES = 4;
 
 /** What a vertex belongs to, the low four bits of `aPart`; the rest is the appendage number (0 for none). */
@@ -497,17 +497,17 @@ export function wallsAlong(plan: BodyPlan, line: Line): number[] {
 
 /** The wall coordinate at arc length `from`: 0.5 at the front tip, n on the nth wall, half a step past the last at the rear. */
 function wallAt(walls: readonly number[], length: number, from: number): number {
-  const knots = [0, ...walls, length];
-  for (let i = 0; i + 1 < knots.length; i++) {
-    const [a, b] = [knots[i] as number, knots[i + 1] as number];
-    if (from > b && i + 2 < knots.length) continue;
-    const t = b > a ? clamp((from - a) / (b - a), 0, 1) : 0;
-    // Between walls the coordinate runs a whole step; the end spans run half a step.
-    const lo = i === 0 ? NO_WALL : i;
-    const hi = i + 2 === knots.length ? i + NO_WALL : i + 1;
-    return walls.length === 0 ? NO_WALL : lo + (hi - lo) * t;
-  }
-  return NO_WALL;
+  if (walls.length === 0) return NO_WALL;
+  // The span is the number of walls the station has passed; the last span ends at `length`.
+  let i = 0;
+  while (i < walls.length && from > (walls[i] as number)) i++;
+  const a = i === 0 ? 0 : (walls[i - 1] as number);
+  const b = i === walls.length ? length : (walls[i] as number);
+  const t = b > a ? clamp((from - a) / (b - a), 0, 1) : 0;
+  // Between walls the coordinate runs a whole step; the end spans run half a step.
+  const lo = i === 0 ? NO_WALL : i;
+  const hi = i === walls.length ? i + NO_WALL : i + 1;
+  return lerp(lo, hi, t);
 }
 
 /**
@@ -1073,7 +1073,7 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
       );
     }
     // Rounder than a bulb (look pass 3): a big dark eye with too few sides reads as a polygon.
-    addBall(m, x, y, e.size, 0, EYE_DEPTH, d.ball > 0 ? d.ball + EYE_SIDES : 4, gait);
+    addBall(m, x, y, e.size, 0, EYE_DEPTH, d.ball > EYE_SIDES ? d.ball + EYE_SIDES : d.ball, gait);
   }
 }
 
