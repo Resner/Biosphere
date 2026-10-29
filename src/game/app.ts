@@ -1601,7 +1601,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       });
     }
     if (!finding) wheel.cancel();
-    wheelUi.update(controller.pointerAt());
+    wheelUi.update(wheel.isOpen ? controller.pointerAt() : null);
     if (screen === 'playing') {
       anchors.clear();
       anchors.set(selfKey(), { x: cell.x, y: cell.y, radius: cell.radius });

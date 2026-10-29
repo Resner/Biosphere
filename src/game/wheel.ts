@@ -5,6 +5,7 @@
 // Items are picked by direction from the centre, so the same layout takes a touch hold later;
 // hovering only highlights.
 
+import { clamp } from '../sim/math';
 import { pick as pickEl, setText } from './dom';
 import { EMOTES, PINGS } from './social-ui';
 
@@ -69,7 +70,7 @@ export function itemAt(dx: number, dy: number): number | null {
 /** The wheel's centre for a cursor, moved in from the edges so the whole ring is on screen. */
 export function wheelCentre(cursor: Point, view: { width: number; height: number }): Point {
   const along = (v: number, size: number) =>
-    size < 2 * MARGIN ? size / 2 : Math.min(Math.max(v, MARGIN), size - MARGIN);
+    size < 2 * MARGIN ? size / 2 : clamp(v, MARGIN, size - MARGIN);
   return { x: along(cursor.x, view.width), y: along(cursor.y, view.height) };
 }
 
@@ -87,7 +88,7 @@ export interface WheelPick {
 /** `state().wheel`: items carry their screen centres while open. */
 export interface WheelInfo {
   open: boolean;
-  items: (Omit<WheelItem, 'glyph'> & Point)[];
+  items: (WheelItem & Point)[];
   /** The world point a ping would land on. */
   at: Point | null;
   /** The wheel's centre and the cursor it opened at, in CSS pixels. */
@@ -114,16 +115,20 @@ export class Wheel {
     return this.opened !== null;
   }
 
+  /** The open wheel's centre and the cursor it opened at, read every frame so it does not copy. */
+  get view(): Readonly<Pick<Opened, 'centre' | 'target'>> | null {
+    return this.opened;
+  }
+
   /** `G` went down at the cursor (screen pixels) over `world`: opens, or closes an open wheel. */
   press(cursor: Point, world: Point, view: { width: number; height: number }, now: number): void {
     if (this.opened) {
       this.cancel();
       return;
     }
-    const target = { x: cursor.x, y: cursor.y };
     this.opened = {
       centre: wheelCentre(cursor, view),
-      target,
+      target: { x: cursor.x, y: cursor.y },
       world: { x: world.x, y: world.y },
       at: now,
       held: true,
@@ -136,7 +141,7 @@ export class Wheel {
     if (!opened?.held) return;
     opened.held = false;
     const index = this.highlighted(pointer);
-    if (index !== null) this.choose(index);
+    if (index !== null) this.choose(WHEEL_ITEMS[index] as WheelItem);
     else if (now - opened.at >= WHEEL.holdMs) this.cancel();
   }
 
@@ -145,15 +150,15 @@ export class Wheel {
     if (!this.opened) return;
     const index = this.highlighted(pointer);
     if (index === null) this.cancel();
-    else this.choose(index);
+    else this.choose(WHEEL_ITEMS[index] as WheelItem);
   }
 
   /** A number key while open picks its item; false when the key is not the wheel's. */
   pick(key: string): boolean {
     if (!this.opened) return false;
-    const index = WHEEL_ITEMS.findIndex((item) => item.key === key);
-    if (index < 0) return false;
-    this.choose(index);
+    const item = keyItem(key);
+    if (!item) return false;
+    this.choose(item);
     return true;
   }
 
@@ -174,17 +179,17 @@ export class Wheel {
     const spots = wheelSpots(opened.centre);
     return {
       open: true,
-      items: WHEEL_ITEMS.map(({ glyph: _, ...item }, i) => ({ ...item, ...(spots[i] as Point) })),
+      items: WHEEL_ITEMS.map((item, i) => ({ ...item, ...(spots[i] as Point) })),
       at: { ...opened.world },
       centre: { ...opened.centre },
       target: { ...opened.target },
     };
   }
 
-  private choose(index: number): void {
+  private choose(item: WheelItem): void {
     const opened = this.opened as Opened;
     this.opened = null;
-    this.send({ item: WHEEL_ITEMS[index] as WheelItem, world: opened.world });
+    this.send({ item, world: opened.world });
   }
 }
 
@@ -199,13 +204,15 @@ export class WheelUi {
   private readonly hub = document.createElement('span');
   private readonly mark = document.createElement('span');
   private readonly buttons: HTMLButtonElement[];
-  private shownAt = '';
+  private shownFor: object | null = null;
   private lit: number | null = null;
 
   constructor(private readonly wheel: Wheel) {
     this.ring.className = 'wheel-ring';
     this.hub.className = 'wheel-hub';
+    this.hub.textContent = 'Esc cancels';
     this.mark.className = 'wheel-target';
+    const spots = wheelSpots({ x: 0, y: 0 });
     this.buttons = WHEEL_ITEMS.map((item, i) => {
       const button = document.createElement('button');
       button.type = 'button';
@@ -227,7 +234,7 @@ export class WheelUi {
       key.className = 'wheel-key';
       key.textContent = item.key;
       button.append(glyph, name, key);
-      const spot = wheelSpots({ x: 0, y: 0 })[i] as Point;
+      const spot = spots[i] as Point;
       button.style.transform = `translate(${Math.round(spot.x - WHEEL.item / 2)}px, ${Math.round(spot.y - WHEEL.item / 2)}px)`;
       return button;
     });
@@ -240,16 +247,15 @@ export class WheelUi {
 
   /** Once a frame: shows or hides the wheel and lights the item under the pointer. */
   update(pointer: Point | null): void {
-    const info = this.wheel.info();
-    if (this.root.hidden !== !info.open) this.root.hidden = !info.open;
-    if (!info.open || !info.centre || !info.target) {
-      this.shownAt = '';
+    const view = this.wheel.view;
+    if (this.root.hidden !== !view) this.root.hidden = !view;
+    if (!view) {
+      this.shownFor = null;
       return;
     }
-    const { centre, target } = info;
-    const at = `${centre.x},${centre.y},${target.x},${target.y}`;
-    if (at !== this.shownAt) {
-      this.shownAt = at;
+    const { centre, target } = view;
+    if (view !== this.shownFor) {
+      this.shownFor = view;
       this.ring.style.transform = `translate(${Math.round(centre.x)}px, ${Math.round(centre.y)}px)`;
       this.mark.style.transform = `translate(${Math.round(target.x)}px, ${Math.round(target.y)}px)`;
     }
@@ -258,8 +264,8 @@ export class WheelUi {
       if (this.lit !== null) delete (this.buttons[this.lit] as HTMLElement).dataset.lit;
       if (lit !== null) (this.buttons[lit] as HTMLElement).dataset.lit = 'true';
       this.lit = lit;
+      const item = lit === null ? null : WHEEL_ITEMS[lit];
+      setText(this.hub, item ? `${item.name} ${item.kind}` : 'Esc cancels');
     }
-    const item = lit === null ? null : WHEEL_ITEMS[lit];
-    setText(this.hub, item ? `${item.name} ${item.kind}` : 'Esc cancels');
   }
 }
