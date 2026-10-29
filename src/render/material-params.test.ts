@@ -56,6 +56,15 @@ describe('materialParams', () => {
     expect(hi).toBeGreaterThan(lo);
   });
 
+  it('keeps an albino\'s organs one pink whatever its rarity tier', () => {
+    const albino = withColour({ hue: 0.3, saturation: 1, value: 0.9, albino: 'albino' });
+    for (const tier of ['common', 'uncommon', 'rare', 'exotic'] as const) {
+      const p = materialParams(albino, tier);
+      expect(p.organ2).toEqual(p.organ);
+      expect(p.vivid).toBe(0);
+    }
+  });
+
   it('turns an albino body pale pink and a pale one only washed out', () => {
     const vivid = { hue: 0.6, saturation: 1, value: 0.9 };
     const albino = materialParams(withColour({ ...vivid, albino: 'albino' }));

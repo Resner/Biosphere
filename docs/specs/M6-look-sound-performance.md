@@ -556,7 +556,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Closing
 
-- [x] T27 Look pass 2 [opus] (in progress)
+- [x] T27 Look pass 2 [opus]
   - Acceptance:
     - `pass-2.png` and `pass-2.md` are rendered after T15–T26, with the honest gap table. The top gaps are fixed, the sheet and table re-rendered after the fixes, and every cell improved since pass 1 is named in the PR.
     - The in-game check at 960×540 is repeated, in the shallows and in the deep.

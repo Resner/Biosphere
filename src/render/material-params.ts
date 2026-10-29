@@ -172,7 +172,8 @@ export function materialParams(
   const light: Rgb = albino ? [1, 1, 1] : hsv(shellHue, shellSaturation, 1);
   const inside = Math.max(value, ORGAN_VALUE);
   const organSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
-  const second = ORGAN_HUES[tier];
+  // An albino has no pigment to vary: both organ hues stay the pink of blood.
+  const second = albino ? { spread: 0, vivid: 0 } : ORGAN_HUES[tier];
 
   return {
     core: liftTo(toward(body, 0, 0.5), MIN_CORE_LUMINANCE, light),
