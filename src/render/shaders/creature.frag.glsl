@@ -222,7 +222,7 @@ void main() {
     float across = 1.0 / max(length(fwidth(normal.xy)), 1e-3);
     float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
     col += uRim * 0.3 * z * thin + vec3(pow(max(dot(normal, KEY_HALF), 0.0), JOINT_GLOSS) * JOINT_SHINE);
-    alpha = max(alpha, mix(alpha, 0.5 + 0.3 * fres, thin));
+    alpha = mix(alpha, max(alpha, 0.5 + 0.3 * fres), thin);
   } else if (kind == 2) {
     // A plate: denser, brighter glass with a sheen across its face, so armour reads at default zoom
     // (M6 T21), but not an opaque lid: the organs still show through, and the body stays clear

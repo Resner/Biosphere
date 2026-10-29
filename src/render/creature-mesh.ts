@@ -188,6 +188,8 @@ const SETA_SWEEP = 0.9;
 const SETULES_AT = [0.3, 0.55, 0.8] as const;
 const SETULE_LENGTH = 0.35;
 const SETULE_ANGLE = 0.7;
+const SETULE_COS = Math.cos(SETULE_ANGLE);
+const SETULE_SIN = Math.sin(SETULE_ANGLE);
 const SETULE_BASE = 0.06;
 const SETULE_WIDTH = 0.5;
 /** An eye is this flat; its stalk this share of its radius wide. */
@@ -1006,7 +1008,7 @@ function addSetae(
         const reach = len * SETULE_LENGTH * (1 - 0.5 * along);
         const [cx, cy] = [at.x + dx * len * along, at.y + dy * len * along];
         for (const side of [1, -1] as const) {
-          const [sx, sy] = [cos(SETULE_ANGLE), side * sin(SETULE_ANGLE)];
+          const [sx, sy] = [SETULE_COS, side * SETULE_SIN];
           const [ex, ey] = [cx + (dx * sx - dy * sy) * reach, cy + (dy * sx + dx * sy) * reach];
           // Like its bristle, a setule stays within the bounds.
           if (hypot(ex, ey) > BOUNDS) continue;
@@ -1092,8 +1094,7 @@ function addEyes(m: Mesh, plan: BodyPlan, spine: Spine, d: MeshDetail): void {
     const root = rootOf(head, e.angle, side);
     const len = hypot(x - root.x, y - root.y);
     // An eye set into the head (look pass 5) hides what stalk it has: one shows only past the eye.
-    const outward = hypot(x - head.x, y - head.y) > hypot(root.x - head.x, root.y - head.y);
-    if (e.stalk > 0.02 && outward && len > e.size + 0.02) {
+    if (len > e.size + 0.02) {
       const r = e.size * STALK_WIDTH;
       addTube(
         m,
