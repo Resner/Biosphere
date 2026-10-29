@@ -34,7 +34,7 @@ export interface EggFrame {
   now: number;
   /** Seconds since the last frame. */
   dt: number;
-  /** `prefers-reduced-motion`: the shake becomes a fade (T22 adds the setting). */
+  /** Reduced motion (the setting, else `prefers-reduced-motion`): the shake becomes a fade. */
   reduced: boolean;
   /** The creature the player's egg belongs to: the title cell during a genesis, else the player; null when none is drawn. */
   self: TetherParent | null;

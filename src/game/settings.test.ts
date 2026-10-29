@@ -5,6 +5,7 @@ import {
   loadBench,
   loadSettings,
   qualityFromSearch,
+  reducedMotion,
   saveBench,
   saveSettings,
 } from './settings';
@@ -29,14 +30,50 @@ const throwing = {
 };
 
 describe('loadSettings', () => {
-  it('defaults to auto quality', () => {
-    expect(DEFAULT_SETTINGS).toEqual({ quality: 'auto' });
+  it('defaults to auto quality, volume 60, sound on and the system motion setting', () => {
+    expect(DEFAULT_SETTINGS).toEqual({
+      quality: 'auto',
+      volume: 60,
+      muted: false,
+      reducedMotion: null,
+    });
     expect(loadSettings(store())).toEqual(DEFAULT_SETTINGS);
   });
 
-  it('reads a stored quality', () => {
-    expect(loadSettings(store('{"quality":"high"}'))).toEqual({ quality: 'high' });
-    expect(loadSettings(store('{"quality":"auto"}'))).toEqual({ quality: 'auto' });
+  it('reads a stored quality (settings from before sound keep the sound defaults)', () => {
+    expect(loadSettings(store('{"quality":"high"}'))).toEqual({
+      ...DEFAULT_SETTINGS,
+      quality: 'high',
+    });
+    expect(loadSettings(store('{"quality":"auto"}'))).toEqual({
+      ...DEFAULT_SETTINGS,
+      quality: 'auto',
+    });
+  });
+
+  it('reads stored sound and motion settings', () => {
+    const text = '{"quality":"low","volume":35,"muted":true,"reducedMotion":false}';
+    expect(loadSettings(store(text))).toEqual({
+      quality: 'low',
+      volume: 35,
+      muted: true,
+      reducedMotion: false,
+    });
+    expect(loadSettings(store('{"reducedMotion":true}')).reducedMotion).toBe(true);
+    expect(loadSettings(store('{"reducedMotion":null}')).reducedMotion).toBeNull();
+  });
+
+  it('keeps each valid field when another is damaged', () => {
+    const text = '{"quality":"ultra","volume":20,"muted":"yes","reducedMotion":1}';
+    expect(loadSettings(store(text))).toEqual({ ...DEFAULT_SETTINGS, volume: 20 });
+  });
+
+  it('rounds the volume to a whole step in 0..100 and rejects non-numbers', () => {
+    expect(loadSettings(store('{"volume":42.6}')).volume).toBe(43);
+    expect(loadSettings(store('{"volume":-5}')).volume).toBe(0);
+    expect(loadSettings(store('{"volume":250}')).volume).toBe(100);
+    expect(loadSettings(store('{"volume":"loud"}')).volume).toBe(60);
+    expect(loadSettings(store('{"volume":null}')).volume).toBe(60);
   });
 
   it.each([
@@ -46,6 +83,7 @@ describe('loadSettings', () => {
     ['a wrong type', '{"quality":3}'],
     ['an unknown preset', '{"quality":"ultra"}'],
     ['a missing field', '{}'],
+    ['an array', '[1,2]'],
   ])('falls back to the defaults on %s', (_, text) => {
     expect(loadSettings(store(text))).toEqual(DEFAULT_SETTINGS);
   });
@@ -59,13 +97,24 @@ describe('loadSettings', () => {
 describe('saveSettings', () => {
   it('writes what loadSettings reads', () => {
     const s = store();
-    saveSettings({ quality: 'low' }, s);
-    expect(loadSettings(s)).toEqual({ quality: 'low' });
+    const settings = { quality: 'low', volume: 12, muted: true, reducedMotion: true } as const;
+    saveSettings(settings, s);
+    expect(loadSettings(s)).toEqual(settings);
   });
 
   it('swallows a throwing or missing store', () => {
-    expect(() => saveSettings({ quality: 'low' }, throwing)).not.toThrow();
-    expect(() => saveSettings({ quality: 'low' }, null)).not.toThrow();
+    const settings = { ...DEFAULT_SETTINGS, quality: 'low' } as const;
+    expect(() => saveSettings(settings, throwing)).not.toThrow();
+    expect(() => saveSettings(settings, null)).not.toThrow();
+  });
+});
+
+describe('reducedMotion', () => {
+  it('follows prefers-reduced-motion until the player picks', () => {
+    expect(reducedMotion(DEFAULT_SETTINGS, true)).toBe(true);
+    expect(reducedMotion(DEFAULT_SETTINGS, false)).toBe(false);
+    expect(reducedMotion({ ...DEFAULT_SETTINGS, reducedMotion: false }, true)).toBe(false);
+    expect(reducedMotion({ ...DEFAULT_SETTINGS, reducedMotion: true }, false)).toBe(true);
   });
 });
 

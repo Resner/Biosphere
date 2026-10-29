@@ -488,7 +488,7 @@ A look pass never starts before the tasks it judges are ticked.
 
 ### Sound
 
-- [ ] T22 Audio engine, ambience by depth, settings [opus] (in progress)
+- [x] T22 Audio engine, ambience by depth, settings [opus] (in progress)
   - Acceptance (tests first; the synthesis takes any `BaseAudioContext`, so the render checks run on `OfflineAudioContext` in Chromium through Playwright, and the pure parameter mapping runs in Node):
     - **The engine**: one `AudioContext`, started on the first user gesture, with a master gain, a limiter and per-cue voices with a polyphony cap (4 per cue, 16 total). A hidden tab suspends it, and it resumes on return.
     - **Ambience by zone**: filtered noise and slow drones whose filter and level follow `setZone(zone, depth)`, cross-fading over 2 s. The shallows are airy, the abyss low and pressured.
@@ -499,6 +499,8 @@ A look pass never starts before the tasks it judges are ticked.
       - two renders with the same seed are sample-identical.
     - E2E: `state().audio.state` is `running` after a click and `suspended` while hidden. Changing the zone changes the ambience parameters (`debug.setZone`).
   - Notes: no audio files (ADR 0014). Keep it quiet and organic; the reference is a microscope, not an arcade.
+  - Done: `src/audio/` (`engine.ts` `GameSound`/`AudioGraph`, `ambience.ts`, `voices.ts`; cue patches are a table T23 fills); settings gain `volume`, `muted`, `reducedMotion` (null follows the system); `__bs.audio.render` and `state().audio`.
+  - Gotcha: Chromium sums a node's inputs in a run-dependent order, so every ambience mix point takes at most two inputs (float addition only commutes for two); "camera effects" today are the exotic burst's slow motion and rings (there is no camera shake).
 
 - [ ] T23 Event sounds for every cue [opus]
   - Acceptance:

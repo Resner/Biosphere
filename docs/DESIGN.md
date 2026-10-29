@@ -320,6 +320,8 @@ Crispness (M6 T21): the canvas's backing store is its CSS size times the pixel r
 
 The egg (M6, `EGG` in `src/render/egg.ts`): the wait's wiggle rises from 0.6 to 3.2 Hz and 0.1 to 0.3 rad over 10 s, then eases to 0.35 Hz and 0.05 rad. Crack, burst, rings and burst light by rarity: common 0.9 s, 0.6 s, 1 ring, 0.35; uncommon 1.2 s, 0.8 s, 2, 0.6; rare 1.6 s, 1.0 s, 3, 0.9; exotic 2.1 s, 1.5 s, 5, 1.6, with the effects at 30% speed for the burst's first 0.9 s. A hatchling pops out over 0.45 s.
 
+Sound (M6 T22, `src/audio/`, ADR 0014: procedural Web Audio, no files): one audio context, started on the first click or key press and suspended while the tab is hidden, plays everything through a master gain and a limiter (a −6 dB, 20:1 compressor), with event voices capped at 4 per cue and 16 in all (the oldest is cut short). The ambience (`AMBIENCE` in `src/audio/ambience.ts`) is seeded noise and a slow drone that follow depth and cross-fade over 2 s: the shallows an airy hiss (band-passed at 3.2 kHz) that flickers like caustics, twilight a softer wash, the deep a dark wash (low-passed at 260 Hz) under a drone on 73 Hz, the abyss a low rumble (130 Hz), a 49 Hz drone and a pressure throb (41 Hz pulsing at 0.4 Hz). It is quiet by design (about −35 dBFS at the default volume). Settings (title screen, or Esc then Settings) hold the volume (0–100, default 60, a squared curve), mute (instant) and Reduce motion, which follows the system's `prefers-reduced-motion` until the player picks; reduced motion fades the egg instead of shaking it and drops an exotic burst's slow motion and extra rings.
+
 ## 11. Supply control and anti-farming
 
 - Survival costs (metabolism, hazards), finite lifespan, and maturity and cooldown gates on the authority clock.

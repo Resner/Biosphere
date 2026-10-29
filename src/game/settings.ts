@@ -6,24 +6,46 @@ import type { Store } from './online-config';
 
 export interface Settings {
   quality: QualitySetting;
+  /** Sound volume, 0..100 in whole steps (M6 T22). */
+  volume: number;
+  muted: boolean;
+  /** Reduced motion: null follows `prefers-reduced-motion`, a boolean is the player's choice. */
+  reducedMotion: boolean | null;
 }
 
-export const DEFAULT_SETTINGS: Readonly<Settings> = { quality: 'auto' };
+export const DEFAULT_SETTINGS: Readonly<Settings> = {
+  quality: 'auto',
+  volume: 60,
+  muted: false,
+  reducedMotion: null,
+};
 
 const SETTINGS_KEY = 'bs.settings';
 
+/** Reads each field on its own, so one damaged field (or settings from before it existed) keeps the rest. */
 export function loadSettings(store: Store | null): Settings {
+  const out: Settings = { ...DEFAULT_SETTINGS };
   try {
     const text = store?.getItem(SETTINGS_KEY);
-    if (!text) return { ...DEFAULT_SETTINGS };
+    if (!text) return out;
     const data: unknown = JSON.parse(text);
-    if (typeof data !== 'object' || data === null) return { ...DEFAULT_SETTINGS };
-    const { quality } = data as { quality?: unknown };
-    if (quality === 'auto' || isPresetName(quality)) return { quality };
+    if (typeof data !== 'object' || data === null || Array.isArray(data)) return out;
+    const { quality, volume, muted, reducedMotion } = data as Record<string, unknown>;
+    if (quality === 'auto' || isPresetName(quality)) out.quality = quality;
+    if (typeof volume === 'number' && Number.isFinite(volume))
+      out.volume = Math.min(100, Math.max(0, Math.round(volume)));
+    if (typeof muted === 'boolean') out.muted = muted;
+    if (typeof reducedMotion === 'boolean' || reducedMotion === null)
+      out.reducedMotion = reducedMotion;
   } catch {
     // A throwing store or damaged JSON: use the defaults.
   }
-  return { ...DEFAULT_SETTINGS };
+  return out;
+}
+
+/** Whether motion is reduced: the player's choice, else the system's `prefers-reduced-motion`. */
+export function reducedMotion(settings: Settings, systemPrefers: boolean): boolean {
+  return settings.reducedMotion ?? systemPrefers;
 }
 
 export function saveSettings(settings: Settings, store: Store | null): void {
