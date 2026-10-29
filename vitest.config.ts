@@ -9,7 +9,12 @@ export default defineConfig({
     projects: [
       {
         extends: './vite.config.ts',
-        test: { name: 'node', include: ['src/**/*.test.ts', 'tools/**/*.test.ts'] },
+        test: {
+          name: 'node',
+          include: ['src/**/*.test.ts', 'tools/**/*.test.ts'],
+          // The 10,000-genome property tests take 5 to 10 s on a loaded CI runner.
+          testTimeout: 20_000,
+        },
       },
       {
         define: versionDefine(),
