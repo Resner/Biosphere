@@ -48,8 +48,11 @@ test('24 maximal bodies with different tints stay within the medium budget', asy
   await openGame(page, `?debug=1&seed=budget&genome=${texts[0]}`);
   await hatch(page);
   await page.waitForFunction(() => (window.__bs as BsHook).render.info().playerBody);
-  // The hatch burst draws one more call until the egg is gone: measure after it (M6 T20).
-  await page.waitForFunction(() => (window.__bs as BsHook).render.info().eggs === 0);
+  // The hatch burst draws an egg and its rings (extra calls) until they are gone: measure after (M6 T20).
+  await page.waitForFunction(() => {
+    const { render } = window.__bs as BsHook;
+    return render.info().eggs === 0 && render.fx().rings === 0;
+  });
   const alone = await render(page);
 
   await setRemotes(page, texts.slice(1), 400);
