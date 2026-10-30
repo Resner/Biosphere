@@ -154,7 +154,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
 
 ### The look on screen (ADR 0034)
 
-- [ ] T3 Pass 1's glass, without the haze and the glow [opus]
+- [ ] T3 Pass 1's glass, without the haze and the glow [opus] (in progress)
   - Acceptance:
     - **Measure first.** On main, before any change, render the gallery to a scratch file and record in the PR the two measures below. Do the same with side-by-side crops of cells 01, 07, 12, 24, 27 and 31 against `pass-1.png` (scratch files, not committed).
     - **What comes out** (unit tests on `anatomyOf` and `materialParams`, plus the shader's code):
