@@ -150,6 +150,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
   - Notes: a middle-click look ping and `T` with 1–6 never touched steering; keep it that way.
     - Done: `wheelInput` in `input.ts` and `InputController.keyInput`; `chooseInput` holds the last closed-wheel input, WASD steers live and releasing it coasts, and `enter` clears the hold for a new life.
     - Gotcha: the E2E compares 1 s windows of real time (80% of distance, under 5° of heading), so keep the creature far from the world edge while it runs.
+    - Gotcha: `m3-anatomy` "each hatch is a new genesis body" starves a creature at `timeScale(4)` within 20 s and timed out once on a loaded CI runner (green locally, unrelated to input); if it recurs, give it its own spec task.
 
 ### The look on screen (ADR 0034)
 
