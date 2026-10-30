@@ -67,13 +67,19 @@ void main() {
   // brighter in the scene itself, reaches white.
   float luma = dot(c, LUMA);
   c += uLift * (1.0 - smoothstep(0.0, 0.3, luma));
-  float around = 0.25 * dot(
-    texture2D(tScene, vUv + uAround).rgb + texture2D(tScene, vUv - uAround).rgb +
-      texture2D(tScene, vUv + vec2(uAround.x, -uAround.y)).rgb +
-      texture2D(tScene, vUv + vec2(-uAround.x, uAround.y)).rgb,
-    LUMA
-  );
-  vec3 white = mix(uWhite, vec3(1.0), smoothstep(uHot.x, uHot.y, dot(scene, LUMA) - around));
+  // The taps only matter where the scene itself could stand a hot point above its surroundings.
+  float sceneLuma = dot(scene, LUMA);
+  float hot = 0.0;
+  if (sceneLuma > uHot.x) {
+    float around = 0.25 * dot(
+      texture2D(tScene, vUv + uAround).rgb + texture2D(tScene, vUv - uAround).rgb +
+        texture2D(tScene, vUv + vec2(uAround.x, -uAround.y)).rgb +
+        texture2D(tScene, vUv + vec2(-uAround.x, uAround.y)).rgb,
+      LUMA
+    );
+    hot = smoothstep(uHot.x, uHot.y, sceneLuma - around);
+  }
+  vec3 white = mix(uWhite, vec3(1.0), hot);
   vec3 over = max(c - uKnee, 0.0);
   c = min(c, vec3(uKnee)) + (white - uKnee) * (1.0 - exp(-over / (white - uKnee)));
 

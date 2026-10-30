@@ -193,7 +193,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
     - Done: halos, scatter and centre-lit chambers out; pass 1 layout; `Organ.accent`, `ORGAN_HUES` `{ vivid, accent }`; a crisp rim term (power 5); fainter face, markings, plates, carapace, walls (0.35) and joints (0.5). Main: shell 63.1, 14 cells under 85%; now 28.8, all ≥ 91%.
     - Gotcha: pass 1's face measures as bright as main's, so the bar needs glass clearer than pass 1; the hook's `organs` include the gut's rings; `m3-clip`'s starter now checks for a hole by comparison, since its clear centre shows the water.
 
-- [x] T4 No white clipping [opus] (in progress)
+- [x] T4 No white clipping [opus]
   - Acceptance:
     - `solidWhite` counts pixels whose min(R, G, B) is at least 245 and whose eight neighbours are too (ADR 0034). On the gallery sheet, every cell has at most 12. On pass 5, cell 31 had 430, 37 had 336, 39 had 427, 07 had 72, 29 had 61, 08 had 29 and 38 had 22.
     - `m6b-clip.spec.ts` (`post` project; `@slow` if over 20 s) captures the gallery with `captureGallery` and asserts the bar for every cell. T12 reruns it on the final sheet.

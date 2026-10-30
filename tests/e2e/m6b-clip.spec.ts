@@ -131,14 +131,14 @@ for (const quality of ['medium', 'high'] as const) {
     mkdirSync('test-results', { recursive: true });
     writeFileSync(`test-results/m6b-clip-${quality}.png`, png);
     const image = await decodePng(page, png);
-    const rows = view.remotes.map((r) => {
+    const rows = view.remotes.map((r, i) => {
       // Each body's box: its parts reach up to about 2.6 core radii.
       const x = width / 2 + (r.x - view.camX) * view.pxPerWu;
       const y = height / 2 - (r.y - view.camY) * view.pxPerWu;
       const reach = 2.6 * r.radius * view.pxPerWu;
       const box = { x: x - reach, y: y - reach, w: 2 * reach, h: 2 * reach };
       return {
-        id: IN_GAME[Number(r.id.slice(4))] ?? r.id,
+        id: IN_GAME[i],
         px: Math.round(r.radius * view.pxPerWu),
         white: solidWhite(image.rgba, image.width, box),
       };

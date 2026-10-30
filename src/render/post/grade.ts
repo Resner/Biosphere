@@ -4,6 +4,8 @@
 // to solid white. A glint's hot point still reaches white: it stands far above the scene a few
 // pixels round it, as no stroke, cloud of setae or bloom does, and there the ceiling rises to 1.
 
+import { clamp } from '../../sim/math';
+
 type Rgb = readonly [number, number, number];
 
 export const GRADE = {
@@ -25,7 +27,7 @@ export const GRADE = {
 } as const;
 
 const smoothstep = (a: number, b: number, x: number): number => {
-  const t = Math.min(1, Math.max(0, (x - a) / (b - a)));
+  const t = clamp((x - a) / (b - a), 0, 1);
   return t * t * (3 - 2 * t);
 };
 

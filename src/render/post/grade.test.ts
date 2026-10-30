@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { luminance } from '../material-params';
 import postFragment from '../shaders/post.frag.glsl?raw';
 import { POST_LOOK } from './chain';
 import { GRADE, gradeHighlights } from './grade';
@@ -8,8 +9,6 @@ import { GRADE, gradeHighlights } from './grade';
 // glint's hot point, which still reaches white.
 
 const byte = (v: number): number => Math.round(Math.min(1, Math.max(0, v)) * 255);
-const luma = ([r, g, b]: readonly number[]): number =>
-  0.2126 * (r as number) + 0.7152 * (g as number) + 0.0722 * (b as number);
 
 describe('the grade', () => {
   it('keeps every non-glint pixel short of solid white, however bright', () => {
@@ -30,7 +29,7 @@ describe('the grade', () => {
   it("lets a glint's hot point reach white", () => {
     const out = gradeHighlights([4, 4, 4], 2.4, 0.3);
     expect(Math.min(...out.map(byte))).toBeGreaterThanOrEqual(250);
-    expect(luma(out.map(byte))).toBeGreaterThanOrEqual(250);
+    expect(luminance(out.map(byte) as [number, number, number])).toBeGreaterThanOrEqual(250);
   });
 
   it('leaves tones below the knee alone and stays monotonic above it', () => {
@@ -49,6 +48,6 @@ describe('the grade', () => {
     expect(postFragment).toContain('uniform vec3 uWhite;');
     expect(postFragment).toContain('uniform vec2 uHot;');
     expect(postFragment).toContain('uniform vec2 uAround;');
-    expect(postFragment).toMatch(/smoothstep\(uHot\.x, uHot\.y, dot\(scene, LUMA\) - around\)/);
+    expect(postFragment).toMatch(/smoothstep\(uHot\.x, uHot\.y, sceneLuma - around\)/);
   });
 });
