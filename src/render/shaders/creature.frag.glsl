@@ -9,16 +9,17 @@
 // dark lens eyes. The inner anatomy (M6 T12) carries the pigment: a gut line, fluid chambers,
 // amber-leaning oil droplets, a beating heart and eye pigment show through the near-clear body. Rare
 // glints are star points over joints and organs, as many and as bright as the rarity tier allows.
-// Look pass 2 (M6 T27): organs sit in soft glows that merge into masses, take two hues (wider and
-// more vivid with rarity), bulb tips are small pearls and joints catch small wet points.
-// Look pass 3 (M6 T28): light scatters through the glass inside the rim, thin walls cross the body
-// between segments, eyes are dark jewelled lenses, parts are clean glass, and the rarer glints vary.
+// Look pass 2 (M6 T27): bulb tips are small pearls and joints catch small wet points.
+// Look pass 3 (M6 T28): thin walls cross the body between segments, eyes are dark jewelled lenses,
+// parts are clean glass, and the rarer glints vary.
+// M6b T3 (ADR 0034) took out passes 2 and 3's organ glows, scattered light and centre-lit chambers:
+// the organs are pass 1's glassy chambers again, in the gene hue with at most one complementary accent.
 // One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
 uniform vec3 uOrgan;
-// The second organ hue and how vivid the inside is, both rising with rarity (look pass 2).
-uniform vec3 uOrgan2;
+// The complementary accent of an accent organ, and how vivid the rare glints' colours are (M6b T3).
+uniform vec3 uAccent;
 uniform float uVivid;
 uniform vec3 uOil;
 uniform vec3 uLumColor;
@@ -63,39 +64,35 @@ const int PART_HEART = 12;
 const int PART_PIGMENT = 13;
 const int PART_GLINT = 14;
 const int PART_SETULE = 15;
-// `uv.x` tags (creature-mesh.ts `addBall`): a pearl tip, and each organ's number times ORGAN_TAG.
+// `uv.x` tags (creature-mesh.ts `addBall`): a pearl tip; an accent organ's uv.y starts at ACCENT_V.
 const float PEARL_TAG = 2.0;
-const float ORGAN_TAG = 2.0;
-// An organ glow's uv.y at its centre (its rim is one more), and its opacity there.
-const float HALO_V = 2.0;
-const float HALO_ALPHA = 0.4;
+const float ACCENT_V = 2.0;
 const float ORGAN_LUMA = 0.36;
-// A small body's organ glows are denser (look pass 3), so at play zoom the colour still reads as
-// masses rather than points: up to this many times as opaque below the first size (`px` in main,
-// which is about half a core radius in pixels), easing back to 1 by the second, below the gallery's.
-const float HALO_SMALL = 1.8;
-const vec2 HALO_SMALL_PX = vec2(7.0, 14.0);
 // The wet points on a part's joints: how tight and how bright.
 const float JOINT_GLOSS = 14.0;
-const float JOINT_SHINE = 0.7;
+// At most half the rim colour's luminance (M6b T3), which the drawn rim always reaches.
+const float JOINT_SHINE = 0.5;
 // A part's half-width on screen (pixels) over which it turns from a bright stroke to clear glass.
 const vec2 PART_CLEAR_PX = vec2(2.5, 6.0);
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
-// Light scattered through the body's tissue (look pass 3): its peak strength, and the extra a
-// vivid (rare) body gets, as in references 04 and 05, which glow through and through.
-const float SCATTER = 0.07;
-const float SCATTER_VIVID = 0.22;
 // The thin walls across the body between segments (look pass 3): how bright, their width in pixels,
 // and the segment lengths on screen (pixels) over which they fade in, so a small body stays clean.
-const float WALL = 1.0;
+// At most 0.35 of the rim colour's luminance (M6b T3): faint structure, not bright bands.
+const float WALL = 0.35;
 const float WALL_PX = 1.6;
 const vec2 WALL_FADE = vec2(3.0, 7.0);
+// Relative luminance weights.
+const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 // The key light, low and to the upper left, as its half vector toward the camera: the wet highlight
 // lands on the upper-left shoulder of each body, outside the organs, which would hide it.
 const vec3 KEY_HALF = vec3(-0.42, 0.46, 0.782);
 // The caustic lines' colour over a body: brighter than on the water, as the glass is seen through.
 const vec3 CAUSTIC_BODY = vec3(0.45, 0.8, 0.72);
+// The shell's rim (M6b T3): its power (plain, membranous) and its brightness at the edge. Pass 1's
+// rim was the fresnel itself (power 2, 1.8 bright), which lit the glass well inside the edge.
+const vec2 RIM_POWER = vec2(5.0, 3.8);
+const float RIM = 5.0;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
@@ -165,15 +162,20 @@ void main() {
   vec3 normal = normalize(vNormal);
   float z = abs(normal.z);
   float fres = pow(1.0 - z, mix(2.0, 1.4, uMembrane));
-  float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * fres;
+  // The shell's rim (M6b T3): far steeper than the fresnel, so it is a crisp bright line round clear
+  // glass rather than a glow reaching into the face; the backlight rides it.
+  float rim = pow(1.0 - z, mix(RIM_POWER.x, RIM_POWER.y, uMembrane));
+  float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
   // Screen pixels per core radius, for the detail's fade.
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
 
-  // The shell is nearly clear face-on (M6 T12): a dim core lets the organs show, the rim carries the edge.
-  vec3 col = uCore * (0.15 + 0.3 * z) + uRim * ((fres * 1.8 + back * 0.9) * uRimStrength);
-  col = mix(col, uRim * 0.8, markings(vUv) * 0.2);
+  // The shell is clear face-on (M6 T12, M6b T3): a faint core lets the water and the organs show,
+  // and the rim carries the edge.
+  vec3 col = uCore * (0.05 + 0.13 * z) + uRim * ((rim * RIM + back * 0.9) * uRimStrength);
+  // Markings are faint structure in the glass (0.2 in pass 1; fainter since M6b T3, so the shell stays clear).
+  col = mix(col, uRim * 0.8, markings(vUv) * 0.1);
 
   // Thin-film shimmer: the hue slides with the view angle, a pale sheen on the clear shell.
   if (uIrid > 0.0) {
@@ -187,23 +189,18 @@ void main() {
   float pulse = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.2 + vUv.y * 6.0 + vPart * 1.3), uLumPulse);
   vec3 glow = uLumColor * uLum * pulse;
 
-  float alpha = mix(0.5, 0.2, uTranslucency) * (1.0 - fres) + fres;
+  float alpha = mix(0.5, 0.2, uTranslucency) * (1.0 - rim) + rim;
   bool glass = kind <= 4;
   if (kind == 0 || kind == 2) {
-    // Light scattered through the tissue (look pass 3): a pale band inside the rim, faintly tinted
-    // by the organs and stronger on rarer bodies, so the glass between the organs is lit. It fades
-    // toward the middle, where the organs glow, so the rim stays the brightest ring (T13).
-    vec3 tissue = mix(uRim, 0.5 * (uOrgan + uOrgan2), 0.25 + 0.35 * uVivid);
-    col += tissue * (6.75 * z * (1.0 - z) * (1.0 - z)) * (SCATTER + SCATTER_VIVID * uVivid);
     // A thin wall where two segments meet: a ring round the body, seen from above as a line across
-    // it, brighter toward the edge as the glass is seen more edge-on there.
+    // it.
     float near = abs(vWall - floor(vWall + 0.5));
     float step_ = max(fwidth(vWall), 1e-5);
     float width = step_ * WALL_PX;
     // Below 0.75 lies only the front span (from 0.5), never a wall: both halves of the first wall draw.
     float wall = (1.0 - smoothstep(width * 0.5, width * 1.5, near)) * step(0.75, vWall) *
       smoothstep(WALL_FADE.x, WALL_FADE.y, 1.0 / step_);
-    col += uRim * wall * WALL * (0.6 + 0.4 * fres);
+    col += uRim * wall * WALL;
     alpha = max(alpha, wall * 0.5);
   }
   if (kind == 1 && vUv.x >= PEARL_TAG) {
@@ -221,14 +218,15 @@ void main() {
     // edges bright and its face open (look pass 5): lit through, stacked paddles read as a white cloud.
     float across = 1.0 / max(length(fwidth(normal.xy)), 1e-3);
     float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
-    col += uRim * 0.3 * z * thin + vec3(pow(max(dot(normal, KEY_HALF), 0.0), JOINT_GLOSS) * JOINT_SHINE);
+    float gloss = pow(max(dot(normal, KEY_HALF), 0.0), JOINT_GLOSS);
+    col += uRim * 0.3 * z * thin + vec3(gloss * JOINT_SHINE * dot(uRim, LUMA));
     alpha = mix(alpha, max(alpha, 0.5 + 0.3 * fres), thin);
   } else if (kind == 2) {
     // A plate: denser, brighter glass with a sheen across its face, so armour reads at default zoom
     // (M6 T21), but not an opaque lid: the organs still show through, and the body stays clear
-    // (look pass 2 cut the milky fill to under half).
-    col = mix(col, uRim * (0.75 + 0.35 * z) + 0.06, 0.18) + vec3(spec * 1.5);
-    alpha = mix(alpha, 1.0, 0.3 * uPlating);
+    // (look pass 2 cut the milky fill to under half, and M6b T3 by half again).
+    col = mix(col, uRim * (0.75 + 0.35 * z) + 0.06, 0.1) + vec3(spec * 1.5);
+    alpha = mix(alpha, 1.0, 0.2 * uPlating);
   } else if (kind == 3) {
     // The mouth: a dark opening ringed by a bright lip, so it reads at default zoom as a mouth, not
     // as a pale cap on the front of the body (look pass 1, M6 T21). The lip stays near white: colour
@@ -237,8 +235,9 @@ void main() {
     col = mix(vec3(0.03, 0.02, 0.025), vec3(1.0, 0.95, 0.9) * 1.3, lip);
     alpha = mix(0.8, 1.0, lip);
   } else if (kind == 4) {
-    // The carapace: clear glass over the body, a bright rim, a little denser with plating.
-    col = uRim * (0.3 + 1.5 * fres + 0.6 * back) + uCore * 0.15;
+    // The carapace: clear glass over the body, a bright rim, a little denser with plating. Its face
+    // is nearly clear (M6b T3), so a fused body is not veiled in a milky shell.
+    col = uRim * (0.1 + 1.5 * fres + 0.6 * back) + uCore * 0.15;
     alpha = mix(0.1, 0.3, uPlating) + 0.8 * fres;
   } else if (kind == 5) {
     // A seta: a hair-thin bright stroke.
@@ -269,13 +268,14 @@ void main() {
     alpha = 0.07 + 0.55 * vein;
   } else if (kind == 7) {
     // An eye: a dark pigment cup in a clear lens (look pass 3, reference 05's big dark eyes): a
-    // jewel ring of the organ hue round the pupil, a glassy rim and one bright highlight.
+    // faint ring of the organ hue round the pupil (fainter since M6b T3, so the colour stays in
+    // the organs), a glassy rim and one bright highlight.
     vec2 n = normal.xy;
     float spot = 1.0 - smoothstep(0.1, 0.26, length(n - vec2(-0.3, 0.35)));
     float r = length(n);
     float lens = smoothstep(0.86, 0.99, r);
     float iris = smoothstep(0.45, 0.62, r) * (1.0 - smoothstep(0.66, 0.82, r));
-    vec3 cup = vec3(0.015, 0.018, 0.025) + tame(uOrgan) * 0.4 * iris;
+    vec3 cup = vec3(0.015, 0.018, 0.025) + tame(uOrgan) * 0.15 * iris;
     col = mix(cup, uRim * 0.45, lens) + vec3(0.95) * spot;
     alpha = mix(0.97, 0.8, lens);
   } else if (kind == PART_GLINT) {
@@ -297,46 +297,33 @@ void main() {
     // Iridescent bodies throw a faint colour into the rays.
     vec3 tint = mix(vec3(1.0, 0.97, 0.92), uRim, 0.25 * uIrid);
     // The hot point stays white; a jewel's colour lives in its rays, at full strength.
-    vec3 jewel = pick < 0.5 ? uOrgan2 : uOrgan;
+    vec3 jewel = pick < 0.5 ? uAccent : uOrgan;
     jewel /= max(max(jewel.r, max(jewel.g, jewel.b)), 1e-3);
     vec3 rayTint = mix(tint, jewel, 0.75 * uVivid * step(0.35, pick));
     col = (tint * hot + rayTint * (star - hot)) * twinkle * uGlint;
     alpha = clamp(star * uGlint, 0.0, 1.0);
   } else if (kind >= PART_GUT) {
-    // The organs, seen through the body: lit through from behind, so their centres glow. Each takes
-    // one of the two organ hues by its number (look pass 2), so a body mixes colours inside, and
-    // rarer bodies glow brighter from within.
+    // The organs, seen through the body (pass 1, M6b T3): each in the gene hue, or the
+    // complementary accent on an accent organ, lit through from behind.
     vec2 n = normal.xy;
     float spot = 1.0 - smoothstep(0.1, 0.32, length(n - vec2(-0.3, 0.35)));
-    vec3 tint = tame(hash21(vec2(floor(vUv.x / ORGAN_TAG), 7.31)) < 0.45 ? uOrgan2 : uOrgan);
-    vec3 oil = tame(uOil);
-    float inner = 1.0 + 0.15 * uVivid;
-    if (vUv.y >= HALO_V) {
-      // An organ's glow: soft tissue in its colour, fading out to its rim, so neighbouring lobes
-      // merge into one coloured mass (references 02 and 03); brighter on rarer bodies.
-      float out_ = clamp(vUv.y - HALO_V, 0.0, 1.0);
-      float fall = 1.0 - smoothstep(0.2, 1.0, out_);
-      col = (kind == PART_DROPLET ? oil : tint) * (0.6 + 0.1 * uVivid);
-      float small = mix(HALO_SMALL, 1.0, smoothstep(HALO_SMALL_PX.x, HALO_SMALL_PX.y, px));
-      alpha = min(fall * (HALO_ALPHA + 0.12 * uVivid) * small, 0.85);
-    } else if (kind == PART_GUT) {
+    vec3 tint = vUv.y >= ACCENT_V ? uAccent : uOrgan;
+    if (kind == PART_GUT) {
       // A faint line (look pass 5): on a slim trunk the organs sit along it, and a gut as bright as
       // they are joined them into one streak.
-      col = tame(mix(uOrgan, uOrgan2, 0.35)) * (0.25 + 0.3 * z);
+      col = tame(uOrgan) * (0.25 + 0.3 * z);
       alpha = 0.18 + 0.22 * z;
     } else if (kind == PART_CHAMBER) {
-      // A fluid lobe: a body of colour glowing from its centre, its edge soft, so lobes packed side
-      // by side read as one organ mass (references 02 and 03). Look pass 3 took the bright wall and
-      // most of the highlight away, which made each lobe a hard glass marble.
-      col = tint * (0.45 + 0.35 * z + 0.15 * fres) * inner + 0.06 * spot;
-      alpha = (0.45 + 0.45 * z) * smoothstep(0.0, 0.45, z);
+      // A fluid chamber, glassy as in pass 1: a clear centre in its colour and a brighter, denser wall.
+      col = tint * (0.45 + 0.3 * z + 0.6 * fres) + 0.1 * spot;
+      alpha = 0.55 + 0.25 * z + 0.2 * fres;
     } else if (kind == PART_DROPLET) {
       // An oil droplet: amber-leaning lipid with one bright point toward the light.
-      col = oil * (0.6 + 0.35 * z) + 0.3 * spot;
+      col = uOil * (0.6 + 0.35 * z) + 0.3 * spot;
       alpha = 0.7 + 0.25 * z;
     } else if (kind == PART_HEART) {
       float beat = 0.85 + 0.15 * sin(uTime * 5.0);
-      col = tint * (0.6 + 0.4 * z) * beat * inner;
+      col = tint * (0.6 + 0.4 * z) * beat;
       alpha = 0.6 + 0.3 * z;
     } else {
       // Eye pigment: a dark cup, tinted by the gene.
@@ -391,7 +378,7 @@ void main() {
 
   // Dark water (M6 T16): beyond the player's sight in the deep and the abyss the body fades into
   // the fog unless glow lights it, but its rim always stays, so a creature is never invisible.
-  col = mix(uRim * (fres * 1.8 + back * 0.9) * uRimStrength, col, uSight);
+  col = mix(uRim * (rim * RIM + back * 0.9) * uRimStrength, col, uSight);
 
   vec3 hurtCol = vec3(1.0, 0.18, 0.12);
   if (uHurt > 0.0) col = mix(col, col * 0.5 + hurtCol * (0.35 + 0.8 * fres), uHurt * 0.7);

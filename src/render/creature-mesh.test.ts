@@ -1082,3 +1082,55 @@ describe('buildCreatureGeometry: segment walls (look pass 3, M6 T28)', () => {
     expect(walls[0] as number).toBeCloseTo(1.8, 1);
   });
 });
+
+describe('pass 1 glass without the haze and the glow (M6b T3, ADR 0034)', () => {
+  /** The shader's code for one organ kind: from its `kind == PART_…` branch to the next branch. */
+  const branch = (name: string): string => {
+    const from = fragmentShader.indexOf(`kind == ${name})`);
+    expect(from, name).toBeGreaterThan(0);
+    const next = fragmentShader.indexOf('} else', from);
+    return fragmentShader.slice(from, next);
+  };
+
+  it('draws no organ glows, no scattered band inside the rim and no denser glows on small bodies', () => {
+    for (const name of ['HALO', 'SCATTER', 'uOrgan2', 'HALO_SMALL', 'addHalo']) {
+      expect(fragmentShader, name).not.toContain(name);
+    }
+    const g = buildCreatureGeometry(planOf(specimen('07-')), 'high', anatomyFor(specimen('07-')));
+    const [uv, part, position, normal] = ['uv', 'aPart', 'position', 'normal'].map((n) =>
+      attr(g, n),
+    );
+    // Every organ vertex belongs to a ball: no flat glow disc lies under the organs.
+    let flat = 0;
+    for (let i = 0; i < (part as Float32Array).length; i++) {
+      const k = partKind(part?.[i] as number);
+      if (k !== PART_CHAMBER && k !== PART_DROPLET && k !== PART_HEART) continue;
+      const facing = position?.[i * 3 + 2] === 0 && normal?.[i * 3 + 2] === 1;
+      if (facing && (uv?.[i * 2 + 1] as number) % 1 === 0) flat++;
+    }
+    expect(flat).toBe(0);
+    g.dispose();
+  });
+
+  it("gives chambers pass 1's glassy look: a brighter wall and a clearer centre, not a centre glow", () => {
+    const chamber = branch('PART_CHAMBER');
+    // Colour and opacity both rise toward the edge (fres), and the centre is not faded in from z.
+    expect(chamber).toMatch(/0\.6 \* fres/);
+    expect(chamber).toMatch(/alpha = 0\.55 \+ 0\.25 \* z \+ 0\.2 \* fres/);
+    expect(chamber).not.toMatch(/smoothstep\(0\.0, 0\.45, z\)/);
+    // Organs take the gene hue or, on an accent organ, the complementary accent, nothing else.
+    expect(fragmentShader).toMatch(/uniform vec3 uAccent;/);
+  });
+
+  it('keeps segment walls faint and joint points dim against the rim colour', () => {
+    const constant = (name: string): number =>
+      Number(fragmentShader.match(new RegExp(`const float ${name} = ([0-9.]+);`))?.[1]);
+    // Walls at most 0.35 and wet joint points at most half of the rim colour's luminance, which the
+    // drawn rim (its term is at least 1 at the edge) always reaches.
+    expect(constant('WALL')).toBeLessThanOrEqual(0.35);
+    expect(fragmentShader).toMatch(/col \+= uRim \* wall \* WALL;/);
+    expect(constant('JOINT_SHINE')).toBeLessThanOrEqual(0.5);
+    expect(fragmentShader).toMatch(/gloss \* JOINT_SHINE \* dot\(uRim, LUMA\)/);
+    expect(constant('RIM')).toBeGreaterThanOrEqual(1);
+  });
+});

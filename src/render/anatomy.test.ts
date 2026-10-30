@@ -9,7 +9,14 @@ import { GENOME_BYTES } from '../genome/karyotype';
 import { starterGenome } from '../genome/starter';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
-import { type Anatomy, anatomyOf, CHAMBERS, chamberCount, HALO, type Organ } from './anatomy';
+import {
+  type Anatomy,
+  anatomyOf,
+  CHAMBERS,
+  chamberCount,
+  ORGAN_LAYOUT,
+  type Organ,
+} from './anatomy';
 
 // Inner anatomy (M6 T12): render data only, placed inside the hull and seeded by the genome hash.
 
@@ -75,26 +82,59 @@ describe('anatomyOf', () => {
     expect(outside).toBe(0);
   }, 60_000);
 
-  it('wraps each organ but the eye pigment in a glow of tissue inside the hull, up to HALO times its radius (look pass 2)', () => {
-    let outside = 0;
-    let wide = 0;
-    let organs = 0;
+  it('returns no glow discs round the organs, only the organs themselves (M6b T3, ADR 0034)', () => {
     for (const b of bodies) {
       for (const o of anatomy(b).organs) {
-        if (o.kind === 'pigment') {
-          expect(o.halo).toBe(0);
-          continue;
+        expect(Object.keys(o).sort()).toEqual(['accent', 'kind', 'r', 'x', 'y']);
+      }
+    }
+  });
+
+  it("keeps pass 1's spacing: any two organs lie 1.2 times their summed radii apart (M6b T3)", () => {
+    expect(ORGAN_LAYOUT.gap).toBe(1.2);
+    let close = 0;
+    for (const b of bodies) {
+      const organs = anatomy(b).organs.filter((o) => o.r > 0);
+      for (let i = 0; i < organs.length; i++) {
+        for (let j = i + 1; j < organs.length; j++) {
+          const [p, q] = [organs[i] as Organ, organs[j] as Organ];
+          if (Math.hypot(p.x - q.x, p.y - q.y) < (p.r + q.r) * 1.2 - 1e-9) close++;
         }
-        organs++;
-        expect(o.halo).toBeGreaterThanOrEqual(o.r);
-        expect(o.halo).toBeLessThanOrEqual(o.r * HALO + 1e-9);
-        if (!discInside(b.plan, o.x, o.y, o.halo)) outside++;
-        if (o.halo >= o.r * 1.5) wide++;
+      }
+    }
+    expect(close).toBe(0);
+  }, 60_000);
+
+  it("clusters chambers and droplets in pass 1's midline band: within 0.55 of a segment's half-width (M6b T3)", () => {
+    expect(ORGAN_LAYOUT.across).toBe(0.55);
+    let outside = 0;
+    for (const b of bodies) {
+      for (const o of chambers(anatomy(b))) {
+        const inBand = b.plan.segments.some((s) => {
+          const [dx, dy] = [o.x - s.x, o.y - s.y];
+          const u = (dx * Math.cos(s.angle) + dy * Math.sin(s.angle)) / s.rx;
+          const v = (-dx * Math.sin(s.angle) + dy * Math.cos(s.angle)) / s.ry;
+          return u * u + v * v <= 1 + 1e-9 && Math.abs(v) <= 0.55 + 1e-9;
+        });
+        if (!inBand) outside++;
       }
     }
     expect(outside).toBe(0);
-    // Most glows reach well past their organ, so neighbouring lobes merge into one mass.
-    expect(wide / organs).toBeGreaterThan(0.5);
+  }, 60_000);
+
+  it('sizes the chambers as pass 1: 0.23 body scales at the fewest, varied by ±45% (M6b T3)', () => {
+    expect(ORGAN_LAYOUT.chamber).toBe(0.23);
+    const shares: number[] = [];
+    for (const b of bodies) {
+      const scale = Math.sqrt(b.plan.segments.reduce((a, s) => a + s.rx * s.ry, 0));
+      const nominal = (0.23 * scale) / Math.sqrt(chamberCount(b.traits) / CHAMBERS.min);
+      const own = chambers(anatomy(b)).filter((o) => o.kind === 'chamber');
+      for (const o of own) expect(o.r).toBeLessThanOrEqual(nominal * 1.45 + 1e-9);
+      if (own.length > 0) shares.push(Math.max(...own.map((o) => o.r)) / nominal);
+    }
+    // Most bodies keep chambers near full size: the bound above is not met by shrinking them all.
+    shares.sort((a, b) => a - b);
+    expect(shares[shares.length >> 1]).toBeGreaterThan(0.6);
   }, 60_000);
 
   it('runs a gut line along the curved spine, front to rear, with a stomach swelling', () => {

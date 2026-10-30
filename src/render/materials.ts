@@ -127,7 +127,7 @@ export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.Shade
     uCore: { value: new THREE.Color(...params.core) },
     uRim: { value: new THREE.Color(...params.rim) },
     uOrgan: { value: new THREE.Color(...params.organ) },
-    uOrgan2: { value: new THREE.Color(...params.organ2) },
+    uAccent: { value: new THREE.Color(...params.accent) },
     uOil: { value: new THREE.Color(...params.oil) },
     uVivid: { value: params.vivid },
     uLumColor: { value: new THREE.Color(...params.lumColor) },

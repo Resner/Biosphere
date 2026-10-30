@@ -1,9 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { decodeGenome } from '../genome/codec';
+import { develop } from '../genome/develop';
 import { express, type Traits } from '../genome/express';
+import { genesisGenome } from '../genome/genesis';
 import { GENOME_BYTES } from '../genome/karyotype';
+import { rarityOfTraits } from '../genome/rarity';
 import { starterGenome } from '../genome/starter';
 import { createRng, seedFromString } from '../sim/prng';
+import { anatomyOf } from './anatomy';
 import {
   luminance,
   MIN_RIM_LUMINANCE,
@@ -27,6 +31,19 @@ const withColour = (
 const hsvSaturation = ([r, g, b]: readonly number[]): number => {
   const max = Math.max(r as number, g as number, b as number);
   return max === 0 ? 0 : (max - Math.min(r as number, g as number, b as number)) / max;
+};
+
+/** The HSV hue of a colour, in turns. */
+const hueOf = ([r, g, b]: readonly number[]): number => {
+  const [x, y, z] = [r as number, g as number, b as number];
+  const [max, min] = [Math.max(x, y, z), Math.min(x, y, z)];
+  const d = max - min || 1;
+  const h = max === x ? (y - z) / d : max === y ? 2 + (z - x) / d : 4 + (x - y) / d;
+  return (((h / 6) % 1) + 1) % 1;
+};
+const arc01 = (a: number, b: number): number => {
+  const d = Math.abs(a - b) % 1;
+  return Math.min(d, 1 - d);
 };
 
 describe('materialParams', () => {
@@ -60,7 +77,7 @@ describe('materialParams', () => {
     const albino = withColour({ hue: 0.3, saturation: 1, value: 0.9, albino: 'albino' });
     for (const tier of ['common', 'uncommon', 'rare', 'exotic'] as const) {
       const p = materialParams(albino, tier);
-      expect(p.organ2).toEqual(p.organ);
+      expect(p.accent).toEqual(p.organ);
       expect(p.vivid).toBe(0);
     }
   });
@@ -208,35 +225,72 @@ describe('materialParams', () => {
     expect(albino.organ[0]).toBeGreaterThan(albino.organ[1]);
   });
 
-  it('mixes a second organ hue, further round the wheel and more vivid as rarity rises (look pass 2)', () => {
-    const tiers = ['common', 'uncommon', 'rare', 'exotic'] as const;
-    // The HSV hue of a colour, in turns.
-    const hueOf = ([r, g, bl]: readonly number[]): number => {
-      const [x, y, z] = [r as number, g as number, bl as number];
-      const [max, min] = [Math.max(x, y, z), Math.min(x, y, z)];
-      const d = max - min || 1;
-      const h = max === x ? (y - z) / d : max === y ? 2 + (z - x) / d : 4 + (x - y) / d;
-      return (((h / 6) % 1) + 1) % 1;
-    };
-    const arc = (a: readonly number[], b: readonly number[]): number => {
-      const d = Math.abs(hueOf(a) - hueOf(b));
+  it("keeps pass 1's palette over 1,500 genomes: one organ hue, one rare complementary accent, amber droplets (M6b T3)", () => {
+    const arc = (a: number, b: number): number => {
+      const d = Math.abs((((a - b) % 1) + 1) % 1);
       return Math.min(d, 1 - d);
     };
+    const tiers = { common: 0, uncommon: 0, rare: 0, exotic: 0 };
+    let accented = 0;
+    // Random genomes are nearly all rare or exotic; genesis bodies bring the common and uncommon tiers.
+    const sample = [
+      ...Array.from({ length: 1000 }, randomTraits),
+      ...Array.from({ length: 500 }, (_, i) =>
+        express(genesisGenome(seedFromString(`palette-genesis-${i}`))),
+      ),
+    ];
+    for (const traits of sample) {
+      const tier = rarityOfTraits(traits).tier;
+      tiers[tier]++;
+      const p = materialParams(traits, tier);
+      const plan = develop(traits);
+      const { organs } = anatomyOf(plan, traits, `palette-${tiers[tier]}-${tier}`);
+      const albino = traits.colour.albino === 'albino';
+      const gene = albino ? 0.96 : traits.colour.hue;
+      const coloured = organs.filter((o) => o.kind !== 'pigment');
+      const accents = coloured.filter((o) => o.accent);
+      // At most one accent group, on at most a third of the organs, never on a common body.
+      expect(accents.length).toBeLessThanOrEqual(coloured.length / 3);
+      if (tier === 'common') expect(accents.length).toBe(0);
+      if (accents.length > 0) accented++;
+      for (const o of coloured) {
+        const colour = o.kind === 'droplet' ? p.oil : o.accent ? p.accent : p.organ;
+        if (hsvSaturation(colour) < 0.05) continue;
+        const hue = hueOf(colour);
+        if (o.kind === 'droplet') {
+          // Droplets: the gene hue turned 40% of the short way toward amber, as in pass 1.
+          const d = ((((0.11 - gene) % 1) + 1.5) % 1) - 0.5;
+          expect(arc(hue, gene + 0.4 * d)).toBeLessThan(1e-6);
+        } else if (o.accent && !albino) {
+          expect(arc(hue, gene + 0.5)).toBeLessThanOrEqual(0.05);
+        } else {
+          expect(arc(hue, gene)).toBeLessThanOrEqual(0.06);
+        }
+      }
+    }
+    // The sample covers the tiers, and the accent shows on some of the rarer bodies.
+    expect(tiers.common).toBeGreaterThan(0);
+    expect(tiers.uncommon + tiers.rare + tiers.exotic).toBeGreaterThan(50);
+    expect(accented).toBeGreaterThan(20);
+  }, 60_000);
+
+  it('raises organ saturation with rarity, never the spread of hues, and leaves the shell alone (M6b T3)', () => {
+    const order = ['common', 'uncommon', 'rare', 'exotic'] as const;
+    expect(Object.keys(ORGAN_HUES).sort()).toEqual([...order].sort());
+    for (const tier of order)
+      expect(Object.keys(ORGAN_HUES[tier]).sort()).toEqual(['accent', 'vivid']);
+    expect(ORGAN_HUES.common.accent).toBe(0);
     for (const t of Array.from({ length: 200 }, randomTraits)) {
       if (t.colour.albino !== 'normal' || t.colour.saturation < 0.3) continue;
-      let [lastArc, lastVivid] = [0, 0];
-      for (const tier of tiers) {
+      let [lastOrgan, lastAccent] = [0, 0];
+      for (const tier of order) {
         const p = materialParams(t, tier);
-        const spread = arc(p.organ, p.organ2);
-        expect(spread).toBeCloseTo(ORGAN_HUES[tier].spread, 2);
-        expect(spread).toBeGreaterThan(lastArc);
-        expect(p.vivid).toBeGreaterThanOrEqual(lastVivid);
-        expect(hsvSaturation(p.organ2)).toBeGreaterThanOrEqual(hsvSaturation(p.organ) - 1e-9);
-        [lastArc, lastVivid] = [spread, p.vivid];
+        expect(arc01(hueOf(p.organ), t.colour.hue)).toBeLessThan(1e-6);
+        expect(hsvSaturation(p.organ)).toBeGreaterThanOrEqual(lastOrgan - 1e-9);
+        expect(hsvSaturation(p.accent)).toBeGreaterThanOrEqual(lastAccent - 1e-9);
+        [lastOrgan, lastAccent] = [hsvSaturation(p.organ), hsvSaturation(p.accent)];
+        expect(p.rim).toEqual(materialParams(t, 'common').rim);
       }
-      // The tier never touches the shell: the colour lives inside.
-      expect(materialParams(t, 'exotic').rim).toEqual(materialParams(t, 'common').rim);
-      expect(materialParams(t, 'exotic').organ).toEqual(materialParams(t).organ);
     }
     expect(materialParams(base).vivid).toBe(0);
   });
