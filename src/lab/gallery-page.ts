@@ -7,6 +7,7 @@ import * as THREE from 'three';
 import { topDownCamera } from '../render/camera';
 import { CreatureCache } from '../render/creature-cache';
 import {
+  ORGAN_TAG,
   PART_BODY,
   PART_CHAMBER,
   PART_DROPLET,
@@ -69,8 +70,6 @@ export interface Disc {
 /** The body's loft and its organ balls, by part kind (`creature-mesh.ts`). */
 const HULL_KINDS = new Set([PART_BODY, PART_PLATE, PART_MOUTH]);
 const ORGAN_BALLS = new Set([PART_CHAMBER, PART_DROPLET, PART_HEART, PART_PIGMENT]);
-/** `uv.x` carries an organ's number times this (`addBall`); a gut ring's vertices share their `uv.y`. */
-const ORGAN_TAG = 2;
 
 /**
  * Where a creature mesh draws its body outline and organs, in CSS pixels: every vertex posed by the

@@ -37,7 +37,6 @@ test.beforeAll(async ({ browser, baseURL }) => {
   const read = await page.evaluate(() => window.__gallery?.state());
   if (!read) throw new Error('no gallery');
   state = read;
-  writeFileSync('test-results/m6b-look-state.json', JSON.stringify(state));
   image = await decodePng(page, png);
   await context.close();
   const grid = galleryGrid(state.specimens.length, state.width, state.height);

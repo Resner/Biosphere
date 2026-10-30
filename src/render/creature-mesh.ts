@@ -164,9 +164,9 @@ const FINGER_TAPER = 0.8;
 const PEARL = 0.55;
 /** `uv.x` tags (`addBall`): a pearl tip; an organ's number is `ORGAN_TAG` × (its index + 1). */
 const PEARL_TAG = 2;
-const ORGAN_TAG = 2;
+export const ORGAN_TAG = 2;
 /** An accent organ's `uv.y` runs from this, not 0 (M6b T3): the shader gives it the accent hue. */
-export const ACCENT_V = 2;
+const ACCENT_V = 2;
 /** The mouth marks the front of the body this far back (core radii) at least, so a small jaw still reads (M6 T21). */
 const MOUTH_MIN_REACH = 0.2;
 /**
