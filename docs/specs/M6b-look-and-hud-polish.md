@@ -229,7 +229,7 @@ The three tasks share these balance checks, re-run in each (the "balance checks"
 
 Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen changes `silhouetteOf` class, a new specimen for the lost class is added (ADR 0024), so specimens 21–32 plus the additions still cover 12 distinct classes.
 
-- [ ] T5 One body, widest at the trunk [opus]
+- [ ] T5 One body, widest at the trunk [opus] (in progress)
   - Acceptance (unit tests first, on plans):
     - In a bilateral karyotype v2 chain of 3 or more segments (parts excluded):
       - the drawn head's half-width is at most 0.9 of the trunk's widest half-width;
