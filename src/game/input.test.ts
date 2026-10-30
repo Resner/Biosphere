@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { ENTER_DELAY_MS, enterHatches, InputController, keysToInput, mouseToInput } from './input';
+import {
+  ENTER_DELAY_MS,
+  enterHatches,
+  InputController,
+  keysToInput,
+  mouseToInput,
+  wheelInput,
+} from './input';
 
 const centre = { x: 400, y: 300 };
 
@@ -308,5 +315,43 @@ describe('enterHatches', () => {
     expect(enterHatches('dead', ENTER_DELAY_MS - 1)).toBe(false);
     expect(enterHatches('dead', ENTER_DELAY_MS)).toBe(true);
     expect(enterHatches('playing', 10_000)).toBe(false);
+  });
+});
+
+describe('wheelInput', () => {
+  const held = { steer: 10, throttle: 12, dash: false };
+  const sampled = { steer: 90, throttle: 3, dash: true };
+
+  it('hands steering to the cursor while the wheel is closed', () => {
+    expect(wheelInput(false, held, sampled, null)).toEqual(sampled);
+    expect(wheelInput(false, held, sampled, { steer: 64, throttle: 15, dash: false })).toEqual(
+      sampled,
+    );
+  });
+
+  it('keeps the held steering and throttle while it is open and no key is down', () => {
+    expect(wheelInput(true, held, sampled, null)).toEqual({ ...held, dash: true });
+  });
+
+  it('lets WASD steer live while it is open', () => {
+    const keys = keysToInput(new Set(['w']));
+    expect(wheelInput(true, held, sampled, keys)).toEqual({ steer: 64, throttle: 15, dash: true });
+  });
+
+  it('keeps the dash of this tick, and never one from the held input', () => {
+    expect(wheelInput(true, { ...held, dash: true }, { ...sampled, dash: false }, null).dash).toBe(
+      false,
+    );
+  });
+});
+
+describe('InputController.keyInput', () => {
+  it('reports the held movement keys only', () => {
+    const c = new InputController();
+    expect(c.keyInput()).toBeNull();
+    c.keyDown('d');
+    expect(c.keyInput()?.steer).toBe(0);
+    c.keyUp('d');
+    expect(c.keyInput()).toBeNull();
   });
 });

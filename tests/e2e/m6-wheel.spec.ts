@@ -47,7 +47,7 @@ const heard = async (page: Page) => {
   return { ping: cues.ping ?? 0, emote: cues.emote ?? 0 };
 };
 
-test('G opens the wheel at the cursor; a number, a release or the middle button sends, Esc cancels, steering pauses', async ({
+test('G opens the wheel at the cursor; a number, a release or the middle button sends, Esc cancels, movement carries on', async ({
   page,
 }) => {
   test.setTimeout(45_000);
@@ -134,23 +134,48 @@ test('G opens the wheel at the cursor; a number, a release or the middle button 
   expect((await state(page)).social.pings.map((p) => p.kind).at(-1)).toBe(0);
   expect((await heard(page)).ping).toBe(before.ping + 1);
 
-  // Steering pauses while the wheel is open: the cursor far out to the right would swim.
+  // The wheel never stops you (#183): swimming right at full throttle, a second with the wheel
+  // open covers about what a second with it closed does, and the heading holds while the cursor
+  // moves over the items.
   await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
   const travel = async () => {
     const from = await playerOf(page);
     await page.waitForTimeout(1000);
     const to = await playerOf(page);
-    return Math.hypot(to.x - from.x, to.y - from.y);
+    return {
+      dist: Math.hypot(to.x - from.x, to.y - from.y),
+      heading: Math.atan2(to.y - from.y, to.x - from.x),
+    };
   };
-  await page.mouse.move(width / 2, height / 2);
-  await page.keyboard.press('g');
   await page.mouse.move(width - 10, height / 2);
+  await page.waitForTimeout(1500);
+  const closed = await travel();
+  expect(closed.dist).toBeGreaterThan(10);
+  await page.keyboard.press('g');
   expect((await state(page)).wheel.open).toBe(true);
-  const paused = await travel();
+  const sweep = (async () => {
+    const path: [number, number][] = [
+      [width / 2, 40],
+      [40, height / 2],
+      [width / 2, height - 40],
+    ];
+    for (const [x, y] of path) {
+      await page.mouse.move(x, y);
+      await page.waitForTimeout(250);
+    }
+  })();
+  const during = await travel();
+  await sweep;
+  expect(during.dist).toBeGreaterThanOrEqual(closed.dist * 0.8);
+  let turn = Math.abs(during.heading - closed.heading);
+  if (turn > Math.PI) turn = 2 * Math.PI - turn;
+  expect(turn).toBeLessThan((5 * Math.PI) / 180);
+  // Cancelling with Esc changes nothing about it.
   await page.keyboard.press('Escape');
-  const swimming = await travel();
-  expect(swimming).toBeGreaterThan(10);
-  expect(paused).toBeLessThan(swimming / 4);
+  expect((await state(page)).wheel.open).toBe(false);
+  await page.mouse.move(width - 10, height / 2);
+  const after = await travel();
+  expect(after.dist).toBeGreaterThanOrEqual(closed.dist * 0.8);
 });
 
 test('B sees the ping A picks at its cursor and the emote over A, and nothing A cancels @slow', async ({

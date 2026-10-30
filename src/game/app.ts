@@ -64,7 +64,7 @@ import { GrowthWatch, growthText, sizeShare } from './growth';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
 import { EdgeIndicatorsUi, edgeIndicators, type Indicator } from './indicators';
-import { enterHatches, InputController } from './input';
+import { enterHatches, InputController, wheelInput } from './input';
 import { type LabelProjection, RemoteLabels } from './labels';
 import { type LifeClock, LifeFlow, type Started, VERIFY_FAILED } from './life';
 import { resetLife } from './life-reset';
@@ -495,6 +495,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let beat = 0;
   let screenShownAt = 0;
   let steering: Steering | null = null;
+  /** What the creature keeps swimming on while the social wheel is open (M6b T2); a new life clears it. */
+  let heldInput: Input = IDLE;
+  /** Whether `heldInput` came from the movement keys, so releasing them stops the creature. */
+  let heldFromKeys = false;
   const prev = { x: 0, y: 0, heading: 0 };
 
   const adultRadius = (c: CreatureState): number => Math.sqrt(c.phys.maxBiomass);
@@ -543,6 +547,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     fx.reset();
     growth.reset();
     controller.reset();
+    heldInput = IDLE;
+    heldFromKeys = false;
     steering?.done(false);
     steering = null;
     const { player } = session;
@@ -1007,8 +1013,21 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       scene.pxPerWu,
       Math.sqrt(player.biomass),
     );
-    // The cursor is choosing on the social wheel: steering pauses while it is open (M6 T24).
-    return wheel.isOpen ? IDLE : sampled;
+    // The cursor is choosing on the social wheel: the creature keeps the steering it had when the
+    // wheel opened, and WASD still steers (M6b T2).
+    const keys = controller.keyInput();
+    if (!wheel.isOpen) {
+      heldInput = sampled;
+      heldFromKeys = keys !== null;
+    } else if (keys) {
+      heldInput = keys;
+      heldFromKeys = true;
+    } else if (heldFromKeys) {
+      // WASD let go while the wheel is open: coast, as without the wheel.
+      heldInput = IDLE;
+      heldFromKeys = false;
+    }
+    return wheelInput(wheel.isOpen, heldInput, sampled, keys);
   };
 
   const settleSteering = (events: StepEvent[]): void => {
