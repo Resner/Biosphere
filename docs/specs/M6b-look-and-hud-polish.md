@@ -97,7 +97,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
 
 ### Play
 
-- [ ] T1 Speed review, the speed band and rules 7
+- [x] T1 Speed review, the speed band and rules 7
   - Acceptance (unit tests first):
     - **The report.** `npm run report:speed` (`tools/speed-report.ts`, through Vite as `report:diversity` runs) prints the M1 starter's numbers, then four sets:
       - genesis bodies at hatch (biomass 80) and as adults;
@@ -136,6 +136,8 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
     - The spec-time probe numbers are in ADR 0036; the report replaces them.
     - Keep the band in genome stats, so the sim and its goldens see the banded `PhysStats`, and leave the sim's physics untouched.
     - If turning's p99 is above 3× the starter's, note it in DESIGN §4 as a known spread (out of scope).
+    - Done: `npm run report:speed`; `bandSpeed` (rational soft clamp, middle 1.0–1.1, so the tournament still holds) in `statsAt`; rules 7 and protocol 5; `-v6` goldens kept.
+    - Gotchas: the sim uses the adult `phys` at every size, so "at hatch" in the report is the adult `phys` at biomass 80. The remote-interpolation bug candidate was real (a jump after a snapshot gap) and is fixed in `RemoteBuffer`; the loop and the camera were fine. `develop-v5.test.ts` now expects the v5 stats with the band applied.
 
 - [ ] T2 The wheel keeps your movement
   - Acceptance (tests first):

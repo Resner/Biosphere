@@ -494,6 +494,19 @@ describe('goldens', () => {
     }
   });
 
+  it('keeps the frozen rules v6 child hashes (inheritance is shared with rules 7)', () => {
+    const file = new URL('./__golden__/inherit-v6.json', import.meta.url);
+    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
+      rulesVersion: number;
+      hashes: Record<string, string>;
+    };
+    expect(golden.rulesVersion).toBe(6);
+    for (const i of [0, 1, 2]) {
+      const seed = offspringSeed(new Uint8Array(32).fill(i), `golden-${i}`, 0);
+      expect(genomeHash(breed(parent(i), parent(i + 100), seed))).toBe(golden.hashes[`child-${i}`]);
+    }
+  });
+
   it('matches three committed child hashes', () => {
     const file = new URL('./__golden__/inherit.json', import.meta.url);
     const actual = Object.fromEntries(

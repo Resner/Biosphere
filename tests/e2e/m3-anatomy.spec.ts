@@ -65,7 +65,7 @@ test.describe('anatomy changes play', () => {
 
   test('swimming speed follows the stats, and bodies differ', async ({ page }) => {
     const speeds: Record<string, number> = {};
-    for (const name of ['flagellate', 'armoured']) {
+    for (const name of ['flagellate', 'radial']) {
       await play(page, genomeToBase64url(ARCHETYPES[name] as Genome));
       const { measured, predicted } = await measureSpeed(page);
       expect(
@@ -74,7 +74,7 @@ test.describe('anatomy changes play', () => {
       ).toBeLessThan(0.15);
       speeds[name] = measured;
     }
-    const [fast, slow] = [speeds.flagellate as number, speeds.armoured as number].sort(
+    const [fast, slow] = [speeds.flagellate as number, speeds.radial as number].sort(
       (x, y) => y - x,
     ) as [number, number];
     expect(fast / slow).toBeGreaterThanOrEqual(1.2);

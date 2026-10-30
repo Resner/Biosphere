@@ -10,6 +10,7 @@
     "dev": "vite",
     "sim:pacing": "node tools/pacing.mjs",
     "report:diversity": "node tools/diversity.mjs",
+    "report:speed": "node tools/speed.mjs",
     "gallery": "node tools/gallery.mjs",
     "report:budget": "node tools/budget-report.mjs",
     "specimens": "node tools/specimens.mjs",

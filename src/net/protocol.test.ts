@@ -461,8 +461,8 @@ describe('rejections', () => {
     expect(bad({ t: 'nope' })).toBeNull();
     expect(bad({ ...hello, v: 1 })).toBeNull();
     // Karyotype v2 genomes were a wire change (version 3), and so are the snapshot's ready and
-    // egg bits (version 4, M6 T19): older clients are turned away.
-    expect(PROTOCOL_VERSION).toBe(4);
+    // egg bits (version 4, M6 T19) and rules 7 bodies (version 5, M6b T1): older clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(5);
     expect(bad({ ...hello, v: 2 })).toBeNull();
     expect(bad({ ...hello, v: 3 })).toBeNull();
     expect(bad({ ...hello, v: undefined })).toBeNull();
