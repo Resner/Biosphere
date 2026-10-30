@@ -1,6 +1,6 @@
 # 0006: Genome, inheritance and bounded development
 
-- Status: accepted (the mesh vertex cap moves from development to rendering, and karyotype v2 extends the genome: 0025)
+- Status: accepted (the mesh vertex cap moves from development to rendering, and karyotype v2 extends the genome: 0025; top speed lives in a band: 0036)
 - Date: 2026-10-25
 
 ## Context

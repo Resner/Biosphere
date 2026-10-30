@@ -1,6 +1,6 @@
 # 0033: M6 ships with the remaining look gaps, and the owner's gate judges them
 
-- Status: accepted (amends 0024)
+- Status: accepted (amends 0024); its plan for the remaining gaps is superseded by 0034
 - Date: 2026-10-29
 
 ## Context
