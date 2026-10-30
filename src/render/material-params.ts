@@ -45,17 +45,20 @@ const OIL_HUE = 0.11;
 const OIL_SHIFT = 0.4;
 
 /**
- * A second organ hue (look pass 2): references 02 and 03 mix several colours inside one clear body,
- * and 04 and 05, the ceiling for the rarest, are far more varied and vivid. Per rarity tier: how far
- * round the wheel (turns) the second hue lies from the gene's, and `vivid` (0..1), how far its
- * saturation rises toward full and how brightly the organs glow from within. The shell never changes.
+ * The organs' palette by rarity tier (M6b T3, ADR 0034): every organ shares the gene hue, as in
+ * pass 1, and rarity raises saturation, never the spread of hues. `vivid` (0..1) is how far the
+ * accent's saturation rises toward full (the gene-hue organs rise half as far); `accent` is the share
+ * of the organs (`anatomyOf`) that take the complementary hue, half-way round the wheel. A common
+ * body has none. The shell never changes.
  */
-export const ORGAN_HUES: Readonly<Record<RarityTier, { spread: number; vivid: number }>> = {
-  common: { spread: 0.08, vivid: 0 },
-  uncommon: { spread: 0.14, vivid: 0.2 },
-  rare: { spread: 0.22, vivid: 0.45 },
-  exotic: { spread: 0.32, vivid: 0.8 },
+export const ORGAN_HUES: Readonly<Record<RarityTier, { vivid: number; accent: number }>> = {
+  common: { vivid: 0, accent: 0 },
+  uncommon: { vivid: 0.2, accent: 0.2 },
+  rare: { vivid: 0.45, accent: 0.27 },
+  exotic: { vivid: 0.8, accent: 1 / 3 },
 };
+/** The accent lies this far round the wheel from the gene hue (turns): its complement. */
+const ACCENT_TURN = 0.5;
 
 const ALBINO_HUE = 0.96;
 const ALBINO_SATURATION = 0.08;
@@ -77,10 +80,10 @@ export interface MaterialParams {
    * at the same saturation, their hue turned toward amber.
    */
   organ: Rgb;
-  /** The second organ hue (`ORGAN_HUES`): the shader gives each organ one of the two. */
-  organ2: Rgb;
+  /** The complementary accent (`ORGAN_HUES`) that the accent organs (`Organ.accent`) take; an albino's is its organ pink. */
+  accent: Rgb;
   oil: Rgb;
-  /** 0..1 by rarity tier (`ORGAN_HUES`): how vivid the second hue is and how the organs glow. */
+  /** 0..1 by rarity tier (`ORGAN_HUES`): how far organ saturation rises; rare glints take organ colours by it. */
   vivid: number;
   translucency: number;
   membrane: number;
@@ -149,7 +152,7 @@ function patternKind(alleles: readonly string[]): number {
   return PATTERN.none;
 }
 
-/** `tier` is the body's rarity tier (`rarityOfTraits`); it sets only the organs' second hue and glow. */
+/** `tier` is the body's rarity tier (`rarityOfTraits`); it sets only the organs' saturation and accent. */
 export function materialParams(
   t: Pick<Traits, 'colour' | 'skin'>,
   tier: RarityTier = 'common',
@@ -171,21 +174,19 @@ export function materialParams(
   // A dark shell lifts toward its own silver, not toward white.
   const light: Rgb = albino ? [1, 1, 1] : hsv(shellHue, shellSaturation, 1);
   const inside = Math.max(value, ORGAN_VALUE);
-  const organSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
-  // An albino has no pigment to vary: both organ hues stay the pink of blood.
-  const second = albino ? { spread: 0, vivid: 0 } : ORGAN_HUES[tier];
+  const geneSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
+  // An albino has no pigment to vary: its organs stay the pink of blood whatever the tier.
+  const vivid = albino ? 0 : ORGAN_HUES[tier].vivid;
+  const organSaturation = lerp(geneSaturation, 1, vivid / 2);
+  const organ = hsv(hue, organSaturation, inside);
 
   return {
     core: liftTo(toward(body, 0, 0.5), MIN_CORE_LUMINANCE, light),
     rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE, light),
     saturation,
-    organ: hsv(hue, organSaturation, inside),
-    organ2: hsv(
-      (hue + second.spread) % 1,
-      lerp(organSaturation, 1, second.vivid),
-      lerp(inside, 1, second.vivid),
-    ),
-    vivid: second.vivid,
+    organ,
+    accent: albino ? organ : hsv((hue + ACCENT_TURN) % 1, lerp(geneSaturation, 1, vivid), inside),
+    vivid,
     oil: hsv(towardHue(hue, OIL_HUE, OIL_SHIFT), organSaturation, 1),
     translucency: clamp(skin.translucency, 0, 1),
     membrane: clamp(skin.membrane, 0, 1),

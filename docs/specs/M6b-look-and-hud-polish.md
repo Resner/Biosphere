@@ -154,7 +154,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
 
 ### The look on screen (ADR 0034)
 
-- [ ] T3 Pass 1's glass, without the haze and the glow [opus]
+- [x] T3 Pass 1's glass, without the haze and the glow [opus]
   - Acceptance:
     - **Measure first.** On main, before any change, render the gallery to a scratch file and record in the PR the two measures below. Do the same with side-by-side crops of cells 01, 07, 12, 24, 27 and 31 against `pass-1.png` (scratch files, not committed).
     - **What comes out** (unit tests on `anatomyOf` and `materialParams`, plus the shader's code):
@@ -190,6 +190,8 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
     - `git diff e90b4af HEAD -- src/render/anatomy.ts src/render/material-params.ts src/render/shaders/creature.frag.glsl` shows every change since pass 1.
     - M6 T21 (8f3010e) turned plates milky, and pass 2 fixed it; keep that fix.
     - Judge by eye on the crops before ticking: "glassy and clear like pass 1, with the detail of pass 5".
+    - Done: halos, scatter and centre-lit chambers out; pass 1 layout; `Organ.accent`, `ORGAN_HUES` `{ vivid, accent }`; a crisp rim term (power 5); fainter face, markings, plates, carapace, walls (0.35) and joints (0.5). Main: shell 63.1, 14 cells under 85%; now 28.8, all ≥ 91%.
+    - Gotcha: pass 1's face measures as bright as main's, so the bar needs glass clearer than pass 1; the hook's `organs` include the gut's rings; `m3-clip`'s starter now checks for a hole by comparison, since its clear centre shows the water.
 
 - [ ] T4 No white clipping [opus]
   - Acceptance:

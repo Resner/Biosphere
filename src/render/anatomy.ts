@@ -1,16 +1,19 @@
 // Inner anatomy (M6 T12, references 02 and 03): the organs that show through a creature's clear
 // shell. A gut line runs along the curved spine and swells into a stomach; fluid chambers and oil
-// droplets sit at hash-seeded places without overlapping, each in a soft glow that may overlap its
-// neighbours' (look pass 2); a heart or ganglion spot and eye pigment complete it. Everything lies inside the hull (the union of the plan's segment ellipses). This is
-// render data only: nothing in the sim or the stats reads it, and it is fixed per genome, because
-// the mesh is cached per genome hash and level of detail.
+// droplets sit at hash-seeded places without overlapping, clustered along the midline at pass 1's
+// size and spacing (M6b T3, ADR 0034); a heart or ganglion spot and eye pigment complete it.
+// Everything lies inside the hull (the union of the plan's segment ellipses). This is render data
+// only: nothing in the sim or the stats reads it, and it is fixed per genome, because the mesh is
+// cached per genome hash and level of detail.
 
 import type { BodyPlan, PlanSegment } from '../genome/develop';
 import { rootOf } from '../genome/develop';
 import type { Traits } from '../genome/express';
+import { rarityOfTraits } from '../genome/rarity';
 import { clamp } from '../sim/math';
 import { createRng, type Rng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
+import { ORGAN_HUES } from './material-params';
 import { along, centreLine, type Line } from './spine';
 
 const { cos, sin, sqrt, hypot, exp, max, min, PI, log2 } = Math;
@@ -19,16 +22,16 @@ const TAU = 2 * PI;
 export type OrganKind = 'chamber' | 'droplet' | 'heart' | 'ganglion' | 'pigment';
 
 /**
- * A round organ: its kind, centre and radius in the body frame (core radii), and the radius of the
- * soft glow of tissue round it (look pass 2; 0 for eye pigment). Organs never overlap; their glows
- * do, so neighbouring lobes read as one organ mass, as in references 02 and 03.
+ * A round organ: its kind, centre and radius in the body frame (core radii), and whether it takes
+ * the body's complementary accent hue (`MaterialParams.accent`) instead of the gene's. Organs never
+ * overlap.
  */
 export interface Organ {
   kind: OrganKind;
   x: number;
   y: number;
   r: number;
-  halo: number;
+  accent: boolean;
 }
 
 /** A point of the gut line: its spine share (0 front, 1 rear), centre and radius. */
@@ -63,10 +66,19 @@ const STOMACH_AT = [0.25, 0.45] as const;
 const STOMACH_SPREAD = 0.12;
 /** The gut thins toward its ends to this share of its width. */
 const GUT_END = 0.45;
-/** Organ radii, in units of the body's scale (√ of its hull area ÷ π). */
-const CHAMBER = 0.36;
+/**
+ * Pass 1's organ layout (M6b T3, ADR 0034; look pass 2 had widened all three):
+ * - `chamber`: a chamber's radius at the fewest chambers, in units of the body's scale (√ of its
+ *   hull area ÷ π);
+ * - `gap`: organs keep this far apart, as a share of their summed radii;
+ * - `across`: chambers cluster along the midline, drawn within this share of each segment's
+ *   half-width, so the outer band of the shell stays clear glass, as in references 02 and 03.
+ */
+export const ORGAN_LAYOUT = { chamber: 0.23, gap: 1.2, across: 0.55 } as const;
+const { chamber: CHAMBER, gap: GAP, across: ACROSS } = ORGAN_LAYOUT;
+/** Droplet, heart and pigment radii, as shares of a chamber's and of the body's scale. */
 const DROPLET = 0.7;
-const HEART = 0.12;
+const HEART = 0.1;
 const PIGMENT = 0.075;
 /** Each chamber is ±this share of its size; this share of them are oil droplets, at most. */
 const CHAMBER_SPREAD = 0.45;
@@ -77,17 +89,8 @@ const GANGLION_AT = [0.1, 0.2] as const;
 /** A median eye spot sits this far back along the spine; paired pigment this far in from the eyes. */
 const EYE_SPOT_AT = 0.08;
 const PIGMENT_IN = 0.4;
-/**
- * Chambers cluster along the midline, as in references 02 and 03: drawn within this share of each
- * segment's half-width, so the outer band of the shell stays clear glass. Look pass 2 widened it
- * from 0.55 and packed the organs closer, so they fill the trunk as one mass of lobes.
- */
-const ACROSS = 0.7;
-/** Organs keep within the hull shrunk to this share, and this far apart (share of their radii). */
+/** Organs keep within the hull shrunk to this share. */
 const INNER = 0.85;
-const GAP = 1.05;
-/** An organ's glow reaches this many times its radius, as far as the shrunk hull allows. */
-export const HALO = 2.4;
 /** Placement tries per organ before every chamber shrinks by `SHRINK` and placement starts over. */
 const TRIES = 60;
 const SHRINK = 0.85;
@@ -162,10 +165,21 @@ function intoHull(plan: BodyPlan, x: number, y: number): { x: number; y: number 
   return { x: x + (best.x - x) * t, y: y + (best.y - y) * t };
 }
 
-/** The organ with its glow: `HALO` times its radius, or as far as fits inside the shrunk hull (never below its own radius). */
-function withHalo(plan: BodyPlan, o: Organ): Organ {
-  if (o.kind === 'pigment' || o.r <= 0) return o;
-  return { ...o, halo: max(o.r, fitRadius(plan, o.x, o.y, o.r * HALO)) };
+/**
+ * The organs with one complementary accent group (M6b T3): `share` of the coloured organs (all but
+ * the eye pigment), rounded down, taken from the chambers in hash order. Droplets stay amber oil
+ * and the heart keeps the gene hue. A common body's share is 0, so it shows the gene hue alone.
+ */
+function withAccents(organs: Organ[], share: number, rng: Rng): Organ[] {
+  const coloured = organs.filter((o) => o.kind !== 'pigment').length;
+  const chambers = organs.flatMap((o, i) => (o.kind === 'chamber' ? [i] : []));
+  // A hash-ordered shuffle; it runs after placement, so the positions never shift.
+  for (let i = chambers.length - 1; i > 0; i--) {
+    const j = Math.floor(rng.next() * (i + 1));
+    [chambers[i], chambers[j]] = [chambers[j] as number, chambers[i] as number];
+  }
+  const picked = new Set(chambers.slice(0, Math.floor(coloured * share)));
+  return organs.map((o, i) => (picked.has(i) ? { ...o, accent: true } : o));
 }
 
 function gutOf(plan: BodyPlan, line: Line, rng: Rng, scale: number): GutPoint[] {
@@ -220,7 +234,7 @@ function spot(
     const room = hypot(o.x - p.x, o.y - p.y) / GAP - o.r;
     radius = min(radius, room);
   }
-  return { kind, x: p.x, y: p.y, r: max(radius, 0), halo: 0 };
+  return { kind, x: p.x, y: p.y, r: max(radius, 0), accent: false };
 }
 
 /** A point inside the shrunk hull, near the midline: a segment by area, then a point in the middle band of its ellipse. */
@@ -308,7 +322,7 @@ function placeOrgans(plan: BodyPlan, traits: Traits, genomeHash: string): Anatom
       for (let k = 0; k < TRIES && !fits; k++) {
         const p = samplePoint(plan, rng, total);
         fits = discFits(plan, p.x, p.y, r) && apart(placed, p.x, p.y, r);
-        if (fits) placed.push({ kind: c.kind, x: p.x, y: p.y, r, halo: 0 });
+        if (fits) placed.push({ kind: c.kind, x: p.x, y: p.y, r, accent: false });
       }
       if (!fits) missed.push(c);
     }
@@ -318,7 +332,10 @@ function placeOrgans(plan: BodyPlan, traits: Traits, genomeHash: string): Anatom
         const s = (k + 0.5) / missed.length;
         placed.push(spineSpot(plan, line, s, c.r * shrink, c.kind, placed));
       });
-      return { gut, organs: placed.map((o) => withHalo(plan, o)) };
+      return {
+        gut,
+        organs: withAccents(placed, ORGAN_HUES[rarityOfTraits(traits).tier].accent, rng),
+      };
     }
     shrink *= SHRINK;
   }

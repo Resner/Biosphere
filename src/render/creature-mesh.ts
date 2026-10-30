@@ -98,37 +98,33 @@ const FALLBACK: Readonly<Record<Lod, readonly MeshDetail[]>> = {
   low: LOD_LADDER.low,
 };
 
-/**
- * How finely the organs are drawn on each level: vertices round a ball's equator, round an organ's
- * glow (a flat disc, look pass 2), gut rings and vertices round the gut.
- */
+/** How finely the organs are drawn on each level: vertices round a ball's equator, gut rings and vertices round the gut. */
 interface OrganDetail {
   ball: number;
-  halo: number;
   gutRings: number;
   gutRing: number;
 }
 const ORGAN_DETAIL: Readonly<Record<Lod, OrganDetail>> = {
-  high: { ball: 10, halo: 16, gutRings: 20, gutRing: 6 },
-  medium: { ball: 6, halo: 10, gutRings: 12, gutRing: 5 },
-  low: { ball: 4, halo: 6, gutRings: 6, gutRing: 4 },
+  high: { ball: 10, gutRings: 20, gutRing: 6 },
+  medium: { ball: 6, gutRings: 12, gutRing: 5 },
+  low: { ball: 4, gutRings: 6, gutRing: 4 },
 };
 /** A ball's vertices (`addBall`): its bands' rings and the two poles. */
 const ballVertices = (lon: number): number => (max(2, lon >> 1) - 1) * lon + 2;
 /**
- * The organs' vertices on one level: each ball, each glow (its rim and centre) and the gut. A body
- * has at most one heart, two pigment spots and `CHAMBERS.max` chambers, and the pigment has no glow.
+ * The organs' vertices on one level: each ball and the gut. A body has at most one heart, two
+ * pigment spots and `CHAMBERS.max` chambers.
  */
-const organVertices = (lod: Lod, organs: number, halos: number, gut: boolean): number => {
+const organVertices = (lod: Lod, organs: number, gut: boolean): number => {
   const o = ORGAN_DETAIL[lod];
-  return organs * ballVertices(o.ball) + halos * (o.halo + 1) + (gut ? o.gutRings * o.gutRing : 0);
+  return organs * ballVertices(o.ball) + (gut ? o.gutRings * o.gutRing : 0);
 };
 const MOST_ORGANS = 3 + CHAMBERS.max;
 /** The vertices each level keeps for the organs, whatever the anatomy: the body fits the rest. */
 export const ORGAN_RESERVE: Readonly<Record<Lod, number>> = {
-  high: organVertices('high', MOST_ORGANS, MOST_ORGANS - 2, true),
-  medium: organVertices('medium', MOST_ORGANS, MOST_ORGANS - 2, true),
-  low: organVertices('low', MOST_ORGANS, MOST_ORGANS - 2, true),
+  high: organVertices('high', MOST_ORGANS, true),
+  medium: organVertices('medium', MOST_ORGANS, true),
+  low: organVertices('low', MOST_ORGANS, true),
 };
 /** Every level keeps room for the most glints (M6 T13): one quad each. */
 export const GLINT_RESERVE = 4 * MAX_GLINTS;
@@ -168,9 +164,9 @@ const FINGER_TAPER = 0.8;
 const PEARL = 0.55;
 /** `uv.x` tags (`addBall`): a pearl tip; an organ's number is `ORGAN_TAG` × (its index + 1). */
 const PEARL_TAG = 2;
-const ORGAN_TAG = 2;
-/** An organ glow's `uv.y` at its centre; its rim is one more. */
-const HALO_V = 2;
+export const ORGAN_TAG = 2;
+/** An accent organ's `uv.y` runs from this, not 0 (M6b T3): the shader gives it the accent hue. */
+const ACCENT_V = 2;
 /** The mouth marks the front of the body this far back (core radii) at least, so a small jaw still reads (M6 T21). */
 const MOUTH_MIN_REACH = 0.2;
 /**
@@ -739,6 +735,7 @@ function addBall(
   lon: number,
   gait: { spine: number; attach: number; weight: number; part: number },
   u0 = 0,
+  v0 = 0,
 ): void {
   const lat = max(2, lon >> 1);
   const [fx, fy] = [cos(heading), sin(heading)];
@@ -754,7 +751,7 @@ function addBall(
       gait.weight,
       gait.part,
     );
-  const rear = vertex(-radius, 0, 0, u0 + 0.5, 0);
+  const rear = vertex(-radius, 0, 0, u0 + 0.5, v0);
   const first = m.count;
   for (let i = 1; i < lat; i++) {
     const theta = (PI * i) / lat;
@@ -762,10 +759,10 @@ function addBall(
     const half = radius * sin(theta);
     for (let j = 0; j < lon; j++) {
       const phi = (TAU * j) / lon;
-      vertex(a, half * cos(phi), half * depth * sin(phi), u0 + j / lon, i / lat);
+      vertex(a, half * cos(phi), half * depth * sin(phi), u0 + j / lon, v0 + i / lat);
     }
   }
-  const front = vertex(radius, 0, 0, u0 + 0.5, 1);
+  const front = vertex(radius, 0, 0, u0 + 0.5, v0 + 1);
   m.stitch(first, lat - 1, lon);
   const last = first + (lat - 2) * lon;
   for (let j = 0; j < lon; j++) {
@@ -1168,13 +1165,6 @@ function addOrgans(m: Mesh, plan: BodyPlan, spine: Spine, anatomy: Anatomy, o: O
     }
     m.stitch(first, o.gutRings, o.gutRing);
   }
-  // The glows first, so every organ lies over them all.
-  anatomy.organs.forEach((organ, k) => {
-    if (organ.halo <= 0) return;
-    const st = nearestStation(spine, organ.x, organ.y);
-    m.gait = bodyMotion(plan, st);
-    addHalo(m, organ, o.halo, st.s, ORGAN_PART[organ.kind], ORGAN_TAG * (k + 1));
-  });
   anatomy.organs.forEach((organ, k) => {
     const st = nearestStation(spine, organ.x, organ.y);
     m.gait = bodyMotion(plan, st);
@@ -1188,35 +1178,9 @@ function addOrgans(m: Mesh, plan: BodyPlan, spine: Spine, anatomy: Anatomy, o: O
       o.ball,
       { spine: st.s, attach: st.s, weight: 0, part: ORGAN_PART[organ.kind] },
       ORGAN_TAG * (k + 1),
+      organ.accent ? ACCENT_V : 0,
     );
   });
-}
-
-/**
- * An organ's glow (look pass 2): a flat disc of `ring` vertices round a centre, facing the camera,
- * of the organ's part kind. `uv.y` runs from `HALO_V` at the centre to `HALO_V + 1` at the rim (the
- * shader tells a glow by it and fades it outward); `uv.x` carries the organ's tag.
- */
-function addHalo(
-  m: Mesh,
-  organ: Anatomy['organs'][number],
-  ring: number,
-  spine: number,
-  part: number,
-  tag: number,
-): void {
-  const at = (x: number, y: number, u: number, v: number): number => {
-    const i = m.vertex(x, y, 0, tag + u, HALO_V + v, spine, spine, 0, part);
-    m.normal(i, 0, 0, 1);
-    return i;
-  };
-  const centre = at(organ.x, organ.y, 0.5, 0);
-  const first = m.count;
-  for (let j = 0; j < ring; j++) {
-    const phi = (TAU * j) / ring;
-    at(organ.x + organ.halo * cos(phi), organ.y + organ.halo * sin(phi), j / ring, 1);
-  }
-  for (let j = 0; j < ring; j++) m.tri(centre, first + j, first + ((j + 1) % ring));
 }
 
 /** How many rare glints a body carries (`glintsFor`), how large (core radii), and the genome hash that places them. */
@@ -1436,12 +1400,7 @@ export function estimateVertices(
 ): number {
   return (
     fit(plan, lod).count +
-    organVertices(
-      lod,
-      anatomy.organs.length,
-      anatomy.organs.filter((o) => o.halo > 0).length,
-      anatomy.gut.length >= 2,
-    ) +
+    organVertices(lod, anatomy.organs.length, anatomy.gut.length >= 2) +
     4 * glintSpots(plan, anatomy, glints.count, glints.seed).length
   );
 }
