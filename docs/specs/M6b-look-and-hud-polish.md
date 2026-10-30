@@ -193,7 +193,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
     - Done: halos, scatter and centre-lit chambers out; pass 1 layout; `Organ.accent`, `ORGAN_HUES` `{ vivid, accent }`; a crisp rim term (power 5); fainter face, markings, plates, carapace, walls (0.35) and joints (0.5). Main: shell 63.1, 14 cells under 85%; now 28.8, all ≥ 91%.
     - Gotcha: pass 1's face measures as bright as main's, so the bar needs glass clearer than pass 1; the hook's `organs` include the gut's rings; `m3-clip`'s starter now checks for a hole by comparison, since its clear centre shows the water.
 
-- [ ] T4 No white clipping [opus] (in progress)
+- [x] T4 No white clipping [opus] (in progress)
   - Acceptance:
     - `solidWhite` counts pixels whose min(R, G, B) is at least 245 and whose eight neighbours are too (ADR 0034). On the gallery sheet, every cell has at most 12. On pass 5, cell 31 had 430, 37 had 336, 39 had 427, 07 had 72, 29 had 61, 08 had 29 and 38 had 22.
     - `m6b-clip.spec.ts` (`post` project; `@slow` if over 20 s) captures the gallery with `captureGallery` and asserts the bar for every cell. T12 reruns it on the final sheet.
@@ -212,6 +212,8 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
       - roll the grade's shoulder to a cool near-white below 245, except for glints.
 
       Pick one or more, and note which in DESIGN §12.
+    - Done: options 1 and 3: fine parts capped after all their light (legs, pearls, membranes 0.5, setae 0.75, setules 0.3; pearls keep their hot point), and the grade (`post/grade.ts`) rolls off to (237, 249, 255) unless a pixel stands 0.8–1.4 above its diagonal neighbours (a glint). Pass 5's 31/37/39 had 330–430; every cell and in-game body now 0.
+    - Gotcha: the grade alone passed the measure but left pale-blue blots, so the part cap carries the look; setae need 0.75 to keep M6 T10's 20 strokes (22 now).
 
 ### Long bodies (rules 7, ADR 0035)
 
