@@ -15,6 +15,7 @@ import godrays from '../shaders/godrays.glsl?raw';
 import postFragment from '../shaders/post.frag.glsl?raw';
 import postVertex from '../shaders/post.vert.glsl?raw';
 import { DOF_LOOK } from './dof';
+import { GRADE } from './grade';
 import {
   bytesPerPixel,
   type PostPass,
@@ -77,8 +78,6 @@ export const POST_LOOK = {
   scatter: 0.7,
   /** Added to the darkest tones, fading out by a luminance of 0.3. */
   lift: [0.004, 0.014, 0.017] as const,
-  /** Tones above this roll off towards white instead of clipping. */
-  shoulder: 0.78,
   /** How much the corners darken. */
   vignette: 0.4,
   /** Red-blue separation as a share of the frame towards the corners. */
@@ -289,6 +288,10 @@ export class PostChain {
       (u.tScene as THREE.IUniform).value = target.texture;
       (u.tBloom as THREE.IUniform).value = first ? first.texture : null;
       (u.uAspect as THREE.IUniform).value = this.width / this.height;
+      ((u.uAround as THREE.IUniform).value as THREE.Vector2).set(
+        GRADE.around / target.width,
+        GRADE.around / target.height,
+      );
       if (!this.still) this.frame = (this.frame + 1) % 4096;
       (u.uSeed as THREE.IUniform).value = this.frame * 17.31;
       const rays = this.rays;
@@ -358,7 +361,10 @@ export class PostChain {
         uAspect: { value: 1 },
         uVignette: { value: this.plan.passes.includes('vignette') ? POST_LOOK.vignette : 0 },
         uLift: { value: new THREE.Vector3(...POST_LOOK.lift) },
-        uKnee: { value: POST_LOOK.shoulder },
+        uKnee: { value: GRADE.knee },
+        uWhite: { value: new THREE.Vector3(...GRADE.white) },
+        uHot: { value: new THREE.Vector2(...GRADE.hot) },
+        uAround: { value: new THREE.Vector2() },
         uChromatic: { value: POST_LOOK.chromatic },
         uGrain: { value: POST_LOOK.grain },
         uSeed: { value: 0 },

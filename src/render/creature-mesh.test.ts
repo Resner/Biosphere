@@ -1134,3 +1134,25 @@ describe('pass 1 glass without the haze and the glow (M6b T3, ADR 0034)', () => 
     expect(constant('RIM')).toBeGreaterThanOrEqual(1);
   });
 });
+
+describe('no white clipping (M6b T4, ADR 0034)', () => {
+  const constant = (name: string): number =>
+    Number(fragmentShader.match(new RegExp(`const float ${name} = ([0-9.]+);`))?.[1]);
+
+  it('caps every fine part short of the bloom-and-shoulder white, setules below setae', () => {
+    // Legs, pearls and membranes; setae (often thinner than a pixel) a little brighter; their
+    // setules fainter than they are. Stacked, none fills an area brighter than its cap.
+    expect(constant('PART_LUMA')).toBeLessThanOrEqual(0.5);
+    expect(constant('SETA_LUMA')).toBeLessThanOrEqual(0.75);
+    expect(constant('SETULE_LUMA')).toBeLessThan(constant('SETA_LUMA'));
+    expect(fragmentShader).toMatch(
+      /kind == 1 \|\| kind == 5 \|\| kind == 6 \|\| kind == PART_SETULE\) \{\s*float cap = kind == 5 \? SETA_LUMA : kind == PART_SETULE \? SETULE_LUMA : PART_LUMA;\s*col \*= min\(1\.0, cap \/ max\(dot\(col, LUMA\), 1e-4\)\);/,
+    );
+    // The cap comes after every light a part takes (its rim, gloss, refraction and caustics).
+    expect(fragmentShader.indexOf('float cap =')).toBeGreaterThan(
+      fragmentShader.indexOf('causticAt(vWorld, uTime)'),
+    );
+    // A pearl keeps its hot point over the cap.
+    expect(fragmentShader).toMatch(/col \+= vec3\(PEARL_HOT\) \* pearlHot;/);
+  });
+});

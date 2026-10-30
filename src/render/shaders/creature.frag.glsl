@@ -14,6 +14,8 @@
 // parts are clean glass, and the rarer glints vary.
 // M6b T3 (ADR 0034) took out passes 2 and 3's organ glows, scattered light and centre-lit chambers:
 // the organs are pass 1's glassy chambers again, in the gene hue with at most one complementary accent.
+// M6b T4 caps the fine parts' light (legs, pearls, setae, setules, membranes), so where they overlap
+// they no longer fill whole areas that bloom and the grade burnt to white.
 // One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
@@ -74,6 +76,15 @@ const float JOINT_GLOSS = 14.0;
 const float JOINT_SHINE = 0.5;
 // A part's half-width on screen (pixels) over which it turns from a bright stroke to clear glass.
 const vec2 PART_CLEAR_PX = vec2(2.5, 6.0);
+// The brightest a fine part (a leg, a pearl, a membrane) draws, as luminance (M6b T4): where many
+// overlap they fill an area at this colour, which with its bloom must stay well short of white,
+// while one alone still reads against the water. A seta, often thinner than a pixel, needs more to
+// show at all; its setules stay fainter than it, as before the cap, so a comb reads as strokes.
+const float PART_LUMA = 0.5;
+const float SETA_LUMA = 0.75;
+const float SETULE_LUMA = 0.3;
+// A pearl tip's hot point toward the light, added over the cap.
+const float PEARL_HOT = 0.5;
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
 // The thin walls across the body between segments (look pass 3): how bright, their width in pixels,
@@ -191,6 +202,7 @@ void main() {
 
   float alpha = mix(0.5, 0.2, uTranslucency) * (1.0 - rim) + rim;
   bool glass = kind <= 4;
+  float pearlHot = 0.0;
   if (kind == 0 || kind == 2) {
     // A thin wall where two segments meet: a ring round the body, seen from above as a line across
     // it.
@@ -207,8 +219,9 @@ void main() {
     // A bulb tip (look pass 2): a small solid pearl, bright through, with one hot point toward the
     // light, as on the bead-tipped tentacles of references 02 and 03.
     vec2 n = normal.xy;
-    float hot = 1.0 - smoothstep(0.05, 0.35, length(n - vec2(-0.3, 0.35)));
-    col = uRim * (0.5 + 0.3 * z) + vec3(0.5) * hot;
+    // The hot point is added after the fine parts' cap (M6b T4), so a capped pearl keeps its lustre.
+    pearlHot = 1.0 - smoothstep(0.05, 0.35, length(n - vec2(-0.3, 0.35)));
+    col = uRim * (0.5 + 0.3 * z);
     alpha = 0.85 + 0.15 * z;
   } else if (kind == 1) {
     // A leg, antenna or bead: thin glass lit through, so its whole width reads bright against the
@@ -374,6 +387,14 @@ void main() {
     float lines = causticAt(vWorld, uTime) * uCaustic;
     col += CAUSTIC_BODY * lines;
     alpha = min(alpha + 0.5 * lines * (1.0 - alpha), 1.0);
+  }
+
+  // A fine part's light is capped (M6b T4): its tube's rim, gloss and caustics would otherwise add
+  // up, and overlapping parts filled whole areas with white.
+  if (kind == 1 || kind == 5 || kind == 6 || kind == PART_SETULE) {
+    float cap = kind == 5 ? SETA_LUMA : kind == PART_SETULE ? SETULE_LUMA : PART_LUMA;
+    col *= min(1.0, cap / max(dot(col, LUMA), 1e-4));
+    col += vec3(PEARL_HOT) * pearlHot;
   }
 
   // Dark water (M6 T16): beyond the player's sight in the deep and the abyss the body fades into
