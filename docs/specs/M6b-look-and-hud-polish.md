@@ -97,7 +97,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
 
 ### Play
 
-- [ ] T1 Speed review, the speed band and rules 7
+- [ ] T1 Speed review, the speed band and rules 7 (in progress)
   - Acceptance (unit tests first):
     - **The report.** `npm run report:speed` (`tools/speed-report.ts`, through Vite as `report:diversity` runs) prints the M1 starter's numbers, then four sets:
       - genesis bodies at hatch (biomass 80) and as adults;
