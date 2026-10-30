@@ -130,6 +130,16 @@ describe('offspringPair', () => {
     expect(vectors(5)).toEqual(golden.vectors);
   });
 
+  it('keeps the rules 6 birth goldens verifying under rules 7 (inheritance did not change)', () => {
+    const file = new URL('./__golden__/offspring-v6.json', import.meta.url);
+    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
+      rulesVersion: number;
+      vectors: unknown;
+    };
+    expect(golden.rulesVersion).toBe(6);
+    expect(vectors(6)).toEqual(golden.vectors);
+  });
+
   it('pads v1 parents under rules 6, and breeds v2 children', () => {
     const r = randomnessOf(rounds.beacons[1] as Beacon);
     const a = genesisFor(r, commitOf(1), 5);

@@ -24,7 +24,7 @@ describe('GET /v1/health', () => {
   it('answers with version and protocol', async () => {
     const res = await get('/v1/health', 'https://resner.github.io');
     expect(res.status).toBe(200);
-    expect(await res.json()).toEqual({ ok: true, version: __VERSION__, protocol: 4 });
+    expect(await res.json()).toEqual({ ok: true, version: __VERSION__, protocol: 5 });
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe('https://resner.github.io');
   });
 

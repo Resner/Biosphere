@@ -154,6 +154,35 @@ describe('RemoteBuffer', () => {
     expect(wrapped).toBeLessThan(0.15);
   });
 
+  it('never draws a swimmer faster than 1.25x its speed, across a snapshot gap (M6b T1)', () => {
+    const speed = 60;
+    const frame = 1000 / 60;
+    for (const gap of [300, 1000, 2500]) {
+      const buffer = new RemoteBuffer();
+      let worst = 0;
+      let last: number | null = null;
+      for (let now = 1000; now < 9000; now += frame) {
+        // A snapshot is sent every 100 ms and arrives at once, except during the gap.
+        const sent = Math.floor(now / 100) * 100;
+        if (sent < 3000 || sent >= 3000 + gap) buffer.push(swimming(sent / 100, sent));
+        const at = buffer.sample(now - INTERPOLATION_MS);
+        if (!at) continue;
+        if (last !== null) worst = Math.max(worst, (Math.abs(at.x - last) / frame) * 1000);
+        last = at.x;
+      }
+      expect(worst, `gap ${gap} ms`).toBeLessThanOrEqual(speed * 1.25);
+    }
+  });
+
+  it('draws a creature that was moved far away at once, and holds a still one still', () => {
+    const buffer = new RemoteBuffer();
+    buffer.push(snap({ seq: 0, tick: 0, x: 100, y: 100 }));
+    expect(buffer.sample(0)?.x).toBe(100);
+    buffer.push(snap({ seq: 1, tick: 30, x: 3000, y: 100 }));
+    expect(buffer.sample(1000)?.x).toBeCloseTo(3000, 6);
+    expect(buffer.sample(1000)?.x).toBeCloseTo(3000, 6);
+  });
+
   it('extrapolates for 250 ms across a gap, then holds', () => {
     const buffer = new RemoteBuffer();
     buffer.push(swimming(0, 0));

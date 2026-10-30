@@ -59,6 +59,15 @@ describe('createLoop', () => {
     expect(h.ticks()).toBe(6);
   });
 
+  it('never catches up faster than real time after a 2 s stall (M6b T1)', () => {
+    const h = harness();
+    h.advance(0);
+    h.advance(2000);
+    for (let i = 0; i < 60; i++) h.advance(1000 / 60);
+    // 5 ticks for the stalled frame, then 30 per second of real time, never a burst of more.
+    expect(h.ticks()).toBe(5 + 30);
+  });
+
   it('honours a custom tick cap', () => {
     const h = harness(2);
     h.advance(0);

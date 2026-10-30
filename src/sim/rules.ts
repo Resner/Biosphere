@@ -1,7 +1,7 @@
 // Rules v6 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 6;
+export const RULES_VERSION = 7;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -420,6 +420,11 @@ export const RULES = deepFreeze({
     basal: { segment: 0.1, appendage: 0.04, plating: 0.2, glow: 0.1 },
     /** Luminescence alleles to glow. */
     glow: { off: 0, pulse: 0.5, on: 1 },
+    /**
+     * The top-speed band (rules 7, ADR 0036): thrust ÷ drag, relative to the reference cell (1),
+     * is eased into `min`–`max`, and the middle (`softLow`–`softHigh`) is left alone.
+     */
+    speedBand: { min: 0.6, max: 1.6, softLow: 1, softHigh: 1.1 },
     /** Combat: the bite of a full jaw (a weapon part's power is its tip share × stiffness × length). */
     bite: 0.5,
     /** Detection ring: each unit of slender, still, forward length adds this. */

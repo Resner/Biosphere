@@ -1,6 +1,6 @@
 {
-  "rulesVersion": 6,
-  "hash": "a2309b06c3273d61",
+  "rulesVersion": 7,
+  "hash": "9bdc12c03659b6d9",
   "ranking": {
     "forage": ["hunter", "ciliate", "flagellate", "swimmer", "armoured", "filter"],
     "gauntlet": ["armoured", "filter", "swimmer", "ciliate", "hunter", "flagellate"],

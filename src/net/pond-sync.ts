@@ -13,6 +13,12 @@ export const SNAPSHOT_INTERVAL_MS = 100;
 export const INTERPOLATION_MS = 120;
 /** Past the newest snapshot a remote keeps coasting on its velocity for this long, then holds. */
 export const EXTRAPOLATE_MS = 250;
+/** A drawn creature never moves faster than this × its snapshots' speed, so a late snapshot eases in (M6b T1). */
+const EASE_SPEED = 1.2;
+/** A creature that has stopped still catches up at this speed (wu/s), so it is never left behind. */
+const EASE_MIN_SPEED = 40;
+/** Further than this from where the snapshots put it, a creature has been moved: it is drawn there at once. */
+const SNAP_DISTANCE = 400;
 export const FADE_AFTER_MS = 2000;
 export const FADE_MS = 1000;
 export const REMOVE_AFTER_MS = 6000;
@@ -112,6 +118,10 @@ export interface RemotePose {
 export class RemoteBuffer {
   private readonly samples: Sample[] = [];
   private newestSeq = -1;
+  /** Where `sample` last drew the creature, and when (pond ms); NaN before the first call. */
+  private shownAt = Number.NaN;
+  private shownX = 0;
+  private shownY = 0;
   private readonly pose: RemotePose = {
     x: 0,
     y: 0,
@@ -152,6 +162,30 @@ export class RemoteBuffer {
     return true;
   }
 
+  /**
+   * After a gap the snapshots put the creature well ahead of where it was drawn: it catches up at
+   * `EASE_SPEED` times its speed instead of jumping, unless it was moved (`SNAP_DISTANCE`).
+   */
+  private ease(pose: RemotePose, pondMs: number, speed: number): void {
+    const dt = (pondMs - this.shownAt) / 1000;
+    if (dt > 0) {
+      const dx = pose.x - this.shownX;
+      const dy = pose.y - this.shownY;
+      const distance = Math.sqrt(dx * dx + dy * dy);
+      const step = EASE_SPEED * Math.max(speed, EASE_MIN_SPEED) * dt;
+      if (distance > step && distance <= SNAP_DISTANCE) {
+        pose.x = this.shownX + (dx * step) / distance;
+        pose.y = this.shownY + (dy * step) / distance;
+      }
+    } else if (dt === 0) {
+      pose.x = this.shownX;
+      pose.y = this.shownY;
+    }
+    this.shownAt = pondMs;
+    this.shownX = pose.x;
+    this.shownY = pose.y;
+  }
+
   /** The pose at `pondMs`, or null before anything was heard. The result is overwritten by the next call. */
   sample(pondMs: number): RemotePose | null {
     const { samples, pose } = this;
@@ -165,6 +199,7 @@ export class RemoteBuffer {
     pose.dashing = newest.dashing;
     pose.vx = newest.vx;
     pose.vy = newest.vy;
+    let speed = Math.hypot(newest.vx, newest.vy);
     if (pondMs <= from.t) {
       // Older than anything held: hold the oldest pose.
       pose.x = from.x;
@@ -173,6 +208,7 @@ export class RemoteBuffer {
     } else if (i < samples.length - 1) {
       const to = samples[i + 1] as Sample;
       const f = (pondMs - from.t) / (to.t - from.t);
+      speed = Math.max(speed, (Math.hypot(to.x - from.x, to.y - from.y) * 1000) / (to.t - from.t));
       pose.x = lerp(from.x, to.x, f);
       pose.y = lerp(from.y, to.y, f);
       pose.heading = from.heading + wrapAngle(to.heading - from.heading) * f;
@@ -182,6 +218,9 @@ export class RemoteBuffer {
       pose.y = newest.y + newest.vy * seconds;
       pose.heading = newest.heading;
     }
+    // A creature that died is drawn afresh where it next appears, not glided there.
+    if (newest.alive) this.ease(pose, pondMs, speed);
+    else this.shownAt = Number.NaN;
     return pose;
   }
 }

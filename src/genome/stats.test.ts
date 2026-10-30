@@ -15,6 +15,8 @@ import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome, genomeToBase64url } from './codec';
 import { develop, hashPlan } from './develop';
 import { express } from './express';
+import { genesisGenome } from './genesis';
+import { mutateGenome } from './inherit';
 import {
   GENOME_BYTES,
   HAPLOTYPE_BYTES,
@@ -23,7 +25,16 @@ import {
   MODULE_PARAMS,
 } from './karyotype';
 import { starterGenome } from './starter';
-import { buildCreature, computeStats, hashStats, physOf, type Stats, statsAt } from './stats';
+import {
+  bandSpeed,
+  buildCreature,
+  type Creature,
+  computeStats,
+  formSpeed,
+  hashStats,
+  type Stats,
+  statsAt,
+} from './stats';
 
 const rng = createRng(seedFromString('genome-stats-tests'), 'bytes');
 const randomBytes = (): Uint8Array =>
@@ -185,8 +196,15 @@ describe('computeStats: formulas', () => {
   it('applies the homozygous loads', () => {
     const base = buildBytes({ M1: { length: 100, thickness: 100, beat: 200 } });
     const ref = statsOf(base);
-    const beat = statsOf(withLoci(base, { L3: 1 }));
-    expect(beat.thrust / ref.thrust).toBeCloseTo(RULES.genes.lof.beatStrength, 9);
+    // The band eases the top speed, so the load is read from what form alone gives.
+    const formOf = (bytes: Uint8Array): number => {
+      const c = buildCreature(decodeGenome(bytes));
+      return formSpeed(c.plan, c.traits, c.traits.body.maxBiomass);
+    };
+    expect(formOf(withLoci(base, { L3: 1 })) / formOf(base)).toBeCloseTo(
+      RULES.genes.lof.beatStrength,
+      9,
+    );
     const metabolic = statsOf(withLoci(base, { L4: 1 }));
     expect(metabolic.basal / ref.basal).toBeCloseTo(RULES.genes.lof.metabolismCost, 9);
     const membrane = statsOf(withLoci(base, { membrane: 200, L1: 1 }));
@@ -244,6 +262,95 @@ describe('computeStats: formulas', () => {
     const at = sizes.findIndex((_, i) => signs[i] !== signs[0]);
     expect(sizes[at]).toBeGreaterThan(1_024);
     expect(sizes[at]).toBeLessThan(262_144);
+  });
+});
+
+describe('the top-speed band (ADR 0036)', () => {
+  const band = RULES.stats.speedBand;
+  const sizes = (max: number): number[] => [80, max * 0.25, max * 0.5, max];
+  const speedOf = (c: Creature, biomass: number): number => {
+    const s = statsAt(c.plan, c.traits, biomass);
+    return s.thrust / s.drag;
+  };
+  const mutants = (n: number): Genome[] =>
+    Array.from({ length: n }, (_, i) =>
+      mutateGenome(decodeGenome(randomBytes()), seedFromString(`speed-band-${i}`), {
+        mutation: 1 + (i % 4),
+      }),
+    );
+
+  it('is the identity in the middle, strictly increasing and inside the limits', () => {
+    expect(bandSpeed(band.softLow)).toBe(band.softLow);
+    expect(bandSpeed(1.05)).toBe(1.05);
+    expect(bandSpeed(band.softHigh)).toBe(band.softHigh);
+    let last = 0;
+    let broken = 0;
+    for (let v = 0.001; v <= 200; v += 0.01) {
+      const out = bandSpeed(v);
+      if (!(out >= band.min && out <= band.max && out > last)) broken++;
+      last = out;
+    }
+    expect(broken).toBe(0);
+    // Nothing reaches the limit itself: the lowest a body can be is a speed multiplier of 0.
+    expect(bandSpeed(0)).toBeGreaterThanOrEqual(band.min);
+    expect(bandSpeed(0)).toBeLessThan(band.softLow);
+    expect(bandSpeed(Number.NaN)).toBeGreaterThanOrEqual(band.min);
+    expect(bandSpeed(1e9)).toBeLessThanOrEqual(band.max);
+    expect(bandSpeed(Number.POSITIVE_INFINITY)).toBe(band.max);
+  });
+
+  it('keeps 10,000 random and 10,000 mutated genomes within 0.6-1.6x the starter at four sizes', () => {
+    const genomes = [
+      ...Array.from({ length: 10_000 }, () => decodeGenome(randomBytes())),
+      ...mutants(10_000),
+    ];
+    let outside = 0;
+    for (const g of genomes) {
+      const c = buildCreature(g);
+      for (const b of sizes(c.traits.body.maxBiomass)) {
+        const v = speedOf(c, b);
+        // A dash adds speed × √(thrust ÷ drag): √0.6 to √1.6 of the starter's.
+        if (!(v >= band.min && v <= band.max)) outside++;
+      }
+    }
+    expect(outside).toBe(0);
+  }, 60_000);
+
+  it('never makes the faster of two bodies the slower', () => {
+    const made = Array.from({ length: 600 }, () => buildCreature(decodeGenome(randomBytes())));
+    for (const b of [80, 400, 4_000]) {
+      const rows = made
+        .map((c) => ({ before: formSpeed(c.plan, c.traits, b), after: speedOf(c, b) }))
+        .sort((x, y) => x.before - y.before);
+      for (let i = 1; i < rows.length; i++) {
+        expect((rows[i] as (typeof rows)[0]).after).toBeGreaterThanOrEqual(
+          (rows[i - 1] as (typeof rows)[0]).after,
+        );
+      }
+    }
+  });
+
+  it('leaves the starter, and a body inside the middle, as form made it', () => {
+    const c = buildCreature(starterGenome());
+    expect(c.phys.thrust).toBeCloseTo(1, 12);
+    expect(c.phys.drag).toBeCloseTo(1, 12);
+    expect(speedOf(c, c.traits.body.maxBiomass)).toBeCloseTo(1, 12);
+  });
+
+  it('gives genesis hatchlings a median of 1.0-1.3x the starter and a p10 of at least 0.7x', () => {
+    const hatch = RULES.mating.hatchlingMinBiomass;
+    const speeds = Array.from({ length: 1_000 }, (_, i) => {
+      const c = buildCreature(genesisGenome(seedFromString(`speed-genesis-${i}`)));
+      // The sim gives a body its adult phys at every size; only the scale term changes with biomass.
+      return (
+        (c.phys.thrust / c.phys.drag) * (hatch / RULES.starter.biomass) ** RULES.movement.thrustExp
+      );
+    });
+    speeds.sort((x, y) => x - y);
+    const starter = (hatch / RULES.starter.biomass) ** RULES.movement.thrustExp;
+    expect((speeds[500] as number) / starter).toBeGreaterThanOrEqual(1);
+    expect((speeds[500] as number) / starter).toBeLessThanOrEqual(1.3);
+    expect((speeds[100] as number) / starter).toBeGreaterThanOrEqual(0.7);
   });
 });
 
@@ -369,7 +476,9 @@ describe('computeStats: development v2 follows form (ADR 0025)', () => {
       if (radial.plan.appendages.length !== bilateral.plan.appendages.length) continue;
       tested++;
       expect(radial.stats.turn).toBeGreaterThan(bilateral.stats.turn);
-      expect(radial.stats.thrust).toBeLessThan(bilateral.stats.thrust);
+      // Read before the speed band, which eases a fast form toward the same limit.
+      const speed = (c: Creature): number => formSpeed(c.plan, c.traits, c.traits.body.maxBiomass);
+      expect(speed(radial)).toBeLessThan(speed(bilateral));
     }
     expect(tested).toBeGreaterThan(100);
   });

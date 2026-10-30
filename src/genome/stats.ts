@@ -275,6 +275,31 @@ const REFERENCE: Raw = (() => {
   return raw(develop(traits), traits, traits.body.maxBiomass);
 })();
 
+/**
+ * A strictly increasing soft clamp of a top-speed multiplier (thrust ÷ drag) into [`min`, `max`] (ADR 0036): the middle
+ * (`softLow`–`softHigh`) passes unchanged, and beyond it the ratio eases toward the limit like
+ * d·w ÷ (d + w), so a faster form stays faster, only by less. Rational, so no transcendentals.
+ */
+export function bandSpeed(ratio: number): number {
+  const B = S.speedBand;
+  // d·w ÷ (d + w): d is the distance past the middle, w the room left before the limit.
+  const soft = (d: number, w: number): number => (d * w) / (d + w);
+  if (!(ratio > B.softLow)) {
+    // NaN and anything below zero count as 0.
+    return B.softLow - soft(B.softLow - (ratio > 0 ? ratio : 0), B.softLow - B.min);
+  }
+  if (ratio === Number.POSITIVE_INFINITY) return B.max;
+  return ratio > B.softHigh ? B.softHigh + soft(ratio - B.softHigh, B.max - B.softHigh) : ratio;
+}
+
+/** The top-speed multiplier (thrust ÷ drag, the reference cell is 1) that form alone gives, before the band. */
+export function formSpeed(plan: BodyPlan, traits: Traits, biomass: number): number {
+  return speedRatio(raw(plan, traits, biomass));
+}
+
+const speedRatio = (r: Raw): number =>
+  r.force / REFERENCE.force / (r.mass / REFERENCE.mass) / (r.drag / REFERENCE.drag);
+
 /** The weapon numbers: pointed and hooked tips × stiffness × length, a chela's grip, the bite of a jaw, and bulbs as spines. */
 function combatOf(plan: BodyPlan, traits: Traits): Stats['combat'] {
   let power = 0;
@@ -353,10 +378,13 @@ export function statsAt(plan: BodyPlan, traits: Traits, biomass: number): Stats 
   const r = raw(plan, traits, biomass);
   const ref = REFERENCE;
   const mass = r.mass / ref.mass;
+  const drag = r.drag / ref.drag;
+  // Rules 7 (ADR 0036): form sets the top speed only within a band around the reference cell's.
+  const thrust = drag * bandSpeed(speedRatio(r));
   return {
     maxBiomass: traits.body.maxBiomass,
-    thrust: r.force / ref.force / mass,
-    drag: r.drag / ref.drag,
+    thrust,
+    drag,
     turn: r.steer / r.inertia / (ref.steer / ref.inertia),
     basal: r.basal / ref.basal,
     growth: r.growth / ref.growth,
