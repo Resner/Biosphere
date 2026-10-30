@@ -1,6 +1,6 @@
 # 0018: Body seam, genome encoding and sharing, shader gait (M3)
 
-- Status: accepted
+- Status: accepted (released development and stats may change before M7: 0035)
 - Date: 2026-10-26
 
 ## Context
