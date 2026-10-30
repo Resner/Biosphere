@@ -146,5 +146,7 @@ test('two frames 0.25 s apart differ inside every specimen’s parts and match o
   expect(unstable).toBe(0);
   expect(outside).toBeGreaterThan(a.width * a.height * 0.2);
   expect(worst).toBeLessThanOrEqual(1);
-  expect(equal / outside).toBeGreaterThanOrEqual(0.99);
+  // 0.985 since M6b T4: the fine parts' light is capped, which lowers the far bloom to about the
+  // level where a pixel's rounding flips (0.992 uncapped, 0.989 now; the step stays at most 1).
+  expect(equal / outside).toBeGreaterThanOrEqual(0.985);
 });
