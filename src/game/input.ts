@@ -56,6 +56,17 @@ export function keysToInput(keys: ReadonlySet<string>): Input | null {
   return { steer: angleToSteer(atan2(y, x)), throttle: MAX_THROTTLE, dash: false };
 }
 
+/**
+ * What steers while the social wheel may be open: the cursor chooses on the wheel, so the creature
+ * keeps the `held` steering and throttle it had when the wheel opened; WASD (`keys`) still steers
+ * live. This tick's dash always comes from `sampled`.
+ */
+export function wheelInput(open: boolean, held: Input, sampled: Input, keys: Input | null): Input {
+  if (!open) return sampled;
+  const { steer, throttle } = keys ?? held;
+  return { steer, throttle, dash: sampled.dash };
+}
+
 const DASH_KEY = ' ';
 /** Keys the page would otherwise scroll with. */
 const SCROLL_KEYS: ReadonlySet<string> = new Set([
@@ -137,6 +148,11 @@ export class InputController {
   reset(): void {
     this.keys.clear();
     this.dashQueued = false;
+  }
+
+  /** The steering the held movement keys give, or null when none is down. */
+  keyInput(): Input | null {
+    return keysToInput(this.keys);
   }
 
   /** Reads this tick's input. A dash press fires once. */
