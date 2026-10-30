@@ -11,6 +11,7 @@ The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` wrote them, a
 | M4 | Authority and lineage core | identities and genesis creatures registered (drand-seeded); one accepted head per creature; single session; lifespan on the authority clock (paused offline); durable resume; recovery code; extinct lineages kept as history | — | done | [M4](specs/M4-authority-and-lineage-core.md) | v0.5.0 |
 | M5 | Mating and offspring | consent, eligibility, cost and cooldown; future-round commitment, no rerolls; two distinct offspring by Mendelian rules; one pending offspring; promotion → checkpoint; death → nearest surviving ancestor; old age walks the chain | gate | done | [M5](specs/M5-mating-and-offspring.md) | v0.6.0 |
 | M6 | Look, sound and performance | creature look overhaul to the owner's references (#90); art pass to the reference (DOF, caustics, membranes, bioluminescence by depth); depth zones with gameplay; low, medium and high presets with budgets; procedural sound; deliberate pings and emotes (#89); (owner) creatures hold up next to the references; (owner) 60 fps at the default preset | gate | done | [M6](specs/M6-look-sound-performance.md) | v0.7.0 |
+| M6b | Look and HUD polish | creatures return to the pass-1 glassy realism without the milky haze, white clipping or artificial glow, with long bodies that read as worms, shrimps and copepods; a minimal gameplay HUD (one profile/settings icon, progress-bar stats, a modern minimap, no red hazard borders); a reactive gacha-style egg reveal; the wheel no longer stops movement; creature speed reviewed; calmer shallows; one pass, no pass series; (owner) the look and the HUD hold up | gate | planned | — | v0.7.1 |
 | M7 | Encounters | refereed deterministic combat for comparable sizes: instant lock-in, steering, stance, target, brace, deadlines and autopilot, anatomy-driven outcomes; identical results on all clients; killing is a faster way to grow than plankton and size is a real advantage; a pending egg can be eaten by a predator (owner, Playtest v0.6.0) | gate | planned | — | v0.8.0 |
 | M8 | Disconnect-safe settlement | closing a tab never cancels or escapes a fight; reconnect resumes; the authority settles when everyone leaves; backdated inputs rejected; settlement records verifiable | — | planned | — | v0.9.0 |
 | M9 | Verifiable lineage and showcase | independent verifier for the ancestry graph that rejects tampering; proof bundles served while peers are offline; lineage viewer; shareable verified creature cards | — | planned | — | v0.10.0 |
@@ -125,6 +126,20 @@ Beautiful and smooth within browser budgets (ADR 0004). The owner judges the cre
 - Quick social messages (owner, #89, Playtest v0.4.0): pings and emotes chosen on purpose, not by the G key's random pick. A radial wheel (touch-friendly for the mobile work after 1.0) or number hotkeys, one key press from play, and edge arrows toward a nearby off-screen ping. Redraw the emote and ping icons to production quality. Close #89 when it ships.
 - No per-frame allocations, budget report, per-preset screenshots.
 - Owner feedback on v0.6.0 (Playtest #134), folded in as T18 to T20 of the spec: an exciting egg reveal while waiting for the beacon; findable players (edge chevrons and a pond map); faster, visible growth; a carried egg that feels meaningful. Kills as the main way to grow and eggs as predator prey need combat, so they are M7 criteria.
+
+### M6b Look and HUD polish (gate: the look and the HUD)
+
+Added from the owner's reply on Playtest #183 (v0.7.0). Look comes first: stats, genesis code and goldens may change as far as needed so creatures look like creatures (ADR 0006 bounds and caps stay). The owner asked for one milestone, with no series of passes, and for Opus on the work; the spec marks every look and HUD task `[opus]`. It supersedes ADR 0033's plan to carry the look gaps into later milestones, and it answers #177 (closed by the owner as a duplicate of this feedback).
+
+- Look: the pass-1 gallery (`docs/art/gallery/pass-1.png`) is the baseline for realism: glassy, clear, with organs sized and coloured as there (colours close together or complementary). Remove what passes 2 to 5 added: the milky haze and the artificial glow. A fixed gallery plus an honest comparison to pass 1 and to the references stays the evidence, but in one pass.
+- Clipping: no super-bright white where parts overlap (cells 07, 08, 31, 37, 38 and 39 of pass 5 are the regression cases); a test on the gallery's brightest pixels guards it.
+- Long bodies: worms, copepods and shrimps need distinct, readable silhouettes (head-heavy chains, spirals and bare broad legs from #177 are the known gaps). Development, stats, genesis and the rules goldens may change, with an ADR.
+- HUD: a minimal gameplay screen. One profile or settings icon in a corner; stats as small visuals or progress bars; the pond map as a modern minimap in a corner; the UV and crush states shake the screen or creature slightly instead of a red border.
+- Egg reveal: no steady wiggle from the start; it wiggles only right before hatching; the polish of a gacha reveal; the title screen no longer covers the egg when hatching after death.
+- Controls: using the social wheel does not stop the last movement.
+- Speed: find out whether creatures that are sometimes way too fast are a bug or the design, fix or document it in `docs/DESIGN.md`.
+- Water: keep the depth-zone background, with fewer effects in the shallows.
+- Owner checks on the Playtest issue: the creatures keep the pass-1 realism, the HUD feels clean, the egg reveal feels polished.
 
 ### M7 Encounters (gate 3: combat feel)
 
