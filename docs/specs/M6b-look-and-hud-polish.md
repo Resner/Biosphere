@@ -139,7 +139,7 @@ ADR 0034 allows exactly one look pass (T12), and it starts only after T1 to T11 
     - Done: `npm run report:speed`; `bandSpeed` (rational soft clamp, middle 1.0–1.1, so the tournament still holds) in `statsAt`; rules 7 and protocol 5; `-v6` goldens kept.
     - Gotchas: the sim uses the adult `phys` at every size, so "at hatch" in the report is the adult `phys` at biomass 80. The remote-interpolation bug candidate was real (a jump after a snapshot gap) and is fixed in `RemoteBuffer`; the loop and the camera were fine. `develop-v5.test.ts` now expects the v5 stats with the band applied.
 
-- [ ] T2 The wheel keeps your movement
+- [ ] T2 The wheel keeps your movement (in progress)
   - Acceptance (tests first):
     - While the social wheel is open, the creature keeps the input it had when the wheel opened: the cursor's steer and throttle at that moment. WASD still steers live, Space still dashes, and closing the wheel hands steering back to the cursor. The choice is a pure function (`wheelInput(open, held, sampled, keys)` or similar) with unit tests: open with no keys gives `held`, open with WASD gives the keys, and closed gives `sampled`.
     - E2E (`m6-wheel.spec.ts`; the old "steering pauses" assertion is replaced, as #183 asks):
