@@ -370,7 +370,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
 
 ### The egg
 
-- [x] T11 The egg reveal as a gacha moment [opus] (in progress)
+- [x] T11 The egg reveal as a gacha moment [opus]
   - Acceptance (unit tests on the reveal timeline in `render/egg.ts` first, then E2E `m6b-egg.spec.ts` on hub 8801):
     - **Waiting** (from the request until the beacon):
       - the egg drops in over 0.4 s, then rests: sampled at 10 Hz over 2 s with no input, `state().egg.angle` stays within 0.01 rad, while its glow breathes slowly;
