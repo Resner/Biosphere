@@ -289,7 +289,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
 
 ### Water and HUD
 
-- [x] T8 Calmer shallows [opus] (in progress)
+- [x] T8 Calmer shallows [opus]
   - Acceptance:
     - **Measure first** (record in the PR, then pin the new bounds in `m6-light.spec.ts` or a new `m6b-water.spec.ts`), on an open-water patch away from food, at medium:
       - the mean absolute frame difference between two frames 2 s apart (`timeScale(1)`);

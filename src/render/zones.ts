@@ -155,8 +155,8 @@ export function sunlight(depth: number, key: 'caustic' | 'rays'): number {
   );
 }
 
-/** A step of the shaders' clock longer than this (s), or any step back, is a jump (`SunClock`). */
-const SUN_JUMP = 1;
+/** A step of the shaders' clock longer than this (s), or any step back, is a jump (`SunClock`); a slow frame is not. */
+const SUN_JUMP = 5;
 
 /**
  * The clock the caustics and the god rays move by (M6b T8): the shaders' clock at the zone's
