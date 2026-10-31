@@ -1,7 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { parseGalleryArgs } from './gallery-capture.mjs';
-import { ASPECTS, REFERENCES, readPassNote } from './gallery-notes';
+import { ASPECTS, REFERENCES, readPassNote, VERDICTS } from './gallery-notes';
 
 const DIR = new URL('../docs/art/gallery/', import.meta.url);
 
@@ -54,9 +54,55 @@ describe('look-pass notes', () => {
     const passes = readdirSync(DIR).filter((f) => /^pass-\d+\.md$/.test(f));
     expect(passes).toContain('pass-0.md');
     for (const file of passes) {
-      const { problems } = readPassNote(readFileSync(new URL(file, DIR), 'utf8'));
+      const pass = Number(/\d+/.exec(file)?.[0]);
+      const { problems } = readPassNote(readFileSync(new URL(file, DIR), 'utf8'), pass);
       expect(problems, file).toEqual([]);
     }
+  });
+});
+
+describe('the "Against pass 1" table (M6b T12, ADR 0034)', () => {
+  const against = (cell: (aspect: string) => string = () => 'same: As in pass 1.') =>
+    [
+      '## Against pass 1',
+      '',
+      '| Aspect | Against pass 1 |',
+      '| --- | --- |',
+      ...ASPECTS.map((a) => `| ${a} | ${cell(a)} |`),
+    ].join('\n');
+  const pass6 = (table = against()) =>
+    `# Look pass 6\n\n## Gap table\n\n${table6()}\n\n${table}\n\n${GAPS}`;
+  const table6 = () => note().split('## Gap table\n\n')[1]?.split('\n\n## Largest')[0] ?? '';
+
+  it('reads a verdict per aspect from pass 6 on', () => {
+    const { note: read, problems } = readPassNote(
+      pass6(against((a) => `${a === 'Palette' ? 'better' : 'same'}: A sentence.`)),
+      6,
+    );
+    expect(problems).toEqual([]);
+    expect(VERDICTS).toEqual(['better', 'same', 'worse']);
+    expect(read.againstPass1?.Palette).toBe('better');
+    expect(read.againstPass1?.Lighting).toBe('same');
+  });
+
+  it('fails on a missing table, a missing aspect, another word or no sentence', () => {
+    expect(readPassNote(note(), 6).problems.join('\n')).toMatch(/Against pass 1/);
+    const missing = readPassNote(pass6(against().replace(/^\| Rare glints .*$/m, '')), 6);
+    expect(missing.problems.join('\n')).toMatch(/Rare glints/);
+    const word = readPassNote(
+      pass6(against((a) => (a === 'Lighting' ? 'close: Near.' : 'same: Ok.'))),
+      6,
+    );
+    expect(word.problems.join('\n')).toMatch(/Lighting/);
+    const bare = readPassNote(pass6(against((a) => (a === 'Palette' ? 'better' : 'same: Ok.'))), 6);
+    expect(bare.problems.join('\n')).toMatch(/Palette/);
+    const extra = readPassNote(pass6(against().replace('| Lighting |', '| Mood |')), 6);
+    expect(extra.problems.join('\n')).toMatch(/Mood/);
+  });
+
+  it('is not asked of passes before 6', () => {
+    expect(readPassNote(note(), 5).problems).toEqual([]);
+    expect(readPassNote(note()).problems).toEqual([]);
   });
 });
 
