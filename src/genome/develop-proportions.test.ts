@@ -168,9 +168,10 @@ describe('proportions v3: long bodies read by outline (look pass 4)', () => {
         if (!isLongChain(plan)) continue;
         long++;
         expect(bodyViolations(plan)).toEqual([]);
-        // A curl is a pose: the body is measured laid straight, and curling keeps its width,
-        // except that a curled (not coiled) chain of 5 or more free segments is a worm and
-        // slimmer (M6b T5).
+        // A curled chain fits the bounds along its curve (M6b T6): it is measured along its own
+        // spine, and curling keeps its girth (its width before slimming), except that a curled
+        // (not coiled) chain of 5 or more free segments is a worm and evener, and a coil is a
+        // chambered spiral of its own.
         const straight = develop({ ...traits, shape: { ...traits.shape, curve: 0 } });
         if (plan.form.turn > 0) {
           curved++;
@@ -179,14 +180,19 @@ describe('proportions v3: long bodies read by outline (look pass 4)', () => {
             plan.carapace.count < 2 &&
             traits.shape.curve >= D.chain.trunk.worm.curl &&
             plan.form.mode !== 2;
+          const girth = (p: BodyPlan) => p.segments.map((s) => s.ry / p.form.slim);
           if (worm) {
             const [w, s] = [plan.segments, straight.segments].map((x) =>
               Math.max(...x.map((q) => q.ry)),
             ) as [number, number];
             expect(w).toBeLessThan(s);
-          } else {
-            expect(plan.segments.map((s) => s.ry)).toEqual(straight.segments.map((s) => s.ry));
+          } else if (plan.form.mode !== 2) {
+            const [a, b] = [girth(plan), girth(straight)];
+            expect(a.length).toBe(b.length);
+            for (const [k, x] of a.entries()) expect(x).toBeCloseTo(b[k] as number, 9);
           }
+          const curl = ratioOf(plan);
+          if (!(curl >= D.chain.aspect - 1e-9)) expect.fail(`genome ${i}: ${curl} long per wide`);
         }
         const ratio = ratioOf(straight);
         if (!(ratio >= D.chain.aspect - 1e-9)) expect.fail(`genome ${i}: ${ratio} long per wide`);

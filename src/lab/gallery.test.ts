@@ -214,14 +214,19 @@ describe('gallery specimens added by M6 T9', () => {
   });
 });
 
-describe('gallery specimens added by look pass 5 (M6 T28c, ADR 0032)', () => {
-  it('adds one karyotype v2 specimen per look feature after the 36, 39 in all', () => {
+describe('gallery specimens added by look pass 5 (M6 T28c, ADR 0032) and M6b T6', () => {
+  it('adds one karyotype v2 specimen per look feature after the 36, 40 in all', () => {
     const all = gallerySpecimens(fixtures());
-    expect(all).toHaveLength(39);
+    expect(all).toHaveLength(40);
     const added = all.slice(36);
     expect(
       added.map((s) => s.file.replace(/^(\d\d-specimen-[a-z-]+?)-[a-z]+-[a-z]+\.hex$/, '$1')),
-    ).toEqual(['37-specimen-antennae', '38-specimen-big-eyes', '39-specimen-spiral']);
+    ).toEqual([
+      '37-specimen-antennae',
+      '38-specimen-big-eyes',
+      '39-specimen-spiral',
+      '40-specimen-s-worm',
+    ]);
     for (const s of added) expect(s.bytes).toBe(GENOME_BYTES);
   });
 });

@@ -2,24 +2,24 @@
   "rulesVersion": 7,
   "vectors": {
     "zero": "6fc9d5d9326ec307",
-    "ones": "56cb56385255641f",
-    "alternating": "5cdbc542c925e3b1",
+    "ones": "abc4b8b5f3f5246b",
+    "alternating": "8533e693067f0b92",
     "modulesZero": "56d18fff7a3b9d3c",
     "modulesFull": "bd79cd718f2ce8c7",
     "eightSegmentsModulesFull": "03a84cf0df8f1519",
-    "random0": "edee872c1798abf5",
-    "random1": "4f3cd9dcee289658",
+    "random0": "11a7409bffdfae8d",
+    "random1": "850f9af49b2a6171",
     "random2": "e2546b54accc10ed",
-    "random3": "f65176817b94e6a4",
-    "random4": "1837491bd34e4fff",
+    "random3": "ffeff68863794fd6",
+    "random4": "62e465643cbc05f9",
     "random5": "0c5753a9dd22ebbb",
     "random6": "66e4e79c983c0ea1",
     "random7": "67070e565ac3bbb8",
     "random8": "b664c2740668c2a3",
-    "random9": "f1889026238b3f63",
+    "random9": "5a4cd19a2ea56a9c",
     "random10": "c545dbb4f7b808ad",
     "random11": "c0d56b2cb2d60746",
-    "random12": "40f3c82e0c7e17a3",
-    "random13": "e660b568fac4f68d"
+    "random12": "0922efde7f0b2e87",
+    "random13": "4f85ee762347e6e3"
   }
 }
