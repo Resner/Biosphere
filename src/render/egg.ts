@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import type { RarityTier } from '../genome/rarity';
-import { clamp } from '../sim/math';
+import { clamp, lerp } from '../sim/math';
 import { writeInstance } from './instances';
 import { eggMaterial, setUniform } from './materials';
 
@@ -379,7 +379,7 @@ export class EggReveal {
     }
     // The light gathers towards the crack's, and each burst flashes it, harder each time.
     const flash = EGG.stirFlash * index * envelope;
-    const base = EGG.restGlow + (0.8 * EGG.glow.to - EGG.restGlow) * u;
+    const base = lerp(EGG.restGlow, 0.8 * EGG.glow.to, u);
     out.glow = base + (reduced ? 2.4 * flash : flash);
     // From the second burst, the rarity's colour leaks through.
     const second = EGG.stirBursts[1]?.from ?? 0;
@@ -689,7 +689,7 @@ export class EggLayer {
     const k = pose.tier ? pose.tint : 0;
     const j = n * 3;
     for (let m = 0; m < 3; m++) {
-      this.tint[j + m] = (plain[m] as number) * (1 - k) + (tier[m] as number) * k;
+      this.tint[j + m] = lerp(plain[m] as number, tier[m] as number, k);
     }
   }
 }

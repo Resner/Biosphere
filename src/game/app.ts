@@ -367,9 +367,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       }
       const { phase } = eggs.reveal;
       let settled = false;
+      const timer = setTimeout(() => done(), EGG_RIPE_CAP_MS);
       const done = (): void => {
         if (settled) return;
         settled = true;
+        clearTimeout(timer);
         if (ripeWaiter === done) ripeWaiter = null;
         run();
         resolve();
@@ -379,7 +381,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         return;
       }
       ripeWaiter = done;
-      setTimeout(done, EGG_RIPE_CAP_MS);
     });
   /** The rarity of the body a genesis's beacon gave, read while its check runs; by genome text. */
   let arriving: { text: string; tier: Body['rarity'] | null } | null = null;
@@ -753,6 +754,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     x: camera.x + (px - scene.width / 2) / scene.pxPerWu,
     y: camera.y - (py - scene.height / 2) / scene.pxPerWu,
   });
+  /** The cursor in world units while a genesis egg waits: one object, written each frame. */
+  const eggPointer: Vec2 = { x: 0, y: 0 };
   const playing = (): boolean => screen === 'playing' && !session.demo && session.death === null;
   const anchors = new Map<string, Anchor>();
 
@@ -1615,7 +1618,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     let pointer: Vec2 | null = null;
     if (eggs.mode === 'genesis' && eggs.reveal.phase === 'waiting') {
       const at = controller.pointerAt();
-      if (at) pointer = worldAt(at.x, at.y);
+      if (at) {
+        pointer = eggPointer;
+        pointer.x = camera.x + (at.x - scene.width / 2) / scene.pxPerWu;
+        pointer.y = camera.y - (at.y - scene.height / 2) / scene.pxPerWu;
+      }
     }
     return eggs.frame({
       now,

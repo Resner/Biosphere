@@ -7,7 +7,7 @@ import type { RarityTier } from '../genome/rarity';
 import type { Silhouette } from '../genome/silhouette';
 import { capitalise } from './badge';
 import type { Body } from './body';
-import { pick } from './dom';
+import { pick, setText } from './dom';
 import { drawPreview } from './offspring-preview';
 
 /** How long the card stays without a click or a key. */
@@ -33,8 +33,6 @@ export const shapeName = (s: Silhouette): string => capitalise(s.replace(/-/g, '
 export interface RevealCardText {
   name: string;
   rarity: string;
-  stars: string;
-  starsLabel: string;
   shape: string;
   tier: RarityTier;
 }
@@ -45,12 +43,9 @@ export function revealCardText(body: {
   rarity: RarityTier;
   silhouette: Silhouette;
 }): RevealCardText {
-  const stars = starsText(body.rarity);
   return {
     name: body.species,
     rarity: capitalise(body.rarity),
-    stars: stars.text,
-    starsLabel: stars.label,
     shape: shapeName(body.silhouette),
     tier: body.rarity,
   };
@@ -76,7 +71,7 @@ export class RevealCardClock {
 /** Puts a body's stars and rarity frame on a card element (this one, or the offspring card). */
 export function setStars(card: HTMLElement, stars: HTMLElement, tier: RarityTier): void {
   const { text, label } = starsText(tier);
-  if (stars.textContent !== text) stars.textContent = text;
+  setText(stars, text);
   if (stars.getAttribute('aria-label') !== label) stars.setAttribute('aria-label', label);
   if (card.dataset.tier !== tier) card.dataset.tier = tier;
 }
@@ -103,9 +98,9 @@ export class RevealCard {
   /** A genesis hatched this body: the card slides in. */
   show(body: Body, silhouette: Silhouette, now: number): void {
     const text = revealCardText({ species: body.species, rarity: body.rarity, silhouette });
-    this.name.textContent = text.name;
-    this.rarity.textContent = text.rarity;
-    this.shape.textContent = text.shape;
+    setText(this.name, text.name);
+    setText(this.rarity, text.rarity);
+    setText(this.shape, text.shape);
     setStars(this.el, this.stars, text.tier);
     drawPreview(this.preview, body);
     this.tier = text.tier;

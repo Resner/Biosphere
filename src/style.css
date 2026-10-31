@@ -1620,16 +1620,21 @@ body {
   color: var(--muted);
 }
 
-.badge[data-tier="uncommon"] {
-  color: #8de88a;
+/* The rarity colours, once: the badge, the offspring card, the result card and its stars read --tier. */
+[data-tier="uncommon"] {
+  --tier: #8de88a;
 }
 
-.badge[data-tier="rare"] {
-  color: #7ac8ff;
+[data-tier="rare"] {
+  --tier: #7ac8ff;
 }
 
-.badge[data-tier="exotic"] {
-  color: #ffd27a;
+[data-tier="exotic"] {
+  --tier: #ffd27a;
+}
+
+.badge[data-tier] {
+  color: var(--tier);
 }
 
 .invite[hidden] {
@@ -1897,22 +1902,7 @@ body {
   margin: 0.15rem 0;
 }
 
-/* The rarity frame and stars (M6b T11), on the offspring card and the result card alike. */
-.offspring[data-tier="uncommon"],
-.reveal-card[data-tier="uncommon"] {
-  --tier: #8de88a;
-}
-
-.offspring[data-tier="rare"],
-.reveal-card[data-tier="rare"] {
-  --tier: #7ac8ff;
-}
-
-.offspring[data-tier="exotic"],
-.reveal-card[data-tier="exotic"] {
-  --tier: #ffd27a;
-}
-
+/* The rarity frame (M6b T11), on the offspring card; the result card styles its own. */
 .offspring[data-tier] {
   border-color: var(--tier, rgb(200 240 255 / 0.5));
 }

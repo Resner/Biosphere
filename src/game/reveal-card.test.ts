@@ -25,14 +25,12 @@ describe('the result card', () => {
     for (const s of SILHOUETTES) expect(shapeName(s)).toMatch(/^[A-Z][a-z ]+$/);
   });
 
-  it('reads the species, the rarity with its stars and the shape', () => {
+  it('reads the species, the rarity, the shape and the tier', () => {
     expect(
       revealCardText({ species: 'Velella minor', rarity: 'rare', silhouette: 'shrimp' }),
     ).toEqual({
       name: 'Velella minor',
       rarity: 'Rare',
-      stars: '★★★☆',
-      starsLabel: '3 of 4 stars',
       shape: 'Shrimp',
       tier: 'rare',
     });

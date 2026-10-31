@@ -17,6 +17,7 @@ import {
 } from '../render/egg';
 import { idFraction } from '../render/instances';
 import type { RemoteCellView } from '../render/remotes';
+import { clamp } from '../sim/math';
 import { hatchling } from '../sim/mating';
 
 /** What the reveal is for: a genesis's beacon, a mating's beacon, or hatching the carried child. */
@@ -365,7 +366,7 @@ export class EggShow {
       const dx = pointer.x - egg.x;
       const near = Math.hypot(dx, pointer.y - egg.y) <= EGG.leanReach * egg.radius;
       // The top tips toward the cursor's side: clockwise (negative) for one on the right.
-      if (near) target = -EGG.lean * Math.max(-1, Math.min(1, dx / (1.5 * egg.radius)));
+      if (near) target = -EGG.lean * clamp(dx / (1.5 * egg.radius), -1, 1);
     }
     this.lean += (target - this.lean) * (1 - Math.exp(-Math.max(0, dt) / LEAN_SECONDS));
     if (target === 0 && Math.abs(this.lean) < 1e-4) this.lean = 0;

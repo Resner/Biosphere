@@ -102,7 +102,7 @@ void main() {
   }
 
   // A soft halo around the shell.
-  float halo = exp(-max(eggDist(q), 0.0) * 4.0) * (1.0 - inside);
+  float halo = exp(-max(spread > 0.0 ? eggDist(q) : d, 0.0) * 4.0) * (1.0 - inside);
   add += vTint * halo * glow * 0.35 * alpha;
 
   // The burst: a flash from the centre and a ring that runs out, by the child's rarity.
