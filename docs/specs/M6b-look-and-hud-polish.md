@@ -229,7 +229,7 @@ The three tasks share these balance checks, re-run in each (the "balance checks"
 
 Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen changes `silhouetteOf` class, a new specimen for the lost class is added (ADR 0024), so specimens 21–32 plus the additions still cover 12 distinct classes.
 
-- [x] T5 One body, widest at the trunk [opus] (in progress)
+- [x] T5 One body, widest at the trunk [opus]
   - Acceptance (unit tests first, on plans):
     - In a bilateral karyotype v2 chain of 3 or more segments (parts excluded):
       - the drawn head's half-width is at most 0.9 of the trunk's widest half-width;
@@ -247,6 +247,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - The balance checks above hold. A new ADR (the next free number) amends 0028 and 0031 with the new proportions, and DESIGN §6 (Proportions, Long bodies) follows.
     - A scratch gallery render is compared by eye with references 02 and 05 (the long copepods and shrimps) and noted in the PR. No pass sheet is committed.
   - Notes: the core collider stays the unit circle (ADR 0028), so the sim, sizes and hazards do not move. Expect a smaller head and a wider trunk inside the 2.5 bound.
+  - Done: head 0.6–0.86 of the trunk, widest at ~35%, tail narrows; copepod tail ≤0.45, worms even at 4.2:1; ADR 0037 amends 0028 and 0031 (a curl now slims a worm); goldens regenerated.
+  - Gotcha: chain reach is 2.2 (was 2.1) so shrimp 27 keeps 20 bristle strokes. `m6-creature-mesh` "rim stays the brightest ring" also fails on unchanged main here (specimens 26, 39 on this branch): T12 look pass.
     - Done (ADR 0037): `develop.ts` trunk profile, head as a share of the trunk, slim free tail behind a carapace, and a `worm` build (5+ free segments curled short of a coil: even, aspect 4.2); `tests/body-outline.ts` measures 98% of chains and 99% per class; `silhouetteOf`: worm 5+ segments, tadpole by front share ≥ 0.65, winged 0.3, fan tail from mid rear segment.
     - Gotcha: a curled worm is slimmer than its straight twin, so curl tests compare below `worm.curl`; dropping head scale's trunk narrowing broke the radial-twin speed test, so it stays (trunk width 0.88).
 
