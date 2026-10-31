@@ -20,7 +20,7 @@ import {
   onAxis,
   type PlanMouth,
   type PlanSegment,
-  peak,
+  paddleShare,
   polygonArea,
   rootOf,
   weaponShare,
@@ -89,7 +89,7 @@ function efficiencyAt(biomass: number): (tip: number) => number {
   const up = pow(scale, e.exponent);
   return (tip) => {
     const whip = clamp((tip - S.paddleTip) / (1 - S.paddleTip), 0, 1);
-    return e.base + whip * down + peak(tip, S.paddleTip, S.paddleSpread) * up;
+    return e.base + whip * down + paddleShare(tip) * up;
   };
 }
 

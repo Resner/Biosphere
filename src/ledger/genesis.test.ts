@@ -21,8 +21,7 @@ const rounds: { first: number; beacons: Beacon[] } = JSON.parse(
 const beaconOf = (i: number): Beacon => rounds.beacons[i] as Beacon;
 
 /**
- * under rules 5 (the M4 golden, karyotype v1, frozen), rules 6 (karyotype v2, frozen) and rules 7.
- * under rules 5 (the M4 golden, karyotype v1, frozen) and under rules 6 (karyotype v2).
+ * The golden under rules 5 (the M4 golden, karyotype v1, frozen), rules 6 (karyotype v2, frozen) and rules 7.
  */
 const GOLDEN = {
   commitId: 'ab'.repeat(32),

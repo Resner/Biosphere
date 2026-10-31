@@ -28,7 +28,7 @@ export const GENESIS_EYES = 0.12;
  * Bristles under rules 7 (M6b T7): each module slot other than the whip is bristled with this
  * chance, its setae density and length raised to at least a draw from these spans.
  */
-export const GENESIS_SETAE = {
+const GENESIS_SETAE = {
   share: 0.7,
   density: [0.3, 0.8],
   length: [0.2, 0.6],

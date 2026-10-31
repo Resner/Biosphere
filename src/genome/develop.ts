@@ -860,7 +860,7 @@ export const paddleShare = (tip: number): number =>
  */
 export function bladeAt(a: Pick<Appendage, 'blade'>, t: number): number {
   const [from, to] = D.legs.blade as readonly [number, number];
-  return 1 + (a.blade - 1) * clamp((t - from) / (to - from), 0, 1);
+  return lerp(1, a.blade, clamp((t - from) / (to - from), 0, 1));
 }
 
 /** A part's mean width along its length, its blade included: what its area, thrust and drag read. */
@@ -1314,17 +1314,20 @@ const shellsOf = (segments: readonly PlanSegment[]): Shell[] =>
     r: Math.max(s.rx, s.ry),
   }));
 
+/** Whether body point (`x`, `y`) lies inside segment ellipse `e`. */
+function inShell(e: Shell, x: number, y: number): boolean {
+  const dx = x - e.x;
+  const dy = y - e.y;
+  if (Math.abs(dx) >= e.r || Math.abs(dy) >= e.r) return false;
+  const u = (dx * e.c + dy * e.n) * e.ix;
+  const v = (dy * e.c - dx * e.n) * e.iy;
+  return u * u + v * v < 1;
+}
+
 /** Whether body point (`x`, `y`) lies inside a segment's ellipse, segment `skip` aside. */
 function inShells(body: readonly Shell[], x: number, y: number, skip = -1): boolean {
   for (let i = 0; i < body.length; i++) {
-    if (i === skip) continue;
-    const e = body[i] as Shell;
-    const dx = x - e.x;
-    const dy = y - e.y;
-    if (Math.abs(dx) >= e.r || Math.abs(dy) >= e.r) continue;
-    const u = (dx * e.c + dy * e.n) * e.ix;
-    const v = (dy * e.c - dx * e.n) * e.iy;
-    if (u * u + v * v < 1) return true;
+    if (i !== skip && inShell(body[i] as Shell, x, y)) return true;
   }
   return false;
 }
@@ -1431,13 +1434,7 @@ function nearShells(
 /** Whether body point (`x`, `y`) lies inside one of the first `count` shells in `NEAR`. */
 function inNear(body: readonly Shell[], count: number, x: number, y: number): boolean {
   for (let k = 0; k < count; k++) {
-    const e = body[NEAR[k] as number] as Shell;
-    const dx = x - e.x;
-    const dy = y - e.y;
-    if (Math.abs(dx) >= e.r || Math.abs(dy) >= e.r) continue;
-    const u = (dx * e.c + dy * e.n) * e.ix;
-    const v = (dy * e.c - dx * e.n) * e.iy;
-    if (u * u + v * v < 1) return true;
+    if (inShell(body[NEAR[k] as number] as Shell, x, y)) return true;
   }
   return false;
 }
@@ -1667,7 +1664,7 @@ export function ringAngle(k: number, pairs: number, arc = PI): number {
 }
 
 /** The free arc of a radial plan's core: where `ring` spreads its parts. */
-export const ringArcOf = (segments: readonly PlanSegment[]): number =>
+const ringArcOf = (segments: readonly PlanSegment[]): number =>
   ringArc(segments, shellsOf(segments));
 
 /**
@@ -1749,7 +1746,6 @@ function bandParts(parts: Part[], segment: number): Part[] | null {
   return band.length === D.band.pairs ? band : null;
 }
 
-/** Both sides of every part, pairs adjacent: left then right. */
 /** One side of a part, field by field: an object rest of the build-only fields is slow. */
 const sideOf = (p: Part, side: 1 | -1): Appendage => ({
   module: p.module,
@@ -1776,6 +1772,7 @@ const sideOf = (p: Part, side: 1 | -1): Appendage => ({
   blade: p.blade,
 });
 
+/** Both sides of every part, pairs adjacent: left then right. */
 const mirror = (parts: Part[]): Appendage[] => parts.flatMap((p) => [sideOf(p, 1), sideOf(p, -1)]);
 
 /** Bilateral parts: spread, shaped, trimmed in module order, then a ciliary band if nothing swims. */

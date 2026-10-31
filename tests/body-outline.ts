@@ -180,7 +180,7 @@ export function insideShare(plan: BodyPlan, a: Appendage, samples = 24): number 
 
 /** A body's trunk legs: the left-side gene parts behind the head of a bilateral body of 3+ segments (M6b T7). */
 export const trunkLegs = (plan: BodyPlan): Appendage[] =>
-  plan.form.radial === 0 && plan.segments.length >= 3
+  isChain(plan)
     ? plan.appendages.filter((a) => a.side === 1 && a.module >= 0 && a.segment >= 1)
     : [];
 
