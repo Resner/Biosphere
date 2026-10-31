@@ -327,10 +327,11 @@ export const RULES = deepFreeze({
       stalk: [0, 0.6],
       angle: 0.6,
       /**
-       * A stalkless eye is set into the head (look pass 5, reference 05): its centre lies this share
-       * of its diameter in from the outline, less as the stalk grows, and a full stalk holds it out.
+       * A stalkless eye is set into the head (look pass 5, reference 05): this share of its
+       * diameter lies inside the outline, less as the stalk grows, and a full stalk holds it out.
+       * At 1 a stalkless eye lies wholly inside, so the head's rim runs round it (ADR 0037).
        */
-      set: 0.75,
+      set: 1,
     },
     /**
      * The karyotype v2 chain (M6 T14b, ADR 0028). In front of a chain the head is `head` of the v1
@@ -353,6 +354,32 @@ export const RULES = deepFreeze({
        */
       aspect: 2.5,
       slimFrom: 3,
+      /**
+       * One body, widest at the trunk (M6b T5, ADR 0037), for a bilateral chain of `slimFrom`
+       * segments or more. Along the chain behind the head (t from 0 at the head to 1 at the tail)
+       * the profile rises by `rise` to its peak at `at`, where trunk swell adds to it, then drops
+       * by `drop` plus the taper gene's share to the tail, and the tail loci narrow its rear. The
+       * trunk is `width` core radii wide along it (head scale still narrows it) and fits a reach of
+       * `reach`, and the segments shorten only by the square root of their narrowing, so a tail
+       * stays long. The head
+       * is `head` of the widest trunk segment's half-width and `headLength` of its stretch as long
+       * (head scale and symmetry raise it). Behind a carapace of 2 or more segments the free tail
+       * is at most `freeTail` of the widest fused segment. A worm (`worm.from` segments or more, no
+       * carapace, a curve of `worm.curl` or more short of a coil) keeps only `even` of the profile's
+       * swing and is `worm.aspect` times as long as wide.
+       */
+      trunk: {
+        width: 0.88,
+        reach: 2.2,
+        at: 0.35,
+        rise: 0.25,
+        drop: 0.15,
+        head: [0.6, 0.86],
+        headLength: 0.7,
+        freeTail: 0.45,
+        even: 0.3,
+        worm: { from: 5, curl: 0.35, aspect: 4.2 },
+      },
     },
     /**
      * Long parts under karyotype v2 (look pass 4): the length gene keeps the v1 range up to `knee`

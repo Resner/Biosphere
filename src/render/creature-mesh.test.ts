@@ -121,6 +121,15 @@ const planOf = (g: Genome): BodyPlan => {
   return p;
 };
 
+/** Strictly inside one of the plan's segment ellipses (Float32 positions on an outline count as out). */
+const insideBody = (p: BodyPlan, x: number, y: number): boolean =>
+  p.segments.some((s) => {
+    const [dx, dy] = [x - s.x, y - s.y];
+    const u = (dx * Math.cos(s.angle) + dy * Math.sin(s.angle)) / s.rx;
+    const v = (-dx * Math.sin(s.angle) + dy * Math.cos(s.angle)) / s.ry;
+    return u * u + v * v < 1 - 1e-4;
+  });
+
 // The inner anatomy (M6 T12) of each genome, built once like its plan.
 const anatomies = new Map<Genome, Anatomy>();
 const anatomyFor = (g: Genome): Anatomy => {
@@ -758,6 +767,26 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
       expect(drawn('high'), prefix).toBe(bristles);
       expect(drawn('medium')).toBeLessThanOrEqual(bristles);
       expect(drawn('low')).toBeLessThanOrEqual(drawn('medium'));
+    }
+  });
+
+  it('grows no bristle into the body, not even from a part in the eye of a coil (M6b T5)', () => {
+    // Specimen 39's inner parts point into its coil, where either side of a bristle meets the body.
+    for (const prefix of ['39-', '27-']) {
+      const p = planOf(specimen(prefix));
+      const g = buildCreatureGeometry(p, 'high');
+      const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];
+      const per = meshDetail(p, 'high').setaVertices;
+      let bristles = 0;
+      for (let i = 0; i < part.length; i++) {
+        if (partKind(part[i] as number) !== PART_SETA) continue;
+        const tip = i + per - 1;
+        const [x, y] = [position[tip * 3] as number, position[tip * 3 + 1] as number];
+        expect(insideBody(p, x, y), `${prefix} bristle tip at ${x}, ${y}`).toBe(false);
+        bristles++;
+        i += per - 1;
+      }
+      expect(bristles, prefix).toBeGreaterThan(0);
     }
   });
 

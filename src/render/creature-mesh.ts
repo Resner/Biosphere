@@ -958,14 +958,17 @@ function addSetae(
     const t = min(1, (share * a.length) / length);
     const at = pathAt(path, t);
     const off = SETA_BASE - SETA_SWEEP * share;
-    // Sides alternate, but a bristle that would grow into the body grows from the other side.
+    // Sides alternate, but a bristle that would grow into the body grows from the other side, and
+    // one that would grow into it either way (a part in the eye of a coil) is not drawn: seen
+    // through the clear shell, such bristles piled into a white cloud inside the body.
     const into = (side: number): boolean => {
       const angle = chord + side * off;
       const [x, y] = [at.x + a.setaeLength * cos(angle), at.y + a.setaeLength * sin(angle)];
       return plan.segments.some((seg) => inside(seg, x, y));
     };
     const side = k % 2 === 0 ? 1 : -1;
-    const angle = chord + (into(side) && !into(-side) ? -side : side) * off;
+    if (into(side) && into(-side)) continue;
+    const angle = chord + (into(side) ? -side : side) * off;
     const [dx, dy] = [cos(angle), sin(angle)];
     const [nx, ny] = [-dy, dx];
     // A bristle stops at the bounds, where development keeps every part.
