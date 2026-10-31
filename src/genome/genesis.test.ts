@@ -9,6 +9,7 @@ import { express } from './express';
 import { GENESIS_EYES, GENESIS_FORMS, GENESIS_FREQ, genesisGenome } from './genesis';
 import { genesisGenomeV5 } from './genesis-v5';
 import { genesisGenomeV6 } from './genesis-v6';
+import { genesisGenomeV7 } from './genesis-v7';
 import { LOCI } from './karyotype';
 import { silhouetteOf } from './silhouette';
 import { starterGenome } from './starter';
@@ -255,6 +256,17 @@ describe('genesisGenome', () => {
     expect(golden.rulesVersion).toBe(6);
     for (const [s, hash] of Object.entries(golden.hashes))
       expect(genomeHash(genesisGenomeV6(seedFromString(s)))).toBe(hash);
+  });
+
+  it('keeps the frozen v7 genesis hashes (karyotype v2, rules 7)', () => {
+    const file = new URL('./__golden__/genesis-v7.json', import.meta.url);
+    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
+      rulesVersion: number;
+      hashes: Record<string, string>;
+    };
+    expect(golden.rulesVersion).toBe(7);
+    for (const [s, hash] of Object.entries(golden.hashes))
+      expect(genomeHash(genesisGenomeV7(seedFromString(s)))).toBe(hash);
   });
 
   it('matches the committed hashes for three seeds', () => {

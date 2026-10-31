@@ -27,7 +27,7 @@ The owner's bar for the creature look overhaul (#90, M6). Each sheet shows 20 mi
 
 ## gallery/
 
-The look passes of M6 (ADR 0024): `gallery/pass-0` to `pass-5` hold each pass's specimen sheet (`.png`) and its gap table against references 02–05 (`.md`). `npm run gallery` redraws the sheet.
+The look passes of M6 (ADR 0024): `gallery/pass-0` to `pass-6` hold each pass's specimen sheet (`.png`) and its gap table against references 02–05 (`.md`). `npm run gallery` redraws the sheet.
 
 - `pass-1` is the realism baseline (ADR 0034). The repository keeps it for good: clear glass, pass 1's organ size and palette, and no haze or glow.
 - `pass-6` is M6b's one pass (T12). Its note adds an "Against pass 1" table, with each aspect `better`, `same` or `worse`, which `tools/gallery-notes.ts` checks from pass 6 on. Its "Largest gaps" list holds what is left for the owner.

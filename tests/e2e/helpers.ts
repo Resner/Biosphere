@@ -153,6 +153,9 @@ export const M6B_EGG_HUB = 'http://localhost:8801';
 /** The M6b authority for the minimap spec, alone in its pond. */
 export const M6B_MINIMAP_HUB = 'http://localhost:8802';
 
+/** The M6b authority for the lifecycle spec, with the M5 hooks (short lives), two players in one pond. */
+export const M6B_LIFECYCLE_HUB = 'http://localhost:8803';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
@@ -214,3 +217,25 @@ export async function goTo(page: Page, id: string): Promise<void> {
     await expect(hint).toBeVisible({ timeout: 2_000 });
   }).toPass({ timeout: 20_000 });
 }
+
+/** What `document.elementFromPoint` finds at the egg's centre and at four points 0.8 of its radius out. */
+export const atEgg = (page: Page) =>
+  page.evaluate(() => {
+    const at = (window.__bs as BsHook).state().egg.at;
+    if (!at) return null;
+    const d = 0.8 * at.r;
+    const points = [
+      [at.x, at.y],
+      [at.x + d, at.y],
+      [at.x - d, at.y],
+      [at.x, at.y + d],
+      [at.x, at.y - d],
+    ] as const;
+    return {
+      at,
+      hits: points.map(([x, y]) => {
+        const el = document.elementFromPoint(x, y);
+        return el ? `${el.tagName.toLowerCase()}#${el.id}` : 'none';
+      }),
+    };
+  });

@@ -1,6 +1,14 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, M6B_EGG_HUB, openRecorded, patchLuma, state, waitPlaying } from './helpers';
+import {
+  atEgg,
+  clickHatch,
+  M6B_EGG_HUB,
+  openRecorded,
+  patchLuma,
+  state,
+  waitPlaying,
+} from './helpers';
 
 // The egg reveal as a gacha moment (M6b T11): the genesis egg drops in at the screen's centre and
 // rests, answering a click, until the beacon comes; then it stirs, cracks and bursts by rarity, and
@@ -48,28 +56,6 @@ const eggLog = (page: Page) =>
     const w = window as unknown as { __eggLog: Sample[]; __eggStop: boolean };
     w.__eggStop = true;
     return w.__eggLog;
-  });
-
-/** What `document.elementFromPoint` finds at the egg's centre and at four points 0.8 of its radius out. */
-const atEgg = (page: Page) =>
-  page.evaluate(() => {
-    const at = (window.__bs as BsHook).state().egg.at;
-    if (!at) return null;
-    const d = 0.8 * at.r;
-    const points = [
-      [at.x, at.y],
-      [at.x + d, at.y],
-      [at.x - d, at.y],
-      [at.x, at.y + d],
-      [at.x, at.y - d],
-    ] as const;
-    return {
-      at,
-      hits: points.map(([x, y]) => {
-        const el = document.elementFromPoint(x, y);
-        return el ? `${el.tagName.toLowerCase()}#${el.id}` : 'none';
-      }),
-    };
   });
 
 /** From the title, Hatch, and wait for the egg; the cursor then goes to a corner (no input). */

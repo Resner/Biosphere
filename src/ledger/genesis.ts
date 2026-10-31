@@ -2,6 +2,7 @@ import { type Genome, genomeHash, genomeKaryotype, genomeToBase64url } from '../
 import { genesisGenome } from '../genome/genesis';
 import { genesisGenomeV5 } from '../genome/genesis-v5';
 import { genesisGenomeV6 } from '../genome/genesis-v6';
+import { genesisGenomeV7 } from '../genome/genesis-v7';
 import { deriveSeed } from '../genome/inherit';
 import { karyotypeForRules } from '../genome/karyotype';
 import type { Seed } from '../sim/prng';
@@ -39,7 +40,7 @@ export function genesisSeed(randomness: Uint8Array, commitId: string): Seed {
   return deriveSeed(GENESIS_DOMAIN, randomness, commitId, 0);
 }
 
-/** The genesis DNA under `rules`: the frozen v5 code (karyotype v1) up to rules 5, the frozen v6 code at 6, the current code after. */
+/** The genesis DNA under `rules`: the frozen v5 code (karyotype v1) up to rules 5, the frozen v6 code at 6, the frozen v7 code at 7, the current code after. */
 export function genesisFor(
   randomness: Uint8Array,
   commitId: string,
@@ -47,7 +48,8 @@ export function genesisFor(
 ): Genome {
   const seed = genesisSeed(randomness, commitId);
   if (karyotypeForRules(rules) === 1) return genesisGenomeV5(seed);
-  return rules <= 6 ? genesisGenomeV6(seed) : genesisGenome(seed);
+  if (rules <= 6) return genesisGenomeV6(seed);
+  return rules === 7 ? genesisGenomeV7(seed) : genesisGenome(seed);
 }
 
 /** The record request that turns a commitment and its beacon into a creature. */
