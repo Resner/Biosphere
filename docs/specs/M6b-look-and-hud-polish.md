@@ -344,7 +344,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - Gotcha: `state().hud.bars.life` is null while its bar is hidden (practice cell); the recorded-life check uses the M4 hub (8790); the egg chip reads "H" with the full name as its accessible name; Biome needs a suppression for `role="meter"` on a div.
     - Owner follow-up (Playtest #183): the online counter (`net-status`) is back in the top-right corner during play, and every HUD surface is glass (`--glass`, blur, shine). T10's minimap sits below that pill.
 
-- [x] T10 The minimap, and shaking instead of borders [opus] (in progress)
+- [x] T10 The minimap, and shaking instead of borders [opus]
   - Acceptance:
     - **The minimap** (`src/game/minimap.ts`, top-right corner, round, 12% of the viewport's short side and at least 120 px):
       - it is north-up and centred on the player, covering 6 view half-heights;
