@@ -146,7 +146,11 @@ test('after a mating both eggs show to both players, and H hatches the child out
     // first reveal was this life's own genesis.
     expect((await state(page)).audio.cues).toMatchObject({ court: 1, mate: 1, reveal: 2 });
     await expect(page.getByTestId('offspring')).toBeVisible({ timeout: 10_000 });
-    await expect(page.getByTestId('hud-egg')).toHaveText('Egg: H to hatch');
+    // The egg chip beside the bars (M6b T9): an egg and its key, named in full.
+    await expect(page.getByTestId('hud-egg')).toBeVisible();
+    await expect(page.getByTestId('hud-egg')).toHaveText('H');
+    await expect(page.getByTestId('hud-egg')).toHaveAccessibleName('Egg: H to hatch');
+    expect((await state(page)).hud.chips).toContain('egg');
   }
   // Both eggs are visible to the other player, through the snapshot's egg mark.
   for (const [page, other] of [

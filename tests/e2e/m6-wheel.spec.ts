@@ -121,6 +121,7 @@ test('G opens the wheel at the cursor; a number, a release or the middle button 
   await page.keyboard.press('Escape');
   expect((await state(page)).wheel.open).toBe(false);
   await expect(page.getByTestId('lineage')).toBeHidden();
+  await expect(page.getByTestId('menu')).toBeHidden();
   await page.keyboard.down('g');
   await page.waitForTimeout(400);
   await page.keyboard.up('g');
@@ -284,6 +285,7 @@ test('B sees the ping A picks at its cursor and the emote over A, and nothing A 
     await a.keyboard.press('Escape');
     expect((await state(a)).wheel.open).toBe(false);
     await expect(a.getByTestId('lineage')).toBeHidden();
+    await expect(a.getByTestId('menu')).toBeHidden();
     await a.keyboard.down('g');
     await a.waitForTimeout(400);
     await a.keyboard.up('g');

@@ -105,12 +105,17 @@ test('a line of three creatures, promoted, grown old and walked back to a new ge
   expect((await state(b)).offspring.creature).toBe(childB.creature);
 
   // The lineage view lists the whole line.
+  // Esc opens the menu, which holds Lineage (M6b T9).
   await a.keyboard.press('Escape');
+  await a.getByTestId('menu-lineage').click();
   await expect(a.getByTestId('lineage')).toBeVisible();
   const ids = a.getByTestId('lineage-chain').locator('li');
   await expect(ids).toHaveCount(3, { timeout: 10_000 });
   await a.screenshot({ path: 'test-results/m5-lifecycle-lineage.png' });
   await a.keyboard.press('Escape');
+  await expect(a.getByTestId('lineage')).toBeHidden();
+  await a.keyboard.press('Escape');
+  await expect(a.getByTestId('menu')).toBeHidden();
 
   // Old age walks the chain: the grandchild, the child, the genesis creature, then a new genesis.
   for (const expected of [first, root]) {

@@ -83,7 +83,9 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   expect((await state(b)).offspring.kind).toBe('card');
 
   // The lineage view: the frozen parent, the other parent and the child, with both parents drawn.
+  // Esc opens the menu, which holds Lineage (M6b T9).
   await a.keyboard.press('Escape');
+  await a.getByTestId('menu-lineage').click();
   const panel = a.getByTestId('lineage');
   await expect(panel).toBeVisible();
   await expect(a.getByTestId('lineage-node')).toHaveCount(3, { timeout: 10_000 });
@@ -97,6 +99,8 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   await a.screenshot({ path: 'test-results/m5-promote-lineage.png' });
   await a.keyboard.press('Escape');
   await expect(panel).toBeHidden();
+  await a.keyboard.press('Escape');
+  await expect(a.getByTestId('menu')).toBeHidden();
 
   // Starving the child: the death screen offers the parent, with how much life is left.
   await a.evaluate(() => {

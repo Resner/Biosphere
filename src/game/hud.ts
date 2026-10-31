@@ -1,3 +1,5 @@
+import { clamp } from '../sim/math';
+import { RULES } from '../sim/rules';
 import type { CreatureState } from '../sim/types';
 import { maxEnergy, maxHealth } from '../sim/vitals';
 import { pick } from './dom';
@@ -11,8 +13,18 @@ function setText(element: HTMLElement, text: string): void {
   if (element.textContent !== text) element.textContent = text;
 }
 
+function setAttr(element: HTMLElement, name: string, value: string): void {
+  if (element.getAttribute(name) !== value) element.setAttribute(name, value);
+}
+
+function setHidden(element: HTMLElement, hidden: boolean): void {
+  if (element.hidden !== hidden) element.hidden = hidden;
+}
+
+const clamp01 = (fraction: number): number => clamp(fraction, 0, 1);
+
 function percent(fraction: number): string {
-  return `${Math.round(Math.min(1, Math.max(0, fraction)) * 100)}%`;
+  return `${Math.round(clamp01(fraction) * 100)}%`;
 }
 
 function setBar(bar: HTMLElement, fraction: number): void {
@@ -20,32 +32,84 @@ function setBar(bar: HTMLElement, fraction: number): void {
   if (bar.style.width !== width) bar.style.width = width;
 }
 
-/** Biomass, energy and health readouts; text and bars, so colour is never the only signal. */
+/** The chips beside the bars, in the order they sit (M6b T9). */
+export type Chip = 'egg' | 'ready' | 'practice' | 'offline';
+const CHIPS: readonly Chip[] = ['egg', 'ready', 'practice', 'offline'];
+
+/** What the stat bars show, each 0..1 as drawn; `life` is null while its bar is hidden. */
+export interface HudBars {
+  health: number;
+  energy: number;
+  size: number;
+  life: number | null;
+}
+
+/** One thin bar on the play screen: a meter whose value is also its tooltip. */
+class StatBar {
+  value = 0;
+  private readonly fill: HTMLElement;
+
+  constructor(
+    readonly root: HTMLElement,
+    fill: string,
+  ) {
+    this.fill = pick(`[data-bar="${fill}"]`);
+  }
+
+  get bar(): HTMLElement {
+    return this.fill;
+  }
+
+  set(fraction: number, tip: string): void {
+    this.value = clamp01(fraction);
+    setBar(this.fill, this.value);
+    setAttr(this.root, 'aria-valuenow', String(Math.round(this.value * 100)));
+    setAttr(this.root, 'aria-valuetext', tip);
+    setAttr(this.root, 'title', tip);
+  }
+}
+
+/**
+ * The play screen's status (M6b T9): four thin stat bars and a compact depth bar in the bottom-left
+ * corner, chips beside them only while they apply, and the numbers in words inside the menu. Each
+ * bar has its own icon shape, so colour is never the only signal.
+ */
 export class Hud {
   private readonly biomass = pick('[data-testid="hud-biomass"]');
   private readonly energy = pick('[data-testid="hud-energy"]');
   private readonly health = pick('[data-testid="hud-health"]');
   private readonly growth = pick('[data-testid="hud-growth"]');
-  private readonly growthBar = pick('[data-bar="growth"]');
-  private readonly energyBar = pick('[data-bar="energy"]');
-  private readonly healthBar = pick('[data-bar="health"]');
+  private readonly healthBar = new StatBar(pick('[data-testid="hud-bar-health"]'), 'health');
+  private readonly energyBar = new StatBar(pick('[data-testid="hud-bar-energy"]'), 'energy');
+  private readonly sizeBar = new StatBar(pick('[data-testid="hud-bar-size"]'), 'growth');
+  private readonly lifeBar = new StatBar(pick('[data-testid="hud-bar-life"]'), 'life');
+  private readonly depthBar = new StatBar(pick('[data-testid="hud-depth"]'), 'depth');
 
   private readonly energyMeter = pick('[data-meter="energy"]');
   private readonly species = pick('[data-testid="hud-species"]');
-  private readonly lifeMeter = pick('[data-testid="hud-life"]');
+  private readonly lifeRows = pick('[data-testid="hud-life"]');
   private readonly stage = pick('[data-testid="hud-stage"]');
   private readonly lifeLeft = pick('[data-testid="hud-remaining"]');
   private readonly ready = pick('[data-testid="hud-ready"]');
-  private readonly lifeBar = pick('[data-bar="life"]');
   private readonly toastElement = pick('[data-testid="toast"]');
   private readonly zone = pick('[data-testid="hud-zone"]');
-  private readonly depthBar = pick('[data-bar="depth"]');
   private readonly zoneWarning = pick('[data-testid="hud-zone-warning"]');
   private readonly uvCue = pick('[data-testid="uv-cue"]');
   private readonly pressureCue = pick('[data-testid="pressure-cue"]');
-  private readonly egg = pick('[data-testid="hud-egg"]');
+  private readonly chips: Record<Chip, HTMLElement> = {
+    egg: pick('[data-testid="hud-egg"]'),
+    ready: pick('[data-testid="hud-mate-ready"]'),
+    practice: pick('[data-testid="practice-badge"]'),
+    offline: pick('[data-testid="hud-offline"]'),
+  };
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
   private low = false;
+
+  constructor() {
+    // The size bar's tick: the share of the adult size maturity needs.
+    const tick = this.sizeBar.root.querySelector<HTMLElement>('.tick');
+    if (tick) tick.style.left = percent(RULES.life.matureBiomassShare);
+  }
 
   /** Names the body of the life that has just started. */
   setBody(label: string): void {
@@ -54,47 +118,69 @@ export class Hud {
 
   /** The life bar, stage word and time left; null hides them (a practice cell has no lifespan). */
   setLife(clock: LifeClock | null): void {
-    if (this.lifeMeter.hidden !== (clock === null)) this.lifeMeter.hidden = clock === null;
+    setHidden(this.lifeRows, clock === null);
+    setHidden(this.lifeBar.root, clock === null);
     if (!clock) {
       // A new life starts without the last one's toast.
       clearTimeout(this.toastTimer);
       this.toastElement.hidden = true;
       return;
     }
-    setText(this.stage, stageWord(clock.stage));
-    setText(this.lifeLeft, remainingText(clock.remainingMs));
-    setBar(this.lifeBar, clock.remainingMs / clock.lifespanMs);
+    const stage = stageWord(clock.stage);
+    const left = remainingText(clock.remainingMs);
+    setText(this.stage, stage);
+    setText(this.lifeLeft, left);
+    const share = clock.remainingMs / clock.lifespanMs;
+    this.lifeBar.set(share, `Life ${percent(share)} left · ${stage}${left ? ` · ${left}` : ''}`);
     const old = clock.stage === 'old';
-    if (this.lifeMeter.hasAttribute('data-old') !== old)
-      this.lifeMeter.toggleAttribute('data-old', old);
+    this.lifeBar.root.toggleAttribute('data-old', old);
   }
 
-  /** The size line under the biomass: "Size 62% of adult · Mature in 4:10", with its bar. */
+  /** The size line in the menu ("Size 62% of adult · Mature in 4:10") and the size bar. */
   setGrowth(text: string, share: number): void {
     setText(this.growth, text);
-    setBar(this.growthBar, share);
+    this.sizeBar.set(share, text);
   }
 
-  /** The mating readiness under the life bar: "Ready to mate", "Ready in 2:10", or nothing. */
+  /** The mating readiness in the menu: "Ready to mate", "Ready in 2:10", or nothing. */
   setReady(text: string): void {
     setText(this.ready, text);
   }
 
+  /** The heart chip: mature, rested and free to mate (the mark peers see). */
+  setMateReady(ready: boolean): void {
+    setHidden(this.chips.ready, !ready);
+  }
+
   /**
-   * The depth gauge (zone name, depth bar and the hazard in words) and the UV shimmer and pressure
-   * vignette over the view while that hazard hurts the player (M6 T16).
+   * The compact depth bar (the zone's name as its tooltip and in the menu), the hazard in words
+   * beside it, and the UV shimmer and pressure vignette over the view while that hazard hurts.
    */
   setZone(readout: ZoneReadout): void {
     setText(this.zone, readout.name);
-    setBar(this.depthBar, readout.depth);
+    this.depthBar.set(readout.depth, `Depth · ${readout.name}`);
     setText(this.zoneWarning, readout.uv ? 'UV burns' : readout.pressure ? 'Pressure crushes' : '');
     if (this.uvCue.hidden === readout.uv) this.uvCue.hidden = !readout.uv;
     if (this.pressureCue.hidden === readout.pressure) this.pressureCue.hidden = !readout.pressure;
   }
 
-  /** "Egg: H to hatch" while a pending child is carried (M6 T20). */
+  /** The egg chip ("H" to hatch) while a pending child is carried (M6 T20). */
   setEgg(carried: boolean): void {
-    if (this.egg.hidden === carried) this.egg.hidden = !carried;
+    setHidden(this.chips.egg, !carried);
+  }
+
+  /** "Not recorded" on a practice cell. */
+  setPractice(practice: boolean): void {
+    setHidden(this.chips.practice, !practice);
+  }
+
+  /** The offline dot, with the status line as its name and tooltip; null hides it. */
+  setOffline(status: string | null): void {
+    setHidden(this.chips.offline, status === null);
+    if (status === null) return;
+    const label = status.startsWith('Offline') ? status : `Offline · ${status}`;
+    setAttr(this.chips.offline, 'aria-label', label);
+    setAttr(this.chips.offline, 'title', label);
   }
 
   /**
@@ -104,8 +190,8 @@ export class Hud {
   drain(from: { energy: number; size: number }, to: { energy: number; size: number }): void {
     const highlight = 'brightness(2) drop-shadow(0 0 6px #ffd27a)';
     for (const [bar, a, b] of [
-      [this.energyBar, from.energy, to.energy],
-      [this.growthBar, from.size, to.size],
+      [this.energyBar.bar, from.energy, to.energy],
+      [this.sizeBar.bar, from.size, to.size],
     ] as const) {
       bar.animate(
         [
@@ -128,9 +214,9 @@ export class Hud {
     }, ms);
   }
 
-  /** Restarts the short brightening of the energy readout after eating. */
+  /** Restarts the short brightening of the energy bar after eating. */
   pulseEnergy(): void {
-    for (const part of [this.energy, this.energyBar]) {
+    for (const part of [this.energyBar.root, this.energy]) {
       part.animate(
         [{ filter: 'brightness(2.2) drop-shadow(0 0 6px #8de88a)' }, { filter: 'none' }],
         { duration: 450, easing: 'ease-out' },
@@ -140,15 +226,30 @@ export class Hud {
 
   update(creature: CreatureState): void {
     const energy = Math.max(0, creature.energy / maxEnergy(creature.biomass));
+    const health = creature.health / maxHealth(creature.biomass);
     const low = energy < LOW_ENERGY;
     if (low !== this.low) {
       this.low = low;
       this.energyMeter.toggleAttribute('data-low', low);
+      this.energyBar.root.toggleAttribute('data-low', low);
     }
     setText(this.biomass, String(Math.round(creature.biomass)));
     setText(this.energy, `${Math.round(energy * 100)}%`);
     setText(this.health, String(Math.round(creature.health)));
-    setBar(this.energyBar, energy);
-    setBar(this.healthBar, creature.health / maxHealth(creature.biomass));
+    this.energyBar.set(energy, `Energy ${percent(energy)}`);
+    this.healthBar.set(health, `Health ${percent(health)}`);
+  }
+
+  /** The bars and chips as drawn, for `state().hud`. */
+  view(): { bars: HudBars; chips: Chip[] } {
+    return {
+      bars: {
+        health: this.healthBar.value,
+        energy: this.energyBar.value,
+        size: this.sizeBar.value,
+        life: this.lifeBar.root.hidden ? null : this.lifeBar.value,
+      },
+      chips: CHIPS.filter((chip) => !this.chips[chip].hidden),
+    };
   }
 }

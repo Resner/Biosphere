@@ -4,6 +4,7 @@ import {
   defaultName,
   hubSocketUrl,
   loadName,
+  offlineChip,
   ordinal,
   ringSpawn,
   saveName,
@@ -113,6 +114,18 @@ describe('ringSpawn', () => {
       angles.add(Math.round(Math.atan2(p.y - centre.y, p.x - centre.x) * 1000));
     }
     expect(angles.size).toBe(5);
+  });
+});
+
+describe('offlineChip', () => {
+  it('shows the offline dot only when a hub is set and cannot be used (M6b T9)', () => {
+    expect(offlineChip(false, 'offline', false)).toBe(false);
+    expect(offlineChip(true, 'online', false)).toBe(false);
+    expect(offlineChip(true, 'connecting', false)).toBe(false);
+    for (const status of ['offline', 'replaced', 'outdated'] as const)
+      expect(offlineChip(true, status, false), status).toBe(true);
+    // A life in a local pond is apart from the hub, whatever the hub's status.
+    expect(offlineChip(true, 'online', true)).toBe(true);
   });
 });
 

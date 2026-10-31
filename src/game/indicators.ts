@@ -3,6 +3,7 @@
 // when they say they could mate. Pings nearby but off screen show the same way for their lifetime.
 // Positions come from the pond snapshots the game already receives, so this costs no traffic.
 
+import { clamp } from '../sim/math';
 import { type SizeClass, sizeClass } from '../sim/size';
 import { setText } from './dom';
 import { showIcon } from './icons';
@@ -15,6 +16,18 @@ export const MAX_PLAYER_INDICATORS = 6;
 export const PING_REACH_VIEWS = 2;
 /** Indicators sit this far inside the screen's edge, in CSS pixels, so their labels fit. */
 export const EDGE_INSET_PX = 44;
+/**
+ * The corners the HUD uses (M6b T9), in CSS pixels from that corner: the menu button top left, the
+ * stat bars and their chips bottom left. An indicator inside one slides along its edge out of it.
+ */
+export const HUD_CORNERS: readonly {
+  corner: 'top-left' | 'bottom-left' | 'top-right' | 'bottom-right';
+  w: number;
+  h: number;
+}[] = [
+  { corner: 'top-left', w: 84, h: 84 },
+  { corner: 'bottom-left', w: 280, h: 124 },
+];
 /** Within this many CSS pixels of a side, the label turns inwards. */
 const LABEL_ROOM_PX = 96;
 /** Players drawn fainter than this are going quiet (a hidden tab) and get no indicator. */
@@ -130,8 +143,27 @@ export function edgeIndicators(
     indicator.ping = ping.kind;
     out.push(indicator);
   }
+  for (const i of out) keepClear(i, p);
   spread(out, p);
   return out;
+}
+
+/** Slides an indicator on the inset frame along its edge, out of the HUD's corners. */
+function keepClear(i: { x: number; y: number }, p: LabelProjection): void {
+  const lo = EDGE_INSET_PX;
+  const hiX = Math.max(lo, p.width - EDGE_INSET_PX);
+  const hiY = Math.max(lo, p.height - EDGE_INSET_PX);
+  for (const c of HUD_CORNERS) {
+    const left = c.corner.endsWith('left');
+    const top = c.corner.startsWith('top');
+    const dx = left ? i.x : p.width - i.x;
+    const dy = top ? i.y : p.height - i.y;
+    if (dx >= c.w || dy >= c.h) continue;
+    // On a side it moves up or down that side; on the top or bottom it moves across.
+    const side = Math.abs(i.x - lo) < 0.5 || Math.abs(i.x - hiX) < 0.5;
+    if (side) i.y = clamp(top ? c.h : p.height - c.h, lo, hiY);
+    else i.x = clamp(left ? c.w : p.width - c.w, lo, hiX);
+  }
 }
 
 /**
@@ -160,6 +192,8 @@ function spread(list: Indicator[], p: LabelProjection): void {
       if (!hit) break;
       if (side) a.y = nudge(a.y, hit.y, SPREAD_PX.y, lo, hiY);
       else a.x = nudge(a.x, hit.x, SPREAD_PX.x, lo, hiX);
+      // A nudge must not push it back under the HUD.
+      keepClear(a, p);
     }
   }
 }

@@ -23,11 +23,13 @@ async function waitForFrames(page: Page, frames = 3): Promise<void> {
 }
 
 async function choose(page: Page, quality: string): Promise<void> {
+  // Esc opens the play screen's menu (M6b T9), which holds Settings.
   await page.keyboard.press('Escape');
-  await page.getByTestId('lineage-settings').click();
+  await page.getByTestId('menu-settings').click();
   await page.getByTestId(`quality-${quality}`).check();
   await page.getByTestId('settings-close').click();
-  await page.getByTestId('lineage-close').click();
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('menu')).toBeHidden();
 }
 
 // The same panel from the title screen: no hatch, which the slow software renderer makes costly.

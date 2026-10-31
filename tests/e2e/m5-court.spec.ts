@@ -42,6 +42,9 @@ test('a court is answered, both pay, and a newborn is refused for being too youn
   await goTo(a, idB);
   await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /);
   await expect(a.getByTestId('hud-ready')).toHaveText('Ready to mate');
+  // The heart chip beside the bars says the same (M6b T9).
+  await expect(a.getByTestId('hud-mate-ready')).toBeVisible();
+  expect((await state(a)).hud.chips).toContain('ready');
   await a.keyboard.press('e');
   await a.keyboard.press('e');
   await expect(b.getByTestId('invite')).toBeVisible();
