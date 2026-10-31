@@ -555,9 +555,7 @@ function slimTail(chain: PlanSegment[], fusion: number): PlanSegment[] {
 function aspectOf(segments: readonly PlanSegment[]): number {
   const head = segments[0] as PlanSegment;
   const tail = segments[segments.length - 1] as PlanSegment;
-  let width = 0;
-  for (const s of segments) width = Math.max(width, 2 * s.ry);
-  return (head.x + head.rx - (tail.x - tail.rx)) / width;
+  return (head.x + head.rx - (tail.x - tail.rx)) / (2 * widestOf(segments));
 }
 
 /**
@@ -1704,8 +1702,7 @@ export function develop(traits: Traits): BodyPlan {
 
 /** The furthest any part of the plan can reach from the core centre. */
 export function planBounds(plan: BodyPlan): number {
-  let bound = 0;
-  for (const s of plan.segments) bound = Math.max(bound, hypot(s.x, s.y) + Math.max(s.rx, s.ry));
+  let bound = farEdge(plan.segments);
   for (const a of plan.appendages) {
     const s = plan.segments[a.segment];
     if (s === undefined) return Number.POSITIVE_INFINITY;

@@ -3,11 +3,11 @@
 // (M6b T6). Lengths run along the spine, through every link.
 
 import { readdirSync, readFileSync } from 'node:fs';
-import { hexToBytes } from '@noble/hashes/utils.js';
-import { decodeGenome, type Genome, upgrade } from '../src/genome/codec';
+import type { Genome } from '../src/genome/codec';
 import { type BodyPlan, develop, type PlanSegment } from '../src/genome/develop';
 import type { Traits } from '../src/genome/express';
 import type { Silhouette } from '../src/genome/silhouette';
+import { type GallerySpecimen, parseSpecimen, shownGenome } from '../src/lab/gallery';
 import { RULES } from '../src/sim/rules';
 
 const GALLERY = new URL('./fixtures/gallery/', import.meta.url);
@@ -15,12 +15,8 @@ const GALLERY = new URL('./fixtures/gallery/', import.meta.url);
 /** A gallery specimen as the sheet draws it: a karyotype v1 file as its v2 upgrade (ADR 0032). */
 export function galleryGenome(prefix: string): Genome {
   const file = readdirSync(GALLERY).find((f) => f.startsWith(`${prefix}-`)) as string;
-  const hex = readFileSync(new URL(file, GALLERY), 'utf8')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith('#'))
-    .join('');
-  return upgrade(decodeGenome(hexToBytes(hex)));
+  const specimen = parseSpecimen(file, readFileSync(new URL(file, GALLERY), 'utf8'));
+  return shownGenome(specimen as GallerySpecimen);
 }
 
 /** The plan of `traits` laid straight (no curl): its straight twin. */
