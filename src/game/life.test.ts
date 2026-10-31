@@ -137,9 +137,13 @@ describe('hatching', () => {
     });
     expect(flow.view()).toMatchObject({ status: 'awaiting', awaitingBeacon: true });
 
+    expect(flow.arriving()).toBeNull();
     feed(genesisMsg());
     expect(flow.view().status).toBe('verifying');
+    // The egg stirs by the body the beacon gave while the check runs (M6b T11).
+    expect(flow.arriving()).toBe('FRESH');
     const outcome = await pending;
+    expect(flow.arriving()).toBeNull();
     expect(verified).toHaveLength(1);
     expect(outcome).toMatchObject({
       kind: 'recorded',

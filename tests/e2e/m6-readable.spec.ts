@@ -56,7 +56,8 @@ test.describe('crispness', () => {
   });
 
   test('the canvas draws at device pixels and HUD text sits on whole pixels', async ({ page }) => {
-    test.setTimeout(45_000);
+    // The hatch now plays the egg's stir and crack (M6b T11), a few seconds on a slow software page.
+    test.setTimeout(75_000);
     await openGame(page, '?debug=1&seed=crisp&quality=high');
     await hatch(page);
     // Names of many widths, so centred labels land on odd widths too.

@@ -18,6 +18,7 @@ export const CUES = [
   'mate',
   'hatch',
   'reveal',
+  'stir',
   'grow',
   'tier',
   'ping',
@@ -170,6 +171,22 @@ export const CUE_SOUNDS: Record<Cue, CueSound> = {
       tone('sine', { delay: 0.05, attack: 0.01, decay: 1.05, level: 0.11, hz: 1174.7 }),
       tone('sine', { delay: 0.1, attack: 0.01, decay: 1.08, level: 0.09, hz: 1568 }),
       noise('bandpass', 1, { attack: 0.02, decay: 0.45, level: 0.08, hz: 4000, toHz: 7000 }),
+    ],
+  },
+  // The egg stirring as the beacon comes (M6b T11): a soft, rising rustle under two climbing tones.
+  stir: {
+    seconds: 1.2,
+    layers: [
+      noise('bandpass', 2, {
+        attack: 0.6,
+        hold: 0.2,
+        decay: 0.4,
+        level: 0.16,
+        hz: 320,
+        toHz: 1500,
+      }),
+      tone('sine', { attack: 0.7, decay: 0.5, level: 0.12, hz: 220, toHz: 440 }),
+      tone('triangle', { delay: 0.3, attack: 0.5, decay: 0.4, level: 0.05, hz: 330, toHz: 660 }),
     ],
   },
   // A soft swell: one warm tone.

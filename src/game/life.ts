@@ -152,6 +152,8 @@ export class LifeFlow {
   private lastTicks = 0;
   private rebase = false;
   private last: GenesisMsg | null = null;
+  /** The genome of the genesis that arrived last (see `arriving`). */
+  private arrived: string | null = null;
   /** The game's tick count when the hub's last word on the life clock (`activeMs`) was true. */
   private baseTicks = 0;
   private sentReports: { n: number; ticks: number; biomass: number }[] = [];
@@ -208,6 +210,14 @@ export class LifeFlow {
     };
   }
 
+  /**
+   * The genome of a genesis that has arrived and is being checked, so the egg can stir by its
+   * rarity while the check runs (M6b T11); null otherwise. Presentation only: it is not trusted.
+   */
+  arriving(): string | null {
+    return this.status === 'verifying' ? this.arrived : null;
+  }
+
   /** The last genesis this flow accepted, for tests that recompute its DNA. */
   lastGenesis(): GenesisMsg | null {
     return this.last;
@@ -258,7 +268,10 @@ export class LifeFlow {
         if (this.status === 'requesting') this.status = 'awaiting';
         break;
       case 'genesis':
-        if (this.status === 'requesting' || this.status === 'awaiting') this.status = 'verifying';
+        if (this.status === 'requesting' || this.status === 'awaiting') {
+          this.status = 'verifying';
+          this.arrived = msg.genome;
+        }
         break;
       case 'died':
         if (this.status === 'playing') {

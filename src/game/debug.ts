@@ -134,11 +134,14 @@ export interface BsState {
    */
   hud: { menu: boolean; bars: HudBars; chips: Chip[]; hints: string | null };
   /**
-   * The egg (M6 T20): the reveal's `phase` (`none`, `waiting` for a beacon, `cracking`, `revealed`)
-   * and the `phases` it went through (the last 16), whether a pending child is `carried`, whether
-   * the player's egg is `shown` this frame, the `peers` drawn with one, whether a parent left by a
-   * hatch is still dissolving (`ghost`), and `motion` (`fade` when motion is reduced: the setting,
-   * else `prefers-reduced-motion`; M6 T22).
+   * The egg (M6 T20, M6b T11): the reveal's `phase` (`none`, `waiting` for a beacon, `stirring`
+   * once it came, `cracking`, `revealed`) and the `phases` it went through (the last 16), whether a
+   * pending child is `carried`, whether the player's egg is `shown` this frame, the `peers` drawn
+   * with one, whether a parent left by a hatch is still dissolving (`ghost`), and `motion` (`fade`
+   * when motion is reduced: the setting, else `prefers-reduced-motion`; M6 T22). M6b: the player's
+   * egg as last drawn, its `angle` (radians, the lean included) and `glow` (0..1), and `at`, its
+   * CSS-pixel centre and half-height (null while it is not drawn); `card` is the result card or the
+   * offspring card on screen, with its rarity.
    */
   egg: {
     phase: EggPhase;
@@ -148,6 +151,10 @@ export interface BsState {
     peers: string[];
     ghost: boolean;
     motion: 'shake' | 'fade';
+    angle: number;
+    glow: number;
+    at: { x: number; y: number; r: number } | null;
+    card: { shown: boolean; tier: RarityTier | null };
   };
   /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
   pond: { id: string; seed: string; members: string[] } | null;
@@ -236,6 +243,11 @@ export interface BsHook {
     specks(layer: ParticleLayerName): Speck[];
     /** The size outlines as last drawn (M6 T21): kind, CSS-pixel centre and radius, pulse 0..1. */
     outlines(): DrawnOutline[];
+    /**
+     * The player's egg's swing in radians at `atMs` on the egg's clock (`performance.now()` while
+     * the world runs), lean included (M6b T11): a slow software frame cannot hide a wobble's peak.
+     */
+    eggAngle(atMs: number): number;
   };
   life: {
     /** The DNA of the last genesis, recomputed from its beacon and commitment; null before one. */

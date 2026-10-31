@@ -57,7 +57,7 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
   await a.waitForFunction(() => window.__bs?.state().egg.phase === 'revealed', undefined, {
     timeout: 10_000,
   });
-  expect((await state(a)).egg.phases).toEqual(['waiting', 'cracking', 'revealed']);
+  expect((await state(a)).egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
   expect((await cues(a)).reveal).toBe(1);
   const forms = new Set<string>(GENESIS_FORMS.map((f) => f.silhouette));
   const me = await playerOf(a);

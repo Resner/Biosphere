@@ -405,9 +405,9 @@ describe('develop: speed', () => {
   it('develops in under 0.15 ms at the median (ADR 0030)', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     for (const t of traits) develop(t); // warm up
-    // The best of nine runs, so that a busy runner does not fail the build.
+    // The best of thirty runs, so that a busy runner does not fail the build.
     const median = Math.min(
-      ...Array.from({ length: 9 }, () => {
+      ...Array.from({ length: 30 }, () => {
         const times = traits.map((t) => {
           const start = performance.now();
           develop(t);

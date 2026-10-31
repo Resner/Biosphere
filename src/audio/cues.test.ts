@@ -16,6 +16,7 @@ describe('CUE_SOUNDS', () => {
         'mate',
         'hatch',
         'reveal',
+        'stir',
         'grow',
         'tier',
         'ping',
@@ -48,6 +49,17 @@ describe('CUE_SOUNDS', () => {
     const tones = CUE_SOUNDS.death.layers.filter((l) => l.kind === 'tone');
     expect(tones.length).toBeGreaterThan(0);
     for (const t of tones) expect(t.toHz ?? t.hz).toBeLessThan(t.hz);
+  });
+
+  it('makes the egg’s stir a soft rise, ending before the shortest stir', () => {
+    const { seconds, layers } = CUE_SOUNDS.stir;
+    expect(seconds).toBeLessThanOrEqual(1.2);
+    for (const l of layers) {
+      expect(l.toHz ?? 0).toBeGreaterThan(l.hz);
+      expect(l.level).toBeLessThanOrEqual(0.2);
+      // Soft: it swells in rather than striking.
+      expect(l.attack).toBeGreaterThanOrEqual(0.3);
+    }
   });
 
   it('keeps every level and frequency sane', () => {

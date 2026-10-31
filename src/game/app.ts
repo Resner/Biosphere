@@ -99,6 +99,7 @@ import { PondMap } from './pond-map';
 import { PondTime } from './pond-time';
 import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
+import { RevealCard, setStars } from './reveal-card';
 import { type DeathSummary, type Screen, Screens } from './screens';
 import { loadSettings, reducedMotion, type Settings, saveSettings } from './settings';
 import { SettingsPanel } from './settings-panel';
@@ -236,8 +237,17 @@ function newSession(
   };
 }
 
-/** The offspring card slides in this long after its egg's crack time, just as the egg bursts (M6 T20). */
+/** The offspring card slides in this long after its egg's stir and crack times, just as the egg bursts (M6 T20). */
 const CARD_AFTER_CRACK_MS = 250;
+
+/** A genesis egg's half-height, as a share of the view's half-height: alone at the centre (M6b T11). */
+const GENESIS_EGG = 0.26;
+
+/**
+ * The longest a hatch waits for its egg to be ripe (wall time): the exotic stir and crack, and a
+ * margin. It only matters while the egg's clock is held (a frozen world) or frames stop.
+ */
+const EGG_RIPE_CAP_MS = EGG.stirMs.exotic + EGG.crackMs.exotic + 1000;
 
 /** `prefers-reduced-motion`: the Reduce motion setting follows it until the player picks (M6 T22). */
 const motionQuery = (): MediaQueryList | null => {
@@ -329,11 +339,60 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     ),
   );
   const fx = new Effects();
-  // The egg (M6 T20): the beacon reveal, the carried egg, peers' eggs and the hatch.
-  const eggs = new EggShow((x, y, radius, rings) => {
-    fx.burst({ x, y, radius }, rings);
-    sound.cue('reveal');
-  });
+  // The result card after a genesis (M6b T11), due once the burst has played out.
+  const revealCard = new RevealCard(window);
+  let cardDue: Session | null = null;
+  // The egg (M6 T20, M6b T11): the beacon reveal, the carried egg, peers' eggs and the hatch.
+  const eggs = new EggShow(
+    (x, y, radius, rings, mode) => {
+      fx.burst({ x, y, radius }, rings);
+      sound.cue('reveal');
+      // A genesis's creature has just begun (play waits for the burst): once the shell is gone,
+      // the card shows what hatched.
+      if (mode === 'genesis' && !session.demo) cardDue = session;
+    },
+    () => sound.cue('stir'),
+  );
+  /**
+   * A hatch waits for its egg's stir and crack before play begins (M6b T11): `run` starts the life
+   * in the frame that finds the egg ripe, so the shell bursts in that same frame, or after
+   * `EGG_RIPE_CAP_MS` at the latest. The promise settles once it ran.
+   */
+  let ripeWaiter: (() => void) | null = null;
+  const whenRipe = (tier: Body['rarity'], run: () => void): Promise<void> =>
+    new Promise((resolve) => {
+      // A check quicker than a frame never showed the egg the beacon: it stirs now.
+      if (eggs.mode === 'genesis' && eggs.reveal.phase === 'waiting') {
+        eggs.genesisBeacon(eggClock(), tier);
+      }
+      const { phase } = eggs.reveal;
+      let settled = false;
+      const timer = setTimeout(() => done(), EGG_RIPE_CAP_MS);
+      const done = (): void => {
+        if (settled) return;
+        settled = true;
+        clearTimeout(timer);
+        if (ripeWaiter === done) ripeWaiter = null;
+        run();
+        resolve();
+      };
+      if (eggs.mode !== 'genesis' || (phase !== 'stirring' && phase !== 'cracking')) {
+        done();
+        return;
+      }
+      ripeWaiter = done;
+    });
+  /** The rarity of the body a genesis's beacon gave, read while its check runs; by genome text. */
+  let arriving: { text: string; tier: Body['rarity'] | null } | null = null;
+  const arrivingTier = (): Body['rarity'] | null => {
+    const text = flow.arriving();
+    if (text === null) return null;
+    if (arriving?.text !== text) {
+      const genome = parseGenomeText(text);
+      arriving = { text, tier: genome ? hatchBody(genome).rarity : null };
+    }
+    return arriving.tier;
+  };
   /** The life whose creature grows out of an egg; its drawn size follows the egg's pop. */
   let emerging: Session | null = null;
   /** The eggs' clock: wall time, held still while the world is frozen (`timeScale(0)`), as the shaders' is. */
@@ -413,7 +472,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       const { birthProblems } = await import('./offspring-check');
       return birthProblems(born, playerId ?? '');
     },
-    eggMs: (child) => EGG.crackMs[child.body.rarity] + CARD_AFTER_CRACK_MS,
+    eggMs: (child) =>
+      EGG.stirMs[child.body.rarity] + EGG.crackMs[child.body.rarity] + CARD_AFTER_CRACK_MS,
   });
   /** Generation of each of the player's creatures, from the hub's lineage answers (for the return choice). */
   const generations = new Map<string, number>();
@@ -476,6 +536,20 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let inspectFrom: readonly unknown[] = [];
   pick('[data-testid="inspect-close"]').addEventListener('click', () => {
     inspected = null;
+  });
+  // The player's egg answers the pointer (M6b T11): a click on a waiting egg wobbles it, and one
+  // on a stirring or cracking egg (anywhere, for a genesis egg alone on screen) skips to the burst.
+  canvas.addEventListener('pointerdown', (e) => {
+    if (e.button !== 0 || !eggOnScreen || controller.typing) return;
+    const rect = canvas.getBoundingClientRect();
+    const on =
+      Math.hypot(e.clientX - rect.left - eggAt.x, e.clientY - rect.top - eggAt.y) <= eggAt.r;
+    const now = eggClock();
+    if (eggs.reveal.phase === 'waiting') {
+      if (on) eggs.poke(now);
+    } else if (on || (eggs.mode === 'genesis' && !playing())) {
+      eggs.skip(now);
+    }
   });
   canvas.addEventListener('click', (e) => {
     if (!playing() || !session.player.alive || controller.typing) return;
@@ -680,6 +754,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     x: camera.x + (px - scene.width / 2) / scene.pxPerWu,
     y: camera.y - (py - scene.height / 2) / scene.pxPerWu,
   });
+  /** The cursor in world units while a genesis egg waits: one object, written each frame. */
+  const eggPointer: Vec2 = { x: 0, y: 0 };
   const playing = (): boolean => screen === 'playing' && !session.demo && session.death === null;
   const anchors = new Map<string, Anchor>();
 
@@ -805,7 +881,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   let hatching = false;
-  let titleEggShown = false;
+  let eggMomentShown = false;
+  /** A genesis egg on the title or death screen: the egg is the moment, and nothing covers it (M6b T11). */
+  const genesisMoment = (): boolean => eggs.mode === 'genesis' && screen !== 'playing';
   const hatch = (): void => {
     if (hatching || limitLeft() > 0) return;
     limitUntil = 0;
@@ -848,8 +926,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           }
         } else {
           const genome = parseGenomeText(outcome.start.genome);
-          if (genome) begin(true, { body: hatchBody(genome), start: outcome.start });
-          else hatchError = VERIFY_FAILED;
+          if (!genome) {
+            hatchError = VERIFY_FAILED;
+            return;
+          }
+          // The egg stirs and cracks first; play begins with its burst.
+          const body = hatchBody(genome);
+          await whenRipe(body.rarity, () => begin(true, { body, start: outcome.start }));
         }
       })
       .catch((error: unknown) => {
@@ -963,6 +1046,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     document,
     () => {
       if (lineagePanel.isOpen || settingsPanel.isOpen) return;
+      // Enter during a genesis egg's stir or crack skips to the burst (M6b T11).
+      if (eggs.mode === 'genesis' && !playing() && eggs.skip(eggClock())) return;
       if (playing()) socialUi.open();
       else if (enterHatches(screen, performance.now() - screenShownAt)) {
         const first = screens.firstOption;
@@ -980,6 +1065,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
           if (key === 'Escape') lineagePanel.close();
           return;
         }
+        // Space pokes a waiting genesis egg (M6b T11).
+        if (key === ' ' && eggs.mode === 'genesis' && !playing()) eggs.poke(eggClock());
         if (!playing()) return;
         // While the wheel is open, Esc and the numbers are its own.
         if (wheel.isOpen && key === 'Escape') {
@@ -1270,6 +1357,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const cardPreview = pick<HTMLCanvasElement>('[data-testid="offspring-preview"]');
   const cardName = pick('[data-testid="offspring-name"]');
   const cardLine = pick('[data-testid="offspring-line"]');
+  const cardStars = pick('[data-testid="offspring-stars"]');
+  /** The rarity the offspring card shows (its frame and stars, M6b T11). */
+  let cardTier: Body['rarity'] | null = null;
   pick('[data-testid="offspring-become"]').addEventListener('click', () => become('child'));
   pick('[data-testid="offspring-later"]').addEventListener('click', () => offspring.postpone());
   let previewOf: string | null = null;
@@ -1285,6 +1375,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (state.kind === 'card' || state.kind === 'egg') {
       setIfChanged(cardName, state.child.body.species);
       setIfChanged(cardLine, childLine(state.child));
+      cardTier = state.child.body.rarity;
+      setStars(cardElement, cardStars, cardTier);
       if (previewOf !== state.child.body.hash) {
         previewOf = state.child.body.hash;
         drawPreview(cardPreview, state.child.body);
@@ -1490,8 +1582,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const updateEggs = (now: number, dt: number, reduced: boolean): ReturnType<EggShow['frame']> => {
     const status = flow.state;
     if (hatching && status === 'awaiting') eggs.awaitGenesis(now);
-    else if (hatching && status === 'verifying') eggs.genesisBeacon(now);
-    else if (!hatching && eggs.mode === 'genesis' && session.demo) eggs.cancel();
+    else if (hatching && status === 'verifying' && eggs.reveal.phase === 'waiting')
+      eggs.genesisBeacon(now, arrivingTier());
+    // A hatch that ended without a life (a failed check, a wait for the next hatch) takes its egg
+    // away, on the death screen too, where it would hide the way back.
+    else if (!hatching && genesisMoment()) eggs.cancel();
     const playingNow = playing();
     const kid = offspring.view();
     if (playingNow && mateNow === 'awaiting') eggs.awaitMate(now);
@@ -1501,11 +1596,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       // The mating ended without a child to show (a failed check, a lost connection).
       eggs.cancel();
     }
-    // While a genesis egg waits on the title screen, the menu steps back so the egg is the moment.
-    const titleEgg = eggs.mode === 'genesis' && screen === 'title';
-    if (titleEggShown !== titleEgg) {
-      titleEggShown = titleEgg;
-      document.body.toggleAttribute('data-egg', titleEgg);
+    // While a genesis egg is on the title or death screen, the screen steps aside: the egg is the moment.
+    const eggMoment = genesisMoment();
+    if (eggMomentShown !== eggMoment) {
+      eggMomentShown = eggMoment;
+      document.body.toggleAttribute('data-egg', eggMoment);
     }
     const alive = playingNow && session.player.alive;
     const child = offspring.child();
@@ -1513,14 +1608,57 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       eggChild.tier = child.body.rarity;
       eggChild.maxBiomass = child.body.creature.stats.maxBiomass;
     }
+    // A genesis egg sits alone at the screen's centre, its size a share of the view.
+    eggStage.x = camera.x;
+    eggStage.y = camera.y;
+    eggStage.radius = GENESIS_EGG * camera.halfHeight;
+    let pointer: Vec2 | null = null;
+    if (eggs.mode === 'genesis' && eggs.reveal.phase === 'waiting') {
+      const at = controller.pointerAt();
+      if (at) {
+        pointer = eggPointer;
+        pointer.x = camera.x + (at.x - scene.width / 2) / scene.pxPerWu;
+        pointer.y = camera.y - (at.y - scene.height / 2) / scene.pxPerWu;
+      }
+    }
     return eggs.frame({
       now,
       dt,
       reduced,
-      self: alive || eggs.mode === 'genesis' ? cell : null,
+      self: alive ? cell : null,
+      stage: eggs.mode === 'genesis' ? eggStage : null,
+      pointer,
       child: alive && child ? eggChild : null,
       remotes: playingNow ? remoteViews : NO_REMOTES,
     });
+  };
+  /** Where a genesis egg sits; reused. */
+  const eggStage = { x: 0, y: 0, heading: Math.PI / 2, radius: 1 };
+  /** The player's egg on screen: CSS-pixel centre and half-height, for the hook and the waiting line. */
+  const eggAt = { x: 0, y: 0, r: 0 };
+  let eggOnScreen = false;
+  const eggWait = pick('[data-testid="egg-wait"]');
+  let eggWaitShown = false;
+  /** Places the player's egg on screen and the waiting line under it. */
+  const placeEgg = (now: number): void => {
+    const own = eggs.drawn;
+    eggOnScreen = own !== null;
+    if (own) {
+      eggAt.x = (own.x - view.camX) * scene.pxPerWu + scene.width / 2;
+      eggAt.y = scene.height / 2 - (own.y - view.camY) * scene.pxPerWu;
+      eggAt.r = own.radius * scene.pxPerWu;
+    }
+    const line = eggs.waitLine(now);
+    if (line !== eggWaitShown) {
+      eggWaitShown = line;
+      eggWait.hidden = !line;
+    }
+    if (line) {
+      const x = Math.round(eggAt.x - eggWait.offsetWidth / 2);
+      const y = Math.round(eggAt.y + eggAt.r * 1.15);
+      const transform = `translate(${x}px, ${y}px)`;
+      if (eggWait.style.transform !== transform) eggWait.style.transform = transform;
+    }
   };
   let flowTick = 0;
   /** The player's body as drawn: the cell, moved by the damage shake (the HUD and labels follow `cell`). */
@@ -1563,12 +1701,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   };
 
   const render = (alpha: number): void => {
-    const { player } = session;
     const now = performance.now();
     const elapsed = (now - lastMs) / 1000;
     const dt = Math.min(elapsed, MAX_FRAME_SECONDS);
     if (scale === 0) heldMs += now - lastMs;
     lastMs = now;
+    // Play waits for a genesis egg's stir and crack (M6b T11): the frame that finds it ripe begins
+    // the life before it draws anything, so the shell bursts in this frame.
+    if (ripeWaiter && eggs.reveal.ripe(now - heldMs)) ripeWaiter();
+    const { player } = session;
 
     cell.x = lerp(prev.x, player.x, alpha);
     cell.y = lerp(prev.y, player.y, alpha);
@@ -1618,7 +1759,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     }
     view.camX = camera.x + shake.camera.x / scene.pxPerWu;
     view.camY = camera.y + shake.camera.y / scene.pxPerWu;
-    view.creature = fx.dissolved ? null : shaking ? drawnCell : cell;
+    // A genesis egg is alone on screen: the title cell steps out of the way.
+    view.creature = fx.dissolved || genesisMoment() ? null : shaking ? drawnCell : cell;
     view.sight = sightRadius(session.body.creature.stats.sense, cell.radius);
     hud.setHurt(fx.hurt > HURT_FLASH);
     minimapView.readout = null;
@@ -1658,6 +1800,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     updateOffspringUi();
     updateHint();
     view.eggs = updateEggs(eggNow, dt, reduced);
+    placeEgg(eggNow);
+    if (cardDue && (cardDue !== session || screen !== 'playing')) cardDue = null;
+    if (cardDue && eggs.mode !== 'genesis') {
+      cardDue = null;
+      revealCard.show(session.body, silhouetteOf(session.body.creature.plan), now);
+    }
+    revealCard.update(now, screen === 'playing' && !session.demo);
     const ghost = eggs.ghostOf(eggNow);
     if (ghost) {
       withGhost.length = 0;
@@ -1983,6 +2132,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         peers: [...eggs.peerIds],
         ghost: eggs.ghostOf(eggClock()) !== null,
         motion: motionReduced() ? 'fade' : 'shake',
+        angle: eggs.angleAt(eggClock(), motionReduced()),
+        glow: eggs.pose.glow,
+        at: eggOnScreen ? { ...eggAt } : null,
+        card: revealCard.shown
+          ? { shown: true, tier: revealCard.tier }
+          : { shown: !cardElement.hidden, tier: cardElement.hidden ? null : cardTier },
       },
       pond: pond
         ? {
@@ -2040,6 +2195,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       info: () => scene.info(),
       specks: (layer) => scene.specks(layer),
       outlines: () => scene.outlinesDrawn(),
+      eggAngle: (atMs) => eggs.angleAt(atMs, motionReduced()),
       fx: () => ({
         ...fx.snapshot(),
         shake: {

@@ -108,10 +108,10 @@ describe('computeStats: totality and the body seam', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     // Warm up until the JIT has settled: the first passes cost up to twice the steady speed.
     for (let pass = 0; pass < 3; pass++) for (const t of traits) computeStats(develop(t), t);
-    // The best of nine runs, so that a busy runner (other test files run in parallel) does not fail
+    // The best of thirty runs, so that a busy runner (other test files run in parallel) does not fail
     // the build: the code's own speed is about 0.08 ms standalone (ADR 0030).
     const median = Math.min(
-      ...Array.from({ length: 9 }, () => {
+      ...Array.from({ length: 30 }, () => {
         const times = traits.map((t) => {
           const start = performance.now();
           computeStats(develop(t), t);
