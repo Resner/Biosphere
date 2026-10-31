@@ -70,8 +70,7 @@ class StatBar {
 }
 
 /**
- * The play screen's status (M6b T9): four thin stat bars and a compact depth bar in the bottom-left
- * corner, chips beside them only while they apply, and the numbers in words inside the menu. Each
+ * The play screen's status (M6b T9): four thin stat bars in the bottom-left corner, chips beside them only while they apply, and the numbers in words inside the menu. Each
  * bar has its own icon shape, so colour is never the only signal.
  */
 export class Hud {
@@ -83,7 +82,6 @@ export class Hud {
   private readonly energyBar = new StatBar(pick('[data-testid="hud-bar-energy"]'), 'energy');
   private readonly sizeBar = new StatBar(pick('[data-testid="hud-bar-size"]'), 'growth');
   private readonly lifeBar = new StatBar(pick('[data-testid="hud-bar-life"]'), 'life');
-  private readonly depthBar = new StatBar(pick('[data-testid="hud-depth"]'), 'depth');
 
   private readonly energyMeter = pick('[data-meter="energy"]');
   private readonly species = pick('[data-testid="hud-species"]');
@@ -93,9 +91,6 @@ export class Hud {
   private readonly ready = pick('[data-testid="hud-ready"]');
   private readonly toastElement = pick('[data-testid="toast"]');
   private readonly zone = pick('[data-testid="hud-zone"]');
-  private readonly zoneWarning = pick('[data-testid="hud-zone-warning"]');
-  private readonly uvCue = pick('[data-testid="uv-cue"]');
-  private readonly pressureCue = pick('[data-testid="pressure-cue"]');
   private readonly chips: Record<Chip, HTMLElement> = {
     egg: pick('[data-testid="hud-egg"]'),
     ready: pick('[data-testid="hud-mate-ready"]'),
@@ -104,6 +99,7 @@ export class Hud {
   };
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
   private low = false;
+  private hurt = false;
 
   constructor() {
     // The size bar's tick: the share of the adult size maturity needs.
@@ -152,16 +148,16 @@ export class Hud {
     setHidden(this.chips.ready, !ready);
   }
 
-  /**
-   * The compact depth bar (the zone's name as its tooltip and in the menu), the hazard in words
-   * beside it, and the UV shimmer and pressure vignette over the view while that hazard hurts.
-   */
+  /** The zone's name in the menu (the minimap shows the depth and the hazard, M6b T10). */
   setZone(readout: ZoneReadout): void {
     setText(this.zone, readout.name);
-    this.depthBar.set(readout.depth, `Depth · ${readout.name}`);
-    setText(this.zoneWarning, readout.uv ? 'UV burns' : readout.pressure ? 'Pressure crushes' : '');
-    if (this.uvCue.hidden === readout.uv) this.uvCue.hidden = !readout.uv;
-    if (this.pressureCue.hidden === readout.pressure) this.pressureCue.hidden = !readout.pressure;
+  }
+
+  /** The health bar flashes while damage lands (M6b T10), with the body's red pulse. */
+  setHurt(hurt: boolean): void {
+    if (hurt === this.hurt) return;
+    this.hurt = hurt;
+    this.healthBar.root.toggleAttribute('data-hurt', hurt);
   }
 
   /** The egg chip ("H" to hatch) while a pending child is carried (M6 T20). */

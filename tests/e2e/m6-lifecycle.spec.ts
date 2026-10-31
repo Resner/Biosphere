@@ -84,21 +84,27 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
   await withinBudget(a, 'growth');
 
   // 3. The shallows burn with UV, the abyss crushes; each has its cue and its sound. The world
-  // stands still while the player is moved, and runs just long enough for one hit.
+  // stands still while the player is moved, and runs just long enough for one hit. The cue is the
+  // minimap's hazard icon and a shake of the body and the camera, with no overlay (M6b T10).
   expect((await playerOf(a)).stats.uvTolerance).toBeLessThan(1);
   expect((await playerOf(a)).stats.pressureTolerance).toBeLessThan(1);
   expect((await state(a)).zone).toBe('twilight');
   await timeScale(a, 0);
   for (const [zone, cue, sound, warning] of [
-    ['shallows', 'uv-cue', 'uv', 'UV burns'],
-    ['abyss', 'pressure-cue', 'pressure', 'Pressure crushes'],
+    ['shallows', 'uv', 'uv', 'UV burns'],
+    ['abyss', 'pressure', 'pressure', 'Pressure crushes'],
   ] as const) {
     const hits = (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0;
     await a.evaluate((z) => (window.__bs as BsHook).debug?.setZone(z), zone);
-    await expect(a.getByTestId(cue)).toBeVisible();
+    await expect(a.locator(`[data-testid="minimap-hazard"][data-hazard="${cue}"]`)).toBeVisible();
+    await expect(a.getByTestId(`${cue}-cue`)).toHaveCount(0);
     await expect(a.getByTestId('hud-zone-warning')).toHaveText(warning);
     await timeScale(a, 1);
     await expect.poll(async () => (await cues(a))[sound] ?? 0).toBeGreaterThan(0);
+    await a.waitForFunction((kind) => {
+      const { shake, vignette } = (window.__bs as BsHook).render.fx();
+      return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
+    }, cue);
     await timeScale(a, 0);
     expect(
       (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0,

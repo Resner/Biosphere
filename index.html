@@ -86,9 +86,6 @@
       <p class="settings-note" data-testid="motion-note"></p>
       <button type="button" class="action quiet" data-testid="settings-close">Close (Esc)</button>
     </section>
-    <!-- The zone hazard cues lie under the HUD, so they never dim its text. -->
-    <div class="uv-cue" data-for="playing" data-testid="uv-cue" aria-hidden="true" hidden></div>
-    <div class="pressure-cue" data-for="playing" data-testid="pressure-cue" aria-hidden="true" hidden></div>
     <button type="button" class="hud-menu" data-for="playing" data-testid="hud-menu" aria-label="Menu (Esc)" aria-expanded="false" aria-controls="menu">
       <svg viewBox="-12 -12 24 24" aria-hidden="true"><circle cx="0" cy="-3.5" r="4.2" /><path d="M-8 9.5 C-7 3.5 -3.5 1.8 0 1.8 C3.5 1.8 7 3.5 8 9.5" /></svg>
     </button>
@@ -115,12 +112,6 @@
           <svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-5.5 -7 H5.5 L1.2 0 L5.5 7 H-5.5 L-1.2 0 Z" /></svg>
           <span class="bar"><i data-bar="life"></i></span>
         </div>
-        <!-- biome-ignore lint/a11y/useSemanticElements: a native meter cannot hold the icon and the tick; the spec asks for role="meter". -->
-        <div class="stat depth" data-testid="hud-depth" role="meter" aria-label="Depth" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
-          <svg viewBox="-8 -8 16 16" aria-hidden="true"><path class="stroke" d="M-5.5 -6 L0 -1 L5.5 -6 M-5.5 0.5 L0 5.5 L5.5 0.5" /></svg>
-          <span class="bar"><i data-bar="depth"></i></span>
-          <span class="zone-warning" data-testid="hud-zone-warning"></span>
-        </div>
       </div>
       <div class="chips">
         <p class="chip" data-testid="hud-egg" role="img" aria-label="Egg: H to hatch" title="Egg: H to hatch" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><ellipse cy="0.6" rx="4.6" ry="6.2" /></svg><kbd>H</kbd></p>
@@ -129,6 +120,18 @@
         <p class="chip" data-testid="hud-offline" role="img" aria-label="Offline" title="Offline" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="stroke" r="4.5" /><path class="stroke" d="M-6 6 L6 -6" /></svg></p>
       </div>
     </section>
+    <!-- The minimap (M6b T10): the zones, the players, the pings and the depth; a click opens the pond map. -->
+    <div class="minimap" data-for="playing">
+      <button type="button" class="minimap-disc" data-testid="minimap" aria-label="Pond map (M)">
+        <canvas class="minimap-canvas" data-testid="minimap-canvas" aria-hidden="true"></canvas>
+      </button>
+      <p class="minimap-hazard" data-testid="minimap-hazard" role="img" hidden>
+        <svg class="uv" viewBox="-10 -10 20 20" aria-hidden="true"><circle r="3.6" /><path d="M0 -8.5 V-6 M0 6 V8.5 M-8.5 0 H-6 M6 0 H8.5 M-6 -6 L-4.3 -4.3 M4.3 4.3 L6 6 M-6 6 L-4.3 4.3 M4.3 -4.3 L6 -6" /></svg>
+        <svg class="pressure" viewBox="-10 -10 20 20" aria-hidden="true"><path d="M-6 -8 L0 -3 L6 -8 M-6 8 L0 3 L6 8 M-8 0 H8" /></svg>
+        <span class="sr-only" data-testid="hud-zone-warning"></span>
+      </p>
+      <p class="minimap-zone" data-testid="minimap-zone"></p>
+    </div>
     <section class="menu" id="menu" data-for="playing" data-testid="menu" aria-label="Menu" hidden>
       <p class="species" data-testid="hud-species"></p>
       <div class="menu-rows">
@@ -225,7 +228,6 @@
       <ul class="chat-log" data-testid="chat-log" aria-live="polite"></ul>
       <input type="text" class="chat-input" data-testid="chat-input" maxlength="140" placeholder="Say something · Enter to send · Esc to cancel" autocomplete="off" spellcheck="false" hidden />
     </section>
-    <div class="vignette" data-for="playing" data-testid="vignette" aria-hidden="true"></div>
     <main class="screen death" data-for="dead">
       <h2 data-testid="death-cause">Lost</h2>
       <p class="cause-hint" data-testid="death-hint"></p>

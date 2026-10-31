@@ -1,6 +1,7 @@
 import { expect, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { PRESET_NAMES, PRESETS } from '../../src/render/presets';
+import { ZONE_LOOK } from '../../src/render/zones';
 import {
   BUDGET_VIEWPORT,
   budgetCast,
@@ -60,8 +61,10 @@ test.describe('budgets', () => {
         expect(info.outlines.smaller, label).toBeGreaterThan(0);
         expect(info.particles, label).toBeGreaterThan(0);
         if (scene === 'crowded') {
-          expect(info.caustic, label).toBeGreaterThan(0.5);
-          if (preset !== 'low') expect(info.rays, label).toBeGreaterThan(0.5);
+          // The shallows' light at its full strength (M6b T8 calmed it to 0.4 and 0.25).
+          const sun = ZONE_LOOK.shallows;
+          expect(info.caustic, label).toBeGreaterThanOrEqual(0.9 * sun.caustic);
+          if (preset !== 'low') expect(info.rays, label).toBeGreaterThanOrEqual(0.9 * sun.rays);
         } else {
           expect(info.caustic, label).toBe(0);
           expect(info.rays, label).toBe(0);

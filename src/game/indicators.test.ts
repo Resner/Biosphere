@@ -3,7 +3,7 @@ import { sizeClass } from '../sim/size';
 import {
   EDGE_INSET_PX,
   edgeIndicators,
-  HUD_CORNERS,
+  hudCorners,
   type Indicator,
   type IndicatorPlayer,
   lengthsText,
@@ -39,17 +39,18 @@ describe('edge indicators', () => {
   });
 
   it('points at an off-screen player from the edge, with the distance in body lengths', () => {
-    const b = at(3 * R, 20);
+    // Below the horizon: 20° above it now lands in the minimap's corner (M6b T10), tested below.
+    const b = at(3 * R, -20);
     const [one, ...rest] = edgeIndicators(self, [player('b', b.x, b.y)], [], view);
     expect(rest).toHaveLength(0);
     expect(one).toMatchObject({ kind: 'player', id: 'b', name: 'b', size: 'comparable' });
-    expect(one?.angle).toBeCloseTo(20, 6);
+    expect(one?.angle).toBeCloseTo(-20, 6);
     expect(one?.lengths).toBe(Math.round((3 * R) / 10));
     // On the inset frame: the right edge, since 20° leaves through the side at this aspect.
     expect(one?.x).toBeCloseTo(view.width - EDGE_INSET_PX, 6);
-    // Screen y grows downwards, so a target above sits above the centre line.
-    const rise = Math.tan(Math.PI / 9) * (view.width / 2 - EDGE_INSET_PX);
-    expect(one?.y).toBeCloseTo(view.height / 2 - rise, 6);
+    // Screen y grows downwards, so a target below sits below the centre line.
+    const drop = Math.tan(Math.PI / 9) * (view.width / 2 - EDGE_INSET_PX);
+    expect(one?.y).toBeCloseTo(view.height / 2 + drop, 6);
   });
 
   it('leaves through the top for a player straight up or steeply above, and stays inside the frame', () => {
@@ -168,7 +169,7 @@ describe('edge indicators', () => {
 
   it('keeps clear of the corners the HUD uses, sliding along its edge (M6b T9)', () => {
     const outside = (i: Indicator) =>
-      HUD_CORNERS.every((c) => {
+      hudCorners(view.width, view.height).every((c) => {
         const dx = c.corner.endsWith('left') ? i.x : view.width - i.x;
         const dy = c.corner.startsWith('top') ? i.y : view.height - i.y;
         return dx >= c.w - 1e-9 || dy >= c.h - 1e-9;
@@ -194,8 +195,13 @@ describe('edge indicators', () => {
     // Only the corners: a bearing well clear of them keeps its true spot.
     const right = edgeIndicators(self, [player('r', self.x + 3 * R, self.y)], [], view)[0];
     expect(right?.y).toBeCloseTo(view.height / 2, 6);
-    // The top-left corner (the menu button) and the bottom-left one (the stat bars) are both kept.
-    expect(HUD_CORNERS.map((c) => c.corner).sort()).toEqual(['bottom-left', 'top-left']);
+    // The top-left corner (the menu button), the bottom-left one (the stat bars) and the top-right
+    // one (the minimap, M6b T10) are all kept.
+    expect(
+      hudCorners(view.width, view.height)
+        .map((c) => c.corner)
+        .sort(),
+    ).toEqual(['bottom-left', 'top-left', 'top-right']);
   });
 
   it('writes distances plainly', () => {

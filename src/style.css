@@ -257,14 +257,16 @@ body {
   background: #9cc7bf;
 }
 
-.stat [data-bar="depth"] {
-  background: #6fa8d8;
+/* Damage flashes the health bar (M6b T10), with the body's red pulse, in place of the red edge. */
+.stat[data-hurt] {
+  color: #ff9a8a;
+  animation: hurt-flash 0.5s ease-out infinite alternate;
 }
 
-/* The depth bar is the compact one (the minimap replaces it in T10). */
-.stat.depth {
-  grid-template-columns: 12px 56px auto;
-  color: rgb(160 205 235 / 0.7);
+@keyframes hurt-flash {
+  to {
+    filter: brightness(1.9) drop-shadow(0 0 4px rgb(255 110 90 / 0.8));
+  }
 }
 
 /* Low energy pulses the energy bar and the menu's number: never colour alone. */
@@ -541,6 +543,132 @@ body {
   font-size: 0.85rem;
 }
 
+/* The minimap (M6b T10): a round glass map in the top-right corner, under the online counter. */
+.minimap {
+  --minimap-side: 120px;
+  position: fixed;
+  top: 48px;
+  right: var(--hud-gap);
+  z-index: 14;
+  width: var(--minimap-side);
+  pointer-events: none;
+}
+
+.minimap-disc {
+  display: block;
+  box-sizing: border-box;
+  width: var(--minimap-side);
+  height: var(--minimap-side);
+  padding: 0;
+  border: 1px solid var(--glass-line);
+  border-radius: 50%;
+  overflow: hidden;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
+  cursor: pointer;
+  pointer-events: auto;
+  transition: border-color 0.2s ease;
+}
+
+.minimap-disc:hover,
+.minimap-disc:focus-visible {
+  border-color: rgb(190 235 255 / 0.55);
+}
+
+.minimap-canvas {
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+/* The zone's name, small, under the depth arc. */
+.minimap-zone {
+  margin: 4px 0 0;
+  color: rgb(227 244 240 / 0.72);
+  font-size: 0.68rem;
+  letter-spacing: 0.08em;
+  text-align: center;
+  text-transform: uppercase;
+  text-shadow: 0 0 4px rgb(0 0 0 / 0.95);
+}
+
+.minimap-zone:empty {
+  display: none;
+}
+
+/* The hazard hurting now, on the rim's upper left: a sun for UV, a squeeze for pressure (shape, not colour alone). */
+.minimap-hazard {
+  position: absolute;
+  top: calc(var(--minimap-side) * 0.146 - 12px);
+  left: calc(var(--minimap-side) * 0.146 - 12px);
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 24px;
+  height: 24px;
+  margin: 0;
+  border: 1px solid rgb(255 255 255 / 0.35);
+  border-radius: 50%;
+  background: rgb(10 14 30 / 0.78);
+  box-shadow: 0 0 10px var(--hazard-glow);
+  color: var(--hazard);
+  animation: hazard-glow 1.2s ease-in-out infinite alternate;
+}
+
+.minimap-hazard[hidden] {
+  display: none;
+}
+
+.minimap-hazard[data-hazard="uv"] {
+  --hazard: #d9c8ff;
+  --hazard-glow: rgb(190 160 255 / 0.7);
+}
+
+.minimap-hazard[data-hazard="pressure"] {
+  --hazard: #9fc0ff;
+  --hazard-glow: rgb(110 140 255 / 0.7);
+}
+
+.minimap-hazard svg {
+  display: none;
+  width: 16px;
+  height: 16px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.9;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.minimap-hazard[data-hazard="uv"] svg.uv,
+.minimap-hazard[data-hazard="pressure"] svg.pressure {
+  display: block;
+}
+
+@keyframes hazard-glow {
+  to {
+    box-shadow: 0 0 16px var(--hazard-glow);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .minimap-hazard,
+  .stat[data-hurt] {
+    animation: none;
+  }
+}
+
+.sr-only {
+  position: absolute;
+  width: 1px;
+  height: 1px;
+  overflow: hidden;
+  clip-path: inset(50%);
+  white-space: nowrap;
+}
+
 /* Online status: text, so colour is never the only signal. */
 .net-status {
   position: fixed;
@@ -653,83 +781,6 @@ body {
 @keyframes low-energy {
   50% {
     opacity: 0.35;
-  }
-}
-
-/* Red edge while taking damage; the game sets its opacity every frame. */
-.vignette {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  opacity: 0;
-  background: radial-gradient(ellipse at center, transparent 45%, rgb(190 20 20 / 0.55) 100%);
-}
-
-/* The hazard in words beside the depth bar while it hurts (M6 T16), so colour is never the only cue. */
-.zone-warning {
-  color: #f0c870;
-  font-size: 0.75rem;
-  white-space: nowrap;
-  text-shadow: 0 0 4px rgb(0 0 0 / 0.95);
-}
-
-.zone-warning:empty {
-  display: none;
-}
-
-/* UV in the shallows: a pale violet glare that flickers and drifts over the view. */
-.uv-cue {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  background:
-    radial-gradient(ellipse at 30% 25%, rgb(232 222 255 / 0.1), transparent 40%),
-    radial-gradient(ellipse at 70% 75%, rgb(232 222 255 / 0.08), transparent 45%),
-    radial-gradient(ellipse at center, transparent 50%, rgb(212 192 255 / 0.2) 100%);
-  background-size:
-    200% 200%,
-    200% 200%,
-    100% 100%;
-  mix-blend-mode: screen;
-  animation: uv-shimmer 1.7s ease-in-out infinite alternate;
-}
-
-@keyframes uv-shimmer {
-  from {
-    opacity: 0.6;
-    background-position:
-      0% 0%,
-      100% 100%,
-      0 0;
-  }
-  to {
-    opacity: 1;
-    background-position:
-      40% 30%,
-      60% 70%,
-      0 0;
-  }
-}
-
-/* Pressure in the abyss: a dark band squeezing in from the edges. */
-.pressure-cue {
-  position: fixed;
-  inset: 0;
-  pointer-events: none;
-  box-shadow: inset 0 0 16vmin 5vmin rgb(12 4 34 / 0.85);
-  animation: pressure-squeeze 2.4s ease-in-out infinite;
-}
-
-@keyframes pressure-squeeze {
-  50% {
-    box-shadow: inset 0 0 22vmin 8vmin rgb(12 4 34 / 0.92);
-  }
-}
-
-@media (prefers-reduced-motion: reduce) {
-  .uv-cue,
-  .pressure-cue {
-    animation: none;
   }
 }
 
@@ -1154,9 +1205,12 @@ body {
   display: grid;
   gap: 0.45rem;
   padding: 0.6rem 0.75rem;
-  border: 1px solid var(--muted);
-  border-radius: 8px;
-  background: rgb(4 14 24 / 0.88);
+  border: 1px solid var(--glass-line);
+  border-radius: 14px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
   font-size: 0.8rem;
   pointer-events: none;
 }
@@ -1183,7 +1237,12 @@ body {
   position: relative;
   width: min(52vh, 40vw);
   aspect-ratio: 1;
-  outline: 1px solid rgb(227 244 240 / 0.55);
+  border-radius: 8px;
+  outline: 1px solid var(--glass-line);
+}
+
+.map-zones {
+  border-radius: 8px;
 }
 
 .map-zones,
