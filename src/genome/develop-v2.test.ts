@@ -1,10 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { buildBytes, type Params } from '../../tests/archetypes';
 import { cos, PI, sin } from '../sim/math';
+import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome } from './codec';
 import { type BodyPlan, bodyViolations, develop, type PlanSegment, ringAngle } from './develop';
 import { express } from './express';
+import { GENOME_BYTES } from './karyotype';
 
 // Development v2 (M6 T7, ADR 0025): the shape loci bend, profile and fuse the chain, ring a radial
 // body's parts and add eyes. Each test sets one locus on an otherwise plain body.
@@ -360,6 +362,31 @@ describe('development v2: eyes', () => {
       Math.abs(half.stalk + half.size * (1 - 2 * sink)),
       12,
     );
+  });
+
+  it('keeps a stalkless pair inside the head and apart, so a small trunk head has smaller eyes (ADR 0037)', () => {
+    // A stalkless eye lies wholly inside the head, its edge on the outline, so the rim runs round it.
+    expect(D.eyes.set).toBe(1);
+    const p = body({ eyeSize: 255, eyeStalk: 0 });
+    valid(p);
+    const e = p.eyes;
+    expect(e.size).toBeLessThan(D.eyes.size[1] as number);
+    expect(e.y).toBeGreaterThanOrEqual(e.size - 1e-12);
+    // The rule only ever shrinks an eye down to the gene range's floor, over random v2 genomes.
+    const r = createRng(seedFromString('develop-v2-eye-pair'), 'bytes');
+    let capped = 0;
+    for (let i = 0; i < 2_000; i++) {
+      const bytes = Uint8Array.from({ length: GENOME_BYTES }, () => r.nextU32() & 0xff);
+      const q = develop(express(decodeGenome(bytes)));
+      const eye = q.eyes;
+      if (eye.count === 0) continue;
+      expect(eye.size).toBeGreaterThanOrEqual(D.eyes.size[0] as number);
+      if (eye.size > (D.eyes.size[0] as number)) {
+        expect(eye.y).toBeGreaterThanOrEqual(eye.size - 1e-12);
+      }
+      if (eye.size < (D.eyes.size[1] as number) - 1e-9) capped++;
+    }
+    expect(capped).toBeGreaterThan(0);
   });
 });
 

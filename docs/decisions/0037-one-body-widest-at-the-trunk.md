@@ -26,11 +26,19 @@ Under karyotype v2, a bilateral chain of 3 or more segments is one long body (`R
 
 Two-segment chains, cells, radial bodies and karyotype v1 genomes keep their layout.
 
+**Eyes and rims on the smaller head.** The eye range (0.08–0.3) was sized for heads near the core's width. On a trunk head a third as wide, the two eyes of the gallery copepod (26) overlapped and covered the head's front, and its rim, with dark lenses. With the slimmer tails and the coil's inner parts, the ring check of `m6-creature-mesh` (the rim is the brightest ring of every body) failed for specimens 26 and 39. So, for every v2 body:
+
+- The pair never overlaps: an eye is no larger than keeps its centre its own radius from the midline, down to the range's floor (0.08).
+- A stalkless eye lies wholly inside the head (`eyes.set` 1, from look pass 5's 0.75), so the head's rim runs round it, as in reference 05.
+- In the mesh, a bristle that would reach into the body from either side of its part is not drawn. In the eye of a coil such bristles piled into a white cloud under the clear shell.
+- The shader keeps the rim of the body and its plates at full strength over at least the outermost pixel. Before, the rim of a slim segment fell under a pixel and faded into the water.
+
 ## Consequences
 
 - Over 10,000 random v2 genomes, 98% of long chains meet every outline rule: a head at most 0.9 of the trunk, an unfused chain widest 25–55% from the front, no segment behind the widest more than 1.05 times its front neighbour, and an aspect of at least 2.5. Over 99% of copepods, shrimps and worms (random, Lab wild and mutated) meet their class rules.
 - Stats read the new outline through the girth (ADR 0031). Over random and Lab bodies with long chains, the median mass falls about 9%, and the median form speed before the band rises about 5%. The speed band (ADR 0036) absorbs most of the speed change. The archetype tests, the tournament rankings, the pacing report and the Lab's wild diversity (8+ classes in 9 of 10 seeds) all hold. Plan, stats and tournament goldens are regenerated: rules 7 is unreleased.
 - A curled worm is slimmer than its straight twin. T6 (spirals and S-worms) builds on this.
+- Small trunk heads with big-eye genes now carry smaller eyes, so they sense a little less and pay less eye metabolism. The balance checks hold, and the plan and stats goldens are regenerated again. On the gallery sheet, specimen 26's rings (rim first) go from 85, 78, 80, 105 to 113, 79, 81, 103, and specimen 39's from 105, 103, 105, 119 to 100, 89, 82, 94. The shell between the organs still stands about 30 levels above the water, against a limit of 31.5.
 - Rejected:
   - keeping the head as the unit and only widening the trunk, because the head stays as wide as the trunk;
   - one aspect of 4 for every chain of 5 or more, because shrimps and copepods then read as threads;

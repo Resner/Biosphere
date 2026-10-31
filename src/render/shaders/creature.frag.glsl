@@ -104,6 +104,8 @@ const vec3 CAUSTIC_BODY = vec3(0.45, 0.8, 0.72);
 // rim was the fresnel itself (power 2, 1.8 bright), which lit the glass well inside the edge.
 const vec2 RIM_POWER = vec2(5.0, 3.8);
 const float RIM = 5.0;
+// The least of the body's rim drawn at full strength, in pixels from its edge (M6b T5 fix).
+const float RIM_MIN_PX = 1.0;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
@@ -176,9 +178,15 @@ void main() {
   // The shell's rim (M6b T3): far steeper than the fresnel, so it is a crisp bright line round clear
   // glass rather than a glow reaching into the face; the backlight rides it.
   float rim = pow(1.0 - z, mix(RIM_POWER.x, RIM_POWER.y, uMembrane));
+  int kind = int(mod(vPart, PART_KINDS) + 0.5);
+  // On a slim segment (M6b T5's tails and small heads) that steep rim falls under a pixel and fades
+  // into the water, so the body's edge keeps at least RIM_MIN_PX of it: z over its screen gradient
+  // is about how many pixels the edge, where z reaches 0, lies away.
+  if (kind == 0 || kind == 2) {
+    rim = max(rim, 1.0 - smoothstep(0.0, RIM_MIN_PX, z / max(fwidth(z), 1e-4)));
+  }
   float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
-  int kind = int(mod(vPart, PART_KINDS) + 0.5);
   // Screen pixels per core radius, for the detail's fade.
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
 

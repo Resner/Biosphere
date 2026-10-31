@@ -1362,13 +1362,19 @@ function hullAt(c: Carapace, p: Point): Point & { r: number } {
 function buildEyes(shape: Traits['shape'], head: PlanSegment): PlanEyes {
   const E = D.eyes;
   if (!(shape.eyeSize > E.min)) return { count: 0, size: 0, stalk: 0, angle: 0, x: 0, y: 0 };
-  const size = lerp(EYE_SIZE[0], EYE_SIZE[1], (shape.eyeSize - E.min) / (1 - E.min));
+  const gene = lerp(EYE_SIZE[0], EYE_SIZE[1], (shape.eyeSize - E.min) / (1 - E.min));
   const root = rootOf(head, E.angle);
-  const room = D.caps.bounds - D.boundsSlack - hypot(root.x, root.y) - 2 * size;
+  const room = D.caps.bounds - D.boundsSlack - hypot(root.x, root.y) - 2 * gene;
   const stalk = clamp(lerp(EYE_STALK[0], EYE_STALK[1], shape.eyeStalk), 0, Math.max(0, room));
   const out = turnTo(head, cos(E.angle), sin(E.angle));
-  // A short stalk sinks the eye into the head (look pass 5): `set` of its diameter in at no stalk.
+  // A short stalk sinks the eye into the head (look pass 5): `set` of its diameter inside at no stalk.
   const sink = E.set * (1 - stalk / EYE_STALK[1]);
+  // The pair never overlaps (ADR 0037): an eye's centre, `root.y + (stalk + size·(1 − 2·sink))·out.y`
+  // from the midline, stays at least its radius out, so a small trunk head carries smaller eyes.
+  // Only the smallest eye, at the gene range's floor, may still touch its twin.
+  const lean = (1 - 2 * sink) * out.y;
+  const fits = lean < 1 ? (root.y + stalk * out.y) / (1 - lean) : gene;
+  const size = clamp(fits, EYE_SIZE[0], gene);
   const from = stalk + size * (1 - 2 * sink);
   return {
     count: 2,

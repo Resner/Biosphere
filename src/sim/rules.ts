@@ -327,10 +327,11 @@ export const RULES = deepFreeze({
       stalk: [0, 0.6],
       angle: 0.6,
       /**
-       * A stalkless eye is set into the head (look pass 5, reference 05): its centre lies this share
-       * of its diameter in from the outline, less as the stalk grows, and a full stalk holds it out.
+       * A stalkless eye is set into the head (look pass 5, reference 05): this share of its
+       * diameter lies inside the outline, less as the stalk grows, and a full stalk holds it out.
+       * At 1 a stalkless eye lies wholly inside, so the head's rim runs round it (ADR 0037).
        */
-      set: 0.75,
+      set: 1,
     },
     /**
      * The karyotype v2 chain (M6 T14b, ADR 0028). In front of a chain the head is `head` of the v1
