@@ -293,7 +293,10 @@ export const RULES = deepFreeze({
       overlap: 0.9,
     },
     tagmata: {
-      /** The head is the unit, so head scale 1 shrinks every segment behind it by 1 ÷ (1 + this). */
+      /**
+       * The head is the unit, so head scale 1 shrinks every segment behind it by 1 ÷ (1 + this); a
+       * v2 chain of `chain.slimFrom` or more sets its head's share of the trunk instead (M6b T5).
+       */
       head: 0.8,
       /** Trunk swell 1 widens the chain by this share at `trunkAt` along it, falling to 0 at `trunkSpread` either side. */
       trunk: 0.6,
@@ -353,6 +356,40 @@ export const RULES = deepFreeze({
        */
       aspect: 2.5,
       slimFrom: 3,
+      /**
+       * Body proportions v4 (M6b T5, ADR 0037; amends 0031, where a curl was only a pose): a chain
+       * of `wormFrom` segments or more that curls by `wormTurn` radians or more is a worm, at least
+       * `wormAspect` times as long as wide, unless a shell over its front leaves a free tail. A
+       * straight chain keeps `aspect`, so a shrimp's trunk still shows between its legs.
+       */
+      wormFrom: 5,
+      wormTurn: 0.35 * Math.PI,
+      wormAspect: 4.2,
+      /**
+       * One body, widest at the trunk (M6b T5, ADR 0037), for a bilateral chain of `slimFrom` or
+       * more segments, before it slims:
+       * - its head keeps its own length up to `headLength[1]`, or is `headLength[0]` long where a
+       *   longer one would put the trunk's peak past `peakMax` of the length, and the chain is laid
+       *   behind it; head scale no longer narrows the chain but sets the head's half-width, `head[0]`
+       *   to `head[1]` of the trunk's widest;
+       * - the peak, the segment nearest `peak` of the length (inside the shell of a body with a free
+       *   tail), takes the trunk's widest half-width, the segments in front of it narrow toward the
+       *   head by up to `rise`, and each one behind is no wider than the one in front;
+       * - a chain of `evenFrom` or more keeps `even` of each narrowing but the last, and a shelled
+       *   body's free tail is at most `tail` of the widest;
+       * - then every half-width scales so the outline keeps the plain chain's area. Only the widths
+       *   change after the layout, so a slim tail stays long.
+       */
+      profile: {
+        peak: 0.4,
+        rise: 0.15,
+        head: [0.85, 0.9],
+        headLength: [0.5, 0.7],
+        peakMax: 0.55,
+        tail: 0.45,
+        even: 0.5,
+        evenFrom: 5,
+      },
     },
     /**
      * Long parts under karyotype v2 (look pass 4): the length gene keeps the v1 range up to `knee`

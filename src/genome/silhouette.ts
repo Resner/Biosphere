@@ -30,18 +30,19 @@ const T = {
   drape: -0.3,
   /** Membranes over this share of the body's area make a winged body... */
   web: 0.25,
-  /** ...and a fan tail when most of the sheet (`tailWeb`) lies behind the rear segment's centre and it covers `tailArea` of the body. */
-  tailWeb: 0.5,
+  /** ...and a fan tail when `tailWeb` of the sheet lies behind the rear segment's centre and it covers `tailArea` of the body. */
+  tailWeb: 0.45,
   tailArea: 0.1,
   /** A shell over this share of the segments is a crab's; a shorter one with a free tail a copepod's. */
   crab: 0.75,
-  /** Chains of at least this many segments are long bodies. */
+  /** Chains of at least this many segments are long bodies, and from `worm` segments worms (M6b T5). */
   long: 4,
+  worm: 5,
   /** A long body bent by this much (radians) is a worm. */
   curl: 0.35 * PI,
   /** Long bodies with this many pairs are shrimp. */
   legs: 3,
-  /** The core holds this share of the body's area in a big-headed body. */
+  /** The front (the head, and on 3+ segments the trunk up to its widest) holds this share of a tadpole's area. */
   head: 0.6,
   /** A single cell with this many pairs, or this many bristles, is ciliated. */
   cilia: 3,
@@ -91,13 +92,23 @@ export function silhouetteOf(plan: BodyPlan): Silhouette {
   if (n >= 2 && fused >= T.crab * n) return 'crab';
   if (fused >= 2 && n - fused >= 2) return 'copepod';
 
-  const headShare = area(segments[0] as PlanSegment) / drawn;
+  // The head, and on a chain of three or more, the trunk up to its widest segment (M6b T5): a
+  // long chain's head is narrower than its trunk, so a tadpole's big front is its body.
+  let w = 0;
+  if (n >= 3)
+    for (let i = 1; i < n; i++)
+      if ((segments[i] as PlanSegment).ry > (segments[w] as PlanSegment).ry) w = i;
+  let front = 0;
+  for (let i = 0; i <= w; i++) front += area(segments[i] as PlanSegment);
+  const frontShare = front / drawn;
   if (n >= T.long) {
-    if (Math.abs(plan.form.turn) >= T.curl) return 'worm';
+    const worm = n >= T.worm;
+    if (Math.abs(plan.form.turn) >= T.curl) return worm ? 'worm' : 'other';
     if (left.length >= T.legs) return 'shrimp';
-    return headShare >= T.head ? 'tadpole' : 'worm';
+    if (frontShare >= T.head) return 'tadpole';
+    return worm ? 'worm' : 'other';
   }
-  if (n >= 2) return headShare >= T.head ? 'tadpole' : 'other';
+  if (n >= 2) return frontShare >= T.head ? 'tadpole' : 'other';
 
   // One cell: a fringe of cilia or bristles, a thick tail, or a plain cell.
   const bristles = plan.appendages.reduce((sum, a) => sum + a.setae, 0);

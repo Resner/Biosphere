@@ -229,7 +229,7 @@ The three tasks share these balance checks, re-run in each (the "balance checks"
 
 Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen changes `silhouetteOf` class, a new specimen for the lost class is added (ADR 0024), so specimens 21–32 plus the additions still cover 12 distinct classes.
 
-- [ ] T5 One body, widest at the trunk [opus] (in progress)
+- [x] T5 One body, widest at the trunk [opus] (in progress)
   - Acceptance (unit tests first, on plans):
     - In a bilateral karyotype v2 chain of 3 or more segments (parts excluded):
       - the drawn head's half-width is at most 0.9 of the trunk's widest half-width;
@@ -247,6 +247,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - The balance checks above hold. A new ADR (the next free number) amends 0028 and 0031 with the new proportions, and DESIGN §6 (Proportions, Long bodies) follows.
     - A scratch gallery render is compared by eye with references 02 and 05 (the long copepods and shrimps) and noted in the PR. No pass sheet is committed.
   - Notes: the core collider stays the unit circle (ADR 0028), so the sim, sizes and hazards do not move. Expect a smaller head and a wider trunk inside the 2.5 bound.
+    - Done (ADR 0037): `chain.profile` (head ≤ 0.7 long at 0.85–0.9 of the trunk, widest near 0.4, area kept); curled 5+ chains (worms) 4.2:1; `silhouetteOf` worms from 5, a tadpole's front, fan tails at 45%; eyes part on a narrow head; carapace gets the crisp rim.
+    - Gotcha: 97% pass (3-segment chains put the widest past 55%); thinner heads or straight shrimps at 4.2:1 let head-part bristles cover the trunk, failing M6 T10/T13's setae and rim checks (27, 39) until T7.
 
 - [ ] T6 Spirals and S-worms [opus]
   - Acceptance (unit tests first):

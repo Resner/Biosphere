@@ -168,11 +168,21 @@ describe('proportions v3: long bodies read by outline (look pass 4)', () => {
         if (!isLongChain(plan)) continue;
         long++;
         expect(bodyViolations(plan)).toEqual([]);
-        // A curl is a pose: the body is measured laid straight, and curling keeps its width.
+        // A curl is a pose: the body is measured laid straight, and curling keeps its width, but
+        // for a worm's (M6b T5, ADR 0037), which narrows every segment by one more factor.
         const straight = develop({ ...traits, shape: { ...traits.shape, curve: 0 } });
         if (plan.form.turn > 0) {
           curved++;
-          expect(plan.segments.map((s) => s.ry)).toEqual(straight.segments.map((s) => s.ry));
+          const k = plan.form.slim / straight.form.slim;
+          const worm =
+            plan.segments.length >= D.chain.wormFrom &&
+            plan.form.turn >= D.chain.wormTurn &&
+            !(plan.carapace.count >= 2 && plan.carapace.count < plan.segments.length);
+          if (!worm) expect(k).toBe(1);
+          expect(k).toBeLessThanOrEqual(1);
+          expect(plan.segments.map((s) => s.ry)).toEqual(
+            straight.segments.map((s) => expect.closeTo(s.ry * k, 12)),
+          );
         }
         const ratio = ratioOf(straight);
         if (!(ratio >= D.chain.aspect - 1e-9)) expect.fail(`genome ${i}: ${ratio} long per wide`);

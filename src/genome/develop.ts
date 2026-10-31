@@ -159,6 +159,8 @@ const CURVATURE = range(D.curvature);
 const PLATE_THICKNESS = range(D.plateThickness);
 const EYE_SIZE = range(D.eyes.size);
 const EYE_STALK = range(D.eyes.stalk);
+const HEAD_SHARE = range(D.chain.profile.head);
+const HEAD_LENGTH = range(D.chain.profile.headLength);
 const X = D.detail;
 
 const unit = (byte: number): number => byte / 255;
@@ -258,11 +260,86 @@ function chainProfile(traits: Traits) {
   return { n, radius, stretchOf };
 }
 
+/** How many front segments the carapace fuses (`buildCarapace` reads the same count). */
+const fusedCount = (n: number, fusion: number): number => Math.min(n, Math.round(fusion * n));
+
+/** Whether a chain of `n` has a shell over 2 or more front segments and a free tail behind it. */
+const hasShell = (n: number, fused: number): boolean => fused >= 2 && fused < n;
+
+/** Whether a chain is a long bilateral body: the bodies that are profiled and slimmed. */
+const isLong = (chain: readonly PlanSegment[], form: Bending): boolean =>
+  form.radial === 0 && chain.length >= D.chain.slimFrom;
+
 function buildSegments(traits: Traits, form: Bending): { segments: PlanSegment[]; slim: number } {
-  const chain = traits.karyotype === 1 ? chainV1(traits) : chainV2(traits);
-  const narrow = traits.karyotype === 1 ? 1 : slimming(chain, form);
+  if (traits.karyotype === 1) {
+    const chain = chainV1(traits);
+    return { segments: form.turn > 0 ? bend(chain, form) : chain, slim: 1 };
+  }
+  const laid = chainV2(traits);
+  const fused = fusedCount(laid.length, traits.shape.fusion);
+  const chain = isLong(laid, form) ? longChain(traits, laid, fused) : laid;
+  const narrow = slimming(chain, form, fused);
   const straight = narrow < 1 ? chain.map((s) => ({ ...s, ry: s.ry * narrow })) : chain;
   return { segments: form.turn > 0 ? bend(straight, form) : straight, slim: narrow };
+}
+
+/**
+ * A long chain laid behind a head `head` long (M6b T5): its segments, its peak (the segment whose
+ * centre lies nearest `profile.peak` of the length, inside a shell over its front) and where that
+ * centre lies, as a share of the length from the front.
+ */
+function layBehind(
+  traits: Traits,
+  head: number,
+  fused: number,
+): { chain: PlanSegment[]; peak: number; at: number } {
+  const P = D.chain.profile;
+  const chain = chainV2(traits, { rx: head, ry: 0 }, 1);
+  const n = chain.length;
+  const shell = hasShell(n, fused) ? fused : 0;
+  const last = chain[n - 1] as PlanSegment;
+  const length = head - last.x + last.rx;
+  const at = (i: number): number => (head - (chain[i] as PlanSegment).x) / length;
+  let peak = 1;
+  for (let i = 2; i < (shell > 0 ? shell : n); i++)
+    if (Math.abs(at(i) - P.peak) < Math.abs(at(peak) - P.peak)) peak = i;
+  return { chain, peak, at: at(peak) };
+}
+
+/**
+ * One body, widest at the trunk (M6b T5, ADR 0037; `chain.profile` has the rule): a long chain's
+ * head is a share of its trunk's width, the trunk is widest near the front, and the outline
+ * narrows to the tail. `laid` is the plain chain, whose area the profiled one keeps.
+ */
+function longChain(traits: Traits, laid: PlanSegment[], fused: number): PlanSegment[] {
+  const P = D.chain.profile;
+  // The chain behind its head; head scale no longer narrows it. The head keeps its own length up
+  // to `headLength[1]`, unless the trunk's peak would then lie past `peakMax` of the body's length:
+  // then it is `headLength[0]` long.
+  let lay = layBehind(traits, Math.min(headOf(traits).rx, HEAD_LENGTH[1]), fused);
+  if (lay.at > P.peakMax) lay = layBehind(traits, HEAD_LENGTH[0], fused);
+  const { chain, peak } = lay;
+  const n = chain.length;
+  const shell = hasShell(n, fused) ? fused : 0;
+  const ry = chain.map((s) => s.ry);
+  let widest = 0;
+  for (let i = 1; i < n; i++) widest = Math.max(widest, ry[i] as number);
+  ry[peak] = widest;
+  for (let i = 1; i < peak; i++)
+    ry[i] = Math.min(ry[i] as number, widest * (1 - (P.rise * (peak - i)) / peak));
+  for (let i = peak + 1; i < n; i++) ry[i] = Math.min(ry[i] as number, ry[i - 1] as number);
+  if (n >= P.evenFrom)
+    for (let i = 1; i < n - 1; i++)
+      ry[i] = widest * (1 - P.even * (1 - (ry[i] as number) / widest));
+  if (shell > 0) for (let i = shell; i < n; i++) ry[i] = Math.min(ry[i] as number, P.tail * widest);
+  ry[0] = widest * lerp(HEAD_SHARE[0], HEAD_SHARE[1], traits.shape.headScale);
+  // The body keeps its bulk: every half-width scales so the outline's area is the plain chain's.
+  let plain = 0;
+  for (const s of laid) plain += s.rx * s.ry;
+  let area = 0;
+  for (let i = 0; i < n; i++) area += (chain[i] as PlanSegment).rx * (ry[i] as number);
+  const bulk = plain / area;
+  return chain.map((s, i) => ({ ...s, ry: (ry[i] as number) * bulk }));
 }
 
 /** A straight chain's length (the head's front to the tail's end) per width (its widest segment). */
@@ -278,12 +355,18 @@ function aspectOf(segments: readonly PlanSegment[]): number {
  * Body proportions v3 (look pass 4, ADR 0031): the factor that narrows a bilateral chain of
  * `chain.slimFrom` segments or more to `chain.aspect` times as long as wide, every segment alike,
  * so the head and trunk keep their profile and the chain keeps its length; 1 for any other body.
- * The straight chain is measured: a curl is a pose of the same body, and never changes its width.
+ * Under proportions v4 (M6b T5, ADR 0037) a chain of `chain.wormFrom` or more that curls by
+ * `chain.wormTurn` or more is a worm and narrows to `chain.wormAspect`, unless a shell leaves it a
+ * free tail (a copepod's body). The straight chain is measured: past that, a curl is a pose of the
+ * same body, and never changes its width.
  */
-function slimming(straight: PlanSegment[], form: Bending): number {
+function slimming(straight: PlanSegment[], form: Bending, fused: number): number {
   const C = D.chain;
-  if (form.radial === 1 || straight.length < C.slimFrom) return 1;
-  return Math.min(1, aspectOf(straight) / C.aspect);
+  if (!isLong(straight, form)) return 1;
+  const n = straight.length;
+  const worm = n >= C.wormFrom && Math.abs(form.turn) >= C.wormTurn && !hasShell(n, fused);
+  const aspect = worm ? C.wormAspect : C.aspect;
+  return Math.min(1, aspectOf(straight) / aspect);
 }
 
 /**
@@ -335,19 +418,23 @@ function chainV1(traits: Traits): PlanSegment[] {
  * tagma profile, and the chain fits its reach by shortening its segments first, down to
  * `chain.squash` of their width, and only then narrowing; a big head then narrows it by
  * 1 ÷ (1 + `tagmata.head` × head scale). Neighbours sit `segmentSpacing` of their summed
- * half-lengths apart, so they always overlap.
+ * half-lengths apart, so they always overlap. A long chain passes its own head and no narrowing
+ * (`longChain`, M6b T5).
  */
-function chainV2(traits: Traits): PlanSegment[] {
+function chainV2(
+  traits: Traits,
+  front = headOf(traits),
+  big = 1 / (1 + D.tagmata.head * traits.shape.headScale),
+): PlanSegment[] {
   const C = D.chain;
   const { n, radius, stretchOf } = chainProfile(traits);
-  const { rx: head, ry } = headOf(traits);
+  const { rx: head, ry } = front;
   const out: PlanSegment[] = [{ x: 0, y: 0, rx: head, ry, angle: 0 }];
   if (n < 2) return out;
   // A radial body keeps its chain inside its round core: the reach falls over the radial range.
   const ring = clamp((traits.shape.symmetry - D.radial.at) / (1 - D.radial.at), 0, 1);
   const reach = lerp(C.reach, head, ring);
   const room = reach - D.segmentSpacing * head;
-  const big = 1 / (1 + D.tagmata.head * traits.shape.headScale);
   const width = [0];
   const along = [0];
   // sum[i]: segment i's distance behind the head's end of the chain, in half-lengths at full size.
@@ -1208,7 +1295,7 @@ const NO_CARAPACE: Carapace = { count: 0, x: 0, y: 0, rx: 0, ry: 0, angle: 0, th
 
 /** One ellipse over the front `count` segments: along the axis from the rearmost fused centre to the core. */
 function buildCarapace(segments: PlanSegment[], fusion: number, plating: number): Carapace {
-  const count = Math.min(segments.length, Math.round(fusion * segments.length));
+  const count = fusedCount(segments.length, fusion);
   if (count < 1) return { ...NO_CARAPACE };
   const last = segments[count - 1] as PlanSegment;
   const angle = count > 1 && (last.y !== 0 || last.angle !== 0) ? atan2(-last.y, -last.x) : 0;
@@ -1263,18 +1350,16 @@ function buildEyes(shape: Traits['shape'], head: PlanSegment): PlanEyes {
   const root = rootOf(head, E.angle);
   const room = D.caps.bounds - D.boundsSlack - hypot(root.x, root.y) - 2 * size;
   const stalk = clamp(lerp(EYE_STALK[0], EYE_STALK[1], shape.eyeStalk), 0, Math.max(0, room));
-  const out = turnTo(head, cos(E.angle), sin(E.angle));
   // A short stalk sinks the eye into the head (look pass 5): `set` of its diameter in at no stalk.
   const sink = E.set * (1 - stalk / EYE_STALK[1]);
   const from = stalk + size * (1 - 2 * sink);
-  return {
-    count: 2,
-    size,
-    stalk,
-    angle: E.angle,
-    x: root.x + from * out.x,
-    y: root.y + from * out.y,
-  };
+  // On a head too narrow for the pair (M6b T5), each eye moves out sideways until the two just touch.
+  const centre = placeOn(
+    head,
+    head.rx * cos(E.angle) + from * cos(E.angle),
+    Math.max(head.ry * sin(E.angle) + from * sin(E.angle), size),
+  );
+  return { count: 2, size, stalk, angle: E.angle, x: centre.x, y: centre.y };
 }
 
 const colliderRadius = (r: number): number =>

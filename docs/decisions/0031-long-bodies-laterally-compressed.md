@@ -1,6 +1,6 @@
 # 0031: Long bodies are laterally compressed, and long parts reach past the v1 range
 
-- Status: accepted (amends 0028: the trunk is no longer at least half a core radius wide, and a v2 part's length gene reaches past 1.5)
+- Status: accepted, amended by 0037 (amends 0028: the trunk is no longer at least half a core radius wide, and a v2 part's length gene reaches past 1.5)
 - Date: 2026-10-29
 
 ## Context

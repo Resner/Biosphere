@@ -147,36 +147,40 @@ describe('development v2: tagmata', () => {
   };
   const plain = radii({});
 
-  it('keeps an even chain without them', () => {
-    for (const r of plain.slice(2)) expect(r).toBeCloseTo(plain[1] as number, 12);
+  // One body, widest at the trunk (M6b T5, ADR 0037): the head is a share of the trunk's widest
+  // girth, and the trunk is widest near the front and never widens behind that.
+  const P = D.chain.profile;
+  const widest = (r: number[]): number => Math.max(...r.slice(1));
+
+  it('keeps an even trunk without them, the head head[0] of it', () => {
+    const w = widest(plain);
+    expect((plain[0] as number) / w).toBeCloseTo(P.head[0] as number, 12);
+    for (const r of plain.slice(1)) expect(r).toBeCloseTo(w, 12);
+    expect(plain).toEqual([0.488617, ...Array(7).fill(0.574844)].map((x) => expect.closeTo(x, 5)));
   });
 
-  it('pins the head-scale extreme: the v1 head, and the chain narrows by 1 ÷ (1 + head)', () => {
-    // Without head scale the head in front of a chain is `chain.head` of the v1 head (ADR 0028).
-    expect(plain[0]).toBeCloseTo(D.chain.head, 12);
+  it('pins the head-scale extreme: the head head[1] of the trunk, which keeps the bulk', () => {
     const r = radii({ headScale: 255 });
-    expect(r[0]).toBe(1);
-    for (const x of r.slice(2)) expect(x).toBeCloseTo(r[1] as number, 12);
-    // The head is the unit: the narrowing comes after the chain is fitted to its reach, so the
-    // trunk ends up far narrower next to the head than without head scale.
-    expect((r[1] as number) / (r[0] as number)).toBeLessThan(
-      ((plain[1] as number) / (plain[0] as number)) * (1 / (1 + T.head)),
-    );
-    expect(r).toEqual([1, ...Array(7).fill(0.200092)].map((x) => expect.closeTo(x, 5)));
+    const w = widest(r);
+    expect((r[0] as number) / w).toBeCloseTo(P.head[1] as number, 12);
+    for (const x of r.slice(1)) expect(x).toBeCloseTo(w, 12);
+    // Head scale no longer narrows the chain: the plain chain's big head is trunk now, and the
+    // trunk is wider than without head scale.
+    expect(w).toBeGreaterThan(widest(plain));
+    expect(r).toEqual([0.736387, ...Array(7).fill(0.818208)].map((x) => expect.closeTo(x, 5)));
   });
 
-  it('pins the trunk-swell extreme: the middle widens most', () => {
+  it('pins the trunk-swell extreme: the front of the trunk widens most', () => {
     const r = radii({ trunkSwell: 255 });
     const rear = r.slice(1);
-    const widest = rear.indexOf(Math.max(...rear)) + 1;
-    expect(widest / 7).toBeCloseTo(T.trunkAt, 0);
-    expect((r[3] as number) / (r[7] as number)).toBeCloseTo(
-      (1 + T.trunk * (1 - Math.abs(3 / 7 - T.trunkAt) / T.trunkSpread)) /
-        (1 + T.trunk * (1 - Math.abs(1 - T.trunkAt) / T.trunkSpread)),
-      9,
-    );
+    const at = rear.indexOf(Math.max(...rear)) + 1;
+    expect(at / 7).toBeLessThanOrEqual(T.trunkAt);
+    for (let i = at + 1; i < r.length; i++)
+      expect(r[i] as number).toBeLessThanOrEqual(r[i - 1] as number);
+    // Swollen, the trunk is wider for its head than the plain one.
+    expect(widest(r) / (r[0] as number)).toBeCloseTo(1 / (P.head[0] as number), 12);
     expect(r).toEqual(
-      [0.65, 0.470172, 0.52019, 0.550201, 0.500183, 0.450164, 0.400146, 0.350128].map((x) =>
+      [0.528727, 0.622032, 0.605068, 0.605068, 0.593758, 0.565484, 0.53721, 0.395839].map((x) =>
         expect.closeTo(x, 5),
       ),
     );
@@ -194,7 +198,7 @@ describe('development v2: tagmata', () => {
     expect((r[7] as number) / (r[1] as number)).toBeCloseTo(1 - T.tailTaper, 9);
     expect((r[3] as number) / (r[1] as number)).toBeCloseTo(1, 12);
     expect(r).toEqual(
-      [0.65, 0.646116, 0.646116, 0.646116, 0.581504, 0.452281, 0.323058, 0.193835].map((x) =>
+      [0.572443, 0.673463, 0.673463, 0.673463, 0.63979, 0.572443, 0.505097, 0.202039].map((x) =>
         expect.closeTo(x, 5),
       ),
     );
@@ -324,8 +328,11 @@ describe('development v2: eyes', () => {
   });
 
   it('sets a stalkless eye into the head, as reference 05 draws big dark eyes (look pass 5)', () => {
-    const p = body({ eyeSize: 255, eyeStalk: 0 });
+    // A cell's head is wide enough for the pair; a long chain's is narrower (see below).
+    const cell = (set: Record<string, number>) => plan(SWIM, set);
+    const p = cell({ eyeSize: 255, eyeStalk: 0 });
     valid(p);
+    expect(p.segments).toHaveLength(1);
     const e = p.eyes;
     expect(e.stalk).toBe(0);
     const head = p.segments[0] as PlanSegment;
@@ -337,13 +344,28 @@ describe('development v2: eyes', () => {
     expect(Math.hypot(e.x - root.x, e.y - root.y)).toBeCloseTo(e.size * (2 * D.eyes.set - 1), 12);
     expect(D.eyes.set).toBeGreaterThan(0.5);
     // A half-length stalk sinks it half as far.
-    const half = body({ eyeSize: 255, eyeStalk: 128 }).eyes;
+    const half = cell({ eyeSize: 255, eyeStalk: 128 }).eyes;
     const sink = D.eyes.set * (1 - half.stalk / (D.eyes.stalk[1] as number));
     const r2 = { x: head.rx * cos(half.angle), y: head.ry * sin(half.angle) };
     expect(Math.hypot(half.x - r2.x, half.y - r2.y)).toBeCloseTo(
       Math.abs(half.stalk + half.size * (1 - 2 * sink)),
       12,
     );
+  });
+
+  it('moves the eyes of a narrow head out sideways until the pair just touch (M6b T5)', () => {
+    const p = body({ eyeSize: 255, eyeStalk: 0 });
+    valid(p);
+    const e = p.eyes;
+    const head = p.segments[0] as PlanSegment;
+    const root = { x: head.rx * cos(e.angle), y: head.ry * sin(e.angle) };
+    const set = e.size * (1 - 2 * D.eyes.set);
+    // Set in, the two would overlap: this head is narrower than the eye.
+    expect(root.y + set * sin(e.angle)).toBeLessThan(e.size);
+    expect(e.y).toBeCloseTo(e.size, 12);
+    // Only sideways: as far along the head as a set-in eye, its inner edge inside the head.
+    expect(e.x).toBeCloseTo(root.x + set * cos(e.angle), 12);
+    expect(Math.abs(e.x)).toBeLessThan(head.rx);
   });
 });
 

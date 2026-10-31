@@ -250,7 +250,7 @@ void main() {
   } else if (kind == 4) {
     // The carapace: clear glass over the body, a bright rim, a little denser with plating. Its face
     // is nearly clear (M6b T3), so a fused body is not veiled in a milky shell.
-    col = uRim * (0.1 + 1.5 * fres + 0.6 * back) + uCore * 0.15;
+    col = uRim * (0.1 + 1.5 * fres + 0.6 * back + rim * RIM * uRimStrength) + uCore * 0.15;
     alpha = mix(0.1, 0.3, uPlating) + 0.8 * fres;
   } else if (kind == 5) {
     // A seta: a hair-thin bright stroke.
