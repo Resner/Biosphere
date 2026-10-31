@@ -310,7 +310,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
   - Done: shallows caustics 0.4, rays 0.25, drifting at 0.2 pace (`ZONE_LOOK`, `SunClock`); change 4.90 → 2.28 (47%), spread 10.18 → 4.47 (44%), other zones within 3%; `debug.setClock` pins frames.
   - Gotcha (spec fix): the twilight's top keeps 1 and 0.8, so the shallows are now dimmer than it; M6 T17's "strongest in the shallows" and `m6-light`'s 3× shallows/abyss become the calm cap and this spec's 1.5×.
 
-- [ ] T9 The HUD shell: one menu button and stat bars [opus] (in progress)
+- [x] T9 The HUD shell: one menu button and stat bars [opus] (in progress)
   - Acceptance (E2E `m6b-hud.spec.ts`, unit tests for the pure parts):
     - **In play, with no event pending**, at 1280×720 and 960×540, the visible HUD is:
       - one round menu button in the top-left corner (`hud-menu`; a 44 px target, an SVG profile glyph, `aria-label="Menu (Esc)"`);
@@ -340,6 +340,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
   - Notes:
     - Text stays plain, and colour is never the only signal: icons differ in shape.
     - Take a 1280×720 screenshot before and after for the PR, judged by eye against "minimal and uncluttered".
+    - Done: `hud-menu` + `menu` panel (`hud-menu.ts`), `role="meter"` bars, chips and a compact depth bar bottom left (about 1.2% of 1280×720), `hints.ts` on sim play time, indicators keep out of the HUD's corners; Esc opens the menu (Lineage moved inside), the alone hint now shows for 8 s.
+    - Gotcha: `state().hud.bars.life` is null while its bar is hidden (practice cell); the recorded-life check uses the M4 hub (8790); the egg chip reads "H" with the full name as its accessible name; Biome needs a suppression for `role="meter"` on a div.
 
 - [ ] T10 The minimap, and shaking instead of borders [opus]
   - Acceptance:

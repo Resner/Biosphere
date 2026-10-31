@@ -89,17 +89,84 @@
     <!-- The zone hazard cues lie under the HUD, so they never dim its text. -->
     <div class="uv-cue" data-for="playing" data-testid="uv-cue" aria-hidden="true" hidden></div>
     <div class="pressure-cue" data-for="playing" data-testid="pressure-cue" aria-hidden="true" hidden></div>
+    <button type="button" class="hud-menu" data-for="playing" data-testid="hud-menu" aria-label="Menu (Esc)" aria-expanded="false" aria-controls="menu">
+      <svg viewBox="-12 -12 24 24" aria-hidden="true"><circle cx="0" cy="-3.5" r="4.2" /><path d="M-8 9.5 C-7 3.5 -3.5 1.8 0 1.8 C3.5 1.8 7 3.5 8 9.5" /></svg>
+    </button>
+    <!-- The play screen's only numbers are bars: a shape for each, the value as a tooltip (M6b T9). -->
     <section class="hud" data-for="playing" aria-label="Status">
-      <p class="species" data-testid="hud-species"></p>
-      <div class="meter growth"><span class="meter-name">Biomass</span><span class="meter-value" data-testid="hud-biomass"></span><span class="bar"><i data-bar="growth"></i></span><span class="life-left" data-testid="hud-growth"></span></div>
-      <div class="meter" data-meter="energy"><span class="meter-name">Energy</span><span class="meter-value" data-testid="hud-energy"></span><span class="bar"><i data-bar="energy"></i></span></div>
-      <div class="meter"><span class="meter-name">Health</span><span class="meter-value" data-testid="hud-health"></span><span class="bar"><i data-bar="health"></i></span></div>
-      <div class="meter life" data-meter="life" data-testid="hud-life" hidden><span class="meter-name">Life</span><span class="meter-value" data-testid="hud-stage"></span><span class="bar"><i data-bar="life"></i></span><span class="life-left" data-testid="hud-remaining"></span><span class="life-left" data-testid="hud-ready"></span></div>
-      <p class="hud-egg" data-testid="hud-egg" hidden>Egg: H to hatch</p>
-      <div class="meter depth" data-testid="hud-depth"><span class="meter-name">Depth</span><span class="meter-value" data-testid="hud-zone"></span><span class="bar"><i data-bar="depth"></i></span><span class="zone-warning" data-testid="hud-zone-warning"></span></div>
-      <p class="hint">Mouse or WASD to swim · Space to dash · Eat to live, avoid toxic clouds</p>
-      <p class="hint" data-testid="social-hint">Enter chat · G ping and emote wheel · T then 1–6 emote · middle click look · M map</p>
+      <div class="stats">
+        <!-- biome-ignore lint/a11y/useSemanticElements: a native meter cannot hold the icon and the tick; the spec asks for role="meter". -->
+        <div class="stat" data-stat="health" data-testid="hud-bar-health" role="meter" aria-label="Health" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-2 -6.5 H2 V-2 H6.5 V2 H2 V6.5 H-2 V2 H-6.5 V-2 H-2 Z" /></svg>
+          <span class="bar"><i data-bar="health"></i></span>
+        </div>
+        <!-- biome-ignore lint/a11y/useSemanticElements: a native meter cannot hold the icon and the tick; the spec asks for role="meter". -->
+        <div class="stat" data-stat="energy" data-testid="hud-bar-energy" role="meter" aria-label="Energy" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M1.5 -7.5 L-5 1 H-0.5 L-1.5 7.5 L5 -1 H0.5 Z" /></svg>
+          <span class="bar"><i data-bar="energy"></i></span>
+        </div>
+        <!-- biome-ignore lint/a11y/useSemanticElements: a native meter cannot hold the icon and the tick; the spec asks for role="meter". -->
+        <div class="stat" data-stat="size" data-testid="hud-bar-size" role="meter" aria-label="Size" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="stroke" r="6" /><circle r="2.6" /></svg>
+          <span class="bar"><i data-bar="growth"></i><b class="tick"></b></span>
+        </div>
+        <!-- biome-ignore lint/a11y/useSemanticElements: a native meter cannot hold the icon and the tick; the spec asks for role="meter". -->
+        <div class="stat" data-stat="life" data-testid="hud-bar-life" role="meter" aria-label="Life left" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0" hidden>
+          <svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-5.5 -7 H5.5 L1.2 0 L5.5 7 H-5.5 L-1.2 0 Z" /></svg>
+          <span class="bar"><i data-bar="life"></i></span>
+        </div>
+        <!-- biome-ignore lint/a11y/useSemanticElements: a native meter cannot hold the icon and the tick; the spec asks for role="meter". -->
+        <div class="stat depth" data-testid="hud-depth" role="meter" aria-label="Depth" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0">
+          <svg viewBox="-8 -8 16 16" aria-hidden="true"><path class="stroke" d="M-5.5 -6 L0 -1 L5.5 -6 M-5.5 0.5 L0 5.5 L5.5 0.5" /></svg>
+          <span class="bar"><i data-bar="depth"></i></span>
+          <span class="zone-warning" data-testid="hud-zone-warning"></span>
+        </div>
+      </div>
+      <div class="chips">
+        <p class="chip" data-testid="hud-egg" role="img" aria-label="Egg: H to hatch" title="Egg: H to hatch" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><ellipse cy="0.6" rx="4.6" ry="6.2" /></svg><kbd>H</kbd></p>
+        <p class="chip" data-testid="hud-mate-ready" role="img" aria-label="Ready to mate" title="Ready to mate" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0 6 C-9 0 -6 -8.5 0 -3.5 C6 -8.5 9 0 0 6 Z" /></svg></p>
+        <p class="chip" data-testid="practice-badge" hidden>Not recorded</p>
+        <p class="chip" data-testid="hud-offline" role="img" aria-label="Offline" title="Offline" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="stroke" r="4.5" /><path class="stroke" d="M-6 6 L6 -6" /></svg></p>
+      </div>
     </section>
+    <section class="menu" id="menu" data-for="playing" data-testid="menu" aria-label="Menu" hidden>
+      <p class="species" data-testid="hud-species"></p>
+      <div class="menu-rows">
+        <p><span>Biomass</span><span data-testid="hud-biomass"></span></p>
+        <p data-meter="energy"><span>Energy</span><span data-testid="hud-energy"></span></p>
+        <p><span>Health</span><span data-testid="hud-health"></span></p>
+        <p><span>Growth</span><span data-testid="hud-growth"></span></p>
+        <div class="menu-life" data-testid="hud-life" hidden>
+          <p><span>Life</span><span><span data-testid="hud-stage"></span> <span data-testid="hud-remaining"></span></span></p>
+          <p><span>Mating</span><span class="menu-ready" data-testid="hud-ready"></span></p>
+        </div>
+        <p><span>Depth</span><span data-testid="hud-zone"></span></p>
+        <p class="menu-net"><span>Pond</span><span data-testid="menu-net"></span></p>
+      </div>
+      <p class="menu-buttons">
+        <button type="button" class="action quiet" data-testid="menu-lineage">Lineage</button>
+        <button type="button" class="action quiet" data-testid="menu-settings">Settings</button>
+        <button type="button" class="action quiet" data-testid="menu-controls" aria-expanded="false" aria-controls="controls">Controls</button>
+      </p>
+      <dl class="controls" id="controls" data-testid="controls" hidden>
+        <div><dt>Mouse or WASD</dt><dd>Swim</dd></div>
+        <div><dt>Space</dt><dd>Dash</dd></div>
+        <div><dt>E</dt><dd>Court a creature in reach</dd></div>
+        <div><dt>H</dt><dd>Hatch your egg</dd></div>
+        <div><dt>Enter</dt><dd>Chat</dd></div>
+        <div><dt>G</dt><dd>Ping and emote wheel</dd></div>
+        <div><dt>T then 1–6</dt><dd>Emote</dd></div>
+        <div><dt>Middle click</dt><dd>Look ping</dd></div>
+        <div><dt>M</dt><dd>Pond map</dd></div>
+        <div><dt>Click a creature</dt><dd>Inspect it</dd></div>
+        <div><dt>Esc</dt><dd>Menu, or close</dd></div>
+      </dl>
+      <h2 class="menu-title" data-testid="roster-title">Players</h2>
+      <ul class="roster" data-testid="roster" aria-label="Players (click a name to mute)" hidden></ul>
+      <p class="roster-empty">Nobody else here yet</p>
+      <p class="menu-build" data-testid="menu-build"></p>
+    </section>
+    <p class="first-hint" data-for="playing" data-testid="hint" role="status" hidden></p>
     <p class="toast" data-for="playing" data-testid="toast" role="status" hidden></p>
     <p class="mate-hint" data-for="playing" data-testid="mate-hint" role="status" hidden></p>
     <section class="invite" data-for="playing" data-testid="invite" aria-label="Invitation" hidden>
@@ -129,7 +196,6 @@
       </div>
     </section>
     <p class="net-status" data-testid="net-status" role="status"></p>
-    <p class="practice-badge" data-for="playing" data-testid="practice-badge" hidden>Not recorded</p>
     <p class="hatch-note" data-testid="hatch-note" role="status" hidden></p>
     <p class="alone-hint" data-for="playing" data-testid="alone-hint" hidden>Alone in the pond. Share the link.</p>
     <div class="remote-labels" data-for="playing" data-testid="remote-labels" aria-hidden="true"></div>
@@ -154,7 +220,6 @@
       <p class="hint">M or Esc to close · you can keep swimming</p>
     </section>
     <div class="wheel" data-for="playing" data-testid="wheel" role="menu" aria-label="Pings and emotes: 1 to 0, Esc cancels" hidden></div>
-    <ul class="roster" data-for="playing" data-testid="roster" aria-label="Players (click a name to mute)" hidden></ul>
     <section class="chat" data-for="playing" aria-label="Chat">
       <ol class="emote-strip" data-testid="emote-strip" aria-label="Emotes: press 1 to 6" hidden></ol>
       <ul class="chat-log" data-testid="chat-log" aria-live="polite"></ul>

@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { chatTexts, hatch, openGame, say, state } from './helpers';
+import { chatTexts, hatch, openGame, openMenu, say, state } from './helpers';
 
 // Chat, emotes, pings and mute between two real browser contexts through the local hub.
 
@@ -85,7 +85,8 @@ test('chat is filtered, typing does not steer, mute hides a sender, and cues cro
     expect((await state(b)).audio.cues).toMatchObject({ ping: 1, emote: 1, chat: 2 });
     await expect(b.locator('.ping')).toHaveCount(1);
 
-    // B mutes A by clicking A's name in the roster: the next message never shows.
+    // B mutes A by clicking A's name in the roster (in the menu): the next message never shows.
+    await openMenu(b);
     await b.getByTestId('roster').getByRole('button').click();
     expect((await state(b)).social.muted).toEqual([aId]);
     await expect(b.getByTestId('roster').getByRole('button')).toContainText('muted');

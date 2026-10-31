@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { hatch, openGame } from './helpers';
+import { hatch, openGame, openMenu } from './helpers';
 
 // Readability (M6 T21): the canvas and the HUD are crisp, and creatures a tier bigger or smaller
 // than the player carry an outline that differs in shape and pulse, not only in colour.
@@ -119,6 +119,7 @@ test.describe('crispness', () => {
     expect(raster).toEqual([]);
 
     // HUD text edges are sharp: the 10-90% rise of full-contrast edges is at most 2 device pixels.
+    await openMenu(page);
     const png = await page.getByTestId('hud-species').screenshot();
     const rises = await page.evaluate(async (base64) => {
       const image = new Image();

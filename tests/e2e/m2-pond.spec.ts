@@ -1,7 +1,7 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { INTERPOLATION_MS } from '../../src/net/pond-sync';
-import { chatTexts, hatch, openGame, say, state } from './helpers';
+import { chatTexts, hatch, openGame, openMenu, say, state } from './helpers';
 
 // The milestone's end-to-end check: three real browser contexts share a pond through the local
 // Worker and real WebRTC (host candidates only). Smaller pieces have their own specs: the offline
@@ -172,6 +172,7 @@ test('three players see each other move smoothly, share food and chat @slow', as
       expect(await chatTexts(p)).toEqual(['hello pond']);
     }
     const aName = sb.remotes.find((r) => r.id === sa.playerId)?.name ?? '';
+    await openMenu(b);
     await b.getByTestId('roster').getByRole('button', { name: aName }).click();
     expect((await state(b)).social.muted).toEqual([sa.playerId]);
     await say(a, 'still there?');

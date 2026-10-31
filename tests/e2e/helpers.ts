@@ -24,6 +24,17 @@ export async function hatch(page: Page): Promise<void> {
   await page.mouse.move(width / 2, height / 2);
 }
 
+/**
+ * Opens the play screen's menu (M6b T9) with Esc, which leaves the cursor (and so the steering)
+ * where it is: the numbers in words, the roster, Lineage and Settings live there now. Call it with
+ * nothing else open that Esc would close first (the wheel, the map, a card or an invitation).
+ */
+export async function openMenu(page: Page): Promise<void> {
+  const menu = page.getByTestId('menu');
+  if (!(await menu.isVisible())) await page.keyboard.press('Escape');
+  await expect(menu).toBeVisible();
+}
+
 export const state = (page: Page) => page.evaluate(() => (window.__bs as BsHook).state());
 
 /** Types a chat line through the real UI (Enter, text, Enter). */

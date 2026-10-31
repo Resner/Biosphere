@@ -3,6 +3,7 @@ import { sizeClass } from '../sim/size';
 import {
   EDGE_INSET_PX,
   edgeIndicators,
+  HUD_CORNERS,
   type Indicator,
   type IndicatorPlayer,
   lengthsText,
@@ -163,6 +164,38 @@ describe('edge indicators', () => {
     }
     // The bearing stays the true one; only the spot moves.
     expect(shown.find((s) => s.id === 'b')?.angle).toBeCloseTo(1, 6);
+  });
+
+  it('keeps clear of the corners the HUD uses, sliding along its edge (M6b T9)', () => {
+    const outside = (i: Indicator) =>
+      HUD_CORNERS.every((c) => {
+        const dx = c.corner.endsWith('left') ? i.x : view.width - i.x;
+        const dy = c.corner.startsWith('top') ? i.y : view.height - i.y;
+        return dx >= c.w - 1e-9 || dy >= c.h - 1e-9;
+      });
+    const onFrame = (i: Indicator) =>
+      Math.abs(i.x - EDGE_INSET_PX) < 1e-6 ||
+      Math.abs(i.x - (view.width - EDGE_INSET_PX)) < 1e-6 ||
+      Math.abs(i.y - EDGE_INSET_PX) < 1e-6 ||
+      Math.abs(i.y - (view.height - EDGE_INSET_PX)) < 1e-6;
+    // Straight at each corner, near the corners along both edges, and every bearing around.
+    const corner = (sx: number, sy: number) => ({
+      x: self.x + sx * (view.width / 2 / view.pxPerWu) * 4,
+      y: self.y + sy * (view.height / 2 / view.pxPerWu) * 4,
+    });
+    const targets = [corner(-1, 1), corner(-1, -1), corner(1, 1), corner(1, -1)];
+    for (let deg = -180; deg < 180; deg += 3) targets.push(at(3 * R, deg));
+    for (const t of targets) {
+      const [one] = edgeIndicators(self, [player('p', t.x, t.y)], [], view);
+      expect(one, `${t.x},${t.y}`).toBeDefined();
+      expect(outside(one as Indicator), `${one?.x},${one?.y}`).toBe(true);
+      expect(onFrame(one as Indicator), `${one?.x},${one?.y}`).toBe(true);
+    }
+    // Only the corners: a bearing well clear of them keeps its true spot.
+    const right = edgeIndicators(self, [player('r', self.x + 3 * R, self.y)], [], view)[0];
+    expect(right?.y).toBeCloseTo(view.height / 2, 6);
+    // The top-left corner (the menu button) and the bottom-left one (the stat bars) are both kept.
+    expect(HUD_CORNERS.map((c) => c.corner).sort()).toEqual(['bottom-left', 'top-left']);
   });
 
   it('writes distances plainly', () => {

@@ -61,8 +61,10 @@ import { listItem, pick } from './dom';
 import { EggShow } from './eggs';
 import { createFieldSync } from './field';
 import { GrowthWatch, growthText, sizeShare } from './growth';
+import { Hints } from './hints';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
+import { HudMenu } from './hud-menu';
 import { EdgeIndicatorsUi, edgeIndicators, type Indicator } from './indicators';
 import { enterHatches, InputController, wheelInput } from './input';
 import { type LabelProjection, RemoteLabels } from './labels';
@@ -82,6 +84,7 @@ import {
   cleanName,
   hubSocketUrl,
   loadName,
+  offlineChip,
   ringSpawn,
   saveName,
   statusText,
@@ -250,6 +253,9 @@ const CUE_REACH_RADII = 5;
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
 const INSPECT_MIN_PX = 24;
 
+/** A first-life hint fades out over this much of its end, in milliseconds of play. */
+const HINT_FADE_MS = 600;
+
 /** Starts the title screen; the player hatches into the same scene. */
 export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const scene = new GameScene(canvas, RULES.world.size, {
@@ -259,11 +265,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const camera = new FollowCamera();
   const controller = new InputController();
   const hud = new Hud();
+  // The play screen's one button and its menu (M6b T9).
+  const menu = new HudMenu();
   const history = new HistoryPanel();
   /** The hub link of the current online session, for the Lineage panel's question. */
   let hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
   const lineagePanel = new LineagePanel(() => hubLink?.send({ t: 'lineage' }));
+  pick('[data-testid="menu-lineage"]').addEventListener('click', () => lineagePanel.open());
   const storage = safeStorage();
+  // First-life hints (M6b T9): the play screen has no permanent control lines.
+  const hints = new Hints(storage);
+  const hintElement = pick('[data-testid="hint"]');
+  let shownHint: string | null = null;
   // The stored settings; this visit's `?quality=` beats the stored quality without being written,
   // until the player picks one in the panel.
   const stored = loadSettings(storage);
@@ -300,7 +313,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       saveSettings(qualityPinned ? { ...next, quality: stored.quality } : next, storage);
       applySettings();
     },
-    ['settings-open', 'lineage-settings'],
+    ['settings-open', 'lineage-settings', 'menu-settings'],
   );
   applySettings();
   systemMotion?.addEventListener?.('change', () =>
@@ -397,7 +410,6 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const generations = new Map<string, number>();
   let generationsSeen = 0;
   const hatchNote = pick('[data-testid="hatch-note"]');
-  const practiceBadge = pick('[data-testid="practice-badge"]');
   /** Why the last hatch did not start; shown until the next one. */
   let hatchError = '';
   /** When the recorded hatches are used up: the time (performance.now) the next one frees; 0 when free. */
@@ -570,11 +582,12 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       cueWatch.reset();
       hud.setBody(bodyLabel(session.body));
       genomeSync.setOwn(session.body.text);
+      hints.startLife();
     }
     view.body = session.body.creature;
     lastClock = null;
     hud.setLife(null);
-    practiceBadge.hidden = session.demo || flow.view().status !== 'practice';
+    hud.setPractice(!session.demo && flow.view().status === 'practice');
     screen = nextScreen;
     screenShownAt = performance.now();
     screens.show(nextScreen);
@@ -599,6 +612,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   const nameInput = pick<HTMLInputElement>('[data-testid="name-input"]');
   const nameError = pick('[data-testid="name-error"]');
   const netStatus = pick('[data-testid="net-status"]');
+  const menuNet = pick('[data-testid="menu-net"]');
   const aloneElement = pick('[data-testid="alone-hint"]');
   const alone = new AloneHint();
   const sender = new SnapshotSender((bytes) => keeper.current?.broadcastState(bytes));
@@ -975,13 +989,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         if (key === 'm' || key === 'M') pondMap.toggle();
         if (key === 'Escape' && pondMap.isOpen) {
           pondMap.close();
+        } else if (key === 'Escape' && menu.isOpen) {
+          menu.close();
         } else if (mate.view().state === 'invited') {
           if (key === 'e' || key === 'E') mate.accept();
           else if (key === 'Escape') mate.decline();
         } else if (key === 'Escape' && inspected) {
           inspected = null;
         } else if (key === 'Escape') {
-          lineagePanel.open();
+          menu.open();
         } else if ((key === 'e' || key === 'E') && nearby) {
           mate.court(nearby.id);
         }
@@ -1225,7 +1241,10 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     if (text !== shownStatus) {
       shownStatus = text;
       netStatus.textContent = text;
+      menuNet.textContent = text;
     }
+    const status = keeper.current?.status ?? 'connecting';
+    hud.setOffline(offlineChip(hubUrl !== null, status, apart) ? text : null);
     const lonely = alone.update(
       now,
       joined !== null && keeper.current?.status === 'online',
@@ -1269,6 +1288,21 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       optionsKey = key;
       screens.setFallback(fallbackOptions(fallback, child, (id) => generations.get(id)));
     }
+  };
+
+  /** The first-life hint for this moment of play (M6b T9); it fades out over its last moments. */
+  const updateHint = (): void => {
+    const live = screen === 'playing' && !session.demo && session.death === null;
+    const playMs = (session.ticks * 1000) / TICK_HZ;
+    const text = live ? hints.at(playMs) : null;
+    if (text !== shownHint) {
+      shownHint = text;
+      if (text) hintElement.textContent = text;
+      hintElement.hidden = text === null;
+    }
+    const leaving = text !== null && hints.at(playMs + HINT_FADE_MS) !== text;
+    if (hintElement.hasAttribute('data-leaving') !== leaving)
+      hintElement.toggleAttribute('data-leaving', leaving);
   };
 
   /** The inspect card beside a clicked creature: closed when it leaves, dies or the game stops. */
@@ -1377,6 +1411,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const own = ready ? ownMateView() : null;
     mateReady = own !== null && ownRefusal(own) === null;
     hud.setReady(readyShown);
+    hud.setMateReady(mateReady);
     if (playingNow && player.alive) updateGrowth(life.matureAtMs);
   };
 
@@ -1591,6 +1626,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     updateHatchNote();
     updateMateUi();
     updateOffspringUi();
+    updateHint();
     view.eggs = updateEggs(eggNow, dt, reduced);
     const ghost = eggs.ghostOf(eggNow);
     if (ghost) {
@@ -1677,6 +1713,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     setEnergy(energy) {
       const { player } = session;
       player.energy = Math.min(energy, maxEnergy(player.biomass));
+      hud.update(player);
     },
     setBiomass(biomass) {
       const { player } = session;
@@ -1894,6 +1931,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         egg,
       })),
       audio: sound.view(),
+      hud: { menu: menu.isOpen, ...hud.view(), hints: shownHint },
       egg: {
         phase: eggs.reveal.phase,
         phases: [...eggs.reveal.visited],

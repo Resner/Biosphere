@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, openRecorded, state, waitPlaying } from './helpers';
+import { clickHatch, openMenu, openRecorded, state, waitPlaying } from './helpers';
 
 // The hatch bucket (M4 T10): three quick deaths use up the recorded hatches; the fourth Hatch shows
 // the countdown and offers the practice cell instead.
@@ -51,6 +51,8 @@ test('after three quick deaths the fourth hatch waits, and the practice cell pla
   const practice = await state(page);
   expect(practice.life.status).toBe('practice');
   await expect(page.getByTestId('practice-badge')).toBeVisible();
+  await expect(page.getByTestId('hud-bar-life')).toBeHidden();
+  await openMenu(page);
   await expect(page.getByTestId('hud-life')).toBeHidden();
   expect(practice.player?.alive).toBe(true);
   await context.close();

@@ -178,6 +178,7 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
     await a.keyboard.press('Escape');
     await expect(map).toBeHidden();
     await expect(a.getByTestId('lineage')).toBeHidden();
+    await expect(a.getByTestId('menu')).toBeHidden();
   } finally {
     await Promise.all([a.context().close(), b.context().close()]);
   }
