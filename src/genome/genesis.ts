@@ -143,6 +143,10 @@ const m1 = MODULE_LOCI[0] as (typeof MODULE_LOCI)[number];
 const m2 = MODULE_LOCI[1] as (typeof MODULE_LOCI)[number];
 const shapeOffset = (id: Shape): number => HAPLOTYPE_BYTES_V1 + SHAPE_LOCI.indexOf(id);
 const paramAt = (name: Param): number => MODULE_PARAMS.indexOf(name);
+/** Every slot but the whip (slot 0) can carry bristles. */
+const BRISTLED_SLOTS = MODULE_LOCI.slice(1);
+const SETAE_DENSITY = MODULE_EXT.indexOf('setaeDensity');
+const SETAE_LENGTH = MODULE_EXT.indexOf('setaeLength');
 
 function pickForm(rng: Rng): Form {
   let u = rng.next();
@@ -224,10 +228,10 @@ export function genesisGenome(seed: Seed): Genome {
   }
   // Bristles on every slot but the whip: a form's own setae stay if they are already more.
   const B = GENESIS_BRISTLES;
-  for (const slot of MODULE_LOCI.slice(1)) {
+  for (const slot of BRISTLED_SLOTS) {
     if (!w.present(slot) || !(rng.next() < B.chance)) continue;
-    w.atLeast(slot.ext + MODULE_EXT.indexOf('setaeDensity'), B.density);
-    w.atLeast(slot.ext + MODULE_EXT.indexOf('setaeLength'), B.length);
+    w.atLeast(slot.ext + SETAE_DENSITY, B.density);
+    w.atLeast(slot.ext + SETAE_LENGTH, B.length);
   }
   return decodeGenome(bytes);
 }

@@ -1237,7 +1237,7 @@ function buried(p: Part, s: PlanSegment, l: Point, r: Point, body: Outline, limi
  * Whether the body covers the root at `angle` of segment `s` on either side (one on the axis): a
  * point `keep.clear` outside it lies inside the outline.
  */
-function covered(s: PlanSegment, frame: Ellipse, angle: number, body: Outline): boolean {
+function covered(s: PlanSegment, angle: number, body: Outline): boolean {
   const ca = cos(angle);
   const sa = sin(angle);
   // The outward normal there, in the segment's frame, scaled to `keep.clear`.
@@ -1247,9 +1247,8 @@ function covered(s: PlanSegment, frame: Ellipse, angle: number, body: Outline): 
   const u = s.rx * ca + k * nx;
   const v = s.ry * sa + k * ny;
   for (let side = 1; side >= -1; side -= 2) {
-    const x = s.x + u * frame.c - side * v * frame.s;
-    const y = s.y + u * frame.s + side * v * frame.c;
-    if (inside(body, x, y)) return true;
+    const at = placeOn(s, u, side * v);
+    if (inside(body, at.x, at.y)) return true;
     if (onAxis(s)) break;
   }
   return false;
@@ -1263,8 +1262,7 @@ function covered(s: PlanSegment, frame: Ellipse, angle: number, body: Outline): 
  */
 function uncover(p: Part, parts: readonly Part[], segments: PlanSegment[], body: Outline): void {
   const s = segments[p.segment] as PlanSegment;
-  const frame = body[p.segment] as Ellipse;
-  if (!covered(s, frame, p.angle, body)) return;
+  if (!covered(s, p.angle, body)) return;
   const step = D.keep.slide;
   // Never onto another part of the segment, which `separate` would then merge it into.
   const taken = (angle: number): boolean =>
@@ -1275,7 +1273,7 @@ function uncover(p: Part, parts: readonly Part[], segments: PlanSegment[], body:
     for (let way = -1; way <= 1; way += 2) {
       const angle = p.angle + way * k * step;
       if (angle < D.angleMargin || angle > maxAngle) continue;
-      if (!covered(s, frame, angle, body) && !taken(angle)) {
+      if (!covered(s, angle, body) && !taken(angle)) {
         p.angle = angle;
         return;
       }
@@ -1982,10 +1980,9 @@ export function develop(traits: Traits): BodyPlan {
   // Under karyotype v2 parts keep off the drawn body (M6b T7).
   const body = v2 ? outlineOf(segments) : null;
   const R = D.radial;
-  const sweep = lerp(D.sweep, R.drapeSweep, shape.drape);
   const parts = form.radial
     ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape, body as Outline)
-    : bilateralParts(built, segments, sweep, body, scales);
+    : bilateralParts(built, segments, lerp(D.sweep, R.drapeSweep, shape.drape), body, scales);
 
   const appendages = mirror(dress(parts, segments));
   const plates: Plate[] =
