@@ -269,10 +269,15 @@ function chainProfile(traits: Traits) {
  */
 type Build = 'plain' | 'trunk' | 'worm';
 
+/** How many of a chain's front segments the carapace fuses. */
+function fusedCount(fusion: number, n: number): number {
+  return Math.min(n, Math.round(fusion * n));
+}
+
 function buildOf(traits: Traits, form: Bending, n: number): Build {
   const W = D.chain.trunk.worm;
   if (traits.karyotype === 1 || form.radial === 1 || n < D.chain.slimFrom) return 'plain';
-  if (Math.round(traits.shape.fusion * n) >= 2) return 'trunk';
+  if (fusedCount(traits.shape.fusion, n) >= 2) return 'trunk';
   // A coil keeps a trunk's width, so it reads as a spiral shell rather than a thread.
   const curled = traits.shape.curve >= W.curl && form.mode !== 2;
   return n >= W.from && curled ? 'worm' : 'trunk';
@@ -329,7 +334,7 @@ function headShareOf(traits: Traits, build: Build): number {
  * an oval front with a slim tail. The fused count is the carapace's (`buildCarapace`).
  */
 function slimTail(chain: PlanSegment[], fusion: number): PlanSegment[] {
-  const count = Math.min(chain.length, Math.round(fusion * chain.length));
+  const count = fusedCount(fusion, chain.length);
   if (count < 2 || count >= chain.length) return chain;
   let fused = 0;
   let free = 0;
@@ -429,12 +434,13 @@ function chainV2(traits: Traits, build: Build): PlanSegment[] {
   // sum[i]: segment i's distance behind the head's end of the chain, in half-lengths at full size.
   const sum = [0];
   let widest = 0;
+  const base = trunked ? C.trunk.width : C.width;
   for (let i = 1; i < n; i++) {
-    const base = trunked ? C.trunk.width : C.width;
-    width.push(base * radius(i));
+    const r = radius(i);
+    width.push(base * r);
     widest = Math.max(widest, width[i] as number);
     // A trunk chain's segments narrow faster than they shorten, so its tail stays a tail.
-    const long = trunked ? base * Math.sqrt(radius(i)) : (width[i] as number);
+    const long = trunked ? base * Math.sqrt(r) : (width[i] as number);
     along.push(long * stretchOf(i));
     sum.push(
       (sum[i - 1] as number) + (i > 1 ? (along[i - 1] as number) : 0) + (along[i] as number),
@@ -1304,7 +1310,7 @@ const NO_CARAPACE: Carapace = { count: 0, x: 0, y: 0, rx: 0, ry: 0, angle: 0, th
 
 /** One ellipse over the front `count` segments: along the axis from the rearmost fused centre to the core. */
 function buildCarapace(segments: PlanSegment[], fusion: number, plating: number): Carapace {
-  const count = Math.min(segments.length, Math.round(fusion * segments.length));
+  const count = fusedCount(fusion, segments.length);
   if (count < 1) return { ...NO_CARAPACE };
   const last = segments[count - 1] as PlanSegment;
   const angle = count > 1 && (last.y !== 0 || last.angle !== 0) ? atan2(-last.y, -last.x) : 0;

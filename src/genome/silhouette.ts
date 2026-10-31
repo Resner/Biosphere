@@ -101,8 +101,10 @@ export function silhouetteOf(plan: BodyPlan): Silhouette {
   // A big front with a thin tail: a two-segment chain's head, or a longer body up to its widest
   // segment, since its head is narrower than its trunk (M6b T5).
   let widest = 0;
-  for (let i = 1; i < n && n >= 3; i++) {
-    if ((segments[i] as PlanSegment).ry > (segments[widest] as PlanSegment).ry) widest = i;
+  if (n >= 3) {
+    for (let i = 1; i < n; i++) {
+      if ((segments[i] as PlanSegment).ry > (segments[widest] as PlanSegment).ry) widest = i;
+    }
   }
   let front = 0;
   for (let i = 0; i <= widest; i++) front += area(segments[i] as PlanSegment);
