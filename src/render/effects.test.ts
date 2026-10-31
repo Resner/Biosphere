@@ -87,35 +87,44 @@ describe('Effects', () => {
     expect(fx.snapshot().dash).toBe(FX.ringCapacity * 3);
   });
 
-  it('raises the vignette on damage and keeps it while damage continues', () => {
+  it('reddens the body on damage and keeps it red while damage continues', () => {
     const fx = new Effects();
-    expect(fx.vignette).toBe(0);
+    expect(fx.hurt).toBe(0);
     for (let i = 0; i < 90; i++) {
       fx.onEvent({ type: 'damage', creature: 'p', amount: 0.3, cause: 'starved' }, AT);
       fx.update(1 / 30);
-      expect(fx.vignette).toBeGreaterThanOrEqual(FX.vignetteFloor * 0.5);
+      expect(fx.hurt).toBeGreaterThanOrEqual(FX.hurtFloor * 0.5);
     }
     expect(fx.snapshot().damage).toBe(90);
   });
 
-  it('fades the vignette out after the damage stops', () => {
+  it('fades the red pulse out after the damage stops', () => {
     const fx = new Effects();
     fx.onEvent({ type: 'damage', creature: 'p', amount: 1, cause: 'toxin' }, AT);
-    const start = fx.vignette;
-    expect(start).toBeGreaterThanOrEqual(FX.vignetteFloor);
+    const start = fx.hurt;
+    expect(start).toBeGreaterThanOrEqual(FX.hurtFloor);
     fx.update(0.2);
-    expect(fx.vignette).toBeLessThan(start);
+    expect(fx.hurt).toBeLessThan(start);
     fx.update(3);
-    expect(fx.vignette).toBeLessThan(0.01);
+    expect(fx.hurt).toBeLessThan(0.01);
   });
 
-  it('stronger hits show a stronger vignette, up to 1', () => {
+  it('stronger hits redden more, up to 1', () => {
     const weak = new Effects();
     const strong = new Effects();
     weak.onEvent({ type: 'damage', creature: 'p', amount: 0.1, cause: 'toxin' }, AT);
     strong.onEvent({ type: 'damage', creature: 'p', amount: 50, cause: 'toxin' }, AT);
-    expect(strong.vignette).toBeGreaterThan(weak.vignette);
-    expect(strong.vignette).toBeLessThanOrEqual(1);
+    expect(strong.hurt).toBeGreaterThan(weak.hurt);
+    expect(strong.hurt).toBeLessThanOrEqual(1);
+  });
+
+  it('never paints an edge vignette: damage reddens the body and shakes instead (M6b T10)', () => {
+    const fx = new Effects();
+    for (const cause of ['uv', 'pressure', 'toxin', 'starved'] as const) {
+      fx.onEvent({ type: 'damage', creature: 'p', amount: 5, cause }, AT);
+      expect(fx.snapshot().vignette, cause).toBe(0);
+      expect(fx.snapshot().hurt, cause).toBeGreaterThan(0);
+    }
   });
 
   it('dissolves for at least a second, then reports it finished', () => {
@@ -172,6 +181,7 @@ describe('Effects', () => {
       grow: 0,
       tier: 0,
       rings: 0,
+      hurt: 0,
       vignette: 0,
     });
     expect(fx.dissolve).toBe(0);

@@ -6,12 +6,12 @@ export const FX = {
   rippleSeconds: 0.85,
   /** Rings drawn at once; the oldest is replaced when a burst overflows the pool. */
   ringCapacity: 24,
-  /** The least the vignette shows on any hit, so a trickle of damage still reads. */
-  vignetteFloor: 0.4,
-  /** Extra vignette per hit point taken in one tick. */
-  vignettePerHp: 0.05,
+  /** The least the body's red pulse shows on any hit, so a trickle of damage still reads. */
+  hurtFloor: 0.4,
+  /** Extra red per hit point taken in one tick. */
+  hurtPerHp: 0.05,
   /** Time constant of the fade once damage stops. */
-  vignetteFadeSeconds: 0.25,
+  hurtFadeSeconds: 0.25,
   /** The body dissolves for this long before the death screen appears. */
   dissolveSeconds: 1.2,
   /** Size of an eat pop and of a dash ripple, in cell radii. */
@@ -61,8 +61,10 @@ export interface FxSnapshot {
   cost: number;
   /** Rings alive right now. */
   rings: number;
-  /** 0..1, how much red edge the screen shows. */
-  vignette: number;
+  /** 0..1, how red the body is from recent damage (it drives the health bar's flash too). */
+  hurt: number;
+  /** The red edge vignette of M1–M6; M6b T10 shakes instead, so it always reads 0. */
+  vignette: 0;
   /** 0..1, how far the dying body has dissolved. */
   dissolve: number;
 }
@@ -74,13 +76,13 @@ export interface FxAnchor {
 }
 
 /**
- * The feedback cues for one creature: pops on eating, ripples on dashing, a red edge while
- * damaged and the dissolve on death. Pure presentation state: it reads sim events and never feeds
+ * The feedback cues for one creature: pops on eating, ripples on dashing, a red body while
+ * damaged (the shake is `Shake`'s) and the dissolve on death. Pure presentation state: it reads sim events and never feeds
  * back into the sim.
  */
 export class Effects {
   readonly rings: Ring[] = [];
-  vignette = 0;
+  hurt = 0;
   dissolve = 0;
   private dissolving = false;
   /** The frame that starts the dissolve ends before the body is drawn dissolving, so it is not counted. */
@@ -113,10 +115,7 @@ export class Effects {
         break;
       case 'damage':
         this.damage++;
-        this.vignette = Math.max(
-          this.vignette,
-          Math.min(1, FX.vignetteFloor + event.amount * FX.vignettePerHp),
-        );
+        this.hurt = Math.max(this.hurt, Math.min(1, FX.hurtFloor + event.amount * FX.hurtPerHp));
         break;
     }
   }
@@ -192,9 +191,9 @@ export class Effects {
       if (ring.age < ring.life) this.rings[live++] = ring;
     }
     this.rings.length = live;
-    this.vignette *= Math.exp(-dt / FX.vignetteFadeSeconds);
+    this.hurt *= Math.exp(-dt / FX.hurtFadeSeconds);
     // Snap to exactly 0 so the shaders can skip the hurt tint.
-    if (this.vignette < 0.002) this.vignette = 0;
+    if (this.hurt < 0.002) this.hurt = 0;
     if (this.shrinkAge >= 0) {
       this.shrinkAge += dt;
       if (this.shrinkAge >= FX.shrinkSeconds) this.shrinkAge = -1;
@@ -207,7 +206,7 @@ export class Effects {
 
   reset(): void {
     this.rings.length = 0;
-    this.vignette = 0;
+    this.hurt = 0;
     this.dissolve = 0;
     this.dissolving = false;
     this.dissolveFresh = false;
@@ -232,7 +231,8 @@ export class Effects {
       bursts: this.bursts,
       cost: this.cost,
       rings: this.rings.length,
-      vignette: this.vignette,
+      hurt: this.hurt,
+      vignette: 0,
       dissolve: this.dissolve,
     };
   }

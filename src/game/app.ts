@@ -28,6 +28,7 @@ import { EGG } from '../render/egg';
 import { type PresetName, resolvePreset } from '../render/presets';
 import type { RemoteCellView } from '../render/remotes';
 import { GameScene } from '../render/scene';
+import { Shake } from '../render/shake';
 import { nearestInZone, sightRadius } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
 import { colliderReach } from '../sim/body';
@@ -76,6 +77,7 @@ import { attachVisibilityPause, createLoop } from './loop';
 import { MateFlow, type Nearby, randomNonce } from './mate';
 import { inspectCard } from './mate-card';
 import { readyText } from './mate-text';
+import { Minimap, type MinimapView } from './minimap';
 import { OffspringFlow } from './offspring';
 import { drawPreview } from './offspring-preview';
 import { childLine, type FallbackId, fallbackOptions } from './offspring-text';
@@ -122,6 +124,8 @@ export interface GameParams {
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
 const FIELD_MARGIN = RULES.food.driftRadius + RULES.food.kinds.globule.radius;
 const MAX_FRAME_SECONDS = 0.1;
+/** The body's red pulse above this flashes the health bar too (M6b T10). */
+const HURT_FLASH = 0.05;
 /** `debug.steerTo` gives up after this many ticks (30 s). */
 /** The most sim ticks of water flow one frame integrates: a stalled tab must not fling the snow. */
 const MAX_FLOW_TICKS = TICK_HZ;
@@ -334,12 +338,17 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   let emerging: Session | null = null;
   /** The eggs' clock: wall time, held still while the world is frozen (`timeScale(0)`), as the shaders' is. */
   const eggClock = (): number => performance.now() - heldMs;
-  const vignette = pick('[data-testid="vignette"]');
+  // Damage shakes the body and the camera slightly (M6b T10), in place of the red edge.
+  const shake = new Shake();
   const labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));
   // Finding other players (M6 T19): arrows on the screen's edge and the pond map.
   const indicatorsUi = new EdgeIndicatorsUi(pick('[data-testid="edge-indicators"]'));
   let indicators: Indicator[] = [];
   const pondMap = new PondMap();
+  // The minimap (M6b T10): a click on it opens the pond map, as M does.
+  const minimap = new Minimap(() => {
+    if (playing() && session.player.alive) pondMap.toggle();
+  });
 
   // Other players, drawn from the snapshots they send. Pond time is the hub's clock once a pond is
   // joined; until then it is this tab's own clock.
@@ -557,6 +566,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     session = next;
     endLifeState();
     fx.reset();
+    shake.reset();
+    minimap.invalidate();
     growth.reset();
     controller.reset();
     heldInput = IDLE;
@@ -1171,6 +1182,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     for (const event of events) {
       if (event.creature !== player.id) continue;
       fx.onEvent(event, anchorFor(event));
+      if (event.type === 'damage') shake.hit(event.cause);
       if (!session.demo) cueWatch.onEvent(event, session.ticks);
       if (event.type === 'eat') hud.pulseEnergy();
     }
@@ -1511,13 +1523,18 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     });
   };
   let flowTick = 0;
-  let shownVignette = -1;
-  const setVignette = (amount: number): void => {
-    // Rounded so a steady fade does not rewrite the style every frame.
-    const rounded = Math.round(amount * 100) / 100;
-    if (rounded === shownVignette) return;
-    shownVignette = rounded;
-    vignette.style.opacity = String(rounded);
+  /** The player's body as drawn: the cell, moved by the damage shake (the HUD and labels follow `cell`). */
+  const drawnCell: CellView = { ...cell };
+  /** What the minimap shows (M6b T10); refreshed every frame, drawn at most 10 times a second. */
+  const minimapView: MinimapView = {
+    seed: session.world.seed32,
+    size: session.world.size,
+    self: { x: 0, y: 0, heading: 0, radius: 1 },
+    halfHeight: 1,
+    aspect: 1,
+    players: NO_REMOTES,
+    pings: [],
+    readout: null,
   };
 
   /** A scripted remote's snapshot goes through the real codec and into the set, as a peer's would. */
@@ -1588,18 +1605,29 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     // The drawn size: the shrink of a mating's cost, and a hatchling's pop out of its egg.
     const emerge = session === emerging ? eggs.reveal.emerge(eggNow) : 1;
     cell.scale = (fx.drawnRadius(cell.radius) / cell.radius) * emerge;
-    cell.hurt = fx.vignette;
+    cell.hurt = fx.hurt;
     cell.dissolve = fx.dissolve;
-    view.creature = fx.dissolved ? null : cell;
+    // The shake moves only what the scene draws: the body and the camera, never the sim or the DOM.
+    shake.update(dt, reduced);
+    const shift = cell.radius * cell.scale;
+    Object.assign(drawnCell, cell);
+    drawnCell.x = cell.x + shake.body.x * shift;
+    drawnCell.y = cell.y + shake.body.y * shift;
+    view.camX = camera.x + shake.camera.x / scene.pxPerWu;
+    view.camY = camera.y + shake.camera.y / scene.pxPerWu;
+    view.creature = fx.dissolved ? null : drawnCell;
     view.sight = sightRadius(session.body.creature.stats.sense, cell.radius);
+    hud.setHurt(fx.hurt > HURT_FLASH);
+    minimapView.readout = null;
     if (!session.demo) {
       const { world } = session;
       const depth = depthAt(world.seed32, player.x, player.y);
-      hud.setZone(zoneReadout(depth, player.phys, world.options.hazards && player.alive));
+      const readout = zoneReadout(depth, player.phys, world.options.hazards && player.alive);
+      hud.setZone(readout);
+      minimapView.readout = readout;
       sound.setZone(zoneOfDepth(depth), depth);
     }
     sound.setListener(camera.x, camera.y, scene.width / 2 / scene.pxPerWu);
-    setVignette(fx.vignette);
     // The death screen waits for the body to dissolve, so the player sees what killed them.
     if (session.death !== null && fx.dissolved && screen === 'playing') {
       screen = 'dead';
@@ -1645,6 +1673,19 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     const finding = playing() && session.player.alive;
     indicators = finding ? edgeIndicators(cell, remoteViews, social.pings(), projection) : [];
     indicatorsUi.update(indicators, projection);
+    if (finding) {
+      minimapView.seed = session.world.seed32;
+      minimapView.size = session.world.size;
+      minimapView.self.x = cell.x;
+      minimapView.self.y = cell.y;
+      minimapView.self.heading = cell.heading;
+      minimapView.self.radius = cell.radius;
+      minimapView.halfHeight = camera.halfHeight;
+      minimapView.aspect = scene.width / Math.max(1, scene.height);
+      minimapView.players = remoteViews;
+      minimapView.pings = social.pings();
+      minimap.update(now, minimapView);
+    }
     if (!finding) pondMap.close();
     else if (pondMap.isOpen) {
       pondMap.update({
@@ -1960,6 +2001,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       indicators: indicators.map((i) => ({ ...i })),
       wheel: wheel.info(),
       map: pondMap.info(),
+      minimap: minimap.info(),
       net: {
         text: shownStatus,
         status: keeper.current?.status ?? 'none',
@@ -1997,6 +2039,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       outlines: () => scene.outlinesDrawn(),
       fx: () => ({
         ...fx.snapshot(),
+        shake: {
+          body:
+            Math.hypot(shake.body.x, shake.body.y) *
+            cell.radius *
+            (cell.scale ?? 1) *
+            scene.pxPerWu,
+          camera: Math.hypot(shake.camera.x, shake.camera.y),
+          kind: shake.kind,
+        },
         halfHeight: camera.halfHeight,
         camX: camera.x,
         camY: camera.y,

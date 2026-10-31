@@ -147,6 +147,9 @@ export const M6_WHEEL_HUB = 'http://localhost:8799';
 /** The M6 authority for the lifecycle spec, with the M5 hooks, alone in its pond. */
 export const M6_LIFECYCLE_HUB = 'http://localhost:8800';
 
+/** The M6b authority for the minimap spec, alone in its pond. */
+export const M6B_MINIMAP_HUB = 'http://localhost:8802';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);

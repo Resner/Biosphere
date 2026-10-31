@@ -31,9 +31,14 @@ export function mapSpot(x: number, y: number, size: number): { u: number; v: num
 
 /**
  * RGBA pixels for a depth grid of `n` × `n` bytes (row = y, south first, as `depthGrid` gives):
- * row 0 of the picture is the north edge, and a texel beside another zone is drawn lighter.
+ * row 0 of the picture is the north edge, and a texel beside another zone is drawn `lighten`
+ * lighter (the pond map's outline; the minimap draws none and lets smoothing soften the edges).
  */
-export function zonePixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayBuffer> {
+export function zonePixels(
+  grid: Uint8Array,
+  n: number,
+  lighten = EDGE_LIGHTEN,
+): Uint8ClampedArray<ArrayBuffer> {
   const zones: Zone[] = Array.from(grid, (d) => zoneOfDepth(d / 255));
   const zoneAt = (i: number, j: number): Zone | null =>
     i < 0 || j < 0 || i >= n || j >= n ? null : (zones[j * n + i] as Zone);
@@ -46,12 +51,47 @@ export function zonePixels(grid: Uint8Array, n: number): Uint8ClampedArray<Array
       );
       const o = ((n - 1 - j) * n + i) * 4;
       MAP_COLOURS[zone].forEach((c, k) => {
-        out[o + k] = Math.round((edge ? c + (1 - c) * EDGE_LIGHTEN : c) * 255);
+        out[o + k] = Math.round((edge ? c + (1 - c) * lighten : c) * 255);
       });
       out[o + 3] = 255;
     }
   }
   return out;
+}
+
+/** The last pond's depth grid and its two pictures, outlined (the pond map) and plain (the minimap). */
+const zoneCache: {
+  key: string;
+  grid: Uint8Array | null;
+  images: { outlined: HTMLCanvasElement | null; plain: HTMLCanvasElement | null };
+} = { key: '', grid: null, images: { outlined: null, plain: null } };
+
+/**
+ * The pond's zones as a picture (`ZONE_TEXTURE_SIZE` square, north up), built once per pond from one
+ * depth grid and shared by the pond map (`outlined`) and the minimap (`plain`, M6b T10).
+ */
+export function zoneImage(
+  seed: Seed,
+  size: number,
+  style: 'outlined' | 'plain' = 'outlined',
+): HTMLCanvasElement {
+  const n = ZONE_TEXTURE_SIZE;
+  const key = `${seed.join('.')}/${size}`;
+  if (key !== zoneCache.key || !zoneCache.grid) {
+    zoneCache.key = key;
+    zoneCache.grid = depthGrid(seed, size, n);
+    zoneCache.images.outlined = null;
+    zoneCache.images.plain = null;
+  }
+  const cached = zoneCache.images[style];
+  if (cached) return cached;
+  const canvas = document.createElement('canvas');
+  canvas.width = n;
+  canvas.height = n;
+  const pixels = zonePixels(zoneCache.grid, n, style === 'outlined' ? EDGE_LIGHTEN : 0);
+  canvas.getContext('2d')?.putImageData(new ImageData(pixels, n, n), 0, 0);
+  zoneCache.images[style] = canvas;
+  return canvas;
 }
 
 export interface MapPlayer {
@@ -222,9 +262,6 @@ export class PondMap {
     const n = ZONE_TEXTURE_SIZE;
     this.canvas.width = n;
     this.canvas.height = n;
-    const context = this.canvas.getContext('2d');
-    if (!context) return;
-    const pixels = zonePixels(depthGrid(seed, size, n), n);
-    context.putImageData(new ImageData(pixels, n, n), 0, 0);
+    this.canvas.getContext('2d')?.drawImage(zoneImage(seed, size), 0, 0);
   }
 }

@@ -14,6 +14,7 @@ import type { DrawnOutline } from '../render/outlines';
 import type { Speck } from '../render/particles';
 import type { ParticleLayerName, PresetName, QualitySetting } from '../render/presets';
 import type { RenderInfo } from '../render/scene';
+import type { ShakeKind } from '../render/shake';
 import type { Zone } from '../sim/bathymetry';
 import type { PhysStats } from '../sim/body';
 import type { LifeStage } from '../sim/life';
@@ -23,6 +24,7 @@ import type { BenchStatus } from './auto-quality';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
+import type { MinimapInfo } from './minimap';
 import type { DeathSummary, Screen } from './screens';
 import type { WheelInfo } from './wheel';
 
@@ -174,6 +176,13 @@ export interface BsState {
   /** The pond map (M): whether it is open, and the player dots and pings it shows. */
   map: { open: boolean; players: number; pings: number };
   /**
+   * The minimap as last drawn (M6b T10): `shown`, its radius in world units, the zone and depth
+   * under the player, the `hazard` hurting now (`uv`, `pressure` or null), and the `players` and
+   * `pings` on it (`id`, CSS-pixel `x` and `y` inside the minimap; players' `size` class and
+   * `ready`, pings' `kind`).
+   */
+  minimap: MinimapInfo;
+  /**
    * The social wheel (M6 T24): open, its items (with each one's CSS-pixel centre while open), the
    * world point a ping would land on, the wheel's centre and the cursor it opened at.
    */
@@ -245,6 +254,11 @@ export interface BsGenome {
 
 /** The feedback cues now showing: counts since hatching, plus the camera's current zoom. */
 export interface FxState extends FxSnapshot {
+  /**
+   * The damage shake now (M6b T10): the body's offset and the camera's, in CSS pixels, and the
+   * strongest shake running (`uv`, `pressure`, `jolt`) or null.
+   */
+  shake: { body: number; camera: number; kind: ShakeKind | null };
   /** Visible half-height in world units, as drawn. */
   halfHeight: number;
   /** Where the camera looks, in world units. */

@@ -2,8 +2,8 @@ import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { clickHatch, hatch, openGame, openRecorded, state, waitPlaying } from './helpers';
 
-// The HUD shell (M6b T9): one menu button, four thin stat bars and nothing else on the play
-// screen; the numbers live in the menu, the controls in first-life hints and the menu.
+// The HUD shell (M6b T9): one menu button, four thin stat bars and the minimap (T10) and nothing
+// else on the play screen; the numbers live in the menu, the controls in first-life hints and the menu.
 
 test.describe.configure({ mode: 'serial' });
 
@@ -13,9 +13,10 @@ const STATS = ['health', 'energy', 'size', 'life'] as const;
 const strayText = (page: Page) =>
   page.evaluate(() => {
     // Toasts (the alone and mate hints are toasts too: each shows only for an event), chat lines,
-    // labels over creatures, edge-indicator labels, the first-life hints, the chips and the online counter (owner request).
+    // labels over creatures, edge-indicator labels, the first-life hints, the chips, the online
+    // counter (owner request) and the zone's name under the minimap's depth arc (M6b T10).
     const allowed =
-      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip, [data-testid="net-status"]';
+      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip, [data-testid="net-status"], [data-testid="minimap-zone"]';
     const out: string[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -35,12 +36,13 @@ const strayText = (page: Page) =>
     return out;
   });
 
-/** The share of the viewport the always-on HUD covers: the menu button, the bars and the depth bar. */
+/** The share of the viewport the always-on HUD covers: the menu button, the bars and the minimap with its label. */
 const hudCover = (page: Page) =>
   page.evaluate(() => {
     const parts = [
       document.querySelector('[data-testid="hud-menu"]'),
       ...document.querySelectorAll('.hud .stat'),
+      document.querySelector('.minimap'),
     ].filter((el): el is HTMLElement => el instanceof HTMLElement && el.checkVisibility());
     const area = parts.reduce((sum, el) => {
       const r = el.getBoundingClientRect();
@@ -51,7 +53,7 @@ const hudCover = (page: Page) =>
 
 const hudState = async (page: Page) => (await state(page)).hud;
 
-test('the play screen shows one menu button and four bars, and nothing else', async ({
+test('the play screen shows one menu button, four bars and the minimap, and nothing else', async ({
   browser,
 }) => {
   test.setTimeout(60_000);
@@ -108,9 +110,15 @@ test('the play screen shows one menu button and four bars, and nothing else', as
             };
           }),
           tick: track && mark ? (mark.left + mark.width / 2 - track.left) / track.width : -1,
-          depth: document
-            .querySelector<HTMLElement>('[data-testid="hud-depth"]')
-            ?.checkVisibility(),
+          depthBar: document.querySelector('[data-testid="hud-depth"]'),
+          minimap: box(document.querySelector('[data-testid="minimap"]')),
+          minimapShown: bs.state().minimap.shown,
+          // The corner radius in pixels (a percentage is of the box's width).
+          radius: (() => {
+            const el = document.querySelector('[data-testid="minimap"]') as HTMLElement;
+            const r = getComputedStyle(el).borderTopLeftRadius;
+            return r.endsWith('%') ? (parseFloat(r) / 100) * el.offsetWidth : parseFloat(r);
+          })(),
         };
       }, STATS);
       expect(look.hud.menu, at).toBe(false);
@@ -148,8 +156,18 @@ test('the play screen shows one menu button and four bars, and nothing else', as
       );
       // The size bar has a tick at the maturity size, 60% of the adult.
       expect(look.tick).toBeCloseTo(0.6, 1);
-      // Until the minimap (T10), a compact depth bar.
-      expect(look.depth).toBe(true);
+      // The minimap replaces the depth bar (T10): round, top right, 12% of the short side and at
+      // least 120 px.
+      expect(look.depthBar, at).toBeNull();
+      expect(look.minimapShown, at).toBe(true);
+      const mm = look.minimap;
+      if (!mm) throw new Error('no minimap');
+      const side = Math.max(120, Math.round(0.12 * Math.min(width, height)));
+      expect(mm.width, at).toBeCloseTo(side, 0);
+      expect(mm.height, at).toBeCloseTo(side, 0);
+      expect(look.radius, at).toBeGreaterThanOrEqual(side / 2 - 1);
+      expect(width - (mm.x + mm.width), at).toBeLessThanOrEqual(24);
+      expect(mm.y, at).toBeLessThanOrEqual(64);
 
       const cover = await hudCover(page);
       expect(cover.parts, at).toBe(6);

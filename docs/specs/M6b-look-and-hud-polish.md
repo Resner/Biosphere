@@ -344,7 +344,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - Gotcha: `state().hud.bars.life` is null while its bar is hidden (practice cell); the recorded-life check uses the M4 hub (8790); the egg chip reads "H" with the full name as its accessible name; Biome needs a suppression for `role="meter"` on a div.
     - Owner follow-up (Playtest #183): the online counter (`net-status`) is back in the top-right corner during play, and every HUD surface is glass (`--glass`, blur, shine). T10's minimap sits below that pill.
 
-- [ ] T10 The minimap, and shaking instead of borders [opus] (in progress)
+- [x] T10 The minimap, and shaking instead of borders [opus] (in progress)
   - Acceptance:
     - **The minimap** (`src/game/minimap.ts`, top-right corner, round, 12% of the viewport's short side and at least 120 px):
       - it is north-up and centred on the player, covering 6 view half-heights;
@@ -365,6 +365,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
       `render.fx().shake` reports the offsets. `m1-feel`'s "damage raises the vignette" and the UV and pressure steps of `m6-lifecycle` now assert the shake and the hazard icon: the cue changed, so the tests change, and no assertion is dropped. Every damage source keeps a visible and an audible cue (`.claude/rules/game.md`).
     - DESIGN §2 (zones on screen), §9 (finding players) and §10 (Damage, UV and pressure, presentation timings) follow; the spec wrote the shape.
   - Notes: reuse `pond-map.ts`'s zone canvas and marks where possible. The full map stays as it is, apart from its style.
+  - Done: `minimap.ts` (canvas at ≤10 Hz, the pond map's depth picture unoutlined and blurred, depth arc down the right rim, hazard icon top left, click opens the map) and `render/shake.ts`; red edge, `uv-cue`, `pressure-cue` and the depth bar removed, the health bar flashes (`data-hurt`).
+  - Gotcha: the deep's lower part presses too, so tests check a clear rim in the twilight; the minimap's corner pushes edge indicators at shallow up-right bearings down the side (`hudCorners`), and `fx().vignette` stays 0 while `hurt` drives the red pulse.
 
 ### The egg
 

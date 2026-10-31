@@ -192,24 +192,33 @@ test('a creature beyond the sight ring in the abyss is dimmed but keeps its rim'
   );
 });
 
+// M6b T10: the cue is the minimap's hazard icon (a sun for UV) and a shake, not an overlay.
 test('the UV cue shows only in the shallows, and only below full UV tolerance', async ({
   page,
 }) => {
   await play(page, DARK);
   const s = await state(page);
   expect(s.player?.stats.uvTolerance).toBeLessThan(1);
-  const cue = page.getByTestId('uv-cue');
+  const cue = page.locator('[data-testid="minimap-hazard"][data-hazard="uv"]');
   for (const zone of ['twilight', 'deep', 'abyss'] as const) {
     await goToZone(page, zone);
     await expect(cue).toBeHidden();
   }
   await goToZone(page, 'shallows');
   await expect(cue).toBeVisible();
+  await expect(cue).toHaveAccessibleName('UV burns');
+  await expect.poll(async () => (await state(page)).minimap.hazard).toBe('uv');
+  await expect(page.getByTestId('uv-cue')).toHaveCount(0);
   await expect(page.getByTestId('hud-zone-warning')).toHaveText('UV burns');
   // The burn has its sizzle once time runs (M6 T23).
   expect((await state(page)).audio.cues.uv ?? 0).toBe(0);
   await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
   await expect.poll(async () => (await state(page)).audio.cues.uv ?? 0).toBeGreaterThan(0);
+  // The burn trembles the body (M6b T10).
+  await page.waitForFunction(() => {
+    const shake = (window.__bs as BsHook).render.fx().shake;
+    return shake.kind === 'uv' && shake.body > 0;
+  });
 
   await play(page, UV_PROOF);
   expect((await state(page)).player?.stats.uvTolerance).toBe(1);
@@ -221,12 +230,19 @@ test('the UV cue shows only in the shallows, and only below full UV tolerance', 
 test('the pressure cue shows in the abyss for a creature that feels it', async ({ page }) => {
   await play(page, DARK);
   expect((await state(page)).player?.stats.pressureTolerance).toBeLessThan(1);
-  const cue = page.getByTestId('pressure-cue');
+  const cue = page.locator('[data-testid="minimap-hazard"][data-hazard="pressure"]');
   await goToZone(page, 'twilight');
   await expect(cue).toBeHidden();
   await goToZone(page, 'abyss');
   await expect(cue).toBeVisible();
+  await expect(cue).toHaveAccessibleName('Pressure crushes');
+  await expect(page.getByTestId('pressure-cue')).toHaveCount(0);
   await expect(page.getByTestId('hud-zone-warning')).toHaveText('Pressure crushes');
   await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
   await expect.poll(async () => (await state(page)).audio.cues.pressure ?? 0).toBeGreaterThan(0);
+  // The squeeze shakes the body (M6b T10).
+  await page.waitForFunction(() => {
+    const shake = (window.__bs as BsHook).render.fx().shake;
+    return shake.kind === 'pressure' && shake.body > 0;
+  });
 });
