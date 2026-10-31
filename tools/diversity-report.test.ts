@@ -15,6 +15,7 @@ describe('diversity report', () => {
       '## Size tiers',
       '## Rarity',
       '## Looks',
+      '## Legs',
       '## Mesh vertices',
       '## Development time',
     ]) {
@@ -26,6 +27,12 @@ describe('diversity report', () => {
     expect(text).toContain('Valid bodies: 120 of 120 (0 invalid)');
     expect(text).toContain('Genesis: 60');
     expect(text).toContain('Bred: 60 over 3 generations');
+  });
+
+  it('bristles at least half of the bred parts but the whip with 6 or more setae (M6b T7)', () => {
+    const line = text.split('\n').find((l) => l.startsWith('- Bred parts but the whip')) as string;
+    const share = Number(/([\d.]+)% with 6\+ bristles/.exec(line)?.[1]);
+    expect(share).toBeGreaterThanOrEqual(50);
   });
 
   it('is deterministic apart from the timings', () => {

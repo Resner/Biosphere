@@ -9,6 +9,7 @@ import { bodyViolations, develop } from './develop';
 import { express } from './express';
 import { genesisGenome } from './genesis';
 import { genesisGenomeV5 } from './genesis-v5';
+import { genesisGenomeV6 } from './genesis-v6';
 import {
   applyMutation,
   breed,
@@ -501,9 +502,13 @@ describe('goldens', () => {
       hashes: Record<string, string>;
     };
     expect(golden.rulesVersion).toBe(6);
+    // The parents are rules 6 genesis cells: rules 7 bristles its own (M6b T7).
+    const parentV6 = (i: number): Genome => genesisGenomeV6(seedOf('inherit-parent', i));
     for (const i of [0, 1, 2]) {
       const seed = offspringSeed(new Uint8Array(32).fill(i), `golden-${i}`, 0);
-      expect(genomeHash(breed(parent(i), parent(i + 100), seed))).toBe(golden.hashes[`child-${i}`]);
+      expect(genomeHash(breed(parentV6(i), parentV6(i + 100), seed))).toBe(
+        golden.hashes[`child-${i}`],
+      );
     }
   });
 

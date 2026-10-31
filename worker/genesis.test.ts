@@ -324,13 +324,16 @@ describe('waiting for the beacon', () => {
 
 describe('genesis checks', () => {
   it('differs per request and is equal in workerd and Node for the same inputs', async () => {
-    // The same pinned values as src/ledger/genesis.test.ts: rules 5 (karyotype v1) and rules 6.
+    // The same pinned values as src/ledger/genesis.test.ts: rules 5 (karyotype v1), 6 and 7.
     const r = randomnessOf(beaconOf(rounds.first + 2));
     expect(genomeHash(genesisFor(r, 'ab'.repeat(32), 5))).toBe(
       'f3f00a538769f2625bf8059c78d6d50f1b99424e9f098f6691db299475d2e7d3',
     );
-    expect(genomeHash(genesisFor(r, 'ab'.repeat(32)))).toBe(
+    expect(genomeHash(genesisFor(r, 'ab'.repeat(32), 6))).toBe(
       'eacba69a06de03be8480bbd6a9f706f043dfb24788481be4bebde32b9027a127',
+    );
+    expect(genomeHash(genesisFor(r, 'ab'.repeat(32)))).toBe(
+      'b78bafb763c5994e757c0647ce047beeeaabe8435ed48095e47b2bab98adffaa',
     );
 
     const a = await login();

@@ -426,6 +426,34 @@ export const RULES = deepFreeze({
      * `capShare` of its length, which the length includes.
      */
     part: { turn: 1.2, fold: 0.8, capBlunt: 0.3, capSharp: 2.2, capShare: 0.3 },
+    /**
+     * Thin legs that keep off the body (M6b T7, ADR 0039), under karyotype v2. A part's base width
+     * scales with its root segment: the width gene's range is narrowed so its top is `width` of
+     * that segment's drawn half-width (the head's for a radial ring, its straight twin's for a
+     * coil), but never below `floor` (or the gene, or that top): thin genes stay as they were,
+     * and a hair-thin part would break into specks on screen. The ciliary band keeps its own. A
+     * thinned paddle tip widens back toward its gene width
+     * by its paddle share, from `blade[0]` of its length to `blade[1]` and on to the tip, at most
+     * to `bladeMax` of its root's half-width. A bilateral part rooted inside a neighbouring segment
+     * slides round its own segment, in steps of `slide` radians, to the nearest free angle, and a
+     * radial ring spreads over the core's free arc in front of a trailing chain (found at
+     * `arcSamples` angles, refined `arcSteps` halvings). A fitted part with more than `over` of its
+     * centre line (sampled at `samples` points) inside the segments' outline turns outward
+     * instead, in steps of `step` radians either way up to straight back, nearest first, and
+     * shortens where the bounds then need it.
+     */
+    legs: {
+      width: 0.5,
+      floor: 0.08,
+      over: 0.2,
+      samples: 16,
+      step: 0.2,
+      slide: 0.05,
+      arcSamples: 32,
+      arcSteps: 4,
+      blade: [0.3, 0.7],
+      bladeMax: 2,
+    },
     /** Fine parts (M6 T8, ADR 0025): detail on parts, never parts. Each at 0 leaves the v1 body. */
     detail: {
       /** A webbed part spans a sheet `webbing` of the way along its rays: to its branches, and to the next part rearward on its side (or, the rearmost, to its own mirror: a tail fan) when their roots lie at most `webSpan` apart. Pieces under `minArea` are dropped. */
@@ -485,8 +513,8 @@ export const RULES = deepFreeze({
     /** Development v2 (M6 T7, ADR 0025). */
     v2: {
       /** A radial ring thrusts forward at this × its rearward share ((1 − cos dir) ÷ 2), and its base steer is × (1 + `radialSteer`). */
-      radialThrust: 0.7,
-      radialSteer: 0.6,
+      radialThrust: 0.4,
+      radialSteer: 1.2,
       /** Each eye adds this × radius × (1 + stalk) to the detection ring and `eyeBasal` × radius to the basal multiplier. */
       eyeSense: 1.5,
       eyeBasal: 0.3,
@@ -500,7 +528,7 @@ export const RULES = deepFreeze({
        * Setae, by fringe (bristles × length, summed): `drag` each; up to `sense` on the detection
        * ring and up to `mouth` wider filter mouth at a fringe of `full`; `basal` per bristle.
        */
-      setae: { drag: 0.004, sense: 1, mouth: 0.25, full: 30, basal: 0.002 },
+      setae: { drag: 0.004, sense: 1.15, mouth: 0.25, full: 30, basal: 0.002 },
       /** A bulb adds `spines` × radius to the spine share (capped at 1), its disc × `mass`, and `basal`. */
       bulb: { spines: 1.5, mass: 1, basal: 0.02 },
       /** A chela grips with `power` × chela × stiffness × its last joint's length, weighs `mass` × its area, costs `basal`. */

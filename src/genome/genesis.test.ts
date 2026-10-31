@@ -9,7 +9,7 @@ import { express } from './express';
 import { GENESIS_EYES, GENESIS_FORMS, GENESIS_FREQ, genesisGenome } from './genesis';
 import { genesisGenomeV5 } from './genesis-v5';
 import { genesisGenomeV6 } from './genesis-v6';
-import { LOCI } from './karyotype';
+import { LOCI, MODULE_EXT, MODULE_LOCI } from './karyotype';
 import { silhouetteOf } from './silhouette';
 import { starterGenome } from './starter';
 import { buildCreature } from './stats';
@@ -218,6 +218,44 @@ describe('genesisGenome', () => {
     expect(
       Math.abs(share((c) => c.traits.modules.some((m) => m.present && m.ext.webbing > 0)) - webbed),
     ).toBeLessThan(tol(webbed, N));
+  });
+
+  it('bristles at least half of its module slots other than the whip (rules 7, M6b T7)', () => {
+    let slots = 0;
+    let bristled = 0;
+    for (const c of creatures) {
+      c.traits.modules.forEach((m, slot) => {
+        if (!m.present || slot === 0) return;
+        slots++;
+        if (m.ext.setaeDensity >= 0.3 && m.ext.setaeLength > 0) bristled++;
+      });
+    }
+    expect(slots).toBeGreaterThan(N / 2);
+    expect(bristled / slots).toBeGreaterThanOrEqual(0.5);
+  });
+
+  it('draws the bristles from their own stream: the v5 and form draws never shift', () => {
+    // Every byte matches the rules 6 cell but the setae of the slots other than the whip.
+    const setae = new Set(
+      MODULE_LOCI.slice(1).flatMap((m) => [
+        m.ext + MODULE_EXT.indexOf('setaeDensity'),
+        m.ext + MODULE_EXT.indexOf('setaeLength'),
+      ]),
+    );
+    let changed = 0;
+    for (let i = 0; i < 200; i++) {
+      const v6 = genesisGenomeV6(seedOf(i)).haplotypes;
+      const v7 = (genomes[i] as Genome).haplotypes;
+      for (const h of [0, 1] as const) {
+        const [a, b] = [v6[h].alleles, v7[h].alleles];
+        expect(b.length).toBe(a.length);
+        for (let k = 0; k < a.length; k++) {
+          if (setae.has(k)) changed += a[k] === b[k] ? 0 : 1;
+          else expect(b[k], `seed ${i} byte ${k}`).toBe(a[k]);
+        }
+      }
+    }
+    expect(changed).toBeGreaterThan(0);
   });
 
   it('swims about as fast as the v5 cell (median within 15%)', () => {

@@ -4,7 +4,14 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import type { Genome } from '../src/genome/codec';
-import { type BodyPlan, develop, type PlanSegment } from '../src/genome/develop';
+import {
+  type Appendage,
+  type BodyPlan,
+  curveAt,
+  develop,
+  type PlanSegment,
+  partCurve,
+} from '../src/genome/develop';
 import type { Traits } from '../src/genome/express';
 import type { Silhouette } from '../src/genome/silhouette';
 import { type GallerySpecimen, parseSpecimen, shownGenome } from '../src/lab/gallery';
@@ -131,3 +138,54 @@ export const links = (plan: BodyPlan): number[] =>
         s.y - (plan.segments[i] as PlanSegment).y,
       ),
     );
+
+/**
+ * Whether body point `p` lies inside the body outline: the union of the segment ellipses, which the
+ * loft fills (the gallery hook's `outline`, parts excluded). A carapace is a clear shell over it, not
+ * the outline: the legs of its fused segments show through it.
+ */
+export function insideBody(plan: BodyPlan, p: { x: number; y: number }): boolean {
+  return plan.segments.some((s) => {
+    const [dx, dy] = [p.x - s.x, p.y - s.y];
+    const [c, n] = [Math.cos(s.angle), Math.sin(s.angle)];
+    const u = (dx * c + dy * n) / s.rx;
+    const v = (dy * c - dx * n) / s.ry;
+    return u * u + v * v < 1 - 1e-9;
+  });
+}
+
+/**
+ * The share of a part's drawn centre line (its arc, then the tip cap: `partCurve`) that lies inside
+ * the body outline, sampled evenly by length (M6b T7).
+ */
+export function insideShare(plan: BodyPlan, a: Appendage, samples = 24): number {
+  const c = partCurve(plan.segments[a.segment] as PlanSegment, a);
+  const total = c.len + c.cap;
+  if (!(total > 0)) return 0;
+  const end = curveAt(c, 1);
+  let inside = 0;
+  for (let k = 0; k < samples; k++) {
+    const d = ((k + 0.5) / samples) * total;
+    const p =
+      d <= c.len
+        ? curveAt(c, d / c.len)
+        : {
+            x: end.x + (d - c.len) * Math.cos(end.heading),
+            y: end.y + (d - c.len) * Math.sin(end.heading),
+          };
+    if (insideBody(plan, p)) inside++;
+  }
+  return inside / samples;
+}
+
+/** A body's trunk legs: the left-side gene parts behind the head of a bilateral body of 3+ segments (M6b T7). */
+export const trunkLegs = (plan: BodyPlan): Appendage[] =>
+  plan.form.radial === 0 && plan.segments.length >= 3
+    ? plan.appendages.filter((a) => a.side === 1 && a.module >= 0 && a.segment >= 1)
+    : [];
+
+/** The median of some numbers (the upper one of an even count). */
+export function median(values: readonly number[]): number {
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.floor(sorted.length / 2)] as number;
+}

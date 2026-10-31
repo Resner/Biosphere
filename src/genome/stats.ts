@@ -12,6 +12,7 @@ import { genomeHash } from './codec';
 import {
   type Appendage,
   type BodyPlan,
+  bladeWidth,
   branchWeight,
   develop,
   dirOf,
@@ -151,7 +152,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
     }
   });
   plan.appendages.forEach((a, i) => {
-    const area = a.length * a.width * branchWeight(a);
+    const area = a.length * bladeWidth(a) * branchWeight(a);
     const arm = arms[i] as number;
     if (a.beat >= D.minBeat) {
       const f = area * a.beat * efficiency(a.tip) * traits.defects.beatStrength * amp;
@@ -165,7 +166,7 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
       steer += f * arm;
     }
     appendageArea += area;
-    appendageDrag += a.width * (1 + a.length) * (1 + a.branches * D.branchScale);
+    appendageDrag += bladeWidth(a) * (1 + a.length) * (1 + a.branches * D.branchScale);
     appendageInertia += area * (arm * arm + (a.length * a.length) / 3);
     // A bulb and a chela's finger weigh at the part's reach.
     const extra = V2.bulb.mass * PI * a.bulb * a.bulb + V2.chela.mass * fingerOf(a) * a.width;

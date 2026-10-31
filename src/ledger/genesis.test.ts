@@ -21,7 +21,7 @@ const rounds: { first: number; beacons: Beacon[] } = JSON.parse(
 const beaconOf = (i: number): Beacon => rounds.beacons[i] as Beacon;
 
 /**
- * The genome hash for the fixture's third beacon and a fixed commit id, pinned for Node and workerd:
+ * under rules 5 (the M4 golden, karyotype v1, frozen), rules 6 (karyotype v2, frozen) and rules 7.
  * under rules 5 (the M4 golden, karyotype v1, frozen) and under rules 6 (karyotype v2).
  */
 const GOLDEN = {
@@ -29,6 +29,8 @@ const GOLDEN = {
   beaconIndex: 2,
   genomeHash: 'f3f00a538769f2625bf8059c78d6d50f1b99424e9f098f6691db299475d2e7d3',
   genomeHashV6: 'eacba69a06de03be8480bbd6a9f706f043dfb24788481be4bebde32b9027a127',
+  /** Rules 7 (unreleased: it changes until M6b's genesis freeze) bristles the cell (M6b T7). */
+  genomeHashV7: 'b78bafb763c5994e757c0647ce047beeeaabe8435ed48095e47b2bab98adffaa',
 };
 
 async function ask(nonce = 'n'.repeat(22)) {
@@ -63,7 +65,7 @@ describe('genesis DNA', () => {
     expect(genomeToBase64url(a)).toBe(genomeToBase64url(genesisFor(r, GOLDEN.commitId)));
     expect(genesisSeed(r, GOLDEN.commitId)).toEqual(genesisSeed(r, GOLDEN.commitId));
     expect(genomeHash(genesisFor(r, GOLDEN.commitId, 5))).toBe(GOLDEN.genomeHash);
-    expect(genomeHash(a)).toBe(GOLDEN.genomeHashV6);
+    expect(genomeHash(a)).toBe(GOLDEN.genomeHashV7);
     expect(genomeHash(genesisFor(r, GOLDEN.commitId, 6))).toBe(GOLDEN.genomeHashV6);
   });
 

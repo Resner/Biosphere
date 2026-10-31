@@ -2,7 +2,7 @@
 // their bodies. `npm run report:diversity -- --genesis 2000 --bred 2000 --generations 6`.
 
 import { type Genome, genomeHash } from '../src/genome/codec';
-import { bodyViolations } from '../src/genome/develop';
+import { type Appendage, type BodyPlan, bodyViolations } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
 import { breed } from '../src/genome/inherit';
 import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
@@ -94,6 +94,38 @@ const appearanceKey = (c: Creature): string =>
     c.traits.colour.luminescence,
   ].join('/');
 
+/**
+ * A body's trunk legs (M6b T7): the left-side gene parts behind the head of a bilateral body of
+ * three or more segments.
+ */
+export const trunkLegsOf = (plan: BodyPlan): Appendage[] =>
+  plan.form.radial === 0 && plan.segments.length >= 3
+    ? plan.appendages.filter((a) => a.side === 1 && a.module >= 0 && a.segment >= 1)
+    : [];
+
+/** A body's legs on any body: its left-side gene parts but the whip's slot (M1) and the band. */
+export const legsOf = (plan: BodyPlan): Appendage[] =>
+  plan.appendages.filter((a) => a.side === 1 && a.module >= 1);
+
+/** Some legs: how many, their median width, and the share with 6 or more bristles. */
+export function legReport(legs: readonly Appendage[]): {
+  legs: number;
+  width: number;
+  bristled: number;
+} {
+  const widths = legs.map((a) => a.width).sort((a, b) => a - b);
+  return {
+    legs: legs.length,
+    width: widths.length > 0 ? percentile(widths, 0.5) : 0,
+    bristled: legs.length > 0 ? legs.filter((a) => a.setae >= 6).length / legs.length : 0,
+  };
+}
+
+const legLine = (name: string, legs: readonly Appendage[]): string => {
+  const r = legReport(legs);
+  return `- ${name}: ${r.legs}, median width ${r.width.toFixed(3)}, ${(100 * r.bristled).toFixed(1)}% with 6+ bristles`;
+};
+
 const stats = (values: readonly number[], unit: string, digits = 0): string => {
   const sorted = [...values].sort((a, b) => a - b);
   const f = (x: number): string => x.toFixed(digits);
@@ -156,6 +188,23 @@ export function diversityReport(options: ReportOptions): string {
     `- Rarity tiers seen: ${RARITY_TIERS.filter(([t]) => rarities.some((r) => r.tier === t))
       .map(([t]) => t)
       .join(', ')}`,
+    '',
+    '## Legs',
+    '',
+    ...(['Genesis', 'Bred'] as const).flatMap((sample) => {
+      const group =
+        sample === 'Genesis' ? creatures.slice(0, genesis.length) : creatures.slice(genesis.length);
+      return [
+        legLine(
+          `${sample} parts but the whip`,
+          group.flatMap((c) => legsOf(c.plan)),
+        ),
+        legLine(
+          `${sample} trunk legs`,
+          group.flatMap((c) => trunkLegsOf(c.plan)),
+        ),
+      ];
+    }),
     '',
     '## Mesh vertices',
     '',

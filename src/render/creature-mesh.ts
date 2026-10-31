@@ -10,6 +10,7 @@ import * as THREE from 'three';
 import {
   type Appendage,
   type BodyPlan,
+  bladeAt,
   dirOf,
   type Membrane,
   type PlanSegment,
@@ -852,16 +853,17 @@ function addAppendage(
     a.chela > 0 ? 1 + PALM * a.chela * max(0, 1 - abs(t - palmAt) / 0.3) : 1;
   const flatBulb = a.bulb > 0 && d.ball === 0;
   const profile =
-    (r0: number, taper: number, bulb: number) =>
+    (r0: number, taper: number, bulb: number, bladed = false) =>
     (t: number, i: number): number => {
-      const r = r0 * (1 - taper * t);
+      // A thinned paddle widens toward its blade (M6b T7); branches keep the plain taper.
+      const r = r0 * (1 - taper * t) * (bladed ? bladeAt(a, t) : 1);
       if (i < 0) return r;
       if (flatBulb && i === rings - 1) return max(r, bulb * PEARL);
       return r * (joint(i) ? bead : 1) * palm(t);
     };
   const main: Tube = {
     path,
-    radius: profile(radius, a.taper, a.bulb),
+    radius: profile(radius, a.taper, a.bulb, true),
     cap: flatBulb ? 0 : cap,
     attach,
     part,

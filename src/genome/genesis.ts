@@ -1,10 +1,11 @@
-// Genesis DNA under rules version 6 (ADR 0025, DESIGN §6). A v6 genesis cell is the v5 cell (colours,
+// Genesis DNA under rules version 7 (ADR 0025, DESIGN §6). A v6 genesis cell is the v5 cell (colours,
 // size, behaviour, physiology and rare alleles are drawn exactly as before) written as a karyotype v2
 // genome and then given a larval form: a plain cell, a ciliate, a spiny larva, a bell, a tadpole or a
 // fan-tailed one. Every form is still one body unit with at most three module slots, so the lineage
 // starts at the cell stage; the multi-segment bodies arise through breeding. The form draws from its
-// own stream, so it never shifts the v5 draws. The v5 code stays frozen in `genesis-v5.ts` for
-// verifying old genesis records.
+// own stream, so it never shifts the v5 draws. Rules 7 bristles most slots other than the whip from
+// a stream of its own too (M6b T7). The v5 and v6 code stays frozen in `genesis-v5.ts` and
+// `genesis-v6.ts` for verifying old genesis records.
 
 import { createRng, type Rng, type Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
@@ -22,6 +23,16 @@ type Shape = (typeof SHAPE_LOCI)[number];
 
 /** The chance that a genesis cell of any form has a pair of eyes. */
 export const GENESIS_EYES = 0.12;
+
+/**
+ * Bristles under rules 7 (M6b T7): each module slot other than the whip is bristled with this
+ * chance, its setae density and length raised to at least a draw from these spans.
+ */
+export const GENESIS_SETAE = {
+  share: 0.7,
+  density: [0.3, 0.8],
+  length: [0.2, 0.6],
+} as const;
 
 /** A larval form: its share of genesis cells and the silhouette it mostly develops into. */
 export interface GenesisForm {
@@ -176,6 +187,24 @@ class Writer {
   }
 }
 
+/**
+ * Rules 7 bristles most parts (M6b T7): every present slot but the whip's (M1), with
+ * `GENESIS_SETAE.share`, gets setae at least as dense and long as a draw from its spans. They draw
+ * from their own stream, so the v5 and form draws never shift.
+ */
+function bristle(bytes: Uint8Array, rng: Rng): void {
+  const w = new Writer(bytes, rng);
+  const raise = (offset: number, span: Span): void => {
+    const drawn = Math.round(255 * rng.range(span[0], span[1]));
+    w.both(offset, Math.max(bytes[offset] as number, drawn));
+  };
+  for (const slot of MODULE_LOCI.slice(1)) {
+    if (!w.present(slot) || !(rng.next() < GENESIS_SETAE.share)) continue;
+    raise(slot.ext + MODULE_EXT.indexOf('setaeDensity'), GENESIS_SETAE.density);
+    raise(slot.ext + MODULE_EXT.indexOf('setaeLength'), GENESIS_SETAE.length);
+  }
+}
+
 /** A fresh genesis genome of karyotype v2: a pure function of the seed. */
 export function genesisGenome(seed: Seed): Genome {
   const bytes = encodeGenome(upgrade(genesisGenomeV5(seed)));
@@ -207,5 +236,6 @@ export function genesisGenome(seed: Seed): Genome {
     w.fraction(shapeOffset('eyeSize'), [0.4, 0.9]);
     w.fraction(shapeOffset('eyeStalk'), [0, 0.5]);
   }
+  bristle(bytes, createRng(seed, 'genesis-setae'));
   return decodeGenome(bytes);
 }

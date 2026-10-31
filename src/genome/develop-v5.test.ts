@@ -81,6 +81,7 @@ describe('development v2: v1 equivalence', () => {
           bulb: 0,
           chela: 0,
           beads: 0,
+          blade: 1,
         })),
         segments: v5.segments.map((s) => ({ x: s.x, y: 0, rx: s.rx, ry: s.ry, angle: 0 })),
         form: { turn: 0, mode: 0, radial: 0, slim: 1 },
