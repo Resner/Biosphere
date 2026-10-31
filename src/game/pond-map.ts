@@ -11,7 +11,7 @@ import { showIcon } from './icons';
 import { PINGS } from './social-ui';
 
 /** How far an edge texel is lightened, so zones are told apart by a line as well as a colour. */
-const EDGE_LIGHTEN = 0.45;
+export const EDGE_LIGHTEN = 0.45;
 
 /**
  * Each zone's colour on the map: its water brightened to read on a small picture, getting darker

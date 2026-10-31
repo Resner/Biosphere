@@ -3,6 +3,7 @@
 // squeeze, toxin and starvation a short jolt. Pure presentation: it reads damage events and never
 // feeds back into the sim, the HUD and the DOM never move, and Reduce motion stills it.
 
+import { TAU } from '../sim/math';
 import type { DeathCause } from '../sim/types';
 
 export const SHAKE = {
@@ -29,7 +30,6 @@ export function shakeKind(cause: DeathCause): ShakeKind {
   return cause === 'uv' || cause === 'pressure' ? cause : 'jolt';
 }
 
-const TAU = Math.PI * 2;
 /** Each jolt turns by the golden angle, so successive kicks never repeat a direction. */
 const GOLDEN = Math.PI * (3 - Math.sqrt(5));
 /** A level below this snaps to 0, so a settled body sits exactly in place. */

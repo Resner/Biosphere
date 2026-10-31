@@ -7,12 +7,12 @@
 // 2D canvas at most 10 times a second and allocates nothing per draw.
 
 import type { Zone } from '../sim/bathymetry';
-import { clamp } from '../sim/math';
+import { clamp, lerp, TAU } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { type SizeClass, sizeClass } from '../sim/size';
 import { pick, setText } from './dom';
-import { MAP_COLOURS, zoneImage } from './pond-map';
+import { EDGE_LIGHTEN, MAP_COLOURS, zoneImage } from './pond-map';
 import type { ZoneReadout } from './zone-readout';
 
 export const MINIMAP = {
@@ -146,7 +146,6 @@ export interface MinimapInfo {
   pings: DrawnPing[];
 }
 
-const TAU = Math.PI * 2;
 /** Players fainter than this are going quiet (a hidden tab) and are left off, as on the edge. */
 const MIN_ALPHA = 0.5;
 const HAZARD_TEXT: Record<MinimapHazard, string> = { uv: 'UV burns', pressure: 'Pressure crushes' };
@@ -163,13 +162,20 @@ const BLURS: readonly string[] = [
   'none',
   ...Array.from({ length: 10 }, (_, i) => `blur(${i + 1}px)`),
 ];
+const ZONE_EDGES: readonly number[] = [
+  0,
+  RULES.bathymetry.zones.shallows,
+  RULES.bathymetry.zones.twilight,
+  RULES.bathymetry.zones.deep,
+  1,
+];
 const INK = '#e3f4f0';
 const SHADOW = 'rgb(0 0 0 / 0.75)';
 const HEART = '#ff8fc8';
 /** The zones' colours on the depth arc: the map's, lifted so the darkest still reads on glass. */
 const ARC_COLOURS: readonly string[] = (['shallows', 'twilight', 'deep', 'abyss'] as const).map(
   (zone) =>
-    `rgb(${MAP_COLOURS[zone].map((c) => Math.round((c + (1 - c) * 0.45) * 255)).join(' ')})`,
+    `rgb(${MAP_COLOURS[zone].map((c) => Math.round(lerp(c, 1, EDGE_LIGHTEN) * 255)).join(' ')})`,
 );
 
 export class Minimap {
@@ -365,8 +371,6 @@ export class Minimap {
     ctx.arc(half, half, half - 0.5, 0, TAU);
     ctx.stroke();
     const arcR = half - 5;
-    const z = RULES.bathymetry.zones;
-    const edges = [0, z.shallows, z.twilight, z.deep, 1];
     ctx.lineWidth = 3;
     ctx.lineCap = 'butt';
     for (let i = 0; i < 4; i++) {
@@ -376,8 +380,8 @@ export class Minimap {
         half,
         half,
         arcR,
-        depthArcAngle(edges[i] as number),
-        depthArcAngle(edges[i + 1] as number),
+        depthArcAngle(ZONE_EDGES[i] as number),
+        depthArcAngle(ZONE_EDGES[i + 1] as number),
       );
       ctx.stroke();
     }

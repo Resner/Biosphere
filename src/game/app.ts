@@ -1610,12 +1610,15 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     // The shake moves only what the scene draws: the body and the camera, never the sim or the DOM.
     shake.update(dt, reduced);
     const shift = cell.radius * cell.scale;
-    Object.assign(drawnCell, cell);
-    drawnCell.x = cell.x + shake.body.x * shift;
-    drawnCell.y = cell.y + shake.body.y * shift;
+    const shaking = shake.body.x !== 0 || shake.body.y !== 0;
+    if (shaking) {
+      Object.assign(drawnCell, cell);
+      drawnCell.x = cell.x + shake.body.x * shift;
+      drawnCell.y = cell.y + shake.body.y * shift;
+    }
     view.camX = camera.x + shake.camera.x / scene.pxPerWu;
     view.camY = camera.y + shake.camera.y / scene.pxPerWu;
-    view.creature = fx.dissolved ? null : drawnCell;
+    view.creature = fx.dissolved ? null : shaking ? drawnCell : cell;
     view.sight = sightRadius(session.body.creature.stats.sense, cell.radius);
     hud.setHurt(fx.hurt > HURT_FLASH);
     minimapView.readout = null;
