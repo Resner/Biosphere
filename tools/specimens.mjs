@@ -2,7 +2,8 @@
 // prints them, or with `--write` stores them under tests/fixtures/gallery/ as numbered hex files:
 // `npm run specimens -- --write --seed gallery-m6 --from 21`. Existing files are never replaced.
 // `--features` searches the look-feature specimens of look pass 5 instead (ADR 0032):
-// `npm run specimens -- --features --write --seed gallery-m6 --from 37`.
+// `npm run specimens -- --features --write --seed gallery-m6 --from 37`; `--feature <name>` searches
+// only that one (M6b T6: `--features --feature s-worm --write --seed gallery-m6 --from 40`).
 import { existsSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { createServer } from 'vite';
 
@@ -15,6 +16,7 @@ const seed = flag('seed', 'gallery-m6');
 const from = Number(flag('from', '21'));
 const write = args.includes('--write');
 const features = args.includes('--features');
+const only = flag('feature', null);
 
 const server = await createServer({
   configFile: false,
@@ -54,7 +56,9 @@ try {
     return found;
   };
   const wanted = features
-    ? Object.keys(FEATURES).map((f) => [f, take(findFeature(f, seed, taken))])
+    ? Object.keys(FEATURES)
+        .filter((f) => only === null || f === only)
+        .map((f) => [f, take(findFeature(f, seed, taken))])
     : [
         ...SPECIMEN_SILHOUETTES.map((s) => [s, take(findSpecimen(s, seed, taken))]),
         ...SPECIMEN_TIERS.map((t) => [`tier-${t}`, take(findTier(t, seed, taken))]),

@@ -219,23 +219,46 @@ export function extentOf(e: { rx: number; ry: number; angle: number }): Point {
   };
 }
 
-/** The spine's tangent heading at `t` (0 the core, 1 the tail), for a total turn and a mode. */
-function heading(turn: number, mode: number, bunch: number, t: number): number {
-  if (mode === 1) return turn * (t <= 0.5 ? t : 1 - t);
-  if (mode === 2) return t > 0 ? turn * pow(t, 1 + bunch) : 0;
-  return turn * t;
+/** How the spine bends: everything of `PlanForm` but `slim`, which the chain's layout decides. */
+type Bending = Omit<PlanForm, 'slim'>;
+
+/**
+ * The spine's tangent heading at `t` (0 the core, 1 the tail): a C (and a coil drawn by `bend`)
+ * turns evenly; an S (M6b T6) rises evenly to half its turn at `peak`, then falls back to 0, so it
+ * bends two opposite arcs of half the turn each.
+ */
+function heading(form: Bending, peak: number, t: number): number {
+  if (form.mode !== 1) return form.turn * t;
+  return (form.turn / 2) * (t <= peak ? t / peak : (1 - t) / (1 - peak));
 }
 
-/** How the spine bends: everything of `PlanForm` but `slim`, which the chain's layout decides. */
-type Bending = Omit<PlanForm, 'slim'> & { coil: number };
+const COIL_TURN = range(D.curve.coilTurn);
 
+/**
+ * The spine's turn and mode (M6b T6): a C turns curve × π; an S of `sFrom` segments or more two
+ * opposite arcs of `sArc` × curve × π each (at most `sMax` × π), a shorter one of half the curve's
+ * turn each; past `coilStart` a chain of `chain.slimFrom` segments or more coils from
+ * `coilTurn[0]` × π to `coilTurn[1]` × π, and a shorter one only curls.
+ */
 function formOf(shape: Traits['shape'], count: number): Bending {
   const C = D.curve;
   const radial = shape.symmetry >= D.radial.at ? 1 : 0;
-  if (count < 2 || !(shape.curve > 0)) return { turn: 0, mode: 0, radial, coil: 0 };
-  const coil = shape.curve > C.coilStart ? (shape.curve - C.coilStart) / (1 - C.coilStart) : 0;
-  const mode = shape.curve > C.coilStart ? 2 : shape.curveMode >= C.sMode ? 1 : 0;
-  return { turn: PI * (shape.curve + coil * (C.coilTurn - 1)), mode, radial, coil };
+  if (count < 2 || !(shape.curve > 0)) return { turn: 0, mode: 0, radial };
+  if (shape.curve > C.coilStart) {
+    const k = (shape.curve - C.coilStart) / (1 - C.coilStart);
+    const long = count >= D.chain.slimFrom;
+    return {
+      turn: PI * (long ? lerp(COIL_TURN[0], COIL_TURN[1], k) : shape.curve),
+      mode: 2,
+      radial,
+    };
+  }
+  if (shape.curveMode >= C.sMode) {
+    // A short chain has too few links to draw two arcs, so its S stays shallow.
+    const arc = count >= C.sFrom ? Math.min(C.sArc * shape.curve, C.sMax) : shape.curve / 2;
+    return { turn: 2 * PI * arc, mode: 1, radial };
+  }
+  return { turn: PI * shape.curve, mode: 0, radial };
 }
 
 /** The chain's shape before it is scaled: segment count, each segment's stretch and profile radius. */
@@ -261,13 +284,14 @@ function chainProfile(traits: Traits) {
 
 /**
  * How a v2 chain is drawn (M6b T5, ADR 0037): `plain` (a cell, a two-segment chain, a radial body),
- * `trunk` (one long body, widest at the trunk) or `worm` (a trunk chain of `trunk.worm.from`
+ * `trunk` (one long body, widest at the trunk), `worm` (a trunk chain of `trunk.worm.from`
  * segments or more with no carapace, curled by `trunk.worm.curl` or more but not coiled: even and
- * slimmer).
+ * slimmer) or `coil` (a chain of `chain.slimFrom` or more past `curve.coilStart`: a chambered
+ * spiral, M6b T6).
  * The worm's curl is the one `silhouetteOf` reads, so a curled worm is drawn slimmer than its
- * straight twin: the one way a curl changes a body's width (amends ADR 0031).
+ * straight twin (amends ADR 0031).
  */
-type Build = 'plain' | 'trunk' | 'worm';
+type Build = 'plain' | 'trunk' | 'worm' | 'coil';
 
 /** How many of a chain's front segments the carapace fuses. */
 function fusedCount(fusion: number, n: number): number {
@@ -277,10 +301,9 @@ function fusedCount(fusion: number, n: number): number {
 function buildOf(traits: Traits, form: Bending, n: number): Build {
   const W = D.chain.trunk.worm;
   if (traits.karyotype === 1 || form.radial === 1 || n < D.chain.slimFrom) return 'plain';
+  if (form.mode === 2) return 'coil';
   if (fusedCount(traits.shape.fusion, n) >= 2) return 'trunk';
-  // A coil keeps a trunk's width, so it reads as a spiral shell rather than a thread.
-  const curled = traits.shape.curve >= W.curl && form.mode !== 2;
-  return n >= W.from && curled ? 'worm' : 'trunk';
+  return n >= W.from && traits.shape.curve >= W.curl ? 'worm' : 'trunk';
 }
 
 function buildSegments(
@@ -288,12 +311,194 @@ function buildSegments(
   form: Bending,
   build: Build,
 ): { segments: PlanSegment[]; slim: number } {
-  const v1 = traits.karyotype === 1;
-  let chain = v1 ? chainV1(traits) : chainV2(traits, build);
+  if (traits.karyotype === 1) {
+    const chain = chainV1(traits);
+    return { segments: form.turn > 0 ? bend(chain, form) : chain, slim: 1 };
+  }
+  if (build === 'coil') return { segments: coilOf(traits, form), slim: 1 };
+  let chain = chainV2(traits, build);
   if (build !== 'plain') chain = slimTail(chain, traits.shape.fusion);
-  const narrow = v1 ? 1 : slimming(chain, form, build);
+  // A radial body's chain lies inside its round core, so it neither grows nor slims.
+  if (form.turn > 0 && form.radial === 0) return curled(chain, form, build);
+  const narrow = slimming(chain, form, build);
   const straight = narrow < 1 ? chain.map((s) => ({ ...s, ry: s.ry * narrow })) : chain;
   return { segments: form.turn > 0 ? bend(straight, form) : straight, slim: narrow };
+}
+
+/** How far a chain's segments reach from the core centre (`planBounds`' measure of them). */
+function farEdge(segments: readonly PlanSegment[]): number {
+  let far = 0;
+  for (const s of segments) far = Math.max(far, hypot(s.x, s.y) + Math.max(s.rx, s.ry));
+  return far;
+}
+
+/**
+ * Whether segments `a` and `b`, which are not neighbours, keep `curve.gap` of their summed radii
+ * (along the line between their centres) apart (M6b T6).
+ */
+function apart(a: PlanSegment, b: PlanSegment): boolean {
+  const d = hypot(b.x - a.x, b.y - a.y);
+  if (!(d > 0)) return false;
+  const [dx, dy] = [(b.x - a.x) / d, (b.y - a.y) / d];
+  return d >= (1 + D.curve.gap) * (radiusAlong(a, dx, dy) + radiusAlong(b, -dx, -dy));
+}
+
+/** Whether every two segments of a chain that are not neighbours keep `apart`. */
+function clear(segments: readonly PlanSegment[]): boolean {
+  for (let i = 0; i < segments.length; i++) {
+    for (let j = i + 2; j < segments.length; j++) {
+      if (!apart(segments[i] as PlanSegment, segments[j] as PlanSegment)) return false;
+    }
+  }
+  return true;
+}
+
+/**
+ * The straight chain with every segment behind the head `grow` times as long, and each link longer
+ * by as much as its two segments, so neighbours overlap as they did.
+ */
+function lengthen(chain: readonly PlanSegment[], grow: number): PlanSegment[] {
+  const out: PlanSegment[] = [chain[0] as PlanSegment];
+  for (let i = 1; i < chain.length; i++) {
+    const [a, b] = [chain[i - 1], chain[i]] as [PlanSegment, PlanSegment];
+    const front = i > 1 ? grow * a.rx : a.rx;
+    const link = ((a.x - b.x) * (front + grow * b.rx)) / (a.rx + b.rx);
+    out.push({ ...b, x: (out[i - 1] as PlanSegment).x - link, rx: grow * b.rx });
+  }
+  return out;
+}
+
+/**
+ * A curled C or S chain fits the bounds along its curve, not laid straight (M6b T6, ADR 0038): its
+ * segments and links grow by the largest factor, up to `curve.longer`, at which the curled pose
+ * reaches no farther than the straight chain did. It is slimmed by its length along the curve (ADR
+ * 0031), and further, by lateral compression too, if a tight bend would bring two segments that are
+ * not neighbours together.
+ */
+function curled(
+  chain: PlanSegment[],
+  form: Bending,
+  build: Build,
+): { segments: PlanSegment[]; slim: number } {
+  const C = D.curve;
+  // As far as the straight chain reaches, slimmed as it is drawn.
+  const straight = slimming(chain, form, build);
+  const limit = farEdge(chain.map((s) => ({ ...s, ry: s.ry * straight }))) + D.epsilon;
+  const lay = (grow: number, narrow: number): PlanSegment[] => {
+    const long = grow === 1 ? chain : lengthen(chain, grow);
+    return bend(narrow < 1 ? long.map((s) => ({ ...s, ry: s.ry * narrow })) : long, form);
+  };
+  const slimOf = (grow: number): number =>
+    slimming(grow === 1 ? chain : lengthen(chain, grow), form, build);
+  const reaches = (grow: number): boolean => farEdge(lay(grow, slimOf(grow))) <= limit;
+  let grow = 1;
+  if (reaches(C.longer)) grow = C.longer;
+  else if (reaches(1)) {
+    let hi = C.longer;
+    for (let k = 0; k < C.steps; k++) {
+      const mid = (grow + hi) / 2;
+      if (reaches(mid)) grow = mid;
+      else hi = mid;
+    }
+  }
+  let narrow = slimOf(grow);
+  let segments = lay(grow, narrow);
+  // Measured along the curve, where a tight bend draws neighbours closer than laid straight.
+  const aspect = aspectFor(chain, form, build);
+  for (let k = 0; k < 2 * C.steps && aspect > 0; k++) {
+    const along = spineLength(segments) / (2 * widestOf(segments));
+    if (along >= aspect) break;
+    // Narrower than the ratio, since a bend's links shorten as its segments narrow.
+    const r = along / aspect;
+    narrow *= r * r * (1 - 1e-4);
+    segments = lay(grow, narrow);
+  }
+  if (!clear(segments)) {
+    // The largest further narrowing that clears, to 2^−`steps`·2 of it.
+    let [lo, hi] = [0, 1];
+    for (let k = 0; k < 2 * C.steps; k++) {
+      const mid = (lo + hi) / 2;
+      if (clear(lay(grow, narrow * mid))) lo = mid;
+      else hi = mid;
+    }
+    // Nothing clears (coincident centres): keep the pose, so `bodyViolations` names it, not a zero width.
+    if (lo > 0) {
+      narrow *= lo;
+      segments = lay(grow, narrow);
+    }
+  }
+  return { segments, slim: narrow };
+}
+
+/**
+ * A coil (M6b T6, ADR 0038): a chambered spiral of `caps.segments` segments that turns `form.turn`
+ * from the head to the tail. Every link turns alike and is `whorl` ^ (its turn ÷ 2π) as long as
+ * the one in front, so the chambers lie on a logarithmic spiral and each whorl is `whorl` the size
+ * of the one outside it. A chamber is `chamber` of its links long and as wide as the trunk profile
+ * lets it, up to the widest that keeps it clear of the whorl inside it; the head is a share of the
+ * widest chamber, and its link only as long as keeps the two overlapping. The spiral is then scaled
+ * to reach as far as a trunk does.
+ */
+function coilOf(traits: Traits, form: Bending): PlanSegment[] {
+  const C = D.curve;
+  const n = D.caps.segments;
+  const step = form.turn / (n - 1);
+  const q = pow(C.whorl, step / TAU);
+  const profile = trunkProfile(traits, n, 'coil');
+  let top = 0;
+  for (let i = 1; i < n; i++) top = Math.max(top, profile(i));
+  const share = headShareOf(traits, 'coil');
+  const stretch = chainProfile(traits).stretchOf(0);
+  // Chamber i sits between links i and i + 1, of lengths q^(i − 1) and q^i: its size is between.
+  const size = (i: number): number => pow(q, i - 0.5);
+  const lay = (wide: number): PlanSegment[] => {
+    const ry = [0];
+    let widest = 0;
+    for (let i = 1; i < n; i++) {
+      // The shell tapers by its whorls; the trunk profile keeps only half its swing.
+      ry.push(wide * size(i) * lerp(1, profile(i) / top, 0.5));
+      widest = Math.max(widest, ry[i] as number);
+    }
+    const head = share * widest;
+    const out: PlanSegment[] = [
+      { x: 0, y: 0, rx: D.chain.trunk.headLength * stretch * head, ry: head, angle: 0 },
+    ];
+    for (let i = 1; i < n; i++) {
+      const prev = out[i - 1] as PlanSegment;
+      const h = (i - 0.5) * step;
+      const [dx, dy] = [-cos(h), -sin(h)];
+      const seg = { x: 0, y: 0, rx: C.chamber * size(i), ry: ry[i] as number, angle: i * step };
+      // A link only reaches as far as keeps its two segments overlapping (the small head's does not).
+      const fit = C.overlap * (radiusAlong(prev, dx, dy) + radiusAlong(seg, -dx, -dy));
+      const d = Math.min(pow(q, i - 1), fit);
+      out.push({ ...seg, x: prev.x + d * dx, y: prev.y + d * dy });
+    }
+    return out;
+  };
+  // The widest chambers that keep clear of the whorl inside them, in 1/32 of a link. Too narrow a
+  // chamber shortens its links to overlap its neighbours, and the spiral bunches, so search down.
+  let unit = lay(1 / 32);
+  for (let k = 0; k < 31; k++) {
+    const trial = lay(1 - k / 32);
+    if (clear(trial)) {
+      unit = trial;
+      break;
+    }
+  }
+  // As large as reaches as far as a trunk does, but at most `curve.coiled` times as long as the
+  // straight trunk the same genes lay out.
+  const straight = slimTail(chainV2(traits, 'trunk'), traits.shape.fusion);
+  const scale = Math.min(
+    D.chain.trunk.reach / farEdge(unit),
+    (C.coiled * spineLength(straight)) / spineLength(unit),
+  );
+  return unit.map((s) => ({
+    x: s.x * scale,
+    y: s.y * scale,
+    rx: s.rx * scale,
+    ry: s.ry * scale,
+    angle: s.angle,
+  }));
 }
 
 /** How much of the trunk profile's swing a chain keeps: a worm only `trunk.even` of it. */
@@ -353,23 +558,43 @@ function slimTail(chain: PlanSegment[], fusion: number): PlanSegment[] {
 function aspectOf(segments: readonly PlanSegment[]): number {
   const head = segments[0] as PlanSegment;
   const tail = segments[segments.length - 1] as PlanSegment;
-  let width = 0;
-  for (const s of segments) width = Math.max(width, 2 * s.ry);
-  return (head.x + head.rx - (tail.x - tail.rx)) / width;
+  return (head.x + head.rx - (tail.x - tail.rx)) / (2 * widestOf(segments));
 }
 
 /**
  * Body proportions v3 (look pass 4, ADR 0031): the factor that narrows a bilateral chain of
  * `chain.slimFrom` segments or more to `chain.aspect` times as long as wide (a worm to
  * `trunk.worm.aspect`, M6b T5), every segment alike, so the head and trunk keep their profile and
- * the chain keeps its length; 1 for any other body. The straight chain is measured: a curl is a
- * pose of the same body, and never changes its width.
+ * the chain keeps its length; 1 for any other body. The chain is measured laid straight with the
+ * length it has along its curve (M6b T6).
  */
 function slimming(straight: PlanSegment[], form: Bending, build: Build): number {
+  const aspect = aspectFor(straight, form, build);
+  return aspect > 0 ? Math.min(1, aspectOf(straight) / aspect) : 1;
+}
+
+/** How many times as long as wide a chain must be: 0 for a body that is never slimmed. */
+function aspectFor(chain: readonly PlanSegment[], form: Bending, build: Build): number {
   const C = D.chain;
-  if (form.radial === 1 || straight.length < C.slimFrom) return 1;
-  const aspect = build === 'worm' ? C.trunk.worm.aspect : C.aspect;
-  return Math.min(1, aspectOf(straight) / aspect);
+  if (form.radial === 1 || chain.length < C.slimFrom) return 0;
+  return build === 'worm' ? C.trunk.worm.aspect : C.aspect;
+}
+
+/** A chain's length along its spine: the head's front, through every link, to the tail's end. */
+function spineLength(segments: readonly PlanSegment[]): number {
+  let length = (segments[0] as PlanSegment).rx + (segments[segments.length - 1] as PlanSegment).rx;
+  for (let i = 1; i < segments.length; i++) {
+    const [a, b] = [segments[i - 1], segments[i]] as [PlanSegment, PlanSegment];
+    length += hypot(b.x - a.x, b.y - a.y);
+  }
+  return length;
+}
+
+/** Twice the widest half-width of a chain is its width. */
+function widestOf(segments: readonly PlanSegment[]): number {
+  let w = 0;
+  for (const s of segments) w = Math.max(w, s.ry);
+  return w;
 }
 
 /**
@@ -491,23 +716,21 @@ function chainV2(traits: Traits, build: Build): PlanSegment[] {
   return out;
 }
 
-/** Lays the straight chain along the curve: same links, turned by the tangent, a coil's shrinking. */
+/** Lays the straight chain along the curve: same links, turned by the tangent, neighbours overlapping. */
 function bend(straight: PlanSegment[], form: Bending): PlanSegment[] {
-  const C = D.curve;
   const n = straight.length;
-  const bunch = C.coilBunch * form.coil;
+  // An S peaks at the middle segment (the front one of two), so the segments show both arcs whole.
+  const peak = Math.round((n - 1) / 2) / (n - 1);
   const out: PlanSegment[] = [straight[0] as PlanSegment];
   for (let i = 1; i < n; i++) {
     const prev = out[i - 1] as PlanSegment;
     const s = straight[i] as PlanSegment;
-    const mid = (i - 0.5) / (n - 1);
-    const phi = PI + heading(form.turn, form.mode, bunch, mid);
+    const phi = PI + heading(form, peak, (i - 0.5) / (n - 1));
     const dx = cos(phi);
     const dy = sin(phi);
-    const seg = { ...s, angle: heading(form.turn, form.mode, bunch, i / (n - 1)) };
-    // The link keeps its straight length, a coil's shrinks toward the tail, and neighbours overlap.
-    let d = ((straight[i - 1] as PlanSegment).x - s.x) * (1 - C.coilShrink * form.coil * mid);
-    d = Math.min(d, C.overlap * (radiusAlong(prev, dx, dy) + radiusAlong(seg, -dx, -dy)));
+    const seg = { ...s, angle: heading(form, peak, i / (n - 1)) };
+    let d = (straight[i - 1] as PlanSegment).x - s.x;
+    d = Math.min(d, D.curve.overlap * (radiusAlong(prev, dx, dy) + radiusAlong(seg, -dx, -dy)));
     out.push({ ...seg, x: prev.x + d * dx, y: prev.y + d * dy });
   }
   return out;
@@ -1444,9 +1667,10 @@ export function develop(traits: Traits): BodyPlan {
   const shape = traits.shape;
   const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
   const form = formOf(shape, n);
-  const built = buildParts(traits, n);
   const { segments, slim } = buildSegments(traits, form, buildOf(traits, form, n));
+  // A coil lays its chain out as more chambers than its segment genes give (M6b T6).
   const count = segments.length;
+  const built = buildParts(traits, count);
   const R = D.radial;
   const parts = form.radial
     ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape)
@@ -1481,8 +1705,7 @@ export function develop(traits: Traits): BodyPlan {
 
 /** The furthest any part of the plan can reach from the core centre. */
 export function planBounds(plan: BodyPlan): number {
-  let bound = 0;
-  for (const s of plan.segments) bound = Math.max(bound, hypot(s.x, s.y) + Math.max(s.rx, s.ry));
+  let bound = farEdge(plan.segments);
   for (const a of plan.appendages) {
     const s = plan.segments[a.segment];
     if (s === undefined) return Number.POSITIVE_INFINITY;
@@ -1509,7 +1732,7 @@ export function planBounds(plan: BodyPlan): number {
   return bound;
 }
 
-/** The v2 checks: curved neighbours overlap, the carapace, the eyes and a radial ring. */
+/** The v2 checks: curved neighbours overlap and the rest keep apart, the carapace, the eyes and a radial ring. */
 function shapeViolations(plan: BodyPlan): string[] {
   const bad: string[] = [];
   const n = plan.segments.length;
@@ -1523,6 +1746,18 @@ function shapeViolations(plan: BodyPlan): string[] {
     const [dx, dy] = [(s.x - p.x) / d, (s.y - p.y) / d];
     if (d >= radiusAlong(p, dx, dy) + radiusAlong(s, -dx, -dy)) {
       bad.push(`segments ${i - 1} and ${i} do not overlap`);
+    }
+  }
+  // No self-overlap (M6b T6): a curled chain keeps clear of itself. A radial body's chain lies
+  // folded inside its round core, and a straight one never folds (the v1 layout nests its
+  // segments behind the big head), so curled bilateral chains are checked.
+  if (plan.form.radial === 0 && plan.form.turn !== 0) {
+    for (let i = 0; i < n; i++) {
+      for (let j = i + 2; j < n; j++) {
+        if (!apart(plan.segments[i] as PlanSegment, plan.segments[j] as PlanSegment)) {
+          bad.push(`segments ${i} and ${j} overlap`);
+        }
+      }
     }
   }
   const c = plan.carapace;

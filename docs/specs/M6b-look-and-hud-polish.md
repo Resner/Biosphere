@@ -252,7 +252,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - Done (ADR 0037): `develop.ts` trunk profile, head as a share of the trunk, slim free tail behind a carapace, and a `worm` build (5+ free segments curled short of a coil: even, aspect 4.2); `tests/body-outline.ts` measures 98% of chains and 99% per class; `silhouetteOf`: worm 5+ segments, tadpole by front share ≥ 0.65, winged 0.3, fan tail from mid rear segment.
     - Gotcha: a curled worm is slimmer than its straight twin, so curl tests compare below `worm.curl`; dropping head scale's trunk narrowing broke the radial-twin speed test, so it stays (trunk width 0.88).
 
-- [ ] T6 Spirals and S-worms [opus]
+- [x] T6 Spirals and S-worms [opus]
   - Acceptance (unit tests first):
     - A curled v2 chain fits the bounds along its curve, not laid straight (#177 option 2a; amends ADR 0031's "a curl is only a pose"). Its length may exceed the straight reach as long as the curled pose stays within 2.5 core radii.
       - **A coil** (curve ≥ 0.8) turns at least 2.5π (1.25 turns), its links shrinking toward the inner end.
@@ -267,6 +267,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - The mesh lofts the longer curved chain within the LOD budgets.
     - A new ADR amends 0031, and DESIGN §6 (Spine curve, Long bodies) follows.
   - Notes: reference 05's nautilus (15) and S-worm (06) and reference 02's worm (06) and nautilus (14) are the targets. If the coiled archetype cannot be balanced, cap the curled chain's extra length and say so in the ADR.
+  - Done (ADR 0038): a C or S grows up to 1.6× to fit its curve and a tight bend slims it clear; an S of 5+ bends two arcs of 1.25 × curve × π; a coil of 3+ is an 8-chamber log spiral of 2.5–2.7π, capped at 1.4× its straight trunk; `bodyViolations` checks self-overlap; S-worm specimen 40 added (28 is C-curled by its genes).
+  - Gotcha: a full-size coil turns slower than its straight twin, so the cap keeps M6 T7's "a curl turns faster" (and the coil's archetype metrics are knife-edge: `whorl` 0.38, `chamber` 0.85); the gait test gained a wild antenna body, since 29's old coil supplied the only antenna motion.
 
 - [ ] T7 Thin, bristled legs that keep off the body [opus]
   - Acceptance (unit tests first):

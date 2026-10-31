@@ -1,11 +1,9 @@
-import { readdirSync, readFileSync } from 'node:fs';
-import { hexToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 import {
   classCheck,
+  galleryGenome as gallery,
   isChain,
   passes,
-  straightPlan,
   type TrunkCheck,
   trunkCheck,
 } from '../../tests/body-outline';
@@ -13,7 +11,7 @@ import { findSpecimen } from '../../tools/specimen';
 import { wildGenome } from '../lab/specimens';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
-import { decodeGenome, type Genome, upgrade } from './codec';
+import { decodeGenome, type Genome } from './codec';
 import { bodyViolations, develop } from './develop';
 import { express } from './express';
 import { mutateGenome } from './inherit';
@@ -23,19 +21,6 @@ import { silhouetteOf } from './silhouette';
 // One body, widest at the trunk (M6b T5, ADR 0037): a bilateral karyotype v2 chain draws a head
 // narrower than its trunk, is widest in the front half of the trunk and narrows to the tail, and
 // is still at least 2.5 times as long as wide (ADR 0031). The core collider stays the unit circle.
-
-const DIR = new URL('../../tests/fixtures/gallery/', import.meta.url);
-
-/** A gallery specimen as the sheet draws it: a karyotype v1 file as its v2 upgrade (ADR 0032). */
-const gallery = (prefix: string): Genome => {
-  const file = readdirSync(DIR).find((f) => f.startsWith(`${prefix}-`)) as string;
-  const hex = readFileSync(new URL(file, DIR), 'utf8')
-    .split('\n')
-    .map((l) => l.trim())
-    .filter((l) => l.length > 0 && !l.startsWith('#'))
-    .join('');
-  return upgrade(decodeGenome(hexToBytes(hex)));
-};
 
 const rng = createRng(seedFromString('develop-trunk'), 'bytes');
 const randomV2 = (): Genome =>
@@ -52,7 +37,7 @@ describe('one body, widest at the trunk (M6b T5)', () => {
       const plan = develop(traits);
       if (!isChain(plan)) continue;
       chains++;
-      const c = trunkCheck(plan, straightPlan(traits));
+      const c = trunkCheck(plan);
       for (const k of ['head', 'widest', 'narrows', 'aspect'] as const) if (!c[k]) fail[k]++;
       if (!passes(c)) fail.any++;
     }
@@ -66,7 +51,7 @@ describe('one body, widest at the trunk (M6b T5)', () => {
       const plan = develop(traits);
       expect(isChain(plan), n).toBe(true);
       expect(bodyViolations(plan), n).toEqual([]);
-      expect(trunkCheck(plan, straightPlan(traits)), n).toEqual(ALL);
+      expect(trunkCheck(plan), n).toEqual(ALL);
     }
   });
 

@@ -41,8 +41,8 @@ describe('specimen search', () => {
     }
   });
 
-  it('finds a body for each look feature of pass 5 (ADR 0032), each valid and karyotype v2', () => {
-    expect(Object.keys(FEATURES)).toEqual(['antennae', 'big-eyes', 'spiral']);
+  it('finds a body for each look feature (ADR 0032), each valid and karyotype v2', () => {
+    expect(Object.keys(FEATURES)).toEqual(['antennae', 'big-eyes', 'spiral', 's-worm']);
     for (const feature of Object.keys(FEATURES) as (keyof typeof FEATURES)[]) {
       const found = findFeature(feature, 'specimen-test');
       expect(found, feature).not.toBeNull();
@@ -62,12 +62,25 @@ describe('specimen search', () => {
         expect(plan.eyes.count).toBe(2);
         expect(plan.eyes.size).toBeGreaterThanOrEqual(0.25);
         expect(plan.eyes.stalk).toBeLessThanOrEqual(0.05);
-      } else {
+      } else if (feature === 'spiral') {
         // A coiled chain with only short parts round it (03's and 05's spirals).
         expect(plan.form.mode).toBe(2);
         expect(plan.form.radial).toBe(0);
         expect(plan.segments.length).toBeGreaterThanOrEqual(4);
         for (const a of plan.appendages) expect(a.length).toBeLessThanOrEqual(0.75);
+      } else {
+        // A worm bent into an S of two opposite arcs of 0.6π or more, with parts no longer than a core
+        // radius (02's and 05's worms, M6b T6).
+        expect(s.silhouette).toBe('worm');
+        for (const a of plan.appendages) expect(a.length).toBeLessThanOrEqual(1);
+        expect(plan.form.mode).toBe(1);
+        expect(plan.segments.length).toBeGreaterThanOrEqual(5);
+        const angles = plan.segments.map((x) => x.angle);
+        const peak = Math.max(...angles);
+        expect(peak - (angles[0] as number)).toBeGreaterThanOrEqual(0.6 * Math.PI - 1e-9);
+        expect(peak - (angles[angles.length - 1] as number)).toBeGreaterThanOrEqual(
+          0.6 * Math.PI - 1e-9,
+        );
       }
     }
   });

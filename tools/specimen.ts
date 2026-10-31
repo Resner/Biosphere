@@ -68,7 +68,9 @@ export function findTier(
 /**
  * The look features look pass 5 adds a specimen for (ADR 0032): bodies the references show that no
  * class or tier specimen happened to: 02's long sweeping antennae, 05's big eyes set into the head,
- * and 03's and 05's spirals, a bilateral coiled chain of 4 or more segments with only short parts round it.
+ * and 03's and 05's spirals, a bilateral coiled chain of 4 or more segments with only short parts
+ * round it. M6b T6 adds 02's and 05's S-worms: a worm whose spine bends two opposite arcs of 0.6π
+ * or more, with no part longer than a core radius (the class specimen, 28, is bent into a C by its genes).
  */
 export const FEATURES = {
   antennae: (c: Creature): boolean =>
@@ -84,6 +86,18 @@ export const FEATURES = {
     c.plan.form.radial === 0 &&
     c.plan.segments.length >= 4 &&
     c.plan.appendages.every((a) => a.length <= 0.75),
+  's-worm': (c: Creature): boolean => {
+    const angles = c.plan.segments.map((s) => s.angle);
+    const peak = Math.max(...angles);
+    const arc = 0.6 * Math.PI;
+    return (
+      c.plan.form.mode === 1 &&
+      silhouetteOf(c.plan) === 'worm' &&
+      c.plan.appendages.every((a) => a.length <= 1) &&
+      peak - (angles[0] as number) >= arc &&
+      peak - (angles[angles.length - 1] as number) >= arc
+    );
+  },
 } as const satisfies Record<string, (c: Creature) => boolean>;
 
 export type Feature = keyof typeof FEATURES;

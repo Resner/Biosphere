@@ -282,15 +282,41 @@ export const RULES = deepFreeze({
     mouthNarrow: 1.6,
     /** Development v2 (M6 T7, ADR 0025): the karyotype v2 shape loci. Each at 0 leaves the v1 body. */
     curve: {
-      /** The curve amount 0-1 turns the spine by amount × π; a mode at or above `sMode` splits it into two opposite arcs (S). */
+      /**
+       * The curve amount 0-1 turns the spine by amount × π (a C). A mode at or above `sMode` makes
+       * an S instead: two opposite arcs that each turn `sArc` × amount × π, at most `sMax` × π, on
+       * a chain of `sFrom` segments or more (M6b T6); a shorter chain's arcs turn amount × π ÷ 2.
+       */
       sMode: 0.5,
-      /** Above this amount the spine coils: the turn grows to `coilTurn` × π at 1, bunches toward the tail (t^(1 + `coilBunch` × k)) and its links shrink by up to `coilShrink`. */
+      sArc: 1.25,
+      sMax: 0.8,
+      sFrom: 5,
+      /**
+       * Above `coilStart` the spine coils. A chain of `chain.slimFrom` segments or more turns from
+       * `coilTurn[0]` × π just past the start to `coilTurn[1]` × π at 1, laid out as a chambered
+       * spiral of `caps.segments` segments whatever its segment genes say (M6b T6, ADR 0038): each
+       * link turns alike and is `whorl` ^ (its turn ÷ 2π) as long as the one before, so each whorl
+       * is `whorl` the size of the one outside it; a chamber is `chamber` of its links long, and as
+       * wide as the whorl inside it leaves room for. The coil reaches as far as a trunk, but is at
+       * most `coiled` times as long as its straight trunk, so it still out-turns it (ADR 0038). A
+       * shorter chain only curls by amount × π.
+       */
       coilStart: 0.8,
-      coilTurn: 2.4,
-      coilBunch: 1.5,
-      coilShrink: 0.4,
+      coilTurn: [2.5, 2.7],
+      whorl: 0.38,
+      chamber: 0.85,
+      coiled: 1.4,
       /** Curved neighbours stay at most this share of their summed radii along the link apart. */
       overlap: 0.9,
+      /** Segments that are not neighbours stay at least `gap` of their summed radii apart (M6b T6). */
+      gap: 0.1,
+      /**
+       * A curled C or S chain fits the bounds along its curve (M6b T6): its links and segment
+       * lengths grow by up to `longer` until its curled pose reaches as far as the straight chain
+       * did, found to 2^−`steps` of the growth.
+       */
+      longer: 1.6,
+      steps: 6,
     },
     tagmata: {
       /** The head is the unit, so head scale 1 shrinks every segment behind it by 1 ÷ (1 + this). */

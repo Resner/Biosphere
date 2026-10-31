@@ -7,6 +7,7 @@ import { express } from '../genome/express';
 import { GENOME_BYTES, LOCI, MODULE_PARAMS } from '../genome/karyotype';
 import { starterGenome } from '../genome/starter';
 import { parseSpecimen } from '../lab/gallery';
+import { wildGenome } from '../lab/specimens';
 import { createRng, seedFromString } from '../sim/prng';
 import { advanceBeatPhase } from './beat';
 import {
@@ -90,6 +91,9 @@ const fixed: Genome[] = [
       { segDrive1: 255, segDrive2: 255 },
     ),
   ].map(decodeGenome),
+  // A wild chain whose front parts reach forward, within the antenna cone of the spine (the coil
+  // specimen's parts did by accident until M6b T6 laid its spiral out as chambers).
+  wildGenome(seedFromString('ant-18')),
 ];
 // 500 plans, the size of the M3 gait test.
 const genomes: Genome[] = [...fixed, ...Array.from({ length: 500 - fixed.length }, randomGenome)];

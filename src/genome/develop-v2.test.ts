@@ -63,12 +63,17 @@ describe('development v2: spine curve', () => {
       radial: 0,
       slim: expect.any(Number),
     });
-    // Every link keeps its straight length, so the curl only folds the body.
+    // The curled chain fits the bounds along its curve (M6b T6): its links grow by at most
+    // `curve.longer`, it keeps its girth, and it reaches no farther than laid straight.
     for (let i = 1; i < 8; i++) {
       const [a, b] = [curved.segments[i - 1], curved.segments[i]] as [PlanSegment, PlanSegment];
       const [s, t] = [straight.segments[i - 1], straight.segments[i]] as [PlanSegment, PlanSegment];
-      expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThanOrEqual(s.x - t.x + 1e-12);
+      expect(Math.hypot(b.x - a.x, b.y - a.y)).toBeLessThanOrEqual(D.curve.longer * (s.x - t.x));
+      expect(b.ry / curved.form.slim).toBeCloseTo(t.ry / straight.form.slim, 9);
     }
+    const far = (p: BodyPlan) =>
+      Math.max(...p.segments.map((s) => Math.hypot(s.x, s.y) + Math.max(s.rx, s.ry)));
+    expect(far(curved)).toBeLessThanOrEqual(far(straight) + 1e-9);
     const tail = curved.segments[7] as PlanSegment;
     expect(Math.hypot(tail.x, tail.y)).toBeLessThan(
       Math.abs((straight.segments[7] as PlanSegment).x),
@@ -77,13 +82,13 @@ describe('development v2: spine curve', () => {
   });
 
   it('splits the turn into two opposite arcs in S mode', () => {
-    const s = body({ curve: 200, curveMode: 255 });
+    const s = body({ curve: 120, curveMode: 255 });
     valid(s);
     const angles = s.segments.map((x) => x.angle);
-    const turn = (200 / 255) * PI;
-    expect(s.form.mode).toBe(1);
-    expect(Math.max(...angles)).toBeLessThanOrEqual(turn / 2 + 1e-12);
-    expect(Math.max(...angles)).toBeGreaterThan(turn / 3);
+    // Each arc turns `sArc` × curve × π (M6b T6), peaking on the middle segment.
+    const arc = D.curve.sArc * (120 / 255) * PI;
+    expect(s.form).toEqual({ turn: 2 * arc, mode: 1, radial: 0, slim: expect.any(Number) });
+    expect(Math.max(...angles)).toBeCloseTo(arc, 9);
     expect(angles[7]).toBeCloseTo(0, 9);
     // The heading rises, then falls: one change of direction.
     const steps = angles
@@ -91,27 +96,38 @@ describe('development v2: spine curve', () => {
       .map((a, i) => Math.sign(a - (angles[i] as number)))
       .filter((x) => x !== 0);
     expect(steps.filter((x, i) => i > 0 && x !== steps[i - 1])).toHaveLength(1);
+    // A deep S keeps each arc within `sMax` × π, and a short chain's S stays shallow.
+    expect(body({ curve: 200, curveMode: 255 }).form.turn).toBeCloseTo(2 * D.curve.sMax * PI, 9);
+    const short = plan(SWIM, { segDrive1: 128, aspect: 128, curve: 120, curveMode: 255 });
+    expect(short.segments.length).toBeLessThan(D.curve.sFrom);
+    expect(short.form.turn).toBeCloseTo((120 / 255) * PI, 9);
   });
 
-  it('coils above 0.8: more than a full turn, tightening toward the tail', () => {
+  it('coils above 0.8: a chambered spiral of 1.25 turns or more, tightening toward the tail', () => {
     const c = body({ curve: 255, tailTaper: 255 });
     valid(c);
+    const [lo, hi] = D.curve.coilTurn as readonly [number, number];
     expect(c.form.mode).toBe(2);
-    expect(c.form.turn).toBeCloseTo(D.curve.coilTurn * PI, 9);
+    expect(c.form.turn).toBeCloseTo(hi * PI, 9);
+    expect(c.segments).toHaveLength(D.caps.segments);
     const angles = c.segments.map((s) => s.angle);
-    expect(angles[7]).toBeCloseTo(D.curve.coilTurn * PI, 9);
+    expect(angles[7]).toBeCloseTo(hi * PI, 9);
+    // Every link turns alike, and each is shorter than the one in front (the head's is its own).
     const turns = angles.slice(1).map((a, i) => a - (angles[i] as number));
-    for (let i = 1; i < turns.length; i++) {
-      expect(turns[i]).toBeGreaterThan(turns[i - 1] as number);
-    }
+    for (const t of turns) expect(t).toBeCloseTo(hi * (PI / 7), 9);
     const links = c.segments
       .slice(1)
       .map((s, i) =>
         Math.hypot(s.x - (c.segments[i] as PlanSegment).x, s.y - (c.segments[i] as PlanSegment).y),
       );
-    for (let i = 1; i < links.length; i++) {
+    for (let i = 2; i < links.length; i++) {
       expect(links[i]).toBeLessThan(links[i - 1] as number);
     }
+    // Just past the threshold it turns `coilTurn[0]` × π, whatever its segment genes say.
+    const few = plan(SWIM, { segDrive1: 128, aspect: 128, curve: 205 });
+    expect(few.form.turn).toBeCloseTo(PI * (lo + ((205 / 255 - 0.8) / 0.2) * (hi - lo)), 9);
+    expect(few.segments).toHaveLength(D.caps.segments);
+    valid(few);
     // Just below the threshold the C arc still has its plain turn.
     expect(body({ curve: 204 }).form).toEqual({
       turn: (204 / 255) * PI,

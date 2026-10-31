@@ -1,6 +1,6 @@
 # 0037: One body, widest at the trunk
 
-- Status: accepted (amends 0028 and 0031)
+- Status: accepted, amended by 0038 (amends 0028 and 0031)
 - Date: 2026-10-30
 
 ## Context
