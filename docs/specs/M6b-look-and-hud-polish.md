@@ -310,7 +310,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
   - Done: shallows caustics 0.4, rays 0.25, drifting at 0.2 pace (`ZONE_LOOK`, `SunClock`); change 4.90 → 2.28 (47%), spread 10.18 → 4.47 (44%), other zones within 3%; `debug.setClock` pins frames.
   - Gotcha (spec fix): the twilight's top keeps 1 and 0.8, so the shallows are now dimmer than it; M6 T17's "strongest in the shallows" and `m6-light`'s 3× shallows/abyss become the calm cap and this spec's 1.5×.
 
-- [x] T9 The HUD shell: one menu button and stat bars [opus] (in progress)
+- [x] T9 The HUD shell: one menu button and stat bars [opus]
   - Acceptance (E2E `m6b-hud.spec.ts`, unit tests for the pure parts):
     - **In play, with no event pending**, at 1280×720 and 960×540, the visible HUD is:
       - one round menu button in the top-left corner (`hud-menu`; a 44 px target, an SVG profile glyph, `aria-label="Menu (Esc)"`);

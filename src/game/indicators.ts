@@ -145,7 +145,6 @@ export function edgeIndicators(
   }
   for (const i of out) keepClear(i, p);
   spread(out, p);
-  for (const i of out) keepClear(i, p);
   return out;
 }
 
@@ -193,6 +192,8 @@ function spread(list: Indicator[], p: LabelProjection): void {
       if (!hit) break;
       if (side) a.y = nudge(a.y, hit.y, SPREAD_PX.y, lo, hiY);
       else a.x = nudge(a.x, hit.x, SPREAD_PX.x, lo, hiX);
+      // A nudge must not push it back under the HUD.
+      keepClear(a, p);
     }
   }
 }
