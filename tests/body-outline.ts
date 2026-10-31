@@ -4,7 +4,14 @@
 
 import { readdirSync, readFileSync } from 'node:fs';
 import type { Genome } from '../src/genome/codec';
-import { type BodyPlan, develop, type PlanSegment } from '../src/genome/develop';
+import {
+  type Appendage,
+  type BodyPlan,
+  curveAt,
+  develop,
+  type PlanSegment,
+  partCurve,
+} from '../src/genome/develop';
 import type { Traits } from '../src/genome/express';
 import type { Silhouette } from '../src/genome/silhouette';
 import { type GallerySpecimen, parseSpecimen, shownGenome } from '../src/lab/gallery';
@@ -131,3 +138,47 @@ export const links = (plan: BodyPlan): number[] =>
         s.y - (plan.segments[i] as PlanSegment).y,
       ),
     );
+
+/**
+ * Whether a point lies strictly inside the body outline: a segment's ellipse, as the mesh lofts the
+ * body (the gallery hook's `outline`). A carapace is a glass shell over it; parts are excluded.
+ */
+export function insideBody(plan: BodyPlan, x: number, y: number): boolean {
+  const inEllipse = (e: PlanSegment): boolean => {
+    const c = Math.cos(e.angle);
+    const n = Math.sin(e.angle);
+    const [dx, dy] = [x - e.x, y - e.y];
+    const u = (dx * c + dy * n) / e.rx;
+    const v = (-dx * n + dy * c) / e.ry;
+    return u * u + v * v < 1;
+  };
+  return plan.segments.some(inEllipse);
+}
+
+/**
+ * The share of a part's drawn centre line (its arc and tip cap, branches excluded) that lies inside
+ * the body outline (M6b T7), sampled at `samples` even points along its length.
+ */
+export function insideShare(plan: BodyPlan, a: Appendage, samples = 32): number {
+  const s = plan.segments[a.segment] as PlanSegment;
+  const c = partCurve(s, a);
+  const total = c.len + c.cap;
+  let inside = 0;
+  for (let k = 0; k < samples; k++) {
+    const along = ((k + 0.5) / samples) * total;
+    let p: { x: number; y: number };
+    if (along <= c.len || c.cap === 0) {
+      p = curveAt(c, c.len > 0 ? Math.min(1, along / c.len) : 0);
+    } else {
+      const end = curveAt(c, 1);
+      const past = along - c.len;
+      p = { x: end.x + past * Math.cos(end.heading), y: end.y + past * Math.sin(end.heading) };
+    }
+    if (insideBody(plan, p.x, p.y)) inside++;
+  }
+  return inside / samples;
+}
+
+/** The trunk legs of a bilateral chain of three or more segments: the parts behind the head. */
+export const trunkLegs = (plan: BodyPlan): Appendage[] =>
+  isChain(plan) ? plan.appendages.filter((a) => a.segment >= 1) : [];

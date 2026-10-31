@@ -436,9 +436,11 @@ describe('computeStats: development v2 follows form (ADR 0025)', () => {
   const build = (bytes: Uint8Array) => buildCreature(decodeGenome(bytes));
   // Curling or ringing can free a part that the bounds had clamped, which is a different body; the
   // comparisons below keep to bodies whose parts are the same before and after.
+  // Parts as the water meets them: a part is drawn as thin as its segment allows, but its girth
+  // follows its genes (M6b T7), so a curled or ringed twin's parts compare by girth.
   const parts = (c: ReturnType<typeof build>): string =>
     c.plan.appendages
-      .map((a) => a.length * a.width)
+      .map((a) => a.length * a.girth)
       .sort((x, y) => x - y)
       .join();
 

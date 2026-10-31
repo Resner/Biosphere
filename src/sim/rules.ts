@@ -306,6 +306,8 @@ export const RULES = deepFreeze({
       whorl: 0.38,
       chamber: 0.85,
       coiled: 1.4,
+      /** A coil's parts root along its outer `outer` chambers, clear of the whorls inside (M6b T7). */
+      outer: 5,
       /** Curved neighbours stay at most this share of their summed radii along the link apart. */
       overlap: 0.9,
       /** Segments that are not neighbours stay at least `gap` of their summed radii apart (M6b T6). */
@@ -423,17 +425,35 @@ export const RULES = deepFreeze({
      * How a part is drawn, which the bounds follow (M6 T14b): its centre line is an arc that turns
      * `turn` × curvature (less with webbing, and never tighter than `fold` of its own half-width),
      * then a straight tip cap of (`capBlunt` + `capSharp` × tip) × its end half-width, at most
-     * `capShare` of its length, which the length includes.
+     * `capShare` of its length, which the length includes. Under karyotype v2 a part is at most
+     * `root` of its root segment's drawn half-width thick (M6b T7, ADR 0039): the gene's width range
+     * scales down to that, so legs on a slim trunk are thin, but no thinner than `floor` (or the
+     * gene) where the segment has room, so a thin leg still shows in a small view.
      */
-    part: { turn: 1.2, fold: 0.8, capBlunt: 0.3, capSharp: 2.2, capShare: 0.3 },
+    part: {
+      turn: 1.2,
+      fold: 0.8,
+      capBlunt: 0.3,
+      capSharp: 2.2,
+      capShare: 0.3,
+      root: 0.5,
+      floor: 0.07,
+    },
+    /**
+     * Parts keep off the body under karyotype v2 (M6b T7, ADR 0039): a part with more than `share`
+     * of its drawn centre line (sampled at `samples` points) inside the body outline turns by
+     * `step` radians at a time either way, up to `turns` steps, the least turn that clears it,
+     * shortened to fit the bounds (to 2^−`steps`) where it must.
+     */
+    keep: { share: 0.2, samples: 12, step: 0.15, turns: 10, steps: 3, slide: 0.1, clear: 0.02 },
     /** Fine parts (M6 T8, ADR 0025): detail on parts, never parts. Each at 0 leaves the v1 body. */
     detail: {
       /** A webbed part spans a sheet `webbing` of the way along its rays: to its branches, and to the next part rearward on its side (or, the rearmost, to its own mirror: a tail fan) when their roots lie at most `webSpan` apart. Pieces under `minArea` are dropped. */
       webSpan: 1.6,
       minArea: 1e-4,
-      /** Density 0-1 gives 0-`perPart` bristles along a part, each setae length × width × `length` long; the body keeps at most `perBody`. */
+      /** Density 0-1 gives 0-`perPart` bristles along a part, each setae length × girth × `length` long; the body keeps at most `perBody`. */
       setae: { perPart: 24, perBody: 240, length: 6 },
-      /** Bulb above `min` tips a part with a bead of radius bulb × width × `scale`, at most `room` of the free reach past the root. */
+      /** Bulb above `min` tips a part with a bead of radius bulb × girth × `scale`, at most `room` of the free reach past the root. */
       bulb: { min: 0.3, scale: 2, room: 0.5 },
       /** Chela above `min` on a pointed or hooked tip (a weapon share above 0) makes the last joint opposable. */
       chela: { min: 0.5 },

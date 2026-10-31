@@ -9,6 +9,7 @@ import { bodyViolations, develop } from './develop';
 import { express } from './express';
 import { genesisGenome } from './genesis';
 import { genesisGenomeV5 } from './genesis-v5';
+import { genesisGenomeV6 } from './genesis-v6';
 import {
   applyMutation,
   breed,
@@ -503,7 +504,11 @@ describe('goldens', () => {
     expect(golden.rulesVersion).toBe(6);
     for (const i of [0, 1, 2]) {
       const seed = offspringSeed(new Uint8Array(32).fill(i), `golden-${i}`, 0);
-      expect(genomeHash(breed(parent(i), parent(i + 100), seed))).toBe(golden.hashes[`child-${i}`]);
+      // Rules 6 births had rules 6 parents: the frozen v6 genesis (M6b T7 changed genesis.ts).
+      const parentV6 = (k: number): Genome => genesisGenomeV6(seedOf('inherit-parent', k));
+      expect(genomeHash(breed(parentV6(i), parentV6(i + 100), seed))).toBe(
+        golden.hashes[`child-${i}`],
+      );
     }
   });
 

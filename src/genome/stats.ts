@@ -151,7 +151,8 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
     }
   });
   plan.appendages.forEach((a, i) => {
-    const area = a.length * a.width * branchWeight(a);
+    // A part thinned to fit its segment is drawn edge-on: the water meets its girth (M6b T7).
+    const area = a.length * a.girth * branchWeight(a);
     const arm = arms[i] as number;
     if (a.beat >= D.minBeat) {
       const f = area * a.beat * efficiency(a.tip) * traits.defects.beatStrength * amp;
@@ -165,10 +166,10 @@ function raw(plan: BodyPlan, traits: Traits, biomass: number): Raw {
       steer += f * arm;
     }
     appendageArea += area;
-    appendageDrag += a.width * (1 + a.length) * (1 + a.branches * D.branchScale);
+    appendageDrag += a.girth * (1 + a.length) * (1 + a.branches * D.branchScale);
     appendageInertia += area * (arm * arm + (a.length * a.length) / 3);
     // A bulb and a chela's finger weigh at the part's reach.
-    const extra = V2.bulb.mass * PI * a.bulb * a.bulb + V2.chela.mass * fingerOf(a) * a.width;
+    const extra = V2.bulb.mass * PI * a.bulb * a.bulb + V2.chela.mass * fingerOf(a) * a.girth;
     detailMass += extra;
     appendageInertia += extra * (arm + a.length) * (arm + a.length);
   });
@@ -361,7 +362,7 @@ function senseOf(plan: BodyPlan): number {
   let reach = 0;
   for (const a of plan.appendages) {
     const forward = Math.max(0, 1 - a.angle / (PI / 2));
-    const slender = clamp(1 - a.width / (D.width[1] as number), 0, 1);
+    const slender = clamp(1 - a.girth / (D.width[1] as number), 0, 1);
     reach += a.length * forward * slender * (1 - a.beat);
   }
   const e = plan.eyes;

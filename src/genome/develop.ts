@@ -40,7 +40,13 @@ export interface Appendage {
   /** Growth direction, same convention. */
   dir: number;
   length: number;
+  /** The drawn base width: under karyotype v2 at most `part.root` of its root segment's half-width (M6b T7). */
   width: number;
+  /**
+   * The base width as the water meets it: its gene's (M6b T7, ADR 0039). A part thinned to fit its
+   * segment is drawn edge-on, as a slimmed chain is (ADR 0031), so stats and bristles read this.
+   */
+  girth: number;
   taper: number;
   curvature: number;
   joints: number;
@@ -681,9 +687,10 @@ function chainV2(traits: Traits, build: Build): PlanSegment[] {
     : headOf(traits);
   const out: PlanSegment[] = [{ x: 0, y: 0, rx: head, ry, angle: 0 }];
   if (n < 2) return out;
-  // A radial body keeps its chain inside its round core: the reach falls over the radial range.
-  const ring = clamp((traits.shape.symmetry - D.radial.at) / (1 - D.radial.at), 0, 1);
-  const reach = lerp(trunked ? C.trunk.reach : C.reach, head, ring);
+  // A radial body keeps its chain inside its round core (M6b T7: from symmetry 0.5, so the chain
+  // never covers the ring's roots).
+  const radial = traits.shape.symmetry >= D.radial.at;
+  const reach = radial ? head : trunked ? C.trunk.reach : C.reach;
   const room = reach - D.segmentSpacing * head;
   // Shorten first: the largest squash at which every segment's far edge stays in reach.
   let squash = 1;
@@ -736,7 +743,25 @@ function bend(straight: PlanSegment[], form: Bending): PlanSegment[] {
   return out;
 }
 
-function buildParts(traits: Traits, n: number): Part[] {
+/**
+ * How thick a v2 part may be on each segment (M6b T7, ADR 0039): `part.root` of the segment's drawn
+ * half-width, so legs on a slim trunk are thin. The gene's width range scales down to it, as a
+ * share; a v1 body keeps the gene's width.
+ */
+function widthScales(segments: readonly PlanSegment[], v2: boolean): number[] {
+  return segments.map((s) => (v2 ? Math.min(1, (D.part.root * s.ry) / WIDTH[1]) : 1));
+}
+
+/**
+ * A part's drawn width from its gene's at its segment's scale `k`: never thinner than `part.floor`
+ * (or its gene) where the segment has room for it, so a thin leg still shows at a small size.
+ */
+const drawnWidth = (gene: number, k: number): number =>
+  Math.max(gene * k, Math.min(gene, D.part.floor, k * WIDTH[1]));
+
+/** Parts root along the front `rooms` segments (a coil's outer whorl, M6b T7; else all of them). */
+function buildParts(traits: Traits, scales: readonly number[], rooms: number): Part[] {
+  const n = rooms;
   const parts: Part[] = [];
   let malformed = traits.defects.partScale;
   traits.modules.forEach((mod, slot) => {
@@ -748,19 +773,22 @@ function buildParts(traits: Traits, n: number): Part[] {
     const pairs = 1 + Math.floor((p.pairs * D.caps.pairs) / 256);
     const t0 = unit(p.attachStart);
     const reach = unit(p.attachSpan) * (1 - t0);
-    const width = lerp(WIDTH[0], WIDTH[1], unit(p.thickness)) * scale;
+    const gene = lerp(WIDTH[0], WIDTH[1], unit(p.thickness)) * scale;
     const tip = unit(p.tipShape);
     const base = partLength(p.length, 1) * scale;
     for (let k = 0; k < pairs; k++) {
       const t = pairs > 1 ? t0 + (reach * k) / (pairs - 1) : t0;
+      const segment = Math.min(n - 1, Math.floor(t * n));
+      const width = drawnWidth(gene, scales[segment] as number);
       parts.push({
         module: slot,
-        segment: Math.min(n - 1, Math.floor(t * n)),
+        segment,
         angle: D.angleMargin + (PI - 2 * D.angleMargin) * unit(p.angle),
         dir: 0,
         length: partLength(p.length, traits.karyotype) * scale,
         base,
         width,
+        girth: gene,
         taper: lerp(TAPER[0], TAPER[1], unit(p.taper)),
         curvature: lerp(CURVATURE[0], CURVATURE[1], unit(p.curvature)),
         joints: 1 + Math.floor((p.joints * D.caps.joints) / 256),
@@ -773,7 +801,7 @@ function buildParts(traits: Traits, n: number): Part[] {
         setae: x.setaeLength > 0 ? Math.round(x.setaeDensity * X.setae.perPart) : 0,
         // The gene for now: `dress` turns it into a length once the part's reach is known.
         setaeLength: x.setaeLength,
-        bulb: x.bulb > X.bulb.min ? x.bulb * width * X.bulb.scale : 0,
+        bulb: x.bulb > X.bulb.min ? x.bulb * gene * X.bulb.scale : 0,
         chela: x.chela > X.chela.min && isWeaponTip(tip) ? x.chela : 0,
         beads: x.beads,
       });
@@ -809,7 +837,7 @@ const PLAIN = { webbing: 0, setae: 0, setaeLength: 0, bulb: 0, chela: 0, beads: 
  * merges into its neighbour. Edits the parts in place; the stable sort keeps module and pair order
  * among equal angles.
  */
-function separate(parts: Part[], count: number): Part[] {
+function separate(parts: Part[], count: number, scales: readonly number[]): Part[] {
   const dropped = new Set<Part>();
   for (let s = 0; s < count; s++) {
     let prev: Part | undefined;
@@ -823,7 +851,9 @@ function separate(parts: Part[], count: number): Part[] {
         p.angle = angle;
         prev = p;
       } else {
-        prev.width = Math.min(WIDTH[1], hypot(prev.width, p.width));
+        // The merged part is as broad as both genes, drawn as thin as its segment allows.
+        prev.girth = Math.min(WIDTH[1], hypot(prev.girth, p.girth));
+        prev.width = drawnWidth(prev.girth, scales[s] as number);
         prev.beat = Math.max(prev.beat, p.beat);
         dropped.add(p);
       }
@@ -1079,16 +1109,278 @@ function roughReach(
   return far;
 }
 
+/** An ellipse of the drawn body, ready for inside tests: its centre, axis and inverse half-axes. */
+interface Ellipse {
+  x: number;
+  y: number;
+  c: number;
+  s: number;
+  irx: number;
+  iry: number;
+  /** Its longer half-axis and that squared: no point farther from its centre is inside. */
+  r: number;
+  r2: number;
+}
+
+/**
+ * The drawn body outline (M6b T7): every segment's ellipse, as the mesh lofts the body. A carapace
+ * is a thin glass shell over its segments, and parts leave the body from under it.
+ */
+type Outline = Ellipse[];
+
+function outlineOf(segments: readonly PlanSegment[]): Outline {
+  return segments.map((e) => {
+    const r = Math.max(e.rx, e.ry);
+    return {
+      x: e.x,
+      y: e.y,
+      c: cos(e.angle),
+      s: sin(e.angle),
+      irx: 1 / e.rx,
+      iry: 1 / e.ry,
+      r,
+      r2: r * r,
+    };
+  });
+}
+
+/** Whether (`x`, `y`) lies inside the ellipse `e`. */
+function within(e: Ellipse, x: number, y: number): boolean {
+  const dx = x - e.x;
+  const dy = y - e.y;
+  if (dx * dx + dy * dy >= e.r2) return false;
+  const u = (dx * e.c + dy * e.s) * e.irx;
+  const v = (dy * e.c - dx * e.s) * e.iry;
+  return u * u + v * v < 1;
+}
+
+function inside(body: Outline, x: number, y: number): boolean {
+  for (const e of body) if (within(e, x, y)) return true;
+  return false;
+}
+
+/** The ellipses a part can reach from one root, by index: `n` of them in `idx`. */
+interface Near {
+  idx: Int32Array;
+  n: number;
+}
+
+/** Only the ellipses within `length` of `root` can hold a point of a part that long. */
+function nearTo(body: Outline, root: Point, length: number): Near {
+  const near = { idx: new Int32Array(body.length), n: 0 };
+  for (let j = 0; j < body.length; j++) {
+    const e = body[j] as Ellipse;
+    const reach = length + e.r;
+    const dx = root.x - e.x;
+    const dy = root.y - e.y;
+    if (dx * dx + dy * dy < reach * reach) near.idx[near.n++] = j;
+  }
+  return near;
+}
+
+/**
+ * The share of a part's centre line (`partCurve` without webbing: its arc, then its tip cap;
+ * branches excluded) that lies inside the body, at `keep.samples` even points along its length, on
+ * the worse of its two sides.
+ */
+function buried(
+  p: Part,
+  s: PlanSegment,
+  l: Point,
+  r: Point,
+  body: Outline,
+  nears: readonly [Near, Near],
+  limit = 1,
+): number {
+  const K = D.keep.samples;
+  // At its bend without webbing, as the bounds fit it: webbing is detail and never moves a part.
+  const { cap, bend } = capAndBend(p, 0);
+  const len = p.length - cap;
+  const step = p.length / K;
+  const straight = Math.abs(bend) < 1e-6;
+  // The arc's heading turns by `bend` over `len`, so `dt` per step; the samples sit half a step in.
+  const half = len > 0 ? (bend * step) / len / 2 : 0;
+  const [ct, st] = straight ? [1, 0] : [cos(bend), sin(bend)];
+  const [ch, sh] = straight ? [1, 0] : [cos(half), sin(half)];
+  const [cd, sd] = [ch * ch - sh * sh, 2 * ch * sh];
+  const most = Math.floor(limit * K);
+  let worst = 0;
+  const sides = onAxis(s) ? 1 : 2;
+  for (let i = 0; i < sides; i++) {
+    const side = i === 0 ? 1 : -1;
+    const root = i === 0 ? l : r;
+    const near = nears[i] as Near;
+    const h0 = s.angle + side * p.dir;
+    const c0 = cos(h0);
+    const s0 = sin(h0);
+    // The right side turns the other way: every turn's sine flips.
+    const [ce, se] = [c0 * ct - s0 * side * st, s0 * ct + c0 * side * st];
+    const rho = straight ? 0 : len / (side * bend);
+    let hc = c0 * ch - s0 * side * sh;
+    let hs = s0 * ch + c0 * side * sh;
+    const sdd = side * sd;
+    const ex = straight ? root.x + len * c0 : root.x + rho * (se - s0);
+    const ey = straight ? root.y + len * s0 : root.y - rho * (ce - c0);
+    let count = 0;
+    for (let k = 0; k < K && count <= most; k++) {
+      const along = (k + 0.5) * step;
+      let x: number;
+      let y: number;
+      if (along <= len) {
+        if (straight) {
+          x = root.x + along * c0;
+          y = root.y + along * s0;
+        } else {
+          x = root.x + rho * (hs - s0);
+          y = root.y - rho * (hc - c0);
+        }
+        const nc = hc * cd - hs * sdd;
+        hs = hs * cd + hc * sdd;
+        hc = nc;
+      } else {
+        // Past the arc, the tip cap runs straight on along the end heading.
+        x = ex + (along - len) * ce;
+        y = ey + (along - len) * se;
+      }
+      for (let j = 0; j < near.n; j++) {
+        if (within(body[near.idx[j] as number] as Ellipse, x, y)) {
+          count++;
+          break;
+        }
+      }
+    }
+    worst = Math.max(worst, count / K);
+    if (worst > limit) break;
+  }
+  return worst;
+}
+
+/**
+ * Whether the body covers the root at `angle` of segment `s` on either side (one on the axis): a
+ * point `keep.clear` outside it lies inside the outline.
+ */
+function covered(s: PlanSegment, angle: number, body: Outline): boolean {
+  const ca = cos(angle);
+  const sa = sin(angle);
+  // The outward normal there, in the segment's frame, scaled to `keep.clear`.
+  const nx = s.ry * ca;
+  const ny = s.rx * sa;
+  const k = D.keep.clear / Math.max(hypot(nx, ny), D.epsilon);
+  const u = s.rx * ca + k * nx;
+  const v = s.ry * sa + k * ny;
+  for (let side = 1; side >= -1; side -= 2) {
+    const at = placeOn(s, u, side * v);
+    if (inside(body, at.x, at.y)) return true;
+    if (onAxis(s)) break;
+  }
+  return false;
+}
+
+/**
+ * Moves a v2 part's root out from under the body (M6b T7): a root that a neighbour covers slides
+ * round its segment, `keep.slide` at a time, to the nearest attach angle where the body shows on
+ * both sides and no other part of the segment sits. A segment the body covers whole keeps its parts
+ * where they are. Edits in place.
+ */
+function uncover(p: Part, parts: readonly Part[], segments: PlanSegment[], body: Outline): void {
+  const s = segments[p.segment] as PlanSegment;
+  if (!covered(s, p.angle, body)) return;
+  const step = D.keep.slide;
+  // Never onto another part of the segment, which `separate` would then merge it into.
+  const taken = (angle: number): boolean =>
+    parts.some(
+      (q) => q !== p && q.segment === p.segment && Math.abs(q.angle - angle) < D.minAngleGap,
+    );
+  for (let k = 1; k * step < PI; k++) {
+    for (let way = -1; way <= 1; way += 2) {
+      const angle = p.angle + way * k * step;
+      if (angle < D.angleMargin || angle > maxAngle) continue;
+      if (!covered(s, angle, body) && !taken(angle)) {
+        p.angle = angle;
+        return;
+      }
+    }
+  }
+}
+
+/**
+ * Keeps a v2 part off the body (M6b T7): a part with more than `keep.share` of its centre line
+ * inside the drawn outline turns, `keep.step` at a time either way (the side away from the body
+ * first, never ahead of `from`, never past the tail, and a tail part growing rearward no further
+ * forward than sideways), up to `keep.turns` steps: the least turn that clears it whole wins, then
+ * the least that clears it shortened to fit the bounds. If none clears, it takes the whole turn
+ * that buries least. Edits in place.
+ */
+function keepOff(p: Part, segments: PlanSegment[], body: Outline, from: number): void {
+  const K = D.keep;
+  const s = segments[p.segment] as PlanSegment;
+  const l = rootOf(s, p.angle, 1);
+  const r = onAxis(s) ? { x: l.x, y: -l.y } : rootOf(s, p.angle, -1);
+  // The ellipses within the unshortened part's reach: every trial is no longer than that.
+  const nears = [nearTo(body, l, p.length), nearTo(body, r, p.length)] as const;
+  let best = buried(p, s, l, r, body, nears);
+  if (best <= K.share) return;
+  const [dir0, length0] = [p.dir, p.length];
+  let [bestDir, bestLength] = [dir0, length0];
+  const tail = p.segment === segments.length - 1 ? Math.min(dir0, PI / 2) : 0;
+  const lo = Math.max(from, tail);
+  // The side away from the body first: toward the root's outward normal.
+  const normal = atan2(s.rx * sin(p.angle), s.ry * cos(p.angle));
+  const first = normal >= dir0 ? 1 : -1;
+  const fits = boundsCheck(p, s, l, r);
+  const free = D.caps.bounds - D.boundsSlack - Math.max(hypot(l.x, l.y), hypot(r.x, r.y));
+  const cut = Math.min(length0, (free - p.bulb) / branchFactor(p.branches));
+  // A turn that clears the body only shortened is kept in reserve: a whole one may follow.
+  let short: [number, number] | undefined;
+  for (let j = 1; j <= K.turns; j++) {
+    for (let w = 0; w < 2; w++) {
+      const dir = dir0 + (w === 0 ? first : -first) * j * K.step;
+      if (dir < lo || dir > PI) continue;
+      p.dir = dir;
+      p.length = length0;
+      // Whole, a turn that buries no less than the best so far is no better; the bounds come after.
+      const share = buried(p, s, l, r, body, nears, best);
+      if (share >= best) continue;
+      if (fits()) {
+        if (share <= K.share) return;
+        [best, bestDir, bestLength] = [share, dir, length0];
+      } else if (!short && share <= K.share) {
+        // The longest length that fits whole at this turn, to 2^−`keep.steps`; the v1 cut always does.
+        let [lo2, hi2] = [cut, length0];
+        for (let k = 0; k < K.steps; k++) {
+          p.length = (lo2 + hi2) / 2;
+          if (fits()) lo2 = p.length;
+          else hi2 = p.length;
+        }
+        p.length = lo2;
+        if (buried(p, s, l, r, body, nears, K.share) <= K.share) short = [dir, lo2];
+      }
+    }
+  }
+  [p.dir, p.length] = short ?? [bestDir, bestLength];
+}
+
 /**
  * Sets the growth direction (bent `sweep` of the way toward the tail, but never ahead of `from`)
  * and fits the part inside the bounds. A v1 genome clamps the length so that root plus reach stays
  * inside (the v5 rule). A v2 genome keeps the gene length if it can: the part sweeps toward the core,
  * along the body, as little as it must and at most `fit.max` (a rear-segment part growing rearward
  * turns no further forward than sideways), and a part that still leaves the bounds is cut by the v1
- * rule.
+ * rule. A v2 part then keeps off the body (`keepOff`, M6b T7).
  * Edits in place.
  */
-function fitPart(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, from = 0): void {
+function fitPart(
+  p: Part,
+  segments: PlanSegment[],
+  sweep: number,
+  body: Outline | null,
+  from = 0,
+): void {
+  fitBounds(p, segments, sweep, body !== null, from);
+  if (body) keepOff(p, segments, body, from);
+}
+
+function fitBounds(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, from: number) {
   const wish = p.length;
   if (!v2 || !(wish > p.base)) {
     fitAt(p, segments, sweep, v2, from);
@@ -1122,28 +1414,20 @@ function fitLength(
   return p.length === length;
 }
 
-function fitAt(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, from: number): void {
-  // On a turned segment the two sides' roots lie at different distances; the farther one counts.
-  const s = segments[p.segment] as PlanSegment;
+/**
+ * Whether part `p` (at its current direction and length) fits the bounds whole on both sides, from
+ * its roots `l` and `r` on segment `s`.
+ */
+function boundsCheck(p: Part, s: PlanSegment, l: Point, r: Point): () => boolean {
   const mirrored = onAxis(s);
-  const l = rootOf(s, p.angle, 1);
-  const r = mirrored ? { x: l.x, y: -l.y } : rootOf(s, p.angle, -1);
-  const free = D.caps.bounds - D.boundsSlack - Math.max(hypot(l.x, l.y), hypot(r.x, r.y));
-  // A bulb takes at most its share of the free reach, and the part shortens to make room for it.
-  p.bulb = Math.min(p.bulb, X.bulb.room * Math.max(0, free));
-  const dir = Math.max(from, p.angle + sweep * (PI - p.angle));
-  p.dir = dir;
-  const cut = Math.min(p.length, (free - p.bulb) / branchFactor(p.branches));
-  if (!v2 || cut >= p.length) {
-    p.length = cut;
-    return;
-  }
   const room = D.caps.bounds - D.boundsSlack;
   // Webbing straightens the drawn part toward its membrane's rays, so the fit holds the part, at
   // its full bend, half of it and straight, with the rays any sheet may span: webbing is detail
   // and never changes how a part fits. Between those bends the drawn reach stays within the
-  // bounds slack.
-  const { cap, bend } = capAndBend(p, 0);
+  // bounds slack. The cap and bend follow the part's length.
+  let length = Number.NaN;
+  let cap = 0;
+  let bend = 0;
   // The exact bends take trigonometry, so they are made only when the rough bound is not enough.
   let exact: [Bend[], Bend[]] | undefined;
   const bends = (): [Bend[], Bend[]] => {
@@ -1163,8 +1447,33 @@ function fitAt(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, fro
     }
     return true;
   };
-  const fits = (): boolean =>
-    side(l, s.angle + p.dir, 1) && (mirrored || side(r, s.angle - p.dir, -1));
+  return (): boolean => {
+    if (p.length !== length) {
+      length = p.length;
+      ({ cap, bend } = capAndBend(p, 0));
+      exact = undefined;
+    }
+    return side(l, s.angle + p.dir, 1) && (mirrored || side(r, s.angle - p.dir, -1));
+  };
+}
+
+function fitAt(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, from: number): void {
+  // On a turned segment the two sides' roots lie at different distances; the farther one counts.
+  const s = segments[p.segment] as PlanSegment;
+  const mirrored = onAxis(s);
+  const l = rootOf(s, p.angle, 1);
+  const r = mirrored ? { x: l.x, y: -l.y } : rootOf(s, p.angle, -1);
+  const free = D.caps.bounds - D.boundsSlack - Math.max(hypot(l.x, l.y), hypot(r.x, r.y));
+  // A bulb takes at most its share of the free reach, and the part shortens to make room for it.
+  p.bulb = Math.min(p.bulb, X.bulb.room * Math.max(0, free));
+  const dir = Math.max(from, p.angle + sweep * (PI - p.angle));
+  p.dir = dir;
+  const cut = Math.min(p.length, (free - p.bulb) / branchFactor(p.branches));
+  if (!v2 || cut >= p.length) {
+    p.length = cut;
+    return;
+  }
+  const fits = boundsCheck(p, s, l, r);
   if (fits()) return;
   // Sweep along the body toward the core, at most `fit.max`, and never so that a part on the
   // rear segment growing rearward grows forward: a tail stays a tail. If even the farthest sweep
@@ -1191,8 +1500,13 @@ function fitAt(p: Part, segments: PlanSegment[], sweep: number, v2: boolean, fro
   p.length = cut;
 }
 
-function shape(parts: Part[], segments: PlanSegment[], sweep: number, v2: boolean): Part[] {
-  for (const p of parts) fitPart(p, segments, sweep, v2);
+function shape(
+  parts: Part[],
+  segments: PlanSegment[],
+  sweep: number,
+  body: Outline | null,
+): Part[] {
+  for (const p of parts) fitPart(p, segments, sweep, body);
   return parts;
 }
 
@@ -1203,24 +1517,24 @@ export const ringAngle = (k: number, pairs: number): number => (PI * (2 * k + 1)
  * A radial body: the parts, in order, ring the core at even angles, and each grows no further
  * forward than the one before it, so a fitted part never crosses its neighbour. Copies them.
  */
-function ring(parts: Part[], segments: PlanSegment[], sweep: number): Part[] {
+function ring(parts: Part[], segments: PlanSegment[], sweep: number, body: Outline | null): Part[] {
   const ringed = parts.map((p, k) => ({ ...p, segment: 0, angle: ringAngle(k, parts.length) }));
   let from = 0;
   for (const p of ringed) {
-    fitPart(p, segments, sweep, true, from);
+    fitPart(p, segments, sweep, body, from);
     from = p.dir;
   }
   return ringed;
 }
 
-type Piece = Pick<Appendage, 'length' | 'width' | 'beat' | 'branches'>;
+type Piece = Pick<Appendage, 'length' | 'girth' | 'beat' | 'branches'>;
 
-/** Motile area: length × width × beat over parts that beat at all, counting branches. */
+/** Motile area: length × girth × beat over parts that beat at all, counting branches. */
 export function motileArea(appendages: readonly Piece[]): number {
   let area = 0;
   for (const a of appendages) {
     if (a.beat >= D.minBeat) {
-      area += a.length * a.width * a.beat * branchWeight(a);
+      area += a.length * a.girth * a.beat * branchWeight(a);
     }
   }
   return area;
@@ -1229,7 +1543,12 @@ export function motileArea(appendages: readonly Piece[]): number {
 /** Whether the left-side `parts`, mirrored, hold the instance cap: parts are capped by count only (ADR 0025). */
 const fits = (parts: Part[]): boolean => parts.length * 2 <= D.caps.appendages;
 
-function bandPart(segment: number, angle: number, index: number): Part {
+/** How thick the default ciliary band is drawn on a segment: under karyotype v2 at most `part.root` of its half-width (M6b T7). */
+const room = (segments: readonly PlanSegment[], seg: number, body: Outline | null): number =>
+  body ? D.part.root * (segments[seg] as PlanSegment).ry : D.band.width;
+
+/** A pair of the default ciliary band, drawn at most `room` thick. */
+function bandPart(segment: number, angle: number, index: number, room: number): Part {
   return {
     module: -1,
     segment,
@@ -1237,7 +1556,8 @@ function bandPart(segment: number, angle: number, index: number): Part {
     dir: 0,
     length: D.band.length,
     base: D.band.length,
-    width: D.band.width,
+    width: Math.min(D.band.width, room),
+    girth: D.band.width,
     taper: D.band.taper,
     curvature: 0,
     joints: D.band.joints,
@@ -1250,7 +1570,7 @@ function bandPart(segment: number, angle: number, index: number): Part {
   };
 }
 
-function bandParts(parts: Part[], segment: number): Part[] | null {
+function bandParts(parts: Part[], segment: number, room: number): Part[] | null {
   // The free angles on the rear segment, rearmost first.
   const taken = parts.filter((p) => p.segment === segment).map((p) => p.angle);
   const slots = Math.floor((PI - 2 * D.angleMargin) / D.minAngleGap);
@@ -1258,7 +1578,7 @@ function bandParts(parts: Part[], segment: number): Part[] | null {
   for (let j = slots; j >= 0 && band.length < D.band.pairs; j--) {
     const angle = D.angleMargin + j * D.minAngleGap;
     if (taken.every((a) => Math.abs(a - angle) >= D.minAngleGap - D.epsilon)) {
-      band.push(bandPart(segment, angle, band.length));
+      band.push(bandPart(segment, angle, band.length, room));
     }
   }
   return band.length === D.band.pairs ? band : null;
@@ -1273,22 +1593,23 @@ const mirror = (parts: Part[]): Appendage[] =>
 
 /** Bilateral parts: spread, shaped, trimmed in module order, then a ciliary band if nothing swims. */
 function bilateralParts(
-  traits: Traits,
   built: Part[],
   segments: PlanSegment[],
   sweep: number,
+  body: Outline | null,
+  scales: readonly number[],
 ): Part[] {
   const count = segments.length;
-  const v2 = traits.karyotype !== 1;
-  let parts = shape(separate(built, count), segments, sweep, v2);
+  if (body) for (const p of built) uncover(p, built, segments, body);
+  let parts = shape(separate(built, count, scales), segments, sweep, body);
   // Trim in module order, pair by pair, until the plan fits the part cap.
   while (!fits(parts)) parts = parts.slice(0, -1);
   if (2 * motileArea(parts) >= D.minThrustArea) return parts;
   // Try the rear segment first, then the ones in front of it, before giving up any part.
   for (;;) {
     for (let seg = count - 1; seg >= 0; seg--) {
-      const band = bandParts(parts, seg);
-      const trial = band && shape(band, segments, sweep, v2);
+      const band = bandParts(parts, seg, room(segments, seg, body));
+      const trial = band && shape(band, segments, sweep, body);
       if (trial && fits([...parts, ...trial])) return [...parts, ...trial];
     }
     parts = parts.slice(0, -1);
@@ -1296,17 +1617,24 @@ function bilateralParts(
 }
 
 /** Radial parts: ringed, trimmed in module order, and a ciliary band joins the ring if nothing swims. */
-function radialParts(all: Part[], segments: PlanSegment[], sweep: number): Part[] {
+function radialParts(
+  all: Part[],
+  segments: PlanSegment[],
+  sweep: number,
+  body: Outline | null,
+): Part[] {
   let keep = Math.min(all.length, D.radial.maxPairs);
-  let parts = ring(all.slice(0, keep), segments, sweep);
-  while (keep > 0 && !fits(parts)) parts = ring(all.slice(0, --keep), segments, sweep);
+  let parts = ring(all.slice(0, keep), segments, sweep, body);
+  while (keep > 0 && !fits(parts)) parts = ring(all.slice(0, --keep), segments, sweep, body);
   if (2 * motileArea(parts) >= D.minThrustArea) return parts;
-  const band = Array.from({ length: D.band.pairs }, (_, j) => bandPart(0, 0, j));
+  const band = Array.from({ length: D.band.pairs }, (_, j) =>
+    bandPart(0, 0, j, room(segments, 0, body)),
+  );
   for (keep = Math.min(keep, D.radial.maxPairs - D.band.pairs); keep > 0; keep--) {
-    const trial = ring([...all.slice(0, keep), ...band], segments, sweep);
+    const trial = ring([...all.slice(0, keep), ...band], segments, sweep, body);
     if (fits(trial)) return trial;
   }
-  return ring(band, segments, sweep);
+  return ring(band, segments, sweep, body);
 }
 
 /** Where bristle `k` of `count` sits along a part, as a share of its length. */
@@ -1341,7 +1669,7 @@ function dress(parts: Part[], segments: PlanSegment[]): Part[] {
     const s = segments[p.segment] as PlanSegment;
     const far = farAlong(s, p, bristleAt(0, p.setae), bristleAt(p.setae - 1, p.setae));
     const length = Math.min(
-      p.setaeLength * p.width * S.length,
+      p.setaeLength * p.girth * S.length,
       D.caps.bounds - D.boundsSlack - far,
     );
     if (!(length > D.epsilon)) {
@@ -1667,18 +1995,25 @@ export function develop(traits: Traits): BodyPlan {
   const shape = traits.shape;
   const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
   const form = formOf(shape, n);
-  const { segments, slim } = buildSegments(traits, form, buildOf(traits, form, n));
+  const build = buildOf(traits, form, n);
+  const { segments, slim } = buildSegments(traits, form, build);
   // A coil lays its chain out as more chambers than its segment genes give (M6b T6).
   const count = segments.length;
-  const built = buildParts(traits, count);
-  const R = D.radial;
-  const parts = form.radial
-    ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape)
-    : bilateralParts(traits, built, segments, lerp(D.sweep, R.drapeSweep, shape.drape));
-
-  const appendages = mirror(dress(parts, segments));
+  const v2 = traits.karyotype !== 1;
   const plating = traits.skin.plating;
   const carapace = buildCarapace(segments, shape.fusion, plating);
+  const scales = widthScales(segments, v2);
+  // A coil's parts root on its outer whorl, so they grow clear of the whorls inside it (M6b T7).
+  const rooms = build === 'coil' ? Math.min(count, D.curve.outer) : count;
+  const built = buildParts(traits, scales, rooms);
+  // Under karyotype v2 parts keep off the drawn body (M6b T7).
+  const body = v2 ? outlineOf(segments) : null;
+  const R = D.radial;
+  const parts = form.radial
+    ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape, body)
+    : bilateralParts(built, segments, lerp(D.sweep, R.drapeSweep, shape.drape), body, scales);
+
+  const appendages = mirror(dress(parts, segments));
   const plates: Plate[] =
     plating < D.plateMin
       ? []
@@ -1881,6 +2216,7 @@ export function bodyViolations(plan: BodyPlan): string[] {
   }
   for (const a of plan.appendages) {
     if (!(a.length > 0) || !(a.width > 0)) bad.push('appendage with no length or width');
+    if (!(a.girth >= a.width)) bad.push('appendage drawn broader than its girth');
     if (a.angle < 0 || a.angle > PI) bad.push(`appendage angle ${a.angle} is outside 0-π`);
   }
   for (let i = 0; i + 1 < plan.appendages.length; i += 2) {
@@ -1919,7 +2255,8 @@ export function hashPlan(plan: BodyPlan): string {
   for (const s of plan.segments) f(s.x, s.y, s.rx, s.ry, s.angle);
   f(plan.appendages.length);
   for (const a of plan.appendages) {
-    f(a.module, a.side, a.segment, a.angle, a.dir, a.length, a.width, a.taper, a.curvature);
+    f(a.module, a.side, a.segment, a.angle, a.dir, a.length, a.width, a.girth, a.taper);
+    f(a.curvature);
     f(a.joints, a.branches, a.tip, a.stiffness, a.beat, a.phase);
     f(a.webbing, a.setae, a.setaeLength, a.bulb, a.chela, a.beads);
   }

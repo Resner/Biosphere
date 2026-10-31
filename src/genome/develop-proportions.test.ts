@@ -267,9 +267,12 @@ describe('proportions: parts keep their gene length', () => {
     expect(share('v2 tentacle')).toBeGreaterThanOrEqual(0.9);
     expect(share('v2 wing')).toBeGreaterThanOrEqual(0.7);
     expect(share('v2 all')).toBeGreaterThanOrEqual(0.75);
-    for (const kind of ['antenna', 'wing', 'other', 'all']) {
+    for (const kind of ['antenna', 'wing', 'all']) {
       expect(share(`v2 ${kind}`), kind).toBeGreaterThan(share(`v1 ${kind}`) + 0.1);
     }
+    // A leg the bounds would sweep over the trunk turns out and shortens instead (M6b T7, ADR
+    // 0039), so legs keep their gene length a little less often than antennae and wings do.
+    expect(share('v2 other'), 'other').toBeGreaterThan(share('v1 other') + 0.05);
   });
 
   it('sweeps a part that would leave the bounds along the body instead of cutting it', () => {

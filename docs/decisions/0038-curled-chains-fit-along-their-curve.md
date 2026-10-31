@@ -1,6 +1,6 @@
 # 0038: Curled chains fit the bounds along their curve, and a coil is a chambered spiral
 
-- Status: accepted (amends 0031 and 0037)
+- Status: accepted, amended by 0039 (amends 0031 and 0037)
 - Date: 2026-10-31
 
 ## Context
