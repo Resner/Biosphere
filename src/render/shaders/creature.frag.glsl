@@ -81,10 +81,19 @@ const vec2 PART_CLEAR_PX = vec2(2.5, 6.0);
 // while one alone still reads against the water. A seta, often thinner than a pixel, needs more to
 // show at all; its setules stay fainter than it, as before the cap, so a comb reads as strokes.
 const float PART_LUMA = 0.5;
+// A thin leg's light and density at its edge and added at its axis (look pass 6): a glass rod lit
+// through, brightest along its axis, so it reads as one bright stroke.
+const vec2 LEG_FILL = vec2(0.25, 0.4);
+const vec2 LEG_ALPHA = vec2(0.6, 0.3);
 const float SETA_LUMA = 0.75;
 const float SETULE_LUMA = 0.3;
+// How dense a setule is (0.45 before look pass 6): where combs overlap, their setules filled the
+// space between the bristles with a grey haze.
+const float SETULE_ALPHA = 0.3;
 // A pearl tip's hot point toward the light, added over the cap.
 const float PEARL_HOT = 0.5;
+// The mouth's lip: the fresnel over which it rises, and how bright it is (look pass 6).
+const vec3 LIP = vec3(0.2, 0.55, 1.15);
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
 // The thin walls across the body between segments (look pass 3): how bright, their width in pixels,
@@ -240,8 +249,11 @@ void main() {
     float across = 1.0 / max(length(fwidth(normal.xy)), 1e-3);
     float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
     float gloss = pow(max(dot(normal, KEY_HALF), 0.0), JOINT_GLOSS);
-    col += uRim * 0.3 * z * thin + vec3(gloss * JOINT_SHINE * dot(uRim, LUMA));
-    alpha = mix(alpha, max(alpha, 0.5 + 0.3 * fres), thin);
+    // Look pass 6 (M6b T12): a thin stroke is lit evenly through its width, as in pass 1, rather than
+    // a dark tube between two bright edges, which read as grey smoke once the cap dimmed the edges.
+    col = mix(col, uRim * (LEG_FILL.x + LEG_FILL.y * z), thin) +
+      vec3(gloss * JOINT_SHINE * dot(uRim, LUMA));
+    alpha = mix(alpha, max(alpha, LEG_ALPHA.x + LEG_ALPHA.y * z), thin);
   } else if (kind == 2) {
     // A plate: denser, brighter glass with a sheen across its face, so armour reads at default zoom
     // (M6 T21), but not an opaque lid: the organs still show through, and the body stays clear
@@ -252,8 +264,10 @@ void main() {
     // The mouth: a dark opening ringed by a bright lip, so it reads at default zoom as a mouth, not
     // as a pale cap on the front of the body (look pass 1, M6 T21). The lip stays near white: colour
     // lives inside (T12), and a tinted rim would compete with the organs.
-    float lip = smoothstep(0.06, 0.4, fres);
-    col = mix(vec3(0.03, 0.02, 0.025), vec3(1.0, 0.95, 0.9) * 1.3, lip);
+    // Look pass 6 narrowed the lip (from 0.06-0.4 of the fresnel and 1.3 bright): on the clear shells of
+    // M6b T3 a round cell's mouth, seen edge-on, read as a pale crescent over the front of the body.
+    float lip = smoothstep(LIP.x, LIP.y, fres);
+    col = mix(vec3(0.03, 0.02, 0.025), vec3(1.0, 0.95, 0.9) * LIP.z, lip);
     alpha = mix(0.8, 1.0, lip);
   } else if (kind == 4) {
     // The carapace: clear glass over the body, a bright rim, a little denser with plating. Its face
@@ -268,7 +282,7 @@ void main() {
     // A setule (look pass 5): a fainter side hair of a plumose bristle, so a comb stays fine hair
     // and stacked combs do not fill into a white cloud.
     col = uRim * 0.8 + 0.04;
-    alpha = 0.45;
+    alpha = SETULE_ALPHA;
   } else if (kind == 6) {
     // A membrane: a thin sheet, its veins running out from the root and across, a fine network
     // between them, and a bright free edge.

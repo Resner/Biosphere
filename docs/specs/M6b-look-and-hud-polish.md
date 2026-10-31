@@ -397,7 +397,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
 
 ### Closing
 
-- [ ] T12 Look pass 6, the one pass [opus] (in progress)
+- [x] T12 Look pass 6, the one pass [opus] (in progress)
   - Acceptance (ADR 0034):
     - `npm run gallery -- --pass 6` is committed with `pass-6.md`. The note holds:
       - ADR 0024's gap table against references 02–05, where the 04 and 05 columns judge the rare and exotic specimens only;
@@ -411,6 +411,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - **The bar** (rubric): no aspect worse than pass 1, silhouette variety and fine appendages better; against 02 and 03 no cell above 1; against 04 and 05 no cell above 2. If it fails, the note and the PR say which cells fail and why. There is no pass 7.
     - The PR body summarises pass 1 → pass 5 → pass 6 for the owner.
   - Notes: "never call a pass done because the tests are green". `docs/art/README.md` names pass 1 as the realism baseline and pass 6 as M6b's pass.
+    - Done: legs lit through as glass rods, fainter setules and a thinner mouth lip; 0 solid white everywhere. The bar fails on six 02/03 cells (silhouette, translucency, inner detail, appendages), noted in `pass-6.md` for the owner.
+    - Gotcha: `--project post` pulls in every other project as a dependency, so run the look specs with `--project post --no-deps`.
 
 - [ ] T13 End-to-end scenario, genesis freeze and documentation sync
   - Acceptance:
