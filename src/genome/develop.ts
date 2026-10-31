@@ -277,8 +277,9 @@ function buildSegments(traits: Traits, form: Bending): { segments: PlanSegment[]
   }
   const laid = chainV2(traits);
   const fused = fusedCount(laid.length, traits.shape.fusion);
-  const chain = isLong(laid, form) ? longChain(traits, laid, fused) : laid;
-  const narrow = slimming(chain, form, fused);
+  const long = isLong(laid, form);
+  const chain = long ? longChain(traits, laid, fused) : laid;
+  const narrow = long ? slimming(chain, form, fused) : 1;
   const straight = narrow < 1 ? chain.map((s) => ({ ...s, ry: s.ry * narrow })) : chain;
   return { segments: form.turn > 0 ? bend(straight, form) : straight, slim: narrow };
 }
@@ -316,7 +317,7 @@ function longChain(traits: Traits, laid: PlanSegment[], fused: number): PlanSegm
   // The chain behind its head; head scale no longer narrows it. The head keeps its own length up
   // to `headLength[1]`, unless the trunk's peak would then lie past `peakMax` of the body's length:
   // then it is `headLength[0]` long.
-  let lay = layBehind(traits, Math.min(headOf(traits).rx, HEAD_LENGTH[1]), fused);
+  let lay = layBehind(traits, Math.min(laid[0]?.rx ?? HEAD_LENGTH[1], HEAD_LENGTH[1]), fused);
   if (lay.at > P.peakMax) lay = layBehind(traits, HEAD_LENGTH[0], fused);
   const { chain, peak } = lay;
   const n = chain.length;
@@ -362,7 +363,6 @@ function aspectOf(segments: readonly PlanSegment[]): number {
  */
 function slimming(straight: PlanSegment[], form: Bending, fused: number): number {
   const C = D.chain;
-  if (!isLong(straight, form)) return 1;
   const n = straight.length;
   const worm = n >= C.wormFrom && Math.abs(form.turn) >= C.wormTurn && !hasShell(n, fused);
   const aspect = worm ? C.wormAspect : C.aspect;

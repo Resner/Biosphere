@@ -4,6 +4,7 @@
 // Total: every plan gets a class, and `other` is allowed.
 
 import { PI } from '../sim/math';
+import { RULES } from '../sim/rules';
 import { type BodyPlan, dirOf, type PlanSegment, polygonArea, rootOf } from './develop';
 
 export const SILHOUETTES = [
@@ -37,9 +38,9 @@ const T = {
   crab: 0.75,
   /** Chains of at least this many segments are long bodies, and from `worm` segments worms (M6b T5). */
   long: 4,
-  worm: 5,
+  worm: RULES.develop.chain.wormFrom,
   /** A long body bent by this much (radians) is a worm. */
-  curl: 0.35 * PI,
+  curl: RULES.develop.chain.wormTurn,
   /** Long bodies with this many pairs are shrimp. */
   legs: 3,
   /** The front (the head, and on 3+ segments the trunk up to its widest) holds this share of a tadpole's area. */
