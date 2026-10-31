@@ -13,7 +13,7 @@ M6b's tasks had already restored pass 1's glass (T3), ended white clipping (T4) 
 
 1. **Grey, smoky legs.** T4 capped each fine part's light, and that dimmed a leg's two bright edges. Its face between them stayed dark glass. So a thin leg read as a dark tube with grey edges, and a crowd of legs read as grey smoke (07, 08, 11, 13, 30). Pass 1's legs were bright glass strokes. A thin leg is now a glass rod lit through, brightest along its axis and denser, still under the 0.5 cap. The legs read as clear glass strokes again, and no cell gained a white pixel.
 2. **A grey haze between bristles.** Where plumose combs overlap (08, 24, 38, 39), their setules filled the space between the bristles. Setules are now fainter (opacity 0.3, from 0.45), so a comb reads as bristles. The setose specimen still shows at least 20 separate strokes (M6 T10's check).
-3. **A pale crescent on round cells.** T3 cleared the shells, and against them a round cell's mouth showed a wide pale crescent over the front of the body (01–05, 14–16, 21, 33, 34). Pass 1's mouth is a thin lip. The lip is now narrower and a little dimmer (over 0.2–0.55 of the fresnel at 1.15, from 0.06–0.4 at 1.3). It reads as a mouth at the front again, not a cap.
+3. **A pale crescent on round cells.** T3 cleared the shells, and against them a round cell's mouth showed a wide pale crescent over the front of the body (01–05, 14–16, 21, 33, 34). Pass 1's mouth is a thin lip. The lip is now narrower and a little dimmer (over 0.06–0.5 of the fresnel at 1.15, from 0.06–0.4 at 1.3; the lower edge stays at 0.06, since a higher one cut the mouth off the body in the Lab's connected-shape check). It reads as a mouth at the front again, not a cap.
 
 ## Against pass 1
 

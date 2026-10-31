@@ -93,7 +93,7 @@ const float SETULE_ALPHA = 0.3;
 // A pearl tip's hot point toward the light, added over the cap.
 const float PEARL_HOT = 0.5;
 // The mouth's lip: the fresnel over which it rises, and how bright it is (look pass 6).
-const vec3 LIP = vec3(0.2, 0.55, 1.15);
+const vec3 LIP = vec3(0.06, 0.5, 1.15);
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
 // The thin walls across the body between segments (look pass 3): how bright, their width in pixels,
@@ -264,7 +264,7 @@ void main() {
     // The mouth: a dark opening ringed by a bright lip, so it reads at default zoom as a mouth, not
     // as a pale cap on the front of the body (look pass 1, M6 T21). The lip stays near white: colour
     // lives inside (T12), and a tinted rim would compete with the organs.
-    // Look pass 6 narrowed the lip (from 0.06-0.4 of the fresnel and 1.3 bright): on the clear shells of
+    // Look pass 6 dimmed the lip (from 1.3 bright) and softened its rise (0.06-0.5 of the fresnel, from 0.06-0.4; a higher lower edge cut the mouth off the body in the Lab): on the clear shells of
     // M6b T3 a round cell's mouth, seen edge-on, read as a pale crescent over the front of the body.
     float lip = smoothstep(LIP.x, LIP.y, fres);
     col = mix(vec3(0.03, 0.02, 0.025), vec3(1.0, 0.95, 0.9) * LIP.z, lip);
