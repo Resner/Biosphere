@@ -343,6 +343,7 @@ function slimTail(chain: PlanSegment[], fusion: number): PlanSegment[] {
     if (i < count) fused = Math.max(fused, r);
     else free = Math.max(free, r);
   }
+  if (!(free > 0)) return chain;
   const k = Math.min(1, (D.chain.trunk.freeTail * fused) / free);
   if (k >= 1) return chain;
   return chain.map((s, i) => (i < count ? s : { ...s, ry: s.ry * k }));
