@@ -252,7 +252,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - Done (ADR 0037): `develop.ts` trunk profile, head as a share of the trunk, slim free tail behind a carapace, and a `worm` build (5+ free segments curled short of a coil: even, aspect 4.2); `tests/body-outline.ts` measures 98% of chains and 99% per class; `silhouetteOf`: worm 5+ segments, tadpole by front share ≥ 0.65, winged 0.3, fan tail from mid rear segment.
     - Gotcha: a curled worm is slimmer than its straight twin, so curl tests compare below `worm.curl`; dropping head scale's trunk narrowing broke the radial-twin speed test, so it stays (trunk width 0.88).
 
-- [x] T6 Spirals and S-worms [opus] (in progress)
+- [x] T6 Spirals and S-worms [opus]
   - Acceptance (unit tests first):
     - A curled v2 chain fits the bounds along its curve, not laid straight (#177 option 2a; amends ADR 0031's "a curl is only a pose"). Its length may exceed the straight reach as long as the curled pose stays within 2.5 core radii.
       - **A coil** (curve ≥ 0.8) turns at least 2.5π (1.25 turns), its links shrinking toward the inner end.

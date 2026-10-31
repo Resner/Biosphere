@@ -421,8 +421,11 @@ function curled(
       if (clear(lay(grow, narrow * mid))) lo = mid;
       else hi = mid;
     }
-    narrow *= lo;
-    segments = lay(grow, narrow);
+    // Nothing clears (coincident centres): keep the pose, so `bodyViolations` names it, not a zero width.
+    if (lo > 0) {
+      narrow *= lo;
+      segments = lay(grow, narrow);
+    }
   }
   return { segments, slim: narrow };
 }
