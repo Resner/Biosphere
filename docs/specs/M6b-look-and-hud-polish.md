@@ -342,6 +342,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - Take a 1280×720 screenshot before and after for the PR, judged by eye against "minimal and uncluttered".
     - Done: `hud-menu` + `menu` panel (`hud-menu.ts`), `role="meter"` bars, chips and a compact depth bar bottom left (about 1.2% of 1280×720), `hints.ts` on sim play time, indicators keep out of the HUD's corners; Esc opens the menu (Lineage moved inside), the alone hint now shows for 8 s.
     - Gotcha: `state().hud.bars.life` is null while its bar is hidden (practice cell); the recorded-life check uses the M4 hub (8790); the egg chip reads "H" with the full name as its accessible name; Biome needs a suppression for `role="meter"` on a div.
+    - Owner follow-up (Playtest #183): the online counter (`net-status`) is back in the top-right corner during play, and every HUD surface is glass (`--glass`, blur, shine). T10's minimap sits below that pill.
 
 - [ ] T10 The minimap, and shaking instead of borders [opus]
   - Acceptance:

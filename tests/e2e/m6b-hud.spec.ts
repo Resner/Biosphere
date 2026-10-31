@@ -13,9 +13,9 @@ const STATS = ['health', 'energy', 'size', 'life'] as const;
 const strayText = (page: Page) =>
   page.evaluate(() => {
     // Toasts (the alone and mate hints are toasts too: each shows only for an event), chat lines,
-    // labels over creatures, edge-indicator labels, the first-life hints and the chips.
+    // labels over creatures, edge-indicator labels, the first-life hints, the chips and the online counter (owner request).
     const allowed =
-      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip';
+      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip, [data-testid="net-status"]';
     const out: string[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {

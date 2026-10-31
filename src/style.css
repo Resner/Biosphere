@@ -4,8 +4,12 @@
   --text: #e3f4f0;
   --muted: #7fa39c;
   /* The play screen's glass (M6b T9): every panel, chip and card over the water shares it. */
-  --glass: rgb(6 16 22 / 0.72);
-  --glass-line: rgb(190 235 255 / 0.22);
+  --glass: rgb(10 26 34 / 0.46);
+  --glass-solid: rgb(8 20 27 / 0.62);
+  --glass-line: rgb(200 240 255 / 0.2);
+  --glass-blur: blur(14px) saturate(1.5);
+  --glass-shine: inset 0 1px 0 rgb(255 255 255 / 0.1);
+  --glass-shadow: 0 8px 28px rgb(0 0 0 / 0.32);
   --hud-gap: 12px;
   font-family: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
 }
@@ -136,7 +140,10 @@ body {
   padding: 0;
   border: 1px solid var(--glass-line);
   border-radius: 50%;
-  background: rgb(6 16 22 / 0.5);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
   color: var(--text);
   cursor: pointer;
   transition:
@@ -173,7 +180,15 @@ body {
 .stats {
   display: grid;
   gap: 3px;
+  box-sizing: content-box;
   width: 132px;
+  padding: 8px 10px;
+  border: 1px solid var(--glass-line);
+  border-radius: 12px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
 }
 
 .stat {
@@ -284,6 +299,9 @@ body {
   border: 1px solid var(--glass-line);
   border-radius: 999px;
   background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
   color: var(--muted);
   font-size: 0.72rem;
   white-space: nowrap;
@@ -326,9 +344,11 @@ body {
   overflow-y: auto;
   padding: 0.75rem 0.9rem;
   border: 1px solid var(--glass-line);
-  border-radius: 14px;
-  background: rgb(6 16 22 / 0.88);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.45);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
   font-size: 0.8rem;
   animation: menu-in 0.18s ease-out both;
 }
@@ -462,6 +482,9 @@ body {
   border: 1px solid var(--glass-line);
   border-radius: 999px;
   background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
   color: var(--text);
   font-size: 0.8rem;
   text-align: center;
@@ -525,16 +548,18 @@ body {
   right: 0.75rem;
   margin: 0;
   padding: 0.2rem 0.7rem;
-  border: 1px solid rgb(127 163 156 / 0.5);
+  border: 1px solid var(--glass-line);
   border-radius: 999px;
-  background: rgb(4 9 11 / 0.55);
-  color: var(--muted);
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
+  color: var(--text);
   font-size: 0.8rem;
   pointer-events: none;
 }
 
-.net-status:empty,
-[data-screen="playing"] .net-status {
+.net-status:empty {
   display: none;
 }
 
@@ -590,6 +615,9 @@ body {
   border: 1px solid var(--glass-line);
   border-radius: 999px;
   background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
   color: var(--muted);
   font-size: 0.8rem;
   pointer-events: none;
@@ -888,7 +916,7 @@ body {
 }
 
 .wheel-item[data-kind="emote"] {
-  border-radius: 14px;
+  border-radius: 16px;
 }
 
 /* Ping kinds keep the ring styles of the ping marks, so the wheel teaches them. */
@@ -1457,9 +1485,11 @@ body {
   overflow-y: auto;
   padding: 0.6rem 0.8rem;
   border: 1px solid rgb(190 235 255 / 0.45);
-  border-radius: 14px;
-  background: rgb(6 16 22 / 0.88);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.4);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
   color: var(--text);
   font-size: 0.78rem;
 }
@@ -1535,6 +1565,9 @@ body {
   border: 1px solid var(--glass-line);
   border-radius: 999px;
   background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
   color: var(--text);
   letter-spacing: 0.1em;
   pointer-events: none;
@@ -1692,6 +1725,9 @@ body {
   border: 1px solid var(--glass-line);
   border-radius: 999px;
   background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
   color: var(--text);
   font-size: 0.85rem;
   pointer-events: none;
@@ -1708,9 +1744,11 @@ body {
   max-width: 17rem;
   padding: 0.8rem 1rem;
   border: 1px solid rgb(141 232 138 / 0.6);
-  border-radius: 14px;
-  background: rgb(6 16 22 / 0.86);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.4);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
   color: var(--text);
   font-size: 0.85rem;
 }
@@ -1748,9 +1786,11 @@ body {
   width: 11rem;
   padding: 0.6rem 0.8rem;
   border: 1px solid rgb(141 232 138 / 0.6);
-  border-radius: 14px;
-  background: rgb(6 16 22 / 0.86);
-  box-shadow: 0 8px 28px rgb(0 0 0 / 0.4);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
   color: var(--text);
   font-size: 0.8rem;
   /* The card slides in as the egg bursts (M6 T20). */
