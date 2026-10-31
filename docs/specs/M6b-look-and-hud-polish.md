@@ -397,7 +397,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
 
 ### Closing
 
-- [x] T12 Look pass 6, the one pass [opus] (in progress)
+- [x] T12 Look pass 6, the one pass [opus]
   - Acceptance (ADR 0034):
     - `npm run gallery -- --pass 6` is committed with `pass-6.md`. The note holds:
       - ADR 0024's gap table against references 02–05, where the 04 and 05 columns judge the rare and exotic specimens only;
