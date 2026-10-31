@@ -92,7 +92,11 @@ export class RevealCard {
     // Any click or key sends it away, and still does what it does in the game.
     const dismiss = (): void => this.clock.dismiss();
     target.addEventListener('pointerdown', dismiss, { capture: true, passive: true });
-    target.addEventListener('keydown', dismiss, { capture: true, passive: true });
+    // A held steering key repeats keydown: only a fresh press counts as "a key".
+    target.addEventListener('keydown', (e) => !e.repeat && dismiss(), {
+      capture: true,
+      passive: true,
+    });
   }
 
   /** A genesis hatched this body: the card slides in. */

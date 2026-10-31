@@ -1047,10 +1047,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     () => {
       if (lineagePanel.isOpen || settingsPanel.isOpen) return;
       // Enter during a genesis egg's stir or crack skips to the burst (M6b T11).
-      if (eggs.mode === 'genesis' && !playing()) {
-        eggs.skip(eggClock());
-        return;
-      }
+      if (eggs.mode === 'genesis' && !playing() && eggs.skip(eggClock())) return;
       if (playing()) socialUi.open();
       else if (enterHatches(screen, performance.now() - screenShownAt)) {
         const first = screens.firstOption;
