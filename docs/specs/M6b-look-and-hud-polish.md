@@ -270,7 +270,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
   - Done (ADR 0038): a C or S grows up to 1.6× to fit its curve and a tight bend slims it clear; an S of 5+ bends two arcs of 1.25 × curve × π; a coil of 3+ is an 8-chamber log spiral of 2.5–2.7π, capped at 1.4× its straight trunk; `bodyViolations` checks self-overlap; S-worm specimen 40 added (28 is C-curled by its genes).
   - Gotcha: a full-size coil turns slower than its straight twin, so the cap keeps M6 T7's "a curl turns faster" (and the coil's archetype metrics are knife-edge: `whorl` 0.38, `chamber` 0.85); the gait test gained a wild antenna body, since 29's old coil supplied the only antenna motion.
 
-- [ ] T7 Thin, bristled legs that keep off the body [opus]
+- [ ] T7 Thin, bristled legs that keep off the body [opus] (in progress)
   - Acceptance (unit tests first):
     - **Thin legs.** Under rules 7, a v2 part's base width scales with its root segment: at most 0.5 of that segment's girth half-width (the head's for head parts). Legs on a slim trunk are thin, and a paddle tip still widens toward its blade. Over random v2 bodies of 3 or more segments, the median trunk-leg width is at most 0.12 core radii; record the before and after in the PR.
     - **Off the body.** Over 10,000 random v2 bodies, at least 95% of parts have no more than 25% of their drawn centre line inside the body outline. Parts swept along the body (ADR 0028) shorten or turn outward instead of lying over the trunk, which fixes the worm tangles of pass 1's gap 8.
