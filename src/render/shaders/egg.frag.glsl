@@ -69,6 +69,13 @@ void main() {
     d = eggDist(q);
   }
 
+  // Far outside a whole shell with no burst there is nothing to draw (the halo is under 0.3% by
+  // here): the genesis egg's quad covers a fifth of the screen, so this saves most of its fragments.
+  if (spread <= 0.0 && burst <= 0.0 && d > 1.6) {
+    gl_FragColor = vec4(0.0);
+    return;
+  }
+
   float inside = 1.0 - smoothstep(-0.03, 0.03, d);
   // Glass: a dim clear body, a bright rim, a backlit edge and one soft highlight.
   float rim = smoothstep(-0.38, 0.0, d) * inside;
