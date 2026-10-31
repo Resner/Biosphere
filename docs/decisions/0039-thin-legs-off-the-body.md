@@ -28,6 +28,7 @@ Under karyotype v2, and so from rules 7 (ADR 0035):
   - **Keep off.** After the bounds fit, a part with more than 0.2 of its centre line inside the outline turns, 0.15 rad at a time either way, up to 1.5 rad. It turns away from the body first. It never turns ahead of the ring's previous part, never past the tail, and a tail part growing rearward turns no further forward than sideways. The centre line is the arc without webbing, at 12 samples. The least turn that clears it whole wins, then the least that clears it shortened to fit the bounds. If none clears, the part takes the whole turn that buries least.
   - **Coils.** A coil's parts root along its outer 5 chambers (`curve.outer`), clear of the whorls inside. Before, a part from the coil's eye crossed every whorl.
   - **Radial bodies.** A radial body keeps its whole chain inside its round core at every symmetry from 0.5. Before, the chain hung out behind the core from 0.5 to nearly 1 and covered the rear ring's roots.
+  - **Karyotype v1 radial bodies.** A v1 genome has no outline, so its ring parts are fitted by the v1 bounds rule and never kept off the body. Rules 7 freezes no development code, so a v1 radial body may differ from the one rules 6 drew.
 - **Bristles common.** Rules 7 genesis bristles each module slot other than the whip (M1) with a 70% chance: setae density 0.3 to 0.45 and setae length 0.25 to 0.6, unless the form already drew more. These draws come from the form's stream after its other draws, so the v5 and form draws never shift.
 
 ## Consequences

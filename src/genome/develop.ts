@@ -1144,21 +1144,38 @@ function outlineOf(segments: readonly PlanSegment[]): Outline {
   });
 }
 
-/** Scratch for `buried`: the indices of the ellipses a part can reach. */
-const NEAR = new Int32Array(64);
+/** Whether (`x`, `y`) lies inside the ellipse `e`. */
+function within(e: Ellipse, x: number, y: number): boolean {
+  const dx = x - e.x;
+  const dy = y - e.y;
+  if (dx * dx + dy * dy >= e.r2) return false;
+  const u = (dx * e.c + dy * e.s) * e.irx;
+  const v = (dy * e.c - dx * e.s) * e.iry;
+  return u * u + v * v < 1;
+}
 
-function inside(body: Outline, x: number, y: number, near = NEAR, count = -1): boolean {
-  const n = count < 0 ? body.length : count;
-  for (let i = 0; i < n; i++) {
-    const e = body[count < 0 ? i : (near[i] as number)] as Ellipse;
-    const dx = x - e.x;
-    const dy = y - e.y;
-    if (dx * dx + dy * dy >= e.r2) continue;
-    const u = (dx * e.c + dy * e.s) * e.irx;
-    const v = (dy * e.c - dx * e.s) * e.iry;
-    if (u * u + v * v < 1) return true;
-  }
+function inside(body: Outline, x: number, y: number): boolean {
+  for (const e of body) if (within(e, x, y)) return true;
   return false;
+}
+
+/** The ellipses a part can reach from one root, by index: `n` of them in `idx`. */
+interface Near {
+  idx: Int32Array;
+  n: number;
+}
+
+/** Only the ellipses within `length` of `root` can hold a point of a part that long. */
+function nearTo(body: Outline, root: Point, length: number): Near {
+  const near = { idx: new Int32Array(body.length), n: 0 };
+  for (let j = 0; j < body.length; j++) {
+    const e = body[j] as Ellipse;
+    const reach = length + e.r;
+    const dx = root.x - e.x;
+    const dy = root.y - e.y;
+    if (dx * dx + dy * dy < reach * reach) near.idx[near.n++] = j;
+  }
+  return near;
 }
 
 /**
@@ -1166,7 +1183,15 @@ function inside(body: Outline, x: number, y: number, near = NEAR, count = -1): b
  * branches excluded) that lies inside the body, at `keep.samples` even points along its length, on
  * the worse of its two sides.
  */
-function buried(p: Part, s: PlanSegment, l: Point, r: Point, body: Outline, limit = 1): number {
+function buried(
+  p: Part,
+  s: PlanSegment,
+  l: Point,
+  r: Point,
+  body: Outline,
+  nears: readonly [Near, Near],
+  limit = 1,
+): number {
   const K = D.keep.samples;
   // At its bend without webbing, as the bounds fit it: webbing is detail and never moves a part.
   const { cap, bend } = capAndBend(p, 0);
@@ -1184,15 +1209,7 @@ function buried(p: Part, s: PlanSegment, l: Point, r: Point, body: Outline, limi
   for (let i = 0; i < sides; i++) {
     const side = i === 0 ? 1 : -1;
     const root = i === 0 ? l : r;
-    // Only the ellipses within the part's length of its root can hold a point of it.
-    let near = 0;
-    for (let j = 0; j < body.length; j++) {
-      const e = body[j] as Ellipse;
-      const reach = p.length + e.r;
-      const dx = root.x - e.x;
-      const dy = root.y - e.y;
-      if (dx * dx + dy * dy < reach * reach) NEAR[near++] = j;
-    }
+    const near = nears[i] as Near;
     const h0 = s.angle + side * p.dir;
     const c0 = cos(h0);
     const s0 = sin(h0);
@@ -1225,7 +1242,12 @@ function buried(p: Part, s: PlanSegment, l: Point, r: Point, body: Outline, limi
         x = ex + (along - len) * ce;
         y = ey + (along - len) * se;
       }
-      if (inside(body, x, y, NEAR, near)) count++;
+      for (let j = 0; j < near.n; j++) {
+        if (within(body[near.idx[j] as number] as Ellipse, x, y)) {
+          count++;
+          break;
+        }
+      }
     }
     worst = Math.max(worst, count / K);
     if (worst > limit) break;
@@ -1294,7 +1316,9 @@ function keepOff(p: Part, segments: PlanSegment[], body: Outline, from: number):
   const s = segments[p.segment] as PlanSegment;
   const l = rootOf(s, p.angle, 1);
   const r = onAxis(s) ? { x: l.x, y: -l.y } : rootOf(s, p.angle, -1);
-  let best = buried(p, s, l, r, body);
+  // The ellipses within the unshortened part's reach: every trial is no longer than that.
+  const nears = [nearTo(body, l, p.length), nearTo(body, r, p.length)] as const;
+  let best = buried(p, s, l, r, body, nears);
   if (best <= K.share) return;
   const [dir0, length0] = [p.dir, p.length];
   let [bestDir, bestLength] = [dir0, length0];
@@ -1315,7 +1339,7 @@ function keepOff(p: Part, segments: PlanSegment[], body: Outline, from: number):
       p.dir = dir;
       p.length = length0;
       // Whole, a turn that buries no less than the best so far is no better; the bounds come after.
-      const share = buried(p, s, l, r, body, best);
+      const share = buried(p, s, l, r, body, nears, best);
       if (share >= best) continue;
       if (fits()) {
         if (share <= K.share) return;
@@ -1329,7 +1353,7 @@ function keepOff(p: Part, segments: PlanSegment[], body: Outline, from: number):
           else hi2 = p.length;
         }
         p.length = lo2;
-        if (buried(p, s, l, r, body, K.share) <= K.share) short = [dir, lo2];
+        if (buried(p, s, l, r, body, nears, K.share) <= K.share) short = [dir, lo2];
       }
     }
   }
@@ -1493,7 +1517,7 @@ export const ringAngle = (k: number, pairs: number): number => (PI * (2 * k + 1)
  * A radial body: the parts, in order, ring the core at even angles, and each grows no further
  * forward than the one before it, so a fitted part never crosses its neighbour. Copies them.
  */
-function ring(parts: Part[], segments: PlanSegment[], sweep: number, body: Outline): Part[] {
+function ring(parts: Part[], segments: PlanSegment[], sweep: number, body: Outline | null): Part[] {
   const ringed = parts.map((p, k) => ({ ...p, segment: 0, angle: ringAngle(k, parts.length) }));
   let from = 0;
   for (const p of ringed) {
@@ -1593,7 +1617,12 @@ function bilateralParts(
 }
 
 /** Radial parts: ringed, trimmed in module order, and a ciliary band joins the ring if nothing swims. */
-function radialParts(all: Part[], segments: PlanSegment[], sweep: number, body: Outline): Part[] {
+function radialParts(
+  all: Part[],
+  segments: PlanSegment[],
+  sweep: number,
+  body: Outline | null,
+): Part[] {
   let keep = Math.min(all.length, D.radial.maxPairs);
   let parts = ring(all.slice(0, keep), segments, sweep, body);
   while (keep > 0 && !fits(parts)) parts = ring(all.slice(0, --keep), segments, sweep, body);
@@ -1981,7 +2010,7 @@ export function develop(traits: Traits): BodyPlan {
   const body = v2 ? outlineOf(segments) : null;
   const R = D.radial;
   const parts = form.radial
-    ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape, body as Outline)
+    ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape, body)
     : bilateralParts(built, segments, lerp(D.sweep, R.drapeSweep, shape.drape), body, scales);
 
   const appendages = mirror(dress(parts, segments));
