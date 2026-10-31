@@ -8,6 +8,7 @@ import { CreatureCache } from './creature-cache';
 import { CreatureView, type CreatureViewState } from './creature-view';
 import { GAIT_WRAP } from './gait';
 import { materialParams } from './material-params';
+import { ZONE_UNIFORMS } from './zones';
 
 const creature = buildCreature(starterGenome());
 const state = (over: Partial<CreatureViewState> = {}): CreatureViewState => ({
@@ -97,6 +98,13 @@ describe('CreatureView', () => {
     const perFrame = ['uTime', 'uPhase', 'uBeat', 'uTurn', 'uHurt', 'uDissolve', 'uAlpha'];
     expect(changed.every((k) => perFrame.includes(k))).toBe(true);
     expect(changed).toContain('uTime');
+  });
+
+  it("reads the caustics' clock shared with the water (M6b T8)", () => {
+    const view = new CreatureView(new CreatureCache());
+    view.update(state(), 0);
+    const material = view.mesh.material as THREE.ShaderMaterial;
+    expect(material.uniforms.uSunTime).toBe(ZONE_UNIFORMS.uSunTime);
   });
 
   it('serves 24 distinct creatures from one shader program', () => {

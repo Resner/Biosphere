@@ -21,10 +21,15 @@ export interface ZoneLook {
   dark: number;
   /** How strongly a creature's glow lights the water around it. */
   glow: number;
-  /** The caustics' strength at the zone's top (T17); `sunlight` fades it through the twilight. */
+  /**
+   * The caustics' strength at the zone's top (T17), on the water and over bodies; `sunlight` fades
+   * it through the twilight.
+   */
   caustic: number;
   /** The god rays' strength at the zone's top (T17), faded the same way. */
   rays: number;
+  /** How fast the caustics and the god rays move, against the shaders' clock (M6b T8, `SunClock`). */
+  pace: number;
   /** The marine snow's brightness. */
   snow: number;
 }
@@ -32,7 +37,9 @@ export interface ZoneLook {
 /**
  * The look of each zone: bright cyan-green shallows, blue twilight (exactly the dark teal-blue water
  * of reference-01 that the spawn had before zones), blue-black deep and a near-black abyss where
- * glow dominates.
+ * glow dominates. The shallows' light is calm (M6b T8, the owner's "a little too many effects"):
+ * faint caustics and god rays over the bright water, below the twilight's top, where the sunlight
+ * focuses most before it fades.
  */
 export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
   shallows: {
@@ -40,8 +47,9 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     haze: [0.1, 0.27, 0.215],
     dark: 0,
     glow: 0.2,
-    caustic: 1.4,
-    rays: 1,
+    caustic: 0.4,
+    rays: 0.25,
+    pace: 0.2,
     snow: 1,
   },
   twilight: {
@@ -51,6 +59,7 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     glow: 0.5,
     caustic: 1,
     rays: 0.8,
+    pace: 1,
     snow: 1,
   },
   deep: {
@@ -60,6 +69,7 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     glow: 1,
     caustic: 0,
     rays: 0,
+    pace: 1,
     snow: 0.6,
   },
   abyss: {
@@ -69,6 +79,7 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     glow: 1.2,
     caustic: 0,
     rays: 0,
+    pace: 1,
     snow: 0.35,
   },
 };
@@ -113,7 +124,7 @@ export function zoneWeights(depth: number): [number, number, number, number] {
  */
 export function zoneBlend(
   depth: number,
-  key: 'dark' | 'glow' | 'caustic' | 'rays' | 'snow',
+  key: 'dark' | 'glow' | 'caustic' | 'rays' | 'pace' | 'snow',
 ): number {
   const e = RULES.bathymetry.zones;
   const t0 = smoothstep(e.shallows - ZONE_BAND, e.shallows + ZONE_BAND, depth);
@@ -134,14 +145,39 @@ export const TWILIGHT_SUN = 0.25;
 /**
  * Sunlight from above (M6 T17): the caustics' or the god rays' strength at a depth. Each zone's
  * strength (`ZONE_LOOK`) fades from the shallows' edge to `TWILIGHT_SUN` of itself by the twilight's
- * floor, so the light dies away through the twilight; the deep and the abyss have none. The
- * shaders' `zoneSun` is the same fade.
+ * floor, so the light dies away through the twilight; the deep and the abyss have none. The calm
+ * shallows (M6b T8) hold a weaker, even light. The shaders' `zoneSun` is the same fade.
  */
 export function sunlight(depth: number, key: 'caustic' | 'rays'): number {
   const e = RULES.bathymetry.zones;
   return (
     zoneBlend(depth, key) * (1 - (1 - TWILIGHT_SUN) * smoothstep(e.shallows, e.twilight, depth))
   );
+}
+
+/** A step of the shaders' clock longer than this (s), or any step back, is a jump (`SunClock`). */
+const SUN_JUMP = 1;
+
+/**
+ * The clock the caustics and the god rays move by (M6b T8): the shaders' clock at the zone's
+ * `pace` under the camera, so the shallows' light drifts slower than the twilight's. It integrates,
+ * so crossing a zone edge changes how fast the light moves, never where it is. A jump in the
+ * shaders' clock (`debug.setClock` or `resetWater`, a long-hidden tab) re-bases it to that time
+ * times the pace, so a set clock always draws the same light. Allocation-free: the scene advances
+ * it every frame.
+ */
+export class SunClock {
+  time = 0;
+  private last: number | null = null;
+
+  /** Advances to the shaders' clock `time` (s) at the camera's `depth` (null: no pond, pace 1). */
+  advance(time: number, depth: number | null): number {
+    const pace = depth === null ? 1 : zoneBlend(depth, 'pace');
+    const step = this.last === null ? -1 : time - this.last;
+    this.time = step < 0 || step > SUN_JUMP ? time * pace : this.time + step * pace;
+    this.last = time;
+    return this.time;
+  }
 }
 
 /**
@@ -330,6 +366,8 @@ export const ZONE_UNIFORMS: {
   readonly uViewer: THREE.IUniform<THREE.Vector3>;
   readonly uLights: THREE.IUniform<THREE.Vector4[]>;
   readonly uLightCount: THREE.IUniform<number>;
+  /** The caustics' clock (`SunClock`); creature materials link it too (`shareBackdrop`). */
+  readonly uSunTime: THREE.IUniform<number>;
 } = {
   tZoneDepth: { value: null },
   uZoneOn: { value: 0 },
@@ -337,6 +375,7 @@ export const ZONE_UNIFORMS: {
   uViewer: { value: new THREE.Vector3(0, 0, 1) },
   uLights: { value: Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector4()) },
   uLightCount: { value: 0 },
+  uSunTime: { value: 0 },
 };
 
 /** The pond's depth map as a texture: built once per seed, filtered so the zones blend. */

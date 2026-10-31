@@ -1790,6 +1790,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       view.flow.y = 0;
       heldMs = lastMs;
     },
+    setClock(seconds) {
+      heldMs = lastMs - seconds * 1000;
+    },
   };
 
   /** The zone and depth under the player (M6 T16); null on the title screen. */

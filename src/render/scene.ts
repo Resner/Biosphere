@@ -39,6 +39,7 @@ import {
   type Light,
   lightOf,
   MAX_LIGHTS,
+  SunClock,
   sightAt,
   sunlight,
   ZONE_UNIFORMS,
@@ -196,6 +197,7 @@ export class GameScene {
     time: 0,
   };
   private caustic = 0;
+  private readonly sun = new SunClock();
   private readonly light: boolean;
   private readonly onResize = () => this.resize();
 
@@ -406,17 +408,19 @@ export class GameScene {
 
   /**
    * Sunlight (M6 T17): the caustics and the god rays take the sunlight at the camera (the composite
-   * draws the rays, so low has none).
+   * draws the rays, so low has none), and move by the sun's clock at the camera's pace (M6b T8).
    */
   private updateLight(view: SceneView, halfWidth: number, depth: number | null): void {
     this.caustic = this.causticAt(depth);
+    const sunTime = this.sun.advance(view.time, depth);
+    ZONE_UNIFORMS.uSunTime.value = sunTime;
     const rays = this.rays;
     rays.strength = depth === null || !this.light ? 0 : sunlight(depth, 'rays');
     rays.camX = view.camX;
     rays.camY = view.camY;
     rays.halfWidth = halfWidth;
     rays.halfHeight = view.halfHeight;
-    rays.time = view.time;
+    rays.time = sunTime;
     this.post.setRays(rays);
   }
 

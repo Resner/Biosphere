@@ -289,7 +289,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
 
 ### Water and HUD
 
-- [ ] T8 Calmer shallows [opus] (in progress)
+- [x] T8 Calmer shallows [opus] (in progress)
   - Acceptance:
     - **Measure first** (record in the PR, then pin the new bounds in `m6-light.spec.ts` or a new `m6b-water.spec.ts`), on an open-water patch away from food, at medium:
       - the mean absolute frame difference between two frames 2 s apart (`timeScale(1)`);
@@ -307,6 +307,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - Bodies over the shallows keep their rim at least 40 luminance levels above the water (M6 T10's in-game check).
     - DESIGN §2 (Sunlight and marine snow) gets the new strengths.
   - Notes: the owner liked the depth-zone background, so keep the colours and fog. Only the shallows' busy effects calm down: caustic contrast and speed, god rays, and caustics over bodies. T10 removes the UV shimmer overlay.
+  - Done: shallows caustics 0.4, rays 0.25, drifting at 0.2 pace (`ZONE_LOOK`, `SunClock`); change 4.90 → 2.28 (47%), spread 10.18 → 4.47 (44%), other zones within 3%; `debug.setClock` pins frames.
+  - Gotcha (spec fix): the twilight's top keeps 1 and 0.8, so the shallows are now dimmer than it; M6 T17's "strongest in the shallows" and `m6-light`'s 3× shallows/abyss become the calm cap and this spec's 1.5×.
 
 - [ ] T9 The HUD shell: one menu button and stat bars [opus]
   - Acceptance (E2E `m6b-hud.spec.ts`, unit tests for the pure parts):

@@ -4,6 +4,7 @@ import { decodeGenome, encodeGenome, genomeToBase64url } from '../../src/genome/
 import { HAPLOTYPE_BYTES, LOCI } from '../../src/genome/karyotype';
 import { starterGenome } from '../../src/genome/starter';
 import { PARTICLE_COUNTS, PRESETS, type PresetName } from '../../src/render/presets';
+import { ZONE_LOOK } from '../../src/render/zones';
 import type { Zone } from '../../src/sim/bathymetry';
 import { foodNear } from '../../src/sim/food';
 import { createWorld } from '../../src/sim/world';
@@ -196,13 +197,15 @@ test('caustics move the shallows; the abyss changes only as its snow drifts', as
   }
   const { shallows = 0, abyss = 0 } = change;
   expect(abyss, 'the abyss still changes a little').toBeGreaterThan(0);
-  expect(shallows, `shallows ${shallows} vs abyss ${abyss}`).toBeGreaterThanOrEqual(3 * abyss);
+  // The calm shallows (M6b T8) still move clearly more than the abyss: the spec's 1.5× (M6 T17
+  // asked 3× of the busier v0.7.0 shallows; `m6b-water.spec.ts` measures the calming itself).
+  expect(shallows, `shallows ${shallows} vs abyss ${abyss}`).toBeGreaterThanOrEqual(1.5 * abyss);
 });
 
 test.describe('presets', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('god rays and caustics follow the sunlight: shallows, fading through twilight, none deeper', async ({
+  test('god rays and caustics follow the sunlight: calm in the shallows, fading through twilight, none deeper', async ({
     page,
   }) => {
     await play(page, 'medium');
@@ -217,10 +220,16 @@ test.describe('presets', () => {
       expect(particles).toBe(particlesOf('medium'));
     }
     const { shallows, twilight, deep } = light as Record<Zone, { rays: number; caustic: number }>;
-    expect(shallows.rays).toBeGreaterThan(twilight.rays);
-    expect(twilight.rays).toBeGreaterThan(0);
-    expect(shallows.caustic).toBeGreaterThan(twilight.caustic);
-    expect(twilight.caustic).toBeGreaterThan(0);
+    // The calm shallows (M6b T8) hold a faint light, below the twilight's top, where this lands
+    // (just inside it) and the sunlight focuses most before fading through it (`zones.test.ts`).
+    expect(shallows.rays).toBeGreaterThan(0);
+    expect(shallows.rays).toBeLessThanOrEqual(0.5);
+    expect(shallows.caustic).toBeGreaterThan(0);
+    expect(shallows.caustic).toBeLessThanOrEqual(0.4);
+    expect(twilight.rays).toBeGreaterThan(shallows.rays);
+    expect(twilight.rays).toBeLessThanOrEqual(ZONE_LOOK.twilight.rays);
+    expect(twilight.caustic).toBeGreaterThan(shallows.caustic);
+    expect(twilight.caustic).toBeLessThanOrEqual(ZONE_LOOK.twilight.caustic);
     expect(deep).toEqual({ rays: 0, caustic: 0 });
     // The bright specks are high's alone.
     const snow = await page.evaluate(() => (window.__bs as BsHook).render.specks('mid'));
