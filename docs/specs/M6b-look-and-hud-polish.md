@@ -414,7 +414,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - Done: legs lit through as glass rods, fainter setules and a thinner mouth lip; 0 solid white everywhere. The bar fails on six 02/03 cells (silhouette, translucency, inner detail, appendages), noted in `pass-6.md` for the owner.
     - Gotcha: `--project post` pulls in every other project as a dependency, so run the look specs with `--project post --no-deps`.
 
-- [ ] T13 End-to-end scenario, genesis freeze and documentation sync (in progress)
+- [x] T13 End-to-end scenario, genesis freeze and documentation sync
   - Acceptance:
     - `m6b-lifecycle.spec.ts` (`@slow`, hub 8803, `?quality=medium`) walks the end-to-end check below, asserting `render.info()` budgets at every step.
     - **Freeze rules 7 genesis**: `genesis-v7.ts` and `genesis-v7.json`; `genesisFor` picks v5, v6, v7 or current by `rules`. `.claude/rules/genome.md` lists it as frozen, with ADR 0035's rule for development and stats.
@@ -426,6 +426,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
       - `docs/art/README.md` follows.
     - Record the PR E2E suite time in CI. M6b adds at most 30 s, and any spec over 20 s is `@slow`.
   - Notes: the milestone step sets the ROADMAP status and opens the `Playtest: v0.7.1` issue with the owner checks below.
+    - Done: `m6b-lifecycle.spec.ts` (hub 8803, 2.8 min with its servers), `genesis-v7.ts` with golden `genesis-v7.json` (`genesisFor` picks it at rules 7; `rarity.ts` reads its table), DESIGN header and rules files synced.
+    - Gotcha: `E2E_SKIP_SLOW` is read as set-or-not, so run a `@slow` spec with `env -u E2E_SKIP_SLOW`. PR E2E suite time is unchanged (the new spec is `@slow`).
 
 ## End-to-end check
 

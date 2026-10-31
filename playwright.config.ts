@@ -41,6 +41,8 @@ const m6LifecycleHubPort = 8800;
 const m6bEggHubPort = 8801;
 // The M6b minimap spec (8802): two players alone in a pond, placed apart by teleport.
 const m6bMinimapHubPort = 8802;
+// The M6b lifecycle spec (8803), with the M5 hooks: the end-to-end scenario of the M6b exit criteria.
+const m6bLifecycleHubPort = 8803;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -213,6 +215,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m6LifecycleHubPort} --persist-to .wrangler/e2e-state-m6-lifecycle --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
       url: `http://localhost:${m6LifecycleHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m6bLifecycleHubPort} --persist-to .wrangler/e2e-state-m6b-lifecycle --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m6bLifecycleHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
