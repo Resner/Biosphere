@@ -75,6 +75,7 @@ describe('development v2: v1 equivalence', () => {
         ...v5,
         appendages: v5.appendages.map((x) => ({
           ...x,
+          girth: x.width,
           webbing: 0,
           setae: 0,
           setaeLength: 0,

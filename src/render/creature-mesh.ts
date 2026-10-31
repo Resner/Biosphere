@@ -14,6 +14,7 @@ import {
   type Membrane,
   type PlanSegment,
   partCurve,
+  peak,
   rootOf,
 } from '../genome/develop';
 import { clamp, lerp } from '../sim/math';
@@ -147,6 +148,18 @@ const CAP_SHARP = RULES.develop.part.capSharp;
 const CAP_SHARE = RULES.develop.part.capShare;
 /** Every inner joint swells by at least this share, so jointed parts read as jointed. */
 const JOINT_BEAD = 0.3;
+/**
+ * A paddle tip (its share of the paddle peak, as stats price it) widens toward its blade, up to
+ * 1 + this times its base radius at the tip, and does not taper (M6b T7): a thin leg still ends in
+ * a broad paddle.
+ */
+const BLADE = 1.5;
+
+/** A part's tube radius at share `t` along it: tapered, or widening into a paddle's blade. */
+export function partRadius(r0: number, taper: number, tip: number, t: number): number {
+  const blade = peak(tip, RULES.stats.paddleTip, RULES.stats.paddleSpread);
+  return r0 * (1 - taper * (1 - blade) * t) * (1 + BLADE * blade * t * t);
+}
 /**
  * A chela's palm swells by up to this share; its movable finger opens this far (radians) and is this
  * long and wide. Look pass 2 enlarged the claw (palm 0.8, finger 0.9 long and 0.55 wide), which was
@@ -850,18 +863,21 @@ function addAppendage(
   const palmAt = a.joints > 1 ? (a.joints - 1) / a.joints : 0.5;
   const palm = (t: number): number =>
     a.chela > 0 ? 1 + PALM * a.chela * max(0, 1 - abs(t - palmAt) / 0.3) : 1;
-  const flatBulb = a.bulb > 0 && d.ball === 0;
+  // A part thinned to fit its segment carries its bulb thinned alike (M6b T7): the plan's bulb is
+  // the gene's, which the stats price.
+  const bulbRadius = a.girth > 0 ? (a.bulb * a.width) / a.girth : a.bulb;
+  const flatBulb = bulbRadius > 0 && d.ball === 0;
   const profile =
     (r0: number, taper: number, bulb: number) =>
     (t: number, i: number): number => {
-      const r = r0 * (1 - taper * t);
+      const r = partRadius(r0, taper, a.tip, t);
       if (i < 0) return r;
       if (flatBulb && i === rings - 1) return max(r, bulb * PEARL);
       return r * (joint(i) ? bead : 1) * palm(t);
     };
   const main: Tube = {
     path,
-    radius: profile(radius, a.taper, a.bulb),
+    radius: profile(radius, a.taper, bulbRadius),
     cap: flatBulb ? 0 : cap,
     attach,
     part,
@@ -869,9 +885,9 @@ function addAppendage(
   };
   addTube(m, main, rings, d.partRing);
   const gait = { spine: attach, attach, weight: 1, part };
-  if (a.bulb > 0 && !flatBulb) {
+  if (bulbRadius > 0 && !flatBulb) {
     const end = pathAt(path, 1);
-    addBall(m, end.x, end.y, a.bulb * PEARL, end.heading, 1, d.ball, gait, PEARL_TAG);
+    addBall(m, end.x, end.y, bulbRadius * PEARL, end.heading, 1, d.ball, gait, PEARL_TAG);
   }
   if (a.chela > 0) {
     const from = pathAt(path, palmAt);
@@ -911,12 +927,16 @@ function addAppendage(
       turn: path.turn,
       len: length * BRANCH,
     };
-    const branchBulb = a.bulb * BRANCH;
+    const branchBulb = bulbRadius * BRANCH;
     addTube(
       m,
       {
         path: branchPath,
-        radius: profile(radius * (1 - a.taper * BRANCH_AT) * BRANCH, a.taper, branchBulb),
+        radius: profile(
+          partRadius(radius, a.taper, a.tip, BRANCH_AT) * BRANCH,
+          a.taper,
+          branchBulb,
+        ),
         cap: flatBulb ? 0 : cap * BRANCH,
         attach,
         part,

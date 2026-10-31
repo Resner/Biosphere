@@ -51,6 +51,7 @@ import {
   partId,
   partKind,
   partPoint,
+  partRadius,
   wallsAlong,
 } from './creature-mesh';
 import fragmentShader from './shaders/creature.frag.glsl?raw';
@@ -1183,5 +1184,20 @@ describe('no white clipping (M6b T4, ADR 0034)', () => {
     );
     // A pearl keeps its hot point over the cap.
     expect(fragmentShader).toMatch(/col \+= vec3\(PEARL_HOT\) \* pearlHot;/);
+  });
+});
+
+describe('thin legs keep their paddles (M6b T7)', () => {
+  it('widens a paddle tip toward its blade and tapers every other tip', () => {
+    const paddle = RULES.stats.paddleTip;
+    for (const taper of [0, 0.5, 0.9]) {
+      // A thin leg (its drawn radius on a slim trunk) still ends in a blade wider than its base.
+      expect(partRadius(0.03, taper, paddle, 1)).toBeGreaterThan(0.03 * 2);
+      expect(partRadius(0.03, taper, paddle, 0)).toBeCloseTo(0.03, 12);
+      // A whip, a point and a blunt tip taper as before.
+      for (const tip of [0, 0.375, 1]) {
+        expect(partRadius(0.03, taper, tip, 1)).toBeCloseTo(0.03 * (1 - taper), 12);
+      }
+    }
   });
 });

@@ -2,7 +2,7 @@
 // their bodies. `npm run report:diversity -- --genesis 2000 --bred 2000 --generations 6`.
 
 import { type Genome, genomeHash } from '../src/genome/codec';
-import { bodyViolations } from '../src/genome/develop';
+import { type Appendage, bodyViolations } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
 import { breed } from '../src/genome/inherit';
 import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
@@ -100,6 +100,32 @@ const stats = (values: readonly number[], unit: string, digits = 0): string => {
   return `median ${f(percentile(sorted, 0.5))}${unit}, p99 ${f(percentile(sorted, 0.99))}${unit}, max ${f(sorted[sorted.length - 1] as number)}${unit}`;
 };
 
+type Legs = { legs: number; width: number; bristled: number };
+
+/** Parts over a sample: how many, their median drawn width, and the share with 6+ bristles. */
+function legStats(legs: readonly Appendage[]): Legs {
+  const widths = legs.map((a) => a.width).sort((a, b) => a - b);
+  return {
+    legs: legs.length,
+    width: widths.length > 0 ? percentile(widths, 0.5) : 0,
+    bristled: legs.length > 0 ? legs.filter((a) => a.setae >= 6).length / legs.length : 0,
+  };
+}
+
+/**
+ * The legs of a sample (M6b T7): every part grown from a module slot other than the whip's (M1),
+ * and among them the trunk legs, behind the head of a bilateral chain of 3+ segments.
+ */
+export function legsOf(creatures: readonly Creature[]): { all: Legs; trunk: Legs } {
+  const legs = creatures.flatMap((c) => c.plan.appendages.filter((a) => a.module >= 1));
+  const trunk = creatures.flatMap(({ plan }) =>
+    plan.form.radial === 0 && plan.segments.length >= 3
+      ? plan.appendages.filter((a) => a.module >= 1 && a.segment >= 1)
+      : [],
+  );
+  return { all: legStats(legs), trunk: legStats(trunk) };
+}
+
 export function diversityReport(options: ReportOptions): string {
   const genesis = Array.from({ length: options.genesis }, (_, i) =>
     genesisGenome(seedFromString(`diversity-genesis-${i}`)),
@@ -117,6 +143,7 @@ export function diversityReport(options: ReportOptions): string {
   const invalid = creatures.filter((c) => bodyViolations(c.plan).length > 0).length;
   const rarities = creatures.map((c) => rarityOfTraits(c.traits));
   const silhouettes = creatures.map((c) => silhouetteOf(c.plan));
+  const legs = legsOf(creatures.slice(genesis.length));
   const vertices = creatures.map((c) =>
     estimateVertices(c.plan, 'high', anatomyOf(c.plan, c.traits, c.hash), glintPlanOf(c)),
   );
@@ -156,6 +183,18 @@ export function diversityReport(options: ReportOptions): string {
     `- Rarity tiers seen: ${RARITY_TIERS.filter(([t]) => rarities.some((r) => r.tier === t))
       .map(([t]) => t)
       .join(', ')}`,
+    '',
+    '## Legs',
+    '',
+    ...(
+      [
+        ['Bred legs (slots other than the whip)', legs.all],
+        ['Bred trunk legs (3+ segments)', legs.trunk],
+      ] as const
+    ).map(
+      ([name, l]) =>
+        `- ${name}: ${l.legs}, median width ${l.width.toFixed(3)} core radii, ${(100 * l.bristled).toFixed(1)}% with 6 or more bristles`,
+    ),
     '',
     '## Mesh vertices',
     '',

@@ -270,20 +270,22 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
   - Done (ADR 0038): a C or S grows up to 1.6× to fit its curve and a tight bend slims it clear; an S of 5+ bends two arcs of 1.25 × curve × π; a coil of 3+ is an 8-chamber log spiral of 2.5–2.7π, capped at 1.4× its straight trunk; `bodyViolations` checks self-overlap; S-worm specimen 40 added (28 is C-curled by its genes).
   - Gotcha: a full-size coil turns slower than its straight twin, so the cap keeps M6 T7's "a curl turns faster" (and the coil's archetype metrics are knife-edge: `whorl` 0.38, `chamber` 0.85); the gait test gained a wild antenna body, since 29's old coil supplied the only antenna motion.
 
-- [ ] T7 Thin, bristled legs that keep off the body [opus] (in progress)
+- [x] T7 Thin, bristled legs that keep off the body [opus] (in progress)
   - Acceptance (unit tests first):
-    - **Thin legs.** Under rules 7, a v2 part's base width scales with its root segment: at most 0.5 of that segment's girth half-width (the head's for head parts). Legs on a slim trunk are thin, and a paddle tip still widens toward its blade. Over random v2 bodies of 3 or more segments, the median trunk-leg width is at most 0.12 core radii; record the before and after in the PR.
+    - **Thin legs.** Under rules 7, a v2 part's drawn base width scales with its root segment: at most 0.5 of that segment's drawn half-width (the head's for head parts; the girth, which a slimmed chain keeps wide, left shrimp 27's legs at 0.215). Legs on a slim trunk are thin, and a paddle tip still widens toward its blade. Over random v2 bodies of 3 or more segments, the median trunk-leg width is at most 0.12 core radii; record the before and after in the PR.
     - **Off the body.** Over 10,000 random v2 bodies, at least 95% of parts have no more than 25% of their drawn centre line inside the body outline. Parts swept along the body (ADR 0028) shorten or turn outward instead of lying over the trunk, which fixes the worm tangles of pass 1's gap 8.
     - **Bristles common.** Rules 7 genesis (`genesis.ts`) gives a setae density of at least 0.3 to at least 50% of genesis module slots other than whips, from the form's own PRNG stream, so the v5 and form draws never shift. The genesis checks hold:
       - at least 4 silhouette classes over 1,000 seeds, none above 40%;
       - the rare alleles' frequencies;
       - one body unit and at most 3 slots.
 
-      In `report:diversity`'s bred sample (6 generations), at least 50% of trunk legs carry 6 or more bristles; record before and after.
-    - All the balance checks hold. Thinner legs thrust and drag less, setae add drag, and the band holds speed.
+      In `report:diversity`'s bred sample (6 generations), at least 50% of the legs (parts of slots other than the whip; the sample is still 99.9% single cells, so it has no trunk legs) carry 6 or more bristles; record before and after.
+    - All the balance checks hold. A thinned leg is drawn edge-on and keeps its gene's width as its girth for the stats (as ADR 0031's slimmed chain does), setae add drag, and the band holds speed.
     - In the gallery, the trunk legs of 26, 27, 30, 37 and 38 have a median width of at most 0.12 core radii (plan check).
     - DESIGN §6 (genesis, development, fine parts) follows, and the next free ADR records the width rule if it amends 0028.
   - Notes: rarity does not price setae, so rarity is unchanged. `genesis.json` is regenerated (rules 7), and `genesis-v6.json` never changes.
+  - Done (ADR 0039): legs drawn ≤ 0.5 of the segment's half-width, floor 0.07 (median 0.22 → 0.07) with stats on `girth`; roots slide out from under neighbours, parts turn off the body (35% → 4.6% over a quarter inside), coil parts on the outer whorl, radial chains inside the core; genesis bristles 80% of non-whip slots (bred legs 50% → 79%); paddle tips widen.
+  - Gotcha: thinning by the drawn width moved the balance (coil, radial, twin tests), hence `girth`; legs now keep their gene length less often (60% → 53%), so `develop-proportions`'s leg margin is 0.05; the 0.15 rad turn step keeps shrimp 27 at 20 bristle strokes (0.25 gave 17).
 
 ### Water and HUD
 

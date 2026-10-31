@@ -1,10 +1,11 @@
-// Genesis DNA under rules version 6 (ADR 0025, DESIGN §6). A v6 genesis cell is the v5 cell (colours,
-// size, behaviour, physiology and rare alleles are drawn exactly as before) written as a karyotype v2
-// genome and then given a larval form: a plain cell, a ciliate, a spiny larva, a bell, a tadpole or a
-// fan-tailed one. Every form is still one body unit with at most three module slots, so the lineage
-// starts at the cell stage; the multi-segment bodies arise through breeding. The form draws from its
-// own stream, so it never shifts the v5 draws. The v5 code stays frozen in `genesis-v5.ts` for
-// verifying old genesis records.
+// Genesis DNA under rules version 7 (ADR 0025, ADR 0035, DESIGN §6). A genesis cell is the v5 cell
+// (colours, size, behaviour, physiology and rare alleles are drawn exactly as before) written as a
+// karyotype v2 genome and then given a larval form: a plain cell, a ciliate, a spiny larva, a bell, a
+// tadpole or a fan-tailed one. Every form is still one body unit with at most three module slots, so
+// the lineage starts at the cell stage; the multi-segment bodies arise through breeding. The form
+// draws from its own stream, so it never shifts the v5 draws, and rules 7 bristles the slots other
+// than the whip with draws after the form's (M6b T7). The v5 and v6 code stay frozen in
+// `genesis-v5.ts` and `genesis-v6.ts` for verifying old genesis records.
 
 import { createRng, type Rng, type Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
@@ -22,6 +23,13 @@ type Shape = (typeof SHAPE_LOCI)[number];
 
 /** The chance that a genesis cell of any form has a pair of eyes. */
 export const GENESIS_EYES = 0.12;
+
+/**
+ * Rules 7 (M6b T7): the chance that each module slot other than the whip (M1) is bristled, with a
+ * setae density of at least `density[0]` and a setae length of at least `length[0]`, so bred trunks
+ * carry combs of setae. Drawn last from the form's stream, so no earlier draw shifts.
+ */
+export const GENESIS_BRISTLES = { chance: 0.7, density: [0.3, 0.45], length: [0.25, 0.6] } as const;
 
 /** A larval form: its share of genesis cells and the silhouette it mostly develops into. */
 export interface GenesisForm {
@@ -171,6 +179,13 @@ class Writer {
       );
   }
 
+  /** A fraction drawn in `span`, unless the byte already holds more. */
+  atLeast(offset: number, span: Span): void {
+    const was = this.bytes[offset] as number;
+    this.fraction(offset, span);
+    if (was > (this.bytes[offset] as number)) this.both(offset, was);
+  }
+
   present(slot: typeof m1): boolean {
     return (this.bytes[slot.offset] as number) === 1;
   }
@@ -206,6 +221,13 @@ export function genesisGenome(seed: Seed): Genome {
   if (rng.next() < GENESIS_EYES) {
     w.fraction(shapeOffset('eyeSize'), [0.4, 0.9]);
     w.fraction(shapeOffset('eyeStalk'), [0, 0.5]);
+  }
+  // Bristles on every slot but the whip: a form's own setae stay if they are already more.
+  const B = GENESIS_BRISTLES;
+  for (const slot of MODULE_LOCI.slice(1)) {
+    if (!w.present(slot) || !(rng.next() < B.chance)) continue;
+    w.atLeast(slot.ext + MODULE_EXT.indexOf('setaeDensity'), B.density);
+    w.atLeast(slot.ext + MODULE_EXT.indexOf('setaeLength'), B.length);
   }
   return decodeGenome(bytes);
 }
