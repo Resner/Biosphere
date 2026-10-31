@@ -192,12 +192,20 @@
       <p class="offspring-title">Your offspring</p>
       <canvas class="offspring-preview" data-testid="offspring-preview" width="144" height="72" aria-hidden="true"></canvas>
       <p class="offspring-name" data-testid="offspring-name"></p>
+      <p class="stars" data-testid="offspring-stars" role="img"></p>
       <p data-testid="offspring-line"></p>
       <div class="offspring-buttons">
         <button type="button" class="action" data-testid="offspring-become">Become it (H)</button>
         <button type="button" class="action quiet" data-testid="offspring-later">Later</button>
       </div>
     </section>
+    <section class="reveal-card" data-testid="reveal-card" aria-label="Hatched" aria-live="polite" hidden>
+      <canvas class="reveal-preview" data-testid="reveal-preview" width="192" height="80" aria-hidden="true"></canvas>
+      <p class="reveal-name" data-testid="reveal-name"></p>
+      <p class="reveal-tier"><span class="stars" data-testid="reveal-stars" role="img"></span> <span data-testid="reveal-rarity"></span></p>
+      <p class="reveal-shape" data-testid="reveal-shape"></p>
+    </section>
+    <p class="egg-wait" data-testid="egg-wait" role="status" hidden>Waiting for the beacon…</p>
     <p class="net-status" data-testid="net-status" role="status"></p>
     <p class="hatch-note" data-testid="hatch-note" role="status" hidden></p>
     <p class="alone-hint" data-for="playing" data-testid="alone-hint" hidden>Alone in the pond. Share the link.</p>

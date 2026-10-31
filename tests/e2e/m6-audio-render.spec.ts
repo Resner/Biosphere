@@ -71,6 +71,7 @@ const CUE_NAMES = [
   'mate',
   'hatch',
   'reveal',
+  'stir',
   'grow',
   'tier',
   'ping',

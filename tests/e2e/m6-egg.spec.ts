@@ -14,7 +14,7 @@ import {
   waitPlaying,
 } from './helpers';
 
-// The egg (M6 T20): a genesis shows the reveal's phases in order; peers see a carried egg through
+// The egg (M6 T20; M6b T11 added the stir): a genesis shows the reveal's phases in order; peers see a carried egg through
 // the snapshot's egg mark; after a mating both players see both eggs, and H hatches the child out
 // of the shell while the parent dissolves where it stood.
 
@@ -22,7 +22,7 @@ test.describe.configure({ mode: 'serial' });
 
 const info = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
 
-test('a genesis egg waits for the beacon, cracks and bursts, and the creature grows out', async ({
+test('a genesis egg waits for the beacon, stirs, cracks and bursts, and the creature grows out', async ({
   browser,
 }) => {
   test.setTimeout(45_000);
@@ -42,7 +42,7 @@ test('a genesis egg waits for the beacon, cracks and bursts, and the creature gr
   await page.waitForFunction(() => window.__bs?.state().egg.phase === 'revealed', undefined, {
     timeout: 10_000,
   });
-  expect((await state(page)).egg.phases).toEqual(['waiting', 'cracking', 'revealed']);
+  expect((await state(page)).egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
   expect((await page.evaluate(() => (window.__bs as BsHook).render.fx())).bursts).toBe(1);
   // The beacon's burst has its sound, and the creature's hatch out of the shell (M6 T23).
   expect((await state(page)).audio.cues).toMatchObject({ reveal: 1, hatch: 1 });
@@ -131,7 +131,7 @@ test('after a mating both eggs show to both players, and H hatches the child out
   expect((await playerOf(a)).biomass).toBeLessThan(before);
   await a.screenshot({ path: 'test-results/m6-egg-mate-waiting.png' });
 
-  // The beacon: each egg cracks, bursts and is then carried, with the card beside it.
+  // The beacon: each egg stirs, cracks, bursts and is then carried, with the card beside it.
   for (const page of [a, b]) {
     await page.waitForFunction(
       () => {
@@ -141,11 +141,25 @@ test('after a mating both eggs show to both players, and H hatches the child out
       undefined,
       { timeout: 40_000 },
     );
-    expect((await state(page)).egg.phases.slice(-3)).toEqual(['waiting', 'cracking', 'revealed']);
+    expect((await state(page)).egg.phases.slice(-4)).toEqual([
+      'waiting',
+      'stirring',
+      'cracking',
+      'revealed',
+    ]);
     // The courting chime, the commitment's bright chime and the burst each sounded (M6 T23); the
     // first reveal was this life's own genesis.
     expect((await state(page)).audio.cues).toMatchObject({ court: 1, mate: 1, reveal: 2 });
     await expect(page.getByTestId('offspring')).toBeVisible({ timeout: 10_000 });
+    // The same rarity frame and stars as a genesis's result card (M6b T11).
+    const { rarity } = (await state(page)).offspring;
+    const stars = ['common', 'uncommon', 'rare', 'exotic'].indexOf(rarity ?? '') + 1;
+    expect(stars).toBeGreaterThan(0);
+    await expect(page.getByTestId('offspring')).toHaveAttribute('data-tier', rarity ?? '');
+    await expect(page.getByTestId('offspring-stars')).toHaveText(
+      '★'.repeat(stars) + '☆'.repeat(4 - stars),
+    );
+    expect((await state(page)).egg.card).toEqual({ shown: true, tier: rarity });
     // The egg chip beside the bars (M6b T9): an egg and its key, named in full.
     await expect(page.getByTestId('hud-egg')).toBeVisible();
     await expect(page.getByTestId('hud-egg')).toHaveText('H');

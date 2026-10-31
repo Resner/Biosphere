@@ -370,7 +370,7 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
 
 ### The egg
 
-- [ ] T11 The egg reveal as a gacha moment [opus] (in progress)
+- [x] T11 The egg reveal as a gacha moment [opus] (in progress)
   - Acceptance (unit tests on the reveal timeline in `render/egg.ts` first, then E2E `m6b-egg.spec.ts` on hub 8801):
     - **Waiting** (from the request until the beacon):
       - the egg drops in over 0.4 s, then rests: sampled at 10 Hz over 2 s with no input, `state().egg.angle` stays within 0.01 rad, while its glow breathes slowly;
@@ -392,6 +392,8 @@ Stats keep reading a slimmed chain's girth (ADR 0031). If a gallery specimen cha
     - `state().egg.phases` show `waiting`, `stirring`, `cracking`, `revealed` in order for a genesis and for a mating. `m6-egg.spec.ts` is updated to the new order.
     - DESIGN §10 (Beacon reveal row, The egg) follows; the spec wrote the shape.
   - Notes: no protocol change. The stir starts on the beacon's arrival, because only then is the hatch certain, which is what "wiggles only right before hatching" asks. Hatching the carried egg (`H`) keeps M6's sequence, now with the card styling.
+    - Done: `stirring` (tier from the arriving genome, `LifeFlow.arriving`), drop/rest/poke/lean, play begins in the frame the egg is ripe, shards and rays, `stir` cue, `reveal-card` after the burst, offspring stars; both screens and their panels step aside (`[data-egg]`).
+    - Gotcha: a busy software page draws every 150 ms+ and its timers starve, so `m6b-egg` reads the swing from the timeline (`render.eggAngle`) and acts from the page; the hub's beacon can come 1–6 s after the commitment.
 
 ### Closing
 

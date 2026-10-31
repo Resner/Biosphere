@@ -68,6 +68,11 @@ test('the play screen shows one menu button, four bars and the minimap, and noth
     await clickHatch(page);
     await waitPlaying(page);
     await expect(page.getByTestId('build-label')).toBeHidden();
+    // The genesis's result card is an event, not part of the HUD (M6b T11): it slides away by itself.
+    await page.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, {
+      timeout: 8_000,
+    });
+    await expect(page.getByTestId('reveal-card')).toBeHidden({ timeout: 6_000 });
     await page.screenshot({ path: 'test-results/m6b-hud-1280.png' });
 
     for (const [width, height] of [

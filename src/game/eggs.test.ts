@@ -4,11 +4,17 @@ import { EGG, type EggView, TETHER } from '../render/egg';
 import { type EggFrame, EggShow, GHOST_MS } from './eggs';
 
 const SELF = { x: 500, y: 300, heading: 0, radius: 12 };
+/** The screen's centre and a genesis egg's half-height there. */
+const STAGE = { x: 520, y: 310, heading: Math.PI / 2, radius: 30 };
 
 function show() {
-  const bursts: { x: number; y: number; radius: number; rings: number }[] = [];
-  const eggs = new EggShow((x, y, radius, rings) => bursts.push({ x, y, radius, rings }));
-  return { eggs, bursts };
+  const bursts: { x: number; y: number; radius: number; rings: number; mode: string | null }[] = [];
+  let stirs = 0;
+  const eggs = new EggShow(
+    (x, y, radius, rings, mode) => bursts.push({ x, y, radius, rings, mode }),
+    () => stirs++,
+  );
+  return { eggs, bursts, stirs: () => stirs };
 }
 
 const frame = (eggs: EggShow, now: number, over: Partial<EggFrame> = {}): readonly EggView[] =>
@@ -17,6 +23,8 @@ const frame = (eggs: EggShow, now: number, over: Partial<EggFrame> = {}): readon
     dt: 1 / 60,
     reduced: false,
     self: SELF,
+    stage: STAGE,
+    pointer: null,
     child: null,
     remotes: [],
     ...over,
@@ -30,30 +38,93 @@ function run(eggs: EggShow, from: number, to: number, over: Partial<EggFrame> = 
 }
 
 describe('EggShow', () => {
-  it('a genesis: the egg covers the title cell, cracks on the beacon and the creature grows out', () => {
-    const { eggs, bursts } = show();
+  it('a genesis: the egg sits alone at the screen centre, stirs on the beacon, and the creature grows out', () => {
+    const { eggs, bursts, stirs } = show();
     eggs.awaitGenesis(0);
-    let out = frame(eggs, 100);
+    let out = run(eggs, 0, 500);
     expect(out).toHaveLength(1);
-    expect(out[0]).toMatchObject({ x: SELF.x, y: SELF.y, parent: null });
-    expect(out[0]?.radius).toBeGreaterThan(SELF.radius);
+    expect(out[0]).toMatchObject({ x: STAGE.x, y: STAGE.y, radius: STAGE.radius, parent: null });
     expect(eggs.reveal.phase).toBe('waiting');
-    eggs.genesisBeacon(4000);
-    expect(eggs.reveal.phase).toBe('cracking');
-    // Held until the creature is there.
-    run(eggs, 4000, 8000);
+    eggs.genesisBeacon(4000, 'rare');
+    eggs.genesisBeacon(4010, 'rare');
+    expect(eggs.reveal.phase).toBe('stirring');
+    expect(stirs()).toBe(1);
+    // Held until the creature is there, however long that takes.
+    const due = 4000 + EGG.stirMs.rare + EGG.crackMs.rare;
+    run(eggs, 4000, due - 20);
+    expect(eggs.reveal.ripe(due - 20)).toBe(false);
+    run(eggs, due - 20, due + 2000);
+    expect(eggs.reveal.ripe(due)).toBe(true);
     expect(bursts).toHaveLength(0);
-    expect(eggs.hatched(8000, 'rare')).toBe(true);
-    expect(eggs.reveal.emerge(8000)).toBe(0);
-    run(eggs, 8000, 8000 + EGG.crackMs.rare + 20);
+    // The life begins where the stage is: the burst comes at once.
+    expect(eggs.hatched(due + 2000, 'rare')).toBe(true);
+    expect(eggs.reveal.emerge(due + 2000)).toBe(0);
+    run(eggs, due + 2000, due + 2040);
     expect(bursts).toHaveLength(1);
-    expect(bursts[0]?.rings).toBe(EGG.burstRings.rare);
+    expect(bursts[0]).toMatchObject({ rings: EGG.burstRings.rare, mode: 'genesis' });
     expect(eggs.reveal.phase).toBe('revealed');
-    out = run(eggs, 8000 + EGG.crackMs.rare + 20, 8000 + EGG.crackMs.rare + EGG.burstMs.rare + 50);
+    out = run(eggs, due + 2040, due + 2040 + EGG.burstMs.rare + 50);
     expect(out).toHaveLength(0);
     expect(eggs.ownShown).toBe(false);
     expect(eggs.mode).toBeNull();
-    expect(eggs.reveal.visited).toEqual(['waiting', 'cracking', 'revealed']);
+    expect(eggs.reveal.visited).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
+  });
+
+  it('a waiting genesis egg wobbles when poked and leans a little toward a nearby cursor', () => {
+    const { eggs } = show();
+    expect(eggs.poke(0)).toBe(false);
+    eggs.awaitGenesis(0);
+    run(eggs, 0, 1000);
+    expect(eggs.pose.angle).toBe(0);
+    expect(eggs.poke(1000)).toBe(true);
+    let peak = 0;
+    for (let t = 1000; t < 2000; t += 1000 / 60) {
+      frame(eggs, t);
+      peak = Math.max(peak, Math.abs(eggs.pose.angle));
+    }
+    expect(peak).toBeGreaterThanOrEqual(0.1);
+    expect(peak).toBeLessThanOrEqual(0.2);
+    run(eggs, 2000, 2500);
+    expect(Math.abs(eggs.pose.angle)).toBeLessThanOrEqual(0.01);
+    // The hook reads the swing between frames, at its own time.
+    eggs.poke(2500);
+    expect(eggs.angleAt(2500 + 90, false)).toBeGreaterThan(0.1);
+    expect(eggs.angleAt(2500 + 90, true)).toBe(0);
+    run(eggs, 2500, 3500);
+    // A cursor just to the right: the top tips toward it (clockwise), at most 0.05 rad.
+    const right = { x: STAGE.x + STAGE.radius, y: STAGE.y };
+    run(eggs, 3500, 4000, { pointer: right });
+    expect(eggs.pose.angle).toBeLessThan(-0.02);
+    expect(eggs.pose.angle).toBeGreaterThanOrEqual(-EGG.lean - 1e-9);
+    // One far away is ignored, and the egg comes upright again.
+    run(eggs, 4000, 6000, { pointer: { x: STAGE.x + STAGE.radius * 10, y: STAGE.y } });
+    expect(Math.abs(eggs.pose.angle)).toBeLessThan(0.002);
+    // Reduced motion: no lean.
+    run(eggs, 6000, 8000, { pointer: right, reduced: true });
+    expect(eggs.pose.angle).toBe(0);
+  });
+
+  it('a click or Enter skips a stir to the burst', () => {
+    const { eggs, bursts } = show();
+    eggs.awaitMate(0);
+    run(eggs, 0, 500);
+    expect(eggs.skip(500)).toBe(false);
+    eggs.childRevealed(500, 'child-1', 'exotic');
+    run(eggs, 500, 700);
+    expect(eggs.skip(700)).toBe(true);
+    run(eggs, 700, 750, { child: { tier: 'exotic', maxBiomass: 4000 } });
+    expect(bursts).toHaveLength(1);
+  });
+
+  it('shows the waiting line only after 10 s with the egg on screen', () => {
+    const { eggs } = show();
+    eggs.awaitGenesis(0);
+    frame(eggs, EGG.waitLineMs - 10);
+    expect(eggs.waitLine(EGG.waitLineMs - 10)).toBe(false);
+    frame(eggs, EGG.waitLineMs);
+    expect(eggs.waitLine(EGG.waitLineMs)).toBe(true);
+    frame(eggs, EGG.waitLineMs + 10, { stage: null, self: null });
+    expect(eggs.waitLine(EGG.waitLineMs + 10)).toBe(false);
   });
 
   it('a mating: the egg waits beside the parent, bursts once by its rarity and stays carried', () => {
@@ -67,10 +138,14 @@ describe('EggShow', () => {
     const child = { tier: 'exotic' as const, maxBiomass: 4000 };
     eggs.childRevealed(1000, 'child-1', 'exotic');
     eggs.childRevealed(1100, 'child-1', 'exotic');
-    out = run(eggs, 1000, 1000 + EGG.crackMs.exotic + 20, { child });
+    expect(eggs.reveal.phase).toBe('stirring');
+    out = run(eggs, 1000, 1000 + EGG.stirMs.exotic + EGG.crackMs.exotic - 20, { child });
+    expect(bursts).toHaveLength(0);
+    const burstAt = 1000 + EGG.stirMs.exotic + EGG.crackMs.exotic;
+    out = run(eggs, burstAt - 20, burstAt + 40, { child });
     expect(bursts).toHaveLength(1);
-    expect(bursts[0]?.rings).toBe(EGG.burstRings.exotic);
-    out = run(eggs, 4000, 9000, { child });
+    expect(bursts[0]).toMatchObject({ rings: EGG.burstRings.exotic, mode: 'mate' });
+    out = run(eggs, burstAt + 40, burstAt + 6000, { child });
     expect(out).toHaveLength(1);
     expect(out[0]?.pose).toMatchObject({ crack: 0, tier: 'exotic' });
     expect(out[0]?.pose.glow).toBeCloseTo(EGG.carriedGlow.exotic, 6);

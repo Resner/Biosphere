@@ -37,6 +37,8 @@ const m6EggHubPort = 8798;
 const m6WheelHubPort = 8799;
 // The M6 lifecycle spec (8800), with the M5 hooks: two players hatch, grow, find each other, mate and promote.
 const m6LifecycleHubPort = 8800;
+// The M6b egg spec (8801), with the M5 hooks: genesis reveals on the title and death screens.
+const m6bEggHubPort = 8801;
 // The M6b minimap spec (8802): two players alone in a pond, placed apart by teleport.
 const m6bMinimapHubPort = 8802;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
@@ -193,6 +195,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m6WheelHubPort} --persist-to .wrangler/e2e-state-m6-wheel`,
       url: `http://localhost:${m6WheelHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m6bEggHubPort} --persist-to .wrangler/e2e-state-m6b-egg --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m6bEggHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

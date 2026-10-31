@@ -41,15 +41,39 @@ body {
   padding-bottom: 12vh;
   text-align: center;
   text-shadow: 0 0 24px rgb(0 0 0 / 0.8);
+  transition:
+    opacity 0.35s ease,
+    visibility 0s;
 }
 
-/* While a genesis egg waits for its beacon, the menu steps back so the egg is the moment (M6 T20). */
-.title > * {
-  transition: opacity 0.6s ease;
+/* While a genesis egg is on screen, the title or death screen (and its panels) steps aside so the
+   egg is the moment: nothing covers it and the pointer reaches it (M6 T20, M6b T11). */
+[data-egg] [data-for="title"],
+[data-egg] [data-for="dead"] {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    visibility 0s 0.35s;
 }
 
-[data-egg] .title > :not(h1) {
-  opacity: 0.12;
+/* The small line under an egg that has waited 10 s for its beacon. */
+.egg-wait {
+  position: fixed;
+  top: 0;
+  left: 0;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.04em;
+  white-space: nowrap;
+  pointer-events: none;
+  text-shadow: 0 0 12px rgb(0 0 0 / 0.8);
+}
+
+.egg-wait[hidden] {
+  display: none;
 }
 
 .title h1 {
@@ -1871,6 +1895,107 @@ body {
 
 .offspring p {
   margin: 0.15rem 0;
+}
+
+/* The rarity frame and stars (M6b T11), on the offspring card and the result card alike. */
+.offspring[data-tier="uncommon"],
+.reveal-card[data-tier="uncommon"] {
+  --tier: #8de88a;
+}
+
+.offspring[data-tier="rare"],
+.reveal-card[data-tier="rare"] {
+  --tier: #7ac8ff;
+}
+
+.offspring[data-tier="exotic"],
+.reveal-card[data-tier="exotic"] {
+  --tier: #ffd27a;
+}
+
+.offspring[data-tier] {
+  border-color: var(--tier, rgb(200 240 255 / 0.5));
+}
+
+.stars {
+  color: var(--tier, var(--text));
+  letter-spacing: 0.12em;
+}
+
+/* The result card after a genesis: top centre, between the menu button and the minimap. It never
+   takes the pointer, so the game plays underneath; any click or key sends it away. */
+.reveal-card {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  width: 13rem;
+  padding: 0.6rem 0.9rem 0.7rem;
+  border: 1px solid var(--tier, rgb(200 240 255 / 0.5));
+  border-radius: 18px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    var(--glass-shadow),
+    var(--glass-shine),
+    0 0 28px -6px var(--tier, transparent);
+  color: var(--text);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -130%);
+  transition:
+    transform 0.4s cubic-bezier(0.5, 0, 0.75, 0),
+    opacity 0.4s ease,
+    visibility 0s 0.4s;
+}
+
+.reveal-card[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition:
+    transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.15),
+    opacity 0.3s ease,
+    visibility 0s;
+}
+
+.reveal-card p {
+  margin: 0.1rem 0;
+}
+
+.reveal-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.reveal-name {
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+
+.reveal-tier {
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  color: var(--tier, var(--text));
+}
+
+.reveal-tier .stars {
+  font-size: 1rem;
+}
+
+.reveal-shape {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-card,
+  .reveal-card[data-shown] {
+    transform: translate(-50%, 0);
+  }
 }
 
 .offspring-title {

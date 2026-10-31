@@ -1,7 +1,7 @@
-// The egg (M6 T20): the beacon reveal, the carried egg on its tether and the hatch. `EggReveal` is
-// the reveal's timeline on wall-clock time, `EggTether` the spring that drags a carried egg behind
-// its parent, and `EggLayer` draws every egg and tether as instanced quads in one call. All of it is
-// presentation: nothing here feeds back into the sim.
+// The egg (M6 T20, M6b T11): the beacon reveal, the carried egg on its tether and the hatch.
+// `EggReveal` is the reveal's timeline on wall-clock time, `EggTether` the spring that drags a
+// carried egg behind its parent, and `EggLayer` draws every egg and tether as instanced quads in one
+// call. All of it is presentation: nothing here feeds back into the sim.
 
 import * as THREE from 'three';
 import type { RarityTier } from '../genome/rarity';
@@ -9,25 +9,49 @@ import { clamp } from '../sim/math';
 import { writeInstance } from './instances';
 import { eggMaterial, setUniform } from './materials';
 
-export type EggPhase = 'none' | 'waiting' | 'cracking' | 'revealed';
+export type EggPhase = 'none' | 'waiting' | 'stirring' | 'cracking' | 'revealed';
 
 type ByTier = Readonly<Record<RarityTier, number>>;
 
+/** One twitch burst of the stir: its span as shares of the stir, and its swing in radians. */
+export interface StirBurst {
+  from: number;
+  to: number;
+  amp: number;
+}
+
 /** Presentation constants for the egg (DESIGN §10). */
 export const EGG = {
-  /** A beacon later than this stops the build-up: the egg settles into a calm idle. */
-  settleMs: 10_000,
-  /** How long the build-up takes to calm down once settled. */
-  settleBlendMs: 1500,
-  /** The wiggle at the start of the wait and at `settleMs`: frequency (Hz) and swing (radians). */
-  wiggleHz: { from: 0.6, to: 3.2 },
-  wiggleAmp: { from: 0.1, to: 0.3 },
-  /** The calm idle after a long wait. */
-  idleHz: 0.35,
-  idleAmp: 0.05,
-  idleGlow: 0.55,
-  /** The inner light while waiting: from dim to full at `settleMs`. */
-  glow: { from: 0.25, to: 1 },
+  /** The egg drops into place over this long, from this many egg half-heights above it. */
+  dropMs: 400,
+  dropHeight: 1.4,
+  /** While it waits it rests, its light breathing slowly around `restGlow`. */
+  restGlow: 0.42,
+  breatheHz: 0.2,
+  breatheGlow: 0.08,
+  /** A poke (a click on the egg, or Space during a genesis): one damped wobble. */
+  poke: { amp: 0.22, hz: 2.2, decayMs: 250, lastsMs: 2000 },
+  /** The most the wobbles of a flurry of pokes swing together. */
+  pokeMax: 0.2,
+  pokesKept: 3,
+  /** During a genesis the egg leans at most this far toward a cursor within `leanReach` half-heights. */
+  lean: 0.05,
+  leanReach: 3,
+  /** After this long without a beacon a small line says the egg is waiting for it. */
+  waitLineMs: 10_000,
+  /** The stir once the beacon arrives: its length by the child's rarity and its three bursts. */
+  stirMs: { common: 1200, uncommon: 1400, rare: 1600, exotic: 1800 } as ByTier,
+  stirBursts: [
+    { from: 0, to: 0.16, amp: 0.06 },
+    { from: 0.42, to: 0.62, amp: 0.11 },
+    { from: 0.76, to: 1, amp: 0.17 },
+  ] as readonly StirBurst[],
+  stirHz: 12,
+  /** Each burst flashes the light by this much (times its number); the rarity's colour leaks over this share of the stir. */
+  stirFlash: 0.12,
+  leakSpan: 0.45,
+  /** The inner light in full (a crack runs from 80% of it to 120%). */
+  glow: { to: 1 },
   /** The trembling while the shell cracks. */
   crackHz: 7,
   crackAmp: { from: 0.05, to: 0.2 },
@@ -38,6 +62,9 @@ export const EGG = {
   burstMs: { common: 600, uncommon: 800, rare: 1000, exotic: 1500 } as ByTier,
   burstLight: { common: 0.35, uncommon: 0.6, rare: 0.9, exotic: 1.6 } as ByTier,
   burstRings: { common: 1, uncommon: 2, rare: 3, exotic: 5 } as ByTier,
+  /** Shell shards thrown out by the burst, and light rays for the rarer children. */
+  burstShards: { common: 5, uncommon: 6, rare: 8, exotic: 10 } as ByTier,
+  burstRays: { common: 0, uncommon: 0, rare: 6, exotic: 10 } as ByTier,
   /** Exotic bursts run the effects at this share of real time for `slowMs`. */
   slowExotic: 0.3,
   slowMs: 900,
@@ -48,8 +75,9 @@ export const EGG = {
   /** The carried egg's faint glow by the child's rarity; peers see `plainGlow`. */
   carriedGlow: { common: 0.16, uncommon: 0.28, rare: 0.4, exotic: 0.56 } as ByTier,
   plainGlow: 0.3,
-  /** Reduced motion breathes the egg's opacity instead of shaking it. */
+  /** Reduced motion pulses the egg's light (and breathes its opacity) instead of moving it. */
   fadeHz: 0.5,
+  pulseGlow: 0.16,
   /** The visited phases kept for the test hook. */
   visitedKept: 16,
 } as const;
@@ -80,6 +108,13 @@ export interface EggPose {
   light: number;
   /** 0..1, how far the halves of an opened shell fly apart (0 for a reveal and under reduced motion). */
   spread: number;
+  /** How far above its place the egg is drawn while it drops in, in egg half-heights. */
+  lift: number;
+  /** 0..1, how much of the rarity's colour shows (a stir leaks it in); the rest is the plain tint. */
+  tint: number;
+  /** The burst's shell shards and light rays (0 for none). */
+  shards: number;
+  rays: number;
   tier: RarityTier | null;
 }
 
@@ -92,11 +127,15 @@ export const emptyPose = (): EggPose => ({
   burst: 0,
   light: 0,
   spread: 0,
+  lift: 0,
+  tint: 1,
+  shards: 0,
+  rays: 0,
   tier: null,
 });
 
 const TAU = Math.PI * 2;
-const INSTANCE_ATTRIBUTES = ['aEggA', 'aEggB', 'aEggTint'] as const;
+const INSTANCE_ATTRIBUTES = ['aEggA', 'aEggB', 'aEggC', 'aEggTint'] as const;
 const clamp01 = (v: number): number => clamp(v, 0, 1);
 const smooth = (v: number): number => {
   const t = clamp01(v);
@@ -118,9 +157,10 @@ export interface CrackOptions {
 }
 
 /**
- * The reveal's timeline: `waiting` while the beacon is awaited (a wiggle that builds for 10 s, then
- * a calm idle), `cracking` once it arrives, and `revealed` from the burst on. Times are wall-clock
- * milliseconds, so the reveal never depends on the sim's speed.
+ * The reveal's timeline (M6b T11): `waiting` while the beacon is awaited (the egg drops in, then
+ * rests and answers pokes), `stirring` once it arrives (three twitch bursts as the rarity's colour
+ * leaks out), `cracking`, and `revealed` from the burst on. Times are wall-clock milliseconds, so
+ * the reveal never depends on the sim's speed.
  */
 export class EggReveal {
   phase: EggPhase = 'none';
@@ -129,49 +169,83 @@ export class EggReveal {
   tier: RarityTier | null = null;
   opens = false;
   private waitAt = 0;
+  private stirAt = 0;
   private crackAt = 0;
   private burstAt = 0;
   private held = false;
-  private releasedAt = 0;
+  /** The times of the last few pokes, as a ring. */
+  private readonly pokes: number[] = Array.from({ length: EGG.pokesKept }, () => Number.NaN);
+  private pokeNext = 0;
 
-  /** The beacon is awaited: the egg appears (a no-op while it already waits). */
+  /** The beacon is awaited: the egg drops in (a no-op while it already waits). */
   wait(now: number): void {
     if (this.phase === 'waiting') return;
     this.enter('waiting');
     this.waitAt = now;
     this.tier = null;
     this.opens = false;
+    this.pokes.fill(Number.NaN);
   }
 
-  /** The beacon arrived (or a hatch began): the shell cracks, and bursts after the tier's crack time. */
+  /** A click on the waiting egg (or Space during a genesis): one damped wobble. False when it is not waiting. */
+  poke(now: number): boolean {
+    if (this.phase !== 'waiting') return false;
+    this.pokes[this.pokeNext] = now;
+    this.pokeNext = (this.pokeNext + 1) % this.pokes.length;
+    return true;
+  }
+
+  /** Whether the small "Waiting for the beacon…" line shows. */
+  waitLine(now: number): boolean {
+    return this.phase === 'waiting' && now - this.waitAt >= EGG.waitLineMs;
+  }
+
+  /**
+   * The beacon arrived: the egg stirs for its rarity's stir time, then cracks and bursts. During a
+   * stir or a crack it is `crack`'s take-over instead.
+   */
+  stir(now: number, options: CrackOptions): void {
+    if (this.takeOver(options)) return;
+    this.enter('stirring');
+    this.stirAt = now;
+    this.start(options);
+  }
+
+  /** The shell cracks at once (a hatch with H), and bursts after the tier's crack time. */
   crack(now: number, options: CrackOptions): void {
-    if (this.phase === 'cracking') {
-      // A hatch that starts mid-crack takes over the burst: the child must grow out of it.
-      if (options.opens && !this.opens) {
-        this.opens = true;
-        this.held = options.hold === true;
-        this.releasedAt = 0;
-      }
-      return;
-    }
+    if (this.takeOver(options)) return;
     this.enter('cracking');
     this.crackAt = now;
-    this.tier = options.tier;
-    this.opens = options.opens;
-    this.held = options.hold === true;
-    this.releasedAt = 0;
+    this.start(options);
   }
 
-  /** Learns the child's rarity after the crack began. */
+  /** A click or Enter while it stirs or cracks: the burst comes now (or at the release of a held egg). */
+  skip(now: number): boolean {
+    if (this.phase === 'stirring') this.enter('cracking');
+    else if (this.phase !== 'cracking') return false;
+    this.crackAt = now - EGG.crackMs[this.tierOr()];
+    return true;
+  }
+
+  /** Whether the stir and crack times have passed: a held egg would burst now if released. */
+  ripe(now: number): boolean {
+    const crackAt =
+      this.phase === 'stirring'
+        ? this.stirAt + EGG.stirMs[this.tierOr()]
+        : this.phase === 'cracking'
+          ? this.crackAt
+          : Number.NaN;
+    return now >= crackAt + EGG.crackMs[this.tierOr()];
+  }
+
+  /** Learns the child's rarity after the stir or crack began. */
   setTier(tier: RarityTier): void {
     this.tier = tier;
   }
 
-  /** A held crack may burst: the creature to grow out of it is there. */
-  release(now: number): void {
-    if (!this.held) return;
+  /** A held crack may burst (at its crack time, or at once once that has passed): the creature to grow out of it is there. */
+  release(): void {
     this.held = false;
-    this.releasedAt = now;
   }
 
   /** Back to no egg (a failed hatch, a new life). */
@@ -184,9 +258,14 @@ export class EggReveal {
 
   /** Advances the phase; true on the frame the shell bursts. */
   update(now: number): boolean {
+    if (this.phase === 'stirring') {
+      const end = this.stirAt + EGG.stirMs[this.tierOr()];
+      if (now < end) return false;
+      this.enter('cracking');
+      this.crackAt = end;
+    }
     if (this.phase !== 'cracking' || this.held) return false;
-    const due = Math.max(this.crackAt + EGG.crackMs[this.tierOr()], this.releasedAt);
-    if (now < due) return false;
+    if (now < this.crackAt + EGG.crackMs[this.tierOr()]) return false;
     this.enter('revealed');
     this.burstAt = now;
     return true;
@@ -217,7 +296,7 @@ export class EggReveal {
    */
   emerge(now: number): number {
     if (!this.opens) return 1;
-    if (this.phase === 'cracking') return 0;
+    if (this.phase === 'stirring' || this.phase === 'cracking') return 0;
     if (this.phase !== 'revealed') return 1;
     const t = clamp01((now - this.burstAt) / EGG.emergeMs);
     return t >= 1 ? 1 : Math.max(0, easeOutBack(t));
@@ -232,13 +311,20 @@ export class EggReveal {
     out.crack = 0;
     out.angle = 0;
     out.alpha = 1;
+    out.lift = 0;
+    out.tint = 1;
+    out.shards = 0;
+    out.rays = 0;
     switch (this.phase) {
       case 'none':
         out.shown = false;
         out.glow = 0;
         break;
       case 'waiting':
-        this.waitingPose(now - this.waitAt, reduced, out);
+        this.waitingPose(now, reduced, out);
+        break;
+      case 'stirring':
+        this.stirringPose(now - this.stirAt, reduced, out);
         break;
       case 'cracking':
         this.crackingPose(now - this.crackAt, reduced, out);
@@ -250,42 +336,55 @@ export class EggReveal {
     return out;
   }
 
-  private waitingPose(ms: number, reduced: boolean, out: EggPose): void {
+  private waitingPose(now: number, reduced: boolean, out: EggPose): void {
     out.shown = true;
-    const t = Math.max(0, ms) / 1000;
-    const settle = EGG.settleMs / 1000;
-    const blend = EGG.settleBlendMs / 1000;
-    const { from: f0, to: f1 } = EGG.wiggleHz;
-    const { from: a0, to: a1 } = EGG.wiggleAmp;
-    let phase: number;
-    let amp: number;
-    let glow: number;
-    if (t <= settle) {
-      // Frequency rises linearly, so the phase is its integral.
-      const k = t / settle;
-      phase = TAU * (f0 * t + ((f1 - f0) * t * t) / (2 * settle));
-      amp = a0 + (a1 - a0) * k;
-      glow = EGG.glow.from + (EGG.glow.to - EGG.glow.from) * k;
-    } else {
-      // Settled: the frequency eases down to the idle's over the blend, with the phase kept continuous.
-      const atSettle = TAU * (f0 * settle + ((f1 - f0) * settle) / 2);
-      const tau = t - settle;
-      const u = Math.min(tau, blend);
-      phase =
-        atSettle +
-        TAU * (f1 * u + ((EGG.idleHz - f1) * u * u) / (2 * blend)) +
-        TAU * EGG.idleHz * Math.max(0, tau - blend);
-      const s = smooth(tau / blend);
-      amp = a1 + (EGG.idleAmp - a1) * s;
-      const breathe = 0.08 * Math.sin(TAU * EGG.idleHz * tau);
-      glow = EGG.glow.to + (EGG.idleGlow - EGG.glow.to) * s + breathe * s;
-    }
-    out.glow = glow;
+    const ms = Math.max(0, now - this.waitAt);
+    const t = ms / 1000;
     if (reduced) {
+      // No drop and no wobble: the light pulses and the shell breathes.
+      out.glow = EGG.restGlow + EGG.pulseGlow * Math.sin(TAU * EGG.fadeHz * t);
       out.alpha = 0.7 + 0.3 * Math.cos(TAU * EGG.fadeHz * t);
-    } else {
-      out.angle = amp * Math.sin(phase);
+      return;
     }
+    // The drop: it falls into place as if under its own weight, fading in as it comes.
+    const k = clamp01(ms / EGG.dropMs);
+    out.lift = k >= 1 ? 0 : EGG.dropHeight * (1 - k * k);
+    out.alpha = smooth(k * 2);
+    out.glow = EGG.restGlow + EGG.breatheGlow * Math.sin(TAU * EGG.breatheHz * t);
+    // At rest, but for the wobbles of recent pokes.
+    const { amp, hz, decayMs, lastsMs } = EGG.poke;
+    let angle = 0;
+    for (const at of this.pokes) {
+      const since = now - at;
+      if (!(since >= 0 && since < lastsMs)) continue;
+      angle += amp * Math.exp(-since / decayMs) * Math.sin((TAU * hz * since) / 1000);
+    }
+    out.angle = clamp(angle, -EGG.pokeMax, EGG.pokeMax);
+  }
+
+  private stirringPose(ms: number, reduced: boolean, out: EggPose): void {
+    out.shown = true;
+    const span = EGG.stirMs[this.tierOr()];
+    const u = clamp01(Math.max(0, ms) / span);
+    // Which burst, and how far into it (a sine envelope, so each starts and ends still).
+    let envelope = 0;
+    let amp = 0;
+    let index = 0;
+    for (let i = 0; i < EGG.stirBursts.length; i++) {
+      const b = EGG.stirBursts[i] as StirBurst;
+      if (u < b.from || u > b.to) continue;
+      envelope = Math.sin((Math.PI * (u - b.from)) / (b.to - b.from));
+      amp = b.amp;
+      index = i + 1;
+    }
+    // The light gathers towards the crack's, and each burst flashes it, harder each time.
+    const flash = EGG.stirFlash * index * envelope;
+    const base = EGG.restGlow + (0.8 * EGG.glow.to - EGG.restGlow) * u;
+    out.glow = base + (reduced ? 2.4 * flash : flash);
+    // From the second burst, the rarity's colour leaks through.
+    const second = EGG.stirBursts[1]?.from ?? 0;
+    out.tint = u < second ? 0 : smooth((u - second) / EGG.leakSpan);
+    if (!reduced) out.angle = amp * envelope * Math.sin((TAU * EGG.stirHz * ms) / 1000);
   }
 
   private crackingPose(ms: number, reduced: boolean, out: EggPose): void {
@@ -307,6 +406,8 @@ export class EggReveal {
     const tier = this.tierOr();
     const b = clamp01(this.burstClock(now) / EGG.burstMs[tier]);
     out.light = EGG.burstLight[tier] * (reduced ? 0.5 : 1);
+    out.rays = EGG.burstRays[tier];
+    out.shards = reduced ? 0 : EGG.burstShards[tier];
     if (this.opens) {
       out.shown = b < 1;
       out.burst = b;
@@ -323,6 +424,22 @@ export class EggReveal {
     out.crack = 1 - smooth(heal);
     const carried = EGG.carriedGlow[tier];
     out.glow = EGG.glow.to + (carried - EGG.glow.to) * smooth(Math.max(b, heal));
+  }
+
+  /** A hatch that starts mid-stir or mid-crack takes over the burst: the child must grow out of it. */
+  private takeOver(options: CrackOptions): boolean {
+    if (this.phase !== 'stirring' && this.phase !== 'cracking') return false;
+    if (options.opens && !this.opens) {
+      this.opens = true;
+      this.held = options.hold === true;
+    }
+    return true;
+  }
+
+  private start(options: CrackOptions): void {
+    this.tier = options.tier;
+    this.opens = options.opens;
+    this.held = options.hold === true;
   }
 
   private tierOr(): RarityTier {
@@ -345,6 +462,10 @@ export function carriedPose(tier: RarityTier | null, out: EggPose): EggPose {
   out.burst = 0;
   out.light = 0;
   out.spread = 0;
+  out.lift = 0;
+  out.tint = 1;
+  out.shards = 0;
+  out.rays = 0;
   out.tier = tier;
   return out;
 }
@@ -463,12 +584,15 @@ export class EggLayer {
   private readonly a = new Float32Array(EGG_CAPACITY * 4);
   /** Per instance: alpha, burst light, spread, seed. */
   private readonly b = new Float32Array(EGG_CAPACITY * 4);
+  /** Per instance: the burst's shards and rays. */
+  private readonly c = new Float32Array(EGG_CAPACITY * 2);
   private readonly tint = new Float32Array(EGG_CAPACITY * 3);
   private eggs = 0;
 
   constructor() {
     this.geometry.setAttribute('aEggA', new THREE.InstancedBufferAttribute(this.a, 4));
     this.geometry.setAttribute('aEggB', new THREE.InstancedBufferAttribute(this.b, 4));
+    this.geometry.setAttribute('aEggC', new THREE.InstancedBufferAttribute(this.c, 2));
     this.geometry.setAttribute('aEggTint', new THREE.InstancedBufferAttribute(this.tint, 3));
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, EGG_CAPACITY);
     this.mesh.count = 0;
@@ -483,7 +607,6 @@ export class EggLayer {
     for (const egg of eggs) {
       const { pose } = egg;
       if (!pose.shown || n >= EGG_CAPACITY) continue;
-      const tint = EGG_TINT[pose.tier ?? 'plain'];
       const p = egg.parent;
       if (p && n + 1 < EGG_CAPACITY) {
         // The tether: from the parent's skin to the egg's shell, as a thin stretched quad.
@@ -515,13 +638,15 @@ export class EggLayer {
           matrix[o + 13] = p.y + uy * mid;
           matrix[o + 14] = 0;
           matrix[o + 15] = 1;
-          this.write(n, 1, pose, tint, egg.seed);
+          this.write(n, 1, pose, egg.seed);
           n++;
         }
       }
       const angle = egg.heading - Math.PI / 2 + pose.angle;
-      writeInstance(matrix, n, egg.x, egg.y, egg.radius * EGG_QUAD, angle, 1);
-      this.write(n, 0, pose, tint, egg.seed);
+      // A dropping egg is drawn above its place (π/2, up the screen, is +y).
+      const y = egg.y + pose.lift * egg.radius;
+      writeInstance(matrix, n, egg.x, y, egg.radius * EGG_QUAD, angle, 1);
+      this.write(n, 0, pose, egg.seed);
       n++;
       this.eggs++;
     }
@@ -546,13 +671,7 @@ export class EggLayer {
     this.material.dispose();
   }
 
-  private write(
-    n: number,
-    kind: number,
-    pose: EggPose,
-    tint: readonly [number, number, number],
-    seed: number,
-  ): void {
+  private write(n: number, kind: number, pose: EggPose, seed: number): void {
     const i = n * 4;
     this.a[i] = kind;
     this.a[i + 1] = pose.glow;
@@ -562,9 +681,15 @@ export class EggLayer {
     this.b[i + 1] = pose.light;
     this.b[i + 2] = pose.spread;
     this.b[i + 3] = seed;
+    this.c[n * 2] = pose.shards;
+    this.c[n * 2 + 1] = pose.rays;
+    // The rarity's colour over the plain one, by how much of it shows (a stir leaks it in).
+    const plain = EGG_TINT.plain;
+    const tier = pose.tier ? EGG_TINT[pose.tier] : plain;
+    const k = pose.tier ? pose.tint : 0;
     const j = n * 3;
-    this.tint[j] = tint[0];
-    this.tint[j + 1] = tint[1];
-    this.tint[j + 2] = tint[2];
+    for (let m = 0; m < 3; m++) {
+      this.tint[j + m] = (plain[m] as number) * (1 - k) + (tier[m] as number) * k;
+    }
   }
 }

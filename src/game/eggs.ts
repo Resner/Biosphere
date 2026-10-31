@@ -1,5 +1,5 @@
-// The eggs on screen (M6 T20): the beacon reveal over the creature or beside the parent, the
-// carried egg on its tether, the peers' eggs (from their snapshots' egg mark), and the hatch, where
+// The eggs on screen (M6 T20, M6b T11): the beacon reveal at the screen's centre or beside the
+// parent, the carried egg on its tether, the peers' eggs (from their snapshots' egg mark), and the hatch, where
 // the child grows out of the shell and the parent dissolves where it stood. DOM-free: the shell says
 // what happened and draws what this returns. Presentation only; nothing here touches the sim.
 
@@ -36,8 +36,15 @@ export interface EggFrame {
   dt: number;
   /** Reduced motion (the setting, else `prefers-reduced-motion`): the shake becomes a fade. */
   reduced: boolean;
-  /** The creature the player's egg belongs to: the title cell during a genesis, else the player; null when none is drawn. */
+  /** The creature the player's egg belongs to; null when none is drawn. */
   self: TetherParent | null;
+  /**
+   * Where a genesis egg sits: the screen's centre, with the egg's half-height there (a genesis
+   * egg is alone on screen); null when nothing is drawn.
+   */
+  stage: TetherParent | null;
+  /** The cursor in world units, or null when it has not moved; a waiting genesis egg leans toward it. */
+  pointer: { x: number; y: number } | null;
   /** The player's pending child, or null. */
   child: { tier: RarityTier; maxBiomass: number } | null;
   remotes: readonly EggRemote[];
@@ -51,11 +58,10 @@ export interface Ghost extends TetherParent {
 
 /** A parent left behind by a hatch dissolves over this long, then nothing of it stays. */
 export const GHOST_MS = 1000;
-/**
- * An egg a creature grows out of covers it: its half-height in the creature's radii. A genesis egg
- * is the title screen's centrepiece; a hatched child's matches the carried egg it came from.
- */
-const COVER = { genesis: 1.6, hatch: 1.15 } as const;
+/** A hatched child's egg covers it, matching the carried egg it came from: its half-height in the child's radii. */
+const COVER_HATCH = 1.15;
+/** The lean toward the cursor eases in and out with this time constant (seconds). */
+const LEAN_SECONDS = 0.15;
 /** Before the child is known, a mating's egg is this share of the parent's radius. */
 const UNKNOWN_EGG = 0.55;
 /** A carried egg is a little larger than the hatchling inside, and never larger than this share of its parent. */
@@ -97,11 +103,14 @@ export class EggShow {
   private readonly own = new EggTether();
   private readonly ownPose = emptyPose();
   private readonly ownView = newView(this.ownPose, OWN_SEED);
+  private readonly hookPose = emptyPose();
   private readonly peers = new Map<string, PeerEgg>();
   private readonly out: EggView[] = [];
   private frameNo = 0;
   private ghost: Ghost | null = null;
   private ghostAt = 0;
+  /** The waiting genesis egg's lean toward the cursor, in radians. */
+  private lean = 0;
   private readonly ghostView: RemoteCellView & { body: CreatureSource | null } = {
     id: 'ghost',
     x: 0,
@@ -116,11 +125,52 @@ export class EggShow {
   };
 
   constructor(
-    private readonly onBurst: (x: number, y: number, radius: number, rings: number) => void,
+    /** The shell bursts: where, how big, with how many rings, and for what. */
+    private readonly onBurst: (
+      x: number,
+      y: number,
+      radius: number,
+      rings: number,
+      mode: EggMode | null,
+    ) => void,
+    /** The beacon came and the egg begins to stir (its sound). */
+    private readonly onStir: () => void = () => {},
   ) {}
 
   get mode(): EggMode | null {
     return this.modeNow;
+  }
+
+  /** The player's egg as last drawn (its `angle` includes the lean). */
+  get pose(): Readonly<EggPose> {
+    return this.ownPose;
+  }
+
+  /**
+   * The player's egg's swing at `now`, the lean included, as the next frame would draw it: the test
+   * hook reads it between frames, which a software-rendered page draws slowly.
+   */
+  angleAt(now: number, reduced: boolean): number {
+    if (!this.ownShown) return 0;
+    const { phase } = this.reveal;
+    if (phase !== 'waiting' && phase !== 'stirring' && phase !== 'cracking')
+      return this.ownPose.angle;
+    return this.reveal.pose(now, reduced, this.hookPose).angle + this.lean;
+  }
+
+  /** A click on the waiting egg, or Space during a genesis: one wobble. False when no egg waits on screen. */
+  poke(now: number): boolean {
+    return this.ownShown && this.reveal.poke(now);
+  }
+
+  /** A click or Enter while the egg stirs or cracks: the burst comes now. */
+  skip(now: number): boolean {
+    return this.ownShown && this.reveal.skip(now);
+  }
+
+  /** Whether the small "Waiting for the beacon…" line shows under the player's egg. */
+  waitLine(now: number): boolean {
+    return this.ownShown && this.reveal.waitLine(now);
   }
 
   /** A genesis waits for its beacon (the title screen): the egg appears over the title cell. */
@@ -130,10 +180,14 @@ export class EggShow {
     this.reveal.wait(now);
   }
 
-  /** The genesis's beacon arrived: the shell cracks, and holds until the creature hatches. */
-  genesisBeacon(now: number): void {
+  /**
+   * The genesis's beacon arrived: the egg stirs (by the rarity of the body the beacon gives, when
+   * known), cracks, and holds until the creature hatches.
+   */
+  genesisBeacon(now: number, tier: RarityTier | null): void {
     if (this.modeNow !== 'genesis' || this.reveal.phase !== 'waiting') return;
-    this.reveal.crack(now, { tier: null, opens: true, hold: true });
+    this.reveal.stir(now, { tier, opens: true, hold: true });
+    this.onStir();
   }
 
   /** A mating waits for its beacon: the egg appears beside the parent. */
@@ -144,12 +198,13 @@ export class EggShow {
     this.reveal.wait(now);
   }
 
-  /** The mating's child is checked: its egg cracks and bursts by its rarity, once per child. */
+  /** The mating's child is checked: its egg stirs, cracks and bursts by its rarity, once per child. */
   childRevealed(now: number, id: string, tier: RarityTier): void {
     if (this.revealedFor === id || this.modeNow === 'genesis' || this.modeNow === 'hatch') return;
     this.revealedFor = id;
     this.modeNow = 'mate';
-    this.reveal.crack(now, { tier, opens: false });
+    this.reveal.stir(now, { tier, opens: false });
+    this.onStir();
   }
 
   /**
@@ -170,9 +225,9 @@ export class EggShow {
     const { reveal } = this;
     this.frozen = false;
     if (this.modeNow === 'genesis' || this.modeNow === 'hatch') {
-      if (reveal.phase === 'cracking' && reveal.opens) {
+      if ((reveal.phase === 'stirring' || reveal.phase === 'cracking') && reveal.opens) {
         reveal.setTier(tier);
-        reveal.release(now);
+        reveal.release();
         return true;
       }
       if (reveal.phase === 'waiting') {
@@ -219,6 +274,11 @@ export class EggShow {
     return v;
   }
 
+  /** The player's egg as last drawn, or null when none is. */
+  get drawn(): Readonly<EggView> | null {
+    return this.ownShown ? this.ownView : null;
+  }
+
   /** Where the player's egg is now: a hatch puts the child there. */
   ownAt(): { x: number; y: number } | null {
     return this.ownShown ? { x: this.ownView.x, y: this.ownView.y } : null;
@@ -229,16 +289,18 @@ export class EggShow {
     this.frameNo++;
     this.out.length = 0;
     const { reveal } = this;
-    const { now, self } = input;
+    const { now } = input;
     const burst = reveal.update(now);
+    const mode = this.modeNow;
     // A finished genesis or hatch lets go; a mating's reveal stays until the child is gone.
     if (reveal.opens && reveal.done(now)) this.modeNow = null;
+    const self = this.modeNow === 'genesis' ? (input.stage ?? null) : input.self;
     this.ownShown = self !== null && this.ownEgg(input, self);
     if (this.ownShown) this.out.push(this.ownView);
     // The burst rings go where the egg is now (a genesis's egg has just left the title screen).
     if (burst && this.ownShown) {
       const rings = input.reduced ? 1 : EGG.burstRings[reveal.tier ?? 'common'];
-      this.onBurst(this.ownView.x, this.ownView.y, this.ownView.radius, rings);
+      this.onBurst(this.ownView.x, this.ownView.y, this.ownView.radius, rings, mode);
     }
     this.peerEggs(input);
     return this.out;
@@ -251,6 +313,7 @@ export class EggShow {
     const pose = this.ownPose;
     const revealing =
       phase === 'waiting' ||
+      phase === 'stirring' ||
       phase === 'cracking' ||
       (phase === 'revealed' && (reveal.opens ? !reveal.done(now) : child !== null));
     if (revealing) reveal.pose(now, reduced, pose);
@@ -259,11 +322,18 @@ export class EggShow {
     if (!pose.shown) return false;
 
     const view = this.ownView;
-    const centred = this.modeNow === 'genesis' || (this.modeNow === 'hatch' && !this.frozen);
+    const genesis = this.modeNow === 'genesis';
+    this.leanToward(
+      genesis && phase === 'waiting' && !reduced ? input.pointer : null,
+      self,
+      input.dt,
+    );
+    pose.angle += this.lean;
+    const centred = genesis || (this.modeNow === 'hatch' && !this.frozen);
     if (centred) {
       view.x = self.x;
       view.y = self.y;
-      view.radius = self.radius * (this.modeNow === 'genesis' ? COVER.genesis : COVER.hatch);
+      view.radius = genesis ? self.radius : self.radius * COVER_HATCH;
       view.heading = UP;
       view.parent = null;
       this.own.drop();
@@ -286,6 +356,19 @@ export class EggShow {
     parent.radius = self.radius;
     view.parent = parent;
     return true;
+  }
+
+  /** Eases the lean toward a cursor within reach of the egg (none without one). */
+  private leanToward(pointer: EggFrame['pointer'], egg: TetherParent, dt: number): void {
+    let target = 0;
+    if (pointer) {
+      const dx = pointer.x - egg.x;
+      const near = Math.hypot(dx, pointer.y - egg.y) <= EGG.leanReach * egg.radius;
+      // The top tips toward the cursor's side: clockwise (negative) for one on the right.
+      if (near) target = -EGG.lean * Math.max(-1, Math.min(1, dx / (1.5 * egg.radius)));
+    }
+    this.lean += (target - this.lean) * (1 - Math.exp(-Math.max(0, dt) / LEAN_SECONDS));
+    if (target === 0 && Math.abs(this.lean) < 1e-4) this.lean = 0;
   }
 
   private peerEggs(input: EggFrame): void {
