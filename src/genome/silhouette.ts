@@ -3,7 +3,7 @@
 // its parts reach. Tests, the Lab, the gallery and the reports use it; stats and the sim never do.
 // Total: every plan gets a class, and `other` is allowed.
 
-import { PI } from '../sim/math';
+import { cos, PI } from '../sim/math';
 import { type BodyPlan, dirOf, type PlanSegment, polygonArea, rootOf } from './develop';
 
 export const SILHOUETTES = [
@@ -29,20 +29,24 @@ const T = {
   /** A ring whose parts point this far rearward on average (dir.x) trails like a bell's tentacles. */
   drape: -0.3,
   /** Membranes over this share of the body's area make a winged body... */
-  web: 0.25,
-  /** ...and a fan tail when most of the sheet (`tailWeb`) lies behind the rear segment's centre and it covers `tailArea` of the body. */
+  web: 0.3,
+  /** ...and a fan tail when most of the sheet (`tailWeb`) lies behind the rear segment (from half-way to its front on a chain of 3+) and it covers `tailArea` of the body. */
   tailWeb: 0.5,
   tailArea: 0.1,
   /** A shell over this share of the segments is a crab's; a shorter one with a free tail a copepod's. */
   crab: 0.75,
-  /** Chains of at least this many segments are long bodies. */
+  /**
+   * Chains of at least this many segments are long bodies; a worm has at least `worm`, as
+   * `RULES.develop.chain.trunk.worm` lays one out (M6b T5).
+   */
   long: 4,
-  /** A long body bent by this much (radians) is a worm. */
+  worm: 5,
+  /** A worm-long body bent by this much (radians) is a worm. */
   curl: 0.35 * PI,
   /** Long bodies with this many pairs are shrimp. */
   legs: 3,
-  /** The core holds this share of the body's area in a big-headed body. */
-  head: 0.6,
+  /** The front, to the widest segment, holds this share of the body's area in a tadpole. */
+  head: 0.65,
   /** A single cell with this many pairs, or this many bristles, is ciliated. */
   cilia: 3,
   bristles: 24,
@@ -75,7 +79,10 @@ export function silhouetteOf(plan: BodyPlan): Silhouette {
   let drawn = 0;
   for (const s of segments) drawn += area(s);
   const body = drawn / plan.form.slim;
-  const rearX = (segments[n - 1] as PlanSegment).x;
+  // The tail starts at the rear segment's centre, or half-way to its front on a chain of 3+, whose
+  // long tail segment (M6b T5) carries its fan along it.
+  const rear = segments[n - 1] as PlanSegment;
+  const rearX = n >= 3 ? rear.x + 0.5 * rear.rx * cos(rear.angle) : rear.x;
   let web = 0;
   let tail = 0;
   for (const m of plan.membranes) {
@@ -91,13 +98,23 @@ export function silhouetteOf(plan: BodyPlan): Silhouette {
   if (n >= 2 && fused >= T.crab * n) return 'crab';
   if (fused >= 2 && n - fused >= 2) return 'copepod';
 
-  const headShare = area(segments[0] as PlanSegment) / drawn;
-  if (n >= T.long) {
-    if (Math.abs(plan.form.turn) >= T.curl) return 'worm';
-    if (left.length >= T.legs) return 'shrimp';
-    return headShare >= T.head ? 'tadpole' : 'worm';
+  // A big front with a thin tail: a two-segment chain's head, or a longer body up to its widest
+  // segment, since its head is narrower than its trunk (M6b T5).
+  let widest = 0;
+  for (let i = 1; i < n && n >= 3; i++) {
+    if ((segments[i] as PlanSegment).ry > (segments[widest] as PlanSegment).ry) widest = i;
   }
-  if (n >= 2) return headShare >= T.head ? 'tadpole' : 'other';
+  let front = 0;
+  for (let i = 0; i <= widest; i++) front += area(segments[i] as PlanSegment);
+  const frontShare = front / drawn;
+  if (n >= T.long) {
+    // A curled chain is a worm from `worm` segments; a shorter one reads as a short body.
+    const curled = Math.abs(plan.form.turn) >= T.curl;
+    if (curled && n >= T.worm) return 'worm';
+    if (!curled && left.length >= T.legs) return 'shrimp';
+    if (n >= T.worm) return frontShare >= T.head ? 'tadpole' : 'worm';
+  }
+  if (n >= 2) return frontShare >= T.head ? 'tadpole' : 'other';
 
   // One cell: a fringe of cilia or bristles, a thick tail, or a plain cell.
   const bristles = plan.appendages.reduce((sum, a) => sum + a.setae, 0);

@@ -159,6 +159,7 @@ const CURVATURE = range(D.curvature);
 const PLATE_THICKNESS = range(D.plateThickness);
 const EYE_SIZE = range(D.eyes.size);
 const EYE_STALK = range(D.eyes.stalk);
+const TRUNK_HEAD = range(D.chain.trunk.head);
 const X = D.detail;
 
 const unit = (byte: number): number => byte / 255;
@@ -258,11 +259,88 @@ function chainProfile(traits: Traits) {
   return { n, radius, stretchOf };
 }
 
-function buildSegments(traits: Traits, form: Bending): { segments: PlanSegment[]; slim: number } {
-  const chain = traits.karyotype === 1 ? chainV1(traits) : chainV2(traits);
-  const narrow = traits.karyotype === 1 ? 1 : slimming(chain, form);
+/**
+ * How a v2 chain is drawn (M6b T5, ADR 0037): `plain` (a cell, a two-segment chain, a radial body),
+ * `trunk` (one long body, widest at the trunk) or `worm` (a trunk chain of `trunk.worm.from`
+ * segments or more with no carapace, curled by `trunk.worm.curl` or more but not coiled: even and
+ * slimmer).
+ * The worm's curl is the one `silhouetteOf` reads, so a curled worm is drawn slimmer than its
+ * straight twin: the one way a curl changes a body's width (amends ADR 0031).
+ */
+type Build = 'plain' | 'trunk' | 'worm';
+
+function buildOf(traits: Traits, form: Bending, n: number): Build {
+  const W = D.chain.trunk.worm;
+  if (traits.karyotype === 1 || form.radial === 1 || n < D.chain.slimFrom) return 'plain';
+  if (Math.round(traits.shape.fusion * n) >= 2) return 'trunk';
+  // A coil keeps a trunk's width, so it reads as a spiral shell rather than a thread.
+  const curled = traits.shape.curve >= W.curl && form.mode !== 2;
+  return n >= W.from && curled ? 'worm' : 'trunk';
+}
+
+function buildSegments(
+  traits: Traits,
+  form: Bending,
+  build: Build,
+): { segments: PlanSegment[]; slim: number } {
+  const v1 = traits.karyotype === 1;
+  let chain = v1 ? chainV1(traits) : chainV2(traits, build);
+  if (build !== 'plain') chain = slimTail(chain, traits.shape.fusion);
+  const narrow = v1 ? 1 : slimming(chain, form, build);
   const straight = narrow < 1 ? chain.map((s) => ({ ...s, ry: s.ry * narrow })) : chain;
   return { segments: form.turn > 0 ? bend(straight, form) : straight, slim: narrow };
+}
+
+/** How much of the trunk profile's swing a chain keeps: a worm only `trunk.even` of it. */
+const swingOf = (build: Build): number => (build === 'worm' ? D.chain.trunk.even : 1);
+
+/**
+ * The trunk profile (M6b T5, ADR 0037): segment `i`'s width share along a chain of `n`, rising
+ * behind the head to its peak at `trunk.at`, then narrowing to the tail. Each factor is concave or
+ * a triangle, so their product has one peak: behind it every segment is narrower than the one in
+ * front. A worm keeps only `trunk.even` of the swing, so it is even.
+ */
+function trunkProfile(traits: Traits, n: number, build: Build): (i: number) => number {
+  const { body, shape } = traits;
+  const T = D.chain.trunk;
+  const G = D.tagmata;
+  const k = swingOf(build);
+  return (i) => {
+    const t = i / (n - 1);
+    const front = 1 - k * T.rise * Math.max(0, 1 - t / T.at);
+    const behind = Math.max(0, (t - T.at) / (1 - T.at));
+    const rear = 1 - k * (T.drop + body.taper * D.taperDrop) * behind;
+    const swell = 1 + k * G.trunk * shape.trunkSwell * peak(t, T.at, G.trunkSpread);
+    const tail = clamp((t - (1 - G.tailShare)) / G.tailShare, 0, 1);
+    return front * rear * swell * (1 - k * G.tailTaper * shape.tailTaper * tail);
+  };
+}
+
+/** The head's half-width as a share of the trunk's widest (head scale and symmetry raise it). */
+function headShareOf(traits: Traits, build: Build): number {
+  const [lo, hi] = TRUNK_HEAD;
+  const { shape } = traits;
+  return lerp(lerp(hi - swingOf(build) * (hi - lo), hi, shape.headScale), hi, shape.symmetry);
+}
+
+/**
+ * A fused chain's free tail (M6b T5): behind a carapace of 2 or more segments, the free segments
+ * narrow by one factor to at most `trunk.freeTail` of the widest fused one, so the carapace reads as
+ * an oval front with a slim tail. The fused count is the carapace's (`buildCarapace`).
+ */
+function slimTail(chain: PlanSegment[], fusion: number): PlanSegment[] {
+  const count = Math.min(chain.length, Math.round(fusion * chain.length));
+  if (count < 2 || count >= chain.length) return chain;
+  let fused = 0;
+  let free = 0;
+  for (let i = 0; i < chain.length; i++) {
+    const r = (chain[i] as PlanSegment).ry;
+    if (i < count) fused = Math.max(fused, r);
+    else free = Math.max(free, r);
+  }
+  const k = Math.min(1, (D.chain.trunk.freeTail * fused) / free);
+  if (k >= 1) return chain;
+  return chain.map((s, i) => (i < count ? s : { ...s, ry: s.ry * k }));
 }
 
 /** A straight chain's length (the head's front to the tail's end) per width (its widest segment). */
@@ -276,14 +354,16 @@ function aspectOf(segments: readonly PlanSegment[]): number {
 
 /**
  * Body proportions v3 (look pass 4, ADR 0031): the factor that narrows a bilateral chain of
- * `chain.slimFrom` segments or more to `chain.aspect` times as long as wide, every segment alike,
- * so the head and trunk keep their profile and the chain keeps its length; 1 for any other body.
- * The straight chain is measured: a curl is a pose of the same body, and never changes its width.
+ * `chain.slimFrom` segments or more to `chain.aspect` times as long as wide (a worm to
+ * `trunk.worm.aspect`, M6b T5), every segment alike, so the head and trunk keep their profile and
+ * the chain keeps its length; 1 for any other body. The straight chain is measured: a curl is a
+ * pose of the same body, and never changes its width.
  */
-function slimming(straight: PlanSegment[], form: Bending): number {
+function slimming(straight: PlanSegment[], form: Bending, build: Build): number {
   const C = D.chain;
   if (form.radial === 1 || straight.length < C.slimFrom) return 1;
-  return Math.min(1, aspectOf(straight) / C.aspect);
+  const aspect = build === 'worm' ? C.trunk.worm.aspect : C.aspect;
+  return Math.min(1, aspectOf(straight) / aspect);
 }
 
 /**
@@ -335,30 +415,44 @@ function chainV1(traits: Traits): PlanSegment[] {
  * tagma profile, and the chain fits its reach by shortening its segments first, down to
  * `chain.squash` of their width, and only then narrowing; a big head then narrows it by
  * 1 ÷ (1 + `tagmata.head` × head scale). Neighbours sit `segmentSpacing` of their summed
- * half-lengths apart, so they always overlap.
+ * half-lengths apart, so they always overlap. A `trunk` or `worm` build (M6b T5) lays the segments
+ * out along `trunkProfile` and sizes the head by the trunk.
  */
-function chainV2(traits: Traits): PlanSegment[] {
+function chainV2(traits: Traits, build: Build): PlanSegment[] {
   const C = D.chain;
-  const { n, radius, stretchOf } = chainProfile(traits);
-  const { rx: head, ry } = headOf(traits);
-  const out: PlanSegment[] = [{ x: 0, y: 0, rx: head, ry, angle: 0 }];
-  if (n < 2) return out;
-  // A radial body keeps its chain inside its round core: the reach falls over the radial range.
-  const ring = clamp((traits.shape.symmetry - D.radial.at) / (1 - D.radial.at), 0, 1);
-  const reach = lerp(C.reach, head, ring);
-  const room = reach - D.segmentSpacing * head;
-  const big = 1 / (1 + D.tagmata.head * traits.shape.headScale);
+  const trunked = build !== 'plain';
+  const profile = chainProfile(traits);
+  const { n, stretchOf } = profile;
+  const radius = trunked ? trunkProfile(traits, n, build) : profile.radius;
   const width = [0];
   const along = [0];
   // sum[i]: segment i's distance behind the head's end of the chain, in half-lengths at full size.
   const sum = [0];
+  let widest = 0;
   for (let i = 1; i < n; i++) {
-    width.push(C.width * radius(i));
-    along.push((width[i] as number) * stretchOf(i));
+    const base = trunked ? C.trunk.width : C.width;
+    width.push(base * radius(i));
+    widest = Math.max(widest, width[i] as number);
+    // A trunk chain's segments narrow faster than they shorten, so its tail stays a tail.
+    const long = trunked ? base * Math.sqrt(radius(i)) : (width[i] as number);
+    along.push(long * stretchOf(i));
     sum.push(
       (sum[i - 1] as number) + (i > 1 ? (along[i - 1] as number) : 0) + (along[i] as number),
     );
   }
+  // Head scale narrows the chain behind the head (ADR 0028). On one long body (M6b T5) the head
+  // is a share of the trunk's widest segment as drawn, and head scale raises that share.
+  const big = 1 / (1 + D.tagmata.head * traits.shape.headScale);
+  const share = trunked ? headShareOf(traits, build) * big * widest : 0;
+  const { rx: head, ry } = trunked
+    ? { rx: C.trunk.headLength * stretchOf(0) * share, ry: share }
+    : headOf(traits);
+  const out: PlanSegment[] = [{ x: 0, y: 0, rx: head, ry, angle: 0 }];
+  if (n < 2) return out;
+  // A radial body keeps its chain inside its round core: the reach falls over the radial range.
+  const ring = clamp((traits.shape.symmetry - D.radial.at) / (1 - D.radial.at), 0, 1);
+  const reach = lerp(trunked ? C.trunk.reach : C.reach, head, ring);
+  const room = reach - D.segmentSpacing * head;
   // Shorten first: the largest squash at which every segment's far edge stays in reach.
   let squash = 1;
   for (let i = 1; i < n; i++) {
@@ -376,6 +470,8 @@ function chainV2(traits: Traits): PlanSegment[] {
       scale = Math.min(scale, room / extent);
     }
   }
+  // A narrowed trunk narrows the head in proportion; its length stays laid out.
+  if (trunked) out[0] = { x: 0, y: 0, rx: head, ry: ry * scale, angle: 0 };
   for (let i = 1; i < n; i++) {
     out.push({
       x: -(D.segmentSpacing * (head + squash * scale * (sum[i] as number))),
@@ -1336,7 +1432,7 @@ export function develop(traits: Traits): BodyPlan {
   const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
   const form = formOf(shape, n);
   const built = buildParts(traits, n);
-  const { segments, slim } = buildSegments(traits, form);
+  const { segments, slim } = buildSegments(traits, form, buildOf(traits, form, n));
   const count = segments.length;
   const R = D.radial;
   const parts = form.radial

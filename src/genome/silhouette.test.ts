@@ -37,10 +37,20 @@ const BODIES: Record<Exclude<Silhouette, 'other'>, Genome> = {
   ),
   // Radial with the ring draped rearward: tentacles.
   bell: ARCHETYPES.radial as Genome,
-  // A big head, a stretched tail and a whip at the back.
+  // A big front, a stretched tapering tail and a whip at the back (the head is narrower than the
+  // trunk of a chain of 3 or more, M6b T5).
   tadpole: buildGenome(
     { M1: { length: 200, thickness: 60, tipShape: 255, beat: 220, angle: 255, attachStart: 255 } },
-    { ...MID, segDrive1: 80, segDrive2: 80, headScale: 255, tailLength: 255, eyeSize: 200 },
+    {
+      ...MID,
+      segDrive1: 80,
+      segDrive2: 80,
+      headScale: 255,
+      tailLength: 255,
+      tailTaper: 255,
+      taper: 255,
+      eyeSize: 200,
+    },
   ),
   // A shell over the front half, a free tapering tail and long antennae.
   copepod: buildGenome(

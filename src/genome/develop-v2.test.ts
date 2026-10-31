@@ -45,15 +45,18 @@ const valid = (p: BodyPlan): void => {
 
 describe('development v2: spine curve', () => {
   it('bends one C arc with a total turn of curve × π', () => {
+    // Below a worm's curl (M6b T5), so the straight twin is the same body laid straight.
+    const curve = 85;
+    expect(curve / 255).toBeLessThan(D.chain.trunk.worm.curl);
     const straight = body({});
-    const curved = body({ curve: 128 });
+    const curved = body({ curve });
     valid(curved);
     const angles = curved.segments.map((s) => s.angle);
     expect(angles[0]).toBe(0);
-    expect(angles[7]).toBeCloseTo((128 / 255) * PI, 9);
+    expect(angles[7]).toBeCloseTo((curve / 255) * PI, 9);
     for (let i = 1; i < 8; i++) expect(angles[i]).toBeGreaterThan(angles[i - 1] as number);
     expect(curved.form).toEqual({
-      turn: (128 / 255) * PI,
+      turn: (curve / 255) * PI,
       mode: 0,
       radial: 0,
       slim: expect.any(Number),
@@ -136,67 +139,80 @@ describe('development v2: spine curve', () => {
 
 describe('development v2: tagmata', () => {
   const T = D.tagmata;
+  const K = D.chain.trunk;
   /**
    * Each segment's girth: its half-width before the chain was slimmed to read long (look pass 4,
    * ADR 0031). Slimming narrows every segment by one factor, so the tagma profile holds in it.
    */
   const radii = (set: Record<string, number>): number[] => {
     const p = body(set);
-    expect(p.form.slim).toBeLessThan(1);
     return p.segments.map((s) => s.ry / p.form.slim);
   };
+  /** The trunk profile without the tagma loci (M6b T5): it rises to `trunk.at`, then drops. */
+  const bare = (i: number): number => {
+    const t = i / 7;
+    return (
+      (1 - K.rise * Math.max(0, 1 - t / K.at)) * (1 - K.drop * Math.max(0, (t - K.at) / (1 - K.at)))
+    );
+  };
+  const tail = (i: number): number => Math.max(0, (i / 7 - (1 - T.tailShare)) / T.tailShare);
   const plain = radii({});
+  const widest = (r: number[]): number => r.indexOf(Math.max(...r.slice(1)));
 
-  it('keeps an even chain without them', () => {
-    for (const r of plain.slice(2)) expect(r).toBeCloseTo(plain[1] as number, 12);
+  it('draws one body widest at the trunk without them (M6b T5)', () => {
+    expect(body({}).form.slim).toBeLessThan(1);
+    // Behind the head the chain rises to its peak near `trunk.at` and narrows to the tail.
+    expect(widest(plain) / 7).toBeCloseTo(K.at, 0);
+    for (let i = 2; i < 8; i++) {
+      expect((plain[i] as number) / (plain[1] as number)).toBeCloseTo(bare(i) / bare(1), 12);
+    }
+    // The head is the low end of `trunk.head` of the widest trunk segment.
+    expect((plain[0] as number) / Math.max(...plain.slice(1))).toBeCloseTo(K.head[0] as number, 12);
   });
 
-  it('pins the head-scale extreme: the v1 head, and the chain narrows by 1 ÷ (1 + head)', () => {
-    // Without head scale the head in front of a chain is `chain.head` of the v1 head (ADR 0028).
-    expect(plain[0]).toBeCloseTo(D.chain.head, 12);
+  it('pins the head-scale extreme: a larger head share, and the chain narrows by 1 ÷ (1 + head)', () => {
     const r = radii({ headScale: 255 });
-    expect(r[0]).toBe(1);
-    for (const x of r.slice(2)) expect(x).toBeCloseTo(r[1] as number, 12);
-    // The head is the unit: the narrowing comes after the chain is fitted to its reach, so the
-    // trunk ends up far narrower next to the head than without head scale.
-    expect((r[1] as number) / (r[0] as number)).toBeLessThan(
-      ((plain[1] as number) / (plain[0] as number)) * (1 / (1 + T.head)),
-    );
-    expect(r).toEqual([1, ...Array(7).fill(0.200092)].map((x) => expect.closeTo(x, 5)));
+    expect((r[0] as number) / Math.max(...r.slice(1))).toBeCloseTo(K.head[1] as number, 12);
+    expect(K.head[1]).toBeLessThanOrEqual(0.9);
+    // Every trunk segment narrows by one factor: 1 ÷ (1 + head), eased a little where the shorter
+    // chain need not narrow to fit its reach.
+    const k = (r[1] as number) / (plain[1] as number);
+    for (let i = 2; i < 8; i++) expect((r[i] as number) / (plain[i] as number)).toBeCloseTo(k, 12);
+    expect(k).toBeGreaterThanOrEqual(1 / (1 + T.head));
+    expect(k).toBeLessThan(0.6);
   });
 
-  it('pins the trunk-swell extreme: the middle widens most', () => {
+  it('pins the trunk-swell extreme: the peak widens most', () => {
     const r = radii({ trunkSwell: 255 });
-    const rear = r.slice(1);
-    const widest = rear.indexOf(Math.max(...rear)) + 1;
-    expect(widest / 7).toBeCloseTo(T.trunkAt, 0);
-    expect((r[3] as number) / (r[7] as number)).toBeCloseTo(
-      (1 + T.trunk * (1 - Math.abs(3 / 7 - T.trunkAt) / T.trunkSpread)) /
-        (1 + T.trunk * (1 - Math.abs(1 - T.trunkAt) / T.trunkSpread)),
-      9,
-    );
-    expect(r).toEqual(
-      [0.65, 0.470172, 0.52019, 0.550201, 0.500183, 0.450164, 0.400146, 0.350128].map((x) =>
-        expect.closeTo(x, 5),
-      ),
-    );
+    expect(widest(r) / 7).toBeCloseTo(K.at, 0);
+    const swell = (i: number): number =>
+      1 + T.trunk * Math.max(0, 1 - Math.abs(i / 7 - K.at) / T.trunkSpread);
+    for (let i = 2; i < 8; i++) {
+      expect((r[i] as number) / (r[1] as number)).toBeCloseTo(
+        (bare(i) * swell(i)) / (bare(1) * swell(1)),
+        12,
+      );
+    }
   });
 
   it('pins the tail extremes: tail length stretches the rear, tail taper narrows it', () => {
     const long = body({ tailLength: 255 }).segments;
-    const aspect = (s: PlanSegment) => s.rx / s.ry;
-    expect(aspect(long[7] as PlanSegment) / aspect(long[1] as PlanSegment)).toBeCloseTo(
+    const flat = body({}).segments;
+    const rx = (s: PlanSegment[], i: number) => (s[i] as PlanSegment).rx;
+    expect(rx(long, 7) / rx(long, 1) / (rx(flat, 7) / rx(flat, 1))).toBeCloseTo(
       1 + T.tailLength,
       9,
     );
-    expect(aspect(long[3] as PlanSegment)).toBeCloseTo(aspect(long[1] as PlanSegment), 12);
     const r = radii({ tailTaper: 255 });
-    expect((r[7] as number) / (r[1] as number)).toBeCloseTo(1 - T.tailTaper, 9);
-    expect((r[3] as number) / (r[1] as number)).toBeCloseTo(1, 12);
-    expect(r).toEqual(
-      [0.65, 0.646116, 0.646116, 0.646116, 0.581504, 0.452281, 0.323058, 0.193835].map((x) =>
-        expect.closeTo(x, 5),
-      ),
+    for (let i = 1; i < 8; i++) {
+      expect((r[i] as number) / (r[1] as number)).toBeCloseTo(
+        (bare(i) * (1 - T.tailTaper * tail(i))) / bare(1),
+        12,
+      );
+    }
+    expect((r[7] as number) / (plain[7] as number)).toBeCloseTo(
+      ((1 - T.tailTaper) * (r[1] as number)) / (plain[1] as number),
+      12,
     );
   });
 });
