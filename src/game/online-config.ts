@@ -115,16 +115,16 @@ export function ordinal(n: number): string {
 }
 
 /**
- * The status chip's text. `count` is the players in the pond, this one included; `queue` is the
- * place in the admission line while the hub keeps this session waiting.
- */
-/**
  * The play screen's offline dot (M6b T9): a hub is set but this life cannot use it (unreachable,
  * replaced or outdated), or the life runs apart in a local pond. Connecting shows nothing.
  */
 export const offlineChip = (hub: boolean, status: HubStatus | 'none', apart: boolean): boolean =>
   hub && (apart || (status !== 'online' && status !== 'connecting'));
 
+/**
+ * The status chip's text. `count` is the players in the pond, this one included; `queue` is the
+ * place in the admission line while the hub keeps this session waiting.
+ */
 export function statusText(
   status: HubStatus | 'none',
   count: number,

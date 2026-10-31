@@ -126,18 +126,18 @@ export interface BsState {
     egg: boolean;
   }[];
   /**
+   * The play screen's HUD (M6b T9): whether the `menu` is open, the stat `bars` as drawn (each
+   * 0..1; `life` null while its bar is hidden, as on a practice cell), the `chips` shown beside them
+   * and the first-life hint on screen (`hints`, its text, or null).
+   */
+  hud: { menu: boolean; bars: HudBars; chips: Chip[]; hints: string | null };
+  /**
    * The egg (M6 T20): the reveal's `phase` (`none`, `waiting` for a beacon, `cracking`, `revealed`)
    * and the `phases` it went through (the last 16), whether a pending child is `carried`, whether
    * the player's egg is `shown` this frame, the `peers` drawn with one, whether a parent left by a
    * hatch is still dissolving (`ghost`), and `motion` (`fade` when motion is reduced: the setting,
    * else `prefers-reduced-motion`; M6 T22).
    */
-  /**
-   * The play screen's HUD (M6b T9): whether the `menu` is open, the stat `bars` as drawn (each
-   * 0..1; `life` null while its bar is hidden, as on a practice cell), the `chips` shown beside them
-   * and the first-life hint on screen (`hints`, its text, or null).
-   */
-  hud: { menu: boolean; bars: HudBars; chips: Chip[]; hints: string | null };
   egg: {
     phase: EggPhase;
     phases: EggPhase[];

@@ -3,6 +3,7 @@
 // when they say they could mate. Pings nearby but off screen show the same way for their lifetime.
 // Positions come from the pond snapshots the game already receives, so this costs no traffic.
 
+import { clamp } from '../sim/math';
 import { type SizeClass, sizeClass } from '../sim/size';
 import { setText } from './dom';
 import { showIcon } from './icons';
@@ -161,8 +162,8 @@ function keepClear(i: { x: number; y: number }, p: LabelProjection): void {
     if (dx >= c.w || dy >= c.h) continue;
     // On a side it moves up or down that side; on the top or bottom it moves across.
     const side = Math.abs(i.x - lo) < 0.5 || Math.abs(i.x - hiX) < 0.5;
-    if (side) i.y = Math.min(hiY, Math.max(lo, top ? c.h : p.height - c.h));
-    else i.x = Math.min(hiX, Math.max(lo, left ? c.w : p.width - c.w));
+    if (side) i.y = clamp(top ? c.h : p.height - c.h, lo, hiY);
+    else i.x = clamp(left ? c.w : p.width - c.w, lo, hiX);
   }
 }
 

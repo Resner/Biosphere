@@ -1,3 +1,4 @@
+import { clamp } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { CreatureState } from '../sim/types';
 import { maxEnergy, maxHealth } from '../sim/vitals';
@@ -20,7 +21,7 @@ function setHidden(element: HTMLElement, hidden: boolean): void {
   if (element.hidden !== hidden) element.hidden = hidden;
 }
 
-const clamp01 = (fraction: number): number => Math.min(1, Math.max(0, fraction));
+const clamp01 = (fraction: number): number => clamp(fraction, 0, 1);
 
 function percent(fraction: number): string {
   return `${Math.round(clamp01(fraction) * 100)}%`;
@@ -132,8 +133,7 @@ export class Hud {
     const share = clock.remainingMs / clock.lifespanMs;
     this.lifeBar.set(share, `Life ${percent(share)} left · ${stage}${left ? ` · ${left}` : ''}`);
     const old = clock.stage === 'old';
-    if (this.lifeBar.root.hasAttribute('data-old') !== old)
-      this.lifeBar.root.toggleAttribute('data-old', old);
+    this.lifeBar.root.toggleAttribute('data-old', old);
   }
 
   /** The size line in the menu ("Size 62% of adult · Mature in 4:10") and the size bar. */

@@ -1301,8 +1301,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       hintElement.hidden = text === null;
     }
     const leaving = text !== null && hints.at(playMs + HINT_FADE_MS) !== text;
-    if (hintElement.hasAttribute('data-leaving') !== leaving)
-      hintElement.toggleAttribute('data-leaving', leaving);
+    hintElement.toggleAttribute('data-leaving', leaving);
   };
 
   /** The inspect card beside a clicked creature: closed when it leaves, dies or the game stops. */
