@@ -1180,7 +1180,7 @@ describe('no white clipping (M6b T4, ADR 0034)', () => {
     );
     // The cap comes after every light a part takes (its rim, gloss, refraction and caustics).
     expect(fragmentShader.indexOf('float cap =')).toBeGreaterThan(
-      fragmentShader.indexOf('causticAt(vWorld, uTime)'),
+      fragmentShader.indexOf('causticAt(vWorld, uSunTime)'),
     );
     // A pearl keeps its hot point over the cap.
     expect(fragmentShader).toMatch(/col \+= vec3\(PEARL_HOT\) \* pearlHot;/);

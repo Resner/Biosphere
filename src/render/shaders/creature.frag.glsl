@@ -392,7 +392,7 @@ void main() {
   // Caustics (M6 T17, caustics.glsl): the water's light lines, projected straight down, play over
   // the body in the same places, so they run on across it. They light the glass a little denser.
   if (uCaustic > 0.0 && kind != PART_GLINT) {
-    float lines = causticAt(vWorld, uTime) * uCaustic;
+    float lines = causticAt(vWorld, uSunTime) * uCaustic;
     col += CAUSTIC_BODY * lines;
     alpha = min(alpha + 0.5 * lines * (1.0 - alpha), 1.0);
   }

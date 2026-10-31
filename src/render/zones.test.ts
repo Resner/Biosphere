@@ -9,10 +9,12 @@ import {
   lightOf,
   nearestInZone,
   SIGHT_MIN_RADII,
+  SunClock,
   sightAt,
   sightRadius,
   sunlight,
   wellInside,
+  ZONE_BAND,
   ZONE_LOOK,
   ZONES,
   zoneBlend,
@@ -109,20 +111,26 @@ describe('sunlight (M6 T17)', () => {
   const e = RULES.bathymetry.zones;
 
   for (const key of ['caustic', 'rays'] as const) {
-    it(`${key}: strongest in the shallows, fading through the twilight, gone in the deep and the abyss`, () => {
-      const top = sunlight(mid('shallows'), key);
-      expect(top).toBeGreaterThan(0);
-      for (const d of depths) expect(sunlight(d, key)).toBeLessThanOrEqual(top + 1e-12);
-      // Never brighter deeper down.
-      for (let i = 1; i < depths.length; i++) {
-        expect(sunlight(depths[i] as number, key)).toBeLessThanOrEqual(
-          sunlight(depths[i - 1] as number, key) + 1e-12,
+    it(`${key}: calm in the shallows, strongest at the twilight's top and fading through it, gone deeper`, () => {
+      // The shallows hold one calm strength (M6b T8), below the twilight's top.
+      const calm = sunlight(mid('shallows'), key);
+      expect(calm).toBeGreaterThan(0);
+      for (const d of depths.filter((d) => d <= e.shallows - ZONE_BAND)) {
+        expect(sunlight(d, key)).toBeCloseTo(calm, 12);
+      }
+      const top = sunlight(e.shallows + ZONE_BAND, key);
+      expect(calm).toBeLessThan(top);
+      // From the twilight's top down it is never brighter deeper down (M6 T17).
+      const below = depths.filter((d) => d >= e.shallows + ZONE_BAND);
+      for (let i = 1; i < below.length; i++) {
+        expect(sunlight(below[i] as number, key)).toBeLessThanOrEqual(
+          sunlight(below[i - 1] as number, key) + 1e-12,
         );
       }
       // It fades through the twilight rather than stepping down at its edges.
       const upper = sunlight(e.shallows + 0.03, key);
       const lower = sunlight(e.twilight - 0.03, key);
-      expect(upper).toBeLessThan(top);
+      expect(upper).toBeLessThanOrEqual(top);
       expect(lower).toBeGreaterThan(0);
       expect(lower).toBeLessThan(0.5 * upper);
       expect(sunlight(mid('deep'), key)).toBe(0);
@@ -130,6 +138,73 @@ describe('sunlight (M6 T17)', () => {
       expect(sunlight(e.twilight + 0.02, key)).toBe(0);
     });
   }
+
+  it('calmer shallows (M6b T8): caustics at most 0.4 and god rays at most 0.5; deeper zones as in M6', () => {
+    expect(ZONE_LOOK.shallows.caustic).toBeLessThanOrEqual(0.4);
+    expect(ZONE_LOOK.shallows.rays).toBeLessThanOrEqual(0.5);
+    // The owner liked the depth zones: their light, colours and fog stay as v0.7.0 drew them.
+    expect(ZONE_LOOK.twilight).toEqual({
+      water: [0.01, 0.026, 0.034],
+      haze: [0.04, 0.1, 0.11],
+      dark: 0,
+      glow: 0.5,
+      caustic: 1,
+      rays: 0.8,
+      pace: 1,
+      snow: 1,
+    });
+    for (const zone of ['deep', 'abyss'] as const) {
+      expect(ZONE_LOOK[zone].caustic).toBe(0);
+      expect(ZONE_LOOK[zone].rays).toBe(0);
+    }
+    expect(ZONE_LOOK.shallows.water).toEqual([0.03, 0.1, 0.085]);
+    expect(ZONE_LOOK.shallows.haze).toEqual([0.1, 0.27, 0.215]);
+  });
+});
+
+describe('SunClock (M6b T8)', () => {
+  const twilight = mid('twilight');
+  const shallows = mid('shallows');
+
+  it('the shallows move at their calm pace, the twilight at the clock', () => {
+    expect(ZONE_LOOK.shallows.pace).toBeLessThanOrEqual(0.5);
+    expect(ZONE_LOOK.shallows.pace).toBeGreaterThan(0);
+    for (const zone of ['twilight', 'deep', 'abyss'] as const) expect(ZONE_LOOK[zone].pace).toBe(1);
+    const sun = new SunClock();
+    expect(sun.advance(40, twilight)).toBe(40);
+    expect(sun.advance(40.5, twilight)).toBeCloseTo(40.5, 12);
+    expect(sun.advance(41, shallows)).toBeCloseTo(40.5 + 0.5 * ZONE_LOOK.shallows.pace, 12);
+  });
+
+  it('holds still while the clock holds, and stays continuous across a zone edge', () => {
+    const sun = new SunClock();
+    sun.advance(10, shallows);
+    const held = sun.advance(10, shallows);
+    expect(sun.advance(10, twilight)).toBe(held);
+    const e = RULES.bathymetry.zones;
+    let last = held;
+    for (let i = 1; i <= 120; i++) {
+      // A swim through the shallows' edge band at one frame per 1/60 s.
+      const depth = e.shallows - 0.03 + (0.06 * i) / 120;
+      const now = sun.advance(10 + i / 60, depth);
+      expect(now - last).toBeGreaterThan(0);
+      expect(now - last).toBeLessThanOrEqual(1 / 60 + 1e-12);
+      last = now;
+    }
+  });
+
+  it('re-bases on a jump in the clock, so a set clock gives the same light every time', () => {
+    const a = new SunClock();
+    const b = new SunClock();
+    a.advance(3, twilight);
+    a.advance(3.2, shallows);
+    b.advance(500, shallows);
+    // A clock set back, or far ahead (a debug clock, a long-hidden tab), lands on time × pace.
+    expect(a.advance(100, shallows)).toBeCloseTo(100 * ZONE_LOOK.shallows.pace, 12);
+    expect(b.advance(100, shallows)).toBeCloseTo(100 * ZONE_LOOK.shallows.pace, 12);
+    expect(a.advance(100, twilight)).toBeCloseTo(100 * ZONE_LOOK.shallows.pace, 12);
+    expect(new SunClock().advance(7, null)).toBe(7);
+  });
 });
 
 describe('depthGrid', () => {

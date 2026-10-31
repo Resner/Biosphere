@@ -102,12 +102,14 @@ export const BACKDROP: {
 } = { texture: { value: null }, strength: { value: 0 } };
 
 /**
- * Points a creature material at the shared backdrop. A clone copies its uniforms (and three cannot
- * clone a render target's texture), so each view links its own clone after cloning.
+ * Points a creature material at the shared backdrop and the caustics' clock (M6b T8), so its
+ * caustics match the water's. A clone copies its uniforms (and three cannot clone a render target's
+ * texture), so each view links its own clone after cloning.
  */
 export function shareBackdrop(material: THREE.ShaderMaterial): void {
   material.uniforms.tBackdrop = BACKDROP.texture;
   material.uniforms.uRefract = BACKDROP.strength;
+  material.uniforms.uSunTime = ZONE_UNIFORMS.uSunTime;
 }
 
 /**
@@ -124,6 +126,7 @@ export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.Shade
     uBend: { value: 0 },
     uTurn: { value: 0 },
     uTime: { value: 0 },
+    uSunTime: { value: 0 },
     uCore: { value: new THREE.Color(...params.core) },
     uRim: { value: new THREE.Color(...params.rim) },
     uOrgan: { value: new THREE.Color(...params.organ) },

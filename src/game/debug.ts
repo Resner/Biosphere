@@ -292,6 +292,8 @@ export interface BsDebug {
   timeScale(scale: number): void;
   /** Zeroes the marine snow's flow and, in a frozen world, the shaders' clock: frozen shots then agree (M6 T17). */
   resetWater(): void;
+  /** Sets the shaders' clock to this many seconds in a frozen world, leaving the snow's flow (M6b T8). */
+  setClock(seconds: number): void;
 }
 
 declare global {
