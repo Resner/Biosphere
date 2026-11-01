@@ -42,6 +42,11 @@ export interface BsState {
   depth: number | null;
   /** This browser's identity; null until the key is loaded. */
   playerId: string | null;
+  /**
+   * Whether the hub's last `life` on this page said the world was renewed (M6c T2, ADR 0040): true
+   * at most once per identity; null until the hub has answered.
+   */
+  renewed: boolean | null;
   /** Food items handed to the renderer this tick. */
   visibleFood: number;
   /** The creature being played; null on the title screen. */
@@ -250,8 +255,13 @@ export interface BsHook {
     eggAngle(atMs: number): number;
   };
   life: {
-    /** The DNA of the last genesis, recomputed from its beacon and commitment; null before one. */
-    recompute(): Promise<{ round: number; commit: string; genomeHash: string } | null>;
+    /** The DNA of the last genesis, recomputed from its beacon and commitment, and its record's rules version; null before one. */
+    recompute(): Promise<{
+      rules: number;
+      round: number;
+      commit: string;
+      genomeHash: string;
+    } | null>;
   };
   /** Genome code run in this engine; present only with `?debug=1`. */
   genome?: BsGenome;

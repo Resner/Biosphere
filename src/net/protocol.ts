@@ -7,7 +7,7 @@ import type { RecordKind, RecordRequest, Status, StoredRecord } from '../ledger/
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 5;
+export const PROTOCOL_VERSION = 6;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -260,6 +260,8 @@ export type HubMsg =
       pending?: Born;
       /** With no active creature: what the player can fall back on. */
       fallback?: FallbackInfo;
+      /** Once per returning identity: the world was renewed since it last played (ADR 0040). */
+      renewed?: true;
     }
   /** The pending child is now the active creature; `parent` is the record that froze the old one (null when it was already dead). */
   | { t: 'promoted'; life: LifeInfo; parent: StoredRecord | null }
@@ -632,7 +634,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
       if (!(o.life === null || life) || !isInt(o.genesisIn, 0, MAX_TIME) || pending === null) {
         return null;
       }
-      if (fallback === null) return null;
+      if (fallback === null || (o.renewed !== undefined && o.renewed !== true)) return null;
       return capped(
         raw,
         {
@@ -641,6 +643,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
           genesisIn: o.genesisIn,
           ...(pending ? { pending } : {}),
           ...(fallback ? { fallback } : {}),
+          ...(o.renewed ? { renewed: true as const } : {}),
         },
         pending ? BORN_MAX_BYTES : HUB_MAX_BYTES,
       );
