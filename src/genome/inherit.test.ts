@@ -4,12 +4,10 @@ import { locus, withAlleles } from '../../tests/archetypes';
 import { createRng, type Rng, type Seed, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import type { Genome } from './codec';
-import { decodeGenome, genomeHash, genomeKaryotype, upgrade } from './codec';
+import { decodeGenome, genomeHash } from './codec';
 import { bodyViolations, develop } from './develop';
 import { express } from './express';
 import { genesisGenome } from './genesis';
-import { genesisGenomeV5 } from './genesis-v5';
-import { genesisGenomeV6 } from './genesis-v6';
 import {
   applyMutation,
   breed,
@@ -20,7 +18,6 @@ import {
   mutateHaplotype,
   offspringSeed,
 } from './inherit';
-import { breedV5 } from './inherit-v5';
 import {
   GENOME_BYTES,
   HAPLOTYPE_BYTES,
@@ -105,7 +102,7 @@ describe('breed: structure', () => {
   });
 });
 
-describe('karyotype v2 inheritance (rules 6)', () => {
+describe('karyotype v2 inheritance', () => {
   const slots = LOCI.filter((l): l is ModuleLocus => l.kind === 'module');
   /** A v2 genome whose haplotype one carries `x` and haplotype two `y` in every quant byte, slot parameter and slot extension, with every slot present. */
   function marked(x: number, y: number): Genome {
@@ -122,18 +119,6 @@ describe('karyotype v2 inheritance (rules 6)', () => {
     });
     return decodeGenome(bytes);
   }
-
-  it('pads v1 parents and always breeds a v2 child', () => {
-    for (let i = 0; i < 200; i++) {
-      const a = genesisGenomeV5(seedOf('pad-a', i));
-      const b = genesisGenomeV5(seedOf('pad-b', i));
-      const seed = seedOf('pad', i);
-      const child = breed(a, b, seed);
-      expect(genomeKaryotype(child)).toBe(2);
-      expect(genomeHash(child)).toBe(genomeHash(breed(upgrade(a), upgrade(b), seed)));
-      expect(genomeKaryotype(mutateGenome(a, seed))).toBe(2);
-    }
-  });
 
   it('moves a slot extension with its slot, and the shape loci linked to chromosome 1', () => {
     const a = marked(10, 20);
@@ -479,39 +464,6 @@ describe('viability', () => {
 });
 
 describe('goldens', () => {
-  it('keeps the frozen rules v5 child hashes (karyotype v1)', () => {
-    const file = new URL('./__golden__/inherit-v5.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      hashes: Record<string, string>;
-    };
-    expect(golden.rulesVersion).toBe(5);
-    const parentV5 = (i: number): Genome => genesisGenomeV5(seedOf('inherit-parent', i));
-    for (const i of [0, 1, 2]) {
-      const seed = offspringSeed(new Uint8Array(32).fill(i), `golden-${i}`, 0);
-      const child = breedV5(parentV5(i), parentV5(i + 100), seed);
-      expect(genomeKaryotype(child)).toBe(1);
-      expect(genomeHash(child)).toBe(golden.hashes[`child-${i}`]);
-    }
-  });
-
-  it('keeps the frozen rules v6 child hashes (inheritance is shared with rules 7)', () => {
-    const file = new URL('./__golden__/inherit-v6.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      hashes: Record<string, string>;
-    };
-    expect(golden.rulesVersion).toBe(6);
-    for (const i of [0, 1, 2]) {
-      const seed = offspringSeed(new Uint8Array(32).fill(i), `golden-${i}`, 0);
-      // Rules 6 births had rules 6 parents: the frozen v6 genesis (M6b T7 changed genesis.ts).
-      const parentV6 = (k: number): Genome => genesisGenomeV6(seedOf('inherit-parent', k));
-      expect(genomeHash(breed(parentV6(i), parentV6(i + 100), seed))).toBe(
-        golden.hashes[`child-${i}`],
-      );
-    }
-  });
-
   it('matches three committed child hashes', () => {
     const file = new URL('./__golden__/inherit.json', import.meta.url);
     const actual = Object.fromEntries(

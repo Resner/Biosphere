@@ -1,8 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { encodeGenome, genomeHash, genomeKaryotype, upgrade } from '../genome/codec';
+import { encodeGenome, genomeHash } from '../genome/codec';
 import { GENOME_BYTES } from '../genome/karyotype';
-import { GENOME_BYTES_V1 } from '../genome/karyotype-v1';
 import { SILHOUETTES } from '../genome/silhouette';
 import {
   GALLERY_FILL,
@@ -13,7 +12,6 @@ import {
   gallerySpecimens,
   LABEL_HEIGHT,
   parseSpecimen,
-  shownGenome,
 } from './gallery';
 import { REACH } from './grid';
 import { specimenOf } from './specimens';
@@ -28,88 +26,89 @@ const fixtures = (): Record<string, string> =>
 
 /**
  * The baseline set of pass 0 (ADR 0024): later specimens extend the gallery, never replace one, so
- * these files keep their names and their genomes for good.
+ * these files keep their names and their genomes. They were karyotype v1 files until rules 8, which
+ * stores each as its v2 padding, the body the sheet has drawn since look pass 5 (ADR 0032, 0040).
  */
 const BASELINE: readonly (readonly [file: string, hash: string])[] = [
   [
     '01-genesis-mabogibacter-lucens.hex',
-    '4dece393e6860d77d66c9fbf0fa0c7cddd50acda7e4bc662e349c5e340236eb9',
+    '856fa00deb9d2fe20fc9c070c68069b55b1dd7ec06d1292267a143b430031c35',
   ],
   [
     '02-genesis-bivamiplax-lucens.hex',
-    '5fbe9f4c027a6a7b5b093d70920c75c239b5bd96bc2e91ed63fc014a75f18564',
+    'af75a27fc8cd8e42a4f65e83c5915b231937a77aa6a917cc2c89faa8e7158d1a',
   ],
   [
     '03-genesis-zimaviium-lucens.hex',
-    '1a76cda023621eab1e414ab3bed9b169390aabc10a6a4f21ada1fa63002c02a3',
+    '26767827f76319d66592c80ddff11a1699b51d28d75785c69c9cdafbf8cfd3b0',
   ],
   [
     '04-genesis-bolegibacter-natans.hex',
-    '57ab7f3d5ff2b5a7ca51b17c55a42e540cafbc017d74aa16169e68c5a458ef9e',
+    '30bc50fd6eaedbea4cac619003edfd8d5c5052b3dd18e6485088b663b17939ca',
   ],
   [
     '05-genesis-larenatrix-lucens.hex',
-    '4658a1d53428d7093553511582f5f5bf387e998bf26bb6e35bedc96c9a4bd1cd',
+    '851e2d0d89839fbc3100f21e946687e74d2609cb6fe205fd23eade1b06ca0d68',
   ],
   [
     '06-genesis-nogoziium-lucens.hex',
-    '0ccf3c07756204537069405a04251fe19f979234f7b56a163179d5baef0b2d71',
+    '0949dde11f52db2b6a3755797dacf5e8b015db76cf7aa6e0614a56eded25c50d',
   ],
   [
     '07-wild-mezamarhiza-serpens.hex',
-    'ad7d7534ac48e95454cda9d333b49243851a51e572204146ca0ca2719db35931',
+    '50c0dffdc8a9aea6ac775b90b52daf6e1c3c9e80de10256f4cff98b00ed16995',
   ],
   [
     '08-wild-logamaocus-albus.hex',
-    'ce238bf0bbec8a7cd0f429c85add5df14b2801c7ec6c7f0d5e607ca463db2d26',
+    '438ca190c1abdea6c17a835ea310a5eceb157f1a906af55ec4c1dc5be147787f',
   ],
   [
     '09-wild-retizespira-serpens.hex',
-    'acd5d752a7390832582845af977fc09c5d53ccf950923a54270d94b880f97403',
+    '7acd1ee897e0da0cdea4c4e0cdca7942d6c34ffb97b382d5cbe6e7fb076ec672',
   ],
   [
     '10-wild-zevalospora-spinosus.hex',
-    'fdd967447c7fd07f62e09a5d6657a62742eae96f41d01afd54e78551d52bffa5',
+    '643df369de471c11e2739422b936678c6988db2889449b9e76f15f024720ee9d',
   ],
   [
     '11-wild-rimazispira-ferox.hex',
-    '946e32f00132de223933fdd04c6463ad262587ee9ce622c126535ec34d373e74',
+    '58c42f0558372a0460afb357b0769aa194a13b772a04558331beb0b0af0ed800',
   ],
   [
     '12-wild-nenazeula-serpens.hex',
-    '1825a2ac65e9db06d116721f2a82484f34383c8d943cd9cfa3b7a4664dced83c',
+    '1adc7f66ad6b15974df1dc318d536a63ae29771b90f1057e1245c9aa3484927a',
   ],
   [
     '13-wild-gegorozoon-iridescens.hex',
-    '0b61895fa4c3e995ec267eac5857a9061f53eac620b0fbcfb0f4738eff2b870e',
+    '602fdce6423d71fdae57593c021ef562d2bcfdd0bc4844eb4ddf37b00b3c4cad',
   ],
   [
     '14-bred-zironeina-lucens.hex',
-    '322e01ff29ad0b152a3c056d326c657719f1e69955b8d3813f16a729c6fa74c3',
+    '5911a87de6bb46a91e76dd02c598905aee51898d75fb107f4bc765daab231f25',
   ],
   [
     '15-bred-retadithrix-natans.hex',
-    '39554010b7963798cbb4d9916427ee95a2e9e11f4e51db7c77ae32831f185bc4',
+    '3e043b6bf6141503d5a23b528d45ff97fde242fcb84ded2ae0e0b7344c612e39',
   ],
   [
     '16-bred-begaviella-lucens.hex',
-    '6e85f8382a6edba997d4b8ec1a1403f9ef6b61822d431c5eb9530d2762fb5104',
+    '98e40254cf965fe180d73501f8ac374f35ba83d17cf296e7a07a46b415ab6d0b',
   ],
   [
     '17-bred-tatirimonas-serpens.hex',
-    '8c34cf3efc963cb3406e2ebab61fd845470966141790e05aede74960a35313f8',
+    'a1cd34ec420ca91d68cd565744d648f785f400bea4e8afbcc636571cff04ead7',
   ],
   [
     '18-bred-daralafera-serpens.hex',
-    '2524a9e86860641ad7b922eb41ea2a56bfd65b9f97f2814c8ea21b059094ebb4',
+    'db87e523a40605973ff74e39a28bf363aaac10ad17c7753c3ee7ed286745cd31',
   ],
   [
     '19-bred-ronenoonas-serpens.hex',
-    '8867888d3a03d622f913dff320b93cadc3a96f686d7c46c4e036b3a403302129',
+    'd195553c93a6295792fa7d5330b1ea170ef8206e6b24df4b80c0ec0d7116bfe6',
   ],
   [
     '20-bred-bazerospira-lucens.hex',
-    '2788b2bdb09f8ab2013e15d768b7cab4a30627f6d6c0f2828c8e9244e9ded930',
+    'e52d1fe6e9f95034a469523428b34bc36f814da389ca7a27df26834372bf9f62',
   ],
 ];
 
@@ -143,14 +142,13 @@ describe('gallery specimen files', () => {
     expect(() => gallerySpecimens({ '/x/03-bad.hex': 'nothing' })).toThrow(/03-bad\.hex/);
   });
 
-  it('keeps the 20 baseline specimens first, unchanged, each a valid v1 body', () => {
+  it('keeps the 20 baseline specimens first, unchanged, each a valid body', () => {
     const set = gallerySpecimens(fixtures());
     expect(set.length).toBeGreaterThanOrEqual(BASELINE.length);
     for (const [i, [file, hash]] of BASELINE.entries()) {
       const s = set[i];
       expect(s?.file).toBe(file);
-      // Karyotype v1 genomes, which keep their hashes under v2 (ADR 0025).
-      expect(s?.bytes).toBe(GENOME_BYTES_V1);
+      expect(s?.bytes).toBe(GENOME_BYTES);
       expect(genomeHash(s?.genome as NonNullable<typeof s>['genome'])).toBe(hash);
     }
     expect(new Set(set.map((s) => genomeHash(s.genome))).size).toBe(set.length);
@@ -163,24 +161,12 @@ describe('gallery specimen files', () => {
   });
 });
 
-describe('the body the sheet shows (look pass 5, ADR 0032)', () => {
-  const set = gallerySpecimens(fixtures());
-
-  it('draws a v1 specimen as its v2 upgrade and a v2 specimen as stored', () => {
-    for (const s of set) {
-      const shown = shownGenome(s);
-      expect(genomeKaryotype(shown)).toBe(2);
-      if (s.bytes === GENOME_BYTES) expect(shown).toBe(s.genome);
-      else expect(genomeHash(shown)).toBe(genomeHash(upgrade(s.genome)));
-    }
-  });
-
-  it('gives the baseline chains the v2 proportions, and leaves the files as they are', () => {
-    const baseline = set.slice(0, BASELINE.length);
-    const long = baseline.filter((s) => specimenOf(shownGenome(s)).creature.plan.form.slim < 1);
-    // 07, 09, 10, 11, 12, 18 and 19 are chains of 3 or more segments: rules 6 draws them long.
+describe('the baseline bodies (look pass 5, ADR 0032)', () => {
+  it('gives the baseline chains the long proportions', () => {
+    const baseline = gallerySpecimens(fixtures()).slice(0, BASELINE.length);
+    const long = baseline.filter((s) => specimenOf(s.genome).creature.plan.form.slim < 1);
+    // 07, 09, 10, 11, 12, 18 and 19 are chains of 3 or more segments, drawn long.
     expect(long.map((s) => s.file.slice(0, 2))).toEqual(['07', '09', '10', '11', '12', '18', '19']);
-    for (const s of baseline) expect(s.bytes).toBe(GENOME_BYTES_V1);
   });
 });
 

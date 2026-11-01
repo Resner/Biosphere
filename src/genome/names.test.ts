@@ -9,7 +9,6 @@ import { describeCreature } from './describe';
 import { express } from './express';
 import { genesisGenome } from './genesis';
 import { HAPLOTYPE_BYTES, MODULE_EXT, MODULE_LOCI } from './karyotype';
-import { HAPLOTYPE_BYTES_V1 } from './karyotype-v1';
 import { EPITHETS, GENUS_SUFFIXES, SYLLABLES, speciesName } from './names';
 import { rarityOf } from './rarity';
 import { starterGenome } from './starter';
@@ -94,11 +93,10 @@ describe('speciesName', () => {
       ),
     );
     expect(epithet(setose)).toBe('setosus');
-    // A v1 body takes none of them.
-    for (const g of [starterGenome(), ...Object.values(ARCHETYPES)].filter(
-      (g) => g.haplotypes[0].alleles.length === HAPLOTYPE_BYTES_V1,
-    ))
-      expect(['alata', 'spiralis', 'radiatus', 'oculatus', 'setosus']).not.toContain(epithet(g));
+    // A body with every shape locus and slot extension off takes none of them.
+    expect(['alata', 'spiralis', 'radiatus', 'oculatus', 'setosus']).not.toContain(
+      epithet(starterGenome()),
+    );
   });
 
   it('does not change with the haplotype order', () => {

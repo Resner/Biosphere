@@ -90,6 +90,46 @@ const fixed: Genome[] = [
       },
       { segDrive1: 255, segDrive2: 255 },
     ),
+    // Two such rows on a six-segment body (until rules 8 the baseline specimens were v1 bodies,
+    // whose legs rowed alike in more of them).
+    buildBytes(
+      {
+        M1: {
+          length: 50,
+          thickness: 50,
+          tipShape: 191,
+          beat: 200,
+          angle: 110,
+          pairs: 255,
+          attachSpan: 255,
+        },
+        M2: {
+          length: 40,
+          thickness: 40,
+          tipShape: 191,
+          beat: 230,
+          angle: 150,
+          pairs: 255,
+          attachStart: 40,
+          attachSpan: 255,
+        },
+      },
+      { segDrive1: 180, segDrive2: 180 },
+    ),
+    buildBytes(
+      {
+        M3: {
+          length: 45,
+          thickness: 45,
+          tipShape: 191,
+          beat: 210,
+          angle: 130,
+          pairs: 255,
+          attachSpan: 255,
+        },
+      },
+      { segDrive1: 220, segDrive2: 220 },
+    ),
   ].map(decodeGenome),
   // A wild chain whose front parts reach forward, within the antenna cone of the spine (the coil
   // specimen's parts did by accident until M6b T6 laid its spiral out as chambers).

@@ -4,7 +4,7 @@ import type { BsHook } from '../../src/game/debug';
 import { decodeGenome, encodeGenome, genomeToBase64url } from '../../src/genome/codec';
 import { HAPLOTYPE_BYTES, LOCI } from '../../src/genome/karyotype';
 import { starterGenome } from '../../src/genome/starter';
-import { parseSpecimen, shownGenome } from '../../src/lab/gallery';
+import { parseSpecimen } from '../../src/lab/gallery';
 import type { Zone } from '../../src/sim/bathymetry';
 import { foodNear } from '../../src/sim/food';
 import { TICK_HZ } from '../../src/sim/rules';
@@ -328,7 +328,7 @@ function specimen(prefix: string): string {
     .find((f) => f.startsWith(prefix));
   const parsed = file && parseSpecimen(file, readFileSync(new URL(file, DIR), 'utf8'));
   if (!parsed) throw new Error(`no specimen ${prefix}`);
-  return genomeToBase64url(shownGenome(parsed));
+  return genomeToBase64url(parsed.genome);
 }
 
 test('a body over the shallows keeps its rim well above the water', async ({ page }) => {

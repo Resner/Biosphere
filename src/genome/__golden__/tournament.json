@@ -1,5 +1,5 @@
 {
-  "rulesVersion": 7,
+  "rulesVersion": 8,
   "hash": "8ee051fd1be13ba0",
   "ranking": {
     "forage": ["hunter", "ciliate", "flagellate", "swimmer", "armoured", "filter"],

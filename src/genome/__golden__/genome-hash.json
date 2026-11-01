@@ -1,5 +1,5 @@
 {
-  "rulesVersion": 7,
+  "rulesVersion": 8,
   "karyotype": 2,
   "vectors": {
     "zero": {
@@ -18,9 +18,9 @@
       "hash": "a2978153e4fa0ffbf0dedf241c4a816a39c0cfa86879c0facb8f4eadb0fa06a9"
     }
   },
-  "upgraded": {
+  "short": {
     "zero": "26ecb28fec4861c97e77264e3eb55b8bc8350921be401b6b9d1736b1a7e78e6d",
-    "counter": "432c89c8be6e6f100d3cbe78877ab608b9a98bcf2460061bdc6febbc387d4cbb",
-    "random": "6d4c4b19dd7725e3d033ffdea00a4529d4e9160a5833a5bcabff64b51f35eeab"
+    "counter": "ec556bf92dba4da5edc9685b535d8a7a5aad7ac4ab700510c77848064b9a3872",
+    "random": "a33098f62fbaf8981a8695422c623df3c8bb5ebea66e6e2751a6535f5fa30f7b"
   }
 }

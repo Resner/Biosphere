@@ -85,7 +85,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### The reset (ADR 0040)
 
-- [ ] T1 Retire the frozen versions: rules 8, one live version [opus]
+- [x] T1 Retire the frozen versions: rules 8, one live version [opus]
+  - Done: frozen files, tests and nine `-vN` goldens gone; the v1 table and base cell inline in `karyotype.ts`/`genesis.ts`; checks answer `rules-retired` below `FIRST_LIVE_RULES` (`record.ts`). Genesis hashes and develop vectors are unchanged under rules 8.
+  - Gotcha: gallery files 01–20 are now stored as their v2 padding (new pinned hashes); `shownGenome`, `upgrade`, `genomeKaryotype` and `traits.karyotype` are gone.
   - Why: the owner allowed a wipe. The freezes cost about 1,700 lines, eleven goldens and a step in every body task, and nothing verifies an old version before M9.
   - Steps:
     1. `RULES_VERSION` = 8.

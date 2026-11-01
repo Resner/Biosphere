@@ -1,8 +1,7 @@
-// Inheritance under rules version 6 (M3 T8, ADR 0006, ADR 0025): meiosis, bounded mutation and
-// breeding over karyotype v2. A v1 parent is padded to v2 first, so every child is a v2 genome. The
-// shape loci sit on chromosome 1 after its v1 loci, and a module slot's extension moves, mutates and
-// clears with its slot. Every random draw comes from a seed through named streams, so a child can be
-// verified from the commitment alone. Rules v5 and older breed with the frozen `inherit-v5.ts`.
+// Inheritance (M3 T8, ADR 0006, ADR 0025): meiosis, bounded mutation and breeding over karyotype v2.
+// The shape loci sit on chromosome 1 after its base loci, and a module slot's extension moves,
+// mutates and clears with its slot. Every random draw comes from a seed through named streams, so a
+// child can be verified from the commitment alone. Unchanged since rules 6.
 
 import { sha256 } from '@noble/hashes/sha2.js';
 import { createRng, type Rng, type Seed } from '../sim/prng';
@@ -25,7 +24,7 @@ const ENCODER = new TextEncoder();
 const OFFSPRING_DOMAIN = 'bs/offspring/v1';
 
 /**
- * Shared by every rules version (genesis, births, the frozen v5 code): never change it.
+ * Shared by genesis and births: changing it is a rules change.
  * A seed from a domain tag, the beacon randomness, the commit id (UTF-8) and a slot byte:
  * SHA-256 of the four, read as four big-endian words. The domain keeps one commitment from
  * seeding two different things the same way.
@@ -77,7 +76,7 @@ function crossoverCount(rng: Rng): number {
   return G.crossovers.length - 1;
 }
 
-/** Copies `size` bytes at `from` out of a parent haplotype; bytes past a v1 parent's own length read 0. */
+/** Copies `size` bytes at `from` out of a parent haplotype; bytes past a short haplotype's end read 0. */
 function copyBytes(
   out: number[],
   source: ArrayLike<number> | undefined,
@@ -89,8 +88,7 @@ function copyBytes(
 
 /**
  * One gamete by meiosis: per chromosome a random starting haplotype, then 0-2 crossovers at locus
- * boundaries, each flipping which of the parent's haplotypes is copied from there on. A v1 parent
- * reads as zeros past its own bytes, which is the padding `upgrade` gives (so breeding needs no upgrade).
+ * boundaries, each flipping which of the parent's haplotypes is copied from there on.
  */
 export function meiosis(parent: Genome, rng: Rng): number[] {
   const out = new Array<number>(HAPLOTYPE_BYTES).fill(0);

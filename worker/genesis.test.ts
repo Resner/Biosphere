@@ -2,21 +2,12 @@ import { evictDurableObject, runDurableObjectAlarm, runInDurableObject } from 'c
 import { exports } from 'cloudflare:workers';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import {
-  GENOME_TEXT_LENGTH,
-  GENOME_TEXT_LENGTH_V1,
-  genomeFromBase64url,
-  genomeHash,
-  genomeKaryotype,
-  genomeToBase64url,
-} from '../src/genome/codec';
-import { express } from '../src/genome/express';
+import { GENOME_TEXT_LENGTH, genomeHash, genomeToBase64url } from '../src/genome/codec';
 import { verifyGenesisAsk } from '../src/ledger/ask';
 import { randomnessOf, roundAt } from '../src/ledger/drand';
 import { checkGenesis, commitmentId, genesisFor } from '../src/ledger/genesis';
 import { createIdentity, fromBase64Url, memoryKeyStore, verify } from '../src/ledger/identity';
 import { AUTH_DOMAIN, checkStored, recordHash } from '../src/ledger/record';
-import { lifespanMs } from '../src/sim/life';
 import { RULES_VERSION } from '../src/sim/rules';
 import rounds from '../tests/fixtures/drand/rounds.json';
 import { HATCH_REFILL_MS } from './ledger';
@@ -51,24 +42,6 @@ describe('life after welcome', () => {
   it('sends null and a zero wait to a new player', async () => {
     const { life } = await login();
     expect(life).toEqual({ t: 'life', life: null, genesisIn: 0 });
-  });
-
-  it('resumes a karyotype v1 creature unchanged', async () => {
-    const { c, id } = await login();
-    const g = await hatch(c, id);
-    const creature = recordHash(g.record.record);
-    // A creature hatched under rules 5 holds a v1 genome text; v2 code must read it as it is.
-    const v1 = genomeToBase64url(genesisFor(randomnessOf(g.beacon), 'cd'.repeat(32), 5));
-    expect(v1).toHaveLength(GENOME_TEXT_LENGTH_V1);
-    await sql('UPDATE creatures SET genome = ? WHERE id = ?', v1, creature);
-    const again = await login(id);
-    const genome = genomeFromBase64url(v1);
-    expect(again.life.life).toMatchObject({ creature, genome: v1 });
-    expect(genomeKaryotype(genome as NonNullable<typeof genome>)).toBe(1);
-    expect(again.life.life?.lifespanMs).toBe(
-      Math.round(lifespanMs(express(genome as NonNullable<typeof genome>).physiology.lifespan)),
-    );
-    expect(await c.closed).toBe(4001);
   });
 
   it('sends the active creature to a returning player', async () => {
@@ -324,11 +297,8 @@ describe('waiting for the beacon', () => {
 
 describe('genesis checks', () => {
   it('differs per request and is equal in workerd and Node for the same inputs', async () => {
-    // The same pinned values as src/ledger/genesis.test.ts: rules 5 (karyotype v1) and rules 6.
+    // The same pinned value as src/ledger/genesis.test.ts.
     const r = randomnessOf(beaconOf(rounds.first + 2));
-    expect(genomeHash(genesisFor(r, 'ab'.repeat(32), 5))).toBe(
-      'f3f00a538769f2625bf8059c78d6d50f1b99424e9f098f6691db299475d2e7d3',
-    );
     expect(genomeHash(genesisFor(r, 'ab'.repeat(32)))).toBe(
       'eacba69a06de03be8480bbd6a9f706f043dfb24788481be4bebde32b9027a127',
     );
