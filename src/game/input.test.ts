@@ -228,14 +228,22 @@ describe('InputController social hooks', () => {
     const controller = new InputController();
     const keys: string[] = [];
     const ups: string[] = [];
+    const stamps: number[] = [];
     const middles: number[][] = [];
     controller.attach(win as unknown as Window, undefined, undefined, {
-      key: (k) => keys.push(k),
-      keyUp: (k) => ups.push(k),
+      key: (k, at) => {
+        keys.push(k);
+        stamps.push(at);
+      },
+      keyUp: (k, at) => {
+        ups.push(k);
+        stamps.push(at);
+      },
       middle: (x, y) => middles.push([x, y]),
     });
-    const key = (type: 'keydown' | 'keyup', k: string, repeat = false) => {
+    const key = (type: 'keydown' | 'keyup', k: string, repeat = false, timeStamp?: number) => {
       const event = Object.assign(new Event(type, { cancelable: true }), { key: k, repeat });
+      if (timeStamp !== undefined) Object.defineProperty(event, 'timeStamp', { value: timeStamp });
       win.dispatchEvent(event);
       return event;
     };
@@ -247,7 +255,7 @@ describe('InputController social hooks', () => {
           clientY: y,
         }),
       );
-    return { controller, key, keys, middles, pointer, ups, win };
+    return { controller, key, keys, middles, pointer, stamps, ups, win };
   };
 
   it('reports key releases (the wheel sends on releasing G), but not while typing', () => {
@@ -257,6 +265,13 @@ describe('InputController social hooks', () => {
     controller.typing = true;
     key('keyup', 'x');
     expect(ups).toEqual(['g']);
+  });
+
+  it("hands the hooks the browser's event time, so a busy frame cannot stretch a tap of G", () => {
+    const { key, stamps } = setup();
+    key('keydown', 'g', false, 1000);
+    key('keyup', 'g', false, 1040);
+    expect(stamps).toEqual([1000, 1040]);
   });
 
   it('reports fresh key presses, not repeats', () => {

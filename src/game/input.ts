@@ -93,10 +93,13 @@ function inTextField(target: EventTarget | null): boolean {
 
 /** What the page does with keys and buttons beyond steering. */
 export interface InputHooks {
-  /** A fresh key press while not typing (never a repeat); the key as the browser names it. */
-  key?(key: string): void;
-  /** A key went up while not typing (the social wheel sends on releasing `G`). */
-  keyUp?(key: string): void;
+  /**
+   * A fresh key press while not typing (never a repeat); the key as the browser names it, and
+   * when the browser saw it (`performance.now()` clock), so a busy frame cannot stretch a tap.
+   */
+  key?(key: string, at: number): void;
+  /** A key went up while not typing (the social wheel sends on releasing `G`), same clock. */
+  keyUp?(key: string, at: number): void;
   /** The middle button went down at this screen position. */
   middle?(x: number, y: number): void;
 }
@@ -182,13 +185,13 @@ export class InputController {
       if (e.key === 'Enter') onEnter?.();
       else {
         this.keyDown(e.key);
-        if (!e.ctrlKey && !e.metaKey && !e.altKey) hooks.key?.(e.key);
+        if (!e.ctrlKey && !e.metaKey && !e.altKey) hooks.key?.(e.key, e.timeStamp);
       }
     };
     const up = (e: KeyboardEvent) => {
       if (this.typing) return;
       this.keyUp(e.key);
-      hooks.keyUp?.(e.key);
+      hooks.keyUp?.(e.key, e.timeStamp);
     };
     const noMiddle = (e: MouseEvent) => {
       if (e.button === 1) e.preventDefault();
