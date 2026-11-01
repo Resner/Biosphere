@@ -18,9 +18,12 @@ const NOT_WATER = waterLuma + 0.04;
  * The worst body's centre is lit glass at every size. The starter is a clear cell (M6b T3, ADR 0034):
  * its centre shows the water through the glass by design, so a hole is told apart by comparison
  * instead: at every size its centre stays within `KEEP` of the small body's, which the camera never
- * clips, and above the bare water.
+ * clips, and above the bare water. The worst body is the costliest ring (a bell): round and deep,
+ * with its organs in the middle, where a fixed depth range would cut first. Since M6c T3 the
+ * costliest body of all is a slim worm whose clear head shows the water through it, as the starter's
+ * centre does.
  */
-const bodies = { starter: 'starter', worst: genomeToBase64url(worstBody().genome) };
+const bodies = { starter: 'starter', worst: genomeToBase64url(worstBody().ring) };
 const KEEP = 0.02;
 
 /**
