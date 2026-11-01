@@ -75,6 +75,8 @@ const allShape = (value: number) => Object.fromEntries(SHAPE_LOCI.map((id) => [i
 const randomGenome = (): Genome =>
   decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
 
+const BRISTLES = new URL('../../tests/fixtures/bristles/shrimp.hex', import.meta.url);
+
 /** The gallery specimens (M6 T5, T9), by file name. */
 const GALLERY_DIR = new URL('../../tests/fixtures/gallery/', import.meta.url);
 const gallery = new Map(
@@ -805,7 +807,11 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
 
   it("fans each part's bristles out, so their tips stand apart as separate strokes", () => {
     // None grows into the body either: a bristle that would, grows from the part's other side.
-    const p = planOf(specimen('27-'));
+    // The bristled shrimp of the gallery before M6c T3 re-picked 27 for its strokes (the rules read
+    // the old one's legs shorter): a body whose bristles all fan.
+    const bristled = parseSpecimen('shrimp.hex', readFileSync(BRISTLES, 'utf8'));
+    if (!bristled) throw new Error('bad bristle fixture');
+    const p = planOf(bristled.genome);
     const g = buildCreatureGeometry(p, 'high');
     const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];
     const per = meshDetail(p, 'high').setaVertices;
