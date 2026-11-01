@@ -1,5 +1,5 @@
 // Chat, emotes and pings: the rules (limits, filtering, mute, expiry) without any DOM or network,
-// so they test with a fake clock. `social-ui.ts` draws what this holds; `app.ts` wires the keys.
+// so they test with a fake clock. `social-ui.ts` draws what this holds; `app-keys.ts` wires the keys.
 
 import { CHAT_MAX_CHARS, EMOTE_COUNT, type PeerEvent, PING_KINDS } from '../net/protocol';
 import { filterText } from '../net/text';
