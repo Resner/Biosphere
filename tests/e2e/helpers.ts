@@ -70,6 +70,12 @@ export async function swimPace(page: Page, ms = 1000): Promise<{ dist: number; h
     });
   const from = await at();
   await page.waitForTimeout(ms);
+  // A starved page can run no tick in a whole second: wait until it has run a few, then read.
+  await page.waitForFunction(
+    (t) => ((window.__bs as BsHook).state().tick ?? 0) >= t + 5,
+    from.tick,
+    { timeout: 30_000 },
+  );
   const to = await at();
   const ticks = to.tick - from.tick;
   if (ticks <= 0) throw new Error('the world did not run');
@@ -229,9 +235,23 @@ export const ripe = (page: Page, timeout = 40_000) =>
 
 /** Parks the player beside a remote, as soon as the remote is drawn. */
 export async function goTo(page: Page, id: string): Promise<void> {
-  await page.waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
-    timeout: 20_000,
-  });
+  await page
+    .waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
+      timeout: 20_000,
+    })
+    .catch(async (error) => {
+      const seen = await page.evaluate(() => {
+        const s = (window.__bs as BsHook).state();
+        return {
+          screen: s.screen,
+          remotes: s.remotes.map((r) => r.id),
+          pond: s.pond,
+          net: s.net,
+          alive: s.player?.alive ?? null,
+        };
+      });
+      throw new Error(`the other player never showed: ${JSON.stringify(seen)}`, { cause: error });
+    });
   // Teleport until the HUD sees the creature in reach: on a loaded runner the remote is still fading
   // in or has drifted by the time the first jump lands, and the mate hint stays hidden.
   const hint = page.getByTestId('mate-hint');
@@ -242,7 +262,36 @@ export async function goTo(page: Page, id: string): Promise<void> {
       if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
     }, id);
     await expect(hint).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 40_000 });
+  })
+    .toPass({ timeout: 40_000 })
+    .catch(async (error) => {
+      const seen = await page.evaluate((who) => {
+        const s = (window.__bs as BsHook).state();
+        const r = s.remotes.find((x) => x.id === who);
+        return {
+          player: s.player && { x: s.player.x, y: s.player.y },
+          remote: r && { x: r.x, y: r.y, radius: r.radius },
+          mate: s.mate,
+        };
+      }, id);
+      throw new Error(`no mate hint beside the other player: ${JSON.stringify(seen)}`, {
+        cause: error,
+      });
+    });
+}
+
+/**
+ * A courts B until B's invitation shows. The first press can land before the hub has answered the
+ * check, and on a loaded runner the two drift apart or B fades, so the key is offered no more:
+ * park A beside B again, wait for the hint, press, and look at B, until B is invited.
+ */
+export async function courtUntilInvited(a: Page, b: Page, idB: string): Promise<void> {
+  await expect(async () => {
+    await goTo(a, idB);
+    await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /, { timeout: 3_000 });
+    await a.keyboard.press('e');
+    await expect(b.getByTestId('invite')).toBeVisible({ timeout: 3_000 });
+  }, 'A parks beside B, is offered the key and B is invited').toPass({ timeout: 40_000 });
 }
 
 /** What `document.elementFromPoint` finds at the egg's centre and at four points 0.8 of its radius out. */

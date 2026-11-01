@@ -1,6 +1,6 @@
 # 0001: Dark-factory workflow, branching and releases
 
-- Status: accepted (schedule cadence and the private-repository budget superseded by 0015; the task model refined by 0023)
+- Status: accepted, partly replaced: the schedule and the private-repository budget by 0015; the task model by 0023 and 0026 (specs and `[opus]` tasks run in forked Opus subagents; the milestone runs on the scheduled task's model); the single CI job and the draft skip by 0042; one factory PR at a time becomes one per lane (0044)
 - Date: 2026-10-24
 
 ## Context

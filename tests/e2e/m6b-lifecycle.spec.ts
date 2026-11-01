@@ -194,8 +194,10 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
   await a.keyboard.press('Escape');
   expect((await state(a)).wheel.open).toBe(false);
 
-  await goTo(b, idA);
+  // A stops swimming first (the pointer on the body steers nowhere): B parks beside where A is, and
+  // an A still at full throttle was out of reach again before B's hint could show.
   await a.mouse.move(width / 2, height / 2);
+  await goTo(b, idA);
   await a.keyboard.down('g');
   await a.keyboard.press('1');
   await a.keyboard.up('g');

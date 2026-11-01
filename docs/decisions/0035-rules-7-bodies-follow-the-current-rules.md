@@ -1,6 +1,6 @@
 # 0035: Rules 7, and bodies follow the current rules until encounters settle on them
 
-- Status: accepted (amends 0005 and 0018 for development and stats)
+- Status: accepted, partly superseded by 0040: rules 7 and the protocol bump that comes with an outcome-changing rules version stand; its freezes (genesis per version, the `-v6` goldens, the v1 body, and development and stats frozen from M7) are gone (it amended 0005 and 0018)
 - Date: 2026-10-30
 
 ## Context

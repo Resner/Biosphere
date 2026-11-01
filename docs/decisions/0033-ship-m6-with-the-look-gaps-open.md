@@ -1,6 +1,6 @@
 # 0033: M6 ships with the remaining look gaps, and the owner's gate judges them
 
-- Status: accepted (amends 0024); its plan for the remaining gaps is superseded by 0034
+- Status: superseded by 0034 (M6 shipped as v0.7.0 under it; 0034 replaced its plan for the open gaps)
 - Date: 2026-10-29
 
 ## Context

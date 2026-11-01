@@ -1,6 +1,6 @@
 # 0003: Toolchain and repository layout
 
-- Status: accepted
+- Status: accepted (the workerd test package is `@cloudflare/vitest-plugin`, which supports Vitest 5: 0017; the versions named here date from 2026-10-25, and `package.json` has the current ones)
 - Date: 2026-10-25
 
 ## Context

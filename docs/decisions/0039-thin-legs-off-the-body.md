@@ -1,6 +1,6 @@
 # 0039: Thin legs that keep off the body
 
-- Status: accepted (amends 0028, 0031 and 0038)
+- Status: accepted (amends 0028, 0031 and 0038; refined by 0041; its karyotype v1 paragraph is retired: 0040)
 - Date: 2026-10-31
 
 ## Context

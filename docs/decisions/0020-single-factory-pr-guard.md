@@ -1,6 +1,6 @@
 # 0020: Lowest PR number wins, enforced by CI
 
-- Status: accepted (refines the "No overlap" rule of 0015)
+- Status: accepted (refines the "No overlap" rule of 0015; its takeover rule is superseded by 0042, which takes a stale claim over in place and never closes it; the guard runs in CI's `scope` job and compares PRs of one lane: 0044)
 - Date: 2026-10-26
 
 ## Context
