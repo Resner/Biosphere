@@ -1,6 +1,6 @@
 # 0015: Chained factory runs in a public repository
 
-- Status: accepted (supersedes the schedule cadence and the private-repository budget in 0001; the overlap rule is refined by 0020)
+- Status: accepted (supersedes the schedule cadence and the private-repository budget in 0001; the overlap rule is refined by 0020, by 0042 (live claims, takeover in place, CI in parallel parts) and by 0044 (one lock per lane and a second scheduled task, `Care`, so the kill switch is pausing both tasks))
 - Date: 2026-10-25
 
 ## Context

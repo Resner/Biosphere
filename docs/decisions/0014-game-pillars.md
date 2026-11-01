@@ -1,6 +1,6 @@
 # 0014: Game pillars: water world, controls, economy and supply control
 
-- Status: accepted
+- Status: accepted (the key map has grown with the game, and DESIGN §3 is current: H promotes, M opens the pond map, G opens the social wheel)
 - Date: 2026-10-25
 
 ## Context

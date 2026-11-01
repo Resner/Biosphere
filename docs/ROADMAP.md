@@ -190,7 +190,7 @@ Fights finish whatever the network does.
 
 Anyone can check a creature's history (ADR 0009).
 
-- A rules-version registry with frozen v1 implementations.
+- A rules-version registry: one live version while the world may still reset, frozen implementations once lineages are permanent (ADR 0040).
 - Proof bundles (minimal, size-bounded) and the endpoint that serves them.
 - Verifier for chains, signatures and key history; for births and genesis (inheritance recomputed from beacons); and for time gates, costs and settlements.
 - Authority audit of conflicts, replays and implausible progression.

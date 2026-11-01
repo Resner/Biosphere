@@ -1,6 +1,6 @@
 # 0024: Look passes are judged on a committed gallery
 
-- Status: accepted, amended by 0032 and 0034
+- Status: accepted, amended by 0032, 0033, 0034 and 0043 (the bar and the single pass: 0034; specimens rebuilt after a world reset: 0043)
 - Date: 2026-10-27
 
 ## Context

@@ -1,6 +1,6 @@
 # 0034: M6b judges the look in one pass, against pass 1
 
-- Status: accepted (amends 0024; supersedes 0033's plan to carry the look gaps into later milestones)
+- Status: accepted (amends 0024; supersedes 0033's plan; its palette (the complementary accent, amber droplets), its face and "specimens are never replaced" are amended by 0043)
 - Date: 2026-10-30
 
 ## Context

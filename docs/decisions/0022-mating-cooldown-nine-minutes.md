@@ -1,6 +1,6 @@
 # 0022: The mating cooldown is 9 minutes
 
-- Status: accepted
+- Status: accepted (its pacing targets are restated by 0029)
 - Date: 2026-10-27
 - Supersedes: the 6-minute base cooldown in ADR 0021
 

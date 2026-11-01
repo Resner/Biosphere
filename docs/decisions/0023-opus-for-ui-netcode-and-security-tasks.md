@@ -1,6 +1,6 @@
 # 0023: Opus for UI, netcode and security tasks
 
-- Status: accepted (refines the task model in "Model by phase" of 0001; "Still one loop" superseded by 0026)
+- Status: accepted (refines the task model in "Model by phase" of 0001; its routing mechanism, "Still one loop", is superseded by 0026: `[opus]` tasks and specs run in a forked subagent)
 - Date: 2026-10-27
 
 ## Context

@@ -1,6 +1,6 @@
 # 0042: Flake-resistant gates and live claims
 
-- Status: accepted (refines 0001's single CI job for the release gate, and the 90-minute rule of 0015 and 0020)
+- Status: accepted (refines 0001's single CI job, and the 90-minute rule of 0015 and 0020; refined by 0044: a red `E2E main` is the care lane's first job and holds back only the milestone close, and CI repeats every new or changed spec, not only `@slow` ones)
 - Date: 2026-11-01
 
 ## Context

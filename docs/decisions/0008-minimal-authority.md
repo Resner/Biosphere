@@ -1,6 +1,6 @@
 # 0008: Minimal authority on Cloudflare, budgets and admission
 
-- Status: accepted
+- Status: accepted (the workerd test package is `@cloudflare/vitest-plugin`: 0017)
 - Date: 2026-10-25
 
 ## Context

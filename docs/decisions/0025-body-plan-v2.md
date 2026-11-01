@@ -1,6 +1,6 @@
 # 0025: Body plan v2: silhouettes from development, karyotype v2
 
-- Status: accepted (extends 0006 and 0018; supersedes the development vertex cap of 0006, which moves to rendering; the chain layout and the part fit follow the karyotype since 0028)
+- Status: accepted (extends 0006 and 0018; supersedes the development vertex cap of 0006, which moves to rendering; the chain layout and the part fit follow the karyotype since 0028; parts by region and a visible-part budget of 14: 0041; the v1 compatibility (v1 bodies, the v1 layout and v5 inheritance kept for verification) is retired before v1.0: 0040)
 - Date: 2026-10-27
 
 ## Context
