@@ -85,7 +85,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### The reset (ADR 0040)
 
-- [ ] T1 Retire the frozen versions: rules 8, one live version [opus]
+- [ ] T1 Retire the frozen versions: rules 8, one live version [opus] (in progress)
   - Why: the owner allowed a wipe. The freezes cost about 1,700 lines, eleven goldens and a step in every body task, and nothing verifies an old version before M9.
   - Steps:
     1. `RULES_VERSION` = 8.
