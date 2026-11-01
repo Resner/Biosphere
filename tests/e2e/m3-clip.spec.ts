@@ -65,10 +65,13 @@ for (const [name, genome] of Object.entries(bodies)) {
       );
       await camSettled(page);
       // Freeze the world at one shader clock, so the gait and the glow are in the same phase at
-      // every size and the frames compare (the camera has settled by now).
+      // every size and the frames compare (the camera has settled by now). The marine snow's flow is
+      // zeroed too: a speck drifting over the centre pixel in one frame and not in another moved
+      // the luma by more than KEEP on a slow runner.
       await page.evaluate(() => {
         const { debug } = window.__bs as BsHook;
         debug?.timeScale(0);
+        debug?.resetWater();
         debug?.setClock(100);
       });
       await camSettled(page);
