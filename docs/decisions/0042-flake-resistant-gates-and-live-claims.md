@@ -17,9 +17,10 @@
 
 ## Decision
 
+- **PR CI runs in parallel too**: `scope` (guard and docs-only skip), `unit`, `e2e` in three parts, and `slow` (repeats). `verify` stays the one required check: it always runs and passes only when every part it needed passed. The PR suite took 9 to 15 minutes on one runner with 2 workers, and 25 when a runner offered only one (the failed first run of #213).
 - **The full suite runs on parallel runners** (`e2e-full.yml`): `fast` (the chromium project without `@slow`), `slow 1/2` and `slow 2/2` (the `@slow` chromium scenarios, sharded, one worker each), and `social, pond and post` (the projects that must not share a runner). Every part runs to the end, so one run reports every failure. Release calls it before building. A run takes about a third of the time, and the long scenarios no longer compete for CPU.
 - **The full suite runs early**: `E2E main` runs it on main after every merge that touches code or tests, and every 6 hours. A red `E2E main` is the factory's first job (`next` skill). The milestone step bumps `VERSION` only on a head where it is green, so the release is never the first full run of a commit.
-- **New or changed scenarios prove themselves**: PR CI runs every added or changed `@slow` spec 3 times on one worker before it can merge.
+- **New or changed scenarios prove themselves**: PR CI runs every added or changed `@slow` spec 3 times on one worker before it can merge. (This supersedes `.claude/rules/ci.md`'s "one job" rule, which dated from the private repository's minute budget.)
 - **Determinism rules** for scenarios are in `.claude/rules/tests.md`: wait on state, drive time through the sim, and assert nothing in wall time. A flaky scenario is fixed at its cause; there are no retries.
 - **A claim is live** while its PR or branch changed in the last 90 minutes, or a workflow run on its branch is queued, running, or finished in the last 30 minutes. Long steps keep it live with a heartbeat: the `opus-task` and `spec` subagents push their work in progress at least every 40 minutes, and the main loop pushes or edits a `Heartbeat:` line at least every 45.
 - **A stale claim is taken over in place**: on its own branch and PR number, never by closing it and opening a duplicate.
