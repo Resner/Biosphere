@@ -22,6 +22,7 @@ import {
 import { express, type Traits } from './express';
 import { mutateGenome } from './inherit';
 import { GENOME_BYTES } from './karyotype';
+import { longest, regionOf, spokeVary } from './organism';
 
 // Body proportions (M6 T14b, ADR 0028): under karyotype v2 the trunk and tail carry the body instead
 // of a short tail of tiny segments behind a unit core, parts keep their gene length by sweeping
@@ -67,20 +68,49 @@ function geneLength(traits: Traits, a: Appendage, long = false): number {
 }
 
 /**
- * What kind of part the acceptance names: tentacles (a radial ring), antennae (head parts of a
- * bilateral body) and wings (well webbed parts in front of the rear segment). A tail part has no
- * room behind the body to keep its length, so it is cut as before.
+ * The length a part's genes ask for as its region shapes it (M6c T3, ADR 0041): a radial spoke's
+ * varied by its hash, a bilateral part's at most its role's limit (the longer head pair is the
+ * long antennae, the other the short).
  */
-const kindOf = (plan: BodyPlan, a: Appendage): 'tentacle' | 'antenna' | 'wing' | 'other' =>
-  plan.form.radial === 1
-    ? 'tentacle'
-    : a.segment === 0
-      ? 'antenna'
-      : a.webbing >= 0.5 && a.segment < plan.segments.length - 1
-        ? 'wing'
-        : 'other';
+function wanted(plan: BodyPlan, traits: Traits, a: Appendage, long = false): number {
+  const gene = geneLength(traits, a, long);
+  const left = plan.appendages.filter((b) => b.side === 1 && !b.fringe);
+  if (plan.form.radial === 1) {
+    const slot = left.findIndex((b) => b.angle === a.angle);
+    return gene * spokeVary(slot, { ...a, length: geneLength(traits, a, true) });
+  }
+  const region = regionOf(a, plan);
+  if (region === 'trunk') return Math.min(gene, longest('leg', plan.segments));
+  if (region === 'rear') return Math.min(gene, longest('tail', plan.segments));
+  const head = left.filter((b) => regionOf(b, plan) === 'head');
+  const genes = head.map((b) => geneLength(traits, b, true));
+  const first = genes.indexOf(Math.max(...genes));
+  const role = head[first]?.angle === a.angle ? 'antenna' : 'feeler';
+  return Math.min(gene, longest(role, plan.segments));
+}
 
-const isNamedPart = (plan: BodyPlan, a: Appendage): boolean => kindOf(plan, a) !== 'other';
+/**
+ * What kind of part the acceptance names: tentacles (the spokes of a radial ring), antennae (head
+ * parts of a bilateral body, ADR 0041) and wings (well webbed parts in front of the rear segment).
+ * A tail part has no room behind the body to keep its length, so it is cut as before. Fringe is
+ * cilia (ADR 0041), so it keeps no gene length.
+ */
+const kindOf = (
+  plan: BodyPlan,
+  a: Appendage,
+): 'tentacle' | 'antenna' | 'wing' | 'other' | 'fringe' =>
+  a.fringe
+    ? 'fringe'
+    : plan.form.radial === 1
+      ? 'tentacle'
+      : regionOf(a, plan) === 'head'
+        ? 'antenna'
+        : a.webbing >= 0.5 && a.segment < plan.segments.length - 1
+          ? 'wing'
+          : 'other';
+
+const isNamedPart = (plan: BodyPlan, a: Appendage): boolean =>
+  kindOf(plan, a) !== 'other' && kindOf(plan, a) !== 'fringe';
 
 const rng = createRng(seedFromString('develop-proportions'), 'bytes');
 const randomV2 = (): Genome =>
@@ -218,11 +248,12 @@ describe('proportions: parts keep their gene length', () => {
       for (const a of plan.appendages) {
         if (!isNamedPart(plan, a)) continue;
         named++;
-        // At least the v1 gene length, and at most what the long range asks for.
+        // At least the v1 gene length, and at most what the long range asks for, as the part's
+        // region shapes them.
         expect(a.length, `${file} module ${a.module}`).toBeGreaterThanOrEqual(
-          geneLength(traits, a) - 1e-9,
+          wanted(plan, traits, a) - 1e-9,
         );
-        expect(a.length).toBeLessThanOrEqual(geneLength(traits, a, true) + 1e-9);
+        expect(a.length).toBeLessThanOrEqual(wanted(plan, traits, a, true) + 1e-9);
       }
     }
     expect(named).toBeGreaterThan(30);
@@ -241,7 +272,8 @@ describe('proportions: parts keep their gene length', () => {
       const plan = develop(traits);
       for (const a of plan.appendages) {
         const kind = kindOf(plan, a);
-        const ok = a.length >= geneLength(traits, a) - 1e-9;
+        if (kind === 'fringe') continue;
+        const ok = a.length >= wanted(plan, traits, a) - 1e-9;
         count(`v2 ${kind}`, ok);
         count('v2 all', ok);
       }
@@ -326,7 +358,8 @@ describe('proportions: longer parts sweep round the body (look pass 4)', () => {
       }
       if (any) expect(bodyViolations(plan)).toEqual([]);
     }
-    expect(long.antenna).toBeGreaterThan(200);
+    // One long antenna pair per body at most (ADR 0041), where any front part counted before.
+    expect(long.antenna).toBeGreaterThan(150);
     expect(long.tentacle).toBeGreaterThan(50);
   });
 

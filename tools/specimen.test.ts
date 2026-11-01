@@ -10,6 +10,7 @@ import {
   findTier,
   SPECIMEN_SILHOUETTES,
   SPECIMEN_TIERS,
+  shortLeg,
   specimenFile,
 } from './specimen';
 
@@ -61,11 +62,11 @@ describe('specimen search', () => {
         expect(plan.eyes.size).toBeGreaterThanOrEqual(0.25);
         expect(plan.eyes.stalk).toBeLessThanOrEqual(0.05);
       } else if (feature === 'spiral') {
-        // A coiled chain with only short parts round it (03's and 05's spirals).
+        // A coiled chain with only short legs round it (03's and 05's spirals, ADR 0041).
         expect(plan.form.mode).toBe(2);
         expect(plan.form.radial).toBe(0);
         expect(plan.segments.length).toBeGreaterThanOrEqual(4);
-        for (const a of plan.appendages) expect(a.length).toBeLessThanOrEqual(0.75);
+        for (const a of plan.appendages) expect(shortLeg(plan, a)).toBe(true);
       } else {
         // A worm bent into an S of two opposite arcs of 0.6π or more, with parts no longer than a core
         // radius (02's and 05's worms, M6b T6).

@@ -5,8 +5,9 @@
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { encodeGenome, type Genome, genomeHash } from '../src/genome/codec';
-import { bodyViolations } from '../src/genome/develop';
+import { type Appendage, type BodyPlan, bodyViolations } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
+import { longest, measure, regionOf } from '../src/genome/organism';
 import { type RarityTier, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, type Silhouette, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
@@ -16,6 +17,13 @@ import { seedFromString } from '../src/sim/prng';
 /** Every silhouette class a specimen is made for: all but `other`. */
 export const SPECIMEN_SILHOUETTES: readonly Silhouette[] = SILHOUETTES.filter((s) => s !== 'other');
 export const SPECIMEN_TIERS: readonly RarityTier[] = ['common', 'uncommon', 'rare', 'exotic'];
+
+/** Whether `a`, if it is a visible part on the trunk, is a short leg: at most 0.9 body widths (ADR 0041). */
+export const shortLeg = (plan: BodyPlan, a: Appendage): boolean => {
+  if (a.fringe) return true;
+  const m = measure(plan.segments);
+  return regionOf(a, plan, m) !== 'trunk' || a.length <= longest('leg', plan.segments, m) + 1e-9;
+};
 
 /** Candidates tried before giving up. */
 const BUDGET = 20_000;
@@ -69,7 +77,8 @@ export function findTier(
  * The look features look pass 5 adds a specimen for (ADR 0032): bodies the references show that no
  * class or tier specimen happened to: 02's long sweeping antennae, 05's big eyes set into the head,
  * and 03's and 05's spirals, a bilateral coiled chain of 4 or more segments with only short parts
- * round it. M6b T6 adds 02's and 05's S-worms: a worm whose spine bends two opposite arcs of 0.6π
+ * round it. Under ADR 0041 every coil is one: its legs are short (at most 0.9 body widths) and few
+ * (the coil's gate), and the rest of its parts are fringe, antennae or a tail. M6b T6 adds 02's and 05's S-worms: a worm whose spine bends two opposite arcs of 0.6π
  * or more, with no part longer than a core radius (the class specimen, 28, is bent into a C by its genes).
  */
 export const FEATURES = {
@@ -85,7 +94,7 @@ export const FEATURES = {
     c.plan.form.mode === 2 &&
     c.plan.form.radial === 0 &&
     c.plan.segments.length >= 4 &&
-    c.plan.appendages.every((a) => a.length <= 0.75),
+    c.plan.appendages.every((a) => shortLeg(c.plan, a)),
   's-worm': (c: Creature): boolean => {
     const angles = c.plan.segments.map((s) => s.angle);
     const peak = Math.max(...angles);

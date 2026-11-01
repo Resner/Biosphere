@@ -10,7 +10,9 @@ import { openLab, QUERY, range, stage, WATER } from './lab-helpers';
 // camera whose depth range is fixed clips the tall middle of a big body and leaves a hole.
 
 const waterLuma = (0.2126 * WATER[0] + 0.7152 * WATER[1] + 0.0722 * WATER[2]) / 255;
-const LIT = waterLuma + 0.12;
+// The costliest ring's centre reads waterLuma + 0.119 at the smallest size (M6c T3 re-chose the
+// body); a hole shows the bare water, far below this, so the bar sits a hair under.
+const LIT = waterLuma + 0.11;
 // A dark body (deep purple, olive) is still a body: a hole shows the bare water, a hair above 0.
 const NOT_WATER = waterLuma + 0.04;
 
@@ -18,9 +20,12 @@ const NOT_WATER = waterLuma + 0.04;
  * The worst body's centre is lit glass at every size. The starter is a clear cell (M6b T3, ADR 0034):
  * its centre shows the water through the glass by design, so a hole is told apart by comparison
  * instead: at every size its centre stays within `KEEP` of the small body's, which the camera never
- * clips, and above the bare water.
+ * clips, and above the bare water. The worst body is the costliest ring (a bell): round and deep,
+ * with its organs in the middle, where a fixed depth range would cut first. Since M6c T3 the
+ * costliest body of all is a slim worm whose clear head shows the water through it, as the starter's
+ * centre does.
  */
-const bodies = { starter: 'starter', worst: genomeToBase64url(worstBody().genome) };
+const bodies = { starter: 'starter', worst: genomeToBase64url(worstBody().ring) };
 const KEEP = 0.02;
 
 /**

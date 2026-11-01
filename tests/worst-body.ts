@@ -19,9 +19,12 @@ const modules = (value: number) =>
     ]),
   );
 
-let worst: { genome: Genome; vertices: number; lowVertices: number } | undefined;
+let worst: { genome: Genome; vertices: number; lowVertices: number; ring: Genome } | undefined;
 
-/** The costliest genome, and the most low-detail vertices of any candidate. */
+/**
+ * The costliest genome, the most low-detail vertices of any candidate, and the costliest radial
+ * body (`ring`): round and deep, with its organs in the middle, where a depth clip shows first.
+ */
 export function worstBody(): NonNullable<typeof worst> {
   worst ??= findWorst();
   return worst;
@@ -38,6 +41,7 @@ function findWorst(): NonNullable<typeof worst> {
     buildBytes(modules(255), { segDrive1: 255, segDrive2: 255 }),
   ].map(decodeGenome);
   let best = { genome: extremes[0] as Genome, vertices: -1, lowVertices: 0 };
+  let ring = { genome: extremes[0] as Genome, vertices: -1 };
   for (const genome of [...Object.values(ARCHETYPES), ...extremes, ...randoms]) {
     const traits = express(genome);
     const plan = develop(traits);
@@ -47,8 +51,9 @@ function findWorst(): NonNullable<typeof worst> {
     const vertices = estimateVertices(plan, 'high', anatomy, glints);
     best.lowVertices = Math.max(best.lowVertices, estimateVertices(plan, 'low', anatomy, glints));
     if (vertices > best.vertices) best = { genome, vertices, lowVertices: best.lowVertices };
+    if (plan.form.radial === 1 && vertices > ring.vertices) ring = { genome, vertices };
   }
-  return best;
+  return { ...best, ring: ring.genome };
 }
 
 /** `n` copies of `genome` with different hue genes: the same geometry, `n` distinct hashes. */

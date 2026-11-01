@@ -271,7 +271,8 @@ describe('develop: repairs', () => {
   });
 
   it('shrinks the malformed part under a homozygous L2 loss of function', () => {
-    const m: Params = { length: 200, thickness: 200, beat: 255 };
+    // Short enough that no region limit (ADR 0041) trims either part.
+    const m: Params = { length: 100, thickness: 200, beat: 255 };
     const fine = plan(decodeGenome(build({ M1: m, M2: m })));
     const bytes = build({ M1: m, M2: m }, { L2: 1 });
     const bad = plan(decodeGenome(bytes));

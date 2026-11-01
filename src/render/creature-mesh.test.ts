@@ -75,6 +75,8 @@ const allShape = (value: number) => Object.fromEntries(SHAPE_LOCI.map((id) => [i
 const randomGenome = (): Genome =>
   decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
 
+const BRISTLES = new URL('../../tests/fixtures/bristles/shrimp.hex', import.meta.url);
+
 /** The gallery specimens (M6 T5, T9), by file name. */
 const GALLERY_DIR = new URL('../../tests/fixtures/gallery/', import.meta.url);
 const gallery = new Map(
@@ -101,6 +103,17 @@ const extremes: Genome[] = [
   buildBytes(allModules(255), { segDrive1: 255, segDrive2: 255, ...allShape(255) }),
   buildBytes(allModules(255), { segDrive1: 255, segDrive2: 255, ...allShape(128) }),
   buildBytes(allModules(200), { segDrive1: 255, segDrive2: 255, symmetry: 255, drape: 255 }),
+  // The costliest body the visible-part budget leaves (ADR 0041): all 14 instances, spread over the
+  // regions, jointed, branched, bristled and webbed, on a plated eight-segment body with eyes.
+  buildBytes(
+    Object.fromEntries(
+      MODULE_IDS.map((id, k) => [
+        id,
+        { ...allModules(255)[id], attachStart: k * 36, attachSpan: 40, angle: 40 + k * 20 },
+      ]),
+    ),
+    { segDrive1: 255, segDrive2: 255, plating1: 255, plating2: 255, eyeSize: 255, eyeStalk: 128 },
+  ),
 ].map(decodeGenome);
 
 const named: Genome[] = [
@@ -717,7 +730,7 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
   });
 
   it('draws joint beads, bulb tips and chela fingers on the parts that have them', () => {
-    const p = planOf(specimen('29-'));
+    const p = planOf(specimen('37-'));
     const chelate = p.appendages.findIndex((a) => a.chela > 0);
     const bulbed = p.appendages.findIndex((a) => a.bulb > 0);
     expect(chelate).toBeGreaterThanOrEqual(0);
@@ -755,7 +768,7 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
   });
 
   it('draws every bristle as a thin ribbon on high, and fewer on lower levels when they must', () => {
-    for (const prefix of ['23-', '24-', '27-', '31-']) {
+    for (const prefix of ['23-', '24-', '27-', '38-']) {
       const p = planOf(specimen(prefix));
       const bristles = p.appendages.reduce((n, a) => n + a.setae, 0);
       expect(bristles).toBeGreaterThan(20);
@@ -794,7 +807,11 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
 
   it("fans each part's bristles out, so their tips stand apart as separate strokes", () => {
     // None grows into the body either: a bristle that would, grows from the part's other side.
-    const p = planOf(specimen('27-'));
+    // The bristled shrimp of the gallery before M6c T3 re-picked 27 for its strokes (the rules read
+    // the old one's legs shorter): a body whose bristles all fan.
+    const bristled = parseSpecimen('shrimp.hex', readFileSync(BRISTLES, 'utf8'));
+    if (!bristled) throw new Error('bad bristle fixture');
+    const p = planOf(bristled.genome);
     const g = buildCreatureGeometry(p, 'high');
     const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];
     const per = meshDetail(p, 'high').setaVertices;
@@ -849,7 +866,7 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
   });
 
   it('draws plumose bristles on the 5-vertex rungs: setule pairs of their own kind, within the bounds (look pass 5)', () => {
-    for (const prefix of ['23-', '24-', '27-', '31-']) {
+    for (const prefix of ['23-', '24-', '27-', '38-']) {
       const p = planOf(specimen(prefix));
       const g = buildCreatureGeometry(p, 'high');
       const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];

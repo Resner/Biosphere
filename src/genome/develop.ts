@@ -11,6 +11,17 @@ import { Hasher } from '../sim/hash';
 import { atan2, clamp, cos, length as hypot, lerp, PI, pow, sin, TAU } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { Traits } from './express';
+import {
+  LEG_DIR,
+  longest,
+  measure,
+  type Role,
+  regionOf,
+  rolesOf,
+  SPOKE_PAIRS,
+  spineShare,
+  spokeVary,
+} from './organism';
 
 const D = RULES.develop;
 
@@ -68,6 +79,11 @@ export interface Appendage {
   chela: number;
   /** Joint swelling 0-1: each joint's radius is the part's × (1 + beads). */
   beads: number;
+  /**
+   * Fine cilia, not a limb (M6c T3, ADR 0041): a part past its region's count or the visible-part
+   * budget, and the default ciliary band. Short and thin, it is drawn faint and counts as cilia.
+   */
+  fringe: boolean;
 }
 
 /**
@@ -151,7 +167,16 @@ export interface BodyPlan {
  * One left-side appendage; `develop` builds these and mirrors them at the end. `base` is the length
  * the v1 gene range gives it: a v2 part longer than that keeps what of the rest fits (look pass 4).
  */
-type Part = Omit<Appendage, 'side'> & { base: number };
+type Part = Omit<Appendage, 'side'> & {
+  base: number;
+  /** Its role by region (M6c T3); none before the regions are read. */
+  role: Role | undefined;
+  /** The growth directions a leg keeps to while it is fitted (M6c T3): swept back from the side. */
+  lo: number;
+  hi: number;
+  /** A coil's leg: its instance on the inner side of the curve is fringe (ADR 0041). */
+  inner: boolean;
+};
 type Range = readonly [number, number];
 export type Point = { x: number; y: number };
 
@@ -242,21 +267,19 @@ const COIL_TURN = range(D.curve.coilTurn);
 /**
  * The spine's turn and mode (M6b T6): a C turns curve × π; an S of `sFrom` segments or more two
  * opposite arcs of `sArc` × curve × π each (at most `sMax` × π), a shorter one of half the curve's
- * turn each; past `coilStart` a chain of `chain.slimFrom` segments or more coils from
- * `coilTurn[0]` × π to `coilTurn[1]` × π, and a shorter one only curls.
+ * turn each; past `coilStart` a chain of `coilFrom` segments or more coils from `coilTurn[0]` × π
+ * to `coilTurn[1]` × π, and any other chain (or any, without `coil`) takes the C-curl (ADR 0041).
  */
-function formOf(shape: Traits['shape'], count: number): Bending {
+function formOf(shape: Traits['shape'], count: number, coil = true): Bending {
   const C = D.curve;
   const radial = shape.symmetry >= D.radial.at ? 1 : 0;
   if (count < 2 || !(shape.curve > 0)) return { turn: 0, mode: 0, radial };
   if (shape.curve > C.coilStart) {
+    // The coil's gate (ADR 0041): a segment trait of `coilFrom` or more; else the C-curl. The
+    // leg gate is `develop`'s, since it reads the parts.
+    if (!coil || count < C.coilFrom) return { turn: PI * shape.curve, mode: 0, radial };
     const k = (shape.curve - C.coilStart) / (1 - C.coilStart);
-    const long = count >= D.chain.slimFrom;
-    return {
-      turn: PI * (long ? lerp(COIL_TURN[0], COIL_TURN[1], k) : shape.curve),
-      mode: 2,
-      radial,
-    };
+    return { turn: PI * lerp(COIL_TURN[0], COIL_TURN[1], k), mode: 2, radial };
   }
   if (shape.curveMode >= C.sMode) {
     // A short chain has too few links to draw two arcs, so its S stays shallow.
@@ -767,6 +790,8 @@ function buildParts(traits: Traits, scales: readonly number[], rooms: number): P
         bulb: x.bulb > X.bulb.min ? x.bulb * gene * X.bulb.scale : 0,
         chela: x.chela > X.chela.min && isWeaponTip(tip) ? x.chela : 0,
         beads: x.beads,
+        fringe: false,
+        ...LAYOUT,
       });
     }
   });
@@ -795,6 +820,8 @@ export const weaponShare = (tip: number): number =>
 
 const isWeaponTip = (tip: number): boolean => weaponShare(tip) > 0;
 
+/** Layout state every part starts with, so all parts share one object shape (hot loops stay monomorphic). */
+const LAYOUT = { role: undefined, lo: 0, hi: PI, inner: false } as const;
 /** No fine detail: a v1 part. */
 const PLAIN = { webbing: 0, setae: 0, setaeLength: 0, bulb: 0, chela: 0, beads: 0 } as const;
 
@@ -1273,7 +1300,8 @@ function uncover(p: Part, parts: readonly Part[], segments: PlanSegment[], body:
  * Keeps a v2 part off the body (M6b T7): a part with more than `keep.share` of its centre line
  * inside the drawn outline turns, `keep.step` at a time either way (the side away from the body
  * first, never ahead of `from`, never past the tail, and a tail part growing rearward no further
- * forward than sideways), up to `keep.turns` steps: the least turn that clears it whole wins, then
+ * forward than sideways, and a leg within its sweep, M6c T3), up to `keep.turns` steps: the least
+ * turn that clears it whole wins, then
  * the least that clears it shortened to fit the bounds. If none clears, it takes the whole turn
  * that buries least. Edits in place.
  */
@@ -1289,7 +1317,8 @@ function keepOff(p: Part, segments: PlanSegment[], body: Outline, from: number):
   const [dir0, length0] = [p.dir, p.length];
   let [bestDir, bestLength] = [dir0, length0];
   const tail = p.segment === segments.length - 1 ? Math.min(dir0, PI / 2) : 0;
-  const lo = Math.max(from, tail);
+  const lo = Math.max(from, tail, p.lo);
+  const hi = p.hi;
   // The side away from the body first: toward the root's outward normal.
   const normal = atan2(s.rx * sin(p.angle), s.ry * cos(p.angle));
   const first = normal >= dir0 ? 1 : -1;
@@ -1301,7 +1330,7 @@ function keepOff(p: Part, segments: PlanSegment[], body: Outline, from: number):
   for (let j = 1; j <= K.turns; j++) {
     for (let w = 0; w < 2; w++) {
       const dir = dir0 + (w === 0 ? first : -first) * j * K.step;
-      if (dir < lo || dir > PI) continue;
+      if (dir < lo || dir > hi) continue;
       p.dir = dir;
       p.length = length0;
       // Whole, a turn that buries no less than the best so far is no better; the bounds come after.
@@ -1425,7 +1454,10 @@ function fitAt(p: Part, segments: PlanSegment[], sweep: number, from: number): v
   const free = D.caps.bounds - D.boundsSlack - Math.max(hypot(l.x, l.y), hypot(r.x, r.y));
   // A bulb takes at most its share of the free reach, and the part shortens to make room for it.
   p.bulb = Math.min(p.bulb, X.bulb.room * Math.max(0, free));
-  const dir = Math.max(from, p.angle + sweep * (PI - p.angle));
+  // A leg keeps to its sweep (M6c T3): every turn below stays inside `lo`-`hi`.
+  const lo = p.lo;
+  const hi = p.hi;
+  const dir = clamp(Math.max(from, p.angle + sweep * (PI - p.angle)), lo, hi);
   p.dir = dir;
   const cut = Math.min(p.length, (free - p.bulb) / branchFactor(p.branches));
   if (cut >= p.length) {
@@ -1440,18 +1472,18 @@ function fitAt(p: Part, segments: PlanSegment[], sweep: number, from: number): v
   const inward = atan2(-l.y, -l.x) - s.angle;
   const toward = inward - TAU * Math.round((inward - dir) / TAU);
   const tail = p.segment === segments.length - 1 ? Math.min(dir, PI / 2) : 0;
-  const floor = Math.max(from, dir - D.fit.max, tail);
-  const most = clamp(toward, floor, Math.min(PI, dir + D.fit.max));
+  const floor = Math.max(from, dir - D.fit.max, tail, lo);
+  const most = clamp(toward, floor, Math.min(hi, dir + D.fit.max));
   p.dir = most;
   if (most !== dir && fits()) {
-    let [lo, hi] = [0, 1];
+    let [a, b] = [0, 1];
     for (let k = 0; k < D.fit.sweeps; k++) {
-      const t = (lo + hi) / 2;
+      const t = (a + b) / 2;
       p.dir = dir + t * (most - dir);
-      if (fits()) hi = t;
-      else lo = t;
+      if (fits()) b = t;
+      else a = t;
     }
-    p.dir = dir + hi * (most - dir);
+    p.dir = dir + b * (most - dir);
     return;
   }
   // Nothing fits whole: cut it at its own direction.
@@ -1486,13 +1518,13 @@ type Piece = Pick<Appendage, 'length' | 'girth' | 'beat' | 'branches'>;
 /** Motile area: length × girth × beat over parts that beat at all, counting branches. */
 export function motileArea(appendages: readonly Piece[]): number {
   let area = 0;
-  for (const a of appendages) {
-    if (a.beat >= D.minBeat) {
-      area += a.length * a.girth * a.beat * branchWeight(a);
-    }
-  }
+  for (const a of appendages) area += motileOf(a);
   return area;
 }
+
+/** One part's motile area: length × girth × beat, counting branches, if it beats at all. */
+const motileOf = (a: Piece): number =>
+  a.beat >= D.minBeat ? a.length * a.girth * a.beat * branchWeight(a) : 0;
 
 /** Whether the left-side `parts`, mirrored, hold the instance cap: parts are capped by count only (ADR 0025). */
 const fits = (parts: Part[]): boolean => parts.length * 2 <= D.caps.appendages;
@@ -1521,6 +1553,8 @@ function bandPart(segment: number, angle: number, index: number, room: number): 
     beat: D.band.beat,
     phase: index / D.band.pairs,
     ...PLAIN,
+    ...LAYOUT,
+    fringe: true,
   };
 }
 
@@ -1538,27 +1572,155 @@ function bandParts(parts: Part[], segment: number, room: number): Part[] | null 
   return band.length === D.band.pairs ? band : null;
 }
 
-/** Both sides of every part, pairs adjacent: left then right. */
-const mirror = (parts: Part[]): Appendage[] =>
-  parts.flatMap(({ base: _, ...p }) => [
-    { ...p, side: 1 as const },
-    { ...p, side: -1 as const },
-  ]);
+/**
+ * A part turned to fringe (M6c T3, ADR 0041): cilia where it stood, at most `fringe.length` body
+ * widths long, drawn `fringe.width` wide (a fine stroke), with the band's girth at most, beating as
+ * the band does, with no branches or detail.
+ */
+function toFringe(p: Part, segments: readonly PlanSegment[], m = measure(segments)): Part {
+  const B = D.band;
+  const length = Math.min(p.length, longest('fringe', segments, m));
+  const girth = Math.min(p.girth, B.width);
+  const { role: _r, lo: _l, hi: _h, inner: _i, ...rest } = p;
+  return {
+    ...rest,
+    ...PLAIN,
+    ...LAYOUT,
+    role: 'fringe',
+    fringe: true,
+    length,
+    base: Math.min(p.base, length),
+    girth,
+    width: Math.min(p.width, girth, D.organism.fringe.width),
+    taper: B.taper,
+    curvature: 0,
+    joints: B.joints,
+    branches: 0,
+    tip: B.tip,
+    stiffness: B.stiffness,
+    beat: B.beat,
+  };
+}
 
-/** Bilateral parts: spread, shaped, trimmed in module order, then a ciliary band if nothing swims. */
+/**
+ * Both sides of every part, pairs adjacent: left then right. A coil's leg shows only on the outer
+ * side of its curve (ADR 0041): its inner instance is fringe, as long as the bounds leave room.
+ */
+function mirror(parts: Part[], segments: readonly PlanSegment[]): Appendage[] {
+  const m = parts.some((p) => p.inner) ? measure(segments) : undefined;
+  const out: Appendage[] = [];
+  for (const p of parts) {
+    out.push(appendageOf(p, 1));
+    if (!p.inner) {
+      out.push(appendageOf(p, -1));
+      continue;
+    }
+    const s = segments[p.segment] as PlanSegment;
+    const root = rootOf(s, p.angle, -1);
+    const free = D.caps.bounds - D.boundsSlack - hypot(root.x, root.y);
+    const cilia = toFringe(p, segments, m);
+    cilia.length = Math.min(cilia.length, free);
+    out.push(appendageOf(cilia, -1));
+  }
+  return out;
+}
+
+/** One side of a part: its plan fields only, in the plan's order (no layout state). */
+function appendageOf(p: Part, side: 1 | -1): Appendage {
+  return {
+    module: p.module,
+    segment: p.segment,
+    angle: p.angle,
+    dir: p.dir,
+    length: p.length,
+    width: p.width,
+    girth: p.girth,
+    taper: p.taper,
+    curvature: p.curvature,
+    joints: p.joints,
+    branches: p.branches,
+    tip: p.tip,
+    stiffness: p.stiffness,
+    beat: p.beat,
+    phase: p.phase,
+    webbing: p.webbing,
+    setae: p.setae,
+    setaeLength: p.setaeLength,
+    bulb: p.bulb,
+    chela: p.chela,
+    beads: p.beads,
+    fringe: p.fringe,
+    side,
+  };
+}
+
+/**
+ * Reads a bilateral body's parts by region (M6c T3, ADR 0041) and edits them in place: each keeps
+ * to its role's length, legs to their sweep, and the parts past a region's count or the budget
+ * become fringe (copies). Parts already fringe (the band) keep as they are.
+ */
+function organize(parts: Part[], segments: PlanSegment[]): Part[] {
+  const limbs = parts.filter((p) => !p.fringe);
+  const plan = { segments };
+  const m = measure(segments);
+  const roles = rolesOf(
+    limbs.map((p) => regionOf(p, plan, m)),
+    limbs.map((p) => p.length),
+    limbs.map((p) => spineShare(segments, p.segment, p.angle, m)),
+  );
+  const role = new Map(limbs.map((p, i) => [p, roles[i] as Role]));
+  return parts.map((p) => {
+    const r = role.get(p);
+    if (r === undefined) return p;
+    if (r === 'fringe') return toFringe(p, segments, m);
+    p.role = r;
+    p.length = Math.min(p.length, longest(r, segments, m));
+    p.base = Math.min(p.base, p.length);
+    if (r === 'leg') [p.lo, p.hi] = LEG_DIR;
+    return p;
+  });
+}
+
+/** The motile area of `parts` once mirrored: a coil's leg counts once, and its inner fringe. */
+function swimArea(parts: Part[], segments: readonly PlanSegment[]): number {
+  const m = parts.some((p) => p.inner) ? measure(segments) : undefined;
+  let area = 0;
+  for (const p of parts) {
+    const one = motileOf(p);
+    area += p.inner ? one + motileOf(toFringe(p, segments, m)) : 2 * one;
+  }
+  return area;
+}
+
+/** `parts` without one pair: the last fringe pair if any (it shows least), else the last pair. */
+function dropOne(parts: Part[]): Part[] {
+  for (let i = parts.length - 1; i >= 0; i--) {
+    if ((parts[i] as Part).fringe) return parts.filter((_, j) => j !== i);
+  }
+  return parts.slice(0, -1);
+}
+
+/**
+ * Bilateral parts: spread, read by region (M6c T3), shaped, trimmed (fringe first, then in module
+ * order), then a ciliary band if nothing swims.
+ */
 function bilateralParts(
   built: Part[],
   segments: PlanSegment[],
   sweep: number,
   body: Outline,
   scales: readonly number[],
+  coil: boolean,
 ): Part[] {
   const count = segments.length;
   for (const p of built) uncover(p, built, segments, body);
-  let parts = shape(separate(built, count, scales), segments, sweep, body);
-  // Trim in module order, pair by pair, until the plan fits the part cap.
-  while (!fits(parts)) parts = parts.slice(0, -1);
-  if (2 * motileArea(parts) >= D.minThrustArea) return parts;
+  const organized = organize(separate(built, count, scales), segments);
+  // A coil's legs show on the outer side of its curve only (ADR 0041).
+  if (coil) for (const p of organized) p.inner = p.role === 'leg';
+  let parts = shape(organized, segments, sweep, body);
+  // Trim pair by pair until the plan fits the part cap.
+  while (!fits(parts)) parts = dropOne(parts);
+  if (swimArea(parts, segments) >= D.minThrustArea) return parts;
   // Try the rear segment first, then the ones in front of it, before giving up any part.
   for (;;) {
     for (let seg = count - 1; seg >= 0; seg--) {
@@ -1566,22 +1728,46 @@ function bilateralParts(
       const trial = band && shape(band, segments, sweep, body);
       if (trial && fits([...parts, ...trial])) return [...parts, ...trial];
     }
-    parts = parts.slice(0, -1);
+    parts = dropOne(parts);
   }
 }
 
-/** Radial parts: ringed, trimmed in module order, and a ciliary band joins the ring if nothing swims. */
+/**
+ * A radial ring (M6c T3, ADR 0041): its first `SPOKE_PAIRS[1]` parts in module order are spokes,
+ * repeated round the ring to at least `SPOKE_PAIRS[0]`, each `spokeVary` as long; the rest, and
+ * `extra` (a band) before them, are fringe, set evenly between the spokes, `maxPairs` in all.
+ */
+function radialRing(all: Part[], extra: Part[], segments: readonly PlanSegment[]): Part[] {
+  const [least, most] = SPOKE_PAIRS;
+  const first = all.slice(0, most);
+  const spokes: Part[] = [];
+  for (let k = 0; first.length > 0 && (k < first.length || k < least); k++) {
+    const p = { ...(first[k % first.length] as Part), role: 'spoke' as const };
+    const vary = spokeVary(k, p);
+    spokes.push({ ...p, length: p.length * vary, base: p.base * vary });
+  }
+  const m = measure(segments);
+  const fringe = [...extra, ...all.slice(most).map((p) => toFringe(p, segments, m))].slice(
+    0,
+    D.radial.maxPairs - spokes.length,
+  );
+  const total = spokes.length + fringe.length;
+  const out: Part[] = [];
+  let [j, f] = [0, 0];
+  for (let slot = 0; slot < total; slot++) {
+    // Spoke j takes slot ⌊j × total ÷ spokes⌋, so the spokes stand evenly round the ring.
+    const spoke = j < spokes.length && slot === Math.floor((j * total) / spokes.length);
+    out.push(spoke ? (spokes[j++] as Part) : (fringe[f++] as Part));
+  }
+  return out;
+}
+
+/** Radial parts: spokes and fringe ringed, and a ciliary band joins the fringe if nothing swims. */
 function radialParts(all: Part[], segments: PlanSegment[], sweep: number, body: Outline): Part[] {
-  let keep = Math.min(all.length, D.radial.maxPairs);
-  let parts = ring(all.slice(0, keep), segments, sweep, body);
-  while (keep > 0 && !fits(parts)) parts = ring(all.slice(0, --keep), segments, sweep, body);
+  const parts = ring(radialRing(all, [], segments), segments, sweep, body);
   if (2 * motileArea(parts) >= D.minThrustArea) return parts;
   const band = Array.from({ length: D.band.pairs }, (_, j) => bandPart(0, 0, j, room(segments, 0)));
-  for (keep = Math.min(keep, D.radial.maxPairs - D.band.pairs); keep > 0; keep--) {
-    const trial = ring([...all.slice(0, keep), ...band], segments, sweep, body);
-    if (fits(trial)) return trial;
-  }
-  return ring(band, segments, sweep, body);
+  return ring(radialRing(all, band, segments), segments, sweep, body);
 }
 
 /** Where bristle `k` of `count` sits along a part, as a share of its length. */
@@ -1834,6 +2020,11 @@ function buildCarapace(segments: PlanSegment[], fusion: number, plating: number)
   for (const p of local) grow = Math.max(grow, hypot((p.x - cu) / rx, (p.y - cv) / ry));
   rx *= grow;
   ry *= grow;
+  // The shell overhangs its segments (M6c T3), so the legs on it root under it.
+  let widest = 0;
+  for (let i = 0; i < count; i++) widest = Math.max(widest, (segments[i] as PlanSegment).ry);
+  rx += D.fusion.overhang * widest;
+  ry += D.fusion.overhang * widest;
   const centre = placeOn(axis, cu, cv);
   const room = D.caps.bounds - D.boundsSlack - hypot(centre.x, centre.y);
   const fit = clamp(room / Math.max(rx, ry), D.epsilon, 1);
@@ -1931,28 +2122,49 @@ function buildColliders(
   return out;
 }
 
-export function develop(traits: Traits): BodyPlan {
+/** The chain and its parts for one form, before they are dressed and mirrored. */
+function grow(traits: Traits, form: Bending, n: number) {
   const shape = traits.shape;
-  const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
-  const form = formOf(shape, n);
   const build = buildOf(traits, form, n);
   const { segments, slim } = buildSegments(traits, form, build);
-  // A coil lays its chain out as more chambers than its segment genes give (M6b T6).
-  const count = segments.length;
-  const plating = traits.skin.plating;
-  const carapace = buildCarapace(segments, shape.fusion, plating);
   const scales = widthScales(segments);
   // A coil's parts root on its outer whorl, so they grow clear of the whorls inside it (M6b T7).
-  const rooms = build === 'coil' ? Math.min(count, D.curve.outer) : count;
+  const rooms = build === 'coil' ? Math.min(segments.length, D.curve.outer) : segments.length;
   const built = buildParts(traits, scales, rooms);
   // Parts keep off the drawn body (M6b T7).
   const body = outlineOf(segments);
   const R = D.radial;
   const parts = form.radial
     ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape, body)
-    : bilateralParts(built, segments, lerp(D.sweep, R.drapeSweep, shape.drape), body, scales);
+    : bilateralParts(
+        built,
+        segments,
+        lerp(D.sweep, R.drapeSweep, shape.drape),
+        body,
+        scales,
+        build === 'coil',
+      );
+  return { build, segments, slim, parts };
+}
 
-  const appendages = mirror(dress(parts, segments));
+export function develop(traits: Traits): BodyPlan {
+  const shape = traits.shape;
+  const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
+  let form = formOf(shape, n);
+  let grown = grow(traits, form, n);
+  const legs = (): number =>
+    grown.parts.reduce((count, p) => count + (p.role === 'leg' ? 1 : 0), 0);
+  // The coil's leg gate (ADR 0041): a coil with more leg pairs than `coilLegs` takes the C-curl.
+  if (form.mode === 2 && legs() > D.curve.coilLegs) {
+    form = formOf(shape, n, false);
+    grown = grow(traits, form, n);
+  }
+  const { segments, slim, parts } = grown;
+  // A coil lays its chain out as more chambers than its segment genes give (M6b T6).
+  const count = segments.length;
+  const plating = traits.skin.plating;
+  const carapace = buildCarapace(segments, shape.fusion, plating);
+  const appendages = mirror(dress(parts, segments), segments);
   const plates: Plate[] =
     plating < D.plateMin
       ? []
@@ -2197,7 +2409,7 @@ export function hashPlan(plan: BodyPlan): string {
     f(a.module, a.side, a.segment, a.angle, a.dir, a.length, a.width, a.girth, a.taper);
     f(a.curvature);
     f(a.joints, a.branches, a.tip, a.stiffness, a.beat, a.phase);
-    f(a.webbing, a.setae, a.setaeLength, a.bulb, a.chela, a.beads);
+    f(a.webbing, a.setae, a.setaeLength, a.bulb, a.chela, a.beads, a.fringe ? 1 : 0);
   }
   f(plan.plates.length);
   for (const p of plan.plates) f(p.segment, p.coverage, p.thickness);
