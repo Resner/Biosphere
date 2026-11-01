@@ -1904,6 +1904,13 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
 
   enter(session, 'title');
 
+  /** Teleports the player and snaps the camera onto it (`setZone`, `freezeAt`). */
+  const placeCamera = (x: number, y: number): void => {
+    const { player } = session;
+    debug.teleport(x, y);
+    camera.snap({ x, y, radius: Math.sqrt(player.biomass), adult: adultRadius(player) });
+    field.now();
+  };
   const debug: BsDebug = {
     setEnergy(energy) {
       const { player } = session;
@@ -1932,14 +1939,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     setZone(zone) {
       const { world, player } = session;
       const at = nearestInZone(world.seed32, world.size, player.x, player.y, zone);
-      debug.teleport(at.x, at.y);
-      camera.snap({
-        x: at.x,
-        y: at.y,
-        radius: Math.sqrt(player.biomass),
-        adult: adultRadius(player),
-      });
-      field.now();
+      placeCamera(at.x, at.y);
       return at;
     },
     nearestFood(kind) {
@@ -2016,6 +2016,11 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
     timeScale(next) {
       clock();
       scale = next;
+    },
+    freezeAt(tick, x, y) {
+      debug.timeScale(0);
+      session.world.tick = tick;
+      placeCamera(x, y);
     },
     resetWater() {
       view.flow.x = 0;

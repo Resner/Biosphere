@@ -6,13 +6,14 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
 
 ## Tasks
 
-- [ ] C0 Pin the scene of `m6-dof`'s medium scenario
+- [x] C0 Pin the scene of `m6-dof`'s medium scenario
   - Why: it failed on #222's CI ("a far-layer disc on plain water, clear of the others"; run 41338189016) while `main` and its `E2E main` were green. `play()` hatches, then freezes the world, so the tick it freezes at, and with it the food on screen and the creature's drift, depends on how fast the runner is (`.claude/rules/tests.md`: drive time through the sim). Some ticks leave no far disc on plain water.
   - Touches: `tests/e2e/m6-dof.spec.ts`, `src/game/debug.ts`, `docs/TESTING.md`.
   - Steps:
     1. Add a `debug.setTick(n)` (or an equivalent that freezes the world at a fixed tick and place, for example with `teleport`) so both pages of a pair, and every run, draw the same specks and food.
     2. Use it in `play()`, and check the other `m6-dof` scenarios for the same wait.
   - Acceptance: `npx playwright test tests/e2e/m6-dof.spec.ts --project post --no-deps --repeat-each=5 --workers=1` passes, with no assertion loosened.
+  - Done: `debug.freezeAt(tick, x, y)` freezes the world at tick 0 at the pond's centre; `play()` uses it (the only wait in `m6-dof`), and 5 repeats pass (15 of 15).
 
 - [ ] C1 Split `src/genome/develop.ts` (2,218 lines) into modules under 1,000 lines
   - Why: agents read a file 2,000 lines at a time, so its end is easy to miss. Every body task edits it, so the build lane conflicts with itself and with this lane.

@@ -333,6 +333,12 @@ export interface BsDebug {
   setBench(ms: number): void;
   /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
+  /**
+   * Freezes the world (as `timeScale(0)`) at sim tick `tick` with the player stopped at (`x`, `y`)
+   * and the camera on it, so a shot does not depend on how many ticks a slow runner played before
+   * the freeze: the food's bob and the player's drift are the same on every page.
+   */
+  freezeAt(tick: number, x: number, y: number): void;
   /** Zeroes the marine snow's flow and, in a frozen world, the shaders' clock: frozen shots then agree (M6 T17). */
   resetWater(): void;
   /** Sets the shaders' clock to this many seconds in a frozen world, leaving the snow's flow (M6b T8). */
