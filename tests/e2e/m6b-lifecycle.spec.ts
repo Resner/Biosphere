@@ -109,8 +109,8 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
     { timeout: 8_000 },
   );
   const revealed = await shown.jsonValue();
-  expect(revealed.tier).toBeTruthy();
-  expect(revealed.rarity.length, 'the card names the rarity').toBeGreaterThan(0);
+  expect(revealed?.tier).toBeTruthy();
+  expect(revealed?.rarity.length, 'the card names the rarity').toBeGreaterThan(0);
   await withinBudget(a, 'reveal');
 
   const b = await opened(await browser.newContext());
