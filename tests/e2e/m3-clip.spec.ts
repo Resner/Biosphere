@@ -10,7 +10,9 @@ import { openLab, QUERY, range, stage, WATER } from './lab-helpers';
 // camera whose depth range is fixed clips the tall middle of a big body and leaves a hole.
 
 const waterLuma = (0.2126 * WATER[0] + 0.7152 * WATER[1] + 0.0722 * WATER[2]) / 255;
-const LIT = waterLuma + 0.12;
+// The costliest ring's centre reads waterLuma + 0.119 at the smallest size (M6c T3 re-chose the
+// body); a hole shows the bare water, far below this, so the bar sits a hair under.
+const LIT = waterLuma + 0.11;
 // A dark body (deep purple, olive) is still a body: a hole shows the bare water, a hair above 0.
 const NOT_WATER = waterLuma + 0.04;
 
