@@ -45,7 +45,11 @@ export function bodyWidth(segments: readonly PlanSegment[]): number {
 }
 
 /** Where a root at `angle` on segment `segment` lies along the body: 0 the head's front, 1 the tail's end. */
-export function spineShare(segments: readonly PlanSegment[], segment: number, angle: number): number {
+export function spineShare(
+  segments: readonly PlanSegment[],
+  segment: number,
+  angle: number,
+): number {
   let at = (segments[0] as PlanSegment).rx;
   for (let i = 1; i <= segment; i++) {
     const [a, b] = [segments[i - 1], segments[i]] as [PlanSegment, PlanSegment];
@@ -103,7 +107,8 @@ export function spokeVary(
   part: Pick<Appendage, 'module' | 'phase' | 'length'>,
 ): number {
   const bits = (v: number): number => Math.floor(v * 65536);
-  const h = (hashU32(slot, part.module + 1, bits(part.phase), bits(part.length)) >>> 0) / 4294967296;
+  const h =
+    (hashU32(slot, part.module + 1, bits(part.phase), bits(part.length)) >>> 0) / 4294967296;
   return 1 + O.radial.vary * (2 * h - 1);
 }
 

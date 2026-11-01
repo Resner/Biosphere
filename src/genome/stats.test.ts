@@ -379,7 +379,9 @@ describe('computeStats: every benefit has a cost', () => {
       // fringe (ADR 0041), so only compare when no limb was lost.
       const limbs = (c: typeof before, m: number) =>
         c.plan.appendages.filter((a) => a.module === m && !a.fringe).length;
-      const lost = before.plan.appendages.some((a) => limbs(after, a.module) < limbs(before, a.module));
+      const lost = before.plan.appendages.some(
+        (a) => limbs(after, a.module) < limbs(before, a.module),
+      );
       if (lost || after.plan.appendages.length <= before.plan.appendages.length) continue;
       tested++;
       expect(after.stats.drag).toBeGreaterThanOrEqual(before.stats.drag - 1e-12);
@@ -452,7 +454,8 @@ describe('computeStats: development v2 follows form (ADR 0025)', () => {
     const heads = bytesList.map((b) => {
       const out = withLoci(b, { segDrive1: 255, segDrive2: 128 + (b[0] as number) / 2 });
       for (const hap of [0, HAPLOTYPE_BYTES]) {
-        for (const id of ['M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8']) out[hap + locus(id).offset] = 0;
+        for (const id of ['M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8'])
+          out[hap + locus(id).offset] = 0;
         const m1 = hap + locus('M1').offset;
         out[m1] = 1;
         out[m1 + 11] = 0; // attach start

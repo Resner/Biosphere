@@ -62,12 +62,15 @@ const PLANS: { traits: ReturnType<typeof express>; plan: BodyPlan }[] = BODIES.m
  */
 const SLOTS = ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8'];
 const COIL_PLANS: typeof PLANS = Array.from({ length: 2_000 }, () => {
-  const bytes = withLoci(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff), {
-    curve: 205 + (rng.nextU32() % 51),
-    segDrive1: 128 + (rng.nextU32() % 128),
-    segDrive2: 128 + (rng.nextU32() % 128),
-    symmetry: rng.nextU32() % 128,
-  });
+  const bytes = withLoci(
+    Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff),
+    {
+      curve: 205 + (rng.nextU32() % 51),
+      segDrive1: 128 + (rng.nextU32() % 128),
+      segDrive2: 128 + (rng.nextU32() % 128),
+      symmetry: rng.nextU32() % 128,
+    },
+  );
   const keep = 1 + (rng.nextU32() % 2);
   SLOTS.slice(keep).forEach((id) => {
     bytes[locus(id).offset] = 0;
@@ -247,7 +250,7 @@ describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
     expect(fringed).toBeGreaterThan(5_000);
   });
 
-  it('keeps each part to its region: lengths, the legs\' sweep, and fringe as short cilia', () => {
+  it("keeps each part to its region: lengths, the legs' sweep, and fringe as short cilia", () => {
     let legs = 0;
     for (const { plan } of ALL) {
       const [length, width] = [bodyLength(plan.segments), bodyWidth(plan.segments)];
@@ -284,7 +287,11 @@ describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
       if (plan.form.radial === 1 || c.count === 0) continue;
       for (const a of plan.appendages) {
         if (a.fringe || a.segment >= c.count || regionOf(a, plan) !== 'trunk') continue;
-        const root = rootOf(plan.segments[a.segment] as BodyPlan['segments'][number], a.angle, a.side);
+        const root = rootOf(
+          plan.segments[a.segment] as BodyPlan['segments'][number],
+          a.angle,
+          a.side,
+        );
         const [dx, dy] = [root.x - c.x, root.y - c.y];
         const u = (dx * cos(c.angle) + dy * sin(c.angle)) / c.rx;
         const v = (dy * cos(c.angle) - dx * sin(c.angle)) / c.ry;
@@ -317,7 +324,8 @@ describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
     for (const { plan, traits } of ALL) {
       if (plan.form.radial === 1) continue;
       if (plan.form.mode !== 2) {
-        if (traits.shape.curve > RULES.develop.curve.coilStart && plan.segments.length > 1) curled++;
+        if (traits.shape.curve > RULES.develop.curve.coilStart && plan.segments.length > 1)
+          curled++;
         continue;
       }
       coils++;

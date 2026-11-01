@@ -12,7 +12,6 @@ import { atan2, clamp, cos, length as hypot, lerp, PI, pow, sin, TAU } from '../
 import { RULES } from '../sim/rules';
 import type { Traits } from './express';
 import {
-  bodyWidth,
   LEG_DIR,
   longest,
   type Role,
@@ -267,8 +266,8 @@ const COIL_TURN = range(D.curve.coilTurn);
 /**
  * The spine's turn and mode (M6b T6): a C turns curve × π; an S of `sFrom` segments or more two
  * opposite arcs of `sArc` × curve × π each (at most `sMax` × π), a shorter one of half the curve's
- * turn each; past `coilStart` a chain of `chain.slimFrom` segments or more coils from
- * `coilTurn[0]` × π to `coilTurn[1]` × π, and a shorter one only curls.
+ * turn each; past `coilStart` a chain of `coilFrom` segments or more coils from `coilTurn[0]` × π
+ * to `coilTurn[1]` × π, and any other chain (or any, without `coil`) takes the C-curl (ADR 0041).
  */
 function formOf(shape: Traits['shape'], count: number, coil = true): Bending {
   const C = D.curve;
@@ -1297,7 +1296,8 @@ function uncover(p: Part, parts: readonly Part[], segments: PlanSegment[], body:
  * Keeps a v2 part off the body (M6b T7): a part with more than `keep.share` of its centre line
  * inside the drawn outline turns, `keep.step` at a time either way (the side away from the body
  * first, never ahead of `from`, never past the tail, and a tail part growing rearward no further
- * forward than sideways), up to `keep.turns` steps: the least turn that clears it whole wins, then
+ * forward than sideways, and a leg within its sweep, M6c T3), up to `keep.turns` steps: the least
+ * turn that clears it whole wins, then
  * the least that clears it shortened to fit the bounds. If none clears, it takes the whole turn
  * that buries least. Edits in place.
  */

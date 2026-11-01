@@ -9,8 +9,8 @@ import {
   findSpecimen,
   findTier,
   SPECIMEN_SILHOUETTES,
-  shortLeg,
   SPECIMEN_TIERS,
+  shortLeg,
   specimenFile,
 } from './specimen';
 

@@ -130,7 +130,9 @@ describe('development v2: spine curve', () => {
       { M1: { ...SWIM.M1, pairs: 100 } },
       { segDrive1: 255, segDrive2: 64, aspect: 128, curve: 205 },
     );
-    expect(express(decodeGenome(buildBytes({}, { segDrive1: 255, segDrive2: 64 }))).body.segments).toBeLessThan(8);
+    expect(
+      express(decodeGenome(buildBytes({}, { segDrive1: 255, segDrive2: 64 }))).body.segments,
+    ).toBeLessThan(8);
     expect(few.form.turn).toBeCloseTo(PI * (lo + ((205 / 255 - 0.8) / 0.2) * (hi - lo)), 9);
     expect(few.segments).toHaveLength(D.caps.segments);
     valid(few);
