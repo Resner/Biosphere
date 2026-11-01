@@ -1,4 +1,5 @@
-import { type Genome, genomeHash, genomeKaryotype } from '../genome/codec';
+import { type Genome, genomeHash } from '../genome/codec';
+import { KARYOTYPE_VERSION } from '../genome/karyotype';
 import { offspringPair } from '../genome/offspring';
 import { type Canonical, canonicalize } from './canonical';
 import { type Beacon, randomnessOf } from './drand';
@@ -9,6 +10,7 @@ import {
   type RecordRequest,
   recordHash,
   recordProblems,
+  retired,
   type StoredRecord,
 } from './record';
 
@@ -47,7 +49,7 @@ export function birthRequest(
       mates,
       genome: genomeHash(child),
       generation,
-      karyotype: genomeKaryotype(child),
+      karyotype: KARYOTYPE_VERSION,
     },
   };
 }
@@ -108,6 +110,7 @@ export function checkBirth(
   try {
     const shape = recordProblems(record);
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
+    if (retired(record)) return ['rules-retired'];
     if (record.kind !== 'birth') return ['not-birth'];
     if (commit.kind !== 'mate') return ['not-mate'];
     const data = commit.data as { a?: unknown; b?: unknown } | null;
@@ -155,14 +158,7 @@ export function checkBirth(
       failures.push('mate-hash');
     }
     if (child === null || failures.length > 0) return [...new Set(failures)];
-    // Recomputed under the record's own rules version, so births of older versions keep verifying.
-    const { children, slots } = offspringPair(
-      randomnessOf(beacon),
-      id,
-      parents[0],
-      parents[1],
-      record.rules,
-    );
+    const { children, slots } = offspringPair(randomnessOf(beacon), id, parents[0], parents[1]);
     const generation =
       Math.max(
         mates[0].record.body.generation as number,
@@ -171,7 +167,7 @@ export function checkBirth(
     if (body.slot !== slots[child]) failures.push('slot-mismatch');
     if (body.genome !== genomeHash(children[child])) failures.push('genome-mismatch');
     if (body.generation !== generation) failures.push('generation-mismatch');
-    if (body.karyotype !== genomeKaryotype(children[child])) failures.push('karyotype-mismatch');
+    if (body.karyotype !== KARYOTYPE_VERSION) failures.push('karyotype-mismatch');
     return failures;
   } catch {
     return ['invalid-record:unreadable'];

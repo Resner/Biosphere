@@ -2187,7 +2187,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         return {
           round: g.beacon.round,
           commit,
-          genomeHash: genomeHash(genesisFor(randomnessOf(g.beacon), commit, g.record.record.rules)),
+          genomeHash: genomeHash(genesisFor(randomnessOf(g.beacon), commit)),
         };
       },
     },

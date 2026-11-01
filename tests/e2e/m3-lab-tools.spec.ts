@@ -1,13 +1,12 @@
 import { expect, type Page, test } from '@playwright/test';
 import {
+  encodeGenome,
   GENOME_TEXT_LENGTH,
-  GENOME_TEXT_LENGTH_V1,
   type Genome,
   genomeHash,
-  genomeToBase64url,
   parseGenomeText,
 } from '../../src/genome/codec';
-import { genesisGenomeV5 } from '../../src/genome/genesis-v5';
+import { genesisGenome } from '../../src/genome/genesis';
 import { breedBatch, labRandomness } from '../../src/lab/breed';
 import { cellRect, GRID_COUNT } from '../../src/lab/grid';
 import { labGenomes } from '../../src/lab/specimens';
@@ -153,27 +152,19 @@ test('a genome copied out loads back in with the same hash; garbage changes noth
   expect(await hashes(page)).toEqual(before);
 });
 
-test('the paste box takes a karyotype v1 genome as well as a v2 one, each keeping its hash', async ({
+test('the paste box refuses the text of a karyotype v1 genome, retired with rules 8', async ({
   page,
 }) => {
   await openLab(page);
-  const v1 = genesisGenomeV5(seedFromString('lab-paste-v1'));
-  const v1Text = genomeToBase64url(v1);
-  expect(v1Text).toHaveLength(GENOME_TEXT_LENGTH_V1);
-  await clickCell(page, 3);
-  await page.getByTestId('tool-copy').click();
-  const v2Text = await page.getByTestId('genome-copy').inputValue();
-  expect(v2Text).toHaveLength(GENOME_TEXT_LENGTH);
-
+  const before = await hashes(page);
+  // 328 bytes was a v1 genome (ADR 0040): its 438 characters are not one genome any more.
+  const bytes = encodeGenome(genesisGenome(seedFromString('lab-paste-v1'))).subarray(0, 328);
+  const v1Text = Buffer.from(bytes).toString('base64url');
+  expect(v1Text).toHaveLength(438);
+  expect(v1Text).not.toHaveLength(GENOME_TEXT_LENGTH);
   await clickCell(page, 7);
   await page.getByTestId('genome-load').fill(v1Text);
   await page.getByTestId('tool-load').click();
-  await expect(page.getByTestId('lab-error')).toBeHidden();
-  await clickCell(page, 8);
-  await page.getByTestId('genome-load').fill(v2Text);
-  await page.getByTestId('tool-load').click();
-  await expect(page.getByTestId('lab-error')).toBeHidden();
-  const after = await hashes(page);
-  expect(after[7]).toBe(genomeHash(v1));
-  expect(after[8]).toBe(genomeHash(parseGenomeText(v2Text) as Genome));
+  await expect(page.getByTestId('lab-error')).toBeVisible();
+  expect(await hashes(page)).toEqual(before);
 });

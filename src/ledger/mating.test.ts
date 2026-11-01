@@ -1,8 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { genomeHash, genomeKaryotype } from '../genome/codec';
+import { genomeHash } from '../genome/codec';
 import { genesisGenome } from '../genome/genesis';
-import { genesisGenomeV5 } from '../genome/genesis-v5';
 import { offspringPair } from '../genome/offspring';
 import { seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
@@ -175,14 +174,10 @@ const stored = (record: LedgerRecord): StoredRecord => ({
 });
 
 /** A whole mating: two players, their creatures, the commitment, both mate-commits and both births. */
-async function mating(
-  generations: [number, number] = [2, 5],
-  { rules = RULES_VERSION, v1Parents = false } = {},
-) {
+async function mating(generations: [number, number] = [2, 5], { rules = RULES_VERSION } = {}) {
   const [a, b] = [await id(1), await id(2)];
-  const parentOf = v1Parents ? genesisGenomeV5 : genesisGenome;
-  const genomeA = parentOf(seedFromString('birth-a'));
-  const genomeB = parentOf(seedFromString('birth-b'));
+  const genomeA = genesisGenome(seedFromString('birth-a'));
+  const genomeB = genesisGenome(seedFromString('birth-b'));
   const creatureA = H('c');
   const creatureB = H('d');
   const ask = (who: Identity, mine: string, theirs: string, partner: Identity) =>
@@ -244,13 +239,7 @@ async function mating(
     stored(mateRecord(a, b, creatureA, creatureB, 'a', hashA, hashB, generations[0])),
     stored(mateRecord(b, a, creatureB, creatureA, 'b', hashB, hashA, generations[1])),
   ];
-  const { children, slots } = offspringPair(
-    randomnessOf(beacon),
-    commitId,
-    genomeA,
-    genomeB,
-    rules,
-  );
+  const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
   const generation = Math.max(...generations) + 1;
   const births = [0, 1].map((i): LedgerRecord => {
     const request = birthRequest(
@@ -338,24 +327,18 @@ describe('checkBirth', () => {
     expect(check(m, 1)).toEqual([]);
   });
 
-  it('verifies a rules 5 birth of v1 parents through the frozen v5 code', async () => {
-    const m = await mating([2, 5], { rules: 5, v1Parents: true });
-    expect(m.children.map(genomeKaryotype)).toEqual([1, 1]);
-    expect(m.births.map((r) => r.body.karyotype)).toEqual([1, 1]);
-    expect(check(m, 0)).toEqual([]);
-    expect(check(m, 1)).toEqual([]);
+  it('answers rules-retired for a birth of a rules version before the reset (ADR 0040)', async () => {
+    const m = await mating([2, 5], { rules: 7 });
+    expect(check(m, 0)).toEqual(['rules-retired']);
+    expect(check(m, 1)).toEqual(['rules-retired']);
   });
 
-  it('verifies a rules 6 birth of v1 parents: padded before meiosis, v2 children', async () => {
-    const m = await mating([2, 5], { rules: 6, v1Parents: true });
-    expect(m.genomes.map(genomeKaryotype)).toEqual([1, 1]);
-    expect(m.children.map(genomeKaryotype)).toEqual([2, 2]);
-    expect(m.births.map((r) => r.body.karyotype)).toEqual([2, 2]);
-    expect(check(m, 0)).toEqual([]);
-    expect(check(m, 1)).toEqual([]);
-    // Under rules 5 the same round would have bred other (v1) children.
-    const v5 = offspringPair(randomnessOf(m.beacon), m.commitId, ...m.genomes, 5).children;
-    expect(genomeHash(v5[0])).not.toBe(m.births[0]?.body.genome);
+  it('names a karyotype other than v2', async () => {
+    const m = await mating();
+    const r = m.births[0] as LedgerRecord;
+    expect(check(m, 0, { record: { ...r, body: { ...r.body, karyotype: 1 } } })).toEqual([
+      'karyotype-mismatch',
+    ]);
   });
 
   it('generation is the larger parent generation plus one, whichever parent is older', async () => {

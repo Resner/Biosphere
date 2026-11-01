@@ -12,11 +12,9 @@ import {
   genomeHash,
   genomeToBase64url,
   parseGenomeText,
-  upgrade,
 } from './codec';
 import { genesisGenome } from './genesis';
-import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI } from './karyotype';
-import { GENOME_BYTES_V1, HAPLOTYPE_BYTES_V1, LOCI_V1 } from './karyotype-v1';
+import { BASE_BYTES, GENOME_BYTES, HAPLOTYPE_BYTES, LOCI } from './karyotype';
 
 const rng = createRng(seedFromString('genome-codec-tests'), 'bytes');
 
@@ -41,16 +39,16 @@ const counter = goldenInputs.counter;
 const hex = (bytes: Uint8Array): string => Buffer.from(bytes).toString('hex');
 
 describe('karyotype', () => {
-  it('lays the v1 loci out contiguously over six chromosomes', () => {
+  it('lays the base loci out contiguously over six chromosomes', () => {
+    const base = LOCI.filter((l) => l.offset < BASE_BYTES);
     let offset = 0;
-    for (const locus of LOCI_V1) {
+    for (const locus of base) {
       expect(locus.offset).toBe(offset);
       offset += locus.size;
     }
-    expect(offset).toBe(HAPLOTYPE_BYTES_V1);
-    expect(GENOME_BYTES_V1).toBe(2 * HAPLOTYPE_BYTES_V1);
-    expect(new Set(LOCI_V1.map((l) => l.chr))).toEqual(new Set([1, 2, 3, 4, 5, 6]));
-    expect(LOCI_V1.map((l) => l.chr)).toEqual([...LOCI_V1.map((l) => l.chr)].sort());
+    expect(offset).toBe(BASE_BYTES);
+    expect(new Set(base.map((l) => l.chr))).toEqual(new Set([1, 2, 3, 4, 5, 6]));
+    expect(base.map((l) => l.chr)).toEqual([...base.map((l) => l.chr)].sort());
     expect(new Set(LOCI.map((l) => l.id)).size).toBe(LOCI.length);
   });
 
@@ -80,11 +78,16 @@ describe('karyotype', () => {
 });
 
 describe('decodeGenome', () => {
-  it('never throws on short, long or extreme input', () => {
-    const lengths = [0, 1, GENOME_BYTES - 1, GENOME_BYTES, GENOME_BYTES + 1, 4096];
+  it('decodes any bytes as a v2 genome, never throwing (10,000 inputs, 328-byte ones too)', () => {
+    // 328 bytes was a karyotype v1 genome before rules 8; it now decodes as v2, zero-padded (ADR 0040).
+    const lengths = [0, 1, 328, GENOME_BYTES - 1, GENOME_BYTES, GENOME_BYTES + 1, 4096];
     for (let i = 0; i < 10_000; i++) {
       const bytes = randomBytes(lengths[i % lengths.length] as number);
-      expect(() => decodeGenome(bytes)).not.toThrow();
+      let g: Genome | undefined;
+      expect(() => {
+        g = decodeGenome(bytes);
+      }).not.toThrow();
+      for (const h of (g as Genome).haplotypes) expect(h.alleles).toHaveLength(HAPLOTYPE_BYTES);
     }
     for (const length of lengths) {
       decodeGenome(new Uint8Array(length));
@@ -171,25 +174,6 @@ describe('genomeHash', () => {
     }
   });
 
-  it('keeps the karyotype v1 golden hashes (frozen, ADR 0025)', () => {
-    const file = new URL('./__golden__/genome-hash-v1.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      karyotype: number;
-      vectors: Record<string, { input: string; canonical: string; hash: string }>;
-    };
-    expect(golden).toMatchObject({ rulesVersion: 5, karyotype: 1 });
-    const inputs = inputsOf(GENOME_BYTES_V1);
-    expect(Object.keys(golden.vectors)).toEqual(Object.keys(inputs));
-    for (const [name, bytes] of Object.entries(inputs)) {
-      const v = golden.vectors[name] as { input: string; canonical: string; hash: string };
-      expect(v.input).toBe(hex(bytes));
-      const g = decodeGenome(bytes);
-      expect(hex(encodeGenome(g))).toBe(v.canonical);
-      expect(genomeHash(g)).toBe(v.hash);
-    }
-  });
-
   const file = new URL('./__golden__/genome-hash.json', import.meta.url);
   const vectorsOf = (inputs: Record<string, Uint8Array>) =>
     Object.fromEntries(
@@ -198,14 +182,11 @@ describe('genomeHash', () => {
         return [name, { input: hex(bytes), canonical: hex(encodeGenome(g)), hash: genomeHash(g) }];
       }),
     );
-  /** The v2 vectors, and the v1 inputs upgraded to v2 (`upgrade`). */
+  /** The vectors, and the hashes of 328-byte inputs (the old v1 length), which decode zero-padded. */
   const compute = () => ({
     vectors: vectorsOf(goldenInputs),
-    upgraded: Object.fromEntries(
-      Object.entries(inputsOf(GENOME_BYTES_V1)).map(([name, bytes]) => [
-        name,
-        genomeHash(upgrade(decodeGenome(bytes))),
-      ]),
+    short: Object.fromEntries(
+      Object.entries(inputsOf(328)).map(([name, bytes]) => [name, genomeHash(decodeGenome(bytes))]),
     ),
   });
   if (process.env.UPDATE_GOLDENS) {

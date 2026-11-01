@@ -1,16 +1,12 @@
-import { type Genome, genomeHash, genomeKaryotype, genomeToBase64url } from '../genome/codec';
+import { type Genome, genomeHash, genomeToBase64url } from '../genome/codec';
 import { genesisGenome } from '../genome/genesis';
-import { genesisGenomeV5 } from '../genome/genesis-v5';
-import { genesisGenomeV6 } from '../genome/genesis-v6';
-import { genesisGenomeV7 } from '../genome/genesis-v7';
 import { deriveSeed } from '../genome/inherit';
-import { karyotypeForRules } from '../genome/karyotype';
+import { KARYOTYPE_VERSION } from '../genome/karyotype';
 import type { Seed } from '../sim/prng';
-import { RULES_VERSION } from '../sim/rules';
 import { type GenesisAsk, verifyGenesisAsk } from './ask';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import { type Beacon, randomnessOf, verifyBeacon } from './drand';
-import { type LedgerRecord, type RecordRequest, recordProblems } from './record';
+import { type LedgerRecord, type RecordRequest, recordProblems, retired } from './record';
 
 // Genesis (ADR 0010, 0019): a creature's first DNA comes from a drand round that did not exist
 // when the player asked for it. Everything here is pure, so the client and (from M9) the verifier
@@ -40,16 +36,9 @@ export function genesisSeed(randomness: Uint8Array, commitId: string): Seed {
   return deriveSeed(GENESIS_DOMAIN, randomness, commitId, 0);
 }
 
-/** The genesis DNA under `rules`: the frozen v5 code (karyotype v1) up to rules 5, the frozen v6 code at 6, the frozen v7 code at 7, the current code after. */
-export function genesisFor(
-  randomness: Uint8Array,
-  commitId: string,
-  rules: number = RULES_VERSION,
-): Genome {
-  const seed = genesisSeed(randomness, commitId);
-  if (karyotypeForRules(rules) === 1) return genesisGenomeV5(seed);
-  if (rules <= 6) return genesisGenomeV6(seed);
-  return rules === 7 ? genesisGenomeV7(seed) : genesisGenome(seed);
+/** The genesis DNA of a commitment, under the live rules version (ADR 0040). */
+export function genesisFor(randomness: Uint8Array, commitId: string): Genome {
+  return genesisGenome(genesisSeed(randomness, commitId));
 }
 
 /** The record request that turns a commitment and its beacon into a creature. */
@@ -67,7 +56,7 @@ export function genesisRequest(rules: number, commit: Commitment, genome: Genome
       round: commit.round,
       genome: genomeHash(genome),
       generation: 0,
-      karyotype: genomeKaryotype(genome),
+      karyotype: KARYOTYPE_VERSION,
     },
   };
 }
@@ -88,6 +77,7 @@ export function checkGenesis(
   try {
     const shape = recordProblems(record);
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
+    if (retired(record)) return ['rules-retired'];
     const failures: string[] = [];
     const id = commitmentId(commit);
     const ask = commit.data as Partial<GenesisAsk> | null;
@@ -104,7 +94,7 @@ export function checkGenesis(
     if (record.body.round !== commit.round) failures.push('round-mismatch');
     failures.push(...beaconProblems(commit, beacon));
     if (failures.length > 0) return failures;
-    const genome = genesisFor(randomnessOf(beacon), id, record.rules);
+    const genome = genesisFor(randomnessOf(beacon), id);
     const expected = genesisRequest(record.rules, commit, genome);
     if (canonicalize(expected.body) !== canonicalize(record.body)) failures.push('body-mismatch');
     if (genomeText !== undefined && genomeText !== genomeToBase64url(genome)) {

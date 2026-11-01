@@ -463,16 +463,10 @@ export class Authority extends DurableObject<Env> {
     const mates = parentIds.map((id) => this.mateRecord(id, commitId));
     if (!mates[0] || !mates[1]) return;
     // The births take the rules version the mate-commits were written under (checkBirth requires
-    // it), so a mating that spans a rules change still verifies; v6 pads v1 parents to karyotype v2.
+    // it); a mating of a retired version (ADR 0040) never resolves.
     const rules = mates[0].record.rules;
     if (mates[1].record.rules !== rules) return;
-    const { children, slots } = offspringPair(
-      randomnessOf(beacon),
-      commitId,
-      genomeA,
-      genomeB,
-      rules,
-    );
+    const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
     const generation = Math.max(headA.generation, headB.generation) + 1;
     const mateHashes: [string, string] = [mates[0].hash, mates[1].hash];
     const result = this.ledger.birth({

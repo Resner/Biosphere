@@ -1,6 +1,6 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { GENESIS_FORMS } from '../../src/genome/genesis-v6';
+import { GENESIS_FORMS } from '../../src/genome/genesis';
 import { PRESETS } from '../../src/render/presets';
 import {
   clickHatch,
