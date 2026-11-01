@@ -130,7 +130,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Creatures that read as organisms (ADR 0041)
 
-- [ ] T3 Parts by region, a visible-part budget, gated coils [opus] (in progress)
+- [x] T3 Parts by region, a visible-part budget, gated coils [opus] (in progress)
+  - Done: `organism.ts` reads regions and roles; `develop.ts` clamps, budgets (tail, long, short antennae, then legs from the front) and turns the rest to `fringe` (drawn 0.04 wide); radial 3–4 spoke pairs ±30%; shells overhang 0.25 so legs root under them; coils need 5+ segment genes and ≤ 2 legs, inner legs fringe.
+  - Gotcha: random bytes now almost never coil, so `develop-curl.test.ts` adds 2,000 coil candidates; gallery 29, 31 and 39 were re-searched (seed `gallery-m6c*`), and m3-clip checks the costliest ring (the costliest body is now a clear-headed worm).
   - Why: the Lab screenshot shows 10–20 equally weighted spokes, antennae mid-body and legs at the front. Development gives every module slot the same freedom, and the 24-instance cap is a collider budget, not a look budget.
   - Steps:
     1. Add `src/genome/organism.ts`:

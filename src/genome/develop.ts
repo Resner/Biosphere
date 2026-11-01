@@ -14,6 +14,7 @@ import type { Traits } from './express';
 import {
   LEG_DIR,
   longest,
+  measure,
   type Role,
   regionOf,
   rolesOf,
@@ -1513,13 +1514,13 @@ type Piece = Pick<Appendage, 'length' | 'girth' | 'beat' | 'branches'>;
 /** Motile area: length × girth × beat over parts that beat at all, counting branches. */
 export function motileArea(appendages: readonly Piece[]): number {
   let area = 0;
-  for (const a of appendages) {
-    if (a.beat >= D.minBeat) {
-      area += a.length * a.girth * a.beat * branchWeight(a);
-    }
-  }
+  for (const a of appendages) area += motileOf(a);
   return area;
 }
+
+/** One part's motile area: length × girth × beat, counting branches, if it beats at all. */
+const motileOf = (a: Piece): number =>
+  a.beat >= D.minBeat ? a.length * a.girth * a.beat * branchWeight(a) : 0;
 
 /** Whether the left-side `parts`, mirrored, hold the instance cap: parts are capped by count only (ADR 0025). */
 const fits = (parts: Part[]): boolean => parts.length * 2 <= D.caps.appendages;
@@ -1571,9 +1572,9 @@ function bandParts(parts: Part[], segment: number, room: number): Part[] | null 
  * widths long, drawn `fringe.width` wide (a fine stroke), with the band's girth at most, beating as
  * the band does, with no branches or detail.
  */
-function toFringe(p: Part, segments: readonly PlanSegment[]): Part {
+function toFringe(p: Part, segments: readonly PlanSegment[], m = measure(segments)): Part {
   const B = D.band;
-  const length = Math.min(p.length, longest('fringe', segments));
+  const length = Math.min(p.length, longest('fringe', segments, m));
   const girth = Math.min(p.girth, B.width);
   const { role: _r, lo: _l, hi: _h, inner: _i, ...rest } = p;
   return {
@@ -1621,18 +1622,19 @@ function mirror(parts: Part[], segments: readonly PlanSegment[]): Appendage[] {
 function organize(parts: Part[], segments: PlanSegment[]): Part[] {
   const limbs = parts.filter((p) => !p.fringe);
   const plan = { segments };
+  const m = measure(segments);
   const roles = rolesOf(
-    limbs.map((p) => regionOf(p, plan)),
+    limbs.map((p) => regionOf(p, plan, m)),
     limbs.map((p) => p.length),
-    limbs.map((p) => spineShare(segments, p.segment, p.angle)),
+    limbs.map((p) => spineShare(segments, p.segment, p.angle, m)),
   );
   const role = new Map(limbs.map((p, i) => [p, roles[i] as Role]));
   return parts.map((p) => {
     const r = role.get(p);
     if (r === undefined) return p;
-    if (r === 'fringe') return toFringe(p, segments);
+    if (r === 'fringe') return toFringe(p, segments, m);
     p.role = r;
-    p.length = Math.min(p.length, longest(r, segments));
+    p.length = Math.min(p.length, longest(r, segments, m));
     p.base = Math.min(p.base, p.length);
     if (r === 'leg') [p.lo, p.hi] = LEG_DIR;
     return p;
@@ -1643,8 +1645,8 @@ function organize(parts: Part[], segments: PlanSegment[]): Part[] {
 function swimArea(parts: Part[], segments: readonly PlanSegment[]): number {
   let area = 0;
   for (const p of parts) {
-    const one = motileArea([p]);
-    area += p.inner ? one + motileArea([toFringe(p, segments)]) : 2 * one;
+    const one = motileOf(p);
+    area += p.inner ? one + motileOf(toFringe(p, segments)) : 2 * one;
   }
   return area;
 }
@@ -1703,7 +1705,8 @@ function radialRing(all: Part[], extra: Part[], segments: readonly PlanSegment[]
     const vary = spokeVary(k, p);
     spokes.push({ ...p, length: p.length * vary, base: p.base * vary });
   }
-  const fringe = [...extra, ...all.slice(most).map((p) => toFringe(p, segments))].slice(
+  const m = measure(segments);
+  const fringe = [...extra, ...all.slice(most).map((p) => toFringe(p, segments, m))].slice(
     0,
     D.radial.maxPairs - spokes.length,
   );

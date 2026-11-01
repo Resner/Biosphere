@@ -232,88 +232,112 @@ const shown = (plan: BodyPlan) =>
     .filter((a) => a.side === 1 && !a.fringe)
     .map((a) => ({ a, region: regionOf(a, plan) }));
 
+/**
+ * A list of what broke, so the loops over the plan cache call `expect` once, not per part (an
+ * `expect` per part made these tests the slowest in the cache).
+ */
+function breaks() {
+  const bad: string[] = [];
+  return {
+    check: (ok: boolean, what: () => string): void => {
+      if (!ok && bad.length < 5) bad.push(what());
+    },
+    bad,
+  };
+}
+
 describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
   it('shows at most 14 instances: 2 head pairs, 6 trunk pairs and 1 rear structure', () => {
+    expect(VISIBLE_PAIRS).toBe(7);
+    const { check, bad } = breaks();
     let fringed = 0;
-    for (const { plan } of ALL) {
-      expect(visibleCount(plan)).toBeLessThanOrEqual(2 * VISIBLE_PAIRS);
-      expect(VISIBLE_PAIRS).toBe(7);
+    ALL.forEach(({ plan }, i) => {
+      check(visibleCount(plan) <= 2 * VISIBLE_PAIRS, () => `${i}: ${visibleCount(plan)} shown`);
       if (plan.appendages.some((a) => a.fringe && a.module >= 0)) fringed++;
-      if (plan.form.radial === 1) continue;
+      if (plan.form.radial === 1) return;
       const parts = shown(plan);
       const count = (r: string) => parts.filter((p) => p.region === r).length;
-      expect(count('head')).toBeLessThanOrEqual(2);
-      expect(count('trunk')).toBeLessThanOrEqual(6);
-      expect(count('rear')).toBeLessThanOrEqual(1);
-    }
+      check(count('head') <= 2, () => `${i}: ${count('head')} head pairs`);
+      check(count('trunk') <= 6, () => `${i}: ${count('trunk')} trunk pairs`);
+      check(count('rear') <= 1, () => `${i}: ${count('rear')} rear structures`);
+    });
+    expect(bad).toEqual([]);
     // Random bytes carry many parts, so the budget turns many to fringe.
     expect(fringed).toBeGreaterThan(5_000);
   });
 
   it("keeps each part to its region: lengths, the legs' sweep, and fringe as short cilia", () => {
+    const { check, bad } = breaks();
+    const [lo, hi] = LEG_DIR as [number, number];
     let legs = 0;
-    for (const { plan } of ALL) {
+    ALL.forEach(({ plan }, i) => {
       const [length, width] = [bodyLength(plan.segments), bodyWidth(plan.segments)];
       for (const a of plan.appendages) {
         if (!a.fringe || a.module < 0) continue;
-        expect(a.length).toBeLessThanOrEqual(0.3 * width + 1e-9);
-        expect(a.branches + a.setae + a.bulb + a.webbing + a.chela).toBe(0);
+        check(a.length <= 0.3 * width + 1e-9, () => `${i}: fringe ${a.length} long`);
+        check(
+          a.branches + a.setae + a.bulb + a.webbing + a.chela === 0,
+          () => `${i}: dressed fringe`,
+        );
       }
-      if (plan.form.radial === 1) continue;
+      if (plan.form.radial === 1) return;
       const parts = shown(plan);
       const head = parts.filter((p) => p.region === 'head').map((p) => p.a.length);
       head.sort((x, y) => y - x);
-      if (head[0] !== undefined) expect(head[0]).toBeLessThanOrEqual(2.2 * length + 1e-9);
-      if (head[1] !== undefined) expect(head[1]).toBeLessThanOrEqual(0.6 * length + 1e-9);
+      const [antenna = 0, feeler = 0] = head;
+      check(antenna <= 2.2 * length + 1e-9, () => `${i}: antenna ${antenna} of ${length}`);
+      check(feeler <= 0.6 * length + 1e-9, () => `${i}: short antenna ${feeler} of ${length}`);
       for (const { a, region } of parts) {
-        if (region === 'rear') expect(a.length).toBeLessThanOrEqual(1.5 * length + 1e-9);
+        if (region === 'rear')
+          check(a.length <= 1.5 * length + 1e-9, () => `${i}: tail ${a.length}`);
         if (region !== 'trunk') continue;
         legs++;
-        expect(a.length).toBeLessThanOrEqual(0.9 * width + 1e-9);
+        check(a.length <= 0.9 * width + 1e-9, () => `${i}: leg ${a.length} of width ${width}`);
         // Swept back 25-70° from the side.
-        expect(a.dir).toBeGreaterThanOrEqual((LEG_DIR[0] as number) - 1e-9);
-        expect(a.dir).toBeLessThanOrEqual((LEG_DIR[1] as number) + 1e-9);
+        check(a.dir >= lo - 1e-9 && a.dir <= hi + 1e-9, () => `${i}: leg growing at ${a.dir}`);
       }
-    }
+    });
+    expect(bad).toEqual([]);
     expect(legs).toBeGreaterThan(20_000);
-    expect(LEG_DIR[0]).toBeCloseTo(PI / 2 + (25 * PI) / 180, 12);
-    expect(LEG_DIR[1]).toBeCloseTo(PI / 2 + (70 * PI) / 180, 12);
+    expect(lo).toBeCloseTo(PI / 2 + (25 * PI) / 180, 12);
+    expect(hi).toBeCloseTo(PI / 2 + (70 * PI) / 180, 12);
   });
 
   it('roots the legs on a carapace under its shell', () => {
+    const { check, bad } = breaks();
     let legs = 0;
-    for (const { plan } of PLANS) {
+    PLANS.forEach(({ plan }, i) => {
       const c = plan.carapace;
-      if (plan.form.radial === 1 || c.count === 0) continue;
+      if (plan.form.radial === 1 || c.count === 0) return;
       for (const a of plan.appendages) {
         if (a.fringe || a.segment >= c.count || regionOf(a, plan) !== 'trunk') continue;
-        const root = rootOf(
-          plan.segments[a.segment] as BodyPlan['segments'][number],
-          a.angle,
-          a.side,
-        );
+        const s = plan.segments[a.segment] as BodyPlan['segments'][number];
+        const root = rootOf(s, a.angle, a.side);
         const [dx, dy] = [root.x - c.x, root.y - c.y];
         const u = (dx * cos(c.angle) + dy * sin(c.angle)) / c.rx;
         const v = (dy * cos(c.angle) - dx * sin(c.angle)) / c.ry;
-        expect(u * u + v * v).toBeLessThan(1);
+        check(u * u + v * v < 1, () => `${i}: leg root outside the shell (${u * u + v * v})`);
         legs++;
       }
-    }
+    });
+    expect(bad).toEqual([]);
     expect(legs).toBeGreaterThan(5_000);
   });
 
   it('rings a radial body with 5-9 spokes of lengths varied by a hash', () => {
+    expect(SPOKE_PAIRS).toEqual([3, 4]);
+    const { check, bad } = breaks();
     let radial = 0;
     let varied = 0;
-    expect(SPOKE_PAIRS).toEqual([3, 4]);
-    for (const { plan } of PLANS) {
-      if (plan.form.radial !== 1 || !plan.appendages.some((a) => a.module >= 0)) continue;
+    PLANS.forEach(({ plan }, i) => {
+      if (plan.form.radial !== 1 || !plan.appendages.some((a) => a.module >= 0)) return;
       radial++;
-      expect(visibleCount(plan)).toBeGreaterThanOrEqual(5);
-      expect(visibleCount(plan)).toBeLessThanOrEqual(9);
+      const n = visibleCount(plan);
+      check(n >= 5 && n <= 9, () => `${i}: ${n} spokes`);
       const lengths = plan.appendages.filter((a) => !a.fringe).map((a) => a.length);
       if (Math.max(...lengths) > 1.1 * Math.min(...lengths)) varied++;
-    }
+    });
+    expect(bad).toEqual([]);
     expect(radial).toBeGreaterThan(5_000);
     expect(varied / radial).toBeGreaterThan(0.5);
   });

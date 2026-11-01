@@ -26,63 +26,78 @@ export const LEG_DIR: readonly [number, number] = [
   PI / 2 + deg(O.trunk.sweep[1] as number),
 ];
 
-/** A body's length along its spine: the head's front, through every link, to the tail's end. */
-export function bodyLength(segments: readonly PlanSegment[]): number {
-  const head = segments[0] as PlanSegment;
-  let length = head.rx + (segments[segments.length - 1] as PlanSegment).rx;
-  for (let i = 1; i < segments.length; i++) {
-    const [a, b] = [segments[i - 1], segments[i]] as [PlanSegment, PlanSegment];
-    length += hypot(b.x - a.x, b.y - a.y);
-  }
-  return length;
+/** A body's measures for its region rules: its length and width, and each segment centre's place along the spine. */
+export interface Measure {
+  length: number;
+  width: number;
+  /** Segment `i`'s centre, from the head's front along the spine. */
+  at: number[];
 }
 
-/** A body's width: twice its widest segment's drawn half-width. */
-export function bodyWidth(segments: readonly PlanSegment[]): number {
-  let w = 0;
-  for (const s of segments) w = Math.max(w, s.ry);
-  return 2 * w;
+/**
+ * Measures a body once (development reads every part against them): its length along its spine
+ * (the head's front, through every link, to the tail's end) and its width (twice its widest
+ * segment's drawn half-width).
+ */
+export function measure(segments: readonly PlanSegment[]): Measure {
+  const head = segments[0] as PlanSegment;
+  const at = [head.rx];
+  let width = 2 * head.ry;
+  for (let i = 1; i < segments.length; i++) {
+    const [a, b] = [segments[i - 1], segments[i]] as [PlanSegment, PlanSegment];
+    at.push((at[i - 1] as number) + hypot(b.x - a.x, b.y - a.y));
+    width = Math.max(width, 2 * b.ry);
+  }
+  const length = (at[at.length - 1] as number) + (segments[segments.length - 1] as PlanSegment).rx;
+  return { length, width, at };
 }
+
+/** A body's length along its spine. */
+export const bodyLength = (segments: readonly PlanSegment[]): number => measure(segments).length;
+
+/** A body's width: twice its widest segment's drawn half-width. */
+export const bodyWidth = (segments: readonly PlanSegment[]): number => measure(segments).width;
 
 /** Where a root at `angle` on segment `segment` lies along the body: 0 the head's front, 1 the tail's end. */
 export function spineShare(
   segments: readonly PlanSegment[],
   segment: number,
   angle: number,
+  m: Measure = measure(segments),
 ): number {
-  let at = (segments[0] as PlanSegment).rx;
-  for (let i = 1; i <= segment; i++) {
-    const [a, b] = [segments[i - 1], segments[i]] as [PlanSegment, PlanSegment];
-    at += hypot(b.x - a.x, b.y - a.y);
-  }
   const s = segments[segment] as PlanSegment;
-  return (at - s.rx * cos(angle)) / bodyLength(segments);
+  return ((m.at[segment] as number) - s.rx * cos(angle)) / m.length;
 }
 
 /** The region of a bilateral part from where it attaches: its root's share along the spine, and its angle. */
 export function regionOf(
   part: Pick<Appendage, 'segment' | 'angle'>,
   plan: Pick<BodyPlan, 'segments'>,
+  m: Measure = measure(plan.segments),
 ): Region {
-  const t = spineShare(plan.segments, part.segment, part.angle);
+  const t = spineShare(plan.segments, part.segment, part.angle, m);
   if (t <= O.head.share && part.angle <= HEAD_CONE) return 'head';
   if (t >= 1 - O.rear.share) return 'rear';
   return 'trunk';
 }
 
 /** The longest a part of `role` may be on this body (Infinity: no region limit). */
-export function longest(role: Role, segments: readonly PlanSegment[]): number {
+export function longest(
+  role: Role,
+  segments: readonly PlanSegment[],
+  m: Measure = measure(segments),
+): number {
   switch (role) {
     case 'antenna':
-      return O.head.long * bodyLength(segments);
+      return O.head.long * m.length;
     case 'feeler':
-      return O.head.short * bodyLength(segments);
+      return O.head.short * m.length;
     case 'leg':
-      return O.trunk.length * bodyWidth(segments);
+      return O.trunk.length * m.width;
     case 'tail':
-      return O.rear.tail * bodyLength(segments);
+      return O.rear.tail * m.length;
     case 'fringe':
-      return O.fringe.length * bodyWidth(segments);
+      return O.fringe.length * m.width;
     default:
       return Number.POSITIVE_INFINITY;
   }
