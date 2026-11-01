@@ -20,16 +20,21 @@ Go in this order; the first item that applies is this run's step.
 - `docs/BRIEF.md` doesn't exist → the scaffold hasn't run yet. Stop with `IDLE: waiting for /scaffold`; change nothing.
 - An open `Blocked: …` issue with no owner reply → stop and report it. If the owner replied, apply the answer, close the issue and unblock the task.
 - An open `Playtest: …` issue for a milestone marked `gate` in the roadmap, with no owner reply → stop with `WAITING: playtest <version>`. A reply (or closing the issue) opens the gate; its feedback becomes owner issues or tasks in the next spec.
-- Another open PR from a `claude/` branch, draft or not, updated within the last 90 minutes → another run is still working; stop with `IDLE: another run is working`.
-- An older open factory PR → if its step is already done on `main` (a parallel duplicate), close it with a link and carry on; otherwise merge its branch into yours, finish it as your PR, and close the old one with a link **before your last push**: CI fails a `claude/` PR while a lower-numbered one is open (ADR 0020), and only a push re-runs it.
+- Another open PR from a `claude/` branch, draft or not, whose claim is **live** → another run is still working; stop with `IDLE: another run is working`. A claim is live while any of these holds (ADR 0042):
+  - its PR or branch changed in the last 90 minutes (a commit, a body edit, a comment);
+  - a workflow run on its branch is queued or in progress, or finished in the last 30 minutes (`gh run list -R Resner/Biosphere -b <branch> -L 5`).
+
+  A run keeps its own claim live with the heartbeat (§3). Long Opus tasks once looked stale while their run was busy: #190, #193 and #196 were each taken over and finished twice.
+- An older open factory PR whose claim is not live → if its step is already done on `main` (a parallel duplicate), close it with a link and carry on. Otherwise take it over **in place**: check out its branch, finish the step there, and ship that same PR. Never close it and open a second PR for the same step; a run that comes back to it then finds your commits rather than a duplicate.
 - Dependabot PRs are yours to settle; the owner never handles them:
   - green and right for the repo → squash-merge, and carry on;
   - wrong for the repo (conflicts with `engines`, an ADR or a deliberate pin) → add an `ignore` rule to `.github/dependabot.yml` in this run's PR, close the Dependabot PR with a comment saying why, and carry on;
   - red → add an upgrade task to the current spec (unless one exists), close the Dependabot PR with a comment linking it, and carry on.
 
   `@dependabot` comment commands don't work from here, because the GitHub tool neutralises bot mentions. Record decisions in the config or by closing the PR.
-- A Release workflow run on `main` is in progress → a milestone is being released. Wait for it in the foreground: `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (Release takes about 2 minutes; `gh run` works here, unlike `gh pr`). If the released milestone is a `gate`, also wait up to 10 minutes for its `Playtest:` issue. Then start this list again from the top. Stop with `IDLE: release in progress` only if the wait times out.
+- A Release workflow run on `main` is in progress → a milestone is being released. Wait for it in the foreground: `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (Release takes about 12 minutes, its E2E suite on parallel runners; `gh run` works here, unlike `gh pr`). If the released milestone is a `gate`, also wait up to 10 minutes for its `Playtest:` issue. Then start this list again from the top. Stop with `IDLE: release in progress` only if the wait times out.
 - The latest Release workflow run on `main` failed → fix it.
+- The latest `E2E main` run (`e2e-main.yml`, the full suite on main after merges and every 6 hours) failed → fix it before other work. A failure there is usually a flaky scenario: find the timing or ordering it depends on and make it deterministic (`.claude/rules/tests.md`), then dispatch `E2E main` again (`gh workflow run e2e-main.yml -R Resner/Biosphere`) and wait for it in the foreground. Never retry, loosen or `@slow`-park a scenario to get green.
 - Owner comments on any `Playtest:` issue, gate or not, posted after your last comment there → treat each point as an owner issue (next item), then reply in that issue saying where each point went.
 - An owner issue reporting a bug in shipped behaviour → fix it test-first, record it as a ticked task in the current spec, and close the issue. Other owner issues → add them to the right spec or ROADMAP row, comment where, and carry on.
 
@@ -72,6 +77,7 @@ Clear the marker before you ship.
 - Use a Conventional Commit title (`feat(scope): …`, `fix: …`, `docs(spec): …`). The PR body names the step and lists the commands you ran with their results.
 - Push your last commit before you mark the PR ready, update its title and body, mark it ready for review, and enable auto-merge (squash). If GitHub says it can merge right away, squash-merge it. After it merges, push nothing more to its branch: GitHub deletes the branch on merge, and a push would recreate it with no PR.
 - Stay with the PR until it merges. Fix CI failures at the root cause; never skip or disable a test.
+- Heartbeat: while a step runs longer than 30 minutes without a push (a long task, a wait on CI), keep the claim live (§1): push your work in progress, or update a `Heartbeat: <UTC time>` line in the PR body, at least every 45 minutes. The `opus-task` and `spec` subagents push their work in progress to the branch themselves.
 - Wait for CI in the foreground with one command at a time: `gh run list -R Resner/Biosphere -w ci.yml -b <branch> -L 3` for the newest run id, then `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (about 2 minutes). Don't arm background jobs, `Monitor`s or scheduled check-ins (`send_later`, `create_trigger`) to wait: they outlive the run and keep waking the finished session. The hourly schedule is the safety net.
 - Once the PR has merged (or you stop for another reason), unsubscribe from its activity, stop any background job you started and delete any check-in you scheduled, then write the report line.
 

@@ -1,7 +1,8 @@
 name: Release
 
-# A merged change to VERSION releases that version: full tests, the Worker, then Pages, tag and
-# GitHub Release. The Worker goes first so a client never points at an older Worker.
+# A merged change to VERSION releases that version: full tests (the E2E suite on parallel runners,
+# `e2e-full.yml`), the Worker, then Pages, tag and GitHub Release. The Worker goes first so a client
+# never points at an older Worker.
 on:
   push:
     branches: [main]
@@ -39,10 +40,15 @@ jobs:
             exit 1
           fi
 
-  build:
+  # The full E2E suite, split over parallel runners (ADR 0042).
+  e2e:
     needs: preflight
+    uses: ./.github/workflows/e2e-full.yml
+
+  build:
+    needs: [preflight, e2e]
     runs-on: ubuntu-latest
-    timeout-minutes: 40
+    timeout-minutes: 15
     outputs:
       tag: ${{ steps.version.outputs.tag }}
     steps:
@@ -65,16 +71,12 @@ jobs:
           node-version-file: package.json
           package-manager-cache: false # no shared cache in the publishing path
 
-      - name: Install and run the full test suite
+      # The E2E suite ran in the `e2e` job; here the unit tests, lint and typecheck.
+      - name: Install and run the unit tests
         if: steps.version.outputs.tag
-        env:
-          BUILD_LABEL: ${{ steps.version.outputs.tag }}
         run: |
           npm ci
           npm run check
-          npm run build
-          npm run e2e:setup --if-present
-          npm run test:e2e:full
 
       # The tests ran against a build without the hub URL (they never touch the live authority);
       # the published site is built again with it.

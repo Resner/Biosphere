@@ -61,8 +61,8 @@ The npm script contract: CI, hooks and skills call these names; the tools behind
 - Biome lints and formats code files only, so Markdown stays untouched. `npm run format` applies its fixes; `check` fails on unformatted code.
 - In cloud sessions the proxy blocks `gh pr` and `gh issue` (GraphQL); use the GitHub MCP tools for PRs, issues and merges.
 - GitHub offers auto-merge only while checks are pending. If a PR is already green, squash-merge it directly.
-- CI's `verify` fails a `claude/` PR while an open `claude/` PR from this repository has a lower number (ADR 0020). Taking over an older factory PR means closing it before your last push, because only a push re-runs CI.
-- The repository is public, so Actions minutes on standard runners are free. Keep CI to one fast job anyway (runs wait for it), and keep slow E2E scenarios in `test:e2e:full`.
+- CI's `verify` fails a `claude/` PR while an open `claude/` PR from this repository has a lower number (ADR 0020). A stale factory PR (no change for 90 minutes and no workflow run on its branch for 30) is taken over in place, on its own branch and number; a live one is left alone (ADR 0042, `next` skill). Long steps push work in progress at least every 45 minutes so their claim stays live.
+- The repository is public, so Actions minutes on standard runners are free. Keep PR CI to one fast job (runs wait for it), and keep slow E2E scenarios in `test:e2e:full`, which runs on parallel runners (`e2e-full.yml`) in Release and in `E2E main` after merges and every 6 hours (ADR 0042). A red `E2E main` comes before other work.
 
 ## Compaction
 

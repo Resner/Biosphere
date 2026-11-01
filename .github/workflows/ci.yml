@@ -23,7 +23,7 @@ jobs:
   # The single required check. One job, because GitHub rounds every job up to a whole minute.
   verify:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 45
     steps:
       - uses: actions/checkout@v7
         with:
@@ -82,3 +82,15 @@ jobs:
         run: npm run e2e:setup --if-present
       - if: steps.scope.outputs.run == 'true'
         run: npm run test:e2e
+      # A new or changed @slow scenario runs three times on one worker before it can merge (ADR
+      # 0042): a scenario that is flaky here would otherwise fail a release 20 minutes in.
+      - name: Repeat changed slow scenarios
+        if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
+        run: |
+          files=$(git diff --name-only --diff-filter=AM HEAD^1 HEAD -- 'tests/e2e/*.spec.ts' | xargs -r grep -l '@slow' || true)
+          if [ -z "$files" ]; then
+            echo "No new or changed @slow scenario."
+            exit 0
+          fi
+          echo "::notice::Repeating three times: $(echo $files)"
+          npx playwright test $files --repeat-each=3 --workers=1 --no-deps

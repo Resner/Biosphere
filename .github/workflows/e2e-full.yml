@@ -1,0 +1,50 @@
+name: E2E full
+
+# The whole E2E suite (`test:e2e:full`) split over parallel runners (ADR 0042), so a run takes about
+# a third of the time and no runner starves: the long @slow scenarios get their own runners with one
+# worker each. Release calls it before it builds anything; `E2E main` calls it on main so a flaky
+# scenario shows up while a milestone is under way, not at its release.
+on:
+  workflow_call:
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  e2e:
+    name: e2e (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    strategy:
+      # Every part runs to the end, so one run reports every failure at once.
+      fail-fast: false
+      matrix:
+        include:
+          - name: fast
+            args: --project=chromium --grep-invert=@slow
+          - name: slow 1 of 2
+            args: --project=chromium --grep=@slow --shard=1/2 --workers=1
+          - name: slow 2 of 2
+            args: --project=chromium --grep=@slow --shard=2/2 --workers=1
+          # The projects that must not share a runner with the rest (playwright.config.ts).
+          - name: social, pond and post
+            args: --project=social --project=pond --project=post --no-deps
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          package-manager-cache: false # Release calls this workflow: no shared cache in its path
+      - run: npm ci
+      - run: npm run build
+      - run: npm run e2e:setup --if-present
+      - name: Run this part of the suite
+        run: npx playwright test ${{ matrix.args }}
+      - name: Keep the failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 7
