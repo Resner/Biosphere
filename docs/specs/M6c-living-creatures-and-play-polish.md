@@ -242,7 +242,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
   - Steps:
     1. Add a `firefox` Playwright project (Firefox, `m6c-firefox.spec.ts` only) and a `firefox` part to `e2e-full.yml`, which installs Firefox in that job only (`npx playwright install --with-deps firefox`). PR CI stays Chromium.
     2. Reproduce:
-       - after the first push, dispatch `E2E full` on the branch (`gh workflow run e2e-full.yml --ref <branch> -R Resner/Biosphere`) for screenshots and traces;
+       - after the first push, dispatch `E2E full` on the branch (`gh api -X POST repos/Resner/Biosphere/actions/workflows/e2e-full.yml/dispatches -f ref=<branch>`) for screenshots and traces;
        - in the session, install Firefox to a scratch path if the network allows (`PLAYWRIGHT_BROWSERS_PATH=<scratch> npx playwright install firefox`; never `/opt/pw-browsers`);
        - toggle each detail (walls, cells, pores, gut, setules) via a debug uniform to find the source.
     3. Fix: fade any feature narrower than 1.5 px instead of drawing it; derive wall lines from a continuous varying (no `floor` before `fwidth`); start the cell texture at ≥ 6 px per cell; use `precision highp float`.

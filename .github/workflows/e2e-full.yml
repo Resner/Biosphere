@@ -33,9 +33,14 @@ jobs:
             args: --project=chromium --grep=@slow --shard=2/3 --workers=1
           - name: slow 3 of 3
             args: --project=chromium --grep=@slow --shard=3/3 --workers=1
-          # The projects that must not share a runner with the rest (playwright.config.ts).
-          - name: social, pond and post
-            args: --project=social --project=pond --project=post --no-deps
+          # The projects that must not share a runner with the rest (playwright.config.ts), each on
+          # its own: together they took 21 minutes on a one-worker runner.
+          - name: social
+            args: --project=social --no-deps
+          - name: pond
+            args: --project=pond --no-deps
+          - name: post
+            args: --project=post --no-deps
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
