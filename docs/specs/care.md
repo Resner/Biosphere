@@ -56,7 +56,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Done: moved verbatim into `mesh-buffer.ts` (buffers, vertex tags), `creature-detail.ts` (budgets, ladders), `creature-loft.ts`, `creature-parts.ts` (parts, organs, glints) and `creature-fit.ts`; `creature-mesh.ts` (154 lines) builds the geometry and re-exports the old API.
   - Gotcha: the modules import upward only (buffer, detail → loft → parts → fit → mesh), so no import cycle; `creature-parts.ts` is the largest at 784 lines.
 
-- [x] C5 Split `worker/authority.ts` (1,447 lines) into modules under 1,000 lines [opus] (in progress)
+- [x] C5 Split `worker/authority.ts` (1,447 lines) into modules under 1,000 lines [opus]
   - Touches: `worker/authority.ts`, the modules it becomes.
   - Steps: move the message handlers into modules by area (sessions and signaling, genesis and life, mating and offspring), with `Authority` keeping the Durable Object's state, `rearm` and the dispatch. Move code verbatim; the alarm rule in `.claude/rules/worker.md` still holds.
   - Acceptance: `npm run check:full` and the hub E2E specs are green with no test changed; each file is under 1,000 lines.
@@ -67,4 +67,10 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Why: found by C4; the test file outgrew the 1,000-line bound its module now keeps.
   - Touches: `src/render/creature-mesh.test.ts`, the files it becomes.
   - Steps: split by the areas C4 gave the module (buffer, loft, parts, fit). Move tests verbatim; no assertion changes.
+  - Acceptance: `npm run check:full` is green with the same number of tests; each file is under 1,000 lines.
+
+- [ ] C7 Split `worker/ledger.ts` (1,104 lines) and `worker/ledger-mating.test.ts` (1,233 lines) into files under 1,000 lines
+  - Why: found by C5; both outgrew the 1,000-line bound.
+  - Touches: `worker/ledger.ts`, `worker/ledger-mating.test.ts`, the files they become.
+  - Steps: split by area (records and verification, mating and offspring); move code and tests verbatim; no assertion changes.
   - Acceptance: `npm run check:full` is green with the same number of tests; each file is under 1,000 lines.
