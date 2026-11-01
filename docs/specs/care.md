@@ -49,10 +49,12 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
     - No task id (`M<n> T<n>`) is left, apart from links to the specs.
     - The file is at most two thirds of its size before.
 
-- [ ] C4 Split `src/render/creature-mesh.ts` (1,477 lines) into modules under 1,000 lines [opus] (in progress)
+- [x] C4 Split `src/render/creature-mesh.ts` (1,477 lines) into modules under 1,000 lines [opus] (in progress)
   - Touches: `src/render/creature-mesh.ts`, the modules it becomes.
   - Steps: split the loft (the body shell), the parts and their detail, and the level-of-detail fit (`fit`, `meshDetail`, `estimateVertices`). Move code verbatim; `creature-mesh.ts` re-exports what its importers use.
   - Acceptance: `npm run check:full` and the `post` project's look specs (`npx playwright test --project post --no-deps`) are green with no test changed; each file is under 1,000 lines.
+  - Done: moved verbatim into `mesh-buffer.ts` (buffers, vertex tags), `creature-detail.ts` (budgets, ladders), `creature-loft.ts`, `creature-parts.ts` (parts, organs, glints) and `creature-fit.ts`; `creature-mesh.ts` (154 lines) builds the geometry and re-exports the old API.
+  - Gotcha: the modules import upward only (buffer, detail → loft → parts → fit → mesh), so no import cycle; `creature-parts.ts` is the largest at 784 lines.
 
 - [ ] C5 Split `worker/authority.ts` (1,447 lines) into modules under 1,000 lines [opus]
   - Touches: `worker/authority.ts`, the modules it becomes.
