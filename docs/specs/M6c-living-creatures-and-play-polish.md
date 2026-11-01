@@ -103,7 +103,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - Decoding stays total: the 10k random-bytes property, including 328-byte inputs, passes.
   - Notes: bodies don't change yet; T3 and T4 change them under rules 8 with no freeze. This task touches no worker table (T2 does).
 
-- [ ] T2 The world renewal: migration, protocol 6, the notice [opus]
+- [ ] T2 The world renewal: migration, protocol 6, the notice [opus] (in progress)
   - Steps:
     1. A worker migration (the next number in `worker/schema.ts`), in one transaction:
        - `DELETE FROM creatures, records, commitments, matings, genesis_log` (there is no `creatures_v5` any more: migration 5 renamed it);
