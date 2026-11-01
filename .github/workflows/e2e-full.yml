@@ -21,12 +21,18 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: fast
-            args: --project=chromium --grep-invert=@slow
-          - name: slow 1 of 2
-            args: --project=chromium --grep=@slow --shard=1/2 --workers=1
-          - name: slow 2 of 2
-            args: --project=chromium --grep=@slow --shard=2/2 --workers=1
+          - name: fast 1 of 3
+            args: --project=chromium --grep-invert=@slow --shard=1/3
+          - name: fast 2 of 3
+            args: --project=chromium --grep-invert=@slow --shard=2/3
+          - name: fast 3 of 3
+            args: --project=chromium --grep-invert=@slow --shard=3/3
+          - name: slow 1 of 3
+            args: --project=chromium --grep=@slow --shard=1/3 --workers=1
+          - name: slow 2 of 3
+            args: --project=chromium --grep=@slow --shard=2/3 --workers=1
+          - name: slow 3 of 3
+            args: --project=chromium --grep=@slow --shard=3/3 --workers=1
           # The projects that must not share a runner with the rest (playwright.config.ts).
           - name: social, pond and post
             args: --project=social --project=pond --project=post --no-deps

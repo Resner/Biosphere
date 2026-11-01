@@ -42,9 +42,20 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
       const halfH = (window.__bs as BsHook).render.fx().halfHeight;
       return { halfH, radius: Math.hypot((halfH * innerWidth) / innerHeight, halfH) };
     });
-    const mm = await state(a);
-    expect(mm.minimap.shown).toBe(true);
-    expect(mm.minimap.radiusWu).toBeCloseTo(6 * view.halfH, 3);
+    expect((await state(a)).minimap.shown).toBe(true);
+    // Six view half-heights, read in one frame: the camera eases its zoom after a hatch and the
+    // minimap redraws at most 10 times a second, so a loaded runner can catch them a frame apart.
+    await expect
+      .poll(
+        () =>
+          a.evaluate(() => {
+            const hook = window.__bs as BsHook;
+            const want = 6 * hook.render.fx().halfHeight;
+            return Math.abs(hook.state().minimap.radiusWu - want) / want;
+          }),
+        { timeout: 10_000, message: 'the minimap radius settles at six view half-heights' },
+      )
+      .toBeLessThan(1e-3);
 
     // B two views (centre to corner) away, up and to the right of A: off screen, on the minimap.
     const pa = await playerOf(a);
@@ -94,11 +105,14 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
     const pinged = async () => (await state(a)).minimap.pings.some((p) => p.id === idB);
     await expect.poll(pinged, { timeout: 5_000, intervals: [50] }).toBe(true);
     const shownAt = Date.now();
-    const ping = (await state(a)).minimap.pings.find((p) => p.id === idB);
-    if (ping) {
-      expect(turn(Math.atan2(side / 2 - ping.y, ping.x - side / 2) * DEG, bearing)).toBeLessThan(
-        10,
-      );
+    // The ping's bearing from where A is now, read in the same frame as the drawn dot: A drifts on
+    // the currents while B pings, so the bearing it was placed at is no longer exact.
+    const now = await state(a);
+    const ping = now.minimap.pings.find((p) => p.id === idB);
+    const landed = now.social.pings.find((p) => p.from === idB);
+    if (ping && landed && now.player) {
+      const placed = Math.atan2(landed.y - now.player.y, landed.x - now.player.x) * DEG;
+      expect(turn(Math.atan2(side / 2 - ping.y, ping.x - side / 2) * DEG, placed)).toBeLessThan(10);
     }
     await a.getByTestId('minimap').screenshot({ path: 'test-results/m6b-minimap-ping.png' });
     // It stays for the ping's 4 s, then goes.

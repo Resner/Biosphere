@@ -95,7 +95,7 @@ jobs:
       - run: npm run check
 
   # The PR's E2E suite (`test:e2e`, no @slow) on parallel runners (ADR 0042): one runner took 9 to
-  # 25 minutes, depending on how many workers it could afford.
+  # 25 minutes, depending on how many workers it could afford (runners now often afford one).
   e2e:
     needs: scope
     if: needs.scope.outputs.run == 'true'
@@ -106,10 +106,14 @@ jobs:
       fail-fast: false
       matrix:
         include:
-          - name: chromium 1 of 2
-            args: --project=chromium --shard=1/2
-          - name: chromium 2 of 2
-            args: --project=chromium --shard=2/2
+          - name: chromium 1 of 4
+            args: --project=chromium --shard=1/4
+          - name: chromium 2 of 4
+            args: --project=chromium --shard=2/4
+          - name: chromium 3 of 4
+            args: --project=chromium --shard=3/4
+          - name: chromium 4 of 4
+            args: --project=chromium --shard=4/4
           - name: social, pond and post
             args: --project=social --project=pond --project=post --no-deps
     env:
