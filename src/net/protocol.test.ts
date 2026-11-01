@@ -333,6 +333,7 @@ const hubMsgs: HubMsg[] = [
   { t: 'error', code: 'no-peer' },
   { t: 'life', life: null, genesisIn: 0 },
   { t: 'life', life, genesisIn: 299_000 },
+  { t: 'life', life: null, genesisIn: 0, renewed: true },
   { t: 'commit', commit, hatchesLeft: 2 },
   genesisMsg as unknown as HubMsg,
   { t: 'refused', reason: 'active' },
@@ -462,8 +463,10 @@ describe('rejections', () => {
     expect(bad({ t: 'nope' })).toBeNull();
     expect(bad({ ...hello, v: 1 })).toBeNull();
     // Karyotype v2 genomes were a wire change (version 3), and so are the snapshot's ready and
-    // egg bits (version 4, M6 T19) and rules 7 bodies (version 5, M6b T1): older clients are turned away.
-    expect(PROTOCOL_VERSION).toBe(5);
+    // egg bits (version 4, M6 T19), rules 7 bodies (version 5, M6b T1) and the world renewal
+    // (version 6, M6c T2, so no pond mixes epochs): older clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(6);
+    expect(bad({ ...hello, v: 5 })).toBeNull();
     expect(bad({ ...hello, v: 2 })).toBeNull();
     expect(bad({ ...hello, v: 3 })).toBeNull();
     expect(bad({ ...hello, v: undefined })).toBeNull();
@@ -592,6 +595,9 @@ describe('genesis messages', () => {
     expect(hubBad({ t: 'life', life: { ...life, creature: 'x' }, genesisIn: 0 })).toBeNull();
     expect(hubBad({ t: 'life', life: { ...life, seq: 1.5 }, genesisIn: 0 })).toBeNull();
     expect(hubBad({ t: 'life', life: 'none', genesisIn: 0 })).toBeNull();
+    // The renewal notice (M6c T2) is only ever `true`.
+    expect(hubBad({ t: 'life', life: null, genesisIn: 0, renewed: false })).toBeNull();
+    expect(hubBad({ t: 'life', life: null, genesisIn: 0, renewed: 'yes' })).toBeNull();
     expect(hubBad({ t: 'commit', commit, hatchesLeft: -1 })).toBeNull();
     expect(hubBad({ t: 'commit', commit: { ...commit, keyId: 'no' }, hatchesLeft: 1 })).toBeNull();
     expect(
