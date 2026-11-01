@@ -52,12 +52,6 @@ export function measure(segments: readonly PlanSegment[]): Measure {
   return { length, width, at };
 }
 
-/** A body's length along its spine. */
-export const bodyLength = (segments: readonly PlanSegment[]): number => measure(segments).length;
-
-/** A body's width: twice its widest segment's drawn half-width. */
-export const bodyWidth = (segments: readonly PlanSegment[]): number => measure(segments).width;
-
 /** Where a root at `angle` on segment `segment` lies along the body: 0 the head's front, 1 the tail's end. */
 export function spineShare(
   segments: readonly PlanSegment[],
@@ -139,21 +133,32 @@ export function rolesOf(
   lengths: readonly number[],
   along: readonly number[],
 ): Role[] {
-  const roles: Role[] = regions.map(() => 'fringe');
-  const by = (region: Region): number[] =>
-    regions.map((r, i) => (r === region ? i : -1)).filter((i) => i >= 0);
-  const longFirst = (ids: number[]): number[] =>
-    [...ids].sort((a, b) => (lengths[b] as number) - (lengths[a] as number) || a - b);
-  const head = longFirst(by('head'));
-  const rear = longFirst(by('rear'));
-  const legs = by('trunk')
-    .sort((a, b) => (along[a] as number) - (along[b] as number) || a - b)
-    .slice(0, O.trunk.pairs);
+  const n = regions.length;
+  const roles: Role[] = new Array<Role>(n).fill('fringe');
+  // The longest pair of the rear, and the two longest of the head: the first of equal lengths wins.
+  let tail = -1;
+  let antenna = -1;
+  let feeler = -1;
+  const trunk: number[] = [];
+  for (let i = 0; i < n; i++) {
+    const len = lengths[i] as number;
+    const region = regions[i];
+    if (region === 'rear') {
+      if (tail < 0 || len > (lengths[tail] as number)) tail = i;
+    } else if (region === 'head') {
+      if (antenna < 0 || len > (lengths[antenna] as number)) {
+        feeler = antenna;
+        antenna = i;
+      } else if (feeler < 0 || len > (lengths[feeler] as number)) feeler = i;
+    } else trunk.push(i);
+  }
+  trunk.sort((a, b) => (along[a] as number) - (along[b] as number) || a - b);
   const keep: [number, Role][] = [];
-  if (rear[0] !== undefined) keep.push([rear[0], 'tail']);
-  if (head[0] !== undefined) keep.push([head[0], 'antenna']);
-  if (head[1] !== undefined) keep.push([head[1], 'feeler']);
-  for (const i of legs) keep.push([i, 'leg']);
+  if (tail >= 0) keep.push([tail, 'tail']);
+  if (antenna >= 0) keep.push([antenna, 'antenna']);
+  if (feeler >= 0) keep.push([feeler, 'feeler']);
+  for (let k = 0; k < trunk.length && k < O.trunk.pairs; k++)
+    keep.push([trunk[k] as number, 'leg']);
   for (const [i, role] of keep.slice(0, VISIBLE_PAIRS)) roles[i] = role;
   return roles;
 }

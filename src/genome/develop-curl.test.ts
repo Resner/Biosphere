@@ -17,15 +17,7 @@ import { type BodyPlan, bodyViolations, develop, planBounds, rootOf } from './de
 import { express } from './express';
 import { mutateGenome } from './inherit';
 import { GENOME_BYTES, HAPLOTYPE_BYTES } from './karyotype';
-import {
-  bodyLength,
-  bodyWidth,
-  LEG_DIR,
-  regionOf,
-  SPOKE_PAIRS,
-  VISIBLE_PAIRS,
-  visibleCount,
-} from './organism';
+import { LEG_DIR, measure, regionOf, SPOKE_PAIRS, VISIBLE_PAIRS, visibleCount } from './organism';
 import { silhouetteOf } from './silhouette';
 import { statsAt } from './stats';
 
@@ -271,7 +263,7 @@ describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
     const [lo, hi] = LEG_DIR as [number, number];
     let legs = 0;
     ALL.forEach(({ plan }, i) => {
-      const [length, width] = [bodyLength(plan.segments), bodyWidth(plan.segments)];
+      const [length, width] = [measure(plan.segments).length, measure(plan.segments).width];
       for (const a of plan.appendages) {
         if (!a.fringe || a.module < 0) continue;
         check(a.length <= 0.3 * width + 1e-9, () => `${i}: fringe ${a.length} long`);

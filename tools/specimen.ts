@@ -7,7 +7,7 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import { encodeGenome, type Genome, genomeHash } from '../src/genome/codec';
 import { type Appendage, type BodyPlan, bodyViolations } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
-import { bodyWidth, regionOf } from '../src/genome/organism';
+import { longest, measure, regionOf } from '../src/genome/organism';
 import { type RarityTier, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, type Silhouette, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
@@ -19,8 +19,11 @@ export const SPECIMEN_SILHOUETTES: readonly Silhouette[] = SILHOUETTES.filter((s
 export const SPECIMEN_TIERS: readonly RarityTier[] = ['common', 'uncommon', 'rare', 'exotic'];
 
 /** Whether `a`, if it is a visible part on the trunk, is a short leg: at most 0.9 body widths (ADR 0041). */
-export const shortLeg = (plan: BodyPlan, a: Appendage): boolean =>
-  a.fringe || regionOf(a, plan) !== 'trunk' || a.length <= 0.9 * bodyWidth(plan.segments) + 1e-9;
+export const shortLeg = (plan: BodyPlan, a: Appendage): boolean => {
+  if (a.fringe) return true;
+  const m = measure(plan.segments);
+  return regionOf(a, plan, m) !== 'trunk' || a.length <= longest('leg', plan.segments, m) + 1e-9;
+};
 
 /** Candidates tried before giving up. */
 const BUDGET = 20_000;

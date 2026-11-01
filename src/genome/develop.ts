@@ -170,12 +170,12 @@ export interface BodyPlan {
 type Part = Omit<Appendage, 'side'> & {
   base: number;
   /** Its role by region (M6c T3); none before the regions are read. */
-  role?: Role;
+  role: Role | undefined;
   /** The growth directions a leg keeps to while it is fitted (M6c T3): swept back from the side. */
-  lo?: number;
-  hi?: number;
+  lo: number;
+  hi: number;
   /** A coil's leg: its instance on the inner side of the curve is fringe (ADR 0041). */
-  inner?: boolean;
+  inner: boolean;
 };
 type Range = readonly [number, number];
 export type Point = { x: number; y: number };
@@ -791,6 +791,7 @@ function buildParts(traits: Traits, scales: readonly number[], rooms: number): P
         chela: x.chela > X.chela.min && isWeaponTip(tip) ? x.chela : 0,
         beads: x.beads,
         fringe: false,
+        ...LAYOUT,
       });
     }
   });
@@ -820,6 +821,8 @@ export const weaponShare = (tip: number): number =>
 const isWeaponTip = (tip: number): boolean => weaponShare(tip) > 0;
 
 /** No fine detail: a v1 part. */
+/** Layout state every part starts with, so all parts share one object shape (hot loops stay monomorphic). */
+const LAYOUT = { role: undefined, lo: 0, hi: PI, inner: false } as const;
 const PLAIN = { webbing: 0, setae: 0, setaeLength: 0, bulb: 0, chela: 0, beads: 0 } as const;
 
 /**
@@ -1314,8 +1317,8 @@ function keepOff(p: Part, segments: PlanSegment[], body: Outline, from: number):
   const [dir0, length0] = [p.dir, p.length];
   let [bestDir, bestLength] = [dir0, length0];
   const tail = p.segment === segments.length - 1 ? Math.min(dir0, PI / 2) : 0;
-  const lo = Math.max(from, tail, p.lo ?? 0);
-  const hi = p.hi ?? PI;
+  const lo = Math.max(from, tail, p.lo);
+  const hi = p.hi;
   // The side away from the body first: toward the root's outward normal.
   const normal = atan2(s.rx * sin(p.angle), s.ry * cos(p.angle));
   const first = normal >= dir0 ? 1 : -1;
@@ -1452,7 +1455,8 @@ function fitAt(p: Part, segments: PlanSegment[], sweep: number, from: number): v
   // A bulb takes at most its share of the free reach, and the part shortens to make room for it.
   p.bulb = Math.min(p.bulb, X.bulb.room * Math.max(0, free));
   // A leg keeps to its sweep (M6c T3): every turn below stays inside `lo`-`hi`.
-  const [lo, hi] = [p.lo ?? 0, p.hi ?? PI];
+  const lo = p.lo;
+  const hi = p.hi;
   const dir = clamp(Math.max(from, p.angle + sweep * (PI - p.angle)), lo, hi);
   p.dir = dir;
   const cut = Math.min(p.length, (free - p.bulb) / branchFactor(p.branches));
@@ -1472,14 +1476,14 @@ function fitAt(p: Part, segments: PlanSegment[], sweep: number, from: number): v
   const most = clamp(toward, floor, Math.min(hi, dir + D.fit.max));
   p.dir = most;
   if (most !== dir && fits()) {
-    let [lo, hi] = [0, 1];
+    let [a, b] = [0, 1];
     for (let k = 0; k < D.fit.sweeps; k++) {
-      const t = (lo + hi) / 2;
+      const t = (a + b) / 2;
       p.dir = dir + t * (most - dir);
-      if (fits()) hi = t;
-      else lo = t;
+      if (fits()) b = t;
+      else a = t;
     }
-    p.dir = dir + hi * (most - dir);
+    p.dir = dir + b * (most - dir);
     return;
   }
   // Nothing fits whole: cut it at its own direction.
@@ -1549,6 +1553,7 @@ function bandPart(segment: number, angle: number, index: number, room: number): 
     beat: D.band.beat,
     phase: index / D.band.pairs,
     ...PLAIN,
+    ...LAYOUT,
     fringe: true,
   };
 }
@@ -1580,6 +1585,7 @@ function toFringe(p: Part, segments: readonly PlanSegment[], m = measure(segment
   return {
     ...rest,
     ...PLAIN,
+    ...LAYOUT,
     role: 'fringe',
     fringe: true,
     length,
@@ -1601,17 +1607,51 @@ function toFringe(p: Part, segments: readonly PlanSegment[], m = measure(segment
  * side of its curve (ADR 0041): its inner instance is fringe, as long as the bounds leave room.
  */
 function mirror(parts: Part[], segments: readonly PlanSegment[]): Appendage[] {
-  const plain = ({ base: _b, role: _r, lo: _l, hi: _h, inner: _i, ...p }: Part) => p;
-  return parts.flatMap((p) => {
-    const left = { ...plain(p), side: 1 as const };
-    if (!p.inner) return [left, { ...left, side: -1 as const }];
+  const m = parts.some((p) => p.inner) ? measure(segments) : undefined;
+  const out: Appendage[] = [];
+  for (const p of parts) {
+    out.push(appendageOf(p, 1));
+    if (!p.inner) {
+      out.push(appendageOf(p, -1));
+      continue;
+    }
     const s = segments[p.segment] as PlanSegment;
     const root = rootOf(s, p.angle, -1);
     const free = D.caps.bounds - D.boundsSlack - hypot(root.x, root.y);
-    const cilia = toFringe(p, segments);
+    const cilia = toFringe(p, segments, m);
     cilia.length = Math.min(cilia.length, free);
-    return [left, { ...plain(cilia), side: -1 as const }];
-  });
+    out.push(appendageOf(cilia, -1));
+  }
+  return out;
+}
+
+/** One side of a part: its plan fields only, in the plan's order (no layout state). */
+function appendageOf(p: Part, side: 1 | -1): Appendage {
+  return {
+    module: p.module,
+    segment: p.segment,
+    angle: p.angle,
+    dir: p.dir,
+    length: p.length,
+    width: p.width,
+    girth: p.girth,
+    taper: p.taper,
+    curvature: p.curvature,
+    joints: p.joints,
+    branches: p.branches,
+    tip: p.tip,
+    stiffness: p.stiffness,
+    beat: p.beat,
+    phase: p.phase,
+    webbing: p.webbing,
+    setae: p.setae,
+    setaeLength: p.setaeLength,
+    bulb: p.bulb,
+    chela: p.chela,
+    beads: p.beads,
+    fringe: p.fringe,
+    side,
+  };
 }
 
 /**
@@ -1643,10 +1683,11 @@ function organize(parts: Part[], segments: PlanSegment[]): Part[] {
 
 /** The motile area of `parts` once mirrored: a coil's leg counts once, and its inner fringe. */
 function swimArea(parts: Part[], segments: readonly PlanSegment[]): number {
+  const m = parts.some((p) => p.inner) ? measure(segments) : undefined;
   let area = 0;
   for (const p of parts) {
     const one = motileOf(p);
-    area += p.inner ? one + motileOf(toFringe(p, segments)) : 2 * one;
+    area += p.inner ? one + motileOf(toFringe(p, segments, m)) : 2 * one;
   }
   return area;
 }
@@ -2111,7 +2152,7 @@ export function develop(traits: Traits): BodyPlan {
   const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
   let form = formOf(shape, n);
   let grown = grow(traits, form, n);
-  const legs = (): number => grown.parts.filter((p) => p.role === 'leg').length;
+  const legs = (): number => grown.parts.reduce((n, p) => n + (p.role === 'leg' ? 1 : 0), 0);
   // The coil's leg gate (ADR 0041): a coil with more leg pairs than `coilLegs` takes the C-curl.
   if (form.mode === 2 && legs() > D.curve.coilLegs) {
     form = formOf(shape, n, false);
