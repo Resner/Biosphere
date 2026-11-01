@@ -33,10 +33,11 @@ jobs:
         with:
           fetch-depth: 2 # the PR merge commit and its base, for the scope check
 
-      # One factory PR at a time (ADR 0020): a `claude/` PR fails while an open `claude/` PR from this
-      # repository has a lower number, so a duplicate claim from a parallel run can never merge.
-      # Fork branches are ignored, or anyone could block the factory by naming a branch `claude/…`.
-      - name: Single factory PR
+      # One factory PR per lane at a time (ADRs 0020, 0044): a `claude/` PR fails while an open
+      # `claude/` PR of its lane (`Lane: care` in the body, else build) from this repository has a
+      # lower number, so a duplicate claim from a parallel run can never merge. Fork branches are
+      # ignored, or anyone could block the factory by naming a branch `claude/…`.
+      - name: Single factory PR per lane
         if: >-
           github.event_name == 'pull_request' &&
           startsWith(github.head_ref, 'claude/') &&
@@ -45,12 +46,15 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           NUMBER: ${{ github.event.pull_request.number }}
         run: |
-          older=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" --jq "
-            [.[] | select(.head.repo.full_name == \"$GITHUB_REPOSITORY\"
-                          and (.head.ref | startswith(\"claude/\")) and .number < $NUMBER)
-                 | \"#\(.number)\"] | join(\" \")")
+          prs=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100")
+          older=$(jq -r --arg repo "$GITHUB_REPOSITORY" --argjson n "$NUMBER" '
+            def lane: if ((.body // "") | test("(^|\n)Lane: care[ \t\r]*(\n|$)")) then "care" else "build" end;
+            (map(select(.number == $n)) | first | lane) as $mine
+            | [.[] | select(.head.repo.full_name == $repo and (.head.ref | startswith("claude/"))
+                            and .number < $n and lane == $mine) | "#\(.number)"]
+            | join(" ")' <<< "$prs")
           if [ -n "$older" ]; then
-            echo "::error::Older open factory PR: $older. Only the lowest-numbered open claude/ PR may merge (ADR 0020). Close the duplicate, or close the older one and push again."
+            echo "::error::Older open factory PR in this lane: $older. Only the lowest-numbered open claude/ PR of a lane may merge (ADRs 0020, 0044). Close the duplicate, or close the older one and push again."
             exit 1
           fi
 
@@ -71,13 +75,13 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-      # A new or changed @slow scenario runs three times on one worker before it can merge (ADR
-      # 0042): a scenario that is flaky here would otherwise fail a release 20 minutes in.
-      - name: New or changed slow scenarios
+      # Every new or changed E2E spec runs three times on one worker before it can merge (ADRs 0042,
+      # 0044): a flaky scenario would otherwise fail E2E main or a release long after the PR.
+      - name: New or changed specs
         id: slow
         if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
         run: |
-          files=$(git diff --name-only --diff-filter=AM HEAD^1 HEAD -- 'tests/e2e/*.spec.ts' | xargs -r grep -l '@slow' | tr '\n' ' ' || true)
+          files=$(git diff --name-only --diff-filter=AM HEAD^1 HEAD -- 'tests/e2e/*.spec.ts' | tr '\n' ' ')
           echo "files=${files% }" >> "$GITHUB_OUTPUT"
 
   unit:
@@ -151,7 +155,7 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run e2e:setup --if-present
-      - name: Repeat the new or changed slow scenarios three times
+      - name: Repeat the new or changed specs three times
         env:
           FILES: ${{ needs.scope.outputs.slow }}
         run: |
@@ -184,6 +188,6 @@ jobs:
           [ "$UNIT" = success ] || fail "unit (lint, typecheck, unit tests): $UNIT"
           [ "$E2E" = success ] || fail "e2e: $E2E"
           if [ -n "$SLOW_FILES" ]; then
-            [ "$SLOW" = success ] || fail "repeated slow scenarios: $SLOW"
+            [ "$SLOW" = success ] || fail "repeated new or changed specs: $SLOW"
           fi
           echo "Every part passed."
