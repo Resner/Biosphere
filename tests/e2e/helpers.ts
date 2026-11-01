@@ -226,9 +226,23 @@ export const ripe = (page: Page, timeout = 40_000) =>
 
 /** Parks the player beside a remote, as soon as the remote is drawn. */
 export async function goTo(page: Page, id: string): Promise<void> {
-  await page.waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
-    timeout: 20_000,
-  });
+  await page
+    .waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
+      timeout: 20_000,
+    })
+    .catch(async (error) => {
+      const seen = await page.evaluate(() => {
+        const s = (window.__bs as BsHook).state();
+        return {
+          screen: s.screen,
+          remotes: s.remotes.map((r) => r.id),
+          pond: s.pond,
+          net: s.net,
+          alive: s.player?.alive ?? null,
+        };
+      });
+      throw new Error(`the other player never showed: ${JSON.stringify(seen)}`, { cause: error });
+    });
   // Teleport until the HUD sees the creature in reach: on a loaded runner the remote is still fading
   // in or has drifted by the time the first jump lands, and the mate hint stays hidden.
   const hint = page.getByTestId('mate-hint');

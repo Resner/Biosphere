@@ -48,7 +48,9 @@ test('a court is answered, both pay, and a newborn is refused for being too youn
   expect((await state(a)).mate.visited).not.toContain('courting');
   await a.screenshot({ path: 'test-results/m5-court-refused.png' });
 
-  // A and B in reach: the hint offers the key, B sees the invitation.
+  // A and B in reach: the hint offers the key, B sees the invitation. Both bellies are filled first:
+  // after the 30x ripening a creature can be short of the energy a mating costs.
+  await Promise.all([topUp(a), topUp(b)]);
   await goTo(a, idB);
   await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /);
   await expect(a.getByTestId('hud-ready')).toHaveText('Ready to mate');
