@@ -56,10 +56,12 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Done: moved verbatim into `mesh-buffer.ts` (buffers, vertex tags), `creature-detail.ts` (budgets, ladders), `creature-loft.ts`, `creature-parts.ts` (parts, organs, glints) and `creature-fit.ts`; `creature-mesh.ts` (154 lines) builds the geometry and re-exports the old API.
   - Gotcha: the modules import upward only (buffer, detail → loft → parts → fit → mesh), so no import cycle; `creature-parts.ts` is the largest at 784 lines.
 
-- [ ] C5 Split `worker/authority.ts` (1,447 lines) into modules under 1,000 lines [opus] (in progress)
+- [x] C5 Split `worker/authority.ts` (1,447 lines) into modules under 1,000 lines [opus] (in progress)
   - Touches: `worker/authority.ts`, the modules it becomes.
   - Steps: move the message handlers into modules by area (sessions and signaling, genesis and life, mating and offspring), with `Authority` keeping the Durable Object's state, `rearm` and the dispatch. Move code verbatim; the alarm rule in `.claude/rules/worker.md` still holds.
   - Acceptance: `npm run check:full` and the hub E2E specs are green with no test changed; each file is under 1,000 lines.
+  - Done: `authority.ts` (296 lines) keeps state, alarm and dispatch; handlers are functions of `Hub` in `sessions.ts`, `lives.ts`, `offspring.ts`, with `Session` and send helpers in `socket.ts`; bodies moved verbatim (`this.` became `hub.`).
+  - Gotcha: `ctx`/`env` are redeclared public (`declare`) so `Authority` implements `Hub`; a `deliverGenesis` method stays because `genesis.test.ts` calls it.
 
 - [ ] C6 Split `src/render/creature-mesh.test.ts` (1,204 lines) into files under 1,000 lines
   - Why: found by C4; the test file outgrew the 1,000-line bound its module now keeps.
