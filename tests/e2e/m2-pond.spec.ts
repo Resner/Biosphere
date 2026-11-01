@@ -25,7 +25,7 @@ async function joinThree(browser: Browser): Promise<[Page, Page, Page]> {
   }
   for (const page of pages) {
     await page.waitForFunction(() => window.__bs?.state().remotes.length === 2, undefined, {
-      timeout: 5000,
+      timeout: 20_000,
     });
   }
   return pages as [Page, Page, Page];
@@ -176,12 +176,12 @@ test('three players see each other move smoothly, share food and chat @slow', as
     );
     // Three software-GL browsers on a busy runner tick slowly; the claims need a few frames.
     await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
-      timeout: 6000,
+      timeout: 20_000,
     });
     // Count the bites each keeps (eaten minus given back). The loser's "stolen" event travels over
     // the channel, so wait for the count to settle at one, then check that it holds.
     const gained = async () => (await bitesKept(a, id)) + (await bitesKept(b, id));
-    await expect.poll(gained, { timeout: 5000 }).toBe(1);
+    await expect.poll(gained, { timeout: 20_000 }).toBe(1);
     await a.waitForTimeout(500);
     expect(await gained()).toBe(1);
 
@@ -189,7 +189,7 @@ test('three players see each other move smoothly, share food and chat @slow', as
     await say(a, 'hello pond');
     for (const p of [b, c]) {
       await p.waitForFunction(() => window.__bs?.state().social.chat.length === 1, undefined, {
-        timeout: 2000,
+        timeout: 10_000,
       });
       expect(await chatTexts(p)).toEqual(['hello pond']);
     }
@@ -199,7 +199,7 @@ test('three players see each other move smoothly, share food and chat @slow', as
     expect((await state(b)).social.muted).toEqual([sa.playerId]);
     await say(a, 'still there?');
     await c.waitForFunction(() => window.__bs?.state().social.chat.length === 2, undefined, {
-      timeout: 2000,
+      timeout: 10_000,
     });
     await b.waitForTimeout(500);
     expect(await chatTexts(b)).toEqual([]);
@@ -211,6 +211,7 @@ test('three players see each other move smoothly, share food and chat @slow', as
 test('a closed tab drops out of the pond and a reload comes back to it @slow', async ({
   browser,
 }) => {
+  test.setTimeout(90_000); // three software-GL browsers join, close and reload
   const [a, b, c] = await joinThree(browser);
   try {
     const [sa, sc] = await Promise.all([a, c].map(state));
@@ -220,7 +221,7 @@ test('a closed tab drops out of the pond and a reload comes back to it @slow', a
     await a.close();
     for (const p of [b, c]) {
       await p.waitForFunction((id) => !window.__bs?.state().remotes.some((r) => r.id === id), aId, {
-        timeout: 6000,
+        timeout: 20_000,
       });
     }
 
