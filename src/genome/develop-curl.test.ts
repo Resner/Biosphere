@@ -9,12 +9,10 @@ import {
   spineTurn,
   straightPlan,
 } from '../../tests/body-outline';
-<<<<<<< HEAD
-import { cos, PI, sin } from '../sim/math';
-=======
+
 import { heavyTest } from '../../tests/heavy';
-import { PI } from '../sim/math';
->>>>>>> origin/main
+import { cos, PI, sin } from '../sim/math';
+
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
@@ -131,13 +129,8 @@ describe('spirals and S-worms (M6b T6)', () => {
     }
   });
 
-<<<<<<< HEAD
-  it('keeps segments that are not neighbours apart, over random and mutated genomes', () => {
-    for (const { plan } of ALL) expect(bodyViolations(plan)).toEqual([]);
-=======
   heavyTest('keeps segments that are not neighbours apart, over random and mutated genomes', () => {
-    for (const { plan } of PLANS) expect(bodyViolations(plan)).toEqual([]);
->>>>>>> origin/main
+    for (const { plan } of ALL) expect(bodyViolations(plan)).toEqual([]);
     // The check itself: fold a curled chain's tail back onto its head.
     const p = chain({ curve: 60 });
     const folded = {
