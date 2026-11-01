@@ -45,13 +45,20 @@ const watchEgg = (page: Page) =>
     const w = window as unknown as {
       __eggLog: { phase: string; angle: number }[];
       __eggStop: boolean;
+      __eggCard: { tier: string | null; rarity: string } | null;
     };
     w.__eggLog = [];
     w.__eggStop = false;
+    w.__eggCard = null;
     const look = () => {
       const { egg } = (window.__bs as BsHook).state();
       w.__eggLog.push({ phase: egg.phase, angle: egg.angle });
-      if (!w.__eggStop) requestAnimationFrame(look);
+      // The result card stays 3 s, and a busy page answers a test later than that: keep it here.
+      if (!w.__eggCard && egg.card.shown) {
+        const rarity = document.querySelector('[data-testid="reveal-rarity"]');
+        w.__eggCard = { tier: egg.card.tier, rarity: rarity?.textContent ?? '' };
+      }
+      if (!w.__eggStop || !w.__eggCard) requestAnimationFrame(look);
     };
     look();
   });
@@ -96,9 +103,13 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
   expect(waiting.length).toBeGreaterThan(0);
   for (const e of waiting) expect(Math.abs(e.angle)).toBeLessThanOrEqual(0.01);
   expect((await state(a)).egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
-  await a.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, { timeout: 8_000 });
-  expect((await state(a)).egg.card.tier).toBeTruthy();
-  await expect(a.getByTestId('reveal-rarity')).toBeVisible();
+  const cardHandle = await a.waitForFunction(
+    () => (window as unknown as { __eggCard: unknown }).__eggCard,
+    undefined,
+    { timeout: 8_000 },
+  );
+  const card = await cardHandle.jsonValue();
+  expect(card).toMatchObject({ tier: expect.any(String), rarity: expect.stringMatching(/\S/) });
   await withinBudget(a, 'reveal');
 
   const b = await opened(await browser.newContext());
