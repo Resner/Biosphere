@@ -239,7 +239,22 @@ export async function goTo(page: Page, id: string): Promise<void> {
       if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
     }, id);
     await expect(hint).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 40_000 });
+  })
+    .toPass({ timeout: 40_000 })
+    .catch(async (error) => {
+      const seen = await page.evaluate((who) => {
+        const s = (window.__bs as BsHook).state();
+        const r = s.remotes.find((x) => x.id === who);
+        return {
+          player: s.player && { x: s.player.x, y: s.player.y },
+          remote: r && { x: r.x, y: r.y, radius: r.radius },
+          mate: s.mate,
+        };
+      }, id);
+      throw new Error(`no mate hint beside the other player: ${JSON.stringify(seen)}`, {
+        cause: error,
+      });
+    });
 }
 
 /** What `document.elementFromPoint` finds at the egg's centre and at four points 0.8 of its radius out. */

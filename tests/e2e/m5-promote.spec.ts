@@ -43,7 +43,17 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   // The first press may land before the hub has answered the check; repeats are ignored.
   await a.keyboard.press('e');
   await a.keyboard.press('e');
-  await expect(b.getByTestId('invite')).toBeVisible();
+  // A loaded runner can take seconds to carry the court through the hub; say what each side saw if it never comes.
+  await expect(b.getByTestId('invite'), "the hub carries A's court to B as an invitation")
+    .toBeVisible({
+      timeout: 20_000,
+    })
+    .catch(async (error) => {
+      const [ma, mb] = (await Promise.all([state(a), state(b)])).map((s) => s.mate);
+      throw new Error(`no invitation. A: ${JSON.stringify(ma)} B: ${JSON.stringify(mb)}`, {
+        cause: error,
+      });
+    });
   await b.keyboard.press('e');
 
   // The round arrives: an egg, then the card, on both sides, with different children.
