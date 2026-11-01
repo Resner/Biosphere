@@ -820,9 +820,9 @@ export const weaponShare = (tip: number): number =>
 
 const isWeaponTip = (tip: number): boolean => weaponShare(tip) > 0;
 
-/** No fine detail: a v1 part. */
 /** Layout state every part starts with, so all parts share one object shape (hot loops stay monomorphic). */
 const LAYOUT = { role: undefined, lo: 0, hi: PI, inner: false } as const;
+/** No fine detail: a v1 part. */
 const PLAIN = { webbing: 0, setae: 0, setaeLength: 0, bulb: 0, chela: 0, beads: 0 } as const;
 
 /**
@@ -2152,7 +2152,8 @@ export function develop(traits: Traits): BodyPlan {
   const n = clamp(Math.floor(traits.body.segments), 1, D.caps.segments);
   let form = formOf(shape, n);
   let grown = grow(traits, form, n);
-  const legs = (): number => grown.parts.reduce((n, p) => n + (p.role === 'leg' ? 1 : 0), 0);
+  const legs = (): number =>
+    grown.parts.reduce((count, p) => count + (p.role === 'leg' ? 1 : 0), 0);
   // The coil's leg gate (ADR 0041): a coil with more leg pairs than `coilLegs` takes the C-curl.
   if (form.mode === 2 && legs() > D.curve.coilLegs) {
     form = formOf(shape, n, false);

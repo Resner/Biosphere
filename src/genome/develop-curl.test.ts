@@ -263,7 +263,7 @@ describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
     const [lo, hi] = LEG_DIR as [number, number];
     let legs = 0;
     ALL.forEach(({ plan }, i) => {
-      const [length, width] = [measure(plan.segments).length, measure(plan.segments).width];
+      const { length, width } = measure(plan.segments);
       for (const a of plan.appendages) {
         if (!a.fringe || a.module < 0) continue;
         check(a.length <= 0.3 * width + 1e-9, () => `${i}: fringe ${a.length} long`);
