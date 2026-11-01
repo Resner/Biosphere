@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { heavyTest } from '../../tests/heavy';
 import { decodeGenome } from '../genome/codec';
 import { develop } from '../genome/develop';
 import { express, type Traits } from '../genome/express';
@@ -225,7 +226,7 @@ describe('materialParams', () => {
     expect(albino.organ[0]).toBeGreaterThan(albino.organ[1]);
   });
 
-  it("keeps pass 1's palette over 1,500 genomes: one organ hue, one rare complementary accent, amber droplets (M6b T3)", () => {
+  heavyTest("keeps pass 1's palette over 1,500 genomes: one hue, a rare accent, amber oil", () => {
     const arc = (a: number, b: number): number => {
       const d = Math.abs((((a - b) % 1) + 1) % 1);
       return Math.min(d, 1 - d);
@@ -272,7 +273,7 @@ describe('materialParams', () => {
     expect(tiers.common).toBeGreaterThan(0);
     expect(tiers.uncommon + tiers.rare + tiers.exotic).toBeGreaterThan(50);
     expect(accented).toBeGreaterThan(20);
-  }, 60_000);
+  });
 
   it('raises organ saturation with rarity, never the spread of hues, and leaves the shell alone (M6b T3)', () => {
     const order = ['common', 'uncommon', 'rare', 'exotic'] as const;

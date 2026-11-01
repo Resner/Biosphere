@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { withAlleles } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { type Beacon, randomnessOf } from '../ledger/drand';
 import { genesisFor } from '../ledger/genesis';
 import { type Seed, seedFromString } from '../sim/prng';
@@ -132,7 +133,7 @@ describe('offspringPair', () => {
 });
 
 describe('offspringPair: viability', () => {
-  it('10,000 children of random and mutated parents are all valid bodies', () => {
+  heavyTest('10,000 children of random and mutated parents are all valid bodies', () => {
     for (let i = 0; i < 5000; i++) {
       const a = i % 2 ? mutateGenome(parent(i), seedOf('mut', i), { mutation: 4 }) : parent(i);
       const b = parent(i + 50_000);
@@ -142,7 +143,7 @@ describe('offspringPair: viability', () => {
       }
     }
     // About 6.5 s alone, so the default 5 s limit failed under the full suite's load.
-  }, 30_000);
+  });
 });
 
 describe('Mendelian shares of the children (mutation off)', () => {

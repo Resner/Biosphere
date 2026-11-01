@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { buildBytes, metricsAt, type Params } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome } from './codec';
@@ -399,7 +400,7 @@ describe('fine parts: totals and membranes over random and mutated genomes', () 
     return { webs: p.membranes.length, setae: total };
   };
 
-  it('holds over 10,000 random genomes', () => {
+  heavyTest('holds over 10,000 random genomes', () => {
     let webs = 0;
     let setae = 0;
     for (let i = 0; i < 10_000; i++) {
@@ -412,7 +413,7 @@ describe('fine parts: totals and membranes over random and mutated genomes', () 
     expect(setae).toBeGreaterThan(3_000);
   });
 
-  it('holds over 10,000 mutated genomes', () => {
+  heavyTest('holds over 10,000 mutated genomes', () => {
     for (let i = 0; i < 10_000; i++) {
       const g = mutateGenome(decodeGenome(randomBytes()), seedFromString(`detail-${i}`), {
         mutation: 4,

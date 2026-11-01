@@ -1,5 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { heavyTest } from '../../tests/heavy';
 import { GENOME_TEXT_LENGTH } from '../genome/codec';
 import { createRng, seedFromString } from '../sim/prng';
 import {
@@ -904,7 +905,7 @@ describe('parser fuzz', () => {
   const samples = [...clientMsgs, ...hubMsgs, ...peerEvents].map((m) => JSON.stringify(m));
   const parsers = [parseClientMsg, parseHubMsg, parsePeerEvent];
 
-  it('never throws on random strings or mutations of valid messages (100,000 cases)', () => {
+  heavyTest('never throws on random strings or mutations of valid messages (100,000 cases)', () => {
     const rng = createRng(seedFromString('fuzz-json'), 'net');
     let threw = 0;
     const alphabet = '{}[]":,0123456789abt_-.\\ \nxé€\u0000';
@@ -937,7 +938,7 @@ describe('parser fuzz', () => {
     }
     expect(threw).toBe(0);
     // The 100,000 cases take about 5 s alone, so the default 5 s limit flaked under load.
-  }, 30_000);
+  });
 });
 
 describe('module hygiene', () => {

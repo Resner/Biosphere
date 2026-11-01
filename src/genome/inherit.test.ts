@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { locus, withAlleles } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { createRng, type Rng, type Seed, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import type { Genome } from './codec';
@@ -440,12 +441,12 @@ function viable(g: Genome, label: string): void {
 }
 
 describe('viability', () => {
-  it('10,000 children of random genesis pairs are all valid bodies', () => {
+  heavyTest('10,000 children of random genesis pairs are all valid bodies', () => {
     for (let i = 0; i < 10_000; i++)
       viable(breed(parent(i), parent(i + 10_000), seedOf('pairs', i)), `pair ${i}`);
-  }, 30_000);
+  });
 
-  it('10,000 descendants after 5 generations at mutation ×4 are all valid bodies', () => {
+  heavyTest('10,000 descendants after 5 generations at mutation ×4 are all valid bodies', () => {
     const pick: Rng = createRng(seedOf('lineage', 0), 'pick');
     let pool = Array.from({ length: 2000 }, (_, i) => parent(i + 50_000));
     for (let gen = 1; gen <= 5; gen++) {
@@ -460,7 +461,7 @@ describe('viability', () => {
       }
       pool = next;
     }
-  }, 30_000);
+  });
 });
 
 describe('goldens', () => {

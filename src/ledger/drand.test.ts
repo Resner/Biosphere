@@ -4,6 +4,7 @@ import { bls12_381 } from '@noble/curves/bls12-381.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
+import { heavyTest } from '../../tests/heavy';
 import {
   type Beacon,
   DST,
@@ -58,7 +59,7 @@ describe('fixtures', () => {
 });
 
 describe('verifyBeacon', () => {
-  it('accepts every recorded beacon', () => {
+  heavyTest('accepts every recorded beacon', () => {
     // One aggregate check over all 600 (about 7 s) instead of 600 single ones (about 17 s); the
     // recorder already verified each beacon singly. Ten spread beacons also go through the real path.
     const sigs = bls12_381.shortSignatures;
@@ -69,7 +70,7 @@ describe('verifyBeacon', () => {
     expect(sigs.verifyBatch(aggregate, items)).toBe(true);
     for (let i = 0; i < 600; i += 60) expect(verifyBeacon(beacon(i))).toBe(true);
     expect(verifyBeacon(beacon(599))).toBe(true);
-  }, 30000);
+  });
 
   it('rejects tampered beacons without throwing', () => {
     const b = beacon(10);
