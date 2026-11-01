@@ -21,7 +21,8 @@ const waitForScale = (page: Page, want: 'below' | 'full') =>
       return t === 'below' ? scale < 1 : scale === 1;
     },
     want,
-    { timeout: 15_000 },
+    // Adaptation reads a window of frames: a slow software-rendered runner needs far longer than a laptop.
+    { timeout: 60_000 },
   );
 
 test('setBench picks high, medium and low, and the stored choice skips the benchmark', async ({

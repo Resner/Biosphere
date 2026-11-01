@@ -70,6 +70,12 @@ export async function swimPace(page: Page, ms = 1000): Promise<{ dist: number; h
     });
   const from = await at();
   await page.waitForTimeout(ms);
+  // A starved page can run no tick in a whole second: wait until it has run a few, then read.
+  await page.waitForFunction(
+    (t) => ((window.__bs as BsHook).state().tick ?? 0) >= t + 5,
+    from.tick,
+    { timeout: 30_000 },
+  );
   const to = await at();
   const ticks = to.tick - from.tick;
   if (ticks <= 0) throw new Error('the world did not run');
