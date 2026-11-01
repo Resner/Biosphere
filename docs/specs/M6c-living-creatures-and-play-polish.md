@@ -103,7 +103,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - Decoding stays total: the 10k random-bytes property, including 328-byte inputs, passes.
   - Notes: bodies don't change yet; T3 and T4 change them under rules 8 with no freeze. This task touches no worker table (T2 does).
 
-- [ ] T2 The world renewal: migration, protocol 6, the notice [opus] (in progress)
+- [x] T2 The world renewal: migration, protocol 6, the notice [opus] (in progress)
+  - Done: migration 6 (a `(sql, now)` step, all migrations now in one transaction) empties the world and adds `world` and `players.epoch_seen`; `Ledger.takeRenewal` puts `renewed` on `life` once; the notice sits in the tagline's place (`state().renewed`).
+  - Gotcha: the E2E entry's `POST /v1/e2e/pre-reset` stages a returning player; migration 5's own test now stops at `migrate(sql, 5)`, since 6 empties its rows.
   - Steps:
     1. A worker migration (the next number in `worker/schema.ts`), in one transaction:
        - `DELETE FROM creatures, records, commitments, matings, genesis_log` (there is no `creatures_v5` any more: migration 5 renamed it);

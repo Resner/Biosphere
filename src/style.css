@@ -1711,17 +1711,12 @@ body {
 }
 
 /* Recovery code: a panel over the title screen; the code stays blurred until it is clicked. */
-/* The world renewal notice (M6c T2): a glass toast at the top of the title screen, clear of the
-   title, its buttons and any egg (which takes the middle). */
+/* The world renewal notice (M6c T2): a glass toast in the tagline's place under the title, so it
+   covers neither the title, the buttons, the status chip nor an egg. */
 .renewed {
-  position: fixed;
-  top: 1.25rem;
-  left: 0;
-  right: 0;
   box-sizing: border-box;
-  width: fit-content;
-  max-width: calc(100vw - 2rem);
-  margin: 0 auto;
+  max-width: min(40rem, calc(100vw - 2rem));
+  margin: 0.6rem 0 1.2rem;
   padding: 0.5rem 1.1rem;
   border: 1px solid var(--glass-line);
   border-radius: 16px;
@@ -1733,11 +1728,11 @@ body {
   font-size: 0.85rem;
   letter-spacing: 0.04em;
   line-height: 1.45;
-  text-align: center;
-  pointer-events: none;
+  text-shadow: none;
 }
 
-.renewed[hidden] {
+.renewed[hidden],
+.renewed:not([hidden]) + .tagline {
   display: none;
 }
 
