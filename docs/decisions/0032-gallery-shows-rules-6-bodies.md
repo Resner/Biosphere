@@ -1,6 +1,6 @@
 # 0032: The gallery shows rules 6 bodies, and look features get specimens
 
-- Status: accepted (amends 0024)
+- Status: accepted (amends 0024; the v1 bodies it describes are retired by 0040, and specimens are rebuilt after a world reset: 0043)
 - Date: 2026-10-29
 
 ## Context

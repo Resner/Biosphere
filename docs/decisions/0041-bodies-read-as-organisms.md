@@ -1,6 +1,6 @@
 # 0041: A body plan reads as an organism: parts by region, a visible-part budget
 
-- Status: accepted (refines 0025, 0037 and 0039; keeps 0006's caps)
+- Status: accepted (refines 0025, 0031, 0037 and 0039; amends 0038's coil gate; keeps 0006's caps)
 - Date: 2026-11-01
 
 ## Context

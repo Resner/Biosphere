@@ -1,6 +1,6 @@
 # 0019: Ledger mechanics, genesis commitments and the life clock (M4)
 
-- Status: accepted
+- Status: accepted (the maturity minimum is max(7 min, 10% of the lifespan): 0029; genesis writes karyotype 2 genomes: 0025)
 - Date: 2026-10-26
 
 ## Context

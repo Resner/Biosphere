@@ -1,6 +1,6 @@
 # 0037: One body, widest at the trunk
 
-- Status: accepted, amended by 0038 (amends 0028 and 0031)
+- Status: accepted, amended by 0038 and refined by 0041 (amends 0028 and 0031); its karyotype v1 exceptions are retired: 0040
 - Date: 2026-10-30
 
 ## Context

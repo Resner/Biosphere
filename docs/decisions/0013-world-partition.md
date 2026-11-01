@@ -1,6 +1,6 @@
 # 0013: World partition: size tiers, area of interest, habitats
 
-- Status: accepted
+- Status: accepted (the viewport's half-height follows 0029, not `9·r^0.9`)
 - Date: 2026-10-25
 
 ## Context

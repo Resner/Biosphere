@@ -35,7 +35,7 @@ The npm script contract: CI, hooks and skills call these names; the tools behind
 - `docs/ROADMAP.md`: the ordered milestones from M0 to v1.0.0, their status and an outline of each. It decides what's next.
 - `docs/DESIGN.md`: how the game plays, with initial values. Code tables are the source of truth; update DESIGN.md when a mechanic or value changes.
 - `docs/specs/<milestone>.md`: tasks with acceptance tests and per-task notes.
-- `docs/decisions/`: ADRs. Don't re-decide an accepted one; supersede it with a new ADR.
+- `docs/decisions/`: ADRs, append-only, indexed in its `README.md`. Read an ADR with its status line, which names what replaced which part. Don't re-decide an accepted one: write a new ADR, and in the same PR update the older one's status line and the index.
 - `.claude/rules/`: quality bars for each code area, loaded when you touch matching files.
 - `docs/art/`: art-direction references (never shipped).
 

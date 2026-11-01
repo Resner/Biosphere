@@ -1,6 +1,6 @@
 # 0017: Worker tests use `@cloudflare/vitest-plugin`
 
-- Status: accepted
+- Status: accepted (Vitest 5 is out and the plugin supports it, so Dependabot no longer ignores Vitest majors since 2026-11-01)
 - Date: 2026-10-25
 
 ## Context

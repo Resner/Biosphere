@@ -1,6 +1,6 @@
 # 0028: Body proportions follow the karyotype
 
-- Status: accepted, amended by 0031, 0037 and 0039 (amends 0025: "every new locus is defined so that 0 means v1 behaviour" now holds for the loci, but the chain layout and the part fit follow the karyotype)
+- Status: accepted, amended by 0031, 0037 and 0039 (amends 0025: "every new locus is defined so that 0 means v1 behaviour" now holds for the loci, but the chain layout and the part fit follow the karyotype); the karyotype v1 paths and the "frozen v1 equivalence" are retired: 0040
 - Date: 2026-10-28
 
 ## Context

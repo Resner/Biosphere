@@ -1,6 +1,6 @@
 # 0040: Before v1.0, a rules change may reset the world; no frozen versions
 
-- Status: accepted (supersedes, until v1.0, the "released versions are never edited, the old code stays for verifying history" parts of 0005, 0018, 0025 and 0035)
+- Status: accepted (supersedes, until v1.0, the freezes of 0005, 0006, 0018, 0025 and 0035: released versions are never edited, old code stays to verify history, and development and stats freeze from M7)
 - Date: 2026-11-01
 
 ## Context
