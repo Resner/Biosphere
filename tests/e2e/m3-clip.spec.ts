@@ -1,4 +1,4 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { genomeToBase64url } from '../../src/genome/codec';
 import { cellRect } from '../../src/lab/grid';
@@ -23,19 +23,47 @@ const NOT_WATER = waterLuma + 0.04;
 const bodies = { starter: 'starter', worst: genomeToBase64url(worstBody().genome) };
 const KEEP = 0.02;
 
+/**
+ * Waits until the camera's zoom has held still for 5 frames. A fixed pause is not enough on a slow
+ * software-rendered runner, where the zoom is still easing when the frame is read.
+ */
+const camSettled = (page: Page) =>
+  page.evaluate(
+    () =>
+      new Promise<void>((resolve) => {
+        let last = Number.NaN;
+        let still = 0;
+        const tick = () => {
+          const h = (window.__bs as BsHook).render.fx().halfHeight;
+          still = Math.abs(h - last) <= h * 1e-4 ? still + 1 : 0;
+          last = h;
+          if (still >= 5) resolve();
+          else requestAnimationFrame(tick);
+        };
+        requestAnimationFrame(tick);
+      }),
+  );
+
 for (const [name, genome] of Object.entries(bodies)) {
   test(`the centre of the player's ${name} body stays lit at any size`, async ({ page }) => {
     await openGame(page, `?debug=1&seed=clip&genome=${genome}`);
     await hatch(page);
     const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
     let small: number | null = null;
+    // The same spot at every size: the water behind the body varies with where it drifted to, which
+    // moved the centre pixel by more than KEEP between runs.
+    const spot = await page.evaluate(() => {
+      const { x = 0, y = 0 } = (window.__bs as BsHook).state().player ?? {};
+      return { x, y };
+    });
     for (const biomass of [100, 1600, 100_000]) {
+      await page.evaluate((p) => (window.__bs as BsHook).debug?.teleport(p.x, p.y), spot);
       await page.evaluate((b) => (window.__bs as BsHook).debug?.setBiomass(b), biomass);
       await page.waitForFunction(
         (b) => ((window.__bs as BsHook).state().player?.biomass ?? 0) >= b,
         biomass,
       );
-      await page.waitForTimeout(600);
+      await camSettled(page);
       // Freeze the world at one shader clock, so the gait and the glow are in the same phase at
       // every size and the frames compare (the camera has settled by now).
       await page.evaluate(() => {
@@ -43,7 +71,7 @@ for (const [name, genome] of Object.entries(bodies)) {
         debug?.timeScale(0);
         debug?.setClock(100);
       });
-      await page.waitForTimeout(200);
+      await camSettled(page);
       const [luma = 0] = await patchLuma(page, await page.screenshot(), [
         { x: width / 2, y: height / 2 },
       ]);
