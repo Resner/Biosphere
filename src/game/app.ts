@@ -131,8 +131,8 @@ const HURT_FLASH = 0.05;
 /** The most sim ticks of water flow one frame integrates: a stalled tab must not fling the snow. */
 const MAX_FLOW_TICKS = TICK_HZ;
 const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
-/** With `timeScale`, a slow software-GL frame must still catch up: 120 ticks is 4 s of sim. */
-const DEBUG_MAX_TICKS_PER_FRAME = 120;
+/** With `timeScale`, a slow software-GL frame must still catch up: 600 ticks is 20 s of sim. */
+const DEBUG_MAX_TICKS_PER_FRAME = 600;
 const MAX_THROTTLE = RULES.movement.maxThrottle;
 const NO_REMOTES: readonly DrawnRemote[] = [];
 const NO_MEMBERS: readonly Member[] = [];

@@ -88,16 +88,8 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
   const covered = await atEgg(a);
   expect(covered?.hits).toEqual(Array(5).fill('canvas#scene'));
   await waitPlaying(a);
-  await a.waitForFunction(() => window.__bs?.state().egg.phase === 'revealed', undefined, {
-    timeout: 15_000,
-  });
-  const log = await eggLog(a);
-  const waiting = log.filter((e) => e.phase === 'waiting');
-  expect(waiting.length).toBeGreaterThan(0);
-  for (const e of waiting) expect(Math.abs(e.angle)).toBeLessThanOrEqual(0.01);
-  expect((await state(a)).egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
-  // Read the tier in the same page call that sees the card: the card only stays for a few seconds,
-  // and a slow runner can outlast it between two round trips (the v0.7.1 release run).
+  // The card shows for 3 s from the reveal: catch it in the same page call that waits for it, with
+  // no round trip in between, because a slow runner can outlast it (the v0.7.1 release runs).
   const shown = await a.waitForFunction(
     () => {
       const card = window.__bs?.state().egg.card;
@@ -106,8 +98,16 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
       return { tier: card.tier, rarity: rarity?.textContent ?? '' };
     },
     undefined,
-    { timeout: 8_000 },
+    { timeout: 20_000 },
   );
+  await a.waitForFunction(() => window.__bs?.state().egg.phase === 'revealed', undefined, {
+    timeout: 15_000,
+  });
+  const log = await eggLog(a);
+  const waiting = log.filter((e) => e.phase === 'waiting');
+  expect(waiting.length).toBeGreaterThan(0);
+  for (const e of waiting) expect(Math.abs(e.angle)).toBeLessThanOrEqual(0.01);
+  expect((await state(a)).egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
   const revealed = await shown.jsonValue();
   expect(revealed?.tier).toBeTruthy();
   expect(revealed?.rarity.length, 'the card names the rarity').toBeGreaterThan(0);
@@ -175,8 +175,13 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
   };
   const closed = await travel();
   expect(closed).toBeGreaterThan(10);
-  await a.keyboard.press('g');
-  expect((await state(a)).wheel.open).toBe(true);
+  // A tap's keydown and keyup go in one page call: two Playwright round trips can sit more than the
+  // wheel's 250 ms tap window apart on a busy runner, and the wheel would read the tap as a hold.
+  await a.evaluate(() => {
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'g' }));
+    dispatchEvent(new KeyboardEvent('keyup', { key: 'g' }));
+  });
+  await a.waitForFunction(() => window.__bs?.state().wheel.open === true);
   const sweep = (async () => {
     for (const [x, y] of [
       [width / 2, 40],
