@@ -7,6 +7,7 @@ import {
   type TrunkCheck,
   trunkCheck,
 } from '../../tests/body-outline';
+import { heavyTest } from '../../tests/heavy';
 import { findSpecimen } from '../../tools/specimen';
 import { wildGenome } from '../lab/specimens';
 import { createRng, seedFromString } from '../sim/prng';
@@ -29,7 +30,7 @@ const randomV2 = (): Genome =>
 const ALL: TrunkCheck = { head: true, widest: true, narrows: true, aspect: true };
 
 describe('one body, widest at the trunk (M6b T5)', () => {
-  it('holds the outline rules for 95% of 10,000 random v2 chains', () => {
+  heavyTest('holds the outline rules for 95% of 10,000 random v2 chains', () => {
     let chains = 0;
     const fail = { head: 0, widest: 0, narrows: 0, aspect: 0, any: 0 };
     for (let i = 0; i < 10_000; i++) {
@@ -86,7 +87,7 @@ describe('copepods, shrimps and worms read as their class (M6b T5)', () => {
     }
   });
 
-  it('draws 80% of random, wild and mutated bodies of each class by its rules', () => {
+  heavyTest('draws 80% of random, wild and mutated bodies of each class by its rules', () => {
     // Random bytes are mostly rings and wings; the Lab's wild cells (a few v2 axes on a v1 body)
     // make most of the long bodies.
     const seen: Record<string, [number, number]> = {};

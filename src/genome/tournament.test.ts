@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { beforeAll, describe, expect, it } from 'vitest';
+import { heavyTest } from '../../tests/heavy';
 import {
   report,
   runTournament,
@@ -40,9 +41,7 @@ describe('archetype tournament', () => {
     for (const a of t.archetypes) expect(wins(a) >= 1 || topTwo(a) >= 2, a).toBe(true);
   });
 
-  it('is deterministic: a second run of the quick scenarios gives the same hash', {
-    timeout: 30_000,
-  }, () => {
+  heavyTest('is deterministic: a second run of the quick scenarios gives the same hash', () => {
     const quick: Scenario[] = ['sprint', 'cruise'];
     expect(runTournament(quick).hash).toBe(runTournament(quick).hash);
   });

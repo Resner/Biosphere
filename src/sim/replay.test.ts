@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { heavyTest } from '../../tests/heavy';
 import { depthAt } from './bathymetry';
 import { type PhysStats, STARTER_PHYS } from './body';
 import { foodNear } from './food';
@@ -283,7 +284,7 @@ function carefulForager(world: World, _tick: number): Input {
 }
 
 describe('pace', () => {
-  it('a forager with room to grow at least doubles its biomass between 60 s and 150 s', () => {
+  heavyTest('a forager with room to grow at least doubles its biomass from 60 s to 150 s', () => {
     const world = createWorld({ seed: 'pace' });
     const phys = { ...STARTER_PHYS, maxBiomass: 900 };
     const spot = findClearSpot(world, 4096, 4096);
@@ -296,7 +297,7 @@ describe('pace', () => {
     expect(me.alive).toBe(true);
     expect((at[150] as number) / (at[60] as number)).toBeGreaterThanOrEqual(2);
     // 5,400 ticks with a forager that scans food and plumes each tick: slow on a loaded CI runner.
-  }, 30_000);
+  });
 });
 
 describe('recordInputs', () => {

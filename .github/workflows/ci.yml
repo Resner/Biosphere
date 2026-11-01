@@ -96,7 +96,8 @@ jobs:
           node-version-file: package.json
           cache: npm
       - run: npm ci
-      - run: npm run check
+      # Every unit test, the heavy ones too (ADR 0045); the stop hook's `check` skips those.
+      - run: npm run check:full
 
   # The PR's E2E suite (`test:e2e`, no @slow) on parallel runners (ADR 0042): one runner took 9 to
   # 25 minutes, depending on how many workers it could afford (runners now often afford one).
@@ -135,7 +136,7 @@ jobs:
         run: npx playwright test ${{ matrix.args }}
       - name: Keep the failure evidence
         if: failure()
-        uses: actions/upload-artifact@v4
+        uses: actions/upload-artifact@v7
         with:
           name: e2e-${{ strategy.job-index }}
           path: test-results/

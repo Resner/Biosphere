@@ -17,7 +17,8 @@
     "record:drand": "node tools/record-drand.mjs",
     "build": "vite build",
     "preview": "vite preview",
-    "check": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run",
+    "check": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run --tags-filter='!heavy'",
+    "check:full": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run",
     "format": "biome check --write .",
     "test:unit": "vitest",
     "worker:dev": "node tools/worker.mjs dev",
@@ -25,7 +26,7 @@
     "test:e2e": "E2E_SKIP_SLOW=1 playwright test",
     "test:e2e:full": "playwright test",
     "e2e:setup": "playwright install --with-deps --only-shell chromium",
-    "verify": "npm run check && npm run build && npm run test:e2e:full"
+    "verify": "npm run check:full && npm run build && npm run test:e2e:full"
   },
   "dependencies": {
     "@noble/curves": "^2.4.0",
@@ -42,7 +43,7 @@
     "@types/three": "^0.186.0",
     "typescript": "^7.0.2",
     "vite": "^8.3.5",
-    "vitest": "^4.1.12",
+    "vitest": "^5.0.5",
     "wrangler": "4.155.0"
   }
 }

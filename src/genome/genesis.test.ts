@@ -1,6 +1,7 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { metricsAt } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
 import { type Genome, genomeHash } from './codec';
@@ -43,7 +44,7 @@ describe('genesisGenome', () => {
     expect(genomeHash(genesisGenome(seedOf(7)))).not.toBe(genomeHash(genesisGenome(seedOf(8))));
   });
 
-  it('gives a single cell with a whip, 300-900 biomass and a valid plan', () => {
+  heavyTest('gives a single cell with a whip, 300-900 biomass and a valid plan', () => {
     for (const c of creatures) {
       expect(c.traits.body.segments).toBe(1);
       const m1 = c.traits.modules[0];

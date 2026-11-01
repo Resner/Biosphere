@@ -19,6 +19,7 @@ import {
   parseHubMsg,
   SDP_MAX_BYTES,
 } from '../src/net/protocol';
+import { heavyTest } from '../tests/heavy';
 
 const ORIGIN = 'https://resner.github.io';
 
@@ -705,7 +706,7 @@ describe('TURN credentials', () => {
     expect(alice.c.inbox).toEqual([]);
   });
 
-  it('does not wait more than 2 s for a hanging Cloudflare', async () => {
+  heavyTest('does not wait more than 2 s for a hanging Cloudflare', async () => {
     await secrets(true);
     vi.spyOn(globalThis, 'fetch').mockImplementation(
       (_url, init) =>

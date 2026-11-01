@@ -1,5 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { heavyTest } from '../../tests/heavy';
 import { STARTER_PHYS, sanitizePhys } from '../sim/body';
 import { lerp } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
@@ -80,7 +81,7 @@ describe('develop: caps and guarantees', () => {
     expect(D.caps.segments).toBe(RULES.genes.segments);
   });
 
-  it('repairs 10,000 random genomes into valid plans', () => {
+  heavyTest('repairs 10,000 random genomes into valid plans', () => {
     for (let i = 0; i < 10_000; i++) {
       const p = plan(decodeGenome(randomBytes()));
       const bad = bodyViolations(p);
@@ -88,14 +89,14 @@ describe('develop: caps and guarantees', () => {
     }
   });
 
-  it('repairs 10,000 byte-flipped genomes into valid plans', () => {
+  heavyTest('repairs 10,000 byte-flipped genomes into valid plans', () => {
     for (let i = 0; i < 10_000; i++) {
       const bad = bodyViolations(plan(decodeGenome(flipped())));
       if (bad.length > 0) expect(bad, `flipped genome ${i}`).toEqual([]);
     }
   });
 
-  it('repairs 10,000 random genomes after mutateGenome at mutation ×4', () => {
+  heavyTest('repairs 10,000 random genomes after mutateGenome at mutation ×4', () => {
     for (let i = 0; i < 10_000; i++) {
       const g = mutateGenome(decodeGenome(randomBytes()), seedFromString(`mutated-${i}`), {
         mutation: 4,
@@ -396,7 +397,7 @@ describe('bodyViolations: each rule', () => {
 });
 
 describe('develop: speed', () => {
-  it('develops in under 0.15 ms at the median (ADR 0030)', () => {
+  heavyTest('develops in under 0.15 ms at the median (ADR 0030)', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     for (const t of traits) develop(t); // warm up
     // The best of thirty runs, so that a busy runner does not fail the build.

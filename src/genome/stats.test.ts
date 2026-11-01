@@ -9,6 +9,7 @@ import {
   metricsAt,
   withLoci,
 } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { STARTER_PHYS, sanitizePhys } from '../sim/body';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
@@ -89,7 +90,7 @@ const finite = (value: unknown, path = 'stats'): void => {
 };
 
 describe('computeStats: totality and the body seam', () => {
-  it('returns finite, sanitised stats for 10,000 random genomes and the extremes', () => {
+  heavyTest('returns finite, sanitised stats for 10,000 random genomes and the extremes', () => {
     const genomes = [
       ...Object.values(extremes),
       ...Array.from({ length: 10_000 }, () => randomBytes()),
@@ -104,7 +105,7 @@ describe('computeStats: totality and the body seam', () => {
     });
   });
 
-  it('develops and measures in under 0.15 ms at the median', () => {
+  heavyTest('develops and measures in under 0.15 ms at the median', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     // Warm up until the JIT has settled: the first passes cost up to twice the steady speed.
     for (let pass = 0; pass < 3; pass++) for (const t of traits) computeStats(develop(t), t);
@@ -299,7 +300,7 @@ describe('the top-speed band (ADR 0036)', () => {
     expect(bandSpeed(Number.POSITIVE_INFINITY)).toBe(band.max);
   });
 
-  it('keeps 10,000 random and 10,000 mutated genomes within 0.6-1.6x the starter at four sizes', () => {
+  heavyTest('keeps 20,000 random and mutated genomes in 0.6-1.6x the starter at four sizes', () => {
     const genomes = [
       ...Array.from({ length: 10_000 }, () => decodeGenome(randomBytes())),
       ...mutants(10_000),
@@ -314,7 +315,7 @@ describe('the top-speed band (ADR 0036)', () => {
       }
     }
     expect(outside).toBe(0);
-  }, 60_000);
+  });
 
   it('never makes the faster of two bodies the slower', () => {
     const made = Array.from({ length: 600 }, () => buildCreature(decodeGenome(randomBytes())));

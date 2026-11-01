@@ -1,5 +1,5 @@
 // The online session: hub roster, WebRTC mesh and the traffic between them. It owns no game state;
-// `app.ts` supplies the handlers and decides what a snapshot or a claim means for the world.
+// `app-online.ts` supplies the handlers and decides what a snapshot or a claim means for the world.
 
 import type { Identity } from '../ledger/identity';
 import type { PondClock } from '../net/clock';

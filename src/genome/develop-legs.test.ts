@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { galleryGenome as gallery, insideShare, trunkLegs } from '../../tests/body-outline';
+import { heavyTest } from '../../tests/heavy';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
@@ -23,7 +24,7 @@ const halfWidth = (plan: BodyPlan, segment: number): number =>
 const plans = Array.from({ length: 10_000 }, () => develop(express(randomV2())));
 
 describe('thin legs (M6b T7)', () => {
-  it('keeps every v2 part at most half its root segment drawn half-width', () => {
+  heavyTest('keeps every v2 part at most half its root segment drawn half-width', () => {
     const share = RULES.develop.part.root;
     expect(share).toBe(0.5);
     for (const plan of plans) {
@@ -49,7 +50,7 @@ describe('thin legs (M6b T7)', () => {
 });
 
 describe('legs keep off the body (M6b T7)', () => {
-  it('lays 95% of the parts of 10,000 random v2 bodies at most 25% inside the outline', () => {
+  heavyTest('lays 95% of parts of 10,000 random v2 bodies at most 25% inside the outline', () => {
     let parts = 0;
     let over = 0;
     for (const plan of plans) {

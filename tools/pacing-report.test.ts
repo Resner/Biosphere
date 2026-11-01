@@ -1,24 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { cooldownMs } from '../src/sim/mating';
 import { RULES } from '../src/sim/rules';
+import { heavyTest } from '../tests/heavy';
 import { pacingReport, parseArgs, simulateLife } from './pacing-report';
 
 describe('pacing simulation', () => {
-  it('replays the same life for the same seed', () => {
+  heavyTest('replays the same life for the same seed', () => {
     const a = simulateLife('smoke-0', 4 * 60_000);
     const b = simulateLife('smoke-0', 4 * 60_000);
     expect(b).toEqual(a);
-  }, 60_000);
+  });
 
-  it('records when a bot doubles and reaches 60% of its adult size', () => {
+  heavyTest('records when a bot doubles and reaches 60% of its adult size', () => {
     const life = simulateLife('smoke-1', 30 * 60_000);
     expect(life.doubledAtMs).not.toBeNull();
     // Maturity needs 60% of the maximum biomass, so it never comes before it.
     if (life.matureAtMs !== null)
       expect(life.matureAtMs).toBeGreaterThanOrEqual(life.sixtyAtMs ?? 0);
-  }, 60_000);
+  });
 
-  it('only counts matings after maturity and the cooldown', () => {
+  heavyTest('only counts matings after maturity and the cooldown', () => {
     const life = simulateLife('smoke-1', 30 * 60_000);
     if (life.matureAtMs !== null)
       expect(life.firstEligibleMs).toBeGreaterThanOrEqual(life.matureAtMs);
@@ -27,7 +28,7 @@ describe('pacing simulation', () => {
       expect(at).toBeGreaterThanOrEqual(last);
       last = at + RULES.mating.cooldownMs;
     }
-  }, 60_000);
+  });
 
   it('prints every section, with the doubling from the rules', () => {
     const text = pacingReport({ creatures: 2, minutes: 15 });

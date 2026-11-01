@@ -68,6 +68,8 @@ Death is common and never total: you fall back to your pending offspring or your
 | Pond map (M6) | — | M (M or Esc closes it; steering carries on under it) |
 | Menu | the menu button in the top-left corner (M6b) | Esc |
 
+- **Core actions** (ADR 0014's six): steer, dash, court, attack, the social wheel and the menu. Every other key is a shortcut for something the screen also offers (the Offspring card, the minimap, the wheel's emotes, the combat HUD); chat is the one that needs typing.
+
 - **Camera**: top-down perspective, following the creature. The visible half-height is `9 · R^0.9 · (r / R)^0.6` wu (M6 T18, ADR 0029), where `r` is the creature's radius and `R` the radius at its genetic maximum biomass. An adult sees `9 · R^0.9` (about 134 wu for the starter, whose `R` is 20), and a smaller creature sees less, so tripling the radius makes it 3^0.4 ≈ 1.55× larger on screen and growth shows within one life. A hatchling never sees fewer body lengths than the old `9 · r^0.9` curve gave. Zoom changes are smoothed over about 1 s.
 
 ## 4. Creature state and survival (M1, extended by M3)

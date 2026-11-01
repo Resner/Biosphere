@@ -1,6 +1,6 @@
 # 0044: Two lanes: build and care, each with its own lock
 
-- Status: accepted (refines 0015's one-run-at-a-time and 0020's lowest-number rule to one PR per lane; refines 0042's "a red E2E main comes first")
+- Status: accepted (refines 0015's one-run-at-a-time and 0020's lowest-number rule to one PR per lane; refines 0042's "a red E2E main comes first"; refined by 0045: the care lane also works a maintenance backlog)
 - Date: 2026-11-01
 
 ## Context

@@ -3,6 +3,7 @@ import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { describe, expect, it, vi } from 'vitest';
 import { ARCHETYPES, buildBytes } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { decodeGenome, type Genome, genomeHash } from '../genome/codec';
 import { type BodyPlan, develop, type PlanSegment, polygonArea } from '../genome/develop';
 import { express } from '../genome/express';
@@ -172,7 +173,7 @@ function groups(g: Geometry): Map<string, number[]> {
 }
 
 describe('buildCreatureGeometry v2: budgets and validity', () => {
-  it('keeps every body within its level-of-detail budget, with finite attributes and valid indices', () => {
+  heavyTest('keeps every body within its LOD budget, finite attributes and valid indices', () => {
     const NAMES = ['position', 'normal', 'uv', 'aSpine', 'aAttach', 'aWeight', 'aPart'];
     const limit = D.caps.bounds * 1.05;
     let built = 0;
@@ -211,9 +212,9 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
       }
     }
     expect(built).toBe((named.length + randoms.length) * 3);
-  }, 120_000);
+  });
 
-  it('never drops a part: every appendage of the plan is drawn on every level of detail', () => {
+  heavyTest('never drops a part: every appendage is drawn on every level of detail', () => {
     for (const genome of [...named, ...randoms.slice(0, 300)]) {
       const p = planOf(genome);
       for (const lod of LODS) {
@@ -227,7 +228,7 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
         }
       }
     }
-  }, 60_000);
+  });
 
   it('picks the richest rung of its ladder that fits, and the ladders get coarser', () => {
     for (const lod of LODS) {
@@ -287,7 +288,7 @@ describe('buildCreatureGeometry v2: the body', () => {
     expect(maxZ).toBeLessThanOrEqual(1);
   });
 
-  it('lofts one body along the curved spine, over the plan outline and every segment', () => {
+  heavyTest('lofts one body along the curved spine, over the outline and every segment', () => {
     const curved = [...gallery.values(), ...randoms.slice(0, 200)].map(planOf);
     expect(curved.some((p) => p.form.turn > 2)).toBe(true);
     for (const p of curved) {
@@ -363,7 +364,7 @@ describe('buildCreatureGeometry v2: the body', () => {
         expect(inside, `${x}, ${y}`).toBe(true);
       }
     }
-  }, 60_000);
+  });
 
   it('winds every closed surface outward, on both sides of the body', () => {
     for (const genome of [...named, ...randoms.slice(0, 100)]) {
@@ -447,7 +448,7 @@ describe('buildCreatureGeometry v2: the body', () => {
 describe('buildCreatureGeometry v2: the inner anatomy', () => {
   const organKind = (v: number): boolean => ORGAN_KINDS.includes(partKind(v));
 
-  it('keeps the organs within 20% of each level-of-detail budget, and the whole body within its budget', () => {
+  heavyTest('keeps the organs within 20% of each LOD budget, and the body within it', () => {
     for (const lod of LODS) expect(ORGAN_RESERVE[lod]).toBeLessThanOrEqual(0.2 * LOD_BUDGET[lod]);
     for (const genome of [...named, ...randoms.slice(0, 100)]) {
       const p = planOf(genome);
@@ -462,7 +463,7 @@ describe('buildCreatureGeometry v2: the inner anatomy', () => {
         expect(part.length).toBeLessThanOrEqual(LOD_BUDGET[lod]);
       }
     }
-  }, 60_000);
+  });
 
   it('draws the gut, the chambers and droplets, the heart and the eye pigment with their own part kinds', () => {
     expect(ORGAN_KINDS).toEqual([PART_GUT, PART_CHAMBER, PART_DROPLET, PART_HEART, PART_PIGMENT]);
@@ -487,7 +488,7 @@ describe('buildCreatureGeometry v2: the inner anatomy', () => {
     }
   });
 
-  it('draws the organs inside the shell: over the body and under the carapace and the eyes, within the hull', () => {
+  heavyTest('draws organs in the shell and hull: over the body, under carapace and eyes', () => {
     for (const genome of [...gallery.values(), ...randoms.slice(0, 100)]) {
       const p = planOf(genome);
       const g = buildCreatureGeometry(p, 'high', anatomyFor(genome));
@@ -538,7 +539,7 @@ describe('buildCreatureGeometry v2: the inner anatomy', () => {
     }
   });
 
-  it('moves the organs with the body: rigid on a bilateral body, pulsing on a bell, never turning like a part', () => {
+  heavyTest('moves organs with the body: rigid if bilateral, pulsing on bells, no turning', () => {
     for (const genome of [...gallery.values(), ...randoms.slice(0, 100)]) {
       const p = planOf(genome);
       const g = buildCreatureGeometry(p, 'high', anatomyFor(genome));
@@ -553,7 +554,7 @@ describe('buildCreatureGeometry v2: the inner anatomy', () => {
         expect(weight[i]).toBe(0);
       }
     }
-  }, 60_000);
+  });
 });
 
 describe('buildCreatureGeometry v2: rare glints (M6 T13)', () => {
@@ -602,7 +603,7 @@ describe('buildCreatureGeometry v2: rare glints (M6 T13)', () => {
     );
   });
 
-  it('draws each glint as one quad of its own part kind, last, within every budget', () => {
+  heavyTest('draws each glint as one quad of its own part kind, last, within every budget', () => {
     expect(PART_GLINT).toBeLessThan(PART_KINDS);
     expect(fragmentShader).toMatch(new RegExp(`const int PART_GLINT = ${PART_GLINT};`));
     for (const genome of [...named, ...randoms.slice(0, 100)]) {
@@ -651,7 +652,7 @@ describe('buildCreatureGeometry v2: rare glints (M6 T13)', () => {
         geometry.dispose();
       }
     }
-  }, 60_000);
+  });
 
   it("keeps the glints out of a part's reach, so the part moves as without them", () => {
     const genome = specimen('36-specimen-tier-exotic');
@@ -674,7 +675,7 @@ describe('buildCreatureGeometry v2: rare glints (M6 T13)', () => {
 });
 
 describe('buildCreatureGeometry v2: parts and fine detail', () => {
-  it('roots every appendage on its segment outline', () => {
+  heavyTest('roots every appendage on its segment outline', () => {
     for (const genome of [...gallery.values(), ...randoms.slice(0, 300)]) {
       const p = planOf(genome);
       const g = buildCreatureGeometry(p, 'high');
@@ -696,9 +697,9 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
         expect(Math.hypot(cx - root.x, cy - root.y), `part ${k}`).toBeLessThanOrEqual(0.02);
       });
     }
-  }, 30_000);
+  });
 
-  it('attaches every vertex of a part to its root, with weights from 0 at the base', () => {
+  heavyTest('attaches every vertex of a part to its root, with weights from 0 at the base', () => {
     for (const genome of [...named, ...randoms.slice(0, 200)]) {
       const p = planOf(genome);
       for (const lod of LODS) {
@@ -724,7 +725,7 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
         expect(bad.slice(0, 3), lod).toEqual([]);
       }
     }
-  }, 30_000);
+  });
 
   it('draws joint beads, bulb tips and chela fingers on the parts that have them', () => {
     const p = planOf(specimen('37-'));
@@ -1062,7 +1063,7 @@ describe('buildCreatureGeometry: segment walls (look pass 3, M6 T28)', () => {
     }
   });
 
-  it('marks only the body: whole numbers between its ends, and none on any other part', () => {
+  heavyTest('marks only the body: whole numbers between its ends, none on any part', () => {
     for (const genome of [...gallery.values(), ...randoms.slice(0, 200)]) {
       const p = planOf(genome);
       const walls = wallsAlong(p, centreLine(p.segments)).length;
@@ -1089,7 +1090,7 @@ describe('buildCreatureGeometry: segment walls (look pass 3, M6 T28)', () => {
         g.dispose();
       }
     }
-  }, 60_000);
+  });
 
   it('declares the wall coordinate in the vertex shader and draws it in the fragment shader', () => {
     expect(vertexShader).toMatch(/attribute float aWall;/);
