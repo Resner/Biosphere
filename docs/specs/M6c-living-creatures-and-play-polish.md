@@ -345,7 +345,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
       - the canvas draws at most 31 times a second;
       - the gauge's marker moves down as the player dives;
       - with no other players and no pings, `minimap.info().marks` is empty.
-    - `m6b-minimap.spec.ts`'s ping-bearing check (it failed at 15° against a limit of 10° on a loaded runner, #213) compares the bearing with the player's position at the minimap's own draw, which `minimap.info()` reports, rather than the position read later.
+    - Keep `m6b-minimap.spec.ts`'s one-frame reads (#213 fixed two flakes there: the radius against the half-height, and the ping's bearing against A's drifted position). The new arrow layer must not reintroduce a read across frames.
 
 ### Closing
 
