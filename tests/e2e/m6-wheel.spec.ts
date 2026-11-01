@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { hatch, M6_WHEEL_HUB, openGame, playerOf, state } from './helpers';
+import { hatch, M6_WHEEL_HUB, openGame, playerOf, state, swimPace } from './helpers';
 
 // The quick social wheel (M6 T24, #89): G opens a ring of 4 pings and 6 emotes at the cursor; a
 // number, a release over an item or a click sends one on purpose, and Esc or a release in the
@@ -139,15 +139,7 @@ test('G opens the wheel at the cursor; a number, a release or the middle button 
   // open covers about what a second with it closed does, and the heading holds while the cursor
   // moves over the items.
   await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
-  const travel = async () => {
-    const from = await playerOf(page);
-    await page.waitForTimeout(1000);
-    const to = await playerOf(page);
-    return {
-      dist: Math.hypot(to.x - from.x, to.y - from.y),
-      heading: Math.atan2(to.y - from.y, to.x - from.x),
-    };
-  };
+  const travel = () => swimPace(page);
   await page.mouse.move(width - 10, height / 2);
   await page.waitForTimeout(1500);
   const closed = await travel();

@@ -214,7 +214,10 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     () => {
       const bs = window.__bs as BsHook;
       if (bs.state().screen === 'dead') return true;
+      // Half energy: fed, but under the growth threshold, so the body does not grow its health
+      // back faster than the pressure takes it.
       bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      bs.debug?.setEnergy((bs.state().player?.energy ?? 0) / 2);
       bs.debug?.timeScale(30);
       return false;
     },

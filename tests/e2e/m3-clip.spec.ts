@@ -36,6 +36,14 @@ for (const [name, genome] of Object.entries(bodies)) {
         biomass,
       );
       await page.waitForTimeout(600);
+      // Freeze the world at one shader clock, so the gait and the glow are in the same phase at
+      // every size and the frames compare (the camera has settled by now).
+      await page.evaluate(() => {
+        const { debug } = window.__bs as BsHook;
+        debug?.timeScale(0);
+        debug?.setClock(100);
+      });
+      await page.waitForTimeout(200);
       const [luma = 0] = await patchLuma(page, await page.screenshot(), [
         { x: width / 2, y: height / 2 },
       ]);
@@ -43,6 +51,7 @@ for (const [name, genome] of Object.entries(bodies)) {
       if (name === 'worst') expect(luma, `biomass ${biomass}`).toBeGreaterThanOrEqual(LIT);
       expect(luma, `biomass ${biomass}`).toBeGreaterThanOrEqual(NOT_WATER);
       expect(luma, `biomass ${biomass}`).toBeGreaterThanOrEqual(small - KEEP);
+      await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
     }
   });
 }

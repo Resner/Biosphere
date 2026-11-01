@@ -12,6 +12,7 @@ import {
   openRecorded,
   playerOf,
   state,
+  swimPace,
   waitPlaying,
 } from './helpers';
 
@@ -167,12 +168,7 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
 
   // 4. The wheel, held open for a second mid-swim, keeps at least 80% of the pace; a ping from
   // it reaches the other player's minimap.
-  const travel = async () => {
-    const from = await playerOf(a);
-    await a.waitForTimeout(1000);
-    const to = await playerOf(a);
-    return Math.hypot(to.x - from.x, to.y - from.y);
-  };
+  const travel = async () => (await swimPace(a)).dist;
   const closed = await travel();
   expect(closed).toBeGreaterThan(10);
   // A tap's keydown and keyup go in one page call: two Playwright round trips can sit more than the
@@ -248,7 +244,10 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
     () => {
       const bs = window.__bs as BsHook;
       if (bs.state().screen === 'dead') return true;
+      // Half energy: fed, but under the growth threshold, so the body does not grow its health
+      // back faster than the pressure takes it.
       bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      bs.debug?.setEnergy((bs.state().player?.energy ?? 0) / 2);
       bs.debug?.timeScale(30);
       return false;
     },
