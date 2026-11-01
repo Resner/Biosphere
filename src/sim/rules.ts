@@ -301,6 +301,13 @@ export const RULES = deepFreeze({
        * shorter chain only curls by amount × π.
        */
       coilStart: 0.8,
+      /**
+       * The coil's gate (ADR 0041, amending 0038): a coil needs a segment trait of `coilFrom`
+       * segments or more and at most `coilLegs` visible leg pairs; any other chain past
+       * `coilStart` takes the C-curl, by amount × π.
+       */
+      coilFrom: 5,
+      coilLegs: 2,
       coilTurn: [2.5, 2.7],
       whorl: 0.38,
       chamber: 0.85,
@@ -337,6 +344,11 @@ export const RULES = deepFreeze({
       stiffen: 0.8,
       /** Outline points per fused segment that the hull must contain. */
       samples: 16,
+      /**
+       * The shell overhangs its segments by this share of the widest fused half-width (M6c T3,
+       * ADR 0041), so legs on a carapace root under it and show their outer part only.
+       */
+      overhang: 0.25,
     },
     radial: {
       /** Symmetry at or above this rings the parts round the core at even angles; the body rounds with symmetry all along. */
@@ -460,6 +472,26 @@ export const RULES = deepFreeze({
     /** Branches leave their part at `branchAt` of its length, fanned `branchFan` radians either way. */
     branchAt: 0.7,
     branchFan: 0.5,
+    /**
+     * Parts by region (M6c T3, ADR 0041). A bilateral part's root lies at a share of the body's
+     * length along its spine: in the front `head.share` with an attach angle within `head.cone`
+     * degrees of the heading it is on the head, in the rear `rear.share` on the rear, else on the
+     * trunk. The head keeps one long antenna pair (at most `head.long` body lengths) and one short
+     * (`head.short`); the trunk up to `trunk.pairs` leg pairs, each at most `trunk.length` body
+     * widths and swept back `trunk.sweep` degrees from the side; the rear one tail structure of at
+     * most `rear.tail` body lengths. A radial body rings `radial.spokes` spokes, lengths varied
+     * ±`radial.vary` by a hash. At most `budget` instances show (the tail, the long antennae, the
+     * short antennae, then legs from the front); the rest become fringe: cilia at most
+     * `fringe.length` body widths long, drawn faint, counted as cilia by the stats.
+     */
+    organism: {
+      head: { share: 0.2, cone: 70, long: 2.2, short: 0.6 },
+      trunk: { pairs: 6, length: 0.9, sweep: [25, 70] },
+      rear: { share: 0.2, tail: 1.5 },
+      radial: { spokes: [5, 9], vary: 0.3 },
+      budget: 14,
+      fringe: { length: 0.3 },
+    },
   },
   /** Stats from form (M3, DESIGN §6): how a body plan becomes thrust, drag, turning, costs and combat numbers. */
   stats: {
