@@ -4,7 +4,7 @@
 
 import { pow } from '../sim/math';
 import { RULES } from '../sim/rules';
-import { type Genome, genomeKaryotype, type Haplotype } from './codec';
+import type { Genome, Haplotype } from './codec';
 import {
   LOCI,
   type Locus,
@@ -77,14 +77,8 @@ export interface Traits {
     uvTolerance: number;
     pressureTolerance: number;
   };
-  /** Karyotype v2 body shape (ADR 0025) on the `RULES.genes.range.shape` ranges: all 0 is the v1 body. */
+  /** Body shape (ADR 0025) on the `RULES.genes.range.shape` ranges: all 0 is the plain body. */
   shape: Record<ShapeTrait, number>;
-  /**
-   * The genome's karyotype (`genomeKaryotype`): development lays a v2 genome's segment chain out so
-   * the trunk carries the body and fits its parts by sweeping them (ADR 0028), and keeps a v1
-   * genome on the v5 layout, so living v1 creatures keep their bodies.
-   */
-  karyotype: 1 | 2;
   /** Factors that are 1 unless the matching load locus is homozygous loss of function. */
   defects: {
     membraneIntegrity: number;
@@ -217,7 +211,7 @@ function expressModule(g: Genome, slot: ModuleLocus): ModuleTrait {
   MODULE_PARAMS.forEach((name, k) => {
     params[name] = value(at + 1 + k);
   });
-  // The extension follows its slot: a v1 genome has none, so it reads as zeros (off).
+  // The extension follows its slot.
   const ext = {} as Record<ModuleExt, number>;
   MODULE_EXT.forEach((name, k) => {
     ext[name] = ranged('part', name, value(slot.ext + k) / 255);
@@ -283,7 +277,6 @@ export function express(g: Genome): Traits {
     },
     physiology: quantGroup(g, 'physiology') as Traits['physiology'],
     shape: quantGroup(g, 'shape') as Traits['shape'],
-    karyotype: genomeKaryotype(g),
     defects: {
       membraneIntegrity: homozygousLof(g, 'L1') ? lof.membraneIntegrity : 1,
       partScale: homozygousLof(g, 'L2') ? lof.partScale : 1,

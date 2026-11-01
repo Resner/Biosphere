@@ -5,8 +5,7 @@ import { decodeGenome, type Genome } from '../genome/codec';
 import { describeCreature } from '../genome/describe';
 import { bodyViolations } from '../genome/develop';
 import { genesisGenome } from '../genome/genesis';
-import { GENOME_BYTES, HAPLOTYPE_BYTES } from '../genome/karyotype';
-import { HAPLOTYPE_BYTES_V1 } from '../genome/karyotype-v1';
+import { BASE_BYTES, GENOME_BYTES, HAPLOTYPE_BYTES } from '../genome/karyotype';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import { type Silhouette, silhouetteOf } from '../genome/silhouette';
@@ -67,12 +66,12 @@ export function wildGenome(at: Seed): Genome {
   const rng = createRng(at, 'lab-wild');
   const bytes = Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff);
   // Each v2 byte (body shape and part detail) is off in most cells, or half of them would be radial
-  // bells and a third winged: wild cells mix a few new axes into a v1 body, the way breeding does.
-  const extra = HAPLOTYPE_BYTES - HAPLOTYPE_BYTES_V1;
+  // bells and a third winged: wild cells mix a few new axes into a plain body, the way breeding does.
+  const extra = HAPLOTYPE_BYTES - BASE_BYTES;
   for (let i = 0; i < extra; i++) {
     if (rng.next() < WILD_V2_OFF) {
-      bytes[HAPLOTYPE_BYTES_V1 + i] = 0;
-      bytes[HAPLOTYPE_BYTES + HAPLOTYPE_BYTES_V1 + i] = 0;
+      bytes[BASE_BYTES + i] = 0;
+      bytes[HAPLOTYPE_BYTES + BASE_BYTES + i] = 0;
     }
   }
   return decodeGenome(bytes);

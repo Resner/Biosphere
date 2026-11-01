@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { genomeHash, genomeKaryotype } from '../src/genome/codec';
+import { genomeHash } from '../src/genome/codec';
 import { SILHOUETTES } from '../src/genome/silhouette';
 import { parseSpecimen } from '../src/lab/gallery';
 import { specimenOf } from '../src/lab/specimens';
@@ -27,7 +27,6 @@ describe('specimen search', () => {
       const s = specimenOf(found?.genome as NonNullable<typeof found>['genome']);
       expect(s.silhouette, target).toBe(target);
       expect(s.violations, target).toEqual([]);
-      expect(genomeKaryotype(found?.genome as NonNullable<typeof found>['genome'])).toBe(2);
     }
   });
 
@@ -41,7 +40,7 @@ describe('specimen search', () => {
     }
   });
 
-  it('finds a body for each look feature (ADR 0032), each valid and karyotype v2', () => {
+  it('finds a body for each look feature (ADR 0032), each valid', () => {
     expect(Object.keys(FEATURES)).toEqual(['antennae', 'big-eyes', 'spiral', 's-worm']);
     for (const feature of Object.keys(FEATURES) as (keyof typeof FEATURES)[]) {
       const found = findFeature(feature, 'specimen-test');
@@ -49,7 +48,6 @@ describe('specimen search', () => {
       const genome = found?.genome as NonNullable<typeof found>['genome'];
       const s = specimenOf(genome);
       expect(s.violations, feature).toEqual([]);
-      expect(genomeKaryotype(genome)).toBe(2);
       const plan = s.creature.plan;
       if (feature === 'antennae') {
         // A bilateral chain with a slender front pair reaching past 1.8 core radii (02's copepods).

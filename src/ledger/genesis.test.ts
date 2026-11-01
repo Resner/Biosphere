@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { genomeHash, genomeKaryotype, genomeToBase64url } from '../genome/codec';
+import { genomeHash, genomeToBase64url } from '../genome/codec';
 import { RULES_VERSION } from '../sim/rules';
 import { type GenesisAsk, genesisAskMessage, verifyGenesisAsk } from './ask';
 import { type Beacon, randomnessOf } from './drand';
@@ -21,14 +21,13 @@ const rounds: { first: number; beacons: Beacon[] } = JSON.parse(
 const beaconOf = (i: number): Beacon => rounds.beacons[i] as Beacon;
 
 /**
- * The genome hash for the fixture's third beacon and a fixed commit id, pinned for Node and workerd:
- * under rules 5 (the M4 golden, karyotype v1, frozen) and under rules 6 (karyotype v2).
+ * The genome hash for the fixture's third beacon and a fixed commit id, pinned for Node and workerd
+ * (rules 8 draws the same genesis cell as rules 6 and 7 did).
  */
 const GOLDEN = {
   commitId: 'ab'.repeat(32),
   beaconIndex: 2,
-  genomeHash: 'f3f00a538769f2625bf8059c78d6d50f1b99424e9f098f6691db299475d2e7d3',
-  genomeHashV6: 'eacba69a06de03be8480bbd6a9f706f043dfb24788481be4bebde32b9027a127',
+  genomeHash: 'eacba69a06de03be8480bbd6a9f706f043dfb24788481be4bebde32b9027a127',
 };
 
 async function ask(nonce = 'n'.repeat(22)) {
@@ -37,7 +36,7 @@ async function ask(nonce = 'n'.repeat(22)) {
   return { id, ask: { nonce, sig } as GenesisAsk };
 }
 
-async function made(beaconIndex = 3, nonce?: string, rules = RULES_VERSION) {
+async function made(beaconIndex = 3, nonce?: string) {
   const { id, ask: a } = await ask(nonce);
   const beacon = beaconOf(beaconIndex);
   const commit: Commitment = {
@@ -50,8 +49,8 @@ async function made(beaconIndex = 3, nonce?: string, rules = RULES_VERSION) {
     data: a,
   };
   const commitId = commitmentId(commit);
-  const genome = genesisFor(randomnessOf(beacon), commitId, rules);
-  const body = genesisRequest(rules, commit, genome);
+  const genome = genesisFor(randomnessOf(beacon), commitId);
+  const body = genesisRequest(RULES_VERSION, commit, genome);
   const record: LedgerRecord = { ...body, t: commit.t + 5000 };
   return { id, commit, commitId, beacon, genome, record };
 }
@@ -62,10 +61,7 @@ describe('genesis DNA', () => {
     const a = genesisFor(r, GOLDEN.commitId);
     expect(genomeToBase64url(a)).toBe(genomeToBase64url(genesisFor(r, GOLDEN.commitId)));
     expect(genesisSeed(r, GOLDEN.commitId)).toEqual(genesisSeed(r, GOLDEN.commitId));
-    expect(genomeHash(genesisFor(r, GOLDEN.commitId, 5))).toBe(GOLDEN.genomeHash);
-    expect(genomeHash(a)).toBe(GOLDEN.genomeHashV6);
-    expect(genomeHash(genesisFor(r, GOLDEN.commitId, 6))).toBe(GOLDEN.genomeHashV6);
-    expect(genomeToBase64url(genesisFor(r, GOLDEN.commitId, 7))).toBe(genomeToBase64url(a));
+    expect(genomeHash(a)).toBe(GOLDEN.genomeHash);
   });
 
   it('differs for another commit id or another round', () => {
@@ -108,25 +104,16 @@ describe('genesis ask', () => {
 });
 
 describe('checkGenesis', () => {
-  it("recomputes by the record's rules: v1 DNA for rules 5, v2 DNA for rules 6", async () => {
-    for (const [rules, karyotype] of [
-      [5, 1],
-      [6, 2],
-    ] as const) {
-      const m = await made(3, undefined, rules);
-      expect(m.record.body.karyotype).toBe(karyotype);
-      expect(genomeKaryotype(m.genome)).toBe(karyotype);
-      expect(checkGenesis(m.record, m.commit, m.beacon, genomeToBase64url(m.genome))).toEqual([]);
+  it('answers rules-retired for a genesis of a rules version before the reset (ADR 0040)', async () => {
+    const m = await made();
+    expect(m.record.rules).toBe(8);
+    expect(m.record.body.karyotype).toBe(2);
+    for (const rules of [5, 6, 7]) {
+      const old = { ...m.record, rules };
+      expect(checkGenesis(old, m.commit, m.beacon, genomeToBase64url(m.genome))).toEqual([
+        'rules-retired',
+      ]);
     }
-    // A rules 6 record cannot claim the v5 cell, nor a rules 5 record the v6 one.
-    const v5 = await made(3, 'p'.repeat(22), 5);
-    expect(checkGenesis({ ...v5.record, rules: 6 }, v5.commit, v5.beacon)).toContain(
-      'body-mismatch',
-    );
-    const v6 = await made(3, 'p'.repeat(22), 6);
-    expect(checkGenesis({ ...v6.record, rules: 5 }, v6.commit, v6.beacon)).toContain(
-      'body-mismatch',
-    );
   });
 
   it('accepts what the commitment and beacon produce', async () => {

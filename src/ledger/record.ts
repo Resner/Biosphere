@@ -64,6 +64,15 @@ export interface PubKey {
 }
 
 export const HEX64 = /^[0-9a-f]{64}$/;
+
+/**
+ * The first rules version of the live world (ADR 0040): the reset of v0.7.2 retired every older
+ * version, so a record written under one of them no longer verifies (`rules-retired`).
+ */
+const FIRST_LIVE_RULES = 8;
+
+/** Whether a record's rules version was retired by a world reset. */
+export const retired = (r: Pick<LedgerRecord, 'rules'>): boolean => r.rules < FIRST_LIVE_RULES;
 const FIELDS = ['v', 'rules', 'kind', 'creature', 'seq', 'prev', 'owner', 't', 'body'];
 
 /** The one way to put a float in a record body. */
@@ -270,6 +279,7 @@ export function checkStored(s: StoredRecord, keys: readonly PubKey[]): string[] 
   try {
     const shape = recordProblems(s.record);
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
+    if (retired(s.record)) return ['rules-retired'];
     const failures: string[] = [];
     if (typeof s.hash !== 'string' || s.hash !== recordHash(s.record))
       failures.push('hash-mismatch');

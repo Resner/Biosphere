@@ -14,16 +14,16 @@ import {
 } from '../src/genome/develop';
 import type { Traits } from '../src/genome/express';
 import type { Silhouette } from '../src/genome/silhouette';
-import { type GallerySpecimen, parseSpecimen, shownGenome } from '../src/lab/gallery';
+import { type GallerySpecimen, parseSpecimen } from '../src/lab/gallery';
 import { RULES } from '../src/sim/rules';
 
 const GALLERY = new URL('./fixtures/gallery/', import.meta.url);
 
-/** A gallery specimen as the sheet draws it: a karyotype v1 file as its v2 upgrade (ADR 0032). */
+/** A gallery specimen's genome, by its file-name prefix. */
 export function galleryGenome(prefix: string): Genome {
   const file = readdirSync(GALLERY).find((f) => f.startsWith(`${prefix}-`)) as string;
   const specimen = parseSpecimen(file, readFileSync(new URL(file, GALLERY), 'utf8'));
-  return shownGenome(specimen as GallerySpecimen);
+  return (specimen as GallerySpecimen).genome;
 }
 
 /** The plan of `traits` laid straight (no curl): its straight twin. */

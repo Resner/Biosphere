@@ -227,6 +227,17 @@ describe('authority signatures', () => {
     }
   });
 
+  it('answers rules-retired for a record of a rules version before the reset (ADR 0040)', () => {
+    for (const record of Object.values(RECORDS)) {
+      for (const rules of [0, 5, 7]) {
+        expect(checkStored(stored({ ...record, rules }), keys), `${record.kind} ${rules}`).toEqual([
+          'rules-retired',
+        ]);
+      }
+      expect(checkStored(stored({ ...record, rules: 8 }), keys)).toEqual([]);
+    }
+  });
+
   it('never throws on a record that is not one', () => {
     const junk = { record: { x: 1.5 }, hash: 3, ownerSig: 4, authSig: null, keyId: {} };
     expect(checkStored(junk as unknown as StoredRecord, keys)).not.toEqual([]);

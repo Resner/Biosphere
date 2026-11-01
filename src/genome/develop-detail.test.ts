@@ -189,29 +189,12 @@ describe('fine parts: webbing', () => {
     for (const m of webbed.membranes) {
       for (const q of m.points) expect(Math.hypot(q.x, q.y)).toBeLessThanOrEqual(D.caps.bounds);
     }
-    // Webbing is detail: it never adds, drops or moves a part. Under karyotype v2 a sheet keeps
-    // its part straighter and must keep its rays in the bounds too, so how a long part sweeps or is
-    // cut to fit may differ (M6 T14b); under the v1 rule nothing about the part changes.
+    // Webbing is detail: it never adds, drops or moves a part. A sheet keeps its part straighter
+    // and must keep its rays in the bounds too, so how a long part sweeps or is cut to fit may
+    // differ (M6 T14b).
     expect(webbed.appendages.map((a) => [a.module, a.segment, a.width, a.angle])).toEqual(
       p.appendages.map((a) => [a.module, a.segment, a.width, a.angle]),
     );
-    const v1 = (modules: Record<string, Params>) => {
-      const traits = express(decodeGenome(buildBytes(modules, { segDrive1: 120, segDrive2: 120 })));
-      return develop({ ...traits, karyotype: 1 }).appendages.map((a) => [
-        a.length,
-        a.width,
-        a.angle,
-      ]);
-    };
-    const bare = {
-      M1: { length: 255, thickness: 255, tipShape: 191, beat: 220, angle: 128, pairs: 255 },
-      M2: { length: 255, thickness: 200, tipShape: 191, beat: 200, branching: 255, angle: 200 },
-    };
-    const sheet = {
-      M1: { ...bare.M1, webbing: 255 },
-      M2: { ...bare.M2, webbing: 255 },
-    };
-    expect(v1(sheet)).toEqual(v1(bare));
   });
 });
 

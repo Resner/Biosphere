@@ -1,7 +1,7 @@
-// Rules v7 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v8 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 7;
+export const RULES_VERSION = 8;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -229,8 +229,7 @@ export const RULES = deepFreeze({
       bounds: 2.5,
       pairs: 3,
     },
-    /** Segments stay within this reach of the core; appendages within `caps.bounds` less `boundsSlack`. */
-    segmentReach: 1.8,
+    /** Appendages stay within `caps.bounds` less this. */
     boundsSlack: 0.05,
     /** Each segment starts this share of its neighbours' radii from the previous one. */
     segmentSpacing: 0.8,

@@ -3,13 +3,9 @@ import { describe, expect, it } from 'vitest';
 import { metricsAt } from '../../tests/archetypes';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
-import { type Genome, genomeHash, genomeKaryotype, upgrade } from './codec';
+import { type Genome, genomeHash } from './codec';
 import { bodyViolations } from './develop';
-import { express } from './express';
 import { GENESIS_EYES, GENESIS_FORMS, GENESIS_FREQ, genesisGenome } from './genesis';
-import { genesisGenomeV5 } from './genesis-v5';
-import { genesisGenomeV6 } from './genesis-v6';
-import { genesisGenomeV7 } from './genesis-v7';
 import { LOCI } from './karyotype';
 import { silhouetteOf } from './silhouette';
 import { starterGenome } from './starter';
@@ -63,18 +59,13 @@ describe('genesisGenome', () => {
     }
   });
 
-  it('keeps the v5 band draw: half of the cells, plus the forms that need one', () => {
-    const n = 2000;
-    let plain = 0;
-    for (let i = 0; i < n; i++) {
-      const v5 = express(genesisGenomeV5(seedOf(i))).modules[1]?.present === true;
-      if (v5) plain++;
-      if (v5) expect(creatures[i]?.traits.modules[1]?.present).toBe(true);
-    }
-    expect(Math.abs(plain / n - GENESIS_FREQ.band)).toBeLessThan(tol(GENESIS_FREQ.band, n));
-    expect(creatures.filter((c) => c.traits.modules[1]?.present).length / N).toBeGreaterThan(
-      GENESIS_FREQ.band,
-    );
+  it('draws the band in half of the cells, plus every cell of a form that needs one', () => {
+    // The ciliate, the spiny larva and the bell are a band; the other forms keep the base cell's draw.
+    const needs = new Set(['ciliate', 'spiny larva', 'bell']);
+    const banded = GENESIS_FORMS.filter((f) => needs.has(f.name)).reduce((n, f) => n + f.weight, 0);
+    const want = banded + (1 - banded) * GENESIS_FREQ.band;
+    const share = creatures.filter((c) => c.traits.modules[1]?.present).length / N;
+    expect(Math.abs(share - want)).toBeLessThan(tol(want, N));
   });
 
   it('gives all-different DNA over 20,000 seeds', () => {
@@ -165,19 +156,6 @@ describe('genesisGenome', () => {
     });
   });
 
-  it('writes karyotype v2 under rules 6 and keeps the v5 cell it grows from (colours, size, physiology)', () => {
-    for (let i = 0; i < 50; i++) {
-      const v5 = buildCreature(genesisGenomeV5(seedOf(i))).traits;
-      expect(genomeKaryotype(genesisGenomeV5(seedOf(i)))).toBe(1);
-      expect(genomeKaryotype(genomes[i] as Genome)).toBe(2);
-      const t = (creatures[i] as (typeof creatures)[number]).traits;
-      expect(t.colour).toEqual(v5.colour);
-      expect(t.body.maxBiomass).toBe(v5.body.maxBiomass);
-      expect(t.skin.iridescence).toBe(v5.skin.iridescence);
-      expect(t.behaviour).toEqual(v5.behaviour);
-    }
-  });
-
   it('is one body unit with at most three module slots', () => {
     for (const c of creatures) {
       expect(c.plan.segments).toHaveLength(1);
@@ -219,54 +197,6 @@ describe('genesisGenome', () => {
     expect(
       Math.abs(share((c) => c.traits.modules.some((m) => m.present && m.ext.webbing > 0)) - webbed),
     ).toBeLessThan(tol(webbed, N));
-  });
-
-  it('swims about as fast as the v5 cell (median within 15%)', () => {
-    const median = (gs: readonly Genome[], size: (i: number, g: Genome) => number): number => {
-      const v = gs.map((g, i) => metricsAt(g, size(i, g)).speed).sort((a, b) => a - b);
-      return v[v.length >> 1] as number;
-    };
-    const v5 = Array.from({ length: 1000 }, (_, i) => upgrade(genesisGenomeV5(seedOf(i))));
-    const ratio =
-      median(
-        genomes.slice(0, 1000),
-        (i) => (creatures[i] as (typeof creatures)[number]).stats.maxBiomass,
-      ) / median(v5, (_, g) => buildCreature(g).stats.maxBiomass);
-    expect(ratio).toBeGreaterThan(0.85);
-    expect(ratio).toBeLessThan(1.15);
-  });
-
-  it('keeps the frozen v5 genesis hashes (karyotype v1)', () => {
-    const file = new URL('./__golden__/genesis-v5.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      hashes: Record<string, string>;
-    };
-    expect(golden.rulesVersion).toBe(5);
-    for (const [s, hash] of Object.entries(golden.hashes))
-      expect(genomeHash(genesisGenomeV5(seedFromString(s)))).toBe(hash);
-  });
-
-  it('keeps the frozen v6 genesis hashes (karyotype v2, rules 6)', () => {
-    const file = new URL('./__golden__/genesis-v6.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      hashes: Record<string, string>;
-    };
-    expect(golden.rulesVersion).toBe(6);
-    for (const [s, hash] of Object.entries(golden.hashes))
-      expect(genomeHash(genesisGenomeV6(seedFromString(s)))).toBe(hash);
-  });
-
-  it('keeps the frozen v7 genesis hashes (karyotype v2, rules 7)', () => {
-    const file = new URL('./__golden__/genesis-v7.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      hashes: Record<string, string>;
-    };
-    expect(golden.rulesVersion).toBe(7);
-    for (const [s, hash] of Object.entries(golden.hashes))
-      expect(genomeHash(genesisGenomeV7(seedFromString(s)))).toBe(hash);
   });
 
   it('matches the committed hashes for three seeds', () => {

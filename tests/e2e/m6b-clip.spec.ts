@@ -2,13 +2,7 @@ import { mkdirSync, readdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { genomeToBase64url } from '../../src/genome/codec';
-import {
-  galleryCell,
-  galleryGrid,
-  LABEL_HEIGHT,
-  parseSpecimen,
-  shownGenome,
-} from '../../src/lab/gallery';
+import { galleryCell, galleryGrid, LABEL_HEIGHT, parseSpecimen } from '../../src/lab/gallery';
 import type { GalleryState } from '../../src/lab/gallery-page';
 import { captureGallery, GALLERY_VIEWPORT } from '../../tools/gallery-capture.mjs';
 import { hatch, openGame } from './helpers';
@@ -34,7 +28,7 @@ function specimenGenome(prefix: string): string {
   if (!file) throw new Error(`no specimen ${prefix}`);
   const parsed = parseSpecimen(file, readFileSync(new URL(file, DIR), 'utf8'));
   if (!parsed) throw new Error(`unreadable specimen ${file}`);
-  return genomeToBase64url(shownGenome(parsed));
+  return genomeToBase64url(parsed.genome);
 }
 
 test.describe('the gallery sheet', () => {

@@ -29,7 +29,6 @@ import {
   galleryGrid,
   gallerySpecimens,
   LABEL_HEIGHT,
-  shownGenome,
 } from './gallery';
 import { ADVANCE_STEP, SWIM, WATER } from './lab';
 import { specimenOf } from './specimens';
@@ -248,7 +247,7 @@ export async function startGallery(): Promise<void> {
   const scene = new THREE.Scene();
   const cache = new CreatureCache();
   const shown = specimens.map((s, i) => {
-    const specimen = specimenOf(shownGenome(s));
+    const specimen = specimenOf(s.genome);
     const cell = galleryCell(i, grid);
     const view = new CreatureView(cache);
     scene.add(view.mesh);

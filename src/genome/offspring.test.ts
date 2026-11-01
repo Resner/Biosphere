@@ -5,14 +5,7 @@ import { type Beacon, randomnessOf } from '../ledger/drand';
 import { genesisFor } from '../ledger/genesis';
 import { type Seed, seedFromString } from '../sim/prng';
 import { RULES_VERSION } from '../sim/rules';
-import {
-  decodeGenome,
-  encodeGenome,
-  type Genome,
-  genomeHash,
-  genomeKaryotype,
-  upgrade,
-} from './codec';
+import { decodeGenome, encodeGenome, type Genome, genomeHash } from './codec';
 import { bodyViolations, develop } from './develop';
 import { express } from './express';
 import { genesisGenome } from './genesis';
@@ -101,15 +94,15 @@ describe('offspringPair', () => {
   const rounds: { beacons: Beacon[] } = JSON.parse(
     readFileSync(new URL('../../tests/fixtures/drand/rounds.json', import.meta.url), 'utf8'),
   );
-  /** Three fixture rounds × two pairs of genesis parents, bred under `rules`. */
-  const vectors = (rules: number) => {
+  /** Three fixture rounds × two pairs of genesis parents. */
+  const vectors = () => {
     const beacon0 = randomnessOf(rounds.beacons[0] as Beacon);
     return [1, 2, 3].flatMap((round) =>
       [0, 1].map((pair) => {
-        const a = genesisFor(beacon0, commitOf(10 * pair + 1), rules);
-        const b = genesisFor(beacon0, commitOf(10 * pair + 2), rules);
+        const a = genesisFor(beacon0, commitOf(10 * pair + 1));
+        const b = genesisFor(beacon0, commitOf(10 * pair + 2));
         const r = randomnessOf(rounds.beacons[round] as Beacon);
-        const { children, slots } = offspringPair(r, commitOf(100 + round), a, b, rules);
+        const { children, slots } = offspringPair(r, commitOf(100 + round), a, b);
         return {
           round: (rounds.beacons[round] as Beacon).round,
           parents: [genomeHash(a), genomeHash(b)],
@@ -120,42 +113,9 @@ describe('offspringPair', () => {
     );
   };
 
-  it('keeps the M5 birth goldens: rules 5 breeds v1 children with the frozen code', () => {
-    const file = new URL('./__golden__/offspring-v5.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      vectors: unknown;
-    };
-    expect(golden.rulesVersion).toBe(5);
-    expect(vectors(5)).toEqual(golden.vectors);
-  });
-
-  it('keeps the rules 6 birth goldens verifying under rules 7 (inheritance did not change)', () => {
-    const file = new URL('./__golden__/offspring-v6.json', import.meta.url);
-    const golden = JSON.parse(readFileSync(file, 'utf8')) as {
-      rulesVersion: number;
-      vectors: unknown;
-    };
-    expect(golden.rulesVersion).toBe(6);
-    expect(vectors(6)).toEqual(golden.vectors);
-  });
-
-  it('pads v1 parents under rules 6, and breeds v2 children', () => {
-    const r = randomnessOf(rounds.beacons[1] as Beacon);
-    const a = genesisFor(r, commitOf(1), 5);
-    const b = genesisFor(r, commitOf(2), 5);
-    const v5 = offspringPair(r, commitOf(3), a, b, 5);
-    const v6 = offspringPair(r, commitOf(3), a, b, 6);
-    expect(v5.children.map(genomeKaryotype)).toEqual([1, 1]);
-    expect(v6.children.map(genomeKaryotype)).toEqual([2, 2]);
-    expect(v6.children.map(genomeHash)).toEqual(
-      offspringPair(r, commitOf(3), upgrade(a), upgrade(b), 6).children.map(genomeHash),
-    );
-  });
-
   it('matches the committed golden vectors (three fixture rounds × two parent pairs)', () => {
     const file = new URL('./__golden__/offspring.json', import.meta.url);
-    const actual = vectors(RULES_VERSION);
+    const actual = vectors();
     if (process.env.UPDATE_GOLDENS === '1') {
       writeFileSync(
         file,

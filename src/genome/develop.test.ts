@@ -6,7 +6,6 @@ import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
 import { type BodyPlan, bodyViolations, develop, hashPlan, motileArea } from './develop';
-import { estimateVertices as estimateVerticesV5 } from './develop-v5';
 import { express } from './express';
 import { mutateGenome } from './inherit';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from './karyotype';
@@ -111,16 +110,15 @@ describe('develop: caps and guarantees', () => {
   });
 
   it('caps parts by count only: no part is dropped for a mesh budget (ADR 0025)', () => {
-    // v5 trimmed pairs until the mesh fit 6,000 vertices; v6 trims by the part cap alone, so some
-    // random bodies now hold more than the old budget allowed (the renderer fits them per preset).
-    let overOldBudget = 0;
+    // Parts are trimmed by the part cap alone, so some random bodies hold all of it (the renderer
+    // fits them per preset).
+    let full = 0;
     for (let i = 0; i < 2_000; i++) {
       const p = plan(decodeGenome(randomBytes()));
       expect(p.appendages.length).toBeLessThanOrEqual(D.caps.appendages);
-      if (estimateVerticesV5(p, 'full') > 6000 || estimateVerticesV5(p, 'low') > 1500)
-        overOldBudget++;
+      if (p.appendages.length === D.caps.appendages) full++;
     }
-    expect(overOldBudget).toBeGreaterThan(0);
+    expect(full).toBeGreaterThan(0);
     expect('vertices' in D).toBe(false);
   });
 
@@ -253,14 +251,9 @@ describe('develop: repairs', () => {
     );
     const p = plan(g);
     expect(bodyViolations(p)).toEqual([]);
-    const raw = D.length[1] as number;
-    // Karyotype v2 sweeps these along the body and keeps them whole (M6 T14b), up to the long
-    // range's top (look pass 4)...
+    // Development sweeps these along the body and keeps them whole (M6 T14b), up to the long
+    // range's top (look pass 4).
     expect(Math.max(...p.appendages.map((a) => a.length))).toBeLessThanOrEqual(D.long.max);
-    // ...and the v1 rule cuts every one of these to root plus reach.
-    const v1 = develop({ ...express(g), karyotype: 1 });
-    expect(bodyViolations(v1)).toEqual([]);
-    expect(Math.max(...v1.appendages.map((a) => a.length))).toBeLessThan(raw);
   });
 
   it('trims appendages in module order, never by anything else', () => {

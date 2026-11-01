@@ -3,7 +3,7 @@
 // the file format and the layout. `gallery-page.ts` draws it (`lab.html?gallery=1`).
 
 import { hexToBytes } from '@noble/hashes/utils.js';
-import { decodeGenome, type Genome, upgrade } from '../genome/codec';
+import { decodeGenome, type Genome } from '../genome/codec';
 import type { Rect } from './grid';
 import { REACH } from './grid';
 
@@ -44,15 +44,6 @@ export function parseSpecimen(file: string, text: string): GallerySpecimen | nul
   if (comment.length === 0 || !HEX.test(hex)) return null;
   const bytes = hexToBytes(hex);
   return { file, comment, bytes: bytes.length, genome: decodeGenome(bytes) };
-}
-
-/**
- * The genome the sheet draws for a specimen (look pass 5, ADR 0032): rules 6 never develops a new
- * v1 body (every genesis and birth writes karyotype v2, and a v1 parent's child is padded first),
- * so a v1 file is shown as its v2 upgrade, the body its children start from. The file is unchanged.
- */
-export function shownGenome(s: Pick<GallerySpecimen, 'genome'>): Genome {
-  return upgrade(s.genome);
 }
 
 /** Every specimen of a `{ path: text }` map in file-name order; a broken file throws, naming it. */
