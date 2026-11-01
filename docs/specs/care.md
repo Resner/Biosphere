@@ -26,7 +26,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
     - Every file in `src/genome/` is under 1,000 lines.
     - `git diff -M --stat` shows moves, not rewrites.
 
-- [ ] C2 Split `src/game/app.ts` (2,217 lines; `startApp` alone is about 1,940) into modules under 1,000 lines [opus]
+- [x] C2 Split `src/game/app.ts` (2,217 lines; `startApp` alone is about 1,940) into modules under 1,000 lines [opus]
   - Why: as C1. Every HUD, screen and online task edits this one closure.
   - Touches: `src/game/app.ts`, the modules it becomes.
   - Steps:
@@ -35,6 +35,8 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Acceptance:
     - `npm run check:full` and PR CI's E2E are green with no test changed; `E2E main` confirms the slow scenarios after the merge.
     - `src/game/app.ts` and each new module are under 1,000 lines.
+  - Done: `app.ts` (621 lines) is the `App` class, the shared state and its wiring in the old order; `app-online`, `app-life`, `app-ui`, `app-tick`, `app-render`, `app-keys`, `app-hook` and `app-session` take it as context (each under 410 lines).
+  - Gotcha: the hub's handlers are method shorthand, so `this` there is the handler object: reach the app through the `app` const, never `this`.
 
 - [ ] C3 Condense `docs/DESIGN.md` (93 KB) to the current game
   - Why: the spec writer reads all of it for every milestone, and much of it is history ("M6 had a depth gauge…", "1.2 before M6 T14b", "34% under rules 6"). CLAUDE.md now says DESIGN describes the current game only.
