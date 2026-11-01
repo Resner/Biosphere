@@ -96,8 +96,12 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
   expect(waiting.length).toBeGreaterThan(0);
   for (const e of waiting) expect(Math.abs(e.angle)).toBeLessThanOrEqual(0.01);
   expect((await state(a)).egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
-  await a.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, { timeout: 8_000 });
-  expect((await state(a)).egg.card.tier).toBeTruthy();
+  // Read the tier in the same evaluation that sees the card: it shows for 3 s, and a slow
+  // renderer can outlast that between two round trips (the v0.7.1 release run failed on this).
+  const tier = await a.waitForFunction(() => window.__bs?.state().egg.card.tier, undefined, {
+    timeout: 8_000,
+  });
+  expect(await tier.jsonValue()).toBeTruthy();
   await expect(a.getByTestId('reveal-rarity')).toBeVisible();
   await withinBudget(a, 'reveal');
 
