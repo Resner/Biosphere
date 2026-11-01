@@ -219,7 +219,7 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
       return false;
     },
     undefined,
-    { timeout: 90_000 },
+    { timeout: 180_000 },
   );
   await timeScale(a, 1);
   expect((await state(a)).death?.cause).toBe('pressure');

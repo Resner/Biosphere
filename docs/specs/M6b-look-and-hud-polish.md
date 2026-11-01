@@ -483,6 +483,6 @@ Exit criteria map (ROADMAP M6b):
 - **Pass 6 misses the bar.** ADR 0034 allows no pass 7. The gaps go to the owner at the gate, with the evidence.
 - **The PR E2E suite grows past its budget.** New screenshot and lifecycle specs are `@slow` when they take over 20 s, and T13 records the suite time.
 
-## Release fix (in progress)
+## Release fix
 
-The v0.7.1 Release run still fails in `test:e2e:full` on slow-runner timeouts (`m6-lifecycle` abyss death, `m6b-lifecycle` egg card). Notes follow when fixed.
+- [x] The v0.7.1 Release run failed in `test:e2e:full` on slow-runner timing. `m6b-lifecycle` now catches the reveal card (3 s) in the page call that waits for it and taps `G` with keydown and keyup in one page call (two round trips could pass the wheel's 250 ms tap window); `m6-lifecycle` waits 180 s for the abyss death, and `timeScale` may catch up 600 ticks a frame in debug (was 120). No product rule changed.
