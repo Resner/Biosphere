@@ -1,0 +1,32 @@
+name: E2E main
+
+# The full suite on main after every merge that touches code or tests, and every 6 hours (ADR 0042).
+# A red run here is the factory's first job (`next` skill, "Clear the line"), so flaky scenarios are
+# made deterministic during a milestone instead of failing its release.
+on:
+  push:
+    branches: [main]
+    paths:
+      - 'src/**'
+      - 'worker/**'
+      - 'tests/**'
+      - 'tools/**'
+      - 'playwright.config.ts'
+      - 'vite.config.ts'
+      - 'index.html'
+      - 'lab.html'
+      - 'package-lock.json'
+  schedule:
+    - cron: '23 */6 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+concurrency:
+  group: e2e-main
+  cancel-in-progress: true
+
+jobs:
+  full:
+    uses: ./.github/workflows/e2e-full.yml

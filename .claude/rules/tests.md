@@ -13,6 +13,13 @@ paths:
   - Every random input is seeded.
 - Unit tests sit next to the code (`src/**/*.test.ts`). E2E runs against `dist/` (`tests/e2e/*.spec.ts`).
 - Tag scenarios longer than about 20 s with `@slow`. They run only in `test:e2e:full` (the release gate). The PR E2E suite should stay under about 3 minutes in CI.
+- Deterministic scenarios (ADR 0042). Every release failure so far came from a scenario that assumed a fast runner. A scenario:
+  - waits on `state()` conditions, never on wall time or a fixed number of frames;
+  - drives game time through the sim (ticks, `debug.timeScale`, the hub's scale hooks) rather than real seconds, and allows for a runner that plays far fewer ticks per second than a laptop;
+  - never asserts a pace, speed or count measured in wall time, only in sim ticks;
+  - re-reads values from the frame that shows them, not from an earlier read;
+  - keeps every wait bounded with a message that names what it waited for.
+- Where `@slow` scenarios run: CI repeats a new or changed one 3 times on one worker before it can merge. `E2E main` runs the whole suite on main after merges and every 6 hours, on parallel runners (`e2e-full.yml`: fast in 3 shards, `@slow` in 3 shards at one worker each, and social, pond and post); Release calls the same workflow. Reproduce one part locally with the same arguments, for example `npx playwright test --project=chromium --grep=@slow --shard=1/3 --workers=1`.
 - Visual checks assert properties of decoded screenshots (non-blank, contrast, an element present, budgets from `renderer.info`), never pixel-exact baselines: software rendering changes between browser versions.
 - Every E2E context starts on the low preset (`storageState` in `playwright.config.ts`): the post chain makes software rendering several times slower. Specs that judge the picture or the presets clear it with `test.use({ storageState: { cookies: [], origins: [] } })` and pass `?quality=`.
 - Use the `window.__bs` hook (`?debug=1` for mutations) instead of sleeping or scraping the DOM for game state.

@@ -20,10 +20,14 @@ concurrency:
   cancel-in-progress: true
 
 jobs:
-  # The single required check. One job, because GitHub rounds every job up to a whole minute.
-  verify:
+  # The guard, and what this change needs: nothing (docs only), the tests, and which new or changed
+  # @slow scenarios must prove themselves.
+  scope:
     runs-on: ubuntu-latest
-    timeout-minutes: 25
+    timeout-minutes: 5
+    outputs:
+      run: ${{ steps.scope.outputs.run }}
+      slow: ${{ steps.slow.outputs.files }}
     steps:
       - uses: actions/checkout@v7
         with:
@@ -67,18 +71,119 @@ jobs:
             echo "run=true" >> "$GITHUB_OUTPUT"
           fi
 
-      - if: steps.scope.outputs.run == 'true'
-        uses: actions/setup-node@v7
+      # A new or changed @slow scenario runs three times on one worker before it can merge (ADR
+      # 0042): a scenario that is flaky here would otherwise fail a release 20 minutes in.
+      - name: New or changed slow scenarios
+        id: slow
+        if: steps.scope.outputs.run == 'true' && github.event_name == 'pull_request'
+        run: |
+          files=$(git diff --name-only --diff-filter=AM HEAD^1 HEAD -- 'tests/e2e/*.spec.ts' | xargs -r grep -l '@slow' | tr '\n' ' ' || true)
+          echo "files=${files% }" >> "$GITHUB_OUTPUT"
+
+  unit:
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
         with:
           node-version-file: package.json
           cache: npm
-      - if: steps.scope.outputs.run == 'true'
-        run: npm ci
-      - if: steps.scope.outputs.run == 'true'
-        run: npm run check
-      - if: steps.scope.outputs.run == 'true'
-        run: npm run build
-      - if: steps.scope.outputs.run == 'true'
-        run: npm run e2e:setup --if-present
-      - if: steps.scope.outputs.run == 'true'
-        run: npm run test:e2e
+      - run: npm ci
+      - run: npm run check
+
+  # The PR's E2E suite (`test:e2e`, no @slow) on parallel runners (ADR 0042): one runner took 9 to
+  # 25 minutes, depending on how many workers it could afford (runners now often afford one).
+  e2e:
+    needs: scope
+    if: needs.scope.outputs.run == 'true'
+    name: e2e (${{ matrix.name }})
+    runs-on: ubuntu-latest
+    timeout-minutes: 25
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - name: chromium 1 of 4
+            args: --project=chromium --shard=1/4
+          - name: chromium 2 of 4
+            args: --project=chromium --shard=2/4
+          - name: chromium 3 of 4
+            args: --project=chromium --shard=3/4
+          - name: chromium 4 of 4
+            args: --project=chromium --shard=4/4
+          - name: social, pond and post
+            args: --project=social --project=pond --project=post --no-deps
+    env:
+      E2E_SKIP_SLOW: 1
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run e2e:setup --if-present
+      - name: Run this part of the PR suite
+        run: npx playwright test ${{ matrix.args }}
+      - name: Keep the failure evidence
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: e2e-${{ strategy.job-index }}
+          path: test-results/
+          retention-days: 7
+
+  slow:
+    needs: scope
+    if: needs.scope.outputs.slow != ''
+    runs-on: ubuntu-latest
+    timeout-minutes: 45
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          cache: npm
+      - run: npm ci
+      - run: npm run build
+      - run: npm run e2e:setup --if-present
+      - name: Repeat the new or changed slow scenarios three times
+        env:
+          FILES: ${{ needs.scope.outputs.slow }}
+        run: |
+          echo "::notice::Repeating three times: $FILES"
+          npx playwright test $FILES --repeat-each=3 --workers=1 --no-deps
+
+  # The single required check. It always runs (a skipped required job counts as passing, #40) and
+  # passes only when every part it needed passed.
+  verify:
+    needs: [scope, unit, e2e, slow]
+    if: always()
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Every part passed
+        env:
+          SCOPE: ${{ needs.scope.result }}
+          RUN: ${{ needs.scope.outputs.run }}
+          SLOW_FILES: ${{ needs.scope.outputs.slow }}
+          UNIT: ${{ needs.unit.result }}
+          E2E: ${{ needs.e2e.result }}
+          SLOW: ${{ needs.slow.result }}
+        run: |
+          fail() { echo "::error::$1"; exit 1; }
+          [ "$SCOPE" = success ] || fail "scope or the single-factory-PR guard: $SCOPE"
+          if [ "$RUN" != true ]; then
+            echo "Nothing to build or test."
+            exit 0
+          fi
+          [ "$UNIT" = success ] || fail "unit (lint, typecheck, unit tests): $UNIT"
+          [ "$E2E" = success ] || fail "e2e: $E2E"
+          if [ -n "$SLOW_FILES" ]; then
+            [ "$SLOW" = success ] || fail "repeated slow scenarios: $SLOW"
+          fi
+          echo "Every part passed."

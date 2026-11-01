@@ -22,6 +22,6 @@ You run in a subagent on Opus 5.5 (ADR 0026). The run that called you has claime
    - Every exit criterion from the roadmap maps to tasks and to the end-to-end check.
    - Subjective quality (look, feel, responsiveness) goes in the rubric as checkable statements, each with the evidence that settles it.
 4. Set the milestone's status to `specced` in `docs/ROADMAP.md`. Leave the other rows alone.
-5. Commit on the current branch as `docs(spec): <id> <title>`. Don't push or touch the PR: the caller ships it as a docs-only PR with that title.
+5. Commit on the current branch as `docs(spec): <id> <title>`. Don't touch the PR: the caller ships it as a docs-only PR with that title. Push your work in progress to the current branch (`git push origin HEAD`) at least every 40 minutes, and when you finish, so the claim stays live (ADR 0042).
 
 Report in a few lines: the spec path, the number of tasks and how many are `[opus]`, the ADRs you wrote, and anything left open.

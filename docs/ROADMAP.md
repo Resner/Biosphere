@@ -12,6 +12,7 @@ The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` wrote them, a
 | M5 | Mating and offspring | consent, eligibility, cost and cooldown; future-round commitment, no rerolls; two distinct offspring by Mendelian rules; one pending offspring; promotion → checkpoint; death → nearest surviving ancestor; old age walks the chain | gate | done | [M5](specs/M5-mating-and-offspring.md) | v0.6.0 |
 | M6 | Look, sound and performance | creature look overhaul to the owner's references (#90); art pass to the reference (DOF, caustics, membranes, bioluminescence by depth); depth zones with gameplay; low, medium and high presets with budgets; procedural sound; deliberate pings and emotes (#89); (owner) creatures hold up next to the references; (owner) 60 fps at the default preset | gate | done | [M6](specs/M6-look-sound-performance.md) | v0.7.0 |
 | M6b | Look and HUD polish | creatures return to the pass-1 glassy realism without the milky haze, white clipping or artificial glow, with long bodies that read as worms, shrimps and copepods; a minimal gameplay HUD (one profile/settings icon, progress-bar stats, a modern minimap, no red hazard borders); a reactive gacha-style egg reveal; the wheel no longer stops movement; creature speed reviewed; calmer shallows; one pass, no pass series; (owner) the look and the HUD hold up | gate | done | [M6b](specs/M6b-look-and-hud-polish.md) | v0.7.1 |
+| M6c | Living creatures and play polish | creatures read as organic plankton (at most 14 visible parts, antennae, legs and tail by region, an Evolved Lab mode); pass-1 glass with limbs of the same glass, a real mouth, organs in at most two related colours and eyes in the organ colour; Firefox draws bodies without aliasing or flashes; damage lands as interval hits; sunlight strongest in the shallows; a still, interactive egg reveal; a smooth minimap with a clear depth gauge; a pre-1.0 world reset retires every frozen version (ADR 0040); (owner) the creatures look like real micro-organisms | gate | specced | [M6c](specs/M6c-living-creatures-and-play-polish.md) | v0.7.2 |
 | M7 | Encounters | refereed deterministic combat for comparable sizes: instant lock-in, steering, stance, target, brace, deadlines and autopilot, anatomy-driven outcomes; identical results on all clients; killing is a faster way to grow than plankton and size is a real advantage; a pending egg can be eaten by a predator (owner, Playtest v0.6.0) | gate | planned | — | v0.8.0 |
 | M8 | Disconnect-safe settlement | closing a tab never cancels or escapes a fight; reconnect resumes; the authority settles when everyone leaves; backdated inputs rejected; settlement records verifiable | — | planned | — | v0.9.0 |
 | M9 | Verifiable lineage and showcase | independent verifier for the ancestry graph that rejects tampering; proof bundles served while peers are offline; lineage viewer; shareable verified creature cards | — | planned | — | v0.10.0 |
@@ -140,6 +141,22 @@ Added from the owner's reply on Playtest #183 (v0.7.0). Look comes first: stats,
 - Speed: find out whether creatures that are sometimes way too fast are a bug or the design, fix or document it in `docs/DESIGN.md`.
 - Water: keep the depth-zone background, with fewer effects in the shallows.
 - Owner checks on the Playtest issue: the creatures keep the pass-1 realism, the HUD feels clean, the egg reveal feels polished.
+
+### M6c Living creatures and play polish (gate: the creatures)
+
+Added from the owner's Playtest v0.7.1 feedback, given in a Claude session on 2026-11-01 with screenshots (the Creature Lab, the minimap, a creature in Firefox). The spec maps each point to a task.
+
+- The world is renewed once: rules 8 resets the ledger (identities stay) and retires every frozen version, as the owner allowed (ADR 0040).
+- Creatures read as organisms (ADR 0041):
+  - parts by region (one long antenna pair, up to 6 swept-back leg pairs, one tail structure) and at most 14 visible parts;
+  - tapering, curving, slightly asymmetric parts; branches only on antennae and tails; rare bulb tips; short, soft setae;
+  - coils gated to read as spirals;
+  - the Lab's wild mode replaced by evolved lineages.
+- Glass: pass 1's soft 3D sheen back on the face, limbs of the same glass as the body (no grey limbs, still no clipping), and a mouth drawn as a mouth instead of a dark half-circle.
+- Organs in at most two related colours with a faint inner glow on one or two; eyes in the main organ colour.
+- Firefox: no aliasing in the body and no flashing, checked in a Firefox Playwright project in the release gate.
+- Play: damage as distinct hits at intervals (Minecraft-like), sunlight strongest in the shallows, a still background and a chargeable, player-cracked egg reveal (honest: clicks never change the result), and a minimap that turns smoothly with a depth gauge that can't be mistaken for a player.
+- Owner checks on the Playtest issue: organic creatures, hits, sunlight, the egg reveal, the minimap.
 
 ### M7 Encounters (gate 3: combat feel)
 

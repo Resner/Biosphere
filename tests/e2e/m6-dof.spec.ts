@@ -194,6 +194,9 @@ function expectDof(preset: Preset, off: Look, on: Look): void {
 test('medium keeps the creature sharp, spreads off-plane specks into discs and softens far bokeh', async ({
   page,
 }) => {
+  // Two medium frames rendered in software: about 30 s on a laptop, over 60 s on a one-worker CI
+  // runner. Slow marks it for the time it takes; nothing it asserts changes.
+  test.slow();
   const off = await look(page, 'medium', false);
   const on = await look(page, 'medium', true);
   expectDof('medium', off, on);
@@ -300,6 +303,8 @@ test('medium keeps the creature sharp, spreads off-plane specks into discs and s
 test('high runs a full-strength depth of field and keeps the creature sharp @slow', async ({
   page,
 }) => {
+  // Two high frames in software, slower still than medium's (see above).
+  test.slow();
   const off = await look(page, 'high', false);
   const on = await look(page, 'high', true);
   expectDof('high', off, on);
