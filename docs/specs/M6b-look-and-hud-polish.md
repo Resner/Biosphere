@@ -482,3 +482,7 @@ Exit criteria map (ROADMAP M6b):
 - **Software rendering hides how the look plays on real hardware.** The look is judged on a fixed sheet against pass 1 and the references, and the owner judges it on real hardware at the gate.
 - **Pass 6 misses the bar.** ADR 0034 allows no pass 7. The gaps go to the owner at the gate, with the evidence.
 - **The PR E2E suite grows past its budget.** New screenshot and lifecycle specs are `@slow` when they take over 20 s, and T13 records the suite time.
+
+## Release fix (in progress)
+
+The v0.7.1 Release run still fails in `test:e2e:full` on slow-runner timeouts (`m6-lifecycle` abyss death, `m6b-lifecycle` egg card). Notes follow when fixed.
