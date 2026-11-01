@@ -100,10 +100,11 @@ describe('migration 2', () => {
       'usage',
       'flags',
       'genesis_log',
+      'world',
     ]) {
       expect(result.names).toContain(table);
     }
-    expect(result.before.map((r) => r.version)).toEqual([1, 2, 3, 4, 5]);
+    expect(result.before.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6]);
     expect(result.after).toEqual(result.before);
   });
 });

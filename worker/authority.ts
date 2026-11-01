@@ -166,7 +166,10 @@ export class Authority extends DurableObject<Env> {
       countersign: (hash) => this.ledger.countersign(hash),
       rearm: () => this.rearm(),
     });
-    ctx.blockConcurrencyWhile(async () => migrate(ctx.storage.sql));
+    // One transaction, so a migration (the world renewal above all) applies whole or not at all.
+    ctx.blockConcurrencyWhile(async () =>
+      ctx.storage.transactionSync(() => migrate(ctx.storage.sql)),
+    );
   }
 
   /** Live drand by default; the E2E entry (`worker/e2e-entry.ts`) overrides it with recorded rounds. */
@@ -1247,6 +1250,7 @@ export class Authority extends DurableObject<Env> {
       genesisIn,
       ...(pending ? { pending } : {}),
       ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
+      ...(this.ledger.takeRenewal(playerId) ? { renewed: true as const } : {}),
     });
     // A mating whose children were never written (an eviction between its round and the write) is finished now.
     for (const id of this.ledger.openMatingCommits(playerId)) {

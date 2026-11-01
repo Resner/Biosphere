@@ -30,10 +30,13 @@ describe('worker bundles', () => {
     const code = bundle(false, 'index.js');
     expect(code).not.toContain(marker);
     expect(code).not.toContain('fixtureSource');
+    // Nor the E2E hook that stages a player from before the world renewal (M6c T2).
+    expect(code).not.toContain('/v1/e2e/');
   }, 60_000);
 
   it('the E2E entry carries the recorded rounds', () => {
     const code = bundle(true, 'e2e-entry.js');
     expect(code).toContain(marker);
+    expect(code).toContain('/v1/e2e/pre-reset');
   }, 60_000);
 });

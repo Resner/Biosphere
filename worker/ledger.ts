@@ -481,6 +481,21 @@ export class Ledger {
     return left;
   }
 
+  /**
+   * Whether the player should hear, now and only now, that the world was renewed (ADR 0040): an
+   * identity first seen before the reset that has not been told about this epoch. Marks it told.
+   * A new identity never qualifies, nor one with no row (it had nothing to lose).
+   */
+  takeRenewal(owner: string): boolean {
+    const told = this.run(
+      `UPDATE players SET epoch_seen = w.epoch FROM world w
+       WHERE players.id = ? AND players.first_seen < w.reset_at AND players.epoch_seen < w.epoch
+       RETURNING players.id`,
+      owner,
+    );
+    return told.length > 0;
+  }
+
   /** The record that ended the creature's life, or null while it lives. */
   deathRecord(creature: string): StoredRecord | null {
     const row = this.run(

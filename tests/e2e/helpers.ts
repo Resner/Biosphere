@@ -186,6 +186,9 @@ export const M6B_MINIMAP_HUB = 'http://localhost:8802';
 /** The M6b authority for the lifecycle spec, with the M5 hooks (short lives), two players in one pond. */
 export const M6B_LIFECYCLE_HUB = 'http://localhost:8803';
 
+/** The M6c authority for the world renewal (M6c T2), with its E2E hook that stages a pre-reset player. */
+export const M6C_RESET_HUB = 'http://localhost:8804';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
