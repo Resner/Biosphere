@@ -69,7 +69,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Steps: split by the areas C4 gave the module (buffer, loft, parts, fit). Move tests verbatim; no assertion changes.
   - Acceptance: `npm run check:full` is green with the same number of tests; each file is under 1,000 lines.
 
-- [ ] C7 Split `worker/ledger.ts` (1,104 lines) and `worker/ledger-mating.test.ts` (1,233 lines) into files under 1,000 lines
+- [ ] C7 Split `worker/ledger.ts` (1,104 lines) and `worker/ledger-mating.test.ts` (1,233 lines) into files under 1,000 lines (in progress)
   - Why: found by C5; both outgrew the 1,000-line bound.
   - Touches: `worker/ledger.ts`, `worker/ledger-mating.test.ts`, the files they become.
   - Steps: split by area (records and verification, mating and offspring); move code and tests verbatim; no assertion changes.
