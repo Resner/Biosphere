@@ -6,7 +6,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
 
 ## Tasks
 
-- [ ] C0 Pin the scene of `m6-dof`'s medium scenario
+- [ ] C0 Pin the scene of `m6-dof`'s medium scenario (in progress)
   - Why: it failed on #222's CI ("a far-layer disc on plain water, clear of the others"; run 41338189016) while `main` and its `E2E main` were green. `play()` hatches, then freezes the world, so the tick it freezes at, and with it the food on screen and the creature's drift, depends on how fast the runner is (`.claude/rules/tests.md`: drive time through the sim). Some ticks leave no far disc on plain water.
   - Touches: `tests/e2e/m6-dof.spec.ts`, `src/game/debug.ts`, `docs/TESTING.md`.
   - Steps:
