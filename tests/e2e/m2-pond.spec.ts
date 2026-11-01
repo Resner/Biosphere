@@ -98,8 +98,22 @@ test('three players see each other move smoothly, share food and chat @slow', as
     expect(seen.length).toBeGreaterThan(10);
 
     // No jumps in what B draws, and a small mean error against A's own positions at the same time.
-    const steps = stepsOf(seen);
-    expect(Math.max(...steps)).toBeLessThan(25);
+    // The samples come off a wall-clock timer, so a busy runner leaves gaps and a step grows with its
+    // gap: a jump is a step beyond 25 plus what A's own top speed covers in the time over 66 ms.
+    const top = Math.max(
+      ...own.slice(1).map((s, i) => {
+        const prev = own[i] as Sample;
+        return Math.hypot(s.x - prev.x, s.y - prev.y) / Math.max(1, s.t - prev.t);
+      }),
+    );
+    const excess = seen.slice(1).map((s, i) => {
+      const prev = seen[i] as Sample;
+      const allowed = 25 + 1.25 * top * Math.max(0, s.t - prev.t - 66);
+      return Math.hypot(s.x - prev.x, s.y - prev.y) - allowed;
+    });
+    expect(Math.max(...excess), 'no step beyond what the time between samples allows').toBeLessThan(
+      0,
+    );
     const errors = seen.map((s) => {
       // B draws A as it was INTERPOLATION_MS ago, by design; the error is against that moment.
       const o = nearestInTime(own, s.t - INTERPOLATION_MS);
