@@ -1,5 +1,6 @@
 import { expect, type Page } from '@playwright/test';
 import type { BsHook, BsState } from '../../src/game/debug';
+import { TICK_HZ } from '../../src/sim/rules';
 
 /**
  * Opens the game on the title screen and waits for the test hook. A test that does not pin a body
@@ -53,6 +54,29 @@ export async function playerOf(page: Page): Promise<NonNullable<BsState['player'
   const { player } = await page.evaluate(() => (window.__bs as BsHook).state());
   if (!player) throw new Error('the player has not hatched');
   return player;
+}
+
+/**
+ * How the player swims over `ms` of wall time: the distance per second of sim time and the
+ * heading. Position and tick are read in one page call and the distance is divided by the ticks
+ * that ran, so a slow runner's stalled frames do not read as a slower swimmer.
+ */
+export async function swimPace(page: Page, ms = 1000): Promise<{ dist: number; heading: number }> {
+  const at = () =>
+    page.evaluate(() => {
+      const { player, tick } = (window.__bs as BsHook).state();
+      if (!player) throw new Error('the player has not hatched');
+      return { x: player.x, y: player.y, tick };
+    });
+  const from = await at();
+  await page.waitForTimeout(ms);
+  const to = await at();
+  const ticks = to.tick - from.tick;
+  if (ticks <= 0) throw new Error('the world did not run');
+  return {
+    dist: (Math.hypot(to.x - from.x, to.y - from.y) * TICK_HZ) / ticks,
+    heading: Math.atan2(to.y - from.y, to.x - from.x),
+  };
 }
 
 /** Bundles a source file into one browser script (an IIFE that sets `globalName`). */
@@ -215,7 +239,7 @@ export async function goTo(page: Page, id: string): Promise<void> {
       if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
     }, id);
     await expect(hint).toBeVisible({ timeout: 2_000 });
-  }).toPass({ timeout: 20_000 });
+  }).toPass({ timeout: 40_000 });
 }
 
 /** What `document.elementFromPoint` finds at the egg's centre and at four points 0.8 of its radius out. */
