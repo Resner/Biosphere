@@ -130,7 +130,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Creatures that read as organisms (ADR 0041)
 
-- [ ] T3 Parts by region, a visible-part budget, gated coils [opus]
+- [ ] T3 Parts by region, a visible-part budget, gated coils [opus] (in progress)
   - Why: the Lab screenshot shows 10–20 equally weighted spokes, antennae mid-body and legs at the front. Development gives every module slot the same freedom, and the 24-instance cap is a collider budget, not a look budget.
   - Steps:
     1. Add `src/genome/organism.ts`:
