@@ -103,7 +103,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - Decoding stays total: the 10k random-bytes property, including 328-byte inputs, passes.
   - Notes: bodies don't change yet; T3 and T4 change them under rules 8 with no freeze. This task touches no worker table (T2 does).
 
-- [ ] T2 The world renewal: migration, protocol 6, the notice [opus]
+- [x] T2 The world renewal: migration, protocol 6, the notice [opus]
+  - Done: migration 6 (a `(sql, now)` step, all migrations now in one transaction) empties the world and adds `world` and `players.epoch_seen`; `Ledger.takeRenewal` puts `renewed` on `life` once; the notice sits in the tagline's place (`state().renewed`).
+  - Gotcha: the E2E entry's `POST /v1/e2e/pre-reset` stages a returning player; migration 5's own test now stops at `migrate(sql, 5)`, since 6 empties its rows.
   - Steps:
     1. A worker migration (the next number in `worker/schema.ts`), in one transaction:
        - `DELETE FROM creatures, records, commitments, matings, genesis_log` (there is no `creatures_v5` any more: migration 5 renamed it);
@@ -368,7 +370,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
        - a mating and a hatch.
        It follows `.claude/rules/tests.md`'s determinism rules, and CI repeats it 3 times before merge (ADR 0042).
     2. Sync DESIGN §2, §4–§6, §9 and §10, the rules files and `docs/art/README.md`.
-  - Acceptance: every owner point in the table maps to a named test or the T13 note. The PR E2E suite stays near `tests.md`'s 3 minutes; new long scenarios are `@slow`.
+  - Acceptance: every owner point in the table maps to a named test or the T13 note. Each PR E2E part stays under `tests.md`'s 5 minutes; new long scenarios are `@slow`.
 
 ## Rubric
 

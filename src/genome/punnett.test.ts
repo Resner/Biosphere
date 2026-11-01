@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { withAlleles } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
@@ -158,7 +159,7 @@ describe('punnett: exact enumeration', () => {
     }
   });
 
-  it('matches the frequency over seeded children within four sigma', () => {
+  heavyTest('matches the frequency over seeded children within four sigma', () => {
     const n = 3000;
     for (const [a, b] of spiced.slice(0, 6)) {
       const children = Array.from({ length: n }, (_, k) =>
@@ -193,11 +194,11 @@ describe('punnett: exact enumeration', () => {
         expect(within(hit, l.chance)).toBe(true);
       }
     }
-  }, 30_000);
+  });
 });
 
 describe('inbreeding load', () => {
-  it('shows a child of full siblings at least three times as often with a homozygous load allele', () => {
+  heavyTest("gives full siblings' children a homozygous load allele at least 3× as often", () => {
     const n = 4000;
     const homozygous = (g: Genome): number =>
       LOADS.filter((l) => g.haplotypes.every((h) => ((h.alleles[l.offset] as number) & 1) === 1))
@@ -220,7 +221,7 @@ describe('inbreeding load', () => {
     }
     expect(unrelated).toBeGreaterThan(0);
     expect(siblings).toBeGreaterThanOrEqual(3 * unrelated);
-  }, 30_000);
+  });
 });
 
 describe('punnett: totality', () => {

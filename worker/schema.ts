@@ -7,8 +7,11 @@ export interface PondRow extends Record<string, SqlStorageValue> {
   created: number;
 }
 
+/** A migration that needs a value from the moment it runs (the reset time). */
+type Step = string | ((sql: SqlStorage, now: number) => void);
+
 /** Append-only; entry `i` is migration `i + 1`. */
-const MIGRATIONS = [
+const MIGRATIONS: Step[] = [
   `CREATE TABLE ponds (
     id TEXT PRIMARY KEY,
     seed TEXT NOT NULL,
@@ -145,16 +148,40 @@ const MIGRATIONS = [
     child_b TEXT
   ) WITHOUT ROWID;
   CREATE INDEX matings_open ON matings (round) WHERE resolved = 0`,
+  // The world renewal of v0.7.2 (ADR 0040): rules 8 retires every older version, so the world starts
+  // again. Identities, keys, usage, flags, beacons and ponds stay; what pointed at the deleted rows
+  // (a pending commitment) is cleared and every hatch bucket refilled. `world` holds the epoch and
+  // when it began, and `epoch_seen` the last epoch each player was told about.
+  (sql, now) => {
+    sql.exec(`DELETE FROM creatures;
+      DELETE FROM records;
+      DELETE FROM commitments;
+      DELETE FROM matings;
+      DELETE FROM genesis_log;
+      UPDATE players SET pending = '', hatches = 3, hatch_t = 0;
+      ALTER TABLE players ADD COLUMN epoch_seen INTEGER NOT NULL DEFAULT 0;
+      CREATE TABLE world (epoch INTEGER NOT NULL, reset_at INTEGER NOT NULL)`);
+    sql.exec('INSERT INTO world (epoch, reset_at) VALUES (2, ?)', now);
+  },
 ];
 
-/** Applies pending migrations (up to `upTo`, for tests of an old database), recorded in `migrations` (`PRAGMA user_version` is not permitted in a Durable Object). */
-export function migrate(sql: SqlStorage, upTo: number = MIGRATIONS.length): void {
+/**
+ * Applies pending migrations (up to `upTo`, for tests of an old database), recorded in `migrations`
+ * (`PRAGMA user_version` is not permitted in a Durable Object). The caller runs it in one
+ * transaction (`Authority`), so a migration and its version row land together or not at all.
+ */
+export function migrate(
+  sql: SqlStorage,
+  upTo: number = MIGRATIONS.length,
+  now: number = Date.now(),
+): void {
   sql.exec('CREATE TABLE IF NOT EXISTS migrations (version INTEGER PRIMARY KEY)');
   const applied = sql
     .exec<{ v: number }>('SELECT COALESCE(MAX(version), 0) AS v FROM migrations')
     .one().v;
-  MIGRATIONS.slice(applied, upTo).forEach((statement, i) => {
-    sql.exec(statement);
+  MIGRATIONS.slice(applied, upTo).forEach((step, i) => {
+    if (typeof step === 'string') sql.exec(step);
+    else step(sql, now);
     sql.exec('INSERT INTO migrations (version) VALUES (?)', applied + i + 1);
   });
 }
