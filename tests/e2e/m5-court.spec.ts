@@ -1,6 +1,16 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, goTo, M5_HUB, openRecorded, ripe, state, topUp, waitPlaying } from './helpers';
+import {
+  clickHatch,
+  courtUntilInvited,
+  goTo,
+  M5_HUB,
+  openRecorded,
+  ripe,
+  state,
+  topUp,
+  waitPlaying,
+} from './helpers';
 
 // Courting (M5 T10) on an authority with lives of about 4 min and maturity in seconds: one player
 // courts another in reach, the other accepts, both pay and wait for the round. A third, newly
@@ -38,16 +48,16 @@ test('a court is answered, both pay, and a newborn is refused for being too youn
   expect((await state(a)).mate.visited).not.toContain('courting');
   await a.screenshot({ path: 'test-results/m5-court-refused.png' });
 
-  // A and B in reach: the hint offers the key, B sees the invitation.
+  // A and B in reach: the hint offers the key, B sees the invitation. Both bellies are filled first:
+  // after the 30x ripening a creature can be short of the energy a mating costs.
+  await Promise.all([topUp(a), topUp(b)]);
   await goTo(a, idB);
   await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /);
   await expect(a.getByTestId('hud-ready')).toHaveText('Ready to mate');
   // The heart chip beside the bars says the same (M6b T9).
   await expect(a.getByTestId('hud-mate-ready')).toBeVisible();
   expect((await state(a)).hud.chips).toContain('ready');
-  await a.keyboard.press('e');
-  await a.keyboard.press('e');
-  await expect(b.getByTestId('invite')).toBeVisible();
+  await courtUntilInvited(a, b, idB);
   const s = await state(b);
   expect(s.mate.invite?.from).toBe(idA);
   await expect(b.getByTestId('invite-band')).not.toBeEmpty();

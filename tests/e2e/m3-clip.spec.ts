@@ -46,7 +46,9 @@ const camSettled = (page: Page) =>
 
 for (const [name, genome] of Object.entries(bodies)) {
   test(`the centre of the player's ${name} body stays lit at any size`, async ({ page }) => {
-    await openGame(page, `?debug=1&seed=clip&genome=${genome}`);
+    // `light=0`: no caustics or god rays, which the shaders' clock re-bases to at the camera's pace
+    // (a slow runner caught them mid-way and moved the centre luma by more than KEEP).
+    await openGame(page, `?debug=1&seed=clip&light=0&genome=${genome}`);
     await hatch(page);
     const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
     let small: number | null = null;
@@ -65,10 +67,13 @@ for (const [name, genome] of Object.entries(bodies)) {
       );
       await camSettled(page);
       // Freeze the world at one shader clock, so the gait and the glow are in the same phase at
-      // every size and the frames compare (the camera has settled by now).
+      // every size and the frames compare (the camera has settled by now). The marine snow's flow is
+      // zeroed too: a speck drifting over the centre pixel in one frame and not in another moved
+      // the luma by more than KEEP on a slow runner.
       await page.evaluate(() => {
         const { debug } = window.__bs as BsHook;
         debug?.timeScale(0);
+        debug?.resetWater();
         debug?.setClock(100);
       });
       await camSettled(page);

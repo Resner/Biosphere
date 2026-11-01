@@ -29,6 +29,9 @@ async function joined(browser: Browser): Promise<[Page, Page]> {
 test('chat is filtered, typing does not steer, mute hides a sender, and cues cross the pond @slow', async ({
   browser,
 }) => {
+  // Two software-GL browsers hatch and chat: a busy runner needs more than the default 30 s (the
+  // online and pond specs get 60 s too).
+  test.setTimeout(60_000);
   const [a, b] = await joined(browser);
   try {
     const aId = (await state(a)).playerId as string;
