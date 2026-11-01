@@ -1,3 +1,4 @@
+import { isPlayerId } from '../src/ledger/identity';
 import { Authority as LiveAuthority } from './authority';
 import type { BeaconSource } from './beacons';
 import { fixtureSource } from './fixture-beacons';
@@ -5,8 +6,6 @@ import live from './index';
 
 // The Worker for local E2E (`worker/wrangler.e2e.jsonc`): the same code, but drand comes from the
 // recorded rounds, so no test touches the network. Never deployed.
-
-const PLAYER_ID_RE = /^[A-Za-z0-9_-]{43}$/;
 
 export class Authority extends LiveAuthority {
   protected override beaconSource(): BeaconSource {
@@ -32,7 +31,7 @@ export default {
     const { pathname } = new URL(request.url);
     if (pathname === '/v1/e2e/pre-reset' && request.method === 'POST') {
       const { playerId } = (await request.json().catch(() => ({}))) as { playerId?: unknown };
-      if (typeof playerId !== 'string' || !PLAYER_ID_RE.test(playerId)) {
+      if (typeof playerId !== 'string' || !isPlayerId(playerId)) {
         return new Response('bad player', { status: 400 });
       }
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {

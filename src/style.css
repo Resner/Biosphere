@@ -1710,7 +1710,6 @@ body {
   margin: 0;
 }
 
-/* Recovery code: a panel over the title screen; the code stays blurred until it is clicked. */
 /* The world renewal notice (M6c T2): a glass toast in the tagline's place under the title, so it
    covers neither the title, the buttons, the status chip nor an egg. */
 .renewed {
@@ -1736,6 +1735,7 @@ body {
   display: none;
 }
 
+/* Recovery code: a panel over the title screen; the code stays blurred until it is clicked. */
 .recovery-reminder {
   margin: 0.75rem 0 0;
   color: #e8b04a;
