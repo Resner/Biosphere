@@ -2,6 +2,7 @@ import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import type { Speck } from '../../src/render/particles';
 import { PRESETS } from '../../src/render/presets';
+import { createWorld } from '../../src/sim/world';
 import { hatch, openGame } from './helpers';
 
 // The depth of field (M6 T3), judged on decoded screenshots against the same preset with the DOF
@@ -15,6 +16,13 @@ test.use({ storageState: { cookies: [], origins: [] } });
 test.describe.configure({ timeout: 60_000 });
 
 type Preset = 'medium' | 'high';
+
+const SEED = 'dof';
+/** Where every page freezes: the pond's centre at tick 0, whatever a slow runner played before. */
+const HOME = (() => {
+  const { size } = createWorld({ seed: SEED });
+  return { x: size / 2, y: size / 2 };
+})();
 
 const info = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
 const specks = (page: Page, layer: 'far' | 'mid' | 'near') =>
@@ -30,15 +38,16 @@ async function waitForFrames(page: Page, frames = 3): Promise<void> {
 
 /** Hatches the starter cell on `preset`, with or without the DOF, and freezes the world. */
 async function play(page: Page, preset: Preset, dof: boolean): Promise<void> {
-  await openGame(page, `?debug=1&seed=dof&light=0&quality=${preset}${dof ? '' : '&dof=0'}`);
+  await openGame(page, `?debug=1&seed=${SEED}&light=0&quality=${preset}${dof ? '' : '&dof=0'}`);
   await hatch(page);
-  // `light=0` leaves the water plain of caustics and rays (M6 T17). The water's flow and clock are
-  // zeroed once frozen, so both pages of a pair hold the same specks in the same places.
-  await page.evaluate(() => {
+  // `light=0` leaves the water plain of caustics and rays (M6 T17). The world freezes at a fixed
+  // tick and place, and the water's flow and clock are zeroed, so every page of every run holds
+  // the same specks and food in the same places.
+  await page.evaluate((home) => {
     const debug = (window.__bs as BsHook).debug;
-    debug?.timeScale(0);
+    debug?.freezeAt(0, home.x, home.y);
     debug?.resetWater();
-  });
+  }, HOME);
   await waitForFrames(page);
 }
 
@@ -316,7 +325,7 @@ test('high runs a full-strength depth of field and keeps the creature sharp @slo
 });
 
 test('low draws its fake bokeh with no depth-of-field pass', async ({ page }) => {
-  await openGame(page, '?debug=1&seed=dof&quality=low');
+  await openGame(page, `?debug=1&seed=${SEED}&quality=low`);
   await hatch(page);
   await waitForFrames(page);
   const low = await info(page);
