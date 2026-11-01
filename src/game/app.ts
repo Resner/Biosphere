@@ -1056,7 +1056,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       }
     },
     {
-      key: (key) => {
+      key: (key, at) => {
         if (settingsPanel.isOpen) {
           if (key === 'Escape') settingsPanel.close();
           return;
@@ -1075,9 +1075,9 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         }
         if (wheel.pick(key)) return;
         if (key === 'g' || key === 'G') {
-          const at = controller.pointerAt() ?? { x: scene.width / 2, y: scene.height / 2 };
+          const cursor = controller.pointerAt() ?? { x: scene.width / 2, y: scene.height / 2 };
           const view = { width: scene.width, height: scene.height };
-          wheel.press(at, worldAt(at.x, at.y), view, performance.now());
+          wheel.press(cursor, worldAt(cursor.x, cursor.y), view, at);
           return;
         }
         if ((key === 'h' || key === 'H') && offspring.child()) {
@@ -1101,8 +1101,8 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         }
         social.key(key, selfKey());
       },
-      keyUp: (key) => {
-        if (key === 'g' || key === 'G') wheel.release(controller.pointerAt(), performance.now());
+      keyUp: (key, at) => {
+        if (key === 'g' || key === 'G') wheel.release(controller.pointerAt(), at);
       },
       // A quick "look" ping.
       middle: (x, y) => {
