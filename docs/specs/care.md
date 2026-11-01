@@ -26,7 +26,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
     - Every file in `src/genome/` is under 1,000 lines.
     - `git diff -M --stat` shows moves, not rewrites.
 
-- [x] C2 Split `src/game/app.ts` (2,217 lines; `startApp` alone is about 1,940) into modules under 1,000 lines [opus] (in progress)
+- [x] C2 Split `src/game/app.ts` (2,217 lines; `startApp` alone is about 1,940) into modules under 1,000 lines [opus]
   - Why: as C1. Every HUD, screen and online task edits this one closure.
   - Touches: `src/game/app.ts`, the modules it becomes.
   - Steps:
