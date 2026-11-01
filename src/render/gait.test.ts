@@ -1,6 +1,7 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ARCHETYPES, buildBytes } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { decodeGenome, type Genome } from '../genome/codec';
 import { type BodyPlan, develop } from '../genome/develop';
 import { express } from '../genome/express';
@@ -219,7 +220,7 @@ const reach = (s: Sample, u: GaitUniforms): number => {
 };
 
 describe('gaitPosition: guarantees', () => {
-  it('detaches no part: every part vertex stays within 1.15 × its rest distance of its moved root', () => {
+  heavyTest('detaches no part: each part vertex stays within 1.15× its rest root distance', () => {
     let checked = 0;
     let worst = 0;
     for (const s of samples) {
@@ -247,7 +248,7 @@ describe('gaitPosition: guarantees', () => {
     expect(samples).toHaveLength(500);
     expect(checked).toBeGreaterThan(1_000_000);
     expect(worst).toBeLessThanOrEqual(1.15);
-  }, 60_000);
+  });
 
   it('roots every part on the body: a part base moves with the body vertex nearest it', () => {
     // The root a part turns about is carried exactly as the body is at that spine position.
@@ -268,7 +269,7 @@ describe('gaitPosition: guarantees', () => {
     expect(worst).toBeLessThan(1e-9);
   }, 30_000);
 
-  it('moves no vertex more than 0.6 core radii, whatever the genes', () => {
+  heavyTest('moves no vertex more than 0.6 core radii, whatever the genes', () => {
     const { TURN_MAX } = GAIT_CONSTANTS;
     for (const s of samples) {
       PHASES.forEach((phase, k) => {
@@ -281,9 +282,9 @@ describe('gaitPosition: guarantees', () => {
         }
       });
     }
-  }, 60_000);
+  });
 
-  it('only breathes at throttle 0: a slow idle at 20% of the moving amplitude', () => {
+  heavyTest('only breathes at throttle 0: a slow idle at 20% of the moving amplitude', () => {
     expect(GAIT_CONSTANTS.BREATH).toBe(0.2);
     expect(effort(0)).toBe(0.2);
     let worst = 0;
@@ -313,7 +314,7 @@ describe('gaitPosition: guarantees', () => {
     expect(worst).toBeLessThan(1e-12);
     // At rest the phase runs at half the swimming rate: a slow idle.
     expect(advanceBeatPhase(0, 0, 0.1)).toBeCloseTo(advanceBeatPhase(0, 1, 0.1) / 2);
-  }, 60_000);
+  });
 
   it('swims: a starter cell moves its tail clearly at full beat', () => {
     const s = samples[0] as Sample;

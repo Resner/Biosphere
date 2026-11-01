@@ -10,7 +10,7 @@ paths:
 
 `docs/DESIGN.md` describes the mechanics and controls; ADR 0014 sets the pillars.
 
-- Controls: mouse plus keyboard, at most 6 core actions, each with a keyboard equivalent and a visible hint. Combat keys work only in combat.
+- Controls: mouse plus keyboard, at most 6 core actions (ADR 0014): steer, dash, court, attack, the social wheel and the menu (DESIGN §3). Each has a keyboard equivalent and a visible hint. Any other key (chat, emote, pond map, promote, the combat keys) is a shortcut for something the screen also offers, so the game plays with the six alone. Combat keys work only in combat.
 - Readable consequences: every source of damage and every death cause has a visible cue (audible from M6). The death screen always names the cause. Never a silent death.
 - The core loop (move, feed, survive, find a mate) must work without opening any genetics UI. Genetics adds depth; it never gates the fun.
 - No NPC organisms, fake players or bots in the live world. Test clients and simulated populations never point at the production authority.

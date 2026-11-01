@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ARCHETYPES, buildGenome } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { createRng, seedFromString } from '../sim/prng';
 import { decodeGenome, type Genome } from './codec';
 import { type BodyPlan, develop } from './develop';
@@ -146,7 +147,7 @@ describe('silhouetteOf', () => {
     }
   });
 
-  it('is total: every plan, even a broken one, gets a class', () => {
+  heavyTest('is total: every plan, even a broken one, gets a class', () => {
     const rng = createRng(seedFromString('genome-silhouette'), 'bytes');
     const seen = new Set<Silhouette>();
     for (let i = 0; i < 10_000; i++) {

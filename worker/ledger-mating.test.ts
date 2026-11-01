@@ -256,7 +256,7 @@ describe('migration 5', () => {
         .map((r) => r.version);
       return { columns, indexes, matings, versions };
     });
-    expect(result.versions).toEqual([1, 2, 3, 4, 5]);
+    expect(result.versions).toEqual([1, 2, 3, 4, 5, 6]);
     for (const c of ['generation', 'parent_a', 'parent_b', 'chain_parent', 'cooldown_until_ms']) {
       expect(result.columns).toContain(c);
     }
@@ -316,11 +316,12 @@ describe('migration 5', () => {
         players: sql.exec('SELECT * FROM players ORDER BY id').toArray(),
       });
       const before = dump();
-      migrate(sql);
+      // Migration 5 alone: migration 6 renews the world and empties these tables (ADR 0040).
+      migrate(sql, 5);
       const after = dump();
       const versions = () => sql.exec('SELECT version FROM migrations').toArray().length;
       const n = versions();
-      migrate(sql);
+      migrate(sql, 5);
       const ledger = new Ledger(state.storage);
       return {
         before,

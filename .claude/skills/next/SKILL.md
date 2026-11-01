@@ -1,6 +1,6 @@
 ---
 name: next
-description: Advance the Biosphere factory by exactly one step in one lane - the build lane (default) writes the next spec, implements the next task or closes the milestone; the care lane (`/next care`) fixes a red main, flaky tests, release failures and Dependabot - and ship it as one auto-merged PR. Use when asked to run /next or to continue the project.
+description: Advance the Biosphere factory by exactly one step in one lane - the build lane (default) writes the next spec, implements the next task or closes the milestone; the care lane (`/next care`) fixes a red main, flaky tests, release failures and Dependabot, then works the care backlog - and ship it as one auto-merged PR. Use when asked to run /next or to continue the project.
 model: sonnet
 effort: high
 ---
@@ -18,7 +18,7 @@ The repository is public. **Owner input** means issues and comments written by t
 The factory runs two lanes at the same time, each with its own scheduled task, its own claim and its own PR lock:
 
 - **build** (`/next`, the `Factory` task): the roadmap. Specs, tasks, the milestone close, owner feedback. A red `E2E main` does not stop it; only the milestone close waits for green.
-- **care** (`/next care`, the `Care` task): keeping `main` healthy. A failed Release, a red `E2E main`, flaky scenarios, red or stale Dependabot PRs, CI and workflow fixes. Nothing else: no roadmap work.
+- **care** (`/next care`, the `Care` task): keeping `main` healthy. A failed Release, a red `E2E main`, flaky scenarios, red or stale Dependabot PRs, CI and workflow fixes, then the care backlog (`docs/specs/care.md`, ADR 0045). Nothing else: no roadmap work.
 
 Your lane is `care` when the arguments say `care`, else `build`. Every PR you open carries the line `Lane: <lane>` in its body from the first draft on: CI's single-PR guard reads it, so each lane has its own lock. A PR without the line is `build`.
 
@@ -53,6 +53,7 @@ Care lane, then:
 
   `@dependabot` comment commands don't work from here, because the GitHub tool neutralises bot mentions. Record decisions in the config or by closing the PR.
 - An open owner issue about CI, tests or the workflow → fix it, and close it with a comment.
+- The care backlog (`docs/specs/care.md`, ADR 0045) has an unticked task → do the first one whose Touches the open build-lane PR doesn't change (`gh api --paginate repos/Resner/Biosphere/pulls/<n>/files --jq '.[].filename'`), as a task (§2's "Implementing a task"; an `[opus]` task runs through `opus-task` as in §2). A backlog task changes no behaviour and no outcome; if it would, move it to the current spec instead.
 - Nothing above applies → stop with `IDLE: main is healthy`. The care lane never takes roadmap work.
 
 ## 2. Pick the step (build lane)
@@ -74,7 +75,8 @@ Before any real work, claim the step so that no other run of your lane starts it
    - a task: append ` (in progress)` to its line in the spec;
    - a spec: create the spec file with just its title;
    - a milestone close: append ` (closing)` to the milestone's status in `docs/ROADMAP.md`;
-   - a care step: whatever first change the fix needs (a care step marks nothing in the spec).
+   - a care-backlog task: append ` (in progress)` to its line in `docs/specs/care.md`;
+   - another care step: whatever first change the fix needs (it marks nothing in the spec).
 3. Push it and open a **draft** PR titled after the step, with `Lane: <lane>` in its body. This draft is the lock that "Clear the line" checks.
 4. List the open PRs again. If another open `claude/` PR of your lane has a lower number than yours, close yours and stop with `IDLE: <step> already claimed`. PR numbers are assigned atomically, so the lowest number in a lane always wins (ADRs 0020, 0044). Two runs can start within seconds of each other (a merge and the hourly schedule), so never skip this check.
    Repeat it right before you mark the PR ready. CI's `verify` also enforces it, so a PR that loses the race stays red and never merges.
@@ -85,8 +87,8 @@ Clear the marker before you ship.
 
 1. Run `npm run check` before changing anything. If it's already red, that's the step.
 2. Read the task, its acceptance tests, and the code and rules it touches. Nothing more.
-3. Write the acceptance tests first and watch them fail, then implement until `npm run check` and the relevant E2E pass. Long scenarios belong in `test:e2e:full`.
-4. Keep the diff to the task. If the spec is wrong, fix the spec in the same PR and say why. Never weaken a test to make it pass.
+3. Write the acceptance tests first and watch them fail, then implement until `npm run check` and the relevant E2E pass. Long scenarios belong in `test:e2e:full`. `check` skips the heavy unit tests (`heavyTest`, ADR 0045): run the ones in the files you touched while you work (`npx vitest run <file>`), and `npm run check:full` before your last push, as CI does.
+4. Keep the diff to the task. If the spec is wrong, fix the spec in the same PR and say why. Never weaken a test to make it pass. Maintenance you notice outside the task (a file past 1,000 lines, a stale rule) goes into the care backlog as a new task, not into this PR.
 5. Run `/simplify`, then `/code-review` on the diff, every time; a small diff is no reason to skip them or the tests-first step. Fix findings that affect correctness or the acceptance criteria; skip style nits.
 6. Tick the task with a note of two lines at most: what changed and any gotcha. Lasting gotchas go into CLAUDE.md or `.claude/rules/`.
 

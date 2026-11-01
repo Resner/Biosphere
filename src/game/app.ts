@@ -99,6 +99,7 @@ import { PondMap } from './pond-map';
 import { PondTime } from './pond-time';
 import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
+import { RenewalNotice } from './renewal';
 import { RevealCard, setStars } from './reveal-card';
 import { type DeathSummary, type Screen, Screens } from './screens';
 import { loadSettings, reducedMotion, type Settings, saveSettings } from './settings';
@@ -282,6 +283,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
   // The play screen's one button and its menu (M6b T9).
   const menu = new HudMenu();
   const history = new HistoryPanel();
+  const renewal = new RenewalNotice();
   /** The hub link of the current online session, for the Lineage panel's question. */
   let hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
   const lineagePanel = new LineagePanel(() => hubLink?.send({ t: 'lineage' }));
@@ -808,6 +810,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
             link.send({ t: 'lineage' });
           }
           if (msg.t === 'born') hud.toast('Your offspring is ready');
+          if (msg.t === 'life') renewal.receive(msg.renewed === true);
           if (msg.t === 'history') history.show(msg.lives, Date.now());
           // Past lives are asked for once the hub has said who the player is, and after each death.
           if (msg.t === 'life' || msg.t === 'died') link.send({ t: 'history' });
@@ -2081,6 +2084,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
       tick: session.world.tick,
       ...zoneState(),
       playerId,
+      renewed: renewal.heard,
       visibleFood: food.length,
       player: session.demo
         ? null
@@ -2185,6 +2189,7 @@ export function startApp(canvas: HTMLCanvasElement, params: GameParams): void {
         ]);
         const commit = commitmentId(g.commit.commitment);
         return {
+          rules: g.record.record.rules,
           round: g.beacon.round,
           commit,
           genomeHash: genomeHash(genesisFor(randomnessOf(g.beacon), commit)),

@@ -5,6 +5,7 @@ import { buildCreature } from '../src/genome/stats';
 import { recordHash } from '../src/ledger/record';
 import { CLOSE_RATE_LIMITED } from '../src/net/protocol';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
+import { heavyTest } from '../tests/heavy';
 import {
   CALM,
   type Client,
@@ -145,7 +146,7 @@ describe('progress and the life clock', () => {
 });
 
 describe('plausibility', () => {
-  it('clamps biomass to what the genome can grow to', async () => {
+  heavyTest('clamps biomass to what the genome can grow to', async () => {
     const { c, creature, stats } = await newPlayer();
     advance(30_000);
     report(c, TICKS_PER_30S, { ...CALM, biomass: 900_000_000 });
