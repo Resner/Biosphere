@@ -482,7 +482,8 @@ export const RULES = deepFreeze({
      * most `rear.tail` body lengths. A radial body rings `radial.spokes` spokes, lengths varied
      * ±`radial.vary` by a hash. At most `budget` instances show (the tail, the long antennae, the
      * short antennae, then legs from the front); the rest become fringe: cilia at most
-     * `fringe.length` body widths long, drawn faint, counted as cilia by the stats.
+     * `fringe.length` body widths long and drawn `fringe.width` core radii wide, counted as cilia
+     * by the stats (as wide as the band, `band.width`).
      */
     organism: {
       head: { share: 0.2, cone: 70, long: 2.2, short: 0.6 },
@@ -490,7 +491,7 @@ export const RULES = deepFreeze({
       rear: { share: 0.2, tail: 1.5 },
       radial: { spokes: [5, 9], vary: 0.3 },
       budget: 14,
-      fringe: { length: 0.3 },
+      fringe: { length: 0.3, width: 0.04 },
     },
   },
   /** Stats from form (M3, DESIGN §6): how a body plan becomes thrust, drag, turning, costs and combat numbers. */

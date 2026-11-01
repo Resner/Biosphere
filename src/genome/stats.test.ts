@@ -13,7 +13,7 @@ import { STARTER_PHYS, sanitizePhys } from '../sim/body';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome, genomeToBase64url } from './codec';
-import { develop, hashPlan } from './develop';
+import { develop, hashPlan, motileArea } from './develop';
 import { express } from './express';
 import { genesisGenome } from './genesis';
 import { mutateGenome } from './inherit';
@@ -375,11 +375,11 @@ describe('computeStats: every benefit has a cost', () => {
       }
       const before = buildCreature(decodeGenome(bytes));
       const after = buildCreature(decodeGenome(added));
-      // The caps trim parts from the end of the list, so only compare when nothing was lost.
-      const kept = (m: number) => after.plan.appendages.filter((a) => a.module === m).length;
-      const lost = before.plan.appendages.some(
-        (a) => kept(a.module) < before.plan.appendages.filter((b) => b.module === a.module).length,
-      );
+      // The caps trim parts from the end of the list, and the visible-part budget turns limbs to
+      // fringe (ADR 0041), so only compare when no limb was lost.
+      const limbs = (c: typeof before, m: number) =>
+        c.plan.appendages.filter((a) => a.module === m && !a.fringe).length;
+      const lost = before.plan.appendages.some((a) => limbs(after, a.module) < limbs(before, a.module));
       if (lost || after.plan.appendages.length <= before.plan.appendages.length) continue;
       tested++;
       expect(after.stats.drag).toBeGreaterThanOrEqual(before.stats.drag - 1e-12);
@@ -446,11 +446,25 @@ describe('computeStats: development v2 follows form (ADR 0025)', () => {
 
   it('makes a curl turn faster and swim draggier', () => {
     let tested = 0;
-    // Few random bodies keep every part's length when they curl, so this draws more of them.
-    for (const bytes of [...bytesList, ...bytesList.map((b) => withLoci(b, { segDrive1: 255 }))]) {
+    // A coil needs five or more segment genes and at most two leg pairs (ADR 0041), and its legs
+    // show on the outer side only, so these bodies carry their one module on the head: antennae
+    // that a coil keeps as its straight twin does.
+    const heads = bytesList.map((b) => {
+      const out = withLoci(b, { segDrive1: 255, segDrive2: 128 + (b[0] as number) / 2 });
+      for (const hap of [0, HAPLOTYPE_BYTES]) {
+        for (const id of ['M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8']) out[hap + locus(id).offset] = 0;
+        const m1 = hap + locus('M1').offset;
+        out[m1] = 1;
+        out[m1 + 11] = 0; // attach start
+        out[m1 + 13] = (out[m1 + 13] as number) % 40; // angle
+      }
+      return out;
+    });
+    for (const bytes of heads) {
       const straight = build(bytes);
       if (straight.plan.segments.length < 3) continue;
       const curled = build(withLoci(bytes, { curve: 230 }));
+      if (curled.plan.form.mode !== 2) continue;
       if (parts(curled) !== parts(straight)) continue;
       tested++;
       expect(curled.stats.turn).toBeGreaterThan(straight.stats.turn);
@@ -471,18 +485,35 @@ describe('computeStats: development v2 follows form (ADR 0025)', () => {
 
   it('makes a radial body turn better and thrust worse forward', () => {
     let tested = 0;
-    for (const bytes of bytesList) {
+    let better = 0;
+    // A ring shows 3 or 4 spoke pairs (ADR 0041), so bodies that carry their first two modules
+    // only join the random ones, and a bilateral body is compared with its ring when both show as
+    // many parts and as much fringe.
+    const few = bytesList.map((b) => {
+      const out = b.slice();
+      for (const hap of [0, HAPLOTYPE_BYTES]) {
+        for (const id of ['M3', 'M4', 'M5', 'M6', 'M7', 'M8']) out[hap + locus(id).offset] = 0;
+      }
+      return out;
+    });
+    const shown = (c: Creature) => c.plan.appendages.filter((a) => !a.fringe).length;
+    // Read before the speed band, which eases a fast form toward the same limit; per unit of
+    // motile area, since a ring repeats its spokes up to three pairs.
+    const speed = (c: Creature): number =>
+      formSpeed(c.plan, c.traits, c.traits.body.maxBiomass) / motileArea(c.plan.appendages);
+    for (const bytes of [...bytesList, ...few]) {
       const bilateral = build(bytes);
       const radial = build(withLoci(bytes, { symmetry: 255 }));
       // Ringing moves every part to the core, so only the number of parts can stay the same.
       if (radial.plan.appendages.length !== bilateral.plan.appendages.length) continue;
+      if (shown(radial) !== shown(bilateral)) continue;
       tested++;
-      expect(radial.stats.turn).toBeGreaterThan(bilateral.stats.turn);
-      // Read before the speed band, which eases a fast form toward the same limit.
-      const speed = (c: Creature): number => formSpeed(c.plan, c.traits, c.traits.body.maxBiomass);
-      expect(speed(radial)).toBeLessThan(speed(bilateral));
+      if (radial.stats.turn > bilateral.stats.turn && speed(radial) < speed(bilateral)) better++;
     }
-    expect(tested).toBeGreaterThan(100);
+    expect(tested).toBeGreaterThan(300);
+    // Spokes vary ±30% in length by a hash (ADR 0041), so a ring may reach further than its
+    // bilateral twin's legs, which their region keeps short: nearly every ring still trades.
+    expect(better / tested).toBeGreaterThan(0.97);
   });
 
   it('makes eyes widen the detection ring and cost metabolism', () => {

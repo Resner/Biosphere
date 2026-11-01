@@ -104,7 +104,8 @@ describe('development v2: spine curve', () => {
   });
 
   it('coils above 0.8: a chambered spiral of 1.25 turns or more, tightening toward the tail', () => {
-    const c = body({ curve: 255, tailTaper: 255 });
+    // Two leg pairs, which the coil's gate allows (ADR 0041).
+    const c = plan({ M1: { ...SWIM.M1, pairs: 100 } }, { ...EIGHT, curve: 255, tailTaper: 255 });
     valid(c);
     const [lo, hi] = D.curve.coilTurn as readonly [number, number];
     expect(c.form.mode).toBe(2);
@@ -123,8 +124,13 @@ describe('development v2: spine curve', () => {
     for (let i = 2; i < links.length; i++) {
       expect(links[i]).toBeLessThan(links[i - 1] as number);
     }
-    // Just past the threshold it turns `coilTurn[0]` × π, whatever its segment genes say.
-    const few = plan(SWIM, { segDrive1: 128, aspect: 128, curve: 205 });
+    // Just past the threshold it turns `coilTurn[0]` × π, in 8 chambers whatever its segment genes
+    // say, from the gate's 5 up (ADR 0041).
+    const few = plan(
+      { M1: { ...SWIM.M1, pairs: 100 } },
+      { segDrive1: 255, segDrive2: 64, aspect: 128, curve: 205 },
+    );
+    expect(express(decodeGenome(buildBytes({}, { segDrive1: 255, segDrive2: 64 }))).body.segments).toBeLessThan(8);
     expect(few.form.turn).toBeCloseTo(PI * (lo + ((205 / 255 - 0.8) / 0.2) * (hi - lo)), 9);
     expect(few.segments).toHaveLength(D.caps.segments);
     valid(few);

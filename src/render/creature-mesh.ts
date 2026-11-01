@@ -855,10 +855,6 @@ function addAppendage(
   m.gait = frame.gait;
   const part = id * PART_KINDS + PART_APPENDAGE;
   const { path, radius, cap, length } = partPath(plan, a);
-  if (a.fringe) {
-    addFringe(m, a, path, attach, id);
-    return;
-  }
   const rings = d.jointRings > 0 ? a.joints * d.jointRings + 1 : 2;
   const bead = 1 + max(JOINT_BEAD, a.beads);
   const joint = (i: number): boolean =>
@@ -955,43 +951,6 @@ function addAppendage(
     }
   }
   addSetae(m, plan, a, path, length, attach, id, d);
-}
-
-/**
- * A fringe part (M6c T3, ADR 0041): one fine, faint stroke along its centre line, drawn as a seta,
- * never as a tube, so parts past the visible budget read as cilia rather than spokes. It beats with
- * its root like the part it stands for.
- */
-function addFringe(m: Mesh, a: Appendage, path: Path, attach: number, id: number): void {
-  const part = id * PART_KINDS + PART_SETA;
-  const [dx, dy] = [cos(path.heading), sin(path.heading)];
-  const [nx, ny] = [-dy, dx];
-  const point = (share: number, half: number): number => {
-    m.flutterAt = a.length * share;
-    const along = a.length * share;
-    const i = m.vertex(
-      path.x0 + dx * along + nx * half,
-      path.y0 + dy * along + ny * half,
-      0,
-      0.5 + 0.5 * Math.sign(half),
-      share,
-      attach,
-      attach,
-      share,
-      part,
-    );
-    m.normal(i, nx, ny, 0);
-    return i;
-  };
-  const l0 = point(0, SETA_WIDTH);
-  const r0 = point(0, -SETA_WIDTH);
-  const l1 = point(0.5, SETA_WIDTH * 0.5);
-  const r1 = point(0.5, -SETA_WIDTH * 0.5);
-  const tip = point(1, 0);
-  m.sheet(l0, r0, r1);
-  m.sheet(l0, r1, l1);
-  m.sheet(l1, r1, tip);
-  m.flutterAt = 0;
 }
 
 /** Which of `count` bristles a share draws: evenly spread, all of them at 1. */

@@ -98,9 +98,9 @@ const BODIES: Record<Exclude<Silhouette, 'other'>, Genome> = {
     },
     { ...MID, segDrive1: 255, segDrive2: 255, curve: 160, curveMode: 255, flexibility: 255 },
   ),
-  // The chain coiled past a full turn.
+  // The chain coiled past a full turn, with the two leg pairs the coil's gate allows (ADR 0041).
   coil: buildGenome(
-    { M1: { ...ROW, pairs: 255, attachSpan: 255 } },
+    { M1: { ...ROW, pairs: 100, attachSpan: 255 } },
     { ...MID, segDrive1: 255, segDrive2: 255, curve: 255, tailTaper: 200 },
   ),
   // One carapace over the whole body, legs out.

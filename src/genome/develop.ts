@@ -1568,7 +1568,8 @@ function bandParts(parts: Part[], segment: number, room: number): Part[] | null 
 
 /**
  * A part turned to fringe (M6c T3, ADR 0041): cilia where it stood, at most `fringe.length` body
- * widths long and as thin as the band, beating as the band does, with no branches or detail.
+ * widths long, drawn `fringe.width` wide (a fine stroke), with the band's girth at most, beating as
+ * the band does, with no branches or detail.
  */
 function toFringe(p: Part, segments: readonly PlanSegment[]): Part {
   const B = D.band;
@@ -1583,7 +1584,7 @@ function toFringe(p: Part, segments: readonly PlanSegment[]): Part {
     length,
     base: Math.min(p.base, length),
     girth,
-    width: Math.min(p.width, girth),
+    width: Math.min(p.width, girth, D.organism.fringe.width),
     taper: B.taper,
     curvature: 0,
     joints: B.joints,
@@ -1638,6 +1639,16 @@ function organize(parts: Part[], segments: PlanSegment[]): Part[] {
   });
 }
 
+/** The motile area of `parts` once mirrored: a coil's leg counts once, and its inner fringe. */
+function swimArea(parts: Part[], segments: readonly PlanSegment[]): number {
+  let area = 0;
+  for (const p of parts) {
+    const one = motileArea([p]);
+    area += p.inner ? one + motileArea([toFringe(p, segments)]) : 2 * one;
+  }
+  return area;
+}
+
 /** `parts` without one pair: the last fringe pair if any (it shows least), else the last pair. */
 function dropOne(parts: Part[]): Part[] {
   for (let i = parts.length - 1; i >= 0; i--) {
@@ -1666,7 +1677,7 @@ function bilateralParts(
   let parts = shape(organized, segments, sweep, body);
   // Trim pair by pair until the plan fits the part cap.
   while (!fits(parts)) parts = dropOne(parts);
-  if (motileArea(mirror(parts, segments)) >= D.minThrustArea) return parts;
+  if (swimArea(parts, segments) >= D.minThrustArea) return parts;
   // Try the rear segment first, then the ones in front of it, before giving up any part.
   for (;;) {
     for (let seg = count - 1; seg >= 0; seg--) {
