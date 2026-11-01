@@ -46,7 +46,9 @@ const camSettled = (page: Page) =>
 
 for (const [name, genome] of Object.entries(bodies)) {
   test(`the centre of the player's ${name} body stays lit at any size`, async ({ page }) => {
-    await openGame(page, `?debug=1&seed=clip&genome=${genome}`);
+    // `light=0`: no caustics or god rays, which the shaders' clock re-bases to at the camera's pace
+    // (a slow runner caught them mid-way and moved the centre luma by more than KEEP).
+    await openGame(page, `?debug=1&seed=clip&light=0&genome=${genome}`);
     await hatch(page);
     const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
     let small: number | null = null;
