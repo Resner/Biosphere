@@ -1,4 +1,5 @@
 import { existsSync } from 'node:fs';
+import { cpus } from 'node:os';
 import { chromium, defineConfig } from '@playwright/test';
 
 // Cloud sessions pre-install one Chromium build. When the pinned Playwright expects a different
@@ -6,6 +7,14 @@ import { chromium, defineConfig } from '@playwright/test';
 const preinstalled = '/opt/pw-browsers/chromium';
 const executablePath =
   !existsSync(chromium.executablePath()) && existsSync(preinstalled) ? preinstalled : undefined;
+
+// CI pins two workers (ADR 0044): since 2026-11-01 the default (half the CPUs Node reports) has
+// given one worker on runners that report four cores to every other probe, which doubled the suite's
+// time. The main process logs what it sees, so a runner change shows in the log.
+const CI_WORKERS = 2;
+if (process.env.CI && !process.env.TEST_WORKER_INDEX) {
+  console.log(`playwright: ${cpus().length} CPUs reported, ${CI_WORKERS} workers`);
+}
 
 const port = 4173;
 const hubPort = 8787;
@@ -66,6 +75,7 @@ const POST =
 export default defineConfig({
   testDir: 'tests/e2e',
   fullyParallel: true,
+  ...(process.env.CI ? { workers: CI_WORKERS } : {}),
   forbidOnly: !!process.env.CI,
   retries: 0,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
