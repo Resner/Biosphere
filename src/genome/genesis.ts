@@ -12,14 +12,13 @@ import { createRng, type Rng, type Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, encodeGenome, type Genome } from './codec';
 import {
-  BASE_BYTES,
   GENOME_BYTES,
   HAPLOTYPE_BYTES,
   LOCI,
   MODULE_EXT,
   MODULE_LOCI,
   MODULE_PARAMS,
-  SHAPE_LOCI,
+  type SHAPE_LOCI,
 } from './karyotype';
 import type { Silhouette } from './silhouette';
 
@@ -325,7 +324,6 @@ export const GENESIS_FORMS: readonly GenesisForm[] = FORMS.map(({ recipe, ...for
 
 const m1 = MODULE_LOCI[0] as (typeof MODULE_LOCI)[number];
 const m2 = MODULE_LOCI[1] as (typeof MODULE_LOCI)[number];
-const shapeOffset = (id: Shape): number => BASE_BYTES + SHAPE_LOCI.indexOf(id);
 const paramAt = (name: Param): number => MODULE_PARAMS.indexOf(name);
 /** Every slot but the whip (slot 0) can carry bristles. */
 const BRISTLED_SLOTS = MODULE_LOCI.slice(1);
@@ -386,8 +384,7 @@ export function genesisGenome(seed: Seed): Genome {
   const w = new Writer(bytes, rng);
   const { recipe } = pickForm(rng);
 
-  for (const [id, span] of Object.entries(recipe.shape ?? {}))
-    w.fraction(shapeOffset(id as Shape), span);
+  for (const [id, span] of Object.entries(recipe.shape ?? {})) w.fraction(offsetOf(id), span);
   if (recipe.m2 && !w.present(m2)) {
     // The band the form needs: the base cell's draw of a cilia slot, then its own parameters on top.
     w.both(m2.offset, 1);
@@ -407,8 +404,8 @@ export function genesisGenome(seed: Seed): Genome {
 
   // Eyes are independent of the form.
   if (rng.next() < GENESIS_EYES) {
-    w.fraction(shapeOffset('eyeSize'), [0.4, 0.9]);
-    w.fraction(shapeOffset('eyeStalk'), [0, 0.5]);
+    w.fraction(offsetOf('eyeSize'), [0.4, 0.9]);
+    w.fraction(offsetOf('eyeStalk'), [0, 0.5]);
   }
   // Bristles on every slot but the whip: a form's own setae stay if they are already more.
   const B = GENESIS_BRISTLES;

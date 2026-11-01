@@ -17,7 +17,7 @@ import {
 } from '../src/ledger/identity';
 import { birthRequest, checkMatePair, type MateAsk, signedBy } from '../src/ledger/mating';
 import { kinship } from '../src/ledger/pedigree';
-import type { RecordRequest, StoredRecord } from '../src/ledger/record';
+import { type RecordRequest, retired, type StoredRecord } from '../src/ledger/record';
 import {
   type Born,
   byteLength,
@@ -465,7 +465,7 @@ export class Authority extends DurableObject<Env> {
     // The births take the rules version the mate-commits were written under (checkBirth requires
     // it); a mating of a retired version (ADR 0040) never resolves.
     const rules = mates[0].record.rules;
-    if (mates[1].record.rules !== rules) return;
+    if (mates[1].record.rules !== rules || retired(mates[0].record)) return;
     const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
     const generation = Math.max(headA.generation, headB.generation) + 1;
     const mateHashes: [string, string] = [mates[0].hash, mates[1].hash];

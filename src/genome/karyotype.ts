@@ -6,7 +6,6 @@
 
 export const KARYOTYPE_VERSION = 2 as const;
 
-export const MODULE_SLOTS = 8;
 export const MODULE_PARAMS = [
   'length',
   'thickness',

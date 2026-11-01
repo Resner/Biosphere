@@ -69,7 +69,7 @@ export const HEX64 = /^[0-9a-f]{64}$/;
  * The first rules version of the live world (ADR 0040): the reset of v0.7.2 retired every older
  * version, so a record written under one of them no longer verifies (`rules-retired`).
  */
-export const FIRST_LIVE_RULES = 8;
+const FIRST_LIVE_RULES = 8;
 
 /** Whether a record's rules version was retired by a world reset. */
 export const retired = (r: Pick<LedgerRecord, 'rules'>): boolean => r.rules < FIRST_LIVE_RULES;
