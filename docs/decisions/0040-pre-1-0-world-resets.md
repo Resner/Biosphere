@@ -16,15 +16,15 @@ The owner said on 2026-11-01 (in a Claude session, alongside the Playtest v0.7.1
 
 ## Decision
 
-- **Until v1.0, a rules version change may reset the world.** The authority deletes every creature, record, commitment, mating, genesis-log entry and cached checkpoint, and bumps a `world` epoch. It keeps:
+- **Until v1.0, a rules version change may reset the world.** The authority deletes every creature (checkpoints are creature rows), record, commitment, mating and genesis-log entry, and records the reset time. It keeps:
   - identities: players, keys, names, recovery codes;
   - the usage meter and admission state;
   - recorded drand beacons, which are public data.
   Clients that come back see one short notice: "The world was renewed in v<version>. Your identity is kept; your creatures start again." History shows the new epoch only.
 - **No frozen versions before v1.0.** A reset retires every older rules version.
-  - Its code and goldens are deleted, and the ledger checks (`checkGenesis`, `checkBirth`, `checkStored`) accept only the current rules version (`rules-retired` for any other).
+  - Its code and goldens are deleted. The ledger checks (`checkGenesis`, `checkBirth`, `checkStored`) answer `rules-retired` for any version before the reset. Versions bumped later without a reset keep their code, as below.
   - Karyotype v1 support goes too: after a reset every genome is v2, decoding stays total for any bytes, and v1-length input simply decodes as v2 padded.
-- **A reset is a deliberate step**: its own task, a worker migration that runs once, a `PROTOCOL_VERSION` bump so no pond mixes epochs, and a line in the release notes and the Playtest issue. A rules bump without a reset is still allowed when nothing recorded changes meaning. In that case the old code is kept, as before.
+- **A reset is a deliberate step**: its own task, a worker migration that runs once, a `PROTOCOL_VERSION` bump so no pond mixes epochs, and a line in the release notes and the Playtest issue. The migration also clears what points at deleted rows (a player's pending commitment) and refills the hatch bucket. The hub tells each returning identity once that the world was renewed: it compares the player's `first_seen` with the reset time, so new players never see the notice. A rules bump without a reset is still allowed when nothing recorded changes meaning. In that case the old code is kept, as before.
 - **From v1.0, or earlier if M9's verifier ships lineages that players are told to keep**, lineages are permanent and versions are frozen again (0005, 0018). The M14 spec writes that ADR.
 
 ## Consequences

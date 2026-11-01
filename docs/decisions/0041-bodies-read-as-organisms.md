@@ -32,7 +32,10 @@ The owner's Creature Lab screenshot (2026-11-01, wild mode) shows bodies that "d
 - **Rear** (the last 20%): one tail structure, either a furca (two short rami), a fan (webbing) or a single whip, up to 1.5 body lengths.
 - **Radial bodies**: 5 to 9 spokes or tentacles, with lengths varying ±30% by a hash, and drape bending them rearward.
 
-**A visible-part budget.** At most 14 visible appendage instances per body, down from 24, which stays the cap of 0006 for colliders and stats. Parts beyond the budget, or beyond a region's count, become a short ciliary fringe on their segment: present for stats, drawn as fine cilia, never as spokes.
+**A visible-part budget.** At most 14 visible appendage instances per body, down from 24, which stays the cap of 0006 for colliders and stats.
+- An instance is one drawn part with its own root. A branch belongs to its parent's instance, and the default ciliary band (module −1) is already fringe and does not count.
+- Parts beyond the budget, or beyond a region's count, become a short ciliary fringe on their segment: present for stats, drawn as fine cilia, never as spokes.
+- The region counts are maxima, and the budget wins. The body keeps, in order: the tail structure, the long antenna pair, then legs from the front; the short antenna pair only while the budget allows. Extras turn to fringe from the rearmost leg forward.
 
 **Shapes that read as tissue:**
 - Every part tapers and curves, its curvature biased backward.
@@ -43,7 +46,7 @@ The owner's Creature Lab screenshot (2026-11-01, wild mode) shows bodies that "d
 
 **The Lab's wild mode shows evolved creatures**: lineages bred from genesis cells over many generations at the Lab's mutation rate, not random bytes.
 
-**Coils stay**, as the nautilus and curled-worm silhouettes of #90 (references 02 #14, 04 #20). A coil needs at least 5 segments and at most 2 leg pairs, and its legs sit on the outer side of the curve, so it reads as a spiral rather than a knot.
+**Coils stay**, as the nautilus and curled-worm silhouettes of #90 (references 02 #14, 04 #20). ADR 0038 makes every coil an 8-segment chain, so the gate is on the genes: a coil needs a segmentation trait that would give at least 5 segments on its own, and at most 2 leg pairs; otherwise the body takes the C-curl. Its legs sit on the outer side of the curve, so it reads as a spiral rather than a knot (this amends 0038's "3 or more").
 
 ## Consequences
 
