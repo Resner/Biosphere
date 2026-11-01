@@ -229,8 +229,7 @@ export const RULES = deepFreeze({
       bounds: 2.5,
       pairs: 3,
     },
-    /** Segments stay within this reach of the core; appendages within `caps.bounds` less `boundsSlack`. */
-    segmentReach: 1.8,
+    /** Appendages stay within `caps.bounds` less this. */
     boundsSlack: 0.05,
     /** Each segment starts this share of its neighbours' radii from the previous one. */
     segmentSpacing: 0.8,
