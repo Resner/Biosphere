@@ -49,7 +49,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
     - No task id (`M<n> T<n>`) is left, apart from links to the specs.
     - The file is at most two thirds of its size before.
 
-- [x] C4 Split `src/render/creature-mesh.ts` (1,477 lines) into modules under 1,000 lines [opus] (in progress)
+- [x] C4 Split `src/render/creature-mesh.ts` (1,477 lines) into modules under 1,000 lines [opus]
   - Touches: `src/render/creature-mesh.ts`, the modules it becomes.
   - Steps: split the loft (the body shell), the parts and their detail, and the level-of-detail fit (`fit`, `meshDetail`, `estimateVertices`). Move code verbatim; `creature-mesh.ts` re-exports what its importers use.
   - Acceptance: `npm run check:full` and the `post` project's look specs (`npx playwright test --project post --no-deps`) are green with no test changed; each file is under 1,000 lines.
@@ -60,3 +60,9 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Touches: `worker/authority.ts`, the modules it becomes.
   - Steps: move the message handlers into modules by area (sessions and signaling, genesis and life, mating and offspring), with `Authority` keeping the Durable Object's state, `rearm` and the dispatch. Move code verbatim; the alarm rule in `.claude/rules/worker.md` still holds.
   - Acceptance: `npm run check:full` and the hub E2E specs are green with no test changed; each file is under 1,000 lines.
+
+- [ ] C6 Split `src/render/creature-mesh.test.ts` (1,204 lines) into files under 1,000 lines
+  - Why: found by C4; the test file outgrew the 1,000-line bound its module now keeps.
+  - Touches: `src/render/creature-mesh.test.ts`, the files it becomes.
+  - Steps: split by the areas C4 gave the module (buffer, loft, parts, fit). Move tests verbatim; no assertion changes.
+  - Acceptance: `npm run check:full` is green with the same number of tests; each file is under 1,000 lines.
