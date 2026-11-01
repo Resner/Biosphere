@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { ARCHETYPES, buildBytes } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { decodeGenome, type Genome, genomeHash } from '../genome/codec';
 import type { BodyPlan, PlanSegment } from '../genome/develop';
 import { develop } from '../genome/develop';
@@ -69,7 +70,7 @@ const chambers = (a: Anatomy): Organ[] =>
   a.organs.filter((o) => o.kind === 'chamber' || o.kind === 'droplet');
 
 describe('anatomyOf', () => {
-  it('places every organ and the whole gut inside the hull, for 1,500 random plans and the named ones', () => {
+  heavyTest('places organs and the gut inside the hull of 1,500 random and named plans', () => {
     let outside = 0;
     for (const b of bodies) {
       const a = anatomy(b);
@@ -80,7 +81,7 @@ describe('anatomyOf', () => {
       }
     }
     expect(outside).toBe(0);
-  }, 60_000);
+  });
 
   it('returns no glow discs round the organs, only the organs themselves (M6b T3, ADR 0034)', () => {
     for (const b of bodies) {

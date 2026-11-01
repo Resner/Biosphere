@@ -76,7 +76,7 @@ jobs:
         if: steps.version.outputs.tag
         run: |
           npm ci
-          npm run check
+          npm run check:full
 
       # The tests ran against a build without the hub URL (they never touch the live authority);
       # the published site is built again with it.

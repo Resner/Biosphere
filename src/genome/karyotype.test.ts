@@ -1,5 +1,6 @@
 import { createHash } from 'node:crypto';
 import { describe, expect, it } from 'vitest';
+import { heavyTest } from '../../tests/heavy';
 import { createRng, seedFromString } from '../sim/prng';
 import {
   decodeGenome,
@@ -93,7 +94,7 @@ describe('karyotype v2 layout', () => {
 });
 
 describe('decoding by length', () => {
-  it('decodes any length as v2, zero-padded or truncated, never throwing', () => {
+  heavyTest('decodes any length as v2, zero-padded or truncated, never throwing', () => {
     const lengths = [0, 1, 163, 327, 328, 329, 445, 446, 447, 4096];
     for (let i = 0; i < 2000; i++) {
       const length = lengths[i % lengths.length] as number;

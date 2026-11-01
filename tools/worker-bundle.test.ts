@@ -3,8 +3,9 @@ import { mkdtempSync, readFileSync, rmSync } from 'node:fs';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { fileURLToPath } from 'node:url';
-import { afterAll, describe, expect, it } from 'vitest';
+import { afterAll, describe, expect } from 'vitest';
 import rounds from '../tests/fixtures/drand/rounds.json';
+import { heavyTest } from '../tests/heavy';
 
 // The recorded drand rounds serve the E2E Worker only: the production bundle must not carry them.
 
@@ -26,14 +27,14 @@ function bundle(e2e: boolean, main: string): string {
 describe('worker bundles', () => {
   const marker = rounds.beacons[0]?.signature as string;
 
-  it('production has no fixture data', () => {
+  heavyTest('production has no fixture data', () => {
     const code = bundle(false, 'index.js');
     expect(code).not.toContain(marker);
     expect(code).not.toContain('fixtureSource');
-  }, 60_000);
+  });
 
-  it('the E2E entry carries the recorded rounds', () => {
+  heavyTest('the E2E entry carries the recorded rounds', () => {
     const code = bundle(true, 'e2e-entry.js');
     expect(code).toContain(marker);
-  }, 60_000);
+  });
 });

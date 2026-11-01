@@ -368,7 +368,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
        - a mating and a hatch.
        It follows `.claude/rules/tests.md`'s determinism rules, and CI repeats it 3 times before merge (ADR 0042).
     2. Sync DESIGN §2, §4–§6, §9 and §10, the rules files and `docs/art/README.md`.
-  - Acceptance: every owner point in the table maps to a named test or the T13 note. The PR E2E suite stays near `tests.md`'s 3 minutes; new long scenarios are `@slow`.
+  - Acceptance: every owner point in the table maps to a named test or the T13 note. Each PR E2E part stays under `tests.md`'s 5 minutes; new long scenarios are `@slow`.
 
 ## Rubric
 

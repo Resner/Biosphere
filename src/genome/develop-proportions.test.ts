@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 import { buildBytes } from '../../tests/archetypes';
+import { heavyTest } from '../../tests/heavy';
 import { atan2, lerp, PI } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
@@ -147,7 +148,7 @@ describe('proportions v3: long bodies read by outline (look pass 4)', () => {
     return o.length / o.width;
   };
 
-  it('makes every bilateral v2 chain of 3+ segments at least 2.5 times as long as wide', () => {
+  heavyTest('makes every bilateral v2 chain of 3+ segments at least 2.5× as long as wide', () => {
     let long = 0;
     let curved = 0;
     for (let i = 0; i < 3_000; i++) {

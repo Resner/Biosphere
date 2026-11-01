@@ -17,7 +17,7 @@ Read `CLAUDE.md` first; its rules apply to you. Then:
 
 1. Stay on the current branch. Run `npm run check` before changing anything. If it's already red, fix that first and say so in your report.
 2. Read the task in the spec, its acceptance tests and notes, and the code and `.claude/rules/` it touches. Nothing more.
-3. Write the acceptance tests first and watch them fail, then implement until `npm run check` and the relevant E2E pass. Scenarios over about 20 s get `@slow`. Keep the diff to the task; if the spec is wrong, fix the spec and say why. Never weaken a test to make it pass.
+3. Write the acceptance tests first and watch them fail, then implement until `npm run check` and the relevant E2E pass, and `npm run check:full` (the heavy unit tests too, ADR 0045) before you finish. Scenarios over about 20 s get `@slow`. Keep the diff to the task; if the spec is wrong, fix the spec and say why. Never weaken a test to make it pass.
 4. For a look or UI task, open the references the task or its owner issue names (`docs/art/`, `docs/art/README.md`) and compare your screenshots with them before you call it done. Green tests never settle a look.
 5. Tick the task in the spec with a note of two lines at most: what changed and any gotcha. Leave its ` (in progress)` marker for the caller.
 6. Commit with a Conventional Commit title. Don't touch the PR, and don't run `/simplify` or `/code-review`: the caller does that.
