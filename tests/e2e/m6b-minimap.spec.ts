@@ -34,7 +34,7 @@ const teleport = (page: Page, x: number, y: number) =>
   page.evaluate(([x, y]) => (window.__bs as BsHook).debug?.teleport(x, y), [x, y] as const);
 
 test('another player shows at its bearing, and a ping for its lifetime', async ({ browser }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(90_000);
   const [a, b] = await joinTwo(browser);
   try {
     const idB = (await state(b)).playerId as string;
@@ -66,7 +66,8 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
           const placed = Math.atan2(far.y - s.player.y, far.x - s.player.x) * DEG;
           return turn(drawn, placed);
         },
-        { timeout: 10_000 },
+        // B is eased to where it was moved (about 5 s at 1.2 times its speed), slower on a busy CI.
+        { timeout: 25_000 },
       )
       .toBeLessThanOrEqual(5);
     const dot = (await state(a)).minimap.players.find((p) => p.id === idB);
