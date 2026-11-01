@@ -2,6 +2,7 @@ import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import {
   clickHatch,
+  courtUntilInvited,
   goTo,
   M5_PROMOTE_HUB,
   openRecorded,
@@ -40,20 +41,7 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /);
   await Promise.all([topUp(a), topUp(b)]);
   const parentA = (await state(a)).life.creature;
-  // The first press may land before the hub has answered the check; repeats are ignored.
-  await a.keyboard.press('e');
-  await a.keyboard.press('e');
-  // A loaded runner can take seconds to carry the court through the hub; say what each side saw if it never comes.
-  await expect(b.getByTestId('invite'), "the hub carries A's court to B as an invitation")
-    .toBeVisible({
-      timeout: 20_000,
-    })
-    .catch(async (error) => {
-      const [ma, mb] = (await Promise.all([state(a), state(b)])).map((s) => s.mate);
-      throw new Error(`no invitation. A: ${JSON.stringify(ma)} B: ${JSON.stringify(mb)}`, {
-        cause: error,
-      });
-    });
+  await courtUntilInvited(a, b, idB);
   await b.keyboard.press('e');
 
   // The round arrives: an egg, then the card, on both sides, with different children.

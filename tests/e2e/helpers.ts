@@ -257,6 +257,20 @@ export async function goTo(page: Page, id: string): Promise<void> {
     });
 }
 
+/**
+ * A courts B until B's invitation shows. The first press can land before the hub has answered the
+ * check, and on a loaded runner the two drift apart or B fades, so the key is offered no more:
+ * park A beside B again, wait for the hint, press, and look at B, until B is invited.
+ */
+export async function courtUntilInvited(a: Page, b: Page, idB: string): Promise<void> {
+  await expect(async () => {
+    await goTo(a, idB);
+    await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /, { timeout: 3_000 });
+    await a.keyboard.press('e');
+    await expect(b.getByTestId('invite')).toBeVisible({ timeout: 3_000 });
+  }, 'A parks beside B, is offered the key and B is invited').toPass({ timeout: 40_000 });
+}
+
 /** What `document.elementFromPoint` finds at the egg's centre and at four points 0.8 of its radius out. */
 export const atEgg = (page: Page) =>
   page.evaluate(() => {
