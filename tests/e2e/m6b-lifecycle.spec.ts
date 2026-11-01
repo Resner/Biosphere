@@ -96,9 +96,21 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
   expect(waiting.length).toBeGreaterThan(0);
   for (const e of waiting) expect(Math.abs(e.angle)).toBeLessThanOrEqual(0.01);
   expect((await state(a)).egg.phases).toEqual(['waiting', 'stirring', 'cracking', 'revealed']);
-  await a.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, { timeout: 8_000 });
-  expect((await state(a)).egg.card.tier).toBeTruthy();
-  await expect(a.getByTestId('reveal-rarity')).toBeVisible();
+  // Read the tier in the same page call that sees the card: the card only stays for a few seconds,
+  // and a slow runner can outlast it between two round trips (the v0.7.1 release run).
+  const shown = await a.waitForFunction(
+    () => {
+      const card = window.__bs?.state().egg.card;
+      if (!card?.shown) return null;
+      const rarity = document.querySelector('[data-testid="reveal-rarity"]');
+      return { tier: card.tier, rarity: rarity?.textContent ?? '' };
+    },
+    undefined,
+    { timeout: 8_000 },
+  );
+  const revealed = await shown.jsonValue();
+  expect(revealed?.tier).toBeTruthy();
+  expect(revealed?.rarity.length, 'the card names the rarity').toBeGreaterThan(0);
   await withinBudget(a, 'reveal');
 
   const b = await opened(await browser.newContext());
