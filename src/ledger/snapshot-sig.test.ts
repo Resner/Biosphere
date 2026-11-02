@@ -1,11 +1,10 @@
 import { describe, expect, it } from 'vitest';
-import { encodeSnapshot, SNAPSHOT_BYTES, type Snapshot } from '../net/protocol';
+import { encodeSnapshot, SIGNED_FRAME_BYTES, SNAPSHOT_BYTES, type Snapshot } from '../net/protocol';
 import { createRng, seedFromString } from '../sim/prng';
 import { createIdentity, fromBase64Url, memoryKeyStore, toBase64Url, verify } from './identity';
 import {
   decodeStateFrame,
   encodeSignedFrame,
-  SIGNED_FRAME_BYTES,
   SNAP_DOMAIN,
   signSnap,
   verifySnap,

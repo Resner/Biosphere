@@ -35,7 +35,9 @@ export const SNAPSHOT_BYTES = 25;
 /** The snapshot layout version, the last byte of every snapshot. */
 export const SNAPSHOT_VERSION = 4;
 /** A state-channel frame for engage candidates: the snapshot, then its 64-byte signature (ADR 0050). */
-export const SIGNED_FRAME_BYTES = SNAPSHOT_BYTES + 64;
+/** An Ed25519 signature. */
+export const SIGNATURE_BYTES = 64;
+export const SIGNED_FRAME_BYTES = SNAPSHOT_BYTES + SIGNATURE_BYTES;
 /** An `enc-start` carries up to 4 fighters with their genome texts; an `enc-end` up to 4 outcomes. */
 export const ENC_START_MAX_BYTES = 8192;
 export const ENC_END_MAX_BYTES = 4096;
