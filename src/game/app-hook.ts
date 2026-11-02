@@ -354,6 +354,7 @@ export function installAppHook(app: App): void {
               scene.pxPerWu,
             camera: Math.hypot(shake.camera.x, shake.camera.y),
             kind: shake.kind,
+            hits: shake.hits,
           },
           halfHeight: camera.halfHeight,
           camX: camera.x,

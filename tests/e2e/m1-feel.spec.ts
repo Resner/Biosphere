@@ -5,7 +5,10 @@ import { hatch, openGame, playerOf } from './helpers';
 // Feel and feedback: every consequence has a visible cue (DESIGN §10). Cues are read through
 // `__bs.render.fx()`, never by pixel peeking, and time is sped up with `timeScale`, not sleeps.
 
-/** The largest damage cues over `ms` of frames: shake offsets (CSS px), the red pulse and the vignette. */
+/**
+ * The largest damage cues over `ms` of frames: shake offsets (CSS px), the red flash, the vignette
+ * and whether the health bar flashed in any frame (each hit flashes it for 0.15 s, M6c T9).
+ */
 const sampleFx = (page: Page, ms: number) =>
   page.evaluate(
     (ms) =>
@@ -15,11 +18,21 @@ const sampleFx = (page: Page, ms: number) =>
         hurt: number;
         vignette: number;
         damage: number;
+        bar: boolean;
         kinds: string[];
         pxPerWu: number;
       }>((resolve) => {
         const bs = window.__bs as BsHook;
-        const out = { body: 0, camera: 0, hurt: 0, vignette: 0, damage: 0, kinds: [] as string[] };
+        const out = {
+          body: 0,
+          camera: 0,
+          hurt: 0,
+          vignette: 0,
+          damage: 0,
+          bar: false,
+          kinds: [] as string[],
+        };
+        const bar = document.querySelector('[data-testid="hud-bar-health"]');
         const start = performance.now();
         const frame = () => {
           const f = bs.render.fx();
@@ -28,6 +41,7 @@ const sampleFx = (page: Page, ms: number) =>
           out.hurt = Math.max(out.hurt, f.hurt);
           out.vignette = Math.max(out.vignette, f.vignette);
           out.damage = f.damage;
+          out.bar ||= bar?.hasAttribute('data-hurt') === true;
           if (f.shake.kind && !out.kinds.includes(f.shake.kind)) out.kinds.push(f.shake.kind);
           if (performance.now() - start < ms) requestAnimationFrame(frame);
           else resolve({ ...out, pxPerWu: bs.render.info().pxPerWu });
@@ -69,13 +83,13 @@ test.describe('feel and feedback', () => {
     expect(await page.evaluate(() => window.__bs?.render.fx().rings)).toBeGreaterThanOrEqual(0);
   });
 
-  test('damage shakes the body and the camera slightly, flashes the health bar and paints no border, then settles (M6b T10)', async ({
+  test('damage lands as hits that jolt the body and kick the camera, flashes the health bar and paints no border, then settles (M6c T9)', async ({
     page,
   }) => {
     await play(page, 'feel-damage');
     const fx = () => page.evaluate(() => (window.__bs as BsHook).render.fx());
     expect((await fx()).vignette).toBe(0);
-    expect((await fx()).shake).toEqual({ body: 0, camera: 0, kind: null });
+    expect((await fx()).shake).toEqual({ body: 0, camera: 0, kind: null, hits: 0 });
     // No red edge and no hazard overlay exist any more.
     for (const id of ['vignette', 'uv-cue', 'pressure-cue'])
       await expect(page.getByTestId(id)).toHaveCount(0);
@@ -87,18 +101,19 @@ test.describe('feel and feedback', () => {
       bs.debug?.spawnPlume(x, y, 200);
       return { x, y };
     });
-    // A toxin jolts: sampled every frame for 1.5 s while the plume hurts.
+    // A toxin hits every 0.5 s: sampled every frame for 1.5 s while the plume hurts.
     const seen = await sampleFx(page, 1500);
     expect((await fx()).damage).toBeGreaterThan(0);
     const radiusPx = (await playerOf(page)).radius * seen.pxPerWu;
-    expect(seen.body, 'the body shakes').toBeGreaterThan(0);
-    expect(seen.body, 'at most 6% of its radius').toBeLessThanOrEqual(0.06 * radiusPx + 0.01);
-    expect(seen.camera, 'the camera shakes').toBeGreaterThan(0);
-    expect(seen.camera, 'by at most 1.5 px').toBeLessThanOrEqual(1.5 + 1e-9);
+    expect(seen.body, 'the body jolts').toBeGreaterThan(0);
+    expect(seen.body, 'by at most 15% of its radius').toBeLessThanOrEqual(0.15 * radiusPx + 0.01);
+    expect(seen.camera, 'the camera kicks').toBeGreaterThan(0);
+    expect(seen.camera, 'by at most 8 px').toBeLessThanOrEqual(8 + 1e-9);
+    expect((await fx()).shake.hits, 'a hit at once, then every 0.5 s').toBeGreaterThan(0);
     expect(seen.kinds).toContain('jolt');
     expect(seen.vignette, 'no edge vignette').toBe(0);
-    expect(seen.hurt, 'the body still pulses red').toBeGreaterThan(0.2);
-    await expect(bar).toHaveAttribute('data-hurt', '');
+    expect(seen.hurt, 'the body flashes red').toBeGreaterThan(0.2);
+    expect(seen.bar, 'the health bar flashes').toBe(true);
     // The HUD never shakes.
     expect(await bar.boundingBox()).toEqual(before);
 
@@ -113,7 +128,7 @@ test.describe('feel and feedback', () => {
     await expect(bar).not.toHaveAttribute('data-hurt', '');
   });
 
-  test('under Reduce motion damage never shakes, and the red pulse and the health flash remain (M6b T10)', async ({
+  test('under Reduce motion damage never kicks, and the red flash and the health flash remain (M6c T9)', async ({
     page,
   }) => {
     await page.emulateMedia({ reducedMotion: 'reduce' });
@@ -128,7 +143,7 @@ test.describe('feel and feedback', () => {
     expect(seen.body).toBe(0);
     expect(seen.camera).toBe(0);
     expect(seen.hurt).toBeGreaterThan(0.2);
-    await expect(page.getByTestId('hud-bar-health')).toHaveAttribute('data-hurt', '');
+    expect(seen.bar, 'the health bar flashes').toBe(true);
   });
 
   test('death dissolves the body for at least a second before the death screen', async ({

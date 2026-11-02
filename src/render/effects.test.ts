@@ -87,41 +87,59 @@ describe('Effects', () => {
     expect(fx.snapshot().dash).toBe(FX.ringCapacity * 3);
   });
 
-  it('reddens the body on damage and keeps it red while damage continues', () => {
+  it('counts damage, but only a hit flashes the body (M6c T9)', () => {
     const fx = new Effects();
-    expect(fx.hurt).toBe(0);
     for (let i = 0; i < 90; i++) {
       fx.onEvent({ type: 'damage', creature: 'p', amount: 0.3, cause: 'starved' }, AT);
       fx.update(1 / 30);
-      expect(fx.hurt).toBeGreaterThanOrEqual(FX.hurtFloor * 0.5);
     }
     expect(fx.snapshot().damage).toBe(90);
+    expect(fx.hurt).toBe(0);
   });
 
-  it('fades the red pulse out after the damage stops', () => {
+  it('a hit flashes the hurt tint for 0.15 s, from its peak on the next frame to exactly 0 (M6c T9)', () => {
     const fx = new Effects();
-    fx.onEvent({ type: 'damage', creature: 'p', amount: 1, cause: 'toxin' }, AT);
+    fx.hurtFlash(1);
     const start = fx.hurt;
     expect(start).toBeGreaterThanOrEqual(FX.hurtFloor);
-    fx.update(0.2);
-    expect(fx.hurt).toBeLessThan(start);
-    fx.update(3);
-    expect(fx.hurt).toBeLessThan(0.01);
+    const frames: number[] = [];
+    for (let i = 0; i < 60; i++) {
+      fx.update(1 / 60);
+      frames.push(fx.hurt);
+    }
+    expect(frames[0]).toBe(start);
+    for (let i = 1; i < frames.length; i++) {
+      expect(frames[i]).toBeLessThanOrEqual(frames[i - 1] as number);
+    }
+    const lit = frames.filter((h) => h > 0).length;
+    expect(lit / 60).toBeCloseTo(FX.hurtFlashSeconds, 1);
+    expect(frames.at(-1)).toBe(0);
   });
 
-  it('stronger hits redden more, up to 1', () => {
+  it('a slow frame still shows the flash', () => {
+    const fx = new Effects();
+    fx.hurtFlash(1);
+    fx.update(0.5);
+    expect(fx.hurt).toBeGreaterThanOrEqual(FX.hurtFloor);
+    fx.update(1 / 60);
+    expect(fx.hurt).toBe(0);
+  });
+
+  it('a heavier hit flashes stronger, up to 1', () => {
     const weak = new Effects();
     const strong = new Effects();
-    weak.onEvent({ type: 'damage', creature: 'p', amount: 0.1, cause: 'toxin' }, AT);
-    strong.onEvent({ type: 'damage', creature: 'p', amount: 50, cause: 'toxin' }, AT);
+    weak.hurtFlash(0.1);
+    strong.hurtFlash(50);
+    expect(weak.hurt).toBeGreaterThanOrEqual(FX.hurtFloor);
     expect(strong.hurt).toBeGreaterThan(weak.hurt);
     expect(strong.hurt).toBeLessThanOrEqual(1);
   });
 
-  it('never paints an edge vignette: damage reddens the body and shakes instead (M6b T10)', () => {
+  it('never paints an edge vignette', () => {
     const fx = new Effects();
     for (const cause of ['uv', 'pressure', 'toxin', 'starved'] as const) {
       fx.onEvent({ type: 'damage', creature: 'p', amount: 5, cause }, AT);
+      fx.hurtFlash(5);
       expect(fx.snapshot().vignette, cause).toBe(0);
       expect(fx.snapshot().hurt, cause).toBeGreaterThan(0);
     }
@@ -171,8 +189,9 @@ describe('Effects', () => {
     const fx = new Effects();
     fx.onEvent({ type: 'eat', creature: 'p', food: 'f', value: 5 }, AT);
     fx.onEvent({ type: 'damage', creature: 'p', amount: 1, cause: 'toxin' }, AT);
+    fx.hurtFlash(1);
     fx.startDissolve();
-    fx.update(0.3);
+    fx.update(0.05);
     fx.reset();
     expect(fx.snapshot()).toMatchObject({
       eat: 0,

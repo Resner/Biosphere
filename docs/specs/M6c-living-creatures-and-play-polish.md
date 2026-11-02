@@ -271,7 +271,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Play polish
 
-- [ ] T9 Damage lands as hits, in intervals [opus]
+- [x] T9 Damage lands as hits, in intervals [opus]
+  - Done: `Shake.hit(cause, amount, tick)` counts the cadence in sim ticks (15) and returns true on a hit; the shell then calls `fx.hurtFlash` (0.15 s, peak on the next frame) and `cueWatch.hit` (thud, plus UV/pressure voice ≤ 1/s); kicks 5–8 px by hp since the last hit, body 0.15 r the other way; `render.fx().shake.hits` (the spec's `state().shake`); `m6c-hits.spec.ts`.
+  - Gotcha: kicks and the flash compute before they age, so a slow frame still shows a hit; m1-feel's caps follow (0.15 r, 8 px) and it reads the health bar's flash per frame, since it is lit only 0.15 s a hit.
   - Why: `src/render/shake.ts` gives UV a constant 23–31 Hz tremble and pressure a continuous squeeze, at most 0.06 body radii and 1.5 camera pixels, so damage reads as a faint rumble. The owner wants distinct hits at intervals, "kinda how you take damage in Minecraft".
   - Steps:
     1. `Shake.hit(cause, amount)`: the damage event's amount is passed along. Replace the continuous UV and pressure shakes with a hit pulse:

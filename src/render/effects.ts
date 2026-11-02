@@ -6,12 +6,12 @@ export const FX = {
   rippleSeconds: 0.85,
   /** Rings drawn at once; the oldest is replaced when a burst overflows the pool. */
   ringCapacity: 24,
-  /** The least the body's red pulse shows on any hit, so a trickle of damage still reads. */
+  /** The least the body's red flash shows on any hit, so a trickle of damage still reads. */
   hurtFloor: 0.4,
-  /** Extra red per hit point taken in one tick. */
+  /** Extra red per hit point the hit carries. */
   hurtPerHp: 0.05,
-  /** Time constant of the fade once damage stops. */
-  hurtFadeSeconds: 0.25,
+  /** Each hit flashes the body red for this long, fading linearly (M6c T9). */
+  hurtFlashSeconds: 0.15,
   /** The body dissolves for this long before the death screen appears. */
   dissolveSeconds: 1.2,
   /** Size of an eat pop and of a dash ripple, in cell radii. */
@@ -61,7 +61,7 @@ export interface FxSnapshot {
   cost: number;
   /** Rings alive right now. */
   rings: number;
-  /** 0..1, how red the body is from recent damage (it drives the health bar's flash too). */
+  /** 0..1, how red the body is from the last hit's flash (it drives the health bar's flash too). */
   hurt: number;
   /** The red edge vignette of M1–M6; M6b T10 shakes instead, so it always reads 0. */
   vignette: 0;
@@ -76,14 +76,17 @@ export interface FxAnchor {
 }
 
 /**
- * The feedback cues for one creature: pops on eating, ripples on dashing, a red body while
- * damaged (the shake is `Shake`'s) and the dissolve on death. Pure presentation state: it reads sim events and never feeds
+ * The feedback cues for one creature: pops on eating, ripples on dashing, a red flash on each
+ * damage hit (the hits' cadence and kicks are `Shake`'s) and the dissolve on death. Pure presentation state: it reads sim events and never feeds
  * back into the sim.
  */
 export class Effects {
   readonly rings: Ring[] = [];
   hurt = 0;
   dissolve = 0;
+  /** The running flash's peak and its age in seconds; age < 0 when none. */
+  private hurtPeak = 0;
+  private hurtAge = -1;
   private dissolving = false;
   /** The frame that starts the dissolve ends before the body is drawn dissolving, so it is not counted. */
   private dissolveFresh = false;
@@ -115,9 +118,15 @@ export class Effects {
         break;
       case 'damage':
         this.damage++;
-        this.hurt = Math.max(this.hurt, Math.min(1, FX.hurtFloor + event.amount * FX.hurtPerHp));
         break;
     }
+  }
+
+  /** A damage hit landed (`Shake.hit`), carrying `hp`: the body flashes red. */
+  hurtFlash(hp: number): void {
+    this.hurtPeak = Math.min(1, FX.hurtFloor + Math.max(hp, 0) * FX.hurtPerHp);
+    this.hurtAge = 0;
+    this.hurt = this.hurtPeak;
   }
 
   /** A slow ring around the creature when a mating is committed (the ripple art, wider and longer). */
@@ -191,9 +200,13 @@ export class Effects {
       if (ring.age < ring.life) this.rings[live++] = ring;
     }
     this.rings.length = live;
-    this.hurt *= Math.exp(-dt / FX.hurtFadeSeconds);
-    // Snap to exactly 0 so the shaders can skip the hurt tint.
-    if (this.hurt < 0.002) this.hurt = 0;
+    if (this.hurtAge >= 0) {
+      // The frame after a hit shows the flash at its peak however slow the frame, then it fades;
+      // exactly 0 once over, so the shaders can skip the hurt tint.
+      const left = 1 - this.hurtAge / FX.hurtFlashSeconds;
+      this.hurt = left > 0 ? this.hurtPeak * left : 0;
+      this.hurtAge = left > 0 ? this.hurtAge + dt : -1;
+    }
     if (this.shrinkAge >= 0) {
       this.shrinkAge += dt;
       if (this.shrinkAge >= FX.shrinkSeconds) this.shrinkAge = -1;
@@ -207,6 +220,7 @@ export class Effects {
   reset(): void {
     this.rings.length = 0;
     this.hurt = 0;
+    this.hurtAge = -1;
     this.dissolve = 0;
     this.dissolving = false;
     this.dissolveFresh = false;

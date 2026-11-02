@@ -277,10 +277,10 @@ export interface BsGenome {
 /** The feedback cues now showing: counts since hatching, plus the camera's current zoom. */
 export interface FxState extends FxSnapshot {
   /**
-   * The damage shake now (M6b T10): the body's offset and the camera's, in CSS pixels, and the
-   * strongest shake running (`uv`, `pressure`, `jolt`) or null.
+   * The damage hits (M6c T9): the body's offset and the camera's now, in CSS pixels, the kind of
+   * the hit still settling (`uv`, `pressure`, `jolt`) or null, and the hits since hatching.
    */
-  shake: { body: number; camera: number; kind: ShakeKind | null };
+  shake: { body: number; camera: number; kind: ShakeKind | null; hits: number };
   /** Visible half-height in world units, as drawn. */
   halfHeight: number;
   /** Where the camera looks, in world units. */
