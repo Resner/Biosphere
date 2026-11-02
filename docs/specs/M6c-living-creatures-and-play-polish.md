@@ -375,7 +375,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Closing
 
-- [ ] T13 One look sheet under rules 8 [opus]
+- [ ] T13 One look sheet under rules 8 [opus] (in progress)
   - Steps:
     1. Render `npm run gallery -- --pass 7` once.
     2. Write `pass-7.md`: an honest comparison with `pass-1.png` and references 02–05, covering each owner point in the table above in a sentence, including what is still not right. Do not fix in a series; fix only what clearly breaks a T3–T7 acceptance.
