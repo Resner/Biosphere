@@ -30,7 +30,11 @@ function meanDiff(a: { rgba: ArrayLike<number> }, b: { rgba: ArrayLike<number> }
   return sum / n;
 }
 
-/** Twelve pokes, 280 ms apart (never three within 0.5 s), on the egg as soon as it stirs. */
+/**
+ * Twelve pokes, 260 ms apart (never three within 0.5 s), on the egg as soon as it stirs; then the
+ * world freezes in the same task, which holds the egg's clock, so a slow page never lets its 6 s
+ * wait run out first.
+ */
 interface Charged {
   charge: number;
   phase: string;
@@ -54,8 +58,12 @@ async function chargeFull(page: Page): Promise<Charged> {
           const { egg, audio } = bs.state();
           const { charge, phase, hint } = egg;
           const ticks = audio.cues.charge ?? 0;
-          if (left === 0) resolve({ charge, phase, hint: String(hint), ticks });
-          else setTimeout(poke, 280);
+          if (left > 0) {
+            setTimeout(poke, 260);
+            return;
+          }
+          bs.debug?.timeScale(0);
+          resolve({ charge, phase, hint: String(hint), ticks });
         };
         const look = setInterval(() => {
           const { phase, paced } = bs.state().egg;
@@ -74,12 +82,19 @@ async function charged(browser: Browser): Promise<void> {
   const pokes = chargeFull(page);
   await hatchEgg(page);
   const after = await pokes;
+  // Held still, fully charged: the full ring, the cracks, the last sparks and the settled hint.
   await page.screenshot({ path: 'test-results/m6c-egg-charged.png' });
+  // Then Enter cracks it.
+  await page.evaluate(() => {
+    (window.__bs as BsHook).debug?.timeScale(1);
+    dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+    dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+  });
   expect(after.charge).toBe(1);
-  // Each poke ticked; paced pokes never crack it: it still waits for the player.
+  // Each poke ticked; paced pokes never crack it: it still waited for the player.
   expect(after.ticks).toBe(12);
   expect(after.phase).toBe('stirring');
-  await waitPlaying(page);
+  await waitPlaying(page, { paced: true });
   await page.waitForFunction(() => window.__bs?.state().egg.card.shown, undefined, {
     timeout: 10_000,
   });
