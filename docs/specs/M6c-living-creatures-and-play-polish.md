@@ -292,7 +292,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - reduce motion gives zero offset.
     - E2E: in the shallows with UV tolerance 0, `state().shake.hits` rises by 2 ± 1 per second of sim time, and the camera offset peaks at ≥ 5 px.
 
-- [ ] T10 Sunlight strongest in the shallows [opus]
+- [ ] T10 Sunlight strongest in the shallows [opus] (in progress)
   - Why: in `src/render/zones.ts` the shallows' caustics are 0.4 and rays 0.25 (M6b T8, after v0.7.0's "a little too many effects"), but the twilight's top is 1.0 and 0.8. `sunlight(depth, key)` therefore jumps up just below the shallows, and the light peaks in the upper twilight. The owner wants it "slightly more prominent" in the shallows.
   - Steps:
     1. Sunlight falls monotonically with depth:
