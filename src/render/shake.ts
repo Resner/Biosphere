@@ -5,6 +5,7 @@
 // Pure presentation: it reads damage events and never feeds back into the sim, the HUD and the DOM
 // never move, and Reduce motion drops the kicks (the shell keeps the flash and the sound).
 
+import { clamp, lerp } from '../sim/math';
 import type { DeathCause } from '../sim/types';
 
 export const SHAKE = {
@@ -50,6 +51,9 @@ export class Shake {
   /** The running kick's age in seconds; < 0 when none. */
   private age = -1;
   private angle = 0;
+  /** The running kick's direction (unit), cached at the hit. */
+  private dirX = 1;
+  private dirY = 0;
   /** The running kick's camera amplitude, in CSS px. */
   private kickPx = 0;
   private hitKind: ShakeKind = 'jolt';
@@ -67,8 +71,13 @@ export class Shake {
     this.hits++;
     this.hitKind = shakeKind(cause);
     this.angle += GOLDEN;
-    const k = SHAKE.kickPx;
-    this.kickPx = k.min + (k.max - k.min) * Math.min(1, this.hitDamage / SHAKE.fullHp);
+    this.dirX = Math.cos(this.angle);
+    this.dirY = Math.sin(this.angle);
+    this.kickPx = lerp(
+      SHAKE.kickPx.min,
+      SHAKE.kickPx.max,
+      clamp(this.hitDamage / SHAKE.fullHp, 0, 1),
+    );
     this.age = 0;
     return true;
   }
@@ -81,18 +90,16 @@ export class Shake {
       if (k <= 0) this.age = -1;
       else {
         envelope = k * k;
-        this.age += Math.min(Math.max(dt, 0), SHAKE.maxStepSeconds);
+        this.age += clamp(dt, 0, SHAKE.maxStepSeconds);
       }
     }
     this.kind = envelope > 0 ? this.hitKind : null;
     const level = reduced ? 0 : envelope;
-    const cos = Math.cos(this.angle);
-    const sin = Math.sin(this.angle);
     // The view recoils one way and the body is knocked the other, so the body stands out.
-    this.camera.x = level === 0 ? 0 : this.kickPx * level * cos;
-    this.camera.y = level === 0 ? 0 : this.kickPx * level * sin;
-    this.body.x = level === 0 ? 0 : -SHAKE.bodyRadii * level * cos;
-    this.body.y = level === 0 ? 0 : -SHAKE.bodyRadii * level * sin;
+    this.camera.x = level === 0 ? 0 : this.kickPx * level * this.dirX;
+    this.camera.y = level === 0 ? 0 : this.kickPx * level * this.dirY;
+    this.body.x = level === 0 ? 0 : -SHAKE.bodyRadii * level * this.dirX;
+    this.body.y = level === 0 ? 0 : -SHAKE.bodyRadii * level * this.dirY;
   }
 
   reset(): void {
