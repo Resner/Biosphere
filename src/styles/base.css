@@ -674,7 +674,8 @@ body {
   line-height: 1;
   white-space: nowrap;
   text-shadow: 0 0 4px rgb(0 0 0 / 0.95);
-  transform: translateY(-50%);
+  /* Half the chevron's height, centring the row on `top` with no transform (text stays on whole pixels). */
+  margin-top: -0.4rem;
 }
 
 .minimap-depth-marker b {
