@@ -99,8 +99,14 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     await expect(a.locator(`[data-testid="minimap-hazard"][data-hazard="${cue}"]`)).toBeVisible();
     await expect(a.getByTestId(`${cue}-cue`)).toHaveCount(0);
     await expect(a.getByTestId('hud-zone-warning')).toHaveText(warning);
+    const shaken = (await a.evaluate(() => (window.__bs as BsHook).render.fx())).shake.hits;
     await timeScale(a, 1);
-    await expect.poll(async () => (await cues(a))[sound] ?? 0).toBeGreaterThan(0);
+    // A hit plays its sound in the tick that lands it, so wait on the hit (a slow runner plays few
+    // ticks a second), then read the cue.
+    await a.waitForFunction((n) => (window.__bs as BsHook).render.fx().shake.hits > n, shaken, {
+      timeout: 60_000,
+    });
+    expect((await cues(a))[sound] ?? 0, `${zone} sound`).toBeGreaterThan(0);
     await a.waitForFunction((kind) => {
       const { shake, vignette } = (window.__bs as BsHook).render.fx();
       return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
