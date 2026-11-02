@@ -14,9 +14,10 @@ const strayText = (page: Page) =>
   page.evaluate(() => {
     // Toasts (the alone and mate hints are toasts too: each shows only for an event), chat lines,
     // labels over creatures, edge-indicator labels, the first-life hints, the chips, the online
-    // counter (owner request) and the zone's name under the minimap's depth arc (M6b T10).
+    // counter (owner request), the zone's name under the minimap (M6b T10) and the depth on its
+    // gauge (M6c T12).
     const allowed =
-      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip, [data-testid="net-status"], [data-testid="minimap-zone"]';
+      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip, [data-testid="net-status"], [data-testid="minimap-zone"], [data-testid="minimap-depth"]';
     const out: string[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {

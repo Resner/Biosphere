@@ -122,10 +122,15 @@
         <p class="chip" data-testid="hud-offline" role="img" aria-label="Offline" title="Offline" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="stroke" r="4.5" /><path class="stroke" d="M-6 6 L6 -6" /></svg></p>
       </div>
     </section>
-    <!-- The minimap (M6b T10): the zones, the players, the pings and the depth; a click opens the pond map. -->
+    <!-- The minimap (M6b T10): the zones, the players and the pings, with the player's arrow on its own layer and a depth gauge to its left (M6c T12); a click opens the pond map. -->
     <div class="minimap" data-for="playing">
+      <div class="minimap-depth" data-testid="minimap-depth" title="Depth" hidden>
+        <span class="minimap-depth-bands" aria-hidden="true"></span>
+        <span class="minimap-depth-marker" data-testid="minimap-depth-marker"><b aria-hidden="true">◂</b><span data-testid="minimap-depth-text"></span></span>
+      </div>
       <button type="button" class="minimap-disc" data-testid="minimap" aria-label="Pond map (M)">
         <canvas class="minimap-canvas" data-testid="minimap-canvas" aria-hidden="true"></canvas>
+        <svg class="minimap-arrow" data-testid="minimap-arrow" viewBox="-8 -8 16 16" aria-hidden="true"><path d="M7 0 L-4.5 -4.6 L-2.2 0 L-4.5 4.6 Z" /></svg>
       </button>
       <p class="minimap-hazard" data-testid="minimap-hazard" role="img" hidden>
         <svg class="uv" viewBox="-10 -10 20 20" aria-hidden="true"><circle r="3.6" /><path d="M0 -8.5 V-6 M0 6 V8.5 M-8.5 0 H-6 M6 0 H8.5 M-6 -6 L-4.3 -4.3 M4.3 4.3 L6 6 M-6 6 L-4.3 4.3 M4.3 -4.3 L6 -6" /></svg>

@@ -94,7 +94,7 @@ export class Frame {
   indicators: Indicator[] = [];
   /** The player's body as drawn: the cell, moved by the damage shake (the HUD and labels follow `cell`). */
   private readonly drawnCell: CellView = { ...this.cell };
-  /** What the minimap shows (M6b T10); refreshed every frame, drawn at most 10 times a second. */
+  /** What the minimap shows (M6b T10); refreshed every frame: the arrow turns each frame, the map draws at most 30 times a second. */
   private readonly minimapView: MinimapView;
 
   constructor(private readonly app: App) {
