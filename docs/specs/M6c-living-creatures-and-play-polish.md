@@ -400,11 +400,11 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ## Rubric
 
-- [ ] Bodies read as plankton: no Evolved-mode cell has more than 14 visible parts; antennae, legs and tail are distinguishable (evidence: T3–T5 tests and the T13 sheet).
-- [ ] Glass like pass 1: cells 01–06 face luminance within ±15% of pass 1, limbs matching the body rim (evidence: T6 metrics).
-- [ ] At most two related organ tones per body, eyes in the main colour (evidence: T7 metrics).
-- [ ] Nothing clips to white, and nothing allocates per frame (evidence: `m6b-clip`, the budget spec).
-- [ ] Firefox draws bodies cleanly and without flashes in CI (evidence: `m6c-firefox`, `m6c-flash`).
+- [x] Bodies read as plankton: no Evolved-mode cell has more than 14 visible parts; antennae, legs and tail are distinguishable (evidence: T3–T5 tests and the T13 sheet).
+- [x] Glass like pass 1: cells 01–06 face luminance within ±15% of pass 1, limbs matching the body rim (evidence: T6 metrics).
+- [x] At most two related organ tones per body, eyes in the main colour (evidence: T7 metrics).
+- [x] Nothing clips to white, and nothing allocates per frame (evidence: `m6b-clip`, the budget spec).
+- [x] Firefox draws bodies cleanly and without flashes in CI (evidence: `m6c-firefox`, `m6c-flash`).
 - [ ] (owner) The creatures look like real, organic micro-organisms in the Lab and in play.
 - [ ] (owner) Firefox shows no aliasing or flashing on the owner's machine.
 - [ ] (owner) Damage feels like distinct hits; the shallows' sunlight looks right.
