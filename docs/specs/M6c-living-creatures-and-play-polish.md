@@ -423,7 +423,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ## Owner feedback on v0.7.2 (Playtest #263, `Task: owner #263`)
 
-- [x] Zones blend as a gradient: `ZONE_BAND` 0.04 (was 0.01, five steps of the depth map's byte), and the pond map and minimap colour each texel by the same zone weights instead of by hard zone classes (no outline).
-  - Note: the spawn's twilight disc keeps a pure middle but its rim now tints slightly.
+- [x] Zones blend as a gradient: each zone edge blends over 0.08 of depth (`ZONE_BAND`, was ±0.01: five steps of the depth map's byte), on the side away from the twilight, and the pond map and minimap colour each texel by the same zone weights instead of by hard zone classes (no outline).
+  - Note: the blends start where the spawn disc ends (0.26 and 0.54), so spawn water is unchanged (`m6-post` caught a symmetric band tinting it).
 - [x] Damage hits are gentler and redder: kick 2–3.5 px (was 5–8), body jolt 0.06 radii (was 0.15), ease-out 0.35 s (was 0.25 s); the cadence stays 0.5 s. The hurt flash lasts 0.3 s (was 0.15) in a deeper red.
 - [x] Organs stay two colours; a child's second tone follows the hue inherited from the other parent (ADR 0049, `hueSpread`), about 11% of genesis bodies and most children of unlike parents show it.

@@ -15,6 +15,7 @@ import {
   sunlight,
   wellInside,
   ZONE_BAND,
+  ZONE_BLEND_START,
   ZONE_LOOK,
   ZONES,
   zoneBlend,
@@ -45,7 +46,7 @@ describe('zone look', () => {
       expect(w.reduce((a, b) => a + b, 0)).toBeCloseTo(1, 9);
       for (const x of w) expect(x).toBeGreaterThanOrEqual(0);
     }
-    const edge = zoneWeights(RULES.bathymetry.zones.twilight);
+    const edge = zoneWeights((ZONE_BLEND_START[1] as number) + ZONE_BAND / 2);
     expect(edge[1]).toBeCloseTo(0.5, 6);
     expect(edge[2]).toBeCloseTo(0.5, 6);
   });
@@ -120,14 +121,29 @@ describe('zone blend band (owner, Playtest v0.7.2)', () => {
     expect(worst).toBeLessThanOrEqual(0.08);
   });
 
-  it('keeps the middle of the spawn twilight disc pure, and a well-inside point clear of the band', () => {
+  it('keeps the whole spawn twilight disc pure (depth 0.26 to 0.54), blending away from it', () => {
+    const { base, centreCap } = RULES.bathymetry;
+    for (let d = base - centreCap; d <= base + centreCap + 1e-9; d += 0.005) {
+      expect(zoneWeights(d)[1], `twilight share at ${d}`).toBe(1);
+    }
+    // The edges still sit inside their blends: half and half somewhere between.
     const e = RULES.bathymetry.zones;
-    expect(zoneWeights((e.shallows + e.twilight) / 2)[1]).toBe(1);
-    // A well-inside point lies clear of the blend band (`wellInside` keeps ZONE_BAND + 0.01 off each edge).
+    for (const [edge, lo, hi] of [
+      [e.shallows, 0, 1],
+      [e.twilight, 1, 2],
+      [e.deep, 2, 3],
+    ] as const) {
+      const w = zoneWeights(edge);
+      expect(w[lo], `share above the ${edge} edge`).toBeGreaterThan(0);
+      expect(w[hi], `share below the ${edge} edge`).toBeGreaterThan(0);
+    }
+  });
+
+  it('wellInside keeps clear of the blends', () => {
+    const e = RULES.bathymetry.zones;
     const seed = seedFromString('inside-band');
     const at = nearestInZone(seed, RULES.world.size, 4096, 4096, 'shallows');
-    const depth = depthAt(seed, at.x, at.y);
-    expect(Math.abs(depth - e.shallows)).toBeGreaterThan(ZONE_BAND);
+    expect(Math.abs(depthAt(seed, at.x, at.y) - e.shallows)).toBeGreaterThan(ZONE_BAND / 2);
   });
 });
 
@@ -166,8 +182,8 @@ describe('sunlight (M6 T17, M6c T10)', () => {
       }
       // The twilight starts where the shallows leave off: no step at the edge.
       expect(ZONE_LOOK.twilight[key]).toBe(ZONE_LOOK.shallows[key]);
-      // (Past the blend band it has only begun to fade.)
-      expect(sunlight(e.shallows + ZONE_BAND, key)).toBeGreaterThan(0.9 * calm);
+      // (A little below the edge it has only begun to fade.)
+      expect(sunlight(e.shallows + 0.04, key)).toBeGreaterThan(0.9 * calm);
       // It fades through the twilight rather than stepping down at its edges.
       const upper = sunlight(e.shallows + 0.03, key);
       const lower = sunlight(e.twilight - 0.03, key);
