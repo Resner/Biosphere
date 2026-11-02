@@ -350,7 +350,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
       - with no input, the egg auto-cracks within 6.5 s of the beacon;
       - the result card's tier equals the recorded child's.
 
-- [ ] T12 Minimap: smooth, and a depth gauge that reads as depth [opus]
+- [ ] T12 Minimap: smooth, and a depth gauge that reads as depth [opus] (in progress)
   - Why:
     - The minimap redraws at most 10 times a second (`MINIMAP.hz`), so the player arrow steps when turning fast.
     - The depth marker is a white dot on the arc inside the rim (`arcR = half − 5`), which the owner read as a player or ping (minimap screenshot).
