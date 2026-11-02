@@ -30,6 +30,8 @@ export function attachPointer(app: App): void {
   };
   window.addEventListener('pointerup', lift);
   window.addEventListener('pointercancel', lift);
+  // A release missed while the window lost focus must not leave the hold running.
+  window.addEventListener('blur', () => eggs.lift());
   canvas.addEventListener('click', (e) => {
     if (!app.playing() || !app.session.player.alive || controller.typing) return;
     const rect = canvas.getBoundingClientRect();
@@ -60,7 +62,7 @@ export function attachKeys(app: App): void {
       if (lineagePanel.isOpen || settingsPanel.isOpen) return;
       // Enter during a genesis or hatch egg's stir or crack cracks it and skips to the burst
       // (M6b T11, M6c T11); during a hatch it does not open the chat.
-      if (eggs.still() && eggs.skip(app.eggClock())) return;
+      if (eggs.still() && (eggs.skip(app.eggClock()) || app.playing())) return;
       if (app.playing()) app.socialUi.open();
       else if (enterHatches(app.screen, performance.now() - app.screenShownAt)) {
         const first = screens.firstOption;

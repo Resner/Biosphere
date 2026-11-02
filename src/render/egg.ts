@@ -255,7 +255,7 @@ export class EggReveal {
 
   /** Whether the show is fully charged. */
   get fullCharge(): boolean {
-    return this.charge >= 1;
+    return this.paced && this.charge >= 1;
   }
 
   /**

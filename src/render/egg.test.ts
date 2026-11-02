@@ -419,6 +419,15 @@ describe('EggReveal: the charge and the paced crack (M6c T11)', () => {
     expect(reveal.charge).toBe(0);
   });
 
+  it('a timed (mating) stir is never a full-charge show', () => {
+    const reveal = new EggReveal();
+    reveal.wait(0);
+    for (let t = 100; t < 5000; t += 300) click(reveal, t);
+    expect(reveal.charge).toBe(1);
+    reveal.stir(5000, { tier: 'rare', opens: true });
+    expect(reveal.fullCharge).toBe(false);
+  });
+
   it('after the beacon, waits 6 s for the player, then cracks by itself', () => {
     expect(EGG.paced.waitMs).toBe(6000);
     const reveal = new EggReveal();
