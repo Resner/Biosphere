@@ -31,9 +31,10 @@ function meanDiff(a: { rgba: ArrayLike<number> }, b: { rgba: ArrayLike<number> }
 }
 
 /**
- * Twelve pokes, 260 ms apart (never three within 0.5 s), on the egg as soon as it stirs; then the
- * world freezes in the same task, which holds the egg's clock, so a slow page never lets its 6 s
- * wait run out first.
+ * Twelve pokes, 260 ms of the egg's clock apart (never three within 0.5 s), on the egg as soon as it
+ * stirs. The world freezes in the same task and the egg's clock is set for each poke, so the pokes
+ * play on that clock and not on the page's: a slow page can neither stretch the gaps into the
+ * egg's own 6 s wait (which cracks it and ends the charge) nor squeeze three into half a second.
  */
 interface Charged {
   charge: number;
@@ -48,33 +49,26 @@ async function chargeFull(page: Page): Promise<Charged> {
       new Promise<Charged>((resolve) => {
         const bs = window.__bs as BsHook;
         const canvas = document.getElementById('scene') as HTMLCanvasElement;
-        // On the egg at the screen's centre; each poke does nothing but click, so a busy page
-        // keeps to the pace (the state is read once, at the end).
+        // On the egg at the screen's centre.
         const where = {
           button: 0,
           clientX: innerWidth / 2,
           clientY: innerHeight / 2,
           bubbles: true,
         };
-        let left = 12;
-        const poke = () => {
-          canvas.dispatchEvent(new PointerEvent('pointerdown', where));
-          dispatchEvent(new PointerEvent('pointerup', where));
-          left--;
-          if (left > 0) {
-            setTimeout(poke, 260);
-            return;
-          }
-          bs.debug?.timeScale(0);
-          const { egg, audio } = bs.state();
-          const { charge, phase, hint } = egg;
-          resolve({ charge, phase, hint: String(hint), ticks: audio.cues.charge ?? 0 });
-        };
         const look = setInterval(() => {
-          const { phase, paced } = bs.state().egg;
+          const { phase, paced, beaconAt } = bs.state().egg;
           if (phase !== 'stirring' || !paced) return;
           clearInterval(look);
-          poke();
+          bs.debug?.timeScale(0);
+          for (let k = 0; k < 12; k++) {
+            bs.debug?.setClock(((beaconAt ?? 0) + 100 + k * 260) / 1000);
+            canvas.dispatchEvent(new PointerEvent('pointerdown', where));
+            dispatchEvent(new PointerEvent('pointerup', where));
+          }
+          const { egg, audio } = bs.state();
+          const { charge, phase: after, hint } = egg;
+          resolve({ charge, phase: after, hint: String(hint), ticks: audio.cues.charge ?? 0 });
         }, 10);
       }),
   );
