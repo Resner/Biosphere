@@ -200,7 +200,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### The glass, the mouth, the organs (ADR 0043)
 
-- [ ] T6 Pass 1's glass again; limbs of the same glass; a real mouth [opus]
+- [ ] T6 Pass 1's glass again; limbs of the same glass; a real mouth [opus] (in progress)
   - Why, from `creature.frag.glsl` measured against the pass-1 shader (commit 11cf98c):
     - **"Fully see-through"**: M6b T3 cut the body's face to `uCore × (0.05 + 0.13z)` from `0.15 + 0.3z`, and swapped pass 1's soft fresnel rim (power 2 to 1.4 at ×1.8, which lit the glass inside its edge: the "hazy refraction" the owner liked) for a steep power-5 rim at ×5. The face is about 2.5× darker and the edge a hairline.
     - **"Gray limbs"**: a thin leg is painted `uRim × (0.25 + 0.4z)`, then capped at luminance 0.5 (`PART_LUMA`, M6b T4's overlap cap), while the body rim is ×5. A limb ends up at about a third of the rim's brightness.
