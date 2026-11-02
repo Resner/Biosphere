@@ -25,9 +25,9 @@ export interface CellMasks {
  */
 export const FACE_INSET = 3;
 export const RIM_BAND = 2;
-/** A limb's edge band: its pixels this close to open water, so a paddle's is its bright outline and a thin limb is all edge. */
-export const LIMB_EDGE = 1;
 export const MOUTH_INSET = 2;
+/** A limb's edge: its pixels this close to open water, so a paddle counts by its outline and a thin limb whole. */
+export const LIMB_EDGE = 1;
 /** Face and mouth pixels lie this far from any limb, fine part, shell or glint: their light and bloom. */
 export const GLOW_CLEAR = 5;
 
