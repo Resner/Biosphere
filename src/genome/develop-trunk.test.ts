@@ -8,8 +8,8 @@ import {
   trunkCheck,
 } from '../../tests/body-outline';
 import { heavyTest } from '../../tests/heavy';
+import { wildGenome } from '../../tests/wild';
 import { findSpecimen } from '../../tools/specimen';
-import { wildGenome } from '../lab/specimens';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
@@ -88,7 +88,7 @@ describe('copepods, shrimps and worms read as their class (M6b T5)', () => {
   });
 
   heavyTest('draws 80% of random, wild and mutated bodies of each class by its rules', () => {
-    // Random bytes are mostly rings and wings; the Lab's wild cells (a few v2 axes on a v1 body)
+    // Random bytes are mostly rings and wings; wild genomes (a few v2 axes on a v1 body)
     // make most of the long bodies.
     const seen: Record<string, [number, number]> = {};
     for (let i = 0; i < 4_000; i++) {

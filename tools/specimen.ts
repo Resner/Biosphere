@@ -11,8 +11,9 @@ import { longest, measure, regionOf } from '../src/genome/organism';
 import { type RarityTier, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, type Silhouette, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
-import { specimenOf, wildGenome } from '../src/lab/specimens';
+import { specimenOf } from '../src/lab/specimens';
 import { seedFromString } from '../src/sim/prng';
+import { wildGenome } from '../tests/wild';
 
 /** Every silhouette class a specimen is made for: all but `other`. */
 export const SPECIMEN_SILHOUETTES: readonly Silhouette[] = SILHOUETTES.filter((s) => s !== 'other');
