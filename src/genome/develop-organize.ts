@@ -405,7 +405,7 @@ function farAlong(s: PlanSegment, p: Part, t0: number, t1: number): number {
 /**
  * Setae on the final parts: the gene becomes a length (setae length × width × `length`, shortened
  * so every bristle stays in the bounds), then the body keeps `perBody`, cutting the shortest parts'
- * bristles first (ties: the later part first). Edits in place; a pair's setae counts stay equal.
+ * bristles first (ties: the later part first). Edits in place. `mirror` may then shorten, or drop, the right instance's bristles.
  */
 export function dress(parts: Part[], segments: PlanSegment[]): Part[] {
   const S = X.setae;
