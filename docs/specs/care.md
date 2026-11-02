@@ -41,7 +41,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Done: `app.ts` (621 lines) is the `App` class, the shared state and its wiring in the old order; `app-online`, `app-life`, `app-ui`, `app-tick`, `app-render`, `app-keys`, `app-hook` and `app-session` take it as context (each under 410 lines).
   - Gotcha: the hub's handlers are method shorthand, so `this` there is the handler object: reach the app through the `app` const, never `this`.
 
-- [ ] C3 Condense `docs/DESIGN.md` (93 KB) to the current game
+- [x] C3 Condense `docs/DESIGN.md` (93 KB) to the current game
   - Why: the spec writer reads all of it for every milestone, and much of it is history ("M6 had a depth gauge…", "1.2 before M6 T14b", "34% under rules 6"). CLAUDE.md now says DESIGN describes the current game only.
   - Touches: `docs/DESIGN.md`.
   - Steps:
@@ -51,6 +51,8 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
     - Every value in the new DESIGN.md is in the old one or in the code tables. List the differences found in the PR body.
     - No task id (`M<n> T<n>`) is left, apart from links to the specs.
     - The file is at most two thirds of its size before.
+  - Done: DESIGN.md went from 96,419 to 64,261 bytes (two thirds is 64,279): task ids, former values and measurement narratives are gone; every number left is in the old file. Numbers were spot-checked against `RULES` (version 8, drag 2.2, basal 0.0253, growth 0.012, mating cooldown 540 s, organism head/long/short, keep).
+  - Gotcha: to fit the bound, look-pass constants that live in named render tables (`ZONE_LOOK`, `ORGAN_HUES`, `FX`, `SHAKE`, `OUTLINE`, `EGG`) and the silhouette thresholds are left to those tables; DESIGN names them.
 
 - [x] C4 Split `src/render/creature-mesh.ts` (1,477 lines) into modules under 1,000 lines [opus]
   - Touches: `src/render/creature-mesh.ts`, the modules it becomes.
