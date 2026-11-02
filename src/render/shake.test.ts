@@ -3,48 +3,52 @@ import type { DeathCause } from '../sim/types';
 import { SHAKE, Shake, shakeKind } from './shake';
 
 const FRAME = 1 / 60;
-const TICK = 1 / 30;
+const TICK_HZ = 30;
 
-/** Runs `seconds` of frames, hitting with `cause` every sim tick while `hitting`; returns the samples. */
+interface Run {
+  /** Per frame: seconds since the run began, the offsets (body radii, camera px) and the kind. */
+  t: number[];
+  body: number[];
+  camera: number[];
+  kinds: Set<string | null>;
+  /** The sim seconds at which a hit landed. */
+  hits: number[];
+}
+
+/**
+ * Runs `seconds` of 60 Hz frames over a 30 Hz sim that deals `amount` of `cause` every tick while
+ * `cause` is set (ticks counted from `tick0`), the way the shell feeds the shake.
+ */
 function run(
   shake: Shake,
   seconds: number,
   cause: DeathCause | null,
-  reduced = false,
-): { body: number[]; bx: number[]; camera: number[]; kinds: Set<string | null> } {
-  const out = {
-    body: [] as number[],
-    bx: [] as number[],
-    camera: [] as number[],
-    kinds: new Set<string | null>(),
-  };
-  let sinceTick = TICK;
-  for (let t = 0; t < seconds; t += FRAME) {
-    sinceTick += FRAME;
-    if (cause && sinceTick >= TICK) {
-      sinceTick -= TICK;
-      shake.hit(cause);
+  { amount = 0.07, reduced = false, tick0 = 0 } = {},
+): Run {
+  const out: Run = { t: [], body: [], camera: [], kinds: new Set(), hits: [] };
+  const frames = Math.round(seconds / FRAME);
+  let tick = 0;
+  for (let f = 0; f < frames; f++) {
+    // The ticks due by this frame's time run before it draws.
+    while (tick / TICK_HZ <= f * FRAME + 1e-9) {
+      if (cause && shake.hit(cause, amount, tick0 + tick)) out.hits.push(tick / TICK_HZ);
+      tick++;
     }
     shake.update(FRAME, reduced);
+    out.t.push(f * FRAME);
     out.body.push(Math.hypot(shake.body.x, shake.body.y));
-    out.bx.push(shake.body.x);
     out.camera.push(Math.hypot(shake.camera.x, shake.camera.y));
     out.kinds.add(shake.kind);
   }
   return out;
 }
 
-/** Sign changes per second of a sampled signal. */
-const crossings = (values: readonly number[]): number => {
-  let n = 0;
-  for (let i = 1; i < values.length; i++) {
-    if (Math.sign(values[i] as number) !== Math.sign(values[i - 1] as number)) n++;
-  }
-  return n / (values.length * FRAME);
-};
+/** The sample nearest `t` seconds into the run. */
+const at = (values: readonly number[], t: number): number =>
+  values[Math.round(t / FRAME)] as number;
 
-describe('Shake (M6b T10)', () => {
-  it('maps each damage over time to its shake', () => {
+describe('Shake: damage lands as hits, in intervals (M6c T9)', () => {
+  it('maps each damage over time to the kind of hit it shows', () => {
     expect(shakeKind('uv')).toBe('uv');
     expect(shakeKind('pressure')).toBe('pressure');
     expect(shakeKind('toxin')).toBe('jolt');
@@ -57,77 +61,118 @@ describe('Shake (M6b T10)', () => {
     expect(Math.max(...s.body)).toBe(0);
     expect(Math.max(...s.camera)).toBe(0);
     expect(shake.kind).toBeNull();
+    expect(shake.hits).toBe(0);
   });
 
-  for (const cause of ['uv', 'pressure', 'toxin', 'starved'] as const) {
-    it(`${cause}: the body moves at most 6% of its radius and the camera at most 1.5 px`, () => {
-      const shake = new Shake();
-      const s = run(shake, 3, cause);
-      expect(Math.max(...s.body)).toBeLessThanOrEqual(SHAKE.bodyMax + 1e-9);
-      expect(Math.max(...s.body)).toBeGreaterThan(SHAKE.bodyMax * 0.3);
-      expect(Math.max(...s.camera)).toBeLessThanOrEqual(SHAKE.cameraMaxPx + 1e-9);
-      expect(Math.max(...s.camera)).toBeGreaterThan(0.3);
-      expect([...s.kinds].filter((k) => k !== null)).toEqual([shakeKind(cause)]);
-    });
-  }
-
-  it('UV trembles fast and fine, pressure squeezes slowly', () => {
-    const uv = run(new Shake(), 2, 'uv');
-    const pressure = run(new Shake(), 2, 'pressure');
-    expect(crossings(uv.bx)).toBeGreaterThanOrEqual(12);
-    expect(crossings(pressure.bx)).toBeLessThanOrEqual(5);
-    // Fine: the tremble stays smaller than the squeeze.
-    expect(Math.max(...uv.body)).toBeLessThan(Math.max(...pressure.body));
-  });
-
-  it('toxin and starvation jolt briefly, not a steady wobble', () => {
+  it('3 s of steady UV gives 6 hits, every 0.5 s from the first tick, and stillness between', () => {
+    // Ticks 0..89 are the 3.0 s; the tick at exactly 3.0 s lies outside it.
     const shake = new Shake();
-    shake.hit('toxin');
-    const s = run(shake, 1.5, null);
-    const peak = s.body.indexOf(Math.max(...s.body));
-    expect(peak * FRAME).toBeLessThan(0.1);
-    // Over within half a second.
-    expect(Math.max(...s.body.slice(Math.ceil(0.5 / FRAME)))).toBe(0);
-    // A steady trickle of damage jolts again now and then, never every tick.
-    const steady = run(new Shake(), 3, 'starved');
-    let jolts = 0;
-    for (let i = 1; i < steady.body.length; i++) {
-      if ((steady.body[i] as number) > 0 && steady.body[i - 1] === 0) jolts++;
+    const s = run(shake, 3, 'uv');
+    expect(s.hits).toEqual([0, 0.5, 1, 1.5, 2, 2.5]);
+    expect(shake.hits).toBe(6);
+    for (const h of s.hits) {
+      expect(at(s.camera, h), `the kick at ${h} s`).toBeGreaterThanOrEqual(SHAKE.kickPx.min);
+      expect(at(s.body, h), `the jolt at ${h} s`).toBeCloseTo(SHAKE.bodyRadii, 6);
+      expect(at(s.camera, h + 0.45), `still 0.45 s after ${h} s`).toBe(0);
+      expect(at(s.body, h + 0.45), `still 0.45 s after ${h} s`).toBe(0);
     }
-    expect(jolts).toBeGreaterThanOrEqual(2);
-    expect(jolts).toBeLessThanOrEqual(5);
+    expect([...s.kinds]).toEqual(expect.arrayContaining(['uv', null]));
   });
 
-  it('settles to exactly 0 soon after the damage stops', () => {
+  it('every cause shares the cadence, and a mix of causes still hits at most every 0.5 s', () => {
+    for (const cause of ['uv', 'pressure', 'toxin', 'starved'] as const) {
+      expect(run(new Shake(), 3, cause).hits, cause).toHaveLength(6);
+    }
     const shake = new Shake();
-    run(shake, 1, 'uv');
-    const after = run(shake, 1, null);
-    expect(after.body.at(-1)).toBe(0);
-    expect(after.camera.at(-1)).toBe(0);
+    for (let tick = 0; tick < 90; tick++) {
+      shake.hit('uv', 0.07, tick);
+      shake.hit('pressure', 0.1, tick);
+      shake.hit('toxin', 0.5, tick);
+    }
+    expect(shake.hits).toBe(6);
+  });
+
+  it('the first hit after a pause lands at once', () => {
+    const shake = new Shake();
+    expect(shake.hit('toxin', 0.5, 100)).toBe(true);
+    expect(shake.hit('toxin', 0.5, 101)).toBe(false);
+    expect(shake.hit('toxin', 0.5, 100 + SHAKE.everyTicks)).toBe(true);
+    // Long after, the next damage hits on its first tick.
+    expect(shake.hit('uv', 0.07, 1000)).toBe(true);
+  });
+
+  it('the kick scales with the damage since the last hit, from 5 px to a cap of 8', () => {
+    const peak = (amount: number) => {
+      const s = run(new Shake(), 0.6, 'toxin', { amount });
+      // The second hit carries half a second of damage.
+      return at(s.camera, 0.5);
+    };
+    const light = peak(0.01);
+    const medium = peak(0.2);
+    const heavy = peak(5);
+    expect(light).toBeGreaterThanOrEqual(5);
+    expect(light).toBeLessThan(medium);
+    expect(medium).toBeLessThan(heavy);
+    expect(heavy).toBeCloseTo(SHAKE.kickPx.max, 6);
+    expect(peak(1000)).toBeLessThanOrEqual(8);
+  });
+
+  it('the kick turns by the golden angle from one hit to the next', () => {
+    const shake = new Shake();
+    const dirs: number[] = [];
+    for (let i = 0; i < 3; i++) {
+      shake.hit('uv', 0.07, i * SHAKE.everyTicks);
+      shake.update(FRAME, false);
+      dirs.push(Math.atan2(shake.camera.y, shake.camera.x));
+      shake.update(0.5, false);
+    }
+    const golden = Math.PI * (3 - Math.sqrt(5));
+    for (let i = 1; i < dirs.length; i++) {
+      const turn = ((dirs[i] as number) - (dirs[i - 1] as number) + 4 * Math.PI) % (2 * Math.PI);
+      expect(turn).toBeCloseTo(golden, 6);
+    }
+  });
+
+  it('decays over 0.25 s and settles to exactly 0', () => {
+    const shake = new Shake();
+    shake.hit('toxin', 1, 0);
+    const s = run(shake, 0.5, null);
+    expect(at(s.camera, 0)).toBeGreaterThan(at(s.camera, 0.1));
+    expect(at(s.camera, 0.1)).toBeGreaterThan(at(s.camera, 0.2));
+    expect(Math.max(...s.camera.slice(Math.ceil(SHAKE.decaySeconds / FRAME) + 1))).toBe(0);
+    expect(Math.max(...s.body.slice(Math.ceil(SHAKE.decaySeconds / FRAME) + 1))).toBe(0);
     expect(shake.kind).toBeNull();
   });
 
-  it('never shakes under Reduce motion', () => {
+  it('under Reduce motion the hits still count, with zero offset', () => {
     for (const cause of ['uv', 'pressure', 'toxin'] as const) {
-      const s = run(new Shake(), 1, cause, true);
+      const shake = new Shake();
+      const s = run(shake, 1.5, cause, { reduced: true });
       expect(Math.max(...s.body), cause).toBe(0);
       expect(Math.max(...s.camera), cause).toBe(0);
+      expect(shake.hits, cause).toBe(3);
     }
   });
 
   it('a long pause moves it on by at most a short step', () => {
     const shake = new Shake();
-    shake.hit('pressure');
+    shake.hit('pressure', 0.1, 0);
     shake.update(30, false);
-    expect(Math.hypot(shake.body.x, shake.body.y)).toBeLessThanOrEqual(SHAKE.bodyMax);
+    shake.update(FRAME, false);
+    expect(Math.hypot(shake.camera.x, shake.camera.y)).toBeGreaterThan(0);
+    expect(Math.hypot(shake.camera.x, shake.camera.y)).toBeLessThanOrEqual(SHAKE.kickPx.max);
   });
 
-  it('reset stops it at once', () => {
+  it('reset stops it at once and starts the count again', () => {
     const shake = new Shake();
-    run(shake, 0.5, 'uv');
+    run(shake, 0.5, 'uv', { tick0: 500 });
+    expect(shake.hits).toBeGreaterThan(0);
     shake.reset();
     expect(shake.body).toEqual({ x: 0, y: 0 });
     expect(shake.camera).toEqual({ x: 0, y: 0 });
     expect(shake.kind).toBeNull();
+    expect(shake.hits).toBe(0);
+    // A new life's tick starts over at 0, and its first damage hits at once.
+    expect(shake.hit('uv', 0.07, 0)).toBe(true);
   });
 });

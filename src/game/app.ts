@@ -146,7 +146,7 @@ export class App {
   readonly eggs: EggShow;
   /** The life whose creature grows out of an egg; its drawn size follows the egg's pop. */
   emerging: Session | null = null;
-  /** Damage shakes the body and the camera slightly (M6b T10), in place of the red edge. */
+  /** Damage lands as hits that kick the camera and jolt the body (M6c T9), in place of a red edge. */
   readonly shake: Shake;
   readonly labels: RemoteLabels;
   /** Finding other players (M6 T19): arrows on the screen's edge and the pond map. */

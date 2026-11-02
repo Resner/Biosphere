@@ -25,27 +25,29 @@ describe('CueWatch', () => {
       { type: 'dash', creature: 'p' },
       { type: 'eat', creature: 'p', food: 'f2', value: 1 },
     ];
-    for (const e of events) w.onEvent(e, 1);
+    for (const e of events) w.onEvent(e);
     expect(names()).toEqual(['eat', 'dash', 'eat']);
   });
 
-  it('plays a hit at most every few ticks while damage goes on', () => {
+  it('damage events alone play nothing: the sound follows the hits (M6c T9)', () => {
     const { w, names } = watch();
-    for (let t = 0; t < 30; t++) w.onEvent(hit('toxin'), t);
-    const hurts = names().filter((c) => c === 'hurt').length;
-    expect(hurts).toBe(Math.ceil(30 / CUE_WATCH.hurtGapTicks));
+    for (let t = 0; t < 30; t++) {
+      w.onEvent(hit('toxin'));
+      w.onEvent(hit('uv'));
+    }
+    expect(names()).toEqual([]);
   });
 
-  it('gives UV and pressure their own cue, and starvation the hit', () => {
+  it('each hit plays the hurt thud; UV and pressure add their own voice at most once a second', () => {
     const { w, names } = watch();
-    w.onEvent(hit('uv'), 0);
-    w.onEvent(hit('pressure'), 0);
-    w.onEvent(hit('starved'), 0);
-    expect(names()).toEqual(['uv', 'pressure', 'hurt']);
-    w.onEvent(hit('uv'), 1);
-    expect(names()).toHaveLength(3);
-    w.onEvent(hit('uv'), CUE_WATCH.zoneGapTicks);
-    expect(names()).toEqual(['uv', 'pressure', 'hurt', 'uv']);
+    w.hit('uv', 0);
+    w.hit('pressure', 0);
+    w.hit('starved', 0);
+    expect(names()).toEqual(['hurt', 'uv', 'hurt', 'pressure', 'hurt']);
+    w.hit('uv', 15);
+    expect(names()).toEqual(['hurt', 'uv', 'hurt', 'pressure', 'hurt', 'hurt']);
+    w.hit('uv', CUE_WATCH.zoneGapTicks);
+    expect(names().slice(-2)).toEqual(['hurt', 'uv']);
   });
 
   it('pulses low energy on entering it and slowly while it lasts', () => {
@@ -95,13 +97,13 @@ describe('CueWatch', () => {
 
   it('starts each life afresh', () => {
     const { w, names } = watch();
-    w.onEvent(hit('toxin'), 100);
+    w.hit('uv', 100);
     w.vitals(100, 0.1, null);
     w.reset();
     // A new life's tick starts over at 0.
-    w.onEvent(hit('toxin'), 0);
+    w.hit('uv', 0);
     w.vitals(0, 0.1, null);
-    expect(names()).toEqual(['hurt', 'low-energy', 'hurt', 'low-energy']);
+    expect(names()).toEqual(['hurt', 'uv', 'low-energy', 'hurt', 'uv', 'low-energy']);
   });
 });
 

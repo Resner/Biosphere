@@ -1,15 +1,15 @@
 // Which sounds the player's life asks for (M6 T23, DESIGN §10), from the sim's events and the
-// creature's state each tick. The sim reports damage every tick it lasts, so a hit repeats slowly
-// instead; low energy pulses slowly while it lasts; a plume rumbles once as it comes near. Pure
-// rules on the tick count, so they test in Node; the shell plays what this asks for.
+// creature's state each tick. The sim reports damage every tick it lasts, so the sound follows the
+// damage shake's hits instead (M6c T9: the hurt thud on each, UV's sizzle and pressure's squeeze
+// with it at most once a second); low energy pulses slowly while it lasts; a plume rumbles once as
+// it comes near. Pure rules on the tick count, so they test in Node; the shell plays what this asks
+// for.
 
 import type { Cue } from '../audio/cues';
-import type { StepEvent } from '../sim/types';
+import type { DeathCause, StepEvent } from '../sim/types';
 import { LOW_ENERGY } from './low-energy';
 
 export const CUE_WATCH = {
-  /** A hit (toxin, starvation, a bite) sounds at most this often while damage goes on: 0.4 s. */
-  hurtGapTicks: 12,
   /** UV's sizzle and pressure's squeeze, at most once a second each. */
   zoneGapTicks: 30,
   /** Its pulse repeats every 3 s while it lasts. */
@@ -46,8 +46,8 @@ export class CueWatch {
     this.dead = false;
   }
 
-  /** One of the player's sim events, on the life's tick. */
-  onEvent(event: StepEvent, tick: number): void {
+  /** One of the player's sim events. */
+  onEvent(event: StepEvent): void {
     switch (event.type) {
       case 'eat':
         this.play('eat');
@@ -55,12 +55,13 @@ export class CueWatch {
       case 'dash':
         this.play('dash');
         break;
-      case 'damage':
-        if (event.cause === 'uv' || event.cause === 'pressure') {
-          this.every(event.cause, tick, CUE_WATCH.zoneGapTicks);
-        } else this.every('hurt', tick, CUE_WATCH.hurtGapTicks);
-        break;
     }
+  }
+
+  /** A damage hit landed (`Shake.hit`) on the life's tick: the thud, and the zone's voice. */
+  hit(cause: DeathCause, tick: number): void {
+    this.play('hurt');
+    if (cause === 'uv' || cause === 'pressure') this.every(cause, tick, CUE_WATCH.zoneGapTicks);
   }
 
   /** Once per tick of a living creature: its energy share and the nearest plume, if any. */
