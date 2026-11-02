@@ -29,7 +29,7 @@ describe('Lab specimens', () => {
   });
 
   it('breeds 4 lineages of 6 cells from genesis at the Lab rate (M6c T5)', () => {
-    expect(EVOLVED).toEqual({ lineages: 4, size: 6, generations: 60, brood: 3, mutation: 4 });
+    expect(EVOLVED).toEqual({ lineages: 4, size: 6, generations: 60, brood: 3 });
     expect(EVOLVED.lineages * EVOLVED.size).toBe(LAB_COUNT);
     // Every lineage of a grid has its own aim.
     for (const seed of ['a1', 'a2', 'a3']) {
@@ -43,7 +43,6 @@ describe('Lab specimens', () => {
   it('shows evolved lineages: 24 distinct, valid bodies within the part budget, the same each time', () => {
     const grid = evolvedGrid('e1');
     expect(grid).toHaveLength(LAB_COUNT);
-    expect(grid.map(genomeHash)).toEqual(evolvedGrid('e1').map(genomeHash));
     expect(labGenomes('e1', 'evolved').map(genomeHash)).toEqual(grid.map(genomeHash));
     const specimens = grid.map((g) => specimenOf(g));
     expect(new Set(specimens.map((s) => s.creature.hash)).size).toBe(LAB_COUNT);

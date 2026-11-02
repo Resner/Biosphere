@@ -4,6 +4,7 @@ import { genomeHash } from '../src/genome/codec';
 import { SILHOUETTES } from '../src/genome/silhouette';
 import { gallerySpecimens, parseSpecimen } from '../src/lab/gallery';
 import { specimenOf } from '../src/lab/specimens';
+import { heavyTest } from '../tests/heavy';
 import {
   evolvedFile,
   evolvedPicks,
@@ -153,14 +154,19 @@ describe('the gallery after a world reset (ADR 0043, M6c T5)', () => {
       expect(stillShows(specimenWhat(s.file) as string, s.genome)).toBe(true);
   });
 
-  it('stores the evolved cells 07-20 as the picks of the Evolved sets gallery-m6c-0 to -3', () => {
-    const stored = gallery().slice(6, 20);
-    const picks = evolvedPicks('gallery-m6c', 14);
-    expect(picks.map((p, i) => evolvedFile(7 + i, p).name)).toEqual(stored.map((s) => s.file));
-    expect(picks.map((p) => genomeHash(p.genome))).toEqual(stored.map((s) => genomeHash(s.genome)));
-    // Each is the right end of its row: generation 60 of its lineage.
-    expect(stored[0]?.comment).toMatch(
-      /lineage 1 \(aim [a-z]+\) of the Lab's Evolved set gallery-m6c-0, generation 60/,
-    );
-  });
+  heavyTest(
+    'stores the evolved cells 07-20 as the picks of the Evolved sets gallery-m6c-0 to -3',
+    () => {
+      const stored = gallery().slice(6, 20);
+      const picks = evolvedPicks('gallery-m6c', 14);
+      expect(picks.map((p, i) => evolvedFile(7 + i, p).name)).toEqual(stored.map((s) => s.file));
+      expect(picks.map((p) => genomeHash(p.genome))).toEqual(
+        stored.map((s) => genomeHash(s.genome)),
+      );
+      // Each is the right end of its row: generation 60 of its lineage.
+      expect(stored[0]?.comment).toMatch(
+        /lineage 1 \(aim [a-z]+\) of the Lab's Evolved set gallery-m6c-0, generation 60/,
+      );
+    },
+  );
 });

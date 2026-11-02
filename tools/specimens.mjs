@@ -101,17 +101,7 @@ try {
   }
   // The specimens are all different genomes: each search skips what an earlier one took, and the
   // feature search also skips every specimen already in the gallery.
-  const taken = new Set(
-    features
-      ? readdirSync(dir)
-          .filter((f) => f.endsWith('.hex'))
-          .map((f) => {
-            const specimen = parseSpecimen(f, readFileSync(new URL(f, dir), 'utf8'));
-            if (!specimen) throw new Error(`${f}: not a gallery specimen`);
-            return genomeHash(specimen.genome);
-          })
-      : [],
-  );
+  const taken = new Set(features ? stored().map((s) => genomeHash(s.genome)) : []);
   const take = (found) => {
     if (found) taken.add(genomeHash(found.genome));
     return found;

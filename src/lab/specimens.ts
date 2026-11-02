@@ -4,7 +4,7 @@
 import { type Genome, genomeHash } from '../genome/codec';
 import { describeCreature } from '../genome/describe';
 import { bodyViolations } from '../genome/develop';
-import { fraction } from '../genome/express';
+import { fraction, SEGMENT_LOCI } from '../genome/express';
 import { genesisGenome } from '../genome/genesis';
 import { breed } from '../genome/inherit';
 import { speciesName } from '../genome/names';
@@ -27,17 +27,15 @@ export const LAB_COUNT = 24;
  * The Evolved grid (M6c T5): 4 lineages, one per grid row. Each starts from its own 6 genesis cells
  * and is bred for `generations` at the Lab's mutation rate: every generation pairs two different
  * parents at random `brood` times per place and keeps the 6 children that go furthest toward the
- * lineage's aim. A row shows the founder, then the best of every
- * `generations ÷ (size − 1)` generations, left to right.
+ * lineage's aim. A row shows the founder, then the best of every `generations ÷ (size − 1)`
+ * generations, left to right.
  */
 export const EVOLVED = {
   lineages: 4,
   size: 6,
   generations: 60,
   brood: 3,
-  mutation: LAB_MUTATION,
 } as const;
-const RATE = { mutation: EVOLVED.mutation };
 const EVERY = EVOLVED.generations / (EVOLVED.size - 1);
 
 export interface Specimen {
@@ -77,18 +75,16 @@ export function specimenOf(genome: Genome): Specimen {
   };
 }
 
-const SEG = ['segDrive1', 'segDrive2'] as const;
-
 /**
  * The aims a lineage may be bred toward: the loci whose mean a breeder raises, read from the genome
  * as a breeder reads a trait. A grid gives its 4 lineages 4 different ones.
  */
 export const AIMS = {
-  chain: SEG,
-  shell: [...SEG, 'fusion'],
-  curl: [...SEG, 'curve'],
-  tail: [...SEG, 'tailLength'],
-  eyes: [...SEG, 'eyeSize'],
+  chain: SEGMENT_LOCI,
+  shell: [...SEGMENT_LOCI, 'fusion'],
+  curl: [...SEGMENT_LOCI, 'curve'],
+  tail: [...SEGMENT_LOCI, 'tailLength'],
+  eyes: [...SEGMENT_LOCI, 'eyeSize'],
   ring: ['symmetry', 'drape'],
 } as const satisfies Record<string, readonly string[]>;
 export type AimName = keyof typeof AIMS;
@@ -132,7 +128,7 @@ function evolvedLineage(
         pool[a] as Genome,
         pool[b] as Genome,
         seedFromString(`${at}/${gen}/${i}`),
-        RATE,
+        { mutation: LAB_MUTATION },
       );
       return { child, score: fraction(child, aim) };
     }).sort((x, y) => y.score - x.score);
@@ -153,10 +149,18 @@ function evolvedLineage(
   return row;
 }
 
-/** The Evolved grid of `seed`: its lineages row by row (24 cells). */
+let lastGrid: { seed: string; grid: Genome[] } | undefined;
+
+/**
+ * The Evolved grid of `seed`: its lineages row by row (24 cells). The last one is kept: breeding
+ * takes ~0.2 s and the Lab asks for the same grid on every mode toggle.
+ */
 export function evolvedGrid(seed: string): Genome[] {
+  if (lastGrid?.seed === seed) return lastGrid.grid;
   const shown = new Set<string>();
-  return evolvedAims(seed).flatMap((name, k) => evolvedLineage(seed, k, AIMS[name], shown));
+  const grid = evolvedAims(seed).flatMap((name, k) => evolvedLineage(seed, k, AIMS[name], shown));
+  lastGrid = { seed, grid };
+  return grid;
 }
 
 /** The seeds of the Evolved diversity check: the first three run in `check`, all in `report:diversity`. */

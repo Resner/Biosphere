@@ -140,14 +140,14 @@ function evolvedSection(count: number): string[] {
   const grids = seeds.map((seed) =>
     evolvedGrid(seed).map((g) => silhouetteOf(buildCreature(g).plan)),
   );
-  const rich = grids.filter((g) => new Set(g).size >= EVOLVED_CLASSES).length;
+  const classes = grids.map((g) => new Set(g));
+  const rich = classes.filter((c) => c.size >= EVOLVED_CLASSES).length;
   return [
     '## Evolved Lab grids',
     '',
     `- Grids with ${EVOLVED_CLASSES} or more classes: ${rich} of ${seeds.length}`,
     ...seeds.map(
-      (seed, i) =>
-        `- ${seed}: ${new Set(grids[i]).size} classes (${[...new Set(grids[i])].join(', ')})`,
+      (seed, i) => `- ${seed}: ${classes[i]?.size} classes (${[...(classes[i] ?? [])].join(', ')})`,
     ),
     '',
     ...histogram('Evolved silhouettes', grids.flat(), SILHOUETTES),
