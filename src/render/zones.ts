@@ -237,8 +237,6 @@ export function depthGrid(seed: Seed, size: number, n = ZONE_TEXTURE_SIZE): Uint
   return grid;
 }
 
-/** How far inside a zone's depth range `wellInside` asks for (the abyss and shallows' outer sides excepted). */
-const INSIDE_MARGIN = ZONE_BAND / 2 + 0.01;
 /** `wellInside` also asks the zone of the points this far away on each axis. */
 const INSIDE_REACH = 64;
 /** The search steps out in rings this far apart, with points at most this far apart on each. */
@@ -246,12 +244,9 @@ const SEARCH_STEP = 32;
 /** The search keeps this far from the world's walls. */
 const SEARCH_INSET = 256;
 
-/** Whether a point lies well inside a zone: clear of its depth edges, and so is its surround. */
+/** Whether a point lies well inside a zone: clear of every blend (the zone's own look at full strength), and so is its surround. */
 export function wellInside(seed: Seed, x: number, y: number, zone: Zone): boolean {
-  const depth = depthAt(seed, x, y);
-  if (zoneOfDepth(depth - INSIDE_MARGIN) !== zone || zoneOfDepth(depth + INSIDE_MARGIN) !== zone) {
-    return false;
-  }
+  if (zoneWeights(depthAt(seed, x, y))[ZONES.indexOf(zone)] !== 1) return false;
   const r = INSIDE_REACH;
   return (
     zoneAt(seed, x + r, y) === zone &&

@@ -140,10 +140,14 @@ describe('zone blend band (owner, Playtest v0.7.2)', () => {
   });
 
   it('wellInside keeps clear of the blends', () => {
-    const e = RULES.bathymetry.zones;
     const seed = seedFromString('inside-band');
-    const at = nearestInZone(seed, RULES.world.size, 4096, 4096, 'shallows');
-    expect(Math.abs(depthAt(seed, at.x, at.y) - e.shallows)).toBeGreaterThan(ZONE_BAND / 2);
+    for (const zone of ZONES) {
+      const spot = nearestInZone(seed, RULES.world.size, 4096, 4096, zone);
+      expect(zoneAt(seed, spot.x, spot.y), `${zone}`).toBe(zone);
+      expect(zoneWeights(depthAt(seed, spot.x, spot.y))[ZONES.indexOf(zone)], `${zone} pure`).toBe(
+        1,
+      );
+    }
   });
 });
 
