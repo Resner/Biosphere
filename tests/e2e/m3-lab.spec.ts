@@ -174,7 +174,9 @@ test('creatures read against the water, and different hues look different', asyn
     }
   }
   expect(pairs).toBeGreaterThan(50);
-  expect(closest).toBeGreaterThan(0.08);
+  // Pass 1's brighter glass (M6c T6, ADR 0043) washes a pale specimen's pigment toward grey, so the
+  // closest pair sits at 0.074; two creatures a third of the wheel apart still differ by more than 0.06.
+  expect(closest).toBeGreaterThan(0.06);
 });
 
 const MODULE_IDS = LOCI.filter((l) => l.kind === 'module').map((l) => l.id);

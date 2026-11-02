@@ -98,6 +98,8 @@ const PEARL = 0.55;
 /** `uv.x` tags (`addBall`): a pearl tip; an organ's number is `ORGAN_TAG` × (its index + 1). */
 const PEARL_TAG = 2;
 export const ORGAN_TAG = 2;
+/** `uv.x` tag of a fringe part's tube (M6c T3, T6): the shader draws it as fine, faint cilia. */
+export const FRINGE_TAG = 4;
 /** An accent organ's `uv.y` runs from this, not 0 (M6b T3): the shader gives it the accent hue. */
 const ACCENT_V = 2;
 
@@ -154,7 +156,7 @@ const ANTENNA_CONE = PI / 3;
 // Parts
 
 /** A path in the xy plane whose heading turns evenly: start, heading, total turn and length. */
-interface Path {
+export interface Path {
   x0: number;
   y0: number;
   heading: number;
@@ -174,7 +176,7 @@ function pathAt(p: Path, t: number): { x: number; y: number; heading: number } {
   };
 }
 
-interface Tube {
+export interface Tube {
   path: Path;
   /** The radius at path share `t` of ring `i`. */
   radius: (t: number, i: number) => number;
@@ -184,10 +186,12 @@ interface Tube {
   attach: number;
   part: number;
   base: number | null;
+  /** Added to every `uv.x` (a whole even number): a tag the shader reads (`FRINGE_TAG`). */
+  tag?: number;
 }
 
 /** A closed tube: `rings` rings along its path, then the tip vertex. */
-function addTube(m: Mesh, tube: Tube, rings: number, ring: number): void {
+export function addTube(m: Mesh, tube: Tube, rings: number, ring: number): void {
   const { path } = tube;
   const first = m.count;
   for (let i = 0; i < rings; i++) {
@@ -203,7 +207,7 @@ function addTube(m: Mesh, tube: Tube, rings: number, ring: number): void {
         at.x - across * sin(at.heading),
         at.y + across * cos(at.heading),
         r * TUBE_DEPTH * sin(phi),
-        j / ring,
+        (tube.tag ?? 0) + j / ring,
         t,
         tube.attach,
         tube.attach,
@@ -217,7 +221,7 @@ function addTube(m: Mesh, tube: Tube, rings: number, ring: number): void {
     tip.x + tube.cap * cos(tip.heading),
     tip.y + tube.cap * sin(tip.heading),
     0,
-    0.5,
+    (tube.tag ?? 0) + 0.5,
     1,
     tube.attach,
     tube.attach,
@@ -378,6 +382,7 @@ export function addAppendage(
     attach,
     part,
     base: 0,
+    tag: a.fringe ? FRINGE_TAG : 0,
   };
   addTube(m, main, rings, d.partRing);
   const gait = { spine: attach, attach, weight: 1, part };

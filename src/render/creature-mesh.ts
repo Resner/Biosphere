@@ -30,6 +30,7 @@ export {
 export { countVertices, estimateVertices, meshDetail } from './creature-fit';
 export { BODY_DEPTH, wallsAlong } from './creature-loft';
 export {
+  FRINGE_TAG,
   GLINT_GAP,
   type GlintPlan,
   type GlintSpot,

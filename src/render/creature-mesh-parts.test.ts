@@ -47,6 +47,7 @@ import {
   randoms,
   specimen,
 } from './creature-mesh-kit';
+import { MOUTH_PART_ID } from './creature-mouth';
 import fragmentShader from './shaders/creature.frag.glsl?raw';
 import vertexShader from './shaders/creature.vert.glsl?raw';
 import { centreLine } from './spine';
@@ -151,7 +152,10 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
       const drawn = (lod: Lod): number => {
         const g = buildCreatureGeometry(p, lod);
         const part = attr(g, 'aPart');
-        const seta = Array.from(part).filter((v) => partKind(v) === PART_SETA).length;
+        // The mouth's cilia (M6c T6) are drawn as setae but are not a part's bristles.
+        const seta = Array.from(part).filter(
+          (v) => partKind(v) === PART_SETA && partId(v) !== MOUTH_PART_ID,
+        ).length;
         return seta / meshDetail(p, lod).setaVertices;
       };
       expect(meshDetail(p, 'high').setae).toBe(1);
@@ -194,7 +198,8 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
     // Each bristle is l0, r0, (l1, r1,) tip: its base is the middle of the first two.
     const bristles = new Map<number, { base: [number, number]; tip: [number, number] }[]>();
     for (let i = 0; i < part.length; i++) {
-      if (partKind(part[i] as number) !== PART_SETA) continue;
+      const v = part[i] as number;
+      if (partKind(v) !== PART_SETA || partId(v) === MOUTH_PART_ID) continue;
       const xy = (k: number): [number, number] => [
         position[k * 3] as number,
         position[k * 3 + 1] as number,
@@ -547,33 +552,34 @@ describe('pass 1 glass without the haze and the glow (M6b T3, ADR 0034)', () => 
     expect(fragmentShader).toMatch(/uniform vec3 uAccent;/);
   });
 
-  it('keeps segment walls faint and joint points dim against the rim colour', () => {
+  it('keeps segment walls faint, and parts free of bright wet points (M6c T6)', () => {
     const constant = (name: string): number =>
       Number(fragmentShader.match(new RegExp(`const float ${name} = ([0-9.]+);`))?.[1]);
-    // Walls at most 0.35 and wet joint points at most half of the rim colour's luminance, which the
-    // drawn rim (its term is at least 1 at the edge) always reaches.
+    // Walls at most 0.35 of the rim colour's luminance, which the drawn rim always reaches.
     expect(constant('WALL')).toBeLessThanOrEqual(0.35);
     expect(fragmentShader).toMatch(/col \+= uRim \* wall \* WALL;/);
-    expect(constant('JOINT_SHINE')).toBeLessThanOrEqual(0.5);
-    expect(fragmentShader).toMatch(/gloss \* JOINT_SHINE \* dot\(uRim, LUMA\)/);
+    // The wet joint points read as beads on a grey leg; a limb is now one even stroke of rim glass.
+    expect(fragmentShader).not.toContain('JOINT_SHINE');
     expect(constant('RIM')).toBeGreaterThanOrEqual(1);
   });
 });
 
-describe('no white clipping (M6b T4, ADR 0034)', () => {
+describe('no white clipping (M6b T4, ADR 0034; M6c T6, ADR 0043)', () => {
   const constant = (name: string): number =>
     Number(fragmentShader.match(new RegExp(`const float ${name} = ([0-9.]+);`))?.[1]);
 
-  it('caps every fine part short of the bloom-and-shoulder white, setules below setae', () => {
-    // Legs, pearls and membranes; setae (often thinner than a pixel) a little brighter; their
-    // setules fainter than they are. Stacked, none fills an area brighter than its cap.
-    expect(constant('PART_LUMA')).toBeLessThanOrEqual(0.5);
-    expect(constant('SETA_LUMA')).toBeLessThanOrEqual(0.75);
-    expect(constant('SETULE_LUMA')).toBeLessThan(constant('SETA_LUMA'));
+  it("caps every fine part at the body rim's peak, setae, setules and fringe below it", () => {
+    // One limb or membrane vein matches the body's rim; stacked, none fills an area brighter.
     expect(fragmentShader).toMatch(
-      /kind == 1 \|\| kind == 5 \|\| kind == 6 \|\| kind == PART_SETULE\) \{\s*float cap = kind == 5 \? SETA_LUMA : kind == PART_SETULE \? SETULE_LUMA : PART_LUMA;\s*col \*= min\(1\.0, cap \/ max\(dot\(col, LUMA\), 1e-4\)\);/,
+      /float rimPeak = dot\(uCore \* FACE\.x \+ uRim \* \(RIM \* uRimStrength\), LUMA\);/,
     );
-    // The cap comes after every light a part takes (its rim, gloss, refraction and caustics).
+    expect(constant('SETA_LUMA')).toBeLessThan(1);
+    expect(constant('SETULE_LUMA')).toBeLessThan(constant('SETA_LUMA'));
+    expect(constant('FRINGE_LUMA')).toBeLessThan(1);
+    expect(fragmentShader).toMatch(
+      /kind == 1 \|\| kind == 5 \|\| kind == 6 \|\| kind == PART_SETULE\) \{\s*float cap = rimPeak \*\s*\(kind == 5 \? SETA_LUMA : kind == PART_SETULE \? SETULE_LUMA : fringe \? FRINGE_LUMA : 1\.0\);\s*col \*= min\(1\.0, cap \/ max\(dot\(col, LUMA\), 1e-4\)\);/,
+    );
+    // The cap comes after every light a part takes (its rim, refraction and caustics).
     expect(fragmentShader.indexOf('float cap =')).toBeGreaterThan(
       fragmentShader.indexOf('causticAt(vWorld, uSunTime)'),
     );

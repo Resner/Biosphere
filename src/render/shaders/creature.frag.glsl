@@ -16,6 +16,8 @@
 // the organs are pass 1's glassy chambers again, in the gene hue with at most one complementary accent.
 // M6b T4 caps the fine parts' light (legs, pearls, setae, setules, membranes), so where they overlap
 // they no longer fill whole areas that bloom and the grade burnt to white.
+// M6c T6 (ADR 0043) brought back pass 1's face and soft fresnel rim, and gave the limbs, membranes
+// and setae the same glass, capped at the body rim's peak; the mouth is glass with a small feature.
 // One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
@@ -49,7 +51,9 @@ uniform sampler2D tBackdrop;
 uniform float uRefract;
 varying vec3 vNormal;
 varying vec2 vUv;
-varying float vPart;
+// Flat (M6c T6): a triangle that joins two kinds (the body's rings by a plate's edge or at the mouth)
+// would otherwise blend their numbers into a third kind between them, drawn as a limb's stroke.
+flat varying float vPart;
 varying vec2 vRest;
 varying vec2 vScreen;
 varying vec2 vUnit;
@@ -67,33 +71,33 @@ const int PART_PIGMENT = 13;
 const int PART_GLINT = 14;
 const int PART_SETULE = 15;
 // `uv.x` tags (creature-mesh.ts `addBall`): a pearl tip; an accent organ's uv.y starts at ACCENT_V.
+// A fringe part's tube (M6c T3) is tagged from FRINGE_TAG.
 const float PEARL_TAG = 2.0;
+const float FRINGE_TAG = 4.0;
 const float ACCENT_V = 2.0;
 const float ORGAN_LUMA = 0.36;
-// The wet points on a part's joints: how tight and how bright.
-const float JOINT_GLOSS = 14.0;
-// At most half the rim colour's luminance (M6b T3), which the drawn rim always reaches.
-const float JOINT_SHINE = 0.5;
-// A part's half-width on screen (pixels) over which it turns from a bright stroke to clear glass.
-const vec2 PART_CLEAR_PX = vec2(2.5, 6.0);
-// The brightest a fine part (a leg, a pearl, a membrane) draws, as luminance (M6b T4): where many
-// overlap they fill an area at this colour, which with its bloom must stay well short of white,
-// while one alone still reads against the water. A seta, often thinner than a pixel, needs more to
-// show at all; its setules stay fainter than it, as before the cap, so a comb reads as strokes.
-const float PART_LUMA = 0.5;
-// A thin leg's light and density at its edge and added at its axis (look pass 6): a glass rod lit
-// through, brightest along its axis, so it reads as one bright stroke.
-const vec2 LEG_FILL = vec2(0.25, 0.4);
-const vec2 LEG_ALPHA = vec2(0.6, 0.3);
-const float SETA_LUMA = 0.75;
+// A part's radius on screen (pixels) over which it turns from all rim (a glass rod narrower than the
+// body's rim band is all edge) to glass with a rim, like the body (M6c T6; at 2.5-6 a fan of paddles
+// drawn all rim read as a white cloud).
+const vec2 PART_CLEAR_PX = vec2(0.75, 1.5);
+// A fine part (a leg, a pearl, a seta, a membrane, the mouth's feature) draws no brighter than the body
+// rim's peak (M6c T6, `rimPeak`): one alone matches the rim, and where many overlap they fill an area
+// at that colour, which the grade's shoulder keeps short of white. Setae, setules and fringe stay
+// fainter than it (shares of it), so a comb's bristles and their bloom stay separate strokes rather
+// than one bright cloud, and fringe reads as faint cilia.
+const float SETA_LUMA = 0.6;
 const float SETULE_LUMA = 0.3;
 // How dense a setule is (0.45 before look pass 6): where combs overlap, their setules filled the
 // space between the bristles with a grey haze.
-const float SETULE_ALPHA = 0.3;
+const float SETULE_ALPHA = 0.25;
+// How dense a seta is: one alone, often thinner than a pixel, still reads, while a comb of them
+// builds toward the cap rather than filling at once.
+const float SETA_ALPHA = 0.7;
+// Fringe (M6c T3, T6): fine, faint cilia, their light and density.
+const float FRINGE_LUMA = 0.55;
+const float FRINGE_ALPHA = 0.35;
 // A pearl tip's hot point toward the light, added over the cap.
 const float PEARL_HOT = 0.5;
-// The mouth's lip: the fresnel over which it rises, and how bright it is (look pass 6).
-const vec3 LIP = vec3(0.06, 0.5, 1.15);
 // Veins across a membrane sheet.
 const float MEMBRANE_VEINS = 6.0;
 // The thin walls across the body between segments (look pass 3): how bright, their width in pixels,
@@ -109,12 +113,17 @@ const vec3 LUMA = vec3(0.2126, 0.7152, 0.0722);
 const vec3 KEY_HALF = vec3(-0.42, 0.46, 0.782);
 // The caustic lines' colour over a body: brighter than on the water, as the glass is seen through.
 const vec3 CAUSTIC_BODY = vec3(0.45, 0.8, 0.72);
-// The shell's rim (M6b T3): its power (plain, membranous) and its brightness at the edge. Pass 1's
-// rim was the fresnel itself (power 2, 1.8 bright), which lit the glass well inside the edge.
-const vec2 RIM_POWER = vec2(5.0, 3.8);
-const float RIM = 5.0;
-// The least of the body's rim drawn at full strength, in pixels from its edge (M6b T5 fix).
-const float RIM_MIN_PX = 1.0;
+// The glass (pass 1, ADR 0043): the face's core light face-on and added at the axis, and the rim's
+// brightness, the fresnel itself (power 2 to 1.4 by membrane), which lights the glass inside the edge.
+const vec2 FACE = vec2(0.15, 0.3);
+const float RIM = 1.8;
+const float BACK = 0.9;
+// How far in from the edge the rim keeps its full strength, as z over its screen gradient, which is
+// about twice the pixels from a rounded edge (M6b T5 fix; M6c T6: 3, so a body's and a limb's edge
+// keep about 1.5 px of full rim, and a rod 3 px across is all rim).
+const float RIM_MIN_PX = 3.0;
+// A limb's light along its axis (pass 1's legs, lit through). Its density is the body's.
+const float LIMB_FILL = 0.3;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
@@ -184,26 +193,37 @@ void main() {
   vec3 normal = normalize(vNormal);
   float z = abs(normal.z);
   float fres = pow(1.0 - z, mix(2.0, 1.4, uMembrane));
-  // The shell's rim (M6b T3): far steeper than the fresnel, so it is a crisp bright line round clear
-  // glass rather than a glow reaching into the face; the backlight rides it.
-  float rim = pow(1.0 - z, mix(RIM_POWER.x, RIM_POWER.y, uMembrane));
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
-  // On a slim segment (M6b T5's tails and small heads) that steep rim falls under a pixel and fades
-  // into the water, so the body's edge keeps at least RIM_MIN_PX of it: z over its screen gradient
-  // is about how many pixels the edge, where z reaches 0, lies away.
-  if (kind == 0 || kind == 2) {
-    rim = max(rim, 1.0 - smoothstep(0.0, RIM_MIN_PX, z / max(fwidth(z), 1e-4)));
-  }
+  // Pearl tips and fringe carry `uv.x` tags; the mouth's feature (M6c T6, creature-mouth.ts) is
+  // drawn as a limb's tube and setae's ribbons.
+  bool tagged = kind == 1 && vUv.x >= PEARL_TAG;
+  bool fringe = kind == 1 && vUv.x >= FRINGE_TAG;
+  // The rim is the fresnel (pass 1). On the body, its plates, the mouth's disc (kind 3, glass like the
+  // rest of the body since M6c T6, with no dark fill) and the limbs, the edge keeps at least
+  // RIM_MIN_PX of it at full strength, so a slim segment (M6b T5's tails and small heads) and a limb
+  // keep an edge: z over its screen gradient grows with the pixels to the edge, where z reaches 0.
+  float rim = fres;
+  bool hull = kind == 0 || kind == 2 || kind == 3;
+  if (hull || kind == 1) rim = max(rim, 1.0 - smoothstep(0.0, RIM_MIN_PX, z / max(fwidth(z), 1e-4)));
+  // A thin rod (a limb, a mandible) narrower than the rim band is all rim: the same glass as the
+  // body's edge, so a limb reads as the body's, not grey (M6c T6).
+  // `uv.x` runs once round a part's tube, so its rate across the screen gives the tube's radius in
+  // pixels; unlike the normal's, it does not change along the part, where a paddle swells.
+  float across = 1.0 / max(6.2832 * length(vec2(dFdx(vUv.x), dFdy(vUv.x))), 1e-4);
+  float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
+  if (kind == 1) rim = mix(rim, 1.0, thin);
   float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   // Screen pixels per core radius, for the detail's fade.
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
 
-  // The shell is clear face-on (M6 T12, M6b T3): a faint core lets the water and the organs show,
-  // and the rim carries the edge.
-  vec3 col = uCore * (0.05 + 0.13 * z) + uRim * ((rim * RIM + back * 0.9) * uRimStrength);
-  // Markings are faint structure in the glass (0.2 in pass 1; fainter since M6b T3, so the shell stays clear).
-  col = mix(col, uRim * 0.8, markings(vUv) * 0.1);
+  // Pass 1's glass (ADR 0043): a dim core face-on lets the water and the organs show, with a soft
+  // sheen toward the edge, and the fresnel rim carries the edge. No haze layer over the face.
+  vec3 col = uCore * (FACE.x + FACE.y * z) + uRim * ((rim * RIM + back * BACK) * uRimStrength);
+  // The rim's peak, which no fine part outshines.
+  float rimPeak = dot(uCore * FACE.x + uRim * (RIM * uRimStrength), LUMA);
+  // Markings are faint structure in the glass, as in pass 1 (ADR 0043).
+  col = mix(col, uRim * 0.8, markings(vUv) * 0.2);
 
   // Thin-film shimmer: the hue slides with the view angle, a pale sheen on the clear shell.
   if (uIrid > 0.0) {
@@ -220,7 +240,7 @@ void main() {
   float alpha = mix(0.5, 0.2, uTranslucency) * (1.0 - rim) + rim;
   bool glass = kind <= 4;
   float pearlHot = 0.0;
-  if (kind == 0 || kind == 2) {
+  if (hull) {
     // A thin wall where two segments meet: a ring round the body, seen from above as a line across
     // it.
     float near = abs(vWall - floor(vWall + 0.5));
@@ -232,7 +252,11 @@ void main() {
     col += uRim * wall * WALL;
     alpha = max(alpha, wall * 0.5);
   }
-  if (kind == 1 && vUv.x >= PEARL_TAG) {
+  if (fringe) {
+    // Fringe (M6c T3, T6): fine, faint cilia, the body's glass at low density.
+    col = uRim * (RIM * uRimStrength);
+    alpha = FRINGE_ALPHA;
+  } else if (tagged) {
     // A bulb tip (look pass 2): a small solid pearl, bright through, with one hot point toward the
     // light, as on the bead-tipped tentacles of references 02 and 03.
     vec2 n = normal.xy;
@@ -241,47 +265,30 @@ void main() {
     col = uRim * (0.5 + 0.3 * z);
     alpha = 0.85 + 0.15 * z;
   } else if (kind == 1) {
-    // A leg, antenna or bead: thin glass lit through, so its whole width reads bright against the
-    // water, not only its edges (a hollow ring reads as a bubble). Its swellings catch the key light
-    // in small wet points along the joints (look pass 2).
-    // A wide part (a paddle or a broad leg several pixels across) is clear glass like the body, its
-    // edges bright and its face open (look pass 5): lit through, stacked paddles read as a white cloud.
-    float across = 1.0 / max(length(fwidth(normal.xy)), 1e-3);
-    float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
-    float gloss = pow(max(dot(normal, KEY_HALF), 0.0), JOINT_GLOSS);
-    // Look pass 6 (M6b T12): a thin stroke is lit evenly through its width, as in pass 1, rather than
-    // a dark tube between two bright edges, which read as grey smoke once the cap dimmed the edges.
-    col = mix(col, uRim * (LEG_FILL.x + LEG_FILL.y * z), thin) +
-      vec3(gloss * JOINT_SHINE * dot(uRim, LUMA));
-    alpha = mix(alpha, max(alpha, LEG_ALPHA.x + LEG_ALPHA.y * z), thin);
+    // A leg, antenna, bead or mandible (M6c T6): the body's glass, face and fresnel rim alike, lit
+    // through along its axis, as pass 1's legs were. A thin one is all rim, so it
+    // reads as one stroke as bright as the body's edge; a wide one (a paddle, a broad leg) is glass
+    // with a bright edge. Neither has a bright wet point of its own, which read as beads.
+    col += uRim * (LIMB_FILL * z * uRimStrength);
   } else if (kind == 2) {
     // A plate: denser, brighter glass with a sheen across its face, so armour reads at default zoom
     // (M6 T21), but not an opaque lid: the organs still show through, and the body stays clear
     // (look pass 2 cut the milky fill to under half, and M6b T3 by half again).
     col = mix(col, uRim * (0.75 + 0.35 * z) + 0.06, 0.1) + vec3(spec * 1.5);
     alpha = mix(alpha, 1.0, 0.2 * uPlating);
-  } else if (kind == 3) {
-    // The mouth: a dark opening ringed by a bright lip, so it reads at default zoom as a mouth, not
-    // as a pale cap on the front of the body (look pass 1, M6 T21). The lip stays near white: colour
-    // lives inside (T12), and a tinted rim would compete with the organs.
-    // Look pass 6 dimmed the lip (from 1.3 bright) and softened its rise (0.06-0.5 of the fresnel, from 0.06-0.4; a higher lower edge cut the mouth off the body in the Lab): on the clear shells of
-    // M6b T3 a round cell's mouth, seen edge-on, read as a pale crescent over the front of the body.
-    float lip = smoothstep(LIP.x, LIP.y, fres);
-    col = mix(vec3(0.03, 0.02, 0.025), vec3(1.0, 0.95, 0.9) * LIP.z, lip);
-    alpha = mix(0.8, 1.0, lip);
   } else if (kind == 4) {
     // The carapace: clear glass over the body, a bright rim, a little denser with plating. Its face
     // is nearly clear (M6b T3), so a fused body is not veiled in a milky shell.
     col = uRim * (0.1 + 1.5 * fres + 0.6 * back) + uCore * 0.15;
     alpha = mix(0.1, 0.3, uPlating) + 0.8 * fres;
   } else if (kind == 5) {
-    // A seta: a hair-thin bright stroke.
-    col = uRim * 1.3 + 0.06;
-    alpha = 0.9;
+    // A seta: a hair-thin stroke, all rim, as bright as the body's edge.
+    col = uCore * FACE.x + uRim * (RIM * uRimStrength);
+    alpha = SETA_ALPHA;
   } else if (kind == PART_SETULE) {
     // A setule (look pass 5): a fainter side hair of a plumose bristle, so a comb stays fine hair
     // and stacked combs do not fill into a white cloud.
-    col = uRim * 0.8 + 0.04;
+    col = uRim * (RIM * uRimStrength);
     alpha = SETULE_ALPHA;
   } else if (kind == 6) {
     // A membrane: a thin sheet, its veins running out from the root and across, a fine network
@@ -298,8 +305,10 @@ void main() {
     // webbed fan reads as a few veins in clear glass rather than crumpled foil.
     float vein = max(ray * smoothstep(0.0, 0.15, vUv.y), max(max(arc * 0.5, net * 0.15), edge));
     // Look pass 2 made the sheet between the veins clearer (0.45 and 0.16), so stacked wings stay
-    // veined glass instead of a milky cloud.
-    col = uRim * (0.4 + 1.1 * vein) + uCore * 0.2;
+    // veined glass instead of a milky cloud. The body's glass (M6c T6): the face between the veins,
+    // and the veins and free edge lit as its rim.
+    float edgeLight = max(vein, fres);
+    col = uCore * (FACE.x + FACE.y * z) + uRim * (edgeLight * RIM * uRimStrength);
     alpha = 0.07 + 0.55 * vein;
   } else if (kind == 7) {
     // An eye: a dark pigment cup in a clear lens (look pass 3, reference 05's big dark eyes): a
@@ -411,17 +420,18 @@ void main() {
     alpha = min(alpha + 0.5 * lines * (1.0 - alpha), 1.0);
   }
 
-  // A fine part's light is capped (M6b T4): its tube's rim, gloss and caustics would otherwise add
-  // up, and overlapping parts filled whole areas with white.
+  // A fine part's light is capped at the body rim's peak (M6b T4, M6c T6): its tube's rim, gloss and
+  // caustics would otherwise add up, and overlapping parts filled whole areas with white.
   if (kind == 1 || kind == 5 || kind == 6 || kind == PART_SETULE) {
-    float cap = kind == 5 ? SETA_LUMA : kind == PART_SETULE ? SETULE_LUMA : PART_LUMA;
+    float cap = rimPeak *
+      (kind == 5 ? SETA_LUMA : kind == PART_SETULE ? SETULE_LUMA : fringe ? FRINGE_LUMA : 1.0);
     col *= min(1.0, cap / max(dot(col, LUMA), 1e-4));
     col += vec3(PEARL_HOT) * pearlHot;
   }
 
   // Dark water (M6 T16): beyond the player's sight in the deep and the abyss the body fades into
   // the fog unless glow lights it, but its rim always stays, so a creature is never invisible.
-  col = mix(uRim * (rim * RIM + back * 0.9) * uRimStrength, col, uSight);
+  col = mix(uRim * (rim * RIM + back * BACK) * uRimStrength, col, uSight);
 
   vec3 hurtCol = vec3(1.0, 0.18, 0.12);
   if (uHurt > 0.0) col = mix(col, col * 0.5 + hurtCol * (0.35 + 0.8 * fres), uHurt * 0.7);

@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { CellMasks } from '../../src/lab/gallery-masks';
 import type { Disc } from '../../src/lab/gallery-page';
 import type { Rect } from '../../src/lab/grid';
 
@@ -95,7 +96,7 @@ const luminance = (rgba: Image['rgba'], i: number): number =>
   0.7152 * (rgba[i + 1] as number) +
   0.0722 * (rgba[i + 2] as number);
 
-const median = (values: number[]): number => {
+export const median = (values: number[]): number => {
   if (values.length === 0) return Number.NaN;
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[sorted.length >> 1] as number;
@@ -166,5 +167,88 @@ export function bodyLook(
     shellLuma,
     water: waterLuma,
     excess: shellLuma - waterLuma,
+  };
+}
+
+/** A `CellMasks` bitset (`src/lab/gallery-masks.ts`) as one byte (0 or 1) per pixel of its room. */
+export function maskBits(mask: string, length: number): Uint8Array {
+  const bytes = Buffer.from(mask, 'base64');
+  const out = new Uint8Array(length);
+  for (let i = 0; i < length; i++) out[i] = ((bytes[i >> 3] as number) >> (i & 7)) & 1;
+  return out;
+}
+
+const mean = (values: number[]): number =>
+  values.length === 0 ? Number.NaN : values.reduce((a, b) => a + b, 0) / values.length;
+
+const percentile = (values: number[], p: number): number => {
+  if (values.length === 0) return Number.NaN;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] as number;
+};
+
+/** A pixel is grey enough to be glass rather than an organ's colour (chroma under `CHROMA`). */
+const grey = (rgba: Image['rgba'], i: number): boolean =>
+  Math.max(rgba[i] as number, rgba[i + 1] as number, rgba[i + 2] as number) -
+    Math.min(rgba[i] as number, rgba[i + 1] as number, rgba[i + 2] as number) <
+  CHROMA * 255;
+
+/** The body's rim is read at this percentile of its band: the bright line, not the pixels inside it. */
+export const RIM_PEAK = 0.9;
+/** A dark patch is read at this percentile: the darkest tenth of a region. */
+export const DARK = 0.1;
+
+export interface GlassLook {
+  /** Pixels in each region. */
+  counts: { face: number; rim: number; limbs: number; mouth: number };
+  /** The face's mean luminance (0-255) over its grey pixels, and its darkest tenth (`DARK`). */
+  face: number;
+  faceDark: number;
+  /** The rim band's peak (`RIM_PEAK`). */
+  rim: number;
+  /** The limbs' median. */
+  limbs: number;
+  /** The mouth's mean and its darkest tenth. */
+  mouth: number;
+  mouthDark: number;
+}
+
+/**
+ * The glass measures of one cell (M6c T6, ADR 0043), read by region from the gallery hook's masks:
+ * the face (its grey pixels, so an organ's colour spilling into it does not count), the rim's peak,
+ * the limbs' median and the mouth. `map` places a mask pixel `(x, y)` (sheet pixels) on `image`, for
+ * reading the same regions on another sheet (pass 1's layout); by default the same pixel.
+ */
+export function glassLook(
+  image: Image,
+  masks: CellMasks,
+  map: (x: number, y: number) => Point = (x, y) => ({ x, y }),
+): GlassLook {
+  const n = masks.w * masks.h;
+  const read = (mask: string, keep: (i: number) => boolean = () => true): number[] => {
+    const bits = maskBits(mask, n);
+    const out: number[] = [];
+    for (let k = 0; k < n; k++) {
+      if (!bits[k]) continue;
+      const p = map(masks.x + (k % masks.w), masks.y + Math.floor(k / masks.w));
+      const [x, y] = [Math.round(p.x), Math.round(p.y)];
+      if (x < 0 || y < 0 || x >= image.width || y >= image.height) continue;
+      const i = (y * image.width + x) * 4;
+      if (keep(i)) out.push(luminance(image.rgba, i));
+    }
+    return out;
+  };
+  const face = read(masks.face, (i) => grey(image.rgba, i));
+  const rim = read(masks.rim);
+  const limbs = read(masks.limbs);
+  const mouth = read(masks.mouth);
+  return {
+    counts: { face: face.length, rim: rim.length, limbs: limbs.length, mouth: mouth.length },
+    face: mean(face),
+    faceDark: percentile(face, DARK),
+    rim: percentile(rim, RIM_PEAK),
+    limbs: median(limbs),
+    mouth: mean(mouth),
+    mouthDark: percentile(mouth, DARK),
   };
 }

@@ -30,6 +30,7 @@ import {
   gallerySpecimens,
   LABEL_HEIGHT,
 } from './gallery';
+import { type CellMasks, cellMasks, renderClasses } from './gallery-masks';
 import { ADVANCE_STEP, SWIM, WATER } from './lab';
 import { specimenOf } from './specimens';
 
@@ -58,6 +59,11 @@ export interface GalleryEntry {
   organs: Disc[];
   /** The body's hull as drawn, parts excluded: a CSS-pixel polygon down the left edge and back up the right. */
   outline: { x: number; y: number }[];
+  /**
+   * The cell's region masks as drawn (M6c T6, `gallery-masks.ts`): the body's glass face, its rim,
+   * its limbs and its mouth, as bitsets over the cell's room.
+   */
+  masks: CellMasks;
 }
 
 export interface Disc {
@@ -280,6 +286,7 @@ export async function startGallery(): Promise<void> {
       valid: specimen.violations.length === 0,
       organs: [],
       outline: [],
+      masks: { x: 0, y: 0, w: 0, h: 0, face: '', rim: '', limbs: '', mouth: '' },
     };
     return { view, state, entry };
   });
@@ -301,6 +308,18 @@ export async function startGallery(): Promise<void> {
   }
   post.render(scene, camera);
   const info = { calls: renderer.info.render.calls, triangles: renderer.info.render.triangles };
+  const classes = renderClasses(
+    renderer,
+    scene,
+    camera,
+    shown.map((s) => s.view.mesh),
+    width,
+    height,
+  );
+  shown.forEach(({ entry }, i) => {
+    const cell = galleryCell(i, grid);
+    entry.masks = cellMasks(classes, width, { ...cell, h: cell.h - LABEL_HEIGHT });
+  });
 
   const hook: GalleryHook = {
     ready: false,
@@ -314,6 +333,7 @@ export async function startGallery(): Promise<void> {
         ...s.entry,
         organs: s.entry.organs.map((o) => ({ ...o })),
         outline: s.entry.outline.map((p) => ({ ...p })),
+        masks: { ...s.entry.masks },
       })),
     }),
     renderInfo: () => ({ ...info }),

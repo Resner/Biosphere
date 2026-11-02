@@ -149,16 +149,22 @@ function withinBody(plan: BodyPlan, x: number, y: number, scale: number): boolea
   return inEllipse || inEye;
 }
 
+/** Samples (half pixels) either side over which a stroke's floor is read: 6 px. */
+const FLOOR_REACH = 12;
+
 /**
  * The most separate thin bright strokes crossing one circle round the core, outside the body. A
  * stroke starts above `bright` and ends below `dark` (so grain and glow never split one), and
  * counts when it is at most `thin` pixels wide and does not touch the body (with a 2 px margin).
+ * Both levels stand on the stroke's floor (M6c T6): since the legs are the body's bright glass
+ * (ADR 0043), the glow of a fan of them lifts the water between its bristles, and a bristle is a
+ * stroke where the light falls back to that glow. A blur of bristles has no such dips.
  */
 function strokes(
   luma: Luma,
   place: ReturnType<typeof placeOf>,
   plan: BodyPlan,
-  levels: { bright: number; dark: number },
+  levels: { bright: number; dark: number; water: number },
   thin: number,
 ): number {
   let best = 0;
@@ -172,6 +178,16 @@ function strokes(
       if (insideBody(plan, c * near, n * near)) return null;
       return luma.at(place.x + radius * c, place.y - radius * n);
     });
+    // The floor under a stroke: the darkest sample within `FLOOR_REACH` either side, so a stroke
+    // ends where the light falls back to the water or to the glow of bright parts beside it.
+    const floor = at.map((_, i) => {
+      let low = Number.POSITIVE_INFINITY;
+      for (let k = -FLOOR_REACH; k <= FLOOR_REACH; k++) {
+        const v = at[(i + k + samples) % samples];
+        if (v !== null && v !== undefined) low = Math.min(low, v);
+      }
+      return Math.max(0, low - levels.water);
+    });
     const start = at.findIndex((v) => v !== null && v < levels.dark);
     if (start < 0) continue;
     let count = 0;
@@ -179,12 +195,13 @@ function strokes(
     let on = false;
     for (let i = 1; i <= samples; i++) {
       const v = at[(start + i) % samples] ?? null;
+      const lift = floor[(start + i) % samples] as number;
       if (v === null) {
         [on, run] = [false, 0];
         continue;
       }
-      if (!on && v >= levels.bright) [on, run] = [true, 0];
-      if (on && v < levels.dark) {
+      if (!on && v >= levels.bright + lift) [on, run] = [true, 0];
+      if (on && v < levels.dark + lift) {
         if (run / 2 <= thin) count++;
         on = false;
       }
@@ -323,13 +340,19 @@ test.describe('the gallery sheet', () => {
   });
 
   // The threshold is 10 since M6c T4 halved the bristles per part (24 to 12, ADR 0041): half of the
-  // 20 it was, with the bare cell at 3 as the control.
+  // 20 it was, with the bare cell (3, and 5 since M6c T6's mouth cilia) as the control.
   test('setae show as at least 10 separate thin bright strokes on the setose specimen', () => {
     const shrimp = specimen('27-specimen-shrimp');
     expect(shrimp.plan.appendages.reduce((n, a) => n + a.setae, 0)).toBeGreaterThanOrEqual(40);
     const place = placeOf(shrimp.index, { radius });
     const water = waterIn(luma, place);
-    const count = strokes(luma, place, shrimp.plan, { bright: water + 30, dark: water + 12 }, 4);
+    const count = strokes(
+      luma,
+      place,
+      shrimp.plan,
+      { bright: water + 30, dark: water + 12, water },
+      4,
+    );
     const bare = specimen('01-genesis');
     const barePlace = placeOf(bare.index, { radius });
     const bareWater = waterIn(luma, barePlace);
@@ -337,7 +360,7 @@ test.describe('the gallery sheet', () => {
       luma,
       barePlace,
       bare.plan,
-      { bright: bareWater + 30, dark: bareWater + 12 },
+      { bright: bareWater + 30, dark: bareWater + 12, water: bareWater },
       4,
     );
     console.log(`setae strokes: shrimp ${count}, bare cell ${control}`);

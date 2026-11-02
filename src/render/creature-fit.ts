@@ -15,6 +15,7 @@ import {
   organVertices,
 } from './creature-detail';
 import { addBody, addShell, stations } from './creature-loft';
+import { addMouth } from './creature-mouth';
 import {
   addAppendage,
   addEyes,
@@ -48,8 +49,8 @@ export function addCreature(
   const frames = plan.appendages.map((a, i) =>
     rootFrame(plan, spine, a, a.webbing > 0 || webbed.has(i)),
   );
-  // Draw order (one draw call, no depth test): membranes, parts and bristles, the body, the organs
-  // inside it, the shell, the eyes.
+  // Draw order (one draw call, no depth test): membranes, parts and bristles, the body, the mouth's
+  // feature on its front (M6c T6), the organs inside it, the shell, the eyes.
   for (const sheet of plan.membranes) {
     const frame = frames[sheet.part];
     if (frame) addMembrane(m, plan, sheet, frame, d);
@@ -59,6 +60,8 @@ export function addCreature(
   });
   m.gait = NO_MOTION;
   addBody(m, plan, spine, d);
+  addMouth(m, plan, spine, d);
+  m.gait = NO_MOTION; // the mouth moves with its front station; the organs do not
   addOrgans(m, plan, spine, anatomy, organs);
   addShell(m, plan, spine, d);
   addEyes(m, plan, spine, d);
