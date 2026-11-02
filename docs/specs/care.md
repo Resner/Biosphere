@@ -68,7 +68,8 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Done: `authority.ts` (296 lines) keeps state, alarm and dispatch; handlers are functions of `Hub` in `sessions.ts`, `lives.ts`, `offspring.ts`, with `Session` and send helpers in `socket.ts`; bodies moved verbatim (`this.` became `hub.`).
   - Gotcha: `ctx`/`env` are redeclared public (`declare`) so `Authority` implements `Hub`; a `deliverGenesis` method stays because `genesis.test.ts` calls it.
 
-- [ ] C6 Split `src/render/creature-mesh.test.ts` (1,204 lines) into files under 1,000 lines (in progress)
+- [x] C6 Split `src/render/creature-mesh.test.ts` (1,204 lines) into files under 1,000 lines
+  - Done: the shared fixtures moved verbatim to `creature-mesh-kit.ts`; the tests split into `creature-mesh.test.ts` (budgets, body, anatomy, glints) and `creature-mesh-parts.test.ts` (parts onward), the same 42 tests.
   - Why: found by C4; the test file outgrew the 1,000-line bound its module now keeps.
   - Touches: `src/render/creature-mesh.test.ts`, the files it becomes.
   - Steps: split by the areas C4 gave the module (buffer, loft, parts, fit). Move tests verbatim; no assertion changes.
