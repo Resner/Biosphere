@@ -15,7 +15,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Acceptance: `npx playwright test tests/e2e/m6-dof.spec.ts --project post --no-deps --repeat-each=5 --workers=1` passes, with no assertion loosened.
   - Done: `debug.freezeAt(tick, x, y)` freezes the world at tick 0 at the pond's centre; `play()` uses it (the only wait in `m6-dof`), and 5 repeats pass (15 of 15).
 
-- [ ] C1 Split `src/genome/develop.ts` (2,218 lines) into modules under 1,000 lines
+- [ ] C1 Split `src/genome/develop.ts` (2,218 lines) into modules under 1,000 lines (in progress)
   - Why: agents read a file 2,000 lines at a time, so its end is easy to miss. Every body task edits it, so the build lane conflicts with itself and with this lane.
   - Touches: `src/genome/develop.ts`, the modules it becomes, and their importers.
   - Steps:
