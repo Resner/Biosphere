@@ -139,10 +139,10 @@ describe('the creature shader', () => {
     expect(fragmentShader).toMatch(/float fine\(float widthPx\)/);
     expect(fragmentShader).toMatch(/fine\(LINE_CELL \* DETAIL_CELL \* px\)/);
     expect(fragmentShader).toMatch(/fine\(LINE_VEIN \* DETAIL_VEIN \* px\)/);
-    expect(fragmentShader).toMatch(/kind == PART_GUT[\s\S]*?alpha \*= fine\(2\.0 \* across\)/);
+    expect(fragmentShader).toMatch(/kind == PART_GUT[\s\S]*?alpha \*= fine\(tubePx\)/);
     expect(fragmentShader).toMatch(/kind == PART_SETULE[\s\S]*?alpha = SETULE_ALPHA \* fine\(/);
     // Limbs, fringe and pearls too: a sub-pixel antenna came and went as the zoom moved it.
-    expect(fragmentShader).toMatch(/if \(kind == 1\) alpha \*= fine\(2\.0 \* across\);/);
+    expect(fragmentShader).toMatch(/if \(kind == 1\) alpha \*= fine\(tubePx\);/);
     // A tube's width reads the smaller of its two turns' rates, so its wrap band is no thin rod.
     expect(fragmentShader).toMatch(/min\(rate, turnRate\)/);
     // No NaN: a normal is never normalised from nothing, and a facing never passes 1.

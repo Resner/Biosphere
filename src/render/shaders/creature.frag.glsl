@@ -239,6 +239,9 @@ void main() {
   float rate = length(vec2(dFdx(vUv.x), dFdy(vUv.x)));
   float turnRate = length(vec2(dFdx(vTurn), dFdy(vTurn)));
   float across = 1.0 / max(6.2832 * min(rate, turnRate), 1e-4);
+  // A tube's width on screen, for fading one under 1.5 px (M6c T8): seen from above, `across` reads
+  // from half the radius at the tube's edges (where a thin tube's few pixels lie) to all of it on top.
+  float tubePx = 4.0 * across;
   float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
   if (kind == 1) rim = mix(rim, 1.0, thin);
   vec2 side = normal.xy + 1e-4;
@@ -386,7 +389,7 @@ void main() {
       // they are joined them into one streak.
       col = tame(uOrgan) * (0.25 + 0.3 * z);
       alpha = 0.18 + 0.22 * z;
-      alpha *= fine(2.0 * across);
+      alpha *= fine(tubePx);
     } else if (kind == PART_CHAMBER) {
       // A fluid chamber, glassy as in pass 1: a clear centre in its colour and a brighter, denser wall.
       col = tint * (0.45 + 0.3 * z + 0.6 * fres) + 0.1 * spot;
@@ -415,7 +418,7 @@ void main() {
 
   // A limb, a fringe cilium or a pearl narrower than 1.5 px fades rather than breaking into dots that
   // come and go as the body moves on the pixel grid (M6c T8: the owner's flashing antennae).
-  if (kind == 1) alpha *= fine(2.0 * across);
+  if (kind == 1) alpha *= fine(tubePx);
 
   if (glass) {
     // The glass's surface: faint cell walls, small pits and an uneven thickness, each fading in

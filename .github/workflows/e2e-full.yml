@@ -57,7 +57,7 @@ jobs:
       - run: npm run e2e:setup --if-present
       - name: Install Firefox
         if: matrix.firefox
-        run: npx playwright install --with-deps firefox
+        run: npx playwright install --with-deps firefox chromium
       - name: Run this part of the suite
         if: ${{ !matrix.firefox }}
         run: npx playwright test ${{ matrix.args }}
