@@ -65,4 +65,5 @@ export const DEATH_TEXT: Readonly<Record<DeathCause, { name: string; hint: strin
   uv: { name: 'Burned', hint: 'Sunlight was too strong up here.' },
   pressure: { name: 'Crushed', hint: 'The deep water was too heavy.' },
   killed: { name: 'Killed', hint: 'Another creature got you.' },
+  eaten: { name: 'Eaten', hint: 'A predator ate the egg. Guard it when you fight.' },
 };

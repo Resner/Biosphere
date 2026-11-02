@@ -40,9 +40,16 @@ export type SnapshotFields = Omit<Snapshot, 'seq'>;
 export interface SnapshotMarks {
   ready: boolean;
   egg: boolean;
+  spawnProtected: boolean;
+  fighting: boolean;
 }
 
-const NO_MARKS: SnapshotMarks = { ready: false, egg: false };
+const NO_MARKS: SnapshotMarks = {
+  ready: false,
+  egg: false,
+  spawnProtected: false,
+  fighting: false,
+};
 
 /** The creature as peers see it. Energy and health are fractions of their maxima. */
 export function snapshotOf(
@@ -66,6 +73,8 @@ export function snapshotOf(
     dashing: sinceDash >= 0 && sinceDash < DASH_SHOWN_TICKS,
     ready: marks.ready,
     egg: marks.egg,
+    spawnProtected: marks.spawnProtected,
+    fighting: marks.fighting,
     genomeRef,
   };
 }

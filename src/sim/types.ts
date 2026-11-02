@@ -9,7 +9,8 @@ export interface Vec2 {
   y: number;
 }
 
-export type DeathCause = 'starved' | 'toxin' | 'old-age' | 'uv' | 'pressure' | 'killed';
+/** `eaten` ends only a pending child whose egg a predator ate in an encounter (ADR 0052). */
+export type DeathCause = 'starved' | 'toxin' | 'old-age' | 'uv' | 'pressure' | 'killed' | 'eaten';
 
 export interface CreatureState {
   id: string;

@@ -39,16 +39,31 @@ import {
   type Vec2,
   WELCOME_MAX_BYTES,
 } from './protocol-defs';
+import { encounterClientMsg, encounterHubMsg } from './protocol-encounter';
+import {
+  byteLength,
+  capped,
+  GENOME_DATA_RE,
+  HEX64_RE,
+  isInt,
+  isNum,
+  isObj,
+  isStr,
+  list,
+  MAX_CONDITION,
+  MAX_TICK,
+  MAX_TIME,
+  type Obj,
+  PLAYER_ID_RE,
+  SIG_RE,
+} from './protocol-kit';
 
-const PLAYER_ID_RE = /^[A-Za-z0-9_-]{43}$/;
-/** An Ed25519 signature (64 bytes) in base64url. */
-const SIG_RE = /^[A-Za-z0-9_-]{86}$/;
+export { byteLength };
+
 const NONCE_RE = /^[A-Za-z0-9_-]{22}$/;
 const SLOT_RE = /^[A-Za-z0-9_]{1,24}$/;
 const CODE_RE = /^[a-z0-9-]{1,32}$/;
 const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
-const GENOME_DATA_RE = new RegExp(`^[A-Za-z0-9_-]{1,${GENOME_DATA_MAX_CHARS}}$`);
-const HEX64_RE = /^[0-9a-f]{64}$/;
 /** A drand quicknet signature: 48 bytes of hex. */
 const BEACON_SIG_RE = /^[0-9a-f]{96}$/;
 /** An authority key id: 6 bytes of base64url. */
@@ -86,23 +101,6 @@ const isStatus = (v: unknown): v is Status => typeof v === 'string' && Object.ha
 // ---------------------------------------------------------------------------------------------
 // JSON parsing: every message is untrusted, so each parser copies only the fields it knows.
 
-type Obj = Record<string, unknown>;
-
-/** UTF-8 length without TextEncoder, which keeps this module free of runtime APIs. */
-export function byteLength(s: string): number {
-  let n = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    if (c < 0x80) n += 1;
-    else if (c < 0x800) n += 2;
-    else if (c >= 0xd800 && c < 0xdc00 && i + 1 < s.length) {
-      n += 4;
-      i++;
-    } else n += 3;
-  }
-  return n;
-}
-
 /** Parses a JSON object, or returns null on bad JSON, a non-object or any `__proto__` key. */
 function parseObject(raw: unknown, maxBytes: number): Obj | null {
   // A string longer than the cap in UTF-16 units can still fit in bytes only when it is shorter,
@@ -121,17 +119,6 @@ function parseObject(raw: unknown, maxBytes: number): Obj | null {
   if (poisoned || typeof value !== 'object' || value === null || Array.isArray(value)) return null;
   return value as Obj;
 }
-
-const isInt = (v: unknown, min: number, max: number): v is number =>
-  typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
-const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
-const isStr = (v: unknown, re: RegExp): v is string => typeof v === 'string' && re.test(v);
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-
-const MAX_TICK = 0xffffffff;
-const MAX_TIME = Number.MAX_SAFE_INTEGER;
-/** A condition value in hundredths: far above any body (maxBiomass is a few thousand wu), still safe to multiply. */
-const MAX_CONDITION = 1_000_000_000;
 
 function vec(v: unknown): Vec2 | null {
   return isObj(v) && isNum(v.x) && isNum(v.y) ? { x: v.x, y: v.y } : null;
@@ -154,17 +141,6 @@ function iceServer(v: unknown): IceServer | null {
     if (field === undefined) continue;
     if (typeof field !== 'string' || field.length > 512) return null;
     out[key] = field;
-  }
-  return out;
-}
-
-function list<T>(v: unknown, max: number, item: (x: unknown) => T | null): T[] | null {
-  if (!Array.isArray(v) || v.length > max) return null;
-  const out: T[] = [];
-  for (const x of v) {
-    const parsed = item(x);
-    if (parsed === null) return null;
-    out.push(parsed);
   }
   return out;
 }
@@ -238,7 +214,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return ask ? capped(raw, { t: o.t, ask }) : null;
     }
     default:
-      return null;
+      return encounterClientMsg(o, raw);
   }
 }
 
@@ -369,10 +345,17 @@ export function parseHubMsg(raw: string): HubMsg | null {
     case 'died': {
       const record = storedRecord(o.record);
       const fallback = o.fallback === undefined ? undefined : fallbackOf(o.fallback);
+      if (o.by !== undefined && !isStr(o.by, NAME_RE)) return null;
       return isCause(o.cause) && record && fallback !== null
         ? capped(
             raw,
-            { t: 'died', cause: o.cause, record, ...(fallback ? { fallback } : {}) },
+            {
+              t: 'died',
+              cause: o.cause,
+              record,
+              ...(fallback ? { fallback } : {}),
+              ...(o.by === undefined ? {} : { by: o.by }),
+            },
             GENESIS_MAX_BYTES,
           )
         : null;
@@ -417,7 +400,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
         ? capped(raw, { t: 'queued', position: o.position, etaS: o.etaS })
         : null;
     default:
-      return null;
+      return encounterHubMsg(o, raw);
   }
 }
 
@@ -703,15 +686,6 @@ function isSignalPayload(o: Obj): o is Obj & { kind: 'offer' | 'answer'; sdp: st
     o.sdp.length > 0 &&
     byteLength(o.sdp) <= SIGNAL_MAX_BYTES
   );
-}
-
-/** Only signals and the welcome may exceed `HUB_MAX_BYTES`. */
-function capped<T extends ClientMsg | HubMsg>(
-  raw: string,
-  msg: T | null,
-  max = HUB_MAX_BYTES,
-): T | null {
-  return msg !== null && byteLength(raw) <= max ? msg : null;
 }
 
 function welcome(o: Obj): HubMsg | null {

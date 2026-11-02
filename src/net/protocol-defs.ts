@@ -6,7 +6,7 @@ import type { RecordRequest, Status, StoredRecord } from '../ledger/record';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 6;
+export const PROTOCOL_VERSION = 7;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -33,7 +33,15 @@ export const PEDIGREE_MAX = 64;
 export const EVENT_MAX_BYTES = 2048;
 export const SNAPSHOT_BYTES = 25;
 /** The snapshot layout version, the last byte of every snapshot. */
-export const SNAPSHOT_VERSION = 3;
+export const SNAPSHOT_VERSION = 4;
+/** A state-channel frame for engage candidates: the snapshot, then its 64-byte signature (ADR 0050). */
+export const SIGNED_FRAME_BYTES = SNAPSHOT_BYTES + 64;
+/** An `enc-start` carries up to 4 fighters with their genome texts; an `enc-end` up to 4 outcomes. */
+export const ENC_START_MAX_BYTES = 8192;
+export const ENC_END_MAX_BYTES = 4096;
+/** An encounter's frames run 0 to 900 (the timeout), so a frame number past this is malformed. */
+export const ENC_MAX_FRAME = 1000;
+export const ENC_MAX_FIGHTERS = 4;
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;
@@ -152,7 +160,7 @@ export interface PastLife {
   diedT: number;
 }
 
-/** Every cause a death record can name (a `Record`, so a new `DeathCause` fails to compile until it is listed). A client may report all but `old-age`, which only the authority decides. */
+/** Every cause a death record can name (a `Record`, so a new `DeathCause` fails to compile until it is listed). A client may report all but `old-age` and `eaten` (an egg eaten in a fight), which only the authority decides. */
 const CAUSES: Record<DeathCause, true> = {
   starved: true,
   toxin: true,
@@ -160,11 +168,46 @@ const CAUSES: Record<DeathCause, true> = {
   uv: true,
   pressure: true,
   killed: true,
+  eaten: true,
 };
 export const isCause = (v: unknown): v is DeathCause =>
   typeof v === 'string' && Object.hasOwn(CAUSES, v);
 /** Past lives one `history` answer carries. */
 export const HISTORY_MAX = 20;
+
+/** A snapshot signed by its sender for lock-in (`src/ledger/snapshot-sig.ts`): base64url of the 25 snapshot bytes and of the 64-byte signature. */
+export interface SignedSnap {
+  snap: string;
+  sig: string;
+}
+
+/** A fighter at an encounter's start, as the authority sets it; numbers are JSON doubles (they round-trip exactly). */
+export interface FighterInfo {
+  player: string;
+  creature: string;
+  /** The creature's genome text, so no client needs peer genome sync to simulate the fight. */
+  genome: string;
+  x: number;
+  y: number;
+  vx: number;
+  vy: number;
+  heading: number;
+  biomass: number;
+  energy: number;
+  health: number;
+  elder: boolean;
+  /** It carries a pending child, which comes into the fight as an egg (ADR 0052). */
+  egg: boolean;
+}
+
+/** A fighter at an encounter's end: its final state and result. `by` and `eggBy` are slots (0–3). */
+export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | 'egg'> {
+  outcome: 'killed' | 'died' | 'escaped' | 'stood';
+  cause: DeathCause | null;
+  by: number | null;
+  egg: 'none' | 'kept' | 'eaten';
+  eggBy: number | null;
+}
 
 /** Hub WebSocket, client to hub. */
 export type ClientMsg =
@@ -191,7 +234,13 @@ export type ClientMsg =
   | { t: 'decline'; partner: string }
   | { t: 'ping'; id: number }
   | { t: 'signal'; to: string; kind: 'offer' | 'answer'; sdp: string }
-  | { t: 'leave' };
+  | { t: 'leave' }
+  /** Engages `target` (a player id) with the attacker's own fresh signed snapshot and the target's newest. */
+  | { t: 'engage'; target: string; mine: SignedSnap; theirs: SignedSnap }
+  /** The answer to `lock-ask`: a freshly signed snapshot of the creature's current state. */
+  | { t: 'lock-state'; lock: string; mine: SignedSnap }
+  /** This fighter's input for frame `f` of encounter `enc`: a u32 code (`encodeFrameInput`). */
+  | { t: 'input'; enc: string; f: number; i: number };
 
 /** Hub WebSocket, hub to client. */
 export type HubMsg =
@@ -253,7 +302,14 @@ export type HubMsg =
   /** The mating is committed to a future round: the countersigned commitment and this parent's `mate-commit` record. */
   | { t: 'mating'; commit: SignedCommit; record: StoredRecord }
   /** The creature's life is over: the cause and the `death` record that closes its chain. */
-  | { t: 'died'; cause: DeathCause; record: StoredRecord; fallback?: FallbackInfo }
+  | {
+      t: 'died';
+      cause: DeathCause;
+      record: StoredRecord;
+      fallback?: FallbackInfo;
+      /** The killer's or eater's name. */
+      by?: string;
+    }
   | { t: 'history'; lives: PastLife[] }
   /** A genesis request was accepted: the committed round, and how many hatches are left. */
   | { t: 'commit'; commit: SignedCommit; hatchesLeft: number }
@@ -269,7 +325,35 @@ export type HubMsg =
   | { t: 'refused'; reason: string; genesisIn?: number }
   /** Admission is full: the session waits in line (1 = next) instead of getting a `welcome`; sent again when its place changes. */
   | { t: 'queued'; position: number; etaS: number }
-  | { t: 'error'; code: string };
+  | { t: 'error'; code: string }
+  /** Someone engages this player: answer at once with `lock-state`. */
+  | { t: 'lock-ask'; lock: string }
+  /** The fight starts: the seed from beacon `round` (0 = none), the pond tick `t0` and the hub time of frame 0, fighters by slot. */
+  | {
+      t: 'enc-start';
+      enc: string;
+      seed: string;
+      round: number;
+      t0: number;
+      at: number;
+      fighters: FighterInfo[];
+    }
+  /** Frame `f`'s finalized inputs by slot; null where the autopilot plays. */
+  | { t: 'enc-frame'; enc: string; f: number; i: (number | null)[] }
+  /** A fighter joins at frame `f`, taking the next slot. */
+  | { t: 'enc-join'; enc: string; f: number; fighter: FighterInfo }
+  /** The fight is over at frame `f`: the authority's `hashEncounter` and every fighter's result. */
+  | { t: 'enc-end'; enc: string; f: number; hash: string; fighters: FighterOutcome[] }
+  /** A kill left carrion: every client in the pond drops the same pieces. */
+  | {
+      t: 'carrion';
+      enc: string;
+      x: number;
+      y: number;
+      biomass: number;
+      radius: number;
+      tick: number;
+    };
 
 /** Peer `event` channel: JSON, at most `EVENT_MAX_BYTES`. */
 export type PeerEvent =
@@ -307,20 +391,26 @@ export interface Snapshot {
   ready: boolean;
   /** The sender carries a pending child, drawn as an egg (M6 T20). */
   egg: boolean;
+  /** The sender's creature is spawn-protected: it can't be engaged (ADR 0050). */
+  spawnProtected: boolean;
+  /** The sender's creature is locked in an encounter. */
+  fighting: boolean;
   /** The first two bytes of the sender's genome hash, as a u16 (see `genomeRefOf`). */
   genomeRef: number;
 }
 
-// Snapshot layout (version 3), little endian, 25 bytes:
+// Snapshot layout (version 4), little endian, 25 bytes:
 //  0 seq u16 | 2 tick u32 | 6 x u16 | 8 y u16 | 10 heading u8 | 11 flags u8 |
 // 12 vx i16 | 14 vy i16 | 16 biomass u16 | 18 energy u16 | 20 health u16 | 22 genomeRef u16 |
-// 24 version u8 (3)
-// Flags: 1 alive, 2 dashing, 4 ready to mate, 8 carrying an egg; any other bit drops the snapshot.
+// 24 version u8 (4)
+// Flags: 1 alive, 2 dashing, 4 ready to mate, 8 carrying an egg, 16 spawn-protected, 32 fighting;
+// any other bit drops the snapshot.
 // Positions are in 0.125 wu steps (0 to 8192 wu), heading in 2π/256, velocity in 0.25 wu/s;
 // energy and health are fractions of the creature's maximum, in 1/65535. Biomass is quantised on a
 // log scale: q = round(log2(biomass) · 65535 / 24) covers 1 to 2^24 (a body can reach 2.4 million),
 // so the relative error is at most 2^(12/65535) - 1 = 0.013%; smaller values read back as 1.
-// Version 1 snapshots are 24 bytes and fail the length check; version 2 lacked the ready and egg bits.
+// Version 1 snapshots are 24 bytes and fail the length check; version 2 lacked the ready and egg
+// bits, version 3 the protected and fighting bits.
 const TAU = 2 * Math.PI;
 const POS_STEP = 0.125;
 const VEL_STEP = 0.25;
@@ -331,7 +421,10 @@ const FLAG_ALIVE = 1;
 const FLAG_DASHING = 2;
 const FLAG_READY = 4;
 const FLAG_EGG = 8;
-const FLAG_MASK = FLAG_ALIVE | FLAG_DASHING | FLAG_READY | FLAG_EGG;
+const FLAG_PROTECTED = 16;
+const FLAG_FIGHTING = 32;
+const FLAG_MASK =
+  FLAG_ALIVE | FLAG_DASHING | FLAG_READY | FLAG_EGG | FLAG_PROTECTED | FLAG_FIGHTING;
 
 function quantize(value: number, step: number, min: number, max: number): number {
   if (!Number.isFinite(value)) return 0;
@@ -364,7 +457,9 @@ export function encodeSnapshot(s: Snapshot): Uint8Array {
     (s.alive ? FLAG_ALIVE : 0) |
       (s.dashing ? FLAG_DASHING : 0) |
       (s.ready ? FLAG_READY : 0) |
-      (s.egg ? FLAG_EGG : 0),
+      (s.egg ? FLAG_EGG : 0) |
+      (s.spawnProtected ? FLAG_PROTECTED : 0) |
+      (s.fighting ? FLAG_FIGHTING : 0),
   );
   v.setInt16(12, quantize(s.vx, VEL_STEP, -0x8000, 0x7fff), true);
   v.setInt16(14, quantize(s.vy, VEL_STEP, -0x8000, 0x7fff), true);
@@ -397,6 +492,8 @@ export function decodeSnapshot(b: Uint8Array): Snapshot | null {
     dashing: (flags & FLAG_DASHING) !== 0,
     ready: (flags & FLAG_READY) !== 0,
     egg: (flags & FLAG_EGG) !== 0,
+    spawnProtected: (flags & FLAG_PROTECTED) !== 0,
+    fighting: (flags & FLAG_FIGHTING) !== 0,
     genomeRef: v.getUint16(22, true),
   };
 }

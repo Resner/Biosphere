@@ -163,10 +163,10 @@ describe('hub hello', () => {
     },
   );
 
-  it('closes 4002 for a wrong protocol version', async () => {
+  it.each([1, 6])('closes 4002 for protocol version %i', async (v) => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
-    c.send({ ...hello, v: 1 });
+    c.send({ ...hello, v });
     expect(await c.next()).toEqual({ t: 'error', code: 'version' });
     expect(await c.closed).toBe(CLOSE_BAD_HELLO);
   });
