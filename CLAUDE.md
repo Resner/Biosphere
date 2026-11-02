@@ -23,7 +23,7 @@ Each directory appears with the milestone that first needs it (ADRs 0003–0014)
 The npm script contract: CI, hooks and skills call these names; the tools behind them may change.
 
 - `npm run check`: lint, typecheck and the quick unit tests, about 90 s; it also runs when you stop after code changes. A unit test over about 2 s is a `heavyTest` (`tests/heavy.ts`), which `check` skips.
-- `npm run check:full`: `check` plus the heavy unit tests, about 3 minutes. CI and the release run it on every change (ADR 0045); runs don't need to.
+- `npm run check:full`: `check` plus the heavy unit tests, then the timing tests (`speedTest`) alone, about 5 minutes. CI and the release run it on every change (ADR 0045); runs don't need to.
 - `npm run build`: static site into `dist/`; shows `BUILD_LABEL` (the release tag) when set.
 - `npm run test:e2e`: fast E2E against `dist/` (PR gate). `npm run test:e2e:full`: all of it, including slow scenarios (release gate).
 - `npm run e2e:setup`: optional CI-only setup, such as a browser install.

@@ -4,7 +4,7 @@ import { bls12_381 } from '@noble/curves/bls12-381.js';
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, hexToBytes } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
-import { heavyTest } from '../../tests/heavy';
+import { heavyTest, speedTest } from '../../tests/heavy';
 import {
   type Beacon,
   DST,
@@ -105,7 +105,7 @@ describe('verifyBeacon', () => {
     }
   });
 
-  it('costs under 250 ms per beacon', () => {
+  speedTest('costs under 250 ms per beacon', () => {
     verifyBeacon(beacon(0)); // warm the pairing tables
     const start = performance.now();
     for (let i = 1; i <= 4; i++) verifyBeacon(beacon(i));

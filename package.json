@@ -18,7 +18,7 @@
     "build": "vite build",
     "preview": "vite preview",
     "check": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run --tags-filter='!heavy'",
-    "check:full": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run",
+    "check:full": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run --tags-filter='!speed' && vitest run --tags-filter=speed --no-file-parallelism",
     "format": "biome check --write .",
     "test:unit": "vitest",
     "worker:dev": "node tools/worker.mjs dev",

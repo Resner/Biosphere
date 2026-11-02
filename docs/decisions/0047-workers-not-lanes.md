@@ -25,6 +25,7 @@ ADR 0044 split the factory into a build lane (the roadmap) and a care lane (a re
   - Runs no longer run `npm run check:full` before pushing; CI runs it.
   - A failure in a scenario the diff doesn't touch is re-run once before anyone investigates it.
   - CI failures caused by an `[opus]` task go back to `opus-task`.
+  - Timing tests (`speedTest`) run alone at the end of `check:full`. They failed CI and local runs three times in a day because they timed the code while other tests loaded the machine.
   - The care backlog and the rule that big files are split through it are gone. Files under about 1,000 lines remain a preference.
 
 ## Consequences

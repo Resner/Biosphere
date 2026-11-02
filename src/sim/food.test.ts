@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { speedTest } from '../../tests/heavy';
 import { depthAt, zoneAt } from './bathymetry';
 import { type Mouth, STARTER_PHYS } from './body';
 import {
@@ -405,7 +406,7 @@ describe('feeding through the mouth', () => {
     expect(foodNear(full.w, item.x, item.y, 1).map((i) => i.id)).toContain(item.id);
   });
 
-  it('keeps a tick of 24 armed creatures in a full pond under 2 ms', () => {
+  speedTest('keeps a tick of 24 armed creatures in a full pond under 2 ms', () => {
     const w = createWorld({ seed: 'perf' });
     const colliders = [{ x: 0, y: 0, r: 1 }];
     for (let i = 1; i < 12; i++) colliders.push({ x: -0.2 * i, y: 0.1 * i, r: 0.4 });
@@ -431,7 +432,7 @@ describe('feeding through the mouth', () => {
     expect(ms).toBeLessThan(2);
   });
 
-  it('keeps a tick of 24 creatures in the deep, where vents are scanned, under 2 ms', () => {
+  speedTest('keeps a tick of 24 creatures in the deep, where vents are scanned, under 2 ms', () => {
     const w = createWorld({ seed: 'perf2' });
     let at = { x: 0, y: 0 };
     for (let y = 100; y < 8000; y += 100) {
