@@ -79,12 +79,12 @@ const int PART_SETULE = 15;
 const float PEARL_TAG = 2.0;
 const float FRINGE_TAG = 4.0;
 const float ORGAN_LUMA = 0.36;
-// The iris's span (shares of the eye's radius) and how far in from an organ's outline (its facing z)
-// its glow starts (ADR 0043).
+// The iris's span (shares of the eye's radius, ADR 0043).
 const vec2 IRIS = vec2(0.45, 0.82);
 // The iris's light at its inner and outer edge, shares of the tamed main colour.
 const float IRIS_INNER = 0.35;
 const float IRIS_OUTER = 0.75;
+// How far in from an organ's outline (its facing z) its glow starts.
 const float GLOW_FROM_Z = 0.75;
 // A part's radius on screen (pixels) over which it turns from all rim (a glass rod narrower than the
 // body's rim band is all edge) to glass with a rim, like the body (M6c T6; at 2.5-6 a fan of paddles

@@ -173,7 +173,7 @@ function patternKind(alleles: readonly string[]): number {
 }
 
 /** The second tone's hue: `hue` turned `SECOND_TURN` toward amber by the gene saturation, the short way. */
-export function secondHue(hue: number, saturation: number): number {
+function secondHue(hue: number, saturation: number): number {
   const d = ((((AMBER_HUE - hue) % 1) + 1.5) % 1) - 0.5;
   const turn = lerp(SECOND_TURN[0], SECOND_TURN[1], clamp(saturation, 0, 1));
   return (((hue + (d < 0 ? -turn : turn)) % 1) + 1) % 1;
