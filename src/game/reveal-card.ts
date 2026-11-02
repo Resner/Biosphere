@@ -76,6 +76,21 @@ export function setStars(card: HTMLElement, stars: HTMLElement, tier: RarityTier
   if (card.dataset.tier !== tier) card.dataset.tier = tier;
 }
 
+/**
+ * The stars roll in one by one as the card slides in (M6c T11): each star becomes its own span with
+ * its place in `--i`, made anew so the animation plays again for every card. The text stays the same.
+ */
+export function rollStars(stars: HTMLElement): void {
+  const spans = [...(stars.textContent ?? '')].map((star, i) => {
+    const span = document.createElement('span');
+    span.textContent = star;
+    span.style.setProperty('--i', String(i));
+    if (star === '★') span.dataset.filled = '';
+    return span;
+  });
+  stars.replaceChildren(...spans);
+}
+
 /** The card on screen. */
 export class RevealCard {
   private readonly clock = new RevealCardClock();
@@ -106,6 +121,7 @@ export class RevealCard {
     setText(this.rarity, text.rarity);
     setText(this.shape, text.shape);
     setStars(this.el, this.stars, text.tier);
+    rollStars(this.stars);
     drawPreview(this.preview, body);
     this.tier = text.tier;
     this.el.hidden = false;

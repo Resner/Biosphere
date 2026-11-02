@@ -29,6 +29,9 @@ export const FX = {
   burstRadii: 2.2,
   burstStep: 1.6,
   burstSeconds: 0.9,
+  /** A fully charged egg's burst adds a shockwave (M6c T11): one wide, quick ring, in egg radii. */
+  shockRadii: 9,
+  shockSeconds: 0.6,
   /** Paying for a mating (M6 T20): the drawn body eases to its new size, dipping this far below it. */
   shrinkSeconds: 0.7,
   shrinkDip: 0.08,
@@ -58,6 +61,8 @@ export interface FxSnapshot {
   tier: number;
   /** Egg bursts shown, and matings paid for with the shrinking pulse (M6 T20). */
   bursts: number;
+  /** Bursts after a full charge, with their shockwave (M6c T11). */
+  shockwaves: number;
   cost: number;
   /** Rings alive right now. */
   rings: number;
@@ -97,6 +102,7 @@ export class Effects {
   private grow = 0;
   private tier = 0;
   private bursts = 0;
+  private shockwaves = 0;
   private cost = 0;
   /** The paid-for shrink: the drawn radius it starts from and its age in seconds; age < 0 when none. */
   private shrinkFrom = 0;
@@ -147,13 +153,17 @@ export class Effects {
 
   /**
    * An egg bursting (M6 T20): `rings` rings, each wider and slower than the last, so a rarer child
-   * gets a bigger flourish. The first is a pop, the rest ripples.
+   * gets a bigger flourish. The first is a pop, the rest ripples; a full charge adds a shockwave.
    */
-  burst(at: FxAnchor, rings: number): void {
+  burst(at: FxAnchor, rings: number, shockwave = false): void {
     this.bursts++;
     for (let i = 0; i < rings; i++) {
       const radii = FX.burstRadii * FX.burstStep ** i;
       this.addRing(i === 0 ? 'pop' : 'ripple', at, radii, FX.burstSeconds * (1 + 0.3 * i));
+    }
+    if (shockwave) {
+      this.shockwaves++;
+      this.addRing('ripple', at, FX.shockRadii, FX.shockSeconds);
     }
   }
 
@@ -231,6 +241,7 @@ export class Effects {
     this.grow = 0;
     this.tier = 0;
     this.bursts = 0;
+    this.shockwaves = 0;
     this.cost = 0;
     this.shrinkAge = -1;
   }
@@ -243,6 +254,7 @@ export class Effects {
       grow: this.grow,
       tier: this.tier,
       bursts: this.bursts,
+      shockwaves: this.shockwaves,
       cost: this.cost,
       rings: this.rings.length,
       hurt: this.hurt,

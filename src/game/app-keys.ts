@@ -7,8 +7,10 @@ const INSPECT_MIN_PX = 24;
 /** The canvas's pointer: the player's egg, and a click that inspects another creature. */
 export function attachPointer(app: App): void {
   const { canvas, controller, eggs, scene } = app;
-  // The player's egg answers the pointer (M6b T11): a click on a waiting egg wobbles it, and one
-  // on a stirring or cracking egg (anywhere, for a genesis egg alone on screen) skips to the burst.
+  // The player's egg answers the pointer (M6b T11, M6c T11). A click on an egg that waits, or on a
+  // genesis or hatch egg that waits for its crack, pokes it: a wobble and more charge, and a held
+  // button or three quick clicks crack it. In the still scene the egg is the moment, so a click
+  // anywhere counts. A click on a mating's stirring or cracking egg skips to the burst.
   canvas.addEventListener('pointerdown', (e) => {
     const { eggAt, eggOnScreen } = app.frame;
     if (e.button !== 0 || !eggOnScreen || controller.typing) return;
@@ -16,12 +18,18 @@ export function attachPointer(app: App): void {
     const on =
       Math.hypot(e.clientX - rect.left - eggAt.x, e.clientY - rect.top - eggAt.y) <= eggAt.r;
     const now = app.eggClock();
-    if (eggs.reveal.phase === 'waiting') {
-      if (on) eggs.poke(now);
-    } else if (on || (eggs.mode === 'genesis' && !app.playing())) {
+    const { phase, paced } = eggs.reveal;
+    if (phase === 'waiting' || (paced && phase === 'stirring')) {
+      if (on || eggs.still()) eggs.poke(now);
+    } else if (!paced && (on || (eggs.mode === 'genesis' && !app.playing()))) {
       eggs.skip(now);
     }
   });
+  const lift = (e: PointerEvent): void => {
+    if (e.button === 0) eggs.lift();
+  };
+  window.addEventListener('pointerup', lift);
+  window.addEventListener('pointercancel', lift);
   canvas.addEventListener('click', (e) => {
     if (!app.playing() || !app.session.player.alive || controller.typing) return;
     const rect = canvas.getBoundingClientRect();
@@ -50,8 +58,9 @@ export function attachKeys(app: App): void {
     document,
     () => {
       if (lineagePanel.isOpen || settingsPanel.isOpen) return;
-      // Enter during a genesis egg's stir or crack skips to the burst (M6b T11).
-      if (eggs.mode === 'genesis' && !app.playing() && eggs.skip(app.eggClock())) return;
+      // Enter during a genesis or hatch egg's stir or crack cracks it and skips to the burst
+      // (M6b T11, M6c T11); during a hatch it does not open the chat.
+      if (eggs.still() && eggs.skip(app.eggClock())) return;
       if (app.playing()) app.socialUi.open();
       else if (enterHatches(app.screen, performance.now() - app.screenShownAt)) {
         const first = screens.firstOption;
@@ -69,7 +78,7 @@ export function attachKeys(app: App): void {
           if (key === 'Escape') lineagePanel.close();
           return;
         }
-        // Space pokes a waiting genesis egg (M6b T11).
+        // Space pokes a genesis egg on the title or death screen (M6b T11, M6c T11); in play it dashes.
         if (key === ' ' && eggs.mode === 'genesis' && !app.playing()) eggs.poke(app.eggClock());
         if (!app.playing()) return;
         // While the wheel is open, Esc and the numbers are its own.
@@ -106,6 +115,7 @@ export function attachKeys(app: App): void {
         social.key(key, app.selfKey());
       },
       keyUp: (key, at) => {
+        if (key === ' ') eggs.lift();
         if (key === 'g' || key === 'G') wheel.release(controller.pointerAt(), at);
       },
       // A quick "look" ping.

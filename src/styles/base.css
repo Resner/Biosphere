@@ -58,6 +58,21 @@ body {
     visibility 0s 0.35s;
 }
 
+/* The still scene of a genesis or a hatch (M6c T11): the HUD steps aside until the shell bursts. */
+[data-still] .hud,
+[data-still] .hud-menu,
+[data-still] .minimap,
+[data-still] .edge-indicators,
+[data-still] .remote-labels,
+[data-still] .social-cues {
+  opacity: 0;
+  visibility: hidden;
+  pointer-events: none;
+  transition:
+    opacity 0.35s ease,
+    visibility 0s 0.35s;
+}
+
 /* The small line under an egg that has waited 10 s for its beacon. */
 .egg-wait {
   position: fixed;

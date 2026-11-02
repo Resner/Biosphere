@@ -20,8 +20,11 @@ import { VoicePool } from './voices';
 export type { Cue, Placement, Voice } from './cues';
 
 export interface Sound {
-  /** Plays a cue; `at` (world units) places it on screen: panned by side, quieter far away. */
-  cue(c: Cue, at?: { x: number; y: number }): void;
+  /**
+   * Plays a cue; `at` (world units) places it on screen: panned by side, quieter far away. `pitch`
+   * scales every frequency (the egg's charge ticks rise with it, M6c T11).
+   */
+  cue(c: Cue, at?: { x: number; y: number }, pitch?: number): void;
   setZone(z: Zone, depth: number): void;
   setVolume(v: number): void;
   setMuted(m: boolean): void;
@@ -29,7 +32,12 @@ export interface Sound {
 }
 
 /** Plays one cue into `out` at `when` (`CUE_PATCHES` in `cues.ts`). */
-export type CuePatch = (ctx: BaseAudioContext, out: AudioNode, when: number) => Voice;
+export type CuePatch = (
+  ctx: BaseAudioContext,
+  out: AudioNode,
+  when: number,
+  pitch?: number,
+) => Voice;
 
 /** The limiter after the master gain: a fast, hard compressor just under full scale. */
 export const LIMITER = { threshold: -6, knee: 0, ratio: 20, attack: 0.002, release: 0.2 } as const;
@@ -158,8 +166,8 @@ export class AudioGraph {
     return this.pool.active(undefined, this.ctx.currentTime);
   }
 
-  /** Plays a cue if it has a patch, within the polyphony caps; `place` pans and quietens it. */
-  cue(c: Cue, place?: Placement): void {
+  /** Plays a cue if it has a patch, within the polyphony caps; `place` pans and quietens it, `pitch` scales its frequencies. */
+  cue(c: Cue, place?: Placement, pitch = 1): void {
     const patch = this.patches[c];
     if (!patch) return;
     const now = this.ctx.currentTime;
@@ -181,7 +189,7 @@ export class AudioGraph {
       out = gain;
       placing = [gain, panner];
     }
-    const voice = patch(this.ctx, out, now);
+    const voice = patch(this.ctx, out, now, pitch);
     if (placing) this.placings.push({ end: voice.end, nodes: placing });
     const { id, stolen } = this.pool.acquire(c, now, voice.end);
     for (const old of stolen) {
@@ -333,11 +341,11 @@ export class GameSound implements Sound {
     else void this.ctx.resume().catch(() => {});
   }
 
-  cue(c: Cue, at?: { x: number; y: number }): void {
+  cue(c: Cue, at?: { x: number; y: number }, pitch = 1): void {
     this.counts[c] = (this.counts[c] ?? 0) + 1;
     const place = at ? placeCue(at, this.listener) : undefined;
     if (place) this.placed = { cue: c, ...place };
-    if (!this.muted && this.ctx?.state === 'running') this.graph?.cue(c, place);
+    if (!this.muted && this.ctx?.state === 'running') this.graph?.cue(c, place, pitch);
   }
 
   /** Where the player hears from: the camera's centre and the visible half-width (world units). */

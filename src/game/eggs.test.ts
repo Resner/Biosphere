@@ -49,8 +49,9 @@ describe('EggShow', () => {
     eggs.genesisBeacon(4010, 'rare');
     expect(eggs.reveal.phase).toBe('stirring');
     expect(stirs()).toBe(1);
-    // Held until the creature is there, however long that takes.
-    const due = 4000 + EGG.stirMs.rare + EGG.crackMs.rare;
+    // The paced crack: with no input it cracks 6 s after the beacon (M6c T11), and is held until
+    // the creature is there, however long that takes.
+    const due = 4000 + EGG.paced.waitMs + EGG.crackMs.rare;
     run(eggs, 4000, due - 20);
     expect(eggs.reveal.ripe(due - 20)).toBe(false);
     run(eggs, due - 20, due + 2000);
@@ -190,11 +191,61 @@ describe('EggShow', () => {
     run(eggs, 2000, 2500, { child, self: { ...SELF, x: SELF.x + 40 } });
     expect(eggs.ownAt()).toEqual(at);
     expect(bursts).toHaveLength(0);
+    // The same paced crack as a genesis (M6c T11): the egg waits for the player, charging.
+    expect(eggs.reveal.phase).toBe('stirring');
+    expect(eggs.still()).toBe(true);
     const born = { ...SELF, x: at.x, y: at.y, radius: 8 };
     expect(eggs.hatched(2500, 'common')).toBe(true);
-    run(eggs, 2500, 2500 + EGG.crackMs.common, { self: born });
+    run(eggs, 2500, 3000, { self: born });
+    expect(bursts).toHaveLength(0);
+    expect(eggs.poke(3000)).toBe(true);
+    expect(eggs.reveal.charge).toBeGreaterThan(0);
+    // Enter cracks it now.
+    expect(eggs.skip(3000)).toBe(true);
+    run(eggs, 3000, 3050, { self: born });
     expect(bursts).toHaveLength(1);
     expect(bursts[0]).toMatchObject({ x: at.x, y: at.y });
+    run(eggs, 3050, 3050 + EGG.burstMs.common + 50, { self: born });
+    expect(eggs.still()).toBe(false);
+  });
+
+  it('a genesis or a hatch holds the scene still until the burst; a mating does not', () => {
+    const { eggs } = show();
+    expect(eggs.still()).toBe(false);
+    eggs.awaitGenesis(0);
+    expect(eggs.still()).toBe(true);
+    eggs.genesisBeacon(3000, 'common');
+    run(eggs, 0, 3000 + EGG.paced.waitMs + 20);
+    expect(eggs.reveal.phase).toBe('cracking');
+    expect(eggs.still()).toBe(true);
+    eggs.hatched(3000 + EGG.paced.waitMs, 'common');
+    run(eggs, 3000 + EGG.paced.waitMs, 3000 + EGG.paced.waitMs + EGG.crackMs.common + 20);
+    expect(eggs.reveal.phase).toBe('revealed');
+    expect(eggs.still()).toBe(false);
+    const mate = show().eggs;
+    mate.awaitMate(0);
+    run(mate, 0, 100);
+    expect(mate.still()).toBe(false);
+  });
+
+  it('tells each poke with its charge, and a full charge’s burst', () => {
+    const pokes: number[] = [];
+    const bursts: boolean[] = [];
+    const eggs = new EggShow(
+      (_x, _y, _r, _rings, _mode, full) => bursts.push(full),
+      () => {},
+      (charge) => pokes.push(charge),
+    );
+    eggs.awaitGenesis(0);
+    run(eggs, 0, 500);
+    for (let i = 0; i < 12; i++) eggs.poke(500 + i * 300);
+    expect(pokes).toHaveLength(12);
+    expect(pokes.at(-1)).toBe(1);
+    eggs.genesisBeacon(5000, 'common');
+    eggs.skip(5000);
+    eggs.hatched(5000, 'common');
+    run(eggs, 5000, 5050);
+    expect(bursts).toEqual([true]);
   });
 
   it('a hatch the hub refuses puts the carried egg back', () => {
