@@ -74,7 +74,9 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
         { timeout: 10_000 },
       )
       .toBeLessThanOrEqual(5);
-    const edge = a.locator(`[data-testid="edge-indicator"][data-kind="player"][data-id="${idB}"]`);
+    const edge = a.locator(
+      `[data-testid="edge-indicator"][data-kind="player"][data-id="${idB}"]:not([hidden])`,
+    );
     await expect(edge).toBeVisible();
     const box = await edge.boundingBox();
     const size = a.viewportSize() ?? { width: 960, height: 540 };
@@ -117,7 +119,7 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
       })
       .toBe(true);
     const pingEdge = a.locator(
-      `[data-testid="edge-indicator"][data-kind="ping"][data-id="${idB}"]`,
+      `[data-testid="edge-indicator"][data-kind="ping"][data-id="${idB}"]:not([hidden])`,
     );
     await expect(pingEdge).toBeVisible({ timeout: 5_000 });
     // The indicator points at where the ping landed, seen from where A is in the same snapshot
@@ -198,8 +200,8 @@ test('a player who says it could mate shows a heart on its indicator and on the 
       ]),
     [p.x, p.y] as const,
   );
-  const ready = page.locator('[data-testid="edge-indicator"][data-id="ready"]');
-  const busy = page.locator('[data-testid="edge-indicator"][data-id="busy"]');
+  const ready = page.locator('[data-testid="edge-indicator"][data-id="ready"]:not([hidden])');
+  const busy = page.locator('[data-testid="edge-indicator"][data-id="busy"]:not([hidden])');
   await expect(ready).toHaveAttribute('data-ready', 'true');
   await expect(ready).toContainText('ready');
   await expect(busy).toHaveAttribute('data-ready', 'false');

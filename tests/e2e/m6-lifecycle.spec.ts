@@ -133,7 +133,7 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     )
     .toBe(true);
   await expect(
-    a.locator(`[data-testid="edge-indicator"][data-kind="player"][data-id="${idB}"]`),
+    a.locator(`[data-testid="edge-indicator"][data-kind="player"][data-id="${idB}"]:not([hidden])`),
   ).toBeVisible();
   await a.keyboard.press('m');
   await expect(a.locator(`[data-testid="map-dot"][data-id="${idB}"] svg`)).toBeVisible();
