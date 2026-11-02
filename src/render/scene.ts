@@ -74,9 +74,10 @@ type Glow = Light | null;
 /** Glows remembered at once; a pond holds 24 bodies. */
 const GLOW_CACHE = 64;
 
-/** `calls` and `triangles` count the whole frame: the scene and every post pass. */
 /** The renderer name Chromium gives WebGL in place of the GPU's. */
 const MASKED_RENDERER = 'WebKit WebGL';
+
+/** `calls` and `triangles` count the whole frame: the scene and every post pass. */
 
 export interface RenderInfo extends PostInfo {
   calls: number;

@@ -36,7 +36,7 @@ export const MAX_SPRITE_PX = 256;
  * shaders, and at mediump the hash noise turned into blocks and the walls' derivatives into steps
  * (the dotted lines and coarse cells the owner saw in Firefox). The last precision statement wins.
  */
-export const HIGHP = 'precision highp float;\nprecision highp int;\n';
+const HIGHP = 'precision highp float;\nprecision highp int;\n';
 
 /** Every layer is ordered by `renderOrder` alone: no depth test, no depth write. */
 function layer(

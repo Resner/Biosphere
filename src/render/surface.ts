@@ -6,7 +6,7 @@
 
 import type { Traits } from '../genome/express';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
-import { clamp } from '../sim/math';
+import { clamp, smoothstep } from '../sim/math';
 import type { CreatureSource } from './creature-cache';
 import type { GlintPlan } from './creature-mesh';
 import { type MaterialParams, materialParams } from './material-params';
@@ -97,9 +97,4 @@ export function detailFade(px: number): number {
 /** How much of a line `widthPx` pixels wide is drawn: the shader's `fine`, a smoothstep over `FINE_FADE`. */
 export function fineFade(widthPx: number): number {
   return smoothstep(FINE_FADE.from, FINE_FADE.to, widthPx);
-}
-
-function smoothstep(from: number, to: number, x: number): number {
-  const t = clamp((x - from) / (to - from), 0, 1);
-  return t * t * (3 - 2 * t);
 }

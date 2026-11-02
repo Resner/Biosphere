@@ -4,7 +4,7 @@ import type { CellMasks } from '../../src/lab/gallery-masks';
 import type { GalleryState } from '../../src/lab/gallery-page';
 import { captureGallery, chromiumPath, GALLERY_VIEWPORT } from '../../tools/gallery-capture.mjs';
 import { CROWD_VIEWPORT, openCrowdGame, stageCrowd } from './crowd';
-import { decodePng, type Image, maskBits } from './look-metrics';
+import { decodePng, type Image, luminance, maskBits } from './look-metrics';
 
 // Firefox draws creatures cleanly (M6c T8). The owner's Firefox showed dotted white lines and a
 // coarse cell pattern in the middle of a body. In Firefox (the `firefox` project, `E2E full` only):
@@ -40,11 +40,6 @@ const MIN_CELLS = 10;
 
 let warnings: string[] = [];
 let energy: { file: string; firefox: number; chromium: number; pixels: number }[] = [];
-
-const luminance = (rgba: Image['rgba'], i: number): number =>
-  0.2126 * (rgba[i] as number) +
-  0.7152 * (rgba[i + 1] as number) +
-  0.0722 * (rgba[i + 2] as number);
 
 /** The mean squared 4-neighbour Laplacian of luminance over the face pixels whose neighbours are face too. */
 function faceEnergy(image: Image, masks: CellMasks): { energy: number; pixels: number } {

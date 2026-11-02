@@ -107,7 +107,7 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
   it('gives every vertex a unit normal, so no pixel of a body turns NaN (M6c T8)', () => {
     // A degenerate tip or ring left a zero normal; normalised in the shader it is NaN, and one NaN
     // pixel in the half-float scene target bloomed into a grey octagon over the body in Firefox.
-    let zero = 0;
+    let bad = 0;
     let checked = 0;
     for (const genome of [...gallery.values(), ...randoms.slice(0, 40)]) {
       const p = planOf(genome);
@@ -121,14 +121,14 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
             normal[i + 1] as number,
             normal[i + 2] as number,
           );
-          if (!(Math.abs(length - 1) < 1e-3)) zero++;
+          if (!(Math.abs(length - 1) < 1e-3)) bad++;
           checked++;
         }
         geometry.dispose();
       }
     }
     expect(checked).toBeGreaterThan(0);
-    expect(zero).toBe(0);
+    expect(bad).toBe(0);
   });
 
   heavyTest('never drops a part: every appendage is drawn on every level of detail', () => {

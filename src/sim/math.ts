@@ -218,6 +218,12 @@ export function lerp(a: number, b: number, t: number): number {
   return a + (b - a) * t;
 }
 
+/** Hermite ease from 0 at `from` to 1 at `to`, clamped outside. */
+export function smoothstep(from: number, to: number, x: number): number {
+  const t = clamp((x - from) / (to - from), 0, 1);
+  return t * t * (3 - 2 * t);
+}
+
 export function length(x: number, y: number): number {
   return Math.sqrt(x * x + y * y);
 }
