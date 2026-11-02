@@ -38,6 +38,9 @@ const MIN_PIXELS = 40;
 /** Slim and limb-crowded bodies have little open face; the round genesis cells and most specimens do. */
 const MIN_CELLS = 10;
 
+/** Captures of a sheet that comes back blank before the test gives up. */
+const BLANK_ATTEMPTS = 3;
+
 let warnings: string[] = [];
 let energy: { file: string; firefox: number; chromium: number; pixels: number }[] = [];
 
@@ -61,28 +64,43 @@ function faceEnergy(image: Image, masks: CellMasks): { energy: number; pixels: n
   return { energy: pixels === 0 ? Number.NaN : sum / pixels, pixels };
 }
 
-/** The gallery sheet and its masks, captured in `browser` at the sheet's own viewport. */
+/** True when no face on the sheet holds any detail: the canvas reached the capture blank. */
+function blankSheet(image: Image, specimens: GalleryState['specimens']): boolean {
+  return specimens.every((s) => !(faceEnergy(image, s.masks).energy > 0));
+}
+
+/**
+ * The gallery sheet and its masks, captured in `browser` at the sheet's own viewport. Software GL
+ * under load now and then hands the screenshot a blank canvas (E2E main, M6c T9: the Chromium
+ * reference came back flat), which says nothing about either browser: such a capture is taken again.
+ */
 async function gallery(
   browser: Browser,
   baseURL: string,
   name: string,
   listen?: (m: ConsoleMessage) => void,
 ) {
-  const context = await browser.newContext({
-    viewport: GALLERY_VIEWPORT,
-    deviceScaleFactor: 1,
-    storageState: { cookies: [], origins: [] },
-  });
-  const page = await context.newPage();
-  if (listen) page.on('console', listen);
-  const png = await captureGallery(page, baseURL);
-  mkdirSync('test-results', { recursive: true });
-  writeFileSync(`test-results/m6c-firefox-${name}.png`, png);
-  const state = (await page.evaluate(() => window.__gallery?.state())) as GalleryState | undefined;
-  if (!state) throw new Error('no gallery');
-  const image = await decodePng(page, png);
-  await context.close();
-  return { image, state };
+  for (let attempt = 1; ; attempt++) {
+    const context = await browser.newContext({
+      viewport: GALLERY_VIEWPORT,
+      deviceScaleFactor: 1,
+      storageState: { cookies: [], origins: [] },
+    });
+    const page = await context.newPage();
+    if (listen) page.on('console', listen);
+    const png = await captureGallery(page, baseURL);
+    mkdirSync('test-results', { recursive: true });
+    writeFileSync(`test-results/m6c-firefox-${name}.png`, png);
+    const state = (await page.evaluate(() => window.__gallery?.state())) as
+      | GalleryState
+      | undefined;
+    if (!state) throw new Error('no gallery');
+    const image = await decodePng(page, png);
+    await context.close();
+    if (!blankSheet(image, state.specimens)) return { image, state };
+    if (attempt === BLANK_ATTEMPTS) throw new Error(`the ${name} gallery sheet is blank`);
+    console.log(`the ${name} gallery sheet came back blank; capturing it again`);
+  }
 }
 
 test.beforeAll(async ({ browser, browserName, baseURL }) => {
