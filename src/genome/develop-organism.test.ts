@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { buildGenome, type Params } from '../../tests/archetypes';
 import { PI } from '../sim/math';
 import { RULES } from '../sim/rules';
-import { type BodyPlan, bodyViolations, develop } from './develop';
+import { type Appendage, type BodyPlan, bodyViolations, develop } from './develop';
 import { express } from './express';
 import { HEAD_CONE, type Region, regionOf, rolesOf, spineShare, visibleCount } from './organism';
 
@@ -141,5 +141,22 @@ describe('parts by region (M6c T3, ADR 0041)', () => {
       'fringe',
       'fringe',
     ]);
+  });
+});
+
+describe('parts that curve, taper and vary (M6c T4, ADR 0041)', () => {
+  it('gives a leg its branches as girth, and keeps one branch on an antenna', () => {
+    const forked = { ...LEGS, pairs: 0, thickness: 30, branching: 255 };
+    const leg = (p: BodyPlan) => left(p).find((a) => a.module === 1) as Appendage;
+    const plain = plan({ M1: ANTENNA, M2: { ...forked, branching: 0 } });
+    const thick = plan({ M1: ANTENNA, M2: forked });
+    expect(bodyViolations(thick)).toEqual([]);
+    expect(leg(thick).branches).toBe(0);
+    // Two branches' area, (1 + 2 × 0.5²) of the part's, becomes girth.
+    expect(leg(thick).girth).toBeCloseTo(leg(plain).girth * (1 + 2 * 0.25), 12);
+    const antenna = left(plan({ M1: { ...ANTENNA, branching: 255 }, M2: LEGS })).find(
+      (a) => a.module === 0,
+    ) as Appendage;
+    expect(antenna.branches).toBe(1);
   });
 });

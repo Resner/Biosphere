@@ -65,16 +65,20 @@ const CAP_SHARE = RULES.develop.part.capShare;
 /** Every inner joint swells by at least this share, so jointed parts read as jointed. */
 const JOINT_BEAD = 0.3;
 /**
- * A paddle tip (its share of the paddle peak, as stats price it) widens toward its blade, up to
- * 1 + this times its base radius at the tip, and does not taper (M6b T7): a thin leg still ends in
- * a broad paddle.
+ * A paddle tip (its share of the paddle peak, as stats price it) swells into a blade (M6b T7): this
+ * many base radii wider at `BLADE_AT` of its length, so a thin leg still carries a broad paddle. The
+ * blade closes again toward the end, so every tip tapers to a point (M6c T4, ADR 0041): a blade
+ * that stayed broad to its end read as a bead on a mast at the Lab's size.
  */
-const BLADE = 1.5;
+const BLADE = 2;
+const BLADE_AT = 0.75;
+/** t³(1 − t) peaks at `BLADE_AT`; this scales the peak to 1. */
+const BLADE_NORM = 1 / (BLADE_AT ** 3 * (1 - BLADE_AT));
 
-/** A part's tube radius at share `t` along it: tapered, or widening into a paddle's blade. */
+/** A part's tube radius at share `t` along it: tapered, swelling into a paddle's blade before its tip. */
 export function partRadius(r0: number, taper: number, tip: number, t: number): number {
   const blade = peak(tip, RULES.stats.paddleTip, RULES.stats.paddleSpread);
-  return r0 * (1 - taper * (1 - blade) * t) * (1 + BLADE * blade * t * t);
+  return r0 * (1 - taper * t + BLADE * blade * BLADE_NORM * t * t * t * (1 - t));
 }
 /**
  * A chela's palm swells by up to this share; its movable finger opens this far (radians) and is this
