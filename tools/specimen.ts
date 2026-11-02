@@ -1,18 +1,21 @@
 // The specimen search (M6 T9, ADR 0024): builds a karyotype v2 genome for a target silhouette class
 // or rarity tier by a deterministic search from a seed: genesis cells and wild cells in turn, the
 // first valid body that matches. The gallery's added specimens come from here and are then stored
-// as hex, never re-drawn (`npm run specimens -- --write`).
+// as hex, never re-drawn (`npm run specimens -- --write`). After a world reset they are checked
+// against the new rules and only the ones that no longer show their class are searched again
+// (`--refresh`, ADR 0043); the evolved cells 07-20 are picks from the Lab's Evolved grids (M6c T5).
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { encodeGenome, type Genome, genomeHash } from '../src/genome/codec';
 import { type Appendage, type BodyPlan, bodyViolations } from '../src/genome/develop';
 import { genesisGenome } from '../src/genome/genesis';
-import { longest, measure, regionOf } from '../src/genome/organism';
+import { longest, measure, regionOf, visibleCount } from '../src/genome/organism';
 import { type RarityTier, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, type Silhouette, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
-import { specimenOf, wildGenome } from '../src/lab/specimens';
+import { type AimName, EVOLVED, evolvedAims, evolvedGrid, specimenOf } from '../src/lab/specimens';
 import { seedFromString } from '../src/sim/prng';
+import { wildGenome } from '../tests/wild';
 
 /** Every silhouette class a specimen is made for: all but `other`. */
 export const SPECIMEN_SILHOUETTES: readonly Silhouette[] = SILHOUETTES.filter((s) => s !== 'other');
@@ -130,6 +133,63 @@ export function specimenFile(
   const s = specimenOf(genome);
   const c = s.creature;
   const name = `${String(index).padStart(2, '0')}-specimen-${what}-${s.species.toLowerCase().replace(' ', '-')}.hex`;
-  const comment = `${s.species}, ${what} specimen (search seed ${seed}): ${c.plan.segments.length} segments, ${c.plan.appendages.length / 2} parts, ${s.silhouette}, ${s.rarity}.`;
+  const comment = `${s.species}, ${what} specimen (search seed ${seed}): ${c.plan.segments.length} segments, ${visibleCount(c.plan)} parts shown, ${s.silhouette}, ${s.rarity}.`;
   return { name, text: `# ${comment}\n${bytesToHex(encodeGenome(genome))}\n` };
+}
+
+/** What a gallery file `NN-specimen-<what>-<genus>-<epithet>.hex` stands for, or null for another file. */
+export function specimenWhat(file: string): string | null {
+  return /^\d\d-specimen-([a-z-]+?)-[a-z]+-[a-z]+\.hex$/.exec(file)?.[1] ?? null;
+}
+
+/** Whether `genome` still shows `what` (a class, `tier-<tier>` or a look feature) under the live rules. */
+export function stillShows(what: string, genome: Genome): boolean {
+  const c = buildCreature(genome);
+  if (bodyViolations(c.plan).length > 0) return false;
+  if (what.startsWith('tier-')) return rarityOfTraits(c.traits).tier === what.slice(5);
+  if (what in FEATURES) return FEATURES[what as Feature](c);
+  return silhouetteOf(c.plan) === what;
+}
+
+/** One pick for the gallery's evolved cells (M6c T5): a lineage's last body in an Evolved grid. */
+export interface EvolvedPick {
+  genome: Genome;
+  /** The grid's Lab seed. */
+  set: string;
+  /** The lineage, 0-3: the grid row. */
+  lineage: number;
+  aim: AimName;
+}
+
+/**
+ * The gallery's evolved picks (M6c T5, ADR 0043): the last body of every lineage (generation
+ * `EVOLVED.generations`, the right end of each row) of the Evolved grids `<seed>-0`, `<seed>-1`, …,
+ * row by row, skipping genomes in `taken`, until `count`.
+ */
+export function evolvedPicks(
+  seed: string,
+  count: number,
+  taken: ReadonlySet<string> = new Set(),
+): EvolvedPick[] {
+  const picks: EvolvedPick[] = [];
+  for (let j = 0; picks.length < count; j++) {
+    const set = `${seed}-${j}`;
+    const grid = evolvedGrid(set);
+    const aims = evolvedAims(set);
+    for (let lineage = 0; lineage < EVOLVED.lineages && picks.length < count; lineage++) {
+      const genome = grid[(lineage + 1) * EVOLVED.size - 1] as Genome;
+      if (taken.has(genomeHash(genome))) continue;
+      picks.push({ genome, set, lineage, aim: aims[lineage] as AimName });
+    }
+  }
+  return picks;
+}
+
+/** A gallery file for an evolved pick: `NN-evolved-<genus>-<epithet>.hex`, a comment, then hex. */
+export function evolvedFile(index: number, pick: EvolvedPick): { name: string; text: string } {
+  const s = specimenOf(pick.genome);
+  const plan = s.creature.plan;
+  const name = `${String(index).padStart(2, '0')}-evolved-${s.species.toLowerCase().replace(' ', '-')}.hex`;
+  const comment = `${s.species}, lineage ${pick.lineage + 1} (aim ${pick.aim}) of the Lab's Evolved set ${pick.set}, generation ${EVOLVED.generations}: ${plan.segments.length} segments, ${visibleCount(plan)} parts shown, ${s.silhouette}, ${s.rarity}.`;
+  return { name, text: `# ${comment}\n${bytesToHex(encodeGenome(pick.genome))}\n` };
 }

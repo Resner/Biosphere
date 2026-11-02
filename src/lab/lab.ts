@@ -76,7 +76,7 @@ export function startLab(options: LabOptions): void {
   const seedLabel = pick('[data-testid="lab-seed"]');
   const modeButtons = {
     genesis: pick('[data-testid="mode-genesis"]'),
-    wild: pick('[data-testid="mode-wild"]'),
+    evolved: pick('[data-testid="mode-evolved"]'),
   } as const;
 
   let renderer: THREE.WebGLRenderer;
@@ -232,7 +232,7 @@ export function startLab(options: LabOptions): void {
     setView(next, labGenomes(seed, next).map(specimenOf));
     const url = new URL(window.location.href);
     url.searchParams.set('seed', seed);
-    if (next === 'wild') url.searchParams.set('mode', 'wild');
+    if (next === 'evolved') url.searchParams.set('mode', 'evolved');
     else url.searchParams.delete('mode');
     window.history.replaceState(null, '', url);
   }
@@ -473,7 +473,7 @@ export function startLab(options: LabOptions): void {
     button.addEventListener('click', () => show(m as LabMode, seed));
   }
   pick('[data-testid="lab-shuffle"]').addEventListener('click', () => {
-    show(mode === 'wild' ? 'wild' : 'genesis', randomSeed());
+    show(mode === 'evolved' ? 'evolved' : 'genesis', randomSeed());
   });
   new ResizeObserver(resize).observe(stage);
 

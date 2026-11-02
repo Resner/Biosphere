@@ -2,6 +2,7 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { encodeGenome, genomeHash } from '../genome/codec';
 import { GENOME_BYTES } from '../genome/karyotype';
+import { VISIBLE_PAIRS, visibleCount } from '../genome/organism';
 import { SILHOUETTES } from '../genome/silhouette';
 import {
   GALLERY_FILL,
@@ -25,9 +26,9 @@ const fixtures = (): Record<string, string> =>
   );
 
 /**
- * The baseline set of pass 0 (ADR 0024): later specimens extend the gallery, never replace one, so
- * these files keep their names and their genomes. They were karyotype v1 files until rules 8, which
- * stores each as its v2 padding, the body the sheet has drawn since look pass 5 (ADR 0032, 0040).
+ * The baseline set: 01-06, the genesis cells of pass 0 (ADR 0024), keep their names and genomes, so
+ * their round cells stay comparable with pass 1; they were karyotype v1 files until rules 8, which
+ * stores each as its v2 padding (ADR 0032, 0040). 07-20 are the Lab's Evolved picks (ADR 0043).
  */
 const BASELINE: readonly (readonly [file: string, hash: string])[] = [
   [
@@ -54,61 +55,63 @@ const BASELINE: readonly (readonly [file: string, hash: string])[] = [
     '06-genesis-nogoziium-lucens.hex',
     '0949dde11f52db2b6a3755797dacf5e8b015db76cf7aa6e0614a56eded25c50d',
   ],
+  // 07-20: the Lab's Evolved picks (M6c T5, ADR 0043), the last body of each lineage of the Evolved
+  // sets gallery-m6c-0 to -3, which replaced the wild and bred cells of pass 0.
   [
-    '07-wild-mezamarhiza-serpens.hex',
-    '50c0dffdc8a9aea6ac775b90b52daf6e1c3c9e80de10256f4cff98b00ed16995',
+    '07-evolved-sitesonema-serpens.hex',
+    'b96623b5e7a3f3c8805aa3e66901674c889904717458f195f775d55625b42885',
   ],
   [
-    '08-wild-logamaocus-albus.hex',
-    '438ca190c1abdea6c17a835ea310a5eceb157f1a906af55ec4c1dc5be147787f',
+    '08-evolved-letelomonas-serpens.hex',
+    'fec53a0d6a7395031292ffb215e46ee29319aa45420819268ea31bb1110d5f8c',
   ],
   [
-    '09-wild-retizespira-serpens.hex',
-    '7acd1ee897e0da0cdea4c4e0cdca7942d6c34ffb97b382d5cbe6e7fb076ec672',
+    '09-evolved-zasovabacter-iridescens.hex',
+    '787892379e70d5cfe0fe5bc9a7d49fb6c2e145adde6782d104fb29c73ab7a932',
   ],
   [
-    '10-wild-zevalospora-spinosus.hex',
-    '643df369de471c11e2739422b936678c6988db2889449b9e76f15f024720ee9d',
+    '10-evolved-sedavoplax-serpens.hex',
+    'a4418f04409b3703766665ffe2cdb69df08b8e30bb9ef231880fe14841217bd6',
   ],
   [
-    '11-wild-rimazispira-ferox.hex',
-    '58c42f0558372a0460afb357b0769aa194a13b772a04558331beb0b0af0ed800',
+    '11-evolved-nomaloplax-filtrans.hex',
+    'ec3f8c50ffa3437b2620222a227c4334f0e532494b23c8011db5ae915a3d15db',
   ],
   [
-    '12-wild-nenazeula-serpens.hex',
-    '1adc7f66ad6b15974df1dc318d536a63ae29771b90f1057e1245c9aa3484927a',
+    '12-evolved-zotanerhiza-serpens.hex',
+    '325b697ce0353494032bb855319a0f363327c21a9d32691e799039945c9fa7cc',
   ],
   [
-    '13-wild-gegorozoon-iridescens.hex',
-    '602fdce6423d71fdae57593c021ef562d2bcfdd0bc4844eb4ddf37b00b3c4cad',
+    '13-evolved-sesesirhiza-serpens.hex',
+    'f091e0ed2d52dbd4efa562db5c84d926fbeb30306bd1d18d2bd94a1c6e7910ac',
   ],
   [
-    '14-bred-zironeina-lucens.hex',
-    '5911a87de6bb46a91e76dd02c598905aee51898d75fb107f4bc765daab231f25',
+    '14-evolved-rebigimonas-serpens.hex',
+    '75258ed6d86ed80b704bf4e8ad71242362f0d5f515c2f5e982b1ef5701a841b9',
   ],
   [
-    '15-bred-retadithrix-natans.hex',
-    '3e043b6bf6141503d5a23b528d45ff97fde242fcb84ded2ae0e0b7344c612e39',
+    '15-evolved-viridiocus-serpens.hex',
+    '8872049216b63a24d6bb0cee16976e6a05d9485622642b264eb883f2b7a2a18c',
   ],
   [
-    '16-bred-begaviella-lucens.hex',
-    '98e40254cf965fe180d73501f8ac374f35ba83d17cf296e7a07a46b415ab6d0b',
+    '16-evolved-riralacilia-iridescens.hex',
+    '2c9e2c70898c3aae114e460c44d50c139f130de235f7b013a3b1a0df03663601',
   ],
   [
-    '17-bred-tatirimonas-serpens.hex',
-    'a1cd34ec420ca91d68cd565744d648f785f400bea4e8afbcc636571cff04ead7',
+    '17-evolved-galinizoon-serpens.hex',
+    '8594c036bc1ee04d5c030a9164021665c1152982c555fdaef21eedd7b2284bba',
   ],
   [
-    '18-bred-daralafera-serpens.hex',
-    'db87e523a40605973ff74e39a28bf363aaac10ad17c7753c3ee7ed286745cd31',
+    '18-evolved-sebominema-serpens.hex',
+    'cb9d53b7206232d81f4aa392516b8b2c5d1668be4e3e081e8cf50a72a789b3b0',
   ],
   [
-    '19-bred-ronenoonas-serpens.hex',
-    'd195553c93a6295792fa7d5330b1ea170ef8206e6b24df4b80c0ec0d7116bfe6',
+    '19-evolved-belabiphora-radiatus.hex',
+    '25211320e30e17776e5abbfc73b266d8b21e72179573129363794f5147b44c3b',
   ],
   [
-    '20-bred-bazerospira-lucens.hex',
-    'e52d1fe6e9f95034a469523428b34bc36f814da389ca7a27df26834372bf9f62',
+    '20-evolved-totetothrix-serpens.hex',
+    'ca6f091121ff3f78f1c0b3cc4f38b6bc3f2adafdeca37a0eb91d1403943d0678',
   ],
 ];
 
@@ -142,7 +145,7 @@ describe('gallery specimen files', () => {
     expect(() => gallerySpecimens({ '/x/03-bad.hex': 'nothing' })).toThrow(/03-bad\.hex/);
   });
 
-  it('keeps the 20 baseline specimens first, unchanged, each a valid body', () => {
+  it('keeps the 20 baseline specimens first, pinned, each a valid body', () => {
     const set = gallerySpecimens(fixtures());
     expect(set.length).toBeGreaterThanOrEqual(BASELINE.length);
     for (const [i, [file, hash]] of BASELINE.entries()) {
@@ -156,17 +159,37 @@ describe('gallery specimen files', () => {
       expect(s.comment.length).toBeGreaterThan(10);
       expect(specimenOf(s.genome).violations).toEqual([]);
     }
-    // 6 genesis cells, then 14 picks from the Lab's wild mode and bred children.
+    // 6 genesis cells, then 14 picks from the Lab's Evolved mode (M6c T5).
     expect(BASELINE.filter(([f]) => f.includes('-genesis-'))).toHaveLength(6);
+    expect(BASELINE.slice(6).every(([f]) => f.includes('-evolved-'))).toBe(true);
   });
 });
 
-describe('the baseline bodies (look pass 5, ADR 0032)', () => {
-  it('gives the baseline chains the long proportions', () => {
+describe('the baseline bodies (look pass 5, ADR 0032; M6c T5)', () => {
+  it('gives the bilateral evolved chains the long proportions', () => {
     const baseline = gallerySpecimens(fixtures()).slice(0, BASELINE.length);
     const long = baseline.filter((s) => specimenOf(s.genome).creature.plan.form.slim < 1);
-    // 07, 09, 10, 11, 12, 18 and 19 are chains of 3 or more segments, drawn long.
-    expect(long.map((s) => s.file.slice(0, 2))).toEqual(['07', '09', '10', '11', '12', '18', '19']);
+    // The evolved chains of 3 or more segments are drawn long; 11, 15 and 19 are radial and 16 a
+    // single cell, so they stay round, and so do the genesis cells.
+    expect(long.map((s) => s.file.slice(0, 2))).toEqual([
+      '07',
+      '08',
+      '09',
+      '10',
+      '12',
+      '13',
+      '14',
+      '17',
+      '18',
+      '20',
+    ]);
+  });
+
+  it('shows evolved lineages that left the cell stage, within the part budget', () => {
+    const evolved = gallerySpecimens(fixtures()).slice(6, BASELINE.length);
+    const plans = evolved.map((s) => specimenOf(s.genome).creature.plan);
+    expect(plans.filter((p) => p.segments.length >= 3).length).toBeGreaterThanOrEqual(10);
+    for (const p of plans) expect(visibleCount(p)).toBeLessThanOrEqual(2 * VISIBLE_PAIRS);
   });
 });
 

@@ -112,18 +112,28 @@ test('hovering and clicking a creature fills the inspector', async ({ page }) =>
   expect(await lab(page, (l) => l.state().selected)).toBe(0);
 });
 
-test('wild mode shows 24 valid bodies and the toggle switches back', async ({ page }) => {
+test('the Evolved mode shows 24 valid bred bodies and the toggle switches back', async ({
+  page,
+}) => {
   const problems: string[] = [];
   page.on('console', (m) => {
     if (m.type() === 'error') problems.push(m.text());
   });
   await openLab(page);
-  await page.getByTestId('mode-wild').click();
-  const wild = await lab(page, (l) => l.state());
-  expect(wild.mode).toBe('wild');
-  expect(wild.creatures).toHaveLength(24);
-  expect(new Set(wild.creatures.map((c) => c.hash)).size).toBe(24);
-  expect(wild.creatures.every((c) => c.valid)).toBe(true);
+  // M6c T5: the second mode shows lineages bred from genesis cells, no longer random bytes.
+  await expect(page.getByTestId('mode-evolved')).toHaveText('Evolved');
+  await expect(page.getByTestId('mode-genesis')).toHaveText('Genesis');
+  await page.getByTestId('mode-evolved').click();
+  await expect(page.getByTestId('mode-evolved')).toHaveAttribute('aria-pressed', 'true');
+  const evolved = await lab(page, (l) => l.state());
+  expect(evolved.mode).toBe('evolved');
+  expect(evolved.creatures).toHaveLength(24);
+  expect(new Set(evolved.creatures.map((c) => c.hash)).size).toBe(24);
+  expect(evolved.creatures.every((c) => c.valid)).toBe(true);
+  // The same seed gives the same lineages as the Node-side pure function.
+  const expected = labGenomes(SEED, 'evolved').map((g) => specimenOf(g).creature.hash);
+  expect(evolved.creatures.map((c) => c.hash)).toEqual(expected);
+  expect(new URL(page.url()).searchParams.get('mode')).toBe('evolved');
   expect((await lab(page, (l) => l.renderInfo())).calls).toBeLessThanOrEqual(40 + LAB_POST.calls);
   const stats = await measureCells(page, range(24));
   expect(stats.every((s) => s.lit > 50)).toBe(true);

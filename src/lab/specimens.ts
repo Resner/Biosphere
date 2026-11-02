@@ -1,11 +1,12 @@
 // What the Lab shows (M3 T13): genomes from a page seed, and everything the grid and the inspector
 // need to know about each one. Pure, so the same seed always gives the same 24 creatures.
 
-import { decodeGenome, type Genome } from '../genome/codec';
+import { type Genome, genomeHash } from '../genome/codec';
 import { describeCreature } from '../genome/describe';
 import { bodyViolations } from '../genome/develop';
+import { fraction, SEGMENT_LOCI } from '../genome/express';
 import { genesisGenome } from '../genome/genesis';
-import { BASE_BYTES, GENOME_BYTES, HAPLOTYPE_BYTES } from '../genome/karyotype';
+import { breed } from '../genome/inherit';
 import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOfTraits } from '../genome/rarity';
 import { type Silhouette, silhouetteOf } from '../genome/silhouette';
@@ -13,16 +14,29 @@ import { buildCreature, type Creature } from '../genome/stats';
 import { anatomyOf } from '../render/anatomy';
 import { estimateVertices } from '../render/creature-mesh';
 import { glintPlanOf } from '../render/surface';
-import { createRng, type Seed, seedFromString } from '../sim/prng';
+import { createRng, seedFromString } from '../sim/prng';
 import { sizeTier } from '../sim/size';
+import { LAB_MUTATION } from './breed';
 
-/** Genesis cells, or random genome bytes that show the extremes. */
-export type LabMode = 'genesis' | 'wild';
+/** Genesis cells, or lineages bred from genesis cells toward an aim (M6c T5). */
+export type LabMode = 'genesis' | 'evolved';
 
 export const LAB_COUNT = 24;
 
-/** The chance that a wild cell leaves one v2 byte (a shape locus or a part detail) at 0. */
-const WILD_V2_OFF = 0.6;
+/**
+ * The Evolved grid (M6c T5): 4 lineages, one per grid row. Each starts from its own 6 genesis cells
+ * and is bred for `generations` at the Lab's mutation rate: every generation pairs two different
+ * parents at random `brood` times per place and keeps the 6 children that go furthest toward the
+ * lineage's aim. A row shows the founder, then the best of every `generations ÷ (size − 1)`
+ * generations, left to right.
+ */
+export const EVOLVED = {
+  lineages: 4,
+  size: 6,
+  generations: 60,
+  brood: 3,
+} as const;
+const EVERY = EVOLVED.generations / (EVOLVED.size - 1);
 
 export interface Specimen {
   genome: Genome;
@@ -61,25 +75,114 @@ export function specimenOf(genome: Genome): Specimen {
   };
 }
 
-/** A wild cell: random bytes with most of the v2 bytes off, from a seed. */
-export function wildGenome(at: Seed): Genome {
-  const rng = createRng(at, 'lab-wild');
-  const bytes = Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff);
-  // Each v2 byte (body shape and part detail) is off in most cells, or half of them would be radial
-  // bells and a third winged: wild cells mix a few new axes into a plain body, the way breeding does.
-  const extra = HAPLOTYPE_BYTES - BASE_BYTES;
-  for (let i = 0; i < extra; i++) {
-    if (rng.next() < WILD_V2_OFF) {
-      bytes[BASE_BYTES + i] = 0;
-      bytes[HAPLOTYPE_BYTES + BASE_BYTES + i] = 0;
-    }
-  }
-  return decodeGenome(bytes);
+/**
+ * The aims a lineage may be bred toward: the loci whose mean a breeder raises, read from the genome
+ * as a breeder reads a trait. A grid gives its 4 lineages 4 different ones.
+ */
+export const AIMS = {
+  chain: SEGMENT_LOCI,
+  shell: [...SEGMENT_LOCI, 'fusion'],
+  curl: [...SEGMENT_LOCI, 'curve'],
+  tail: [...SEGMENT_LOCI, 'tailLength'],
+  eyes: [...SEGMENT_LOCI, 'eyeSize'],
+  ring: ['symmetry', 'drape'],
+} as const satisfies Record<string, readonly string[]>;
+export type AimName = keyof typeof AIMS;
+
+/** The aims of the grid of `seed`, one per lineage, in row order. */
+export function evolvedAims(seed: string): AimName[] {
+  const rng = createRng(seedFromString(`${seed}/evolved`), 'aims');
+  return (Object.keys(AIMS) as AimName[])
+    .map((name) => ({ name, r: rng.next() }))
+    .sort((a, b) => a.r - b.r)
+    .slice(0, EVOLVED.lineages)
+    .map((x) => x.name);
 }
 
-export function labGenomes(seed: string, mode: LabMode, count = LAB_COUNT): Genome[] {
-  return Array.from({ length: count }, (_, i) => {
-    const at = seedFromString(`${seed}/${mode}/${i}`);
-    return mode === 'genesis' ? genesisGenome(at) : wildGenome(at);
-  });
+/** Whether a body breaks no rule: the cull. */
+const sound = (g: Genome): boolean => bodyViolations(buildCreature(g).plan).length === 0;
+
+/**
+ * Lineage `k` of the Evolved grid of `seed`, bred toward `aim`: its founder, then one body per
+ * snapshot: the best kept child that is sound (no broken rule) and not shown yet.
+ */
+function evolvedLineage(
+  seed: string,
+  k: number,
+  aim: readonly string[],
+  shown: Set<string>,
+): Genome[] {
+  const at = `${seed}/evolved/${k}`;
+  const rng = createRng(seedFromString(at), 'pairs');
+  let pool = Array.from({ length: EVOLVED.size }, (_, i) =>
+    genesisGenome(seedFromString(`${at}/${i}`)),
+  );
+  const founder = pool[0] as Genome;
+  const row = [founder];
+  shown.add(genomeHash(founder));
+  for (let gen = 1; gen <= EVOLVED.generations; gen++) {
+    const brood = Array.from({ length: EVOLVED.size * EVOLVED.brood }, (_, i) => {
+      const a = rng.int(0, EVOLVED.size - 1);
+      const b = (a + rng.int(1, EVOLVED.size - 1)) % EVOLVED.size;
+      const child = breed(
+        pool[a] as Genome,
+        pool[b] as Genome,
+        seedFromString(`${at}/${gen}/${i}`),
+        { mutation: LAB_MUTATION },
+      );
+      return { child, score: fraction(child, aim) };
+    }).sort((x, y) => y.score - x.score);
+    pool = brood.slice(0, EVOLVED.size).map((x) => x.child);
+    // The snapshot, or the next generation's when no kept child is sound and new. Only shown bodies
+    // are culled: no bred body has broken a rule yet (0 of 4,320), and developing one costs more
+    // than breeding it.
+    if (row.length < 1 + Math.floor(gen / EVERY)) {
+      const best = pool.find((g) => !shown.has(genomeHash(g)) && sound(g));
+      if (best) {
+        shown.add(genomeHash(best));
+        row.push(best);
+      }
+    }
+  }
+  // Total: a row is always full (never needed so far), padded with last-generation bodies not shown.
+  for (const g of pool) {
+    if (row.length >= EVOLVED.size) break;
+    if (shown.has(genomeHash(g))) continue;
+    shown.add(genomeHash(g));
+    row.push(g);
+  }
+  return row;
+}
+
+let lastGrid: { seed: string; grid: Genome[] } | undefined;
+
+/**
+ * The Evolved grid of `seed`: its lineages row by row (24 cells). The last one is kept: breeding
+ * takes ~0.2 s and the Lab asks for the same grid on every mode toggle.
+ */
+export function evolvedGrid(seed: string): Genome[] {
+  if (lastGrid?.seed === seed) return [...lastGrid.grid];
+  const shown = new Set<string>();
+  const grid = evolvedAims(seed).flatMap((name, k) => evolvedLineage(seed, k, AIMS[name], shown));
+  lastGrid = { seed, grid };
+  return [...grid];
+}
+
+/** The seeds of the Evolved diversity check: the first three run in `check`, all in `report:diversity`. */
+export const EVOLVED_SEEDS: readonly string[] = Array.from(
+  { length: 10 },
+  (_, i) => `evolved-variety-${i}`,
+);
+/** Silhouette classes an Evolved grid shows in 9 of 10 seeds (M6c T5). */
+export const EVOLVED_CLASSES = 5;
+
+/** How many silhouette classes `genomes` show. */
+export const silhouetteClasses = (genomes: readonly Genome[]): number =>
+  new Set(genomes.map((g) => silhouetteOf(buildCreature(g).plan))).size;
+
+export function labGenomes(seed: string, mode: LabMode): Genome[] {
+  if (mode === 'evolved') return evolvedGrid(seed);
+  return Array.from({ length: LAB_COUNT }, (_, i) =>
+    genesisGenome(seedFromString(`${seed}/genesis/${i}`)),
+  );
 }
