@@ -485,8 +485,9 @@ function addSetae(
       return plan.segments.some((seg) => inside(seg, x, y));
     };
     const side = k % 2 === 0 ? 1 : -1;
-    if (into(side) && into(-side)) continue;
-    const sign = into(side) ? -side : side;
+    const blocked = into(side);
+    if (blocked && into(-side)) continue;
+    const sign = blocked ? -side : side;
     const h0 = chord + sign * off;
     const w = -sign * curl;
     // A bristle stops at the bounds, where development keeps every part: its middle and its tip.

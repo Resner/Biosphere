@@ -5,7 +5,7 @@ import * as fromChain from './develop-chain';
 import type { Outline, Piece } from './develop-fit';
 import * as fromFit from './develop-fit';
 import * as fromParts from './develop-parts';
-import type { Appendage, Part, PlanSegment } from './develop-plan';
+import type { Appendage, Part, PlanSegment, Point } from './develop-plan';
 import * as fromPlan from './develop-plan';
 import {
   branchesFor,
@@ -177,13 +177,13 @@ function jittered(p: Part, k: number, segments: readonly PlanSegment[], m: Measu
 
 /** The farthest bristle root of instance `a` from the core, as `dress` places them. */
 function farOn(s: PlanSegment, a: Appendage): number {
-  const root = rootOf(s, a.angle, a.side);
-  const dir = dirOf(s, a);
-  let far = 0;
-  for (const t of [bristleAt(0, a.setae), bristleAt(a.setae - 1, a.setae)]) {
-    far = Math.max(far, hypot(root.x + t * a.length * dir.x, root.y + t * a.length * dir.y));
-  }
-  return far;
+  return farFrom(
+    rootOf(s, a.angle, a.side),
+    dirOf(s, a),
+    a.length,
+    bristleAt(0, a.setae),
+    bristleAt(a.setae - 1, a.setae),
+  );
 }
 
 /**
@@ -383,16 +383,21 @@ export function radialParts(
 /** Where bristle `k` of `count` sits along a part, as a share of its length. */
 export const bristleAt = (k: number, count: number): number => (k + 0.5) / count;
 
+/** The farthest a point between `t0` and `t1` of a limb from `root` along `dir` lies from the core. */
+function farFrom(root: Point, dir: Point, length: number, t0: number, t1: number): number {
+  return Math.max(
+    hypot(root.x + t0 * length * dir.x, root.y + t0 * length * dir.y),
+    hypot(root.x + t1 * length * dir.x, root.y + t1 * length * dir.y),
+  );
+}
+
 /** The farthest a point between `t0` and `t1` of a part's length lies from the core, on either side. */
 function farAlong(s: PlanSegment, p: Part, t0: number, t1: number): number {
   let far = 0;
   // A segment on the axis mirrors its two sides exactly, so one side tells.
   for (const side of onAxis(s) ? ([1] as const) : ([1, -1] as const)) {
     const root = rootOf(s, p.angle, side);
-    const dir = dirOf(s, { dir: p.dir, side });
-    for (const t of [t0, t1]) {
-      far = Math.max(far, hypot(root.x + t * p.length * dir.x, root.y + t * p.length * dir.y));
-    }
+    far = Math.max(far, farFrom(root, dirOf(s, { dir: p.dir, side }), p.length, t0, t1));
   }
   return far;
 }
@@ -400,7 +405,7 @@ function farAlong(s: PlanSegment, p: Part, t0: number, t1: number): number {
 /**
  * Setae on the final parts: the gene becomes a length (setae length × width × `length`, shortened
  * so every bristle stays in the bounds), then the body keeps `perBody`, cutting the shortest parts'
- * bristles first (ties: the later part first). Edits in place; mirror pairs stay equal.
+ * bristles first (ties: the later part first). Edits in place; a pair's setae counts stay equal.
  */
 export function dress(parts: Part[], segments: PlanSegment[]): Part[] {
   const S = X.setae;
