@@ -162,10 +162,12 @@ test('renewal notice, charged reveal, a dive with UV hits and the gauge, mate an
     return box.y + box.height / 2;
   };
   const shallowY = await markerY();
+  // Counted in the sim's own damage ticks (one UV event a tick), not `state().tick`, which snaps to
+  // the pond clock online.
   const start = await a.evaluate(() => {
     const bs = window.__bs as BsHook;
     bs.debug?.timeScale(1);
-    return { tick: bs.state().tick, hits: bs.render.fx().shake.hits };
+    return { damage: bs.events().damage ?? 0, hits: bs.render.fx().shake.hits };
   });
   await a
     .waitForFunction(() => (window.__bs as BsHook).render.fx().shake.camera >= 5, null, {
@@ -176,25 +178,30 @@ test('renewal notice, charged reveal, a dive with UV hits and the gauge, mate an
       throw new Error('waited for a UV hit to kick the camera 5 px or more');
     });
   await a
-    .waitForFunction((t) => (window.__bs as BsHook).state().tick >= t + 90, start.tick, {
-      timeout: 60_000,
-    })
+    .waitForFunction(
+      (d) => ((window.__bs as BsHook).events().damage ?? 0) >= d + 90,
+      start.damage,
+      { timeout: 60_000 },
+    )
     .catch(() => {
-      throw new Error('waited for 90 ticks of UV');
+      throw new Error('waited for 90 ticks of UV damage');
     });
   const end = await a.evaluate(() => {
     const bs = window.__bs as BsHook;
     bs.debug?.timeScale(0);
-    return { tick: bs.state().tick, hits: bs.render.fx().shake.hits, death: bs.state().death };
+    return {
+      damage: bs.events().damage ?? 0,
+      hits: bs.render.fx().shake.hits,
+      death: bs.state().death,
+    };
   });
   expect(end.death, 'the cell survives a few seconds of UV').toBeNull();
-  const seconds = (end.tick - start.tick) / 30;
-  const perSecond = (end.hits - start.hits) / seconds;
-  expect(
-    perSecond,
-    `${end.hits - start.hits} hits over ${end.tick - start.tick} ticks`,
-  ).toBeGreaterThan(0);
-  expect(perSecond, 'at most one hit every 15 ticks').toBeLessThanOrEqual(2.5);
+  const ticks = end.damage - start.damage;
+  const hits = end.hits - start.hits;
+  expect(hits, `${hits} hits over ${ticks} damage ticks`).toBeGreaterThan(0);
+  expect(hits, 'at most one hit every 15 ticks, the first at once').toBeLessThanOrEqual(
+    Math.ceil(ticks / 15) + 1,
+  );
   for (const id of ['vignette', 'uv-cue', 'pressure-cue'])
     await expect(a.getByTestId(id)).toHaveCount(0);
   await a.screenshot({ path: 'test-results/m6c-lifecycle-uv.png' });
