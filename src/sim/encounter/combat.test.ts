@@ -19,6 +19,7 @@ const R = Math.sqrt(RULES.starter.biomass);
 const T0 = 1000;
 const at = (enc: Encounter, slot: number) => enc.fighters[slot] as Encounter['fighters'][number];
 type Hit = Extract<EncounterEvent, { type: 'hit' }>;
+const isStrike = (h: Hit): boolean => h.kind === 'strike';
 const hitsOf = (events: EncounterEvent[]): Hit[] =>
   events.filter((e): e is Hit => e.type === 'hit');
 
@@ -46,7 +47,7 @@ function duel(
   return calm(createEncounter(startOf(opts.id ?? 'duel', [hunter, target])));
 }
 
-/** Steps frames with the inputs of each slot until `until` returns true; returns every hit. */
+/** Steps `frames` frames with each frame's inputs by slot; returns every hit. */
 function run(
   enc: Encounter,
   frames: number,
@@ -73,7 +74,7 @@ describe('strikes', () => {
     expect(first).toMatchObject({ slot: 1, by: 0, blocked: false });
     expect(first.amount).toBeCloseTo(expectedStrike(enc, first.tick), 9);
     expect(at(enc, 1).body.health).toBeCloseTo(maxHealth(RULES.starter.biomass) - first.amount, 9);
-    const second = run(enc, 20).find((h) => h.kind === 'strike') as Hit;
+    const second = run(enc, 20).find(isStrike) as Hit;
     expect(second.tick - first.tick).toBe(E.strike.windupTicks + E.strike.recoverTicks);
     expect(strikePower(at(enc, 0))).toBeCloseTo(E.damage.powerBase + E.damage.powerWeapon * 0.5, 9);
   });
@@ -116,9 +117,9 @@ describe('strikes', () => {
     const small = duel({ id: 'size' });
     const big = duel({
       id: 'size',
-      hunter: { ...hunterFighter('a', 3000, 3000, 0, 4 * RULES.starter.biomass) },
+      hunter: hunterFighter('a', 3000, 3000, 0, 4 * RULES.starter.biomass),
     });
-    const hit = (enc: Encounter) => run(enc, 3).find((h) => h.kind === 'strike') as Hit;
+    const hit = (enc: Encounter) => run(enc, 3).find(isStrike) as Hit;
     expect(hit(big).amount).toBeCloseTo(2 * hit(small).amount, 9);
   });
 
@@ -133,7 +134,7 @@ describe('strikes', () => {
         (h) => h.kind === 'strike',
       ) as Hit;
     };
-    const full = run(plain, 3).find((h) => h.kind === 'strike') as Hit;
+    const full = run(plain, 3).find(isStrike) as Hit;
     expect(armoured('balanced').amount / full.amount).toBeCloseTo(0.7, 9);
     expect(armoured('aggressive').amount / full.amount).toBeCloseTo(1 - 0.6 * 0.5 * 0.85, 9);
   });
@@ -147,8 +148,9 @@ describe('stance', () => {
       const b = at(enc, 0).body;
       return Math.hypot(b.vx, b.vy);
     };
-    expect(speed('evasive') / speed('balanced')).toBeGreaterThan(1.2 * 0.98);
-    expect(speed('evasive') / speed('balanced')).toBeLessThan(1.2 * 1.02);
+    const ratio = speed('evasive') / speed('balanced');
+    expect(ratio).toBeGreaterThan(1.2 * 0.98);
+    expect(ratio).toBeLessThan(1.2 * 1.02);
   });
 
   it('scales the damage dealt: x0.7 evasive, x1.25 aggressive', () => {
@@ -172,7 +174,7 @@ describe('brace', () => {
   };
 
   it('blocks 80% of a strike landing 1 to 8 ticks after it, and staggers the striker for 9 ticks', () => {
-    const unbraced = run(duel({ id: 'brace' }), 3).find((h) => h.kind === 'strike') as Hit;
+    const unbraced = run(duel({ id: 'brace' }), 3).find(isStrike) as Hit;
     for (const frame of [1, 2, 3]) {
       const { enc, hit } = braced(frame);
       expect(hit.blocked).toBe(true);
@@ -257,8 +259,7 @@ describe('rams', () => {
     at(enc, 1).body.vx = -100;
     expect(rams(run(enc, 2))).toEqual([]);
     // 24 ticks after the first ram it can ram again.
-    const rest = Array.from({ length: 6 }, () => 0);
-    for (const _ of rest) stepFrame(enc, [IDLE_CODE, IDLE_CODE]);
+    run(enc, 6);
     at(enc, 1).body.vx = -100;
     expect(rams(run(enc, 1)).length).toBe(1);
   });
@@ -300,7 +301,7 @@ describe('spines', () => {
   it('return 40% of a strike to the striker, as damage from the target', () => {
     const enc = duel({ id: 'spines', target: { combat: { ...STARTER_COMBAT, spines: 1 } } });
     const hits = run(enc, 3);
-    const strike = hits.find((h) => h.kind === 'strike') as Hit;
+    const strike = hits.find(isStrike) as Hit;
     const back = hits.find((h) => h.kind === 'spines') as Hit;
     expect(back).toMatchObject({ slot: 0, by: 1 });
     expect(back.amount).toBeCloseTo(E.spineReturn * strike.amount, 9);
@@ -310,7 +311,7 @@ describe('spines', () => {
   it('return nothing from a fully blocked hit and are not returned in turn', () => {
     const enc = duel({ id: 'spines-b', target: { combat: { ...STARTER_COMBAT, spines: 1 } } });
     const hits = run(enc, 3, (f) => [IDLE_CODE, drive(0, 0, { brace: f === 1 })]);
-    const strike = hits.find((h) => h.kind === 'strike') as Hit;
+    const strike = hits.find(isStrike) as Hit;
     const back = hits.find((h) => h.kind === 'spines') as Hit;
     expect(back.amount).toBeCloseTo(E.spineReturn * strike.amount, 9);
     expect(hits.filter((h) => h.kind === 'spines').length).toBe(1);

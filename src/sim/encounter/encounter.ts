@@ -1,6 +1,6 @@
 // The encounter simulation (ADR 0050): the one function the referee, every client and the tournament
 // step. A frame is 3 ticks; the fighters live in plain pond water (currents, plumes, UV and pressure
-// apply, food does not). Strikes come with T2, the autopilot with T4.
+// apply, food does not). Combat is `combat.ts`; the autopilot comes with T4.
 
 import { isPhysShape, sanitizeCombat, sanitizePhys } from '../body';
 import { Hasher } from '../hash';
@@ -15,8 +15,8 @@ import type { CreatureState, StepEvent } from '../types';
 import { createWorld } from '../world';
 import { sanitizeBehaviour } from './behaviour';
 import { decodeFrameInput } from './codec';
-import { collide } from './collide';
-import { combatTick, type Impact, newFx, thrustMod } from './combat';
+import { collide, type Impact } from './collide';
+import { combatTick, newFx, thrustMod } from './combat';
 import { finish, living, resultOf } from './outcome';
 import { engageRange, strikeDistance } from './reach';
 import type {
@@ -146,7 +146,7 @@ export function stepFrame(enc: Encounter, inputs: readonly (number | null)[]): E
     }
     const started = living(enc);
     impacts.length = 0;
-    collide(started, (a, b, closing, aRams) => impacts.push({ a, b, closing, aRams }));
+    collide(started, impacts);
     combatTick(enc, started, decoded, impacts, out);
     const alive = living(enc);
     const escaping: Fighter[] = [];

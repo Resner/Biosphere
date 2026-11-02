@@ -4,21 +4,14 @@
 
 import { RULES } from '../rules';
 import { sizeTier } from '../size';
-import { maxEnergy } from '../vitals';
+import { addBiomass, maxEnergy } from '../vitals';
+import type { Impact } from './collide';
 import { finish } from './outcome';
 import { radiusOf, strikeReach } from './reach';
-import { inStrike, pickTarget, strikeDamage } from './strike';
+import { armourFactor, inStrike, pickTarget, strikeDamage } from './strike';
 import type { Encounter, EncounterEvent, Fighter, FrameInput, HitKind } from './types';
 
 const E = RULES.encounter;
-
-/** A pair pressed together in a tick: the fighters, the closing speed, and whether `a` is the rammer. */
-export interface Impact {
-  a: Fighter;
-  b: Fighter;
-  closing: number;
-  aRams: boolean;
-}
 
 interface Hit {
   victim: Fighter;
@@ -76,20 +69,16 @@ function landStrike(enc: Encounter, f: Fighter, hits: Hit[], t: number): void {
 }
 
 function ram(hits: Hit[], im: Impact, t: number): void {
-  const [by, victim] = im.aRams ? [im.a, im.b] : [im.b, im.a];
   const r = E.ram;
-  if (im.closing <= r.minSpeed || t < (by.fx.ramReady[victim.slot] ?? 0)) return;
+  if (im.closing <= r.minSpeed) return;
+  const by = im.aRams ? im.a : im.b;
+  const victim = im.aRams ? im.b : im.a;
+  if (t < (by.fx.ramReady[victim.slot] ?? 0)) return;
   by.fx.ramReady[victim.slot] = t + r.cooldownTicks;
   victim.fx.ramReady[by.slot] = t + r.cooldownTicks;
   const share = by.combat.mass / (by.combat.mass + victim.combat.mass);
   const power = Math.min(1, (im.closing - r.minSpeed) / r.speedSpan);
-  const raw =
-    r.perRadius *
-    radiusOf(by.body) *
-    power *
-    2 *
-    share *
-    (1 - E.damage.armour * victim.combat.armour);
+  const raw = r.perRadius * radiusOf(by.body) * power * 2 * share * armourFactor(victim, false);
   queue(hits, by, victim, 'ram', raw, t);
 }
 
@@ -121,23 +110,21 @@ function reward(killer: Fighter, victimBiomass: number): void {
   const tier = theirs < mine ? rw.smallerTier : theirs > mine ? rw.biggerTier : 1;
   const gain = rw.share * victimBiomass * tier;
   const b = killer.body;
-  const before = b.biomass;
-  const grown = Math.min(gain, Math.max(0, b.phys.maxBiomass - before));
-  b.biomass = before + grown;
+  const grown = addBiomass(b, gain);
   b.energy = Math.min(maxEnergy(b.biomass), b.energy + (gain - grown) * rw.energyPerBiomass);
-  b.health += RULES.creature.healthPerRadius * (Math.sqrt(b.biomass) - Math.sqrt(before));
 }
 
 function kills(enc: Encounter, alive: Fighter[], out: EncounterEvent[]): void {
   const dead: Fighter[] = [];
   for (const f of alive) {
-    if (f.status !== 'in' || f.body.health > 0) continue;
+    if (f.body.health > 0) continue;
+    const by = f.lastBy >= 0 ? f.lastBy : null;
     f.body.health = 0;
     f.body.alive = false;
     f.body.cause = 'killed';
-    finish(enc, f, 'killed', f.lastBy >= 0 ? f.lastBy : null);
+    finish(enc, f, 'killed', by);
     dead.push(f);
-    out.push({ type: 'death', slot: f.slot, cause: 'killed', by: f.lastBy >= 0 ? f.lastBy : null });
+    out.push({ type: 'death', slot: f.slot, cause: 'killed', by });
   }
   for (const f of dead) {
     const killer = enc.fighters[f.lastBy];
@@ -173,9 +160,9 @@ export function combatTick(
   out: EncounterEvent[],
 ): void {
   const t = enc.world.tick;
-  for (const f of alive) if (f.status === 'in') brace(f, inputs[f.slot] ?? null, t);
+  for (const f of alive) brace(f, inputs[f.slot] ?? null, t);
   const hits: Hit[] = [];
-  for (const f of alive) if (f.status === 'in' && f.fx.windupEnd === t) landStrike(enc, f, hits, t);
+  for (const f of alive) if (f.fx.windupEnd === t) landStrike(enc, f, hits, t);
   for (const im of impacts) ram(hits, im, t);
   apply(hits, t, out);
   kills(enc, alive, out);

@@ -19,9 +19,10 @@ export const aim = { distance: 0, cos: 1 };
 /**
  * Sets `aim` for an attacker and a target: the distance from the attacker's centre to the nearest
  * edge of the target's collision circles (never negative), and the bearing to that circle's centre
- * as a cosine off the attacker's heading (1 when the centres coincide).
+ * as a cosine off the attacker's heading (1 when the centres coincide); `bearing = false` skips the
+ * cosine and leaves `aim.cos` stale.
  */
-export function aimAt(attacker: CreatureState, target: CreatureState): void {
+export function aimAt(attacker: CreatureState, target: CreatureState, bearing = true): void {
   const radius = radiusOf(target);
   const cosH = cos(target.heading);
   const sinH = sin(target.heading);
@@ -39,13 +40,14 @@ export function aimAt(attacker: CreatureState, target: CreatureState): void {
     }
   }
   aim.distance = Math.max(0, best);
+  if (!bearing) return;
   const apart = length(bx, by);
   aim.cos = apart > 0 ? (bx * cos(attacker.heading) + by * sin(attacker.heading)) / apart : 1;
 }
 
 /** From the attacker's centre to the nearest edge of the target's collision circles (never negative). */
 export function strikeDistance(attacker: CreatureState, target: CreatureState): number {
-  aimAt(attacker, target);
+  aimAt(attacker, target, false);
   return aim.distance;
 }
 

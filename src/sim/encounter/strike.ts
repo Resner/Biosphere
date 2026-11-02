@@ -11,7 +11,7 @@ const E = RULES.encounter;
 const EPS = 1e-9;
 
 /** The half-angle of the strike cone: the wider of the weapon arc and the mouth's arc, at least `minArc`. */
-export const strikeArc = (f: Fighter): number =>
+const strikeArc = (f: Fighter): number =>
   Math.max(f.combat.arc, f.body.phys.mouth.arc, E.strike.minArc);
 
 /** Every mouth nips; a weapon adds up to `powerWeapon` on top (saturating in the weapon power). */
@@ -38,7 +38,7 @@ export function pickTarget(enc: Encounter, f: Fighter, input: FrameInput | null)
   let bestDistance = Number.POSITIVE_INFINITY;
   for (const o of enc.fighters) {
     if (o === f || o.status !== 'in') continue;
-    aimAt(f.body, o.body);
+    aimAt(f.body, o.body, false);
     if (aim.distance < bestDistance) {
       bestDistance = aim.distance;
       best = o;
@@ -53,9 +53,9 @@ export function spread(enc: Encounter, tick: number, slot: number): number {
   return 1 + E.damage.spread * (2 * u - 1);
 }
 
-/** What armour lets through: 1 - cap x armour x the target's stance factor. */
-export const armourFactor = (target: Fighter): number =>
-  1 - E.damage.armour * target.combat.armour * E.stance[target.fx.stance].armour;
+/** What armour lets through: 1 - cap x armour, x the target's stance factor for strikes (not rams). */
+export const armourFactor = (target: Fighter, stanced = true): number =>
+  1 - E.damage.armour * target.combat.armour * (stanced ? E.stance[target.fx.stance].armour : 1);
 
 /** A strike's damage before brace. */
 export function strikeDamage(enc: Encounter, a: Fighter, target: Fighter, tick: number): number {

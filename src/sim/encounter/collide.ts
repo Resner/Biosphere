@@ -7,10 +7,16 @@ import type { Fighter } from './types';
 
 const PASSES = 2;
 
-/** Called for a pair that presses together: the fighters, their closing speed, and whether `a` closes faster. */
-export type OnImpact = (a: Fighter, b: Fighter, closing: number, aRams: boolean) => void;
+/** A pair pressed together in a tick: the fighters, the closing speed, and whether `a` is the rammer. */
+export interface Impact {
+  a: Fighter;
+  b: Fighter;
+  closing: number;
+  aRams: boolean;
+}
 
-let report: OnImpact | null = null;
+// Where `separate` records impacts during a `collide` call, or null.
+let impacts: Impact[] | null = null;
 
 // Per-fighter values that do not change while a tick's collisions resolve, in `fighters` order.
 const cosH: number[] = [];
@@ -68,7 +74,7 @@ function separate(a: Fighter, ai: number, b: Fighter, bi: number): void {
   const va = a.body.vx * nx + a.body.vy * ny;
   const vb = b.body.vx * nx + b.body.vy * ny;
   if (vb - va >= 0) return;
-  if (report !== null) report(a, b, va - vb, va >= -vb);
+  impacts?.push({ a, b, closing: va - vb, aRams: va >= -vb });
   const common = (ma * va + mb * vb) / total;
   a.body.vx += nx * (common - va);
   a.body.vy += ny * (common - va);
@@ -76,9 +82,9 @@ function separate(a: Fighter, ai: number, b: Fighter, bi: number): void {
   b.body.vy += ny * (common - vb);
 }
 
-/** Resolves every pair of the given fighters (in slot order) for one tick, reporting each impact. */
-export function collide(fighters: readonly Fighter[], onImpact: OnImpact | null = null): void {
-  report = onImpact;
+/** Resolves every pair of the given fighters (in slot order) for one tick, appending each impact to `out`. */
+export function collide(fighters: readonly Fighter[], out: Impact[] | null = null): void {
+  impacts = out;
   for (let i = 0; i < fighters.length; i++) {
     const f = fighters[i] as Fighter;
     cosH[i] = cos(f.body.heading);
