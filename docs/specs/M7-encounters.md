@@ -286,7 +286,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### Lock-in and the referee
 
-- [ ] T6 Protocol 7: encounter messages, signed snapshots, snapshot v4 [opus] (after none)
+- [ ] T6 Protocol 7: encounter messages, signed snapshots, snapshot v4 [opus] (after none) (in progress)
   - Steps:
     1. `PROTOCOL_VERSION` 7 and `SNAPSHOT_VERSION` 4: flag bits 16 (spawn-protected) and 32 (fighting), still 25 bytes; version 3 snapshots are dropped.
     2. `src/ledger/snapshot-sig.ts`, under the domain `bs/snap/v1` over `pond id ‖ 0x0A ‖ the 25 bytes` (ADR 0050):
