@@ -249,11 +249,26 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
     const counts = LODS.map((lod) => estimateVertices(cell, lod));
     expect(counts[0]).toBeGreaterThan(counts[1] as number);
     expect(counts[1]).toBeGreaterThan(counts[2] as number);
-    // The costliest bodies step down their ladder rather than break the budget.
+    // The costliest bodies step down their ladder rather than break the budget. Since M6c T4 no
+    // developed body tested here overruns the top rung (setae on legs, antennae and tails only, 12 a
+    // part; branches on antennae and tails only), so the costliest extreme is dressed further by
+    // hand: every instance branched twice, jointed four times and bristled 12 times.
+    const costliest = planOf(extremes[extremes.length - 1] as Genome);
+    const dressed: BodyPlan = {
+      ...costliest,
+      appendages: costliest.appendages.map((a) => ({
+        ...a,
+        branches: 2,
+        joints: 4,
+        setae: 12,
+        setaeLength: Math.max(a.setaeLength, 0.1),
+        fringe: false,
+      })),
+    };
     for (const lod of LODS) {
-      const big = [...extremes, ...randoms.slice(0, 300)]
-        .map(planOf)
-        .find((p) => countVertices(p, LOD_LADDER[lod][0] as MeshDetail) > LOD_BUDGET[lod]);
+      const big = [...extremes.map(planOf), ...randoms.slice(0, 300).map(planOf), dressed].find(
+        (p) => countVertices(p, LOD_LADDER[lod][0] as MeshDetail) > LOD_BUDGET[lod],
+      );
       if (!big) throw new Error(`no body overruns the top ${lod} rung`);
       expect(meshDetail(big, lod)).not.toEqual(LOD_LADDER[lod][0]);
       expect(estimateVertices(big, lod)).toBeLessThanOrEqual(LOD_BUDGET[lod]);
@@ -768,10 +783,11 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
   });
 
   it('draws every bristle as a thin ribbon on high, and fewer on lower levels when they must', () => {
-    for (const prefix of ['23-', '24-', '27-', '38-']) {
+    // The bristled bilateral specimens: since M6c T4 spokes (23, 24) carry no setae.
+    for (const prefix of ['27-', '31-', '37-', '38-']) {
       const p = planOf(specimen(prefix));
       const bristles = p.appendages.reduce((n, a) => n + a.setae, 0);
-      expect(bristles).toBeGreaterThan(20);
+      expect(bristles).toBeGreaterThan(10);
       const drawn = (lod: Lod): number => {
         const g = buildCreatureGeometry(p, lod);
         const part = attr(g, 'aPart');
@@ -848,7 +864,7 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
         }
       }
     }
-    expect(ratios.length).toBeGreaterThan(20);
+    expect(ratios.length).toBeGreaterThan(12);
     const tips = [...bristles.values()].flat().map((b) => b.tip);
     const inBody = tips.filter(([x, y]) =>
       p.segments.some((seg) => {
@@ -860,13 +876,17 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
     );
     expect(inBody.length).toBeLessThanOrEqual(tips.length * 0.1);
     // On both sides of a curved part: none converge (they would cross and merge into a sheet).
+    // Since M6c T4 a bristle is at most 3 part widths long and a part carries 12 at most, so they
+    // stand apart by their spacing along the part, and the fan only widens it (about 1.3×, where
+    // the long combs before it needed 2×).
     ratios.sort((a, b) => a - b);
-    expect(ratios[Math.floor(ratios.length * 0.1)]).toBeGreaterThanOrEqual(1.5);
-    expect(ratios[ratios.length >> 1]).toBeGreaterThanOrEqual(2);
+    expect(ratios[0]).toBeGreaterThanOrEqual(1.15);
+    expect(ratios[ratios.length >> 1]).toBeGreaterThanOrEqual(1.25);
   });
 
   it('draws plumose bristles on the 5-vertex rungs: setule pairs of their own kind, within the bounds (look pass 5)', () => {
-    for (const prefix of ['23-', '24-', '27-', '38-']) {
+    // The bristled bilateral specimens: since M6c T4 spokes (23, 24) carry no setae.
+    for (const prefix of ['27-', '31-', '37-', '38-']) {
       const p = planOf(specimen(prefix));
       const g = buildCreatureGeometry(p, 'high');
       const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];

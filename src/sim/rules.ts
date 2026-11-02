@@ -571,8 +571,10 @@ export const RULES = deepFreeze({
       /**
        * Setae, by fringe (bristles × length, summed): `drag` each; up to `sense` on the detection
        * ring and up to `mouth` wider filter mouth at a fringe of `full`; `basal` per bristle.
+       * Since M6c T4 bristles are at most 3 part widths long and 12 a part, about a quarter of the
+       * fringe they were, so `full` and `drag` scaled with them.
        */
-      setae: { drag: 0.004, sense: 1, mouth: 0.25, full: 30, basal: 0.002 },
+      setae: { drag: 0.015, sense: 1, mouth: 0.25, full: 8, basal: 0.002 },
       /** A bulb adds `spines` × radius to the spine share (capped at 1), its disc × `mass`, and `basal`. */
       bulb: { spines: 1.5, mass: 1, basal: 0.02 },
       /** A chela grips with `power` × chela × stiffness × its last joint's length, weighs `mass` × its area, costs `basal`. */

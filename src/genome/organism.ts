@@ -132,7 +132,9 @@ export interface Jitter {
 }
 
 /** A pair's jitter, from a hash of its slot, segment, attach angle and phase: the same body always gets the same. */
-export function pairJitter(part: Pick<Appendage, 'module' | 'segment' | 'angle' | 'phase'>): Jitter {
+export function pairJitter(
+  part: Pick<Appendage, 'module' | 'segment' | 'angle' | 'phase'>,
+): Jitter {
   const J = O.jitter;
   const bits = (v: number): number => Math.floor(v * 65536);
   const u = (salt: number): number =>

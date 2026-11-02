@@ -275,7 +275,9 @@ describe('develop: repairs', () => {
       const same = (a: typeof l) => ({ ...a, side: 1, dir: 0, length: 0, phase: 0 });
       expect(same(r)).toEqual(same(l));
       expect(Math.abs(r.dir - l.dir)).toBeLessThanOrEqual((6 * PI) / 180 + 1e-9);
-      expect(Math.min(l.length, r.length)).toBeGreaterThanOrEqual(0.95 * Math.max(l.length, r.length) - 1e-9);
+      expect(Math.min(l.length, r.length)).toBeGreaterThanOrEqual(
+        0.95 * Math.max(l.length, r.length) - 1e-9,
+      );
     }
   });
 

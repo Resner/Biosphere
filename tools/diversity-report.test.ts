@@ -29,10 +29,10 @@ describe('diversity report', () => {
     expect(text).toContain('Bred: 60 over 3 generations');
   });
 
-  it('bristles at least half of the bred legs with 6 or more setae (M6b T7)', () => {
+  it('bristles at least half of the bred legs with a quarter of the most setae a part carries (M6b T7)', () => {
     const report = diversityReport({ genesis: 200, bred: 600, generations: 6 });
     const line = report.split('\n').find((l) => l.startsWith('- Bred legs')) as string;
-    const share = Number(/([\d.]+)% with 6 or more bristles/.exec(line)?.[1]);
+    const share = Number(/([\d.]+)% with 3 or more bristles/.exec(line)?.[1]);
     expect(Number(/: (\d+),/.exec(line)?.[1])).toBeGreaterThan(500);
     expect(share).toBeGreaterThanOrEqual(50);
   });
