@@ -359,6 +359,27 @@ function boundsCheck(p: Part, s: PlanSegment, l: Point, r: Point): () => boolean
   };
 }
 
+/**
+ * Whether one instance of `p`, on `side` of segment `s` at its own direction and length, fits the
+ * bounds whole as `boundsCheck` reads a pair: at its full bend, half of it and straight, with its
+ * rays. A mirrored pair's jittered instance (M6c T4) is checked by this alone.
+ */
+export function sideFits(p: Part, s: PlanSegment, side: 1 | -1): boolean {
+  const room = D.caps.bounds - D.boundsSlack;
+  const root = rootOf(s, p.angle, side);
+  const heading = s.angle + side * p.dir;
+  const c = cos(heading);
+  const n = sin(heading);
+  const { cap, bend } = capAndBend(p, 0);
+  if (roughReach(root, c, n, bend, side, p) <= room) return true;
+  const bends = bend === 0 ? [0] : [bend, bend / 2, 0];
+  for (let i = 0; i < bends.length; i++) {
+    const k = bendOf(bends[i] as number, side);
+    if (reachFrom(root, c, n, k, cap, p, i === 0, room) > room) return false;
+  }
+  return true;
+}
+
 function fitAt(p: Part, segments: PlanSegment[], sweep: number, from: number): void {
   // On a turned segment the two sides' roots lie at different distances; the farther one counts.
   const s = segments[p.segment] as PlanSegment;

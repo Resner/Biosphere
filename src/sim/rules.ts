@@ -238,13 +238,17 @@ export const RULES = deepFreeze({
     /** A segment's half-length is its radius × aspect ÷ this, within `stretch`. */
     aspectNeutral: 1.6,
     stretch: [0.6, 1.2],
-    /** Appendage length, base width, taper and curvature at byte 0 and byte 255. */
+    /**
+     * Appendage length, base width, taper and curvature at byte 0 and byte 255. Every part tapers to
+     * at most 40% of its root and bends backward by at least 0.15 (M6c T4, ADR 0041): toward the tail
+     * for legs and tails, outward and back for antennae.
+     */
     length: [0.1, 1.5],
     width: [0.04, 0.4],
-    taper: [0, 0.9],
-    curvature: [-1, 1],
-    /** A branch is this fraction of its parent's length and width. */
-    branchScale: 0.6,
+    taper: [0.6, 0.9],
+    curvature: [0.15, 1],
+    /** A branch is this fraction of its parent's length and width (at most half, ADR 0041). */
+    branchScale: 0.5,
     /** Attach angles stay this far from the heading and the tail (radians). */
     angleMargin: 0.2,
     /** Appendages on one segment and side keep at least this angle apart (radians). */
@@ -261,7 +265,8 @@ export const RULES = deepFreeze({
       beat: 0.8,
       pairs: 2,
       tip: 0.9,
-      taper: 0.3,
+      taper: 0.6,
+      curvature: 0.15,
       joints: 2,
       stiffness: 0.3,
     },
@@ -462,14 +467,24 @@ export const RULES = deepFreeze({
       /** A webbed part spans a sheet `webbing` of the way along its rays: to its branches, and to the next part rearward on its side (or, the rearmost, to its own mirror: a tail fan) when their roots lie at most `webSpan` apart. Pieces under `minArea` are dropped. */
       webSpan: 1.6,
       minArea: 1e-4,
-      /** Density 0-1 gives 0-`perPart` bristles along a part, each setae length × girth × `length` long; the body keeps at most `perBody`. */
-      setae: { perPart: 24, perBody: 240, length: 6 },
-      /** Bulb above `min` tips a part with a bead of radius bulb × girth × `scale`, at most `room` of the free reach past the root. */
-      bulb: { min: 0.3, scale: 2, room: 0.5 },
+      /**
+       * Density 0-1 gives 0-`perPart` bristles along a part, each setae length × girth × `length`
+       * long; the body keeps at most `perBody`. Only legs, antennae and tails carry them (M6c T4).
+       */
+      setae: { perPart: 12, perBody: 240, length: 3 },
+      /**
+       * Bulb above `min` tips a part with a bead of radius bulb × girth × `scale`, at most `room` of
+       * the free reach past the root. One pair at most keeps it (M6c T4): the largest bead.
+       */
+      bulb: { min: 0.6, scale: 2, room: 0.5 },
       /** Chela above `min` on a pointed or hooked tip (a weapon share above 0) makes the last joint opposable. */
       chela: { min: 0.5 },
     },
-    /** Branches leave their part at `branchAt` of its length, fanned `branchFan` radians either way. */
+    /**
+     * Branches leave their part at `branchAt` of its length, the first fanned `branchFan` radians
+     * back on its side, the second as far forward. Under ADR 0041 (M6c T4) only antennae and tails
+     * branch, once (biramous); any other part takes its branches as girth instead.
+     */
     branchAt: 0.7,
     branchFan: 0.5,
     /**
@@ -492,6 +507,14 @@ export const RULES = deepFreeze({
       radial: { spokes: [5, 9], vary: 0.3 },
       budget: 14,
       fringe: { length: 0.3, width: 0.04 },
+      /** Branches an antenna or a tail keeps (M6c T4); other parts keep none. */
+      branches: 1,
+      /**
+       * Mirrored pairs differ by a hash (M6c T4): the right instance grows up to `angle` degrees
+       * either way and `length` longer or shorter, as far as its bounds and its region allow, and
+       * beats `phase` of a cycle after the left.
+       */
+      jitter: { angle: 6, length: 0.05, phase: [0.04, 0.12] },
     },
   },
   /** Stats from form (M3, DESIGN §6): how a body plan becomes thrust, drag, turning, costs and combat numbers. */

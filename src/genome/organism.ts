@@ -4,7 +4,7 @@
 // nine spokes. At most 14 instances show; the rest become a fringe of fine cilia that still counts
 // for the stats. Shared and deterministic: development and the tests read the same rules.
 
-import { cos, length as hypot, PI } from '../sim/math';
+import { cos, length as hypot, lerp, PI } from '../sim/math';
 import { hashU32 } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import type { Appendage, BodyPlan, PlanSegment } from './develop';
@@ -110,12 +110,13 @@ export const SPOKE_PAIRS: readonly [number, number] = [
   Math.floor((O.radial.spokes[1] as number) / 2),
 ];
 
+const bits = (v: number): number => Math.floor(v * 65536);
+
 /** A spoke's length factor, 1 ± `radial.vary`, from a hash of its ring slot and its part's genes. */
 export function spokeVary(
   slot: number,
   part: Pick<Appendage, 'module' | 'phase' | 'length'>,
 ): number {
-  const bits = (v: number): number => Math.floor(v * 65536);
   const h =
     (hashU32(slot, part.module + 1, bits(part.phase), bits(part.length)) >>> 0) / 4294967296;
   return 1 + O.radial.vary * (2 * h - 1);
@@ -162,3 +163,37 @@ export function rolesOf(
   for (const [i, role] of keep.slice(0, VISIBLE_PAIRS)) roles[i] = role;
   return roles;
 }
+
+/** How a mirrored pair's right instance differs from its left (M6c T4, ADR 0041). */
+export interface Jitter {
+  /** Its growth direction's turn, radians: within ±`jitter.angle` degrees. */
+  turn: number;
+  /** Its length factor: 1 ± `jitter.length`. */
+  stretch: number;
+  /** How far behind the left it beats, a share of a cycle within `jitter.phase`. */
+  lag: number;
+}
+
+/** Pair `k`'s jitter, from a hash of its place in the plan and its part's genes. */
+export function pairJitter(
+  k: number,
+  part: Pick<Appendage, 'module' | 'segment' | 'phase'>,
+): Jitter {
+  const J = O.jitter;
+  const h = hashU32(k, part.module + 1, part.segment, bits(part.phase)) >>> 0;
+  // Three 10-bit fields of the hash, each 0-1.
+  const u = (shift: number): number => ((h >>> shift) & 0x3ff) / 0x3ff;
+  return {
+    turn: deg(J.angle) * (2 * u(0) - 1),
+    stretch: 1 + J.length * (2 * u(10) - 1),
+    lag: lerp(J.phase[0] as number, J.phase[1] as number, u(20)),
+  };
+}
+
+/** Whether a part of `role` may carry setae (M6c T4): legs, antennae and tails do. */
+export const bristled = (role: Role | undefined): boolean =>
+  role === 'leg' || role === 'antenna' || role === 'feeler' || role === 'tail';
+
+/** How many branches a part of `role` keeps (M6c T4): antennae (biramous) and tails one, the rest none. */
+export const branchesFor = (role: Role | undefined, branches: number): number =>
+  role === 'antenna' || role === 'feeler' || role === 'tail' ? Math.min(branches, O.branches) : 0;

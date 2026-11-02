@@ -112,9 +112,14 @@ const kindOf = (
 const isNamedPart = (plan: BodyPlan, a: Appendage): boolean =>
   kindOf(plan, a) !== 'other' && kindOf(plan, a) !== 'fringe';
 
-const rng = createRng(seedFromString('develop-proportions'), 'bytes');
-const randomV2 = (): Genome =>
-  decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
+/**
+ * Random v2 genomes from a stream of their own per test, so a skipped heavy test never shifts the
+ * genomes another test draws (\`check\` skips the heavy ones, \`check:full\` runs them).
+ */
+const genomes = (name: string): (() => Genome) => {
+  const rng = createRng(seedFromString(`develop-proportions-${name}`), 'bytes');
+  return () => decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
+};
 
 describe('proportions: the trunk carries the body (karyotype v2)', () => {
   it('reads all 12 silhouette specimens', () => {
@@ -181,6 +186,7 @@ describe('proportions v3: long bodies read by outline (look pass 4)', () => {
   heavyTest('makes every bilateral v2 chain of 3+ segments at least 2.5× as long as wide', () => {
     let long = 0;
     let curved = 0;
+    const randomV2 = genomes('aspect');
     for (let i = 0; i < 3_000; i++) {
       const random = randomV2();
       for (const g of [
@@ -267,6 +273,7 @@ describe('proportions: parts keep their gene length', () => {
       const k = kept[key] ?? [0, 0];
       kept[key] = [k[0] + 1, k[1] + (ok ? 1 : 0)];
     };
+    const randomV2 = genomes('kept');
     for (let i = 0; i < 3_000; i++) {
       const traits = express(randomV2());
       const plan = develop(traits);
@@ -346,6 +353,7 @@ describe('proportions: longer parts sweep round the body (look pass 4)', () => {
 
   it('lets antennae and tentacles reach past 1.5 core radii, inside the bounds', () => {
     const long = { antenna: 0, tentacle: 0 };
+    const randomV2 = genomes('long');
     for (let i = 0; i < 3_000; i++) {
       const { plan } = developed(randomV2());
       let any = false;
@@ -424,6 +432,7 @@ describe('proportions: radial bodies ring their parts', () => {
   it('keeps radial rings in order over 3,000 mutated genomes', () => {
     // Validity over 10,000 random and mutated genomes is develop.test.ts's; this checks the order.
     let rings = 0;
+    const randomV2 = genomes('rings');
     for (let i = 0; i < 3_000; i++) {
       const g = mutateGenome(randomV2(), seedFromString(`ring-${i}`), { mutation: 4 });
       const { plan } = developed(g);
