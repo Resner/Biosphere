@@ -471,7 +471,7 @@ export const RULES = deepFreeze({
        * Density 0-1 gives 0-`perPart` bristles along a part, each setae length × girth × `length`
        * long; the body keeps at most `perBody`. Only legs, antennae and tails carry them (M6c T4).
        */
-      setae: { perPart: 12, perBody: 240, length: 3 },
+      setae: { perPart: 12, perBody: 120, length: 3 },
       /**
        * Bulb above `min` tips a part with a bead of radius bulb × girth × `scale`, at most `room` of
        * the free reach past the root. One pair at most keeps it (M6c T4): the largest bead.
@@ -573,9 +573,11 @@ export const RULES = deepFreeze({
       web: { thrust: 1, exponent: 0.5, drag: 0.5, mass: 0.5, basal: 0.2 },
       /**
        * Setae, by fringe (bristles × length, summed): `drag` each; up to `sense` on the detection
-       * ring and up to `mouth` wider filter mouth at a fringe of `full`; `basal` per bristle.
+       * ring and up to `mouth` wider filter mouth at a fringe of `full`; `basal` per bristle. M6c T4
+       * made bristles half as many and half as long per gene, so `drag` and `full` moved by 4 and
+       * `basal` by 2: the same genes buy the same effects.
        */
-      setae: { drag: 0.004, sense: 1, mouth: 0.25, full: 30, basal: 0.002 },
+      setae: { drag: 0.016, sense: 1, mouth: 0.25, full: 7.5, basal: 0.004 },
       /** A bulb adds `spines` × radius to the spine share (capped at 1), its disc × `mass`, and `basal`. */
       bulb: { spines: 1.5, mass: 1, basal: 0.02 },
       /** A chela grips with `power` × chela × stiffness × its last joint's length, weighs `mass` × its area, costs `basal`. */

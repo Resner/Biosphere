@@ -105,6 +105,27 @@ const SETA_WIDTH = 0.022;
 const SETA_BASE = 1.5;
 const SETA_SWEEP = 0.9;
 /**
+ * A bristle curves along its part's sweep (M6c T4, ADR 0041): over its length it turns toward the
+ * part's tip by `SETA_CURVE` plus `SETA_CURL` × its share along the part (radians), so it reads as
+ * soft and the far bristles lie along the part rather than fanning straight out like a brush.
+ */
+const SETA_CURVE = 0.2;
+const SETA_CURL = 0.8;
+
+/** Share `s` along a bristle that leaves at heading `h0` and turns by `w` over its length: the offset per unit length. */
+const bristleX = (h0: number, w: number, s: number): number =>
+  abs(w) < 1e-6 ? s * cos(h0) : (sin(h0 + w * s) - sin(h0)) / w;
+const bristleY = (h0: number, w: number, s: number): number =>
+  abs(w) < 1e-6 ? s * sin(h0) : -(cos(h0 + w * s) - cos(h0)) / w;
+
+/** The longest `len` with (`x`, `y`) + `len` × (`ux`, `uy`) inside the bounds, from inside them. */
+function roomAlong(x: number, y: number, ux: number, uy: number): number {
+  const a = ux * ux + uy * uy;
+  if (a < 1e-12) return Number.POSITIVE_INFINITY;
+  const b = x * ux + y * uy;
+  return (-b + sqrt(max(0, b * b - a * (x * x + y * y - BOUNDS * BOUNDS)))) / a;
+}
+/**
  * Plumose setae (look pass 5): pairs of setules at these shares along each bristle (drawn on the
  * 5-vertex rungs only), each `SETULE_LENGTH` of the bristle long near its root, shorter toward its
  * tip, angled `SETULE_ANGLE` off it toward the tip, its root `SETULE_BASE` of the bristle wide.
@@ -449,29 +470,37 @@ function addSetae(
     const t = min(1, (share * a.length) / length);
     const at = pathAt(path, t);
     const off = SETA_BASE - SETA_SWEEP * share;
+    const curl = SETA_CURVE + SETA_CURL * share;
     // Sides alternate, but a bristle that would grow into the body grows from the other side, and
     // one that would grow into it either way (a part in the eye of a coil) is not drawn: seen
     // through the clear shell, such bristles piled into a white cloud inside the body.
     const into = (side: number): boolean => {
-      const angle = chord + side * off;
-      const [x, y] = [at.x + a.setaeLength * cos(angle), at.y + a.setaeLength * sin(angle)];
+      const [h, w] = [chord + side * off, -side * curl];
+      const x = at.x + a.setaeLength * bristleX(h, w, 1);
+      const y = at.y + a.setaeLength * bristleY(h, w, 1);
       return plan.segments.some((seg) => inside(seg, x, y));
     };
     const side = k % 2 === 0 ? 1 : -1;
     if (into(side) && into(-side)) continue;
-    const angle = chord + (into(side) ? -side : side) * off;
-    const [dx, dy] = [cos(angle), sin(angle)];
-    const [nx, ny] = [-dy, dx];
-    // A bristle stops at the bounds, where development keeps every part.
-    const ahead = at.x * dx + at.y * dy;
-    const room =
-      -ahead + sqrt(max(0, ahead * ahead - (at.x * at.x + at.y * at.y - BOUNDS * BOUNDS)));
-    const len = max(0, min(a.setaeLength, room));
+    const sign = into(side) ? -side : side;
+    const h0 = chord + sign * off;
+    const w = -sign * curl;
+    // A bristle stops at the bounds, where development keeps every part: its middle and its tip.
+    const len = max(
+      0,
+      min(
+        a.setaeLength,
+        roomAlong(at.x, at.y, bristleX(h0, w, 0.5), bristleY(h0, w, 0.5)),
+        roomAlong(at.x, at.y, bristleX(h0, w, 1), bristleY(h0, w, 1)),
+      ),
+    );
     const point = (share: number, half: number, v: number, kind = part): number => {
       m.flutterAt = len * share;
+      const h = h0 + w * share;
+      const [nx, ny] = [-sin(h), cos(h)];
       const i = m.vertex(
-        at.x + dx * len * share + nx * half,
-        at.y + dy * len * share + ny * half,
+        at.x + len * bristleX(h0, w, share) + nx * half,
+        at.y + len * bristleY(h0, w, share) + ny * half,
         0,
         0.5 + 0.5 * Math.sign(half),
         v,
@@ -497,7 +526,10 @@ function addSetae(
       const setule = id * PART_KINDS + PART_SETULE;
       for (const along of SETULES_AT) {
         const reach = len * SETULE_LENGTH * (1 - 0.5 * along);
-        const [cx, cy] = [at.x + dx * len * along, at.y + dy * len * along];
+        const [cx, cy] = [at.x + len * bristleX(h0, w, along), at.y + len * bristleY(h0, w, along)];
+        // The bristle's heading there, and its normal.
+        const [dx, dy] = [cos(h0 + w * along), sin(h0 + w * along)];
+        const [nx, ny] = [-dy, dx];
         for (const side of [1, -1] as const) {
           const [sx, sy] = [SETULE_COS, side * SETULE_SIN];
           const [ex, ey] = [cx + (dx * sx - dy * sy) * reach, cy + (dy * sx + dx * sy) * reach];

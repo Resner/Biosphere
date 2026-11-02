@@ -1,12 +1,19 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { heavyTest } from '../../tests/heavy';
-import { STARTER_PHYS, sanitizePhys } from '../sim/body';
+import { type Collider, STARTER_PHYS, sanitizePhys } from '../sim/body';
 import { lerp } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
-import { type BodyPlan, bodyViolations, develop, hashPlan, motileArea } from './develop';
+import {
+  type Appendage,
+  type BodyPlan,
+  bodyViolations,
+  develop,
+  hashPlan,
+  motileArea,
+} from './develop';
 import { express } from './express';
 import { mutateGenome } from './inherit';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from './karyotype';
@@ -145,7 +152,7 @@ describe('develop: caps and guarantees', () => {
     expect(new Set(xs).size).toBe(8);
   });
 
-  it('keeps the colliders symmetric, pair by pair', () => {
+  it("keeps the colliders in pairs, mirrored up to the pair's jitter", () => {
     for (let n = 1; n <= 8; n++) {
       const seg = Math.round(((n - 1) / 7) * 255);
       const p = plan(
@@ -154,12 +161,10 @@ describe('develop: caps and guarantees', () => {
       const rest = p.colliders.slice(p.segments.length);
       expect(rest.length % 2, `${n} segments`).toBe(0);
       for (let i = 0; i < rest.length; i += 2) {
-        const [l, r] = [rest[i], rest[i + 1]] as BodyPlan['colliders'];
-        expect(r).toEqual({
-          x: (l as { x: number }).x,
-          y: -(l as { y: number }).y,
-          r: (l as { r: number }).r,
-        });
+        const [l, r] = [rest[i], rest[i + 1]] as [Collider, Collider];
+        // The right instance grows turned by at most 6° and 5% longer or shorter (M6c T4).
+        expect(r.r).toBe(l.r);
+        expect(Math.hypot(r.x - l.x, r.y + l.y), `${n} segments`).toBeLessThan(0.25);
       }
     }
   });
@@ -264,9 +269,11 @@ describe('develop: repairs', () => {
     expect([...modules].sort((a, b) => a - b)).toEqual(modules);
     expect(p.appendages.length % 2).toBe(0);
     for (let i = 0; i < p.appendages.length; i += 2) {
-      const [l, r] = [p.appendages[i], p.appendages[i + 1]];
-      expect(l?.side).toBe(1);
-      expect({ ...r, side: 1 }).toEqual(l);
+      const [l, r] = [p.appendages[i], p.appendages[i + 1]] as [Appendage, Appendage];
+      expect(l.side).toBe(1);
+      // A pair differs only by its jitter (M6c T4): the right's direction, length and beat phase.
+      const plain = (a: Appendage) => ({ ...a, side: 1, dir: 0, length: 0, phase: 0 });
+      expect(plain(r)).toEqual(plain(l));
     }
   });
 

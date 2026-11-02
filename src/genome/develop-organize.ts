@@ -145,7 +145,8 @@ export function mirror(parts: Part[], segments: readonly PlanSegment[]): Appenda
 /**
  * The right instance of pair `k` (M6c T4, ADR 0041): it beats `pairJitter`'s lag behind the left,
  * and a limb grows turned and stretched by its jitter, kept to its sweep and its role's length. A
- * jitter the bounds cannot hold is halved, then dropped.
+ * jitter the bounds cannot hold is halved, then dropped. Its bristles then shorten to stay in the
+ * bounds, so setae never move a part.
  */
 function jittered(p: Part, k: number, segments: readonly PlanSegment[], m: Measure): Appendage {
   const right = appendageOf(p, -1);
@@ -160,26 +161,29 @@ function jittered(p: Part, k: number, segments: readonly PlanSegment[], m: Measu
       dir: clamp(p.dir + share * j.turn, p.lo, p.hi),
       length: Math.min(p.length * (1 + share * (j.stretch - 1)), most),
     };
-    if (sideFits(trial, s, -1) && bristlesFit(trial, s, -1)) {
+    if (sideFits(trial, s, -1)) {
       right.dir = trial.dir;
       right.length = trial.length;
       break;
     }
   }
+  if (right.setae > 0) {
+    const length = Math.min(right.setaeLength, D.caps.bounds - D.boundsSlack - farOn(s, right));
+    right.setaeLength = length > D.epsilon ? length : 0;
+    if (right.setaeLength === 0) right.setae = 0;
+  }
   return right;
 }
 
-/** Whether `p`'s bristles on `side` stay in the bounds, as `dress` fits them. */
-function bristlesFit(p: Part, s: PlanSegment, side: 1 | -1): boolean {
-  if (p.setae === 0) return true;
-  const root = rootOf(s, p.angle, side);
-  const dir = dirOf(s, { dir: p.dir, side });
-  const room = D.caps.bounds - D.boundsSlack;
-  for (const t of [bristleAt(0, p.setae), bristleAt(p.setae - 1, p.setae)]) {
-    const at = hypot(root.x + t * p.length * dir.x, root.y + t * p.length * dir.y);
-    if (at + p.setaeLength > room) return false;
+/** The farthest bristle root of instance `a` from the core, as `dress` places them. */
+function farOn(s: PlanSegment, a: Appendage): number {
+  const root = rootOf(s, a.angle, a.side);
+  const dir = dirOf(s, a);
+  let far = 0;
+  for (const t of [bristleAt(0, a.setae), bristleAt(a.setae - 1, a.setae)]) {
+    far = Math.max(far, hypot(root.x + t * a.length * dir.x, root.y + t * a.length * dir.y));
   }
-  return true;
+  return far;
 }
 
 /**
@@ -267,13 +271,19 @@ function organize(parts: Part[], segments: PlanSegment[], scales: readonly numbe
   return out;
 }
 
-/** The motile area of `parts` once mirrored: a coil's leg counts once, and its inner fringe. */
+/**
+ * A mirrored pair's motile area at least: the right instance may be `jitter.length` shorter (M6c
+ * T4), so a pair counts as `PAIR` of its left instance.
+ */
+const PAIR = 2 - D.organism.jitter.length;
+
+/** The motile area of `parts` once mirrored, at least: a coil's leg counts once, and its inner fringe. */
 function swimArea(parts: Part[], segments: readonly PlanSegment[]): number {
   const m = parts.some((p) => p.inner) ? measure(segments) : undefined;
   let area = 0;
   for (const p of parts) {
     const one = motileOf(p);
-    area += p.inner ? one + motileOf(toFringe(p, segments, m)) : 2 * one;
+    area += p.inner ? one + motileOf(toFringe(p, segments, m)) : PAIR * one;
   }
   return area;
 }
@@ -365,7 +375,7 @@ export function radialParts(
   scales: readonly number[],
 ): Part[] {
   const parts = ring(radialRing(all, [], segments, scales), segments, sweep, body);
-  if (2 * motileArea(parts) >= D.minThrustArea) return parts;
+  if (PAIR * motileArea(parts) >= D.minThrustArea) return parts;
   const band = Array.from({ length: D.band.pairs }, (_, j) => bandPart(0, 0, j, room(segments, 0)));
   return ring(radialRing(all, band, segments, scales), segments, sweep, body);
 }
