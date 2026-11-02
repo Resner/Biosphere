@@ -1,4 +1,5 @@
 import type { Page } from '@playwright/test';
+import type { CellMasks } from '../../src/lab/gallery-masks';
 import type { Disc } from '../../src/lab/gallery-page';
 import type { Rect } from '../../src/lab/grid';
 
@@ -95,7 +96,7 @@ const luminance = (rgba: Image['rgba'], i: number): number =>
   0.7152 * (rgba[i + 1] as number) +
   0.0722 * (rgba[i + 2] as number);
 
-const median = (values: number[]): number => {
+export const median = (values: number[]): number => {
   if (values.length === 0) return Number.NaN;
   const sorted = [...values].sort((a, b) => a - b);
   return sorted[sorted.length >> 1] as number;
@@ -192,18 +193,6 @@ const grey = (rgba: Image['rgba'], i: number): boolean =>
     Math.min(rgba[i] as number, rgba[i + 1] as number, rgba[i + 2] as number) <
   CHROMA * 255;
 
-/** The masks' room and their four regions, as the gallery hook reports them. */
-export interface RegionMasks {
-  x: number;
-  y: number;
-  w: number;
-  h: number;
-  face: string;
-  rim: string;
-  limbs: string;
-  mouth: string;
-}
-
 /** The body's rim is read at this percentile of its band: the bright line, not the pixels inside it. */
 export const RIM_PEAK = 0.9;
 /** A dark patch is read at this percentile: the darkest tenth of a region. */
@@ -232,7 +221,7 @@ export interface GlassLook {
  */
 export function glassLook(
   image: Image,
-  masks: RegionMasks,
+  masks: CellMasks,
   map: (x: number, y: number) => Point = (x, y) => ({ x, y }),
 ): GlassLook {
   const n = masks.w * masks.h;

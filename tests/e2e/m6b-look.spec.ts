@@ -3,7 +3,14 @@ import { expect, test } from '@playwright/test';
 import { galleryCell, galleryGrid, LABEL_HEIGHT } from '../../src/lab/gallery';
 import type { GalleryState } from '../../src/lab/gallery-page';
 import { captureGallery, GALLERY_VIEWPORT } from '../../tools/gallery-capture.mjs';
-import { type BodyLook, bodyLook, decodePng, type Image, insidePolygon } from './look-metrics';
+import {
+  type BodyLook,
+  bodyLook,
+  decodePng,
+  type Image,
+  insidePolygon,
+  median,
+} from './look-metrics';
 
 // Pass 1's glass without the haze and the glow (M6b T3, ADR 0034), judged on the gallery sheet and
 // masked by the hook's drawn geometry: the colour stays in the organs, and the shell is clear.
@@ -95,7 +102,6 @@ test('colour stays in the organs: 85% of the coloured pixels inside each body li
 });
 
 test("the shell is no milkier than pass 1's: on cells 01–06 its median excess over the water is within 15% of pass 1's", () => {
-  const median = (v: number[]) => [...v].sort((a, b) => a - b)[v.length >> 1] as number;
   const now = median(looks.slice(0, BASELINE).map((l) => l.excess));
   const then = median(pass1.map((l) => l.excess));
   console.log(`shell excess on cells 01–06: ${now.toFixed(1)}, pass 1 ${then.toFixed(1)}`);

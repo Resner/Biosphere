@@ -150,7 +150,8 @@ function dilate(mask: Uint8Array, w: number, h: number, steps: number): Uint8Arr
         let any = 0;
         for (let dy = -1; dy <= 1 && !any; dy++) {
           for (let dx = -1; dx <= 1 && !any; dx++) {
-            const [u, v] = [x + dx, y + dy];
+            const u = x + dx;
+            const v = y + dy;
             if (u >= 0 && v >= 0 && u < w && v < h) any = cur[v * w + u] as number;
           }
         }
@@ -227,9 +228,16 @@ export function cellMasks(
   // An organ's lit wall spills a pixel; a bright part seen through the glass, and its bloom, more.
   const nearOrgan = dilate(organ, w, h, 1);
   const nearOver = dilate(over, w, h, GLOW_CLEAR);
-  const faceIn = erode(hull, w, h, FACE_INSET);
-  const mouthIn = erode(hull, w, h, MOUTH_INSET);
-  const rimIn = erode(hull, w, h, RIM_BAND);
+  // One erosion, read at each inset (each step shrinks the last).
+  const insets = [FACE_INSET, MOUTH_INSET, RIM_BAND];
+  const eroded: Uint8Array[] = [hull];
+  for (let s = 1; s <= Math.max(...insets); s++)
+    eroded.push(erode(eroded[s - 1] as Uint8Array, w, h, 1));
+  const [faceIn, mouthIn, rimIn] = insets.map((n) => eroded[n] as Uint8Array) as [
+    Uint8Array,
+    Uint8Array,
+    Uint8Array,
+  ];
   const face = new Uint8Array(w * h);
   const rim = new Uint8Array(w * h);
   const limb = new Uint8Array(w * h);
