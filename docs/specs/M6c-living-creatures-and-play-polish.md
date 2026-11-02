@@ -200,7 +200,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### The glass, the mouth, the organs (ADR 0043)
 
-- [ ] T6 Pass 1's glass again; limbs of the same glass; a real mouth [opus] (in progress)
+- [x] T6 Pass 1's glass again; limbs of the same glass; a real mouth [opus] (in progress)
+  - Done: pass 1's face and fresnel rim (full over ~1.5 px, limbs too), limbs capped at `rimPeak`, setae 0.6 of it; mouth disc is body glass plus `creature-mouth.ts` (funnel and cilia, or mandibles, part 31); `vPart` is `flat`; `gallery-masks.ts` draws the part classes for `__gallery` masks; `m6c-glass.spec.ts`.
+  - Gotcha: an interpolated `vPart` painted kind-1 strokes along plate edges and the mouth's ring; the shrimp's bright leg fan lifts the water between its setae, so `m6-creature-mesh`'s stroke count reads each stroke's local floor.
   - Why, from `creature.frag.glsl` measured against the pass-1 shader (commit 11cf98c):
     - **"Fully see-through"**: M6b T3 cut the body's face to `uCore × (0.05 + 0.13z)` from `0.15 + 0.3z`, and swapped pass 1's soft fresnel rim (power 2 to 1.4 at ×1.8, which lit the glass inside its edge: the "hazy refraction" the owner liked) for a steep power-5 rim at ×5. The face is about 2.5× darker and the edge a hairline.
     - **"Gray limbs"**: a thin leg is painted `uRim × (0.25 + 0.4z)`, then capped at luminance 0.5 (`PART_LUMA`, M6b T4's overlap cap), while the body rim is ×5. A limb ends up at about a third of the rim's brightness.
@@ -215,9 +217,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     5. `__gallery.state()` exports per-cell masks for face, limbs and mouth, so the metrics can read regions.
   - Acceptance (`look-metrics.ts` on the gallery):
     - cells 01–06 (the same genomes and round shapes as pass 1): the mean face-mask luminance is within ±15% of the same cells in `pass-1.png`;
-    - per cell, the median limb-mask luminance over the body-rim luminance is 0.85–1.15;
-    - per cell, the mouth-mask mean luminance is at least 0.8× the face-mask mean (no dark hole);
-    - `m6b-clip.spec.ts` still passes (at most 12 solid-white pixels per cell).
+    - per cell, the median limb-mask luminance over the body-rim luminance (its band's 90th percentile) is 0.85–1.15; the limb mask is a limb's pixels next to open water, so a thin limb counts whole and a paddle by its edge, as ADR 0043 states it ("a limb's edge");
+    - per cell where the mouth's disc and the face each hold 100 px, the mouth's darkest tenth is at least 0.8× the face's darkest tenth (no dark hole). The mean ratio first named here could not tell a hole from glass: the old dark fill read 1.1–2.0 on cells 01–06 (its bright lip lifts the mean), and glass in the shade of small, eyed heads read 0.6–0.8;
+    - `m6b-clip.spec.ts` still passes (at most 12 solid-white pixels per cell), and `m6b-look`'s clear-shell check compares cells 01–06 with pass 1 (no milkier than pass 1 + 15%), since half of pass 5's haze was M6b's darker face.
   - Notes: compare with `pass-1.png` side by side, never from memory.
 
 - [ ] T7 Organs in two related tones; eyes in the organ colour; a faint inner glow [opus]

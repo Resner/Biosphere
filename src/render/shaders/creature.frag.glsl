@@ -76,9 +76,9 @@ const float PEARL_TAG = 2.0;
 const float FRINGE_TAG = 4.0;
 const float ACCENT_V = 2.0;
 const float ORGAN_LUMA = 0.36;
-// A part's half-width on screen (pixels) over which it turns from all rim (a glass rod narrower than
-// the body's rim band is all edge) to clear glass with a rim, like the body (M6c T6: from 2.5-6, under
-// which a paddle drawn all rim read as a white blob, and stacked paddles as a white cloud).
+// A part's radius on screen (pixels) over which it turns from all rim (a glass rod narrower than the
+// body's rim band is all edge) to glass with a rim, like the body (M6c T6; at 2.5-6 a fan of paddles
+// drawn all rim read as a white cloud).
 const vec2 PART_CLEAR_PX = vec2(0.75, 1.5);
 // A fine part (a leg, a pearl, a seta, a membrane, the mouth's feature) draws no brighter than the body
 // rim's peak (M6c T6, `rimPeak`): one alone matches the rim, and where many overlap they fill an area
@@ -122,8 +122,7 @@ const float BACK = 0.9;
 // about twice the pixels from a rounded edge (M6b T5 fix; M6c T6: 3, so a body's and a limb's edge
 // keep about 1.5 px of full rim, and a rod 3 px across is all rim).
 const float RIM_MIN_PX = 3.0;
-// A limb's light along its axis (pass 1's legs, lit through). Its density is the body's, so where
-// legs fan over each other the water still shows between their edges.
+// A limb's light along its axis (pass 1's legs, lit through). Its density is the body's.
 const float LIMB_FILL = 0.3;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
@@ -195,14 +194,14 @@ void main() {
   float z = abs(normal.z);
   float fres = pow(1.0 - z, mix(2.0, 1.4, uMembrane));
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
-  // The mouth's feature (M6c T6, creature-mouth.ts) is drawn as a limb's tube and setae's ribbons.
+  // Pearl tips and fringe carry `uv.x` tags; the mouth's feature (M6c T6, creature-mouth.ts) is
+  // drawn as a limb's tube and setae's ribbons.
   bool tagged = kind == 1 && vUv.x >= PEARL_TAG;
   bool fringe = kind == 1 && vUv.x >= FRINGE_TAG;
   // The rim is the fresnel (pass 1). On the body, its plates, the mouth's disc (kind 3, glass like the
   // rest of the body since M6c T6, with no dark fill) and the limbs, the edge keeps at least
   // RIM_MIN_PX of it at full strength, so a slim segment (M6b T5's tails and small heads) and a limb
-  // keep an edge: z over its screen gradient is about how many pixels the edge, where z reaches 0,
-  // lies away.
+  // keep an edge: z over its screen gradient grows with the pixels to the edge, where z reaches 0.
   float rim = fres;
   bool hull = kind == 0 || kind == 2 || kind == 3;
   if (hull || kind == 1) rim = max(rim, 1.0 - smoothstep(0.0, RIM_MIN_PX, z / max(fwidth(z), 1e-4)));

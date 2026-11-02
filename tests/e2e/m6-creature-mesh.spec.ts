@@ -156,6 +156,9 @@ const FLOOR_REACH = 12;
  * The most separate thin bright strokes crossing one circle round the core, outside the body. A
  * stroke starts above `bright` and ends below `dark` (so grain and glow never split one), and
  * counts when it is at most `thin` pixels wide and does not touch the body (with a 2 px margin).
+ * Both levels stand on the stroke's floor (M6c T6): since the legs are the body's bright glass
+ * (ADR 0043), the glow of a fan of them lifts the water between its bristles, and a bristle is a
+ * stroke where the light falls back to that glow. A blur of bristles has no such dips.
  */
 function strokes(
   luma: Luma,
@@ -337,7 +340,7 @@ test.describe('the gallery sheet', () => {
   });
 
   // The threshold is 10 since M6c T4 halved the bristles per part (24 to 12, ADR 0041): half of the
-  // 20 it was, with the bare cell at 3 as the control.
+  // 20 it was, with the bare cell (3, and 5 since M6c T6's mouth cilia) as the control.
   test('setae show as at least 10 separate thin bright strokes on the setose specimen', () => {
     const shrimp = specimen('27-specimen-shrimp');
     expect(shrimp.plan.appendages.reduce((n, a) => n + a.setae, 0)).toBeGreaterThanOrEqual(40);
