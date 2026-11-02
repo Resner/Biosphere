@@ -294,6 +294,9 @@ test('high splits red and blue towards the frame edge', async ({ page }) => {
 });
 
 test('without a float colour buffer the chain falls back to 8-bit targets', async ({ page }) => {
+  // Two full loads at the medium preset in software rendering: the default 30 s is not enough on a
+  // loaded runner, as for the other specs here.
+  test.setTimeout(60_000);
   await play(page, 'medium');
   const float = await bs(page);
   await page.addInitScript(() => {
