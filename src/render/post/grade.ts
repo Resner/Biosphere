@@ -4,7 +4,7 @@
 // to solid white. A glint's hot point still reaches white: it stands far above the scene a few
 // pixels round it, as no stroke, cloud of setae or bloom does, and there the ceiling rises to 1.
 
-import { clamp } from '../../sim/math';
+import { smoothstep } from '../../sim/math';
 
 type Rgb = readonly [number, number, number];
 
@@ -25,11 +25,6 @@ export const GRADE = {
   /** The diagonal distance of the four taps round a pixel, in scene pixels (each axis). */
   around: 2,
 } as const;
-
-const smoothstep = (a: number, b: number, x: number): number => {
-  const t = clamp((x - a) / (b - a), 0, 1);
-  return t * t * (3 - 2 * t);
-};
 
 /**
  * The shoulder as the composite draws it: `colour` is the scene with its rays and bloom added;

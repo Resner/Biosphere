@@ -145,6 +145,22 @@ export function buildCreatureGeometry(
       m.fixed[k + 3] as number,
     );
   }
+  // A vertex only degenerate triangles touch (a tube's tip, a ring of no width) gets no normal, which
+  // the shader would normalise to NaN; one NaN pixel bloomed into a grey octagon in Firefox (M6c T8).
+  // It faces the camera instead.
+  const n = normal.array as Float32Array;
+  for (let i = 0; i < n.length; i += 3) {
+    const length = Math.hypot(n[i] as number, n[i + 1] as number, n[i + 2] as number);
+    if (length > 1e-6) {
+      n[i] = (n[i] as number) / length;
+      n[i + 1] = (n[i + 1] as number) / length;
+      n[i + 2] = (n[i + 2] as number) / length;
+    } else {
+      n[i] = 0;
+      n[i + 1] = 0;
+      n[i + 2] = 1;
+    }
+  }
   // Sheets are seen from either side: each triangle again, wound the other way.
   const back: number[] = [];
   for (let k = 0; k < m.sheets.length; k += 3) {

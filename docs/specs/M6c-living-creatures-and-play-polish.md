@@ -243,7 +243,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Firefox
 
-- [ ] T8 Firefox: no aliasing in the body, no flashing [opus]
+- [x] T8 Firefox: no aliasing in the body, no flashing [opus]
+  - Done: the flash was zero normals (degenerate tips) normalised to NaN, which bloom spread into a grey octagon in Firefox; now unit normals, NaN-safe glass, highp everywhere, detail from 6 px, lines and tubes under 1.5 px (cell and vein walls, gut, setules, limbs) fade, LOD built a frame before it shows; allowlist: texImage's premult/flip notice.
+  - Gotcha: the `firefox` project exists only with `E2E_FIREFOX=1` and runs headed under `xvfb-run` (headless Firefox finds no GL); `m6c-flash` reads frames in the page, keeps the player in size tier 1 (outlines) and skips bodies under 9 px.
   - Why: the owner's Firefox screenshot shows dotted white lines and a coarse cell pattern in the middle of a body, and bodies that "bug out / flash for a second when there are a lot of vertices". CI and the sessions only ever ran Chromium.
   - Likely causes, to confirm in this order:
     - **Sub-pixel lines drawn by derivatives**: the segment walls (`vWall` with `fwidth`, where the `floor` makes the derivative jump), the gut line and the setules are under a pixel wide, and Firefox's coarser derivatives turn them into dots.

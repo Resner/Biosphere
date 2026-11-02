@@ -21,6 +21,10 @@
 // M6c T7 (ADR 0043): the organs keep to two related tones (the main colour and a second tone near it,
 // which the droplets and half the chambers take), the iris takes the main colour, and the heart or
 // the largest chamber, and at most one more organ, glow faintly inside their own outline.
+// M6c T8: nothing narrower than 1.5 px on screen is drawn as a line (`fine`): the cell texture's and
+// the vein network's walls, the gut and the setules fade out instead, since under a pixel they broke
+// into dots (Firefox, coarse derivatives); the cell texture starts at 6 px a cell, and every layer
+// runs at high precision (`HIGHP`, materials.ts).
 // One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
@@ -54,6 +58,7 @@ uniform sampler2D tBackdrop;
 uniform float uRefract;
 varying vec3 vNormal;
 varying vec2 vUv;
+varying float vTurn;
 // Flat (M6c T6): a triangle that joins two kinds (the body's rings by a plate's edge or at the mouth)
 // would otherwise blend their numbers into a third kind between them, drawn as a limb's stroke.
 flat varying float vPart;
@@ -137,7 +142,8 @@ const float LIMB_FILL = 0.3;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
-// DETAIL_FROM, DETAIL_TO and the DETAIL_* sizes are defines from `surface.ts`.
+// DETAIL_FROM, DETAIL_TO, the DETAIL_* sizes, FINE_FROM, FINE_TO and the LINE_* widths are defines
+// from `surface.ts`.
 
 // Marking weight 0..1 over the body's own coordinates: u runs around the body (it closes at 1,
 // so the repeat count is a whole number) and v runs along it.
@@ -199,9 +205,17 @@ float detailFade(float size, float px) {
   return smoothstep(DETAIL_FROM, DETAIL_TO, size * px);
 }
 
+// How much of a line or tube `widthPx` pixels wide is drawn (M6c T8, surface.ts `fineFade`): under a
+// pixel it would fall between pixel centres and break into dots, so it fades out instead.
+float fine(float widthPx) {
+  return smoothstep(FINE_FROM, FINE_TO, widthPx);
+}
+
 void main() {
-  vec3 normal = normalize(vNormal);
-  float z = abs(normal.z);
+  // No NaN (M6c T8): normals facing apart can interpolate to nothing, and normalising nothing is
+  // NaN, which the bloom spreads over a whole body; nor a fresnel of a facing past 1.
+  vec3 normal = vNormal * inversesqrt(max(dot(vNormal, vNormal), 1e-8));
+  float z = min(abs(normal.z), 1.0);
   float fres = pow(1.0 - z, mix(2.0, 1.4, uMembrane));
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
   // Pearl tips and fringe carry `uv.x` tags; the mouth's feature (M6c T6, creature-mouth.ts) is
@@ -218,11 +232,21 @@ void main() {
   // A thin rod (a limb, a mandible) narrower than the rim band is all rim: the same glass as the
   // body's edge, so a limb reads as the body's, not grey (M6c T6).
   // `uv.x` runs once round a part's tube, so its rate across the screen gives the tube's radius in
-  // pixels; unlike the normal's, it does not change along the part, where a paddle swells.
-  float across = 1.0 / max(6.2832 * length(vec2(dFdx(vUv.x), dFdy(vUv.x))), 1e-4);
+  // pixels; unlike the normal's, it does not change along the part, where a paddle swells. It wraps
+  // from 1 to 0 in one band of the tube, where its rate jumps; `vTurn` is the same turn with its wrap
+  // on the far side, so the smaller of the two rates is the tube's (M6c T8). A setule's `uv.x` runs
+  // once across it instead, so its width is 1 over its rate.
+  float rate = length(vec2(dFdx(vUv.x), dFdy(vUv.x)));
+  float turnRate = length(vec2(dFdx(vTurn), dFdy(vTurn)));
+  float across = 1.0 / max(6.2832 * min(rate, turnRate), 1e-4);
+  // A tube's width on screen, for fading one under 1.5 px (M6c T8): seen from above, `across` reads
+  // from half the radius at the tube's edges (where a thin tube's few pixels lie) to all of it on top.
+  float tubePx = 4.0 * across;
   float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
   if (kind == 1) rim = mix(rim, 1.0, thin);
-  float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
+  vec2 side = normal.xy + 1e-4;
+  side *= inversesqrt(max(dot(side, side), 1e-8));
+  float back = pow(max(dot(side, normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   // Screen pixels per core radius, for the detail's fade.
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
@@ -294,7 +318,7 @@ void main() {
     // A setule (look pass 5): a fainter side hair of a plumose bristle, so a comb stays fine hair
     // and stacked combs do not fill into a white cloud.
     col = uRim * (RIM * uRimStrength);
-    alpha = SETULE_ALPHA;
+    alpha = SETULE_ALPHA * fine(1.0 / max(rate, 1e-4));
   } else if (kind == 6) {
     // A membrane: a thin sheet, its veins running out from the root and across, a fine network
     // between them, and a bright free edge.
@@ -302,7 +326,7 @@ void main() {
     float arc = 1.0 - smoothstep(0.02, 0.06, abs(fract(vUv.y * 3.0 + 0.5) - 0.5));
     float edge = smoothstep(0.86, 1.0, vUv.y);
     // Each detail costs a neighbourhood search, so it is skipped while its fade is zero.
-    float netFade = detailFade(DETAIL_VEIN, px);
+    float netFade = detailFade(DETAIL_VEIN, px) * fine(LINE_VEIN * DETAIL_VEIN * px);
     float net = netFade > 0.0
       ? (1.0 - smoothstep(0.02, 0.07, cells(vRest / DETAIL_VEIN + 5.3).y)) * netFade
       : 0.0;
@@ -365,6 +389,7 @@ void main() {
       // they are joined them into one streak.
       col = tame(uOrgan) * (0.25 + 0.3 * z);
       alpha = 0.18 + 0.22 * z;
+      alpha *= fine(tubePx);
     } else if (kind == PART_CHAMBER) {
       // A fluid chamber, glassy as in pass 1: a clear centre in its colour and a brighter, denser wall.
       col = tint * (0.45 + 0.3 * z + 0.6 * fres) + 0.1 * spot;
@@ -391,13 +416,17 @@ void main() {
     }
   }
 
+  // A limb, a fringe cilium or a pearl narrower than 1.5 px fades rather than breaking into dots that
+  // come and go as the body moves on the pixel grid (M6c T8: the owner's flashing antennae).
+  if (kind == 1) alpha *= fine(tubePx);
+
   if (glass) {
     // The glass's surface: faint cell walls, small pits and an uneven thickness, each fading in
     // with its size on screen; then the wet highlight of the key light. Parts are clean glass
     // (look pass 3): on a thin tube the texture read as crumpled foil.
     // Each costs a neighbourhood search (or noise), so it is skipped while its fade is zero.
     float textured = kind == 1 ? 0.0 : 1.0;
-    float wallFade = detailFade(DETAIL_CELL, px) * textured;
+    float wallFade = detailFade(DETAIL_CELL, px) * fine(LINE_CELL * DETAIL_CELL * px) * textured;
     float poreFade = detailFade(DETAIL_PORE, px) * textured;
     float flawFade = detailFade(DETAIL_FLAW, px) * textured;
     float wall = wallFade > 0.0

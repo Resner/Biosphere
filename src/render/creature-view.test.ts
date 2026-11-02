@@ -69,10 +69,63 @@ describe('CreatureView', () => {
     view.update(state({ pxPerWu: 10 }), 0);
     const full = view.mesh.geometry.getAttribute('position').count;
     view.update(state({ pxPerWu: 1 }), 0.1);
+    view.update(state({ pxPerWu: 1 }), 0.2);
     expect(view.mesh.geometry.getAttribute('position').count).toBeLessThan(full);
     expect(cache.live()).toBe(1);
     view.dispose();
     expect(cache.live()).toBe(0);
+  });
+
+  it('builds the new level before letting go of the old, and swaps it in on the next frame (M6c T8)', () => {
+    const cache = new CreatureCache();
+    const calls: string[] = [];
+    const [acquire, release] = [cache.acquire.bind(cache), cache.release.bind(cache)];
+    cache.acquire = (c, lod) => {
+      calls.push(`acquire ${lod}`);
+      return acquire(c, lod);
+    };
+    cache.release = (asset) => {
+      calls.push(`release ${asset.lod}`);
+      release(asset);
+    };
+    const view = new CreatureView(cache);
+    view.update(state({ pxPerWu: 10 }), 0);
+    const high = view.mesh.geometry;
+    const highMaterial = view.mesh.material;
+    // The frame that crosses the threshold builds the low level and still draws the high one.
+    view.update(state({ pxPerWu: 1 }), 0.1);
+    expect(calls).toEqual(['acquire high', 'acquire low']);
+    expect(view.mesh.geometry).toBe(high);
+    expect(view.mesh.material).toBe(highMaterial);
+    expect(view.lod).toBe('high');
+    expect(cache.live()).toBe(2);
+    expect(uniform(view, 'uTime')).toBe(0.1);
+    // The next frame draws the low level, already built, and only then lets the high one go.
+    view.update(state({ pxPerWu: 1 }), 0.2);
+    expect(calls).toEqual(['acquire high', 'acquire low', 'release high']);
+    expect(view.lod).toBe('low');
+    expect(view.mesh.geometry.getAttribute('position').count).toBeLessThan(
+      high.getAttribute('position')?.count ?? Number.POSITIVE_INFINITY,
+    );
+    expect(cache.live()).toBe(1);
+    // A body is never drawn without its geometry on any frame of a swap back and forth.
+    for (let i = 0; i < 6; i++) {
+      view.update(state({ pxPerWu: i % 2 === 0 ? 10 : 1 }), 0.3 + i / 30);
+      expect(view.mesh.geometry.getAttribute('position')?.count ?? 0).toBeGreaterThan(0);
+    }
+    view.dispose();
+    expect(cache.live()).toBe(0);
+  });
+
+  it('draws a new creature at once, still building it before letting the old one go', () => {
+    const cache = new CreatureCache();
+    const view = new CreatureView(cache);
+    view.update(state(), 0);
+    const other = buildCreature(genesisGenome(seedFromString('view-swap')));
+    view.update(state({ creature: other }), 0.1);
+    expect(view.mesh.geometry.getAttribute('position').count).toBeGreaterThan(0);
+    expect(cache.live()).toBe(1);
+    expect(cache.acquire(other, 'high').geometry).toBe(view.mesh.geometry);
   });
 
   it('puts the genes into the material once and rewrites only the per-frame uniforms', () => {

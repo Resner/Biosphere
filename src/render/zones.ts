@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { depthAt, type Zone, zoneAt, zoneOfDepth } from '../sim/bathymetry';
-import { clamp } from '../sim/math';
+import { clamp, smoothstep } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 
@@ -103,11 +103,6 @@ export const LIGHT_WATER = 0.3;
 const NEUTRAL_DEPTH = 0.4;
 /** Texels per side of the depth map. */
 export const ZONE_TEXTURE_SIZE = 256;
-
-const smoothstep = (a: number, b: number, x: number): number => {
-  const t = clamp((x - a) / (b - a), 0, 1);
-  return t * t * (3 - 2 * t);
-};
 
 /** Each zone's share of the look at this depth: 1 inside a zone, blended over the edge bands. */
 export function zoneWeights(depth: number): [number, number, number, number] {

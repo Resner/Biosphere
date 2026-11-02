@@ -91,7 +91,7 @@ export function edgeDistance(points: readonly Point[], x: number, y: number): nu
   return best;
 }
 
-const luminance = (rgba: Image['rgba'], i: number): number =>
+export const luminance = (rgba: Image['rgba'], i: number): number =>
   0.2126 * (rgba[i] as number) +
   0.7152 * (rgba[i + 1] as number) +
   0.0722 * (rgba[i + 2] as number);
