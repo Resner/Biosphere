@@ -310,7 +310,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - A protocol-6 hello gets `error: version`.
   - Notes: the messages of T14 (`carrion`) and T15 (`enc-join`) land here too, so later tasks don't reopen the protocol files.
 
-- [ ] T7 Signed snapshots between peers, and the lock answer [opus] (after T6)
+- [ ] T7 Signed snapshots between peers, and the lock answer [opus] (after T6) (in progress)
   - Steps:
     1. Engage candidates: pond peers within ±1 tier and within 8 × the larger radius (`src/game/engage.ts`, `candidates(self, remotes)`).
     2. `SnapshotSender` signs every second snapshot (200 ms) and sends the 89-byte frame to candidates only; everyone else gets 25 bytes. This needs a per-peer state send in `OnlineSession`.
