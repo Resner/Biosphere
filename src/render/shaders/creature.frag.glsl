@@ -475,8 +475,8 @@ void main() {
   // the fog unless glow lights it, but its rim always stays, so a creature is never invisible.
   col = mix(uRim * (rim * RIM + back * BACK) * uRimStrength, col, uSight);
 
-  vec3 hurtCol = vec3(1.0, 0.18, 0.12);
-  if (uHurt > 0.0) col = mix(col, col * 0.5 + hurtCol * (0.35 + 0.8 * fres), uHurt * 0.7);
+  vec3 hurtCol = vec3(1.0, 0.07, 0.04);
+  if (uHurt > 0.0) col = mix(col, col * 0.35 + hurtCol * (0.4 + 0.8 * fres), uHurt * 0.85);
 
   // Death: the body breaks up along a noisy front and fades, with a bright edge on the front.
   if (uDissolve > 0.0) {

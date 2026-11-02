@@ -40,6 +40,8 @@ export interface CreatureSource {
   hash: string;
   plan: BodyPlan;
   traits: Traits;
+  /** `Creature.hueSpread`; 0 when unknown. */
+  hueSpread?: number;
 }
 
 interface Entry {
@@ -54,7 +56,7 @@ export class CreatureCache {
   constructor(
     private readonly makeMaterial: (creature: CreatureSource) => THREE.Material = (c) => {
       const { tier } = rarityOfTraits(c.traits);
-      const params = materialParams(c.traits, tier);
+      const params = materialParams(c.traits, tier, c.hueSpread);
       return creatureMaterial(params, glintsFor(tier, params.iridescence).brightness);
     },
   ) {}

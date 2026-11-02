@@ -19,7 +19,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 (Playwright workers) | 0001, 0015 |
 | Rules versions and freezing | 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
-| Look and the gallery | 0046, 0043, 0034 | 0024, 0032, 0033 |
+| Look and the gallery | 0049, 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
 
 ## Index
@@ -74,3 +74,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0046](0046-lab-evolved-lineages-bred-toward-an-aim.md) | The Lab's Evolved mode breeds lineages toward an aim | accepted | |
 | [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048 |
 | [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted | |
+| [0049](0049-inherited-organ-colour.md) | The organs' second tone follows the inherited hue | accepted | |

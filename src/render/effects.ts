@@ -7,11 +7,11 @@ export const FX = {
   /** Rings drawn at once; the oldest is replaced when a burst overflows the pool. */
   ringCapacity: 24,
   /** The least the body's red flash shows on any hit, so a trickle of damage still reads. */
-  hurtFloor: 0.4,
+  hurtFloor: 0.5,
   /** Extra red per hit point the hit carries. */
   hurtPerHp: 0.05,
   /** Each hit flashes the body red for this long, fading linearly (M6c T9). */
-  hurtFlashSeconds: 0.15,
+  hurtFlashSeconds: 0.3,
   /** The body dissolves for this long before the death screen appears. */
   dissolveSeconds: 1.2,
   /** Size of an eat pop and of a dash ripple, in cell radii. */

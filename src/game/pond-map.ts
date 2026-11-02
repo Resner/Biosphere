@@ -2,8 +2,8 @@
 // ringed, mate-ready players as hearts) and the live pings. It lies over the water without taking
 // the pointer, so steering carries on under it; `M` or Esc closes it.
 
-import { depthGrid, ZONE_TEXTURE_SIZE } from '../render/zones';
-import { type Zone, zoneOfDepth } from '../sim/bathymetry';
+import { depthGrid, ZONE_TEXTURE_SIZE, ZONES, zoneWeights } from '../render/zones';
+import type { Zone } from '../sim/bathymetry';
 import { clamp } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { pick, setText } from './dom';
@@ -31,66 +31,50 @@ export function mapSpot(x: number, y: number, size: number): { u: number; v: num
 
 /**
  * RGBA pixels for a depth grid of `n` × `n` bytes (row = y, south first, as `depthGrid` gives):
- * row 0 of the picture is the north edge, and a texel beside another zone is drawn `lighten`
- * lighter (the pond map's outline; the minimap draws none and lets smoothing soften the edges).
+ * row 0 of the picture is the north edge. Each texel mixes the zones' colours by the same weights
+ * the viewport's water uses (`zoneWeights`), so the map grades from one zone into the next as a
+ * gradient and not in hard-edged steps (the owner's Playtest v0.7.2).
  */
-export function zonePixels(
-  grid: Uint8Array,
-  n: number,
-  lighten = EDGE_LIGHTEN,
-): Uint8ClampedArray<ArrayBuffer> {
-  const zones: Zone[] = Array.from(grid, (d) => zoneOfDepth(d / 255));
-  const zoneAt = (i: number, j: number): Zone | null =>
-    i < 0 || j < 0 || i >= n || j >= n ? null : (zones[j * n + i] as Zone);
+export function zonePixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayBuffer> {
   const out = new Uint8ClampedArray(new ArrayBuffer(n * n * 4));
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
-      const zone = zoneAt(i, j) as Zone;
-      const edge = [zoneAt(i + 1, j), zoneAt(i - 1, j), zoneAt(i, j + 1), zoneAt(i, j - 1)].some(
-        (z) => z !== null && z !== zone,
-      );
+      const w = zoneWeights((grid[j * n + i] as number) / 255);
       const o = ((n - 1 - j) * n + i) * 4;
-      MAP_COLOURS[zone].forEach((c, k) => {
-        out[o + k] = Math.round((edge ? c + (1 - c) * lighten : c) * 255);
-      });
+      for (let k = 0; k < 3; k++) {
+        let c = 0;
+        for (let z = 0; z < 4; z++)
+          c += (w[z] as number) * (MAP_COLOURS[ZONES[z] as Zone][k] as number);
+        out[o + k] = Math.round(c * 255);
+      }
       out[o + 3] = 255;
     }
   }
   return out;
 }
 
-/** The last pond's depth grid and its two pictures, outlined (the pond map) and plain (the minimap). */
-const zoneCache: {
-  key: string;
-  grid: Uint8Array | null;
-  images: { outlined: HTMLCanvasElement | null; plain: HTMLCanvasElement | null };
-} = { key: '', grid: null, images: { outlined: null, plain: null } };
+/** The last pond's depth grid and its picture, shared by the pond map and the minimap. */
+const zoneCache: { key: string; grid: Uint8Array | null; image: HTMLCanvasElement | null } = {
+  key: '',
+  grid: null,
+  image: null,
+};
 
-/**
- * The pond's zones as a picture (`ZONE_TEXTURE_SIZE` square, north up), built once per pond from one
- * depth grid and shared by the pond map (`outlined`) and the minimap (`plain`, M6b T10).
- */
-export function zoneImage(
-  seed: Seed,
-  size: number,
-  style: 'outlined' | 'plain' = 'outlined',
-): HTMLCanvasElement {
+/** The pond's zones as a picture (`ZONE_TEXTURE_SIZE` square, north up), built once per pond. */
+export function zoneImage(seed: Seed, size: number): HTMLCanvasElement {
   const n = ZONE_TEXTURE_SIZE;
   const key = `${seed.join('.')}/${size}`;
   if (key !== zoneCache.key || !zoneCache.grid) {
     zoneCache.key = key;
     zoneCache.grid = depthGrid(seed, size, n);
-    zoneCache.images.outlined = null;
-    zoneCache.images.plain = null;
+    zoneCache.image = null;
   }
-  const cached = zoneCache.images[style];
-  if (cached) return cached;
+  if (zoneCache.image) return zoneCache.image;
   const canvas = document.createElement('canvas');
   canvas.width = n;
   canvas.height = n;
-  const pixels = zonePixels(zoneCache.grid, n, style === 'outlined' ? EDGE_LIGHTEN : 0);
-  canvas.getContext('2d')?.putImageData(new ImageData(pixels, n, n), 0, 0);
-  zoneCache.images[style] = canvas;
+  canvas.getContext('2d')?.putImageData(new ImageData(zonePixels(zoneCache.grid, n), n, n), 0, 0);
+  zoneCache.image = canvas;
   return canvas;
 }
 

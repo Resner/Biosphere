@@ -4,7 +4,7 @@ import { describe, expect, it } from 'vitest';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
-import { express, QUANT_TRAITS, SEGMENT_LOCI, SIZE_LOCI, type Traits } from './express';
+import { express, hueSpread, QUANT_TRAITS, SEGMENT_LOCI, SIZE_LOCI, type Traits } from './express';
 import { GENOME_BYTES, HAPLOTYPE_BYTES, LOCI, MODULE_PARAMS } from './karyotype';
 
 const rng = createRng(seedFromString('genome-express-tests'), 'bytes');
@@ -116,6 +116,23 @@ describe('express: totality', () => {
     const g = randomGenome();
     expect(express(g)).toEqual(express(g));
     expect(structuredClone(express(g))).toEqual(express(g));
+  });
+});
+
+describe('hueSpread (owner, Playtest v0.7.2)', () => {
+  it("is how far apart the two haplotypes' hues lie, whichever comes first", () => {
+    const hues = (v: number) => ({ hue1: v, hue2: v, hue3: v });
+    expect(hueSpread(genomeWith(hues(40), hues(40)))).toBe(0);
+    expect(hueSpread(genomeWith(hues(0), hues(255)))).toBe(1);
+    const g = genomeWith(hues(51), hues(153));
+    expect(hueSpread(g)).toBeCloseTo(0.4, 9);
+    expect(hueSpread(swapped(g))).toBe(hueSpread(g));
+    for (let i = 0; i < 200; i++) {
+      const r = randomGenome();
+      expect(hueSpread(r)).toBeGreaterThanOrEqual(0);
+      expect(hueSpread(r)).toBeLessThanOrEqual(1);
+      expect(hueSpread(swapped(r))).toBe(hueSpread(r));
+    }
   });
 });
 

@@ -348,7 +348,7 @@ export class Minimap {
     if (view.seed !== this.imageSeed || view.size !== this.imageSize || !this.image) {
       this.imageSeed = view.seed;
       this.imageSize = view.size;
-      this.image = zoneImage(view.seed, view.size, 'plain');
+      this.image = zoneImage(view.seed, view.size);
     }
     const image = this.image;
     // A blur of about half a texel rounds the picture's steps into the zones' soft edges.

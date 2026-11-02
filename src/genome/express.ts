@@ -156,6 +156,23 @@ export function fraction(g: Genome, ids: readonly string[]): number {
   return clamp01(sum / (510 * ids.length));
 }
 
+/**
+ * How far apart the two haplotypes' hues lie, in turns (0..1): the hue loci averaged on each
+ * haplotype on its own. It is symmetric (the order of the haplotypes does not matter) and render
+ * data only: a child of parents with different hues carries one hue from each, and the organs' second
+ * tone follows it (`materialParams`). Not part of `Traits`, so the goldens do not move.
+ */
+export function hueSpread(g: Genome): number {
+  const ids = ['hue1', 'hue2', 'hue3'];
+  let [a, b] = [0, 0];
+  for (const id of ids) {
+    const at = locusOf(id).offset;
+    a += byte(g.haplotypes[0], at);
+    b += byte(g.haplotypes[1], at);
+  }
+  return Math.abs(a - b) / (255 * ids.length);
+}
+
 function ranged(group: RangedGroup, key: string, f: number): number {
   const table = RULES.genes.range[group] as unknown as Record<string, readonly number[]>;
   const [lo, hi] = table[key] as readonly [number, number];

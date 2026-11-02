@@ -106,6 +106,27 @@ describe('zone look', () => {
   });
 });
 
+describe('zone blend band (owner, Playtest v0.7.2)', () => {
+  it("blends over a wide band, so the depth map's byte steps never show", () => {
+    expect(ZONE_BAND).toBeGreaterThanOrEqual(0.04);
+    let worst = 0;
+    for (let d = 1; d < 256; d++) {
+      const a = zoneWeights((d - 1) / 255);
+      const b = zoneWeights(d / 255);
+      for (let k = 0; k < 4; k++)
+        worst = Math.max(worst, Math.abs((a[k] as number) - (b[k] as number)));
+    }
+    // One byte of depth moves a zone's share by at most 8%.
+    expect(worst).toBeLessThanOrEqual(0.08);
+  });
+
+  it('keeps the middle of the spawn twilight disc pure, and a well-inside point clear of the band', () => {
+    const e = RULES.bathymetry.zones;
+    expect(zoneWeights((e.shallows + e.twilight) / 2)[1]).toBe(1);
+    expect(ZONE_BAND).toBeLessThan(0.05);
+  });
+});
+
 describe('sunlight (M6 T17, M6c T10)', () => {
   const depths = Array.from({ length: 201 }, (_, i) => i / 200);
   const e = RULES.bathymetry.zones;
@@ -141,7 +162,8 @@ describe('sunlight (M6 T17, M6c T10)', () => {
       }
       // The twilight starts where the shallows leave off: no step at the edge.
       expect(ZONE_LOOK.twilight[key]).toBe(ZONE_LOOK.shallows[key]);
-      expect(sunlight(e.shallows + ZONE_BAND, key)).toBeCloseTo(calm, 2);
+      // (Past the blend band it has only begun to fade.)
+      expect(sunlight(e.shallows + ZONE_BAND, key)).toBeGreaterThan(0.9 * calm);
       // It fades through the twilight rather than stepping down at its edges.
       const upper = sunlight(e.shallows + 0.03, key);
       const lower = sunlight(e.twilight - 0.03, key);
@@ -150,7 +172,7 @@ describe('sunlight (M6 T17, M6c T10)', () => {
       expect(lower).toBeLessThan(0.5 * upper);
       expect(sunlight(mid('deep'), key)).toBe(0);
       expect(sunlight(mid('abyss'), key)).toBe(0);
-      expect(sunlight(e.twilight + 0.02, key)).toBe(0);
+      expect(sunlight(e.twilight + ZONE_BAND, key)).toBe(0);
     });
   }
 

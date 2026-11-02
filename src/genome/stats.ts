@@ -24,7 +24,7 @@ import {
   rootOf,
   weaponShare,
 } from './develop';
-import { express, type Traits } from './express';
+import { express, hueSpread, type Traits } from './express';
 import { starterGenome } from './starter';
 
 const S = RULES.stats;
@@ -69,6 +69,8 @@ export interface Creature {
   plan: BodyPlan;
   stats: Stats;
   phys: PhysStats;
+  /** How far apart the parents' hues lie in this genome (`hueSpread`): render data only. */
+  hueSpread: number;
 }
 
 const segmentArea = (s: PlanSegment): number => PI * s.rx * s.ry;
@@ -431,7 +433,7 @@ export function buildCreature(g: Genome): Creature {
   const traits = express(g);
   const plan = develop(traits);
   const stats = computeStats(plan, traits);
-  return { hash: genomeHash(g), traits, plan, stats, phys: physOf(stats) };
+  return { hash: genomeHash(g), traits, plan, stats, phys: physOf(stats), hueSpread: hueSpread(g) };
 }
 
 /** A 64-bit hash of every number in the stats, in a fixed order. */

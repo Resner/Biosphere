@@ -510,7 +510,7 @@ export class GameScene {
     let glow = this.glows.get(body.hash);
     if (glow === undefined) {
       if (this.glows.size >= GLOW_CACHE) this.glows.clear();
-      glow = lightOf(materialParams(body.traits), 1);
+      glow = lightOf(materialParams(body.traits, 'common', body.hueSpread), 1);
       this.glows.set(body.hash, glow);
     }
     if (!glow) return;

@@ -85,10 +85,11 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
 };
 
 /**
- * Zones blend over this much depth either side of each edge (about 30 wu each way). Narrow enough
- * that the spawn's twilight disc (depth 0.26 to 0.54) keeps the pure twilight look.
+ * Zones blend over this much depth either side of each edge (about 0.08 in all: 20 steps of the
+ * depth map's byte, so the water grades as a gradient, never in bands; the owner's Playtest
+ * v0.7.2). The middle of the spawn's twilight disc (depth 0.26 to 0.54) keeps the pure twilight look.
  */
-export const ZONE_BAND = 0.01;
+export const ZONE_BAND = 0.04;
 /** Full sight within the ring, fading to the zone's fog by this many ring radii. */
 export const SIGHT_FADE = 2;
 /** The least sight radius in core radii, so even a blind cell sees around itself. */
@@ -226,7 +227,7 @@ export function depthGrid(seed: Seed, size: number, n = ZONE_TEXTURE_SIZE): Uint
 }
 
 /** How far inside a zone's depth range `wellInside` asks for (the abyss and shallows' outer sides excepted). */
-const INSIDE_MARGIN = 0.04;
+const INSIDE_MARGIN = 0.05;
 /** `wellInside` also asks the zone of the points this far away on each axis. */
 const INSIDE_REACH = 64;
 /** The search steps out in rings this far apart, with points at most this far apart on each. */
