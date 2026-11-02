@@ -64,9 +64,13 @@ function faceEnergy(image: Image, masks: CellMasks): { energy: number; pixels: n
   return { energy: pixels === 0 ? Number.NaN : sum / pixels, pixels };
 }
 
-/** True when no face on the sheet holds any detail: the canvas reached the capture blank. */
+/**
+ * True when no face on the sheet holds more than dither's worth of detail: the canvas reached the
+ * capture blank. A flat sheet is not always exactly zero (E2E main: the Chromium reference read
+ * energies under 0.05 on every face), while the round genesis cells of a drawn sheet read 90 and more.
+ */
 function blankSheet(image: Image, specimens: GalleryState['specimens']): boolean {
-  return specimens.every((s) => !(faceEnergy(image, s.masks).energy > 0));
+  return specimens.every((s) => !(faceEnergy(image, s.masks).energy > FLOOR));
 }
 
 /**
