@@ -322,7 +322,10 @@ test.describe('the gallery sheet', () => {
     expect(reached['01-genesis']).toBeLessThan(6);
   });
 
-  test('setae show as at least 20 separate thin bright strokes on the setose specimen', () => {
+  // Since M6c T4 (ADR 0041) a bristle is at most 3 part widths long and curves with its part, so
+  // at the gallery's scale the shrimp's 60 bristles show as short hairs along its legs (12 strokes
+  // here), not the 20+ long straight combs the owner read as brushes.
+  test('setae show as at least 8 separate thin bright strokes on the setose specimen', () => {
     const shrimp = specimen('27-specimen-shrimp');
     expect(shrimp.plan.appendages.reduce((n, a) => n + a.setae, 0)).toBeGreaterThanOrEqual(40);
     const place = placeOf(shrimp.index, { radius });
@@ -339,8 +342,9 @@ test.describe('the gallery sheet', () => {
       4,
     );
     console.log(`setae strokes: shrimp ${count}, bare cell ${control}`);
-    expect(count).toBeGreaterThanOrEqual(20);
-    expect(control).toBeLessThan(20);
+    expect(count).toBeGreaterThanOrEqual(8);
+    expect(count).toBeGreaterThanOrEqual(2 * control);
+    expect(control).toBeLessThan(8);
   });
 
   test("the winged specimen's membranes are drawn over their whole sheet", () => {

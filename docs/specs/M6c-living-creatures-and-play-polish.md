@@ -162,7 +162,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
       - a duplicate-heavy genome with 8 slots and 3 pairs each turns everything past 14 into fringe.
     - The archetype tests and the speed band hold.
 
-- [ ] T4 Parts that curve, taper and vary [opus] (in progress)
+- [x] T4 Parts that curve, taper and vary [opus] (in progress)
+  - Done: taper 0.6–0.9 and curvature 0.15–1 by range; `organize` thickens branched legs and spokes, `oneBulb` keeps the largest pair; branches fan backward (`branchFanOf`), setae ≤ 12 and 3 widths on legs, antennae and tails only (setae stats `full` 8, `drag` 0.015); `mirror` jitters each shown pair (`pairJitter`).
+  - Gotcha: a jittered side is up to 5% shorter, so tests read a pair's length as its longer side (`pairLength`) and development keeps motile area ≥ 0.0615; the bright dots at the joints in the Lab are rarity glints (wild bytes are exotic), not bulbs (T7).
   - Why: parts are straight, evenly thin and exactly mirrored; branches fork like twigs; most tips end in a bright bead; setae are long straight fans. The result reads as rigging and lamps.
   - Steps:
     1. Every part tapers (tip width ≤ 40% of root) and carries a backward curvature bias: curvature ≥ 0.15 toward the tail for legs and tails, outward and back for antennae.
