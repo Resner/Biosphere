@@ -1,6 +1,6 @@
 // The depth gauge (M6c T12, DESIGN §9): a slim vertical bar left of the minimap, the four zones as
 // bands from the surface (top) to the abyss floor (bottom), with a "◂" marker at the player's depth
-// and the depth in metres beside it. Its strings are built once, so a frame allocates nothing.
+// and the depth in metres beside it. It writes the DOM only when the whole-metre depth changes.
 
 import { clamp, lerp } from '../sim/math';
 import { RULES } from '../sim/rules';
@@ -20,25 +20,10 @@ const EDGES: readonly number[] = [
   RULES.bathymetry.zones.deep,
   1,
 ];
-const TEXTS: readonly string[] = Array.from({ length: DEPTH_GAUGE.metres + 1 }, (_, m) => `${m} m`);
-const TOPS: readonly string[] = Array.from(
-  { length: DEPTH_GAUGE.metres + 1 },
-  (_, m) => `${(100 * m) / DEPTH_GAUGE.metres}%`,
-);
 
 /** The depth in whole metres, 0 at the surface. */
 export function depthMetres(depth: number): number {
   return Math.round(clamp(depth, 0, 1) * DEPTH_GAUGE.metres);
-}
-
-/** "12 m". */
-export function metresText(metres: number): string {
-  return TEXTS[metres] as string;
-}
-
-/** The marker's top within the gauge, as a CSS percentage. */
-export function markerTop(metres: number): string {
-  return TOPS[metres] as string;
 }
 
 /** The zones as hard bands from top to bottom: the map's colours, lifted so the darkest still reads on glass. */
@@ -66,11 +51,11 @@ export class DepthGauge {
   set(depth: number | null): void {
     const hidden = depth === null;
     if (this.root.hidden !== hidden) this.root.hidden = hidden;
-    if (depth === null) return;
+    if (hidden) return;
     const metres = depthMetres(depth);
     if (metres === this.metres) return;
     this.metres = metres;
-    this.marker.style.top = markerTop(metres);
-    setText(this.text, metresText(metres));
+    this.marker.style.top = `${(100 * metres) / DEPTH_GAUGE.metres}%`;
+    setText(this.text, `${metres} m`);
   }
 }
