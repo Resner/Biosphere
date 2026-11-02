@@ -67,7 +67,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     return glassLook(old, s.masks, (x, y) => ({
       x: then.x + (x + 0.5 - now.x) * k - 0.5,
       y: then.y + (y + 0.5 - now.y) * k - 0.5,
-    })).face;
+    })).clear;
   });
   const f = (v: number) => (Number.isNaN(v) ? '  -' : v.toFixed(0).padStart(3));
   const r = (v: number) => (Number.isNaN(v) ? '   -' : v.toFixed(2));
@@ -75,7 +75,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     looks
       .map(
         (l, i) =>
-          `${l.file.slice(0, 28).padEnd(28)} face ${f(l.face)}${i < BASELINE ? ` (pass 1 ${f(pass1[i] as number)})` : '            '}  rim ${f(l.rim)}  limbs ${f(l.limbs)} ${r(l.limbs / l.rim)} (${l.counts.limbs} px)  mouth ${f(l.mouth)}, darkest ${f(l.mouthDark)} over ${f(l.faceDark)} ${r(l.mouthDark / l.faceDark)} (${l.counts.mouth} px; face ${l.counts.face} px)`,
+          `${l.file.slice(0, 28).padEnd(28)} face ${f(l.face)}, clear ${f(l.clear)}${i < BASELINE ? ` (pass 1 ${f(pass1[i] as number)})` : '            '}  rim ${f(l.rim)}  limbs ${f(l.limbs)} ${r(l.limbs / l.rim)} (${l.counts.limbs} px)  mouth ${f(l.mouth)}, darkest ${f(l.mouthDark)} over ${f(l.faceDark)} ${r(l.mouthDark / l.faceDark)} (${l.counts.mouth} px; face ${l.counts.face} px)`,
       )
       .join('\n'),
   );
@@ -93,10 +93,12 @@ test('the hook masks the regions: a face, a rim and a mouth on every genesis cel
   );
 });
 
+// Read clear of organ light (M6c T7): pass 1's luminous organs added a third hue's light, whose
+// bloom lifted the glass round them; ADR 0043 took it out, and the glass is what this compares.
 test("cells 01–06: the face's mean luminance is within 15% of pass 1's", () => {
   const off = looks
     .slice(0, BASELINE)
-    .map((l, i) => ({ file: l.file, now: l.face, pass1: pass1[i] as number }))
+    .map((l, i) => ({ file: l.file, now: l.clear, pass1: pass1[i] as number }))
     .filter((c) => !(Math.abs(c.now - c.pass1) <= FACE_SPREAD * c.pass1));
   expect(off).toEqual([]);
 });

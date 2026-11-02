@@ -14,11 +14,13 @@ export interface CellMasks {
   h: number;
   /** Row-major bitsets over the room (bit `i % 8` of byte `i >> 3`), base64. */
   face: string;
+  /** The face clear of organ light (`FACE_ORGAN_CLEAR`), for comparing its brightness with pass 1's. */
+  clear: string;
   rim: string;
   limbs: string;
   mouth: string;
   /**
-   * The organ balls' inner pixels (`ORGAN_INSET` inside each, clear of parts and glints), the main
+   * The organ balls' pixels (clear of parts and glints; the hue measure drops their grey edges), the main
    * tone's among them, the glowing organs as drawn, and each eye's iris (`IRIS_MASK` of its radius).
    */
   organs: string;
@@ -38,8 +40,12 @@ export const MOUTH_INSET = 2;
 export const LIMB_EDGE = 1;
 /** Face and mouth pixels lie this far from any limb, fine part, shell or glint: their light and bloom. */
 export const GLOW_CLEAR = 5;
-/** Organ pixels lie this far inside their ball, where its colour does not blend with the glass round it. */
-export const ORGAN_INSET = 0;
+/**
+ * The clear face lies this far from any organ (M6c T7): an organ's light and its bloom lift the glass
+ * round it by how bright the organ is (pass 1's luminous organs added a third hue's light, which
+ * ADR 0043 took out), not by the glass.
+ */
+export const FACE_ORGAN_CLEAR = 3;
 /** The iris is read over this share of an eye's radius, inside the drawn iris (0.45–0.82) and its soft edges. */
 export const IRIS_MASK = [0.5, 0.78] as const;
 
@@ -233,7 +239,8 @@ function toBase64(mask: Uint8Array): string {
  * - limbs: the limb pixels off the body within `LIMB_EDGE` of open water, clear of everything else (pearl
  *   tips and fringe excluded): a thin limb whole, a paddle its edge, as the rim is the body's;
  * - mouth: the mouth's disc on the body, `MOUTH_INSET` inside the outline, as clear as the face;
- * - organs: the organ balls (chambers, droplets, the heart) `ORGAN_INSET` inside, a pixel clear of any
+ * - clear: the face's pixels `FACE_ORGAN_CLEAR` from every organ;
+ * - organs: the organ balls (chambers, droplets, the heart), a pixel clear of any
  *   limb, fine part, mouth feature or glint; main: those of the main tone alone;
  * - glow: the glowing organs as drawn, whole;
  * - iris: the eyes' irises, a pixel clear of any part or glint.
@@ -262,7 +269,7 @@ export function cellMasks(
   }
   // An organ's lit wall spills a pixel; a bright part seen through the glass, and its bloom, more.
   const nearOrgan = dilate(organ, w, h, 1);
-  const farOrgan = dilate(organ, w, h, 3);
+  const clearOfOrgans = dilate(organ, w, h, FACE_ORGAN_CLEAR);
   const nearOver = dilate(over, w, h, GLOW_CLEAR);
   // One erosion, read at each inset (each step shrinks the last).
   const insets = [FACE_INSET, MOUTH_INSET, RIM_BAND];
@@ -275,6 +282,7 @@ export function cellMasks(
     Uint8Array,
   ];
   const face = new Uint8Array(w * h);
+  const clear = new Uint8Array(w * h);
   const rim = new Uint8Array(w * h);
   const limb = new Uint8Array(w * h);
   const mouth = new Uint8Array(w * h);
@@ -282,8 +290,9 @@ export function cellMasks(
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
       const v = at(x, y);
-      const glass = !nearOver[i] && !farOrgan[i];
+      const glass = !nearOver[i] && !nearOrgan[i];
       face[i] = faceIn[i] && v & HULL && !(v & MOUTH) && glass ? 1 : 0;
+      clear[i] = face[i] && !clearOfOrgans[i] ? 1 : 0;
       rim[i] = hull[i] && !rimIn[i] && !over[i] && !nearOrgan[i] ? 1 : 0;
       limb[i] = v & LIMB && !hull[i] && !(v & (ORGAN | MOUTH_PART | FINE | SHELL | GLINT)) ? 1 : 0;
       mouth[i] = mouthIn[i] && v & MOUTH && glass ? 1 : 0;
@@ -297,7 +306,6 @@ export function cellMasks(
     ball[i] = v & (MAIN | SECOND) ? 1 : 0;
     parts[i] = v & PARTS ? 1 : 0;
   }
-  const ballIn = erode(ball, w, h, ORGAN_INSET);
   const nearParts = dilate(parts, w, h, 1);
   const organs = new Uint8Array(w * h);
   const main = new Uint8Array(w * h);
@@ -305,7 +313,7 @@ export function cellMasks(
   const iris = new Uint8Array(w * h);
   for (let i = 0; i < w * h; i++) {
     const v = at(i % w, Math.floor(i / w));
-    organs[i] = ballIn[i] && !nearParts[i] ? 1 : 0;
+    organs[i] = ball[i] && !nearParts[i] ? 1 : 0;
     main[i] = organs[i] && v & MAIN && !(v & SECOND) ? 1 : 0;
     glow[i] = v & GLOWING ? 1 : 0;
     iris[i] = v & IRIS && !nearParts[i] ? 1 : 0;
@@ -322,6 +330,7 @@ export function cellMasks(
     w,
     h,
     face: toBase64(face),
+    clear: toBase64(clear),
     rim: toBase64(rim),
     limbs: toBase64(limbs),
     mouth: toBase64(mouth),

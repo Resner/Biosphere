@@ -89,7 +89,8 @@ test.beforeAll(async ({ browser, baseURL }) => {
 
 test('per cell, the organ pixels fall into at most 2 hue clusters at most 0.1 turns apart', () => {
   const judged = cells.filter((c) => c.look.organs.length >= MIN_PIXELS);
-  // Nearly every cell shows its organs; a check over few would pass on nothing.
+  // Slim evolved bodies' organs are a few pixels across, but most cells show theirs; a check over few
+  // would pass on nothing.
   expect(judged.length).toBeGreaterThanOrEqual(cells.length / 2);
   const off = judged
     .map((c) => ({

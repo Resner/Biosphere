@@ -7,7 +7,7 @@
 // the same hurt and dissolve effects as `cell.frag.glsl`. The fine parts of body plan v2 (M6 T10)
 // have their own looks: a clear carapace shell, bright hair-thin setae, veined membrane sheets and
 // dark lens eyes. The inner anatomy (M6 T12) carries the pigment: a gut line, fluid chambers,
-// amber-leaning oil droplets, a beating heart and eye pigment show through the near-clear body. Rare
+// oil droplets, a beating heart and eye pigment show through the near-clear body. Rare
 // glints are star points over joints and organs, as many and as bright as the rarity tier allows.
 // Look pass 2 (M6 T27): bulb tips are small pearls and joints catch small wet points.
 // Look pass 3 (M6 T28): thin walls cross the body between segments, eyes are dark jewelled lenses,
@@ -350,7 +350,7 @@ void main() {
     // The hot point stays white; a jewel's colour lives in its rays, at full strength.
     vec3 jewel = pick < 0.5 ? uSecond : uOrgan;
     jewel /= max(max(jewel.r, max(jewel.g, jewel.b)), 1e-3);
-    vec3 rayTint = mix(tint, jewel, 0.75 * uVivid * step(0.35, pick));
+    vec3 rayTint = mix(tint, jewel, uVivid * step(0.35, pick));
     col = (tint * hot + rayTint * (star - hot)) * twinkle * uGlint;
     alpha = clamp(star * uGlint, 0.0, 1.0);
   } else if (kind >= PART_GUT) {

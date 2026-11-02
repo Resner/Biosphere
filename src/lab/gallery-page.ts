@@ -305,6 +305,7 @@ export async function startGallery(): Promise<void> {
         w: 0,
         h: 0,
         face: '',
+        clear: '',
         rim: '',
         limbs: '',
         mouth: '',

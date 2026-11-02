@@ -204,6 +204,8 @@ export interface GlassLook {
   /** The face's mean luminance (0-255) over its grey pixels, and its darkest tenth (`DARK`). */
   face: number;
   faceDark: number;
+  /** The mean over the face's grey pixels clear of organ light (the `clear` mask, M6c T7). */
+  clear: number;
   /** The rim band's peak (`RIM_PEAK`). */
   rim: number;
   /** The limbs' median. */
@@ -239,6 +241,7 @@ export function glassLook(
     return out;
   };
   const face = read(masks.face, (i) => grey(image.rgba, i));
+  const clear = read(masks.clear, (i) => grey(image.rgba, i));
   const rim = read(masks.rim);
   const limbs = read(masks.limbs);
   const mouth = read(masks.mouth);
@@ -246,6 +249,7 @@ export function glassLook(
     counts: { face: face.length, rim: rim.length, limbs: limbs.length, mouth: mouth.length },
     face: mean(face),
     faceDark: percentile(face, DARK),
+    clear: mean(clear),
     rim: percentile(rim, RIM_PEAK),
     limbs: median(limbs),
     mouth: mean(mouth),

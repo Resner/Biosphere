@@ -38,8 +38,11 @@ export const SHELL_SATURATION = 0.15;
  */
 const SILVER_HUE = 0.58;
 const SILVER_SATURATION = 0.04;
-/** Organs are at least this bright, so their colour reads through the shell. */
-const ORGAN_VALUE = 0.75;
+/**
+ * Organs are at least this bright, so their colour reads through the shell as a clean hue (M6c T7:
+ * 0.9; at 0.75 a yellow organ read olive beside pass 1's, which its luminous light brightened).
+ */
+const ORGAN_VALUE = 0.9;
 /**
  * The organs' second tone (ADR 0043): the main colour turned toward amber (lipid, as pass 1's oil
  * droplets were) by `SECOND_TURN` turns, from its first value at no saturation to its second at full
@@ -47,17 +50,17 @@ const ORGAN_VALUE = 0.75;
  * Never complementary: at most 0.10 turns away.
  */
 const AMBER_HUE = 0.11;
-export const SECOND_TURN = [0.04, 0.05] as const;
+export const SECOND_TURN = [0.04, 0.06] as const;
 /**
- * The second tone lies at another value: this much darker than a bright main colour, or full
- * brightness under a dim one, so the two tones differ in value as well as hue.
+ * The second tone lies at another value, so the two differ in value as well as hue: full brightness
+ * over a main colour at the floor, or this much darker than a brighter one (a darker step read brown
+ * beside a yellow).
  */
-const SECOND_DARKER = 0.2;
-const SECOND_BRIGHT_ABOVE = 0.85;
+const SECOND_DARKER = 0.1;
 
 /**
  * The organs by rarity tier (ADR 0043): rarity raises saturation, glints and glow, never the spread
- * of hues. `vivid` (0..1) is how far the organs' saturation rises half-way toward full (rare glints
+ * of hues. `vivid` (0..1) is how far the organs' saturation rises toward full (rare glints
  * take the organ tones by it); `glow` is the faint inner glow's luminance gain on the glowing organs,
  * and `glowing` how many organs glow (the heart or the largest chamber, then the next largest).
  */
@@ -73,17 +76,11 @@ export const ORGAN_RARITY: Readonly<
 export const ORGAN_GLOW_MAX = 0.15;
 export const ORGAN_GLOW_LUMINOUS = 0.35;
 /**
- * The luminescence gene multiplies the tier's gain by this, short of its ceiling: the post chain's
- * bloom spreads a share of any organ's light round it, and at +35% that share lit a faint halo up to
- * 5 px outside the organ (M6c T7).
+ * The luminescence gene multiplies the tier's gain by this, well short of its ceiling: the post
+ * chain's bloom spreads a share of any organ's light round it, and at +35% (or ×2) that share lit a
+ * faint halo 3 to 5 px outside the organ (M6c T7).
  */
-const LUMINOUS_GLOW = 1;
-/**
- * A luminous body's organs are this much brighter in both their tones (M6c T7), past 1 as light,
- * keeping hue and saturation. They used to add the glow's own hue, a third colour; pass 1's luminous
- * cells (01–06) show that light in their glass.
- */
-const LUMINOUS_ORGAN = 1;
+const LUMINOUS_GLOW = 1.3;
 
 const ALBINO_HUE = 0.96;
 const ALBINO_SATURATION = 0.08;
@@ -135,8 +132,6 @@ function hsv(h: number, s: number, v: number): Rgb {
   const f = (n: number): number => v * (1 - s * Math.max(0, Math.min(k(n), 4 - k(n), 1)));
   return [f(5), f(3), f(1)];
 }
-
-const scale = ([r, g, b]: Rgb, k: number): Rgb => [r * k, g * k, b * k];
 
 export const luminance = ([r, g, b]: Rgb): number => 0.2126 * r + 0.7152 * g + 0.0722 * b;
 
@@ -210,10 +205,9 @@ export function materialParams(
   const geneSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
   // An albino has no pigment to vary: its organs stay the pink of blood whatever the tier.
   const vivid = albino ? 0 : ORGAN_RARITY[tier].vivid;
-  const organSaturation = lerp(geneSaturation, 1, vivid / 2);
-  const lit = luminous ? LUMINOUS_ORGAN : 1;
-  const organ = scale(hsv(hue, organSaturation, inside), lit);
-  const secondValue = inside > SECOND_BRIGHT_ABOVE ? inside - SECOND_DARKER : 1;
+  const organSaturation = lerp(geneSaturation, 1, vivid);
+  const organ = hsv(hue, organSaturation, inside);
+  const secondValue = inside > ORGAN_VALUE ? inside - SECOND_DARKER : 1;
   const organGlow = ORGAN_RARITY[tier].glow * (luminous ? LUMINOUS_GLOW : 1);
 
   return {
@@ -221,7 +215,7 @@ export function materialParams(
     rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE, light),
     saturation,
     organ,
-    second: scale(hsv(secondHue(hue, geneSaturation), organSaturation, secondValue), lit),
+    second: hsv(secondHue(hue, geneSaturation), organSaturation, secondValue),
     iris: hsv(hue, 1, inside),
     vivid,
     organGlow,

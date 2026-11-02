@@ -207,7 +207,7 @@ describe('materialParams', () => {
       const p = materialParams(t);
       const albino = t.colour.albino === 'albino';
       expect(hsvSaturation(p.organ)).toBeCloseTo(albino ? 0.45 : p.saturation, 6);
-      expect(Math.max(...p.organ)).toBeGreaterThanOrEqual(0.75 - 1e-9);
+      expect(Math.max(...p.organ)).toBeGreaterThanOrEqual(0.9 - 1e-9);
       if (p.saturation > 0.05) {
         const d = Math.abs(hueOf(p.organ) - (albino ? 0.96 : t.colour.hue));
         expect(Math.min(d, 1 - d)).toBeLessThan(1e-6);
@@ -216,7 +216,7 @@ describe('materialParams', () => {
       // (0.11) by 0.04-0.10 turns, at another value.
       expect(hsvSaturation(p.second)).toBeCloseTo(hsvSaturation(p.organ), 6);
       expect(Math.abs(Math.max(...p.second) - Math.max(...p.organ))).toBeGreaterThanOrEqual(
-        0.15 - 1e-9,
+        0.1 - 1e-9,
       );
       if (p.saturation > 0.05) {
         const arc = (a: number, b: number) => Math.min(Math.abs(a - b), 1 - Math.abs(a - b));
