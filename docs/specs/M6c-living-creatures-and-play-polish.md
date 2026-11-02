@@ -313,7 +313,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
   - Done: shallows and the twilight's top at caustics 0.55, rays 0.4 (`ZONE_LOOK`); shallows 0.55/0.4, twilight 0.158/0.115, shallows change 2.30, spread 4.97. `m6-light` and `m6-budget` retargeted too.
   - Gotcha: the shallows' `change` depends on the pattern's phase at the fixed clocks; pace 0.2 measured 2.449–2.450 against the 2.45 bound, so the pace is now 0.16.
 
-- [ ] T11 The egg reveal: a still scene, and clicks that matter [opus]
+- [ ] T11 The egg reveal: a still scene, and clicks that matter [opus] (in progress)
   - Why:
     - After a death the camera keeps following the dissolving body's drift and zoom, and the water animates, so the background moves behind the egg. The owner wants it static.
     - A poke (`EggReveal.poke(now)`) only gives a damped wobble, so the owner asks for clicks that "feel meaningful … increasing the luck. Maximize the gacha".
