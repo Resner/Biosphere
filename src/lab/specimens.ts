@@ -144,8 +144,13 @@ function evolvedLineage(
       }
     }
   }
-  // Total: a row is always full (never needed so far), padded with the last generation.
-  for (let i = 0; row.length < EVOLVED.size; i++) row.push(pool[i] as Genome);
+  // Total: a row is always full (never needed so far), padded with last-generation bodies not shown.
+  for (const g of pool) {
+    if (row.length >= EVOLVED.size) break;
+    if (shown.has(genomeHash(g))) continue;
+    shown.add(genomeHash(g));
+    row.push(g);
+  }
   return row;
 }
 
@@ -156,11 +161,11 @@ let lastGrid: { seed: string; grid: Genome[] } | undefined;
  * takes ~0.2 s and the Lab asks for the same grid on every mode toggle.
  */
 export function evolvedGrid(seed: string): Genome[] {
-  if (lastGrid?.seed === seed) return lastGrid.grid;
+  if (lastGrid?.seed === seed) return [...lastGrid.grid];
   const shown = new Set<string>();
   const grid = evolvedAims(seed).flatMap((name, k) => evolvedLineage(seed, k, AIMS[name], shown));
   lastGrid = { seed, grid };
-  return grid;
+  return [...grid];
 }
 
 /** The seeds of the Evolved diversity check: the first three run in `check`, all in `report:diversity`. */
