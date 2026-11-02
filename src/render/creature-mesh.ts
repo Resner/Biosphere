@@ -32,6 +32,7 @@ export { BODY_DEPTH, wallsAlong } from './creature-loft';
 export {
   FRINGE_TAG,
   GLINT_GAP,
+  GLOW_V,
   type GlintPlan,
   type GlintSpot,
   glintSpots,
@@ -39,6 +40,7 @@ export {
   ORGAN_TAG,
   partPoint,
   partRadius,
+  SECOND_V,
 } from './creature-parts';
 export {
   METACHRONAL,

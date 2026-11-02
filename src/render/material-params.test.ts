@@ -13,8 +13,11 @@ import {
   luminance,
   MIN_RIM_LUMINANCE,
   materialParams,
-  ORGAN_HUES,
+  ORGAN_GLOW_LUMINOUS,
+  ORGAN_GLOW_MAX,
+  ORGAN_RARITY,
   PATTERN,
+  SECOND_TURN,
 } from './material-params';
 
 const rng = createRng(seedFromString('material-params'), 'bytes');
@@ -74,11 +77,14 @@ describe('materialParams', () => {
     expect(hi).toBeGreaterThan(lo);
   });
 
-  it("keeps an albino's organs one pink whatever its rarity tier", () => {
+  it("keeps an albino's organs in two pinks whatever its rarity tier", () => {
     const albino = withColour({ hue: 0.3, saturation: 1, value: 0.9, albino: 'albino' });
+    const common = materialParams(albino, 'common');
     for (const tier of ['common', 'uncommon', 'rare', 'exotic'] as const) {
       const p = materialParams(albino, tier);
-      expect(p.accent).toEqual(p.organ);
+      expect(p.organ).toEqual(common.organ);
+      expect(p.second).toEqual(common.second);
+      expect(arc01(hueOf(p.second), 0.96)).toBeLessThanOrEqual(SECOND_TURN[1] + 1e-9);
       expect(p.vivid).toBe(0);
     }
   });
@@ -201,18 +207,25 @@ describe('materialParams', () => {
       const p = materialParams(t);
       const albino = t.colour.albino === 'albino';
       expect(hsvSaturation(p.organ)).toBeCloseTo(albino ? 0.45 : p.saturation, 6);
-      expect(Math.max(...p.organ)).toBeGreaterThanOrEqual(0.75 - 1e-9);
+      expect(Math.max(...p.organ)).toBeGreaterThanOrEqual(0.9 - 1e-9);
       if (p.saturation > 0.05) {
         const d = Math.abs(hueOf(p.organ) - (albino ? 0.96 : t.colour.hue));
         expect(Math.min(d, 1 - d)).toBeLessThan(1e-6);
       }
-      // Oil droplets are lipid at the same saturation, their hue turned toward amber (0.11).
-      expect(hsvSaturation(p.oil)).toBeCloseTo(hsvSaturation(p.organ), 6);
+      // The second tone (droplets, half the chambers): the same saturation, turned toward amber
+      // (0.11) by 0.04-0.10 turns, at another value.
+      expect(hsvSaturation(p.second)).toBeCloseTo(hsvSaturation(p.organ), 6);
+      expect(Math.abs(Math.max(...p.second) - Math.max(...p.organ))).toBeGreaterThanOrEqual(
+        0.1 - 1e-9,
+      );
       if (p.saturation > 0.05) {
         const arc = (a: number, b: number) => Math.min(Math.abs(a - b), 1 - Math.abs(a - b));
         const organHue = hueOf(p.organ);
-        expect(arc(hueOf(p.oil), 0.11)).toBeLessThanOrEqual(arc(organHue, 0.11) + 1e-6);
-        expect(arc(hueOf(p.oil), organHue)).toBeLessThanOrEqual(0.5 * 0.4 + 1e-6);
+        // Toward amber: closer to it, unless the turn passes it.
+        if (arc(organHue, 0.11) >= SECOND_TURN[1])
+          expect(arc(hueOf(p.second), 0.11)).toBeLessThan(arc(organHue, 0.11));
+        expect(arc(hueOf(p.second), organHue)).toBeGreaterThanOrEqual(SECOND_TURN[0] - 1e-6);
+        expect(arc(hueOf(p.second), organHue)).toBeLessThanOrEqual(SECOND_TURN[1] + 1e-6);
       }
     }
     // A vivid gene: a saturated inside under a near-clear shell.
@@ -226,74 +239,105 @@ describe('materialParams', () => {
     expect(albino.organ[0]).toBeGreaterThan(albino.organ[1]);
   });
 
-  heavyTest("keeps pass 1's palette over 1,500 genomes: one hue, a rare accent, amber oil", () => {
-    const arc = (a: number, b: number): number => {
-      const d = Math.abs((((a - b) % 1) + 1) % 1);
-      return Math.min(d, 1 - d);
-    };
-    const tiers = { common: 0, uncommon: 0, rare: 0, exotic: 0 };
-    let accented = 0;
-    // Random genomes are nearly all rare or exotic; genesis bodies bring the common and uncommon tiers.
-    const sample = [
-      ...Array.from({ length: 1000 }, randomTraits),
-      ...Array.from({ length: 500 }, (_, i) =>
-        express(genesisGenome(seedFromString(`palette-genesis-${i}`))),
-      ),
-    ];
-    for (const traits of sample) {
-      const tier = rarityOfTraits(traits).tier;
-      tiers[tier]++;
-      const p = materialParams(traits, tier);
-      const plan = develop(traits);
-      const { organs } = anatomyOf(plan, traits, `palette-${tiers[tier]}-${tier}`);
-      const albino = traits.colour.albino === 'albino';
-      const gene = albino ? 0.96 : traits.colour.hue;
-      const coloured = organs.filter((o) => o.kind !== 'pigment');
-      const accents = coloured.filter((o) => o.accent);
-      // At most one accent group, on at most a third of the organs, never on a common body.
-      expect(accents.length).toBeLessThanOrEqual(coloured.length / 3);
-      if (tier === 'common') expect(accents.length).toBe(0);
-      if (accents.length > 0) accented++;
-      for (const o of coloured) {
-        const colour = o.kind === 'droplet' ? p.oil : o.accent ? p.accent : p.organ;
-        if (hsvSaturation(colour) < 0.05) continue;
-        const hue = hueOf(colour);
-        if (o.kind === 'droplet') {
-          // Droplets: the gene hue turned 40% of the short way toward amber, as in pass 1.
-          const d = ((((0.11 - gene) % 1) + 1.5) % 1) - 0.5;
-          expect(arc(hue, gene + 0.4 * d)).toBeLessThan(1e-6);
-        } else if (o.accent && !albino) {
-          expect(arc(hue, gene + 0.5)).toBeLessThanOrEqual(0.05);
-        } else {
-          expect(arc(hue, gene)).toBeLessThanOrEqual(0.06);
-        }
-      }
+  it('keeps the organ, droplet and glint colours in two hue clusters 0.04-0.10 turns apart over 10,000 genomes (ADR 0043)', () => {
+    const tiers = ['common', 'uncommon', 'rare', 'exotic'] as const;
+    let judged = 0;
+    for (let i = 0; i < 10_000; i++) {
+      const t = randomTraits();
+      const p = materialParams(t, tiers[i % 4]);
+      // Droplets take the second tone and glint rays one of the two (the shader reads only
+      // uOrgan and uSecond for them), so the palette is these two colours.
+      const palette = [p.organ, p.second];
+      if (palette.some((c) => hsvSaturation(c) < 0.05)) continue;
+      judged++;
+      const [a, b] = palette.map(hueOf) as [number, number];
+      expect(arc01(a, b)).toBeLessThanOrEqual(SECOND_TURN[1] + 1e-6);
+      expect(arc01(a, b)).toBeGreaterThanOrEqual(SECOND_TURN[0] - 1e-6);
+      // The iris is the main colour at full saturation.
+      expect(arc01(hueOf(p.iris), a)).toBeLessThan(1e-6);
+      expect(hsvSaturation(p.iris)).toBeCloseTo(1, 6);
     }
-    // The sample covers the tiers, and the accent shows on some of the rarer bodies.
-    expect(tiers.common).toBeGreaterThan(0);
-    expect(tiers.uncommon + tiers.rare + tiers.exotic).toBeGreaterThan(50);
-    expect(accented).toBeGreaterThan(20);
+    expect(judged).toBeGreaterThan(9_000);
   });
 
-  it('raises organ saturation with rarity, never the spread of hues, and leaves the shell alone (M6b T3)', () => {
+  heavyTest(
+    'gives every body two organ tones and at most two faint glows over 1,500 genomes (ADR 0043)',
+    () => {
+      const counts = { common: 0, uncommon: 0, rare: 0, exotic: 0 };
+      let twoTone = 0;
+      // Random genomes are nearly all rare or exotic; genesis bodies bring the common and uncommon tiers.
+      const sample = [
+        ...Array.from({ length: 1000 }, randomTraits),
+        ...Array.from({ length: 500 }, (_, i) =>
+          express(genesisGenome(seedFromString(`palette-genesis-${i}`))),
+        ),
+      ];
+      for (const traits of sample) {
+        const tier = rarityOfTraits(traits).tier;
+        counts[tier]++;
+        const plan = develop(traits);
+        const { organs } = anatomyOf(plan, traits, `palette-${counts[tier]}-${tier}`);
+        const luminous = traits.colour.luminescence !== 'off';
+        for (const o of organs) {
+          // Droplets take the second tone, the heart (or ganglion) and the eye pigment the main one.
+          if (o.kind === 'droplet') expect(o.second).toBe(true);
+          if (o.kind === 'heart' || o.kind === 'ganglion' || o.kind === 'pigment')
+            expect(o.second).toBe(false);
+        }
+        // Chambers alternate the tones, in hash order: as many of one as of the other, give or take one.
+        const chambers = organs.filter((o) => o.kind === 'chamber');
+        const seconds = chambers.filter((o) => o.second).length;
+        expect(Math.abs(2 * seconds - chambers.length)).toBeLessThanOrEqual(1);
+        if (organs.some((o) => o.second) && organs.some((o) => !o.second && o.kind !== 'pigment'))
+          twoTone++;
+        // The heart, or the largest chamber, glows, and at most one more organ: two on a rare,
+        // exotic or luminous body.
+        const glowing = organs.filter((o) => o.glow);
+        const most = luminous ? 2 : ORGAN_RARITY[tier].glowing;
+        expect(glowing.length).toBeGreaterThanOrEqual(1);
+        expect(glowing.length).toBeLessThanOrEqual(most);
+        const heart = organs.find((o) => o.kind === 'heart');
+        const fluid = organs.filter((o) => o.kind === 'chamber' || o.kind === 'droplet');
+        const largest = Math.max(...fluid.map((o) => o.r));
+        if (heart) expect(heart.glow).toBe(true);
+        else expect(glowing.some((o) => o.r === largest)).toBe(true);
+        for (const o of glowing) expect(o.kind).not.toBe('pigment');
+      }
+      expect(counts.common).toBeGreaterThan(0);
+      expect(counts.uncommon + counts.rare + counts.exotic).toBeGreaterThan(50);
+      // Nearly every body shows both tones (a body of one droplet and a heart still does).
+      expect(twoTone).toBeGreaterThan(sample.length * 0.95);
+    },
+  );
+
+  it('raises organ saturation and glow with rarity, never the spread of hues, and leaves the shell alone (ADR 0043)', () => {
     const order = ['common', 'uncommon', 'rare', 'exotic'] as const;
-    expect(Object.keys(ORGAN_HUES).sort()).toEqual([...order].sort());
-    for (const tier of order)
-      expect(Object.keys(ORGAN_HUES[tier]).sort()).toEqual(['accent', 'vivid']);
-    expect(ORGAN_HUES.common.accent).toBe(0);
+    expect(Object.keys(ORGAN_RARITY).sort()).toEqual([...order].sort());
     for (const t of Array.from({ length: 200 }, randomTraits)) {
       if (t.colour.albino !== 'normal' || t.colour.saturation < 0.3) continue;
-      let [lastOrgan, lastAccent] = [0, 0];
+      const common = materialParams(t, 'common');
+      let [lastOrgan, lastGlow] = [0, 0];
       for (const tier of order) {
         const p = materialParams(t, tier);
         expect(arc01(hueOf(p.organ), t.colour.hue)).toBeLessThan(1e-6);
+        expect(arc01(hueOf(p.second), hueOf(common.second))).toBeLessThan(1e-6);
         expect(hsvSaturation(p.organ)).toBeGreaterThanOrEqual(lastOrgan - 1e-9);
-        expect(hsvSaturation(p.accent)).toBeGreaterThanOrEqual(lastAccent - 1e-9);
-        [lastOrgan, lastAccent] = [hsvSaturation(p.organ), hsvSaturation(p.accent)];
-        expect(p.rim).toEqual(materialParams(t, 'common').rim);
+        expect(hsvSaturation(p.second)).toBeCloseTo(hsvSaturation(p.organ), 6);
+        expect(p.organGlow).toBeGreaterThan(lastGlow);
+        expect(p.organGlow).toBeLessThanOrEqual(
+          (p.luminescence > 0 ? ORGAN_GLOW_LUMINOUS : ORGAN_GLOW_MAX) + 1e-9,
+        );
+        [lastOrgan, lastGlow] = [hsvSaturation(p.organ), p.organGlow];
+        expect(p.rim).toEqual(common.rim);
       }
     }
     expect(materialParams(base).vivid).toBe(0);
+    // The luminescence gene lifts the glow to its higher ceiling.
+    const lit = materialParams(withColour({ luminescence: 'on' }), 'exotic');
+    const dim = materialParams(withColour({ luminescence: 'off' }), 'exotic');
+    expect(dim.organGlow).toBeLessThanOrEqual(ORGAN_GLOW_MAX);
+    expect(lit.organGlow).toBeGreaterThan(ORGAN_GLOW_MAX);
+    expect(lit.organGlow).toBeLessThanOrEqual(ORGAN_GLOW_LUMINOUS);
   });
 
   it('is deterministic', () => {

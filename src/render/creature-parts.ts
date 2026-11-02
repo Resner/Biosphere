@@ -100,8 +100,12 @@ const PEARL_TAG = 2;
 export const ORGAN_TAG = 2;
 /** `uv.x` tag of a fringe part's tube (M6c T3, T6): the shader draws it as fine, faint cilia. */
 export const FRINGE_TAG = 4;
-/** An accent organ's `uv.y` runs from this, not 0 (M6b T3): the shader gives it the accent hue. */
-const ACCENT_V = 2;
+/**
+ * An organ's `uv.y` runs from a tag, not 0 (ADR 0043): `SECOND_V` added for the second tone, and
+ * `GLOW_V` for a glowing organ. The shader reads them back from `floor(uv.y / 2)`.
+ */
+export const SECOND_V = 2;
+export const GLOW_V = 4;
 
 /**
  * A bristle's base half-width, and its angle off its part's chord: near square at the base, swept
@@ -720,7 +724,7 @@ export function addOrgans(
       o.ball,
       { spine: st.s, attach: st.s, weight: 0, part: ORGAN_PART[organ.kind] },
       ORGAN_TAG * (k + 1),
-      organ.accent ? ACCENT_V : 0,
+      (organ.second ? SECOND_V : 0) + (organ.glow ? GLOW_V : 0),
     );
   });
 }

@@ -12,6 +12,7 @@ import { CreatureCache, FULL_ABOVE, LOW_BELOW, lodFor } from './creature-cache';
 import {
   buildCreatureGeometry,
   estimateVertices,
+  GLOW_V,
   type Lod,
   meshDetail,
   NO_WALL,
@@ -20,6 +21,7 @@ import {
   PART_CHAMBER,
   PART_DROPLET,
   PART_EYE,
+  PART_GLINT,
   PART_HEART,
   PART_MEMBRANE,
   PART_MOUTH,
@@ -30,6 +32,7 @@ import {
   partId,
   partKind,
   partRadius,
+  SECOND_V,
   wallsAlong,
 } from './creature-mesh';
 import {
@@ -548,8 +551,6 @@ describe('pass 1 glass without the haze and the glow (M6b T3, ADR 0034)', () => 
     expect(chamber).toMatch(/0\.6 \* fres/);
     expect(chamber).toMatch(/alpha = 0\.55 \+ 0\.25 \* z \+ 0\.2 \* fres/);
     expect(chamber).not.toMatch(/smoothstep\(0\.0, 0\.45, z\)/);
-    // Organs take the gene hue or, on an accent organ, the complementary accent, nothing else.
-    expect(fragmentShader).toMatch(/uniform vec3 uAccent;/);
   });
 
   it('keeps segment walls faint, and parts free of bright wet points (M6c T6)', () => {
@@ -561,6 +562,68 @@ describe('pass 1 glass without the haze and the glow (M6b T3, ADR 0034)', () => 
     // The wet joint points read as beads on a grey leg; a limb is now one even stroke of rim glass.
     expect(fragmentShader).not.toContain('JOINT_SHINE');
     expect(constant('RIM')).toBeGreaterThanOrEqual(1);
+  });
+});
+
+describe('organs in two related tones, eyes in the main colour, a faint glow (M6c T7, ADR 0043)', () => {
+  const branch = (name: string): string => {
+    const from = fragmentShader.indexOf(`kind == ${name})`);
+    expect(from, name).toBeGreaterThan(0);
+    return fragmentShader.slice(from, fragmentShader.indexOf('} else', from));
+  };
+
+  it('colours organs, droplets and glint rays from the two tones only, with no accent or amber', () => {
+    for (const gone of ['uAccent', 'uOil', 'uLumColor', 'ACCENT_V']) {
+      expect(fragmentShader, gone).not.toContain(gone);
+    }
+    expect(fragmentShader).toMatch(/vec3 tint = mod\(tag, 2\.0\) > 0\.5 \? uSecond : uOrgan;/);
+    expect(branch('PART_DROPLET')).toMatch(/col = uSecond \*/);
+    expect(branch('PART_GLINT')).toMatch(/vec3 jewel = pick < 0\.5 \? uSecond : uOrgan;/);
+    // The rays' base tint is white, not the shell's colour.
+    expect(branch('PART_GLINT')).not.toMatch(/uRim/);
+  });
+
+  it('gives the eye an iris in the main colour over 0.45-0.82 of its radius, a dark pupil and its highlight', () => {
+    expect(fragmentShader).toMatch(/const vec2 IRIS = vec2\(0\.45, 0\.82\);/);
+    const eye = branch('7');
+    expect(eye).toMatch(/tame\(uIris\)/);
+    expect(eye).toMatch(/vec3\(0\.015, 0\.018, 0\.025\)/);
+    expect(eye).toMatch(/vec3\(0\.95\) \* spot/);
+  });
+
+  it('lets only tagged organs glow, inside their outline, by at most the glow gain', () => {
+    expect(fragmentShader).toMatch(
+      /if \(tag >= 1\.5 && kind != PART_PIGMENT\) \{[^}]*col \*= 1\.0 \+ uOrganGlow \* pulse \* smoothstep\(GLOW_FROM_Z, 1\.0, z\);/,
+    );
+    // Nothing else adds light to an organ.
+    expect(fragmentShader).not.toMatch(/col \+= glow/);
+  });
+
+  it('tags each organ ball with its tone and glow, and no other part', () => {
+    for (const prefix of ['01-', '21-', '35-']) {
+      const g = specimen(prefix);
+      const anatomy = anatomyFor(g);
+      const geometry = buildCreatureGeometry(planOf(g), 'high', anatomy);
+      const [uv, part] = [attr(geometry, 'uv'), attr(geometry, 'aPart')];
+      const seen = new Map<number, number>();
+      for (let i = 0; i < (part as Float32Array).length; i++) {
+        const k = partKind(part?.[i] as number);
+        if (k !== PART_CHAMBER && k !== PART_DROPLET && k !== PART_HEART) continue;
+        // An organ's number is its uv.x tag (ORGAN_TAG × (index + 1)).
+        const index = Math.floor((uv?.[i * 2] as number) / 2) - 1;
+        const tag = Math.floor((uv?.[i * 2 + 1] as number) / 2 + 1e-3);
+        expect(seen.get(index) ?? tag, `${prefix} organ ${index}`).toBe(tag);
+        seen.set(index, tag);
+      }
+      for (const [index, tag] of seen) {
+        const organ = anatomy.organs[index];
+        const want = ((organ?.second ? SECOND_V : 0) + (organ?.glow ? GLOW_V : 0)) / 2;
+        expect(tag, `${prefix} organ ${index}`).toBe(want);
+      }
+      expect([...seen.keys()].some((i) => anatomy.organs[i]?.glow)).toBe(true);
+      expect(PART_GLINT).not.toBe(PART_CHAMBER);
+      geometry.dispose();
+    }
   });
 });
 

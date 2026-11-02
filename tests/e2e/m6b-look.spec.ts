@@ -60,7 +60,9 @@ test.beforeAll(async ({ browser, baseURL }) => {
   };
   looks = state.specimens.map((s, i) => {
     const { room: r, centre } = room(i, grid);
-    return { file: s.file, ...bodyLook(image, r, centre, state.radius, s) };
+    // The eyes' irises carry the main organ colour (M6c T7, ADR 0043): pigment, like the organs.
+    const pigment = { organs: [...s.organs, ...s.eyes], outline: s.outline };
+    return { file: s.file, ...bodyLook(image, r, centre, state.radius, pigment) };
   });
   // The same bodies' geometry placed on pass 1's layout: moved to the old cell, scaled by its radius.
   const oldGrid = galleryGrid(PASS1_SPECIMENS, state.width, state.height);

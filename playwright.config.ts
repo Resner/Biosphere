@@ -72,7 +72,7 @@ const skipSlow = process.env.E2E_SKIP_SLOW ? { grepInvert: /@slow/ } : {};
 const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 const POST =
-  /m6-(post|dof|gallery|creature-mesh|readable|budget)\.spec\.ts|m6b-(look|clip)\.spec\.ts|m6c-glass\.spec\.ts/;
+  /m6-(post|dof|gallery|creature-mesh|readable|budget)\.spec\.ts|m6b-(look|clip)\.spec\.ts|m6c-(glass|organs)\.spec\.ts/;
 
 export default defineConfig({
   testDir: 'tests/e2e',

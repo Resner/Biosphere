@@ -263,9 +263,16 @@ function bodyPixels(place: ReturnType<typeof placeOf>, plan: BodyPlan) {
   const inside: { x: number; y: number }[] = [];
   const rim: { x: number; y: number }[] = [];
   const reach = 2.6 * place.r;
+  // The eyes are pigment, not shell (M6c T7, ADR 0043: the iris takes the main organ colour), so
+  // neither band reads them; a pixel and a half of margin covers the pose.
+  const e = plan.eyes;
+  const eye = (x: number, y: number): boolean =>
+    e.count >= 2 &&
+    [1, -1].some((side) => Math.hypot(x - e.x, y - side * e.y) <= e.size + 1.5 / place.r);
   for (let py = Math.floor(place.y - reach); py <= place.y + reach; py++) {
     for (let px = Math.floor(place.x - reach); px <= place.x + reach; px++) {
       const [x, y] = [(px - place.x) / place.r, (place.y - py) / place.r];
+      if (eye(x, y)) continue;
       if (insideScaled(plan, x, y, INNER)) inside.push({ x: px, y: py });
       else if (insideScaled(plan, x, y, 1) && !insideScaled(plan, x, y, RIM)) {
         rim.push({ x: px, y: py });

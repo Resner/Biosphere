@@ -204,6 +204,8 @@ export interface GlassLook {
   /** The face's mean luminance (0-255) over its grey pixels, and its darkest tenth (`DARK`). */
   face: number;
   faceDark: number;
+  /** The mean over the face's grey pixels clear of organ light (the `clear` mask, M6c T7). */
+  clear: number;
   /** The rim band's peak (`RIM_PEAK`). */
   rim: number;
   /** The limbs' median. */
@@ -239,6 +241,7 @@ export function glassLook(
     return out;
   };
   const face = read(masks.face, (i) => grey(image.rgba, i));
+  const clear = read(masks.clear, (i) => grey(image.rgba, i));
   const rim = read(masks.rim);
   const limbs = read(masks.limbs);
   const mouth = read(masks.mouth);
@@ -246,9 +249,130 @@ export function glassLook(
     counts: { face: face.length, rim: rim.length, limbs: limbs.length, mouth: mouth.length },
     face: mean(face),
     faceDark: percentile(face, DARK),
+    clear: mean(clear),
     rim: percentile(rim, RIM_PEAK),
     limbs: median(limbs),
     mouth: mean(mouth),
     mouthDark: percentile(mouth, DARK),
   };
+}
+
+/** The HSV hue (turns) and chroma (0-1) of the pixel at byte `i`. */
+export function hueAt(rgba: Image['rgba'], i: number): { hue: number; chroma: number } {
+  const [r, g, b] = [rgba[i] as number, rgba[i + 1] as number, rgba[i + 2] as number];
+  const [max, min] = [Math.max(r, g, b), Math.min(r, g, b)];
+  const d = max - min;
+  if (d === 0) return { hue: 0, chroma: 0 };
+  const h = max === r ? (g - b) / d : max === g ? 2 + (b - r) / d : 4 + (r - g) / d;
+  return { hue: (((h / 6) % 1) + 1) % 1, chroma: d / 255 };
+}
+
+/** The short way round the wheel between two hues (turns, 0–0.5). */
+export const hueArc = (a: number, b: number): number => {
+  const d = Math.abs(a - b) % 1;
+  return Math.min(d, 1 - d);
+};
+
+/** The circular mean of hues (turns). */
+export function meanHue(hues: readonly number[]): number {
+  let [x, y] = [0, 0];
+  for (const h of hues) [x, y] = [x + Math.cos(2 * Math.PI * h), y + Math.sin(2 * Math.PI * h)];
+  return (((Math.atan2(y, x) / (2 * Math.PI)) % 1) + 1) % 1;
+}
+
+export interface HueClusters {
+  /** The two cluster centres (turns), and the arc between them. */
+  centres: [number, number];
+  spread: number;
+  /** The share of the hues more than `HUE_FIT` from both centres: a third colour. */
+  outside: number;
+}
+
+/** A hue belongs to a cluster within this arc of its centre. */
+export const HUE_FIT = 0.05;
+
+/**
+ * Two-means on the hue circle (M6c T7): the centres start at the mean hue and the hue farthest from
+ * it, and settle in a few rounds. One hue alone gives two equal centres.
+ */
+export function hueClusters(hues: readonly number[]): HueClusters {
+  if (hues.length === 0) return { centres: [0, 0], spread: 0, outside: 0 };
+  const first = meanHue(hues);
+  // The second seed: the hue farthest from the mean.
+  let far = first;
+  for (const h of hues) if (hueArc(h, first) > hueArc(far, first)) far = h;
+  let centres: [number, number] = [first, far];
+  for (let round = 0; round < 12; round++) {
+    const groups: [number[], number[]] = [[], []];
+    for (const h of hues) groups[hueArc(h, centres[0]) <= hueArc(h, centres[1]) ? 0 : 1].push(h);
+    centres = [
+      groups[0].length ? meanHue(groups[0]) : centres[0],
+      groups[1].length ? meanHue(groups[1]) : centres[1],
+    ];
+  }
+  const outside =
+    hues.filter((h) => Math.min(hueArc(h, centres[0]), hueArc(h, centres[1])) > HUE_FIT).length /
+    hues.length;
+  return { centres, spread: hueArc(centres[0], centres[1]), outside };
+}
+
+export interface OrganLook {
+  /** The hues of the coloured (`CHROMA`) organ pixels, and those of the main tone and the irises. */
+  organs: number[];
+  main: number[];
+  iris: number[];
+}
+
+/** The organ and iris hues of one cell (M6c T7), read by region from the gallery hook's masks. */
+export function organLook(image: Image, masks: CellMasks): OrganLook {
+  const n = masks.w * masks.h;
+  const read = (mask: string): number[] => {
+    const bits = maskBits(mask, n);
+    const out: number[] = [];
+    for (let k = 0; k < n; k++) {
+      if (!bits[k]) continue;
+      const [x, y] = [masks.x + (k % masks.w), masks.y + Math.floor(k / masks.w)];
+      const { hue, chroma } = hueAt(image.rgba, (y * image.width + x) * 4);
+      if (chroma >= CHROMA) out.push(hue);
+    }
+    return out;
+  };
+  return { organs: read(masks.organs), main: read(masks.main), iris: read(masks.iris) };
+}
+
+/**
+ * The pixels of a cell's room that `lit` shows brighter than `unlit` by at least `rise` luminance
+ * levels (0-255), and how many of them lie farther than `reach` pixels from `region`'s mask.
+ */
+export function brighterOutside(
+  lit: Image,
+  unlit: Image,
+  masks: CellMasks,
+  region: string,
+  rise: number,
+  reach: number,
+): { brighter: number; outside: number } {
+  const n = masks.w * masks.h;
+  const bits = maskBits(region, n);
+  const near = new Uint8Array(n);
+  for (let k = 0; k < n; k++) {
+    if (!bits[k]) continue;
+    const [x, y] = [k % masks.w, Math.floor(k / masks.w)];
+    for (let dy = -reach; dy <= reach; dy++) {
+      for (let dx = -reach; dx <= reach; dx++) {
+        const [u, v] = [x + dx, y + dy];
+        if (u >= 0 && v >= 0 && u < masks.w && v < masks.h && dx * dx + dy * dy <= reach * reach)
+          near[v * masks.w + u] = 1;
+      }
+    }
+  }
+  let [brighter, outside] = [0, 0];
+  for (let k = 0; k < n; k++) {
+    const [x, y] = [masks.x + (k % masks.w), masks.y + Math.floor(k / masks.w)];
+    const i = (y * lit.width + x) * 4;
+    if (luminance(lit.rgba, i) - luminance(unlit.rgba, i) < rise) continue;
+    brighter++;
+    if (!near[k]) outside++;
+  }
+  return { brighter, outside };
 }
