@@ -40,7 +40,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Detritus | 8 | 1.5 | everywhere; filter feeders also absorb it passively |
 | Nutrient globule | 25 | 3 | shallows and twilight |
 | Vent crystal | 60 | 2.5 | deep and abyss, richest near vents and plumes (risk for reward) |
-| Carrion | share of a dead creature's biomass (M7) | scales with victim | where a creature died |
+| Carrion (M7) | 40% of a killed creature's biomass at 3 energy per unit, split into 3–12 pieces | 1.5 + 0.08 × the victim's radius | within 2 victim radii of where it was killed, for 60 s; jaws eat it best (filter 0.3, middle 0.8, jaw 1) |
 
 - Food sits on a grid of 256 wu cells with 10 slots each. A slot's item type is weighted by the zone at its anchor (table above). After an item is eaten the slot stays empty for 20–60 s (hash-determined), then shows the next item at a new position. A creature eats an item when it overlaps its **mouth disc** (centred `offset·r` ahead of the centre with radius `radius·r`, the item within the mouth's arc; a starter cell's mouth is its whole body) unless its energy is at the maximum. The yield is `value × efficiency(kind, mouth type) × digestion`; an item with efficiency 0 is left alone (§6). In a pond, two players reaching the same item are settled by the lower claim tick, then the lower id; the loser gives the energy back (ADR 0016). A claim outside 900 ticks (30 s) of the local pond clock, or for a cycle the slot cannot have reached (each takes at least 600 ticks), is ignored and counted. A dropped peer link is re-called by the lower id, up to 5 times with a doubling wait (3 s first).
 - Each tier has food sized for it (M11). Tiny items are noise to giants, so larger tiers feed on denser drifts, vent beds and carrion, and big filter-feeding mouths sweep detritus in bulk.
@@ -57,10 +57,10 @@ Death is common and never total: you fall back to your pending offspring or your
 | Dash | — | Space (cooldown 2.5 s) |
 | Court or accept | click the creature, then the button | E on the nearest eligible creature |
 | Become your offspring | the Offspring card button | H |
-| Attack (M7) | click a creature in range | F on the nearest target |
+| Attack (M7) | the Attack button on a creature's card (click the creature) | F: the creature under the cursor if it can be engaged, else the nearest in reach; an "F" glyph marks it |
 | Stance (M7, in combat) | HUD buttons | 1 aggressive, 2 balanced, 3 evasive |
-| Target (M7, 3+ participants) | click | Tab cycles |
-| Brace (M7, in combat) | right button | Shift |
+| Target (M7, with 3+ fighters or an egg in the fight) | click a fighter or an egg | Tab cycles, nearest first |
+| Brace (M7, in combat) | right button or the HUD button | Shift |
 | Chat | — | Enter |
 | Ping or emote | pick on the wheel (release over an item or click it); middle button: a quick look ping | G opens the wheel at the cursor, then 1–0 or release over an item; Esc cancels; T then 1–6 still emotes; your movement carries on while it is open |
 | Pond map | — | M (M or Esc closes it; steering carries on under it) |
@@ -135,7 +135,7 @@ Death is common and never total: you fall back to your pending offspring or your
   - Each player holds **one pending offspring** at most: an egg carried on a short tether behind the parent, glowing faintly by the child's rarity for its owner, with a card showing its body. Pond peers see a plain glowing egg (the snapshot's egg mark, set from the commitment on).
   - Hatchling biomass is max(80, 10% of the child's maximum), energy 60% of its maximum, full health, lifespan clock at zero.
   - Generation = max(parents' generations) + 1.
-  - A pending child can only be left by promoting it: no discard (ADR 0021).
+  - A pending child can only be left by promoting it: no discard (ADR 0021). A predator can eat it in a fight (M7, §7, ADR 0052).
 - **Promotion** (key H): becoming your pending offspring turns your current creature into an **inactive checkpoint**. It keeps its condition, cooldown and remaining lifespan, frozen. The egg waits beside where the parent was for the player to charge and crack it, as a genesis's does (§10), then cracks open; the child grows out with a pop, and the parent dissolves over 1 s where it stood.
 - **Death**: choose between your pending offspring (if any) and your **nearest surviving ancestor** along your checkpoint chain, which comes back with its saved condition, cooldown and remaining lifespan at the pond's spawn point. Dead and exhausted ancestors (under 2 min left) are skipped. If nothing survives, hatch a new genesis cell; the old lineage remains as history. Genesis is refused while any of your creatures is active, pending or a surviving checkpoint.
 - **Kinship**: Malécot's coefficient of kinship on the birth records, six generations deep. A child's inbreeding is the kinship of its parents (full siblings 25%, first cousins about 6%). The card says none (under 3%), low (under 10%), moderate (under 20%) or high.
@@ -184,7 +184,7 @@ After the base loci each haplotype appends 59 bytes: 223 bytes per haplotype, 44
 | 1 (jaw) | 0.4 | 0.8 | 1.0 |
 
   Filter mouths are wide and sit on the body (large `radius`, small `offset`); jaws are small and reach ahead (small `radius`, large `offset`, narrow arc). Digestion multiplies every yield.
-- **Colliders**: up to 12 circles in the body frame, in units of the core radius `r = √b`, the first always the core at the origin with radius 1. They give toxin exposure and creature hit shapes. Creatures pass through each other until M7.
+- **Colliders**: up to 12 circles in the body frame, in units of the core radius `r = √b`, the first always the core at the origin with radius 1. They give toxin exposure and creature hit shapes. Creatures pass through each other outside fights; inside an encounter the fighters' circles push each other apart (M7, §7).
 - **Body limits** (`RULES.body`, enforced on every body entering the sim): thrust, drag, turn, basal and growth multipliers 0.1–4; max biomass 100–2,457,600; 1–12 collision circles of radius 0.05–1.5 whose far edge stays within 2.5 core radii; mouth radius 0.05–3, half-arc 0.05–π, digestion 0.1–1.5.
 - **Development caps**: 8 segments, 24 appendages, 4 joints, 1 branch level (≤2 branches), 12 collision circles, bounds ≤2.5× core radius (vertices are the renderer's, §12). Repair guarantees a propulsion source and a mouth.
 - **Development** (`RULES.develop`, `src/genome/develop.ts` and its stage modules): `develop(traits)` builds the plan in core radii and repairs it, in this order:
@@ -231,27 +231,31 @@ After the base loci each haplotype appends 59 bytes: 223 bytes per haplotype, 44
   - Features: iridescent, albino, stripes, spots, rings, luminescent, radial symmetry, webbing and eyes (priced from their exact genesis frequency; the form table makes radial 27%, webbing 8% and eyes 12%), and 12 bits each for extra segments, extra modules (beyond the whip and cilia), a novel allele, a max size of tier 1 and up (1,024 biomass), a coil, a carapace or a chela. About 70% of genesis cells stay common.
   - Each creature gets a deterministic species-like name: a genus from its genome hash (three syllables and a suffix) and an epithet from its strongest trait (for example "Dabelothrix natans"); shape traits name bodies too: *alata* (webbing), *spiralis* (a curve, a coil above all), *radiatus* (radial), *oculatus* (eyes), *setosus* (bristles).
 
-## 7. Combat (M7–M8; ADR 0011)
+## 7. Combat (M7–M8; ADRs 0011, 0050–0052)
 
-- **Who**: creatures within ±1 tier, neither spawn-protected (15 s after spawning, or until the creature attacks). Up to 4 participants; others can join a running fight.
-- **Engage**: attack a creature within engage range, which is your reach plus 30% of the target's radius. Lock-in takes about 150 ms with no beacon wait. Participants are locked until settlement (no mating, promotion, restore or habitat moves).
+Initial values in `RULES.encounter` (`src/sim/rules.ts`); the combat tournament (`npm run report:combat`, `docs/perf/combat.md`) tunes them.
+
+- **Who**: two creatures within ±1 size tier, neither spawn-protected. Protection lasts 15 s after a genesis hatch, a promoted child's hatch or a restore (a reload's resume gives none) and ends when the creature engages. Up to 4 fighters; others can join a running fight (M7).
+- **Engage**: F (or the Attack button) engages a creature within engage range: the distance from your centre to the nearest edge of its collision circles is at most your strike reach plus 30% of its radius. Your client sends the authority your own signed snapshot and the target's newest (at most 9 ticks old). The authority uses the target's own answer if it comes within 150 ms, and frame 0 starts 150 ms after that: about 150 to 300 ms, with no beacon wait. Fighters are locked until the end: no mating, promotion, restore or genesis.
+- **The encounter** is its own deterministic simulation of the fighters (`src/sim/encounter/`): the pond's currents, plumes, UV and pressure apply, food does not (nobody eats in a fight), and the fighters' collision circles push each other apart.
 - **Frames**:
-  - 100 ms, with a referee deadline of +120 ms. A late or missing input becomes the autopilot from the creature's behaviour genes.
-  - Your own creature responds instantly (prediction); others are corrected by rollback of up to 10 frames.
-- **Automatic attacks** come from anatomy. A weapon tip in reach and arc strikes after a 250 ms **windup** (a telegraph glow), then waits an 800 ms cooldown. Jaws bite, fast blunt bodies ram, and spines hurt attackers.
-- **Damage** = weapon power × stance multiplier × (1 − target armour) × brace multiplier.
+  - 10 Hz, 3 ticks each. An input carries steering, throttle, dash, stance, target and brace. The referee (the authority, M7–M9) takes a fighter's input for a frame until 120 ms after it starts; a missing or late input is the autopilot's.
+  - Your own creature responds in the frame you steer (prediction); the others are corrected by rollback of up to 10 frames.
+- **Strikes** come from anatomy, automatically. A fighter's strike reaches the farther of its weapon reach and its mouth's reach, over the wider of its weapon arc and its mouth's arc (at least 0.6 rad). When its target is within reach and arc it winds up for 8 ticks (about 0.27 s, a telegraph glow), strikes if the target is still within 1.1 × the reach and the arc, then waits 24 ticks (0.8 s), hit or miss.
+- **Damage** of a strike = 2.8 × the attacker's radius × power × stance × (1 − 0.6 × the target's armour × its stance's armour factor) × brace × (1 ± 0.1). Power = 0.3 (every mouth nips) + 1.2 × w ÷ (w + 0.6), where w is the anatomy's weapon power (§6: pointed and hooked tips, chelae, a jaw's bite). Health is 10 × the radius, so a body 1.5 times as wide hits 1.5 times as hard and lasts 1.5 times as long.
+- **Rams**: fighters colliding at a closing speed above 60 wu/s (a dash) hurt the one rammed by 2 × the rammer's radius × min(1, (speed − 60) ÷ 60) × twice its share of the pair's mass × (1 − 0.6 × armour); once per pair every 24 ticks.
+- **Spines** hurt attackers: a strike or ram on a body with spines s returns 0.4 × s of the damage dealt.
 - **Player decisions**:
-  - **Stance**: aggressive (×1.25 damage dealt, ×0.85 armour), balanced, or evasive (×0.7 damage, +20% speed and turning).
-  - **Target**: chosen when there are three or more participants.
-  - **Brace**: a 250 ms window with a 2 s cooldown, costing 5 energy. A hit that lands in the window is blocked 80%, and the attacker is staggered for 300 ms.
+  - **Stance** (1, 2, 3): aggressive (×1.25 damage dealt, its armour counts ×0.85), balanced, or evasive (×0.7 damage dealt, ×1.2 thrust, so top speed, and turning).
+  - **Target** (Tab or a click): with three or more fighters, or an egg in the fight; otherwise the nearest opponent.
+  - **Brace** (Shift or the right button): an 8-tick window, a 60-tick (2 s) cooldown, costing 0.05 × biomass energy (5 for a starter). A strike or ram landing in the window is blocked 80%, and the attacker is staggered for 9 ticks (no windup, 30% thrust). The window shields the fighter's egg too.
   - **Positioning**: steering decides whose weapons are in reach.
-- **End**:
-  - Death.
-  - Escape: outside 2× engage range of every opponent for 3 s.
-  - Timeout: 90 s.
-- **Rewards**: the killer gains 40% of the victim's biomass (as energy first, then biomass). Another 40% scatters as carrion that anyone can eat.
+- **Autopilot** (behaviour genes, §6): flees at full throttle in evasive stance when its health is below caution × 0.6 of its maximum (or a foe has 1.5 × its biomass and caution is above 0.5), dashing with reflex ≥ 0.4; otherwise closes on its target (aggressive stance at aggression ≥ 0.6, evasive at caution ≥ 0.7), circling by curiosity, dashing in at aggression ≥ 0.5, and braces against a windup with 6 ticks left at reflex ≥ 0.3. Its target follows the target-preference allele: nearest, weakest, largest or strongest.
+- **End**: a fighter dies (killed, or a hazard or starvation), escapes (outside 2 × every opponent's engage range for 3 s) or stands until the fight ends: when fewer than two fighters are left, or at the timeout (90 s).
+- **Rewards** (ADR 0051): a kill gives the killer 40% of the victim's biomass at once, as biomass up to its maximum and the rest as energy at 3 per unit; ×0.5 for a victim a tier smaller, ×1.5 a tier bigger. Health rises with the radius gained, as in growth. Another 40% becomes carrion (§2).
+- **Eggs** (ADR 0052): a fighter carrying a pending child brings its egg: it trails behind (0.5 × the carrier's radius), has 25% of the carrier's maximum health and no armour, and any opponent can strike it. It is eaten when its health runs out, or with its carrier when the carrier is killed; the eater gains 20% of the carrier's biomass (with the tier factor). The authority settles it: the child's record ends with cause eaten, and the owner's fallback no longer offers it. An escape, a timeout or a hazard death keeps it.
+- **Disconnects**: a fighter who leaves or hides the tab fights on by autopilot to the end, and reconnecting waits for the result; a restart of the authority mid-fight voids the fight, with no result (M7). From M8, reconnecting resumes a fight, and if everyone leaves the authority finishes and settles it.
 - **Kill farming** (M8): repeated kills of the same victim within 24 h give ×0.5 each time. Victims under 30 minutes old give half.
-- **Disconnects** (M8): fights continue on autopilot, reconnecting resumes them, and if everyone leaves the authority finishes and settles the fight.
 
 ## 8. Multiplayer and scale
 
