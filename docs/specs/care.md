@@ -68,7 +68,8 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Done: `authority.ts` (296 lines) keeps state, alarm and dispatch; handlers are functions of `Hub` in `sessions.ts`, `lives.ts`, `offspring.ts`, with `Session` and send helpers in `socket.ts`; bodies moved verbatim (`this.` became `hub.`).
   - Gotcha: `ctx`/`env` are redeclared public (`declare`) so `Authority` implements `Hub`; a `deliverGenesis` method stays because `genesis.test.ts` calls it.
 
-- [ ] C6 Split `src/render/creature-mesh.test.ts` (1,204 lines) into files under 1,000 lines
+- [x] C6 Split `src/render/creature-mesh.test.ts` (1,204 lines) into files under 1,000 lines
+  - Done: the shared fixtures moved verbatim to `creature-mesh-kit.ts`; the tests split into `creature-mesh.test.ts` (budgets, body, anatomy, glints) and `creature-mesh-parts.test.ts` (parts onward), the same 42 tests.
   - Why: found by C4; the test file outgrew the 1,000-line bound its module now keeps.
   - Touches: `src/render/creature-mesh.test.ts`, the files it becomes.
   - Steps: split by the areas C4 gave the module (buffer, loft, parts, fit). Move tests verbatim; no assertion changes.
@@ -80,3 +81,11 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Steps: split by area (records and verification, mating and offspring); move code and tests verbatim; no assertion changes.
   - Acceptance: `npm run check:full` is green with the same number of tests; each file is under 1,000 lines.
   - Done: types, row mappers and pure helpers moved verbatim to `worker/ledger-types.ts` (`ledger.ts` re-exports them, 958 lines); the test fixtures to `ledger-test-kit.ts`, and the tests to `ledger-mating.test.ts` (mate, birth) and `ledger-promote.test.ts` (promote onward), same 26 tests.
+
+- [x] C8 Split `src/net/protocol.ts` (1,148 lines) into modules under 1,000 lines
+  - Why: found by the care run of 2026-11-02; the file outgrew the 1,000-line bound.
+  - Touches: `src/net/protocol.ts`, the modules it becomes.
+  - Steps: move the types, constants and snapshot codec to `protocol-defs.ts` and the untrusted-JSON parsers to `protocol-parse.ts`; `protocol.ts` re-exports both so no importer changes. Move code verbatim.
+  - Acceptance: `npm run check:full` and the hub E2E specs are green with no test changed; each file is under 1,000 lines.
+  - Done: types, constants and the snapshot codec moved verbatim to `protocol-defs.ts` (403 lines), the untrusted-JSON parsers to `protocol-parse.ts` (787); `protocol.ts` is a 3-line `export *` of both.
+  - Gotcha: parse imports defs only (no cycle); the parser-private regexes and `isStatus` live with the parsers.
