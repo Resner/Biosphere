@@ -1,5 +1,6 @@
 // Diversity report (M3 T9): samples genesis cells and bred descendants and prints Markdown about
-// their bodies. `npm run report:diversity -- --genesis 2000 --bred 2000 --generations 6`.
+// their bodies, and the silhouette classes of the Lab's Evolved grids (M6c T5).
+// `npm run report:diversity -- --genesis 2000 --bred 2000 --generations 6 --evolved 10`.
 
 import { type Genome, genomeHash } from '../src/genome/codec';
 import { type Appendage, bodyViolations } from '../src/genome/develop';
@@ -8,6 +9,7 @@ import { breed } from '../src/genome/inherit';
 import { RARITY_TIERS, rarityOfTraits } from '../src/genome/rarity';
 import { SILHOUETTES, silhouetteOf } from '../src/genome/silhouette';
 import { buildCreature, type Creature } from '../src/genome/stats';
+import { EVOLVED_CLASSES, EVOLVED_SEEDS, evolvedGrid } from '../src/lab/specimens';
 import { anatomyOf } from '../src/render/anatomy';
 import { estimateVertices } from '../src/render/creature-mesh';
 import { glintPlanOf } from '../src/render/surface';
@@ -19,9 +21,11 @@ export interface ReportOptions {
   genesis: number;
   bred: number;
   generations: number;
+  /** Evolved Lab grids, one per seed of `EVOLVED_SEEDS` (at most 10). */
+  evolved: number;
 }
 
-const DEFAULTS: ReportOptions = { genesis: 2000, bred: 2000, generations: 6 };
+const DEFAULTS: ReportOptions = { genesis: 2000, bred: 2000, generations: 6, evolved: 10 };
 
 export function parseArgs(argv: readonly string[]): ReportOptions {
   const options = { ...DEFAULTS };
@@ -30,7 +34,7 @@ export function parseArgs(argv: readonly string[]): ReportOptions {
     const value = Number(argv[i + 1]);
     if (!Object.hasOwn(DEFAULTS, key) || !Number.isInteger(value) || value < 1) {
       throw new Error(
-        `Bad option ${argv[i]} ${argv[i + 1]}: use --genesis, --bred, --generations with whole numbers`,
+        `Bad option ${argv[i]} ${argv[i + 1]}: use --genesis, --bred, --generations, --evolved with whole numbers`,
       );
     }
     options[key as keyof ReportOptions] = value;
@@ -130,6 +134,26 @@ export function legsOf(creatures: readonly Creature[]): { all: Legs; trunk: Legs
   return { all: legStats(legs), trunk: legStats(trunk) };
 }
 
+/** The Lab's Evolved grids (M6c T5): each seed's silhouette classes, and how many reach `EVOLVED_CLASSES`. */
+function evolvedSection(count: number): string[] {
+  const seeds = EVOLVED_SEEDS.slice(0, count);
+  const grids = seeds.map((seed) =>
+    evolvedGrid(seed).map((g) => silhouetteOf(buildCreature(g).plan)),
+  );
+  const rich = grids.filter((g) => new Set(g).size >= EVOLVED_CLASSES).length;
+  return [
+    '## Evolved Lab grids',
+    '',
+    `- Grids with ${EVOLVED_CLASSES} or more classes: ${rich} of ${seeds.length}`,
+    ...seeds.map(
+      (seed, i) =>
+        `- ${seed}: ${new Set(grids[i]).size} classes (${[...new Set(grids[i])].join(', ')})`,
+    ),
+    '',
+    ...histogram('Evolved silhouettes', grids.flat(), SILHOUETTES),
+  ];
+}
+
 export function diversityReport(options: ReportOptions): string {
   const genesis = Array.from({ length: options.genesis }, (_, i) =>
     genesisGenome(seedFromString(`diversity-genesis-${i}`)),
@@ -200,6 +224,7 @@ export function diversityReport(options: ReportOptions): string {
         `- ${name}: ${l.legs}, median width ${l.width.toFixed(3)} core radii, ${(100 * l.bristled).toFixed(1)}% with ${BRISTLED} or more bristles`,
     ),
     '',
+    ...evolvedSection(options.evolved),
     '## Mesh vertices',
     '',
     `- High detail: ${stats(vertices, '')}`,
