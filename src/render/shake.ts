@@ -1,8 +1,8 @@
 // Damage lands as hits, in intervals (M6c T9, DESIGN §10), "kinda how you take damage in
 // Minecraft": while damage arrives, at most one hit every 0.5 s of sim time, the first at once.
-// Each hit kicks the camera 5–8 px by the damage since the last hit and jolts the body, both
-// decaying to rest within 0.25 s; between hits everything is still. Every cause shares the cadence.
-// Pure presentation: it reads damage events and never feeds back into the sim, the HUD and the DOM
+// Each hit kicks the camera 2–3.5 px by the damage since the last hit and jolts the body, both
+// easing to rest within 0.35 s (gentle by design: a creature can take long to die; M6c spec, owner
+// feedback on v0.7.2). Pure presentation: it reads damage events and never feeds back into the sim, the HUD and the DOM
 // never move, and Reduce motion drops the kicks (the shell keeps the flash and the sound).
 
 import { clamp, lerp } from '../sim/math';
@@ -12,13 +12,13 @@ export const SHAKE = {
   /** At most one hit this often while damage arrives, in sim ticks (0.5 s at 30 Hz). */
   everyTicks: 15,
   /** The camera's kick per hit, in CSS pixels: `min` for the least damage, `max` from `fullHp`. */
-  kickPx: { min: 5, max: 8 },
+  kickPx: { min: 2, max: 3.5 },
   /** Damage since the last hit (hp) that kicks the most: about half a second in a toxin cloud. */
   fullHp: 6,
   /** The body's jolt per hit, in body radii. */
-  bodyRadii: 0.15,
+  bodyRadii: 0.06,
   /** A kick decays to rest over this long, in seconds. */
-  decaySeconds: 0.25,
+  decaySeconds: 0.35,
   /** The longest step one update takes, so a long pause does not skip a kick. */
   maxStepSeconds: 0.1,
 } as const;

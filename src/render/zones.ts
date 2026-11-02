@@ -85,10 +85,21 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
 };
 
 /**
- * Zones blend over this much depth either side of each edge (about 30 wu each way). Narrow enough
- * that the spawn's twilight disc (depth 0.26 to 0.54) keeps the pure twilight look.
+ * Each zone edge blends over this much depth (about 20 steps of the depth map's byte, so the water
+ * grades as a gradient and never in bands; the owner's Playtest v0.7.2). The blends lie away from
+ * the twilight: the spawn's disc (every pond's centre, depth `base` ± `centreCap`: 0.26 to 0.54)
+ * keeps the pure twilight look. The shallows' edge blends over the 0.08 above its start at the
+ * disc's floor; the twilight's over the 0.08 below its start at the disc's roof, and the deep's
+ * edge, away from the disc, over 0.04 either side.
  */
-export const ZONE_BAND = 0.01;
+export const ZONE_BAND = 0.08;
+const { base: SPAWN_MID, centreCap: SPAWN_CAP, zones: EDGES } = RULES.bathymetry;
+/** Where each edge's blend starts (shallows/twilight, twilight/deep, deep/abyss); it ends `ZONE_BAND` later. */
+export const ZONE_BLEND_START: readonly [number, number, number] = [
+  SPAWN_MID - SPAWN_CAP - ZONE_BAND,
+  SPAWN_MID + SPAWN_CAP,
+  EDGES.deep - ZONE_BAND / 2,
+];
 /** Full sight within the ring, fading to the zone's fog by this many ring radii. */
 export const SIGHT_FADE = 2;
 /** The least sight radius in core radii, so even a blind cell sees around itself. */
@@ -106,10 +117,11 @@ export const ZONE_TEXTURE_SIZE = 256;
 
 /** Each zone's share of the look at this depth: 1 inside a zone, blended over the edge bands. */
 export function zoneWeights(depth: number): [number, number, number, number] {
-  const e = RULES.bathymetry.zones;
-  const t = [e.shallows, e.twilight, e.deep].map((edge) =>
-    smoothstep(edge - ZONE_BAND, edge + ZONE_BAND, depth),
-  ) as [number, number, number];
+  const t = ZONE_BLEND_START.map((start) => smoothstep(start, start + ZONE_BAND, depth)) as [
+    number,
+    number,
+    number,
+  ];
   return [1 - t[0], t[0] - t[1], t[1] - t[2], t[2]];
 }
 
@@ -121,10 +133,10 @@ export function zoneBlend(
   depth: number,
   key: 'dark' | 'glow' | 'caustic' | 'rays' | 'pace' | 'snow',
 ): number {
-  const e = RULES.bathymetry.zones;
-  const t0 = smoothstep(e.shallows - ZONE_BAND, e.shallows + ZONE_BAND, depth);
-  const t1 = smoothstep(e.twilight - ZONE_BAND, e.twilight + ZONE_BAND, depth);
-  const t2 = smoothstep(e.deep - ZONE_BAND, e.deep + ZONE_BAND, depth);
+  const [s0, s1, s2] = ZONE_BLEND_START;
+  const t0 = smoothstep(s0, s0 + ZONE_BAND, depth);
+  const t1 = smoothstep(s1, s1 + ZONE_BAND, depth);
+  const t2 = smoothstep(s2, s2 + ZONE_BAND, depth);
   const L = ZONE_LOOK;
   return (
     L.shallows[key] * (1 - t0) +
@@ -225,8 +237,6 @@ export function depthGrid(seed: Seed, size: number, n = ZONE_TEXTURE_SIZE): Uint
   return grid;
 }
 
-/** How far inside a zone's depth range `wellInside` asks for (the abyss and shallows' outer sides excepted). */
-const INSIDE_MARGIN = 0.04;
 /** `wellInside` also asks the zone of the points this far away on each axis. */
 const INSIDE_REACH = 64;
 /** The search steps out in rings this far apart, with points at most this far apart on each. */
@@ -234,12 +244,9 @@ const SEARCH_STEP = 32;
 /** The search keeps this far from the world's walls. */
 const SEARCH_INSET = 256;
 
-/** Whether a point lies well inside a zone: clear of its depth edges, and so is its surround. */
+/** Whether a point lies well inside a zone: clear of every blend (the zone's own look at full strength), and so is its surround. */
 export function wellInside(seed: Seed, x: number, y: number, zone: Zone): boolean {
-  const depth = depthAt(seed, x, y);
-  if (zoneOfDepth(depth - INSIDE_MARGIN) !== zone || zoneOfDepth(depth + INSIDE_MARGIN) !== zone) {
-    return false;
-  }
+  if (zoneWeights(depthAt(seed, x, y))[ZONES.indexOf(zone)] !== 1) return false;
   const r = INSIDE_REACH;
   return (
     zoneAt(seed, x + r, y) === zone &&
@@ -297,6 +304,7 @@ uniform vec3 uViewer;
 uniform vec4 uLights[ZONE_LIGHTS];
 uniform float uLightCount;
 const vec3 ZONE_EDGES = vec3(${f(e.shallows)}, ${f(e.twilight)}, ${f(e.deep)});
+const vec3 ZONE_BLEND_START = vec3(${ZONE_BLEND_START.map(f).join(', ')});
 const float ZONE_BAND = ${f(ZONE_BAND)};
 const float ZONE_NEUTRAL = ${f(NEUTRAL_DEPTH)};
 const float SIGHT_FADE = ${f(SIGHT_FADE)};
@@ -312,7 +320,7 @@ float zoneDepth(vec2 w) {
 
 // Each zone's share at a depth: 1 inside a zone, blended across the edge bands.
 vec4 zoneWeights(float d) {
-  vec3 t = smoothstep(ZONE_EDGES - ZONE_BAND, ZONE_EDGES + ZONE_BAND, vec3(d));
+  vec3 t = smoothstep(ZONE_BLEND_START, ZONE_BLEND_START + ZONE_BAND, vec3(d));
   return vec4(1.0 - t.x, t.x - t.y, t.y - t.z, t.z);
 }
 

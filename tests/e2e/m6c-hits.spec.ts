@@ -6,7 +6,7 @@ import { starterGenome } from '../../src/genome/starter';
 import { hatch, openGame, state } from './helpers';
 
 // Damage lands as hits, in intervals (M6c T9): in the shallows with no UV tolerance the sim deals
-// UV every tick, and the shake turns it into one hit every 15 ticks, each kicking the camera 5–8 px.
+// UV every tick, and the shake turns it into one hit every 15 ticks, each kicking the camera 2–3.5 px.
 // Counted per tick of sim time, so a slow runner plays the same hits per sim second (ADR 0042).
 
 /** The starter cell with no UV tolerance. */
@@ -19,7 +19,7 @@ function noUvTolerance(): string {
 
 const fx = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.fx());
 
-test('UV in the shallows lands as hits, about two a second of sim time, each a 5 px kick or more', async ({
+test('UV in the shallows lands as hits, about two a second of sim time, each a 2 px kick or more', async ({
   page,
 }) => {
   await openGame(page, `?debug=1&seed=m6c-hits&genome=${noUvTolerance()}`);
@@ -38,12 +38,12 @@ test('UV in the shallows lands as hits, about two a second of sim time, each a 5
 
   // The camera's kick, read on the frame that shows it.
   await page
-    .waitForFunction(() => (window.__bs as BsHook).render.fx().shake.camera >= 5, null, {
+    .waitForFunction(() => (window.__bs as BsHook).render.fx().shake.camera >= 2, null, {
       polling: 'raf',
       timeout: 15_000,
     })
     .catch(() => {
-      throw new Error('waited for a hit to kick the camera 5 px or more');
+      throw new Error('waited for a hit to kick the camera 2 px or more');
     });
 
   // Two seconds of sim time, then the hits over the ticks actually played, read in one frame.

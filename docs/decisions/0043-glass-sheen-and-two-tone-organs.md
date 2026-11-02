@@ -1,6 +1,6 @@
 # 0043: Glass with pass 1's sheen, organs in two related tones, gallery specimens per rules
 
-- Status: accepted, amended by 0046 (amends 0034's palette and haze rules, and 0024 and 0032's "specimens are never replaced"; after a reset, specimens that still show their class are kept, and cells 07–20 are Evolved picks: 0046)
+- Status: accepted, amended by 0046 and 0049 (0049: the second tone follows the inherited hue; amends 0034's palette and haze rules, and 0024 and 0032's "specimens are never replaced"; after a reset, specimens that still show their class are kept, and cells 07–20 are Evolved picks: 0046)
 - Date: 2026-11-01
 
 ## Context

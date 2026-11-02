@@ -102,7 +102,7 @@ describe('Effects', () => {
     expect(fx.hurt).toBe(0);
   });
 
-  it('a hit flashes the hurt tint for 0.15 s, from its peak on the next frame to exactly 0 (M6c T9)', () => {
+  it('a hit flashes the hurt tint for 0.3 s, from its peak on the next frame to exactly 0 (M6c T9)', () => {
     const fx = new Effects();
     fx.hurtFlash(1);
     const start = fx.hurt;

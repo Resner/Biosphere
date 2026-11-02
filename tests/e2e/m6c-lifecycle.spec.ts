@@ -170,12 +170,12 @@ test('renewal notice, charged reveal, a dive with UV hits and the gauge, mate an
     return { damage: bs.events().damage ?? 0, hits: bs.render.fx().shake.hits };
   });
   await a
-    .waitForFunction(() => (window.__bs as BsHook).render.fx().shake.camera >= 5, null, {
+    .waitForFunction(() => (window.__bs as BsHook).render.fx().shake.camera >= 2, null, {
       polling: 'raf',
       timeout: 30_000,
     })
     .catch(() => {
-      throw new Error('waited for a UV hit to kick the camera 5 px or more');
+      throw new Error('waited for a UV hit to kick the camera 2 px or more');
     });
   await a
     .waitForFunction(

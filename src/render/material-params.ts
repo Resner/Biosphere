@@ -57,6 +57,14 @@ export const SECOND_TURN = [0.04, 0.06] as const;
  * beside a yellow).
  */
 const SECOND_DARKER = 0.1;
+/**
+ * Inherited colour (owner, Playtest v0.7.2): when a genome's two haplotypes differ in hue (a child
+ * of parents with different colours), the second tone is the other haplotype's hue instead: the
+ * main colour is the mean of the two, so the second lies half the spread (`hueSpread`) further
+ * round the hue wheel, up to this many turns. A spread under twice `SECOND_TURN[0]` keeps the amber
+ * second tone, so a plain body looks as it did. Still two tones, never a third.
+ */
+export const SECOND_SPREAD_MAX = 0.08;
 
 /**
  * The organs by rarity tier (ADR 0043): rarity raises saturation, glints and glow, never the spread
@@ -173,16 +181,22 @@ function patternKind(alleles: readonly string[]): number {
 }
 
 /** The second tone's hue: `hue` turned `SECOND_TURN` toward amber by the gene saturation, the short way. */
-function secondHue(hue: number, saturation: number): number {
-  const d = ((((AMBER_HUE - hue) % 1) + 1.5) % 1) - 0.5;
-  const turn = lerp(SECOND_TURN[0], SECOND_TURN[1], clamp(saturation, 0, 1));
-  return (((hue + (d < 0 ? -turn : turn)) % 1) + 1) % 1;
+function secondHue(hue: number, saturation: number, spread: number): number {
+  const inherited = spread / 2;
+  let turn = Math.min(inherited, SECOND_SPREAD_MAX);
+  if (inherited < SECOND_TURN[0]) {
+    const d = ((((AMBER_HUE - hue) % 1) + 1.5) % 1) - 0.5;
+    turn = (d < 0 ? -1 : 1) * lerp(SECOND_TURN[0], SECOND_TURN[1], clamp(saturation, 0, 1));
+  }
+  return (((hue + turn) % 1) + 1) % 1;
 }
 
 /** `tier` is the body's rarity tier (`rarityOfTraits`); it sets only the organs' saturation and glow. */
 export function materialParams(
   t: Pick<Traits, 'colour' | 'skin'>,
   tier: RarityTier = 'common',
+  /** `Creature.hueSpread`: how far apart the genome's two haplotype hues lie, in turns. */
+  hueSpread = 0,
 ): MaterialParams {
   const { colour, skin } = t;
   const albino = colour.albino === 'albino';
@@ -215,7 +229,11 @@ export function materialParams(
     rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE, light),
     saturation,
     organ,
-    second: hsv(secondHue(hue, geneSaturation), organSaturation, secondValue),
+    second: hsv(
+      secondHue(hue, geneSaturation, albino ? 0 : hueSpread),
+      organSaturation,
+      secondValue,
+    ),
     iris: hsv(hue, 1, inside),
     vivid,
     organGlow,

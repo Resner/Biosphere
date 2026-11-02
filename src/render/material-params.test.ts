@@ -17,6 +17,7 @@ import {
   ORGAN_GLOW_MAX,
   ORGAN_RARITY,
   PATTERN,
+  SECOND_SPREAD_MAX,
   SECOND_TURN,
 } from './material-params';
 
@@ -343,5 +344,38 @@ describe('materialParams', () => {
   it('is deterministic', () => {
     const t = randomTraits();
     expect(materialParams(t)).toEqual(materialParams(t));
+  });
+});
+
+describe('inherited organ colour (owner, Playtest v0.7.2)', () => {
+  const coloured = withColour({ hue: 0.3, saturation: 0.8, value: 0.8 });
+  const arc = (a: number, b: number) => Math.min(Math.abs(a - b), 1 - Math.abs(a - b));
+
+  it('keeps the amber second tone while the haplotypes agree, so a plain body looks as it did', () => {
+    const plain = materialParams(coloured, 'common');
+    for (const spread of [undefined, 0, 0.05, 2 * SECOND_TURN[0] - 0.01]) {
+      expect(materialParams(coloured, 'common', spread).second).toEqual(plain.second);
+    }
+  });
+
+  it("takes the other haplotype's hue for the second tone: half the spread round, capped, main unchanged", () => {
+    const main = hueOf(materialParams(coloured).organ);
+    for (const spread of [0.1, 0.2, 0.3]) {
+      const p = materialParams(coloured, 'common', spread);
+      expect(arc01(hueOf(p.organ), main)).toBeLessThan(1e-6);
+      expect(arc01(hueOf(p.second), main + Math.min(spread / 2, SECOND_SPREAD_MAX))).toBeLessThan(
+        1e-6,
+      );
+    }
+    const wide = materialParams(coloured, 'common', 1);
+    expect(arc01(hueOf(wide.second), main + SECOND_SPREAD_MAX)).toBeLessThan(1e-6);
+    // Still two tones, and never complementary.
+    expect(arc(hueOf(wide.second), main)).toBeLessThanOrEqual(0.08 + 1e-6);
+    expect(SECOND_SPREAD_MAX).toBeLessThanOrEqual(0.08);
+  });
+
+  it("leaves an albino's pinks alone", () => {
+    const albino = withColour({ albino: 'albino' });
+    expect(materialParams(albino, 'common', 0.8).second).toEqual(materialParams(albino).second);
   });
 });
