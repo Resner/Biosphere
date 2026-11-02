@@ -262,6 +262,7 @@ export function cellMasks(
   }
   // An organ's lit wall spills a pixel; a bright part seen through the glass, and its bloom, more.
   const nearOrgan = dilate(organ, w, h, 1);
+  const farOrgan = dilate(organ, w, h, 3);
   const nearOver = dilate(over, w, h, GLOW_CLEAR);
   // One erosion, read at each inset (each step shrinks the last).
   const insets = [FACE_INSET, MOUTH_INSET, RIM_BAND];
@@ -281,7 +282,7 @@ export function cellMasks(
     for (let x = 0; x < w; x++) {
       const i = y * w + x;
       const v = at(x, y);
-      const glass = !nearOver[i] && !nearOrgan[i];
+      const glass = !nearOver[i] && !farOrgan[i];
       face[i] = faceIn[i] && v & HULL && !(v & MOUTH) && glass ? 1 : 0;
       rim[i] = hull[i] && !rimIn[i] && !over[i] && !nearOrgan[i] ? 1 : 0;
       limb[i] = v & LIMB && !hull[i] && !(v & (ORGAN | MOUTH_PART | FINE | SHELL | GLINT)) ? 1 : 0;

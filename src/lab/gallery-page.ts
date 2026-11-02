@@ -11,6 +11,7 @@ import {
   PART_BODY,
   PART_CHAMBER,
   PART_DROPLET,
+  PART_EYE,
   PART_GUT,
   PART_HEART,
   PART_MOUTH,
@@ -58,6 +59,8 @@ export interface GalleryEntry {
    * line, so screenshot measures can mask by them.
    */
   organs: Disc[];
+  /** The eyes as drawn (M6c T7): CSS-pixel discs; their irises carry the main organ colour. */
+  eyes: Disc[];
   /** The body's hull as drawn, parts excluded: a CSS-pixel polygon down the left edge and back up the right. */
   outline: { x: number; y: number }[];
   /**
@@ -90,7 +93,7 @@ export function drawnGeometry(
   cx: number,
   cy: number,
   radius: number,
-): Pick<GalleryEntry, 'organs' | 'outline'> {
+): Pick<GalleryEntry, 'organs' | 'eyes' | 'outline'> {
   const attr = (name: string) => geometry.getAttribute(name) as THREE.BufferAttribute;
   const [position, normal, uv, part] = [
     attr('position'),
@@ -128,7 +131,18 @@ export function drawnGeometry(
     gaitPosition(out, v, gait);
     return { x: cx + out.x * radius, y: cy - out.y * radius };
   };
-  const boxes = new Map<number, { x0: number; x1: number; y0: number; y1: number }>();
+  type Box = { x0: number; x1: number; y0: number; y1: number };
+  const boxes = new Map<number, Box>();
+  const eyeBoxes = new Map<number, Box>();
+  const grow = (map: Map<number, Box>, tag: number, q: { x: number; y: number }): void => {
+    const b = map.get(tag) ?? { x0: q.x, x1: q.x, y0: q.y, y1: q.y };
+    map.set(tag, {
+      x0: Math.min(b.x0, q.x),
+      x1: Math.max(b.x1, q.x),
+      y0: Math.min(b.y0, q.y),
+      y1: Math.max(b.y1, q.y),
+    });
+  };
   const rings: { s: number; left: number; right: number; off: number }[] = [];
   for (let i = 0; i < position.count; i++) {
     const p = part.getX(i);
@@ -142,24 +156,20 @@ export function drawnGeometry(
       // Organ balls are numbered from 1; gut rings take negative keys by their place on the line.
       const tag =
         kind === PART_GUT ? -1 - Math.round(uv.getY(i) * 1e4) : Math.floor(uv.getX(i) / ORGAN_TAG);
-      const q = at(i);
-      const b = boxes.get(tag) ?? { x0: q.x, x1: q.x, y0: q.y, y1: q.y };
-      boxes.set(tag, {
-        x0: Math.min(b.x0, q.x),
-        x1: Math.max(b.x1, q.x),
-        y0: Math.min(b.y0, q.y),
-        y1: Math.max(b.y1, q.y),
-      });
+      grow(boxes, tag, at(i));
+    } else if (kind === PART_EYE) {
+      // The pair lies on either side of the body's midline.
+      grow(eyeBoxes, Math.sign(position.getY(i)), at(i));
     }
   }
   rings.sort((a, b) => a.s - b.s);
   const outline = [...rings.map((r) => at(r.left)), ...rings.map((r) => at(r.right)).reverse()];
-  const organs = [...boxes.values()].map((b) => ({
+  const disc = (b: Box): Disc => ({
     x: (b.x0 + b.x1) / 2,
     y: (b.y0 + b.y1) / 2,
     r: Math.max(b.x1 - b.x0, b.y1 - b.y0) / 2,
-  }));
-  return { organs, outline };
+  });
+  return { organs: [...boxes.values()].map(disc), eyes: [...eyeBoxes.values()].map(disc), outline };
 }
 
 const gaitOfView = (view: CreatureView): GaitUniforms => {
@@ -287,6 +297,7 @@ export async function startGallery(): Promise<void> {
       vertices: specimen.vertices,
       valid: specimen.violations.length === 0,
       organs: [],
+      eyes: [],
       outline: [],
       masks: {
         x: 0,
@@ -353,6 +364,7 @@ export async function startGallery(): Promise<void> {
       specimens: shown.map((s) => ({
         ...s.entry,
         organs: s.entry.organs.map((o) => ({ ...o })),
+        eyes: s.entry.eyes.map((o) => ({ ...o })),
         outline: s.entry.outline.map((p) => ({ ...p })),
         masks: { ...s.entry.masks },
       })),

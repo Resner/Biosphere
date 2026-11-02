@@ -85,7 +85,7 @@ const vec2 IRIS = vec2(0.45, 0.82);
 // The iris's light at its inner and outer edge, shares of the tamed main colour.
 const float IRIS_INNER = 0.35;
 const float IRIS_OUTER = 0.75;
-const float GLOW_FROM_Z = 0.7;
+const float GLOW_FROM_Z = 0.75;
 // A part's radius on screen (pixels) over which it turns from all rim (a glass rod narrower than the
 // body's rim band is all edge) to glass with a rim, like the body (M6c T6; at 2.5-6 a fan of paddles
 // drawn all rim read as a white cloud).
