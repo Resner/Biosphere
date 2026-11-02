@@ -18,22 +18,25 @@
 // they no longer fill whole areas that bloom and the grade burnt to white.
 // M6c T6 (ADR 0043) brought back pass 1's face and soft fresnel rim, and gave the limbs, membranes
 // and setae the same glass, capped at the body rim's peak; the mouth is glass with a small feature.
+// M6c T7 (ADR 0043): the organs keep to two related tones (the main colour and a second tone near it,
+// which the droplets and half the chambers take), the iris takes the main colour, and the heart or
+// the largest chamber, and at most one more organ, glow faintly inside their own outline.
 // One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
 uniform vec3 uOrgan;
-// The complementary accent of an accent organ, and how vivid the rare glints' colours are (M6b T3).
-uniform vec3 uAccent;
+// The organs' second tone, the eyes' iris and how vivid the rare glints' colours are (ADR 0043).
+uniform vec3 uSecond;
+uniform vec3 uIris;
 uniform float uVivid;
-uniform vec3 uOil;
-uniform vec3 uLumColor;
+// The glowing organs' luminance gain (`organGlow`: at most 0.15, or 0.35 with the luminescence gene).
+uniform float uOrganGlow;
 uniform float uTime;
 uniform float uTranslucency;
 uniform float uMembrane;
 uniform float uPattern;
 uniform float uPatternCount;
 uniform float uIrid;
-uniform float uLum;
 uniform float uLumPulse;
 uniform float uPlating;
 uniform float uRimStrength;
@@ -70,12 +73,19 @@ const int PART_HEART = 12;
 const int PART_PIGMENT = 13;
 const int PART_GLINT = 14;
 const int PART_SETULE = 15;
-// `uv.x` tags (creature-mesh.ts `addBall`): a pearl tip; an accent organ's uv.y starts at ACCENT_V.
-// A fringe part's tube (M6c T3) is tagged from FRINGE_TAG.
+// `uv.x` tags (creature-mesh.ts `addBall`): a pearl tip; a fringe part's tube (M6c T3) is tagged
+// from FRINGE_TAG. An organ's uv.y starts at a tag (creature-parts.ts `SECOND_V`, `GLOW_V`): bit 0 of
+// floor(uv.y / 2) is the second tone, bit 1 a glowing organ.
 const float PEARL_TAG = 2.0;
 const float FRINGE_TAG = 4.0;
-const float ACCENT_V = 2.0;
 const float ORGAN_LUMA = 0.36;
+// The iris's span (shares of the eye's radius) and how far in from an organ's outline (its facing z)
+// its glow starts (ADR 0043).
+const vec2 IRIS = vec2(0.45, 0.82);
+// The iris's light at its inner and outer edge, shares of the tamed main colour.
+const float IRIS_INNER = 0.35;
+const float IRIS_OUTER = 0.75;
+const float GLOW_FROM_Z = 0.7;
 // A part's radius on screen (pixels) over which it turns from all rim (a glass rod narrower than the
 // body's rim band is all edge) to glass with a rim, like the body (M6c T6; at 2.5-6 a fan of paddles
 // drawn all rim read as a white cloud).
@@ -232,11 +242,6 @@ void main() {
     col = mix(col, film * (0.45 + 0.7 * fres), uIrid * (0.2 + 0.4 * fres));
   }
 
-  // Glow in its own hue, pulsing along the body when the pulse allele is expressed. It comes from
-  // inside: the organs are the photophores (below), so the shell stays clear.
-  float pulse = mix(1.0, 0.5 + 0.5 * sin(uTime * 2.2 + vUv.y * 6.0 + vPart * 1.3), uLumPulse);
-  vec3 glow = uLumColor * uLum * pulse;
-
   float alpha = mix(0.5, 0.2, uTranslucency) * (1.0 - rim) + rim;
   bool glass = kind <= 4;
   float pearlHot = 0.0;
@@ -311,15 +316,17 @@ void main() {
     col = uCore * (FACE.x + FACE.y * z) + uRim * (edgeLight * RIM * uRimStrength);
     alpha = 0.07 + 0.55 * vein;
   } else if (kind == 7) {
-    // An eye: a dark pigment cup in a clear lens (look pass 3, reference 05's big dark eyes): a
-    // faint ring of the organ hue round the pupil (fainter since M6b T3, so the colour stays in
-    // the organs), a glassy rim and one bright highlight.
+    // An eye: a dark pupil in a clear lens (look pass 3, reference 05's big dark eyes), with an iris
+    // in the main organ colour at full saturation (ADR 0043) from IRIS.x to IRIS.y of its radius, a
+    // glassy rim and one bright highlight.
     vec2 n = normal.xy;
     float spot = 1.0 - smoothstep(0.1, 0.26, length(n - vec2(-0.3, 0.35)));
     float r = length(n);
     float lens = smoothstep(0.86, 0.99, r);
-    float iris = smoothstep(0.45, 0.62, r) * (1.0 - smoothstep(0.66, 0.82, r));
-    vec3 cup = vec3(0.015, 0.018, 0.025) + tame(uOrgan) * 0.15 * iris;
+    float iris = smoothstep(IRIS.x - 0.05, IRIS.x + 0.02, r) * (1.0 - smoothstep(IRIS.y - 0.02, IRIS.y + 0.04, r));
+    // A deep colour, darkening toward the pupil, so the eye stays a dark lens rather than a bright ring.
+    vec3 pupil = vec3(0.015, 0.018, 0.025);
+    vec3 cup = mix(pupil, tame(uIris) * mix(IRIS_INNER, IRIS_OUTER, smoothstep(IRIS.x, IRIS.y, r)), iris);
     col = mix(cup, uRim * 0.45, lens) + vec3(0.95) * spot;
     alpha = mix(0.97, 0.8, lens);
   } else if (kind == PART_GLINT) {
@@ -338,20 +345,21 @@ void main() {
     float hot = exp(-r * r * 40.0) * 2.4;
     float star = hot + 0.45 * rays + 0.15 * diagonal;
     float twinkle = 0.85 + 0.15 * sin(uTime * 2.7 + id * 2.39);
-    // Iridescent bodies throw a faint colour into the rays.
-    vec3 tint = mix(vec3(1.0, 0.97, 0.92), uRim, 0.25 * uIrid);
+    // White, or on a vivid body one of the organs' two tones (ADR 0043): no third colour.
+    vec3 tint = vec3(1.0, 0.97, 0.92);
     // The hot point stays white; a jewel's colour lives in its rays, at full strength.
-    vec3 jewel = pick < 0.5 ? uAccent : uOrgan;
+    vec3 jewel = pick < 0.5 ? uSecond : uOrgan;
     jewel /= max(max(jewel.r, max(jewel.g, jewel.b)), 1e-3);
     vec3 rayTint = mix(tint, jewel, 0.75 * uVivid * step(0.35, pick));
     col = (tint * hot + rayTint * (star - hot)) * twinkle * uGlint;
     alpha = clamp(star * uGlint, 0.0, 1.0);
   } else if (kind >= PART_GUT) {
-    // The organs, seen through the body (pass 1, M6b T3): each in the gene hue, or the
-    // complementary accent on an accent organ, lit through from behind.
+    // The organs, seen through the body (pass 1, ADR 0043): each in the main colour or the second
+    // tone, lit through from behind.
     vec2 n = normal.xy;
     float spot = 1.0 - smoothstep(0.1, 0.32, length(n - vec2(-0.3, 0.35)));
-    vec3 tint = vUv.y >= ACCENT_V ? uAccent : uOrgan;
+    float tag = floor(vUv.y * 0.5 + 1e-3);
+    vec3 tint = mod(tag, 2.0) > 0.5 ? uSecond : uOrgan;
     if (kind == PART_GUT) {
       // A faint line (look pass 5): on a slim trunk the organs sit along it, and a gut as bright as
       // they are joined them into one streak.
@@ -362,8 +370,8 @@ void main() {
       col = tint * (0.45 + 0.3 * z + 0.6 * fres) + 0.1 * spot;
       alpha = 0.55 + 0.25 * z + 0.2 * fres;
     } else if (kind == PART_DROPLET) {
-      // An oil droplet: amber-leaning lipid with one bright point toward the light.
-      col = uOil * (0.6 + 0.35 * z) + 0.3 * spot;
+      // An oil droplet: lipid in the second tone with one bright point toward the light.
+      col = uSecond * (0.6 + 0.35 * z) + 0.3 * spot;
       alpha = 0.7 + 0.25 * z;
     } else if (kind == PART_HEART) {
       float beat = 0.85 + 0.15 * sin(uTime * 5.0);
@@ -374,8 +382,13 @@ void main() {
       col = uOrgan * 0.12 + vec3(0.03, 0.01, 0.015);
       alpha = 0.85 * (0.4 + 0.6 * z);
     }
-    // Luminous organs are the photophores.
-    if (kind != PART_PIGMENT) col += glow * (0.15 + 0.4 * z);
+    // A faint glow (ADR 0043): the heart, or the largest chamber, and at most one more organ grow
+    // brighter toward their centre by at most uOrganGlow, falling to nothing at their outline, so
+    // nothing glows outside an organ. It pulses with the pulse allele.
+    if (tag >= 1.5 && kind != PART_PIGMENT) {
+      float pulse = mix(1.0, 0.6 + 0.4 * sin(uTime * 2.2 + vPart * 1.3), uLumPulse);
+      col *= 1.0 + uOrganGlow * pulse * smoothstep(GLOW_FROM_Z, 1.0, z);
+    }
   }
 
   if (glass) {

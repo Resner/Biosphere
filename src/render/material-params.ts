@@ -40,25 +40,44 @@ const SILVER_HUE = 0.58;
 const SILVER_SATURATION = 0.04;
 /** Organs are at least this bright, so their colour reads through the shell. */
 const ORGAN_VALUE = 0.75;
-/** Oil droplets are lipid: the hue gene turned this share of the way toward amber. */
-const OIL_HUE = 0.11;
-const OIL_SHIFT = 0.4;
+/**
+ * The organs' second tone (ADR 0043): the main colour turned toward amber (lipid, as pass 1's oil
+ * droplets were) by `SECOND_TURN` turns, from its first value at no saturation to its second at full
+ * gene saturation, so a vivid body shows two clearly related tones and a pale one two close ones.
+ * Never complementary: at most 0.10 turns away.
+ */
+const AMBER_HUE = 0.11;
+export const SECOND_TURN = [0.04, 0.06] as const;
+/**
+ * The second tone lies at another value: this much darker than a bright main colour, or full
+ * brightness under a dim one, so the two tones differ in value as well as hue.
+ */
+const SECOND_DARKER = 0.2;
+const SECOND_BRIGHT_ABOVE = 0.85;
 
 /**
- * The organs' palette by rarity tier (M6b T3, ADR 0034): every organ shares the gene hue, as in
- * pass 1, and rarity raises saturation, never the spread of hues. `vivid` (0..1) is how far the
- * accent's saturation rises toward full (the gene-hue organs rise half as far); `accent` is the share
- * of the organs (`anatomyOf`) that take the complementary hue, half-way round the wheel. A common
- * body has none. The shell never changes.
+ * The organs by rarity tier (ADR 0043): rarity raises saturation, glints and glow, never the spread
+ * of hues. `vivid` (0..1) is how far the organs' saturation rises half-way toward full (rare glints
+ * take the organ tones by it); `glow` is the faint inner glow's luminance gain on the glowing organs,
+ * and `glowing` how many organs glow (the heart or the largest chamber, then the next largest).
  */
-export const ORGAN_HUES: Readonly<Record<RarityTier, { vivid: number; accent: number }>> = {
-  common: { vivid: 0, accent: 0 },
-  uncommon: { vivid: 0.2, accent: 0.2 },
-  rare: { vivid: 0.45, accent: 0.27 },
-  exotic: { vivid: 0.8, accent: 1 / 3 },
+export const ORGAN_RARITY: Readonly<
+  Record<RarityTier, { vivid: number; glow: number; glowing: 1 | 2 }>
+> = {
+  common: { vivid: 0, glow: 0.06, glowing: 1 },
+  uncommon: { vivid: 0.2, glow: 0.08, glowing: 1 },
+  rare: { vivid: 0.45, glow: 0.1, glowing: 2 },
+  exotic: { vivid: 0.8, glow: 0.12, glowing: 2 },
 };
-/** The accent lies this far round the wheel from the gene hue (turns): its complement. */
-const ACCENT_TURN = 0.5;
+/** The glow's ceilings (ADR 0043): +15% luminance, or +35% with the luminescence gene. */
+export const ORGAN_GLOW_MAX = 0.15;
+export const ORGAN_GLOW_LUMINOUS = 0.35;
+/**
+ * The luminescence gene multiplies the tier's gain by this, short of its ceiling: the post chain's
+ * bloom spreads a share of any organ's light round it, and at +35% that share lit a faint halo up to
+ * 5 px outside the organ (M6c T7).
+ */
+const LUMINOUS_GLOW = 1.3;
 
 const ALBINO_HUE = 0.96;
 const ALBINO_SATURATION = 0.08;
@@ -76,22 +95,26 @@ export interface MaterialParams {
   /** The gene colour after the albino rule (HSV saturation, 0..1); the shell takes `SHELL_SATURATION` of it. */
   saturation: number;
   /**
-   * The inner organs' colour: the hue gene at its saturation (an albino's blood pink); oil droplets
-   * at the same saturation, their hue turned toward amber.
+   * The organs' two related tones (ADR 0043): the main colour, the hue gene at its saturation (an
+   * albino's blood pink), and the second tone, `SECOND_TURN` turns toward amber at the same
+   * saturation and another value. The heart and half the chambers take the main colour, the other
+   * chambers and the oil droplets the second; glint rays take either.
    */
   organ: Rgb;
-  /** The complementary accent (`ORGAN_HUES`) that the accent organs (`Organ.accent`) take; an albino's is its organ pink. */
-  accent: Rgb;
-  oil: Rgb;
-  /** 0..1 by rarity tier (`ORGAN_HUES`): how far organ saturation rises; rare glints take organ colours by it. */
+  second: Rgb;
+  /** The eyes' iris: the main colour at full saturation. */
+  iris: Rgb;
+  /** 0..1 by rarity tier (`ORGAN_RARITY`): how far organ saturation rises; rare glints take organ colours by it. */
   vivid: number;
+  /** The glowing organs' luminance gain (`ORGAN_RARITY`, at most `ORGAN_GLOW_MAX`, or `ORGAN_GLOW_LUMINOUS` with the gene). */
+  organGlow: number;
   translucency: number;
   membrane: number;
   pattern: number;
   /** Whole repeats, so the pattern closes around the body. */
   patternCount: number;
   iridescence: number;
-  /** 0 when the glow is not expressed. */
+  /** 0 when the glow is not expressed; it lights the water round the body (`lightOf`) and raises `organGlow`. */
   luminescence: number;
   /** 0 steady, 1 pulsing. */
   lumPulse: number;
@@ -136,12 +159,6 @@ function shellTint(hue: number, saturation: number): [number, number] {
   return [h, s];
 }
 
-/** Hue `h` turned share `t` of the short way round the wheel toward `to`. */
-function towardHue(h: number, to: number, t: number): number {
-  const d = ((((to - h) % 1) + 1.5) % 1) - 0.5;
-  return (((h + d * t) % 1) + 1) % 1;
-}
-
 function patternKind(alleles: readonly string[]): number {
   const has = (a: string): boolean => alleles.includes(a);
   if (has('spots') && has('stripes')) return PATTERN.spotsStripes;
@@ -152,7 +169,14 @@ function patternKind(alleles: readonly string[]): number {
   return PATTERN.none;
 }
 
-/** `tier` is the body's rarity tier (`rarityOfTraits`); it sets only the organs' saturation and accent. */
+/** The second tone's hue: `hue` turned `SECOND_TURN` toward amber by the gene saturation, the short way. */
+export function secondHue(hue: number, saturation: number): number {
+  const d = ((((AMBER_HUE - hue) % 1) + 1.5) % 1) - 0.5;
+  const turn = lerp(SECOND_TURN[0], SECOND_TURN[1], clamp(saturation, 0, 1));
+  return (((hue + (d < 0 ? -turn : turn)) % 1) + 1) % 1;
+}
+
+/** `tier` is the body's rarity tier (`rarityOfTraits`); it sets only the organs' saturation and glow. */
 export function materialParams(
   t: Pick<Traits, 'colour' | 'skin'>,
   tier: RarityTier = 'common',
@@ -176,18 +200,22 @@ export function materialParams(
   const inside = Math.max(value, ORGAN_VALUE);
   const geneSaturation = albino ? ALBINO_ORGAN_SATURATION : saturation;
   // An albino has no pigment to vary: its organs stay the pink of blood whatever the tier.
-  const vivid = albino ? 0 : ORGAN_HUES[tier].vivid;
+  const vivid = albino ? 0 : ORGAN_RARITY[tier].vivid;
   const organSaturation = lerp(geneSaturation, 1, vivid / 2);
   const organ = hsv(hue, organSaturation, inside);
+  const secondValue = inside > SECOND_BRIGHT_ABOVE ? inside - SECOND_DARKER : 1;
+  const luminous = glow[0] > 0;
+  const organGlow = ORGAN_RARITY[tier].glow * (luminous ? LUMINOUS_GLOW : 1);
 
   return {
     core: liftTo(toward(body, 0, 0.5), MIN_CORE_LUMINANCE, light),
     rim: liftTo(toward(body, 1, 0.3), MIN_RIM_LUMINANCE, light),
     saturation,
     organ,
-    accent: albino ? organ : hsv((hue + ACCENT_TURN) % 1, lerp(geneSaturation, 1, vivid), inside),
+    second: hsv(secondHue(hue, geneSaturation), organSaturation, secondValue),
+    iris: hsv(hue, 1, inside),
     vivid,
-    oil: hsv(towardHue(hue, OIL_HUE, OIL_SHIFT), organSaturation, 1),
+    organGlow,
     translucency: clamp(skin.translucency, 0, 1),
     membrane: clamp(skin.membrane, 0, 1),
     pattern: patternKind(colour.pattern),

@@ -21,6 +21,7 @@ import {
 } from '../render/creature-mesh';
 import { CreatureView, type CreatureViewState } from '../render/creature-view';
 import { type GaitUniforms, type GaitVertex, gaitPosition } from '../render/gait';
+import { setUniform } from '../render/materials';
 import { PostChain } from '../render/post/chain';
 import {
   GALLERY_SIZE,
@@ -60,8 +61,9 @@ export interface GalleryEntry {
   /** The body's hull as drawn, parts excluded: a CSS-pixel polygon down the left edge and back up the right. */
   outline: { x: number; y: number }[];
   /**
-   * The cell's region masks as drawn (M6c T6, `gallery-masks.ts`): the body's glass face, its rim,
-   * its limbs and its mouth, as bitsets over the cell's room.
+   * The cell's region masks as drawn (M6c T6, T7, `gallery-masks.ts`): the body's glass face, its
+   * rim, its limbs, its mouth, its organs (all, the main tone's, the glowing ones) and its irises, as
+   * bitsets over the cell's room.
    */
   masks: CellMasks;
 }
@@ -286,7 +288,20 @@ export async function startGallery(): Promise<void> {
       valid: specimen.violations.length === 0,
       organs: [],
       outline: [],
-      masks: { x: 0, y: 0, w: 0, h: 0, face: '', rim: '', limbs: '', mouth: '' },
+      masks: {
+        x: 0,
+        y: 0,
+        w: 0,
+        h: 0,
+        face: '',
+        rim: '',
+        limbs: '',
+        mouth: '',
+        organs: '',
+        main: '',
+        glow: '',
+        iris: '',
+      },
     };
     return { view, state, entry };
   });
@@ -295,6 +310,12 @@ export async function startGallery(): Promise<void> {
   const steps = Math.round(GALLERY_TIME / ADVANCE_STEP);
   for (let k = 0; k <= steps; k++) {
     for (const { view, state } of shown) view.update(state, k * ADVANCE_STEP);
+  }
+  // `&glow=0` draws the sheet without the organs' faint glow (M6c T7), so a look check can find
+  // every pixel the glow lights by comparing the two sheets.
+  if (new URLSearchParams(location.search).get('glow') === '0') {
+    for (const { view } of shown)
+      setUniform(view.mesh.material as THREE.ShaderMaterial, 'uOrganGlow', 0);
   }
   for (const { view, state, entry } of shown) {
     const drawn = drawnGeometry(

@@ -1,6 +1,7 @@
 import type * as THREE from 'three';
 import { describe, expect, it } from 'vitest';
 import { genesisGenome } from '../genome/genesis';
+import { rarityOfTraits } from '../genome/rarity';
 import { starterGenome } from '../genome/starter';
 import { buildCreature } from '../genome/stats';
 import { createRng, seedFromString } from '../sim/prng';
@@ -80,12 +81,13 @@ describe('CreatureView', () => {
     const c = buildCreature(genesisGenome(seedFromString('view-uniforms')));
     view.update(state({ creature: c }), 0);
     const material = view.mesh.material as THREE.ShaderMaterial;
-    const params = materialParams(c.traits);
+    const params = materialParams(c.traits, rarityOfTraits(c.traits).tier);
     expect(material.uniforms.uPattern?.value).toBe(params.pattern);
     expect(material.uniforms.uIrid?.value).toBe(params.iridescence);
-    expect(material.uniforms.uLum?.value).toBe(params.luminescence);
+    expect(material.uniforms.uOrganGlow?.value).toBe(params.organGlow);
     expect(colour(material, 'uCore').r).toBeCloseTo(params.core[0], 5);
-    expect(colour(material, 'uLumColor').g).toBeCloseTo(params.lumColor[1], 5);
+    expect(colour(material, 'uSecond').g).toBeCloseTo(params.second[1], 5);
+    expect(colour(material, 'uIris').b).toBeCloseTo(params.iris[2], 5);
 
     const snapshot = (): Record<string, string> =>
       Object.fromEntries(

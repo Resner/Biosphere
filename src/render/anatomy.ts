@@ -13,7 +13,7 @@ import { rarityOfTraits } from '../genome/rarity';
 import { clamp } from '../sim/math';
 import { createRng, type Rng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
-import { ORGAN_HUES } from './material-params';
+import { ORGAN_RARITY } from './material-params';
 import { along, centreLine, type Line } from './spine';
 
 const { cos, sin, sqrt, hypot, exp, max, min, PI, log2 } = Math;
@@ -22,16 +22,17 @@ const TAU = 2 * PI;
 export type OrganKind = 'chamber' | 'droplet' | 'heart' | 'ganglion' | 'pigment';
 
 /**
- * A round organ: its kind, centre and radius in the body frame (core radii), and whether it takes
- * the body's complementary accent hue (`MaterialParams.accent`) instead of the gene's. Organs never
- * overlap.
+ * A round organ: its kind, centre and radius in the body frame (core radii), whether it takes the
+ * body's second tone (`MaterialParams.second`) instead of the main colour, and whether it glows
+ * faintly inside its outline (ADR 0043). Organs never overlap.
  */
 export interface Organ {
   kind: OrganKind;
   x: number;
   y: number;
   r: number;
-  accent: boolean;
+  second: boolean;
+  glow: boolean;
 }
 
 /** A point of the gut line: its spine share (0 front, 1 rear), centre and radius. */
@@ -166,20 +167,29 @@ function intoHull(plan: BodyPlan, x: number, y: number): { x: number; y: number 
 }
 
 /**
- * The organs with one complementary accent group (M6b T3): `share` of the coloured organs (all but
- * the eye pigment), rounded down, taken from the chambers in hash order. Droplets stay amber oil
- * and the heart keeps the gene hue. A common body's share is 0, so it shows the gene hue alone.
+ * The organs in two tones with their faint glows (ADR 0043). Droplets take the second tone, the heart
+ * (or ganglion) and the eye pigment the main colour, and the chambers alternate in hash order. The
+ * heart, or the largest chamber when there is none, glows; with `glowing` 2 the largest fluid organ
+ * not yet glowing does too.
  */
-function withAccents(organs: Organ[], share: number, rng: Rng): Organ[] {
-  const coloured = organs.filter((o) => o.kind !== 'pigment').length;
+function withTones(organs: Organ[], glowing: 1 | 2, rng: Rng): Organ[] {
   const chambers = organs.flatMap((o, i) => (o.kind === 'chamber' ? [i] : []));
   // A hash-ordered shuffle; it runs after placement, so the positions never shift.
   for (let i = chambers.length - 1; i > 0; i--) {
     const j = Math.floor(rng.next() * (i + 1));
     [chambers[i], chambers[j]] = [chambers[j] as number, chambers[i] as number];
   }
-  const picked = new Set(chambers.slice(0, Math.floor(coloured * share)));
-  return organs.map((o, i) => (picked.has(i) ? { ...o, accent: true } : o));
+  const second = new Set(chambers.filter((_, k) => k % 2 === 1));
+  const fluid = organs
+    .flatMap((o, i) => (o.kind === 'chamber' || o.kind === 'droplet' ? [i] : []))
+    .sort((a, b) => (organs[b] as Organ).r - (organs[a] as Organ).r || a - b);
+  const heart = organs.findIndex((o) => o.kind === 'heart');
+  const glows = (heart >= 0 ? [heart, ...fluid] : fluid).slice(0, glowing);
+  return organs.map((o, i) => ({
+    ...o,
+    second: o.kind === 'droplet' || second.has(i),
+    glow: glows.includes(i),
+  }));
 }
 
 function gutOf(plan: BodyPlan, line: Line, rng: Rng, scale: number): GutPoint[] {
@@ -234,7 +244,7 @@ function spot(
     const room = hypot(o.x - p.x, o.y - p.y) / GAP - o.r;
     radius = min(radius, room);
   }
-  return { kind, x: p.x, y: p.y, r: max(radius, 0), accent: false };
+  return { kind, x: p.x, y: p.y, r: max(radius, 0), second: false, glow: false };
 }
 
 /** A point inside the shrunk hull, near the midline: a segment by area, then a point in the middle band of its ellipse. */
@@ -322,7 +332,7 @@ function placeOrgans(plan: BodyPlan, traits: Traits, genomeHash: string): Anatom
       for (let k = 0; k < TRIES && !fits; k++) {
         const p = samplePoint(plan, rng, total);
         fits = discFits(plan, p.x, p.y, r) && apart(placed, p.x, p.y, r);
-        if (fits) placed.push({ kind: c.kind, x: p.x, y: p.y, r, accent: false });
+        if (fits) placed.push({ kind: c.kind, x: p.x, y: p.y, r, second: false, glow: false });
       }
       if (!fits) missed.push(c);
     }
@@ -332,10 +342,9 @@ function placeOrgans(plan: BodyPlan, traits: Traits, genomeHash: string): Anatom
         const s = (k + 0.5) / missed.length;
         placed.push(spineSpot(plan, line, s, c.r * shrink, c.kind, placed));
       });
-      return {
-        gut,
-        organs: withAccents(placed, ORGAN_HUES[rarityOfTraits(traits).tier].accent, rng),
-      };
+      const luminous = traits.colour.luminescence !== 'off';
+      const glowing = luminous ? 2 : ORGAN_RARITY[rarityOfTraits(traits).tier].glowing;
+      return { gut, organs: withTones(placed, glowing, rng) };
     }
     shrink *= SHRINK;
   }

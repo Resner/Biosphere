@@ -13,9 +13,12 @@ export function chromiumPath(expected) {
   return !existsSync(expected) && existsSync(preinstalled) ? preinstalled : undefined;
 }
 
-/** Opens the gallery on `page` (viewport `GALLERY_VIEWPORT`, scale 1) and returns the sheet as PNG. */
-export async function captureGallery(page, baseURL) {
-  await page.goto(new URL(GALLERY_PATH, baseURL).href);
+/**
+ * Opens the gallery on `page` (viewport `GALLERY_VIEWPORT`, scale 1) and returns the sheet as PNG;
+ * `query` adds to the page's query (`&glow=0` turns the organs' glow off, M6c T7).
+ */
+export async function captureGallery(page, baseURL, query = '') {
+  await page.goto(new URL(GALLERY_PATH + query, baseURL).href);
   await page.waitForFunction(() => window.__gallery?.ready === true, null, {
     timeout: READY_TIMEOUT,
   });

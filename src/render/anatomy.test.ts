@@ -86,7 +86,7 @@ describe('anatomyOf', () => {
   it('returns no glow discs round the organs, only the organs themselves (M6b T3, ADR 0034)', () => {
     for (const b of bodies) {
       for (const o of anatomy(b).organs) {
-        expect(Object.keys(o).sort()).toEqual(['accent', 'kind', 'r', 'x', 'y']);
+        expect(Object.keys(o).sort()).toEqual(['glow', 'kind', 'r', 'second', 'x', 'y']);
       }
     }
   });
