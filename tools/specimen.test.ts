@@ -1,9 +1,12 @@
+import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { genomeHash } from '../src/genome/codec';
 import { SILHOUETTES } from '../src/genome/silhouette';
-import { parseSpecimen } from '../src/lab/gallery';
+import { gallerySpecimens, parseSpecimen } from '../src/lab/gallery';
 import { specimenOf } from '../src/lab/specimens';
 import {
+  evolvedFile,
+  evolvedPicks,
   FEATURES,
   findFeature,
   findSpecimen,
@@ -12,7 +15,19 @@ import {
   SPECIMEN_TIERS,
   shortLeg,
   specimenFile,
+  specimenWhat,
+  stillShows,
 } from './specimen';
+
+const DIR = new URL('../tests/fixtures/gallery/', import.meta.url);
+const gallery = () =>
+  gallerySpecimens(
+    Object.fromEntries(
+      readdirSync(DIR)
+        .filter((f) => f.endsWith('.hex'))
+        .map((f) => [f, readFileSync(new URL(f, DIR), 'utf8')]),
+    ),
+  );
 
 describe('specimen search', () => {
   it('has the twelve silhouette classes except other, and the four rarity tiers', () => {
@@ -116,6 +131,36 @@ describe('specimen search', () => {
     expect(back?.comment).toMatch(/shrimp/);
     expect(genomeHash(back?.genome as NonNullable<typeof back>['genome'])).toBe(
       genomeHash(found?.genome as NonNullable<typeof found>['genome']),
+    );
+  });
+});
+
+describe('the gallery after a world reset (ADR 0043, M6c T5)', () => {
+  it('reads what a specimen file stands for', () => {
+    expect(specimenWhat('26-specimen-copepod-bemireonas-serpens.hex')).toBe('copepod');
+    expect(specimenWhat('23-specimen-spiny-larva-loradoocus-radiatus.hex')).toBe('spiny-larva');
+    expect(specimenWhat('35-specimen-tier-rare-tonadefera-oculatus.hex')).toBe('tier-rare');
+    expect(specimenWhat('07-evolved-sitesonema-serpens.hex')).toBeNull();
+  });
+
+  it('keeps every class and tier specimen showing what it stands for under the live rules', () => {
+    const specimens = gallery().filter((s) => {
+      const what = specimenWhat(s.file);
+      return what !== null && !(what in FEATURES);
+    });
+    expect(specimens).toHaveLength(16);
+    for (const s of specimens)
+      expect(stillShows(specimenWhat(s.file) as string, s.genome)).toBe(true);
+  });
+
+  it('stores the evolved cells 07-20 as the picks of the Evolved sets gallery-m6c-0 to -3', () => {
+    const stored = gallery().slice(6, 20);
+    const picks = evolvedPicks('gallery-m6c', 14);
+    expect(picks.map((p, i) => evolvedFile(7 + i, p).name)).toEqual(stored.map((s) => s.file));
+    expect(picks.map((p) => genomeHash(p.genome))).toEqual(stored.map((s) => genomeHash(s.genome)));
+    // Each is the right end of its row: generation 60 of its lineage.
+    expect(stored[0]?.comment).toMatch(
+      /lineage 1 \(aim [a-z]+\) of the Lab's Evolved set gallery-m6c-0, generation 60/,
     );
   });
 });
