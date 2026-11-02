@@ -73,7 +73,10 @@ test('a second tab with the same identity takes over, and the first stops', asyn
   const second = await context.newPage();
   await openRecorded(second);
   await first.waitForFunction(() => window.__bs?.state().net.status === 'replaced');
-  expect((await state(first)).net.text).toBe('Playing in another tab');
+  // The chip's text follows the status on the next frame.
+  await expect
+    .poll(async () => (await state(first)).net.text, { timeout: 10_000 })
+    .toBe('Playing in another tab');
 
   // The second tab picks up the creature the first one was playing.
   await clickHatch(second);
