@@ -1,6 +1,6 @@
 import { readdirSync, readFileSync } from 'node:fs';
 import { hexToBytes } from '@noble/hashes/utils.js';
-import { describe, expect, it } from 'vitest';
+import { beforeEach, describe, expect, it } from 'vitest';
 import { buildBytes } from '../../tests/archetypes';
 import { heavyTest } from '../../tests/heavy';
 import { atan2, lerp, PI } from '../sim/math';
@@ -112,7 +112,12 @@ const kindOf = (
 const isNamedPart = (plan: BodyPlan, a: Appendage): boolean =>
   kindOf(plan, a) !== 'other' && kindOf(plan, a) !== 'fringe';
 
-const rng = createRng(seedFromString('develop-proportions'), 'bytes');
+// Each test draws from the same fresh stream, so skipping the heavy tests (`npm run check`) does not
+// move the draws of the ones that run.
+let rng = createRng(seedFromString('develop-proportions'), 'bytes');
+beforeEach(() => {
+  rng = createRng(seedFromString('develop-proportions'), 'bytes');
+});
 const randomV2 = (): Genome =>
   decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
 
@@ -358,8 +363,9 @@ describe('proportions: longer parts sweep round the body (look pass 4)', () => {
       }
       if (any) expect(bodyViolations(plan)).toEqual([]);
     }
-    // One long antenna pair per body at most (ADR 0041), where any front part counted before.
-    expect(long.antenna).toBeGreaterThan(150);
+    // One long antenna pair per body at most (ADR 0041), so about 4.4% of 3,000 bodies (132 on this
+    // stream, sd about 11): 90 sits 4 sd below, where 150 was the rate before the budget.
+    expect(long.antenna).toBeGreaterThan(90);
     expect(long.tentacle).toBeGreaterThan(50);
   });
 
