@@ -384,7 +384,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     3. Update the render rules' "pass-6 is the only one" line to name pass 7.
   - Acceptance: the sheet and note are committed, and the T6 and T7 metrics pass on it.
 
-- [ ] T14 End-to-end scenario, owner checks, documentation sync
+- [ ] T14 End-to-end scenario, owner checks, documentation sync (in progress)
   - Steps:
     1. `m6c-lifecycle.spec.ts` (`@slow`, hub 8806):
        - the renewed-world notice;
