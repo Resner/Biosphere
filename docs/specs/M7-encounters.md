@@ -186,7 +186,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Notes: no strikes yet (T2). The goldens regenerate in T2–T5 as the rules grow, since rules 9 is unreleased. Keep `src/sim/encounter/*.ts` under about 400 lines each.
   - Done: rules 9 regenerated the six sim goldens, the ledger `records` and `kinds` goldens, and every genome golden's `rulesVersion`. Fighters keep their `CreatureState` in `Fighter.body`; the encounter's `World` holds none. Two fighters leaving range together: the faster escapes, the other stands. The timeout test uses seed `timeout` at (5200, 3000), where the current shears little over 90 s.
 
-- [ ] T2 Combat from anatomy: strikes, bites, rams, spines, armour, stance, brace, kills (after T1)
+- [ ] T2 Combat from anatomy: strikes, bites, rams, spines, armour, stance, brace, kills (after T1) (in progress)
   - Steps:
     1. Add `combat.ts`, the strike profile of ADR 0051:
        - reach and arc from `reach.ts`, with an arc of at least 0.6 rad;
