@@ -73,6 +73,25 @@ const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 const POST =
   /m6-(post|dof|gallery|creature-mesh|readable|budget)\.spec\.ts|m6b-(look|clip)\.spec\.ts|m6c-(glass|organs)\.spec\.ts/;
+// Firefox (M6c T8): `m6c-firefox` (Firefox only; it skips itself elsewhere) and `m6c-flash` (both
+// browsers). Only `E2E full`'s firefox part sets `E2E_FIREFOX`, after installing Firefox; PR CI and
+// a plain `test:e2e:full` stay Chromium. Headless Firefox finds no GL driver on a runner (no EGL), so
+// it runs headed under `xvfb-run`, where it draws WebGL2 through Mesa like Chromium.
+const FIREFOX = /m6c-(firefox|flash)\.spec\.ts/;
+const firefox = process.env.E2E_FIREFOX
+  ? [
+      {
+        name: 'firefox',
+        testMatch: FIREFOX,
+        use: {
+          browserName: 'firefox' as const,
+          headless: false,
+          launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+        },
+        ...skipSlow,
+      },
+    ]
+  : [];
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -126,6 +145,7 @@ export default defineConfig({
       use: { browserName: 'chromium' },
       ...skipSlow,
     },
+    ...firefox,
   ],
   webServer: [
     {

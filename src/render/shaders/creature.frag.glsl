@@ -58,6 +58,7 @@ uniform sampler2D tBackdrop;
 uniform float uRefract;
 varying vec3 vNormal;
 varying vec2 vUv;
+varying float vTurn;
 // Flat (M6c T6): a triangle that joins two kinds (the body's rings by a plate's edge or at the mouth)
 // would otherwise blend their numbers into a third kind between them, drawn as a limb's stroke.
 flat varying float vPart;
@@ -229,17 +230,19 @@ void main() {
   // A thin rod (a limb, a mandible) narrower than the rim band is all rim: the same glass as the
   // body's edge, so a limb reads as the body's, not grey (M6c T6).
   // `uv.x` runs once round a part's tube, so its rate across the screen gives the tube's radius in
-  // pixels; unlike the normal's, it does not change along the part, where a paddle swells.
-  float across = 1.0 / max(6.2832 * length(vec2(dFdx(vUv.x), dFdy(vUv.x))), 1e-4);
+  // pixels; unlike the normal's, it does not change along the part, where a paddle swells. It wraps
+  // from 1 to 0 in one band of the tube, where its rate jumps; `vTurn` is the same turn with its wrap
+  // on the far side, so the smaller of the two rates is the tube's (M6c T8). A setule's `uv.x` runs
+  // once across it instead, so its width is 1 over its rate.
+  float rate = length(vec2(dFdx(vUv.x), dFdy(vUv.x)));
+  float turnRate = length(vec2(dFdx(vTurn), dFdy(vTurn)));
+  float across = 1.0 / max(6.2832 * min(rate, turnRate), 1e-4);
   float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
   if (kind == 1) rim = mix(rim, 1.0, thin);
   float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   // Screen pixels per core radius, for the detail's fade.
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
-  // A tube's width on screen from how fast its normal turns across it (-1 to 1 over its width), for
-  // the gut, whose `uv.x` wraps round it.
-  float tubePx = 2.0 / max(length(fwidth(normal.xy)), 1e-4);
 
   // Pass 1's glass (ADR 0043): a dim core face-on lets the water and the organs show, with a soft
   // sheen toward the edge, and the fresnel rim carries the edge. No haze layer over the face.
@@ -308,8 +311,7 @@ void main() {
     // A setule (look pass 5): a fainter side hair of a plumose bristle, so a comb stays fine hair
     // and stacked combs do not fill into a white cloud.
     col = uRim * (RIM * uRimStrength);
-    // `uv.x` runs once across a setule (1 to 0), so its width is the tube formula's circumference.
-    alpha = SETULE_ALPHA * fine(6.2832 * across);
+    alpha = SETULE_ALPHA * fine(1.0 / max(rate, 1e-4));
   } else if (kind == 6) {
     // A membrane: a thin sheet, its veins running out from the root and across, a fine network
     // between them, and a bright free edge.
@@ -380,7 +382,7 @@ void main() {
       // they are joined them into one streak.
       col = tame(uOrgan) * (0.25 + 0.3 * z);
       alpha = 0.18 + 0.22 * z;
-      alpha *= fine(tubePx);
+      alpha *= fine(2.0 * across);
     } else if (kind == PART_CHAMBER) {
       // A fluid chamber, glassy as in pass 1: a clear centre in its colour and a brighter, denser wall.
       col = tint * (0.45 + 0.3 * z + 0.6 * fres) + 0.1 * spot;
@@ -406,6 +408,10 @@ void main() {
       col *= 1.0 + uOrganGlow * pulse * smoothstep(GLOW_FROM_Z, 1.0, z);
     }
   }
+
+  // A limb, a fringe cilium or a pearl narrower than 1.5 px fades rather than breaking into dots that
+  // come and go as the body moves on the pixel grid (M6c T8: the owner's flashing antennae).
+  if (kind == 1) alpha *= fine(2.0 * across);
 
   if (glass) {
     // The glass's surface: faint cell walls, small pits and an uneven thickness, each fading in

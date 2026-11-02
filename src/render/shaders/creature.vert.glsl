@@ -22,6 +22,8 @@ uniform float uTurn;
 
 varying vec3 vNormal;
 varying vec2 vUv;
+// `uv.x` turned half a turn (M6c T8): a tube's turn with its wrap on the far side, for its width.
+varying float vTurn;
 // Flat (M6c T6): a triangle that joins two kinds (the body's rings by a plate's edge or at the mouth)
 // would otherwise blend their numbers into a third kind between them, drawn as a limb's stroke.
 flat varying float vPart;
@@ -121,6 +123,7 @@ void main() {
   }
   vNormal = normalize(normalMatrix * n);
   vUv = uv;
+  vTurn = fract(uv.x + 0.5);
   vPart = aPart;
   vWall = aWall;
   vRest = position.xy;

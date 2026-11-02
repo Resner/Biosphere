@@ -75,6 +75,9 @@ type Glow = Light | null;
 const GLOW_CACHE = 64;
 
 /** `calls` and `triangles` count the whole frame: the scene and every post pass. */
+/** The renderer name Chromium gives WebGL in place of the GPU's. */
+const MASKED_RENDERER = 'WebKit WebGL';
+
 export interface RenderInfo extends PostInfo {
   calls: number;
   triangles: number;
@@ -292,8 +295,12 @@ export class GameScene {
   /** The GPU's name (unmasked where the browser allows), which the benchmark result is stored by. */
   gpu(): string {
     const gl = this.renderer.getContext();
+    // Firefox names the GPU here and warns that the debug extension is deprecated (M6c T8);
+    // Chromium answers its generic name and unmasks only through the extension.
+    const plain: unknown = gl.getParameter(gl.RENDERER);
+    if (typeof plain === 'string' && plain && plain !== MASKED_RENDERER) return plain;
     const debug = gl.getExtension('WEBGL_debug_renderer_info');
-    const name: unknown = gl.getParameter(debug ? debug.UNMASKED_RENDERER_WEBGL : gl.RENDERER);
+    const name: unknown = debug ? gl.getParameter(debug.UNMASKED_RENDERER_WEBGL) : plain;
     return typeof name === 'string' && name ? name : 'unknown';
   }
 

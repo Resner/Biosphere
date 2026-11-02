@@ -41,6 +41,11 @@ jobs:
             args: --project=pond --no-deps
           - name: post
             args: --project=post --no-deps
+          # Firefox (M6c T8): `m6c-firefox` and `m6c-flash` only. Firefox is installed in this part
+          # alone, and runs headed under Xvfb: headless, it finds no GL driver on the runner.
+          - name: firefox
+            args: --project=firefox
+            firefox: true
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -50,8 +55,17 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run e2e:setup --if-present
+      - name: Install Firefox
+        if: matrix.firefox
+        run: npx playwright install --with-deps firefox
       - name: Run this part of the suite
+        if: ${{ !matrix.firefox }}
         run: npx playwright test ${{ matrix.args }}
+      - name: Run this part of the suite in Firefox
+        if: matrix.firefox
+        env:
+          E2E_FIREFOX: 1
+        run: xvfb-run -a npx playwright test ${{ matrix.args }}
       - name: Keep the failure evidence
         if: failure()
         uses: actions/upload-artifact@v7

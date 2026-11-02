@@ -127,20 +127,24 @@ describe('the creature shader', () => {
     // three.js prefixes the precision it detected; a driver that reports no highp gets mediump,
     // which turns the hash noise into blocks and the wall's derivatives into steps.
     const material = creatureMaterial(materialParams(express(starterGenome())), 0.5);
-    expect(material.fragmentShader.startsWith('precision highp float;\nprecision highp int;\n')).toBe(
-      true,
-    );
+    expect(
+      material.fragmentShader.startsWith('precision highp float;\nprecision highp int;\n'),
+    ).toBe(true);
     material.dispose();
   });
 
-  it('draws no line or tube narrower than 1.5 px: the walls, the gut and the setules fade (M6c T8)', () => {
+  it('draws no line or tube narrower than 1.5 px: the walls, the gut, the limbs and the setules fade (M6c T8)', () => {
     // The cell texture's and the vein network's walls by their own width, the gut and the setules by
     // their width on screen.
     expect(fragmentShader).toMatch(/float fine\(float widthPx\)/);
     expect(fragmentShader).toMatch(/fine\(LINE_CELL \* DETAIL_CELL \* px\)/);
     expect(fragmentShader).toMatch(/fine\(LINE_VEIN \* DETAIL_VEIN \* px\)/);
-    expect(fragmentShader).toMatch(/kind == PART_GUT[\s\S]*?alpha \*= fine\(tubePx\)/);
+    expect(fragmentShader).toMatch(/kind == PART_GUT[\s\S]*?alpha \*= fine\(2\.0 \* across\)/);
     expect(fragmentShader).toMatch(/kind == PART_SETULE[\s\S]*?alpha = SETULE_ALPHA \* fine\(/);
+    // Limbs, fringe and pearls too: a sub-pixel antenna came and went as the zoom moved it.
+    expect(fragmentShader).toMatch(/if \(kind == 1\) alpha \*= fine\(2\.0 \* across\);/);
+    // A tube's width reads the smaller of its two turns' rates, so its wrap band is no thin rod.
+    expect(fragmentShader).toMatch(/min\(rate, turnRate\)/);
     // The segment walls come from the continuous wall coordinate: no floor before a derivative.
     expect(fragmentShader).toMatch(/fwidth\(vWall\)/);
     expect(fragmentShader).not.toMatch(/(fwidth|dFdx|dFdy)\([^)]*(floor|fract)/);
