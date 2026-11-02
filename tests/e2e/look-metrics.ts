@@ -168,3 +168,124 @@ export function bodyLook(
     excess: shellLuma - waterLuma,
   };
 }
+
+/** A `CellMasks` bitset (`src/lab/gallery-masks.ts`) as one byte (0 or 1) per pixel of its room. */
+export function maskBits(mask: string, length: number): Uint8Array {
+  const bytes = Buffer.from(mask, 'base64');
+  const out = new Uint8Array(length);
+  for (let i = 0; i < length; i++) out[i] = ((bytes[i >> 3] as number) >> (i & 7)) & 1;
+  return out;
+}
+
+const mean = (values: number[]): number =>
+  values.length === 0 ? Number.NaN : values.reduce((a, b) => a + b, 0) / values.length;
+
+const percentile = (values: number[], p: number): number => {
+  if (values.length === 0) return Number.NaN;
+  const sorted = [...values].sort((a, b) => a - b);
+  return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] as number;
+};
+
+/** A pixel is grey enough to be glass rather than an organ's colour (chroma under `CHROMA`). */
+const grey = (rgba: Image['rgba'], i: number): boolean =>
+  Math.max(rgba[i] as number, rgba[i + 1] as number, rgba[i + 2] as number) -
+    Math.min(rgba[i] as number, rgba[i + 1] as number, rgba[i + 2] as number) <
+  CHROMA * 255;
+
+/** The masks' room and their four regions, as the gallery hook reports them. */
+export interface RegionMasks {
+  x: number;
+  y: number;
+  w: number;
+  h: number;
+  face: string;
+  rim: string;
+  limbs: string;
+  mouth: string;
+}
+
+/** The body's rim is read at this percentile of its band: the bright line, not the pixels inside it. */
+export const RIM_PEAK = 0.9;
+/** The mouth is judged against the face within this many pixels of it. */
+export const MOUTH_NEAR = 12;
+
+export interface GlassLook {
+  /** Pixels in each region. */
+  counts: { face: number; rim: number; limbs: number; mouth: number; aroundMouth: number };
+  /** Mean luminance (0-255) of the face's grey pixels; the rim band's peak (`RIM_PEAK`); the limbs' median; the mouth's mean. */
+  face: number;
+  rim: number;
+  limbs: number;
+  mouth: number;
+  /** The mean luminance of the face's grey pixels round the mouth (within `MOUTH_NEAR`). */
+  aroundMouth: number;
+  faceLow: number;
+  faceMedian: number;
+}
+
+/**
+ * The glass measures of one cell (M6c T6, ADR 0043), read by region: the face (its grey pixels, so
+ * an organ's colour spilling into it does not count), the rim's peak, the limbs' median and the
+ * mouth's mean. `map` places a mask pixel `(x, y)` (sheet pixels) on `image`, for reading the same
+ * regions on another sheet (pass 1's layout); by default the same pixel.
+ */
+export function glassLook(
+  image: Image,
+  masks: RegionMasks,
+  map: (x: number, y: number) => Point = (x, y) => ({ x, y }),
+): GlassLook {
+  const n = masks.w * masks.h;
+  const read = (mask: string, keep: (i: number) => boolean = () => true): number[] => {
+    const bits = maskBits(mask, n);
+    const out: number[] = [];
+    for (let k = 0; k < n; k++) {
+      if (!bits[k]) continue;
+      const p = map(masks.x + (k % masks.w), masks.y + Math.floor(k / masks.w));
+      const [x, y] = [Math.round(p.x), Math.round(p.y)];
+      if (x < 0 || y < 0 || x >= image.width || y >= image.height) continue;
+      const i = (y * image.width + x) * 4;
+      if (keep(i)) out.push(luminance(image.rgba, i));
+    }
+    return out;
+  };
+  const face = read(masks.face, (i) => grey(image.rgba, i));
+  const rim = read(masks.rim);
+  const limbs = read(masks.limbs);
+  const mouth = read(masks.mouth);
+  // The face round the mouth: its pixels within `MOUTH_NEAR` of a mouth pixel.
+  const mouthBits = maskBits(masks.mouth, n);
+  const near = new Uint8Array(n);
+  for (let k = 0; k < n; k++) {
+    if (!mouthBits[k]) continue;
+    const [mx, my] = [k % masks.w, Math.floor(k / masks.w)];
+    for (let y = Math.max(0, my - MOUTH_NEAR); y <= Math.min(masks.h - 1, my + MOUTH_NEAR); y++) {
+      for (let x = Math.max(0, mx - MOUTH_NEAR); x <= Math.min(masks.w - 1, mx + MOUTH_NEAR); x++) {
+        if ((x - mx) ** 2 + (y - my) ** 2 <= MOUTH_NEAR ** 2) near[y * masks.w + x] = 1;
+      }
+    }
+  }
+  const faceBits = maskBits(masks.face, n);
+  const around: number[] = [];
+  for (let k = 0; k < n; k++) {
+    if (!faceBits[k] || !near[k]) continue;
+    const p = map(masks.x + (k % masks.w), masks.y + Math.floor(k / masks.w));
+    const i = (Math.round(p.y) * image.width + Math.round(p.x)) * 4;
+    if (grey(image.rgba, i)) around.push(luminance(image.rgba, i));
+  }
+  return {
+    counts: {
+      face: face.length,
+      rim: rim.length,
+      limbs: limbs.length,
+      mouth: mouth.length,
+      aroundMouth: around.length,
+    },
+    face: mean(face),
+    rim: percentile(rim, RIM_PEAK),
+    limbs: median(limbs),
+    mouth: mean(mouth),
+    aroundMouth: mean(around),
+    faceLow: percentile(face, 0.25),
+    faceMedian: median(face),
+  };
+}

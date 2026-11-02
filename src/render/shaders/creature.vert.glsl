@@ -22,7 +22,9 @@ uniform float uTurn;
 
 varying vec3 vNormal;
 varying vec2 vUv;
-varying float vPart;
+// Flat (M6c T6): a triangle that joins two kinds (the body's rings by a plate's edge or at the mouth)
+// would otherwise blend their numbers into a third kind between them, drawn as a limb's stroke.
+flat varying float vPart;
 // The rest position in core radii, for the surface detail (M6 T13); where the vertex falls on the
 // screen (0..1), and screen shares per core radius, for the refraction.
 varying vec2 vRest;
