@@ -41,7 +41,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Done: `app.ts` (621 lines) is the `App` class, the shared state and its wiring in the old order; `app-online`, `app-life`, `app-ui`, `app-tick`, `app-render`, `app-keys`, `app-hook` and `app-session` take it as context (each under 410 lines).
   - Gotcha: the hub's handlers are method shorthand, so `this` there is the handler object: reach the app through the `app` const, never `this`.
 
-- [ ] C3 Condense `docs/DESIGN.md` (93 KB) to the current game
+- [ ] C3 Condense `docs/DESIGN.md` (93 KB) to the current game (in progress)
   - Why: the spec writer reads all of it for every milestone, and much of it is history ("M6 had a depth gauge…", "1.2 before M6 T14b", "34% under rules 6"). CLAUDE.md now says DESIGN describes the current game only.
   - Touches: `docs/DESIGN.md`.
   - Steps:
