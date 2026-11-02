@@ -43,6 +43,10 @@ export async function openCrowdGame(
     // Snaps the camera to the player's size too.
     debug.setZone('shallows');
   }, biomass);
+  // `render.info().pxPerWu` is the last drawn frame's: stage the crowd only once a frame has drawn
+  // with the snapped camera. A software-GL runner can still be on the frame from before the snap,
+  // and the bodies were then sized for the wrong zoom (7.8 px of core radius instead of 19).
+  await frames(page, 2, TIMEOUT);
 }
 
 /**
