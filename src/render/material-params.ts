@@ -183,12 +183,12 @@ function patternKind(alleles: readonly string[]): number {
 /** The second tone's hue: `hue` turned `SECOND_TURN` toward amber by the gene saturation, the short way. */
 function secondHue(hue: number, saturation: number, spread: number): number {
   const inherited = spread / 2;
-  if (inherited >= SECOND_TURN[0]) {
-    return (((hue + Math.min(inherited, SECOND_SPREAD_MAX)) % 1) + 1) % 1;
+  let turn = Math.min(inherited, SECOND_SPREAD_MAX);
+  if (inherited < SECOND_TURN[0]) {
+    const d = ((((AMBER_HUE - hue) % 1) + 1.5) % 1) - 0.5;
+    turn = (d < 0 ? -1 : 1) * lerp(SECOND_TURN[0], SECOND_TURN[1], clamp(saturation, 0, 1));
   }
-  const d = ((((AMBER_HUE - hue) % 1) + 1.5) % 1) - 0.5;
-  const turn = lerp(SECOND_TURN[0], SECOND_TURN[1], clamp(saturation, 0, 1));
-  return (((hue + (d < 0 ? -turn : turn)) % 1) + 1) % 1;
+  return (((hue + turn) % 1) + 1) % 1;
 }
 
 /** `tier` is the body's rarity tier (`rarityOfTraits`); it sets only the organs' saturation and glow. */

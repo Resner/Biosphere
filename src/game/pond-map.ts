@@ -36,44 +36,45 @@ export function mapSpot(x: number, y: number, size: number): { u: number; v: num
  * gradient and not in hard-edged steps (the owner's Playtest v0.7.2).
  */
 export function zonePixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayBuffer> {
+  // Only 256 depths exist, so mix each colour once.
+  const lut = new Uint8ClampedArray(256 * 3);
+  for (let d = 0; d < 256; d++) {
+    const w = zoneWeights(d / 255);
+    for (let k = 0; k < 3; k++) {
+      let c = 0;
+      for (let z = 0; z < 4; z++)
+        c += (w[z] as number) * (MAP_COLOURS[ZONES[z] as Zone][k] as number);
+      lut[d * 3 + k] = Math.round(c * 255);
+    }
+  }
   const out = new Uint8ClampedArray(new ArrayBuffer(n * n * 4));
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
-      const w = zoneWeights((grid[j * n + i] as number) / 255);
+      const d = (grid[j * n + i] as number) * 3;
       const o = ((n - 1 - j) * n + i) * 4;
-      for (let k = 0; k < 3; k++) {
-        let c = 0;
-        for (let z = 0; z < 4; z++)
-          c += (w[z] as number) * (MAP_COLOURS[ZONES[z] as Zone][k] as number);
-        out[o + k] = Math.round(c * 255);
-      }
+      out[o] = lut[d] as number;
+      out[o + 1] = lut[d + 1] as number;
+      out[o + 2] = lut[d + 2] as number;
       out[o + 3] = 255;
     }
   }
   return out;
 }
 
-/** The last pond's depth grid and its picture, shared by the pond map and the minimap. */
-const zoneCache: { key: string; grid: Uint8Array | null; image: HTMLCanvasElement | null } = {
-  key: '',
-  grid: null,
-  image: null,
-};
+/** The last pond's picture, shared by the pond map and the minimap. */
+const zoneCache: { key: string; image: HTMLCanvasElement | null } = { key: '', image: null };
 
 /** The pond's zones as a picture (`ZONE_TEXTURE_SIZE` square, north up), built once per pond. */
 export function zoneImage(seed: Seed, size: number): HTMLCanvasElement {
-  const n = ZONE_TEXTURE_SIZE;
   const key = `${seed.join('.')}/${size}`;
-  if (key !== zoneCache.key || !zoneCache.grid) {
-    zoneCache.key = key;
-    zoneCache.grid = depthGrid(seed, size, n);
-    zoneCache.image = null;
-  }
-  if (zoneCache.image) return zoneCache.image;
+  if (key === zoneCache.key && zoneCache.image) return zoneCache.image;
+  const n = ZONE_TEXTURE_SIZE;
   const canvas = document.createElement('canvas');
   canvas.width = n;
   canvas.height = n;
-  canvas.getContext('2d')?.putImageData(new ImageData(zonePixels(zoneCache.grid, n), n, n), 0, 0);
+  const pixels = zonePixels(depthGrid(seed, size, n), n);
+  canvas.getContext('2d')?.putImageData(new ImageData(pixels, n, n), 0, 0);
+  zoneCache.key = key;
   zoneCache.image = canvas;
   return canvas;
 }

@@ -1,9 +1,8 @@
 // Damage lands as hits, in intervals (M6c T9, DESIGN §10), "kinda how you take damage in
 // Minecraft": while damage arrives, at most one hit every 0.5 s of sim time, the first at once.
 // Each hit kicks the camera 2–3.5 px by the damage since the last hit and jolts the body, both
-// easing to rest within 0.35 s (gentle: a creature can take long to die, and the owner's v0.7.2
-// playtest found the first 5–8 px kicks too strong and fast, as if death were near); between hits everything is still. Every cause shares the cadence.
-// Pure presentation: it reads damage events and never feeds back into the sim, the HUD and the DOM
+// easing to rest within 0.35 s (gentle by design: a creature can take long to die; M6c spec, owner
+// feedback on v0.7.2). Pure presentation: it reads damage events and never feeds back into the sim, the HUD and the DOM
 // never move, and Reduce motion drops the kicks (the shell keeps the flash and the sound).
 
 import { clamp, lerp } from '../sim/math';

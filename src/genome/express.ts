@@ -164,7 +164,8 @@ export function fraction(g: Genome, ids: readonly string[]): number {
  */
 export function hueSpread(g: Genome): number {
   const ids = ['hue1', 'hue2', 'hue3'];
-  let [a, b] = [0, 0];
+  let a = 0;
+  let b = 0;
   for (const id of ids) {
     const at = locusOf(id).offset;
     a += byte(g.haplotypes[0], at);

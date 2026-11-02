@@ -227,7 +227,7 @@ export function depthGrid(seed: Seed, size: number, n = ZONE_TEXTURE_SIZE): Uint
 }
 
 /** How far inside a zone's depth range `wellInside` asks for (the abyss and shallows' outer sides excepted). */
-const INSIDE_MARGIN = 0.05;
+const INSIDE_MARGIN = ZONE_BAND + 0.01;
 /** `wellInside` also asks the zone of the points this far away on each axis. */
 const INSIDE_REACH = 64;
 /** The search steps out in rings this far apart, with points at most this far apart on each. */

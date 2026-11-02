@@ -123,7 +123,11 @@ describe('zone blend band (owner, Playtest v0.7.2)', () => {
   it('keeps the middle of the spawn twilight disc pure, and a well-inside point clear of the band', () => {
     const e = RULES.bathymetry.zones;
     expect(zoneWeights((e.shallows + e.twilight) / 2)[1]).toBe(1);
-    expect(ZONE_BAND).toBeLessThan(0.05);
+    // A well-inside point lies clear of the blend band (`wellInside` keeps ZONE_BAND + 0.01 off each edge).
+    const seed = seedFromString('inside-band');
+    const at = nearestInZone(seed, RULES.world.size, 4096, 4096, 'shallows');
+    const depth = depthAt(seed, at.x, at.y);
+    expect(Math.abs(depth - e.shallows)).toBeGreaterThan(ZONE_BAND);
   });
 });
 
