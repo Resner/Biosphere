@@ -121,6 +121,30 @@ export function spokeVary(
   return 1 + O.radial.vary * (2 * h - 1);
 }
 
+/** How a shown pair's sides differ (M6c T4): the right part's turn, a signed shortening and the right side's phase delay. */
+export interface Jitter {
+  /** Radians added to the right part's growth direction, within ±`jitter.angle` degrees. */
+  turn: number;
+  /** Positive: the right side is this share shorter; negative: the left side is. Within ±`jitter.length`. */
+  shorter: number;
+  /** The right side's beat runs this share of a cycle behind the left's: `jitter.phase` × (0.5-1). */
+  phase: number;
+}
+
+/** A pair's jitter, from a hash of its slot, segment, attach angle and phase: the same body always gets the same. */
+export function pairJitter(part: Pick<Appendage, 'module' | 'segment' | 'angle' | 'phase'>): Jitter {
+  const J = O.jitter;
+  const bits = (v: number): number => Math.floor(v * 65536);
+  const u = (salt: number): number =>
+    (hashU32(salt, part.module + 1, part.segment, bits(part.angle), bits(part.phase)) >>> 0) /
+    4294967296;
+  return {
+    turn: deg(J.angle) * (2 * u(1) - 1),
+    shorter: J.length * (2 * u(2) - 1),
+    phase: J.phase * (0.5 + 0.5 * u(3)),
+  };
+}
+
 /**
  * The roles of a bilateral body's pairs, by region (ADR 0041): on the head the longest pair is the
  * long antennae and the next the short; on the trunk the front `trunk.pairs` are legs; on the rear

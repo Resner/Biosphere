@@ -194,6 +194,13 @@ export const branchWeight = (a: Pick<Appendage, 'branches'>): number =>
 
 export const branchFactor = (branches: number): number => (branches > 0 ? 1 + D.branchScale : 1);
 
+/**
+ * How far branch `b` of `branches` fans from its parent (M6c T4): backward, toward the tail, by
+ * (b + 1) ÷ branches of `branchFan` (a positive turn on the left side, mirrored on the right).
+ */
+export const branchFanOf = (b: number, branches: number): number =>
+  (D.branchFan * (b + 1)) / Math.max(1, branches);
+
 export const maxAngle = PI - D.angleMargin;
 
 /** 1 at `centre`, falling linearly to 0 at `spread` either side. */

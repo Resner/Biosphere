@@ -2,7 +2,7 @@ import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { heavyTest } from '../../tests/heavy';
 import { STARTER_PHYS, sanitizePhys } from '../sim/body';
-import { lerp } from '../sim/math';
+import { length as hypot, lerp, PI } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
@@ -145,7 +145,7 @@ describe('develop: caps and guarantees', () => {
     expect(new Set(xs).size).toBe(8);
   });
 
-  it('keeps the colliders symmetric, pair by pair', () => {
+  it('keeps the colliders in mirrored pairs, apart only by the jitter', () => {
     for (let n = 1; n <= 8; n++) {
       const seg = Math.round(((n - 1) / 7) * 255);
       const p = plan(
@@ -154,12 +154,14 @@ describe('develop: caps and guarantees', () => {
       const rest = p.colliders.slice(p.segments.length);
       expect(rest.length % 2, `${n} segments`).toBe(0);
       for (let i = 0; i < rest.length; i += 2) {
-        const [l, r] = [rest[i], rest[i + 1]] as BodyPlan['colliders'];
-        expect(r).toEqual({
-          x: (l as { x: number }).x,
-          y: -(l as { y: number }).y,
-          r: (l as { r: number }).r,
-        });
+        const [l, r] = [rest[i], rest[i + 1]] as [
+          BodyPlan['colliders'][number],
+          BodyPlan['colliders'][number],
+        ];
+        expect(r.r).toBe(l.r);
+        // A pair's sides differ by at most 6° and 5% of their length (M6c T4): the right circle
+        // lies near the left one's mirror image, on the other side.
+        expect(hypot(r.x - l.x, r.y + l.y), `${n} segments`).toBeLessThan(0.2 * hypot(l.x, l.y));
       }
     }
   });
@@ -264,9 +266,16 @@ describe('develop: repairs', () => {
     expect([...modules].sort((a, b) => a - b)).toEqual(modules);
     expect(p.appendages.length % 2).toBe(0);
     for (let i = 0; i < p.appendages.length; i += 2) {
-      const [l, r] = [p.appendages[i], p.appendages[i + 1]];
-      expect(l?.side).toBe(1);
-      expect({ ...r, side: 1 }).toEqual(l);
+      const [l, r] = [p.appendages[i], p.appendages[i + 1]] as [
+        BodyPlan['appendages'][number],
+        BodyPlan['appendages'][number],
+      ];
+      expect(l.side).toBe(1);
+      // The sides of a pair differ only by its jitter (M6c T4): direction, length and phase.
+      const same = (a: typeof l) => ({ ...a, side: 1, dir: 0, length: 0, phase: 0 });
+      expect(same(r)).toEqual(same(l));
+      expect(Math.abs(r.dir - l.dir)).toBeLessThanOrEqual((6 * PI) / 180 + 1e-9);
+      expect(Math.min(l.length, r.length)).toBeGreaterThanOrEqual(0.95 * Math.max(l.length, r.length) - 1e-9);
     }
   });
 

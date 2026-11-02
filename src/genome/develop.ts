@@ -52,6 +52,7 @@ export type {
   Point,
 } from './develop-plan';
 export {
+  branchFanOf,
   branchWeight,
   dirOf,
   extentOf,
@@ -75,7 +76,7 @@ function grow(traits: Traits, form: Bending, n: number) {
   const body = outlineOf(segments);
   const R = D.radial;
   const parts = form.radial
-    ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape, body)
+    ? radialParts(built, segments, shape.drape * R.drapeSweep * R.ringDrape, body, scales)
     : bilateralParts(
         built,
         segments,

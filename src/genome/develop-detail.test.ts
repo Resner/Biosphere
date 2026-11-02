@@ -64,23 +64,24 @@ const ROW: Params = { length: 150, thickness: 120, tipShape: 191, beat: 220, ang
 
 describe('fine parts: webbing', () => {
   it('spans a membrane from a part to each of its branches, growing with webbing', () => {
-    const fork: Params = { ...ROW, branching: 255 };
+    // Only antennae and tails branch (M6c T4): a forked antenna pair on the head.
+    const fork: Params = { ...ROW, angle: 10, branching: 255 };
     expect(plan({ M1: fork }).membranes).toEqual([]);
+    const sheets = (p: BodyPlan) => p.membranes.filter((m) => m.to === m.part);
     const half = plan({ M1: { ...fork, webbing: 128 } });
     const full = plan({ M1: { ...fork, webbing: 255 } });
     for (const p of [half, full]) {
       valid(p);
       // Two branches on each side: one sheet between the part and each branch.
       expect(p.appendages[0]?.branches).toBe(2);
-      expect(p.membranes).toHaveLength(4);
-      for (const m of p.membranes) {
-        expect(m.to).toBe(m.part);
+      expect(sheets(p)).toHaveLength(4);
+      for (const m of sheets(p)) {
         expect(m.points).toHaveLength(3);
         expect(polygonArea(m.points)).toBeGreaterThan(0);
         expect(convex(m)).toBe(true);
       }
     }
-    const area = (p: BodyPlan) => p.membranes.reduce((s, m) => s + polygonArea(m.points), 0);
+    const area = (p: BodyPlan) => sheets(p).reduce((s, m) => s + polygonArea(m.points), 0);
     // A sheet reaches `webbing` of the way along its rays, so its area grows with the square.
     expect(area(full) / area(half)).toBeCloseTo((255 / 128) ** 2, 6);
     const a = full.appendages[0] as Appendage;
@@ -142,12 +143,12 @@ describe('fine parts: webbing', () => {
     expect(fan).toHaveLength(1);
     const m = fan[0] as Membrane;
     expect(m.to).toBe(m.part + 1); // the part's own mirror image
-    // It sits behind the body and is symmetric about the axis.
+    // It sits behind the body and is symmetric about the axis, but for the pair's jitter (M6c T4).
     const rear = Math.min(...p.segments.map((s) => s.x - s.rx));
     const cx = m.points.reduce((s, q) => s + q.x, 0) / m.points.length;
     expect(cx).toBeLessThan(rear + 0.5);
     const ys = m.points.map((q) => q.y).sort((a, b) => a - b);
-    expect(ys[0]).toBeCloseTo(-(ys[ys.length - 1] as number), 12);
+    expect(Math.abs((ys[0] as number) + (ys[ys.length - 1] as number))).toBeLessThan(0.15);
     // Without webbing there is no fan.
     expect(
       plan({ M1: { ...tail, webbing: 0 } }, { segDrive1: 160, segDrive2: 160 }).membranes,
@@ -233,7 +234,7 @@ describe('fine parts: setae', () => {
     expect(planBounds(p)).toBeLessThanOrEqual(D.caps.bounds);
   });
 
-  it('caps the body at 240, dropping the excess from the shortest parts first', () => {
+  it('caps the body at 120, dropping the excess from the shortest parts first', () => {
     const modules: Record<string, Params> = {};
     ['M1', 'M2', 'M3', 'M4', 'M5', 'M6', 'M7', 'M8'].forEach((id, k) => {
       modules[id] = {
@@ -360,12 +361,13 @@ describe('fine parts: stats follow form', () => {
   });
 
   it('adds every feature to the basal complexity factor', () => {
-    const base = creature({ M1: { ...ROW, branching: 255, joints: 255, tipShape: 128 } }).stats
-      .basal;
+    // A forked antenna pair (M6c T4: only antennae and tails branch).
+    const base = creature({ M1: { ...ROW, angle: 10, branching: 255, joints: 255, tipShape: 128 } })
+      .stats.basal;
     for (const ext of ['webbing', 'setaeDensity', 'bulb', 'chela', 'beads'] as const) {
       const extra: Params = { [ext]: 255, ...(ext === 'setaeDensity' ? { setaeLength: 128 } : {}) };
       const s = creature({
-        M1: { ...ROW, branching: 255, joints: 255, tipShape: 128, ...extra },
+        M1: { ...ROW, angle: 10, branching: 255, joints: 255, tipShape: 128, ...extra },
       }).stats;
       expect(s.basal, ext).toBeGreaterThan(base);
     }

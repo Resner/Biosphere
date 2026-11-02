@@ -16,7 +16,15 @@ import { cos, PI, sin } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
-import { type BodyPlan, bodyViolations, develop, planBounds, rootOf } from './develop';
+import {
+  type Appendage,
+  type BodyPlan,
+  bodyViolations,
+  branchFanOf,
+  develop,
+  planBounds,
+  rootOf,
+} from './develop';
 import { express } from './express';
 import { mutateGenome } from './inherit';
 import { GENOME_BYTES, HAPLOTYPE_BYTES } from './karyotype';
@@ -364,5 +372,109 @@ describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
     const short = chain({ curve: 255, segDrive1: 100, segDrive2: 100 }, SWIM2);
     expect(short.segments.length).toBeLessThan(5);
     expect(short.form).toMatchObject({ mode: 0, turn: PI });
+  });
+});
+
+describe('parts that curve, taper and vary (M6c T4, ADR 0041)', () => {
+  const D = RULES.develop;
+  const deg = (d: number): number => (d * PI) / 180;
+
+  it('tapers every part to at most 40% of its root and bends every shown part backward', () => {
+    const { check, bad } = breaks();
+    let bent = 0;
+    ALL.forEach(({ plan }, i) => {
+      for (const a of plan.appendages) {
+        check(1 - a.taper <= 0.4 + 1e-9, () => `${i}: tip ${1 - a.taper} of the root`);
+        if (a.fringe) continue;
+        // A positive curvature turns a left part toward the tail (its heading toward π) and the
+        // right one mirrored: legs and tails sweep back, antennae outward and back, spokes trail.
+        check(a.curvature >= 0.15 - 1e-9, () => `${i}: curvature ${a.curvature}`);
+        bent++;
+      }
+    });
+    expect(bad).toEqual([]);
+    expect(bent).toBeGreaterThan(50_000);
+  });
+
+  it('branches only antennae and tails, at most half as long, fanned backward 35° at most', () => {
+    expect(D.branchScale).toBeLessThanOrEqual(0.5);
+    for (const n of [1, 2]) {
+      for (let b = 0; b < n; b++) {
+        const fan = branchFanOf(b, n);
+        expect(fan).toBeGreaterThan(0);
+        expect(fan).toBeLessThanOrEqual(deg(35));
+      }
+    }
+    const { check, bad } = breaks();
+    let branched = 0;
+    ALL.forEach(({ plan }, i) => {
+      for (const a of plan.appendages) {
+        if (a.branches === 0) continue;
+        branched++;
+        check(!a.fringe && plan.form.radial === 0, () => `${i}: branches on fringe or a spoke`);
+        const region = regionOf(a, plan);
+        check(region !== 'trunk', () => `${i}: a branched leg`);
+      }
+    });
+    expect(bad).toEqual([]);
+    expect(branched).toBeGreaterThan(1_000);
+  });
+
+  it('tips at most one pair with a bulb, and only where its gene is above 0.6', () => {
+    const { check, bad } = breaks();
+    let bulbs = 0;
+    ALL.forEach(({ plan, traits }, i) => {
+      const tipped = plan.appendages.filter((a) => a.bulb > 0);
+      check(tipped.length <= 2, () => `${i}: ${tipped.length} bulbs`);
+      for (const a of tipped) {
+        const gene = traits.modules[a.module]?.ext.bulb ?? 0;
+        check(gene > 0.6, () => `${i}: a bulb from a gene of ${gene}`);
+      }
+      if (tipped.length > 0) bulbs++;
+    });
+    expect(bad).toEqual([]);
+    expect(bulbs).toBeGreaterThan(1_000);
+  });
+
+  it('keeps setae on legs, antennae and tails: at most 12 a part, 3 part widths long', () => {
+    expect(D.detail.setae.perPart).toBe(12);
+    const { check, bad } = breaks();
+    let bristled = 0;
+    ALL.forEach(({ plan }, i) => {
+      for (const a of plan.appendages) {
+        if (a.setae === 0) continue;
+        bristled++;
+        check(a.setae <= 12, () => `${i}: ${a.setae} setae`);
+        check(a.setaeLength <= 3 * a.width + 1e-9, () => `${i}: setae ${a.setaeLength} long`);
+        check(!a.fringe && plan.form.radial === 0, () => `${i}: setae on fringe or a spoke`);
+      }
+    });
+    expect(bad).toEqual([]);
+    expect(bristled).toBeGreaterThan(10_000);
+  });
+
+  it('jitters mirrored pairs: angle ±6°, length ±5%, and a beat phase offset per side', () => {
+    const { check, bad } = breaks();
+    let pairs = 0;
+    let turned = 0;
+    let longer = 0;
+    ALL.forEach(({ plan }, i) => {
+      const as = plan.appendages;
+      for (let k = 0; k + 1 < as.length; k += 2) {
+        const [l, r] = [as[k], as[k + 1]] as [Appendage, Appendage];
+        if (l.fringe || r.fringe) continue;
+        pairs++;
+        const turn = Math.abs(l.dir - r.dir);
+        check(turn <= deg(6) + 1e-9, () => `${i}: sides ${turn} rad apart`);
+        const ratio = Math.min(l.length, r.length) / Math.max(l.length, r.length);
+        check(ratio >= 0.95 - 1e-9, () => `${i}: sides ${ratio} as long`);
+        check(l.phase !== r.phase, () => `${i}: sides beat in phase`);
+        if (turn > 1e-6) turned++;
+        if (ratio < 1 - 1e-6) longer++;
+      }
+    });
+    expect(bad).toEqual([]);
+    expect(turned / pairs).toBeGreaterThan(0.8);
+    expect(longer / pairs).toBeGreaterThan(0.8);
   });
 });

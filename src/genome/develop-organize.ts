@@ -1,6 +1,7 @@
 // Development, organize stage: moved verbatim out of develop.ts (ADR 0045).
 
 import { length as hypot, PI } from '../sim/math';
+import * as fromChain from './develop-chain';
 import type { Outline, Piece } from './develop-fit';
 import * as fromFit from './develop-fit';
 import * as fromParts from './develop-parts';
@@ -10,6 +11,7 @@ import {
   LEG_DIR,
   longest,
   measure,
+  pairJitter,
   type Role,
   regionOf,
   rolesOf,
@@ -21,8 +23,9 @@ import {
 // Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
 // 0.15 ms development budget (stats.test.ts) in these hot loops.
 const { uncover, shape, ring } = fromFit;
-const { D, branchWeight, rootOf, onAxis, dirOf, X } = fromPlan;
-const { PLAIN, LAYOUT, separate } = fromParts;
+const { D, branchWeight, rootOf, onAxis, dirOf, X, WIDTH } = fromPlan;
+const { PLAIN, LAYOUT, separate, capAndBend, bendOf, roughReach, reachFrom } = fromParts;
+const { drawnWidth } = fromChain;
 
 /** Motile area: length × girth × beat over parts that beat at all, counting branches. */
 export function motileArea(appendages: readonly Piece[]): number {
@@ -34,6 +37,12 @@ export function motileArea(appendages: readonly Piece[]): number {
 /** One part's motile area: length × girth × beat, counting branches, if it beats at all. */
 const motileOf = (a: Piece): number =>
   a.beat >= D.minBeat ? a.length * a.girth * a.beat * branchWeight(a) : 0;
+
+/**
+ * The motile area development keeps: `minThrustArea`, plus what a pair's jitter may take (one side
+ * up to `jitter.length` shorter, M6c T4), so the mirrored body still swims.
+ */
+const THRUST = D.minThrustArea / (1 - D.organism.jitter.length / 2) + D.epsilon;
 
 /** Whether the left-side `parts`, mirrored, hold the instance cap: parts are capped by count only (ADR 0025). */
 export const fits = (parts: Part[]): boolean => parts.length * 2 <= D.caps.appendages;
@@ -114,16 +123,18 @@ function toFringe(p: Part, segments: readonly PlanSegment[], m = measure(segment
 /**
  * Both sides of every part, pairs adjacent: left then right. A coil's leg shows only on the outer
  * side of its curve (ADR 0041): its inner instance is fringe, as long as the bounds leave room.
+ * A shown pair's sides differ by its jitter (M6c T4).
  */
 export function mirror(parts: Part[], segments: readonly PlanSegment[]): Appendage[] {
   const m = parts.some((p) => p.inner) ? measure(segments) : undefined;
   const out: Appendage[] = [];
   for (const p of parts) {
-    out.push(appendageOf(p, 1));
     if (!p.inner) {
-      out.push(appendageOf(p, -1));
+      if (p.fringe) out.push(appendageOf(p, 1), appendageOf(p, -1));
+      else out.push(...jittered(p, segments[p.segment] as PlanSegment));
       continue;
     }
+    out.push(appendageOf(p, 1));
     const s = segments[p.segment] as PlanSegment;
     const root = rootOf(s, p.angle, -1);
     const free = D.caps.bounds - D.boundsSlack - hypot(root.x, root.y);
@@ -132,6 +143,50 @@ export function mirror(parts: Part[], segments: readonly PlanSegment[]): Appenda
     out.push(appendageOf(cilia, -1));
   }
   return out;
+}
+
+/**
+ * A shown pair, its sides set apart by `pairJitter` (M6c T4, ADR 0041): the right part turns by up
+ * to ±6° within its role's sweep, one side is up to 5% shorter, and the right side beats a little
+ * later. Each change that would take a side out of the bounds is dropped: the turn the other way
+ * first, then none.
+ */
+function jittered(p: Part, s: PlanSegment): [Appendage, Appendage] {
+  const j = pairJitter(p);
+  const left = appendageOf(p, 1);
+  const right = appendageOf(p, -1);
+  right.phase = (p.phase + j.phase) % 1;
+  const short = 1 - Math.abs(j.shorter);
+  const shortened = j.shorter < 0 ? left : right;
+  shortened.length = p.length * short;
+  if (!fitsWhole(s, shortened)) shortened.length = p.length;
+  for (const turn of [j.turn, -j.turn, 0]) {
+    right.dir = Math.min(p.hi, Math.max(p.lo, p.dir + turn));
+    if (fitsWhole(s, right)) break;
+  }
+  return [left, right];
+}
+
+/**
+ * Whether one instance stays inside the bounds as development fits it (`boundsCheck`): its drawn
+ * reach at its full bend, half of it and straight, with its straight rays, and its bristles.
+ */
+function fitsWhole(s: PlanSegment, a: Appendage): boolean {
+  const room = D.caps.bounds - D.boundsSlack;
+  const root = rootOf(s, a.angle, a.side);
+  const dir = dirOf(s, a);
+  if (a.setae > 0) {
+    for (const t of [bristleAt(0, a.setae), bristleAt(a.setae - 1, a.setae)]) {
+      const far = hypot(root.x + t * a.length * dir.x, root.y + t * a.length * dir.y);
+      if (far + a.setaeLength > room) return false;
+    }
+  }
+  const { cap, bend } = capAndBend(a, 0);
+  if (roughReach(root, dir.x, dir.y, bend, a.side, a) <= room) return true;
+  const bends = bend === 0 ? [0] : [bend, bend / 2, 0];
+  return bends.every(
+    (b, i) => reachFrom(root, dir.x, dir.y, bendOf(b, a.side), cap, a, i === 0, room) <= room,
+  );
 }
 
 /** One side of a part: its plan fields only, in the plan's order (no layout state). */
@@ -168,7 +223,7 @@ function appendageOf(p: Part, side: 1 | -1): Appendage {
  * to its role's length, legs to their sweep, and the parts past a region's count or the budget
  * become fringe (copies). Parts already fringe (the band) keep as they are.
  */
-function organize(parts: Part[], segments: PlanSegment[]): Part[] {
+function organize(parts: Part[], segments: PlanSegment[], scales: readonly number[]): Part[] {
   const limbs = parts.filter((p) => !p.fringe);
   const plan = { segments };
   const m = measure(segments);
@@ -186,8 +241,35 @@ function organize(parts: Part[], segments: PlanSegment[]): Part[] {
     p.length = Math.min(p.length, longest(r, segments, m));
     p.base = Math.min(p.base, p.length);
     if (r === 'leg') [p.lo, p.hi] = LEG_DIR;
+    if (!BRANCHED.has(r)) thicken(p, scales);
     return p;
   });
+}
+
+/** The roles that keep their branches (biramous antennae and a forked tail) and their setae (M6c T4). */
+const BRANCHED: ReadonlySet<Role> = new Set<Role>(['antenna', 'feeler', 'tail']);
+const BRISTLED: ReadonlySet<Role> = new Set<Role>(['antenna', 'feeler', 'tail', 'leg']);
+
+/**
+ * A branched part that may not branch (M6c T4, ADR 0041) grows as one thicker part instead: its
+ * girth takes its branches' area (`branchWeight`), up to the widest gene. Edits in place.
+ */
+function thicken(p: Part, scales: readonly number[]): void {
+  if (p.branches === 0) return;
+  p.girth = Math.min(WIDTH[1], p.girth * branchWeight(p));
+  p.width = drawnWidth(p.girth, scales[p.segment] as number);
+  p.branches = 0;
+}
+
+/**
+ * At most one pair carries a bulb (M6c T4, ADR 0041): the largest, the first of equal ones; every
+ * other tip tapers to a point. Edits in place.
+ */
+function oneBulb(parts: Part[]): Part[] {
+  let keep: Part | undefined;
+  for (const p of parts) if (p.bulb > 0 && (!keep || p.bulb > keep.bulb)) keep = p;
+  for (const p of parts) if (p !== keep) p.bulb = 0;
+  return parts;
 }
 
 /** The motile area of `parts` once mirrored: a coil's leg counts once, and its inner fringe. */
@@ -223,13 +305,13 @@ export function bilateralParts(
 ): Part[] {
   const count = segments.length;
   for (const p of built) uncover(p, built, segments, body);
-  const organized = organize(separate(built, count, scales), segments);
+  const organized = oneBulb(organize(separate(built, count, scales), segments, scales));
   // A coil's legs show on the outer side of its curve only (ADR 0041).
   if (coil) for (const p of organized) p.inner = p.role === 'leg';
   let parts = shape(organized, segments, sweep, body);
   // Trim pair by pair until the plan fits the part cap.
   while (!fits(parts)) parts = dropOne(parts);
-  if (swimArea(parts, segments) >= D.minThrustArea) return parts;
+  if (swimArea(parts, segments) >= THRUST) return parts;
   // Try the rear segment first, then the ones in front of it, before giving up any part.
   for (;;) {
     for (let seg = count - 1; seg >= 0; seg--) {
@@ -246,15 +328,24 @@ export function bilateralParts(
  * repeated round the ring to at least `SPOKE_PAIRS[0]`, each `spokeVary` as long; the rest, and
  * `extra` (a band) before them, are fringe, set evenly between the spokes, `maxPairs` in all.
  */
-function radialRing(all: Part[], extra: Part[], segments: readonly PlanSegment[]): Part[] {
+function radialRing(
+  all: Part[],
+  extra: Part[],
+  segments: readonly PlanSegment[],
+  scales: readonly number[],
+): Part[] {
   const [least, most] = SPOKE_PAIRS;
   const first = all.slice(0, most);
   const spokes: Part[] = [];
   for (let k = 0; first.length > 0 && (k < first.length || k < least); k++) {
     const p = { ...(first[k % first.length] as Part), role: 'spoke' as const };
     const vary = spokeVary(k, p);
-    spokes.push({ ...p, length: p.length * vary, base: p.base * vary });
+    // A spoke never branches (M6c T4): it is a tentacle, not a limb.
+    const spoke = { ...p, length: p.length * vary, base: p.base * vary };
+    thicken(spoke, scales);
+    spokes.push(spoke);
   }
+  oneBulb(spokes);
   const m = measure(segments);
   const fringe = [...extra, ...all.slice(most).map((p) => toFringe(p, segments, m))].slice(
     0,
@@ -277,11 +368,12 @@ export function radialParts(
   segments: PlanSegment[],
   sweep: number,
   body: Outline,
+  scales: readonly number[],
 ): Part[] {
-  const parts = ring(radialRing(all, [], segments), segments, sweep, body);
-  if (2 * motileArea(parts) >= D.minThrustArea) return parts;
+  const parts = ring(radialRing(all, [], segments, scales), segments, sweep, body);
+  if (2 * motileArea(parts) >= THRUST) return parts;
   const band = Array.from({ length: D.band.pairs }, (_, j) => bandPart(0, 0, j, room(segments, 0)));
-  return ring(radialRing(all, band, segments), segments, sweep, body);
+  return ring(radialRing(all, band, segments, scales), segments, sweep, body);
 }
 
 /** Where bristle `k` of `count` sits along a part, as a share of its length. */
@@ -302,14 +394,16 @@ function farAlong(s: PlanSegment, p: Part, t0: number, t1: number): number {
 }
 
 /**
- * Setae on the final parts: the gene becomes a length (setae length × width × `length`, shortened
- * so every bristle stays in the bounds), then the body keeps `perBody`, cutting the shortest parts'
- * bristles first (ties: the later part first). Edits in place; mirror pairs stay equal.
+ * Setae on the final parts, on legs, antennae and tails only (M6c T4): the gene becomes a length
+ * (setae length × girth × `length`, at most `width` × the drawn width, shortened so every bristle
+ * stays in the bounds), then the body keeps `perBody`, cutting the shortest parts' bristles first
+ * (ties: the later part first). Edits in place; mirror pairs stay equal.
  */
 export function dress(parts: Part[], segments: PlanSegment[]): Part[] {
   const S = X.setae;
   for (const p of parts) {
-    if (p.setae === 0) {
+    if (p.setae === 0 || p.role === undefined || !BRISTLED.has(p.role)) {
+      p.setae = 0;
       p.setaeLength = 0;
       continue;
     }
@@ -317,6 +411,7 @@ export function dress(parts: Part[], segments: PlanSegment[]): Part[] {
     const far = farAlong(s, p, bristleAt(0, p.setae), bristleAt(p.setae - 1, p.setae));
     const length = Math.min(
       p.setaeLength * p.girth * S.length,
+      S.width * p.width,
       D.caps.bounds - D.boundsSlack - far,
     );
     if (!(length > D.epsilon)) {

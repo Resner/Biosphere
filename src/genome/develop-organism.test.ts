@@ -143,3 +143,80 @@ describe('parts by region (M6c T3, ADR 0041)', () => {
     ]);
   });
 });
+
+describe('parts that curve, taper and vary (M6c T4, ADR 0041)', () => {
+  const W = RULES.develop.width;
+  const gene = (byte: number) =>
+    (W[0] as number) + ((W[1] as number) - (W[0] as number)) * (byte / 255);
+
+  it('keeps branches on antennae and tails and turns a branched leg into a thicker one', () => {
+    const p = plan({
+      M1: { ...ANTENNA, branching: 255 },
+      M2: { ...LEGS, branching: 255 },
+      M4: { ...FURCA, branching: 255 },
+    });
+    expect(bodyViolations(p)).toEqual([]);
+    const at = (module: number) => p.appendages.filter((a) => a.module === module && !a.fringe);
+    for (const a of [...at(0), ...at(3)]) expect(a.branches).toBe(2);
+    const legs = at(1);
+    expect(legs.length).toBeGreaterThan(0);
+    for (const a of legs) {
+      expect(a.branches).toBe(0);
+      // As broad as the leg and its two branches: (1 + 2 × 0.5²) × its gene's width.
+      expect(a.girth).toBeCloseTo(gene(LEGS.thickness as number) * 1.5, 9);
+    }
+  });
+
+  it('tips one pair with a bulb, the largest, and none from a gene of 0.6 or less', () => {
+    const p = plan({
+      M1: { ...ANTENNA, bulb: 200 },
+      M2: { ...LEGS, bulb: 255 },
+      M4: { ...FURCA, bulb: 250 },
+    });
+    expect(bodyViolations(p)).toEqual([]);
+    const tipped = p.appendages.filter((a) => a.bulb > 0);
+    expect(tipped).toHaveLength(2);
+    expect(new Set(tipped.map((a) => a.module))).toEqual(new Set([1]));
+    const low = plan({ M1: { ...ANTENNA, bulb: 150 }, M2: LEGS, M4: FURCA });
+    expect(low.appendages.filter((a) => a.bulb > 0)).toHaveLength(0);
+  });
+
+  it('keeps at most 12 short setae on a leg, none on fringe', () => {
+    const p = plan({
+      M1: ANTENNA,
+      M2: { ...LEGS, setaeDensity: 255, setaeLength: 255 },
+      M3: LEGS2,
+      M4: FURCA,
+      M5: { ...FEELER, setaeDensity: 255, setaeLength: 255 },
+    });
+    expect(bodyViolations(p)).toEqual([]);
+    const legs = p.appendages.filter((a) => a.module === 1 && !a.fringe);
+    for (const a of legs) {
+      expect(a.setae).toBe(12);
+      expect(a.setaeLength).toBeGreaterThan(0);
+      expect(a.setaeLength).toBeLessThanOrEqual(3 * a.width + 1e-9);
+    }
+    for (const a of p.appendages.filter((x) => x.fringe)) expect(a.setae).toBe(0);
+  });
+
+  it('jitters each mirrored pair by a hash and offsets its beat phase per side', () => {
+    const p = plan({ M1: ANTENNA, M2: LEGS, M3: LEGS2, M4: FURCA });
+    const once = plan({ M1: ANTENNA, M2: LEGS, M3: LEGS2, M4: FURCA });
+    expect(once).toEqual(p);
+    let differ = 0;
+    for (let k = 0; k < p.appendages.length; k += 2) {
+      const [l, r] = [p.appendages[k], p.appendages[k + 1]] as [
+        BodyPlan['appendages'][number],
+        BodyPlan['appendages'][number],
+      ];
+      expect(r.angle).toBe(l.angle);
+      expect(Math.abs(l.dir - r.dir)).toBeLessThanOrEqual((6 * PI) / 180 + 1e-9);
+      expect(Math.min(l.length, r.length) / Math.max(l.length, r.length)).toBeGreaterThanOrEqual(
+        0.95 - 1e-9,
+      );
+      expect(r.phase).not.toBe(l.phase);
+      if (l.dir !== r.dir || l.length !== r.length) differ++;
+    }
+    expect(differ).toBeGreaterThanOrEqual(5);
+  });
+});

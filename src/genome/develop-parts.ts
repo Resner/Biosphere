@@ -9,7 +9,8 @@ import type { Traits } from './express';
 
 // Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
 // 0.15 ms development budget (stats.test.ts) in these hot loops.
-const { D, unit, WIDTH, TAPER, CURVATURE, X, LENGTH, peak, maxAngle, rootOf } = fromPlan;
+const { D, unit, WIDTH, TAPER, CURVATURE, X, LENGTH, peak, maxAngle, rootOf, branchFanOf } =
+  fromPlan;
 const { drawnWidth } = fromChain;
 
 /** Parts root along the front `rooms` segments (a coil's outer whorl, M6b T7; else all of them). */
@@ -190,8 +191,8 @@ const END = { x: 0, y: 0, c: 0, s: 0 };
 
 /**
  * A part's bend as the reach needs it: the arc's signed turn (body frame), the cosine and sine of
- * that turn and of its share up to the fork, and of the branches' fan, so the probes of `fitPart` turn
- * headings by multiplication instead of trigonometry.
+ * that turn and of its share up to the fork, and its side (which way the branches fan), so the
+ * probes of `fitPart` turn headings by multiplication instead of trigonometry.
  */
 export interface Bend {
   turn: number;
@@ -199,24 +200,27 @@ export interface Bend {
   st: number;
   cb: number;
   sb: number;
-  cf: number;
-  sf: number;
+  side: 1 | -1;
 }
 
-const FAN_COS = cos(D.branchFan);
+/** The cosine and sine of each branch's fan (`branchFanOf`), by the part's branch count up to the cap. */
+const FANS = Array.from({ length: D.caps.branches + 1 }, (_, n) =>
+  Array.from({ length: n }, (_, b) => [cos(branchFanOf(b, n)), sin(branchFanOf(b, n))] as const),
+);
 
-const FAN_SIN = sin(D.branchFan);
+/** Branch `b`'s fan of `n` as a cosine and sine: from the table, or (a malformed plan's count) computed. */
+const fanOf = (b: number, n: number): readonly [number, number] =>
+  FANS[n]?.[b] ?? [cos(branchFanOf(b, n)), sin(branchFanOf(b, n))];
 
 export function bendOf(bend: number, side: 1 | -1): Bend {
-  if (bend === 0) return { turn: 0, ct: 1, st: 0, cb: 1, sb: 0, cf: FAN_COS, sf: side * FAN_SIN };
+  if (bend === 0) return { turn: 0, ct: 1, st: 0, cb: 1, sb: 0, side };
   return {
     turn: side * bend,
     ct: cos(bend),
     st: side * sin(bend),
     cb: cos(bend * D.branchAt),
     sb: side * sin(bend * D.branchAt),
-    cf: FAN_COS,
-    sf: side * FAN_SIN,
+    side,
   };
 }
 
@@ -227,8 +231,7 @@ export const mirrorBend = (k: Bend): Bend => ({
   st: -k.st,
   cb: k.cb,
   sb: -k.sb,
-  cf: k.cf,
-  sf: -k.sf,
+  side: k.side === 1 ? -1 : 1,
 });
 
 /**
@@ -268,8 +271,8 @@ type Reachable = Omit<Curved, 'side'> & Pick<Appendage, 'branches' | 'bulb'>;
 
 /**
  * How far a part on `side` reaches from the core centre, as drawn: its centre line, its branches
- * (leaving the arc at `branchAt`, fanned `branchFan` either way, `branchScale` as long) and its bulb
- * tips. The width of the tubes is not counted, as in v1.
+ * (leaving the arc at `branchAt`, fanned backward by `branchFanOf`, `branchScale` as long) and its
+ * bulb tips. The width of the tubes is not counted, as in v1.
  */
 export function partReach(s: PlanSegment, a: Reachable, side: 1 | -1): number {
   const { cap, bend } = capAndBend(a);
@@ -306,9 +309,10 @@ export function reachFrom(
     const fx = straight ? root.x + len * D.branchAt * c0 : root.x + rho * (sh - s0);
     const fy = straight ? root.y + len * D.branchAt * s0 : root.y - rho * (ch - c0);
     for (let b = 0; b < a.branches; b++) {
-      const sf = b === 0 ? k.sf : -k.sf;
-      const cb = ch * k.cf - sh * sf;
-      const sb = sh * k.cf + ch * sf;
+      const [cf, fs] = fanOf(b, a.branches);
+      const sf = k.side * fs;
+      const cb = ch * cf - sh * sf;
+      const sb = sh * cf + ch * sf;
       far = Math.max(far, arcFar(fx, fy, cb, sb, k, len * D.branchScale, cap * D.branchScale));
       far = Math.max(far, hypot(END.x, END.y) + a.bulb * D.branchScale);
     }
@@ -321,9 +325,10 @@ export function reachFrom(
     const fx = root.x + D.branchAt * L * c0;
     const fy = root.y + D.branchAt * L * s0;
     for (let b = 0; b < a.branches; b++) {
-      const sf = b === 0 ? k.sf : -k.sf;
-      const cb = c0 * k.cf - s0 * sf;
-      const sb = s0 * k.cf + c0 * sf;
+      const [cf, fs] = fanOf(b, a.branches);
+      const sf = k.side * fs;
+      const cb = c0 * cf - s0 * sf;
+      const sb = s0 * cf + c0 * sf;
       far = Math.max(far, hypot(fx + D.branchScale * L * cb, fy + D.branchScale * L * sb));
     }
   }
@@ -357,9 +362,10 @@ export function roughReach(
     const drift = (turn * D.branchAt * fl) / 2 + turn * D.branchAt * bl + tube(bl);
     const hull0 = Math.max(hypot(root.x, root.y), hypot(fx, fy));
     for (let b = 0; b < a.branches; b++) {
-      const sf = side * (b === 0 ? FAN_SIN : -FAN_SIN);
-      const vx = c0 * FAN_COS - s0 * sf;
-      const vy = s0 * FAN_COS + c0 * sf;
+      const [cf, fs] = fanOf(b, a.branches);
+      const sf = side * fs;
+      const vx = c0 * cf - s0 * sf;
+      const vy = s0 * cf + c0 * sf;
       const hull = Math.max(
         hull0,
         hypot(root.x + bl * vx, root.y + bl * vy),

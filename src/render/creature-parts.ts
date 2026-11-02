@@ -5,6 +5,7 @@
 import {
   type Appendage,
   type BodyPlan,
+  branchFanOf,
   dirOf,
   type Membrane,
   type PlanSegment,
@@ -54,9 +55,8 @@ export const GLINT_GAP = 0.18;
 const ORGAN_DEPTH = 0.5;
 
 const TUBE_DEPTH = 0.8;
-/** Where on its parent a branch grows, and how far it fans out (radians): development's, so membranes meet the tubes. */
+/** Where on its parent a branch grows: development's, so membranes meet the tubes (its fan is `branchFanOf`). */
 const BRANCH_AT = RULES.develop.branchAt;
-const BRANCH_FAN = RULES.develop.branchFan;
 
 /** The tip cap is this many end radii long for a blunt tip, plus this many more for a sharp one: development's (`partCurve`). */
 const CAP_BLUNT = RULES.develop.part.capBlunt;
@@ -104,6 +104,11 @@ const ACCENT_V = 2;
 const SETA_WIDTH = 0.022;
 const SETA_BASE = 1.5;
 const SETA_SWEEP = 0.9;
+/**
+ * A bristle curves along its part's sweep (M6c T4): its heading turns this far (radians) from root
+ * to tip, the way the part bends, so a bristled leg reads as soft hairs, not a fan of pins.
+ */
+const SETA_CURL = 0.7;
 /**
  * Plumose setae (look pass 5): pairs of setules at these shares along each bristle (drawn on the
  * 5-vertex rungs only), each `SETULE_LENGTH` of the bristle long near its root, shorter toward its
@@ -390,7 +395,8 @@ export function addAppendage(
   }
   const from = pathAt(path, BRANCH_AT);
   for (let b = 0; b < a.branches; b++) {
-    const fan = a.side * (b === 0 ? BRANCH_FAN : -BRANCH_FAN);
+    // Fanned backward, toward the tail (M6c T4): a positive turn on the left side, mirrored.
+    const fan = a.side * branchFanOf(b, a.branches);
     const branchPath: Path = {
       x0: from.x,
       y0: from.y,
@@ -428,7 +434,10 @@ export function addAppendage(
 const drawn = (k: number, share: number): boolean =>
   Math.ceil((k + 1) * share) > Math.ceil(k * share);
 
-/** The part's bristles: thin tapered ribbons, alternating sides (away from the body), fanned toward the tip. */
+/**
+ * The part's bristles: thin tapered ribbons, alternating sides (away from the body), fanned toward
+ * the tip and curved the way the part bends (M6c T4).
+ */
 function addSetae(
   m: Mesh,
   plan: BodyPlan,
@@ -443,6 +452,7 @@ function addSetae(
   const part = id * PART_KINDS + PART_SETA;
   const end = pathAt(path, 1);
   const chord = atan2(end.y - path.y0, end.x - path.x0);
+  const curl = SETA_CURL * (path.turn > 0 || (path.turn === 0 && a.side > 0) ? 1 : -1);
   for (let k = 0; k < a.setae; k++) {
     if (!drawn(k, d.setae)) continue;
     const share = (k + 0.5) / a.setae;
@@ -452,16 +462,19 @@ function addSetae(
     // Sides alternate, but a bristle that would grow into the body grows from the other side, and
     // one that would grow into it either way (a part in the eye of a coil) is not drawn: seen
     // through the clear shell, such bristles piled into a white cloud inside the body.
+    // The bristle's centre line: an arc from `at` heading `angle`, turning `curl` over `len`.
+    const along = (angle: number, len: number, u: number): [number, number] => [
+      at.x + (len * (sin(angle + curl * u) - sin(angle))) / curl,
+      at.y - (len * (cos(angle + curl * u) - cos(angle))) / curl,
+    ];
     const into = (side: number): boolean => {
-      const angle = chord + side * off;
-      const [x, y] = [at.x + a.setaeLength * cos(angle), at.y + a.setaeLength * sin(angle)];
+      const [x, y] = along(chord + side * off, a.setaeLength, 1);
       return plan.segments.some((seg) => inside(seg, x, y));
     };
     const side = k % 2 === 0 ? 1 : -1;
     if (into(side) && into(-side)) continue;
     const angle = chord + (into(side) ? -side : side) * off;
     const [dx, dy] = [cos(angle), sin(angle)];
-    const [nx, ny] = [-dy, dx];
     // A bristle stops at the bounds, where development keeps every part.
     const ahead = at.x * dx + at.y * dy;
     const room =
@@ -469,9 +482,12 @@ function addSetae(
     const len = max(0, min(a.setaeLength, room));
     const point = (share: number, half: number, v: number, kind = part): number => {
       m.flutterAt = len * share;
+      const [x, y] = along(angle, len, share);
+      const heading = angle + curl * share;
+      const [nx, ny] = [-sin(heading), cos(heading)];
       const i = m.vertex(
-        at.x + dx * len * share + nx * half,
-        at.y + dy * len * share + ny * half,
+        x + nx * half,
+        y + ny * half,
         0,
         0.5 + 0.5 * Math.sign(half),
         v,
@@ -495,19 +511,21 @@ function addSetae(
       // Plumose setae (look pass 5): fine setules leave each bristle in pairs, angled toward its
       // tip, so a bristled leg reads as a feathered comb (reference 04) and not as a few spokes.
       const setule = id * PART_KINDS + PART_SETULE;
-      for (const along of SETULES_AT) {
-        const reach = len * SETULE_LENGTH * (1 - 0.5 * along);
-        const [cx, cy] = [at.x + dx * len * along, at.y + dy * len * along];
+      for (const share of SETULES_AT) {
+        const reach = len * SETULE_LENGTH * (1 - 0.5 * share);
+        const [cx, cy] = along(angle, len, share);
+        const heading = angle + curl * share;
+        const [hx, hy] = [cos(heading), sin(heading)];
         for (const side of [1, -1] as const) {
           const [sx, sy] = [SETULE_COS, side * SETULE_SIN];
-          const [ex, ey] = [cx + (dx * sx - dy * sy) * reach, cy + (dy * sx + dx * sy) * reach];
+          const [ex, ey] = [cx + (hx * sx - hy * sy) * reach, cy + (hy * sx + hx * sy) * reach];
           // Like its bristle, a setule stays within the bounds.
           if (hypot(ex, ey) > BOUNDS) continue;
-          const b0 = point(along, SETA_WIDTH * SETULE_WIDTH, along, setule);
-          const b1 = point(along + SETULE_BASE, -SETA_WIDTH * SETULE_WIDTH, along, setule);
-          m.flutterAt = len * along;
-          const end = m.vertex(ex, ey, 0, 0.5, along, attach, attach, t, setule);
-          m.normal(end, nx, ny, 0);
+          const b0 = point(share, SETA_WIDTH * SETULE_WIDTH, share, setule);
+          const b1 = point(share + SETULE_BASE, -SETA_WIDTH * SETULE_WIDTH, share, setule);
+          m.flutterAt = len * share;
+          const end = m.vertex(ex, ey, 0, 0.5, share, attach, attach, t, setule);
+          m.normal(end, -hy, hx, 0);
           m.sheet(b0, b1, end);
         }
       }

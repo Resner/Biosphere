@@ -19,8 +19,19 @@ import type { Traits } from './express';
 
 // Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
 // 0.15 ms development budget (stats.test.ts) in these hot loops.
-const { X, onAxis, rootOf, dirOf, D, placeOn, PLATE_THICKNESS, turnTo, EYE_SIZE, EYE_STALK } =
-  fromPlan;
+const {
+  X,
+  onAxis,
+  rootOf,
+  dirOf,
+  D,
+  placeOn,
+  PLATE_THICKNESS,
+  turnTo,
+  EYE_SIZE,
+  EYE_STALK,
+  branchFanOf,
+} = fromPlan;
 const { fusedCount } = fromChain;
 const { partCurve, curveAt } = fromParts;
 
@@ -107,8 +118,10 @@ export function buildMembranes(segments: PlanSegment[], appendages: Appendage[])
     if (known) return known;
     const a = appendages[i] as Appendage;
     const s = segments[a.segment] as PlanSegment;
-    // Pairs are left then right: on the axis the right instance mirrors the left exactly.
-    const twin = i % 2 === 1 && onAxis(s) ? ray(i - 1) : undefined;
+    // Pairs are left then right: on the axis the right instance mirrors the left exactly, unless
+    // its growth direction differs by the pair's jitter (M6c T4).
+    const left = i % 2 === 1 && onAxis(s) ? ray(i - 1) : undefined;
+    const twin = left && left.a.dir === a.dir ? left : undefined;
     const made = twin
       ? {
           a,
@@ -138,8 +151,7 @@ export function buildMembranes(segments: PlanSegment[], appendages: Appendage[])
         const fork = at(root, dir, D.branchAt * a.length);
         const tip = at(fork, dir, (1 - D.branchAt) * reach);
         for (let b = 0; b < a.branches; b++) {
-          const fan = b === 0 ? D.branchFan : -D.branchFan;
-          const branch = dirOf(s, { dir: a.dir + fan, side });
+          const branch = dirOf(s, { dir: a.dir + branchFanOf(b, a.branches), side });
           add(i, i, [fork, tip, at(fork, branch, D.branchScale * reach)]);
         }
       }
