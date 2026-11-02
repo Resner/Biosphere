@@ -37,13 +37,14 @@ const strayText = (page: Page) =>
     return out;
   });
 
-/** The share of the viewport the always-on HUD covers: the menu button, the bars and the minimap with its label. */
+/** The share of the viewport the always-on HUD covers: the menu button, the bars, the minimap with its label and its depth gauge (M6c T12). */
 const hudCover = (page: Page) =>
   page.evaluate(() => {
     const parts = [
       document.querySelector('[data-testid="hud-menu"]'),
       ...document.querySelectorAll('.hud .stat'),
       document.querySelector('.minimap'),
+      document.querySelector('[data-testid="minimap-depth"]'),
     ].filter((el): el is HTMLElement => el instanceof HTMLElement && el.checkVisibility());
     const area = parts.reduce((sum, el) => {
       const r = el.getBoundingClientRect();
@@ -176,7 +177,7 @@ test('the play screen shows one menu button, four bars and the minimap, and noth
       expect(mm.y, at).toBeLessThanOrEqual(64);
 
       const cover = await hudCover(page);
-      expect(cover.parts, at).toBe(6);
+      expect(cover.parts, at).toBe(7);
       expect(
         cover.share,
         `HUD covers ${(cover.share * 100).toFixed(2)}% at ${at}`,

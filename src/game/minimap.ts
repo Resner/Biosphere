@@ -29,8 +29,8 @@ export const MINIMAP = {
   inset: 12,
   /** Room under it for the zone's name, in CSS pixels. */
   label: 20,
-  /** The depth gauge's column left of it, with its gap, in CSS pixels (`.minimap-depth`). */
-  gauge: 48,
+  /** The depth gauge's width left of it, with its gap, in CSS pixels (`.minimap-depth`). */
+  gauge: 50,
 } as const;
 
 /** The arrow layer's rotations, one every half degree, built once so a turn allocates nothing. */

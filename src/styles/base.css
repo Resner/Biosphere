@@ -577,25 +577,21 @@ body {
 
 /* The minimap (M6b T10): a round glass map in the top-right corner, under the online counter, with
    the depth gauge in a slim column to its left and the hazard icon under the gauge (M6c T12). The
-   gauge's column and gap are `MINIMAP.gauge` (48 px) in `minimap.ts`. */
+   gauge's width and gap are `MINIMAP.gauge` (50 px) in `minimap.ts`. */
 .minimap {
   --minimap-side: 120px;
+  --minimap-gauge: 46px;
   position: fixed;
   top: 48px;
   right: var(--hud-gap);
   z-index: 14;
-  display: grid;
-  grid-template-columns: 44px var(--minimap-side);
-  column-gap: 4px;
-  align-items: start;
+  width: var(--minimap-side);
   pointer-events: none;
 }
 
 .minimap-disc {
   position: relative;
   display: block;
-  grid-column: 2;
-  grid-row: 1;
   box-sizing: border-box;
   width: var(--minimap-side);
   height: var(--minimap-side);
@@ -644,10 +640,10 @@ body {
 /* The depth gauge: the zones as bands from the surface (top) to the abyss floor, and right of them
    a chevron at the player's depth pointing at them, with the depth in metres. */
 .minimap-depth {
-  position: relative;
-  grid-column: 1;
-  grid-row: 1;
-  align-self: center;
+  position: absolute;
+  top: 10px;
+  right: calc(100% + 4px);
+  width: var(--minimap-gauge);
   height: calc(var(--minimap-side) - 20px);
 }
 
@@ -688,8 +684,6 @@ body {
 
 /* The zone's name, small, under the map. */
 .minimap-zone {
-  grid-column: 2;
-  grid-row: 2;
   margin: 4px 0 0;
   color: rgb(227 244 240 / 0.72);
   font-size: 0.68rem;
@@ -705,15 +699,15 @@ body {
 
 /* The hazard hurting now, under the depth gauge: a sun for UV, a squeeze for pressure (shape, not colour alone). */
 .minimap-hazard {
-  grid-column: 1;
-  grid-row: 2;
-  justify-self: start;
+  position: absolute;
+  top: calc(var(--minimap-side) - 6px);
+  right: calc(100% + 4px + var(--minimap-gauge) - 24px);
   display: grid;
   place-items: center;
   box-sizing: border-box;
   width: 24px;
   height: 24px;
-  margin: 2px 0 0;
+  margin: 0;
   border: 1px solid rgb(255 255 255 / 0.35);
   border-radius: 50%;
   background: rgb(10 14 30 / 0.78);

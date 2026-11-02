@@ -177,7 +177,16 @@ test('the depth gauge marks the depth left of the map, and the map draws no roun
     } else {
       await expect(hazard).toBeHidden();
     }
-    await page.locator('.minimap').screenshot({ path: `test-results/m6c-minimap-${zone}.png` });
+    // The gauge, the hazard icon and the map with its label.
+    await page.screenshot({
+      path: `test-results/m6c-minimap-${zone}.png`,
+      clip: {
+        x: gaugeBox.x - 8,
+        y: disc.y - 8,
+        width: disc.x + disc.width - gaugeBox.x + 16,
+        height: disc.height + 44,
+      },
+    });
   }
   expect((await state(page)).minimap.marks).toEqual({ players: 0, pings: 0 });
 });
