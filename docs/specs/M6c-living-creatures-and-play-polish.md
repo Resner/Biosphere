@@ -271,7 +271,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Play polish
 
-- [ ] T9 Damage lands as hits, in intervals [opus]
+- [ ] T9 Damage lands as hits, in intervals [opus] (in progress)
   - Why: `src/render/shake.ts` gives UV a constant 23–31 Hz tremble and pressure a continuous squeeze, at most 0.06 body radii and 1.5 camera pixels, so damage reads as a faint rumble. The owner wants distinct hits at intervals, "kinda how you take damage in Minecraft".
   - Steps:
     1. `Shake.hit(cause, amount)`: the damage event's amount is passed along. Replace the continuous UV and pressure shakes with a hit pulse:
