@@ -30,11 +30,17 @@ const NO_REMOTES: readonly DrawnRemote[] = [];
 const NO_MEMBERS: readonly Member[] = [];
 /** A genesis egg's half-height, as a share of the view's half-height: alone at the centre (M6b T11). */
 const GENESIS_EGG = 0.26;
+/** The still scene fades in and out over this long (M6c T11). */
+const STILL_FADE_SECONDS = 0.35;
+/** A hatch's still scene centres the camera on the egg with this time constant (seconds). */
+const STILL_CENTRE_SECONDS = 0.15;
 
 /** One drawn frame: the camera, the cues, the eggs, the snapshot out and every on-screen layer. */
 export class Frame {
   readonly view: {
     time: number;
+    waterTime: number;
+    dim: number;
     camX: number;
     camY: number;
     halfHeight: number;
@@ -79,6 +85,8 @@ export class Frame {
   /** The cursor in world units while a genesis egg waits: one object, written each frame. */
   private readonly eggPointer: Vec2 = { x: 0, y: 0 };
   private flowTick = 0;
+  /** Wall time spent in the still scene, which the water's clock skips (M6c T11). */
+  private stillMs = 0;
   private beat = 0;
   private readonly marks = { ready: false, egg: false };
   private readonly anchors = new Map<string, Anchor>();
@@ -92,6 +100,8 @@ export class Frame {
   constructor(private readonly app: App) {
     this.view = {
       time: 0,
+      waterTime: 0,
+      dim: 0,
       camX: 0,
       camY: 0,
       halfHeight: 1,
@@ -251,22 +261,32 @@ export class Frame {
     this.beat = lerp(this.beat, app.input.throttle / MAX_THROTTLE, Math.min(1, dt * 6));
     cell.beat = this.beat;
 
-    camera.update(dt, {
-      x: cell.x,
-      y: cell.y,
-      radius: cell.radius,
-      adult: adultRadius(player),
-    });
+    // The still scene (M6c T11): from a genesis or hatch egg's arrival until its burst, the camera
+    // holds on the egg, the water's clock pauses (the sim does not), the rest dims and the HUD hides.
+    const still = eggs.still();
+    this.stillScene(still, dt);
+    if (!still) {
+      camera.update(dt, {
+        x: cell.x,
+        y: cell.y,
+        radius: cell.radius,
+        adult: adultRadius(player),
+      });
+    } else if (app.scale !== 0) {
+      // A frozen world already holds the clocks (`heldMs`).
+      this.stillMs += elapsed * 1000;
+    }
     // Shaders animate on wall-clock time; a frozen world holds still, so `render.specks` matches a shot.
     view.time = (now - app.heldMs) / 1000;
+    view.waterTime = (now - app.heldMs - this.stillMs) / 1000;
     view.camX = camera.x;
     view.camY = camera.y;
     view.halfHeight = camera.halfHeight;
     // The water's flow carries the marine snow (M6 T17). It follows sim ticks, so a frozen world
-    // holds it still and a new life (the tick starts over) leaves it as it is.
+    // holds it still and a new life (the tick starts over) leaves it as it is; so does a still scene.
     const flowTicks = app.session.world.tick - this.flowTick;
     this.flowTick = app.session.world.tick;
-    if (flowTicks > 0 && flowTicks <= MAX_FLOW_TICKS) {
+    if (!still && flowTicks > 0 && flowTicks <= MAX_FLOW_TICKS) {
       const water = currentAt(app.session.world, camera.x, camera.y);
       view.flow.x += (water.x * flowTicks) / TICK_HZ;
       view.flow.y += (water.y * flowTicks) / TICK_HZ;
@@ -399,7 +419,24 @@ export class Frame {
       for (const r of remoteViews) if (r.alpha >= 0.01) anchors.set(r.id, r);
       app.socialUi.update(now, anchors, keeper.current?.others() ?? NO_MEMBERS, projection);
     }
-    app.field.flush();
+    // The food and the plumes hold where they are during a still scene; they catch up after it.
+    if (!still) app.field.flush();
     scene.draw(view);
+  }
+
+  /**
+   * Fades the still scene in or out, hides the HUD while it holds, and centres a hatch's camera on
+   * its egg (a genesis egg already sits at the centre).
+   */
+  private stillScene(still: boolean, dt: number): void {
+    const { app, view } = this;
+    const step = dt / STILL_FADE_SECONDS;
+    view.dim = still ? Math.min(1, view.dim + step) : Math.max(0, view.dim - step);
+    document.body.toggleAttribute('data-still', still);
+    const own = app.eggs.drawn;
+    if (!still || app.eggs.mode !== 'hatch' || !own) return;
+    const k = 1 - Math.exp(-dt / STILL_CENTRE_SECONDS);
+    app.camera.x += (own.x - app.camera.x) * k;
+    app.camera.y += (own.y - app.camera.y) * k;
   }
 }

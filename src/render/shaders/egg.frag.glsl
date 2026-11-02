@@ -1,13 +1,13 @@
 // A glassy egg seen from above (M6 T20): a clear shell with a rim light and a highlight, the child's
 // light inside, cracks that glow, and the burst (a flash for a reveal; for a hatch the cap flies off
 // and the base drops away). `vA` is kind (0 egg, 1 tether), glow, crack and burst; `vB` is alpha,
-// burst light, spread and a seed; `vC` the burst's shard and ray counts (M6b T11). Output is
-// premultiplied: the shell covers, the light adds.
+// burst light, spread and a seed; `vC` the burst's shard and ray counts (M6b T11), the charge and a
+// poke's sparks (M6c T11). Output is premultiplied: the shell covers, the light adds.
 uniform float uTime;
 varying vec2 vP;
 varying vec4 vA;
 varying vec4 vB;
-varying vec2 vC;
+varying vec4 vC;
 varying vec3 vTint;
 
 // The quad's half-extent in egg half-heights (EGG_QUAD in egg.ts).
@@ -39,6 +39,8 @@ void main() {
   float light = vB.y;
   float spread = vB.z;
   float seed = vB.w;
+  float charge = vC.z;
+  float spark = vC.w;
 
   if (vA.x > 0.5) {
     // The tether: a thin strand with a slow pulse running along it.
@@ -71,7 +73,8 @@ void main() {
 
   // Far outside a whole shell with no burst there is nothing to draw (the halo is under 0.3% by
   // here): the genesis egg's quad covers a fifth of the screen, so this saves most of its fragments.
-  if (spread <= 0.0 && burst <= 0.0 && d > 1.6) {
+  // A poke's sparks fly out to about 2.1, so they widen the bound only while they last.
+  if (spread <= 0.0 && burst <= 0.0 && d > (spark > 0.0 ? 2.3 : 1.6)) {
     gl_FragColor = vec4(0.0);
     return;
   }
@@ -111,6 +114,34 @@ void main() {
   // A soft halo around the shell.
   float halo = exp(-max(spread > 0.0 ? eggDist(q) : d, 0.0) * 4.0) * (1.0 - inside);
   add += vTint * halo * glow * 0.35 * alpha;
+
+  // The charge (M6c T11): a thin ring around the shell that fills clockwise from the top as the
+  // player pokes, flaring with each poke and pulsing once it is full.
+  if (charge > 0.0) {
+    float band = 1.0 - smoothstep(0.0, 0.035, abs(d - 0.32));
+    float turnAt = fract(atan(q.x, q.y) / 6.28318 + 1.0);
+    float filled = 1.0 - smoothstep(charge - 0.01, charge, turnAt);
+    float full = step(0.999, charge) * (0.5 + 0.5 * sin(uTime * 7.0));
+    float lit = filled * (0.35 + 0.45 * spark + 0.3 * full) + (1.0 - filled) * 0.06;
+    add += mix(vTint, vec3(1.0), 0.2) * band * lit * alpha;
+  }
+
+  // A poke's sparks: a few bright motes thrown out from the shell, a fresh pattern each poke.
+  if (spark > 0.0) {
+    float fly = 1.0 - spark;
+    float pokeSeed = floor(charge * 40.0) + seed * 13.0;
+    float motes = 0.0;
+    for (int i = 0; i < 7; i++) {
+      float fi = float(i);
+      float jitter = hash21(vec2(fi, pokeSeed));
+      float a = (fi + jitter) / 7.0 * 6.28318;
+      float r = 0.85 + (0.5 + 0.7 * jitter) * (1.0 - (1.0 - fly) * (1.0 - fly));
+      vec2 c = vec2(cos(a) * 0.72, sin(a)) * r;
+      float m = length(q - c);
+      motes = max(motes, exp(-m * m * 500.0));
+    }
+    add += mix(vTint, vec3(1.0), 0.45) * motes * spark * 0.9;
+  }
 
   // The burst: a flash from the centre and a ring that runs out, by the child's rarity.
   if (burst > 0.0 && light > 0.0) {

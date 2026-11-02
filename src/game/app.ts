@@ -310,14 +310,17 @@ export class App {
     this.fx = new Effects();
     this.revealCard = new RevealCard(window);
     this.eggs = new EggShow(
-      (x, y, radius, rings, mode) => {
-        this.fx.burst({ x, y, radius }, rings);
+      (x, y, radius, rings, mode, full) => {
+        // A full charge adds a shockwave (M6c T11); reduced motion keeps the fades only.
+        this.fx.burst({ x, y, radius }, rings, full && !this.motionReduced());
         this.sound.cue('reveal');
         // A genesis's creature has just begun (play waits for the burst): once the shell is gone,
         // the card shows what hatched.
         if (mode === 'genesis' && !this.session.demo) this.cardDue = this.session;
       },
       () => this.sound.cue('stir'),
+      // Each poke's tick rises with the charge, up an octave when full (M6c T11).
+      (charge) => this.sound.cue('charge', undefined, 1 + charge),
     );
     this.shake = new Shake();
     this.labels = new RemoteLabels(pick('[data-testid="remote-labels"]'));

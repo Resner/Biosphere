@@ -22,7 +22,7 @@ export class Water {
   update(view: SceneView, halfWidth: number, light: boolean): void {
     vec2Uniform(this.material, 'uCam').set(view.camX, view.camY);
     vec2Uniform(this.material, 'uHalf').set(halfWidth, view.halfHeight);
-    setUniform(this.material, 'uTime', view.time);
+    setUniform(this.material, 'uTime', view.waterTime);
     setUniform(this.material, 'uLight', light ? 1 : 0);
   }
 

@@ -192,6 +192,28 @@ const offspringState = (app: App): BsState['offspring'] => {
   };
 };
 
+/** The egg's charge, hint, paced crack and still scene (M6c T11). */
+const eggCharge = (app: App) => {
+  const { reveal } = app.eggs;
+  const { phase } = reveal;
+  const known = (ms: number) => (Number.isFinite(ms) ? ms : null);
+  return {
+    charge: reveal.charge,
+    hint:
+      phase === 'none'
+        ? null
+        : phase === 'waiting' || reveal.tier === null
+          ? ('cycling' as const)
+          : reveal.tier,
+    paced: reveal.paced,
+    beaconAt: known(reveal.beaconAt),
+    crackAt: known(reveal.crackedAt()),
+    crackedBy: reveal.crackedBy,
+    still: app.eggs.still(),
+    dim: app.frame.view.dim,
+  };
+};
+
 const genome: BsGenome = {
   hashes: (list) =>
     list.map((text) => {
@@ -282,6 +304,7 @@ export function installAppHook(app: App): void {
           card: app.revealCard.shown
             ? { shown: true, tier: app.revealCard.tier }
             : { shown: !cardElement.hidden, tier: cardElement.hidden ? null : cardTier },
+          ...eggCharge(app),
         },
         pond: pond
           ? {

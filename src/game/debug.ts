@@ -160,6 +160,20 @@ export interface BsState {
     glow: number;
     at: { x: number; y: number; r: number } | null;
     card: { shown: boolean; tier: RarityTier | null };
+    /** 0..1: how far the player's pokes have charged the show (M6c T11). */
+    charge: number;
+    /** The rarity hint: 'cycling' before the beacon (or before the tier is known), then the true tier. */
+    hint: RarityTier | 'cycling' | null;
+    /** Whether the player paces the crack (a genesis or a hatch). */
+    paced: boolean;
+    /** When the beacon came and when the shell began to crack, on the egg's clock (ms); null before. */
+    beaconAt: number | null;
+    crackAt: number | null;
+    /** How the shell came to crack: by the player (quick pokes, a hold, Enter) or by itself. */
+    crackedBy: 'player' | 'auto' | null;
+    /** The still scene: whether it holds, and how far it has dimmed the picture (0..1). */
+    still: boolean;
+    dim: number;
   };
   /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
   pond: { id: string; seed: string; members: string[] } | null;

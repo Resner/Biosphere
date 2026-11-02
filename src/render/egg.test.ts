@@ -84,11 +84,14 @@ describe('EggReveal', () => {
     // A flurry of pokes never swings past the cap.
     for (let t = 5000; t < 5600; t += 60) reveal.poke(t);
     expect(peak(angles(reveal, 5000, 7000))).toBeLessThanOrEqual(EGG.pokeMax + 1e-9);
-    // Only a waiting egg answers.
+    // Only an egg that waits or stirs answers (M6c T11: the charge builds until the crack).
     const idle = new EggReveal();
     expect(idle.poke(0)).toBe(false);
     idle.stir(0, { tier: 'common', opens: false });
-    expect(idle.poke(10)).toBe(false);
+    expect(idle.poke(10)).toBe(true);
+    idle.update(EGG.stirMs.common);
+    expect(idle.phase).toBe('cracking');
+    expect(idle.poke(EGG.stirMs.common + 10)).toBe(false);
   });
 
   it('shows the waiting line after 10 s of waiting, and only then', () => {
@@ -144,15 +147,17 @@ describe('EggReveal', () => {
     }
   });
 
-  it('leaks the rarity colour from the second burst on', () => {
+  it('shows the hint on the beacon, and leaks the rarity colour in full from the second burst on', () => {
     const reveal = new EggReveal();
     reveal.wait(0);
     reveal.stir(0, { tier: 'exotic', opens: false });
     const pose = emptyPose();
     const second = EGG.stirBursts[1]?.from ?? 0;
     const before = second * EGG.stirMs.exotic - 1;
-    expect(reveal.pose(before, false, pose).tint).toBe(0);
+    // Uncharged, the hint shows the true tier at its weakest (M6c T11).
+    expect(reveal.pose(before, false, pose).tint).toBeCloseTo(EGG.hint.from, 6);
     expect(pose.tier).toBe('exotic');
+    expect(pose.cycle).toBe(-1);
     const end = reveal.pose(EGG.stirMs.exotic - 1, false, pose);
     expect(end.tint).toBeGreaterThan(0.8);
     expect(end.glow).toBeGreaterThan(reveal.pose(10, false, emptyPose()).glow);
@@ -241,7 +246,11 @@ describe('EggReveal', () => {
     expect(exotic.slowFactor(at)).toBe(EGG.slowExotic);
     expect(exotic.slowFactor(at, true)).toBe(1);
     expect(exotic.slowFactor(EGG.crackMs.exotic + EGG.slowMs + 1)).toBe(1);
-    expect(exotic.pose(at, false, emptyPose()).light).toBe(EGG.burstLight.exotic);
+    // Uncharged, the burst has its share of the tier's light (M6c T11).
+    expect(exotic.pose(at, false, emptyPose()).light).toBeCloseTo(
+      EGG.burstLight.exotic * EGG.chargeLight,
+      9,
+    );
     const common = burst('common');
     expect(common.slowFactor(EGG.crackMs.common + 100)).toBe(1);
     expect(common.done(EGG.crackMs.common + EGG.burstMs.common)).toBe(true);
@@ -355,6 +364,252 @@ describe('EggReveal', () => {
   });
 });
 
+describe('EggReveal: the charge and the paced crack (M6c T11)', () => {
+  const paced = (tier: RarityTier | null = 'rare') => ({
+    tier,
+    opens: true,
+    hold: true,
+    paced: true,
+  });
+  /** Pokes once at `at`: a click, the button let go 50 ms later. */
+  const click = (reveal: EggReveal, at: number): boolean => {
+    const answered = reveal.poke(at);
+    reveal.lift();
+    return answered;
+  };
+
+  it('charges with each poke, diminishing, monotone and capped: full after 12 pokes', () => {
+    const reveal = new EggReveal();
+    reveal.wait(0);
+    expect(reveal.charge).toBe(0);
+    const steps: number[] = [];
+    let last = 0;
+    for (let i = 1; i <= 20; i++) {
+      expect(click(reveal, i * 400)).toBe(true);
+      expect(reveal.charge).toBeGreaterThanOrEqual(last);
+      expect(reveal.charge).toBeLessThanOrEqual(1);
+      steps.push(reveal.charge - last);
+      last = reveal.charge;
+      if (i === 11) expect(reveal.charge).toBeLessThan(1);
+      if (i === 12) expect(reveal.charge).toBe(1);
+    }
+    for (let i = 1; i < 11; i++) expect(steps[i]).toBeLessThan(steps[i - 1] as number);
+    expect(reveal.charge).toBe(1);
+  });
+
+  it('charges from the reveal’s start until the crack, before and after the beacon', () => {
+    const reveal = new EggReveal();
+    reveal.wait(0);
+    for (let t = 500; t < 2500; t += 400) click(reveal, t);
+    const before = reveal.charge;
+    expect(before).toBeGreaterThan(0);
+    reveal.stir(3000, paced());
+    // The beacon keeps what was charged.
+    expect(reveal.charge).toBe(before);
+    click(reveal, 3400);
+    expect(reveal.charge).toBeGreaterThan(before);
+    reveal.skip(3800);
+    expect(reveal.phase).toBe('cracking');
+    const cracked = reveal.charge;
+    expect(click(reveal, 3900)).toBe(false);
+    expect(reveal.charge).toBe(cracked);
+    // A new reveal starts uncharged.
+    reveal.reset();
+    reveal.wait(10_000);
+    expect(reveal.charge).toBe(0);
+  });
+
+  it('a timed (mating) stir is never a full-charge show', () => {
+    const reveal = new EggReveal();
+    reveal.wait(0);
+    for (let t = 100; t < 5000; t += 300) click(reveal, t);
+    expect(reveal.charge).toBe(1);
+    reveal.stir(5000, { tier: 'rare', opens: true });
+    expect(reveal.fullCharge).toBe(false);
+  });
+
+  it('after the beacon, waits 6 s for the player, then cracks by itself', () => {
+    expect(EGG.paced.waitMs).toBe(6000);
+    const reveal = new EggReveal();
+    reveal.wait(0);
+    reveal.stir(3000, paced());
+    for (let t = 3000; t < 9000; t += 1000 / 60) {
+      expect(reveal.update(t)).toBe(false);
+      expect(reveal.phase).toBe('stirring');
+      expect(reveal.ripe(t)).toBe(false);
+    }
+    reveal.update(9000);
+    expect(reveal.phase).toBe('cracking');
+    expect(reveal.crackedBy).toBe('auto');
+    expect(reveal.crackedAt()).toBe(9000);
+    expect(reveal.beaconAt).toBe(3000);
+    expect(reveal.ripe(9000 + EGG.crackMs.rare)).toBe(true);
+  });
+
+  it('cracks sooner on three quick pokes or a 0.6 s hold, and never on paced pokes', () => {
+    // Twelve pokes 300 ms apart charge it full without cracking it.
+    const steady = new EggReveal();
+    steady.wait(0);
+    steady.stir(1000, paced());
+    for (let i = 0; i < 12; i++) {
+      click(steady, 1000 + i * 300);
+      steady.update(1000 + i * 300 + 1);
+    }
+    expect(steady.phase).toBe('stirring');
+    expect(steady.charge).toBe(1);
+    // Three within half a second crack it.
+    const quick = new EggReveal();
+    quick.stir(0, paced());
+    click(quick, 1000);
+    click(quick, 1200);
+    expect(quick.phase).toBe('stirring');
+    click(quick, 1450);
+    expect(quick.phase).toBe('cracking');
+    expect(quick.crackedBy).toBe('player');
+    expect(quick.crackedAt()).toBe(1450);
+    // Pokes before the beacon never count towards the three.
+    const early = new EggReveal();
+    early.wait(0);
+    click(early, 900);
+    click(early, 950);
+    early.stir(1000, paced());
+    click(early, 1010);
+    expect(early.phase).toBe('stirring');
+    // A held button cracks it 0.6 s on, counted from the beacon at the earliest.
+    const held = new EggReveal();
+    held.wait(0);
+    held.poke(500);
+    held.stir(1000, paced());
+    held.update(1000 + EGG.paced.holdMs - 1);
+    expect(held.phase).toBe('stirring');
+    held.update(1000 + EGG.paced.holdMs);
+    expect(held.phase).toBe('cracking');
+    expect(held.crackedBy).toBe('player');
+    // Let go too soon, and it waits on.
+    const let_go = new EggReveal();
+    let_go.stir(0, paced());
+    let_go.poke(100);
+    let_go.update(500);
+    let_go.lift();
+    let_go.update(2000);
+    expect(let_go.phase).toBe('stirring');
+  });
+
+  it('a timed stir (a mating) still cracks at its stir time, not the player’s pace', () => {
+    const reveal = new EggReveal();
+    reveal.stir(0, { tier: 'common', opens: false });
+    reveal.update(EGG.stirMs.common);
+    expect(reveal.phase).toBe('cracking');
+    expect(reveal.crackedBy).toBe('auto');
+  });
+
+  it('cycles the hint through the tiers before the beacon, and settles on the true tier after', () => {
+    const reveal = new EggReveal();
+    reveal.wait(0);
+    const pose = emptyPose();
+    const seen = new Set<number>();
+    for (let t = 0; t < EGG.cycleMs; t += 20) {
+      reveal.pose(t, false, pose);
+      expect(pose.tier).toBeNull();
+      expect(pose.cycle).toBeGreaterThanOrEqual(0);
+      expect(pose.cycle).toBeLessThan(TIERS.length);
+      seen.add(Math.floor(pose.cycle));
+    }
+    expect([...seen].sort()).toEqual([0, 1, 2, 3]);
+    reveal.stir(3000, paced('uncommon'));
+    const settled = 3000 + EGG.settleMs;
+    reveal.pose(settled, false, pose);
+    expect(pose.cycle).toBe(-1);
+    expect(pose.tier).toBe('uncommon');
+    const weak = pose.tint;
+    expect(weak).toBeCloseTo(EGG.hint.from, 6);
+    // More charge shows it stronger, up to all of it at full charge.
+    for (let i = 0; i < 12; i++) click(reveal, settled + i * 300);
+    reveal.pose(settled + 4000, false, pose);
+    expect(pose.tint).toBeGreaterThan(weak);
+    expect(pose.tint).toBeCloseTo(EGG.hint.to, 6);
+    // A genesis whose tier is not known yet keeps cycling until it is.
+    const unknown = new EggReveal();
+    unknown.wait(0);
+    unknown.stir(1000, paced(null));
+    expect(unknown.pose(1000 + EGG.settleMs, false, pose).cycle).toBeGreaterThanOrEqual(0);
+    unknown.setTier('exotic');
+    expect(unknown.pose(1000 + EGG.settleMs, false, pose).cycle).toBe(-1);
+    expect(pose.tier).toBe('exotic');
+  });
+
+  it('answers each poke with a sharper wobble, a growing crack, sparks and the charge', () => {
+    const reveal = new EggReveal();
+    reveal.wait(0);
+    const pose = emptyPose();
+    expect(reveal.pose(1000, false, pose)).toMatchObject({ crack: 0, spark: 0, charge: 0 });
+    click(reveal, 1000);
+    const first = angles(reveal, 1000, 2000);
+    reveal.pose(1010, false, pose);
+    expect(pose.spark).toBeGreaterThan(0.9);
+    expect(pose.charge).toBe(reveal.charge);
+    const crack1 = pose.crack;
+    expect(crack1).toBeGreaterThan(0);
+    expect(reveal.pose(1000 + EGG.sparkMs, false, pose).spark).toBe(0);
+    for (let i = 1; i < 11; i++) click(reveal, 2000 + i * 400);
+    click(reveal, 8000);
+    const last = angles(reveal, 8000, 9000);
+    expect(reveal.pose(8000, false, pose).crack).toBeGreaterThan(crack1);
+    expect(pose.crack).toBeLessThanOrEqual(EGG.chargeCrack + 1e-9);
+    // Sharper: it swings faster and settles sooner, never past the cap.
+    expect(crossings(last)).toBeGreaterThan(crossings(first));
+    expect(peak(last)).toBeLessThanOrEqual(EGG.pokeMax + 1e-9);
+    const settle = (values: number[]) => values.findLastIndex((v) => Math.abs(v) > 0.02);
+    expect(settle(last)).toBeLessThan(settle(first));
+    // The crack starts from what the charge ran.
+    reveal.stir(9000, paced());
+    reveal.skip(9100);
+    expect(reveal.pose(9100 - EGG.crackMs.rare, false, pose).crack).toBeGreaterThanOrEqual(
+      EGG.chargeCrack - 1e-9,
+    );
+  });
+
+  it('a full charge bursts brighter, with more shards and a slow-motion beat; reduced motion has none', () => {
+    const burst = (charged: boolean, tier: RarityTier = 'common') => {
+      const reveal = new EggReveal();
+      reveal.wait(0);
+      if (charged) for (let i = 0; i < 12; i++) click(reveal, 500 + i * 300);
+      reveal.stir(5000, { ...paced(tier), hold: false });
+      reveal.skip(5000);
+      expect(reveal.update(5000)).toBe(true);
+      return reveal;
+    };
+    const plain = burst(false);
+    const full = burst(true);
+    expect(full.fullCharge).toBe(true);
+    expect(plain.fullCharge).toBe(false);
+    const at = 5100;
+    const a = plain.pose(at, false, emptyPose());
+    const b = full.pose(at, false, emptyPose());
+    expect(b.light).toBeGreaterThan(a.light);
+    expect(b.light).toBeCloseTo(EGG.burstLight.common, 9);
+    expect(b.shards).toBe(a.shards + EGG.chargeShards);
+    expect(plain.slowFactor(at)).toBe(1);
+    expect(full.slowFactor(at)).toBe(EGG.slowExotic);
+    expect(full.slowFactor(at, true)).toBe(1);
+    // Reduced motion: the charge still builds and shows, but nothing swings or flies.
+    const reduced = new EggReveal();
+    reduced.wait(0);
+    for (let i = 0; i < 12; i++) click(reduced, 500 + i * 300);
+    expect(reduced.charge).toBe(1);
+    expect(peak(angles(reduced, 500, 5000, true))).toBe(0);
+    expect(reduced.pose(500 + 11 * 300 + 10, true, emptyPose()).spark).toBe(0);
+    reduced.stir(5000, paced());
+    reduced.skip(5000);
+    reduced.release();
+    reduced.update(5000);
+    const open = reduced.pose(5100, true, emptyPose());
+    expect(open.angle).toBe(0);
+    expect(open.spread).toBe(0);
+    expect(open.shards).toBe(0);
+  });
+});
+
 describe('carriedPose', () => {
   it('glows faintly by the rarity for the owner and plainly for peers', () => {
     const own = carriedPose('exotic', emptyPose());
@@ -455,6 +710,21 @@ describe('EggLayer', () => {
     for (let k = 0; k < 3; k++) {
       expect(tint[k]).toBeCloseTo((plain[k] as number) * 0.75 + (rare[k] as number) * 0.25, 6);
     }
+    layer.dispose();
+  });
+
+  it('cycles a waiting egg’s colour through the tier tints, and writes the charge and the sparks', () => {
+    const layer = new EggLayer();
+    const egg = view(null, null);
+    const tint = layer.mesh.geometry.getAttribute('aEggTint').array;
+    const c = layer.mesh.geometry.getAttribute('aEggC').array;
+    Object.assign(egg.pose, { tier: null, cycle: 2, tint: 1, charge: 0.5, spark: 0.25 });
+    layer.set([egg], 0);
+    for (let k = 0; k < 3; k++) expect(tint[k]).toBeCloseTo(EGG_TINT.rare[k] as number, 6);
+    expect([c[2], c[3]]).toEqual([0.5, 0.25]);
+    egg.pose.cycle = 3;
+    layer.set([egg], 0);
+    for (let k = 0; k < 3; k++) expect(tint[k]).toBeCloseTo(EGG_TINT.exotic[k] as number, 6);
     layer.dispose();
   });
 

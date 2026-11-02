@@ -36,6 +36,12 @@ export class Ticker {
       const dy = steering.target.y - player.y;
       return { steer: angleToSteer(atan2(dy, dx)), throttle: MAX_THROTTLE, dash: false };
     }
+    // A hatch's still scene (M6c T11): the parent hands over and the child waits in its shell, so
+    // the creature holds still until the shell bursts.
+    if (app.eggs.still()) {
+      controller.sample({ x: scene.width / 2, y: scene.height / 2 }, scene.pxPerWu, 1);
+      return IDLE;
+    }
     const sampled = controller.sample(
       { x: scene.width / 2, y: scene.height / 2 },
       scene.pxPerWu,

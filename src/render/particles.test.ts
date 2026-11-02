@@ -16,7 +16,7 @@ const STYLE: ParticleStyle = {
   spread: 0.2,
 };
 const NO_DOF: SpriteDof = { pixels: 1, shrink: 1, focus: 0, slope: 0, max: 0, fringe: 0 };
-const view = (time: number) => ({ time, camX: 1000, camY: 2000 }) as SceneView;
+const view = (time: number) => ({ time, waterTime: time, camX: 1000, camY: 2000 }) as SceneView;
 /** Two pixels a world unit on a screen wider than the whole tile: every speck is on it. */
 const PX = 2;
 const SCREEN = 4000;

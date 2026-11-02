@@ -19,6 +19,7 @@ export const CUES = [
   'hatch',
   'reveal',
   'stir',
+  'charge',
   'grow',
   'tier',
   'ping',
@@ -189,6 +190,15 @@ export const CUE_SOUNDS: Record<Cue, CueSound> = {
       tone('triangle', { delay: 0.3, attack: 0.5, decay: 0.4, level: 0.05, hz: 330, toHz: 660 }),
     ],
   },
+  // A poke charging the egg (M6c T11): a short glassy tick in the stir's voice (a bandpassed rustle
+  // over a sine), which the shell pitches up with the charge.
+  charge: {
+    seconds: 0.14,
+    layers: [
+      noise('bandpass', 3, { attack: 0.002, decay: 0.05, level: 0.1, hz: 1500, toHz: 2200 }),
+      tone('sine', { attack: 0.004, decay: 0.136, level: 0.13, hz: 440, toHz: 660 }),
+    ],
+  },
   // A soft swell: one warm tone.
   grow: {
     seconds: 0.55,
@@ -303,6 +313,7 @@ export function playSound(
   out: AudioNode,
   when: number,
   sound: CueSound,
+  pitch = 1,
 ): Voice {
   const voice = ctx.createGain();
   voice.connect(out);
@@ -343,8 +354,8 @@ export function playSound(
       src = buf;
       swept = filter.frequency;
     }
-    swept.setValueAtTime(l.hz, start);
-    if (l.toHz !== undefined) swept.exponentialRampToValueAtTime(l.toHz, end);
+    swept.setValueAtTime(l.hz * pitch, start);
+    if (l.toHz !== undefined) swept.exponentialRampToValueAtTime(l.toHz * pitch, end);
     if (src instanceof AudioBufferSourceNode) src.start(start, (i * 0.137) % 1);
     else src.start(start);
     src.stop(end);
@@ -372,8 +383,8 @@ export function playSound(
 /** The patch for one cue, in the engine's `CuePatch` shape. */
 export const cuePatch =
   (cue: Cue) =>
-  (ctx: BaseAudioContext, out: AudioNode, when: number): Voice =>
-    playSound(ctx, out, when, CUE_SOUNDS[cue]);
+  (ctx: BaseAudioContext, out: AudioNode, when: number, pitch = 1): Voice =>
+    playSound(ctx, out, when, CUE_SOUNDS[cue], pitch);
 
 /** Every cue's patch: the engine's default table. */
 export const CUE_PATCHES: Record<Cue, ReturnType<typeof cuePatch>> = Object.fromEntries(

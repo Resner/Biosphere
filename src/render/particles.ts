@@ -121,7 +121,7 @@ export class ParticleLayer {
     setUniform(m, 'uOpacity', this.style.opacity * light);
     this.pixels = dof.pixels;
     vec2Uniform(m, 'uCam').set(view.camX, view.camY);
-    setUniform(m, 'uTime', view.time);
+    setUniform(m, 'uTime', view.waterTime);
     setUniform(m, 'uPxPerWu', pxPerWu * dof.pixels);
     setUniform(m, 'uMaxSize', MAX_SPRITE_PX * dof.shrink);
     setUniform(m, 'uFocus', dof.focus);

@@ -50,6 +50,13 @@ import {
 export interface SceneView {
   /** Seconds, for animation only. */
   time: number;
+  /**
+   * The water's clock, in seconds: the water, the snow, the caustics, the god rays, the food and the
+   * plumes animate on it. It holds still during an egg's still scene (M6c T11); the sim does not.
+   */
+  waterTime: number;
+  /** 0..1: how far the still scene has dimmed everything drawn behind the egg (M6c T11). */
+  dim: number;
   camX: number;
   camY: number;
   /** Visible half-height in world units. */
@@ -107,6 +114,8 @@ export interface RenderInfo extends PostInfo {
   caustic: number;
   /** Eggs drawn this frame, the player's and its peers' (M6 T20). */
   eggs: number;
+  /** How much the still scene's veil darkens the picture this frame, 0 to `STILL_DIM` (M6c T11). */
+  veil: number;
   /** Size outlines drawn this frame, by kind (M6 T21). */
   outlines: { bigger: number; smaller: number };
 }
@@ -131,7 +140,14 @@ const ORDER = {
   outlines: 4.9,
   mid: 5,
   near: 6,
+  /** The still scene's veil over everything, and the egg and its rings above it (M6c T11). */
+  veil: 6.5,
+  eggsOverVeil: 6.6,
+  ringsOverVeil: 6.7,
 } as const;
+
+/** The still scene dims the rest of the picture by this much at most (M6c T11). */
+export const STILL_DIM = 0.35;
 
 /** The whole play-field picture: backdrop, particle layers, plumes, food and the cell. */
 export class GameScene {
@@ -165,6 +181,17 @@ export class GameScene {
   };
   private readonly rings = new RingLayer();
   private readonly eggs = new EggLayer();
+  /** The still scene's veil: black over the whole view, under the egg (M6c T11). */
+  private readonly veil = new THREE.Mesh(
+    new THREE.PlaneGeometry(2, 2),
+    new THREE.MeshBasicMaterial({
+      color: 0x000000,
+      transparent: true,
+      opacity: 0,
+      depthTest: false,
+      depthWrite: false,
+    }),
+  );
   private readonly outlines = new OutlineLayer();
   private readonly outlineView = { camX: 0, camY: 0, pxPerWu: 1, width: 1, height: 1 };
   /** The plain cell drawn at a scaled size (a pop or a shrink), so the view itself is never written. */
@@ -264,6 +291,7 @@ export class GameScene {
       [this.outlines.mesh, ORDER.outlines],
       [this.mid.points, ORDER.mid],
       [this.near.points, ORDER.near],
+      [this.veil, ORDER.veil],
     ];
     for (const [object, order] of items) {
       object.renderOrder = order;
@@ -273,6 +301,7 @@ export class GameScene {
       this.scene.add(object);
     }
 
+    this.veil.visible = false;
     window.addEventListener('resize', this.onResize);
     this.resize();
   }
@@ -384,8 +413,8 @@ export class GameScene {
     this.far.update(view, this.pxPerWu, sprites, snow, flow);
     this.mid.update(view, this.pxPerWu, sprites, snow, flow);
     this.near.update(view, this.pxPerWu, sprites, snow, flow);
-    this.plumes.update(view.time);
-    this.food.update(view.time);
+    this.plumes.update(view.waterTime);
+    this.food.update(view.waterTime);
     this.cell.update(this.drawBody(view) ? null : this.cellOf(view.creature), view.time);
     this.remotes.set(
       view.remotes,
@@ -398,8 +427,25 @@ export class GameScene {
     this.eggs.set(view.eggs, view.time);
     this.rings.set(view.rings);
     this.updateOutlines(view);
+    this.updateVeil(view, halfWidth);
 
     this.post.render(this.scene, camera);
+  }
+
+  /**
+   * The still scene (M6c T11): a veil dims everything (the water, the snow and the other creatures)
+   * by up to `STILL_DIM`, and the egg and its burst rings draw above it.
+   */
+  private updateVeil(view: SceneView, halfWidth: number): void {
+    const on = view.dim > 0;
+    const { veil } = this;
+    veil.visible = on;
+    this.eggs.mesh.renderOrder = on ? ORDER.eggsOverVeil : ORDER.eggs;
+    this.rings.mesh.renderOrder = on ? ORDER.ringsOverVeil : ORDER.rings;
+    if (!on) return;
+    veil.position.set(view.camX, view.camY, 0);
+    veil.scale.set(halfWidth, view.halfHeight, 1);
+    (veil.material as THREE.MeshBasicMaterial).opacity = STILL_DIM * Math.min(1, view.dim);
   }
 
   /** Size outlines (M6 T21): remotes a tier bigger or smaller than the player. */
@@ -419,7 +465,7 @@ export class GameScene {
    */
   private updateLight(view: SceneView, halfWidth: number, depth: number | null): void {
     this.caustic = this.causticAt(depth);
-    const sunTime = this.sun.advance(view.time, depth);
+    const sunTime = this.sun.advance(view.waterTime, depth);
     ZONE_UNIFORMS.uSunTime.value = sunTime;
     const rays = this.rays;
     rays.strength = depth === null || !this.light ? 0 : sunlight(depth, 'rays');
@@ -542,6 +588,7 @@ export class GameScene {
       memory: { geometries: memory.geometries, textures: memory.textures },
       caustic: this.caustic,
       eggs: this.eggs.count(),
+      veil: this.veil.visible ? (this.veil.material as THREE.MeshBasicMaterial).opacity : 0,
       outlines: this.outlines.counts(),
       ...this.post.info(),
     };
@@ -587,6 +634,8 @@ export class GameScene {
     ]) {
       part.dispose();
     }
+    this.veil.geometry.dispose();
+    (this.veil.material as THREE.MeshBasicMaterial).dispose();
     this.post.dispose();
     this.renderer.dispose();
   }

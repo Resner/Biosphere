@@ -17,6 +17,7 @@ describe('CUE_SOUNDS', () => {
         'hatch',
         'reveal',
         'stir',
+        'charge',
         'grow',
         'tier',
         'ping',
@@ -59,6 +60,15 @@ describe('CUE_SOUNDS', () => {
       expect(l.level).toBeLessThanOrEqual(0.2);
       // Soft: it swells in rather than striking.
       expect(l.attack).toBeGreaterThanOrEqual(0.3);
+    }
+  });
+
+  it('makes the egg’s charge a short tick that rises, quiet enough to repeat (M6c T11)', () => {
+    const { seconds, layers } = CUE_SOUNDS.charge;
+    expect(seconds).toBeLessThanOrEqual(0.2);
+    for (const l of layers) {
+      expect(l.toHz ?? 0).toBeGreaterThan(l.hz);
+      expect(l.level).toBeLessThanOrEqual(0.15);
     }
   });
 

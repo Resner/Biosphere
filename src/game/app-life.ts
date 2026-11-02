@@ -15,15 +15,16 @@ import type { Screen } from './screens';
 const HATCH_WAIT_MS = 4000;
 
 /**
- * The longest a hatch waits for its egg to be ripe (wall time): the exotic stir and crack, and a
- * margin. It only matters while the egg's clock is held (a frozen world) or frames stop.
+ * The longest a hatch waits for its egg to be ripe (wall time): the paced crack's wait (M6c T11),
+ * the exotic crack, and a margin. It only matters while the egg's clock is held (a frozen world) or
+ * frames stop.
  */
-const EGG_RIPE_CAP_MS = EGG.stirMs.exotic + EGG.crackMs.exotic + 1000;
+const EGG_RIPE_CAP_MS = EGG.paced.waitMs + EGG.crackMs.exotic + 1000;
 
 /** Starting a life: a hatch, the pending child or an ancestor, and the switch into it. */
 export class LifeStarts {
   /**
-   * A hatch waits for its egg's stir and crack before play begins (M6b T11): `run` starts the life
+   * A hatch waits for its egg's paced crack before play begins (M6b T11, M6c T11): `run` starts the life
    * in the frame that finds the egg ripe, so the shell bursts in that same frame, or after
    * `EGG_RIPE_CAP_MS` at the latest. The promise settles once it ran.
    */

@@ -1,7 +1,8 @@
-// The eggs on screen (M6 T20, M6b T11): the beacon reveal at the screen's centre or beside the
-// parent, the carried egg on its tether, the peers' eggs (from their snapshots' egg mark), and the hatch, where
-// the child grows out of the shell and the parent dissolves where it stood. DOM-free: the shell says
-// what happened and draws what this returns. Presentation only; nothing here touches the sim.
+// The eggs on screen (M6 T20, M6b T11, M6c T11): the beacon reveal at the screen's centre or beside
+// the parent, the carried egg on its tether, the peers' eggs (from their snapshots' egg mark), and the
+// hatch, where the child grows out of the shell and the parent dissolves where it stood. A genesis
+// and a hatch hold the scene still and let the player charge and crack the egg. DOM-free: the shell
+// says what happened and draws what this returns. Presentation only; nothing here touches the sim.
 
 import type { RarityTier } from '../genome/rarity';
 import type { CreatureSource } from '../render/creature-cache';
@@ -126,16 +127,19 @@ export class EggShow {
   };
 
   constructor(
-    /** The shell bursts: where, how big, with how many rings, and for what. */
+    /** The shell bursts: where, how big, with how many rings, for what, and after a full charge. */
     private readonly onBurst: (
       x: number,
       y: number,
       radius: number,
       rings: number,
       mode: EggMode | null,
+      full: boolean,
     ) => void,
     /** The beacon came and the egg begins to stir (its sound). */
     private readonly onStir: () => void = () => {},
+    /** A poke charged the egg (its tick, pitched by the charge it reached). */
+    private readonly onPoke: (charge: number) => void = () => {},
   ) {}
 
   get mode(): EggMode | null {
@@ -159,12 +163,34 @@ export class EggShow {
     return this.reveal.pose(now, reduced, this.hookPose).angle + this.lean;
   }
 
-  /** A click on the waiting egg, or Space during a genesis: one wobble. False when no egg waits on screen. */
+  /**
+   * A click on the egg, or Space during a genesis, while it waits or stirs: a wobble and more charge
+   * (M6c T11). False when no egg on screen answers.
+   */
   poke(now: number): boolean {
-    return this.ownShown && this.reveal.poke(now);
+    if (!this.ownShown || !this.reveal.poke(now)) return false;
+    this.onPoke(this.reveal.charge);
+    return true;
   }
 
-  /** A click or Enter while the egg stirs or cracks: the burst comes now. */
+  /** The button that poked is let go (a long enough hold cracks a paced egg). */
+  lift(): void {
+    this.reveal.lift();
+  }
+
+  /**
+   * The still scene (M6c T11): a genesis or a hatch, from its egg's arrival until the shell
+   * bursts. The camera holds on the egg, the water's clock pauses and the rest of the scene dims.
+   */
+  still(): boolean {
+    const { phase } = this.reveal;
+    return (
+      (this.modeNow === 'genesis' || this.modeNow === 'hatch') &&
+      (phase === 'waiting' || phase === 'stirring' || phase === 'cracking')
+    );
+  }
+
+  /** Enter (or a click on a mating's egg) while the egg stirs or cracks: the burst comes now. */
   skip(now: number): boolean {
     return this.ownShown && this.reveal.skip(now);
   }
@@ -187,7 +213,7 @@ export class EggShow {
    */
   genesisBeacon(now: number, tier: RarityTier | null): void {
     if (this.modeNow !== 'genesis' || this.reveal.phase !== 'waiting') return;
-    this.reveal.stir(now, { tier, opens: true, hold: true });
+    this.reveal.stir(now, { tier, opens: true, hold: true, paced: true });
     this.onStir();
   }
 
@@ -209,13 +235,15 @@ export class EggShow {
   }
 
   /**
-   * H: the carried egg cracks open and holds until the hub has hatched the child. `carried` is
-   * false when the parent is gone (the death screen's choice): the child then hatches in the open.
+   * H: the carried egg waits for the player to charge and crack it (M6c T11), as a genesis's does,
+   * and holds until the hub has hatched the child. `carried` is false when the parent is gone (the
+   * death screen's choice): the child then hatches in the open.
    */
   hatchStart(now: number, tier: RarityTier, carried: boolean): void {
     this.modeNow = 'hatch';
     this.frozen = carried;
-    this.reveal.crack(now, { tier, opens: true, hold: true });
+    this.reveal.stir(now, { tier, opens: true, hold: true, paced: true });
+    this.onStir();
   }
 
   /**
@@ -301,7 +329,8 @@ export class EggShow {
     // The burst rings go where the egg is now (a genesis's egg has just left the title screen).
     if (burst && this.ownShown) {
       const rings = input.reduced ? 1 : EGG.burstRings[reveal.tier ?? 'common'];
-      this.onBurst(this.ownView.x, this.ownView.y, this.ownView.radius, rings, mode);
+      const { x, y, radius } = this.ownView;
+      this.onBurst(x, y, radius, rings, mode, reveal.fullCharge);
     }
     this.peerEggs(input);
     return this.out;

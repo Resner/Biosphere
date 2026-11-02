@@ -46,6 +46,11 @@ describe('Effects', () => {
     fx.burst(AT, 0);
     expect(fx.rings).toHaveLength(3);
     expect(fx.snapshot().bursts).toBe(2);
+    // A full charge adds a shockwave, wider than every ring of rarity (M6c T11).
+    fx.burst(AT, 3, true);
+    expect(fx.rings).toHaveLength(7);
+    expect(fx.rings.at(-1)?.size).toBeGreaterThan(Math.max(...sizes));
+    expect(fx.snapshot().shockwaves).toBe(1);
   });
 
   it('shrinks the drawn body with a pulse when a mating is paid for (M6 T20)', () => {

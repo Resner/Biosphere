@@ -224,8 +224,9 @@ async function revealAt(page: Page): Promise<void> {
   expect(stirred.status).not.toBe('awaiting');
   expect(log.filter((e) => e.status === 'awaiting').every((e) => e.phase === 'waiting')).toBe(true);
   expect(Math.max(...log.map((e) => e.stir))).toBe(1);
-  // The time cap: the burst within the stir and crack times of its rarity, unless the check
-  // held it (then at once when play begins).
+  // The time cap: `waitPlaying` presses Enter on the stir, which cracks the paced egg at once (M6c
+  // T11), so the burst comes within the stir and crack times of its rarity, unless the check held
+  // it (then at once when play begins).
   const tier = s.player?.rarity ?? 'common';
   const revealed = first('revealed').t;
   const playing = log.find((e) => e.screen === 'playing')?.t ?? revealed;
@@ -335,8 +336,9 @@ async function pokeAndSkip(browser: Browser, first: Promise<void>): Promise<void
   for (const e of wobble.angles.filter((w) => w.since >= 1000)) {
     expect(Math.abs(e.angle)).toBeLessThanOrEqual(0.01);
   }
-  // Enter during the stir jumps to the crack, and the burst follows as soon as play can begin.
-  await waitPlaying(page);
+  // Enter during the stir jumps to the crack, and the burst follows as soon as play can begin
+  // (pressed above, so the helper leaves the paced crack alone).
+  await waitPlaying(page, { paced: true });
   await page.waitForFunction(() => window.__bs?.state().egg.phase === 'revealed');
   const log = await eggLog(page);
   // Enter jumped the stir to the crack at once (held while the check runs, then the burst).
