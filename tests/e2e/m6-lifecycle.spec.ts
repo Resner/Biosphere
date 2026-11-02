@@ -198,6 +198,8 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
   // 7. A promotes the child: the hatch sequence plays. The child then dies of pressure.
   const child = (await state(a)).offspring.creature;
   await a.keyboard.press('h');
+  // The hatch waits up to 6 s for the player to crack it (M6c T11): Enter cracks it now.
+  await a.keyboard.press('Enter');
   await a.waitForFunction((id) => window.__bs?.state().life.creature === id, child, {
     timeout: 20_000,
   });

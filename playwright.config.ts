@@ -54,6 +54,8 @@ const m6bMinimapHubPort = 8802;
 const m6bLifecycleHubPort = 8803;
 // The M6c reset spec (8804): a player staged from before the world renewal sees the notice once.
 const m6cResetHubPort = 8804;
+// The M6c egg spec (8805), with the M5 hooks: the still scene, the charge and the paced crack.
+const m6cEggHubPort = 8805;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -259,6 +261,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m6cResetHubPort} --persist-to .wrangler/e2e-state-m6c-reset`,
       url: `http://localhost:${m6cResetHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m6cEggHubPort} --persist-to .wrangler/e2e-state-m6c-egg --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m6cEggHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

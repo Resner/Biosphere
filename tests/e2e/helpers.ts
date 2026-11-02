@@ -189,6 +189,9 @@ export const M6B_LIFECYCLE_HUB = 'http://localhost:8803';
 /** The M6c authority for the world renewal (M6c T2), with its E2E hook that stages a pre-reset player. */
 export const M6C_RESET_HUB = 'http://localhost:8804';
 
+/** The M6c authority for the egg spec (M6c T11), with the M5 hooks, alone in its pond. */
+export const M6C_EGG_HUB = 'http://localhost:8805';
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
@@ -200,11 +203,27 @@ export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promis
 export const clickHatch = (page: Page) =>
   page.getByRole('button', { name: 'Hatch', exact: true }).click();
 
-/** Waits for play to start after a recorded hatch, which takes a beacon round (3 to 6 s). */
-export async function waitPlaying(page: Page): Promise<void> {
-  await page.waitForFunction(() => window.__bs?.state().screen === 'playing', undefined, {
-    timeout: 15_000,
-  });
+/**
+ * Waits for play to start after a recorded hatch, which takes a beacon round (3 to 6 s). The egg
+ * then waits up to 6 s for the player to crack it (M6c T11): by default this presses Enter as soon
+ * as it stirs, as an impatient player would; `paced: true` leaves it to the player or its wait.
+ */
+export async function waitPlaying(page: Page, { paced = false } = {}): Promise<void> {
+  await page.waitForFunction(
+    (paced) => {
+      const s = window.__bs?.state();
+      if (!s) return false;
+      // Pressed in the page, in the frame that sees the stir: on the title or death screen only,
+      // since Enter in play opens the chat.
+      if (!paced && s.screen !== 'playing' && s.egg.phase === 'stirring' && s.egg.paced) {
+        dispatchEvent(new KeyboardEvent('keydown', { key: 'Enter' }));
+        dispatchEvent(new KeyboardEvent('keyup', { key: 'Enter' }));
+      }
+      return s.screen === 'playing';
+    },
+    paced,
+    { timeout: 15_000, polling: 'raf' },
+  );
   const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
   await page.mouse.move(width / 2, height / 2);
 }

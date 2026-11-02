@@ -196,6 +196,8 @@ test('after a mating both eggs show to both players, and H hatches the child out
       }),
   );
   await a.keyboard.press('h');
+  // The hatch waits up to 6 s for the player to crack it (M6c T11): Enter cracks it now.
+  await a.keyboard.press('Enter');
   await a.waitForFunction((id) => window.__bs?.state().life.creature === id, child, {
     timeout: 20_000,
   });
