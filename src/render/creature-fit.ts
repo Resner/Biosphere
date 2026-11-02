@@ -61,6 +61,7 @@ export function addCreature(
   m.gait = NO_MOTION;
   addBody(m, plan, spine, d);
   addMouth(m, plan, spine, d);
+  m.gait = NO_MOTION; // the mouth moves with its front station; the organs do not
   addOrgans(m, plan, spine, anatomy, organs);
   addShell(m, plan, spine, d);
   addEyes(m, plan, spine, d);

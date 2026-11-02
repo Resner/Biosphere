@@ -202,7 +202,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 - [x] T6 Pass 1's glass again; limbs of the same glass; a real mouth [opus]
   - Done: pass 1's face and fresnel rim (full over ~1.5 px, limbs too), limbs capped at `rimPeak`, setae 0.6 of it; mouth disc is body glass plus `creature-mouth.ts` (funnel and cilia, or mandibles, part 31); `vPart` is `flat`; `gallery-masks.ts` draws the part classes for `__gallery` masks; `m6c-glass.spec.ts`.
-  - Gotcha: an interpolated `vPart` painted kind-1 strokes along plate edges and the mouth's ring; the shrimp's bright leg fan lifts the water between its setae, so `m6-creature-mesh`'s stroke count reads each stroke's local floor.
+  - Gotcha: an interpolated `vPart` painted kind-1 strokes along plate edges and the mouth's ring; the shrimp's bright leg fan lifts the water between its setae, so `m6-creature-mesh`'s stroke count reads each stroke's local floor. `m3-lab`'s hue check drops from 0.08 to 0.06: the brighter glass leaves a pale specimen's pigment near grey (closest pair 0.074).
   - Why, from `creature.frag.glsl` measured against the pass-1 shader (commit 11cf98c):
     - **"Fully see-through"**: M6b T3 cut the body's face to `uCore × (0.05 + 0.13z)` from `0.15 + 0.3z`, and swapped pass 1's soft fresnel rim (power 2 to 1.4 at ×1.8, which lit the glass inside its edge: the "hazy refraction" the owner liked) for a steep power-5 rim at ×5. The face is about 2.5× darker and the edge a hairline.
     - **"Gray limbs"**: a thin leg is painted `uRim × (0.25 + 0.4z)`, then capped at luminance 0.5 (`PART_LUMA`, M6b T4's overlap cap), while the body rim is ×5. A limb ends up at about a third of the rim's brightness.
