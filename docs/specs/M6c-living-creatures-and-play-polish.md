@@ -177,7 +177,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - T3's budget still holds.
   - Notes: geometry rules only; the mesh builder already draws curvature, taper and branches. Check the Lab by eye against references 02 and 03, and record in the PR what still reads as artificial.
 
-- [x] T5 The Lab shows evolved creatures; the gallery under rules 8 [opus] (in progress)
+- [x] T5 The Lab shows evolved creatures; the gallery under rules 8 [opus]
   - Done: `evolvedGrid` breeds 4 lineages toward 4 aims for 60 generations, a row reading founder to generation 60 (ADR 0046); 07–20 are Evolved picks, 21–36 kept (all still their class), `wildGenome` moved to `tests/wild.ts`.
   - Gotcha: the spec's 15 random generations never leave the cell stage (1,141 of 1,200 cells, ≤ 2 segments, median 4 classes), so steps 1 and 4 changed as below; bred chains often show only 0–2 visible parts.
   - Why: wild mode is uniform random bytes ("random genome bytes that show the extremes", `src/lab/specimens.ts`). No lineage reaches those without selection, yet the owner judges the creatures by it.
