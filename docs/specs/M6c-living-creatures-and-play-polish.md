@@ -384,7 +384,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     3. Update the render rules' "pass-6 is the only one" line to name pass 7.
   - Acceptance: the sheet and note are committed, and the T6 and T7 metrics pass on it.
 
-- [ ] T14 End-to-end scenario, owner checks, documentation sync (in progress)
+- [x] T14 End-to-end scenario, owner checks, documentation sync
   - Steps:
     1. `m6c-lifecycle.spec.ts` (`@slow`, hub 8806):
        - the renewed-world notice;
@@ -395,6 +395,8 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
        It follows `.claude/rules/tests.md`'s determinism rules, and CI repeats it 3 times before merge (ADR 0042).
     2. Sync DESIGN §2, §4–§6, §9 and §10, the rules files and `docs/art/README.md`.
   - Acceptance: every owner point in the table maps to a named test or the T13 note. Each PR E2E part stays under `tests.md`'s 5 minutes; new long scenarios are `@slow`.
+  - Done: `m6c-lifecycle.spec.ts` (hub 8806) walks the notice, a charged paced genesis, a UV dive with the gauge and a mating with the child's hatch (about 85 s locally); docs checked against the code, art README names pass 7.
+  - Owner points → evidence: reset `m6c-reset` and the notice step; organic bodies, glass, organs `m6c-glass`, `m6c-organs`, unit tests and the T13 note; Firefox `m6c-firefox`, `m6c-flash`; hits `m6c-hits` and the dive step; shallows sunlight `m6b-water`; egg `m6c-egg` and the reveal step; minimap `m6c-minimap` and the gauge step.
 
 ## Rubric
 

@@ -56,6 +56,8 @@ const m6bLifecycleHubPort = 8803;
 const m6cResetHubPort = 8804;
 // The M6c egg spec (8805), with the M5 hooks: the still scene, the charge and the paced crack.
 const m6cEggHubPort = 8805;
+// The M6c lifecycle spec (8806), with the M5 hooks and the E2E hook that stages a pre-reset player.
+const m6cLifecycleHubPort = 8806;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -267,6 +269,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m6cEggHubPort} --persist-to .wrangler/e2e-state-m6c-egg --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
       url: `http://localhost:${m6cEggHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m6cLifecycleHubPort} --persist-to .wrangler/e2e-state-m6c-lifecycle --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m6cLifecycleHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
