@@ -375,7 +375,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Closing
 
-- [ ] T13 One look sheet under rules 8 [opus]
+- [x] T13 One look sheet under rules 8 [opus]
+  - Done: `pass-7.png` and `pass-7.md` (each owner point in a sentence; bar fails on pass 6's same six cells, now from sparseness and whiteness on leggy bodies), no render change; all 13 look tests pass on it.
+  - Gotcha: the look specs sit in the `post` project, so run them with `--no-deps` or Playwright first runs every chromium, social and pond spec.
   - Steps:
     1. Render `npm run gallery -- --pass 7` once.
     2. Write `pass-7.md`: an honest comparison with `pass-1.png` and references 02–05, covering each owner point in the table above in a sentence, including what is still not right. Do not fix in a series; fix only what clearly breaks a T3–T7 acceptance.
