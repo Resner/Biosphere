@@ -313,7 +313,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
   - Done: shallows and the twilight's top at caustics 0.55, rays 0.4 (`ZONE_LOOK`); shallows 0.55/0.4, twilight 0.158/0.115, shallows change 2.30, spread 4.97. `m6-light` and `m6-budget` retargeted too.
   - Gotcha: the shallows' `change` depends on the pattern's phase at the fixed clocks; pace 0.2 measured 2.449–2.450 against the 2.45 bound, so the pace is now 0.16.
 
-- [x] T11 The egg reveal: a still scene, and clicks that matter [opus] (in progress)
+- [x] T11 The egg reveal: a still scene, and clicks that matter [opus]
   - Done: `EggReveal` charge, hint cycle, paced crack (`paced`, `crackedBy`) and a full-charge burst; `EggShow.still()` drives the camera hold, the water clock (`SceneView.waterTime`), the 35% veil and `[data-still]`; a pitched `charge` tick; rolling stars; `m6c-egg.spec.ts` (hub 8805).
   - Gotcha: a paced egg waits 6 s after the beacon, so `waitPlaying` presses Enter on the stir (`{ paced: true }` opts out) and specs press Enter after H; Enter during a still scene cracks instead of opening the chat.
   - Why:
