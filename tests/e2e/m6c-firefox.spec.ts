@@ -64,9 +64,13 @@ function faceEnergy(image: Image, masks: CellMasks): { energy: number; pixels: n
   return { energy: pixels === 0 ? Number.NaN : sum / pixels, pixels };
 }
 
-/** True when no face on the sheet holds any detail: the canvas reached the capture blank. */
+/**
+ * True when no face on the sheet holds any real detail: the canvas reached the capture blank or
+ * flat. A flat sheet reads a hair above zero on some face (E2E main, M6c T12: every Chromium face
+ * read 0.0 yet one was positive), so the test is the dither floor, not zero. Real faces read 19 and up.
+ */
 function blankSheet(image: Image, specimens: GalleryState['specimens']): boolean {
-  return specimens.every((s) => !(faceEnergy(image, s.masks).energy > 0));
+  return specimens.every((s) => !(faceEnergy(image, s.masks).energy >= FLOOR));
 }
 
 /**
