@@ -7,19 +7,24 @@
 // carries the body, and parts fitted by their drawn reach.
 
 import { clamp, lerp } from '../sim/math';
-import { type Bending, buildOf, buildSegments, formOf, widthScales } from './develop-chain';
-import {
-  buildCarapace,
-  buildColliders,
-  buildEyes,
-  buildMembranes,
-  buildMouth,
-} from './develop-detail';
-import { outlineOf } from './develop-fit';
-import { bilateralParts, dress, mirror, radialParts } from './develop-organize';
-import { buildParts } from './develop-parts';
-import { type BodyPlan, D, PLATE_THICKNESS, type PlanSegment, type Plate } from './develop-plan';
+import type { Bending } from './develop-chain';
+import * as fromChain from './develop-chain';
+import * as fromDetail from './develop-detail';
+import * as fromFit from './develop-fit';
+import * as fromOrganize from './develop-organize';
+import * as fromParts from './develop-parts';
+import type { BodyPlan, PlanSegment, Plate } from './develop-plan';
+import * as fromPlan from './develop-plan';
 import type { Traits } from './express';
+
+// Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
+// 0.15 ms development budget (stats.test.ts) in these hot loops.
+const { buildOf, buildSegments, widthScales, formOf } = fromChain;
+const { outlineOf } = fromFit;
+const { D, PLATE_THICKNESS } = fromPlan;
+const { buildParts } = fromParts;
+const { radialParts, bilateralParts, mirror, dress } = fromOrganize;
+const { buildCarapace, buildMouth, buildColliders, buildEyes, buildMembranes } = fromDetail;
 
 export { bodyViolations, hashPlan, planBounds } from './develop-check';
 export { polygonArea } from './develop-detail';

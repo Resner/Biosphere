@@ -3,24 +3,22 @@
 import { Hasher } from '../sim/hash';
 import { length as hypot, PI } from '../sim/math';
 import { RULES } from '../sim/rules';
-import { apart, farEdge } from './develop-chain';
-import { polygonArea, turnAt } from './develop-detail';
-import { ringAngle } from './develop-fit';
-import { bristleAt, motileArea } from './develop-organize';
-import { isWeaponTip, partReach } from './develop-parts';
-import {
-  type Appendage,
-  type BodyPlan,
-  branchFactor,
-  D,
-  dirOf,
-  EYE_SIZE,
-  type PlanSegment,
-  type Point,
-  radiusAlong,
-  rootOf,
-  X,
-} from './develop-plan';
+import * as fromChain from './develop-chain';
+import * as fromDetail from './develop-detail';
+import * as fromFit from './develop-fit';
+import * as fromOrganize from './develop-organize';
+import * as fromParts from './develop-parts';
+import type { Appendage, BodyPlan, PlanSegment, Point } from './develop-plan';
+import * as fromPlan from './develop-plan';
+
+// Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
+// 0.15 ms development budget (stats.test.ts) in these hot loops.
+const { rootOf, branchFactor, dirOf, radiusAlong, EYE_SIZE, D, X } = fromPlan;
+const { farEdge, apart } = fromChain;
+const { partReach, isWeaponTip } = fromParts;
+const { bristleAt, motileArea } = fromOrganize;
+const { ringAngle } = fromFit;
+const { polygonArea, turnAt } = fromDetail;
 
 /** The furthest any part of the plan can reach from the core centre. */
 export function planBounds(plan: BodyPlan): number {

@@ -1,18 +1,13 @@
 // Development, chain stage: moved verbatim out of develop.ts (ADR 0045).
 
 import { clamp, cos, length as hypot, lerp, PI, pow, sin, TAU } from '../sim/math';
-import {
-  D,
-  type PlanForm,
-  type PlanSegment,
-  peak,
-  radiusAlong,
-  range,
-  STRETCH,
-  TRUNK_HEAD,
-  WIDTH,
-} from './develop-plan';
+import type { PlanForm, PlanSegment } from './develop-plan';
+import * as fromPlan from './develop-plan';
 import type { Traits } from './express';
+
+// Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
+// 0.15 ms development budget (stats.test.ts) in these hot loops.
+const { peak, range, D, STRETCH, radiusAlong, TRUNK_HEAD, WIDTH } = fromPlan;
 
 /** How the spine bends: everything of `PlanForm` but `slim`, which the chain's layout decides. */
 export type Bending = Omit<PlanForm, 'slim'>;

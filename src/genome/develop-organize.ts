@@ -1,19 +1,11 @@
 // Development, organize stage: moved verbatim out of develop.ts (ADR 0045).
 
 import { length as hypot, PI } from '../sim/math';
-import { type Outline, type Piece, ring, shape, uncover } from './develop-fit';
-import { LAYOUT, PLAIN, separate } from './develop-parts';
-import {
-  type Appendage,
-  branchWeight,
-  D,
-  dirOf,
-  onAxis,
-  type Part,
-  type PlanSegment,
-  rootOf,
-  X,
-} from './develop-plan';
+import type { Outline, Piece } from './develop-fit';
+import * as fromFit from './develop-fit';
+import * as fromParts from './develop-parts';
+import type { Appendage, Part, PlanSegment } from './develop-plan';
+import * as fromPlan from './develop-plan';
 import {
   LEG_DIR,
   longest,
@@ -25,6 +17,12 @@ import {
   spineShare,
   spokeVary,
 } from './organism';
+
+// Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
+// 0.15 ms development budget (stats.test.ts) in these hot loops.
+const { uncover, shape, ring } = fromFit;
+const { D, branchWeight, rootOf, onAxis, dirOf, X } = fromPlan;
+const { PLAIN, LAYOUT, separate } = fromParts;
 
 /** Motile area: length × girth × beat over parts that beat at all, counting branches. */
 export function motileArea(appendages: readonly Piece[]): number {

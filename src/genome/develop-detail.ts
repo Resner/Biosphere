@@ -3,28 +3,26 @@
 import type { Collider } from '../sim/body';
 import { atan2, clamp, cos, length as hypot, lerp, PI, sin } from '../sim/math';
 import { RULES } from '../sim/rules';
-import { fusedCount } from './develop-chain';
-import { curveAt, partCurve } from './develop-parts';
-import {
-  type Appendage,
-  type Carapace,
-  D,
-  dirOf,
-  EYE_SIZE,
-  EYE_STALK,
-  type Membrane,
-  onAxis,
-  PLATE_THICKNESS,
-  type PlanEyes,
-  type PlanMouth,
-  type PlanSegment,
-  type Point,
-  placeOn,
-  rootOf,
-  turnTo,
-  X,
+import * as fromChain from './develop-chain';
+import * as fromParts from './develop-parts';
+import type {
+  Appendage,
+  Carapace,
+  Membrane,
+  PlanEyes,
+  PlanMouth,
+  PlanSegment,
+  Point,
 } from './develop-plan';
+import * as fromPlan from './develop-plan';
 import type { Traits } from './express';
+
+// Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
+// 0.15 ms development budget (stats.test.ts) in these hot loops.
+const { X, onAxis, rootOf, dirOf, D, placeOn, PLATE_THICKNESS, turnTo, EYE_SIZE, EYE_STALK } =
+  fromPlan;
+const { fusedCount } = fromChain;
+const { partCurve, curveAt } = fromParts;
 
 /** The signed area of a polygon: positive when it runs counter-clockwise. */
 export function polygonArea(points: readonly Point[]): number {

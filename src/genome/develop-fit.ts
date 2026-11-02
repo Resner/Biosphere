@@ -1,20 +1,15 @@
 // Development, fit stage: moved verbatim out of develop.ts (ADR 0045).
 
 import { atan2, clamp, cos, length as hypot, PI, sin, TAU } from '../sim/math';
-import { type Bend, bendOf, capAndBend, mirrorBend, reachFrom, roughReach } from './develop-parts';
-import {
-  type Appendage,
-  branchFactor,
-  D,
-  maxAngle,
-  onAxis,
-  type Part,
-  type PlanSegment,
-  type Point,
-  placeOn,
-  rootOf,
-  X,
-} from './develop-plan';
+import type { Bend } from './develop-parts';
+import * as fromParts from './develop-parts';
+import type { Appendage, Part, PlanSegment, Point } from './develop-plan';
+import * as fromPlan from './develop-plan';
+
+// Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
+// 0.15 ms development budget (stats.test.ts) in these hot loops.
+const { D, onAxis, placeOn, maxAngle, rootOf, branchFactor, X } = fromPlan;
+const { capAndBend, bendOf, mirrorBend, roughReach, reachFrom } = fromParts;
 
 /** An ellipse of the drawn body, ready for inside tests: its centre, axis and inverse half-axes. */
 interface Ellipse {

@@ -25,8 +25,9 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
     - `npm run check:full` is green with no golden file changed (`git diff --stat -- src/genome/__golden__` is empty).
     - Every file in `src/genome/` is under 1,000 lines.
     - `git diff -M --stat` shows moves, not rewrites.
-  - Done: `develop.ts` (125 lines) has `grow`, `develop` and the re-exports; the stages are `develop-plan` (types, caps, geometry), `-chain`, `-parts`, `-fit`, `-organize`, `-detail`, `-check` (bounds, `bodyViolations`, `hashPlan`), each under 520 lines. Moved by script, so statements are verbatim; only signatures that gained `export` re-wrapped.
+  - Done: `develop.ts` (125 lines) has `grow`, `develop` and the re-exports; the stages are `develop-plan` (types, caps, geometry), `-chain`, `-parts`, `-fit`, `-organize`, `-detail`, `-check` (bounds, `bodyViolations`, `hashPlan`), each under 520 lines. Moved by script, so statements are verbatim; only signatures that gained `export` re-wrapped, and each stage binds its imports once (`const { rootOf } = fromPlan`).
   - Gotcha: the stages import only downward (plan → chain → parts → fit → organize / detail → check), so there is no cycle; `develop.ts` is the only importer of all.
+  - Gotcha: the test runner reads an import through a getter on every use, so plain `import { rootOf }` in the hot stages made `stats.test.ts`'s 0.15 ms budget fail (0.113 → 0.142 ms); binding once at module load restores it (0.115). Keep that form.
 
 - [x] C2 Split `src/game/app.ts` (2,217 lines; `startApp` alone is about 1,940) into modules under 1,000 lines [opus]
   - Why: as C1. Every HUD, screen and online task edits this one closure.

@@ -2,24 +2,15 @@
 
 import { clamp, cos, length as hypot, lerp, PI, sin } from '../sim/math';
 import { RULES } from '../sim/rules';
-import { drawnWidth } from './develop-chain';
-import {
-  type Appendage,
-  CURVATURE,
-  D,
-  LENGTH,
-  maxAngle,
-  type Part,
-  type PlanSegment,
-  type Point,
-  peak,
-  rootOf,
-  TAPER,
-  unit,
-  WIDTH,
-  X,
-} from './develop-plan';
+import * as fromChain from './develop-chain';
+import type { Appendage, Part, PlanSegment, Point } from './develop-plan';
+import * as fromPlan from './develop-plan';
 import type { Traits } from './express';
+
+// Bound once: the test runner reads an import through a getter on every use, which costs a fifth of the
+// 0.15 ms development budget (stats.test.ts) in these hot loops.
+const { D, unit, WIDTH, TAPER, CURVATURE, X, LENGTH, peak, maxAngle, rootOf } = fromPlan;
+const { drawnWidth } = fromChain;
 
 /** Parts root along the front `rooms` segments (a coil's outer whorl, M6b T7; else all of them). */
 export function buildParts(traits: Traits, scales: readonly number[], rooms: number): Part[] {
