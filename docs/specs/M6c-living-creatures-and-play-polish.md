@@ -243,7 +243,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
 
 ### Firefox
 
-- [ ] T8 Firefox: no aliasing in the body, no flashing [opus]
+- [ ] T8 Firefox: no aliasing in the body, no flashing [opus] (in progress)
   - Why: the owner's Firefox screenshot shows dotted white lines and a coarse cell pattern in the middle of a body, and bodies that "bug out / flash for a second when there are a lot of vertices". CI and the sessions only ever ran Chromium.
   - Likely causes, to confirm in this order:
     - **Sub-pixel lines drawn by derivatives**: the segment walls (`vWall` with `fwidth`, where the `floor` makes the derivative jump), the gut line and the setules are under a pixel wide, and Firefox's coarser derivatives turn them into dots.
