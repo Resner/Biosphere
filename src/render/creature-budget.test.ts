@@ -1,4 +1,5 @@
 import { afterEach, describe, expect, it, vi } from 'vitest';
+import { speedTest } from '../../tests/heavy';
 import { worstBody } from '../../tests/worst-body';
 import { develop } from '../genome/develop';
 import { express } from '../genome/express';
@@ -42,7 +43,7 @@ const plan = develop(express(worst.genome));
 afterEach(() => vi.restoreAllMocks());
 
 describe('the render budget of one body', () => {
-  it('builds the worst-case body on high in under 100 ms, within its budget', () => {
+  speedTest('builds the worst-case body on high in under 100 ms, within its budget', () => {
     mesh.buildCreatureGeometry(plan, 'high'); // warm up the JIT
     const start = performance.now();
     const geometry = mesh.buildCreatureGeometry(plan, 'high');

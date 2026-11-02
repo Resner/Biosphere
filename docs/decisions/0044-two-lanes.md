@@ -1,6 +1,6 @@
 # 0044: Two lanes: build and care, each with its own lock
 
-- Status: accepted (refines 0015's one-run-at-a-time and 0020's lowest-number rule to one PR per lane; refines 0042's "a red E2E main comes first"; refined by 0045: the care lane also works a maintenance backlog)
+- Status: accepted, partly superseded by 0047: the two lanes and one PR per lane are replaced by identical workers with one PR per task; CI's two Playwright workers and "a red `E2E main` holds back only the milestone close" stand (it refined 0015, 0020 and 0042)
 - Date: 2026-11-01
 
 ## Context

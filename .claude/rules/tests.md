@@ -14,6 +14,7 @@ paths:
 - Unit tests sit next to the code (`src/**/*.test.ts`). E2E runs against `dist/` (`tests/e2e/*.spec.ts`).
 - Tag scenarios longer than about 20 s with `@slow`, at the end of the title. They run only in `test:e2e:full`: `E2E main` and the release. The PR suite runs in five parallel parts of about 3.5 minutes each; keep each part under about 5.
 - A unit test that takes more than about 2 s is a `heavyTest` (`tests/heavy.ts`, ADR 0045). `npm run check` skips it, and `check:full` and CI run it, so it still gates every merge. It gets the `heavy` tag's 120 s timeout, so it passes none of its own.
+- A unit test that times code against a budget is a `speedTest` (`tests/heavy.ts`, ADR 0047). `check:full` runs it alone after every other test, with no files in parallel, because a timing taken beside other tests measures the machine's load.
 - Deterministic scenarios (ADR 0042). Every release failure so far came from a scenario that assumed a fast runner. A scenario:
   - waits on `state()` conditions, never on wall time or a fixed number of frames;
   - drives game time through the sim (ticks, `debug.timeScale`, the hub's scale hooks) rather than real seconds, and allows for a runner that plays far fewer ticks per second than a laptop;

@@ -17,6 +17,7 @@ You run in a subagent on Opus 5.5 (ADR 0026). The run that called you has claime
 2. Decide open questions yourself. Record lasting decisions as ADRs (`docs/decisions/`, from `0000-template.md`). If the spec changes a mechanic or an initial value, update `docs/DESIGN.md` in the same PR.
 3. Write `docs/specs/<id>-<slug>.md` from `.claude/skills/spec/template.md`:
    - Tasks in build order. Each one fits one session and one PR, and can be finished and verified in a single run.
+   - Two workers build at once (ADR 0047), so say which tasks can run in parallel: end a task's title with `(after T2, T4)` naming only the tasks it really needs, `(after none)` when it needs none. A task without the mark waits for every task above it. Prefer tasks that touch different files; two parallel tasks editing the same file cost a merge each.
    - Every task lists concrete acceptance tests (input → expected result) that can be written before the code.
    - Append `[opus]` to a task's title when its main work is UI or look (`src/render/`, `src/lab/`, HUD, screens and other UI in `src/game/`), netcode (`src/net/`, signaling, relay and referee in `worker/`) or security (signatures, records and verification in `src/ledger/`, admission, validation of untrusted input). /next runs those on Opus at high effort, the rest on Sonnet (ADR 0023).
    - Every exit criterion from the roadmap maps to tasks and to the end-to-end check.

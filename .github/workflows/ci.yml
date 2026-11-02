@@ -33,11 +33,11 @@ jobs:
         with:
           fetch-depth: 2 # the PR merge commit and its base, for the scope check
 
-      # One factory PR per lane at a time (ADRs 0020, 0044): a `claude/` PR fails while an open
-      # `claude/` PR of its lane (`Lane: care` in the body, else build) from this repository has a
-      # lower number, so a duplicate claim from a parallel run can never merge. Fork branches are
+      # One factory PR per task (ADRs 0020, 0047): a `claude/` PR fails while an older open `claude/`
+      # PR from this repository carries the same `Task:` line in its body, so a duplicate claim from
+      # a parallel run can never merge. PRs without the line are not checked. Fork branches are
       # ignored, or anyone could block the factory by naming a branch `claude/…`.
-      - name: Single factory PR per lane
+      - name: Single factory PR per task
         if: >-
           github.event_name == 'pull_request' &&
           startsWith(github.head_ref, 'claude/') &&
@@ -48,13 +48,15 @@ jobs:
         run: |
           prs=$(gh api "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100")
           older=$(jq -r --arg repo "$GITHUB_REPOSITORY" --argjson n "$NUMBER" '
-            def lane: if ((.body // "") | test("(^|\n)Lane: care[ \t\r]*(\n|$)")) then "care" else "build" end;
-            (map(select(.number == $n)) | first | lane) as $mine
-            | [.[] | select(.head.repo.full_name == $repo and (.head.ref | startswith("claude/"))
-                            and .number < $n and lane == $mine) | "#\(.number)"]
-            | join(" ")' <<< "$prs")
+            def task: ((.body // "") | capture("(^|\n)Task: *(?<t>[^\r\n]*[^\r\n \t])") | .t) // "";
+            (map(select(.number == $n)) | first | task) as $mine
+            | if $mine == "" then "" else
+                [.[] | select(.head.repo.full_name == $repo and (.head.ref | startswith("claude/"))
+                              and .number < $n and task == $mine) | "#\(.number)"]
+                | join(" ")
+              end' <<< "$prs")
           if [ -n "$older" ]; then
-            echo "::error::Older open factory PR in this lane: $older. Only the lowest-numbered open claude/ PR of a lane may merge (ADRs 0020, 0044). Close the duplicate, or close the older one and push again."
+            echo "::error::Older open factory PR for the same task: $older. Only the lowest-numbered open claude/ PR of a task may merge (ADRs 0020, 0047). Close the duplicate, or close the older one and push again."
             exit 1
           fi
 

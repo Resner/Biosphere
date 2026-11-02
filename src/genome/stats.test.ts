@@ -9,7 +9,7 @@ import {
   metricsAt,
   withLoci,
 } from '../../tests/archetypes';
-import { heavyTest } from '../../tests/heavy';
+import { heavyTest, speedTest } from '../../tests/heavy';
 import { STARTER_PHYS, sanitizePhys } from '../sim/body';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES, RULES_VERSION } from '../sim/rules';
@@ -105,7 +105,7 @@ describe('computeStats: totality and the body seam', () => {
     });
   });
 
-  heavyTest('develops and measures in under 0.15 ms at the median', () => {
+  speedTest('develops and measures in under 0.15 ms at the median', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     // Warm up until the JIT has settled: the first passes cost up to twice the steady speed.
     for (let pass = 0; pass < 3; pass++) for (const t of traits) computeStats(develop(t), t);

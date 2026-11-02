@@ -1,6 +1,6 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { heavyTest } from '../../tests/heavy';
+import { heavyTest, speedTest } from '../../tests/heavy';
 import { type Collider, STARTER_PHYS, sanitizePhys } from '../sim/body';
 import { lerp } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
@@ -404,7 +404,7 @@ describe('bodyViolations: each rule', () => {
 });
 
 describe('develop: speed', () => {
-  heavyTest('develops in under 0.15 ms at the median (ADR 0030)', () => {
+  speedTest('develops in under 0.15 ms at the median (ADR 0030)', () => {
     const traits = Array.from({ length: 1000 }, () => express(decodeGenome(randomBytes())));
     for (const t of traits) develop(t); // warm up
     // The best of thirty runs, so that a busy runner does not fail the build.

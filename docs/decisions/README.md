@@ -14,9 +14,9 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 
 | Topic | Current rule | History |
 |-------|--------------|---------|
-| Factory runs, lanes and claims | 0045 (the care backlog), 0044, 0042 | 0001, 0015, 0020 |
+| Factory runs, workers and claims | 0047, 0042 | 0001, 0015, 0020, 0044, 0045 |
 | Models for specs and tasks | 0026 | 0001, 0023 |
-| CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 | 0001, 0015 |
+| CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 (Playwright workers) | 0001, 0015 |
 | Rules versions and freezing | 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
 | Look and the gallery | 0046, 0043, 0034 | 0024, 0032, 0033 |
@@ -45,7 +45,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0017](0017-workers-vitest-plugin.md) | Worker tests use `@cloudflare/vitest-plugin` | accepted | |
 | [0018](0018-body-seam-and-genome-sharing.md) | Body seam, genome encoding and sharing, shader gait (M3) | accepted | 0025, 0035, 0040 |
 | [0019](0019-ledger-mechanics-and-life-clock.md) | Ledger mechanics, genesis commitments and the life clock (M4) | accepted | 0025, 0029 |
-| [0020](0020-single-factory-pr-guard.md) | Lowest PR number wins, enforced by CI | accepted | 0042, 0044 |
+| [0020](0020-single-factory-pr-guard.md) | Lowest PR number wins, enforced by CI | accepted | 0042, 0044, 0047 |
 | [0021](0021-mating-offspring-and-the-checkpoint-chain.md) | Mating, offspring and the checkpoint chain (M5) | accepted | 0022 |
 | [0022](0022-mating-cooldown-nine-minutes.md) | The mating cooldown is 9 minutes | accepted | 0029 |
 | [0023](0023-opus-for-ui-netcode-and-security-tasks.md) | Opus for UI, netcode and security tasks | accepted | 0026 |
@@ -69,6 +69,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0041](0041-bodies-read-as-organisms.md) | A body plan reads as an organism: parts by region, a visible-part budget | accepted | |
 | [0042](0042-flake-resistant-gates-and-live-claims.md) | Flake-resistant gates and live claims | accepted | 0044 |
 | [0043](0043-glass-sheen-and-two-tone-organs.md) | Glass with pass 1's sheen, organs in two related tones, gallery specimens per rules | accepted, amended | 0046 |
-| [0044](0044-two-lanes.md) | Two lanes: build and care, each with its own lock | accepted | 0045 |
-| [0045](0045-rules-that-fit-the-size.md) | Rules that fit the project's size: a quick check, lean rule files, a care backlog | accepted | |
+| [0044](0044-two-lanes.md) | Two lanes: build and care, each with its own lock | accepted, partly superseded | 0045, 0047 |
+| [0045](0045-rules-that-fit-the-size.md) | Rules that fit the project's size: a quick check, lean rule files, a care backlog | accepted, partly superseded | 0047 |
 | [0046](0046-lab-evolved-lineages-bred-toward-an-aim.md) | The Lab's Evolved mode breeds lineages toward an aim | accepted | |
+| [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted | |

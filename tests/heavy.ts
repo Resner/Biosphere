@@ -9,3 +9,12 @@ import { it } from 'vitest';
 export function heavyTest(name: string, fn: () => unknown): void {
   it(name, { tags: ['heavy'] }, fn);
 }
+
+/**
+ * A unit test that times the code against a budget. Its timing is only meaningful with nothing else
+ * running, so `npm run check` skips it and `check:full` runs it on its own after every other test,
+ * with no files in parallel (ADR 0047).
+ */
+export function speedTest(name: string, fn: () => unknown): void {
+  it(name, { tags: ['heavy', 'speed'] }, fn);
+}
