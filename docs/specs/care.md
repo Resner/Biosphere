@@ -15,7 +15,7 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Acceptance: `npx playwright test tests/e2e/m6-dof.spec.ts --project post --no-deps --repeat-each=5 --workers=1` passes, with no assertion loosened.
   - Done: `debug.freezeAt(tick, x, y)` freezes the world at tick 0 at the pond's centre; `play()` uses it (the only wait in `m6-dof`), and 5 repeats pass (15 of 15).
 
-- [ ] C1 Split `src/genome/develop.ts` (2,218 lines) into modules under 1,000 lines (in progress)
+- [x] C1 Split `src/genome/develop.ts` (2,430 lines) into modules under 1,000 lines
   - Why: agents read a file 2,000 lines at a time, so its end is easy to miss. Every body task edits it, so the build lane conflicts with itself and with this lane.
   - Touches: `src/genome/develop.ts`, the modules it becomes, and their importers.
   - Steps:
@@ -25,6 +25,8 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
     - `npm run check:full` is green with no golden file changed (`git diff --stat -- src/genome/__golden__` is empty).
     - Every file in `src/genome/` is under 1,000 lines.
     - `git diff -M --stat` shows moves, not rewrites.
+  - Done: `develop.ts` (125 lines) has `grow`, `develop` and the re-exports; the stages are `develop-plan` (types, caps, geometry), `-chain`, `-parts`, `-fit`, `-organize`, `-detail`, `-check` (bounds, `bodyViolations`, `hashPlan`), each under 520 lines. Moved by script, so statements are verbatim; only signatures that gained `export` re-wrapped.
+  - Gotcha: the stages import only downward (plan → chain → parts → fit → organize / detail → check), so there is no cycle; `develop.ts` is the only importer of all.
 
 - [x] C2 Split `src/game/app.ts` (2,217 lines; `startApp` alone is about 1,940) into modules under 1,000 lines [opus]
   - Why: as C1. Every HUD, screen and online task edits this one closure.
