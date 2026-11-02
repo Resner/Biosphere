@@ -48,22 +48,27 @@ async function chargeFull(page: Page): Promise<Charged> {
       new Promise<Charged>((resolve) => {
         const bs = window.__bs as BsHook;
         const canvas = document.getElementById('scene') as HTMLCanvasElement;
+        // On the egg at the screen's centre; each poke does nothing but click, so a busy page
+        // keeps to the pace (the state is read once, at the end).
+        const where = {
+          button: 0,
+          clientX: innerWidth / 2,
+          clientY: innerHeight / 2,
+          bubbles: true,
+        };
         let left = 12;
         const poke = () => {
-          const { at } = bs.state().egg;
-          const where = { button: 0, clientX: at?.x ?? 0, clientY: at?.y ?? 0, bubbles: true };
           canvas.dispatchEvent(new PointerEvent('pointerdown', where));
           dispatchEvent(new PointerEvent('pointerup', where));
           left--;
-          const { egg, audio } = bs.state();
-          const { charge, phase, hint } = egg;
-          const ticks = audio.cues.charge ?? 0;
           if (left > 0) {
             setTimeout(poke, 260);
             return;
           }
           bs.debug?.timeScale(0);
-          resolve({ charge, phase, hint: String(hint), ticks });
+          const { egg, audio } = bs.state();
+          const { charge, phase, hint } = egg;
+          resolve({ charge, phase, hint: String(hint), ticks: audio.cues.charge ?? 0 });
         };
         const look = setInterval(() => {
           const { phase, paced } = bs.state().egg;
