@@ -14,7 +14,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 
 | Topic | Current rule | History |
 |-------|--------------|---------|
-| Factory runs, workers and claims | 0047, 0042 | 0001, 0015, 0020, 0044, 0045 |
+| Factory runs, workers and claims | 0048, 0047, 0042 | 0001, 0015, 0020, 0044, 0045 |
 | Models for specs and tasks | 0026 | 0001, 0023 |
 | CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 (Playwright workers) | 0001, 0015 |
 | Rules versions and freezing | 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
@@ -72,4 +72,5 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0044](0044-two-lanes.md) | Two lanes: build and care, each with its own lock | accepted, partly superseded | 0045, 0047 |
 | [0045](0045-rules-that-fit-the-size.md) | Rules that fit the project's size: a quick check, lean rule files, a care backlog | accepted, partly superseded | 0047 |
 | [0046](0046-lab-evolved-lineages-bred-toward-an-aim.md) | The Lab's Evolved mode breeds lineages toward an aim | accepted | |
-| [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted | |
+| [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048 |
+| [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted | |
