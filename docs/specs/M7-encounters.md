@@ -145,7 +145,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### The encounter simulation (`src/sim/encounter/`)
 
-- [ ] T1 Encounter state, frames and the input codec (after none)
+- [ ] T1 Encounter state, frames and the input codec (after none) (in progress)
   - Why: everything else (the referee, prediction, the tournament) steps this one function.
   - Steps:
     1. Add `RULES.encounter`, with DESIGN §7's values (frames, deadlines, engage, escape, strike, damage, stance, brace, ram, spines, reward, egg), and `RULES_VERSION` 9 (ADR 0050: no reset, `FIRST_LIVE_RULES` stays 8). Regenerate every golden the version touches. The state hash includes `world.rules`, so replay hashes change, and genome goldens change their `rulesVersion` only. List them in the PR, and make DESIGN's opening line say rules version 9.
