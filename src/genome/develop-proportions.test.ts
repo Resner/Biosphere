@@ -112,9 +112,12 @@ const kindOf = (
 const isNamedPart = (plan: BodyPlan, a: Appendage): boolean =>
   kindOf(plan, a) !== 'other' && kindOf(plan, a) !== 'fringe';
 
-const rng = createRng(seedFromString('develop-proportions'), 'bytes');
-const randomV2 = (): Genome =>
-  decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
+// One stream per test: a shared one would shift every later test's genomes when `check` skips the
+// heavy test (`tests/heavy.ts`) that draws from it.
+const randomStream = (label: string): (() => Genome) => {
+  const rng = createRng(seedFromString(`develop-proportions:${label}`), 'bytes');
+  return () => decodeGenome(Uint8Array.from({ length: GENOME_BYTES }, () => rng.nextU32() & 0xff));
+};
 
 describe('proportions: the trunk carries the body (karyotype v2)', () => {
   it('reads all 12 silhouette specimens', () => {
@@ -179,6 +182,7 @@ describe('proportions v3: long bodies read by outline (look pass 4)', () => {
   };
 
   heavyTest('makes every bilateral v2 chain of 3+ segments at least 2.5× as long as wide', () => {
+    const randomV2 = randomStream('chains');
     let long = 0;
     let curved = 0;
     for (let i = 0; i < 3_000; i++) {
@@ -263,6 +267,7 @@ describe('proportions: parts keep their gene length', () => {
     // The bounds hold 2.5 core radii around a unit core, so not every long part can fit: a long
     // part far back on the body has nowhere to go.
     const kept: Record<string, [number, number]> = {};
+    const randomV2 = randomStream('gene-length');
     const count = (key: string, ok: boolean) => {
       const k = kept[key] ?? [0, 0];
       kept[key] = [k[0] + 1, k[1] + (ok ? 1 : 0)];
@@ -345,6 +350,7 @@ describe('proportions: longer parts sweep round the body (look pass 4)', () => {
   });
 
   it('lets antennae and tentacles reach past 1.5 core radii, inside the bounds', () => {
+    const randomV2 = randomStream('long-parts');
     const long = { antenna: 0, tentacle: 0 };
     for (let i = 0; i < 3_000; i++) {
       const { plan } = developed(randomV2());
@@ -358,8 +364,9 @@ describe('proportions: longer parts sweep round the body (look pass 4)', () => {
       }
       if (any) expect(bodyViolations(plan)).toEqual([]);
     }
-    // One long antenna pair per body at most (ADR 0041), where any front part counted before.
-    expect(long.antenna).toBeGreaterThan(150);
+    // One long antenna pair per body at most (ADR 0041): about 4% of bodies (118 to 140 of 3,000
+    // across streams), so the bound leaves room for sampling noise.
+    expect(long.antenna).toBeGreaterThan(75);
     expect(long.tentacle).toBeGreaterThan(50);
   });
 
@@ -423,6 +430,7 @@ describe('proportions: radial bodies ring their parts', () => {
 
   it('keeps radial rings in order over 3,000 mutated genomes', () => {
     // Validity over 10,000 random and mutated genomes is develop.test.ts's; this checks the order.
+    const randomV2 = randomStream('rings');
     let rings = 0;
     for (let i = 0; i < 3_000; i++) {
       const g = mutateGenome(randomV2(), seedFromString(`ring-${i}`), { mutation: 4 });
