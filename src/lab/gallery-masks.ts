@@ -25,7 +25,9 @@ export interface CellMasks {
  */
 export const FACE_INSET = 3;
 export const RIM_BAND = 2;
-export const MOUTH_INSET = 3;
+/** A limb's edge band: one pixel, so a paddle's is its bright outline and a thin limb is all edge. */
+export const LIMB_EDGE = 1;
+export const MOUTH_INSET = 2;
 /** Face and mouth pixels lie this far from any limb, fine part, shell or glint: their light and bloom. */
 export const GLOW_CLEAR = 3;
 
@@ -196,7 +198,7 @@ function toBase64(mask: Uint8Array): string {
  * - face: the body's own glass, `FACE_INSET` inside its outline, clear of every organ (and a pixel
  *   round it) and the mouth, and `GLOW_CLEAR` from every limb, fine part, shell and glint;
  * - rim: the outline's outer `RIM_BAND` pixels where nothing else draws over the body;
- * - limbs: the outer `RIM_BAND` pixels of the limbs off the body, clear of everything else (pearl
+ * - limbs: the outer `LIMB_EDGE` pixels of the limbs off the body, clear of everything else (pearl
  *   tips and fringe excluded): a thin limb whole, a paddle its edge, as the rim is the body's;
  * - mouth: the mouth's disc on the body, `MOUTH_INSET` inside the outline, as clear as the face.
  */
@@ -244,7 +246,7 @@ export function cellMasks(
     }
   }
   // A limb's edge, as the body's rim is the body's: a thin limb is all edge, a paddle its outline.
-  const limbIn = erode(limb, w, h, RIM_BAND);
+  const limbIn = erode(limb, w, h, LIMB_EDGE);
   const limbs = limb.map((v, i) => (v && !limbIn[i] ? 1 : 0));
   return {
     x: x0,

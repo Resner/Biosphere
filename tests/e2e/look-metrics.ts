@@ -206,28 +206,29 @@ export interface RegionMasks {
 
 /** The body's rim is read at this percentile of its band: the bright line, not the pixels inside it. */
 export const RIM_PEAK = 0.9;
-/** The mouth is judged against the face within this many pixels of it. */
-export const MOUTH_NEAR = 12;
+/** A dark patch is read at this percentile: the darkest tenth of a region. */
+export const DARK = 0.1;
 
 export interface GlassLook {
   /** Pixels in each region. */
-  counts: { face: number; rim: number; limbs: number; mouth: number; aroundMouth: number };
-  /** Mean luminance (0-255) of the face's grey pixels; the rim band's peak (`RIM_PEAK`); the limbs' median; the mouth's mean. */
+  counts: { face: number; rim: number; limbs: number; mouth: number };
+  /** The face's mean luminance (0-255) over its grey pixels, and its darkest tenth (`DARK`). */
   face: number;
+  faceDark: number;
+  /** The rim band's peak (`RIM_PEAK`). */
   rim: number;
+  /** The limbs' median. */
   limbs: number;
+  /** The mouth's mean and its darkest tenth. */
   mouth: number;
-  /** The mean luminance of the face's grey pixels round the mouth (within `MOUTH_NEAR`). */
-  aroundMouth: number;
-  faceLow: number;
-  faceMedian: number;
+  mouthDark: number;
 }
 
 /**
- * The glass measures of one cell (M6c T6, ADR 0043), read by region: the face (its grey pixels, so
- * an organ's colour spilling into it does not count), the rim's peak, the limbs' median and the
- * mouth's mean. `map` places a mask pixel `(x, y)` (sheet pixels) on `image`, for reading the same
- * regions on another sheet (pass 1's layout); by default the same pixel.
+ * The glass measures of one cell (M6c T6, ADR 0043), read by region from the gallery hook's masks:
+ * the face (its grey pixels, so an organ's colour spilling into it does not count), the rim's peak,
+ * the limbs' median and the mouth. `map` places a mask pixel `(x, y)` (sheet pixels) on `image`, for
+ * reading the same regions on another sheet (pass 1's layout); by default the same pixel.
  */
 export function glassLook(
   image: Image,
@@ -252,40 +253,13 @@ export function glassLook(
   const rim = read(masks.rim);
   const limbs = read(masks.limbs);
   const mouth = read(masks.mouth);
-  // The face round the mouth: its pixels within `MOUTH_NEAR` of a mouth pixel.
-  const mouthBits = maskBits(masks.mouth, n);
-  const near = new Uint8Array(n);
-  for (let k = 0; k < n; k++) {
-    if (!mouthBits[k]) continue;
-    const [mx, my] = [k % masks.w, Math.floor(k / masks.w)];
-    for (let y = Math.max(0, my - MOUTH_NEAR); y <= Math.min(masks.h - 1, my + MOUTH_NEAR); y++) {
-      for (let x = Math.max(0, mx - MOUTH_NEAR); x <= Math.min(masks.w - 1, mx + MOUTH_NEAR); x++) {
-        if ((x - mx) ** 2 + (y - my) ** 2 <= MOUTH_NEAR ** 2) near[y * masks.w + x] = 1;
-      }
-    }
-  }
-  const faceBits = maskBits(masks.face, n);
-  const around: number[] = [];
-  for (let k = 0; k < n; k++) {
-    if (!faceBits[k] || !near[k]) continue;
-    const p = map(masks.x + (k % masks.w), masks.y + Math.floor(k / masks.w));
-    const i = (Math.round(p.y) * image.width + Math.round(p.x)) * 4;
-    if (grey(image.rgba, i)) around.push(luminance(image.rgba, i));
-  }
   return {
-    counts: {
-      face: face.length,
-      rim: rim.length,
-      limbs: limbs.length,
-      mouth: mouth.length,
-      aroundMouth: around.length,
-    },
+    counts: { face: face.length, rim: rim.length, limbs: limbs.length, mouth: mouth.length },
     face: mean(face),
+    faceDark: percentile(face, DARK),
     rim: percentile(rim, RIM_PEAK),
     limbs: median(limbs),
     mouth: mean(mouth),
-    aroundMouth: mean(around),
-    faceLow: percentile(face, 0.25),
-    faceMedian: median(face),
+    mouthDark: percentile(mouth, DARK),
   };
 }

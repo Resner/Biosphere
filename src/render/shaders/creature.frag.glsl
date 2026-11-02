@@ -117,7 +117,7 @@ const vec2 FACE = vec2(0.15, 0.3);
 const float RIM = 1.8;
 const float BACK = 0.9;
 // The least of the body's rim drawn at full strength, in pixels from its edge (M6b T5 fix).
-const float RIM_MIN_PX = 1.0;
+const float RIM_MIN_PX = 1.5;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;

@@ -1,4 +1,4 @@
-import { mkdirSync, writeFileSync } from 'node:fs';
+import { mkdirSync, readFileSync, writeFileSync } from 'node:fs';
 import { expect, test } from '@playwright/test';
 import { galleryCell, galleryGrid, LABEL_HEIGHT } from '../../src/lab/gallery';
 import type { GalleryState } from '../../src/lab/gallery-page';
@@ -15,14 +15,19 @@ test.use({
 });
 
 /**
- * The sheet median of the shell's excess luminance over the water (0-255), measured on main before
- * T3 (pass 5's organ halos and scattered light; per body 22 to 152). T3's bar is half of it.
+ * Pass 1's sheet (36 specimens), the realism baseline: cells 01–06 hold the same genesis genomes as
+ * now, so their shells compare (ADR 0043). M6c T6 brought pass 1's face back, and the shell may be
+ * no milkier than pass 1's: its median excess over the water on those cells at most this much above.
  */
-const MAIN_SHELL_EXCESS = 63.1;
+const PASS1 = new URL('../../docs/art/gallery/pass-1.png', import.meta.url);
+const PASS1_SPECIMENS = 36;
+const BASELINE = 6;
+const PASS1_SPREAD = 0.15;
 
 let image: Image;
 let state: GalleryState;
 let looks: (BodyLook & { file: string })[];
+let pass1: BodyLook[];
 
 test.beforeAll(async ({ browser, baseURL }) => {
   const context = await browser.newContext({
@@ -38,13 +43,31 @@ test.beforeAll(async ({ browser, baseURL }) => {
   if (!read) throw new Error('no gallery');
   state = read;
   image = await decodePng(page, png);
+  const old = await decodePng(page, readFileSync(PASS1));
   await context.close();
   const grid = galleryGrid(state.specimens.length, state.width, state.height);
+  const room = (i: number, g: typeof grid) => {
+    const cell = galleryCell(i, g);
+    const r = { ...cell, h: cell.h - LABEL_HEIGHT };
+    return { room: r, centre: { x: cell.x + cell.w / 2, y: cell.y + r.h / 2 } };
+  };
   looks = state.specimens.map((s, i) => {
-    const cell = galleryCell(i, grid);
-    const room = { ...cell, h: cell.h - LABEL_HEIGHT };
-    const centre = { x: cell.x + cell.w / 2, y: cell.y + room.h / 2 };
-    return { file: s.file, ...bodyLook(image, room, centre, state.radius, s) };
+    const { room: r, centre } = room(i, grid);
+    return { file: s.file, ...bodyLook(image, r, centre, state.radius, s) };
+  });
+  // The same bodies' geometry placed on pass 1's layout: moved to the old cell, scaled by its radius.
+  const oldGrid = galleryGrid(PASS1_SPECIMENS, state.width, state.height);
+  const k = oldGrid.radius / grid.radius;
+  pass1 = state.specimens.slice(0, BASELINE).map((s, i) => {
+    const [now, then] = [room(i, grid).centre, room(i, oldGrid)];
+    const at = (p: { x: number; y: number }) => ({
+      x: then.centre.x + (p.x - now.x) * k,
+      y: then.centre.y + (p.y - now.y) * k,
+    });
+    return bodyLook(old, then.room, then.centre, oldGrid.radius, {
+      organs: s.organs.map((o) => ({ ...at(o), r: o.r * k })),
+      outline: s.outline.map(at),
+    });
   });
   console.log(
     looks
@@ -71,9 +94,10 @@ test('colour stays in the organs: 85% of the coloured pixels inside each body li
   expect(failures).toEqual([]);
 });
 
-test("the shell is clear: its median excess over the water is at most half of main's", () => {
-  const excess = [...looks.map((l) => l.excess)].sort((a, b) => a - b);
-  const median = excess[excess.length >> 1] as number;
-  console.log(`shell excess: sheet median ${median.toFixed(1)}, main ${MAIN_SHELL_EXCESS}`);
-  expect(median).toBeLessThanOrEqual(MAIN_SHELL_EXCESS / 2);
+test("the shell is no milkier than pass 1's: on cells 01–06 its median excess over the water is within 15% of pass 1's", () => {
+  const median = (v: number[]) => [...v].sort((a, b) => a - b)[v.length >> 1] as number;
+  const now = median(looks.slice(0, BASELINE).map((l) => l.excess));
+  const then = median(pass1.map((l) => l.excess));
+  console.log(`shell excess on cells 01–06: ${now.toFixed(1)}, pass 1 ${then.toFixed(1)}`);
+  expect(now).toBeLessThanOrEqual(then * (1 + PASS1_SPREAD));
 });
