@@ -1,6 +1,12 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { drive, IDLE_CODE, starterFighter, startOf } from '../../../tests/encounter-fixture';
+import {
+  drive,
+  hunterFighter,
+  IDLE_CODE,
+  starterFighter,
+  startOf,
+} from '../../../tests/encounter-fixture';
 import { depthAt } from '../bathymetry';
 import { plumesNear } from '../hazards';
 import { RULES_VERSION } from '../rules';
@@ -13,7 +19,12 @@ interface Golden {
   results: ReturnType<typeof replayEncounter>['results'];
 }
 
-const NAMES = ['encounter-approach', 'encounter-escape', 'encounter-plume'] as const;
+const NAMES = [
+  'encounter-approach',
+  'encounter-escape',
+  'encounter-plume',
+  'encounter-duel',
+] as const;
 const file = (name: string) => new URL(`./../__golden__/${name}.json`, import.meta.url);
 
 const log = (start: EncounterLog['start'], frames: EncounterLog['frames']): EncounterLog => ({
@@ -61,7 +72,23 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
     ]),
     Array.from({ length: 40 }, (_, f) => [drive(0, 15, { dash: f === 1 }), IDLE_CODE]),
   );
-  return { 'encounter-approach': approach, 'encounter-escape': fleeing, 'encounter-plume': plume };
+  // A hunter closes on a starter that braces once and then drifts: it is bitten to death.
+  const duel = log(
+    startOf('golden-duel', [
+      hunterFighter('a', 5200, 3000),
+      starterFighter('b', 5242, 3000, Math.PI),
+    ]),
+    Array.from({ length: 60 }, (_, f) => [
+      drive(0, 15, { stance: 'aggressive', dash: f === 4 }),
+      drive(128, 0, { brace: f === 1 }),
+    ]),
+  );
+  return {
+    'encounter-approach': approach,
+    'encounter-escape': fleeing,
+    'encounter-plume': plume,
+    'encounter-duel': duel,
+  };
 }
 
 function regenerate(): void {
@@ -94,6 +121,9 @@ describe('encounter goldens', () => {
     expect(load('encounter-escape').results.map((r) => r.outcome)).toEqual(['escaped', 'stood']);
     const [a] = load('encounter-plume').results;
     expect(a).toMatchObject({ outcome: 'died', cause: 'toxin' });
+    const duelResults = load('encounter-duel').results;
+    expect(duelResults.map((r) => r.outcome)).toEqual(['stood', 'killed']);
+    expect(duelResults[1]).toMatchObject({ cause: 'killed', by: 0 });
     const approach = load('encounter-approach');
     expect(approach.results.map((r) => r.outcome)).toEqual(['stood', 'stood']);
     expect(approach.results[0]?.frame).toBe(approach.log.frames.length);

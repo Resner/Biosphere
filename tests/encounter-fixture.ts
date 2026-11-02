@@ -47,6 +47,18 @@ export function starterFighter(
   };
 }
 
+/** A starter body with a weapon: reach 1.5, a wide arc and power 0.6 (a strike power of 0.9). */
+export function hunterFighter(
+  creature: string,
+  x: number,
+  y: number,
+  heading = 0,
+  biomass: number = RULES.starter.biomass,
+): FighterStart {
+  const f = starterFighter(creature, x, y, heading, biomass);
+  return { ...f, combat: { ...STARTER_COMBAT, reach: 1.5, arc: 1, power: 0.6 } };
+}
+
 export function startOf(
   pondSeed: string,
   fighters: FighterStart[],

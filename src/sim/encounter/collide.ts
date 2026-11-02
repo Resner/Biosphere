@@ -7,6 +7,11 @@ import type { Fighter } from './types';
 
 const PASSES = 2;
 
+/** Called for a pair that presses together: the fighters, their closing speed, and whether `a` closes faster. */
+export type OnImpact = (a: Fighter, b: Fighter, closing: number, aRams: boolean) => void;
+
+let report: OnImpact | null = null;
+
 // Per-fighter values that do not change while a tick's collisions resolve, in `fighters` order.
 const cosH: number[] = [];
 const sinH: number[] = [];
@@ -63,6 +68,7 @@ function separate(a: Fighter, ai: number, b: Fighter, bi: number): void {
   const va = a.body.vx * nx + a.body.vy * ny;
   const vb = b.body.vx * nx + b.body.vy * ny;
   if (vb - va >= 0) return;
+  if (report !== null) report(a, b, va - vb, va >= -vb);
   const common = (ma * va + mb * vb) / total;
   a.body.vx += nx * (common - va);
   a.body.vy += ny * (common - va);
@@ -70,8 +76,9 @@ function separate(a: Fighter, ai: number, b: Fighter, bi: number): void {
   b.body.vy += ny * (common - vb);
 }
 
-/** Resolves every pair of the given fighters (in slot order) for one tick. */
-export function collide(fighters: readonly Fighter[]): void {
+/** Resolves every pair of the given fighters (in slot order) for one tick, reporting each impact. */
+export function collide(fighters: readonly Fighter[], onImpact: OnImpact | null = null): void {
+  report = onImpact;
   for (let i = 0; i < fighters.length; i++) {
     const f = fighters[i] as Fighter;
     cosH[i] = cos(f.body.heading);
