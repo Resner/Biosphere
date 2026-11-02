@@ -64,6 +64,13 @@ describe('Shake: damage lands as hits, in intervals (M6c T9)', () => {
     expect(shake.hits).toBe(0);
   });
 
+  it('stays gentle (owner, Playtest v0.7.2): at most 4 px of kick, a jolt of 8% of the radius, never faster than before', () => {
+    expect(SHAKE.kickPx.max).toBeLessThanOrEqual(4);
+    expect(SHAKE.bodyRadii).toBeLessThanOrEqual(0.08);
+    expect(SHAKE.decaySeconds).toBeGreaterThanOrEqual(0.3);
+    expect(SHAKE.everyTicks).toBeGreaterThanOrEqual(15);
+  });
+
   it('3 s of steady UV gives 6 hits, every 0.5 s from the first tick, and stillness between', () => {
     // Ticks 0..89 are the 3.0 s; the tick at exactly 3.0 s lies outside it.
     const shake = new Shake();
@@ -101,7 +108,7 @@ describe('Shake: damage lands as hits, in intervals (M6c T9)', () => {
     expect(shake.hit('uv', 0.07, 1000)).toBe(true);
   });
 
-  it('the kick scales with the damage since the last hit, from 5 px to a cap of 8', () => {
+  it('the kick scales with the damage since the last hit, from 2 px to a cap of 3.5', () => {
     const peak = (amount: number) => {
       const s = run(new Shake(), 0.6, 'toxin', { amount });
       // The second hit carries half a second of damage.
@@ -110,11 +117,11 @@ describe('Shake: damage lands as hits, in intervals (M6c T9)', () => {
     const light = peak(0.01);
     const medium = peak(0.2);
     const heavy = peak(5);
-    expect(light).toBeGreaterThanOrEqual(5);
+    expect(light).toBeGreaterThanOrEqual(2);
     expect(light).toBeLessThan(medium);
     expect(medium).toBeLessThan(heavy);
     expect(heavy).toBeCloseTo(SHAKE.kickPx.max, 6);
-    expect(peak(1000)).toBeLessThanOrEqual(8);
+    expect(peak(1000)).toBeLessThanOrEqual(3.5);
   });
 
   it('the kick turns by the golden angle from one hit to the next', () => {

@@ -37,8 +37,8 @@ void main() {
   col += uNucleus * (exp(-n * n * 26.0) * 0.9 + (1.0 - smoothstep(0.0, 0.03, abs(n - 0.27))) * 0.18) * (1.0 - smoothstep(0.7, 1.0, r));
 
   // Damage: the body flushes red and the rim brightens, so a hit shows on the cell itself.
-  vec3 hurtCol = vec3(1.0, 0.18, 0.12);
-  if (uHurt > 0.0) col = mix(col, col * 0.5 + hurtCol * (0.35 + 0.8 * fres), uHurt * 0.7);
+  vec3 hurtCol = vec3(1.0, 0.07, 0.04);
+  if (uHurt > 0.0) col = mix(col, col * 0.35 + hurtCol * (0.4 + 0.8 * fres), uHurt * 0.85);
 
   float alpha = inside * (0.4 + 0.6 * fres + 0.3 * glint);
   float halo = exp(-max(d - 1.0, 0.0) * 6.5) * 0.3 * (1.0 - inside);

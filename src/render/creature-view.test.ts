@@ -134,7 +134,7 @@ describe('CreatureView', () => {
     const c = buildCreature(genesisGenome(seedFromString('view-uniforms')));
     view.update(state({ creature: c }), 0);
     const material = view.mesh.material as THREE.ShaderMaterial;
-    const params = materialParams(c.traits, rarityOfTraits(c.traits).tier);
+    const params = materialParams(c.traits, rarityOfTraits(c.traits).tier, c.hueSpread);
     expect(material.uniforms.uPattern?.value).toBe(params.pattern);
     expect(material.uniforms.uIrid?.value).toBe(params.iridescence);
     expect(material.uniforms.uOrganGlow?.value).toBe(params.organGlow);

@@ -19,7 +19,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 (Playwright workers) | 0001, 0015 |
 | Rules versions and freezing | 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
-| Look and the gallery | 0046, 0043, 0034 | 0024, 0032, 0033 |
+| Look and the gallery | 0049, 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
 | Combat and encounters | 0052, 0051, 0050, then 0011 | 0010, 0035 |
 
@@ -75,6 +75,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0046](0046-lab-evolved-lineages-bred-toward-an-aim.md) | The Lab's Evolved mode breeds lineages toward an aim | accepted | |
 | [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048 |
 | [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted | |
+| [0049](0049-inherited-organ-colour.md) | The organs' second tone follows the inherited hue | accepted | |
 | [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted | |
 | [0051](0051-combat-from-anatomy-and-growth-by-kills.md) | Combat from anatomy, size as an advantage, and kills as the fast way to grow | accepted | |
 | [0052](0052-eggs-are-prey-in-encounters.md) | A carried egg is prey, eaten only in a settled encounter | accepted | |

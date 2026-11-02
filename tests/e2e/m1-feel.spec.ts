@@ -7,7 +7,7 @@ import { hatch, openGame, playerOf } from './helpers';
 
 /**
  * The largest damage cues over `ms` of frames: shake offsets (CSS px), the red flash, the vignette
- * and whether the health bar flashed in any frame (each hit flashes it for 0.15 s, M6c T9).
+ * and whether the health bar flashed in any frame (each hit flashes it for 0.3 s, M6c T9).
  */
 const sampleFx = (page: Page, ms: number) =>
   page.evaluate(
@@ -106,9 +106,9 @@ test.describe('feel and feedback', () => {
     expect((await fx()).damage).toBeGreaterThan(0);
     const radiusPx = (await playerOf(page)).radius * seen.pxPerWu;
     expect(seen.body, 'the body jolts').toBeGreaterThan(0);
-    expect(seen.body, 'by at most 15% of its radius').toBeLessThanOrEqual(0.15 * radiusPx + 0.01);
+    expect(seen.body, 'by at most 6% of its radius').toBeLessThanOrEqual(0.06 * radiusPx + 0.01);
     expect(seen.camera, 'the camera kicks').toBeGreaterThan(0);
-    expect(seen.camera, 'by at most 8 px').toBeLessThanOrEqual(8 + 1e-9);
+    expect(seen.camera, 'by at most 3.5 px').toBeLessThanOrEqual(3.5 + 1e-9);
     expect((await fx()).shake.hits, 'a hit at once, then every 0.5 s').toBeGreaterThan(0);
     expect(seen.kinds).toContain('jolt');
     expect(seen.vignette, 'no edge vignette').toBe(0);
