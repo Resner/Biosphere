@@ -1,5 +1,6 @@
 import * as ed from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha2.js';
+import { SIGNATURE_BYTES } from '../net/protocol-defs';
 import { decodeRecoveryCode, encodeRecoveryCode } from './recovery';
 
 // Browser identity (ADR 0009): an Ed25519 seed per profile, `playerId` = base64url of the public
@@ -8,7 +9,6 @@ ed.hashes.sha512 = sha512;
 
 const SEED_BYTES = 32;
 const KEY_BYTES = 32;
-const SIG_BYTES = 64;
 const SEPARATOR = 0x0a;
 
 /** Domain tag of the signed hello (ADR 0009). */
@@ -71,7 +71,7 @@ export function verify(
 ): boolean {
   try {
     const publicKey = publicKeyOf(playerId);
-    if (!publicKey || sig.length !== SIG_BYTES) return false;
+    if (!publicKey || sig.length !== SIGNATURE_BYTES) return false;
     return ed.verify(sig, signedBytes(domain, message), publicKey, { zip215: false });
   } catch {
     return false;

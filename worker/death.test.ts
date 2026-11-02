@@ -234,12 +234,15 @@ describe('death requests', () => {
     expect((await chain(creature)).map((r) => r.kind)).toEqual(['genesis', 'death']);
   });
 
-  it('refuses old age from a client and leaves the creature alive', async () => {
-    const { c, creature } = await newPlayer();
-    c.send({ t: 'death', cause: 'old-age', ticks: 0 });
-    expect(await flush(c)).toContainEqual({ t: 'refused', reason: 'cause' });
-    expect(await status(creature)).toBe('active');
-  });
+  it.each(['old-age', 'eaten'] as const)(
+    'refuses %s from a client and leaves the creature alive',
+    async (cause) => {
+      const { c, creature } = await newPlayer();
+      c.send({ t: 'death', cause, ticks: 0 });
+      expect(await flush(c)).toContainEqual({ t: 'refused', reason: 'cause' });
+      expect(await status(creature)).toBe('active');
+    },
+  );
 
   it('ignores a death without a creature and notes it', async () => {
     const { c, id } = await login();

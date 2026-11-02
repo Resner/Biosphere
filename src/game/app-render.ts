@@ -88,7 +88,7 @@ export class Frame {
   /** Wall time spent in the still scene, which the water's clock skips (M6c T11). */
   private stillMs = 0;
   private beat = 0;
-  private readonly marks = { ready: false, egg: false };
+  private readonly marks = { ready: false, egg: false, spawnProtected: false, fighting: false };
   private readonly anchors = new Map<string, Anchor>();
   /** The edge arrows as last drawn. */
   indicators: Indicator[] = [];
@@ -235,6 +235,8 @@ export class Frame {
         dashing: false,
         ready: spec.ready === true,
         egg: spec.egg === true,
+        spawnProtected: false,
+        fighting: false,
         genomeRef: ref,
       };
     });

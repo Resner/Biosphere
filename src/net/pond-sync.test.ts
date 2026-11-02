@@ -33,6 +33,8 @@ function snap(over: Partial<Snapshot> = {}): Snapshot {
     dashing: false,
     ready: false,
     egg: false,
+    spawnProtected: false,
+    fighting: false,
     genomeRef: 0,
     ...over,
   };
@@ -324,12 +326,14 @@ describe('snapshotOf', () => {
     expect(s.health).toBe(1);
     expect(s.dashing).toBe(false);
     expect(s.genomeRef).toBe(0xbeef);
-    expect([s.ready, s.egg]).toEqual([false, false]);
+    expect([s.ready, s.egg, s.spawnProtected, s.fighting]).toEqual([false, false, false, false]);
   });
 
-  it('carries the ready and egg marks it is given', () => {
-    const s = snapshotOf(creature, 40, 0, { ready: true, egg: true });
-    expect([s.ready, s.egg]).toEqual([true, true]);
+  it('carries the marks it is given', () => {
+    const marks = { ready: true, egg: true, spawnProtected: true, fighting: false };
+    const s = snapshotOf(creature, 40, 0, marks);
+    expect([s.ready, s.egg, s.spawnProtected, s.fighting]).toEqual([true, true, true, false]);
+    expect(snapshotOf(creature, 40, 0, { ...marks, fighting: true }).fighting).toBe(true);
   });
 
   it('shows a dash for a few ticks after it starts', () => {
