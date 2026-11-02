@@ -203,9 +203,10 @@ export interface BsState {
   map: { open: boolean; players: number; pings: number };
   /**
    * The minimap as last drawn (M6b T10): `shown`, its radius in world units, the zone and depth
-   * under the player, the `hazard` hurting now (`uv`, `pressure` or null), and the `players` and
-   * `pings` on it (`id`, CSS-pixel `x` and `y` inside the minimap; players' `size` class and
-   * `ready`, pings' `kind`).
+   * under the player, the `hazard` hurting now (`uv`, `pressure` or null), the `heading` its arrow
+   * shows this frame (radians, M6c T12), the round `marks` the last draw painted (`players` and
+   * `pings` counts; nothing else is round on it), and the `players` and `pings` on it (`id`,
+   * CSS-pixel `x` and `y` inside the minimap; players' `size` class and `ready`, pings' `kind`).
    */
   minimap: MinimapInfo;
   /**

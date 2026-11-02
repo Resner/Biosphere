@@ -14,9 +14,10 @@ const strayText = (page: Page) =>
   page.evaluate(() => {
     // Toasts (the alone and mate hints are toasts too: each shows only for an event), chat lines,
     // labels over creatures, edge-indicator labels, the first-life hints, the chips, the online
-    // counter (owner request) and the zone's name under the minimap's depth arc (M6b T10).
+    // counter (owner request), the zone's name under the minimap (M6b T10) and the depth on its
+    // gauge (M6c T12).
     const allowed =
-      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip, [data-testid="net-status"], [data-testid="minimap-zone"]';
+      '[data-testid="toast"], [data-testid="alone-hint"], [data-testid="mate-hint"], .chat-log, .remote-labels, .edge-indicators, [data-testid="hint"], .chip, [data-testid="net-status"], [data-testid="minimap-zone"], [data-testid="minimap-depth"]';
     const out: string[] = [];
     const walker = document.createTreeWalker(document.body, NodeFilter.SHOW_TEXT);
     for (let node = walker.nextNode(); node; node = walker.nextNode()) {
@@ -36,13 +37,14 @@ const strayText = (page: Page) =>
     return out;
   });
 
-/** The share of the viewport the always-on HUD covers: the menu button, the bars and the minimap with its label. */
+/** The share of the viewport the always-on HUD covers: the menu button, the bars, the minimap with its label and its depth gauge (M6c T12). */
 const hudCover = (page: Page) =>
   page.evaluate(() => {
     const parts = [
       document.querySelector('[data-testid="hud-menu"]'),
       ...document.querySelectorAll('.hud .stat'),
       document.querySelector('.minimap'),
+      document.querySelector('[data-testid="minimap-depth"]'),
     ].filter((el): el is HTMLElement => el instanceof HTMLElement && el.checkVisibility());
     const area = parts.reduce((sum, el) => {
       const r = el.getBoundingClientRect();
@@ -175,7 +177,7 @@ test('the play screen shows one menu button, four bars and the minimap, and noth
       expect(mm.y, at).toBeLessThanOrEqual(64);
 
       const cover = await hudCover(page);
-      expect(cover.parts, at).toBe(6);
+      expect(cover.parts, at).toBe(7);
       expect(
         cover.share,
         `HUD covers ${(cover.share * 100).toFixed(2)}% at ${at}`,

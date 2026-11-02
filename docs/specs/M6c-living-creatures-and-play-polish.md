@@ -350,7 +350,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
       - with no input, the egg auto-cracks within 6.5 s of the beacon;
       - the result card's tier equals the recorded child's.
 
-- [ ] T12 Minimap: smooth, and a depth gauge that reads as depth [opus]
+- [x] T12 Minimap: smooth, and a depth gauge that reads as depth [opus]
   - Why:
     - The minimap redraws at most 10 times a second (`MINIMAP.hz`), so the player arrow steps when turning fast.
     - The depth marker is a white dot on the arc inside the rim (`arcR = half − 5`), which the owner read as a player or ping (minimap screenshot).
@@ -370,6 +370,8 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
       - the gauge's marker moves down as the player dives;
       - with no other players and no pings, `minimap.info().marks` is empty.
     - Keep `m6b-minimap.spec.ts`'s one-frame reads (#213 fixed two flakes there: the radius against the half-height, and the ping's bearing against A's drifted position). The new arrow layer must not reintroduce a read across frames.
+  - Note: the arrow is an SVG turned from a half-degree transform table, the map draws on a 30 Hz grid (`DrawClock`), and the gauge (`depth-gauge.ts`, depth × 1,000 m) sits outside `.minimap`, so `m6b-hud` counts it as its own HUD part.
+    Gotcha: the 6% HUD budget is tight at 960×540; a grid column around the gauge counted empty space and broke it.
 
 ### Closing
 

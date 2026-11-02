@@ -3,8 +3,9 @@ import type { BsHook } from '../../src/game/debug';
 import { hatch, M6B_MINIMAP_HUB, openGame, playerOf, state } from './helpers';
 
 // The minimap (M6b T10): round, north-up and centred on the player in the top-right corner. Another
-// player shows at its bearing, a ping for its lifetime, and the rim carries the depth, the zone's
-// name and the hazard that hurts. A click or M opens the full pond map; it draws at most 10 Hz.
+// player shows at its bearing, a ping for its lifetime, and it carries the depth, the zone's name
+// and the hazard that hurts. A click or M opens the full pond map. Its draw rate, arrow and depth
+// gauge are M6c T12's (`m6c-minimap.spec.ts`).
 
 test.describe.configure({ mode: 'serial' });
 
@@ -44,7 +45,7 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
     });
     expect((await state(a)).minimap.shown).toBe(true);
     // Six view half-heights, read in one frame: the camera eases its zoom after a hatch and the
-    // minimap redraws at most 10 times a second, so a loaded runner can catch them a frame apart.
+    // minimap redraws at most 30 times a second, so a loaded runner can catch them a frame apart.
     await expect
       .poll(
         () =>
@@ -126,32 +127,11 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
   }
 });
 
-test('the rim names the zone, marks the depth and shows the hazard that hurts; a click opens the pond map; it draws at most 10 times a second', async ({
+test('it names the zone, marks the depth and shows the hazard that hurts; a click opens the pond map', async ({
   page,
 }) => {
   await openGame(page, '?debug=1&seed=minimap-zones');
   await hatch(page);
-  // At most 10 draws a second: count the zone picture's draws on the minimap's canvas for 2 s.
-  const draws = await page.evaluate(
-    () =>
-      new Promise<number>((resolve) => {
-        const canvas = document.querySelector('[data-testid="minimap-canvas"]');
-        const proto = CanvasRenderingContext2D.prototype;
-        const original = proto.drawImage;
-        let n = 0;
-        proto.drawImage = function (this: CanvasRenderingContext2D, ...args: unknown[]) {
-          if (this.canvas === canvas) n++;
-          return (original as (...a: unknown[]) => void).apply(this, args);
-        } as typeof original;
-        setTimeout(() => {
-          proto.drawImage = original;
-          resolve(n);
-        }, 2000);
-      }),
-  );
-  expect(draws).toBeGreaterThan(0);
-  expect(draws).toBeLessThanOrEqual(21);
-
   await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(0));
   const s0 = await state(page);
   expect(s0.player?.stats.uvTolerance).toBeLessThan(1);

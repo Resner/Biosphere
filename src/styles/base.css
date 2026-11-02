@@ -575,9 +575,12 @@ body {
   font-size: 0.85rem;
 }
 
-/* The minimap (M6b T10): a round glass map in the top-right corner, under the online counter. */
+/* The minimap (M6b T10): a round glass map in the top-right corner, under the online counter, with
+   the depth gauge in a slim column to its left and the hazard icon under the gauge (M6c T12). The
+   gauge's width and gap are `MINIMAP.gauge` (50 px) in `minimap.ts`. */
 .minimap {
   --minimap-side: 120px;
+  --minimap-gauge: 46px;
   position: fixed;
   top: 48px;
   right: var(--hud-gap);
@@ -587,6 +590,7 @@ body {
 }
 
 .minimap-disc {
+  position: relative;
   display: block;
   box-sizing: border-box;
   width: var(--minimap-side);
@@ -615,7 +619,71 @@ body {
   height: 100%;
 }
 
-/* The zone's name, small, under the depth arc. */
+/* The player's arrow on its own layer over the map, rotated to the heading every frame. */
+.minimap-arrow {
+  position: absolute;
+  top: 50%;
+  left: 50%;
+  width: 16px;
+  height: 16px;
+  margin: -8px 0 0 -8px;
+  overflow: visible;
+  fill: #7fffe0;
+  stroke: rgb(0 0 0 / 0.75);
+  stroke-width: 1.5;
+  stroke-linejoin: round;
+  paint-order: stroke;
+  pointer-events: none;
+  will-change: transform;
+}
+
+/* The depth gauge: the zones as bands from the surface (top) to the abyss floor, and right of them
+   a chevron at the player's depth pointing at them, with the depth in metres. */
+.minimap-depth {
+  position: absolute;
+  top: 10px;
+  right: calc(100% + 4px);
+  width: var(--minimap-gauge);
+  height: calc(var(--minimap-side) - 20px);
+}
+
+.minimap-depth[hidden] {
+  display: none;
+}
+
+.minimap-depth-bands {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  left: 0;
+  width: 5px;
+  border: 1px solid var(--glass-line);
+  border-radius: 3px;
+  box-shadow: 0 0 4px rgb(0 0 0 / 0.6);
+}
+
+.minimap-depth-marker {
+  position: absolute;
+  left: 7px;
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  color: #e3f4f0;
+  font-size: 0.62rem;
+  font-variant-numeric: tabular-nums;
+  line-height: 1;
+  white-space: nowrap;
+  text-shadow: 0 0 4px rgb(0 0 0 / 0.95);
+  /* Half the chevron's height, centring the row on `top` with no transform (text stays on whole pixels). */
+  margin-top: -0.4rem;
+}
+
+.minimap-depth-marker b {
+  font-size: 0.8rem;
+  font-weight: 400;
+}
+
+/* The zone's name, small, under the map. */
 .minimap-zone {
   margin: 4px 0 0;
   color: rgb(227 244 240 / 0.72);
@@ -630,11 +698,11 @@ body {
   display: none;
 }
 
-/* The hazard hurting now, on the rim's upper left: a sun for UV, a squeeze for pressure (shape, not colour alone). */
+/* The hazard hurting now, under the depth gauge: a sun for UV, a squeeze for pressure (shape, not colour alone). */
 .minimap-hazard {
   position: absolute;
-  top: calc(var(--minimap-side) * 0.146 - 12px);
-  left: calc(var(--minimap-side) * 0.146 - 12px);
+  top: calc(var(--minimap-side) - 6px);
+  right: calc(100% + 4px + var(--minimap-gauge) - 24px);
   display: grid;
   place-items: center;
   box-sizing: border-box;
