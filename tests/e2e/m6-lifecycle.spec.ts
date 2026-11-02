@@ -100,11 +100,22 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     await expect(a.getByTestId(`${cue}-cue`)).toHaveCount(0);
     await expect(a.getByTestId('hud-zone-warning')).toHaveText(warning);
     await timeScale(a, 1);
-    await expect.poll(async () => (await cues(a))[sound] ?? 0).toBeGreaterThan(0);
-    await a.waitForFunction((kind) => {
-      const { shake, vignette } = (window.__bs as BsHook).render.fx();
-      return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
-    }, cue);
+    // A hit lands at most every 15 ticks after the last, and a busy runner plays few ticks a
+    // second: wait for the sim, not for a fast laptop's seconds.
+    await expect
+      .poll(async () => (await cues(a))[sound] ?? 0, {
+        message: `the ${sound} cue plays on the first ${zone} hit`,
+        timeout: 30_000,
+      })
+      .toBeGreaterThan(0);
+    await a.waitForFunction(
+      (kind) => {
+        const { shake, vignette } = (window.__bs as BsHook).render.fx();
+        return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
+      },
+      cue,
+      { timeout: 30_000 },
+    );
     await timeScale(a, 0);
     expect(
       (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0,
