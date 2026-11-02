@@ -37,8 +37,12 @@ test('a mating gives each player an egg, a card and a choice that brings the par
   const [a, b] = await Promise.all([hatched(ctxA), hatched(ctxB)]);
   await Promise.all([ripe(a), ripe(b)]);
   const idB = (await state(b)).playerId as string;
-  await goTo(a, idB);
-  await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /);
+  // The hint can still read "Not mature yet" while the hub's first ack after the fast-forward is on
+  // its way, or hide when the two drift apart: park again and look, until it offers the key.
+  await expect(async () => {
+    await goTo(a, idB);
+    await expect(a.getByTestId('mate-hint')).toHaveText(/^E: court /, { timeout: 3_000 });
+  }, 'A parks beside B and is offered the court key').toPass({ timeout: 40_000 });
   await Promise.all([topUp(a), topUp(b)]);
   const parentA = (await state(a)).life.creature;
   await courtUntilInvited(a, b, idB);
