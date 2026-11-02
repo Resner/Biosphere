@@ -1,6 +1,6 @@
 # 0021: Mating, offspring and the checkpoint chain (M5)
 
-- Status: accepted (the base cooldown is 9 minutes: 0022)
+- Status: accepted (the base cooldown is 9 minutes: 0022; a pending child can be eaten in a settled encounter, cause `eaten`: 0052)
 - Date: 2026-10-27
 
 ## Context

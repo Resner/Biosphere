@@ -29,11 +29,13 @@ This milestone is a **gate** (gate 3: combat feel). After v0.8.0 the factory wai
 
 ## Owner points → tasks
 
+The owner's Playtest v0.6.0 feedback (#134), as the roadmap records it:
+
 | Owner point | Task |
 |---|---|
-| "Killing a comparable creature must grow you faster than eating plankton" (Playtest v0.6.0, #134) | T2 (rewards as biomass), T5 (measured against the pacing bot), T14 (carrion) |
-| "Size must be a meaningful advantage in a fight" (#134) | T2 (damage and health by radius), T5 (size targets) |
-| "Predators eat eggs … carrying one is a risk worth protecting" (#134) | ADR 0052, T3 (the egg in the fight), T13 (settlement), T12 (shown) |
+| Killing a comparable creature must grow you faster than eating plankton | T2 (rewards as biomass), T5 (measured against the pacing bot), T14 (carrion) |
+| Size must be a meaningful advantage in a fight | T2 (damage and health by radius), T5 (size targets) |
+| Predators eat eggs: a pending egg is a high-value target, so carrying one is a risk worth protecting | ADR 0052, T3 (the egg in the fight), T13 (settlement), T12 (shown) |
 
 The Playtest v0.7.2 points (#263) are handled by PR #264 (ADR 0049), not here.
 
@@ -146,7 +148,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 - [ ] T1 Encounter state, frames and the input codec (after none)
   - Why: everything else (the referee, prediction, the tournament) steps this one function.
   - Steps:
-    1. Add `RULES.encounter`, with DESIGN §7's values (frames, deadlines, engage, escape, strike, damage, stance, brace, ram, spines, reward, egg), and `RULES_VERSION` 9 (ADR 0050: no reset, `FIRST_LIVE_RULES` stays 8). Regenerate every golden the version touches. The state hash includes `world.rules`, so replay hashes change, and genome goldens change their `rulesVersion` only. List them in the PR.
+    1. Add `RULES.encounter`, with DESIGN §7's values (frames, deadlines, engage, escape, strike, damage, stance, brace, ram, spines, reward, egg), and `RULES_VERSION` 9 (ADR 0050: no reset, `FIRST_LIVE_RULES` stays 8). Regenerate every golden the version touches. The state hash includes `world.rules`, so replay hashes change, and genome goldens change their `rulesVersion` only. List them in the PR, and make DESIGN's opening line say rules version 9.
     2. Add `CombatStats` and `sanitizeCombat` in `src/sim/body.ts`, the types above, and the codec.
     3. Add `fighterOf` in `src/genome/fighter.ts`: `Stats.combat` plus `Stats.mass`, sanitized, and the behaviour traits. `targetPref` maps every allele to the four kinds.
     4. Add `createEncounter`:
@@ -163,7 +165,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
        - `strikeReach` is the farther of `combat.reach` and the mouth's `offset + radius`, times the radius;
        - `strikeDistance` is the distance from the attacker's centre to the nearest edge of the target's colliders;
        - `engageRange` is the strike reach plus 0.3 × the target's radius.
-    7. Add the end rules, frozen once over:
+    7. Add the end rules (once `over` is set, the state never changes again):
        - a death names its cause: the last damage of the tick;
        - escape: outside 2 × every living opponent's engage range for 90 ticks;
        - timeout: 900 frames, after which everyone left `stood`;
@@ -389,7 +391,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - Hub tests with an injected clock:
       - two fighters exchange inputs, and both receive identical bundles from frame 0 on;
       - one stops sending and its slot turns `null`;
-      - a victim at 1 hp is killed, and both get `enc-end` with `hash` equal to `replayEncounter` of the bundles;
+      - a fighter at 1 hp with no energy starves (so the test needs T1 only), and both get `enc-end` with `hash` equal to `replayEncounter` of the bundles; once T2 has merged, a kill by a strike is checked the same way;
       - the locks are released (court works again), and no timer is left (`fights.timers() === 0`).
     - A disconnected participant's fight runs to its end. Its reconnect gets `life` only after `enc-end`, with the result's condition.
     - No SQLite row is written during the fight.
@@ -418,7 +420,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - the final hash equals the referee's;
       - a rollback happens only when a remote input differs from its prediction, and never spans more than 10 frames;
       - a bundle 15 frames behind causes one resync and still converges;
-      - an own input the referee turned `null` converges on the autopilot's;
+      - an own input the referee turned `null` converges on the fallback's (`stepFrame` with `null`: the autopilot once T4 has merged);
       - `end` with a different final state snaps the creature to it and counts a desync.
     - A game-level unit test with the fake online session: `enc-start`, frames, `enc-end`, and the player swims on in free roam from the result.
     - `m7-determinism.spec.ts` (no hub): `__bs.replayEncounter` gives every golden's pinned hash in Chromium.
@@ -426,7 +428,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### Play
 
-- [ ] T11 Engage and fight controls, with the first hub duel [opus] (after T7, T9, T10)
+- [ ] T11 Engage and fight controls, with the first hub duel [opus] (after T2, T7, T9, T10)
   - Steps:
     1. Attack (a core action, `src/game/engage.ts`):
        - F engages the creature under the cursor if it is engageable and in range, else the nearest engageable in range;
@@ -469,12 +471,14 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     5. Reduce motion drops the wobble and the kicks, and keeps the flashes, glows and sounds. Update DESIGN §10 and `docs/TESTING.md` (`render.info().telegraphs`, `state().encounter.hud`, the cues).
     6. `debug.autoBrace(on)` (a test aid; client inputs only): the player braces when a windup aimed at it or its egg has 4 ticks left, so a scenario can count a block without timing a key press.
   - Acceptance:
-    - Unit tests for the glow's timing (rising over 8 ticks, gone after the strike), the HUD's visibility rules and the cue triggers.
-    - `m7-hud.spec.ts` (hub 8808), in a duel:
+    - Unit tests:
+      - the glow's timing (rising over 8 ticks, gone after the strike);
+      - the HUD's visibility rules and the cue triggers;
+      - a fight's egg is drawn at the encounter's egg position, within 1 CSS px at the test's camera.
+    - `m7-hud.spec.ts` (hub 8808), in a duel with no egg (a mating would make it `@slow`; T16 covers the egg in play):
       - the HUD shows only in the fight, and the m6b-hud measure keeps it within 6% at 960 × 540;
       - a decoded screenshot during a windup is brighter at the attacker's front than one just before it;
-      - `audio.cues` counts the windup tick, and a block with `debug.autoBrace(true)`;
-      - the egg is drawn within 1 CSS px of `state().encounter`'s egg position.
+      - `audio.cues` counts the windup tick, and a block with `debug.autoBrace(true)`.
 
 - [ ] T13 Results as records: kills, eaten eggs, the death fallback [opus] (after T9, T3)
   - Steps:
@@ -505,11 +509,12 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - a hazard death in a fight keeps the pending child in the fallback;
       - row writes per duel stay ≤ 2 per participant, plus 2 for a checkpoint and 2 for an eaten egg;
       - a reconnect after the end gets the settled `life` or `died`.
+    - A client unit test: a living carrier whose egg is eaten (`enc-end` with `egg: 'eaten'`) shows "Your egg was eaten" and no longer carries it.
     - `m7-kill.spec.ts` (`@slow`, hub 8809, the M5 hooks with `MATING_SCALE`):
       - A and B mate, so both carry eggs;
-      - A eats B's egg (Tab to it, or B at 1 hp so the kill eats it);
-      - B's screen shows the toast or "Killed by A";
-      - the fallback lists no pending child.
+      - B, lowered to 1 hp, is killed by A, which eats B's egg with it (targeting an egg alone needs T15's Tab);
+      - B's death screen says "Killed by A", and its fallback lists no pending child;
+      - A still carries its own egg.
 
 - [ ] T14 Carrion and growth by kills in play (after T13, T5)
   - Steps:
@@ -562,7 +567,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
        - A targets B's egg with Tab and eats it, and B sees "Your egg was eaten";
        - B escapes (steers away for 3 s), so B is `escaped` and A `stood`;
        - A engages B again and C engages A, so C joins as the third fighter;
-       - B, lowered to 1 hp, is killed by A: B's death screen names A, and its fallback offers no pending child;
+       - B, lowered to 1 hp, is killed (by A or C, whoever lands first): B's death screen names that killer, and its fallback offers no pending child;
        - the carrion drops, C eats a piece, and C then escapes;
        - the medium budgets hold at each step;
        - every participant's hash equals `enc-end`'s at each end.
@@ -622,5 +627,5 @@ It checks the medium budgets throughout, and identical final hashes on every par
 - **Size makes bigger bodies too strong** (kill time grows with the radius ratio squared). T5's size lines bound it, with the fallback of ADR 0051.
 - **Kill farming with alternate identities** until M8's decay. Spawn protection, ±1 tier, the 0.5 factor for small victims and the hatch bucket limit it.
 - **Desyncs between engines.** Goldens run in Node (check), workerd (T9) and Chromium (T10). Fights only use `src/sim/math.ts`, and the banned-API scan covers the module.
-- **Large tasks** (T9, T10, T11) may overrun one session. Each says what can ship first, and runs push their work in progress (ADR 0042).
+- **Large tasks** (T9, T10, T11) may overrun one session. T10 says what can ship first, and every run pushes its work in progress (ADR 0042). A task that fails across three runs is split (the `next` skill).
 - **Merge conflicts between parallel tasks.** The shared shapes above are fixed by this spec. T6 adds every protocol message at once. The sim chain (T1–T5) and the net chain (T6–T10) touch different files. The carrion broadcast sits in `worker/settle.ts` (T13, T14), not in `worker/fights.ts` (T9, T15).
