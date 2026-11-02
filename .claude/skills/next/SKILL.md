@@ -37,7 +37,7 @@ Go in this order; the first item that applies is this run's step. "Open PRs" mea
 - An open `Playtest: …` issue for a milestone marked `gate` in the roadmap, with no owner reply → stop with `WAITING: playtest <version>`. A reply (or closing the issue) opens the gate; its feedback becomes owner issues or tasks in the next spec.
 - A Release workflow run on `main` is in progress → wait for it in the foreground: `gh run watch <id> -R Resner/Biosphere --compact --exit-status` (about 15 minutes; `gh run` works here, unlike `gh pr`). If the released milestone is a `gate`, also wait up to 10 minutes for its `Playtest:` issue. Then start this list again from the top.
 
-Health (`Task: health`), unless an open PR already carries that line:
+Health (`Task: health`), unless an open PR already carries that line. Claim it first (§2, "Claim the step"), before you read a log or reproduce anything: two runs that both investigate before claiming do the same work twice.
 - The latest Release workflow run on `main` failed → fix it.
 - The latest `E2E main` run (`e2e-main.yml`, the full suite on main after merges and every 6 hours) failed → fix every scenario that failed in it, in one PR, at their cause (`.claude/rules/tests.md`: wait on state, drive time through the sim, assert nothing in wall time). Prove each fix by repeating that spec locally (`npx playwright test <spec> --repeat-each=5 --workers=1`) before you push; CI then repeats every changed spec 3 times. Don't dispatch the full suite on your branch; `E2E main` re-checks after the merge. Never retry, loosen or `@slow`-park a scenario to get green.
 - A Dependabot PR is open → settle it; the owner never handles them:
@@ -75,7 +75,7 @@ Before any real work, claim the step so that no other worker starts it too:
    - a task: append ` (in progress)` to its line in the spec;
    - a spec: create the spec file with just its title;
    - a milestone close: append ` (closing)` to the milestone's status in `docs/ROADMAP.md`;
-   - health or owner input: whatever first change the fix needs.
+   - health or owner input: an empty commit (`git commit --allow-empty -m "chore: claim <step>"`), so you can claim before you know the fix.
 3. Push it and open a **draft** PR titled after the step, with its `Task:` line in the body.
 4. List the open PRs again **before anything else, and before you start a subagent**. If an older open PR carries the same `Task:` line, close yours and stop with `IDLE: <step> already claimed`. Unless yours is `Task: health`, also count the older open PRs other than `Task: health` with a live claim: if there are two, close yours and stop with `IDLE: two steps in progress`. PR numbers are assigned atomically, so the lowest numbers always win (ADRs 0020, 0047, 0048). Several runs often start within seconds of each other, so never skip this check. CI's `verify` enforces the same-task rule too.
 
