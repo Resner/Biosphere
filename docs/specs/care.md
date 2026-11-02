@@ -89,3 +89,9 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Acceptance: `npm run check:full` and the hub E2E specs are green with no test changed; each file is under 1,000 lines.
   - Done: types, constants and the snapshot codec moved verbatim to `protocol-defs.ts` (403 lines), the untrusted-JSON parsers to `protocol-parse.ts` (787); `protocol.ts` is a 3-line `export *` of both.
   - Gotcha: parse imports defs only (no cycle); the parser-private regexes and `isStatus` live with the parsers.
+
+- [ ] C9 Split `src/style.css` (2,190 lines) into stylesheets under 1,000 lines (in progress)
+  - Why: found by the care run of 2026-11-02; the file is past the 1,000-line bound (ADR 0045) and past what an agent reads at once.
+  - Touches: `src/style.css`, the stylesheets it becomes.
+  - Steps: cut the file into contiguous chunks at section boundaries, in order, into `src/styles/*.css`; `style.css` keeps only `@import` lines in the same order, so the cascade and the importers (`src/main.ts`, `src/lab/main.ts`) stay as they are. Move rules verbatim.
+  - Acceptance: concatenating the parts in import order gives the old file byte for byte; `npm run check:full`, `npm run build` and the gallery and HUD E2E specs are green with no test changed; each file is under 1,000 lines.
