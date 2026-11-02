@@ -23,12 +23,14 @@ Every run is a worker; two scheduled tasks start them, so two may run at once. A
 
 CI's guard fails a PR while an older open `claude/` PR carries the same `Task:` line, so a step is never done twice. Different steps run side by side. An open PR without a `Task:` line (opened before ADR 0047) claims the step its title names.
 
+**At most two steps at once (ADR 0048).** Steps in progress are open PRs, other than `Task: health`, whose claim is live (§1). While there are two, don't start or take over a step other than health: stop with `IDLE: two steps in progress`. One health fix may run beside them. Both scheduled tasks start a run on every merge and every hour, so more runs start than there are free slots; the extra ones stop within a minute or two.
+
 ## 1. Clear the line
 
 Go in this order; the first item that applies is this run's step. "Open PRs" means open PRs from `claude/` branches of this repository.
 
 - `docs/BRIEF.md` doesn't exist → the scaffold hasn't run yet. Stop with `IDLE: waiting for /scaffold`; change nothing.
-- An open PR whose claim is not live → if its step is already done on `main`, close it with a link and carry on. Otherwise take it over **in place**: check out its branch, finish its step there, and ship that same PR. A claim is live while any of these holds (ADR 0042):
+- An open PR whose claim is not live → if its step is already done on `main`, close it with a link and carry on. Otherwise, unless two steps are in progress (§0), take it over **in place**: check out its branch, finish its step there, and ship that same PR. A claim is live while any of these holds (ADR 0042):
   - its PR or branch changed in the last 90 minutes (a commit, a body edit, a comment);
   - a workflow run on its branch is queued or in progress, or finished in the last 30 minutes (`gh run list -R Resner/Biosphere -b <branch> -L 5`).
 - An open `Blocked: …` issue with no owner reply → if it blocks every remaining step, stop and report it. If the owner replied, apply the answer, close the issue and unblock the task.
@@ -45,6 +47,8 @@ Health (`Task: health`), unless an open PR already carries that line:
 
   `@dependabot` comment commands don't work from here, because the GitHub tool neutralises bot mentions.
 - An open owner issue about CI, tests or the workflow → fix it, and close it with a comment.
+
+If two steps are in progress (§0), stop here with `IDLE: two steps in progress`.
 
 Owner input (`Task: owner #<issue>`), unless an open PR carries that line:
 - Owner comments on any `Playtest:` issue posted after your last comment there → treat each point as an owner issue (next item), then reply in that issue saying where each point went.
@@ -73,7 +77,7 @@ Before any real work, claim the step so that no other worker starts it too:
    - a milestone close: append ` (closing)` to the milestone's status in `docs/ROADMAP.md`;
    - health or owner input: whatever first change the fix needs.
 3. Push it and open a **draft** PR titled after the step, with its `Task:` line in the body.
-4. List the open PRs again **before anything else, and before you start a subagent**. If an older open PR carries the same `Task:` line, close yours and stop with `IDLE: <step> already claimed`. PR numbers are assigned atomically, so the lowest number always wins (ADRs 0020, 0047). Two runs often start within seconds of each other, so never skip this check. CI's `verify` enforces it too.
+4. List the open PRs again **before anything else, and before you start a subagent**. If an older open PR carries the same `Task:` line, close yours and stop with `IDLE: <step> already claimed`. Unless yours is `Task: health`, also count the older open PRs other than `Task: health` with a live claim: if there are two, close yours and stop with `IDLE: two steps in progress`. PR numbers are assigned atomically, so the lowest numbers always win (ADRs 0020, 0047, 0048). Several runs often start within seconds of each other, so never skip this check. CI's `verify` enforces the same-task rule too.
 
 Clear the marker before you ship.
 
