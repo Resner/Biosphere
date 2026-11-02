@@ -78,7 +78,6 @@ const GLOW_CACHE = 64;
 const MASKED_RENDERER = 'WebKit WebGL';
 
 /** `calls` and `triangles` count the whole frame: the scene and every post pass. */
-
 export interface RenderInfo extends PostInfo {
   calls: number;
   triangles: number;
