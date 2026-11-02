@@ -168,9 +168,9 @@ function intoHull(plan: BodyPlan, x: number, y: number): { x: number; y: number 
 
 /**
  * The organs in two tones with their faint glows (ADR 0043). Droplets take the second tone, the heart
- * (or ganglion) and the eye pigment the main colour, and the chambers alternate in hash order. The
- * heart, or the largest chamber when there is none, glows; with `glowing` 2 the largest fluid organ
- * not yet glowing does too.
+ * and the eye pigment the main colour, and the chambers alternate in hash order. The heart, or the
+ * largest chamber or droplet when there is none (a ganglion body), glows; with `glowing` 2 the largest
+ * fluid organ not yet glowing does too.
  */
 function withTones(organs: Organ[], glowing: 1 | 2, rng: Rng): Organ[] {
   const chambers = organs.flatMap((o, i) => (o.kind === 'chamber' ? [i] : []));
