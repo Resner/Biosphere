@@ -1,0 +1,792 @@
+/* T's emote shortcut: the six emotes and their numbers, shown while T waits for one. */
+.emote-strip {
+  display: flex;
+  gap: 4px;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  list-style: none;
+}
+
+.emote-strip[hidden] {
+  display: none;
+}
+
+.emote-strip li {
+  position: relative;
+  box-sizing: border-box;
+  width: 40px;
+  height: 40px;
+  padding: 8px;
+  border: 1px solid rgb(227 244 240 / 0.45);
+  border-radius: 12px;
+  background: rgb(4 14 24 / 0.82);
+}
+
+.emote-strip kbd {
+  position: absolute;
+  right: -4px;
+  top: -4px;
+  display: grid;
+  place-items: center;
+  width: 15px;
+  height: 15px;
+  border: 1px solid rgb(227 244 240 / 0.55);
+  border-radius: 50%;
+  background: rgb(2 8 10 / 0.95);
+  color: var(--muted);
+  font-family: inherit;
+  font-size: 0.55rem;
+  line-height: 1;
+}
+
+.chat-log {
+  max-height: 7.5rem;
+  margin: 0 0 0.4rem;
+  padding: 0;
+  overflow-y: auto;
+  list-style: none;
+  font-size: 0.8rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  pointer-events: none;
+}
+
+.chat-log b {
+  color: var(--muted);
+  font-weight: 600;
+}
+
+.chat-input {
+  box-sizing: border-box;
+  width: 100%;
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.8);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+}
+
+.roster[hidden] {
+  display: none;
+}
+
+.roster {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.roster button {
+  max-width: 12rem;
+  overflow: hidden;
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgb(227 244 240 / 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.8rem;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  cursor: pointer;
+}
+
+.roster button:hover,
+.roster button:focus-visible {
+  border-color: var(--muted);
+}
+
+.roster button[data-muted="true"] {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+[data-screen]:not([data-screen="title"]) [data-for="title"],
+[data-screen]:not([data-screen="playing"]) [data-for="playing"],
+[data-screen]:not([data-screen="dead"]) [data-for="dead"] {
+  display: none;
+}
+
+.build-label {
+  position: fixed;
+  right: 0.75rem;
+  bottom: 0.5rem;
+  color: var(--muted);
+  font:
+    0.75rem ui-monospace,
+    SFMono-Regular,
+    Menlo,
+    Consolas,
+    monospace;
+}
+
+/* The play screen keeps no text: the build label moves into the menu (M6b T9). */
+[data-screen="playing"] .build-label {
+  display: none;
+}
+
+.lab-link {
+  margin-top: 1rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+.lab-link:hover,
+.lab-link:focus-visible {
+  color: var(--text);
+}
+
+/* The HUD's parts that come and go (M6b T9), and the panels over the water. */
+.stat[hidden],
+.chip[hidden],
+.menu[hidden],
+.menu-life[hidden],
+.controls[hidden],
+.first-hint[hidden],
+.action[hidden],
+.history[hidden],
+.toast[hidden],
+.mate-hint[hidden],
+.inspect[hidden],
+.badge[hidden] {
+  display: none;
+}
+
+.inspect {
+  position: fixed;
+  left: 1rem;
+  top: 13.5rem;
+  box-sizing: border-box;
+  width: 15rem;
+  max-height: calc(100vh - 14.5rem);
+  overflow-y: auto;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgb(190 235 255 / 0.45);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
+  color: var(--text);
+  font-size: 0.78rem;
+}
+
+.inspect[data-side="right"] {
+  left: auto;
+  right: 1rem;
+  top: 3.5rem;
+  max-height: calc(100vh - 17rem);
+}
+
+.inspect p,
+.inspect ul {
+  margin: 0.2rem 0;
+}
+
+.inspect ul {
+  padding-left: 1rem;
+}
+
+.inspect-name {
+  font-size: 0.95rem;
+}
+
+.inspect-meta,
+.inspect-hints {
+  color: var(--muted);
+}
+
+.inspect-verdict[data-can="true"] {
+  color: #8de88a;
+}
+
+.inspect .action {
+  padding: 0.25rem 0.6rem;
+  font-size: 0.75rem;
+}
+
+.badge {
+  display: inline-block;
+  padding: 0 0.4rem;
+  border: 1px solid currentcolor;
+  border-radius: 0.6rem;
+  font-size: 0.7rem;
+  color: var(--muted);
+}
+
+/* The rarity colours, once: the badge, the offspring card, the result card and its stars read --tier. */
+[data-tier="uncommon"] {
+  --tier: #8de88a;
+}
+
+[data-tier="rare"] {
+  --tier: #7ac8ff;
+}
+
+[data-tier="exotic"] {
+  --tier: #ffd27a;
+}
+
+.badge[data-tier] {
+  color: var(--tier);
+}
+
+.invite[hidden] {
+  display: none;
+}
+
+.toast {
+  position: fixed;
+  top: 22%;
+  left: 0;
+  right: 0;
+  margin: 0;
+  width: fit-content;
+  margin-inline: auto;
+  padding: 0.3rem 1rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
+  color: var(--text);
+  letter-spacing: 0.1em;
+  pointer-events: none;
+}
+
+.action.quiet {
+  margin-top: 0.75rem;
+  border-color: var(--muted);
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+/* Past lives sit at the left of the title screen, out of the way of the Hatch button. */
+.history {
+  position: fixed;
+  left: 0.75rem;
+  bottom: 0.75rem;
+  width: 15rem;
+  max-height: 55vh;
+  overflow: auto;
+  font-size: 0.8rem;
+  text-shadow: 0 0 6px rgb(0 0 0 / 0.9);
+}
+
+.history h2 {
+  margin: 0 0 0.4rem;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.history ul {
+  display: grid;
+  gap: 0.35rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.history li {
+  display: grid;
+}
+
+.history-detail,
+.history p {
+  color: var(--muted);
+}
+
+.history p {
+  margin: 0;
+}
+
+/* The world renewal notice (M6c T2): a glass toast in the tagline's place under the title, so it
+   covers neither the title, the buttons, the status chip nor an egg. */
+.renewed {
+  box-sizing: border-box;
+  max-width: min(40rem, calc(100vw - 2rem));
+  margin: 0.6rem 0 1.2rem;
+  padding: 0.5rem 1.1rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 16px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
+  color: var(--text);
+  font-size: 0.85rem;
+  letter-spacing: 0.04em;
+  line-height: 1.45;
+  text-shadow: none;
+}
+
+.renewed[hidden],
+.renewed:not([hidden]) + .tagline {
+  display: none;
+}
+
+/* Recovery code: a panel over the title screen; the code stays blurred until it is clicked. */
+.recovery-reminder {
+  margin: 0.75rem 0 0;
+  color: #e8b04a;
+  font-size: 0.8rem;
+}
+
+.recovery[hidden],
+.recovery [hidden],
+.recovery-reminder[hidden] {
+  display: none;
+}
+
+.recovery {
+  position: fixed;
+  inset: 0;
+  display: grid;
+  gap: 0.6rem;
+  width: min(26rem, calc(100vw - 2rem));
+  max-height: calc(100vh - 2rem);
+  overflow: auto;
+  padding: 1rem 1.25rem;
+  height: fit-content;
+  margin: auto;
+  border: 1px solid var(--muted);
+  border-radius: 1rem;
+  background: rgb(4 9 11 / 0.92);
+  font-size: 0.85rem;
+  text-align: center;
+}
+
+.recovery h2,
+.recovery p {
+  margin: 0;
+}
+
+.recovery h2 {
+  font-size: 0.8rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.recovery p {
+  color: var(--muted);
+}
+
+.recovery .action {
+  justify-self: center;
+  margin: 0;
+}
+
+.recovery-code {
+  padding: 0.5rem;
+  border: 1px dashed var(--muted);
+  border-radius: 0.5rem;
+  background: none;
+  color: var(--text);
+  font:
+    0.8rem ui-monospace,
+    monospace;
+  letter-spacing: 0.05em;
+  overflow-wrap: anywhere;
+  cursor: pointer;
+}
+
+.recovery-code[data-revealed="false"] {
+  filter: blur(6px);
+}
+
+.recovery-import {
+  display: grid;
+  gap: 0.3rem;
+  color: var(--muted);
+}
+
+.recovery-import input {
+  padding: 0.4rem 0.8rem;
+  border: 1px solid var(--muted);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.55);
+  color: var(--text);
+  font: inherit;
+  text-align: center;
+}
+
+.recovery .recovery-error {
+  color: #e8b04a;
+}
+
+/* Courting: the key beside a creature in reach, and the invitation a partner sends. */
+.mate-hint {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 4.5rem;
+  margin: 0;
+  width: fit-content;
+  margin-inline: auto;
+  padding: 0.3rem 1rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
+  color: var(--text);
+  font-size: 0.85rem;
+  pointer-events: none;
+}
+
+.mate-hint[data-court="true"] {
+  border-color: #8de88a;
+}
+
+.invite {
+  position: fixed;
+  right: 1rem;
+  top: 30%;
+  max-width: 17rem;
+  padding: 0.8rem 1rem;
+  border: 1px solid rgb(141 232 138 / 0.6);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
+  color: var(--text);
+  font-size: 0.85rem;
+}
+
+.invite .invite-name {
+  margin: 0 0 0.3rem;
+  font-size: 1rem;
+}
+
+.invite p {
+  margin: 0.2rem 0;
+}
+
+.invite-keys {
+  color: var(--muted);
+}
+
+.fallback {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 0.5rem;
+  margin: 0.75rem 0;
+}
+
+.fallback[hidden],
+.offspring[hidden] {
+  display: none;
+}
+
+.offspring {
+  position: fixed;
+  right: 1rem;
+  bottom: 3.5rem;
+  width: 11rem;
+  padding: 0.6rem 0.8rem;
+  border: 1px solid rgb(141 232 138 / 0.6);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
+  color: var(--text);
+  font-size: 0.8rem;
+  /* The card slides in as the egg bursts (M6 T20). */
+  animation: offspring-in 0.45s cubic-bezier(0.2, 0.9, 0.3, 1.15) both;
+}
+
+@keyframes offspring-in {
+  from {
+    opacity: 0;
+    transform: translateX(110%);
+  }
+}
+
+@keyframes offspring-fade {
+  from {
+    opacity: 0;
+  }
+}
+
+.offspring p {
+  margin: 0.15rem 0;
+}
+
+/* The rarity frame (M6b T11), on the offspring card; the result card styles its own. */
+.offspring[data-tier] {
+  border-color: var(--tier, rgb(200 240 255 / 0.5));
+}
+
+.stars {
+  color: var(--tier, var(--text));
+  letter-spacing: 0.12em;
+}
+
+/* The result card after a genesis: top centre, between the menu button and the minimap. It never
+   takes the pointer, so the game plays underneath; any click or key sends it away. */
+.reveal-card {
+  position: fixed;
+  top: 0.75rem;
+  left: 50%;
+  width: 13rem;
+  padding: 0.6rem 0.9rem 0.7rem;
+  border: 1px solid var(--tier, rgb(200 240 255 / 0.5));
+  border-radius: 18px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    var(--glass-shadow),
+    var(--glass-shine),
+    0 0 28px -6px var(--tier, transparent);
+  color: var(--text);
+  text-align: center;
+  pointer-events: none;
+  opacity: 0;
+  visibility: hidden;
+  transform: translate(-50%, -130%);
+  transition:
+    transform 0.4s cubic-bezier(0.5, 0, 0.75, 0),
+    opacity 0.4s ease,
+    visibility 0s 0.4s;
+}
+
+.reveal-card[data-shown] {
+  opacity: 1;
+  visibility: visible;
+  transform: translate(-50%, 0);
+  transition:
+    transform 0.5s cubic-bezier(0.2, 0.9, 0.3, 1.15),
+    opacity 0.3s ease,
+    visibility 0s;
+}
+
+.reveal-card p {
+  margin: 0.1rem 0;
+}
+
+.reveal-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.reveal-name {
+  font-size: 1.05rem;
+  letter-spacing: 0.03em;
+}
+
+.reveal-tier {
+  font-size: 0.85rem;
+  text-transform: capitalize;
+  color: var(--tier, var(--text));
+}
+
+.reveal-tier .stars {
+  font-size: 1rem;
+}
+
+.reveal-shape {
+  color: var(--muted);
+  font-size: 0.75rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .reveal-card,
+  .reveal-card[data-shown] {
+    transform: translate(-50%, 0);
+  }
+}
+
+.offspring-title {
+  color: var(--muted);
+}
+
+.offspring-name {
+  font-size: 0.95rem;
+}
+
+.offspring-preview {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.offspring-buttons {
+  display: flex;
+  gap: 0.4rem;
+  margin-top: 0.4rem;
+}
+
+.offspring-buttons .action {
+  padding: 0.3rem 0.6rem;
+  font-size: 0.8rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .offspring {
+    animation-name: offspring-fade;
+  }
+}
+
+/* Settings: a small panel over either screen. */
+.settings {
+  position: fixed;
+  inset: 3rem 1rem auto;
+  z-index: 21;
+  display: grid;
+  gap: 0.6rem;
+  max-width: 24rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  background: rgb(4 14 24 / 0.96);
+  font-size: 0.85rem;
+}
+.settings[hidden] {
+  display: none;
+}
+.settings h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.settings fieldset {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.4rem 1rem;
+  margin: 0;
+  padding: 0;
+  border: 0;
+}
+.settings legend {
+  margin-bottom: 0.3rem;
+  padding: 0;
+  color: var(--muted);
+}
+.settings-note {
+  margin: 0;
+  color: var(--muted);
+}
+.settings-volume {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+.settings-volume input {
+  width: 9rem;
+  accent-color: var(--muted);
+}
+.settings-volume output {
+  min-width: 2ch;
+  font-variant-numeric: tabular-nums;
+}
+.lineage-row {
+  display: flex;
+  gap: 0.5rem;
+  margin: 0;
+}
+
+/* Lineage: a panel over either screen; the chain on top, the family graph under it. */
+.lineage {
+  position: fixed;
+  inset: 2.5rem 1rem 2.5rem;
+  z-index: 20;
+  display: grid;
+  grid-template-rows: auto auto minmax(0, 1fr) auto auto;
+  gap: 0.4rem;
+  max-width: 44rem;
+  margin: 0 auto;
+  padding: 0.75rem 1rem;
+  overflow: auto;
+  border: 1px solid var(--muted);
+  border-radius: 8px;
+  background: rgb(4 14 24 / 0.92);
+  font-size: 0.8rem;
+}
+.lineage[hidden],
+.lineage [hidden],
+.lineage-graph[hidden] {
+  display: none;
+}
+.lineage h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+.lineage p {
+  margin: 0;
+  color: var(--muted);
+}
+.lineage-chain {
+  display: grid;
+  gap: 0.2rem;
+  max-height: 9rem;
+  margin: 0;
+  padding: 0;
+  overflow: auto;
+  list-style: none;
+}
+.lineage-chain a {
+  color: var(--text);
+}
+.lineage-detail {
+  margin-left: 0.5rem;
+  color: var(--muted);
+}
+.lineage-graph {
+  width: 100%;
+  height: 100%;
+  min-height: 6rem;
+}
+.lineage-graph .edge {
+  fill: none;
+  stroke: var(--muted);
+  stroke-width: 1;
+}
+.lineage-graph .edge.branch {
+  stroke: #e8b04a;
+  stroke-width: 2.5;
+}
+.lineage-graph rect {
+  fill: rgb(20 40 56);
+  stroke: var(--muted);
+}
+.lineage-graph .mine rect {
+  stroke: var(--text);
+}
+.lineage-graph .root rect {
+  stroke-dasharray: 4 2;
+}
+.lineage-graph .branch rect {
+  stroke: #e8b04a;
+  stroke-width: 2.5;
+}
+.lineage-graph text {
+  fill: var(--text);
+  font-size: 11px;
+}
