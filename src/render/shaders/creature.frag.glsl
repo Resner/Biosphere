@@ -118,11 +118,13 @@ const vec3 CAUSTIC_BODY = vec3(0.45, 0.8, 0.72);
 const vec2 FACE = vec2(0.15, 0.3);
 const float RIM = 1.8;
 const float BACK = 0.9;
-// The least of the body's rim drawn at full strength, in pixels from its edge (M6b T5 fix).
-const float RIM_MIN_PX = 1.5;
-// A limb's (M6c T6): a rod's edge rounds off over fewer pixels than a body's, so its full rim reaches
-// further in (about 1.5 px), and a rod 3 px across is all rim.
-const float LIMB_RIM_PX = 3.0;
+// How far in from the edge the rim keeps its full strength, as z over its screen gradient, which is
+// about twice the pixels from a rounded edge (M6b T5 fix; M6c T6: 3, so a body's and a limb's edge
+// keep about 1.5 px of full rim, and a rod 3 px across is all rim).
+const float RIM_MIN_PX = 3.0;
+// A limb's light along its axis (pass 1's legs, lit through). Its density is the body's, so where
+// legs fan over each other the water still shows between their edges.
+const float LIMB_FILL = 0.3;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
@@ -203,10 +205,7 @@ void main() {
   // lies away.
   float rim = fres;
   bool hull = kind == 0 || kind == 2 || kind == 3;
-  if (hull || kind == 1) {
-    float edgePx = kind == 1 ? LIMB_RIM_PX : RIM_MIN_PX;
-    rim = max(rim, 1.0 - smoothstep(0.0, edgePx, z / max(fwidth(z), 1e-4)));
-  }
+  if (hull || kind == 1) rim = max(rim, 1.0 - smoothstep(0.0, RIM_MIN_PX, z / max(fwidth(z), 1e-4)));
   // A thin rod (a limb, a mandible) narrower than the rim band is all rim: the same glass as the
   // body's edge, so a limb reads as the body's, not grey (M6c T6).
   // `uv.x` runs once round a part's tube, so its rate across the screen gives the tube's radius in
@@ -267,10 +266,11 @@ void main() {
     col = uRim * (0.5 + 0.3 * z);
     alpha = 0.85 + 0.15 * z;
   } else if (kind == 1) {
-    // A leg, antenna, bead or mandible (M6c T6): the body's glass, face and fresnel rim alike. A thin
-    // one is all rim, so it reads as one stroke as bright as the body's edge; a wide one (a paddle,
-    // a broad leg) is clear glass with a bright edge, as the body is. Neither has a dark core or a
-    // bright wet point of its own, which read as grey smoke and beads.
+    // A leg, antenna, bead or mandible (M6c T6): the body's glass, face and fresnel rim alike, lit
+    // through along its axis, as pass 1's legs were. A thin one is all rim, so it
+    // reads as one stroke as bright as the body's edge; a wide one (a paddle, a broad leg) is glass
+    // with a bright edge. Neither has a bright wet point of its own, which read as beads.
+    col += uRim * (LIMB_FILL * z * uRimStrength);
   } else if (kind == 2) {
     // A plate: denser, brighter glass with a sheen across its face, so armour reads at default zoom
     // (M6 T21), but not an opaque lid: the organs still show through, and the body stays clear

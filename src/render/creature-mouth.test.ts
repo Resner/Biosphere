@@ -42,12 +42,14 @@ describe("the glass is pass 1's (ADR 0043)", () => {
 
   it('draws limbs, membranes and setae as the same glass: a thin limb all rim', () => {
     expect(fragmentShader).toMatch(/if \(kind == 1\) rim = mix\(rim, 1\.0, thin\);/);
-    // A limb takes the body's colour model unchanged: its branch sets neither colour nor alpha.
+    // A limb takes the body's colour model and adds pass 1's light along its axis; it never
+    // replaces it with a fill of its own.
     const limb = fragmentShader.slice(
       fragmentShader.indexOf('} else if (kind == 1) {'),
       fragmentShader.indexOf('} else if (kind == 2) {'),
     );
-    expect(limb).not.toMatch(/col =|alpha =/);
+    expect(limb).not.toMatch(/col =/);
+    expect(limb).toMatch(/col \+= uRim \* \(LIMB_FILL \* z \* uRimStrength\);/);
     expect(fragmentShader).toMatch(
       /col = uCore \* \(FACE\.x \+ FACE\.y \* z\) \+ uRim \* \(edgeLight \* RIM \* uRimStrength\);/,
     );

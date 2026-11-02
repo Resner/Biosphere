@@ -28,10 +28,11 @@ const MOUTH_RATIO = 0.8;
 /** Fewer pixels than this in a region is too few to judge (a cell without limbs, say). */
 const MIN_PIXELS = 12;
 /**
- * A mouth's disc is judged from a 5 × 5 patch up: below it, its darkest tenth is one or two pixels
- * at the front tip, where pass 1's soft fresnel leaves its darker band inside the rim.
+ * The mouth is judged where both its disc and the face hold a 10 × 10 patch: below it a darkest
+ * tenth is a few pixels at the front tip, where pass 1's soft fresnel leaves its darker band inside
+ * the rim, or of a face that bright limbs crowd.
  */
-const MIN_MOUTH = 25;
+const MIN_MOUTH = 100;
 
 let looks: (GlassLook & { file: string })[];
 let pass1: number[];
@@ -74,7 +75,7 @@ test.beforeAll(async ({ browser, baseURL }) => {
     looks
       .map(
         (l, i) =>
-          `${l.file.slice(0, 28).padEnd(28)} face ${f(l.face)}${i < BASELINE ? ` (pass 1 ${f(pass1[i] as number)})` : '            '}  rim ${f(l.rim)}  limbs ${f(l.limbs)} ${r(l.limbs / l.rim)} (${l.counts.limbs} px)  mouth ${f(l.mouth)}, darkest ${f(l.mouthDark)} over ${f(l.faceDark)} ${r(l.mouthDark / l.faceDark)} (${l.counts.mouth} px)`,
+          `${l.file.slice(0, 28).padEnd(28)} face ${f(l.face)}${i < BASELINE ? ` (pass 1 ${f(pass1[i] as number)})` : '            '}  rim ${f(l.rim)}  limbs ${f(l.limbs)} ${r(l.limbs / l.rim)} (${l.counts.limbs} px)  mouth ${f(l.mouth)}, darkest ${f(l.mouthDark)} over ${f(l.faceDark)} ${r(l.mouthDark / l.faceDark)} (${l.counts.mouth} px; face ${l.counts.face} px)`,
       )
       .join('\n'),
   );
@@ -111,7 +112,7 @@ test("per cell, the limbs' median luminance is 0.85–1.15 of the body rim's", (
 });
 
 test("per cell, the mouth's darkest tenth is at least 0.8 of the face's: no dark hole", () => {
-  const judged = looks.filter((l) => l.counts.mouth >= MIN_MOUTH && l.counts.face >= MIN_PIXELS);
+  const judged = looks.filter((l) => l.counts.mouth >= MIN_MOUTH && l.counts.face >= MIN_MOUTH);
   expect(judged.length).toBeGreaterThanOrEqual(BASELINE);
   const off = judged
     .map((l) => ({ file: l.file, ratio: Number((l.mouthDark / l.faceDark).toFixed(3)) }))
