@@ -1,5 +1,5 @@
 {
-  "rulesVersion": 8,
+  "rulesVersion": 9,
   "vectors": {
     "zero": "d8828a087d2940342d5fb36708ed65e2b879d89e2141b9ec0229dd26fdb5a782",
     "counter": "cc759a4a6f09044ca95b7542304298fcc4b2b4b6b3469c12871addb94cc33f74",

@@ -1,7 +1,7 @@
-// Rules v8 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v9 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 8;
+export const RULES_VERSION = 9;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -87,6 +87,8 @@ export const RULES = deepFreeze({
     minMouthArc: 0.05,
     digestionMin: 0.1,
     digestionMax: 1.5,
+    /** Caps on the combat half of the body seam (`sanitizeCombat`). */
+    combat: { reachMin: 1, reachMax: 2.5, powerMax: 20, massMin: 0.1, massMax: 20 },
   },
   damage: {
     /** hp/s */
@@ -684,6 +686,57 @@ export const RULES = deepFreeze({
     spatialPeriod: 2048,
     /** Slow temporal change, in ticks (about 120 s). */
     timePeriodTicks: 3600,
+  },
+  /** Refereed encounters (DESIGN §7, ADRs 0050-0052); the combat tournament tunes these. */
+  encounter: {
+    /** A frame is 3 ticks (10 Hz); the referee takes an input until `inputDeadlineMs` after it starts. */
+    frameTicks: 3,
+    inputDeadlineMs: 120,
+    /** The target's own lock answer is awaited this long; frame 0 starts this long after it. */
+    lockAnswerMs: 150,
+    startDelayMs: 150,
+    /** An engage uses the target's newest snapshot if it is at most this many ticks old. */
+    snapshotMaxAge: 9,
+    /** Fighters in one fight, and the size tiers they may differ by. */
+    maxFighters: 4,
+    maxTierGap: 1,
+    /** Hatch protection in seconds (genesis, a promoted child, a restore). */
+    protectionSeconds: 15,
+    /** The fight ends after this many frames (90 s); everyone left stands. */
+    timeoutFrames: 900,
+    /** A fighter outside `escapeFactor` x every living opponent's engage range this long escapes. */
+    escapeTicks: 90,
+    escapeFactor: 2,
+    /** Engage range = strike reach + this x the target's radius. */
+    engageSlack: 0.3,
+    strike: { windupTicks: 8, recoverTicks: 24, tolerance: 1.1, minArc: 0.6 },
+    damage: {
+      perRadius: 2.8,
+      /** Power = base + weapon x w / (w + half). */
+      powerBase: 0.3,
+      powerWeapon: 1.2,
+      powerHalf: 0.6,
+      armour: 0.6,
+      spread: 0.1,
+    },
+    stance: {
+      aggressive: { dealt: 1.25, armour: 0.85, thrust: 1 },
+      balanced: { dealt: 1, armour: 1, thrust: 1 },
+      evasive: { dealt: 0.7, armour: 1, thrust: 1.2 },
+    },
+    brace: {
+      windowTicks: 8,
+      cooldownTicks: 60,
+      energyPerBiomass: 0.05,
+      block: 0.8,
+      staggerTicks: 9,
+      staggerThrust: 0.3,
+    },
+    ram: { minSpeed: 60, speedSpan: 60, perRadius: 2, cooldownTicks: 24 },
+    /** The share of the damage dealt that a spined body returns, times its spines. */
+    spineReturn: 0.4,
+    reward: { share: 0.4, carrion: 0.4, energyPerBiomass: 3, smallerTier: 0.5, biggerTier: 1.5 },
+    egg: { trail: 0.5, healthShare: 0.25, eatShare: 0.2 },
   },
   controls: {
     /** Cursor within this many radii of the creature means coast. */

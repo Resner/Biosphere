@@ -15,3 +15,4 @@ Bit-for-bit determinism across Chromium, Firefox, WebKit, Node and workerd is th
 - Every number belongs in `RULES` (`rules.ts`) and in `docs/DESIGN.md`. A change that alters outcomes regenerates the goldens in the same PR. The first such change after a release also bumps `RULES_VERSION`; later ones before the next release stay on that version (ADR 0018). Never edit a golden just to get green.
 - Food slots keep their `consumed` entry for good: it holds the slot's next cycle `k`. Never prune it.
 - Budget: one tick for a full pond (24 creatures plus visible food) stays under 2 ms in Node. Avoid per-tick allocations in hot loops.
+- Encounters (`src/sim/encounter/`): one `stepFrame` (3 ticks) is the whole fight, shared by the referee and every client. Fighters hold their own `CreatureState`; the encounter world holds none and no food. Anything a fighter's state or a result depends on goes through `hashEncounter`.
