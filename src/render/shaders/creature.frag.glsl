@@ -79,11 +79,13 @@ const float ORGAN_LUMA = 0.36;
 // A part's half-width on screen (pixels) over which it turns from all rim (a glass rod narrower than
 // the body's rim band is all edge) to clear glass with a rim, like the body (M6c T6: from 2.5-6, under
 // which a paddle drawn all rim read as a white blob, and stacked paddles as a white cloud).
-const vec2 PART_CLEAR_PX = vec2(1.5, 3.5);
+const vec2 PART_CLEAR_PX = vec2(0.75, 1.5);
 // A fine part (a leg, a pearl, a seta, a membrane, the mouth's feature) draws no brighter than the body
 // rim's peak (M6c T6, `rimPeak`): one alone matches the rim, and where many overlap they fill an area
-// at that colour, which the grade's shoulder keeps short of white. Setules and fringe stay fainter
-// than it, so a comb reads as strokes and fringe as faint cilia.
+// at that colour, which the grade's shoulder keeps short of white. Setae, setules and fringe stay
+// fainter than it (shares of it), so a comb's bristles and their bloom stay separate strokes rather
+// than one bright cloud, and fringe reads as faint cilia.
+const float SETA_LUMA = 0.6;
 const float SETULE_LUMA = 0.3;
 // How dense a setule is (0.45 before look pass 6): where combs overlap, their setules filled the
 // space between the bristles with a grey haze.
@@ -118,6 +120,9 @@ const float RIM = 1.8;
 const float BACK = 0.9;
 // The least of the body's rim drawn at full strength, in pixels from its edge (M6b T5 fix).
 const float RIM_MIN_PX = 1.5;
+// A limb's (M6c T6): a rod's edge rounds off over fewer pixels than a body's, so its full rim reaches
+// further in (about 1.5 px), and a rod 3 px across is all rim.
+const float LIMB_RIM_PX = 3.0;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
@@ -191,17 +196,22 @@ void main() {
   // The mouth's feature (M6c T6, creature-mouth.ts) is drawn as a limb's tube and setae's ribbons.
   bool tagged = kind == 1 && vUv.x >= PEARL_TAG;
   bool fringe = kind == 1 && vUv.x >= FRINGE_TAG;
-  // The rim is the fresnel (pass 1). On the body, its plates and the mouth's disc (kind 3, glass like
-  // the rest of the body since M6c T6, with no dark fill), the edge keeps at
-  // least RIM_MIN_PX of it at full strength, so a slim segment (M6b T5's tails and small heads) keeps
-  // an edge: z over its screen gradient is about how many pixels the edge, where z reaches 0, lies
-  // away.
+  // The rim is the fresnel (pass 1). On the body, its plates, the mouth's disc (kind 3, glass like the
+  // rest of the body since M6c T6, with no dark fill) and the limbs, the edge keeps at least
+  // RIM_MIN_PX of it at full strength, so a slim segment (M6b T5's tails and small heads) and a limb
+  // keep an edge: z over its screen gradient is about how many pixels the edge, where z reaches 0,
+  // lies away.
   float rim = fres;
   bool hull = kind == 0 || kind == 2 || kind == 3;
-  if (hull) rim = max(rim, 1.0 - smoothstep(0.0, RIM_MIN_PX, z / max(fwidth(z), 1e-4)));
+  if (hull || kind == 1) {
+    float edgePx = kind == 1 ? LIMB_RIM_PX : RIM_MIN_PX;
+    rim = max(rim, 1.0 - smoothstep(0.0, edgePx, z / max(fwidth(z), 1e-4)));
+  }
   // A thin rod (a limb, a mandible) narrower than the rim band is all rim: the same glass as the
   // body's edge, so a limb reads as the body's, not grey (M6c T6).
-  float across = 1.0 / max(length(fwidth(normal.xy)), 1e-3);
+  // `uv.x` runs once round a part's tube, so its rate across the screen gives the tube's radius in
+  // pixels; unlike the normal's, it does not change along the part, where a paddle swells.
+  float across = 1.0 / max(6.2832 * length(vec2(dFdx(vUv.x), dFdy(vUv.x))), 1e-4);
   float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
   if (kind == 1) rim = mix(rim, 1.0, thin);
   float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
@@ -414,7 +424,8 @@ void main() {
   // A fine part's light is capped at the body rim's peak (M6b T4, M6c T6): its tube's rim, gloss and
   // caustics would otherwise add up, and overlapping parts filled whole areas with white.
   if (kind == 1 || kind == 5 || kind == 6 || kind == PART_SETULE) {
-    float cap = rimPeak * (kind == PART_SETULE ? SETULE_LUMA : fringe ? FRINGE_LUMA : 1.0);
+    float cap = rimPeak *
+      (kind == 5 ? SETA_LUMA : kind == PART_SETULE ? SETULE_LUMA : fringe ? FRINGE_LUMA : 1.0);
     col *= min(1.0, cap / max(dot(col, LUMA), 1e-4));
     col += vec3(PEARL_HOT) * pearlHot;
   }

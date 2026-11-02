@@ -568,15 +568,16 @@ describe('no white clipping (M6b T4, ADR 0034; M6c T6, ADR 0043)', () => {
   const constant = (name: string): number =>
     Number(fragmentShader.match(new RegExp(`const float ${name} = ([0-9.]+);`))?.[1]);
 
-  it("caps every fine part at the body rim's peak, setules and fringe below it", () => {
-    // One limb, seta or membrane vein matches the body's rim; stacked, none fills an area brighter.
+  it("caps every fine part at the body rim's peak, setae, setules and fringe below it", () => {
+    // One limb or membrane vein matches the body's rim; stacked, none fills an area brighter.
     expect(fragmentShader).toMatch(
       /float rimPeak = dot\(uCore \* FACE\.x \+ uRim \* \(RIM \* uRimStrength\), LUMA\);/,
     );
-    expect(constant('SETULE_LUMA')).toBeLessThan(1);
+    expect(constant('SETA_LUMA')).toBeLessThan(1);
+    expect(constant('SETULE_LUMA')).toBeLessThan(constant('SETA_LUMA'));
     expect(constant('FRINGE_LUMA')).toBeLessThan(1);
     expect(fragmentShader).toMatch(
-      /kind == 1 \|\| kind == 5 \|\| kind == 6 \|\| kind == PART_SETULE\) \{\s*float cap = rimPeak \* \(kind == PART_SETULE \? SETULE_LUMA : fringe \? FRINGE_LUMA : 1\.0\);\s*col \*= min\(1\.0, cap \/ max\(dot\(col, LUMA\), 1e-4\)\);/,
+      /kind == 1 \|\| kind == 5 \|\| kind == 6 \|\| kind == PART_SETULE\) \{\s*float cap = rimPeak \*\s*\(kind == 5 \? SETA_LUMA : kind == PART_SETULE \? SETULE_LUMA : fringe \? FRINGE_LUMA : 1\.0\);\s*col \*= min\(1\.0, cap \/ max\(dot\(col, LUMA\), 1e-4\)\);/,
     );
     // The cap comes after every light a part takes (its rim, refraction and caustics).
     expect(fragmentShader.indexOf('float cap =')).toBeGreaterThan(
