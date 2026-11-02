@@ -313,16 +313,18 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
   - Done: shallows and the twilight's top at caustics 0.55, rays 0.4 (`ZONE_LOOK`); shallows 0.55/0.4, twilight 0.158/0.115, shallows change 2.30, spread 4.97. `m6-light` and `m6-budget` retargeted too.
   - Gotcha: the shallows' `change` depends on the pattern's phase at the fixed clocks; pace 0.2 measured 2.449–2.450 against the 2.45 bound, so the pace is now 0.16.
 
-- [ ] T11 The egg reveal: a still scene, and clicks that matter [opus] (in progress)
+- [x] T11 The egg reveal: a still scene, and clicks that matter [opus] (in progress)
+  - Done: `EggReveal` charge, hint cycle, paced crack (`paced`, `crackedBy`) and a full-charge burst; `EggShow.still()` drives the camera hold, the water clock (`SceneView.waterTime`), the 35% veil and `[data-still]`; a pitched `charge` tick; rolling stars; `m6c-egg.spec.ts` (hub 8805).
+  - Gotcha: a paced egg waits 6 s after the beacon, so `waitPlaying` presses Enter on the stir (`{ paced: true }` opts out) and specs press Enter after H; Enter during a still scene cracks instead of opening the chat.
   - Why:
     - After a death the camera keeps following the dissolving body's drift and zoom, and the water animates, so the background moves behind the egg. The owner wants it static.
     - A poke (`EggReveal.poke(now)`) only gives a damped wobble, so the owner asks for clicks that "feel meaningful … increasing the luck. Maximize the gacha".
   - Honesty rule: the child is fixed by the committed drand round (ADR 0010). Nothing on screen may claim that clicking changes the outcome. Clicking charges the show and uncovers the result sooner: meaningful, and true.
   - Steps:
-    1. **Still scene**: from the reveal's start until the card closes:
+    1. **Still scene** (a genesis or a hatch; a mating's egg is revealed in play and stays in the open): from the reveal's start until the shell bursts. Fixed in T11: not "until the card closes", since the card slides in over a game that already plays (M6b T11), where a held camera would lose the new creature.
        - the camera is locked on the egg (no pan, no zoom);
        - the water, snow, caustics and god rays hold their frame (their clock pauses; the sim does not);
-       - the background dims 35% with the DOF blur;
+       - the background dims 35%, the depth of field blurring it as before (no new blur pass, which low could not afford);
        - other creatures are drawn dimmed;
        - the HUD hides.
     2. **Charge**: each click (or Space on the title or death screen; in play Space dashes) adds charge, diminishing, full after about 12 pokes. Each poke gives:

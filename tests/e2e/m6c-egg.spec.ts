@@ -74,6 +74,7 @@ async function charged(browser: Browser): Promise<void> {
   const pokes = chargeFull(page);
   await hatchEgg(page);
   const after = await pokes;
+  await page.screenshot({ path: 'test-results/m6c-egg-charged.png' });
   expect(after.charge).toBe(1);
   // Each poke ticked; paced pokes never crack it: it still waits for the player.
   expect(after.ticks).toBe(12);
@@ -106,6 +107,7 @@ async function untouched(browser: Browser): Promise<void> {
     timeout: 15_000,
   });
   const stirring = await state(page);
+  await page.screenshot({ path: 'test-results/m6c-egg-stirring.png' });
   expect(stirring.egg.paced).toBe(true);
   expect(stirring.egg.still).toBe(true);
   await waitPlaying(page, { paced: true });
