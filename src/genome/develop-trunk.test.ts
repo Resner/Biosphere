@@ -8,8 +8,8 @@ import {
   trunkCheck,
 } from '../../tests/body-outline';
 import { heavyTest } from '../../tests/heavy';
+import { wildGenome } from '../../tests/wild';
 import { findSpecimen } from '../../tools/specimen';
-import { wildGenome } from '../lab/specimens';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
@@ -47,7 +47,22 @@ describe('one body, widest at the trunk (M6b T5)', () => {
   });
 
   it('holds them for the long gallery specimens', () => {
-    for (const n of ['07', '09', '10', '11', '12', '18', '19', '26', '27', '30']) {
+    // The bilateral evolved chains (07-20, M6c T5) and the copepod, shrimp and crab specimens.
+    for (const n of [
+      '07',
+      '08',
+      '09',
+      '10',
+      '12',
+      '13',
+      '14',
+      '17',
+      '18',
+      '20',
+      '26',
+      '27',
+      '30',
+    ]) {
       const traits = express(gallery(n));
       const plan = develop(traits);
       expect(isChain(plan), n).toBe(true);
@@ -88,7 +103,7 @@ describe('copepods, shrimps and worms read as their class (M6b T5)', () => {
   });
 
   heavyTest('draws 80% of random, wild and mutated bodies of each class by its rules', () => {
-    // Random bytes are mostly rings and wings; the Lab's wild cells (a few v2 axes on a v1 body)
+    // Random bytes are mostly rings and wings; wild genomes (a few v2 axes on a v1 body)
     // make most of the long bodies.
     const seen: Record<string, [number, number]> = {};
     for (let i = 0; i < 4_000; i++) {

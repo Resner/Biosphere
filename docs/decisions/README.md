@@ -19,7 +19,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 | 0001, 0015 |
 | Rules versions and freezing | 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
-| Look and the gallery | 0043, 0034 | 0024, 0032, 0033 |
+| Look and the gallery | 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
 
 ## Index
@@ -50,7 +50,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0022](0022-mating-cooldown-nine-minutes.md) | The mating cooldown is 9 minutes | accepted | 0029 |
 | [0023](0023-opus-for-ui-netcode-and-security-tasks.md) | Opus for UI, netcode and security tasks | accepted | 0026 |
 | [0024](0024-look-passes-on-a-committed-gallery.md) | Look passes are judged on a committed gallery | accepted, amended | 0032, 0033, 0034, 0043 |
-| [0025](0025-body-plan-v2.md) | Body plan v2: silhouettes from development, karyotype v2 | accepted | 0028, 0040, 0041 |
+| [0025](0025-body-plan-v2.md) | Body plan v2: silhouettes from development, karyotype v2 | accepted | 0028, 0040, 0041, 0046 |
 | [0026](0026-opus-tasks-in-a-forked-subagent.md) | Opus tasks and specs run in a forked subagent | accepted | |
 | [0027](0027-depth-of-field-as-sprite-scatter.md) | Depth of field as a per-sprite scatter | accepted | |
 | [0028](0028-body-proportions-by-karyotype.md) | Body proportions follow the karyotype | accepted, amended | 0031, 0037, 0039, 0040 |
@@ -68,6 +68,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0040](0040-pre-1-0-world-resets.md) | Before v1.0, a rules change may reset the world; no frozen versions | accepted | |
 | [0041](0041-bodies-read-as-organisms.md) | A body plan reads as an organism: parts by region, a visible-part budget | accepted | |
 | [0042](0042-flake-resistant-gates-and-live-claims.md) | Flake-resistant gates and live claims | accepted | 0044 |
-| [0043](0043-glass-sheen-and-two-tone-organs.md) | Glass with pass 1's sheen, organs in two related tones, gallery specimens per rules | accepted | |
+| [0043](0043-glass-sheen-and-two-tone-organs.md) | Glass with pass 1's sheen, organs in two related tones, gallery specimens per rules | accepted, amended | 0046 |
 | [0044](0044-two-lanes.md) | Two lanes: build and care, each with its own lock | accepted | 0045 |
 | [0045](0045-rules-that-fit-the-size.md) | Rules that fit the project's size: a quick check, lean rule files, a care backlog | accepted | |
+| [0046](0046-lab-evolved-lineages-bred-toward-an-aim.md) | The Lab's Evolved mode breeds lineages toward an aim | accepted | |

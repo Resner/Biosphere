@@ -15,7 +15,7 @@ if (params.has('gallery')) {
 } else {
   startLab({
     seed: params.get('seed') || randomSeed(),
-    mode: params.get('mode') === 'wild' ? 'wild' : 'genesis',
+    mode: params.get('mode') === 'evolved' ? 'evolved' : 'genesis',
     debug: params.has('debug'),
     genome: params.get('genome') ?? undefined,
   });

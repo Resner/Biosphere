@@ -1,6 +1,20 @@
 import { describe, expect, it } from 'vitest';
-import { genomeFromBase64url, genomeToBase64url } from '../genome/codec';
-import { LAB_COUNT, labGenomes, specimenOf } from './specimens';
+import { genomeFromBase64url, genomeHash, genomeToBase64url } from '../genome/codec';
+import { genesisGenome } from '../genome/genesis';
+import { VISIBLE_PAIRS, visibleCount } from '../genome/organism';
+import { seedFromString } from '../sim/prng';
+import {
+  AIMS,
+  EVOLVED,
+  EVOLVED_CLASSES,
+  EVOLVED_SEEDS,
+  evolvedAims,
+  evolvedGrid,
+  LAB_COUNT,
+  labGenomes,
+  silhouetteClasses,
+  specimenOf,
+} from './specimens';
 
 describe('Lab specimens', () => {
   it('makes 24 distinct, valid genesis creatures from a seed, the same each time', () => {
@@ -14,22 +28,59 @@ describe('Lab specimens', () => {
     expect(other).not.toEqual(a.map((s) => s.creature.hash));
   });
 
-  it('makes wild creatures from random bytes, and every body is valid', () => {
-    for (const seed of ['w1', 'w2', 'w3', 'w4', 'w5']) {
-      const wild = labGenomes(seed, 'wild').map((g) => specimenOf(g));
-      expect(new Set(wild.map((s) => s.creature.hash)).size).toBe(LAB_COUNT);
-      for (const s of wild) expect(s.violations).toEqual([]);
+  it('breeds 4 lineages of 6 cells from genesis at the Lab rate (M6c T5)', () => {
+    expect(EVOLVED).toEqual({ lineages: 4, size: 6, generations: 60, brood: 3 });
+    expect(EVOLVED.lineages * EVOLVED.size).toBe(LAB_COUNT);
+    // Every lineage of a grid has its own aim.
+    for (const seed of ['a1', 'a2', 'a3']) {
+      const aims = evolvedAims(seed);
+      expect(aims).toHaveLength(EVOLVED.lineages);
+      expect(new Set(aims).size).toBe(EVOLVED.lineages);
+      for (const aim of aims) expect(Object.keys(AIMS)).toContain(aim);
     }
-    const genesis = labGenomes('w1', 'genesis').map((g) => genomeToBase64url(g));
-    const wild = labGenomes('w1', 'wild').map((g) => genomeToBase64url(g));
-    expect(wild).not.toEqual(genesis);
   });
 
-  it('shows at least eight silhouette classes in the wild mode for 9 of 10 seeds', () => {
-    const rich = Array.from({ length: 10 }, (_, i) => `wild-variety-${i}`).filter(
-      (seed) => new Set(labGenomes(seed, 'wild').map((g) => specimenOf(g).silhouette)).size >= 8,
+  it('shows evolved lineages: 24 distinct, valid bodies within the part budget, the same each time', () => {
+    const grid = evolvedGrid('e1');
+    expect(grid).toHaveLength(LAB_COUNT);
+    expect(labGenomes('e1', 'evolved').map(genomeHash)).toEqual(grid.map(genomeHash));
+    const specimens = grid.map((g) => specimenOf(g));
+    expect(new Set(specimens.map((s) => s.creature.hash)).size).toBe(LAB_COUNT);
+    for (const s of specimens) {
+      expect(s.violations).toEqual([]);
+      expect(visibleCount(s.creature.plan)).toBeLessThanOrEqual(2 * VISIBLE_PAIRS);
+    }
+    expect(evolvedGrid('e2').map(genomeHash)).not.toEqual(grid.map(genomeHash));
+  });
+
+  it('reads each row from its founder, a genesis cell, to bred bodies that grow segments', () => {
+    const grid = evolvedGrid('e1');
+    const segments = grid.map((g) => specimenOf(g).creature.plan.segments.length);
+    for (let k = 0; k < EVOLVED.lineages; k++) {
+      const founder = genesisGenome(seedFromString(`e1/evolved/${k}/0`));
+      expect(genomeHash(grid[k * EVOLVED.size] as typeof founder)).toBe(genomeHash(founder));
+      expect(segments[k * EVOLVED.size]).toBe(1);
+    }
+    // Selection reaches chains: a lineage bred for 60 generations leaves the cell stage.
+    expect(Math.max(...segments)).toBeGreaterThanOrEqual(4);
+  });
+
+  it('breeds a grid within 600 ms (best of 3)', () => {
+    const times = [0, 1, 2].map((i) => {
+      const start = performance.now();
+      evolvedGrid(`budget-${i}`);
+      return performance.now() - start;
+    });
+    expect(Math.min(...times)).toBeLessThanOrEqual(600);
+  });
+
+  it('shows at least five silhouette classes in the Evolved mode for 2 of the first 3 seeds', () => {
+    // M6c T5: five classes in 9 of 10 seeds; three run here, all ten in `report:diversity`.
+    const rich = EVOLVED_SEEDS.slice(0, 3).filter(
+      (seed) => silhouetteClasses(labGenomes(seed, 'evolved')) >= EVOLVED_CLASSES,
     );
-    expect(rich.length).toBeGreaterThanOrEqual(9);
+    expect(EVOLVED_CLASSES).toBe(5);
+    expect(rich.length).toBeGreaterThanOrEqual(2);
   });
 
   it('describes a creature in plain words with a species name, rarity and vertex count', () => {
@@ -44,7 +95,7 @@ describe('Lab specimens', () => {
   });
 
   it('keeps genomes round-trippable through their text form', () => {
-    for (const g of labGenomes('rt', 'wild')) {
+    for (const g of labGenomes('rt', 'evolved')) {
       expect(genomeToBase64url(genomeFromBase64url(genomeToBase64url(g)) as typeof g)).toBe(
         genomeToBase64url(g),
       );

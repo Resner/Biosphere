@@ -1,4 +1,4 @@
-// Prints the diversity report: `npm run report:diversity -- --genesis 2000 --bred 2000 --generations 6`.
+// Prints the diversity report: `npm run report:diversity -- --genesis 2000 --bred 2000 --generations 6 --evolved 10`.
 // The sources import each other without extensions, so Vite loads them (as the build does).
 import { createServer } from 'vite';
 

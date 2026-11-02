@@ -2,13 +2,13 @@ import { readdirSync, readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { ARCHETYPES, buildBytes } from '../../tests/archetypes';
 import { heavyTest } from '../../tests/heavy';
+import { wildGenome } from '../../tests/wild';
 import { decodeGenome, type Genome } from '../genome/codec';
 import { type BodyPlan, develop } from '../genome/develop';
 import { express } from '../genome/express';
 import { GENOME_BYTES, LOCI, MODULE_PARAMS } from '../genome/karyotype';
 import { starterGenome } from '../genome/starter';
 import { parseSpecimen } from '../lab/gallery';
-import { wildGenome } from '../lab/specimens';
 import { createRng, seedFromString } from '../sim/prng';
 import { advanceBeatPhase } from './beat';
 import {

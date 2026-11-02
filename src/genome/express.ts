@@ -147,7 +147,7 @@ export function byte(h: Haplotype, offset: number): number {
 const clamp01 = (x: number): number => (x < 0 ? 0 : x > 1 ? 1 : x);
 
 /** Mean of the loci's alleles on both haplotypes, 0-1; exact at 0 and 1. */
-function fraction(g: Genome, ids: readonly string[]): number {
+export function fraction(g: Genome, ids: readonly string[]): number {
   let sum = 0;
   for (const id of ids) {
     const at = locusOf(id).offset;
