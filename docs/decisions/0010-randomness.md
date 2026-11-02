@@ -1,6 +1,6 @@
 # 0010: Randomness from drand quicknet: commitments and outage policy
 
-- Status: accepted
+- Status: accepted (an encounter's seed uses the newest beacon the authority already holds, never one fetched at lock: 0050)
 - Date: 2026-10-25
 
 ## Context
