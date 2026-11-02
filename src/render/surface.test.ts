@@ -7,8 +7,11 @@ import { creatureMaterial } from './materials';
 import fragmentShader from './shaders/creature.frag.glsl?raw';
 import {
   DETAIL_FADE,
+  DETAIL_LINE,
   DETAIL_SIZE,
   detailFade,
+  FINE_FADE,
+  fineFade,
   GLINT_TIERS,
   glintsFor,
   MAX_GLINTS,
@@ -61,30 +64,40 @@ describe('glintsFor', () => {
 });
 
 describe('detailFade', () => {
-  it('pins the fade-out band: nothing below 2 px, all of it from 5 px', () => {
-    expect(DETAIL_FADE).toEqual({ from: 2, to: 5 });
+  it('pins the fade-in band: nothing below 6 px a feature, all of it from 10 px (M6c T8)', () => {
+    expect(DETAIL_FADE).toEqual({ from: 6, to: 10 });
     expect(detailFade(0)).toBe(0);
-    expect(detailFade(2)).toBe(0);
-    expect(detailFade(5)).toBe(1);
+    expect(detailFade(6)).toBe(0);
+    expect(detailFade(10)).toBe(1);
     expect(detailFade(40)).toBe(1);
-    expect(detailFade(3.5)).toBeCloseTo(0.5, 6);
+    expect(detailFade(8)).toBeCloseTo(0.5, 6);
     let last = 0;
-    for (let px = 0; px <= 8; px += 0.25) {
+    for (let px = 0; px <= 12; px += 0.25) {
       expect(detailFade(px)).toBeGreaterThanOrEqual(last);
       last = detailFade(px);
     }
   });
 
-  it('keeps the fine detail out of small bodies, so nothing finer than 2 px is drawn', () => {
-    // A newborn body at default zoom (960×540) is about 38 px a core radius: its cells show, its
-    // pores only hint. A body drawn at 15 px (near the low level of detail) keeps only a hint of
-    // its cells, and below 28 px no pore is drawn at all.
-    expect(detailFade(DETAIL_SIZE.pore * 38)).toBeLessThan(0.3);
-    expect(detailFade(DETAIL_SIZE.pore * 28)).toBe(0);
-    expect(detailFade(DETAIL_SIZE.cell * 15)).toBeLessThan(0.5);
-    // The gallery's specimens (32 px a core radius) show the cells in full.
-    expect(detailFade(DETAIL_SIZE.cell * 32)).toBe(1);
+  it('keeps the fine detail out of small bodies: no cell under 6 px, no pore under 86 px a radius', () => {
+    // Firefox drew the cell texture of a body at default zoom as a coarse pattern (M6c T8): a cell
+    // starts at 6 px (30 px a core radius), a pore at 86 px a core radius.
+    expect(detailFade(DETAIL_SIZE.cell * 30)).toBe(0);
+    expect(detailFade(DETAIL_SIZE.pore * 85)).toBe(0);
+    expect(detailFade(DETAIL_SIZE.cell * 50)).toBe(1);
     for (const size of Object.values(DETAIL_SIZE)) expect(size).toBeGreaterThan(0);
+  });
+});
+
+describe('fineFade', () => {
+  it('fades a line or tube narrower than 1.5 px instead of drawing it (M6c T8)', () => {
+    expect(FINE_FADE).toEqual({ from: 0.75, to: 1.5 });
+    expect(fineFade(0.5)).toBe(0);
+    expect(fineFade(0.75)).toBe(0);
+    expect(fineFade(1.5)).toBe(1);
+    expect(fineFade(1.125)).toBeCloseTo(0.5, 6);
+    // A cell wall is about DETAIL_LINE.cell of a cell wide: at 10 px a cell it is still sub-pixel.
+    expect(fineFade(DETAIL_LINE.cell * 10)).toBe(0);
+    expect(fineFade(DETAIL_LINE.cell * 24)).toBe(1);
   });
 });
 
@@ -99,9 +112,37 @@ describe('the creature shader', () => {
     expect(Number(defines.DETAIL_VEIN)).toBe(DETAIL_SIZE.vein);
     expect(Number(defines.DETAIL_FLAW)).toBe(DETAIL_SIZE.flaw);
     expect(fragmentShader).toMatch(/smoothstep\(DETAIL_FROM, DETAIL_TO, size \* px\)/);
+    expect(Number(defines.FINE_FROM)).toBe(FINE_FADE.from);
+    expect(Number(defines.FINE_TO)).toBe(FINE_FADE.to);
+    expect(Number(defines.LINE_CELL)).toBe(DETAIL_LINE.cell);
+    expect(Number(defines.LINE_VEIN)).toBe(DETAIL_LINE.vein);
+    expect(fragmentShader).toMatch(/smoothstep\(FINE_FROM, FINE_TO, widthPx\)/);
     expect(material.uniforms.uGlint?.value).toBe(0.5);
     // A clone keeps the defines, so every view draws the same detail.
     expect(material.clone().defines).toEqual(defines);
     material.dispose();
+  });
+
+  it('runs at high precision, whatever precision the renderer settles on (M6c T8)', () => {
+    // three.js prefixes the precision it detected; a driver that reports no highp gets mediump,
+    // which turns the hash noise into blocks and the wall's derivatives into steps.
+    const material = creatureMaterial(materialParams(express(starterGenome())), 0.5);
+    expect(material.fragmentShader.startsWith('precision highp float;\nprecision highp int;\n')).toBe(
+      true,
+    );
+    material.dispose();
+  });
+
+  it('draws no line or tube narrower than 1.5 px: the walls, the gut and the setules fade (M6c T8)', () => {
+    // The cell texture's and the vein network's walls by their own width, the gut and the setules by
+    // their width on screen.
+    expect(fragmentShader).toMatch(/float fine\(float widthPx\)/);
+    expect(fragmentShader).toMatch(/fine\(LINE_CELL \* DETAIL_CELL \* px\)/);
+    expect(fragmentShader).toMatch(/fine\(LINE_VEIN \* DETAIL_VEIN \* px\)/);
+    expect(fragmentShader).toMatch(/kind == PART_GUT[\s\S]*?alpha \*= fine\(tubePx\)/);
+    expect(fragmentShader).toMatch(/kind == PART_SETULE[\s\S]*?alpha = SETULE_ALPHA \* fine\(/);
+    // The segment walls come from the continuous wall coordinate: no floor before a derivative.
+    expect(fragmentShader).toMatch(/fwidth\(vWall\)/);
+    expect(fragmentShader).not.toMatch(/(fwidth|dFdx|dFdy)\([^)]*(floor|fract)/);
   });
 });

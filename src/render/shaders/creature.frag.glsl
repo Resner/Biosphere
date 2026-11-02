@@ -21,6 +21,10 @@
 // M6c T7 (ADR 0043): the organs keep to two related tones (the main colour and a second tone near it,
 // which the droplets and half the chambers take), the iris takes the main colour, and the heart or
 // the largest chamber, and at most one more organ, glow faintly inside their own outline.
+// M6c T8: nothing narrower than 1.5 px on screen is drawn as a line (`fine`): the cell texture's and
+// the vein network's walls, the gut and the setules fade out instead, since under a pixel they broke
+// into dots (Firefox, coarse derivatives); the cell texture starts at 6 px a cell, and every layer
+// runs at high precision (`HIGHP`, materials.ts).
 // One program serves every creature; only the uniforms differ.
 uniform vec3 uCore;
 uniform vec3 uRim;
@@ -137,7 +141,8 @@ const float LIMB_FILL = 0.3;
 // The wet gloss: how tight the highlight is and how bright.
 const float GLOSS = 60.0;
 const float SHINE = 0.6;
-// DETAIL_FROM, DETAIL_TO and the DETAIL_* sizes are defines from `surface.ts`.
+// DETAIL_FROM, DETAIL_TO, the DETAIL_* sizes, FINE_FROM, FINE_TO and the LINE_* widths are defines
+// from `surface.ts`.
 
 // Marking weight 0..1 over the body's own coordinates: u runs around the body (it closes at 1,
 // so the repeat count is a whole number) and v runs along it.
@@ -199,6 +204,12 @@ float detailFade(float size, float px) {
   return smoothstep(DETAIL_FROM, DETAIL_TO, size * px);
 }
 
+// How much of a line or tube `widthPx` pixels wide is drawn (M6c T8, surface.ts `fineFade`): under a
+// pixel it would fall between pixel centres and break into dots, so it fades out instead.
+float fine(float widthPx) {
+  return smoothstep(FINE_FROM, FINE_TO, widthPx);
+}
+
 void main() {
   vec3 normal = normalize(vNormal);
   float z = abs(normal.z);
@@ -226,6 +237,9 @@ void main() {
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   // Screen pixels per core radius, for the detail's fade.
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
+  // A tube's width on screen from how fast its normal turns across it (-1 to 1 over its width), for
+  // the gut, whose `uv.x` wraps round it.
+  float tubePx = 2.0 / max(length(fwidth(normal.xy)), 1e-4);
 
   // Pass 1's glass (ADR 0043): a dim core face-on lets the water and the organs show, with a soft
   // sheen toward the edge, and the fresnel rim carries the edge. No haze layer over the face.
@@ -294,7 +308,8 @@ void main() {
     // A setule (look pass 5): a fainter side hair of a plumose bristle, so a comb stays fine hair
     // and stacked combs do not fill into a white cloud.
     col = uRim * (RIM * uRimStrength);
-    alpha = SETULE_ALPHA;
+    // `uv.x` runs once across a setule (1 to 0), so its width is the tube formula's circumference.
+    alpha = SETULE_ALPHA * fine(6.2832 * across);
   } else if (kind == 6) {
     // A membrane: a thin sheet, its veins running out from the root and across, a fine network
     // between them, and a bright free edge.
@@ -302,7 +317,7 @@ void main() {
     float arc = 1.0 - smoothstep(0.02, 0.06, abs(fract(vUv.y * 3.0 + 0.5) - 0.5));
     float edge = smoothstep(0.86, 1.0, vUv.y);
     // Each detail costs a neighbourhood search, so it is skipped while its fade is zero.
-    float netFade = detailFade(DETAIL_VEIN, px);
+    float netFade = detailFade(DETAIL_VEIN, px) * fine(LINE_VEIN * DETAIL_VEIN * px);
     float net = netFade > 0.0
       ? (1.0 - smoothstep(0.02, 0.07, cells(vRest / DETAIL_VEIN + 5.3).y)) * netFade
       : 0.0;
@@ -365,6 +380,7 @@ void main() {
       // they are joined them into one streak.
       col = tame(uOrgan) * (0.25 + 0.3 * z);
       alpha = 0.18 + 0.22 * z;
+      alpha *= fine(tubePx);
     } else if (kind == PART_CHAMBER) {
       // A fluid chamber, glassy as in pass 1: a clear centre in its colour and a brighter, denser wall.
       col = tint * (0.45 + 0.3 * z + 0.6 * fres) + 0.1 * spot;
@@ -397,7 +413,7 @@ void main() {
     // (look pass 3): on a thin tube the texture read as crumpled foil.
     // Each costs a neighbourhood search (or noise), so it is skipped while its fade is zero.
     float textured = kind == 1 ? 0.0 : 1.0;
-    float wallFade = detailFade(DETAIL_CELL, px) * textured;
+    float wallFade = detailFade(DETAIL_CELL, px) * fine(LINE_CELL * DETAIL_CELL * px) * textured;
     float poreFade = detailFade(DETAIL_PORE, px) * textured;
     float flawFade = detailFade(DETAIL_FLAW, px) * textured;
     float wall = wallFade > 0.0

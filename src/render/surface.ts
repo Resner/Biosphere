@@ -61,8 +61,21 @@ export function glintPlanOf(creature: CreatureSource): GlintPlan {
   return { count, size, seed: creature.hash };
 }
 
-/** Surface detail fades in between these sizes on screen (pixels per feature). */
-export const DETAIL_FADE = { from: 2, to: 5 } as const;
+/**
+ * Surface detail fades in between these sizes on screen (pixels per feature). From 6 px a cell
+ * (M6c T8): at 2 px the cell texture of a body at default zoom read as a coarse pattern in Firefox.
+ */
+export const DETAIL_FADE = { from: 6, to: 10 } as const;
+
+/**
+ * A line or tube narrower than this on screen (pixels) fades out rather than being drawn (M6c T8):
+ * under a pixel wide, it falls between pixel centres and breaks into dots, the more so on a GPU
+ * with coarse derivatives.
+ */
+export const FINE_FADE = { from: 0.75, to: 1.5 } as const;
+
+/** How wide the walls of the cell texture and of a membrane's vein network are, in shares of a cell. */
+export const DETAIL_LINE = { cell: 0.065, vein: 0.045 } as const;
 
 /** The size of each kind of surface detail, in core radii. */
 export const DETAIL_SIZE = {
@@ -78,6 +91,15 @@ export const DETAIL_SIZE = {
 
 /** How much of a detail `px` pixels across is drawn: the shader's `detailFade`, a smoothstep over `DETAIL_FADE`. */
 export function detailFade(px: number): number {
-  const t = clamp((px - DETAIL_FADE.from) / (DETAIL_FADE.to - DETAIL_FADE.from), 0, 1);
+  return smoothstep(DETAIL_FADE.from, DETAIL_FADE.to, px);
+}
+
+/** How much of a line `widthPx` pixels wide is drawn: the shader's `fine`, a smoothstep over `FINE_FADE`. */
+export function fineFade(widthPx: number): number {
+  return smoothstep(FINE_FADE.from, FINE_FADE.to, widthPx);
+}
+
+function smoothstep(from: number, to: number, x: number): number {
+  const t = clamp((x - from) / (to - from), 0, 1);
   return t * t * (3 - 2 * t);
 }

@@ -24,11 +24,19 @@ import plumeVertex from './shaders/plume.vert.glsl?raw';
 import ringsFragment from './shaders/rings.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
-import { DETAIL_FADE, DETAIL_SIZE } from './surface';
+import { DETAIL_FADE, DETAIL_LINE, DETAIL_SIZE, FINE_FADE } from './surface';
 import { ZONE_UNIFORMS, zoneGlsl } from './zones';
 
 /** The largest sprite in canvas pixels: big discs cost fill, and some GPUs cap point sizes there. */
 export const MAX_SPRITE_PX = 256;
+
+/**
+ * Every fragment shader runs at high precision (M6c T8). three.js prefixes the precision it detected,
+ * and falls back to mediump where a driver reports no highp float; WebGL2 always has it in fragment
+ * shaders, and at mediump the hash noise turned into blocks and the walls' derivatives into steps
+ * (the dotted lines and coarse cells the owner saw in Firefox). The last precision statement wins.
+ */
+export const HIGHP = 'precision highp float;\nprecision highp int;\n';
 
 /** Every layer is ordered by `renderOrder` alone: no depth test, no depth write. */
 function layer(
@@ -39,7 +47,7 @@ function layer(
 ): THREE.ShaderMaterial {
   return new THREE.ShaderMaterial({
     vertexShader,
-    fragmentShader,
+    fragmentShader: HIGHP + fragmentShader,
     uniforms,
     transparent: true,
     depthTest: false,
@@ -81,7 +89,7 @@ export const cellMaterial = (extent: number): THREE.ShaderMaterial =>
 /** A GLSL float literal. */
 const glslFloat = (v: number): string => (Number.isInteger(v) ? `${v}.0` : `${v}`);
 
-/** The surface detail's fade band and sizes (`surface.ts`), as the creature shader's defines. */
+/** The surface detail's fade bands, sizes and line widths (`surface.ts`), as the creature shader's defines. */
 export const SURFACE_DEFINES: Readonly<Record<string, string>> = {
   DETAIL_FROM: glslFloat(DETAIL_FADE.from),
   DETAIL_TO: glslFloat(DETAIL_FADE.to),
@@ -89,6 +97,10 @@ export const SURFACE_DEFINES: Readonly<Record<string, string>> = {
   DETAIL_CELL: glslFloat(DETAIL_SIZE.cell),
   DETAIL_VEIN: glslFloat(DETAIL_SIZE.vein),
   DETAIL_FLAW: glslFloat(DETAIL_SIZE.flaw),
+  FINE_FROM: glslFloat(FINE_FADE.from),
+  FINE_TO: glslFloat(FINE_FADE.to),
+  LINE_CELL: glslFloat(DETAIL_LINE.cell),
+  LINE_VEIN: glslFloat(DETAIL_LINE.vein),
 };
 
 /**

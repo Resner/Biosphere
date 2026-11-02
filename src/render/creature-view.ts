@@ -47,6 +47,11 @@ export class CreatureView {
   private readonly blank = this.mesh.material;
   private asset: CreatureAsset | null = null;
   private material: THREE.ShaderMaterial | null = null;
+  /**
+   * A new level of detail, built on the frame the body crossed the threshold and drawn from the next
+   * (M6c T8): the old level stays on screen until then, so no frame is drawn without a body.
+   */
+  private pending: CreatureAsset | null = null;
   private detail: Lod = 'high';
   private hash: string | null = null;
   private freq = 1;
@@ -71,8 +76,18 @@ export class CreatureView {
     const detail =
       view.pxPerWu === undefined ? preset : lodFor(view.radius * view.pxPerWu, preset, this.detail);
     if (view.creature.hash !== this.hash) this.trail = null;
-    if (view.creature.hash !== this.hash || detail !== this.detail || !this.asset) {
-      this.attach(view, detail);
+    if (view.creature.hash !== this.hash || !this.asset) {
+      this.dropPending();
+      this.attach(view, this.cache.acquire(view.creature, detail));
+    } else if (detail === this.detail) {
+      this.dropPending();
+    } else if (this.pending?.lod === detail) {
+      const next = this.pending;
+      this.pending = null;
+      this.attach(view, next);
+    } else {
+      this.dropPending();
+      this.pending = this.cache.acquire(view.creature, detail);
     }
     const material = this.material as THREE.ShaderMaterial;
 
@@ -103,9 +118,10 @@ export class CreatureView {
     return this.asset?.vertices ?? 0;
   }
 
-  private attach(view: CreatureViewState, detail: Lod): void {
-    this.release();
-    const asset = this.cache.acquire(view.creature, detail);
+  /** Draws `asset` (already acquired) from now on, then lets go of the one drawn before. */
+  private attach(view: CreatureViewState, asset: CreatureAsset): void {
+    const old = this.asset;
+    const oldMaterial = this.material;
     // The cached material is a template: the gait uniforms belong to this creature alone.
     const material = (asset.material as THREE.ShaderMaterial).clone();
     shareBackdrop(material);
@@ -116,12 +132,20 @@ export class CreatureView {
     this.asset = asset;
     this.material = material;
     this.hash = view.creature.hash;
-    this.detail = detail;
+    this.detail = asset.lod;
     this.mesh.geometry = asset.geometry;
     this.mesh.material = material;
+    if (old) this.cache.release(old);
+    oldMaterial?.dispose();
+  }
+
+  private dropPending(): void {
+    if (this.pending) this.cache.release(this.pending);
+    this.pending = null;
   }
 
   private release(): void {
+    this.dropPending();
     // The mesh must not keep pointing at what the cache is about to dispose.
     this.mesh.geometry = NO_GEOMETRY;
     this.mesh.material = this.blank;
