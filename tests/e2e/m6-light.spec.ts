@@ -205,7 +205,7 @@ test('caustics move the shallows; the abyss changes only as its snow drifts', as
 test.describe('presets', () => {
   test.use({ storageState: { cookies: [], origins: [] } });
 
-  test('god rays and caustics follow the sunlight: calm in the shallows, fading through twilight, none deeper', async ({
+  test('god rays and caustics follow the sunlight: strongest in the shallows, fading through twilight, none deeper', async ({
     page,
   }) => {
     await play(page, 'medium');
@@ -220,16 +220,14 @@ test.describe('presets', () => {
       expect(particles).toBe(particlesOf('medium'));
     }
     const { shallows, twilight, deep } = light as Record<Zone, { rays: number; caustic: number }>;
-    // The calm shallows (M6b T8) hold a faint light, below the twilight's top, where this lands
-    // (just inside it) and the sunlight focuses most before fading through it (`zones.test.ts`).
-    expect(shallows.rays).toBeGreaterThan(0);
-    expect(shallows.rays).toBeLessThanOrEqual(0.5);
-    expect(shallows.caustic).toBeGreaterThan(0);
-    expect(shallows.caustic).toBeLessThanOrEqual(0.4);
-    expect(twilight.rays).toBeGreaterThan(shallows.rays);
-    expect(twilight.rays).toBeLessThanOrEqual(ZONE_LOOK.twilight.rays);
-    expect(twilight.caustic).toBeGreaterThan(shallows.caustic);
-    expect(twilight.caustic).toBeLessThanOrEqual(ZONE_LOOK.twilight.caustic);
+    // The sunlight is strongest in the shallows (M6c T10) and fades through the twilight, where
+    // this lands just inside it (`zones.test.ts`).
+    expect(shallows.rays).toBeCloseTo(ZONE_LOOK.shallows.rays, 3);
+    expect(shallows.caustic).toBeCloseTo(ZONE_LOOK.shallows.caustic, 3);
+    expect(twilight.rays).toBeGreaterThan(0);
+    expect(twilight.rays).toBeLessThanOrEqual(shallows.rays);
+    expect(twilight.caustic).toBeGreaterThan(0);
+    expect(twilight.caustic).toBeLessThanOrEqual(shallows.caustic);
     expect(deep).toEqual({ rays: 0, caustic: 0 });
     // The bright specks are high's alone.
     const snow = await page.evaluate(() => (window.__bs as BsHook).render.specks('mid'));

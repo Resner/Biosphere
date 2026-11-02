@@ -12,8 +12,8 @@ import { createWorld } from '../../src/sim/world';
 import { hatch, openGame } from './helpers';
 import { decodePng, type Image } from './look-metrics';
 
-// Calmer shallows (M6b T8): the shallows' caustics, god rays and caustics over bodies calm down,
-// while every zone keeps its colours and fog. Measured on the medium preset, on decoded screenshots
+// Calmer shallows (M6b T8): the shallows' light moves slower and spreads less, while every zone
+// keeps its colours and fog; their caustics and god rays are the strongest sunlight (M6c T10). Measured on the medium preset, on decoded screenshots
 // of the canvas alone, each zone at the same place and the same shader clock on every run (a hardy
 // cell neither burns nor is crushed):
 // - `change`: the mean absolute difference (0..255 over RGB) between two frames 2 s of sim apart;
@@ -75,7 +75,7 @@ const MAIN: Readonly<Record<Zone, Measures>> = {
   deep: { change: 1.01, spread: 1.901, luma: 6.811, caustic: 0, rays: 0 },
   abyss: { change: 0.549, spread: 0.8015, luma: 3.5, caustic: 0, rays: 0 },
 };
-/** How far the twilight, deep and abyss measures may move from main's. */
+/** How far the deep and abyss measures, and the twilight's luma, may move from main's. */
 const HOLD = 0.05;
 
 const info = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
@@ -297,24 +297,33 @@ test('the shallows are calmer, and the zones still read apart @slow', async ({ p
   // The shallows calm down.
   expect(shallows.change, 'shallows change').toBeLessThanOrEqual(0.5 * MAIN.shallows.change);
   expect(shallows.spread, 'shallows spread').toBeLessThanOrEqual(0.6 * MAIN.shallows.spread);
-  expect(shallows.caustic, 'caustics over bodies').toBeLessThanOrEqual(0.4);
+  // Yet their sunlight is the strongest (M6c T10, the owner's "slightly more prominent").
+  expect(shallows.caustic, 'caustics over bodies').toBeGreaterThanOrEqual(0.5);
+  expect(shallows.caustic, 'caustics over bodies').toBeLessThanOrEqual(0.65);
+  expect(shallows.rays, 'god rays').toBeGreaterThanOrEqual(0.35);
   expect(shallows.rays, 'god rays').toBeLessThanOrEqual(0.5);
-  expect(shallows.caustic).toBeGreaterThan(0);
-  expect(shallows.rays).toBeGreaterThan(0);
   // The zones still read apart: the water darkens with depth, and the shallows still move most.
   expect(shallows.luma).toBeGreaterThan(twilight.luma);
   expect(twilight.luma).toBeGreaterThan(deep.luma);
   expect(deep.luma).toBeGreaterThan(abyss.luma);
   expect(shallows.change, 'shallows vs abyss change').toBeGreaterThanOrEqual(1.5 * abyss.change);
-  // The deeper zones keep main's look.
-  for (const zone of ['twilight', 'deep', 'abyss'] as const) {
-    const now = m[zone];
-    const main = MAIN[zone];
+  // The deeper zones keep main's look. The twilight's sunlight now fades from the shallows'
+  // strength (M6c T10): it stays below it and still shows, and the water it moves stays at most
+  // main's and clearly livelier than the deep's.
+  within(twilight.luma, MAIN.twilight.luma, 'twilight luma');
+  for (const key of ['change', 'spread'] as const) {
+    expect(twilight[key], `twilight ${key}`).toBeLessThanOrEqual(MAIN.twilight[key] * (1 + HOLD));
+    expect(twilight[key], `twilight ${key} vs deep`).toBeGreaterThanOrEqual(1.25 * deep[key]);
+  }
+  for (const zone of ['deep', 'abyss'] as const) {
     for (const key of ['change', 'spread', 'luma'] as const) {
-      within(now[key], main[key], `${zone} ${key}`);
+      within(m[zone][key], MAIN[zone][key], `${zone} ${key}`);
     }
-    expect(now.caustic, `${zone} caustic`).toBeCloseTo(main.caustic, 2);
-    expect(now.rays, `${zone} rays`).toBeCloseTo(main.rays, 2);
+  }
+  for (const key of ['caustic', 'rays'] as const) {
+    expect(twilight[key], `twilight ${key}`).toBeLessThan(shallows[key]);
+    expect(twilight[key], `twilight ${key}`).toBeGreaterThanOrEqual(0.1);
+    for (const zone of ['deep', 'abyss'] as const) expect(m[zone][key], `${zone} ${key}`).toBe(0);
   }
 });
 

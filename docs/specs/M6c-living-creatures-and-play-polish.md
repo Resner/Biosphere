@@ -292,7 +292,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - reduce motion gives zero offset.
     - E2E: in the shallows with UV tolerance 0, `state().shake.hits` rises by 2 ± 1 per second of sim time, and the camera offset peaks at ≥ 5 px.
 
-- [ ] T10 Sunlight strongest in the shallows [opus]
+- [x] T10 Sunlight strongest in the shallows [opus]
   - Why: in `src/render/zones.ts` the shallows' caustics are 0.4 and rays 0.25 (M6b T8, after v0.7.0's "a little too many effects"), but the twilight's top is 1.0 and 0.8. `sunlight(depth, key)` therefore jumps up just below the shallows, and the light peaks in the upper twilight. The owner wants it "slightly more prominent" in the shallows.
   - Steps:
     1. Sunlight falls monotonically with depth:
@@ -304,11 +304,14 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
        - shallows caustic `≤ 0.4` → 0.5–0.65;
        - shallows rays `≤ 0.5` → 0.35–0.5;
        - the twilight's caustic and rays, compared to main's 0.2877 and 0.2302, → below the shallows' and at least 0.1;
-       - the shallows' change and spread bounds stay.
+       - the shallows' change and spread bounds stay;
+       - the twilight's change and spread follow its weaker caustics: at most main's +5% and at least 1.25× the deep's (its luma stays within 5%). Fixed in T10: the 5% hold on main's could not survive step 1.
     4. Update DESIGN §2 (sunlight).
   - Acceptance:
     - `sunlight(depth, key)` is non-increasing in depth (a property over 1,000 samples per key), and the shallows equal the twilight's top;
     - the retargeted `m6b-water.spec.ts` passes.
+  - Done: shallows and the twilight's top at caustics 0.55, rays 0.4 (`ZONE_LOOK`); shallows 0.55/0.4, twilight 0.158/0.115, shallows change 2.30, spread 4.97. `m6-light` and `m6-budget` retargeted too.
+  - Gotcha: the shallows' `change` depends on the pattern's phase at the fixed clocks; pace 0.2 measured 2.449–2.450 against the 2.45 bound, so the pace is now 0.16.
 
 - [ ] T11 The egg reveal: a still scene, and clicks that matter [opus]
   - Why:

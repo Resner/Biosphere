@@ -37,9 +37,9 @@ export interface ZoneLook {
 /**
  * The look of each zone: bright cyan-green shallows, blue twilight (exactly the dark teal-blue water
  * of reference-01 that the spawn had before zones), blue-black deep and a near-black abyss where
- * glow dominates. The shallows' light is calm (M6b T8, the owner's "a little too many effects"):
- * faint caustics and god rays over the bright water, below the twilight's top, where the sunlight
- * focuses most before it fades.
+ * glow dominates. The sunlight is strongest in the shallows (M6c T10, the owner's "slightly more
+ * prominent"), yet calm there (M6b T8, "a little too many effects": it drifts at under a fifth
+ * of the pace); the twilight's top takes the same strength, and `sunlight` fades it from there down.
  */
 export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
   shallows: {
@@ -47,9 +47,9 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     haze: [0.1, 0.27, 0.215],
     dark: 0,
     glow: 0.2,
-    caustic: 0.4,
-    rays: 0.25,
-    pace: 0.2,
+    caustic: 0.55,
+    rays: 0.4,
+    pace: 0.16,
     snow: 1,
   },
   twilight: {
@@ -57,8 +57,8 @@ export const ZONE_LOOK: Readonly<Record<Zone, ZoneLook>> = {
     haze: [0.04, 0.1, 0.11],
     dark: 0,
     glow: 0.5,
-    caustic: 1,
-    rays: 0.8,
+    caustic: 0.55,
+    rays: 0.4,
     pace: 1,
     snow: 1,
   },
@@ -138,10 +138,10 @@ export function zoneBlend(
 export const TWILIGHT_SUN = 0.25;
 
 /**
- * Sunlight from above (M6 T17): the caustics' or the god rays' strength at a depth. Each zone's
- * strength (`ZONE_LOOK`) fades from the shallows' edge to `TWILIGHT_SUN` of itself by the twilight's
- * floor, so the light dies away through the twilight; the deep and the abyss have none. The calm
- * shallows (M6b T8) hold a weaker, even light. The shaders' `zoneSun` is the same fade.
+ * Sunlight from above (M6 T17): the caustics' or the god rays' strength at a depth. It never grows
+ * deeper down (M6c T10): the shallows hold one even strength, the twilight's top the same, which
+ * fades from the shallows' edge to `TWILIGHT_SUN` of itself by the twilight's floor; the deep and
+ * the abyss have none. The shaders' `zoneSun` is the same fade.
  */
 export function sunlight(depth: number, key: 'caustic' | 'rays'): number {
   const e = RULES.bathymetry.zones;
