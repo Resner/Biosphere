@@ -12,6 +12,14 @@ function wallAccel(p: number, size: number): number {
   return 0;
 }
 
+/** Multipliers on thrust and turning rate (a fight's stance and stagger); 1 leaves the tick as it was. */
+export interface Movement {
+  thrust?: number;
+  turn?: number;
+}
+
+const NO_MODS: Movement = {};
+
 /**
  * One tick of steering, thrust, drag and the soft wall for a living creature (DESIGN §4).
  * Velocity is integrated before position (semi-implicit Euler). The water's current carries the
@@ -21,6 +29,7 @@ export function applyMovement(
   world: World,
   creature: CreatureState,
   input: Input = IDLE,
+  mods: Movement = NO_MODS,
 ): StepEvent[] {
   if (!creature.alive) return [];
   const m = RULES.movement;
@@ -28,7 +37,7 @@ export function applyMovement(
   const events: StepEvent[] = [];
 
   if (input.throttle > 0) {
-    const maxTurn = m.turn * creature.phys.turn * pow(scale, m.turnExp) * DT;
+    const maxTurn = m.turn * creature.phys.turn * pow(scale, m.turnExp) * DT * (mods.turn ?? 1);
     const diff = wrapAngle(steerToAngle(input.steer) - creature.heading);
     creature.heading = wrapAngle(creature.heading + clamp(diff, -maxTurn, maxTurn));
   }
@@ -53,7 +62,8 @@ export function applyMovement(
     creature.phys.thrust *
     (creature.elder ? RULES.life.elderThrust : 1) *
     (input.throttle / m.maxThrottle) *
-    pow(scale, m.thrustExp);
+    pow(scale, m.thrustExp) *
+    (mods.thrust ?? 1);
   const drag = m.drag * creature.phys.drag;
   let ax = dirX * thrust - drag * creature.vx;
   let ay = dirY * thrust - drag * creature.vy;

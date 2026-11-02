@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { type PhysStats, STARTER_PHYS, sanitizePhys } from './body';
+import { type PhysStats, STARTER_COMBAT, STARTER_PHYS, sanitizeCombat, sanitizePhys } from './body';
 import { RULES } from './rules';
 import { hashWorld } from './state-hash';
 import { createWorld, spawnCreature } from './world';
@@ -206,5 +206,29 @@ describe('tolerances', () => {
     });
     expect(junk.uvTolerance).toBe(STARTER_PHYS.uvTolerance);
     expect(junk.pressureTolerance).toBe(STARTER_PHYS.pressureTolerance);
+  });
+});
+
+describe('sanitizeCombat', () => {
+  it('forces every value into range and replaces non-finite ones with the starter cell', () => {
+    const wild = {
+      reach: 99,
+      arc: -4,
+      power: 1e9,
+      armour: 7,
+      spines: Number.NaN,
+      mass: Number.NEGATIVE_INFINITY,
+    };
+    const c = sanitizeCombat(wild);
+    expect(c).toEqual({
+      reach: RULES.body.combat.reachMax,
+      arc: 0,
+      power: RULES.body.combat.powerMax,
+      armour: 1,
+      spines: 0,
+      mass: 1,
+    });
+    expect(sanitizeCombat(c)).toEqual(c);
+    expect(sanitizeCombat(STARTER_COMBAT)).toEqual(STARTER_COMBAT);
   });
 });

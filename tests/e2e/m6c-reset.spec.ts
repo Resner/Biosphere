@@ -113,7 +113,9 @@ test('the recovery code of a returning identity still imports, and a fresh genes
   await clickHatch(other);
   await waitPlaying(other);
   const genesis = await other.evaluate(() => window.__bs?.life.recompute());
-  expect(RULES_VERSION).toBe(8);
+  expect(RULES_VERSION, 'the live rules are never below the reset version').toBeGreaterThanOrEqual(
+    8,
+  );
   expect(genesis?.rules, 'the genesis record names the live rules').toBe(RULES_VERSION);
   expect((await state(other)).life.creature).toBeTruthy();
   await b.close();

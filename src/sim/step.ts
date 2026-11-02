@@ -6,7 +6,7 @@ import { applyMovement } from './physics';
 import type { CreatureState, StepEvent, World } from './types';
 
 /** A creature at 0 health dies of the last damage it took this tick. */
-function applyDeath(creature: CreatureState, events: StepEvent[]): StepEvent[] {
+export function applyDeath(creature: CreatureState, events: StepEvent[]): StepEvent[] {
   if (!creature.alive || creature.health > 0) return [];
   for (let i = events.length - 1; i >= 0; i--) {
     const event = events[i];

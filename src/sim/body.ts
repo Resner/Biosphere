@@ -40,6 +40,19 @@ export interface PhysStats {
   colliders: Collider[];
 }
 
+/**
+ * The combat half of the body seam (ADR 0051): core radii from the centre for `reach`, a half-angle
+ * in radians for `arc`, and `mass` relative to the reference cell. Sanitized like `PhysStats`.
+ */
+export interface CombatStats {
+  reach: number;
+  arc: number;
+  power: number;
+  armour: number;
+  spines: number;
+  mass: number;
+}
+
 const deepFreeze = <T>(value: T): T => {
   if (typeof value === 'object' && value !== null) {
     for (const child of Object.values(value)) deepFreeze(child);
@@ -60,6 +73,16 @@ export const STARTER_PHYS: PhysStats = deepFreeze({
   pressureTolerance: 0.5,
   mouth: { offset: 0, radius: 1, arc: Math.PI, type: 0.5, digestion: 1 },
   colliders: [{ x: 0, y: 0, r: 1 }],
+});
+
+/** The M1 cell fights bare: no weapon, no plate, the reference mass. */
+export const STARTER_COMBAT: CombatStats = deepFreeze({
+  reach: 1,
+  arc: 0,
+  power: 0,
+  armour: 0,
+  spines: 0,
+  mass: 1,
 });
 
 const finiteOr = (value: number, fallback: number): number =>
@@ -112,6 +135,20 @@ export function sanitizePhys(phys: PhysStats): PhysStats {
       digestion: clampTo(m.digestion, b.digestionMin, b.digestionMax, 1),
     },
     colliders,
+  };
+}
+
+/** A copy of `combat` with every value forced into range; non-finite values take the starter's. */
+export function sanitizeCombat(combat: CombatStats): CombatStats {
+  const c = RULES.body.combat;
+  const s = STARTER_COMBAT;
+  return {
+    reach: clampTo(combat.reach, c.reachMin, c.reachMax, s.reach),
+    arc: clampTo(combat.arc, 0, Math.PI, s.arc),
+    power: clampTo(combat.power, 0, c.powerMax, s.power),
+    armour: clampTo(combat.armour, 0, 1, s.armour),
+    spines: clampTo(combat.spines, 0, 1, s.spines),
+    mass: clampTo(combat.mass, c.massMin, c.massMax, s.mass),
   };
 }
 

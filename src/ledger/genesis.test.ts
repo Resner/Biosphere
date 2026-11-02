@@ -106,7 +106,7 @@ describe('genesis ask', () => {
 describe('checkGenesis', () => {
   it('answers rules-retired for a genesis of a rules version before the reset (ADR 0040)', async () => {
     const m = await made();
-    expect(m.record.rules).toBe(8);
+    expect(m.record.rules).toBe(RULES_VERSION);
     expect(m.record.body.karyotype).toBe(2);
     for (const rules of [5, 6, 7]) {
       const old = { ...m.record, rules };
