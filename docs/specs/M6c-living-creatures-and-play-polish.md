@@ -177,7 +177,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - T3's budget still holds.
   - Notes: geometry rules only; the mesh builder already draws curvature, taper and branches. Check the Lab by eye against references 02 and 03, and record in the PR what still reads as artificial.
 
-- [ ] T5 The Lab shows evolved creatures; the gallery under rules 8 [opus]
+- [ ] T5 The Lab shows evolved creatures; the gallery under rules 8 [opus] (in progress)
   - Why: wild mode is uniform random bytes ("random genome bytes that show the extremes", `src/lab/specimens.ts`). No lineage reaches those without selection, yet the owner judges the creatures by it.
   - Steps:
     1. Replace `wildGenome` with `evolvedGrid(seed)`. It breeds 4 lineages of 6 deterministically:
