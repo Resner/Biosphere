@@ -145,6 +145,9 @@ describe('the creature shader', () => {
     expect(fragmentShader).toMatch(/if \(kind == 1\) alpha \*= fine\(2\.0 \* across\);/);
     // A tube's width reads the smaller of its two turns' rates, so its wrap band is no thin rod.
     expect(fragmentShader).toMatch(/min\(rate, turnRate\)/);
+    // No NaN: a normal is never normalised from nothing, and a facing never passes 1.
+    expect(fragmentShader).not.toMatch(/normalize\(vNormal\)/);
+    expect(fragmentShader).toMatch(/float z = min\(abs\(normal\.z\), 1\.0\);/);
     // The segment walls come from the continuous wall coordinate: no floor before a derivative.
     expect(fragmentShader).toMatch(/fwidth\(vWall\)/);
     expect(fragmentShader).not.toMatch(/(fwidth|dFdx|dFdy)\([^)]*(floor|fract)/);

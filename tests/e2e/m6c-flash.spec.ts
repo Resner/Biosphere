@@ -50,6 +50,11 @@ test('no body loses a fifth of its pixels in any frame while the zoom crosses th
       const BRIGHT = 60;
       /** Bodies are judged within this many core radii of their centre (their parts reach past it). */
       const REACH = 2.2;
+      /**
+       * Smaller bodies are not judged: a few pixels across, a slim one's rim lands on more or fewer
+       * pixel centres as the zoom moves it, whatever the level of detail.
+       */
+      const minRadius = 9;
       const { state, render } = window.__bs as BsHook;
       const debug = (window.__bs as BsHook).debug as BsDebug;
       const canvas = document.querySelector('#scene') as HTMLCanvasElement;
@@ -86,6 +91,7 @@ test('no body loses a fifth of its pixels in any frame while the zoom crosses th
           radii[c.id] = c.r;
           const reach = c.r * REACH;
           const judged =
+            c.r >= minRadius &&
             c.x - reach >= 0 &&
             c.y - reach >= 0 &&
             c.x + reach <= w &&

@@ -212,8 +212,10 @@ float fine(float widthPx) {
 }
 
 void main() {
-  vec3 normal = normalize(vNormal);
-  float z = abs(normal.z);
+  // No NaN (M6c T8): normals facing apart can interpolate to nothing, and normalising nothing is
+  // NaN, which the bloom spreads over a whole body; nor a fresnel of a facing past 1.
+  vec3 normal = vNormal * inversesqrt(max(dot(vNormal, vNormal), 1e-8));
+  float z = min(abs(normal.z), 1.0);
   float fres = pow(1.0 - z, mix(2.0, 1.4, uMembrane));
   int kind = int(mod(vPart, PART_KINDS) + 0.5);
   // Pearl tips and fringe carry `uv.x` tags; the mouth's feature (M6c T6, creature-mouth.ts) is
@@ -239,7 +241,9 @@ void main() {
   float across = 1.0 / max(6.2832 * min(rate, turnRate), 1e-4);
   float thin = 1.0 - smoothstep(PART_CLEAR_PX.x, PART_CLEAR_PX.y, across);
   if (kind == 1) rim = mix(rim, 1.0, thin);
-  float back = pow(max(dot(normalize(normal.xy + 1e-4), normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
+  vec2 side = normal.xy + 1e-4;
+  side *= inversesqrt(max(dot(side, side), 1e-8));
+  float back = pow(max(dot(side, normalize(vec2(-0.6, 0.7))), 0.0), 3.0) * rim;
   float spec = pow(max(dot(normal, KEY_HALF), 0.0), GLOSS) * SHINE;
   // Screen pixels per core radius, for the detail's fade.
   float px = 0.7071 / max(length(vec2(length(dFdx(vRest)), length(dFdy(vRest)))), 1e-5);
