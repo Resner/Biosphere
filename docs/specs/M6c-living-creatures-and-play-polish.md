@@ -162,7 +162,9 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
       - a duplicate-heavy genome with 8 slots and 3 pairs each turns everything past 14 into fringe.
     - The archetype tests and the speed band hold.
 
-- [ ] T4 Parts that curve, taper and vary [opus]
+- [x] T4 Parts that curve, taper and vary [opus]
+  - Done: taper 0.6–0.9 and curvature 0.15–1 for every part; branches (½, fanned back) on antennae and tails only, else girth; setae ×3 girth, 12 a part, on legs/antennae/tails; one bulb pair above 0.6; right instances jittered (`jittered`); bristles curve and paddles close to a point in the mesh.
+  - Gotcha: setae stats were rescaled (drag, `full` ×¼, basal ×2) so the same genes buy the same effects; no developed body overruns a top LOD rung now, so the ladder test uses a synthetic heavy plan; the bright dots at thin-leg joints and tips are shading (T6), not bulbs.
   - Why: parts are straight, evenly thin and exactly mirrored; branches fork like twigs; most tips end in a bright bead; setae are long straight fans. The result reads as rigging and lamps.
   - Steps:
     1. Every part tapers (tip width ≤ 40% of root) and carries a backward curvature bias: curvature ≥ 0.15 toward the tail for legs and tails, outward and back for antennae.

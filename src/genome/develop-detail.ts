@@ -107,16 +107,11 @@ export function buildMembranes(segments: PlanSegment[], appendages: Appendage[])
     if (known) return known;
     const a = appendages[i] as Appendage;
     const s = segments[a.segment] as PlanSegment;
-    // Pairs are left then right: on the axis the right instance mirrors the left exactly.
+    // Pairs are left then right: on the axis the right instance's root mirrors the left's exactly
+    // (its direction is jittered, M6c T4).
     const twin = i % 2 === 1 && onAxis(s) ? ray(i - 1) : undefined;
-    const made = twin
-      ? {
-          a,
-          s,
-          root: { x: twin.root.x, y: -twin.root.y },
-          dir: { x: twin.dir.x, y: -twin.dir.y },
-        }
-      : { a, s, root: rootOf(s, a.angle, a.side), dir: dirOf(s, a) };
+    const root = twin ? { x: twin.root.x, y: -twin.root.y } : rootOf(s, a.angle, a.side);
+    const made = { a, s, root, dir: dirOf(s, a) };
     rays[i] = made;
     return made;
   };

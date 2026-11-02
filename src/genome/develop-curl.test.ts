@@ -16,7 +16,15 @@ import { cos, PI, sin } from '../sim/math';
 import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { decodeGenome, type Genome } from './codec';
-import { type BodyPlan, bodyViolations, develop, planBounds, rootOf } from './develop';
+import {
+  type Appendage,
+  type BodyPlan,
+  bodyViolations,
+  develop,
+  planBounds,
+  rootOf,
+} from './develop';
+import { capAndBend } from './develop-parts';
 import { express } from './express';
 import { mutateGenome } from './inherit';
 import { GENOME_BYTES, HAPLOTYPE_BYTES } from './karyotype';
@@ -364,5 +372,131 @@ describe('parts by region and a visible-part budget (M6c T3, ADR 0041)', () => {
     const short = chain({ curve: 255, segDrive1: 100, segDrive2: 100 }, SWIM2);
     expect(short.segments.length).toBeLessThan(5);
     expect(short.form).toMatchObject({ mode: 0, turn: PI });
+  });
+});
+
+/** The instances of a plan in mirrored pairs: left then right. */
+const pairsOf = (plan: BodyPlan): [Appendage, Appendage][] => {
+  const out: [Appendage, Appendage][] = [];
+  for (let i = 0; i + 1 < plan.appendages.length; i += 2)
+    out.push([plan.appendages[i] as Appendage, plan.appendages[i + 1] as Appendage]);
+  return out;
+};
+const deg = (d: number): number => (d * PI) / 180;
+
+describe('parts that curve, taper and vary (M6c T4, ADR 0041)', () => {
+  it('tapers every part to at most 40% of its root and bends it backward', () => {
+    const { check, bad } = breaks();
+    let bent = 0;
+    ALL.forEach(({ plan }, i) => {
+      for (const a of plan.appendages) {
+        check(1 - a.taper <= 0.4 + 1e-9, () => `${i}: tip ${1 - a.taper} of the root`);
+        check(a.curvature >= 0.15 - 1e-9, () => `${i}: curvature ${a.curvature}`);
+        if (a.fringe) continue;
+        // Drawn, the bend turns toward the tail on the left (anticlockwise) and mirrors on the right:
+        // legs and tails curve back, antennae outward and back.
+        const { bend } = capAndBend(a);
+        check(bend >= 0, () => `${i}: a ${regionOf(a, plan)} part bends forward (${bend})`);
+        if (bend > 0) bent++;
+      }
+    });
+    expect(bad).toEqual([]);
+    expect(bent).toBeGreaterThan(50_000);
+  });
+
+  it('branches only antennae and tails, once, at most half as long, fanned back at most 35°', () => {
+    const D = RULES.develop;
+    expect(D.branchScale).toBeLessThanOrEqual(0.5);
+    expect(D.branchFan).toBeGreaterThan(0);
+    expect(D.branchFan).toBeLessThanOrEqual(deg(35));
+    const { check, bad } = breaks();
+    let branched = 0;
+    ALL.forEach(({ plan }, i) => {
+      for (const a of plan.appendages) {
+        if (a.branches === 0) continue;
+        branched++;
+        const region = plan.form.radial === 1 ? 'spoke' : regionOf(a, plan);
+        check(
+          !a.fringe && (region === 'head' || region === 'rear'),
+          () => `${i}: ${region} branch`,
+        );
+        // One branch, the backward one (it fans toward the tail on its side).
+        check(a.branches === 1, () => `${i}: ${a.branches} branches`);
+      }
+    });
+    expect(bad).toEqual([]);
+    expect(branched).toBeGreaterThan(2_000);
+  });
+
+  it('tips a bulb only on one pair whose gene passes 0.6', () => {
+    const { check, bad } = breaks();
+    let bulbs = 0;
+    ALL.forEach(({ plan, traits }, i) => {
+      const tipped = plan.appendages.filter((a) => a.bulb > 0);
+      check(tipped.length <= 2, () => `${i}: ${tipped.length} bulbs`);
+      if (tipped.length === 0) return;
+      bulbs++;
+      // One pair: a coil's inner leg is fringe, so its outer instance may carry the bulb alone.
+      const l = tipped[0] as Appendage;
+      check(
+        tipped.every(
+          (a) => a.module === l.module && a.segment === l.segment && a.angle === l.angle,
+        ),
+        () => `${i}: bulbs on more than one pair`,
+      );
+      const gene = (traits.modules[l.module] as (typeof traits.modules)[number]).ext.bulb;
+      check(gene > 0.6, () => `${i}: bulb gene ${gene}`);
+    });
+    expect(bad).toEqual([]);
+    expect(bulbs).toBeGreaterThan(1_000);
+  });
+
+  it('keeps setae to legs, antennae and tails: at most 3× the part wide, 12 a part', () => {
+    const { check, bad } = breaks();
+    let bristled = 0;
+    ALL.forEach(({ plan }, i) => {
+      for (const a of plan.appendages) {
+        if (a.setae === 0) continue;
+        bristled++;
+        check(plan.form.radial === 0 && !a.fringe, () => `${i}: setae on a spoke or fringe`);
+        check(a.setae <= 12, () => `${i}: ${a.setae} setae`);
+        check(
+          a.setaeLength <= 3 * a.girth + 1e-9,
+          () => `${i}: setae ${a.setaeLength} on ${a.girth}`,
+        );
+      }
+    });
+    expect(bad).toEqual([]);
+    expect(bristled).toBeGreaterThan(20_000);
+  });
+
+  it('jitters each mirrored pair by a hash: angle ±6°, length ±5%, the beat a little apart', () => {
+    const J = RULES.develop.organism.jitter;
+    expect(J).toMatchObject({ angle: 6, length: 0.05 });
+    const { check, bad } = breaks();
+    let pairs = 0;
+    let turned = 0;
+    let longer = 0;
+    ALL.forEach(({ plan }, i) => {
+      for (const [l, r] of pairsOf(plan)) {
+        if (l.fringe || r.fringe) continue;
+        pairs++;
+        const dDir = r.dir - l.dir;
+        const dLength = r.length / l.length - 1;
+        check(Math.abs(dDir) <= deg(6) + 1e-9, () => `${i}: pair ${dDir} apart`);
+        check(Math.abs(dLength) <= 0.05 + 1e-9, () => `${i}: pair ${dLength} longer`);
+        const offset = (((r.phase - l.phase) % 1) + 1) % 1;
+        check(
+          offset >= (J.phase[0] as number) - 1e-9 && offset <= (J.phase[1] as number) + 1e-9,
+          () => `${i}: beat ${offset} apart`,
+        );
+        if (Math.abs(dDir) > deg(1)) turned++;
+        if (Math.abs(dLength) > 0.01) longer++;
+      }
+    });
+    expect(bad).toEqual([]);
+    // The bounds and the region limits may hold a jitter back, but most pairs vary.
+    expect(turned / pairs).toBeGreaterThan(0.6);
+    expect(longer / pairs).toBeGreaterThan(0.6);
   });
 });

@@ -89,6 +89,8 @@ const gallery = new Map(
       return [f, s.genome] as const;
     }),
 );
+/** Gallery specimens that carry bristles. */
+const BRISTLED = ['27-', '31-', '37-', '38-'];
 const specimen = (prefix: string): Genome => {
   for (const [f, g] of gallery) if (f.startsWith(prefix)) return g;
   throw new Error(`no specimen ${prefix}`);
@@ -249,11 +251,25 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
     const counts = LODS.map((lod) => estimateVertices(cell, lod));
     expect(counts[0]).toBeGreaterThan(counts[1] as number);
     expect(counts[1]).toBeGreaterThan(counts[2] as number);
-    // The costliest bodies step down their ladder rather than break the budget.
+    // The costliest bodies step down their ladder rather than break the budget. Since M6c T4 no
+    // developed body overruns a top rung (at most 14 parts show, with at most 12 bristles each), so
+    // a plan past what development grows stands in: every part a limb, jointed, forked and bristled.
+    const costly = planOf(extremes[extremes.length - 1] as Genome);
+    const heavy: BodyPlan = {
+      ...costly,
+      appendages: costly.appendages.map((a) => ({
+        ...a,
+        fringe: false,
+        joints: D.caps.joints,
+        branches: D.caps.branches,
+        setae: 24,
+        setaeLength: Math.max(a.setaeLength, 0.3),
+      })),
+    };
     for (const lod of LODS) {
-      const big = [...extremes, ...randoms.slice(0, 300)]
-        .map(planOf)
-        .find((p) => countVertices(p, LOD_LADDER[lod][0] as MeshDetail) > LOD_BUDGET[lod]);
+      const big = [...[...extremes, ...randoms.slice(0, 300)].map(planOf), heavy].find(
+        (p) => countVertices(p, LOD_LADDER[lod][0] as MeshDetail) > LOD_BUDGET[lod],
+      );
       if (!big) throw new Error(`no body overruns the top ${lod} rung`);
       expect(meshDetail(big, lod)).not.toEqual(LOD_LADDER[lod][0]);
       expect(estimateVertices(big, lod)).toBeLessThanOrEqual(LOD_BUDGET[lod]);
@@ -768,10 +784,11 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
   });
 
   it('draws every bristle as a thin ribbon on high, and fewer on lower levels when they must', () => {
-    for (const prefix of ['23-', '24-', '27-', '38-']) {
+    // Bristled specimens under M6c T4: setae on legs, antennae and tails only, 12 a part at most.
+    for (const prefix of BRISTLED) {
       const p = planOf(specimen(prefix));
       const bristles = p.appendages.reduce((n, a) => n + a.setae, 0);
-      expect(bristles).toBeGreaterThan(20);
+      expect(bristles).toBeGreaterThan(10);
       const drawn = (lod: Lod): number => {
         const g = buildCreatureGeometry(p, lod);
         const part = attr(g, 'aPart');
@@ -848,7 +865,8 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
         }
       }
     }
-    expect(ratios.length).toBeGreaterThan(20);
+    // At most 12 bristles a part (M6c T4), half as many as before.
+    expect(ratios.length).toBeGreaterThan(10);
     const tips = [...bristles.values()].flat().map((b) => b.tip);
     const inBody = tips.filter(([x, y]) =>
       p.segments.some((seg) => {
@@ -866,7 +884,7 @@ describe('buildCreatureGeometry v2: parts and fine detail', () => {
   });
 
   it('draws plumose bristles on the 5-vertex rungs: setule pairs of their own kind, within the bounds (look pass 5)', () => {
-    for (const prefix of ['23-', '24-', '27-', '38-']) {
+    for (const prefix of BRISTLED) {
       const p = planOf(specimen(prefix));
       const g = buildCreatureGeometry(p, 'high');
       const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];
@@ -1206,15 +1224,16 @@ describe('no white clipping (M6b T4, ADR 0034)', () => {
 });
 
 describe('thin legs keep their paddles (M6b T7)', () => {
-  it('widens a paddle tip toward its blade and tapers every other tip', () => {
+  it('swells a paddle tip into a blade, and tapers every tip to a point (M6c T4)', () => {
     const paddle = RULES.stats.paddleTip;
-    for (const taper of [0, 0.5, 0.9]) {
-      // A thin leg (its drawn radius on a slim trunk) still ends in a blade wider than its base.
-      expect(partRadius(0.03, taper, paddle, 1)).toBeGreaterThan(0.03 * 2);
+    for (const taper of [0.6, 0.75, 0.9]) {
+      // A thin leg (its drawn radius on a slim trunk) still carries a blade wider than its base.
+      expect(partRadius(0.03, taper, paddle, 0.75)).toBeGreaterThan(0.03 * 2);
       expect(partRadius(0.03, taper, paddle, 0)).toBeCloseTo(0.03, 12);
-      // A whip, a point and a blunt tip taper as before.
-      for (const tip of [0, 0.375, 1]) {
+      // Every tip, a paddle's too, ends at most 40% of its root wide (ADR 0041).
+      for (const tip of [0, 0.375, paddle, 0.9, 1]) {
         expect(partRadius(0.03, taper, tip, 1)).toBeCloseTo(0.03 * (1 - taper), 12);
+        expect(partRadius(0.03, taper, tip, 1)).toBeLessThanOrEqual(0.03 * 0.4 + 1e-12);
       }
     }
   });

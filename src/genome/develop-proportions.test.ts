@@ -249,8 +249,9 @@ describe('proportions: parts keep their gene length', () => {
     let named = 0;
     for (const { file, genome } of SPECIMENS) {
       const { traits, plan } = developed(genome);
+      // The left instance is the one fitted; the right is its jittered twin (M6c T4).
       for (const a of plan.appendages) {
-        if (!isNamedPart(plan, a)) continue;
+        if (a.side !== 1 || !isNamedPart(plan, a)) continue;
         named++;
         // At least the v1 gene length, and at most what the long range asks for, as the part's
         // region shapes them.
@@ -260,7 +261,7 @@ describe('proportions: parts keep their gene length', () => {
         expect(a.length).toBeLessThanOrEqual(wanted(plan, traits, a, true) + 1e-9);
       }
     }
-    expect(named).toBeGreaterThan(30);
+    expect(named).toBeGreaterThan(15);
   });
 
   it('keeps the gene length of most parts over 3,000 genomes', () => {
@@ -277,7 +278,7 @@ describe('proportions: parts keep their gene length', () => {
       const plan = develop(traits);
       for (const a of plan.appendages) {
         const kind = kindOf(plan, a);
-        if (kind === 'fringe') continue;
+        if (kind === 'fringe' || a.side !== 1) continue;
         const ok = a.length >= wanted(plan, traits, a) - 1e-9;
         count(`v2 ${kind}`, ok);
         count('v2 all', ok);
@@ -310,7 +311,7 @@ describe('proportions: parts keep their gene length', () => {
                 beat: 220,
                 angle: 32,
                 branching: 255,
-                curvature: 128,
+                curvature: 0,
               },
               M2: { length: 150, thickness: 60, tipShape: 255, beat: 220, angle: 200 },
             },
@@ -322,7 +323,8 @@ describe('proportions: parts keep their gene length', () => {
     expect(bodyViolations(p)).toEqual([]);
     const antenna = p.appendages.find((a) => a.module === 0) as Appendage;
     expect(antenna.segment).toBe(0);
-    expect(antenna.branches).toBe(2);
+    // Biramous: an antenna keeps one branch (M6c T4, ADR 0041).
+    expect(antenna.branches).toBe(1);
     expect(antenna.length).toBeGreaterThanOrEqual(D.length[1] as number);
     const free = antenna.angle + D.sweep * (PI - antenna.angle);
     expect(antenna.dir).toBeGreaterThan(free);

@@ -322,7 +322,9 @@ test.describe('the gallery sheet', () => {
     expect(reached['01-genesis']).toBeLessThan(6);
   });
 
-  test('setae show as at least 20 separate thin bright strokes on the setose specimen', () => {
+  // The threshold is 10 since M6c T4 halved the bristles per part (24 to 12, ADR 0041): half of the
+  // 20 it was, with the bare cell at 3 as the control.
+  test('setae show as at least 10 separate thin bright strokes on the setose specimen', () => {
     const shrimp = specimen('27-specimen-shrimp');
     expect(shrimp.plan.appendages.reduce((n, a) => n + a.setae, 0)).toBeGreaterThanOrEqual(40);
     const place = placeOf(shrimp.index, { radius });
@@ -339,8 +341,8 @@ test.describe('the gallery sheet', () => {
       4,
     );
     console.log(`setae strokes: shrimp ${count}, bare cell ${control}`);
-    expect(count).toBeGreaterThanOrEqual(20);
-    expect(control).toBeLessThan(20);
+    expect(count).toBeGreaterThanOrEqual(10);
+    expect(control).toBeLessThan(10);
   });
 
   test("the winged specimen's membranes are drawn over their whole sheet", () => {

@@ -12,6 +12,7 @@ import { anatomyOf } from '../src/render/anatomy';
 import { estimateVertices } from '../src/render/creature-mesh';
 import { glintPlanOf } from '../src/render/surface';
 import { createRng, seedFromString } from '../src/sim/prng';
+import { RULES } from '../src/sim/rules';
 import { sizeTier } from '../src/sim/size';
 
 export interface ReportOptions {
@@ -102,13 +103,16 @@ const stats = (values: readonly number[], unit: string, digits = 0): string => {
 
 type Legs = { legs: number; width: number; bristled: number };
 
-/** Parts over a sample: how many, their median drawn width, and the share with 6+ bristles. */
+/** A bristled part carries at least a quarter of a part's most bristles: 3 of 12 (M6c T4). */
+export const BRISTLED = RULES.develop.detail.setae.perPart / 4;
+
+/** Parts over a sample: how many, their median drawn width, and the share with `BRISTLED`+ bristles. */
 function legStats(legs: readonly Appendage[]): Legs {
   const widths = legs.map((a) => a.width).sort((a, b) => a - b);
   return {
     legs: legs.length,
     width: widths.length > 0 ? percentile(widths, 0.5) : 0,
-    bristled: legs.length > 0 ? legs.filter((a) => a.setae >= 6).length / legs.length : 0,
+    bristled: legs.length > 0 ? legs.filter((a) => a.setae >= BRISTLED).length / legs.length : 0,
   };
 }
 
@@ -193,7 +197,7 @@ export function diversityReport(options: ReportOptions): string {
       ] as const
     ).map(
       ([name, l]) =>
-        `- ${name}: ${l.legs}, median width ${l.width.toFixed(3)} core radii, ${(100 * l.bristled).toFixed(1)}% with 6 or more bristles`,
+        `- ${name}: ${l.legs}, median width ${l.width.toFixed(3)} core radii, ${(100 * l.bristled).toFixed(1)}% with ${BRISTLED} or more bristles`,
     ),
     '',
     '## Mesh vertices',

@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { diversityReport, parseArgs } from './diversity-report';
+import { BRISTLED, diversityReport, parseArgs } from './diversity-report';
 
 describe('diversity report', () => {
   const text = diversityReport({ genesis: 60, bred: 60, generations: 3 });
@@ -29,10 +29,11 @@ describe('diversity report', () => {
     expect(text).toContain('Bred: 60 over 3 generations');
   });
 
-  it('bristles at least half of the bred legs with 6 or more setae (M6b T7)', () => {
+  it('bristles at least half of the bred legs with a quarter of the most setae (M6b T7)', () => {
     const report = diversityReport({ genesis: 200, bred: 600, generations: 6 });
     const line = report.split('\n').find((l) => l.startsWith('- Bred legs')) as string;
-    const share = Number(/([\d.]+)% with 6 or more bristles/.exec(line)?.[1]);
+    expect(BRISTLED).toBe(3);
+    const share = Number(/([\d.]+)% with 3 or more bristles/.exec(line)?.[1]);
     expect(Number(/: (\d+),/.exec(line)?.[1])).toBeGreaterThan(500);
     expect(share).toBeGreaterThanOrEqual(50);
   });
