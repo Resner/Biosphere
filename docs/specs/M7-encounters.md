@@ -286,7 +286,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### Lock-in and the referee
 
-- [x] T6 Protocol 7: encounter messages, signed snapshots, snapshot v4 [opus] (after none) (in progress)
+- [x] T6 Protocol 7: encounter messages, signed snapshots, snapshot v4 [opus] (after none)
   - Done: the encounter parsers live in `src/net/protocol-encounter.ts` (shared checks in `protocol-kit.ts`, keeping `protocol-parse.ts` under 800 lines); the snapshot flags are `spawnProtected` and `fighting` (`SnapshotMarks` too).
   - Gotcha: the peer mesh still drops 89-byte frames until T7 switches it to `decodeStateFrame`; a lock id is 16–64 hex characters.
   - Steps:
