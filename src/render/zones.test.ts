@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { depthAt, type Zone, zoneAt } from '../sim/bathymetry';
-import { seedFromString } from '../sim/prng';
+import { createRng, seedFromString } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import {
   depthGrid,
@@ -106,31 +106,46 @@ describe('zone look', () => {
   });
 });
 
-describe('sunlight (M6 T17)', () => {
+describe('sunlight (M6 T17, M6c T10)', () => {
   const depths = Array.from({ length: 201 }, (_, i) => i / 200);
   const e = RULES.bathymetry.zones;
+  /** 1,000 depths over the whole range, sorted: a seeded draw plus every zone edge and band. */
+  const samples = (() => {
+    const rng = createRng(seedFromString('sunlight'), 'monotonic');
+    const edges = [e.shallows, e.twilight, e.deep].flatMap((x) => [
+      x - ZONE_BAND,
+      x,
+      x + ZONE_BAND,
+    ]);
+    const drawn = Array.from({ length: 1000 - edges.length - 2 }, () => rng.next());
+    return [0, 1, ...edges, ...drawn].sort((a, b) => a - b);
+  })();
 
   for (const key of ['caustic', 'rays'] as const) {
-    it(`${key}: calm in the shallows, strongest at the twilight's top and fading through it, gone deeper`, () => {
-      // The shallows hold one calm strength (M6b T8), below the twilight's top.
-      const calm = sunlight(mid('shallows'), key);
-      expect(calm).toBeGreaterThan(0);
-      for (const d of depths.filter((d) => d <= e.shallows - ZONE_BAND)) {
-        expect(sunlight(d, key)).toBeCloseTo(calm, 12);
-      }
-      const top = sunlight(e.shallows + ZONE_BAND, key);
-      expect(calm).toBeLessThan(top);
-      // From the twilight's top down it is never brighter deeper down (M6 T17).
-      const below = depths.filter((d) => d >= e.shallows + ZONE_BAND);
-      for (let i = 1; i < below.length; i++) {
-        expect(sunlight(below[i] as number, key)).toBeLessThanOrEqual(
-          sunlight(below[i - 1] as number, key) + 1e-12,
+    it(`${key}: never brighter deeper down, over 1,000 depths`, () => {
+      expect(samples).toHaveLength(1000);
+      for (let i = 1; i < samples.length; i++) {
+        const deeper = sunlight(samples[i] as number, key);
+        const above = sunlight(samples[i - 1] as number, key);
+        expect(deeper, `${key} at ${samples[i]} vs ${samples[i - 1]}`).toBeLessThanOrEqual(
+          above + 1e-12,
         );
       }
+    });
+
+    it(`${key}: strongest and even in the shallows, the twilight's top the same, fading through it, gone deeper`, () => {
+      const calm = sunlight(mid('shallows'), key);
+      expect(calm).toBe(ZONE_LOOK.shallows[key]);
+      for (const d of depths.filter((d) => d <= e.shallows)) {
+        expect(sunlight(d, key)).toBeCloseTo(calm, 12);
+      }
+      // The twilight starts where the shallows leave off: no step at the edge.
+      expect(ZONE_LOOK.twilight[key]).toBe(ZONE_LOOK.shallows[key]);
+      expect(sunlight(e.shallows + ZONE_BAND, key)).toBeCloseTo(calm, 2);
       // It fades through the twilight rather than stepping down at its edges.
       const upper = sunlight(e.shallows + 0.03, key);
       const lower = sunlight(e.twilight - 0.03, key);
-      expect(upper).toBeLessThanOrEqual(top);
+      expect(upper).toBeLessThanOrEqual(calm);
       expect(lower).toBeGreaterThan(0);
       expect(lower).toBeLessThan(0.5 * upper);
       expect(sunlight(mid('deep'), key)).toBe(0);
@@ -139,17 +154,17 @@ describe('sunlight (M6 T17)', () => {
     });
   }
 
-  it('calmer shallows (M6b T8): caustics at most 0.4 and god rays at most 0.5; deeper zones as in M6', () => {
-    expect(ZONE_LOOK.shallows.caustic).toBeLessThanOrEqual(0.4);
-    expect(ZONE_LOOK.shallows.rays).toBeLessThanOrEqual(0.5);
-    // The owner liked the depth zones: their light, colours and fog stay as v0.7.0 drew them.
+  it('slightly brighter shallows (M6c T10): caustics 0.55 and god rays 0.4; the zones keep their colours', () => {
+    expect(ZONE_LOOK.shallows.caustic).toBe(0.55);
+    expect(ZONE_LOOK.shallows.rays).toBe(0.4);
+    // The owner liked the depth zones: their colours and fog stay as v0.7.0 drew them.
     expect(ZONE_LOOK.twilight).toEqual({
       water: [0.01, 0.026, 0.034],
       haze: [0.04, 0.1, 0.11],
       dark: 0,
       glow: 0.5,
-      caustic: 1,
-      rays: 0.8,
+      caustic: 0.55,
+      rays: 0.4,
       pace: 1,
       snow: 1,
     });
