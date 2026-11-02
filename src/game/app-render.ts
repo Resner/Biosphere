@@ -87,7 +87,6 @@ export class Frame {
   private flowTick = 0;
   /** Wall time spent in the still scene, which the water's clock skips (M6c T11). */
   private stillMs = 0;
-  private stillShown = false;
   private beat = 0;
   private readonly marks = { ready: false, egg: false };
   private readonly anchors = new Map<string, Anchor>();
@@ -433,10 +432,7 @@ export class Frame {
     const { app, view } = this;
     const step = dt / STILL_FADE_SECONDS;
     view.dim = still ? Math.min(1, view.dim + step) : Math.max(0, view.dim - step);
-    if (this.stillShown !== still) {
-      this.stillShown = still;
-      document.body.toggleAttribute('data-still', still);
-    }
+    document.body.toggleAttribute('data-still', still);
     const own = app.eggs.drawn;
     if (!still || app.eggs.mode !== 'hatch' || !own) return;
     const k = 1 - Math.exp(-dt / STILL_CENTRE_SECONDS);

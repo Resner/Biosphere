@@ -49,15 +49,7 @@ body {
 /* While a genesis egg is on screen, the title or death screen (and its panels) steps aside so the
    egg is the moment: nothing covers it and the pointer reaches it (M6 T20, M6b T11). */
 [data-egg] [data-for="title"],
-[data-egg] [data-for="dead"] {
-  opacity: 0;
-  visibility: hidden;
-  pointer-events: none;
-  transition:
-    opacity 0.35s ease,
-    visibility 0s 0.35s;
-}
-
+[data-egg] [data-for="dead"],
 /* The still scene of a genesis or a hatch (M6c T11): the HUD steps aside until the shell bursts. */
 [data-still] .hud,
 [data-still] .hud-menu,

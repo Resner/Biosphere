@@ -73,7 +73,8 @@ void main() {
 
   // Far outside a whole shell with no burst there is nothing to draw (the halo is under 0.3% by
   // here): the genesis egg's quad covers a fifth of the screen, so this saves most of its fragments.
-  if (spread <= 0.0 && burst <= 0.0 && spark <= 0.0 && d > 1.6) {
+  // A poke's sparks fly out to about 2.1, so they widen the bound only while they last.
+  if (spread <= 0.0 && burst <= 0.0 && d > (spark > 0.0 ? 2.3 : 1.6)) {
     gl_FragColor = vec4(0.0);
     return;
   }
