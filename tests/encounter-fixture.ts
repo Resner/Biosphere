@@ -1,11 +1,16 @@
 // Fixtures for encounter tests and the tournament: starter fighters and small starts.
 
-import { STARTER_COMBAT, STARTER_PHYS } from '../body';
-import { seedFromString } from '../prng';
-import { RULES } from '../rules';
-import { maxHealth, starterEnergy } from '../vitals';
-import { encodeFrameInput } from './codec';
-import type { Behaviour, EncounterStart, FighterStart, FrameInput } from './types';
+import { STARTER_COMBAT, STARTER_PHYS } from '../src/sim/body';
+import { encodeFrameInput } from '../src/sim/encounter/codec';
+import type {
+  Behaviour,
+  EncounterStart,
+  FighterStart,
+  FrameInput,
+} from '../src/sim/encounter/types';
+import { seedFromString } from '../src/sim/prng';
+import { RULES } from '../src/sim/rules';
+import { maxHealth, starterEnergy } from '../src/sim/vitals';
 
 export const CALM: Behaviour = {
   aggression: 0.5,

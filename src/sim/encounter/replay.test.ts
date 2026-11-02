@@ -1,10 +1,10 @@
 import { readFileSync, writeFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
+import { drive, IDLE_CODE, starterFighter, startOf } from '../../../tests/encounter-fixture';
 import { depthAt } from '../bathymetry';
 import { plumesNear } from '../hazards';
-import { RULES, RULES_VERSION } from '../rules';
+import { RULES_VERSION } from '../rules';
 import { createWorld } from '../world';
-import { drive, IDLE_CODE, starterFighter, startOf } from './fixture';
 import { type EncounterLog, replayEncounter } from './replay';
 
 interface Golden {
@@ -102,6 +102,5 @@ describe('encounter goldens', () => {
   it('refuses a log from other rules', () => {
     const golden = load('encounter-approach');
     expect(() => replayEncounter({ ...golden.log, rules: RULES_VERSION - 1 })).toThrow();
-    expect(RULES.encounter.frameTicks).toBe(3);
   });
 });

@@ -5,14 +5,15 @@
 import { isPhysShape, sanitizeCombat, sanitizePhys } from '../body';
 import { Hasher } from '../hash';
 import { applyHazards } from '../hazards';
-import { IDLE, type Input } from '../input';
+import { IDLE } from '../input';
 import { applyMetabolism } from '../metabolism';
 import { applyMovement } from '../physics';
 import { RULES } from '../rules';
 import { hashCreature, hashWorld } from '../state-hash';
-import { applyDeath } from '../step';
+import { stepCreature } from '../step';
 import type { CreatureState, StepEvent } from '../types';
 import { createWorld } from '../world';
+import { sanitizeBehaviour } from './behaviour';
 import { decodeFrameInput } from './codec';
 import { collide } from './collide';
 import { engageRange, strikeDistance } from './reach';
@@ -24,6 +25,7 @@ import type {
   FighterResult,
   FighterStart,
   FrameInput,
+  Outcome,
 } from './types';
 
 const E = RULES.encounter;
@@ -47,7 +49,7 @@ function validate(start: EncounterStart): void {
   }
 }
 
-function fighterOf(slot: number, f: FighterStart, t0: number): Fighter {
+function seatFighter(slot: number, f: FighterStart, t0: number): Fighter {
   const body: CreatureState = {
     id: f.creature,
     x: f.x,
@@ -71,7 +73,7 @@ function fighterOf(slot: number, f: FighterStart, t0: number): Fighter {
     creature: f.creature,
     body,
     combat: sanitizeCombat(f.combat),
-    behaviour: { ...f.behaviour },
+    behaviour: sanitizeBehaviour(f.behaviour),
     egg: f.egg,
     status: 'in',
     outside: 0,
@@ -92,20 +94,24 @@ export function createEncounter(start: EncounterStart): Encounter {
     frame: 0,
     over: false,
     world,
-    fighters: ordered.map((f, slot) => fighterOf(slot, f, start.t0)),
+    fighters: ordered.map((f, slot) => seatFighter(slot, f, start.t0)),
   };
 }
 
-function finish(enc: Encounter, f: Fighter, outcome: Fighter['status'], by: number | null): void {
-  f.status = outcome;
-  f.result = {
-    outcome: outcome === 'in' ? 'stood' : outcome,
+function resultOf(f: Fighter, outcome: Outcome, by: number | null, frame: number): FighterResult {
+  return {
+    outcome,
     cause: f.body.cause,
     by,
-    frame: enc.frame,
+    frame,
     egg: f.egg ? 'kept' : 'none',
     eggBy: null,
   };
+}
+
+function finish(enc: Encounter, f: Fighter, outcome: Outcome, by: number | null): void {
+  f.status = outcome;
+  f.result = resultOf(f, outcome, by, enc.frame);
 }
 
 const living = (enc: Encounter): Fighter[] => enc.fighters.filter((f) => f.status === 'in');
@@ -121,16 +127,13 @@ function outsideAll(enc: Encounter, f: Fighter): boolean {
   return any;
 }
 
+/** One fighter's tick: the shared creature tick without eating, at its stance's thrust. */
 function stepFighter(enc: Encounter, f: Fighter, input: FrameInput | null): StepEvent[] {
-  const move: Input = input === null ? IDLE : input;
-  const evasive = input?.stance === 'evasive';
-  const boost = evasive ? E.stance.evasive.thrust : 1;
-  const events = [
-    ...applyMovement(enc.world, f.body, move, { thrust: boost, turn: boost }),
-    ...applyMetabolism(enc.world, f.body, move),
-    ...applyHazards(enc.world, f.body),
-  ];
-  return [...events, ...applyDeath(f.body, events)];
+  const boost = E.stance[input?.stance ?? 'balanced'].thrust;
+  return stepCreature(enc.world, f.body, input ?? IDLE, {
+    feeding: false,
+    mods: { thrust: boost, turn: boost },
+  });
 }
 
 const speedOf = (f: Fighter): number => f.body.vx * f.body.vx + f.body.vy * f.body.vy;
@@ -141,8 +144,8 @@ export function stepFrame(enc: Encounter, inputs: readonly (number | null)[]): E
   if (enc.over) return out;
   enc.frame++;
   const decoded = enc.fighters.map((_, slot) => {
-    const code = inputs[slot];
-    return code === undefined || code === null ? null : decodeFrameInput(code);
+    const code = inputs[slot] ?? null;
+    return code === null ? null : decodeFrameInput(code);
   });
 
   for (let tick = 0; tick < E.frameTicks && !enc.over; tick++) {
@@ -154,22 +157,26 @@ export function stepFrame(enc: Encounter, inputs: readonly (number | null)[]): E
         out.push({ type: 'death', slot: f.slot, cause: e.cause });
       }
     }
-    collide(living(enc));
+    const alive = living(enc);
+    collide(alive);
     const escaping: Fighter[] = [];
-    for (const f of living(enc)) {
+    for (const f of alive) {
       f.outside = outsideAll(enc, f) ? f.outside + 1 : 0;
       if (f.outside >= E.escapeTicks) escaping.push(f);
     }
     // Two fighters drifting apart are outside each other's range at once: the faster one escapes
     // (ties by slot) and the fight ends with the other standing.
-    escaping.sort((a, b) => speedOf(b) - speedOf(a) || a.slot - b.slot);
+    if (escaping.length > 1) escaping.sort((a, b) => speedOf(b) - speedOf(a) || a.slot - b.slot);
+    let remaining = alive.length;
     for (const f of escaping) {
-      if (living(enc).length < 2) break;
+      if (remaining < 2) break;
       finish(enc, f, 'escaped', null);
       out.push({ type: 'escape', slot: f.slot });
+      remaining--;
     }
     enc.world.tick++;
-    if (living(enc).length < 2 && enc.fighters.some((f) => f.status !== 'in')) end(enc, out);
+    // The fight ends once someone has left and fewer than two remain.
+    if (remaining < 2 && remaining < enc.fighters.length) end(enc, out);
   }
   if (!enc.over && enc.frame >= E.timeoutFrames) end(enc, out);
   return out;
@@ -184,17 +191,7 @@ function end(enc: Encounter, out: EncounterEvent[]): void {
 
 /** One result per slot; a fighter still in reads as standing at the current frame. */
 export function results(enc: Encounter): FighterResult[] {
-  return enc.fighters.map(
-    (f) =>
-      f.result ?? {
-        outcome: 'stood',
-        cause: null,
-        by: null,
-        frame: enc.frame,
-        egg: f.egg ? 'kept' : 'none',
-        eggBy: null,
-      },
-  );
+  return enc.fighters.map((f) => f.result ?? resultOf(f, 'stood', null, enc.frame));
 }
 
 export function hashEncounter(enc: Encounter): string {

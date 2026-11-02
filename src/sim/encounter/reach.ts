@@ -5,7 +5,7 @@ import { RULES } from '../rules';
 import type { CreatureState } from '../types';
 import type { Fighter } from './types';
 
-const radiusOf = (c: CreatureState): number => Math.sqrt(c.biomass);
+export const radiusOf = (c: CreatureState): number => Math.sqrt(c.biomass);
 
 /** The farther of the weapon reach and the mouth's reach, times the radius. */
 export function strikeReach(f: Fighter): number {

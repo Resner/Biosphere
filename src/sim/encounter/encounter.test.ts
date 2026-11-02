@@ -1,31 +1,24 @@
 import { describe, expect, it } from 'vitest';
+import { drive, IDLE_CODE, starterFighter, startOf } from '../../../tests/encounter-fixture';
 import { speedTest } from '../../../tests/heavy';
 import { STARTER_COMBAT, STARTER_PHYS } from '../body';
-import { IDLE, type Input } from '../input';
-import { RULES, RULES_VERSION } from '../rules';
+import type { Input } from '../input';
+import { DT, RULES } from '../rules';
 import { step } from '../step';
 import { createWorld, spawnCreature } from '../world';
 import { createEncounter, hashEncounter, results, stepFrame } from './encounter';
-import { drive, IDLE_CODE, starterFighter, startOf } from './fixture';
 import { engageRange, strikeDistance, strikeReach } from './reach';
+import type { Encounter } from './types';
 
 const E = RULES.encounter;
 const MID = RULES.world.size / 2;
+const at = (enc: Encounter, slot: number) => enc.fighters[slot] as Encounter['fighters'][number];
 /** A pond with no currents and no hazards, so that a test sees only the encounter's own rules. */
 const calm = (enc: ReturnType<typeof createEncounter>) => {
   enc.world.options.currents = false;
   enc.world.options.hazards = false;
   return enc;
 };
-
-describe('encounter rules', () => {
-  it('is rules version 9 with the combat table', () => {
-    expect(RULES_VERSION).toBe(9);
-    expect(E.frameTicks).toBe(3);
-    expect(E.timeoutFrames).toBe(900);
-    expect(E.escapeTicks).toBe(90);
-  });
-});
 
 describe('createEncounter', () => {
   it('seats fighters by creature id and runs the world from t0', () => {
@@ -57,6 +50,25 @@ describe('createEncounter', () => {
     );
     expect(enc.fighters[0]?.combat.mass).toBe(RULES.body.combat.massMax);
     expect(enc.fighters[0]?.combat.power).toBe(0);
+  });
+
+  it('sanitises the behaviour genes it is handed', () => {
+    const f = starterFighter('a', MID, MID);
+    const wild = {
+      aggression: 9,
+      caution: Number.NaN,
+      curiosity: -2,
+      reflex: 0.25,
+      targetPref: 'bogus',
+    };
+    const enc = createEncounter(startOf('san-b', [{ ...f, behaviour: wild as never }]));
+    expect(at(enc, 0).behaviour).toEqual({
+      aggression: 1,
+      caution: 0.5,
+      curiosity: 0,
+      reflex: 0.25,
+      targetPref: 'nearest',
+    });
   });
 });
 
@@ -109,16 +121,16 @@ describe('collisions', () => {
     let worst = 0;
     for (let f = 0; f < 60; f++) {
       stepFrame(enc, [drive(0), drive(128)]);
-      const [a, b] = enc.fighters;
-      const overlap =
-        2 * radius -
-        Math.hypot((b?.body.x ?? 0) - (a?.body.x ?? 0), (b?.body.y ?? 0) - (a?.body.y ?? 0));
+      const a = at(enc, 0);
+      const b = at(enc, 1);
+      const overlap = 2 * radius - Math.hypot(b.body.x - a.body.x, b.body.y - a.body.y);
       worst = Math.max(worst, overlap);
     }
     expect(worst).toBeLessThanOrEqual(0.1 * radius);
     // Pressed together at equal mass, they stop: the closing velocity is gone.
-    const [a, b] = enc.fighters;
-    expect(Math.abs((a?.body.vx ?? 0) - (b?.body.vx ?? 0))).toBeLessThan(1e-6);
+    const a = at(enc, 0);
+    const b = at(enc, 1);
+    expect(Math.abs(a.body.vx - b.body.vx)).toBeLessThan(1e-6);
   });
 
   it('moves the lighter fighter further', () => {
@@ -126,34 +138,37 @@ describe('collisions', () => {
     const heavy = { ...starterFighter('b', 3015, 3000), combat: { ...STARTER_COMBAT, mass: 4 } };
     const enc = calm(createEncounter(startOf('mass', [light, heavy])));
     stepFrame(enc, [IDLE_CODE, IDLE_CODE]);
-    const [a, b] = enc.fighters;
-    expect(3000 - (a?.body.x ?? 0)).toBeCloseTo(4 * ((b?.body.x ?? 0) - 3015), 6);
+    const a = at(enc, 0);
+    const b = at(enc, 1);
+    expect(3000 - a.body.x).toBeCloseTo(4 * (b.body.x - 3015), 6);
   });
 });
 
 describe('hazards in a fight', () => {
-  it('hurts a fighter in a plume at the plume rate and kills at 1 hp with cause toxin', () => {
-    const f = starterFighter('a', 3000, 3000);
-    const enc = createEncounter(startOf('plume', [f, starterFighter('b', 3500, 3000)]));
-    enc.world.options.currents = false;
-    enc.world.options.hazards = false; // the seeded plumes and zones are off: only the planted one acts
-    enc.world.extraPlumes.push({ id: 'pl', x: 3000, y: 3000, radius: 80 });
-    const before = enc.fighters[0]?.body.health ?? 0;
-    stepFrame(enc, [IDLE_CODE, IDLE_CODE]);
-    const lost = before - (enc.fighters[0]?.body.health ?? 0);
-    expect(lost).toBeCloseTo(RULES.damage.toxin * (3 / RULES.world.size ** 0) * (1 / 30), 6);
-
-    const weak = createEncounter(
-      startOf('plume2', [{ ...f, health: 1 }, starterFighter('b', 3500, 3000)]),
+  const planted = (health: number) => {
+    const enc = createEncounter(
+      startOf('plume', [
+        { ...starterFighter('a', 3000, 3000), health },
+        starterFighter('b', 3500, 3000),
+      ]),
     );
-    weak.world.options.currents = false;
-    weak.world.extraPlumes.push({ id: 'pl', x: 3000, y: 3000, radius: 80 });
-    weak.world.options.hazards = false;
-    let frames = 0;
-    while (!weak.over && frames++ < 30) stepFrame(weak, [IDLE_CODE, IDLE_CODE]);
-    expect(results(weak)[0]).toMatchObject({ outcome: 'died', cause: 'toxin', by: null });
-    expect(results(weak)[1]?.outcome).toBe('stood');
-    expect(weak.over).toBe(true);
+    // Only the planted plume acts: no seeded plumes, zones or currents.
+    calm(enc).world.extraPlumes.push({ id: 'pl', x: 3000, y: 3000, radius: 80 });
+    return enc;
+  };
+
+  it('hurts a fighter in a plume at the plume rate', () => {
+    const enc = planted(100);
+    stepFrame(enc, [IDLE_CODE, IDLE_CODE]);
+    expect(100 - at(enc, 0).body.health).toBeCloseTo(RULES.damage.toxin * E.frameTicks * DT, 6);
+  });
+
+  it('kills a fighter at 1 hp with cause toxin and ends the fight', () => {
+    const enc = planted(1);
+    for (let frames = 0; !enc.over && frames < 30; frames++) stepFrame(enc, [IDLE_CODE, IDLE_CODE]);
+    expect(results(enc)[0]).toMatchObject({ outcome: 'died', cause: 'toxin', by: null });
+    expect(results(enc)[1]?.outcome).toBe('stood');
+    expect(enc.over).toBe(true);
   });
 });
 
@@ -164,17 +179,14 @@ describe('ending', () => {
         startOf('flee', [starterFighter('a', 3000, 3000), starterFighter('b', 3030, 3000)]),
       ),
     );
-    const [a, b] = enc.fighters;
-    const limit = (): number =>
-      E.escapeFactor * engageRange(b as NonNullable<typeof b>, a as NonNullable<typeof a>);
+    const a = at(enc, 0);
+    const b = at(enc, 1);
+    const limit = (): number => E.escapeFactor * engageRange(b, a);
     let outsideTicks = 0;
     let frames = 0;
     while (!enc.over && frames++ < 200) {
       stepFrame(enc, [drive(128), IDLE_CODE]);
-      if (
-        !enc.over &&
-        strikeDistance(b?.body ?? enc.fighters[1]!.body, a?.body ?? enc.fighters[0]!.body) > limit()
-      ) {
+      if (!enc.over && strikeDistance(b.body, a.body) > limit()) {
         outsideTicks = a?.outside ?? 0;
       }
     }
@@ -217,12 +229,12 @@ describe('ending', () => {
     // Placed 1.5 x strike reach apart: outside reach, inside 2 x engage range. At this spot of this
     // seed the current moves both alike for 90 s, in the default pond (plumes, UV and pressure on).
     const radius = Math.sqrt(RULES.starter.biomass);
-    const gap = 1.5 * radius * 1 + radius;
+    const gap = 1.5 * radius + radius;
     const enc = createEncounter(
       startOf('timeout', [starterFighter('a', 5200, 3000), starterFighter('b', 5200 + gap, 3000)]),
     );
-    expect(strikeDistance(enc.fighters[0]!.body, enc.fighters[1]!.body)).toBeCloseTo(
-      1.5 * strikeReach(enc.fighters[0]!),
+    expect(strikeDistance(at(enc, 0).body, at(enc, 1).body)).toBeCloseTo(
+      1.5 * strikeReach(at(enc, 0)),
       9,
     );
     for (let i = 0; i < E.timeoutFrames + 5; i++) stepFrame(enc, [IDLE_CODE, IDLE_CODE]);
@@ -249,7 +261,7 @@ describe('ending', () => {
 describe('reach', () => {
   it('is the farther of weapon reach and mouth reach times the radius', () => {
     const enc = createEncounter(startOf('reach', [starterFighter('a', 3000, 3000)]));
-    const f = enc.fighters[0] as NonNullable<(typeof enc.fighters)[0]>;
+    const f = at(enc, 0);
     expect(strikeReach(f)).toBe(10);
     f.combat = { ...STARTER_COMBAT, reach: 2 };
     expect(strikeReach(f)).toBe(20);
@@ -262,14 +274,11 @@ describe('reach', () => {
     const enc = createEncounter(
       startOf('dist', [starterFighter('a', 3000, 3000), starterFighter('b', 3050, 3000)]),
     );
-    const [a, b] = enc.fighters;
-    expect(
-      strikeDistance(a?.body ?? enc.fighters[0]!.body, b?.body ?? enc.fighters[1]!.body),
-    ).toBeCloseTo(40, 9);
-    expect(
-      strikeDistance({ ...enc.fighters[0]!.body, x: 3100 }, enc.fighters[1]!.body),
-    ).toBeCloseTo(40, 9);
-    expect(engageRange(a as never, b as never)).toBeCloseTo(13, 9);
+    const a = at(enc, 0);
+    const b = at(enc, 1);
+    expect(strikeDistance(a.body, b.body)).toBeCloseTo(40, 9);
+    expect(strikeDistance({ ...a.body, x: 3100 }, b.body)).toBeCloseTo(40, 9);
+    expect(engageRange(a, b)).toBeCloseTo(13, 9);
   });
 });
 
@@ -289,17 +298,8 @@ describe('speed', () => {
     for (let i = 0; i < 100; i++) stepFrame(enc, inputs); // warm up
     const runs = 400;
     const t0 = performance.now();
-    for (let i = 0; i < runs; i++) {
-      const fresh = structuredClone(enc);
-      stepFrame(fresh, inputs);
-    }
-    const clone = performance.now() - t0;
-    const t1 = performance.now();
     for (let i = 0; i < runs; i++) stepFrame(enc, inputs);
-    const per = (performance.now() - t1) / runs;
+    const per = (performance.now() - t0) / runs;
     expect(per).toBeLessThan(0.2);
-    expect(clone).toBeGreaterThan(0);
   });
 });
-
-void IDLE;

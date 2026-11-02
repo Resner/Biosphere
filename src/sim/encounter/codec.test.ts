@@ -31,83 +31,23 @@ describe('frame input codec', () => {
   });
 
   it('packs the documented bits', () => {
-    expect(
-      encodeFrameInput({
-        ...ok,
-        steer: 0,
-        throttle: 0,
-        dash: false,
-        stance: 'balanced',
-        target: 0,
-        brace: false,
-      }),
-    ).toBe(0);
-    expect(
-      encodeFrameInput({
-        ...ok,
-        steer: 1,
-        throttle: 0,
-        dash: false,
-        stance: 'balanced',
-        target: 0,
-        brace: false,
-      }),
-    ).toBe(1);
-    expect(
-      encodeFrameInput({
-        ...ok,
-        steer: 0,
-        throttle: 1,
-        dash: false,
-        stance: 'balanced',
-        target: 0,
-        brace: false,
-      }),
-    ).toBe(1 << 8);
-    expect(
-      encodeFrameInput({
-        ...ok,
-        steer: 0,
-        throttle: 0,
-        dash: true,
-        stance: 'balanced',
-        target: 0,
-        brace: false,
-      }),
-    ).toBe(1 << 12);
-    expect(
-      encodeFrameInput({
-        ...ok,
-        steer: 0,
-        throttle: 0,
-        dash: false,
-        stance: 'evasive',
-        target: 0,
-        brace: false,
-      }),
-    ).toBe(2 << 13);
-    expect(
-      encodeFrameInput({
-        ...ok,
-        steer: 0,
-        throttle: 0,
-        dash: false,
-        stance: 'balanced',
-        target: 7,
-        brace: false,
-      }),
-    ).toBe(7 << 15);
-    expect(
-      encodeFrameInput({
-        ...ok,
-        steer: 0,
-        throttle: 0,
-        dash: false,
-        stance: 'balanced',
-        target: 0,
-        brace: true,
-      }),
-    ).toBe(1 << 18);
+    const zero: FrameInput = {
+      steer: 0,
+      throttle: 0,
+      dash: false,
+      stance: 'balanced',
+      target: 0,
+      brace: false,
+    };
+    const bits = (patch: Partial<FrameInput>): number => encodeFrameInput({ ...zero, ...patch });
+    expect(bits({})).toBe(0);
+    expect(bits({ steer: 1 })).toBe(1);
+    expect(bits({ throttle: 1 })).toBe(1 << 8);
+    expect(bits({ dash: true })).toBe(1 << 12);
+    expect(bits({ stance: 'aggressive' })).toBe(1 << 13);
+    expect(bits({ stance: 'evasive' })).toBe(2 << 13);
+    expect(bits({ target: 7 })).toBe(7 << 15);
+    expect(bits({ brace: true })).toBe(1 << 18);
   });
 
   it('decodes any number without throwing', () => {
