@@ -222,7 +222,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
     - `m6b-clip.spec.ts` still passes (at most 12 solid-white pixels per cell), and `m6b-look`'s clear-shell check compares cells 01–06 with pass 1 (no milkier than pass 1 + 15%), since half of pass 5's haze was M6b's darker face.
   - Notes: compare with `pass-1.png` side by side, never from memory.
 
-- [ ] T7 Organs in two related tones; eyes in the organ colour; a faint inner glow [opus]
+- [ ] T7 Organs in two related tones; eyes in the organ colour; a faint inner glow [opus] (in progress)
   - Why: pass 6 shows several hues per body. The organ hue, the complementary accent, the amber oil droplets (`uOil`) and glint rays of either colour all add colours. The eyes are near-black cups with a faint organ-hue ring (0.15).
   - Steps (ADR 0043):
     1. `materialParams` gives the palette: the main colour plus one analogous second tone (0.04–0.10 turns away, another value).
