@@ -82,8 +82,10 @@ Before starting a task, check the open build-lane PR (`gh api --paginate repos/R
   - Acceptance: `npm run check:full` is green with the same number of tests; each file is under 1,000 lines.
   - Done: types, row mappers and pure helpers moved verbatim to `worker/ledger-types.ts` (`ledger.ts` re-exports them, 958 lines); the test fixtures to `ledger-test-kit.ts`, and the tests to `ledger-mating.test.ts` (mate, birth) and `ledger-promote.test.ts` (promote onward), same 26 tests.
 
-- [ ] C8 Split `src/net/protocol.ts` (1,148 lines) into modules under 1,000 lines (in progress)
+- [x] C8 Split `src/net/protocol.ts` (1,148 lines) into modules under 1,000 lines
   - Why: found by the care run of 2026-11-02; the file outgrew the 1,000-line bound.
   - Touches: `src/net/protocol.ts`, the modules it becomes.
   - Steps: move the types, constants and snapshot codec to `protocol-defs.ts` and the untrusted-JSON parsers to `protocol-parse.ts`; `protocol.ts` re-exports both so no importer changes. Move code verbatim.
   - Acceptance: `npm run check:full` and the hub E2E specs are green with no test changed; each file is under 1,000 lines.
+  - Done: types, constants and the snapshot codec moved verbatim to `protocol-defs.ts` (403 lines), the untrusted-JSON parsers to `protocol-parse.ts` (787); `protocol.ts` is a 3-line `export *` of both.
+  - Gotcha: parse imports defs only (no cycle); the parser-private regexes and `isStatus` live with the parsers.

@@ -14,4 +14,4 @@ ADRs 0007 and 0013 are the contract.
 - Bandwidth: about 10 Hz snapshots of ≤ 32 bytes per peer, reduced by distance and tier (M11). Keep it under about 4 KB/s per connection.
 - No per-frame or per-snapshot authority traffic. The authority sees joins, signaling, critical transitions and batched commitments (budget in ADR 0008).
 - Tests use fake transports, or real WebRTC between local browser contexts through the local Worker. Never public STUN, TURN, relays or the production authority.
-- `src/net/protocol.ts` is shared with `worker/`, so keep it free of DOM and Node APIs.
+- `src/net/protocol.ts` re-exports `protocol-defs.ts` (types, constants, snapshot codec) and `protocol-parse.ts` (untrusted-JSON parsers); all are shared with `worker/`, so keep them free of DOM and Node APIs.
