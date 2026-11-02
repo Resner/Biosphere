@@ -64,7 +64,7 @@ const SECOND_DARKER = 0.1;
  * round the hue wheel, up to this many turns. A spread under twice `SECOND_TURN[0]` keeps the amber
  * second tone, so a plain body looks as it did. Still two tones, never a third.
  */
-export const SECOND_SPREAD_MAX = 0.16;
+export const SECOND_SPREAD_MAX = 0.08;
 
 /**
  * The organs by rarity tier (ADR 0043): rarity raises saturation, glints and glow, never the spread

@@ -363,12 +363,15 @@ describe('inherited organ colour (owner, Playtest v0.7.2)', () => {
     for (const spread of [0.1, 0.2, 0.3]) {
       const p = materialParams(coloured, 'common', spread);
       expect(arc01(hueOf(p.organ), main)).toBeLessThan(1e-6);
-      expect(arc01(hueOf(p.second), main + spread / 2)).toBeLessThan(1e-6);
+      expect(arc01(hueOf(p.second), main + Math.min(spread / 2, SECOND_SPREAD_MAX))).toBeLessThan(
+        1e-6,
+      );
     }
     const wide = materialParams(coloured, 'common', 1);
     expect(arc01(hueOf(wide.second), main + SECOND_SPREAD_MAX)).toBeLessThan(1e-6);
     // Still two tones, and never complementary.
-    expect(arc(hueOf(wide.second), main)).toBeLessThan(0.5);
+    expect(arc(hueOf(wide.second), main)).toBeLessThanOrEqual(0.08 + 1e-6);
+    expect(SECOND_SPREAD_MAX).toBeLessThanOrEqual(0.08);
   });
 
   it("leaves an albino's pinks alone", () => {

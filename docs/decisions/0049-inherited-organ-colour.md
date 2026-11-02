@@ -13,7 +13,7 @@ ADR 0043 fixed the organs' second tone as the main colour turned 0.04–0.06 tur
 
 ## Decision
 
-The genome already holds two haplotype hues, one from each parent. `hueSpread(genome)` (render data only, in `Creature.hueSpread`, outside `Traits` so no golden moves) is how far apart they lie, in turns. The main organ colour stays the expressed hue (the mean of the two). When half the spread reaches 0.04 turns (a spread of 0.08), the second tone is the other haplotype's hue instead of the amber turn: half the spread further round the wheel, capped at 0.16 turns. Below that the amber second tone stays, so a body whose parents agree looks exactly as before. Albinos keep their pinks. Still two tones, never a third, and never complementary.
+The genome already holds two haplotype hues, one from each parent. `hueSpread(genome)` (render data only, in `Creature.hueSpread`, outside `Traits` so no golden moves) is how far apart they lie, in turns. The main organ colour stays the expressed hue (the mean of the two). When half the spread reaches 0.04 turns (a spread of 0.08), the second tone is the other haplotype's hue instead of the amber turn: half the spread further round the wheel, capped at 0.08 turns (the gallery measures the tones' shaded hues up to 0.025 further apart, against ADR 0043's limit of 0.1). Below that the amber second tone stays, so a body whose parents agree looks exactly as before. Albinos keep their pinks. Still two tones, never a third, and never complementary.
 
 ## Consequences
 
