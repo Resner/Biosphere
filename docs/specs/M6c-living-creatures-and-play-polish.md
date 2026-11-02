@@ -162,7 +162,7 @@ This milestone is a **gate**. After v0.7.2 the factory waits for the owner's rep
       - a duplicate-heavy genome with 8 slots and 3 pairs each turns everything past 14 into fringe.
     - The archetype tests and the speed band hold.
 
-- [ ] T4 Parts that curve, taper and vary [opus]
+- [ ] T4 Parts that curve, taper and vary [opus] (in progress)
   - Why: parts are straight, evenly thin and exactly mirrored; branches fork like twigs; most tips end in a bright bead; setae are long straight fans. The result reads as rigging and lamps.
   - Steps:
     1. Every part tapers (tip width ≤ 40% of root) and carries a backward curvature bias: curvature ≥ 0.15 toward the tail for legs and tails, outward and back for antennae.
