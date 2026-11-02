@@ -95,8 +95,8 @@ test('the hook masks the regions: a face, a rim and a mouth on every genesis cel
 test("cells 01–06: the face's mean luminance is within 15% of pass 1's", () => {
   const off = looks
     .slice(0, BASELINE)
-    .map((l, i) => ({ file: l.file, now: l.face, then: pass1[i] as number }))
-    .filter((c) => !(Math.abs(c.now - c.then) <= FACE_SPREAD * c.then));
+    .map((l, i) => ({ file: l.file, now: l.face, pass1: pass1[i] as number }))
+    .filter((c) => !(Math.abs(c.now - c.pass1) <= FACE_SPREAD * c.pass1));
   expect(off).toEqual([]);
 });
 

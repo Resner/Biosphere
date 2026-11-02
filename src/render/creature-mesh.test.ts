@@ -57,6 +57,7 @@ import {
   randoms,
   specimen,
 } from './creature-mesh-kit';
+import { MOUTH_PART_ID } from './creature-mouth';
 import fragmentShader from './shaders/creature.frag.glsl?raw';
 import vertexShader from './shaders/creature.vert.glsl?raw';
 import { glintsFor, MAX_GLINTS } from './surface';
@@ -109,7 +110,10 @@ describe('buildCreatureGeometry v2: budgets and validity', () => {
       for (const lod of LODS) {
         const part = attr(buildCreatureGeometry(p, lod), 'aPart');
         const ids = new Set<number>();
-        for (const v of part) if (partKind(v) === PART_APPENDAGE) ids.add(partId(v));
+        // The mouth's feature (M6c T6) is drawn as a part, under its own number.
+        for (const v of part) {
+          if (partKind(v) === PART_APPENDAGE && partId(v) !== MOUTH_PART_ID) ids.add(partId(v));
+        }
         expect(ids.size, lod).toBe(p.appendages.length);
         if (p.appendages.length > 0) {
           expect(Math.min(...ids)).toBe(1);
@@ -179,9 +183,12 @@ describe('buildCreatureGeometry v2: the body', () => {
   it('makes the starter body as wide as the M1 cell', () => {
     const body: BodyPlan = { ...plan(starterGenome()), appendages: [], plates: [], membranes: [] };
     expect(body.segments).toHaveLength(1);
-    const position = attr(buildCreatureGeometry(body, 'high'), 'position');
+    const g = buildCreatureGeometry(body, 'high');
+    const [position, part] = [attr(g, 'position'), attr(g, 'aPart')];
     let [maxX, maxY, maxZ] = [0, 0, 0];
     for (let i = 0; i < position.length; i += 3) {
+      // The body's loft, without the mouth's feature over its front (M6c T6).
+      if (partId(part[i / 3] as number) !== 0) continue;
       maxX = Math.max(maxX, Math.abs(position[i] as number));
       maxY = Math.max(maxY, Math.abs(position[i + 1] as number));
       maxZ = Math.max(maxZ, Math.abs(position[i + 2] as number));

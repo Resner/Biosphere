@@ -15,6 +15,7 @@ import {
   organVertices,
 } from './creature-detail';
 import { addBody, addShell, stations } from './creature-loft';
+import { addMouth } from './creature-mouth';
 import {
   addAppendage,
   addEyes,
@@ -26,7 +27,6 @@ import {
   NO_GLINT_PLAN,
   rootFrame,
 } from './creature-parts';
-import { addMouth } from './creature-mouth';
 import { Mesh, NO_MOTION } from './mesh-buffer';
 import { centreLine } from './spine';
 
