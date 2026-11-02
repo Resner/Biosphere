@@ -1,6 +1,6 @@
 # 0045: Rules that fit the project's size: a quick check, lean rule files, a care backlog
 
-- Status: accepted (refines 0044: the care lane also works a maintenance backlog; replaces CLAUDE.md's 30-second budget for `npm run check`)
+- Status: accepted, partly superseded by 0047: the care backlog and splitting big files through it are gone, and runs no longer run `check:full` before pushing; the `check` / `check:full` split, `heavyTest`, `docs/TESTING.md` and "DESIGN.md describes the current game" stand (it refined 0044)
 - Date: 2026-11-01
 
 ## Context
