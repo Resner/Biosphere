@@ -47,7 +47,22 @@ describe('one body, widest at the trunk (M6b T5)', () => {
   });
 
   it('holds them for the long gallery specimens', () => {
-    for (const n of ['07', '09', '10', '11', '12', '18', '19', '26', '27', '30']) {
+    // The bilateral evolved chains (07-20, M6c T5) and the copepod, shrimp and crab specimens.
+    for (const n of [
+      '07',
+      '08',
+      '09',
+      '10',
+      '12',
+      '13',
+      '14',
+      '17',
+      '18',
+      '20',
+      '26',
+      '27',
+      '30',
+    ]) {
       const traits = express(gallery(n));
       const plan = develop(traits);
       expect(isChain(plan), n).toBe(true);
