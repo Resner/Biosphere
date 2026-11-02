@@ -145,7 +145,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### The encounter simulation (`src/sim/encounter/`)
 
-- [ ] T1 Encounter state, frames and the input codec (after none)
+- [x] T1 Encounter state, frames and the input codec (after none)
   - Why: everything else (the referee, prediction, the tournament) steps this one function.
   - Steps:
     1. Add `RULES.encounter`, with DESIGN §7's values (frames, deadlines, engage, escape, strike, damage, stance, brace, ram, spines, reward, egg), and `RULES_VERSION` 9 (ADR 0050: no reset, `FIRST_LIVE_RULES` stays 8). Regenerate every golden the version touches. The state hash includes `world.rules`, so replay hashes change, and genome goldens change their `rulesVersion` only. List them in the PR, and make DESIGN's opening line say rules version 9.
@@ -184,6 +184,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - The three encounter goldens are pinned, and a second run gives the same hashes.
     - `speedTest`: one 4-fighter frame under 0.2 ms in Node.
   - Notes: no strikes yet (T2). The goldens regenerate in T2–T5 as the rules grow, since rules 9 is unreleased. Keep `src/sim/encounter/*.ts` under about 400 lines each.
+  - Done: rules 9 regenerated the six sim goldens, the ledger `records` and `kinds` goldens, and every genome golden's `rulesVersion`. Fighters keep their `CreatureState` in `Fighter.body`; the encounter's `World` holds none. Two fighters leaving range together: the faster escapes, the other stands. The timeout test uses seed `timeout` at (5200, 3000), where the current shears little over 90 s.
 
 - [ ] T2 Combat from anatomy: strikes, bites, rams, spines, armour, stance, brace, kills (after T1)
   - Steps:

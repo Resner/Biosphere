@@ -1,0 +1,181 @@
+{
+  "log": {
+    "rules": 9,
+    "start": {
+      "id": "enc-golden-plume",
+      "pondSeed": "golden-plume",
+      "size": 8192,
+      "seed": [185197456, 3075752650, 2232766054, 244996241],
+      "t0": 1000,
+      "fighters": [
+        {
+          "player": "player-a",
+          "creature": "a",
+          "x": 937,
+          "y": 3411,
+          "vx": 0,
+          "vy": 0,
+          "heading": 0,
+          "biomass": 100,
+          "energy": 120,
+          "health": 3,
+          "elder": false,
+          "egg": false,
+          "phys": {
+            "maxBiomass": 400,
+            "thrust": 1,
+            "drag": 1,
+            "turn": 1,
+            "basal": 1,
+            "growth": 1,
+            "uvTolerance": 0.5,
+            "pressureTolerance": 0.5,
+            "mouth": {
+              "offset": 0,
+              "radius": 1,
+              "arc": 3.141592653589793,
+              "type": 0.5,
+              "digestion": 1
+            },
+            "colliders": [
+              {
+                "x": 0,
+                "y": 0,
+                "r": 1
+              }
+            ]
+          },
+          "combat": {
+            "reach": 1,
+            "arc": 0,
+            "power": 0,
+            "armour": 0,
+            "spines": 0,
+            "mass": 1
+          },
+          "behaviour": {
+            "aggression": 0.5,
+            "caution": 0.5,
+            "curiosity": 0.5,
+            "reflex": 0.5,
+            "targetPref": "nearest"
+          }
+        },
+        {
+          "player": "player-b",
+          "creature": "b",
+          "x": 637,
+          "y": 3411,
+          "vx": 0,
+          "vy": 0,
+          "heading": 0,
+          "biomass": 100,
+          "energy": 120,
+          "health": 100,
+          "elder": false,
+          "egg": false,
+          "phys": {
+            "maxBiomass": 400,
+            "thrust": 1,
+            "drag": 1,
+            "turn": 1,
+            "basal": 1,
+            "growth": 1,
+            "uvTolerance": 0.5,
+            "pressureTolerance": 0.5,
+            "mouth": {
+              "offset": 0,
+              "radius": 1,
+              "arc": 3.141592653589793,
+              "type": 0.5,
+              "digestion": 1
+            },
+            "colliders": [
+              {
+                "x": 0,
+                "y": 0,
+                "r": 1
+              }
+            ]
+          },
+          "combat": {
+            "reach": 1,
+            "arc": 0,
+            "power": 0,
+            "armour": 0,
+            "spines": 0,
+            "mass": 1
+          },
+          "behaviour": {
+            "aggression": 0.5,
+            "caution": 0.5,
+            "curiosity": 0.5,
+            "reflex": 0.5,
+            "targetPref": "nearest"
+          }
+        }
+      ]
+    },
+    "frames": [
+      [3840, 0],
+      [7936, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0],
+      [3840, 0]
+    ]
+  },
+  "hash": "153f3adb080acc65",
+  "results": [
+    {
+      "outcome": "died",
+      "cause": "toxin",
+      "by": null,
+      "frame": 7,
+      "egg": "none",
+      "eggBy": null
+    },
+    {
+      "outcome": "stood",
+      "cause": null,
+      "by": null,
+      "frame": 7,
+      "egg": "none",
+      "eggBy": null
+    }
+  ]
+}
