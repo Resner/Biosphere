@@ -20,7 +20,7 @@ import { sizeTier } from '../src/sim/size';
 import type { CreatureState, World } from '../src/sim/types';
 import { maxEnergy, maxHealth } from '../src/sim/vitals';
 import { createWorld } from '../src/sim/world';
-import { admit, type Fight, type Lock, joinable, runFight } from './fights';
+import { admit, type Fight, joinable, type Lock, runFight } from './fights';
 import type { Head } from './ledger';
 import { type Condition, clampClaim, type LifeState } from './life';
 import type { PondRow } from './schema';
