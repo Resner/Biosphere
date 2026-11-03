@@ -270,7 +270,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `src/sim/encounter/autopilot.ts`; `stepFrame` flies every `null` of a fighter still in (a dead fighter's `null` stays idle), constants in `RULES.encounter.autopilot`, golden `encounter-autopilot`.
   - Note: "strongest" is the opponent whose strike hurts the pilot most; the existing goldens are unchanged by T4 since none sends `null` to a live fighter with opponents.
 
-- [ ] T5 Combat tournament: balance, size and growth by kills (after T4)
+- [ ] T5 Combat tournament: balance, size and growth by kills (after T4) (in progress)
   - Steps:
     1. Add `tests/combat-tournament.ts`:
        - round-robin duels between the 11 archetypes of `tests/archetypes.ts` at 400 biomass, each pair from 8 seeded start layouts and both sides;
