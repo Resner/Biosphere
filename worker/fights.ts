@@ -259,9 +259,9 @@ export function admit(
   fight.referee.join(f);
   fight.joins.push({ f, fighter });
   fight.players.push(info.player);
-  fight.names.push(seated(hub, info.player)?.[1].name ?? '');
-  hub.fights.join(lock, info.player, info.creature);
   const found = seated(hub, info.player);
+  fight.names.push(found?.[1].name ?? '');
+  hub.fights.join(lock, info.player, info.creature);
   if (found) for (const msg of [fight.start, ...fight.history]) sendIfOpen(found[0], msg);
   const msg: EncJoin = { t: 'enc-join', enc: fight.enc.id, f, fighter: info };
   fight.history.push(msg);

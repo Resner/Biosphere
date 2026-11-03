@@ -3,8 +3,8 @@
 // choice, and with none the nearest opponent is struck. It is offered whenever there is a choice to
 // make: three or more fighters, or an egg. Pure: the fight is read, never changed.
 
-import { EGG_CODE, hasEgg } from '../sim/encounter/egg';
-import { radiusOf, strikeDistance } from '../sim/encounter/reach';
+import { aimAtEgg, EGG_CODE, hasEgg, targetEgg } from '../sim/encounter/egg';
+import { aim, radiusOf, strikeDistance } from '../sim/encounter/reach';
 import { pickTarget } from '../sim/encounter/strike';
 import type { Encounter, Fighter } from '../sim/encounter/types';
 
@@ -43,13 +43,13 @@ export function targetOptions(enc: Encounter, slot: number): TargetOption[] {
     });
     const egg = f.eggBody;
     if (egg && hasEgg(f)) {
-      const apart = Math.hypot(egg.x - me.body.x, egg.y - me.body.y);
+      aimAtEgg(me, egg);
       out.push({
         code: EGG_CODE + f.slot,
         x: egg.x,
         y: egg.y,
         radius: egg.radius,
-        distance: Math.max(0, apart - egg.radius),
+        distance: aim.distance,
       });
     }
   }
@@ -57,8 +57,12 @@ export function targetOptions(enc: Encounter, slot: number): TargetOption[] {
 }
 
 /** Whether `code` still names a living opponent or a whole egg. */
-export const validTarget = (enc: Encounter, slot: number, code: number | null): boolean =>
-  code !== null && targetOptions(enc, slot).some((o) => o.code === code);
+export function validTarget(enc: Encounter, slot: number, code: number | null): boolean {
+  const me = own(enc, slot);
+  if (!me || code === null) return false;
+  if (code >= EGG_CODE) return targetEgg(enc, me, code) !== null;
+  return code !== slot && own(enc, code) !== null;
+}
 
 /** Tab: the option after `current` in nearest-first order, or the nearest when `current` names none. */
 export function nextTarget(enc: Encounter, slot: number, current: number | null): number | null {

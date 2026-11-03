@@ -75,6 +75,9 @@ interface Ease {
   at: number;
 }
 
+/** No correction yet to ease. */
+const noEase = (): Ease => ({ dx: 0, dy: 0, dh: 0, at: Number.NEGATIVE_INFINITY });
+
 export interface SyncOptions {
   /** This player's id: its fighter is the one sampled and sent. */
   me: string;
@@ -182,7 +185,7 @@ export class EncounterSync {
     this.own = [];
     this.states.clear();
     this.dirty = null;
-    this.ease = enc.fighters.map(() => ({ dx: 0, dy: 0, dh: 0, at: -Infinity }));
+    this.ease = enc.fighters.map(noEase);
     return true;
   }
 
@@ -234,7 +237,9 @@ export class EncounterSync {
   /** Fighters in frame `f`: the start's and those joined by then. */
   private width(f: number): number {
     const first = this.origin?.fighters.length ?? 0;
-    return first + this.joins.filter((j) => j.f <= f).length;
+    let n = first;
+    for (const j of this.joins) if (j.f <= f) n++;
+    return n;
   }
 
   /**
@@ -377,7 +382,7 @@ export class EncounterSync {
     const before = enc.fighters.length;
     applyJoins(enc, this.joins);
     for (let s = before; s < enc.fighters.length; s++) {
-      this.ease[s] = { dx: 0, dy: 0, dh: 0, at: -Infinity };
+      this.ease[s] = noEase();
     }
   }
 

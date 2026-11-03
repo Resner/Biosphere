@@ -1,4 +1,5 @@
 import type { App } from './app';
+import { fightKey } from './engage';
 import { enterHatches } from './input';
 
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
@@ -129,7 +130,8 @@ export function attachKeys(app: App): void {
         if (app.playing()) social.ping(app.worldAt(x, y), app.selfKey(), 0);
       },
       // Tab cycles the target in a fight instead of moving the browser's focus.
-      holds: (key) => key === 'Tab' && app.fight.fighting && app.playing(),
+      holds: (key) =>
+        app.fight.fighting && app.playing() && fightKey(key, true, false)?.t === 'target',
     },
   );
 }
