@@ -94,28 +94,32 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
     stored.push(ops.write(head, record, outcome.next));
     return ops.head(head.id) as Head;
   };
-  for (const f of input.fighters) {
-    let head = ops.head(f.creature);
-    if (head?.status !== 'active' || head.owner !== f.owner) continue;
+  const settleFighter = (start: Head, f: FighterRecord): void => {
     const { condition } = f;
     if (survivedOutcome(f.outcome)) {
-      append(head, 'encounter', {
+      append(start, 'encounter', {
         enc,
         outcome: f.outcome,
         frames: f.frames,
         ...condition,
         reward: f.reward,
       });
-    } else {
-      if (f.unsaved) head = append(head, 'checkpoint', { ...f.unsaved, activeMs: f.activeMs });
-      append(head, 'death', {
-        cause: f.cause ?? 'killed',
-        activeMs: f.activeMs,
-        biomass: condition.biomass,
-        enc,
-        ...(f.by !== null ? { by: f.by } : {}),
-      });
+      return;
     }
+    const head = f.unsaved
+      ? append(start, 'checkpoint', { ...f.unsaved, activeMs: f.activeMs })
+      : start;
+    append(head, 'death', {
+      cause: f.cause ?? 'killed',
+      activeMs: f.activeMs,
+      biomass: condition.biomass,
+      enc,
+      ...(f.by !== null ? { by: f.by } : {}),
+    });
+  };
+  for (const f of input.fighters) {
+    const head = ops.head(f.creature);
+    if (head?.status === 'active' && head.owner === f.owner) settleFighter(head, f);
     // The pending child goes with its egg, whatever became of the carrier.
     if (f.eggBy !== null) {
       const child = ops.pending(f.owner);

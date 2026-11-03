@@ -58,6 +58,7 @@ export class OnlineWiring {
     // Peers see the egg from the commitment on, as the owner does (M6 T20).
     marks.egg = app.offspring.child() !== null || app.mateNow === 'awaiting';
     marks.spawnProtected = this.shield.active(app.pondMs());
+    marks.fighting = app.fight.fighting;
     return snapshotOf(player, app.session.world.tick, app.session.body.ref, marks);
   }
 
@@ -165,6 +166,7 @@ export class OnlineWiring {
         },
         fight: (msg) => {
           if (msg.t === 'lock-ask') this.answerLock(msg.lock, link);
+          else app.fight.receive(msg);
           if (msg.t === 'enc-end') {
             fightEnded(msg, {
               playerId: app.identity?.playerId ?? null,

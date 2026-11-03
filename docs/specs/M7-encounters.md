@@ -413,7 +413,9 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `Referee` (`src/net/referee.ts`), `encounterStartOf` (`src/net/encounter-start.ts`, for T10 too), the running fight in `worker/fights.ts`, `settleFight` in `worker/lives.ts`; hub tests share `worker/fight-test-kit.ts`. An away fighter's result is written as a checkpoint at the end.
   - Gotcha: `enc-end.hash` is `hashEncounter`'s 16 hex characters (the parser said 64); who escapes depends on whose range the other leaves first, so tests sort outcomes.
 
-- [ ] T10 Client prediction and rollback [opus] (after T1, T6)
+- [x] T10 Client prediction and rollback [opus] (after T1, T6)
+  - Done: `EncounterSync` (`src/net/encounter-sync.ts`, with `encounterStartOf` and `fighterOutcomes` for the referee), `FightPlay` (`src/game/app-encounter.ts`), the scripted referee `tests/scripted-referee.ts`, `m7-determinism.spec.ts`.
+  - Gotcha: frames count from 0 (frame f starts at `at + 100 f`; `input` and `enc-frame` name it), an `enc-end`'s `f` is the frames stepped; a correction is settled at the next `step`, so a burst of late bundles costs one rollback.
   - Steps:
     1. `src/net/encounter-sync.ts`, `EncounterSync` (pure, clock passed in):
        - `start(msg, bodies)` builds `EncounterStart` from `FighterInfo` through `fighterOf(buildCreature(genome))`;

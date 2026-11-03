@@ -13,6 +13,8 @@ import { sizeShare } from './growth';
 import { wheelInput } from './input';
 import { nearestHazard } from './sound-cues';
 
+const NO_EVENTS: StepEvent[] = [];
+
 /** Plumes are looked for this far, in body radii from the centre: past the hazard cue's clear line. */
 const CUE_REACH_RADII = 5;
 
@@ -176,7 +178,8 @@ export class Ticker {
     const live = app.livePond();
     if (live && app.scale === 1) app.loop.setSpeed(live.time.update(world, performance.now()));
     const at = world.tick;
-    const events = step(world, { [player.id]: app.input });
+    // Locked in a fight, the encounter moves the creature; free roam waits until it ends.
+    const events = app.fight.tick() ? NO_EVENTS : step(world, { [player.id]: app.input });
     session.ticks++;
     live?.food.onEat(events, at);
     for (const event of events) {

@@ -168,6 +168,22 @@ describe('Ledger.settle', () => {
     });
   });
 
+  it('still writes an eaten egg’s death when the carrier’s creature is no longer active', async () => {
+    await inLedger(async (ledger) => {
+      const { a, b } = await pair(ledger);
+      const [, childB] = bear(ledger, mated(ledger, a, b));
+      // B dies first, in a fight that ate nothing; the egg is eaten in a second fight's results.
+      ledger.settle({ enc: nextHex(), fighters: kill(a, b) });
+      expect(must(ledger.head(b.id)).status).toBe('dead');
+      expect(ledger.pending(b.owner)?.id).toBe(childB.id);
+      ledger.settle({
+        enc: nextHex(),
+        fighters: [part(a), part(b, { outcome: 'killed', cause: 'killed', by: a.id, eggBy: a.id })],
+      });
+      expect(must(ledger.head(childB.id)).status).toBe('dead');
+    });
+  });
+
   it('skips a fighter whose creature is no longer active, and refuses what the rules refuse', async () => {
     await inLedger(async (ledger) => {
       const { a, b } = await pair(ledger);

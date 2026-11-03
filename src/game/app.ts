@@ -18,6 +18,7 @@ import { IDLE, type Input } from '../sim/input';
 import type { MateView } from '../sim/mating';
 import { RULES } from '../sim/rules';
 import type { FoodItem } from '../sim/types';
+import { appFightHost, FightPlay } from './app-encounter';
 import { installAppHook } from './app-hook';
 import { attachKeys, attachPointer } from './app-keys';
 import { LifeStarts } from './app-life';
@@ -229,6 +230,8 @@ export class App {
   readonly nameInput: HTMLInputElement;
   readonly nameError: HTMLElement;
   readonly online: OnlineWiring;
+  /** The refereed fight the player is locked in, predicted and rolled back (M7 T10). */
+  readonly fight: FightPlay;
   readonly sender: SnapshotSender;
   readonly genomeSync: GenomeSync;
   /** Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`. */
@@ -412,6 +415,7 @@ export class App {
     this.nameInput = pick<HTMLInputElement>('[data-testid="name-input"]');
     this.nameError = pick('[data-testid="name-error"]');
     this.online = new OnlineWiring(this);
+    this.fight = new FightPlay(appFightHost(this));
     this.sender = new SnapshotSender((bytes, signed) =>
       this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids),
     );
@@ -577,7 +581,7 @@ export class App {
       energy: player.energy,
       hasPending: life.pending,
       inFlight: false,
-      locked: false,
+      locked: this.fight.fighting,
     };
   }
 
