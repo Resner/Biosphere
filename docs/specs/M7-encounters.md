@@ -445,7 +445,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### Play
 
-- [ ] T11 Engage and fight controls, with the first hub duel [opus] (after T2, T7, T9, T10)
+- [ ] T11 Engage and fight controls, with the first hub duel [opus] (after T2, T7, T9, T10) (in progress)
   - Steps:
     1. Attack (a core action, `src/game/engage.ts`):
        - F engages the creature under the cursor if it is engageable and in range, else the nearest engageable in range;
