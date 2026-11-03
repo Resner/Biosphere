@@ -165,6 +165,7 @@ export class OnlineWiring {
           if (msg.t === 'life') {
             app.renewal.receive(msg.renewed === true);
             app.resume.life(msg.fight);
+            app.fight.named(msg.fight);
           }
           if (msg.t === 'history') app.history.show(msg.lives, Date.now());
           // Past lives are asked for once the hub has said who the player is, and after each death.

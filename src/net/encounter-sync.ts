@@ -327,6 +327,14 @@ export class EncounterSync {
     return mine;
   }
 
+  /**
+   * The authority runs this fight no more (a sign-in names none, M8 T10): its end never came here,
+   * so it stops as it is, with no hash and no result.
+   */
+  abandon(): void {
+    this.over = true;
+  }
+
   /** The own fighter's simulated body, or null before a start. */
   ownBody(): CreatureState | null {
     return this.enc?.fighters[this.slot]?.body ?? null;

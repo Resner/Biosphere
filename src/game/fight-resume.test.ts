@@ -90,7 +90,9 @@ function page(hub: FakeHub, now: () => number) {
       state: () => {},
       event: () => {},
       life: (m) => {
-        if (m.t === 'life') resume.life(m.fight);
+        if (m.t !== 'life') return;
+        resume.life(m.fight);
+        play.named(m.fight);
       },
       fight: (m) => {
         if (resume.hold(m)) return;
@@ -238,8 +240,13 @@ describe('FightResume with the fake online session (M8 T10)', () => {
     expect(b.play.view()?.rejoins).toBe(1);
     now += 300;
     expect(b.play.tick()).toBe(true);
-    // A life naming no fight offers none, and another fight's messages are not held.
+    // A life naming no fight offers none, and its messages are not held. The fight it no longer
+    // names ended while the page was away: it stops, and free roam carries on.
     hub.life(lifeMsg());
     expect(b.resume.hold({ t: 'enc-frame', enc: msg.enc, f: 0, i: [null, null] })).toBe(false);
+    expect(b.play.fighting).toBe(false);
+    expect(b.play.view()?.over).toBe(true);
+    expect(b.play.view()?.endHash).toBeNull();
+    expect(b.play.tick()).toBe(false);
   });
 });

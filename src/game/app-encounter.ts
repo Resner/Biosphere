@@ -181,6 +181,18 @@ export class FightPlay {
     this.chosen = null;
   }
 
+  /**
+   * A `life` from the hub names the fight the creature is locked in, if any (M8 T10). A running
+   * fight it does not name ended while this page was away and its `enc-end` was lost: the fight
+   * stops here, and free roam carries on from where the creature was.
+   */
+  named(fight: string | undefined): void {
+    const { sync } = this;
+    if (!sync?.running || sync.id === fight) return;
+    sync.abandon();
+    this.life = null;
+  }
+
   /** The own slot, while it is seated in the running fight; -1 otherwise. */
   private seat(): number {
     const { sync } = this;

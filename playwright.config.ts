@@ -70,6 +70,10 @@ const m7CarrionHubPort = 8810;
 const m7MeleeHubPort = 8811;
 // The M7 lifecycle spec (8812), with the M5 hooks: the whole encounter line in one scenario.
 const m7LifecycleHubPort = 8812;
+// The M8 resume spec (8813): B reloads mid-fight and goes back to it.
+const m8ResumeHubPort = 8813;
+// The M8 restart spec (8814): the authority restarts mid-fight, and both clients reconnect into it.
+const m8RestartHubPort = 8814;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -323,6 +327,18 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m7LifecycleHubPort} --persist-to .wrangler/e2e-state-m7-lifecycle --var MATING_SCALE:0.01`,
       url: `http://localhost:${m7LifecycleHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m8ResumeHubPort} --persist-to .wrangler/e2e-state-m8-resume`,
+      url: `http://localhost:${m8ResumeHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m8RestartHubPort} --persist-to .wrangler/e2e-state-m8-restart`,
+      url: `http://localhost:${m8RestartHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
