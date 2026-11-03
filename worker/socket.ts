@@ -2,6 +2,7 @@ import { toBase64Url } from '../src/ledger/identity';
 import { type HubMsg, isCause, type SignedCommit } from '../src/net/protocol';
 import type { DeathCause } from '../src/sim/types';
 import type { Beacons, SignedCommitment } from './beacons';
+import type { FightStore } from './fight-store';
 import type { Clock, Fights } from './fights';
 import type { Ledger } from './ledger';
 import type { LifeState } from './life';
@@ -26,8 +27,10 @@ export interface Hub {
   nextTicket: number;
   /** The time and timers of lock-in and fights (hub tests swap in a hand-moved clock). */
   readonly clock: Clock;
-  /** Who is locked in a fight, in memory only (ADR 0050). */
+  /** Who is locked in a fight, in memory (ADR 0050). */
   readonly fights: Fights;
+  /** Each fight's log in SQLite as it runs (ADR 0053). */
+  readonly fightStore: FightStore;
   /** The one way to set or clear the object's alarm (`.claude/rules/worker.md`). */
   rearm(): Promise<void>;
 }

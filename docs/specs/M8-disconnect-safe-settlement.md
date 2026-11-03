@@ -162,7 +162,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - The tournament's gate lines all hold at rules 10.
   - Notes: no new genes. The worker sets worth from T7, and until then it is 1 everywhere.
 
-- [ ] T2 The saved fight log [opus] (after none)
+- [x] T2 The saved fight log [opus] (after none)
   - Steps:
     1. Migration 7 (`worker/schema.ts`): the `encounters` table and its open index, and `players.fight_report` for T9 (the shapes above).
     2. `worker/fight-store.ts`, driven from `worker/fights.ts`:
@@ -182,6 +182,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A 30 s duel with no close writes at most 34 rows from the lock to its end, settlement records excluded (`ledger.rowsWritten`).
     - No row is written during the lock-answer window.
   - Notes: no recovery yet (T5). M7's behaviour is otherwise unchanged. If the insert fails, the lock is released and the attacker is refused `engage:stale`, as when a genome does not build.
+  - Done: `worker/fight-store.ts` (`hub.fightStore`) writes the row from `runFight`, `admit`, `tick` and `drop`; `Fight.names` became `slots` (name and clock), and `runFight`/`admit` take the fighters' lives. A 300-frame duel costs 32 log rows.
+  - Gotcha: setting the indexed `open` column on every batch doubled the rows, so only the close sets it; hub tests bound other writes with `rowsBesideLog`. A failed write is logged and not retried until the next batch, so a `close` that fails leaves `open = 1` on a settled fight: T5 must treat a fight with settlement records as closed, and T8's transaction removes the case.
 
 - [ ] T3 Protocol 8: worth, the fight in `life`, reports, settlements in `enc-end`, proxy frames [opus] (after T1)
   - Steps:

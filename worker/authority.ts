@@ -8,6 +8,7 @@ import {
 } from '../src/net/protocol';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
+import { FightStore } from './fight-store';
 import { type Clock, Fights, fightInput, realClock } from './fights';
 import { type KeyEntry, Ledger } from './ledger';
 import {
@@ -63,12 +64,17 @@ export class Authority extends DurableObject<Env> implements Hub {
   /** Lock-in and fights run on this clock; hub tests swap in a hand-moved one. */
   clock: Clock = realClock;
   readonly fights = new Fights(() => this.clock);
+  readonly fightStore: FightStore;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     this.ledger = new Ledger(ctx.storage);
+    // The log's rows count with the ledger's, which the usage meter reads.
+    this.fightStore = new FightStore(ctx.storage.sql, (rows) => {
+      this.ledger.rowsWritten += rows;
+    });
     this.usage = new UsageMeter(ctx.storage.sql, () => this.ledger.rowsWritten);
     for (const ws of ctx.getWebSockets()) {
       const session = sessionOf(ws);

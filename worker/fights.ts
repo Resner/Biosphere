@@ -1,6 +1,6 @@
 // The fights the authority holds in memory (ADR 0050): who is locked, and each running fight's
-// referee, its encounter and the one timer it keeps for the next deadline. No fight survives a
-// restart until M8; nothing here touches SQLite while a fight runs.
+// referee, its encounter and the one timer it keeps for the next deadline. Each running fight's
+// log goes to SQLite as it runs (`fight-store.ts`, ADR 0053); rebuilding from it is M8 T5's.
 
 import {
   type EncJoin,
@@ -15,6 +15,8 @@ import { applyJoins } from '../src/sim/encounter/join';
 import type { Encounter, EncounterJoin } from '../src/sim/encounter/types';
 import { RULES } from '../src/sim/rules';
 import type { Asking } from './engage';
+import type { SlotClock } from './fight-store';
+import type { LifeState } from './life';
 import type { PondRow } from './schema';
 import { settle, tell } from './settle';
 import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
@@ -38,8 +40,11 @@ export interface Fight {
   enc: Encounter;
   /** The player in each slot, joiners included. */
   players: string[];
-  /** Each slot's player name at the start or its join ('' when it was away), for `died` to name a killer. */
-  names: string[];
+  /**
+   * Each slot's player name ('' when it was away, for `died` to name a killer) and life clock at
+   * the start or its join, as the saved log holds them.
+   */
+  slots: SlotClock[];
   /** The `enc-start` everyone began from; a joiner gets it first (M7 T15). */
   start: EncStart;
   /** The fighters joined so far, each seated before its frame is stepped. */
@@ -49,6 +54,20 @@ export interface Fight {
   /** The pond it is fought in and the pond tick it started at, to place a kill's carrion. */
   pond: string;
   t0: number;
+  /** How many final frames the saved log holds. */
+  persisted: number;
+}
+
+/** What a slot's saved clock is taken from: the fighter's life on its connection at lock-in. */
+export type SlotLife = Pick<LifeState, 'creature' | 'activeMs' | 'lifespanMs'>;
+
+/** A slot's name and life clock as its fight begins or it joins. */
+function slotOf(name: string | undefined, life: SlotLife): SlotClock {
+  return {
+    name: name ?? '',
+    activeMs: life.activeMs,
+    lifespanMs: life.lifespanMs,
+  };
 }
 
 /** One lock: asking the target for its state, then running from `enc-start`. */
@@ -164,29 +183,45 @@ export class Fights {
 }
 
 /**
- * Starts the fight of `msg` (just sent to both): the referee's clock from frame 0 at `msg.at`, and
- * the authority's encounter from the same start every client builds. False when it can't be built.
+ * Starts the fight of `msg` (about to be sent to both): the referee's clock from frame 0 at
+ * `msg.at`, the authority's encounter from the same start every client builds, and its row in the
+ * log. False (and nothing is kept) when it can't be built or the row can't be written.
  */
 export function runFight(
   hub: Hub,
   lock: Lock,
   msg: EncStart,
   pond: Pick<PondRow, 'id' | 'seed'>,
+  lives: readonly SlotLife[],
 ): boolean {
   const start = encounterStartOf(msg, pond.seed);
   if (!start) return false;
   const enc = createEncounter(start);
-  lock.fight = {
+  const slots: SlotClock[] = [];
+  for (const f of enc.fighters) {
+    const life = lives.find((l) => l.creature === f.creature);
+    if (!life) return false;
+    slots.push(slotOf(seated(hub, f.player)?.[1].name, life));
+  }
+  const fight: Fight = {
     referee: new Referee({ startAt: msg.at, slots: enc.fighters.length }),
     enc,
     players: enc.fighters.map((f) => f.player),
-    names: enc.fighters.map((f) => seated(hub, f.player)?.[1].name ?? ''),
+    slots,
     start: msg,
     joins: [],
     history: [],
     pond: pond.id,
     t0: msg.t0,
+    persisted: 0,
   };
+  try {
+    hub.fightStore.open(fight, hub.clock.now());
+  } catch (error) {
+    console.error('fight log insert failed', error);
+    return false;
+  }
+  lock.fight = fight;
   armNext(hub, lock);
   return true;
 }
@@ -230,11 +265,19 @@ export function tick(hub: Hub, id: string, now: number): void {
     tell(hub, lock, msg);
     for (const f of enc.fighters) if (f.status !== 'in') referee.retire(f.slot);
     if (enc.over) {
+      hub.fightStore.close(fight);
       settle(hub, lock, fight);
       return;
     }
   }
+  hub.fightStore.append(fight);
   armNext(hub, lock);
+}
+
+/** A participant's socket closed: its fight's log takes every final frame now (ADR 0053). */
+export function flushFight(hub: Hub, player: string): void {
+  const fight = hub.fights.ofPlayer(player)?.fight;
+  if (fight) hub.fightStore.flush(fight);
 }
 
 /** Whether a running fight can take one more fighter: not over, and fewer than the limit seated or joining. */
@@ -243,27 +286,36 @@ export const joinable = (fight: Fight): boolean =>
 
 /**
  * Seats a joiner in the running fight of `lock` from the next frame to be finalized +
- * `joinAheadFrames` (M7 T15), its start `infoAt` that frame's pond tick. The joiner gets the fight's `enc-start` and its history first, then
- * everyone hears the `enc-join`. False (and nothing changes) when its genome does not build.
+ * `joinAheadFrames` (M7 T15), its start `infoAt` that frame's pond tick. The join is written to
+ * the log first; then the joiner gets the fight's `enc-start` and its history, and everyone hears
+ * the `enc-join`. False (and nothing changes) when its genome does not build or the write fails.
  */
 export function admit(
   hub: Hub,
   lock: Lock,
   fight: Fight,
   infoAt: (tick: number) => FighterInfo,
+  life: SlotLife,
 ): boolean {
   const f = fight.referee.next + RULES.encounter.joinAheadFrames;
   const info = infoAt(fight.start.t0 + RULES.encounter.frameTicks * f);
   const fighter = fighterStartOf(info);
   if (!fighter || !joinable(fight)) return false;
+  const msg: EncJoin = { t: 'enc-join', enc: fight.enc.id, f, fighter: info };
+  const found = seated(hub, info.player);
+  const slot = slotOf(found?.[1].name, life);
+  try {
+    hub.fightStore.join(fight, msg, slot);
+  } catch (error) {
+    console.error('fight log join failed', error);
+    return false;
+  }
   fight.referee.join(f);
   fight.joins.push({ f, fighter });
   fight.players.push(info.player);
-  const found = seated(hub, info.player);
-  fight.names.push(found?.[1].name ?? '');
+  fight.slots.push(slot);
   hub.fights.join(lock, info.player, info.creature);
-  if (found) for (const msg of [fight.start, ...fight.history]) sendIfOpen(found[0], msg);
-  const msg: EncJoin = { t: 'enc-join', enc: fight.enc.id, f, fighter: info };
+  if (found) for (const m of [fight.start, ...fight.history]) sendIfOpen(found[0], m);
   fight.history.push(msg);
   tell(hub, lock, msg);
   return true;

@@ -1,11 +1,14 @@
 import { runInDurableObject } from 'cloudflare:test';
-import { afterEach, beforeEach, vi } from 'vitest';
+import { bytesToHex } from '@noble/hashes/utils.js';
+import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { genomeFromBase64url, genomeHash } from '../src/genome/codec';
 import type { Identity } from '../src/ledger/identity';
 import { recordHash } from '../src/ledger/record';
 import { signSnap } from '../src/ledger/snapshot-sig';
+import { encounterStartOf } from '../src/net/encounter-start';
 import {
   encodeSnapshot,
+  type FighterInfo,
   genomeRefOf,
   type HubMsg,
   type PondInfo,
@@ -13,9 +16,11 @@ import {
   type Snapshot,
 } from '../src/net/protocol';
 import { FRAME_MS } from '../src/net/referee';
+import { createEncounter } from '../src/sim/encounter/encounter';
+import { engageRange, strikeDistance, strikeReach } from '../src/sim/encounter/reach';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import type { Authority } from './authority';
-import { type Clock, Fights } from './fights';
+import { type Clock, Fights, runFight } from './fights';
 import type { LifeState } from './life';
 import type { Session } from './socket';
 import {
@@ -310,6 +315,88 @@ export const hundredths = (f: { biomass: number; energy: number; health: number 
   energy: Math.floor(f.energy * 100),
   health: Math.floor(f.health * 100),
 });
+
+/**
+ * A fight started on the object directly (lock-in is T8's, tested in `engage.test.ts`): two bodies
+ * of A's genome, idle and in full health, B east of A with 1.5 x the strike reach between them, so
+ * neither can strike nor escape. Both get its `enc-start`.
+ */
+export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
+  const genome = await authority((o) => o.ledger.head(a.creature)?.genome ?? '');
+  const at = clock.t + E.startDelayMs;
+  const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, genome, y: 3000 };
+  const vitals = { biomass: RULES.starter.biomass, energy: 150, health: 100 };
+  const fighters: FighterInfo[] = [a, b].map((p, k) => ({
+    ...base,
+    ...vitals,
+    player: p.id.playerId,
+    creature: p.creature,
+    x: 5200 + 100 * k,
+  }));
+  const msg: EncStart = {
+    t: 'enc-start',
+    // Its own id: the object (and its saved fight logs) outlives a test.
+    enc: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
+    seed: '5'.repeat(64),
+    round: 0,
+    t0: Math.floor(((at - a.pond.epoch) * TICK_HZ) / 1000),
+    at,
+    fighters,
+  };
+  // Moves B in until 1.5 x the reach is left between them (both bodies are alike).
+  const probe = (x: number) => {
+    const start = encounterStartOf(
+      { ...msg, fighters: fighters.map((f) => (f.player === b.id.playerId ? { ...f, x } : f)) },
+      a.pond.seed,
+    );
+    if (!start) throw new Error('no start');
+    const [fa, fb] = createEncounter(start).fighters;
+    if (!fa || !fb) throw new Error('no fighters');
+    const gap =
+      fa.player === a.id.playerId
+        ? strikeDistance(fa.body, fb.body)
+        : strikeDistance(fb.body, fa.body);
+    return { gap, reach: strikeReach(fa), away: 2 * engageRange(fa, fb) };
+  };
+  let x = 5300;
+  while (x > 5200 && probe(x - 0.5).gap >= 1.5 * probe(x).reach) x -= 0.5;
+  const { gap, reach, away } = probe(x);
+  expect(gap).toBeGreaterThan(1.4 * reach);
+  expect(gap).toBeLessThan(away * 0.9);
+  for (const f of fighters) if (f.player === b.id.playerId) f.x = x;
+  const lives = await Promise.all([a, b].map((p) => lifeOn(p)));
+  await authority((o) => {
+    const lock = o.fights.open(
+      msg.enc,
+      [a.id.playerId, b.id.playerId],
+      [a.creature, b.creature],
+      0,
+      () => {},
+    );
+    expect(
+      runFight(
+        o,
+        lock,
+        msg,
+        a.pond,
+        lives.filter((l) => l !== undefined),
+      ),
+    ).toBe(true);
+    for (const ws of o.ctx.getWebSockets()) {
+      const s = ws.deserializeAttachment() as Session | null;
+      if (s?.phase === 'active') ws.send(JSON.stringify(msg));
+    }
+  });
+  await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
+  return msg;
+}
+
+/** Rows written outside the fight log (`fight-store.ts`), which its own tests bound. */
+export const rowsBesideLog = () =>
+  authority((o) => o.ledger.rowsWritten - o.fightStore.rowsWritten);
+
+/** The fight's saved log, as the object reads it back. */
+export const logRow = (enc: string) => authority((o) => o.fightStore.read(enc));
 
 /**
  * Two players whose hatch protection is over, in a pond seeded `timeout`: no UV or pressure at

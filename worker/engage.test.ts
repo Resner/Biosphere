@@ -22,20 +22,12 @@ import {
   pair,
   pondTick,
   refusal,
+  rowsBesideLog,
   setEnv,
   snap,
   useFightHub,
 } from './fight-test-kit';
-import {
-  CALM,
-  flush,
-  freshNonce,
-  genesisRequest,
-  nextOf,
-  report,
-  rowsWritten,
-  source,
-} from './test-hub';
+import { CALM, flush, freshNonce, genesisRequest, nextOf, report, source } from './test-hub';
 
 // M7 T8: lock-in on the authority, on the hand-moved clock of `fight-test-kit.ts`.
 
@@ -46,7 +38,7 @@ useFightHub();
 describe('engage', () => {
   it('locks both in with the target’s own state when it answers within the window', async () => {
     const [a, b] = await pair();
-    const rows = await rowsWritten();
+    const rows = await rowsBesideLog();
     const engagedAt = clock.t;
     engage(a, b);
     const ask = await nextOf(b.c, 'lock-ask');
@@ -70,7 +62,7 @@ describe('engage', () => {
     expect(fa?.egg).toBe(false);
     expect(fa?.elder).toBe(false);
     expect(fa?.biomass).toBeCloseTo(RULES.starter.biomass, 1);
-    expect(await rowsWritten()).toBe(rows);
+    expect(await rowsBesideLog()).toBe(rows);
   });
 
   it('uses the attacker’s copy when the target is silent, with frame 0 at most 300 ms after the engage', async () => {
@@ -86,7 +78,7 @@ describe('engage', () => {
     await authority((o) => {
       (o as unknown as { source: BeaconSource }).source = counting;
     });
-    const rows = await rowsWritten();
+    const rows = await rowsBesideLog();
     const engagedAt = clock.t;
     const [sa, sb] = await lockIn(a, b, snap(b, 1012, 1003));
     expect(sa).toEqual(sb);
@@ -101,7 +93,7 @@ describe('engage', () => {
     expect(sa.round).toBe((newest as Beacon).round);
     expect(sa.seed).toBe(encounterSeed(randomnessOf(newest as Beacon), sa.enc));
     expect(fetches.n).toBe(0);
-    expect(await rowsWritten()).toBe(rows);
+    expect(await rowsBesideLog()).toBe(rows);
   });
 
   it('holds one timer per lock, and both stay locked while the fight runs', async () => {

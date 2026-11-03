@@ -15,6 +15,7 @@ import {
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
+import { flushFight } from './fights';
 import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
 import type { PondRow } from './schema';
@@ -303,6 +304,8 @@ export function drop(
     } catch {
       // A failed save must not keep the others from seeing this player leave; the next login resumes from the last record.
     }
+    // Its fight runs on: the log takes every frame final so far (a failed write is logged there).
+    flushFight(hub, session.playerId);
     broadcast(hub, session.pondId, ws, {
       t: 'member',
       op: 'leave',

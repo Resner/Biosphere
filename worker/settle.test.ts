@@ -16,12 +16,13 @@ import {
   type Plan,
   type Player,
   play,
+  rowsBesideLog,
   slotOf,
   snap,
   useFightHub,
 } from './fight-test-kit';
 import { bear, mated, must } from './ledger-test-kit';
-import { type Client, nextOf, rowsWritten, signIn, sql } from './test-hub';
+import { type Client, nextOf, signIn, sql } from './test-hub';
 
 // M7 T13: a fight's results as records, on the hub (ADR 0052): the settlement's records, `died`
 // with the killer and the fallback before `enc-end`, and what a reconnect gets after the end.
@@ -70,10 +71,10 @@ describe('a kill', () => {
   it('writes the victim’s death by the killer and the killer’s encounter record', async () => {
     const [a, b] = await fighters();
     const [seenA, seenB] = [log(a.c), log(b.c)];
-    const rows = await rowsWritten();
+    const rows = await rowsBesideLog();
     const { start, end } = await killB(a, b);
-    // Two rows per participant, and the victim's dead index entry.
-    expect((await rowsWritten()) - rows).toBeLessThanOrEqual(5);
+    // Two rows per participant, and the victim's dead index entry (beside the log, M8 T2).
+    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(5);
 
     const victim = await chain(b.creature);
     expect(victim.map((r) => r.kind)).toEqual(['genesis', 'death']);

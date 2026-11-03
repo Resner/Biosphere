@@ -131,7 +131,7 @@ describe('migration 6', () => {
         };
       },
     );
-    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6]);
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7]);
     // Identities, keys, usage, flags, beacons and ponds survive untouched.
     expect(out.after.kept).toEqual(out.beforeKept);
     expect(out.after.players.map((p) => [p.id, p.first_seen, p.last_seen])).toEqual([
