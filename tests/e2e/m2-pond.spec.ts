@@ -185,9 +185,32 @@ test('three players see each other move smoothly, share food and chat @slow', as
       ),
     );
     // Three software-GL browsers on a busy runner tick slowly; the claims need a few frames.
-    await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
-      timeout: 20_000,
-    });
+    await c
+      .waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
+        timeout: 20_000,
+      })
+      .catch(async (error) => {
+        const looks = await Promise.all(
+          [a, b, c].map((p) =>
+            p.evaluate((id) => {
+              const bs = window.__bs as BsHook;
+              const s = bs.state();
+              return {
+                has: bs.debug?.hasFood(id),
+                tick: s.tick,
+                player: s.player,
+                energy: s.player?.energy,
+                steps: bs.events(),
+                screen: s.screen,
+                remotes: s.remotes.length,
+              };
+            }, id),
+          ),
+        );
+        throw new Error(`the contested item stayed: ${JSON.stringify({ item, looks })}`, {
+          cause: error,
+        });
+      });
     // Count the bites each keeps (eaten minus given back). The loser's "stolen" event travels over
     // the channel, so wait for the count to settle at one, then check that it holds.
     const gained = async () => (await bitesKept(a, id)) + (await bitesKept(b, id));
