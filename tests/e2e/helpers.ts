@@ -213,6 +213,8 @@ export const M7_LIFECYCLE_HUB = 'http://localhost:8812';
 export const M8_RESUME_HUB = 'http://localhost:8813';
 /** The M8 restart spec's hub (M8 T10): the authority restarts mid-fight (`POST /v1/e2e/restart`). */
 export const M8_RESTART_HUB = 'http://localhost:8814';
+/** The M8 proxy spec's hub (M8 T11): an away fighter seen by its opponent and, by proxy, a spectator. */
+export const M8_PROXY_HUB = 'http://localhost:8815';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
