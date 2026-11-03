@@ -285,7 +285,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `enter` seats a fighter in its fight's pond with `life.fight` and `resend` (M7's `owed` is gone, so no `life` follows `enc-end`); `awaySeats` holds away fighters' seats; locked `progress` and closes write nothing (`worker/resume.test.ts`).
   - Gotcha: locked `progress` keeps `n` and the clock but takes the report's ticks and time, so the first report after the end credits only what follows; until T8 the fight's time is not credited at all.
 
-- [ ] T7 A victim's worth at lock-in, and join checks [opus] (after T3)
+- [x] T7 A victim's worth at lock-in, and join checks [opus] (after T3)
   - Steps:
     1. `worker/farming.ts`: `worthOf(hub, player, now)` = `0.5^k` (ADR 0054). `k` counts the player's creatures that died with cause `killed` in the 24 h before `now`, at most 6, plus 1 while `first_seen` is under 30 min before `now`. It uses reads only, through the `creatures_dead` index.
     2. `fighterInfo` in `worker/engage.ts` sets `worth` for both sides at lock-in and for a joiner.
@@ -299,6 +299,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - `enc-start` and `enc-join` carry the worths, and the killer's `encounter` record after a second kill of the same identity has half the first's reward, for the same bodies and layout.
     - A joiner two tiers from a fighter still in gets `engage:tier`, while one within ±1 of all joins. An engage at an escaped fighter of a running fight gets `engage:locked`.
     - `worthOf` writes no row.
+  - Done: `worker/farming.ts` (`worthOf`, one read through `creatures_dead` and the death record's cause) sets every `FighterInfo.worth`; a join is tier-checked against every fighter still in (pending joiners too), and an engage with a fighter already out of its fight, on either side, is `engage:locked`.
+  - Gotcha: `hatched()` in `fight-test-kit.ts` now dates identities past the young window (`firstSeenAgo`), so M7 hub tests keep worth 1; E2E players are young, so their fights run at worth 0.5.
 
 - [ ] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4)
   - Steps:
