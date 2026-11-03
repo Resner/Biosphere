@@ -311,7 +311,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - A protocol-6 hello gets `error: version`.
   - Notes: the messages of T14 (`carrion`) and T15 (`enc-join`) land here too, so later tasks don't reopen the protocol files.
 
-- [x] T7 Signed snapshots between peers, and the lock answer [opus] (after T6) (in progress)
+- [x] T7 Signed snapshots between peers, and the lock answer [opus] (after T6)
   - Done: `src/game/engage.ts` (`candidates`, `CandidateSigner`, `lockState`, `SpawnShield`), `SignedSnaps` in `OnlineWiring.signed`; fight messages reach `OnlineHandlers.fight` through `HubClient.onFight`, and a recorded `HatchOutcome` says `protect`.
   - Gotcha: T11's engage must call `app.online.shield.end()`; hooks `state().net.signed` and `badSignatures`.
   - Steps:
