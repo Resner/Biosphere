@@ -7,9 +7,11 @@ import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './hel
 
 export async function open(browser: Browser, hub: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
-  // Low detail, pinned: a fight's frames are 100 ms, and an input sampled late (a slow software-rendered
-  // page) is past the referee's deadline, so the autopilot flies that frame instead.
   await openRecorded(page, '&quality=low', hub);
+  // No picture: software rendering is the cost of a frame on a runner, and a page that draws a
+  // frame in over 100 ms misses the referee's input deadline, so the autopilot flies that frame (B
+  // flees, or A loses its strikes). The scene still updates, so `state()` and `render.info()` hold.
+  await page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
   return page;
 }
 

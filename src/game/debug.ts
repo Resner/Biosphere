@@ -359,6 +359,12 @@ export interface BsDebug {
    * so the killer would otherwise eat them before anyone else saw them.
    */
   holdBelly(on: boolean): void;
+  /**
+   * A test aid: while on, the scene still updates (`render.info()` counts, the HUD) but skips its
+   * draw call. Software rendering is the cost of a frame on a runner, and a fight page that draws
+   * a frame in over 100 ms misses the referee's input deadline.
+   */
+  skipDraw(on: boolean): void;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
   /**
