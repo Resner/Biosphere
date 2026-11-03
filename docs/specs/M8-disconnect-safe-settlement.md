@@ -162,7 +162,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - The tournament's gate lines all hold at rules 10.
   - Notes: no new genes. The worker sets worth from T7, and until then it is 1 everywhere.
 
-- [ ] T2 The saved fight log [opus] (after none)
+- [ ] T2 The saved fight log [opus] (after none) (in progress)
   - Steps:
     1. Migration 7 (`worker/schema.ts`): the `encounters` table and its open index, and `players.fight_report` for T9 (the shapes above).
     2. `worker/fight-store.ts`, driven from `worker/fights.ts`:
