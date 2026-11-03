@@ -10,6 +10,10 @@ import type { Head } from './ledger';
 // reported and the life clock it earned, kept in the socket's hibernation attachment (small, so
 // it survives eviction without touching SQLite). Plausibility is checked here, as plain functions.
 
+/** When spawn protection that starts at `now` ends (a genesis, a promoted child or a restore; never a resume). */
+export const protectionEnds = (now: number): number =>
+  now + RULES.encounter.protectionSeconds * 1000;
+
 /** Active time since the last checkpoint after which the next progress writes one. */
 export const CHECKPOINT_EVERY_MS = 900_000;
 /** Growth rate allowance over the genome's own, for rounding and a tick or two of jitter. */
@@ -212,6 +216,16 @@ export function clampClaim(
 
 /** Whether the creature has played since its last record, so a close should write one. */
 export const unsaved = (life: LifeState): boolean => life.n > life.savedN;
+
+/**
+ * The condition a fight left the creature in (ADR 0050). It is unsaved until the next record, so a
+ * close or a death writes it: `savedN` drops below `n` without a report of its own.
+ */
+export const takeResult = (life: LifeState, condition: Condition): LifeState => ({
+  ...life,
+  ...condition,
+  savedN: Math.min(life.savedN, life.n - 1),
+});
 
 /** Whether a progress report is due a checkpoint of its own: 15 minutes of active time since the last. */
 export const checkpointDue = (life: LifeState): boolean =>
