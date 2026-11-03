@@ -6,6 +6,7 @@
 // and the ring live in the world, like the labels.
 
 import type { Encounter, Stance } from '../sim/encounter/types';
+import { clamp } from '../sim/math';
 import { RULES } from '../sim/rules';
 import { maxHealth } from '../sim/vitals';
 import { pick } from './dom';
@@ -72,7 +73,7 @@ export function combatHudOf(
       .filter((f) => f.slot !== own && f.status === 'in')
       .map((f) => ({
         player: f.player,
-        health: Math.min(1, Math.max(0, f.body.health / maxHealth(f.body.biomass))),
+        health: clamp(f.body.health / maxHealth(f.body.biomass), 0, 1),
       })),
     escape: Math.min(1, me.outside / E.escapeTicks),
   };
@@ -112,7 +113,7 @@ class Ring {
     const cx = Math.round(x);
     const cy = Math.round(y);
     const radius = Math.max(4, Math.round(r));
-    const fill = Math.round(Math.min(1, Math.max(0, share)) * 100);
+    const fill = Math.round(clamp(share, 0, 1) * 100);
     const key = `${cx},${cy},${radius},${fill}`;
     if (this.group.style.display !== '') this.group.style.display = '';
     if (key === this.key) return;

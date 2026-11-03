@@ -6,6 +6,7 @@
 // slot. Pure rules on the encounter's state; the shell does what the sink asks.
 
 import type { Cue } from '../audio/cues';
+import { SHAKE } from '../render/shake';
 import { radiusOf } from '../sim/encounter/reach';
 import type { Encounter, EncounterEvent, Fighter } from '../sim/encounter/types';
 
@@ -22,8 +23,8 @@ export interface FightCueSink {
   stagger(player: string): void;
 }
 
-/** Another fighter's hits thud at most this often (ticks), as the player's own (`SHAKE`'s 15). */
-const THUD_GAP_TICKS = 15;
+/** Another fighter's hits thud at most this often (ticks), as the player's own. */
+const THUD_GAP_TICKS = SHAKE.everyTicks;
 /** Shown keys kept: a fight is at most 900 frames, and this covers far more than a rollback. */
 const KEPT = 512;
 

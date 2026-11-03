@@ -16,6 +16,8 @@ import { FightCues } from './fight-cues';
 import type { LabelProjection } from './labels';
 
 const E = RULES.encounter;
+/** The escape ring's anchor when no own body is drawn (the ring only shows in a fight). */
+const NO_SELF = { x: 0, y: 0, radius: 1 };
 
 /** `state().encounter` with the HUD and the cues counted (M7 T12). */
 export interface FightShowView extends EncounterView {
@@ -115,7 +117,7 @@ export class FightShow {
     const marks = telegraphs.end();
     const own = sync?.slot ?? -1;
     const view = combatHudOf(sync?.enc ?? null, own, fight.stance, fight.fighting);
-    this.hud.update(view, self ?? { x: 0, y: 0, radius: 1 }, remoteViews, p);
+    this.hud.update(view, self ?? NO_SELF, remoteViews, p);
     return marks;
   }
 
@@ -124,8 +126,8 @@ export class FightShow {
     const { app } = this;
     const sync = app.fight.sync;
     const enc = sync?.enc;
-    const now = app.eggClock();
     if (!sync || !enc) return null;
+    const now = app.eggClock();
     if (enc.id !== this.fightId) {
       this.fightId = enc.id;
       this.eaten.clear();

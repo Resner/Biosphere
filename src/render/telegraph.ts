@@ -5,7 +5,8 @@
 // scene draws as instanced quads.
 
 import * as THREE from 'three';
-import { RULES } from '../sim/rules';
+import { RULES, TICK_HZ } from '../sim/rules';
+import { FX } from './effects';
 import { writeInstance } from './instances';
 import { telegraphMaterial } from './materials';
 
@@ -25,13 +26,13 @@ export const TELEGRAPH = {
   sparkSeconds: 0.4,
   /** A landed hit flashes its target this red, fading over this long (as the player's own hit). */
   flashPeak: 0.85,
-  flashSeconds: 0.3,
+  flashSeconds: FX.hurtFlashSeconds,
   /** A remote's snapshot health dropping by this share of its maximum flashes it (outside the fight). */
   healthDrop: 0.04,
   /** A stagger wobbles the attacker's heading this much (rad) at this rate, over its 9 ticks. */
   wobbleRad: 0.3,
   wobbleHz: 9,
-  wobbleSeconds: RULES.encounter.brace.staggerTicks / 30,
+  wobbleSeconds: RULES.encounter.brace.staggerTicks / TICK_HZ,
   /** A fighting creature's ring, in its radii, and its strength. */
   ringRadii: 1.7,
   ringAlpha: 0.35,

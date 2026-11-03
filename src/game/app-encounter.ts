@@ -8,11 +8,13 @@ import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
 import type { FightMsg } from '../net/hub-client';
 import type { ClientMsg } from '../net/protocol';
+import { radiusOf } from '../sim/encounter/reach';
 import type { Encounter, EncounterEvent, Outcome, Stance } from '../sim/encounter/types';
 import type { Input } from '../sim/input';
 import type { CreatureState, World } from '../sim/types';
 import { maxHealth } from '../sim/vitals';
 import type { App } from './app';
+import { aimsAt } from './fight-cues';
 
 export interface FightHost {
   /** This player's id, or null before the identity is loaded. */
@@ -44,11 +46,7 @@ export function threatened(enc: Encounter, own: number, ticks: number): boolean 
   const tick = enc.world.tick;
   return enc.fighters.some(
     (f) =>
-      f.slot !== own &&
-      f.status === 'in' &&
-      f.fx.windupEnd >= tick &&
-      f.fx.windupEnd - tick <= ticks &&
-      (f.fx.windupTarget === own || f.fx.windupTarget === own + 4),
+      f.slot !== own && f.status === 'in' && aimsAt(f, own, tick) && f.fx.windupEnd - tick <= ticks,
   );
 }
 
@@ -258,7 +256,7 @@ export class FightPlay {
       view.x = pose.x;
       view.y = pose.y;
       view.heading = pose.heading;
-      view.radius = Math.sqrt(f.body.biomass);
+      view.radius = radiusOf(f.body);
     }
   }
 
@@ -296,7 +294,7 @@ export class FightPlay {
           braced: f.fx.braceUntil >= tick,
           egg: egg ? { x: egg.x, y: egg.y, health: egg.health, eaten: egg.by >= 0 } : null,
           outcome: f.status,
-          radius: Math.sqrt(f.body.biomass),
+          radius: radiusOf(f.body),
           staggered: f.fx.staggerUntil > tick,
           outside: f.outside,
         };
