@@ -1,14 +1,14 @@
 // WebRTC peer mesh: perfect negotiation over the hub's signal relay, non-trickle ICE, and two data
 // channels per peer (`state`: unordered, lossy; `event`: ordered, reliable).
 
+import { decodeStateFrame } from '../ledger/snapshot-sig';
 import { guarded } from './guarded';
 import {
   byteLength,
-  decodeSnapshot,
   EVENT_MAX_BYTES,
   type PeerEvent,
   parsePeerEvent,
-  SNAPSHOT_BYTES,
+  type SignedSnap,
   type Snapshot,
 } from './protocol';
 
@@ -93,7 +93,7 @@ export class PeerMesh {
   private droppedCount = 0;
   private joinedListeners: ((id: string) => void)[] = [];
   private leftListeners: ((id: string) => void)[] = [];
-  private stateListeners: ((id: string, s: Snapshot) => void)[] = [];
+  private stateListeners: ((id: string, s: Snapshot, signed: SignedSnap | null) => void)[] = [];
   private eventListeners: ((id: string, e: PeerEvent) => void)[] = [];
   private readonly factory: PeerConnectionFactory;
   private iceServers: RTCIceServer[];
@@ -109,7 +109,8 @@ export class PeerMesh {
   onPeerLeft(fn: (id: string) => void): void {
     this.leftListeners.push(fn);
   }
-  onState(fn: (id: string, s: Snapshot) => void): void {
+  /** A snapshot, with its signed form when it came as an 89-byte frame (not verified here). */
+  onState(fn: (id: string, s: Snapshot, signed: SignedSnap | null) => void): void {
     this.stateListeners.push(fn);
   }
   onEvent(fn: (id: string, e: PeerEvent) => void): void {
@@ -367,12 +368,13 @@ export class PeerMesh {
     if (link.closed) return;
     if (label === STATE_CHANNEL) {
       const bytes = toBytes(data);
-      const snapshot = bytes && bytes.byteLength === SNAPSHOT_BYTES ? decodeSnapshot(bytes) : null;
-      if (!snapshot) {
+      const frame = bytes ? decodeStateFrame(bytes) : null;
+      if (!frame) {
         this.droppedCount += 1;
         return;
       }
-      for (const fn of this.stateListeners) guarded(() => fn(link.peerId, snapshot));
+      const { snapshot, signed } = frame;
+      for (const fn of this.stateListeners) guarded(() => fn(link.peerId, snapshot, signed));
       return;
     }
     const event =

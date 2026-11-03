@@ -119,7 +119,11 @@ export class LifeStarts {
   }
 
   /** Starts a life, in the joined pond or (`inPond` false) in a local one. */
-  begin(inPond: boolean, recorded?: { body: Body; start: Started }, at?: Vec2): void {
+  begin(
+    inPond: boolean,
+    recorded?: { body: Body; start: Started; protect: boolean },
+    at?: Vec2,
+  ): void {
     const { app } = this;
     const target = inPond ? app.pond : null;
     const seed = this.hatches === 0 ? app.params.seed : `${app.params.seed}/${this.hatches}`;
@@ -144,6 +148,9 @@ export class LifeStarts {
       player.health = Math.min(saved.health, maxHealth(saved.biomass));
     }
     this.enter(next, 'playing');
+    // A genesis, a promoted child or a restore is spawn-protected for a while; a resume is not.
+    if (target && recorded?.protect) app.online.shield.start(app.pondMs());
+    else app.online.shield.end();
     // After a genesis or a hatch, the creature grows out of its egg.
     app.emerging = app.eggs.hatched(app.eggClock(), next.body.rarity) ? next : null;
     if (app.emerging) app.sound.cue('hatch');
@@ -199,7 +206,8 @@ export class LifeStarts {
           }
           // The egg stirs and cracks first; play begins with its burst.
           const body = hatchBody(genome);
-          await this.whenRipe(body.rarity, () => this.begin(true, { body, start: outcome.start }));
+          const { start, protect } = outcome;
+          await this.whenRipe(body.rarity, () => this.begin(true, { body, start, protect }));
         }
       })
       .catch((error: unknown) => {
@@ -273,7 +281,8 @@ export class LifeStarts {
           );
         }
         begun = true;
-        this.begin(true, { body: hatchBody(genome), start: outcome.start }, at);
+        const { start, protect } = outcome;
+        this.begin(true, { body: hatchBody(genome), start, protect }, at);
         hud.toast(
           choice === 'child'
             ? `You are now ${app.session.body.species}`

@@ -79,22 +79,46 @@ export function snapshotOf(
   };
 }
 
-/** Sends one snapshot per 100 ms of loop time, on a schedule so frame timing does not drift it. */
+/** Every second snapshot (200 ms) may go out signed, to engage candidates (M7 T7). */
+export const SIGN_EVERY = 2;
+
+/**
+ * Sends one snapshot per 100 ms of loop time, on a schedule so frame timing does not drift it.
+ * `send` gets the 25 bytes and, for every second snapshot, the 89-byte signed frame when `update`
+ * was given a signer that made one.
+ */
 export class SnapshotSender {
   private seq = 0;
   private due = 0;
+  private sent = 0;
 
-  constructor(private readonly send: (bytes: Uint8Array) => void) {}
+  constructor(private readonly send: (bytes: Uint8Array, signed: Uint8Array | null) => void) {}
 
-  /** Call once per frame. `build` runs only when a snapshot is due. */
-  update(ms: number, hidden: boolean, build: () => SnapshotFields): void {
+  /** The seq the next snapshot takes. */
+  get nextSeq(): number {
+    return this.seq;
+  }
+
+  /**
+   * Call once per frame. `build` runs only when a snapshot is due, and `sign` (the 25 bytes to an
+   * 89-byte frame, or null) only for every second one.
+   */
+  update(
+    ms: number,
+    hidden: boolean,
+    build: () => SnapshotFields,
+    sign?: (bytes: Uint8Array) => Uint8Array | null,
+  ): void {
     if (ms < this.due) return;
     // After a pause (a hidden tab), restart the schedule instead of sending the backlog.
     const late = ms - this.due > SNAPSHOT_INTERVAL_MS;
     this.due = (late ? ms : this.due) + SNAPSHOT_INTERVAL_MS;
     if (hidden) return;
-    this.send(encodeSnapshot({ ...build(), seq: this.seq }));
+    const bytes = encodeSnapshot({ ...build(), seq: this.seq });
+    const signed = sign && this.sent % SIGN_EVERY === 0 ? sign(bytes) : null;
+    this.send(bytes, signed);
     this.seq = (this.seq + 1) % SEQ_RANGE;
+    this.sent++;
   }
 }
 
