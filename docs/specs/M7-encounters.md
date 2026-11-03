@@ -532,7 +532,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `worker/settle.ts` and `worker/ledger-encounter.ts` (`Ledger.settle`, idempotent by `body.enc`), `Fighter.reward` (an unhashed tally), client `fight-end.ts` and `applyLife(…, 'killed')`; `m7-kill` moved to T14, since a kill in play needs T10 and T11.
   - Gotcha: an eaten child is dead with no chain parent, so `history` and `lastDead` skip it (`LIVED`); `transitionOutcome('death', cause, …)` takes the cause as its role.
 
-- [ ] T14 Carrion and growth by kills in play (after T11, T13, T5)
+- [ ] T14 Carrion and growth by kills in play (after T11, T13, T5) (in progress)
   - Steps:
     1. `src/sim/carrion.ts`: `World.carrion` (sorted by id) and `dropCarrion(world, { enc, x, y, biomass, radius, tick })`:
        - `0.4 × biomass × 3` energy in `clamp(round(radius ÷ 3), 3, 12)` pieces;
