@@ -141,7 +141,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### Rules, the log, the protocol and proofs
 
-- [ ] T1 Rules 10: a fighter's worth as prey, and carrion ids (after none)
+- [ ] T1 Rules 10: a fighter's worth as prey, and carrion ids (after none) (in progress)
   - Steps:
     1. `RULES_VERSION` 10, with no world reset (`FIRST_LIVE_RULES` stays 8, ADR 0054).
        - Regenerate every golden the version touches, and list them in the PR.
