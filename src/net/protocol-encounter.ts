@@ -8,6 +8,7 @@ import {
   ENC_START_MAX_BYTES,
   type FighterInfo,
   type FighterOutcome,
+  type FighterState,
   type FightReport,
   type HubMsg,
   isCause,
@@ -66,7 +67,7 @@ function signedSnap(v: unknown): SignedSnap | null {
 }
 
 /** The fields a fighter's start and its outcome share, or null. */
-function fighterState(v: Obj): Omit<FighterInfo, 'genome' | 'elder' | 'egg' | 'worth'> | null {
+function fighterState(v: Obj): FighterState | null {
   return isStr(v.player, PLAYER_ID_RE) &&
     isStr(v.creature, HEX64_RE) &&
     isPos(v.x) &&
@@ -327,9 +328,9 @@ function settlementDoc(v: unknown): Settlement | null {
 }
 
 function signedSettlement(v: unknown): SignedSettlement | null {
-  const settlement = isObj(v) ? settlementDoc(v.settlement) : null;
+  if (!isObj(v)) return null;
+  const settlement = settlementDoc(v.settlement);
   return settlement &&
-    isObj(v) &&
     isStr(v.hash, HEX64_RE) &&
     isStr(v.authSig, SIG_RE) &&
     isStr(v.keyId, KEY_ID_RE)

@@ -210,7 +210,10 @@ export interface FighterInfo {
 }
 
 /** A fighter at an encounter's end: its final state and result. `by` and `eggBy` are slots (0–3). */
-export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | 'egg' | 'worth'> {
+/** A fighter's per-frame state: its info without the fields fixed at lock-in. */
+export type FighterState = Omit<FighterInfo, 'genome' | 'elder' | 'egg' | 'worth'>;
+
+export interface FighterOutcome extends FighterState {
   outcome: 'killed' | 'died' | 'escaped' | 'stood';
   cause: DeathCause | null;
   by: number | null;

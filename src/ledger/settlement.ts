@@ -1,3 +1,5 @@
+import type { FighterResult } from '../sim/encounter/types';
+
 // A settled encounter's document (ADR 0054): what the fight was, countersigned by the authority over
 // a Merkle root of its frames. Canonical JSON of integers and strings: an absent cause or slot is an
 // absent key. The protocol (`enc-end.settlement`, protocol 8) carries it.
@@ -10,7 +12,7 @@ export interface SettledFighter {
   cause?: string;
   by?: number;
   frame: number;
-  egg: 'none' | 'kept' | 'eaten';
+  egg: FighterResult['egg'];
   eggBy?: number;
   biomass: number;
   energy: number;
