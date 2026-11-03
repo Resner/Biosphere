@@ -19,6 +19,7 @@ import { FRAME_MS } from '../src/net/referee';
 import { createEncounter } from '../src/sim/encounter/encounter';
 import { engageRange, strikeDistance, strikeReach } from '../src/sim/encounter/reach';
 import { RULES, TICK_HZ } from '../src/sim/rules';
+import { drive, IDLE_CODE } from '../tests/encounter-fixture';
 import type { Authority } from './authority';
 import { type Clock, Fights, runFight } from './fights';
 import type { LifeState } from './life';
@@ -319,23 +320,13 @@ export const hundredths = (f: { biomass: number; energy: number; health: number 
 });
 
 /**
- * A fight started on the object directly (lock-in is T8's, tested in `engage.test.ts`): two bodies
- * of A's genome, idle and in full health, B east of A with 1.5 x the strike reach between them, so
- * neither can strike nor escape. Both get its `enc-start`.
+ * An `enc-start` for these fighters in A's pond, frame 0 `startDelayMs` from now, with its own id.
+ * The fighters go in creature-id order, as lock-in sends them and the encounter seats them, so
+ * `slotOf` names their slots.
  */
-export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
-  const genome = await authority((o) => o.ledger.head(a.creature)?.genome ?? '');
+export function startOf(a: Player, fighters: FighterInfo[]): EncStart {
   const at = clock.t + E.startDelayMs;
-  const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, worth: 1, genome, y: 3000 };
-  const vitals = { biomass: RULES.starter.biomass, energy: 150, health: 100 };
-  const fighters: FighterInfo[] = [a, b].map((p, k) => ({
-    ...base,
-    ...vitals,
-    player: p.id.playerId,
-    creature: p.creature,
-    x: 5200 + 100 * k,
-  }));
-  const msg: EncStart = {
+  return {
     t: 'enc-start',
     // Its own id: the object (and its saved fight logs) outlives a test.
     enc: bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
@@ -343,29 +334,12 @@ export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
     round: 0,
     t0: Math.floor(((at - a.pond.epoch) * TICK_HZ) / 1000),
     at,
-    fighters,
+    fighters: [...fighters].sort((x, y) => (x.creature < y.creature ? -1 : 1)),
   };
-  // Moves B in until 1.5 x the reach is left between them (both bodies are alike).
-  const probe = (x: number) => {
-    const start = encounterStartOf(
-      { ...msg, fighters: fighters.map((f) => (f.player === b.id.playerId ? { ...f, x } : f)) },
-      a.pond.seed,
-    );
-    if (!start) throw new Error('no start');
-    const [fa, fb] = createEncounter(start).fighters;
-    if (!fa || !fb) throw new Error('no fighters');
-    const gap =
-      fa.player === a.id.playerId
-        ? strikeDistance(fa.body, fb.body)
-        : strikeDistance(fb.body, fa.body);
-    return { gap, reach: strikeReach(fa), away: 2 * engageRange(fa, fb) };
-  };
-  let x = 5300;
-  while (x > 5200 && probe(x - 0.5).gap >= 1.5 * probe(x).reach) x -= 0.5;
-  const { gap, reach, away } = probe(x);
-  expect(gap).toBeGreaterThan(1.4 * reach);
-  expect(gap).toBeLessThan(away * 0.9);
-  for (const f of fighters) if (f.player === b.id.playerId) f.x = x;
+}
+
+/** Runs the fight of `msg` on the object directly (lock-in is tested in `engage.test.ts`); both get its `enc-start`. */
+export async function startFight(a: Player, b: Player, msg: EncStart): Promise<EncStart> {
   const lives = await Promise.all([a, b].map((p) => lifeOn(p)));
   await authority((o) => {
     const lock = o.fights.open(
@@ -391,6 +365,72 @@ export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
   });
   await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
   return msg;
+}
+
+/** A player's genome text, as the ledger holds it. */
+export const genomeOf = (p: Player) => authority((o) => o.ledger.head(p.creature)?.genome ?? '');
+
+/**
+ * A fight started on the object directly: two bodies of A's genome, idle and in full health, B
+ * east of A with 1.5 x the strike reach between them, so neither can strike nor escape. Both get
+ * its `enc-start`.
+ */
+export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
+  const genome = await genomeOf(a);
+  const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, worth: 1, genome, y: 3000 };
+  const vitals = { biomass: RULES.starter.biomass, energy: 150, health: 100 };
+  const fighters: FighterInfo[] = [a, b].map((p, k) => ({
+    ...base,
+    ...vitals,
+    player: p.id.playerId,
+    creature: p.creature,
+    x: 5200 + 100 * k,
+  }));
+  const msg = startOf(a, fighters);
+  // Moves B in until 1.5 x the reach is left between them (both bodies are alike).
+  const probe = (x: number) => {
+    const start = encounterStartOf(
+      { ...msg, fighters: fighters.map((f) => (f.player === b.id.playerId ? { ...f, x } : f)) },
+      a.pond.seed,
+    );
+    if (!start) throw new Error('no start');
+    const [fa, fb] = createEncounter(start).fighters;
+    if (!fa || !fb) throw new Error('no fighters');
+    const gap =
+      fa.player === a.id.playerId
+        ? strikeDistance(fa.body, fb.body)
+        : strikeDistance(fb.body, fa.body);
+    return { gap, reach: strikeReach(fa), away: 2 * engageRange(fa, fb) };
+  };
+  let x = 5300;
+  while (x > 5200 && probe(x - 0.5).gap >= 1.5 * probe(x).reach) x -= 0.5;
+  const { gap, reach, away } = probe(x);
+  expect(gap).toBeGreaterThan(1.4 * reach);
+  expect(gap).toBeLessThan(away * 0.9);
+  for (const f of fighters) if (f.player === b.id.playerId) f.x = x;
+  return startFight(a, b, msg);
+}
+
+/**
+ * A locks B in at 1 hp (unless `start` is given); A then swims at it with its weapon aimed while B
+ * idles, until B dies.
+ */
+export async function killB(
+  a: Player,
+  b: Player,
+  start?: EncStart,
+): Promise<{ start: EncStart; end: EncEnd }> {
+  const begun =
+    start ??
+    (
+      await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.01 }), snap(a, ...NEAR.a, { health: 1 }))
+    )[0];
+  const target = slotOf(begun, b);
+  const hunt: Plan = () => [drive(0, 15, { stance: 'aggressive', target }), IDLE_CODE];
+  const played = await play(a, b, begun, hunt);
+  const [end] = played.ends as [EncEnd, EncEnd];
+  expect(outcomeOf(end, b)).toMatchObject({ outcome: 'killed', by: slotOf(begun, a) });
+  return { start: begun, end };
 }
 
 /** Rows written outside the fight log (`fight-store.ts`), which its own tests bound. */

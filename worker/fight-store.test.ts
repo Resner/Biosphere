@@ -189,10 +189,10 @@ describe('the saved fight log', () => {
       await authority((o) => {
         const ledger = o.ledger;
         const settle = ledger.settle.bind(ledger);
-        vi.spyOn(ledger, 'settle').mockImplementation((input) => {
+        vi.spyOn(ledger, 'settle').mockImplementation((input, log) => {
           const before = ledger.rowsWritten;
           try {
-            return settle(input);
+            return settle(input, log);
           } finally {
             settled.rows += ledger.rowsWritten - before;
           }

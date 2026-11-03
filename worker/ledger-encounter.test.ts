@@ -1,7 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { checkStored } from '../src/ledger/record';
+import {
+  checkSettlementSig,
+  type Settlement,
+  type SignedSettlement,
+} from '../src/ledger/settlement';
+import { RULES_VERSION } from '../src/sim/rules';
 import type { Head, Ledger } from './ledger';
-import type { FighterRecord } from './ledger-encounter';
+import type { FighterRecord, SettlementLog } from './ledger-encounter';
 import { bear, inLedger, mated, must, mustPromote, nextHex, pair, RULE } from './ledger-test-kit';
 
 // M7 T13: an encounter's results as records, on the ledger alone (ADR 0052). The hub tests in
@@ -35,6 +41,42 @@ function kill(killer: Head, victim: Head, eggBy: string | null = null): FighterR
   ];
 }
 
+/** A stand-in for the fight's saved log: it keeps the sealed document. */
+function memoryLog(): SettlementLog & { doc: SignedSettlement | null } {
+  const log = {
+    doc: null as SignedSettlement | null,
+    stored: () => log.doc,
+    seal: (signed: SignedSettlement) => {
+      log.doc = signed;
+    },
+  };
+  return log;
+}
+
+/** A settlement document for `enc` (its contents are `settlementOf`'s, tested in `src/net`). */
+const docOf = (enc: string): Settlement => ({
+  v: 1,
+  kind: 'settlement',
+  rules: RULES_VERSION,
+  enc,
+  pondSeed: 'test',
+  start: '0'.repeat(64),
+  joins: [],
+  frames: 1,
+  root: '1'.repeat(64),
+  hash: '2'.repeat(64),
+  referee: 'authority',
+  results: [],
+  t: 1,
+});
+
+/** Settles `fighters` of encounter `enc` into `log`. */
+const settle = (
+  ledger: Ledger,
+  input: { enc: string; fighters: FighterRecord[] },
+  log: SettlementLog = memoryLog(),
+) => ledger.settle({ ...input, settlement: docOf(input.enc) }, log);
+
 const kinds = (ledger: Ledger, id: string) => ledger.chain(id).map((s) => s.record.kind);
 
 describe('Ledger.settle', () => {
@@ -44,13 +86,18 @@ describe('Ledger.settle', () => {
       const enc = nextHex();
       const fighters = kill(a, b);
       const before = ledger.rowsWritten;
-      const result = ledger.settle({ enc, fighters });
+      const log = memoryLog();
+      const result = settle(ledger, { enc, fighters }, log);
       const rows = ledger.rowsWritten - before;
       console.log(`rows written by a kill: ${rows}`);
       // Two per participant (its record and its head), and the dead index entry of the victim's.
       expect(rows).toBeLessThanOrEqual(5);
       expect(result.fresh).toBe(true);
       const keys = ledger.pubkeys();
+      // The document is countersigned, and the log keeps it.
+      expect(result.settlement?.settlement).toEqual(docOf(enc));
+      expect(checkSettlementSig(result.settlement as SignedSettlement, keys)).toEqual([]);
+      expect(log.doc).toEqual(result.settlement);
       for (const s of result.stored) {
         expect(checkStored(s, keys)).toEqual([]);
         expect(s.ownerSig).toBeNull();
@@ -80,15 +127,38 @@ describe('Ledger.settle', () => {
     });
   });
 
-  it('writes nothing when the same encounter is settled again', async () => {
+  it('writes nothing when the same encounter is settled again, and returns the stored document', async () => {
     await inLedger(async (ledger) => {
       const { a, b } = await pair(ledger);
       const enc = nextHex();
-      ledger.settle({ enc, fighters: kill(a, b) });
+      const log = memoryLog();
+      const first = settle(ledger, { enc, fighters: kill(a, b) }, log);
       const before = ledger.rowsWritten;
-      expect(ledger.settle({ enc, fighters: kill(a, b) })).toEqual({ fresh: false, stored: [] });
+      expect(settle(ledger, { enc, fighters: kill(a, b) }, log)).toEqual({
+        fresh: false,
+        stored: [],
+        settlement: first.settlement,
+      });
       expect(ledger.rowsWritten).toBe(before);
       expect(kinds(ledger, a.id)).toEqual(['genesis', 'encounter']);
+    });
+  });
+
+  it('writes no record when the document can’t be sealed', async () => {
+    await inLedger(async (ledger) => {
+      const { a, b } = await pair(ledger);
+      const log: SettlementLog = {
+        stored: () => null,
+        seal: () => {
+          throw new Error('disk full');
+        },
+      };
+      expect(() => settle(ledger, { enc: nextHex(), fighters: kill(a, b) }, log)).toThrow(
+        /disk full/,
+      );
+      expect(kinds(ledger, a.id)).toEqual(['genesis']);
+      expect(kinds(ledger, b.id)).toEqual(['genesis']);
+      expect(must(ledger.head(b.id)).status).toBe('active');
     });
   });
 
@@ -98,7 +168,7 @@ describe('Ledger.settle', () => {
       const unsaved = { biomass: 39_000, energy: 20_000, health: 7000 };
       const [killer, victim] = kill(a, b);
       const before = ledger.rowsWritten;
-      ledger.settle({
+      settle(ledger, {
         enc: nextHex(),
         fighters: [must(killer), { ...must(victim), unsaved, activeMs: 25_000 }],
       });
@@ -116,7 +186,7 @@ describe('Ledger.settle', () => {
       const enc = nextHex();
       const before = ledger.rowsWritten;
       // B escapes, but A ate its egg on the way.
-      ledger.settle({
+      settle(ledger, {
         enc,
         fighters: [part(a, { reward: 4000 }), part(b, { outcome: 'escaped', eggBy: a.id })],
       });
@@ -144,7 +214,7 @@ describe('Ledger.settle', () => {
       const [ca, cb] = [must(ledger.head(childA.id)), must(ledger.head(childB.id))];
       const [eggA] = bear(ledger, mated(ledger, ca, cb));
       const [killer, carrier] = [must(ledger.head(cb.id)), must(ledger.head(ca.id))];
-      ledger.settle({ enc: nextHex(), fighters: kill(killer, carrier, killer.id) });
+      settle(ledger, { enc: nextHex(), fighters: kill(killer, carrier, killer.id) });
       expect(must(ledger.head(eggA.id)).status).toBe('dead');
       const fallback = ledger.fallback(carrier.id, RULE);
       expect(fallback.pending).toBeNull();
@@ -159,7 +229,7 @@ describe('Ledger.settle', () => {
       const { a, b } = await pair(ledger);
       const [, childB] = bear(ledger, mated(ledger, a, b));
       const enc = nextHex();
-      ledger.settle({
+      settle(ledger, {
         enc,
         fighters: [part(a), part(b, { outcome: 'died', cause: 'toxin', condition: END })],
       });
@@ -174,10 +244,10 @@ describe('Ledger.settle', () => {
       const { a, b } = await pair(ledger);
       const [, childB] = bear(ledger, mated(ledger, a, b));
       // B dies first, in a fight that ate nothing; the egg is eaten in a second fight's results.
-      ledger.settle({ enc: nextHex(), fighters: kill(a, b) });
+      settle(ledger, { enc: nextHex(), fighters: kill(a, b) });
       expect(must(ledger.head(b.id)).status).toBe('dead');
       expect(ledger.pending(b.owner)?.id).toBe(childB.id);
-      ledger.settle({
+      settle(ledger, {
         enc: nextHex(),
         fighters: [part(a), part(b, { outcome: 'killed', cause: 'killed', by: a.id, eggBy: a.id })],
       });
@@ -191,10 +261,10 @@ describe('Ledger.settle', () => {
       const enc = nextHex();
       // A kill that names no killer breaks the death body: nothing at all is written.
       expect(() =>
-        ledger.settle({ enc, fighters: [part(a), { ...must(kill(a, b)[1]), by: null }] }),
+        settle(ledger, { enc, fighters: [part(a), { ...must(kill(a, b)[1]), by: null }] }),
       ).toThrow(/missing:by/);
       expect(kinds(ledger, a.id)).toEqual(['genesis']);
-      ledger.settle({ enc, fighters: [part(a), part({ ...b, owner: a.owner })] });
+      settle(ledger, { enc, fighters: [part(a), part({ ...b, owner: a.owner })] });
       expect(kinds(ledger, b.id)).toEqual(['genesis']);
     });
   });

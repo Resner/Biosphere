@@ -1,9 +1,10 @@
 // A running fight's log in SQLite (ADR 0053, M8 T2): the `encounters` row is inserted before
 // `enc-start` goes out, each join is written before its `enc-join`, the final frames follow in
-// batches of `BATCH_FRAMES` (and at once when a participant's socket closes), and the end writes
-// the tail and closes the row. Recovery after a restart (`recover.ts`) and the settlement (T8) read
-// it back.
+// batches of `BATCH_FRAMES` (and at once when a participant's socket closes), and the settlement's
+// transaction writes the tail with the countersigned document and closes the row (`seal`).
+// Recovery after a restart (`recover.ts`) reads it back.
 
+import type { FightLog, SignedSettlement } from '../src/ledger/settlement';
 import type { EncJoin, EncStart } from '../src/net/encounter-start';
 import type { Fight } from './fights';
 
@@ -55,6 +56,14 @@ const framesOf = (fight: Fight): (number | null)[][] =>
 const joinsOf = (fight: Fight): EncJoin[] =>
   fight.history.filter((m): m is EncJoin => m.t === 'enc-join');
 
+/** The fight as its settlement document names it (ADR 0054): its pond, start, joins and every final frame. */
+export const logOf = (fight: Fight): FightLog => ({
+  pondSeed: fight.pondSeed,
+  start: fight.start,
+  joins: joinsOf(fight),
+  frames: framesOf(fight),
+});
+
 /** A stored row, parsed. */
 const rowOf = (row: StoredRow): FightRow => ({
   id: row.id,
@@ -105,18 +114,37 @@ export class FightStore {
   append(fight: Fight): void {
     // `referee.next` counts the final frames, so a tick that finishes no batch builds nothing.
     const upTo = fight.referee.next - (fight.referee.next % BATCH_FRAMES);
-    if (upTo > fight.persisted) this.frames(fight, framesOf(fight).slice(0, upTo), true);
+    if (upTo > fight.persisted) this.frames(fight, framesOf(fight).slice(0, upTo));
   }
 
   /** Writes every final frame not yet written (a participant's socket closed). */
   flush(fight: Fight): void {
     const frames = framesOf(fight);
-    if (frames.length > fight.persisted) this.frames(fight, frames, true);
+    if (frames.length > fight.persisted) this.frames(fight, frames);
   }
 
-  /** Writes the tail and closes the row, just before the fight is settled. */
-  close(fight: Fight): void {
-    this.frames(fight, framesOf(fight), false);
+  /**
+   * Writes the tail, the countersigned settlement and `open = 0` in one update, inside the
+   * settlement's transaction (`Ledger.settle`); throws when it can't, so the records roll back too.
+   */
+  seal(fight: Fight, signed: SignedSettlement): void {
+    const frames = framesOf(fight);
+    this.run(
+      'UPDATE encounters SET frames = ?, persisted = ?, open = 0, settlement = ? WHERE id = ?',
+      JSON.stringify(frames),
+      frames.length,
+      JSON.stringify(signed),
+      fight.start.enc,
+    );
+    fight.persisted = frames.length;
+  }
+
+  /** The fight's countersigned settlement, once it is settled. */
+  settlement(id: string): SignedSettlement | null {
+    const row = this.sql
+      .exec<{ settlement: string | null }>('SELECT settlement FROM encounters WHERE id = ?', id)
+      .toArray()[0];
+    return row?.settlement ? (JSON.parse(row.settlement) as SignedSettlement) : null;
   }
 
   /** The fight's row, or null. */
@@ -140,14 +168,13 @@ export class FightStore {
 
   /**
    * Rewrites the row's frames (the whole log so far: a batch's write costs one row whatever it
-   * holds); `close` also takes the row out of the open index. A failed write is logged and the
-   * fight goes on; the next batch writes it again.
+   * holds). A failed write is logged and the fight goes on; the next batch writes it again.
    */
-  private frames(fight: Fight, frames: (number | null)[][], open: boolean): void {
+  private frames(fight: Fight, frames: (number | null)[][]): void {
     try {
-      // `open` is set only at the close: setting the indexed column costs index rows on every batch.
+      // `open` is left to `seal`: setting the indexed column costs index rows on every batch.
       this.run(
-        `UPDATE encounters SET frames = ?, persisted = ?${open ? '' : ', open = 0'} WHERE id = ?`,
+        'UPDATE encounters SET frames = ?, persisted = ? WHERE id = ?',
         JSON.stringify(frames),
         frames.length,
         fight.start.enc,
