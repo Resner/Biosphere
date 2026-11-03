@@ -70,12 +70,13 @@ interface Measures {
  * fractions of these; the other zones stay within `HOLD` of them. Each zone is measured where
  * `debug.setZone` puts the player: the point of its pure look, clear of the 0.08 blends (#263).
  * That moved the places measured, and the light differs from place to place: the deep's baseline
- * is re-measured there (the zone's look is unchanged), and the shallows, whose pure point is now
+ * and the twilight's spread are re-measured there (the zones' looks are unchanged: twilight spread
+ * 3.43 → 3.55-3.62 over runs, 3.58 here), and the shallows, whose pure point is now
  * measures 60% of main's change, so its limit is 65%.
  */
 const MAIN: Readonly<Record<Zone, Measures>> = {
   shallows: { change: 4.9, spread: 10.18, luma: 33.83, caustic: 1.4, rays: 1 },
-  twilight: { change: 1.987, spread: 3.431, luma: 15.41, caustic: 0.2877, rays: 0.2302 },
+  twilight: { change: 1.987, spread: 3.58, luma: 15.41, caustic: 0.2877, rays: 0.2302 },
   deep: { change: 1.074, spread: 2.136, luma: 7.534, caustic: 0, rays: 0 },
   abyss: { change: 0.549, spread: 0.8015, luma: 3.5, caustic: 0, rays: 0 },
 };
