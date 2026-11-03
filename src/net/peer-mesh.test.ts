@@ -1,4 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
+import { toBase64Url } from '../ledger/identity';
+import { encodeSignedFrame } from '../ledger/snapshot-sig';
 import {
   CONNECT_TIMEOUT_MS,
   type DataChannelLike,
@@ -8,7 +10,14 @@ import {
   RECOVERY_MAX_ATTEMPTS,
   RETRY_DELAY_MS,
 } from './peer-mesh';
-import { EVENT_MAX_BYTES, encodeSnapshot, SNAPSHOT_BYTES, type Snapshot } from './protocol';
+import {
+  EVENT_MAX_BYTES,
+  encodeSnapshot,
+  SIGNED_FRAME_BYTES,
+  type SignedSnap,
+  SNAPSHOT_BYTES,
+  type Snapshot,
+} from './protocol';
 
 const SNAP: Snapshot = {
   seq: 7,
@@ -521,6 +530,21 @@ describe('PeerMesh inbound hygiene', () => {
     expect(b.stats().dropped).toBe(0);
   });
 
+  it('delivers an 89-byte signed frame with its snapshot and the signed part', async () => {
+    const { a, b } = await pair();
+    const got: [Snapshot, SignedSnap | null][] = [];
+    b.onState((_, s, signed) => got.push([s, signed]));
+    const bytes = encodeSnapshot(SNAP);
+    const signed = { snap: toBase64Url(bytes), sig: toBase64Url(new Uint8Array(64).fill(3)) };
+    expect(a.sendState('b', encodeSignedFrame(signed))).toBe(true);
+    expect(a.sendState('b', bytes)).toBe(true);
+    expect(got.map(([s, sig]) => [s.seq, sig])).toEqual([
+      [7, signed],
+      [7, null],
+    ]);
+    expect(b.stats().dropped).toBe(0);
+  });
+
   it('a throwing listener neither stops the others nor escapes the channel handler', async () => {
     const { a, b } = await pair();
     const seen: string[] = [];
@@ -547,11 +571,12 @@ describe('PeerMesh inbound hygiene', () => {
     toB('event', new Uint8Array(SNAPSHOT_BYTES).buffer);
     toB('state', new Uint8Array(SNAPSHOT_BYTES - 1).buffer);
     toB('state', new Uint8Array(SNAPSHOT_BYTES + 1).buffer);
+    toB('state', new Uint8Array(SIGNED_FRAME_BYTES + 1).buffer);
     toB('state', 'text on the state channel');
     const bad = new Uint8Array(SNAPSHOT_BYTES);
     bad[11] = 0xff; // unknown flag bits
     toB('state', bad.buffer);
-    expect(b.stats().dropped).toBe(8);
+    expect(b.stats().dropped).toBe(9);
     expect(rx.states).toHaveLength(0);
     expect(rx.events).toHaveLength(0);
   });

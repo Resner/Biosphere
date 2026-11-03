@@ -188,10 +188,17 @@ export interface BsState {
   };
   /**
    * The status chip's text, the hub's state ('none' without a hub), open peer connections, food
-   * claims ignored as implausible and genome events dropped (too frequent, from a peer with no
-   * link, or not a genome).
+   * claims ignored as implausible, genome events dropped (too frequent, from a peer with no
+   * link, or not a genome) and peers' signed snapshots that failed to verify (M7 T7).
    */
-  net: { text: string; status: string; open: number; foodIgnored: number; dropped: number };
+  net: {
+    text: string;
+    status: string;
+    open: number;
+    foodIgnored: number;
+    dropped: number;
+    badSignatures: number;
+  };
   /**
    * Edge indicators as last drawn (M6 T19): the nearest six pond players off screen and the
    * nearby pings off screen. `angle` is the world bearing from the player in degrees

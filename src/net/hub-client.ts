@@ -49,6 +49,12 @@ export type LifeMsg = Extract<
   }
 >;
 
+/** The hub's word about fights (M7): a lock ask, then a refereed encounter's start, frames and end. */
+export type FightMsg = Extract<
+  HubMsg,
+  { t: 'lock-ask' | 'enc-start' | 'enc-frame' | 'enc-join' | 'enc-end' | 'carrion' }
+>;
+
 /** The slice of `WebSocket` the client uses, so tests can fake it. */
 export interface SocketLike {
   onopen: (() => void) | null;
@@ -103,6 +109,7 @@ export class HubClient {
   private memberListeners: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeListeners: ((w: Welcome) => void)[] = [];
   private lifeListeners: ((m: LifeMsg) => void)[] = [];
+  private fightListeners: ((m: FightMsg) => void)[] = [];
   private _queue: QueuePlace | null = null;
 
   constructor(private readonly opts: HubClientOptions) {
@@ -157,6 +164,10 @@ export class HubClient {
   /** Fires for every message about the player's own creature. */
   onLife(fn: (m: LifeMsg) => void): () => void {
     return subscribe(this.lifeListeners, fn);
+  }
+  /** Fires for every fight message; a `lock-ask` wants its answer at once. */
+  onFight(fn: (m: FightMsg) => void): () => void {
+    return subscribe(this.fightListeners, fn);
   }
   /** Fires on every welcome, including after a reconnect. */
   onWelcome(fn: (w: Welcome) => void): () => void {
@@ -243,6 +254,14 @@ export class HubClient {
       case 'restored':
       case 'lineage':
         for (const fn of [...this.lifeListeners]) guarded(() => fn(msg));
+        break;
+      case 'lock-ask':
+      case 'enc-start':
+      case 'enc-frame':
+      case 'enc-join':
+      case 'enc-end':
+      case 'carrion':
+        for (const fn of [...this.fightListeners]) guarded(() => fn(msg));
         break;
       case 'error':
         if (msg.code === 'version') this.versionError = true;

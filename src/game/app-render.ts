@@ -1,5 +1,4 @@
 import { silhouetteOf } from '../genome/silhouette';
-import { snapshotOf } from '../net/pond-sync';
 import type { Member, Vec2 } from '../net/protocol';
 import type { CellView } from '../render/cell';
 import type { CreatureSource } from '../render/creature-cache';
@@ -88,7 +87,6 @@ export class Frame {
   /** Wall time spent in the still scene, which the water's clock skips (M6c T11). */
   private stillMs = 0;
   private beat = 0;
-  private readonly marks = { ready: false, egg: false, spawnProtected: false, fighting: false };
   private readonly anchors = new Map<string, Anchor>();
   /** The edge arrows as last drawn. */
   indicators: Indicator[] = [];
@@ -337,12 +335,7 @@ export class Frame {
     for (const script of app.scripted) this.feedScripted(script, now);
     const joined = app.livePond();
     if (joined && joined === app.pond && (keeper.current?.openCount() ?? 0) > 0) {
-      app.sender.update(now, document.hidden, () => {
-        this.marks.ready = app.mateReady;
-        // Peers see the egg from the commitment on, as the owner does (M6 T20).
-        this.marks.egg = app.offspring.child() !== null || app.mateNow === 'awaiting';
-        return snapshotOf(player, app.session.world.tick, app.session.body.ref, this.marks);
-      });
+      app.online.sendSnapshot(now, document.hidden);
     }
     // A local pond life does not show the players of the hub's pond.
     app.remoteViews =

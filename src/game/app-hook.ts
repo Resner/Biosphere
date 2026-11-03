@@ -333,6 +333,7 @@ export function installAppHook(app: App): void {
           open: keeper.current?.openCount() ?? 0,
           foodIgnored: pond?.food.ignored ?? 0,
           dropped: app.genomeSync.dropped + app.remoteBodies.dropped,
+          badSignatures: app.online.signed.badSignatures,
         },
       };
     },
