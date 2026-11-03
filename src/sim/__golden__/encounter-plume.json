@@ -159,13 +159,14 @@
       [3840, 0]
     ]
   },
-  "hash": "153f3adb080acc65",
+  "hash": "3e980e222b4c3d57",
   "results": [
     {
       "outcome": "died",
       "cause": "toxin",
       "by": null,
       "frame": 7,
+      "biomass": 100,
       "egg": "none",
       "eggBy": null
     },
@@ -174,6 +175,7 @@
       "cause": null,
       "by": null,
       "frame": 7,
+      "biomass": 100,
       "egg": "none",
       "eggBy": null
     }

@@ -1,6 +1,6 @@
 // The encounter simulation (ADR 0050): the one function the referee, every client and the tournament
 // step. A frame is 3 ticks; the fighters live in plain pond water (currents, plumes, UV and pressure
-// apply, food does not). Strikes come with T2, the autopilot with T4.
+// apply, food does not). Combat is `combat.ts`; the autopilot comes with T4.
 
 import { isPhysShape, sanitizeCombat, sanitizePhys } from '../body';
 import { Hasher } from '../hash';
@@ -15,7 +15,9 @@ import type { CreatureState, StepEvent } from '../types';
 import { createWorld } from '../world';
 import { sanitizeBehaviour } from './behaviour';
 import { decodeFrameInput } from './codec';
-import { collide } from './collide';
+import { collide, type Impact } from './collide';
+import { combatTick, newFx, thrustMod } from './combat';
+import { finish, living, resultOf } from './outcome';
 import { engageRange, strikeDistance } from './reach';
 import type {
   Encounter,
@@ -25,7 +27,6 @@ import type {
   FighterResult,
   FighterStart,
   FrameInput,
-  Outcome,
 } from './types';
 
 const E = RULES.encounter;
@@ -77,6 +78,8 @@ function seatFighter(slot: number, f: FighterStart, t0: number): Fighter {
     egg: f.egg,
     status: 'in',
     outside: 0,
+    lastBy: -1,
+    fx: newFx(),
     result: null,
   };
 }
@@ -98,24 +101,6 @@ export function createEncounter(start: EncounterStart): Encounter {
   };
 }
 
-function resultOf(f: Fighter, outcome: Outcome, by: number | null, frame: number): FighterResult {
-  return {
-    outcome,
-    cause: f.body.cause,
-    by,
-    frame,
-    egg: f.egg ? 'kept' : 'none',
-    eggBy: null,
-  };
-}
-
-function finish(enc: Encounter, f: Fighter, outcome: Outcome, by: number | null): void {
-  f.status = outcome;
-  f.result = resultOf(f, outcome, by, enc.frame);
-}
-
-const living = (enc: Encounter): Fighter[] => enc.fighters.filter((f) => f.status === 'in');
-
 /** Whether `f` is outside the escape range of every living opponent; a lone fighter never is. */
 function outsideAll(enc: Encounter, f: Fighter): boolean {
   let any = false;
@@ -129,10 +114,9 @@ function outsideAll(enc: Encounter, f: Fighter): boolean {
 
 /** One fighter's tick: the shared creature tick without eating, at its stance's thrust. */
 function stepFighter(enc: Encounter, f: Fighter, input: FrameInput | null): StepEvent[] {
-  const boost = E.stance[input?.stance ?? 'balanced'].thrust;
   return stepCreature(enc.world, f.body, input ?? IDLE, {
     feeding: false,
-    mods: { thrust: boost, turn: boost },
+    mods: { thrust: thrustMod(f, enc.world.tick), turn: E.stance[f.fx.stance].thrust },
   });
 }
 
@@ -148,17 +132,23 @@ export function stepFrame(enc: Encounter, inputs: readonly (number | null)[]): E
     return code === null ? null : decodeFrameInput(code);
   });
 
+  for (const f of enc.fighters) f.fx.stance = decoded[f.slot]?.stance ?? 'balanced';
+  const impacts: Impact[] = [];
+
   for (let tick = 0; tick < E.frameTicks && !enc.over; tick++) {
     for (const f of enc.fighters) {
       if (f.status !== 'in') continue;
       for (const e of stepFighter(enc, f, decoded[f.slot] ?? null)) {
         if (e.type !== 'death') continue;
         finish(enc, f, 'died', null);
-        out.push({ type: 'death', slot: f.slot, cause: e.cause });
+        out.push({ type: 'death', slot: f.slot, cause: e.cause, by: null });
       }
     }
+    const started = living(enc);
+    impacts.length = 0;
+    collide(started, impacts);
+    combatTick(enc, started, decoded, impacts, out);
     const alive = living(enc);
-    collide(alive);
     const escaping: Fighter[] = [];
     for (const f of alive) {
       f.outside = outsideAll(enc, f) ? f.outside + 1 : 0;
@@ -212,14 +202,20 @@ export function hashEncounter(enc: Encounter): string {
     h.f64(b.aggression).f64(b.caution).f64(b.curiosity).f64(b.reflex).str(b.targetPref);
     h.u32(f.egg ? 1 : 0)
       .str(f.status)
-      .u32(f.outside);
+      .u32(f.outside)
+      .i32(f.lastBy);
+    const x = f.fx;
+    h.i32(x.windupEnd).i32(x.windupTarget).u32(x.readyTick).u32(x.staggerUntil);
+    h.i32(x.braceUntil).u32(x.braceReady).str(x.stance);
+    for (const ready of x.ramReady) h.u32(ready);
     const r = f.result;
     h.u32(r === null ? 0 : 1);
     if (r !== null) {
       h.str(r.outcome)
         .str(r.cause ?? '')
         .i32(r.by ?? -1)
-        .u32(r.frame);
+        .u32(r.frame)
+        .f64(r.biomass);
       h.str(r.egg).i32(r.eggBy ?? -1);
     }
   }

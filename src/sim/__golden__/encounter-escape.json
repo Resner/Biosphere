@@ -199,13 +199,14 @@
       [20352, 0]
     ]
   },
-  "hash": "6acc83bfd5cb1156",
+  "hash": "9ad6d4ef4dfbab62",
   "results": [
     {
       "outcome": "escaped",
       "cause": null,
       "by": null,
       "frame": 37,
+      "biomass": 100,
       "egg": "none",
       "eggBy": null
     },
@@ -214,6 +215,7 @@
       "cause": null,
       "by": null,
       "frame": 37,
+      "biomass": 100,
       "egg": "none",
       "eggBy": null
     }
