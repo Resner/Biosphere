@@ -353,6 +353,12 @@ export interface BsDebug {
    * windup aimed at it or its egg has 4 ticks or fewer left as the frame begins.
    */
   autoBrace(on: boolean): void;
+  /**
+   * A test aid: while on, the player eats no carrion in free roam (its energy is held over the cap
+   * whenever pieces lie on the water). A kill's reward opens room for as much as the pieces hold,
+   * so the killer would otherwise eat them before anyone else saw them.
+   */
+  holdBelly(on: boolean): void;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
   /**

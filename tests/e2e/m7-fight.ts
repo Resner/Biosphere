@@ -7,7 +7,9 @@ import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './hel
 
 export async function open(browser: Browser, hub: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
-  await openRecorded(page, '', hub);
+  // Low detail, pinned: a fight's frames are 100 ms, and an input sampled late (a slow software-rendered
+  // page) is past the referee's deadline, so the autopilot flies that frame instead.
+  await openRecorded(page, '&quality=low', hub);
   return page;
 }
 
