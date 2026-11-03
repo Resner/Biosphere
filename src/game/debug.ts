@@ -64,7 +64,8 @@ export interface BsState {
    * fights), and (M7 T12) `radius`, `staggered` and `outside` (ticks outside every opponent's
    * escape range). `hud` is the combat HUD (`shown`, `stance`, `brace` `{ ready, cooldown, active }`,
    * `opponents` `{ player, health }`, `escape` 0..1) and the fight's cues so far (`windups` aimed
-   * at the player, `blocks` and `hits`).
+   * at the player, `blocks` and `hits`). `rejoins` (M8 T10) counts the resyncs and the resume after
+   * a reload that brought this page back into the fight.
    */
   encounter: FightShowView | null;
   /** The creature being played; null on the title screen. */

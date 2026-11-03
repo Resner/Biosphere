@@ -557,6 +557,7 @@ body {
 
 .name-field[hidden],
 .name-error[hidden],
+.resume-line[hidden],
 .alone-hint[hidden] {
   display: none;
 }
@@ -575,6 +576,13 @@ body {
 .name-error {
   margin: -0.5rem 0 0.75rem;
   color: #e8b04a;
+  font-size: 0.85rem;
+}
+
+/* Under "Back to the fight" (M8 T10). */
+.resume-line {
+  margin: 0.5rem 0 0.25rem;
+  color: var(--muted);
   font-size: 0.85rem;
 }
 

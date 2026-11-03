@@ -1,6 +1,8 @@
-// An encounter's results as records (M7 T13, ADR 0052): what the authority writes at a fight's
-// end, in the one transaction `Ledger.settle` opens. Kept apart from `ledger.ts`, which is near
-// its size limit; the ledger hands in the few chain operations this needs.
+// An encounter's results as records (M7 T13, ADR 0052) and its countersigned settlement document
+// (M8, ADR 0054): what the authority writes at a fight's end, in the one transaction
+// `Ledger.settle` opens. Kept apart from `ledger.ts`, which is near its size limit; the ledger hands
+// in the few chain operations this needs, and the fight's log (`fight-store.ts`) where the
+// document goes.
 
 import {
   type LedgerRecord,
@@ -9,6 +11,7 @@ import {
   type StoredRecord,
   transitionOutcome,
 } from '../src/ledger/record';
+import { type Settlement, type SignedSettlement, settlementHash } from '../src/ledger/settlement';
 import { type Outcome, survivedOutcome } from '../src/sim/encounter/types';
 import type { DeathCause } from '../src/sim/types';
 import type { Head } from './ledger-types';
@@ -28,7 +31,7 @@ export interface FighterRecord {
   condition: Condition;
   /** The biomass its kills and eaten eggs were worth. */
   reward: number;
-  /** Its life clock at the end (the head's when it was away). */
+  /** Its life clock at the end: its clock at its start or join plus the frames it was locked in (M8). */
   activeMs: number;
   /** A dead fighter's last report that no record holds yet: written as a checkpoint first. */
   unsaved: Condition | null;
@@ -39,12 +42,27 @@ export interface FighterRecord {
 export interface FightRecords {
   enc: string;
   fighters: readonly FighterRecord[];
+  /** The document to countersign (`settlementOf`), and the fight's log that keeps it. */
+  settlement: Settlement;
+  log: SettlementLog;
 }
 
-/** `fresh` is false when the encounter was settled before, and nothing was written. */
+/**
+ * `fresh` is false when the encounter was settled before, and nothing was written; `settlement` is
+ * the countersigned document, the stored one then (null for a fight whose records predate it).
+ */
 export interface SettleResult {
   fresh: boolean;
   stored: StoredRecord[];
+  settlement: SignedSettlement | null;
+}
+
+/** Where the fight's settlement document lives: its row in the saved log (`fight-store.ts`). */
+export interface SettlementLog {
+  /** The document stored for the fight, once it is settled. */
+  stored(): SignedSettlement | null;
+  /** Writes the document with the log's tail and closes the row; throws when it can't. */
+  seal(signed: SignedSettlement): void;
 }
 
 /** What the settlement needs of the ledger, inside its transaction. */
@@ -55,6 +73,8 @@ export interface ChainOps {
   holds(creature: string, enc: string): boolean;
   /** Stores an attested record on top of `head` and moves the head to `next`. */
   write(head: Head, record: LedgerRecord, next: Head['status']): StoredRecord;
+  /** The authority's countersignature over a hash, with its key id. */
+  countersign(hash: string): { authSig: string; keyId: string };
   now(): number;
   rules: number;
 }
@@ -66,12 +86,17 @@ export const HOLDS_ENCOUNTER =
 /**
  * Writes the encounter's records: an `encounter` record per survivor; per dead fighter a checkpoint
  * if its last report is unsaved, then its `death`; per eaten egg the pending child's `death`. A
- * fighter whose creature is no longer the active one is skipped. Settling the same encounter again
- * writes nothing. Throws on a record the rules refuse, so the caller's transaction rolls back whole.
+ * fighter whose creature is no longer the active one is skipped. Then the countersigned document
+ * goes into the fight's log with its tail (`log.seal`). Settling the same encounter again writes nothing
+ * and returns the stored document. Throws on a record the rules refuse or a seal that fails, so the
+ * caller's transaction rolls back whole.
  */
 export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult {
-  const { enc } = input;
-  if (input.fighters.some((f) => ops.holds(f.creature, enc))) return { fresh: false, stored: [] };
+  const { enc, log } = input;
+  const done = log.stored();
+  if (done || input.fighters.some((f) => ops.holds(f.creature, enc))) {
+    return { fresh: false, stored: [], settlement: done };
+  }
   const stored: StoredRecord[] = [];
   const append = (head: Head, kind: RecordKind, body: LedgerRecord['body']): Head => {
     const record: LedgerRecord = {
@@ -127,5 +152,8 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
       if (child) append(child, 'death', { cause: 'eaten', enc, by: f.eggBy });
     }
   }
-  return { fresh: true, stored };
+  const hash = settlementHash(input.settlement);
+  const settlement = { settlement: input.settlement, hash, ...ops.countersign(hash) };
+  log.seal(settlement);
+  return { fresh: true, stored, settlement };
 }
