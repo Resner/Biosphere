@@ -171,7 +171,16 @@ test('three players see each other move smoothly, share food and chat @slow', as
     await b.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(10));
     await Promise.all(
       [a, b].map((p) =>
-        p.evaluate(({ x, y }) => (window.__bs as BsHook).debug?.teleport(x, y), { x, y }),
+        // Not onto the item: a mouth sits ahead of the centre by an amount that depends on the DNA,
+        // so a cell dropped on the item may not reach it. Both swim in from the same side instead.
+        p.evaluate(
+          ({ x, y }) => {
+            const debug = (window.__bs as BsHook).debug;
+            debug?.teleport(x - 50, y);
+            void debug?.steerTo({ x, y });
+          },
+          { x, y },
+        ),
       ),
     );
     // Three software-GL browsers on a busy runner tick slowly; the claims need a few frames.
