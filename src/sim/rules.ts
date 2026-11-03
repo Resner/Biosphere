@@ -714,7 +714,7 @@ export const RULES = deepFreeze({
       perRadius: 2.8,
       /** Power = base + weapon x w / (w + half). */
       powerBase: 0.3,
-      powerWeapon: 1.2,
+      powerWeapon: 0.6,
       powerHalf: 0.6,
       armour: 0.6,
       spread: 0.1,

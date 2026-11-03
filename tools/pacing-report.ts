@@ -53,11 +53,15 @@ export interface Life {
   firstEligibleMs: number | null;
   /** Active ms of every mating. */
   matingsMs: number[];
+  /** Active ms when biomass first reached each end of `GROWTH_BAND`, or null. */
+  bandMs: [number | null, number | null];
   /** Active ms at the end of the run, and how it ended. */
   endMs: number;
   end: 'old-age' | 'died' | 'cap';
 }
 
+/** The biomass band whose crossing time gives a forager's growth rate (the combat tournament compares kills with it). */
+export const GROWTH_BAND = [250, 350] as const;
 const SENSE = 400;
 /** How far from a cloud's edge the bot turns away (wu), on top of its own radius. */
 const PLUME_MARGIN = 60;
@@ -70,7 +74,11 @@ const safeDepth = (world: World, x: number, y: number): boolean => {
 };
 
 /** One bot life: seek the nearest food, wander when nothing is in sight, mate when allowed. */
-export function simulateLife(name: string, capMs: number): Life {
+export function simulateLife(
+  name: string,
+  capMs: number,
+  { mate = true, untilBand = false }: { mate?: boolean; untilBand?: boolean } = {},
+): Life {
   const { stats, phys } = buildCreature(genesisGenome(seedFromString(`pacing-${name}`)));
   const lifespan = lifespanMs(stats.physiology.lifespan);
   const world = createWorld({ seed: `pacing/${name}` });
@@ -82,6 +90,7 @@ export function simulateLife(name: string, capMs: number): Life {
     matureAtMs: null,
     firstEligibleMs: null,
     matingsMs: [],
+    bandMs: [null, null],
     endMs: 0,
     end: 'cap',
   };
@@ -101,6 +110,7 @@ export function simulateLife(name: string, capMs: number): Life {
       break;
     }
     if (ms >= capMs) break;
+    if (untilBand && life.bandMs[1] !== null) break;
     if (ms >= RULES.life.elderAt * lifespan) me.elder = true;
     if (world.tick % 6 === 0) {
       let bestD = Number.POSITIVE_INFINITY;
@@ -149,8 +159,11 @@ export function simulateLife(name: string, capMs: number): Life {
     ) {
       life.matureAtMs = now;
     }
+    for (const k of [0, 1] as const) {
+      if (life.bandMs[k] === null && me.biomass >= (GROWTH_BAND[k] as number)) life.bandMs[k] = now;
+    }
     const fed = me.energy >= RULES.mating.minEnergyShare * maxEnergy(me.biomass);
-    if (life.matureAtMs !== null && now >= cooldownUntil && fed && me.alive) {
+    if (mate && life.matureAtMs !== null && now >= cooldownUntil && fed && me.alive) {
       life.firstEligibleMs ??= now;
       life.matingsMs.push(now);
       applyLife(world, 'bot', 'mate');
@@ -159,6 +172,25 @@ export function simulateLife(name: string, capMs: number): Life {
     }
   }
   return life;
+}
+
+/**
+ * The biomass a bot that only forages gains per minute across `GROWTH_BAND`, the median over
+ * `creatures` genesis bots (those that never cross it are left out). Nobody mates, fights or
+ * eats carrion, so this is plain foraging.
+ */
+export function forageGainPerMinute(creatures = 12, capMs = 60 * 60_000): number {
+  const rates = Array.from({ length: creatures }, (_, i) =>
+    simulateLife(`growth-${i}`, capMs, { mate: false, untilBand: true }),
+  )
+    .flatMap((l) => {
+      const [from, to] = l.bandMs;
+      return from === null || to === null
+        ? []
+        : [((GROWTH_BAND[1] - GROWTH_BAND[0]) * 60_000) / (to - from)];
+    })
+    .sort(ascending);
+  return percentile(rates, 0.5);
 }
 
 const percentile = (sorted: readonly number[], p: number): number =>
