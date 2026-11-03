@@ -235,7 +235,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### The authority
 
-- [ ] T5 Recovery after an authority restart [opus] (after T2) (in progress)
+- [x] T5 Recovery after an authority restart [opus] (after T2) (in progress)
   - Steps:
     1. `worker/recover.ts`: `recoverFights(hub, now)`, called inside the constructor's `blockConcurrencyWhile` after the migrations. For each open row:
        - rebuild the lock (players and creatures, joiners included);
@@ -255,6 +255,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A settled fight is never recovered again. A lock that was still waiting for its answer leaves nothing.
     - The restart hook exists only in the E2E entry (`tools/worker-bundle.test.ts`).
   - Notes: the client's handling of the resync is T10.
+  - Done: `worker/recover.ts` (`recoverFights`, also run by the alarm, skipping fights in memory), `Referee` `next`/`joins` restore, `resend`, `Fights.{adopt,clear,running,watchDue}`, the E2E restart hook; a row whose fighters hold its records is just closed.
+  - Gotcha: recovery resends before its catch-up `tick` (not after, as step 3 reads), so no client sees a replaced frame before its resync; the M7 `owed` set is not rebuilt (T6 replaces it).
 
 - [ ] T6 Reconnect resumes the fight, and locks that hold across sign-ins [opus] (after T3, T5)
   - Steps:
