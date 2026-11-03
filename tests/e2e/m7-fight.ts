@@ -34,7 +34,12 @@ export const seen = (page: Page) =>
         id: s.encounter.id,
         frame: s.encounter.frame,
         over: s.encounter.over,
-        fighters: s.encounter.fighters.map((f) => ({ health: f.health, outcome: f.outcome })),
+        fighters: s.encounter.fighters.map((f) => ({
+          x: Math.round(f.x),
+          y: Math.round(f.y),
+          health: f.health,
+          outcome: f.outcome,
+        })),
       },
     };
   });
@@ -47,6 +52,8 @@ export async function stage(
   a: Page,
   b: Page,
   between?: () => Promise<void>,
+  /** B's health after the hurt, as a share of its maximum. */
+  hurt = 0.3,
 ): Promise<{ idA: string; idB: string }> {
   await Promise.all(
     [a, b].map(async (page) => {
@@ -63,13 +70,13 @@ export async function stage(
   const idA = (await state(a)).playerId as string;
   const idB = (await state(b)).playerId as string;
 
-  // B somewhere calm (no UV or pressure), at a third of its health.
-  await b.evaluate(() => {
+  // B somewhere calm (no UV or pressure), hurt. Its autopilot plays whenever its tab is hidden, and flees below `caution × 0.6` of its health, so 0.6 or more never flees and a lower share leaves a cautious genome running.
+  await b.evaluate((share) => {
     const debug = (window.__bs as BsHook).debug;
     const p = (window.__bs as BsHook).state().player;
     debug?.setZone('twilight');
-    if (p) debug?.setHealth(p.health * 0.3);
-  });
+    if (p) debug?.setHealth(p.health * share);
+  }, hurt);
   await a
     .waitForFunction(
       (who) =>
@@ -112,11 +119,11 @@ export async function parkBeside(a: Page, idB: string): Promise<void> {
 export async function fightToEnd(
   a: Page,
   b: Page,
-  idB: string,
+  ids: { idA: string; idB: string },
   previous?: string,
 ): Promise<string | undefined> {
   await expect(async () => {
-    await parkBeside(a, idB);
+    await parkBeside(a, ids.idB);
     // The engage carries A's signed snapshot: let a few snapshots leave from the new place first,
     // or the fight starts with A where it was and B escapes from it.
     const at = (await state(a)).tick;
@@ -147,17 +154,23 @@ export async function fightToEnd(
   await b.waitForFunction((id) => window.__bs?.state().encounter?.id === id, encA?.id, {
     timeout: 5_000,
   });
+  // A swims onto B until the referee ends the fight.
   await a
     .waitForFunction(
       (who) => {
         const bs = window.__bs as BsHook;
         const s = bs.state();
         if (s.encounter?.over) return true;
+        // Once B is nearly dead, A's belly is filled: a full creature eats no carrion, so the
+        // pieces its kill leaves are not nibbled away (filled earlier, the belly turns into growth,
+        // and B's autopilot flees from a body over 1.5 times its size).
+        const foe = s.encounter?.fighters.find((f) => f.player === who);
+        if (foe && foe.health < foe.maxHealth * 0.3) bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
         const r = s.remotes.find((x) => x.id === who);
         if (r) void bs.debug?.steerTo({ id: who, x: r.x, y: r.y });
         return false;
       },
-      idB,
+      ids.idB,
       { timeout: 40_000, polling: 250 },
     )
     .catch(async (error) => {
@@ -176,10 +189,12 @@ export async function fightToEnd(
  * its health still stands, or A loses it), and B is still there to engage again. Returns the id of
  * the fight that killed it.
  */
-export async function killB(a: Page, b: Page, idB: string): Promise<string> {
+export async function killB(a: Page, b: Page, ids: { idA: string; idB: string }): Promise<string> {
   let previous: string | undefined;
   for (let attempt = 0; attempt < 4; attempt++) {
-    previous = await fightToEnd(a, b, idB, previous);
+    // A whole again for each try.
+    await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
+    previous = await fightToEnd(a, b, ids, previous);
     const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
     if (outcomes?.includes('killed') && previous) return previous;
   }

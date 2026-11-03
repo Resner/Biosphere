@@ -20,15 +20,16 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
   try {
     await clickHatch(c);
     await waitPlaying(c);
-    const { idB } = await stage(a, b);
+    const ids = await stage(a, b, undefined, 0.6);
     expect((await state(a)).carrion).toEqual([]);
 
-    const enc = await killB(a, b, idB);
+    const enc = await killB(a, b, ids);
 
     // Everyone in the pond drops the pieces from the one `carrion` message, named for the fight.
-    // A, still beside the body, may already have eaten some, so only C's view is the whole drop.
+    // A's belly is full, but the kill grew it and its room for more opens for a tick: it may
+    // nibble a piece or two, so C only needs to see one.
     await c
-      .waitForFunction(() => (window.__bs?.state().carrion.length ?? 0) >= 3, undefined, {
+      .waitForFunction(() => (window.__bs?.state().carrion.length ?? 0) >= 1, undefined, {
         timeout: 15_000,
       })
       .catch(async (error) => {

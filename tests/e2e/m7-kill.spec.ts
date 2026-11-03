@@ -14,15 +14,20 @@ test('a kill eats the victim’s egg, names the killer and leaves the killer’s
   test.setTimeout(240_000);
   const [a, b] = await Promise.all([open(browser, M7_KILL_HUB), open(browser, M7_KILL_HUB)]);
   try {
-    const { idB } = await stage(a, b, async () => {
-      await Promise.all([ripe(a), ripe(b)]);
-      await mate(a, b);
-    });
+    const ids = await stage(
+      a,
+      b,
+      async () => {
+        await Promise.all([ripe(a), ripe(b)]);
+        await mate(a, b);
+      },
+      0.6,
+    );
     // B reloaded and resumed with its egg still pending.
     expect((await state(b)).life.pending).toBe(true);
     expect((await state(a)).life.pending).toBe(true);
 
-    await killB(a, b, idB);
+    await killB(a, b, ids);
 
     await b.waitForFunction(() => window.__bs?.state().screen === 'dead', undefined, {
       timeout: 15_000,
