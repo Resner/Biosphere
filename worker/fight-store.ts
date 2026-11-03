@@ -1,7 +1,8 @@
 // A running fight's log in SQLite (ADR 0053, M8 T2): the `encounters` row is inserted before
 // `enc-start` goes out, each join is written before its `enc-join`, the final frames follow in
 // batches of `BATCH_FRAMES` (and at once when a participant's socket closes), and the end writes
-// the tail and closes the row. Recovery after a restart (T5) and the settlement (T8) read it back.
+// the tail and closes the row. Recovery after a restart (`recover.ts`) and the settlement (T8) read
+// it back.
 
 import type { EncJoin, EncStart } from '../src/net/encounter-start';
 import type { Fight } from './fights';
@@ -53,6 +54,20 @@ const framesOf = (fight: Fight): (number | null)[][] =>
 
 const joinsOf = (fight: Fight): EncJoin[] =>
   fight.history.filter((m): m is EncJoin => m.t === 'enc-join');
+
+/** A stored row, parsed. */
+const rowOf = (row: StoredRow): FightRow => ({
+  id: row.id,
+  pond: row.pond,
+  start: JSON.parse(row.start) as EncStart,
+  joins: JSON.parse(row.joins) as EncJoin[],
+  frames: JSON.parse(row.frames) as (number | null)[][],
+  persisted: row.persisted,
+  fighters: JSON.parse(row.fighters) as SlotClock[],
+  open: row.open === 1,
+  t: row.t,
+  settlement: row.settlement,
+});
 
 export class FightStore {
   /** Rows this store has written (also added to the ledger's count, which the usage meter reads). */
@@ -107,19 +122,20 @@ export class FightStore {
   /** The fight's row, or null. */
   read(id: string): FightRow | null {
     const row = this.sql.exec<StoredRow>('SELECT * FROM encounters WHERE id = ?', id).toArray()[0];
-    if (!row) return null;
-    return {
-      id: row.id,
-      pond: row.pond,
-      start: JSON.parse(row.start) as EncStart,
-      joins: JSON.parse(row.joins) as EncJoin[],
-      frames: JSON.parse(row.frames) as (number | null)[][],
-      persisted: row.persisted,
-      fighters: JSON.parse(row.fighters) as SlotClock[],
-      open: row.open === 1,
-      t: row.t,
-      settlement: row.settlement,
-    };
+    return row ? rowOf(row) : null;
+  }
+
+  /** Every row still open (through the open index), oldest first: what recovery rebuilds. */
+  openRows(): FightRow[] {
+    return this.sql
+      .exec<StoredRow>('SELECT * FROM encounters WHERE open = 1 ORDER BY t, id')
+      .toArray()
+      .map(rowOf);
+  }
+
+  /** Takes a row out of the open index without touching its log: one that is settled or can't be rebuilt. */
+  closeRow(id: string): void {
+    this.run('UPDATE encounters SET open = 0 WHERE id = ? AND open = 1', id);
   }
 
   /**

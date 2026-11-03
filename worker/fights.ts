@@ -1,6 +1,7 @@
 // The fights the authority holds in memory (ADR 0050): who is locked, and each running fight's
 // referee, its encounter and the one timer it keeps for the next deadline. Each running fight's
-// log goes to SQLite as it runs (`fight-store.ts`, ADR 0053); rebuilding from it is M8 T5's.
+// log goes to SQLite as it runs (`fight-store.ts`, ADR 0053), and `recover.ts` rebuilds the open
+// ones after a restart.
 
 import {
   type EncJoin,
@@ -9,7 +10,7 @@ import {
   fighterStartOf,
 } from '../src/net/encounter-start';
 import type { ClientMsg, FighterInfo, HubMsg } from '../src/net/protocol';
-import { Referee } from '../src/net/referee';
+import { FRAME_MS, Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import { applyJoins } from '../src/sim/encounter/join';
 import type { Encounter, EncounterJoin } from '../src/sim/encounter/types';
@@ -86,6 +87,9 @@ export interface Lock {
   timer: unknown;
 }
 
+/** The watchdog's slack past a fight's latest end. */
+const WATCH_SLACK_MS = 1000;
+
 export class Fights {
   private readonly byId = new Map<string, Lock>();
   private readonly byPlayer = new Map<string, Lock>();
@@ -126,6 +130,13 @@ export class Fights {
     windowMs: number,
     onWindow: () => void,
   ): Lock {
+    const lock = this.adopt(id, players, creatures);
+    this.arm(lock, this.clock().now() + windowMs, onWindow);
+    return lock;
+  }
+
+  /** Locks the participants with no timer yet: a fight rebuilt from its log (`recover.ts`) arms its own. */
+  adopt(id: string, players: string[], creatures: string[]): Lock {
     const lock: Lock = {
       id,
       players,
@@ -138,7 +149,6 @@ export class Fights {
     this.byId.set(id, lock);
     for (const p of players) this.byPlayer.set(p, lock);
     for (const c of creatures) this.byCreature.set(c, lock);
-    this.arm(lock, this.clock().now() + windowMs, onWindow);
     return lock;
   }
 
@@ -167,6 +177,32 @@ export class Fights {
     this.byId.delete(id);
     for (const p of lock.players) if (this.byPlayer.get(p) === lock) this.byPlayer.delete(p);
     for (const c of lock.creatures) if (this.byCreature.get(c) === lock) this.byCreature.delete(c);
+  }
+
+  /** Forgets every lock and cancels its timer, as a restart does (the E2E restart hook, hub tests). */
+  clear(): void {
+    for (const id of [...this.byId.keys()]) this.release(id);
+  }
+
+  /** The locks whose fight is running. */
+  running(): Lock[] {
+    return [...this.byId.values()].filter((lock) => lock.fight !== null);
+  }
+
+  /**
+   * The watchdog (ADR 0053): the earliest time by which a running fight must have ended (frame
+   * 0, the timeout and a second), never before its next deadline; null with no fight running.
+   * `Authority.rearm` holds the object's alarm no later than this.
+   */
+  watchDue(): number | null {
+    let due: number | null = null;
+    for (const { fight } of this.byId.values()) {
+      if (!fight) continue;
+      const end = fight.start.at + RULES.encounter.timeoutFrames * FRAME_MS + WATCH_SLACK_MS;
+      const at = Math.max(end, fight.referee.nextDeadline());
+      due = due === null ? at : Math.min(due, at);
+    }
+    return due;
   }
 
   /** Timers held now (one per lock); none once every fight has ended. */
@@ -223,11 +259,12 @@ export function runFight(
   }
   lock.fight = fight;
   armNext(hub, lock);
+  hub.rearm().catch(() => {});
   return true;
 }
 
 /** The timer for the next deadline, which steps every frame due by then. */
-function armNext(hub: Hub, lock: Lock): void {
+export function armNext(hub: Hub, lock: Lock): void {
   const fight = lock.fight;
   if (!fight) return;
   hub.fights.arm(lock, fight.referee.nextDeadline(), () => tick(hub, lock.id, hub.clock.now()));
@@ -267,6 +304,8 @@ export function tick(hub: Hub, id: string, now: number): void {
     if (enc.over) {
       hub.fightStore.close(fight);
       settle(hub, lock, fight);
+      // The watchdog lets go of the fight.
+      hub.rearm().catch(() => {});
       return;
     }
   }
@@ -278,6 +317,18 @@ export function tick(hub: Hub, id: string, now: number): void {
 export function flushFight(hub: Hub, player: string): void {
   const fight = hub.fights.ofPlayer(player)?.fight;
   if (fight) hub.fightStore.flush(fight);
+}
+
+/**
+ * Sends a participant who is connected the fight from its start: its `enc-start`, then every
+ * `enc-frame` and `enc-join` so far, in order. A joiner's catch-up, and the authority's resync
+ * after a restart (a client takes a repeated `enc-start` for its fight as one).
+ */
+export function resend(hub: Hub, lock: Lock, player: string): void {
+  const fight = lock.fight;
+  const found = seated(hub, player);
+  if (!fight || !found) return;
+  for (const m of [fight.start, ...fight.history]) sendIfOpen(found[0], m);
 }
 
 /** Whether a running fight can take one more fighter: not over, and fewer than the limit seated or joining. */
@@ -315,7 +366,7 @@ export function admit(
   fight.players.push(info.player);
   fight.slots.push(slot);
   hub.fights.join(lock, info.player, info.creature);
-  if (found) for (const m of [fight.start, ...fight.history]) sendIfOpen(found[0], m);
+  resend(hub, lock, info.player);
   fight.history.push(msg);
   tell(hub, lock, msg);
   return true;
