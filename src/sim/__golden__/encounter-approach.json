@@ -143,13 +143,14 @@
       [0, 0]
     ]
   },
-  "hash": "1c8592b2b43241e2",
+  "hash": "82cf73410fee265a",
   "results": [
     {
       "outcome": "stood",
       "cause": null,
       "by": null,
       "frame": 24,
+      "biomass": 100,
       "egg": "none",
       "eggBy": null
     },
@@ -158,6 +159,7 @@
       "cause": null,
       "by": null,
       "frame": 24,
+      "biomass": 100,
       "egg": "none",
       "eggBy": null
     }

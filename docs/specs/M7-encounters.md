@@ -186,7 +186,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Notes: no strikes yet (T2). The goldens regenerate in T2–T5 as the rules grow, since rules 9 is unreleased. Keep `src/sim/encounter/*.ts` under about 400 lines each.
   - Done: rules 9 regenerated the six sim goldens, the ledger `records` and `kinds` goldens, and every genome golden's `rulesVersion`. Fighters keep their `CreatureState` in `Fighter.body`; the encounter's `World` holds none. Two fighters leaving range together: the faster escapes, the other stands. The timeout test uses seed `timeout` at (5200, 3000), where the current shears little over 90 s.
 
-- [ ] T2 Combat from anatomy: strikes, bites, rams, spines, armour, stance, brace, kills (after T1)
+- [x] T2 Combat from anatomy: strikes, bites, rams, spines, armour, stance, brace, kills (after T1)
   - Steps:
     1. Add `combat.ts`, the strike profile of ADR 0051:
        - reach and arc from `reach.ts`, with an arc of at least 0.6 rad;
@@ -219,6 +219,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - Kills: a strike that drops the victim to 0 gives outcome `killed` with `by` the striker's slot, and the killer's biomass rises by 0.4 × the victim's (×0.5 a tier smaller, ×1.5 a tier bigger), capped, the overflow as energy.
     - The goldens gain a duel log, pinned.
   - Notes: no new genes and no named-part bonuses (`.claude/rules/genome.md`). Combat stats are the adult values, and the current radius scales everything.
+  - Done: `combat.ts` (one tick: brace, landings, rams, spines, kills, windups), `strike.ts` (profile, targets, damage), `outcome.ts`; fighters carry `fx` timers as absolute ticks. All of a tick's hits are gathered and applied together, so mutual blows both land; `hit` events carry the tick. Arcs are half-angles (as `mouth.arc` is); the duel golden is `encounter-duel`; the other three goldens changed hash only.
 
 - [ ] T3 Eggs as prey in the encounter (after T2)
   - Steps:

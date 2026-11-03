@@ -3,7 +3,7 @@ import { IDLE } from './input';
 import { pow } from './math';
 import { DT, RULES } from './rules';
 import type { CreatureState, StepEvent, World } from './types';
-import { maxEnergy } from './vitals';
+import { addBiomass, maxEnergy } from './vitals';
 
 /**
  * One tick of energy drain, starvation damage and growth (DESIGN §4). Growth turns surplus energy
@@ -40,14 +40,8 @@ export function applyMetabolism(
     creature.biomass < creature.phys.maxBiomass
   ) {
     const before = creature.biomass;
-    const gained = Math.min(
-      g.maxRate * creature.phys.growth * before * DT,
-      creature.phys.maxBiomass - before,
-    );
-    creature.biomass = before + gained;
+    const gained = addBiomass(creature, g.maxRate * creature.phys.growth * before * DT);
     creature.energy -= gained * g.energyPerBiomass;
-    creature.health +=
-      RULES.creature.healthPerRadius * (Math.sqrt(creature.biomass) - Math.sqrt(before));
     if (Math.floor(creature.biomass) > Math.floor(before)) {
       events.push({ type: 'grow', creature: creature.id, biomass: creature.biomass });
     }

@@ -66,8 +66,29 @@ export interface FighterResult {
   by: number | null;
   /** Frames completed when the outcome was reached. */
   frame: number;
+  /** The fighter's biomass when its outcome was reached (a kill's reward is computed from it). */
+  biomass: number;
   egg: 'none' | 'kept' | 'eaten';
   eggBy: number | null;
+}
+
+/** A fighter's combat timers, all absolute pond ticks (so nothing counts down, and rollback is a copy). */
+export interface FighterFx {
+  /** The tick the running windup lands, or -1 for none; `windupTarget` is the slot it aims at. */
+  windupEnd: number;
+  windupTarget: number;
+  /** The earliest tick the next windup may start. */
+  readyTick: number;
+  /** No windup starts and thrust is cut before this tick. */
+  staggerUntil: number;
+  /** Strikes and rams landing up to this tick are braced against. */
+  braceUntil: number;
+  /** The earliest tick the next brace may start. */
+  braceReady: number;
+  /** Per slot: the earliest tick this fighter may ram that slot again. */
+  ramReady: number[];
+  /** The stance of the frame in progress. */
+  stance: Stance;
 }
 
 export interface Fighter {
@@ -83,6 +104,9 @@ export interface Fighter {
   status: 'in' | Outcome;
   /** Consecutive ticks outside every living opponent's escape range. */
   outside: number;
+  /** The slot that dealt the last damage to this fighter, or -1. */
+  lastBy: number;
+  fx: FighterFx;
   result: FighterResult | null;
 }
 
@@ -99,7 +123,18 @@ export interface Encounter {
   fighters: Fighter[];
 }
 
+export type HitKind = 'strike' | 'ram' | 'spines';
+
 export type EncounterEvent =
-  | { type: 'death'; slot: number; cause: DeathCause }
+  | {
+      type: 'hit';
+      tick: number;
+      slot: number;
+      by: number;
+      kind: HitKind;
+      amount: number;
+      blocked: boolean;
+    }
+  | { type: 'death'; slot: number; cause: DeathCause; by: number | null }
   | { type: 'escape'; slot: number }
   | { type: 'end'; frame: number };
