@@ -257,6 +257,9 @@ async function fighters(): Promise<[Player, Player]> {
   return [a, b];
 }
 
+/** Full health and energy, so a flee test can't end in a kill by a random body's spines or ram. */
+const FULL = { health: 1, energy: 1 };
+
 describe('the frame clock', () => {
   it('sends both fighters identical bundles from frame 0, with null for a silent slot', async () => {
     const [a, b] = await fighters();
@@ -328,7 +331,7 @@ describe('the frame clock', () => {
       report(p.c, p.ticks, CALM);
       await nextOf(p.c, 'ack');
     }
-    const [start] = await lockIn(a, b);
+    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, FULL));
     // B swims away west until one of them is out of the other's range; A idles.
     const flee: Plan = () => [IDLE_CODE, drive(128, 15, { stance: 'evasive' })];
     const played = await play(a, b, start, flee);
@@ -355,7 +358,7 @@ describe('the frame clock', () => {
 describe('life while locked', () => {
   it('credits progress but keeps the condition, ignores a death report, and applies old age after the end', async () => {
     const [a, b] = await fighters();
-    const [start] = await lockIn(a, b);
+    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, FULL));
     await play(a, b, start, IDLE, 5);
     const before = await lifeOn(a);
     // The life clock runs out during the fight.
