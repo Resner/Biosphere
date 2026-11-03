@@ -108,7 +108,8 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
     const record = now ? hub.ledger.deathRecord(f.creature) : null;
     if (!now || !record || f.cause === null) continue;
     // The killer as its player was named when the fight began (it may have left since).
-    const by = f.cause === 'killed' && f.by !== null ? fight.names[f.by] || undefined : undefined;
+    const by =
+      f.cause === 'killed' && f.by !== null ? fight.slots[f.by]?.name || undefined : undefined;
     sendIfOpen(now.found[0], {
       t: 'died',
       cause: f.cause,

@@ -1,6 +1,7 @@
 // Lock-in on the authority (ADR 0050, M7 T8): an engage is checked against both signed snapshots,
 // the target is asked for its own state, and both players get the same `enc-start`. Nothing here
-// writes SQLite, except a flag when a snapshot claims more than the growth curve allows.
+// writes SQLite, except a flag when a snapshot claims more than the growth curve allows (the
+// fight's log is `runFight`'s and `admit`'s, in `fights.ts`).
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { genomeFromBase64url } from '../src/genome/codec';
@@ -187,7 +188,7 @@ export function engage(
   if ('joining' in checked) {
     const { pond, lock, fight, joiner } = checked.joining;
     const world = createWorld({ seed: pond.seed, size: RULES.world.size });
-    if (!admit(hub, lock, fight, (tick) => fighterInfo(hub, joiner, world, tick))) {
+    if (!admit(hub, lock, fight, (tick) => fighterInfo(hub, joiner, world, tick), joiner.life)) {
       sendIfOpen(ws, { t: 'refused', reason: 'engage:stale' });
     }
     return;
@@ -297,7 +298,11 @@ export function lockAnswer(
   start(hub, msg.lock);
 }
 
-/** Decides the lock: both get the same `enc-start`, frame 0 `startDelayMs` from now. */
+/**
+ * Decides the lock: both get the same `enc-start`, frame 0 `startDelayMs` from now. When the fight
+ * can't start (a genome that does not build, a log row that can't be written) the lock goes and
+ * the attacker is refused.
+ */
 function start(hub: Hub, id: string): void {
   const lock = hub.fights.get(id);
   const asking = lock?.asking;
@@ -316,8 +321,10 @@ function start(hub: Hub, id: string): void {
   const beacon = hub.beacons.newestKnown();
   const seed = encounterSeed(beacon ? randomnessOf(beacon) : new Uint8Array(0), enc);
   const msg: EncStart = { t: 'enc-start', enc, seed, round: beacon?.round ?? 0, t0, at, fighters };
-  if (!runFight(hub, lock, msg, asking.pond)) {
+  if (!runFight(hub, lock, msg, asking.pond, [asking.attacker.life, asking.target.life])) {
     hub.fights.release(id);
+    const found = seated(hub, asking.attacker.player);
+    if (found) sendIfOpen(found[0], { t: 'refused', reason: 'engage:stale' });
     return;
   }
   for (const player of lock.players) {

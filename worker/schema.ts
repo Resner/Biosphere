@@ -163,6 +163,22 @@ const MIGRATIONS: Step[] = [
       CREATE TABLE world (epoch INTEGER NOT NULL, reset_at INTEGER NOT NULL)`);
     sql.exec('INSERT INTO world (epoch, reset_at) VALUES (2, ?)', now);
   },
+  // Disconnect-safe fights (ADR 0053): each fight's log as it runs (`worker/fight-store.ts`), the
+  // open ones indexed for recovery, and the report a player who was away hears at its next sign-in.
+  `CREATE TABLE encounters (
+    id TEXT PRIMARY KEY,
+    pond TEXT NOT NULL,
+    start TEXT NOT NULL,
+    joins TEXT NOT NULL,
+    frames TEXT NOT NULL,
+    persisted INTEGER NOT NULL,
+    fighters TEXT NOT NULL,
+    open INTEGER NOT NULL,
+    t INTEGER NOT NULL,
+    settlement TEXT
+  ) WITHOUT ROWID;
+  CREATE INDEX encounters_open ON encounters (open) WHERE open = 1;
+  ALTER TABLE players ADD COLUMN fight_report TEXT NOT NULL DEFAULT ''`,
 ];
 
 /**
