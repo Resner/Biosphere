@@ -38,7 +38,7 @@ export function viewOf(
   life: LifeState,
   owner: string,
   head: Pick<Head, 'status'> | null,
-  open: { pending: boolean; inFlight: boolean },
+  open: { pending: boolean; inFlight: boolean; locked: boolean },
 ): MateView {
   return {
     creature: life.creature,
@@ -51,7 +51,7 @@ export function viewOf(
     energy: life.energy / HUNDREDTHS,
     hasPending: open.pending,
     inFlight: open.inFlight,
-    locked: false,
+    locked: open.locked,
   };
 }
 
