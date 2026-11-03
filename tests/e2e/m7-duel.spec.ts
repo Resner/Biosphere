@@ -53,6 +53,27 @@ async function oneFight(
       });
     });
 
+  // A swims onto B (debug steering works in a fight) until the referee ends it, from the first
+  // frame: the escape clock (3 s outside range) runs while A waits for its stance and for B's page.
+  const chase = a
+    .waitForFunction(
+      (who) => {
+        const bs = window.__bs as BsHook;
+        const s = bs.state();
+        if (s.encounter?.over) return true;
+        const r = s.remotes.find((x) => x.id === who);
+        if (r) void bs.debug?.steerTo({ id: who, x: r.x, y: r.y });
+        return false;
+      },
+      idB,
+      { timeout: 40_000, polling: 250 },
+    )
+    .catch(async (error) => {
+      throw new Error(`the fight never ended: ${JSON.stringify(await seen(a))}`, {
+        cause: error,
+      });
+    });
+  chase.catch(() => undefined); // awaited below
   // Both get `enc-start`. A sets its stance (1: aggressive) from the frame it sees the fight and
   // presses again every frame until its own view shows it (a press that lands past the deadline
   // is dropped, and a loaded runner can miss the first frames).
@@ -97,25 +118,7 @@ async function oneFight(
       });
   }
 
-  // A swims onto B (debug steering works in a fight) until the referee ends it.
-  await a
-    .waitForFunction(
-      (who) => {
-        const bs = window.__bs as BsHook;
-        const s = bs.state();
-        if (s.encounter?.over) return true;
-        const r = s.remotes.find((x) => x.id === who);
-        if (r) void bs.debug?.steerTo({ id: who, x: r.x, y: r.y });
-        return false;
-      },
-      idB,
-      { timeout: 40_000, polling: 250 },
-    )
-    .catch(async (error) => {
-      throw new Error(`the fight never ended: ${JSON.stringify(await seen(a))}`, {
-        cause: error,
-      });
-    });
+  await chase;
   await b.waitForFunction(() => window.__bs?.state().encounter?.over === true, undefined, {
     timeout: 10_000,
   });

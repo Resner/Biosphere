@@ -146,16 +146,10 @@ export async function fightToEnd(
         cause: error,
       });
     });
-  await a.evaluate(() => {
-    dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
-    dispatchEvent(new KeyboardEvent('keyup', { key: '1' }));
-  });
-  const encA = (await state(a)).encounter;
-  await b.waitForFunction((id) => window.__bs?.state().encounter?.id === id, encA?.id, {
-    timeout: 5_000,
-  });
-  // A swims onto B until the referee ends the fight.
-  await a
+  // A starts swimming onto B at once: the escape clock (3 s outside range) runs from the first
+  // frame, and a chase that waits for B's page to show the fight loses a slow runner's fights. It
+  // runs until the referee ends the fight.
+  const chase = a
     .waitForFunction(
       (who) => {
         const bs = window.__bs as BsHook;
@@ -178,6 +172,17 @@ export async function fightToEnd(
         cause: error,
       });
     });
+  // Swallowed here, awaited below: a rejection while B's wait runs must not go unhandled.
+  chase.catch(() => undefined);
+  await a.evaluate(() => {
+    dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
+    dispatchEvent(new KeyboardEvent('keyup', { key: '1' }));
+  });
+  const encA = (await state(a)).encounter;
+  await b.waitForFunction((id) => window.__bs?.state().encounter?.id === id, encA?.id, {
+    timeout: 5_000,
+  });
+  await chase;
   await b.waitForFunction(() => window.__bs?.state().encounter?.over === true, undefined, {
     timeout: 10_000,
   });
