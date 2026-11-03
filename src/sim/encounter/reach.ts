@@ -13,8 +13,8 @@ export function strikeReach(f: Fighter): number {
   return Math.max(f.combat.reach, mouth.offset + mouth.radius) * radiusOf(f.body);
 }
 
-/** The result of `aimAt`: the edge distance and the cosine of the bearing off the attacker's heading. */
-export const aim = { distance: 0, cos: 1 };
+/** The result of `aimAt`: the edge distance, the cosine of the bearing off the attacker's heading and the vector to the aimed circle's centre. */
+export const aim = { distance: 0, cos: 1, dx: 0, dy: 0 };
 
 /**
  * Sets `aim` for an attacker and a target: the distance from the attacker's centre to the nearest
@@ -40,6 +40,8 @@ export function aimAt(attacker: CreatureState, target: CreatureState, bearing = 
     }
   }
   aim.distance = Math.max(0, best);
+  aim.dx = bx;
+  aim.dy = by;
   if (!bearing) return;
   const apart = length(bx, by);
   aim.cos = apart > 0 ? (bx * cos(attacker.heading) + by * sin(attacker.heading)) / apart : 1;

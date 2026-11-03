@@ -59,6 +59,8 @@ export function aimAtEgg(attacker: Fighter, egg: EggBody): void {
   const dy = egg.y - a.y;
   const apart = length(dx, dy);
   aim.distance = Math.max(0, apart - egg.radius);
+  aim.dx = dx;
+  aim.dy = dy;
   aim.cos = apart > 0 ? (dx * cos(a.heading) + dy * sin(a.heading)) / apart : 1;
 }
 

@@ -1,6 +1,6 @@
 // The encounter simulation (ADR 0050): the one function the referee, every client and the tournament
 // step. A frame is 3 ticks; the fighters live in plain pond water (currents, plumes, UV and pressure
-// apply, food does not). Combat is `combat.ts`; the autopilot comes with T4.
+// apply, food does not). Combat is `combat.ts`; the autopilot is `autopilot.ts`.
 
 import { isPhysShape, sanitizeCombat, sanitizePhys } from '../body';
 import { Hasher } from '../hash';
@@ -13,6 +13,7 @@ import { hashCreature, hashWorld } from '../state-hash';
 import { stepCreature } from '../step';
 import type { CreatureState, StepEvent } from '../types';
 import { createWorld } from '../world';
+import { autopilot } from './autopilot';
 import { sanitizeBehaviour } from './behaviour';
 import { decodeFrameInput } from './codec';
 import { collide, type Impact } from './collide';
@@ -126,14 +127,16 @@ function stepFighter(enc: Encounter, f: Fighter, input: FrameInput | null): Step
 
 const speedOf = (f: Fighter): number => f.body.vx * f.body.vx + f.body.vy * f.body.vy;
 
-/** Steps one frame: 3 ticks. `null` is the fallback marker (idle until the autopilot, T4). No-op once over. */
+/** Steps one frame: 3 ticks. `null` is the fallback marker (the autopilot flies it). No-op once over. */
 export function stepFrame(enc: Encounter, inputs: readonly (number | null)[]): EncounterEvent[] {
   const out: EncounterEvent[] = [];
   if (enc.over) return out;
   enc.frame++;
   const decoded = enc.fighters.map((_, slot) => {
     const code = inputs[slot] ?? null;
-    return code === null ? null : decodeFrameInput(code);
+    if (code !== null) return decodeFrameInput(code);
+    // The fallback marker: the autopilot flies a fighter still in, from the state at the frame's start.
+    return enc.fighters[slot]?.status === 'in' ? autopilot(enc, slot) : null;
   });
 
   for (const f of enc.fighters) f.fx.stance = decoded[f.slot]?.stance ?? 'balanced';

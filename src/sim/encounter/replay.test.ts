@@ -25,6 +25,7 @@ const NAMES = [
   'encounter-plume',
   'encounter-duel',
   'encounter-egg',
+  'encounter-autopilot',
 ] as const;
 const file = (name: string) => new URL(`./../__golden__/${name}.json`, import.meta.url);
 
@@ -96,7 +97,45 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
       drive(0, f < 10 ? 3 : 0),
     ]),
   );
+  // Three fighters, one carrying an egg, all on the autopilot (every input is the fallback marker).
+  const pilots = log(
+    startOf('golden-autopilot', [
+      {
+        ...hunterFighter('a', 5200, 3000),
+        behaviour: {
+          aggression: 0.9,
+          caution: 0.2,
+          curiosity: 0.8,
+          reflex: 0.6,
+          targetPref: 'nearest',
+        },
+      },
+      {
+        ...hunterFighter('b', 5330, 3000, Math.PI),
+        egg: true,
+        behaviour: {
+          aggression: 0.4,
+          caution: 0.8,
+          curiosity: 0.3,
+          reflex: 0.9,
+          targetPref: 'weakest',
+        },
+      },
+      {
+        ...starterFighter('c', 5260, 3150, -Math.PI / 2),
+        behaviour: {
+          aggression: 0.7,
+          caution: 0.1,
+          curiosity: 0.5,
+          reflex: 0.5,
+          targetPref: 'largest',
+        },
+      },
+    ]),
+    Array.from({ length: 200 }, () => [null, null, null]),
+  );
   return {
+    'encounter-autopilot': pilots,
     'encounter-egg': egg,
     'encounter-approach': approach,
     'encounter-escape': fleeing,
@@ -139,6 +178,9 @@ describe('encounter goldens', () => {
     expect(duelResults.map((r) => r.outcome)).toEqual(['stood', 'killed']);
     expect(duelResults[1]).toMatchObject({ cause: 'killed', by: 0 });
     expect(load('encounter-egg').results[1]).toMatchObject({ egg: 'eaten', eggBy: 0 });
+    const pilots = load('encounter-autopilot');
+    expect(pilots.log.frames.every((f) => f.every((c) => c === null))).toBe(true);
+    expect(pilots.results.some((r) => r.outcome === 'killed' || r.egg === 'eaten')).toBe(true);
     const approach = load('encounter-approach');
     expect(approach.results.map((r) => r.outcome)).toEqual(['stood', 'stood']);
     expect(approach.results[0]?.frame).toBe(approach.log.frames.length);
