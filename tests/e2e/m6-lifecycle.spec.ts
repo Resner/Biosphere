@@ -95,6 +95,9 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     ['abyss', 'pressure', 'pressure', 'Pressure crushes'],
   ] as const) {
     const hits = (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0;
+    // Full health, with the world paused: the first zone's hits must not leave the second one a
+    // body that dies inside the 15-tick gap before its first hit lands (and so never sounds).
+    await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
     await a.evaluate((z) => (window.__bs as BsHook).debug?.setZone(z), zone);
     await expect(a.locator(`[data-testid="minimap-hazard"][data-hazard="${cue}"]`)).toBeVisible();
     await expect(a.getByTestId(`${cue}-cue`)).toHaveCount(0);
