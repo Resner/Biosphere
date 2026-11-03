@@ -6,7 +6,7 @@
 // its next `life` carries once.
 
 import type { FighterOutcome, FightReport } from '../src/net/protocol';
-import { lifeFight } from '../src/net/protocol-encounter';
+import { fightReport } from '../src/net/protocol-encounter';
 import type { Bundle, Referee } from '../src/net/referee';
 import { RULES } from '../src/sim/rules';
 import type { Fight } from './fights';
@@ -17,7 +17,7 @@ export const AWAY_GRACE_MS = 10_000;
 
 /** The wait, shortened by `AWAY_GRACE_MS` (whole ms, at most the default) in fixture mode only, for E2E. */
 export function awayGraceMs(env: { DRAND_SOURCE?: string; AWAY_GRACE_MS?: string }): number {
-  const ms = env.AWAY_GRACE_MS ? Number(env.AWAY_GRACE_MS) : Number.NaN;
+  const ms = Number(env.AWAY_GRACE_MS);
   return env.DRAND_SOURCE === 'fixture' && Number.isInteger(ms) && ms > 0 && ms <= AWAY_GRACE_MS
     ? ms
     : AWAY_GRACE_MS;
@@ -100,7 +100,7 @@ export function takeReport(hub: Hub, player: string): FightReport | undefined {
   if (!row?.fight_report) return undefined;
   count(hub, sql.exec("UPDATE players SET fight_report = '' WHERE id = ?", player));
   try {
-    return lifeFight({ report: JSON.parse(row.fight_report) })?.report;
+    return fightReport(JSON.parse(row.fight_report)) ?? undefined;
   } catch {
     return undefined;
   }

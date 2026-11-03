@@ -341,7 +341,7 @@ function signedSettlement(v: unknown): SignedSettlement | null {
 /** A player name in a report, or null for none. */
 const isNameOrNull = (v: unknown): v is string | null => v === null || isStr(v, NAME_RE);
 
-function fightReport(v: unknown): FightReport | null {
+export function fightReport(v: unknown): FightReport | null {
   return isObj(v) &&
     isStr(v.enc, HEX64_RE) &&
     isKey(OUTCOMES, v.outcome) &&
