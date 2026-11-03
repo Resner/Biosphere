@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { M7_DUEL_HUB, state, topUp } from './helpers';
-import { open, parkBeside, seen, stage } from './m7-fight';
+import { fightLine, open, parkBeside, seen, stage } from './m7-fight';
 
 // The first hub duel (M7 T11): A parks beside B, B (resumed, so not spawn-protected) lowers its
 // health, and A presses F. Both clients get the same `enc-start`, A picks a stance that B's client
@@ -139,6 +139,7 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
 
     let id: string | undefined;
     let killed = false;
+    const fights: string[] = [];
     let stanceShown = false;
     for (let attempt = 0; attempt < 4 && !killed; attempt++) {
       // A whole again for each try, B back to a third (an escape leaves it hurt, and a fight that
@@ -158,6 +159,7 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
       stanceShown ||= fight.stance;
       const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
       killed = outcomes?.includes('killed') ?? false;
+      fights.push(await fightLine(a, ids));
     }
 
     const [endA, endB] = [(await state(a)).encounter, (await state(b)).encounter];
@@ -169,7 +171,9 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
     expect(endA?.endHash).toBe(endB?.endHash);
     const fighterOf = (enc: typeof endA, who: string) =>
       enc?.fighters.find((f) => f.player === who);
-    expect(fighterOf(endA, ids.idB)?.outcome, 'B survived four fights').toBe('killed');
+    expect(fighterOf(endA, ids.idB)?.outcome, `B survived four fights:\n${fights.join('\n')}`).toBe(
+      'killed',
+    );
     expect(fighterOf(endB, ids.idB)?.outcome).toBe('killed');
     // The stance A picked showed on B's client in at least one of the fights.
     expect(stanceShown, "A's stance showed on B in some fight").toBe(true);

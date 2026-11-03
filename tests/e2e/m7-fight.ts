@@ -12,6 +12,16 @@ export async function open(browser: Browser, hub: string): Promise<Page> {
 }
 
 /** What the test reads of a page while it waits, for a failure's message. */
+/** One fight as A saw it, for the failure messages: each fighter's tag, health, stance and outcome, and the frame. */
+export async function fightLine(a: Page, ids: { idA: string; idB: string }): Promise<string> {
+  const enc = (await state(a)).encounter;
+  const who = enc?.fighters.map(
+    (f) =>
+      `${f.player === ids.idA ? 'A' : 'B'} ${Math.round(f.health)}hp ${f.stance} ${f.outcome} at ${Math.round(f.x)},${Math.round(f.y)}`,
+  );
+  return `frame ${enc?.frame}: ${who?.join(' | ')}`;
+}
+
 export const seen = (page: Page) =>
   page.evaluate(() => {
     const s = (window.__bs as BsHook).state();
@@ -205,6 +215,7 @@ export async function killB(
   hurt = 0.6,
 ): Promise<string> {
   let previous: string | undefined;
+  const fights: string[] = [];
   for (let attempt = 0; attempt < 4; attempt++) {
     // A whole again for each try, and B fed: a hurt B that starves dies of the water (a `died`
     // outcome, not a kill) and cannot be engaged again. Never A: its full belly turns into growth,
@@ -221,9 +232,12 @@ export async function killB(
     }, hurt);
     previous = await fightToEnd(a, b, ids, previous);
     const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
+    fights.push(await fightLine(a, ids));
     if (outcomes?.includes('killed') && previous) return previous;
   }
-  throw new Error(`B survived four fights: ${JSON.stringify(await seen(a))}`);
+  throw new Error(
+    `B survived four fights:\n${fights.join('\n')}\n${JSON.stringify(await seen(a))}`,
+  );
 }
 
 /** `courter` courts `partner`, who accepts: both end up carrying an egg (a pending child). */
