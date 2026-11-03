@@ -82,6 +82,7 @@ describe('a kill', () => {
     expect((await headOf(b.creature)).status).toBe('dead');
 
     const killer = await chain(a.creature);
+    const head = await headOf(a.creature);
     expect(killer.map((r) => r.kind)).toEqual(['genesis', 'encounter']);
     const mine = outcomeOf(end, a);
     const theirs = outcomeOf(end, b);
@@ -92,8 +93,9 @@ describe('a kill', () => {
       ...hundredths(mine),
       // Equal sizes: the kill is worth its share of the victim's biomass.
       reward: Math.floor(E.reward.share * theirs.biomass * 100),
+      // Rules 10 (ADR 0054): the life clock at the end; T8 adds the locked time.
+      activeMs: head.activeMs,
     });
-    const head = await headOf(a.creature);
     expect({ biomass: head.biomass, energy: head.energy, health: head.health }).toEqual(
       hundredths(mine),
     );

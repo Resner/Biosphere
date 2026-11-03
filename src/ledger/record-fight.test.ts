@@ -50,6 +50,7 @@ const encounter = {
   energy: 51_000,
   health: 9000,
   reward: 16_800,
+  activeMs: 900_000,
 };
 const killed = { cause: 'killed', activeMs: 900_000, biomass: 41_000, enc: H('e'), by: H('f') };
 const eaten = { cause: 'eaten', enc: H('e'), by: H('f') };
@@ -63,6 +64,21 @@ describe('bodies', () => {
     }
     expect(bodyProblems('encounter', { ...encounter, reward: 1.5 })).toContain('bad:reward');
     expect(bodyProblems('encounter', { ...encounter, by: H('f') })).toContain('unknown:by');
+  });
+
+  it('asks an encounter body for its life clock from rules 10 on (ADR 0054)', () => {
+    const owner = '11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo';
+    const { activeMs: _activeMs, ...rules9 } = encounter;
+    expect(bodyProblems('encounter', rules9, 10)).toEqual(['missing:activeMs']);
+    expect(bodyProblems('encounter', rules9)).toEqual(['missing:activeMs']);
+    expect(bodyProblems('encounter', rules9, 9)).toEqual([]);
+    expect(bodyProblems('encounter', encounter, 9)).toEqual(['unknown:activeMs']);
+    expect(bodyProblems('encounter', { ...encounter, activeMs: -1 }, 10)).toEqual(['bad:activeMs']);
+    // A rules-9 record keeps its shape and still verifies.
+    const old = { ...chained(owner, 'encounter', rules9), rules: 9 };
+    expect(recordProblems(old)).toEqual([]);
+    expect(checkStored(stored(old), keys)).toEqual([]);
+    expect(recordProblems(chained(owner, 'encounter', rules9))).toEqual(['body:missing:activeMs']);
   });
 
   it('makes a death by a kill or an eaten egg name the encounter and who did it', () => {

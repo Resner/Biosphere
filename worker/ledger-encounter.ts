@@ -103,6 +103,7 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
         frames: f.frames,
         ...condition,
         reward: f.reward,
+        activeMs: f.activeMs,
       });
       return;
     }

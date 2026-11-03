@@ -209,7 +209,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: protocol 8 parsers (`protocol-encounter.ts`, tests in `protocol-fight.test.ts`), the settlement types in `src/ledger/settlement.ts`, `FIGHTER_WORTHS` in sim types, and the proxy codec, whose key must decode as an Ed25519 point (`isPlayerKey`).
   - Gotcha: an `enc-end` settlement must name its encounter and hash, with one result per fighter; `PeerMesh` drops proxy frames unread until T11 adds the receiver.
 
-- [ ] T4 Settlement documents, the Merkle root and `verifyEncounter` [opus] (after T1, T3)
+- [x] T4 Settlement documents, the Merkle root and `verifyEncounter` [opus] (after T1, T3)
   - Steps:
     1. `src/ledger/settlement.ts` (ADR 0054):
        - `frameLeaf` and the RFC 6962 tree (`merkleRoot`, `merkleProof`, `verifyProof`);
@@ -236,6 +236,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A rules-10 `encounter` body without `activeMs` fails `bodyProblems`, and a rules-9 one without it passes.
     - `speedTest`: `verifyEncounter` of a 900-frame 4-fighter log under 300 ms in Node.
   - Notes: workerd checks the same root and verdict in T8, and Chromium in T12.
+  - Done: `src/ledger/settlement.ts` (leaves, RFC 6962 tree, hashes, `signSettlement`, `checkSettlementSig`, `checkSettledRecords`), `src/net/encounter-verify.ts`, `activeMs` in rules-10 `encounter` bodies (`settleRecords` writes it, so the head takes it); the golden fights use the hunter archetype's and the starter's genomes.
+  - Gotcha: a join whose frame never came is left out of `joins` (`seatedJoins`), as the `enc-end` parser expects; T8 must write records in hundredths rounded down, like `settlementOf`, and the golden's records mirror `settleRecords` by hand. `checkSettledRecords` checks only the records it is given: T8 adds that each result has its record exactly once, and compares `activeMs`; the 900-frame fight cap keeps `frameLeaf`'s 16-bit frame number safe.
 
 ### The authority
 

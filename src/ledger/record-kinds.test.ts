@@ -68,6 +68,7 @@ const encounter: LedgerRecord['body'] = {
   energy: 5100,
   health: 7400,
   reward: 1680,
+  activeMs: 912_000,
 };
 
 const BODIES: [RecordKind, string, LedgerRecord['body']][] = [

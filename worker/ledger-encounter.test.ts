@@ -64,6 +64,7 @@ describe('Ledger.settle', () => {
         energy: 61_000,
         health: 8800,
         reward: 16_000,
+        activeMs: a.activeMs + 30_000,
       });
       const killer = must(ledger.head(a.id));
       expect(killer).toMatchObject({ status: 'active', biomass: 46_000, energy: 61_000 });

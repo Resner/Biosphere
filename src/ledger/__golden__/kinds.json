@@ -131,12 +131,13 @@
         "biomass": 4200,
         "energy": 5100,
         "health": 7400,
-        "reward": 1680
+        "reward": 1680,
+        "activeMs": 912000
       },
       "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "754b248ad4b406e78c2be26f7b2d76a58c858c286a10d8fe93918ec1cb9a8042"
+    "hash": "f0ce8b8350ceeb1c52f08c0e8b8086416f3ca5d38e735a659e4e14b6859b7208"
   }
 }

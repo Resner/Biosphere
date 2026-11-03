@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { survivedOutcome } from '../sim/encounter/types';
+import { RULES_VERSION } from '../sim/rules';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import {
   fromBase64Url,
@@ -134,7 +135,10 @@ export function recordProblems(value: unknown): string[] {
     try {
       canonicalize(r.body as Canonical);
       if (typeof r.kind === 'string') {
-        for (const p of bodyProblems(r.kind as RecordKind, r.body)) problems.push(`body:${p}`);
+        const rules = Number.isSafeInteger(r.rules) ? (r.rules as number) : undefined;
+        for (const p of bodyProblems(r.kind as RecordKind, r.body, rules)) {
+          problems.push(`body:${p}`);
+        }
       }
     } catch {
       problems.push('body');
@@ -223,6 +227,13 @@ const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
 };
 
 /**
+ * From rules 10 an `encounter` body also names the fighter's life clock at the end, its locked time
+ * included (ADR 0054), so a survivor's record holds its whole state. Older records keep their shape.
+ */
+const ENCOUNTER_CLOCK_RULES = 10;
+const ENCOUNTER_V10: Record<string, FieldType> = { ...BODIES.encounter, activeMs: 'uint' };
+
+/**
  * Death causes only an encounter's settlement writes (ADR 0052): a kill names the killer's
  * creature, an eaten egg its eater's, and both the encounter. Such a death is never owner-signed.
  */
@@ -244,12 +255,20 @@ const PROMOTE_BODIES: Record<string, Record<string, FieldType>> = {
   parent: { role: 'promote-role', child: 'hex', ...CONDITION },
 };
 
-/** Why `body` is not a valid body for `kind`: `missing:`, `unknown:` or `bad:` plus the field. Never throws. */
-export function bodyProblems(kind: RecordKind, body: unknown): string[] {
+/**
+ * Why `body` is not a valid body for `kind` under `rules` (the record's version; this build's by
+ * default): `missing:`, `unknown:` or `bad:` plus the field. Never throws.
+ */
+export function bodyProblems(
+  kind: RecordKind,
+  body: unknown,
+  rules: number = RULES_VERSION,
+): string[] {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return ['not-an-object'];
   const b = body as Record<string, unknown>;
   if (kind === 'death') return deathProblems(b);
-  let fields = BODIES[kind];
+  let fields =
+    kind === 'encounter' && rules >= ENCOUNTER_CLOCK_RULES ? ENCOUNTER_V10 : BODIES[kind];
   if (kind === 'promote') {
     if (!Object.hasOwn(b, 'role')) return ['missing:role'];
     const role = b.role;
