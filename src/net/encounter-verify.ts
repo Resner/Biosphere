@@ -1,7 +1,8 @@
 // A settled fight rechecked from its log (ADR 0054): the authority's settlement document from its own
 // encounter, and `verifyEncounter`, which replays the log and compares. It lives in `src/net`
-// because the replay starts from the protocol's messages (`encounterStartOf`), and `src/ledger`
-// must not import `src/net` at run time.
+// because the replay starts from the protocol's messages (`encounterStartOf`), and
+// `src/net/encounter-start` already imports `src/ledger/encounter`: a module in `src/ledger` that
+// imported it back would close a cycle.
 
 import type { PubKey } from '../ledger/record';
 import {
@@ -28,12 +29,15 @@ const hundredthsDown = (x: number): number => Math.floor(x * 100);
  * The joins that took a seat: each one's frame was stepped. A join admitted for a frame the fight
  * never reached fought nothing, so it is no part of the settlement.
  */
-export const seatedJoins = (log: FightLog): FightLog['joins'] =>
+const seatedJoins = (log: FightLog): FightLog['joins'] =>
   log.joins.filter((j) => j.f < log.frames.length);
 
 /** Slots that play frame `f`: the starters and every seated join from its frame on. */
-const widthAt = (log: FightLog, joins: FightLog['joins'], f: number): number =>
-  log.start.fighters.length + joins.filter((j) => j.f <= f).length;
+const widthAt = (starters: number, joins: FightLog['joins'], f: number): number => {
+  let n = starters;
+  for (const j of joins) if (j.f <= f) n++;
+  return n;
+};
 
 const rootOf = (log: FightLog): string =>
   merkleRoot(log.frames.map((inputs, f) => frameLeaf(f, inputs)));
@@ -134,7 +138,8 @@ export function verifyEncounter(
     if (doc.frames !== log.frames.length) problems.push('frames');
     if (doc.root !== rootOf(log)) problems.push('root');
     log.frames.forEach((inputs, f) => {
-      if (inputs.length !== widthAt(log, joins, f)) problems.push(`width:${f}`);
+      if (inputs.length !== widthAt(log.start.fighters.length, joins, f))
+        problems.push(`width:${f}`);
     });
     if (doc.rules !== RULES_VERSION) return [...problems, 'rules-retired'];
     if (problems.some((p) => p.startsWith('width:'))) return [...problems, 'replay'];

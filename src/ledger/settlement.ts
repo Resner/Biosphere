@@ -70,10 +70,10 @@ export interface FightLog {
   frames: (number | null)[][];
 }
 
-export const SETTLE_DOMAIN = 'bs/settle/v1';
-export const START_DOMAIN = 'bs/enc/start/v1';
-export const JOIN_DOMAIN = 'bs/enc/join/v1';
-export const FRAME_DOMAIN = 'bs/enc/frame/v1';
+const SETTLE_DOMAIN = 'bs/settle/v1';
+const START_DOMAIN = 'bs/enc/start/v1';
+const JOIN_DOMAIN = 'bs/enc/join/v1';
+const FRAME_DOMAIN = 'bs/enc/frame/v1';
 
 const FALLBACK = 0xff;
 const FRAME_TAG = new TextEncoder().encode(FRAME_DOMAIN);
