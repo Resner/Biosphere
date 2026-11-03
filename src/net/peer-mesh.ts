@@ -373,7 +373,9 @@ export class PeerMesh {
         this.droppedCount += 1;
         return;
       }
-      const { snapshot, signed } = frame;
+      const { snapshot, signed, proxyFor } = frame;
+      // A proxy frame is another player's pose, never the sender's own; nothing takes it yet (M8 T11).
+      if (proxyFor !== null) return;
       for (const fn of this.stateListeners) guarded(() => fn(link.peerId, snapshot, signed));
       return;
     }

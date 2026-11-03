@@ -87,6 +87,17 @@ export function isPlayerId(text: string): boolean {
   return publicKeyOf(text) !== null;
 }
 
+/** True when `key` is the canonical encoding of an Ed25519 point: a key some player could hold. Never throws. */
+export function isPlayerKey(key: Uint8Array): boolean {
+  if (key.length !== KEY_BYTES) return false;
+  try {
+    ed.Point.fromBytes(key, false);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The public key a playerId names, or null when it is not 43 base64url characters. */
 function publicKeyOf(playerId: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]{43}$/.test(playerId)) return null;

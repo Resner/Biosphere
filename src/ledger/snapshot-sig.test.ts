@@ -1,9 +1,16 @@
 import { describe, expect, it } from 'vitest';
-import { encodeSnapshot, SIGNED_FRAME_BYTES, SNAPSHOT_BYTES, type Snapshot } from '../net/protocol';
+import {
+  encodeSnapshot,
+  PROXY_FRAME_BYTES,
+  SIGNED_FRAME_BYTES,
+  SNAPSHOT_BYTES,
+  type Snapshot,
+} from '../net/protocol';
 import { createRng, seedFromString } from '../sim/prng';
 import { createIdentity, fromBase64Url, memoryKeyStore, toBase64Url, verify } from './identity';
 import {
   decodeStateFrame,
+  encodeProxyFrame,
   encodeSignedFrame,
   SNAP_DOMAIN,
   signSnap,
@@ -126,6 +133,7 @@ describe('state-channel frames', () => {
     expect(frame.length).toBe(89);
     const got = decodeStateFrame(frame);
     expect(got?.signed).toEqual(signed);
+    expect(got?.proxyFor).toBeNull();
     expect(got?.snapshot.genomeRef).toBe(0xcafe);
     expect(verifySnap(me.playerId, POND, got?.signed ?? signed)).not.toBeNull();
   });
@@ -133,6 +141,7 @@ describe('state-channel frames', () => {
   it('takes a plain 25-byte snapshot with no signature', () => {
     const got = decodeStateFrame(encodeSnapshot(snap));
     expect(got?.signed).toBeNull();
+    expect(got?.proxyFor).toBeNull();
     expect(got?.snapshot.tick).toBe(4321);
   });
 
@@ -150,30 +159,87 @@ describe('state-channel frames', () => {
     expect(() => encodeSignedFrame({ snap: 'AAAA', sig: 'A'.repeat(86) })).toThrow(RangeError);
   });
 
-  it('never throws on 10,000 random byte strings, and decodes only 25 or 89 bytes of v4', async () => {
+  it('never throws on 10,000 random byte strings, and decodes only 25, 57 or 89 bytes of v4', async () => {
     const KEY = (await seeded(3)).playerId;
     const rng = createRng(seedFromString('fuzz-state-frame'), 'net');
-    let decoded = 0;
+    const decoded = { 25: 0, 57: 0, 89: 0 } as Record<number, number>;
     for (let i = 0; i < 10_000; i++) {
-      const len = [0, 1, 24, 25, 26, 88, 89, 90, 120][rng.int(0, 8)] as number;
+      const len = [0, 1, 24, 25, 26, 56, 57, 58, 88, 89, 90, 120][rng.int(0, 11)] as number;
       const b = new Uint8Array(len);
       for (let j = 0; j < len; j++) b[j] = rng.int(0, 255);
+      // A proxy frame's snapshot follows the 32-byte key.
+      const at = len === PROXY_FRAME_BYTES ? 32 : 0;
       if (len >= 25 && rng.int(0, 1) === 1) {
-        b[24] = 4;
-        b[11] = (b[11] as number) & 63;
+        b[at + 24] = 4;
+        b[at + 11] = (b[at + 11] as number) & 63;
       }
       const got = decodeStateFrame(b);
       if (got) {
-        decoded++;
-        expect([25, 89]).toContain(len);
-        expect(b[24]).toBe(4);
-        expect(got.signed === null).toBe(len === 25);
+        expect([25, 57, 89]).toContain(len);
+        decoded[len] = (decoded[len] as number) + 1;
+        expect(b[at + 24]).toBe(4);
+        expect(got.signed === null).toBe(len !== 89);
+        expect(got.proxyFor === null).toBe(len !== 57);
+        if (got.proxyFor) expect(got.proxyFor).toBe(toBase64Url(b.subarray(0, 32)));
         // A random signature never verifies; a few hundred checks keep the test quick.
-        if (got.signed && decoded < 200) expect(verifySnap(KEY, POND, got.signed)).toBeNull();
+        if (got.signed && (decoded[89] as number) < 200)
+          expect(verifySnap(KEY, POND, got.signed)).toBeNull();
       }
     }
-    expect(decoded).toBeGreaterThan(0);
+    expect(decoded[25]).toBeGreaterThan(0);
+    expect(decoded[57]).toBeGreaterThan(0);
+    expect(decoded[89]).toBeGreaterThan(0);
     expect(decodeStateFrame(null as unknown as Uint8Array)).toBeNull();
     expect(decodeStateFrame([] as unknown as Uint8Array)).toBeNull();
+  });
+});
+
+describe('proxy frames (ADR 0053)', () => {
+  it('packs an away player key and its snapshot into 57 bytes and back', async () => {
+    const away = await seeded(2);
+    const bytes = encodeSnapshot({ ...snap, fighting: true });
+    const frame = encodeProxyFrame(away.playerId, bytes);
+    expect(PROXY_FRAME_BYTES).toBe(57);
+    expect(frame.length).toBe(57);
+    expect(toBase64Url(frame.subarray(0, 32))).toBe(away.playerId);
+    expect(frame.subarray(32)).toEqual(bytes);
+    const got = decodeStateFrame(frame);
+    expect(got?.proxyFor).toBe(away.playerId);
+    expect(got?.signed).toBeNull();
+    expect(got?.snapshot).toEqual(decodeStateFrame(bytes)?.snapshot);
+    expect(got?.snapshot.fighting).toBe(true);
+  });
+
+  it('gives null for 56 or 58 bytes', async () => {
+    const frame = encodeProxyFrame((await seeded(2)).playerId, encodeSnapshot(snap));
+    expect(decodeStateFrame(frame.subarray(0, 56))).toBeNull();
+    expect(decodeStateFrame(new Uint8Array([...frame, 0]))).toBeNull();
+  });
+
+  it('gives null for a key that is no player key, and for a bad snapshot', async () => {
+    const frame = encodeProxyFrame((await seeded(2)).playerId, encodeSnapshot(snap));
+    // y = 2^255 - 1 is past the field prime: no canonical key encodes it.
+    const outOfField = frame.slice();
+    outOfField.fill(0xff, 0, 31);
+    outOfField[31] = 0x7f;
+    expect(decodeStateFrame(outOfField)).toBeNull();
+    // y = 2 is in the field, but no curve point has it.
+    const offCurve = frame.slice();
+    offCurve.fill(0, 0, 32);
+    offCurve[0] = 2;
+    expect(decodeStateFrame(offCurve)).toBeNull();
+    const v3 = frame.slice();
+    v3[56] = 3;
+    expect(decodeStateFrame(v3)).toBeNull();
+  });
+
+  it('refuses to frame a bad player id or snapshot', async () => {
+    const id = (await seeded(2)).playerId;
+    const bytes = encodeSnapshot(snap);
+    expect(() => encodeProxyFrame('short', bytes)).toThrow(RangeError);
+    expect(() => encodeProxyFrame(id, bytes.subarray(1))).toThrow(RangeError);
+    expect(() => encodeProxyFrame(toBase64Url(new Uint8Array(32).fill(0xff)), bytes)).toThrow(
+      RangeError,
+    );
   });
 });

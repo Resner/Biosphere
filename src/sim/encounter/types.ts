@@ -67,6 +67,11 @@ export interface EncounterJoin {
 
 export type Outcome = 'killed' | 'died' | 'escaped' | 'stood';
 
+/** A worth is 2^-k with k from 0 to 7 (`RULES.encounter.farming.maxHalvings` + the young halving). */
+export const FIGHTER_WORTHS: readonly number[] = [
+  1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125,
+];
+
 /** Whether a fighter left the fight alive. */
 export const survivedOutcome = (o: string): boolean => o === 'escaped' || o === 'stood';
 

@@ -187,7 +187,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `worker/fight-store.ts` (`hub.fightStore`) writes the row from `runFight`, `admit`, `tick` and `drop`; `Fight.names` became `slots` (name and clock), and `runFight`/`admit` take the fighters' lives. A 300-frame duel costs 32 log rows.
   - Gotcha: setting the indexed `open` column on every batch doubled the rows, so only the close sets it; hub tests bound other writes with `rowsBesideLog`. A failed write is logged and not retried until the next batch, so a `close` that fails leaves `open = 1` on a settled fight: T5 must treat a fight with settlement records as closed, and T8's transaction removes the case.
 
-- [ ] T3 Protocol 8: worth, the fight in `life`, reports, settlements in `enc-end`, proxy frames [opus] (after T1) (in progress)
+- [x] T3 Protocol 8: worth, the fight in `life`, reports, settlements in `enc-end`, proxy frames [opus] (after T1) (in progress)
   - Steps:
     1. `PROTOCOL_VERSION` 8. `SNAPSHOT_VERSION` stays 4.
     2. The shapes above, with parsers in `protocol-encounter.ts` and `protocol-parse.ts`:
@@ -206,6 +206,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A proxy frame round-trips. Frames of 56 or 58 bytes give null, and a 57-byte frame with a bad key gives null.
     - A protocol-7 hello gets `error: version`.
   - Notes: no worker behaviour changes beyond the worth of 1. New parsers go in `protocol-encounter.ts`, so that `protocol-parse.ts` (761 lines) stays under 800.
+  - Done: protocol 8 parsers (`protocol-encounter.ts`, tests in `protocol-fight.test.ts`), the settlement types in `src/ledger/settlement.ts`, `FIGHTER_WORTHS` in sim types, and the proxy codec, whose key must decode as an Ed25519 point (`isPlayerKey`).
+  - Gotcha: an `enc-end` settlement must name its encounter and hash, with one result per fighter; `PeerMesh` drops proxy frames unread until T11 adds the receiver.
 
 - [ ] T4 Settlement documents, the Merkle root and `verifyEncounter` [opus] (after T1, T3)
   - Steps:

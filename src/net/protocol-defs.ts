@@ -3,10 +3,11 @@ import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
 import type { MateAsk } from '../ledger/mate-ask';
 import type { RecordRequest, Status, StoredRecord } from '../ledger/record';
+import type { SignedSettlement } from '../ledger/settlement';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 7;
+export const PROTOCOL_VERSION = 8;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -38,9 +39,13 @@ export const SNAPSHOT_VERSION = 4;
 export const SIGNATURE_BYTES = 64;
 /** A state-channel frame for engage candidates: the snapshot, then its 64-byte signature (ADR 0050). */
 export const SIGNED_FRAME_BYTES = SNAPSHOT_BYTES + SIGNATURE_BYTES;
-/** An `enc-start` carries up to 4 fighters with their genome texts; an `enc-end` up to 4 outcomes. */
+/** An Ed25519 public key: a player id's 32 bytes. */
+export const PLAYER_KEY_BYTES = 32;
+/** A state-channel proxy frame of an away fighter (ADR 0053): its player's key, then its snapshot. */
+export const PROXY_FRAME_BYTES = PLAYER_KEY_BYTES + SNAPSHOT_BYTES;
+/** An `enc-start` carries up to 4 fighters with their genome texts; an `enc-end` up to 4 outcomes and the signed settlement. */
 export const ENC_START_MAX_BYTES = 8192;
-export const ENC_END_MAX_BYTES = 4096;
+export const ENC_END_MAX_BYTES = 8192;
 /** An encounter's frames run 0 to 900 (the timeout), so a frame number past this is malformed. */
 export const ENC_MAX_FRAME = 1000;
 export const ENC_MAX_FIGHTERS = 4;
@@ -200,15 +205,30 @@ export interface FighterInfo {
   elder: boolean;
   /** It carries a pending child, which comes into the fight as an egg (ADR 0052). */
   egg: boolean;
+  /** Its worth as prey (ADR 0054): one of 1, 0.5, …, 2^-7 (`FIGHTER_WORTHS`); nothing else parses. */
+  worth: number;
 }
 
 /** A fighter at an encounter's end: its final state and result. `by` and `eggBy` are slots (0–3). */
-export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | 'egg'> {
+export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | 'egg' | 'worth'> {
   outcome: 'killed' | 'died' | 'escaped' | 'stood';
   cause: DeathCause | null;
   by: number | null;
   egg: 'none' | 'kept' | 'eaten';
   eggBy: number | null;
+}
+
+/** A fight settled while its player was away, told once at the next sign-in. `by` and `eggBy` are player names. */
+export interface FightReport {
+  enc: string;
+  outcome: FighterOutcome['outcome'];
+  cause: DeathCause | null;
+  /** The killer's player name. */
+  by: string | null;
+  egg: FighterOutcome['egg'];
+  /** The eater's player name. */
+  eggBy: string | null;
+  frames: number;
 }
 
 /** Hub WebSocket, client to hub. */
@@ -269,6 +289,10 @@ export type HubMsg =
       fallback?: FallbackInfo;
       /** Once per returning identity: the world was renewed since it last played (ADR 0040). */
       renewed?: true;
+      /** The running encounter its creature is locked in; `enc-start` and the history follow (ADR 0053). */
+      fight?: string;
+      /** A fight settled while the player was away; sent once. */
+      report?: FightReport;
     }
   /** The pending child is now the active creature; `parent` is the record that froze the old one (null when it was already dead). */
   | { t: 'promoted'; life: LifeInfo; parent: StoredRecord | null }
@@ -330,7 +354,12 @@ export type HubMsg =
   | { t: 'error'; code: string }
   /** Someone engages this player: answer at once with `lock-state`. */
   | { t: 'lock-ask'; lock: string }
-  /** The fight starts: the seed from beacon `round` (0 = none), the pond tick `t0` and the hub time of frame 0, fighters by slot. */
+  /**
+   * The fight starts: the seed from beacon `round` (0 = none), the pond tick `t0` and the hub time of
+   * frame 0, fighters by slot. An `enc-start` for the fight a client already runs is the authority's
+   * resync (a sign-in, a reconnect or a restart, ADR 0053): every `enc-frame` and `enc-join` so far
+   * follows in order, and replaces the client's own history of that fight.
+   */
   | {
       t: 'enc-start';
       enc: string;
@@ -344,8 +373,15 @@ export type HubMsg =
   | { t: 'enc-frame'; enc: string; f: number; i: (number | null)[] }
   /** A fighter joins at frame `f`, taking the next slot. */
   | { t: 'enc-join'; enc: string; f: number; fighter: FighterInfo }
-  /** The fight is over at frame `f`: the authority's `hashEncounter` and every fighter's result. */
-  | { t: 'enc-end'; enc: string; f: number; hash: string; fighters: FighterOutcome[] }
+  /** The fight is over at frame `f`: the authority's `hashEncounter`, every fighter's result and the signed settlement (ADR 0054). */
+  | {
+      t: 'enc-end';
+      enc: string;
+      f: number;
+      hash: string;
+      fighters: FighterOutcome[];
+      settlement?: SignedSettlement;
+    }
   /** A kill left carrion: every client in the pond drops the same pieces. */
   | {
       t: 'carrion';
