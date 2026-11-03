@@ -237,7 +237,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### The authority
 
-- [x] T5 Recovery after an authority restart [opus] (after T2) (in progress)
+- [x] T5 Recovery after an authority restart [opus] (after T2)
   - Steps:
     1. `worker/recover.ts`: `recoverFights(hub, now)`, called inside the constructor's `blockConcurrencyWhile` after the migrations. For each open row:
        - rebuild the lock (players and creatures, joiners included);

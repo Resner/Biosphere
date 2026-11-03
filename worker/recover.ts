@@ -8,7 +8,7 @@ import type { HubMsg } from '../src/net/protocol';
 import { Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import { applyJoins } from '../src/sim/encounter/join';
-import type { EncounterJoin } from '../src/sim/encounter/types';
+import type { Encounter, EncounterJoin } from '../src/sim/encounter/types';
 import { RULES } from '../src/sim/rules';
 import type { FightRow } from './fight-store';
 import { type Fight, resend, tick } from './fights';
@@ -40,7 +40,7 @@ export function recoverFights(hub: Hub, now: number): void {
 function recover(hub: Hub, row: FightRow, now: number): void {
   const fight = rebuild(hub, row);
   if (!fight) console.error('fight recovery: the saved log does not rebuild', row.id);
-  const creatures = fight ? creaturesOf(fight, row) : [];
+  const creatures = fight ? participants(fight.enc, row, 'creature') : [];
   const sql = hub.ctx.storage.sql;
   const settled = creatures.some((c) => sql.exec(HOLDS_ENCOUNTER, c, row.id).toArray().length > 0);
   const busy = fight?.players.some((p) => hub.fights.playerLocked(p));
@@ -62,10 +62,10 @@ function recover(hub: Hub, row: FightRow, now: number): void {
   hub.rearm().catch(() => {});
 }
 
-/** The creature in each slot: the start's fighters as the encounter seats them, then the joiners. */
-const creaturesOf = (fight: Fight, row: FightRow): string[] => [
-  ...fight.enc.fighters.slice(0, row.start.fighters.length).map((f) => f.creature),
-  ...row.joins.map((j) => j.fighter.creature),
+/** Each slot's player or creature: the start's fighters as the encounter seats them, then the joiners. */
+const participants = (enc: Encounter, row: FightRow, key: 'player' | 'creature'): string[] => [
+  ...enc.fighters.slice(0, row.start.fighters.length).map((f) => f[key]),
+  ...row.joins.map((j) => j.fighter[key]),
 ];
 
 /**
@@ -108,10 +108,7 @@ function rebuild(hub: Hub, row: FightRow): Fight | null {
   return {
     referee,
     enc,
-    players: [
-      ...enc.fighters.slice(0, row.start.fighters.length).map((f) => f.player),
-      ...row.joins.map((j) => j.fighter.player),
-    ],
+    players: participants(enc, row, 'player'),
     slots: row.fighters,
     start: row.start,
     joins,
