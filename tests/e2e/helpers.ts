@@ -209,6 +209,10 @@ export const M7_KILL_HUB = 'http://localhost:8809';
 export const M7_MELEE_HUB = 'http://localhost:8811';
 /** The M7 lifecycle spec's authority (M7 T16): the M5 hooks and the whole encounter line. */
 export const M7_LIFECYCLE_HUB = 'http://localhost:8812';
+/** The M8 resume spec's hub (M8 T10): B reloads mid-fight and goes back to it. */
+export const M8_RESUME_HUB = 'http://localhost:8813';
+/** The M8 restart spec's hub (M8 T10): the authority restarts mid-fight (`POST /v1/e2e/restart`). */
+export const M8_RESTART_HUB = 'http://localhost:8814';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {

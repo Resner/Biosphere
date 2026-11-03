@@ -360,7 +360,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### The client
 
-- [ ] T10 The client resumes a fight [opus] (after T6)
+- [x] T10 The client resumes a fight [opus] (after T6)
   - Steps:
     1. `EncounterSync`:
        - a `start` for the fight it is running restarts from that message (the authority's resync), so the history that follows replaces its own;
@@ -384,6 +384,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A game-level test with the fake online session: `life` with `fight` on the title shows the button, the held `enc-start` and frames apply on resume, and no free-roam tick runs in between.
     - Both scenarios pass 3 times in a row (`--repeat-each=3`). A fight can end before B is back, so `m8-resume` engages again until a resume happens, at most 3 times.
   - Notes: `m8-*` scenarios open pages through `open` in `tests/e2e/m7-fight.ts` (`debug.skipDraw`) and share steps in `tests/e2e/m8-fight.ts`.
+  - Done: `EncounterSync.start` resyncs a running fight (counters and sent inputs kept, `rejoins`), `step` keeps only the last 10 states; `FightResume` holds the named fight's messages on the title until `resume-fight`, and `LifeStarts.resumeFight` plays them with no egg and snaps to the fighter.
+  - Gotcha: a `life` that no longer names the fight a page plays (its `enc-end` lost while away) abandons it (`over`, no hash), else the page fought on forever; T12 tells the result. `fightMsg` in `app-online.ts` is the one path for live and held fight messages.
 
 - [ ] T11 Away fighters stay visible: drawn from the encounter, and proxy snapshots [opus] (after T10)
   - Steps:
