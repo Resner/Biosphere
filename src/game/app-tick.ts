@@ -76,14 +76,19 @@ export class Ticker {
     const { target } = steering;
     const eaten = events.some((e) => e.type === 'eat' && e.food === target.id);
     const item = target.id === undefined ? undefined : app.food.find((f) => f.id === target.id);
-    if (item) {
-      target.x = item.x;
-      target.y = item.y;
+    // A remote player is followed where it is drawn (in a fight, where the encounter has it).
+    const remote =
+      target.id === undefined || item ? undefined : app.remoteViews.find((r) => r.id === target.id);
+    const followed = item ?? remote;
+    if (followed) {
+      target.x = followed.x;
+      target.y = followed.y;
     }
+    const gap = Math.hypot(target.x - player.x, target.y - player.y);
     const reached =
-      target.id === undefined &&
-      Math.hypot(target.x - player.x, target.y - player.y) <= Math.sqrt(player.biomass);
-    const gone = target.id !== undefined && !eaten && !item;
+      (target.id === undefined && gap <= Math.sqrt(player.biomass)) ||
+      (remote !== undefined && gap <= Math.sqrt(player.biomass) + remote.radius);
+    const gone = target.id !== undefined && !eaten && !followed;
     steering.ticksLeft--;
     if (eaten || reached || gone || steering.ticksLeft <= 0 || !player.alive) {
       const finished = steering;

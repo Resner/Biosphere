@@ -49,6 +49,11 @@ function debugHelpers(app: App): BsDebug {
       session.peakBiomass = Math.max(session.peakBiomass, biomass);
       app.hud.update(player);
     },
+    setHealth(hp) {
+      const { player } = app.session;
+      player.health = Math.max(0, Math.min(hp, maxHealth(player.biomass)));
+      app.hud.update(player);
+    },
     teleport(x, y) {
       const { player } = app.session;
       player.x = x;
@@ -278,7 +283,7 @@ export function installAppHook(app: App): void {
         mate: mateState(app),
         offspring: offspringState(app),
         remotes: app.remoteViews.map(
-          ({ id, name, x, y, alpha, radius, genomeHash, species, egg }) => ({
+          ({
             id,
             name,
             x,
@@ -288,8 +293,23 @@ export function installAppHook(app: App): void {
             genomeHash,
             species,
             egg,
+            spawnProtected,
+            fighting,
+          }) => ({
+            id,
+            name,
+            x,
+            y,
+            alpha,
+            radius,
+            genomeHash,
+            species,
+            egg,
+            protected: spawnProtected,
+            fighting,
           }),
         ),
+        attack: app.attack.info(),
         audio: app.sound.view(),
         hud: { menu: app.menu.isOpen, ...app.hud.view(), hints: app.ui.shownHint },
         egg: {

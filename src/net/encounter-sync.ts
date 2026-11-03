@@ -85,6 +85,8 @@ export class EncounterSync {
   over = false;
   /** The local `hashEncounter` once over. */
   hash: string | null = null;
+  /** The referee's hash from `enc-end`, once over. */
+  endHash: string | null = null;
   rollbacks = 0;
   resyncs = 0;
   desyncs = 0;
@@ -139,6 +141,7 @@ export class EncounterSync {
     this.confirmed = 0;
     this.over = false;
     this.hash = null;
+    this.endHash = null;
     this.rollbacks = 0;
     this.resyncs = 0;
     this.desyncs = 0;
@@ -214,6 +217,7 @@ export class EncounterSync {
     while (this.frame < msg.f) this.simulate(false, false);
     const live = this.enc as Encounter;
     this.hash = hashEncounter(live);
+    this.endHash = msg.hash;
     const body = (live.fighters[this.slot] as Encounter['fighters'][number]).body;
     const differs = this.hash !== msg.hash || STATE_KEYS.some((k) => body[k] !== mine[k]);
     if (differs) this.desyncs++;

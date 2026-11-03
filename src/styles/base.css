@@ -56,6 +56,7 @@ body {
 [data-still] .minimap,
 [data-still] .edge-indicators,
 [data-still] .remote-labels,
+[data-still] .attack-marks,
 [data-still] .social-cues,
 [data-still] .net-status {
   opacity: 0;

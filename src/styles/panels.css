@@ -213,6 +213,26 @@
   font-size: 0.75rem;
 }
 
+.inspect-attack {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.inspect-attack .action:disabled {
+  opacity: 0.45;
+  cursor: default;
+}
+
+.inspect-attack-why {
+  color: var(--muted);
+}
+
+.inspect-attack-why[hidden],
+.inspect-attack .action[hidden] {
+  display: none;
+}
+
 .badge {
   display: inline-block;
   padding: 0 0.4rem;

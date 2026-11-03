@@ -232,6 +232,14 @@ describe('RemoteSet', () => {
     expect(set.sample(300, 300)[0]).toMatchObject({ ready: false, egg: true });
   });
 
+  it('shows the newest spawn-protected and fighting marks (M7)', () => {
+    const set = new RemoteSet();
+    send(set, 'a', snap({ seq: 0, tick: 0, spawnProtected: true }), 0);
+    expect(set.sample(200, 200)[0]).toMatchObject({ spawnProtected: true, fighting: false });
+    send(set, 'a', snap({ seq: 1, tick: 3, spawnProtected: false, fighting: true }), 100);
+    expect(set.sample(300, 300)[0]).toMatchObject({ spawnProtected: false, fighting: true });
+  });
+
   it('does not count repeated packets as signs of life', () => {
     const set = new RemoteSet();
     send(set, 'a', swimming(3, 300), 0);

@@ -61,6 +61,8 @@ export interface EncounterView {
   confirmed: number;
   over: boolean;
   hash: string | null;
+  /** The referee's hash from `enc-end`, or null before it. */
+  endHash: string | null;
   rollbacks: number;
   resyncs: number;
   desyncs: number;
@@ -79,8 +81,10 @@ interface Drawn {
 export class FightPlay {
   /** The current or last fight; null before the first. */
   sync: EncounterSync | null = null;
-  /** The stance the own input carries (T11 sets it from the keys). */
+  /** The stance the own input carries (1, 2 and 3 set it). */
   stance: Stance = 'balanced';
+  /** A brace asked for (Shift or the right button) goes out with the next frame's input. */
+  private braceQueued = false;
   /** The life that fights. */
   private life: { player: CreatureState; world: World } | null = null;
 
@@ -114,13 +118,21 @@ export class FightPlay {
     this.sync = sync;
     this.life = life;
     this.stance = 'balanced';
+    this.braceQueued = false;
   }
 
-  /** The own input as its frame begins: the steering of this tick, the stance, the nearest target. */
+  /** Shift or the right button: the next frame's input braces. Nothing outside a fight. */
+  brace(): void {
+    if (this.fighting) this.braceQueued = true;
+  }
+
+  /** The own input as its frame begins: the steering of this tick, the stance, the nearest target and a queued brace. */
   private sample() {
     const { host, sync } = this;
     if (host.hidden() || !sync) return null;
     const s = host.steering();
+    const brace = this.braceQueued;
+    this.braceQueued = false;
     return {
       steer: s.steer,
       throttle: s.throttle,
@@ -128,7 +140,7 @@ export class FightPlay {
       stance: this.stance,
       // The own slot names no opponent, so the nearest is struck (T15 adds a choice).
       target: sync.slot,
-      brace: false,
+      brace,
     };
   }
 
@@ -226,6 +238,7 @@ export class FightPlay {
       confirmed: sync.confirmed,
       over: sync.over,
       hash: sync.hash,
+      endHash: sync.endHash,
       rollbacks: sync.rollbacks,
       resyncs: sync.resyncs,
       desyncs: sync.desyncs,

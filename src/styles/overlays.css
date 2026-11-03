@@ -85,6 +85,71 @@
   display: none;
 }
 
+/* Attack (M7 T11): the "F" glyph beside the creature F would engage, and the faint shimmer of a
+   spawn-protected creature (a ring that breathes, so it never reads by colour alone). */
+.attack-marks {
+  position: fixed;
+  inset: 0;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.attack-hint {
+  position: absolute;
+  left: 0;
+  top: 0;
+  display: grid;
+  place-items: center;
+  width: 20px;
+  height: 20px;
+  box-sizing: border-box;
+  border: 1px solid rgb(255 214 170 / 0.75);
+  border-radius: 6px;
+  background: rgb(4 12 16 / 0.78);
+  box-shadow: 0 0 8px rgb(255 170 110 / 0.35);
+  color: #ffe2c4;
+  font-family: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1;
+  will-change: transform;
+}
+
+.shield-shimmer {
+  position: absolute;
+  left: 0;
+  top: 0;
+  box-sizing: border-box;
+  border: 1px solid rgb(205 235 255 / 0.3);
+  border-radius: 50%;
+  background: radial-gradient(circle, transparent 58%, rgb(190 230 255 / 0.1) 70%, transparent 72%);
+  box-shadow:
+    0 0 10px rgb(190 230 255 / 0.16),
+    inset 0 0 12px rgb(190 230 255 / 0.12);
+  animation: shield-shimmer 1.6s ease-in-out infinite;
+  will-change: transform;
+}
+
+@keyframes shield-shimmer {
+  50% {
+    border-color: rgb(225 245 255 / 0.55);
+    box-shadow:
+      0 0 14px rgb(190 230 255 / 0.26),
+      inset 0 0 16px rgb(190 230 255 / 0.2);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .shield-shimmer {
+    animation: none;
+  }
+}
+
+.attack-hint[hidden],
+.shield-shimmer[hidden] {
+  display: none;
+}
+
 @keyframes low-energy {
   50% {
     opacity: 0.35;

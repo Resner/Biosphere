@@ -1,10 +1,10 @@
 import type { Identity } from '../ledger/identity';
-import { verifySnap } from '../ledger/snapshot-sig';
+import { signSnap, verifySnap } from '../ledger/snapshot-sig';
 import { consumedParts } from '../net/claims';
 import type { PondClock } from '../net/clock';
 import type { Welcome } from '../net/hub-client';
 import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
-import { encodeSnapshot, type PeerEvent } from '../net/protocol';
+import { encodeSnapshot, type PeerEvent, type SignedSnap } from '../net/protocol';
 import { SignedSnaps } from '../net/signed-snaps';
 import { createWorld } from '../sim/world';
 import { AloneHint } from './alone-hint';
@@ -76,6 +76,15 @@ export class OnlineWiring {
     );
   }
 
+  /** The own creature's state now, signed for the hub's pond (an engage carries it); null outside one. */
+  signedNow(): SignedSnap | null {
+    const { app } = this;
+    const pond = app.livePond();
+    if (!pond || pond !== app.pond || !app.identity) return null;
+    const bytes = encodeSnapshot({ ...this.ownSnapshot(), seq: app.sender.nextSeq });
+    return signSnap(app.identity, pond.id, bytes);
+  }
+
   /** Someone engages this player: the creature's state now, signed, before anything else runs. */
   private answerLock(lock: string, link: OnlineSession): void {
     const { app } = this;
@@ -128,6 +137,15 @@ export class OnlineWiring {
           app.mate.attach(link);
         },
         life(msg) {
+          // An engage's refusal is the attack's alone (M7 T11); a bare 'no-creature' may also be
+          // the life flow's, so it reaches both.
+          if (msg.t === 'refused') {
+            if (msg.reason.startsWith('engage:')) {
+              app.attack.refused(msg.reason);
+              return;
+            }
+            if (msg.reason === 'no-creature' && app.attack.waiting) app.attack.refused(msg.reason);
+          }
           app.flow.receive(msg);
           app.mate.receive(msg);
           app.offspring.receive(msg);
@@ -167,6 +185,7 @@ export class OnlineWiring {
         fight: (msg) => {
           if (msg.t === 'lock-ask') this.answerLock(msg.lock, link);
           else app.fight.receive(msg);
+          if (msg.t === 'enc-start') app.attack.started();
           if (msg.t === 'enc-end') {
             fightEnded(msg, {
               playerId: app.identity?.playerId ?? null,
