@@ -6,8 +6,10 @@ import { depthGrid, ZONE_TEXTURE_SIZE, ZONES, zoneWeights } from '../render/zone
 import type { Zone } from '../sim/bathymetry';
 import { clamp } from '../sim/math';
 import type { Seed } from '../sim/prng';
+import { RULES } from '../sim/rules';
 import { pick, setText } from './dom';
 import { showIcon } from './icons';
+import { ISOBATH_STRENGTH, relief, smoothDepth } from './map-relief';
 import { PINGS } from './social-ui';
 
 /** How far an edge texel is lightened, so zones are told apart by a line as well as a colour. */
@@ -36,17 +38,7 @@ export function mapSpot(x: number, y: number, size: number): { u: number; v: num
  * gradient and not in hard-edged steps (the owner's Playtest v0.7.2).
  */
 export function zonePixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayBuffer> {
-  // Only 256 depths exist, so mix each colour once.
-  const lut = new Uint8ClampedArray(256 * 3);
-  for (let d = 0; d < 256; d++) {
-    const w = zoneWeights(d / 255);
-    for (let k = 0; k < 3; k++) {
-      let c = 0;
-      for (let z = 0; z < 4; z++)
-        c += (w[z] as number) * (MAP_COLOURS[ZONES[z] as Zone][k] as number);
-      lut[d * 3 + k] = Math.round(c * 255);
-    }
-  }
+  const lut = depthColours();
   const out = new Uint8ClampedArray(new ArrayBuffer(n * n * 4));
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
@@ -57,6 +49,56 @@ export function zonePixels(grid: Uint8Array, n: number): Uint8ClampedArray<Array
       out[o + 2] = lut[d + 2] as number;
       out[o + 3] = 255;
     }
+  }
+  return out;
+}
+
+/** Each depth byte's colour (0–255 per channel, three to a depth), mixing the zones as the water does. */
+function depthColours(): Float32Array {
+  if (colourLut) return colourLut;
+  const lut = new Float32Array(256 * 3);
+  for (let d = 0; d < 256; d++) {
+    const w = zoneWeights(d / 255);
+    for (let k = 0; k < 3; k++) {
+      let c = 0;
+      for (let z = 0; z < 4; z++)
+        c += (w[z] as number) * (MAP_COLOURS[ZONES[z] as Zone][k] as number);
+      lut[d * 3 + k] = Math.round(c * 255);
+    }
+  }
+  colourLut = lut;
+  return lut;
+}
+
+let colourLut: Float32Array | null = null;
+
+/**
+ * The map's picture (owner, Playtest v0.7.2): the depth softened, coloured like `zonePixels`, lit
+ * from the north-west and crossed by faint isobaths at the zone edges, so the flat spawn disc and
+ * the zones read as one chart without a hard circle. Same layout as `zonePixels` (north first).
+ */
+export function mapPixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayBuffer> {
+  const z = RULES.bathymetry.zones;
+  // The grid's row 0 is the south edge: flip to picture order first so the light comes from the top.
+  const flipped = new Uint8Array(n * n);
+  for (let j = 0; j < n; j++) flipped.set(grid.subarray(j * n, (j + 1) * n), (n - 1 - j) * n);
+  const depth = smoothDepth(flipped, n);
+  const { shade, line } = relief(depth, n, [z.shallows * 255, z.twilight * 255, z.deep * 255]);
+  // Colour at a fractional depth byte: the LUT's neighbours, mixed.
+  const lut = depthColours();
+  const out = new Uint8ClampedArray(new ArrayBuffer(n * n * 4));
+  for (let o = 0; o < n * n; o++) {
+    const d = clamp(depth[o] as number, 0, 255);
+    const lo = Math.floor(d);
+    const hi = Math.min(255, lo + 1);
+    const f = d - lo;
+    const s = shade[o] as number;
+    const l = (line[o] as number) * ISOBATH_STRENGTH;
+    for (let k = 0; k < 3; k++) {
+      const c = (lut[lo * 3 + k] as number) * (1 - f) + (lut[hi * 3 + k] as number) * f;
+      out[o * 4 + k] = Math.round(c * s + (255 - c * s) * l);
+    }
+    out[o * 4 + 3] = 255;
   }
   return out;
 }
@@ -72,7 +114,7 @@ export function zoneImage(seed: Seed, size: number): HTMLCanvasElement {
   const canvas = document.createElement('canvas');
   canvas.width = n;
   canvas.height = n;
-  const pixels = zonePixels(depthGrid(seed, size, n), n);
+  const pixels = mapPixels(depthGrid(seed, size, n), n);
   canvas.getContext('2d')?.putImageData(new ImageData(pixels, n, n), 0, 0);
   zoneCache.key = key;
   zoneCache.image = canvas;

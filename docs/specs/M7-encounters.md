@@ -613,6 +613,12 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `claimOf` in `worker/engage.ts` starts a living body with at least one hundredth of health, so a kill always has a killer and `settle` never throws on `missing:by` (test: `start states at the floor`).
   - Gotcha: the close review also found, and leaves for M8's settlement work: a failed settlement still marks the victim's life `over` without a `died`; a join isn't tier-checked against the other fighters, nor against fighters who already escaped; `progress` during a fight leaves the life `unsaved`; carrion piece ids hash only 8 bits of the death position.
 
+### Owner feedback
+
+- [x] T18 The pond map and minimap draw as a lit chart without the spawn disc's hard circle (owner, Playtest v0.7.2 comment)
+  - Done: `src/game/map-relief.ts` blurs the depth (about 190 wu), lights it from the north-west and draws faint isobaths at the zone edges; `mapPixels` in `pond-map.ts` builds the picture both maps share (tests in `map-relief.test.ts`).
+  - Gotcha: the sim's depth field is unchanged (the disc is still flat twilight for the rules); only the picture is smoothed, so the map's zone edges can sit up to a blur radius from the true ones.
+
 ## Exit criteria → evidence
 
 | Exit criterion (ROADMAP) | Tasks | Evidence |
