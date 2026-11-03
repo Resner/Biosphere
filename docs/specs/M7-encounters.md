@@ -495,7 +495,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - a decoded screenshot during a windup is brighter at the attacker's front than one just before it;
       - `audio.cues` counts the windup tick, and a block with `debug.autoBrace(true)`.
 
-- [ ] T13 Results as records: kills, eaten eggs, the death fallback [opus] (after T9, T3)
+- [ ] T13 Results as records: kills, eaten eggs, the death fallback [opus] (after T9, T3) (in progress)
   - Steps:
     1. `src/ledger/record.ts`:
        - kind `encounter` (attested) with body `{ enc, outcome, frames, biomass, energy, health, reward }`, the condition and reward in hundredths;
