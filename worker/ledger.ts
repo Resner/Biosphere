@@ -143,7 +143,7 @@ export class Ledger {
     return this.storage.transactionSync(() => this.restoreInTransaction(request, ownerSig, rule));
   }
 
-  /** Writes an encounter's results in one transaction (`ledger-encounter.ts`); a second call writes nothing. */
+  /** Writes an encounter's records and its countersigned document in one transaction (`ledger-encounter.ts`); a second call writes nothing. */
   settle(input: FightRecords): SettleResult {
     this.key();
     return this.storage.transactionSync(() =>
@@ -158,6 +158,7 @@ export class Ledger {
             this.advance(head, record, stored.hash, next);
             return stored;
           },
+          countersign: (hash) => this.countersign(hash),
           now: this.now,
           rules: RULES_VERSION,
         },
@@ -938,6 +939,11 @@ export class Ledger {
   /** Notes a death report that names no creature of the player's: one row per player, however often it repeats. */
   flagStray(owner: string, t: number): void {
     this.insertFlag('stray-death', owner, '', owner, t, 'hash');
+  }
+
+  /** Notes a fight whose settlement failed: one row per encounter. */
+  flagSettleFailed(enc: string, owner: string, creature: string, t: number): void {
+    this.insertFlag('settle-failed', owner, creature, enc, t, 'hash');
   }
 
   /** Notes an implausible report: one row per kind and creature, however many connections send it. */

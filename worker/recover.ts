@@ -54,7 +54,6 @@ function recover(hub: Hub, row: FightRow, now: number): void {
   for (const player of fight.players) resend(hub, lock, player);
   if (fight.enc.over) {
     // The log ends with the fight, unsettled: it settles now.
-    hub.fightStore.close(fight);
     settle(hub, lock, fight);
   } else {
     tick(hub, row.id, now);
@@ -78,7 +77,7 @@ function rebuild(hub: Hub, row: FightRow): Fight | null {
     .exec<Pick<PondRow, 'seed'>>('SELECT seed FROM ponds WHERE id = ?', row.pond)
     .toArray()[0];
   const startOf = pond ? encounterStartOf(row.start, pond.seed) : null;
-  if (!startOf) return null;
+  if (!pond || !startOf) return null;
   const joins: EncounterJoin[] = [];
   for (const j of row.joins) {
     const fighter = fighterStartOf(j.fighter);
@@ -114,6 +113,7 @@ function rebuild(hub: Hub, row: FightRow): Fight | null {
     joins,
     history,
     pond: row.pond,
+    pondSeed: pond.seed,
     t0: row.start.t0,
     persisted: row.frames.length,
   };

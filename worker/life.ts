@@ -217,16 +217,6 @@ export function clampClaim(
 /** Whether the creature has played since its last record, so a close should write one. */
 export const unsaved = (life: LifeState): boolean => life.n > life.savedN;
 
-/**
- * The condition a fight left the creature in (ADR 0050). It is unsaved until the next record, so a
- * close or a death writes it: `savedN` drops below `n` without a report of its own.
- */
-export const takeResult = (life: LifeState, condition: Condition): LifeState => ({
-  ...life,
-  ...condition,
-  savedN: Math.min(life.savedN, life.n - 1),
-});
-
 /** Whether a progress report is due a checkpoint of its own: 15 minutes of active time since the last. */
 export const checkpointDue = (life: LifeState): boolean =>
   life.activeMs - life.savedMs >= CHECKPOINT_EVERY_MS;
