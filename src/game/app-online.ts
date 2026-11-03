@@ -5,8 +5,10 @@ import type { PondClock } from '../net/clock';
 import type { FightMsg, Welcome } from '../net/hub-client';
 import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
 import { encodeSnapshot, type PeerEvent, type SignedSnap } from '../net/protocol';
+import { ProxyReceiver, ProxyRelay } from '../net/proxy-snaps';
 import { SignedSnaps } from '../net/signed-snaps';
 import { dropCarrion } from '../sim/carrion';
+import { survivedOutcome } from '../sim/encounter/types';
 import { createWorld } from '../sim/world';
 import { AloneHint } from './alone-hint';
 import type { App } from './app';
@@ -33,6 +35,10 @@ export class OnlineWiring {
   readonly signer: CandidateSigner;
   /** Each peer's newest signed snapshot, verified on receipt, to forward at an engage (M7 T8). */
   readonly signed: SignedSnaps;
+  /** The own fight's away opponents: drawn here, and relayed to the pond by the lowest slot (M8 T11). */
+  readonly relay: ProxyRelay;
+  /** Proxies from the pond's fighters, checked before they draw anyone (M8 T11). */
+  readonly proxies: ProxyReceiver;
   private readonly marks: SnapshotMarks = {
     ready: false,
     egg: false,
@@ -49,6 +55,24 @@ export class OnlineWiring {
       const pond = this.app.pond;
       return pond ? verifySnap(id, pond.id, s) : null;
     });
+    const link = () => this.app.keeper.current;
+    this.relay = new ProxyRelay({
+      get self() {
+        return app.playerId ?? '';
+      },
+      present: (player) => link()?.nameOf(player) !== undefined,
+      peers: () => link()?.openPeers() ?? [],
+      send: (peer, frame) => link()?.sendState(peer, frame),
+      show: (player, snapshot) => app.remotes.proxy(player, snapshot, performance.now()),
+    });
+    this.proxies = new ProxyReceiver(() => app.playerId, app.remotes);
+  }
+
+  /** Each frame while the own fight runs: its away opponents drawn, and relayed if this client relays. */
+  relayProxies(now: number): void {
+    const { app } = this;
+    const fight = app.fight.fighting ? app.fight.relayFight() : null;
+    if (fight) this.relay.update(now, fight);
   }
 
   /** The own creature as peers see it now. */
@@ -193,6 +217,9 @@ export class OnlineWiring {
           // On the title, a running fight's messages wait for "Back to the fight" (M8 T10).
           else if (!app.resume.hold(msg)) this.fightMsg(msg);
         },
+        proxy: (id, player, snapshot) => {
+          this.proxies.receive(id, player, snapshot, performance.now());
+        },
         event: (id, event) => {
           this.receiveFoodEvent(id, event);
           app.social.receive(id, event);
@@ -211,8 +238,17 @@ export class OnlineWiring {
   /** A fight message from the hub, as it comes or held until the player resumes the fight. */
   fightMsg(msg: Exclude<FightMsg, { t: 'lock-ask' }>): void {
     const { app } = this;
+    const wasFighting = app.fight.fighting;
     if (msg.t === 'carrion') this.dropCarrion(msg);
     else app.fight.receive(msg);
+    // The away opponents' last frame carries the result's alive flag (M8 T11).
+    const fight = msg.t === 'enc-end' && wasFighting ? app.fight.relayFight() : null;
+    if (msg.t === 'enc-end' && fight?.id === msg.enc) {
+      this.relay.end(fight, (slot) => {
+        const result = msg.fighters[slot];
+        return result ? survivedOutcome(result.outcome) : true;
+      });
+    }
     if (msg.t === 'enc-start') app.attack.started();
     if (msg.t === 'enc-end') {
       fightEnded(msg, {

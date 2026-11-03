@@ -341,6 +341,7 @@ export class Frame {
     if (joined && joined === app.pond && (keeper.current?.openCount() ?? 0) > 0) {
       app.online.sendSnapshot(now, document.hidden);
     }
+    if (joined && joined === app.pond) app.online.relayProxies(now);
     // A local pond life does not show the players of the hub's pond.
     app.remoteViews =
       !keeper.current || joined

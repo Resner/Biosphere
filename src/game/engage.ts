@@ -24,11 +24,24 @@ export interface EngagePeer {
   x: number;
   y: number;
   radius: number;
+  /** Drawn from proxies or a fight while its player is away (M8 T11): never engaged. */
+  away?: boolean;
 }
+
+/** A drawn remote fainter than this is not offered for an engage. */
+const OFFER_ALPHA = 0.5;
+
+/**
+ * Whether a drawn remote may be offered for an engage: clearly visible, and moved by its own
+ * snapshots. An away fighter, drawn from proxies or a fight (M8 T11), never is.
+ */
+export const offered = (r: { alpha: number; away?: boolean }): boolean =>
+  r.alpha >= OFFER_ALPHA && r.away !== true;
 
 /**
  * The pond peers within ±1 size tier and within `CANDIDATE_RADII` × the larger radius of `self`:
- * the ones that might engage or be engaged soon, so they get signed snapshots. Refills `into`.
+ * the ones that might engage or be engaged soon, so they get signed snapshots. Away fighters are
+ * never candidates. Refills `into`.
  */
 export function candidates(
   self: EngageSelf,
@@ -39,6 +52,7 @@ export function candidates(
   const radius = Math.sqrt(Math.max(0, self.biomass));
   const tier = sizeTier(self.biomass);
   for (const r of remotes) {
+    if (r.away) continue;
     if (Math.abs(sizeTier(r.radius * r.radius) - tier) > RULES.encounter.maxTierGap) continue;
     const reach = CANDIDATE_RADII * Math.max(radius, r.radius);
     const dx = r.x - self.x;

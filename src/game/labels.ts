@@ -64,8 +64,9 @@ export class RemoteLabels {
       const y = screenY(remote.y, p) - remote.radius * p.pxPerWu - GAP_PX;
       const element = this.elementAt(used);
       used++;
-      // Names come from other players: text only, never markup.
-      if (element.textContent !== remote.name) element.textContent = remote.name;
+      // Names come from other players: text only, never markup. An away fighter says so (M8 T11).
+      const text = remote.away ? `${remote.name} away` : remote.name;
+      if (element.textContent !== text) element.textContent = text;
       element.hidden = false;
       placeAt(element, x, y, 'above');
       element.style.opacity = String(Math.round(remote.alpha * 100) / 100);

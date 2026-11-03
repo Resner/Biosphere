@@ -95,6 +95,7 @@ export class PeerMesh {
   private leftListeners: ((id: string) => void)[] = [];
   private stateListeners: ((id: string, s: Snapshot, signed: SignedSnap | null) => void)[] = [];
   private eventListeners: ((id: string, e: PeerEvent) => void)[] = [];
+  private proxyListeners: ((id: string, player: string, s: Snapshot) => void)[] = [];
   private readonly factory: PeerConnectionFactory;
   private iceServers: RTCIceServer[];
 
@@ -115,6 +116,10 @@ export class PeerMesh {
   }
   onEvent(fn: (id: string, e: PeerEvent) => void): void {
     this.eventListeners.push(fn);
+  }
+  /** A 57-byte proxy frame: `player`'s away fighter as peer `id` relays it (M8 T11, not checked here). */
+  onProxy(fn: (id: string, player: string, s: Snapshot) => void): void {
+    this.proxyListeners.push(fn);
   }
 
   stats(): PeerMeshStats {
@@ -374,8 +379,11 @@ export class PeerMesh {
         return;
       }
       const { snapshot, signed, proxyFor } = frame;
-      // A proxy frame is another player's pose, never the sender's own; nothing takes it yet (M8 T11).
-      if (proxyFor !== null) return;
+      // A proxy frame is another player's pose, never the sender's own.
+      if (proxyFor !== null) {
+        for (const fn of this.proxyListeners) guarded(() => fn(link.peerId, proxyFor, snapshot));
+        return;
+      }
       for (const fn of this.stateListeners) guarded(() => fn(link.peerId, snapshot, signed));
       return;
     }

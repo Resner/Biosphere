@@ -89,6 +89,7 @@ function page(hub: FakeHub, now: () => number) {
       peerOpen: () => {},
       state: () => {},
       event: () => {},
+      proxy: () => {},
       life: (m) => {
         if (m.t !== 'life') return;
         resume.life(m.fight);

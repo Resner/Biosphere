@@ -22,6 +22,10 @@ const SNAP_DISTANCE = 400;
 export const FADE_AFTER_MS = 2000;
 export const FADE_MS = 1000;
 export const REMOVE_AFTER_MS = 6000;
+/** An away fighter, drawn from proxies or its fight, shows at most this opaque (M8 T11). */
+export const AWAY_ALPHA = 0.6;
+/** Names of players who left, kept so a proxy of one can still be labelled. */
+const LEFT_NAMES = 32;
 
 const TICK_MS = 1000 / TICK_HZ;
 const MAX_SAMPLES = 16;
@@ -168,11 +172,13 @@ export class RemoteBuffer {
 
   /**
    * Returns false for a snapshot that is a duplicate or older than the newest one. A newer pond
-   * time wins even when `seq` looks old: a peer that reloaded starts counting from 0 again.
+   * time wins even when `seq` looks old: a peer that reloaded starts counting from 0 again. With
+   * `newerOnly` (proxies, which several relays number apart) only a newer pond time counts.
    */
-  push(s: Snapshot): boolean {
+  push(s: Snapshot, newerOnly = false): boolean {
     const t = s.tick * TICK_MS;
     const last = this.samples[this.samples.length - 1];
+    if (newerOnly && last && t <= last.t) return false;
     if (this.newestSeq >= 0 && last && t <= last.t) {
       const ahead = (s.seq - this.newestSeq + SEQ_RANGE) % SEQ_RANGE;
       if (ahead === 0 || ahead >= SEQ_RANGE / 2) return false;
@@ -283,41 +289,73 @@ export interface RemoteView {
   fighting: boolean;
   /** The newest snapshot's health, a share of its maximum (M7 T12: a drop flashes it). */
   health: number;
+  /**
+   * A fighter whose player is away (M8 T11): drawn from proxy snapshots or the own fight, faded to
+   * `AWAY_ALPHA`, and never offered for an engage.
+   */
+  away: boolean;
 }
 
 interface Remote {
   buffer: RemoteBuffer;
   lastHeardMs: number;
+  /** When its own snapshot last brought news; -Infinity before the first. */
+  lastOwnMs: number;
+  /** Its newest own snapshot said it is fighting (a proxy never sets this). */
+  ownFighting: boolean;
   view: RemoteView;
 }
 
-/** Every remote creature in the pond: names from the roster, poses from snapshots. */
+/**
+ * Every remote creature in the pond: names from the roster, poses from snapshots. A fighter whose
+ * player left stays while proxies or its fight move it (M8 T11), and fades out when they stop.
+ */
 export class RemoteSet {
   private readonly names = new Map<string, string>();
+  /** Names of players who left, most recent last. */
+  private readonly left = new Map<string, string>();
   private readonly remotes = new Map<string, Remote>();
   private readonly views: RemoteView[] = [];
 
+  /** `gone` hears of each remote that faded out after its player left the roster. */
+  constructor(private readonly gone?: (id: string) => void) {}
+
   setMember(id: string, name: string): void {
     this.names.set(id, name);
+    this.left.delete(id);
     const remote = this.remotes.get(id);
     if (remote) remote.view.name = name;
   }
 
-  removeMember(id: string): void {
+  /**
+   * A player left the roster. Its creature stays while it may still be fighting (its newest own
+   * snapshot said so, or proxies move it), to fade when nothing moves it any more; true then.
+   */
+  removeMember(id: string): boolean {
+    const name = this.names.get(id);
     this.names.delete(id);
+    if (name !== undefined) {
+      this.left.delete(id);
+      this.left.set(id, name);
+      if (this.left.size > LEFT_NAMES) this.left.delete(this.left.keys().next().value as string);
+    }
+    const remote = this.remotes.get(id);
+    if (remote && (remote.ownFighting || remote.view.away)) return true;
     this.remotes.delete(id);
+    return false;
   }
 
-  /** Feeds a decoded snapshot; `localMs` is the receiver's wall clock. */
-  receive(id: string, snapshot: Snapshot, localMs: number): void {
+  private remote(id: string, snapshot: Snapshot, localMs: number): Remote {
     let remote = this.remotes.get(id);
     if (!remote) {
       remote = {
         buffer: new RemoteBuffer(),
         lastHeardMs: localMs,
+        lastOwnMs: Number.NEGATIVE_INFINITY,
+        ownFighting: false,
         view: {
           id,
-          name: this.names.get(id) ?? id.slice(0, 6),
+          name: this.names.get(id) ?? this.left.get(id) ?? id.slice(0, 6),
           x: 0,
           y: 0,
           heading: 0,
@@ -331,20 +369,59 @@ export class RemoteSet {
           spawnProtected: snapshot.spawnProtected,
           fighting: snapshot.fighting,
           health: snapshot.health,
+          away: false,
         },
       };
       this.remotes.set(id, remote);
     }
+    return remote;
+  }
+
+  private take(remote: Remote, snapshot: Snapshot, localMs: number): void {
+    const { view } = remote;
+    remote.lastHeardMs = localMs;
+    view.genomeRef = snapshot.genomeRef;
+    view.ready = snapshot.ready;
+    view.egg = snapshot.egg;
+    view.spawnProtected = snapshot.spawnProtected;
+    view.fighting = snapshot.fighting;
+    view.health = snapshot.health;
+  }
+
+  /** Feeds a decoded snapshot; `localMs` is the receiver's wall clock. */
+  receive(id: string, snapshot: Snapshot, localMs: number): void {
+    const remote = this.remote(id, snapshot, localMs);
     // Only news counts as life: a peer repeating old packets must still fade away.
     if (remote.buffer.push(snapshot)) {
-      remote.lastHeardMs = localMs;
-      remote.view.genomeRef = snapshot.genomeRef;
-      remote.view.ready = snapshot.ready;
-      remote.view.egg = snapshot.egg;
-      remote.view.spawnProtected = snapshot.spawnProtected;
-      remote.view.fighting = snapshot.fighting;
-      remote.view.health = snapshot.health;
+      this.take(remote, snapshot, localMs);
+      remote.lastOwnMs = localMs;
+      remote.ownFighting = snapshot.fighting;
+      remote.view.away = false;
     }
+  }
+
+  /**
+   * Feeds an away fighter's pose that someone else stands in for (M8 T11): a relayed proxy, or
+   * the own fight's view of an opponent. It draws the creature away; only a newer pond time counts.
+   */
+  proxy(id: string, snapshot: Snapshot, localMs: number): void {
+    const remote = this.remote(id, snapshot, localMs);
+    if (!remote.buffer.push(snapshot, true)) return;
+    this.take(remote, snapshot, localMs);
+    // A stand-in pose never makes a creature look ready, protected or engageable.
+    remote.view.ready = false;
+    remote.view.spawnProtected = false;
+    remote.view.away = true;
+  }
+
+  /** Whether `id`'s newest own snapshot said it is fighting (proxies do not count). */
+  fighting(id: string): boolean {
+    return this.remotes.get(id)?.ownFighting === true;
+  }
+
+  /** Ms since `id`'s own snapshot last brought news; Infinity when none ever did. */
+  quietMs(id: string, localMs: number): number {
+    return localMs - (this.remotes.get(id)?.lastOwnMs ?? Number.NEGATIVE_INFINITY);
   }
 
   /**
@@ -357,6 +434,7 @@ export class RemoteSet {
       const quiet = localMs - remote.lastHeardMs;
       if (quiet > REMOVE_AFTER_MS) {
         this.remotes.delete(id);
+        if (!this.names.has(id)) this.gone?.(id);
         continue;
       }
       const pose = remote.buffer.sample(pondMs - INTERPOLATION_MS);
@@ -367,7 +445,8 @@ export class RemoteSet {
       view.heading = pose.heading;
       view.radius = Math.sqrt(clamp(pose.biomass, MIN_DRAWN_BIOMASS, MAX_DRAWN_BIOMASS));
       view.beat = pose.dashing ? 1 : clamp(Math.hypot(pose.vx, pose.vy) / CRUISE, 0, 1);
-      view.alpha = clamp(1 - (quiet - FADE_AFTER_MS) / FADE_MS, 0, 1);
+      const alpha = clamp(1 - (quiet - FADE_AFTER_MS) / FADE_MS, 0, 1);
+      view.alpha = view.away ? Math.min(alpha, AWAY_ALPHA) : alpha;
       this.views.push(view);
     }
     return this.views;

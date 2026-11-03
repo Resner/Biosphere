@@ -98,6 +98,7 @@ class FakeMesh implements OnlineMesh {
   joined: (id: string) => void = () => {};
   state: (id: string, s: Snapshot, signed: SignedSnap | null) => void = () => {};
   event: (id: string, e: PeerEvent) => void = () => {};
+  proxy: (id: string, player: string, s: Snapshot) => void = () => {};
   connect(id: string): void {
     this.connects.push(id);
   }
@@ -137,6 +138,9 @@ class FakeMesh implements OnlineMesh {
   onEvent(fn: (id: string, e: PeerEvent) => void): void {
     this.event = fn;
   }
+  onProxy(fn: (id: string, player: string, s: Snapshot) => void): void {
+    this.proxy = fn;
+  }
 }
 
 const welcome = (members: string[], pondId = 'pond1'): Welcome => ({
@@ -159,6 +163,7 @@ function setup() {
     peerOpen: vi.fn(),
     state: vi.fn(),
     event: vi.fn(),
+    proxy: vi.fn(),
     life: vi.fn(),
     fight: vi.fn(),
   };
@@ -175,6 +180,21 @@ function setup() {
 }
 
 describe('OnlineSession', () => {
+  it('passes on proxies from roster members only, and sends state to one open member (M8 T11)', () => {
+    const { hub, mesh, handlers, session } = setup();
+    hub.welcome(welcome(['a', 'b']));
+    mesh.open.add('a');
+    const pose = { seq: 1 } as Snapshot;
+    mesh.proxy('a', 'gone', pose);
+    mesh.proxy('stranger', 'gone', pose);
+    expect(handlers.proxy.mock.calls).toEqual([['a', 'gone', pose]]);
+    expect(session.openPeers()).toEqual(['a']);
+    session.sendState('a', new Uint8Array([1]));
+    session.sendState('b', new Uint8Array([2]));
+    session.sendState('stranger', new Uint8Array([3]));
+    expect(mesh.states).toEqual([['a', new Uint8Array([1])]]);
+  });
+
   it('connects to every member of the welcome, but not to itself', () => {
     const { hub, mesh, made, handlers, session } = setup();
     hub.welcome(welcome(['a', 'me', 'b']));

@@ -276,6 +276,45 @@ describe('RemoteSet', () => {
     expect(set.sample(10, 10)).toHaveLength(0);
   });
 
+  it('keeps a fighter who left the roster until it goes quiet, then reports it gone (M8 T11)', () => {
+    const gone: string[] = [];
+    const set = new RemoteSet((id) => gone.push(id));
+    set.setMember('a', 'Alice');
+    send(set, 'a', { ...swimming(0, 0), fighting: true }, 0);
+    expect(set.removeMember('a')).toBe(true);
+    expect(set.sample(10, 10).map((r) => r.name)).toEqual(['Alice']);
+    expect(set.sample(FADE_AFTER_MS + 500, 10)[0]?.alpha).toBeLessThan(1);
+    expect(set.sample(REMOVE_AFTER_MS + 1, 10)).toHaveLength(0);
+    expect(gone).toEqual(['a']);
+    // A member who is not fighting is dropped at once, and the caller cleans up after it.
+    set.setMember('b', 'Bob');
+    send(set, 'b', swimming(0, 0), 0);
+    expect(set.removeMember('b')).toBe(false);
+    expect(set.sample(10, 10)).toHaveLength(0);
+    expect(gone).toEqual(['a']);
+  });
+
+  it('draws a proxied creature at 60% at most, marked away, until its own snapshots return', () => {
+    const set = new RemoteSet();
+    set.setMember('a', 'Alice');
+    send(set, 'a', { ...swimming(0, 0), fighting: true }, 0);
+    set.removeMember('a');
+    set.proxy('a', { ...swimming(1, 1000), fighting: true }, 1000);
+    // A proxy no newer than what is held changes nothing.
+    set.proxy('a', { ...swimming(9, 500), x: 0 }, 1100);
+    const away = set.sample(1100, 1100)[0];
+    expect(away).toMatchObject({ id: 'a', name: 'Alice', away: true });
+    expect(away?.alpha).toBeCloseTo(0.6, 5);
+    expect(away?.x).toBeGreaterThan(1000);
+    expect(set.quietMs('a', 1100)).toBe(1100);
+    expect(set.fighting('a')).toBe(true);
+    set.setMember('a', 'Alice');
+    send(set, 'a', swimming(2, 1200), 1200);
+    expect(set.sample(1200, 1200)[0]).toMatchObject({ away: false, alpha: 1 });
+    expect(set.quietMs('a', 1200)).toBe(0);
+    expect(set.fighting('a')).toBe(false);
+  });
+
   it('gives a stable hue from the player id and hides the dead', () => {
     const set = new RemoteSet();
     send(set, 'a', swimming(0, 0), 0);
