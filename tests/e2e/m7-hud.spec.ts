@@ -50,39 +50,54 @@ const shown = (page: Page) => page.evaluate(() => window.__bs?.state().encounter
 
 /**
  * Freezes `page`'s world (`timeScale(0)`) in the frame its fight first matches `when`: `calm` (no
- * windup running, the fighters close) or `windup` (`who`'s windup aimed at this player, 6 ticks or
- * fewer left). Returns the CSS-pixel point at `who`'s front and the body's radius in pixels, as
- * drawn while frozen.
+ * windup running and no glow drawn, the fighters close) or `windup` (`who`'s windup aimed at this
+ * player, 6 ticks or fewer left, its glow drawn). One frame later it shoots the disc round `who`'s
+ * front (half its radius) and lets the world run on, so the player's autopilot flies as few frames
+ * as can be. Returns the disc's mean luminance and the glows drawn in the frozen frame.
  */
-async function freezeAt(page: Page, when: 'calm' | 'windup', who: string) {
+async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
   await page.waitForFunction(
     ({ when, who }) => {
       const bs = window.__bs as BsHook;
-      const enc = bs.state().encounter;
-      if (!enc || enc.over) return false;
-      const them = enc.fighters.find((f) => f.player === who);
-      const me = enc.fighters[enc.slot];
-      if (!them || !me) return false;
-      // The last frame drew no glow (calm), or drew this windup's.
+      const s = bs.state();
+      const enc = s.encounter;
+      const held = window as unknown as { heldTick?: number | undefined };
+      const them = enc?.fighters.find((f) => f.player === who);
+      const me = enc?.fighters[enc.slot];
       const glows = bs.render.info().telegraphs.glows;
       const ok =
-        when === 'calm'
+        !!enc &&
+        !enc.over &&
+        !!them &&
+        !!me &&
+        (when === 'calm'
           ? glows === 0 &&
             enc.fighters.every((f) => f.windup === null) &&
             Math.hypot(them.x - me.x, them.y - me.y) <= 3 * (them.radius + me.radius)
-          : glows > 0 && them.windup !== null && them.windup <= 6 && them.target === enc.slot;
-      if (ok) bs.debug?.timeScale(0);
+          : glows > 0 && them.windup !== null && them.windup <= 6 && them.target === enc.slot);
+      if (held.heldTick === undefined) {
+        if (ok) {
+          bs.debug?.timeScale(0);
+          held.heldTick = s.tick;
+        }
+        return false;
+      }
+      // A frozen world may still play a backlog of ticks: it holds once a frame passes without one,
+      // and the moment counts only if it still matches then.
+      if (s.tick !== held.heldTick) {
+        held.heldTick = s.tick;
+        return false;
+      }
+      held.heldTick = undefined;
+      if (!ok) bs.debug?.timeScale(1);
       return ok;
     },
     { when, who },
     { polling: 'raf', timeout: 30_000 },
   );
-  // Two frames so the frozen state is the one drawn (and a hit's camera kick has settled).
-  await page.evaluate(
-    () => new Promise((r) => requestAnimationFrame(() => requestAnimationFrame(() => r(0)))),
-  );
-  await page.waitForTimeout(400);
-  return page.evaluate((who) => {
+  const at = await page.evaluate(async (who) => {
+    // One more frame, so the frozen state is the one drawn.
+    await new Promise((r) => requestAnimationFrame(() => r(0)));
     const bs = window.__bs as BsHook;
     const f = bs.state().encounter?.fighters.find((x) => x.player === who);
     const fx = bs.render.fx();
@@ -95,15 +110,15 @@ async function freezeAt(page: Page, when: 'calm' | 'windup', who: string) {
       x: innerWidth / 2 + (wx - fx.camX) * px,
       y: innerHeight / 2 - (wy - fx.camY) * px,
       r: f.radius * px,
+      glows: bs.render.info().telegraphs.glows,
     };
   }, who);
-}
-
-/** The mean luminance of a disc of radius `r` CSS px round (x, y) in a fresh screenshot. */
-async function brightness(page: Page, at: { x: number; y: number; r: number }): Promise<number> {
   const r = Math.max(4, Math.round(at.r * 0.45));
   const clip = { x: Math.round(at.x - r), y: Math.round(at.y - r), width: 2 * r, height: 2 * r };
-  const image = await decodePng(page, await page.screenshot({ clip }));
+  const png = await page.screenshot({ clip });
+  if (when === 'windup') await page.screenshot({ path: 'test-results/m7-hud-windup.png' });
+  await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
+  const image = await decodePng(page, png);
   let sum = 0;
   let n = 0;
   for (let y = 0; y < image.height; y++) {
@@ -113,7 +128,7 @@ async function brightness(page: Page, at: { x: number; y: number; r: number }): 
       n++;
     }
   }
-  return sum / Math.max(1, n);
+  return { luminance: sum / Math.max(1, n), glows: at.glows };
 }
 
 test('the combat HUD shows only in the fight, a windup glows and ticks, and a brace blocks', async ({
@@ -212,23 +227,18 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
     }, idB);
 
     // On B's screen, A's front just before a windup, then during one (each frame frozen to shoot it).
-    const calm = await freezeAt(b, 'calm', idA).catch(async (error) => {
+    const before = await shoot(b, 'calm', idA).catch(async (error) => {
       throw new Error(`no calm moment: ${JSON.stringify(await seen(b))}`, { cause: error });
     });
-    const before = await brightness(b, calm);
-    await b.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
-    const winding = await freezeAt(b, 'windup', idA).catch(async (error) => {
+    const during = await shoot(b, 'windup', idA).catch(async (error) => {
       throw new Error(`no windup on B: ${JSON.stringify(await seen(b))}`, { cause: error });
     });
-    const during = await brightness(b, winding);
-    await b.screenshot({ path: 'test-results/m7-hud-windup.png' });
-    const glows = (await b.evaluate(() => (window.__bs as BsHook).render.info().telegraphs)).glows;
-    await b.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
-    expect(glows).toBeGreaterThan(0);
+    expect(before.glows).toBe(0);
+    expect(during.glows).toBeGreaterThan(0);
     expect(
-      during,
-      `A's front: ${before.toFixed(1)} before, ${during.toFixed(1)} during`,
-    ).toBeGreaterThan(before + 6);
+      during.luminance,
+      `A's front: ${before.luminance.toFixed(1)} before, ${during.luminance.toFixed(1)} during`,
+    ).toBeGreaterThan(before.luminance + 6);
 
     // B heard the windup's tick, and blocked a strike with its brace.
     await b
@@ -282,7 +292,8 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
         });
       await expect(page.getByTestId('combat-hud')).toBeHidden();
       expect(await shown(page)).toBe(false);
-      await expect(page.getByTestId('hud-bar-size')).toBeVisible();
+      // The size and life bars are back (a dead player's death screen hides the whole HUD).
+      expect(await page.evaluate(() => document.body.hasAttribute('data-fighting'))).toBe(false);
     }
   } finally {
     await Promise.all([a.context().close(), b.context().close()]);
