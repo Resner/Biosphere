@@ -7,7 +7,7 @@ import {
   parseClientMsg,
 } from '../src/net/protocol';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
-import { engage, lockAnswer, lockedOut } from './engage';
+import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
 import { type Clock, Fights, realClock } from './fights';
 import { type KeyEntry, Ledger } from './ledger';
 import {
@@ -163,6 +163,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       else send(ws, { t: 'refused', reason: 'queued' });
       return;
     }
+    if (LOCK_BARRED.has(msg.t) && lockedOut(this, ws, session)) return;
     switch (msg.t) {
       case 'ping':
         send(ws, { t: 'pong', id: msg.id, now });
@@ -177,7 +178,7 @@ export class Authority extends DurableObject<Env> implements Hub {
         relay(this, ws, session, msg);
         return;
       case 'genesis-request':
-        if (!lockedOut(this, ws, session)) queueGenesis(this, ws, session, msg);
+        queueGenesis(this, ws, session, msg);
         return;
       case 'progress':
         progress(this, ws, session, msg, now);
@@ -192,12 +193,10 @@ export class Authority extends DurableObject<Env> implements Hub {
         lineage(this, ws, session.playerId);
         return;
       case 'promote':
-        if (!lockedOut(this, ws, session) && owns(ws, session, msg.request))
-          promoteChild(this, ws, session, msg, now);
+        if (owns(ws, session, msg.request)) promoteChild(this, ws, session, msg, now);
         return;
       case 'restore':
-        if (!lockedOut(this, ws, session) && owns(ws, session, msg.request))
-          restoreAncestor(this, ws, session, msg, now);
+        if (owns(ws, session, msg.request)) restoreAncestor(this, ws, session, msg, now);
         return;
       case 'mate-check':
         mateCheck(this, ws, session, msg.partner);
