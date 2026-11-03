@@ -53,6 +53,9 @@ async function oneFight(
       });
     });
 
+  // A braces by itself against B's windups: B hits as hard as A, and an A left at a few points
+  // dies of the water before the next try.
+  await a.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true));
   // A swims onto B (debug steering works in a fight) until the referee ends it, from the first
   // frame: the escape clock (3 s outside range) runs while A waits for its stance and for B's page.
   const chase = a

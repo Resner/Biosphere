@@ -146,6 +146,9 @@ export async function fightToEnd(
         cause: error,
       });
     });
+  // A braces by itself against B's windups: B hits as hard as A, and an A left at a few points
+  // dies of the water before the next try.
+  await a.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true));
   // A starts swimming onto B at once: the escape clock (3 s outside range) runs from the first
   // frame, and a chase that waits for B's page to show the fight loses a slow runner's fights. It
   // runs until the referee ends the fight.
