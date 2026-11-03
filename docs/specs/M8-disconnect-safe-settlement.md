@@ -187,7 +187,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `worker/fight-store.ts` (`hub.fightStore`) writes the row from `runFight`, `admit`, `tick` and `drop`; `Fight.names` became `slots` (name and clock), and `runFight`/`admit` take the fighters' lives. A 300-frame duel costs 32 log rows.
   - Gotcha: setting the indexed `open` column on every batch doubled the rows, so only the close sets it; hub tests bound other writes with `rowsBesideLog`. A failed write is logged and not retried until the next batch, so a `close` that fails leaves `open = 1` on a settled fight: T5 must treat a fight with settlement records as closed, and T8's transaction removes the case.
 
-- [x] T3 Protocol 8: worth, the fight in `life`, reports, settlements in `enc-end`, proxy frames [opus] (after T1) (in progress)
+- [x] T3 Protocol 8: worth, the fight in `life`, reports, settlements in `enc-end`, proxy frames [opus] (after T1)
   - Steps:
     1. `PROTOCOL_VERSION` 8. `SNAPSHOT_VERSION` stays 4.
     2. The shapes above, with parsers in `protocol-encounter.ts` and `protocol-parse.ts`:
