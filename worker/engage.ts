@@ -9,13 +9,8 @@ import { buildCreature } from '../src/genome/stats';
 import { randomnessOf } from '../src/ledger/drand';
 import { encounterId, encounterSeed } from '../src/ledger/encounter';
 import { verifySnap } from '../src/ledger/snapshot-sig';
-import {
-  type ClientMsg,
-  type FighterInfo,
-  genomeRefOf,
-  type HubMsg,
-  type Snapshot,
-} from '../src/net/protocol';
+import type { EncStart } from '../src/net/encounter-start';
+import { type ClientMsg, type FighterInfo, genomeRefOf, type Snapshot } from '../src/net/protocol';
 import type { PhysStats } from '../src/sim/body';
 import { currentAt } from '../src/sim/currents';
 import { engageRange, type Reacher, strikeDistance } from '../src/sim/encounter/reach';
@@ -25,15 +20,15 @@ import { sizeTier } from '../src/sim/size';
 import type { CreatureState, World } from '../src/sim/types';
 import { maxEnergy, maxHealth } from '../src/sim/vitals';
 import { createWorld } from '../src/sim/world';
-import { LOCK_TIMEOUT_MS } from './fights';
+import { runFight } from './fights';
 import type { Head } from './ledger';
 import { type Condition, clampClaim, type LifeState } from './life';
 import type { PondRow } from './schema';
 import {
   type ActiveSession,
-  activeSessions,
   type Hub,
   type Session,
+  seated,
   sendIfOpen,
   sessionOf,
 } from './socket';
@@ -108,12 +103,6 @@ function reacher(side: Side): Reacher {
     phys: side.stats.phys,
   };
   return { body, combat: side.stats.combat };
-}
-
-/** The player's seated socket in the pond, if any. */
-function seated(hub: Hub, player: string): [WebSocket, ActiveSession] | null {
-  for (const entry of activeSessions(hub)) if (entry[1].playerId === player) return entry;
-  return null;
 }
 
 /** Whether the snapshot is from the last `snapshotMaxAge` ticks of pond time (with clock slack either way). */
@@ -300,8 +289,11 @@ function start(hub: Hub, id: string): void {
   const enc = encounterId(heads, now);
   const beacon = hub.beacons.newestKnown();
   const seed = encounterSeed(beacon ? randomnessOf(beacon) : new Uint8Array(0), enc);
-  hub.fights.run(lock, E.startDelayMs + LOCK_TIMEOUT_MS);
-  const msg: HubMsg = { t: 'enc-start', enc, seed, round: beacon?.round ?? 0, t0, at, fighters };
+  const msg: EncStart = { t: 'enc-start', enc, seed, round: beacon?.round ?? 0, t0, at, fighters };
+  if (!runFight(hub, lock, msg, asking.pond.seed)) {
+    hub.fights.release(id);
+    return;
+  }
   for (const player of lock.players) {
     const found = seated(hub, player);
     if (found) sendIfOpen(found[0], msg);

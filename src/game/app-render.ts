@@ -343,6 +343,7 @@ export class Frame {
         ? app.remoteBodies.resolve(app.remotes.sample(now, app.pondMs()), now)
         : NO_REMOTES;
     const { remoteViews } = app;
+    app.fight.drawRemotes(remoteViews);
     app.online.updateNetUi(now, joined);
     app.ui.updateHatchNote();
     app.ui.updateMateUi();

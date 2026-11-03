@@ -179,7 +179,10 @@ export function enter(
     turn: link.turn,
     now: Date.now(),
   });
-  sendLife(hub, ws, who.playerId);
+  // A player back in the middle of its fight waits for the result (M8 lets it rejoin the fight).
+  const lock = hub.fights.ofPlayer(who.playerId);
+  if (lock) lock.owed.add(who.playerId);
+  else sendLife(hub, ws, who.playerId);
 }
 
 /** Picks the fullest pond with a free place (creating one if none), and the joiner's spawn hint. */
