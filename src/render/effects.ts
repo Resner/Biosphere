@@ -33,8 +33,8 @@ export const FX = {
   shockRadii: 9,
   shockSeconds: 0.6,
   /** The quick ring of an engage (M7), drawn from the key press's frame: in cell radii, and seconds. */
-  engageRadii: 2.6,
-  engageSeconds: 0.45,
+  engageRadii: 3,
+  engageSeconds: 0.6,
   /** Paying for a mating (M6 T20): the drawn body eases to its new size, dipping this far below it. */
   shrinkSeconds: 0.7,
   shrinkDip: 0.08,
@@ -42,7 +42,7 @@ export const FX = {
   resumeCapSeconds: 0.1,
 } as const;
 
-export type RingKind = 'pop' | 'ripple';
+export type RingKind = 'pop' | 'ripple' | 'engage';
 
 export interface Ring {
   kind: RingKind;
@@ -149,7 +149,7 @@ export class Effects {
   /** A quick ring round the creature as it engages another (M7), from the key press on. */
   engagePulse(at: FxAnchor): void {
     this.engage++;
-    this.addRing('pop', at, FX.engageRadii, FX.engageSeconds);
+    this.addRing('engage', at, FX.engageRadii, FX.engageSeconds);
   }
 
   /** A soft ring when the creature has grown another tenth; `tier` makes it the bigger one for a new size tier. */

@@ -445,7 +445,9 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### Play
 
-- [ ] T11 Engage and fight controls, with the first hub duel [opus] (after T2, T7, T9, T10) (in progress)
+- [x] T11 Engage and fight controls, with the first hub duel [opus] (after T2, T7, T9, T10) (in progress)
+  - Done: pure target choice, refusals, glyph and key routing plus `Attack` in `src/game/engage.ts`; DOM wiring in `src/game/app-attack.ts` (glyph, shimmer, card button, right-button brace); an `engage` ring kind; `m7-duel.spec.ts` on hub 8807.
+  - Gotcha: a genesis is protected for 15 s, so `m7-duel` reloads B to resume it unprotected; the protection toast's seconds count from when the mark was first seen.
   - Steps:
     1. Attack (a core action, `src/game/engage.ts`):
        - F engages the creature under the cursor if it is engageable and in range, else the nearest engageable in range;

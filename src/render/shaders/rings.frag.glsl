@@ -1,5 +1,5 @@
-// Eat pops and dash ripples. `vPhase` is the kind in the integer part (0 pop, 1 ripple) and the
-// progress 0..1 in the fraction. Both are additive and drawn above the cell.
+// Eat pops, dash ripples and engage rings. `vPhase` is the kind in the integer part (0 pop,
+// 1 ripple, 2 engage) and the progress 0..1 in the fraction. All are additive, above the cell.
 varying vec2 vP;
 varying float vPhase;
 
@@ -19,6 +19,17 @@ void main() {
     float spark = spoke * (1.0 - smoothstep(0.0, 0.18, abs(d - r * 1.05)));
     a = (ring * 0.8 + spark) * fade;
     col = vec3(0.75, 1.0, 0.8);
+  } else if (kind > 1.5) {
+    // An engage (M7): a warm ring that closes in on the cell, with four short ticks on it, so it
+    // reads as a lock-on rather than a ripple spreading out.
+    float r = mix(1.0, 0.5, 1.0 - fade * fade);
+    float w = 0.05;
+    float ring = 1.0 - smoothstep(0.0, w, abs(d - r));
+    float angle = atan(vP.y, vP.x);
+    float tick = pow(max(cos(angle * 2.0), 0.0), 40.0) + pow(max(-cos(angle * 2.0), 0.0), 40.0);
+    float ticks = tick * (1.0 - smoothstep(0.0, 0.12, abs(d - r * 1.12)));
+    a = (ring * 0.85 + ticks * 0.9) * min(1.0, fade * 1.6);
+    col = vec3(1.0, 0.78, 0.55);
   } else {
     // Two thin rings spreading out from the cell.
     float r1 = mix(0.3, 1.0, 1.0 - fade * fade);

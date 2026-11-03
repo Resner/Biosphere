@@ -25,7 +25,7 @@ describe('Effects', () => {
     const fx = new Effects();
     fx.engagePulse(AT);
     expect(fx.rings).toEqual([
-      { kind: 'pop', x: 3, y: 4, size: 10 * FX.engageRadii, age: 0, life: FX.engageSeconds },
+      { kind: 'engage', x: 3, y: 4, size: 10 * FX.engageRadii, age: 0, life: FX.engageSeconds },
     ]);
     expect(fx.snapshot()).toMatchObject({ engage: 1, rings: 1 });
   });

@@ -57,8 +57,8 @@ Death is common and never total: you fall back to your pending offspring or your
 | Dash | — | Space (cooldown 2.5 s) |
 | Court or accept | click the creature, then the button | E on the nearest eligible creature |
 | Become your offspring | the Offspring card button | H |
-| Attack (M7) | the Attack button on a creature's card (click the creature) | F: the creature under the cursor if it can be engaged, else the nearest in reach; an "F" glyph marks it |
-| Stance (M7, in combat) | HUD buttons | 1 aggressive, 2 balanced, 3 evasive |
+| Attack (M7) | the Attack button on a creature's card (click the creature), disabled with the reason when it can't be engaged | F: the creature under the cursor if it can be engaged, else the nearest in reach; an "F" glyph marks that one, and a warm ring closes on your creature as you press |
+| Stance (M7, in combat) | HUD buttons | 1 aggressive, 2 balanced, 3 evasive (while the wheel is open, the numbers stay the wheel's) |
 | Target (M7, with 3+ fighters or an egg in the fight) | click a fighter or an egg | Tab cycles, nearest first |
 | Brace (M7, in combat) | right button or the HUD button | Shift |
 | Chat | — | Enter |
@@ -66,6 +66,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Pond map | — | M (M or Esc closes it; steering carries on under it) |
 | Menu | the menu button in the top-left corner | Esc |
 
+- **Engaging**: a spawn-protected creature shimmers faintly and gets no glyph, and a fighting one (its snapshot's mark) no court prompt. A refused engage shows a short toast: "Protected for 12 s", "Too big to fight" (or "Too small"), "Too far", "Already fighting". The combat keys (1–3, Shift, the right button) work only while locked in a fight.
 - **Core actions** (ADR 0014's six): steer, dash, court, attack, the social wheel and the menu. Every other key is a shortcut for something the screen also offers (the Offspring card, the minimap, the wheel's emotes, the combat HUD); chat is the one that needs typing.
 - **Camera**: top-down, following the creature. The visible half-height is `9 · R^0.9 · (r / R)^0.6` wu (ADR 0029), where `r` is the creature's radius and `R` the radius at its genetic maximum biomass. An adult sees `9 · R^0.9` (about 134 wu for the starter, whose `R` is 20), and a smaller creature sees less, so growth shows within one life (tripling the radius makes it 3^0.4 ≈ 1.55× larger on screen).
 

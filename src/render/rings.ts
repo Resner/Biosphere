@@ -3,7 +3,10 @@ import { FX, type Ring } from './effects';
 import { writeInstance } from './instances';
 import { ringMaterial } from './materials';
 
-/** Eat pops and dash ripples as instanced quads; the shader draws the rings. */
+/** The shader's kind number for each ring kind (the phase's integer part). */
+const KIND: Readonly<Record<Ring['kind'], number>> = { pop: 0, ripple: 1, engage: 2 };
+
+/** Eat pops, dash ripples and engage rings as instanced quads; the shader draws the rings. */
 export class RingLayer {
   readonly mesh: THREE.InstancedMesh;
   private readonly geometry = new THREE.PlaneGeometry(2, 2);
@@ -20,7 +23,7 @@ export class RingLayer {
     for (let i = 0; i < n; i++) {
       const ring = rings[i] as Ring;
       const progress = Math.min(ring.age / ring.life, 0.999);
-      const phase = (ring.kind === 'pop' ? 0 : 1) + progress;
+      const phase = KIND[ring.kind] + progress;
       writeInstance(this.mesh.instanceMatrix.array, i, ring.x, ring.y, ring.size, 0, phase);
     }
     this.mesh.count = n;
