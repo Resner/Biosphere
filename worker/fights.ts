@@ -201,7 +201,8 @@ export class Fights {
     for (const { fight } of this.byId.values()) {
       if (!fight) continue;
       const end = fight.start.at + RULES.encounter.timeoutFrames * FRAME_MS + WATCH_SLACK_MS;
-      const at = Math.min(Math.max(end, fight.referee.nextDeadline()), fight.awayDue ?? end);
+      const base = Math.max(end, fight.referee.nextDeadline());
+      const at = fight.awayDue === null ? base : Math.min(base, fight.awayDue);
       due = due === null ? at : Math.min(due, at);
     }
     return due;

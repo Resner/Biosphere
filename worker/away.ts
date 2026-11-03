@@ -24,8 +24,8 @@ export function awayGraceMs(env: { DRAND_SOURCE?: string; AWAY_GRACE_MS?: string
 }
 
 /**
- * Whether a fighter still in the fight has its player connected; a joiner not yet seated counts as
- * in. One that escaped, stood or died no longer holds the fight, connected or not.
+ * Whether a fighter still in the fight has its player connected (a fighter with no outcome yet
+ * counts as in). One that escaped, stood or died no longer holds the fight, connected or not.
  */
 function anyoneIn(hub: Hub, fight: Fight): boolean {
   return fight.players.some(
@@ -78,7 +78,7 @@ export function reportOf(fight: Fight, f: FighterOutcome, frames: number): Fight
 
 /**
  * Keeps the report on the player's row (inside the settlement's transaction): a later one replaces
- * an untold one. Throws when it can't, so the settlement rolls back whole.
+ * an untold one. A failing write throws, so the settlement rolls back whole.
  */
 export function storeReport(hub: Hub, player: string, report: FightReport): void {
   count(

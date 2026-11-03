@@ -333,7 +333,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `settle` builds `settlementOf(logOf(fight))` and each slot's locked time (`lockedTimes`); `settleRecords` countersigns it and `FightStore.seal` writes it with the tail and `open = 0` in the transaction (`FightRecords.log`); a failure flags, closes the row, rebinds lives and sends `enc-end` then `life` (`worker/settlement.test.ts`).
   - Gotcha: a failed settlement's row is closed, so recovery never retries it; the kit's `startOf` sorts fighters by creature, as the encounter seats them, so `slotOf` is right for direct starts.
 
-- [x] T9 Everyone left: the 10 s wait, the fast-forward and the away reports [opus] (after T6, T8) (in progress)
+- [x] T9 Everyone left: the 10 s wait, the fast-forward and the away reports [opus] (after T6, T8)
   - Steps:
     1. `worker/away.ts`. When no fighter still in a running fight has a connected player:
        - note the time;
