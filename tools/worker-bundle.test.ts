@@ -39,5 +39,7 @@ describe('worker bundles', () => {
     const code = bundle(true, 'e2e-entry.js');
     expect(code).toContain(marker);
     expect(code).toContain('/v1/e2e/pre-reset');
+    // And the restart hook (M8 T5), which only the E2E entry may carry.
+    expect(code).toContain('/v1/e2e/restart');
   });
 });

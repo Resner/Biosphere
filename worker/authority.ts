@@ -9,7 +9,7 @@ import {
 import { type BeaconSource, Beacons, liveSource } from './beacons';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
 import { FightStore } from './fight-store';
-import { type Clock, Fights, fightInput, realClock } from './fights';
+import { type Clock, Fights, fightInput, realClock, tick } from './fights';
 import { type KeyEntry, Ledger } from './ledger';
 import {
   death,
@@ -23,6 +23,7 @@ import {
   restoreAncestor,
 } from './lives';
 import { court, decline, deliverBirth, mateCheck, queueAccept } from './offspring';
+import { recoverFights } from './recover';
 import { migrate } from './schema';
 import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
@@ -90,9 +91,11 @@ export class Authority extends DurableObject<Env> implements Hub {
       rearm: () => this.rearm(),
     });
     // One transaction, so a migration (the world renewal above all) applies whole or not at all.
-    ctx.blockConcurrencyWhile(async () =>
-      ctx.storage.transactionSync(() => migrate(ctx.storage.sql)),
-    );
+    // Then every fight the saved logs hold open is rebuilt before any message arrives (ADR 0053).
+    ctx.blockConcurrencyWhile(async () => {
+      ctx.storage.transactionSync(() => migrate(ctx.storage.sql));
+      recoverFights(this, this.clock.now());
+    });
   }
 
   /** Live drand by default; the E2E entry (`worker/e2e-entry.ts`) overrides it with recorded rounds. */
@@ -251,7 +254,10 @@ export class Authority extends DurableObject<Env> implements Hub {
     drop(this, ws, 1011, 'error');
   }
 
-  /** Closes sockets that never said hello, resolves due commitments, and re-arms for whatever is still waiting. */
+  /**
+   * Closes sockets that never said hello, resolves due commitments, steps the fights due, and
+   * re-arms for whatever is still waiting.
+   */
   override async alarm(): Promise<void> {
     const now = Date.now();
     for (const ws of this.ctx.getWebSockets()) {
@@ -261,6 +267,9 @@ export class Authority extends DurableObject<Env> implements Hub {
       }
     }
     try {
+      // The fights' watchdog: an object that only its alarm woke rebuilds them, and each steps every frame due.
+      recoverFights(this, this.clock.now());
+      for (const lock of this.fights.running()) tick(this, lock.id, this.clock.now());
       // The budget resets at midnight with no message to say so, so the queue is looked at on a timer.
       // Reset first, so the re-arm inside `promote` doesn't read the tick that just fired; it arms the next one if anyone still waits.
       this.queueTickAt = null;
@@ -305,7 +314,10 @@ export class Authority extends DurableObject<Env> implements Hub {
     return deliverGenesis(this, commitId);
   }
 
-  /** The object has one alarm: it is set for the earliest of the hello timeout, the next beacon and the queue tick, and cleared when none is needed. */
+  /**
+   * The object has one alarm: it is set for the earliest of the hello timeout, the next beacon, the
+   * queue tick and the fights' watchdog, and cleared when none is needed.
+   */
   rearm(): Promise<void> {
     // One at a time, each reading fresh deadlines, so a slow caller can't overwrite a sooner alarm.
     const run = this.rearming.then(() => this.setAlarmForNext());
@@ -317,7 +329,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     const hello = this.helloDue();
     const beacon = this.beacons.nextDue();
     const queue = this.queueDue();
-    const next = earliest(hello, beacon, queue);
+    const next = earliest(hello, beacon, queue, this.fights.watchDue());
     const current = await this.ctx.storage.getAlarm();
     if (next === null) {
       if (current !== null) await this.ctx.storage.deleteAlarm();

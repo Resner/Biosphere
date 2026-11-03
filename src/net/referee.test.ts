@@ -123,6 +123,22 @@ describe('Referee', () => {
       expect(r.due(start(1))).toEqual([{ f: 1, i: [1, 2, 3] }]);
     });
 
+    it('restores mid-fight from a saved log: its next frame and joins, the frames before it late (M8 T5)', () => {
+      const live = new Referee({ startAt: T, slots: 2 });
+      live.join(4);
+      live.due(start(5) + E.inputDeadlineMs + 1);
+      const r = new Referee({ startAt: T, slots: 2, next: live.next, joins: [4] });
+      expect(r.next).toBe(6);
+      expect(r.width(3)).toBe(2);
+      expect(r.width(4)).toBe(3);
+      expect(r.input(0, 5, 1, start(4))).toBe('late');
+      expect(r.input(2, 6, 1, start(5))).toBe('ok');
+      expect(r.due(start(6) + E.inputDeadlineMs + 1)).toEqual([{ f: 6, i: [null, null, 1] }]);
+      expect(() => new Referee({ startAt: T, slots: 2, next: -1 })).toThrow(RangeError);
+      expect(() => new Referee({ startAt: T, slots: 2, joins: [3, 2] })).toThrow(RangeError);
+      expect(() => new Referee({ startAt: T, slots: 2, joins: [1, 1, 1] })).toThrow(RangeError);
+    });
+
     it('refuses a join before the next frame, or past the fourth slot', () => {
       const r = new Referee({ startAt: T, slots: 2 });
       r.due(start(2) + E.inputDeadlineMs + 1);
