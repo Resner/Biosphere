@@ -7,6 +7,8 @@ import {
   parseClientMsg,
 } from '../src/net/protocol';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
+import { engage, lockAnswer, lockedOut } from './engage';
+import { type Clock, Fights, realClock } from './fights';
 import { type KeyEntry, Ledger } from './ledger';
 import {
   death,
@@ -27,7 +29,8 @@ import { TurnCredentials } from './turn';
 import { UsageMeter } from './usage';
 
 // The message handlers live by area in `sessions.ts` (sessions and signaling), `lives.ts` (genesis
-// and life) and `offspring.ts` (mating and offspring); this object keeps the state, the alarm and the dispatch.
+// and life), `offspring.ts` (mating and offspring) and `engage.ts` (lock-in, with the locks in
+// `fights.ts`); this object keeps the state, the alarm and the dispatch.
 
 const HELLO_TIMEOUT_MS = 10_000;
 const RATE_WINDOW_MS = 10_000;
@@ -55,6 +58,9 @@ export class Authority extends DurableObject<Env> implements Hub {
   /** Acceptances run one at a time: each commits to a round and then re-reads both creatures. */
   matingQueue: Promise<void> = Promise.resolve();
   nextTicket = 0;
+  /** Lock-in and fights run on this clock; hub tests swap in a hand-moved one. */
+  clock: Clock = realClock;
+  readonly fights = new Fights(() => this.clock);
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
 
@@ -171,7 +177,7 @@ export class Authority extends DurableObject<Env> implements Hub {
         relay(this, ws, session, msg);
         return;
       case 'genesis-request':
-        queueGenesis(this, ws, session, msg);
+        if (!lockedOut(this, ws, session)) queueGenesis(this, ws, session, msg);
         return;
       case 'progress':
         progress(this, ws, session, msg, now);
@@ -186,10 +192,12 @@ export class Authority extends DurableObject<Env> implements Hub {
         lineage(this, ws, session.playerId);
         return;
       case 'promote':
-        if (owns(ws, session, msg.request)) promoteChild(this, ws, session, msg, now);
+        if (!lockedOut(this, ws, session) && owns(ws, session, msg.request))
+          promoteChild(this, ws, session, msg, now);
         return;
       case 'restore':
-        if (owns(ws, session, msg.request)) restoreAncestor(this, ws, session, msg, now);
+        if (!lockedOut(this, ws, session) && owns(ws, session, msg.request))
+          restoreAncestor(this, ws, session, msg, now);
         return;
       case 'mate-check':
         mateCheck(this, ws, session, msg.partner);
@@ -202,6 +210,12 @@ export class Authority extends DurableObject<Env> implements Hub {
         return;
       case 'decline':
         decline(this, ws, session, msg.partner);
+        return;
+      case 'engage':
+        engage(this, ws, session, msg);
+        return;
+      case 'lock-state':
+        lockAnswer(this, ws, session, msg);
         return;
     }
   }

@@ -20,6 +20,7 @@ import {
 import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import type { DeathCause } from '../src/sim/types';
+import { protectionEnds } from './fights';
 import { type Condition, conditionOf, type Exhaustion, type Head } from './ledger';
 import {
   applyReport,
@@ -154,7 +155,8 @@ export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> 
     // A new creature starts its clock when it reaches the player; a repeat delivery leaves it be.
     if (head && theirs.life?.creature !== head.id) {
       const life = bindHead(hub, head, Date.now());
-      other.serializeAttachment({ ...theirs, life } satisfies Session);
+      const protectedUntil = protectionEnds(hub.clock.now());
+      other.serializeAttachment({ ...theirs, life, protectedUntil } satisfies Session);
     }
     sendIfOpen(other, msg);
   }
@@ -393,8 +395,11 @@ export function takeOver(
   const head = hub.ledger.head(request.creature);
   if (!head) return;
   const mine = session.life;
-  const life = !result.fresh && mine?.creature === head.id ? mine : bindHead(hub, head, now);
-  ws.serializeAttachment({ ...session, life, court: undefined } satisfies Session);
+  const repeat = !result.fresh && mine?.creature === head.id;
+  const life = repeat ? mine : bindHead(hub, head, now);
+  // A promoted or restored creature is spawn-protected; a repeat keeps what it had.
+  const protectedUntil = repeat ? session.protectedUntil : protectionEnds(hub.clock.now());
+  ws.serializeAttachment({ ...session, life, court: undefined, protectedUntil } satisfies Session);
   sendIfOpen(ws, reply(lifeOf(hub, head)));
 }
 

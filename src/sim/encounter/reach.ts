@@ -5,10 +5,13 @@ import { RULES } from '../rules';
 import type { CreatureState } from '../types';
 import type { Fighter } from './types';
 
+/** What reach reads of a fighter (the authority checks an engage with bodies built from snapshots). */
+export type Reacher = Pick<Fighter, 'body' | 'combat'>;
+
 export const radiusOf = (c: CreatureState): number => Math.sqrt(c.biomass);
 
 /** The farther of the weapon reach and the mouth's reach, times the radius. */
-export function strikeReach(f: Fighter): number {
+export function strikeReach(f: Reacher): number {
   const mouth = f.body.phys.mouth;
   return Math.max(f.combat.reach, mouth.offset + mouth.radius) * radiusOf(f.body);
 }
@@ -52,6 +55,6 @@ export function strikeDistance(attacker: CreatureState, target: CreatureState): 
 }
 
 /** The distance within which `attacker` may engage `target`: its reach plus 30% of the target's radius. */
-export function engageRange(attacker: Fighter, target: Fighter): number {
+export function engageRange(attacker: Reacher, target: Reacher): number {
   return strikeReach(attacker) + RULES.encounter.engageSlack * radiusOf(target.body);
 }

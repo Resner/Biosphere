@@ -155,6 +155,7 @@ export function mateRefusal(
     viewOf(life, s.playerId, hub.ledger.head(life.creature), {
       pending: hub.ledger.pending(s.playerId) !== null,
       inFlight: hub.ledger.hasOpenMating(s.playerId),
+      locked: hub.fights.creatureLocked(life.creature),
     });
   return refusalFor(view(a, a.life), view(b, b.life));
 }

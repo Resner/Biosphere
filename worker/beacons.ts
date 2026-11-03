@@ -111,6 +111,18 @@ export class Beacons {
     return this.cached(round);
   }
 
+  /** The newest verified beacon held in memory or in the table, or null. Never fetches (an encounter's seed, ADR 0050). */
+  newestKnown(): Beacon | null {
+    const row = this.run('SELECT round, signature FROM beacons ORDER BY round DESC LIMIT 1')[0];
+    let best: Beacon | null = row
+      ? { round: row.round as number, signature: row.signature as string }
+      : null;
+    for (const beacon of this.recent.values()) {
+      if (!best || beacon.round > best.round) best = beacon;
+    }
+    return best;
+  }
+
   /**
    * Commits to the round after the newest published one. The same `kind`, `owner` and `data` always
    * return the same commitment, so callers put a fresh nonce in `data` for each new request.
