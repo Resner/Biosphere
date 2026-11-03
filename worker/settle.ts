@@ -115,15 +115,16 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
       eggBy: f.egg === 'eaten' ? creatureAt(f.eggBy) : null,
     };
   });
+  const log = logOf(fight);
   let settled: SettleResult;
   try {
     settled = hub.ledger.settle({
       enc: enc.id,
       fighters: records,
-      settlement: settlementOf(logOf(fight), enc, Date.now()),
+      settlement: settlementOf(log, enc, Date.now()),
       log: {
         stored: () => hub.fightStore.settlement(enc.id),
-        seal: (signed) => hub.fightStore.seal(fight, signed),
+        seal: (signed) => hub.fightStore.seal(fight, log.frames, signed),
       },
     });
   } catch (error) {
@@ -158,7 +159,7 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
   });
   dropCarrion(hub, fight, fighters);
   hub.fights.release(lock.id);
-  for (const [slot, f] of fighters.entries()) settleLife(hub, f, lockedMs[slot] ?? 0);
+  for (const [slot, f] of fighters.entries()) settleLife(hub, f, records[slot]?.activeMs ?? 0);
   freeSeats(hub);
 }
 

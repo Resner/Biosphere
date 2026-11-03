@@ -300,7 +300,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A joiner two tiers from a fighter still in gets `engage:tier`, while one within ±1 of all joins. An engage at an escaped fighter of a running fight gets `engage:locked`.
     - `worthOf` writes no row.
 
-- [x] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4) (in progress)
+- [x] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4)
   - Steps:
     1. `Ledger.settle` (`worker/ledger-encounter.ts`, `worker/ledger.ts`) writes, in one transaction:
        - the records, as M7;

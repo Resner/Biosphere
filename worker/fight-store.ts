@@ -127,8 +127,7 @@ export class FightStore {
    * Writes the tail, the countersigned settlement and `open = 0` in one update, inside the
    * settlement's transaction (`Ledger.settle`); throws when it can't, so the records roll back too.
    */
-  seal(fight: Fight, signed: SignedSettlement): void {
-    const frames = framesOf(fight);
+  seal(fight: Fight, frames: ReturnType<typeof framesOf>, signed: SignedSettlement): void {
     this.run(
       'UPDATE encounters SET frames = ?, persisted = ?, open = 0, settlement = ? WHERE id = ?',
       JSON.stringify(frames),
