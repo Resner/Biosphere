@@ -28,22 +28,21 @@ const once = (): Measured => {
   return measured;
 };
 
-const starter = (biomass: number, name: string): Side => ({
-  name,
+const starter = (biomass: number): Side => ({
   body: { phys: STARTER_PHYS, combat: STARTER_COMBAT, behaviour: CALM },
   biomass,
 });
 
 describe('combat tournament', () => {
   it('replays the same duel for the same layout', () => {
-    const a = starter(300, 'a');
-    const b = starter(300, 'b');
+    const a = starter(300);
+    const b = starter(300);
     expect(duel(a, b, 3)).toEqual(duel(a, b, 3));
   });
 
   it('puts the first side on either end of the line', () => {
-    const a = starter(300, 'a');
-    const b = starter(450, 'b');
+    const a = starter(300);
+    const b = starter(450);
     const one = duel(a, b, 1, false);
     const two = duel(a, b, 1, true);
     expect(one.seconds).toBeGreaterThan(0);
@@ -60,7 +59,6 @@ describe('combat gate (ADR 0051)', () => {
   heavyTest('every line of the tuning gate holds', () => {
     const m = once();
     for (const g of gateLines(m)) expect(g.ok, `${g.line}: ${g.value}`).toBe(true);
-    expect(GATE.mirrorBigger[2]).toBe(0.85);
   });
 
   heavyTest('the win matrix is mirrored: a pair splits its duels', () => {

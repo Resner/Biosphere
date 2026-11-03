@@ -159,9 +159,8 @@ export function simulateLife(
     ) {
       life.matureAtMs = now;
     }
-    for (const k of [0, 1] as const) {
-      if (life.bandMs[k] === null && me.biomass >= (GROWTH_BAND[k] as number)) life.bandMs[k] = now;
-    }
+    if (life.bandMs[0] === null && me.biomass >= GROWTH_BAND[0]) life.bandMs[0] = now;
+    if (life.bandMs[1] === null && me.biomass >= GROWTH_BAND[1]) life.bandMs[1] = now;
     const fed = me.energy >= RULES.mating.minEnergyShare * maxEnergy(me.biomass);
     if (mate && life.matureAtMs !== null && now >= cooldownUntil && fed && me.alive) {
       life.firstEligibleMs ??= now;

@@ -39,12 +39,11 @@ const verdict = (ok: boolean): string => (ok ? 'met' : 'MISSED');
 /** The gate lines, each with its measured value and whether it holds. */
 export function gateLines(m: Measured): { line: string; value: string; ok: boolean }[] {
   const best = Math.max(...m.rates);
-  let pairing = 0;
-  for (const row of m.matrix) for (const v of row) pairing = Math.max(pairing, v);
+  const pairing = Math.max(...m.matrix.flat());
   const mirror = (ratio: number): number => m.mirror.find((r) => r.ratio === ratio)?.score ?? 0;
   const [lo, hi] = GATE.mirrorEven;
   const [from, to] = GATE.genesisMedianSeconds;
-  const lines = [
+  return [
     {
       line: `No archetype wins more than ${pct(GATE.maxArchetypeRate)} overall`,
       value: pct(best),
@@ -76,7 +75,6 @@ export function gateLines(m: Measured): { line: string; value: string; ok: boole
       ok: m.growthPerMinute >= GATE.growthOverForaging * m.forage,
     },
   ];
-  return lines;
 }
 
 /** The report's text without its closing hash line. */
@@ -117,7 +115,7 @@ export function reportBody(m: Measured): string {
     '| Measure | Value |',
     '|---|---|',
     `| Fight length (median, p10, p90) | ${m.genesis.medianSeconds.toFixed(1)} s, ${m.genesis.p10Seconds.toFixed(1)} s, ${m.genesis.p90Seconds.toFixed(1)} s |`,
-    `| Fights that end in a kill | ${m.genesis.kills} of ${m.genesis.duels} |`,
+    `| Fights that end in a kill | ${m.genesis.kills} of ${GENESIS_PAIRS} |`,
     '',
     '## Growth by kills',
     '',

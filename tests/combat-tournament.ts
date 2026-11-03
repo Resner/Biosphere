@@ -12,13 +12,12 @@ import { engageRange } from '../src/sim/encounter/reach';
 import type { Behaviour, FighterStart } from '../src/sim/encounter/types';
 import { cos, sin } from '../src/sim/math';
 import { createRng, hashU32, seedFromString } from '../src/sim/prng';
-import { RULES } from '../src/sim/rules';
-import { maxHealth, starterEnergy } from '../src/sim/vitals';
+import { DT, RULES } from '../src/sim/rules';
 import { ARCHETYPES } from './archetypes';
-import { CALM, startOf } from './encounter-fixture';
+import { CALM, starterFighter, startOf } from './encounter-fixture';
 
-/** A fight lasts at most this many frames; a frame is `RULES.encounter.frameTicks` ticks at 30 Hz. */
-const SECONDS_PER_FRAME = RULES.encounter.frameTicks / 30;
+/** Seconds per encounter frame. */
+const SECONDS_PER_FRAME = RULES.encounter.frameTicks * DT;
 
 /** The mirror duels' behaviour: stubborn (caution 0: it never flees, so a fight ends in a kill) and no dashing in (aggression below 0.5), so strikes alone show the size. */
 const MIRROR_BEHAVIOUR: Behaviour = { ...CALM, aggression: 0.4, caution: 0 };
@@ -33,10 +32,9 @@ export const GENESIS_BIOMASS = 300;
 /** Mirror duels: the genomes that fight a copy of themselves, and the biomass ratios. */
 export const MIRROR_GENOMES = 8;
 export const MIRROR_BIOMASS = 300;
-export const MIRROR_RATIOS = [1, 1.5, 2] as const;
+const MIRROR_RATIOS = [1, 1.5, 2] as const;
 
 export interface Side {
-  name: string;
   body: Pick<FighterStart, 'phys' | 'combat' | 'behaviour'>;
   biomass: number;
 }
@@ -51,7 +49,7 @@ export interface Duel {
   gain: [number, number];
 }
 
-/** The hand-built archetypes carry no behaviour genes, so they fly the middling behaviour: the matrix measures anatomy. */
+/** The hand-built archetypes carry no behaviour genes: the armed or armoured ones fly the middling behaviour, the others this skittish one, so the matrix measures anatomy. */
 const SKITTISH: Behaviour = { ...CALM, aggression: 0.2, caution: 0.9, reflex: 0.9 };
 const archetypeBody = (name: string): Side['body'] => {
   const body = fighterOf(
@@ -72,19 +70,8 @@ const fighterAt = (
   y: number,
   heading: number,
 ): FighterStart => ({
+  ...starterFighter(id, x, y, heading, side.biomass),
   ...side.body,
-  player: `player-${id}`,
-  creature: id,
-  x,
-  y,
-  vx: 0,
-  vy: 0,
-  heading,
-  biomass: side.biomass,
-  energy: starterEnergy(side.biomass),
-  health: maxHealth(side.biomass),
-  elder: false,
-  egg: false,
 });
 
 /**
@@ -97,13 +84,22 @@ export function duel(a: Side, b: Side, layout: number, swap = false): Duel {
   const bearing = rng.next() * 2 * Math.PI;
   const offsets = [(rng.next() - 0.5) * 1.6, (rng.next() - 0.5) * 1.6];
   const mid = RULES.world.size / 2;
-  const at = (side: Side, id: string, sign: number, offset: number): FighterStart => {
-    const facing = bearing + (sign > 0 ? Math.PI : 0) + offset;
-    return fighterAt(side, id, mid, mid, facing);
-  };
-  // The ids order the slots ('a' first); `swap` swaps which side is on which end of the line.
-  const first = at(a, 'a', swap ? 1 : -1, offsets[0] as number);
-  const second = at(b, 'b', swap ? -1 : 1, offsets[1] as number);
+  // The ids order the slots ('a' first); `swap` puts each side on the other end of the line.
+  const flip = swap ? -1 : 1;
+  const first = fighterAt(
+    a,
+    'a',
+    mid,
+    mid,
+    bearing + (swap ? Math.PI : 0) + (offsets[0] as number),
+  );
+  const second = fighterAt(
+    b,
+    'b',
+    mid,
+    mid,
+    bearing + (swap ? 0 : Math.PI) + (offsets[1] as number),
+  );
   const enc = createEncounter(startOf(`combat-${layout}`, [first, second]));
   const [fa, fb] = enc.fighters;
   if (fa === undefined || fb === undefined) throw new Error('two fighters expected');
@@ -111,11 +107,10 @@ export function duel(a: Side, b: Side, layout: number, swap = false): Duel {
   const total = gap + Math.sqrt(a.biomass) + Math.sqrt(b.biomass);
   const dx = cos(bearing) * total;
   const dy = sin(bearing) * total;
-  const sign = swap ? -1 : 1;
-  fa.body.x = mid - (dx / 2) * sign;
-  fa.body.y = mid - (dy / 2) * sign;
-  fb.body.x = mid + (dx / 2) * sign;
-  fb.body.y = mid + (dy / 2) * sign;
+  fa.body.x = mid - (dx / 2) * flip;
+  fa.body.y = mid - (dy / 2) * flip;
+  fb.body.x = mid + (dx / 2) * flip;
+  fb.body.y = mid + (dy / 2) * flip;
   while (!enc.over) stepFrame(enc, [null, null]);
   const [ra, rb] = results(enc);
   if (ra === undefined || rb === undefined) throw new Error('two results expected');
@@ -131,12 +126,12 @@ export function duel(a: Side, b: Side, layout: number, swap = false): Duel {
 }
 
 /** The mean score of `a` over every layout, on both ends of the line. */
-function match(a: Side, b: Side): { score: number; duels: Duel[] } {
-  const duels: Duel[] = [];
+function match(a: Side, b: Side): number {
+  let total = 0;
   for (let layout = 0; layout < LAYOUTS; layout++) {
-    duels.push(duel(a, b, layout, false), duel(a, b, layout, true));
+    total += duel(a, b, layout, false).score + duel(a, b, layout, true).score;
   }
-  return { score: duels.reduce((s, d) => s + d.score, 0) / duels.length, duels };
+  return total / (2 * LAYOUTS);
 }
 
 export interface Tournament {
@@ -151,11 +146,9 @@ export interface Tournament {
     p10Seconds: number;
     p90Seconds: number;
     kills: number;
-    duels: number;
   };
   /** The winners' biomass per minute of fighting across the equal genesis duels. */
   growthPerMinute: number;
-  winners: number;
 }
 
 export const percentile = (sorted: readonly number[], p: number): number =>
@@ -163,44 +156,35 @@ export const percentile = (sorted: readonly number[], p: number): number =>
     ? Number.NaN
     : (sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] as number);
 
-let cached: Tournament | null = null;
-
-/** Runs everything once (it is deterministic, so every caller shares the result). */
+/** Runs the whole tournament (deterministic: the same result every time). */
 export function runTournament(): Tournament {
-  if (cached !== null) return cached;
   const n = ARCHETYPE_NAMES.length;
   const sides = ARCHETYPE_NAMES.map(
-    (name): Side => ({ name, body: archetypeBody(name), biomass: ARCHETYPE_BIOMASS }),
+    (name): Side => ({ body: archetypeBody(name), biomass: ARCHETYPE_BIOMASS }),
   );
   const matrix = Array.from({ length: n }, () => new Array<number>(n).fill(0.5));
   for (let i = 0; i < n; i++) {
     for (let j = i + 1; j < n; j++) {
-      const { score } = match(sides[i] as Side, sides[j] as Side);
+      const score = match(sides[i] as Side, sides[j] as Side);
       (matrix[i] as number[])[j] = score;
       (matrix[j] as number[])[i] = 1 - score;
     }
   }
   const rates = matrix.map((row, i) => row.reduce((s, v, j) => (j === i ? s : s + v), 0) / (n - 1));
 
-  // Mirror duels: a genome against itself at equal size, then against a copy that is bigger.
+  // Mirror duels: a genome against a copy of itself that is as big or bigger. The same anatomy and
+  // behaviour on both sides, so only the size differs.
+  const bodies = Array.from({ length: MIRROR_GENOMES }, (_, g) => ({
+    ...genesisBody(`combat-mirror-${g}`),
+    behaviour: MIRROR_BEHAVIOUR,
+  }));
   const mirror = MIRROR_RATIOS.map((ratio) => {
     let total = 0;
-    let count = 0;
-    for (let g = 0; g < MIRROR_GENOMES; g++) {
-      // The same anatomy and behaviour on both sides, so only the size differs.
-      const body = { ...genesisBody(`combat-mirror-${g}`), behaviour: MIRROR_BEHAVIOUR };
-      const small: Side = { name: 'small', body, biomass: MIRROR_BIOMASS };
-      const big: Side = { name: 'big', body, biomass: MIRROR_BIOMASS * ratio };
-      for (let layout = 0; layout < LAYOUTS; layout++) {
-        // At 1x the score of the first side is the one measured; above it the bigger side's.
-        for (const swap of [false, true]) {
-          const d = duel(big, small, layout, swap);
-          total += d.score;
-          count++;
-        }
-      }
+    for (const body of bodies) {
+      const small: Side = { body, biomass: MIRROR_BIOMASS };
+      total += match({ body, biomass: MIRROR_BIOMASS * ratio }, small);
     }
-    return { ratio, score: total / count };
+    return { ratio, score: total / MIRROR_GENOMES };
   });
 
   // Equal genesis duels: length and growth.
@@ -208,28 +192,18 @@ export function runTournament(): Tournament {
   let kills = 0;
   let gain = 0;
   let winnerSeconds = 0;
-  let winners = 0;
   for (let i = 0; i < GENESIS_PAIRS; i++) {
-    const a: Side = {
-      name: 'a',
-      body: genesisBody(`combat-genesis-${i}-a`),
-      biomass: GENESIS_BIOMASS,
-    };
-    const b: Side = {
-      name: 'b',
-      body: genesisBody(`combat-genesis-${i}-b`),
-      biomass: GENESIS_BIOMASS,
-    };
+    const a: Side = { body: genesisBody(`combat-genesis-${i}-a`), biomass: GENESIS_BIOMASS };
+    const b: Side = { body: genesisBody(`combat-genesis-${i}-b`), biomass: GENESIS_BIOMASS };
     const d = duel(a, b, hashU32(i) % LAYOUTS, i % 2 === 1);
     seconds.push(d.seconds);
     if (!d.kill) continue;
     kills++;
-    winners++;
     gain += d.score === 1 ? d.gain[0] : d.gain[1];
     winnerSeconds += d.seconds;
   }
   seconds.sort((x, y) => x - y);
-  cached = {
+  return {
     archetypes: ARCHETYPE_NAMES,
     matrix,
     rates,
@@ -239,10 +213,7 @@ export function runTournament(): Tournament {
       p10Seconds: percentile(seconds, 0.1),
       p90Seconds: percentile(seconds, 0.9),
       kills,
-      duels: GENESIS_PAIRS,
     },
     growthPerMinute: winnerSeconds > 0 ? (gain / winnerSeconds) * 60 : 0,
-    winners,
   };
-  return cached;
 }
