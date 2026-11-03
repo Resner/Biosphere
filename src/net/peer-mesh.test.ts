@@ -1,6 +1,6 @@
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { toBase64Url } from '../ledger/identity';
-import { encodeSignedFrame } from '../ledger/snapshot-sig';
+import { createIdentity, memoryKeyStore, toBase64Url } from '../ledger/identity';
+import { encodeProxyFrame, encodeSignedFrame } from '../ledger/snapshot-sig';
 import {
   CONNECT_TIMEOUT_MS,
   type DataChannelLike,
@@ -542,6 +542,14 @@ describe('PeerMesh inbound hygiene', () => {
       [7, signed],
       [7, null],
     ]);
+    expect(b.stats().dropped).toBe(0);
+  });
+
+  it('never delivers a 57-byte proxy frame as the sender’s own snapshot, nor counts it', async () => {
+    const { a, b, rx } = await pair();
+    const away = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(5)));
+    expect(a.sendState('b', encodeProxyFrame(away.playerId, encodeSnapshot(SNAP)))).toBe(true);
+    expect(rx.states).toHaveLength(0);
     expect(b.stats().dropped).toBe(0);
   });
 

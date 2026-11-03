@@ -1,16 +1,20 @@
 import {
   decodeSnapshot,
+  PLAYER_KEY_BYTES,
+  PROXY_FRAME_BYTES,
   SIGNATURE_BYTES,
   SIGNED_FRAME_BYTES,
   type SignedSnap,
   SNAPSHOT_BYTES,
   type Snapshot,
 } from '../net/protocol';
-import { fromBase64Url, type Identity, toBase64Url, verify } from './identity';
+import { fromBase64Url, type Identity, isPlayerKey, toBase64Url, verify } from './identity';
 
 // Snapshots signed for lock-in (ADR 0050): the owner's key signs `bs/snap/v1 ‖ 0x0A ‖ pond id ‖
 // 0x0A ‖ the 25 snapshot bytes`, so a snapshot from one pond never engages in another. Candidates
-// receive it on the state channel as an 89-byte frame: the snapshot, then the signature.
+// receive it on the state channel as an 89-byte frame: the snapshot, then the signature. A proxy
+// frame (ADR 0053) is 57 bytes: an away fighter's player key, then the snapshot a connected fighter
+// relays for it from the encounter. It is unsigned: it moves a faded body and feeds nothing else.
 
 export const SNAP_DOMAIN = 'bs/snap/v1';
 const SEPARATOR = 0x0a;
@@ -67,21 +71,41 @@ export function encodeSignedFrame(signed: SignedSnap): Uint8Array {
   return out;
 }
 
+/** The 57-byte proxy frame of `playerId`'s away fighter; a RangeError for a bad player id or snapshot. */
+export function encodeProxyFrame(playerId: string, snapshotBytes: Uint8Array): Uint8Array {
+  const key = typeof playerId === 'string' ? fromBase64Url(playerId) : null;
+  if (!key || !isPlayerKey(key)) throw new RangeError('not a player id');
+  if (snapshotBytes.length !== SNAPSHOT_BYTES) throw new RangeError('not a snapshot');
+  const out = new Uint8Array(PROXY_FRAME_BYTES);
+  out.set(key);
+  out.set(snapshotBytes, PLAYER_KEY_BYTES);
+  return out;
+}
+
 /**
- * A state-channel frame: a plain 25-byte snapshot (`signed` null) or an 89-byte signed one, whose
- * signature is not checked here (`verifySnap` does). Null for anything else. Never throws.
+ * A state-channel frame: a plain 25-byte snapshot, an 89-byte signed one (`signed`, whose signature
+ * is not checked here: `verifySnap` does) or a 57-byte proxy frame (`proxyFor`, the away player's
+ * id). Null for anything else, a proxy key that is no player key included. Never throws.
  */
 export function decodeStateFrame(
   bytes: Uint8Array,
-): { snapshot: Snapshot; signed: SignedSnap | null } | null {
+): { snapshot: Snapshot; signed: SignedSnap | null; proxyFor: string | null } | null {
   if (!(bytes instanceof Uint8Array)) return null;
+  if (bytes.length === PROXY_FRAME_BYTES) {
+    const snapshot = decodeSnapshot(bytes.subarray(PLAYER_KEY_BYTES));
+    const key = bytes.subarray(0, PLAYER_KEY_BYTES);
+    return snapshot && isPlayerKey(key)
+      ? { snapshot, signed: null, proxyFor: toBase64Url(key) }
+      : null;
+  }
   if (bytes.length !== SNAPSHOT_BYTES && bytes.length !== SIGNED_FRAME_BYTES) return null;
   const snap = bytes.subarray(0, SNAPSHOT_BYTES);
   const snapshot = decodeSnapshot(snap);
   if (!snapshot) return null;
-  if (bytes.length === SNAPSHOT_BYTES) return { snapshot, signed: null };
+  if (bytes.length === SNAPSHOT_BYTES) return { snapshot, signed: null, proxyFor: null };
   return {
     snapshot,
     signed: { snap: toBase64Url(snap), sig: toBase64Url(bytes.subarray(SNAPSHOT_BYTES)) },
+    proxyFor: null,
   };
 }

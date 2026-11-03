@@ -21,22 +21,20 @@ import { combatTick, newFx, thrustMod } from './combat';
 import { followEgg, seatEgg } from './egg';
 import { finish, living, resultOf } from './outcome';
 import { engageRange, strikeDistance } from './reach';
-import type {
-  Encounter,
-  EncounterEvent,
-  EncounterStart,
-  Fighter,
-  FighterResult,
-  FighterStart,
-  FrameInput,
+import {
+  type Encounter,
+  type EncounterEvent,
+  type EncounterStart,
+  FIGHTER_WORTHS,
+  type Fighter,
+  type FighterResult,
+  type FighterStart,
+  type FrameInput,
 } from './types';
 
 const E = RULES.encounter;
 
 const NUMBERS = ['x', 'y', 'vx', 'vy', 'heading', 'biomass', 'energy', 'health', 'worth'] as const;
-
-/** A worth is 2^-k with k from 0 to 7 (`RULES.encounter.farming.maxHalvings` + the young halving). */
-const WORTHS: readonly number[] = [1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125];
 
 function validate(start: EncounterStart): void {
   const n = start.fighters.length;
@@ -57,7 +55,7 @@ export function checkFighter(f: FighterStart): void {
     if (!Number.isFinite(f[key])) throw new RangeError(`fighter ${f.creature}: bad ${key}`);
   }
   if (f.biomass <= 0 || f.health < 0 || f.energy < 0) throw new RangeError('bad fighter vitals');
-  if (!WORTHS.includes(f.worth)) throw new RangeError(`fighter ${f.creature}: bad worth`);
+  if (!FIGHTER_WORTHS.includes(f.worth)) throw new RangeError(`fighter ${f.creature}: bad worth`);
   if (!isPhysShape(f.phys)) throw new RangeError(`fighter ${f.creature}: not a body`);
 }
 

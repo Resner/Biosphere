@@ -326,7 +326,7 @@ export const hundredths = (f: { biomass: number; energy: number; health: number 
 export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
   const genome = await authority((o) => o.ledger.head(a.creature)?.genome ?? '');
   const at = clock.t + E.startDelayMs;
-  const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, genome, y: 3000 };
+  const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, worth: 1, genome, y: 3000 };
   const vitals = { biomass: RULES.starter.biomass, energy: 150, health: 100 };
   const fighters: FighterInfo[] = [a, b].map((p, k) => ({
     ...base,

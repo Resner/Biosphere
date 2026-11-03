@@ -27,6 +27,7 @@ const fighter = (creature: string, x: number): FighterInfo => ({
   health: 80,
   elder: false,
   egg: true,
+  worth: 0.25,
 });
 
 const msg: EncStart = {
@@ -49,7 +50,9 @@ describe('encounterStartOf', () => {
     expect(start.seed).toEqual(seedWords(msg.seed));
     const body = fighterOf(buildCreature(decoded));
     const { genome: _text, ...state } = fighter('b'.repeat(64), 5220);
-    expect(start.fighters[0]).toEqual({ ...state, worth: 1, ...body });
+    expect(start.fighters[0]).toEqual({ ...state, ...body });
+    // The worth as prey travels in `FighterInfo` (protocol 8).
+    expect(start.fighters[0]?.worth).toBe(0.25);
     // Two builds of one message step alike.
     expect(createEncounter(start)).toEqual(
       createEncounter(encounterStartOf(msg, 'pond-seed') ?? start),

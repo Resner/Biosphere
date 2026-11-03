@@ -39,16 +39,18 @@ import {
   type Vec2,
   WELCOME_MAX_BYTES,
 } from './protocol-defs';
-import { encounterClientMsg, encounterHubMsg } from './protocol-encounter';
+import { encounterClientMsg, encounterHubMsg, lifeFight } from './protocol-encounter';
 import {
   byteLength,
   capped,
   GENOME_DATA_RE,
   HEX64_RE,
+  ID_RE,
   isInt,
   isNum,
   isObj,
   isStr,
+  KEY_ID_RE,
   list,
   MAX_CONDITION,
   MAX_TICK,
@@ -63,11 +65,8 @@ export { byteLength };
 const NONCE_RE = /^[A-Za-z0-9_-]{22}$/;
 const SLOT_RE = /^[A-Za-z0-9_]{1,24}$/;
 const CODE_RE = /^[a-z0-9-]{1,32}$/;
-const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 /** A drand quicknet signature: 48 bytes of hex. */
 const BEACON_SIG_RE = /^[0-9a-f]{96}$/;
-/** An authority key id: 6 bytes of base64url. */
-const KEY_ID_RE = /^[A-Za-z0-9_-]{8}$/;
 /** A species name: two words of letters, as `speciesName` makes them. */
 const SPECIES_RE = /^[A-Za-z]{2,40} [A-Za-z]{2,40}$/;
 /** Far above any queue the free tier lets build up. */
@@ -250,6 +249,8 @@ export function parseHubMsg(raw: string): HubMsg | null {
         return null;
       }
       if (fallback === null || (o.renewed !== undefined && o.renewed !== true)) return null;
+      const fight = lifeFight(o);
+      if (!fight) return null;
       return capped(
         raw,
         {
@@ -259,6 +260,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
           ...(pending ? { pending } : {}),
           ...(fallback ? { fallback } : {}),
           ...(o.renewed ? { renewed: true as const } : {}),
+          ...fight,
         },
         pending ? BORN_MAX_BYTES : HUB_MAX_BYTES,
       );

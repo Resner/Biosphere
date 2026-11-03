@@ -14,7 +14,8 @@ import {
   type SignedSnap,
 } from './protocol';
 
-// Protocol 7 (M7 T6): the encounter messages and shapes of docs/specs/M7-encounters.md.
+// Protocol 7 (M7 T6): the encounter messages and shapes of docs/specs/M7-encounters.md, with
+// protocol 8's worth (M8 T3; the rest of protocol 8 is in `protocol-fight.test.ts`).
 
 const PID = 'A'.repeat(43);
 const PID2 = 'B'.repeat(43);
@@ -41,6 +42,7 @@ const fighter = (over: Partial<FighterInfo> = {}): FighterInfo => ({
   health: 77.125,
   elder: false,
   egg: true,
+  worth: 0.5,
   ...over,
 });
 const outcome = (over: Partial<FighterOutcome> = {}): FighterOutcome => ({
@@ -291,21 +293,23 @@ describe('encounter ranges', () => {
     expect(raw.length).toBeLessThanOrEqual(ENC_START_MAX_BYTES);
     expect(parseHubMsg(raw)).toEqual(worst);
     expect(ENC_START_MAX_BYTES).toBe(8192);
-    // Past the 4 KB of other hub messages, still within its own cap.
-    expect(hub({ ...worst, pad: 'x'.repeat(HUB_MAX_BYTES) })).toEqual(worst);
-    expect(hub({ ...worst, pad: 'x'.repeat(ENC_START_MAX_BYTES) })).toBeNull();
+    // Past the 4 KB of other hub messages, still within its own cap, to the byte: `,"pad":""` is 9.
+    const room = ENC_START_MAX_BYTES - raw.length - 9;
+    expect(raw.length + 9 + room).toBeGreaterThan(HUB_MAX_BYTES);
+    expect(hub({ ...worst, pad: 'x'.repeat(room) })).toEqual(worst);
+    expect(hub({ ...worst, pad: 'x'.repeat(room + 1) })).toBeNull();
 
     const worstEnd = {
       ...end,
       fighters: [0, 1, 2, 3].map((n) => {
-        const { genome: _g, elder: _e, egg: _egg, ...rest } = big(n);
+        const { genome: _g, elder: _e, egg: _egg, worth: _w, ...rest } = big(n);
         return { ...rest, outcome: 'killed', cause: 'pressure', by: 3, egg: 'eaten', eggBy: 3 };
       }),
     };
     const rawEnd = JSON.stringify(worstEnd);
     expect(rawEnd.length).toBeLessThanOrEqual(ENC_END_MAX_BYTES);
     expect(parseHubMsg(rawEnd)).toEqual(worstEnd);
-    expect(ENC_END_MAX_BYTES).toBe(4096);
+    expect(ENC_END_MAX_BYTES).toBe(8192);
     expect(hub({ ...worstEnd, pad: 'x'.repeat(ENC_END_MAX_BYTES) })).toBeNull();
     expect(hub({ ...join, pad: 'x'.repeat(HUB_MAX_BYTES) })).toBeNull();
     expect(client({ ...engage, pad: 'x'.repeat(HUB_MAX_BYTES) })).toBeNull();

@@ -1,3 +1,5 @@
+import type { SettledFighter, Settlement, SignedSettlement } from '../ledger/settlement';
+import { FIGHTER_WORTHS } from '../sim/encounter/types';
 import {
   type ClientMsg,
   ENC_END_MAX_BYTES,
@@ -6,18 +8,23 @@ import {
   ENC_START_MAX_BYTES,
   type FighterInfo,
   type FighterOutcome,
+  type FighterState,
+  type FightReport,
   type HubMsg,
   isCause,
+  NAME_RE,
   type SignedSnap,
 } from './protocol-defs';
 import {
   capped,
   GENOME_DATA_RE,
   HEX64_RE,
+  ID_RE,
   isInt,
   isNum,
   isObj,
   isStr,
+  KEY_ID_RE,
   list,
   MAX_CONDITION,
   MAX_TICK,
@@ -27,8 +34,9 @@ import {
   SIG_RE,
 } from './protocol-kit';
 
-// Protocol 7's encounter messages (ADR 0050, M7). Every number is finite and in range, ids are hex
-// and player ids well-formed; anything else parses as null.
+// The encounter messages (ADR 0050, M7), with protocol 8's worth, settlement and away report (ADRs
+// 0053 and 0054). Every number is finite and in range, ids are hex and player ids well-formed;
+// anything else parses as null.
 
 /** A lock id: 8 to 32 random bytes as hex. */
 const LOCK_RE = /^[0-9a-f]{16,64}$/;
@@ -59,7 +67,7 @@ function signedSnap(v: unknown): SignedSnap | null {
 }
 
 /** The fields a fighter's start and its outcome share, or null. */
-function fighterState(v: Obj): Omit<FighterInfo, 'genome' | 'elder' | 'egg'> | null {
+function fighterState(v: Obj): FighterState | null {
   return isStr(v.player, PLAYER_ID_RE) &&
     isStr(v.creature, HEX64_RE) &&
     isPos(v.x) &&
@@ -91,10 +99,14 @@ function fighterInfo(v: unknown): FighterInfo | null {
     isObj(v) &&
     isStr(v.genome, GENOME_DATA_RE) &&
     typeof v.elder === 'boolean' &&
-    typeof v.egg === 'boolean'
-    ? { ...state, genome: v.genome, elder: v.elder, egg: v.egg }
+    typeof v.egg === 'boolean' &&
+    isWorth(v.worth)
+    ? { ...state, genome: v.genome, elder: v.elder, egg: v.egg, worth: v.worth }
     : null;
 }
+
+/** A worth as prey: exactly one of 1, 0.5, …, 2^-7. */
+const isWorth = (v: unknown): v is number => typeof v === 'number' && FIGHTER_WORTHS.includes(v);
 
 const OUTCOMES: Record<FighterOutcome['outcome'], true> = {
   killed: true,
@@ -196,12 +208,18 @@ export function encounterHubMsg(o: Obj, raw: string): HubMsg | null {
     }
     case 'enc-end': {
       const fighters = perSlot(o.fighters, fighterOutcome);
-      return fighters && isStr(o.enc, HEX64_RE) && isFrame(o.f) && isStr(o.hash, STATE_HASH_RE)
-        ? capped(
-            raw,
-            { t: 'enc-end', enc: o.enc, f: o.f, hash: o.hash, fighters },
-            ENC_END_MAX_BYTES,
-          )
+      if (!fighters || !isStr(o.enc, HEX64_RE) || !isFrame(o.f) || !isStr(o.hash, STATE_HASH_RE))
+        return null;
+      const msg = { t: 'enc-end' as const, enc: o.enc, f: o.f, hash: o.hash, fighters };
+      if (o.settlement === undefined) return capped(raw, msg, ENC_END_MAX_BYTES);
+      const settlement = signedSettlement(o.settlement);
+      const doc = settlement?.settlement;
+      // The document settles this very fight: its encounter, its end state and one result per slot.
+      return doc &&
+        doc.enc === o.enc &&
+        doc.hash === o.hash &&
+        doc.results.length === fighters.length
+        ? capped(raw, { ...msg, settlement }, ENC_END_MAX_BYTES)
         : null;
     }
     case 'carrion':
@@ -226,4 +244,134 @@ export function encounterHubMsg(o: Obj, raw: string): HubMsg | null {
     default:
       return null;
   }
+}
+
+// ---------------------------------------------------------------------------------------------
+// Protocol 8: the signed settlement (ADR 0054) and what `life` says about fights (ADR 0053).
+
+/** A count of hundredths in a settled result. */
+const isHundredths = (v: unknown): v is number => isInt(v, 0, MAX_CONDITION);
+
+function settledFighter(v: unknown): SettledFighter | null {
+  if (
+    !isObj(v) ||
+    !isStr(v.player, PLAYER_ID_RE) ||
+    !isStr(v.creature, HEX64_RE) ||
+    !isKey(OUTCOMES, v.outcome) ||
+    !(v.cause === undefined || isCause(v.cause)) ||
+    !(v.by === undefined || isSlot(v.by)) ||
+    !isFrame(v.frame) ||
+    !isKey(EGGS, v.egg) ||
+    !(v.eggBy === undefined || isSlot(v.eggBy)) ||
+    !isHundredths(v.biomass) ||
+    !isHundredths(v.energy) ||
+    !isHundredths(v.health) ||
+    !isHundredths(v.reward)
+  )
+    return null;
+  // Canonical JSON: an absent cause or slot is an absent key.
+  return {
+    player: v.player,
+    creature: v.creature,
+    outcome: v.outcome,
+    ...(v.cause === undefined ? {} : { cause: v.cause }),
+    ...(v.by === undefined ? {} : { by: v.by }),
+    frame: v.frame,
+    egg: v.egg,
+    ...(v.eggBy === undefined ? {} : { eggBy: v.eggBy }),
+    biomass: v.biomass,
+    energy: v.energy,
+    health: v.health,
+    reward: v.reward,
+  };
+}
+
+function settlementDoc(v: unknown): Settlement | null {
+  if (!isObj(v)) return null;
+  const results = perSlot(v.results, settledFighter);
+  const joins = list(v.joins, ENC_MAX_FIGHTERS - MIN_FIGHTERS, (j) =>
+    isStr(j, HEX64_RE) ? j : null,
+  );
+  if (
+    !results ||
+    !joins ||
+    // Every slot past the starters is a join.
+    joins.length > results.length - MIN_FIGHTERS ||
+    v.v !== 1 ||
+    v.kind !== 'settlement' ||
+    !isInt(v.rules, 0, MAX_TICK) ||
+    !isStr(v.enc, HEX64_RE) ||
+    !isStr(v.pondSeed, ID_RE) ||
+    !isStr(v.start, HEX64_RE) ||
+    !isInt(v.frames, 0, ENC_MAX_FRAME + 1) ||
+    !isStr(v.root, HEX64_RE) ||
+    !isStr(v.hash, STATE_HASH_RE) ||
+    v.referee !== 'authority' ||
+    !isInt(v.t, 0, MAX_TIME)
+  )
+    return null;
+  return {
+    v: 1,
+    kind: 'settlement',
+    rules: v.rules,
+    enc: v.enc,
+    pondSeed: v.pondSeed,
+    start: v.start,
+    joins,
+    frames: v.frames,
+    root: v.root,
+    hash: v.hash,
+    referee: 'authority',
+    results,
+    t: v.t,
+  };
+}
+
+function signedSettlement(v: unknown): SignedSettlement | null {
+  if (!isObj(v)) return null;
+  const settlement = settlementDoc(v.settlement);
+  return settlement &&
+    isStr(v.hash, HEX64_RE) &&
+    isStr(v.authSig, SIG_RE) &&
+    isStr(v.keyId, KEY_ID_RE)
+    ? { settlement, hash: v.hash, authSig: v.authSig, keyId: v.keyId }
+    : null;
+}
+
+/** A player name in a report, or null for none. */
+const isNameOrNull = (v: unknown): v is string | null => v === null || isStr(v, NAME_RE);
+
+function fightReport(v: unknown): FightReport | null {
+  return isObj(v) &&
+    isStr(v.enc, HEX64_RE) &&
+    isKey(OUTCOMES, v.outcome) &&
+    (v.cause === null || isCause(v.cause)) &&
+    isNameOrNull(v.by) &&
+    isKey(EGGS, v.egg) &&
+    isNameOrNull(v.eggBy) &&
+    isFrame(v.frames)
+    ? {
+        enc: v.enc,
+        outcome: v.outcome,
+        cause: v.cause,
+        by: v.by,
+        egg: v.egg,
+        eggBy: v.eggBy,
+        frames: v.frames,
+      }
+    : null;
+}
+
+/**
+ * A `life` message's fight fields: the running encounter its creature is locked in and the report of
+ * a fight settled while the player was away, each when present. Null when either is malformed.
+ */
+export function lifeFight(o: Obj): { fight?: string; report?: FightReport } | null {
+  if (o.fight !== undefined && !isStr(o.fight, HEX64_RE)) return null;
+  const report = o.report === undefined ? undefined : fightReport(o.report);
+  if (report === null) return null;
+  return {
+    ...(o.fight === undefined ? {} : { fight: o.fight }),
+    ...(report ? { report } : {}),
+  };
 }

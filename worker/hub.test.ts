@@ -163,7 +163,7 @@ describe('hub hello', () => {
     },
   );
 
-  it.each([1, 6])('closes 4002 for protocol version %i', async (v) => {
+  it.each([1, 6, 7])('closes 4002 for protocol version %i', async (v) => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
     c.send({ ...hello, v });
