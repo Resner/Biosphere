@@ -372,13 +372,13 @@
       [null, null, null]
     ]
   },
-  "hash": "c85d69dc363a6b55",
+  "hash": "3268e76eeb5d82d4",
   "results": [
     {
       "outcome": "escaped",
       "cause": null,
       "by": null,
-      "frame": 144,
+      "frame": 176,
       "biomass": 140,
       "egg": "none",
       "eggBy": null
@@ -387,7 +387,7 @@
       "outcome": "stood",
       "cause": null,
       "by": null,
-      "frame": 144,
+      "frame": 176,
       "biomass": 100,
       "egg": "kept",
       "eggBy": null
@@ -396,7 +396,7 @@
       "outcome": "killed",
       "cause": "killed",
       "by": 0,
-      "frame": 76,
+      "frame": 86,
       "biomass": 100,
       "egg": "none",
       "eggBy": null

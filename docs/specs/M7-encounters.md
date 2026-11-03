@@ -270,7 +270,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `src/sim/encounter/autopilot.ts`; `stepFrame` flies every `null` of a fighter still in (a dead fighter's `null` stays idle), constants in `RULES.encounter.autopilot`, golden `encounter-autopilot`.
   - Note: "strongest" is the opponent whose strike hurts the pilot most; the existing goldens are unchanged by T4 since none sends `null` to a live fighter with opponents.
 
-- [ ] T5 Combat tournament: balance, size and growth by kills (after T4)
+- [x] T5 Combat tournament: balance, size and growth by kills (after T4)
   - Steps:
     1. Add `tests/combat-tournament.ts`:
        - round-robin duels between the 11 archetypes of `tests/archetypes.ts` at 400 biomass, each pair from 8 seeded start layouts and both sides;
@@ -289,6 +289,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - The winners' growth per minute of fighting is ≥ 1.5 × the forager's.
     - The report's hash is pinned per rules version, and `npm run report:combat` reproduces `docs/perf/combat.md`.
   - Notes: if no tuning meets every line, change the formula within ADR 0051 (its fallback is damage by `r^0.75`). Record a lasting change as an ADR. Never loosen a line.
+  - Done: `tests/combat-tournament.ts`, `tools/combat-report.ts` and `docs/perf/combat.md` (`npm run report:combat`) hold every line with one tuned value: `powerWeapon` 1.2 → 0.6 (the hunter and carapaced bodies won 82% and 70% before it; rules 9 is unreleased, so the encounter goldens are regenerated and the duel scenario stays on the hunter for 90 frames). A kill is the only win, since an escape loses nothing and a fighter that flees at low health usually gets away; mirror duels use a stubborn behaviour (caution 0, no dash-in) so that strikes alone show the size, and the hand-built archetypes, which carry no behaviour genes, fly a middling (armed) or skittish (unarmed) one. No ADR: ADR 0051 leaves the numbers to this task.
 
 ### Lock-in and the referee
 
