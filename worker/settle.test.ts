@@ -32,7 +32,9 @@ useFightHub();
 /** Every message the client receives from now on, in order. */
 function log(c: Client): HubMsg[] {
   const seen: HubMsg[] = [];
-  c.ws.addEventListener('message', (e) => seen.push(JSON.parse(String(e.data)) as HubMsg));
+  c.ws.addEventListener('message', (e) => {
+    seen.push(JSON.parse(String(e.data)) as HubMsg);
+  });
   return seen;
 }
 

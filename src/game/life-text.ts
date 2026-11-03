@@ -67,3 +67,9 @@ export const DEATH_TEXT: Readonly<Record<DeathCause, { name: string; hint: strin
   killed: { name: 'Killed', hint: 'Another creature got you.' },
   eaten: { name: 'Eaten', hint: 'A predator ate the egg. Guard it when you fight.' },
 };
+
+/** The death screen's headline: the cause, and the killer's name when the hub gave one (M7 T13). */
+export function deathName(cause: DeathCause, by: string | null): string {
+  const { name } = DEATH_TEXT[cause];
+  return cause === 'killed' && by ? `${name} by ${by}` : name;
+}

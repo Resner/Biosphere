@@ -575,6 +575,40 @@ describe('life clock', () => {
     expect(flow.expired).toBe(false);
   });
 
+  it('knows the authority settled a kill, and who did it, until the next hatch (M7 T13)', async () => {
+    await play();
+    expect(flow.killer).toBeNull();
+    feed({ t: 'died', cause: 'killed', record: genesisMsg().record, by: 'Ana' });
+    expect(flow.killer).toBe('Ana');
+    expect(flow.expired).toBe(false);
+    expect(flow.view().status).toBe('dead');
+    // The local death that follows is the authority's own: nothing is reported back.
+    flow.died('killed', 50);
+    expect(sent.filter((m) => m.t === 'death')).toEqual([]);
+    await play();
+    expect(flow.killer).toBeNull();
+    // A kill without a name still ends the creature.
+    feed({ t: 'died', cause: 'killed', record: genesisMsg().record });
+    expect(flow.killer).toBe('');
+  });
+
+  it('never reports a kill or an eaten egg itself', async () => {
+    for (const cause of ['killed', 'eaten'] as const) {
+      await play();
+      flow.died(cause, 10);
+      expect(flow.view().status).toBe('dead');
+    }
+    expect(sent.filter((m) => m.t === 'death')).toEqual([]);
+  });
+
+  it('lets an eaten egg go: no child is pending any more', async () => {
+    await play();
+    feed({ t: 'born' } as never);
+    expect(flow.view().pending).toBe(true);
+    flow.eggEaten();
+    expect(flow.view().pending).toBe(false);
+  });
+
   it('does not carry an old-age ending into a practice cell', async () => {
     await play();
     feed({ t: 'died', cause: 'old-age', record: genesisMsg().record });

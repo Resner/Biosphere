@@ -2,8 +2,6 @@
 // fighter hears `died` with its fallback, everyone gets `enc-end`, the locks go and each connected
 // life takes its result. T14's carrion broadcast belongs here too.
 
-import { genomeFromBase64url } from '../src/genome/codec';
-import { speciesName } from '../src/genome/names';
 import type { FighterOutcome, HubMsg } from '../src/net/protocol';
 import { hashEncounter, results } from '../src/sim/encounter/encounter';
 import type { Encounter } from '../src/sim/encounter/types';
@@ -61,16 +59,6 @@ function playing(hub: Hub, player: string, creature: string) {
   return found && life?.creature === creature && !life.over ? { found, life } : null;
 }
 
-/** What `died` calls a killer: its player's name while connected, else its creature's species. */
-function nameOf(hub: Hub, enc: Encounter, slot: number | null): string | undefined {
-  const f = slot === null ? undefined : enc.fighters[slot];
-  if (!f) return undefined;
-  const found = seated(hub, f.player);
-  if (found) return found[1].name;
-  const genome = genomeFromBase64url(hub.ledger.head(f.creature)?.genome ?? '');
-  return genome ? speciesName(genome) : undefined;
-}
-
 /**
  * Settles a fight that is over: its records (`Ledger.settle`), then `died` to each dead fighter
  * who is connected (the fallback computed after the records), then `enc-end` to everyone. The
@@ -111,7 +99,8 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
     const now = survived(f) ? null : playing(hub, f.player, f.creature);
     const record = now ? hub.ledger.deathRecord(f.creature) : null;
     if (!now || !record || f.cause === null) continue;
-    const by = f.cause === 'killed' ? nameOf(hub, enc, f.by) : undefined;
+    // The killer as its player was named when the fight began (it may have left since).
+    const by = f.cause === 'killed' && f.by !== null ? fight.names[f.by] || undefined : undefined;
     sendIfOpen(now.found[0], {
       t: 'died',
       cause: f.cause,

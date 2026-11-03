@@ -9,7 +9,7 @@ import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import type { Encounter } from '../src/sim/encounter/types';
 import type { Asking } from './engage';
 import { settle, tell } from './settle';
-import type { ActiveSession, Hub } from './socket';
+import { type ActiveSession, type Hub, seated } from './socket';
 
 /** The time and timers the fights run on; hub tests swap in a hand-moved one. */
 export interface Clock {
@@ -30,6 +30,8 @@ export interface Fight {
   enc: Encounter;
   /** The player in each slot. */
   players: string[];
+  /** Each slot's player name at the start ('' when it was away), for `died` to name a killer. */
+  names: string[];
 }
 
 /** One lock: asking the target for its state, then running from `enc-start`. */
@@ -143,6 +145,7 @@ export function runFight(hub: Hub, lock: Lock, msg: EncStart, pondSeed: string):
     referee: new Referee({ startAt: msg.at, slots: enc.fighters.length }),
     enc,
     players: enc.fighters.map((f) => f.player),
+    names: enc.fighters.map((f) => seated(hub, f.player)?.[1].name ?? ''),
   };
   armNext(hub, lock);
   return true;

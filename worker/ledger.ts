@@ -16,7 +16,12 @@ import {
   transitionOutcome,
 } from '../src/ledger/record';
 import { RULES_VERSION } from '../src/sim/rules';
-import { type FightRecords, type SettleResult, settleRecords } from './ledger-encounter';
+import {
+  type FightRecords,
+  HOLDS_ENCOUNTER,
+  type SettleResult,
+  settleRecords,
+} from './ledger-encounter';
 
 // The ledger store (ADR 0019): plain functions over SQLite, so tests need no sockets. Every
 // accepted record is one transaction that appends to a creature's chain and moves its head.
@@ -146,20 +151,10 @@ export class Ledger {
         {
           head: (id) => this.head(id),
           pending: (owner) => this.pending(owner),
-          holds: (creature, enc) =>
-            this.run(
-              "SELECT 1 FROM records WHERE creature = ? AND json_extract(json, '$.body.enc') = ? LIMIT 1",
-              creature,
-              enc,
-            ).length > 0,
+          holds: (creature, enc) => this.run(HOLDS_ENCOUNTER, creature, enc).length > 0,
           write: (head, record, next) => {
-            const stored = this.store(
-              record,
-              recordHash(record),
-              requestHash(record),
-              null,
-              head.id,
-            );
+            const hash = recordHash(record);
+            const stored = this.store(record, hash, requestHash(record), null, head.id);
             this.advance(head, record, stored.hash, next);
             return stored;
           },

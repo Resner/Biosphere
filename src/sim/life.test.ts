@@ -140,6 +140,16 @@ describe('applyLife', () => {
     expect(applyLife(world, young.id, 'expire')).toEqual([]);
   });
 
+  it('killed ends the creature as the authority settled its fight (M7 T13)', () => {
+    const { world, young } = elderPair();
+    expect(applyLife(world, young.id, 'killed')).toEqual([
+      { type: 'death', creature: young.id, cause: 'killed' },
+    ]);
+    expect(young).toMatchObject({ alive: false, health: 0, cause: 'killed' });
+    expect(applyLife(world, young.id, 'expire')).toEqual([]);
+    expect(young.cause).toBe('killed');
+  });
+
   it('leaves the first cause of death alone and ignores unknown creatures', () => {
     const { world, young } = elderPair();
     young.alive = false;

@@ -7,8 +7,8 @@ import type { StepEvent, World } from './types';
 import { maxHealth } from './vitals';
 
 export type LifeStage = 'young' | 'mature' | 'old';
-export type LifeEventKind = 'elder' | 'expire' | 'mate';
-/** `[tick, kind]`: the authority's call that a creature turned elder, ran out of time or mated. */
+export type LifeEventKind = 'elder' | 'expire' | 'mate' | 'killed';
+/** `[tick, kind]`: the authority's call that a creature turned elder, ran out of time, mated or was killed in a fight. */
 export type LifeEvent = readonly [tick: number, kind: LifeEventKind];
 
 /** The lifespan in ms of active time for a lifespan trait value (no genome import in the sim). */
@@ -45,8 +45,9 @@ export function accrue(prevTicks: number, ticks: number, wallMs: number): number
 }
 
 /**
- * Applies a life event to a creature: `elder` sets the flag, `expire` kills it of old age and
- * `mate` pays the mating cost (the radius follows the biomass; health is clamped to its maximum).
+ * Applies a life event to a creature: `elder` sets the flag, `expire` kills it of old age,
+ * `killed` ends it as a settled fight did (M7 T13) and `mate` pays the mating cost (the radius
+ * follows the biomass; health is clamped to its maximum).
  */
 export function applyLife(world: World, creatureId: string, kind: LifeEventKind): StepEvent[] {
   const creature = world.creatures.find((c) => c.id === creatureId);
@@ -62,8 +63,9 @@ export function applyLife(world: World, creatureId: string, kind: LifeEventKind)
     creature.health = Math.min(creature.health, maxHealth(creature.biomass));
     return [];
   }
+  const cause = kind === 'killed' ? 'killed' : 'old-age';
   creature.alive = false;
   creature.health = 0;
-  creature.cause = 'old-age';
-  return [{ type: 'death', creature: creature.id, cause: 'old-age' }];
+  creature.cause = cause;
+  return [{ type: 'death', creature: creature.id, cause }];
 }

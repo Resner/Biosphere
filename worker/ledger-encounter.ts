@@ -67,6 +67,10 @@ export interface ChainOps {
 
 const SURVIVED: readonly Outcome[] = ['escaped', 'stood'];
 
+/** Whether a creature's chain holds a record of an encounter (bindings: creature, encounter id). */
+export const HOLDS_ENCOUNTER =
+  "SELECT 1 FROM records WHERE creature = ? AND json_extract(json, '$.body.enc') = ? LIMIT 1";
+
 /**
  * Writes the encounter's records: an `encounter` record per survivor; per dead fighter a checkpoint
  * if its last report is unsaved, then its `death`; per eaten egg the pending child's `death`. A

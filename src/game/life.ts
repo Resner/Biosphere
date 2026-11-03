@@ -103,6 +103,8 @@ export interface LifeClock {
 
 /** Reports kept to match an ack with the ticks it answers. */
 const SENT_KEPT = 4;
+/** Causes only the hub decides (its clock, or a fight's settlement): the client never reports them. */
+const HUB_CAUSES: readonly DeathCause[] = ['old-age', 'killed', 'eaten'];
 const MS_PER_TICK = 1000 / TICK_HZ;
 
 /** The longest a genesis may wait for its beacon: the round comes in 3 to 6 s. */
@@ -159,6 +161,8 @@ export class LifeFlow {
   private baseTicks = 0;
   private sentReports: { n: number; ticks: number; biomass: number }[] = [];
   private oldAge = false;
+  /** The killer's name (empty when unnamed) once the hub has settled a kill of this creature. */
+  private killedBy: string | null = null;
   private matureAtMs = 0;
   private cooldownUntilMs = 0;
   private pending = false;
@@ -188,6 +192,16 @@ export class LifeFlow {
   /** True once the hub has ended the creature of old age; the next hatch clears it. */
   get expired(): boolean {
     return this.oldAge;
+  }
+
+  /** Who killed the creature, once the hub has settled the fight (M7 T13): '' unnamed, null alive. */
+  get killer(): string | null {
+    return this.killedBy;
+  }
+
+  /** The pending child's egg was eaten in a fight: there is no child to fall back on. */
+  eggEaten(): void {
+    this.pending = false;
   }
 
   /**
@@ -277,6 +291,7 @@ export class LifeFlow {
       case 'died':
         if (this.status === 'playing') {
           this.oldAge = msg.cause === 'old-age';
+          this.killedBy = msg.cause === 'killed' ? (msg.by ?? '') : null;
           this.ended();
         }
         // The hub's `died` follows the client's own report of a death, which has already ended it.
@@ -305,6 +320,7 @@ export class LifeFlow {
     this.status = 'practice';
     this.creature = null;
     this.oldAge = false;
+    this.killedBy = null;
   }
 
   /** Cheap to read every frame; `view()` builds a new object. */
@@ -407,12 +423,12 @@ export class LifeFlow {
     return { kind: 'failed', message };
   }
 
-  /** The creature died; the hub hears once. Old age is the hub's own call. */
+  /** The creature died; the hub hears once. Old age, a kill and an eaten egg are the hub's own call. */
   died(cause: DeathCause, ticks: number): void {
     if (this.status !== 'playing') return;
     const sent = this.count(ticks);
     this.ended();
-    if (cause !== 'old-age') this.link?.send({ t: 'death', cause, ticks: sent });
+    if (!HUB_CAUSES.includes(cause)) this.link?.send({ t: 'death', cause, ticks: sent });
   }
 
   /** Report `n` as it went out (the newest with that number). */
@@ -474,6 +490,7 @@ export class LifeFlow {
     this.baseTicks = 0;
     this.sentReports = [];
     this.oldAge = false;
+    this.killedBy = null;
     this.matureAtMs = 0;
     this.cooldownUntilMs = 0;
     return { kind: 'recorded', start, protect };
