@@ -275,4 +275,67 @@ describe('EggShow', () => {
     expect(eggs.ghostOf(1000 + GHOST_MS)).toBeNull();
     expect(eggs.ghostOf(1000 + GHOST_MS / 2)).toBeNull();
   });
+
+  it('draws a fight’s egg at the encounter’s egg position, within 1 CSS px at the camera (M7 T12)', () => {
+    const { eggs } = show();
+    const child = { tier: 'rare' as const, maxBiomass: 900 };
+    const remote = { id: 'pb', x: 600, y: 300, heading: Math.PI, radius: 12, alpha: 1, egg: true };
+    // Swim a little on the tether first: the fight then takes the egg where the encounter has it.
+    run(eggs, 0, 300, { stage: null, child, remotes: [remote] });
+    const own = { x: 480.25, y: 296.5, radius: 6, lost: 0.4, eatenAt: null };
+    const theirs = { x: 618.75, y: 303.125, radius: 6, lost: 0, eatenAt: null };
+    const fight = (player: string) => (player === 'self' ? own : player === 'pb' ? theirs : null);
+    const out = frame(eggs, 320, { stage: null, child, remotes: [remote], fight });
+    // The test's camera: centred on the player at 3.5 CSS px a world unit.
+    const px = 3.5;
+    const screen = (v: { x: number; y: number }) => ({
+      x: (v.x - SELF.x) * px,
+      y: (SELF.y - v.y) * px,
+    });
+    const mine = out.find((v) => v === eggs.drawn);
+    const peer = out.find((v) => v !== eggs.drawn);
+    if (!mine || !peer) throw new Error('both eggs drawn');
+    for (const [drawn, at] of [
+      [mine, own],
+      [peer, theirs],
+    ] as const) {
+      expect(Math.abs(screen(drawn).x - screen(at).x)).toBeLessThanOrEqual(1);
+      expect(Math.abs(screen(drawn).y - screen(at).y)).toBeLessThanOrEqual(1);
+      expect(drawn.radius).toBe(at.radius);
+    }
+    // Cracked by the health it has lost.
+    expect(mine.pose.crack).toBeCloseTo(0.4, 9);
+    expect(peer.pose.crack).toBe(0);
+  });
+
+  it('shatters a fight’s eaten egg, then draws it no more (M7 T12)', () => {
+    const { eggs } = show();
+    const child = { tier: 'common' as const, maxBiomass: 900 };
+    const own = { x: 480, y: 300, radius: 6, lost: 1, eatenAt: 1000 as number | null };
+    const fight = (player: string) => (player === 'self' ? own : null);
+    frame(eggs, 1000, { stage: null, child, fight });
+    expect(eggs.ownShown).toBe(true);
+    const mid = frame(eggs, 1000 + EGG.shatterMs / 2, { stage: null, child, fight });
+    expect(mid[0]?.pose.spread).toBeGreaterThan(0);
+    expect(mid[0]?.pose.shards).toBe(EGG.shatterShards);
+    expect(mid[0]?.pose.alpha).toBeLessThan(1);
+    // Reduced motion only fades it.
+    const calm = frame(eggs, 1000 + EGG.shatterMs / 2, {
+      stage: null,
+      child,
+      fight,
+      reduced: true,
+    });
+    expect(calm[0]?.pose.spread).toBe(0);
+    expect(calm[0]?.pose.shards).toBe(0);
+    expect(frame(eggs, 1000 + EGG.shatterMs, { stage: null, child, fight })).toHaveLength(0);
+    expect(eggs.ownShown).toBe(false);
+    // A kept egg goes back on its tether from where the fight left it.
+    own.eatenAt = null;
+    own.lost = 0;
+    frame(eggs, 3000, { stage: null, child, fight });
+    const after = frame(eggs, 3016, { stage: null, child });
+    expect(Math.hypot((after[0]?.x ?? 0) - own.x, (after[0]?.y ?? 0) - own.y)).toBeLessThan(2);
+    expect(after[0]?.pose.crack).toBe(0);
+  });
 });

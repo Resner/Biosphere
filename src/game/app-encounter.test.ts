@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { hunterFighter, IDLE_CODE, starterFighter, startOf } from '../../tests/encounter-fixture';
 import { Link, ScriptedReferee, startMsg, TEST_POND } from '../../tests/scripted-referee';
 import { PondClock } from '../net/clock';
 import { encounterStartOf } from '../net/encounter-start';
@@ -6,13 +7,13 @@ import type { InputMsg } from '../net/encounter-sync';
 import type { FightMsg, HubStatus, Welcome } from '../net/hub-client';
 import type { ClientMsg } from '../net/protocol';
 import { decodeFrameInput } from '../sim/encounter/codec';
-import { createEncounter } from '../sim/encounter/encounter';
+import { createEncounter, stepFrame } from '../sim/encounter/encounter';
 import type { Input } from '../sim/input';
 import { TICK_HZ } from '../sim/rules';
 import { step } from '../sim/step';
 import type { CreatureState } from '../sim/types';
 import { createWorld } from '../sim/world';
-import { FightPlay } from './app-encounter';
+import { AUTO_BRACE_TICKS, FightPlay, threatened } from './app-encounter';
 import { type OnlineHub, type OnlineMesh, OnlineSession } from './online';
 
 /** The hub side of a fake online session: what the client sends, and fight messages to deliver. */
@@ -171,5 +172,27 @@ describe('FightPlay with the fake online session', () => {
     expect(player.x).not.toBe(result?.x);
     expect(player.alive).toBe(true);
     expect(play.view()?.over).toBe(true);
+  });
+
+  it('debug.autoBrace sees a windup aimed at the player only in its last 4 ticks (M7 T12)', () => {
+    const hunter = hunterFighter('a', 3000, 3000);
+    const target = starterFighter('b', 3000 + 2.2 * Math.sqrt(hunter.biomass), 3000, Math.PI);
+    const enc = createEncounter(startOf('auto', [hunter, target]));
+    enc.world.options.currents = false;
+    enc.world.options.hazards = false;
+    const seen: number[] = [];
+    for (let f = 0; f < 20; f++) {
+      const a = enc.fighters[0];
+      const left = a && a.fx.windupEnd >= 0 ? a.fx.windupEnd - enc.world.tick : null;
+      if (left !== null) {
+        expect(threatened(enc, 1, AUTO_BRACE_TICKS)).toBe(left <= AUTO_BRACE_TICKS);
+        // The hunter's windup never threatens the hunter itself.
+        expect(threatened(enc, 0, AUTO_BRACE_TICKS)).toBe(false);
+        seen.push(left);
+      }
+      stepFrame(enc, [IDLE_CODE, IDLE_CODE]);
+    }
+    expect(seen.some((l) => l <= AUTO_BRACE_TICKS)).toBe(true);
+    expect(seen.some((l) => l > AUTO_BRACE_TICKS)).toBe(true);
   });
 });

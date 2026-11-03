@@ -15,6 +15,7 @@ import type { Speck } from '../render/particles';
 import type { ParticleLayerName, PresetName, QualitySetting } from '../render/presets';
 import type { RenderInfo } from '../render/scene';
 import type { ShakeKind } from '../render/shake';
+import type { TelegraphInfo } from '../render/telegraph';
 import type { Zone } from '../sim/bathymetry';
 import type { PhysStats } from '../sim/body';
 import type { EncounterLog } from '../sim/encounter/replay';
@@ -22,7 +23,7 @@ import type { FighterResult } from '../sim/encounter/types';
 import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
-import type { EncounterView } from './app-encounter';
+import type { FightShowView } from './app-fight';
 import type { BenchStatus } from './auto-quality';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
@@ -58,9 +59,12 @@ export interface BsState {
    * `enc-end` arrived, `hash` the local `hashEncounter` then. Each fighter (by slot) has its
    * simulated `x`, `y`, `heading`, `health`, `maxHealth`, `stance`, `windup` (ticks left, or null),
    * `target` (the windup's target code, or null), `braced`, `egg` and `outcome` (`in` while it
-   * fights).
+   * fights), and (M7 T12) `radius`, `staggered` and `outside` (ticks outside every opponent's
+   * escape range). `hud` is the combat HUD (`shown`, `stance`, `brace` `{ ready, cooldown, active }`,
+   * `opponents` `{ player, health }`, `escape` 0..1) and the fight's cues so far (`windups` aimed
+   * at the player, `blocks` and `hits`).
    */
-  encounter: EncounterView | null;
+  encounter: FightShowView | null;
   /** The creature being played; null on the title screen. */
   player: {
     x: number;
@@ -288,7 +292,8 @@ export interface BsHook {
     renderCue(options: CueRenderOptions): Promise<CueRenderResult>;
   };
   render: {
-    info(): RenderInfo;
+    /** `telegraphs` (M7 T12): the marks drawn this frame and the flashes, sparks and wobbles. */
+    info(): Omit<RenderInfo, 'telegraphs'> & { telegraphs: TelegraphInfo };
     fx(): FxState;
     /** The specks of a particle layer as last drawn: on-screen position, size, depth and blur. */
     specks(layer: ParticleLayerName): Speck[];
@@ -341,6 +346,11 @@ export interface BsDebug {
   setBiomass(biomass: number): void;
   /** Sets the player's health here only (never above its maximum); the hub hears it in snapshots. */
   setHealth(hp: number): void;
+  /**
+   * A test aid (M7 T12, client inputs only): while on, the player's fight input braces whenever a
+   * windup aimed at it or its egg has 4 ticks or fewer left as the frame begins.
+   */
+  autoBrace(on: boolean): void;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
   /**

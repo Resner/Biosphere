@@ -312,6 +312,50 @@ describe('EncounterSync', () => {
     expect(sync.pose(remote, t + EASE_MS)).toEqual(sync.pose(remote, t + EASE_MS, false));
   });
 
+  it('draws a carried egg where the encounter has it, between frames as its carrier (M7 T12)', () => {
+    const at = 10_000;
+    const msg = startMsg(at);
+    const carrier = msg.fighters[1] as (typeof msg.fighters)[number];
+    carrier.egg = true;
+    const sync = new EncounterSync({
+      me: 'pa',
+      oneWayMs: () => 0,
+      send: () => {},
+      sample: () => input(0, 15),
+    });
+    sync.start(msg, TEST_POND);
+    const slot = sync.enc?.fighters.findIndex((f) => f.player === 'pb') ?? -1;
+    expect(sync.eggAt(sync.slot, at)).toBeNull();
+    for (let f = 0; f < 8; f++) sync.step(at + f * FRAME_MS);
+    const egg = sync.enc?.fighters[slot]?.eggBody;
+    if (!egg) throw new Error('no egg');
+    // At the newest frame's end the egg is exactly the encounter's.
+    expect(sync.eggAt(slot, at + 8 * FRAME_MS)).toEqual({ x: egg.x, y: egg.y });
+    const mid = sync.eggAt(slot, at + 7.5 * FRAME_MS);
+    expect(Number.isFinite(mid?.x)).toBe(true);
+  });
+
+  it('hands every simulated frame’s events to the listener, a rollback repeating them (M7 T12)', () => {
+    const at = 10_000;
+    const msg = startMsg(at, 5200, 3000);
+    // Nose to nose: the starters nip each other.
+    const b = msg.fighters[1] as (typeof msg.fighters)[number];
+    b.x = (msg.fighters[0]?.x ?? 0) + 16;
+    const seen: string[] = [];
+    const sync = new EncounterSync({
+      me: 'pa',
+      oneWayMs: () => 0,
+      send: () => {},
+      sample: () => IDLE_INPUT,
+      events: (events) => {
+        for (const e of events) if (e.type === 'hit') seen.push(`${e.tick}:${e.slot}:${e.by}`);
+      },
+    });
+    sync.start(msg, TEST_POND);
+    for (let f = 0; f < 30; f++) sync.step(at + f * FRAME_MS);
+    expect(seen.length).toBeGreaterThan(0);
+  });
+
   it('ignores bundles for another fight and counts ones of the wrong width', () => {
     const sync = new EncounterSync({
       me: 'pa',

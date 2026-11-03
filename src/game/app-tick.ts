@@ -184,7 +184,9 @@ export class Ticker {
     if (live && app.scale === 1) app.loop.setSpeed(live.time.update(world, performance.now()));
     const at = world.tick;
     // Locked in a fight, the encounter moves the creature; free roam waits until it ends.
-    const events = app.fight.tick() ? NO_EVENTS : step(world, { [player.id]: app.input });
+    const fought = app.fight.tick();
+    if (fought) app.fightShow.tick();
+    const events = fought ? NO_EVENTS : step(world, { [player.id]: app.input });
     session.ticks++;
     live?.food.onEat(events, at);
     for (const event of events) {

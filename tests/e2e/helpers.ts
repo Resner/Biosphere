@@ -197,6 +197,8 @@ export const M6C_LIFECYCLE_HUB = 'http://localhost:8806';
 
 /** The M7 duel spec's hub (M7 T11): two players, one engagement and a kill. */
 export const M7_DUEL_HUB = 'http://localhost:8807';
+/** The M7 HUD spec's own authority (M7 T12): a duel's HUD, telegraphs and cues. */
+export const M7_HUD_HUB = 'http://localhost:8808';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {

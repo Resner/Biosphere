@@ -14,6 +14,7 @@ import {
   EggTether,
   type EggView,
   emptyPose,
+  fightEggPose,
   type TetherParent,
 } from '../render/egg';
 import { idFraction } from '../render/instances';
@@ -50,6 +51,21 @@ export interface EggFrame {
   /** The player's pending child, or null. */
   child: { tier: RarityTier; maxBiomass: number } | null;
   remotes: readonly EggRemote[];
+  /**
+   * A carried egg in the player's fight (M7 T12), by its carrier's player id (`self` for the
+   * player's own): drawn where the encounter has it, cracked by its lost health, shattering once
+   * eaten. Null leaves that egg on its tether.
+   */
+  fight?: (player: string) => FightEgg | null;
+}
+
+/** A carried egg in a fight: its place and radius in wu, the share of its health lost, and when it was eaten (ms on the egg's clock) or null. */
+export interface FightEgg {
+  x: number;
+  y: number;
+  radius: number;
+  lost: number;
+  eatenAt: number | null;
 }
 
 /** The parent a hatch leaves behind, drawn dissolving for `GHOST_MS`. */
@@ -90,6 +106,11 @@ const newView = (pose: EggPose, seed: number): EggView => ({
   seed,
   parent: null,
 });
+
+/** How far an eaten fight egg has shattered at `now`, or null while it is whole. */
+function shatterOf(fight: FightEgg, now: number): number | null {
+  return fight.eatenAt === null ? null : Math.max(0, now - fight.eatenAt) / EGG.shatterMs;
+}
 
 export class EggShow {
   readonly reveal = new EggReveal();
@@ -346,6 +367,8 @@ export class EggShow {
       phase === 'stirring' ||
       phase === 'cracking' ||
       (phase === 'revealed' && (reveal.opens ? !reveal.done(now) : child !== null));
+    const fight = !revealing && child ? (input.fight?.('self') ?? null) : null;
+    if (fight) return this.fightEgg(fight, child?.tier ?? null, input, self);
     if (revealing) reveal.pose(now, reduced, pose);
     else if (child) carriedPose(child.tier, pose);
     else return false;
@@ -388,6 +411,34 @@ export class EggShow {
     return true;
   }
 
+  /**
+   * The player's egg in a fight: at the encounter's place, cracked by its lost health, shattering
+   * once eaten. The tether is pinned there, so it hangs on from the same place after the fight.
+   */
+  private fightEgg(
+    fight: FightEgg,
+    tier: RarityTier | null,
+    input: EggFrame,
+    self: TetherParent,
+  ): boolean {
+    const pose = this.ownPose;
+    fightEggPose(tier, fight.lost, shatterOf(fight, input.now), input.reduced, pose);
+    this.own.pin(fight.x, fight.y);
+    if (!pose.shown) return false;
+    const view = this.ownView;
+    view.x = fight.x;
+    view.y = fight.y;
+    view.radius = fight.radius;
+    view.heading = Math.atan2(view.y - self.y, view.x - self.x);
+    const parent = this.ownParent;
+    parent.x = self.x;
+    parent.y = self.y;
+    parent.heading = self.heading;
+    parent.radius = self.radius;
+    view.parent = parent;
+    return true;
+  }
+
   /** Eases the lean toward a cursor within reach of the egg (none without one). */
   private leanToward(pointer: EggFrame['pointer'], egg: TetherParent, dt: number): void {
     let target = 0;
@@ -404,7 +455,8 @@ export class EggShow {
   private peerEggs(input: EggFrame): void {
     this.peerIds.length = 0;
     for (const r of input.remotes) {
-      if (!r.egg || r.alpha < 0.01) continue;
+      const fight = input.fight?.(r.id) ?? null;
+      if ((!r.egg && !fight) || r.alpha < 0.01) continue;
       let peer = this.peers.get(r.id);
       if (!peer) {
         const pose = carriedPose(null, emptyPose());
@@ -412,10 +464,20 @@ export class EggShow {
         this.peers.set(r.id, peer);
       }
       peer.frame = this.frameNo;
-      const radius = PEER_EGG * r.radius;
-      peer.tether.follow(input.dt, r, radius);
-      peer.pose.alpha = r.alpha;
       const { view } = peer;
+      let radius = PEER_EGG * r.radius;
+      if (fight) {
+        fightEggPose(null, fight.lost, shatterOf(fight, input.now), input.reduced, peer.pose);
+        peer.tether.pin(fight.x, fight.y);
+        radius = fight.radius;
+        if (!peer.pose.shown) continue;
+        peer.pose.alpha *= r.alpha;
+      } else {
+        // Back on its tether after a fight: the carried look again.
+        if (peer.pose.crack !== 0 || peer.pose.burst !== 0) carriedPose(null, peer.pose);
+        peer.tether.follow(input.dt, r, radius);
+        peer.pose.alpha = r.alpha;
+      }
       view.parent = r;
       view.x = peer.tether.x;
       view.y = peer.tether.y;

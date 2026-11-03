@@ -150,6 +150,121 @@
   display: none;
 }
 
+/* The combat HUD (M7 T12): four small glass buttons in the bottom centre while locked in a fight
+   (the stances 1-3, the current one lit, and the brace with its cooldown ring), and in the world a
+   thin health arc round each opponent and an escape ring round the player. */
+.combat-hud {
+  position: fixed;
+  left: 50%;
+  bottom: var(--hud-gap);
+  display: flex;
+  gap: 6px;
+  transform: translateX(-50%);
+}
+
+.combat-hud[hidden] {
+  display: none;
+}
+
+.combat-button {
+  position: relative;
+  display: grid;
+  place-items: center;
+  box-sizing: border-box;
+  width: 28px;
+  height: 28px;
+  padding: 0;
+  border: 1px solid var(--glass-line);
+  border-radius: 9px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shine);
+  color: rgb(227 244 240 / 0.6);
+  cursor: pointer;
+}
+
+.combat-button svg {
+  width: 15px;
+  height: 15px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.combat-button kbd {
+  position: absolute;
+  right: 2px;
+  bottom: 0;
+  font: inherit;
+  font-size: 0.55rem;
+  font-weight: 600;
+  line-height: 1.1;
+  color: rgb(227 244 240 / 0.55);
+}
+
+/* The lit stance: a warm frame and a brighter icon (not colour alone: the frame thickens). */
+.combat-button[aria-pressed="true"] {
+  border: 2px solid rgb(255 200 150 / 0.85);
+  background: rgb(60 34 20 / 0.62);
+  color: #ffe2c4;
+}
+
+.combat-button.brace .cooldown {
+  position: absolute;
+  inset: -1px;
+  width: auto;
+  height: auto;
+  stroke: rgb(190 230 255 / 0.8);
+  stroke-width: 2.5;
+  stroke-linecap: butt;
+}
+
+.combat-button.brace[data-ready] {
+  color: #e3f4f0;
+}
+
+.combat-button.brace[data-active] {
+  border-color: rgb(190 230 255 / 0.9);
+  box-shadow: 0 0 10px rgb(190 230 255 / 0.5);
+  color: #fff;
+}
+
+.combat-marks {
+  position: fixed;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+  pointer-events: none;
+}
+
+.combat-ring circle {
+  fill: none;
+  stroke-width: 2;
+}
+
+.combat-ring .track {
+  stroke: rgb(227 244 240 / 0.12);
+}
+
+.combat-ring.health .arc {
+  stroke: rgb(255 150 130 / 0.75);
+  stroke-linecap: round;
+}
+
+/* The escape ring fills clockwise with a dashed track, so it reads apart from the health arcs. */
+.combat-ring.escape .track {
+  stroke-dasharray: 3 4;
+}
+
+.combat-ring.escape .arc {
+  stroke: rgb(160 225 255 / 0.85);
+  stroke-width: 2.5;
+}
+
 @keyframes low-energy {
   50% {
     opacity: 0.35;
