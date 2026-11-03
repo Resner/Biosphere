@@ -23,11 +23,12 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
     const ids = await stage(a, b, undefined, 0.6);
     expect((await state(a)).carrion).toEqual([]);
 
+    // A's kill reward opens as much room in its belly as the pieces hold, so it would eat them
+    // before C saw one. A holds its belly full once pieces lie on the water.
+    await a.evaluate(() => (window.__bs as BsHook).debug?.holdBelly(true));
     const enc = await killB(a, b, ids);
 
     // Everyone in the pond drops the pieces from the one `carrion` message, named for the fight.
-    // A's belly is full, but the kill grew it and its room for more opens for a tick: it may
-    // nibble a piece or two, so C only needs to see one.
     await c
       .waitForFunction(() => (window.__bs?.state().carrion.length ?? 0) >= 1, undefined, {
         timeout: 15_000,
@@ -80,11 +81,17 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
       },
     );
     await expect(async () => {
-      await c.evaluate((at) => (window.__bs as BsHook).debug?.teleport(at.x, at.y), piece);
+      // A mouth sits ahead of the body centre by a DNA-dependent offset, so a cell placed on the
+      // piece may not reach it: C starts a little way off and swims onto it.
+      await c.evaluate((at) => {
+        const debug = (window.__bs as BsHook).debug;
+        debug?.teleport(at.x + 50, at.y);
+        void debug?.steerTo({ x: at.x, y: at.y });
+      }, piece);
       await c.waitForFunction(
         (id) => !window.__bs?.state().carrion.some((p) => p.id === id),
         piece.id,
-        { timeout: 2_000 },
+        { timeout: 5_000 },
       );
     }, 'C reaches the piece and eats it')
       .toPass({ timeout: 30_000 })

@@ -58,6 +58,12 @@ function debugHelpers(app: App): BsDebug {
     autoBrace(on) {
       app.fight.autoBrace = on;
     },
+    skipDraw(on) {
+      app.scene.skipDraw = on;
+    },
+    holdBelly(on) {
+      app.fight.holdBelly = on;
+    },
     teleport(x, y) {
       const { player } = app.session;
       player.x = x;

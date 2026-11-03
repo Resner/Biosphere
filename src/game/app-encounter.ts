@@ -121,6 +121,11 @@ export class FightPlay {
    * player or its egg has `AUTO_BRACE_TICKS` or fewer left as its frame begins.
    */
   autoBrace = false;
+  /**
+   * `debug.holdBelly` (a test aid): in free roam, while carrion lies on the water, the player's
+   * energy is lifted over its cap before each tick, so it eats none of it.
+   */
+  holdBelly = false;
   /** The life that fights. */
   private life: { player: CreatureState; world: World } | null = null;
 

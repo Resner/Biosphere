@@ -186,6 +186,9 @@ export class Ticker {
     // Locked in a fight, the encounter moves the creature; free roam waits until it ends.
     const fought = app.fight.tick();
     if (fought) app.fightShow.tick();
+    if (!fought && app.fight.holdBelly && world.carrion.length > 0) {
+      player.energy = Math.max(player.energy, maxEnergy(player.biomass) + 1);
+    }
     const events = fought ? NO_EVENTS : step(world, { [player.id]: app.input });
     session.ticks++;
     live?.food.onEat(events, at);

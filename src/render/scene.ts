@@ -215,6 +215,8 @@ export class GameScene {
   };
   private readonly remotes: RemoteLayer;
   private readonly post: PostChain;
+  /** `debug.skipDraw` (a test aid): the scene updates as usual but its last draw call is skipped. */
+  skipDraw = false;
   private readonly sprites: SpriteDof = {
     pixels: 1,
     shrink: 1,
@@ -445,7 +447,7 @@ export class GameScene {
     this.updateOutlines(view);
     this.updateVeil(view, halfWidth);
 
-    this.post.render(this.scene, camera);
+    if (!this.skipDraw) this.post.render(this.scene, camera);
   }
 
   /**

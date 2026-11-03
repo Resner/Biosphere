@@ -7,11 +7,25 @@ import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './hel
 
 export async function open(browser: Browser, hub: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
-  await openRecorded(page, '', hub);
+  await openRecorded(page, '&quality=low', hub);
+  // No picture: software rendering is the cost of a frame on a runner, and a page that draws a
+  // frame in over 100 ms misses the referee's input deadline, so the autopilot flies that frame (B
+  // flees, or A loses its strikes). The scene still updates, so `state()` and `render.info()` hold.
+  await page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
   return page;
 }
 
 /** What the test reads of a page while it waits, for a failure's message. */
+/** One fight as A saw it, for the failure messages: each fighter's tag, health, stance and outcome, and the frame. */
+export async function fightLine(a: Page, ids: { idA: string; idB: string }): Promise<string> {
+  const enc = (await state(a)).encounter;
+  const who = enc?.fighters.map(
+    (f) =>
+      `${f.player === ids.idA ? 'A' : 'B'} ${Math.round(f.health)}hp ${f.stance} ${f.outcome} at ${Math.round(f.x)},${Math.round(f.y)}`,
+  );
+  return `frame ${enc?.frame}: ${who?.join(' | ')}`;
+}
+
 export const seen = (page: Page) =>
   page.evaluate(() => {
     const s = (window.__bs as BsHook).state();
@@ -146,16 +160,13 @@ export async function fightToEnd(
         cause: error,
       });
     });
-  await a.evaluate(() => {
-    dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
-    dispatchEvent(new KeyboardEvent('keyup', { key: '1' }));
-  });
-  const encA = (await state(a)).encounter;
-  await b.waitForFunction((id) => window.__bs?.state().encounter?.id === id, encA?.id, {
-    timeout: 5_000,
-  });
-  // A swims onto B until the referee ends the fight.
-  await a
+  // A braces by itself against B's windups: B hits as hard as A, and an A left at a few points
+  // dies of the water before the next try.
+  await a.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true));
+  // A starts swimming onto B at once: the escape clock (3 s outside range) runs from the first
+  // frame, and a chase that waits for B's page to show the fight loses a slow runner's fights. It
+  // runs until the referee ends the fight.
+  const chase = a
     .waitForFunction(
       (who) => {
         const bs = window.__bs as BsHook;
@@ -178,6 +189,17 @@ export async function fightToEnd(
         cause: error,
       });
     });
+  // Swallowed here, awaited below: a rejection while B's wait runs must not go unhandled.
+  chase.catch(() => undefined);
+  await a.evaluate(() => {
+    dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
+    dispatchEvent(new KeyboardEvent('keyup', { key: '1' }));
+  });
+  const encA = (await state(a)).encounter;
+  await b.waitForFunction((id) => window.__bs?.state().encounter?.id === id, encA?.id, {
+    timeout: 5_000,
+  });
+  await chase;
   await b.waitForFunction(() => window.__bs?.state().encounter?.over === true, undefined, {
     timeout: 10_000,
   });
@@ -197,6 +219,7 @@ export async function killB(
   hurt = 0.6,
 ): Promise<string> {
   let previous: string | undefined;
+  const fights: string[] = [];
   for (let attempt = 0; attempt < 4; attempt++) {
     // A whole again for each try, and B fed: a hurt B that starves dies of the water (a `died`
     // outcome, not a kill) and cannot be engaged again. Never A: its full belly turns into growth,
@@ -213,9 +236,12 @@ export async function killB(
     }, hurt);
     previous = await fightToEnd(a, b, ids, previous);
     const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
+    fights.push(await fightLine(a, ids));
     if (outcomes?.includes('killed') && previous) return previous;
   }
-  throw new Error(`B survived four fights: ${JSON.stringify(await seen(a))}`);
+  throw new Error(
+    `B survived four fights:\n${fights.join('\n')}\n${JSON.stringify(await seen(a))}`,
+  );
 }
 
 /** `courter` courts `partner`, who accepts: both end up carrying an egg (a pending child). */
