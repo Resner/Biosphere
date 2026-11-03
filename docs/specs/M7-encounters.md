@@ -374,7 +374,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - While locked, court, accept, mate-check, promote, restore and genesis are refused `locked`.
     - No SQLite row is written by an engage (`ledger.rowsWritten` unchanged).
 
-- [ ] T9 The referee's frame clock: deadlines, fallback, bundles, the end [opus] (after T8)
+- [ ] T9 The referee's frame clock: deadlines, fallback, bundles, the end [opus] (after T8) (in progress)
   - Steps:
     1. `src/net/referee.ts` (pure; no DOM, Node or workerd APIs):
        - `new Referee({ startAt, slots })`;
