@@ -4,6 +4,7 @@
 import type { Identity } from '../ledger/identity';
 import type { PondClock } from '../net/clock';
 import {
+  type FightMsg,
   type HubClient,
   type HubStatus,
   isFinalStatus,
@@ -14,7 +15,14 @@ import {
   type Welcome,
 } from '../net/hub-client';
 import { PeerMesh } from '../net/peer-mesh';
-import type { ClientMsg, IceServer, Member, PeerEvent, Snapshot } from '../net/protocol';
+import type {
+  ClientMsg,
+  IceServer,
+  Member,
+  PeerEvent,
+  SignedSnap,
+  Snapshot,
+} from '../net/protocol';
 
 export type OnlineHub = Pick<
   HubClient,
@@ -29,6 +37,7 @@ export type OnlineHub = Pick<
   | 'onMember'
   | 'onWelcome'
   | 'onLife'
+  | 'onFight'
 >;
 
 export type OnlineMesh = Pick<
@@ -54,10 +63,13 @@ export interface OnlineHandlers {
   member(op: 'join' | 'leave', member: Member): void;
   /** Both data channels to a roster member are open. */
   peerOpen(id: string): void;
-  state(id: string, snapshot: Snapshot): void;
+  /** A peer's snapshot, with its signed form (unverified) when it came as an 89-byte frame. */
+  state(id: string, snapshot: Snapshot, signed: SignedSnap | null): void;
   event(id: string, event: PeerEvent): void;
   /** The hub's word about this player's creature (resume, genesis, acks, death). */
   life(msg: LifeMsg): void;
+  /** The hub's word about fights; a `lock-ask` is answered before this returns (M7 T7). */
+  fight(msg: FightMsg): void;
 }
 
 export interface OnlineOptions {
@@ -71,6 +83,7 @@ export interface OnlineOptions {
 }
 
 const READY_POLL_MS = 50;
+const NO_CANDIDATES: ReadonlySet<string> = new Set();
 
 export class OnlineSession {
   private readonly roster = new Map<string, Member>();
@@ -83,6 +96,7 @@ export class OnlineSession {
     hub.onMember((op, member) => this.member(op, member));
     hub.onSignal((m) => this.signalled(m));
     hub.onLife((m) => opts.handlers.life(m));
+    hub.onFight((m) => opts.handlers.fight(m));
     // Rejections (replaced, closed) are reported through the status, not here.
     hub.connect().catch(() => {});
   }
@@ -160,8 +174,13 @@ export class OnlineSession {
     this.opts.hub.send(msg);
   }
 
-  broadcastState(bytes: Uint8Array): void {
-    this.eachOpen((id, mesh) => mesh.sendState(id, bytes));
+  /** A snapshot to every open peer: the 89-byte `signed` frame, when there is one, to `candidates`. */
+  broadcastState(
+    bytes: Uint8Array,
+    signed: Uint8Array | null = null,
+    candidates: ReadonlySet<string> = NO_CANDIDATES,
+  ): void {
+    this.eachOpen((id, mesh) => mesh.sendState(id, signed && candidates.has(id) ? signed : bytes));
   }
 
   broadcastEvent(event: PeerEvent): void {
@@ -240,8 +259,8 @@ export class OnlineSession {
     mesh.onPeerJoined((id) => {
       if (this.roster.has(id)) handlers.peerOpen(id);
     });
-    mesh.onState((id, s) => {
-      if (this.roster.has(id)) handlers.state(id, s);
+    mesh.onState((id, s, signed) => {
+      if (this.roster.has(id)) handlers.state(id, s, signed);
     });
     mesh.onEvent((id, e) => {
       if (this.roster.has(id)) handlers.event(id, e);

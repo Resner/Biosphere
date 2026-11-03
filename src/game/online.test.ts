@@ -1,7 +1,22 @@
 import { describe, expect, it, vi } from 'vitest';
+import { createIdentity, memoryKeyStore } from '../ledger/identity';
+import { decodeStateFrame, verifySnap } from '../ledger/snapshot-sig';
 import { PondClock } from '../net/clock';
-import type { HubStatus, LifeMsg, SignalMsg, Welcome } from '../net/hub-client';
-import type { Member, PeerEvent, Snapshot } from '../net/protocol';
+import type { FightMsg, HubStatus, LifeMsg, SignalMsg, Welcome } from '../net/hub-client';
+import { type SnapshotFields, SnapshotSender } from '../net/pond-sync';
+import {
+  type ClientMsg,
+  encodeSnapshot,
+  type Member,
+  type PeerEvent,
+  SIGNED_FRAME_BYTES,
+  type SignedSnap,
+  SNAPSHOT_BYTES,
+  type Snapshot,
+} from '../net/protocol';
+import { SignedSnaps } from '../net/signed-snaps';
+import { TICK_HZ } from '../sim/rules';
+import { CandidateSigner, lockState } from './engage';
 import { type OnlineHub, type OnlineMesh, OnlineSession } from './online';
 
 class FakeHub implements OnlineHub {
@@ -15,6 +30,7 @@ class FakeHub implements OnlineHub {
   private memberFns: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeFns: ((w: Welcome) => void)[] = [];
   private lifeFns: ((m: LifeMsg) => void)[] = [];
+  private fightFns: ((m: FightMsg) => void)[] = [];
   connect(): Promise<Welcome> {
     return new Promise(() => {});
   }
@@ -43,6 +59,13 @@ class FakeHub implements OnlineHub {
   onWelcome(fn: (w: Welcome) => void) {
     this.welcomeFns.push(fn);
     return () => {};
+  }
+  onFight(fn: (m: FightMsg) => void) {
+    this.fightFns.push(fn);
+    return () => {};
+  }
+  fight(m: FightMsg): void {
+    for (const fn of this.fightFns) fn(m);
   }
   setStatus(s: HubStatus): void {
     this.status = s;
@@ -73,7 +96,7 @@ class FakeMesh implements OnlineMesh {
   events: [string, PeerEvent][] = [];
   closed = false;
   joined: (id: string) => void = () => {};
-  state: (id: string, s: Snapshot) => void = () => {};
+  state: (id: string, s: Snapshot, signed: SignedSnap | null) => void = () => {};
   event: (id: string, e: PeerEvent) => void = () => {};
   connect(id: string): void {
     this.connects.push(id);
@@ -108,7 +131,7 @@ class FakeMesh implements OnlineMesh {
   onPeerJoined(fn: (id: string) => void): void {
     this.joined = fn;
   }
-  onState(fn: (id: string, s: Snapshot) => void): void {
+  onState(fn: (id: string, s: Snapshot, signed: SignedSnap | null) => void): void {
     this.state = fn;
   }
   onEvent(fn: (id: string, e: PeerEvent) => void): void {
@@ -137,6 +160,7 @@ function setup() {
     state: vi.fn(),
     event: vi.fn(),
     life: vi.fn(),
+    fight: vi.fn(),
   };
   const session = new OnlineSession({
     selfId: 'me',
@@ -230,8 +254,8 @@ describe('OnlineSession', () => {
     mesh.event('zed', { t: 'emote', id: 2 });
     expect(handlers.event).toHaveBeenCalledTimes(1);
     const snapshot = { seq: 1 } as Snapshot;
-    mesh.state('a', snapshot);
-    mesh.state('zed', snapshot);
+    mesh.state('a', snapshot, null);
+    mesh.state('zed', snapshot, null);
     expect(handlers.state).toHaveBeenCalledTimes(1);
   });
 
@@ -313,5 +337,119 @@ describe('OnlineSession', () => {
     expect(hub.sent).toContainEqual({ t: 'leave' });
     expect(hub.closed).toBe(true);
     expect(mesh.closed).toBe(true);
+  });
+});
+
+const fields = (tick: number): SnapshotFields => ({
+  tick,
+  x: 1000,
+  y: 1000,
+  heading: 0,
+  vx: 0,
+  vy: 0,
+  biomass: 400,
+  energy: 1,
+  health: 1,
+  alive: true,
+  dashing: false,
+  ready: false,
+  egg: false,
+  spawnProtected: false,
+  fighting: false,
+  genomeRef: 9,
+});
+
+describe('signed snapshots between peers (M7 T7)', () => {
+  it('passes a signed frame from the mesh to the handler with its snapshot', () => {
+    const { hub, mesh, handlers } = setup();
+    hub.welcome(welcome(['a']));
+    const s = { ...fields(5), seq: 1 };
+    const signed = { snap: 'x', sig: 'y' };
+    mesh.state('a', s, signed);
+    mesh.state('stranger', s, signed);
+    expect(handlers.state.mock.calls).toEqual([['a', s, signed]]);
+  });
+
+  it('sends candidates the 89-byte frame at 5 Hz and everyone else 25 bytes, within 600 B/s', async () => {
+    const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(6)));
+    const { hub, mesh, session } = setup();
+    hub.welcome(welcome(['near', 'far', 'giant']));
+    for (const id of ['near', 'far', 'giant']) mesh.open.add(id);
+    const self = { x: 1000, y: 1000, biomass: 400 };
+    const remotes = [
+      { id: 'near', x: 1100, y: 1000, radius: 20 },
+      { id: 'far', x: 1400, y: 1000, radius: 20 },
+      { id: 'giant', x: 1050, y: 1000, radius: 200 },
+    ];
+    const signer = new CandidateSigner(() => ({ identity: me, pondId: 'pond1' }));
+    const sender = new SnapshotSender((plain, signed) =>
+      session.broadcastState(plain, signed, signer.ids),
+    );
+    // Each peer keeps what it hears, as the receiving client would.
+    const heard = new SignedSnaps((_from, s) => verifySnap(me.playerId, 'pond1', s));
+    const bytes = new Map<string, number>();
+    const signedAt = new Map<string, number[]>();
+    let newest = -1;
+    let worstLag = 0;
+    const seconds = 10;
+    for (let frame = 0; frame <= seconds * 60; frame++) {
+      const ms = (frame * 1000) / 60;
+      const tick = Math.round((ms * TICK_HZ) / 1000);
+      sender.update(
+        ms,
+        false,
+        () => fields(tick),
+        (plain) => signer.sign(plain, self, remotes),
+      );
+      for (const [id, data] of mesh.states.splice(0)) {
+        bytes.set(id, (bytes.get(id) ?? 0) + data.length);
+        expect([SNAPSHOT_BYTES, SIGNED_FRAME_BYTES]).toContain(data.length);
+        const frameIn = decodeStateFrame(data);
+        if (!frameIn) throw new Error('undecodable state frame');
+        if (id === 'near') newest = frameIn.snapshot.tick;
+        if (frameIn.signed) {
+          signedAt.set(id, [...(signedAt.get(id) ?? []), ms]);
+          heard.receive(id, frameIn.snapshot, frameIn.signed, ms);
+        }
+        if (id === 'near') {
+          const stored = heard.tickOf('near');
+          if (stored !== null) worstLag = Math.max(worstLag, newest - stored);
+        }
+      }
+    }
+    expect(signedAt.get('far')).toBeUndefined();
+    expect(signedAt.get('giant')).toBeUndefined();
+    const near = signedAt.get('near') ?? [];
+    expect(near.length).toBeGreaterThanOrEqual(5 * seconds - 1);
+    expect(near.length).toBeLessThanOrEqual(5 * seconds + 1);
+    for (let i = 1; i < near.length; i++) {
+      // 200 ms apart, give or take the frame the snapshot fell due in.
+      const gap = (near[i] as number) - (near[i - 1] as number);
+      expect(gap).toBeGreaterThan(180);
+      expect(gap).toBeLessThan(220);
+    }
+    expect(heard.badSignatures).toBe(0);
+    expect(worstLag).toBeLessThanOrEqual(7);
+    expect((bytes.get('near') ?? 0) / seconds).toBeLessThanOrEqual(600);
+    // Everyone else still hears 10 snapshots a second.
+    expect((bytes.get('far') ?? 0) / seconds).toBeCloseTo(10 * SNAPSHOT_BYTES, -1);
+  });
+
+  it('routes a lock ask to the handler, whose answer leaves before the call returns', async () => {
+    const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(7)));
+    const { hub, handlers, session } = setup();
+    hub.welcome(welcome([]));
+    const now = fields(4242);
+    handlers.fight.mockImplementation((msg: FightMsg) => {
+      if (msg.t === 'lock-ask') {
+        session.send(lockState(msg.lock, encodeSnapshot({ ...now, seq: 0 }), me, 'pond1'));
+      }
+    });
+    hub.sent.length = 0;
+    hub.fight({ t: 'lock-ask', lock: 'cd'.repeat(8) });
+    // No await: the answer is out within the same tick.
+    const answer = hub.sent[0] as Extract<ClientMsg, { t: 'lock-state' }>;
+    expect(answer).toMatchObject({ t: 'lock-state', lock: 'cd'.repeat(8) });
+    expect(verifySnap(me.playerId, 'pond1', answer.mine)?.tick).toBe(4242);
   });
 });

@@ -412,7 +412,9 @@ export class App {
     this.nameInput = pick<HTMLInputElement>('[data-testid="name-input"]');
     this.nameError = pick('[data-testid="name-error"]');
     this.online = new OnlineWiring(this);
-    this.sender = new SnapshotSender((bytes) => this.keeper.current?.broadcastState(bytes));
+    this.sender = new SnapshotSender((bytes, signed) =>
+      this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids),
+    );
     // Bodies on the wire (M3 T16): the genome goes out when a link opens and after every rehatch.
     this.genomeSync = new GenomeSync({
       send: (id, event) => this.keeper.current?.sendEvent(id, event),
@@ -598,6 +600,7 @@ export class App {
 
   dropPeer(id: string): void {
     this.remotes.removeMember(id);
+    this.online.signed.remove(id);
     this.remoteBodies.remove(id);
     this.genomeSync.forget(id);
   }

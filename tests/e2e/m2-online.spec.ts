@@ -109,6 +109,16 @@ test("players see each other's bodies, and a rehatch changes the view (M3 T16)",
       },
     );
 
+    // Side by side they are engage candidates: each holds the other's verified signed snapshot (M7 T7).
+    const at = (await state(a)).player as { x: number; y: number };
+    await b.evaluate(({ x, y }) => window.__bs?.debug?.teleport(x + 40, y), at);
+    for (const p of [a, b]) {
+      await p.waitForFunction(() => window.__bs?.state().net.signed === 1, undefined, {
+        timeout: 10_000,
+      });
+      expect((await state(p)).net.badSignatures).toBe(0);
+    }
+
     // B dies and hatches again with a new genome; A's view of B follows.
     await b.evaluate(() => {
       const bs = window.__bs as BsHook;
