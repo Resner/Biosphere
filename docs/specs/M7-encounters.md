@@ -241,7 +241,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `egg.ts` (`eggBody` on a fighter, trailing, strike aim, `targetEgg`), egg hits in `combat.ts` (`hit.egg`, an `egg` event), `RULES.encounter.egg` (`radius`, `gap`, `follow`), golden `encounter-egg`.
   - Gotcha: a target code is 0-7 now (`windupTarget` too); the nip count is pinned from the seeded spread, within one hit of the nominal.
 
-- [ ] T4 Autopilot from behaviour genes (after T3)
+- [x] T4 Autopilot from behaviour genes (after T3)
   - Steps:
     1. Add `autopilot(enc, slot): FrameInput`, pure and total, reading only the state at the frame's start and the fighter's `behaviour`.
     2. The rules, by gene:
@@ -267,6 +267,8 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - Reflex 1 braces against a windup aimed at it; reflex 0 never does.
     - With 3 fighters and an egg, each preference picks the expected target.
     - An all-autopilot duel golden is pinned.
+  - Done: `src/sim/encounter/autopilot.ts`; `stepFrame` flies every `null` of a fighter still in (a dead fighter's `null` stays idle), constants in `RULES.encounter.autopilot`, golden `encounter-autopilot`.
+  - Note: "strongest" is the opponent whose strike hurts the pilot most; the existing goldens are unchanged by T4 since none sends `null` to a live fighter with opponents.
 
 - [ ] T5 Combat tournament: balance, size and growth by kills (after T4)
   - Steps:
@@ -313,7 +315,9 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - A protocol-6 hello gets `error: version`.
   - Notes: the messages of T14 (`carrion`) and T15 (`enc-join`) land here too, so later tasks don't reopen the protocol files.
 
-- [ ] T7 Signed snapshots between peers, and the lock answer [opus] (after T6)
+- [x] T7 Signed snapshots between peers, and the lock answer [opus] (after T6)
+  - Done: `src/game/engage.ts` (`candidates`, `CandidateSigner`, `lockState`, `SpawnShield`), `SignedSnaps` in `OnlineWiring.signed`; fight messages reach `OnlineHandlers.fight` through `HubClient.onFight`, and a recorded `HatchOutcome` says `protect`.
+  - Gotcha: T11's engage must call `app.online.shield.end()`; hooks `state().net.signed` and `badSignatures`.
   - Steps:
     1. Engage candidates: pond peers within ±1 tier and within 8 × the larger radius (`src/game/engage.ts`, `candidates(self, remotes)`).
     2. `SnapshotSender` signs every second snapshot (200 ms) and sends the 89-byte frame to candidates only; everyone else gets 25 bytes. This needs a per-peer state send in `OnlineSession`.

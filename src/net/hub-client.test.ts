@@ -219,6 +219,23 @@ describe('HubClient listeners', () => {
     });
   });
 
+  it('forwards fight messages, a lock ask first, apart from the life messages', async () => {
+    const client = make();
+    const fights: unknown[] = [];
+    const lives: unknown[] = [];
+    client.onFight((m) => fights.push(m));
+    client.onLife((m) => lives.push(m));
+    void client.connect().catch(() => {});
+    const s = await handshake();
+    s.receive({ t: 'lock-ask', lock: 'ab'.repeat(8) });
+    s.receive({ t: 'enc-frame', enc: 'cd'.repeat(32), f: 3, i: [1, null] });
+    expect(fights).toEqual([
+      { t: 'lock-ask', lock: 'ab'.repeat(8) },
+      { t: 'enc-frame', enc: 'cd'.repeat(32), f: 3, i: [1, null] },
+    ]);
+    expect(lives).toEqual([]);
+  });
+
   it('a throwing listener does not stop the others or the receive path', async () => {
     const client = make();
     const signals: unknown[] = [];

@@ -738,6 +738,28 @@ export const RULES = deepFreeze({
     reward: { share: 0.4, carrion: 0.4, energyPerBiomass: 3, smallerTier: 0.5, biggerTier: 1.5 },
     /** The egg's radius is `radius` x the carrier's; it rests `gap` x the carrier's radius plus its own behind the carrier and closes `follow` of the gap per tick. */
     egg: { radius: 0.5, gap: 0.45, follow: 0.25, healthShare: 0.25, eatShare: 0.2 },
+    /** The autopilot (DESIGN §7): thresholds on the four behaviour genes, in 0-1 unless noted. */
+    autopilot: {
+      /** Flees below `caution x fleeHealth` of its maximum health, or from a body over `fleeSize` x its biomass at caution above `fleeCaution`. */
+      fleeHealth: 0.6,
+      fleeSize: 1.5,
+      fleeCaution: 0.5,
+      /** Dashes away at this reflex, and braces at `braceReflex` when a windup aimed at it or its egg has `braceTicks` or fewer left. */
+      fleeDashReflex: 0.4,
+      braceReflex: 0.3,
+      braceTicks: 6,
+      /** Stance: aggressive from this aggression, else evasive from this caution. */
+      aggressiveAt: 0.6,
+      evasiveAt: 0.7,
+      /** The bearing offset in rad per unit of curiosity off 0.5 (it circles its target), and the throttle (of 15) inside `closeIn` x the reach. */
+      circle: 0.8,
+      closeIn: 0.8,
+      cruise: 6,
+      /** Dashes in at this aggression when the target is between `dashMin` and `dashMax` x the reach away. */
+      dashAggression: 0.5,
+      dashMin: 1,
+      dashMax: 2,
+    },
   },
   controls: {
     /** Cursor within this many radii of the creature means coast. */

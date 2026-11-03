@@ -1,13 +1,17 @@
 import type { Identity } from '../ledger/identity';
+import { verifySnap } from '../ledger/snapshot-sig';
 import { consumedParts } from '../net/claims';
 import type { PondClock } from '../net/clock';
 import type { Welcome } from '../net/hub-client';
-import type { PeerEvent } from '../net/protocol';
+import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
+import { encodeSnapshot, type PeerEvent } from '../net/protocol';
+import { SignedSnaps } from '../net/signed-snaps';
 import { createWorld } from '../sim/world';
 import { AloneHint } from './alone-hint';
 import type { App } from './app';
 import { countItem, type Pond } from './app-session';
 import { pick } from './dom';
+import { CandidateSigner, lockState, SpawnShield } from './engage';
 import { connectOnline, type OnlineSession } from './online';
 import { offlineChip, statusText, switchPond } from './online-config';
 import { PondFood } from './pond-food';
@@ -21,8 +25,63 @@ export class OnlineWiring {
   private readonly alone = new AloneHint();
   /** The connection line as last shown. */
   shownStatus = '';
+  /** Spawn protection as the own snapshot shows it (M7 T7). */
+  readonly shield = new SpawnShield();
+  /** Signs every second snapshot for the engage candidates; `signer.ids` names them. */
+  readonly signer: CandidateSigner;
+  /** Each peer's newest signed snapshot, verified on receipt, to forward at an engage (M7 T8). */
+  readonly signed: SignedSnaps;
+  private readonly marks: SnapshotMarks = {
+    ready: false,
+    egg: false,
+    spawnProtected: false,
+    fighting: false,
+  };
 
-  constructor(private readonly app: App) {}
+  constructor(private readonly app: App) {
+    this.signer = new CandidateSigner(() => {
+      const { identity, pond } = this.app;
+      return identity && pond ? { identity, pondId: pond.id } : null;
+    });
+    this.signed = new SignedSnaps((id, s) => {
+      const pond = this.app.pond;
+      return pond ? verifySnap(id, pond.id, s) : null;
+    });
+  }
+
+  /** The own creature as peers see it now. */
+  ownSnapshot(): SnapshotFields {
+    const { app, marks } = this;
+    const { player } = app.session;
+    marks.ready = app.mateReady;
+    // Peers see the egg from the commitment on, as the owner does (M6 T20).
+    marks.egg = app.offspring.child() !== null || app.mateNow === 'awaiting';
+    marks.spawnProtected = this.shield.active(app.pondMs());
+    return snapshotOf(player, app.session.world.tick, app.session.body.ref, marks);
+  }
+
+  /** The frame's snapshot to the peers, signed every 200 ms for the engage candidates. */
+  sendSnapshot(now: number, hidden: boolean): void {
+    const { app } = this;
+    app.sender.update(
+      now,
+      hidden,
+      () => this.ownSnapshot(),
+      (bytes) =>
+        app.session.player.alive
+          ? this.signer.sign(bytes, app.session.player, app.remoteViews)
+          : null,
+    );
+  }
+
+  /** Someone engages this player: the creature's state now, signed, before anything else runs. */
+  private answerLock(lock: string, link: OnlineSession): void {
+    const { app } = this;
+    const pond = app.livePond();
+    if (!pond || pond !== app.pond || !app.identity) return;
+    const bytes = encodeSnapshot({ ...this.ownSnapshot(), seq: app.sender.nextSeq });
+    link.send(lockState(lock, bytes, app.identity, pond.id));
+  }
 
   private makePond(w: Welcome, hubClock: PondClock): Pond {
     const { app } = this;
@@ -54,6 +113,7 @@ export class OnlineWiring {
           if (next.changed) {
             app.pond = next.pond;
             app.social.reset();
+            this.signed.clear();
             // A life in the old pond carries on in a local one; the chip says so.
             if (life && !next.life) {
               app.session.pond = null;
@@ -97,8 +157,13 @@ export class OnlineWiring {
           if (app.pond) for (const part of consumedParts(app.pond.world)) link.sendEvent(id, part);
           app.genomeSync.peerOpen(id);
         },
-        state(id, snapshot) {
-          app.remotes.receive(id, snapshot, performance.now());
+        state: (id, snapshot, signed) => {
+          const now = performance.now();
+          app.remotes.receive(id, snapshot, now);
+          if (signed) this.signed.receive(id, snapshot, signed, now);
+        },
+        fight: (msg) => {
+          if (msg.t === 'lock-ask') this.answerLock(msg.lock, link);
         },
         event: (id, event) => {
           this.receiveFoodEvent(id, event);

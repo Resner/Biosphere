@@ -109,6 +109,8 @@ describe('hatching', () => {
         activeMs: 600_000,
         lifespanMs: 4_500_000,
       },
+      // A resume after a reload gives no spawn protection (M7 T7).
+      protect: false,
     });
     expect(flow.view().status).toBe('playing');
     expect(sent).toEqual([]);
@@ -148,6 +150,7 @@ describe('hatching', () => {
     expect(outcome).toMatchObject({
       kind: 'recorded',
       start: { genome: 'FRESH', seq: 0, condition: null, activeMs: 0 },
+      protect: true,
     });
     const view = flow.view();
     expect(view).toMatchObject({ status: 'playing', awaitingBeacon: false, seq: 0 });
@@ -646,6 +649,7 @@ describe('fallback and taking over', () => {
     feed({ t: 'promoted', life: info({ creature: HASH, seq: 1, activeMs: 0 }), parent: null });
     const outcome = await pending;
     expect(outcome.kind === 'recorded' && outcome.start.creature).toBe(HASH);
+    expect(outcome.kind === 'recorded' && outcome.protect).toBe(true);
     expect(flow.view()).toMatchObject({ status: 'playing', creature: HASH, pending: false });
   });
 
@@ -683,7 +687,7 @@ describe('fallback and taking over', () => {
       body: { from: PARENT, activeMs: ancestor.activeMs, energy: ancestor.energy },
     });
     feed({ t: 'restored', life: ancestor });
-    expect((await pending).kind).toBe('recorded');
+    expect(await pending).toMatchObject({ kind: 'recorded', protect: true });
     expect(flow.view().creature).toBe(ancestor.creature);
   });
 });

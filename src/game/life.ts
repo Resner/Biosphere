@@ -66,7 +66,8 @@ export interface Started {
 const STRAY_REFUSALS: ReadonlySet<string> = new Set(['dead', 'cause', 'queued']);
 
 export type HatchOutcome =
-  | { kind: 'recorded'; start: Started }
+  /** `protect`: a genesis, a promoted child or a restore, which spawn protection covers (M7). */
+  | { kind: 'recorded'; start: Started; protect: boolean }
   | { kind: 'practice'; reason: 'offline' | 'limit'; genesisIn?: number }
   | { kind: 'failed'; message: string };
 
@@ -399,7 +400,7 @@ export class LifeFlow {
     if (!reply) return this.failed(SLOW);
     if (reply.t === 'refused') return this.failed(refusalWords(reply.reason));
     if (reply.t !== answer) return this.failed(NOT_BECOME);
-    return this.resume(reply.life);
+    return this.resume(reply.life, true);
   }
 
   private failed(message: string): HatchOutcome {
@@ -458,7 +459,7 @@ export class LifeFlow {
     return { kind: 'failed', message };
   }
 
-  private begin(start: Started): HatchOutcome {
+  private begin(start: Started, protect = false): HatchOutcome {
     this.status = 'playing';
     this.creature = start.creature;
     this.seq = start.seq;
@@ -475,26 +476,29 @@ export class LifeFlow {
     this.oldAge = false;
     this.matureAtMs = 0;
     this.cooldownUntilMs = 0;
-    return { kind: 'recorded', start };
+    return { kind: 'recorded', start, protect };
   }
 
-  private resume(life: LifeInfo): HatchOutcome {
+  private resume(life: LifeInfo, protect = false): HatchOutcome {
     // A creature that was never reported has no condition yet: it starts from its genome.
     const fresh = life.biomass === 0;
-    const outcome = this.begin({
-      creature: life.creature,
-      seq: life.seq,
-      genome: life.genome,
-      condition: fresh
-        ? null
-        : {
-            biomass: life.biomass / HUNDREDTHS,
-            energy: life.energy / HUNDREDTHS,
-            health: life.health / HUNDREDTHS,
-          },
-      activeMs: life.activeMs,
-      lifespanMs: life.lifespanMs,
-    });
+    const outcome = this.begin(
+      {
+        creature: life.creature,
+        seq: life.seq,
+        genome: life.genome,
+        condition: fresh
+          ? null
+          : {
+              biomass: life.biomass / HUNDREDTHS,
+              energy: life.energy / HUNDREDTHS,
+              health: life.health / HUNDREDTHS,
+            },
+        activeMs: life.activeMs,
+        lifespanMs: life.lifespanMs,
+      },
+      protect,
+    );
     this.matureAtMs = life.matureAtMs;
     this.cooldownUntilMs = life.cooldownUntilMs;
     return outcome;
@@ -518,14 +522,17 @@ export class LifeFlow {
     if (!(await this.checked(reply))) return this.fail(VERIFY_FAILED);
     this.known = { life: null, genesisIn: 0 };
     this.last = reply;
-    return this.begin({
-      creature: reply.record.hash,
-      seq: 0,
-      genome: reply.genome,
-      condition: null,
-      activeMs: 0,
-      lifespanMs: 0,
-    });
+    return this.begin(
+      {
+        creature: reply.record.hash,
+        seq: 0,
+        genome: reply.genome,
+        condition: null,
+        activeMs: 0,
+        lifespanMs: 0,
+      },
+      true,
+    );
   }
 
   /** The cheap checks here, then the BLS and DNA recomputation the shell supplies. */
