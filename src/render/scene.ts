@@ -285,10 +285,7 @@ export class GameScene {
       [this.pools.mesh, ORDER.glows],
       [this.far.points, ORDER.far],
       [this.plumes.mesh, ORDER.plumes],
-      ...[...this.food.meshes, this.food.carrion].map((mesh): [THREE.Object3D, number] => [
-        mesh,
-        ORDER.food,
-      ]),
+      ...this.food.all.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
       [this.cell.flagellum, ORDER.cell],
       [this.cell.body, ORDER.cell + 0.5],
       [this.eggs.mesh, ORDER.eggs],
@@ -393,7 +390,7 @@ export class GameScene {
   setField(
     food: readonly FoodItem[],
     plumes: readonly Plume[],
-    carrion: readonly CarrionPiece[] = [],
+    carrion: readonly CarrionPiece[],
   ): void {
     this.food.set(food);
     this.food.setCarrion(carrion);

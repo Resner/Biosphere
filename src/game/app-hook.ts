@@ -8,7 +8,7 @@ import { SnapshotSender } from '../net/pond-sync';
 import { decodeSnapshot, genomeRefOf, parsePeerEvent } from '../net/protocol';
 import { nearestInZone } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
-import { carrionAlive } from '../sim/carrion';
+import { livePieces } from '../sim/carrion';
 import { replayEncounter } from '../sim/encounter/replay';
 import { replay } from '../sim/replay';
 import { RULES, TICK_HZ } from '../sim/rules';
@@ -253,9 +253,13 @@ export function installAppHook(app: App): void {
         playerId,
         renewed: app.renewal.heard,
         visibleFood: app.food.length,
-        carrion: session.world.carrion
-          .filter((p) => carrionAlive(session.world, p))
-          .map(({ id, x, y, value, radius }) => ({ id, x, y, value, radius })),
+        carrion: livePieces(session.world).map(({ id, x, y, value, radius }) => ({
+          id,
+          x,
+          y,
+          value,
+          radius,
+        })),
         encounter: app.fight.view(),
         player: session.demo
           ? null

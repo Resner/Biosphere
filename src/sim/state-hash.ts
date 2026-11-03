@@ -1,6 +1,6 @@
 // World state hash (ADR 0005): walks fields in a fixed order and never relies on key order.
 
-import { carrionAlive } from './carrion';
+import { livePieces } from './carrion';
 import { Hasher } from './hash';
 import type { CreatureState, World } from './types';
 
@@ -40,7 +40,7 @@ export function hashWorld(world: World): string {
     for (const p of world.extraPlumes) h.str(p.id).f64(p.x).f64(p.y).f64(p.radius);
   }
   // Only the pieces still on the water count, and only when a kill left any.
-  const carrion = world.carrion.filter((p) => carrionAlive(world, p));
+  const carrion = livePieces(world);
   if (carrion.length > 0) {
     h.u32(carrion.length);
     for (const p of carrion)

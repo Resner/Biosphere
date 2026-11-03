@@ -4,7 +4,7 @@
 // contested bites. Everything here is a pure function of the world and the kill, so every client
 // that applies the same drop holds the same pieces.
 
-import { clamp, cos, lerp, sin, TAU } from './math';
+import { clamp, cos, lerp3, sin, TAU } from './math';
 import { hashU32 } from './prng';
 import { RULES } from './rules';
 import type { CarrionPiece, World } from './types';
@@ -43,12 +43,12 @@ export const pieceCount = (radius: number): number =>
 /**
  * Adds a kill's pieces, in id order, in place: the same drop on two worlds gives the same pieces.
  * A piece whose id is held already (a drop heard twice) or already eaten (its claim came first) is
- * skipped. Spoiled pieces and their `consumed` entries are cleared first.
+ * skipped. Pieces spoiled by the drop's tick, and their `consumed` entries, are cleared first.
  */
 export function dropCarrion(world: World, drop: Drop): void {
   const c = RULES.carrion;
   const reward = RULES.encounter.reward;
-  prune(world);
+  prune(world, drop.tick);
   const count = pieceCount(drop.radius);
   const value = (reward.carrion * drop.biomass * reward.energyPerBiomass) / count;
   const key = Number.parseInt(drop.enc.slice(0, 8), 16) >>> 0;
@@ -74,22 +74,32 @@ export function dropCarrion(world: World, drop: Drop): void {
 }
 
 /** Removes spoiled pieces, and the eaten-piece entries of `consumed` that outlived them. */
-function prune(world: World): void {
+function prune(world: World, now: number): void {
   let kept = 0;
   for (const piece of world.carrion) {
-    if (world.tick < piece.expires) world.carrion[kept++] = piece;
+    if (now < piece.expires) world.carrion[kept++] = piece;
     else delete world.consumed[piece.id];
   }
   world.carrion.length = kept;
 }
 
+/** The pieces on the water at `world.tick`, in id order: the one definition of "alive" for the hash, the views and the renderer. */
+export function livePieces(world: World): CarrionPiece[] {
+  return world.carrion.length === 0 ? NONE : world.carrion.filter((p) => carrionAlive(world, p));
+}
+
+const NONE: CarrionPiece[] = [];
+
 /** The pieces on the water within `radius` of a point, in id order. */
 export function carrionNear(world: World, x: number, y: number, radius: number): CarrionPiece[] {
-  return world.carrion.filter((piece) => {
+  if (world.carrion.length === 0) return NONE;
+  const found: CarrionPiece[] = [];
+  for (const piece of world.carrion) {
     const dx = piece.x - x;
     const dy = piece.y - y;
-    return carrionAlive(world, piece) && dx * dx + dy * dy <= radius * radius;
-  });
+    if (dx * dx + dy * dy <= radius * radius && carrionAlive(world, piece)) found.push(piece);
+  }
+  return found;
 }
 
 /** Marks a piece eaten: its id joins `consumed` as cycle 1 until it would have spoiled. */
@@ -120,5 +130,9 @@ export function applyRemoteCarrionClaim(
 /** How much of a piece a mouth of `type` (0 filter to 1 jaw) takes in, 0 to 1. */
 export function carrionEfficiency(type: number): number {
   const { filter, middle, jaw } = RULES.carrion.efficiency;
-  return type <= 0.5 ? lerp(filter, middle, type * 2) : lerp(middle, jaw, (type - 0.5) * 2);
+  return lerp3(filter, middle, jaw, type);
 }
+
+/** A carrion piece's claim: its own slot, cycle 0 (it never respawns), or null if `id` is not one. */
+export const carrionClaimOf = (id: string): { slot: string; k: number } | null =>
+  isCarrionId(id) ? { slot: id, k: 0 } : null;

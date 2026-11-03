@@ -28,6 +28,8 @@ export class FoodLayer {
   private readonly counts = KINDS.map(() => 0);
   /** The carrion pieces drawn through the same layer, beside the food meshes. */
   readonly carrion: THREE.InstancedMesh;
+  /** Every mesh the layer draws: the food kinds, then carrion. */
+  readonly all: THREE.InstancedMesh[];
 
   constructor() {
     this.meshes = KINDS.map((spec) => {
@@ -45,10 +47,12 @@ export class FoodLayer {
       FOOD_CAPACITY,
     );
     this.carrion.count = 0;
+    this.all = [...this.meshes, this.carrion];
   }
 
   /** Rewrites the carrion pieces; a bigger piece (more value) is drawn larger through its radius. */
   setCarrion(pieces: readonly CarrionPiece[]): void {
+    if (pieces.length === 0 && this.carrion.count === 0) return;
     let n = 0;
     for (const piece of pieces) {
       if (n >= FOOD_CAPACITY) break;
@@ -86,7 +90,7 @@ export class FoodLayer {
   }
 
   update(time: number): void {
-    for (const mesh of [...this.meshes, this.carrion]) {
+    for (const mesh of this.all) {
       const material = mesh.material as THREE.ShaderMaterial;
       setUniform(material, 'uTime', time);
     }
@@ -103,7 +107,7 @@ export class FoodLayer {
   }
 
   dispose(): void {
-    for (const mesh of [...this.meshes, this.carrion]) {
+    for (const mesh of this.all) {
       (mesh.material as THREE.Material).dispose();
       mesh.dispose();
     }

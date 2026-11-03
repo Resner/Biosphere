@@ -245,7 +245,6 @@ export class OnlineWiring {
     const { app } = this;
     const { pond } = app;
     if (!pond) return;
-    pond.world.tick = pond.time.tickAt(performance.now());
     dropCarrion(pond.world, msg);
     app.field.markDirty();
   }
