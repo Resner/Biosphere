@@ -34,6 +34,8 @@ import {
 const LOCK_RE = /^[0-9a-f]{16,64}$/;
 /** The 25 snapshot bytes in base64url. */
 const SNAP_RE = /^[A-Za-z0-9_-]{34}$/;
+/** An encounter's state hash (`hashEncounter`): 16 hex characters. */
+const STATE_HASH_RE = /^[0-9a-f]{16}$/;
 /** Positions lie in the world (the snapshot covers 0 to 8192 wu), velocities within a snapshot's range. */
 const POS_MAX = 8192;
 const VEL_MAX = 8192;
@@ -194,7 +196,7 @@ export function encounterHubMsg(o: Obj, raw: string): HubMsg | null {
     }
     case 'enc-end': {
       const fighters = perSlot(o.fighters, fighterOutcome);
-      return fighters && isStr(o.enc, HEX64_RE) && isFrame(o.f) && isStr(o.hash, HEX64_RE)
+      return fighters && isStr(o.enc, HEX64_RE) && isFrame(o.f) && isStr(o.hash, STATE_HASH_RE)
         ? capped(
             raw,
             { t: 'enc-end', enc: o.enc, f: o.f, hash: o.hash, fighters },

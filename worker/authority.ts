@@ -8,7 +8,7 @@ import {
 } from '../src/net/protocol';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
-import { type Clock, Fights, realClock } from './fights';
+import { type Clock, Fights, fightInput, realClock } from './fights';
 import { type KeyEntry, Ledger } from './ledger';
 import {
   death,
@@ -37,6 +37,8 @@ const RATE_WINDOW_MS = 10_000;
 const RATE_MAX_MESSAGES = 20;
 /** Signals have their own window cap: joining a pond of 24 sends one offer per member (at most 23), plus retries. */
 const RATE_MAX_SIGNALS = 60;
+/** A fighter's inputs have their own window cap: 10 a second, with room for a burst (M7). */
+const RATE_MAX_INPUTS = 130;
 /** While anyone waits, the object looks at the queue this often (the budget resets at midnight UTC without any message). */
 const QUEUE_TICK_MS = 15_000;
 
@@ -130,12 +132,24 @@ export class Authority extends DurableObject<Env> implements Hub {
       session.windowStart = now;
       session.count = 0;
       session.signals = 0;
+      session.inputs = 0;
     }
     const signal = msg?.t === 'signal';
-    // `?? 0`: a hibernated session from before signals were counted has no counter.
+    // Only a fighter's inputs count in their own window; anyone else's count as any message.
+    const input =
+      msg?.t === 'input' &&
+      session.phase === 'active' &&
+      this.fights.playerLocked(session.playerId);
+    // `?? 0`: a hibernated session from before signals (or inputs) were counted has no counter.
     if (signal) session.signals = (session.signals ?? 0) + 1;
+    else if (input) session.inputs = (session.inputs ?? 0) + 1;
     else session.count++;
-    if (signal ? session.signals > RATE_MAX_SIGNALS : session.count > RATE_MAX_MESSAGES) {
+    const over = signal
+      ? session.signals > RATE_MAX_SIGNALS
+      : input
+        ? (session.inputs ?? 0) > RATE_MAX_INPUTS
+        : session.count > RATE_MAX_MESSAGES;
+    if (over) {
       drop(this, ws, CLOSE_RATE_LIMITED, 'rate limited');
       return;
     }
@@ -215,6 +229,9 @@ export class Authority extends DurableObject<Env> implements Hub {
         return;
       case 'lock-state':
         lockAnswer(this, ws, session, msg);
+        return;
+      case 'input':
+        fightInput(this, session, msg);
         return;
     }
   }
