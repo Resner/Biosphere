@@ -8,32 +8,21 @@ import { atan2 } from '../math';
 import { RULES } from '../rules';
 import { maxHealth } from '../vitals';
 import { aimAtEgg, EGG_CODE, hasEgg } from './egg';
-import { aim, aimAt, strikeReach } from './reach';
-import { armourFactor, strikePower } from './strike';
+import { aim, aimAt, radiusOf, strikeReach } from './reach';
+import { armourFactor, pickTarget, strikePower } from './strike';
 import type { Encounter, Fighter, FrameInput, TargetPref } from './types';
 
 const E = RULES.encounter;
 const A = E.autopilot;
+
+/** The codec's top throttle. */
+const FULL = 15;
 
 const standing = (f: Fighter): boolean => f.status === 'in';
 
 /** The living opponents of `f`, in slot order. */
 function opponents(enc: Encounter, f: Fighter): Fighter[] {
   return enc.fighters.filter((o) => o !== f && standing(o));
-}
-
-/** The opponent nearest to `f` by strike distance (ties to the lower slot), or null. */
-function nearestOpponent(f: Fighter, foes: readonly Fighter[]): Fighter | null {
-  let best: Fighter | null = null;
-  let bestDistance = Number.POSITIVE_INFINITY;
-  for (const o of foes) {
-    aimAt(f.body, o.body, false);
-    if (aim.distance < bestDistance) {
-      bestDistance = aim.distance;
-      best = o;
-    }
-  }
-  return best;
 }
 
 /** A target's value under a preference: lower is better. Eggs have none under `largest` and `strongest`. */
@@ -107,7 +96,7 @@ function shouldFlee(f: Fighter, foes: readonly Fighter[]): boolean {
 }
 
 /** The steer for a heading, offset in rad. */
-const steerFor = (dx: number, dy: number, offset: number): number =>
+const steerFor = (dx: number, dy: number, offset = 0): number =>
   angleToSteer(atan2(dy, dx) + offset);
 
 /** The frame input of the fighter in `slot`, from the state at the start of the frame. */
@@ -122,16 +111,16 @@ export function autopilot(enc: Encounter, slot: number): FrameInput {
       : b.caution >= A.evasiveAt
         ? 'evasive'
         : 'balanced';
-  const idle: FrameInput = {
-    steer: angleToSteer(f.body.heading),
-    throttle: 0,
-    dash: false,
-    stance,
-    target: 0,
-    brace: false,
-  };
-  const nearest = nearestOpponent(f, foes);
-  if (nearest === null) return idle;
+  if (foes.length === 0) {
+    return {
+      steer: angleToSteer(f.body.heading),
+      throttle: 0,
+      dash: false,
+      stance,
+      target: 0,
+      brace: false,
+    };
+  }
 
   const brace =
     b.reflex >= A.braceReflex &&
@@ -141,10 +130,11 @@ export function autopilot(enc: Encounter, slot: number): FrameInput {
   const dashReady = tick >= f.body.dashReadyTick;
 
   if (shouldFlee(f, foes)) {
+    const nearest = pickTarget(enc, f, null) as Fighter;
     aimAt(f.body, nearest.body, false);
     return {
-      steer: steerFor(-aim.dx, -aim.dy, 0),
-      throttle: 15,
+      steer: steerFor(-aim.dx, -aim.dy),
+      throttle: FULL,
       dash: dashReady && b.reflex >= A.fleeDashReflex,
       stance: 'evasive',
       target: nearest.slot,
@@ -161,7 +151,7 @@ export function autopilot(enc: Encounter, slot: number): FrameInput {
   const offset = (b.curiosity - 0.5) * A.circle;
   return {
     steer: steerFor(aim.dx, aim.dy, offset),
-    throttle: distance > A.closeIn * reach ? 15 : A.cruise,
+    throttle: distance > A.closeIn * reach ? FULL : A.cruise,
     dash:
       dashReady &&
       b.aggression >= A.dashAggression &&

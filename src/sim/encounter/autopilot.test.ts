@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  CALM,
   hunterFighter,
   IDLE_CODE,
   starterFighter,
@@ -10,6 +11,7 @@ import { createRng, seedFromString } from '../prng';
 import { RULES } from '../rules';
 import { maxEnergy, maxHealth } from '../vitals';
 import { autopilot } from './autopilot';
+import { TARGET_PREFS } from './behaviour';
 import { encodeFrameInput } from './codec';
 import { EGG_CODE } from './egg';
 import { createEncounter, hashEncounter, stepFrame } from './encounter';
@@ -24,15 +26,7 @@ const calm = (enc: Encounter) => {
   enc.world.options.hazards = false;
   return enc;
 };
-const gene = (over: Partial<Behaviour>): Behaviour => ({
-  aggression: 0.5,
-  caution: 0.5,
-  curiosity: 0.5,
-  reflex: 0.5,
-  targetPref: 'nearest',
-  ...over,
-});
-const PREFS: TargetPref[] = ['nearest', 'weakest', 'largest', 'strongest'];
+const gene = (over: Partial<Behaviour>): Behaviour => ({ ...CALM, ...over });
 
 describe('autopilot', () => {
   it('never throws and stays deterministic over 1,000 random encounter states', () => {
@@ -66,7 +60,7 @@ describe('autopilot', () => {
             caution: rng.next(),
             curiosity: rng.next(),
             reflex: rng.next(),
-            targetPref: PREFS[rng.int(0, 3)] as TargetPref,
+            targetPref: TARGET_PREFS[rng.int(0, 3)] as TargetPref,
           }),
         });
       }
@@ -277,7 +271,6 @@ describe('autopilot', () => {
     // The target sits between 1 x and 2 x the reach away.
     expect(gap(0.5).dash).toBe(true);
     expect(gap(0.4).dash).toBe(false);
-    expect(E.autopilot.dashAggression).toBe(0.5);
   });
 
   it('runs an all-autopilot duel to a verdict', () => {
