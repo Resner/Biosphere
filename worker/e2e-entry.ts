@@ -3,6 +3,8 @@ import { Authority as LiveAuthority } from './authority';
 import type { BeaconSource } from './beacons';
 import { fixtureSource } from './fixture-beacons';
 import live from './index';
+import { recoverFights } from './recover';
+import { type Session, sessionOf } from './socket';
 
 // The Worker for local E2E (`worker/wrangler.e2e.jsonc`): the same code, but drand comes from the
 // recorded rounds, so no test touches the network. Never deployed.
@@ -24,6 +26,25 @@ export class Authority extends LiveAuthority {
       playerId,
     );
   }
+
+  /**
+   * Acts out an authority restart (M8 T5): every socket is closed with 1012 (as a deploy closes
+   * them, with no handler of this object running for them), the in-memory fights and locks are
+   * discarded, and the open fights are rebuilt from their saved logs as a new object would.
+   */
+  restart(): void {
+    for (const ws of this.ctx.getWebSockets()) {
+      const session = sessionOf(ws);
+      if (session) ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
+      try {
+        ws.close(1012, 'restart');
+      } catch {
+        // already closed
+      }
+    }
+    this.fights.clear();
+    recoverFights(this, this.clock.now());
+  }
 }
 
 export default {
@@ -38,6 +59,13 @@ export default {
         preReset(id: string): Promise<void>;
       };
       await stub.preReset(playerId);
+      return new Response(null, { status: 204 });
+    }
+    if (pathname === '/v1/e2e/restart' && request.method === 'POST') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        restart(): Promise<void>;
+      };
+      await stub.restart();
       return new Response(null, { status: 204 });
     }
     return live.fetch(request, env);

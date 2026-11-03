@@ -97,6 +97,8 @@ export function useFightHub(): void {
       (a as { fights: Fights }).fights = new Fights(() => a.clock);
     });
     await sql('DELETE FROM matings');
+    // ... and no open fight log: recovery (the alarm runs it) would rebuild an earlier test's fight.
+    await sql('UPDATE encounters SET open = 0 WHERE open = 1');
   });
 
   afterEach(async () => {

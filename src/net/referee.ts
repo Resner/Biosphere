@@ -24,6 +24,10 @@ export interface RefereeOptions {
   startAt: number;
   /** The fighters, one input slot each. */
   slots: number;
+  /** A referee restored from a saved log (M8 T5): the first frame the log doesn't hold. */
+  next?: number;
+  /** ... and the frame each joined slot takes inputs from, in join order. */
+  joins?: readonly number[];
 }
 
 export class Referee {
@@ -38,9 +42,18 @@ export class Referee {
   /** Slots whose fighter is out: their input no longer holds a frame back. */
   private readonly retired = new Set<number>();
 
-  constructor({ startAt, slots }: RefereeOptions) {
+  /** Throws a `RangeError` for a restore whose frame or joins could not have come from a referee. */
+  constructor({ startAt, slots, next = 0, joins = [] }: RefereeOptions) {
     this.startAt = startAt;
     this.slots = slots;
+    if (!Number.isInteger(next) || next < 0) throw new RangeError(`a restore at frame ${next}`);
+    this.next = next;
+    for (const f of joins) {
+      const last = this.joins[this.joins.length - 1] ?? 0;
+      if (!Number.isInteger(f) || f < last) throw new RangeError(`a restored join at frame ${f}`);
+      if (slots + this.joins.length >= E.maxFighters) throw new RangeError('the fight is full');
+      this.joins.push(f);
+    }
   }
 
   /** Slots that take inputs for frame `f`: the first fighters' and those joined by then. */
