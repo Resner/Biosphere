@@ -93,7 +93,7 @@ test('hatch, mate and a fight to its end @slow', async ({ browser }) => {
         expect((await state(a)).attack.shimmer).toEqual([]);
         await withinBudget(a, 'mated');
       },
-      0.6,
+      0.3,
     );
     expect((await state(a)).life.pending).toBe(true);
     expect((await state(b)).life.pending).toBe(true);
