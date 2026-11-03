@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "start": {
       "id": "enc-golden-plume",
       "pondSeed": "golden-plume",
@@ -59,7 +59,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-b",
@@ -112,7 +113,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         }
       ]
     },
@@ -159,7 +161,7 @@
       [3840, 0]
     ]
   },
-  "hash": "3e980e222b4c3d57",
+  "hash": "c8a120bb8c00ea66",
   "results": [
     {
       "outcome": "died",

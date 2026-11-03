@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "start": {
       "id": "enc-golden-autopilot",
       "pondSeed": "golden-autopilot",
@@ -59,7 +59,8 @@
             "curiosity": 0.8,
             "reflex": 0.6,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-b",
@@ -112,7 +113,8 @@
             "curiosity": 0.3,
             "reflex": 0.9,
             "targetPref": "weakest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-c",
@@ -165,7 +167,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "largest"
-          }
+          },
+          "worth": 1
         }
       ]
     },
@@ -372,7 +375,7 @@
       [null, null, null]
     ]
   },
-  "hash": "3268e76eeb5d82d4",
+  "hash": "e336d9544426df24",
   "results": [
     {
       "outcome": "escaped",

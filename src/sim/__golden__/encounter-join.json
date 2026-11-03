@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "start": {
       "id": "enc-golden-join",
       "pondSeed": "golden-join",
@@ -59,7 +59,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-m",
@@ -112,7 +113,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         }
       ]
     },
@@ -292,12 +294,13 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         }
       }
     ]
   },
-  "hash": "71f4cdfa3745fb68",
+  "hash": "a5d0e3873aa4687e",
   "results": [
     {
       "outcome": "escaped",

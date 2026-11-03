@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "seed": "golden-forage",
     "spawn": {
       "id": "p1",
@@ -1254,7 +1254,7 @@
     ],
     "life": [[600, "elder"], [1500, "expire"]]
   },
-  "hash": "46e35172585f490b",
+  "hash": "2811207ab10f8e82",
   "events": {
     "dash": 17,
     "eat": 24,

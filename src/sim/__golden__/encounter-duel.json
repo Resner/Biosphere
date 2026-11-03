@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "start": {
       "id": "enc-golden-duel",
       "pondSeed": "golden-duel",
@@ -59,7 +59,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-b",
@@ -112,7 +113,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         }
       ]
     },
@@ -209,7 +211,7 @@
       [8704, 128]
     ]
   },
-  "hash": "254ec1370001d182",
+  "hash": "de94c203f5cf97f6",
   "results": [
     {
       "outcome": "stood",

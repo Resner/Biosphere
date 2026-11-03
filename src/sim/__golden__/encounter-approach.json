@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "start": {
       "id": "enc-golden-approach",
       "pondSeed": "golden-approach",
@@ -59,7 +59,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-b",
@@ -112,7 +113,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         }
       ]
     },
@@ -143,7 +145,7 @@
       [0, 0]
     ]
   },
-  "hash": "82cf73410fee265a",
+  "hash": "04ff43ce7d2593c3",
   "results": [
     {
       "outcome": "stood",

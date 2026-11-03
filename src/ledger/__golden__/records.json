@@ -1,9 +1,9 @@
 {
-  "rulesVersion": 9,
+  "rulesVersion": 10,
   "genesis": {
     "record": {
       "v": 1,
-      "rules": 9,
+      "rules": 10,
       "kind": "genesis",
       "creature": "",
       "seq": 0,
@@ -18,17 +18,17 @@
         "karyotype": 1
       }
     },
-    "hash": "889f60388a3f5268a3d00beabaeec24596640300a0698117b3aabe7124dcdb73",
-    "requestHash": "04b718acf1942e59a7d03924c4d0a370fb103e1ba78c9beed0d8775ca68feb94"
+    "hash": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
+    "requestHash": "4f81e7a39e6be655155e8802160409ed378a314f0198a5f0c7c60e882397b915"
   },
   "checkpoint": {
     "record": {
       "v": 1,
-      "rules": 9,
+      "rules": 10,
       "kind": "checkpoint",
-      "creature": "889f60388a3f5268a3d00beabaeec24596640300a0698117b3aabe7124dcdb73",
+      "creature": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
       "seq": 1,
-      "prev": "889f60388a3f5268a3d00beabaeec24596640300a0698117b3aabe7124dcdb73",
+      "prev": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000900000,
       "body": {
@@ -38,17 +38,17 @@
         "health": 10000
       }
     },
-    "hash": "b1cfd1b26a4206026d63d5cca4239262c7714a7ce14a7f378383377c5a6a4c31",
-    "requestHash": "67bb87afdf025fd492bffc13eb6d7d07caf9fdea893ac297a2300657c82e997f"
+    "hash": "9d706a70e204eb76a0c3175e6ec714db02a128d78a2b5340edc1d710dcf4bd13",
+    "requestHash": "8d4a734587981d6b0ea52c3d1b8b1fa81c3aea6c4d165151d5092d16b51a7fec"
   },
   "death": {
     "record": {
       "v": 1,
-      "rules": 9,
+      "rules": 10,
       "kind": "death",
-      "creature": "889f60388a3f5268a3d00beabaeec24596640300a0698117b3aabe7124dcdb73",
+      "creature": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
       "seq": 2,
-      "prev": "b1cfd1b26a4206026d63d5cca4239262c7714a7ce14a7f378383377c5a6a4c31",
+      "prev": "9d706a70e204eb76a0c3175e6ec714db02a128d78a2b5340edc1d710dcf4bd13",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700001800000,
       "body": {
@@ -56,7 +56,7 @@
         "activeMs": 4500000
       }
     },
-    "hash": "28cbeec71f98fac7b0b2d716fea8e464e63fa1dbc403e5c101b156024814a7ef",
-    "requestHash": "24b834e500863df23106985d8d9b7210bede075b07c758c01bce393fcf83b538"
+    "hash": "ba4cd2cbf19df2a2d5abe398ef0dbad77c2b596f9a27b0cd3dfb628a233fdb74",
+    "requestHash": "f05f4190ca5f31239e9816ab29203dc16a9b7c304ded7f7fe64dff1766af8917"
   }
 }

@@ -282,7 +282,48 @@ describe('reach', () => {
   });
 });
 
+describe('worth', () => {
+  const pair = (worth: number) =>
+    createEncounter(
+      startOf('worth', [
+        starterFighter('a', 3000, 3000),
+        { ...starterFighter('b', 3030, 3000), worth },
+      ]),
+    );
+
+  it('is hashed: different worths differ, a structuredClone matches', () => {
+    expect(hashEncounter(pair(0.5))).not.toBe(hashEncounter(pair(1)));
+    expect(hashEncounter(structuredClone(pair(0.5)))).toBe(hashEncounter(pair(0.5)));
+  });
+
+  it('must be 2^-k with k from 0 to 7', () => {
+    for (const worth of [0, -1, 1.5, 0.75, 2 ** -8, Number.NaN])
+      expect(() => pair(worth)).toThrow(RangeError);
+  });
+});
+
 describe('speed', () => {
+  speedTest('plays 900 frames of null inputs of a 4-fighter encounter in under 250 ms', () => {
+    const make = () =>
+      calm(
+        createEncounter(
+          startOf(
+            'ffwd',
+            ['a', 'b', 'c', 'd'].map((id, i) =>
+              starterFighter(id, 3000 + i * 12, 3000 + (i % 2) * 12),
+            ),
+          ),
+        ),
+      );
+    const warm = make();
+    for (let f = 0; f < 100; f++) stepFrame(warm, [null, null, null, null]);
+    const enc = make();
+    const t0 = performance.now();
+    for (let f = 0; f < RULES.encounter.timeoutFrames; f++)
+      stepFrame(enc, [null, null, null, null]);
+    expect(performance.now() - t0).toBeLessThan(250);
+  });
+
   speedTest('steps a 4-fighter frame in under 0.2 ms', () => {
     const enc = calm(
       createEncounter(

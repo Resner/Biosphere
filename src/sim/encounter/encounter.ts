@@ -33,7 +33,10 @@ import type {
 
 const E = RULES.encounter;
 
-const NUMBERS = ['x', 'y', 'vx', 'vy', 'heading', 'biomass', 'energy', 'health'] as const;
+const NUMBERS = ['x', 'y', 'vx', 'vy', 'heading', 'biomass', 'energy', 'health', 'worth'] as const;
+
+/** A worth is 2^-k with k from 0 to 7 (`RULES.encounter.farming.maxHalvings` + the young halving). */
+const WORTHS: readonly number[] = Array.from({ length: 8 }, (_, k) => 2 ** -k);
 
 function validate(start: EncounterStart): void {
   const n = start.fighters.length;
@@ -54,6 +57,7 @@ export function checkFighter(f: FighterStart): void {
     if (!Number.isFinite(f[key])) throw new RangeError(`fighter ${f.creature}: bad ${key}`);
   }
   if (f.biomass <= 0 || f.health < 0 || f.energy < 0) throw new RangeError('bad fighter vitals');
+  if (!WORTHS.includes(f.worth)) throw new RangeError(`fighter ${f.creature}: bad worth`);
   if (!isPhysShape(f.phys)) throw new RangeError(`fighter ${f.creature}: not a body`);
 }
 
@@ -83,6 +87,7 @@ export function seatFighter(slot: number, f: FighterStart, tick: number): Fighte
     body,
     combat: sanitizeCombat(f.combat),
     behaviour: sanitizeBehaviour(f.behaviour),
+    worth: f.worth,
     egg: f.egg,
     eggBody: null,
     status: 'in',
@@ -215,7 +220,7 @@ export function hashEncounter(enc: Encounter): string {
     h.f64(c.reach).f64(c.arc).f64(c.power).f64(c.armour).f64(c.spines).f64(c.mass);
     const b = f.behaviour;
     h.f64(b.aggression).f64(b.caution).f64(b.curiosity).f64(b.reflex).str(b.targetPref);
-    h.u32(f.egg ? 1 : 0);
+    h.f64(f.worth).u32(f.egg ? 1 : 0);
     const egg = f.eggBody;
     if (egg !== null) h.f64(egg.x).f64(egg.y).f64(egg.radius).f64(egg.health).i32(egg.by);
     h.str(f.status).u32(f.outside).i32(f.lastBy);
