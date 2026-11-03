@@ -15,6 +15,7 @@ import type { CreatureState, World } from '../sim/types';
 import { maxHealth } from '../sim/vitals';
 import type { App } from './app';
 import { aimsAt } from './fight-cues';
+import { inputTarget, markedTarget, nextTarget, targetAt } from './fight-target';
 
 export interface FightHost {
   /** This player's id, or null before the identity is loaded. */
@@ -89,6 +90,12 @@ export interface EncounterView {
   resyncs: number;
   desyncs: number;
   fighters: FighterView[];
+  /**
+   * What the target ring marks (M7 T15): a target code (0-3 a slot, 4-7 that slot's egg), and
+   * whether the player chose it (Tab or a click) or it is the nearest by default. Null when
+   * targeting is not offered (a plain duel) or the player is not seated.
+   */
+  aim: { code: number; chosen: boolean } | null;
 }
 
 /** What a remote is drawn as; the fight moves those that are its fighters. */
@@ -107,6 +114,8 @@ export class FightPlay {
   stance: Stance = 'balanced';
   /** A brace asked for (Shift or the right button) goes out with the next frame's input. */
   private braceQueued = false;
+  /** The target the player chose (Tab or a click) as a target code, or null for the nearest. */
+  private chosen: number | null = null;
   /**
    * `debug.autoBrace` (a test aid, M7 T12): the own input braces whenever a windup aimed at the
    * player or its egg has `AUTO_BRACE_TICKS` or fewer left as its frame begins.
@@ -131,6 +140,7 @@ export class FightPlay {
   receive(msg: FightMsg): void {
     if (msg.t === 'enc-start') this.begin(msg);
     else if (msg.t === 'enc-frame') this.sync?.receive(msg);
+    else if (msg.t === 'enc-join') this.sync?.join(msg);
     else if (msg.t === 'enc-end') this.finish(msg);
   }
 
@@ -147,11 +157,44 @@ export class FightPlay {
       sample: () => this.sample(),
       events: (events) => host.events?.(events),
     });
-    if (!sync.start(msg, pond, host.body ? (text) => host.body?.(text) ?? null : undefined)) return;
+    // The hub sends an `enc-start` only to its fighters and to a joiner (M7 T15), whose slot
+    // comes with its `enc-join`.
+    const bodies = host.body ? (text: string) => host.body?.(text) ?? null : undefined;
+    if (!sync.start(msg, pond, bodies, true)) return;
     this.sync = sync;
     this.life = life;
     this.stance = 'balanced';
     this.braceQueued = false;
+    this.chosen = null;
+  }
+
+  /** The own slot, while it is seated in the running fight; -1 otherwise. */
+  private seat(): number {
+    const { sync } = this;
+    const enc = sync?.enc;
+    return this.fighting && enc && sync.slot >= 0 && sync.slot < enc.fighters.length
+      ? sync.slot
+      : -1;
+  }
+
+  /** Tab: the next living opponent or whole egg, nearest first. False outside a fight. */
+  cycleTarget(): boolean {
+    const slot = this.seat();
+    const enc = this.sync?.enc;
+    if (slot < 0 || !enc) return false;
+    this.chosen = nextTarget(enc, slot, this.chosen);
+    return this.chosen !== null;
+  }
+
+  /** A click at (x, y) in the world on a fighter or an egg targets it; false (no change) when it hits none. */
+  pickTarget(x: number, y: number, pick: number): boolean {
+    const slot = this.seat();
+    const enc = this.sync?.enc;
+    if (slot < 0 || !enc) return false;
+    const code = targetAt(enc, slot, x, y, pick);
+    if (code === null) return false;
+    this.chosen = code;
+    return true;
   }
 
   /** Shift or the right button: the next frame's input braces. Nothing outside a fight. */
@@ -173,8 +216,8 @@ export class FightPlay {
       throttle: s.throttle,
       dash: s.dash,
       stance: this.stance,
-      // The own slot names no opponent, so the nearest is struck (T15 adds a choice).
-      target: sync.slot,
+      // The chosen target while it is valid; the own slot names none, so the nearest is struck.
+      target: sync.enc ? inputTarget(sync.enc, sync.slot, this.chosen) : sync.slot,
       brace,
     };
   }
@@ -220,7 +263,11 @@ export class FightPlay {
   private finish(msg: Extract<FightMsg, { t: 'enc-end' }>): void {
     const { sync } = this;
     const own = sync?.end(msg);
-    if (!sync || !own) return;
+    if (!sync || !own) {
+      // A joiner whose join frame never came plays on in free roam as it was.
+      if (sync?.over) this.life = null;
+      return;
+    }
     const life = this.current();
     this.life = null;
     if (!life) return;
@@ -260,6 +307,13 @@ export class FightPlay {
     }
   }
 
+  /** What the target ring marks, while the player is seated in a fight that offers a choice. */
+  aim(): { code: number; chosen: boolean } | null {
+    const slot = this.seat();
+    const enc = this.sync?.enc;
+    return slot >= 0 && enc ? markedTarget(enc, slot, this.chosen) : null;
+  }
+
   /** The fight as the test hook shows it; null before the first. */
   view(): EncounterView | null {
     const { sync } = this;
@@ -277,6 +331,7 @@ export class FightPlay {
       rollbacks: sync.rollbacks,
       resyncs: sync.resyncs,
       desyncs: sync.desyncs,
+      aim: this.aim(),
       fighters: enc.fighters.map((f) => {
         const winding = f.fx.windupEnd >= 0;
         const egg = f.eggBody;

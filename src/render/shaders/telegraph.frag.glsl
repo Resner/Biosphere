@@ -1,5 +1,6 @@
-// Fight telegraphs (M7 T12). `vPhase` is the kind in the integer part (0 windup glow, 1 block
-// spark, 2 fighting ring) and its value 0..1 in the fraction. All are additive, above the bodies.
+// Fight telegraphs (M7 T12, T15). `vPhase` is the kind in the integer part (0 windup glow, 1 block
+// spark, 2 fighting ring, 3 target ring) and its value 0..1 in the fraction. All are additive,
+// above the bodies.
 varying vec2 vP;
 varying float vPhase;
 
@@ -25,13 +26,22 @@ void main() {
     float flash = exp(-d * d * 30.0) * fade * fade;
     a = (ray * 0.9 + ring * 0.55 + flash) * fade;
     col = vec3(0.78, 0.93, 1.0);
-  } else {
+  } else if (kind < 2.5) {
     // A fight seen from outside: a faint broken ring, so it reads by shape and not colour alone.
     float angle = atan(vP.y, vP.x);
     float dash = step(0.0, sin(angle * 6.0));
     float ring = 1.0 - smoothstep(0.0, 0.05, abs(d - 0.85));
     a = ring * dash * v;
     col = vec3(1.0, 0.6, 0.45);
+  } else {
+    // The player's target: a thin whole ring with four bold brackets on the diagonals, a sight
+    // that reads by shape; brighter when chosen than for the default nearest.
+    float angle = atan(vP.y, vP.x);
+    float thin = 1.0 - smoothstep(0.0, 0.025, abs(d - 0.8));
+    float onDiagonal = smoothstep(0.86, 0.94, abs(sin(angle * 2.0)));
+    float bracket = (1.0 - smoothstep(0.0, 0.06, abs(d - 0.8))) * onDiagonal;
+    a = (0.45 * thin + bracket) * v;
+    col = vec3(0.85, 0.95, 1.0);
   }
   a *= 1.0 - smoothstep(0.92, 1.0, d);
   gl_FragColor = vec4(col * a, a);

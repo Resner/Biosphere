@@ -36,6 +36,8 @@ export function attachPointer(app: App): void {
     if (!app.playing() || !app.session.player.alive || controller.typing) return;
     const rect = canvas.getBoundingClientRect();
     const at = app.worldAt(e.clientX - rect.left, e.clientY - rect.top);
+    // In a fight a click on a fighter or an egg targets it (M7 T15).
+    if (app.fight.pickTarget(at.x, at.y, INSPECT_MIN_PX / scene.pxPerWu)) return;
     let best = Number.POSITIVE_INFINITY;
     app.inspected = null;
     for (const r of app.remoteViews) {
@@ -126,6 +128,8 @@ export function attachKeys(app: App): void {
       middle: (x, y) => {
         if (app.playing()) social.ping(app.worldAt(x, y), app.selfKey(), 0);
       },
+      // Tab cycles the target in a fight instead of moving the browser's focus.
+      holds: (key) => key === 'Tab' && app.fight.fighting && app.playing(),
     },
   );
 }
