@@ -17,9 +17,12 @@ import type { RenderInfo } from '../render/scene';
 import type { ShakeKind } from '../render/shake';
 import type { Zone } from '../sim/bathymetry';
 import type { PhysStats } from '../sim/body';
+import type { EncounterLog } from '../sim/encounter/replay';
+import type { FighterResult } from '../sim/encounter/types';
 import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
+import type { EncounterView } from './app-encounter';
 import type { BenchStatus } from './auto-quality';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
@@ -49,6 +52,15 @@ export interface BsState {
   renewed: boolean | null;
   /** Food items handed to the renderer this tick. */
   visibleFood: number;
+  /**
+   * The current or last refereed fight (M7 T10); null before the first. `frame` counts the frames
+   * simulated here, `confirmed` those the referee's bundles cover from frame 0, `over` that its
+   * `enc-end` arrived, `hash` the local `hashEncounter` then. Each fighter (by slot) has its
+   * simulated `x`, `y`, `heading`, `health`, `maxHealth`, `stance`, `windup` (ticks left, or null),
+   * `target` (the windup's target code, or null), `braced`, `egg` and `outcome` (`in` while it
+   * fights).
+   */
+  encounter: EncounterView | null;
   /** The creature being played; null on the title screen. */
   player: {
     x: number;
@@ -259,6 +271,8 @@ export interface BsHook {
   events(): Record<string, number>;
   /** Re-runs an input log in a fresh world and returns its final state hash. */
   replay(log: InputLog): { hash: string; events: Record<string, number> };
+  /** Replays an encounter log (`src/sim/encounter/replay.ts`) in this engine: its final hash and results. */
+  replayEncounter(log: EncounterLog): { hash: string; results: FighterResult[] };
   audio: {
     /** Renders the sound engine's ambience on an `OfflineAudioContext` and measures it (M6 T22). */
     render(options: AudioRenderOptions): Promise<AudioRenderResult>;
