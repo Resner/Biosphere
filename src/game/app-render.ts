@@ -3,6 +3,7 @@ import type { Member, Vec2 } from '../net/protocol';
 import type { CellView } from '../render/cell';
 import type { CreatureSource } from '../render/creature-cache';
 import type { RemoteCellView } from '../render/remotes';
+import type { TelegraphMark } from '../render/telegraph';
 import { sightRadius } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
 import { currentAt } from '../sim/currents';
@@ -48,6 +49,7 @@ export class Frame {
     remotes: readonly RemoteCellView[];
     rings: App['fx']['rings'];
     eggs: ReturnType<EggShow['frame']>;
+    telegraphs: readonly TelegraphMark[];
     sight: number;
     flow: { x: number; y: number };
   };
@@ -108,6 +110,7 @@ export class Frame {
       remotes: [],
       rings: app.fx.rings,
       eggs: [],
+      telegraphs: [],
       sight: 1,
       flow: { x: 0, y: 0 },
     };
@@ -186,6 +189,7 @@ export class Frame {
       pointer,
       child: alive && child ? eggChild : null,
       remotes: playingNow ? app.remoteViews : NO_REMOTES,
+      fight: app.fightShow.fightEgg,
     });
   }
 
@@ -375,6 +379,7 @@ export class Frame {
     projection.height = scene.height;
     app.labels.update(remoteViews, projection);
     app.attack.update(projection);
+    view.telegraphs = app.fightShow.frame(dt, view.creature, projection);
     const finding = app.playing() && app.session.player.alive;
     this.indicators = finding ? edgeIndicators(cell, remoteViews, social.pings(), projection) : [];
     app.indicatorsUi.update(this.indicators, projection);

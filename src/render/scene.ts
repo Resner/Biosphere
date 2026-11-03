@@ -32,6 +32,7 @@ import {
 } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
+import { TelegraphLayer, type TelegraphMark } from './telegraph';
 import { Water } from './water';
 import {
   glowAt,
@@ -70,6 +71,8 @@ export interface SceneView {
   rings: readonly Ring[];
   /** Eggs to draw (M6 T20): the reveal, carried eggs and their tethers. */
   eggs: readonly EggView[];
+  /** Fight telegraphs (M7 T12): windup glows, block sparks and the rings of creatures fighting elsewhere. */
+  telegraphs: readonly TelegraphMark[];
   /** How far the player sees clearly in dark water, in wu (`sightRadius`, M6 T16). */
   sight: number;
   /** How far the sim's currents have carried the water since the pond began, in wu: it carries the snow (M6 T17). */
@@ -118,6 +121,8 @@ export interface RenderInfo extends PostInfo {
   veil: number;
   /** Size outlines drawn this frame, by kind (M6 T21). */
   outlines: { bigger: number; smaller: number };
+  /** Fight telegraphs drawn this frame, by kind (M7 T12). */
+  telegraphs: { glows: number; sparks: number; rings: number };
 }
 
 /** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
@@ -137,6 +142,7 @@ const ORDER = {
   cell: 4,
   eggs: 4.7,
   rings: 4.8,
+  telegraphs: 4.85,
   outlines: 4.9,
   mid: 5,
   near: 6,
@@ -180,6 +186,7 @@ export class GameScene {
     pxPerWu: 1,
   };
   private readonly rings = new RingLayer();
+  private readonly telegraphs = new TelegraphLayer();
   private readonly eggs = new EggLayer();
   /** The still scene's veil: black over the whole view, under the egg (M6c T11). */
   private readonly veil = new THREE.Mesh(
@@ -288,6 +295,7 @@ export class GameScene {
       [this.cell.body, ORDER.cell + 0.5],
       [this.eggs.mesh, ORDER.eggs],
       [this.rings.mesh, ORDER.rings],
+      [this.telegraphs.mesh, ORDER.telegraphs],
       [this.outlines.mesh, ORDER.outlines],
       [this.mid.points, ORDER.mid],
       [this.near.points, ORDER.near],
@@ -426,6 +434,7 @@ export class GameScene {
     );
     this.eggs.set(view.eggs, view.time);
     this.rings.set(view.rings);
+    this.telegraphs.set(view.telegraphs);
     this.updateOutlines(view);
     this.updateVeil(view, halfWidth);
 
@@ -590,6 +599,7 @@ export class GameScene {
       eggs: this.eggs.count(),
       veil: this.veil.visible ? (this.veil.material as THREE.MeshBasicMaterial).opacity : 0,
       outlines: this.outlines.counts(),
+      telegraphs: this.telegraphs.counts(),
       ...this.post.info(),
     };
   }
@@ -629,6 +639,7 @@ export class GameScene {
       this.body,
       this.eggs,
       this.rings,
+      this.telegraphs,
       this.outlines,
       this.remotes,
     ]) {

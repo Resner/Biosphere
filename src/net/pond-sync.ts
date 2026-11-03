@@ -281,6 +281,8 @@ export interface RemoteView {
   /** The newest snapshot's spawn-protected and fighting marks (M7): who can be engaged. */
   spawnProtected: boolean;
   fighting: boolean;
+  /** The newest snapshot's health, a share of its maximum (M7 T12: a drop flashes it). */
+  health: number;
 }
 
 interface Remote {
@@ -328,6 +330,7 @@ export class RemoteSet {
           egg: snapshot.egg,
           spawnProtected: snapshot.spawnProtected,
           fighting: snapshot.fighting,
+          health: snapshot.health,
         },
       };
       this.remotes.set(id, remote);
@@ -340,6 +343,7 @@ export class RemoteSet {
       remote.view.egg = snapshot.egg;
       remote.view.spawnProtected = snapshot.spawnProtected;
       remote.view.fighting = snapshot.fighting;
+      remote.view.health = snapshot.health;
     }
   }
 

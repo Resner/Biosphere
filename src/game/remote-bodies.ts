@@ -20,6 +20,8 @@ export interface DrawnRemote extends RemoteView {
   /** The genome as text, for the inspect card's hints. */
   genomeText: string | null;
   species: string | null;
+  /** 0..1, how red a landed hit flashes it this frame (M7 T12). */
+  hurt?: number;
 }
 
 interface Peer {

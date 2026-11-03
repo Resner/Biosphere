@@ -27,6 +27,10 @@ export const CUES = [
   'chat',
   'uv',
   'pressure',
+  'windup',
+  'block',
+  'kill',
+  'egg-eaten',
 ] as const;
 
 export type Cue = (typeof CUES)[number];
@@ -247,6 +251,48 @@ export const CUE_SOUNDS: Record<Cue, CueSound> = {
     layers: [
       noise('lowpass', 1.2, { attack: 0.05, decay: 0.55, level: 0.35, hz: 140, toHz: 70 }),
       tone('triangle', { attack: 0.05, decay: 0.5, level: 0.16, hz: 82, toHz: 55 }),
+    ],
+  },
+  // A windup aimed at the player (M7): a short rising tick, a dry knock under a climbing blip.
+  windup: {
+    seconds: 0.22,
+    layers: [
+      noise('bandpass', 5, { attack: 0.002, decay: 0.03, level: 0.12, hz: 1800 }),
+      tone('triangle', { attack: 0.01, decay: 0.21, level: 0.18, hz: 520, toHz: 1100 }),
+    ],
+  },
+  // A block (M7): a glassy clink, two bright partials ringing over a tiny tap.
+  block: {
+    seconds: 0.5,
+    layers: [
+      noise('highpass', 1, { attack: 0.001, decay: 0.02, level: 0.1, hz: 4000 }),
+      tone('sine', { attack: 0.002, decay: 0.45, level: 0.16, hz: 2350 }),
+      tone('sine', { attack: 0.002, decay: 0.32, level: 0.08, hz: 3720 }),
+    ],
+  },
+  // A kill (M7): a low gulp, a falling swallow with a wet bubble after it.
+  kill: {
+    seconds: 0.45,
+    layers: [
+      tone('sine', { attack: 0.015, decay: 0.3, level: 0.4, hz: 190, toHz: 70 }),
+      noise('lowpass', 1.5, { attack: 0.01, decay: 0.18, level: 0.25, hz: 600, toHz: 220 }),
+      tone('sine', { delay: 0.2, attack: 0.01, decay: 0.24, level: 0.16, hz: 140, toHz: 260 }),
+    ],
+  },
+  // An egg eaten (M7): a dry crack, two sharp splinters and a hollow knock.
+  'egg-eaten': {
+    seconds: 0.32,
+    layers: [
+      noise('highpass', 0.8, { attack: 0.001, decay: 0.05, level: 0.2, hz: 2600 }),
+      noise('bandpass', 2, { delay: 0.05, attack: 0.001, decay: 0.08, level: 0.16, hz: 1500 }),
+      tone('triangle', {
+        delay: 0.02,
+        attack: 0.003,
+        decay: 0.29,
+        level: 0.14,
+        hz: 240,
+        toHz: 150,
+      }),
     ],
   },
 };
