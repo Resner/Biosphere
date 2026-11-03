@@ -11,10 +11,15 @@ import { type EncounterLog, replayEncounter } from '../src/sim/encounter/replay'
 // M7 T9: the referee steps the same encounter as every client, so the encounter goldens (pinned in
 // Node by `src/sim/encounter/replay.test.ts`) must replay to the same hashes inside workerd.
 
-const GOLDENS = { approach, autopilot, duel, egg, escape: fleeing, join, plume } as unknown as Record<
-  string,
-  { log: EncounterLog; hash: string; results: unknown }
->;
+const GOLDENS = {
+  approach,
+  autopilot,
+  duel,
+  egg,
+  escape: fleeing,
+  join,
+  plume,
+} as unknown as Record<string, { log: EncounterLog; hash: string; results: unknown }>;
 
 describe('encounter goldens in workerd', () => {
   for (const [name, golden] of Object.entries(GOLDENS)) {

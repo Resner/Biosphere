@@ -19,7 +19,11 @@ const pair = () =>
   );
 
 const steps = (enc: ReturnType<typeof pair>, n: number) => {
-  for (let i = 0; i < n; i++) stepFrame(enc, enc.fighters.map(() => IDLE_CODE));
+  for (let i = 0; i < n; i++)
+    stepFrame(
+      enc,
+      enc.fighters.map(() => IDLE_CODE),
+    );
 };
 
 describe('joinFighter', () => {

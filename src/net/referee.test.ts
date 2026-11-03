@@ -100,4 +100,37 @@ describe('Referee', () => {
       expect(r.held()).toBeLessThanOrEqual(2);
     }
   });
+
+  describe('join (M7 T15)', () => {
+    it('adds a slot from its frame on: earlier bundles keep their width, later ones carry it', () => {
+      const r = new Referee({ startAt: T, slots: 2 });
+      expect(r.join(2)).toBe(2);
+      // Before its frame the new slot sends nothing that counts.
+      expect(r.input(2, 1, 5, start(0))).toBe('bad');
+      expect(r.input(2, 2, 5, start(0))).toBe('ok');
+      const bundles = r.due(start(3) + E.inputDeadlineMs + 1);
+      expect(bundles.map((b) => b.i.length)).toEqual([2, 2, 3, 3]);
+      expect(bundles[2]?.i).toEqual([null, null, 5]);
+    });
+
+    it('widens a frame already holding inputs, and waits for the joiner before finalizing early', () => {
+      const r = new Referee({ startAt: T, slots: 2 });
+      r.input(0, 1, 1, start(0));
+      r.join(1);
+      r.input(1, 1, 2, start(0));
+      expect(r.due(start(0) + E.inputDeadlineMs + 1).map((b) => b.f)).toEqual([0]);
+      r.input(2, 1, 3, start(1));
+      expect(r.due(start(1))).toEqual([{ f: 1, i: [1, 2, 3] }]);
+    });
+
+    it('refuses a join before the next frame, or past the fourth slot', () => {
+      const r = new Referee({ startAt: T, slots: 2 });
+      r.due(start(2) + E.inputDeadlineMs + 1);
+      expect(r.next).toBe(3);
+      expect(() => r.join(2)).toThrow(RangeError);
+      r.join(3);
+      r.join(4);
+      expect(() => r.join(5)).toThrow(RangeError);
+    });
+  });
 });
