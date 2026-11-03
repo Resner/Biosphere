@@ -374,6 +374,7 @@ export class Frame {
     projection.width = scene.width;
     projection.height = scene.height;
     app.labels.update(remoteViews, projection);
+    app.attack.update(projection);
     const finding = app.playing() && app.session.player.alive;
     this.indicators = finding ? edgeIndicators(cell, remoteViews, social.pings(), projection) : [];
     app.indicatorsUi.update(this.indicators, projection);

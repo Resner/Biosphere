@@ -32,6 +32,9 @@ export const FX = {
   /** A fully charged egg's burst adds a shockwave (M6c T11): one wide, quick ring, in egg radii. */
   shockRadii: 9,
   shockSeconds: 0.6,
+  /** The quick ring of an engage (M7), drawn from the key press's frame: in cell radii, and seconds. */
+  engageRadii: 2.6,
+  engageSeconds: 0.45,
   /** Paying for a mating (M6 T20): the drawn body eases to its new size, dipping this far below it. */
   shrinkSeconds: 0.7,
   shrinkDip: 0.08,
@@ -64,6 +67,8 @@ export interface FxSnapshot {
   /** Bursts after a full charge, with their shockwave (M6c T11). */
   shockwaves: number;
   cost: number;
+  /** Engages sent, each with its ring (M7). */
+  engage: number;
   /** Rings alive right now. */
   rings: number;
   /** 0..1, how red the body is from the last hit's flash (it drives the health bar's flash too). */
@@ -104,6 +109,7 @@ export class Effects {
   private bursts = 0;
   private shockwaves = 0;
   private cost = 0;
+  private engage = 0;
   /** The paid-for shrink: the drawn radius it starts from and its age in seconds; age < 0 when none. */
   private shrinkFrom = 0;
   private shrinkAge = -1;
@@ -138,6 +144,12 @@ export class Effects {
   /** A slow ring around the creature when a mating is committed (the ripple art, wider and longer). */
   matePulse(at: FxAnchor): void {
     this.addRing('ripple', at, FX.mateRadii, FX.mateSeconds);
+  }
+
+  /** A quick ring round the creature as it engages another (M7), from the key press on. */
+  engagePulse(at: FxAnchor): void {
+    this.engage++;
+    this.addRing('pop', at, FX.engageRadii, FX.engageSeconds);
   }
 
   /** A soft ring when the creature has grown another tenth; `tier` makes it the bigger one for a new size tier. */
@@ -243,6 +255,7 @@ export class Effects {
     this.bursts = 0;
     this.shockwaves = 0;
     this.cost = 0;
+    this.engage = 0;
     this.shrinkAge = -1;
   }
 
@@ -256,6 +269,7 @@ export class Effects {
       bursts: this.bursts,
       shockwaves: this.shockwaves,
       cost: this.cost,
+      engage: this.engage,
       rings: this.rings.length,
       hurt: this.hurt,
       vignette: 0,

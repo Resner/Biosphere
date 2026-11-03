@@ -21,6 +21,15 @@ describe('Effects', () => {
     expect(fx.snapshot()).toMatchObject({ eat: 0, dash: 0 });
   });
 
+  it('rings an engage at once, before any update (M7)', () => {
+    const fx = new Effects();
+    fx.engagePulse(AT);
+    expect(fx.rings).toEqual([
+      { kind: 'pop', x: 3, y: 4, size: 10 * FX.engageRadii, age: 0, life: FX.engageSeconds },
+    ]);
+    expect(fx.snapshot()).toMatchObject({ engage: 1, rings: 1 });
+  });
+
   it('marks growth with a ring, and a tier change with a wider, slower one', () => {
     const fx = new Effects();
     fx.growPulse(AT, false);

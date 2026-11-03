@@ -278,6 +278,9 @@ export interface RemoteView {
   /** The newest snapshot's ready-to-mate and egg marks (a hint; see `Snapshot`). */
   ready: boolean;
   egg: boolean;
+  /** The newest snapshot's spawn-protected and fighting marks (M7): who can be engaged. */
+  spawnProtected: boolean;
+  fighting: boolean;
 }
 
 interface Remote {
@@ -323,6 +326,8 @@ export class RemoteSet {
           genomeRef: snapshot.genomeRef,
           ready: snapshot.ready,
           egg: snapshot.egg,
+          spawnProtected: snapshot.spawnProtected,
+          fighting: snapshot.fighting,
         },
       };
       this.remotes.set(id, remote);
@@ -333,6 +338,8 @@ export class RemoteSet {
       remote.view.genomeRef = snapshot.genomeRef;
       remote.view.ready = snapshot.ready;
       remote.view.egg = snapshot.egg;
+      remote.view.spawnProtected = snapshot.spawnProtected;
+      remote.view.fighting = snapshot.fighting;
     }
   }
 

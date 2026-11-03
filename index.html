@@ -162,6 +162,9 @@
         <div><dt>Mouse or WASD</dt><dd>Swim</dd></div>
         <div><dt>Space</dt><dd>Dash</dd></div>
         <div><dt>E</dt><dd>Court a creature in reach</dd></div>
+        <div><dt>F</dt><dd>Attack a creature in reach</dd></div>
+        <div><dt>1 2 3</dt><dd>In a fight: aggressive, balanced, evasive</dd></div>
+        <div><dt>Shift or right click</dt><dd>In a fight: brace</dd></div>
         <div><dt>H</dt><dd>Hatch your egg</dd></div>
         <div><dt>Enter</dt><dd>Chat</dd></div>
         <div><dt>G</dt><dd>Ping and emote wheel</dd></div>
@@ -193,6 +196,10 @@
       <p data-testid="inspect-kinship"></p>
       <p class="inspect-verdict" data-testid="inspect-verdict"></p>
       <ul class="inspect-hints" data-testid="inspect-hints"></ul>
+      <p class="inspect-attack">
+        <button type="button" class="action" data-testid="inspect-attack" hidden>Attack (F)</button>
+        <span class="inspect-attack-why" data-testid="inspect-attack-why" hidden></span>
+      </p>
       <button type="button" class="action quiet" data-testid="inspect-close">Close (Esc)</button>
     </section>
     <section class="offspring" data-for="playing" data-testid="offspring" aria-label="Offspring" hidden>
@@ -217,6 +224,9 @@
     <p class="hatch-note" data-testid="hatch-note" role="status" hidden></p>
     <p class="alone-hint" data-for="playing" data-testid="alone-hint" hidden>Alone in the pond. Share the link.</p>
     <div class="remote-labels" data-for="playing" data-testid="remote-labels" aria-hidden="true"></div>
+    <div class="attack-marks" data-for="playing" data-testid="attack-marks" aria-hidden="true">
+      <kbd class="attack-hint" data-testid="attack-hint" title="F: attack" hidden>F</kbd>
+    </div>
     <div class="social-cues" data-for="playing" data-testid="social-cues" aria-hidden="true"></div>
     <section class="edge-indicators" data-for="playing" data-testid="edge-indicators" aria-label="Off screen"></section>
     <section class="pond-map" data-for="playing" data-testid="pond-map" aria-label="Pond map" hidden>

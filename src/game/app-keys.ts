@@ -89,6 +89,8 @@ export function attachKeys(app: App): void {
           return;
         }
         if (wheel.pick(key)) return;
+        // F engages; while locked, 1-3 set the stance and Shift braces (M7 T11).
+        if (app.attack.key(key)) return;
         if (key === 'g' || key === 'G') {
           const cursor = controller.pointerAt() ?? { x: scene.width / 2, y: scene.height / 2 };
           const view = { width: scene.width, height: scene.height };

@@ -5,6 +5,7 @@ import { encounterStartOf } from '../net/encounter-start';
 import type { InputMsg } from '../net/encounter-sync';
 import type { FightMsg, HubStatus, Welcome } from '../net/hub-client';
 import type { ClientMsg } from '../net/protocol';
+import { decodeFrameInput } from '../sim/encounter/codec';
 import { createEncounter } from '../sim/encounter/encounter';
 import type { Input } from '../sim/input';
 import { TICK_HZ } from '../sim/rules';
@@ -110,6 +111,9 @@ describe('FightPlay with the fake online session', () => {
 
     hub.fight(msg);
     expect(play.fighting).toBe(true);
+    // The keys' stance (3: evasive) and one brace (Shift) go out with the own inputs.
+    play.stance = 'evasive';
+    play.brace();
     for (; now < msg.at + 30_000 && !play.sync?.over; now += 2) {
       for (; read < hub.sent.length; read++) {
         const m = hub.sent[read];
@@ -144,7 +148,12 @@ describe('FightPlay with the fake online session', () => {
     expect(fightTicks).toBeGreaterThan(30);
     // Frame 0 began at pond tick t0, give or take the local lead and a tick.
     expect(Math.abs((lockedAt ?? 0) - msg.t0)).toBeLessThanOrEqual(2);
-    expect(hub.sent.filter((m) => m.t === 'input').length).toBeGreaterThan(10);
+    const inputs = hub.sent.flatMap((m) => (m.t === 'input' ? [decodeFrameInput(m.i)] : []));
+    expect(inputs.length).toBeGreaterThan(10);
+    expect(inputs.every((i) => i.stance === 'evasive')).toBe(true);
+    expect(inputs.filter((i) => i.brace)).toHaveLength(1);
+    expect(inputs[0]?.brace).toBe(true);
+    expect(play.view()?.endHash).toBe(ended.hash);
 
     // The player took the authority's final state, and is free again.
     const result = ended.fighters.find((x) => x.player === 'pa');

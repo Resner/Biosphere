@@ -143,7 +143,15 @@ export interface BsState {
     species: string | null;
     /** Its snapshots say it carries an egg (M6 T20). */
     egg: boolean;
+    /** Its snapshots say it is spawn-protected, or locked in a fight (M7). */
+    protected: boolean;
+    fighting: boolean;
   }[];
+  /**
+   * Attack (M7 T11): the remote the "F" glyph marks (the nearest this player could engage now) or
+   * null, the remotes drawn with the protection shimmer, and whether an engage awaits its answer.
+   */
+  attack: { hint: string | null; shimmer: string[]; waiting: boolean };
   /**
    * The play screen's HUD (M6b T9): whether the `menu` is open, the stat `bars` as drawn (each
    * 0..1; `life` null while its bar is hidden, as on a practice cell), the `chips` shown beside them
@@ -331,6 +339,8 @@ export interface BsDebug {
   setEnergy(energy: number): void;
   /** Sets the player's biomass (growth to a new size); energy and health keep their fractions. */
   setBiomass(biomass: number): void;
+  /** Sets the player's health here only (never above its maximum); the hub hears it in snapshots. */
+  setHealth(hp: number): void;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
   /**
@@ -340,7 +350,11 @@ export interface BsDebug {
   setZone(zone: Zone): { x: number; y: number };
   /** The food item closest to the player (of this kind, if given), or null. */
   nearestFood(kind?: FoodKind): FoodItem | null;
-  /** Swims at full throttle towards a target; resolves true once it is eaten or reached, false on a timeout or if it vanished. */
+  /**
+   * Swims at full throttle towards a target (in a fight too); resolves true once it is eaten or
+   * reached, false on a timeout or if it vanished. An `id` names a food item or a remote player,
+   * whose drawn body is followed and reached on touching it.
+   */
   steerTo(target: { id?: string; x: number; y: number }): Promise<boolean>;
   /** Adds a toxic plume to the world. */
   spawnPlume(x: number, y: number, radius?: number): void;

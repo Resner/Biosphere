@@ -205,12 +205,13 @@ export class PlayUi {
     mate.tick();
     const { player } = app.session;
     app.nearby = null;
-    if (playingNow && player.alive && remoteViews.length > 0) {
+    // Nobody courts in a fight, and a fighting creature (its snapshot's mark) gets no prompt.
+    if (playingNow && player.alive && !app.fight.fighting && remoteViews.length > 0) {
       const own = Math.sqrt(player.biomass);
       let best = Number.POSITIVE_INFINITY;
       let near: DrawnRemote | null = null;
       for (const r of remoteViews) {
-        if (r.alpha < 0.5) continue;
+        if (r.alpha < 0.5 || r.fighting) continue;
         const gap = Math.hypot(r.x - player.x, r.y - player.y);
         const reach = RULES.mating.reachBodies * 2 * Math.max(r.radius, own);
         if (gap > reach || gap >= best) continue;
