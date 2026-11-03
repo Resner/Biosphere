@@ -1,6 +1,6 @@
 # 0051: Combat from anatomy, size as an advantage, and kills as the fast way to grow
 
-- Status: accepted (amends 0011's reward line and DESIGN §7's initial values; the combat tournament tunes the numbers)
+- Status: accepted, amended by 0054 (rewards and carrion scale with the victim's worth) (amends 0011's reward line and DESIGN §7's initial values; the combat tournament tunes the numbers)
 - Date: 2026-11-02
 
 ## Context
