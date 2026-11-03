@@ -189,7 +189,8 @@ export interface BsState {
   /**
    * The status chip's text, the hub's state ('none' without a hub), open peer connections, food
    * claims ignored as implausible, genome events dropped (too frequent, from a peer with no
-   * link, or not a genome) and peers' signed snapshots that failed to verify (M7 T7).
+   * link, or not a genome), the peers whose signed snapshot is held and the signed snapshots
+   * that failed to verify (M7 T7).
    */
   net: {
     text: string;
@@ -197,6 +198,7 @@ export interface BsState {
     open: number;
     foodIgnored: number;
     dropped: number;
+    signed: number;
     badSignatures: number;
   };
   /**

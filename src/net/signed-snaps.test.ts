@@ -111,8 +111,10 @@ describe('SignedSnaps', () => {
     const { peer, other, snaps, signed } = await setup();
     snaps.receive(peer.playerId, snap(10), signed(10), 0);
     snaps.receive(other.playerId, snap(10), signed(10, other), 0);
+    expect(snaps.size).toBe(2);
     snaps.remove(peer.playerId);
     expect(snaps.latest(peer.playerId)).toBeNull();
+    expect(snaps.size).toBe(1);
     expect(snaps.latest(other.playerId)).not.toBeNull();
     snaps.clear();
     expect(snaps.latest(other.playerId)).toBeNull();

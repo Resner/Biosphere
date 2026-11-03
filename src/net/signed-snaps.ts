@@ -73,6 +73,13 @@ export class SignedSnaps {
     return held?.signed ? held.tick : null;
   }
 
+  /** Peers with a verified frame held. */
+  get size(): number {
+    let n = 0;
+    for (const held of this.peers.values()) if (held.signed) n++;
+    return n;
+  }
+
   remove(id: string): void {
     this.peers.delete(id);
   }
