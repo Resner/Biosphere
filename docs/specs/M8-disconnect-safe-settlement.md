@@ -141,7 +141,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### Rules, the log, the protocol and proofs
 
-- [ ] T1 Rules 10: a fighter's worth as prey, and carrion ids (after none)
+- [x] T1 Rules 10: a fighter's worth as prey, and carrion ids (after none)
   - Steps:
     1. `RULES_VERSION` 10, with no world reset (`FIRST_LIVE_RULES` stays 8, ADR 0054).
        - Regenerate every golden the version touches, and list them in the PR.
@@ -161,6 +161,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - The encounter goldens are regenerated and pinned, and a second run gives the same hashes. The free-roam goldens change only by the rules version.
     - The tournament's gate lines all hold at rules 10.
   - Notes: no new genes. The worker sets worth from T7, and until then it is 1 everywhere.
+  - Done: `Fighter.worth` is validated as 2^-k (k 0..7) and hashed; `reward` scales by it; carrion ids carry a 32-bit position hash; goldens and the combat report regenerated for rules 10 (combat gate lines hold).
+  - Gotcha: `fighterStartOf` sets `worth: 1` until T3 carries it in `FighterInfo`; `UPDATE_GOLDENS=1` writes unformatted JSON, so run `npx biome format --write src` after, and leave `math.json` alone.
 
 - [x] T2 The saved fight log [opus] (after none)
   - Steps:

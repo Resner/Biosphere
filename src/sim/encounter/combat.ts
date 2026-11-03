@@ -130,12 +130,12 @@ function apply(enc: Encounter, hits: Hit[], t: number, out: EncounterEvent[]): v
 }
 
 /** The eater takes a share of the victim's biomass as biomass, the overflow as energy (ADR 0051). */
-function reward(killer: Fighter, victimBiomass: number, share: number): void {
+function reward(killer: Fighter, victim: Fighter, share: number): void {
   const rw = E.reward;
   const mine = sizeTier(killer.body.biomass);
-  const theirs = sizeTier(victimBiomass);
+  const theirs = sizeTier(victim.body.biomass);
   const tier = theirs < mine ? rw.smallerTier : theirs > mine ? rw.biggerTier : 1;
-  const gain = share * victimBiomass * tier;
+  const gain = share * victim.body.biomass * tier * victim.worth;
   killer.reward += gain;
   const b = killer.body;
   const grown = addBiomass(b, gain);
@@ -155,7 +155,7 @@ function eatEgg(enc: Encounter, carrier: Fighter, by: number, out: EncounterEven
   markEaten(carrier, by, out);
   const eater = enc.fighters[by];
   if (eater !== undefined && eater.status === 'in') {
-    reward(eater, carrier.body.biomass, E.egg.eatShare);
+    reward(eater, carrier, E.egg.eatShare);
   }
 }
 
@@ -179,9 +179,9 @@ function kills(enc: Encounter, alive: Fighter[], out: EncounterEvent[]): void {
   for (const f of dead) {
     const killer = enc.fighters[f.lastBy];
     if (killer === undefined || killer.status !== 'in') continue;
-    reward(killer, f.body.biomass, E.reward.share);
+    reward(killer, f, E.reward.share);
     // Paid with the kill, after every death of the tick is known, so the order of slots never decides it.
-    if (withEgg.includes(f)) reward(killer, f.body.biomass, E.egg.eatShare);
+    if (withEgg.includes(f)) reward(killer, f, E.egg.eatShare);
   }
 }
 

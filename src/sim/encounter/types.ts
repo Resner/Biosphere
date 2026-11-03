@@ -44,6 +44,8 @@ export interface FighterStart {
   phys: PhysStats;
   combat: CombatStats;
   behaviour: Behaviour;
+  /** Its worth as prey: 2^-k with k 0 to 7 (1 for a fresh player). Scales what killing it pays. */
+  worth: number;
 }
 
 export interface EncounterStart {
@@ -119,6 +121,8 @@ export interface Fighter {
   body: CreatureState;
   combat: CombatStats;
   behaviour: Behaviour;
+  /** Its worth as prey (`FighterStart.worth`). */
+  worth: number;
   egg: boolean;
   /** The carried egg while the fight lasts; null for a fighter without one. */
   eggBody: EggBody | null;

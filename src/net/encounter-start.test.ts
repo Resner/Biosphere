@@ -49,7 +49,7 @@ describe('encounterStartOf', () => {
     expect(start.seed).toEqual(seedWords(msg.seed));
     const body = fighterOf(buildCreature(decoded));
     const { genome: _text, ...state } = fighter('b'.repeat(64), 5220);
-    expect(start.fighters[0]).toEqual({ ...state, ...body });
+    expect(start.fighters[0]).toEqual({ ...state, worth: 1, ...body });
     // Two builds of one message step alike.
     expect(createEncounter(start)).toEqual(
       createEncounter(encounterStartOf(msg, 'pond-seed') ?? start),

@@ -1,7 +1,7 @@
-// Rules v9 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
+// Rules v10 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 9;
+export const RULES_VERSION = 10;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 
@@ -753,6 +753,11 @@ export const RULES = deepFreeze({
     /** The share of the damage dealt that a spined body returns, times its spines. */
     spineReturn: 0.4,
     reward: { share: 0.4, carrion: 0.4, energyPerBiomass: 3, smallerTier: 0.5, biggerTier: 1.5 },
+    /**
+     * A victim's worth as prey halves for each time its player was killed within `windowMs`, up to
+     * `maxHalvings`, and once more while its identity is younger than `youngMs` (ADR 0054).
+     */
+    farming: { windowMs: 86_400_000, maxHalvings: 6, youngMs: 1_800_000 },
     /** The egg's radius is `radius` x the carrier's; it rests `gap` x the carrier's radius plus its own behind the carrier and closes `follow` of the gap per tick. */
     egg: { radius: 0.5, gap: 0.45, follow: 0.25, healthShare: 0.25, eatShare: 0.2 },
     /** The autopilot (DESIGN §7): thresholds on the four behaviour genes, in 0-1 unless noted. */

@@ -55,5 +55,6 @@ export function fighterStartOf(
 ): FighterStart | null {
   const { genome: text, ...f } = info;
   const creature = bodies(text);
-  return creature ? { ...f, ...fighterOf(creature) } : null;
+  // Worth is 1 until protocol 8 carries it in `FighterInfo` (M8 T3).
+  return creature ? { ...f, worth: 1, ...fighterOf(creature) } : null;
 }

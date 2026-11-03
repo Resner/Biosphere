@@ -396,6 +396,23 @@ describe('kills', () => {
     );
   });
 
+  it('scale the reward by the victim worth: half at 0.5, a share at 2^-7', () => {
+    const full = at(kill({}), 0).reward;
+    expect(at(kill({ worth: 1 }, {}, 'w1'), 0).reward).toBe(full);
+    const half = kill({ worth: 0.5 }, {}, 'w2');
+    expect(at(half, 0).reward).toBeCloseTo(full / 2, 9);
+    expect(at(half, 0).body.biomass).toBeCloseTo(RULES.starter.biomass + full / 2, 9);
+    const least = kill({ worth: 2 ** -7 }, {}, 'w3');
+    expect(at(least, 0).reward).toBeCloseTo(full / 128, 9);
+  });
+
+  it('halve the overflow energy with the worth too', () => {
+    const phys = { ...STARTER_PHYS, maxBiomass: RULES.starter.biomass };
+    const energy = (worth: number) =>
+      at(kill({ worth }, { phys, energy: 0 }, `wo${worth}`), 0).body.energy;
+    expect(energy(0.5)).toBeCloseTo(energy(1) / 2, 6);
+  });
+
   it('turn the overflow past the maximum biomass into energy at 3 per unit', () => {
     const phys = { ...STARTER_PHYS, maxBiomass: RULES.starter.biomass + 1 };
     const enc = kill({}, { phys, energy: 0 });
