@@ -50,6 +50,17 @@ describe('combat tournament', () => {
     expect([0, 0.5, 1]).toContain(one.score);
   });
 
+  it('keeps the gate at the numbers of ADR 0051', () => {
+    expect(GATE).toEqual({
+      maxArchetypeRate: 0.7,
+      minDecisivePairing: 0.65,
+      mirrorEven: [0.4, 0.6],
+      genesisMedianSeconds: [8, 25],
+      mirrorBigger: { 1.5: 0.7, 2: 0.85 },
+      growthOverForaging: 1.5,
+    });
+  });
+
   it('runs the eleven archetypes', () => {
     expect(ARCHETYPE_NAMES).toHaveLength(11);
   });
