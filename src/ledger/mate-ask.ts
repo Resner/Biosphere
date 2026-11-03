@@ -1,3 +1,4 @@
+import { SIG_RE } from '../net/protocol-kit';
 import { type Canonical, canonicalize } from './canonical';
 import { fromBase64Url, type Identity, isPlayerId, toBase64Url, verify } from './identity';
 import { HEX64, REQUEST_DOMAIN } from './record';
@@ -7,7 +8,6 @@ import { HEX64, REQUEST_DOMAIN } from './record';
 // shell can sign an ask without loading the beacon code (BLS) that the birth checks pull in.
 
 const NONCE_RE = /^[A-Za-z0-9_-]{22}$/;
-const SIG_RE = /^[A-Za-z0-9_-]{86}$/;
 const FIELDS = ['v', 'kind', 'creature', 'partner', 'partnerCreature', 'nonce', 'sig'];
 
 /** A player's signed consent to mate: `creature` with `partner`'s `partnerCreature`. */

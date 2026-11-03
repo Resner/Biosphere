@@ -203,7 +203,8 @@ export function death(
   msg: ClientMsg & { t: 'death' },
   now: number,
 ): void {
-  if (msg.cause === 'old-age') {
+  // Old age is the authority's clock, and an eaten egg its fight's settlement (M7 T13).
+  if (msg.cause === 'old-age' || msg.cause === 'eaten') {
     sendIfOpen(ws, { t: 'refused', reason: 'cause' });
     return;
   }

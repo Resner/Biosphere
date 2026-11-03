@@ -46,6 +46,8 @@ const snap: Snapshot = {
   dashing: true,
   ready: true,
   egg: false,
+  spawnProtected: true,
+  fighting: false,
   genomeRef: 0xbeef,
 };
 
@@ -54,7 +56,7 @@ describe('snapshot codec', () => {
     const bytes = encodeSnapshot(snap);
     expect(bytes.length).toBe(SNAPSHOT_BYTES);
     expect(SNAPSHOT_BYTES).toBe(25);
-    expect(bytes[24]).toBe(3);
+    expect(bytes[24]).toBe(4);
     const d = decodeSnapshot(bytes);
     expect(d).not.toBeNull();
     if (!d) return;
@@ -73,25 +75,38 @@ describe('snapshot codec', () => {
     expect(d.dashing).toBe(true);
     expect(d.ready).toBe(true);
     expect(d.egg).toBe(false);
+    expect(d.spawnProtected).toBe(true);
+    expect(d.fighting).toBe(false);
   });
 
-  it('keeps the four flags independent', () => {
-    for (let bits = 0; bits < 16; bits++) {
+  it('keeps the six flags independent', () => {
+    for (let bits = 0; bits < 64; bits++) {
       const flags = {
         alive: (bits & 1) !== 0,
         dashing: (bits & 2) !== 0,
         ready: (bits & 4) !== 0,
         egg: (bits & 8) !== 0,
+        spawnProtected: (bits & 16) !== 0,
+        fighting: (bits & 32) !== 0,
       };
-      const d = decodeSnapshot(encodeSnapshot({ ...snap, ...flags }));
-      expect(d && { alive: d.alive, dashing: d.dashing, ready: d.ready, egg: d.egg }).toEqual(
-        flags,
-      );
+      const bytes = encodeSnapshot({ ...snap, ...flags });
+      expect(bytes[11]).toBe(bits);
+      const d = decodeSnapshot(bytes);
+      expect(
+        d && {
+          alive: d.alive,
+          dashing: d.dashing,
+          ready: d.ready,
+          egg: d.egg,
+          spawnProtected: d.spawnProtected,
+          fighting: d.fighting,
+        },
+      ).toEqual(flags);
     }
   });
 
   it('drops a snapshot with a flag bit it does not know', () => {
-    for (const bit of [16, 32, 64, 128]) {
+    for (const bit of [64, 128]) {
       const bytes = encodeSnapshot(snap);
       bytes[11] = (bytes[11] as number) | bit;
       expect(decodeSnapshot(bytes), String(bit)).toBeNull();
@@ -153,8 +168,9 @@ describe('snapshot codec', () => {
 
   it('drops a version 1 snapshot (24 bytes) and a wrong version byte', () => {
     expect(decodeSnapshot(encodeSnapshot(snap).subarray(0, 24))).toBeNull();
-    // Version 2 had the same length but no ready or egg bits (M6 T19).
-    for (const version of [0, 1, 2, 4, 255]) {
+    // Version 2 had the same length but no ready or egg bits (M6 T19), version 3 no protected or
+    // fighting bits (M7 T6).
+    for (const version of [0, 1, 2, 3, 5, 255]) {
       const bytes = encodeSnapshot(snap);
       bytes[24] = version;
       expect(decodeSnapshot(bytes), String(version)).toBeNull();
@@ -182,16 +198,16 @@ describe('snapshot fuzz', () => {
       const len = rng.int(0, 64);
       const b = new Uint8Array(len);
       for (let j = 0; j < len; j++) b[j] = rng.int(0, 255);
-      // Random bytes almost never carry version 3, so half the arrays get it.
-      if (len === 25 && rng.int(0, 1) === 1) b[24] = 3;
+      // Random bytes almost never carry version 4, so half the arrays get it.
+      if (len === 25 && rng.int(0, 1) === 1) b[24] = 4;
       const d = decodeSnapshot(b);
       if (d) {
         decoded++;
         expect(len).toBe(25);
-        expect((b[11] as number) & ~15).toBe(0);
-        expect(b[24]).toBe(3);
-      } else if (len === 25 && b[24] === 3) {
-        expect((b[11] as number) & ~15).not.toBe(0);
+        expect((b[11] as number) & ~63).toBe(0);
+        expect(b[24]).toBe(4);
+      } else if (len === 25 && b[24] === 4) {
+        expect((b[11] as number) & ~63).not.toBe(0);
       }
     }
     expect(decoded).toBeGreaterThan(0);
@@ -464,8 +480,10 @@ describe('rejections', () => {
     expect(bad({ ...hello, v: 1 })).toBeNull();
     // Karyotype v2 genomes were a wire change (version 3), and so are the snapshot's ready and
     // egg bits (version 4, M6 T19), rules 7 bodies (version 5, M6b T1) and the world renewal
-    // (version 6, M6c T2, so no pond mixes epochs): older clients are turned away.
-    expect(PROTOCOL_VERSION).toBe(6);
+    // (version 6, M6c T2, so no pond mixes epochs) and encounters (version 7, M7 T6): older
+    // clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(7);
+    expect(bad({ ...hello, v: 6 })).toBeNull();
     expect(bad({ ...hello, v: 5 })).toBeNull();
     expect(bad({ ...hello, v: 2 })).toBeNull();
     expect(bad({ ...hello, v: 3 })).toBeNull();
