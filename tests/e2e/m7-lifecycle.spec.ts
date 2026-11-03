@@ -89,7 +89,10 @@ test('hatch, mate and a fight to its end @slow', async ({ browser }) => {
           await a.keyboard.press('Escape');
           await mate(a, b);
         });
-        expect((await state(a)).attack.shimmer).toEqual([]);
+        // The genesis protection (15 s of play) ends: nobody shimmers any more.
+        await a.waitForFunction(() => window.__bs?.state().attack.shimmer.length === 0, undefined, {
+          timeout: 30_000,
+        });
         await withinBudget(a, 'mated');
       },
       0.3,
