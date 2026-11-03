@@ -563,7 +563,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `src/sim/carrion.ts` (pieces in `World.carrion`; an eaten one is a `consumed` entry under its id), `PondFood` claims them as slot `x…_i`, cycle 0; `worker/settle.ts` sends `carrion` to the pond after a kill's records; the food layer draws them in amber. Gotcha: A, standing at the body, eats pieces at once (the killer is the first at the table), so a spectator sees what is left; pieces are drawn only in view, and a late joiner does not learn of a drop.
   - `m7-carrion` and `m7-kill` share `tests/e2e/m7-fight.ts`. A fight can end with B escaping (or A out of range), so `killB` engages again until B dies.
 
-- [x] T15 Multi-party joins and targeting [opus] (after T12, T13, T4) (in progress)
+- [x] T15 Multi-party joins and targeting [opus] (after T12, T13, T4)
   - Steps:
     1. `src/sim/encounter/join.ts`: `joinFighter(enc, start, f)` adds the next slot at frame f. The referee's bundles then carry one more input.
     2. `worker/engage.ts`: an engage where one side is already locked joins that fight, if it has fewer than 4 fighters. The checks are as at lock-in, plus `engage:full`. It joins at the current frame + 2, with `enc-join` to everyone and `enc-start` to the joiner. A pair already in different fights is refused `locked`.
