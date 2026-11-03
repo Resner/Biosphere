@@ -11,6 +11,9 @@ import { open, parkBeside, seen, stage } from './m7-fight';
 
 test.describe.configure({ mode: 'serial' });
 
+/** B's health as a share of its maximum. */
+const HURT = 0.1;
+
 type Ids = { idA: string; idB: string };
 
 /** One fight, from A's F to the referee's end on both pages. Returns the encounter's id. */
@@ -123,25 +126,26 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
   test.setTimeout(240_000);
   const [a, b] = await Promise.all([open(browser, M7_DUEL_HUB), open(browser, M7_DUEL_HUB)]);
   try {
-    // B somewhere calm, at 60% of its health: its autopilot plays whenever its tab is hidden and
-    // flees below `caution × 0.6` of its health, so a lower share leaves a cautious genome running.
-    const ids = await stage(a, b, undefined, 0.6);
+    // B somewhere calm and nearly dead, so one clean strike kills it: a loaded runner plays few
+    // frames for A (the referee flies A's missing inputs with its autopilot), and a healthier B
+    // escapes before enough strikes land.
+    const ids = await stage(a, b, undefined, HURT);
 
     let id: string | undefined;
     let killed = false;
     let stanceShown = false;
     for (let attempt = 0; attempt < 4 && !killed; attempt++) {
-      // A whole again for each try, B back at 60% (an escape leaves it hurt, and a fight that
+      // A whole again for each try, B back to nearly dead (an escape leaves it hurt, and a fight that
       // starts at zero health says nothing).
       await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
       // Both fed: a hurt B that starves (a `died` outcome, not a kill) says nothing either.
       await Promise.all([topUp(a), topUp(b)]);
-      await b.evaluate(() => {
+      await b.evaluate((share) => {
         const bs = window.__bs as BsHook;
         bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
         const p = bs.state().player;
-        if (p) bs.debug?.setHealth(p.health * 0.6);
-      });
+        if (p) bs.debug?.setHealth(p.health * share);
+      }, HURT);
       const fight = await oneFight(a, b, ids, id);
       id = fight.id;
       stanceShown ||= fight.stance;
