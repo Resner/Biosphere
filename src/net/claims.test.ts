@@ -265,7 +265,11 @@ describe('late join', () => {
 
 describe('ClaimBook on carrion', () => {
   const DROP = { enc: 'ab'.repeat(32), x: 3000, y: 3000, biomass: 400, radius: 20, tick: 100 };
-  const piece = 'xabababab_1';
+  const piece = (() => {
+    const w = world();
+    dropCarrion(w, DROP);
+    return (w.carrion[1] as { id: string }).id;
+  })();
   const carrionIds = (w: ReturnType<typeof world>) =>
     carrionNear(w, 3000, 3000, 1e6).map((p) => p.id);
   const dropped = (tick: number) => {

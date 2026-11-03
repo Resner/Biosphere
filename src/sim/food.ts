@@ -264,6 +264,22 @@ export function efficiency(kind: FoodKind, type: number): number {
   return lerp3(filter, middle, jaw, type);
 }
 
+/** The mouth being tested, reused by every `applyFeeding` call so a tick allocates nothing (calls never nest). */
+const mouthAt = { x: 0, y: 0, radius: 0, cx: 0, cy: 0, hx: 0, hy: 0, cosArc: 0 };
+
+/** Whether an item of `itemRadius` at (x, y) overlaps `mouthAt`'s disc and lies inside its arc. */
+function reaches(x: number, y: number, itemRadius: number): boolean {
+  const m = mouthAt;
+  const reach = m.radius + itemRadius;
+  const dx = x - m.x;
+  const dy = y - m.y;
+  if (dx * dx + dy * dy >= reach * reach) return false;
+  const ax = x - m.cx;
+  const ay = y - m.cy;
+  const away = length(ax, ay);
+  return away === 0 || ax * m.hx + ay * m.hy >= away * m.cosArc;
+}
+
 /**
  * Eats every item the creature's mouth reaches, unless its energy is already at the cap: then the
  * item stays for someone hungrier. The mouth disc sits `offset` radii ahead of the centre; an item
@@ -283,17 +299,15 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
   const my = creature.y + hy * mouth.offset * radius;
   const mouthRadius = mouth.radius * radius;
   const cosArc = cos(mouth.arc);
-  // Whether an item of `itemRadius` at (x, y) overlaps the mouth disc inside its arc.
-  const reaches = (x: number, y: number, itemRadius: number): boolean => {
-    const reach = mouthRadius + itemRadius;
-    const dx = x - mx;
-    const dy = y - my;
-    if (dx * dx + dy * dy >= reach * reach) return false;
-    const ax = x - creature.x;
-    const ay = y - creature.y;
-    const away = length(ax, ay);
-    return away === 0 || ax * hx + ay * hy >= away * cosArc;
-  };
+  const m = mouthAt;
+  m.x = mx;
+  m.y = my;
+  m.radius = mouthRadius;
+  m.cx = creature.x;
+  m.cy = creature.y;
+  m.hx = hx;
+  m.hy = hy;
+  m.cosArc = cosArc;
   const events: StepEvent[] = [];
   for (const item of foodNear(world, mx, my, mouthRadius + MAX_ITEM_RADIUS)) {
     if (!reaches(item.x, item.y, item.radius)) continue;

@@ -9,8 +9,11 @@ import { hashU32 } from './prng';
 import { RULES } from './rules';
 import type { CarrionPiece, World } from './types';
 
-const SALT = { angle: 1, dist: 2 } as const;
-const ID_PATTERN = /^x[0-9a-f]{8}_\d{1,2}$/;
+const SALT = { angle: 1, dist: 2, where: 3 } as const;
+// `x`, the first 8 hex digits of the encounter id, 2 hex digits for where the victim died, `_`, the piece.
+const ID_PATTERN = /^x[0-9a-f]{10}_\d{1,2}$/;
+/** Most claims held for pieces this client has not heard dropped yet (a peer's bite can beat the hub's message). */
+const MAX_EARLY_CLAIMS = 64;
 
 /** Where and what a kill leaves; `enc` is the encounter id (hex), `tick` the tick of the kill. */
 export interface Drop {
@@ -54,8 +57,12 @@ export function dropCarrion(world: World, drop: Drop): void {
   const key = Number.parseInt(drop.enc.slice(0, 8), 16) >>> 0;
   const radius = c.radiusBase + c.radiusPerVictim * drop.radius;
   const held = new Set(world.carrion.map((p) => p.id));
+  // Two victims of one fight (a mutual kill) die in different places, so their pieces get different ids.
+  const where = (hashU32(key, Math.floor(drop.x), Math.floor(drop.y), SALT.where) & 0xff)
+    .toString(16)
+    .padStart(2, '0');
   for (let i = 0; i < count; i++) {
-    const id = `x${drop.enc.slice(0, 8)}_${i}`;
+    const id = `x${drop.enc.slice(0, 8)}${where}_${i}`;
     if (held.has(id) || world.consumed[id] !== undefined) continue;
     const angle = unit(hashU32(...world.seed32, key, i, SALT.angle)) * TAU;
     // The square root spreads the pieces evenly over the disc rather than piling them at the centre.
@@ -73,14 +80,16 @@ export function dropCarrion(world: World, drop: Drop): void {
   world.carrion.sort((a, b) => (a.id < b.id ? -1 : 1));
 }
 
-/** Removes spoiled pieces, and the eaten-piece entries of `consumed` that outlived them. */
+/** Removes spoiled pieces, and every eaten-piece entry of `consumed` that has spoiled, held or not. */
 function prune(world: World, now: number): void {
   let kept = 0;
   for (const piece of world.carrion) {
     if (now < piece.expires) world.carrion[kept++] = piece;
-    else delete world.consumed[piece.id];
   }
   world.carrion.length = kept;
+  for (const [id, eaten] of Object.entries(world.consumed)) {
+    if (eaten.until <= now && isCarrionId(id)) delete world.consumed[id];
+  }
 }
 
 /** The pieces on the water at `world.tick`, in id order: the one definition of "alive" for the hash, the views and the renderer. */
@@ -111,15 +120,24 @@ export function consumeCarrion(world: World, id: string): void {
 }
 
 /**
- * Applies another player's claim on a piece: eaten at `claim.tick`. A claim that beats the one this
- * client holds replaces it. False, changing nothing, for a cycle other than 0.
+ * Applies another player's claim on a piece: eaten at `claim.tick`. The first claim sets when the
+ * entry spoils; who won is the claim book's business. A claim for a piece not heard of yet is kept
+ * (the hub's `carrion` may be late), up to `MAX_EARLY_CLAIMS` at a time. False, changing nothing,
+ * for a cycle other than 0 or too many early claims.
  */
 export function applyRemoteCarrionClaim(
   world: World,
   claim: { slot: string; k: number; tick: number },
 ): boolean {
   if (claim.k !== 0 || !isCarrionId(claim.slot)) return false;
+  if (world.consumed[claim.slot] !== undefined) return true;
   const piece = world.carrion.find((p) => p.id === claim.slot);
+  if (piece === undefined) {
+    const early = Object.keys(world.consumed).filter(
+      (id) => isCarrionId(id) && !world.carrion.some((p) => p.id === id),
+    );
+    if (early.length >= MAX_EARLY_CLAIMS) return false;
+  }
   world.consumed[claim.slot] = {
     k: 1,
     until: piece?.expires ?? claim.tick + RULES.carrion.lifeTicks,

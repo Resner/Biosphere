@@ -37,7 +37,7 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
     const onC = (await state(c)).carrion;
     expect(onC.length).toBeLessThanOrEqual(12);
     for (const p of onC) {
-      expect(p.id.startsWith(`x${enc?.slice(0, 8)}_`)).toBe(true);
+      expect(p.id.startsWith(`x${enc?.slice(0, 8)}`)).toBe(true);
       expect(p.value).toBeGreaterThan(0);
       expect(p.radius).toBeGreaterThan(1.5);
     }

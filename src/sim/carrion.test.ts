@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { STARTER_PHYS } from './body';
 import { carrionNear, dropCarrion, pieceCount } from './carrion';
 import { applyFeeding, applyRemoteClaim, consumeFood } from './food';
+import { RULES } from './rules';
 import { hashWorld } from './state-hash';
 import { step } from './step';
 import type { World } from './types';
@@ -10,6 +11,12 @@ import { createWorld, spawnCreature } from './world';
 const ENC = 'a1b2c3d4e5f60718293a4b5c6d7e8f90a1b2c3d4e5f60718293a4b5c6d7e8f90';
 const DROP = { enc: ENC, x: 3000, y: 3000, biomass: 400, radius: 20, tick: 100 };
 const world = (seed = 'carrion'): World => createWorld({ seed, currents: false, hazards: false });
+/** The id of piece `i` of the standard drop. */
+const idOf = (i: number): string => {
+  const w = world();
+  dropCarrion(w, DROP);
+  return (w.carrion[i] as { id: string }).id;
+};
 const withMouth = (type: number) => ({
   ...STARTER_PHYS,
   mouth: { ...STARTER_PHYS.mouth, type },
@@ -23,7 +30,7 @@ describe('dropCarrion', () => {
     expect(a.carrion).toEqual(b.carrion);
     expect(hashWorld(a)).toBe(hashWorld(b));
     expect(a.carrion.map((p) => p.id)).toEqual([...a.carrion.map((p) => p.id)].sort());
-    expect(a.carrion[0]?.id).toBe('xa1b2c3d4_0');
+    expect(a.carrion[0]?.id).toMatch(/^xa1b2c3d4[0-9a-f]{2}_0$/);
   });
 
   it('splits 40% of the biomass at 3 energy per unit into radius ÷ 3 pieces, 3 to 12', () => {
@@ -62,6 +69,16 @@ describe('dropCarrion', () => {
       expect(p.x).toBeGreaterThanOrEqual(0);
       expect(p.y).toBeLessThanOrEqual(w.size);
     }
+  });
+});
+
+describe('a mutual kill', () => {
+  it('leaves the pieces of both victims, whose ids differ', () => {
+    const w = world();
+    dropCarrion(w, DROP);
+    dropCarrion(w, { ...DROP, x: 3100, y: 3050 });
+    expect(w.carrion).toHaveLength(14);
+    expect(new Set(w.carrion.map((p) => p.id)).size).toBe(14);
   });
 });
 
@@ -116,12 +133,27 @@ describe('eating carrion', () => {
   });
 
   it('never respawns an eaten piece, and skips one whose claim came first', () => {
+    const id = idOf(2);
     const w = world();
-    expect(applyRemoteClaim(w, { slot: 'xa1b2c3d4_2', k: 0, tick: 0 })).toBe(true);
+    expect(applyRemoteClaim(w, { slot: id, k: 0, tick: 0 })).toBe(true);
     dropCarrion(w, DROP);
-    expect(w.carrion.map((p) => p.id)).not.toContain('xa1b2c3d4_2');
-    expect(applyRemoteClaim(w, { slot: 'xa1b2c3d4_2', k: 1, tick: 0 })).toBe(false);
-    expect(() => consumeFood(w, 'xa1b2c3d4_2')).toThrow();
+    expect(w.carrion.map((p) => p.id)).not.toContain(id);
+    expect(applyRemoteClaim(w, { slot: id, k: 1, tick: 0 })).toBe(false);
+    expect(() => consumeFood(w, id)).toThrow();
+  });
+
+  it('keeps a bounded number of claims for pieces it has not heard of, and lets them spoil', () => {
+    const w = world();
+    const early = (i: number) => `x${i.toString(16).padStart(10, '0')}_0`;
+    for (let i = 0; i < 64; i++)
+      expect(applyRemoteClaim(w, { slot: early(i), k: 0, tick: 0 })).toBe(true);
+    expect(applyRemoteClaim(w, { slot: early(64), k: 0, tick: 0 })).toBe(false);
+    // The first claim stands: a later one does not move when the entry spoils.
+    const until = w.consumed[early(0)]?.until;
+    applyRemoteClaim(w, { slot: early(0), k: 0, tick: 500 });
+    expect(w.consumed[early(0)]?.until).toBe(until);
+    dropCarrion(w, { ...DROP, tick: RULES.carrion.lifeTicks });
+    expect(Object.keys(w.consumed)).toEqual([]);
   });
 });
 
@@ -149,6 +181,6 @@ describe('the state hash', () => {
       eaten += events.filter((e) => e.type === 'eat' && e.food === piece.id).length;
     }
     expect(eaten).toBe(1);
-    expect(hashWorld(w)).toBe('9b36078710317eb9');
+    expect(hashWorld(w)).toBe('7e3312f9b3d49528');
   });
 });

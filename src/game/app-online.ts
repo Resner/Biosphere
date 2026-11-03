@@ -129,8 +129,9 @@ export class OnlineWiring {
             // A life in the old pond carries on in a local one; the chip says so.
             if (life && !next.life) {
               app.session.pond = null;
-              // The old pond's eaten food is not this life's any more.
+              // The old pond's eaten food and carrion are not this life's any more.
               app.session.world.consumed = { ...app.session.world.consumed };
+              app.session.world.carrion = [...app.session.world.carrion];
               app.loop.setSpeed(1);
             }
           }
