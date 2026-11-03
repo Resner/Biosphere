@@ -584,7 +584,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 
 ### Closing
 
-- [ ] T16 End-to-end scenario, owner checks, documentation sync
+- [ ] T16 End-to-end scenario, owner checks, documentation sync (in progress)
   - Steps:
     1. `m7-lifecycle.spec.ts` (`@slow`, hub 8812, the M5 hooks, `?quality=medium`, three contexts A, B and C), in order:
        - A and B hatch; the protected shimmer shows on each for the other, then goes;
