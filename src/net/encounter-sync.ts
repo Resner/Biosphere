@@ -251,6 +251,7 @@ export class EncounterSync {
     const mine = msg.fighters[this.slot];
     if (!mine) return null;
     this.reconcile(null);
+    if (this.frame > msg.f) this.rewind(msg.f);
     while (this.frame < msg.f) this.simulate(false, false);
     const live = this.enc as Encounter;
     this.hash = hashEncounter(live);
@@ -354,6 +355,18 @@ export class EncounterSync {
       const a = after[slot] as Pose;
       return { dx: b.x - a.x, dy: b.y - a.y, dh: wrapAngle(b.heading - a.heading), at: hubNow };
     });
+  }
+
+  /** Back to the start of frame `f`: from its kept state, or from frame 0 when it is older. */
+  private rewind(f: number): void {
+    const kept = this.states.get(f);
+    if (kept) {
+      this.enc = kept;
+      this.frame = f;
+    } else {
+      this.enc = createEncounter(this.origin as EncounterStart);
+      this.frame = 0;
+    }
   }
 
   private poses(hubNow: number, eased: boolean): Pose[] {

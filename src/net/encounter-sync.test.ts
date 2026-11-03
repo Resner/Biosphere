@@ -209,6 +209,30 @@ describe('EncounterSync', () => {
     expect(a.desyncs).toBe(0);
   });
 
+  it('rewinds to the end when its clock ran past the frame the referee ended on', () => {
+    const msg = startMsg();
+    const start = encounterStartOf(msg, TEST_POND);
+    if (!start) throw new Error('no start');
+    const referee = new ScriptedReferee(start, msg.at);
+    const bundles = referee.due(msg.at + 100_000);
+    const end = referee.endMsg();
+    const sync = new EncounterSync({
+      me: 'pa',
+      sample: () => null,
+      oneWayMs: () => 100,
+      send: () => {},
+    });
+    expect(sync.start(msg, TEST_POND)).toBe(true);
+    // The bundles up to the end arrive, and the clock has already begun two frames more.
+    for (const b of bundles) sync.receive(b);
+    sync.step(msg.at + (end.f + 2) * FRAME_MS);
+    expect(sync.frame).toBeGreaterThan(end.f);
+    sync.end(end);
+    expect(sync.frame).toBe(end.f);
+    expect(sync.hash).toBe(end.hash);
+    expect(sync.desyncs).toBe(0);
+  });
+
   it('converges on the autopilot where the referee turned the own input into null', () => {
     const lost = (f: number) => f >= 12 && f < 18;
     const { a, b, referee, end } = play({ lostA: lost });
