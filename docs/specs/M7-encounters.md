@@ -241,7 +241,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `egg.ts` (`eggBody` on a fighter, trailing, strike aim, `targetEgg`), egg hits in `combat.ts` (`hit.egg`, an `egg` event), `RULES.encounter.egg` (`radius`, `gap`, `follow`), golden `encounter-egg`.
   - Gotcha: a target code is 0-7 now (`windupTarget` too); the nip count is pinned from the seeded spread, within one hit of the nominal.
 
-- [ ] T4 Autopilot from behaviour genes (after T3)
+- [ ] T4 Autopilot from behaviour genes (after T3) (in progress)
   - Steps:
     1. Add `autopilot(enc, slot): FrameInput`, pure and total, reading only the state at the frame's start and the fighter's `behaviour`.
     2. The rules, by gene:
