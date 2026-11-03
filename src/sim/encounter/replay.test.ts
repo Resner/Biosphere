@@ -74,14 +74,14 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
     ]),
     Array.from({ length: 40 }, (_, f) => [drive(0, 15, { dash: f === 1 }), IDLE_CODE]),
   );
-  // A hunter closes on a starter that braces once and then drifts: it is bitten to death.
+  // A hunter closes on a starter that braces once and then drifts, and stays on it: it is bitten to death.
   const duel = log(
     startOf('golden-duel', [
       hunterFighter('a', 5200, 3000),
       starterFighter('b', 5242, 3000, Math.PI),
     ]),
-    Array.from({ length: 60 }, (_, f) => [
-      drive(0, 15, { stance: 'aggressive', dash: f === 4 }),
+    Array.from({ length: 90 }, (_, f) => [
+      drive(0, f < 8 ? 15 : 2, { stance: 'aggressive', dash: f === 4 }),
       drive(128, 0, { brace: f === 1 }),
     ]),
   );
