@@ -239,11 +239,14 @@ describe('recovery rebuilds the fight', () => {
     await play(a, b, start, IDLE, 20);
     expect((await logRow(start.enc))?.persisted).toBe(20);
     const hash = await encHash(a);
+    // The encounter seats fighters in creature-id order, so the slots are not the start's order.
+    const seated = (await fightOf(a))?.players;
+    expect(seated).toHaveLength(2);
     await restart();
     const fight = await fightOf(a);
     expect(fight?.referee.next).toBe(20);
     expect(fight?.persisted).toBe(20);
-    expect(fight?.players).toEqual(start.fighters.map((f) => f.player));
+    expect(fight?.players).toEqual(seated);
     expect(await encHash(a)).toBe(hash);
     expect(await timers()).toBe(1);
   });
