@@ -1,6 +1,5 @@
 import type { DeathCause } from '../sim/types';
 import { pick } from './dom';
-import { RESUME_LABEL, RESUME_LINE } from './fight-resume';
 import { DEATH_TEXT, deathName, livedText } from './life-text';
 import type { FallbackId, FallbackOption } from './offspring-text';
 
@@ -48,8 +47,6 @@ export class Screens {
       resume(): void;
     },
   ) {
-    this.resumeButton.textContent = RESUME_LABEL;
-    this.resumeLine.textContent = RESUME_LINE;
     this.resumeButton.addEventListener('click', () => handlers.resume());
     const bind = (ids: string[], into: HTMLButtonElement[], click: () => void): void => {
       for (const id of ids) {

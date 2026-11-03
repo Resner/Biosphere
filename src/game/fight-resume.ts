@@ -5,11 +5,6 @@
 
 import type { FightMsg } from '../net/hub-client';
 
-/** The title's main button while a fight waits (`resume-fight`). */
-export const RESUME_LABEL = 'Back to the fight';
-/** The line under it. */
-export const RESUME_LINE = 'Your creature fights on by itself';
-
 /** The messages held for a fight: its start, frames, joins and end. */
 export type HeldMsg = Extract<FightMsg, { t: 'enc-start' | 'enc-frame' | 'enc-join' | 'enc-end' }>;
 

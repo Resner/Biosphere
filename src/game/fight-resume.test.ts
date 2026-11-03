@@ -13,7 +13,7 @@ import { step } from '../sim/step';
 import type { CreatureState, World } from '../sim/types';
 import { createWorld } from '../sim/world';
 import { FightPlay } from './app-encounter';
-import { FightResume, RESUME_LABEL } from './fight-resume';
+import { FightResume } from './fight-resume';
 import { type OnlineHub, type OnlineMesh, OnlineSession } from './online';
 
 /** The hub side of a fake online session: what the client sends, and life and fight messages to deliver. */
@@ -167,7 +167,6 @@ describe('FightResume with the fake online session (M8 T10)', () => {
       // A second later, on the title, B presses "Back to the fight".
       if (resumedAt === null && now >= msg.at + 3000) {
         resumedAt = now;
-        expect(RESUME_LABEL).toBe('Back to the fight');
         expect(b.reached).toEqual([]);
         expect(b.play.sync).toBeNull();
         // The new life spawns far from the fight; resuming puts it in its fighter's place.

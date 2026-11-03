@@ -58,6 +58,12 @@ export function attachPointer(app: App): void {
 export function attachKeys(app: App): void {
   const { controller, eggs, lineagePanel, settingsPanel, wheel, scene, pondMap, menu, mate } = app;
   const { social, screens } = app;
+  // Enter and Space both go back to a running fight when the title offers it (M8 T10).
+  const resumeOffered = (): boolean => {
+    if (!screens.resumeOffered) return false;
+    app.life.resumeFight();
+    return true;
+  };
   controller.attach(
     window,
     document,
@@ -67,7 +73,7 @@ export function attachKeys(app: App): void {
       // (M6b T11, M6c T11); during a hatch it does not open the chat.
       if (eggs.still() && (eggs.skip(app.eggClock()) || app.playing())) return;
       if (app.playing()) app.socialUi.open();
-      else if (screens.resumeOffered) app.life.resumeFight();
+      else if (resumeOffered()) return;
       else if (enterHatches(app.screen, performance.now() - app.screenShownAt)) {
         const first = screens.firstOption;
         if (first) app.life.become(first);
@@ -85,10 +91,7 @@ export function attachKeys(app: App): void {
           return;
         }
         // Space on the title goes back to a running fight (M8 T10), as Enter does.
-        if (key === ' ' && screens.resumeOffered) {
-          app.life.resumeFight();
-          return;
-        }
+        if (key === ' ' && resumeOffered()) return;
         // Space pokes a genesis egg on the title or death screen (M6b T11, M6c T11); in play it dashes.
         if (key === ' ' && eggs.mode === 'genesis' && !app.playing()) eggs.poke(app.eggClock());
         if (!app.playing()) return;
