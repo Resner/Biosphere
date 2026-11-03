@@ -356,7 +356,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### The client
 
-- [ ] T10 The client resumes a fight [opus] (after T6)
+- [ ] T10 The client resumes a fight [opus] (after T6) (in progress)
   - Steps:
     1. `EncounterSync`:
        - a `start` for the fight it is running restarts from that message (the authority's resync), so the history that follows replaces its own;
