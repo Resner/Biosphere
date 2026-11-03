@@ -175,19 +175,20 @@ describe('the frame clock', () => {
 });
 
 describe('life while locked', () => {
-  it('credits progress but keeps the condition, ignores a death report, and applies old age after the end', async () => {
+  it('acknowledges progress but credits and keeps nothing, ignores a death report, and applies old age after the end', async () => {
     const [a, b] = await fighters();
     const rows = await rowsBesideLog();
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, FULL));
     await play(a, b, start, IDLE, 5);
     const before = await lifeOn(a);
-    // The life clock runs out during the fight.
-    await editLife(a, { lifespanMs: (before?.activeMs ?? 0) + 1000 });
+    // The life clock has run out by the end of the fight (M8 credits the locked time at the end).
+    await editLife(a, { lifespanMs: before?.activeMs ?? 0 });
     a.ticks += 3 * TICK_HZ;
     report(a.c, a.ticks, { biomass: 1, energy: 1, health: 1 });
-    expect((await nextOf(a.c, 'ack')).activeMs).toBeGreaterThan(before?.activeMs ?? 0);
+    expect((await nextOf(a.c, 'ack')).activeMs).toBe(before?.activeMs);
     const during = await lifeOn(a);
     expect(conditionOf(during)).toEqual(conditionOf(before));
+    expect(during?.activeMs).toBe(before?.activeMs);
     expect(during?.over).toBe(false);
     a.c.send({ t: 'death', cause: 'starved', ticks: a.ticks });
     expect((await flush(a.c)).filter((m) => m.t === 'died' || m.t === 'refused')).toEqual([]);
@@ -205,7 +206,7 @@ describe('life while locked', () => {
     expect((await nextOf(a.c, 'died')).cause).toBe('old-age');
   });
 
-  it('runs a disconnected fighter’s fight to its end; its reconnect gets `life` after `enc-end`, with the result', async () => {
+  it('runs a disconnected fighter’s fight to its end; its reconnect returns to the fight, and its life takes the result', async () => {
     const [a, b] = await fighters();
     // A is the one that starves (or falls to B's autopilot), so B comes out of it alive.
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, WEAK));
@@ -214,15 +215,17 @@ describe('life while locked', () => {
     await advanceTo(start.at + 3 * FRAME_MS);
     const again = await signIn(b.id);
     await nextOf(again.c, 'welcome');
-    expect((await flush(again.c)).map((m) => m.t)).not.toContain('life');
+    const life = await nextOf(again.c, 'life');
+    expect(life.fight).toBe(start.enc);
+    expect(life.life?.creature).toBe(b.creature);
+    expect(await nextOf(again.c, 'enc-start')).toEqual(start);
     // Both are silent now: every frame is the autopilot's, until A starves or one side wins.
     for (let i = 0; i < 100 && (await locked(a)); i++) await advance(1000);
     const end = await nextOf(a.c, 'enc-end');
     expect(await nextOf(again.c, 'enc-end')).toEqual(end);
-    const life = await nextOf(again.c, 'life');
-    expect(life.life?.creature).toBe(b.creature);
-    const { biomass, energy, health } = life.life ?? { biomass: 0, energy: 0, health: 0 };
-    expect({ biomass, energy, health }).toEqual(hundredths(outcomeOf(end, b)));
+    // The client takes the result from `enc-end`; the connection's life holds it too.
+    expect((await flush(again.c)).map((m) => m.t)).not.toContain('life');
+    expect(conditionOf(await lifeOn(b))).toEqual(hundredths(outcomeOf(end, b)));
   });
 
   it('writes an absent fighter’s result as its encounter record, so it resumes from it', async () => {

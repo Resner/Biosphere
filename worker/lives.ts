@@ -180,9 +180,10 @@ export function progress(
     return;
   }
   if (hub.fights.playerLocked(session.playerId)) {
-    // In a fight the referee owns the condition: the ticks are credited, and nothing is written
-    // (no checkpoint, and old age waits for the end).
-    const life = { ...creditTicks(session.life, msg.ticks, now), n: msg.n };
+    // In a fight the settlement owns the creature (M8): the report is acknowledged, and nothing is
+    // credited, kept or written. Its ticks are the fight's, so a report after the end credits only
+    // what follows (the locked time is the settlement's to credit).
+    const life = { ...session.life, ticks: Math.max(session.life.ticks, msg.ticks), t: now };
     ack(ws, msg.n, life);
     ws.serializeAttachment({ ...session, life } satisfies Session);
     return;
@@ -477,9 +478,16 @@ export function checkpoint(hub: Hub, life: LifeState, owner: string): LifeState 
 
 /**
  * The player's active creature (null for a new player) and when the next recorded hatch is allowed.
- * `current` is the connection's own state when it is ahead of the ledger (a fight's result).
+ * `current` is the connection's own state when it is ahead of the ledger (a fight's result), and
+ * `fight` the running encounter its creature is locked in (M8: the client goes back to it).
  */
-export function sendLife(hub: Hub, ws: WebSocket, playerId: string, current?: LifeState): void {
+export function sendLife(
+  hub: Hub,
+  ws: WebSocket,
+  playerId: string,
+  current?: LifeState,
+  fight?: string,
+): void {
   const head = hub.ledger.active(playerId);
   const { left, genesisIn } = hub.ledger.hatches(playerId, Date.now());
   const child = hub.ledger.pending(playerId);
@@ -489,6 +497,7 @@ export function sendLife(hub: Hub, ws: WebSocket, playerId: string, current?: Li
     t: 'life',
     life: head ? withCurrent(lifeOf(hub, head), current) : null,
     genesisIn,
+    ...(fight !== undefined ? { fight } : {}),
     ...(pending ? { pending } : {}),
     ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
     ...(hub.ledger.takeRenewal(playerId) ? { renewed: true as const } : {}),
