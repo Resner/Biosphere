@@ -1,4 +1,11 @@
 import { depthAt, zoneOfDepth } from './bathymetry';
+import {
+  applyRemoteCarrionClaim,
+  carrionAlive,
+  carrionEfficiency,
+  consumeCarrion,
+  isCarrionId,
+} from './carrion';
 import { ventNear } from './hazards';
 import { clamp, cos, length, lerp, sin, TAU } from './math';
 import { hashU32, type Seed } from './prng';
@@ -236,6 +243,9 @@ export function applyRemoteClaim(
   world: World,
   claim: { slot: string; k: number; tick: number },
 ): boolean {
+  if (isCarrionId(claim.slot)) {
+    return claimPlausible(world, claim.k, claim.tick) && applyRemoteCarrionClaim(world, claim);
+  }
   const parsed = parseSlot(world, claim.slot);
   if (!parsed || !claimPlausible(world, claim.k, claim.tick)) return false;
   const [cx, cy, slot] = parsed;
@@ -287,6 +297,24 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
     consumeFood(world, item.id);
     creature.energy = Math.min(creature.energy + yielded, energyCap);
     events.push({ type: 'eat', creature: creature.id, food: item.id, value: yielded });
+  }
+  // Carrion is eaten like food, in id order after it, at its own efficiency.
+  for (const piece of world.carrion) {
+    if (creature.energy >= energyCap) break;
+    if (!carrionAlive(world, piece)) continue;
+    const reach = mouthRadius + piece.radius;
+    const dx = piece.x - mx;
+    const dy = piece.y - my;
+    if (dx * dx + dy * dy >= reach * reach) continue;
+    const ax = piece.x - creature.x;
+    const ay = piece.y - creature.y;
+    const away = length(ax, ay);
+    if (away > 0 && ax * hx + ay * hy < away * cosArc) continue;
+    const yielded = piece.value * carrionEfficiency(mouth.type) * mouth.digestion;
+    if (yielded <= 0) continue;
+    consumeCarrion(world, piece.id);
+    creature.energy = Math.min(creature.energy + yielded, energyCap);
+    events.push({ type: 'eat', creature: creature.id, food: piece.id, value: yielded });
   }
   return events;
 }

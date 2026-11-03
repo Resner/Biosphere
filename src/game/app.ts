@@ -12,6 +12,7 @@ import { EGG } from '../render/egg';
 import { type PresetName, resolvePreset } from '../render/presets';
 import { GameScene } from '../render/scene';
 import { Shake } from '../render/shake';
+import { carrionNear } from '../sim/carrion';
 import { foodNear } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { IDLE, type Input } from '../sim/input';
@@ -595,7 +596,11 @@ export class App {
     const half = Math.max(this.camera.halfHeight, viewHalfHeight(radius, adultRadius(player)));
     const reach = Math.hypot(half * this.scene.aspect, half) + FIELD_MARGIN;
     this.food = foodNear(world, player.x, player.y, reach);
-    this.scene.setField(this.food, plumesNear(world, player.x, player.y, reach));
+    this.scene.setField(
+      this.food,
+      plumesNear(world, player.x, player.y, reach),
+      carrionNear(world, player.x, player.y, reach),
+    );
   }
 
   /** A slew factor belongs to the pond clock it chases, and an open chat would swallow Enter. */

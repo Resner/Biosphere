@@ -132,6 +132,21 @@ export const RULES = deepFreeze({
     },
     ventRange: 300,
   },
+  /** Carrion (M7, DESIGN §2): the share and energy per biomass are `encounter.reward.carrion` and `.energyPerBiomass`. */
+  carrion: {
+    /** Pieces: the victim's radius ÷ `perPiece`, rounded, kept within `minPieces`-`maxPieces`. */
+    perPiece: 3,
+    minPieces: 3,
+    maxPieces: 12,
+    /** Pieces land within this many victim radii of the kill. */
+    scatter: 2,
+    /** A piece's radius is `radiusBase` + `radiusPerVictim` × the victim's radius. */
+    radiusBase: 1.5,
+    radiusPerVictim: 0.08,
+    lifeTicks: 1800,
+    /** Share of a piece's value a filter, middle and jaw mouth takes in (linear between). */
+    efficiency: { filter: 0.3, middle: 0.8, jaw: 1 },
+  },
   /** Food efficiency by mouth type, at the anchors type 0 (filter), 0.5 (middle) and 1 (jaw); linear between. */
   feeding: {
     efficiency: {

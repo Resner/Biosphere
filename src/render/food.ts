@@ -1,6 +1,6 @@
 import * as THREE from 'three';
 import { TAU } from '../sim/math';
-import type { FoodItem, FoodKind } from '../sim/types';
+import type { CarrionPiece, FoodItem, FoodKind } from '../sim/types';
 import { idFraction, writeInstance } from './instances';
 import { foodMaterial, setUniform } from './materials';
 
@@ -16,6 +16,9 @@ const KINDS: readonly { kind: FoodKind; shader: number; color: number }[] = [
   { kind: 'crystal', shader: 2, color: 0x7fd0ff },
 ];
 
+/** Carrion: the globule's round shape in its own pale amber, one more mesh after the food kinds. */
+const CARRION = { shader: 1, color: 0xf2cf8e };
+
 const SLOT: Record<FoodKind, number> = { detritus: 0, globule: 1, crystal: 2 };
 
 /** One `InstancedMesh` per food kind, rewritten whenever the sim ticks. */
@@ -23,6 +26,8 @@ export class FoodLayer {
   readonly meshes: THREE.InstancedMesh[];
   private readonly geometry = new THREE.PlaneGeometry(2, 2);
   private readonly counts = KINDS.map(() => 0);
+  /** The carrion pieces drawn through the same layer, beside the food meshes. */
+  readonly carrion: THREE.InstancedMesh;
 
   constructor() {
     this.meshes = KINDS.map((spec) => {
@@ -34,6 +39,33 @@ export class FoodLayer {
       mesh.count = 0;
       return mesh;
     });
+    this.carrion = new THREE.InstancedMesh(
+      this.geometry,
+      foodMaterial(CARRION.shader, CARRION.color),
+      FOOD_CAPACITY,
+    );
+    this.carrion.count = 0;
+  }
+
+  /** Rewrites the carrion pieces; a bigger piece (more value) is drawn larger through its radius. */
+  setCarrion(pieces: readonly CarrionPiece[]): void {
+    let n = 0;
+    for (const piece of pieces) {
+      if (n >= FOOD_CAPACITY) break;
+      const f = idFraction(piece.id);
+      writeInstance(
+        this.carrion.instanceMatrix.array,
+        n,
+        piece.x,
+        piece.y,
+        piece.radius * SPRITE,
+        f * TAU,
+        f,
+      );
+      n++;
+    }
+    this.carrion.count = n;
+    this.carrion.instanceMatrix.needsUpdate = true;
   }
 
   set(items: readonly FoodItem[]): void {
@@ -54,19 +86,24 @@ export class FoodLayer {
   }
 
   update(time: number): void {
-    for (const mesh of this.meshes) {
+    for (const mesh of [...this.meshes, this.carrion]) {
       const material = mesh.material as THREE.ShaderMaterial;
       setUniform(material, 'uTime', time);
     }
   }
 
-  /** How many items are drawn across all kinds. */
+  /** How many carrion pieces are drawn. */
+  carrionInstances(): number {
+    return this.carrion.count;
+  }
+
+  /** How many food items are drawn across all kinds (carrion apart). */
   instances(): number {
     return this.meshes.reduce((sum, mesh) => sum + mesh.count, 0);
   }
 
   dispose(): void {
-    for (const mesh of this.meshes) {
+    for (const mesh of [...this.meshes, this.carrion]) {
       (mesh.material as THREE.Material).dispose();
       mesh.dispose();
     }

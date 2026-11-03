@@ -532,7 +532,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `worker/settle.ts` and `worker/ledger-encounter.ts` (`Ledger.settle`, idempotent by `body.enc`), `Fighter.reward` (an unhashed tally), client `fight-end.ts` and `applyLife(…, 'killed')`; `m7-kill` moved to T14, since a kill in play needs T10 and T11.
   - Gotcha: an eaten child is dead with no chain parent, so `history` and `lastDead` skip it (`LIVED`); `transitionOutcome('death', cause, …)` takes the cause as its role.
 
-- [ ] T14 Carrion and growth by kills in play (after T11, T13, T5) (in progress)
+- [x] T14 Carrion and growth by kills in play (after T11, T13, T5)
   - Steps:
     1. `src/sim/carrion.ts`: `World.carrion` (sorted by id) and `dropCarrion(world, { enc, x, y, biomass, radius, tick })`:
        - `0.4 × biomass × 3` energy in `clamp(round(radius ÷ 3), 3, 12)` pieces;
@@ -558,6 +558,8 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - B, lowered to 1 hp, is killed by A, which eats B's egg with it (targeting an egg alone needs T15's Tab);
       - B's death screen says "Killed by A", and its fallback lists no pending child;
       - A still carries its own egg.
+  - Done: `src/sim/carrion.ts` (pieces in `World.carrion`; an eaten one is a `consumed` entry under its id), `PondFood` claims them as slot `x…_i`, cycle 0; `worker/settle.ts` sends `carrion` to the pond after a kill's records; the food layer draws them in amber. Gotcha: A, standing at the body, eats pieces at once (the killer is the first at the table), so a spectator sees what is left; pieces are drawn only in view, and a late joiner does not learn of a drop.
+  - `m7-carrion` and `m7-kill` share `tests/e2e/m7-fight.ts`. A fight can end with B escaping (or A out of range), so `killB` engages again until B dies.
 
 - [ ] T15 Multi-party joins and targeting [opus] (after T12, T13, T4)
   - Steps:

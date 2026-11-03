@@ -1,15 +1,16 @@
 // A fight's end (ADR 0050, ADR 0052): the results become records in one transaction, each dead
 // fighter hears `died` with its fallback, everyone gets `enc-end`, the locks go and each connected
-// life takes its result. T14's carrion broadcast belongs here too.
+// life takes its result. Each kill's carrion goes to the whole pond after the records (M7 T14).
 
 import type { FighterOutcome, HubMsg } from '../src/net/protocol';
 import { hashEncounter, results } from '../src/sim/encounter/encounter';
 import { type Encounter, survivedOutcome } from '../src/sim/encounter/types';
+import { RULES } from '../src/sim/rules';
 import type { Fight, Lock } from './fights';
 import type { FighterRecord } from './ledger-encounter';
 import { type Condition, HUNDREDTHS, isOld, type LifeState, takeResult, unsaved } from './life';
 import { fallbackAfter, finish, sendLife } from './lives';
-import { type Hub, seated, sendIfOpen } from './socket';
+import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
 
 /** Sends `msg` to every participant who is connected now. */
 export function tell(hub: Hub, lock: Lock, msg: HubMsg): void {
@@ -117,8 +118,34 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
     });
   }
   tell(hub, lock, { t: 'enc-end', enc: enc.id, f: enc.frame, hash: hashEncounter(enc), fighters });
+  dropCarrion(hub, fight, fighters);
   hub.fights.release(lock.id);
   for (const f of fighters) settleLife(hub, f, lock.owed.has(f.player), recorded);
+}
+
+/**
+ * Every client in the fight's pond hears of each kill's carrion, and drops the same pieces from
+ * it (`src/sim/carrion.ts`). A victim killed by a creature (not by the water) leaves some; the
+ * authority holds nothing of it afterwards. The tick is the pond tick of the kill.
+ */
+function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[]): void {
+  const { enc } = fight;
+  const tick = fight.t0 + enc.frame * RULES.encounter.frameTicks;
+  for (const f of fighters) {
+    if (f.outcome !== 'killed') continue;
+    const msg: HubMsg = {
+      t: 'carrion',
+      enc: enc.id,
+      x: f.x,
+      y: f.y,
+      biomass: f.biomass,
+      radius: Math.sqrt(f.biomass),
+      tick,
+    };
+    for (const [ws, session] of activeSessions(hub)) {
+      if (session.pondId === fight.pond) sendIfOpen(ws, msg);
+    }
+  }
 }
 
 /**

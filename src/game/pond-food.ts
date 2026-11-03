@@ -3,6 +3,7 @@
 
 import { ClaimBook, ConsumedJoin, type Stolen } from '../net/claims';
 import type { PeerEvent } from '../net/protocol';
+import { isCarrionId } from '../sim/carrion';
 import { parseFoodId } from '../sim/food';
 import type { StepEvent, World } from '../sim/types';
 
@@ -26,7 +27,8 @@ export class PondFood {
   onEat(events: readonly StepEvent[], tick: number): void {
     for (const event of events) {
       if (event.type !== 'eat') continue;
-      const item = parseFoodId(event.food);
+      // A carrion piece is its own slot, cycle 0, and never respawns.
+      const item = isCarrionId(event.food) ? { slot: event.food, k: 0 } : parseFoodId(event.food);
       if (!item) continue;
       const claim = { ...item, tick };
       this.book.local(claim, event.value);

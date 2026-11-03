@@ -52,6 +52,8 @@ export interface BsState {
   renewed: boolean | null;
   /** Food items handed to the renderer this tick. */
   visibleFood: number;
+  /** The carrion pieces on the water in this life's world (M7 T14), in id order. */
+  carrion: { id: string; x: number; y: number; value: number; radius: number }[];
   /**
    * The current or last refereed fight (M7 T10); null before the first. `frame` counts the frames
    * simulated here, `confirmed` those the referee's bundles cover from frame 0, `over` that its

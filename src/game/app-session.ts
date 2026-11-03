@@ -99,6 +99,7 @@ export function newSession(
   });
   if (pond) {
     world.consumed = pond.world.consumed;
+    world.carrion = pond.world.carrion;
     pond.time.join(world, performance.now());
   }
   const { phys } = body.creature;
