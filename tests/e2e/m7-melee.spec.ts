@@ -3,8 +3,8 @@ import type { BsHook } from '../../src/game/debug';
 import { clickHatch, M7_MELEE_HUB, state, waitPlaying } from './helpers';
 import { open, parkBeside, seen, stage } from './m7-fight';
 
-// A three-way fight (M7 T15): A engages B with F, and C, parked on B's other side, presses F on B
-// once it is fighting: C joins A and B's fight as the third fighter. All three clients step the
+// A three-way fight (M7 T15): A engages B with F, and C, parked on B's other side, presses F the
+// moment B is fighting: C joins A and B's fight as the third fighter. All three clients step the
 // same three-fighter encounter; C's Tab picks a target and its ring shows. A and C then swim off
 // in opposite directions until the fight ends, and every client's hash equals the referee's.
 
@@ -49,10 +49,27 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     const ids = await stage(a, b, undefined, 1);
     const idC = (await state(c)).playerId as string;
 
+    // C waits in its own page, frame by frame, until B is fighting, and presses F at once: a hatched
+    // body can finish B within seconds, so the join must not wait on a round trip from the test.
+    await parkBeside(a, ids.idB);
+    await parkOpposite(c, ids.idB);
+    await settled(c);
+    const pressed = c.waitForFunction(
+      (who) => {
+        const s = window.__bs?.state();
+        const busy = s?.remotes.some((r) => r.id === who.b && r.fighting);
+        if (!s || !busy || (s.attack.hint !== who.a && s.attack.hint !== who.b)) return false;
+        dispatchEvent(new KeyboardEvent('keydown', { key: 'f' }));
+        dispatchEvent(new KeyboardEvent('keyup', { key: 'f' }));
+        return true;
+      },
+      { a: ids.idA, b: ids.idB },
+      { timeout: 90_000, polling: 'raf' },
+    );
+
     // A engages B with F (again if B drifted off and nothing started).
     await expect(async () => {
       await parkBeside(a, ids.idB);
-      await parkOpposite(c, ids.idB);
       await settled(a);
       await a.keyboard.press('f');
       await a.waitForFunction(() => window.__bs?.state().encounter?.over === false, undefined, {
@@ -67,18 +84,12 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
       });
     const enc = (await state(a)).encounter?.id;
 
-    // C presses F on B, now fighting: it joins, and every client seats it as the third fighter.
-    await expect(async () => {
-      await c.waitForFunction((who) => window.__bs?.state().attack.hint === who, ids.idB, {
-        timeout: 2_000,
-      });
-      await settled(c);
-      await c.keyboard.press('f');
-      await c.waitForFunction((id) => window.__bs?.state().encounter?.id === id, enc, {
-        timeout: 4_000,
-      });
-    }, 'C joins the fight')
-      .toPass({ timeout: 30_000 })
+    // C's F joins it: every client seats C as the third fighter.
+    await pressed.catch(async (error) => {
+      throw new Error(`C never saw B fighting: ${JSON.stringify(await seen(c))}`, { cause: error });
+    });
+    await c
+      .waitForFunction((id) => window.__bs?.state().encounter?.id === id, enc, { timeout: 10_000 })
       .catch(async (error) => {
         throw new Error(`C never joined: ${JSON.stringify(await seen(c))}`, { cause: error });
       });
