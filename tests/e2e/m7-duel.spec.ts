@@ -138,8 +138,9 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
       // A whole again for each try, B back to a third (an escape leaves it hurt, and a fight that
       // starts at zero health says nothing).
       await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
-      // Both fed: a hurt B that starves (a `died` outcome, not a kill) says nothing either.
-      await Promise.all([topUp(a), topUp(b)]);
+      // B fed: a hurt B that starves (a `died` outcome, not a kill) says nothing. Never A: its full
+      // belly turns into growth, and B's autopilot flees from a body over 1.5 times its size.
+      await topUp(b);
       await b.evaluate((share) => {
         const bs = window.__bs as BsHook;
         bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
