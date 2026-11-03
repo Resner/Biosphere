@@ -10,11 +10,12 @@ import {
   fighterStartOf,
 } from '../src/net/encounter-start';
 import type { ClientMsg, FighterInfo, HubMsg } from '../src/net/protocol';
-import { FRAME_MS, Referee } from '../src/net/referee';
+import { type Bundle, FRAME_MS, Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import { applyJoins } from '../src/sim/encounter/join';
 import type { Encounter, EncounterJoin } from '../src/sim/encounter/types';
 import { RULES } from '../src/sim/rules';
+import { awayDue, remaining } from './away';
 import type { Asking } from './engage';
 import type { SlotClock } from './fight-store';
 import type { LifeState } from './life';
@@ -58,6 +59,8 @@ export interface Fight {
   t0: number;
   /** How many final frames the saved log holds. */
   persisted: number;
+  /** While no fighter still in has a connected player: when the rest is played out at once (`away.ts`). */
+  awayDue: number | null;
 }
 
 /** What a slot's saved clock is taken from: the fighter's life on its connection at lock-in. */
@@ -189,15 +192,16 @@ export class Fights {
 
   /**
    * The watchdog (ADR 0053): the earliest time by which a running fight must have ended (frame
-   * 0, the timeout and a second), never before its next deadline; null with no fight running.
-   * `Authority.rearm` holds the object's alarm no later than this.
+   * 0, the timeout and a second, never before its next deadline), or must be played out because
+   * everyone left (`away.ts`); null with no fight running. `Authority.rearm` holds the object's
+   * alarm no later than this.
    */
   watchDue(): number | null {
     let due: number | null = null;
     for (const { fight } of this.byId.values()) {
       if (!fight) continue;
       const end = fight.start.at + RULES.encounter.timeoutFrames * FRAME_MS + WATCH_SLACK_MS;
-      const at = Math.max(end, fight.referee.nextDeadline());
+      const at = Math.min(Math.max(end, fight.referee.nextDeadline()), fight.awayDue ?? end);
       due = due === null ? at : Math.min(due, at);
     }
     return due;
@@ -249,6 +253,7 @@ export function runFight(
     pondSeed: pond.seed,
     t0: msg.t0,
     persisted: 0,
+    awayDue: null,
   };
   try {
     hub.fightStore.open(fight, hub.clock.now());
@@ -287,13 +292,34 @@ export function fightInput(
   if (fight.referee.input(slot, msg.f, msg.i, now) === 'ok') tick(hub, lock.id, now);
 }
 
-/** Finalizes every due frame in order, steps the encounter with each and sends the bundles; ends the fight once it is over. */
+/**
+ * Finalizes every due frame in order, steps the encounter with each and sends the bundles; ends the
+ * fight once it is over. When everyone still in has been away for the wait, the rest is finalized
+ * at once and the fight settles (ADR 0053).
+ */
 export function tick(hub: Hub, id: string, now: number): void {
   const lock = hub.fights.get(id);
   const fight = lock?.fight;
   if (!lock || !fight) return;
+  if (stepAll(hub, lock, fight, fight.referee.due(now))) return;
+  if (awayDue(hub, fight, now) && stepAll(hub, lock, fight, remaining(fight.referee), now)) return;
+  hub.fightStore.append(fight);
+  armNext(hub, lock);
+}
+
+/**
+ * Steps the encounter with each bundle and sends it; once the fight is over it settles (`forwarded`
+ * is the hub time of a fast-forward), and true is returned.
+ */
+function stepAll(
+  hub: Hub,
+  lock: Lock,
+  fight: Fight,
+  bundles: Iterable<Bundle>,
+  forwarded?: number,
+): boolean {
   const { referee, enc } = fight;
-  for (const bundle of referee.due(now)) {
+  for (const bundle of bundles) {
     applyJoins(enc, fight.joins);
     stepFrame(enc, bundle.i);
     const msg: HubMsg = { t: 'enc-frame', enc: enc.id, f: bundle.f, i: bundle.i };
@@ -302,20 +328,24 @@ export function tick(hub: Hub, id: string, now: number): void {
     for (const f of enc.fighters) if (f.status !== 'in') referee.retire(f.slot);
     if (enc.over) {
       // The settlement's transaction writes the log's tail and closes its row.
-      settle(hub, lock, fight);
+      settle(hub, lock, fight, forwarded);
       // The watchdog lets go of the fight.
       hub.rearm().catch(() => {});
-      return;
+      return true;
     }
   }
-  hub.fightStore.append(fight);
-  armNext(hub, lock);
+  return false;
 }
 
-/** A participant's socket closed: its fight's log takes every final frame now (ADR 0053). */
+/**
+ * A participant's socket closed: its fight's log takes every final frame now, and the wait starts
+ * if nobody still in is left (ADR 0053).
+ */
 export function flushFight(hub: Hub, player: string): void {
   const fight = hub.fights.ofPlayer(player)?.fight;
-  if (fight) hub.fightStore.flush(fight);
+  if (!fight) return;
+  hub.fightStore.flush(fight);
+  awayDue(hub, fight, hub.clock.now());
 }
 
 /**

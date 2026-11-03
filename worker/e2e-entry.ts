@@ -45,6 +45,21 @@ export class Authority extends LiveAuthority {
     this.fights.clear();
     recoverFights(this, this.clock.now());
   }
+
+  /**
+   * A fight's state for a scenario to wait on (M8 T9): whether its row is open, the frames final so
+   * far and whether its settlement is stored; null for an unknown fight.
+   */
+  encounter(id: string): { open: boolean; frames: number; settled: boolean } | null {
+    const row = this.fightStore.read(id);
+    if (!row) return null;
+    const running = this.fights.get(id)?.fight;
+    return {
+      open: row.open,
+      frames: running ? running.referee.next : row.persisted,
+      settled: row.settlement !== null,
+    };
+  }
 }
 
 export default {
@@ -67,6 +82,14 @@ export default {
       };
       await stub.restart();
       return new Response(null, { status: 204 });
+    }
+    const enc = pathname.startsWith('/v1/e2e/encounter/') ? pathname.slice(18) : '';
+    if (/^[0-9a-f]{64}$/.test(enc) && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        encounter(id: string): Promise<{ open: boolean; frames: number; settled: boolean } | null>;
+      };
+      const state = await stub.encounter(enc);
+      return state ? Response.json(state) : new Response('no such encounter', { status: 404 });
     }
     return live.fetch(request, env);
   },

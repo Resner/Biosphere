@@ -73,7 +73,7 @@ interface Joining {
 }
 
 /** The pond tick at hub time `now`. */
-const pondTick = (now: number, epoch: number): number =>
+export const pondTick = (now: number, epoch: number): number =>
   Math.floor(((now - epoch) * TICK_HZ) / 1000);
 
 /** Speed through the water at full thrust, plus the strongest current, in wu/s. */
