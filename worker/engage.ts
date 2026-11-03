@@ -166,8 +166,8 @@ function liveHead(hub: Hub, session: ActiveSession): { life: LifeState; head: He
 }
 
 /**
- * `engage` (ADR 0050): checks in order, each failure refused as `engage:<why>`; then both are
- * locked and the target is asked for its own state. The attacker's spawn protection ends here.
+ * `engage` (ADR 0050): the checks, then both are locked and the target is asked for its own
+ * state. The attacker's spawn protection ends here, whatever comes of the engage.
  */
 export function engage(
   hub: Hub,
@@ -175,63 +175,74 @@ export function engage(
   session: ActiveSession,
   msg: ClientMsg & { t: 'engage' },
 ): void {
-  const now = hub.clock.now();
-  const refuse = (why: string) => sendIfOpen(ws, { t: 'refused', reason: `engage:${why}` });
   if (session.protectedUntil !== undefined) {
     ws.serializeAttachment({ ...session, protectedUntil: undefined } satisfies Session);
   }
-  const mine = liveHead(hub, session);
-  if (!mine) {
-    sendIfOpen(ws, { t: 'refused', reason: 'no-creature' });
+  const checked = check(hub, ws, session, msg, hub.clock.now());
+  if (typeof checked === 'string') {
+    sendIfOpen(ws, { t: 'refused', reason: checked });
     return;
   }
-  if (msg.target === session.playerId) return refuse('self');
-  const found = seated(hub, msg.target);
-  const theirs = found ? liveHead(hub, found[1]) : null;
-  if (!found || !theirs) return refuse('target');
-  const [targetWs, targetSession] = found;
-  if (targetSession.pondId !== session.pondId) return refuse('pond');
-  const pond = hub.ctx.storage.sql
-    .exec<PondRow>('SELECT id, seed, epoch FROM ponds WHERE id = ?', session.pondId)
-    .toArray()[0];
-  if (!pond) return refuse('pond');
-
-  const ownSnap = verifySnap(session.playerId, pond.id, msg.mine);
-  const targetSnap = verifySnap(msg.target, pond.id, msg.theirs);
-  if (!ownSnap || !targetSnap) return refuse('signature');
-  const nowTick = pondTick(now, pond.epoch);
-  if (!fresh(ownSnap, nowTick) || !fresh(targetSnap, nowTick)) return refuse('stale');
-  const attacker = sideOf(hub, ws, mine.life, mine.head, ownSnap, now);
-  const target = sideOf(hub, targetWs, theirs.life, theirs.head, targetSnap, now);
-  if (!attacker || !target) return refuse('stale');
-
-  const tierGap = Math.abs(
-    sizeTier(attacker.condition.biomass / HUNDREDTHS) -
-      sizeTier(target.condition.biomass / HUNDREDTHS),
-  );
-  if (tierGap > E.maxTierGap) return refuse('tier');
-  if ((targetSession.protectedUntil ?? 0) > now) return refuse('protected');
-  const fights = hub.fights;
-  if (
-    fights.playerLocked(attacker.player) ||
-    fights.playerLocked(target.player) ||
-    fights.creatureLocked(attacker.creature) ||
-    fights.creatureLocked(target.creature)
-  ) {
-    return refuse('locked');
-  }
-  if (!inRange(attacker, target, nowTick)) return refuse('range');
-
+  const { asking, targetWs } = checked;
+  const { attacker, target } = asking;
   const id = bytesToHex(crypto.getRandomValues(new Uint8Array(LOCK_BYTES)));
-  const lock = fights.open(
+  const lock = hub.fights.open(
     id,
     [attacker.player, target.player],
     [attacker.creature, target.creature],
     E.lockAnswerMs,
     () => start(hub, id),
   );
-  lock.asking = { pond: { id: pond.id, seed: pond.seed, epoch: pond.epoch }, attacker, target };
+  lock.asking = asking;
   sendIfOpen(targetWs, { t: 'lock-ask', lock: id });
+}
+
+/** The checks of an engage in order: the refusal reason (`engage:<why>`) of the first that fails, or both sides. */
+function check(
+  hub: Hub,
+  ws: WebSocket,
+  session: ActiveSession,
+  msg: ClientMsg & { t: 'engage' },
+  now: number,
+): string | { asking: Asking; targetWs: WebSocket } {
+  const mine = liveHead(hub, session);
+  if (!mine) return 'no-creature';
+  if (msg.target === session.playerId) return 'engage:self';
+  const found = seated(hub, msg.target);
+  const theirs = found ? liveHead(hub, found[1]) : null;
+  if (!found || !theirs) return 'engage:target';
+  const [targetWs, targetSession] = found;
+  if (targetSession.pondId !== session.pondId) return 'engage:pond';
+  const pond = hub.ctx.storage.sql
+    .exec<PondRow>('SELECT id, seed, epoch FROM ponds WHERE id = ?', session.pondId)
+    .toArray()[0];
+  if (!pond) return 'engage:pond';
+
+  const ownSnap = verifySnap(session.playerId, pond.id, msg.mine);
+  const targetSnap = verifySnap(msg.target, pond.id, msg.theirs);
+  if (!ownSnap || !targetSnap) return 'engage:signature';
+  const nowTick = pondTick(now, pond.epoch);
+  if (!fresh(ownSnap, nowTick) || !fresh(targetSnap, nowTick)) return 'engage:stale';
+  const attacker = sideOf(hub, ws, mine.life, mine.head, ownSnap, now);
+  const target = sideOf(hub, targetWs, theirs.life, theirs.head, targetSnap, now);
+  if (!attacker || !target) return 'engage:stale';
+
+  const tierGap = Math.abs(
+    sizeTier(attacker.condition.biomass / HUNDREDTHS) -
+      sizeTier(target.condition.biomass / HUNDREDTHS),
+  );
+  if (tierGap > E.maxTierGap) return 'engage:tier';
+  if ((targetSession.protectedUntil ?? 0) > now) return 'engage:protected';
+  const fights = hub.fights;
+  if (
+    [attacker.player, target.player].some((p) => fights.playerLocked(p)) ||
+    [attacker.creature, target.creature].some((c) => fights.creatureLocked(c))
+  ) {
+    return 'engage:locked';
+  }
+  if (!inRange(attacker, target, nowTick)) return 'engage:range';
+  const asking = { pond: { id: pond.id, seed: pond.seed, epoch: pond.epoch }, attacker, target };
+  return { asking, targetWs };
 }
 
 /** Within the attacker's engage range of the target, with slack for how far either may have swum since its snapshot. */
