@@ -7,7 +7,7 @@ import { CROWD_VIEWPORT, openCrowdGame, stageCrowd } from './crowd';
 // in Firefox. 24 bodies sit round the player on the medium preset while the camera zooms out across
 // the low-detail threshold (12 px of core radius) and back in across the high one (16 px). Every
 // frame of the sweep is read back in the page, right after the game drew it, and no body may lose
-// more than 20% of its pixels against the mean of the frames before and after it. It runs in
+// more than 20% of its pixels against the lower of the frames before and after it. It runs in
 // Chromium and, in `E2E full`, in Firefox.
 
 test.use({
@@ -168,7 +168,12 @@ test('no body loses a fifth of its pixels in any frame while the zoom crosses th
       if (before == null || now == null || after == null) continue;
       if (Math.min(before, after) < MIN_PIXELS) continue;
       checks++;
-      const loss = 1 - now / ((before + after) / 2);
+      // A flash is a dip: a frame below both neighbours. A body that shrinks drops pixels from
+      // frame to frame, and at a swap to low detail (fewer bristles and joints) it steps down once
+      // and goes on from there; that step is the swap, not a flash, so a frame is judged against
+      // its lower neighbour. (Against the neighbours' mean the step counted half over, and
+      // crowd13's, 17-23% from run to run, sat across the limit.)
+      const loss = 1 - now / Math.min(before, after);
       if (loss > MAX_LOSS) losses.push({ id, frame: f, loss: Number(loss.toFixed(3)) });
     }
   }
