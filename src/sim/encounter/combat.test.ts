@@ -140,6 +140,24 @@ describe('strikes', () => {
   });
 });
 
+describe('targets', () => {
+  it('fall back to the nearest opponent when the input is missing or names no one', () => {
+    const start = [
+      hunterFighter('a', 3000, 3000),
+      starterFighter('b', 3300, 3000, Math.PI),
+      starterFighter('c', 3000 + 1.2 * R + R, 3000, Math.PI),
+    ];
+    const aim = (code: number | null): number => {
+      const enc = calm(createEncounter(startOf('aim', start)));
+      stepFrame(enc, [code, IDLE_CODE, IDLE_CODE]);
+      return at(enc, 0).fx.windupTarget;
+    };
+    expect(aim(null)).toBe(2);
+    expect(aim(drive(0, 0))).toBe(2);
+    expect(aim(drive(0, 0, { target: 0 }))).toBe(2);
+  });
+});
+
 describe('stance', () => {
   it('lets an evasive fighter reach 1.2 x the balanced top speed', () => {
     const speed = (stance: Stance) => {

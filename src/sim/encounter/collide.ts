@@ -100,4 +100,5 @@ export function collide(fighters: readonly Fighter[], out: Impact[] | null = nul
       }
     }
   }
+  impacts = null;
 }

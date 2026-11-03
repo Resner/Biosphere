@@ -29,8 +29,8 @@ export function inStrike(attacker: Fighter, target: Fighter, reach: number): boo
 
 /** The fighter's target: the frame input's, if it names a living opponent, else the nearest. */
 export function pickTarget(enc: Encounter, f: Fighter, input: FrameInput | null): Fighter | null {
-  const want = input?.target ?? 0;
-  if (want < E.maxFighters && want !== f.slot) {
+  const want = input === null ? -1 : input.target;
+  if (want >= 0 && want < E.maxFighters && want !== f.slot) {
     const named = enc.fighters[want];
     if (named !== undefined && named.status === 'in') return named;
   }
