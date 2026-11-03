@@ -124,14 +124,35 @@ export async function join(id?: Identity) {
   return { c, id: who, pond, life };
 }
 
-/** A signed-in player with a freshly hatched creature (spawn-protected for 15 s). */
-export async function hatched(): Promise<Player> {
-  const { c, id, pond } = await join();
-  const g = await hatch(c, id);
+/**
+ * Moves the identity's first sign-in back by `ms` (past the young window by default, ADR 0054), so
+ * it fights at worth 1. It is marked told of the world's epoch, as it would be: no renewal follows.
+ */
+export const firstSeenAgo = (p: Pick<Player, 'id'>, ms = RULES.encounter.farming.youngMs) =>
+  sql(
+    'UPDATE players SET first_seen = ?, epoch_seen = (SELECT epoch FROM world) WHERE id = ?',
+    clock.t - ms,
+    p.id.playerId,
+  );
+
+/** A player whose creature is newly hatched (spawn-protected for 15 s) on a fresh socket. */
+export async function rehatch(p: Pick<Player, 'c' | 'id' | 'pond'>): Promise<Player> {
+  const g = await hatch(p.c, p.id);
   const genome = genomeFromBase64url(g.genome);
   if (!genome) throw new Error('genome does not decode');
   const ref = genomeRefOf(genomeHash(genome));
-  return { c, id, pond, creature: recordHash(g.record.record), ref, ticks: 0 };
+  return { ...p, creature: recordHash(g.record.record), ref, ticks: 0 };
+}
+
+/**
+ * A signed-in player with a freshly hatched creature (spawn-protected for 15 s). Its identity is
+ * older than the young window, so the M7 fight tests' rewards hold (worth 1).
+ */
+export async function hatched(): Promise<Player> {
+  const { c, id, pond } = await join();
+  const p = await rehatch({ c, id, pond });
+  await firstSeenAgo(p);
+  return p;
 }
 
 /** Two players whose hatch protection is over. */

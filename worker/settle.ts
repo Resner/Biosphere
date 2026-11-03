@@ -9,7 +9,8 @@ import { RULES } from '../src/sim/rules';
 import type { Fight, Lock } from './fights';
 import type { FighterRecord } from './ledger-encounter';
 import { type Condition, HUNDREDTHS, isOld, type LifeState, takeResult, unsaved } from './life';
-import { fallbackAfter, finish, sendLife } from './lives';
+import { fallbackAfter, finish } from './lives';
+import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
 
 /** Sends `msg` to every participant who is connected now. */
@@ -121,13 +122,9 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
   tell(hub, lock, { t: 'enc-end', enc: enc.id, f: enc.frame, hash: hashEncounter(enc), fighters });
   dropCarrion(hub, fight, fighters);
   hub.fights.release(lock.id);
-  for (const f of fighters) settleLife(hub, f, lock.owed.has(f.player), recorded);
-  // A joiner whose join frame never came (the fight ended first) fought nothing: its life is as it was.
-  for (const player of lock.players) {
-    if (fighters.some((f) => f.player === player) || !lock.owed.has(player)) continue;
-    const found = seated(hub, player);
-    if (found) sendLife(hub, found[0], player);
-  }
+  for (const f of fighters) settleLife(hub, f, recorded);
+  // The seats held for away fighters are free: the first in line takes one.
+  if (queued(hub).length > 0) promote(hub).catch(() => {});
 }
 
 /**
@@ -157,16 +154,12 @@ function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[]): void {
 
 /**
  * A connected fighter's life after the end: the result's condition (saved, when the records hold
- * it), or over when it died. A survivor's due old age ends it now. A fighter who signed in again
- * during the fight (`owed`) gets its `life` now; one who died has had its `died`.
+ * it), or over when it died. A survivor's due old age ends it now. Its client takes the result
+ * from `enc-end`, and one who died has had its `died`.
  */
-function settleLife(hub: Hub, f: FighterOutcome, owed: boolean, recorded: boolean): void {
+function settleLife(hub: Hub, f: FighterOutcome, recorded: boolean): void {
   const now = playing(hub, f.player, f.creature);
-  if (!now) {
-    const found = seated(hub, f.player);
-    if (found && owed) sendLife(hub, found[0], f.player);
-    return;
-  }
+  if (!now) return;
   const [ws, session] = now.found;
   const condition = vitalsOf(f);
   let life: LifeState;
@@ -183,5 +176,4 @@ function settleLife(hub: Hub, f: FighterOutcome, owed: boolean, recorded: boolea
     if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
   }
   ws.serializeAttachment({ ...session, life });
-  if (owed && survived(f)) sendLife(hub, ws, f.player, life);
 }

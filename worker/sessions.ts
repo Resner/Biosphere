@@ -15,7 +15,7 @@ import {
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
-import { flushFight } from './fights';
+import { flushFight, resend } from './fights';
 import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
 import type { PondRow } from './schema';
@@ -78,8 +78,10 @@ export async function hello(
     drop(hub, other, CLOSE_REPLACED, 'replaced by a newer session', true);
   }
   const who = { playerId: msg.playerId, name: msg.name };
-  // Admission never drops or re-queues a player who already has a seat.
-  if (held?.phase !== 'active' && (queued(hub).length > 0 || !canAdmit(hub, Date.now()))) {
+  // Admission never drops or re-queues a player who already has a seat: a seated tab's, or the one
+  // its fight held while it was away (M8).
+  const seat = held?.phase === 'active' || fightPond(hub, msg.playerId) !== null;
+  if (!seat && (queued(hub).length > 0 || !canAdmit(hub, Date.now()))) {
     const ticket = held?.phase === 'queued' ? held.ticket : hub.nextTicket++;
     ws.serializeAttachment({
       ...current,
@@ -95,9 +97,13 @@ export async function hello(
   await hub.rearm();
 }
 
-/** Whether one more session fits: under the session cap and short of 90% of the day's request budget. */
+/**
+ * Whether one more session fits: under the session cap (away fighters' seats included) and short
+ * of 90% of the day's request budget.
+ */
 export function canAdmit(hub: Hub, now: number): boolean {
-  const sessions = [...activeSessions(hub)].length;
+  let sessions = [...activeSessions(hub)].length;
+  for (const n of awaySeats(hub).values()) sessions += n;
   return (
     sessions < limit(hub.env.MAX_SESSIONS, DEFAULT_MAX_SESSIONS) &&
     hub.usage.requests(now) <
@@ -149,7 +155,35 @@ export async function promoteWaiting(hub: Hub): Promise<void> {
   }
 }
 
-/** Seats a signed-in session in a pond and welcomes it. */
+/** The pond of the running fight the player is locked in, if any (M8: its seat waits there). */
+export function fightPond(hub: Hub, player: string): string | null {
+  return hub.fights.ofPlayer(player)?.fight?.pond ?? null;
+}
+
+/**
+ * The seats held for fighters whose player is away, by pond (ADR 0053): every participant of a
+ * running fight with no seated socket keeps its place until the fight ends.
+ */
+function awaySeats(hub: Hub): Map<string, number> {
+  const away = new Map<string, number>();
+  const running = hub.fights.running();
+  if (running.length === 0) return away;
+  const here = new Set<string>();
+  for (const [, theirs] of activeSessions(hub)) here.add(theirs.playerId);
+  for (const { players, fight } of running) {
+    if (!fight) continue;
+    for (const p of players) {
+      if (!here.has(p)) away.set(fight.pond, (away.get(fight.pond) ?? 0) + 1);
+    }
+  }
+  return away;
+}
+
+/**
+ * Seats a signed-in session in a pond and welcomes it. A player locked in a running fight goes
+ * back to the fight's pond and to the fight: `life` names it, and its start and every frame and
+ * join so far follow (M8, ADR 0053).
+ */
 export function enter(
   hub: Hub,
   ws: WebSocket,
@@ -157,7 +191,9 @@ export function enter(
   who: { playerId: string; name: string },
   link: { ice: IceServer[]; turn: boolean },
 ): void {
-  const { pond, spawnHint, members, slot } = place(hub);
+  const lock = hub.fights.ofPlayer(who.playerId);
+  const fight = lock?.fight ?? null;
+  const { pond, spawnHint, members, slot } = place(hub, fight?.pond);
   const { openedAt, windowStart, count, signals } = from;
   ws.serializeAttachment({
     phase: 'active',
@@ -180,28 +216,37 @@ export function enter(
     turn: link.turn,
     now: Date.now(),
   });
-  // A player back in the middle of its fight waits for the result (M8 lets it rejoin the fight).
-  const lock = hub.fights.ofPlayer(who.playerId);
-  if (lock) lock.owed.add(who.playerId);
-  else sendLife(hub, ws, who.playerId);
+  sendLife(hub, ws, who.playerId, undefined, fight?.enc.id);
+  if (lock && fight) resend(hub, lock, who.playerId);
 }
 
-/** Picks the fullest pond with a free place (creating one if none), and the joiner's spawn hint. */
-export function place(hub: Hub): {
+/**
+ * Picks the fullest pond with a free place (creating one if none), counting the seats held for
+ * away fighters, and the joiner's spawn hint. `held` is the pond of the joiner's running fight,
+ * whose seat waited for it.
+ */
+export function place(
+  hub: Hub,
+  held?: string,
+): {
   pond: PondInfo;
   spawnHint: Vec2;
   members: Member[];
   slot: number;
 } {
   const sql = hub.ctx.storage.sql;
-  const counts = new Map<string, number>();
+  const counts = awaySeats(hub);
   for (const [, theirs] of activeSessions(hub)) {
     counts.set(theirs.pondId, (counts.get(theirs.pondId) ?? 0) + 1);
   }
-  let best: PondRow | null = null;
-  for (const row of sql.exec<PondRow>('SELECT * FROM ponds ORDER BY created, id')) {
-    const n = counts.get(row.id) ?? 0;
-    if (n < POND_CAPACITY && (!best || n > (counts.get(best.id) ?? 0))) best = row;
+  let best: PondRow | null = held
+    ? (sql.exec<PondRow>('SELECT * FROM ponds WHERE id = ?', held).toArray()[0] ?? null)
+    : null;
+  if (!best) {
+    for (const row of sql.exec<PondRow>('SELECT * FROM ponds ORDER BY created, id')) {
+      const n = counts.get(row.id) ?? 0;
+      if (n < POND_CAPACITY && (!best || n > (counts.get(best.id) ?? 0))) best = row;
+    }
   }
   if (!best) {
     const centre = RULES.world.size / 2;
@@ -276,9 +321,12 @@ export function relay(
   send(ws, { t: 'error', code: 'no-peer' });
 }
 
-/** A connection that reported anything since the last record leaves its condition behind as a checkpoint. */
+/**
+ * A connection that reported anything since the last record leaves its condition behind as a
+ * checkpoint; a fighter's leaves nothing, since its fight's settlement writes its records.
+ */
 export function saveOnClose(hub: Hub, { life, playerId }: ActiveSession): void {
-  if (life && unsaved(life)) checkpoint(hub, life, playerId);
+  if (life && unsaved(life) && !hub.fights.playerLocked(playerId)) checkpoint(hub, life, playerId);
 }
 
 /** Closes a socket; an active one first leaves its pond so the others see it go exactly once. */

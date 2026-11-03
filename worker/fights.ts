@@ -81,8 +81,6 @@ export interface Lock {
   asking: Asking | null;
   /** The fight once it has started. */
   fight: Fight | null;
-  /** Players who signed in again during the fight: their `life` waits for the end. */
-  owed: Set<string>;
   /** The pending timer: the lock answer's window while asking, the next deadline while running. */
   timer: unknown;
 }
@@ -143,7 +141,6 @@ export class Fights {
       creatures,
       asking: null,
       fight: null,
-      owed: new Set(),
       timer: null,
     };
     this.byId.set(id, lock);
