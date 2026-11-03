@@ -26,6 +26,7 @@ const NAMES = [
   'encounter-duel',
   'encounter-egg',
   'encounter-autopilot',
+  'encounter-join',
 ] as const;
 const file = (name: string) => new URL(`./../__golden__/${name}.json`, import.meta.url);
 
@@ -134,7 +135,24 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
     ]),
     Array.from({ length: 200 }, () => [null, null, null]),
   );
+  // A hunter and a starter spar; a second hunter joins at frame 15 from the north and goes for
+  // the starter (target 1), which dies between them (M7 T15).
+  const joined = {
+    ...log(
+      startOf('golden-join', [
+        hunterFighter('b', 5200, 3000),
+        starterFighter('m', 5242, 3000, Math.PI),
+      ]),
+      Array.from({ length: 120 }, (_, f) =>
+        f < 15
+          ? [drive(0, 3, { target: 1 }), drive(128, 0)]
+          : [drive(0, 3, { target: 1 }), drive(128, 0), drive(192, 4, { target: 1 })],
+      ),
+    ),
+    joins: [{ f: 15, fighter: hunterFighter('c', 5242, 3050, -Math.PI / 2) }],
+  };
   return {
+    'encounter-join': joined,
     'encounter-autopilot': pilots,
     'encounter-egg': egg,
     'encounter-approach': approach,
@@ -181,6 +199,10 @@ describe('encounter goldens', () => {
     const pilots = load('encounter-autopilot');
     expect(pilots.log.frames.every((f) => f.every((c) => c === null))).toBe(true);
     expect(pilots.results.some((r) => r.outcome === 'killed' || r.egg === 'eaten')).toBe(true);
+    const join = load('encounter-join');
+    expect(join.log.joins?.map((j) => j.f)).toEqual([15]);
+    expect(join.results).toHaveLength(3);
+    expect(join.results[1]).toMatchObject({ outcome: 'killed', cause: 'killed' });
     const approach = load('encounter-approach');
     expect(approach.results.map((r) => r.outcome)).toEqual(['stood', 'stood']);
     expect(approach.results[0]?.frame).toBe(approach.log.frames.length);
