@@ -166,6 +166,12 @@
   display: none;
 }
 
+/* In a fight the size and life bars step aside (growth and age wait), so the HUD keeps its 6%. */
+[data-fighting] [data-testid="hud-bar-size"],
+[data-fighting] [data-testid="hud-bar-life"] {
+  display: none;
+}
+
 .combat-button {
   position: relative;
   display: grid;

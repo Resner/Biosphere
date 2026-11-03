@@ -198,9 +198,13 @@ export const glowMaterial = (): THREE.ShaderMaterial =>
 export const ringMaterial = (): THREE.ShaderMaterial =>
   layer(plumeVertex, ringsFragment, {}, { blending: THREE.AdditiveBlending });
 
-/** Fight telegraphs (M7 T12): windup glows, block sparks and fighting rings on the plume's quads. */
-export const telegraphMaterial = (): THREE.ShaderMaterial =>
-  layer(plumeVertex, telegraphFragment, {}, { blending: THREE.AdditiveBlending });
+/** Fight telegraphs (M7 T12): windup glows, block sparks and fighting rings on the plume's quads, added premultiplied. */
+export const telegraphMaterial = (): THREE.ShaderMaterial => {
+  const material = layer(plumeVertex, telegraphFragment, {}, { blending: THREE.AdditiveBlending });
+  // The shader premultiplies: each mark adds `col × a`, not `col × a²`.
+  material.premultipliedAlpha = true;
+  return material;
+};
 
 /** Size outlines (M6 T21): `ring` is the ring's radius in quad units. */
 export const outlineMaterial = (ring: number): THREE.ShaderMaterial =>

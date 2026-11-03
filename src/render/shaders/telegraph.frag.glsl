@@ -11,10 +11,10 @@ void main() {
   float a;
   if (kind < 0.5) {
     // A windup's glow: a warm bloom with a hot core that swells and reddens as the strike nears.
-    float halo = exp(-d * d * 5.0);
-    float core = exp(-d * d * 22.0);
-    a = v * (0.55 * halo + 0.45 * core);
-    col = mix(vec3(1.0, 0.72, 0.36), vec3(1.0, 0.42, 0.18), v);
+    float halo = exp(-d * d * 3.0);
+    float core = exp(-d * d * 14.0);
+    a = v * (0.6 * halo + 0.7 * core);
+    col = mix(vec3(1.0, 0.7, 0.34), vec3(1.0, 0.4, 0.16), v);
   } else if (kind < 1.5) {
     // A block's spark: a glassy flash, eight rays flying out and a thin ring, fading as it goes.
     float fade = 1.0 - v;

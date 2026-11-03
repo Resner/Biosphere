@@ -2,7 +2,8 @@
 // three stance buttons with their keys (the current one lit), a brace button with its cooldown
 // ring, a thin health arc round each opponent, and an escape ring round the player that fills
 // while it is out of every opponent's escape range. The buttons sit in the bottom centre and count
-// in the 6% HUD budget; the arcs and the ring live in the world, like the labels.
+// in the 6% HUD budget, for which the size and life bars step aside while the fight lasts; the arcs
+// and the ring live in the world, like the labels.
 
 import type { Encounter, Stance } from '../sim/encounter/types';
 import { RULES } from '../sim/rules';
@@ -166,7 +167,11 @@ export class CombatHud {
     p: LabelProjection,
   ): void {
     this.view = view;
-    if (this.panel.hidden !== !view.shown) this.panel.hidden = !view.shown;
+    if (this.panel.hidden !== !view.shown) {
+      this.panel.hidden = !view.shown;
+      // The size and life bars step aside in a fight, so the buttons fit the HUD's 6%.
+      document.body.toggleAttribute('data-fighting', view.shown);
+    }
     if (this.marks.style.display !== (view.shown ? '' : 'none')) {
       this.marks.style.display = view.shown ? '' : 'none';
     }

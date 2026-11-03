@@ -342,3 +342,23 @@ export const atEgg = (page: Page) =>
       }),
     };
   });
+
+/**
+ * The share of the viewport the HUD covers (M6b T9): the menu button, the bars, the minimap with its
+ * label and its depth gauge (M6c T12), and the elements of `extra` (the combat HUD's buttons, M7 T12).
+ */
+export const hudCover = (page: Page, extra: string[] = []) =>
+  page.evaluate((extra) => {
+    const parts = [
+      document.querySelector('[data-testid="hud-menu"]'),
+      ...document.querySelectorAll('.hud .stat'),
+      document.querySelector('.minimap'),
+      document.querySelector('[data-testid="minimap-depth"]'),
+      ...extra.flatMap((selector) => [...document.querySelectorAll(selector)]),
+    ].filter((el): el is HTMLElement => el instanceof HTMLElement && el.checkVisibility());
+    const area = parts.reduce((sum, el) => {
+      const r = el.getBoundingClientRect();
+      return sum + r.width * r.height;
+    }, 0);
+    return { share: area / (innerWidth * innerHeight), parts: parts.length };
+  }, extra);

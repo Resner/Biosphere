@@ -14,9 +14,9 @@ export const TELEGRAPH = {
   windupTicks: RULES.encounter.strike.windupTicks,
   /** The front's glow sits this far from the centre, and is this big, in body radii. */
   frontRadii: 0.85,
-  glowRadii: 0.8,
+  glowRadii: 1.1,
   /** Each weapon tip's glow, in body radii; a weapon reaching past `tipReach` radii shows its tips. */
-  tipRadii: 0.5,
+  tipRadii: 0.6,
   tipReach: 1.05,
   /** Weapons covering less than this half-angle (rad) show one tip, straight ahead. */
   oneTipArc: 0.2,
