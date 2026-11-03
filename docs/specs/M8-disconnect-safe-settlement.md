@@ -262,7 +262,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `worker/recover.ts` (`recoverFights`, also run by the alarm, skipping fights in memory), `Referee` `next`/`joins` restore, `resend`, `Fights.{adopt,clear,running,watchDue}`, the E2E restart hook; a row whose fighters hold its records is just closed.
   - Gotcha: recovery resends before its catch-up `tick` (not after, as step 3 reads), so no client sees a replaced frame before its resync; the M7 `owed` set is not rebuilt (T6 replaces it).
 
-- [x] T6 Reconnect resumes the fight, and locks that hold across sign-ins [opus] (after T3, T5) (in progress)
+- [x] T6 Reconnect resumes the fight, and locks that hold across sign-ins [opus] (after T3, T5)
   - Steps:
     1. `enter` in `worker/sessions.ts`, for a player locked in a running fight:
        - its pond is the fight's, not `place()`'s pick;
