@@ -20,6 +20,7 @@ import {
 import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import type { DeathCause } from '../src/sim/types';
+import { takeReport } from './away';
 import { type Condition, conditionOf, type Exhaustion, type Head } from './ledger';
 import {
   applyReport,
@@ -479,7 +480,8 @@ export function checkpoint(hub: Hub, life: LifeState, owner: string): LifeState 
 /**
  * The player's active creature (null for a new player) and when the next recorded hatch is allowed.
  * `current` is the connection's own state when it is ahead of the ledger (a fight's result), and
- * `fight` the running encounter its creature is locked in (M8: the client goes back to it).
+ * `fight` the running encounter its creature is locked in (M8: the client goes back to it). A
+ * fight settled while the player was away comes with it once (`report`, M8 T9).
  */
 export function sendLife(
   hub: Hub,
@@ -493,11 +495,13 @@ export function sendLife(
   const child = hub.ledger.pending(playerId);
   const pending = child ? bornFor(hub, child) : null;
   const fallback = head ? null : fallbackAfter(hub, hub.ledger.lastDead(playerId));
+  const report = takeReport(hub, playerId);
   sendIfOpen(ws, {
     t: 'life',
     life: head ? withCurrent(lifeOf(hub, head), current) : null,
     genesisIn,
     ...(fight !== undefined ? { fight } : {}),
+    ...(report ? { report } : {}),
     ...(pending ? { pending } : {}),
     ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
     ...(hub.ledger.takeRenewal(playerId) ? { renewed: true as const } : {}),

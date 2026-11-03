@@ -15,6 +15,7 @@ import {
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
+import { awayDue } from './away';
 import { flushFight, resend } from './fights';
 import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
@@ -217,7 +218,10 @@ export function enter(
     now: Date.now(),
   });
   sendLife(hub, ws, who.playerId, undefined, fight?.enc.id);
-  if (lock && fight) resend(hub, lock, who.playerId);
+  if (!lock || !fight) return;
+  resend(hub, lock, who.playerId);
+  // Back in time: the fight goes on in real time.
+  awayDue(hub, fight, hub.clock.now());
 }
 
 /**

@@ -10,6 +10,8 @@ interface Env {
   LIFESPAN_SCALE?: string;
   /** A fraction in (0, 1] that shortens maturity, cooldown and the repeat window for E2E; fixture mode only (ADR 0021). */
   MATING_SCALE?: string;
+  /** Whole ms, at most 10 s: how long a fight everyone left waits before it is played out at once, for E2E; fixture mode only (ADR 0053). */
+  AWAY_GRACE_MS?: string;
   /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */
   MAX_SESSIONS?: string;
   DAILY_REQUEST_BUDGET?: string;
