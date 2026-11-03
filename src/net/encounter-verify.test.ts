@@ -384,7 +384,7 @@ describe('verifyEncounter', () => {
       'root',
       'replay',
     ]);
-    expect(verifyEncounter({} as SignedSettlement, empty.log, keys)).toEqual(['replay']);
+    expect(verifyEncounter({} as SignedSettlement, empty.log, keys)).toEqual(['key', 'replay']);
   });
 
   it('does not take frames played after the end', () => {

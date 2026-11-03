@@ -122,9 +122,9 @@ export function verifyEncounter(
   log: FightLog,
   keys: readonly PubKey[],
 ): string[] {
+  const problems = checkSettlementSig(s, keys);
   try {
     const doc = s.settlement;
-    const problems = checkSettlementSig(s, keys);
     const joins = seatedJoins(log);
     if (
       doc.enc !== log.start.enc ||
@@ -158,6 +158,6 @@ export function verifyEncounter(
     }
     return problems;
   } catch {
-    return ['replay'];
+    return [...problems, 'replay'];
   }
 }
