@@ -411,7 +411,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - A 30 s duel costs each participant ≤ 11 incoming messages a second.
   - Notes: records for kills and eggs are T13. Until T13, the victim's client reports its own death after `enc-end` with cause `killed`, as today.
 
-- [ ] T10 Client prediction and rollback [opus] (after T1, T6)
+- [ ] T10 Client prediction and rollback [opus] (after T1, T6) (in progress)
   - Steps:
     1. `src/net/encounter-sync.ts`, `EncounterSync` (pure, clock passed in):
        - `start(msg, bodies)` builds `EncounterStart` from `FighterInfo` through `fighterOf(buildCreature(genome))`;
