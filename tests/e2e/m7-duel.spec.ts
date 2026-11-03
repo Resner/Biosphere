@@ -82,7 +82,10 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
         });
       });
 
-    // A parks beside B until the "F" glyph marks B (B drifts, and a loaded runner draws it late).
+    // A parks beside B until the "F" glyph marks B (B drifts, and a loaded runner draws it late),
+    // lets a few snapshots leave from the new place (the engage carries A's signed snapshot, and
+    // an engage from a stale place is refused), and presses F; if no fight starts, it parks and
+    // presses again.
     await expect(async () => {
       await a.evaluate((who) => {
         const bs = window.__bs as BsHook;
@@ -93,40 +96,69 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
       await a.waitForFunction((who) => window.__bs?.state().attack.hint === who, idB, {
         timeout: 2_000,
       });
-    }, 'A parks beside B and the glyph marks B')
-      .toPass({ timeout: 30_000 })
-      .catch(async (error) => {
-        throw new Error(`no glyph on B: ${JSON.stringify(await seen(a))}`, { cause: error });
+      const at = (await state(a)).tick;
+      await a.waitForFunction((t) => (window.__bs?.state().tick ?? 0) >= t + 15, at, {
+        timeout: 8_000,
       });
-    await expect(a.getByTestId('attack-hint')).toBeVisible();
-
-    const before = (await a.evaluate(() => (window.__bs as BsHook).render.fx())).engage;
-    await a.keyboard.press('f');
-    // The engage ring was asked for in the key press itself.
-    expect((await a.evaluate(() => (window.__bs as BsHook).render.fx())).engage).toBe(before + 1);
-
-    // Both get `enc-start`. A sets its stance (1: aggressive) in the frame it sees the fight.
-    await a
-      .waitForFunction(
+      await expect(a.getByTestId('attack-hint')).toBeVisible();
+      const before = (await a.evaluate(() => (window.__bs as BsHook).render.fx())).engage;
+      await a.keyboard.press('f');
+      // The engage ring was asked for in the key press itself.
+      expect((await a.evaluate(() => (window.__bs as BsHook).render.fx())).engage).toBe(before + 1);
+      await a.waitForFunction(
         () => {
           const enc = window.__bs?.state().encounter;
-          if (!enc || enc.over) return false;
-          dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
-          dispatchEvent(new KeyboardEvent('keyup', { key: '1' }));
-          return true;
+          return enc !== null && enc !== undefined;
         },
         undefined,
-        { timeout: 10_000, polling: 'raf' },
-      )
+        { timeout: 4_000 },
+      );
+    }, 'A parks beside B, presses F and the fight starts')
+      .toPass({ timeout: 40_000 })
       .catch(async (error) => {
         throw new Error(`A's fight never started: ${JSON.stringify(await seen(a))}`, {
           cause: error,
         });
       });
+
+    // Both get `enc-start`. A sets its stance (1: aggressive) from the frame it sees the fight and
+    // presses again every frame until its own view shows it (a press that lands past the deadline
+    // is dropped, and a loaded runner can miss the first frames).
+    await a
+      .waitForFunction(
+        (me) => {
+          const enc = window.__bs?.state().encounter;
+          if (!enc || enc.over) return false;
+          if (enc.fighters.find((f) => f.player === me)?.stance === 'aggressive') return true;
+          dispatchEvent(new KeyboardEvent('keydown', { key: '1' }));
+          dispatchEvent(new KeyboardEvent('keyup', { key: '1' }));
+          return false;
+        },
+        idA,
+        { timeout: 15_000, polling: 'raf' },
+      )
+      .catch(async (error) => {
+        throw new Error(`A's stance never showed: ${JSON.stringify(await seen(a))}`, {
+          cause: error,
+        });
+      });
     const encA = (await state(a)).encounter;
-    await b.waitForFunction((id) => window.__bs?.state().encounter?.id === id, encA?.id, {
-      timeout: 5_000,
-    });
+    await b
+      .waitForFunction(
+        ([id, me]) => {
+          const enc = window.__bs?.state().encounter;
+          return (
+            enc?.id === id && enc?.fighters.find((f) => f.player === me)?.stance === 'aggressive'
+          );
+        },
+        [encA?.id, idA] as const,
+        { timeout: 10_000 },
+      )
+      .catch(async (error) => {
+        throw new Error(`B never saw A's stance: ${JSON.stringify(await seen(b))}`, {
+          cause: error,
+        });
+      });
 
     // A swims onto B (debug steering works in a fight) until the referee ends it.
     await a
@@ -160,8 +192,8 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
     expect(endA?.endHash).toBe(endB?.endHash);
     const fighterOf = (enc: typeof endA, who: string) =>
       enc?.fighters.find((f) => f.player === who);
-    // The stance A picked shows on B's client.
-    expect(fighterOf(endB, idA)?.stance).toBe('aggressive');
+    // The stance A picked showed on B's client (waited for above; a hurt cautious A's autopilot may
+    // flee in the evasive stance afterwards, so the end state says nothing about it).
     expect(fighterOf(endA, idB)?.outcome).toBe('killed');
     expect(fighterOf(endB, idB)?.outcome).toBe('killed');
 
