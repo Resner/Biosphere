@@ -283,7 +283,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A replacing second tab gets the same sequence, and the first socket is closed `4001`.
   - Notes: the locked time is credited in T8. The client's resume is T10.
 
-- [x] T7 A victim's worth at lock-in, and join checks [opus] (after T3) (in progress)
+- [x] T7 A victim's worth at lock-in, and join checks [opus] (after T3)
   - Steps:
     1. `worker/farming.ts`: `worthOf(hub, player, now)` = `0.5^k` (ADR 0054). `k` counts the player's creatures that died with cause `killed` in the 24 h before `now`, at most 6, plus 1 while `first_seen` is under 30 min before `now`. It uses reads only, through the `creatures_dead` index.
     2. `fighterInfo` in `worker/engage.ts` sets `worth` for both sides at lock-in and for a joiner.
