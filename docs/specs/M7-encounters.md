@@ -334,7 +334,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - The `lock-ask` answer leaves within the same tick, through a fake hub.
     - `speedTest`: signing one snapshot takes under 1 ms in Node.
 
-- [ ] T8 Lock-in on the authority: engage, checks, start states, locks, spawn protection [opus] (after T1, T6)
+- [ ] T8 Lock-in on the authority: engage, checks, start states, locks, spawn protection [opus] (after T1, T6) (in progress)
   - Steps:
     1. `worker/engage.ts`, with `engage` in the dispatch. Check, in order:
        - both players active in the same pond, and the target not the attacker;
