@@ -82,7 +82,8 @@ function incoming(enc: Encounter, f: Fighter, tick: number): boolean {
   for (const o of enc.fighters) {
     if (o === f || !standing(o) || o.fx.windupEnd < tick) continue;
     if (o.fx.windupEnd - tick > A.braceTicks) continue;
-    if (o.fx.windupTarget === f.slot || o.fx.windupTarget === EGG_CODE + f.slot) return true;
+    if (o.fx.windupTarget === f.slot || (hasEgg(f) && o.fx.windupTarget === EGG_CODE + f.slot))
+      return true;
   }
   return false;
 }

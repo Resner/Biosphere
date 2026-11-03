@@ -16,7 +16,14 @@ import { encodeFrameInput } from './codec';
 import { EGG_CODE } from './egg';
 import { createEncounter, hashEncounter, stepFrame } from './encounter';
 import { strikeDistance } from './reach';
-import type { Behaviour, Encounter, EncounterEvent, FighterStart, TargetPref } from './types';
+import type {
+  Behaviour,
+  Encounter,
+  EncounterEvent,
+  Fighter,
+  FighterStart,
+  TargetPref,
+} from './types';
 
 const E = RULES.encounter;
 const B = RULES.starter.biomass;
@@ -169,7 +176,7 @@ describe('autopilot', () => {
     const windup = (reflex: number, target: number, left = 5) => {
       const enc = createEncounter(
         startOf('autopilot-brace', [
-          { ...starterFighter('a', 3000, 3000), behaviour: gene({ reflex }) },
+          { ...starterFighter('a', 3000, 3000), egg: true, behaviour: gene({ reflex }) },
           hunterFighter('b', 3030, 3000, Math.PI),
         ]),
       );
@@ -187,6 +194,9 @@ describe('autopilot', () => {
     it('waits for the last 6 ticks, an aim at it, a ready brace and the energy', () => {
       expect(autopilot(windup(1, 0, 7), 0).brace).toBe(false);
       expect(autopilot(windup(1, 1), 0).brace).toBe(false);
+      const eaten = windup(1, EGG_CODE);
+      (at(eaten, 0).eggBody as NonNullable<Fighter['eggBody']>).by = 1;
+      expect(autopilot(eaten, 0).brace).toBe(false);
       const cooling = windup(1, 0);
       at(cooling, 0).fx.braceReady = cooling.world.tick + 1;
       expect(autopilot(cooling, 0).brace).toBe(false);
