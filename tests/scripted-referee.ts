@@ -5,13 +5,39 @@
 
 import { genomeToBase64url } from '../src/genome/codec';
 import { starterGenome } from '../src/genome/starter';
-import { type EncStartMsg, FRAME_MS, fighterOutcomes } from '../src/net/encounter-sync';
-import type { HubMsg } from '../src/net/protocol';
-import { createEncounter, hashEncounter, stepFrame } from '../src/sim/encounter/encounter';
+import { type EncStartMsg, FRAME_MS } from '../src/net/encounter-sync';
+import type { FighterOutcome, HubMsg } from '../src/net/protocol';
+import { createEncounter, hashEncounter, results, stepFrame } from '../src/sim/encounter/encounter';
 import type { Encounter, EncounterStart } from '../src/sim/encounter/types';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
 import { maxHealth, starterEnergy } from '../src/sim/vitals';
+
+/** Every fighter's final state and result, by slot, as an `enc-end` carries them. */
+function fighterOutcomes(enc: Encounter): FighterOutcome[] {
+  const res = results(enc);
+  return enc.fighters.map((f, slot) => {
+    const r = res[slot] as (typeof res)[number];
+    const b = f.body;
+    return {
+      player: f.player,
+      creature: f.creature,
+      x: b.x,
+      y: b.y,
+      vx: b.vx,
+      vy: b.vy,
+      heading: b.heading,
+      biomass: b.biomass,
+      energy: b.energy,
+      health: b.health,
+      outcome: r.outcome,
+      cause: r.cause,
+      by: r.by,
+      egg: r.egg,
+      eggBy: r.eggBy,
+    };
+  });
+}
 
 const E = RULES.encounter;
 const EARLY_FRAMES = 2;

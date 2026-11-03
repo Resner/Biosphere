@@ -12,14 +12,8 @@ import { fighterOf } from '../genome/fighter';
 import { buildCreature, type Creature } from '../genome/stats';
 import { seedWords } from '../ledger/encounter';
 import { decodeFrameInput, encodeFrameInput } from '../sim/encounter/codec';
-import { createEncounter, hashEncounter, results, stepFrame } from '../sim/encounter/encounter';
-import type {
-  Encounter,
-  EncounterEvent,
-  EncounterStart,
-  FighterStart,
-  FrameInput,
-} from '../sim/encounter/types';
+import { createEncounter, hashEncounter, stepFrame } from '../sim/encounter/encounter';
+import type { Encounter, EncounterStart, FighterStart, FrameInput } from '../sim/encounter/types';
 import { wrapAngle } from '../sim/math';
 import { RULES, TICK_HZ } from '../sim/rules';
 import type { CreatureState } from '../sim/types';
@@ -85,32 +79,6 @@ export function encounterStartOf(
   };
 }
 
-/** Every fighter's final state and result, by slot, as an `enc-end` carries them. */
-export function fighterOutcomes(enc: Encounter): FighterOutcome[] {
-  const res = results(enc);
-  return enc.fighters.map((f, slot) => {
-    const r = res[slot] as (typeof res)[number];
-    const b = f.body;
-    return {
-      player: f.player,
-      creature: f.creature,
-      x: b.x,
-      y: b.y,
-      vx: b.vx,
-      vy: b.vy,
-      heading: b.heading,
-      biomass: b.biomass,
-      energy: b.energy,
-      health: b.health,
-      outcome: r.outcome,
-      cause: r.cause,
-      by: r.by,
-      egg: r.egg,
-      eggBy: r.eggBy,
-    };
-  });
-}
-
 const STATE_KEYS = ['x', 'y', 'vx', 'vy', 'heading', 'biomass', 'energy', 'health'] as const;
 
 const sameInputs = (a: Inputs | undefined, b: Inputs): boolean =>
@@ -165,8 +133,6 @@ export class EncounterSync {
   longestRollback = 0;
   /** Bundles for another fight or of the wrong width. */
   dropped = 0;
-  /** The events of the newest frame stepped. */
-  events: EncounterEvent[] = [];
 
   private origin: EncounterStart | null = null;
   private at = 0;
@@ -219,7 +185,6 @@ export class EncounterSync {
     this.desyncs = 0;
     this.longestRollback = 0;
     this.dropped = 0;
-    this.events = [];
     this.bundles = [];
     this.newest = -1;
     this.used = [];
@@ -286,7 +251,7 @@ export class EncounterSync {
     const mine = msg.fighters[this.slot];
     if (!mine) return null;
     this.reconcile(null);
-    while (this.frame < msg.f) this.simulate(false);
+    while (this.frame < msg.f) this.simulate(false, false);
     const live = this.enc as Encounter;
     this.hash = hashEncounter(live);
     const body = (live.fighters[this.slot] as Encounter['fighters'][number]).body;
@@ -328,20 +293,20 @@ export class EncounterSync {
   }
 
   /** Steps frame `this.frame` with its bundle, or with the own input and the remotes' predictions. */
-  private simulate(sample: boolean): void {
+  private simulate(sample: boolean, keep = true): void {
     const enc = this.enc as Encounter;
     const f = this.frame;
     const inputs = this.inputsFor(f, sample);
-    this.states.set(f, structuredClone(enc));
+    if (keep) this.states.set(f, structuredClone(enc));
     this.states.delete(f - KEEP_FRAMES);
     this.used[f] = inputs;
-    this.events = stepFrame(enc, inputs);
+    stepFrame(enc, inputs);
     this.frame = f + 1;
   }
 
   private inputsFor(f: number, sample: boolean): Inputs {
     const known = this.bundles[f];
-    if (known) return [...known];
+    if (known) return known;
     let own = this.own[f];
     if (own === undefined) {
       own = sample ? this.sampleOwn(f) : null;
@@ -379,11 +344,10 @@ export class EncounterSync {
     } else {
       this.rollbacks++;
       this.longestRollback = Math.max(this.longestRollback, upTo - from);
-      for (let f = from; f < upTo; f++) this.states.delete(f);
       this.enc = kept;
       this.frame = from;
     }
-    while (this.frame < upTo) this.simulate(false);
+    while (this.frame < upTo) this.simulate(false, this.frame >= upTo - KEEP_FRAMES);
     if (hubNow === null) return;
     const after = this.poses(hubNow, false);
     this.ease = before.map((b, slot) => {

@@ -144,8 +144,9 @@ export class FightPlay {
    */
   tick(): boolean {
     const { sync } = this;
+    if (!sync?.running) return false;
     const life = this.current();
-    if (!sync?.running || !life) return false;
+    if (!life) return false;
     const hubNow = this.host.hubNow();
     sync.step(hubNow);
     if (sync.frame === 0) return false;
