@@ -1,5 +1,12 @@
 import { describe, expect, it } from 'vitest';
-import { countdownText, livedText, remainingText, stageWord, whenText } from './life-text';
+import {
+  countdownText,
+  deathName,
+  livedText,
+  remainingText,
+  stageWord,
+  whenText,
+} from './life-text';
 
 const BANNED = /activeMs|checkpoint|ledger|\brecords?\b|\bseq\b|hash|genesis|beacon/i;
 
@@ -58,6 +65,15 @@ describe('whenText', () => {
     expect(whenText(3 * 3_600_000)).toBe('3 h ago');
     expect(whenText(2 * 86_400_000)).toBe('2 days ago');
     expect(whenText(-10)).toBe('just now');
+  });
+});
+
+describe('deathName', () => {
+  it('names the killer when the hub says who it was', () => {
+    expect(deathName('killed', 'Ana')).toBe('Killed by Ana');
+    expect(deathName('killed', null)).toBe('Killed');
+    expect(deathName('killed', '')).toBe('Killed');
+    expect(deathName('toxin', 'Ana')).toBe('Poisoned');
   });
 });
 

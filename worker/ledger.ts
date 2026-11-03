@@ -1,6 +1,7 @@
 import { KINSHIP_GENERATIONS } from '../src/ledger/pedigree';
 import {
   authorityKeyId,
+  authorityOnly,
   authorityPublicKey,
   authoritySign,
   creatureId,
@@ -15,6 +16,12 @@ import {
   transitionOutcome,
 } from '../src/ledger/record';
 import { RULES_VERSION } from '../src/sim/rules';
+import {
+  type FightRecords,
+  HOLDS_ENCOUNTER,
+  type SettleResult,
+  settleRecords,
+} from './ledger-encounter';
 
 // The ledger store (ADR 0019): plain functions over SQLite, so tests need no sockets. Every
 // accepted record is one transaction that appends to a creature's chain and moves its head.
@@ -74,6 +81,12 @@ export {
   type Storage,
 } from './ledger-types';
 
+/**
+ * A creature that lived: a genesis one, or a born child once promoted (which sets its chain parent).
+ * A child whose egg was eaten (ADR 0052) died without living, so history and fallbacks skip it.
+ */
+const LIVED = '(c.parent_a IS NULL OR c.chain_parent IS NOT NULL)';
+
 export class Ledger {
   /** Rows written through this ledger since it was made (the usage meter and the write-budget tests read it). */
   rowsWritten = 0;
@@ -128,6 +141,29 @@ export class Ledger {
   restore(request: RecordRequest, ownerSig: string, rule: Exhaustion): AcceptResult {
     this.key();
     return this.storage.transactionSync(() => this.restoreInTransaction(request, ownerSig, rule));
+  }
+
+  /** Writes an encounter's results in one transaction (`ledger-encounter.ts`); a second call writes nothing. */
+  settle(input: FightRecords): SettleResult {
+    this.key();
+    return this.storage.transactionSync(() =>
+      settleRecords(
+        {
+          head: (id) => this.head(id),
+          pending: (owner) => this.pending(owner),
+          holds: (creature, enc) => this.run(HOLDS_ENCOUNTER, creature, enc).length > 0,
+          write: (head, record, next) => {
+            const hash = recordHash(record);
+            const stored = this.store(record, hash, requestHash(record), null, head.id);
+            this.advance(head, record, stored.hash, next);
+            return stored;
+          },
+          now: this.now,
+          rules: RULES_VERSION,
+        },
+        input,
+      ),
+    );
   }
 
   /** Ends a frozen creature whose remaining life is under `restoreMinMs`, with cause `old-age`. */
@@ -405,7 +441,7 @@ export class Ledger {
     return this.run(
       `SELECT c.id, c.genome, c.active_ms, c.born_t, c.died_t,
          (SELECT json FROM records r WHERE r.creature = c.id AND r.seq = c.seq AND r.kind = 'death') AS death
-       FROM creatures c WHERE c.owner = ? AND c.status = 'dead'
+       FROM creatures c WHERE c.owner = ? AND c.status = 'dead' AND ${LIVED}
        ORDER BY c.died_t DESC, c.born_t DESC LIMIT ?`,
       owner,
       limit,
@@ -460,7 +496,9 @@ export class Ledger {
     const t = this.now();
     if (request.kind !== 'genesis' && request.creature === '') return refuse('no-creature');
     // The kinds that touch two chains or need an owner's word have their own operations.
-    if (!SINGLE_RECORD_KINDS.includes(request.kind)) return refuse('use-operation');
+    if (!SINGLE_RECORD_KINDS.includes(request.kind) || authorityOnly(request)) {
+      return refuse('use-operation');
+    }
     const problems = recordProblems({ ...request, t });
     if (problems.length > 0) return refuse(`invalid-record:${problems[0]}`);
     const req = requestHash(request);
@@ -800,7 +838,8 @@ export class Ledger {
   /** The player's most recently dead creature, or null. */
   lastDead(owner: string): Head | null {
     const row = this.run(
-      "SELECT * FROM creatures WHERE owner = ? AND status = 'dead' ORDER BY died_t DESC, born_t DESC LIMIT 1",
+      `SELECT * FROM creatures c WHERE owner = ? AND status = 'dead' AND ${LIVED}
+       ORDER BY died_t DESC, born_t DESC LIMIT 1`,
       owner,
     )[0];
     return row ? asHead(row) : null;

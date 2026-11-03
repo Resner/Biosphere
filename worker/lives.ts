@@ -5,7 +5,7 @@ import { speciesName } from '../src/genome/names';
 import { type GenesisAsk, verifyGenesisAsk } from '../src/ledger/ask';
 import { randomnessOf } from '../src/ledger/drand';
 import { genesisFor, genesisRequest as genesisRecordRequest } from '../src/ledger/genesis';
-import type { RecordRequest } from '../src/ledger/record';
+import { AUTHORITY_CAUSES, type RecordRequest } from '../src/ledger/record';
 import {
   type ClientMsg,
   type FallbackInfo,
@@ -29,9 +29,7 @@ import {
   isOld,
   type LifeState,
   protectionEnds,
-  takeResult,
   unsaved,
-  type Condition as Vitals,
 } from './life';
 import { fixtureScale, matureAtMsOf as matureAtOfLifespan } from './mating';
 import { bornFor, deliverBirth } from './offspring';
@@ -41,7 +39,6 @@ import {
   causeOf,
   type Hub,
   type Session,
-  seated,
   sendIfOpen,
   signedOf,
 } from './socket';
@@ -220,8 +217,8 @@ export function death(
   msg: ClientMsg & { t: 'death' },
   now: number,
 ): void {
-  // Old age is the authority's clock, and an eaten egg its fight's settlement (M7 T13).
-  if (msg.cause === 'old-age' || msg.cause === 'eaten') {
+  // Old age is the authority's clock, and a kill or an eaten egg its fight's settlement (M7 T13).
+  if (AUTHORITY_CAUSES.includes(msg.cause)) {
     sendIfOpen(ws, { t: 'refused', reason: 'cause' });
     return;
   }
@@ -518,39 +515,4 @@ function withCurrent(info: LifeInfo, current: LifeState | undefined): LifeInfo {
   if (current?.creature !== info.creature) return info;
   const { biomass, energy, health, activeMs } = current;
   return { ...info, biomass, energy, health, activeMs };
-}
-
-/** One fighter's part of a fight's end, its condition in hundredths. */
-export interface FightEnd {
-  player: string;
-  creature: string;
-  condition: Vitals;
-  /** Escaped or stood: old age that fell due during the fight is applied now. */
-  survived: boolean;
-  /** It signed in again during the fight, and its `life` waited for the end. */
-  owed: boolean;
-}
-
-/**
- * After `enc-end` (ADR 0050): a connected fighter's life takes the result's condition, and old age
- * that fell due in the fight ends a survivor. A fighter who is away has the result written as a
- * checkpoint, so its next sign-in resumes from it. The kill and egg records are M7 T13's.
- */
-export function settleFight(hub: Hub, ends: readonly FightEnd[]): void {
-  for (const end of ends) {
-    const found = seated(hub, end.player);
-    const [ws, session] = found ?? [];
-    if (!ws || session?.life?.creature !== end.creature || session.life.over) {
-      const head = hub.ledger.head(end.creature);
-      if (head?.status === 'active' && head.owner === end.player) {
-        hub.ledger.append(head, 'checkpoint', { ...end.condition, activeMs: head.activeMs });
-      }
-      if (ws && end.owed) sendLife(hub, ws, end.player);
-      continue;
-    }
-    let life = takeResult(session.life, end.condition);
-    if (end.survived && isOld(life)) life = finish(hub, ws, life, end.player, 'old-age');
-    ws.serializeAttachment({ ...session, life } satisfies Session);
-    if (end.owed) sendLife(hub, ws, end.player, life);
-  }
 }

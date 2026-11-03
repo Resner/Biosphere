@@ -1,6 +1,6 @@
 # 0052: A carried egg is prey, eaten only in a settled encounter
 
-- Status: accepted (amends 0021: a `pending` creature can die, with cause `eaten`)
+- Status: accepted (amends 0021: a `pending` creature can die, with cause `eaten`; the same settlement adds the attested `encounter` record for a survivor and makes a `killed` death authority-only, naming `enc` and `by`)
 - Date: 2026-11-02
 
 ## Context

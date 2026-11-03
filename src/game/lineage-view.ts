@@ -82,6 +82,13 @@ function chainOrder(a: LineageEntry, b: LineageEntry): number {
   return b.generation - a.generation || a.creature.localeCompare(b.creature);
 }
 
+/**
+ * A born child that died without being promoted (no chain parent): its egg was eaten in a fight,
+ * the one way a pending child dies (ADR 0052).
+ */
+const neverHatched = (c: LineageEntry): boolean =>
+  c.status === 'dead' && c.generation > 0 && c.chainParent === null;
+
 function chainRow(c: LineageEntry): ChainRow {
   let life = '';
   if (c.status === 'checkpoint') life = 'frozen';
@@ -91,7 +98,7 @@ function chainRow(c: LineageEntry): ChainRow {
     species: c.species,
     generation: c.generation,
     tier: tierOf(c.genome),
-    state: STATE[c.status],
+    state: neverHatched(c) ? 'Eaten as an egg' : STATE[c.status],
     life,
     genome: c.genome,
   };

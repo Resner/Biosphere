@@ -168,7 +168,7 @@ describe('LIFESPAN_SCALE', () => {
 });
 
 describe('death requests', () => {
-  it.each(['starved', 'toxin', 'uv', 'pressure', 'killed'] as const)(
+  it.each(['starved', 'toxin', 'uv', 'pressure'] as const)(
     'records a death of %s after a checkpoint of the last progress',
     async (cause) => {
       const { c, creature } = await newPlayer();
@@ -234,7 +234,8 @@ describe('death requests', () => {
     expect((await chain(creature)).map((r) => r.kind)).toEqual(['genesis', 'death']);
   });
 
-  it.each(['old-age', 'eaten'] as const)(
+  // A kill and an eaten egg are decided only by a fight's settlement (M7 T13).
+  it.each(['old-age', 'killed', 'eaten'] as const)(
     'refuses %s from a client and leaves the creature alive',
     async (cause) => {
       const { c, creature } = await newPlayer();
@@ -309,7 +310,7 @@ describe('history', () => {
 
     const other = await login();
     const theirs = await hatch(other.c, other.id);
-    other.c.send({ t: 'death', cause: 'killed', ticks: 0 });
+    other.c.send({ t: 'death', cause: 'pressure', ticks: 0 });
     await nextOf(other.c, 'died');
 
     const { lives } = await pastLives(a.c);

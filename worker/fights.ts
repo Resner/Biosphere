@@ -3,14 +3,13 @@
 // restart until M8; nothing here touches SQLite while a fight runs.
 
 import { type EncStart, encounterStartOf } from '../src/net/encounter-start';
-import type { ClientMsg, FighterOutcome, HubMsg } from '../src/net/protocol';
+import type { ClientMsg } from '../src/net/protocol';
 import { Referee } from '../src/net/referee';
-import { createEncounter, hashEncounter, results, stepFrame } from '../src/sim/encounter/encounter';
+import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import type { Encounter } from '../src/sim/encounter/types';
 import type { Asking } from './engage';
-import { HUNDREDTHS } from './life';
-import { type FightEnd, settleFight } from './lives';
-import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
+import { settle, tell } from './settle';
+import { type ActiveSession, type Hub, seated } from './socket';
 
 /** The time and timers the fights run on; hub tests swap in a hand-moved one. */
 export interface Clock {
@@ -31,6 +30,8 @@ export interface Fight {
   enc: Encounter;
   /** The player in each slot. */
   players: string[];
+  /** Each slot's player name at the start ('' when it was away), for `died` to name a killer. */
+  names: string[];
 }
 
 /** One lock: asking the target for its state, then running from `enc-start`. */
@@ -132,14 +133,6 @@ export class Fights {
   }
 }
 
-/** Sends `msg` to every participant who is connected now. */
-function tell(hub: Hub, lock: Lock, msg: HubMsg): void {
-  for (const player of lock.players) {
-    const found = seated(hub, player);
-    if (found) sendIfOpen(found[0], msg);
-  }
-}
-
 /**
  * Starts the fight of `msg` (just sent to both): the referee's clock from frame 0 at `msg.at`, and
  * the authority's encounter from the same start every client builds. False when it can't be built.
@@ -152,6 +145,7 @@ export function runFight(hub: Hub, lock: Lock, msg: EncStart, pondSeed: string):
     referee: new Referee({ startAt: msg.at, slots: enc.fighters.length }),
     enc,
     players: enc.fighters.map((f) => f.player),
+    names: enc.fighters.map((f) => seated(hub, f.player)?.[1].name ?? ''),
   };
   armNext(hub, lock);
   return true;
@@ -193,49 +187,9 @@ export function tick(hub: Hub, id: string, now: number): void {
     tell(hub, lock, { t: 'enc-frame', enc: enc.id, f: bundle.f, i: bundle.i });
     for (const f of enc.fighters) if (f.status !== 'in') referee.retire(f.slot);
     if (enc.over) {
-      end(hub, lock, fight);
+      settle(hub, lock, fight);
       return;
     }
   }
   armNext(hub, lock);
-}
-
-/** `enc-end` with every result and final state, then the locks are released and each life takes its result. */
-function end(hub: Hub, lock: Lock, fight: Fight): void {
-  const { enc } = fight;
-  const fighters: FighterOutcome[] = results(enc).map((r, slot) => {
-    const f = enc.fighters[slot] as Encounter['fighters'][number];
-    const b = f.body;
-    return {
-      player: f.player,
-      creature: f.creature,
-      x: b.x,
-      y: b.y,
-      vx: b.vx,
-      vy: b.vy,
-      heading: b.heading,
-      biomass: b.biomass,
-      energy: b.energy,
-      health: b.health,
-      outcome: r.outcome,
-      cause: r.cause,
-      by: r.by,
-      egg: r.egg,
-      eggBy: r.eggBy,
-    };
-  });
-  tell(hub, lock, { t: 'enc-end', enc: enc.id, f: enc.frame, hash: hashEncounter(enc), fighters });
-  hub.fights.release(lock.id);
-  const ends: FightEnd[] = fighters.map((f) => ({
-    player: f.player,
-    creature: f.creature,
-    condition: {
-      biomass: Math.floor(f.biomass * HUNDREDTHS),
-      energy: Math.floor(f.energy * HUNDREDTHS),
-      health: Math.floor(f.health * HUNDREDTHS),
-    },
-    survived: f.outcome === 'escaped' || f.outcome === 'stood',
-    owed: lock.owed.has(f.player),
-  }));
-  settleFight(hub, ends);
 }

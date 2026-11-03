@@ -82,6 +82,7 @@ function seatFighter(slot: number, f: FighterStart, t0: number): Fighter {
     status: 'in',
     outside: 0,
     lastBy: -1,
+    reward: 0,
     fx: newFx(),
     result: null,
   };

@@ -53,6 +53,22 @@ describe('lineageView', () => {
     expect(v.chain[0]?.tier).not.toBe('');
   });
 
+  it('words a child whose egg was eaten, which died without hatching (ADR 0052)', () => {
+    const v = lineageView(
+      [
+        entry(1, { generation: 0, status: 'dead' }),
+        entry(2, { generation: 1, status: 'dead', chainParent: id(1) }),
+        entry(3, { generation: 1, status: 'dead', chainParent: null }),
+      ],
+      [],
+    );
+    expect(v.chain.map((r) => [r.creature, r.state])).toEqual([
+      [id(2), 'Gone'],
+      [id(3), 'Eaten as an egg'],
+      [id(1), 'Gone'],
+    ]);
+  });
+
   it('draws both parents and the sibling, and highlights the chosen branch', () => {
     // 3 is the child of 1 (mine) and 2 (another player's); 4 is its sibling, a pending egg.
     const v = lineageView(

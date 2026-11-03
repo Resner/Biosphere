@@ -116,5 +116,27 @@
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
     "hash": "a6ed053de3cd53e0c3b88a011067d67b44c59cb8ec8f83f7b5f54bcd09b73f7e"
+  },
+  "encounter": {
+    "record": {
+      "v": 1,
+      "rules": 9,
+      "kind": "encounter",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "enc": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "outcome": "escaped",
+        "frames": 212,
+        "biomass": 4200,
+        "energy": 5100,
+        "health": 7400,
+        "reward": 1680
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "6d30300a17843830514144da2532b275d26daeb1c0375166cc4d630a00bfe068"
   }
 }

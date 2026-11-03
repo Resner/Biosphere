@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { signMateAsk } from '../src/ledger/mating';
 import { encounterStartOf } from '../src/net/encounter-start';
-import { CLOSE_RATE_LIMITED, type FighterInfo, type HubMsg } from '../src/net/protocol';
+import { CLOSE_RATE_LIMITED, type FighterInfo } from '../src/net/protocol';
 import { FRAME_MS } from '../src/net/referee';
 import { createEncounter } from '../src/sim/encounter/encounter';
 import { engageRange, strikeDistance, strikeReach } from '../src/sim/encounter/reach';
@@ -11,17 +11,30 @@ import { drive, IDLE_CODE } from '../tests/encounter-fixture';
 import { heavyTest } from '../tests/heavy';
 import {
   advance,
+  advanceTo,
   authority,
   clock,
+  type EncEnd,
+  type EncFrame,
+  type EncStart,
   editLife,
+  fighters,
   hatched,
+  hundredths,
+  lifeOn,
+  locked,
   lockIn,
   NEAR,
+  outcomeOf,
+  type Plan,
+  type Played,
   type Player,
-  pair,
+  play,
   setEnv,
+  slotOf,
   snap,
   useFightHub,
+  within,
 } from './fight-test-kit';
 import { runFight } from './fights';
 import type { LifeState } from './life';
@@ -45,88 +58,6 @@ const E = RULES.encounter;
 
 useFightHub();
 
-type EncStart = Extract<HubMsg, { t: 'enc-start' }>;
-type EncFrame = Extract<HubMsg, { t: 'enc-frame' }>;
-type EncEnd = Extract<HubMsg, { t: 'enc-end' }>;
-
-/** A player's input for frame `f`: a code, or null to stay silent. */
-type Plan = (f: number, start: EncStart) => [number | null, number | null];
-
-interface Played {
-  /** Each player's bundles, in the order they arrived. */
-  frames: [EncFrame[], EncFrame[]];
-  ends: [EncEnd, EncEnd] | null;
-}
-
-/** `promise`, or a failure naming `what` if it takes more than 3 s of real time. */
-async function within<T>(promise: Promise<T>, what: string): Promise<T> {
-  let timer: ReturnType<typeof setTimeout> | undefined;
-  const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error(`timed out waiting for ${what}`)), 3000);
-  });
-  try {
-    return await Promise.race([promise, late]);
-  } finally {
-    if (timer !== undefined) clearTimeout(timer);
-  }
-}
-
-const locked = (p: Player) => authority((o) => o.fights.playerLocked(p.id.playerId));
-const held = (p: Player) =>
-  authority((o) => o.fights.ofPlayer(p.id.playerId)?.fight?.referee.held() ?? 0);
-
-/** Moves the hub's clock forward to `t` (never back). */
-const advanceTo = (t: number) => advance(Math.max(0, t - clock.t));
-
-/** Waits (by polling the object) until the referee holds `n` frames of inputs. */
-async function holding(p: Player, n: number): Promise<void> {
-  for (let i = 0; i < 200; i++) if ((await held(p)) >= n) return;
-  throw new Error(`the referee never held ${n} frames of inputs`);
-}
-
-/**
- * Plays the fight frame by frame for at most `frames` frames: each player sends what `plan` says
- * one frame ahead of the frame's start; a frame with a silent player waits for its deadline.
- */
-async function play(
-  a: Player,
-  b: Player,
-  start: EncStart,
-  plan: Plan,
-  frames = E.timeoutFrames,
-  from = 0,
-): Promise<Played> {
-  const seen: Played = { frames: [[], []], ends: null };
-  const startOf = (f: number) => start.at + f * FRAME_MS;
-  for (let f = from; f < from + frames; f++) {
-    await advanceTo(startOf(f) - FRAME_MS);
-    const codes = plan(f, start);
-    [a, b].forEach((p, k) => {
-      const code = codes[k];
-      if (code !== null && code !== undefined) p.c.send({ t: 'input', enc: start.enc, f, i: code });
-    });
-    const sent = codes.filter((c) => c !== null).length;
-    if (sent < 2) {
-      if (sent === 1) await holding(a, 1);
-      await advanceTo(startOf(f) + E.inputDeadlineMs + 1);
-    }
-    const [fa, fb] = await within(
-      Promise.all([nextOf(a.c, 'enc-frame'), nextOf(b.c, 'enc-frame')]),
-      `frame ${f}`,
-    );
-    seen.frames[0].push(fa);
-    seen.frames[1].push(fb);
-    if (!(await locked(a))) {
-      seen.ends = await within(
-        Promise.all([nextOf(a.c, 'enc-end'), nextOf(b.c, 'enc-end')]),
-        `enc-end after frame ${f}`,
-      );
-      return seen;
-    }
-  }
-  return seen;
-}
-
 /** The fight replayed from its start and bundles, as every client steps it. */
 function replay(a: Player, start: EncStart, frames: EncFrame[]) {
   const encStart = encounterStartOf(start, a.pond.seed);
@@ -137,26 +68,6 @@ function replay(a: Player, start: EncStart, frames: EncFrame[]) {
 /** The fight's outcomes, sorted: who escaped depends on whose range the other left first (T1). */
 const outcomes = (played: Played) => played.ends?.[0].fighters.map((f) => f.outcome).sort();
 
-const slotOf = (start: EncStart, p: Player) =>
-  start.fighters.findIndex((f) => f.player === p.id.playerId);
-
-/** `p`'s outcome in `end`. */
-function outcomeOf(end: EncEnd, p: Player) {
-  const found = end.fighters.find((f) => f.player === p.id.playerId);
-  if (!found) throw new Error(`no outcome for ${p.id.playerId}`);
-  return found;
-}
-
-/** The player's life state on the object. */
-const lifeOn = (p: Player) =>
-  authority((o) => {
-    for (const ws of o.ctx.getWebSockets()) {
-      const s = ws.deserializeAttachment() as Session | null;
-      if (s?.phase === 'active' && s.playerId === p.id.playerId) return s.life as LifeState;
-    }
-    return undefined;
-  });
-
 /** Counts every message a client receives from now on. */
 function counter(c: Client): { n: number } {
   const count = { n: 0 };
@@ -165,12 +76,6 @@ function counter(c: Client): { n: number } {
   });
   return count;
 }
-
-const hundredths = (f: { biomass: number; energy: number; health: number }) => ({
-  biomass: Math.floor(f.biomass * 100),
-  energy: Math.floor(f.energy * 100),
-  health: Math.floor(f.health * 100),
-});
 
 /** The condition a life state holds. */
 const conditionOf = (l: LifeState | undefined) => ({
@@ -246,19 +151,10 @@ async function outOfReach(a: Player, b: Player): Promise<EncStart> {
   return msg;
 }
 
-/**
- * Two players whose hatch protection is over, in a pond seeded `timeout`: no UV or pressure at
- * `NEAR`, and a current that shears little (the seed of T1's timeout test).
- */
-async function fighters(): Promise<[Player, Player]> {
-  const [a, b] = await pair();
-  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", a.pond.id);
-  for (const p of [a, b]) p.pond = { ...p.pond, seed: 'timeout' };
-  return [a, b];
-}
-
 /** Full health and energy, so a flee test can't end in a kill by a random body's spines or ram. */
 const FULL = { health: 1, energy: 1 };
+/** Hungry and hurt: a fighter left to its autopilot starves within the fight. */
+const WEAK = { energy: 0, health: 0.3 };
 
 describe('the frame clock', () => {
   it('sends both fighters identical bundles from frame 0, with null for a silent slot', async () => {
@@ -290,11 +186,12 @@ describe('the frame clock', () => {
     expect(ea.hash).toBe(replayed.hash);
     expect(ea.f).toBe(played.frames[0].length);
     expect(ea.fighters.map((f) => f.outcome)).toEqual(replayed.results.map((r) => r.outcome));
-    // The locks are gone with their timer, and nothing was written to SQLite.
+    // The locks are gone with their timer, and SQLite holds only the settlement (T13): B's death
+    // (with its dead index entry) and A's encounter record.
     expect(await locked(a)).toBe(false);
     expect(await authority((o) => o.fights.creatureLocked(b.creature))).toBe(false);
     expect(await authority((o) => o.fights.timers())).toBe(0);
-    expect(await rowsWritten()).toBe(rows);
+    expect((await rowsWritten()) - rows).toBeLessThanOrEqual(5);
   });
 
   it('a kill by a strike ends the same way, and each life takes the result’s condition', async () => {
@@ -320,7 +217,7 @@ describe('the frame clock', () => {
     for (const p of [a, b]) {
       expect(conditionOf(await lifeOn(p))).toEqual(hundredths(outcomeOf(end, p)));
     }
-    expect(await rowsWritten()).toBe(rows);
+    expect((await rowsWritten()) - rows).toBeLessThanOrEqual(5);
   });
 
   it('frees both to court again once the fight is over', async () => {
@@ -358,6 +255,7 @@ describe('the frame clock', () => {
 describe('life while locked', () => {
   it('credits progress but keeps the condition, ignores a death report, and applies old age after the end', async () => {
     const [a, b] = await fighters();
+    const rows = await rowsWritten();
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, FULL));
     await play(a, b, start, IDLE, 5);
     const before = await lifeOn(a);
@@ -374,6 +272,8 @@ describe('life while locked', () => {
     expect((await sql('SELECT status FROM creatures WHERE id = ?', a.creature))[0]?.status).toBe(
       'active',
     );
+    // Nothing is written while the fight runs.
+    expect(await rowsWritten()).toBe(rows);
 
     // A swims away until one of them is out of the other's range; old age that fell due in the
     // fight ends A after `enc-end`.
@@ -385,14 +285,15 @@ describe('life while locked', () => {
 
   it('runs a disconnected fighter’s fight to its end; its reconnect gets `life` after `enc-end`, with the result', async () => {
     const [a, b] = await fighters();
-    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { energy: 0, health: 0.3 }));
+    // A is the one that starves (or falls to B's autopilot), so B comes out of it alive.
+    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, WEAK));
     b.c.ws.close(1000, 'gone');
     await b.c.closed;
     await advanceTo(start.at + 3 * FRAME_MS);
     const again = await signIn(b.id);
     await nextOf(again.c, 'welcome');
     expect((await flush(again.c)).map((m) => m.t)).not.toContain('life');
-    // Both are silent now: every frame is the autopilot's, until B starves or one side wins.
+    // Both are silent now: every frame is the autopilot's, until A starves or one side wins.
     for (let i = 0; i < 100 && (await locked(a)); i++) await advance(1000);
     const end = await nextOf(a.c, 'enc-end');
     expect(await nextOf(again.c, 'enc-end')).toEqual(end);
@@ -402,18 +303,24 @@ describe('life while locked', () => {
     expect({ biomass, energy, health }).toEqual(hundredths(outcomeOf(end, b)));
   });
 
-  it('writes an absent fighter’s result as a checkpoint, so it resumes from it', async () => {
+  it('writes an absent fighter’s result as its encounter record, so it resumes from it', async () => {
     const [a, b] = await fighters();
-    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { energy: 0, health: 0.3 }));
+    await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, WEAK));
     b.c.ws.close(1000, 'gone');
     await b.c.closed;
     for (let i = 0; i < 100 && (await locked(a)); i++) await advance(1000);
     const end = await nextOf(a.c, 'enc-end');
+    expect(['escaped', 'stood']).toContain(outcomeOf(end, b).outcome);
     const again = await signIn(b.id);
     await nextOf(again.c, 'welcome');
     const life = await nextOf(again.c, 'life');
     const { biomass, energy, health } = life.life ?? { biomass: 0, energy: 0, health: 0 };
     expect({ biomass, energy, health }).toEqual(hundredths(outcomeOf(end, b)));
+    const kinds = await sql<{ kind: string }>(
+      'SELECT kind FROM records WHERE creature = ? ORDER BY seq',
+      b.creature,
+    );
+    expect(kinds.map((r) => r.kind)).toEqual(['genesis', 'encounter']);
   });
 });
 
