@@ -5,7 +5,7 @@ import { speciesName } from '../src/genome/names';
 import { type GenesisAsk, verifyGenesisAsk } from '../src/ledger/ask';
 import { randomnessOf } from '../src/ledger/drand';
 import { genesisFor, genesisRequest as genesisRecordRequest } from '../src/ledger/genesis';
-import { FIGHT_CAUSES, type RecordRequest } from '../src/ledger/record';
+import { AUTHORITY_CAUSES, type RecordRequest } from '../src/ledger/record';
 import {
   type ClientMsg,
   type FallbackInfo,
@@ -218,7 +218,7 @@ export function death(
   now: number,
 ): void {
   // Old age is the authority's clock, and a kill or an eaten egg its fight's settlement (M7 T13).
-  if (msg.cause === 'old-age' || FIGHT_CAUSES.includes(msg.cause)) {
+  if (AUTHORITY_CAUSES.includes(msg.cause)) {
     sendIfOpen(ws, { t: 'refused', reason: 'cause' });
     return;
   }

@@ -59,6 +59,9 @@ export interface EncounterStart {
 
 export type Outcome = 'killed' | 'died' | 'escaped' | 'stood';
 
+/** Whether a fighter left the fight alive. */
+export const survivedOutcome = (o: string): boolean => o === 'escaped' || o === 'stood';
+
 export interface FighterResult {
   outcome: Outcome;
   cause: DeathCause | null;

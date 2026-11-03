@@ -4,10 +4,10 @@
 
 import type { FighterOutcome, HubMsg } from '../src/net/protocol';
 import { hashEncounter, results } from '../src/sim/encounter/encounter';
-import type { Encounter } from '../src/sim/encounter/types';
+import { type Encounter, survivedOutcome } from '../src/sim/encounter/types';
 import type { Fight, Lock } from './fights';
-import type { FighterRecord, Vitals } from './ledger-encounter';
-import { HUNDREDTHS, isOld, type LifeState, takeResult, unsaved } from './life';
+import type { FighterRecord } from './ledger-encounter';
+import { type Condition, HUNDREDTHS, isOld, type LifeState, takeResult, unsaved } from './life';
 import { fallbackAfter, finish, sendLife } from './lives';
 import { type Hub, seated, sendIfOpen } from './socket';
 
@@ -20,8 +20,8 @@ export function tell(hub: Hub, lock: Lock, msg: HubMsg): void {
 }
 
 /** Every fighter's result and final state, as `enc-end` carries them. */
-function outcomesOf(enc: Encounter): FighterOutcome[] {
-  return results(enc).map((r, slot) => {
+function outcomesOf(enc: Encounter, done: ReturnType<typeof results>): FighterOutcome[] {
+  return done.map((r, slot) => {
     const f = enc.fighters[slot] as Encounter['fighters'][number];
     const b = f.body;
     return {
@@ -44,13 +44,19 @@ function outcomesOf(enc: Encounter): FighterOutcome[] {
   });
 }
 
-const vitalsOf = (f: FighterOutcome): Vitals => ({
+const vitalsOf = (f: FighterOutcome): Condition => ({
   biomass: Math.floor(f.biomass * HUNDREDTHS),
   energy: Math.floor(f.energy * HUNDREDTHS),
   health: Math.floor(f.health * HUNDREDTHS),
 });
 
-const survived = (f: FighterOutcome) => f.outcome === 'escaped' || f.outcome === 'stood';
+const vitalsFrom = ({ biomass, energy, health }: Condition): Condition => ({
+  biomass,
+  energy,
+  health,
+});
+
+const survived = (f: FighterOutcome) => survivedOutcome(f.outcome);
 
 /** The connected socket that plays `creature`, with its live life state. */
 function playing(hub: Hub, player: string, creature: string) {
@@ -67,12 +73,13 @@ function playing(hub: Hub, player: string, creature: string) {
  */
 export function settle(hub: Hub, lock: Lock, fight: Fight): void {
   const { enc } = fight;
-  const fighters = outcomesOf(enc);
   const done = results(enc);
+  const fighters = outcomesOf(enc, done);
   const creatureAt = (slot: number | null) =>
     slot === null ? null : (enc.fighters[slot]?.creature ?? null);
+  const seats = fighters.map((f) => playing(hub, f.player, f.creature));
   const records: FighterRecord[] = fighters.map((f, slot) => {
-    const life = playing(hub, f.player, f.creature)?.life;
+    const life = seats[slot]?.life;
     return {
       owner: f.player,
       creature: f.creature,
@@ -83,7 +90,7 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
       condition: vitalsOf(f),
       reward: Math.floor((enc.fighters[slot]?.reward ?? 0) * HUNDREDTHS),
       activeMs: life?.activeMs ?? hub.ledger.head(f.creature)?.activeMs ?? 0,
-      unsaved: life && unsaved(life) ? savedPart(life) : null,
+      unsaved: life && unsaved(life) ? vitalsFrom(life) : null,
       eggBy: f.egg === 'eaten' ? creatureAt(f.eggBy) : null,
     };
   });
@@ -95,8 +102,8 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
     // A rule the results break is a bug: nothing is written, and each life still takes its result.
     console.error('encounter settlement failed', error);
   }
-  for (const f of fighters) {
-    const now = survived(f) ? null : playing(hub, f.player, f.creature);
+  for (const [slot, f] of fighters.entries()) {
+    const now = survived(f) ? null : seats[slot];
     const record = now ? hub.ledger.deathRecord(f.creature) : null;
     if (!now || !record || f.cause === null) continue;
     // The killer as its player was named when the fight began (it may have left since).
@@ -113,13 +120,6 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
   hub.fights.release(lock.id);
   for (const f of fighters) settleLife(hub, f, lock.owed.has(f.player), recorded);
 }
-
-const savedPart = (life: LifeState) => ({
-  biomass: life.biomass,
-  energy: life.energy,
-  health: life.health,
-  activeMs: life.activeMs,
-});
 
 /**
  * A connected fighter's life after the end: the result's condition (saved, when the records hold

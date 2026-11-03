@@ -94,13 +94,16 @@ describe('Ledger.settle', () => {
   it('checkpoints a dead fighter’s unsaved report first', async () => {
     await inLedger(async (ledger) => {
       const { a, b } = await pair(ledger);
-      const unsaved = { biomass: 39_000, energy: 20_000, health: 7000, activeMs: 25_000 };
+      const unsaved = { biomass: 39_000, energy: 20_000, health: 7000 };
       const [killer, victim] = kill(a, b);
       const before = ledger.rowsWritten;
-      ledger.settle({ enc: nextHex(), fighters: [must(killer), { ...must(victim), unsaved }] });
+      ledger.settle({
+        enc: nextHex(),
+        fighters: [must(killer), { ...must(victim), unsaved, activeMs: 25_000 }],
+      });
       expect(ledger.rowsWritten - before).toBeLessThanOrEqual(7);
       expect(kinds(ledger, b.id)).toEqual(['genesis', 'checkpoint', 'death']);
-      expect(ledger.chain(b.id)[1]?.record.body).toEqual(unsaved);
+      expect(ledger.chain(b.id)[1]?.record.body).toEqual({ ...unsaved, activeMs: 25_000 });
     });
   });
 

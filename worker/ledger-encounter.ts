@@ -9,16 +9,10 @@ import {
   type StoredRecord,
   transitionOutcome,
 } from '../src/ledger/record';
-import type { Outcome } from '../src/sim/encounter/types';
+import { type Outcome, survivedOutcome } from '../src/sim/encounter/types';
 import type { DeathCause } from '../src/sim/types';
 import type { Head } from './ledger-types';
-
-/** A condition in hundredths. */
-export interface Vitals {
-  biomass: number;
-  energy: number;
-  health: number;
-}
+import type { Condition } from './life';
 
 /** One fighter's part of a settlement. Creatures are ids; amounts are hundredths. */
 export interface FighterRecord {
@@ -31,13 +25,13 @@ export interface FighterRecord {
   /** Frames fought until its outcome. */
   frames: number;
   /** Its condition at the end. */
-  condition: Vitals;
+  condition: Condition;
   /** The biomass its kills and eaten eggs were worth. */
   reward: number;
   /** Its life clock at the end (the head's when it was away). */
   activeMs: number;
   /** A dead fighter's last report that no record holds yet: written as a checkpoint first. */
-  unsaved: (Vitals & { activeMs: number }) | null;
+  unsaved: Condition | null;
   /** The eater's creature when its egg was eaten. */
   eggBy: string | null;
 }
@@ -64,8 +58,6 @@ export interface ChainOps {
   now(): number;
   rules: number;
 }
-
-const SURVIVED: readonly Outcome[] = ['escaped', 'stood'];
 
 /** Whether a creature's chain holds a record of an encounter (bindings: creature, encounter id). */
 export const HOLDS_ENCOUNTER =
@@ -106,7 +98,7 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
     let head = ops.head(f.creature);
     if (head?.status !== 'active' || head.owner !== f.owner) continue;
     const { condition } = f;
-    if (SURVIVED.includes(f.outcome)) {
+    if (survivedOutcome(f.outcome)) {
       append(head, 'encounter', {
         enc,
         outcome: f.outcome,
@@ -115,7 +107,7 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
         reward: f.reward,
       });
     } else {
-      if (f.unsaved) head = append(head, 'checkpoint', { ...f.unsaved });
+      if (f.unsaved) head = append(head, 'checkpoint', { ...f.unsaved, activeMs: f.activeMs });
       append(head, 'death', {
         cause: f.cause ?? 'killed',
         activeMs: f.activeMs,
@@ -125,8 +117,10 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
       });
     }
     // The pending child goes with its egg, whatever became of the carrier.
-    const child = f.eggBy !== null ? ops.pending(f.owner) : null;
-    if (child && f.eggBy !== null) append(child, 'death', { cause: 'eaten', enc, by: f.eggBy });
+    if (f.eggBy !== null) {
+      const child = ops.pending(f.owner);
+      if (child) append(child, 'death', { cause: 'eaten', enc, by: f.eggBy });
+    }
   }
   return { fresh: true, stored };
 }

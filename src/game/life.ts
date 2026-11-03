@@ -6,6 +6,7 @@ import { signGenesisAsk } from '../ledger/ask';
 import type { Identity } from '../ledger/identity';
 import { toBase64Url } from '../ledger/identity';
 import {
+  AUTHORITY_CAUSES,
   hundredths,
   REQUEST_DOMAIN,
   type RecordRequest,
@@ -103,8 +104,6 @@ export interface LifeClock {
 
 /** Reports kept to match an ack with the ticks it answers. */
 const SENT_KEPT = 4;
-/** Causes only the hub decides (its clock, or a fight's settlement): the client never reports them. */
-const HUB_CAUSES: readonly DeathCause[] = ['old-age', 'killed', 'eaten'];
 const MS_PER_TICK = 1000 / TICK_HZ;
 
 /** The longest a genesis may wait for its beacon: the round comes in 3 to 6 s. */
@@ -428,7 +427,7 @@ export class LifeFlow {
     if (this.status !== 'playing') return;
     const sent = this.count(ticks);
     this.ended();
-    if (!HUB_CAUSES.includes(cause)) this.link?.send({ t: 'death', cause, ticks: sent });
+    if (!AUTHORITY_CAUSES.includes(cause)) this.link?.send({ t: 'death', cause, ticks: sent });
   }
 
   /** Report `n` as it went out (the newest with that number). */

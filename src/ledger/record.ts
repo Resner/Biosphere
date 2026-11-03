@@ -1,5 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
+import { survivedOutcome } from '../sim/encounter/types';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import {
   fromBase64Url,
@@ -171,7 +172,7 @@ const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
   slot: (x) => FIELD_TYPES.uint(x) && (x as number) <= 255,
   'role-ab': (x) => x === 'a' || x === 'b',
   'promote-role': (x) => x === 'child' || x === 'parent',
-  survived: (x) => x === 'escaped' || x === 'stood',
+  survived: (x) => typeof x === 'string' && survivedOutcome(x),
 };
 
 const CONDITION = {
@@ -226,6 +227,9 @@ const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
  * creature, an eaten egg its eater's, and both the encounter. Such a death is never owner-signed.
  */
 export const FIGHT_CAUSES: readonly string[] = ['killed', 'eaten'];
+
+/** Causes only the hub decides (its clock, or a fight's settlement): a client never reports them. */
+export const AUTHORITY_CAUSES: readonly string[] = ['old-age', ...FIGHT_CAUSES];
 
 /** A death body keeps its M4 shape; one of a fight's causes must also name `enc` and `by`. */
 function deathProblems(b: Record<string, unknown>): string[] {
