@@ -2,15 +2,22 @@
 // referee, its encounter and the one timer it keeps for the next deadline. No fight survives a
 // restart until M8; nothing here touches SQLite while a fight runs.
 
-import { type EncStart, encounterStartOf } from '../src/net/encounter-start';
-import type { ClientMsg } from '../src/net/protocol';
+import {
+  type EncJoin,
+  type EncStart,
+  encounterStartOf,
+  fighterStartOf,
+} from '../src/net/encounter-start';
+import type { ClientMsg, FighterInfo, HubMsg } from '../src/net/protocol';
 import { Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
-import type { Encounter } from '../src/sim/encounter/types';
+import { applyJoins } from '../src/sim/encounter/join';
+import type { Encounter, EncounterJoin } from '../src/sim/encounter/types';
+import { RULES } from '../src/sim/rules';
 import type { Asking } from './engage';
 import type { PondRow } from './schema';
 import { settle, tell } from './settle';
-import { type ActiveSession, type Hub, seated } from './socket';
+import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
 
 /** The time and timers the fights run on; hub tests swap in a hand-moved one. */
 export interface Clock {
@@ -29,10 +36,16 @@ export const realClock: Clock = {
 export interface Fight {
   referee: Referee;
   enc: Encounter;
-  /** The player in each slot. */
+  /** The player in each slot, joiners included. */
   players: string[];
-  /** Each slot's player name at the start ('' when it was away), for `died` to name a killer. */
+  /** Each slot's player name at the start or its join ('' when it was away), for `died` to name a killer. */
   names: string[];
+  /** The `enc-start` everyone began from; a joiner gets it first (M7 T15). */
+  start: EncStart;
+  /** The fighters joined so far, each seated before its frame is stepped. */
+  joins: EncounterJoin[];
+  /** Every `enc-frame` and `enc-join` sent so far, in order: a joiner's catch-up. */
+  history: HubMsg[];
   /** The pond it is fought in and the pond tick it started at, to place a kill's carrion. */
   pond: string;
   t0: number;
@@ -76,6 +89,11 @@ export class Fights {
     return this.byId.get(id);
   }
 
+  /** The lock the creature is in, if any. */
+  ofCreature(creature: string): Lock | undefined {
+    return this.byCreature.get(creature);
+  }
+
   /** The lock the player is in, if any. */
   ofPlayer(player: string): Lock | undefined {
     return this.byPlayer.get(player);
@@ -112,6 +130,14 @@ export class Fights {
       lock.timer = null;
       run();
     });
+  }
+
+  /** Adds a joiner to a running lock (M7 T15). */
+  join(lock: Lock, player: string, creature: string): void {
+    lock.players.push(player);
+    lock.creatures.push(creature);
+    this.byPlayer.set(player, lock);
+    this.byCreature.set(creature, lock);
   }
 
   /** Ends the lock and its timer; the participants may court, hatch and engage again. */
@@ -155,6 +181,9 @@ export function runFight(
     enc,
     players: enc.fighters.map((f) => f.player),
     names: enc.fighters.map((f) => seated(hub, f.player)?.[1].name ?? ''),
+    start: msg,
+    joins: [],
+    history: [],
     pond: pond.id,
     t0: msg.t0,
   };
@@ -194,8 +223,11 @@ export function tick(hub: Hub, id: string, now: number): void {
   if (!lock || !fight) return;
   const { referee, enc } = fight;
   for (const bundle of referee.due(now)) {
+    applyJoins(enc, fight.joins);
     stepFrame(enc, bundle.i);
-    tell(hub, lock, { t: 'enc-frame', enc: enc.id, f: bundle.f, i: bundle.i });
+    const msg: HubMsg = { t: 'enc-frame', enc: enc.id, f: bundle.f, i: bundle.i };
+    fight.history.push(msg);
+    tell(hub, lock, msg);
     for (const f of enc.fighters) if (f.status !== 'in') referee.retire(f.slot);
     if (enc.over) {
       settle(hub, lock, fight);
@@ -203,4 +235,36 @@ export function tick(hub: Hub, id: string, now: number): void {
     }
   }
   armNext(hub, lock);
+}
+
+/** Whether a running fight can take one more fighter: not over, and fewer than the limit seated or joining. */
+export const joinable = (fight: Fight): boolean =>
+  !fight.enc.over && fight.players.length < RULES.encounter.maxFighters;
+
+/**
+ * Seats a joiner in the running fight of `lock` from the next frame to be finalized +
+ * `joinAheadFrames` (M7 T15), its start `infoAt` that frame's pond tick. The joiner gets the fight's `enc-start` and its history first, then
+ * everyone hears the `enc-join`. False (and nothing changes) when its genome does not build.
+ */
+export function admit(
+  hub: Hub,
+  lock: Lock,
+  fight: Fight,
+  infoAt: (tick: number) => FighterInfo,
+): boolean {
+  const f = fight.referee.next + RULES.encounter.joinAheadFrames;
+  const info = infoAt(fight.start.t0 + RULES.encounter.frameTicks * f);
+  const fighter = fighterStartOf(info);
+  if (!fighter || !joinable(fight)) return false;
+  fight.referee.join(f);
+  fight.joins.push({ f, fighter });
+  fight.players.push(info.player);
+  const found = seated(hub, info.player);
+  fight.names.push(found?.[1].name ?? '');
+  hub.fights.join(lock, info.player, info.creature);
+  if (found) for (const msg of [fight.start, ...fight.history]) sendIfOpen(found[0], msg);
+  const msg: EncJoin = { t: 'enc-join', enc: fight.enc.id, f, fighter: info };
+  fight.history.push(msg);
+  tell(hub, lock, msg);
+  return true;
 }

@@ -183,13 +183,14 @@ export class AttackUi {
     return peerList;
   }
 
-  /** A fresh key press; true when it was a combat key (F, or 1-3 and Shift while locked). */
+  /** A fresh key press; true when it was a combat key (F, or 1-3, Shift and Tab while locked). */
   key(key: string): boolean {
     const { app } = this;
     const routed = fightKey(key, app.fight.fighting, app.wheel.isOpen);
     if (!routed) return false;
     if (routed.t === 'attack') this.attack.press();
     else if (routed.t === 'stance') app.fight.stance = routed.stance;
+    else if (routed.t === 'target') app.fight.cycleTarget();
     else app.fight.brace();
     return true;
   }

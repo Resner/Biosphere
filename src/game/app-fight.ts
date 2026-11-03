@@ -5,6 +5,7 @@
 
 import type { CellView } from '../render/cell';
 import { type TelegraphMark, Telegraphs, windupGlow } from '../render/telegraph';
+import { EGG_CODE } from '../sim/encounter/egg';
 import type { EncounterEvent } from '../sim/encounter/types';
 import { RULES } from '../sim/rules';
 import { maxHealth } from '../sim/vitals';
@@ -112,6 +113,20 @@ export class FightShow {
           f.combat.arc,
           glow,
         );
+      }
+    }
+    // The player's target, where a fight offers a choice (M7 T15): on the body as drawn, or its egg.
+    const aim = enc && sync ? fight.aim() : null;
+    if (aim && sync) {
+      const slot = aim.code % EGG_CODE;
+      const carrier = enc?.fighters[slot];
+      if (aim.code >= EGG_CODE) {
+        const at = sync.eggAt(slot, fight.hubNow());
+        const radius = carrier?.eggBody?.radius ?? 0;
+        if (at) telegraphs.target(at.x, at.y, radius, aim.chosen);
+      } else {
+        const drawn = remoteViews.find((r) => r.id === carrier?.player);
+        if (drawn) telegraphs.target(drawn.x, drawn.y, drawn.radius, aim.chosen);
       }
     }
     const marks = telegraphs.end();

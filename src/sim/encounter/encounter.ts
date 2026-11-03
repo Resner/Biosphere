@@ -42,17 +42,23 @@ function validate(start: EncounterStart): void {
   if (!Number.isInteger(start.t0) || start.t0 < 0) throw new RangeError('bad start tick');
   const seen = new Set<string>();
   for (const f of start.fighters) {
-    for (const key of NUMBERS) {
-      if (!Number.isFinite(f[key])) throw new RangeError(`fighter ${f.creature}: bad ${key}`);
-    }
-    if (f.biomass <= 0 || f.health < 0 || f.energy < 0) throw new RangeError('bad fighter vitals');
-    if (!isPhysShape(f.phys)) throw new RangeError(`fighter ${f.creature}: not a body`);
+    checkFighter(f);
     if (seen.has(f.creature)) throw new RangeError(`creature ${f.creature} fights twice`);
     seen.add(f.creature);
   }
 }
 
-function seatFighter(slot: number, f: FighterStart, t0: number): Fighter {
+/** Throws a `RangeError` for a fighter's start that is not a finite, living body. */
+export function checkFighter(f: FighterStart): void {
+  for (const key of NUMBERS) {
+    if (!Number.isFinite(f[key])) throw new RangeError(`fighter ${f.creature}: bad ${key}`);
+  }
+  if (f.biomass <= 0 || f.health < 0 || f.energy < 0) throw new RangeError('bad fighter vitals');
+  if (!isPhysShape(f.phys)) throw new RangeError(`fighter ${f.creature}: not a body`);
+}
+
+/** A fighter in `slot` from its start, born at pond tick `tick` (frame 0's, or its join's). */
+export function seatFighter(slot: number, f: FighterStart, tick: number): Fighter {
   const body: CreatureState = {
     id: f.creature,
     x: f.x,
@@ -67,7 +73,7 @@ function seatFighter(slot: number, f: FighterStart, t0: number): Fighter {
     alive: true,
     elder: f.elder,
     cause: null,
-    bornTick: t0,
+    bornTick: tick,
     phys: sanitizePhys(f.phys),
   };
   const fighter: Fighter = {

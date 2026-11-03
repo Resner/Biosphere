@@ -715,6 +715,8 @@ export const RULES = deepFreeze({
     /** Fighters in one fight, and the size tiers they may differ by. */
     maxFighters: 4,
     maxTierGap: 1,
+    /** A joiner enters a running fight this many frames after the next frame to be finalized. */
+    joinAheadFrames: 2,
     /** Hatch protection in seconds (genesis, a promoted child, a restore). */
     protectionSeconds: 15,
     /** The fight ends after this many frames (90 s); everyone left stands. */

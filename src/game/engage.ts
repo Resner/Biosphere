@@ -102,7 +102,7 @@ export class SpawnShield {
 // ---- Attack (M7 T11): which creature F engages, the hint beside it, and the combat keys ----
 
 /** Why a creature cannot be engaged now, as the player is told. */
-export type EngageRefusal = 'bigger' | 'smaller' | 'protected' | 'fighting' | 'range';
+export type EngageRefusal = 'bigger' | 'smaller' | 'protected' | 'fighting' | 'full' | 'range';
 
 /** A pond peer as the attack sees it: its drawn body for the reach rules, and its snapshot marks. */
 export interface AttackPeer {
@@ -110,6 +110,7 @@ export interface AttackPeer {
   /** The body as drawn (its radius from the snapshot's biomass) with its combat stats. */
   reacher: Reacher;
   protected: boolean;
+  /** In a fight already: an engage joins it (M7 T15), which the authority refuses when it is full. */
   fighting: boolean;
   /** A verified signed snapshot of it is held, so an engage can carry its state. */
   signed: boolean;
@@ -117,15 +118,15 @@ export interface AttackPeer {
 
 /**
  * Why `self` cannot engage `peer` now, or null when it can: the authority's checks in its order
- * (tier, protection, locks, range); the range is the engage range on the bodies as drawn, and a
- * peer with no signed snapshot held counts as out of range.
+ * (tier, protection, range); the range is the engage range on the bodies as drawn, and a peer with
+ * no signed snapshot held counts as out of range. A peer already fighting can be engaged: the
+ * engage joins its fight (M7 T15), and only the authority knows whether that fight is full.
  */
 export function engageRefusal(self: Reacher, peer: AttackPeer): EngageRefusal | null {
   const gap = sizeTier(peer.reacher.body.biomass) - sizeTier(self.body.biomass);
   if (gap > RULES.encounter.maxTierGap) return 'bigger';
   if (gap < -RULES.encounter.maxTierGap) return 'smaller';
   if (peer.protected) return 'protected';
-  if (peer.fighting) return 'fighting';
   if (!peer.signed) return 'range';
   return strikeDistance(self.body, peer.reacher.body) <= engageRange(self, peer.reacher)
     ? null
@@ -217,6 +218,8 @@ export function refusalToast(
       return protectedLeftS === null ? 'Protected' : `Protected for ${protectedLeftS} s`;
     case 'fighting':
       return 'Already fighting';
+    case 'full':
+      return 'That fight is full';
     case 'range':
       return 'Too far';
     case 'none':
@@ -235,6 +238,8 @@ export function authorityRefusal(reason: string, bigger: boolean): EngageRefusal
       return 'protected';
     case 'engage:locked':
       return 'fighting';
+    case 'engage:full':
+      return 'full';
     case 'engage:range':
       return 'range';
     default:
@@ -267,7 +272,11 @@ export class ProtectionWatch {
 }
 
 /** A key's meaning in combat terms; null leaves it to the other keys. */
-export type FightKey = { t: 'attack' } | { t: 'stance'; stance: Stance } | { t: 'brace' };
+export type FightKey =
+  | { t: 'attack' }
+  | { t: 'stance'; stance: Stance }
+  | { t: 'brace' }
+  | { t: 'target' };
 
 /** 1 aggressive, 2 balanced, 3 evasive (DESIGN §3). */
 const STANCE_KEYS: Readonly<Record<string, Stance>> = {
@@ -277,12 +286,14 @@ const STANCE_KEYS: Readonly<Record<string, Stance>> = {
 };
 
 /**
- * Routes a fresh key press. F attacks outside a fight; inside one, 1-3 set the stance and Shift
- * braces, and nothing else is a combat key. The open social wheel keeps its numbers.
+ * Routes a fresh key press. F attacks outside a fight; inside one, 1-3 set the stance, Shift
+ * braces and Tab cycles the target (M7 T15), and nothing else is a combat key. The open social
+ * wheel keeps its numbers.
  */
 export function fightKey(key: string, locked: boolean, wheelOpen: boolean): FightKey | null {
   if (!locked) return key === 'f' || key === 'F' ? { t: 'attack' } : null;
   if (key === 'Shift') return { t: 'brace' };
+  if (key === 'Tab') return { t: 'target' };
   const stance = STANCE_KEYS[key];
   return stance && !wheelOpen ? { t: 'stance', stance } : null;
 }

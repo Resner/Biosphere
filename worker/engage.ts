@@ -20,7 +20,7 @@ import { sizeTier } from '../src/sim/size';
 import type { CreatureState, World } from '../src/sim/types';
 import { maxEnergy, maxHealth } from '../src/sim/vitals';
 import { createWorld } from '../src/sim/world';
-import { runFight } from './fights';
+import { admit, type Fight, joinable, type Lock, runFight } from './fights';
 import type { Head } from './ledger';
 import { type Condition, clampClaim, type LifeState } from './life';
 import type { PondRow } from './schema';
@@ -60,6 +60,14 @@ export interface Asking {
   pond: Pick<PondRow, 'id' | 'seed' | 'epoch'>;
   attacker: Side;
   target: Side;
+}
+
+/** An engage into a running fight (M7 T15): the side that joins it, checked as at lock-in. */
+interface Joining {
+  pond: Asking['pond'];
+  lock: Lock;
+  fight: Fight;
+  joiner: Side;
 }
 
 /** The pond tick at hub time `now`. */
@@ -172,6 +180,14 @@ export function engage(
     sendIfOpen(ws, { t: 'refused', reason: checked });
     return;
   }
+  if ('joining' in checked) {
+    const { pond, lock, fight, joiner } = checked.joining;
+    const world = createWorld({ seed: pond.seed, size: RULES.world.size });
+    if (!admit(hub, lock, fight, (tick) => fighterInfo(hub, joiner, world, tick))) {
+      sendIfOpen(ws, { t: 'refused', reason: 'engage:stale' });
+    }
+    return;
+  }
   const { asking, targetWs } = checked;
   const { attacker, target } = asking;
   const id = bytesToHex(crypto.getRandomValues(new Uint8Array(LOCK_BYTES)));
@@ -193,7 +209,7 @@ function check(
   session: ActiveSession,
   msg: ClientMsg & { t: 'engage' },
   now: number,
-): string | { asking: Asking; targetWs: WebSocket } {
+): string | { asking: Asking; targetWs: WebSocket } | { joining: Joining } {
   const mine = liveHead(hub, session);
   if (!mine) return 'no-creature';
   if (msg.target === session.playerId) return 'engage:self';
@@ -223,15 +239,21 @@ function check(
   if (tierGap > E.maxTierGap) return 'engage:tier';
   if ((targetSession.protectedUntil ?? 0) > now) return 'engage:protected';
   const fights = hub.fights;
-  if (
-    [attacker.player, target.player].some((p) => fights.playerLocked(p)) ||
-    [attacker.creature, target.creature].some((c) => fights.creatureLocked(c))
-  ) {
-    return 'engage:locked';
-  }
+  const lockOf = (s: Side) => fights.ofPlayer(s.player) ?? fights.ofCreature(s.creature);
+  const attackerLock = lockOf(attacker);
+  const targetLock = lockOf(target);
+  // One side already fighting: the other joins that fight (M7 T15); both locked, nobody joins.
+  const lock = attackerLock ?? targetLock;
+  if (attackerLock && targetLock) return 'engage:locked';
+  if (lock && (!lock.fight || lock.fight.enc.over)) return 'engage:locked';
+  if (lock?.fight && !joinable(lock.fight)) return 'engage:full';
   if (!inRange(attacker, target, nowTick)) return 'engage:range';
-  const asking = { pond: { id: pond.id, seed: pond.seed, epoch: pond.epoch }, attacker, target };
-  return { asking, targetWs };
+  const ponded = { id: pond.id, seed: pond.seed, epoch: pond.epoch };
+  if (lock?.fight) {
+    const joiner = attackerLock ? target : attacker;
+    return { joining: { pond: ponded, lock, fight: lock.fight, joiner } };
+  }
+  return { asking: { pond: ponded, attacker, target }, targetWs };
 }
 
 /** Within the attacker's engage range of the target, with slack for how far either may have swum since its snapshot. */
@@ -300,7 +322,7 @@ function start(hub: Hub, id: string): void {
   }
 }
 
-/** A side's start: its snapshot carried in a straight line (velocity plus the current) to tick `t0`. */
+/** A side's start: its snapshot carried in a straight line (velocity plus the current) to tick `t0` (frame 0's, or a join's). */
 function fighterInfo(hub: Hub, side: Side, world: World, t0: number): FighterInfo {
   const s = side.snap;
   world.tick = s.tick;

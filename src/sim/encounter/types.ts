@@ -57,6 +57,12 @@ export interface EncounterStart {
   fighters: FighterStart[];
 }
 
+/** A fighter that joins a running fight before frame `f` is stepped (M7 T15). */
+export interface EncounterJoin {
+  f: number;
+  fighter: FighterStart;
+}
+
 export type Outcome = 'killed' | 'died' | 'escaped' | 'stood';
 
 /** Whether a fighter left the fight alive. */

@@ -102,6 +102,8 @@ export interface InputHooks {
   keyUp?(key: string, at: number): void;
   /** The middle button went down at this screen position. */
   middle?(x: number, y: number): void;
+  /** Whether the game takes this key from the browser now (Tab cycles the target in a fight, M7 T15). */
+  holds?(key: string): boolean;
 }
 
 /** Turns raw pointer and keyboard events into one `Input` per sim tick. */
@@ -180,7 +182,9 @@ export class InputController {
       if (this.typing) return;
       // The name field on the title screen: the arrows, Space and Backspace edit text there.
       if (e.key !== 'Enter' && inTextField(e.target)) return;
-      if (SCROLL_KEYS.has(e.key) || (e.key === 'Enter' && onEnter)) e.preventDefault();
+      if (SCROLL_KEYS.has(e.key) || (e.key === 'Enter' && onEnter) || hooks.holds?.(e.key)) {
+        e.preventDefault();
+      }
       if (e.repeat) return;
       if (e.key === 'Enter') onEnter?.();
       else {

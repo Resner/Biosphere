@@ -205,6 +205,8 @@ export const M7_CARRION_HUB = 'http://localhost:8810';
 
 /** The M7 kill spec's hub (M7 T14): the M5 hooks, with a mating before the kill. */
 export const M7_KILL_HUB = 'http://localhost:8809';
+/** The M7 melee spec's own authority (M7 T15): a third player joins a running fight. */
+export const M7_MELEE_HUB = 'http://localhost:8811';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {

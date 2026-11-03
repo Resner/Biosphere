@@ -10,6 +10,7 @@ import {
   Attack,
   type AttackHost,
   type AttackPeer,
+  authorityRefusal,
   chooseTarget,
   ENGAGE_WAIT_MS,
   engageRefusal,
@@ -67,17 +68,30 @@ describe('engage refusals', () => {
     expect(engageRefusal(self, p)).toBeNull();
   });
 
-  it('refuses out of range, unsigned, protected, fighting, and two tiers apart', () => {
+  it('refuses out of range, unsigned, protected, and two tiers apart', () => {
     expect(engageRefusal(self, peer('b', at(1), 1000))).toBe('range');
     expect(engageRefusal(self, peer('b', at(-1), 1000, { signed: false }))).toBe('range');
     expect(engageRefusal(self, peer('b', at(-1), 1000, { protected: true }))).toBe('protected');
-    expect(engageRefusal(self, peer('b', at(-1), 1000, { fighting: true }))).toBe('fighting');
     // Radius 200 is two tiers above radius 20; the other way round it is two below.
     expect(engageRefusal(self, peer('b', 1100, 1000, {}, 40_000))).toBe('bigger');
     expect(engageRefusal(reacher('big', 1000, 1000, 40_000), peer('b', 1100, 1000))).toBe(
       'smaller',
     );
     expect(RULES.encounter.maxTierGap).toBe(1);
+  });
+});
+
+describe('joining a fight (M7 T15)', () => {
+  it('takes a peer that is already fighting: the engage joins its fight', () => {
+    const fighting = peer('b', at(-1), 1000, { fighting: true });
+    expect(engageRefusal(self, fighting)).toBeNull();
+    expect(hintTarget(self, [fighting])?.id).toBe('b');
+    expect(engageRefusal(self, peer('b', at(1), 1000, { fighting: true }))).toBe('range');
+  });
+
+  it('tells a full fight and a pair in other fights apart', () => {
+    expect(refusalToast(authorityRefusal('engage:full', false))).toBe('That fight is full');
+    expect(refusalToast(authorityRefusal('engage:locked', false))).toBe('Already fighting');
   });
 });
 
@@ -121,11 +135,10 @@ describe('the "F" glyph', () => {
     expect(hintTarget(self, peers)?.id).toBe('nearer');
   });
 
-  it('is hidden when nobody is in range, or the only ones are protected or fighting', () => {
+  it('is hidden when nobody is in range, or the only ones are protected', () => {
     expect(hintTarget(self, [])).toBeNull();
     expect(hintTarget(self, [peer('far', at(5), 1000)])).toBeNull();
     expect(hintTarget(self, [peer('s', at(-5), 1000, { protected: true })])).toBeNull();
-    expect(hintTarget(self, [peer('f', at(-5), 1000, { fighting: true })])).toBeNull();
     expect(hintTarget(self, [peer('u', at(-5), 1000, { signed: false })])).toBeNull();
   });
 });

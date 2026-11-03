@@ -1,6 +1,7 @@
 // Fight telegraphs (M7 T12, DESIGN §10): a windup glows the attacker's front and weapon tips,
 // brighter as the strike nears; a landed hit flashes its target; a block throws a spark and wobbles
-// the staggered attacker; and a creature fighting in another fight wears a faint broken ring. Pure
+// the staggered attacker; a creature fighting in another fight wears a faint broken ring; and in a
+// fight with a choice to make, the player's target wears a bracketed ring (M7 T15). Pure
 // presentation: the game says what happened and where, and this keeps the timers and the marks the
 // scene draws as instanced quads.
 
@@ -36,6 +37,10 @@ export const TELEGRAPH = {
   /** A fighting creature's ring, in its radii, and its strength. */
   ringRadii: 1.7,
   ringAlpha: 0.35,
+  /** The player's target's ring (M7 T15), in its radii; full strength when chosen, fainter for the default nearest. */
+  targetRadii: 1.6,
+  targetChosen: 0.95,
+  targetDefault: 0.5,
   /** Marks drawn at once. */
   capacity: 64,
 } as const;
@@ -51,7 +56,7 @@ export function windupGlow(ticksLeft: number | null): number {
   return Math.min(1, Math.max(0, (w + 1 - ticksLeft) / w));
 }
 
-export type TelegraphKind = 'glow' | 'spark' | 'ring';
+export type TelegraphKind = 'glow' | 'spark' | 'ring' | 'target';
 
 /** One quad: its kind, centre and half-size in wu, and its value 0..1 (strength or progress). */
 export interface TelegraphMark {
@@ -74,6 +79,7 @@ export interface TelegraphInfo {
   glows: number;
   sparks: number;
   rings: number;
+  targets: number;
   flashes: number;
   wobbles: number;
   /** Since the page loaded: hits flashed, blocks sparked, staggers wobbled. */
@@ -84,7 +90,15 @@ export interface TelegraphInfo {
 
 const SIDES = [-1, 1] as const;
 
-const KIND: Readonly<Record<TelegraphKind, number>> = { glow: 0, spark: 1, ring: 2 };
+const KIND: Readonly<Record<TelegraphKind, number>> = { glow: 0, spark: 1, ring: 2, target: 3 };
+
+type Counts = Record<'glows' | 'sparks' | 'rings' | 'targets', number>;
+const COUNTED: Readonly<Record<TelegraphKind, keyof Counts>> = {
+  glow: 'glows',
+  spark: 'sparks',
+  ring: 'rings',
+  target: 'targets',
+};
 
 /** The telegraphs' timers and this frame's marks. Allocates only as the pools grow. */
 export class Telegraphs {
@@ -97,7 +111,7 @@ export class Telegraphs {
   private readonly health = new Map<string, number>();
   private readonly seen = new Map<string, number>();
   private frameNo = 0;
-  private counts = { glows: 0, sparks: 0, rings: 0 };
+  private counts: Counts = { glows: 0, sparks: 0, rings: 0, targets: 0 };
   private flashed = 0;
   private sparked = 0;
   private wobbled = 0;
@@ -179,6 +193,7 @@ export class Telegraphs {
     this.counts.glows = 0;
     this.counts.rings = 0;
     this.counts.sparks = 0;
+    this.counts.targets = 0;
     if (this.seen.size > 0 && this.frameNo % 60 === 0) {
       for (const [id, at] of this.seen) {
         if (this.frameNo - at < 60) continue;
@@ -228,6 +243,12 @@ export class Telegraphs {
     this.add('ring', x, y, TELEGRAPH.ringRadii * radius, TELEGRAPH.ringAlpha);
   }
 
+  /** The player's target in a fight (M7 T15): a bracketed ring, brighter when the player chose it. */
+  target(x: number, y: number, radius: number, chosen: boolean): void {
+    const value = chosen ? TELEGRAPH.targetChosen : TELEGRAPH.targetDefault;
+    this.add('target', x, y, TELEGRAPH.targetRadii * radius, value);
+  }
+
   /** This frame's marks, the running sparks last. The array and its marks are reused. */
   end(): readonly TelegraphMark[] {
     for (const s of this.sparks)
@@ -261,9 +282,7 @@ export class Telegraphs {
       mark.value = value;
     }
     this.used++;
-    if (kind === 'glow') this.counts.glows++;
-    else if (kind === 'spark') this.counts.sparks++;
-    else this.counts.rings++;
+    this.counts[COUNTED[kind]]++;
   }
 }
 
@@ -272,7 +291,7 @@ export class TelegraphLayer {
   readonly mesh: THREE.InstancedMesh;
   private readonly geometry = new THREE.PlaneGeometry(2, 2);
   private readonly material = telegraphMaterial();
-  private readonly drawn = { glows: 0, sparks: 0, rings: 0 };
+  private readonly drawn: Counts = { glows: 0, sparks: 0, rings: 0, targets: 0 };
 
   constructor() {
     this.mesh = new THREE.InstancedMesh(this.geometry, this.material, TELEGRAPH.capacity);
@@ -286,11 +305,10 @@ export class TelegraphLayer {
     drawn.glows = 0;
     drawn.sparks = 0;
     drawn.rings = 0;
+    drawn.targets = 0;
     for (let i = 0; i < n; i++) {
       const m = marks[i] as TelegraphMark;
-      if (m.kind === 'glow') drawn.glows++;
-      else if (m.kind === 'spark') drawn.sparks++;
-      else drawn.rings++;
+      drawn[COUNTED[m.kind]]++;
       const phase = KIND[m.kind] + Math.min(Math.max(m.value, 0), 0.999);
       writeInstance(this.mesh.instanceMatrix.array, i, m.x, m.y, m.size, 0, phase);
     }
@@ -301,7 +319,7 @@ export class TelegraphLayer {
   }
 
   /** The marks drawn by the last `set`, by kind. */
-  counts(): { glows: number; sparks: number; rings: number } {
+  counts(): Counts {
     return { ...this.drawn };
   }
 

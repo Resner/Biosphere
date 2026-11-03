@@ -102,4 +102,15 @@ describe('Telegraphs', () => {
     expect(ring).toMatchObject({ kind: 'ring', x: 1, y: 2, size: TELEGRAPH.ringRadii * 10 });
     expect(ring?.value).toBeLessThanOrEqual(0.5);
   });
+
+  it('marks the player’s target with a ring, brighter when chosen (M7 T15)', () => {
+    const t = new Telegraphs();
+    t.begin();
+    t.target(5, 6, 10, true);
+    t.target(7, 8, 4, false);
+    const [chosen, nearest] = t.end();
+    expect(chosen).toMatchObject({ kind: 'target', x: 5, y: 6, size: TELEGRAPH.targetRadii * 10 });
+    expect(chosen?.value).toBeGreaterThan(nearest?.value ?? 1);
+    expect(t.info()).toMatchObject({ targets: 2, rings: 0 });
+  });
 });

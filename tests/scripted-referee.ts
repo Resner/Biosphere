@@ -9,7 +9,8 @@ import type { EncStartMsg } from '../src/net/encounter-sync';
 import type { FighterOutcome, HubMsg } from '../src/net/protocol';
 import { FRAME_MS } from '../src/net/referee';
 import { createEncounter, hashEncounter, results, stepFrame } from '../src/sim/encounter/encounter';
-import type { Encounter, EncounterStart } from '../src/sim/encounter/types';
+import { applyJoins } from '../src/sim/encounter/join';
+import type { Encounter, EncounterJoin, EncounterStart } from '../src/sim/encounter/types';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
 import { maxHealth, starterEnergy } from '../src/sim/vitals';
@@ -113,6 +114,8 @@ export class ScriptedReferee {
   late = 0;
   early = 0;
   readonly bundles: (number | null)[][] = [];
+  /** Fighters joined (M7 T15), each seated before its frame is stepped. */
+  readonly joins: EncounterJoin[] = [];
   private readonly inputs = new Map<number, (number | null)[]>();
 
   constructor(
@@ -123,7 +126,21 @@ export class ScriptedReferee {
   }
 
   slotOf(player: string): number {
-    return this.enc.fighters.findIndex((f) => f.player === player);
+    const seated = this.enc.fighters.findIndex((f) => f.player === player);
+    if (seated >= 0) return seated;
+    const joining = this.joins.findIndex((j) => j.fighter.player === player);
+    return joining < 0 ? -1 : this.start.fighters.length + joining;
+  }
+
+  /** A fighter joins from frame `f` (at least the next to be finalized). */
+  join(f: number, fighter: EncounterJoin['fighter']): void {
+    if (f < this.next) throw new Error('a join in the past');
+    this.joins.push({ f, fighter });
+  }
+
+  /** Slots that take inputs for frame `f`. */
+  private width(f: number): number {
+    return this.start.fighters.length + this.joins.filter((j) => j.f <= f).length;
   }
 
   input(slot: number, f: number, code: number, now: number): void {
@@ -135,7 +152,8 @@ export class ScriptedReferee {
       this.early++;
       return;
     }
-    const row = this.inputs.get(f) ?? this.enc.fighters.map(() => null);
+    if (slot < 0 || slot >= this.width(f)) return;
+    const row = this.inputs.get(f) ?? new Array<number | null>(this.width(f)).fill(null);
     if (row[slot] === null) row[slot] = code;
     this.inputs.set(f, row);
   }
@@ -145,7 +163,9 @@ export class ScriptedReferee {
     const out: Extract<HubMsg, { t: 'enc-frame' }>[] = [];
     while (!this.enc.over && this.next < E.timeoutFrames) {
       const f = this.next;
-      const row = this.inputs.get(f) ?? this.enc.fighters.map(() => null);
+      applyJoins(this.enc, this.joins);
+      const row = this.inputs.get(f) ?? [];
+      while (row.length < this.width(f)) row.push(null);
       const allIn = this.enc.fighters.every((x, s) => x.status !== 'in' || row[s] !== null);
       if (!allIn && now < this.at + f * FRAME_MS + E.inputDeadlineMs) break;
       this.inputs.delete(f);

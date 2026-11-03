@@ -9,12 +9,24 @@
 
 import type { Creature } from '../genome/stats';
 import { decodeFrameInput, encodeFrameInput } from '../sim/encounter/codec';
-import { createEncounter, hashEncounter, stepFrame } from '../sim/encounter/encounter';
-import type { Encounter, EncounterEvent, EncounterStart, FrameInput } from '../sim/encounter/types';
+import {
+  checkFighter,
+  createEncounter,
+  hashEncounter,
+  stepFrame,
+} from '../sim/encounter/encounter';
+import { applyJoins } from '../sim/encounter/join';
+import type {
+  Encounter,
+  EncounterEvent,
+  EncounterJoin,
+  EncounterStart,
+  FrameInput,
+} from '../sim/encounter/types';
 import { wrapAngle } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { CreatureState } from '../sim/types';
-import { type EncStart, encounterStartOf } from './encounter-start';
+import { type EncJoin, type EncStart, encounterStartOf, fighterStartOf } from './encounter-start';
 import type { ClientMsg, FighterInfo, FighterOutcome, HubMsg } from './protocol-defs';
 import { FRAME_MS } from './referee';
 
@@ -30,6 +42,7 @@ const MAX_LEAD_MS = 100;
 
 export type EncStartMsg = EncStart;
 export type EncFrameMsg = Extract<HubMsg, { t: 'enc-frame' }>;
+export type EncJoinMsg = EncJoin;
 export type EncEndMsg = Extract<HubMsg, { t: 'enc-end' }>;
 export type InputMsg = Extract<ClientMsg, { t: 'input' }>;
 type Inputs = (number | null)[];
@@ -62,6 +75,9 @@ interface Ease {
   at: number;
 }
 
+/** No correction yet to ease. */
+const noEase = (): Ease => ({ dx: 0, dy: 0, dh: 0, at: Number.NEGATIVE_INFINITY });
+
 export interface SyncOptions {
   /** This player's id: its fighter is the one sampled and sent. */
   me: string;
@@ -81,6 +97,7 @@ export class EncounterSync {
   /** The fight being played, or null before the first start. */
   enc: Encounter | null = null;
   id = '';
+  /** The own slot; -1 for a joiner before its `enc-join` names it (M7 T15). */
   slot = -1;
   /** Frames simulated locally (the current state is at this frame). */
   frame = 0;
@@ -101,6 +118,9 @@ export class EncounterSync {
   dropped = 0;
 
   private origin: EncounterStart | null = null;
+  /** Fighters joined after the start, each seated before its frame (M7 T15). */
+  private joins: EncounterJoin[] = [];
+  private bodies: ((genome: string) => Creature | null) | undefined;
   private at = 0;
   private bundles: (Inputs | undefined)[] = [];
   private newest = -1;
@@ -121,11 +141,16 @@ export class EncounterSync {
     return this.enc !== null && !this.over;
   }
 
-  /** Begins the fight of an `enc-start` this player is in; false (and nothing changes) otherwise. */
+  /**
+   * Begins the fight of an `enc-start` this player is in; false (and nothing changes) otherwise.
+   * With `joining`, a fight it is not in yet also begins: the player is joining it (M7 T15), and
+   * its slot comes with the `enc-join` that names it.
+   */
   start(
     msg: EncStartMsg,
     pond: { seed: string; size: number },
     bodies?: (genome: string) => Creature | null,
+    joining = false,
   ): boolean {
     const start = encounterStartOf(msg, pond.seed, bodies);
     if (!start) return false;
@@ -136,8 +161,10 @@ export class EncounterSync {
       return false;
     }
     const slot = enc.fighters.findIndex((f) => f.player === this.opts.me);
-    if (slot < 0) return false;
+    if (slot < 0 && !joining) return false;
     this.origin = start;
+    this.joins = [];
+    this.bodies = bodies;
     this.enc = enc;
     this.id = msg.enc;
     this.slot = slot;
@@ -158,7 +185,7 @@ export class EncounterSync {
     this.own = [];
     this.states.clear();
     this.dirty = null;
-    this.ease = enc.fighters.map(() => ({ dx: 0, dy: 0, dh: 0, at: -Infinity }));
+    this.ease = enc.fighters.map(noEase);
     return true;
   }
 
@@ -192,7 +219,7 @@ export class EncounterSync {
   receive(msg: EncFrameMsg): void {
     const { enc } = this;
     if (!enc || msg.enc !== this.id || this.over) return;
-    if (msg.i.length !== enc.fighters.length || msg.f >= E.timeoutFrames) {
+    if (msg.i.length !== this.width(msg.f) || msg.f >= E.timeoutFrames) {
       this.dropped++;
       return;
     }
@@ -207,6 +234,51 @@ export class EncounterSync {
     this.dirty = this.dirty === null ? msg.f : Math.min(this.dirty, msg.f);
   }
 
+  /** Fighters in frame `f`: the start's and those joined by then. */
+  private width(f: number): number {
+    const first = this.origin?.fighters.length ?? 0;
+    let n = first;
+    for (const j of this.joins) if (j.f <= f) n++;
+    return n;
+  }
+
+  /**
+   * A fighter joins the fight from frame `msg.f` (M7 T15): the own player takes the next slot,
+   * anyone else is seated there. A join this client has simulated past rolls back to its frame at
+   * the next step. False for another fight, a creature already in it, a fight already full, a
+   * frame before the last join or the last confirmed bundle, or a body that does not build.
+   */
+  join(msg: EncJoinMsg): boolean {
+    const { enc, origin } = this;
+    if (!enc || !origin || msg.enc !== this.id || this.over) return false;
+    const last = this.joins[this.joins.length - 1]?.f ?? 0;
+    if (!Number.isInteger(msg.f) || msg.f < last || msg.f < this.confirmed) return false;
+    if (msg.f >= E.timeoutFrames) return false;
+    const seated = origin.fighters.length + this.joins.length;
+    if (seated >= E.maxFighters) return false;
+    const creature = msg.fighter.creature;
+    const taken = (c: string) => c === creature;
+    if (
+      origin.fighters.some((f) => taken(f.creature)) ||
+      this.joins.some((j) => taken(j.fighter.creature))
+    ) {
+      return false;
+    }
+    const fighter = fighterStartOf(msg.fighter, this.bodies);
+    if (!fighter) return false;
+    try {
+      checkFighter(fighter);
+    } catch {
+      return false;
+    }
+    this.joins.push({ f: msg.f, fighter });
+    if (fighter.player === this.opts.me && this.slot < 0) this.slot = seated;
+    if (msg.f < this.frame && !(enc.over && msg.f >= enc.frame)) {
+      this.dirty = this.dirty === null ? msg.f : Math.min(this.dirty, msg.f);
+    }
+    return true;
+  }
+
   /**
    * The referee's end: the fight is played out to `f` with every bundle, and the own fighter takes
    * the authority's final state exactly. A different hash or own state counts as a desync. Returns
@@ -216,7 +288,12 @@ export class EncounterSync {
     const { enc } = this;
     if (!enc || msg.enc !== this.id || this.over) return null;
     const mine = msg.fighters[this.slot];
-    if (!mine) return null;
+    if (!mine) {
+      // A joiner whose join frame never came: the fight is over without it.
+      this.endHash = msg.hash;
+      this.over = true;
+      return null;
+    }
     this.reconcile(null);
     if (this.frame > msg.f) this.rewind(msg.f);
     while (this.frame < msg.f) this.simulate(false, false);
@@ -290,6 +367,7 @@ export class EncounterSync {
   private simulate(sample: boolean, keep = true): void {
     const enc = this.enc as Encounter;
     const f = this.frame;
+    this.seat(enc);
     const inputs = this.inputsFor(f, sample);
     if (keep) this.states.set(f, structuredClone(enc));
     this.states.delete(f - KEEP_FRAMES);
@@ -299,12 +377,23 @@ export class EncounterSync {
     if (events.length > 0) this.opts.events?.(events);
   }
 
+  /** Seats the joins due before the frame `enc` is at; each new slot starts with no correction to ease. */
+  private seat(enc: Encounter): void {
+    const before = enc.fighters.length;
+    applyJoins(enc, this.joins);
+    for (let s = before; s < enc.fighters.length; s++) {
+      this.ease[s] = noEase();
+    }
+  }
+
   private inputsFor(f: number, sample: boolean): Inputs {
     const known = this.bundles[f];
     if (known) return known;
     let own = this.own[f];
     if (own === undefined) {
-      own = sample ? this.sampleOwn(f) : null;
+      // A joiner samples nothing before its own slot is seated.
+      const seated = this.slot >= 0 && this.slot < (this.enc as Encounter).fighters.length;
+      own = sample && seated ? this.sampleOwn(f) : null;
       this.own[f] = own;
     }
     const latest = this.newest >= 0 ? this.bundles[this.newest] : undefined;
@@ -345,8 +434,8 @@ export class EncounterSync {
     while (this.frame < upTo) this.simulate(false, this.frame >= upTo - KEEP_FRAMES);
     if (hubNow === null) return;
     const after = this.poses(hubNow, false);
-    this.ease = before.map((b, slot) => {
-      const a = after[slot] as Pose;
+    this.ease = after.map((a, slot) => {
+      const b = before[slot] ?? a;
       return { dx: b.x - a.x, dy: b.y - a.y, dh: wrapAngle(b.heading - a.heading), at: hubNow };
     });
   }

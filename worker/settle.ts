@@ -121,6 +121,12 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
   dropCarrion(hub, fight, fighters);
   hub.fights.release(lock.id);
   for (const f of fighters) settleLife(hub, f, lock.owed.has(f.player), recorded);
+  // A joiner whose join frame never came (the fight ended first) fought nothing: its life is as it was.
+  for (const player of lock.players) {
+    if (fighters.some((f) => f.player === player) || !lock.owed.has(player)) continue;
+    const found = seated(hub, player);
+    if (found) sendLife(hub, found[0], player);
+  }
 }
 
 /**

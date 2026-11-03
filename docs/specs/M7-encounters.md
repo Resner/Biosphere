@@ -563,7 +563,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Done: `src/sim/carrion.ts` (pieces in `World.carrion`; an eaten one is a `consumed` entry under its id), `PondFood` claims them as slot `x…_i`, cycle 0; `worker/settle.ts` sends `carrion` to the pond after a kill's records; the food layer draws them in amber. Gotcha: A, standing at the body, eats pieces at once (the killer is the first at the table), so a spectator sees what is left; pieces are drawn only in view, and a late joiner does not learn of a drop.
   - `m7-carrion` and `m7-kill` share `tests/e2e/m7-fight.ts`. A fight can end with B escaping (or A out of range), so `killB` engages again until B dies.
 
-- [ ] T15 Multi-party joins and targeting [opus] (after T12, T13, T4)
+- [x] T15 Multi-party joins and targeting [opus] (after T12, T13, T4)
   - Steps:
     1. `src/sim/encounter/join.ts`: `joinFighter(enc, start, f)` adds the next slot at frame f. The referee's bundles then carry one more input.
     2. `worker/engage.ts`: an engage where one side is already locked joins that fight, if it has fewer than 4 fighters. The checks are as at lock-in, plus `engage:full`. It joins at the current frame + 2, with `enc-join` to everyone and `enc-start` to the joiner. A pair already in different fights is refused `locked`.
@@ -579,6 +579,8 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - Hub: a third player joins, a fifth is refused `engage:full`, and the joiner's start comes from its signed snapshot.
     - Client unit tests: Tab order, a click on an egg, the target bits.
     - `m7-melee.spec.ts` (hub 8811, three contexts): C joins A and B's fight, and all three clients' hashes equal `enc-end`'s.
+  - Done: `joinFighter` and `EncounterLog.joins` (golden `encounter-join`), `Referee.join`, `admit` in `worker/fights.ts` (the joiner gets `enc-start` and the history first), `EncounterSync.join`, `src/game/fight-target.ts` with a `target` telegraph ring; a fighting peer is now engageable (the engage joins).
+  - Gotcha: `applyJoins` skips a creature already seated, so it can run more than once at a frame; `m7-melee` presses C's F in its page the moment B fights, since a hatched body can finish B within seconds.
 
 ### Closing
 
@@ -628,7 +630,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 - a kill named on the death screen, with the fallback;
 - carrion eaten.
 
-It checks the medium budgets throughout, and identical final hashes on every participant at each fight's end. The fast PR suite carries `m7-determinism`, `m7-duel`, `m7-hud`, `m7-carrion` and `m7-melee`.
+It checks the medium budgets throughout, and identical final hashes on every participant at each fight's end. The fast PR suite carries `m7-determinism`, `m7-duel`, `m7-hud` and `m7-carrion`; `m7-melee` (three contexts, about a minute) is `@slow` and runs in `test:e2e:full`, and CI repeats it when it changes.
 
 ## Rubric
 
