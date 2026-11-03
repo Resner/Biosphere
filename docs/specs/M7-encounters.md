@@ -221,7 +221,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Notes: no new genes and no named-part bonuses (`.claude/rules/genome.md`). Combat stats are the adult values, and the current radius scales everything.
   - Done: `combat.ts` (one tick: brace, landings, rams, spines, kills, windups), `strike.ts` (profile, targets, damage), `outcome.ts`; fighters carry `fx` timers as absolute ticks. All of a tick's hits are gathered and applied together, so mutual blows both land; `hit` events carry the tick. Arcs are half-angles (as `mouth.arc` is); the duel golden is `encounter-duel`; the other three goldens changed hash only.
 
-- [ ] T3 Eggs as prey in the encounter (after T2) (in progress)
+- [x] T3 Eggs as prey in the encounter (after T2)
   - Steps:
     1. Add `egg.ts`. A fighter whose start has `egg: true` carries an egg:
        - it trails behind the carrier at `r × (1 + 0.45) + egg radius` (egg radius 0.5 × r), following at 0.25 of the gap per tick;
@@ -238,6 +238,8 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - A carrier that escapes, stands at the timeout, or dies of a plume: `egg: 'kept'`.
     - A target code naming an absent or eaten egg aims at the nearest opponent instead.
     - A golden log with an eaten egg, pinned.
+  - Done: `egg.ts` (`eggBody` on a fighter, trailing, strike aim, `targetEgg`), egg hits in `combat.ts` (`hit.egg`, an `egg` event), `RULES.encounter.egg` (`radius`, `gap`, `follow`), golden `encounter-egg`.
+  - Gotcha: a target code is 0-7 now (`windupTarget` too); the nip count is pinned from the seeded spread, within one hit of the nominal.
 
 - [ ] T4 Autopilot from behaviour genes (after T3)
   - Steps:

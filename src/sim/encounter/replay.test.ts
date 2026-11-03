@@ -9,7 +9,7 @@ import {
 } from '../../../tests/encounter-fixture';
 import { depthAt } from '../bathymetry';
 import { plumesNear } from '../hazards';
-import { RULES_VERSION } from '../rules';
+import { RULES, RULES_VERSION } from '../rules';
 import { createWorld } from '../world';
 import { type EncounterLog, replayEncounter } from './replay';
 
@@ -24,6 +24,7 @@ const NAMES = [
   'encounter-escape',
   'encounter-plume',
   'encounter-duel',
+  'encounter-egg',
 ] as const;
 const file = (name: string) => new URL(`./../__golden__/${name}.json`, import.meta.url);
 
@@ -83,7 +84,20 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
       drive(128, 0, { brace: f === 1 }),
     ]),
   );
+  // A hunter nips the egg trailing a drifting starter until it is eaten (target 5 is slot 1's egg).
+  const eggStart = startOf('golden-egg', [
+    hunterFighter('a', 5200, 3000),
+    { ...starterFighter('b', 5200 + 3.5 * Math.sqrt(RULES.starter.biomass), 3000), egg: true },
+  ]);
+  const egg = log(
+    eggStart,
+    Array.from({ length: 60 }, (_, f) => [
+      drive(0, f < 4 ? 3 : 0, { target: 5 }),
+      drive(0, f < 10 ? 3 : 0),
+    ]),
+  );
   return {
+    'encounter-egg': egg,
     'encounter-approach': approach,
     'encounter-escape': fleeing,
     'encounter-plume': plume,
@@ -124,6 +138,7 @@ describe('encounter goldens', () => {
     const duelResults = load('encounter-duel').results;
     expect(duelResults.map((r) => r.outcome)).toEqual(['stood', 'killed']);
     expect(duelResults[1]).toMatchObject({ cause: 'killed', by: 0 });
+    expect(load('encounter-egg').results[1]).toMatchObject({ egg: 'eaten', eggBy: 0 });
     const approach = load('encounter-approach');
     expect(approach.results.map((r) => r.outcome)).toEqual(['stood', 'stood']);
     expect(approach.results[0]?.frame).toBe(approach.log.frames.length);

@@ -23,7 +23,7 @@ export interface FrameInput {
   throttle: number;
   dash: boolean;
   stance: Stance;
-  /** 0-3 a fighter's slot, 4-7 that slot's egg. */
+  /** 0-3 a fighter's slot, 4-7 that slot's egg (an absent or eaten egg aims at the nearest opponent). */
   target: number;
   brace: boolean;
 }
@@ -74,7 +74,7 @@ export interface FighterResult {
 
 /** A fighter's combat timers, all absolute pond ticks (so nothing counts down, and rollback is a copy). */
 export interface FighterFx {
-  /** The tick the running windup lands, or -1 for none; `windupTarget` is the slot it aims at. */
+  /** The tick the running windup lands, or -1 for none; `windupTarget` is the target code it aims at (0-3 a body, 4-7 an egg). */
   windupEnd: number;
   windupTarget: number;
   /** The earliest tick the next windup may start. */
@@ -91,6 +91,17 @@ export interface FighterFx {
   stance: Stance;
 }
 
+/** A carried egg inside the fight (ADR 0052): a circle that trails its carrier and can be struck. */
+export interface EggBody {
+  x: number;
+  y: number;
+  /** Its radius in wu, fixed at the start (0.5 x the carrier's radius). */
+  radius: number;
+  health: number;
+  /** The slot that ate it, or -1 while it is whole. */
+  by: number;
+}
+
 export interface Fighter {
   slot: number;
   player: string;
@@ -100,6 +111,8 @@ export interface Fighter {
   combat: CombatStats;
   behaviour: Behaviour;
   egg: boolean;
+  /** The carried egg while the fight lasts; null for a fighter without one. */
+  eggBody: EggBody | null;
   /** `in` until the fighter's outcome is known. */
   status: 'in' | Outcome;
   /** Consecutive ticks outside every living opponent's escape range. */
@@ -134,7 +147,11 @@ export type EncounterEvent =
       kind: HitKind;
       amount: number;
       blocked: boolean;
+      /** True when `slot`'s egg was hit, not its body. */
+      egg: boolean;
     }
   | { type: 'death'; slot: number; cause: DeathCause; by: number | null }
+  /** `slot`'s egg was eaten by slot `by`. */
+  | { type: 'egg'; slot: number; by: number }
   | { type: 'escape'; slot: number }
   | { type: 'end'; frame: number };

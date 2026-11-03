@@ -17,6 +17,7 @@ import { sanitizeBehaviour } from './behaviour';
 import { decodeFrameInput } from './codec';
 import { collide, type Impact } from './collide';
 import { combatTick, newFx, thrustMod } from './combat';
+import { followEgg, seatEgg } from './egg';
 import { finish, living, resultOf } from './outcome';
 import { engageRange, strikeDistance } from './reach';
 import type {
@@ -68,7 +69,7 @@ function seatFighter(slot: number, f: FighterStart, t0: number): Fighter {
     bornTick: t0,
     phys: sanitizePhys(f.phys),
   };
-  return {
+  const fighter: Fighter = {
     slot,
     player: f.player,
     creature: f.creature,
@@ -76,12 +77,15 @@ function seatFighter(slot: number, f: FighterStart, t0: number): Fighter {
     combat: sanitizeCombat(f.combat),
     behaviour: sanitizeBehaviour(f.behaviour),
     egg: f.egg,
+    eggBody: null,
     status: 'in',
     outside: 0,
     lastBy: -1,
     fx: newFx(),
     result: null,
   };
+  if (f.egg) fighter.eggBody = seatEgg(fighter);
+  return fighter;
 }
 
 /** Fighters take slots in creature-id order; the world starts at tick `t0`. */
@@ -147,6 +151,7 @@ export function stepFrame(enc: Encounter, inputs: readonly (number | null)[]): E
     const started = living(enc);
     impacts.length = 0;
     collide(started, impacts);
+    for (const f of started) followEgg(f);
     combatTick(enc, started, decoded, impacts, out);
     const alive = living(enc);
     const escaping: Fighter[] = [];
@@ -200,10 +205,10 @@ export function hashEncounter(enc: Encounter): string {
     h.f64(c.reach).f64(c.arc).f64(c.power).f64(c.armour).f64(c.spines).f64(c.mass);
     const b = f.behaviour;
     h.f64(b.aggression).f64(b.caution).f64(b.curiosity).f64(b.reflex).str(b.targetPref);
-    h.u32(f.egg ? 1 : 0)
-      .str(f.status)
-      .u32(f.outside)
-      .i32(f.lastBy);
+    h.u32(f.egg ? 1 : 0);
+    const egg = f.eggBody;
+    if (egg !== null) h.f64(egg.x).f64(egg.y).f64(egg.radius).f64(egg.health).i32(egg.by);
+    h.str(f.status).u32(f.outside).i32(f.lastBy);
     const x = f.fx;
     h.i32(x.windupEnd).i32(x.windupTarget).u32(x.readyTick).u32(x.staggerUntil);
     h.i32(x.braceUntil).u32(x.braceReady).str(x.stance);
