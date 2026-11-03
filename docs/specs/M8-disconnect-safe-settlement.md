@@ -13,7 +13,7 @@ Fights finish whatever the network does, and anyone can recheck how they ended.
   - The player hears what happened at its next sign-in, even when the fight ended in a death.
 - **Reconnecting resumes.** A player who reloads, loses its connection or signs in from a second tab returns to its pond and its fight ("Back to the fight"). Its client catches up on the frames it missed, and it plays on from the referee's next frame. An input for a frame already final is rejected, so nothing is backdated.
 - **A restart loses no fight.** The authority saves each fight's log as it runs. After a restart or an eviction it rebuilds every open fight and its locks, resyncs the connected fighters and finishes the rest.
-- **Nobody left still ends.** Once no fighter in a fight has a connected player for 10 s, the authority plays the rest at once with the autopilot and settles it.
+- **Nobody left still ends.** Once no fighter still in a fight has a connected player for 10 s, the authority plays the rest at once with the autopilot and settles it.
 - **Verifiable.** Every fight ends in a settlement document, countersigned by the authority, over a Merkle root of its frames. `verifyEncounter` rechecks it from the log by replaying the fight, and rejects any tampering. The participants' clients check it at the end.
 - **Farming pays less.** A victim's worth as prey halves for each time its player was killed in the last 24 h, and again while the identity is under 30 minutes old.
 
@@ -201,7 +201,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - 10k fuzzed JSON values and 10k random byte strings never throw, and nothing malformed parses, including a worth of 0.3, 0, 2 or NaN, a report with a 200-character name, and a settlement with 5 results.
     - A proxy frame round-trips. Frames of 56 or 58 bytes give null, and a 57-byte frame with a bad key gives null.
     - A protocol-7 hello gets `error: version`.
-  - Notes: no worker behaviour changes beyond the worth of 1.
+  - Notes: no worker behaviour changes beyond the worth of 1. New parsers go in `protocol-encounter.ts`, so that `protocol-parse.ts` (761 lines) stays under 800.
 
 - [ ] T4 Settlement documents, the Merkle root and `verifyEncounter` [opus] (after T1, T3)
   - Steps:
@@ -315,6 +315,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A kill of a victim at worth 0.5 broadcasts carrion with half its biomass.
     - The forced failure writes no row, flags once, and sends both connected fighters `enc-end` and then `life` with the creature alive in the ledger.
     - Row writes per duel stay at M7's per participant, plus the one row update for the tail and the settlement.
+  - Notes: `worker/ledger.ts` is at 997 lines. Its change is a few lines handing the settlement's writes to `ledger-encounter.ts` and `fight-store.ts` (extend `ChainOps`).
 
 - [ ] T9 Everyone left: the 10 s wait, the fast-forward and the away reports [opus] (after T6, T8)
   - Steps:
@@ -336,7 +337,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A sign-in at 9 s resumes the fight (T6), and no fast-forward happens.
     - A fighter that escaped (out) but stays connected doesn't hold the fight in real time once the fighters still in are all away.
     - A participant away at the end gets `report` in its next `life`, with the outcome, the killer's name and the egg, and a second sign-in has none. A connected participant gets none. Telling costs 1 row.
-    - A player killed while away gets `life: null`, a fallback without the eaten child, and the report naming the killer.
+    - A player killed while away gets `life: null`, its fallback (which never offers an eaten child), and the report naming the killer.
     - A fast-forwarded kill's carrion reaches the pond with the current tick.
 
 ### The client
@@ -345,7 +346,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Steps:
     1. `EncounterSync`:
        - a `start` for the fight it is running restarts from that message (the authority's resync), so the history that follows replaces its own;
-       - `step` then catches up to the present, simulating at most `KEEP_FRAMES` frames with the own input sampled;
+       - `step` then catches up to the present in one call, sampling the own input only for the newest frame, as a hidden tab's return does;
        - `state().encounter` gains `rejoins`.
     2. `src/game/fight-resume.ts`:
        - when a `life` names `fight`, the title screen's main button reads "Back to the fight", with the line "Your creature fights on by itself";
