@@ -264,7 +264,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `worker/recover.ts` (`recoverFights`, also run by the alarm, skipping fights in memory), `Referee` `next`/`joins` restore, `resend`, `Fights.{adopt,clear,running,watchDue}`, the E2E restart hook; a row whose fighters hold its records is just closed.
   - Gotcha: recovery resends before its catch-up `tick` (not after, as step 3 reads), so no client sees a replaced frame before its resync; the M7 `owed` set is not rebuilt (T6 replaces it).
 
-- [ ] T6 Reconnect resumes the fight, and locks that hold across sign-ins [opus] (after T3, T5)
+- [x] T6 Reconnect resumes the fight, and locks that hold across sign-ins [opus] (after T3, T5)
   - Steps:
     1. `enter` in `worker/sessions.ts`, for a player locked in a running fight:
        - its pond is the fight's, not `place()`'s pick;
@@ -282,6 +282,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - Every locked action is still refused `locked` after the sign-in, and is allowed after the end.
     - A replacing second tab gets the same sequence, and the first socket is closed `4001`.
   - Notes: the locked time is credited in T8. The client's resume is T10.
+  - Done: `enter` seats a fighter in its fight's pond with `life.fight` and `resend` (M7's `owed` is gone, so no `life` follows `enc-end`); `awaySeats` holds away fighters' seats; locked `progress` and closes write nothing (`worker/resume.test.ts`).
+  - Gotcha: locked `progress` keeps `n` and the clock but takes the report's ticks and time, so the first report after the end credits only what follows; until T8 the fight's time is not credited at all.
 
 - [ ] T7 A victim's worth at lock-in, and join checks [opus] (after T3)
   - Steps:

@@ -173,7 +173,7 @@ describe('a kill', () => {
       snap(b, ...NEAR.b, { health: 0.01 }),
       snap(a, ...NEAR.a, { health: 1 }),
     );
-    // B reloads before frame 0, so it is owed its life at the end, and fights on from the new socket.
+    // B reloads before frame 0: it returns to the fight (M8) and fights on from the new socket.
     b.c.ws.close(1000, 'reload');
     await b.c.closed;
     const back = await signIn(b.id);
@@ -181,6 +181,8 @@ describe('a kill', () => {
     const seen = log(back.c);
     const { end } = await killB(a, { ...b, c: back.c }, start);
     expect(seen.filter((m) => m.t !== 'enc-frame').map((m) => m.t)).toEqual([
+      'life',
+      'enc-start',
       'died',
       'enc-end',
       'carrion',
