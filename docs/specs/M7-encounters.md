@@ -638,12 +638,12 @@ It checks the medium budgets throughout, and identical final hashes on both part
 
 ## Rubric
 
-- [ ] Lock-in feels instant: the engage ring shows in the frame of the key press, and the fight starts ≤ 300 ms after the engage reaches the authority (evidence: T11 unit test, T8 hub test).
-- [ ] The own creature responds in the frame its input is sampled, and a remote's rollback correction eases over 0.1 s rather than jumping (evidence: T10 unit tests).
-- [ ] Every strike aimed at the player is telegraphed (glow and tick) for 8 ticks, every hit flashes, every block sparks, and every death names its cause and killer (evidence: T12 and T14 E2E, `audio.cues`).
-- [ ] No archetype wins more than 70%, genesis duels last a median of 8–25 s, and a body 1.5 × bigger wins ≥ 70% (evidence: `docs/perf/combat.md`).
-- [ ] A kill grows the winner ≥ 1.5 × as fast per minute as foraging (evidence: `docs/perf/combat.md`).
-- [ ] The combat HUD stays within the 6% budget and shows only in a fight (evidence: `m7-hud`).
+- [x] Lock-in feels instant: the engage ring shows in the frame of the key press, and the fight starts ≤ 300 ms after the engage reaches the authority (evidence: T11 unit test, T8 hub test).
+- [x] The own creature responds in the frame its input is sampled, and a remote's rollback correction eases over 0.1 s rather than jumping (evidence: T10 unit tests).
+- [x] Every strike aimed at the player is telegraphed (glow and tick) for 8 ticks, every hit flashes, every block sparks, and every death names its cause and killer (evidence: T12 and T14 E2E, `audio.cues`).
+- [x] No archetype wins more than 70%, genesis duels last a median of 8–25 s, and a body 1.5 × bigger wins ≥ 70% (evidence: `docs/perf/combat.md`).
+- [x] A kill grows the winner ≥ 1.5 × as fast per minute as foraging (evidence: `docs/perf/combat.md`).
+- [x] The combat HUD stays within the 6% budget and shows only in a fight (evidence: `m7-hud`).
 - [ ] (owner) Fights with friends over real networks feel fair and responsive, and stance and brace feel like real choices.
 - [ ] (owner) Killing feels like the fast way to grow, and size feels like an advantage.
 - [ ] (owner) Carrying an egg feels risky and worth protecting.
