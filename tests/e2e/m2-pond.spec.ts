@@ -154,8 +154,9 @@ test('three players see each other move smoothly, share food and chat @slow', as
     // A and B reach the same item at once: exactly one of them keeps it, and C loses it.
     const item = await a.evaluate(() => {
       const bs = window.__bs as BsHook;
-      bs.debug?.setEnergy(10);
-      return bs.debug?.nearestFood() ?? null;
+      bs.debug?.setEnergy(100);
+      // Globules feed every mouth; a crystal gives a filter mouth nothing, and each player's DNA differs.
+      return bs.debug?.nearestFood('globule') ?? null;
     });
     expect(item).toBeTruthy();
     const { id, x, y } = item as { id: string; x: number; y: number };
@@ -168,7 +169,7 @@ test('three players see each other move smoothly, share food and chat @slow', as
       { x, y },
     );
     await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id);
-    await b.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(10));
+    await b.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(100));
     await Promise.all(
       [a, b].map((p) =>
         // Not onto the item: a mouth sits ahead of the centre by an amount that depends on the DNA,
