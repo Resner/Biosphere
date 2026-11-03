@@ -36,7 +36,7 @@ const E = RULES.encounter;
 const NUMBERS = ['x', 'y', 'vx', 'vy', 'heading', 'biomass', 'energy', 'health', 'worth'] as const;
 
 /** A worth is 2^-k with k from 0 to 7 (`RULES.encounter.farming.maxHalvings` + the young halving). */
-const WORTHS: readonly number[] = Array.from({ length: 8 }, (_, k) => 2 ** -k);
+const WORTHS: readonly number[] = [1, 0.5, 0.25, 0.125, 0.0625, 0.03125, 0.015625, 0.0078125];
 
 function validate(start: EncounterStart): void {
   const n = start.fighters.length;
