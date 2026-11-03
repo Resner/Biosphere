@@ -48,7 +48,28 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
     const far = (p: { x: number; y: number }) => Math.hypot(p.x - (me?.x ?? 0), p.y - (me?.y ?? 0));
     const piece = [...onC].sort((p, q) => far(q) - far(p))[0];
     if (!piece) throw new Error('no piece');
-    await c.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(20));
+    await c.evaluate((id) => {
+      const bs = window.__bs as BsHook;
+      bs.debug?.setEnergy(20);
+      // The belly drains while C swims over (on a slow runner for a long while), so its level
+      // proves nothing. Watch the frame in which the piece leaves C's world: eating adds its
+      // value in that same tick, which beats a frame's drain.
+      const w = window as unknown as { __ate?: { gain: number | null } };
+      const ate = { gain: null as number | null };
+      w.__ate = ate;
+      let last = bs.state();
+      const watch = () => {
+        const now = bs.state();
+        const was = last.carrion.some((p) => p.id === id);
+        const is = now.carrion.some((p) => p.id === id);
+        if (was && !is && ate.gain === null) {
+          ate.gain = (now.player?.energy ?? 0) - (last.player?.energy ?? 0);
+        }
+        last = now;
+        requestAnimationFrame(watch);
+      };
+      requestAnimationFrame(watch);
+    }, piece.id);
     // Beside it first: only the pieces in view are drawn.
     await c.evaluate((at) => (window.__bs as BsHook).debug?.teleport(at.x + 60, at.y), piece);
     await c.waitForFunction(
@@ -70,7 +91,16 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
       .catch(async (error) => {
         throw new Error(`C never ate it: ${JSON.stringify(await seen(c))}`, { cause: error });
       });
-    expect((await state(c)).player?.energy ?? 0).toBeGreaterThan(20);
+    // The piece left C's world by C's own claim: its energy rose in that frame.
+    await c.waitForFunction(
+      () => (window as unknown as { __ate?: { gain: number | null } }).__ate?.gain != null,
+      undefined,
+      { timeout: 5_000 },
+    );
+    const gain = await c.evaluate(
+      () => (window as unknown as { __ate: { gain: number } }).__ate.gain,
+    );
+    expect(gain).toBeGreaterThan(0);
 
     // The claim reaches A: the piece is gone there as well, and the others are still there.
     await a
