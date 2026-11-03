@@ -192,8 +192,8 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
     expect(endA?.endHash).toBe(endB?.endHash);
     const fighterOf = (enc: typeof endA, who: string) =>
       enc?.fighters.find((f) => f.player === who);
-    // The stance A picked shows on B's client.
-    expect(fighterOf(endB, idA)?.stance).toBe('aggressive');
+    // The stance A picked showed on B's client (waited for above; a hurt cautious A's autopilot may
+    // flee in the evasive stance afterwards, so the end state says nothing about it).
     expect(fighterOf(endA, idB)?.outcome).toBe('killed');
     expect(fighterOf(endB, idB)?.outcome).toBe('killed');
 
