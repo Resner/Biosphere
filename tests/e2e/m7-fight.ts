@@ -189,7 +189,13 @@ export async function fightToEnd(
  * its health still stands, or A loses it), and B is still there to engage again. Returns the id of
  * the fight that killed it.
  */
-export async function killB(a: Page, b: Page, ids: { idA: string; idB: string }): Promise<string> {
+export async function killB(
+  a: Page,
+  b: Page,
+  ids: { idA: string; idB: string },
+  /** B's health at the start of each fight, as a share of its maximum (as in `stage`). */
+  hurt = 0.6,
+): Promise<string> {
   let previous: string | undefined;
   for (let attempt = 0; attempt < 4; attempt++) {
     // A whole again for each try, and B fed: a hurt B that starves dies of the water (a `died`
@@ -197,6 +203,14 @@ export async function killB(a: Page, b: Page, ids: { idA: string; idB: string })
     // and B's autopilot flees from a body over 1.5 times its size.
     await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
     await topUp(b);
+    // B back to its starting health: a B left at a few points by the last fight flees in the next
+    // one, and A, hitting nothing from out of reach, is told it escaped.
+    await b.evaluate((share) => {
+      const debug = (window.__bs as BsHook).debug;
+      debug?.setHealth(Number.MAX_SAFE_INTEGER);
+      const p = (window.__bs as BsHook).state().player;
+      if (p) debug?.setHealth(p.health * share);
+    }, hurt);
     previous = await fightToEnd(a, b, ids, previous);
     const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
     if (outcomes?.includes('killed') && previous) return previous;
