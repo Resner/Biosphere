@@ -6,9 +6,10 @@ import { RULES } from '../rules';
 import { sizeTier } from '../size';
 import { addBiomass, maxEnergy } from '../vitals';
 import type { Impact } from './collide';
+import { EGG_CODE, hasEgg, targetEgg } from './egg';
 import { finish } from './outcome';
 import { radiusOf, strikeReach } from './reach';
-import { armourFactor, inStrike, pickTarget, strikeDamage } from './strike';
+import { armourFactor, inStrikeCode, pickCode, strikeDamage } from './strike';
 import type { Encounter, EncounterEvent, Fighter, FrameInput, HitKind } from './types';
 
 const E = RULES.encounter;
@@ -19,6 +20,8 @@ interface Hit {
   kind: HitKind;
   amount: number;
   blocked: boolean;
+  /** The victim's egg is hit, not its body. */
+  egg: boolean;
 }
 
 export function newFx(): Fighter['fx'] {
@@ -48,24 +51,40 @@ function brace(f: Fighter, input: FrameInput | null, tick: number): void {
   f.fx.braceReady = tick + E.brace.cooldownTicks;
 }
 
-/** Queues a hit with brace and spines applied: a blocked hit is cut and staggers its attacker. */
-function queue(hits: Hit[], by: Fighter, victim: Fighter, kind: HitKind, raw: number, t: number) {
+/**
+ * Queues a hit with brace and spines applied: a blocked hit is cut and staggers its attacker. A
+ * brace shields the bracer's egg too; spines never answer a hit on an egg.
+ */
+function queue(
+  hits: Hit[],
+  by: Fighter,
+  victim: Fighter,
+  kind: HitKind,
+  raw: number,
+  t: number,
+  egg = false,
+) {
   const blocked = t <= victim.fx.braceUntil;
   const amount = blocked ? raw * (1 - E.brace.block) : raw;
-  hits.push({ victim, by, kind, amount, blocked });
-  if (amount > 0 && victim.combat.spines > 0) {
+  hits.push({ victim, by, kind, amount, blocked, egg });
+  if (!egg && amount > 0 && victim.combat.spines > 0) {
     const back = E.spineReturn * victim.combat.spines * amount;
-    hits.push({ victim: by, by: victim, kind: 'spines', amount: back, blocked: false });
+    hits.push({ victim: by, by: victim, kind: 'spines', amount: back, blocked: false, egg: false });
   }
 }
 
 function landStrike(enc: Encounter, f: Fighter, hits: Hit[], t: number): void {
-  const target = enc.fighters[f.fx.windupTarget];
+  const code = f.fx.windupTarget;
   f.fx.windupEnd = -1;
   f.fx.readyTick = t + E.strike.recoverTicks;
-  if (target === undefined || target.status !== 'in') return;
-  if (!inStrike(f, target, E.strike.tolerance * strikeReach(f))) return;
-  queue(hits, f, target, 'strike', strikeDamage(enc, f, target, t), t);
+  if (!inStrikeCode(enc, f, code, E.strike.tolerance * strikeReach(f))) return;
+  if (code >= EGG_CODE) {
+    const carrier = targetEgg(enc, f, code) as Fighter;
+    queue(hits, f, carrier, 'strike', strikeDamage(enc, f, 1, t), t, true);
+    return;
+  }
+  const target = enc.fighters[code] as Fighter;
+  queue(hits, f, target, 'strike', strikeDamage(enc, f, armourFactor(target), t), t);
 }
 
 function ram(hits: Hit[], im: Impact, t: number): void {
@@ -82,10 +101,16 @@ function ram(hits: Hit[], im: Impact, t: number): void {
   queue(hits, by, victim, 'ram', raw, t);
 }
 
-function apply(hits: Hit[], t: number, out: EncounterEvent[]): void {
+function apply(enc: Encounter, hits: Hit[], t: number, out: EncounterEvent[]): void {
   for (const h of hits) {
-    h.victim.body.health -= h.amount;
-    h.victim.lastBy = h.by.slot;
+    const egg = h.egg ? h.victim.eggBody : null;
+    // A second hit on an egg already eaten this tick finds nothing to hit.
+    if (h.egg && (egg === null || egg.by >= 0)) continue;
+    if (egg !== null) egg.health -= h.amount;
+    else {
+      h.victim.body.health -= h.amount;
+      h.victim.lastBy = h.by.slot;
+    }
     out.push({
       type: 'hit',
       tick: t,
@@ -94,7 +119,9 @@ function apply(hits: Hit[], t: number, out: EncounterEvent[]): void {
       kind: h.kind,
       amount: h.amount,
       blocked: h.blocked,
+      egg: h.egg,
     });
+    if (egg !== null && egg.health <= 0) eatEgg(enc, h.victim, h.by.slot, out);
     if (h.blocked) {
       h.by.fx.staggerUntil = t + E.brace.staggerTicks;
       h.by.fx.windupEnd = -1;
@@ -102,33 +129,58 @@ function apply(hits: Hit[], t: number, out: EncounterEvent[]): void {
   }
 }
 
-/** The killer takes a share of the victim's biomass as biomass, the overflow as energy (ADR 0051). */
-function reward(killer: Fighter, victimBiomass: number): void {
+/** The eater takes a share of the victim's biomass as biomass, the overflow as energy (ADR 0051). */
+function reward(killer: Fighter, victimBiomass: number, share: number): void {
   const rw = E.reward;
   const mine = sizeTier(killer.body.biomass);
   const theirs = sizeTier(victimBiomass);
   const tier = theirs < mine ? rw.smallerTier : theirs > mine ? rw.biggerTier : 1;
-  const gain = rw.share * victimBiomass * tier;
+  const gain = share * victimBiomass * tier;
   const b = killer.body;
   const grown = addBiomass(b, gain);
   b.energy = Math.min(maxEnergy(b.biomass), b.energy + (gain - grown) * rw.energyPerBiomass);
 }
 
+/** Marks `carrier`'s egg as eaten by slot `by`. */
+function markEaten(carrier: Fighter, by: number, out: EncounterEvent[]): void {
+  const egg = carrier.eggBody as NonNullable<Fighter['eggBody']>;
+  egg.by = by;
+  egg.health = 0;
+  out.push({ type: 'egg', slot: carrier.slot, by });
+}
+
+/** An egg struck to nothing is eaten by the striker, who is fed at once (ADR 0052). */
+function eatEgg(enc: Encounter, carrier: Fighter, by: number, out: EncounterEvent[]): void {
+  markEaten(carrier, by, out);
+  const eater = enc.fighters[by];
+  if (eater !== undefined && eater.status === 'in') {
+    reward(eater, carrier.body.biomass, E.egg.eatShare);
+  }
+}
+
 function kills(enc: Encounter, alive: Fighter[], out: EncounterEvent[]): void {
   const dead: Fighter[] = [];
+  const withEgg: Fighter[] = [];
   for (const f of alive) {
     if (f.body.health > 0) continue;
     const by = f.lastBy >= 0 ? f.lastBy : null;
     f.body.health = 0;
     f.body.alive = false;
     f.body.cause = 'killed';
+    if (by !== null && hasEgg(f)) {
+      markEaten(f, by, out);
+      withEgg.push(f);
+    }
     finish(enc, f, 'killed', by);
     dead.push(f);
     out.push({ type: 'death', slot: f.slot, cause: 'killed', by });
   }
   for (const f of dead) {
     const killer = enc.fighters[f.lastBy];
-    if (killer !== undefined && killer.status === 'in') reward(killer, f.body.biomass);
+    if (killer === undefined || killer.status !== 'in') continue;
+    reward(killer, f.body.biomass, E.reward.share);
+    // Paid with the kill, after every death of the tick is known, so the order of slots never decides it.
+    if (withEgg.includes(f)) reward(killer, f.body.biomass, E.egg.eatShare);
   }
 }
 
@@ -141,10 +193,10 @@ function startWindups(
   for (const f of alive) {
     const fx = f.fx;
     if (f.status !== 'in' || fx.windupEnd >= 0 || t < fx.readyTick || t < fx.staggerUntil) continue;
-    const target = pickTarget(enc, f, inputs[f.slot] ?? null);
-    if (target === null || !inStrike(f, target, strikeReach(f))) continue;
+    const code = pickCode(enc, f, inputs[f.slot] ?? null);
+    if (code < 0 || !inStrikeCode(enc, f, code, strikeReach(f))) continue;
     fx.windupEnd = t + E.strike.windupTicks;
-    fx.windupTarget = target.slot;
+    fx.windupTarget = code;
   }
 }
 
@@ -164,7 +216,7 @@ export function combatTick(
   const hits: Hit[] = [];
   for (const f of alive) if (f.fx.windupEnd === t) landStrike(enc, f, hits, t);
   for (const im of impacts) ram(hits, im, t);
-  apply(hits, t, out);
+  apply(enc, hits, t, out);
   kills(enc, alive, out);
   startWindups(enc, alive, inputs, t);
 }

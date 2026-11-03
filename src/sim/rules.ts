@@ -736,7 +736,8 @@ export const RULES = deepFreeze({
     /** The share of the damage dealt that a spined body returns, times its spines. */
     spineReturn: 0.4,
     reward: { share: 0.4, carrion: 0.4, energyPerBiomass: 3, smallerTier: 0.5, biggerTier: 1.5 },
-    egg: { trail: 0.5, healthShare: 0.25, eatShare: 0.2 },
+    /** The egg's radius is `radius` x the carrier's; it rests `gap` x the carrier's radius plus its own behind the carrier and closes `follow` of the gap per tick. */
+    egg: { radius: 0.5, gap: 0.45, follow: 0.25, healthShare: 0.25, eatShare: 0.2 },
   },
   controls: {
     /** Cursor within this many radii of the creature means coast. */

@@ -14,8 +14,8 @@ export function resultOf(
     by,
     frame,
     biomass: f.body.biomass,
-    egg: f.egg ? 'kept' : 'none',
-    eggBy: null,
+    egg: f.eggBody === null ? 'none' : f.eggBody.by >= 0 ? 'eaten' : 'kept',
+    eggBy: f.eggBody !== null && f.eggBody.by >= 0 ? f.eggBody.by : null,
   };
 }
 

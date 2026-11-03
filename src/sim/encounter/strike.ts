@@ -3,6 +3,7 @@
 import { cos } from '../math';
 import { hashU32 } from '../prng';
 import { RULES } from '../rules';
+import { aimAtEgg, EGG_CODE, targetEgg } from './egg';
 import { aim, aimAt, radiusOf } from './reach';
 import type { Encounter, Fighter, FrameInput } from './types';
 
@@ -27,7 +28,23 @@ export function inStrike(attacker: Fighter, target: Fighter, reach: number): boo
   return aim.distance <= reach + EPS && aim.cos >= cos(strikeArc(attacker));
 }
 
-/** The fighter's target: the frame input's, if it names a living opponent, else the nearest. */
+/** The fighter's target code: the frame input's, if it names a living opponent or a whole egg, else the nearest opponent's slot; -1 for none. */
+export function pickCode(enc: Encounter, f: Fighter, input: FrameInput | null): number {
+  const want = input === null ? -1 : input.target;
+  if (targetEgg(enc, f, want) !== null) return want;
+  return pickTarget(enc, f, input)?.slot ?? -1;
+}
+
+/** Whether the target `code` (a body, or an egg from `EGG_CODE`) lies within `reach` and the strike cone. */
+export function inStrikeCode(enc: Encounter, attacker: Fighter, code: number, reach: number) {
+  const carrier = code >= EGG_CODE ? targetEgg(enc, attacker, code) : enc.fighters[code];
+  if (carrier === undefined || carrier === null) return false;
+  if (code < EGG_CODE) return carrier.status === 'in' && inStrike(attacker, carrier, reach);
+  aimAtEgg(attacker, carrier.eggBody as NonNullable<Fighter['eggBody']>);
+  return aim.distance <= reach + EPS && aim.cos >= cos(strikeArc(attacker));
+}
+
+/** The fighter's target body: the frame input's, if it names a living opponent, else the nearest. */
 export function pickTarget(enc: Encounter, f: Fighter, input: FrameInput | null): Fighter | null {
   const want = input === null ? -1 : input.target;
   if (want >= 0 && want < E.maxFighters && want !== f.slot) {
@@ -57,14 +74,14 @@ export function spread(enc: Encounter, tick: number, slot: number): number {
 export const armourFactor = (target: Fighter, stanced = true): number =>
   1 - E.damage.armour * target.combat.armour * (stanced ? E.stance[target.fx.stance].armour : 1);
 
-/** A strike's damage before brace. */
-export function strikeDamage(enc: Encounter, a: Fighter, target: Fighter, tick: number): number {
+/** A strike's damage before brace; `armour` is what the target lets through (1 for an egg). */
+export function strikeDamage(enc: Encounter, a: Fighter, armour: number, tick: number): number {
   return (
     E.damage.perRadius *
     radiusOf(a.body) *
     strikePower(a) *
     E.stance[a.fx.stance].dealt *
-    armourFactor(target) *
+    armour *
     spread(enc, tick, a.slot)
   );
 }
