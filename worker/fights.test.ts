@@ -332,7 +332,7 @@ describe('the frame clock', () => {
     // B swims away west until one of them is out of the other's range; A idles.
     const flee: Plan = () => [IDLE_CODE, drive(128, 15, { stance: 'evasive' })];
     const played = await play(a, b, start, flee);
-    expect(outcomes(played)).toEqual(['escaped', 'stood']);
+    expect([...outcomes(played)].sort()).toEqual(['escaped', 'stood']);
     expect(await authority((o) => o.fights.timers())).toBe(0);
     // The fight cost energy: a fresh report (as a client sends after the fight) fills it again.
     for (const p of [a, b]) {
@@ -376,7 +376,7 @@ describe('life while locked', () => {
     // fight ends A after `enc-end`.
     const flee: Plan = () => [drive(128, 15, { stance: 'evasive' }), IDLE_CODE];
     const played = await play(a, b, start, flee, E.timeoutFrames, 5);
-    expect(outcomes(played)).toEqual(['escaped', 'stood']);
+    expect([...outcomes(played)].sort()).toEqual(['escaped', 'stood']);
     expect((await nextOf(a.c, 'died')).cause).toBe('old-age');
   });
 

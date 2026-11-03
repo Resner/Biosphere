@@ -8,6 +8,7 @@ import { Referee } from '../src/net/referee';
 import { createEncounter, hashEncounter, results, stepFrame } from '../src/sim/encounter/encounter';
 import type { Encounter } from '../src/sim/encounter/types';
 import type { Asking } from './engage';
+import { HUNDREDTHS } from './life';
 import { type FightEnd, settleFight } from './lives';
 import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
 
@@ -47,8 +48,6 @@ export interface Lock {
   /** The pending timer: the lock answer's window while asking, the next deadline while running. */
   timer: unknown;
 }
-
-const HUNDREDTHS = 100;
 
 export class Fights {
   private readonly byId = new Map<string, Lock>();

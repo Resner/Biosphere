@@ -70,12 +70,16 @@ export class Referee {
     if (now < this.start(f - AHEAD_FRAMES)) return 'early';
     let frame = this.pending.get(f);
     if (!frame) {
-      frame = new Array<number | null>(this.slots).fill(null);
+      frame = this.blank();
       this.pending.set(f, frame);
     }
     if (frame[slot] !== null) return 'dup';
     frame[slot] = code;
     return 'ok';
+  }
+
+  private blank(): (number | null)[] {
+    return new Array<number | null>(this.slots).fill(null);
   }
 
   /** Marks a slot's fighter out, so the frames it sends nothing for are finalized without waiting. */
@@ -91,7 +95,7 @@ export class Referee {
       const frame = this.pending.get(f);
       if (now < this.close(f) && !(frame && this.complete(frame))) return out;
       this.pending.delete(f);
-      out.push({ f, i: frame ?? new Array<number | null>(this.slots).fill(null) });
+      out.push({ f, i: frame ?? this.blank() });
       this.next++;
     }
   }

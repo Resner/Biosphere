@@ -20,7 +20,7 @@ export const CHECKPOINT_EVERY_MS = 900_000;
 const GROWTH_SLACK = 1.1;
 /** Biomass in wu that a report may exceed the growth curve by. */
 const BIOMASS_SLACK = 1;
-const HUNDREDTHS = 100;
+export const HUNDREDTHS = 100;
 
 /** A creature's condition in hundredths. */
 export interface Condition {
