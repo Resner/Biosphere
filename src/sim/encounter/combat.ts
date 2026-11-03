@@ -136,6 +136,7 @@ function reward(killer: Fighter, victimBiomass: number, share: number): void {
   const theirs = sizeTier(victimBiomass);
   const tier = theirs < mine ? rw.smallerTier : theirs > mine ? rw.biggerTier : 1;
   const gain = share * victimBiomass * tier;
+  killer.reward += gain;
   const b = killer.body;
   const grown = addBiomass(b, gain);
   b.energy = Math.min(maxEnergy(b.biomass), b.energy + (gain - grown) * rw.energyPerBiomass);

@@ -119,6 +119,11 @@ export interface Fighter {
   outside: number;
   /** The slot that dealt the last damage to this fighter, or -1. */
   lastBy: number;
+  /**
+   * The biomass its kills and eaten eggs were worth, overflow included: the `reward` its record
+   * names (M7 T13). A tally of hashed history that nothing reads back, so the hash leaves it out.
+   */
+  reward: number;
   fx: FighterFx;
   result: FighterResult | null;
 }

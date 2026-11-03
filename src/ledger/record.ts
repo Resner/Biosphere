@@ -26,7 +26,8 @@ export type RecordKind =
   | 'mate-commit'
   | 'promote'
   | 'restore'
-  | 'death';
+  | 'death'
+  | 'encounter';
 const KINDS: readonly string[] = [
   'genesis',
   'birth',
@@ -35,6 +36,7 @@ const KINDS: readonly string[] = [
   'promote',
   'restore',
   'death',
+  'encounter',
 ];
 
 export interface LedgerRecord {
@@ -151,7 +153,15 @@ export function recordProblems(value: unknown): string[] {
   return problems;
 }
 
-type FieldType = 'uint' | 'hex' | 'player' | 'hexpair' | 'slot' | 'role-ab' | 'promote-role';
+type FieldType =
+  | 'uint'
+  | 'hex'
+  | 'player'
+  | 'hexpair'
+  | 'slot'
+  | 'role-ab'
+  | 'promote-role'
+  | 'survived';
 
 const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
   uint: (x) => Number.isSafeInteger(x) && (x as number) >= 0,
@@ -161,6 +171,7 @@ const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
   slot: (x) => FIELD_TYPES.uint(x) && (x as number) <= 255,
   'role-ab': (x) => x === 'a' || x === 'b',
   'promote-role': (x) => x === 'child' || x === 'parent',
+  survived: (x) => x === 'escaped' || x === 'stood',
 };
 
 const CONDITION = {
@@ -195,7 +206,34 @@ const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
     karyotype: 'uint',
   },
   restore: { from: 'hex', ...CONDITION },
+  /**
+   * A fighter that came out of an encounter alive (M7 T13): its outcome, the frames it fought, its
+   * condition at the end and the biomass its kills and eaten eggs were worth, in hundredths.
+   */
+  encounter: {
+    enc: 'hex',
+    outcome: 'survived',
+    frames: 'uint',
+    biomass: 'uint',
+    energy: 'uint',
+    health: 'uint',
+    reward: 'uint',
+  },
 };
+
+/**
+ * Death causes only an encounter's settlement writes (ADR 0052): a kill names the killer's
+ * creature, an eaten egg its eater's, and both the encounter. Such a death is never owner-signed.
+ */
+export const FIGHT_CAUSES: readonly string[] = ['killed', 'eaten'];
+
+/** A death body keeps its M4 shape; one of a fight's causes must also name `enc` and `by`. */
+function deathProblems(b: Record<string, unknown>): string[] {
+  if (!FIGHT_CAUSES.includes(b.cause as string)) return [];
+  return (['enc', 'by'] as const).flatMap((key) =>
+    !Object.hasOwn(b, key) ? [`missing:${key}`] : FIELD_TYPES.hex(b[key]) ? [] : [`bad:${key}`],
+  );
+}
 
 const PROMOTE_BODIES: Record<string, Record<string, FieldType>> = {
   child: { role: 'promote-role', parent: 'hex' },
@@ -206,6 +244,7 @@ const PROMOTE_BODIES: Record<string, Record<string, FieldType>> = {
 export function bodyProblems(kind: RecordKind, body: unknown): string[] {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return ['not-an-object'];
   const b = body as Record<string, unknown>;
+  if (kind === 'death') return deathProblems(b);
   let fields = BODIES[kind];
   if (kind === 'promote') {
     if (!Object.hasOwn(b, 'role')) return ['missing:role'];
@@ -242,9 +281,15 @@ const MATRIX: Record<string, Partial<Record<Status | 'none', Status>>> = {
   'promote:parent': { active: 'checkpoint' },
   restore: { checkpoint: 'active' },
   death: { active: 'dead', checkpoint: 'dead' },
+  // ADR 0052: a pending child dies only of an egg eaten in a settled encounter.
+  'death:eaten': { pending: 'dead' },
+  encounter: { active: 'active' },
 };
 
-/** Whether a record of `kind` (and `role`, for promote) may follow a creature in `status`, and the status it leaves. */
+/**
+ * Whether a record of `kind` may follow a creature in `status`, and the status it leaves. `role` is
+ * the promote role, or a death's cause (`eaten` has its own row).
+ */
 export function transitionOutcome(
   kind: RecordKind,
   role: string | null,
@@ -252,7 +297,13 @@ export function transitionOutcome(
 ): Outcome {
   if (kind === 'promote' && role !== 'child' && role !== 'parent')
     return { ok: false, reason: 'role' };
-  const row = MATRIX[kind === 'promote' ? `promote:${role}` : kind];
+  const name =
+    kind === 'promote'
+      ? `promote:${role}`
+      : kind === 'death' && role === 'eaten'
+        ? 'death:eaten'
+        : kind;
+  const row = MATRIX[name];
   const from = status ?? 'none';
   const next = row?.[from];
   return next ? { ok: true, next } : { ok: false, reason: `status:${from}` };
@@ -281,6 +332,8 @@ export function checkStored(s: StoredRecord, keys: readonly PubKey[]): string[] 
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
     if (retired(s.record)) return ['rules-retired'];
     const failures: string[] = [];
+    // A fight's results are the authority's alone: never signed by an owner.
+    if (s.ownerSig !== null && authorityOnly(s.record)) failures.push('not-attested');
     if (typeof s.hash !== 'string' || s.hash !== recordHash(s.record))
       failures.push('hash-mismatch');
     // An entry only counts when its id is derived from its key.
@@ -304,6 +357,10 @@ export function checkStored(s: StoredRecord, keys: readonly PubKey[]): string[] 
     return ['invalid-record:unreadable'];
   }
 }
+
+/** Records only the authority starts: an encounter's result, and a death a fight decided. */
+export const authorityOnly = (r: Pick<LedgerRecord, 'kind' | 'body'>): boolean =>
+  r.kind === 'encounter' || (r.kind === 'death' && FIGHT_CAUSES.includes(r.body.cause as string));
 
 function verifyBase64(
   playerId: string,

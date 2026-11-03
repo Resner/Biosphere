@@ -382,6 +382,12 @@ describe('kills', () => {
       9,
     );
 
+    expect(at(small, 0).reward).toBeCloseTo(
+      E.reward.share * RULES.starter.biomass * E.reward.smallerTier,
+      9,
+    );
+    expect(at(small, 1).reward).toBe(0);
+
     const victim = { biomass: 1100, health: 1 };
     const big = kill(victim, { energy: 0, phys: bigPhys });
     expect(at(big, 0).body.biomass).toBeCloseTo(
@@ -396,6 +402,8 @@ describe('kills', () => {
     const b = at(enc, 0).body;
     expect(b.biomass).toBeCloseTo(RULES.starter.biomass + 1, 9);
     const overflow = E.reward.share * RULES.starter.biomass - 1;
+    // The tally the authority records counts the whole reward, the overflow included.
+    expect(at(enc, 0).reward).toBeCloseTo(E.reward.share * RULES.starter.biomass, 9);
     expect(b.energy).toBeGreaterThan(0);
     expect(b.energy).toBeLessThanOrEqual(maxEnergy(b.biomass));
     expect(b.energy).toBeCloseTo(
