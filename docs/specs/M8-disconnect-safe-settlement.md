@@ -385,7 +385,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `EncounterSync.start` resyncs a running fight (counters and sent inputs kept, `rejoins`), `step` keeps only the last 10 states; `FightResume` holds the named fight's messages on the title until `resume-fight`, and `LifeStarts.resumeFight` plays them with no egg and snaps to the fighter.
   - Gotcha: a `life` that no longer names the fight a page plays (its `enc-end` lost while away) abandons it (`over`, no hash), else the page fought on forever; T12 tells the result. `fightMsg` in `app-online.ts` is the one path for live and held fight messages.
 
-- [ ] T11 Away fighters stay visible: drawn from the encounter, and proxy snapshots [opus] (after T10) (in progress)
+- [x] T11 Away fighters stay visible: drawn from the encounter, and proxy snapshots [opus] (after T10) (in progress)
   - Steps:
     1. In the player's own fight, an opponent whose player left the pond (`member leave`) is not dropped. It stays drawn from the encounter until `enc-end`, then fades as a player who left.
        - It is drawn faded (60% opacity) with "away" after its name.
@@ -405,6 +405,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - a proxy from a non-fighting peer, or for a player still sending its own snapshots, is dropped and counted;
     - the traffic per away fighter per peer averages ≤ 300 B/s over 10 s;
     - a forged proxy never yields an engage candidate.
+  - Done: `src/net/proxy-snaps.ts` (`ProxyRelay` draws a fighter's away opponents and relays them from `EncounterSync.confirmedState()`, `ProxyReceiver` checks proxies); `RemoteSet` keeps a fighter who left while proxies or the fight move it (`away`, 60%), and `offered` keeps away remotes from engages.
+  - Gotcha: "away" means not in the pond's roster (`member leave`), not quiet; a proxied remote takes only newer pond times, and its body stays in `RemoteBodies` until `RemoteSet` reports it gone.
 
 - [ ] T12 Consequences at the next sign-in, and the settlement checked on the client [opus] (after T4, T9, T10)
   - Steps:

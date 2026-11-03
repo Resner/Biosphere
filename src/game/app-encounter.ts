@@ -137,14 +137,10 @@ export class FightPlay {
   holdBelly = false;
   /** The life that fights. */
   private life: { player: CreatureState; world: World } | null = null;
-  /** Each fighter's genome ref (`genomeRefOf`), from its start or join: proxies name its body (M8 T11). */
+  /** The fight's genome refs (`genomeRefOf`) by creature, from its start and joins: proxies name its bodies (M8 T11). */
   private readonly refs = new Map<string, number>();
   /** The fight as the proxy relay reads it, kept between frames. */
-  private relayView: {
-    id: string;
-    players: string[];
-    snapshot(slot: number): SnapshotFields | null;
-  } | null = null;
+  private relayView: (RelayFight & { players: string[] }) | null = null;
 
   constructor(private readonly host: FightHost) {}
 
@@ -160,7 +156,10 @@ export class FightPlay {
 
   /** A fight message from the hub (`lock-ask` is answered elsewhere). */
   receive(msg: FightMsg): void {
-    if (msg.t === 'enc-start') for (const f of msg.fighters) this.noteRef(f);
+    if (msg.t === 'enc-start') {
+      if (msg.enc !== this.sync?.id) this.refs.clear();
+      for (const f of msg.fighters) this.noteRef(f);
+    }
     if (msg.t === 'enc-join') this.noteRef(msg.fighter);
     if (msg.t === 'enc-start') this.begin(msg);
     else if (msg.t === 'enc-frame') this.sync?.receive(msg);
@@ -371,9 +370,9 @@ export class FightPlay {
   }
 
   private noteRef(f: FighterInfo): void {
-    if (this.refs.get(f.player) !== undefined) return;
+    if (this.refs.has(f.creature)) return;
     const genome = genomeFromBase64url(f.genome);
-    this.refs.set(f.player, genome ? genomeRefOf(genomeHash(genome)) : 0);
+    this.refs.set(f.creature, genome ? genomeRefOf(genomeHash(genome)) : 0);
   }
 
   /**
@@ -400,7 +399,7 @@ export class FightPlay {
     if (!state || !f) return null;
     const egg = f.eggBody !== null && f.eggBody.by < 0;
     const marks = { ready: false, egg, spawnProtected: false, fighting: true };
-    return snapshotOf(f.body, state.world.tick, this.refs.get(f.player) ?? 0, marks);
+    return snapshotOf(f.body, state.world.tick, this.refs.get(f.creature) ?? 0, marks);
   }
 
   /** What the target ring marks, while the player is seated in a fight that offers a choice. */
