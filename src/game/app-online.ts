@@ -12,6 +12,7 @@ import type { App } from './app';
 import { countItem, type Pond } from './app-session';
 import { pick } from './dom';
 import { CandidateSigner, lockState, SpawnShield } from './engage';
+import { fightEnded } from './fight-end';
 import { connectOnline, type OnlineSession } from './online';
 import { offlineChip, statusText, switchPond } from './online-config';
 import { PondFood } from './pond-food';
@@ -185,6 +186,16 @@ export class OnlineWiring {
           if (msg.t === 'lock-ask') this.answerLock(msg.lock, link);
           else app.fight.receive(msg);
           if (msg.t === 'enc-start') app.attack.started();
+          if (msg.t === 'enc-end') {
+            fightEnded(msg, {
+              playerId: app.identity?.playerId ?? null,
+              toast: (text) => app.hud.toast(text),
+              loseEgg: () => {
+                app.offspring.eaten();
+                app.flow.eggEaten();
+              },
+            });
+          }
         },
         event: (id, event) => {
           this.receiveFoodEvent(id, event);

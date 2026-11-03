@@ -1,6 +1,6 @@
 import type { DeathCause } from '../sim/types';
 import { pick } from './dom';
-import { DEATH_TEXT, livedText } from './life-text';
+import { DEATH_TEXT, deathName, livedText } from './life-text';
 import type { FallbackId, FallbackOption } from './offspring-text';
 
 export type Screen = 'title' | 'playing' | 'dead';
@@ -12,6 +12,8 @@ export interface DeathSummary {
   peakBiomass: number;
   /** Species and rarity of the body that died. */
   body: string;
+  /** The killer's name, when the hub settled a kill and named it (M7 T13). */
+  by: string | null;
 }
 
 /** Title and death screens over the live scene; `body[data-screen]` shows exactly one layer. */
@@ -117,7 +119,7 @@ export class Screens {
 
   showDeath(summary: DeathSummary): void {
     const text = DEATH_TEXT[summary.cause];
-    this.cause.textContent = text.name;
+    this.cause.textContent = deathName(summary.cause, summary.by);
     this.hint.textContent = text.hint;
     this.survived.textContent = livedText(summary.survivedSeconds * 1000);
     this.peak.textContent = String(Math.round(summary.peakBiomass));

@@ -162,7 +162,7 @@ export interface PastLife {
   diedT: number;
 }
 
-/** Every cause a death record can name (a `Record`, so a new `DeathCause` fails to compile until it is listed). A client may report all but `old-age` and `eaten` (an egg eaten in a fight), which only the authority decides. */
+/** Every cause a death record can name (a `Record`, so a new `DeathCause` fails to compile until it is listed). A client may report all but `old-age`, `killed` and `eaten` (an egg eaten in a fight), which only the authority decides. */
 const CAUSES: Record<DeathCause, true> = {
   starved: true,
   toxin: true,

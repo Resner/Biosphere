@@ -60,12 +60,23 @@ const restore: LedgerRecord['body'] = {
   cooldownUntilMs: 1_260_000,
 };
 
+const encounter: LedgerRecord['body'] = {
+  enc: H('e'),
+  outcome: 'escaped',
+  frames: 212,
+  biomass: 4200,
+  energy: 5100,
+  health: 7400,
+  reward: 1680,
+};
+
 const BODIES: [RecordKind, string, LedgerRecord['body']][] = [
   ['mate-commit', 'mate-commit', mateCommit],
   ['birth', 'birth', birth],
   ['promote', 'promote-child', promoteChild],
   ['promote', 'promote-parent', promoteParent],
   ['restore', 'restore', restore],
+  ['encounter', 'encounter', encounter],
 ];
 
 function record(kind: RecordKind, body: LedgerRecord['body']): LedgerRecord {
@@ -134,7 +145,7 @@ describe('record shape of the M5 kinds', () => {
     expect(recordProblems({ ...b, seq: 1 })).not.toEqual([]);
     expect(recordProblems({ ...b, prev: H('a') })).not.toEqual([]);
     expect(recordProblems({ ...b, creature: H('a') })).not.toEqual([]);
-    for (const name of ['mate-commit', 'promote-child', 'promote-parent', 'restore']) {
+    for (const name of ['mate-commit', 'promote-child', 'promote-parent', 'restore', 'encounter']) {
       const r = RECORDS[name] as LedgerRecord;
       expect(recordProblems({ ...r, creature: '' }), name).not.toEqual([]);
       expect(recordProblems({ ...r, prev: '' }), name).not.toEqual([]);
@@ -216,7 +227,7 @@ describe('bodyProblems', () => {
 
   it('never throws on junk', () => {
     for (const body of [null, 1, 'x', [], { role: {} }, { role: 'child', parent: [] }]) {
-      for (const kind of ['mate-commit', 'birth', 'promote', 'restore'] as const) {
+      for (const kind of ['mate-commit', 'birth', 'promote', 'restore', 'encounter'] as const) {
         expect(() => bodyProblems(kind, body as never)).not.toThrow();
         expect(bodyProblems(kind, body as never)).not.toEqual([]);
       }
@@ -237,6 +248,8 @@ describe('transition matrix (ADR 0021)', () => {
     ['restore', null, 'checkpoint', 'active'],
     ['death', null, 'active', 'dead'],
     ['death', null, 'checkpoint', 'dead'],
+    ['death', 'eaten', 'pending', 'dead'],
+    ['encounter', null, 'active', 'active'],
   ];
   const CASES: [RecordKind, string | null][] = [
     ['genesis', null],
@@ -247,6 +260,8 @@ describe('transition matrix (ADR 0021)', () => {
     ['promote', 'parent'],
     ['restore', null],
     ['death', null],
+    ['death', 'eaten'],
+    ['encounter', null],
   ];
 
   it('accepts exactly the allowed cells, with the next status', () => {

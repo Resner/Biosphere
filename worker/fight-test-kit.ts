@@ -7,10 +7,12 @@ import { signSnap } from '../src/ledger/snapshot-sig';
 import {
   encodeSnapshot,
   genomeRefOf,
+  type HubMsg,
   type PondInfo,
   type SignedSnap,
   type Snapshot,
 } from '../src/net/protocol';
+import { FRAME_MS } from '../src/net/referee';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import type { Authority } from './authority';
 import { type Clock, Fights } from './fights';
@@ -200,3 +202,122 @@ export const editLife = (p: Player, edit: Partial<LifeState>) =>
 /** How far the current can carry a body in `ticks`. */
 export const drift = (ticks: number) =>
   (RULES.currents.maxSpeed * Math.abs(ticks)) / TICK_HZ + 0.01;
+
+export type EncStart = Extract<HubMsg, { t: 'enc-start' }>;
+export type EncFrame = Extract<HubMsg, { t: 'enc-frame' }>;
+export type EncEnd = Extract<HubMsg, { t: 'enc-end' }>;
+
+/** A player's input for frame `f`: a code, or null to stay silent. */
+export type Plan = (f: number, start: EncStart) => [number | null, number | null];
+
+export interface Played {
+  /** Each player's bundles, in the order they arrived. */
+  frames: [EncFrame[], EncFrame[]];
+  ends: [EncEnd, EncEnd] | null;
+}
+
+/** `promise`, or a failure naming `what` if it takes more than 3 s of real time. */
+export async function within<T>(promise: Promise<T>, what: string): Promise<T> {
+  let timer: ReturnType<typeof setTimeout> | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error(`timed out waiting for ${what}`)), 3000);
+  });
+  try {
+    return await Promise.race([promise, late]);
+  } finally {
+    if (timer !== undefined) clearTimeout(timer);
+  }
+}
+
+export const locked = (p: Player) => authority((o) => o.fights.playerLocked(p.id.playerId));
+const held = (p: Player) =>
+  authority((o) => o.fights.ofPlayer(p.id.playerId)?.fight?.referee.held() ?? 0);
+
+/** Moves the hub's clock forward to `t` (never back). */
+export const advanceTo = (t: number) => advance(Math.max(0, t - clock.t));
+
+/** Waits (by polling the object) until the referee holds `n` frames of inputs. */
+async function holding(p: Player, n: number): Promise<void> {
+  for (let i = 0; i < 200; i++) if ((await held(p)) >= n) return;
+  throw new Error(`the referee never held ${n} frames of inputs`);
+}
+
+/**
+ * Plays the fight frame by frame for at most `frames` frames: each player sends what `plan` says
+ * one frame ahead of the frame's start; a frame with a silent player waits for its deadline.
+ */
+export async function play(
+  a: Player,
+  b: Player,
+  start: EncStart,
+  plan: Plan,
+  frames = E.timeoutFrames,
+  from = 0,
+): Promise<Played> {
+  const seen: Played = { frames: [[], []], ends: null };
+  const startOf = (f: number) => start.at + f * FRAME_MS;
+  for (let f = from; f < from + frames; f++) {
+    await advanceTo(startOf(f) - FRAME_MS);
+    const codes = plan(f, start);
+    [a, b].forEach((p, k) => {
+      const code = codes[k];
+      if (code !== null && code !== undefined) p.c.send({ t: 'input', enc: start.enc, f, i: code });
+    });
+    const sent = codes.filter((c) => c !== null).length;
+    if (sent < 2) {
+      if (sent === 1) await holding(a, 1);
+      await advanceTo(startOf(f) + E.inputDeadlineMs + 1);
+    }
+    const [fa, fb] = await within(
+      Promise.all([nextOf(a.c, 'enc-frame'), nextOf(b.c, 'enc-frame')]),
+      `frame ${f}`,
+    );
+    seen.frames[0].push(fa);
+    seen.frames[1].push(fb);
+    if (!(await locked(a))) {
+      seen.ends = await within(
+        Promise.all([nextOf(a.c, 'enc-end'), nextOf(b.c, 'enc-end')]),
+        `enc-end after frame ${f}`,
+      );
+      return seen;
+    }
+  }
+  return seen;
+}
+
+export const slotOf = (start: EncStart, p: Player) =>
+  start.fighters.findIndex((f) => f.player === p.id.playerId);
+
+/** `p`'s outcome in `end`. */
+export function outcomeOf(end: EncEnd, p: Player) {
+  const found = end.fighters.find((f) => f.player === p.id.playerId);
+  if (!found) throw new Error(`no outcome for ${p.id.playerId}`);
+  return found;
+}
+
+/** The player's life state on the object. */
+export const lifeOn = (p: Player) =>
+  authority((o) => {
+    for (const ws of o.ctx.getWebSockets()) {
+      const s = ws.deserializeAttachment() as Session | null;
+      if (s?.phase === 'active' && s.playerId === p.id.playerId) return s.life as LifeState;
+    }
+    return undefined;
+  });
+
+export const hundredths = (f: { biomass: number; energy: number; health: number }) => ({
+  biomass: Math.floor(f.biomass * 100),
+  energy: Math.floor(f.energy * 100),
+  health: Math.floor(f.health * 100),
+});
+
+/**
+ * Two players whose hatch protection is over, in a pond seeded `timeout`: no UV or pressure at
+ * `NEAR`, and a current that shears little (the seed of T1's timeout test).
+ */
+export async function fighters(): Promise<[Player, Player]> {
+  const [a, b] = await pair();
+  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", a.pond.id);
+  for (const p of [a, b]) p.pond = { ...p.pond, seed: 'timeout' };
+  return [a, b];
+}

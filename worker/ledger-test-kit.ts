@@ -76,7 +76,7 @@ export function step(ledger: Ledger, request: RecordRequest): Head {
   return must(ledger.head(request.creature));
 }
 
-export function die(ledger: Ledger, head: Head, cause = 'killed'): Head {
+export function die(ledger: Ledger, head: Head, cause = 'starved'): Head {
   return step(
     ledger,
     chainRequest(head, 'death', {

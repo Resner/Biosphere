@@ -85,6 +85,11 @@ export class OffspringFlow {
     }
   }
 
+  /** The child's egg was eaten in a fight (ADR 0052): the egg and its card go with it. */
+  eaten(): void {
+    this.clear();
+  }
+
   /** "Later": the card goes away until the next child, and `H` still works. */
   postpone(): void {
     this.later = true;

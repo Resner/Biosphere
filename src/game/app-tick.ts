@@ -121,6 +121,11 @@ export class Ticker {
       applyLife(world, player.id, 'expire');
       return;
     }
+    if (flow.killer !== null) {
+      // A fight the hub settled as a kill ends the creature here too, by the same kind of call.
+      applyLife(world, player.id, 'killed');
+      return;
+    }
     const { creature } = session.body;
     const lastClock = flow.clock(
       session.ticks,
@@ -235,6 +240,7 @@ export class Ticker {
         survivedSeconds: lived,
         peakBiomass: session.peakBiomass,
         body: bodyLabel(session.body),
+        by: app.flow.killer || null,
       };
       fx.startDissolve();
       // Never a silent death: every cause ends in the death tone.

@@ -215,6 +215,7 @@ describe('the egg at the end of the fight', () => {
     expect(a?.egg).toBe('none');
     const gain = at(enc, 0).body.biomass - before;
     expect(gain).toBeCloseTo((E.reward.share + E.egg.eatShare) * RULES.starter.biomass, 9);
+    expect(at(enc, 0).reward).toBeCloseTo(gain, 9);
   });
 
   it('is kept when the carrier stands at the timeout', () => {

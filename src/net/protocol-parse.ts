@@ -86,6 +86,7 @@ const RECORD_KINDS: Record<RecordKind, true> = {
   promote: true,
   restore: true,
   death: true,
+  encounter: true,
 };
 const isRecordKind = (v: unknown): v is RecordKind =>
   typeof v === 'string' && Object.hasOwn(RECORD_KINDS, v);

@@ -499,7 +499,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - a decoded screenshot during a windup is brighter at the attacker's front than one just before it;
       - `audio.cues` counts the windup tick, and a block with `debug.autoBrace(true)`.
 
-- [ ] T13 Results as records: kills, eaten eggs, the death fallback [opus] (after T9, T3)
+- [x] T13 Results as records: kills, eaten eggs, the death fallback [opus] (after T9, T3)
   - Steps:
     1. `src/ledger/record.ts`:
        - kind `encounter` (attested) with body `{ enc, outcome, frames, biomass, energy, health, reward }`, the condition and reward in hundredths;
@@ -509,7 +509,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     2. `worker/settle.ts` and `worker/ledger-encounter.ts`, at the end, in one SQLite transaction:
        - an `encounter` record per surviving fighter;
        - per killed or dead fighter, a checkpoint first if unsaved, then its `death` (the cause from the result);
-       - per eaten egg, the pending child's `death`, clearing `players.pending`.
+       - per eaten egg, the pending child's `death`, which takes it from `pending` to `dead` (`players.pending` is the genesis commitment, untouched).
        After the transaction, `died` (with `by`, the name, and the fallback computed after it) to each dead fighter, then `enc-end`. Settling twice writes nothing new.
     3. Client `death` reports naming `killed` or `eaten` are refused (`cause`), and `killed` is decided only by the authority.
     4. The client:
@@ -518,7 +518,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
        - its egg and the H card go because the pending child does, so this task leaves `src/game/eggs.ts` to T12, which may run beside it;
        - the lineage view lists the child as dead (eaten);
        - History lists only lives.
-    5. `m7-duel` (T11) then sees the victim's death written by the authority, not reported by the client; adjust its step, not its assertions.
+    5. `m7-duel` (T11) sees the victim's death written by the authority, not reported by the client.
   - Acceptance (tests first):
     - Record tests for each new body and matrix cell; a client-signed `eaten` death fails `checkStored`.
     - Workerd hub tests:
@@ -526,16 +526,13 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - an eaten egg writes the pending child's `death`, and the carrier's fallback no longer offers it;
       - a carrier killed with its egg falls back to its ancestor;
       - a hazard death in a fight keeps the pending child in the fallback;
-      - row writes per duel stay ≤ 2 per participant, plus 2 for a checkpoint and 2 for an eaten egg;
+      - row writes per duel stay ≤ 2 per participant, plus 1 for each death (the meter counts the `creatures_dead` index entry a status change writes), 2 for a checkpoint and 3 for an eaten egg;
       - a reconnect after the end gets the settled `life` or `died`.
     - A client unit test: a living carrier whose egg is eaten (`enc-end` with `egg: 'eaten'`) shows "Your egg was eaten" and no longer carries it.
-    - `m7-kill.spec.ts` (`@slow`, hub 8809, the M5 hooks with `MATING_SCALE`):
-      - A and B mate, so both carry eggs;
-      - B, lowered to 1 hp, is killed by A, which eats B's egg with it (targeting an egg alone needs T15's Tab);
-      - B's death screen says "Killed by A", and its fallback lists no pending child;
-      - A still carries its own egg.
+  - Done: `worker/settle.ts` and `worker/ledger-encounter.ts` (`Ledger.settle`, idempotent by `body.enc`), `Fighter.reward` (an unhashed tally), client `fight-end.ts` and `applyLife(…, 'killed')`; `m7-kill` moved to T14, since a kill in play needs T10 and T11.
+  - Gotcha: an eaten child is dead with no chain parent, so `history` and `lastDead` skip it (`LIVED`); `transitionOutcome('death', cause, …)` takes the cause as its role.
 
-- [ ] T14 Carrion and growth by kills in play (after T13, T5)
+- [ ] T14 Carrion and growth by kills in play (after T11, T13, T5)
   - Steps:
     1. `src/sim/carrion.ts`: `World.carrion` (sorted by id) and `dropCarrion(world, { enc, x, y, biomass, radius, tick })`:
        - `0.4 × biomass × 3` energy in `clamp(round(radius ÷ 3), 3, 12)` pieces;
@@ -556,6 +553,11 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - A claim test: two eaters of one piece settle by tick, and the loser gives the energy back.
     - A workerd test: a kill broadcasts `carrion` to a spectator in the pond.
     - `m7-carrion.spec.ts` (hub 8810, three contexts): after A kills B, the spectator C sees the carrion and eats a piece, and the piece is gone on A's client too.
+    - `m7-kill.spec.ts` (`@slow`, hub 8809, the M5 hooks with `MATING_SCALE`; moved from T13, whose records it checks in play):
+      - A and B mate, so both carry eggs;
+      - B, lowered to 1 hp, is killed by A, which eats B's egg with it (targeting an egg alone needs T15's Tab);
+      - B's death screen says "Killed by A", and its fallback lists no pending child;
+      - A still carries its own egg.
 
 - [ ] T15 Multi-party joins and targeting [opus] (after T12, T13, T4)
   - Steps:
@@ -608,7 +610,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 | Anatomy-driven outcomes | T2, T5 | combat tests; the win matrix in `docs/perf/combat.md` |
 | Identical results on all clients | T1, T9, T10, T11, T15 | goldens in Node, workerd and Chromium; final hashes equal in `m7-duel` and `m7-melee` |
 | Killing grows faster than plankton; size is a real advantage | T2, T5, T14 | tournament growth and size lines; `m7-carrion` |
-| A pending egg can be eaten by a predator | T3, T13 | egg sim tests; settlement hub tests; `m7-kill` |
+| A pending egg can be eaten by a predator | T3, T13, T14 | egg sim tests; settlement hub tests; `m7-kill` |
 | Multi-party joins, rewards and carrion, spawn protection and tiers, HUD and telegraphs, the tournament (outline) | T15, T14, T8, T11, T12, T5 | as listed in each task |
 
 ## End-to-end check
@@ -628,7 +630,7 @@ It checks the medium budgets throughout, and identical final hashes on every par
 
 - [ ] Lock-in feels instant: the engage ring shows in the frame of the key press, and the fight starts ≤ 300 ms after the engage reaches the authority (evidence: T11 unit test, T8 hub test).
 - [ ] The own creature responds in the frame its input is sampled, and a remote's rollback correction eases over 0.1 s rather than jumping (evidence: T10 unit tests).
-- [ ] Every strike aimed at the player is telegraphed (glow and tick) for 8 ticks, every hit flashes, every block sparks, and every death names its cause and killer (evidence: T12 and T13 E2E, `audio.cues`).
+- [ ] Every strike aimed at the player is telegraphed (glow and tick) for 8 ticks, every hit flashes, every block sparks, and every death names its cause and killer (evidence: T12 and T14 E2E, `audio.cues`).
 - [ ] No archetype wins more than 70%, genesis duels last a median of 8–25 s, and a body 1.5 × bigger wins ≥ 70% (evidence: `docs/perf/combat.md`).
 - [ ] A kill grows the winner ≥ 1.5 × as fast per minute as foraging (evidence: `docs/perf/combat.md`).
 - [ ] The combat HUD stays within the 6% budget and shows only in a fight (evidence: `m7-hud`).
