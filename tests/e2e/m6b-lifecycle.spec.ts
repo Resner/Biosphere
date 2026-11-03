@@ -224,10 +224,26 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
     ).toBeVisible();
     await expect(a.getByTestId(`${hazard}-cue`)).toHaveCount(0);
     await timeScale(a, 1);
-    await a.waitForFunction((kind) => {
-      const { shake, vignette } = (window.__bs as BsHook).render.fx();
-      return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
-    }, hazard);
+    await a
+      .waitForFunction(
+        (kind) => {
+          const { shake, vignette } = (window.__bs as BsHook).render.fx();
+          return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
+        },
+        hazard,
+        { timeout: 30_000 },
+      )
+      .catch(async (error) => {
+        // Name what the page showed, so a stall reads from the report rather than the 5 min timeout.
+        const seen = await a.evaluate(() => {
+          const bs = window.__bs as BsHook;
+          const s = bs.state();
+          return { screen: s.screen, health: s.player?.health, fx: bs.render.fx() };
+        });
+        throw new Error(`no ${hazard} shake in the ${zone}: ${JSON.stringify(seen)}`, {
+          cause: error,
+        });
+      });
     await timeScale(a, 0);
     expect(
       (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0,

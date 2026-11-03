@@ -1,9 +1,17 @@
 import type { Browser, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { RULES } from '../../src/sim/rules';
 import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './helpers';
 
 // Shared by the M7 hub specs: two hatched players, one hurt, and a fight A starts with F.
+
+/**
+ * The longest a fight can run on the wall clock: the referee plays 10 frames a second whatever the
+ * runner does, and the rules end a fight after `timeoutFrames`. A wait for the fight's end is
+ * bounded by that, with a margin, never by a guess of how long a fight usually takes.
+ */
+export const FIGHT_WALL_MS = (RULES.encounter.timeoutFrames / 10 + 15) * 1000;
 
 export async function open(browser: Browser, hub: string): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
@@ -182,7 +190,7 @@ export async function fightToEnd(
         return false;
       },
       ids.idB,
-      { timeout: 40_000, polling: 250 },
+      { timeout: FIGHT_WALL_MS, polling: 250 },
     )
     .catch(async (error) => {
       throw new Error(`the fight never ended: ${JSON.stringify(await seen(a))}`, {
