@@ -21,7 +21,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
 | Look and the gallery | 0049, 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
-| Combat and encounters | 0052, 0051, 0050, then 0011 | 0010, 0035 |
+| Combat and encounters | 0054, 0053, 0052, 0051, 0050, then 0011 | 0010, 0035 |
 
 ## Index
 
@@ -37,7 +37,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0008](0008-minimal-authority.md) | Minimal authority on Cloudflare, budgets and admission | accepted | 0017 |
 | [0009](0009-identity-and-records.md) | Identity and UTXO-like lineage records | accepted | |
 | [0010](0010-randomness.md) | Randomness from drand quicknet: commitments and outage policy | accepted | 0050 |
-| [0011](0011-combat-encounters.md) | Combat as refereed deterministic encounters | accepted, amended | 0050, 0051, 0052 |
+| [0011](0011-combat-encounters.md) | Combat as refereed deterministic encounters | accepted, amended | 0050, 0051, 0052, 0053, 0054 |
 | [0012](0012-witnesses.md) | Witnesses: drand-selected, budgeted, never final | accepted | |
 | [0013](0013-world-partition.md) | World partition: size tiers, area of interest, habitats | accepted | 0029 |
 | [0014](0014-game-pillars.md) | Game pillars: water world, controls, economy and supply control | accepted | DESIGN §3 (keys, the six core actions) |
@@ -45,7 +45,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0016](0016-shared-pond-model.md) | Shared pond model: local sim, hub clock, food claims | accepted | |
 | [0017](0017-workers-vitest-plugin.md) | Worker tests use `@cloudflare/vitest-plugin` | accepted | |
 | [0018](0018-body-seam-and-genome-sharing.md) | Body seam, genome encoding and sharing, shader gait (M3) | accepted | 0025, 0035, 0040 |
-| [0019](0019-ledger-mechanics-and-life-clock.md) | Ledger mechanics, genesis commitments and the life clock (M4) | accepted | 0025, 0029 |
+| [0019](0019-ledger-mechanics-and-life-clock.md) | Ledger mechanics, genesis commitments and the life clock (M4) | accepted | 0025, 0029, 0053 |
 | [0020](0020-single-factory-pr-guard.md) | Lowest PR number wins, enforced by CI | accepted | 0042, 0044, 0047 |
 | [0021](0021-mating-offspring-and-the-checkpoint-chain.md) | Mating, offspring and the checkpoint chain (M5) | accepted | 0022, 0052 |
 | [0022](0022-mating-cooldown-nine-minutes.md) | The mating cooldown is 9 minutes | accepted | 0029 |
@@ -76,6 +76,8 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048 |
 | [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted | |
 | [0049](0049-inherited-organ-colour.md) | The organs' second tone follows the inherited hue | accepted | |
-| [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted | |
-| [0051](0051-combat-from-anatomy-and-growth-by-kills.md) | Combat from anatomy, size as an advantage, and kills as the fast way to grow | accepted | |
+| [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted, amended | 0053 |
+| [0051](0051-combat-from-anatomy-and-growth-by-kills.md) | Combat from anatomy, size as an advantage, and kills as the fast way to grow | accepted, amended | 0054 |
 | [0052](0052-eggs-are-prey-in-encounters.md) | A carried egg is prey, eaten only in a settled encounter | accepted | |
+| [0053](0053-fights-outlast-disconnects-and-restarts.md) | Fights outlast disconnects and restarts: a saved log, recovery, reconnects, and the authority finishing an abandoned fight | accepted | |
+| [0054](0054-signed-settlements-and-victim-worth.md) | A settled encounter is a signed document over a Merkle root of its frames, and a victim's worth decays | accepted | |
