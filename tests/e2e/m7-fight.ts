@@ -192,8 +192,11 @@ export async function fightToEnd(
 export async function killB(a: Page, b: Page, ids: { idA: string; idB: string }): Promise<string> {
   let previous: string | undefined;
   for (let attempt = 0; attempt < 4; attempt++) {
-    // A whole again for each try.
+    // A whole again for each try, and B fed: a hurt B that starves dies of the water (a `died`
+    // outcome, not a kill) and cannot be engaged again. Never A: its full belly turns into growth,
+    // and B's autopilot flees from a body over 1.5 times its size.
     await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
+    await topUp(b);
     previous = await fightToEnd(a, b, ids, previous);
     const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
     if (outcomes?.includes('killed') && previous) return previous;
