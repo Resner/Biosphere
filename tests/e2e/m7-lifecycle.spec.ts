@@ -222,7 +222,8 @@ async function engage(
         await page.evaluate(
           ([who, old, code]) => {
             const w = window as unknown as { __tab?: number };
-            const gen = (w.__tab = (w.__tab ?? 0) + 1);
+            w.__tab = (w.__tab ?? 0) + 1;
+            const gen = w.__tab;
             const tab = () => {
               if (w.__tab !== gen) return;
               const e = window.__bs?.state().encounter;
