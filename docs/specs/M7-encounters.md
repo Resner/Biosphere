@@ -411,7 +411,9 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - A 30 s duel costs each participant ≤ 11 incoming messages a second.
   - Notes: records for kills and eggs are T13. Until T13, the victim's client reports its own death after `enc-end` with cause `killed`, as today.
 
-- [ ] T10 Client prediction and rollback [opus] (after T1, T6) (in progress)
+- [x] T10 Client prediction and rollback [opus] (after T1, T6) (in progress)
+  - Done: `EncounterSync` (`src/net/encounter-sync.ts`, with `encounterStartOf` and `fighterOutcomes` for the referee), `FightPlay` (`src/game/app-encounter.ts`), the scripted referee `tests/scripted-referee.ts`, `m7-determinism.spec.ts`.
+  - Gotcha: frames count from 0 (frame f starts at `at + 100 f`; `input` and `enc-frame` name it), an `enc-end`'s `f` is the frames stepped; a correction is settled at the next `step`, so a burst of late bundles costs one rollback.
   - Steps:
     1. `src/net/encounter-sync.ts`, `EncounterSync` (pure, clock passed in):
        - `start(msg, bodies)` builds `EncounterStart` from `FighterInfo` through `fighterOf(buildCreature(genome))`;

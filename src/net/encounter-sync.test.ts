@@ -11,8 +11,8 @@ import type { FrameInput } from '../sim/encounter/types';
 import {
   EASE_MS,
   type EncEndMsg,
-  type EncStartMsg,
   EncounterSync,
+  type EncStartMsg,
   encounterStartOf,
   FRAME_MS,
   type InputMsg,
@@ -57,6 +57,8 @@ interface RunOptions {
   stallMs?: number;
   /** Frames whose input from A the referee never sees. */
   lostA?: (f: number) => boolean;
+  /** A's tab is hidden over these hub times: it receives bundles but neither steps nor samples. */
+  hiddenA?: [number, number];
   /** Changes the end A receives. */
   tamper?: (end: EncEndMsg) => EncEndMsg;
   /** Runs at every client step, with the hub time. */
@@ -96,7 +98,7 @@ function play(opts: RunOptions = {}): Run {
   expect(b.start(msg, TEST_POND)).toBe(true);
   if (opts.stallAt !== undefined) downA.stallUntil = opts.stallAt + (opts.stallMs ?? 0);
   let end: EncEndMsg | null = null;
-  const limit = msg.at + 60_000;
+  const limit = msg.at + 100_000;
   for (now = msg.at - 200; now < limit && !(a.over && b.over); now += 2) {
     if (opts.stallAt !== undefined && now < opts.stallAt) downA.stallUntil = -Infinity;
     else if (opts.stallAt !== undefined) downA.stallUntil = opts.stallAt + (opts.stallMs ?? 0);
@@ -120,7 +122,8 @@ function play(opts: RunOptions = {}): Run {
       }
     }
     if (now % 16 === 0) {
-      a.step(now);
+      const hidden = opts.hiddenA && now >= opts.hiddenA[0] && now < opts.hiddenA[1];
+      if (!hidden) a.step(now);
       b.step(now);
       opts.watch?.(now, { a, b, referee, sentA });
     }
@@ -217,6 +220,24 @@ describe('EncounterSync', () => {
     expect(a.desyncs).toBe(0);
   });
 
+  it('catches up after a hidden tab, its own frames played by the autopilot', () => {
+    const at = startMsg().at;
+    let caughtUp = 0;
+    const { a, referee, end, sentA } = play({
+      hiddenA: [at + 5 * FRAME_MS, at + 25 * FRAME_MS],
+      watch: (t, r) => {
+        // The first step back simulates every frame begun while hidden.
+        if (t >= at + 25 * FRAME_MS && caughtUp === 0) caughtUp = r.a.frame;
+      },
+    });
+    const slot = referee.slotOf('pa');
+    for (let f = 8; f < 24; f++) expect(referee.bundles[f]?.[slot]).toBeNull();
+    expect(sentA.some((m) => m.f >= 7 && m.f < 25)).toBe(false);
+    expect(caughtUp).toBeGreaterThanOrEqual(25);
+    expect(a.resyncs).toBe(0);
+    expect(a.hash).toBe(end.hash);
+  });
+
   it('snaps the own fighter to a different final state and counts a desync', () => {
     let told: EncEndMsg | null = null;
     const { a, b } = play({
@@ -292,7 +313,10 @@ describe('EncounterSync', () => {
     });
     expect(sync.start(startMsg(), TEST_POND)).toBe(false);
     const broken = startMsg();
-    broken.fighters[0] = { ...(broken.fighters[0] as (typeof broken.fighters)[number]), genome: 'x' };
+    broken.fighters[0] = {
+      ...(broken.fighters[0] as (typeof broken.fighters)[number]),
+      genome: 'x',
+    };
     const me = new EncounterSync({
       me: 'pa',
       oneWayMs: () => 0,

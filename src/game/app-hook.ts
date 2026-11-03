@@ -8,6 +8,7 @@ import { SnapshotSender } from '../net/pond-sync';
 import { decodeSnapshot, genomeRefOf, parsePeerEvent } from '../net/protocol';
 import { nearestInZone } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
+import { replayEncounter } from '../sim/encounter/replay';
 import { replay } from '../sim/replay';
 import { RULES, TICK_HZ } from '../sim/rules';
 import type { FoodItem } from '../sim/types';
@@ -246,6 +247,7 @@ export function installAppHook(app: App): void {
         playerId,
         renewed: app.renewal.heard,
         visibleFood: app.food.length,
+        encounter: app.fight.view(),
         player: session.demo
           ? null
           : {
@@ -339,6 +341,7 @@ export function installAppHook(app: App): void {
       };
     },
     events: () => ({ ...app.session.counts }),
+    replayEncounter: (log) => replayEncounter(log),
     audio: { render: renderOffline, renderCue: renderCueOffline },
     replay: (log) => {
       const { hash, events } = replay(log);
