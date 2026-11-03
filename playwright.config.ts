@@ -68,6 +68,8 @@ const m7KillHubPort = 8809;
 const m7CarrionHubPort = 8810;
 // The M7 melee spec (8811): a third player joins a running fight.
 const m7MeleeHubPort = 8811;
+// The M7 lifecycle spec (8812): the whole encounter line with three players.
+const m7LifecycleHubPort = 8812;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -315,6 +317,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m7MeleeHubPort} --persist-to .wrangler/e2e-state-m7-melee`,
       url: `http://localhost:${m7MeleeHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m7LifecycleHubPort} --persist-to .wrangler/e2e-state-m7-lifecycle --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m7LifecycleHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
