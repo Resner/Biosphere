@@ -601,7 +601,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
        It follows `.claude/rules/tests.md`'s determinism rules (state waits, sim ticks), and CI repeats it 3 times before merge (ADR 0042).
     2. Sync DESIGN §2–§3, §5–§8 and §10, `docs/TESTING.md`, and `.claude/rules/{sim,net,worker}.md`: the encounter module, the referee timers, and the input rate cap.
     3. List the owner checks for the Playtest issue (the rubric's `(owner)` lines).
-  - Done: `m7-lifecycle.spec.ts` (hub 8812) runs the hatch, shimmer, mating, engage and one fight to its end whatever its outcome, with page-side peak watchers for the HUD, glows and the medium budget; DESIGN and the rules were synced task by task, TESTING gains the scenario and the port; the owner checks are the `(owner)` lines of the rubric above.
+  - Done: `m7-lifecycle.spec.ts` (hub 8812) runs the hatch, shimmer, mating, engage and one fight to its end whatever its outcome, with page-side peak watchers for the HUD and the medium budget; DESIGN and the rules were synced task by task, TESTING gains the scenario and the port; the owner checks are the `(owner)` lines of the rubric above.
   - Gotcha: the scripted version (eat the egg with Tab, escape, a three-way join, a named kill, carrion) failed in most local runs: two hatched bodies end a fight in many ways (B killed or fled early, A killed by B's autopilot, a hazard death after a drifting fight). Those paths stay in `m7-kill`, `m7-carrion`, `m7-hud`, `m7-melee`, the sim tests and the workerd settlement tests.
   - Acceptance:
     - Every exit criterion maps to a named test or report (the table below).

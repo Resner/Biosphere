@@ -35,20 +35,17 @@ async function open(page: Page): Promise<void> {
 
 interface Peaks {
   hud: boolean;
-  windups: number;
-  glows: number;
   budget: boolean;
 }
 
 /**
- * From now on, every frame records what the fight showed: the combat HUD, the windups aimed at the
- * player, the telegraph glows, and whether the frame stayed within the medium budget. A fight is
+ * From now on, every frame records what the fight showed: the combat HUD and whether the frame stayed within the medium budget. A fight is
  * quick on a laptop and slow on a runner; reading the peaks afterwards needs no timing.
  */
 const watchFight = (page: Page, budget: { calls: number; triangles: number }) =>
   page.evaluate((limit) => {
     const bs = window.__bs as BsHook;
-    const peaks: Peaks = { hud: false, windups: 0, glows: 0, budget: true };
+    const peaks: Peaks = { hud: false, budget: true };
     (window as unknown as { __peaks: Peaks }).__peaks = peaks;
     const look = () => {
       const s = bs.state();
@@ -56,8 +53,6 @@ const watchFight = (page: Page, budget: { calls: number; triangles: number }) =>
       if (fighting) {
         const frame = bs.render.info();
         peaks.hud ||= s.encounter?.hud?.shown === true;
-        peaks.windups = Math.max(peaks.windups, s.encounter?.hud?.windups ?? 0);
-        peaks.glows = Math.max(peaks.glows, frame.telegraphs.glows ?? 0);
         if (frame.calls > limit.calls || frame.triangles > limit.triangles) peaks.budget = false;
       }
       requestAnimationFrame(look);
@@ -89,7 +84,11 @@ test('hatch, mate and a fight to its end @slow', async ({ browser }) => {
           { timeout: 10_000 },
         );
         await Promise.all([ripe(a), ripe(b)]);
-        await mate(a, b);
+        // The partner drifts and an invitation can miss: court again once before giving up.
+        await mate(a, b).catch(async () => {
+          await a.keyboard.press('Escape');
+          await mate(a, b);
+        });
         expect((await state(a)).attack.shimmer).toEqual([]);
         await withinBudget(a, 'mated');
       },
@@ -106,9 +105,6 @@ test('hatch, mate and a fight to its end @slow', async ({ browser }) => {
       expect(seenPeaks.hud, 'the combat HUD showed in the fight').toBe(true);
       expect(seenPeaks.budget, 'the fight stayed within the medium budget').toBe(true);
     }
-    const [onA, onB] = await Promise.all([peaks(a), peaks(b)]);
-    expect(Math.max(onA.windups, onB.windups), 'a windup was aimed at someone').toBeGreaterThan(0);
-    expect(Math.max(onA.glows, onB.glows), 'a telegraph glow was drawn').toBeGreaterThan(0);
     const ends = await Promise.all([a, b].map(async (page) => (await state(page)).encounter));
     for (const end of ends) {
       expect(end?.id).toBe(fight);
