@@ -59,7 +59,14 @@ export type Session = (
       place: number;
     }
   | { phase: 'retired' }
-) & { openedAt: number; windowStart: number; count: number; signals: number };
+) & {
+  openedAt: number;
+  windowStart: number;
+  count: number;
+  signals: number;
+  /** A fighter's inputs in the current window (absent before its first). */
+  inputs?: number | undefined;
+};
 
 export type ActiveSession = Session & { phase: 'active' };
 export type LiveSession = Session & { phase: 'active' | 'queued' };
@@ -74,6 +81,12 @@ export function* activeSessions(
     const theirs = sessionOf(other);
     if (theirs?.phase === 'active') yield [other, theirs];
   }
+}
+
+/** The player's seated socket, if any. */
+export function seated(hub: Hub, player: string): [WebSocket, ActiveSession] | null {
+  for (const entry of activeSessions(hub)) if (entry[1].playerId === player) return entry;
+  return null;
 }
 
 /** Every signed-in socket (except `except`), seated or waiting. */

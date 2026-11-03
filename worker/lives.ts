@@ -20,7 +20,6 @@ import {
 import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import type { DeathCause } from '../src/sim/types';
-import { protectionEnds } from './fights';
 import { type Condition, conditionOf, type Exhaustion, type Head } from './ledger';
 import {
   applyReport,
@@ -29,7 +28,10 @@ import {
   creditTicks,
   isOld,
   type LifeState,
+  protectionEnds,
+  takeResult,
   unsaved,
+  type Condition as Vitals,
 } from './life';
 import { fixtureScale, matureAtMsOf as matureAtOfLifespan } from './mating';
 import { bornFor, deliverBirth } from './offspring';
@@ -39,6 +41,7 @@ import {
   causeOf,
   type Hub,
   type Session,
+  seated,
   sendIfOpen,
   signedOf,
 } from './socket';
@@ -179,22 +182,34 @@ export function progress(
     sendIfOpen(ws, { t: 'refused', reason: 'dead' });
     return;
   }
+  if (hub.fights.playerLocked(session.playerId)) {
+    // In a fight the referee owns the condition: the ticks are credited, and nothing is written
+    // (no checkpoint, and old age waits for the end).
+    const life = { ...creditTicks(session.life, msg.ticks, now), n: msg.n };
+    ack(ws, msg.n, life);
+    ws.serializeAttachment({ ...session, life } satisfies Session);
+    return;
+  }
   const { life, newFlags } = applyReport(session.life, msg, now);
   for (const kind of newFlags) {
     hub.ledger.flagImplausible(kind, session.playerId, life.creature, now);
   }
   let next = checkpointDue(life) ? checkpoint(hub, life, session.playerId) : life;
-  sendIfOpen(ws, {
-    t: 'ack',
-    n: msg.n,
-    activeMs: next.activeMs,
-    lifespanMs: next.lifespanMs,
-    matureAtMs: next.matureAtMs,
-    cooldownUntilMs: next.cooldownUntilMs,
-  });
+  ack(ws, msg.n, next);
   // Old age is decided here, on the authority's clock: the client counts down, but never has the last word.
   if (isOld(next)) next = finish(hub, ws, next, session.playerId, 'old-age');
   ws.serializeAttachment({ ...session, life: next } satisfies Session);
+}
+
+function ack(ws: WebSocket, n: number, life: LifeState): void {
+  sendIfOpen(ws, {
+    t: 'ack',
+    n,
+    activeMs: life.activeMs,
+    lifespanMs: life.lifespanMs,
+    matureAtMs: life.matureAtMs,
+    cooldownUntilMs: life.cooldownUntilMs,
+  });
 }
 
 /** A client's report that its creature died; the ticks since its last report are credited first. */
@@ -210,6 +225,8 @@ export function death(
     sendIfOpen(ws, { t: 'refused', reason: 'cause' });
     return;
   }
+  // In a fight the referee decides who dies: the report is ignored, and the client reports again after `enc-end`.
+  if (hub.fights.playerLocked(session.playerId)) return;
   if (!session.life) {
     // Nothing of this player's to end: note it once and say nothing.
     hub.ledger.flagStray(session.playerId, now);
@@ -461,8 +478,11 @@ export function checkpoint(hub: Hub, life: LifeState, owner: string): LifeState 
   return accepted.ok ? { ...life, savedMs: life.activeMs, savedN: life.n } : life;
 }
 
-/** The player's active creature (null for a new player) and when the next recorded hatch is allowed. */
-export function sendLife(hub: Hub, ws: WebSocket, playerId: string): void {
+/**
+ * The player's active creature (null for a new player) and when the next recorded hatch is allowed.
+ * `current` is the connection's own state when it is ahead of the ledger (a fight's result).
+ */
+export function sendLife(hub: Hub, ws: WebSocket, playerId: string, current?: LifeState): void {
   const head = hub.ledger.active(playerId);
   const { left, genesisIn } = hub.ledger.hatches(playerId, Date.now());
   const child = hub.ledger.pending(playerId);
@@ -470,7 +490,7 @@ export function sendLife(hub: Hub, ws: WebSocket, playerId: string): void {
   const fallback = head ? null : fallbackAfter(hub, hub.ledger.lastDead(playerId));
   sendIfOpen(ws, {
     t: 'life',
-    life: head ? lifeOf(hub, head) : null,
+    life: head ? withCurrent(lifeOf(hub, head), current) : null,
     genesisIn,
     ...(pending ? { pending } : {}),
     ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
@@ -490,5 +510,47 @@ export function sendLife(hub: Hub, ws: WebSocket, playerId: string): void {
       hatchesLeft: left,
     });
     deliverGenesis(hub, commit.id).catch(() => {});
+  }
+}
+
+/** The life as the ledger has it, with the connection's own condition and clock when it plays that creature. */
+function withCurrent(info: LifeInfo, current: LifeState | undefined): LifeInfo {
+  if (current?.creature !== info.creature) return info;
+  const { biomass, energy, health, activeMs } = current;
+  return { ...info, biomass, energy, health, activeMs };
+}
+
+/** One fighter's part of a fight's end, its condition in hundredths. */
+export interface FightEnd {
+  player: string;
+  creature: string;
+  condition: Vitals;
+  /** Escaped or stood: old age that fell due during the fight is applied now. */
+  survived: boolean;
+  /** It signed in again during the fight, and its `life` waited for the end. */
+  owed: boolean;
+}
+
+/**
+ * After `enc-end` (ADR 0050): a connected fighter's life takes the result's condition, and old age
+ * that fell due in the fight ends a survivor. A fighter who is away has the result written as a
+ * checkpoint, so its next sign-in resumes from it. The kill and egg records are M7 T13's.
+ */
+export function settleFight(hub: Hub, ends: readonly FightEnd[]): void {
+  for (const end of ends) {
+    const found = seated(hub, end.player);
+    const [ws, session] = found ?? [];
+    if (!ws || session?.life?.creature !== end.creature || session.life.over) {
+      const head = hub.ledger.head(end.creature);
+      if (head?.status === 'active' && head.owner === end.player) {
+        hub.ledger.append(head, 'checkpoint', { ...end.condition, activeMs: head.activeMs });
+      }
+      if (ws && end.owed) sendLife(hub, ws, end.player);
+      continue;
+    }
+    let life = takeResult(session.life, end.condition);
+    if (end.survived && isOld(life)) life = finish(hub, ws, life, end.player, 'old-age');
+    ws.serializeAttachment({ ...session, life } satisfies Session);
+    if (end.owed) sendLife(hub, ws, end.player, life);
   }
 }

@@ -87,7 +87,7 @@ const hubMsgs = [
     t: 'enc-end',
     enc: HEX,
     f: 312,
-    hash: HEX2,
+    hash: '13cf1b2deb89cfd6',
     fighters: [
       outcome({ outcome: 'stood', cause: null, by: null, egg: 'none', eggBy: null }),
       outcome(),
@@ -226,7 +226,9 @@ describe('encounter ranges', () => {
   it('takes ids as hex, player ids as player ids, and genomes within the text cap', () => {
     expect(hub({ ...start, enc: HEX.toUpperCase() })).toBeNull();
     expect(hub({ ...start, seed: 'ab' })).toBeNull();
-    expect(hub({ ...end, hash: `${HEX}0` })).toBeNull();
+    // The hash is the encounter's `hashEncounter`: 16 hex characters.
+    expect(hub({ ...end, hash: HEX })).toBeNull();
+    expect(hub({ ...end, hash: '13cf1b2deb89cfd' })).toBeNull();
     expect(hub({ ...lockAsk, lock: 'not-hex!' })).toBeNull();
     expect(hub({ ...lockAsk, lock: 'abc' })).toBeNull();
     expect(client({ ...lockState, lock: 'g'.repeat(32) })).toBeNull();

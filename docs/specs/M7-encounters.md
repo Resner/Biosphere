@@ -375,7 +375,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - While locked, court, accept, mate-check, promote, restore and genesis are refused `locked`.
     - No SQLite row is written by an engage (`ledger.rowsWritten` unchanged).
 
-- [ ] T9 The referee's frame clock: deadlines, fallback, bundles, the end [opus] (after T8)
+- [x] T9 The referee's frame clock: deadlines, fallback, bundles, the end [opus] (after T8)
   - Steps:
     1. `src/net/referee.ts` (pure; no DOM, Node or workerd APIs):
        - `new Referee({ startAt, slots })`;
@@ -398,7 +398,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
   - Acceptance (tests first):
     - `Referee` unit tests:
       - inputs inside the window are taken; at `start + 121 ms` one is late; 3 frames ahead one is early; a second for the same frame is a dup;
-      - a timer firing 350 ms late finalizes the 3 due frames in order;
+      - a timer firing 350 ms into the fight (frames 0–2 past their deadlines) finalizes the 3 due frames in order;
       - a slot with no input gets `null`;
       - early finalization once all are in.
     - Hub tests with an injected clock:
@@ -410,6 +410,8 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - No SQLite row is written during the fight.
     - A 30 s duel costs each participant ≤ 11 incoming messages a second.
   - Notes: records for kills and eggs are T13. Until T13, the victim's client reports its own death after `enc-end` with cause `killed`, as today.
+  - Done: `Referee` (`src/net/referee.ts`), `encounterStartOf` (`src/net/encounter-start.ts`, for T10 too), the running fight in `worker/fights.ts`, `settleFight` in `worker/lives.ts`; hub tests share `worker/fight-test-kit.ts`. An away fighter's result is written as a checkpoint at the end.
+  - Gotcha: `enc-end.hash` is `hashEncounter`'s 16 hex characters (the parser said 64); who escapes depends on whose range the other leaves first, so tests sort outcomes.
 
 - [x] T10 Client prediction and rollback [opus] (after T1, T6)
   - Done: `EncounterSync` (`src/net/encounter-sync.ts`, with `encounterStartOf` and `fighterOutcomes` for the referee), `FightPlay` (`src/game/app-encounter.ts`), the scripted referee `tests/scripted-referee.ts`, `m7-determinism.spec.ts`.
