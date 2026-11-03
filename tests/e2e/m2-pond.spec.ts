@@ -154,8 +154,9 @@ test('three players see each other move smoothly, share food and chat @slow', as
     // A and B reach the same item at once: exactly one of them keeps it, and C loses it.
     const item = await a.evaluate(() => {
       const bs = window.__bs as BsHook;
-      bs.debug?.setEnergy(10);
-      return bs.debug?.nearestFood() ?? null;
+      bs.debug?.setEnergy(100);
+      // Globules feed every mouth; a crystal gives a filter mouth nothing, and each player's DNA differs.
+      return bs.debug?.nearestFood('globule') ?? null;
     });
     expect(item).toBeTruthy();
     const { id, x, y } = item as { id: string; x: number; y: number };
@@ -168,16 +169,48 @@ test('three players see each other move smoothly, share food and chat @slow', as
       { x, y },
     );
     await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === true, id);
-    await b.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(10));
+    await b.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(100));
     await Promise.all(
       [a, b].map((p) =>
-        p.evaluate(({ x, y }) => (window.__bs as BsHook).debug?.teleport(x, y), { x, y }),
+        // Not onto the item: a mouth sits ahead of the centre by an amount that depends on the DNA,
+        // so a cell dropped on the item may not reach it. Both swim in from the same side instead.
+        p.evaluate(
+          ({ x, y }) => {
+            const debug = (window.__bs as BsHook).debug;
+            debug?.teleport(x - 50, y);
+            void debug?.steerTo({ x, y });
+          },
+          { x, y },
+        ),
       ),
     );
     // Three software-GL browsers on a busy runner tick slowly; the claims need a few frames.
-    await c.waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
-      timeout: 20_000,
-    });
+    await c
+      .waitForFunction((id) => (window.__bs as BsHook).debug?.hasFood(id) === false, id, {
+        timeout: 20_000,
+      })
+      .catch(async (error) => {
+        const looks = await Promise.all(
+          [a, b, c].map((p) =>
+            p.evaluate((id) => {
+              const bs = window.__bs as BsHook;
+              const s = bs.state();
+              return {
+                has: bs.debug?.hasFood(id),
+                tick: s.tick,
+                player: s.player,
+                energy: s.player?.energy,
+                steps: bs.events(),
+                screen: s.screen,
+                remotes: s.remotes.length,
+              };
+            }, id),
+          ),
+        );
+        throw new Error(`the contested item stayed: ${JSON.stringify({ item, looks })}`, {
+          cause: error,
+        });
+      });
     // Count the bites each keeps (eaten minus given back). The loser's "stolen" event travels over
     // the channel, so wait for the count to settle at one, then check that it holds.
     const gained = async () => (await bitesKept(a, id)) + (await bitesKept(b, id));
