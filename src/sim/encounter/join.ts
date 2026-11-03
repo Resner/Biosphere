@@ -28,8 +28,14 @@ export function joinFighter(enc: Encounter, start: FighterStart, f: number): num
   return slot;
 }
 
-/** Seats every join due before frame `enc.frame`, in the order given. */
+/**
+ * Seats every join due before frame `enc.frame`, in the order given; one already seated is not
+ * seated again, so a caller may apply the joins more than once at a frame.
+ */
 export function applyJoins(enc: Encounter, joins: readonly EncounterJoin[] | undefined): void {
   if (!joins) return;
-  for (const j of joins) if (j.f === enc.frame) joinFighter(enc, j.fighter, j.f);
+  for (const j of joins) {
+    if (j.f !== enc.frame || enc.fighters.some((x) => x.creature === j.fighter.creature)) continue;
+    joinFighter(enc, j.fighter, j.f);
+  }
 }
