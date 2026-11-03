@@ -44,6 +44,7 @@ import { Hatcher } from './body';
 import { pick } from './dom';
 import { EggShow } from './eggs';
 import { createFieldSync } from './field';
+import { FightResume } from './fight-resume';
 import { GrowthWatch } from './growth';
 import { Hints } from './hints';
 import { HistoryPanel } from './history';
@@ -239,6 +240,8 @@ export class App {
   readonly attack: AttackUi;
   /** The fight's HUD, telegraphs, eggs and cues (M7 T12). */
   readonly fightShow: FightShow;
+  /** A running fight the hub named on the title, and its messages until "Back to the fight" (M8 T10). */
+  readonly resume: FightResume;
   readonly sender: SnapshotSender;
   readonly genomeSync: GenomeSync;
   /** Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`. */
@@ -425,6 +428,9 @@ export class App {
     this.fight = new FightPlay(appFightHost(this));
     this.attack = new AttackUi(this);
     this.fightShow = new FightShow(this);
+    this.resume = new FightResume(
+      (id) => (this.fight.fighting && this.fight.sync?.id === id) || this.playing(),
+    );
     this.sender = new SnapshotSender((bytes, signed) =>
       this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids),
     );
@@ -475,6 +481,7 @@ export class App {
     this.screens = new Screens({
       hatch: () => this.life.hatch(),
       choose: (choice) => this.life.become(choice),
+      resume: () => this.life.resumeFight(),
       practice: () => {
         this.limitUntil = 0;
         this.flow.practice();
