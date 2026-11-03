@@ -3,7 +3,7 @@ import { verifySnap } from '../ledger/snapshot-sig';
 import { consumedParts } from '../net/claims';
 import type { PondClock } from '../net/clock';
 import type { Welcome } from '../net/hub-client';
-import { type SnapshotFields, snapshotOf } from '../net/pond-sync';
+import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
 import { encodeSnapshot, type PeerEvent } from '../net/protocol';
 import { SignedSnaps } from '../net/signed-snaps';
 import { createWorld } from '../sim/world';
@@ -31,7 +31,12 @@ export class OnlineWiring {
   readonly signer: CandidateSigner;
   /** Each peer's newest signed snapshot, verified on receipt, to forward at an engage (M7 T8). */
   readonly signed: SignedSnaps;
-  private readonly marks = { ready: false, egg: false, spawnProtected: false, fighting: false };
+  private readonly marks: SnapshotMarks = {
+    ready: false,
+    egg: false,
+    spawnProtected: false,
+    fighting: false,
+  };
 
   constructor(private readonly app: App) {
     this.signer = new CandidateSigner(() => {
