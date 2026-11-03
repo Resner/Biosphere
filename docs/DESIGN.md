@@ -67,6 +67,7 @@ Death is common and never total: you fall back to your pending offspring or your
 | Menu | the menu button in the top-left corner | Esc |
 
 - **Engaging**: a spawn-protected creature shimmers faintly and gets no glyph, and a fighting one (its snapshot's mark) no court prompt. A refused engage shows a short toast: "Protected for 12 s", "Too big to fight" (or "Too small"), "Too far", "Already fighting". The combat keys (1–3, Shift, the right button) work only while locked in a fight.
+- **The combat HUD** (`src/game/combat-hud.ts`), only while locked in a fight: four 28 px glass buttons in the bottom centre, the three stances with their keys (the current one lit by a thicker warm frame) and the brace with its key and a ring that runs down its 2 s cooldown (dim without the energy for it). In the world, a thin arc round each opponent (1.3 of its radii out) shows its health, and a dashed ring round the player (1.55 radii) fills over the 3 s it must stay out of every opponent's escape range to escape. The size and life bars step aside while the fight lasts, so the HUD keeps within its 6%.
 - **Core actions** (ADR 0014's six): steer, dash, court, attack, the social wheel and the menu. Every other key is a shortcut for something the screen also offers (the Offspring card, the minimap, the wheel's emotes, the combat HUD); chat is the one that needs typing.
 - **Camera**: top-down, following the creature. The visible half-height is `9 · R^0.9 · (r / R)^0.6` wu (ADR 0029), where `r` is the creature's radius and `R` the radius at its genetic maximum biomass. An adult sees `9 · R^0.9` (about 134 wu for the starter, whose `R` is 20), and a smaller creature sees less, so growth shows within one life (tripling the radius makes it 3^0.4 ≈ 1.55× larger on screen).
 
@@ -294,7 +295,11 @@ Values in `RULES.encounter` (`src/sim/rules.ts`), tuned by the combat tournament
 | Hazard near | hazard outline brightens | rumble (44 Hz tone under dark noise), once as a plume's edge comes within 2 body radii (again after 3), placed at the plume |
 | UV or pressure | the damage hits, and a minimap icon | with a hit, UV a thin high sizzle, pressure a low falling squeeze, at most once a second |
 | Dash | ripple | whoosh: noise sweeping up from 500 Hz to 2.4 kHz |
-| Windup aimed at you (M7) | glow on the attacker's weapon | rising tick |
+| Windup aimed at you (M7) | the attacker's front and weapon tips glow, from an eighth on its first tick to full on its last | a short rising tick, once per windup aimed at you or your egg |
+| Strike landed (M7) | the target flashes red (your own body through the damage hits) | the hit thud, through the damage hits for you, at most every 0.5 s per opponent |
+| Block (M7) | a glassy spark where the strike met the brace; the staggered attacker wobbles | a glassy clink |
+| Kill, egg eaten (M7) | the egg cracks with its lost health and shatters when eaten | a kill a low gulp (not for the victim, who hears the death tone); an eaten egg a dry crack |
+| Another fight (M7) | a faint broken ring round each creature fighting elsewhere (its snapshot's mark); a remote whose snapshot health drops by 4% flashes | — |
 | Death | dissolve; death screen naming the cause | descending tone, 440 to 140 Hz (1.5 s), for every cause |
 | Old age | a dashed life bar, the stage word, "Feeling old" toast at 85% of the lifespan | slow low swell (2 s) |
 | Court, mate, hatch | bioluminescent dance; at the commitment the body shrinks with a pulse and the bars drain; egg crack | court a chime of two soft bells; mate a bright rising triad; hatch two dry cracks and a soft pop |
@@ -305,6 +310,8 @@ Values in `RULES.encounter` (`src/sim/rules.ts`), tuned by the combat tournament
 Never a silent death: every source of damage and every death cause has a cue.
 
 Presentation timings (`FX` in `src/render/effects.ts`): eat pop 0.55 s, dash ripple 0.85 s, death dissolve 1.2 s before the death screen, mating cost shrink 0.7 s; each damage hit flashes the body red for 0.15 s, from at least 40% (plus 5% per hit point the hit carries).
+
+Fight telegraphs (`TELEGRAPH` in `src/render/telegraph.ts`, `src/game/fight-cues.ts`): a windup's glow sits 0.85 of the attacker's radius ahead of its centre, 1.1 radii across, with one more on each weapon tip (a weapon reaching past 1.05 radii; one tip straight ahead under a half-angle of 0.2 rad, else one at each edge of its arc), warm amber reddening as the strike nears. A landed hit flashes its target red for 0.3 s. A block's spark is 1.2 of the struck body's radii and flies for 0.4 s; the staggered attacker's heading wobbles 0.3 rad at 9 Hz over its 0.3 s stagger. A creature fighting elsewhere wears a broken ring at 1.7 of its radii. In a fight, the carried egg is drawn where the encounter has it, its cracks running with the share of its health lost; eaten, it shatters over 0.5 s with 6 shards. Reduce motion drops the wobble, the shards and the kicks; the flashes, glows, sparks and sounds remain.
 
 Damage hits (`SHAKE` in `src/render/shake.ts`): while damage of any cause arrives it lands as distinct hits, at most one every 0.5 s of sim time (15 ticks), the first at once. Each hit kicks the camera 2 px, up to 3.5 px for 6 hp or more taken since the last hit, and knocks the body 0.06 of its radius the other way, the direction turning by the golden angle from hit to hit; both ease back to rest over 0.35 s, and between hits everything is still. Each hit also flashes the body a deep red for 0.3 s, flashes the health bar and plays the thud. Only the scene moves: the sim, the HUD and the DOM stay put. Reduce motion drops the kicks; the flash and the sound remain.
 
