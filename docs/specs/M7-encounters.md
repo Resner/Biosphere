@@ -630,7 +630,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
 - a kill named on the death screen, with the fallback;
 - carrion eaten.
 
-It checks the medium budgets throughout, and identical final hashes on every participant at each fight's end. The fast PR suite carries `m7-determinism`, `m7-duel`, `m7-hud`, `m7-carrion` and `m7-melee`.
+It checks the medium budgets throughout, and identical final hashes on every participant at each fight's end. The fast PR suite carries `m7-determinism`, `m7-duel`, `m7-hud` and `m7-carrion`; `m7-melee` (three contexts, about a minute) is `@slow` and runs in `test:e2e:full`, and CI repeats it when it changes.
 
 ## Rubric
 

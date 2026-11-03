@@ -33,7 +33,7 @@ async function settled(page: Page): Promise<void> {
   });
 }
 
-test('C joins A and B’s fight, and all three clients’ hashes equal the referee’s', async ({
+test('C joins A and B’s fight, and all three clients’ hashes equal the referee’s @slow', async ({
   browser,
 }) => {
   test.setTimeout(180_000);
@@ -88,8 +88,19 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     await pressed.catch(async (error) => {
       throw new Error(`C never saw B fighting: ${JSON.stringify(await seen(c))}`, { cause: error });
     });
-    await c
-      .waitForFunction((id) => window.__bs?.state().encounter?.id === id, enc, { timeout: 10_000 })
+    // The first press can miss (B drifted off C's reach as the engage travelled): press again while
+    // B is still fighting, until the hub seats C.
+    await expect(async () => {
+      const joined = await c.evaluate((id) => window.__bs?.state().encounter?.id === id, enc);
+      if (joined) return;
+      await parkOpposite(c, ids.idB);
+      await settled(c);
+      await c.keyboard.press('f');
+      await c.waitForFunction((id) => window.__bs?.state().encounter?.id === id, enc, {
+        timeout: 4_000,
+      });
+    }, 'C joins the fight')
+      .toPass({ timeout: 40_000 })
       .catch(async (error) => {
         throw new Error(`C never joined: ${JSON.stringify(await seen(c))}`, { cause: error });
       });

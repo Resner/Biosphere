@@ -17,6 +17,7 @@ export const seen = (page: Page) =>
     const s = (window.__bs as BsHook).state();
     return {
       screen: s.screen,
+      toast: s.toast,
       player: s.player && { x: s.player.x, y: s.player.y, health: s.player.health },
       remotes: s.remotes.map(({ id, x, y, radius, alpha, protected: p, fighting }) => ({
         id,
