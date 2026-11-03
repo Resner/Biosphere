@@ -64,6 +64,7 @@ export function startMsg(at = 10_000, x = 5200, y = 3000): EncStartMsg {
     health: maxHealth(biomass),
     elder: false,
     egg: false,
+    worth: 1,
   });
   return {
     t: 'enc-start',

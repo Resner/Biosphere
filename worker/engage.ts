@@ -355,6 +355,8 @@ function fighterInfo(hub: Hub, side: Side, world: World, t0: number): FighterInf
     health: side.condition.health / HUNDREDTHS,
     elder: life.activeMs >= RULES.life.elderAt * life.lifespanMs,
     egg: hub.ledger.pending(side.player) !== null,
+    // Every fighter is worth 1 until farming sets it (M8 T7).
+    worth: 1,
   };
 }
 

@@ -8,6 +8,10 @@ export const PLAYER_ID_RE = /^[A-Za-z0-9_-]{43}$/;
 /** An Ed25519 signature (64 bytes) in base64url. */
 export const SIG_RE = /^[A-Za-z0-9_-]{86}$/;
 export const HEX64_RE = /^[0-9a-f]{64}$/;
+/** An authority key id: 6 bytes of base64url. */
+export const KEY_ID_RE = /^[A-Za-z0-9_-]{8}$/;
+/** A pond id or seed. */
+export const ID_RE = /^[A-Za-z0-9_-]{1,64}$/;
 export const GENOME_DATA_RE = new RegExp(`^[A-Za-z0-9_-]{1,${GENOME_DATA_MAX_CHARS}}$`);
 
 export const MAX_TICK = 0xffffffff;

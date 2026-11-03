@@ -48,6 +48,7 @@ function joinerInfo(): FighterInfo {
     health: maxHealth(biomass),
     elder: false,
     egg: false,
+    worth: 1,
   };
 }
 

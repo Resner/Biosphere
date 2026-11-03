@@ -1,6 +1,6 @@
 import * as ed from '@noble/ed25519';
 import { sha512 } from '@noble/hashes/sha2.js';
-import { SIGNATURE_BYTES } from '../net/protocol-defs';
+import { PLAYER_KEY_BYTES, SIGNATURE_BYTES } from '../net/protocol-defs';
 import { decodeRecoveryCode, encodeRecoveryCode } from './recovery';
 
 // Browser identity (ADR 0009): an Ed25519 seed per profile, `playerId` = base64url of the public
@@ -8,7 +8,6 @@ import { decodeRecoveryCode, encodeRecoveryCode } from './recovery';
 ed.hashes.sha512 = sha512;
 
 const SEED_BYTES = 32;
-const KEY_BYTES = 32;
 const SEPARATOR = 0x0a;
 
 /** Domain tag of the signed hello (ADR 0009). */
@@ -87,11 +86,22 @@ export function isPlayerId(text: string): boolean {
   return publicKeyOf(text) !== null;
 }
 
+/** True when `key` is the canonical encoding of an Ed25519 point: a key some player could hold. Never throws. */
+export function isPlayerKey(key: Uint8Array): boolean {
+  if (key.length !== PLAYER_KEY_BYTES) return false;
+  try {
+    ed.Point.fromBytes(key, false);
+    return true;
+  } catch {
+    return false;
+  }
+}
+
 /** The public key a playerId names, or null when it is not 43 base64url characters. */
 function publicKeyOf(playerId: string): Uint8Array | null {
   if (!/^[A-Za-z0-9_-]{43}$/.test(playerId)) return null;
   const bytes = fromBase64Url(playerId);
-  return bytes?.length === KEY_BYTES ? bytes : null;
+  return bytes?.length === PLAYER_KEY_BYTES ? bytes : null;
 }
 
 /** What a hello signs: the hub's challenge nonce bytes followed by the UTF-8 name. */
