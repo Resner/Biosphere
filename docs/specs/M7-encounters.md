@@ -561,7 +561,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - B's death screen says "Killed by A", and its fallback lists no pending child;
       - A still carries its own egg.
 
-- [ ] T15 Multi-party joins and targeting [opus] (after T12, T13, T4)
+- [ ] T15 Multi-party joins and targeting [opus] (after T12, T13, T4) (in progress)
   - Steps:
     1. `src/sim/encounter/join.ts`: `joinFighter(enc, start, f)` adds the next slot at frame f. The referee's bundles then carry one more input.
     2. `worker/engage.ts`: an engage where one side is already locked joins that fight, if it has fewer than 4 fighters. The checks are as at lock-in, plus `engage:full`. It joins at the current frame + 2, with `enc-join` to everyone and `enc-start` to the joiner. A pair already in different fights is refused `locked`.
