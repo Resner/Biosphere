@@ -136,14 +136,14 @@ export class OnlineWiring {
           app.mate.attach(link);
         },
         life(msg) {
-          // An engage's refusal is the attack's alone (M7 T11).
-          const engage =
-            msg.t === 'refused' &&
-            (msg.reason.startsWith('engage:') ||
-              (msg.reason === 'no-creature' && app.attack.waiting));
-          if (engage) {
-            app.attack.refused(msg.reason);
-            return;
+          // An engage's refusal is the attack's alone (M7 T11); a bare 'no-creature' may also be
+          // the life flow's, so it reaches both.
+          if (msg.t === 'refused') {
+            if (msg.reason.startsWith('engage:')) {
+              app.attack.refused(msg.reason);
+              return;
+            }
+            if (msg.reason === 'no-creature' && app.attack.waiting) app.attack.refused(msg.reason);
           }
           app.flow.receive(msg);
           app.mate.receive(msg);
