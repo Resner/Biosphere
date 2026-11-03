@@ -81,12 +81,16 @@ function topSpeed(phys: PhysStats, biomass: number): number {
   return (m.thrust * phys.thrust * scale) / (m.drag * phys.drag) + RULES.currents.maxSpeed;
 }
 
-/** A snapshot's condition in hundredths (it carries energy and health as shares of their maximum). */
+/**
+ * A snapshot's condition in hundredths (it carries energy and health as shares of their maximum).
+ * A living body starts with at least one hundredth of health: at 0 a kill would name nobody, and
+ * the settlement would refuse the death record.
+ */
 function claimOf(s: Snapshot): Condition {
   return {
     biomass: Math.floor(s.biomass * HUNDREDTHS),
     energy: Math.floor(s.energy * maxEnergy(s.biomass) * HUNDREDTHS),
-    health: Math.floor(s.health * maxHealth(s.biomass) * HUNDREDTHS),
+    health: Math.max(1, Math.floor(s.health * maxHealth(s.biomass) * HUNDREDTHS)),
   };
 }
 

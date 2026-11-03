@@ -607,6 +607,12 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - Every exit criterion maps to a named test or report (the table below).
     - Each PR E2E part stays under 5 minutes, and the long scenarios are `@slow`.
 
+### Close review
+
+- [x] T17 A start state never has zero health (after T16)
+  - Done: `claimOf` in `worker/engage.ts` starts a living body with at least one hundredth of health, so a kill always has a killer and `settle` never throws on `missing:by` (test: `start states at the floor`).
+  - Gotcha: the close review also found, and leaves for M8's settlement work: a failed settlement still marks the victim's life `over` without a `died`; a join isn't tier-checked against the other fighters, nor against fighters who already escaped; `progress` during a fight leaves the life `unsaved`; carrion piece ids hash only 8 bits of the death position.
+
 ## Exit criteria → evidence
 
 | Exit criterion (ROADMAP) | Tasks | Evidence |

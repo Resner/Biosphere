@@ -235,6 +235,15 @@ describe('start states', () => {
   });
 });
 
+describe('start states at the floor', () => {
+  it('starts a body whose health share rounds to nothing with one hundredth, so a kill always names a killer', async () => {
+    const [a, b] = await pair();
+    const [start] = await lockIn(a, b, undefined, snap(a, ...NEAR.a, { health: 0 }));
+    const fa = start.fighters.find((f) => f.player === a.id.playerId);
+    expect(fa?.health).toBeGreaterThan(0);
+  });
+});
+
 describe('while locked', () => {
   const signed = (who: Identity, req: RecordRequest) =>
     toBase64Url(who.sign(REQUEST_DOMAIN, requestMessage(req)));
