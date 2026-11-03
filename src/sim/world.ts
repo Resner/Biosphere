@@ -21,6 +21,7 @@ export function createWorld(opts: WorldOptions): World {
     size: opts.size ?? RULES.world.size,
     creatures: [],
     consumed: {},
+    carrion: [],
     options: { currents: opts.currents ?? true, hazards: opts.hazards ?? true },
     extraPlumes: [],
   } satisfies World;

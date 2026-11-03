@@ -8,6 +8,7 @@ import { Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import type { Encounter } from '../src/sim/encounter/types';
 import type { Asking } from './engage';
+import type { PondRow } from './schema';
 import { settle, tell } from './settle';
 import { type ActiveSession, type Hub, seated } from './socket';
 
@@ -32,6 +33,9 @@ export interface Fight {
   players: string[];
   /** Each slot's player name at the start ('' when it was away), for `died` to name a killer. */
   names: string[];
+  /** The pond it is fought in and the pond tick it started at, to place a kill's carrion. */
+  pond: string;
+  t0: number;
 }
 
 /** One lock: asking the target for its state, then running from `enc-start`. */
@@ -137,8 +141,13 @@ export class Fights {
  * Starts the fight of `msg` (just sent to both): the referee's clock from frame 0 at `msg.at`, and
  * the authority's encounter from the same start every client builds. False when it can't be built.
  */
-export function runFight(hub: Hub, lock: Lock, msg: EncStart, pondSeed: string): boolean {
-  const start = encounterStartOf(msg, pondSeed);
+export function runFight(
+  hub: Hub,
+  lock: Lock,
+  msg: EncStart,
+  pond: Pick<PondRow, 'id' | 'seed'>,
+): boolean {
+  const start = encounterStartOf(msg, pond.seed);
   if (!start) return false;
   const enc = createEncounter(start);
   lock.fight = {
@@ -146,6 +155,8 @@ export function runFight(hub: Hub, lock: Lock, msg: EncStart, pondSeed: string):
     enc,
     players: enc.fighters.map((f) => f.player),
     names: enc.fighters.map((f) => seated(hub, f.player)?.[1].name ?? ''),
+    pond: pond.id,
+    t0: msg.t0,
   };
   armNext(hub, lock);
   return true;

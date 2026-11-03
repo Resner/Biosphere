@@ -60,12 +60,14 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
     const idA = (await state(a)).playerId as string;
     const idB = (await state(b)).playerId as string;
 
-    // B somewhere calm (no UV or pressure), at a third of its health.
+    // B somewhere calm (no UV or pressure), at 60% of its health: its autopilot plays whenever its
+    // tab is hidden and flees below `caution × 0.6` of its health, so a lower share leaves a
+    // cautious genome running (the fight then ends in an escape, not a kill).
     await b.evaluate(() => {
       const debug = (window.__bs as BsHook).debug;
       const p = (window.__bs as BsHook).state().player;
       debug?.setZone('twilight');
-      if (p) debug?.setHealth(p.health * 0.3);
+      if (p) debug?.setHealth(p.health * 0.6);
     });
     await a
       .waitForFunction(

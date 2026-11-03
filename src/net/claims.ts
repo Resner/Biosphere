@@ -61,7 +61,10 @@ export class ClaimBook {
 
 /** The eaten slots as `consumed` messages of at most 40 entries, in a stable order. */
 export function consumedParts(world: World): ConsumedEvent[] {
-  const slots = Object.keys(world.consumed).sort();
+  // Carrion ids are not food slots: a late joiner never learns of the drop, so it has no use for them.
+  const slots = Object.keys(world.consumed)
+    .filter((slot) => isFoodSlot(world, slot))
+    .sort();
   const of = Math.max(1, Math.ceil(slots.length / CONSUMED_MAX_ENTRIES));
   const parts: ConsumedEvent[] = [];
   for (let part = 0; part < of; part++) {

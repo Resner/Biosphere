@@ -141,7 +141,7 @@ async function outOfReach(a: Player, b: Player): Promise<EncStart> {
       0,
       () => {},
     );
-    expect(runFight(o, lock, msg, a.pond.seed)).toBe(true);
+    expect(runFight(o, lock, msg, a.pond)).toBe(true);
     for (const ws of o.ctx.getWebSockets()) {
       const s = ws.deserializeAttachment() as Session | null;
       if (s?.phase === 'active') ws.send(JSON.stringify(msg));

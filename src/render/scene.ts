@@ -1,7 +1,7 @@
 import * as THREE from 'three';
 import { depthAt } from '../sim/bathymetry';
 import type { Seed } from '../sim/prng';
-import type { FoodItem, Plume } from '../sim/types';
+import type { CarrionPiece, FoodItem, Plume } from '../sim/types';
 import { BodyLayer } from './body-layer';
 import { topDownCamera } from './camera';
 import { Cell, type CellView } from './cell';
@@ -92,6 +92,8 @@ export interface RenderInfo extends PostInfo {
   calls: number;
   triangles: number;
   foodInstances: number;
+  /** Carrion pieces drawn (M7). */
+  carrionInstances: number;
   /** Other players' cells drawn this frame. */
   remoteCells: number;
   /** Other players drawn with their genome's body. */
@@ -290,7 +292,7 @@ export class GameScene {
       [this.pools.mesh, ORDER.glows],
       [this.far.points, ORDER.far],
       [this.plumes.mesh, ORDER.plumes],
-      ...this.food.meshes.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
+      ...this.food.all.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
       [this.cell.flagellum, ORDER.cell],
       [this.cell.body, ORDER.cell + 0.5],
       [this.eggs.mesh, ORDER.eggs],
@@ -393,8 +395,13 @@ export class GameScene {
   }
 
   /** Replaces the food and plumes to draw; call when the sim ticks, not every frame. */
-  setField(food: readonly FoodItem[], plumes: readonly Plume[]): void {
+  setField(
+    food: readonly FoodItem[],
+    plumes: readonly Plume[],
+    carrion: readonly CarrionPiece[],
+  ): void {
     this.food.set(food);
+    this.food.setCarrion(carrion);
     this.plumes.set(plumes);
   }
 
@@ -584,6 +591,7 @@ export class GameScene {
       calls: render.calls,
       triangles: render.triangles,
       foodInstances: this.food.instances(),
+      carrionInstances: this.food.carrionInstances(),
       remoteCells: this.remotes.count(),
       remoteBodies: this.remotes.bodyCount(),
       playerBody: this.body.shown(),

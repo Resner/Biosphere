@@ -62,6 +62,10 @@ const m6cLifecycleHubPort = 8806;
 const m7DuelHubPort = 8807;
 // The M7 HUD spec (8808): a duel with the combat HUD, the telegraphs and the fight's cues.
 const m7HudHubPort = 8808;
+// The M7 kill spec (8809), with the M5 hooks: a mating, then a kill that eats the victim's egg.
+const m7KillHubPort = 8809;
+// The M7 carrion spec (8810): a kill seen by a spectator, who eats a piece.
+const m7CarrionHubPort = 8810;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -291,6 +295,18 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m7HudHubPort} --persist-to .wrangler/e2e-state-m7-hud`,
       url: `http://localhost:${m7HudHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m7KillHubPort} --persist-to .wrangler/e2e-state-m7-kill --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m7KillHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m7CarrionHubPort} --persist-to .wrangler/e2e-state-m7-carrion`,
+      url: `http://localhost:${m7CarrionHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

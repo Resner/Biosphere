@@ -227,3 +227,8 @@ export function smoothstep(from: number, to: number, x: number): number {
 export function length(x: number, y: number): number {
   return Math.sqrt(x * x + y * y);
 }
+
+/** Piecewise-linear value of `t` (0 to 1) through three anchors: `low` at 0, `mid` at 0.5, `high` at 1. */
+export function lerp3(low: number, mid: number, high: number, t: number): number {
+  return t <= 0.5 ? lerp(low, mid, t * 2) : lerp(mid, high, (t - 0.5) * 2);
+}

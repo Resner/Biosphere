@@ -8,6 +8,7 @@ import {
   type EncStart,
   fighters,
   hundredths,
+  join,
   lifeOn,
   lockIn,
   NEAR,
@@ -108,6 +109,30 @@ describe('a kill', () => {
     expect((await lifeOn(b))?.over).toBe(true);
   });
 
+  it('broadcasts the victim’s carrion to the whole pond, spectators included', async () => {
+    const [a, b] = await fighters();
+    const spectator = await join();
+    expect(spectator.pond.id).toBe(a.pond.id);
+    const [seenA, seenC] = [log(a.c), log(spectator.c)];
+    const { start, end } = await killB(a, b);
+    const victim = outcomeOf(end, b);
+    for (const seen of [seenA, seenC]) {
+      const dropped = seen.filter((m) => m.t === 'carrion');
+      expect(dropped).toHaveLength(1);
+      expect(dropped[0]).toEqual({
+        t: 'carrion',
+        enc: start.enc,
+        x: victim.x,
+        y: victim.y,
+        biomass: victim.biomass,
+        radius: Math.sqrt(victim.biomass),
+        tick: start.t0 + end.f * E.frameTicks,
+      });
+    }
+    // A spectator hears nothing else of the fight.
+    expect(seenC.filter((m) => m.t === 'enc-end' || m.t === 'died')).toHaveLength(0);
+  });
+
   it('eats the victim’s egg with it: the pending child dies, and the killer keeps its own', async () => {
     const [a, b] = await fighters();
     // Both carry a pending child, as after a mating.
@@ -152,7 +177,11 @@ describe('a kill', () => {
     await nextOf(back.c, 'welcome');
     const seen = log(back.c);
     const { end } = await killB(a, { ...b, c: back.c }, start);
-    expect(seen.filter((m) => m.t !== 'enc-frame').map((m) => m.t)).toEqual(['died', 'enc-end']);
+    expect(seen.filter((m) => m.t !== 'enc-frame').map((m) => m.t)).toEqual([
+      'died',
+      'enc-end',
+      'carrion',
+    ]);
 
     // After the end, the killer comes back to its settled condition, and the victim to nothing.
     a.c.ws.close(1000, 'reload');
