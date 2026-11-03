@@ -209,7 +209,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: protocol 8 parsers (`protocol-encounter.ts`, tests in `protocol-fight.test.ts`), the settlement types in `src/ledger/settlement.ts`, `FIGHTER_WORTHS` in sim types, and the proxy codec, whose key must decode as an Ed25519 point (`isPlayerKey`).
   - Gotcha: an `enc-end` settlement must name its encounter and hash, with one result per fighter; `PeerMesh` drops proxy frames unread until T11 adds the receiver.
 
-- [ ] T4 Settlement documents, the Merkle root and `verifyEncounter` [opus] (after T1, T3)
+- [ ] T4 Settlement documents, the Merkle root and `verifyEncounter` [opus] (after T1, T3) (in progress)
   - Steps:
     1. `src/ledger/settlement.ts` (ADR 0054):
        - `frameLeaf` and the RFC 6962 tree (`merkleRoot`, `merkleProof`, `verifyProof`);
