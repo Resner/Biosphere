@@ -334,7 +334,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - The `lock-ask` answer leaves within the same tick, through a fake hub.
     - `speedTest`: signing one snapshot takes under 1 ms in Node.
 
-- [x] T8 Lock-in on the authority: engage, checks, start states, locks, spawn protection [opus] (after T1, T6) (in progress)
+- [x] T8 Lock-in on the authority: engage, checks, start states, locks, spawn protection [opus] (after T1, T6)
   - Done: `worker/engage.ts` (checks, `lock-ask`, start states), `worker/fights.ts` (`Fights`, the `Clock` on `hub.clock`), `clampClaim` in `worker/life.ts`, `Beacons.newestKnown`, `src/ledger/encounter.ts`. FighterInfo conditions are in wu, not hundredths.
   - Gotcha: a genomeRef mismatch or a dead snapshot refuses `engage:stale`, an attacker without a creature `no-creature`; hub tests swap `authority.clock` and reset `authority.fights` per test.
   - Steps:
