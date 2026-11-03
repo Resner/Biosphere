@@ -78,7 +78,7 @@ async function joinerHears(
 describe('joins', () => {
   it('a third player joins at the current frame + 2 from its signed snapshot, and every hash agrees', async () => {
     const [a, b, c] = (await players(3)) as [Player, Player, Player];
-    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.3, energy: 0 }));
+    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.5, energy: 0 }));
     // Two frames are final before C engages.
     await advanceTo(start.at + FRAME_MS + E.inputDeadlineMs + 1);
     await Promise.all([nextOf(a.c, 'enc-frame'), nextOf(a.c, 'enc-frame')]);
@@ -103,8 +103,9 @@ describe('joins', () => {
     expect(Math.abs(f.y - 1012)).toBeLessThan(drift(ticks));
     expect(await locked(c)).toBe(true);
 
-    // Everyone idles until the fight is over (C, with no energy, starves; A's nips reach B). All
-    // three hear the same bundles, three wide from the join on, and the same end.
+    // Everyone idles until the fight is over: C and B have no energy and starve (B's 50 hp outlast
+    // any hatched body's first strike, so the fight is still on at the join), A's nips may speed B
+    // on. All three hear the same bundles, three wide from the join on, and the same end.
     const frames: EncFrame[] = [...heard.frames];
     const ends: EncEnd[] = [];
     for (let k = 2; k < E.timeoutFrames && ends.length === 0; k++) {
