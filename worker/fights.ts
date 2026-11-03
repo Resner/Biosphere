@@ -52,8 +52,9 @@ export interface Fight {
   joins: EncounterJoin[];
   /** Every `enc-frame` and `enc-join` sent so far, in order: a joiner's catch-up. */
   history: HubMsg[];
-  /** The pond it is fought in and the pond tick it started at, to place a kill's carrion. */
+  /** The pond it is fought in (its id and seed) and the pond tick it started at, to place a kill's carrion. */
   pond: string;
+  pondSeed: string;
   t0: number;
   /** How many final frames the saved log holds. */
   persisted: number;
@@ -245,6 +246,7 @@ export function runFight(
     joins: [],
     history: [],
     pond: pond.id,
+    pondSeed: pond.seed,
     t0: msg.t0,
     persisted: 0,
   };
@@ -299,7 +301,7 @@ export function tick(hub: Hub, id: string, now: number): void {
     tell(hub, lock, msg);
     for (const f of enc.fighters) if (f.status !== 'in') referee.retire(f.slot);
     if (enc.over) {
-      hub.fightStore.close(fight);
+      // The settlement's transaction writes the log's tail and closes its row.
       settle(hub, lock, fight);
       // The watchdog lets go of the fight.
       hub.rearm().catch(() => {});

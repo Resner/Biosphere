@@ -1,20 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import type { HubMsg } from '../src/net/protocol';
 import { RULES } from '../src/sim/rules';
-import { drive, IDLE_CODE } from '../tests/encounter-fixture';
+import { IDLE_CODE } from '../tests/encounter-fixture';
 import {
   authority,
   type EncEnd,
-  type EncStart,
   fighters,
   hundredths,
   join,
+  killB,
   lifeOn,
   lockIn,
   NEAR,
   outcomeOf,
-  type Plan,
-  type Player,
   play,
   rowsBesideLog,
   slotOf,
@@ -47,25 +45,6 @@ const chain = (creature: string) =>
   ).then((rows) => rows.map((r) => ({ kind: r.kind, body: JSON.parse(r.json).body })));
 
 const headOf = (creature: string) => authority((o) => must(o.ledger.head(creature)));
-
-/** A locks B in at 1 hp; A then swims at it with its weapon aimed while B idles, until B dies. */
-async function killB(
-  a: Player,
-  b: Player,
-  start?: EncStart,
-): Promise<{ start: EncStart; end: EncEnd }> {
-  const begun =
-    start ??
-    (
-      await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.01 }), snap(a, ...NEAR.a, { health: 1 }))
-    )[0];
-  const target = slotOf(begun, b);
-  const hunt: Plan = () => [drive(0, 15, { stance: 'aggressive', target }), IDLE_CODE];
-  const played = await play(a, b, begun, hunt);
-  const [end] = played.ends as [EncEnd, EncEnd];
-  expect(outcomeOf(end, b)).toMatchObject({ outcome: 'killed', by: slotOf(begun, a) });
-  return { start: begun, end };
-}
 
 describe('a kill', () => {
   it('writes the victim’s death by the killer and the killer’s encounter record', async () => {

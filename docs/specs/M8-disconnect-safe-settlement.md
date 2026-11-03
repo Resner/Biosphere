@@ -302,7 +302,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `worker/farming.ts` (`worthOf`, one read through `creatures_dead` and the death record's cause) sets every `FighterInfo.worth`; a join is tier-checked against every fighter still in (pending joiners too), and an engage with a fighter already out of its fight, on either side, is `engage:locked`.
   - Gotcha: `hatched()` in `fight-test-kit.ts` now dates identities past the young window (`firstSeenAgo`), so M7 hub tests keep worth 1; E2E players are young, so their fights run at worth 0.5.
 
-- [ ] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4)
+- [x] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4)
   - Steps:
     1. `Ledger.settle` (`worker/ledger-encounter.ts`, `worker/ledger.ts`) writes, in one transaction:
        - the records, as M7;
@@ -330,6 +330,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - The forced failure writes no row, flags once, and sends both connected fighters `enc-end` and then `life` with the creature alive in the ledger.
     - Row writes per duel stay at M7's per participant, plus the one row update for the tail and the settlement.
   - Notes: `worker/ledger.ts` is at 997 lines. Its change is a few lines handing the settlement's writes to `ledger-encounter.ts` and `fight-store.ts` (extend `ChainOps`).
+  - Done: `settle` builds `settlementOf(logOf(fight))` and each slot's locked time (`lockedTimes`); `settleRecords` countersigns it and `FightStore.seal` writes it with the tail and `open = 0` in the transaction (`FightRecords.log`); a failure flags, closes the row, rebinds lives and sends `enc-end` then `life` (`worker/settlement.test.ts`).
+  - Gotcha: a failed settlement's row is closed, so recovery never retries it; the kit's `startOf` sorts fighters by creature, as the encounter seats them, so `slotOf` is right for direct starts.
 
 - [ ] T9 Everyone left: the 10 s wait, the fast-forward and the away reports [opus] (after T6, T8)
   - Steps:

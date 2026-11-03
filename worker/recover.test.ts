@@ -1,5 +1,5 @@
 import { runDurableObjectAlarm } from 'cloudflare:test';
-import { describe, expect, it, vi } from 'vitest';
+import { describe, expect, it } from 'vitest';
 import { type Identity, toBase64Url } from '../src/ledger/identity';
 import { signMateAsk } from '../src/ledger/mating';
 import { REQUEST_DOMAIN, type RecordRequest, requestMessage } from '../src/ledger/record';
@@ -366,15 +366,13 @@ describe('recovery leaves alone', () => {
     for (const p of [a, b]) expect((await flush(p.c)).map((m) => m.t)).not.toContain('enc-start');
   });
 
-  it('a fight whose records are written though its row stayed open (a failed close)', async () => {
+  it('a fight whose records are written though its row stayed open (a close before M8 T8 that failed)', async () => {
     const [a, b] = await fighters();
-    await authority((o) => {
-      vi.spyOn(o.fightStore, 'close').mockImplementation(() => {});
-    });
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { energy: 0, health: 0.01 }));
     const played = await play(a, b, start, IDLE);
     expect(played.ends).not.toBeNull();
-    expect((await logRow(start.enc))?.open).toBe(true);
+    // The settlement closes the row in its transaction now; a row left by the earlier separate close.
+    await sql('UPDATE encounters SET open = 1, settlement = NULL WHERE id = ?', start.enc);
     const rows = await encounterRecords(a.creature, start.enc);
     await restart();
     expect(await locked(a)).toBe(false);
