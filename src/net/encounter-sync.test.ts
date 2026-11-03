@@ -8,18 +8,18 @@ import {
 } from '../../tests/scripted-referee';
 import { decodeFrameInput } from '../sim/encounter/codec';
 import type { FrameInput } from '../sim/encounter/types';
+import { encounterStartOf } from './encounter-start';
 import {
   EASE_MS,
   type EncEndMsg,
   EncounterSync,
   type EncStartMsg,
-  encounterStartOf,
-  FRAME_MS,
   type InputMsg,
   KEEP_FRAMES,
   leadMs,
 } from './encounter-sync';
 import type { HubMsg } from './protocol';
+import { FRAME_MS } from './referee';
 
 const input = (steer: number, throttle: number, extra: Partial<FrameInput> = {}): FrameInput => ({
   steer,
@@ -73,7 +73,7 @@ function play(opts: RunOptions = {}): Run {
   const latency = opts.latency ?? 80;
   const jitter = opts.jitter ?? 30;
   const msg = startMsg();
-  const start = encounterStartOf(msg, TEST_POND);
+  const start = encounterStartOf(msg, TEST_POND.seed);
   if (!start) throw new Error('no start');
   const referee = new ScriptedReferee(start, msg.at);
   const up = new Link<InputMsg & { slot: number }>(latency, jitter, 'up');
@@ -211,7 +211,7 @@ describe('EncounterSync', () => {
 
   it('rewinds to the end when its clock ran past the frame the referee ended on', () => {
     const msg = startMsg();
-    const start = encounterStartOf(msg, TEST_POND);
+    const start = encounterStartOf(msg, TEST_POND.seed);
     if (!start) throw new Error('no start');
     const referee = new ScriptedReferee(start, msg.at);
     const bundles = referee.due(msg.at + 100_000);

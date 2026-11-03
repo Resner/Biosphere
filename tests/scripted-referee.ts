@@ -5,8 +5,9 @@
 
 import { genomeToBase64url } from '../src/genome/codec';
 import { starterGenome } from '../src/genome/starter';
-import { type EncStartMsg, FRAME_MS } from '../src/net/encounter-sync';
+import type { EncStartMsg } from '../src/net/encounter-sync';
 import type { FighterOutcome, HubMsg } from '../src/net/protocol';
+import { FRAME_MS } from '../src/net/referee';
 import { createEncounter, hashEncounter, results, stepFrame } from '../src/sim/encounter/encounter';
 import type { Encounter, EncounterStart } from '../src/sim/encounter/types';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';

@@ -7,22 +7,19 @@
 // sent, and used at once; the others repeat their last confirmed input, brace and dash cleared. A
 // bundle that differs from what was predicted rolls the fight back to that frame and replays it.
 
-import { parseGenomeText } from '../genome/codec';
-import { fighterOf } from '../genome/fighter';
-import { buildCreature, type Creature } from '../genome/stats';
-import { seedWords } from '../ledger/encounter';
+import type { Creature } from '../genome/stats';
 import { decodeFrameInput, encodeFrameInput } from '../sim/encounter/codec';
 import { createEncounter, hashEncounter, stepFrame } from '../sim/encounter/encounter';
-import type { Encounter, EncounterStart, FighterStart, FrameInput } from '../sim/encounter/types';
+import type { Encounter, EncounterStart, FrameInput } from '../sim/encounter/types';
 import { wrapAngle } from '../sim/math';
-import { RULES, TICK_HZ } from '../sim/rules';
+import { RULES } from '../sim/rules';
 import type { CreatureState } from '../sim/types';
+import { type EncStart, encounterStartOf } from './encounter-start';
 import type { ClientMsg, FighterInfo, FighterOutcome, HubMsg } from './protocol-defs';
+import { FRAME_MS } from './referee';
 
 const E = RULES.encounter;
 
-/** One frame on the hub clock: 3 ticks, 100 ms. */
-export const FRAME_MS = (E.frameTicks * 1000) / TICK_HZ;
 /** Rollback keeps this many frames of states; a bundle further behind replays the fight from frame 0. */
 export const KEEP_FRAMES = 10;
 /** A remote's correction after a rollback eases out over this long instead of jumping. */
@@ -31,7 +28,7 @@ export const EASE_MS = 100;
 const LEAD_SLACK_MS = 80;
 const MAX_LEAD_MS = 100;
 
-export type EncStartMsg = Extract<HubMsg, { t: 'enc-start' }>;
+export type EncStartMsg = EncStart;
 export type EncFrameMsg = Extract<HubMsg, { t: 'enc-frame' }>;
 export type EncEndMsg = Extract<HubMsg, { t: 'enc-end' }>;
 export type InputMsg = Extract<ClientMsg, { t: 'input' }>;
@@ -40,44 +37,6 @@ type Inputs = (number | null)[];
 /** How far the local clock runs ahead of the hub's, so an input sent at its frame's start arrives in time. */
 export const leadMs = (oneWayMs: number): number =>
   Math.min(MAX_LEAD_MS, Math.max(0, (Number.isFinite(oneWayMs) ? oneWayMs : 0) - LEAD_SLACK_MS));
-
-/** Builds a creature from genome text; null for text that is no genome or breaks the builder. */
-export function bodyFromText(text: string): Creature | null {
-  const genome = parseGenomeText(text);
-  if (!genome) return null;
-  try {
-    return buildCreature(genome);
-  } catch {
-    return null;
-  }
-}
-
-/**
- * The simulation's start from an `enc-start`: each fighter's body through `fighterOf`, the seed's
- * first four words, the pond's seed and size. Null when a genome does not build. The referee and
- * every client build it the same way.
- */
-export function encounterStartOf(
-  msg: EncStartMsg,
-  pond: { seed: string; size: number },
-  bodies: (genome: string) => Creature | null = bodyFromText,
-): EncounterStart | null {
-  const fighters: FighterStart[] = [];
-  for (const info of msg.fighters) {
-    const creature = bodies(info.genome);
-    if (!creature) return null;
-    const { genome: _genome, ...rest } = info;
-    fighters.push({ ...rest, ...fighterOf(creature) });
-  }
-  return {
-    id: msg.enc,
-    pondSeed: pond.seed,
-    size: pond.size,
-    seed: seedWords(msg.seed),
-    t0: msg.t0,
-    fighters,
-  };
-}
 
 const STATE_KEYS = ['x', 'y', 'vx', 'vy', 'heading', 'biomass', 'energy', 'health'] as const;
 
@@ -161,7 +120,7 @@ export class EncounterSync {
     pond: { seed: string; size: number },
     bodies?: (genome: string) => Creature | null,
   ): boolean {
-    const start = encounterStartOf(msg, pond, bodies);
+    const start = encounterStartOf(msg, pond.seed, bodies);
     if (!start) return false;
     let enc: Encounter;
     try {

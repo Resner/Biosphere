@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { Link, ScriptedReferee, startMsg, TEST_POND } from '../../tests/scripted-referee';
 import { PondClock } from '../net/clock';
-import { encounterStartOf, type InputMsg } from '../net/encounter-sync';
+import { encounterStartOf } from '../net/encounter-start';
+import type { InputMsg } from '../net/encounter-sync';
 import type { FightMsg, HubStatus, Welcome } from '../net/hub-client';
 import type { ClientMsg } from '../net/protocol';
 import { createEncounter } from '../sim/encounter/encounter';
@@ -56,7 +57,7 @@ const TICK_MS = 1000 / TICK_HZ;
 describe('FightPlay with the fake online session', () => {
   it('plays enc-start, frames and enc-end, then the player swims on in free roam', () => {
     const msg = startMsg();
-    const start = encounterStartOf(msg, TEST_POND);
+    const start = encounterStartOf(msg, TEST_POND.seed);
     if (!start) throw new Error('no start');
     const own = createEncounter(start).fighters.find((f) => f.player === 'pa');
     if (!own) throw new Error('no fighter');

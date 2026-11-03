@@ -4,7 +4,8 @@
 // roam carries on from the authority's result. DOM-free: the app supplies a `FightHost`.
 
 import type { Creature } from '../genome/stats';
-import { bodyFromText, EncounterSync } from '../net/encounter-sync';
+import { bodyFromText } from '../net/encounter-start';
+import { EncounterSync } from '../net/encounter-sync';
 import type { FightMsg } from '../net/hub-client';
 import type { ClientMsg } from '../net/protocol';
 import type { Outcome, Stance } from '../sim/encounter/types';
