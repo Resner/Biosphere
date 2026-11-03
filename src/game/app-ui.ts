@@ -265,6 +265,7 @@ export class PlayUi {
 
   updateHatchNote(): void {
     const { app, hatchNote } = this;
+    app.screens.setResume(app.resume.offered !== null && app.screen === 'title');
     const status = app.flow.state;
     const waiting = app.life.hatching && (status === 'awaiting' || status === 'verifying');
     const left = app.limitLeft();

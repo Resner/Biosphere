@@ -162,7 +162,10 @@ export class OnlineWiring {
             link.send({ t: 'lineage' });
           }
           if (msg.t === 'born') app.hud.toast('Your offspring is ready');
-          if (msg.t === 'life') app.renewal.receive(msg.renewed === true);
+          if (msg.t === 'life') {
+            app.renewal.receive(msg.renewed === true);
+            app.resume.life(msg.fight);
+          }
           if (msg.t === 'history') app.history.show(msg.lives, Date.now());
           // Past lives are asked for once the hub has said who the player is, and after each death.
           if (msg.t === 'life' || msg.t === 'died') link.send({ t: 'history' });
@@ -186,19 +189,8 @@ export class OnlineWiring {
         },
         fight: (msg) => {
           if (msg.t === 'lock-ask') this.answerLock(msg.lock, link);
-          else if (msg.t === 'carrion') this.dropCarrion(msg);
-          else app.fight.receive(msg);
-          if (msg.t === 'enc-start') app.attack.started();
-          if (msg.t === 'enc-end') {
-            fightEnded(msg, {
-              playerId: app.identity?.playerId ?? null,
-              toast: (text) => app.hud.toast(text),
-              loseEgg: () => {
-                app.offspring.eaten();
-                app.flow.eggEaten();
-              },
-            });
-          }
+          // On the title, a running fight's messages wait for "Back to the fight" (M8 T10).
+          else if (!app.resume.hold(msg)) this.fightMsg(msg);
         },
         event: (id, event) => {
           this.receiveFoodEvent(id, event);
@@ -213,6 +205,24 @@ export class OnlineWiring {
     // A panel opened before the link was up asks again once it is.
     if (app.lineagePanel.isOpen) link.send({ t: 'lineage' });
     return link;
+  }
+
+  /** A fight message from the hub, as it comes or held until the player resumes the fight. */
+  fightMsg(msg: Exclude<FightMsg, { t: 'lock-ask' }>): void {
+    const { app } = this;
+    if (msg.t === 'carrion') this.dropCarrion(msg);
+    else app.fight.receive(msg);
+    if (msg.t === 'enc-start') app.attack.started();
+    if (msg.t === 'enc-end') {
+      fightEnded(msg, {
+        playerId: app.identity?.playerId ?? null,
+        toast: (text) => app.hud.toast(text),
+        loseEgg: () => {
+          app.offspring.eaten();
+          app.flow.eggEaten();
+        },
+      });
+    }
   }
 
   /** Connects (or reconnects under a new name) once the identity is loaded. */

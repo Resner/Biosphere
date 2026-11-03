@@ -11,6 +11,9 @@ import type { FallbackId } from './offspring-text';
 import { cleanName, ringSpawn, saveName, tryOnline } from './online-config';
 import type { Screen } from './screens';
 
+/** Why "Back to the fight" did not start. */
+const NOT_RESUMED = 'Could not go back to the fight. Try again.';
+
 /** A hatch waits this long for the hub before the player swims in a local pond. */
 const HATCH_WAIT_MS = 4000;
 
@@ -74,9 +77,25 @@ export class LifeStarts {
     return this.arriving.tier;
   }
 
+  /** The camera and the drawn creature jump to where the creature is, with nothing to ease from. */
+  private snap(): void {
+    const { camera, scene, prev, session } = this.app;
+    const { player } = session;
+    prev.x = player.x;
+    prev.y = player.y;
+    prev.heading = player.heading;
+    camera.snap({
+      x: player.x,
+      y: player.y,
+      radius: Math.sqrt(player.biomass),
+      adult: adultRadius(player),
+    });
+    scene.setHalfHeight(camera.halfHeight);
+  }
+
   enter(next: Session, nextScreen: Screen): void {
     const { app } = this;
-    const { camera, scene, hud, flow, prev } = app;
+    const { scene, hud, flow } = app;
     app.session = next;
     app.endLifeState();
     app.fx.reset();
@@ -89,16 +108,7 @@ export class LifeStarts {
     app.steering?.done(false);
     app.steering = null;
     const { player } = app.session;
-    prev.x = player.x;
-    prev.y = player.y;
-    prev.heading = player.heading;
-    camera.snap({
-      x: player.x,
-      y: player.y,
-      radius: Math.sqrt(player.biomass),
-      adult: adultRadius(player),
-    });
-    scene.setHalfHeight(camera.halfHeight);
+    this.snap();
     scene.setZones(app.session.world.seed32, app.session.world.size);
     app.field.now();
     hud.update(player);
@@ -213,6 +223,45 @@ export class LifeStarts {
       .catch((error: unknown) => {
         console.warn('hatch failed', error);
         app.hatchError = 'Could not hatch. Try again.';
+      })
+      .finally(() => {
+        this.hatching = false;
+        screens.setBusy(false);
+      });
+  }
+
+  /**
+   * "Back to the fight" (M8 T10): the locked creature resumes as the hub saved it, with no egg
+   * reveal, and the fight's held messages play at once, so the encounter catches up in one step
+   * and the creature is in its fighter's place before the first tick.
+   */
+  resumeFight(): void {
+    const { app } = this;
+    const { flow, screens } = app;
+    if (this.hatching || this.switching || app.resume.offered === null || !app.pond) return;
+    this.hatching = true;
+    app.hatchError = '';
+    screens.setBusy(true);
+    void flow
+      .hatch(HATCH_WAIT_MS)
+      .then((outcome) => {
+        if (outcome.kind !== 'recorded') {
+          app.hatchError = outcome.kind === 'failed' ? outcome.message : NOT_RESUMED;
+          return;
+        }
+        const genome = parseGenomeText(outcome.start.genome);
+        if (!genome) {
+          app.hatchError = VERIFY_FAILED;
+          return;
+        }
+        app.eggs.cancel();
+        this.begin(true, { body: hatchBody(genome), start: outcome.start, protect: false });
+        for (const msg of app.resume.take()) app.online.fightMsg(msg);
+        if (app.fight.resumed()) this.snap();
+      })
+      .catch((error: unknown) => {
+        console.warn('resume failed', error);
+        app.hatchError = NOT_RESUMED;
       })
       .finally(() => {
         this.hatching = false;

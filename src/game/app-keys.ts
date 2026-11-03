@@ -67,6 +67,7 @@ export function attachKeys(app: App): void {
       // (M6b T11, M6c T11); during a hatch it does not open the chat.
       if (eggs.still() && (eggs.skip(app.eggClock()) || app.playing())) return;
       if (app.playing()) app.socialUi.open();
+      else if (screens.resumeOffered) app.life.resumeFight();
       else if (enterHatches(app.screen, performance.now() - app.screenShownAt)) {
         const first = screens.firstOption;
         if (first) app.life.become(first);
@@ -81,6 +82,11 @@ export function attachKeys(app: App): void {
         }
         if (lineagePanel.isOpen) {
           if (key === 'Escape') lineagePanel.close();
+          return;
+        }
+        // Space on the title goes back to a running fight (M8 T10), as Enter does.
+        if (key === ' ' && screens.resumeOffered) {
+          app.life.resumeFight();
           return;
         }
         // Space pokes a genesis egg on the title or death screen (M6b T11, M6c T11); in play it dashes.

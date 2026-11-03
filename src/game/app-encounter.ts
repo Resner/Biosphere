@@ -89,6 +89,8 @@ export interface EncounterView {
   rollbacks: number;
   resyncs: number;
   desyncs: number;
+  /** Times this client came back into the fight: a resync by the authority, or a resume after a reload (M8 T10). */
+  rejoins: number;
   fighters: FighterView[];
   /**
    * What the target ring marks (M7 T15): a target code (0-3 a slot, 4-7 that slot's egg), and
@@ -154,7 +156,14 @@ export class FightPlay {
     const me = host.me();
     const pond = host.pond();
     const life = host.life();
-    if (this.fighting || !me || !pond || !life) return;
+    const bodies = host.body ? (text: string) => host.body?.(text) ?? null : undefined;
+    if (this.fighting) {
+      // The authority's resync of the running fight (M8 T10): its history follows and replaces
+      // what this client had. The creature stays the fighter's; stance and target carry on.
+      if (pond && this.sync?.id === msg.enc) this.sync.start(msg, pond, bodies, true);
+      return;
+    }
+    if (!me || !pond || !life) return;
     const sync = new EncounterSync({
       me,
       oneWayMs: () => host.oneWayMs(),
@@ -164,7 +173,6 @@ export class FightPlay {
     });
     // The hub sends an `enc-start` only to its fighters and to a joiner (M7 T15), whose slot
     // comes with its `enc-join`.
-    const bodies = host.body ? (text: string) => host.body?.(text) ?? null : undefined;
     if (!sync.start(msg, pond, bodies, true)) return;
     this.sync = sync;
     this.life = life;
@@ -239,17 +247,39 @@ export class FightPlay {
    * not begun yet).
    */
   tick(): boolean {
+    const life = this.mirror(false);
+    if (life) life.world.tick++;
+    return life !== null;
+  }
+
+  /**
+   * Back in the fight after a reload (M8 T10), its held messages applied: it counts as a rejoin,
+   * and the encounter catches up to the present in one step, so the creature is in its fighter's
+   * place before any tick (before frame 0, at its start). False when the fight is not running.
+   */
+  resumed(): boolean {
     const { sync } = this;
     if (!sync?.running) return false;
+    sync.rejoins++;
+    return this.mirror(true) !== null;
+  }
+
+  /**
+   * Steps the encounter to now and sets the creature from its fighter; the life it set, or null
+   * when free roam runs (no fight, or frame 0 has not begun and `early` is false).
+   */
+  private mirror(early: boolean): { player: CreatureState; world: World } | null {
+    const { sync } = this;
+    if (!sync?.running) return null;
     const life = this.current();
-    if (!life) return false;
+    if (!life) return null;
     const hubNow = this.host.hubNow();
     sync.step(hubNow);
-    if (sync.frame === 0) return false;
+    if (sync.frame === 0 && !early) return null;
     const body = sync.ownBody();
     const pose = sync.pose(sync.slot, hubNow, false);
-    if (!body || !pose) return false;
-    const { player, world } = life;
+    if (!body || !pose) return null;
+    const { player } = life;
     player.x = pose.x;
     player.y = pose.y;
     player.heading = pose.heading;
@@ -260,8 +290,7 @@ export class FightPlay {
     // A predicted death waits for the referee's word: the creature lives on until `enc-end`.
     player.health = Math.max(0, body.health);
     player.dashReadyTick = body.dashReadyTick;
-    world.tick++;
-    return true;
+    return life;
   }
 
   /** The referee's end: the creature takes its result, and free roam carries on from it. */
@@ -336,6 +365,7 @@ export class FightPlay {
       rollbacks: sync.rollbacks,
       resyncs: sync.resyncs,
       desyncs: sync.desyncs,
+      rejoins: sync.rejoins,
       aim: this.aim(),
       fighters: enc.fighters.map((f) => {
         const winding = f.fx.windupEnd >= 0;

@@ -116,6 +116,11 @@ export class EncounterSync {
   longestRollback = 0;
   /** Bundles for another fight or of the wrong width. */
   dropped = 0;
+  /**
+   * Times this client came back into the fight (M8 T10): each resync from the authority's
+   * `enc-start` and history, and a resume after a reload, which the game counts.
+   */
+  rejoins = 0;
 
   private origin: EncounterStart | null = null;
   /** Fighters joined after the start, each seated before its frame (M7 T15). */
@@ -145,6 +150,11 @@ export class EncounterSync {
    * Begins the fight of an `enc-start` this player is in; false (and nothing changes) otherwise.
    * With `joining`, a fight it is not in yet also begins: the player is joining it (M7 T15), and
    * its slot comes with the `enc-join` that names it.
+   *
+   * A start for the fight already running is the authority's resync (M8 T10): the fight restarts
+   * from frame 0, and the history that follows replaces what this client had. The counters carry
+   * on and `rejoins` counts it; the own inputs already sent stay the predictions for their frames,
+   * so none is sampled or sent twice, and a joiner keeps its slot until its `enc-join` comes again.
    */
   start(
     msg: EncStartMsg,
@@ -161,28 +171,34 @@ export class EncounterSync {
       return false;
     }
     const slot = enc.fighters.findIndex((f) => f.player === this.opts.me);
-    if (slot < 0 && !joining) return false;
+    const resync = this.running && msg.enc === this.id;
+    if (slot < 0 && !joining && !resync) return false;
     this.origin = start;
     this.joins = [];
     this.bodies = bodies;
     this.enc = enc;
     this.id = msg.enc;
-    this.slot = slot;
+    this.slot = resync && slot < 0 ? this.slot : slot;
     this.at = msg.at;
     this.frame = 0;
     this.confirmed = 0;
     this.over = false;
     this.hash = null;
     this.endHash = null;
-    this.rollbacks = 0;
-    this.resyncs = 0;
-    this.desyncs = 0;
-    this.longestRollback = 0;
-    this.dropped = 0;
+    if (resync) {
+      this.rejoins++;
+    } else {
+      this.rollbacks = 0;
+      this.resyncs = 0;
+      this.desyncs = 0;
+      this.longestRollback = 0;
+      this.dropped = 0;
+      this.rejoins = 0;
+      this.own = [];
+    }
     this.bundles = [];
     this.newest = -1;
     this.used = [];
-    this.own = [];
     this.states.clear();
     this.dirty = null;
     this.ease = enc.fighters.map(noEase);
@@ -203,15 +219,18 @@ export class EncounterSync {
 
   /**
    * Settles any correction, then simulates every frame begun by now. Only the newest one samples
-   * the own input: older ones (a hidden tab catching up) are already past their deadline, so the
-   * autopilot played them. Returns the frames stepped.
+   * the own input: older ones (a hidden tab catching up, or a resync's history) are already past
+   * their deadline, so the autopilot played them. Only the last `KEEP_FRAMES` states are kept, so
+   * a catch-up of a whole fight is one call. Returns the frames stepped.
    */
   step(hubNow: number): number {
     if (!this.running) return 0;
     this.reconcile(hubNow);
     const target = this.due(hubNow);
     const from = this.frame;
-    while (this.frame < target) this.simulate(this.frame === target - 1);
+    while (this.frame < target) {
+      this.simulate(this.frame === target - 1, this.frame >= target - KEEP_FRAMES);
+    }
     return this.frame - from;
   }
 

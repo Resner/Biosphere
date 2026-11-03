@@ -1,5 +1,6 @@
 import type { DeathCause } from '../sim/types';
 import { pick } from './dom';
+import { RESUME_LABEL, RESUME_LINE } from './fight-resume';
 import { DEATH_TEXT, deathName, livedText } from './life-text';
 import type { FallbackId, FallbackOption } from './offspring-text';
 
@@ -34,10 +35,22 @@ export class Screens {
   private options: FallbackOption[] = [];
   private busy = false;
   private limited = false;
+  /** "Back to the fight" takes the title's main button (M8 T10). */
+  private readonly resumeButton = pick<HTMLButtonElement>('[data-testid="resume-fight"]');
+  private readonly resumeLine = pick('[data-testid="resume-line"]');
+  private resuming = false;
 
   constructor(
-    private readonly handlers: { hatch(): void; practice(): void; choose(id: FallbackId): void },
+    private readonly handlers: {
+      hatch(): void;
+      practice(): void;
+      choose(id: FallbackId): void;
+      resume(): void;
+    },
   ) {
+    this.resumeButton.textContent = RESUME_LABEL;
+    this.resumeLine.textContent = RESUME_LINE;
+    this.resumeButton.addEventListener('click', () => handlers.resume());
     const bind = (ids: string[], into: HTMLButtonElement[], click: () => void): void => {
       for (const id of ids) {
         const button = pick<HTMLButtonElement>(`[data-testid="${id}"]`);
@@ -83,9 +96,20 @@ export class Screens {
           return button;
         }),
       );
-      box.hidden = options.length === 0;
     });
     this.refresh();
+  }
+
+  /** While the creature is locked in a running fight, the title offers only "Back to the fight". */
+  setResume(on: boolean): void {
+    if (on === this.resuming) return;
+    this.resuming = on;
+    this.refresh();
+  }
+
+  /** Enter, Space or a click on the title goes back to the fight. */
+  get resumeOffered(): boolean {
+    return this.resuming;
   }
 
   /** The ids of the choices on offer, first one first. */
@@ -100,15 +124,24 @@ export class Screens {
 
   private refresh(): void {
     const choosing = this.options.length > 0;
+    // The title's own choices give way to "Back to the fight"; the death screen keeps its own.
+    const onTitle = (button: HTMLElement) => button.closest('[data-for="title"]') !== null;
+    const away = (button: HTMLElement) => this.resuming && onTitle(button);
     for (const button of this.fallbackButtons) button.disabled = this.busy;
+    this.fallbackBoxes.forEach((box) => {
+      box.hidden = !choosing || away(box);
+    });
     for (const button of this.buttons) {
-      button.hidden = choosing;
+      button.hidden = choosing || away(button);
       button.disabled = this.busy || this.limited;
     }
     for (const button of this.practice) {
-      button.hidden = !this.limited;
+      button.hidden = !this.limited || away(button);
       button.disabled = this.busy;
     }
+    this.resumeButton.hidden = !this.resuming;
+    this.resumeLine.hidden = !this.resuming;
+    this.resumeButton.disabled = this.busy;
   }
 
   show(screen: Screen): void {
