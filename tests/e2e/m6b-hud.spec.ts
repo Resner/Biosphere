@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, hatch, openGame, openRecorded, state, waitPlaying } from './helpers';
+import { clickHatch, hatch, hudCover, openGame, openRecorded, state, waitPlaying } from './helpers';
 
 // The HUD shell (M6b T9): one menu button, four thin stat bars and the minimap (T10) and nothing
 // else on the play screen; the numbers live in the menu, the controls in first-life hints and the menu.
@@ -35,22 +35,6 @@ const strayText = (page: Page) =>
       out.push(text);
     }
     return out;
-  });
-
-/** The share of the viewport the always-on HUD covers: the menu button, the bars, the minimap with its label and its depth gauge (M6c T12). */
-const hudCover = (page: Page) =>
-  page.evaluate(() => {
-    const parts = [
-      document.querySelector('[data-testid="hud-menu"]'),
-      ...document.querySelectorAll('.hud .stat'),
-      document.querySelector('.minimap'),
-      document.querySelector('[data-testid="minimap-depth"]'),
-    ].filter((el): el is HTMLElement => el instanceof HTMLElement && el.checkVisibility());
-    const area = parts.reduce((sum, el) => {
-      const r = el.getBoundingClientRect();
-      return sum + r.width * r.height;
-    }, 0);
-    return { share: area / (innerWidth * innerHeight), parts: parts.length };
   });
 
 const hudState = async (page: Page) => (await state(page)).hud;

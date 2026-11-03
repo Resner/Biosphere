@@ -55,6 +55,9 @@ function debugHelpers(app: App): BsDebug {
       player.health = Math.max(0, Math.min(hp, maxHealth(player.biomass)));
       app.hud.update(player);
     },
+    autoBrace(on) {
+      app.fight.autoBrace = on;
+    },
     teleport(x, y) {
       const { player } = app.session;
       player.x = x;
@@ -260,7 +263,7 @@ export function installAppHook(app: App): void {
           value,
           radius,
         })),
-        encounter: app.fight.view(),
+        encounter: app.fightShow.view(),
         player: session.demo
           ? null
           : {
@@ -394,7 +397,7 @@ export function installAppHook(app: App): void {
       },
     },
     render: {
-      info: () => scene.info(),
+      info: () => ({ ...scene.info(), telegraphs: app.fightShow.telegraphs.info() }),
       specks: (layer) => scene.specks(layer),
       outlines: () => scene.outlinesDrawn(),
       eggAngle: (atMs) => eggs.angleAt(atMs, app.motionReduced()),

@@ -10,7 +10,7 @@
 import type { Creature } from '../genome/stats';
 import { decodeFrameInput, encodeFrameInput } from '../sim/encounter/codec';
 import { createEncounter, hashEncounter, stepFrame } from '../sim/encounter/encounter';
-import type { Encounter, EncounterStart, FrameInput } from '../sim/encounter/types';
+import type { Encounter, EncounterEvent, EncounterStart, FrameInput } from '../sim/encounter/types';
 import { wrapAngle } from '../sim/math';
 import { RULES } from '../sim/rules';
 import type { CreatureState } from '../sim/types';
@@ -70,6 +70,11 @@ export interface SyncOptions {
   send(msg: InputMsg): void;
   /** The one-way latency to the hub in ms (half the round trip). */
   oneWayMs(): number;
+  /**
+   * Every simulated frame's events, for the fight's cues (M7 T12). A rollback replays frames, so
+   * the same event can come again: a hit names its tick, and the listener drops repeats.
+   */
+  events?(events: readonly EncounterEvent[]): void;
 }
 
 export class EncounterSync {
@@ -239,8 +244,7 @@ export class EncounterSync {
     const to = this.enc?.fighters[slot]?.body;
     if (!to) return null;
     const from = this.over ? to : (this.states.get(this.frame - 1)?.fighters[slot]?.body ?? to);
-    const local = hubNow + leadMs(this.opts.oneWayMs());
-    const k = Math.min(1, Math.max(0, (local - this.frameStart(this.frame - 1)) / FRAME_MS));
+    const k = this.progress(hubNow);
     const pose = {
       x: from.x + (to.x - from.x) * k,
       y: from.y + (to.y - from.y) * k,
@@ -256,6 +260,32 @@ export class EncounterSync {
     return pose;
   }
 
+  /**
+   * Where slot `slot`'s carried egg is drawn at `hubNow`, as `pose` draws its carrier: between its
+   * place at the newest frame's start and its end, plus what is left of the carrier's eased
+   * correction. Null for a fighter without an egg.
+   */
+  eggAt(slot: number, hubNow: number): { x: number; y: number } | null {
+    const to = this.enc?.fighters[slot]?.eggBody;
+    if (!to) return null;
+    const from = this.over ? to : (this.states.get(this.frame - 1)?.fighters[slot]?.eggBody ?? to);
+    const k = this.progress(hubNow);
+    const at = { x: from.x + (to.x - from.x) * k, y: from.y + (to.y - from.y) * k };
+    const e = this.ease[slot];
+    const left = e ? 1 - (hubNow - e.at) / EASE_MS : 0;
+    if (e && left > 0) {
+      at.x += e.dx * left;
+      at.y += e.dy * left;
+    }
+    return at;
+  }
+
+  /** How far the newest frame has run at `hubNow` on the local clock, 0..1. */
+  private progress(hubNow: number): number {
+    const local = hubNow + leadMs(this.opts.oneWayMs());
+    return Math.min(1, Math.max(0, (local - this.frameStart(this.frame - 1)) / FRAME_MS));
+  }
+
   /** Steps frame `this.frame` with its bundle, or with the own input and the remotes' predictions. */
   private simulate(sample: boolean, keep = true): void {
     const enc = this.enc as Encounter;
@@ -264,8 +294,9 @@ export class EncounterSync {
     if (keep) this.states.set(f, structuredClone(enc));
     this.states.delete(f - KEEP_FRAMES);
     this.used[f] = inputs;
-    stepFrame(enc, inputs);
+    const events = stepFrame(enc, inputs);
     this.frame = f + 1;
+    if (events.length > 0) this.opts.events?.(events);
   }
 
   private inputsFor(f: number, sample: boolean): Inputs {

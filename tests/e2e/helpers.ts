@@ -197,6 +197,8 @@ export const M6C_LIFECYCLE_HUB = 'http://localhost:8806';
 
 /** The M7 duel spec's hub (M7 T11): two players, one engagement and a kill. */
 export const M7_DUEL_HUB = 'http://localhost:8807';
+/** The M7 HUD spec's own authority (M7 T12): a duel's HUD, telegraphs and cues. */
+export const M7_HUD_HUB = 'http://localhost:8808';
 
 /** The M7 carrion spec's hub (M7 T14): a kill seen by a spectator. */
 export const M7_CARRION_HUB = 'http://localhost:8810';
@@ -346,3 +348,23 @@ export const atEgg = (page: Page) =>
       }),
     };
   });
+
+/**
+ * The share of the viewport the HUD covers (M6b T9): the menu button, the bars, the minimap with its
+ * label and its depth gauge (M6c T12), and the elements of `extra` (the combat HUD's buttons, M7 T12).
+ */
+export const hudCover = (page: Page, extra: string[] = []) =>
+  page.evaluate((extra) => {
+    const parts = [
+      document.querySelector('[data-testid="hud-menu"]'),
+      ...document.querySelectorAll('.hud .stat'),
+      document.querySelector('.minimap'),
+      document.querySelector('[data-testid="minimap-depth"]'),
+      ...extra.flatMap((selector) => [...document.querySelectorAll(selector)]),
+    ].filter((el): el is HTMLElement => el instanceof HTMLElement && el.checkVisibility());
+    const area = parts.reduce((sum, el) => {
+      const r = el.getBoundingClientRect();
+      return sum + r.width * r.height;
+    }, 0);
+    return { share: area / (innerWidth * innerHeight), parts: parts.length };
+  }, extra);

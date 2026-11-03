@@ -60,6 +60,8 @@ const m6cEggHubPort = 8805;
 const m6cLifecycleHubPort = 8806;
 // The M7 duel spec (8807): two players hatch, one engages the other with F and kills it.
 const m7DuelHubPort = 8807;
+// The M7 HUD spec (8808): a duel with the combat HUD, the telegraphs and the fight's cues.
+const m7HudHubPort = 8808;
 // The M7 kill spec (8809), with the M5 hooks: a mating, then a kill that eats the victim's egg.
 const m7KillHubPort = 8809;
 // The M7 carrion spec (8810): a kill seen by a spectator, who eats a piece.
@@ -287,6 +289,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m7DuelHubPort} --persist-to .wrangler/e2e-state-m7-duel`,
       url: `http://localhost:${m7DuelHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m7HudHubPort} --persist-to .wrangler/e2e-state-m7-hud`,
+      url: `http://localhost:${m7HudHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

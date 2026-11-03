@@ -110,6 +110,9 @@ export const EGG = {
   /** The burst's light at no charge, as a share of its tier's (all of it at full), and a full charge's extra shards. */
   chargeLight: 0.75,
   chargeShards: 2,
+  /** An egg eaten in a fight (M7 T12) shatters over this long, throwing this many shards. */
+  shatterMs: 500,
+  shatterShards: 6,
 } as const;
 
 /** The tiers in order, which the hint cycles through. */
@@ -655,6 +658,32 @@ export function carriedPose(tier: RarityTier | null, out: EggPose): EggPose {
   out.shards = 0;
   out.rays = 0;
   out.tier = tier;
+  return out;
+}
+
+/**
+ * A carried egg in a fight (M7 T12): its cracks run with the share of its health lost, and once
+ * eaten it shatters (`shatter` 0..1, null while whole): the halves fly apart with their shards and
+ * the shell fades (under reduced motion it only fades). `shown` is false once it has shattered.
+ */
+export function fightEggPose(
+  tier: RarityTier | null,
+  lost: number,
+  shatter: number | null,
+  reduced: boolean,
+  out: EggPose,
+): EggPose {
+  carriedPose(tier, out);
+  out.crack = clamp01(lost);
+  if (shatter === null) return out;
+  const b = clamp01(shatter);
+  out.shown = b < 1;
+  out.burst = b;
+  out.crack = 1;
+  out.glow *= 1 - b;
+  out.alpha = 1 - smooth(b);
+  out.spread = reduced ? 0 : smooth(b);
+  out.shards = reduced ? 0 : EGG.shatterShards;
   return out;
 }
 

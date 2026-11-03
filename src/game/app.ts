@@ -21,6 +21,7 @@ import { RULES } from '../sim/rules';
 import type { FoodItem } from '../sim/types';
 import { AttackUi } from './app-attack';
 import { appFightHost, FightPlay } from './app-encounter';
+import { FightShow } from './app-fight';
 import { installAppHook } from './app-hook';
 import { attachKeys, attachPointer } from './app-keys';
 import { LifeStarts } from './app-life';
@@ -236,6 +237,8 @@ export class App {
   readonly fight: FightPlay;
   /** F and the Attack button, the "F" glyph, the protection shimmer and the combat keys (M7 T11). */
   readonly attack: AttackUi;
+  /** The fight's HUD, telegraphs, eggs and cues (M7 T12). */
+  readonly fightShow: FightShow;
   readonly sender: SnapshotSender;
   readonly genomeSync: GenomeSync;
   /** Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`. */
@@ -421,6 +424,7 @@ export class App {
     this.online = new OnlineWiring(this);
     this.fight = new FightPlay(appFightHost(this));
     this.attack = new AttackUi(this);
+    this.fightShow = new FightShow(this);
     this.sender = new SnapshotSender((bytes, signed) =>
       this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids),
     );

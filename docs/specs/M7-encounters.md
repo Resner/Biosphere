@@ -473,7 +473,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - `m7-duel` passes 3 times in a row (`--repeat-each=3`), waiting only on state (`.claude/rules/tests.md`).
     - DESIGN §3 and `docs/TESTING.md` match.
 
-- [ ] T12 Combat HUD, telegraphs and sound [opus] (after T11, T3)
+- [x] T12 Combat HUD, telegraphs and sound [opus] (after T11, T3)
   - Steps:
     1. `src/game/combat-hud.ts`, only while locked, inside the 6% HUD budget:
        - three stance buttons with their keys, and the current one lit;
@@ -498,6 +498,8 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
       - the HUD shows only in the fight, and the m6b-hud measure keeps it within 6% at 960 × 540;
       - a decoded screenshot during a windup is brighter at the attacker's front than one just before it;
       - `audio.cues` counts the windup tick, and a block with `debug.autoBrace(true)`.
+  - Done: `combat-hud.ts`, `fight-cues.ts` (cues deduped across rollbacks by tick and slot, from `EncounterSync`'s `events`), `render/telegraph.ts`, fight eggs in `eggs.ts`, wired by `app-fight.ts`; the size and life bars step aside in a fight to keep the HUD within 6%.
+  - Gotcha: a frozen world still plays its tick backlog, so `m7-hud` shoots once a frame passes without a tick; the hub can refuse an engage as stale under load, so it presses F again.
 
 - [x] T13 Results as records: kills, eaten eggs, the death fallback [opus] (after T9, T3)
   - Steps:

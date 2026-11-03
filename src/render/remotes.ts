@@ -20,6 +20,8 @@ export interface RemoteCellView {
   body?: CreatureSource | null;
   /** 0..1, how far it has dissolved (M6 T20: a parent left behind by a hatch); missing is 0. */
   dissolve?: number;
+  /** 0..1, how red a landed hit flashes it (M7 T12); missing is 0. */
+  hurt?: number;
 }
 
 /** Full sight everywhere: the default outside the game's zones. */
@@ -112,6 +114,7 @@ export class RemoteLayer {
       view.alpha = remote.alpha;
       view.hue = remote.hue;
       view.dissolve = remote.dissolve ?? 0;
+      view.hurt = remote.hurt ?? 0;
       cell.update(view, time);
     }
     for (let i = used; i < this.shown; i++) (this.cells[i] as Cell).update(null, time);
@@ -173,6 +176,7 @@ export class RemoteLayer {
     state.beat = remote.beat;
     state.alpha = remote.alpha;
     state.dissolve = remote.dissolve ?? 0;
+    state.hurt = remote.hurt ?? 0;
     state.pxPerWu = pxPerWu;
     state.sight = this.sight(remote.x, remote.y);
     state.caustic = this.caustic(remote.x, remote.y);

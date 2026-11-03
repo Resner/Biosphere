@@ -227,6 +227,14 @@
     <div class="attack-marks" data-for="playing" data-testid="attack-marks" aria-hidden="true">
       <kbd class="attack-hint" data-testid="attack-hint" title="F: attack" hidden>F</kbd>
     </div>
+    <!-- The combat HUD (M7 T12), only while locked in a fight: the stances (1-3) and the brace (Shift or the right button) with its cooldown ring; the opponents' health arcs and the escape ring are drawn in the world. -->
+    <svg class="combat-marks" data-for="playing" data-testid="combat-marks" aria-hidden="true" style="display: none"></svg>
+    <section class="combat-hud" data-for="playing" data-testid="combat-hud" aria-label="Fight" hidden>
+      <button type="button" class="combat-button" data-testid="stance-aggressive" aria-pressed="false" aria-label="Aggressive (1)" title="Aggressive (1)"><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-6 -5 L-0.5 0 L-6 5 M0 -5 L5.5 0 L0 5" /></svg><kbd>1</kbd></button>
+      <button type="button" class="combat-button" data-testid="stance-balanced" aria-pressed="true" aria-label="Balanced (2)" title="Balanced (2)"><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0 -5.5 L5.5 0 L0 5.5 L-5.5 0 Z" /></svg><kbd>2</kbd></button>
+      <button type="button" class="combat-button" data-testid="stance-evasive" aria-pressed="false" aria-label="Evasive (3)" title="Evasive (3)"><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-6 5 C-1.5 5 -1.5 -3.5 3 -3.5 H5.5 M2.5 -6.5 L5.5 -3.5 L2.5 -0.5" /></svg><kbd>3</kbd></button>
+      <button type="button" class="combat-button brace" data-testid="brace" aria-label="Brace (Shift or right button)" title="Brace (Shift or right button)"><svg class="cooldown" viewBox="-16 -16 32 32" aria-hidden="true"><circle data-testid="brace-cooldown" r="14" pathLength="100" stroke-dasharray="0 100" transform="rotate(-90)" /></svg><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0 -6.5 L5.5 -4.2 V0.4 C5.5 3.8 3.1 5.9 0 7 C-3.1 5.9 -5.5 3.8 -5.5 0.4 V-4.2 Z" /></svg><kbd>⇧</kbd></button>
+    </section>
     <div class="social-cues" data-for="playing" data-testid="social-cues" aria-hidden="true"></div>
     <section class="edge-indicators" data-for="playing" data-testid="edge-indicators" aria-label="Off screen"></section>
     <section class="pond-map" data-for="playing" data-testid="pond-map" aria-label="Pond map" hidden>

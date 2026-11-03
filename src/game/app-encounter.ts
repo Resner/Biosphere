@@ -8,11 +8,13 @@ import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
 import type { FightMsg } from '../net/hub-client';
 import type { ClientMsg } from '../net/protocol';
-import type { Outcome, Stance } from '../sim/encounter/types';
+import { radiusOf } from '../sim/encounter/reach';
+import type { Encounter, EncounterEvent, Outcome, Stance } from '../sim/encounter/types';
 import type { Input } from '../sim/input';
 import type { CreatureState, World } from '../sim/types';
 import { maxHealth } from '../sim/vitals';
 import type { App } from './app';
+import { aimsAt } from './fight-cues';
 
 export interface FightHost {
   /** This player's id, or null before the identity is loaded. */
@@ -32,6 +34,20 @@ export interface FightHost {
   hidden(): boolean;
   /** The creature a genome text builds (the own body is known already); null when it does not build. */
   body?(genome: string): Creature | null;
+  /** Every simulated frame's events, for the fight's cues and telegraphs (M7 T12). */
+  events?(events: readonly EncounterEvent[]): void;
+}
+
+/** `debug.autoBrace` braces when a windup aimed at the player or its egg has this many ticks or fewer left. */
+export const AUTO_BRACE_TICKS = 4;
+
+/** Whether a windup in `enc` aims at slot `own` or its egg and lands within `ticks` ticks. */
+export function threatened(enc: Encounter, own: number, ticks: number): boolean {
+  const tick = enc.world.tick;
+  return enc.fighters.some(
+    (f) =>
+      f.slot !== own && f.status === 'in' && aimsAt(f, own, tick) && f.fx.windupEnd - tick <= ticks,
+  );
 }
 
 /** A fighter as `state().encounter` shows it. */
@@ -52,6 +68,12 @@ export interface FighterView {
   /** The carried egg in the fight, or null. */
   egg: { x: number; y: number; health: number; eaten: boolean } | null;
   outcome: 'in' | Outcome;
+  /** Its radius in wu (M7 T12). */
+  radius: number;
+  /** Staggered by a block: no windup starts (M7 T12). */
+  staggered: boolean;
+  /** Ticks in a row outside every living opponent's escape range (M7 T12). */
+  outside: number;
 }
 
 export interface EncounterView {
@@ -85,6 +107,11 @@ export class FightPlay {
   stance: Stance = 'balanced';
   /** A brace asked for (Shift or the right button) goes out with the next frame's input. */
   private braceQueued = false;
+  /**
+   * `debug.autoBrace` (a test aid, M7 T12): the own input braces whenever a windup aimed at the
+   * player or its egg has `AUTO_BRACE_TICKS` or fewer left as its frame begins.
+   */
+  autoBrace = false;
   /** The life that fights. */
   private life: { player: CreatureState; world: World } | null = null;
 
@@ -93,6 +120,11 @@ export class FightPlay {
   /** Locked in a fight that has not ended: snapshots carry the fighting bit. */
   get fighting(): boolean {
     return this.sync?.running === true && this.life !== null;
+  }
+
+  /** The hub clock now, in ms. */
+  hubNow(): number {
+    return this.host.hubNow();
   }
 
   /** A fight message from the hub (`lock-ask` is answered elsewhere). */
@@ -113,6 +145,7 @@ export class FightPlay {
       oneWayMs: () => host.oneWayMs(),
       send: (m) => host.send(m),
       sample: () => this.sample(),
+      events: (events) => host.events?.(events),
     });
     if (!sync.start(msg, pond, host.body ? (text) => host.body?.(text) ?? null : undefined)) return;
     this.sync = sync;
@@ -131,7 +164,9 @@ export class FightPlay {
     const { host, sync } = this;
     if (host.hidden() || !sync) return null;
     const s = host.steering();
-    const brace = this.braceQueued;
+    const auto =
+      this.autoBrace && sync.enc !== null && threatened(sync.enc, sync.slot, AUTO_BRACE_TICKS);
+    const brace = this.braceQueued || auto;
     this.braceQueued = false;
     return {
       steer: s.steer,
@@ -221,7 +256,7 @@ export class FightPlay {
       view.x = pose.x;
       view.y = pose.y;
       view.heading = pose.heading;
-      view.radius = Math.sqrt(f.body.biomass);
+      view.radius = radiusOf(f.body);
     }
   }
 
@@ -259,6 +294,9 @@ export class FightPlay {
           braced: f.fx.braceUntil >= tick,
           egg: egg ? { x: egg.x, y: egg.y, health: egg.health, eaten: egg.by >= 0 } : null,
           outcome: f.status,
+          radius: radiusOf(f.body),
+          staggered: f.fx.staggerUntil > tick,
+          outside: f.outside,
         };
       }),
     };
@@ -288,5 +326,6 @@ export function appFightHost(app: App): FightHost {
     // The own genome is built already; a peer's is built once for the fight.
     body: (text) =>
       text === app.session.body.text ? app.session.body.creature : bodyFromText(text),
+    events: (events) => app.fightShow.onEvents(events),
   };
 }

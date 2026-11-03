@@ -25,6 +25,10 @@ describe('CUE_SOUNDS', () => {
         'chat',
         'uv',
         'pressure',
+        'windup',
+        'block',
+        'kill',
+        'egg-eaten',
       ].sort(),
     );
     for (const cue of CUES) expect(CUE_SOUNDS[cue].layers.length, cue).toBeGreaterThan(0);
@@ -70,6 +74,27 @@ describe('CUE_SOUNDS', () => {
       expect(l.toHz ?? 0).toBeGreaterThan(l.hz);
       expect(l.level).toBeLessThanOrEqual(0.15);
     }
+  });
+
+  it('makes the fight cues short (M7): a rising windup tick, a bright clink, a falling gulp, a dry crack', () => {
+    const rises = (l: { hz: number; toHz?: number }) => (l.toHz ?? l.hz) > l.hz;
+    expect(CUE_SOUNDS.windup.seconds).toBeLessThanOrEqual(0.25);
+    expect(CUE_SOUNDS.windup.layers.some((l) => l.kind === 'tone' && rises(l))).toBe(true);
+    expect(CUE_SOUNDS.block.seconds).toBeLessThanOrEqual(0.6);
+    // Glassy: its tones ring high and hold their pitch.
+    for (const l of CUE_SOUNDS.block.layers.filter((x) => x.kind === 'tone')) {
+      expect(l.hz).toBeGreaterThanOrEqual(2000);
+      expect(l.toHz).toBeUndefined();
+    }
+    expect(CUE_SOUNDS.kill.seconds).toBeLessThanOrEqual(0.6);
+    // Low: the swallow starts under 200 Hz and falls.
+    const swallow = CUE_SOUNDS.kill.layers[0];
+    expect(swallow?.hz).toBeLessThan(200);
+    expect(swallow && rises(swallow)).toBe(false);
+    expect(CUE_SOUNDS['egg-eaten'].seconds).toBeLessThanOrEqual(0.4);
+    expect(CUE_SOUNDS['egg-eaten'].layers.filter((l) => l.kind === 'noise').length).toBeGreaterThan(
+      0,
+    );
   });
 
   it('keeps every level and frequency sane', () => {

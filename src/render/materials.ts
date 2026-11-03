@@ -22,6 +22,7 @@ import particlesVertex from './shaders/particles.vert.glsl?raw';
 import plumeFragment from './shaders/plume.frag.glsl?raw';
 import plumeVertex from './shaders/plume.vert.glsl?raw';
 import ringsFragment from './shaders/rings.frag.glsl?raw';
+import telegraphFragment from './shaders/telegraph.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
 import { DETAIL_FADE, DETAIL_LINE, DETAIL_SIZE, FINE_FADE } from './surface';
@@ -196,6 +197,14 @@ export const glowMaterial = (): THREE.ShaderMaterial =>
 /** Pops and ripples reuse the plume's instanced-quad vertex shader; only the fragment differs. */
 export const ringMaterial = (): THREE.ShaderMaterial =>
   layer(plumeVertex, ringsFragment, {}, { blending: THREE.AdditiveBlending });
+
+/** Fight telegraphs (M7 T12): windup glows, block sparks and fighting rings on the plume's quads, added premultiplied. */
+export const telegraphMaterial = (): THREE.ShaderMaterial => {
+  const material = layer(plumeVertex, telegraphFragment, {}, { blending: THREE.AdditiveBlending });
+  // The shader premultiplies: each mark adds `col × a`, not `col × a²`.
+  material.premultipliedAlpha = true;
+  return material;
+};
 
 /** Size outlines (M6 T21): `ring` is the ring's radius in quad units. */
 export const outlineMaterial = (ring: number): THREE.ShaderMaterial =>
