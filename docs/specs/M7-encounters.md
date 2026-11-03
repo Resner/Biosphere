@@ -473,7 +473,7 @@ export interface FighterOutcome extends Omit<FighterInfo, 'genome' | 'elder' | '
     - `m7-duel` passes 3 times in a row (`--repeat-each=3`), waiting only on state (`.claude/rules/tests.md`).
     - DESIGN §3 and `docs/TESTING.md` match.
 
-- [ ] T12 Combat HUD, telegraphs and sound [opus] (after T11, T3)
+- [ ] T12 Combat HUD, telegraphs and sound [opus] (after T11, T3) (in progress)
   - Steps:
     1. `src/game/combat-hud.ts`, only while locked, inside the 6% HUD budget:
        - three stance buttons with their keys, and the current one lit;
