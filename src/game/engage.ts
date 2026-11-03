@@ -251,12 +251,10 @@ export class ProtectionWatch {
 
   /** The peers drawn now, at `nowMs`; a peer that is gone or unprotected is forgotten. */
   update(peers: readonly { id: string; spawnProtected: boolean }[], nowMs: number): void {
-    for (const id of this.since.keys()) {
-      if (!peers.some((p) => p.id === id && p.spawnProtected)) this.since.delete(id);
-    }
-    for (const p of peers) {
-      if (p.spawnProtected && !this.since.has(p.id)) this.since.set(p.id, nowMs);
-    }
+    const protectedNow = new Set<string>();
+    for (const p of peers) if (p.spawnProtected) protectedNow.add(p.id);
+    for (const id of this.since.keys()) if (!protectedNow.has(id)) this.since.delete(id);
+    for (const id of protectedNow) if (!this.since.has(id)) this.since.set(id, nowMs);
   }
 
   /** Whole seconds left (at least 1) of `id`'s protection, or null when it is not seen protected. */

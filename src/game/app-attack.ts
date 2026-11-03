@@ -8,7 +8,7 @@ import { buildCreature, type Creature } from '../genome/stats';
 import type { Reacher } from '../sim/encounter/reach';
 import type { CreatureState } from '../sim/types';
 import type { App } from './app';
-import { pick } from './dom';
+import { pick, setText } from './dom';
 import {
   Attack,
   type AttackPeer,
@@ -176,7 +176,10 @@ export class AttackUi {
       peer.signed = app.online.signed.latest(r.id) !== null;
       peerList.push(peer);
     }
-    for (const id of pool.keys()) if (!peerList.some((p) => p.id === id)) pool.delete(id);
+    if (pool.size !== peerList.length) {
+      const live = new Set(peerList.map((p) => p.id));
+      for (const id of pool.keys()) if (!live.has(id)) pool.delete(id);
+    }
     return peerList;
   }
 
@@ -265,7 +268,7 @@ export class AttackUi {
     }
     const disabled = why !== '' || this.attack.waiting;
     if (cardButton.disabled !== disabled) cardButton.disabled = disabled;
-    if (cardWhy.textContent !== why) cardWhy.textContent = why;
+    setText(cardWhy, why);
     if (cardWhy.hidden !== (hidden || why === '')) cardWhy.hidden = hidden || why === '';
   }
 
