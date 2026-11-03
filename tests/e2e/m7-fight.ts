@@ -194,6 +194,9 @@ export async function killB(a: Page, b: Page, ids: { idA: string; idB: string })
   for (let attempt = 0; attempt < 4; attempt++) {
     // A whole again for each try.
     await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
+    // A cautious B that escaped one bite short stays below its flee threshold, and flees from the
+    // first frame of every later try. Bring it so low that the first bite kills it.
+    if (attempt > 0) await b.evaluate(() => (window.__bs as BsHook).debug?.setHealth(12));
     previous = await fightToEnd(a, b, ids, previous);
     const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
     if (outcomes?.includes('killed') && previous) return previous;
