@@ -283,7 +283,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A replacing second tab gets the same sequence, and the first socket is closed `4001`.
   - Notes: the locked time is credited in T8. The client's resume is T10.
 
-- [ ] T7 A victim's worth at lock-in, and join checks [opus] (after T3) (in progress)
+- [x] T7 A victim's worth at lock-in, and join checks [opus] (after T3) (in progress)
   - Steps:
     1. `worker/farming.ts`: `worthOf(hub, player, now)` = `0.5^k` (ADR 0054). `k` counts the player's creatures that died with cause `killed` in the 24 h before `now`, at most 6, plus 1 while `first_seen` is under 30 min before `now`. It uses reads only, through the `creatures_dead` index.
     2. `fighterInfo` in `worker/engage.ts` sets `worth` for both sides at lock-in and for a joiner.
@@ -297,6 +297,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - `enc-start` and `enc-join` carry the worths, and the killer's `encounter` record after a second kill of the same identity has half the first's reward, for the same bodies and layout.
     - A joiner two tiers from a fighter still in gets `engage:tier`, while one within ±1 of all joins. An engage at an escaped fighter of a running fight gets `engage:locked`.
     - `worthOf` writes no row.
+  - Done: `worker/farming.ts` (`worthOf`, one read through `creatures_dead` and the death record's cause) sets every `FighterInfo.worth`; a join is tier-checked against every fighter still in (pending joiners too), and an engage with a fighter already out of its fight, on either side, is `engage:locked`.
+  - Gotcha: `hatched()` in `fight-test-kit.ts` now dates identities past the young window (`firstSeenAgo`), so M7 hub tests keep worth 1; E2E players are young, so their fights run at worth 0.5.
 
 - [ ] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4)
   - Steps:

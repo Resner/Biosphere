@@ -21,6 +21,7 @@ import { sizeTier } from '../src/sim/size';
 import type { CreatureState, World } from '../src/sim/types';
 import { maxEnergy, maxHealth } from '../src/sim/vitals';
 import { createWorld } from '../src/sim/world';
+import { worthOf } from './farming';
 import { admit, type Fight, joinable, type Lock, runFight } from './fights';
 import type { Head } from './ledger';
 import { type Condition, clampClaim, type LifeState } from './life';
@@ -251,14 +252,35 @@ function check(
   const lock = attackerLock ?? targetLock;
   if (attackerLock && targetLock) return 'engage:locked';
   if (lock && (!lock.fight || lock.fight.enc.over)) return 'engage:locked';
-  if (lock?.fight && !joinable(lock.fight)) return 'engage:full';
-  if (!inRange(attacker, target, nowTick)) return 'engage:range';
   const ponded = { id: pond.id, seed: pond.seed, epoch: pond.epoch };
   if (lock?.fight) {
-    const joiner = attackerLock ? target : attacker;
+    const [fighter, joiner] = attackerLock ? [attacker, target] : [target, attacker];
+    // A fighter already out of its fight (escaped, stood or dead, still locked) is joined by nobody.
+    if (!stillIn(lock.fight, fighter.creature)) return 'engage:locked';
+    if (!joinable(lock.fight)) return 'engage:full';
+    if (!withinTiers(lock.fight, joiner)) return 'engage:tier';
+    if (!inRange(attacker, target, nowTick)) return 'engage:range';
     return { joining: { pond: ponded, lock, fight: lock.fight, joiner } };
   }
+  if (!inRange(attacker, target, nowTick)) return 'engage:range';
   return { asking: { pond: ponded, attacker, target }, targetWs };
+}
+
+/** Whether the creature is still in the running fight: seated and `in`, or joining at a later frame. */
+function stillIn(fight: Fight, creature: string): boolean {
+  const seat = fight.enc.fighters.find((f) => f.creature === creature);
+  return seat ? seat.status === 'in' : fight.joins.some((j) => j.fighter.creature === creature);
+}
+
+/** Whether the joiner is within `maxTierGap` of every fighter still in the fight, joiners not yet seated included. */
+function withinTiers(fight: Fight, joiner: Side): boolean {
+  const tier = sizeTier(joiner.condition.biomass / HUNDREDTHS);
+  const seated = new Set(fight.enc.fighters.map((f) => f.creature));
+  const biomasses = [
+    ...fight.enc.fighters.filter((f) => f.status === 'in').map((f) => f.body.biomass),
+    ...fight.joins.filter((j) => !seated.has(j.fighter.creature)).map((j) => j.fighter.biomass),
+  ];
+  return biomasses.every((b) => Math.abs(sizeTier(b) - tier) <= E.maxTierGap);
 }
 
 /** Within the attacker's engage range of the target, with slack for how far either may have swum since its snapshot. */
@@ -333,7 +355,10 @@ function start(hub: Hub, id: string): void {
   }
 }
 
-/** A side's start: its snapshot carried in a straight line (velocity plus the current) to tick `t0` (frame 0's, or a join's). */
+/**
+ * A side's start: its snapshot carried in a straight line (velocity plus the current) to tick `t0`
+ * (frame 0's, or a join's), and its worth as prey now (ADR 0054).
+ */
 function fighterInfo(hub: Hub, side: Side, world: World, t0: number): FighterInfo {
   const s = side.snap;
   world.tick = s.tick;
@@ -355,8 +380,7 @@ function fighterInfo(hub: Hub, side: Side, world: World, t0: number): FighterInf
     health: side.condition.health / HUNDREDTHS,
     elder: life.activeMs >= RULES.life.elderAt * life.lifespanMs,
     egg: hub.ledger.pending(side.player) !== null,
-    // Every fighter is worth 1 until farming sets it (M8 T7).
-    worth: 1,
+    worth: worthOf(hub, side.player, hub.clock.now()),
   };
 }
 
