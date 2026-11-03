@@ -156,6 +156,53 @@ describe('striking the egg', () => {
   });
 });
 
+describe('the egg in a crowd', () => {
+  it('is eaten once when two strikes land on the same tick, and only the first feeds', () => {
+    const egg = { x: 3000, y: 3000 };
+    const enc = calm(
+      createEncounter(
+        startOf('egg3', [
+          starterFighter('a', egg.x, egg.y - 1.6 * R, Math.PI / 2),
+          { ...starterFighter('b', egg.x, egg.y), egg: true },
+          starterFighter('c', egg.x, egg.y + 1.6 * R, -Math.PI / 2),
+        ]),
+      ),
+    );
+    const carrier = at(enc, 1);
+    carrier.body.x = egg.x + eggRest(carrier);
+    carrier.body.y = egg.y;
+    carrier.eggBody = {
+      ...(carrier.eggBody as NonNullable<Fighter['eggBody']>),
+      ...egg,
+      health: 0.1,
+    };
+    for (const slot of [0, 2]) {
+      at(enc, slot).fx.windupEnd = enc.world.tick;
+      at(enc, slot).fx.windupTarget = EGG_CODE + 1;
+    }
+    const before = [0, 2].map((slot) => at(enc, slot).body.biomass);
+    const out = run(enc, 1, () => [IDLE_CODE, IDLE_CODE, IDLE_CODE]);
+    expect(eggHits(out)).toHaveLength(1);
+    expect(out.filter((e) => e.type === 'egg')).toEqual([{ type: 'egg', slot: 1, by: 0 }]);
+    expect(at(enc, 0).body.biomass).toBeGreaterThan(before[0] as number);
+    expect(at(enc, 2).body.biomass).toBe(before[1]);
+  });
+
+  it('is eaten but feeds nobody when its carrier and its killer die on the same tick', () => {
+    const a = { ...starterFighter('a', 3000, 3000), health: 0.001, egg: true };
+    const b = { ...starterFighter('b', 3000 + 2 * R - 1, 3000, Math.PI), health: 0.001 };
+    const enc = calm(createEncounter(startOf('mutual', [a, b])));
+    run(enc, 3, () => [IDLE_CODE, IDLE_CODE]);
+    const [x, y] = results(enc);
+    expect([x?.outcome, y?.outcome]).toEqual(['killed', 'killed']);
+    expect(x).toMatchObject({ egg: 'eaten', eggBy: 1 });
+    expect([at(enc, 0).body.biomass, at(enc, 1).body.biomass]).toEqual([
+      RULES.starter.biomass,
+      RULES.starter.biomass,
+    ]);
+  });
+});
+
 describe('the egg at the end of the fight', () => {
   /** The hunter kills the carrier (3 hp) at once and eats its egg with it. */
   it('is eaten by the killer with its carrier, and both rewards are paid', () => {

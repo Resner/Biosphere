@@ -104,6 +104,8 @@ function ram(hits: Hit[], im: Impact, t: number): void {
 function apply(enc: Encounter, hits: Hit[], t: number, out: EncounterEvent[]): void {
   for (const h of hits) {
     const egg = h.egg ? h.victim.eggBody : null;
+    // A second hit on an egg already eaten this tick finds nothing to hit.
+    if (h.egg && (egg === null || egg.by >= 0)) continue;
     if (egg !== null) egg.health -= h.amount;
     else {
       h.victim.body.health -= h.amount;
@@ -117,9 +119,9 @@ function apply(enc: Encounter, hits: Hit[], t: number, out: EncounterEvent[]): v
       kind: h.kind,
       amount: h.amount,
       blocked: h.blocked,
-      egg: egg !== null,
+      egg: h.egg,
     });
-    if (egg !== null && egg.by < 0 && egg.health <= 0) eatEgg(enc, h.victim, h.by.slot, out);
+    if (egg !== null && egg.health <= 0) eatEgg(enc, h.victim, h.by.slot, out);
     if (h.blocked) {
       h.by.fx.staggerUntil = t + E.brace.staggerTicks;
       h.by.fx.windupEnd = -1;
@@ -139,13 +141,17 @@ function reward(killer: Fighter, victimBiomass: number, share: number): void {
   b.energy = Math.min(maxEnergy(b.biomass), b.energy + (gain - grown) * rw.energyPerBiomass);
 }
 
-/** Marks `carrier`'s egg as eaten by slot `by`; an eater still in the fight is fed (ADR 0052). */
-function eatEgg(enc: Encounter, carrier: Fighter, by: number, out: EncounterEvent[]): void {
-  const egg = carrier.eggBody;
-  if (egg === null || egg.by >= 0) return;
+/** Marks `carrier`'s egg as eaten by slot `by`. */
+function markEaten(carrier: Fighter, by: number, out: EncounterEvent[]): void {
+  const egg = carrier.eggBody as NonNullable<Fighter['eggBody']>;
   egg.by = by;
   egg.health = 0;
   out.push({ type: 'egg', slot: carrier.slot, by });
+}
+
+/** An egg struck to nothing is eaten by the striker, who is fed at once (ADR 0052). */
+function eatEgg(enc: Encounter, carrier: Fighter, by: number, out: EncounterEvent[]): void {
+  markEaten(carrier, by, out);
   const eater = enc.fighters[by];
   if (eater !== undefined && eater.status === 'in') {
     reward(eater, carrier.body.biomass, E.egg.eatShare);
@@ -154,21 +160,27 @@ function eatEgg(enc: Encounter, carrier: Fighter, by: number, out: EncounterEven
 
 function kills(enc: Encounter, alive: Fighter[], out: EncounterEvent[]): void {
   const dead: Fighter[] = [];
+  const withEgg: Fighter[] = [];
   for (const f of alive) {
     if (f.body.health > 0) continue;
     const by = f.lastBy >= 0 ? f.lastBy : null;
     f.body.health = 0;
     f.body.alive = false;
     f.body.cause = 'killed';
-    if (by !== null && hasEgg(f)) eatEgg(enc, f, by, out);
+    if (by !== null && hasEgg(f)) {
+      markEaten(f, by, out);
+      withEgg.push(f);
+    }
     finish(enc, f, 'killed', by);
     dead.push(f);
     out.push({ type: 'death', slot: f.slot, cause: 'killed', by });
   }
   for (const f of dead) {
     const killer = enc.fighters[f.lastBy];
-    if (killer !== undefined && killer.status === 'in')
-      reward(killer, f.body.biomass, E.reward.share);
+    if (killer === undefined || killer.status !== 'in') continue;
+    reward(killer, f.body.biomass, E.reward.share);
+    // Paid with the kill, after every death of the tick is known, so the order of slots never decides it.
+    if (withEgg.includes(f)) reward(killer, f.body.biomass, E.egg.eatShare);
   }
 }
 

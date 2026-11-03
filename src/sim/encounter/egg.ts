@@ -44,6 +44,7 @@ export function followEgg(f: Fighter): void {
   const egg = f.eggBody;
   if (egg === null || !hasEgg(f) || f.status !== 'in') return;
   const goal = restPoint(f);
+  egg.radius = E.egg.radius * radiusOf(f.body);
   egg.x = lerp(egg.x, goal.x, E.egg.follow);
   egg.y = lerp(egg.y, goal.y, E.egg.follow);
 }
