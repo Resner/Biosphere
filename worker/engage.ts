@@ -334,7 +334,11 @@ function fighterInfo(hub: Hub, side: Side, world: World, t0: number): FighterInf
 }
 
 /** The messages that change a player's life, refused `locked` while it is in a fight. */
-export const LOCK_BARRED: ReadonlySet<string> = new Set(['genesis-request', 'promote', 'restore']);
+export const LOCK_BARRED: ReadonlySet<ClientMsg['t']> = new Set<ClientMsg['t']>([
+  'genesis-request',
+  'promote',
+  'restore',
+]);
 
 /** Refuses a promotion, restore or genesis while the player is locked in a fight; true when it did. */
 export function lockedOut(hub: Hub, ws: WebSocket, session: ActiveSession): boolean {
