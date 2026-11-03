@@ -2,7 +2,7 @@
 // health and no armour, and any opponent may strike it. It is eaten when its health runs out or
 // with its killed carrier; the eater gains a share of the carrier's biomass.
 
-import { cos, length, sin } from '../math';
+import { cos, length, lerp, sin } from '../math';
 import { RULES } from '../rules';
 import { maxHealth } from '../vitals';
 import { aim, radiusOf } from './reach';
@@ -11,21 +11,25 @@ import type { EggBody, Encounter, Fighter } from './types';
 const E = RULES.encounter;
 
 /** A target code names an egg from this value up: `EGG_CODE + slot`. */
-export const EGG_CODE = 4;
+export const EGG_CODE = E.maxFighters;
 
 /** Where the egg rests behind a still carrier, in wu from its centre. */
 export const eggRest = (carrier: Fighter): number => {
-  const r = radiusOf(carrier.body);
-  return r * (1 + E.egg.gap) + E.egg.radius * r;
+  return radiusOf(carrier.body) * (1 + E.egg.gap + E.egg.radius);
 };
 
-/** The egg a fighter carries, straight behind it, with full health. */
-export function seatEgg(f: Fighter): EggBody {
+/** Where the egg rests now: straight behind its carrier. */
+function restPoint(f: Fighter): { x: number; y: number } {
   const b = f.body;
   const rest = eggRest(f);
+  return { x: b.x - cos(b.heading) * rest, y: b.y - sin(b.heading) * rest };
+}
+
+/** The egg a fighter carries, at its resting place, with full health. */
+export function seatEgg(f: Fighter): EggBody {
+  const b = f.body;
   return {
-    x: b.x - cos(b.heading) * rest,
-    y: b.y - sin(b.heading) * rest,
+    ...restPoint(f),
     radius: E.egg.radius * radiusOf(b),
     health: E.egg.healthShare * maxHealth(b.biomass),
     by: -1,
@@ -38,13 +42,10 @@ export const hasEgg = (f: Fighter): boolean => f.eggBody !== null && f.eggBody.b
 /** Moves the egg of a fighter still in the fight a quarter of the way to its resting place. */
 export function followEgg(f: Fighter): void {
   const egg = f.eggBody;
-  if (egg === null || egg.by >= 0 || f.status !== 'in') return;
-  const b = f.body;
-  const rest = eggRest(f);
-  const goalX = b.x - cos(b.heading) * rest;
-  const goalY = b.y - sin(b.heading) * rest;
-  egg.x += (goalX - egg.x) * E.egg.follow;
-  egg.y += (goalY - egg.y) * E.egg.follow;
+  if (egg === null || !hasEgg(f) || f.status !== 'in') return;
+  const goal = restPoint(f);
+  egg.x = lerp(egg.x, goal.x, E.egg.follow);
+  egg.y = lerp(egg.y, goal.y, E.egg.follow);
 }
 
 /**

@@ -120,7 +120,7 @@ describe('striking the egg', () => {
     const first = eggHits(run(plain, 3))[0] as Hit;
     const braced = chase();
     const out = eggHits(
-      run(braced, 3, () => [drive(0, 0, { target: 5 }), drive(0, 0, { brace: true })]),
+      run(braced, 3, () => [drive(0, 0, { target: EGG_CODE + 1 }), drive(0, 0, { brace: true })]),
     );
     const hit = out[0] as Hit;
     expect(hit.blocked).toBe(true);
@@ -161,9 +161,6 @@ describe('the egg at the end of the fight', () => {
   it('is eaten by the killer with its carrier, and both rewards are paid', () => {
     const enc = chase({ carrier: { health: 1 }, gap: 0.5 });
     at(enc, 1).body.x = at(enc, 0).body.x + 2 * R - 1;
-    at(enc, 1).eggBody = {
-      ...(at(enc, 1).eggBody as NonNullable<Fighter['eggBody']>),
-    };
     const before = at(enc, 0).body.biomass;
     run(enc, 3, () => [drive(0, 0, { target: 1 }), IDLE_CODE]);
     const [a, b] = results(enc);

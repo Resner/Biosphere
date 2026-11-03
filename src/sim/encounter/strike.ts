@@ -31,7 +31,7 @@ export function inStrike(attacker: Fighter, target: Fighter, reach: number): boo
 /** The fighter's target code: the frame input's, if it names a living opponent or a whole egg, else the nearest opponent's slot; -1 for none. */
 export function pickCode(enc: Encounter, f: Fighter, input: FrameInput | null): number {
   const want = input === null ? -1 : input.target;
-  if (want >= EGG_CODE && targetEgg(enc, f, want) !== null) return want;
+  if (targetEgg(enc, f, want) !== null) return want;
   return pickTarget(enc, f, input)?.slot ?? -1;
 }
 
