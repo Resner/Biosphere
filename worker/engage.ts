@@ -312,7 +312,7 @@ function start(hub: Hub, id: string): void {
   const beacon = hub.beacons.newestKnown();
   const seed = encounterSeed(beacon ? randomnessOf(beacon) : new Uint8Array(0), enc);
   const msg: EncStart = { t: 'enc-start', enc, seed, round: beacon?.round ?? 0, t0, at, fighters };
-  if (!runFight(hub, lock, msg, asking.pond.seed)) {
+  if (!runFight(hub, lock, msg, asking.pond)) {
     hub.fights.release(id);
     return;
   }

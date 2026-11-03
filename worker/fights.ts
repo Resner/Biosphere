@@ -15,6 +15,7 @@ import { applyJoins } from '../src/sim/encounter/join';
 import type { Encounter, EncounterJoin } from '../src/sim/encounter/types';
 import { RULES } from '../src/sim/rules';
 import type { Asking } from './engage';
+import type { PondRow } from './schema';
 import { settle, tell } from './settle';
 import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
 
@@ -45,6 +46,9 @@ export interface Fight {
   joins: EncounterJoin[];
   /** Every `enc-frame` and `enc-join` sent so far, in order: a joiner's catch-up. */
   history: HubMsg[];
+  /** The pond it is fought in and the pond tick it started at, to place a kill's carrion. */
+  pond: string;
+  t0: number;
 }
 
 /** One lock: asking the target for its state, then running from `enc-start`. */
@@ -163,8 +167,13 @@ export class Fights {
  * Starts the fight of `msg` (just sent to both): the referee's clock from frame 0 at `msg.at`, and
  * the authority's encounter from the same start every client builds. False when it can't be built.
  */
-export function runFight(hub: Hub, lock: Lock, msg: EncStart, pondSeed: string): boolean {
-  const start = encounterStartOf(msg, pondSeed);
+export function runFight(
+  hub: Hub,
+  lock: Lock,
+  msg: EncStart,
+  pond: Pick<PondRow, 'id' | 'seed'>,
+): boolean {
+  const start = encounterStartOf(msg, pond.seed);
   if (!start) return false;
   const enc = createEncounter(start);
   lock.fight = {
@@ -175,6 +184,8 @@ export function runFight(hub: Hub, lock: Lock, msg: EncStart, pondSeed: string):
     start: msg,
     joins: [],
     history: [],
+    pond: pond.id,
+    t0: msg.t0,
   };
   armNext(hub, lock);
   return true;

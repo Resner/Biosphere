@@ -34,6 +34,7 @@ describe('createWorld and spawnCreature', () => {
       size: 8192,
       creatures: [],
       consumed: {},
+      carrion: [],
       options: { currents: true, hazards: true },
     });
     expect(world.seed32).toHaveLength(4);
@@ -135,6 +136,7 @@ describe('hashWorld', () => {
       'tick',
       'size',
       'consumed',
+      'carrion',
       'options',
       'extraPlumes',
       'seed',
@@ -151,6 +153,9 @@ describe('hashWorld', () => {
       },
       (w) => {
         w.consumed.c0_0_s0 = { k: 1, until: 700 };
+      },
+      (w) => {
+        w.carrion.push({ id: 'xabababab_0', x: 1, y: 2, value: 3, radius: 4, expires: 5000 });
       },
       (w) => {
         w.options.currents = false;

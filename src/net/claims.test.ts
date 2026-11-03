@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { carrionNear, consumeCarrion, dropCarrion } from '../sim/carrion';
 import { consumeFood } from '../sim/food';
 import { RULES } from '../sim/rules';
 import { createWorld } from '../sim/world';
@@ -259,5 +260,55 @@ describe('late join', () => {
     join.receive(joiner, 'P1', { t: 'consumed', part: 1, of: 3, entries: [] });
     expect(joiner.consumed).toEqual({});
     expect(join.complete).toBe(false);
+  });
+});
+
+describe('ClaimBook on carrion', () => {
+  const DROP = { enc: 'ab'.repeat(32), x: 3000, y: 3000, biomass: 400, radius: 20, tick: 100 };
+  const piece = (() => {
+    const w = world();
+    dropCarrion(w, DROP);
+    return (w.carrion[1] as { id: string }).id;
+  })();
+  const carrionIds = (w: ReturnType<typeof world>) =>
+    carrionNear(w, 3000, 3000, 1e6).map((p) => p.id);
+  const dropped = (tick: number) => {
+    const w = world(tick);
+    dropCarrion(w, DROP);
+    return w;
+  };
+
+  it('settles two eaters of one piece by tick; the loser gives the energy back', () => {
+    const wa = dropped(110);
+    const a = new ClaimBook('A');
+    consumeCarrion(wa, piece);
+    a.local({ slot: piece, k: 0, tick: 110 }, 20);
+    const wb = dropped(112);
+    const b = new ClaimBook('B');
+    consumeCarrion(wb, piece);
+    b.local({ slot: piece, k: 0, tick: 112 }, 16);
+
+    expect(a.remote(wa, { t: 'claim', slot: piece, k: 0, tick: 112 }, 'B')).toBeNull();
+    expect(b.remote(wb, { t: 'claim', slot: piece, k: 0, tick: 110 }, 'A')).toEqual({
+      slot: piece,
+      k: 0,
+      value: 16,
+    });
+    expect(wa.consumed[piece]).toEqual(wb.consumed[piece]);
+  });
+
+  it('removes the piece for a client that did not eat, even before it hears of the drop', () => {
+    const early = world(111);
+    expect(
+      new ClaimBook('C').remote(early, { t: 'claim', slot: piece, k: 0, tick: 110 }, 'A'),
+    ).toBeNull();
+    dropCarrion(early, DROP);
+    expect(early.carrion.map((p) => p.id)).not.toContain(piece);
+    expect(early.carrion).toHaveLength(6);
+
+    const late = dropped(111);
+    new ClaimBook('C').remote(late, { t: 'claim', slot: piece, k: 0, tick: 110 }, 'A');
+    expect(late.consumed[piece]).toBeDefined();
+    expect(carrionIds(late)).not.toContain(piece);
   });
 });

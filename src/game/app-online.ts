@@ -2,10 +2,11 @@ import type { Identity } from '../ledger/identity';
 import { signSnap, verifySnap } from '../ledger/snapshot-sig';
 import { consumedParts } from '../net/claims';
 import type { PondClock } from '../net/clock';
-import type { Welcome } from '../net/hub-client';
+import type { FightMsg, Welcome } from '../net/hub-client';
 import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
 import { encodeSnapshot, type PeerEvent, type SignedSnap } from '../net/protocol';
 import { SignedSnaps } from '../net/signed-snaps';
+import { dropCarrion } from '../sim/carrion';
 import { createWorld } from '../sim/world';
 import { AloneHint } from './alone-hint';
 import type { App } from './app';
@@ -128,8 +129,9 @@ export class OnlineWiring {
             // A life in the old pond carries on in a local one; the chip says so.
             if (life && !next.life) {
               app.session.pond = null;
-              // The old pond's eaten food is not this life's any more.
+              // The old pond's eaten food and carrion are not this life's any more.
               app.session.world.consumed = { ...app.session.world.consumed };
+              app.session.world.carrion = [...app.session.world.carrion];
               app.loop.setSpeed(1);
             }
           }
@@ -184,6 +186,7 @@ export class OnlineWiring {
         },
         fight: (msg) => {
           if (msg.t === 'lock-ask') this.answerLock(msg.lock, link);
+          else if (msg.t === 'carrion') this.dropCarrion(msg);
           else app.fight.receive(msg);
           if (msg.t === 'enc-start') app.attack.started();
           if (msg.t === 'enc-end') {
@@ -236,6 +239,15 @@ export class OnlineWiring {
     counts.stolen = (counts.stolen ?? 0) + 1;
     countItem(counts, 'stolen', `${stolen.slot}_k${stolen.k}`);
     app.hud.update(player);
+  }
+
+  /** A kill's carrion: the same pieces on every client of the pond, drawn with the food. */
+  dropCarrion(msg: Extract<FightMsg, { t: 'carrion' }>): void {
+    const { app } = this;
+    const { pond } = app;
+    if (!pond) return;
+    dropCarrion(pond.world, msg);
+    app.field.markDirty();
   }
 
   /** The connection line, the offline chip and the alone hint, each frame. */

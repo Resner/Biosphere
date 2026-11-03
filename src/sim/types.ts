@@ -44,6 +44,19 @@ export interface FoodItem {
   respawnTick: number;
 }
 
+/** A piece of a killed creature (M7): food that drops where a kill happened and spoils. */
+export interface CarrionPiece {
+  /** `x<first 8 of the encounter id>_<i>`; also its claim slot (cycle 0, never respawns). */
+  id: string;
+  x: number;
+  y: number;
+  /** Energy before the mouth's efficiency. */
+  value: number;
+  radius: number;
+  /** The first tick it is gone. */
+  expires: number;
+}
+
 /** A toxic cloud: a disc of poisoned water. */
 export interface Plume {
   id: string;
@@ -65,6 +78,11 @@ export interface World {
    * stays after its respawn tick passes, because it is the only record of the slot's cycle.
    */
   consumed: Record<string, { k: number; until: number }>;
+  /**
+   * Carrion pieces, sorted by id. A piece is alive until `expires` unless `consumed` holds its id.
+   * Mutated in place, because a pond's lives share this array.
+   */
+  carrion: CarrionPiece[];
   options: { currents: boolean; hazards: boolean };
   /** Fixed plumes added by tests and debug tools; they sit on top of the seeded ones. */
   extraPlumes: Plume[];
