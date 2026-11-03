@@ -62,9 +62,9 @@ export interface Fight {
 export type SlotLife = Pick<LifeState, 'creature' | 'activeMs' | 'lifespanMs'>;
 
 /** A slot's name and life clock as its fight begins or it joins. */
-function slotOf(hub: Hub, player: string, life: SlotLife): SlotClock {
+function slotOf(name: string | undefined, life: SlotLife): SlotClock {
   return {
-    name: seated(hub, player)?.[1].name ?? '',
+    name: name ?? '',
     activeMs: life.activeMs,
     lifespanMs: life.lifespanMs,
   };
@@ -201,7 +201,7 @@ export function runFight(
   for (const f of enc.fighters) {
     const life = lives.find((l) => l.creature === f.creature);
     if (!life) return false;
-    slots.push(slotOf(hub, f.player, life));
+    slots.push(slotOf(seated(hub, f.player)?.[1].name, life));
   }
   const fight: Fight = {
     referee: new Referee({ startAt: msg.at, slots: enc.fighters.length }),
@@ -277,7 +277,7 @@ export function tick(hub: Hub, id: string, now: number): void {
 /** A participant's socket closed: its fight's log takes every final frame now (ADR 0053). */
 export function flushFight(hub: Hub, player: string): void {
   const fight = hub.fights.ofPlayer(player)?.fight;
-  if (fight && !fight.enc.over) hub.fightStore.flush(fight);
+  if (fight) hub.fightStore.flush(fight);
 }
 
 /** Whether a running fight can take one more fighter: not over, and fewer than the limit seated or joining. */
@@ -302,7 +302,8 @@ export function admit(
   const fighter = fighterStartOf(info);
   if (!fighter || !joinable(fight)) return false;
   const msg: EncJoin = { t: 'enc-join', enc: fight.enc.id, f, fighter: info };
-  const slot = slotOf(hub, info.player, life);
+  const found = seated(hub, info.player);
+  const slot = slotOf(found?.[1].name, life);
   try {
     hub.fightStore.join(fight, msg, slot);
   } catch (error) {
@@ -314,7 +315,6 @@ export function admit(
   fight.players.push(info.player);
   fight.slots.push(slot);
   hub.fights.join(lock, info.player, info.creature);
-  const found = seated(hub, info.player);
   if (found) for (const m of [fight.start, ...fight.history]) sendIfOpen(found[0], m);
   fight.history.push(msg);
   tell(hub, lock, msg);

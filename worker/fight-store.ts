@@ -88,9 +88,9 @@ export class FightStore {
 
   /** Writes the final frames up to the last whole batch, when a batch has gathered since the last write. */
   append(fight: Fight): void {
-    const frames = framesOf(fight);
-    const upTo = frames.length - (frames.length % BATCH_FRAMES);
-    if (upTo > fight.persisted) this.frames(fight, frames.slice(0, upTo), true);
+    // `referee.next` counts the final frames, so a tick that finishes no batch builds nothing.
+    const upTo = fight.referee.next - (fight.referee.next % BATCH_FRAMES);
+    if (upTo > fight.persisted) this.frames(fight, framesOf(fight).slice(0, upTo), true);
   }
 
   /** Writes every final frame not yet written (a participant's socket closed). */
