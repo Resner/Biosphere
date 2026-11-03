@@ -117,13 +117,15 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
   });
   let settled: SettleResult;
   try {
-    settled = hub.ledger.settle(
-      { enc: enc.id, fighters: records, settlement: settlementOf(logOf(fight), enc, Date.now()) },
-      {
+    settled = hub.ledger.settle({
+      enc: enc.id,
+      fighters: records,
+      settlement: settlementOf(logOf(fight), enc, Date.now()),
+      log: {
         stored: () => hub.fightStore.settlement(enc.id),
         seal: (signed) => hub.fightStore.seal(fight, signed),
       },
-    );
+    });
   } catch (error) {
     // A rule the results break is a bug: nothing is written, and the fight leaves no trace on a life.
     console.error('encounter settlement failed', error);

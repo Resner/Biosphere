@@ -159,15 +159,17 @@ describe('a kill’s settlement', () => {
     const { signed } = await stored(start.enc, a.pond.seed);
     const again = await authority((o) => {
       const before = o.ledger.rowsWritten;
-      const result = o.ledger.settle(
-        { enc: start.enc, fighters: [], settlement: signed.settlement },
-        {
+      const result = o.ledger.settle({
+        enc: start.enc,
+        fighters: [],
+        settlement: signed.settlement,
+        log: {
           stored: () => o.fightStore.settlement(start.enc),
           seal: () => {
             throw new Error('sealed twice');
           },
         },
-      );
+      });
       return { result, rows: o.ledger.rowsWritten - before };
     });
     expect(again.rows).toBe(0);

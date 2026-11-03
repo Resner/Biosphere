@@ -300,7 +300,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A joiner two tiers from a fighter still in gets `engage:tier`, while one within ±1 of all joins. An engage at an escaped fighter of a running fight gets `engage:locked`.
     - `worthOf` writes no row.
 
-- [ ] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4) (in progress)
+- [x] T8 The settlement: signed document, locked time, carrion worth, failed settlements [opus] (after T2, T4) (in progress)
   - Steps:
     1. `Ledger.settle` (`worker/ledger-encounter.ts`, `worker/ledger.ts`) writes, in one transaction:
        - the records, as M7;
@@ -328,6 +328,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - The forced failure writes no row, flags once, and sends both connected fighters `enc-end` and then `life` with the creature alive in the ledger.
     - Row writes per duel stay at M7's per participant, plus the one row update for the tail and the settlement.
   - Notes: `worker/ledger.ts` is at 997 lines. Its change is a few lines handing the settlement's writes to `ledger-encounter.ts` and `fight-store.ts` (extend `ChainOps`).
+  - Done: `settle` builds `settlementOf(logOf(fight))` and each slot's locked time (`lockedTimes`); `settleRecords` countersigns it and `FightStore.seal` writes it with the tail and `open = 0` in the transaction (`FightRecords.log`); a failure flags, closes the row, rebinds lives and sends `enc-end` then `life` (`worker/settlement.test.ts`).
+  - Gotcha: a failed settlement's row is closed, so recovery never retries it; the kit's `startOf` sorts fighters by creature, as the encounter seats them, so `slotOf` is right for direct starts.
 
 - [ ] T9 Everyone left: the 10 s wait, the fast-forward and the away reports [opus] (after T6, T8)
   - Steps:

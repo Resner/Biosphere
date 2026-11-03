@@ -19,7 +19,6 @@ import { RULES_VERSION } from '../src/sim/rules';
 import {
   type FightRecords,
   HOLDS_ENCOUNTER,
-  type SettlementLog,
   type SettleResult,
   settleRecords,
 } from './ledger-encounter';
@@ -144,8 +143,8 @@ export class Ledger {
     return this.storage.transactionSync(() => this.restoreInTransaction(request, ownerSig, rule));
   }
 
-  /** Writes an encounter's records and its countersigned document into `log`, in one transaction (`ledger-encounter.ts`); a second call writes nothing. */
-  settle(input: FightRecords, log: SettlementLog): SettleResult {
+  /** Writes an encounter's records and its countersigned document in one transaction (`ledger-encounter.ts`); a second call writes nothing. */
+  settle(input: FightRecords): SettleResult {
     this.key();
     return this.storage.transactionSync(() =>
       settleRecords(
@@ -164,7 +163,6 @@ export class Ledger {
           rules: RULES_VERSION,
         },
         input,
-        log,
       ),
     );
   }

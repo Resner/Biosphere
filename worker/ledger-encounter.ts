@@ -42,8 +42,9 @@ export interface FighterRecord {
 export interface FightRecords {
   enc: string;
   fighters: readonly FighterRecord[];
-  /** The document to countersign (`settlementOf`). */
+  /** The document to countersign (`settlementOf`), and the fight's log that keeps it. */
   settlement: Settlement;
+  log: SettlementLog;
 }
 
 /**
@@ -86,16 +87,12 @@ export const HOLDS_ENCOUNTER =
  * Writes the encounter's records: an `encounter` record per survivor; per dead fighter a checkpoint
  * if its last report is unsaved, then its `death`; per eaten egg the pending child's `death`. A
  * fighter whose creature is no longer the active one is skipped. Then the countersigned document
- * goes into the log with its tail (`log.seal`). Settling the same encounter again writes nothing
+ * goes into the fight's log with its tail (`log.seal`). Settling the same encounter again writes nothing
  * and returns the stored document. Throws on a record the rules refuse or a seal that fails, so the
  * caller's transaction rolls back whole.
  */
-export function settleRecords(
-  ops: ChainOps,
-  input: FightRecords,
-  log: SettlementLog,
-): SettleResult {
-  const { enc } = input;
+export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult {
+  const { enc, log } = input;
   const done = log.stored();
   if (done || input.fighters.some((f) => ops.holds(f.creature, enc))) {
     return { fresh: false, stored: [], settlement: done };

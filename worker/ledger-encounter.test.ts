@@ -75,7 +75,7 @@ const settle = (
   ledger: Ledger,
   input: { enc: string; fighters: FighterRecord[] },
   log: SettlementLog = memoryLog(),
-) => ledger.settle({ ...input, settlement: docOf(input.enc) }, log);
+) => ledger.settle({ ...input, settlement: docOf(input.enc), log });
 
 const kinds = (ledger: Ledger, id: string) => ledger.chain(id).map((s) => s.record.kind);
 
