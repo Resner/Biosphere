@@ -2,6 +2,7 @@ import { toBase64Url } from '../src/ledger/identity';
 import { type HubMsg, isCause, type SignedCommit } from '../src/net/protocol';
 import type { DeathCause } from '../src/sim/types';
 import type { Beacons, SignedCommitment } from './beacons';
+import type { Clock, Fights } from './fights';
 import type { Ledger } from './ledger';
 import type { LifeState } from './life';
 import type { Court } from './mating';
@@ -23,6 +24,10 @@ export interface Hub {
   promoting: Promise<void>;
   matingQueue: Promise<void>;
   nextTicket: number;
+  /** The time and timers of lock-in and fights (hub tests swap in a hand-moved clock). */
+  readonly clock: Clock;
+  /** Who is locked in a fight, in memory only (ADR 0050). */
+  readonly fights: Fights;
   /** The one way to set or clear the object's alarm (`.claude/rules/worker.md`). */
   rearm(): Promise<void>;
 }
@@ -40,6 +45,8 @@ export type Session = (
       life?: LifeState | undefined;
       /** The mating this player has offered, until the partner answers (lazy expiry, no timer). */
       court?: Court | undefined;
+      /** Spawn protection lasts until this time (ADR 0050); set by a genesis, promotion or restore, ended by an engage. */
+      protectedUntil?: number | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is in no pond. */

@@ -19,7 +19,7 @@ const BIOMASS_SLACK = 1;
 const HUNDREDTHS = 100;
 
 /** A creature's condition in hundredths. */
-interface Condition {
+export interface Condition {
   biomass: number;
   energy: number;
   health: number;
@@ -114,22 +114,30 @@ export function creditTicks(life: LifeState, ticks: number, now: number): LifeSt
 /** Whether the creature's active time has reached its lifespan. */
 export const isOld = (life: LifeState): boolean => life.activeMs >= life.lifespanMs;
 
+/** A condition clamped to what the genome and `seconds` of growth since the last report allow (hundredths). */
+interface Clamped {
+  condition: Condition;
+  /** `life.flagged` with the kinds clamped for added. */
+  flagged: number;
+  /** The kinds clamped for that this connection had not noted before. */
+  newFlags: Implausible[];
+}
+
 /**
- * Credits a report: advances the life clock by `accrue`, and clamps the reported condition to what
- * the genome and the elapsed active time allow. Never rejects; the kinds it clamped for and had not
- * noted before on this connection come back.
+ * Clamps a claimed condition to the growth curve a creature of this genome can follow from the
+ * last report, over `seconds` of play. A value within `tolerance` (a share) of its cap is clamped
+ * without a flag, for claims quantised on the way (a snapshot's biomass).
  */
-export function applyReport(
+function clampCondition(
   life: LifeState,
-  report: Report,
-  now: number,
-): { life: LifeState; newFlags: Implausible[] } {
-  const gained = credited(life, report.ticks, now);
-  const seconds = gained / 1000;
+  claim: Condition,
+  seconds: number,
+  tolerance = 0,
+): Clamped {
   const clamped: Implausible[] = [];
   const clamp = (value: number, cap: number, kind: Implausible): number => {
     if (value <= cap) return value;
-    clamped.push(kind);
+    if (value > cap * (1 + tolerance)) clamped.push(kind);
     return cap;
   };
 
@@ -138,17 +146,17 @@ export function applyReport(
   const reach =
     from * Math.exp(RULES.growth.maxRate * life.growth * GROWTH_SLACK * seconds) + BIOMASS_SLACK;
   const biomass = clamp(
-    clamp(report.biomass, Math.floor(life.maxBiomass * HUNDREDTHS), 'biomass-over-max'),
+    clamp(claim.biomass, Math.floor(life.maxBiomass * HUNDREDTHS), 'biomass-over-max'),
     Math.floor(reach * HUNDREDTHS),
     'growth-too-fast',
   );
   const energy = clamp(
-    report.energy,
+    claim.energy,
     Math.floor(maxEnergy(biomass / HUNDREDTHS) * HUNDREDTHS),
     'energy-over',
   );
   const health = clamp(
-    report.health,
+    claim.health,
     Math.floor(maxHealth(biomass / HUNDREDTHS) * HUNDREDTHS),
     'health-over',
   );
@@ -160,6 +168,21 @@ export function applyReport(
     flagged |= bit;
     return isNew;
   });
+  return { condition: { biomass, energy, health }, flagged, newFlags };
+}
+
+/**
+ * Credits a report: advances the life clock by `accrue`, and clamps the reported condition to what
+ * the genome and the elapsed active time allow. Never rejects; the kinds it clamped for and had not
+ * noted before on this connection come back.
+ */
+export function applyReport(
+  life: LifeState,
+  report: Report,
+  now: number,
+): { life: LifeState; newFlags: Implausible[] } {
+  const gained = credited(life, report.ticks, now);
+  const { condition, flagged, newFlags } = clampCondition(life, report, gained / 1000);
   return {
     life: {
       ...life,
@@ -167,13 +190,24 @@ export function applyReport(
       ticks: Math.max(life.ticks, report.ticks),
       t: now,
       activeMs: life.activeMs + gained,
-      biomass,
-      energy,
-      health,
+      ...condition,
       flagged,
     },
     newFlags,
   };
+}
+
+/**
+ * A condition claimed outside a report (a signed snapshot at lock-in, ADR 0050), clamped by the
+ * same growth curve over the wall time since the last report. Nothing is credited.
+ */
+export function clampClaim(
+  life: LifeState,
+  claim: Condition,
+  now: number,
+  tolerance: number,
+): Clamped {
+  return clampCondition(life, claim, Math.max(0, now - life.t) / 1000, tolerance);
 }
 
 /** Whether the creature has played since its last record, so a close should write one. */

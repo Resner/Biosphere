@@ -134,6 +134,31 @@ describe('Beacons.latest and get', () => {
   });
 });
 
+describe('Beacons.newestKnown', () => {
+  it('is null with nothing held, and never fetches', async () => {
+    await rig(async (r) => {
+      expect(r.beacons.newestKnown()).toBeNull();
+      expect(r.fetched).toEqual([]);
+    });
+  });
+
+  it('is the newest of the stored and the remembered beacons, without fetching', async () => {
+    await rig(async (r) => {
+      const current = roundAt(r.clock.now);
+      expect((await r.beacons.get(current - 3))?.round).toBe(current - 3);
+      expect(r.beacons.newestKnown()?.round).toBe(current - 3);
+      // `latest` keeps what it fetched in memory only.
+      expect((await r.beacons.latest())?.round).toBe(current);
+      const fetched = r.fetched.length;
+      expect(r.beacons.newestKnown()).toEqual({
+        round: current,
+        signature: beaconOf(current).signature,
+      });
+      expect(r.fetched.length).toBe(fetched);
+    });
+  });
+});
+
 describe('Beacons.commit', () => {
   it('names the round after the latest published, signed, and the same request returns the same commitment', async () => {
     await rig(async (r) => {
