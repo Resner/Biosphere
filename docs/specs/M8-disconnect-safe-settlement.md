@@ -333,7 +333,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `settle` builds `settlementOf(logOf(fight))` and each slot's locked time (`lockedTimes`); `settleRecords` countersigns it and `FightStore.seal` writes it with the tail and `open = 0` in the transaction (`FightRecords.log`); a failure flags, closes the row, rebinds lives and sends `enc-end` then `life` (`worker/settlement.test.ts`).
   - Gotcha: a failed settlement's row is closed, so recovery never retries it; the kit's `startOf` sorts fighters by creature, as the encounter seats them, so `slotOf` is right for direct starts.
 
-- [ ] T9 Everyone left: the 10 s wait, the fast-forward and the away reports [opus] (after T6, T8) (in progress)
+- [x] T9 Everyone left: the 10 s wait, the fast-forward and the away reports [opus] (after T6, T8) (in progress)
   - Steps:
     1. `worker/away.ts`. When no fighter still in a running fight has a connected player:
        - note the time;
@@ -355,6 +355,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A participant away at the end gets `report` in its next `life`, with the outcome, the killer's name and the egg, and a second sign-in has none. A connected participant gets none. Telling costs 1 row.
     - A player killed while away gets `life: null`, its fallback (which never offers an eaten child), and the report naming the killer.
     - A fast-forwarded kill's carrion reaches the pond with the current tick.
+  - Done: `worker/away.ts` (`awayDue` from `tick`, closes, sign-ins and the watchdog; `remaining` plays the rest out; reports stored in the settlement's seal and taken by `sendLife`), `GET /v1/e2e/encounter/<id>`; hub tests in `worker/away.test.ts`.
+  - Gotcha: the fast-forward's frames reach the log only through the seal (no batch writes); the carrion's tick is clamped only when fast-forwarded, since a real-time kill finalized early can lie a few ticks ahead of the pond too.
 
 ### The client
 
