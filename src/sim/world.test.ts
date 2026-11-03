@@ -12,7 +12,7 @@ const deepFrozen = (value: unknown): boolean => {
 
 describe('RULES', () => {
   it('is deep-frozen', () => {
-    expect(RULES_VERSION).toBe(9);
+    expect(RULES_VERSION).toBe(10);
     expect(deepFrozen(RULES)).toBe(true);
   });
 

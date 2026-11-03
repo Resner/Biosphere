@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "start": {
       "id": "enc-golden-egg",
       "pondSeed": "golden-egg",
@@ -59,7 +59,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-b",
@@ -112,7 +113,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         }
       ]
     },
@@ -179,7 +181,7 @@
       [163840, 0]
     ]
   },
-  "hash": "079c1bc8726dd44f",
+  "hash": "6d07f18b3e80609c",
   "results": [
     {
       "outcome": "escaped",

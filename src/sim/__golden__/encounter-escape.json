@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 9,
+    "rules": 10,
     "start": {
       "id": "enc-golden-escape",
       "pondSeed": "golden-escape",
@@ -59,7 +59,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         },
         {
           "player": "player-b",
@@ -112,7 +113,8 @@
             "curiosity": 0.5,
             "reflex": 0.5,
             "targetPref": "nearest"
-          }
+          },
+          "worth": 1
         }
       ]
     },
@@ -199,7 +201,7 @@
       [20352, 0]
     ]
   },
-  "hash": "9ad6d4ef4dfbab62",
+  "hash": "b83b13009ea90a4a",
   "results": [
     {
       "outcome": "escaped",

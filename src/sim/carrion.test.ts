@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { STARTER_PHYS } from './body';
-import { carrionNear, dropCarrion, pieceCount } from './carrion';
+import { carrionNear, dropCarrion, isCarrionId, pieceCount } from './carrion';
 import { applyFeeding, applyRemoteClaim, consumeFood } from './food';
 import { RULES } from './rules';
 import { hashWorld } from './state-hash';
@@ -22,6 +22,41 @@ const withMouth = (type: number) => ({
   mouth: { ...STARTER_PHYS.mouth, type },
 });
 
+describe('carrion ids', () => {
+  const idsAt = (x: number, y: number, enc = ENC): string[] => {
+    const w = world();
+    dropCarrion(w, { ...DROP, enc, x, y });
+    return w.carrion.map((p) => p.id);
+  };
+
+  it('differ for two drops of one encounter 1 wu apart', () => {
+    const [a, b] = [idsAt(3000, 3000), idsAt(3001, 3000)];
+    expect(a.filter((id) => b.includes(id))).toEqual([]);
+    expect(idsAt(3000, 3001).filter((id) => a.includes(id))).toEqual([]);
+  });
+
+  it('never collide over 10k seeded drops of one encounter', () => {
+    const seen = new Set<string>();
+    let state = 12345;
+    const next = (): number => {
+      state = (Math.imul(state, 1664525) + 1013904223) >>> 0;
+      return state / 4294967296;
+    };
+    for (let i = 0; i < 10_000; i++) {
+      const w = world();
+      dropCarrion(w, { ...DROP, x: next() * 6000, y: next() * 6000 });
+      const id = (w.carrion[0] as { id: string }).id;
+      expect(seen.has(id)).toBe(false);
+      seen.add(id);
+    }
+  });
+
+  it('are parsed as carrion claims by the claim rules', () => {
+    expect(isCarrionId(idOf(0))).toBe(true);
+    expect(isCarrionId('xa1b2c3d4e5_0')).toBe(false);
+  });
+});
+
 describe('dropCarrion', () => {
   it('gives identical pieces on two worlds, sorted by id', () => {
     const [a, b] = [world(), world()];
@@ -30,7 +65,7 @@ describe('dropCarrion', () => {
     expect(a.carrion).toEqual(b.carrion);
     expect(hashWorld(a)).toBe(hashWorld(b));
     expect(a.carrion.map((p) => p.id)).toEqual([...a.carrion.map((p) => p.id)].sort());
-    expect(a.carrion[0]?.id).toMatch(/^xa1b2c3d4[0-9a-f]{2}_0$/);
+    expect(a.carrion[0]?.id).toMatch(/^xa1b2c3d4[0-9a-f]{8}_0$/);
   });
 
   it('splits 40% of the biomass at 3 energy per unit into radius ÷ 3 pieces, 3 to 12', () => {
@@ -144,7 +179,7 @@ describe('eating carrion', () => {
 
   it('keeps a bounded number of claims for pieces it has not heard of, and lets them spoil', () => {
     const w = world();
-    const early = (i: number) => `x${i.toString(16).padStart(10, '0')}_0`;
+    const early = (i: number) => `x${i.toString(16).padStart(16, '0')}_0`;
     for (let i = 0; i < 64; i++)
       expect(applyRemoteClaim(w, { slot: early(i), k: 0, tick: 0 })).toBe(true);
     expect(applyRemoteClaim(w, { slot: early(64), k: 0, tick: 0 })).toBe(false);
@@ -181,6 +216,6 @@ describe('the state hash', () => {
       eaten += events.filter((e) => e.type === 'eat' && e.food === piece.id).length;
     }
     expect(eaten).toBe(1);
-    expect(hashWorld(w)).toBe('7e3312f9b3d49528');
+    expect(hashWorld(w)).toBe('18c2723c3877e9c8');
   });
 });

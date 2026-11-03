@@ -218,6 +218,16 @@ describe('the egg at the end of the fight', () => {
     expect(at(enc, 0).reward).toBeCloseTo(gain, 9);
   });
 
+  it("pays the eaten egg's reward times the carrier's worth", () => {
+    const eaten = (worth: number) => {
+      const enc = chase({ carrier: { health: 1, worth }, gap: 0.5 });
+      at(enc, 1).body.x = at(enc, 0).body.x + 2 * R - 1;
+      run(enc, 3, () => [drive(0, 0, { target: 1 }), IDLE_CODE]);
+      return at(enc, 0).reward;
+    };
+    expect(eaten(0.5)).toBeCloseTo(eaten(1) / 2, 9);
+  });
+
   it('is kept when the carrier stands at the timeout', () => {
     const enc = chase({ gap: 10 });
     run(enc, E.timeoutFrames, () => [IDLE_CODE, IDLE_CODE]);

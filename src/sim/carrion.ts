@@ -10,8 +10,8 @@ import { RULES } from './rules';
 import type { CarrionPiece, World } from './types';
 
 const SALT = { angle: 1, dist: 2, where: 3 } as const;
-// `x`, the first 8 hex digits of the encounter id, 2 hex digits for where the victim died, `_`, the piece.
-const ID_PATTERN = /^x[0-9a-f]{10}_\d{1,2}$/;
+// `x`, the first 8 hex digits of the encounter id, 8 hex digits hashing where the victim died, `_`, the piece.
+const ID_PATTERN = /^x[0-9a-f]{16}_\d{1,2}$/;
 /** Most claims held for pieces this client has not heard dropped yet (a peer's bite can beat the hub's message). */
 const MAX_EARLY_CLAIMS = 64;
 
@@ -58,9 +58,10 @@ export function dropCarrion(world: World, drop: Drop): void {
   const radius = c.radiusBase + c.radiusPerVictim * drop.radius;
   const held = new Set(world.carrion.map((p) => p.id));
   // Two victims of one fight (a mutual kill) die in different places, so their pieces get different ids.
-  const where = (hashU32(key, Math.floor(drop.x), Math.floor(drop.y), SALT.where) & 0xff)
+  // The whole position (to 1/16 wu) is hashed into 32 bits, so near drops differ too.
+  const where = hashU32(key, Math.round(drop.x * 16), Math.round(drop.y * 16), SALT.where)
     .toString(16)
-    .padStart(2, '0');
+    .padStart(8, '0');
   for (let i = 0; i < count; i++) {
     const id = `x${drop.enc.slice(0, 8)}${where}_${i}`;
     if (held.has(id) || world.consumed[id] !== undefined) continue;

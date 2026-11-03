@@ -44,6 +44,7 @@ export function starterFighter(
     phys: STARTER_PHYS,
     combat: STARTER_COMBAT,
     behaviour: CALM,
+    worth: 1,
   };
 }
 
