@@ -5,6 +5,7 @@
 // after the records (M7 T14). A participant away at the end has its report kept for its next
 // `life` (M8 T9). A settlement that fails leaves every life as the ledger holds it.
 
+import { HUNDREDTHS } from '../src/ledger/gates';
 import { settlementOf } from '../src/net/encounter-verify';
 import type { FighterOutcome, HubMsg } from '../src/net/protocol';
 import { FRAME_MS } from '../src/net/referee';
@@ -16,7 +17,7 @@ import { pondTick } from './engage';
 import { logOf } from './fight-store';
 import type { Fight, Lock } from './fights';
 import type { FighterRecord, SettleResult } from './ledger-encounter';
-import { type Condition, HUNDREDTHS, isOld, type LifeState, unsaved } from './life';
+import { type Condition, isOld, type LifeState, unsaved } from './life';
 import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';

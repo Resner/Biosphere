@@ -66,8 +66,7 @@ describe('the time gates', () => {
   it('give the maturity size as 60% of the adult biomass in hundredths, never scaled', () => {
     for (const g of GENOMES) {
       const max = buildCreature(g).phys.maxBiomass;
-      const need = matureBiomassOf(g, LIVE_SCALES);
-      expect(need).toBe(matureBiomassOf(g, TEST));
+      const need = matureBiomassOf(g);
       expect(need / 100).toBeGreaterThanOrEqual(RULES.life.matureBiomassShare * max);
       expect((need - 1) / 100).toBeLessThan(RULES.life.matureBiomassShare * max);
     }

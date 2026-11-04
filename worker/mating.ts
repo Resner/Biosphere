@@ -1,6 +1,6 @@
 import type { Genome } from '../src/genome/codec';
 import { genomeHash } from '../src/genome/codec';
-import { paidFor, type Scales } from '../src/ledger/gates';
+import { HUNDREDTHS, paidFor, type Scales } from '../src/ledger/gates';
 import type { MateAsk } from '../src/ledger/mating';
 import type { RecordRequest } from '../src/ledger/record';
 import { type MateView, ownRefusal, pairRefusal } from '../src/sim/mating';
@@ -11,8 +11,6 @@ import type { LifeState } from './life';
 // Courtship on the authority (ADR 0021): the pure parts. What each creature looks like to the
 // rules, the scales a test world shortens the clocks by, and the `mate-commit` requests a
 // commitment turns into. The gates themselves are the shared rulebook's (`src/ledger/gates.ts`). Nothing here can undo a commitment: its round is the beacons' (ADR 0010).
-
-const HUNDREDTHS = 100;
 
 /** A fraction in (0, 1] that shortens a clock for E2E (`LIFESPAN_SCALE`, `MATING_SCALE`); only fixture mode honours it. */
 export function fixtureScale(env: { DRAND_SOURCE?: string }, value: string | undefined): number {
@@ -81,11 +79,8 @@ export function mateRequests(
   cooldown: number,
 ): [RecordRequest, RecordRequest] {
   const one = (self: Parent, other: Parent, role: 'a' | 'b'): RecordRequest => {
-    const before = {
-      biomass: self.life.biomass,
-      energy: self.life.energy,
-      health: self.life.health,
-    };
+    const { biomass, energy, health } = self.life;
+    const before = { biomass, energy, health };
     return {
       v: 1,
       rules: RULES_VERSION,

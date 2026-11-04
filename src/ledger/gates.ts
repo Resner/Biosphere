@@ -29,7 +29,8 @@ export interface Condition {
   health: number;
 }
 
-const HUNDREDTHS = 100;
+/** Condition values are whole hundredths of a world unit. */
+export const HUNDREDTHS = 100;
 /** Growth rate allowance over the genome's own, for rounding and a tick or two of jitter. */
 const GROWTH_SLACK = 1.1;
 /** Biomass in wu that a condition may exceed the growth curve by, once per reach. */
@@ -55,7 +56,7 @@ export function matureAtOf(genome: Genome, s: Scales): number {
  * The least biomass (hundredths) at which a creature of this genome is mature: 60% of its adult
  * size, rounded up so the gate is the share itself. Sizes are never scaled.
  */
-export function matureBiomassOf(genome: Genome, _s: Scales): number {
+export function matureBiomassOf(genome: Genome): number {
   const share = RULES.life.matureBiomassShare * buildCreature(genome).phys.maxBiomass;
   return Math.ceil(share * HUNDREDTHS);
 }

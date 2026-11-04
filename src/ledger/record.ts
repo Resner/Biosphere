@@ -1,6 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { survivedOutcome } from '../sim/encounter/types';
+import type { DeathCause } from '../sim/types';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import {
   fromBase64Url,
@@ -167,18 +168,18 @@ type FieldType =
   | 'survived';
 
 /** Every way a creature dies (`DeathCause`): the client's hazards, old age and a fight's two. */
-const CAUSES: readonly string[] = [
-  'starved',
-  'toxin',
-  'old-age',
-  'uv',
-  'pressure',
-  'killed',
-  'eaten',
-];
+const CAUSES: Record<DeathCause, true> = {
+  starved: true,
+  toxin: true,
+  'old-age': true,
+  uv: true,
+  pressure: true,
+  killed: true,
+  eaten: true,
+};
 
 const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
-  cause: (x) => typeof x === 'string' && CAUSES.includes(x),
+  cause: (x) => typeof x === 'string' && Object.hasOwn(CAUSES, x),
   uint: (x) => Number.isSafeInteger(x) && (x as number) >= 0,
   hex: (x) => typeof x === 'string' && HEX64.test(x),
   player: (x) => typeof x === 'string' && isPlayerId(x),

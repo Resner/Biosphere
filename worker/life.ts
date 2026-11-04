@@ -1,6 +1,6 @@
 import type { Genome } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
-import { type Condition, reachAt, vitalsCap } from '../src/ledger/gates';
+import { type Condition, HUNDREDTHS, reachAt, vitalsCap } from '../src/ledger/gates';
 import { accrue } from '../src/sim/life';
 import { RULES } from '../src/sim/rules';
 import type { Head } from './ledger';
@@ -17,7 +17,6 @@ export const protectionEnds = (now: number): number =>
 
 /** Active time since the last checkpoint after which the next progress writes one. */
 export const CHECKPOINT_EVERY_MS = 900_000;
-export const HUNDREDTHS = 100;
 
 export interface LifeState extends Condition {
   creature: string;
