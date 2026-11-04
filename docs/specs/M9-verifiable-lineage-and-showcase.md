@@ -252,7 +252,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### The verifier
 
-- [x] T3 Proof bundles and the chain verifier [opus] (after T1) (in progress)
+- [x] T3 Proof bundles and the chain verifier [opus] (after T1)
   - Done: `proof.ts`, `verify.ts` (index, report, `PROBLEM_TEXT`), `verify-chain.ts`, the family stubs (with `reachOf` and `fightsOf` for T4 and T6), `tests/lineage-fixture.ts` (`lineageHistory`, `bundleOf`, `resign`) and `lineage.json`. Honest hub egg flags mean A1's kill also eats B1's egg (T6's eaten-egg case is in the one fight).
   - Gotcha: Ed25519 via noble took 1.5 ms a signature, so countersignatures go through `key-verify.ts` (the key tabled once, held equal to `verify` by its test); T4–T6 add their codes to `PROBLEM_TEXT`.
   - Steps:

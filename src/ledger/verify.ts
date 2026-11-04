@@ -1,5 +1,6 @@
 import type { SignedCommit } from '../net/protocol-defs';
 import type { Beacon } from './drand';
+import { isScaled } from './gates';
 import { commitmentId } from './genesis';
 import type { AuthorityKey, ProofBundle } from './proof';
 import { authorityKeyId, type PubKey, type StoredRecord } from './record';
@@ -168,7 +169,7 @@ export function verifyLineage(bundle: ProofBundle, opts: VerifyOptions = {}): Li
     toGenesis: false,
     generations: 0,
     fights: { settled: 0, replayed: 0, pruned: 0, unreplayed: 0 },
-    scaled: scales !== undefined && (scales.lifespan < 1 || scales.mating < 1),
+    scaled: scales !== undefined && isScaled(scales),
     keys: opts.keys ? 'pinned' : 'bundle',
   };
   try {

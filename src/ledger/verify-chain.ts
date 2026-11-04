@@ -14,7 +14,7 @@ import {
   type StoredRecord,
   transitionOutcome,
 } from './record';
-import { checkSettlementSig } from './settlement';
+import { settlementHash } from './settlement';
 import type { BundleIndex, Family, Problem, VerifyOptions } from './verify';
 
 // The chain and signature families of `verifyLineage` (ADR 0055). Chains: each record's hash, the
@@ -144,31 +144,35 @@ export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Prob
     }
   }
   // A document is named by the records that cite it; its problems go on the earliest of them.
-  const firstNaming = (field: 'commit' | 'enc', value: string): StoredRecord | null => {
-    let first: StoredRecord | null = null;
-    for (const s of held) {
-      if (s.record.body[field] === value && (!first || s.record.t < first.record.t)) first = s;
+  const naming = { commit: new Map<string, StoredRecord>(), enc: new Map<string, StoredRecord>() };
+  for (const s of held) {
+    for (const field of ['commit', 'enc'] as const) {
+      const value = s.record.body[field];
+      const first = typeof value === 'string' ? naming[field].get(value) : undefined;
+      if (typeof value === 'string' && (!first || s.record.t < first.record.t))
+        naming[field].set(value, s);
     }
-    return first;
-  };
-  const where = (s: StoredRecord | null): [string, number | null] =>
+  }
+  const where = (s: StoredRecord | undefined): [string, number | null] =>
     s ? [creatureOf(s), s.record.seq] : [index.bundle.subject, null];
   for (const [id, c] of index.commits) {
-    const naming = firstNaming('commit', id);
-    const [creature, seq] = where(naming);
+    const first = naming.commit.get(id);
+    const [creature, seq] = where(first);
     const code =
-      keyProblem(index, c.keyId, naming?.record.t ?? null, 'commit-') ??
+      keyProblem(index, c.keyId, first?.record.t ?? null, 'commit-') ??
       (countersigned(verifiers, index.keys.get(c.keyId) as AuthorityKey, id, c.authSig)
         ? null
         : 'commit-sig');
     if (code) out.push(problem('signature', creature, seq, code));
   }
   for (const [enc, s] of index.settlements) {
-    const [creature, seq] = where(firstNaming('enc', enc));
-    const key = index.keys.get(s.keyId);
+    const [creature, seq] = where(naming.enc.get(enc));
     const code =
       keyProblem(index, s.keyId, s.settlement.t, 'settlement-') ??
-      (checkSettlementSig(s, [key as AuthorityKey]).length > 0 ? 'settlement-sig' : null);
+      (s.hash === settlementHash(s.settlement) &&
+      countersigned(verifiers, index.keys.get(s.keyId) as AuthorityKey, s.hash, s.authSig)
+        ? null
+        : 'settlement-sig');
     if (code) out.push(problem('signature', creature, seq, code));
   }
   return out;

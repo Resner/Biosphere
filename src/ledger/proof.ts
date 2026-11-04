@@ -1,5 +1,16 @@
 import { GENOME_TEXT_LENGTH } from '../genome/codec';
 import type { SignedCommit } from '../net/protocol-defs';
+import {
+  byteLength,
+  ID_RE,
+  isObj,
+  isStr,
+  KEY_ID_RE,
+  list,
+  type Obj,
+  PLAYER_ID_RE,
+  SIG_RE,
+} from '../net/protocol-kit';
 import { FIGHTER_WORTHS } from '../sim/encounter/types';
 import { type Canonical, canonicalize } from './canonical';
 import type { Beacon } from './drand';
@@ -77,19 +88,11 @@ export interface FightProof {
   log: FightLog | null;
 }
 
-type Obj = Record<string, unknown>;
-
-const SIG = /^[A-Za-z0-9_-]{86}$/;
-const KEY_ID = /^[A-Za-z0-9_-]{8}$/;
 const BEACON_SIG = /^[0-9a-f]{96}$/;
 /** A fight's end state (`hashEncounter`): 64 bits as hex. */
 const STATE_HASH = /^[0-9a-f]{16}$/;
 /** A genome's text: base64url of its bytes (595 characters). */
 const GENOME_TEXT = new RegExp(`^[A-Za-z0-9_-]{${GENOME_TEXT_LENGTH}}$`);
-/** A player id or an authority public key: 32 bytes of base64url. */
-const PLAYER = /^[A-Za-z0-9_-]{43}$/;
-/** A pond's seed, as the hub names its ponds. */
-const POND_SEED = /^[A-Za-z0-9_-]{1,64}$/;
 /** A flag's kind or a fighter's cause or outcome: a short lower-case word. */
 const WORD = /^[a-z][a-z0-9:-]{0,31}$/;
 /** A fight has at most 4 slots; a log at most this many frames (a 90 s fight is 900). */
@@ -100,40 +103,15 @@ const U32_MAX = 0xffffffff;
 /** The JSON of a commitment's request data: two signed mate asks fit well within it. */
 const DATA_MAX_BYTES = 2048;
 
-const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-const str = (v: unknown, re: RegExp): v is string => typeof v === 'string' && re.test(v);
 const uint = (v: unknown, max = Number.MAX_SAFE_INTEGER): v is number =>
   Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= max;
-const hex = (v: unknown): v is string => str(v, HEX64);
+const hex = (v: unknown): v is string => isStr(v, HEX64);
 const num = (v: unknown, lo: number, hi: number): v is number =>
   typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
 /** Exactly these keys, and at most these optional ones. */
 const keysIn = (o: Obj, required: readonly string[], optional: readonly string[] = []): boolean =>
   required.every((k) => Object.hasOwn(o, k)) &&
   Object.keys(o).every((k) => required.includes(k) || optional.includes(k));
-
-/** Each item parsed, or null when the list is not an array, is too long or has a bad item. */
-function list<T>(v: unknown, max: number, item: (x: unknown) => T | null): T[] | null {
-  if (!Array.isArray(v) || v.length > max) return null;
-  const out: T[] = [];
-  for (const x of v) {
-    const parsed = item(x);
-    if (parsed === null) return null;
-    out.push(parsed);
-  }
-  return out;
-}
-
-/** UTF-8 length, without TextEncoder's allocation. */
-function byteLength(s: string): number {
-  let n = 0;
-  for (let i = 0; i < s.length; i++) {
-    const c = s.charCodeAt(i);
-    // A surrogate pair is 4 bytes, 2 for each half.
-    n += c < 0x80 ? 1 : c < 0x800 || (c >= 0xd800 && c < 0xe000) ? 2 : 3;
-  }
-  return n;
-}
 
 /** The value of untrusted JSON text, or the value itself, when its JSON is within `max` bytes. */
 function within(json: unknown, max: number): unknown {
@@ -158,25 +136,26 @@ function scales(v: unknown): Scales | null {
 function key(v: unknown): AuthorityKey | null {
   return isObj(v) &&
     keysIn(v, ['id', 'publicKey', 'from']) &&
-    str(v.id, KEY_ID) &&
-    str(v.publicKey, PLAYER) &&
+    isStr(v.id, KEY_ID_RE) &&
+    isStr(v.publicKey, PLAYER_ID_RE) &&
     uint(v.from)
     ? { id: v.id, publicKey: v.publicKey, from: v.from }
     : null;
 }
 
 function creature(v: unknown): { id: string; genome: string } | null {
-  return isObj(v) && keysIn(v, ['id', 'genome']) && hex(v.id) && str(v.genome, GENOME_TEXT)
+  return isObj(v) && keysIn(v, ['id', 'genome']) && hex(v.id) && isStr(v.genome, GENOME_TEXT)
     ? { id: v.id, genome: v.genome }
     : null;
 }
 
 /** A countersigned document's signature fields. */
-const signed = (v: Obj): boolean => str(v.authSig, SIG) && str(v.keyId, KEY_ID);
+const signed = (v: Obj): boolean => isStr(v.authSig, SIG_RE) && isStr(v.keyId, KEY_ID_RE);
 
 function storedRecord(v: unknown): StoredRecord | null {
   if (!isObj(v) || !keysIn(v, ['record', 'hash', 'ownerSig', 'authSig', 'keyId'])) return null;
-  if (!hex(v.hash) || !signed(v) || !(v.ownerSig === null || str(v.ownerSig, SIG))) return null;
+  if (!hex(v.hash) || !signed(v) || !(v.ownerSig === null || isStr(v.ownerSig, SIG_RE)))
+    return null;
   if (recordProblems(v.record).length > 0) return null;
   const r = v.record as LedgerRecord;
   // Its body passed `bodyProblems` and `canonicalize`: plain objects of integers and strings.
@@ -234,7 +213,7 @@ function beacon(v: unknown): Beacon | null {
     keysIn(v, ['round', 'signature']) &&
     uint(v.round) &&
     v.round >= 1 &&
-    str(v.signature, BEACON_SIG)
+    isStr(v.signature, BEACON_SIG)
     ? { round: v.round, signature: v.signature }
     : null;
 }
@@ -257,10 +236,10 @@ function settledFighter(v: unknown): SettledFighter | null {
   const optional = (k: string, ok: (x: unknown) => boolean) => !Object.hasOwn(v, k) || ok(v[k]);
   const slot = (x: unknown) => uint(x, MAX_SLOTS - 1);
   if (
-    !str(v.player, PLAYER) ||
+    !isStr(v.player, PLAYER_ID_RE) ||
     !hex(v.creature) ||
-    !str(v.outcome, WORD) ||
-    !optional('cause', (x) => str(x, WORD)) ||
+    !isStr(v.outcome, WORD) ||
+    !optional('cause', (x) => isStr(x, WORD)) ||
     !optional('by', slot) ||
     !uint(v.frame, U32_MAX) ||
     typeof v.egg !== 'string' ||
@@ -318,12 +297,12 @@ function signedSettlement(v: unknown): SignedSettlement | null {
     s.referee !== 'authority' ||
     !uint(s.rules) ||
     !hex(s.enc) ||
-    !str(s.pondSeed, POND_SEED) ||
+    !isStr(s.pondSeed, ID_RE) ||
     !hex(s.start) ||
     !joins ||
     !uint(s.frames, MAX_FRAMES) ||
     !hex(s.root) ||
-    !str(s.hash, STATE_HASH) ||
+    !isStr(s.hash, STATE_HASH) ||
     !results ||
     !uint(s.t)
   ) {
@@ -355,7 +334,7 @@ function flag(v: unknown): AuditFlag | null {
   return isObj(v) &&
     keysIn(v, ['creature', 'kind', 't']) &&
     hex(v.creature) &&
-    str(v.kind, WORD) &&
+    isStr(v.kind, WORD) &&
     uint(v.t)
     ? { creature: v.creature, kind: v.kind, t: v.t }
     : null;
@@ -432,9 +411,9 @@ function fighterInfo(v: unknown): FightLog['start']['fighters'][number] | null {
   if (!isObj(v) || !keysIn(v, [...fields, ...more])) return null;
   const condition = (x: unknown) => num(x, 0, 1e7);
   if (
-    !str(v.player, PLAYER) ||
+    !isStr(v.player, PLAYER_ID_RE) ||
     !hex(v.creature) ||
-    !str(v.genome, GENOME_TEXT) ||
+    !isStr(v.genome, GENOME_TEXT) ||
     !num(v.x, 0, POS_MAX) ||
     !num(v.y, 0, POS_MAX) ||
     !num(v.vx, -POS_MAX, POS_MAX) ||
@@ -471,7 +450,7 @@ function fighterInfo(v: unknown): FightLog['start']['fighters'][number] | null {
 function fightLog(v: unknown): FightLog | null {
   if (!isObj(v) || !keysIn(v, ['pondSeed', 'start', 'joins', 'frames'])) return null;
   const s = v.start;
-  if (!str(v.pondSeed, POND_SEED) || !isObj(s)) return null;
+  if (!isStr(v.pondSeed, ID_RE) || !isObj(s)) return null;
   if (!keysIn(s, ['t', 'enc', 'seed', 'round', 't0', 'at', 'fighters']) || s.t !== 'enc-start')
     return null;
   const fighters = list(s.fighters, MAX_SLOTS, fighterInfo);
