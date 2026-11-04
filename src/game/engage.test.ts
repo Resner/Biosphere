@@ -1,9 +1,18 @@
 import { describe, expect, it } from 'vitest';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
 import { decodeStateFrame, verifySnap } from '../ledger/snapshot-sig';
+import { RemoteSet } from '../net/pond-sync';
 import { encodeSnapshot, SIGNED_FRAME_BYTES, type Snapshot } from '../net/protocol';
+import { ProxyReceiver } from '../net/proxy-snaps';
 import { RULES } from '../sim/rules';
-import { CANDIDATE_RADII, CandidateSigner, candidates, lockState, SpawnShield } from './engage';
+import {
+  CANDIDATE_RADII,
+  CandidateSigner,
+  candidates,
+  lockState,
+  offered,
+  SpawnShield,
+} from './engage';
 
 const snap: Snapshot = {
   seq: 3,
@@ -99,5 +108,25 @@ describe('SpawnShield', () => {
     shield.start(0);
     shield.end();
     expect(shield.active(1)).toBe(false);
+  });
+});
+
+describe('proxied remotes (M8 T11)', () => {
+  it('a forged proxy never yields an engage candidate', async () => {
+    const [me, relay, forged] = await Promise.all(
+      [7, 8, 9].map(
+        async (n) => (await createIdentity(memoryKeyStore(new Uint8Array(32).fill(n)))).playerId,
+      ),
+    );
+    const remotes = new RemoteSet();
+    const receiver = new ProxyReceiver(() => me as string, remotes);
+    remotes.receive(relay as string, { ...snap, fighting: true, x: 5000 }, 0);
+    // A proxy that claims a creature not fighting, right beside this player.
+    const bait = { ...snap, tick: 60, x: 1005, y: 1000, fighting: false };
+    expect(receiver.receive(relay as string, forged as string, bait, 2000)).toBe(true);
+    const views = remotes.sample(2000, 2000);
+    expect(views.find((r) => r.id === forged)?.away).toBe(true);
+    expect(candidates(self, views).has(forged as string)).toBe(false);
+    expect(views.filter(offered).map((r) => r.id)).toEqual([relay]);
   });
 });

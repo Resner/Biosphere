@@ -545,11 +545,14 @@ describe('PeerMesh inbound hygiene', () => {
     expect(b.stats().dropped).toBe(0);
   });
 
-  it('never delivers a 57-byte proxy frame as the sender’s own snapshot, nor counts it', async () => {
+  it('delivers a 57-byte proxy frame as the away player’s pose, never as the sender’s own', async () => {
     const { a, b, rx } = await pair();
+    const proxies: [string, string, number][] = [];
+    b.onProxy((from, player, s) => proxies.push([from, player, s.seq]));
     const away = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(5)));
     expect(a.sendState('b', encodeProxyFrame(away.playerId, encodeSnapshot(SNAP)))).toBe(true);
     expect(rx.states).toHaveLength(0);
+    expect(proxies).toEqual([['a', away.playerId, 7]]);
     expect(b.stats().dropped).toBe(0);
   });
 

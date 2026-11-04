@@ -8,7 +8,9 @@ import type { PubKey } from '../ledger/record';
 import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
 import { type FightMsg, fetchJson, hubHttpUrl } from '../net/hub-client';
-import type { ClientMsg } from '../net/protocol';
+import { type SnapshotFields, snapshotOf } from '../net/pond-sync';
+import { type ClientMsg, type FighterInfo, genomeRefOf } from '../net/protocol';
+import type { RelayFight } from '../net/proxy-snaps';
 import { radiusOf } from '../sim/encounter/reach';
 import type { Encounter, EncounterEvent, Outcome, Stance } from '../sim/encounter/types';
 import type { Input } from '../sim/input';
@@ -41,6 +43,8 @@ export interface FightHost {
   events?(events: readonly EncounterEvent[]): void;
   /** The authority's keys a settlement is checked with (M8 T12); none means no check. */
   keys?(): Promise<readonly PubKey[] | null>;
+  /** Whether a player is in the pond now (this one, or a roster member); absent means everyone is. */
+  present?(player: string): boolean;
 }
 
 /** `debug.autoBrace` braces when a windup aimed at the player or its egg has this many ticks or fewer left. */
@@ -79,6 +83,8 @@ export interface FighterView {
   staggered: boolean;
   /** Ticks in a row outside every living opponent's escape range (M7 T12). */
   outside: number;
+  /** Its player has left the pond: its autopilot fights on, drawn faded (M8 T11). */
+  away: boolean;
 }
 
 export interface EncounterView {
@@ -142,6 +148,10 @@ export class FightPlay {
   private life: { player: CreatureState; world: World } | null = null;
   /** Each fight's settlement, checked after its end (M8 T12). */
   readonly verify: FightVerify;
+  /** The fight's genome refs (`genomeRefOf`) by creature, from its start and joins: proxies name its bodies (M8 T11). */
+  private readonly refs = new Map<string, number>();
+  /** The fight as the proxy relay reads it, kept between frames. */
+  private relayView: (RelayFight & { players: string[] }) | null = null;
 
   constructor(private readonly host: FightHost) {
     this.verify = new FightVerify({ keys: () => host.keys?.() ?? Promise.resolve(null) });
@@ -159,6 +169,11 @@ export class FightPlay {
 
   /** A fight message from the hub (`lock-ask` is answered elsewhere). */
   receive(msg: FightMsg): void {
+    if (msg.t === 'enc-start') {
+      if (msg.enc !== this.sync?.id) this.refs.clear();
+      for (const f of msg.fighters) this.noteRef(f);
+    }
+    if (msg.t === 'enc-join') this.noteRef(msg.fighter);
     if (msg.t === 'enc-start') this.begin(msg);
     else if (msg.t === 'enc-frame') this.sync?.receive(msg);
     else if (msg.t === 'enc-join') this.sync?.join(msg);
@@ -368,6 +383,38 @@ export class FightPlay {
     }
   }
 
+  private noteRef(f: FighterInfo): void {
+    if (this.refs.has(f.creature)) return;
+    this.refs.set(f.creature, genomeRefOf(bodyFromText(f.genome)?.hash ?? ''));
+  }
+
+  /**
+   * The current or last fight as the proxy relay reads it (M8 T11): its players by slot, and each
+   * one as peers would see it, from the last confirmed state. Null before the first fight.
+   */
+  relayFight(): RelayFight | null {
+    const { sync } = this;
+    const enc = sync?.enc;
+    if (!sync || !enc) return null;
+    let view = this.relayView;
+    if (!view || view.id !== sync.id) {
+      view = { id: sync.id, players: [], snapshot: (slot) => this.confirmedSnapshot(slot) };
+      this.relayView = view;
+    }
+    if (view.players.length !== enc.fighters.length)
+      view.players = enc.fighters.map((f) => f.player);
+    return view;
+  }
+
+  private confirmedSnapshot(slot: number): SnapshotFields | null {
+    const state = this.sync?.confirmedState();
+    const f = state?.fighters[slot];
+    if (!state || !f) return null;
+    const egg = f.eggBody !== null && f.eggBody.by < 0;
+    const marks = { ready: false, egg, spawnProtected: false, fighting: true };
+    return snapshotOf(f.body, state.world.tick, this.refs.get(f.creature) ?? 0, marks);
+  }
+
   /** What the target ring marks, while the player is seated in a fight that offers a choice. */
   aim(): { code: number; chosen: boolean } | null {
     const slot = this.seat();
@@ -381,6 +428,7 @@ export class FightPlay {
     const enc = sync?.enc;
     if (!sync || !enc) return null;
     const tick = enc.world.tick;
+    const { host } = this;
     return {
       id: sync.id,
       slot: sync.slot,
@@ -415,6 +463,7 @@ export class FightPlay {
           radius: radiusOf(f.body),
           staggered: f.fx.staggerUntil > tick,
           outside: f.outside,
+          away: f.slot !== sync.slot && host.present?.(f.player) === false,
         };
       }),
     };
@@ -448,5 +497,7 @@ export function appFightHost(app: App): FightHost {
     body: (text) =>
       text === app.session.body.text ? app.session.body.creature : bodyFromText(text),
     events: (events) => app.fightShow.onEvents(events),
+    present: (player) =>
+      player === app.playerId || app.keeper.current?.nameOf(player) !== undefined,
   };
 }

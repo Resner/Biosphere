@@ -346,8 +346,9 @@ export class App {
       if (this.playing() && this.session.player.alive) this.pondMap.toggle();
     });
 
-    this.remotes = new RemoteSet();
     this.remoteBodies = new RemoteBodies();
+    // An away fighter who faded out takes its body with it (M8 T11).
+    this.remotes = new RemoteSet((id) => this.remoteBodies.remove(id));
 
     let keyStore = indexedDbKeyStore();
     let keyKept = true;
@@ -633,11 +634,13 @@ export class App {
     });
   }
 
+  /** A player left the pond. A fighter stays drawn, with its body, while proxies or its fight move it. */
   dropPeer(id: string): void {
-    this.remotes.removeMember(id);
+    const stays = this.remotes.removeMember(id);
     this.online.signed.remove(id);
-    this.remoteBodies.remove(id);
+    this.online.proxies.forget(id);
     this.genomeSync.forget(id);
+    if (!stays) this.remoteBodies.remove(id);
   }
 
   selfKey(): string {

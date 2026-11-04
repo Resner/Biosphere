@@ -340,6 +340,16 @@ export class EncounterSync {
     this.over = true;
   }
 
+  /**
+   * The fight as the referee has confirmed it (M8 T11): the state after its last confirmed frame,
+   * or the newest one when that is not kept or the fight is over. Null before a start. Read only.
+   */
+  confirmedState(): Encounter | null {
+    const { enc } = this;
+    if (!enc || this.over || this.confirmed >= this.frame) return enc;
+    return this.states.get(this.confirmed) ?? enc;
+  }
+
   /** The own fighter's simulated body, or null before a start. */
   ownBody(): CreatureState | null {
     return this.enc?.fighters[this.slot]?.body ?? null;

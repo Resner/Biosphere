@@ -313,6 +313,7 @@ export function installAppHook(app: App): void {
             egg,
             spawnProtected,
             fighting,
+            away,
           }) => ({
             id,
             name,
@@ -325,6 +326,7 @@ export function installAppHook(app: App): void {
             egg,
             protected: spawnProtected,
             fighting,
+            away,
           }),
         ),
         attack: app.attack.info(),
@@ -375,6 +377,7 @@ export function installAppHook(app: App): void {
           dropped: app.genomeSync.dropped + app.remoteBodies.dropped,
           signed: app.online.signed.size,
           badSignatures: app.online.signed.badSignatures,
+          proxyDropped: app.online.proxies.dropped,
         },
       };
     },

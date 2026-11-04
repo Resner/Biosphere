@@ -160,6 +160,11 @@ export interface BsState {
     /** Its snapshots say it is spawn-protected, or locked in a fight (M7). */
     protected: boolean;
     fighting: boolean;
+    /**
+     * A fighter whose player left (M8 T11): drawn from proxy snapshots or this page's own fight,
+     * faded, with "away" after its name, and never offered for an engage.
+     */
+    away: boolean;
   }[];
   /**
    * Attack (M7 T11): the remote the "F" glyph marks (the nearest this player could engage now) or
@@ -223,8 +228,9 @@ export interface BsState {
   /**
    * The status chip's text, the hub's state ('none' without a hub), open peer connections, food
    * claims ignored as implausible, genome events dropped (too frequent, from a peer with no
-   * link, or not a genome), the peers whose signed snapshot is held and the signed snapshots
-   * that failed to verify (M7 T7).
+   * link, or not a genome), the peers whose signed snapshot is held, the signed snapshots
+   * that failed to verify (M7 T7) and the proxy frames dropped (M8 T11: from a peer not
+   * fighting, for a player still sending its own, or more than three from one peer).
    */
   net: {
     text: string;
@@ -234,6 +240,7 @@ export interface BsState {
     dropped: number;
     signed: number;
     badSignatures: number;
+    proxyDropped: number;
   };
   /**
    * Edge indicators as last drawn (M6 T19): the nearest six pond players off screen and the
