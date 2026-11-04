@@ -41,7 +41,7 @@ import {
   useFightHub,
   within,
 } from './fight-test-kit';
-import { type Client, nextOf, sql } from './test-hub';
+import { type Client, nextOf, report, sql } from './test-hub';
 
 // M8 T8: the settlement (ADR 0053, ADR 0054): the countersigned document in the fight's row and in
 // `enc-end`, the locked time in the records, the carrion at the victim's worth, and a settlement
@@ -266,6 +266,27 @@ describe('locked time', () => {
     const credited = ack.activeMs - ((fromA as number) + fought);
     expect(credited).toBeGreaterThanOrEqual(10_000);
     expect(credited).toBeLessThanOrEqual(10_000 + RULES.life.accrueSlackMs);
+  });
+
+  it('runs on the hub’s clock: the settlement’s `t`, its records’ `t` and the next report’s credit', async () => {
+    const [a, b] = await fighters();
+    // The hand-moved clock runs an hour ahead of the wall clock from here on.
+    const HOUR = 3_600_000;
+    vi.spyOn(Date, 'now').mockImplementation(() => clock.t - HOUR);
+    const { start } = await killB(a, b);
+    const { signed } = await stored(start.enc, a.pond.seed);
+    expect(signed.settlement.t).toBeGreaterThanOrEqual(start.at);
+    expect(signed.settlement.t).toBeLessThanOrEqual(clock.t);
+    const [recA] = (await recordsOf(a.creature)).filter((s) => s.record.body.enc === start.enc);
+    const recsB = (await recordsOf(b.creature)).filter((s) => s.record.body.enc === start.enc);
+    for (const s of [recA, ...recsB]) expect(s?.record.t).toBe(signed.settlement.t);
+    const settledMs = (await lifeOn(a))?.activeMs ?? Number.NaN;
+    expect(settledMs).toBe(recA?.record.body.activeMs);
+
+    await advance(10_000);
+    a.ticks += 10 * TICK_HZ;
+    report(a.c, a.ticks, { biomass: 10_000, energy: 5000, health: 5000 });
+    expect((await nextOf(a.c, 'ack')).activeMs - settledMs).toBe(10_000);
   });
 
   it('ends a fighter whose lifespan runs out in the fight with its encounter record, then old age', async () => {

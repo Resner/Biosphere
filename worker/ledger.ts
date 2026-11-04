@@ -87,6 +87,9 @@ export {
  */
 const LIVED = '(c.parent_a IS NULL OR c.chain_parent IS NOT NULL)';
 
+/** The flags a fight raises: one that failed to settle, or no longer rebuilds at recovery. */
+type FightFlag = 'settle-failed' | 'recover-failed';
+
 export class Ledger {
   /** Rows written through this ledger since it was made (the usage meter and the write-budget tests read it). */
   rowsWritten = 0;
@@ -941,9 +944,9 @@ export class Ledger {
     this.insertFlag('stray-death', owner, '', owner, t, 'hash');
   }
 
-  /** Notes a fight whose settlement failed: one row per encounter. */
-  flagSettleFailed(enc: string, owner: string, creature: string, t: number): void {
-    this.insertFlag('settle-failed', owner, creature, enc, t, 'hash');
+  /** Notes a fight that failed to settle or no longer rebuilds: one row per kind and encounter. */
+  flagFight(kind: FightFlag, enc: string, owner: string, creature: string, t: number): void {
+    this.insertFlag(kind, owner, creature, enc, t, 'hash');
   }
 
   /** Notes an implausible report: one row per kind and creature, however many connections send it. */

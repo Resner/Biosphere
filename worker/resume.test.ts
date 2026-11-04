@@ -11,12 +11,14 @@ import {
   advanceTo,
   authority,
   type EncStart,
+  engage,
   fighters,
   hatched,
   join,
   lifeOn,
   locked,
   lockIn,
+  logRow,
   NEAR,
   outOfReach,
   type Plan,
@@ -230,6 +232,37 @@ describe('an away fighter keeps its seat', () => {
     expect((await c.next()).t).toBe('queued');
     const { got } = await signInAgain(b);
     await expectResume(got, b, start);
+  });
+});
+
+describe('a lock still asking', () => {
+  it('is free play: `progress` credits, a close writes the checkpoint, and the fight’s clock starts from it', async () => {
+    const [a, b] = await fighters();
+    const before = await lifeOn(b);
+    if (!before) throw new Error('no life');
+    engage(a, b);
+    await nextOf(b.c, 'lock-ask');
+    const asking = () => authority((o) => o.fights.ofPlayer(b.id.playerId)?.asking != null);
+    expect(await asking()).toBe(true);
+    b.ticks += TICK_HZ;
+    report(b.c, b.ticks, CALM);
+    expect((await nextOf(b.c, 'ack')).activeMs).toBe(before.activeMs + 1000);
+    expect((await lifeOn(b))?.activeMs).toBe(before.activeMs + 1000);
+    expect(await asking()).toBe(true);
+    await leave(b);
+    const head = await authority((o) => o.ledger.head(b.creature));
+    expect(head).toMatchObject({ activeMs: before.activeMs + 1000, biomass: CALM.biomass });
+    const kinds = await sql<{ kind: string }>(
+      'SELECT kind FROM records WHERE creature = ? ORDER BY seq',
+      b.creature,
+    );
+    expect(kinds.map((r) => r.kind)).toEqual(['genesis', 'checkpoint']);
+    // The window closes unanswered: the fight starts from the clock the checkpoint holds.
+    await advance(E.lockAnswerMs);
+    const start = await nextOf(a.c, 'enc-start');
+    const row = await logRow(start.enc);
+    const slot = start.fighters.findIndex((f) => f.player === b.id.playerId);
+    expect(row?.fighters[slot]?.activeMs).toBe(before.activeMs + 1000);
   });
 });
 
