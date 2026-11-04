@@ -2,7 +2,7 @@ import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { clickHatch, M8_PROXY_HUB, openRecorded, state, waitPlaying } from './helpers';
 import { open, seen, stage } from './m7-fight';
-import { chase, engage, flee, waitOver } from './m8-fight';
+import { chase, engage, flee, waitOver, watched, watchFrom } from './m8-fight';
 
 // Away fighters stay visible (M8 T11): A engages B while C watches from beside B, and B's page
 // closes. B's autopilot fights on. A still draws B from its fight, faded and marked away, and C
@@ -23,49 +23,6 @@ async function reopen(context: BrowserContext): Promise<Page> {
   await waitPlaying(page);
   return page;
 }
-
-/** C, beside B (three body lengths off), watches B's entry in its remotes on every frame. */
-async function watchFrom(c: Page, idB: string): Promise<void> {
-  await c.evaluate((who) => {
-    const bs = window.__bs as BsHook;
-    const r = bs.state().remotes.find((x) => x.id === who);
-    if (r) bs.debug?.teleport(r.x + r.radius * 6, r.y);
-    const w = window as unknown as { __proxy?: unknown; __proxyStop?: boolean };
-    const seen = {
-      /** Frames in which B was drawn away, and in which its drawn place changed. */
-      away: 0,
-      moves: 0,
-      /** B shown again by its own snapshots after it was away (B never comes back here). */
-      back: 0,
-      /** The highest alpha B had while away, and whether F was ever offered on it. */
-      alpha: 0,
-      offered: false,
-      last: '',
-    };
-    w.__proxy = seen;
-    w.__proxyStop = false;
-    const frame = () => {
-      if (w.__proxyStop) return;
-      const s = bs.state();
-      const b = s.remotes.find((x) => x.id === who);
-      if (b?.away) {
-        seen.away++;
-        const at = `${b.x},${b.y}`;
-        if (seen.last !== '' && at !== seen.last) seen.moves++;
-        seen.last = at;
-        seen.alpha = Math.max(seen.alpha, b.alpha);
-        if (s.attack.hint === who) seen.offered = true;
-      } else if (b && seen.away > 0) {
-        seen.back++;
-      }
-      requestAnimationFrame(frame);
-    };
-    requestAnimationFrame(frame);
-  }, idB);
-}
-
-type Watched = { away: number; moves: number; back: number; alpha: number; offered: boolean };
-const watched = (c: Page) => c.evaluate(() => (window as unknown as { __proxy: Watched }).__proxy);
 
 /**
  * One try: A engages B, C watches, and B's page closes right after `enc-start`. The fight's id once

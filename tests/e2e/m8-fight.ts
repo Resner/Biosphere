@@ -102,3 +102,53 @@ export async function sameEnd(a: Page, b: Page, id: string): Promise<void> {
   }
   expect(endA?.endHash).toBe(endB?.endHash);
 }
+
+/** C, beside B (three body lengths off), watches B's entry in its remotes on every frame. */
+export async function watchFrom(c: Page, idB: string): Promise<void> {
+  await c.evaluate((who) => {
+    const bs = window.__bs as BsHook;
+    const r = bs.state().remotes.find((x) => x.id === who);
+    if (r) bs.debug?.teleport(r.x + r.radius * 6, r.y);
+    const w = window as unknown as { __proxy?: unknown; __proxyStop?: boolean };
+    const seen = {
+      /** Frames in which B was drawn away, and in which its drawn place changed. */
+      away: 0,
+      moves: 0,
+      /** B shown again by its own snapshots after it was away (B never comes back here). */
+      back: 0,
+      /** The highest alpha B had while away, and whether F was ever offered on it. */
+      alpha: 0,
+      offered: false,
+      last: '',
+    };
+    w.__proxy = seen;
+    w.__proxyStop = false;
+    const frame = () => {
+      if (w.__proxyStop) return;
+      const s = bs.state();
+      const b = s.remotes.find((x) => x.id === who);
+      if (b?.away) {
+        seen.away++;
+        const at = `${b.x},${b.y}`;
+        if (seen.last !== '' && at !== seen.last) seen.moves++;
+        seen.last = at;
+        seen.alpha = Math.max(seen.alpha, b.alpha);
+        if (s.attack.hint === who) seen.offered = true;
+      } else if (b && seen.away > 0) {
+        seen.back++;
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, idB);
+}
+
+export type Watched = {
+  away: number;
+  moves: number;
+  back: number;
+  alpha: number;
+  offered: boolean;
+};
+export const watched = (c: Page) =>
+  c.evaluate(() => (window as unknown as { __proxy: Watched }).__proxy);
