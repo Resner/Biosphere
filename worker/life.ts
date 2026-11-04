@@ -1,10 +1,11 @@
 import type { Genome } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
+import { type Condition, HUNDREDTHS, reachAt, vitalsCap } from '../src/ledger/gates';
 import { accrue } from '../src/sim/life';
-import { mateCost } from '../src/sim/mating';
 import { RULES } from '../src/sim/rules';
-import { maxEnergy, maxHealth } from '../src/sim/vitals';
 import type { Head } from './ledger';
+
+export type { Condition };
 
 // The authority's view of one creature's current session (ADR 0019): what the client last
 // reported and the life clock it earned, kept in the socket's hibernation attachment (small, so
@@ -16,18 +17,6 @@ export const protectionEnds = (now: number): number =>
 
 /** Active time since the last checkpoint after which the next progress writes one. */
 export const CHECKPOINT_EVERY_MS = 900_000;
-/** Growth rate allowance over the genome's own, for rounding and a tick or two of jitter. */
-const GROWTH_SLACK = 1.1;
-/** Biomass in wu that a report may exceed the growth curve by. */
-const BIOMASS_SLACK = 1;
-export const HUNDREDTHS = 100;
-
-/** A creature's condition in hundredths. */
-export interface Condition {
-  biomass: number;
-  energy: number;
-  health: number;
-}
 
 export interface LifeState extends Condition {
   creature: string;
@@ -118,7 +107,7 @@ export function creditTicks(life: LifeState, ticks: number, now: number): LifeSt
 /** Whether the creature's active time has reached its lifespan. */
 export const isOld = (life: LifeState): boolean => life.activeMs >= life.lifespanMs;
 
-/** A condition clamped to what the genome and `seconds` of growth since the last report allow (hundredths). */
+/** A condition clamped to what the genome and the active time since the last report allow (hundredths). */
 interface Clamped {
   condition: Condition;
   /** `life.flagged` with the kinds clamped for added. */
@@ -129,13 +118,13 @@ interface Clamped {
 
 /**
  * Clamps a claimed condition to the growth curve a creature of this genome can follow from the
- * last report, over `seconds` of play. A value within `tolerance` (a share) of its cap is clamped
- * without a flag, for claims quantised on the way (a snapshot's biomass).
+ * last report, over `activeMs` of play (the rulebook's `reachAt`). A value within `tolerance` (a
+ * share) of its cap is clamped without a flag, for claims quantised on the way (a snapshot's biomass).
  */
 function clampCondition(
   life: LifeState,
   claim: Condition,
-  seconds: number,
+  activeMs: number,
   tolerance = 0,
 ): Clamped {
   const clamped: Implausible[] = [];
@@ -146,24 +135,14 @@ function clampCondition(
   };
 
   // The curve a creature of this genome can follow from where the last report left it.
-  const from = Math.max(life.biomass / HUNDREDTHS, RULES.starter.biomass);
-  const reach =
-    from * Math.exp(RULES.growth.maxRate * life.growth * GROWTH_SLACK * seconds) + BIOMASS_SLACK;
   const biomass = clamp(
     clamp(claim.biomass, Math.floor(life.maxBiomass * HUNDREDTHS), 'biomass-over-max'),
-    Math.floor(reach * HUNDREDTHS),
+    reachAt(life.biomass, life.growth, activeMs),
     'growth-too-fast',
   );
-  const energy = clamp(
-    claim.energy,
-    Math.floor(maxEnergy(biomass / HUNDREDTHS) * HUNDREDTHS),
-    'energy-over',
-  );
-  const health = clamp(
-    claim.health,
-    Math.floor(maxHealth(biomass / HUNDREDTHS) * HUNDREDTHS),
-    'health-over',
-  );
+  const cap = vitalsCap(biomass);
+  const energy = clamp(claim.energy, cap.energy, 'energy-over');
+  const health = clamp(claim.health, cap.health, 'health-over');
 
   let flagged = life.flagged;
   const newFlags = clamped.filter((kind) => {
@@ -186,7 +165,7 @@ export function applyReport(
   now: number,
 ): { life: LifeState; newFlags: Implausible[] } {
   const gained = credited(life, report.ticks, now);
-  const { condition, flagged, newFlags } = clampCondition(life, report, gained / 1000);
+  const { condition, flagged, newFlags } = clampCondition(life, report, gained);
   return {
     life: {
       ...life,
@@ -211,7 +190,7 @@ export function clampClaim(
   now: number,
   tolerance: number,
 ): Clamped {
-  return clampCondition(life, claim, Math.max(0, now - life.t) / 1000, tolerance);
+  return clampCondition(life, claim, Math.max(0, now - life.t), tolerance);
 }
 
 /** Whether the creature has played since its last record, so a close should write one. */
@@ -220,15 +199,3 @@ export const unsaved = (life: LifeState): boolean => life.n > life.savedN;
 /** Whether a progress report is due a checkpoint of its own: 15 minutes of active time since the last. */
 export const checkpointDue = (life: LifeState): boolean =>
   life.activeMs - life.savedMs >= CHECKPOINT_EVERY_MS;
-
-/** The condition after paying for a mating (hundredths, rounded down), as the `mate-commit` record keeps it. */
-export function paidFor(life: Condition): Condition {
-  const left = mateCost(life.biomass / HUNDREDTHS, life.energy / HUNDREDTHS);
-  const biomass = Math.floor(left.biomass * HUNDREDTHS);
-  return {
-    biomass,
-    energy: Math.floor(left.energy * HUNDREDTHS),
-    // Health can't exceed what the smaller body allows.
-    health: Math.min(life.health, Math.floor(maxHealth(biomass / HUNDREDTHS) * HUNDREDTHS)),
-  };
-}

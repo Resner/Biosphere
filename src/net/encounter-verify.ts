@@ -5,6 +5,7 @@
 // imported it back would close a cycle.
 
 import type { PubKey } from '../ledger/record';
+import { rulesProblem } from '../ledger/registry';
 import {
   checkSettlementSig,
   type FightLog,
@@ -111,7 +112,7 @@ function replay(log: FightLog, joins: FightLog['joins']): Encounter | null {
  * - `key`, `signature`: the countersignature (an unlisted key, or a hash or signature that fails);
  * - `start`, `joins`, `frames`, `root`: the document against the log it claims to settle;
  * - `width:<f>`: frame `f` holds an input per slot that plays it, no more and no fewer;
- * - `rules-retired`: a fight replays only under the rules that settled it, this build's;
+ * - `rules-retired`, `rules-unknown`: the settlement's rules version is not live (the registry, ADR 0055);
  * - `replay`: the log does not build, or does not end the fight at its last frame;
  * - `hash`, `result:<slot>:<field>`: the replayed end state and results disagree with the document.
  */
@@ -139,7 +140,10 @@ export function verifyEncounter(
       if (inputs.length !== widthAt(log.start.fighters.length, joins, f))
         problems.push(`width:${f}`);
     });
-    if (doc.rules !== RULES_VERSION) return [...problems, 'rules-retired'];
+    const rules = rulesProblem(doc.rules);
+    if (rules) return [...problems, rules];
+    // One live version per build: a fight replays only under the rules that settled it.
+    if (doc.rules !== RULES_VERSION) return [...problems, 'rules-unknown'];
     if (problems.some((p) => p.startsWith('width:'))) return [...problems, 'replay'];
     const enc = replay(log, joins);
     if (!enc) return [...problems, 'replay'];

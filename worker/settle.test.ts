@@ -136,7 +136,14 @@ describe('a kill', () => {
 
     const egg = await chain(childB.id);
     expect(egg.map((r) => r.kind)).toEqual(['birth', 'death']);
-    expect(egg[1]?.body).toEqual({ cause: 'eaten', enc: start.enc, by: a.creature });
+    // Rules 11: the child's clock (0, it never played) and its biomass, then the fight (ADR 0055).
+    expect(egg[1]?.body).toEqual({
+      cause: 'eaten',
+      activeMs: 0,
+      biomass: childB.biomass,
+      enc: start.enc,
+      by: a.creature,
+    });
     expect((await headOf(childA.id)).status).toBe('pending');
     // The fallback is computed after the records: no pending child is left to offer.
     expect(seenB.find((m) => m.t === 'died')).toMatchObject({ fallback: { pending: false } });

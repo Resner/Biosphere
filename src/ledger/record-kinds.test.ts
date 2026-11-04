@@ -30,6 +30,22 @@ const mateCommit: LedgerRecord['body'] = {
   energy: 5100,
   health: 10000,
   cooldownUntilMs: 1_260_000,
+  biomassBefore: 4941,
+  energyBefore: 7286,
+  healthBefore: 10000,
+};
+const genesis: LedgerRecord['body'] = {
+  commit: H('1'),
+  round: 12345,
+  genome: H('9'),
+  generation: 0,
+  karyotype: 2,
+};
+const checkpoint: LedgerRecord['body'] = {
+  activeMs: 900_000,
+  biomass: 4200,
+  energy: 5100,
+  health: 9000,
 };
 const birth: LedgerRecord['body'] = {
   commit: H('1'),
@@ -71,13 +87,34 @@ const encounter: LedgerRecord['body'] = {
   activeMs: 912_000,
 };
 
+const oldAge: LedgerRecord['body'] = { cause: 'old-age', activeMs: 4_500_000, biomass: 4200 };
+const killed: LedgerRecord['body'] = {
+  cause: 'killed',
+  activeMs: 912_000,
+  biomass: 4200,
+  enc: H('e'),
+  by: H('f'),
+};
+const eaten: LedgerRecord['body'] = {
+  cause: 'eaten',
+  activeMs: 0,
+  biomass: 8000,
+  enc: H('e'),
+  by: H('f'),
+};
+
 const BODIES: [RecordKind, string, LedgerRecord['body']][] = [
+  ['genesis', 'genesis', genesis],
+  ['checkpoint', 'checkpoint', checkpoint],
   ['mate-commit', 'mate-commit', mateCommit],
   ['birth', 'birth', birth],
   ['promote', 'promote-child', promoteChild],
   ['promote', 'promote-parent', promoteParent],
   ['restore', 'restore', restore],
   ['encounter', 'encounter', encounter],
+  ['death', 'death-old-age', oldAge],
+  ['death', 'death-killed', killed],
+  ['death', 'death-eaten', eaten],
 ];
 
 function record(kind: RecordKind, body: LedgerRecord['body']): LedgerRecord {
@@ -89,7 +126,7 @@ function record(kind: RecordKind, body: LedgerRecord['body']): LedgerRecord {
     t: 1_700_000_000_000,
     body,
   };
-  return kind === 'birth'
+  return kind === 'birth' || kind === 'genesis'
     ? { ...base, creature: '', seq: 0, prev: '' }
     : { ...base, creature: H('c'), seq: 3, prev: H('d') };
 }
@@ -102,7 +139,7 @@ function golden() {
   );
 }
 
-describe('golden records of the M5 kinds', () => {
+describe('golden records of every kind (rules 11: typed bodies)', () => {
   if (process.env.UPDATE_GOLDENS) {
     writeFileSync(
       GOLDEN,
@@ -140,13 +177,21 @@ describe('golden records of the M5 kinds', () => {
   });
 });
 
-describe('record shape of the M5 kinds', () => {
+describe('record shape of the chain kinds', () => {
   it('shapes birth like genesis and every other new kind like a chain record', () => {
     const b = RECORDS.birth as LedgerRecord;
     expect(recordProblems({ ...b, seq: 1 })).not.toEqual([]);
     expect(recordProblems({ ...b, prev: H('a') })).not.toEqual([]);
     expect(recordProblems({ ...b, creature: H('a') })).not.toEqual([]);
-    for (const name of ['mate-commit', 'promote-child', 'promote-parent', 'restore', 'encounter']) {
+    for (const name of [
+      'checkpoint',
+      'mate-commit',
+      'promote-child',
+      'promote-parent',
+      'restore',
+      'encounter',
+      'death-old-age',
+    ]) {
       const r = RECORDS[name] as LedgerRecord;
       expect(recordProblems({ ...r, creature: '' }), name).not.toEqual([]);
       expect(recordProblems({ ...r, prev: '' }), name).not.toEqual([]);
@@ -166,10 +211,41 @@ describe('bodyProblems', () => {
     for (const [kind, name, body] of BODIES) expect(bodyProblems(kind, body), name).toEqual([]);
   });
 
-  it('leaves the M4 kinds as they were', () => {
-    for (const kind of ['genesis', 'checkpoint', 'death'] as const) {
-      expect(bodyProblems(kind, { anything: 1 })).toEqual([]);
+  it('types every kind: an unknown field is refused whatever the kind (ADR 0055)', () => {
+    for (const [kind, name, body] of BODIES) {
+      expect(bodyProblems(kind, { ...body, anything: 1 }), name).toEqual(['unknown:anything']);
     }
+    expect(bodyProblems('checkpoint', { ...checkpoint, cooldownUntilMs: 0 })).toEqual([
+      'unknown:cooldownUntilMs',
+    ]);
+  });
+
+  it('needs a mating’s condition before its cost', () => {
+    for (const key of ['biomassBefore', 'energyBefore', 'healthBefore']) {
+      const { [key]: _gone, ...without } = mateCommit;
+      expect(bodyProblems('mate-commit', without), key).toEqual([`missing:${key}`]);
+    }
+  });
+
+  it('shapes a death as its cause, clock and biomass, and a fight’s with its encounter and killer', () => {
+    const { enc: _enc, ...noEnc } = killed;
+    expect(bodyProblems('death', noEnc)).toEqual(['missing:enc']);
+    const { by: _by, ...noBy } = eaten;
+    expect(bodyProblems('death', noBy)).toEqual(['missing:by']);
+    expect(bodyProblems('death', { ...oldAge, by: H('f') })).toEqual(['unknown:by']);
+    // A hazard death during a fight names the encounter that settled it, and no killer.
+    expect(bodyProblems('death', { ...oldAge, cause: 'starved', enc: H('e') })).toEqual([]);
+    expect(bodyProblems('death', { ...oldAge, enc: H('e'), by: H('f') })).toEqual(['unknown:by']);
+    const { biomass: _b, ...noBiomass } = oldAge;
+    expect(bodyProblems('death', noBiomass)).toEqual(['missing:biomass']);
+    expect(bodyProblems('death', { ...oldAge, cause: 'boredom' })).toEqual(['bad:cause']);
+    for (const cause of ['starved', 'toxin', 'old-age', 'uv', 'pressure']) {
+      expect(bodyProblems('death', { ...oldAge, cause }), cause).toEqual([]);
+    }
+  });
+
+  it('refuses a body whose kind has no shape', () => {
+    expect(bodyProblems('nonsense' as RecordKind, {})).toEqual(['kind']);
   });
 
   it('names a missing field, an extra one, a wrong type, a negative and a non-hex id', () => {
@@ -228,7 +304,16 @@ describe('bodyProblems', () => {
 
   it('never throws on junk', () => {
     for (const body of [null, 1, 'x', [], { role: {} }, { role: 'child', parent: [] }]) {
-      for (const kind of ['mate-commit', 'birth', 'promote', 'restore', 'encounter'] as const) {
+      for (const kind of [
+        'genesis',
+        'checkpoint',
+        'mate-commit',
+        'birth',
+        'promote',
+        'restore',
+        'encounter',
+        'death',
+      ] as const) {
         expect(() => bodyProblems(kind, body as never)).not.toThrow();
         expect(bodyProblems(kind, body as never)).not.toEqual([]);
       }

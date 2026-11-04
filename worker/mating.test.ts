@@ -2,6 +2,7 @@ import { runInDurableObject } from 'cloudflare:test';
 import { env, exports } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import { roundAt } from '../src/ledger/drand';
+import { LIVE_SCALES, paidFor } from '../src/ledger/gates';
 import { commitmentId } from '../src/ledger/genesis';
 import type { Identity } from '../src/ledger/identity';
 import { checkMatePair, type MateAsk, signMateAsk } from '../src/ledger/mating';
@@ -10,7 +11,7 @@ import type { HubMsg } from '../src/net/protocol';
 import type { MateView } from '../src/sim/mating';
 import { RULES } from '../src/sim/rules';
 import * as mating from './mating';
-import { refusalFor } from './mating';
+import { refusalFor, scalesOf } from './mating';
 import {
   CALM,
   type Client,
@@ -190,6 +191,18 @@ describe('courtship', () => {
         commit: commitmentId(ma.commit.commitment),
         round: latest + 2,
         role,
+      });
+      // Rules 11 (ADR 0055): the condition the cost was paid from, which the cost recomputes.
+      const before = {
+        biomass: body.biomassBefore as number,
+        energy: body.energyBefore as number,
+        health: body.healthBefore as number,
+      };
+      expect(before).toEqual(CALM);
+      expect(paidFor(before)).toEqual({
+        biomass: body.biomass,
+        energy: body.energy,
+        health: body.health,
       });
     }
     expect(ma.record.record.seq).toBe((before[0]?.seq ?? 0) + 1);
@@ -496,6 +509,23 @@ describe('cooldown doubling for the same pair', () => {
     await play(c, 1000);
     await courtship(a, c);
     expect(await cooldownOf(a)).toBe(5400);
+  });
+});
+
+describe('scalesOf', () => {
+  it('honours LIFESPAN_SCALE and MATING_SCALE in fixture mode only', () => {
+    const scaled = { LIFESPAN_SCALE: '0.05', MATING_SCALE: '0.01' };
+    expect(scalesOf({ DRAND_SOURCE: 'fixture', ...scaled })).toEqual({
+      lifespan: 0.05,
+      mating: 0.01,
+    });
+    expect(scalesOf(scaled)).toEqual(LIVE_SCALES);
+    expect(scalesOf({ DRAND_SOURCE: 'live', ...scaled })).toEqual(LIVE_SCALES);
+    for (const junk of ['0', '-1', '2', 'x', '']) {
+      expect(
+        scalesOf({ DRAND_SOURCE: 'fixture', LIFESPAN_SCALE: junk, MATING_SCALE: junk }),
+      ).toEqual(LIVE_SCALES);
+    }
   });
 });
 

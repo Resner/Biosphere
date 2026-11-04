@@ -1,17 +1,16 @@
 import type { Genome } from '../src/genome/codec';
 import { genomeHash } from '../src/genome/codec';
+import { HUNDREDTHS, paidFor, type Scales } from '../src/ledger/gates';
 import type { MateAsk } from '../src/ledger/mating';
 import type { RecordRequest } from '../src/ledger/record';
-import { cooldownMs, type MateView, ownRefusal, pairRefusal } from '../src/sim/mating';
+import { type MateView, ownRefusal, pairRefusal } from '../src/sim/mating';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import type { Head } from './ledger';
-import { type LifeState, paidFor } from './life';
+import type { LifeState } from './life';
 
 // Courtship on the authority (ADR 0021): the pure parts. What each creature looks like to the
-// rules, how the fixture scale shortens the clocks, and the `mate-commit` requests a commitment
-// turns into. Nothing here can undo a commitment: its round is the beacons' (ADR 0010).
-
-const HUNDREDTHS = 100;
+// rules, the scales a test world shortens the clocks by, and the `mate-commit` requests a
+// commitment turns into. The gates themselves are the shared rulebook's (`src/ledger/gates.ts`). Nothing here can undo a commitment: its round is the beacons' (ADR 0010).
 
 /** A fraction in (0, 1] that shortens a clock for E2E (`LIFESPAN_SCALE`, `MATING_SCALE`); only fixture mode honours it. */
 export function fixtureScale(env: { DRAND_SOURCE?: string }, value: string | undefined): number {
@@ -19,19 +18,17 @@ export function fixtureScale(env: { DRAND_SOURCE?: string }, value: string | und
   return env.DRAND_SOURCE === 'fixture' && scale > 0 && scale <= 1 ? scale : 1;
 }
 
-/** The active time from which a creature with this base lifespan may mate. */
-export function matureAtMsOf(baseLifespanMs: number, scale: number): number {
-  const l = RULES.life;
-  return Math.round(scale * Math.max(l.matureMinMs, l.matureMinShare * baseLifespanMs));
+/** The scales this object runs under: 1 each in production, the fixture entry's vars otherwise. */
+export function scalesOf(env: {
+  DRAND_SOURCE?: string;
+  LIFESPAN_SCALE?: string;
+  MATING_SCALE?: string;
+}): Scales {
+  return {
+    lifespan: fixtureScale(env, env.LIFESPAN_SCALE),
+    mating: fixtureScale(env, env.MATING_SCALE),
+  };
 }
-
-/** The cooldown after a mating with a partner mated `prior` times in the window, in active ms. */
-export const cooldownFor = (prior: number, scale: number): number =>
-  Math.round(cooldownMs(prior) * scale);
-
-/** How far back the same pair's earlier matings count towards the doubling, in wall ms. */
-export const repeatWindowMs = (scale: number): number =>
-  Math.round(RULES.mating.repeatWindowMs * scale);
 
 /** What the rules see of one connected creature (sizes in wu). */
 export function viewOf(
@@ -74,7 +71,7 @@ export interface Parent {
   genome: Genome;
 }
 
-/** The two `mate-commit` requests: each parent's condition after paying, and its cooldown. */
+/** The two `mate-commit` requests: each parent's condition after paying and before it, and its cooldown. */
 export function mateRequests(
   commit: { id: string; round: number },
   a: Parent,
@@ -82,7 +79,8 @@ export function mateRequests(
   cooldown: number,
 ): [RecordRequest, RecordRequest] {
   const one = (self: Parent, other: Parent, role: 'a' | 'b'): RecordRequest => {
-    const paid = paidFor(self.life);
+    const { biomass, energy, health } = self.life;
+    const before = { biomass, energy, health };
     return {
       v: 1,
       rules: RULES_VERSION,
@@ -101,8 +99,11 @@ export function mateRequests(
         partnerGenome: genomeHash(other.genome),
         generation: self.head.generation,
         activeMs: self.life.activeMs,
-        ...paid,
+        ...paidFor(before),
         cooldownUntilMs: self.life.activeMs + cooldown,
+        biomassBefore: before.biomass,
+        energyBefore: before.energy,
+        healthBefore: before.health,
       },
     };
   };

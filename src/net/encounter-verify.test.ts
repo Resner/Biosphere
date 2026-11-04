@@ -342,11 +342,14 @@ describe('verifyEncounter', () => {
       s.hash = s.hash.replace(/^./, (c) => (c === '0' ? '1' : '0'));
     });
     expect(verifyEncounter(hash, g.log, keys)).toEqual(['hash']);
-    for (const rules of [RULES_VERSION - 1, RULES_VERSION + 1]) {
+    for (const [rules, problem] of [
+      [10, 'rules-retired'],
+      [12, 'rules-unknown'],
+    ] as const) {
       const other = resigned(g, (s) => {
         s.rules = rules;
       });
-      expect(verifyEncounter(other, g.log, keys)).toEqual(['rules-retired']);
+      expect(verifyEncounter(other, g.log, keys)).toEqual([problem]);
     }
   });
 

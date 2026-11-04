@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 10,
+    "rules": 11,
     "start": {
       "id": "enc-golden-duel",
       "pondSeed": "golden-duel",
@@ -211,7 +211,7 @@
       [8704, 128]
     ]
   },
-  "hash": "de94c203f5cf97f6",
+  "hash": "1ad702ee3847a361",
   "results": [
     {
       "outcome": "stood",

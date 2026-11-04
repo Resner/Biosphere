@@ -56,7 +56,7 @@ const death: LedgerRecord = {
   prev: recordHash(checkpoint),
   owner: OWNER,
   t: 1_700_001_800_000,
-  body: { cause: 'old-age', activeMs: 4_500_000 },
+  body: { cause: 'old-age', activeMs: 4_500_000, biomass: 12_345 },
 };
 const RECORDS = { genesis, checkpoint, death };
 
@@ -178,10 +178,11 @@ describe('creature ids and record shape', () => {
     expect(() => hundredths(Number.NaN)).toThrow(RangeError);
     expect(() => hundredths(Number.POSITIVE_INFINITY)).toThrow(RangeError);
     expect(() => hundredths(1e15)).toThrow(RangeError);
-    const withFloat = { ...checkpoint, body: { biomass: 1.2345 } };
+    const withFloat = { ...checkpoint, body: { ...checkpoint.body, biomass: 1.2345 } };
     expect(recordProblems(withFloat)).not.toEqual([]);
     expect(() => recordHash(withFloat)).toThrow(RangeError);
-    expect(recordProblems({ ...checkpoint, body: { biomass: hundredths(1.2345) } })).toEqual([]);
+    const fixed = { ...checkpoint, body: { ...checkpoint.body, biomass: hundredths(1.2345) } };
+    expect(recordProblems(fixed)).toEqual([]);
   });
 });
 
@@ -227,14 +228,15 @@ describe('authority signatures', () => {
     }
   });
 
-  it('answers rules-retired for a record of a rules version before the reset (ADR 0040)', () => {
+  it('answers through the registry: rules-retired before the renewal, rules-unknown past this build (ADR 0055)', () => {
     for (const record of Object.values(RECORDS)) {
-      for (const rules of [0, 5, 7]) {
+      for (const rules of [0, 7, 10]) {
         expect(checkStored(stored({ ...record, rules }), keys), `${record.kind} ${rules}`).toEqual([
           'rules-retired',
         ]);
       }
-      expect(checkStored(stored({ ...record, rules: 8 }), keys)).toEqual([]);
+      expect(checkStored(stored({ ...record, rules: 12 }), keys)).toEqual(['rules-unknown']);
+      expect(checkStored(stored({ ...record, rules: 11 }), keys)).toEqual([]);
     }
   });
 
