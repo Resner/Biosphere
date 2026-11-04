@@ -157,7 +157,12 @@ function giveUp(hub: Hub, row: FightRow, now: number): void {
     const found = seated(hub, player);
     if (found) sendIfOpen(found[0], end);
   }
-  backToLedger(hub, players, now);
+  // A player already in a newer lock is that fight's to bind.
+  backToLedger(
+    hub,
+    [...players].filter((p) => !hub.fights.playerLocked(p)),
+    now,
+  );
 }
 
 /** The end state a fight that never settled reports: no encounter was rebuilt to hash. */
