@@ -124,10 +124,8 @@ const ownerStarted = (s: StoredRecord): boolean =>
 export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Problem[] {
   const out: Problem[] = [];
   const verifiers = new Map<string, KeyVerify | null>();
-  const held: StoredRecord[] = [];
   for (const [id, chain] of index.records) {
     for (const s of chain) {
-      held.push(s);
       const at = (code: string) => out.push(problem('signature', id, s.record.seq, code));
       if (ownerStarted(s)) {
         if (s.ownerSig === null) at('owner-sig-missing');
@@ -143,21 +141,10 @@ export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Prob
         at('auth-sig');
     }
   }
-  // A document is named by the records that cite it; its problems go on the earliest of them.
-  const naming = { commit: new Map<string, StoredRecord>(), enc: new Map<string, StoredRecord>() };
-  for (const s of held) {
-    for (const field of ['commit', 'enc'] as const) {
-      const value = s.record.body[field];
-      const first = typeof value === 'string' ? naming[field].get(value) : undefined;
-      if (typeof value === 'string' && (!first || s.record.t < first.record.t))
-        naming[field].set(value, s);
-    }
-  }
-  const where = (s: StoredRecord | undefined): [string, number | null] =>
-    s ? [creatureOf(s), s.record.seq] : [index.bundle.subject, null];
+  const naming = firstNamers(index);
   for (const [id, c] of index.commits) {
     const first = naming.commit.get(id);
-    const [creature, seq] = where(first);
+    const [creature, seq] = whereNamed(index, first);
     const code =
       keyProblem(index, c.keyId, first?.record.t ?? c.commitment.t, 'commit-') ??
       (countersigned(verifiers, index.keys.get(c.keyId) as AuthorityKey, id, c.authSig)
@@ -166,7 +153,7 @@ export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Prob
     if (code) out.push(problem('signature', creature, seq, code));
   }
   for (const [enc, s] of index.settlements) {
-    const [creature, seq] = where(naming.enc.get(enc));
+    const [creature, seq] = whereNamed(index, naming.enc.get(enc));
     const code =
       keyProblem(index, s.keyId, s.settlement.t, 'settlement-') ??
       (s.hash === settlementHash(s.settlement) &&
@@ -177,6 +164,33 @@ export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Prob
   }
   return out;
 }
+
+/**
+ * A document (a commitment or a settlement) is named by the held records that cite it in
+ * `body.commit` or `body.enc`; its problems go on the earliest of them.
+ */
+export function firstNamers(
+  index: BundleIndex,
+): Record<'commit' | 'enc', Map<string, StoredRecord>> {
+  const naming = { commit: new Map<string, StoredRecord>(), enc: new Map<string, StoredRecord>() };
+  for (const chain of index.records.values()) {
+    for (const s of chain) {
+      for (const field of ['commit', 'enc'] as const) {
+        const value = s.record.body[field];
+        const first = typeof value === 'string' ? naming[field].get(value) : undefined;
+        if (typeof value === 'string' && (!first || s.record.t < first.record.t))
+          naming[field].set(value, s);
+      }
+    }
+  }
+  return naming;
+}
+
+/** Where a document's problem goes: the record that first names it, else the subject as a whole. */
+export const whereNamed = (
+  index: BundleIndex,
+  s: StoredRecord | undefined,
+): [string, number | null] => (s ? [creatureOf(s), s.record.seq] : [index.bundle.subject, null]);
 
 function ownerSigned(s: StoredRecord): boolean {
   try {

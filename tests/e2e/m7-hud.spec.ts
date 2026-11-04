@@ -236,13 +236,16 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
       (window as unknown as { chase: number }).chase = window.setInterval(chase, 250);
     }, idB);
 
-    // On B's screen, A's front during a windup, then in a calm moment (each frame frozen to shoot
-    // it). The windup is the rare one and a fight is short, so it goes first.
-    const during = await shoot(b, 'windup', idA).catch(async (error) => {
-      throw new Error(`no windup on B: ${JSON.stringify(await seen(b))}`, { cause: error });
-    });
+    // On B's screen, A's front in a calm moment (each frame frozen to shoot it). A has just started to chase, so no
+    // strike is coming yet: the calm shot goes first, because on a slow runner the fight can be over
+    // by the time a windup has been shot.
     const before = await shoot(b, 'calm', idA).catch(async (error) => {
       throw new Error(`no calm moment: ${JSON.stringify(await seen(b))}`, { cause: error });
+    });
+
+    // Then A's front during a windup (the rare moment, shot while the fight lasts).
+    const during = await shoot(b, 'windup', idA).catch(async (error) => {
+      throw new Error(`no windup on B: ${JSON.stringify(await seen(b))}`, { cause: error });
     });
     expect(before.glows).toBe(0);
     expect(during.glows).toBeGreaterThan(0);

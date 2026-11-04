@@ -37,6 +37,8 @@ export interface LineageReport {
   toGenesis: boolean;
   /** Generations back from the subject the checked graph reaches. */
   generations: number;
+  /** Held creatures whose birth was not recomputed, because a parent is not in the bundle. */
+  unchecked: string[];
   fights: { settled: number; replayed: number; pruned: number; unreplayed: number };
   /** A scale below 1: a test world. */
   scaled: boolean;
@@ -168,6 +170,7 @@ export function verifyLineage(bundle: ProofBundle, opts: VerifyOptions = {}): Li
     missing: [],
     toGenesis: false,
     generations: 0,
+    unchecked: [],
     fights: { settled: 0, replayed: 0, pruned: 0, unreplayed: 0 },
     scaled: scales !== undefined && isScaled(scales),
     keys: opts.keys ? 'pinned' : 'bundle',
@@ -239,6 +242,41 @@ export const PROBLEM_TEXT: Readonly<Record<string, string>> = Object.freeze({
   'settlement-key-not-yet':
     "A fight's settlement is countersigned with an authority key before that key came into use.",
   'settlement-sig': "The authority's countersignature on a fight's settlement does not verify.",
+  // The origin family.
+  'origin-unreadable': "A creature's origin could not be read.",
+  'genome-text': "A creature's DNA in the proof is not the DNA its first record names.",
+  'commit-missing': "The proof lacks the randomness commitment a creature's origin rests on.",
+  'beacon-missing': "The proof lacks the drand round a creature's origin was committed to.",
+  'round-not-future': 'A randomness commitment named a drand round that was already published.',
+  'beacon-round': 'A drand round in the proof is not the one its commitment named.',
+  'bad-beacon': "A drand round in the proof does not carry drand's signature.",
+  'not-genesis': 'A genesis creature rests on a commitment made for something else.',
+  'not-mate': 'A birth rests on a commitment made for something other than a mating.',
+  'bad-commit': "A mating's commitment does not hold both players' requests.",
+  'owner-mismatch': 'A creature belongs to a player its commitment does not name.',
+  'bad-ask': 'The request for a genesis creature is not signed by its player.',
+  'commit-mismatch': 'A creature names a commitment other than the one it rests on.',
+  'round-mismatch': 'A creature names a drand round other than the one its commitment chose.',
+  'body-mismatch': "A genesis creature's DNA is not what its committed drand round produces.",
+  'rules-mismatch': 'A birth and the mating it came from were made under different rules.',
+  'parent-missing': 'A birth names a parent the proof neither holds nor lists as left out.',
+  'mate-not-held': "A birth names a mating record its parents' chains in the proof do not hold.",
+  'parent-genome': "A parent's DNA in the proof is not the DNA that parent's first record names.",
+  'mate-generation': 'A mating record names a generation its creature does not have.',
+  'parent-mismatch': 'A birth names parents other than the two creatures that agreed to mate.',
+  'mate-commit-mismatch': 'A birth rests on a mating record that does not belong to its mating.',
+  'parent-genome-mismatch': "A mating record names DNA that is not its creature's.",
+  'mate-hash': 'A birth names mating records that do not match their contents.',
+  'slot-mismatch':
+    'A birth claims a place among the offspring other than the one its drand round gave.',
+  'genome-mismatch':
+    "A newborn's DNA is not what its parents and its committed drand round produce.",
+  'generation-mismatch': "A birth claims a generation other than the one after its parents'.",
+  'karyotype-mismatch': "A birth claims a genome layout this world's rules do not use.",
+  'pair:bad-ask': 'A mating rests on requests that are malformed.',
+  'pair:self': 'A mating pairs a player with themselves.',
+  'pair:pair-mismatch': "A mating's two requests do not name each other.",
+  'pair:bad-signature': 'A request to mate is not signed by its player.',
 });
 
 /** The sentence for a code a family reports that `PROBLEM_TEXT` does not list. */
