@@ -226,13 +226,6 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
     await expect(b.getByTestId('hud-bar-size')).toBeHidden();
     expect(cover.share, `HUD covers ${(cover.share * 100).toFixed(2)}%`).toBeLessThanOrEqual(0.06);
 
-    // On B's screen, A's front in a calm moment (each frame frozen to shoot it). The fight has just
-    // begun, so no strike is coming yet: the calm shot goes first, because on a slow runner the
-    // fight can be over by the time a windup has been shot.
-    const before = await shoot(b, 'calm', idA).catch(async (error) => {
-      throw new Error(`no calm moment: ${JSON.stringify(await seen(b))}`, { cause: error });
-    });
-
     // A keeps swimming onto B (debug steering works in a fight) until the test calls it off.
     await a.evaluate((who) => {
       const bs = window.__bs as BsHook;
@@ -242,6 +235,13 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
       };
       (window as unknown as { chase: number }).chase = window.setInterval(chase, 250);
     }, idB);
+
+    // On B's screen, A's front in a calm moment (each frame frozen to shoot it). A has just started to chase, so no
+    // strike is coming yet: the calm shot goes first, because on a slow runner the fight can be over
+    // by the time a windup has been shot.
+    const before = await shoot(b, 'calm', idA).catch(async (error) => {
+      throw new Error(`no calm moment: ${JSON.stringify(await seen(b))}`, { cause: error });
+    });
 
     // Then A's front during a windup (the rare moment, shot while the fight lasts).
     const during = await shoot(b, 'windup', idA).catch(async (error) => {
