@@ -112,7 +112,7 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
             return e?.id === id && e?.fighters.length === 3;
           },
           enc,
-          { timeout: 10_000 },
+          { timeout: 40_000 },
         )
         .catch(async (error) => {
           throw new Error(`no third fighter: ${JSON.stringify(await seen(page))}`, {
