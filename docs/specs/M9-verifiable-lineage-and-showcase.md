@@ -298,7 +298,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `speedTest`: the chain and signature families on a 64-creature, 400-record bundle take under 1 s in Node.
   - Notes: the other families are stubs here. T4–T6 add their tamper tests to the same golden and never change its honest history, so they can run in parallel.
 
-- [ ] T4 Origins: genesis and births recomputed [opus] (after T3)
+- [ ] T4 Origins: genesis and births recomputed [opus] (after T3) (in progress)
   - Steps: `src/ledger/verify-origin.ts`, for each held creature's first record:
     - **genesis**: `checkGenesis` with its commitment and beacon, and the genome text against the record's genome hash;
     - **birth**: `checkBirth` with its commitment, beacon, both parents' genome texts and both `mate-commit` records. Each parent's genome text must hash to the genome its own first record names. Each `mate-commit` must be the last record of its parent's held prefix, or within it.
