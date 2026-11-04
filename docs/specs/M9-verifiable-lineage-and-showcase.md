@@ -163,6 +163,7 @@ export interface LineageReport {
   missing: string[];                   // bundle.more: not checked
   toGenesis: boolean;                  // every ancestor path of the subject ends at a held, checked genesis (T4)
   generations: number;                 // generations back from the subject the checked graph reaches (T4)
+  unchecked: string[];                 // held creatures whose birth names a parent not held (T4)
   fights: { settled: number; replayed: number; pruned: number; unreplayed: number };   // T6
   scaled: boolean;                     // a scale below 1: a test world
   keys: 'bundle' | 'pinned';
@@ -298,7 +299,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `speedTest`: the chain and signature families on a 64-creature, 400-record bundle take under 1 s in Node.
   - Notes: the other families are stubs here. T4–T6 add their tamper tests to the same golden and never change its honest history, so they can run in parallel.
 
-- [ ] T4 Origins: genesis and births recomputed [opus] (after T3) (in progress)
+- [x] T4 Origins: genesis and births recomputed [opus] (after T3) (in progress)
+  - Done: `verify-origin.ts` (with `unchecked` on the report, the origin codes in `PROBLEM_TEXT`, and `firstNamers`/`whereNamed` shared from `verify-chain.ts`); tests in `verify-origin.test.ts`. A birth's parent genomes are taken in its `mates` order, and each `mate-commit`'s generation must be its creature's.
+  - Gotcha: a forged commitment changes the genesis draw (the seed hashes the commit id), so a timing tamper must redraw the genome to isolate `round-not-future`.
   - Steps: `src/ledger/verify-origin.ts`, for each held creature's first record:
     - **genesis**: `checkGenesis` with its commitment and beacon, and the genome text against the record's genome hash;
     - **birth**: `checkBirth` with its commitment, beacon, both parents' genome texts and both `mate-commit` records. Each parent's genome text must hash to the genome its own first record names. Each `mate-commit` must be the last record of its parent's held prefix, or within it.
