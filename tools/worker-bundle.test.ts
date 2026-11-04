@@ -12,7 +12,11 @@ import { heavyTest } from '../tests/heavy';
 const out = mkdtempSync(join(tmpdir(), 'bs-bundle-'));
 afterAll(() => rmSync(out, { recursive: true, force: true }));
 
+const built = new Map<string, string>();
+
 function bundle(e2e: boolean, main: string): string {
+  const cached = built.get(main);
+  if (cached !== undefined) return cached;
   const dir = join(out, main);
   const tool = fileURLToPath(new URL('./worker.mjs', import.meta.url));
   const run = spawnSync(
@@ -21,7 +25,9 @@ function bundle(e2e: boolean, main: string): string {
     { encoding: 'utf8' },
   );
   expect(run.status, run.stderr).toBe(0);
-  return readFileSync(join(dir, main), 'utf8');
+  const code = readFileSync(join(dir, main), 'utf8');
+  built.set(main, code);
+  return code;
 }
 
 describe('worker bundles', () => {
@@ -33,6 +39,19 @@ describe('worker bundles', () => {
     expect(code).not.toContain('fixtureSource');
     // Nor the E2E hook that stages a player from before the world renewal (M6c T2).
     expect(code).not.toContain('/v1/e2e/');
+  });
+
+  // The scales that shorten a test world's clocks (ADR 0055) are read in one place, behind the
+  // fixture source, so production always runs the live rulebook.
+  heavyTest('production honours no scale outside fixture mode', () => {
+    const code = bundle(false, 'index.js');
+    const reads = code.match(/[\w$.]*\b(LIFESPAN|MATING)_SCALE\b/g) ?? [];
+    expect(reads.sort()).toEqual(['env.LIFESPAN_SCALE', 'env.MATING_SCALE']);
+    expect(code).toContain('fixtureScale(env, env.LIFESPAN_SCALE)');
+    expect(code).toContain('fixtureScale(env, env.MATING_SCALE)');
+    expect(code).toMatch(
+      /function fixtureScale\(env, value\) \{\s*const scale = Number\(value\);\s*return env\.DRAND_SOURCE === "fixture" && /,
+    );
   });
 
   heavyTest('the E2E entry carries the recorded rounds', () => {
