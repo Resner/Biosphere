@@ -252,7 +252,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### The verifier
 
-- [ ] T3 Proof bundles and the chain verifier [opus] (after T1)
+- [ ] T3 Proof bundles and the chain verifier [opus] (after T1) (in progress)
   - Steps:
     1. `src/ledger/proof.ts`: the bundle and fight-proof shapes, with `parseProofBundle` and `parseFightProof` for untrusted JSON.
        - Each list and string is capped: at most 64 creatures, 4,096 records, 512 keys and so on; a genome text of 595 characters; hex ids.
