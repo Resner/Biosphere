@@ -224,7 +224,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `tools/worker-bundle.test.ts` still finds no scale honoured outside fixture mode.
   - Notes: no world renewal here (T2), and no new bound (T8). T1 must not grow `worker/ledger.ts`.
 
-- [ ] T2 The world renewal: migration 8, protocol 9, the notice (after none)
+- [ ] T2 The world renewal: migration 8, protocol 9, the notice (after none) (in progress)
   - Steps:
     1. Migration 8 in `worker/schema.ts`, a `(sql, now)` step like migration 6:
        - delete every creature, record, commitment, mating, genesis-log entry and encounter (its log and settlement);
