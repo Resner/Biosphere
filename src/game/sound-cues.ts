@@ -64,6 +64,14 @@ export class CueWatch {
     if (cause === 'uv' || cause === 'pressure') this.every(cause, tick, CUE_WATCH.zoneGapTicks);
   }
 
+  /**
+   * A zone's damage that landed no hit of its own (another source took the shake's slot on the
+   * same tick): its voice still sounds, at most once a second, without a second thud.
+   */
+  zone(cause: DeathCause, tick: number): void {
+    if (cause === 'uv' || cause === 'pressure') this.every(cause, tick, CUE_WATCH.zoneGapTicks);
+  }
+
   /** Once per tick of a living creature: its energy share and the nearest plume, if any. */
   vitals(tick: number, energyShare: number, hazard: NearHazard | null): void {
     // Leaving low energy forgets the last pulse, so the next dip sounds at once.

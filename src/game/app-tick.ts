@@ -204,9 +204,11 @@ export class Ticker {
       if (event.creature !== player.id) continue;
       fx.onEvent(event, this.anchorFor(event));
       // Damage lands as hits at most every 0.5 s (M6c T9): each one flashes the body and sounds.
-      if (event.type === 'damage' && app.shake.hit(event.cause, event.amount, session.ticks)) {
-        fx.hurtFlash(app.shake.hitDamage);
-        if (!session.demo) cueWatch.hit(event.cause, session.ticks);
+      if (event.type === 'damage') {
+        if (app.shake.hit(event.cause, event.amount, session.ticks)) {
+          fx.hurtFlash(app.shake.hitDamage);
+          if (!session.demo) cueWatch.hit(event.cause, session.ticks);
+        } else if (!session.demo) cueWatch.zone(event.cause, session.ticks);
       }
       if (!session.demo) cueWatch.onEvent(event);
       if (event.type === 'eat') hud.pulseEnergy();
