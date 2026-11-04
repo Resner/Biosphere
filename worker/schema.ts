@@ -179,6 +179,21 @@ const MIGRATIONS: Step[] = [
   ) WITHOUT ROWID;
   CREATE INDEX encounters_open ON encounters (open) WHERE open = 1;
   ALTER TABLE players ADD COLUMN fight_report TEXT NOT NULL DEFAULT ''`,
+  // The second world renewal (ADR 0055): rules 11 is the only live version, so every record of the
+  // world can be verified under it. As migration 6, with the fights' logs and settlements and the
+  // away report gone too; identities, keys, usage, flags, beacons and ponds stay. Every identity
+  // is told once more (`epoch_seen` stays below the new epoch).
+  (sql, now) => {
+    sql.exec(`DELETE FROM creatures;
+      DELETE FROM records;
+      DELETE FROM commitments;
+      DELETE FROM matings;
+      DELETE FROM genesis_log;
+      DELETE FROM encounters;
+      UPDATE players SET pending = '', fight_report = '', hatches = 3, hatch_t = 0;
+      DELETE FROM world`);
+    sql.exec('INSERT INTO world (epoch, reset_at) VALUES (3, ?)', now);
+  },
 ];
 
 /**

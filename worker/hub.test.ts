@@ -163,7 +163,7 @@ describe('hub hello', () => {
     },
   );
 
-  it.each([1, 6, 7])('closes 4002 for protocol version %i', async (v) => {
+  it.each([1, 6, 7, 8])('closes 4002 for protocol version %i', async (v) => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
     c.send({ ...hello, v });
@@ -459,7 +459,7 @@ describe('ponds', () => {
           )
           .one().n,
     );
-    expect(rows).toBe(8); // the pond and the seven schema versions
+    expect(rows).toBe(9); // the pond and the eight schema versions
   });
 
   it('keeps the pond and the roster across hibernation', async () => {

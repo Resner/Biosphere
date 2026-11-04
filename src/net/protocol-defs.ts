@@ -7,7 +7,7 @@ import type { SignedSettlement } from '../ledger/settlement';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 8;
+export const PROTOCOL_VERSION = 9;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
