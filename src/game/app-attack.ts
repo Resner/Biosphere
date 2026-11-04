@@ -15,6 +15,7 @@ import {
   engageRefusal,
   fightKey,
   hintTarget,
+  offered,
   ProtectionWatch,
   refusalToast,
 } from './engage';
@@ -22,8 +23,6 @@ import { type LabelProjection, placeAt, screenX, screenY } from './labels';
 
 /** A click or the cursor this close (CSS pixels) to a creature's centre points at it, however small. */
 const PICK_PX = 24;
-/** Remotes fainter than this cannot be engaged (as the inspect card and courting). */
-const MIN_ALPHA = 0.5;
 /** The shimmer's ring sits this many radii from a protected creature's centre. */
 const SHIMMER_RADII = 1.35;
 /** Refusal toasts are short. */
@@ -134,7 +133,7 @@ export class AttackUi {
     const { pool, peerList, app } = this;
     peerList.length = 0;
     for (const r of app.remoteViews) {
-      if (r.alpha < MIN_ALPHA) continue;
+      if (!offered(r)) continue;
       const stats = this.statsOf(r.body, r.genomeHash);
       let peer = pool.get(r.id);
       if (!peer) {

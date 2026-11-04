@@ -193,6 +193,27 @@ describe('EncounterSync', () => {
     expect(end.fighters.map((f) => f.outcome).sort()).toEqual(['escaped', 'stood']);
   });
 
+  it('reads the fight as confirmed: the state after its last confirmed frame (M8 T11)', () => {
+    let behind = 0;
+    let checked = 0;
+    play({
+      watch: (_t, { a }) => {
+        const enc = a.confirmedState();
+        if (!enc || a.over) return;
+        checked++;
+        if (a.confirmed < a.frame && a.frame - a.confirmed < KEEP_FRAMES) {
+          behind++;
+          expect(enc.frame).toBe(a.confirmed);
+          expect(enc).not.toBe(a.enc);
+        } else if (a.confirmed >= a.frame) {
+          expect(enc).toBe(a.enc);
+        }
+      },
+    });
+    expect(checked).toBeGreaterThan(100);
+    expect(behind).toBeGreaterThan(50);
+  });
+
   it('never rolls back for a remote that repeats its input', () => {
     const { a, end } = play({ scripts: { b: steady } });
     // Only the first bundle corrects the autopilot guess A made before it knew B's input.

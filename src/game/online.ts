@@ -54,6 +54,7 @@ export type OnlineMesh = Pick<
   | 'onPeerJoined'
   | 'onState'
   | 'onEvent'
+  | 'onProxy'
 >;
 
 export interface OnlineHandlers {
@@ -66,6 +67,8 @@ export interface OnlineHandlers {
   /** A peer's snapshot, with its signed form (unverified) when it came as an 89-byte frame. */
   state(id: string, snapshot: Snapshot, signed: SignedSnap | null): void;
   event(id: string, event: PeerEvent): void;
+  /** A roster member's proxy of `player`'s away fighter (M8 T11), unchecked. */
+  proxy(id: string, player: string, snapshot: Snapshot): void;
   /** The hub's word about this player's creature (resume, genesis, acks, death). */
   life(msg: LifeMsg): void;
   /** The hub's word about fights; a `lock-ask` is answered before this returns (M7 T7). */
@@ -183,6 +186,18 @@ export class OnlineSession {
     this.eachOpen((id, mesh) => mesh.sendState(id, signed && candidates.has(id) ? signed : bytes));
   }
 
+  /** The roster members with an open link. */
+  openPeers(): string[] {
+    const ids: string[] = [];
+    this.eachOpen((id) => ids.push(id));
+    return ids;
+  }
+
+  /** State-channel bytes (a proxy frame, M8 T11) to one open roster member. */
+  sendState(id: string, bytes: Uint8Array): void {
+    if (this.roster.has(id) && this.mesh?.isOpen(id)) this.mesh.sendState(id, bytes);
+  }
+
   broadcastEvent(event: PeerEvent): void {
     this.eachOpen((id, mesh) => mesh.sendEvent(id, event));
   }
@@ -264,6 +279,9 @@ export class OnlineSession {
     });
     mesh.onEvent((id, e) => {
       if (this.roster.has(id)) handlers.event(id, e);
+    });
+    mesh.onProxy((id, player, s) => {
+      if (this.roster.has(id)) handlers.proxy(id, player, s);
     });
     return mesh;
   }

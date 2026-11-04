@@ -1,11 +1,12 @@
 import { describe, expect, it } from 'vitest';
 import { hunterFighter, IDLE_CODE, starterFighter, startOf } from '../../tests/encounter-fixture';
 import { Link, ScriptedReferee, startMsg, TEST_POND } from '../../tests/scripted-referee';
+import { genomeFromBase64url, genomeHash } from '../genome/codec';
 import { PondClock } from '../net/clock';
 import { encounterStartOf } from '../net/encounter-start';
 import type { InputMsg } from '../net/encounter-sync';
 import type { FightMsg, HubStatus, Welcome } from '../net/hub-client';
-import type { ClientMsg } from '../net/protocol';
+import { type ClientMsg, genomeRefOf } from '../net/protocol';
 import { decodeFrameInput } from '../sim/encounter/codec';
 import { createEncounter, stepFrame } from '../sim/encounter/encounter';
 import type { Input } from '../sim/input';
@@ -85,6 +86,7 @@ describe('FightPlay with the fake online session', () => {
         peerOpen: () => {},
         state: () => {},
         event: () => {},
+        proxy: () => {},
         life: () => {},
         fight: (m) => play?.receive(m),
       },
@@ -172,6 +174,53 @@ describe('FightPlay with the fake online session', () => {
     expect(player.x).not.toBe(result?.x);
     expect(player.alive).toBe(true);
     expect(play.view()?.over).toBe(true);
+  });
+
+  it('marks an away opponent and reads the confirmed fight for the proxy relay (M8 T11)', () => {
+    const msg = startMsg();
+    const start = encounterStartOf(msg, TEST_POND.seed);
+    const own = start && createEncounter(start).fighters.find((f) => f.player === 'pa');
+    if (!start || !own) throw new Error('no start');
+    const player: CreatureState = { ...own.body, bornTick: 0 };
+    const world = createWorld(TEST_POND);
+    world.tick = msg.t0;
+    world.creatures.push(player);
+    let now = msg.at;
+    const play = new FightPlay({
+      me: () => 'pa',
+      pond: () => TEST_POND,
+      life: () => ({ player, world }),
+      steering: () => ({ steer: 0, throttle: 0, dash: false }),
+      send: () => {},
+      hubNow: () => now,
+      oneWayMs: () => 0,
+      hidden: () => false,
+      present: (p) => p !== 'pb',
+    });
+    play.receive(msg);
+    now += 450;
+    expect(play.tick()).toBe(true);
+    const away = Object.fromEntries(play.view()?.fighters.map((f) => [f.player, f.away]) ?? []);
+    expect(away).toEqual({ pa: false, pb: true });
+
+    const fight = play.relayFight();
+    expect(fight?.id).toBe(msg.enc);
+    expect(play.relayFight()).toBe(fight);
+    const slot = fight?.players.indexOf('pb') ?? -1;
+    const b = start.fighters.find((f) => f.player === 'pb');
+    const info = msg.fighters.find((f) => f.player === 'pb');
+    const genome = info && genomeFromBase64url(info.genome);
+    if (!b || !genome) throw new Error('no B');
+    // Nothing is confirmed yet: B as frame 0 found it, its body named by its genome.
+    expect(play.sync?.frame).toBeGreaterThan(0);
+    expect(fight?.snapshot(slot)).toMatchObject({
+      tick: msg.t0,
+      x: b.x,
+      y: b.y,
+      fighting: true,
+      alive: true,
+      genomeRef: genomeRefOf(genomeHash(genome)),
+    });
   });
 
   it('debug.autoBrace sees a windup aimed at the player only in its last 4 ticks (M7 T12)', () => {
