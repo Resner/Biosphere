@@ -62,13 +62,18 @@ import { createEncounter, results, stepFrame } from '../src/sim/encounter/encoun
 import type { Encounter } from '../src/sim/encounter/types';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 
+const ROUNDS = JSON.parse(
+  readFileSync(new URL('./fixtures/drand/rounds.json', import.meta.url), 'utf8'),
+) as { first: number; last: number; beacons: Beacon[] };
+const BEACONS = new Map(ROUNDS.beacons.map((b) => [b.round, b]));
+
 export const AUTH_SECRET = new Uint8Array(32).fill(0x7a);
 const AUTH_PUBLIC = authorityPublicKey(AUTH_SECRET);
 /** The fixture's authority key, in force from an hour before the first recorded round. */
 export const FIXTURE_KEY: AuthorityKey = {
   id: authorityKeyId(AUTH_PUBLIC),
   publicKey: AUTH_PUBLIC,
-  from: roundTime(33409837) - 3_600_000,
+  from: roundTime(ROUNDS.first) - 3_600_000,
 };
 export const OWNER_SECRETS = { A: new Uint8Array(32).fill(0xa1), B: new Uint8Array(32).fill(0xb2) };
 export const PLAYERS = {
@@ -90,11 +95,6 @@ export const TUNE: FixtureTune = {
   pondSeed: 'lineage-0',
   a1Size: 0.5,
 };
-
-const ROUNDS = JSON.parse(
-  readFileSync(new URL('./fixtures/drand/rounds.json', import.meta.url), 'utf8'),
-) as { first: number; last: number; beacons: Beacon[] };
-const BEACONS = new Map(ROUNDS.beacons.map((b) => [b.round, b]));
 
 function beaconAt(round: number): Beacon {
   const b = BEACONS.get(round);
@@ -238,11 +238,24 @@ function genesis(secret: Uint8Array, nonce: string, round: number, out: LineageH
   return life;
 }
 
+/**
+ * The time a genesis cell needs to grow to three quarters of its adult size within the reach: the
+ * mating waits for it under scales whose maturity comes sooner, so every scale fights the same fight.
+ */
+const GROWN_MS = 100_000;
+
 /** A creature's adult size in hundredths: what it grows toward. */
 const adultOf = (genome: Genome): number => Math.floor(buildCreature(genome).phys.maxBiomass * 100);
 
 /** The `FighterInfo` of a creature at lock-in, as `engage.ts` sends it. */
-function fighterOf(life: Life, x: number, heading: number, egg: boolean): FighterInfo {
+function fighterOf(
+  life: Life,
+  clock: number,
+  scales: Scales,
+  x: number,
+  heading: number,
+  egg: boolean,
+): FighterInfo {
   return {
     player: life.owner,
     creature: life.id,
@@ -255,7 +268,7 @@ function fighterOf(life: Life, x: number, heading: number, egg: boolean): Fighte
     biomass: life.condition.biomass / 100,
     energy: life.condition.energy / 100,
     health: life.condition.health / 100,
-    elder: false,
+    elder: clock >= RULES.life.elderAt * lifespanOf(life.genome, scales),
     egg,
     worth: 1,
   };
@@ -297,10 +310,11 @@ export function lineageHistory(
   const bornA = a0.head.record.t;
   const bornB = b0.head.record.t;
 
-  // Both grow until both are mature, then mate.
+  // Both grow until both are mature and have had the time to reach their size, then mate.
   const mature = Math.max(
     bornA + matureAtOf(a0.genome, scales),
     bornB + matureAtOf(b0.genome, scales),
+    bornB + GROWN_MS,
   );
   const mateAt = mature + 30_000;
   for (const [life, born] of [
@@ -404,9 +418,11 @@ export function lineageHistory(
     [a1.id, 90_000],
     [b0.id, b0.activeMs + (lockAt - (mateAt + 500))],
   ]);
-  const fighters = [fighterOf(a1, 2046, 0, false), fighterOf(b0, 2050, Math.PI, true)].sort(
-    (x, y) => (x.creature < y.creature ? -1 : 1),
-  );
+  const clockOf = (life: Life) => clocks.get(life.id) as number;
+  const fighters = [
+    fighterOf(a1, clockOf(a1), scales, 2046, 0, false),
+    fighterOf(b0, clockOf(b0), scales, 2050, Math.PI, true),
+  ].sort((x, y) => (x.creature < y.creature ? -1 : 1));
   const enc = encounterId([a1.head.hash, b0.head.hash], lockAt);
   // The newest round the hub held at lock-in seeds the fight; it is no commitment's.
   const seedRound = roundAt(lockAt);
@@ -433,10 +449,7 @@ export function lineageHistory(
     throw new Error(`in pond ${pondSeed} A1 does not kill B0: ${JSON.stringify(done)}`);
   }
   const lockedMs = (life: Life) =>
-    Math.min(
-      (clocks.get(life.id) as number) + s.frames * FRAME_MS,
-      lifespanOf(life.genome, scales),
-    );
+    Math.min(clockOf(life) + s.frames * FRAME_MS, lifespanOf(life.genome, scales));
   // As `settleRecords` writes them, in slot order: the survivor's encounter, the dead fighter's
   // death, and the death of the child whose egg went with it.
   for (const r of s.results) {

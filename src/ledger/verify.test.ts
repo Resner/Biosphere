@@ -144,9 +144,13 @@ describe('the golden lineage', () => {
     expect(verifyLineage(b).problems).toEqual([]);
   });
 
-  it('reports a scaled world', () => {
+  it('builds the same story under test scales, and reports a scaled world', () => {
+    const scaled = lineageHistory({ lifespan: 0.05, mating: 0.01 });
+    const report = verifyLineage(bundleOf(scaled, scaled.ids.A1));
+    expect(ofT3(report.problems)).toEqual([]);
+    expect(report.scaled).toBe(true);
     const b = golden();
-    b.world.scales = { lifespan: 0.05, mating: 1 };
+    b.world.scales = { lifespan: 1, mating: 0.5 };
     expect(verifyLineage(b).scaled).toBe(true);
   });
 
