@@ -321,7 +321,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - Without A0 in the bundle (moved to `more`), there is no problem, but `toGenesis` is false and A1's origin is reported unchecked.
     - `speedTest`: origins for 64 creatures (64 BLS verifications and 64 developments) take under 5 s in Node.
 
-- [ ] T5 Time gates, costs and growth [opus] (after T3)
+- [ ] T5 Time gates, costs and growth [opus] (after T3) (in progress)
   - Steps: `src/ledger/verify-gates.ts`. Per held creature, record by record, under the bundle's scales and the T1 rulebook:
     1. **The clock**:
        - `activeMs` never decreases;
