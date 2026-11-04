@@ -217,6 +217,8 @@ export const M8_RESTART_HUB = 'http://localhost:8814';
 export const M8_AWAY_HUB = 'http://localhost:8816';
 /** The M8 proxy spec's hub (M8 T11): an away fighter seen by its opponent and, by proxy, a spectator. */
 export const M8_PROXY_HUB = 'http://localhost:8815';
+/** The M8 lifecycle spec's hub (M8 T14): one fight through a reload, a restart and a closed tab; the default away wait, because a restart closes every socket. */
+export const M8_LIFECYCLE_HUB = 'http://localhost:8817';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {

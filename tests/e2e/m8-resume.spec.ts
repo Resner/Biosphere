@@ -1,8 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
-import type { BsHook } from '../../src/game/debug';
 import { clickHatch, M8_RESUME_HUB, state, waitPlaying } from './helpers';
 import { open, seen, stage } from './m7-fight';
-import { chase, engage, flee, sameEnd, waitOver } from './m8-fight';
+import { chase, engage, flee, reloadMidFight, sameEnd, waitOver } from './m8-fight';
 
 // Back to the fight (M8 T10): A engages B, and B reloads right after `enc-start`. B's title offers
 // "Back to the fight"; a click puts B straight into the same fight, caught up. A stance B picks
@@ -12,25 +11,6 @@ import { chase, engage, flee, sameEnd, waitOver } from './m8-fight';
 test.describe.configure({ mode: 'serial' });
 
 type Ids = { idA: string; idB: string };
-
-/** B reloads. True once its title offers the fight `id`, false when that fight ended first. */
-async function reloadMidFight(a: Page, b: Page, id: string): Promise<boolean> {
-  await b.reload();
-  await b.waitForFunction(() => window.__bs?.ready === true && window.__bs.state().playerId);
-  await b.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
-  const offered = b.getByTestId('resume-fight');
-  await expect
-    .poll(
-      async () => {
-        if (await offered.isVisible()) return 'offered';
-        const enc = (await state(a)).encounter;
-        return enc?.id === id && enc.over ? 'over' : 'waiting';
-      },
-      { message: 'B is offered the fight, or the fight ends', timeout: 20_000 },
-    )
-    .not.toBe('waiting');
-  return offered.isVisible();
-}
 
 /** One try: A engages, B reloads and resumes. The fight's id once B is back in it, else null. */
 async function tryResume(a: Page, b: Page, ids: Ids, previous?: string): Promise<string | null> {

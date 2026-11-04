@@ -1,7 +1,7 @@
-import type { Page } from '@playwright/test';
+import type { BrowserContext, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { state } from './helpers';
+import { openRecorded, state } from './helpers';
 import { FIGHT_WALL_MS, parkBeside, seen } from './m7-fight';
 
 // Shared by the M8 hub specs (M8 T10): an engage that returns the fight's id, a chase that keeps
@@ -101,4 +101,79 @@ export async function sameEnd(a: Page, b: Page, id: string): Promise<void> {
     expect(enc?.desyncs).toBe(0);
   }
   expect(endA?.endHash).toBe(endB?.endHash);
+}
+
+/** C, beside B (three body lengths off), watches B's entry in its remotes on every frame. */
+export async function watchFrom(c: Page, idB: string): Promise<void> {
+  await c.evaluate((who) => {
+    const bs = window.__bs as BsHook;
+    const r = bs.state().remotes.find((x) => x.id === who);
+    if (r) bs.debug?.teleport(r.x + r.radius * 6, r.y);
+    const w = window as unknown as { __proxy?: unknown; __proxyStop?: boolean };
+    const seen = {
+      /** Frames in which B was drawn away, and in which its drawn place changed. */
+      away: 0,
+      moves: 0,
+      /** B shown again by its own snapshots after it was away (B never comes back here). */
+      back: 0,
+      /** The highest alpha B had while away, and whether F was ever offered on it. */
+      alpha: 0,
+      offered: false,
+      last: '',
+    };
+    w.__proxy = seen;
+    w.__proxyStop = false;
+    const frame = () => {
+      if (w.__proxyStop) return;
+      const s = bs.state();
+      const b = s.remotes.find((x) => x.id === who);
+      if (b?.away) {
+        seen.away++;
+        const at = `${b.x},${b.y}`;
+        if (seen.last !== '' && at !== seen.last) seen.moves++;
+        seen.last = at;
+        seen.alpha = Math.max(seen.alpha, b.alpha);
+        if (s.attack.hint === who) seen.offered = true;
+      } else if (b && seen.away > 0) {
+        seen.back++;
+      }
+      requestAnimationFrame(frame);
+    };
+    requestAnimationFrame(frame);
+  }, idB);
+}
+
+type Watched = { away: number; moves: number; back: number; alpha: number; offered: boolean };
+export const watched = (c: Page) =>
+  c.evaluate(() => (window as unknown as { __proxy: Watched }).__proxy);
+
+/** B's page again in its browser context (the same identity), on the title with no picture drawn. */
+export async function reopenTitle(
+  context: BrowserContext,
+  hub: string,
+  quality = 'low',
+): Promise<Page> {
+  const page = await context.newPage();
+  await openRecorded(page, `&quality=${quality}`, hub);
+  await page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
+  return page;
+}
+
+/** B reloads. True once its title offers the fight `id`, false when that fight ended first. */
+export async function reloadMidFight(a: Page, b: Page, id: string): Promise<boolean> {
+  await b.reload();
+  await b.waitForFunction(() => window.__bs?.ready === true && window.__bs.state().playerId);
+  await b.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
+  const offered = b.getByTestId('resume-fight');
+  await expect
+    .poll(
+      async () => {
+        if (await offered.isVisible()) return 'offered';
+        const enc = (await state(a)).encounter;
+        return enc?.id === id && enc.over ? 'over' : 'waiting';
+      },
+      { message: 'B is offered the fight, or the fight ends', timeout: 20_000 },
+    )
+    .not.toBe('waiting');
+  return offered.isVisible();
 }
