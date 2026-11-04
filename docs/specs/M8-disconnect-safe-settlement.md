@@ -433,7 +433,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### Harness and closing
 
-- [ ] T13 Deadlines, backdating and clock skew: the jitter and loss harness (after T10)
+- [ ] T13 Deadlines, backdating and clock skew: the jitter and loss harness (after T10) (in progress)
   - Steps:
     1. `tests/net-harness.ts` builds on `tests/scripted-referee.ts`: one in-process referee and 2–4 `EncounterSync` clients over a seeded link model.
        - Each client has its own one-way latency, jitter and hub-clock error (its offset estimate off by ±e ms).
