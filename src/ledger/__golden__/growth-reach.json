@@ -1,0 +1,388 @@
+{
+  "table": [
+    {
+      "seed": "reach-0",
+      "from": 0,
+      "activeMs": 0,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-0",
+      "from": 5000,
+      "activeMs": 1,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-0",
+      "from": 10000,
+      "activeMs": 2000,
+      "reach": 10510
+    },
+    {
+      "seed": "reach-0",
+      "from": 8000,
+      "activeMs": 30000,
+      "reach": 18381
+    },
+    {
+      "seed": "reach-0",
+      "from": 50000,
+      "activeMs": 900000,
+      "reach": 3626567397143
+    },
+    {
+      "seed": "reach-0",
+      "from": 250000,
+      "activeMs": 1800000,
+      "reach": 1.3151991085301996e21
+    },
+    {
+      "seed": "reach-0",
+      "from": 1000000,
+      "activeMs": 3600000,
+      "reach": 2.7675979121258084e37
+    },
+    {
+      "seed": "reach-0",
+      "from": 24000000,
+      "activeMs": 5400000,
+      "reach": 3.494344614525943e54
+    },
+    {
+      "seed": "reach-1",
+      "from": 0,
+      "activeMs": 1,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-1",
+      "from": 5000,
+      "activeMs": 2000,
+      "reach": 10468
+    },
+    {
+      "seed": "reach-1",
+      "from": 10000,
+      "activeMs": 30000,
+      "reach": 17320
+    },
+    {
+      "seed": "reach-1",
+      "from": 8000,
+      "activeMs": 900000,
+      "reach": 120657612860
+    },
+    {
+      "seed": "reach-1",
+      "from": 50000,
+      "activeMs": 1800000,
+      "reach": 7279129758530008000
+    },
+    {
+      "seed": "reach-1",
+      "from": 250000,
+      "activeMs": 3600000,
+      "reach": 5.298573004151713e33
+    },
+    {
+      "seed": "reach-1",
+      "from": 1000000,
+      "activeMs": 5400000,
+      "reach": 3.08552003458118e48
+    },
+    {
+      "seed": "reach-1",
+      "from": 24000000,
+      "activeMs": 0,
+      "reach": 24000100
+    },
+    {
+      "seed": "reach-2",
+      "from": 0,
+      "activeMs": 2000,
+      "reach": 10537
+    },
+    {
+      "seed": "reach-2",
+      "from": 5000,
+      "activeMs": 30000,
+      "reach": 19105
+    },
+    {
+      "seed": "reach-2",
+      "from": 10000,
+      "activeMs": 900000,
+      "reach": 2324615270302
+    },
+    {
+      "seed": "reach-2",
+      "from": 8000,
+      "activeMs": 1800000,
+      "reach": 540383615446095950000
+    },
+    {
+      "seed": "reach-2",
+      "from": 50000,
+      "activeMs": 3600000,
+      "reach": 1.4600722592129692e38
+    },
+    {
+      "seed": "reach-2",
+      "from": 250000,
+      "activeMs": 5400000,
+      "reach": 3.9449956312302387e55
+    },
+    {
+      "seed": "reach-2",
+      "from": 1000000,
+      "activeMs": 0,
+      "reach": 1000100
+    },
+    {
+      "seed": "reach-2",
+      "from": 24000000,
+      "activeMs": 1,
+      "reach": 24000613
+    },
+    {
+      "seed": "reach-3",
+      "from": 0,
+      "activeMs": 30000,
+      "reach": 17905
+    },
+    {
+      "seed": "reach-3",
+      "from": 5000,
+      "activeMs": 900000,
+      "reach": 328522046103
+    },
+    {
+      "seed": "reach-3",
+      "from": 10000,
+      "activeMs": 1800000,
+      "reach": 10792673471030410000
+    },
+    {
+      "seed": "reach-3",
+      "from": 8000,
+      "activeMs": 3600000,
+      "reach": 1.164818006522836e34
+    },
+    {
+      "seed": "reach-3",
+      "from": 50000,
+      "activeMs": 5400000,
+      "reach": 6.285750198788815e49
+    },
+    {
+      "seed": "reach-3",
+      "from": 250000,
+      "activeMs": 0,
+      "reach": 250100
+    },
+    {
+      "seed": "reach-3",
+      "from": 1000000,
+      "activeMs": 1,
+      "reach": 1000119
+    },
+    {
+      "seed": "reach-3",
+      "from": 24000000,
+      "activeMs": 2000,
+      "reach": 24941149
+    },
+    {
+      "seed": "reach-4",
+      "from": 0,
+      "activeMs": 900000,
+      "reach": 3454074505206
+    },
+    {
+      "seed": "reach-4",
+      "from": 5000,
+      "activeMs": 1800000,
+      "reach": 1.1930630686823662e21
+    },
+    {
+      "seed": "reach-4",
+      "from": 10000,
+      "activeMs": 3600000,
+      "reach": 1.4233994858537828e38
+    },
+    {
+      "seed": "reach-4",
+      "from": 8000,
+      "activeMs": 5400000,
+      "reach": 1.698205358553618e55
+    },
+    {
+      "seed": "reach-4",
+      "from": 50000,
+      "activeMs": 0,
+      "reach": 50100
+    },
+    {
+      "seed": "reach-4",
+      "from": 250000,
+      "activeMs": 1,
+      "reach": 250105
+    },
+    {
+      "seed": "reach-4",
+      "from": 1000000,
+      "activeMs": 2000,
+      "reach": 1044757
+    },
+    {
+      "seed": "reach-4",
+      "from": 24000000,
+      "activeMs": 30000,
+      "reach": 46219286
+    },
+    {
+      "seed": "reach-5",
+      "from": 0,
+      "activeMs": 1800000,
+      "reach": 872059882996805100
+    },
+    {
+      "seed": "reach-5",
+      "from": 5000,
+      "activeMs": 3600000,
+      "reach": 7.604884395324018e31
+    },
+    {
+      "seed": "reach-5",
+      "from": 10000,
+      "activeMs": 5400000,
+      "reach": 6.631914595990489e45
+    },
+    {
+      "seed": "reach-5",
+      "from": 8000,
+      "activeMs": 0,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-5",
+      "from": 50000,
+      "activeMs": 1,
+      "reach": 50100
+    },
+    {
+      "seed": "reach-5",
+      "from": 250000,
+      "activeMs": 2000,
+      "reach": 259177
+    },
+    {
+      "seed": "reach-5",
+      "from": 1000000,
+      "activeMs": 30000,
+      "reach": 1707528
+    },
+    {
+      "seed": "reach-5",
+      "from": 24000000,
+      "activeMs": 900000,
+      "reach": 224121951759886
+    },
+    {
+      "seed": "reach-6",
+      "from": 0,
+      "activeMs": 3600000,
+      "reach": 1.2785688005910568e34
+    },
+    {
+      "seed": "reach-6",
+      "from": 5000,
+      "activeMs": 5400000,
+      "reach": 1.4457265409915886e49
+    },
+    {
+      "seed": "reach-6",
+      "from": 10000,
+      "activeMs": 0,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-6",
+      "from": 8000,
+      "activeMs": 1,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-6",
+      "from": 50000,
+      "activeMs": 2000,
+      "reach": 52063
+    },
+    {
+      "seed": "reach-6",
+      "from": 250000,
+      "activeMs": 30000,
+      "reach": 445581
+    },
+    {
+      "seed": "reach-6",
+      "from": 1000000,
+      "activeMs": 900000,
+      "reach": 33626450396174
+    },
+    {
+      "seed": "reach-6",
+      "from": 24000000,
+      "activeMs": 1800000,
+      "reach": 2.713771598975213e22
+    },
+    {
+      "seed": "reach-7",
+      "from": 0,
+      "activeMs": 5400000,
+      "reach": 2.887440336702937e47
+    },
+    {
+      "seed": "reach-7",
+      "from": 5000,
+      "activeMs": 0,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-7",
+      "from": 10000,
+      "activeMs": 1,
+      "reach": 10100
+    },
+    {
+      "seed": "reach-7",
+      "from": 8000,
+      "activeMs": 2000,
+      "reach": 10477
+    },
+    {
+      "seed": "reach-7",
+      "from": 50000,
+      "activeMs": 30000,
+      "reach": 87280
+    },
+    {
+      "seed": "reach-7",
+      "from": 250000,
+      "activeMs": 900000,
+      "reach": 4378837666531
+    },
+    {
+      "seed": "reach-7",
+      "from": 1000000,
+      "activeMs": 1800000,
+      "reach": 306787508943396140000
+    },
+    {
+      "seed": "reach-7",
+      "from": 24000000,
+      "activeMs": 3600000,
+      "reach": 2.2588458154486643e36
+    }
+  ]
+}

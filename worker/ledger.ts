@@ -190,7 +190,7 @@ export class Ledger {
         prev: head.hash,
         owner: head.owner,
         t: this.now(),
-        body: { cause: 'old-age', ...conditionOf(head) },
+        body: { cause: 'old-age', activeMs: head.activeMs, biomass: head.biomass },
       };
       const stored = this.store(record, recordHash(record), requestHash(record), null, creature);
       // Its life ended when it was put aside, so it never counts as the creature that died last.

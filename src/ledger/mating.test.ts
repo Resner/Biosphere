@@ -231,6 +231,9 @@ async function mating(generations: [number, number] = [2, 5], { rules = RULES_VE
       energy: 5000,
       health: 10_000,
       cooldownUntilMs: 960_000,
+      biomassBefore: 4706,
+      energyBefore: 7143,
+      healthBefore: 10_000,
     },
   });
   const hashA = genomeHash(genomeA);
@@ -327,10 +330,16 @@ describe('checkBirth', () => {
     expect(check(m, 1)).toEqual([]);
   });
 
-  it('answers rules-retired for a birth of a rules version before the reset (ADR 0040)', async () => {
-    const m = await mating([2, 5], { rules: 7 });
-    expect(check(m, 0)).toEqual(['rules-retired']);
-    expect(check(m, 1)).toEqual(['rules-retired']);
+  it('answers rules-retired before the renewal and rules-unknown past this build (ADR 0055)', async () => {
+    for (const [rules, problem] of [
+      [7, 'rules-retired'],
+      [10, 'rules-retired'],
+      [12, 'rules-unknown'],
+    ] as const) {
+      const m = await mating([2, 5], { rules });
+      expect(check(m, 0)).toEqual([problem]);
+      expect(check(m, 1)).toEqual([problem]);
+    }
   });
 
   it('names a karyotype other than v2', async () => {
@@ -427,8 +436,8 @@ describe('checkBirth', () => {
 
   it('names a rules version that differs from the mate-commits, and a commitment without asks', async () => {
     const m = await mating();
-    const r = { ...(m.births[0] as LedgerRecord), rules: RULES_VERSION + 1 };
-    expect(check(m, 0, { record: r })).toContain('rules-mismatch');
+    const mates = m.mates.map((s) => stored({ ...s.record, rules: 10 })) as typeof m.mates;
+    expect(check(m, 0, { mates })).toContain('rules-mismatch');
     const empty = { ...m.commit, data: {} };
     expect(check(m, 0, { commit: empty })).toEqual(['bad-commit']);
     expect(check(m, 0, { commit: { ...m.commit, data: null as never } })).toEqual(['bad-commit']);

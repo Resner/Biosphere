@@ -20,7 +20,7 @@ import {
  * rules or the tournament changes it: regenerate `docs/perf/combat.md` with `npm run report:combat`
  * and pin the new hash here, together with the gate holding.
  */
-const PINNED: Record<number, string> = { 10: '3149d6d61ac354ff' };
+const PINNED: Record<number, string> = { 11: '9efdacc30de64965' };
 
 let measured: Measured | null = null;
 const once = (): Measured => {

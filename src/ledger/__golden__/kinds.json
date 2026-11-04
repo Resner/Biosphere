@@ -1,9 +1,48 @@
 {
-  "rulesVersion": 10,
+  "rulesVersion": 11,
+  "genesis": {
+    "record": {
+      "v": 1,
+      "rules": 11,
+      "kind": "genesis",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "commit": "1111111111111111111111111111111111111111111111111111111111111111",
+        "round": 12345,
+        "genome": "9999999999999999999999999999999999999999999999999999999999999999",
+        "generation": 0,
+        "karyotype": 2
+      },
+      "creature": "",
+      "seq": 0,
+      "prev": ""
+    },
+    "hash": "d62653cae065ddbffa881320238036e7cad97ef352bb9d0d614cce19b81a0d3b"
+  },
+  "checkpoint": {
+    "record": {
+      "v": 1,
+      "rules": 11,
+      "kind": "checkpoint",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "activeMs": 900000,
+        "biomass": 4200,
+        "energy": 5100,
+        "health": 9000
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "b9de2fae10b59a6e354d82513aa3b2f10213db6843ef9a77080f0bd9bdff6c0a"
+  },
   "mate-commit": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "mate-commit",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -20,18 +59,21 @@
         "biomass": 4200,
         "energy": 5100,
         "health": 10000,
-        "cooldownUntilMs": 1260000
+        "cooldownUntilMs": 1260000,
+        "biomassBefore": 4941,
+        "energyBefore": 7286,
+        "healthBefore": 10000
       },
       "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "b42b7e747fb415c59b020731f6670496e0c4cfa108a2c3481c1d64d6ef450241"
+    "hash": "a76684c76cca50961ee74060b1d70e3899e674145e7a6f4838532f53ae443bf4"
   },
   "birth": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "birth",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -55,12 +97,12 @@
       "seq": 0,
       "prev": ""
     },
-    "hash": "0d56503d03e4827b88733deb62a8f6cd0d988f48c73ed29db9aa090f8992ac9a"
+    "hash": "e4478b5a57cd13ed747663c0b8353fb816b9cff663801f4bf29161def6f5f39c"
   },
   "promote-child": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "promote",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -72,12 +114,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "70fee68d332d1e9dce908549dd6510017ee2589b2c4631833ce610e3282becae"
+    "hash": "8b2204268aff1f28e1b67877d5d219927558a5e9641a74e63659fc57b5a553df"
   },
   "promote-parent": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "promote",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -94,12 +136,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "dc9e8162093d4415551d8ad1e1a7600d0be51192246d0cdb79c7ab66950d3051"
+    "hash": "7a1f6a75523e32f1e152ac220401a13e4629d212865582a57538bfb9fffb5541"
   },
   "restore": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "restore",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -115,12 +157,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "a346e8b330088a536cf1642ecce42917a6c57ae6794c892754fdd1b31c5260f9"
+    "hash": "00f0f363c4b5f168460d672213ee5d6d61ad8dde6d360f3e64ba33e52da14471"
   },
   "encounter": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "encounter",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -138,6 +180,64 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "f0ce8b8350ceeb1c52f08c0e8b8086416f3ca5d38e735a659e4e14b6859b7208"
+    "hash": "f4f54b1a398c27651d2c1cb0b91911c31bb72a904b1de33612ca3175f5f7bf26"
+  },
+  "death-old-age": {
+    "record": {
+      "v": 1,
+      "rules": 11,
+      "kind": "death",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "cause": "old-age",
+        "activeMs": 4500000,
+        "biomass": 4200
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "1b4495047315c61fed8ecf03c04e540a831c52c2b9215e402bdd44017c078a10"
+  },
+  "death-killed": {
+    "record": {
+      "v": 1,
+      "rules": 11,
+      "kind": "death",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "cause": "killed",
+        "activeMs": 912000,
+        "biomass": 4200,
+        "enc": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "by": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "3e7fa170caf2d5d67e1f9bd126f0bbcff6f2a89b54e6d73808d98729d9df6b4c"
+  },
+  "death-eaten": {
+    "record": {
+      "v": 1,
+      "rules": 11,
+      "kind": "death",
+      "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
+      "t": 1700000000000,
+      "body": {
+        "cause": "eaten",
+        "activeMs": 0,
+        "biomass": 8000,
+        "enc": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
+        "by": "ffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff"
+      },
+      "creature": "cccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccccc",
+      "seq": 3,
+      "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
+    },
+    "hash": "35882081f784c01caa328314bd1ce60b163b8185a4c66889a4724f432095b56e"
   }
 }

@@ -1,28 +1,18 @@
 // Mating and offspring: the mate card, courtship and acceptance, and the two births.
 import { genomeFromBase64url, genomeToBase64url } from '../src/genome/codec';
 import { offspringPair } from '../src/genome/offspring';
-import { buildCreature } from '../src/genome/stats';
 import type { Canonical } from '../src/ledger/canonical';
 import { randomnessOf } from '../src/ledger/drand';
+import { cooldownOf, repeatWindowOf, startOf } from '../src/ledger/gates';
 import { birthRequest, checkMatePair, type MateAsk, signedBy } from '../src/ledger/mating';
 import { kinship } from '../src/ledger/pedigree';
-import { retired, type StoredRecord } from '../src/ledger/record';
+import type { StoredRecord } from '../src/ledger/record';
+import { rulesStatus } from '../src/ledger/registry';
 import type { Born } from '../src/net/protocol';
-import { hatchling } from '../src/sim/mating';
 import { sizeTier } from '../src/sim/size';
-import { maxHealth } from '../src/sim/vitals';
 import type { BirthChild, Head } from './ledger';
 import type { LifeState } from './life';
-import {
-  askLive,
-  type Court,
-  cooldownFor,
-  fixtureScale,
-  mateRequests,
-  refusalFor,
-  repeatWindowMs,
-  viewOf,
-} from './mating';
+import { askLive, type Court, mateRequests, refusalFor, scalesOf, viewOf } from './mating';
 import {
   type ActiveSession,
   activeSessions,
@@ -54,16 +44,15 @@ export async function deliverBirth(hub: Hub, commitId: string): Promise<void> {
   const mates = parentIds.map((id) => mateRecord(hub, id, commitId));
   if (!mates[0] || !mates[1]) return;
   // The births take the rules version the mate-commits were written under (checkBirth requires
-  // it); a mating of a retired version (ADR 0040) never resolves.
+  // it); a mating of a version that is not live (ADR 0055) never resolves.
   const rules = mates[0].record.rules;
-  if (mates[1].record.rules !== rules || retired(mates[0].record)) return;
+  if (mates[1].record.rules !== rules || rulesStatus(rules) !== 'live') return;
   const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
   const generation = Math.max(headA.generation, headB.generation) + 1;
   const mateHashes: [string, string] = [mates[0].hash, mates[1].hash];
   const result = hub.ledger.birth({
     commit: commitId,
     children: children.map((child, i) => {
-      const { biomass, energy } = hatchling(buildCreature(child).phys.maxBiomass);
       return {
         request: birthRequest(
           rules,
@@ -76,11 +65,7 @@ export async function deliverBirth(hub: Hub, commitId: string): Promise<void> {
           owners[i] as string,
         ),
         genome: genomeToBase64url(child),
-        condition: {
-          biomass: Math.floor(biomass * 100),
-          energy: Math.floor(energy * 100),
-          health: Math.floor(maxHealth(biomass) * 100),
-        },
+        condition: startOf('birth', child),
       };
     }) as [BirthChild, BirthChild],
   });
@@ -287,11 +272,11 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
   const reason = mateRefusal(hub, me, found.session);
   if (reason) return refuse(reason);
 
-  const scale = fixtureScale(hub.env, hub.env.MATING_SCALE);
+  const scales = scalesOf(hub.env);
   const prior = hub.ledger.pairMatings(
     found.session.playerId,
     me.playerId,
-    Date.now() - repeatWindowMs(scale),
+    Date.now() - repeatWindowOf(scales),
   );
   const data = { a: court.ask, b: ask } as unknown as Canonical;
   const commit = await hub.beacons.commit('mate', found.session.playerId, data);
@@ -315,7 +300,7 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
   ];
   const [genomeA, genomeB] = [headA, headB].map((h) => (h ? genomeFromBase64url(h.genome) : null));
   if (!headA || !headB || !genomeA || !genomeB) return refuse('unknown-creature');
-  const cooldown = cooldownFor(prior, scale);
+  const cooldown = cooldownOf(prior, scales);
   const requests = mateRequests(
     { id: commit.id, round: commit.commitment.round },
     { head: headA, life: theirs.life, genome: genomeA },
