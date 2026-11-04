@@ -116,6 +116,7 @@ function rebuild(hub: Hub, row: FightRow): Fight | null {
     pondSeed: pond.seed,
     t0: row.start.t0,
     persisted: row.frames.length,
+    awayDue: null,
   };
 }
 

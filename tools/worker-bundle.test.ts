@@ -41,5 +41,7 @@ describe('worker bundles', () => {
     expect(code).toContain('/v1/e2e/pre-reset');
     // And the restart hook (M8 T5), which only the E2E entry may carry.
     expect(code).toContain('/v1/e2e/restart');
+    // And the fight state a scenario waits on (M8 T9).
+    expect(code).toContain('/v1/e2e/encounter/');
   });
 });

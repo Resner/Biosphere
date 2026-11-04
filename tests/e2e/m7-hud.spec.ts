@@ -56,6 +56,10 @@ const shown = (page: Page) => page.evaluate(() => window.__bs?.state().encounter
  * as can be. Returns the disc's mean luminance and the glows drawn in the frozen frame.
  */
 async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
+  // A windup lasts 8 ticks and its glow shows in the last 6: a page that draws a frame in over 200 ms
+  // (software GL on a runner) steps past the whole window between two frames. So the page skips its
+  // draw call while it waits (the scene still updates) and draws only the frame it shoots.
+  await page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
   await page.waitForFunction(
     ({ when, who }) => {
       const bs = window.__bs as BsHook;
@@ -96,7 +100,9 @@ async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
     { polling: 'raf', timeout: 30_000 },
   );
   const at = await page.evaluate(async (who) => {
-    // One more frame, so the frozen state is the one drawn.
+    // Draw again, and one more frame, so the frozen state is the one drawn.
+    (window.__bs as BsHook).debug?.skipDraw(false);
+    await new Promise((r) => requestAnimationFrame(() => r(0)));
     await new Promise((r) => requestAnimationFrame(() => r(0)));
     const bs = window.__bs as BsHook;
     const f = bs.state().encounter?.fighters.find((x) => x.player === who);
@@ -117,7 +123,11 @@ async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
   const clip = { x: Math.round(at.x - r), y: Math.round(at.y - r), width: 2 * r, height: 2 * r };
   const png = await page.screenshot({ clip });
   if (when === 'windup') await page.screenshot({ path: 'test-results/m7-hud-windup.png' });
-  await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
+  await page.evaluate(() => {
+    const debug = (window.__bs as BsHook).debug;
+    debug?.skipDraw(true);
+    debug?.timeScale(1);
+  });
   const image = await decodePng(page, png);
   let sum = 0;
   let n = 0;
@@ -226,12 +236,13 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
       (window as unknown as { chase: number }).chase = window.setInterval(chase, 250);
     }, idB);
 
-    // On B's screen, A's front just before a windup, then during one (each frame frozen to shoot it).
-    const before = await shoot(b, 'calm', idA).catch(async (error) => {
-      throw new Error(`no calm moment: ${JSON.stringify(await seen(b))}`, { cause: error });
-    });
+    // On B's screen, A's front during a windup, then in a calm moment (each frame frozen to shoot
+    // it). The windup is the rare one and a fight is short, so it goes first.
     const during = await shoot(b, 'windup', idA).catch(async (error) => {
       throw new Error(`no windup on B: ${JSON.stringify(await seen(b))}`, { cause: error });
+    });
+    const before = await shoot(b, 'calm', idA).catch(async (error) => {
+      throw new Error(`no calm moment: ${JSON.stringify(await seen(b))}`, { cause: error });
     });
     expect(before.glows).toBe(0);
     expect(during.glows).toBeGreaterThan(0);

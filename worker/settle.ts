@@ -2,7 +2,8 @@
 // settlement document goes into the fight's saved log, in one transaction; each dead fighter hears
 // `died` with its fallback, everyone gets `enc-end` with the document, the locks go and each
 // connected life takes its result and the locked time. Each kill's carrion goes to the whole pond
-// after the records (M7 T14). A settlement that fails leaves every life as the ledger holds it.
+// after the records (M7 T14). A participant away at the end has its report kept for its next
+// `life` (M8 T9). A settlement that fails leaves every life as the ledger holds it.
 
 import { settlementOf } from '../src/net/encounter-verify';
 import type { FighterOutcome, HubMsg } from '../src/net/protocol';
@@ -10,11 +11,14 @@ import { FRAME_MS } from '../src/net/referee';
 import { hashEncounter, results } from '../src/sim/encounter/encounter';
 import { type Encounter, survivedOutcome } from '../src/sim/encounter/types';
 import { RULES } from '../src/sim/rules';
+import { reportOf, storeReport } from './away';
+import { pondTick } from './engage';
 import { logOf } from './fight-store';
 import type { Fight, Lock } from './fights';
 import type { FighterRecord, SettleResult } from './ledger-encounter';
 import { type Condition, HUNDREDTHS, isOld, type LifeState, unsaved } from './life';
 import { bind, fallbackAfter, finish, sendLife } from './lives';
+import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
 
@@ -86,12 +90,14 @@ function lockedTimes(fight: Fight): number[] {
 }
 
 /**
- * Settles a fight that is over: its records and its countersigned document (`Ledger.settle`), then
- * `died` to each dead fighter who is connected (the fallback computed after the records), then
- * `enc-end` with the document to everyone. The locks are released and each connected life takes
- * its result and its locked time; old age that fell due during the fight ends a survivor now.
+ * Settles a fight that is over: its records, its countersigned document and the reports of the
+ * participants away now (`Ledger.settle`), then `died` to each dead fighter who is connected (the
+ * fallback computed after the records), then `enc-end` with the document to everyone. The locks
+ * are released and each connected life takes its result and its locked time; old age that fell
+ * due during the fight ends a survivor now. `forwarded` is the hub time of a fast-forward
+ * (`away.ts`), which ran ahead of the pond.
  */
-export function settle(hub: Hub, lock: Lock, fight: Fight): void {
+export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): void {
   const { enc } = fight;
   const done = results(enc);
   const fighters = outcomesOf(enc, done);
@@ -116,6 +122,12 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
     };
   });
   const log = logOf(fight);
+  // The consequence waits on the player row of each participant who is away (ADR 0053).
+  const away = fighters.flatMap((f, slot) =>
+    seated(hub, f.player)
+      ? []
+      : [{ player: f.player, report: reportOf(fight, f, records[slot]?.frames ?? enc.frame) }],
+  );
   let settled: SettleResult;
   try {
     settled = hub.ledger.settle({
@@ -124,7 +136,10 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
       settlement: settlementOf(log, enc, Date.now()),
       log: {
         stored: () => hub.fightStore.settlement(enc.id),
-        seal: (signed) => hub.fightStore.seal(fight, log.frames, signed),
+        seal: (signed) => {
+          hub.fightStore.seal(fight, log.frames, signed);
+          for (const { player, report } of away) storeReport(hub, player, report);
+        },
       },
     });
   } catch (error) {
@@ -157,7 +172,7 @@ export function settle(hub: Hub, lock: Lock, fight: Fight): void {
     fighters,
     ...(settlement ? { settlement } : {}),
   });
-  dropCarrion(hub, fight, fighters);
+  dropCarrion(hub, fight, fighters, forwarded);
   hub.fights.release(lock.id);
   for (const [slot, f] of fighters.entries()) settleLife(hub, f, records[slot]?.activeMs ?? 0);
   freeSeats(hub);
@@ -199,12 +214,19 @@ function unsettled(hub: Hub, lock: Lock, fight: Fight, fighters: FighterOutcome[
 /**
  * Every client in the fight's pond hears of each kill's carrion, and drops the same pieces from
  * it (`src/sim/carrion.ts`). A victim killed by a creature (not by the water) leaves some; the
- * authority holds nothing of it afterwards. The tick is the pond tick of the kill, and the food is
- * the victim's biomass times its worth.
+ * authority holds nothing of it afterwards. The tick is the pond tick of the kill, or the pond's
+ * current tick when a fast-forward (at hub time `forwarded`) played it ahead of the pond, and the
+ * food is the victim's biomass times its worth.
  */
-function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[]): void {
+function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[], forwarded?: number): void {
   const { enc } = fight;
-  const tick = fight.t0 + enc.frame * RULES.encounter.frameTicks;
+  let tick = fight.t0 + enc.frame * RULES.encounter.frameTicks;
+  if (forwarded !== undefined && fighters.some((f) => f.outcome === 'killed')) {
+    const pond = hub.ctx.storage.sql
+      .exec<Pick<PondRow, 'epoch'>>('SELECT epoch FROM ponds WHERE id = ?', fight.pond)
+      .toArray()[0];
+    if (pond) tick = Math.min(tick, pondTick(forwarded, pond.epoch));
+  }
   for (const [slot, f] of fighters.entries()) {
     if (f.outcome !== 'killed') continue;
     const msg: HubMsg = {
