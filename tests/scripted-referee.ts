@@ -47,8 +47,11 @@ const EARLY_FRAMES = 2;
 export const STARTER_TEXT = genomeToBase64url(starterGenome());
 export const TEST_POND = { seed: 'sync-pond', size: RULES.world.size };
 
-/** An `enc-start` for two starters, `a` (player `pa`) at (x, y) and `b` (player `pb`) 30 wu east. */
-export function startMsg(at = 10_000, x = 5200, y = 3000): EncStartMsg {
+/**
+ * An `enc-start` for starters in a row 30 wu apart from (x, y) eastward: by default two, `a`
+ * (player `pa`) and `b` (player `pb`); with `count` up to 4, `c` and `d` follow.
+ */
+export function startMsg(at = 10_000, x = 5200, y = 3000, count = 2): EncStartMsg {
   const biomass = RULES.starter.biomass;
   const fighter = (player: string, creature: string, fx: number, heading: number) => ({
     player,
@@ -73,7 +76,9 @@ export function startMsg(at = 10_000, x = 5200, y = 3000): EncStartMsg {
     round: 0,
     t0: 1000,
     at,
-    fighters: [fighter('pa', 'a', x, 0), fighter('pb', 'b', x + 30, Math.PI)],
+    fighters: Array.from({ length: count }, (_, i) =>
+      fighter(`p${'abcd'[i]}`, 'abcd'[i] as string, x + 30 * i, i % 2 === 0 ? 0 : Math.PI),
+    ),
   };
 }
 

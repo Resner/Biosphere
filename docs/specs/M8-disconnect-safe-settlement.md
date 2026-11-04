@@ -433,7 +433,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
 
 ### Harness and closing
 
-- [ ] T13 Deadlines, backdating and clock skew: the jitter and loss harness (after T10)
+- [x] T13 Deadlines, backdating and clock skew: the jitter and loss harness (after T10)
   - Steps:
     1. `tests/net-harness.ts` builds on `tests/scripted-referee.ts`: one in-process referee and 2–4 `EncounterSync` clients over a seeded link model.
        - Each client has its own one-way latency, jitter and hub-clock error (its offset estimate off by ±e ms).
@@ -451,6 +451,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - A 5 s disconnect converges with one resync, and the frames in between are the autopilot's.
     - Rollbacks never replay more than 10 frames: deeper corrections are counted resyncs.
     - The report's hash is pinned, and `npm run report:net` reproduces `docs/perf/netcode.md`.
+  - Done: `tests/net-harness.ts` (`runHarness`), `tools/net-report.ts` and `docs/perf/netcode.md` (108 cells, all on the referee's hash). The lead's constants went from `leadMs = oneWay − 80` capped at 100 to `− 40` capped at 120: at 150 ms with 30 ms jitter and a 20 ms clock error the old lead put 75–84% of inputs on time.
+  - Gotcha: inputs from a fighter that is already out are not counted (no frame waits for them); loss is a 200–600 ms spike on the link, so the grid's 5% rows resync often but still converge.
 
 - [ ] T14 End-to-end scenario, documentation sync (after T7, T11, T12, T13)
   - Steps:

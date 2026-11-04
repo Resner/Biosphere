@@ -133,10 +133,10 @@ function play(opts: RunOptions = {}): Run {
 }
 
 describe('leadMs', () => {
-  it('is the one-way latency less 80 ms, between 0 and 100', () => {
-    expect(leadMs(50)).toBe(0);
-    expect(leadMs(95)).toBe(15);
-    expect(leadMs(500)).toBe(100);
+  it('is the one-way latency less 40 ms, between 0 and 120', () => {
+    expect(leadMs(30)).toBe(0);
+    expect(leadMs(95)).toBe(55);
+    expect(leadMs(500)).toBe(120);
     expect(leadMs(Number.NaN)).toBe(0);
   });
 });
