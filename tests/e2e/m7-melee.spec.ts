@@ -124,6 +124,17 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     expect(onC?.fighters[2]?.player).toBe(idC);
     expect(onC?.slot).toBe(2);
 
+    // C stays on the fight while the test looks at its ring: an idle body that drifts out of reach
+    // on a slow runner escapes before the ring is read. The chase ends when C swims off below.
+    await c.evaluate((who) => {
+      const bs = window.__bs as BsHook;
+      const chase = () => {
+        const r = bs.state().remotes.find((x) => x.id === who);
+        if (r) void bs.debug?.steerTo({ id: who, x: r.x, y: r.y });
+      };
+      (window as unknown as { chase: number }).chase = window.setInterval(chase, 250);
+    }, ids.idB);
+
     // Three fighters offer a choice: the ring marks the nearest, and Tab picks one.
     await c
       .waitForFunction(() => window.__bs?.state().encounter?.aim != null, undefined, {
@@ -149,6 +160,7 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     ] as const) {
       await page.evaluate((d) => {
         const bs = window.__bs as BsHook;
+        window.clearInterval((window as unknown as { chase?: number }).chase);
         const p = bs.state().player;
         if (p) void bs.debug?.steerTo({ x: p.x + d, y: p.y });
       }, dx);
