@@ -452,7 +452,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `/v1/audit` counts match the flags table and hold no player or creature id.
   - Notes: the property test is the guard against false positives: an honest authority must never write a history the verifier rejects. A mismatch is fixed in whichever side is wrong, with the reason in the PR, and never by loosening a check for no reason.
 
-- [ ] T9 M8 carry-overs: the away report, a lock still asking, a fight that no longer rebuilds, one clock [opus] (after none)
+- [x] T9 M8 carry-overs: the away report, a lock still asking, a fight that no longer rebuilds, one clock [opus] (after none)
   - Steps:
     1. `sendLife` takes (clears) the stored away report only once `life` was sent on an open socket.
     2. `progress` and `saveOnClose` treat only a running fight as locked. A lock still waiting for its answer credits and checkpoints as free play.
@@ -468,6 +468,8 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
       - each connected participant gets `enc-end` without a settlement, then `life`.
     - With the hand-moved clock 1 h ahead of `Date.now()`, the settlement's `t`, its records' `t` and the next report's credit all follow the hand-moved clock.
   - Notes: these are worker changes only. T8 edits the same files (`life.ts`, `lives.ts`) later, so it waits for this task.
+  - Done: `sendIfOpen` reports whether it sent, and the report is cleared only then; `Fights.playerFighting` gates progress and close, and `start` takes each side's latest clock; `giveUp` in `recover.ts` shares `backToLedger` with a failed settlement.
+  - Gotcha: the ledger and the life clock now run on `hub.clock` (`Date.now` in production); a test genome that "no longer decodes" needs a non-base64url character, since any base64url string decodes.
 
 - [ ] T10 Retention and the storage budget (after T6, T8)
   - Steps (ADR 0056):

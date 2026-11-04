@@ -36,6 +36,7 @@ import {
 } from './fight-test-kit';
 import { runFight } from './fights';
 import { bear, mated, must } from './ledger-test-kit';
+import { sendLife } from './lives';
 import type { Session } from './socket';
 import { type Client, flush, nextOf, signIn, sql } from './test-hub';
 
@@ -317,6 +318,34 @@ describe('the away report', () => {
     const killer = await signInAgain(a);
     expect(lifeIn(killer.got)?.life?.creature).toBe(a.creature);
     expect(lifeIn(killer.got)?.report).toBeUndefined();
+  });
+
+  it('a socket that closes before its `life` is sent keeps the report, and the next sign-in hears it once', async () => {
+    const [a, b] = await fighters();
+    const start = await hunt(a, b);
+    await leave(b);
+    for (let i = 0; i < 30 && (await locked(a)); i++) await advance(FRAME_MS);
+    expect(await locked(a)).toBe(false);
+    const stored = () =>
+      sql<{ fight_report: string }>(
+        'SELECT fight_report FROM players WHERE id = ?',
+        b.id.playerId,
+      ).then((rows) => rows[0]?.fight_report ?? '');
+    const kept = await stored();
+    expect(kept).not.toBe('');
+    // A sign-in whose socket closed before its `life` went out (seated from the queue as it left).
+    await authority((o) => {
+      const [, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket];
+      server.accept();
+      server.close(1000, 'gone');
+      sendLife(o, server, b.id.playerId);
+    });
+    expect(await stored()).toBe(kept);
+    const first = await signInAgain(b);
+    expect(lifeIn(first.got)?.report).toMatchObject({ enc: start.enc, outcome: 'killed' });
+    expect(await stored()).toBe('');
+    await leave({ ...b, c: first.c });
+    expect(lifeIn((await signInAgain(b)).got)?.report).toBeUndefined();
   });
 
   it('a player killed while away gets `life: null`, a fallback that never offers its eaten child, and the report naming the killer', async () => {

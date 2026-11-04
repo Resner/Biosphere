@@ -353,6 +353,46 @@ describe('recovery rebuilds the fight', () => {
   });
 });
 
+describe('a fight whose saved log no longer rebuilds', () => {
+  it('is flagged once and closed; both are free to engage again and hear `enc-end` without a settlement, then `life`', async () => {
+    const [a, b] = await fighters();
+    const start = await outOfReach(a, b);
+    await play(a, b, start, IDLE, 10);
+    // The start no longer decodes: one fighter's genome is no longer base64url.
+    await sql(
+      "UPDATE encounters SET start = json_set(start, '$.fighters[0].genome', '*') WHERE id = ?",
+      start.enc,
+    );
+    const records = await sql<{ n: number }>('SELECT COUNT(*) AS n FROM records');
+    await restart();
+    const flagged = () =>
+      sql('SELECT * FROM flags WHERE kind = ? AND hash = ?', 'recover-failed', start.enc);
+    expect(await flagged()).toHaveLength(1);
+    expect((await logRow(start.enc))?.open).toBe(false);
+    expect(await sql<{ n: number }>('SELECT COUNT(*) AS n FROM records')).toEqual(records);
+    for (const p of [a, b]) {
+      expect(await locked(p)).toBe(false);
+      const got = (await flush(p.c)).filter((m) => m.t === 'enc-end' || m.t === 'life');
+      expect(got.map((m) => m.t)).toEqual(['enc-end', 'life']);
+      const [end, life] = got as [EncEnd, Extract<HubMsg, { t: 'life' }>];
+      expect(end.enc).toBe(start.enc);
+      expect(end.settlement).toBeUndefined();
+      expect(end.fighters.map((f) => f.player).sort()).toEqual(
+        [a.id.playerId, b.id.playerId].sort(),
+      );
+      expect(life.fight).toBeUndefined();
+      expect(life.life?.creature).toBe(p.creature);
+    }
+    expect(await timers()).toBe(0);
+    // A second recovery finds nothing open: still one flag.
+    await restart();
+    expect(await flagged()).toHaveLength(1);
+    // Free again: A's engage asks B.
+    engage(a, b);
+    expect((await within(nextOf(b.c, 'lock-ask'), 'lock-ask')).t).toBe('lock-ask');
+  });
+});
+
 describe('recovery leaves alone', () => {
   it('a settled fight', async () => {
     const [a, b] = await fighters();

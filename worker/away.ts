@@ -91,19 +91,25 @@ export function storeReport(hub: Hub, player: string, report: FightReport): void
   );
 }
 
-/** The report waiting for the player, cleared as it is taken (one row); none when nothing waits. */
-export function takeReport(hub: Hub, player: string): FightReport | undefined {
-  const sql = hub.ctx.storage.sql;
-  const row = sql
+/**
+ * What waits on the player's row: null when nothing does, and no report when what is stored no
+ * longer reads (`clearReport` still takes it away).
+ */
+export function storedReport(hub: Hub, player: string): { report: FightReport | undefined } | null {
+  const row = hub.ctx.storage.sql
     .exec<{ fight_report: string }>('SELECT fight_report FROM players WHERE id = ?', player)
     .toArray()[0];
-  if (!row?.fight_report) return undefined;
-  count(hub, sql.exec("UPDATE players SET fight_report = '' WHERE id = ?", player));
+  if (!row?.fight_report) return null;
   try {
-    return fightReport(JSON.parse(row.fight_report)) ?? undefined;
+    return { report: fightReport(JSON.parse(row.fight_report)) ?? undefined };
   } catch {
-    return undefined;
+    return { report: undefined };
   }
+}
+
+/** Clears the player's report once it was told (one row). */
+export function clearReport(hub: Hub, player: string): void {
+  count(hub, hub.ctx.storage.sql.exec("UPDATE players SET fight_report = '' WHERE id = ?", player));
 }
 
 /** Adds a write's rows to the ledger's count, which the usage meter reads. */

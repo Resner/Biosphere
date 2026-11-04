@@ -205,7 +205,7 @@ export function enter(
     ...who,
     pondId: pond.id,
     slot,
-    life: bind(hub, who.playerId, Date.now()),
+    life: bind(hub, who.playerId, hub.clock.now()),
   } satisfies Session);
   broadcast(hub, pond.id, ws, { t: 'member', op: 'join', member: who });
   sendIfOpen(ws, {
@@ -327,10 +327,12 @@ export function relay(
 
 /**
  * A connection that reported anything since the last record leaves its condition behind as a
- * checkpoint; a fighter's leaves nothing, since its fight's settlement writes its records.
+ * checkpoint; a fighter's leaves nothing, since its fight's settlement writes its records. A lock
+ * still asking is no fight yet: its close writes the checkpoint.
  */
 export function saveOnClose(hub: Hub, { life, playerId }: ActiveSession): void {
-  if (life && unsaved(life) && !hub.fights.playerLocked(playerId)) checkpoint(hub, life, playerId);
+  if (life && unsaved(life) && !hub.fights.playerFighting(playerId))
+    checkpoint(hub, life, playerId);
 }
 
 /** Closes a socket; an active one first leaves its pond so the others see it go exactly once. */

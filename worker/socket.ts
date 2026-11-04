@@ -124,11 +124,14 @@ export function send(ws: WebSocket, msg: HubMsg): void {
   ws.send(JSON.stringify(msg));
 }
 
-/** Sends unless the socket closed in the meantime. */
-export function sendIfOpen(ws: WebSocket, msg: HubMsg): void {
+/** Sends unless the socket closed in the meantime; true when the message went out on an open socket. */
+export function sendIfOpen(ws: WebSocket, msg: HubMsg): boolean {
+  if (ws.readyState !== WebSocket.OPEN) return false;
   try {
     send(ws, msg);
+    return true;
   } catch {
     // closed while waiting
+    return false;
   }
 }

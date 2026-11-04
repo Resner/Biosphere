@@ -71,7 +71,8 @@ export class Authority extends DurableObject<Env> implements Hub {
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
-    this.ledger = new Ledger(ctx.storage);
+    // Records are dated on the hub's clock, as the fights are (hub tests swap in a hand-moved one).
+    this.ledger = new Ledger(ctx.storage, () => this.clock.now());
     // The log's rows count with the ledger's, which the usage meter reads.
     this.fightStore = new FightStore(ctx.storage.sql, (rows) => {
       this.ledger.rowsWritten += rows;
@@ -204,10 +205,10 @@ export class Authority extends DurableObject<Env> implements Hub {
         queueGenesis(this, ws, session, msg);
         return;
       case 'progress':
-        progress(this, ws, session, msg, now);
+        progress(this, ws, session, msg, this.clock.now());
         return;
       case 'death':
-        death(this, ws, session, msg, now);
+        death(this, ws, session, msg, this.clock.now());
         return;
       case 'history':
         history(this, ws, session.playerId);
@@ -216,10 +217,11 @@ export class Authority extends DurableObject<Env> implements Hub {
         lineage(this, ws, session.playerId);
         return;
       case 'promote':
-        if (owns(ws, session, msg.request)) promoteChild(this, ws, session, msg, now);
+        if (owns(ws, session, msg.request)) promoteChild(this, ws, session, msg, this.clock.now());
         return;
       case 'restore':
-        if (owns(ws, session, msg.request)) restoreAncestor(this, ws, session, msg, now);
+        if (owns(ws, session, msg.request))
+          restoreAncestor(this, ws, session, msg, this.clock.now());
         return;
       case 'mate-check':
         mateCheck(this, ws, session, msg.partner);
