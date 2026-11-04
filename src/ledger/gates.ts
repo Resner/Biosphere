@@ -105,6 +105,16 @@ export function paidFor(before: Condition): Condition {
   };
 }
 
+/** Whether a creature in condition `c` has the energy to mate: half the most its body holds, as `ownRefusal` asks. */
+export function hasMatingEnergy(c: Condition): boolean {
+  return c.energy / HUNDREDTHS >= RULES.mating.minEnergyShare * maxEnergy(c.biomass / HUNDREDTHS);
+}
+
+/** Every cooldown a mating may set: the base, doubled for each earlier mating of the pair in the window. */
+export function cooldownsOf(s: Scales): number[] {
+  return Array.from({ length: RULES.mating.repeatMaxDoublings + 1 }, (_, k) => cooldownOf(k, s));
+}
+
 /** The most energy and health (hundredths) a body of `biomass` hundredths holds. */
 export function vitalsCap(biomass: number): { energy: number; health: number } {
   return {

@@ -321,7 +321,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - Without A0 in the bundle (moved to `more`), there is no problem, but `toGenesis` is false and A1's origin is reported unchecked.
     - `speedTest`: origins for 64 creatures (64 BLS verifications and 64 developments) take under 5 s in Node.
 
-- [ ] T5 Time gates, costs and growth [opus] (after T3) (in progress)
+- [x] T5 Time gates, costs and growth [opus] (after T3) (in progress)
+  - Done: `verify-gates.ts` walks each chain with its clock, condition and cooldown (`hasMatingEnergy` and `cooldownsOf` join `gates.ts`); fight records and a settlement's checkpoint before a death only keep the clock from going back (T6 bounds them). The spec's parent `promote` was wrong: the hub freezes the live condition, so only its cooldown is kept.
+  - Gotcha for T8: `ownRefusal` (hub and client) never checks the maturity size, so a hub mating under 60% of adult size (E2E courts wait on time alone) fails `mature-size` until the authority refuses it.
   - Steps: `src/ledger/verify-gates.ts`. Per held creature, record by record, under the bundle's scales and the T1 rulebook:
     1. **The clock**:
        - `activeMs` never decreases;
@@ -341,7 +343,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
        A fight's records are T6's.
     4. **Freezes and returns**:
        - a `restore` keeps the condition, `activeMs` and `cooldownUntilMs` of the record before it, and needs at least the restore minimum left;
-       - a parent's `promote` keeps the clock and cooldown of the record before it;
+       - a parent's `promote` keeps the cooldown of the record before it. Its clock and condition are the session's last report (`promoteChild` freezes the live life), so they are bound like a checkpoint's;
        - a pending child's clock stays 0 until its child `promote`.
   - Acceptance (tests first):
     - The golden has no gate problems. The same history built under scales `{ lifespan: 0.05, mating: 0.01 }` verifies with `scaled: true`, and that bundle with its scales changed to 1 fails `mature-time`.
