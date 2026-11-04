@@ -224,7 +224,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `tools/worker-bundle.test.ts` still finds no scale honoured outside fixture mode.
   - Notes: no world renewal here (T2), and no new bound (T8). T1 must not grow `worker/ledger.ts`.
 
-- [ ] T2 The world renewal: migration 8, protocol 9, the notice (after none)
+- [x] T2 The world renewal: migration 8, protocol 9, the notice (after none)
   - Steps:
     1. Migration 8 in `worker/schema.ts`, a `(sql, now)` step like migration 6:
        - delete every creature, record, commitment, mating, genesis-log entry and encounter (its log and settlement);
@@ -244,6 +244,8 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - A protocol-8 hello is refused.
     - `m6c-reset.spec.ts` (hub 8804, the pre-reset hook) passes with the new line.
   - Notes: the record shapes are T1's. The two tasks touch different files and may land in either order.
+  - Done: migration 8 deletes the fights' logs and away reports too and keeps `epoch_seen`, so every identity is told once for epoch 3; `renewal.test.ts` covers migrations 6 (`migrate(sql, 6)`) and 8 separately.
+  - Gotcha: the client's notice text lives in `index.html` and in `m6c-reset` and `m6c-lifecycle`.
 
 ### The verifier
 

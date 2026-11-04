@@ -12,7 +12,7 @@ ADR 0008 is the contract: one Worker and one SQLite Durable Object, minimal by d
   - ≤ 1 request-equivalent (20 incoming WebSocket messages) per player-minute outside fights;
   - ≤ 10 SQLite row writes per player-hour.
   Meter usage per UTC day and queue new sessions before any free-tier limit is reached, never after.
-- Handlers are idempotent (keyed by transaction hash) and do every state change in a single SQLite transaction. Schema changes are numbered migrations (`worker/schema.ts`), applied in one transaction at start-up; one that needs the time it runs is a function of `(sql, now)`. Migration 6 is the world renewal (ADR 0040): `world` holds the epoch and reset time, `players.epoch_seen` the epoch each identity was told about.
+- Handlers are idempotent (keyed by transaction hash) and do every state change in a single SQLite transaction. Schema changes are numbered migrations (`worker/schema.ts`), applied in one transaction at start-up; one that needs the time it runs is a function of `(sql, now)`. Migrations 6 and 8 are the world renewals (ADRs 0040, 0055): `world` holds the epoch (3) and reset time, `players.epoch_seen` the epoch each identity was told about; migration 8 also empties `encounters` and the away reports.
 - Use hibernatable WebSockets (`ctx.acceptWebSocket`) and keep per-socket state in attachments. Protocol pings use auto-response so they don't wake the object.
 - Accept requests only from the Pages origin and localhost. Validate every message with the shared codecs. Rate-limit each session.
 - Secrets (TURN key, the Cloudflare token for deploys) come only from Worker secrets or GitHub secrets. Never put them in code, logs, responses or tests.

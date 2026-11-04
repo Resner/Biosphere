@@ -6,8 +6,8 @@ import { HATCH_BUCKET, Ledger } from './ledger';
 import { migrate } from './schema';
 import { closeSockets, hatch, login, sql, useFakeBeacons } from './test-hub';
 
-// The world renewal (M6c T2, ADR 0040): migration 6 empties the world once and keeps identities;
-// the hub tells each returning identity once.
+// The world renewals (M6c T2, ADR 0040; M9 T2, ADR 0055): migrations 6 and 8 each empty the world
+// once and keep identities; the hub tells each returning identity once per epoch.
 
 const hex = (n: number): string => n.toString(16).padStart(64, '0');
 
@@ -112,9 +112,9 @@ describe('migration 6', () => {
         });
         const beforeKept = keptRows();
         const from = Date.now();
-        migrate(sql);
+        migrate(sql, 6);
         const after = dump();
-        migrate(sql);
+        migrate(sql, 6);
         const again = dump();
         const ledger = new Ledger(state.storage);
         return {
@@ -131,7 +131,7 @@ describe('migration 6', () => {
         };
       },
     );
-    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7]);
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6]);
     // Identities, keys, usage, flags, beacons and ponds survive untouched.
     expect(out.after.kept).toEqual(out.beforeKept);
     expect(out.after.players.map((p) => [p.id, p.first_seen, p.last_seen])).toEqual([
@@ -164,6 +164,165 @@ describe('migration 6', () => {
   });
 });
 
+describe('migration 8', () => {
+  it('empties the world again, adds the encounters, keeps identities, and runs once', async () => {
+    const out = await runInDurableObject(
+      env.AUTHORITY.get(env.AUTHORITY.idFromName('renewal-db-8')),
+      async (_o, state) => {
+        const sql = state.storage.sql;
+        const tables = sql
+          .exec<{ name: string }>(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'",
+          )
+          .toArray();
+        for (const { name } of tables) sql.exec(`DROP TABLE "${name}"`);
+        migrate(sql, 7);
+        const [p1, p2] = [
+          await createIdentity(memoryKeyStore()),
+          await createIdentity(memoryKeyStore()),
+        ];
+        sql.exec("INSERT INTO ponds VALUES ('pond01', 'seed', 5, 100, 100, 5)");
+        // Both identities were told about epoch 2; one has a pending commitment and a fight report.
+        sql.exec(
+          "INSERT INTO players (id, first_seen, last_seen, hatches, hatch_t, pending, epoch_seen, fight_report) VALUES (?, 10, 20, 0, 15, 'c1', 2, 'report')",
+          p1.playerId,
+        );
+        sql.exec(
+          "INSERT INTO players (id, first_seen, last_seen, hatches, hatch_t, pending, epoch_seen, fight_report) VALUES (?, 11, 21, 2, 16, '', 2, '')",
+          p2.playerId,
+        );
+        sql.exec(
+          `INSERT INTO creatures (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t)
+           VALUES (?, ?, 'active', 0, ?, 'g', 1000, 150, 8000, 9000, 5, NULL),
+                  (?, ?, 'pending', 0, ?, 'g', 0, 0, 0, 0, 5, NULL)`,
+          hex(1),
+          p1.playerId,
+          hex(1),
+          hex(3),
+          p2.playerId,
+          hex(3),
+        );
+        sql.exec(
+          `INSERT INTO records (creature, seq, hash, req, kind, owner, t, json, owner_sig, auth_sig, key_id)
+           VALUES (?, 0, ?, ?, 'genesis', ?, 5, '{}', NULL, 'sig', 'key')`,
+          hex(1),
+          hex(1),
+          hex(9),
+          p1.playerId,
+        );
+        sql.exec(
+          `INSERT INTO commitments (id, kind, owner, round, req, json, auth_sig, key_id, created, resolved)
+           VALUES ('c1', 'genesis', ?, 100, 'r1', '{}', 'sig', 'key', 5, NULL)`,
+          p1.playerId,
+        );
+        sql.exec(
+          `INSERT INTO matings (commit_id, owner_a, owner_b, creature_a, creature_b, round, t)
+           VALUES ('m1', ?, ?, ?, ?, 100, 5)`,
+          p1.playerId,
+          p2.playerId,
+          hex(1),
+          hex(3),
+        );
+        sql.exec("INSERT INTO genesis_log VALUES ('r1', ?, ?, 5)", hex(1), p1.playerId);
+        sql.exec(
+          `INSERT INTO encounters (id, pond, start, joins, frames, persisted, fighters, open, t, settlement)
+           VALUES ('e1', 'pond01', '{}', '[]', '[]', 0, '[]', 1, 5, NULL),
+                  ('e2', 'pond01', '{}', '[]', '[]', 0, '[]', 0, 6, '{}')`,
+        );
+        sql.exec("INSERT INTO beacons VALUES (100, 'beacon-sig')");
+        sql.exec("INSERT INTO keys VALUES ('k1', 'pub', X'00', 1)");
+        sql.exec("INSERT INTO usage VALUES ('2026-10-31', 10, 200, 30)");
+        sql.exec(
+          "INSERT INTO flags (kind, owner, creature, hash, t) VALUES ('x', ?, ?, ?, 5)",
+          p1.playerId,
+          hex(1),
+          hex(1),
+        );
+        const count = (table: string) =>
+          sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).one().n;
+        const wiped = [
+          'creatures',
+          'records',
+          'commitments',
+          'matings',
+          'genesis_log',
+          'encounters',
+        ];
+        const kept = ['ponds', 'keys', 'usage', 'flags', 'beacons'];
+        const keptRows = () =>
+          Object.fromEntries(
+            kept.map((t) => [t, sql.exec(`SELECT * FROM ${t} ORDER BY 1`).toArray()]),
+          );
+        const dump = () => ({
+          wiped: Object.fromEntries(wiped.map((t) => [t, count(t)])),
+          kept: keptRows(),
+          players: sql
+            .exec(
+              'SELECT id, first_seen, last_seen, hatches, hatch_t, pending, epoch_seen, fight_report FROM players ORDER BY first_seen',
+            )
+            .toArray(),
+          world: sql.exec('SELECT epoch, reset_at FROM world').toArray(),
+          versions: sql
+            .exec<{ version: number }>('SELECT version FROM migrations ORDER BY version')
+            .toArray()
+            .map((r) => r.version),
+        });
+        const beforeKept = keptRows();
+        const from = Date.now();
+        migrate(sql);
+        const after = dump();
+        migrate(sql);
+        const again = dump();
+        const ledger = new Ledger(state.storage);
+        return {
+          from,
+          to: Date.now(),
+          beforeKept,
+          after,
+          again,
+          ids: [p1.playerId, p2.playerId],
+          hatches: [p1, p2].map((p) => ledger.hatches(p.playerId, Date.now()).left),
+          active: ledger.active(p1.playerId),
+          pending: ledger.pending(p2.playerId),
+        };
+      },
+    );
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(out.after.kept).toEqual(out.beforeKept);
+    expect(out.after.players.map((p) => [p.id, p.first_seen, p.last_seen])).toEqual([
+      [out.ids[0], 10, 20],
+      [out.ids[1], 11, 21],
+    ]);
+    expect(out.after.wiped).toEqual({
+      creatures: 0,
+      records: 0,
+      commitments: 0,
+      matings: 0,
+      genesis_log: 0,
+      encounters: 0,
+    });
+    // Every bucket is full, nothing points at deleted rows, and each identity is still to be told.
+    for (const p of out.after.players) {
+      expect(p).toMatchObject({
+        pending: '',
+        fight_report: '',
+        hatches: HATCH_BUCKET,
+        hatch_t: 0,
+        epoch_seen: 2,
+      });
+    }
+    expect(out.hatches).toEqual([HATCH_BUCKET, HATCH_BUCKET]);
+    expect(out.active).toBeNull();
+    expect(out.pending).toBeNull();
+    // The one-row world table holds epoch 3 and the migration's time.
+    expect(out.after.world).toHaveLength(1);
+    expect(out.after.world[0]?.epoch).toBe(3);
+    expect(out.after.world[0]?.reset_at).toBeGreaterThanOrEqual(out.from);
+    expect(out.after.world[0]?.reset_at).toBeLessThanOrEqual(out.to);
+    expect(out.again).toEqual(out.after);
+  });
+});
+
 describe('the renewal notice', () => {
   const resetAt = async () =>
     (await sql<{ reset_at: number }>('SELECT reset_at FROM world'))[0]?.reset_at ?? 0;
@@ -179,7 +338,7 @@ describe('the renewal notice', () => {
     const first = await login(id);
     expect(first.life.renewed).toBe(true);
     expect((await sql('SELECT epoch_seen FROM players WHERE id = ?', id.playerId))[0]).toEqual({
-      epoch_seen: 2,
+      epoch_seen: 3,
     });
     const second = await login(id);
     expect(second.life.renewed).toBeUndefined();

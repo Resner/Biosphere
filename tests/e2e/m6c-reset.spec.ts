@@ -15,7 +15,7 @@ import { clickHatch, M6C_RESET_HUB, openRecorded, state, waitPlaying } from './h
 test.describe.configure({ mode: 'serial' });
 
 const NOTICE =
-  'The world was renewed in v0.7.2. Your identity is kept; your creatures start again.';
+  'The world was renewed in v0.10.0. Your identity is kept; your creatures start again.';
 
 /** Waits until the hub has said who the player is on this page, and returns whether it said "renewed". */
 async function heard(page: Page): Promise<boolean> {
