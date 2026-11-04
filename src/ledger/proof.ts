@@ -1,0 +1,528 @@
+import { GENOME_TEXT_LENGTH } from '../genome/codec';
+import type { SignedCommit } from '../net/protocol-defs';
+import { FIGHTER_WORTHS } from '../sim/encounter/types';
+import { type Canonical, canonicalize } from './canonical';
+import type { Beacon } from './drand';
+import type { Scales } from './gates';
+import type { Commitment } from './genesis';
+import { isPlayerId } from './identity';
+import { HEX64, type LedgerRecord, recordProblems, type StoredRecord } from './record';
+import type { FightLog, SettledFighter, SignedSettlement } from './settlement';
+
+// Proof bundles (ADR 0055): what a verifier needs to check a creature's history without trusting
+// anyone, as the authority serves it (`GET /v1/proof/<creature>`), and a fight's log and settlement
+// (`GET /v1/fight/<enc>`). Both arrive as untrusted JSON: the parsers cap every list and string,
+// rebuild every object from checked fields, and never throw. Pure and shared: no DOM, no Node APIs.
+
+export const PROOF_MAX_CREATURES = 64;
+/** The most a bundle's JSON may weigh, in UTF-8 bytes. */
+export const PROOF_MAX_BYTES = 524_288;
+/** The most a fight proof's JSON may weigh: a 90 s fight of four is far below it. */
+export const FIGHT_PROOF_MAX_BYTES = 524_288;
+
+/** The caps of a bundle's lists, so a hostile bundle cannot make the verifier work without end. */
+export const PROOF_CAPS = Object.freeze({
+  records: 4096,
+  keys: 512,
+  commits: 1024,
+  beacons: 1024,
+  settlements: 1024,
+  flags: 1024,
+  more: 2 * PROOF_MAX_CREATURES,
+});
+
+/** An authority key as `/v1/pubkeys` lists it: in force for records from `from` (ms). */
+export interface AuthorityKey {
+  id: string;
+  publicKey: string;
+  from: number;
+}
+
+/** One of the authority's notes on a held creature (the kinds are the audit's, T8). */
+export interface AuditFlag {
+  creature: string;
+  kind: string;
+  t: number;
+}
+
+export interface ProofBundle {
+  v: 1;
+  kind: 'proof';
+  subject: string;
+  world: { epoch: number; rules: number; scales: Scales };
+  keys: AuthorityKey[];
+  /** The subject first, then its ancestors nearest first. */
+  creatures: { id: string; genome: string }[];
+  /**
+   * Per creature from seq 0 with no gap: the subject's whole chain, an ancestor's up to the record
+   * that ties it to its descendant.
+   */
+  records: StoredRecord[];
+  /** Every genesis and mating commitment a record names. */
+  commits: SignedCommit[];
+  /** Every committed round. */
+  beacons: Beacon[];
+  /** Every encounter a record names. */
+  settlements: SignedSettlement[];
+  flags: AuditFlag[];
+  /** Parents of held creatures that are not held. */
+  more: string[];
+  /** When the authority served it. */
+  t: number;
+}
+
+/** A fight's settlement and its log, null once the log is pruned. */
+export interface FightProof {
+  settlement: SignedSettlement;
+  log: FightLog | null;
+}
+
+type Obj = Record<string, unknown>;
+
+const SIG = /^[A-Za-z0-9_-]{86}$/;
+const KEY_ID = /^[A-Za-z0-9_-]{8}$/;
+const BEACON_SIG = /^[0-9a-f]{96}$/;
+/** A fight's end state (`hashEncounter`): 64 bits as hex. */
+const STATE_HASH = /^[0-9a-f]{16}$/;
+/** A genome's text: base64url of its bytes (595 characters). */
+const GENOME_TEXT = new RegExp(`^[A-Za-z0-9_-]{${GENOME_TEXT_LENGTH}}$`);
+/** A player id or an authority public key: 32 bytes of base64url. */
+const PLAYER = /^[A-Za-z0-9_-]{43}$/;
+/** A pond's seed, as the hub names its ponds. */
+const POND_SEED = /^[A-Za-z0-9_-]{1,64}$/;
+/** A flag's kind or a fighter's cause or outcome: a short lower-case word. */
+const WORD = /^[a-z][a-z0-9:-]{0,31}$/;
+/** A fight has at most 4 slots; a log at most this many frames (a 90 s fight is 900). */
+const MAX_SLOTS = 4;
+const MAX_FRAMES = 4096;
+const POS_MAX = 8192;
+const U32_MAX = 0xffffffff;
+/** The JSON of a commitment's request data: two signed mate asks fit well within it. */
+const DATA_MAX_BYTES = 2048;
+
+const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
+const str = (v: unknown, re: RegExp): v is string => typeof v === 'string' && re.test(v);
+const uint = (v: unknown, max = Number.MAX_SAFE_INTEGER): v is number =>
+  Number.isSafeInteger(v) && (v as number) >= 0 && (v as number) <= max;
+const hex = (v: unknown): v is string => str(v, HEX64);
+const num = (v: unknown, lo: number, hi: number): v is number =>
+  typeof v === 'number' && Number.isFinite(v) && v >= lo && v <= hi;
+/** Exactly these keys, and at most these optional ones. */
+const keysIn = (o: Obj, required: readonly string[], optional: readonly string[] = []): boolean =>
+  required.every((k) => Object.hasOwn(o, k)) &&
+  Object.keys(o).every((k) => required.includes(k) || optional.includes(k));
+
+/** Each item parsed, or null when the list is not an array, is too long or has a bad item. */
+function list<T>(v: unknown, max: number, item: (x: unknown) => T | null): T[] | null {
+  if (!Array.isArray(v) || v.length > max) return null;
+  const out: T[] = [];
+  for (const x of v) {
+    const parsed = item(x);
+    if (parsed === null) return null;
+    out.push(parsed);
+  }
+  return out;
+}
+
+/** UTF-8 length, without TextEncoder's allocation. */
+function byteLength(s: string): number {
+  let n = 0;
+  for (let i = 0; i < s.length; i++) {
+    const c = s.charCodeAt(i);
+    // A surrogate pair is 4 bytes, 2 for each half.
+    n += c < 0x80 ? 1 : c < 0x800 || (c >= 0xd800 && c < 0xe000) ? 2 : 3;
+  }
+  return n;
+}
+
+/** The value of untrusted JSON text, or the value itself, when its JSON is within `max` bytes. */
+function within(json: unknown, max: number): unknown {
+  if (typeof json === 'string') {
+    // A UTF-8 byte is at most one UTF-16 unit: a longer text is over the cap however it encodes.
+    if (json.length > max || byteLength(json) > max) return undefined;
+    return JSON.parse(json);
+  }
+  const text = JSON.stringify(json);
+  return typeof text === 'string' && byteLength(text) <= max ? json : undefined;
+}
+
+function scales(v: unknown): Scales | null {
+  return isObj(v) &&
+    keysIn(v, ['lifespan', 'mating']) &&
+    num(v.lifespan, Number.MIN_VALUE, 1) &&
+    num(v.mating, Number.MIN_VALUE, 1)
+    ? { lifespan: v.lifespan, mating: v.mating }
+    : null;
+}
+
+function key(v: unknown): AuthorityKey | null {
+  return isObj(v) &&
+    keysIn(v, ['id', 'publicKey', 'from']) &&
+    str(v.id, KEY_ID) &&
+    str(v.publicKey, PLAYER) &&
+    uint(v.from)
+    ? { id: v.id, publicKey: v.publicKey, from: v.from }
+    : null;
+}
+
+function creature(v: unknown): { id: string; genome: string } | null {
+  return isObj(v) && keysIn(v, ['id', 'genome']) && hex(v.id) && str(v.genome, GENOME_TEXT)
+    ? { id: v.id, genome: v.genome }
+    : null;
+}
+
+/** A countersigned document's signature fields. */
+const signed = (v: Obj): boolean => str(v.authSig, SIG) && str(v.keyId, KEY_ID);
+
+function storedRecord(v: unknown): StoredRecord | null {
+  if (!isObj(v) || !keysIn(v, ['record', 'hash', 'ownerSig', 'authSig', 'keyId'])) return null;
+  if (!hex(v.hash) || !signed(v) || !(v.ownerSig === null || str(v.ownerSig, SIG))) return null;
+  if (recordProblems(v.record).length > 0) return null;
+  const r = v.record as LedgerRecord;
+  // Its body passed `bodyProblems` and `canonicalize`: plain objects of integers and strings.
+  const body = JSON.parse(canonicalize(r.body)) as LedgerRecord['body'];
+  const record: LedgerRecord = {
+    v: 1,
+    rules: r.rules,
+    kind: r.kind,
+    creature: r.creature,
+    seq: r.seq,
+    prev: r.prev,
+    owner: r.owner,
+    t: r.t,
+    body,
+  };
+  return {
+    record,
+    hash: v.hash,
+    ownerSig: v.ownerSig as string | null,
+    authSig: v.authSig as string,
+    keyId: v.keyId as string,
+  };
+}
+
+function signedCommit(v: unknown): SignedCommit | null {
+  if (!isObj(v) || !keysIn(v, ['commitment', 'authSig', 'keyId']) || !signed(v)) return null;
+  const c = v.commitment;
+  if (!isObj(c) || !keysIn(c, ['v', 'kind', 'owner', 'round', 'req', 't', 'data'])) return null;
+  if (c.v !== 1 || (c.kind !== 'genesis' && c.kind !== 'mate')) return null;
+  if (typeof c.owner !== 'string' || !isPlayerId(c.owner)) return null;
+  if (!uint(c.round) || c.round < 1 || !hex(c.req) || !uint(c.t)) return null;
+  // The request data is checked by `checkGenesis` and `checkBirth`; here it only has to hash.
+  let data: Canonical;
+  try {
+    const text = canonicalize(c.data as Canonical);
+    if (byteLength(text) > DATA_MAX_BYTES) return null;
+    data = JSON.parse(text) as Canonical;
+  } catch {
+    return null;
+  }
+  const commitment: Commitment = {
+    v: 1,
+    kind: c.kind,
+    owner: c.owner,
+    round: c.round,
+    req: c.req,
+    t: c.t,
+    data,
+  };
+  return { commitment, authSig: v.authSig as string, keyId: v.keyId as string };
+}
+
+function beacon(v: unknown): Beacon | null {
+  return isObj(v) &&
+    keysIn(v, ['round', 'signature']) &&
+    uint(v.round) &&
+    v.round >= 1 &&
+    str(v.signature, BEACON_SIG)
+    ? { round: v.round, signature: v.signature }
+    : null;
+}
+
+const EGGS: readonly string[] = ['none', 'kept', 'eaten'];
+const RESULT_KEYS = [
+  'player',
+  'creature',
+  'outcome',
+  'frame',
+  'egg',
+  'biomass',
+  'energy',
+  'health',
+  'reward',
+];
+
+function settledFighter(v: unknown): SettledFighter | null {
+  if (!isObj(v) || !keysIn(v, RESULT_KEYS, ['cause', 'by', 'eggBy'])) return null;
+  const optional = (k: string, ok: (x: unknown) => boolean) => !Object.hasOwn(v, k) || ok(v[k]);
+  const slot = (x: unknown) => uint(x, MAX_SLOTS - 1);
+  if (
+    !str(v.player, PLAYER) ||
+    !hex(v.creature) ||
+    !str(v.outcome, WORD) ||
+    !optional('cause', (x) => str(x, WORD)) ||
+    !optional('by', slot) ||
+    !uint(v.frame, U32_MAX) ||
+    typeof v.egg !== 'string' ||
+    !EGGS.includes(v.egg) ||
+    !optional('eggBy', slot) ||
+    !uint(v.biomass) ||
+    !uint(v.energy) ||
+    !uint(v.health) ||
+    !uint(v.reward)
+  ) {
+    return null;
+  }
+  return {
+    player: v.player,
+    creature: v.creature,
+    outcome: v.outcome,
+    ...(Object.hasOwn(v, 'cause') ? { cause: v.cause as string } : {}),
+    ...(Object.hasOwn(v, 'by') ? { by: v.by as number } : {}),
+    frame: v.frame,
+    egg: v.egg as SettledFighter['egg'],
+    ...(Object.hasOwn(v, 'eggBy') ? { eggBy: v.eggBy as number } : {}),
+    biomass: v.biomass,
+    energy: v.energy,
+    health: v.health,
+    reward: v.reward,
+  };
+}
+
+const SETTLEMENT_KEYS = [
+  'v',
+  'kind',
+  'rules',
+  'enc',
+  'pondSeed',
+  'start',
+  'joins',
+  'frames',
+  'root',
+  'hash',
+  'referee',
+  'results',
+  't',
+];
+
+function signedSettlement(v: unknown): SignedSettlement | null {
+  if (!isObj(v) || !keysIn(v, ['settlement', 'hash', 'authSig', 'keyId'])) return null;
+  if (!hex(v.hash) || !signed(v)) return null;
+  const s = v.settlement;
+  if (!isObj(s) || !keysIn(s, SETTLEMENT_KEYS)) return null;
+  const joins = list(s.joins, MAX_SLOTS, (x) => (hex(x) ? x : null));
+  const results = list(s.results, MAX_SLOTS, settledFighter);
+  if (
+    s.v !== 1 ||
+    s.kind !== 'settlement' ||
+    s.referee !== 'authority' ||
+    !uint(s.rules) ||
+    !hex(s.enc) ||
+    !str(s.pondSeed, POND_SEED) ||
+    !hex(s.start) ||
+    !joins ||
+    !uint(s.frames, MAX_FRAMES) ||
+    !hex(s.root) ||
+    !str(s.hash, STATE_HASH) ||
+    !results ||
+    !uint(s.t)
+  ) {
+    return null;
+  }
+  return {
+    settlement: {
+      v: 1,
+      kind: 'settlement',
+      rules: s.rules,
+      enc: s.enc,
+      pondSeed: s.pondSeed,
+      start: s.start,
+      joins,
+      frames: s.frames,
+      root: s.root,
+      hash: s.hash,
+      referee: 'authority',
+      results,
+      t: s.t,
+    },
+    hash: v.hash,
+    authSig: v.authSig as string,
+    keyId: v.keyId as string,
+  };
+}
+
+function flag(v: unknown): AuditFlag | null {
+  return isObj(v) &&
+    keysIn(v, ['creature', 'kind', 't']) &&
+    hex(v.creature) &&
+    str(v.kind, WORD) &&
+    uint(v.t)
+    ? { creature: v.creature, kind: v.kind, t: v.t }
+    : null;
+}
+
+const BUNDLE_KEYS = [
+  'v',
+  'kind',
+  'subject',
+  'world',
+  'keys',
+  'creatures',
+  'records',
+  'commits',
+  'beacons',
+  'settlements',
+  'flags',
+  'more',
+  't',
+];
+
+function bundle(v: unknown): ProofBundle | null {
+  if (!isObj(v) || !keysIn(v, BUNDLE_KEYS) || v.v !== 1 || v.kind !== 'proof') return null;
+  const w = v.world;
+  const world =
+    isObj(w) && keysIn(w, ['epoch', 'rules', 'scales']) && uint(w.epoch) && uint(w.rules)
+      ? scales(w.scales)
+      : null;
+  if (!world || !hex(v.subject) || !uint(v.t)) return null;
+  const creatures = list(v.creatures, PROOF_MAX_CREATURES, creature);
+  if (!creatures || creatures.length === 0) return null;
+  const keys = list(v.keys, PROOF_CAPS.keys, key);
+  const records = list(v.records, PROOF_CAPS.records, storedRecord);
+  const commits = list(v.commits, PROOF_CAPS.commits, signedCommit);
+  const beacons = list(v.beacons, PROOF_CAPS.beacons, beacon);
+  const settlements = list(v.settlements, PROOF_CAPS.settlements, signedSettlement);
+  const flags = list(v.flags, PROOF_CAPS.flags, flag);
+  const more = list(v.more, PROOF_CAPS.more, (x) => (hex(x) ? x : null));
+  if (!keys || !records || !commits || !beacons || !settlements || !flags || !more) return null;
+  return {
+    v: 1,
+    kind: 'proof',
+    subject: v.subject,
+    world: { epoch: (w as Obj).epoch as number, rules: (w as Obj).rules as number, scales: world },
+    keys,
+    creatures,
+    records,
+    commits,
+    beacons,
+    settlements,
+    flags,
+    more,
+    t: v.t,
+  };
+}
+
+/**
+ * A proof bundle from untrusted JSON (its text, or the value `JSON.parse` made of it), or null: a
+ * bundle over `PROOF_MAX_BYTES`, a list over its cap, a malformed id, key, signature or genome
+ * text, an unknown field, or a record `recordProblems` refuses. It only checks shapes: whether the
+ * history holds is `verifyLineage`'s question. Never throws.
+ */
+export function parseProofBundle(json: unknown): ProofBundle | null {
+  try {
+    return bundle(within(json, PROOF_MAX_BYTES));
+  } catch {
+    return null;
+  }
+}
+
+function fighterInfo(v: unknown): FightLog['start']['fighters'][number] | null {
+  const fields = ['player', 'creature', 'genome', 'x', 'y', 'vx', 'vy', 'heading'];
+  const more = ['biomass', 'energy', 'health', 'elder', 'egg', 'worth'];
+  if (!isObj(v) || !keysIn(v, [...fields, ...more])) return null;
+  const condition = (x: unknown) => num(x, 0, 1e7);
+  if (
+    !str(v.player, PLAYER) ||
+    !hex(v.creature) ||
+    !str(v.genome, GENOME_TEXT) ||
+    !num(v.x, 0, POS_MAX) ||
+    !num(v.y, 0, POS_MAX) ||
+    !num(v.vx, -POS_MAX, POS_MAX) ||
+    !num(v.vy, -POS_MAX, POS_MAX) ||
+    !num(v.heading, -2 * Math.PI, 2 * Math.PI) ||
+    !condition(v.biomass) ||
+    !condition(v.energy) ||
+    !condition(v.health) ||
+    typeof v.elder !== 'boolean' ||
+    typeof v.egg !== 'boolean' ||
+    typeof v.worth !== 'number' ||
+    !FIGHTER_WORTHS.includes(v.worth)
+  ) {
+    return null;
+  }
+  return {
+    player: v.player,
+    creature: v.creature,
+    genome: v.genome,
+    x: v.x,
+    y: v.y,
+    vx: v.vx,
+    vy: v.vy,
+    heading: v.heading,
+    biomass: v.biomass,
+    energy: v.energy,
+    health: v.health,
+    elder: v.elder,
+    egg: v.egg,
+    worth: v.worth,
+  };
+}
+
+function fightLog(v: unknown): FightLog | null {
+  if (!isObj(v) || !keysIn(v, ['pondSeed', 'start', 'joins', 'frames'])) return null;
+  const s = v.start;
+  if (!str(v.pondSeed, POND_SEED) || !isObj(s)) return null;
+  if (!keysIn(s, ['t', 'enc', 'seed', 'round', 't0', 'at', 'fighters']) || s.t !== 'enc-start')
+    return null;
+  const fighters = list(s.fighters, MAX_SLOTS, fighterInfo);
+  if (
+    !fighters ||
+    fighters.length < 2 ||
+    !hex(s.enc) ||
+    !hex(s.seed) ||
+    !uint(s.round, U32_MAX) ||
+    !uint(s.t0, U32_MAX) ||
+    !uint(s.at)
+  ) {
+    return null;
+  }
+  const enc = s.enc;
+  const joins = list(v.joins, MAX_SLOTS, (j) => {
+    if (!isObj(j) || !keysIn(j, ['t', 'enc', 'f', 'fighter']) || j.t !== 'enc-join') return null;
+    const fighter = fighterInfo(j.fighter);
+    return fighter && j.enc === enc && uint(j.f, MAX_FRAMES)
+      ? { t: 'enc-join' as const, enc, f: j.f, fighter }
+      : null;
+  });
+  const frames = list(v.frames, MAX_FRAMES, (row) =>
+    list(row, MAX_SLOTS, (x) => (x === null || uint(x, U32_MAX) ? { x } : null)),
+  );
+  if (!joins || !frames) return null;
+  return {
+    pondSeed: v.pondSeed,
+    start: {
+      t: 'enc-start',
+      enc,
+      seed: s.seed,
+      round: s.round,
+      t0: s.t0,
+      at: s.at,
+      fighters,
+    },
+    joins,
+    frames: frames.map((row) => row.map(({ x }) => x as number | null)),
+  };
+}
+
+/** A fight's proof from untrusted JSON (text or value), or null. Never throws. */
+export function parseFightProof(json: unknown): FightProof | null {
+  try {
+    const v = within(json, FIGHT_PROOF_MAX_BYTES);
+    if (!isObj(v) || !keysIn(v, ['settlement', 'log'])) return null;
+    const settlement = signedSettlement(v.settlement);
+    const log = v.log === null ? null : fightLog(v.log);
+    return settlement && (v.log === null || log) ? { settlement, log } : null;
+  } catch {
+    return null;
+  }
+}
