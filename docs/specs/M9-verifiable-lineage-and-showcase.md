@@ -449,7 +449,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `/v1/audit` counts match the flags table and hold no player or creature id.
   - Notes: the property test is the guard against false positives: an honest authority must never write a history the verifier rejects. A mismatch is fixed in whichever side is wrong, with the reason in the PR, and never by loosening a check for no reason.
 
-- [x] T9 M8 carry-overs: the away report, a lock still asking, a fight that no longer rebuilds, one clock [opus] (after none) (in progress)
+- [x] T9 M8 carry-overs: the away report, a lock still asking, a fight that no longer rebuilds, one clock [opus] (after none)
   - Steps:
     1. `sendLife` takes (clears) the stored away report only once `life` was sent on an open socket.
     2. `progress` and `saveOnClose` treat only a running fight as locked. A lock still waiting for its answer credits and checkpoints as free play.
