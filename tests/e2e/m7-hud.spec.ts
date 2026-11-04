@@ -49,8 +49,9 @@ const seen = (page: Page) =>
 const shown = (page: Page) => page.evaluate(() => window.__bs?.state().encounter?.hud.shown);
 
 /**
- * Freezes `page`'s world (`timeScale(0)`) in the frame its fight first matches `when`: `calm` (no
- * windup running and no glow drawn, the fighters close) or `windup` (`who`'s windup aimed at this
+ * Freezes `page`'s world (`timeScale(0)`) in the frame its fight first matches `when`: `calm` (`who` has
+ * no windup running and no glow is drawn, the fighters close; a fight lasts only a few seconds, so
+ * the other fighter's windup in its first two ticks, which draws nothing, may run) or `windup` (`who`'s windup aimed at this
  * player, 6 ticks or fewer left, its glow drawn). One frame later it shoots the disc round `who`'s
  * front (half its radius) and lets the world run on, so the player's autopilot flies as few frames
  * as can be. Returns the disc's mean luminance and the glows drawn in the frozen frame.
@@ -76,7 +77,7 @@ async function shoot(page: Page, when: 'calm' | 'windup', who: string) {
         !!me &&
         (when === 'calm'
           ? glows === 0 &&
-            enc.fighters.every((f) => f.windup === null) &&
+            them.windup === null &&
             Math.hypot(them.x - me.x, them.y - me.y) <= 3 * (them.radius + me.radius)
           : glows > 0 && them.windup !== null && them.windup <= 6 && them.target === enc.slot);
       if (held.heldTick === undefined) {
