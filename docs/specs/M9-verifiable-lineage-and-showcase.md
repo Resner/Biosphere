@@ -299,7 +299,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `speedTest`: the chain and signature families on a 64-creature, 400-record bundle take under 1 s in Node.
   - Notes: the other families are stubs here. T4–T6 add their tamper tests to the same golden and never change its honest history, so they can run in parallel.
 
-- [x] T4 Origins: genesis and births recomputed [opus] (after T3) (in progress)
+- [x] T4 Origins: genesis and births recomputed [opus] (after T3)
   - Done: `verify-origin.ts` (with `unchecked` on the report, the origin codes in `PROBLEM_TEXT`, and `firstNamers`/`whereNamed` shared from `verify-chain.ts`); tests in `verify-origin.test.ts`. A birth's parent genomes are taken in its `mates` order, and each `mate-commit`'s generation must be its creature's.
   - Gotcha: a forged commitment changes the genesis draw (the seed hashes the commit id), so a timing tamper must redraw the genome to isolate `round-not-future`.
   - Steps: `src/ledger/verify-origin.ts`, for each held creature's first record:
