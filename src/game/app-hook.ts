@@ -10,6 +10,7 @@ import { nearestInZone } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
 import { livePieces } from '../sim/carrion';
 import { replayEncounter } from '../sim/encounter/replay';
+import { plumesNear } from '../sim/hazards';
 import { replay } from '../sim/replay';
 import { RULES, TICK_HZ } from '../sim/rules';
 import type { FoodItem } from '../sim/types';
@@ -20,6 +21,9 @@ import { adultRadius } from './app-session';
 import { type BsDebug, type BsGenome, type BsState, installHook } from './debug';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
+
+/** `debug.setZone` keeps this far (world units) from every toxic plume. */
+const PLUME_MARGIN = 250;
 
 /** `debug.steerTo` gives up after this many ticks (30 s). */
 const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
@@ -75,7 +79,29 @@ function debugHelpers(app: App): BsDebug {
     },
     setZone(zone) {
       const { world, player } = app.session;
-      const at = nearestInZone(world.seed32, world.size, player.x, player.y, zone);
+      let at = nearestInZone(world.seed32, world.size, player.x, player.y, zone);
+      // A toxic plume beside the spot would hurt first each tick and mask the zone's own hazard, so
+      // look further out for a spot clear of every plume (the nearest one when none is).
+      const clear = (x: number, y: number) => plumesNear(world, x, y, PLUME_MARGIN).length === 0;
+      if (!clear(at.x, at.y)) {
+        const home = at;
+        search: for (let r = PLUME_MARGIN; r <= 8 * PLUME_MARGIN; r += PLUME_MARGIN) {
+          for (let k = 0; k < 16; k++) {
+            const a = (k / 16) * 2 * Math.PI;
+            const spot = nearestInZone(
+              world.seed32,
+              world.size,
+              home.x + r * Math.cos(a),
+              home.y + r * Math.sin(a),
+              zone,
+            );
+            if (clear(spot.x, spot.y)) {
+              at = spot;
+              break search;
+            }
+          }
+        }
+      }
       placeCamera(at.x, at.y);
       return at;
     },
