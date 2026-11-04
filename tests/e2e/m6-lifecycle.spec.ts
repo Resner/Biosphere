@@ -98,6 +98,8 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     // Full health, with the world paused: the first zone's hits must not leave the second one a
     // body that dies inside the 15-tick gap before its first hit lands (and so never sounds).
     await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
+    // A full belly too: a slow runner spends long minutes here, and starving would add its own hits.
+    await topUp(a);
     await a.evaluate((z) => (window.__bs as BsHook).debug?.setZone(z), zone);
     await expect(a.locator(`[data-testid="minimap-hazard"][data-hazard="${cue}"]`)).toBeVisible();
     await expect(a.getByTestId(`${cue}-cue`)).toHaveCount(0);
