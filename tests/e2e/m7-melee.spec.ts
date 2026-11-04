@@ -105,13 +105,16 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
         throw new Error(`C never joined: ${JSON.stringify(await seen(c))}`, { cause: error });
       });
     for (const page of [a, b, c]) {
+      // C's wait also needs the ring to mark someone: it is null once the fight is over, so the
+      // frame that shows three fighters is the one the assertions below read.
+      const ringed = page === c;
       await page
         .waitForFunction(
-          (id) => {
+          ({ id, ringed }) => {
             const e = window.__bs?.state().encounter;
-            return e?.id === id && e?.fighters.length === 3;
+            return e?.id === id && e?.fighters.length === 3 && (!ringed || e.aim !== null);
           },
-          enc,
+          { id: enc, ringed },
           { timeout: 10_000 },
         )
         .catch(async (error) => {
