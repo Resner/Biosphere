@@ -159,7 +159,7 @@ export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Prob
     const first = naming.commit.get(id);
     const [creature, seq] = where(first);
     const code =
-      keyProblem(index, c.keyId, first?.record.t ?? null, 'commit-') ??
+      keyProblem(index, c.keyId, first?.record.t ?? c.commitment.t, 'commit-') ??
       (countersigned(verifiers, index.keys.get(c.keyId) as AuthorityKey, id, c.authSig)
         ? null
         : 'commit-sig');
@@ -179,8 +179,12 @@ export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Prob
 }
 
 function ownerSigned(s: StoredRecord): boolean {
-  const sig = typeof s.ownerSig === 'string' ? fromBase64Url(s.ownerSig) : null;
-  return sig !== null && verify(s.record.owner, REQUEST_DOMAIN, requestMessage(s.record), sig);
+  try {
+    const sig = typeof s.ownerSig === 'string' ? fromBase64Url(s.ownerSig) : null;
+    return sig !== null && verify(s.record.owner, REQUEST_DOMAIN, requestMessage(s.record), sig);
+  } catch {
+    return false; // A record that cannot be checked fails its own signature, not the whole bundle.
+  }
 }
 
 /**

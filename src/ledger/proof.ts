@@ -7,6 +7,7 @@ import {
   isStr,
   KEY_ID_RE,
   list,
+  MAX_CONDITION,
   type Obj,
   PLAYER_ID_RE,
   SIG_RE,
@@ -409,7 +410,7 @@ function fighterInfo(v: unknown): FightLog['start']['fighters'][number] | null {
   const fields = ['player', 'creature', 'genome', 'x', 'y', 'vx', 'vy', 'heading'];
   const more = ['biomass', 'energy', 'health', 'elder', 'egg', 'worth'];
   if (!isObj(v) || !keysIn(v, [...fields, ...more])) return null;
-  const condition = (x: unknown) => num(x, 0, 1e7);
+  const condition = (x: unknown) => num(x, 0, MAX_CONDITION);
   if (
     !isStr(v.player, PLAYER_ID_RE) ||
     !hex(v.creature) ||
