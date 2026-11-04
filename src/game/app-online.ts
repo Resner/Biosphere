@@ -1,8 +1,10 @@
+import { parseGenomeText } from '../genome/codec';
+import { speciesName } from '../genome/names';
 import type { Identity } from '../ledger/identity';
 import { signSnap, verifySnap } from '../ledger/snapshot-sig';
 import { consumedParts } from '../net/claims';
 import type { PondClock } from '../net/clock';
-import type { FightMsg, Welcome } from '../net/hub-client';
+import type { FightMsg, LifeMsg, Welcome } from '../net/hub-client';
 import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
 import { encodeSnapshot, type PeerEvent, type SignedSnap } from '../net/protocol';
 import { SignedSnaps } from '../net/signed-snaps';
@@ -138,7 +140,7 @@ export class OnlineWiring {
           app.social.worldSize = w.pond.size;
           app.mate.attach(link);
         },
-        life(msg) {
+        life: (msg) => {
           // An engage's refusal is the attack's alone (M7 T11); a bare 'no-creature' may also be
           // the life flow's, so it reaches both.
           if (msg.t === 'refused') {
@@ -166,8 +168,12 @@ export class OnlineWiring {
             app.renewal.receive(msg.renewed === true);
             app.resume.life(msg.fight);
             app.fight.named(msg.fight);
+            this.tellAway(msg);
           }
-          if (msg.t === 'history') app.history.show(msg.lives, Date.now());
+          if (msg.t === 'history') {
+            app.history.show(msg.lives, Date.now());
+            app.awayReport.history(msg.lives);
+          }
           // Past lives are asked for once the hub has said who the player is, and after each death.
           if (msg.t === 'life' || msg.t === 'died') link.send({ t: 'history' });
         },
@@ -223,6 +229,25 @@ export class OnlineWiring {
           app.flow.eggEaten();
         },
       });
+    }
+  }
+
+  /**
+   * A fight settled while the player was away (M8 T12): told once, with the creature's species when
+   * the page knows it (the creature that lives on, or the one this page played), and an eaten egg's
+   * pending child let go.
+   */
+  private tellAway(msg: Extract<LifeMsg, { t: 'life' }>): void {
+    const { app } = this;
+    const { report } = msg;
+    if (!report) return;
+    const genome = msg.life ? parseGenomeText(msg.life.genome) : null;
+    const played = !app.session.demo && app.screen !== 'title' ? app.session.body.species : null;
+    const species = genome ? speciesName(genome) : played;
+    if (!app.awayReport.life(report, species)) return;
+    if (report.egg === 'eaten') {
+      app.offspring.eaten();
+      app.flow.eggEaten();
     }
   }
 

@@ -38,6 +38,11 @@ export class Screens {
   private readonly resumeButton = pick<HTMLButtonElement>('[data-testid="resume-fight"]');
   private readonly resumeLine = pick('[data-testid="resume-line"]');
   private resuming = false;
+  /** What happened while the player was away (M8 T12), on the title and on the death screen. */
+  private readonly reports = [
+    pick('[data-testid="away-report"]'),
+    pick('[data-testid="death-report"]'),
+  ];
 
   constructor(
     private readonly handlers: {
@@ -95,6 +100,20 @@ export class Screens {
       );
     });
     this.refresh();
+  }
+
+  /** The away report's lines, one paragraph each; none hides it (a new life clears it). */
+  setReport(lines: readonly string[]): void {
+    for (const box of this.reports) {
+      box.replaceChildren(
+        ...lines.map((line) => {
+          const p = document.createElement('p');
+          p.textContent = line;
+          return p;
+        }),
+      );
+      box.hidden = lines.length === 0;
+    }
   }
 
   /** While the creature is locked in a running fight, the title offers only "Back to the fight". */

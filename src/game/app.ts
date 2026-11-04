@@ -40,6 +40,7 @@ import {
 import { Ticker } from './app-tick';
 import { PlayUi } from './app-ui';
 import { AutoQuality } from './auto-quality';
+import { AwayReport } from './away-report';
 import { Hatcher } from './body';
 import { pick } from './dom';
 import { EggShow } from './eggs';
@@ -242,6 +243,8 @@ export class App {
   readonly fightShow: FightShow;
   /** A running fight the hub named on the title, and its messages until "Back to the fight" (M8 T10). */
   readonly resume: FightResume;
+  /** A fight settled while the player was away, told once at the next sign-in (M8 T12). */
+  readonly awayReport: AwayReport;
   readonly sender: SnapshotSender;
   readonly genomeSync: GenomeSync;
   /** Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`. */
@@ -431,6 +434,14 @@ export class App {
     this.resume = new FightResume(
       (id) => (this.fight.fighting && this.fight.sync?.id === id) || this.playing(),
     );
+    // A page still playing its creature hears it as a toast; else the title or death screen says it.
+    this.awayReport = new AwayReport((lines, fresh) => {
+      if (fresh && this.playing() && this.flow.state === 'playing') {
+        this.hud.toast(lines.join('. '), 6000);
+      } else {
+        this.screens.setReport(lines);
+      }
+    });
     this.sender = new SnapshotSender((bytes, signed) =>
       this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids),
     );

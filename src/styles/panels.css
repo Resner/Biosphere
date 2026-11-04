@@ -333,8 +333,10 @@
 }
 
 /* The world renewal notice (M6c T2): a glass toast in the tagline's place under the title, so it
-   covers neither the title, the buttons, the status chip nor an egg. */
-.renewed {
+   covers neither the title, the buttons, the status chip nor an egg. The away report (M8 T12)
+   wears the same glass on the title and death screens. */
+.renewed,
+.away-report {
   box-sizing: border-box;
   max-width: min(40rem, calc(100vw - 2rem));
   margin: 0.6rem 0 1.2rem;
@@ -353,8 +355,13 @@
 }
 
 .renewed[hidden],
-.renewed:not([hidden]) + .tagline {
+.renewed:not([hidden]) + .tagline,
+.away-report[hidden] {
   display: none;
+}
+
+.away-report p {
+  margin: 0;
 }
 
 /* Recovery code: a panel over the title screen; the code stays blurred until it is clicked. */

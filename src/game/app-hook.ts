@@ -261,6 +261,7 @@ export function installAppHook(app: App): void {
         ...zoneState(app),
         playerId,
         renewed: app.renewal.heard,
+        report: app.awayReport.told,
         visibleFood: app.food.length,
         carrion: livePieces(session.world).map(({ id, x, y, value, radius }) => ({
           id,

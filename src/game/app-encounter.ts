@@ -4,6 +4,7 @@
 // roam carries on from the authority's result. DOM-free: the app supplies a `FightHost`.
 
 import type { Creature } from '../genome/stats';
+import type { PubKey } from '../ledger/record';
 import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
 import type { FightMsg } from '../net/hub-client';
@@ -16,6 +17,7 @@ import { maxHealth } from '../sim/vitals';
 import type { App } from './app';
 import { aimsAt } from './fight-cues';
 import { inputTarget, markedTarget, nextTarget, targetAt } from './fight-target';
+import { cachedKeys, FightVerify, pubkeysUrl } from './fight-verify';
 
 export interface FightHost {
   /** This player's id, or null before the identity is loaded. */
@@ -37,6 +39,8 @@ export interface FightHost {
   body?(genome: string): Creature | null;
   /** Every simulated frame's events, for the fight's cues and telegraphs (M7 T12). */
   events?(events: readonly EncounterEvent[]): void;
+  /** The authority's keys a settlement is checked with (M8 T12); none means no check. */
+  keys?(): Promise<readonly PubKey[] | null>;
 }
 
 /** `debug.autoBrace` braces when a windup aimed at the player or its egg has this many ticks or fewer left. */
@@ -91,6 +95,12 @@ export interface EncounterView {
   desyncs: number;
   /** Times this client came back into the fight: a resync by the authority, or a resume after a reload (M8 T10). */
   rejoins: number;
+  /**
+   * The settlement checked here (M8 T12): true when its countersignature, its root over the frames
+   * this client holds and its hash all held, false when one did not; null before the check is
+   * done, for a fight that ended with no settlement, or when the authority's keys could not be had.
+   */
+  verified: boolean | null;
   fighters: FighterView[];
   /**
    * What the target ring marks (M7 T15): a target code (0-3 a slot, 4-7 that slot's egg), and
@@ -130,8 +140,12 @@ export class FightPlay {
   holdBelly = false;
   /** The life that fights. */
   private life: { player: CreatureState; world: World } | null = null;
+  /** Each fight's settlement, checked after its end (M8 T12). */
+  readonly verify: FightVerify;
 
-  constructor(private readonly host: FightHost) {}
+  constructor(private readonly host: FightHost) {
+    this.verify = new FightVerify({ keys: () => host.keys?.() ?? Promise.resolve(null) });
+  }
 
   /** Locked in a fight that has not ended: snapshots carry the fighting bit. */
   get fighting(): boolean {
@@ -314,6 +328,7 @@ export class FightPlay {
       if (sync?.over) this.life = null;
       return;
     }
+    this.verify.check(msg.settlement, { enc: sync.id, frames: sync.held, hash: sync.hash });
     const life = this.current();
     this.life = null;
     if (!life) return;
@@ -378,6 +393,7 @@ export class FightPlay {
       resyncs: sync.resyncs,
       desyncs: sync.desyncs,
       rejoins: sync.rejoins,
+      verified: this.verify.verdict(sync.id),
       aim: this.aim(),
       fighters: enc.fighters.map((f) => {
         const winding = f.fx.windupEnd >= 0;
@@ -408,7 +424,16 @@ export class FightPlay {
 /** The app as a fight's host: the hub's pond and clock, the live life and this tick's steering. */
 export function appFightHost(app: App): FightHost {
   const clock = () => app.keeper.current?.clock ?? null;
+  const { hubUrl } = app;
+  const keys = hubUrl
+    ? cachedKeys(async () => {
+        const response = await fetch(pubkeysUrl(hubUrl));
+        if (!response.ok) throw new Error(`pubkeys ${response.status}`);
+        return response.json();
+      })
+    : undefined;
   return {
+    ...(keys ? { keys } : {}),
     me: () => app.playerId,
     pond: () => {
       const pond = app.livePond();

@@ -126,6 +126,14 @@ export class Ticker {
       applyLife(world, player.id, 'killed');
       return;
     }
+    const away = flow.settledAway;
+    if (away !== null) {
+      // A fight that ended while the page was away from it took the creature (M8 T12).
+      player.health = 0;
+      player.alive = false;
+      player.cause = away;
+      return;
+    }
     const { creature } = session.body;
     const lastClock = flow.clock(
       session.ticks,
