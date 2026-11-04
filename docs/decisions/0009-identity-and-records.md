@@ -1,6 +1,6 @@
 # 0009: Identity and UTXO-like lineage records
 
-- Status: accepted
+- Status: accepted (proof bundles, the verifier and the cards: 0055; retention, with checkpoint compaction left to M13: 0056)
 - Date: 2026-10-25
 
 ## Context
