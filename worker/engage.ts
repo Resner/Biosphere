@@ -22,7 +22,7 @@ import type { CreatureState, World } from '../src/sim/types';
 import { maxEnergy, maxHealth } from '../src/sim/vitals';
 import { createWorld } from '../src/sim/world';
 import { worthOf } from './farming';
-import { admit, type Fight, joinable, type Lock, runFight } from './fights';
+import { admit, type Fight, joinable, type Lock, runFight, type SlotLife } from './fights';
 import type { Head } from './ledger';
 import { type Condition, clampClaim, type LifeState } from './life';
 import type { PondRow } from './schema';
@@ -343,7 +343,15 @@ function start(hub: Hub, id: string): void {
   const beacon = hub.beacons.newestKnown();
   const seed = encounterSeed(beacon ? randomnessOf(beacon) : new Uint8Array(0), enc);
   const msg: EncStart = { t: 'enc-start', enc, seed, round: beacon?.round ?? 0, t0, at, fighters };
-  if (!runFight(hub, lock, msg, asking.pond, [asking.attacker.life, asking.target.life])) {
+  if (
+    !runFight(
+      hub,
+      lock,
+      msg,
+      asking.pond,
+      sides.map((side) => clockOf(hub, side)),
+    )
+  ) {
     hub.fights.release(id);
     const found = seated(hub, asking.attacker.player);
     if (found) sendIfOpen(found[0], { t: 'refused', reason: 'engage:stale' });
@@ -353,6 +361,21 @@ function start(hub: Hub, id: string): void {
     const found = seated(hub, player);
     if (found) sendIfOpen(found[0], msg);
   }
+}
+
+/**
+ * A side's life clock as its fight starts: reports during the lock's window are free play, and a
+ * close in it writes them to the ledger (M9 T9), so the latest of the connection and the head.
+ */
+function clockOf(hub: Hub, side: Side): SlotLife {
+  const life = seated(hub, side.player)?.[1].life;
+  const now = life?.creature === side.creature ? life : side.life;
+  const saved = hub.ledger.head(side.creature)?.activeMs ?? 0;
+  return {
+    creature: side.creature,
+    activeMs: Math.max(now.activeMs, saved),
+    lifespanMs: now.lifespanMs,
+  };
 }
 
 /**

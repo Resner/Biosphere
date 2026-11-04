@@ -941,9 +941,15 @@ export class Ledger {
     this.insertFlag('stray-death', owner, '', owner, t, 'hash');
   }
 
-  /** Notes a fight whose settlement failed: one row per encounter. */
-  flagSettleFailed(enc: string, owner: string, creature: string, t: number): void {
-    this.insertFlag('settle-failed', owner, creature, enc, t, 'hash');
+  /** Notes a fight that failed to settle or no longer rebuilds: one row per kind and encounter. */
+  flagFight(
+    kind: 'settle-failed' | 'recover-failed',
+    enc: string,
+    owner: string,
+    creature: string,
+    t: number,
+  ): void {
+    this.insertFlag(kind, owner, creature, enc, t, 'hash');
   }
 
   /** Notes an implausible report: one row per kind and creature, however many connections send it. */

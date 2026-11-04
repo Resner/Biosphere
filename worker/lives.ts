@@ -20,7 +20,7 @@ import {
 import { lifespanMs } from '../src/sim/life';
 import { RULES, RULES_VERSION } from '../src/sim/rules';
 import type { DeathCause } from '../src/sim/types';
-import { takeReport } from './away';
+import { clearReport, storedReport } from './away';
 import { type Condition, conditionOf, type Exhaustion, type Head } from './ledger';
 import {
   applyReport,
@@ -54,7 +54,9 @@ export function queueGenesis(
   const earlier = hub.asking.get(session.playerId) ?? Promise.resolve();
   const run: Promise<void> = earlier
     .then(() => genesisRequest(hub, ws, session.playerId, msg))
-    .catch(() => sendIfOpen(ws, { t: 'error', code: 'genesis-failed' }))
+    .catch(() => {
+      sendIfOpen(ws, { t: 'error', code: 'genesis-failed' });
+    })
     .finally(() => {
       if (hub.asking.get(session.playerId) === run) hub.asking.delete(session.playerId);
     });
@@ -155,8 +157,9 @@ export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> 
     if (theirs.playerId !== owner) continue;
     // A new creature starts its clock when it reaches the player; a repeat delivery leaves it be.
     if (head && theirs.life?.creature !== head.id) {
-      const life = bindHead(hub, head, Date.now());
-      const protectedUntil = protectionEnds(hub.clock.now());
+      const now = hub.clock.now();
+      const life = bindHead(hub, head, now);
+      const protectedUntil = protectionEnds(now);
       other.serializeAttachment({ ...theirs, life, protectedUntil } satisfies Session);
     }
     sendIfOpen(other, msg);
@@ -180,10 +183,10 @@ export function progress(
     sendIfOpen(ws, { t: 'refused', reason: 'dead' });
     return;
   }
-  if (hub.fights.playerLocked(session.playerId)) {
+  if (hub.fights.playerFighting(session.playerId)) {
     // In a fight the settlement owns the creature (M8): the report is acknowledged, and nothing is
     // credited, kept or written. Its ticks are the fight's, so a report after the end credits only
-    // what follows (the locked time is the settlement's to credit).
+    // what follows (the locked time is the settlement's to credit). A lock still asking is free play.
     const life = { ...session.life, ticks: Math.max(session.life.ticks, msg.ticks), t: now };
     ack(ws, msg.n, life);
     ws.serializeAttachment({ ...session, life } satisfies Session);
@@ -481,7 +484,8 @@ export function checkpoint(hub: Hub, life: LifeState, owner: string): LifeState 
  * The player's active creature (null for a new player) and when the next recorded hatch is allowed.
  * `current` is the connection's own state when it is ahead of the ledger (a fight's result), and
  * `fight` the running encounter its creature is locked in (M8: the client goes back to it). A
- * fight settled while the player was away comes with it once (`report`, M8 T9).
+ * fight settled while the player was away comes with it once (`report`, M8 T9), and stays on its
+ * row until a `life` carrying it went out on an open socket.
  */
 export function sendLife(
   hub: Hub,
@@ -495,8 +499,9 @@ export function sendLife(
   const child = hub.ledger.pending(playerId);
   const pending = child ? bornFor(hub, child) : null;
   const fallback = head ? null : fallbackAfter(hub, hub.ledger.lastDead(playerId));
-  const report = takeReport(hub, playerId);
-  sendIfOpen(ws, {
+  const stored = storedReport(hub, playerId);
+  const report = stored?.report;
+  const sent = sendIfOpen(ws, {
     t: 'life',
     life: head ? withCurrent(lifeOf(hub, head), current) : null,
     genesisIn,
@@ -506,6 +511,8 @@ export function sendLife(
     ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
     ...(hub.ledger.takeRenewal(playerId) ? { renewed: true as const } : {}),
   });
+  // Told once: the report goes only once `life` went out on an open socket (M9 T9).
+  if (sent && stored) clearReport(hub, playerId);
   // A mating whose children were never written (an eviction between its round and the write) is finished now.
   for (const id of hub.ledger.openMatingCommits(playerId)) {
     if (hub.beacons.status(id) === 'ready') deliverBirth(hub, id).catch(() => {});

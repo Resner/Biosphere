@@ -4,7 +4,7 @@
 // connected participant hears the fight again from its start, and one that ended meanwhile settles.
 
 import { type EncJoin, encounterStartOf, fighterStartOf } from '../src/net/encounter-start';
-import type { HubMsg } from '../src/net/protocol';
+import type { FighterInfo, FighterOutcome, HubMsg } from '../src/net/protocol';
 import { Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import { applyJoins } from '../src/sim/encounter/join';
@@ -14,14 +14,15 @@ import type { FightRow } from './fight-store';
 import { type Fight, resend, tick } from './fights';
 import { HOLDS_ENCOUNTER } from './ledger-encounter';
 import type { PondRow } from './schema';
-import { settle } from './settle';
-import type { Hub } from './socket';
+import { backToLedger, settle } from './settle';
+import { type Hub, seated, sendIfOpen } from './socket';
 
 /**
  * Rebuilds every open fight the object doesn't hold in memory, then ticks it to `now`. The
  * constructor runs it after the migrations, and the alarm runs it too, so an evicted object that
  * only its watchdog wakes still settles its fights. A row whose fight is settled (its records are
- * written, though the close failed) or can't be rebuilt is taken out of the open index.
+ * written, though the close failed) is taken out of the open index; one that can't be rebuilt is
+ * given up (`giveUp`).
  */
 export function recoverFights(hub: Hub, now: number): void {
   for (const row of hub.fightStore.openRows()) {
@@ -31,20 +32,23 @@ export function recoverFights(hub: Hub, now: number): void {
     } catch (error) {
       // One fight that fails to rebuild must not keep the object from starting or the others from recovering.
       console.error('fight recovery failed', row.id, error);
-      hub.fights.release(row.id);
-      closeQuietly(hub, row.id);
+      giveUp(hub, row, now);
     }
   }
 }
 
 function recover(hub: Hub, row: FightRow, now: number): void {
   const fight = rebuild(hub, row);
-  if (!fight) console.error('fight recovery: the saved log does not rebuild', row.id);
-  const creatures = fight ? participants(fight.enc, row, 'creature') : [];
+  if (!fight) {
+    console.error('fight recovery: the saved log does not rebuild', row.id);
+    giveUp(hub, row, now);
+    return;
+  }
+  const creatures = participants(fight.enc, row, 'creature');
   const sql = hub.ctx.storage.sql;
   const settled = creatures.some((c) => sql.exec(HOLDS_ENCOUNTER, c, row.id).toArray().length > 0);
-  const busy = fight?.players.some((p) => hub.fights.playerLocked(p));
-  if (!fight || settled || busy) {
+  const busy = fight.players.some((p) => hub.fights.playerLocked(p));
+  if (settled || busy) {
     hub.fightStore.closeRow(row.id);
     return;
   }
@@ -120,10 +124,75 @@ function rebuild(hub: Hub, row: FightRow): Fight | null {
   };
 }
 
-function closeQuietly(hub: Hub, id: string): void {
+/**
+ * A fight whose saved log no longer rebuilds (M9 T9): flagged `recover-failed` once, its row
+ * closed and its locks released, as a settlement that fails is (`settle.ts`). Each connected
+ * participant hears `enc-end` without a settlement (each fighter as the log's start or join placed
+ * it, standing), then its creature as the ledger holds it. Nothing of the fight is written.
+ */
+function giveUp(hub: Hub, row: FightRow, now: number): void {
+  const named = namedIn(row);
   try {
-    hub.fightStore.closeRow(id);
+    hub.ledger.flagFight(
+      'recover-failed',
+      row.id,
+      named[0]?.player ?? '',
+      named[0]?.creature ?? '',
+      now,
+    );
+    hub.fightStore.closeRow(row.id);
   } catch (error) {
-    console.error('fight recovery: the row stays open', id, error);
+    console.error('fight recovery: the row stays open', row.id, error);
   }
+  hub.fights.release(row.id);
+  const players = new Set(named.map((f) => f.player));
+  const end: HubMsg = {
+    t: 'enc-end',
+    enc: row.id,
+    f: Array.isArray(row.frames) ? Math.min(row.frames.length, RULES.encounter.timeoutFrames) : 0,
+    hash: NO_HASH,
+    fighters: named.map(standing),
+  };
+  for (const player of players) {
+    const found = seated(hub, player);
+    if (found) sendIfOpen(found[0], end);
+  }
+  backToLedger(hub, players, now);
 }
+
+/** The end state a fight that never settled reports: no encounter was rebuilt to hash. */
+const NO_HASH = '0'.repeat(16);
+
+/** Every fighter the row's start and joins still name, as far as they read. */
+function namedIn(row: FightRow): FighterInfo[] {
+  const start: unknown = row.start;
+  const starters = isObj(start) && Array.isArray(start.fighters) ? start.fighters : [];
+  const joiners = Array.isArray(row.joins)
+    ? row.joins.map((j: unknown) => isObj(j) && j.fighter)
+    : [];
+  return [...starters, ...joiners].filter(
+    (f): f is FighterInfo =>
+      isObj(f) && typeof f.player === 'string' && typeof f.creature === 'string',
+  );
+}
+
+const isObj = (v: unknown): v is Record<string, unknown> => typeof v === 'object' && v !== null;
+
+/** A fighter as its start or join placed it, standing: nothing of the fight is kept. */
+const standing = (f: FighterInfo): FighterOutcome => ({
+  player: f.player,
+  creature: f.creature,
+  x: f.x,
+  y: f.y,
+  vx: f.vx,
+  vy: f.vy,
+  heading: f.heading,
+  biomass: f.biomass,
+  energy: f.energy,
+  health: f.health,
+  outcome: 'stood',
+  cause: null,
+  by: null,
+  egg: 'none',
+  eggBy: null,
+});

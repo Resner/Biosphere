@@ -110,6 +110,11 @@ export class Fights {
     return this.byPlayer.has(player);
   }
 
+  /** Whether the player is in a running fight: a lock still asking for its answer is not one yet. */
+  playerFighting(player: string): boolean {
+    return (this.byPlayer.get(player)?.fight ?? null) !== null;
+  }
+
   get(id: string): Lock | undefined {
     return this.byId.get(id);
   }

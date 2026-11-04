@@ -251,7 +251,9 @@ export function queueAccept(hub: Hub, ws: WebSocket, ask: MateAsk): void {
     .then(async () => {
       await accept(hub, ws, ask);
     })
-    .catch(() => sendIfOpen(ws, { t: 'error', code: 'mate-failed' }));
+    .catch(() => {
+      sendIfOpen(ws, { t: 'error', code: 'mate-failed' });
+    });
   hub.matingQueue = run;
 }
 

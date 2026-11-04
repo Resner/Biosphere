@@ -133,7 +133,7 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
     settled = hub.ledger.settle({
       enc: enc.id,
       fighters: records,
-      settlement: settlementOf(log, enc, Date.now()),
+      settlement: settlementOf(log, enc, hub.clock.now()),
       log: {
         stored: () => hub.fightStore.settlement(enc.id),
         seal: (signed) => {
@@ -191,24 +191,37 @@ function freeSeats(hub: Hub): void {
  */
 function unsettled(hub: Hub, lock: Lock, fight: Fight, fighters: FighterOutcome[]): void {
   const { enc } = fight;
-  const now = Date.now();
+  const now = hub.clock.now();
   try {
-    hub.ledger.flagSettleFailed(enc.id, lock.players[0] ?? '', lock.creatures[0] ?? '', now);
+    hub.ledger.flagFight(
+      'settle-failed',
+      enc.id,
+      lock.players[0] ?? '',
+      lock.creatures[0] ?? '',
+      now,
+    );
     hub.fightStore.closeRow(enc.id);
   } catch (error) {
     console.error('encounter settlement: the failure is not noted', error);
   }
   tell(hub, lock, { t: 'enc-end', enc: enc.id, f: enc.frame, hash: hashEncounter(enc), fighters });
   hub.fights.release(lock.id);
-  for (const player of lock.players) {
+  backToLedger(hub, lock.players, now);
+  freeSeats(hub);
+}
+
+/**
+ * Each connected player of a fight that wrote nothing plays its creature from the ledger's head
+ * again, as a sign-in would, and hears it in `life`.
+ */
+export function backToLedger(hub: Hub, players: Iterable<string>, now: number): void {
+  for (const player of players) {
     const found = seated(hub, player);
     if (!found) continue;
     const [ws, session] = found;
-    // The connection plays the creature from the ledger's head again, as a sign-in would.
     ws.serializeAttachment({ ...session, life: bind(hub, player, now) });
     sendLife(hub, ws, player);
   }
-  freeSeats(hub);
 }
 
 /**
@@ -260,7 +273,7 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
     ...vitalsOf(f),
     activeMs,
     savedMs: activeMs,
-    t: Date.now(),
+    t: hub.clock.now(),
   };
   if (!survived(f)) life = { ...life, savedN: life.n, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
