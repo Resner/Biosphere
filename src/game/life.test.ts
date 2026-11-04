@@ -592,6 +592,40 @@ describe('life clock', () => {
     expect(flow.killer).toBe('');
   });
 
+  it('ends the creature when a sign-in says a fight took it while the page was away (M8 T12)', async () => {
+    const report = {
+      enc: 'e'.repeat(64),
+      outcome: 'killed' as const,
+      cause: 'killed' as const,
+      by: 'Ana',
+      egg: 'none' as const,
+      eggBy: null,
+      frames: 90,
+    };
+    await play();
+    // A creature that lives on is still played.
+    feed({ t: 'life', life: null, genesisIn: 0, report: { ...report, outcome: 'escaped' } });
+    expect(flow.view().status).toBe('playing');
+    feed({ t: 'life', life: null, genesisIn: 0, report });
+    expect(flow.view().status).toBe('dead');
+    expect(flow.killer).toBe('Ana');
+    expect(flow.settledAway).toBe('killed');
+    flow.died('killed', 50);
+    await play();
+    expect(flow.settledAway).toBeNull();
+    feed({
+      t: 'life',
+      life: null,
+      genesisIn: 0,
+      report: { ...report, outcome: 'died', cause: 'toxin', by: null },
+    });
+    expect(flow.settledAway).toBe('toxin');
+    expect(flow.killer).toBeNull();
+    // The hub recorded that death: nothing is reported back.
+    flow.died('toxin', 60);
+    expect(sent.filter((m) => m.t === 'death')).toEqual([]);
+  });
+
   it('never reports a kill or an eaten egg itself', async () => {
     for (const cause of ['killed', 'eaten'] as const) {
       await play();

@@ -8,9 +8,8 @@ import type { PubKey } from '../ledger/record';
 import {
   checkSettlementSig,
   type FightLog,
-  frameLeaf,
+  framesRoot,
   joinHash,
-  merkleRoot,
   type SettledFighter,
   type Settlement,
   type SignedSettlement,
@@ -39,8 +38,7 @@ const widthAt = (starters: number, joins: FightLog['joins'], f: number): number 
   return n;
 };
 
-const rootOf = (log: FightLog): string =>
-  merkleRoot(log.frames.map((inputs, f) => frameLeaf(f, inputs)));
+const rootOf = (log: FightLog): string => framesRoot(log.frames);
 
 /** Each slot's result from the encounter at its end. An absent cause or slot is an absent key. */
 function resultsOf(enc: Encounter): SettledFighter[] {

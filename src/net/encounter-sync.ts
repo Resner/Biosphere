@@ -141,6 +141,11 @@ export class EncounterSync {
 
   constructor(private readonly opts: SyncOptions) {}
 
+  /** The referee's bundles from frame 0 without a gap, as sent (the log a settlement's root covers, M8 T12). */
+  get held(): readonly Inputs[] {
+    return this.bundles.slice(0, this.confirmed) as Inputs[];
+  }
+
   /** A fight is running: started and not yet ended. */
   get running(): boolean {
     return this.enc !== null && !this.over;

@@ -162,6 +162,8 @@ export class LifeFlow {
   private oldAge = false;
   /** The killer's name (empty when unnamed) once the hub has settled a kill of this creature. */
   private killedBy: string | null = null;
+  /** How the creature died in a fight settled while this page was away from it (M8 T12). */
+  private lostAway: DeathCause | null = null;
   private matureAtMs = 0;
   private cooldownUntilMs = 0;
   private pending = false;
@@ -196,6 +198,14 @@ export class LifeFlow {
   /** Who killed the creature, once the hub has settled the fight (M7 T13): '' unnamed, null alive. */
   get killer(): string | null {
     return this.killedBy;
+  }
+
+  /**
+   * The cause of a death the hub settled in a fight while this page was away from it (M8 T12): a
+   * `life` with no creature whose report says it was killed or died. Null otherwise.
+   */
+  get settledAway(): DeathCause | null {
+    return this.lostAway;
   }
 
   /** The pending child's egg was eaten in a fight: there is no child to fall back on. */
@@ -252,6 +262,7 @@ export class LifeFlow {
         this.fallback = msg.fallback ?? null;
         // The hub binds the creature again on every connection and counts from zero.
         if (this.status === 'playing') this.rebase = true;
+        this.lostInFight(msg);
         break;
       case 'ack':
         if (this.status !== 'playing') break;
@@ -289,9 +300,7 @@ export class LifeFlow {
         break;
       case 'died':
         if (this.status === 'playing') {
-          this.oldAge = msg.cause === 'old-age';
-          this.killedBy = msg.cause === 'killed' ? (msg.by ?? '') : null;
-          this.ended();
+          this.endedBy(msg.cause, msg.by);
         }
         // The hub's `died` follows the client's own report of a death, which has already ended it.
         this.fallback = msg.fallback ?? null;
@@ -300,6 +309,25 @@ export class LifeFlow {
         break;
     }
     this.waiter?.(msg);
+  }
+
+  /**
+   * A fight the creature played on this page ended while the page was away, and the hub's `life`
+   * says it died there (M8 T12): the life ends here as the hub's `died` would end it.
+   */
+  private lostInFight(msg: Extract<LifeMsg, { t: 'life' }>): void {
+    const { report } = msg;
+    if (this.status !== 'playing' || msg.life !== null || !report) return;
+    if (report.outcome !== 'killed' && report.outcome !== 'died') return;
+    const cause: DeathCause = report.outcome === 'killed' ? 'killed' : (report.cause ?? 'killed');
+    this.lostAway = cause;
+    this.endedBy(cause, report.by);
+  }
+
+  private endedBy(cause: DeathCause, by: string | null | undefined): void {
+    this.oldAge = cause === 'old-age';
+    this.killedBy = cause === 'killed' ? (by ?? '') : null;
+    this.ended();
   }
 
   /** Starts a recorded life: the saved creature if there is one, else a new genesis. */
@@ -320,6 +348,7 @@ export class LifeFlow {
     this.creature = null;
     this.oldAge = false;
     this.killedBy = null;
+    this.lostAway = null;
   }
 
   /** Cheap to read every frame; `view()` builds a new object. */
@@ -490,6 +519,7 @@ export class LifeFlow {
     this.sentReports = [];
     this.oldAge = false;
     this.killedBy = null;
+    this.lostAway = null;
     this.matureAtMs = 0;
     this.cooldownUntilMs = 0;
     return { kind: 'recorded', start, protect };

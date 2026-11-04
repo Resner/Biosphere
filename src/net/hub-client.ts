@@ -316,13 +316,10 @@ export class HubClient {
 
   /** A hub that reports another protocol version in `/v1/health` is out of reach for this page. */
   private async checkHealth(): Promise<void> {
-    const url = new URL(this.opts.url);
-    url.protocol = url.protocol === 'wss:' ? 'https:' : 'http:';
-    url.pathname = '/v1/health';
-    url.search = '';
+    const url = hubHttpUrl(this.opts.url, '/v1/health');
     const closes = this.closes;
     try {
-      const body = await (this.opts.fetchHealth ?? fetchJson)(url.toString());
+      const body = await (this.opts.fetchHealth ?? fetchJson)(url);
       const protocol = (body as { protocol?: unknown } | null)?.protocol;
       if (typeof protocol !== 'number' || protocol === PROTOCOL_VERSION) return;
     } catch {
@@ -368,8 +365,18 @@ export class HubClient {
   }
 }
 
-async function fetchJson(url: string): Promise<unknown> {
+/** A hub's HTTP endpoint, from its WebSocket URL. */
+export function hubHttpUrl(hubUrl: string, path: string): string {
+  const url = new URL(hubUrl);
+  url.protocol = url.protocol === 'wss:' || url.protocol === 'https:' ? 'https:' : 'http:';
+  url.pathname = path;
+  url.search = '';
+  return url.toString();
+}
+
+export async function fetchJson(url: string): Promise<unknown> {
   const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
   return res.json();
 }
 

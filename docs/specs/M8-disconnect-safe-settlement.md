@@ -410,7 +410,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Done: `src/net/proxy-snaps.ts` (`ProxyRelay` draws a fighter's away opponents and relays them from `EncounterSync.confirmedState()`, `ProxyReceiver` checks proxies); `RemoteSet` keeps a fighter who left while proxies or the fight move it (`away`, 60%), and `offered` keeps away remotes from engages.
   - Gotcha: "away" means not in the pond's roster (`member leave`), not quiet; a proxied remote takes only newer pond times, and its body stays in `RemoteBodies` until `RemoteSet` reports it gone.
 
-- [ ] T12 Consequences at the next sign-in, and the settlement checked on the client [opus] (after T4, T9, T10)
+- [x] T12 Consequences at the next sign-in, and the settlement checked on the client [opus] (after T4, T9, T10)
   - Steps:
     1. `src/game/away-report.ts`. A `life` with `report` tells it once, in plain words:
        - on the title or death screen: "While you were away, <species> was killed by <name>", "… died of <cause>", "… escaped a fight", or "… held its own in a fight";
@@ -430,6 +430,8 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
   - Acceptance (tests first):
     - Unit tests: each report kind gives its line, once. A settlement with one flipped bit, or a root that differs from the held frames, gives `verified: false`, and the correct one gives `true`.
     - The verification runs off the frame loop: no frame waits on it.
+  - Done: `AwayReport` tells `life.report` once (`away-report`/`death-report`, a toast on a page still playing; the species from `life` or the next history) and a playing page whose creature died away ends it (`LifeFlow.settledAway`); `FightVerify` in `FightPlay` checks `enc-end.settlement` in a later task (`EncounterSync.held`, keys cached from `/v1/pubkeys`).
+  - Gotcha: a reload of a killed player lands on the title, which offers the fallback (no death screen: the page never saw the death); `verified` is null for a failed settlement, a joiner never seated, or no keys.
 
 ### Harness and closing
 

@@ -14,6 +14,8 @@
       <!-- The world renewal notice (M6c T2, ADR 0040): once per returning identity, in the tagline's place. -->
       <p class="renewed" data-testid="renewed" role="status" hidden>The world was renewed in v0.7.2. Your identity is kept; your creatures start again.</p>
       <p class="tagline">Life is stirring in the water.</p>
+      <!-- A fight settled while the player was away (M8 T12): told once, at the next sign-in. -->
+      <div class="away-report" data-testid="away-report" role="status" hidden></div>
       <label class="name-field" data-testid="name-field" hidden>
         <span>Name</span>
         <input type="text" data-testid="name-input" maxlength="16" autocomplete="off" spellcheck="false" />
@@ -268,6 +270,7 @@
       <h2 data-testid="death-cause">Lost</h2>
       <p class="cause-hint" data-testid="death-hint"></p>
       <p class="species" data-testid="death-species"></p>
+      <div class="away-report" data-testid="death-report" role="status" hidden></div>
       <dl>
         <div><dt>Survived</dt><dd data-testid="death-survived"></dd></div>
         <div><dt>Peak biomass</dt><dd data-testid="death-peak"></dd></div>

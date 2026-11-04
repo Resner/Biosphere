@@ -25,6 +25,7 @@ import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
 import type { FightShowView } from './app-fight';
 import type { BenchStatus } from './auto-quality';
+import type { ToldReport } from './away-report';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
@@ -51,6 +52,12 @@ export interface BsState {
    * at most once per identity; null until the hub has answered.
    */
   renewed: boolean | null;
+  /**
+   * The last fight told on this page as settled while the player was away (M8 T12): the hub's
+   * `FightReport` (`enc`, `outcome`, `cause`, `by` and `eggBy` as player names, `egg`, `frames`)
+   * and the `lines` shown; null before one.
+   */
+  report: ToldReport | null;
   /** Food items handed to the renderer this tick. */
   visibleFood: number;
   /** The carrion pieces on the water in this life's world (M7 T14), in id order. */

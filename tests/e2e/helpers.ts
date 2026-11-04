@@ -213,6 +213,8 @@ export const M7_LIFECYCLE_HUB = 'http://localhost:8812';
 export const M8_RESUME_HUB = 'http://localhost:8813';
 /** The M8 restart spec's hub (M8 T10): the authority restarts mid-fight (`POST /v1/e2e/restart`). */
 export const M8_RESTART_HUB = 'http://localhost:8814';
+/** The M8 away spec's hub (M8 T12): pages close mid-fight, with `AWAY_GRACE_MS` 500. */
+export const M8_AWAY_HUB = 'http://localhost:8816';
 /** The M8 proxy spec's hub (M8 T11): an away fighter seen by its opponent and, by proxy, a spectator. */
 export const M8_PROXY_HUB = 'http://localhost:8815';
 

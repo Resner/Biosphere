@@ -118,6 +118,8 @@ export class LifeStarts {
       hud.setBody(bodyLabel(app.session.body));
       app.genomeSync.setOwn(app.session.body.text);
       app.hints.startLife();
+      // What happened while the player was away belongs to the life before.
+      app.screens.setReport([]);
     }
     app.frame.view.body = app.session.body.creature;
     app.lastClock = null;
