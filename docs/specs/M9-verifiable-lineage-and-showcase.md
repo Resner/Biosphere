@@ -252,7 +252,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### The verifier
 
-- [ ] T3 Proof bundles and the chain verifier [opus] (after T1)
+- [x] T3 Proof bundles and the chain verifier [opus] (after T1)
+  - Done: `proof.ts`, `verify.ts` (index, report, `PROBLEM_TEXT`), `verify-chain.ts`, the family stubs (with `reachOf` and `fightsOf` for T4 and T6), `tests/lineage-fixture.ts` (`lineageHistory`, `bundleOf`, `resign`) and `lineage.json`. Honest hub egg flags mean A1's kill also eats B1's egg (T6's eaten-egg case is in the one fight).
+  - Gotcha: Ed25519 via noble took 1.5 ms a signature, so countersignatures go through `key-verify.ts` (the key tabled once, held equal to `verify` by its test); T4–T6 add their codes to `PROBLEM_TEXT`.
   - Steps:
     1. `src/ledger/proof.ts`: the bundle and fight-proof shapes, with `parseProofBundle` and `parseFightProof` for untrusted JSON.
        - Each list and string is capped: at most 64 creatures, 4,096 records, 512 keys and so on; a genome text of 595 characters; hex ids.
@@ -273,7 +275,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     4. `tests/lineage-fixture.ts`: an honest authority in Node, with a fixed authority key, two owner keys and the recorded beacons of `tests/fixtures/drand/`. It writes one history that holds every kind:
        - two genesis creatures, A0 (player A) and B0 (player B), with checkpoints;
        - their mating, two births A1 and B1, and A promoting to A1 (A0 frozen);
-       - a fight between A1 and B0, built like M8 T4's golden settlement (an `EncStart` of their genomes and conditions, `null` inputs, `settlementOf`), with a pond seed picked and pinned so that A1 kills B0;
+       - a fight between A1 and B0, built like M8 T4's golden settlement (an `EncStart` of their genomes and conditions, `null` inputs, `settlementOf`), with a pond seed picked and pinned so that A1 kills B0. B0 carries B1 as an egg (B1 is pending), so the kill eats it and B1 dies `eaten` in the same settlement;
        - A1 dying of a toxin, and A restoring A0.
 
        Every value comes from the gates' functions, under scales it is given. `src/ledger/__golden__/lineage.json` pins the bundle with A1 as its subject.
@@ -385,7 +387,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
       - a fighter's start biomass beyond the reach (re-signed by the fixture's key, so only the bound catches it);
       - one input changed in the log (`replay:root`).
     - A log passed as `null` counts as pruned, with no problem.
-    - The eaten-egg case (a second fixture fight in which A1 eats B1's egg) verifies, and its tampers are named.
+    - The eaten-egg case verifies, and its tampers are named: the fixture's fight already eats B1's egg with B0's death, so `bundleOf(history, B1)` holds it.
   - Notes: `src/ledger` must not import `src/net` at run time. The replay comes in through `opts.replay`, and the tests pass `verifyEncounter`.
 
 ### The authority

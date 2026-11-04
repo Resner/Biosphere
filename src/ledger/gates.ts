@@ -22,6 +22,10 @@ export interface Scales {
 
 export const LIVE_SCALES: Scales = Object.freeze({ lifespan: 1, mating: 1 });
 
+/** Whether `s` is a test world: any clock shortened. */
+export const isScaled = (s: Scales): boolean =>
+  s.lifespan !== LIVE_SCALES.lifespan || s.mating !== LIVE_SCALES.mating;
+
 /** A creature's condition in hundredths. */
 export interface Condition {
   biomass: number;

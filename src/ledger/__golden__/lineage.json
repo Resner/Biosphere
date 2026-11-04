@@ -1,0 +1,537 @@
+{
+  "v": 1,
+  "kind": "proof",
+  "subject": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+  "world": {
+    "epoch": 3,
+    "rules": 11,
+    "scales": {
+      "lifespan": 1,
+      "mating": 1
+    }
+  },
+  "keys": [
+    {
+      "id": "dBwGxjx2",
+      "publicKey": "ukJFjoO6eSa6i48-mrnKrw8cSRjdqMVRCE966xBlt0s",
+      "from": 1793029275000
+    }
+  ],
+  "creatures": [
+    {
+      "id": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+      "genome": "ABuaU6kCAAAArOMAAB4AAAABcR0AWHMA9S_K9PkA6AABggwAYQAArQBTkz-Dtf8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABMnQDSR2kAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACSDQXGAX5-gfZSAKQAADJtfpA0ZAAAAAAAAAAAq-wAAAAAAAAAAABjUFwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABAPio61CQoDAGdXCQQfAAAAAcunAGRvAPUiwzT-AO4AASgaAOwAAN8ARMFEyrLbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAO6oAum2_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8wGiFABbUkNPgQGDAADqoXtbc5sAAAAAAAAAAAAAAADQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "id": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+      "genome": "GwCWU6kCAAAArOMAAB4AAAABbRgAVXgA8jDA6_kA4gABgxAAYQAAqQBRljuEtP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAkqADSR4UAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACSNA_HAn5-gfZSAKQAADJtfpA0ZAAAAAAAAAAAq-wAAAAAAAAAAABjUFwAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbmnvVBwEAALHGBAsAAAAAAXEdAFhzAPUvyvT5AOgAAYIMAGEAAK0AU5M_g7X_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAATJ0Aq1JpAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAog0FxgF7e4D5VACkAAFLbZpxNG8AAAAAAAAAAKvsAAAAAAAAAAAAY1BcAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    },
+    {
+      "id": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+      "genome": "EA-KjrUJCgMAZ1cJBB8AAAABy6UAX3IA-iLMM_oA6wABKhQA8wAA2wBKvkDDteAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7qgC6bbkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADzAcYlAFtSQ0-BAYMAAOqhe1tzmwAAAAAAAAAAAAAAANAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZ-XjBQAFAGdKFjQfAAAAAcunAGRvAPUiwzT-AO4AASgaAOwAAN8ARMFEyrLbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM6sAqUy_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8gCiFAFsaEWckwCDAADpg59bX9AAAAAAAAAAAAAAAADQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+    }
+  ],
+  "records": [
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "birth",
+        "creature": "",
+        "seq": 0,
+        "prev": "",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "body": {
+          "commit": "9c4f1e754f90d69e553b8d012dbd24e98b7ba3c3c72a8e33e0d057b262ceb6e3",
+          "round": 33410029,
+          "slot": 0,
+          "parents": [
+            "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+            "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2"
+          ],
+          "mates": [
+            "31d41accd0cc7248487e94b668bea02c23309a4844dc4c320973c7124cb069dd",
+            "a801a47264bf347ae2ab14dce6f06d71ad4d2bdf4c42b420d0dacc9216cf154a"
+          ],
+          "genome": "2caa95e4de2d0b4a18178e5b29eb0e04a75952fb02c2cf63d3958f7eb4d0aa21",
+          "generation": 1,
+          "karyotype": 2
+        },
+        "t": 1793033452000
+      },
+      "hash": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+      "ownerSig": null,
+      "authSig": "54NZm8Zo-wIkEHXBGRjHyFuAzJ_8iLCNz_N-YaJ3Xrn5epsKILneawh6qR-BRRgWjvNwo8QSkx4AtsOzr6KRBg",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "promote",
+        "creature": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+        "seq": 1,
+        "prev": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033472000,
+        "body": {
+          "role": "child",
+          "parent": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551"
+        }
+      },
+      "hash": "ed3db109d0e5e76152bafae8070bfb42dc4222484af9bf6b4d4c2f17b75ea596",
+      "ownerSig": "Iv4_Do6wkOGDLc6VVxL3SE9Zq_n3rTpox8xRzFc2nQlau0w2Z1hIIevVMnyh4HBXmqgVMf-YWhfrUkXzCrvIBA",
+      "authSig": "8oFj0DoAz1B7H4Yll1R4awyznS39Agf_HtYYODmYedbYnLubCV8h7lLJgvalyI_9THkChWYaIo4h7BIE1FpNBw",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "checkpoint",
+        "creature": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+        "seq": 2,
+        "prev": "ed3db109d0e5e76152bafae8070bfb42dc4222484af9bf6b4d4c2f17b75ea596",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033532000,
+        "body": {
+          "activeMs": 60000,
+          "biomass": 17277,
+          "energy": 34554,
+          "health": 13144
+        }
+      },
+      "hash": "f85ea089de6d146a19cf15eba907643a859c296a09459edbd5725ae1b225b34e",
+      "ownerSig": null,
+      "authSig": "U7QmpBlCuWlvjIlydAsKJqPiKxVGSPI_ld1F30wtjVPdhokEWcGEWmd_JeDLJiaU8sBBy0Uy8V2AsfAKVK5vCA",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "encounter",
+        "creature": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+        "seq": 3,
+        "prev": "f85ea089de6d146a19cf15eba907643a859c296a09459edbd5725ae1b225b34e",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033567900,
+        "body": {
+          "enc": "1056fa6f96fb9ce29844a5f66bd246697cc784229bddb7c5c92413e4ff9f1198",
+          "outcome": "stood",
+          "frames": 57,
+          "biomass": 32219,
+          "energy": 24232,
+          "health": 11594,
+          "reward": 14073,
+          "activeMs": 95700
+        }
+      },
+      "hash": "9b8b8bb6353ffb89951b6b0a095b00ea244d1080cd1ac2fc749b937315fbd5ed",
+      "ownerSig": null,
+      "authSig": "UcHrJvDXo9U51YbHbRa6FBOfH3asb_lTTuFfu2rtJzROnKcHYZs8UKmJt2rZi0QWIAkAg0tCHO2ipw1fVjXVCQ",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "checkpoint",
+        "creature": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+        "seq": 4,
+        "prev": "9b8b8bb6353ffb89951b6b0a095b00ea244d1080cd1ac2fc749b937315fbd5ed",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033587900,
+        "body": {
+          "activeMs": 115700,
+          "biomass": 32219,
+          "energy": 24232,
+          "health": 11594
+        }
+      },
+      "hash": "84147f177ef0c4e4fe9dc657fa99a5c992da79911dd358bd4ec1971067e70ad9",
+      "ownerSig": null,
+      "authSig": "j6RxsPttnZGtK-d_0AVdsT22DNy9dWjHvLC8JmyzFNQ4OEgmlTSGwIYAoOYh0UjgKg_E9VVmdZQiA3e6KvAKBQ",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "death",
+        "creature": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+        "seq": 5,
+        "prev": "84147f177ef0c4e4fe9dc657fa99a5c992da79911dd358bd4ec1971067e70ad9",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033587900,
+        "body": {
+          "cause": "toxin",
+          "activeMs": 115700,
+          "biomass": 32219
+        }
+      },
+      "hash": "33b95e096ad1e17678e2f0e10343a92b82835a1dd6958368d056cce561c9c64a",
+      "ownerSig": null,
+      "authSig": "RL8ALhjkC8NPD3w7YEYgAudoohpSKf-S_J98zsEe24sC-qQF2tRqkXwPYbxKp1eXCx6w7rzEYnU_8-j8jB2TCw",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "genesis",
+        "creature": "",
+        "seq": 0,
+        "prev": "",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "body": {
+          "commit": "e53ac00bf44533f7d490389d583fa0407e71f3d388ef147ac1de2db15894234e",
+          "round": 33409839,
+          "genome": "f78b9bd487d2551e134d725278377b3cda3f99b89c61ffed2a12cba76c387d2c",
+          "generation": 0,
+          "karyotype": 2
+        },
+        "t": 1793032882000
+      },
+      "hash": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+      "ownerSig": null,
+      "authSig": "0j4sdhQS8LmrKkt_NTXoxbU0OFpEjDuV3DNu_6ri1wRx2DzsjwslGfIk6ci1q5Kc_Odv1rI3SjR7BCNYOOiJCw",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "checkpoint",
+        "creature": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+        "seq": 1,
+        "prev": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033163823,
+        "body": {
+          "activeMs": 281823,
+          "biomass": 11932,
+          "energy": 23864,
+          "health": 10923
+        }
+      },
+      "hash": "8df2edf1e25bcb8845de751d36e9cd5fd99ed0a0f8502f17ab491ddb9543939c",
+      "ownerSig": null,
+      "authSig": "zExFTxrjAeZBTmA4ahmq9QmH3gEpFjzoOs_JHPe2m581EXb1M0pnDgnPpAgQtz84ze6K7VNNYSSFkTPpRei8DA",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "checkpoint",
+        "creature": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+        "seq": 2,
+        "prev": "8df2edf1e25bcb8845de751d36e9cd5fd99ed0a0f8502f17ab491ddb9543939c",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033435647,
+        "body": {
+          "activeMs": 553647,
+          "biomass": 23864,
+          "energy": 47728,
+          "health": 15447
+        }
+      },
+      "hash": "8c22ad4cf11278c032685b19757b587e3de2e2c86a3e16e2c905a9028f7a7537",
+      "ownerSig": null,
+      "authSig": "pOy8z9-v5ksXGugTymEuqsmrOPDQsPGPeFyvQtyt4nhLZwYjQal0BRqux0Etpypl7__29xGFnmcrFwFdb9opBQ",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "mate-commit",
+        "creature": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+        "seq": 3,
+        "prev": "8c22ad4cf11278c032685b19757b587e3de2e2c86a3e16e2c905a9028f7a7537",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033446147,
+        "body": {
+          "commit": "9c4f1e754f90d69e553b8d012dbd24e98b7ba3c3c72a8e33e0d057b262ceb6e3",
+          "round": 33410029,
+          "role": "a",
+          "partner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+          "partnerCreature": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+          "genome": "f78b9bd487d2551e134d725278377b3cda3f99b89c61ffed2a12cba76c387d2c",
+          "partnerGenome": "902dae9a61d547a2d4250ca574f2d736134a20e10948881d2f2c9d9e5aa45008",
+          "generation": 0,
+          "activeMs": 564147,
+          "biomass": 20284,
+          "energy": 33409,
+          "health": 14242,
+          "cooldownUntilMs": 1104147,
+          "biomassBefore": 23864,
+          "energyBefore": 47728,
+          "healthBefore": 15447
+        }
+      },
+      "hash": "31d41accd0cc7248487e94b668bea02c23309a4844dc4c320973c7124cb069dd",
+      "ownerSig": null,
+      "authSig": "LmRQLP0owgEXjY4C2qo0B9RnvnH3_hhtv7Ilpr_CyWh24jpX7JLrN9cfKOqTze_d-zv3RKktx8r_W7d7ep9oDQ",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "promote",
+        "creature": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+        "seq": 4,
+        "prev": "31d41accd0cc7248487e94b668bea02c23309a4844dc4c320973c7124cb069dd",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "t": 1793033472000,
+        "body": {
+          "role": "parent",
+          "child": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+          "activeMs": 564147,
+          "biomass": 20284,
+          "energy": 33409,
+          "health": 14242,
+          "cooldownUntilMs": 1104147
+        }
+      },
+      "hash": "438918ba41458b6d266f8b62effee2c41783076aa247590ab673c25e7d5a9288",
+      "ownerSig": null,
+      "authSig": "xxOvvT0x4yItBZXi2VchmuDLzDBKqs_VsOsQFLK_sp9fItyQ3NE1QQ2n2kVEGspkL6Zx-pBvTx0FwHBFKpLhCA",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "genesis",
+        "creature": "",
+        "seq": 0,
+        "prev": "",
+        "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+        "body": {
+          "commit": "c3a3622afabae5268e4c4a19ebc6c238d7fc06b28d75aae519d77185233b443b",
+          "round": 33409841,
+          "genome": "902dae9a61d547a2d4250ca574f2d736134a20e10948881d2f2c9d9e5aa45008",
+          "generation": 0,
+          "karyotype": 2
+        },
+        "t": 1793032888000
+      },
+      "hash": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+      "ownerSig": null,
+      "authSig": "icjko0oeiR-87J3EQtzlFZ7SUG1KYZoHEV7CbsyFka5Gt594hMi0YSnZ6YGwL9NMxlOMvBNQZIM09GeBKU5aCQ",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "checkpoint",
+        "creature": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+        "seq": 1,
+        "prev": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+        "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+        "t": 1793033166823,
+        "body": {
+          "activeMs": 278823,
+          "biomass": 13582,
+          "energy": 27164,
+          "health": 11654
+        }
+      },
+      "hash": "cfe068f0d3b5f55c1347d447d6e00debaf97376919da1b2b5da0978b5b944826",
+      "ownerSig": null,
+      "authSig": "H6BD4JkKdzKGyUzG-cWc_0FRtoSavY5l5VfxZ-USZJvpYyKBvkOraA8bONEklRRGXxvZ05-NzZfrVkED2wbEDw",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "checkpoint",
+        "creature": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+        "seq": 2,
+        "prev": "cfe068f0d3b5f55c1347d447d6e00debaf97376919da1b2b5da0978b5b944826",
+        "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+        "t": 1793033435647,
+        "body": {
+          "activeMs": 547647,
+          "biomass": 27165,
+          "energy": 54329,
+          "health": 16481
+        }
+      },
+      "hash": "e599029dd68cd3446a35cf519fb700aed6e20f04fe9fbd3d097ad5efdd268f74",
+      "ownerSig": null,
+      "authSig": "nHDMib96xxPmM1ECtnJggt4Jl-YWgJbGLsGyvo5NoFMoZTyx7n8RtvD6Wys7WJL33_8VzcJqbvacjjt3sZPWBg",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "record": {
+        "v": 1,
+        "rules": 11,
+        "kind": "mate-commit",
+        "creature": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+        "seq": 3,
+        "prev": "e599029dd68cd3446a35cf519fb700aed6e20f04fe9fbd3d097ad5efdd268f74",
+        "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+        "t": 1793033446147,
+        "body": {
+          "commit": "9c4f1e754f90d69e553b8d012dbd24e98b7ba3c3c72a8e33e0d057b262ceb6e3",
+          "round": 33410029,
+          "role": "b",
+          "partner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+          "partnerCreature": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+          "genome": "902dae9a61d547a2d4250ca574f2d736134a20e10948881d2f2c9d9e5aa45008",
+          "partnerGenome": "f78b9bd487d2551e134d725278377b3cda3f99b89c61ffed2a12cba76c387d2c",
+          "generation": 0,
+          "activeMs": 558147,
+          "biomass": 23090,
+          "energy": 38030,
+          "health": 15195,
+          "cooldownUntilMs": 1098147,
+          "biomassBefore": 27165,
+          "energyBefore": 54329,
+          "healthBefore": 16481
+        }
+      },
+      "hash": "a801a47264bf347ae2ab14dce6f06d71ad4d2bdf4c42b420d0dacc9216cf154a",
+      "ownerSig": null,
+      "authSig": "6cLPLDI1AThe89XaCQav1pU4rriuj5VUplOdaYupnB7Ssu8O6R5pBcdCIxVKIRXWUEjSH89Vzq0E0eNb1O6NDA",
+      "keyId": "dBwGxjx2"
+    }
+  ],
+  "commits": [
+    {
+      "commitment": {
+        "v": 1,
+        "kind": "mate",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "round": 33410029,
+        "req": "406add88d793400ce99d9d1773dd89a208aaa99e2736a255a7e8d843d3fc0848",
+        "t": 1793033445647,
+        "data": {
+          "a": {
+            "v": 1,
+            "kind": "mate",
+            "creature": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+            "partner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+            "partnerCreature": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+            "nonce": "MMMMMMMMMMMMMMMMMMMMMM",
+            "sig": "QA5fMJeO25xRBIx1RDe6I7YVEuLqsKmpOrlfMg2yTEtgKf4ptJfYhaqxY6Oe04SId_nXaCSRS9NdktOA3r0wAw"
+          },
+          "b": {
+            "v": 1,
+            "kind": "mate",
+            "creature": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+            "partner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+            "partnerCreature": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+            "nonce": "MMMMMMMMMMMMMMMMMMMMMM",
+            "sig": "Fc6Mtr86lJJxNhCgGIyvLfHmfAdHhRSeDwaHml8QhX8j46qgHcc6VHVus9dGSJryCmbmrBFZfJKHSNFooH9aCA"
+          }
+        }
+      },
+      "authSig": "85oLCLkaoAdErEKBzptD5QJGaf5P66ki9yrlOteCmUo1Zd9kMHBQz0fVCmqzfehJu2y392F0yjeysDhp_wSIAQ",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "commitment": {
+        "v": 1,
+        "kind": "genesis",
+        "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+        "round": 33409839,
+        "req": "772fd1cf4d6963a30e32deb8f4bbfce0201e8fee0ef2d6670bb4ab32a343584c",
+        "t": 1793032876000,
+        "data": {
+          "nonce": "A0AAAAAAAAAAAAAAAAAAAA",
+          "sig": "j5iY0BXYMPKfgThcua4BOGh9xEm06wy7RocXKgDOdHaaeP3PUuYBQ6nb8y4Pa6ZKXuZkISzf789r7t_TuqphBw"
+        }
+      },
+      "authSig": "D6g9BArgtBHV4MzRz2xddF6xk0q0c6P83UUFRwFkEbOn5K4MH3peQBLd34dlHFddUvUZgf7XeJrUbeaiPsyfBw",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "commitment": {
+        "v": 1,
+        "kind": "genesis",
+        "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+        "round": 33409841,
+        "req": "86cca038c1eea21c99be501bdd6ed1b96fb59bc65923f19db5ffaa55859a09da",
+        "t": 1793032882000,
+        "data": {
+          "nonce": "B1BBBBBBBBBBBBBBBBBBBB",
+          "sig": "gaMcuz5uDwsi3WG6P4k-otfL6M0B_zUGPFIZZxXG8e3WfPyHOdSauPVFK3wrfqE9TITbNIAN9aCWy8AtkurBDA"
+        }
+      },
+      "authSig": "QrhRmqlVkAnOxEc8gOVehZHAd9dlINq92hyTrG1og68mhBNy7v8uIhdWJfh4AcbcePMzliMzhPAUCVcp9gjZDA",
+      "keyId": "dBwGxjx2"
+    }
+  ],
+  "beacons": [
+    {
+      "round": 33409839,
+      "signature": "8719d301956004ec5c40276b8e98a7dfe101415a5423dbb0d0fb0f90abfa7b9206a577a796bd210ed6ade2a8eff2e7d1"
+    },
+    {
+      "round": 33409841,
+      "signature": "8e8e7c933c3426227b986fcf5900b97fb156ca71d1054470ae8d4045a0c75c802208c4ef0d19da28f4b9a600daaa8e14"
+    },
+    {
+      "round": 33410029,
+      "signature": "86474bf9f3e39399102525a79a7abf0206bc229b0270f06b44a29eff4a5291a77c3ef5a05c9fd1d7e11b02fd7ca17ee4"
+    }
+  ],
+  "settlements": [
+    {
+      "settlement": {
+        "v": 1,
+        "kind": "settlement",
+        "rules": 11,
+        "enc": "1056fa6f96fb9ce29844a5f66bd246697cc784229bddb7c5c92413e4ff9f1198",
+        "pondSeed": "lineage-0",
+        "start": "cdb0026a62b4434d7df4ff3b655d456a13efe90d6a76fb8ac91a46afe1afd0a5",
+        "joins": [],
+        "frames": 57,
+        "root": "299e05df80d1cd781dc1820d19101d9560dbab8dcdf08b8654c35dbba90b5e02",
+        "hash": "656f04dc777377b0",
+        "referee": "authority",
+        "results": [
+          {
+            "player": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+            "creature": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
+            "outcome": "stood",
+            "frame": 57,
+            "egg": "none",
+            "biomass": 32219,
+            "energy": 24232,
+            "health": 11594,
+            "reward": 14073
+          },
+          {
+            "player": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
+            "creature": "eb15994654c05ae8d834bac3af3979b479d4dfe4d70be9c020c5c75d63be3cb2",
+            "outcome": "killed",
+            "cause": "killed",
+            "by": 0,
+            "frame": 57,
+            "egg": "eaten",
+            "eggBy": 0,
+            "biomass": 23456,
+            "energy": 30401,
+            "health": 0,
+            "reward": 0
+          }
+        ],
+        "t": 1793033567900
+      },
+      "hash": "1915f805d5ef17c961588d9abdfd254faa68927f91b5c8622da8cf29f693881e",
+      "authSig": "SLG7Skg34ckaOcPNrzSLvTwuKaF2GIRf2IwthJd0OmQauq8jwwk8_XiJQ69PVnqkM9qMB9eMyCaFhU678XCQBA",
+      "keyId": "dBwGxjx2"
+    }
+  ],
+  "flags": [],
+  "more": [],
+  "t": 1793033652900
+}
