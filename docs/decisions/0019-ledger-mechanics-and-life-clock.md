@@ -1,6 +1,6 @@
 # 0019: Ledger mechanics, genesis commitments and the life clock (M4)
 
-- Status: accepted (the maturity minimum is max(7 min, 10% of the lifespan): 0029; genesis writes karyotype 2 genomes: 0025; a committed encounter's locked time counts as active time, offline too: 0053)
+- Status: accepted (the maturity minimum is max(7 min, 10% of the lifespan): 0029; genesis writes karyotype 2 genomes: 0025; a committed encounter's locked time counts as active time, offline too: 0053; the credit and the growth clamp are bounded per record interval, from the last record: 0055)
 - Date: 2026-10-26
 
 ## Context
