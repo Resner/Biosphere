@@ -6,6 +6,7 @@ import type { App } from './app';
 import { setBadge } from './badge';
 import type { Body } from './body';
 import { listItem, pick } from './dom';
+import { offered } from './engage';
 import { growthText, sizeShare } from './growth';
 import { countdownText } from './life-text';
 import { inspectCard } from './mate-card';
@@ -156,7 +157,7 @@ export class PlayUi {
     if (!playingNow || invited) app.inspected = null;
     const remote = app.inspected ? app.remoteViews.find((r) => r.id === app.inspected) : undefined;
     if (app.inspected && !remote) app.inspected = null;
-    if (!remote || remote.alpha < 0.5) {
+    if (!remote || !offered(remote)) {
       if (!inspectPanel.hidden) inspectPanel.hidden = true;
       return;
     }
@@ -211,7 +212,7 @@ export class PlayUi {
       let best = Number.POSITIVE_INFINITY;
       let near: DrawnRemote | null = null;
       for (const r of remoteViews) {
-        if (r.alpha < 0.5 || r.fighting) continue;
+        if (!offered(r) || r.fighting) continue;
         const gap = Math.hypot(r.x - player.x, r.y - player.y);
         const reach = RULES.mating.reachBodies * 2 * Math.max(r.radius, own);
         if (gap > reach || gap >= best) continue;

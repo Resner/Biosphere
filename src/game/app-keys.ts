@@ -1,5 +1,5 @@
 import type { App } from './app';
-import { fightKey } from './engage';
+import { fightKey, offered } from './engage';
 import { enterHatches } from './input';
 
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
@@ -42,7 +42,7 @@ export function attachPointer(app: App): void {
     let best = Number.POSITIVE_INFINITY;
     app.inspected = null;
     for (const r of app.remoteViews) {
-      if (r.alpha < 0.5) continue;
+      if (!offered(r)) continue;
       const gap = Math.hypot(r.x - at.x, r.y - at.y);
       if (gap > Math.max(r.radius, INSPECT_MIN_PX / scene.pxPerWu) || gap >= best) continue;
       best = gap;
