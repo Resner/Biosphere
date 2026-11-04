@@ -300,9 +300,7 @@ export class LifeFlow {
         break;
       case 'died':
         if (this.status === 'playing') {
-          this.oldAge = msg.cause === 'old-age';
-          this.killedBy = msg.cause === 'killed' ? (msg.by ?? '') : null;
-          this.ended();
+          this.endedBy(msg.cause, msg.by);
         }
         // The hub's `died` follows the client's own report of a death, which has already ended it.
         this.fallback = msg.fallback ?? null;
@@ -322,9 +320,13 @@ export class LifeFlow {
     if (this.status !== 'playing' || msg.life !== null || !report) return;
     if (report.outcome !== 'killed' && report.outcome !== 'died') return;
     const cause: DeathCause = report.outcome === 'killed' ? 'killed' : (report.cause ?? 'killed');
-    this.oldAge = cause === 'old-age';
-    this.killedBy = cause === 'killed' ? (report.by ?? '') : null;
     this.lostAway = cause;
+    this.endedBy(cause, report.by);
+  }
+
+  private endedBy(cause: DeathCause, by: string | null | undefined): void {
+    this.oldAge = cause === 'old-age';
+    this.killedBy = cause === 'killed' ? (by ?? '') : null;
     this.ended();
   }
 

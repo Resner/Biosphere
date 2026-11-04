@@ -5,12 +5,8 @@
 // the frame loop. DOM-free: the app hands it the fetch.
 
 import type { PubKey } from '../ledger/record';
-import {
-  checkSettlementSig,
-  frameLeaf,
-  merkleRoot,
-  type SignedSettlement,
-} from '../ledger/settlement';
+import { checkSettlementSig, type SignedSettlement } from '../ledger/settlement';
+import { framesRoot } from '../net/encounter-verify';
 
 /** A fight as this client holds it at its end. */
 export interface HeldFight {
@@ -36,7 +32,7 @@ export function settlementProblems(
     const doc = s.settlement;
     if (doc.enc !== held.enc) problems.push('enc');
     if (doc.frames !== held.frames.length) problems.push('frames');
-    if (doc.root !== merkleRoot(held.frames.map((inputs, f) => frameLeaf(f, inputs)))) {
+    if (doc.root !== framesRoot(held.frames)) {
       problems.push('root');
     }
     if (held.hash === null || doc.hash !== held.hash) problems.push('hash');
@@ -58,15 +54,6 @@ export function parsePubKeys(body: unknown): PubKey[] | null {
     out.push({ id, publicKey });
   }
   return out;
-}
-
-/** The hub's `/v1/pubkeys`, from its WebSocket URL. */
-export function pubkeysUrl(hubUrl: string): string {
-  const url = new URL(hubUrl);
-  url.protocol = url.protocol === 'wss:' || url.protocol === 'https:' ? 'https:' : 'http:';
-  url.pathname = '/v1/pubkeys';
-  url.search = '';
-  return url.toString();
 }
 
 /**

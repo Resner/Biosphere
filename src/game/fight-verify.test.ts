@@ -2,12 +2,12 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { PubKey } from '../ledger/record';
 import type { FightLog, SignedSettlement } from '../ledger/settlement';
+import { hubHttpUrl } from '../net/hub-client';
 import {
   cachedKeys,
   FightVerify,
   type HeldFight,
   parsePubKeys,
-  pubkeysUrl,
   settlementProblems,
 } from './fight-verify';
 
@@ -156,7 +156,11 @@ describe('the authority keys', () => {
     for (const bad of [null, 1, {}, { keys: 'x' }, { keys: [{ id: 1, publicKey: 'b' }] }]) {
       expect(parsePubKeys(bad)).toBeNull();
     }
-    expect(pubkeysUrl('ws://127.0.0.1:8816/v1/hub?x=1')).toBe('http://127.0.0.1:8816/v1/pubkeys');
-    expect(pubkeysUrl('wss://hub.example/v1/hub')).toBe('https://hub.example/v1/pubkeys');
+    expect(hubHttpUrl('ws://127.0.0.1:8816/v1/hub?x=1', '/v1/pubkeys')).toBe(
+      'http://127.0.0.1:8816/v1/pubkeys',
+    );
+    expect(hubHttpUrl('wss://hub.example/v1/hub', '/v1/pubkeys')).toBe(
+      'https://hub.example/v1/pubkeys',
+    );
   });
 });

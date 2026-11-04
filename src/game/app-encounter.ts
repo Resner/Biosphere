@@ -7,7 +7,7 @@ import type { Creature } from '../genome/stats';
 import type { PubKey } from '../ledger/record';
 import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
-import type { FightMsg } from '../net/hub-client';
+import { type FightMsg, fetchJson, hubHttpUrl } from '../net/hub-client';
 import type { ClientMsg } from '../net/protocol';
 import { radiusOf } from '../sim/encounter/reach';
 import type { Encounter, EncounterEvent, Outcome, Stance } from '../sim/encounter/types';
@@ -17,7 +17,7 @@ import { maxHealth } from '../sim/vitals';
 import type { App } from './app';
 import { aimsAt } from './fight-cues';
 import { inputTarget, markedTarget, nextTarget, targetAt } from './fight-target';
-import { cachedKeys, FightVerify, pubkeysUrl } from './fight-verify';
+import { cachedKeys, FightVerify } from './fight-verify';
 
 export interface FightHost {
   /** This player's id, or null before the identity is loaded. */
@@ -425,13 +425,7 @@ export class FightPlay {
 export function appFightHost(app: App): FightHost {
   const clock = () => app.keeper.current?.clock ?? null;
   const { hubUrl } = app;
-  const keys = hubUrl
-    ? cachedKeys(async () => {
-        const response = await fetch(pubkeysUrl(hubUrl));
-        if (!response.ok) throw new Error(`pubkeys ${response.status}`);
-        return response.json();
-      })
-    : undefined;
+  const keys = hubUrl ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys'))) : undefined;
   return {
     ...(keys ? { keys } : {}),
     me: () => app.playerId,
