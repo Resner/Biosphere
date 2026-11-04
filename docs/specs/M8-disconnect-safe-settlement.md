@@ -408,7 +408,7 @@ T1 and T2 need nothing and can start together. Then T3 follows T1 and T5 follows
     - the traffic per away fighter per peer averages ≤ 300 B/s over 10 s;
     - a forged proxy never yields an engage candidate.
 
-- [x] T12 Consequences at the next sign-in, and the settlement checked on the client [opus] (after T4, T9, T10) (in progress)
+- [x] T12 Consequences at the next sign-in, and the settlement checked on the client [opus] (after T4, T9, T10)
   - Steps:
     1. `src/game/away-report.ts`. A `life` with `report` tells it once, in plain words:
        - on the title or death screen: "While you were away, <species> was killed by <name>", "… died of <cause>", "… escaped a fight", or "… held its own in a fight";
