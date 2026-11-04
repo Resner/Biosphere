@@ -50,6 +50,17 @@ describe('CueWatch', () => {
     expect(names().slice(-2)).toEqual(['hurt', 'uv']);
   });
 
+  it('a zone whose damage lands no hit of its own still sounds its voice, once a second, with no thud', () => {
+    const { w, names } = watch();
+    w.hit('starved', 0);
+    w.zone('pressure', 0);
+    w.zone('starved', 0);
+    w.zone('pressure', 15);
+    expect(names()).toEqual(['hurt', 'pressure']);
+    w.zone('pressure', CUE_WATCH.zoneGapTicks);
+    expect(names()).toEqual(['hurt', 'pressure', 'pressure']);
+  });
+
   it('pulses low energy on entering it and slowly while it lasts', () => {
     const { w, names } = watch();
     w.vitals(0, 0.5, null);
