@@ -197,7 +197,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### The rules and the world
 
-- [ ] T1 Rules 11: the registry, typed bodies, a mating's condition before its cost, and one rulebook [opus] (after none)
+- [ ] T1 Rules 11: the registry, typed bodies, a mating's condition before its cost, and one rulebook [opus] (after none) (in progress)
   - Steps:
     1. `RULES_VERSION` 11, with the registry above in `src/ledger/registry.ts`.
        - `FIRST_LIVE_RULES` moves there as 11.
