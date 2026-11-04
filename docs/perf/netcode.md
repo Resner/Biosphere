@@ -1,6 +1,6 @@
 # Netcode report
 
-Written by `npm run report:net` (`tools/net-report.ts`); rules v10. 2 `EncounterSync` clients play a whole fight through the scripted referee (`tests/net-harness.ts`), each with seeded scripted inputs, over a link with the one-way latency and jitter below. A loss is a delay spike of 200-600 ms that holds the messages behind it. Each client's estimate of the hub clock is off by the clock error, one early and one late.
+Written by `npm run report:net` (`tools/net-report.ts`); rules v11. 2 `EncounterSync` clients play a whole fight through the scripted referee (`tests/net-harness.ts`), each with seeded scripted inputs, over a link with the one-way latency and jitter below. A loss is a delay spike of 200-600 ms that holds the messages behind it. Each client's estimate of the hub clock is off by the clock error, one early and one late.
 
 | One way (ms) | Jitter (ms) | Loss | Clock error (ms) | Own inputs on time | Rollbacks / s | Deepest rollback (frames) | Resyncs | Same hash as the referee |
 |---|---|---|---|---|---|---|---|---|
@@ -113,4 +113,4 @@ Written by `npm run report:net` (`tools/net-report.ts`); rules v10. 2 `Encounter
 | 250 | 60 | 5.0% | 20 | 2.4% | 7.59 | 10 | 24 | yes |
 | 250 | 60 | 5.0% | 60 | 26.9% | 5.73 | 10 | 3 | yes |
 
-Report hash: `bffbaf49be91d5de` (rules v10).
+Report hash: `9979a39870770766` (rules v11).

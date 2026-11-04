@@ -1,5 +1,5 @@
 {
-  "rulesVersion": 10,
+  "rulesVersion": 11,
   "keys": [
     {
       "id": "i4HIYmgb",
@@ -88,14 +88,14 @@
         "settlement": {
           "v": 1,
           "kind": "settlement",
-          "rules": 10,
+          "rules": 11,
           "enc": "ca69e53bd381d3d274a3f93198b3ce227657cd7a7bb1e20a4dfda6509bbc458c",
           "pondSeed": "golden-duel",
           "start": "7bdd6b02a47c97f391bf6f578cbd958db2c1fbbb4ae31e7380dc6deb92ae3454",
           "joins": [],
           "frames": 28,
           "root": "510032e8cf8930e40171277e6ee26c15a76f9624d8fb7377778c1dbd4f8bec94",
-          "hash": "540183061e402f65",
+          "hash": "98382d0e045d4b77",
           "referee": "authority",
           "results": [
             {
@@ -125,15 +125,15 @@
           ],
           "t": 1700000060000
         },
-        "hash": "eb7abde0bbebe0319aa522714a02cbae9fd03382f96ac3f983b16a0019980fe7",
-        "authSig": "iPg-8KXye804zbqHY_xZnQ0iaqb5R5oDog0xi3ADlJF7TVCLIARWJkoZ-08OVJ_vUur6io9JJcoc4jqK_48yCA",
+        "hash": "1bf1ccb29f47fa6f0b38593d1af0e893aa8a759b65b058d5548d5986c598da76",
+        "authSig": "S0TCaOYeVYnR-h-nY_PYMqE0fTYorHK2WQ9sMnr1jcCPiEl_E8nrudY31ftrJOGPalPST0prFDp3D-pzSz_PBg",
         "keyId": "i4HIYmgb"
       },
       "records": [
         {
           "record": {
             "v": 1,
-            "rules": 10,
+            "rules": 11,
             "kind": "encounter",
             "creature": "1111111111111111111111111111111111111111111111111111111111111111",
             "seq": 4,
@@ -151,15 +151,15 @@
               "activeMs": 602800
             }
           },
-          "hash": "a98df8f38b80f2fb72ac216c0002c8f9518e0ff7234b602f6d2e31096105276b",
+          "hash": "6f90d7ff19b87c7f7668a7d0e6b335b9c873694e879e21d0a098124ea98a9c17",
           "ownerSig": null,
-          "authSig": "-a15r1ZDVFTvANZVLI-AbMpJZr-FuoEikdKsNBtKGhPaZCwWARPKFVZxi4QLnXy4ueBBCXSVRzyzcL5AFB3sDw",
+          "authSig": "3Ih8unm3ED3Vur5AS8ugoxDMhzwWr_T6tJ_EWI-Dhyas5sjB_FS2-ZpqRoE5t6PoA6IEKjKIYXqnNtetjeQAAg",
           "keyId": "i4HIYmgb"
         },
         {
           "record": {
             "v": 1,
-            "rules": 10,
+            "rules": 11,
             "kind": "death",
             "creature": "2222222222222222222222222222222222222222222222222222222222222222",
             "seq": 4,
@@ -174,9 +174,9 @@
               "by": "1111111111111111111111111111111111111111111111111111111111111111"
             }
           },
-          "hash": "d006e94b853b07e1a44364ba2d9ba5a3ab5538920163f8093bf4ee49ff0f0fc9",
+          "hash": "4eb7c99a97019c64f7f277c4ba1cbd6b33abfd1103d3e44e4c30d7e41f357c18",
           "ownerSig": null,
-          "authSig": "pcvz6atMp6pNKbqtNGoV8IzUzL78V1hSwyQjFHzyIRKCjbLhaa0G3MWdMuY6b_ezfRb5i3gRzE5y28Dukj1cBw",
+          "authSig": "d5dhn-wmjsYQy4sZ4oayb15RgdTy4dzxuj6nDH8bizlAw63sVzKgLm4vkfz_PcesYD9JXeOASDvrWRf-OQgQDQ",
           "keyId": "i4HIYmgb"
         }
       ]
@@ -339,14 +339,14 @@
         "settlement": {
           "v": 1,
           "kind": "settlement",
-          "rules": 10,
+          "rules": 11,
           "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
           "pondSeed": "golden-join",
           "start": "40475867f266a38c21a1e345eeef6115c8245d372827bb4bb887ac773ade0b98",
           "joins": ["e464d7dd8ba0988ae66bd4e6a4435498c5d8cb91afe84d2b705b6dea6882d489"],
           "frames": 83,
           "root": "0e6d45dddbdc2d170e2e870a569ca36be7576500c74834163d52ef37c3ed2e8e",
-          "hash": "9948bfd5ab6c7b1f",
+          "hash": "e57f33ef55e36078",
           "referee": "authority",
           "results": [
             {
@@ -389,15 +389,15 @@
           ],
           "t": 1700000060000
         },
-        "hash": "65eb8481bca3968a7dd284a4f9538d23c067a278524fe4c583269e9380b8254f",
-        "authSig": "M3qKo9RvMSavNVdTzIF-MgZLyYwkdftXCsJv1opPf3j-MwBY90fNpdNbTO2YodcSWctiiBWgzblXhQDZBUUjBg",
+        "hash": "577c3606b74c000a63cb42c2b5991b871a86d2cb18f9fc3ec55c2562eade7eea",
+        "authSig": "Mii4fjKKKmhHo6m87KWpVHnOE1pcyS7BkJ9HW6UNX8qksXCZPsrcsPhzgcy8EABXCMRh1NBfBkrYm5D7wg6DAA",
         "keyId": "i4HIYmgb"
       },
       "records": [
         {
           "record": {
             "v": 1,
-            "rules": 10,
+            "rules": 11,
             "kind": "death",
             "creature": "2222222222222222222222222222222222222222222222222222222222222222",
             "seq": 4,
@@ -412,15 +412,15 @@
               "by": "4444444444444444444444444444444444444444444444444444444444444444"
             }
           },
-          "hash": "e6842d25d0da3406e6fa5054ea31cb9a47c9457c3d3efe493bc9230488858e89",
+          "hash": "3073905f6e1dcb3b7f9c9c014369a5f5933e24a4a3580293ea3797e3a0cfd695",
           "ownerSig": null,
-          "authSig": "7JJOQoWvrwRP_6OX_vY3AJJKb5uHKS54UoUTdHgjJeLHTjaWS347qGbBWjp_UQ8ElnlDaGo-8hg3lzSQNIC1CQ",
+          "authSig": "-d-mLv4ltQkbilxlqJq821WpnyeJasorGu10bNW7WqXJkYEmBmuJTTdy0q0cCUJ0ruQyM-Wcnptstw7p34VZCg",
           "keyId": "i4HIYmgb"
         },
         {
           "record": {
             "v": 1,
-            "rules": 10,
+            "rules": 11,
             "kind": "death",
             "creature": "3333333333333333333333333333333333333333333333333333333333333333",
             "seq": 4,
@@ -435,15 +435,15 @@
               "by": "4444444444444444444444444444444444444444444444444444444444444444"
             }
           },
-          "hash": "3fcb92db55967ea50a05bf9b99ff5baea4bc7c1328957409a639076634e83074",
+          "hash": "756038b8e49b757084985e9c771253deab883e15b20d60a24c5669f39a7f53d2",
           "ownerSig": null,
-          "authSig": "U9s9pT25TWUsPNC3DunnH_R02T112krvSfo32A1qXwgpRXM91YT4m48DKZ22DN9r0rtEcbmA6JvOV6UHuaDsBg",
+          "authSig": "nXcAkW6dYZHKqLvs0VK2NduEYLSPKfp20bWu6iJLHUT5_ncsigIvTbrboYGWTVH_C5AZl3-N46F_wnNBOeZSBw",
           "keyId": "i4HIYmgb"
         },
         {
           "record": {
             "v": 1,
-            "rules": 10,
+            "rules": 11,
             "kind": "encounter",
             "creature": "4444444444444444444444444444444444444444444444444444444444444444",
             "seq": 4,
@@ -461,9 +461,9 @@
               "activeMs": 608300
             }
           },
-          "hash": "21f611d35790afea65b73fcbb3a1c4dda4288a8b4d65777fdd7236b851eb750c",
+          "hash": "ba9d715b852f1a0d586065435e7ef5bcc1d706409bb1ec9675134ad2a25c8520",
           "ownerSig": null,
-          "authSig": "iWXFSec-P5O3UaSVyz0ddw5gZ-Xtgk4Me1Uot4jH1qUfyfcU4BHzKrWf0EI1OQCn4vipOWFJVEq6WrM0oMcMAg",
+          "authSig": "3WYZbOjTEQLvD1lxKrhQPKiRMimEGteV4mBlwVVb1LIHE2VkDlp4LVLkvSXRpaav0lTb3hIALjD7NgqqHC4-CA",
           "keyId": "i4HIYmgb"
         }
       ]

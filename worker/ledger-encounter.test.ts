@@ -194,7 +194,13 @@ describe('Ledger.settle', () => {
       expect(ledger.rowsWritten - before).toBeLessThanOrEqual(7);
       const child = must(ledger.head(childB.id));
       expect(child.status).toBe('dead');
-      expect(ledger.deathRecord(child.id)?.record.body).toEqual({ cause: 'eaten', enc, by: a.id });
+      expect(ledger.deathRecord(child.id)?.record.body).toEqual({
+        cause: 'eaten',
+        activeMs: 0,
+        biomass: childB.biomass,
+        enc,
+        by: a.id,
+      });
       expect(ledger.pending(b.owner)).toBeNull();
       expect(ledger.fallback(b.id, RULE).pending).toBeNull();
       expect(must(ledger.head(b.id)).status).toBe('active');

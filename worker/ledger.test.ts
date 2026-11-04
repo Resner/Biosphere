@@ -138,7 +138,7 @@ describe('Ledger.accept', () => {
       });
       const dead = mustAccept(
         ledger,
-        nextRequest(cp, 'death', { cause: 'starved', activeMs: 2000 }),
+        nextRequest(cp, 'death', { cause: 'starved', activeMs: 2000, biomass: 150 }),
       );
       expect(ledger.head(genesis.hash)).toMatchObject({
         status: 'dead',
@@ -227,7 +227,7 @@ describe('Ledger.accept', () => {
       expect(reason(ledger, { ...nextRequest(genesis), v: 2 as 1 })).toMatch(/^invalid-record:/);
       const dead = mustAccept(
         ledger,
-        nextRequest(genesis, 'death', { cause: 'toxin', activeMs: 1 }),
+        nextRequest(genesis, 'death', { cause: 'toxin', activeMs: 1, biomass: 0 }),
       );
       expect(reason(ledger, nextRequest(dead))).toBe('dead');
       expect(ledger.head(genesis.hash)?.status).toBe('dead');
@@ -257,7 +257,10 @@ describe('Ledger.accept', () => {
     await inLedger(async (ledger) => {
       const first = await hatch(ledger, owner.playerId);
       expect(reason(ledger, genesisRequest(owner.playerId))).toBe('already-active');
-      mustAccept(ledger, nextRequest(first, 'death', { cause: 'starved', activeMs: 1 }));
+      mustAccept(
+        ledger,
+        nextRequest(first, 'death', { cause: 'starved', activeMs: 1, biomass: 0 }),
+      );
       const second = await hatch(ledger, owner.playerId);
       expect(second.hash).not.toBe(first.hash);
     });
@@ -285,12 +288,16 @@ describe('Ledger.accept', () => {
           const head = heads.get(
             pick.record.kind === 'genesis' ? pick.hash : pick.record.creature,
           ) as StoredRecord;
-          request = nextRequest(head, random(8) === 0 ? 'death' : 'checkpoint', {
-            activeMs: random(1000),
-            biomass: random(1000),
-            energy: random(10000),
-            health: random(10000),
-          });
+          const [activeMs, biomass] = [random(1000), random(1000)];
+          request =
+            random(8) === 0
+              ? nextRequest(head, 'death', { cause: 'starved', activeMs, biomass })
+              : nextRequest(head, 'checkpoint', {
+                  activeMs,
+                  biomass,
+                  energy: random(10000),
+                  health: random(10000),
+                });
         } else if (roll <= 7) {
           request = nextRequest(pick); // stale unless it is the head
         } else if (roll === 8) {

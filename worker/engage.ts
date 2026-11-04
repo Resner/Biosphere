@@ -9,6 +9,7 @@ import { fighterOf } from '../src/genome/fighter';
 import { buildCreature } from '../src/genome/stats';
 import { randomnessOf } from '../src/ledger/drand';
 import { encounterId, encounterSeed } from '../src/ledger/encounter';
+import { HUNDREDTHS } from '../src/ledger/gates';
 import { verifySnap } from '../src/ledger/snapshot-sig';
 import type { EncStart } from '../src/net/encounter-start';
 import { type ClientMsg, type FighterInfo, genomeRefOf, type Snapshot } from '../src/net/protocol';
@@ -36,7 +37,6 @@ import {
 } from './socket';
 
 const E = RULES.encounter;
-const HUNDREDTHS = 100;
 /** Clock slack either way on a snapshot's pond tick. */
 const SLACK_TICKS = 3;
 /** A snapshot's biomass is log-quantised (0.013%): a claim this close to its cap is clamped without a flag. */
