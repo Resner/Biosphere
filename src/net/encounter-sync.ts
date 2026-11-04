@@ -37,8 +37,8 @@ export const KEEP_FRAMES = 10;
 /** A remote's correction after a rollback eases out over this long instead of jumping. */
 export const EASE_MS = 100;
 /** The lead is the one-way latency less this, between 0 and `MAX_LEAD_MS`. */
-const LEAD_SLACK_MS = 80;
-const MAX_LEAD_MS = 100;
+const LEAD_SLACK_MS = 40;
+const MAX_LEAD_MS = 120;
 
 export type EncStartMsg = EncStart;
 export type EncFrameMsg = Extract<HubMsg, { t: 'enc-frame' }>;
