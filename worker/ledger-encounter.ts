@@ -149,7 +149,10 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
     // The pending child goes with its egg, whatever became of the carrier.
     if (f.eggBy !== null) {
       const child = ops.pending(f.owner);
-      if (child) append(child, 'death', { cause: 'eaten', enc, by: f.eggBy });
+      if (child) {
+        const { activeMs, biomass } = child;
+        append(child, 'death', { cause: 'eaten', activeMs, biomass, enc, by: f.eggBy });
+      }
     }
   }
   const hash = settlementHash(input.settlement);

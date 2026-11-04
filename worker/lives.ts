@@ -1,9 +1,9 @@
 // Genesis and life: hatching, progress and death, history and lineage, promotion and restore.
 import { type Genome, genomeFromBase64url, genomeToBase64url } from '../src/genome/codec';
-import { express } from '../src/genome/express';
 import { speciesName } from '../src/genome/names';
 import { type GenesisAsk, verifyGenesisAsk } from '../src/ledger/ask';
 import { randomnessOf } from '../src/ledger/drand';
+import { lifespanOf as lifespanUnder, matureAtOf, restoreMinOf } from '../src/ledger/gates';
 import { genesisFor, genesisRequest as genesisRecordRequest } from '../src/ledger/genesis';
 import { AUTHORITY_CAUSES, type RecordRequest } from '../src/ledger/record';
 import {
@@ -17,8 +17,7 @@ import {
   PEDIGREE_MAX,
   type PedigreeNode,
 } from '../src/net/protocol';
-import { lifespanMs } from '../src/sim/life';
-import { RULES, RULES_VERSION } from '../src/sim/rules';
+import { RULES_VERSION } from '../src/sim/rules';
 import type { DeathCause } from '../src/sim/types';
 import { takeReport } from './away';
 import { type Condition, conditionOf, type Exhaustion, type Head } from './ledger';
@@ -32,7 +31,7 @@ import {
   protectionEnds,
   unsaved,
 } from './life';
-import { fixtureScale, matureAtMsOf as matureAtOfLifespan } from './mating';
+import { scalesOf } from './mating';
 import { bornFor, deliverBirth } from './offspring';
 import {
   type ActiveSession,
@@ -305,9 +304,7 @@ export function exhaustion(hub: Hub): Exhaustion {
       const genome = genomeFromBase64url(head.genome);
       return genome ? lifespanOf(hub, genome) : 0;
     },
-    restoreMinMs: Math.round(
-      RULES.mating.restoreMinMs * fixtureScale(hub.env, hub.env.MATING_SCALE),
-    ),
+    restoreMinMs: restoreMinOf(scalesOf(hub.env)),
   };
 }
 
@@ -436,18 +433,14 @@ export function lifeOf(hub: Hub, head: Head): LifeInfo {
   };
 }
 
-/** The active time from which a creature of this genome may mate, shortened by `MATING_SCALE` in fixture mode only. */
+/** The active time from which a creature of this genome may mate, under this object's scales. */
 export function matureAtMsOf(hub: Hub, genome: Genome): number {
-  return matureAtOfLifespan(
-    lifespanMs(express(genome).physiology.lifespan),
-    fixtureScale(hub.env, hub.env.MATING_SCALE),
-  );
+  return matureAtOf(genome, scalesOf(hub.env));
 }
 
-/** The lifespan this object gives a genome: its trait, shortened by `LIFESPAN_SCALE` in fixture mode only. */
+/** The lifespan this object gives a genome, under its scales (`LIFESPAN_SCALE` in fixture mode only). */
 export function lifespanOf(hub: Hub, genome: Genome): number {
-  const shortened = fixtureScale(hub.env, hub.env.LIFESPAN_SCALE);
-  return Math.round(lifespanMs(express(genome).physiology.lifespan) * shortened);
+  return lifespanUnder(genome, scalesOf(hub.env));
 }
 
 /** The player's active creature as a fresh connection state, or undefined without one. */

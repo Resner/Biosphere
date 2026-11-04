@@ -83,8 +83,6 @@ export function die(ledger: Ledger, head: Head, cause = 'starved'): Head {
       cause,
       activeMs: head.activeMs,
       biomass: head.biomass,
-      energy: head.energy,
-      health: 0,
     }),
   );
 }
@@ -109,6 +107,9 @@ export function mateRequests(
     energy: 560,
     health: 9000,
     cooldownUntilMs: self.activeMs + 360_000,
+    biomassBefore: 1000,
+    energyBefore: 800,
+    healthBefore: 9000,
   });
   return [
     chainRequest(a, 'mate-commit', body(a, b, 'a')),

@@ -6,7 +6,7 @@ import type { Seed } from '../sim/prng';
 import { type GenesisAsk, verifyGenesisAsk } from './ask';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import { type Beacon, randomnessOf, verifyBeacon } from './drand';
-import { type LedgerRecord, type RecordRequest, recordProblems, retired } from './record';
+import { type LedgerRecord, type RecordRequest, recordProblems, rulesOf } from './record';
 
 // Genesis (ADR 0010, 0019): a creature's first DNA comes from a drand round that did not exist
 // when the player asked for it. Everything here is pure, so the client and (from M9) the verifier
@@ -75,9 +75,10 @@ export function checkGenesis(
   genomeText?: string,
 ): string[] {
   try {
+    const rules = rulesOf(record);
+    if (rules) return [rules];
     const shape = recordProblems(record);
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
-    if (retired(record)) return ['rules-retired'];
     const failures: string[] = [];
     const id = commitmentId(commit);
     const ask = commit.data as Partial<GenesisAsk> | null;

@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   checkStored,
   type RecordKind,
+  recordProblems,
   type Status,
   type StoredRecord,
   transitionOutcome,
@@ -169,7 +170,13 @@ describe('Ledger.fallback, restore and markExhausted', () => {
       expect(rows).toBeLessThanOrEqual(3);
       if (!marked.ok) throw new Error(marked.reason);
       expect(marked.stored.record.kind).toBe('death');
-      expect(marked.stored.record.body.cause).toBe('old-age');
+      // Rules 11: a death is its cause, clock and biomass, nothing more (ADR 0055).
+      expect(marked.stored.record.body).toEqual({
+        cause: 'old-age',
+        activeMs: c1Live.activeMs,
+        biomass: c1Live.biomass,
+      });
+      expect(recordProblems(marked.stored.record)).toEqual([]);
       expect(ledger.head(c1.id)).toMatchObject({ status: 'dead' });
       expect(c1Live.id).toBe(c1.id);
       // A creature that is not exhausted, or not frozen, is refused and nothing changes.
@@ -338,7 +345,11 @@ describe('the transition matrix against the store', () => {
           status === 'checkpoint'
             ? ledger.markExhausted(dt.target.id, { lifespanOf: () => 1000, restoreMinMs: 5000 })
             : ledger.accept({
-                request: chainRequest(dt.target, 'death', { cause: 'starved', activeMs: 1 }),
+                request: chainRequest(dt.target, 'death', {
+                  cause: 'starved',
+                  activeMs: 1,
+                  biomass: 0,
+                }),
               });
         expectCell(`death/${status}`, 'death', null, status, result);
       }
@@ -564,6 +575,7 @@ describe('invariants under random operations', () => {
           const request = chainRequest(active, 'death', {
             cause: 'starved',
             activeMs: active.activeMs,
+            biomass: active.biomass,
           });
           const r = ledger.accept({ request });
           note(op, r.ok);

@@ -1,9 +1,9 @@
 {
-  "rulesVersion": 10,
+  "rulesVersion": 11,
   "genesis": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "genesis",
       "creature": "",
       "seq": 0,
@@ -18,17 +18,17 @@
         "karyotype": 1
       }
     },
-    "hash": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
-    "requestHash": "4f81e7a39e6be655155e8802160409ed378a314f0198a5f0c7c60e882397b915"
+    "hash": "6d3180ec02007891e7467699122e8bd7e31d1640ebb5a4f5353d37daa840f132",
+    "requestHash": "ee50f1f5e86ba4c8521e254a82d64f11d9e4f3253278d00780d7426480cc3959"
   },
   "checkpoint": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "checkpoint",
-      "creature": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
+      "creature": "6d3180ec02007891e7467699122e8bd7e31d1640ebb5a4f5353d37daa840f132",
       "seq": 1,
-      "prev": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
+      "prev": "6d3180ec02007891e7467699122e8bd7e31d1640ebb5a4f5353d37daa840f132",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000900000,
       "body": {
@@ -38,25 +38,26 @@
         "health": 10000
       }
     },
-    "hash": "9d706a70e204eb76a0c3175e6ec714db02a128d78a2b5340edc1d710dcf4bd13",
-    "requestHash": "8d4a734587981d6b0ea52c3d1b8b1fa81c3aea6c4d165151d5092d16b51a7fec"
+    "hash": "28271ad39720a580e97331846e41f1ca24a892035f4d4ac9174f6121b011f9be",
+    "requestHash": "5316e8efc79526a028311236e2f7ae7fac920957741621d9a061e8be15ef69b1"
   },
   "death": {
     "record": {
       "v": 1,
-      "rules": 10,
+      "rules": 11,
       "kind": "death",
-      "creature": "36ed0554502199a15878c63915c4dc074b4a3da6281fead4ff6bf41b2bb2c4ac",
+      "creature": "6d3180ec02007891e7467699122e8bd7e31d1640ebb5a4f5353d37daa840f132",
       "seq": 2,
-      "prev": "9d706a70e204eb76a0c3175e6ec714db02a128d78a2b5340edc1d710dcf4bd13",
+      "prev": "28271ad39720a580e97331846e41f1ca24a892035f4d4ac9174f6121b011f9be",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700001800000,
       "body": {
         "cause": "old-age",
-        "activeMs": 4500000
+        "activeMs": 4500000,
+        "biomass": 12345
       }
     },
-    "hash": "ba4cd2cbf19df2a2d5abe398ef0dbad77c2b596f9a27b0cd3dfb628a233fdb74",
-    "requestHash": "f05f4190ca5f31239e9816ab29203dc16a9b7c304ded7f7fe64dff1766af8917"
+    "hash": "da7966ef39d2845f289a8b7b90e5fbbcf3c690f9240eaff86c49218b8f4147c6",
+    "requestHash": "0fa7260d3e3ae16027ca015f680981aa9983a914a44a89aed0d40c386cf380a1"
   }
 }

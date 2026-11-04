@@ -1,7 +1,7 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
 import { survivedOutcome } from '../sim/encounter/types';
-import { RULES_VERSION } from '../sim/rules';
+import type { DeathCause } from '../sim/types';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import {
   fromBase64Url,
@@ -12,6 +12,7 @@ import {
   toBase64Url,
   verify,
 } from './identity';
+import { rulesProblem } from './registry';
 
 // Ledger records (ADR 0009, 0019): canonical JSON of integers and strings, hashed with a domain
 // tag, countersigned by the authority. Pure functions shared by clients, the Worker and (from M9)
@@ -70,13 +71,13 @@ export interface PubKey {
 export const HEX64 = /^[0-9a-f]{64}$/;
 
 /**
- * The first rules version of the live world (ADR 0040): the reset of v0.7.2 retired every older
- * version, so a record written under one of them no longer verifies (`rules-retired`).
+ * `rules-retired` or `rules-unknown` when a record (or any document with a `rules` field) is not
+ * of a live rules version (the registry, ADR 0055); null when it is, or when it names none.
  */
-const FIRST_LIVE_RULES = 8;
-
-/** Whether a record's rules version was retired by a world reset. */
-export const retired = (r: Pick<LedgerRecord, 'rules'>): boolean => r.rules < FIRST_LIVE_RULES;
+export function rulesOf(value: unknown): 'rules-retired' | 'rules-unknown' | null {
+  const rules = (value as { rules?: unknown } | null)?.rules;
+  return typeof value === 'object' && typeof rules === 'number' ? rulesProblem(rules) : null;
+}
 const FIELDS = ['v', 'rules', 'kind', 'creature', 'seq', 'prev', 'owner', 't', 'body'];
 
 /** The one way to put a float in a record body. */
@@ -134,11 +135,8 @@ export function recordProblems(value: unknown): string[] {
   } else {
     try {
       canonicalize(r.body as Canonical);
-      if (typeof r.kind === 'string') {
-        const rules = Number.isSafeInteger(r.rules) ? (r.rules as number) : undefined;
-        for (const p of bodyProblems(r.kind as RecordKind, r.body, rules)) {
-          problems.push(`body:${p}`);
-        }
+      if (typeof r.kind === 'string' && KINDS.includes(r.kind)) {
+        for (const p of bodyProblems(r.kind as RecordKind, r.body)) problems.push(`body:${p}`);
       }
     } catch {
       problems.push('body');
@@ -159,6 +157,7 @@ export function recordProblems(value: unknown): string[] {
 }
 
 type FieldType =
+  | 'cause'
   | 'uint'
   | 'hex'
   | 'player'
@@ -168,7 +167,19 @@ type FieldType =
   | 'promote-role'
   | 'survived';
 
+/** Every way a creature dies (`DeathCause`): the client's hazards, old age and a fight's two. */
+const CAUSES: Record<DeathCause, true> = {
+  starved: true,
+  toxin: true,
+  'old-age': true,
+  uv: true,
+  pressure: true,
+  killed: true,
+  eaten: true,
+};
+
 const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
+  cause: (x) => typeof x === 'string' && Object.hasOwn(CAUSES, x),
   uint: (x) => Number.isSafeInteger(x) && (x as number) >= 0,
   hex: (x) => typeof x === 'string' && HEX64.test(x),
   player: (x) => typeof x === 'string' && isPlayerId(x),
@@ -179,16 +190,17 @@ const FIELD_TYPES: Record<FieldType, (x: unknown) => boolean> = {
   survived: (x) => typeof x === 'string' && survivedOutcome(x),
 };
 
-const CONDITION = {
-  activeMs: 'uint',
-  biomass: 'uint',
-  energy: 'uint',
-  health: 'uint',
-  cooldownUntilMs: 'uint',
-} as const;
+const VITALS = { biomass: 'uint', energy: 'uint', health: 'uint' } as const;
+const CONDITION = { activeMs: 'uint', ...VITALS, cooldownUntilMs: 'uint' } as const;
 
-/** The body of each kind that M5 added; the M4 kinds (genesis, checkpoint, death) keep theirs. */
+/**
+ * The body of every kind but `promote` and `death` (rules 11, ADR 0055): each field typed, and
+ * none other allowed, so a later field is a rules bump.
+ */
 const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
+  genesis: { commit: 'hex', round: 'uint', genome: 'hex', generation: 'uint', karyotype: 'uint' },
+  checkpoint: { activeMs: 'uint', ...VITALS },
+  /** The condition after the cost, and the condition the cost was paid from (`…Before`). */
   'mate-commit': {
     commit: 'hex',
     round: 'uint',
@@ -199,6 +211,9 @@ const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
     partnerGenome: 'hex',
     generation: 'uint',
     ...CONDITION,
+    biomassBefore: 'uint',
+    energyBefore: 'uint',
+    healthBefore: 'uint',
   },
   birth: {
     commit: 'hex',
@@ -213,25 +228,18 @@ const BODIES: Partial<Record<RecordKind, Record<string, FieldType>>> = {
   restore: { from: 'hex', ...CONDITION },
   /**
    * A fighter that came out of an encounter alive (M7 T13): its outcome, the frames it fought, its
-   * condition at the end and the biomass its kills and eaten eggs were worth, in hundredths.
+   * condition at the end, the biomass its kills and eaten eggs were worth (hundredths), and its
+   * life clock at the end, its locked time included (ADR 0054).
    */
   encounter: {
     enc: 'hex',
     outcome: 'survived',
     frames: 'uint',
-    biomass: 'uint',
-    energy: 'uint',
-    health: 'uint',
+    ...VITALS,
     reward: 'uint',
+    activeMs: 'uint',
   },
 };
-
-/**
- * From rules 10 an `encounter` body also names the fighter's life clock at the end, its locked time
- * included (ADR 0054), so a survivor's record holds its whole state. Older records keep their shape.
- */
-const ENCOUNTER_CLOCK_RULES = 10;
-const ENCOUNTER_V10: Record<string, FieldType> = { ...BODIES.encounter, activeMs: 'uint' };
 
 /**
  * Death causes only an encounter's settlement writes (ADR 0052): a kill names the killer's
@@ -242,13 +250,14 @@ export const FIGHT_CAUSES: readonly string[] = ['killed', 'eaten'];
 /** Causes only the hub decides (its clock, or a fight's settlement): a client never reports them. */
 export const AUTHORITY_CAUSES: readonly string[] = ['old-age', ...FIGHT_CAUSES];
 
-/** A death body keeps its M4 shape; one of a fight's causes must also name `enc` and `by`. */
-function deathProblems(b: Record<string, unknown>): string[] {
-  if (!FIGHT_CAUSES.includes(b.cause as string)) return [];
-  return (['enc', 'by'] as const).flatMap((key) =>
-    !Object.hasOwn(b, key) ? [`missing:${key}`] : FIELD_TYPES.hex(b[key]) ? [] : [`bad:${key}`],
-  );
-}
+/**
+ * A death is its cause, clock and biomass. One of a fight's causes also names `enc` and `by`, and
+ * any other death a settlement wrote (a hazard during the fight) names `enc` alone, so it can be
+ * checked against its settlement.
+ */
+const DEATH: Record<string, FieldType> = { cause: 'cause', activeMs: 'uint', biomass: 'uint' };
+const DEATH_IN_FIGHT: Record<string, FieldType> = { ...DEATH, enc: 'hex' };
+const FIGHT_DEATH: Record<string, FieldType> = { ...DEATH_IN_FIGHT, by: 'hex' };
 
 const PROMOTE_BODIES: Record<string, Record<string, FieldType>> = {
   child: { role: 'promote-role', parent: 'hex' },
@@ -256,20 +265,22 @@ const PROMOTE_BODIES: Record<string, Record<string, FieldType>> = {
 };
 
 /**
- * Why `body` is not a valid body for `kind` under `rules` (the record's version; this build's by
- * default): `missing:`, `unknown:` or `bad:` plus the field. Never throws.
+ * Why `body` is not a valid body for `kind` (rules 11: every kind typed): `missing:`, `unknown:`
+ * or `bad:` plus the field, or `kind` for a kind with no shape. Never throws.
  */
-export function bodyProblems(
-  kind: RecordKind,
-  body: unknown,
-  rules: number = RULES_VERSION,
-): string[] {
+export function bodyProblems(kind: RecordKind, body: unknown): string[] {
   if (typeof body !== 'object' || body === null || Array.isArray(body)) return ['not-an-object'];
   const b = body as Record<string, unknown>;
-  if (kind === 'death') return deathProblems(b);
-  let fields =
-    kind === 'encounter' && rules >= ENCOUNTER_CLOCK_RULES ? ENCOUNTER_V10 : BODIES[kind];
-  if (kind === 'promote') {
+  let fields = Object.hasOwn(BODIES, kind) ? BODIES[kind] : undefined;
+  if (kind === 'death') {
+    const cause = b.cause;
+    fields =
+      typeof cause === 'string' && FIGHT_CAUSES.includes(cause)
+        ? FIGHT_DEATH
+        : Object.hasOwn(b, 'enc')
+          ? DEATH_IN_FIGHT
+          : DEATH;
+  } else if (kind === 'promote') {
     if (!Object.hasOwn(b, 'role')) return ['missing:role'];
     const role = b.role;
     fields =
@@ -278,7 +289,7 @@ export function bodyProblems(
         : undefined;
     if (!fields) return ['bad:role'];
   }
-  if (!fields) return [];
+  if (!fields) return ['kind'];
   const problems: string[] = [];
   for (const [key, type] of Object.entries(fields)) {
     if (!Object.hasOwn(b, key)) problems.push(`missing:${key}`);
@@ -351,9 +362,10 @@ export function authoritySign(secret: Uint8Array, hash: string): string {
 /** Named failures; empty when the record, hash and signatures all verify. Never throws. */
 export function checkStored(s: StoredRecord, keys: readonly PubKey[]): string[] {
   try {
+    const rules = rulesOf(s.record);
+    if (rules) return [rules];
     const shape = recordProblems(s.record);
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
-    if (retired(s.record)) return ['rules-retired'];
     const failures: string[] = [];
     // A fight's results are the authority's alone: never signed by an owner.
     if (s.ownerSig !== null && authorityOnly(s.record)) failures.push('not-attested');

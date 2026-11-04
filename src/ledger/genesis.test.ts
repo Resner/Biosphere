@@ -104,14 +104,18 @@ describe('genesis ask', () => {
 });
 
 describe('checkGenesis', () => {
-  it('answers rules-retired for a genesis of a rules version before the reset (ADR 0040)', async () => {
+  it('answers rules-retired before the renewal and rules-unknown past this build (ADR 0055)', async () => {
     const m = await made();
     expect(m.record.rules).toBe(RULES_VERSION);
     expect(m.record.body.karyotype).toBe(2);
-    for (const rules of [5, 6, 7]) {
-      const old = { ...m.record, rules };
-      expect(checkGenesis(old, m.commit, m.beacon, genomeToBase64url(m.genome))).toEqual([
-        'rules-retired',
+    for (const [rules, problem] of [
+      [5, 'rules-retired'],
+      [10, 'rules-retired'],
+      [12, 'rules-unknown'],
+    ] as const) {
+      const other = { ...m.record, rules };
+      expect(checkGenesis(other, m.commit, m.beacon, genomeToBase64url(m.genome))).toEqual([
+        problem,
       ]);
     }
   });

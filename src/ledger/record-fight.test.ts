@@ -53,7 +53,7 @@ const encounter = {
   activeMs: 900_000,
 };
 const killed = { cause: 'killed', activeMs: 900_000, biomass: 41_000, enc: H('e'), by: H('f') };
-const eaten = { cause: 'eaten', enc: H('e'), by: H('f') };
+const eaten = { cause: 'eaten', activeMs: 0, biomass: 8000, enc: H('e'), by: H('f') };
 
 describe('bodies', () => {
   it('takes an encounter body for a survivor only', () => {
@@ -66,19 +66,15 @@ describe('bodies', () => {
     expect(bodyProblems('encounter', { ...encounter, by: H('f') })).toContain('unknown:by');
   });
 
-  it('asks an encounter body for its life clock from rules 10 on (ADR 0054)', () => {
+  it('asks an encounter body for its life clock (ADR 0054)', () => {
     const owner = '11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo';
     const { activeMs: _activeMs, ...rules9 } = encounter;
-    expect(bodyProblems('encounter', rules9, 10)).toEqual(['missing:activeMs']);
     expect(bodyProblems('encounter', rules9)).toEqual(['missing:activeMs']);
-    expect(bodyProblems('encounter', rules9, 9)).toEqual([]);
-    expect(bodyProblems('encounter', encounter, 9)).toEqual(['unknown:activeMs']);
-    expect(bodyProblems('encounter', { ...encounter, activeMs: -1 }, 10)).toEqual(['bad:activeMs']);
-    // A rules-9 record keeps its shape and still verifies.
-    const old = { ...chained(owner, 'encounter', rules9), rules: 9 };
-    expect(recordProblems(old)).toEqual([]);
-    expect(checkStored(stored(old), keys)).toEqual([]);
+    expect(bodyProblems('encounter', { ...encounter, activeMs: -1 })).toEqual(['bad:activeMs']);
     expect(recordProblems(chained(owner, 'encounter', rules9))).toEqual(['body:missing:activeMs']);
+    // A rules-9 record of M7's shape was retired with its world (ADR 0055): it no longer verifies.
+    const old = { ...chained(owner, 'encounter', rules9), rules: 9 };
+    expect(checkStored(stored(old), keys)).toEqual(['rules-retired']);
   });
 
   it('makes a death by a kill or an eaten egg name the encounter and who did it', () => {
@@ -89,9 +85,13 @@ describe('bodies', () => {
       expect(bodyProblems('death', noBy)).toEqual(['missing:by']);
       expect(bodyProblems('death', { ...body, enc: 'zz' })).toEqual(['bad:enc']);
     }
-    // Every other cause keeps the M4 shape.
-    expect(bodyProblems('death', { cause: 'toxin', activeMs: 5, biomass: 9 })).toEqual([]);
-    expect(bodyProblems('death', { cause: 'toxin', enc: H('e') })).toEqual([]);
+    // Every other cause is the clock and the biomass, and the encounter when a fight's
+    // settlement wrote it (a hazard in the fight), never a killer (rules 11, ADR 0055).
+    const toxin = { cause: 'toxin', activeMs: 5, biomass: 9 };
+    expect(bodyProblems('death', toxin)).toEqual([]);
+    expect(bodyProblems('death', { ...toxin, enc: H('e') })).toEqual([]);
+    expect(bodyProblems('death', { ...toxin, enc: H('e'), by: H('f') })).toEqual(['unknown:by']);
+    expect(bodyProblems('death', { ...toxin, enc: 'zz' })).toEqual(['bad:enc']);
   });
 
   it('are valid records', () => {
@@ -153,7 +153,7 @@ describe('checkStored', () => {
       ]);
     }
     // An owner may still sign a death the authority doesn't reserve (the M4 rule is unchanged).
-    const toxin = chained(id.playerId, 'death', { cause: 'toxin', activeMs: 1 });
+    const toxin = chained(id.playerId, 'death', { cause: 'toxin', activeMs: 1, biomass: 9 });
     expect(checkStored(stored(toxin, sign(toxin)), keys)).toEqual([]);
   });
 });

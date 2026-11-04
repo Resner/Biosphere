@@ -10,7 +10,7 @@ import {
   type RecordRequest,
   recordHash,
   recordProblems,
-  retired,
+  rulesOf,
   type StoredRecord,
 } from './record';
 
@@ -108,9 +108,10 @@ export function checkBirth(
   mates: [StoredRecord, StoredRecord],
 ): string[] {
   try {
+    const rules = rulesOf(record);
+    if (rules) return [rules];
     const shape = recordProblems(record);
     if (shape.length > 0) return shape.map((p) => `invalid-record:${p}`);
-    if (retired(record)) return ['rules-retired'];
     if (record.kind !== 'birth') return ['not-birth'];
     if (commit.kind !== 'mate') return ['not-mate'];
     const data = commit.data as { a?: unknown; b?: unknown } | null;
