@@ -131,7 +131,8 @@ export function toBase64Url(bytes: Uint8Array): string {
     .replace(/=+$/, '');
 }
 
-function signedBytes(domain: string, message: Uint8Array): Uint8Array {
+/** What a signature covers: `domain ‖ 0x0A ‖ message`. */
+export function signedBytes(domain: string, message: Uint8Array): Uint8Array {
   const prefix = new TextEncoder().encode(domain);
   const out = new Uint8Array(prefix.length + 1 + message.length);
   out.set(prefix);
