@@ -125,7 +125,13 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     expect(onC?.slot).toBe(2);
 
     // Three fighters offer a choice: the ring marks the nearest, and Tab picks one.
-    expect(onC?.aim).not.toBeNull();
+    await c
+      .waitForFunction(() => window.__bs?.state().encounter?.aim != null, undefined, {
+        timeout: 10_000,
+      })
+      .catch(async (error) => {
+        throw new Error(`no aim ring on C: ${JSON.stringify(await seen(c))}`, { cause: error });
+      });
     await c.keyboard.press('Tab');
     await c.waitForFunction(() => window.__bs?.state().encounter?.aim?.chosen === true, undefined, {
       timeout: 5_000,

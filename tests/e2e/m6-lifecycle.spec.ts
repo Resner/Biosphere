@@ -110,7 +110,22 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
         message: `the ${zone}'s ${sound} cue to sound`,
         timeout: 60_000,
       })
-      .toBeGreaterThan(0);
+      .toBeGreaterThan(0)
+      .catch(async (error) => {
+        const s = await state(a);
+        const seen = {
+          zone: s.zone,
+          tick: s.tick,
+          screen: s.screen,
+          death: s.death,
+          cues: s.audio.cues,
+          health: s.player?.health,
+          events: await a.evaluate(() => (window.__bs as BsHook).events()),
+        };
+        throw new Error(`no ${sound} cue in the ${zone}: ${JSON.stringify(seen)}`, {
+          cause: error,
+        });
+      });
     await a.waitForFunction((kind) => {
       const { shake, vignette } = (window.__bs as BsHook).render.fx();
       return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
