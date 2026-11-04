@@ -241,13 +241,15 @@ export class OnlineWiring {
     const wasFighting = app.fight.fighting;
     if (msg.t === 'carrion') this.dropCarrion(msg);
     else app.fight.receive(msg);
-    // The away opponents' last frame carries the result's alive flag (M8 T11).
-    const fight = msg.t === 'enc-end' && wasFighting ? app.fight.relayFight() : null;
-    if (msg.t === 'enc-end' && fight?.id === msg.enc) {
-      this.relay.end(fight, (slot) => {
-        const result = msg.fighters[slot];
-        return result ? survivedOutcome(result.outcome) : true;
-      });
+    if (msg.t === 'enc-end') {
+      // The away opponents' last frame carries the result's alive flag (M8 T11).
+      const fight = wasFighting ? app.fight.relayFight() : null;
+      if (fight?.id === msg.enc) {
+        this.relay.end(fight, (slot) => {
+          const result = msg.fighters[slot];
+          return result ? survivedOutcome(result.outcome) : true;
+        });
+      }
     }
     if (msg.t === 'enc-start') app.attack.started();
     if (msg.t === 'enc-end') {

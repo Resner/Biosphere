@@ -3,7 +3,6 @@
 // and the camera keep working, remote fighters are drawn from the encounter, and at `enc-end` free
 // roam carries on from the authority's result. DOM-free: the app supplies a `FightHost`.
 
-import { genomeFromBase64url, genomeHash } from '../genome/codec';
 import type { Creature } from '../genome/stats';
 import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
@@ -371,8 +370,7 @@ export class FightPlay {
 
   private noteRef(f: FighterInfo): void {
     if (this.refs.has(f.creature)) return;
-    const genome = genomeFromBase64url(f.genome);
-    this.refs.set(f.creature, genome ? genomeRefOf(genomeHash(genome)) : 0);
+    this.refs.set(f.creature, genomeRefOf(bodyFromText(f.genome)?.hash ?? ''));
   }
 
   /**

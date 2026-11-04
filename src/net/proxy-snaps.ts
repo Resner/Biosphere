@@ -7,7 +7,7 @@
 // faded body and nothing else, never an engage, a claim or a result.
 
 import { encodeProxyFrame } from '../ledger/snapshot-sig';
-import { REMOVE_AFTER_MS, type SnapshotFields } from './pond-sync';
+import { REMOVE_AFTER_MS, SEQ_RANGE, type SnapshotFields } from './pond-sync';
 import { encodeSnapshot, type Snapshot } from './protocol';
 
 /** Proxies go out at 5 Hz: 57 bytes each, 285 B/s per away fighter per peer. */
@@ -16,8 +16,6 @@ export const PROXY_INTERVAL_MS = 200;
 export const PROXY_QUIET_MS = 1000;
 /** A fight has at most 4 fighters, so one peer relays at most 3 away fighters. */
 export const MAX_PROXIED_PER_PEER = 3;
-
-const SEQ_RANGE = 0x10000;
 
 /** The own running fight as the relay reads it. */
 export interface RelayFight {
@@ -69,6 +67,7 @@ export class ProxyRelay {
     if (fight.id === this.ended) return;
     this.ended = fight.id;
     this.round(fight, alive);
+    this.seqs.clear();
   }
 
   private round(fight: RelayFight, alive: ((slot: number) => boolean) | null): void {

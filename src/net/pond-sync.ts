@@ -29,7 +29,7 @@ const LEFT_NAMES = 32;
 
 const TICK_MS = 1000 / TICK_HZ;
 const MAX_SAMPLES = 16;
-const SEQ_RANGE = 0x10000;
+export const SEQ_RANGE = 0x10000;
 /** Steady swimming speed, so a remote's flagellum beats in proportion to how fast it moves. */
 const CRUISE = RULES.movement.thrust / RULES.movement.drag;
 /** A remote is drawn within this range of biomass whatever its peer claims (the snapshot can carry up to 2^24). */
