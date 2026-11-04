@@ -108,10 +108,13 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     // A hit lands at most every 15 ticks, so the second zone waits for the first one's gap to pass:
     // a runner playing few ticks a second needs far more than a few seconds for it.
     await expect
-      .poll(async () => (await cues(a))[sound] ?? 0, {
-        message: `the ${zone}'s ${sound} cue to sound`,
-        timeout: 60_000,
-      })
+      .poll(
+        async () => {
+          await topUp(a);
+          return (await cues(a))[sound] ?? 0;
+        },
+        { message: `the ${zone}'s ${sound} cue to sound`, timeout: 60_000 },
+      )
       .toBeGreaterThan(0)
       .catch(async (error) => {
         const s = await state(a);
@@ -128,8 +131,11 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
           cause: error,
         });
       });
+    // The shake takes the kind of the hit that lands: a starving belly's hits would hide the zone's.
     await a.waitForFunction((kind) => {
-      const { shake, vignette } = (window.__bs as BsHook).render.fx();
+      const bs = window.__bs as BsHook;
+      bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      const { shake, vignette } = bs.render.fx();
       return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
     }, cue);
     await timeScale(a, 0);
