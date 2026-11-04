@@ -1,6 +1,6 @@
 # 0040: Before v1.0, a rules change may reset the world; no frozen versions
 
-- Status: accepted (supersedes, until v1.0, the freezes of 0005, 0006, 0018, 0025 and 0035: released versions are never edited, old code stays to verify history, and development and stats freeze from M7)
+- Status: accepted (supersedes, until v1.0, the freezes of 0005, 0006, 0018, 0025 and 0035: released versions are never edited, old code stays to verify history, and development and stats freeze from M7; applied again by 0055: rules 11 renews the world as epoch 3, and its registry tracks the live versions)
 - Date: 2026-11-01
 
 ## Context
