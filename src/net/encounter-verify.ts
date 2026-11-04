@@ -8,9 +8,8 @@ import type { PubKey } from '../ledger/record';
 import {
   checkSettlementSig,
   type FightLog,
-  frameLeaf,
+  framesRoot,
   joinHash,
-  merkleRoot,
   type SettledFighter,
   type Settlement,
   type SignedSettlement,
@@ -38,10 +37,6 @@ const widthAt = (starters: number, joins: FightLog['joins'], f: number): number 
   for (const j of joins) if (j.f <= f) n++;
   return n;
 };
-
-/** The Merkle root over a fight's input frames. */
-export const framesRoot = (frames: readonly (readonly (number | null)[])[]): string =>
-  merkleRoot(frames.map((inputs, f) => frameLeaf(f, inputs)));
 
 const rootOf = (log: FightLog): string => framesRoot(log.frames);
 

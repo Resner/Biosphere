@@ -376,6 +376,7 @@ export function hubHttpUrl(hubUrl: string, path: string): string {
 
 export async function fetchJson(url: string): Promise<unknown> {
   const res = await fetch(url, { signal: AbortSignal.timeout(5000) });
+  if (!res.ok) throw new Error(`${url} ${res.status}`);
   return res.json();
 }
 

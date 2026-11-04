@@ -5,8 +5,7 @@
 // the frame loop. DOM-free: the app hands it the fetch.
 
 import type { PubKey } from '../ledger/record';
-import { checkSettlementSig, type SignedSettlement } from '../ledger/settlement';
-import { framesRoot } from '../net/encounter-verify';
+import { checkSettlementSig, framesRoot, type SignedSettlement } from '../ledger/settlement';
 
 /** A fight as this client holds it at its end. */
 export interface HeldFight {

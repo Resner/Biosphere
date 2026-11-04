@@ -129,6 +129,10 @@ export function merkleRoot(leaves: readonly Uint8Array[]): string {
   return bytesToHex(treeHash(leaves.map(leafHash)));
 }
 
+/** The Merkle root over a fight's input frames. */
+export const framesRoot = (frames: readonly (readonly (number | null)[])[]): string =>
+  merkleRoot(frames.map((inputs, f) => frameLeaf(f, inputs)));
+
 /** The audit path of leaf `index` (RFC 6962 §2.1.1), as hex, from the leaf up. */
 export function merkleProof(leaves: readonly Uint8Array[], index: number): string[] {
   if (!Number.isInteger(index) || index < 0 || index >= leaves.length)
