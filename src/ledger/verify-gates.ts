@@ -7,12 +7,12 @@ import {
   hasMatingEnergy,
   lifespanOf,
   matureAtOf,
-  matureBiomassOf,
+  matureBiomassFrom,
   paidFor,
   reachAt,
   restoreMinOf,
   type Scales,
-  startOf,
+  startFrom,
   vitalsCap,
 } from './gates';
 import type { StoredRecord } from './record';
@@ -37,7 +37,8 @@ interface State {
 
 /** The rulebook's values for one genome, under the bundle's scales. */
 interface Rules {
-  genome: Genome;
+  /** The genome's adult size (wu), for the start of a birth. */
+  maxBiomass: number;
   /** The genome's growth multiplier, for the reach. */
   growth: number;
   lifespan: number;
@@ -85,12 +86,13 @@ export function verifyGates(index: BundleIndex, _opts: VerifyOptions): Problem[]
 }
 
 function rulesOf(genome: Genome, s: Scales): Rules {
+  const { phys } = buildCreature(genome); // once per creature: the rulebook's other readers each build it again
   return {
-    genome,
-    growth: buildCreature(genome).phys.growth,
+    maxBiomass: phys.maxBiomass,
+    growth: phys.growth,
     lifespan: lifespanOf(genome, s),
     matureAt: matureAtOf(genome, s),
-    matureSize: matureBiomassOf(genome),
+    matureSize: matureBiomassFrom(phys.maxBiomass),
     restoreMin: restoreMinOf(s),
     cooldowns: cooldownsOf(s),
   };
@@ -104,16 +106,14 @@ function gatesOf(id: string, rules: Rules, chain: readonly StoredRecord[]): Prob
   const state: State = {
     t: first.kind === 'genesis' ? first.t : null,
     activeMs: 0,
-    condition: startOf(first.kind, rules.genome),
+    condition: startFrom(first.kind, rules.maxBiomass),
     cooldownUntilMs: 0,
     frozen: false,
   };
-  let seq = 0;
-  for (const [i, s] of chain.entries()) {
+  for (let i = 1; i < chain.length; i++) {
+    const s = chain[i] as StoredRecord;
     // A fork or a gap is the chain family's; the gates read the chain as far as it runs on.
-    if (i === 0) continue;
-    if (s.record.seq !== seq + 1) break;
-    seq = s.record.seq;
+    if (s.record.seq !== (chain[i - 1] as StoredRecord).record.seq + 1) break;
     const at = (code: string) =>
       out.push({ creature: id, seq: s.record.seq, family: 'gates', code });
     step(state, rules, s, chain[i + 1], at);

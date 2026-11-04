@@ -61,8 +61,12 @@ export function matureAtOf(genome: Genome, s: Scales): number {
  * size, rounded up so the gate is the share itself. Sizes are never scaled.
  */
 export function matureBiomassOf(genome: Genome): number {
-  const share = RULES.life.matureBiomassShare * buildCreature(genome).phys.maxBiomass;
-  return Math.ceil(share * HUNDREDTHS);
+  return matureBiomassFrom(buildCreature(genome).phys.maxBiomass);
+}
+
+/** `matureBiomassOf` for a body whose adult size (wu) is already known. */
+export function matureBiomassFrom(maxBiomass: number): number {
+  return Math.ceil(RULES.life.matureBiomassShare * maxBiomass * HUNDREDTHS);
 }
 
 /** The cooldown in active ms after a mating whose pair mated `prior` times before in the window. */
@@ -82,10 +86,15 @@ export function restoreMinOf(s: Scales): number {
 
 /** A creature's condition when its life starts: the starter cell for a genesis, the hatchling for a birth. */
 export function startOf(kind: 'genesis' | 'birth', genome: Genome): Condition {
+  return startFrom(kind, kind === 'birth' ? buildCreature(genome).phys.maxBiomass : 0);
+}
+
+/** `startOf` for a body whose adult size (wu) is already known (read only for a birth). */
+export function startFrom(kind: 'genesis' | 'birth', maxBiomass: number): Condition {
   const { biomass, energy } =
     kind === 'genesis'
       ? { biomass: RULES.starter.biomass, energy: starterEnergy(RULES.starter.biomass) }
-      : hatchling(buildCreature(genome).phys.maxBiomass);
+      : hatchling(maxBiomass);
   return {
     biomass: Math.floor(biomass * HUNDREDTHS),
     energy: Math.floor(energy * HUNDREDTHS),
