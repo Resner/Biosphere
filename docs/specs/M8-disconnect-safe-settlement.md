@@ -508,11 +508,11 @@ Each path is also checked alone:
 
 ## Rubric
 
-- [ ] A reload mid-fight is back in the same fight with one key or click, and its catch-up runs in one step (evidence: `m8-resume`, the T10 unit test, T1's `speedTest`).
-- [ ] An opponent whose player left keeps fighting and stays on screen, faded, for both its opponents and spectators (evidence: `m8-proxy`, a screenshot attached to T11's PR).
-- [ ] A returning player reads in one plain line what happened while it was away (evidence: `m8-away`, a screenshot attached to T12's PR).
-- [ ] No client's result differs from the authority's anywhere in the harness's grid, and at most 150 ms one-way with 30 ms jitter at least 95% of inputs land in time (evidence: `docs/perf/netcode.md`).
-- [ ] Every settled fight verifies, and any tampering is named (evidence: T4 tests, T8 workerd test, `encounter.verified`).
+- [x] A reload mid-fight is back in the same fight with one key or click, and its catch-up runs in one step (evidence: `m8-resume`, the T10 unit test, T1's `speedTest`).
+- [x] An opponent whose player left keeps fighting and stays on screen, faded, for both its opponents and spectators (evidence: `m8-proxy`, a screenshot attached to T11's PR).
+- [x] A returning player reads in one plain line what happened while it was away (evidence: `m8-away`, a screenshot attached to T12's PR).
+- [x] No client's result differs from the authority's anywhere in the harness's grid, and at most 150 ms one-way with 30 ms jitter at least 95% of inputs land in time (evidence: `docs/perf/netcode.md`).
+- [x] Every settled fight verifies, and any tampering is named (evidence: T4 tests, T8 workerd test, `encounter.verified`).
 - [ ] (owner) Reloading or losing the connection mid-fight on a real network brings you back into the fight without confusion.
 - [ ] (owner) Leaving a fight never feels like an exploit: the fight goes on, and its result waits for you.
 - [ ] (owner) Repeated kills of the same player feel worth less, and ordinary fights still feel rewarding.
