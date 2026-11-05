@@ -48,10 +48,10 @@ interface Rules {
   cooldowns: readonly number[];
 }
 
-const int = (v: unknown): number | null => (Number.isSafeInteger(v) ? (v as number) : null);
+export const int = (v: unknown): number | null => (Number.isSafeInteger(v) ? (v as number) : null);
 
 /** The condition a body names, with `suffix` (`…Before` for a mating's), or null when one is missing. */
-function conditionIn(body: StoredRecord['record']['body'], suffix = ''): Condition | null {
+export function conditionIn(body: StoredRecord['record']['body'], suffix = ''): Condition | null {
   const biomass = int(body[`biomass${suffix}`]);
   const energy = int(body[`energy${suffix}`]);
   const health = int(body[`health${suffix}`]);
@@ -64,14 +64,16 @@ const sameCondition = (a: Condition, b: Condition): boolean =>
   a.biomass === b.biomass && a.energy === b.energy && a.health === b.health;
 
 /** A death the fight's settlement wrote: a kill, an eaten egg, or a hazard inside the fight. */
-const fightDeath = (s: StoredRecord | undefined): boolean =>
+export const fightDeath = (s: StoredRecord | undefined): boolean =>
   s?.record.kind === 'death' && typeof s.record.body.enc === 'string';
+
+/** The checkpoint a settlement writes (the last report) just before a fight death, in the same transaction. */
+export const settlementCheckpoint = (s: StoredRecord, next: StoredRecord | undefined): boolean =>
+  s.record.kind === 'checkpoint' && fightDeath(next) && next?.record.t === s.record.t;
 
 /** Whether the fights family bounds this record's clock: a fight's record, or a settlement's checkpoint before its death. */
 const ofFight = (s: StoredRecord, next: StoredRecord | undefined): boolean =>
-  s.record.kind === 'encounter' ||
-  fightDeath(s) ||
-  (s.record.kind === 'checkpoint' && fightDeath(next) && next?.record.t === s.record.t);
+  s.record.kind === 'encounter' || fightDeath(s) || settlementCheckpoint(s, next);
 
 export function verifyGates(index: BundleIndex, _opts: VerifyOptions): Problem[] {
   const scales = index.bundle.world.scales;
@@ -152,11 +154,15 @@ function step(
   /** Whether `biomass` is beyond the growth reach from the condition before, over the time gained. */
   const outgrown = (biomass: number) =>
     biomass > reachAt(state.condition.biomass, rules.growth, Math.max(0, gained));
+  /** `c` against the vitals its biomass allows. */
+  const capped = (c: Condition) => {
+    const cap = vitalsCap(c.biomass);
+    if (c.energy > cap.energy || c.health > cap.health) at('vitals');
+  };
   /** `c` against the growth reach and the vitals its biomass allows. */
   const grown = (c: Condition) => {
     if (outgrown(c.biomass)) at('growth');
-    const cap = vitalsCap(c.biomass);
-    if (c.energy > cap.energy || c.health > cap.health) at('vitals');
+    capped(c);
   };
 
   switch (kind) {
@@ -201,9 +207,11 @@ function step(
       break;
     }
     default: {
-      // A checkpoint, a parent's promote or a fight's encounter.
+      // A checkpoint, a parent's promote or a fight's encounter. A settlement's checkpoint grows
+      // within the fight's bound (the fights family's), but holds no more than its body allows.
       if (!condition) return;
-      if (kind !== 'encounter') grown(condition);
+      if (kind === 'checkpoint' && fight) capped(condition);
+      else if (kind !== 'encounter') grown(condition);
       if (kind === 'promote') {
         // The parent is frozen as it was last reported; its cooldown runs on unchanged.
         if (int(body.cooldownUntilMs) !== state.cooldownUntilMs) at('promote-cooldown');
