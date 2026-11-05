@@ -158,7 +158,10 @@ class Reader {
  */
 function tieOf(parent: Known, child: Known): number {
   const first = child.chain[0];
-  const mates = first?.record.kind === 'birth' ? (first.record.body.mates as unknown[]) : [];
+  const mates =
+    first?.record.kind === 'birth'
+      ? ((first.record.body.mates as unknown[] | undefined) ?? [])
+      : [];
   const childId = first?.hash;
   const handover = parent.chain.findLastIndex(
     (s) =>
