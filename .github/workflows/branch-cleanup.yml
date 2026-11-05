@@ -1,0 +1,58 @@
+name: Branch cleanup
+
+# GitHub deletes a PR's branch when it merges, not when it is closed, so every factory claim that
+# lost a race left its `claude/` branch behind (ADR 0057). This deletes the branch of a factory PR
+# closed without merging, and a daily sweep deletes `claude/` branches that have no open PR and no
+# commit for 6 hours. No code is checked out, so `pull_request_target` runs nothing from the PR.
+on:
+  pull_request_target:
+    types: [closed]
+  schedule:
+    - cron: '37 4 * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+  pull-requests: read
+
+jobs:
+  closed:
+    if: >-
+      github.event_name == 'pull_request_target' &&
+      !github.event.pull_request.merged &&
+      startsWith(github.event.pull_request.head.ref, 'claude/') &&
+      github.event.pull_request.head.repo.full_name == github.repository
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - name: Delete the closed factory PR's branch
+        env:
+          GH_TOKEN: ${{ github.token }}
+          BRANCH: ${{ github.event.pull_request.head.ref }}
+        run: |
+          if gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$BRANCH" 2>/dev/null; then
+            echo "Deleted $BRANCH"
+          else
+            echo "::notice::$BRANCH is already gone"
+          fi
+
+  sweep:
+    if: github.event_name != 'pull_request_target'
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    steps:
+      - name: Delete factory branches with no open PR and no commit for 6 hours
+        env:
+          GH_TOKEN: ${{ github.token }}
+        run: |
+          open=$(gh api --paginate "repos/$GITHUB_REPOSITORY/pulls?state=open&per_page=100" --jq '.[].head.ref')
+          cutoff=$(date -u -d '6 hours ago' +%s)
+          gh api --paginate "repos/$GITHUB_REPOSITORY/branches?per_page=100" \
+            --jq '.[] | select(.name | startswith("claude/")) | "\(.name) \(.commit.sha)"' |
+          while read -r name sha; do
+            if grep -qxF "$name" <<< "$open"; then continue; fi
+            when=$(gh api "repos/$GITHUB_REPOSITORY/commits/$sha" --jq '.commit.committer.date')
+            if [ "$(date -u -d "$when" +%s)" -ge "$cutoff" ]; then continue; fi
+            gh api -X DELETE "repos/$GITHUB_REPOSITORY/git/refs/heads/$name"
+            echo "Deleted $name (last commit $when)"
+          done

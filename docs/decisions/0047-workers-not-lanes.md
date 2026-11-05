@@ -1,6 +1,6 @@
 # 0047: Two identical workers with one claim per task, instead of two lanes
 
-- Status: accepted (supersedes 0044's lanes and its one PR per lane, and 0045's care backlog; refines 0020's guard to one PR per task; amended by 0048: at most two steps in progress at once)
+- Status: accepted (supersedes 0044's lanes and its one PR per lane, and 0045's care backlog; refines 0020's guard to one PR per task; amended by 0048: at most two steps in progress at once; claims made by `tools/claim.sh`, closed branches deleted: 0057)
 - Date: 2026-11-02
 
 ## Context
