@@ -397,7 +397,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### The authority
 
-- [ ] T7 Proof endpoints: bundles and fights served while everyone is offline [opus] (after T3) (in progress)
+- [x] T7 Proof endpoints: bundles and fights served while everyone is offline [opus] (after T3) (in progress)
+  - Done: `worker/proof.ts` (`proofBundle`, `fightProof`, `serveProof`/`serveFight`), the RPCs and routes with `caches.default`, `usage.request` and `requestBudget`; tests in `worker/proof.test.ts`.
+  - Gotcha: the hub's own history failed `clock-fast`: a death wrote its checkpoint (dated now) with the last report's clock, so `death` now credits the ticks first and both records carry the clock at the death.
   - Steps:
     1. `worker/proof.ts` builds the bundle from the ledger, with reads only:
        - **the subject**: its whole chain;

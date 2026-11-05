@@ -48,6 +48,9 @@ import {
   must,
   mustPromote,
   newPlayer,
+  RULE,
+  restoreRequest,
+  sign,
   step,
 } from './ledger-test-kit';
 import { proofBundle } from './proof';
@@ -372,6 +375,28 @@ describe('proofBundle caps', () => {
     expect(bundle.creatures.length).toBeLessThan(PROOF_MAX_CREATURES);
     expect(bundle.creatures.length).toBeGreaterThan(1);
     expect(bundle.more.length).toBeGreaterThan(0);
+  });
+
+  it('cuts a chain parent at its promote, though it was restored and died later', async () => {
+    const [A, B] = [await newPlayer(), await newPlayer()];
+    const child = await authority((o) => {
+      const a = step(o.ledger, checkpoint(hatchInLedger(o.ledger, A.playerId), 5_000));
+      const b = step(o.ledger, checkpoint(hatchInLedger(o.ledger, B.playerId), 5_000));
+      const [c] = bear(o.ledger, mated(o.ledger, a, b));
+      mustPromote(o.ledger, A, c, a.id);
+      die(o.ledger, must(o.ledger.head(c.id)));
+      const request = restoreRequest(must(o.ledger.head(a.id)), c.id);
+      expect(o.ledger.restore(request, sign(A, request), RULE).ok).toBe(true);
+      die(o.ledger, must(o.ledger.head(a.id)));
+      return { id: c.id, parent: a.id };
+    });
+    const bundle = await authority((o) => must(proofBundle(o, child.id, o.clock.now())));
+    const mine = recordsIn(bundle, child.parent);
+    expect(mine.at(-1)?.record).toMatchObject({ kind: 'promote', body: { child: child.id } });
+    expect((await chainOf(child.parent)).map((r) => r.record.kind).slice(-2)).toEqual([
+      'restore',
+      'death',
+    ]);
   });
 
   it('cuts a chain parent that was already dead at its death', async () => {

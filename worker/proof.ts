@@ -160,16 +160,20 @@ function tieOf(parent: Known, child: Known): number {
   const first = child.chain[0];
   const mates = first?.record.kind === 'birth' ? (first.record.body.mates as unknown[]) : [];
   const childId = first?.hash;
-  let end = -1;
-  for (const [i, s] of parent.chain.entries()) {
-    const r = s.record;
-    const tied =
-      mates.includes(s.hash) ||
-      (r.kind === 'promote' && r.body.role === 'parent' && r.body.child === childId) ||
-      (r.kind === 'death' && child.chainParent === parent.id);
-    if (tied) end = i;
-  }
-  return end;
+  const handover = parent.chain.findLastIndex(
+    (s) =>
+      s.record.kind === 'promote' &&
+      s.record.body.role === 'parent' &&
+      s.record.body.child === childId,
+  );
+  // A chain parent that was alive when the child took over is cut at that promote (a restore and
+  // a later death are its own); one that had died is cut at its death.
+  const death =
+    handover < 0 && child.chainParent === parent.id
+      ? parent.chain.findLastIndex((s) => s.record.kind === 'death')
+      : -1;
+  const mating = parent.chain.findLastIndex((s) => mates.includes(s.hash));
+  return Math.max(handover, death, mating);
 }
 
 /** Each held creature's records in the bundle: the subject's whole chain, an ancestor's to its last tie. */
