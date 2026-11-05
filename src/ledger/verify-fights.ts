@@ -14,6 +14,7 @@ import type { PubKey, StoredRecord } from './record';
 import { checkSettledRecords, type FightLog, type SignedSettlement } from './settlement';
 import type { BundleIndex, LineageReport, Problem, VerifyOptions } from './verify';
 import { firstNamers, whereNamed } from './verify-chain';
+import { conditionIn, fightDeath, int, settlementCheckpoint } from './verify-gates';
 
 // The fights family of `verifyLineage` (ADR 0055): each fight record against its settlement, the
 // locked time and growth around a fight, and, with logs and a replay, the fight replayed and each
@@ -23,8 +24,6 @@ import { firstNamers, whereNamed } from './verify-chain';
 
 /** A fight frame's length in ms, as the referee steps it (`src/net/referee.ts`). */
 const FRAME_MS = (RULES.encounter.frameTicks * 1000) / TICK_HZ;
-
-const int = (v: unknown): number | null => (Number.isSafeInteger(v) ? (v as number) : null);
 
 /** What a chain established before a record: the wall time its clock was read at (null while pending), its clock and condition. */
 interface Before {
@@ -52,23 +51,6 @@ const encOf = (s: StoredRecord | undefined): string | null => {
   const enc = s?.record.body.enc;
   return typeof enc === 'string' ? enc : null;
 };
-
-/** A death the fight's settlement wrote: a kill, an eaten egg, or a hazard inside the fight. */
-const fightDeath = (s: StoredRecord | undefined): boolean =>
-  s?.record.kind === 'death' && encOf(s) !== null;
-
-/** The checkpoint a settlement writes (the last report) just before a fight death, in the same transaction. */
-const settlementCheckpoint = (s: StoredRecord, next: StoredRecord | undefined): boolean =>
-  s.record.kind === 'checkpoint' && fightDeath(next) && next?.record.t === s.record.t;
-
-function conditionIn(body: StoredRecord['record']['body']): Condition | null {
-  const biomass = int(body.biomass);
-  const energy = int(body.energy);
-  const health = int(body.health);
-  return biomass === null || energy === null || health === null
-    ? null
-    : { biomass, energy, health };
-}
 
 function bodyOf(text: string, scales: Scales): Body | null {
   const genome = genomeFromBase64url(text);

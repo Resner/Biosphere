@@ -48,10 +48,10 @@ interface Rules {
   cooldowns: readonly number[];
 }
 
-const int = (v: unknown): number | null => (Number.isSafeInteger(v) ? (v as number) : null);
+export const int = (v: unknown): number | null => (Number.isSafeInteger(v) ? (v as number) : null);
 
 /** The condition a body names, with `suffix` (`…Before` for a mating's), or null when one is missing. */
-function conditionIn(body: StoredRecord['record']['body'], suffix = ''): Condition | null {
+export function conditionIn(body: StoredRecord['record']['body'], suffix = ''): Condition | null {
   const biomass = int(body[`biomass${suffix}`]);
   const energy = int(body[`energy${suffix}`]);
   const health = int(body[`health${suffix}`]);
@@ -64,14 +64,16 @@ const sameCondition = (a: Condition, b: Condition): boolean =>
   a.biomass === b.biomass && a.energy === b.energy && a.health === b.health;
 
 /** A death the fight's settlement wrote: a kill, an eaten egg, or a hazard inside the fight. */
-const fightDeath = (s: StoredRecord | undefined): boolean =>
+export const fightDeath = (s: StoredRecord | undefined): boolean =>
   s?.record.kind === 'death' && typeof s.record.body.enc === 'string';
+
+/** The checkpoint a settlement writes (the last report) just before a fight death, in the same transaction. */
+export const settlementCheckpoint = (s: StoredRecord, next: StoredRecord | undefined): boolean =>
+  s.record.kind === 'checkpoint' && fightDeath(next) && next?.record.t === s.record.t;
 
 /** Whether the fights family bounds this record's clock: a fight's record, or a settlement's checkpoint before its death. */
 const ofFight = (s: StoredRecord, next: StoredRecord | undefined): boolean =>
-  s.record.kind === 'encounter' ||
-  fightDeath(s) ||
-  (s.record.kind === 'checkpoint' && fightDeath(next) && next?.record.t === s.record.t);
+  s.record.kind === 'encounter' || fightDeath(s) || settlementCheckpoint(s, next);
 
 export function verifyGates(index: BundleIndex, _opts: VerifyOptions): Problem[] {
   const scales = index.bundle.world.scales;
