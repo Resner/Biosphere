@@ -62,7 +62,12 @@ describe('tools/claim.sh probe', () => {
     const r = probe('M9 T7', busy);
     expect(r.status).toBe(3);
     expect(r.out).toContain('two steps in progress');
-    expect(probe('health', [{ number: 10, task: 'M9 T5' }, { number: 11, task: 'M9 T6' }])).toEqual({
+    expect(
+      probe('health', [
+        { number: 10, task: 'M9 T5' },
+        { number: 11, task: 'M9 T6' },
+      ]),
+    ).toEqual({
       status: 0,
       out: 'free',
     });
