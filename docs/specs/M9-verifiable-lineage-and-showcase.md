@@ -397,7 +397,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### The authority
 
-- [ ] T7 Proof endpoints: bundles and fights served while everyone is offline [opus] (after T3)
+- [ ] T7 Proof endpoints: bundles and fights served while everyone is offline [opus] (after T3) (in progress)
   - Steps:
     1. `worker/proof.ts` builds the bundle from the ledger, with reads only:
        - **the subject**: its whole chain;
