@@ -23,7 +23,7 @@ Every run is a worker; two scheduled tasks start them, so two may run at once. A
 
 CI's guard fails a PR while an older open `claude/` PR carries the same `Task:` line, so a step is never done twice. Different steps run side by side. An open PR without a `Task:` line (opened before ADR 0047) claims the step its title names.
 
-**At most two steps at once (ADR 0048).** Steps in progress are open PRs, other than `Task: health`, whose claim is live (§1). While there are two, don't start or take over a step other than health: stop with `IDLE: two steps in progress`. One health fix may run beside them. Both scheduled tasks start a run on every merge and every hour, so more runs start than there are free slots; the extra ones stop within a minute or two.
+**At most two steps at once (ADR 0048).** Steps in progress are open PRs, other than `Task: health`, whose claim is live (§1). While there are two, don't start or take over a step other than health: stop with `IDLE: two steps in progress`. One health fix may run beside them. Both scheduled tasks start a run on every merge and every hour, so more runs start than there are free slots; the extra ones stop within a minute or two. `tools/claim.sh` makes the claim and enforces both rules (§2).
 
 ## 1. Clear the line
 
@@ -76,8 +76,11 @@ Before any real work, claim the step so that no other worker starts it too:
    - a spec: create the spec file with just its title;
    - a milestone close: append ` (closing)` to the milestone's status in `docs/ROADMAP.md`;
    - health or owner input: an empty commit (`git commit --allow-empty -m "chore: claim <step>"`), so you can claim before you know the fix.
-3. Push it and open a **draft** PR titled after the step, with its `Task:` line in the body.
-4. List the open PRs again **before anything else, and before you start a subagent**. If an older open PR carries the same `Task:` line, close yours and stop with `IDLE: <step> already claimed`. Unless yours is `Task: health`, also count the older open PRs other than `Task: health` with a live claim: if there are two, close yours and stop with `IDLE: two steps in progress`. PR numbers are assigned atomically, so the lowest numbers always win (ADRs 0020, 0047, 0048). Several runs often start within seconds of each other, so never skip this check. CI's `verify` enforces the same-task rule too.
+3. Run `tools/claim.sh claim "<task>" "<PR title>"` (ADR 0057), with the task exactly as its `Task:` line will read (`M9 T6`, `health`, `spec M10`). It refuses before pushing anything if the step is taken or two steps are in progress. Otherwise it pushes your branch, opens the draft PR with the `Task:` line, and checks again right away and after 20 seconds, when every run started by the same trigger has opened its PR. Lower PR numbers win.
+   - Exit 0 prints `CLAIMED #<n>`: the step is yours. Only now start work, or the `opus-task` or `spec` subagent.
+   - Exit 3 prints an `IDLE: …` line: another run holds the step (your PR, if any, is already closed and its branch deleted). Stop with that line; do nothing else.
+
+   Never open the claim PR by hand: the script is what keeps two runs off one step. `tools/claim.sh probe "<task>"` tells you whether a step is free without claiming it.
 
 Clear the marker before you ship.
 
@@ -94,7 +97,7 @@ Clear the marker before you ship.
 
 - Use a Conventional Commit title (`feat(scope): …`, `fix: …`, `docs(spec): …`). The PR body names the step, keeps its `Task:` line and lists the commands you ran with their results.
 - Other workers merge into `main` while you work. Before your last push, merge `origin/main` into your branch and resolve any conflict.
-- Push your last commit before you mark the PR ready, update its title and body, mark it ready for review, and enable auto-merge (squash). If GitHub says it can merge right away, squash-merge it. After it merges, push nothing more to its branch: GitHub deletes the branch on merge, and a push would recreate it with no PR.
+- Push your last commit, then run `tools/claim.sh check <your PR number>`; on exit 3 another run holds the step, so stop with the `IDLE:` line it prints. Then update the PR's title and body (keep its `Task:` line), mark it ready for review, and enable auto-merge (squash). If GitHub says it can merge right away, squash-merge it. After it merges, push nothing more to its branch: GitHub deletes the branch on merge, and a push would recreate it with no PR.
 - Stay with the PR until it merges. Fix CI failures your diff causes at the root cause; never skip or disable a test. A failure in a scenario your diff doesn't touch: re-run the failed job once (`gh run rerun <id> --failed -R Resner/Biosphere`) before you investigate anything; most are flakes. If it fails again, it blocks your PR, so fix it at its cause.
 - Heartbeat: while a step runs longer than 30 minutes without a push (a long task, a wait on CI), keep the claim live (§1): push your work in progress, or update a `Heartbeat: <UTC time>` line in the PR body, at least every 45 minutes. The `opus-task` and `spec` subagents push their work in progress to the branch themselves.
 - Wait for CI in the foreground with one command at a time: `gh run list -R Resner/Biosphere -w ci.yml -b <branch> -L 3` for the newest run id, then `gh run watch <id> -R Resner/Biosphere --compact --exit-status`. Don't arm background jobs, `Monitor`s or scheduled check-ins (`send_later`, `create_trigger`) to wait: they outlive the run and keep waking the finished session. The hourly schedule is the safety net.
