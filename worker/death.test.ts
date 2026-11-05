@@ -186,11 +186,12 @@ describe('death requests', () => {
 
       const records = await chain(creature);
       expect(records.map((r) => r.kind)).toEqual(['genesis', 'checkpoint', 'death']);
+      // The last report's condition, with the clock at the death: a record carries its own time's clock.
       expect(JSON.parse(records[1]?.json ?? '{}').body).toMatchObject({
         biomass: 10_000,
         energy: 3000,
         health: 500,
-        activeMs: 30_000,
+        activeMs: 40_000,
       });
       expect(await status(creature)).toBe('dead');
     },

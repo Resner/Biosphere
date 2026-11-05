@@ -242,12 +242,10 @@ export function death(
     }
     return;
   }
-  // The checkpoint keeps what the last report said; the stretch since then is credited to the death.
-  const saved = unsaved(session.life)
-    ? checkpoint(hub, session.life, session.playerId)
-    : session.life;
+  // The stretch since the last report is credited first, so the checkpoint `finish` writes (the
+  // last report's condition) carries the clock of its own time, as the death does (ADR 0055).
   // Ticks that spend the last of the lifespan are old age whatever the client says: the authority's clock decides.
-  const credited = creditTicks(saved, msg.ticks, now);
+  const credited = creditTicks(session.life, msg.ticks, now);
   const cause = isOld(credited) ? 'old-age' : msg.cause;
   const life = finish(hub, ws, credited, session.playerId, cause);
   ws.serializeAttachment({ ...session, life } satisfies Session);

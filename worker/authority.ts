@@ -23,6 +23,7 @@ import {
   restoreAncestor,
 } from './lives';
 import { court, decline, deliverBirth, mateCheck, queueAccept } from './offspring';
+import { type Served, serveFight, serveProof } from './proof';
 import { recoverFights } from './recover';
 import { migrate } from './schema';
 import { drop, hello, promote, queued, relay } from './sessions';
@@ -107,6 +108,21 @@ export class Authority extends DurableObject<Env> implements Hub {
   /** The public halves of every authority key (`GET /v1/pubkeys`). */
   pubkeys(): KeyEntry[] {
     return this.ledger.pubkeys();
+  }
+
+  /** Proof reads that reached the object; a cache hit at the edge never does (a hub test counts them). */
+  proofReads = 0;
+
+  /** A creature's proof bundle (`GET /v1/proof/<creature>`, `worker/proof.ts`): reads only. */
+  proof(creature: string): Served {
+    this.proofReads++;
+    return serveProof(this, creature);
+  }
+
+  /** A settled fight's settlement and log (`GET /v1/fight/<enc>`): reads only. */
+  fight(enc: string): Served {
+    this.proofReads++;
+    return serveFight(this, enc);
   }
 
   override async fetch(): Promise<Response> {
