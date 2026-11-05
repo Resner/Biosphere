@@ -368,7 +368,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - Each limit exactly met passes: the gates are inclusive, as the authority's are.
   - Notes: honest play never leans on a slack, so a hub history (T7) that fails a gate before T8 has landed points at a bug in the hub or in the gate. Find which, and fix that side. The per-report slack that T8 removes matters only to adversarial clients.
 
-- [ ] T6 Settlements in a lineage [opus] (after T3) (in progress)
+- [x] T6 Settlements in a lineage [opus] (after T3) (in progress)
+  - Done: `verify-fights.ts` (codes `settlement-missing`, `settled:<field>`, `fight-clock`, `fight-growth`, `start-growth`, `locked-time`, `replay:<code>`; `problemText` falls back to a code's listed prefix); the tamper helpers moved to `tests/lineage-fixture.ts`, and the gates no longer bound a settlement's checkpoint's growth (only its vitals).
+  - Gotcha for T7/T8: `start-growth` bounds a lock-in claim from the last record, but the hub clamps it from the last report until T8, so a replayed hub fight can fail it before T8 lands.
   - Steps: `src/ledger/verify-fights.ts`:
     1. Each `encounter` record and each fight death (`killed`, `eaten`) names a settlement in the bundle (`settlement-missing` otherwise). Its countersignature holds, and `checkSettledRecords` passes the creature's records of that fight, with a result for the creature.
     2. **Locked time and growth around a fight**:

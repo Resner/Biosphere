@@ -152,11 +152,15 @@ function step(
   /** Whether `biomass` is beyond the growth reach from the condition before, over the time gained. */
   const outgrown = (biomass: number) =>
     biomass > reachAt(state.condition.biomass, rules.growth, Math.max(0, gained));
+  /** `c` against the vitals its biomass allows. */
+  const capped = (c: Condition) => {
+    const cap = vitalsCap(c.biomass);
+    if (c.energy > cap.energy || c.health > cap.health) at('vitals');
+  };
   /** `c` against the growth reach and the vitals its biomass allows. */
   const grown = (c: Condition) => {
     if (outgrown(c.biomass)) at('growth');
-    const cap = vitalsCap(c.biomass);
-    if (c.energy > cap.energy || c.health > cap.health) at('vitals');
+    capped(c);
   };
 
   switch (kind) {
@@ -201,9 +205,11 @@ function step(
       break;
     }
     default: {
-      // A checkpoint, a parent's promote or a fight's encounter.
+      // A checkpoint, a parent's promote or a fight's encounter. A settlement's checkpoint grows
+      // within the fight's bound (the fights family's), but holds no more than its body allows.
       if (!condition) return;
-      if (kind !== 'encounter') grown(condition);
+      if (kind === 'checkpoint' && fight) capped(condition);
+      else if (kind !== 'encounter') grown(condition);
       if (kind === 'promote') {
         // The parent is frozen as it was last reported; its cooldown runs on unchanged.
         if (int(body.cooldownUntilMs) !== state.cooldownUntilMs) at('promote-cooldown');
