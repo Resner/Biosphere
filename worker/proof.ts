@@ -184,8 +184,7 @@ function prefixes(held: readonly Known[]): Map<string, StoredRecord[]> {
   for (const a of ancestors) {
     let end = -1;
     for (const child of held) {
-      if (child.parents.includes(a.id) || child.chainParent === a.id)
-        end = Math.max(end, tieOf(a, child));
+      if (parentsOf(child).includes(a.id)) end = Math.max(end, tieOf(a, child));
     }
     out.set(a.id, a.chain.slice(0, end + 1));
   }
@@ -280,6 +279,16 @@ export function proofBundle(
   now: number,
   limits: ProofLimits = LIMITS,
 ): ProofBundle | null {
+  return buildBundle(hub, creature, now, limits)?.bundle ?? null;
+}
+
+/** `proofBundle`, with whether its subject is dead (so the bundle can never change). */
+function buildBundle(
+  hub: Hub,
+  creature: string,
+  now: number,
+  limits: ProofLimits,
+): { bundle: ProofBundle; final: boolean } | null {
   const reader = new Reader(hub);
   const subject = reader.creature(creature);
   if (!subject) return null;
@@ -304,7 +313,7 @@ export function proofBundle(
     }
     level = next;
   }
-  return bundle;
+  return { bundle, final: subject.status === 'dead' };
 }
 
 /** Every authority key ever used, public halves only. Unlike `Ledger.pubkeys`, it never makes one. */
@@ -367,9 +376,8 @@ function serve(hub: Hub, answer: () => { body: unknown; final: boolean } | null)
 export function serveProof(hub: Hub, creature: string): Served {
   return serve(hub, () => {
     if (!HEX64.test(creature)) return null;
-    const bundle = proofBundle(hub, creature, hub.clock.now());
-    const status = read(hub, 'SELECT status FROM creatures WHERE id = ?', creature)[0]?.status;
-    return bundle && { body: bundle, final: status === 'dead' };
+    const built = buildBundle(hub, creature, hub.clock.now(), LIMITS);
+    return built && { body: built.bundle, final: built.final };
   });
 }
 

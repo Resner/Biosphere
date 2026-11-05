@@ -1,3 +1,4 @@
+import { HEX64 } from '../src/ledger/record';
 import { PROTOCOL_VERSION } from '../src/net/protocol';
 import { isAllowedOrigin } from './origin';
 import type { Served } from './proof';
@@ -26,7 +27,6 @@ async function publicJson(
 
 /** `GET /v1/proof/<creature>` and `GET /v1/fight/<enc>` (ADR 0055): the id is 64 lowercase hex. */
 const PROOF_PATH = /^\/v1\/(proof|fight)\/([^/]*)$/;
-const ID = /^[0-9a-f]{64}$/;
 /** A dead creature's bundle and a settled fight never change; anything else may within a minute. */
 const FINAL_MAX_AGE = 86_400;
 const LIVE_MAX_AGE = 60;
@@ -50,7 +50,7 @@ async function proofRead(
   const cors: Record<string, string> = origin
     ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
     : { Vary: 'Origin' };
-  if (!ID.test(id)) return json({ error: 'id' }, 400, cors);
+  if (!HEX64.test(id)) return json({ error: 'id' }, 400, cors);
   const key = new Request(`${new URL(request.url).origin}/v1/${what}/${id}`);
   const cache = caches.default;
   const hit = await cache.match(key);
