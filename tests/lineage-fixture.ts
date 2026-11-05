@@ -274,7 +274,8 @@ function fighterOf(
   };
 }
 
-function play(log: Omit<FightLog, 'frames'>): { log: FightLog; enc: Encounter } {
+/** A fight played to its end on the autopilot (no inputs), as the fixture fights it. */
+export function play(log: Omit<FightLog, 'frames'>): { log: FightLog; enc: Encounter } {
   const start = encounterStartOf(log.start, log.pondSeed);
   if (!start) throw new Error('the fixture fight does not build');
   const enc = createEncounter(start);
@@ -593,4 +594,74 @@ export function bundleOf(
     more,
     t: h.t + 60_000,
   };
+}
+
+// Tampering helpers: what a test changes is stored again with the fixture's keys, so only the
+// check under test can catch it.
+
+/** Where record `seq` of `creature` sits in the bundle's records. */
+export function indexOf(b: ProofBundle, creature: string, seq: number): number {
+  const i = b.records.findIndex(
+    (s) => (s.record.creature || s.hash) === creature && s.record.seq === seq,
+  );
+  if (i < 0) throw new Error(`no record ${seq} of ${creature}`);
+  return i;
+}
+
+/** Replaces a record with `change` applied, stored again, and relinks the records after it. */
+export function rewrite(
+  b: ProofBundle,
+  creature: string,
+  seq: number,
+  change: (r: LedgerRecord) => void,
+): void {
+  let i = indexOf(b, creature, seq);
+  const s = b.records[i] as StoredRecord;
+  const record = structuredClone(s.record);
+  change(record);
+  let prev = resign(s, record);
+  b.records[i] = prev;
+  for (let next = seq + 1; ; next++) {
+    i = b.records.findIndex((x) => x.record.creature === creature && x.record.seq === next);
+    if (i < 0) return;
+    const later = b.records[i] as StoredRecord;
+    prev = resign(later, { ...later.record, prev: prev.hash });
+    b.records[i] = prev;
+  }
+}
+
+/** A record to write in place of others: its kind, time and body. */
+export interface Step {
+  kind: LedgerRecord['kind'];
+  t: number;
+  body: LedgerRecord['body'];
+}
+
+/** Replaces `creature`'s records from `seq` on with `steps`, written and countersigned as the authority would. */
+export function retail(
+  b: ProofBundle,
+  creature: string,
+  seq: number,
+  steps: readonly Step[],
+): void {
+  let prev = b.records[indexOf(b, creature, seq - 1)] as StoredRecord;
+  b.records = b.records.filter(
+    (s) => (s.record.creature || s.hash) !== creature || s.record.seq < seq,
+  );
+  for (const [n, step] of steps.entries()) {
+    const record: LedgerRecord = {
+      ...structuredClone(prev.record),
+      creature,
+      seq: seq + n,
+      prev: prev.hash,
+      t: step.t,
+      kind: step.kind,
+      body: step.body,
+    };
+    const ownerStarted =
+      step.kind === 'restore' || (step.kind === 'promote' && step.body.role === 'child');
+    const secret = record.owner === PLAYERS.A ? OWNER_SECRETS.A : OWNER_SECRETS.B;
+    prev = store(record, ownerStarted ? secret : null);
+    b.records.push(prev);
+  }
 }

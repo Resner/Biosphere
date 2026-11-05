@@ -295,6 +295,39 @@ export const PROBLEM_TEXT: Readonly<Record<string, string>> = Object.freeze({
   'pair:self': 'A mating pairs a player with themselves.',
   'pair:pair-mismatch': "A mating's two requests do not name each other.",
   'pair:bad-signature': 'A request to mate is not signed by its player.',
+  // The fights family.
+  'settlement-missing': "The proof lacks the settlement of a fight a creature's record names.",
+  settled: "A creature's record of a fight does not agree with the fight's settlement.",
+  'settled:rules': 'A fight record and its settlement were made under different rules.',
+  'settled:creature': 'A creature has a record of a fight its settlement gives it no part in.',
+  'settled:player':
+    "A fight record belongs to a player other than the fighter's in its settlement.",
+  'settled:kind':
+    "A creature's record of a fight is not the kind its result in the settlement calls for.",
+  'settled:outcome': "A fight record's outcome is not the settlement's.",
+  'settled:frames': "A fight record's length is not the settlement's.",
+  'settled:biomass': "A fight record's size is not the settlement's.",
+  'settled:energy': "A fight record's energy is not the settlement's.",
+  'settled:health': "A fight record's health is not the settlement's.",
+  'settled:reward': "A fight record's winnings are not the settlement's.",
+  'settled:cause': "A fight death's cause is not the settlement's.",
+  'settled:by': "A fight death names a killer other than the settlement's.",
+  'fight-clock':
+    "The creature's life clock ran further around a fight than the fight and real time allow.",
+  'fight-growth': 'The creature came out of a fight bigger than its genes and its winnings allow.',
+  'start-growth': 'The creature went into a fight bigger than its genes allow.',
+  'locked-time': 'A fight record does not count the time the creature was locked in the fight.',
+  replay: "A fight's replay from its log does not match its settlement.",
+  'replay:start': "A fight's log does not begin as its settlement says.",
+  'replay:joins': "A fight's log does not hold the fighters who joined as its settlement says.",
+  'replay:frames': "A fight's log does not last as long as its settlement says.",
+  'replay:root': "A fight's log does not hold the inputs its settlement was signed over.",
+  'replay:width': "A fight's log holds a frame with the wrong number of inputs.",
+  'replay:rules-retired': 'A fight was settled under rules that a world renewal retired.',
+  'replay:rules-unknown': 'A fight was settled under rules this verifier does not know.',
+  'replay:replay': "A fight's log does not play through to the end its settlement records.",
+  'replay:hash': "A fight's replay does not end where its settlement says it ended.",
+  'replay:result': "A fight's replay does not give the results its settlement records.",
 });
 
 /** The sentence for a code a family reports that `PROBLEM_TEXT` does not list. */
@@ -306,10 +339,18 @@ export const FAMILY_TEXT: Readonly<Record<Family, string>> = Object.freeze({
   fights: "A fight's records do not agree with its settlement.",
 });
 
+/** The sentence for `code`, or for its longest listed prefix (`replay:result:0:biomass` reads as `replay:result`). */
+function listedText(code: string): string | undefined {
+  for (let c = code; ; c = c.slice(0, c.lastIndexOf(':'))) {
+    if (Object.hasOwn(PROBLEM_TEXT, c)) return PROBLEM_TEXT[c];
+    if (!c.includes(':')) return undefined;
+  }
+}
+
 /** One plain sentence for a problem, with no raw code in it. */
 export function problemText(p: Problem): string {
   return (
-    (Object.hasOwn(PROBLEM_TEXT, p.code) ? PROBLEM_TEXT[p.code] : undefined) ??
+    (typeof p.code === 'string' ? listedText(p.code) : undefined) ??
     (Object.hasOwn(FAMILY_TEXT, p.family) ? FAMILY_TEXT[p.family] : undefined) ??
     'Something in this history does not hold.'
   );
