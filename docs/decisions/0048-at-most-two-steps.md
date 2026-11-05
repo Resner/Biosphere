@@ -1,6 +1,6 @@
 # 0048: At most two steps in progress at once
 
-- Status: accepted (amends 0047: its "two workers" were not bounded)
+- Status: accepted (amends 0047: its "two workers" were not bounded; the claim is made and checked by `tools/claim.sh`: 0057)
 - Date: 2026-11-02
 
 ## Context

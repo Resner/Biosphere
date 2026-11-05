@@ -14,7 +14,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 
 | Topic | Current rule | History |
 |-------|--------------|---------|
-| Factory runs, workers and claims | 0048, 0047, 0042 | 0001, 0015, 0020, 0044, 0045 |
+| Factory runs, workers and claims | 0057, 0048, 0047, 0042 | 0001, 0015, 0020, 0044, 0045 |
 | Models for specs and tasks | 0026 | 0001, 0023 |
 | CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 (Playwright workers) | 0001, 0015 |
 | Rules versions and freezing | 0055 (the registry, rules 11), 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
@@ -74,8 +74,8 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0044](0044-two-lanes.md) | Two lanes: build and care, each with its own lock | accepted, partly superseded | 0045, 0047 |
 | [0045](0045-rules-that-fit-the-size.md) | Rules that fit the project's size: a quick check, lean rule files, a care backlog | accepted, partly superseded | 0047 |
 | [0046](0046-lab-evolved-lineages-bred-toward-an-aim.md) | The Lab's Evolved mode breeds lineages toward an aim | accepted | |
-| [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048 |
-| [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted | |
+| [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048, 0057 |
+| [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted, amended | 0057 |
 | [0049](0049-inherited-organ-colour.md) | The organs' second tone follows the inherited hue | accepted | |
 | [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted, amended | 0053 |
 | [0051](0051-combat-from-anatomy-and-growth-by-kills.md) | Combat from anatomy, size as an advantage, and kills as the fast way to grow | accepted, amended | 0054 |
@@ -84,3 +84,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0054](0054-signed-settlements-and-victim-worth.md) | A settled encounter is a signed document over a Merkle root of its frames, and a victim's worth decays | accepted | |
 | [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted | |
 | [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted | |
+| [0057](0057-claims-by-script-and-branch-cleanup.md) | Claims are made by a script, and closed factory branches are deleted | accepted | |
