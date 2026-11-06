@@ -14,6 +14,13 @@ import {
   joinHash,
   merkleProof,
   merkleRoot,
+  parseRefereeSpans,
+  REFEREE_SPANS_MAX,
+  type RefereeSpan,
+  refereeSpanProblems,
+  refereesOf,
+  type SettlementV1,
+  type SettlementV2,
   type SignedSettlement,
   settlementHash,
   startHash,
@@ -305,5 +312,82 @@ describe('checkSettledRecords', () => {
     const notCarrier = structuredClone(child);
     notCarrier.record.owner = victim.player;
     expect(checkSettledRecords(s, [notCarrier])).toEqual(['record:0:creature']);
+  });
+});
+
+describe('settlement versions (ADR 0058)', () => {
+  const W = 'O2onvM62pC1io6jQKm8Nc2UyFXcd4kOmOsBIoYtZ2ik';
+  const v1 = (): SettlementV1 =>
+    structuredClone(golden.fights.duel.settlement.settlement) as SettlementV1;
+  const v2 = (referees: RefereeSpan[], frames = 100): SettlementV2 => {
+    const { referee: _, ...rest } = v1();
+    return { ...rest, v: 2, frames, referees, duty: 'ab'.repeat(32) };
+  };
+
+  it('reads version 1 as the authority refereeing from frame 0', () => {
+    expect(v1().v).toBe(1);
+    expect(refereesOf(v1())).toEqual([{ by: 'authority', from: 0 }]);
+    expect(refereeSpanProblems(v1())).toEqual([]);
+    expect(checkSettlementSig(golden.fights.duel.settlement, golden.keys)).toEqual([]);
+  });
+
+  it('checks the spans: from 0 with the authority, increasing, within the fight, a witness with its position', () => {
+    const A = { by: 'authority', from: 0 };
+    expect(refereeSpanProblems(v2([A]))).toEqual([]);
+    expect(
+      refereeSpanProblems(v2([A, { by: W, from: 40, position: 0 }, { by: 'authority', from: 60 }])),
+    ).toEqual([]);
+    expect(refereeSpanProblems(v2([]))).toEqual(['spans-start']);
+    expect(refereeSpanProblems(v2([{ by: 'authority', from: 3 }]))).toEqual(['spans-start']);
+    expect(refereeSpanProblems(v2([{ by: W, from: 0, position: 0 }]))).toEqual(['spans-start']);
+    expect(
+      refereeSpanProblems(v2([A, { by: W, from: 40, position: 0 }, { by: 'authority', from: 40 }])),
+    ).toEqual(['spans-order']);
+    expect(refereeSpanProblems(v2([A, { by: W, from: 100, position: 0 }]))).toEqual([
+      'spans-frames',
+    ]);
+    expect(refereeSpanProblems(v2([A, { by: W, from: 40 }]))).toEqual(['spans-position']);
+    expect(refereeSpanProblems(v2([{ ...A, position: 0 }]))).toEqual(['spans-position']);
+  });
+
+  it('parses spans by shape only, refusing unknown fields and what no span can be', () => {
+    const spans = [
+      { by: 'authority', from: 0 },
+      { by: W, from: 40, position: 15 },
+    ];
+    expect(parseRefereeSpans(spans)).toEqual(spans);
+    // Out of order is the verifier's to name, not the parser's.
+    expect(
+      parseRefereeSpans([
+        { by: W, from: 9, position: 0 },
+        { by: 'authority', from: 2 },
+      ]),
+    ).not.toBeNull();
+    const bad: unknown[] = [
+      [],
+      Array(REFEREE_SPANS_MAX + 1).fill({ by: 'authority', from: 0 }),
+      [{ by: 'someone', from: 0 }],
+      [{ by: 'authority', from: -1 }],
+      [{ by: 'authority', from: 65_536 }],
+      [{ by: W, from: 1, position: 16 }],
+      [{ by: W, from: 1, position: 1.5 }],
+      [{ by: 'authority', from: 0, extra: 1 }],
+      [null],
+      'spans',
+    ];
+    for (const v of bad) expect(parseRefereeSpans(v), JSON.stringify(v)).toBeNull();
+  });
+
+  it('hashes version 2 over its spans and duty, and countersigns either', () => {
+    const doc = v2([
+      { by: 'authority', from: 0 },
+      { by: W, from: 40, position: 0 },
+    ]);
+    const moved = structuredClone(doc);
+    (moved.referees[1] as RefereeSpan).from = 41;
+    expect(settlementHash(moved)).not.toBe(settlementHash(doc));
+    expect(settlementHash({ ...doc, duty: '' })).not.toBe(settlementHash(doc));
+    expect(settlementHash(doc)).not.toBe(settlementHash(v1()));
+    expect(checkSettledRecords(doc, golden.fights.duel.records)).toEqual([]);
   });
 });

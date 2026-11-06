@@ -1,10 +1,11 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js';
 import type { EncJoin, EncStart } from '../net/encounter-start';
+import type { RefereeSpan } from '../net/handover';
 import type { FighterInfo } from '../net/protocol-defs';
 import { survivedOutcome } from '../sim/encounter/types';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
-import { fromBase64Url, verify } from './identity';
+import { fromBase64Url, isPlayerId, verify } from './identity';
 import {
   AUTH_DOMAIN,
   authorityKeyId,
@@ -15,6 +16,7 @@ import {
   type PubKey,
   type StoredRecord,
 } from './record';
+import { isHex64, onlyKeys, POOL_MAX } from './witness-doc';
 
 // A settled encounter's document (ADR 0054): what the fight was, countersigned by the authority over
 // a Merkle root of its frames. Canonical JSON of integers and strings: an absent cause or slot is an
@@ -36,9 +38,14 @@ export interface SettledFighter {
   reward: number;
 }
 
-/** The document: `start` and `joins` hash the start and join messages, `root` the frames, `hash` is `hashEncounter` at the end. */
-export interface Settlement {
-  v: 1;
+/** Who referees a fight from frame `from` on: `'authority'` or a witness's player id, with its place in the order (ADR 0058). */
+export type { RefereeSpan } from '../net/handover';
+
+/** The most referee spans a settlement holds: the authority's, and up to 3 witnesses each taken back. */
+export const REFEREE_SPANS_MAX = 8;
+
+/** Fields both versions share. `start` and `joins` hash the start and join messages, `root` the frames, `hash` is `hashEncounter` at the end. */
+interface SettlementBase {
   kind: 'settlement';
   rules: number;
   enc: string;
@@ -48,10 +55,82 @@ export interface Settlement {
   frames: number;
   root: string;
   hash: string;
-  referee: 'authority';
   results: SettledFighter[];
   t: number;
 }
+
+/** Version 1 (M8 to M9): every frame refereed by the authority. It still parses and verifies, as authority-only. */
+export interface SettlementV1 extends SettlementBase {
+  v: 1;
+  referee: 'authority';
+}
+
+/**
+ * Version 2 (ADR 0058): who refereed which frames, and the witness commitment (`duty`, its id, or
+ * `''` with an empty pool). Keys appear in the order `canonicalize` sorts them anyway.
+ */
+export interface SettlementV2 extends SettlementBase {
+  v: 2;
+  referees: RefereeSpan[];
+  duty: string;
+}
+
+export type Settlement = SettlementV1 | SettlementV2;
+
+/** A settlement's referee spans: version 1's is the authority from frame 0. */
+export function refereesOf(s: Settlement): RefereeSpan[] {
+  return s.v === 2 ? s.referees.map((r) => ({ ...r })) : [{ by: AUTHORITY, from: 0 }];
+}
+
+/**
+ * Why a settlement's spans are not a fight's (ADR 0058); empty when they are. Never throws:
+ * - `spans-start`: the first is not the authority's from frame 0;
+ * - `spans-order`: a span's `from` is not past the one before it;
+ * - `spans-frames`: a later span starts at or past the fight's last frame;
+ * - `spans-position`: a witness's span without its place in the order, or the authority's with one.
+ */
+export function refereeSpanProblems(s: Settlement): string[] {
+  const spans = refereesOf(s);
+  const problems = new Set<string>();
+  const [first] = spans;
+  if (first?.by !== AUTHORITY || first.from !== 0) problems.add('spans-start');
+  for (const [i, span] of spans.entries()) {
+    const before = spans[i - 1];
+    if (before && !(span.from > before.from)) problems.add('spans-order');
+    if (i > 0 && span.from >= s.frames) problems.add('spans-frames');
+    if ((span.by === AUTHORITY) !== (span.position === undefined)) problems.add('spans-position');
+  }
+  return [...problems];
+}
+
+/**
+ * Referee spans from untrusted JSON, shapes only (whether they make sense is
+ * `refereeSpanProblems`'s question): 1 to `REFEREE_SPANS_MAX` of `{ by, from, position? }`, `by`
+ * `'authority'` or a player id, `from` a frame, `position` a place in a pool. Null otherwise.
+ */
+export function parseRefereeSpans(v: unknown): RefereeSpan[] | null {
+  if (!Array.isArray(v) || v.length === 0 || v.length > REFEREE_SPANS_MAX) return null;
+  const out: RefereeSpan[] = [];
+  for (const x of v) {
+    if (typeof x !== 'object' || x === null || Array.isArray(x)) return null;
+    const o = x as Record<string, unknown>;
+    if (!onlyKeys(o, ['by', 'from', 'position'])) return null;
+    const { by, from, position } = o;
+    if (typeof by !== 'string' || (by !== AUTHORITY && !isPlayerId(by))) return null;
+    if (!Number.isInteger(from) || (from as number) < 0 || (from as number) > 0xffff) return null;
+    if (position === undefined) {
+      out.push({ by, from: from as number });
+      continue;
+    }
+    if (!Number.isInteger(position) || (position as number) < 0) return null;
+    if ((position as number) >= POOL_MAX) return null;
+    out.push({ by, from: from as number, position: position as number });
+  }
+  return out;
+}
+
+/** A settlement's `duty`: a witness commitment's id, or `''`. */
+export const isDuty = (v: unknown): v is string => v === '' || isHex64(v);
 
 /** The settlement with its hash (`bs/settle/v1`) and the authority's countersignature over it. */
 export interface SignedSettlement {
@@ -69,6 +148,9 @@ export interface FightLog {
   /** `frames[f][slot]`: the u32 input code, or null for the fallback marker. */
   frames: (number | null)[][];
 }
+
+/** The authority's name in a referee span (`src/net/handover.ts`'s `AUTHORITY`, which the verifier must not import). */
+const AUTHORITY = 'authority';
 
 const SETTLE_DOMAIN = 'bs/settle/v1';
 const START_DOMAIN = 'bs/enc/start/v1';

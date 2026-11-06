@@ -1,4 +1,10 @@
-import type { SettledFighter, Settlement, SignedSettlement } from '../ledger/settlement';
+import {
+  isDuty,
+  parseRefereeSpans,
+  type SettledFighter,
+  type Settlement,
+  type SignedSettlement,
+} from '../ledger/settlement';
 import { FIGHTER_WORTHS } from '../sim/encounter/types';
 import {
   type ClientMsg,
@@ -284,18 +290,19 @@ function settledFighter(v: unknown): SettledFighter | null {
   };
 }
 
+/** A settlement of either version (ADR 0058): version 1's `referee: 'authority'`, or version 2's spans and duty. */
 function settlementDoc(v: unknown): Settlement | null {
   if (!isObj(v)) return null;
   const results = perSlot(v.results, settledFighter);
   const joins = list(v.joins, ENC_MAX_FIGHTERS - MIN_FIGHTERS, (j) =>
     isStr(j, HEX64_RE) ? j : null,
   );
+  const referees = v.v === 2 ? parseRefereeSpans(v.referees) : null;
   if (
     !results ||
     !joins ||
     // Every slot past the starters is a join.
     joins.length > results.length - MIN_FIGHTERS ||
-    v.v !== 1 ||
     v.kind !== 'settlement' ||
     !isInt(v.rules, 0, MAX_TICK) ||
     !isStr(v.enc, HEX64_RE) ||
@@ -304,13 +311,11 @@ function settlementDoc(v: unknown): Settlement | null {
     !isInt(v.frames, 0, ENC_MAX_FRAME + 1) ||
     !isStr(v.root, HEX64_RE) ||
     !isStr(v.hash, STATE_HASH_RE) ||
-    v.referee !== 'authority' ||
     !isInt(v.t, 0, MAX_TIME)
   )
     return null;
-  return {
-    v: 1,
-    kind: 'settlement',
+  const base = {
+    kind: 'settlement' as const,
     rules: v.rules,
     enc: v.enc,
     pondSeed: v.pondSeed,
@@ -319,10 +324,12 @@ function settlementDoc(v: unknown): Settlement | null {
     frames: v.frames,
     root: v.root,
     hash: v.hash,
-    referee: 'authority',
     results,
     t: v.t,
   };
+  if (v.v === 1 && v.referee === 'authority') return { v: 1, ...base, referee: 'authority' };
+  if (v.v === 2 && referees && isDuty(v.duty)) return { v: 2, ...base, referees, duty: v.duty };
+  return null;
 }
 
 export function signedSettlement(v: unknown): SignedSettlement | null {

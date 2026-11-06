@@ -5,6 +5,7 @@ import { lineageHistory } from '../../tests/lineage-fixture';
 import { createRng, type Rng, seedFromString } from '../sim/prng';
 import {
   type FightProof,
+  PROOF_CAPS,
   PROOF_MAX_BYTES,
   PROOF_MAX_CREATURES,
   type ProofBundle,
@@ -106,6 +107,77 @@ describe('parseProofBundle', () => {
       },
       (b) => {
         (b.commits[0] as ProofBundle['commits'][number]).commitment.data = { x: 0.5 };
+      },
+    ];
+    for (const [i, change] of cases.entries()) {
+      const b = golden();
+      change(b);
+      expect(parseProofBundle(b), `case ${i}`).toBeNull();
+    }
+  });
+
+  it('reads a version 1 bundle as version 2 with no witness documents', () => {
+    const { witnessCommits: _c, attestations: _a, ...rest } = golden();
+    const v1 = { ...rest, v: 1 };
+    expect(parseProofBundle(v1)).toEqual({ ...golden(), witnessCommits: [], attestations: [] });
+    // Version 1 has neither list, and version 2 has both.
+    expect(parseProofBundle({ ...golden(), v: 1 })).toBeNull();
+    expect(parseProofBundle({ ...rest, v: 2 })).toBeNull();
+    expect(parseProofBundle({ ...golden(), v: 3 })).toBeNull();
+  });
+
+  it('caps the witness lists: 1,024 commitments and 2,048 attestations', () => {
+    const b = golden();
+    const c = b.witnessCommits[0] as ProofBundle['witnessCommits'][number];
+    const a = b.attestations[0] as ProofBundle['attestations'][number];
+    expect(PROOF_CAPS.witnessCommits).toBe(1024);
+    expect(PROOF_CAPS.attestations).toBe(2048);
+    const commits = (n: number) => ({ ...b, witnessCommits: Array(n).fill(c) });
+    const attestations = (n: number) => ({ ...b, attestations: Array(n).fill(a) });
+    expect(parseProofBundle(commits(1025))).toBeNull();
+    expect(parseProofBundle(commits(100))?.witnessCommits).toHaveLength(100);
+    expect(parseProofBundle(attestations(2049))).toBeNull();
+    expect(parseProofBundle(attestations(100))?.attestations).toHaveLength(100);
+  });
+
+  it('keeps witness commitments apart from genesis and mating ones, and checks attestations', () => {
+    const cases: ((b: ProofBundle) => void)[] = [
+      (b) => {
+        b.commits.push(b.witnessCommits[0] as ProofBundle['commits'][number]);
+      },
+      (b) => {
+        b.witnessCommits.push(b.commits[0] as ProofBundle['commits'][number]);
+      },
+      (b) => {
+        (b.witnessCommits[0] as ProofBundle['commits'][number]).commitment.owner = 'x';
+      },
+      (b) => {
+        (b.attestations[0] as ProofBundle['attestations'][number]).attestation.position = 16;
+      },
+      (b) => {
+        (b.attestations[0] as unknown as Record<string, unknown>).extra = 1;
+      },
+      (b) => {
+        const s = (b.settlements[0] as ProofBundle['settlements'][number]).settlement;
+        (s as unknown as Record<string, unknown>).referee = 'authority';
+      },
+      (b) => {
+        const s = (b.settlements[0] as ProofBundle['settlements'][number]).settlement;
+        (s as unknown as Record<string, unknown>).duty = 'x';
+      },
+      (b) => {
+        const s = (b.settlements[0] as ProofBundle['settlements'][number]).settlement;
+        (s as unknown as Record<string, unknown>).referees = [];
+      },
+      (b) => {
+        const s = (b.settlements[0] as ProofBundle['settlements'][number]).settlement;
+        (s as unknown as Record<string, unknown>).referees = [{ by: 'someone', from: 0 }];
+      },
+      (b) => {
+        const s = (b.settlements[0] as ProofBundle['settlements'][number]).settlement;
+        (s as unknown as Record<string, unknown>).referees = [
+          { by: 'authority', from: 0, extra: 1 },
+        ];
       },
     ];
     for (const [i, change] of cases.entries()) {
