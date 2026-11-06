@@ -6,6 +6,7 @@ import {
   type AuthorityKey,
   type FightProof,
   type ProofBundle,
+  parseAuthorityKeys,
   parseFightProof,
   parseProofBundle,
 } from '../src/ledger/proof';
@@ -86,89 +87,67 @@ const stop = (message: string): Outcome => ({ code: 2, out: `Nothing to verify: 
 
 const hubBase = (hub: string): string => hub.replace(/\/+$/, '');
 
-async function getJson(io: Io, url: string): Promise<{ text: string } | { error: string }> {
+/** The body of `url`; throws an Error whose message says in words why there is none. */
+async function getText(io: Io, url: string): Promise<string> {
+  let res: Response;
   try {
-    const res = await io.fetch(url, { signal: AbortSignal.timeout(15_000) });
-    if (res.status === 404) return { error: 'the authority has no record of it.' };
-    if (res.status === 503) return { error: 'the authority is busy; try again shortly.' };
-    if (!res.ok) return { error: `the authority answered ${res.status}.` };
-    return { text: await res.text() };
+    res = await io.fetch(url, { signal: AbortSignal.timeout(15_000) });
   } catch {
-    return { error: `could not reach the authority at ${new URL(url).origin}.` };
+    throw new Error(`could not reach the authority at ${new URL(url).origin}.`);
   }
+  if (res.status === 404) throw new Error('the authority has no record of it.');
+  if (res.status === 503) throw new Error('the authority is busy; try again shortly.');
+  if (!res.ok) throw new Error(`the authority answered ${res.status}.`);
+  return res.text();
 }
 
-function keysOf(text: string): AuthorityKey[] | null {
-  try {
-    const v = JSON.parse(text) as unknown;
-    const list = Array.isArray(v) ? v : (v as { keys?: unknown } | null)?.keys;
-    if (!Array.isArray(list)) return null;
-    const ok = list.every(
-      (k) =>
-        k &&
-        typeof k.id === 'string' &&
-        typeof k.publicKey === 'string' &&
-        Number.isSafeInteger(k.from),
-    );
-    return ok
-      ? list.map((k) => ({ id: k.id, publicKey: k.publicKey, from: k.from }) as AuthorityKey)
-      : null;
-  } catch {
-    return null;
-  }
-}
+const messageOf = (e: unknown): string => (e instanceof Error ? e.message : String(e));
 
-/** Where saved fight logs sit beside a bundle file (`--save`'s layout). */
-const fightFile = (bundleFile: string, enc: string): string =>
-  join(dirname(bundleFile), 'fights', `${enc}.json`);
+/** Where `--save` puts things under `dir`, and where a check beside a bundle file looks for them. */
+const layout = (dir: string) => ({
+  bundle: join(dir, 'bundle.json'),
+  keys: join(dir, 'keys.json'),
+  fight: (enc: string) => join(dir, 'fights', `${enc}.json`),
+});
 
 /**
- * The logs of every settled fight, by encounter id: fetched from the hub for a creature id, read
- * from beside the bundle for a file. A fight whose log cannot be had is left out (unreplayed); a
- * pruned one is null.
+ * The proof of every settled fight, by encounter id: fetched from the hub for a creature id, read
+ * from beside the bundle for a file. A fight whose proof cannot be had is left out (unreplayed);
+ * one with a pruned log has a null log.
  */
-async function logsOf(
+async function fightsOf(
   bundle: ProofBundle,
   io: Io,
   hub: string | null,
   bundleFile: string | null,
-): Promise<{ logs: Map<string, FightLog | null>; proofs: Map<string, FightProof> }> {
-  const logs = new Map<string, FightLog | null>();
-  const proofs = new Map<string, FightProof>();
-  for (const { settlement } of bundle.settlements) {
-    const enc = settlement.enc;
-    let text: string | null = null;
-    try {
-      if (bundleFile) text = await io.readFile(fightFile(bundleFile, enc));
-      else if (hub) {
-        const got = await getJson(io, `${hubBase(hub)}/v1/fight/${enc}`);
-        text = 'text' in got ? got.text : null;
+): Promise<Map<string, FightProof>> {
+  const got = await Promise.all(
+    bundle.settlements.map(async ({ settlement: { enc } }) => {
+      try {
+        const text = bundleFile
+          ? await io.readFile(layout(dirname(bundleFile)).fight(enc))
+          : await getText(io, `${hubBase(hub ?? '')}/v1/fight/${enc}`);
+        const proof = parseFightProof(text);
+        return proof?.settlement.settlement.enc === enc ? ([enc, proof] as const) : null;
+      } catch {
+        return null;
       }
-    } catch {
-      text = null;
-    }
-    const proof = text === null ? null : parseFightProof(text);
-    if (!proof || proof.settlement.settlement.enc !== enc) continue;
-    proofs.set(enc, proof);
-    logs.set(enc, proof.log);
-  }
-  return { logs, proofs };
+    }),
+  );
+  return new Map(got.filter((x) => x !== null));
 }
 
 const plural = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
-
-function subjectLine(bundle: ProofBundle): string {
-  const genome = bundle.creatures[0]?.genome;
-  const g = genome ? parseGenomeText(genome) : null;
-  const first = bundle.records.find((s) => (s.record.creature || s.hash) === bundle.subject);
-  const generation = first?.record.body.generation;
-  return [g ? speciesName(g) : 'unknown creature', `generation ${generation ?? '?'}`].join(', ');
-}
 
 function nameOf(bundle: ProofBundle, id: string): string {
   const genome = bundle.creatures.find((c) => c.id === id)?.genome;
   const g = genome ? parseGenomeText(genome) : null;
   return g ? speciesName(g) : 'a creature outside the proof';
+}
+
+function subjectLine(bundle: ProofBundle): string {
+  const first = bundle.records.find((s) => (s.record.creature || s.hash) === bundle.subject);
+  return `${nameOf(bundle, bundle.subject)}, generation ${first?.record.body.generation ?? '?'}`;
 }
 
 function problemLine(bundle: ProofBundle, p: Problem): string {
@@ -229,13 +208,12 @@ export async function runVerify(argv: readonly string[], io: Io): Promise<Outcom
 
   let pinned: AuthorityKey[] | undefined;
   if (args.keys) {
-    let text: string;
+    let keys: AuthorityKey[] | null = null;
     try {
-      text = await io.readFile(args.keys);
+      keys = parseAuthorityKeys(JSON.parse(await io.readFile(args.keys)));
     } catch {
       return stop(`the keys file ${args.keys} could not be read.`);
     }
-    const keys = keysOf(text);
     if (!keys) return stop(`the keys file ${args.keys} holds no authority keys.`);
     pinned = keys;
   }
@@ -244,9 +222,11 @@ export async function runVerify(argv: readonly string[], io: Io): Promise<Outcom
   let bundleFile: string | null = null;
   if (HEX64.test(args.target)) {
     if (!args.hub) return stop('give --hub <url> or set AUTHORITY_URL to fetch a creature.');
-    const got = await getJson(io, `${hubBase(args.hub)}/v1/proof/${args.target}`);
-    if ('error' in got) return stop(got.error);
-    text = got.text;
+    try {
+      text = await getText(io, `${hubBase(args.hub)}/v1/proof/${args.target}`);
+    } catch (e) {
+      return stop(messageOf(e));
+    }
   } else {
     bundleFile = args.target;
     try {
@@ -258,23 +238,31 @@ export async function runVerify(argv: readonly string[], io: Io): Promise<Outcom
   const bundle = parseProofBundle(text);
   if (!bundle) return stop('the proof is malformed, or larger than a proof may be.');
 
-  const wantLogs = args.replay || args.save !== null;
-  const fights = wantLogs ? await logsOf(bundle, io, args.hub, bundleFile) : null;
+  const fights =
+    args.replay || args.save ? await fightsOf(bundle, io, args.hub, bundleFile) : new Map();
   const report = verifyLineage(bundle, {
     ...(pinned ? { keys: pinned } : {}),
-    ...(args.replay && fights ? { logs: fights.logs, replay: verifyEncounter } : {}),
+    ...(args.replay
+      ? {
+          logs: new Map([...fights].map(([enc, proof]) => [enc, proof.log])),
+          replay: verifyEncounter,
+        }
+      : {}),
   });
 
   if (args.save) {
-    await io.writeFile(join(args.save, 'bundle.json'), `${JSON.stringify(bundle)}\n`);
-    await io.writeFile(join(args.save, 'keys.json'), `${JSON.stringify(bundle.keys)}\n`);
-    for (const [enc, proof] of fights?.proofs ?? [])
-      await io.writeFile(join(args.save, 'fights', `${enc}.json`), `${JSON.stringify(proof)}\n`);
+    const out = layout(args.save);
+    await Promise.all([
+      io.writeFile(out.bundle, `${JSON.stringify(bundle)}\n`),
+      io.writeFile(out.keys, `${JSON.stringify(bundle.keys)}\n`),
+      ...[...fights].map(([enc, proof]) =>
+        io.writeFile(out.fight(enc), `${JSON.stringify(proof)}\n`),
+      ),
+    ]);
   }
 
-  const code = report.problems.length > 0 ? 1 : 0;
   return {
-    code,
+    code: report.problems.length > 0 ? 1 : 0,
     out: args.json ? `${JSON.stringify(report, null, 2)}\n` : formatReport(bundle, report),
   };
 }

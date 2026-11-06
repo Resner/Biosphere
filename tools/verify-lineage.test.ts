@@ -1,8 +1,8 @@
-import { mkdirSync, mkdtempSync, readFileSync, writeFileSync } from 'node:fs';
+import { mkdirSync, mkdtempSync, readFileSync, rmSync, writeFileSync } from 'node:fs';
 import { createServer } from 'node:net';
 import { tmpdir } from 'node:os';
-import { join } from 'node:path';
-import { describe, expect, it } from 'vitest';
+import { dirname, join } from 'node:path';
+import { afterAll, describe, expect, it } from 'vitest';
 import { PROBLEM_TEXT } from '../src/ledger/verify';
 import { bundleOf, indexOf, lineageHistory } from '../tests/lineage-fixture';
 import { nodeIo, runVerify } from './verify-lineage';
@@ -14,9 +14,10 @@ const { A0, A1 } = history.ids;
 const [ENC, LOG] = [...history.logs][0] as [string, unknown];
 
 const dir = mkdtempSync(join(tmpdir(), 'verify-lineage-'));
+afterAll(() => rmSync(dir, { recursive: true, force: true }));
 const put = (name: string, value: unknown): string => {
   const path = join(dir, name);
-  mkdirSync(join(path, '..'), { recursive: true });
+  mkdirSync(dirname(path), { recursive: true });
   writeFileSync(path, JSON.stringify(value));
   return path;
 };
@@ -85,7 +86,7 @@ describe('npm run verify:lineage', () => {
   });
 
   it('exits 1 when the pinned keys lack the bundle’s key', async () => {
-    const other = [{ id: 'k'.repeat(16), publicKey: 'a'.repeat(64), from: 0 }];
+    const other = [{ id: 'kkkkkkkk', publicKey: 'a'.repeat(43), from: 0 }];
     const keys = put('other-keys.json', other);
     const r = await run(goldenFile, '--keys', keys);
     expect(r.code).toBe(1);
@@ -101,6 +102,7 @@ describe('npm run verify:lineage', () => {
     expect((await run(join(dir, 'missing.json'))).code).toBe(2);
     expect((await run(put('junk.json', { hello: 1 }))).code).toBe(2);
     expect((await run(goldenFile, '--keys', join(dir, 'missing-keys.json'))).code).toBe(2);
+    expect((await run(goldenFile, '--keys', put('bad-keys.json', [{ id: 'x' }]))).code).toBe(2);
     expect((await run(goldenFile, '--wat')).code).toBe(2);
     expect((await run('abc')).code).toBe(2);
   });
