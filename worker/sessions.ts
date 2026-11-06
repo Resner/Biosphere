@@ -317,7 +317,10 @@ export function broadcast(hub: Hub, pondId: string, except: WebSocket, msg: HubM
   }
 }
 
-/** Forwards a signal to a member of the sender's pond, stamped with the verified sender. */
+/**
+ * Forwards a signal, stamped with the verified sender, to a member of the sender's pond, or across
+ * ponds between a referee witness and its fight's fighters while that duty runs (M10 T6).
+ */
 export function relay(
   hub: Hub,
   ws: WebSocket,
@@ -329,7 +332,8 @@ export function relay(
     return;
   }
   for (const [other, theirs] of activeSessions(hub, ws)) {
-    if (theirs.pondId === session.pondId && theirs.playerId === msg.to) {
+    if (theirs.playerId !== msg.to) continue;
+    if (theirs.pondId === session.pondId || hub.duties.linksOf(session.playerId).includes(msg.to)) {
       send(other, { t: 'signal', from: session.playerId, kind: msg.kind, sdp: msg.sdp });
       return;
     }

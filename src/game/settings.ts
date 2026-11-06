@@ -12,6 +12,8 @@ export interface Settings {
   muted: boolean;
   /** Reduced motion: null follows `prefers-reduced-motion`, a boolean is the player's choice. */
   reducedMotion: boolean | null;
+  /** "Help referee fights": the page may witness other players' fights (M10 T6). */
+  helpReferee: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -19,6 +21,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   volume: 60,
   muted: false,
   reducedMotion: null,
+  helpReferee: true,
 };
 
 const SETTINGS_KEY = 'bs.settings';
@@ -31,13 +34,14 @@ export function loadSettings(store: Store | null): Settings {
     if (!text) return out;
     const data: unknown = JSON.parse(text);
     if (typeof data !== 'object' || data === null || Array.isArray(data)) return out;
-    const { quality, volume, muted, reducedMotion } = data as Record<string, unknown>;
+    const { quality, volume, muted, reducedMotion, helpReferee } = data as Record<string, unknown>;
     if (quality === 'auto' || isPresetName(quality)) out.quality = quality;
     if (typeof volume === 'number' && Number.isFinite(volume))
       out.volume = clamp(Math.round(volume), 0, 100);
     if (typeof muted === 'boolean') out.muted = muted;
     if (typeof reducedMotion === 'boolean' || reducedMotion === null)
       out.reducedMotion = reducedMotion;
+    if (typeof helpReferee === 'boolean') out.helpReferee = helpReferee;
   } catch {
     // A throwing store or damaged JSON: use the defaults.
   }
