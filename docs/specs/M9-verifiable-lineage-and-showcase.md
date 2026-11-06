@@ -513,7 +513,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### Showing it
 
-- [ ] T11 The CLI verifier and `docs/VERIFY.md` (after T4, T5, T6, T7)
+- [ ] T11 The CLI verifier and `docs/VERIFY.md` (after T4, T5, T6, T7) (in progress)
   - Steps:
     1. `npm run verify:lineage -- <creature id | bundle.json>` (`tools/lineage.mjs` loads `tools/verify-lineage.ts` through Vite, as `tools/net.mjs` does). Its options:
        - `--hub <url>`: default `$AUTHORITY_URL`; it fetches `/v1/proof/<id>`;
