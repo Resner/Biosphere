@@ -30,6 +30,7 @@ import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
 import type { MinimapInfo } from './minimap';
+import type { DutyLink } from './online';
 import type { DeathSummary, Screen } from './screens';
 import type { WheelInfo } from './wheel';
 
@@ -229,8 +230,10 @@ export interface BsState {
    * The status chip's text, the hub's state ('none' without a hub), open peer connections, food
    * claims ignored as implausible, genome events dropped (too frequent, from a peer with no
    * link, or not a genome), the peers whose signed snapshot is held, the signed snapshots
-   * that failed to verify (M7 T7) and the proxy frames dropped (M8 T11: from a peer not
-   * fighting, for a player still sending its own, or more than three from one peer).
+   * that failed to verify (M7 T7), the proxy frames dropped (M8 T11: from a peer not
+   * fighting, for a player still sending its own, or more than three from one peer), the duty
+   * links by peer (M10 T6: `open` once both channels are, `encs` the fights each serves) and the
+   * signals dropped from outside the pond that no duty announced (`strangers`).
    */
   net: {
     text: string;
@@ -241,7 +244,11 @@ export interface BsState {
     signed: number;
     badSignatures: number;
     proxyDropped: number;
+    dutyLinks: DutyLink[];
+    strangers: number;
   };
+  /** Witness duty (M10 T6): `avail`, whether the hub was last told this page can witness. */
+  witness: { avail: boolean };
   /**
    * Edge indicators as last drawn (M6 T19): the nearest six pond players off screen and the
    * nearby pings off screen. `angle` is the world bearing from the player in degrees

@@ -378,7 +378,10 @@ export function installAppHook(app: App): void {
           signed: app.online.signed.size,
           badSignatures: app.online.signed.badSignatures,
           proxyDropped: app.online.proxies.dropped,
+          dutyLinks: keeper.current?.dutyLinks() ?? [],
+          strangers: keeper.current?.strangers ?? 0,
         },
+        witness: { avail: app.duty.avail.on },
       };
     },
     events: () => ({ ...app.session.counts }),

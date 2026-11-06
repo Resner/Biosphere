@@ -2,7 +2,7 @@ import { describe, expect, it, vi } from 'vitest';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
 import { decodeStateFrame, verifySnap } from '../ledger/snapshot-sig';
 import { PondClock } from '../net/clock';
-import type { FightMsg, HubStatus, LifeMsg, SignalMsg, Welcome } from '../net/hub-client';
+import type { DutyMsg, FightMsg, HubStatus, LifeMsg, SignalMsg, Welcome } from '../net/hub-client';
 import { type SnapshotFields, SnapshotSender } from '../net/pond-sync';
 import {
   type ClientMsg,
@@ -31,6 +31,7 @@ class FakeHub implements OnlineHub {
   private welcomeFns: ((w: Welcome) => void)[] = [];
   private lifeFns: ((m: LifeMsg) => void)[] = [];
   private fightFns: ((m: FightMsg) => void)[] = [];
+  private dutyFns: ((m: DutyMsg) => void)[] = [];
   connect(): Promise<Welcome> {
     return new Promise(() => {});
   }
@@ -64,8 +65,15 @@ class FakeHub implements OnlineHub {
     this.fightFns.push(fn);
     return () => {};
   }
+  onDuty(fn: (m: DutyMsg) => void) {
+    this.dutyFns.push(fn);
+    return () => {};
+  }
   fight(m: FightMsg): void {
     for (const fn of this.fightFns) fn(m);
+  }
+  duty(m: DutyMsg): void {
+    for (const fn of this.dutyFns) fn(m);
   }
   setStatus(s: HubStatus): void {
     this.status = s;
@@ -348,6 +356,100 @@ describe('OnlineSession', () => {
     } finally {
       vi.useRealTimers();
     }
+  });
+
+  describe('duty links (M10 T6)', () => {
+    const enc = 'e'.repeat(64);
+    const offer = (from: string): SignalMsg => ({ t: 'signal', from, kind: 'offer', sdp: 'v=0' });
+    const dutyPeer = (peer: string, on: boolean, e = enc) =>
+      ({ t: 'duty-peer', enc: e, peer, on }) as const;
+
+    it('connects to a duty peer outside the roster only after its duty-peer, the lower id calling', () => {
+      const { hub, mesh, session } = setup();
+      hub.welcome(welcome(['a']));
+      // Unannounced offers from outside the pond are dropped and counted.
+      hub.signal(offer('w'));
+      hub.signal(offer('c'));
+      expect(mesh.signals).toEqual([]);
+      expect(session.strangers).toBe(2);
+      hub.duty(dutyPeer('w', true));
+      hub.duty(dutyPeer('c', true));
+      // 'me' < 'w' calls; 'c' < 'me' calls us, and its offer now passes.
+      expect(mesh.connects).toEqual(['a', 'w']);
+      hub.signal(offer('c'));
+      expect(mesh.signals).toEqual([offer('c')]);
+      expect(session.strangers).toBe(2);
+      mesh.open.add('w');
+      expect(session.dutyLinks()).toEqual([
+        { peer: 'c', open: false, encs: [enc] },
+        { peer: 'w', open: true, encs: [enc] },
+      ]);
+    });
+
+    it('holds a duty link through a roster eviction, and closes it on off', () => {
+      const { hub, mesh, handlers, session } = setup();
+      hub.welcome(welcome(['a']));
+      hub.duty(dutyPeer('w', true));
+      mesh.open.add('w');
+      // A welcome to another pond drops every roster link, but not the duty one.
+      hub.welcome(welcome(['b'], 'pond2'));
+      expect(mesh.disconnects).toEqual(['a']);
+      expect(mesh.isOpen('w')).toBe(true);
+      // A duty peer's witness messages reach the handler; its pond traffic and state do not.
+      const finput: PeerEvent = { t: 'finput', enc, f: 3, i: 1, sig: 's' };
+      mesh.event('w', finput);
+      mesh.event('w', { t: 'chat', text: 'hi' });
+      mesh.state('w', { seq: 1 } as Snapshot, null);
+      expect(handlers.event.mock.calls).toEqual([['w', finput]]);
+      expect(handlers.state).not.toHaveBeenCalled();
+      expect(session.openPeers()).toEqual([]);
+      hub.duty(dutyPeer('w', false));
+      expect(mesh.disconnects).toEqual(['a', 'w']);
+      expect(session.dutyLinks()).toEqual([]);
+      hub.signal(offer('w'));
+      expect(mesh.signals).toEqual([]);
+    });
+
+    it('keeps a pond member that was also a duty peer open', () => {
+      const { hub, mesh, session } = setup();
+      hub.welcome(welcome(['a', 'w']));
+      mesh.open.add('w');
+      hub.duty(dutyPeer('w', true));
+      expect(mesh.connects).toEqual(['a', 'w']);
+      hub.duty(dutyPeer('w', false));
+      expect(mesh.disconnects).toEqual([]);
+      expect(session.openPeers()).toEqual(['w']);
+      // A duty peer who leaves the pond keeps its link until the duty ends.
+      hub.duty(dutyPeer('w', true));
+      hub.member('leave', { playerId: 'w', name: 'W' });
+      expect(mesh.disconnects).toEqual([]);
+      hub.duty(dutyPeer('w', false));
+      expect(mesh.disconnects).toEqual(['w']);
+    });
+
+    it('closes a fight’s duty links at its end and at the duty’s end, one fight at a time', () => {
+      const { hub, mesh, session } = setup();
+      hub.welcome(welcome([]));
+      const other = 'f'.repeat(64);
+      hub.duty(dutyPeer('w', true));
+      hub.duty(dutyPeer('x', true));
+      hub.duty(dutyPeer('x', true, other));
+      hub.fight({ t: 'enc-end', enc } as FightMsg);
+      // 'x' still serves the other fight.
+      expect(mesh.disconnects).toEqual(['w']);
+      hub.duty({ t: 'duty-end', event: `enc:${other}`, why: 'done' });
+      expect(mesh.disconnects).toEqual(['w', 'x']);
+      expect(session.dutyLinks()).toEqual([]);
+    });
+
+    it('opens no duty link past 32 connections', () => {
+      const { hub, mesh, session } = setup();
+      hub.welcome(welcome([]));
+      for (let i = 0; i < 32; i++) mesh.open.add(`z${String(i).padStart(2, '0')}`);
+      hub.duty(dutyPeer('w', true));
+      expect(mesh.connects).toEqual([]);
+      expect(session.dutyLinks()).toEqual([]);
+    });
   });
 
   it('says goodbye and closes everything on dispose', () => {

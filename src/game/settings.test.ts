@@ -30,12 +30,13 @@ const throwing = {
 };
 
 describe('loadSettings', () => {
-  it('defaults to auto quality, volume 60, sound on and the system motion setting', () => {
+  it('defaults to auto quality, volume 60, sound on, the system motion setting and helping referee', () => {
     expect(DEFAULT_SETTINGS).toEqual({
       quality: 'auto',
       volume: 60,
       muted: false,
       reducedMotion: null,
+      helpReferee: true,
     });
     expect(loadSettings(store())).toEqual(DEFAULT_SETTINGS);
   });
@@ -58,9 +59,15 @@ describe('loadSettings', () => {
       volume: 35,
       muted: true,
       reducedMotion: false,
+      helpReferee: true,
     });
     expect(loadSettings(store('{"reducedMotion":true}')).reducedMotion).toBe(true);
     expect(loadSettings(store('{"reducedMotion":null}')).reducedMotion).toBeNull();
+  });
+
+  it('reads a stored "Help referee fights" (M10 T6)', () => {
+    expect(loadSettings(store('{"helpReferee":false}')).helpReferee).toBe(false);
+    expect(loadSettings(store('{"helpReferee":"no"}')).helpReferee).toBe(true);
   });
 
   it('keeps each valid field when another is damaged', () => {
@@ -97,7 +104,13 @@ describe('loadSettings', () => {
 describe('saveSettings', () => {
   it('writes what loadSettings reads', () => {
     const s = store();
-    const settings = { quality: 'low', volume: 12, muted: true, reducedMotion: true } as const;
+    const settings = {
+      quality: 'low',
+      volume: 12,
+      muted: true,
+      reducedMotion: true,
+      helpReferee: false,
+    } as const;
     saveSettings(settings, s);
     expect(loadSettings(s)).toEqual(settings);
   });

@@ -723,6 +723,9 @@
   display: grid;
   gap: 0.6rem;
   max-width: 24rem;
+  /* Short screens scroll the panel, so its Close button is always reachable. */
+  max-height: calc(100dvh - 4rem);
+  overflow-y: auto;
   margin: 0 auto;
   padding: 0.75rem 1rem;
   border: 1px solid var(--muted);

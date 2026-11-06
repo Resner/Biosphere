@@ -452,7 +452,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - Keep `fights.ts`'s referee loop as it is. The witness phase lives in its own file.
     - A fighter whose player is away sends nothing to W either: its slot is the autopilot's, as before.
 
-- [ ] T6 Duty links: across ponds, priority 0, and availability [opus] (after T4)
+- [x] T6 Duty links: across ponds, priority 0, and availability [opus] (after T4)
+  - Done: `ConnectionPolicy.duty`, `OnlineSession.dutyPeer` (hub `duty-peer`, `duty-end`, `enc-end`; `HubClient.onDuty`), the relay through `linksOf`, `Availability` in `app-duty.ts` and the setting; `m10-avail` (no hub).
+  - The game's links don't go through `ConnectionPolicy` yet, so the session itself refuses a duty link past 32. An `on` waits for 5 s of all-right, so a flapping tab sends one `off` and nothing more.
   - Steps:
     1. `PeerMesh` and `ConnectionPolicy`:
        - `duty-peer { on }` opens a link to a peer outside the pond roster (perfect negotiation, the lower id calls). `{ on: false }`, the duty's end or the fight's end closes it, unless the peer is in the pond;
@@ -477,6 +479,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
       - all of them right turn it on;
       - flapping visibility sends at most one message per 5 s.
   - Notes: TURN credentials are already per session, so a duty link uses the same ICE servers as pond links.
+  - Done: `OnlineSession.dutyPeer` enforces the rules today (pond links do not go through `ConnectionPolicy` yet, which also carries them and is unit-tested). T7 must call `dutyPeer` for each fighter on a `duty`.
 
 - [ ] T7 The referee duty in the browser, and the fighters' route [opus] (after T5, T6)
   - Steps:

@@ -236,6 +236,22 @@ describe('HubClient listeners', () => {
     expect(lives).toEqual([]);
   });
 
+  it('forwards duty messages apart from the fight messages (M10 T6)', async () => {
+    const client = make();
+    const duties: unknown[] = [];
+    const fights: unknown[] = [];
+    client.onDuty((m) => duties.push(m));
+    client.onFight((m) => fights.push(m));
+    void client.connect().catch(() => {});
+    const s = await handshake();
+    const peer = { t: 'duty-peer', enc: 'cd'.repeat(32), peer: 'A'.repeat(43), on: true } as const;
+    const end = { t: 'duty-end', event: `enc:${'cd'.repeat(32)}`, why: 'done' } as const;
+    s.receive(peer);
+    s.receive(end);
+    expect(duties).toEqual([peer, end]);
+    expect(fights).toEqual([]);
+  });
+
   it('a throwing listener does not stop the others or the receive path', async () => {
     const client = make();
     const signals: unknown[] = [];

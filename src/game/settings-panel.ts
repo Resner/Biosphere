@@ -1,5 +1,6 @@
-// The Settings panel: graphics quality (M6 T1), sound volume and mute, and reduced motion
-// (M6 T22). It owns no state: the app hands it the current settings and applies what it reports.
+// The Settings panel: graphics quality (M6 T1), sound volume and mute, reduced motion (M6 T22)
+// and "Help referee fights" (M10 T6). It owns no state: the app hands it the current settings and
+// applies what it reports.
 
 import type { PresetName, QualitySetting } from '../render/presets';
 import { capitalise } from './badge';
@@ -20,6 +21,7 @@ export class SettingsPanel {
   private readonly mute = pick<HTMLInputElement>('[data-testid="mute"]');
   private readonly motion = pick<HTMLInputElement>('[data-testid="reduced-motion"]');
   private readonly motionNote = pick('[data-testid="motion-note"]');
+  private readonly referee = pick<HTMLInputElement>('[data-testid="help-referee"]');
   /** The settings last shown, which each change starts from. */
   private current: Settings | null = null;
 
@@ -37,6 +39,9 @@ export class SettingsPanel {
     this.mute.addEventListener('change', () => this.change({ muted: this.mute.checked }));
     this.motion.addEventListener('change', () =>
       this.change({ reducedMotion: this.motion.checked }),
+    );
+    this.referee.addEventListener('change', () =>
+      this.change({ helpReferee: this.referee.checked }),
     );
     for (const id of openers)
       pick(`[data-testid="${id}"]`).addEventListener('click', () => this.open());
@@ -72,6 +77,7 @@ export class SettingsPanel {
     this.motion.checked = reduced;
     this.motionNote.textContent =
       settings.reducedMotion === null ? 'Motion follows your system setting.' : '';
+    this.referee.checked = settings.helpReferee;
   }
 
   open(): void {

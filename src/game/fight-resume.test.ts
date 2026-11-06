@@ -47,6 +47,9 @@ class FakeHub implements OnlineHub {
   onWelcome() {
     return () => {};
   }
+  onDuty() {
+    return () => {};
+  }
   onFight(fn: (m: FightMsg) => void) {
     this.fightFns.push(fn);
     return () => {};
