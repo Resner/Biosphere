@@ -87,4 +87,5 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted, amended | 0058 |
 | [0057](0057-claims-by-script-and-branch-cleanup.md) | Claims are made by a script, and closed factory branches are deleted | accepted | |
 | [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted | |
-| [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted | |
+| [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted, refined | 0060 |
+| [0060](0060-how-the-farm-gates-read.md) | How the bot-farm gates read: genes aside, one cooldown after maturity, the floor aside | accepted | |
