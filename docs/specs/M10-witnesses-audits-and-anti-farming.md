@@ -484,7 +484,11 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
   - Notes: TURN credentials are already per session, so a duty link uses the same ICE servers as pond links.
   - Done: `OnlineSession.dutyPeer` enforces the rules today (pond links do not go through `ConnectionPolicy` yet, which also carries them and is unit-tested). T7 must call `dutyPeer` for each fighter on a `duty`.
 
-- [ ] T7 The referee duty in the browser, and the fighters' route [opus] (after T5, T6)
+- [x] T7 The referee duty in the browser, and the fighters' route [opus] (after T5, T6)
+  - Done: `app-witness.ts` (selection check, links, then `duty-ok`; an input's check, a frame's step and its signature each in a task of its own), the route in `FightPlay`, `DutyProbes`; the witness crypto loads lazily, as the shell must never import `@noble/curves`.
+  - Gotcha: a page accepts only once every fighter's link is open (else `duty-no` after 4 s); `stage` reloads B, whose page then draws and starved C's handlers, so `trio` skips its draw again.
+  - Gotcha: a brawl kills within 6 to 25 s, before a slow runner's handover, so the specs' fight hovers out of reach (`debug.hover`, fighter `reach`) and a failed try ends in an escape.
+  - Gotcha: a slow runner's C flapped off, so fights had empty pools and the hub dropped an `on` heard <5 s after a late `off`: the page now waits 6 s, and `trio` pins C's `dutyFrameMs(16)`.
   - Steps:
     1. `src/game/app-duty.ts` dispatches `duty`: a referee duty to `app-witness.ts`; an auditor duty to T8's module, answered `duty-no` until T8 lands.
     2. `src/game/app-witness.ts`:
@@ -507,7 +511,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
          - Around the handover A and B have no resync and roll back at most 2 frames.
          - C's chip showed, and `witness.dutyMs` has a p95 of at most 2 ms.
        - `m10-cross.spec.ts` (hub 8823, `POND_MAX=2`): C is in another pond and referees A and B over a cross-pond link.
-       - `m10-takeback.spec.ts` (hub 8824): C's page closes during its duty.
+       - the second test of `m10-witness.spec.ts` (hub 8822; one hub fewer, since every idle hub weighs on the CI runners): C's page closes during its duty.
          - The authority takes back within 1.5 s (`enc-referee` by the authority, at most 15 fallback frames).
          - The fight ends on the authority's hash.
          - `GET /v1/e2e/witness/<event>` shows C's offer `failed` and C in `struck`.
@@ -516,7 +520,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
       - the runner sends `duty-ok` only after the channels open, and `duty-no` when its selection doesn't check;
       - it stops on `duty-end`;
       - the fighter's inputs to W carry valid signatures, and a planned take-back moves them back to the hub.
-    - `m10-witness`, `m10-cross` and `m10-takeback` each pass 3 times in a row (`--repeat-each=3`).
+    - `m10-witness` (both tests) and `m10-cross` each pass 3 times in a row (`--repeat-each=3`).
   - Notes: a page drawing frames over 100 ms in software rendering misses deadlines as referee, as it does as fighter. Every page in these specs skips its draw (`docs/TESTING.md`, M7).
 
 - [x] T8 Audits and attestations for fights, matings and genesis [opus] (after T5, T9)
@@ -792,7 +796,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 Each path is also checked alone:
 - `m10-witness` (T7): the handover in one pond;
 - `m10-cross` (T7): a witness in another pond;
-- `m10-takeback` (T7): a witness that vanishes;
+- `m10-witness`'s second test (T7): a witness that vanishes;
 - `m10-audit` (T8): audits of births and a fight;
 - `m10-card` (T10): the card's witness lines.
 
@@ -800,7 +804,7 @@ Each path is also checked alone:
 
 - [ ] A witnessed fight plays like one the authority referees: with one-way ≤ 150 ms to the witness and clock errors ≤ 20 ms, at least 95% of inputs are on time, and every client ends on the referee's hash (evidence: the witness rows of `docs/perf/netcode.md`, T3).
 - [ ] The handover can't be seen: no resync, and rollbacks of at most 2 frames around it (evidence: `m10-witness`'s recorded `rollbacks` and `resyncs`).
-- [ ] A witness that vanishes costs at most 1.5 s of autopilot (evidence: `m10-takeback`, at most 15 fallback frames).
+- [ ] A witness that vanishes costs at most 1.5 s of autopilot (evidence: `m10-witness`'s take-back test, at most 15 fallback frames).
 - [ ] Witness duty doesn't touch the witness's own game: a duty handler's p95 is at most 2 ms, and an audit never blocks a frame (evidence: `witness.dutyMs` in `m10-witness`, `m10-audit`'s frame times).
 - [ ] "Checked by the authority alone" is never hidden: every fight, birth and hatch on a card says witnessed or authority alone (evidence: `m10-card`'s screenshots, T10's unit tests).
 - [ ] A 30 s duel costs the authority at least 4× fewer incoming messages, and a witnessed fight-second at least 10× fewer (evidence: `docs/perf/witness.md`, `worker/witness-cost.test.ts`).

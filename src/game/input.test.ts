@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import {
   ENTER_DELAY_MS,
   enterHatches,
+  hoverInput,
   InputController,
   keysToInput,
   mouseToInput,
@@ -33,6 +34,37 @@ describe('mouseToInput', () => {
     expect(at(12)).toBeLessThan(at(40));
     expect(at(40)).toBeLessThan(at(100));
     expect(at(100)).toBe(15);
+  });
+});
+
+describe('hoverInput', () => {
+  const foe = { x: 100, y: 100 };
+
+  it('closes in from afar at full throttle', () => {
+    expect(hoverInput({ x: 200, y: 100 }, foe, 30, 10)).toEqual({
+      steer: 128,
+      throttle: 15,
+      dash: false,
+    });
+  });
+
+  it('backs away when too close', () => {
+    expect(hoverInput({ x: 100, y: 110 }, foe, 40, 10)).toMatchObject({ steer: 64, throttle: 15 });
+  });
+
+  it('coasts within half a radius of the spot', () => {
+    expect(hoverInput({ x: 133, y: 100 }, foe, 30, 10).throttle).toBe(0);
+    expect(hoverInput({ x: 100, y: 66 }, foe, 30, 10).throttle).toBe(0);
+  });
+
+  it('eases the throttle as it nears the spot', () => {
+    const at = (x: number) => hoverInput({ x, y: 100 }, foe, 30, 10).throttle;
+    expect(at(140)).toBeGreaterThan(0);
+    expect(at(140)).toBeLessThan(at(150));
+  });
+
+  it('picks a side when on top of the point', () => {
+    expect(hoverInput(foe, foe, 30, 10)).toMatchObject({ steer: 0, throttle: 15 });
   });
 });
 

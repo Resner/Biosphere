@@ -219,6 +219,8 @@ export class App {
   input: Input = IDLE;
   screenShownAt = 0;
   steering: Steering | null = null;
+  /** `debug.hover`: the remote the player keeps `distance` wu from, or null. */
+  hover: { id: string; distance: number } | null = null;
   /** What the creature keeps swimming on while the social wheel is open (M6b T2); a new life clears it. */
   heldInput: Input = IDLE;
   /** Whether `heldInput` came from the movement keys, so releasing them stops the creature. */

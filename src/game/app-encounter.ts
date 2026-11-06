@@ -7,11 +7,14 @@ import type { Creature } from '../genome/stats';
 import type { PubKey } from '../ledger/record';
 import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
+import { AUTHORITY } from '../net/handover';
 import { type FightMsg, fetchJson, hubHttpUrl } from '../net/hub-client';
 import { type SnapshotFields, snapshotOf } from '../net/pond-sync';
-import { type ClientMsg, type FighterInfo, genomeRefOf } from '../net/protocol';
+import { type ClientMsg, type FighterInfo, genomeRefOf, type PeerEvent } from '../net/protocol';
 import type { RelayFight } from '../net/proxy-snaps';
-import { radiusOf } from '../sim/encounter/reach';
+import { RefereeRoute } from '../net/referee-route';
+import type { WitnessFrame } from '../net/witness-referee';
+import { radiusOf, strikeReach } from '../sim/encounter/reach';
 import type { Encounter, EncounterEvent, Outcome, Stance } from '../sim/encounter/types';
 import type { Input } from '../sim/input';
 import type { CreatureState, World } from '../sim/types';
@@ -45,7 +48,26 @@ export interface FightHost {
   keys?(): Promise<readonly PubKey[] | null>;
   /** Whether a player is in the pond now (this one, or a roster member); absent means everyone is. */
   present?(player: string): boolean;
+  /** A witness's message on the duty link to it (M10 T7): an own `finput`. */
+  sendWitness?(witness: string, ev: PeerEvent): void;
+  /** The own signature on fight `enc`'s frame `f` input (`signInput`). */
+  signInput?(enc: string, f: number, code: number): string;
+  /** Whether `witness` signed that frame of fight `enc` (`witnessFrameSigned`). */
+  frameSigned?(
+    witness: string,
+    enc: string,
+    f: number,
+    inputs: readonly (number | null)[],
+    sig: string,
+  ): boolean;
+  /** The one-way latency to a duty peer from its probes, or null before one came back. */
+  peerOneWayMs?(peer: string): number | null;
+  /** A fight begins: what a witness phase will need (its signatures' code) starts to load. */
+  prepare?(): void;
 }
+
+/** Rollbacks this many frames either side of a handover's frame count as the handover's. */
+export const HANDOVER_WINDOW = 10;
 
 /** `debug.autoBrace` braces when a windup aimed at the player or its egg has this many ticks or fewer left. */
 export const AUTO_BRACE_TICKS = 4;
@@ -79,6 +101,8 @@ export interface FighterView {
   outcome: 'in' | Outcome;
   /** Its radius in wu (M7 T12). */
   radius: number;
+  /** Its strike reach in wu, from its centre (M10 T7, `strikeReach`). */
+  reach: number;
   /** Staggered by a block: no windup starts (M7 T12). */
   staggered: boolean;
   /** Ticks in a row outside every living opponent's escape range (M7 T12). */
@@ -114,6 +138,19 @@ export interface EncounterView {
    * targeting is not offered (a plain duel) or the player is not seated.
    */
   aim: { code: number; chosen: boolean } | null;
+  /** Who referees the fight from which frame (M10 T7): the last `enc-referee`, or the authority from 0. */
+  referee: { by: string; from: number };
+  /** Handovers heard (`enc-referee`), and disputes sent against a witness's frames. */
+  handovers: number;
+  disputes: number;
+  /** Own inputs sent to a witness, and sent again at a handover. */
+  witnessInputs: number;
+  resent: number;
+  /**
+   * Around each handover (`HANDOVER_WINDOW` frames either side of its frame): the longest rollback
+   * and the resyncs, the measure that a handover can't be seen.
+   */
+  aroundHandover: { rollback: number; resyncs: number };
 }
 
 /** What a remote is drawn as; the fight moves those that are its fighters. */
@@ -128,6 +165,12 @@ interface Drawn {
 export class FightPlay {
   /** The current or last fight; null before the first. */
   sync: EncounterSync | null = null;
+  /** Where the fight's own inputs go and what its witness's frames are worth (M10 T7). */
+  route: RefereeRoute | null = null;
+  /** Own inputs sent to a witness. */
+  private witnessInputs = 0;
+  /** The fight's corrections, as `[from, frames, resync]`, the last 200. */
+  private rolls: [number, number, boolean][] = [];
   /** The stance the own input carries (1, 2 and 3 set it). */
   stance: Stance = 'balanced';
   /** A brace asked for (Shift or the right button) goes out with the next frame's input. */
@@ -175,8 +218,9 @@ export class FightPlay {
     }
     if (msg.t === 'enc-join') this.noteRef(msg.fighter);
     if (msg.t === 'enc-start') this.begin(msg);
-    else if (msg.t === 'enc-frame') this.sync?.receive(msg);
+    else if (msg.t === 'enc-frame') this.hubFrame(msg);
     else if (msg.t === 'enc-join') this.sync?.join(msg);
+    else if (msg.t === 'enc-referee') this.route?.referee(msg);
     else if (msg.t === 'enc-end') this.finish(msg);
   }
 
@@ -193,21 +237,84 @@ export class FightPlay {
       return;
     }
     if (!me || !pond || !life) return;
-    const sync = new EncounterSync({
+    host.prepare?.();
+    const route = this.routeFor(msg.enc);
+    const rolls: [number, number, boolean][] = [];
+    const sync: EncounterSync = new EncounterSync({
       me,
-      oneWayMs: () => host.oneWayMs(),
-      send: (m) => host.send(m),
+      // The lead is the latency to the referee of the frame about to be played.
+      oneWayMs: () => route.oneWayMs(sync.frame),
+      send: (m) => route.send(m),
       sample: () => this.sample(),
       events: (events) => host.events?.(events),
+      rolled: (from, frames, resync) => {
+        rolls.push([from, frames, resync]);
+        if (rolls.length > 200) rolls.shift();
+      },
     });
     // The hub sends an `enc-start` only to its fighters and to a joiner (M7 T15), whose slot
     // comes with its `enc-join`.
     if (!sync.start(msg, pond, bodies, true)) return;
     this.sync = sync;
+    this.route = route;
+    this.rolls = rolls;
+    this.witnessInputs = 0;
     this.life = life;
     this.stance = 'balanced';
     this.braceQueued = false;
     this.chosen = null;
+  }
+
+  /** A fight's route: own inputs to each frame's referee, signed to a witness, and its frames checked. */
+  private routeFor(enc: string): RefereeRoute {
+    const { host } = this;
+    return new RefereeRoute({
+      enc,
+      sendHub: (m) => host.send(m),
+      sendWitness: (witness, ev) => {
+        this.witnessInputs++;
+        host.sendWitness?.(witness, ev);
+      },
+      signInput: (f, code) => host.signInput?.(enc, f, code) ?? '',
+      frameSigned: (witness, f, inputs, sig) =>
+        host.frameSigned?.(witness, enc, f, inputs, sig) ?? false,
+      oneWayMs: (by) =>
+        by === AUTHORITY ? host.oneWayMs() : (host.peerOneWayMs?.(by) ?? host.oneWayMs()),
+    });
+  }
+
+  /** The authority's frame: where it differs from the witness's frame held for it, it overrules it. */
+  private hubFrame(msg: Extract<FightMsg, { t: 'enc-frame' }>): void {
+    const { sync, route } = this;
+    if (!sync) return;
+    if (route && sync.id === msg.enc && route.hubFrame(msg)) sync.overrule(msg);
+    else sync.receive(msg);
+  }
+
+  /** A witness's signed frame from peer `from` (M10 T7): checked by the route, then played as the referee's. */
+  witnessFrame(from: string, ev: WitnessFrame): void {
+    const { sync, route } = this;
+    if (!sync?.running || !route || ev.enc !== sync.id) return;
+    const frame = route.witnessFrame(from, ev);
+    if (frame) sync.receive(frame);
+  }
+
+  /** The fight's referee now: a witness's player id, or the authority. */
+  referee(): string {
+    return this.route?.spans.last().by ?? AUTHORITY;
+  }
+
+  /** The longest rollback and the resyncs around each handover to or from a witness. */
+  private aroundHandover(): { rollback: number; resyncs: number } {
+    const spans = this.route?.spans.list().slice(1) ?? [];
+    let rollback = 0;
+    let resyncs = 0;
+    for (const [from, frames, resync] of this.rolls) {
+      if (!spans.some((s) => Math.abs(from - s.from) <= HANDOVER_WINDOW)) continue;
+      if (resync) resyncs++;
+      else rollback = Math.max(rollback, frames);
+    }
+    return { rollback, resyncs };
   }
 
   /**
@@ -428,6 +535,7 @@ export class FightPlay {
     const enc = sync?.enc;
     if (!sync || !enc) return null;
     const tick = enc.world.tick;
+    const last = this.route?.spans.last() ?? { by: AUTHORITY, from: 0 };
     const { host } = this;
     return {
       id: sync.id,
@@ -443,6 +551,12 @@ export class FightPlay {
       rejoins: sync.rejoins,
       verified: this.verify.verdict(sync.id),
       aim: this.aim(),
+      referee: { by: last.by, from: last.from },
+      handovers: (this.route?.spans.list().length ?? 1) - 1,
+      disputes: this.route?.disputes ?? 0,
+      witnessInputs: this.witnessInputs,
+      resent: this.route?.resent ?? 0,
+      aroundHandover: this.aroundHandover(),
       fighters: enc.fighters.map((f) => {
         const winding = f.fx.windupEnd >= 0;
         const egg = f.eggBody;
@@ -461,6 +575,7 @@ export class FightPlay {
           egg: egg ? { x: egg.x, y: egg.y, health: egg.health, eaten: egg.by >= 0 } : null,
           outcome: f.status,
           radius: radiusOf(f.body),
+          reach: strikeReach(f),
           staggered: f.fx.staggerUntil > tick,
           outside: f.outside,
           away: f.slot !== sync.slot && host.present?.(f.player) === false,
@@ -475,6 +590,9 @@ export function appFightHost(app: App): FightHost {
   const clock = () => app.keeper.current?.clock ?? null;
   const { hubUrl } = app;
   const keys = hubUrl ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys'))) : undefined;
+  // Signed inputs and witness frames need `@noble/curves`, which the app shell never loads: each
+  // fight loads it as it begins, long before a witness can take it over (a round and an offer later).
+  let witness: typeof import('../ledger/witness') | null = null;
   return {
     ...(keys ? { keys } : {}),
     me: () => app.playerId,
@@ -499,5 +617,21 @@ export function appFightHost(app: App): FightHost {
     events: (events) => app.fightShow.onEvents(events),
     present: (player) =>
       player === app.playerId || app.keeper.current?.nameOf(player) !== undefined,
+    sendWitness: (peer, ev) => app.keeper.current?.sendEvent(peer, ev),
+    signInput: (enc, f, code) =>
+      witness && app.identity ? witness.signInput(app.identity, enc, f, code) : '',
+    frameSigned: (by, enc, f, inputs, sig) =>
+      witness?.witnessFrameSigned(by, enc, f, inputs, sig) ?? false,
+    peerOneWayMs: (peer) => app.duty.probes.oneWayMs(peer),
+    prepare: () => {
+      if (!witness) {
+        void import('../ledger/witness').then(
+          (m) => {
+            witness = m;
+          },
+          () => {},
+        );
+      }
+    },
   };
 }

@@ -129,6 +129,7 @@
         <p class="chip" data-testid="hud-egg" role="img" aria-label="Egg: H to hatch" title="Egg: H to hatch" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><ellipse cy="0.6" rx="4.6" ry="6.2" /></svg><kbd>H</kbd></p>
         <p class="chip" data-testid="hud-mate-ready" role="img" aria-label="Ready to mate" title="Ready to mate" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0 6 C-9 0 -6 -8.5 0 -3.5 C6 -8.5 9 0 0 6 Z" /></svg></p>
         <p class="chip" data-testid="practice-badge" hidden>Not recorded</p>
+        <p class="chip" data-testid="hud-witness" role="img" aria-label="Witnessing a fight" title="Witnessing a fight" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><path class="stroke" d="M-6.5 0 C-3.5 -4.8 3.5 -4.8 6.5 0 C3.5 4.8 -3.5 4.8 -6.5 0 Z" /><circle r="1.9" /></svg>Witnessing a fight</p>
         <p class="chip" data-testid="hud-offline" role="img" aria-label="Offline" title="Offline" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><circle class="stroke" r="4.5" /><path class="stroke" d="M-6 6 L6 -6" /></svg></p>
       </div>
     </section>
@@ -243,6 +244,7 @@
       <button type="button" class="combat-button" data-testid="stance-aggressive" aria-pressed="false" aria-label="Aggressive (1)" title="Aggressive (1)"><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-6 -5 L-0.5 0 L-6 5 M0 -5 L5.5 0 L0 5" /></svg><kbd>1</kbd></button>
       <button type="button" class="combat-button" data-testid="stance-balanced" aria-pressed="true" aria-label="Balanced (2)" title="Balanced (2)"><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0 -5.5 L5.5 0 L0 5.5 L-5.5 0 Z" /></svg><kbd>2</kbd></button>
       <button type="button" class="combat-button" data-testid="stance-evasive" aria-pressed="false" aria-label="Evasive (3)" title="Evasive (3)"><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-6 5 C-1.5 5 -1.5 -3.5 3 -3.5 H5.5 M2.5 -6.5 L5.5 -3.5 L2.5 -0.5" /></svg><kbd>3</kbd></button>
+      <p class="witness-mark" data-testid="witness-mark" role="img" aria-label="Refereed by a witness" title="Refereed by a witness" hidden><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M-6.5 0 C-3.5 -4.8 3.5 -4.8 6.5 0 C3.5 4.8 -3.5 4.8 -6.5 0 Z" /><circle r="1.9" /></svg></p>
       <button type="button" class="combat-button brace" data-testid="brace" aria-label="Brace (Shift or right button)" title="Brace (Shift or right button)"><svg class="cooldown" viewBox="-16 -16 32 32" aria-hidden="true"><circle data-testid="brace-cooldown" r="14" pathLength="100" stroke-dasharray="0 100" transform="rotate(-90)" /></svg><svg viewBox="-8 -8 16 16" aria-hidden="true"><path d="M0 -6.5 L5.5 -4.2 V0.4 C5.5 3.8 3.1 5.9 0 7 C-3.1 5.9 -5.5 3.8 -5.5 0.4 V-4.2 Z" /></svg><kbd>⇧</kbd></button>
     </section>
     <div class="social-cues" data-for="playing" data-testid="social-cues" aria-hidden="true"></div>

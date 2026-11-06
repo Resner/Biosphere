@@ -33,8 +33,8 @@ function setBar(bar: HTMLElement, fraction: number): void {
 }
 
 /** The chips beside the bars, in the order they sit (M6b T9). */
-export type Chip = 'egg' | 'ready' | 'practice' | 'offline';
-const CHIPS: readonly Chip[] = ['egg', 'ready', 'practice', 'offline'];
+export type Chip = 'egg' | 'ready' | 'practice' | 'witness' | 'offline';
+const CHIPS: readonly Chip[] = ['egg', 'ready', 'practice', 'witness', 'offline'];
 
 /** What the stat bars show, each 0..1 as drawn; `life` is null while its bar is hidden. */
 export interface HudBars {
@@ -95,6 +95,7 @@ export class Hud {
     egg: pick('[data-testid="hud-egg"]'),
     ready: pick('[data-testid="hud-mate-ready"]'),
     practice: pick('[data-testid="practice-badge"]'),
+    witness: pick('[data-testid="hud-witness"]'),
     offline: pick('[data-testid="hud-offline"]'),
   };
   private toastTimer: ReturnType<typeof setTimeout> | undefined;
@@ -168,6 +169,11 @@ export class Hud {
   /** "Not recorded" on a practice cell. */
   setPractice(practice: boolean): void {
     setHidden(this.chips.practice, !practice);
+  }
+
+  /** "Witnessing a fight" while this page referees one (M10 T7). */
+  setWitness(on: boolean): void {
+    setHidden(this.chips.witness, !on);
   }
 
   /** The offline dot, with the status line as its name and tooltip; null hides it. */

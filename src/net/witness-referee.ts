@@ -43,6 +43,12 @@ export interface WitnessRefereeOptions {
   /** A fighter's key; `keyVerifier` by default, tabled once per fighter. */
   keyOf?(player: string): KeyVerify | null;
   bodies?(genome: string): Creature | null;
+  /**
+   * Whether a taken input finalizes what is due at once (the default). A page passes false and
+   * calls `tick` itself in a task of its own, so checking an input's signature and signing a frame
+   * never share one handler (M10 T7).
+   */
+  tickOnInput?: boolean;
 }
 
 export class WitnessReferee {
@@ -139,7 +145,7 @@ export class WitnessReferee {
     const verdict = this.take(from, ev);
     if (verdict === 'ok') {
       this.taken++;
-      this.tick();
+      if (this.opts.tickOnInput !== false) this.tick();
     } else {
       this.dropped[verdict] = (this.dropped[verdict] ?? 0) + 1;
     }

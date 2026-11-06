@@ -28,6 +28,24 @@ export function mouseToInput(
   return { steer: angleToSteer(atan2(dy, dx)), throttle, dash: false };
 }
 
+const ORIGIN: Point = { x: 0, y: 0 };
+
+/**
+ * A test aid's steering (`debug.hover`): for the spot `distance` wu from `from` on the line through
+ * the creature at `at`, eased as a cursor on that spot would (`mouseToInput`), so the creature
+ * settles within the dead zone. On top of `from` it picks the east side. World units, y up.
+ */
+export function hoverInput(at: Point, from: Point, distance: number, radius: number): Input {
+  const dx = at.x - from.x;
+  const dy = at.y - from.y;
+  const d = length(dx, dy);
+  const ux = d > 0 ? dx / d : 1;
+  const uy = d > 0 ? dy / d : 0;
+  const tx = from.x + ux * distance - at.x;
+  const ty = from.y + uy * distance - at.y;
+  return mouseToInput({ x: tx, y: -ty }, ORIGIN, 1, radius);
+}
+
 const KEY_DIRECTIONS: Readonly<Record<string, Point>> = {
   w: { x: 0, y: 1 },
   arrowup: { x: 0, y: 1 },
