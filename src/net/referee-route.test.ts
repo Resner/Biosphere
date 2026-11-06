@@ -3,11 +3,12 @@ import { startMsg, TEST_POND } from '../../tests/scripted-referee';
 import { createIdentity, type Identity, memoryKeyStore } from '../ledger/identity';
 import { keyVerifier } from '../ledger/key-verify';
 import { inputSigned, signInput, signWitnessFrame, witnessFrameSigned } from '../ledger/witness';
+import type { InputMsg } from './encounter-sync';
 import { EncounterSync } from './encounter-sync';
 import { AUTHORITY } from './handover';
 import type { PeerEvent } from './protocol';
 import { FRAME_MS } from './referee';
-import { type DisputeMsg, type InputMsg, KEEP_WITNESS_FRAMES, RefereeRoute } from './referee-route';
+import { type DisputeMsg, KEEP_WITNESS_FRAMES, RefereeRoute } from './referee-route';
 
 const ENC = 'e1'.repeat(32);
 

@@ -7,21 +7,18 @@
 // `EncounterSync`) and one `dispute` goes to the hub with the witness's signed frame. Pure: the
 // sends, the signer, the frame check and the latencies are injected.
 
+import { type EncFrameMsg, type InputMsg, type Inputs, sameInputs } from './encounter-sync';
 import { AUTHORITY, RefereeSpans } from './handover';
-import type { ClientMsg, HubMsg, PeerEvent } from './protocol-defs';
+import type { ClientMsg, HubMsg } from './protocol-defs';
+import type { FighterInput, WitnessFrame } from './witness-referee';
 
 /** Witness frames kept for a dispute. */
 export const KEEP_WITNESS_FRAMES = 50;
 /** Own inputs kept for a resend at a handover. */
 const KEEP_SENT = 20;
 
-type Inputs = (number | null)[];
-export type InputMsg = Extract<ClientMsg, { t: 'input' }>;
 export type DisputeMsg = Extract<ClientMsg, { t: 'dispute' }>;
 export type EncRefereeMsg = Extract<HubMsg, { t: 'enc-referee' }>;
-export type EncFrameMsg = Extract<HubMsg, { t: 'enc-frame' }>;
-type FighterInput = Extract<PeerEvent, { t: 'finput' }>;
-type WitnessFrame = Extract<PeerEvent, { t: 'wframe' }>;
 
 export interface RouteOptions {
   /** The fight's id. */
@@ -44,16 +41,15 @@ interface HeldFrame {
   disputable: boolean;
 }
 
-const same = (a: readonly (number | null)[], b: readonly (number | null)[]): boolean =>
-  a.length === b.length && a.every((v, k) => v === b[k]);
-
 export class RefereeRoute {
   readonly spans = new RefereeSpans();
   /** Own inputs sent again at a handover. */
   resent = 0;
   /** Authority frames that overruled a witness's. */
   resyncs = 0;
-  disputes = 0;
+  get disputes(): number {
+    return this.disputed.size;
+  }
   /** Witness frames dropped: another fight, not the frame's referee, or a signature that fails. */
   dropped = 0;
 
@@ -146,7 +142,7 @@ export class RefereeRoute {
     this.held.set(ev.f, { i: [...ev.i], sig: ev.sig, by: from, disputable: true });
     this.held.delete(ev.f - KEEP_WITNESS_FRAMES);
     const authority = this.hub.get(ev.f);
-    if (authority && !same(authority, ev.i)) {
+    if (authority && !sameInputs(authority, ev.i)) {
       // The authority's frame came first and stands; the witness's proves it sent another.
       this.dispute(ev.f);
       return null;
@@ -163,7 +159,7 @@ export class RefereeRoute {
     this.hub.set(msg.f, [...msg.i]);
     this.hub.delete(msg.f - KEEP_WITNESS_FRAMES);
     const held = this.held.get(msg.f);
-    if (!held || same(held.i, msg.i)) return false;
+    if (!held || sameInputs(held.i, msg.i)) return false;
     this.resyncs++;
     this.dispute(msg.f);
     return true;
@@ -174,7 +170,6 @@ export class RefereeRoute {
     const held = this.held.get(f);
     if (!held?.disputable || this.disputed.has(held.by)) return;
     this.disputed.add(held.by);
-    this.disputes++;
     this.opts.sendHub({ t: 'dispute', enc: this.opts.enc, f, i: held.i, sig: held.sig });
   }
 }
