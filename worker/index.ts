@@ -1,7 +1,7 @@
 import { HEX64 } from '../src/ledger/record';
 import { PROTOCOL_VERSION } from '../src/net/protocol';
 import { isAllowedOrigin } from './origin';
-import type { Served } from './proof';
+import type { ProofAge, Served } from './proof';
 
 export { Authority } from './authority';
 
@@ -27,9 +27,8 @@ async function publicJson(
 
 /** `GET /v1/proof/<creature>` and `GET /v1/fight/<enc>` (ADR 0055): the id is 64 lowercase hex. */
 const PROOF_PATH = /^\/v1\/(proof|fight)\/([^/]*)$/;
-/** A dead creature's bundle and a settled fight never change; anything else may within a minute. */
-const FINAL_MAX_AGE = 86_400;
-const LIVE_MAX_AGE = 60;
+/** A settled fight never changes (a day); a dead creature's bundle can still gain flags (ten minutes); anything else may within a minute. */
+const MAX_AGE: Readonly<Record<ProofAge, number>> = { settled: 86_400, dead: 600, live: 60 };
 const BUSY_RETRY_S = 600;
 /** `GET /v1/audit` is the same for everyone for 5 minutes. */
 const AUDIT_MAX_AGE = 300;
@@ -66,8 +65,11 @@ async function proofRead(
         'Cache-Control': 'no-store',
       });
     }
-    const age = served.status === 200 && served.final ? FINAL_MAX_AGE : LIVE_MAX_AGE;
-    const body = served.status === 200 ? served.body : JSON.stringify({ error: 'not-found' });
+    const age = served.status === 200 ? MAX_AGE[served.age] : MAX_AGE.live;
+    const body =
+      served.status === 200
+        ? served.body
+        : JSON.stringify({ error: served.status === 413 ? 'too-big' : 'not-found' });
     return new Response(body, {
       status: served.status,
       headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${age}` },

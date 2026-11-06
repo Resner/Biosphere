@@ -2,6 +2,7 @@ import { exports } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import type { ProofBundle } from '../src/ledger/proof';
 import {
+  PROOF_CAPS,
   PROOF_MAX_BYTES,
   PROOF_MAX_CREATURES,
   parseFightProof,
@@ -28,7 +29,7 @@ import {
   step,
 } from './ledger-test-kit';
 import { chainOf, keysOf } from './lineage-test-kit';
-import { proofBundle } from './proof';
+import { proofBundle, proofStats, serveProof } from './proof';
 import { sql } from './test-hub';
 
 // M9 T7: proof bundles and fight proofs, served from the ledger alone while every player is
@@ -68,8 +69,8 @@ describe('GET /v1/proof and /v1/fight, with every socket closed', () => {
     const res = await get(`/v1/proof/${h.a1}`);
     expect(res.status).toBe(200);
     expect(res.headers.get('Access-Control-Allow-Origin')).toBe(ORIGIN);
-    // A1 is dead, so its bundle never changes.
-    expect(res.headers.get('Cache-Control')).toBe('public, max-age=86400');
+    // A1 is dead: its flags and attestations can still arrive, so its bundle keeps ten minutes.
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=600');
     const bundle = parseProofBundle(await res.text());
     if (!bundle) throw new Error('the bundle does not parse');
 
@@ -211,6 +212,51 @@ describe('proofBundle caps', () => {
     expect(bundle.creatures.length).toBeLessThan(PROOF_MAX_CREATURES);
     expect(bundle.creatures.length).toBeGreaterThan(1);
     expect(bundle.more.length).toBeGreaterThan(0);
+  });
+
+  it('assembles a 64-creature pedigree once, whatever the number of candidates it tried', async () => {
+    const subject = await pedigree();
+    const [bundle, assembled] = await authority((o) => {
+      const before = proofStats.assembles;
+      const b = must(proofBundle(o, subject, o.clock.now()));
+      return [b, proofStats.assembles - before] as const;
+    });
+    expect(bundle.creatures).toHaveLength(PROOF_MAX_CREATURES);
+    expect(assembled).toBe(1);
+  });
+
+  it('answers too-big for a subject whose own chain passes the caps, never a bundle that does not parse', async () => {
+    const P = await newPlayer();
+    const id = await authority((o) => {
+      let head = hatchInLedger(o.ledger, P.playerId);
+      for (let i = 0; i < 12; i++) head = step(o.ledger, checkpoint(head));
+      return head.id;
+    });
+    const served = (limits: { creatures: number; bytes: number; records: number }) =>
+      authority((o) => serveProof(o, id, limits));
+    // Records: the chain holds 13.
+    expect((await served({ creatures: 64, bytes: PROOF_MAX_BYTES, records: 12 })).status).toBe(413);
+    expect((await served({ creatures: 64, bytes: PROOF_MAX_BYTES, records: 13 })).status).toBe(200);
+    // Bytes: a limit under the chain's own size.
+    expect((await served({ creatures: 64, bytes: 2_000, records: 4_096 })).status).toBe(413);
+    expect((await served({ creatures: 64, bytes: PROOF_MAX_BYTES, records: 4_096 })).status).toBe(
+      200,
+    );
+  });
+
+  it('serves 413 too-big over HTTP, cached for a minute, for a chain past the real caps', {
+    tags: ['heavy'],
+  }, async () => {
+    const P = await newPlayer();
+    const id = await authority((o) => {
+      let head = hatchInLedger(o.ledger, P.playerId);
+      for (let i = 0; i < PROOF_CAPS.records; i++) head = step(o.ledger, checkpoint(head));
+      return head.id;
+    });
+    const res = await get(`/v1/proof/${id}`);
+    expect(res.status).toBe(413);
+    expect(await res.json()).toEqual({ error: 'too-big' });
+    expect(res.headers.get('Cache-Control')).toBe('public, max-age=60');
   });
 
   it('cuts a chain parent at its promote, though it was restored and died later', async () => {

@@ -43,7 +43,7 @@ A client that floods reports gains nothing, and a client that claims more than a
 - It holds the subject's whole chain. For each ancestor it holds only the prefix of its chain up to the record that ties it to its descendant: a biological parent up to its `mate-commit` of that mating, a checkpoint-chain parent up to its `promote` (parent) or its death.
 - Ancestors are added nearest first, up to 64 creatures and 512 KB. `more` names the parents of held creatures that did not fit, and each of them has a bundle of its own.
 - `GET /v1/proof/<creature>` serves it, and `GET /v1/fight/<enc>` serves a fight's log and settlement.
-- Both are metered, and edge-cached through the Worker's Cache API: a dead creature's bundle for a day, a living one's for 60 s. Past 80% of the daily request budget they answer `503 busy`, so reads never push players into the admission queue.
+- Both are metered, and edge-cached through the Worker's Cache API: a dead creature's bundle for a day, a living one's for 60 s (M10 T15: a dead creature's bundle keeps 10 minutes, since its flags and attestations can still arrive; a settled fight's proof keeps the day). Past 80% of the daily request budget they answer `503 busy`, so reads never push players into the admission queue.
 - Fight logs are not in the bundle, because one fight can outweigh a whole lineage. A verifier fetches the logs it wants to replay.
 
 **The verifier** (`verifyLineage` in `src/ledger/verify.ts`, pure, never throws) checks five families and names every problem by creature, record and code:
