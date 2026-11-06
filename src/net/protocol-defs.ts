@@ -3,11 +3,12 @@ import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
 import type { MateAsk } from '../ledger/mate-ask';
 import type { RecordRequest, Status, StoredRecord } from '../ledger/record';
-import type { SignedSettlement } from '../ledger/settlement';
+import type { FightLog, SignedSettlement } from '../ledger/settlement';
+import type { SignedAttestation } from '../ledger/witness-doc';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 9;
+export const PROTOCOL_VERSION = 10;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -49,6 +50,19 @@ export const ENC_END_MAX_BYTES = 8192;
 /** An encounter's frames run 0 to 900 (the timeout), so a frame number past this is malformed. */
 export const ENC_MAX_FRAME = 1000;
 export const ENC_MAX_FIGHTERS = 4;
+
+/**
+ * Witnesses (protocol 10, ADR 0058): a `batch` to the authority, and a `duty` with a fight's history
+ * or an audit's case. The largest batch (20 frames of 4 signed inputs) is about 8.2 KB.
+ */
+export const BATCH_MAX_BYTES = 12_288;
+export const DUTY_MAX_BYTES = 131_072;
+/** A batch carries 1 to 20 frames (a witness sends 10 at a time, and catches up with more). */
+export const BATCH_MAX_FRAMES = 20;
+/** A referee duty's history holds at most a whole fight's frames (90 s at 10 Hz), and its joins. */
+export const DUTY_HISTORY_FRAMES = 900;
+/** A `lock-state` carries at most this many of the target's copies of the attacker's signed snapshots (M10 T11). */
+export const SEEN_MAX = 5;
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;
@@ -263,9 +277,60 @@ export type ClientMsg =
   /** Engages `target` (a player id) with the attacker's own fresh signed snapshot and the target's newest. */
   | { t: 'engage'; target: string; mine: SignedSnap; theirs: SignedSnap }
   /** The answer to `lock-ask`: a freshly signed snapshot of the creature's current state. */
-  | { t: 'lock-state'; lock: string; mine: SignedSnap }
+  | { t: 'lock-state'; lock: string; mine: SignedSnap; seen?: SignedSnap[] }
   /** This fighter's input for frame `f` of encounter `enc`: a u32 code (`encodeFrameInput`). */
-  | { t: 'input'; enc: string; f: number; i: number };
+  | { t: 'input'; enc: string; f: number; i: number }
+  /** Whether this client can witness now (ADR 0058): visible, the setting on, not fighting, frames fast enough. */
+  | { t: 'avail'; on: boolean }
+  /** The answer to a `duty`: taken (its links are open), or declined. */
+  | { t: 'duty-ok'; event: string }
+  | { t: 'duty-no'; event: string }
+  /**
+   * A witness referee's final frames `f` to `f + i.length - 1`, 1 to `BATCH_MAX_FRAMES` of them, each
+   * 1 to 4 slots wide. `s[k][slot]` is the fighter's signature on that input (`signInput`), null
+   * exactly where the input is null. `end` closes the witness's span (the fight's end or a stop).
+   */
+  | {
+      t: 'batch';
+      enc: string;
+      f: number;
+      i: (number | null)[][];
+      s: (string | null)[][];
+      end: boolean;
+    }
+  /** A fighter shows the witness's signed frame `f` (`signWitnessFrame`), which differs from the authority's. */
+  | { t: 'dispute'; enc: string; f: number; i: (number | null)[]; sig: string }
+  /** An auditor's verdict. */
+  | { t: 'attest'; signed: SignedAttestation };
+
+/** One entry of a referee duty's history: a finalized frame or a join, in order, without the encounter id the duty names. */
+export type DutyHistory =
+  | { t: 'enc-frame'; f: number; i: (number | null)[] }
+  | { t: 'enc-join'; f: number; fighter: FighterInfo };
+
+/** What an auditor re-checks (ADR 0058): a fight's log and settlement, a genesis, or a mating's records and genome texts in slot order. */
+export type AuditCase =
+  | { kind: 'enc'; log: FightLog; settlement: SignedSettlement }
+  | { kind: 'genesis'; commitment: SignedCommit; record: StoredRecord; genome: string }
+  | {
+      kind: 'mating';
+      commitment: SignedCommit;
+      births: [StoredRecord, StoredRecord];
+      mates: [StoredRecord, StoredRecord];
+      parents: [string, string];
+    };
+
+/** What every duty names: its event (`dutyEvent`), the witness's position in the order, the witness commitment and its round's beacon. */
+interface DutyBase {
+  t: 'duty';
+  event: string;
+  position: number;
+  commit: SignedCommit;
+  beacon: Beacon;
+}
+
+/** The hub's reason a duty is over. */
+export type DutyEndWhy = 'done' | 'taken-back' | 'replaced' | 'struck';
 
 /** Hub WebSocket, hub to client. */
 export type HubMsg =
@@ -385,6 +450,21 @@ export type HubMsg =
       fighters: FighterOutcome[];
       settlement?: SignedSettlement;
     }
+  /** Referee this fight (ADR 0058): the fighters by slot, its start and everything finalized so far. */
+  | (DutyBase & {
+      role: 'referee';
+      pondSeed: string;
+      fighters: string[];
+      start: Extract<HubMsg, { t: 'enc-start' }>;
+      history: DutyHistory[];
+    })
+  /** Audit this event. */
+  | (DutyBase & { role: 'auditor'; audit: AuditCase })
+  | { t: 'duty-end'; event: string; why: DutyEndWhy }
+  /** Open (or close) a duty link to `peer` for encounter `enc`. */
+  | { t: 'duty-peer'; enc: string; peer: string; on: boolean }
+  /** From frame `from` on, `by` referees the fight: `'authority'` or the witness's player id. */
+  | { t: 'enc-referee'; enc: string; from: number; by: string }
   /** A kill left carrion: every client in the pond drops the same pieces. */
   | {
       t: 'carrion';
@@ -409,7 +489,13 @@ export type PeerEvent =
   /** The sender's genome as base64url text; a receiver checks it against the snapshots' `genomeRef`. */
   | { t: 'genome'; data: string }
   | { t: 'emote'; id: number }
-  | { t: 'ping'; kind: number; x: number; y: number };
+  | { t: 'ping'; kind: number; x: number; y: number }
+  /** A fighter's input to its witness referee, signed (`signInput`). */
+  | { t: 'finput'; enc: string; f: number; i: number; sig: string }
+  /** The witness referee's final frame, signed (`signWitnessFrame`). */
+  | { t: 'wframe'; enc: string; f: number; i: (number | null)[]; sig: string }
+  /** A round trip on a duty link: `back` is the answer to probe `n`. */
+  | { t: 'probe'; n: number; back: boolean };
 
 /** Peer `state` channel. Energy and health are fractions of their maximum, 0 to 1. */
 export interface Snapshot {
