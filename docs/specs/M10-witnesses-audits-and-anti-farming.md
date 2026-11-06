@@ -613,7 +613,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - `speedTest`: the witness family on a 64-creature bundle with 64 fights takes under 1 s in Node.
   - Notes: the honest history stays as M9 built it. This task adds documents beside it, never changes it to make a family pass.
 
-- [ ] T10 Witnesses in bundles, on the card and in the CLI [opus] (after T5, T8, T9, T15)
+- [ ] T10 Witnesses in bundles, on the card and in the CLI [opus] (after T5, T8, T9, T15) (in progress)
   - Steps:
     1. `worker/proof.ts`: a bundle (version 2) holds:
        - the witness commitments of its held events that are still kept;
