@@ -5,6 +5,7 @@
 // the last message, so a flapping tab sends at most one message per 5 s and the hub (which counts
 // an `on` at most once per 5 s) never drops one.
 
+import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
 
 /** The frame times judged, and how long everything must hold before an `on`. */
@@ -28,16 +29,12 @@ export class Availability {
   private readonly frames: [number, number][] = [];
   /** Since when everything has been right, or null. */
   private goodSince: number | null = null;
-  /** What the hub was last told; null when this session told it nothing yet. */
-  private told: boolean | null = null;
+  /** Whether the hub was last told on. */
+  on = false;
   private toldAt = Number.NEGATIVE_INFINITY;
+  private scratch = new Float64Array(0);
 
   constructor(private readonly send: (on: boolean) => void) {}
-
-  /** Whether the hub was last told on. */
-  get on(): boolean {
-    return this.told === true;
-  }
 
   /** A frame took `ms`, ending at `now`. */
   frame(now: number, ms: number): void {
@@ -48,24 +45,29 @@ export class Availability {
   /** The 90th percentile of the window's frame times, or null without any. */
   p90(now: number): number | null {
     this.prune(now);
-    if (this.frames.length === 0) return null;
-    const sorted = this.frames.map(([, ms]) => ms).sort((a, b) => a - b);
-    return sorted[Math.ceil(0.9 * sorted.length) - 1] ?? null;
+    const n = this.frames.length;
+    if (n === 0) return null;
+    if (this.scratch.length < n) this.scratch = new Float64Array(n * 2);
+    for (let i = 0; i < n; i++) this.scratch[i] = this.frames[i]?.[1] ?? 0;
+    return percentile(this.scratch, 0.9, n, this.scratch);
   }
 
   /** Judges the inputs now: off at once when one fails, on once all have held long enough. */
   update(now: number, inputs: AvailInputs): void {
-    const p90 = this.p90(now);
-    const good =
-      inputs.visible && inputs.setting && !inputs.busy && p90 !== null && p90 <= AVAIL_P90_MS;
+    // The cheap inputs first: the percentile is only worked out for a page that could witness.
+    let good = inputs.visible && inputs.setting && !inputs.busy;
+    if (good) {
+      const p90 = this.p90(now);
+      good = p90 !== null && p90 <= AVAIL_P90_MS;
+    }
     if (!good) {
       this.goodSince = null;
-      if (this.told === true) this.tell(now, false);
+      if (this.on) this.tell(now, false);
       return;
     }
     this.goodSince ??= now;
     if (
-      this.told !== true &&
+      !this.on &&
       now - this.goodSince >= AVAIL_WINDOW_MS &&
       now - this.toldAt >= AVAIL_EVERY_MS
     ) {
@@ -75,12 +77,12 @@ export class Availability {
 
   /** A new hub session knows nothing of this page: the next update tells it again. */
   reset(): void {
-    this.told = null;
+    this.on = false;
     this.toldAt = Number.NEGATIVE_INFINITY;
   }
 
   private tell(now: number, on: boolean): void {
-    this.told = on;
+    this.on = on;
     this.toldAt = now;
     this.send(on);
   }

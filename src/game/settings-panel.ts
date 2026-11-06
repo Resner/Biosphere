@@ -1,5 +1,6 @@
 // The Settings panel: graphics quality (M6 T1), sound volume and mute, reduced motion (M6 T22)
-// and "Help referee fights" (M10 T6). It owns no state: the app hands it the current settings and applies what it reports.
+// and "Help referee fights" (M10 T6). It owns no state: the app hands it the current settings and
+// applies what it reports.
 
 import type { PresetName, QualitySetting } from '../render/presets';
 import { capitalise } from './badge';
