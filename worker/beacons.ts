@@ -123,11 +123,6 @@ export class Beacons {
     return best;
   }
 
-  /** The time on the beacons' clock: a commitment's `t`, and what `witnessRound` counts from. */
-  now(): number {
-    return this.deps.source.now();
-  }
-
   /**
    * Commits to the round after the newest published one. The same `kind`, `owner` and `data` always
    * return the same commitment, so callers put a fresh nonce in `data` for each new request.

@@ -3,9 +3,7 @@
 // creatures' play and the players' strikes; nothing here writes but the commitment, or the
 // `authority-only` flag when nobody can witness.
 
-import { sha256 } from '@noble/hashes/sha2.js';
-import { bytesToHex } from '@noble/hashes/utils.js';
-import type { Canonical } from '../src/ledger/canonical';
+import { type Canonical, hashWithDomain } from '../src/ledger/canonical';
 import {
   type DutyKind,
   dutyEvent,
@@ -40,7 +38,7 @@ export function ipCheck(env: FixtureEnv): boolean {
 
 /** A socket's address as its attachment keeps it: SHA-256 of the object's salt and the IP. */
 export function ipHash(salt: string, ip: string): string {
-  return bytesToHex(sha256(new TextEncoder().encode(`bs/ip/v1${salt}|${ip}`)));
+  return hashWithDomain('bs/ip/v1', `${salt}|${ip}`);
 }
 
 /** The duties a session accepted in the hour before `now`. */
@@ -72,7 +70,7 @@ function playedOf(hub: Hub, players: readonly string[]): Map<string, number> {
 }
 
 /** The players struck at `now`, of `players`. */
-function struck(hub: Hub, players: readonly string[], now: number): Set<string> {
+export function struck(hub: Hub, players: readonly string[], now: number): Set<string> {
   if (players.length === 0) return new Set();
   const rows = hub.ctx.storage.sql
     .exec<{ id: string }>(
@@ -126,6 +124,22 @@ export function eligible(
  * flags the event `authority-only` once; null then.
  */
 export async function commitWitnesses(
+  hub: Hub,
+  kind: DutyKind,
+  id: string,
+  participants: readonly string[],
+  round?: number,
+): Promise<SignedCommitment | null> {
+  // A failure here never blocks the event it belongs to: it stays authority-only.
+  try {
+    return await commitPool(hub, kind, id, participants, round);
+  } catch (error) {
+    console.error('witness commitment failed', error);
+    return null;
+  }
+}
+
+async function commitPool(
   hub: Hub,
   kind: DutyKind,
   id: string,

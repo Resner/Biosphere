@@ -27,7 +27,13 @@ import type { FlagKind } from './audit';
 import type { SignedCommitment } from './beacons';
 import type { Fight } from './fights';
 import { type ActiveSession, type Hub, type Session, seated, sendIfOpen, signedOf } from './socket';
-import { DUTIES_PER_HOUR, dutiesInHour, eligible, STRIKE_MS } from './witness-pool';
+import {
+  DUTIES_PER_HOUR,
+  dutiesInHour,
+  eligible,
+  STRIKE_MS,
+  struck as struckAmong,
+} from './witness-pool';
 
 /** How long an offer waits for `duty-ok` or `duty-no`. */
 export const OFFER_MS = 5000;
@@ -414,16 +420,7 @@ export function witnessView(hub: Hub, event: string): WitnessView | null {
     order = witnessOrder(data.pool, randomnessOf(beacon), commit.id);
   }
   const sql = hub.ctx.storage.sql;
-  const struck = order
-    ? sql
-        .exec<{ id: string }>(
-          'SELECT id FROM players WHERE struck_until > ? AND id IN (SELECT value FROM json_each(?)) ORDER BY id',
-          hub.clock.now(),
-          JSON.stringify(order),
-        )
-        .toArray()
-        .map((r) => r.id)
-    : [];
+  const struck = order ? [...struckAmong(hub, order, hub.clock.now())].sort() : [];
   const attestations = sql
     .exec<{ json: string }>(
       'SELECT json FROM attestations WHERE event = ? ORDER BY position',

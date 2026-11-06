@@ -124,9 +124,7 @@ export async function genesisRequest(
     hatchesLeft = hub.ledger.takeHatch(owner, commit.id, Date.now());
     sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
     // Its auditor's pool, on the genesis's own round (ADR 0058); the player never audits itself.
-    await commitWitnesses(hub, 'genesis', commit.id, [owner], commit.commitment.round).catch(
-      (error) => console.error('witness commitment failed', error),
-    );
+    await commitWitnesses(hub, 'genesis', commit.id, [owner], commit.commitment.round);
   } else {
     sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
   }

@@ -365,9 +365,7 @@ function start(hub: Hub, id: string): void {
     if (found) sendIfOpen(found[0], msg);
   }
   // Only now its witnesses (ADR 0058): lock-in never waits for them.
-  commitWitnesses(hub, 'enc', enc, lock.players).catch((error) =>
-    console.error('witness commitment failed', error),
-  );
+  void commitWitnesses(hub, 'enc', enc, lock.players);
 }
 
 /**

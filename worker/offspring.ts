@@ -356,7 +356,7 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
       commit.id,
       [theirs.playerId, mine.playerId],
       commit.commitment.round,
-    ).catch((error) => console.error('witness commitment failed', error));
+    );
   } else {
     resend(hub, ws, mine.life.creature, commit.id);
   }
