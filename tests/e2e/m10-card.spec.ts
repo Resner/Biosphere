@@ -52,7 +52,20 @@ test('a card says which of its events a witness saw @slow', async ({ browser }) 
   let enc = '';
   try {
     await Promise.all([witnessing(c), witnessing(d)]);
-    const ids = await stage(a, b);
+    const ids = await stage(a, b).catch(async (error) => {
+      const seen = await Promise.all(
+        pages.map(async (page) => {
+          const st = await state(page);
+          return {
+            screen: st.screen,
+            life: st.life.status,
+            net: st.net.status,
+            witness: st.witness,
+          };
+        }),
+      );
+      throw new Error(`the hatches did not start play: ${JSON.stringify(seen)}`, { cause: error });
+    });
     // A's and B's hatches are audited first: both witnesses must be free for the fight's pool.
     for (const page of [c, d]) {
       await expect
