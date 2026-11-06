@@ -126,15 +126,30 @@ export class Beacons {
   /**
    * Commits to the round after the newest published one. The same `kind`, `owner` and `data` always
    * return the same commitment, so callers put a fresh nonce in `data` for each new request.
+   *
+   * A witness commitment (ADR 0058) names its round itself: `round` is a function of the time the
+   * commitment is made, which must give a round not yet due then (a RangeError otherwise, and
+   * nothing written), so nothing is fetched. `key` is what makes two requests the same, in place
+   * of `data` (a witness commitment's event, whose pool may differ when asked again).
    */
-  async commit(kind: string, owner: string, data: Canonical): Promise<SignedCommitment> {
-    const req = requestKey(kind, owner, data);
+  async commit(
+    kind: string,
+    owner: string,
+    data: Canonical,
+    opts: { round?: (now: number) => number; key?: Canonical } = {},
+  ): Promise<SignedCommitment> {
+    const req = requestKey(kind, owner, opts.key ?? data);
     const known = this.byReq(req);
     if (known) return known;
-    const latest = await this.latest();
+    const latest = opts.round ? null : await this.latest();
     const now = this.deps.source.now();
     // Without a latest beacon the clock still bounds it: `roundAt(now)` is never ahead of the network.
-    const round = Math.max((latest?.round ?? roundAt(now)) + 2, roundAt(now) + 1);
+    const round = opts.round
+      ? opts.round(now)
+      : Math.max((latest?.round ?? roundAt(now)) + 2, roundAt(now) + 1);
+    if (!Number.isInteger(round) || round < 1 || roundTime(round) <= now) {
+      throw new RangeError(`round ${round} is no future round at ${now}`);
+    }
     const out = this.deps.storage.transactionSync(() => {
       // Another call with the same request may have finished while this one waited for the network.
       const winner = this.byReq(req);

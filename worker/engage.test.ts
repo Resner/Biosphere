@@ -62,7 +62,8 @@ describe('engage', () => {
     expect(fa?.egg).toBe(false);
     expect(fa?.elder).toBe(false);
     expect(fa?.biomass).toBeCloseTo(RULES.starter.biomass, 1);
-    expect(await rowsBesideLog()).toBe(rows);
+    // One row: the lock's `authority-only` flag, with no witness online (M10).
+    expect(await rowsBesideLog()).toBe(rows + 1);
   });
 
   it('uses the attacker’s copy when the target is silent, with frame 0 at most 300 ms after the engage', async () => {
@@ -93,7 +94,8 @@ describe('engage', () => {
     expect(sa.round).toBe((newest as Beacon).round);
     expect(sa.seed).toBe(encounterSeed(randomnessOf(newest as Beacon), sa.enc));
     expect(fetches.n).toBe(0);
-    expect(await rowsBesideLog()).toBe(rows);
+    // One row: the lock's `authority-only` flag, with no witness online (M10).
+    expect(await rowsBesideLog()).toBe(rows + 1);
   });
 
   it('holds one timer per lock, and both stay locked while the fight runs', async () => {

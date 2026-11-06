@@ -2,6 +2,7 @@ import { toBase64Url } from '../src/ledger/identity';
 import { type HubMsg, isCause, type SignedCommit } from '../src/net/protocol';
 import type { DeathCause } from '../src/sim/types';
 import type { Beacons, SignedCommitment } from './beacons';
+import type { Duties } from './duty';
 import type { FightStore } from './fight-store';
 import type { Clock, Fights } from './fights';
 import type { Ledger } from './ledger';
@@ -31,6 +32,8 @@ export interface Hub {
   readonly fights: Fights;
   /** Each fight's log in SQLite as it runs (ADR 0053). */
   readonly fightStore: FightStore;
+  /** Witness duties in memory: offers, who holds one, strikes (ADR 0058, `duty.ts`). */
+  readonly duties: Duties;
   /** The one way to set or clear the object's alarm (`.claude/rules/worker.md`). */
   rearm(): Promise<void>;
 }
@@ -50,6 +53,12 @@ export type Session = (
       court?: Court | undefined;
       /** Spawn protection lasts until this time (ADR 0050); set by a genesis, promotion or restore, ended by an engage. */
       protectedUntil?: number | undefined;
+      /** Whether the client says it can witness (`avail`, ADR 0058); off until it says on. */
+      avail?: boolean | undefined;
+      /** When the last `avail` that counted arrived: at most one counts every 5 s. */
+      availAt?: number | undefined;
+      /** When each witness duty this session accepted in the last hour began (at most `DUTIES_PER_HOUR`). */
+      duties?: number[] | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is in no pond. */
@@ -71,6 +80,11 @@ export type Session = (
   inputs?: number | undefined;
   /** A referee's batches and a fighter's disputes in the current window (absent before the first). */
   referee?: number | undefined;
+  /**
+   * SHA-256 of the object's salt and the socket's `CF-Connecting-IP` (`ipHash`), for the
+   * witnesses' independence (ADR 0058). Kept here only, never in SQLite.
+   */
+  ip?: string | undefined;
 };
 
 export type ActiveSession = Session & { phase: 'active' };

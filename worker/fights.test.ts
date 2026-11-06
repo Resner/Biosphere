@@ -113,7 +113,8 @@ describe('the frame clock', () => {
     expect(await locked(a)).toBe(false);
     expect(await authority((o) => o.fights.creatureLocked(b.creature))).toBe(false);
     expect(await authority((o) => o.fights.timers())).toBe(0);
-    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(5);
+    // And the lock's `authority-only` flag (no witness online, M10).
+    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(6);
   });
 
   it('a kill by a strike ends the same way, and each life takes the result’s condition', async () => {
@@ -139,7 +140,8 @@ describe('the frame clock', () => {
     for (const p of [a, b]) {
       expect(conditionOf(await lifeOn(p))).toEqual(hundredths(outcomeOf(end, p)));
     }
-    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(5);
+    // And the lock's `authority-only` flag (no witness online, M10).
+    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(6);
   });
 
   it('frees both to court again once the fight is over', async () => {
@@ -177,8 +179,9 @@ describe('the frame clock', () => {
 describe('life while locked', () => {
   it('acknowledges progress but credits and keeps nothing, ignores a death report, and applies old age after the end', async () => {
     const [a, b] = await fighters();
-    const rows = await rowsBesideLog();
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, FULL));
+    // From the lock on, which wrote its `authority-only` flag (no witness online, M10).
+    const rows = await rowsBesideLog();
     await play(a, b, start, IDLE, 5);
     const before = await lifeOn(a);
     // The life clock has run out by the end of the fight (M8 credits the locked time at the end).

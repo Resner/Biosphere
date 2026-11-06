@@ -48,6 +48,7 @@ import {
   sendIfOpen,
   signedOf,
 } from './socket';
+import { commitWitnesses } from './witness-pool';
 
 /** Starts a genesis request after any earlier one from the same player has finished. */
 export function queueGenesis(
@@ -121,8 +122,12 @@ export async function genesisRequest(
     }
     commit = await hub.beacons.commit('genesis', owner, data);
     hatchesLeft = hub.ledger.takeHatch(owner, commit.id, Date.now());
+    sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
+    // Its auditor's pool, on the genesis's own round (ADR 0058); the player never audits itself.
+    await commitWitnesses(hub, 'genesis', commit.id, [owner], commit.commitment.round);
+  } else {
+    sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
   }
-  sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
   await deliverGenesis(hub, commit.id);
 }
 

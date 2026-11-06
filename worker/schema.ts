@@ -199,6 +199,31 @@ const MIGRATIONS: Step[] = [
   // ones without scanning (the index changes on a settlement and on a prune, never on a batch).
   `ALTER TABLE usage ADD COLUMN db_bytes INTEGER NOT NULL DEFAULT 0;
   CREATE INDEX encounters_kept ON encounters (t) WHERE start <> '' AND settlement IS NOT NULL`,
+  // Witnesses (ADR 0058), all of M10's schema at once: a player's strike, an index that sums an
+  // identity's play, each fight's referee spans ('' until a handover), the auditors' attestations
+  // (kept for good), and the witness commitments by age for their 14-day prune. A witness
+  // commitment is found by its event through the request index: its request key is the event's
+  // (`commitWitnesses` in `witness-pool.ts`). The IP salt hashes each session's address into its
+  // attachment (`Authority.fetch`); the hash itself never reaches SQLite.
+  (sql) => {
+    sql.exec(`ALTER TABLE players ADD COLUMN struck_until INTEGER NOT NULL DEFAULT 0;
+      CREATE INDEX creatures_owner ON creatures (owner);
+      ALTER TABLE encounters ADD COLUMN referees TEXT NOT NULL DEFAULT '';
+      CREATE TABLE attestations (
+        event TEXT NOT NULL,
+        position INTEGER NOT NULL,
+        witness TEXT NOT NULL,
+        json TEXT NOT NULL,
+        t INTEGER NOT NULL,
+        PRIMARY KEY (event, position)
+      ) WITHOUT ROWID;
+      CREATE INDEX commitments_witness ON commitments (created) WHERE kind = 'witness';
+      ALTER TABLE world ADD COLUMN ip_salt TEXT NOT NULL DEFAULT ''`);
+    const salt = [...crypto.getRandomValues(new Uint8Array(32))]
+      .map((b) => b.toString(16).padStart(2, '0'))
+      .join('');
+    sql.exec('UPDATE world SET ip_salt = ?', salt);
+  },
 ];
 
 /**

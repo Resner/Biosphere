@@ -288,7 +288,7 @@ describe('migration 8', () => {
         };
       },
     );
-    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     // Migration 9 adds the usage rows' database size, 0 for a day it never measured.
     expect(out.after.kept).toEqual({
       ...out.beforeKept,
