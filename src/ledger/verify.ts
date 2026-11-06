@@ -67,8 +67,8 @@ export interface BundleIndex {
   /** Commitments by their id (`commitmentId`). */
   commits: ReadonlyMap<string, SignedCommit>;
   beacons: ReadonlyMap<number, Beacon>;
-  /** Settlements by encounter id. */
-  settlements: ReadonlyMap<string, SignedSettlement>;
+  /** Every settlement by encounter id, in bundle order: more than one is `settlement-duplicate`. */
+  settlements: ReadonlyMap<string, readonly SignedSettlement[]>;
   /** The keys in force, by id: `opts.keys`, else the bundle's, each only if its id derives from its key. */
   keys: ReadonlyMap<string, AuthorityKey>;
   /** A held creature's biological parents (its birth's), or null for a genesis creature or none known. */
@@ -113,6 +113,12 @@ export function indexBundle(bundle: ProofBundle, opts: VerifyOptions = {}): Bund
       // A commitment that does not hash names nothing.
     }
   }
+  const settlements = new Map<string, SignedSettlement[]>();
+  for (const s of bundle.settlements) {
+    const copies = settlements.get(s.settlement.enc);
+    if (copies) copies.push(s);
+    else settlements.set(s.settlement.enc, [s]);
+  }
   const parents = new Map<string, readonly [string, string] | null>();
   const chainParent = new Map<string, string | null>();
   for (const id of creatures.keys()) {
@@ -136,7 +142,7 @@ export function indexBundle(bundle: ProofBundle, opts: VerifyOptions = {}): Bund
     stray,
     commits,
     beacons: new Map(bundle.beacons.map((b) => [b.round, b])),
-    settlements: new Map(bundle.settlements.map((s) => [s.settlement.enc, s])),
+    settlements,
     keys: keysInForce(opts.keys ?? bundle.keys),
     parents,
     chainParent,
@@ -297,6 +303,7 @@ export const PROBLEM_TEXT: Readonly<Record<string, string>> = Object.freeze({
   'pair:bad-signature': 'A request to mate is not signed by its player.',
   // The fights family.
   'settlement-missing': "The proof lacks the settlement of a fight a creature's record names.",
+  'settlement-duplicate': 'The proof holds more than one settlement of the same fight.',
   settled: "A creature's record of a fight does not agree with the fight's settlement.",
   'settled:rules': 'A fight record and its settlement were made under different rules.',
   'settled:creature': 'A creature has a record of a fight its settlement gives it no part in.',

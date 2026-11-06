@@ -34,7 +34,7 @@ import {
   loadFight,
   loadProof,
 } from './load';
-import type { FromWorker, ToWorker } from './verify-worker';
+import { checkInWorker, VerifierLink } from './verifier';
 
 // The creature card page (M9 T12): `card.html?c=<creature id>` fetches the creature's proof from the
 // authority, draws the creature at once, and checks the proof in a module worker: the whole bundle
@@ -224,19 +224,13 @@ function drawGraph(): void {
 }
 
 /** One bundle checked in a worker of its own, without its fights: an ancestor's, for the graph. */
-function verifyOnce(bundle: ProofBundle): Promise<LineageReport> {
-  return new Promise((resolve, reject) => {
-    const worker = spawnVerifier();
-    worker.addEventListener('message', (e: MessageEvent<FromWorker>) => {
-      worker.terminate();
-      resolve(e.data.report);
-    });
-    worker.addEventListener('error', (e) => {
-      worker.terminate();
-      reject(new Error(e.message));
-    });
-    worker.postMessage({ t: 'verify', bundle } satisfies ToWorker);
-  });
+async function verifyOnce(bundle: ProofBundle): Promise<LineageReport> {
+  const link = new VerifierLink(spawnVerifier());
+  try {
+    return (await link.ask({ t: 'verify', bundle })).report;
+  } finally {
+    link.close();
+  }
 }
 
 /** Fetches an ancestor the proof left out, checks its own bundle, and joins it to the graph. */
@@ -303,68 +297,44 @@ function showReport(bundle: ProofBundle, report: LineageReport): void {
   drawGraph();
 }
 
-/** Fetches each fight's log one by one and hands it to the worker; the card shows the count. */
-async function replayFights(
-  base: string,
-  worker: Worker,
-  encs: readonly string[],
-  replied: () => Promise<void>,
-): Promise<void> {
-  for (const [i, enc] of encs.entries()) {
-    setText(el.progress, `Replaying fight ${i + 1} of ${encs.length}…`);
-    el.progress.hidden = false;
-    const got = await loadFight(fetch, base, enc);
-    // A fight whose proof can't be had stays unreplayed, which the details say.
-    if (!got.ok) continue;
-    worker.postMessage({ t: 'fight', enc, log: got.value.log } satisfies ToWorker);
-    await replied();
-  }
-  el.progress.hidden = true;
-}
-
 async function start(): Promise<void> {
   const id = creatureParam(search);
   if (!id) return fail('not-found');
   const base = authorityBase(search, __AUTHORITY_URL__);
   if (!base) return fail('offline');
   authority = base;
-  // The worker loads while the proof is fetched.
-  const worker = spawnVerifier();
-  let reply: ((msg: FromWorker) => void) | null = null;
-  worker.addEventListener('message', (e: MessageEvent<FromWorker>) => reply?.(e.data));
-  worker.addEventListener('error', (e) => {
-    console.error('the verifier did not run', e.message);
-    worker.terminate();
-    fail('unchecked');
-  });
-  const next = (): Promise<FromWorker> =>
-    new Promise((resolve) => {
-      reply = resolve;
-    });
+  // The worker loads while the proof is fetched; if it fails to load, the check below ends unchecked.
+  const link = new VerifierLink(spawnVerifier());
 
   setText(el.verdict, 'Fetching its proof…');
   const got = await loadProof(fetch, base, id);
   if (!got.ok) {
-    worker.terminate();
+    link.close();
     return fail(got.error);
   }
   const bundle = got.value;
   state.timings.bundle = performance.now();
   if (!showCreature(bundle)) {
-    worker.terminate();
+    link.close();
     return fail('malformed');
   }
   setPhase('verifying');
   setText(el.verdict, 'Checking its history…');
-  const first = next();
-  worker.postMessage({ t: 'verify', bundle } satisfies ToWorker);
-  const { report, fights } = await first;
-  showReport(bundle, report);
-  await replayFights(base, worker, fights, async () => {
-    const msg = await next();
-    showReport(bundle, msg.report);
+  // Each fight's log is fetched one by one and handed to the worker; the card shows the count.
+  const outcome = await checkInWorker(link, bundle, {
+    report: (report) => showReport(bundle, report),
+    replaying: (i, n) => {
+      setText(el.progress, `Replaying fight ${i + 1} of ${n}…`);
+      el.progress.hidden = false;
+    },
+    // A fight whose proof can't be had stays unreplayed, which the details say.
+    log: async (enc) => {
+      const got = await loadFight(fetch, base, enc);
+      return got.ok ? got.value.log : undefined;
+    },
   });
-  worker.terminate();
+  el.progress.hidden = true;
+  if (outcome === 'unchecked') return fail('unchecked');
   setPhase('done');
   // No image without a verdict: "Save image" waits for the last one.
   state.image.ready = state.verdict !== null;
