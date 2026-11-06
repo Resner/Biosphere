@@ -144,6 +144,11 @@ function key(v: unknown): AuthorityKey | null {
     : null;
 }
 
+/** Authority keys from untrusted JSON: a list, or `GET /v1/pubkeys`'s `{ keys }`. Null when any is malformed. */
+export function parseAuthorityKeys(v: unknown): AuthorityKey[] | null {
+  return list(isObj(v) ? v.keys : v, PROOF_CAPS.keys, key);
+}
+
 function creature(v: unknown): { id: string; genome: string } | null {
   return isObj(v) && keysIn(v, ['id', 'genome']) && hex(v.id) && isStr(v.genome, GENOME_TEXT)
     ? { id: v.id, genome: v.genome }
