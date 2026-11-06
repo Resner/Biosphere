@@ -6,6 +6,7 @@ import {
   NONCE_BYTES,
   parseClientMsg,
 } from '../src/net/protocol';
+import type { AuditReport } from './audit';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
 import { FightStore } from './fight-store';
@@ -110,7 +111,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     return this.ledger.pubkeys();
   }
 
-  /** Proof reads that reached the object; a cache hit at the edge never does (a hub test counts them). */
+  /** Public reads (proofs, fights, the audit) that reached the object; an edge cache hit never does (hub tests count them). */
   proofReads = 0;
 
   /** A creature's proof bundle (`GET /v1/proof/<creature>`, `worker/proof.ts`): reads only. */
@@ -123,6 +124,13 @@ export class Authority extends DurableObject<Env> implements Hub {
   fight(enc: string): Served {
     this.proofReads++;
     return serveFight(this, enc);
+  }
+
+  /** The flag counts by kind for the UTC day and since the renewal (`GET /v1/audit`): no ids, reads only. */
+  audit(): AuditReport {
+    this.proofReads++;
+    this.usage.request(Date.now());
+    return this.ledger.audit.report(this.clock.now());
   }
 
   override async fetch(): Promise<Response> {

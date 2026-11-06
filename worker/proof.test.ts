@@ -1,28 +1,16 @@
 import { exports } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
-import { type Genome, genomeFromBase64url, genomeHash } from '../src/genome/codec';
-import { buildCreature } from '../src/genome/stats';
-import { LIVE_SCALES, matureBiomassOf, reachAt, vitalsCap } from '../src/ledger/gates';
-import { type Identity, toBase64Url } from '../src/ledger/identity';
-import { type MateAsk, signMateAsk } from '../src/ledger/mating';
+import { LIVE_SCALES, matureBiomassOf } from '../src/ledger/gates';
 import type { ProofBundle } from '../src/ledger/proof';
 import {
-  type AuthorityKey,
   PROOF_MAX_BYTES,
   PROOF_MAX_CREATURES,
   parseFightProof,
   parseProofBundle,
 } from '../src/ledger/proof';
-import {
-  type PubKey,
-  REQUEST_DOMAIN,
-  type RecordRequest,
-  requestMessage,
-  type StoredRecord,
-} from '../src/ledger/record';
+import type { StoredRecord } from '../src/ledger/record';
 import { verifyLineage } from '../src/ledger/verify';
 import { verifyEncounter } from '../src/net/encounter-verify';
-import { type Ancestor, type Born, genomeRefOf } from '../src/net/protocol';
 import { RULES_VERSION, TICK_HZ } from '../src/sim/rules';
 import {
   advance,
@@ -33,7 +21,6 @@ import {
   lifeOn,
   lockIn,
   NEAR,
-  type Player,
   rehatch,
   setEnv,
   snap,
@@ -53,8 +40,18 @@ import {
   sign,
   step,
 } from './ledger-test-kit';
+import {
+  breed,
+  chainOf,
+  grower,
+  growTo,
+  keysOf,
+  promote,
+  restore,
+  sizeOf,
+} from './lineage-test-kit';
 import { proofBundle } from './proof';
-import { closeSockets, freshNonce, nextOf, publish, report, sql } from './test-hub';
+import { closeSockets, nextOf, sql } from './test-hub';
 
 // M9 T7: proof bundles and fight proofs, served from the ledger alone while every player is
 // offline (ADR 0055): `GET /v1/proof/<creature>` and `GET /v1/fight/<enc>`.
@@ -68,104 +65,6 @@ const get = (path: string) =>
 
 /** RPCs that reached the object's proof and fight reads. */
 const reads = () => authority((o) => o.proofReads);
-
-/** A player's creature as the test drives it: its genome and the reports it sends. */
-interface Grower extends Player {
-  genome: Genome;
-}
-
-const genomeText = (p: Player) => authority((o) => must(o.ledger.head(p.creature)).genome);
-
-async function grower(p: Player): Promise<Grower> {
-  const genome = genomeFromBase64url(await genomeText(p));
-  if (!genome) throw new Error('genome does not decode');
-  return { ...p, genome };
-}
-
-/**
- * Plays 10 s at a time, reporting a body that grows at 90% of the fastest rate its genome allows,
- * until it holds `target` hundredths, with energy at 90% and health full: honest play.
- */
-async function growTo(p: Grower, target: number): Promise<void> {
-  const growth = buildCreature(p.genome).phys.growth;
-  for (let i = 0; i < 400; i++) {
-    const life = must(await lifeOn(p));
-    if (life.biomass >= target) return;
-    await advance(10_000);
-    p.ticks += 10 * TICK_HZ;
-    const biomass = Math.min(target, reachAt(life.biomass, growth, 9_000) - 100);
-    const cap = vitalsCap(biomass);
-    report(p.c, p.ticks, { biomass, energy: Math.floor(cap.energy * 0.9), health: cap.health });
-    await nextOf(p.c, 'ack');
-  }
-  throw new Error(`never grew to ${target}`);
-}
-
-const signed = (who: Identity, req: RecordRequest) =>
-  toBase64Url(who.sign(REQUEST_DOMAIN, requestMessage(req)));
-
-const askOf = (from: Player, to: Player, nonce: string): MateAsk =>
-  signMateAsk(from.id, {
-    creature: from.creature,
-    partner: to.id.playerId,
-    partnerCreature: to.creature,
-    nonce,
-  });
-
-/** A courts B, B accepts, the round comes out: both hold their pending child. */
-async function breed(a: Player, b: Player): Promise<[Born, Born]> {
-  const askA = askOf(a, b, freshNonce());
-  a.c.send({ t: 'court', ask: askA });
-  await nextOf(b.c, 'invite');
-  b.c.send({ t: 'accept', ask: askOf(b, a, askA.nonce) });
-  const [ma] = await Promise.all([nextOf(a.c, 'mating'), nextOf(b.c, 'mating')]);
-  await publish(ma.commit.commitment.round);
-  return Promise.all([nextOf(a.c, 'born'), nextOf(b.c, 'born')]);
-}
-
-async function promote(p: Grower, born: Born): Promise<Grower> {
-  const request: RecordRequest = {
-    v: 1,
-    rules: RULES_VERSION,
-    kind: 'promote',
-    creature: born.record.hash,
-    seq: born.record.record.seq + 1,
-    prev: born.record.hash,
-    owner: p.id.playerId,
-    body: { role: 'child', parent: p.creature },
-  };
-  p.c.send({ t: 'promote', request, sig: signed(p.id, request) });
-  const { life } = await nextOf(p.c, 'promoted');
-  const child = await grower({ ...p, creature: life.creature, ticks: 0 });
-  return { ...child, ref: genomeRefOf(genomeHash(child.genome)) };
-}
-
-async function restore(p: Player, a: Ancestor, from: string): Promise<void> {
-  const request: RecordRequest = {
-    v: 1,
-    rules: RULES_VERSION,
-    kind: 'restore',
-    creature: a.creature,
-    seq: a.seq + 1,
-    prev: a.hash,
-    owner: p.id.playerId,
-    body: {
-      from,
-      activeMs: a.activeMs,
-      biomass: a.biomass,
-      energy: a.energy,
-      health: a.health,
-      cooldownUntilMs: a.cooldownUntilMs,
-    },
-  };
-  p.c.send({ t: 'restore', request, sig: signed(p.id, request) });
-  await nextOf(p.c, 'restored');
-}
-
-/** The snapshot claim of a player's creature as the object holds it: its real size. */
-const sizeOf = async (p: Player) => must(await lifeOn(p)).biomass / 100;
-
-const chainOf = (creature: string) => authority((o) => o.ledger.chain(creature));
 
 /** Rows in every table but the usage meter's, and the ledger's write counter. */
 const footprint = async () => ({
@@ -181,9 +80,6 @@ const footprint = async () => ({
 /** A held creature's records in the bundle (a first record names no creature: its hash is the id). */
 const recordsIn = (bundle: ProofBundle, id: string) =>
   bundle.records.filter((r) => r.record.creature === id || (r.record.seq === 0 && r.hash === id));
-
-const keysOf = (keys: readonly AuthorityKey[]): PubKey[] =>
-  keys.map((k) => ({ id: k.id, publicKey: k.publicKey }));
 
 /**
  * The history of the lineage fixture, made through the hub: A0 and B0 hatch, grow and mate; A
@@ -280,7 +176,7 @@ describe('GET /v1/proof and /v1/fight, with every socket closed', () => {
     expect(fight.headers.get('Cache-Control')).toBe('public, max-age=86400');
     const proof = parseFightProof(await fight.text());
     if (!proof?.log) throw new Error('the fight proof has no log');
-    expect(verifyEncounter(proof.settlement, proof.log, keysOf(bundle.keys))).toEqual([]);
+    expect(verifyEncounter(proof.settlement, proof.log, keysOf(bundle))).toEqual([]);
     expect(await footprint()).toEqual(before);
 
     // A creature still alive (A0, restored) is cached for a minute only, and it holds A0's whole chain.
