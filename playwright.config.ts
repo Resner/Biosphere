@@ -103,7 +103,7 @@ const WITNESS_VARS = '--var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off';
 const m10AuditHubPort = 8825;
 // The M10 card spec (8826), with the witness variables: a fight two witnesses saw, then A's card.
 const m10CardHubPort = 8826;
-// The M10 lifecycle spec (8827), with the M5 hooks and the witness variables: mating, two witnessed fights, cards and the CLI.
+// The M10 lifecycle spec (8827): the mating scale and the witness variables, with lives of normal length (a slow runner's fights would outlast short ones): mating, two witnessed fights, cards and the CLI.
 const m10LifecycleHubPort = 8827;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
@@ -430,7 +430,7 @@ export default defineConfig({
       [
         'm10-lifecycle',
         m10LifecycleHubPort,
-        '--var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off',
+        '--var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off',
       ],
     ]
       .filter(([spec]) => !process.env.E2E_SKIP_SLOW && wantsSpec(String(spec)))

@@ -18,8 +18,8 @@ import {
   witnessedFight,
 } from './m10-steps';
 
-// The whole M10 line in one scenario (@slow, release gate), on an authority with short lives and
-// matings and the witness variables (`WITNESS_PLAY_MS=0`, `WITNESS_IP_CHECK=off`): A and B hatch,
+// The whole M10 line in one scenario (@slow, release gate), on an authority with short matings and
+// the witness variables (`WITNESS_PLAY_MS=0`, `WITNESS_IP_CHECK=off`): A and B hatch,
 // mate and take over their children while C and D, who can witness, audit the births. A's child
 // engages B's, and whichever of C and D the drand order puts first referees it from the handover,
 // the other audits it; a second fight loses its witness when that page closes, and the authority
