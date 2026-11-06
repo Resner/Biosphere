@@ -107,10 +107,13 @@ export function canAdmit(hub: Hub, now: number): boolean {
   for (const n of awaySeats(hub).values()) sessions += n;
   return (
     sessions < limit(hub.env.MAX_SESSIONS, DEFAULT_MAX_SESSIONS) &&
-    hub.usage.requests(now) <
-      BUDGET_SHARE * limit(hub.env.DAILY_REQUEST_BUDGET, DEFAULT_DAILY_REQUEST_BUDGET)
+    hub.usage.requests(now) < BUDGET_SHARE * requestBudget(hub.env)
   );
 }
+
+/** The day's request budget (`DAILY_REQUEST_BUDGET`), which admission and the proof reads share. */
+export const requestBudget = (env: Env): number =>
+  limit(env.DAILY_REQUEST_BUDGET, DEFAULT_DAILY_REQUEST_BUDGET);
 
 /** The waiting sessions, next first. */
 export function queued(hub: Hub): [WebSocket, Session & { phase: 'queued' }][] {

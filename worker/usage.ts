@@ -33,7 +33,13 @@ export class UsageMeter {
     private readonly writes: () => number,
   ) {}
 
+  /** A WebSocket upgrade is one request. */
   upgrade(now: number): void {
+    this.request(now);
+  }
+
+  /** A request that reached the object (an upgrade, a proof read): one request, no message. */
+  request(now: number): void {
     this.count(now, MESSAGES_PER_REQUEST, 0);
   }
 
