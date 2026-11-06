@@ -519,7 +519,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - `m10-witness`, `m10-cross` and `m10-takeback` each pass 3 times in a row (`--repeat-each=3`).
   - Notes: a page drawing frames over 100 ms in software rendering misses deadlines as referee, as it does as fighter. Every page in these specs skips its draw (`docs/TESTING.md`, M7).
 
-- [ ] T8 Audits and attestations for fights, matings and genesis [opus] (after T5, T9)
+- [ ] T8 Audits and attestations for fights, matings and genesis [opus] (after T5, T9) (in progress)
   - Steps:
     1. `src/net/audit.ts`, pure, `auditVerdict(case, keys) → { subject, agree, code? }`:
        - a fight: `verifyEncounter` of the log against the settlement (its subject is the settlement's hash);
