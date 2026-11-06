@@ -40,17 +40,20 @@ describe('netcode report', () => {
     expect(Object.values(WITNESS_GRID).reduce((k, axis) => k * axis.length, 1)).toBe(12);
   });
 
-  heavyTest('a witness on a good link takes 95% of inputs in time, and every client ends on the referee’s hash', () => {
-    for (const { phase: p, result: r } of onceWitness()) {
-      const cell = `${p.oneWayMs}/${p.jitterMs}/${p.clockErrMs}`;
-      expect(r.converged, cell).toBe(true);
-      expect(r.witness?.frames, cell).toBeGreaterThan(0);
-      if (p.oneWayMs <= 150 && p.jitterMs <= 30 && Math.abs(p.clockErrMs) <= 20) {
-        expect(WITNESS_HUB.loss === 0 && WITNESS_HUB.clockErrMs <= 20).toBe(true);
-        expect(onTimeShare(r), cell).toBeGreaterThanOrEqual(0.95);
+  heavyTest(
+    'a witness on a good link takes 95% of inputs in time, and every client ends on the referee’s hash',
+    () => {
+      for (const { phase: p, result: r } of onceWitness()) {
+        const cell = `${p.oneWayMs}/${p.jitterMs}/${p.clockErrMs}`;
+        expect(r.converged, cell).toBe(true);
+        expect(r.witness?.frames, cell).toBeGreaterThan(0);
+        if (p.oneWayMs <= 150 && p.jitterMs <= 30 && Math.abs(p.clockErrMs) <= 20) {
+          expect(WITNESS_HUB.loss === 0 && WITNESS_HUB.clockErrMs <= 20).toBe(true);
+          expect(onTimeShare(r), cell).toBeGreaterThanOrEqual(0.95);
+        }
       }
-    }
-  });
+    },
+  );
 
   heavyTest('every cell ends on the referee’s hash, and a good link is on time', () => {
     for (const c of once()) {

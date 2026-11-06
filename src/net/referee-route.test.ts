@@ -15,9 +15,10 @@ let me: Identity;
 let w: Identity;
 let other: Identity;
 beforeAll(async () => {
-  [me, w, other] = await Promise.all(
-    Array.from({ length: 3 }, () => createIdentity(memoryKeyStore())),
-  );
+  const make = () => createIdentity(memoryKeyStore());
+  me = await make();
+  w = await make();
+  other = await make();
 });
 
 type FInput = Extract<PeerEvent, { t: 'finput' }>;
@@ -155,12 +156,12 @@ describe('the fighter’s route (M10 T3)', () => {
     const { route, hub, wframe } = setup();
     route.referee({ t: 'enc-referee', enc: ENC, from: 1, by: w.playerId });
     for (let f = 1; f <= 60; f++) route.witnessFrame(w.playerId, wframe(f, [f, f]));
-    expect(route.hubFrame({ t: 'enc-frame', enc: ENC, f: 60 - KEEP_WITNESS_FRAMES, i: [0, 0] })).toBe(
-      false,
-    );
-    expect(route.hubFrame({ t: 'enc-frame', enc: ENC, f: 61 - KEEP_WITNESS_FRAMES, i: [0, 0] })).toBe(
-      true,
-    );
+    expect(
+      route.hubFrame({ t: 'enc-frame', enc: ENC, f: 60 - KEEP_WITNESS_FRAMES, i: [0, 0] }),
+    ).toBe(false);
+    expect(
+      route.hubFrame({ t: 'enc-frame', enc: ENC, f: 61 - KEEP_WITNESS_FRAMES, i: [0, 0] }),
+    ).toBe(true);
     expect(hub).toHaveLength(1);
   });
 });
@@ -175,7 +176,12 @@ describe('the authority overrules a witness’s frame in the fight (M10 T3)', ()
       oneWayMs: () => 0,
     });
     sync.start(msg, TEST_POND);
-    const frame = (f: number, i: (number | null)[]) => ({ t: 'enc-frame' as const, enc: msg.enc, f, i });
+    const frame = (f: number, i: (number | null)[]) => ({
+      t: 'enc-frame' as const,
+      enc: msg.enc,
+      f,
+      i,
+    });
     for (let f = 0; f < 5; f++) sync.receive(frame(f, [null, null]));
     sync.step(msg.at + 5 * FRAME_MS + 1);
     const before = sync.rollbacks;

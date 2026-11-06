@@ -215,7 +215,13 @@ export class WitnessReferee {
     this.sigs.delete(f);
     const s = i.map((code, slot) => (code === null ? null : (sigs?.[slot] ?? null)));
     this.frames++;
-    this.opts.sendFrame({ t: 'wframe', enc: this.enc, f, i: [...i], sig: this.opts.signFrame(f, i) });
+    this.opts.sendFrame({
+      t: 'wframe',
+      enc: this.enc,
+      f,
+      i: [...i],
+      sig: this.opts.signFrame(f, i),
+    });
     if (!this.batch) this.batch = { f, i: [], s: [] };
     this.batch.i.push([...i]);
     this.batch.s.push(s);

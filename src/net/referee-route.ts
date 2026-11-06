@@ -94,7 +94,13 @@ export class RefereeRoute {
     if (by === AUTHORITY) {
       this.opts.sendHub({ t: 'input', enc, f, i: code });
     } else {
-      this.opts.sendWitness(by, { t: 'finput', enc, f, i: code, sig: this.opts.signInput(f, code) });
+      this.opts.sendWitness(by, {
+        t: 'finput',
+        enc,
+        f,
+        i: code,
+        sig: this.opts.signInput(f, code),
+      });
     }
   }
 

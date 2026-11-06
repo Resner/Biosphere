@@ -60,7 +60,9 @@ describe('referee spans (M10 T3)', () => {
   });
 
   it('places handovers and take-backs as ADR 0058 says', () => {
-    expect([HANDOVER_AHEAD, TAKEBACK_AHEAD, BATCH_FRAMES, BATCH_GRACE_MS]).toEqual([3, 2, 10, 1000]);
+    expect([HANDOVER_AHEAD, TAKEBACK_AHEAD, BATCH_FRAMES, BATCH_GRACE_MS]).toEqual([
+      3, 2, 10, 1000,
+    ]);
     expect(handoverFrame(30)).toBe(33);
     expect(plannedTakeBackFrame(117)).toBe(120);
     expect(takeBackFrame(50, 48)).toBe(52);

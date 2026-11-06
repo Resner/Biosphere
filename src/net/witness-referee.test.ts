@@ -30,9 +30,11 @@ let b: Identity;
 let w: Identity;
 let outsider: Identity;
 beforeAll(async () => {
-  [a, b, w, outsider] = await Promise.all(
-    Array.from({ length: 4 }, () => createIdentity(memoryKeyStore())),
-  );
+  const make = () => createIdentity(memoryKeyStore());
+  a = await make();
+  b = await make();
+  w = await make();
+  outsider = await make();
 });
 
 /** A witness of a two-fighter duel from frame `from`, with the history's first `held` frames. */
@@ -100,7 +102,7 @@ describe('a witness’s referee (M10 T3)', () => {
     expect(sizes.reduce((s, n) => s + n, 0)).toBe(last - h);
     expect(batches.map((x) => x.end)).toEqual(batches.map((_, k) => k === batches.length - 1));
     // Each batch continues the last.
-    batches.forEach((x, k) => expect(x.f).toBe(h + k * BATCH_FRAMES));
+    expect(batches.map((x) => x.f)).toEqual(batches.map((_, k) => h + k * BATCH_FRAMES));
     expect(ref.taken).toBe(50);
     expect(ref.frames).toBe(last - h);
   });
@@ -242,7 +244,10 @@ describe('a witness’s referee (M10 T3)', () => {
           duty: { start, history: [], pondSeed: TEST_POND.seed, fighters: [...fighters].reverse() },
         }),
     ).toThrow(RangeError);
-    const broken = { ...start, fighters: [{ ...start.fighters[0], genome: 'x' }, start.fighters[1]] };
+    const broken = {
+      ...start,
+      fighters: [{ ...start.fighters[0], genome: 'x' }, start.fighters[1]],
+    };
     expect(
       () =>
         new WitnessReferee({

@@ -132,7 +132,10 @@ describe('a witness phase (M10 T3)', () => {
   });
 
   it('ends on the witness’s hash when it referees the fight’s end', () => {
-    const r = runHarness({ ...o, witness: { ...phase, until: undefined, oneWayMs: 80 } });
+    const r = runHarness({
+      ...o,
+      witness: { from: phase.from, oneWayMs: 80, jitterMs: 0, clockErrMs: 0 },
+    });
     expect(r.witness?.hash).toBe(r.refereeHash);
     expect(r.witness?.batches).toBe(Math.ceil((r.frames - phase.from) / 10));
     expect(r.converged).toBe(true);
