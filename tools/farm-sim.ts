@@ -204,7 +204,8 @@ export function farmReport(all: readonly Measure[]): string {
     '|---|---|---|---|',
     ...farms.flatMap((f) =>
       gatesOf(f, honest).map(
-        (g) => `| ${f.bots} bot${f.bots === 1 ? '' : 's'} | ${g.n}. ${g.name} | ${g.ok ? 'met' : 'MISSED'} | ${g.detail} |`,
+        (g) =>
+          `| ${f.bots} bot${f.bots === 1 ? '' : 's'} | ${g.n}. ${g.name} | ${g.ok ? 'met' : 'MISSED'} | ${g.detail} |`,
       ),
     ),
     '',
