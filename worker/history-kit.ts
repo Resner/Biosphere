@@ -3,13 +3,13 @@ import { LIVE_SCALES, matureBiomassOf } from '../src/ledger/gates';
 import { TICK_HZ } from '../src/sim/rules';
 import {
   advance,
-  firstSeenAgo,
   join,
   killB,
   lifeOn,
   lockIn,
   NEAR,
   rehatch,
+  seasoned,
   setEnv,
   snap,
 } from './fight-test-kit';
@@ -29,7 +29,7 @@ export async function history() {
   const pb = await join();
   let a = await grower(await rehatch(pa));
   const b = await grower(await rehatch(pb));
-  for (const p of [a, b]) await firstSeenAgo(p);
+  for (const p of [a, b]) await seasoned(p);
   for (const p of [a, b]) await growTo(p, Math.ceil(matureBiomassOf(p.genome, LIVE_SCALES) * 1.02));
   const a0 = a.creature;
   const b0 = b.creature;

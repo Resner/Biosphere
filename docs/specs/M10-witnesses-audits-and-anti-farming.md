@@ -662,7 +662,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - A forged `seen` snapshot (bad signature) is ignored, not believed. A `seen` of another creature is ignored.
     - Without `seen`, every M7 engage test passes unchanged.
 
-- [ ] T12 Young identities by play (after T4) (in progress)
+- [x] T12 Young identities by play (after T4)
   - Steps:
     1. `worthOf` (`worker/farming.ts`) halves the worth while `playedMs` is under `RULES.encounter.farming.youngPlayMs` (20 min). This replaces `youngMs`.
     2. `fight-test-kit.ts` `hatched()` credits each test identity 20 minutes of play, so fights run at worth 1 unless a test says otherwise.
@@ -672,6 +672,8 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - An identity first seen two hours ago that never played is worth half.
     - The killed-count halvings stack as before (`farming.test.ts`).
   - Notes: the worth is the authority's input in `enc-start`, so no rules version changes and the tournament still runs at worth 1.
+  - Done: `worthOf` reads `playedMs` against `youngPlayMs` (`youngMs` is gone); `seasoned(p, playMs)` in `fight-test-kit.ts` replaces `firstSeenAgo` (it credits one replaceable finished creature).
+  - Gotcha: `worthOf` now runs two reads (kills, play), still no write; the E2E hubs are unchanged, since a browser identity starts young either way.
 
 - [ ] T13 The bot-farm simulation (after T12)
   - Steps (ADR 0059):

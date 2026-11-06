@@ -16,7 +16,6 @@ import {
   advanceTo,
   authority,
   clock,
-  firstSeenAgo,
   join,
   lifeOn,
   lockIn,
@@ -25,6 +24,7 @@ import {
   type Player,
   play as playFight,
   rehatch,
+  seasoned,
   setEnv,
   slotOf,
   snap,
@@ -226,7 +226,7 @@ async function pairRun(n: number): Promise<Script[]> {
     const seed = sha256(new TextEncoder().encode(`audit-${n}${side}`));
     const joined = await join(await createIdentity(memoryKeyStore(seed)));
     const p = await rehatch(joined);
-    await firstSeenAgo(p);
+    await seasoned(p);
     const actor: Actor = { ...p, script: scriptOf(`${n}${side}`, rng) };
     bound(actor, p.creature);
     actors.push(actor);
