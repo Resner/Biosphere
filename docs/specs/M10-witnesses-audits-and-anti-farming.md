@@ -677,7 +677,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
   - Done: `worthOf` reads `playedMs` against `youngPlayMs` (`youngMs` is gone); `seasoned(p, playMs)` in `fight-test-kit.ts` replaces `firstSeenAgo` (it credits one replaceable finished creature).
   - Gotcha: `worthOf` now runs two reads (kills, play), still no write; the E2E hubs are unchanged, since a browser identity starts young either way.
 
-- [ ] T13 The bot-farm simulation (after T12)
+- [ ] T13 The bot-farm simulation (after T12) (in progress)
   - Steps (ADR 0059):
     1. `tools/farm-sim.ts`: the strategies and the report.
        - **The honest pair** forages at the pacing bot's measured growth (`tools/pacing-report.ts`), mates as soon as it may and promotes each child.
