@@ -540,7 +540,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - an unreachable `--hub` (a closed local port) exits 2.
   - Notes: the output of a verified lineage fits on one screen (paste it in the PR). T15 runs the CLI against a local hub.
 
-- [ ] T12 The creature card page [opus] (after T7)
+- [ ] T12 The creature card page [opus] (after T7) (in progress)
   - Steps:
     1. `card.html` and `src/card/` (the build's third input; `CLAUDE.md`'s Architecture gains `src/card/`):
        - read `?c=`, and `?hub=` for localhost only (`hubSocketUrl`'s rule);
