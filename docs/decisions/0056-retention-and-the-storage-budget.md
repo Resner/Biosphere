@@ -1,6 +1,6 @@
 # 0056: Retention: the history for good, fight logs for 14 days, and a storage budget
 
-- Status: accepted (amends 0009: the checkpoint compaction it planned for M9 waits for M13's measurements)
+- Status: accepted, amended by 0058 (a witness commitment is kept 14 days, an attestation for good) (amends 0009: the checkpoint compaction it planned for M9 waits for M13's measurements)
 - Date: 2026-11-04
 
 ## Context

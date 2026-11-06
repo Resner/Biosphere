@@ -1,6 +1,6 @@
 # 0054: A settled encounter is a signed document over a Merkle root of its frames, and a victim's worth decays
 
-- Status: accepted (amends 0011: the settlement record's shape; amends 0051: kill rewards, egg rewards and carrion scale with the victim's worth)
+- Status: accepted, amended by 0058 (the settlement document's version 2 names its referees and its witness commitment) and 0059 (an identity is young until it has played 20 minutes) (amends 0011: the settlement record's shape; amends 0051: kill rewards, egg rewards and carrion scale with the victim's worth)
 - Date: 2026-11-03
 
 ## Context

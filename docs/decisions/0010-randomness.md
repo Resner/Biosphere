@@ -1,6 +1,6 @@
 # 0010: Randomness from drand quicknet: commitments and outage policy
 
-- Status: accepted (an encounter's seed uses the newest beacon the authority already holds, never one fetched at lock: 0050)
+- Status: accepted, amended by 0050 (an encounter's seed uses the newest beacon the authority already holds, never one fetched at lock) and 0058 (a witness commitment names the next round due at least 0.5 s ahead, or its event's own round)
 - Date: 2026-10-25
 
 ## Context

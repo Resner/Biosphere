@@ -21,8 +21,9 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
 | Look and the gallery | 0049, 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
-| Combat and encounters | 0054, 0053, 0052, 0051, 0050, then 0011 | 0010, 0035 |
-| Lineage verification, proofs and retention | 0056, 0055, then 0009 | 0019, 0021, 0054 |
+| Combat and encounters | 0059, 0058, 0054, 0053, 0052, 0051, 0050, then 0011 | 0010, 0035 |
+| Lineage verification, proofs and retention | 0058, 0056, 0055, then 0009 | 0019, 0021, 0054 |
+| Witnesses, audits and anti-farming | 0059, 0058, then 0012 | 0010, 0054 |
 
 ## Index
 
@@ -37,9 +38,9 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0007](0007-networking.md) | Peer-to-peer networking: our own WebRTC mesh, hub signaling, TURN | accepted | |
 | [0008](0008-minimal-authority.md) | Minimal authority on Cloudflare, budgets and admission | accepted | 0017 |
 | [0009](0009-identity-and-records.md) | Identity and UTXO-like lineage records | accepted | 0055, 0056 |
-| [0010](0010-randomness.md) | Randomness from drand quicknet: commitments and outage policy | accepted | 0050 |
-| [0011](0011-combat-encounters.md) | Combat as refereed deterministic encounters | accepted, amended | 0050, 0051, 0052, 0053, 0054 |
-| [0012](0012-witnesses.md) | Witnesses: drand-selected, budgeted, never final | accepted | |
+| [0010](0010-randomness.md) | Randomness from drand quicknet: commitments and outage policy | accepted, amended | 0050, 0058 |
+| [0011](0011-combat-encounters.md) | Combat as refereed deterministic encounters | accepted, amended | 0050, 0051, 0052, 0053, 0054, 0058 |
+| [0012](0012-witnesses.md) | Witnesses: drand-selected, budgeted, never final | accepted, amended | 0058 |
 | [0013](0013-world-partition.md) | World partition: size tiers, area of interest, habitats | accepted | 0029 |
 | [0014](0014-game-pillars.md) | Game pillars: water world, controls, economy and supply control | accepted | DESIGN §3 (keys, the six core actions) |
 | [0015](0015-chained-runs-public-repo.md) | Chained factory runs in a public repository | accepted | 0020, 0042, 0044 |
@@ -77,11 +78,13 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048, 0057 |
 | [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted, amended | 0057 |
 | [0049](0049-inherited-organ-colour.md) | The organs' second tone follows the inherited hue | accepted | |
-| [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted, amended | 0053 |
+| [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted, amended | 0053, 0059 |
 | [0051](0051-combat-from-anatomy-and-growth-by-kills.md) | Combat from anatomy, size as an advantage, and kills as the fast way to grow | accepted, amended | 0054 |
 | [0052](0052-eggs-are-prey-in-encounters.md) | A carried egg is prey, eaten only in a settled encounter | accepted | |
 | [0053](0053-fights-outlast-disconnects-and-restarts.md) | Fights outlast disconnects and restarts: a saved log, recovery, reconnects, and the authority finishing an abandoned fight | accepted | |
-| [0054](0054-signed-settlements-and-victim-worth.md) | A settled encounter is a signed document over a Merkle root of its frames, and a victim's worth decays | accepted | |
-| [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted | |
-| [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted | |
+| [0054](0054-signed-settlements-and-victim-worth.md) | A settled encounter is a signed document over a Merkle root of its frames, and a victim's worth decays | accepted, amended | 0058, 0059 |
+| [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted, amended | 0058 |
+| [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted, amended | 0058 |
 | [0057](0057-claims-by-script-and-branch-cleanup.md) | Claims are made by a script, and closed factory branches are deleted | accepted | |
+| [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted | |
+| [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted | |

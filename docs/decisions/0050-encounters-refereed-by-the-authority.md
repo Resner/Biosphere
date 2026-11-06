@@ -1,6 +1,6 @@
 # 0050: Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots
 
-- Status: accepted, amended by 0053 (fights are saved and recovered after a restart; a player who signs in again returns into its fight) (amends 0011: the authority steps each frame itself, lock-in details, no fight persistence until M8; amends 0010: an encounter's seed uses the newest beacon the authority already holds)
+- Status: accepted, amended by 0053 (fights are saved and recovered after a restart; a player who signs in again returns into its fight) and 0059 (an engage is checked against the attacker's own signed snapshots that the target holds) (amends 0011: the authority steps each frame itself, lock-in details, no fight persistence until M8; amends 0010: an encounter's seed uses the newest beacon the authority already holds)
 - Date: 2026-11-02
 
 ## Context
