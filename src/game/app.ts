@@ -20,6 +20,7 @@ import type { MateView } from '../sim/mating';
 import { RULES } from '../sim/rules';
 import type { FoodItem } from '../sim/types';
 import { AttackUi } from './app-attack';
+import { DutyWiring } from './app-duty';
 import { appFightHost, FightPlay } from './app-encounter';
 import { FightShow } from './app-fight';
 import { installAppHook } from './app-hook';
@@ -241,6 +242,8 @@ export class App {
   readonly attack: AttackUi;
   /** The fight's HUD, telegraphs, eggs and cues (M7 T12). */
   readonly fightShow: FightShow;
+  /** Witness duty: the page's `avail` (M10 T6). */
+  readonly duty: DutyWiring;
   /** A running fight the hub named on the title, and its messages until "Back to the fight" (M8 T10). */
   readonly resume: FightResume;
   /** A fight settled while the player was away, told once at the next sign-in (M8 T12). */
@@ -311,6 +314,8 @@ export class App {
           this.storage,
         );
         this.applySettings();
+        // Turning "Help referee fights" off takes the page out of the pools at once.
+        this.duty.update();
       },
       ['settings-open', 'lineage-settings', 'menu-settings'],
     );
@@ -433,6 +438,7 @@ export class App {
     this.fight = new FightPlay(appFightHost(this));
     this.attack = new AttackUi(this);
     this.fightShow = new FightShow(this);
+    this.duty = new DutyWiring(this);
     this.resume = new FightResume(
       (id) => (this.fight.fighting && this.fight.sync?.id === id) || this.playing(),
     );
@@ -532,6 +538,7 @@ export class App {
     attachVisibilityPause(document, loop);
     let lastFrameMs = performance.now();
     document.addEventListener('visibilitychange', () => {
+      this.duty.update();
       if (document.hidden) return;
       // The pond moved on while the tab was hidden: skip ahead instead of simulating it.
       this.livePond()?.time.resnap(this.session.world, performance.now());
@@ -550,6 +557,7 @@ export class App {
       const now = performance.now();
       const auto = this.settings.quality === 'auto';
       autoQuality.frame(now - lastFrameMs, now, this.screen === 'title', auto, scene.quality);
+      this.duty.frame(now, now - lastFrameMs);
       lastFrameMs = now;
     });
 

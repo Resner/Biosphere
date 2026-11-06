@@ -163,6 +163,7 @@ export class OnlineWiring {
           }
           app.social.worldSize = w.pond.size;
           app.mate.attach(link);
+          app.duty.welcome();
         },
         life: (msg) => {
           // An engage's refusal is the attack's alone (M7 T11); a bare 'no-creature' may also be
