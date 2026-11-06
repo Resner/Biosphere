@@ -33,6 +33,23 @@ test('a witness in the pond referees a fight from the handover to its end @slow'
     expect((await state(c)).pond?.id).toBe((await state(a)).pond?.id);
     await available(c);
     const { id, from } = await witnessedFight(t);
+
+    // The look, for the record: C's "Witnessing a fight" chip, and the witness's eye on A's combat
+    // HUD. A screenshot loads the machine as no game frame does, so C's handlers while it is taken
+    // are left out of the timing below.
+    const shotFrom = (await state(c)).witness.dutyMs.length;
+    for (const [page, name] of [
+      [c, 'm10-witness-chip'],
+      [a, 'm10-witness-mark'],
+    ] as const) {
+      const path = test.info().outputPath(`${name}.png`);
+      await page.screenshot({ path });
+      await test.info().attach(name, { path, contentType: 'image/png' });
+    }
+    const shotTo = (await state(c)).witness.dutyMs.length;
+    await expect(c.getByTestId('hud-witness')).toBeVisible();
+    await expect(a.getByTestId('witness-mark')).toBeVisible();
+    await expect(a.getByTestId('witness-mark')).toHaveAttribute('title', 'Refereed by a witness');
     await end(t, id);
     const hash = await sameEnd(t, id);
 
@@ -50,7 +67,9 @@ test('a witness in the pond referees a fight from the handover to its end @slow'
     expect(w.last?.hash).toBe(hash);
     expect(w.last?.dropped.forged ?? 0).toBe(0);
     expect(w.batches).toBeGreaterThan(0);
-    expect(p95(w.dutyMs)).toBeLessThanOrEqual(2);
+    const timed = [...w.dutyMs.slice(0, shotFrom), ...w.dutyMs.slice(shotTo)];
+    expect(timed.length).toBeGreaterThan(100);
+    expect(p95(timed)).toBeLessThanOrEqual(2);
 
     // The handover can't be seen: no resync and short rollbacks around it, on both fighters.
     for (const page of [a, b]) {

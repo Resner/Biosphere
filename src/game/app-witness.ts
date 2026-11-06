@@ -29,7 +29,7 @@ export const ACCEPT_WAIT_MS = 4000;
 /** How often the links are looked at while they come up. */
 export const LINK_POLL_MS = 100;
 /** Handler times kept for `dutyMs`. */
-const KEEP_TIMES = 600;
+const KEEP_TIMES = 3000;
 /** Fighters' inputs kept while the hub's `enc-referee` is still on its way. */
 const KEEP_EARLY = 80;
 
@@ -216,7 +216,7 @@ export class WitnessDuties {
   /** While the links come up: `duty-ok` once all are open, `duty-no` once the wait is over. */
   private poll(): void {
     const held = this.held;
-    if (!held || held.phase !== 'linking') return;
+    if (held?.phase !== 'linking') return;
     const { host } = this;
     if (held.msg.fighters.every((p) => host.linkOpen(p))) {
       held.phase = 'accepted';
@@ -240,7 +240,6 @@ export class WitnessDuties {
       return;
     }
     if (!me || msg.by !== me.playerId || held.phase !== 'accepted' || this.referee) return;
-    const enc = held.enc;
     try {
       this.referee = new WitnessReferee({
         duty: held.msg,

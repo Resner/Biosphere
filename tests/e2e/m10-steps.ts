@@ -58,6 +58,8 @@ export async function trio(browser: Browser, hub: string, apart = false): Promis
     c = await open(browser, hub);
     [ids] = await Promise.all([stage(a, b, undefined, 1), hatch(c)]);
   }
+  // `stage` reloads B, which draws again: every page here skips its draw.
+  await b.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
   const idC = (await state(c)).playerId as string;
   return { a, b, c, ...ids, idC };
 }
