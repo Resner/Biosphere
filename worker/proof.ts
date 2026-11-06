@@ -63,7 +63,7 @@ interface Known {
   chainParent: string | null;
 }
 
-const signedOf = (row: Row): SignedCommit => ({
+const signedOfRow = (row: Row): SignedCommit => ({
   commitment: JSON.parse(row.json as string),
   authSig: row.auth_sig as string,
   keyId: row.key_id as string,
@@ -113,7 +113,7 @@ class Reader {
         'SELECT json, auth_sig, key_id FROM commitments WHERE id = ?',
         id,
       )[0];
-      this.commits.set(id, row ? signedOf(row) : null);
+      this.commits.set(id, row ? signedOfRow(row) : null);
     }
     return this.commits.get(id) ?? null;
   }
@@ -139,7 +139,7 @@ class Reader {
         'SELECT json, auth_sig, key_id FROM commitments WHERE req = ?',
         requestKey('witness', '', { event }),
       )[0];
-      this.witnesses.set(event, row ? signedOf(row) : null);
+      this.witnesses.set(event, row ? signedOfRow(row) : null);
     }
     return this.witnesses.get(event) ?? null;
   }

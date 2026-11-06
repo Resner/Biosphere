@@ -101,19 +101,23 @@ function fightsOf(bundle: ProofBundle, chain: readonly StoredRecord[]) {
     let eggs = 0;
     const results = bundle.settlements.find((s) => s.settlement.enc === enc)?.settlement.results;
     const slot = results?.findIndex((r) => r.creature === bundle.subject) ?? -1;
-    for (const r of slot < 0 ? [] : (results ?? [])) {
-      if (r.by === slot) kills++;
-      if (r.egg === 'eaten' && r.eggBy === slot) eggs++;
-    }
+    if (results && slot >= 0)
+      for (const r of results) {
+        if (r.by === slot) kills++;
+        if (r.egg === 'eaten' && r.eggBy === slot) eggs++;
+      }
     return { enc, kills, eggs };
   });
 }
 
-/** What a fight won, in words: "1 kill, 1 egg eaten", or '' for nothing. */
-const wonText = (kills: number, eggs: number): string =>
-  [kills > 0 ? times(kills, 'kill') : '', eggs > 0 ? `${times(eggs, 'egg')} eaten` : '']
-    .filter(Boolean)
-    .join(', ');
+/** What a fight won, in words: ": 1 kill, 1 egg eaten", or '' for nothing. */
+const wonText = (kills: number, eggs: number): string => {
+  const won = [
+    kills > 0 ? times(kills, 'kill') : '',
+    eggs > 0 ? `${times(eggs, 'egg')} eaten` : '',
+  ];
+  return kills > 0 || eggs > 0 ? `: ${won.filter(Boolean).join(', ')}` : '';
+};
 
 /**
  * What witnesses did for one event, as the end of its story line (ADR 0058). An event the report
@@ -185,18 +189,17 @@ export function storyLines(bundle: ProofBundle, report?: LineageReport): string[
   const restores = chain.filter((s) => s.record.kind === 'restore').length;
   if (restores > 0) lines.push(`Brought back after its successor died ${count(restores)}`);
   const fights = fightsOf(bundle, chain);
-  const won = (text: string): string => (text ? `: ${text}` : '');
   if (fights.length === 1) {
     const [f] = fights as [(typeof fights)[number]];
-    lines.push(`Fought once${won(wonText(f.kills, f.eggs))}${said('enc', f.enc)}`);
+    lines.push(`Fought once${wonText(f.kills, f.eggs)}${said('enc', f.enc)}`);
   } else if (fights.length > 1) {
     const kills = fights.reduce((n, f) => n + f.kills, 0);
     const eggs = fights.reduce((n, f) => n + f.eggs, 0);
-    lines.push(`Fought ${count(fights.length)}${won(wonText(kills, eggs))}`);
+    lines.push(`Fought ${count(fights.length)}${wonText(kills, eggs)}`);
     // Each fight its own line once the report can say what a witness did for it.
     if (report)
       for (const [i, f] of fights.entries())
-        lines.push(`Fight ${i + 1}${won(wonText(f.kills, f.eggs))}${said('enc', f.enc)}`);
+        lines.push(`Fight ${i + 1}${wonText(f.kills, f.eggs)}${said('enc', f.enc)}`);
   }
   let lived = 0;
   for (const { record } of chain) lived = Math.max(lived, int(record.body.activeMs) ?? 0);
