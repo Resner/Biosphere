@@ -202,7 +202,7 @@ async function loadAncestor(id: string): Promise<void> {
     console.error('the ancestor was not checked', error);
     return graph.setLoad(id, 'failed');
   }
-  graph.setLoad(id, null);
+  graph.setLoad(id, null, false);
   drawGraph();
 }
 

@@ -3,6 +3,7 @@
 // creature's card (Tab, then Enter, as any link); an ancestor not loaded has a Load button instead.
 
 import { capitalise } from '../game/badge';
+import { svg } from '../game/dom';
 import {
   type CardGraph,
   type CardGraphNode,
@@ -11,7 +12,6 @@ import {
   GRAPH_NODE_WIDTH,
 } from './lineage-graph';
 
-const SVG = 'http://www.w3.org/2000/svg';
 /** How far apart two parents' edges meet their child, in pixels. */
 const EDGE_SPREAD = 28;
 
@@ -71,11 +71,11 @@ export class GraphView {
 
   constructor(private readonly opts: GraphViewOptions) {}
 
-  /** Marks an ancestor's load, or clears it, and draws again. */
-  setLoad(id: string, state: LoadState | null): void {
+  /** Marks an ancestor's load, or clears it, and draws again unless `redraw` is false. */
+  setLoad(id: string, state: LoadState | null, redraw = true): void {
     if (state) this.loads.set(id, state);
     else this.loads.delete(id);
-    if (this.last) this.draw(this.last);
+    if (redraw && this.last) this.draw(this.last);
   }
 
   draw(g: CardGraph): void {
@@ -111,19 +111,20 @@ export class GraphView {
   }
 
   private edges(g: CardGraph): SVGSVGElement {
-    const svg = document.createElementNS(SVG, 'svg');
-    svg.setAttribute('class', 'graph-edges');
-    svg.setAttribute('width', String(g.width));
-    svg.setAttribute('height', String(g.height));
-    svg.setAttribute('viewBox', `0 0 ${g.width} ${g.height}`);
-    svg.setAttribute('aria-hidden', 'true');
+    const root = svg('svg', {
+      class: 'graph-edges',
+      width: g.width,
+      height: g.height,
+      viewBox: `0 0 ${g.width} ${g.height}`,
+      'aria-hidden': 'true',
+    });
     const at = new Map(g.nodes.map((n) => [n.id, n]));
     // Each parent's edge meets its child on its own side of the child's top edge.
+    const byChild = new Map<string, CardGraph['edges']>();
+    for (const e of g.edges) byChild.set(e.to, [...(byChild.get(e.to) ?? []), e]);
     const into = new Map<string, number>();
-    for (const id of new Set(g.edges.map((e) => e.to))) {
-      const froms = g.edges
-        .filter((e) => e.to === id)
-        .sort((a, b) => (at.get(a.from)?.x ?? 0) - (at.get(b.from)?.x ?? 0));
+    for (const [id, edges] of byChild) {
+      const froms = edges.sort((a, b) => (at.get(a.from)?.x ?? 0) - (at.get(b.from)?.x ?? 0));
       for (const [i, e] of froms.entries())
         into.set(`${e.from}|${id}`, (i - (froms.length - 1) / 2) * EDGE_SPREAD);
     }
@@ -136,14 +137,15 @@ export class GraphView {
       const [x1, y1] = [from.x + GRAPH_NODE_WIDTH / 2, from.y + GRAPH_NODE_HEIGHT];
       const [x2, y2] = [to.x + GRAPH_NODE_WIDTH / 2 + (into.get(`${e.from}|${e.to}`) ?? 0), to.y];
       const bend = Math.min(40, (y2 - y1) / 2);
-      const path = document.createElementNS(SVG, 'path');
-      path.setAttribute('d', `M${x1} ${y1} C${x1} ${y1 + bend} ${x2} ${y2 - bend} ${x2} ${y2}`);
-      path.setAttribute('class', e.branch ? 'graph-edge branch' : 'graph-edge');
+      const path = svg('path', {
+        d: `M${x1} ${y1} C${x1} ${y1 + bend} ${x2} ${y2 - bend} ${x2} ${y2}`,
+        class: e.branch ? 'graph-edge branch' : 'graph-edge',
+      });
       if (!from.loaded) path.classList.add('faint');
       path.dataset.testid = 'graph-edge';
-      svg.append(path);
+      root.append(path);
     }
-    return svg;
+    return root;
   }
 
   private node(n: CardGraphNode): HTMLElement {

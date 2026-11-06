@@ -3,19 +3,8 @@
 
 import type { LineageEntry, PedigreeNode } from '../net/protocol';
 import { rarityBadge } from './badge';
-import { pick } from './dom';
+import { pick, svg } from './dom';
 import { type GraphNode, lineageView, NODE_HEIGHT, NODE_WIDTH } from './lineage-view';
-
-const SVG = 'http://www.w3.org/2000/svg';
-
-function svg<K extends keyof SVGElementTagNameMap>(
-  tag: K,
-  attrs: Record<string, string | number>,
-): SVGElementTagNameMap[K] {
-  const el = document.createElementNS(SVG, tag);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-  return el;
-}
 
 /** The Lab page that shows one body. */
 export const labHref = (genome: string): string => `lab.html?genome=${encodeURIComponent(genome)}`;

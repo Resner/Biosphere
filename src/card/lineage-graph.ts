@@ -79,14 +79,10 @@ export interface CardGraph {
 }
 
 /** What `__card.state().graph` lists for each node. */
-export interface GraphNodeState {
-  id: string;
-  generation: number | null;
-  branch: boolean;
-  root: boolean;
-  verified: boolean | null;
-  loaded: boolean;
-}
+export type GraphNodeState = Pick<
+  CardGraphNode,
+  'id' | 'generation' | 'branch' | 'root' | 'verified' | 'loaded'
+>;
 
 const strings = (v: unknown): string[] =>
   Array.isArray(v) ? v.filter((x): x is string => typeof x === 'string' && HEX64.test(x)) : [];
