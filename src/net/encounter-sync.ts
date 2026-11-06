@@ -266,7 +266,7 @@ export class EncounterSync {
   /**
    * The authority's frame where it differs from the one taken before, from a witness (ADR 0058):
    * it replaces it, and a frame already played rolls back at the next step. True when it changed
-   * the frame held.
+   * the frame held, or took it for the first time.
    */
   overrule(msg: EncFrameMsg): boolean {
     const { enc } = this;
