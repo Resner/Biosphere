@@ -189,8 +189,9 @@ export class Duties {
   } | null {
     const held = this.held.get(player);
     const duty = held?.role === 'auditor' ? this.byEvent.get(held.event) : undefined;
-    const offer = duty?.runs.get('auditor')?.current;
-    const audit = duty?.runs.get('auditor')?.audit;
+    const run = duty?.runs.get('auditor');
+    const offer = run?.current;
+    const audit = run?.audit;
     if (!duty?.order || !audit || offer?.player !== player || offer.outcome !== 'ok') return null;
     return {
       event: duty.event,

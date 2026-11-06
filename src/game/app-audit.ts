@@ -8,10 +8,12 @@ import { commitmentId } from '../ledger/genesis';
 import type { Identity } from '../ledger/identity';
 import type { PubKey } from '../ledger/record';
 import { signAttestation } from '../ledger/witness';
-import type { AuditJob, AuditReply } from '../net/audit';
+import type { AuditJob, AuditorDuty, AuditReply } from '../net/audit';
+
+export type { AuditorDuty };
+
 import type { ClientMsg, HubMsg } from '../net/protocol';
 
-export type AuditorDuty = Extract<HubMsg, { t: 'duty'; role: 'auditor' }>;
 type DutyEnd = Extract<HubMsg, { t: 'duty-end' }>;
 
 /** A job without its id: the runner numbers them. */
@@ -124,6 +126,7 @@ export class AuditDuties {
       });
       // The duty ended while the worker ran (replaced, struck or the hub restarted): nothing to send.
       if (this.held !== held) return;
+      const code = verdict.code === undefined ? {} : { code: verdict.code };
       const signed = signAttestation(identity, {
         v: 1,
         kind: 'attest',
@@ -133,13 +136,13 @@ export class AuditDuties {
         witness: me,
         subject: verdict.subject,
         agree: verdict.agree,
-        ...(verdict.code === undefined ? {} : { code: verdict.code }),
+        ...code,
       });
       host.sendHub({ t: 'attest', signed });
       this.audits.push({
         event: msg.event,
         agree: verdict.agree,
-        ...(verdict.code === undefined ? {} : { code: verdict.code }),
+        ...code,
         ms: host.perfNow() - t0,
       });
       if (this.audits.length > KEEP) this.audits.shift();

@@ -98,7 +98,7 @@ export function dutySelected(duty: Extract<HubMsg, { t: 'duty' }>, me: string): 
   }
 }
 
-type AuditorDuty = Extract<HubMsg, { t: 'duty'; role: 'auditor' }>;
+export type AuditorDuty = Extract<HubMsg, { t: 'duty'; role: 'auditor' }>;
 
 /** A job for the page's audit worker (`src/game/audit-worker.ts`): the selection check, or the verdict. */
 export type AuditJob =
