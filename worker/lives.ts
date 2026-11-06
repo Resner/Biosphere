@@ -3,7 +3,12 @@ import { type Genome, genomeFromBase64url, genomeToBase64url } from '../src/geno
 import { speciesName } from '../src/genome/names';
 import { type GenesisAsk, verifyGenesisAsk } from '../src/ledger/ask';
 import { randomnessOf } from '../src/ledger/drand';
-import { lifespanOf as lifespanUnder, matureAtOf, restoreMinOf } from '../src/ledger/gates';
+import {
+  lifespanOf as lifespanUnder,
+  matureAtOf,
+  matureBiomassOf,
+  restoreMinOf,
+} from '../src/ledger/gates';
 import { genesisFor, genesisRequest as genesisRecordRequest } from '../src/ledger/genesis';
 import { AUTHORITY_CAUSES, type RecordRequest } from '../src/ledger/record';
 import {
@@ -29,6 +34,7 @@ import {
   isOld,
   type LifeState,
   protectionEnds,
+  recorded,
   unsaved,
 } from './life';
 import { scalesOf } from './mating';
@@ -85,7 +91,10 @@ export async function genesisRequest(
     commit.id !== hub.ledger.pendingCommit(owner) &&
     !isActiveBirth(hub, owner, commit.id)
   ) {
-    // A signed ask is good for one creature: replaying it after that creature is gone gets nothing.
+    // A signed ask is good for one creature: replaying it after that creature is gone gets nothing,
+    // and is noted once on the creature it made.
+    const creature = hub.ledger.audit.creatureOf(commit.id);
+    hub.ledger.audit.raise('replay', { owner, creature, key: commit.id, t: hub.clock.now() });
     sendIfOpen(ws, { t: 'refused', reason: 'used' });
     return;
   }
@@ -193,7 +202,7 @@ export function progress(
   }
   const { life, newFlags } = applyReport(session.life, msg, now);
   for (const kind of newFlags) {
-    hub.ledger.flagImplausible(kind, session.playerId, life.creature, now);
+    hub.ledger.audit.raise(kind, { owner: session.playerId, creature: life.creature, t: now });
   }
   let next = checkpointDue(life) ? checkpoint(hub, life, session.playerId) : life;
   ack(ws, msg.n, next);
@@ -230,7 +239,12 @@ export function death(
   if (hub.fights.playerLocked(session.playerId)) return;
   if (!session.life) {
     // Nothing of this player's to end: note it once and say nothing.
-    hub.ledger.flagStray(session.playerId, now);
+    hub.ledger.audit.raise('stray-death', {
+      owner: session.playerId,
+      creature: '',
+      key: session.playerId,
+      t: now,
+    });
     return;
   }
   if (session.life.over) {
@@ -245,7 +259,10 @@ export function death(
   // The stretch since the last report is credited first, so the checkpoint `finish` writes (the
   // last report's condition) carries the clock of its own time, as the death does (ADR 0055).
   // Ticks that spend the last of the lifespan are old age whatever the client says: the authority's clock decides.
-  const credited = creditTicks(session.life, msg.ticks, now);
+  const { life: credited, newFlags } = creditTicks(session.life, msg.ticks, now);
+  for (const kind of newFlags) {
+    hub.ledger.audit.raise(kind, { owner: session.playerId, creature: credited.creature, t: now });
+  }
   const cause = isOld(credited) ? 'old-age' : msg.cause;
   const life = finish(hub, ws, credited, session.playerId, cause);
   ws.serializeAttachment({ ...session, life } satisfies Session);
@@ -274,7 +291,8 @@ export function finish(
   if (!accepted.ok) return saved;
   const fallback = fallbackAfter(hub, hub.ledger.head(life.creature));
   sendIfOpen(ws, { t: 'died', cause, record: accepted.stored, fallback });
-  return { ...saved, savedMs: saved.activeMs, savedN: saved.n, over: true };
+  const { t } = accepted.stored.record;
+  return { ...recorded(saved, t), over: true };
 }
 
 /** The player's finished lives, newest first. */
@@ -453,9 +471,13 @@ export function bind(hub: Hub, playerId: string, now: number): LifeState | undef
 /** A connection's state for `head`; none when its genome doesn't decode, so nothing is credited to it. */
 export function bindHead(hub: Hub, head: Head, now: number): LifeState | undefined {
   const genome = genomeFromBase64url(head.genome);
-  return genome
-    ? bindLife(head, genome, now, lifespanOf(hub, genome), matureAtMsOf(hub, genome))
-    : undefined;
+  if (!genome) return undefined;
+  const gates = {
+    lifespanMs: lifespanOf(hub, genome),
+    matureAtMs: matureAtMsOf(hub, genome),
+    matureBiomass: matureBiomassOf(genome, scalesOf(hub.env)),
+  };
+  return bindLife(head, genome, now, gates);
 }
 
 /** Writes the creature's condition as a checkpoint record; the state comes back marked saved only if the ledger took it. */
@@ -468,7 +490,7 @@ export function checkpoint(hub: Hub, life: LifeState, owner: string): LifeState 
     health: life.health,
     activeMs: life.activeMs,
   });
-  return accepted.ok ? { ...life, savedMs: life.activeMs, savedN: life.n } : life;
+  return accepted.ok ? recorded(life, accepted.stored.record.t) : life;
 }
 
 /**

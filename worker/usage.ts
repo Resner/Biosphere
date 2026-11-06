@@ -1,4 +1,7 @@
-const DAY_MS = 86_400_000;
+export const DAY_MS = 86_400_000;
+
+/** The start of the UTC day holding `now`. */
+export const dayStartOf = (now: number): number => Math.floor(now / DAY_MS) * DAY_MS;
 const FLUSH_EVERY_MS = 60_000;
 /** One incoming message costs this many request-equivalents (Cloudflare bills 20 WebSocket messages as 1 request). */
 const MESSAGES_PER_REQUEST = 20;
@@ -83,7 +86,7 @@ export class UsageMeter {
   /** Moves to the day of `now`: the finished day's row is written, the new day's row (if the object was evicted) is picked up. */
   private touch(now: number): void {
     if (now >= this.dayStart && now < this.dayEnd) return;
-    this.dayStart = Math.floor(now / DAY_MS) * DAY_MS;
+    this.dayStart = dayStartOf(now);
     this.dayEnd = this.dayStart + DAY_MS;
     const day = new Date(this.dayStart).toISOString().slice(0, 10);
     if (this.day !== '') this.flush(now);

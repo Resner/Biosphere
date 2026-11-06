@@ -140,7 +140,8 @@ function sideOf(
   const creature = buildCreature(genome);
   if (genomeRefOf(creature.hash) !== snap.genomeRef) return null;
   const { condition, flagged, newFlags } = clampClaim(life, claimOf(snap), now, QUANTISED);
-  for (const kind of newFlags) hub.ledger.flagImplausible(kind, head.owner, head.id, now);
+  for (const kind of newFlags)
+    hub.ledger.audit.raise(kind, { owner: head.owner, creature: head.id, t: now });
   let kept = life;
   if (flagged !== life.flagged) {
     kept = { ...life, flagged };

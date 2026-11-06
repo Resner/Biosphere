@@ -11,7 +11,7 @@ import { rulesStatus } from '../src/ledger/registry';
 import type { Born } from '../src/net/protocol';
 import { sizeTier } from '../src/sim/size';
 import type { BirthChild, Head } from './ledger';
-import type { LifeState } from './life';
+import { type LifeState, recorded } from './life';
 import { askLive, type Court, mateRequests, refusalFor, scalesOf, viewOf } from './mating';
 import {
   type ActiveSession,
@@ -205,7 +205,7 @@ export function court(
   const other = partnerOf(hub, ws, session, ask.partner);
   if (!other) return refuse('not-here');
   if (ask.partnerCreature !== other.life.creature) return refuse('pair-mismatch');
-  if (hub.ledger.nonceUsed(ask.nonce)) return refuse('used');
+  if (hub.ledger.nonceUsed(ask.nonce)) return replayed(hub, ws, session.playerId, ask);
   const reason = mateRefusal(hub, session, other.session);
   if (reason) return refuse(reason);
   // A second court replaces the first: the earlier invitation is void.
@@ -219,6 +219,15 @@ export function court(
     generation: hub.ledger.head(session.life.creature)?.generation ?? 0,
   });
   return true;
+}
+
+/** A mate ask whose nonce a commitment already used: refused, and noted once on the asking creature. */
+function replayed(hub: Hub, ws: WebSocket, owner: string, ask: MateAsk): false {
+  const t = hub.clock.now();
+  const key = `${ask.creature}:${ask.nonce}`;
+  hub.ledger.audit.raise('replay', { owner, creature: ask.creature, key, t });
+  sendIfOpen(ws, { t: 'refused', reason: 'used' });
+  return false;
 }
 
 export function decline(hub: Hub, ws: WebSocket, session: ActiveSession, courter: string): void {
@@ -268,7 +277,7 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
   }
   if (!court || court.ask.partner !== me.playerId) return refuse('no-court');
   if (!askLive(court.sentAt, Date.now())) return refuse('expired');
-  if (hub.ledger.nonceUsed(ask.nonce)) return refuse('used');
+  if (hub.ledger.nonceUsed(ask.nonce)) return replayed(hub, ws, me.playerId, ask);
   const failures = checkMatePair(court.ask, found.session.playerId, ask, me.playerId);
   if (failures.length > 0) return refuse(failures[0] as string);
   const reason = mateRefusal(hub, me, found.session);
@@ -320,21 +329,19 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
   }
   const signed = signedOf(commit);
   const settle = (socket: WebSocket, s: ActiveSession, i: 0 | 1, court?: Court) => {
-    const body = (requests[i] as { body: Record<string, number> }).body;
-    const life = s.life as LifeState;
+    const { body, t } = result.stored[i].record as { body: Record<string, number>; t: number };
+    const life: LifeState = {
+      ...(s.life as LifeState),
+      biomass: body.biomass as number,
+      energy: body.energy as number,
+      health: body.health as number,
+      cooldownUntilMs: body.cooldownUntilMs as number,
+    };
+    // The record covers everything reported so far, and the next report counts from it.
     socket.serializeAttachment({
       ...s,
       court,
-      life: {
-        ...life,
-        biomass: body.biomass as number,
-        energy: body.energy as number,
-        health: body.health as number,
-        cooldownUntilMs: body.cooldownUntilMs as number,
-        // The record covers everything reported so far.
-        savedMs: life.activeMs,
-        savedN: life.n,
-      },
+      life: recorded(life, t),
     } satisfies Session);
     sendIfOpen(socket, { t: 'mating', commit: signed, record: result.stored[i] });
   };

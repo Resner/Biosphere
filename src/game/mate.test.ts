@@ -68,6 +68,7 @@ beforeEach(async () => {
     now: () => clock,
     own: () => own,
     nameOf: (id) => (id === them.playerId ? 'Mira' : undefined),
+    fresh: () => sent.push({ t: 'progress', n: 0, ticks: 0, biomass: 0, energy: 0, health: 0 }),
   });
   flow.attach({ send: (m) => sent.push(m) });
 });
@@ -82,6 +83,8 @@ describe('courting', () => {
     flow.court(them.playerId);
     expect(courts()).toHaveLength(1);
     expect(flow.view().state).toBe('courting');
+    // A report goes just before the court, so the mating's record holds the condition now.
+    expect(sent.slice(-2).map((m) => m.t)).toEqual(['progress', 'court']);
     const court = courts()[0] as Extract<ClientMsg, { t: 'court' }>;
     expect(court.ask).toMatchObject({
       creature: MINE,
@@ -194,6 +197,7 @@ describe('the invitation', () => {
     flow.accept();
     const accepts = sent.filter((m) => m.t === 'accept');
     expect(accepts).toHaveLength(1);
+    expect(sent.slice(-2).map((m) => m.t)).toEqual(['progress', 'accept']);
     const mine = (accepts[0] as Extract<ClientMsg, { t: 'accept' }>).ask;
     expect(mine).toMatchObject({ creature: MINE, partner: them.playerId, partnerCreature: THEIRS });
     expect(

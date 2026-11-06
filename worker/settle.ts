@@ -17,7 +17,7 @@ import { pondTick } from './engage';
 import { logOf } from './fight-store';
 import type { Fight, Lock } from './fights';
 import type { FighterRecord, SettleResult } from './ledger-encounter';
-import { type Condition, isOld, type LifeState, unsaved } from './life';
+import { type Condition, isOld, type LifeState, recorded, unsaved } from './life';
 import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
@@ -194,13 +194,12 @@ function unsettled(hub: Hub, lock: Lock, fight: Fight, fighters: FighterOutcome[
   const { enc } = fight;
   const now = hub.clock.now();
   try {
-    hub.ledger.flagFight(
-      'settle-failed',
-      enc.id,
-      lock.players[0] ?? '',
-      lock.creatures[0] ?? '',
-      now,
-    );
+    hub.ledger.audit.raise('settle-failed', {
+      owner: lock.players[0] ?? '',
+      creature: lock.creatures[0] ?? '',
+      key: enc.id,
+      t: now,
+    });
     hub.fightStore.closeRow(enc.id);
   } catch (error) {
     console.error('encounter settlement: the failure is not noted', error);
@@ -269,14 +268,11 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
   const now = playing(hub, f.player, f.creature);
   if (!now) return;
   const [ws, session] = now.found;
-  let life: LifeState = {
-    ...now.life,
-    ...vitalsOf(f),
-    activeMs,
-    savedMs: activeMs,
-    t: hub.clock.now(),
-  };
-  if (!survived(f)) life = { ...life, savedN: life.n, over: true };
+  const t = hub.clock.now();
+  const condition = vitalsOf(f);
+  // The fight's record (at the settlement's time) is the creature's last: the next report counts from it.
+  let life: LifeState = recorded({ ...now.life, ...condition, activeMs, t }, t);
+  if (!survived(f)) life = { ...life, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
   ws.serializeAttachment({ ...session, life });
 }

@@ -174,7 +174,7 @@ export class OnlineWiring {
             }
             if (msg.reason === 'no-creature' && app.attack.waiting) app.attack.refused(msg.reason);
           }
-          app.flow.receive(msg);
+          app.flow.receive(msg, app.session.ticks);
           app.mate.receive(msg);
           app.offspring.receive(msg);
           if (msg.t === 'lineage') {

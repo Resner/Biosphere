@@ -58,15 +58,16 @@ export function matureAtOf(genome: Genome, s: Scales): number {
 
 /**
  * The least biomass (hundredths) at which a creature of this genome is mature: 60% of its adult
- * size, rounded up so the gate is the share itself. Sizes are never scaled.
+ * size, rounded up so the gate is the share itself. A test world shortens it with maturity's time
+ * (`s.mating`), so its creatures mate in seconds without growing for minutes first.
  */
-export function matureBiomassOf(genome: Genome): number {
-  return matureBiomassFrom(buildCreature(genome).phys.maxBiomass);
+export function matureBiomassOf(genome: Genome, s: Scales): number {
+  return matureBiomassFrom(buildCreature(genome).phys.maxBiomass, s);
 }
 
 /** `matureBiomassOf` for a body whose adult size (wu) is already known. */
-export function matureBiomassFrom(maxBiomass: number): number {
-  return Math.ceil(RULES.life.matureBiomassShare * maxBiomass * HUNDREDTHS);
+export function matureBiomassFrom(maxBiomass: number, s: Scales): number {
+  return Math.ceil(RULES.life.matureBiomassShare * s.mating * maxBiomass * HUNDREDTHS);
 }
 
 /** The cooldown in active ms after a mating whose pair mated `prior` times before in the window. */

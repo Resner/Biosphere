@@ -364,11 +364,16 @@ export type Served = { status: 200; body: string; final: boolean } | { status: 4
 /** Past this share of the day's request budget, proof reads are refused so the game keeps its room. */
 const BUSY_SHARE = 0.8;
 
-/** Counts the request, then answers `busy` past 80% of the day's budget, else what `answer` reads. */
-function serve(hub: Hub, answer: () => { body: unknown; final: boolean } | null): Served {
+/** Counts a public read, and whether the day's budget is past 80%, so the read is refused (`busy`). */
+export function meterRead(hub: Hub): boolean {
   const now = Date.now();
   hub.usage.request(now);
-  if (hub.usage.requests(now) > BUSY_SHARE * requestBudget(hub.env)) return { status: 503 };
+  return hub.usage.requests(now) > BUSY_SHARE * requestBudget(hub.env);
+}
+
+/** Counts the request, then answers `busy` past 80% of the day's budget, else what `answer` reads. */
+function serve(hub: Hub, answer: () => { body: unknown; final: boolean } | null): Served {
+  if (meterRead(hub)) return { status: 503 };
   const found = answer();
   return found
     ? { status: 200, body: JSON.stringify(found.body), final: found.final }

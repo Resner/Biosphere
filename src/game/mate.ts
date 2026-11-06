@@ -37,6 +37,12 @@ export interface MateDeps {
   own(): MateView | null;
   /** The name of a player in the pond. */
   nameOf(id: string): string | undefined;
+  /**
+   * Reports the creature's condition and clock now, before a court or an accept: the hub writes
+   * the mating's record from its last report and bounds the next ones from that record (ADR 0055),
+   * so a report up to 30 s old would cost the growth played since.
+   */
+  fresh?(): void;
 }
 
 /** A creature near enough to court, as the shell sees it. */
@@ -192,6 +198,7 @@ export class MateFlow {
       partnerCreature: invite.ask.creature,
       nonce: invite.ask.nonce,
     });
+    this.deps.fresh?.();
     this.link?.send({ t: 'accept', ask });
     this.enter('signing');
   }
@@ -304,6 +311,7 @@ export class MateFlow {
       nonce: this.deps.nonce(),
     });
     this.partner = partner;
+    this.deps.fresh?.();
     this.link.send({ t: 'court', ask });
     this.enter('courting');
   }
