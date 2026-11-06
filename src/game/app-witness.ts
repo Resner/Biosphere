@@ -134,7 +134,7 @@ export class WitnessDuties {
   /** On a duty now (accepted and not yet ended): the HUD's chip. */
   get onDuty(): boolean {
     const phase = this.held?.phase;
-    return phase !== undefined && phase !== 'linking';
+    return phase === 'accepted' || phase === 'refereeing' || phase === 'stopped';
   }
 
   /** A referee duty offered to this player. */
