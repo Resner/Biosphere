@@ -69,6 +69,8 @@ export type Session = (
   signals: number;
   /** A fighter's inputs in the current window (absent before its first). */
   inputs?: number | undefined;
+  /** A referee's batches and a fighter's disputes in the current window (absent before the first). */
+  referee?: number | undefined;
 };
 
 export type ActiveSession = Session & { phase: 'active' };

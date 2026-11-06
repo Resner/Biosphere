@@ -1,9 +1,5 @@
-import type { GenesisAsk } from '../ledger/ask';
 import type { Canonical } from '../ledger/canonical';
-import type { Beacon } from '../ledger/drand';
-import type { Commitment } from '../ledger/genesis';
-import type { MateAsk } from '../ledger/mate-ask';
-import type { RecordKind, RecordRequest, Status, StoredRecord } from '../ledger/record';
+import type { RecordRequest, Status } from '../ledger/record';
 import {
   BORN_MAX_BYTES,
   type Born,
@@ -15,7 +11,6 @@ import {
   EVENT_MAX_BYTES,
   type FallbackInfo,
   GENESIS_MAX_BYTES,
-  GENOME_DATA_MAX_CHARS,
   HISTORY_MAX,
   HISTORY_MAX_BYTES,
   HUB_MAX_BYTES,
@@ -35,10 +30,19 @@ import {
   PING_KINDS,
   PROTOCOL_VERSION,
   SIGNAL_MAX_BYTES,
-  type SignedCommit,
   type Vec2,
   WELCOME_MAX_BYTES,
 } from './protocol-defs';
+import {
+  canonicalValue,
+  genesisAsk,
+  isRecordKind,
+  mateAsk,
+  NONCE_RE,
+  parseBeacon,
+  signedCommit,
+  storedRecord,
+} from './protocol-docs';
 import { encounterClientMsg, encounterHubMsg, lifeFight } from './protocol-encounter';
 import {
   byteLength,
@@ -50,7 +54,6 @@ import {
   isNum,
   isObj,
   isStr,
-  KEY_ID_RE,
   list,
   MAX_CONDITION,
   MAX_TICK,
@@ -59,37 +62,17 @@ import {
   PLAYER_ID_RE,
   SIG_RE,
 } from './protocol-kit';
+import { witnessClientMsg, witnessHubMsg, witnessPeerEvent } from './protocol-witness';
 
 export { byteLength };
 
-const NONCE_RE = /^[A-Za-z0-9_-]{22}$/;
 const SLOT_RE = /^[A-Za-z0-9_]{1,24}$/;
 const CODE_RE = /^[a-z0-9-]{1,32}$/;
-/** A drand quicknet signature: 48 bytes of hex. */
-const BEACON_SIG_RE = /^[0-9a-f]{96}$/;
 /** A species name: two words of letters, as `speciesName` makes them. */
 const SPECIES_RE = /^[A-Za-z]{2,40} [A-Za-z]{2,40}$/;
 /** Far above any queue the free tier lets build up. */
 const MAX_QUEUE = 1_000_000;
 const REASON_RE = /^[a-z0-9:-]{1,48}$/;
-/** The most a record body may nest and hold, so a hostile body stays small. */
-const BODY_MAX_DEPTH = 4;
-const BODY_MAX_ENTRIES = 32;
-const BODY_MAX_STRING = 256;
-/** Every record kind (a `Record`, so a new `RecordKind` fails to compile until it is listed). */
-const RECORD_KINDS: Record<RecordKind, true> = {
-  genesis: true,
-  birth: true,
-  checkpoint: true,
-  'mate-commit': true,
-  promote: true,
-  restore: true,
-  death: true,
-  encounter: true,
-};
-const isRecordKind = (v: unknown): v is RecordKind =>
-  typeof v === 'string' && Object.hasOwn(RECORD_KINDS, v);
-
 const STATUSES: Record<Status, true> = {
   pending: true,
   active: true,
@@ -214,7 +197,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return ask ? capped(raw, { t: o.t, ask }) : null;
     }
     default:
-      return encounterClientMsg(o, raw);
+      return encounterClientMsg(o, raw) ?? witnessClientMsg(o, raw);
   }
 }
 
@@ -403,7 +386,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
         ? capped(raw, { t: 'queued', position: o.position, etaS: o.etaS })
         : null;
     default:
-      return encounterHubMsg(o, raw);
+      return encounterHubMsg(o, raw) ?? witnessHubMsg(o, raw);
   }
 }
 
@@ -423,18 +406,6 @@ function pastLife(v: unknown): PastLife | null {
         bornT: v.bornT,
         diedT: v.diedT,
       }
-    : null;
-}
-
-function genesisAsk(v: unknown): GenesisAsk | null {
-  return isObj(v) && isStr(v.nonce, NONCE_RE) && isStr(v.sig, SIG_RE)
-    ? { nonce: v.nonce, sig: v.sig }
-    : null;
-}
-
-function parseBeacon(v: unknown): Beacon | null {
-  return isObj(v) && isInt(v.round, 1, MAX_TICK) && isStr(v.signature, BEACON_SIG_RE)
-    ? { round: v.round, signature: v.signature }
     : null;
 }
 
@@ -469,58 +440,6 @@ function lifeInfo(v: unknown): LifeInfo | null {
 
 /** A kinship coefficient: a share between 0 and 1. */
 const isKinship = (v: unknown): v is number => isNum(v) && v >= 0 && v <= 1;
-
-/** A signed mate ask, copied field by field. */
-function mateAsk(v: unknown): MateAsk | null {
-  return isObj(v) &&
-    v.v === 1 &&
-    v.kind === 'mate' &&
-    isStr(v.creature, HEX64_RE) &&
-    isStr(v.partner, PLAYER_ID_RE) &&
-    isStr(v.partnerCreature, HEX64_RE) &&
-    isStr(v.nonce, NONCE_RE) &&
-    isStr(v.sig, SIG_RE)
-    ? {
-        v: 1,
-        kind: 'mate',
-        creature: v.creature,
-        partner: v.partner,
-        partnerCreature: v.partnerCreature,
-        nonce: v.nonce,
-        sig: v.sig,
-      }
-    : null;
-}
-
-/** A canonical value (integers and strings only), bounded in depth, size and string length. */
-function canonicalValue(v: unknown, depth: number): Canonical | null {
-  if (typeof v === 'string') return v.length <= BODY_MAX_STRING ? v : null;
-  if (typeof v === 'number') return Number.isSafeInteger(v) ? v : null;
-  if (depth >= BODY_MAX_DEPTH) return null;
-  if (Array.isArray(v)) {
-    return v.length <= BODY_MAX_ENTRIES ? listOf(v, depth) : null;
-  }
-  if (!isObj(v)) return null;
-  const keys = Object.keys(v);
-  if (keys.length > BODY_MAX_ENTRIES) return null;
-  const out: { [key: string]: Canonical } = {};
-  for (const key of keys) {
-    const value = canonicalValue(v[key], depth + 1);
-    if (value === null || key.length > BODY_MAX_STRING) return null;
-    out[key] = value;
-  }
-  return out;
-}
-
-function listOf(v: unknown[], depth: number): Canonical[] | null {
-  const out: Canonical[] = [];
-  for (const x of v) {
-    const value = canonicalValue(x, depth + 1);
-    if (value === null) return null;
-    out.push(value);
-  }
-  return out;
-}
 
 function recordRequest(v: unknown): RecordRequest | null {
   if (!isObj(v)) return null;
@@ -617,71 +536,6 @@ function bornOf(v: unknown): Born | null {
   return { record, commit, beacon, genome: v.genome, parents: [p0, p1], mates: [m0, m1] };
 }
 
-function signedCommit(v: unknown): SignedCommit | null {
-  if (!isObj(v) || !isStr(v.authSig, SIG_RE) || !isStr(v.keyId, KEY_ID_RE)) return null;
-  const c = isObj(v.commitment) ? v.commitment : null;
-  if (
-    c?.v !== 1 ||
-    !isStr(c.owner, PLAYER_ID_RE) ||
-    !isInt(c.round, 1, MAX_TICK) ||
-    !isStr(c.req, HEX64_RE) ||
-    !isInt(c.t, 0, MAX_TIME)
-  )
-    return null;
-  let data: Commitment['data'] | null = null;
-  if (c.kind === 'genesis') data = genesisAsk(c.data);
-  else if (c.kind === 'mate' && isObj(c.data)) {
-    const [a, b] = [mateAsk(c.data.a), mateAsk(c.data.b)];
-    data = a && b ? { a: { ...a }, b: { ...b } } : null;
-  }
-  if (!data || (c.kind !== 'genesis' && c.kind !== 'mate')) return null;
-  return {
-    commitment: { v: 1, kind: c.kind, owner: c.owner, round: c.round, req: c.req, t: c.t, data },
-    authSig: v.authSig,
-    keyId: v.keyId,
-  };
-}
-
-function storedRecord(v: unknown): StoredRecord | null {
-  if (!isObj(v) || !isStr(v.hash, HEX64_RE) || !isStr(v.authSig, SIG_RE)) return null;
-  if (!isStr(v.keyId, KEY_ID_RE)) return null;
-  if (v.ownerSig !== null && !isStr(v.ownerSig, SIG_RE)) return null;
-  const r = isObj(v.record) ? v.record : null;
-  const body = r ? canonicalValue(r.body, 0) : null;
-  if (
-    !r ||
-    !body ||
-    typeof body !== 'object' ||
-    Array.isArray(body) ||
-    r.v !== 1 ||
-    !isInt(r.rules, 0, MAX_TICK) ||
-    !isRecordKind(r.kind) ||
-    !(r.creature === '' || isStr(r.creature, HEX64_RE)) ||
-    !isInt(r.seq, 0, MAX_TIME) ||
-    !(r.prev === '' || isStr(r.prev, HEX64_RE)) ||
-    !isStr(r.owner, PLAYER_ID_RE) ||
-    !isInt(r.t, 0, MAX_TIME)
-  )
-    return null;
-  return {
-    record: {
-      v: 1,
-      rules: r.rules,
-      kind: r.kind,
-      creature: r.creature as string,
-      seq: r.seq,
-      prev: r.prev as string,
-      owner: r.owner,
-      t: r.t,
-      body: body as { [key: string]: Canonical },
-    },
-    hash: v.hash,
-    ownerSig: v.ownerSig as string | null,
-    authSig: v.authSig,
-    keyId: v.keyId,
-  };
-}
-
 function isSignalPayload(o: Obj): o is Obj & { kind: 'offer' | 'answer'; sdp: string } {
   return (
     (o.kind === 'offer' || o.kind === 'answer') &&
@@ -758,6 +612,6 @@ export function parsePeerEvent(raw: string): PeerEvent | null {
         ? { t: 'ping', kind: o.kind, x: o.x, y: o.y }
         : null;
     default:
-      return null;
+      return witnessPeerEvent(o);
   }
 }

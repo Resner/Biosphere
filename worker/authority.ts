@@ -2,6 +2,7 @@ import { DurableObject } from 'cloudflare:workers';
 import {
   CLOSE_BAD_HELLO,
   CLOSE_RATE_LIMITED,
+  type ClientMsg,
   isOtherVersionHello,
   NONCE_BYTES,
   parseClientMsg,
@@ -43,6 +44,12 @@ const RATE_MAX_MESSAGES = 20;
 const RATE_MAX_SIGNALS = 60;
 /** A fighter's inputs have their own window cap: 10 a second, with room for a burst (M7). */
 const RATE_MAX_INPUTS = 130;
+/**
+ * A witness referee's batches and a fighter's disputes have their own window cap (ADR 0058): a
+ * batch a second, with room for a catch-up and a few disputes. Past it they are dropped and counted
+ * (`dropped`), and the socket stays open: a referee's frames are worth more than its link.
+ */
+const RATE_MAX_REFEREE = 30;
 /** While anyone waits, the object looks at the queue this often (the budget resets at midnight UTC without any message). */
 const QUEUE_TICK_MS = 15_000;
 
@@ -70,6 +77,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly fightStore: FightStore;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
+  /** Messages dropped past their own window's cap without closing the socket, by type. */
+  readonly dropped = new Map<ClientMsg['t'], number>();
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -171,6 +180,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       session.count = 0;
       session.signals = 0;
       session.inputs = 0;
+      session.referee = 0;
     }
     const signal = msg?.t === 'signal';
     // Only a fighter's inputs count in their own window; anyone else's count as any message.
@@ -178,15 +188,27 @@ export class Authority extends DurableObject<Env> implements Hub {
       msg?.t === 'input' &&
       session.phase === 'active' &&
       this.fights.playerLocked(session.playerId);
+    // Batches and disputes count in their own window only from a referee or a fighter; anyone
+    // else's count as any message, so a stranger's flood still closes its socket.
+    const referee =
+      (msg?.t === 'batch' || msg?.t === 'dispute') &&
+      session.phase === 'active' &&
+      this.refereeWire(session.playerId);
     // `?? 0`: a hibernated session from before signals (or inputs) were counted has no counter.
     if (signal) session.signals = (session.signals ?? 0) + 1;
     else if (input) session.inputs = (session.inputs ?? 0) + 1;
+    else if (referee) session.referee = (session.referee ?? 0) + 1;
     else session.count++;
+    if (referee && msg && (session.referee ?? 0) > RATE_MAX_REFEREE) {
+      this.dropped.set(msg.t, (this.dropped.get(msg.t) ?? 0) + 1);
+      ws.serializeAttachment(session);
+      return;
+    }
     const over = signal
       ? session.signals > RATE_MAX_SIGNALS
       : input
         ? (session.inputs ?? 0) > RATE_MAX_INPUTS
-        : session.count > RATE_MAX_MESSAGES;
+        : !referee && session.count > RATE_MAX_MESSAGES;
     if (over) {
       drop(this, ws, CLOSE_RATE_LIMITED, 'rate limited');
       return;
@@ -273,6 +295,11 @@ export class Authority extends DurableObject<Env> implements Hub {
         fightInput(this, session, msg);
         return;
     }
+  }
+
+  /** Whether this player may send batches and disputes in their own window: it fights (T4 adds a referee duty). */
+  private refereeWire(player: string): boolean {
+    return this.fights.playerLocked(player);
   }
 
   override webSocketClose(ws: WebSocket, code: number): void {
