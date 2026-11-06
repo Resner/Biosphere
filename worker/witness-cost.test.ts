@@ -1,8 +1,6 @@
 import { describe, expect } from 'vitest';
-import { commitmentId } from '../src/ledger/genesis';
 import { keyVerifier } from '../src/ledger/key-verify';
-import { inputSigned, signAttestation, signInput } from '../src/ledger/witness';
-import { auditVerdict } from '../src/net/audit';
+import { inputSigned, signInput } from '../src/ledger/witness';
 import { encounterStartOf } from '../src/net/encounter-start';
 import type { HubMsg } from '../src/net/protocol';
 import { FRAME_MS } from '../src/net/referee';
@@ -10,6 +8,7 @@ import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
 import { RULES } from '../src/sim/rules';
 import { drive, IDLE_CODE } from '../tests/encounter-fixture';
 import { heavyTest, speedTest } from '../tests/heavy';
+import { total as sum } from '../tools/witness-report';
 import {
   advanceTo,
   authority,
@@ -24,10 +23,12 @@ import {
 import { nextOf, publish } from './test-hub';
 import { commitWitnesses } from './witness-pool';
 import {
+  attestAuditor,
   byPlayer,
   orderOf,
   refereeDuty,
   useWitnessHub,
+  waitFor,
   witnessCommit,
   witnesses,
 } from './witness-test-kit';
@@ -57,11 +58,12 @@ const received = (): Promise<Counts> =>
   });
 const minus = (after: Counts, before: Counts): Counts => {
   const out: Counts = {};
-  for (const [t, n] of Object.entries(after))
-    if (n - (before[t] ?? 0) > 0) out[t] = n - (before[t] ?? 0);
+  for (const [t, n] of Object.entries(after)) {
+    const d = n - (before[t] ?? 0);
+    if (d > 0) out[t] = d;
+  }
   return out;
 };
-const sum = (c: Counts) => Object.values(c).reduce((a, b) => a + b, 0);
 
 /** A fighter's wire: the frames it heard, in order, and the end. */
 class Seat {
@@ -95,15 +97,6 @@ class Seat {
   }
 }
 
-async function waitFor<T>(read: () => Promise<T | null>, what: string): Promise<T> {
-  for (let i = 0; i < 100; i++) {
-    const v = await read();
-    if (v !== null) return v;
-    await new Promise((r) => setTimeout(r, 5));
-  }
-  throw new Error(`never got ${what}`);
-}
-
 interface Duel {
   /** The fight's frames, and the first frame a witness refereed (the frame count when none did). */
   frames: number;
@@ -112,7 +105,6 @@ interface Duel {
   before: Counts;
   span: Counts;
   after: Counts;
-  batches: number;
 }
 
 /**
@@ -137,19 +129,19 @@ async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
   };
   // Both idle, then the hunter strikes at `huntFrom`: played in the sim from this very start
   // (bodies differ per identity, and idle bodies drift) until the fight ends near frame 300.
+  const first = encounterStartOf(start, a.pond.seed);
+  if (!first) throw new Error('no start');
   const endOf = (from: number) => {
-    const first = encounterStartOf(start, a.pond.seed);
-    if (!first) throw new Error('no start');
     const enc = createEncounter(first);
     while (!enc.over && enc.frame < E.timeoutFrames) {
       stepFrame(enc, codesBy(enc.frame >= from ? hunter : IDLE_CODE));
     }
     return enc.frame;
   };
-  let huntFrom = 0;
-  huntFrom = DUEL_FRAMES - endOf(0);
-  for (let i = 0; i < 12 && Math.abs(endOf(huntFrom) - DUEL_FRAMES) > 2; i++) {
-    huntFrom += DUEL_FRAMES - endOf(huntFrom);
+  let huntFrom = DUEL_FRAMES - endOf(0);
+  for (let end = endOf(huntFrom), i = 0; i < 12 && Math.abs(end - DUEL_FRAMES) > 2; i++) {
+    huntFrom += DUEL_FRAMES - end;
+    end = endOf(huntFrom);
   }
   // Codes by player (A, B), whatever their slots.
   const codesOf = (f: number): [number, number] => {
@@ -157,6 +149,7 @@ async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
     return [c[slots[0] as number] as number, c[slots[1] as number] as number];
   };
   const commit = witnessed ? await waitFor(() => witnessCommit(event), 'the commitment') : null;
+  const commitId = commit?.id ?? '';
   const order = commit ? orderOf(commit, commit.id) : [];
   if (commit) await publish(commit.commitment.round);
   const seats = [new Seat(a, start.enc), new Seat(b, start.enc)] as const;
@@ -173,7 +166,7 @@ async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
     await advanceTo(startOf(f) - FRAME_MS);
     for (const s of seats) s.drain();
     if (seats[0].end) break;
-    if (duty && !duty.referee && clockPast(startOf(f), start.at + HANDOVER_MS)) {
+    if (duty && !duty.referee && startOf(f) >= start.at + HANDOVER_MS) {
       // The links come up through the relay (an offer and an answer to each fighter), then `duty-ok`.
       for (const p of [a, b]) {
         at(0).c.send({ t: 'signal', to: p.id.playerId, kind: 'offer', sdp: 'v=0' });
@@ -195,8 +188,8 @@ async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
     }
     if (!duty) throw new Error('no witness');
     if (!mark) {
-      before = minus(await received(), base);
       mark = await received();
+      before = minus(mark, base);
     }
     await duty.catchUp();
     const sent = duty.sent.length;
@@ -218,43 +211,20 @@ async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
       before,
       span: minus(since, before),
       after: {},
-      batches: 0,
     };
   }
-  const batches = duty?.sent.length ?? 0;
   const spanCounts = minus(ended, mark ?? ended);
 
   // The auditor attests the settled fight.
-  const auditor = at(1);
-  const audit = await within(nextOf(auditor.c, 'duty'), 'the auditor duty');
-  if (audit.role !== 'auditor') throw new Error('not an auditor duty');
-  auditor.c.send({ t: 'duty-ok', event });
-  const v = auditVerdict(audit.audit, audit.beacon, await authority((o) => o.pubkeys()));
-  auditor.c.send({
-    t: 'attest',
-    signed: signAttestation(auditor.id, {
-      v: 1,
-      kind: 'attest',
-      event,
-      duty: commitmentId(audit.commit.commitment),
-      position: audit.position,
-      witness: auditor.id.playerId,
-      subject: v.subject,
-      agree: v.agree,
-    }),
-  });
-  await within(nextOf(auditor.c, 'duty-end'), 'duty-end');
+  await attestAuditor(at(1), event, commitId, await authority((o) => o.pubkeys()));
   return {
     frames,
     from: handFrom,
     before,
     span: spanCounts,
     after: minus(await received(), ended),
-    batches,
   };
 }
-
-const clockPast = (t: number, at: number) => t >= at;
 
 describe('what a witnessed fight costs the authority (ADR 0058)', () => {
   heavyTest(
@@ -285,16 +255,13 @@ describe('what a witnessed fight costs the authority (ADR 0058)', () => {
       console.log(
         `WITNESS_MEASURE ${JSON.stringify({
           frames,
-          aloneFrames: alone.frames,
           from: withWitness.from,
-          batches: withWitness.batches,
           before: withWitness.before,
           span: withWitness.span,
           after: withWitness.after,
           aloneBefore: alone.before,
           aloneSpan: alone.span,
           handoverMs: HANDOVER_MS,
-          frameMs: FRAME_MS,
         })}`,
       );
     },

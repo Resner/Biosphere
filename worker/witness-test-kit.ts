@@ -2,7 +2,14 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import { beforeEach } from 'vitest';
 import { randomnessOf } from '../src/ledger/drand';
 import type { Identity } from '../src/ledger/identity';
-import { signInput, signWitnessFrame, type WitnessData, witnessOrder } from '../src/ledger/witness';
+import {
+  signAttestation,
+  signInput,
+  signWitnessFrame,
+  type WitnessData,
+  witnessOrder,
+} from '../src/ledger/witness';
+import { auditVerdict } from '../src/net/audit';
 import { AUTHORITY } from '../src/net/handover';
 import type { DutyEndWhy, HubMsg, PondInfo, SignedCommit } from '../src/net/protocol';
 import {
@@ -234,4 +241,45 @@ export async function refereeDuty(w: Witness): Promise<ScriptedWitness> {
   const duty = await within(nextOf(w.c, 'duty'), 'a referee duty');
   if (duty.role !== 'referee') throw new Error('not a referee duty');
   return new ScriptedWitness(w, duty);
+}
+
+/** Polls until `read` gives a value (a few ms apart, bounded). */
+export async function waitFor<T>(read: () => Promise<T | null>, what: string): Promise<T> {
+  for (let i = 0; i < 100; i++) {
+    const v = await read();
+    if (v !== null) return v;
+    await new Promise((r) => setTimeout(r, 5));
+  }
+  throw new Error(`never got ${what}`);
+}
+
+/**
+ * The auditor takes its offered duty and attests as the authority's own verdict says (an honest
+ * auditor): its `duty-ok`, then its signed `attest`, then the wait for `duty-end`. `commitId` is the
+ * event's witness commitment; `keys` are the fighters' keys a fight's audit needs.
+ */
+export async function attestAuditor(
+  auditor: Witness,
+  event: string,
+  commitId: string,
+  keys: { id: string; publicKey: string }[] = [],
+) {
+  const duty = await within(nextOf(auditor.c, 'duty'), 'the auditor duty');
+  if (duty.role !== 'auditor') throw new Error('not an auditor duty');
+  auditor.c.send({ t: 'duty-ok', event });
+  const v = auditVerdict(duty.audit, duty.beacon, keys);
+  auditor.c.send({
+    t: 'attest',
+    signed: signAttestation(auditor.id, {
+      v: 1,
+      kind: 'attest',
+      event,
+      duty: commitId,
+      position: duty.position,
+      witness: auditor.id.playerId,
+      subject: v.subject,
+      agree: v.agree,
+    }),
+  });
+  return (await within(nextOf(auditor.c, 'duty-end'), 'duty-end')).why;
 }

@@ -2,13 +2,14 @@
 // incoming messages, measured in a hub test (`worker/witness-cost.test.ts`) and extended to other
 // lengths, handover delays and a melee by the model below. Pure: `tools/witness.mjs` runs the test
 // and hands its numbers here. M13's capacity model uses these cuts.
+import { BATCH_FRAMES, HANDOVER_AHEAD, handoverFrame } from '../src/net/handover';
+import { FRAME_MS } from '../src/net/referee';
 
 /** What `worker/witness-cost.test.ts` prints as `WITNESS_MEASURE` (and `WITNESS_CPU`). */
 export interface WitnessMeasure {
   frames: number;
   /** The first frame the witness refereed. */
   from: number;
-  batches: number;
   /** Incoming messages by type before the span (inputs, the duty's 4 signals, `duty-ok`), during it and after the fight (the audit). */
   before: Record<string, number>;
   span: Record<string, number>;
@@ -17,15 +18,10 @@ export interface WitnessMeasure {
   aloneBefore: Record<string, number>;
   aloneSpan: Record<string, number>;
   handoverMs: number;
-  frameMs: number;
   /** Median CPU of one batch's signature checks in workerd, ms. */
   batchMs: number;
 }
 
-/** Frames a batch holds (`BATCH_FRAMES`). */
-export const BATCH_FRAMES = 10;
-/** The handover frame is the referee's next frame plus this many (ADR 0058). */
-export const HANDOVER_LEAD = 3;
 /** The fixed budget the cut must meet at a 30 s duel, and per participant-second (ADR 0058). */
 export const DUEL_CUT = 4;
 export const SPAN_CUT = 10;
@@ -41,10 +37,10 @@ export const SCENARIOS: { name: string; seconds: number; fighters: number }[] = 
 ];
 
 /** The authority's incoming messages for a fight of `seconds` with `fighters` fighters. */
-export function cost(seconds: number, fighters: number, delayS: number, frameMs = 100) {
-  const frames = Math.round((seconds * 1000) / frameMs);
+export function cost(seconds: number, fighters: number, delayS: number) {
+  const frames = Math.round((seconds * 1000) / FRAME_MS);
   const alone = fighters * frames;
-  const handFrom = Math.round((delayS * 1000) / frameMs) + HANDOVER_LEAD;
+  const handFrom = handoverFrame(Math.round((delayS * 1000) / FRAME_MS));
   // A fight over before the handover is refereed by the authority alone.
   if (frames <= handFrom) return { alone, witnessed: alone, handFrom: frames, span: 0, batches: 0 };
   const span = frames - handFrom;
@@ -59,14 +55,13 @@ const times = (n: number) => `${n.toFixed(1)}×`;
 
 /** The measured fight as the model prices it: must agree with what the hub counted. */
 export function modelOfMeasure(m: WitnessMeasure) {
-  return cost((m.frames * m.frameMs) / 1000, 2, m.handoverMs / 1000, m.frameMs);
+  return cost((m.frames * FRAME_MS) / 1000, 2, m.handoverMs / 1000);
 }
 
-const total = (c: Record<string, number>) => Object.values(c).reduce((a, b) => a + b, 0);
+export const total = (c: Record<string, number>) => Object.values(c).reduce((a, b) => a + b, 0);
 
 /** `docs/perf/witness.md` for the measurement. */
 export function witnessReport(m: WitnessMeasure): string {
-  const frameMs = m.frameMs;
   const measuredWith = total(m.before) + total(m.span) + total(m.after);
   const ms5 = Math.max(5, Math.ceil(m.batchMs / 5) * 5);
   const out: string[] = [
@@ -74,7 +69,7 @@ export function witnessReport(m: WitnessMeasure): string {
     '',
     'Reproduce with `npm run report:witness`. The authority is charged for incoming WebSocket messages',
     '(ADR 0008), so this counts those, and nothing it sends. `worker/witness-cost.test.ts` plays a hunt',
-    `of about 30 s (${BATCH_FRAMES * 30} frames) in a hub test on the hand clock, once refereed by the authority alone and`,
+    `of about 30 s (${(30 * 1000) / FRAME_MS} frames) in a hub test on the hand clock, once refereed by the authority alone and`,
     `once by a scripted witness that takes the duty ${m.handoverMs / 1000} s after the lock-in; the table prices other lengths with the`,
     'same model, which `tools/witness-report.test.ts` checks against what the hub counted.',
     '',
@@ -88,21 +83,21 @@ export function witnessReport(m: WitnessMeasure): string {
     "| Inputs from the handover on, or the witness's batches (one a second) | ~20 a second | ~1 a second |",
     `| The auditor's \`duty-ok\` and \`attest\` | 0 | ${(m.after['duty-ok'] ?? 0) + (m.after.attest ?? 0)} |`,
     '',
-    `The cut over the whole duel is ${times(cost(30, 2, m.handoverMs / 1000, frameMs).alone / measuredWith)}`,
+    `The cut over the whole duel is ${times(cost(30, 2, m.handoverMs / 1000).alone / measuredWith)}`,
     `(guard: at least ${DUEL_CUT}×). From the handover on the authority hears the batches and nothing else; per participant-second`,
     `the cut is at least ${SPAN_CUT}× (guard), 10 inputs against 0.5 batches.`,
     '',
     '## The model, by length and handover delay',
     '',
     'A fight of `N` frames with `F` fighters costs the authority alone `F × N` inputs. With a witness it costs',
-    `\`F × h\` inputs before the handover frame \`h\` (the delay plus ${HANDOVER_LEAD} frames), \`2F\` signals, one \`duty-ok\`, one batch`,
+    `\`F × h\` inputs before the handover frame \`h\` (the delay plus ${HANDOVER_AHEAD} frames), \`2F\` signals, one \`duty-ok\`, one batch`,
     `per ${BATCH_FRAMES} frames after \`h\`, and the auditor's 2 messages. A fight over before \`h\` is the authority's alone.`,
     '',
     `| Fight | ${DELAYS_S.map((d) => `Alone | Witnessed (${d} s) | Cut (${d} s)`).join(' | ')} |`,
     `|---|${DELAYS_S.map(() => '---|---|---|').join('')}`,
     ...SCENARIOS.map((s) => {
       const cells = DELAYS_S.map((d) => {
-        const c = cost(s.seconds, s.fighters, d, frameMs);
+        const c = cost(s.seconds, s.fighters, d);
         return `${c.alone} | ${c.witnessed} | ${times(c.alone / c.witnessed)}`;
       });
       return `| ${s.name} | ${cells.join(' | ')} |`;

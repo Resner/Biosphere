@@ -1,19 +1,25 @@
 import { describe, expect, it } from 'vitest';
 import { commitmentId } from '../src/ledger/genesis';
-import { signAttestation } from '../src/ledger/witness';
 import { POOL_MAX } from '../src/ledger/witness-doc';
-import { auditVerdict } from '../src/net/audit';
 import {
   LOG_STEADY_LIMIT_BYTES,
   model,
   packedChars,
   type StorageMeasure,
 } from '../tools/storage-report';
-import { advance, authority, hatched, join, useFightHub, within } from './fight-test-kit';
+import { advance, authority, hatched, join, useFightHub } from './fight-test-kit';
 import { history } from './history-kit';
 import { ask, CALM, closeSockets, nextOf, publish, report, sql } from './test-hub';
 import { DAY_MS } from './usage';
-import { byPlayer, orderOf, useWitnessHub, witnessCommit, witnesses } from './witness-test-kit';
+import {
+  attestAuditor,
+  byPlayer,
+  orderOf,
+  useWitnessHub,
+  waitFor,
+  witnessCommit,
+  witnesses,
+} from './witness-test-kit';
 
 // M9 T10 (ADR 0056): what the authority stores, measured from the rows hub tests write. The guards
 // bound an hour of ordinary play and a fight's log; the measurements, printed as one
@@ -79,38 +85,13 @@ async function witnessRows() {
   const p = await join();
   const { commit } = await ask(p.c, p.id);
   const event = `genesis:${commitmentId(commit.commitment)}`;
-  const wc = await within(
-    (async () => {
-      for (;;) {
-        const found = await witnessCommit(event);
-        if (found) return found;
-      }
-    })(),
-    'the witness commitment',
-  );
+  const wc = await waitFor(() => witnessCommit(event), 'the witness commitment');
   const order = orderOf(wc, wc.id);
   expect(order).toHaveLength(POOL_MAX);
   await publish(commit.commitment.round);
   await nextOf(p.c, 'genesis');
   const auditor = byPlayer(ws, order[0]);
-  const duty = await within(nextOf(auditor.c, 'duty'), 'the auditor duty');
-  if (duty.role !== 'auditor') throw new Error('not an auditor duty');
-  auditor.c.send({ t: 'duty-ok', event });
-  const v = auditVerdict(duty.audit, duty.beacon, []);
-  auditor.c.send({
-    t: 'attest',
-    signed: signAttestation(auditor.id, {
-      v: 1,
-      kind: 'attest',
-      event,
-      duty: wc.id,
-      position: duty.position,
-      witness: auditor.id.playerId,
-      subject: v.subject,
-      agree: v.agree,
-    }),
-  });
-  expect((await within(nextOf(auditor.c, 'duty-end'), 'duty-end')).why).toBe('done');
+  expect(await attestAuditor(auditor, event, wc.id)).toBe('done');
   const commitBytes = await bytesOf('commitments', 'kind = ?', 'witness');
   const attestBytes = await bytesOf('attestations');
   await closeSockets();

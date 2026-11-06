@@ -6,6 +6,7 @@ import {
   modelOfMeasure,
   SCENARIOS,
   SPAN_CUT,
+  total as sum,
   type WitnessMeasure,
   witnessReport,
 } from './witness-report';
@@ -14,24 +15,20 @@ import {
 const measured: WitnessMeasure = {
   frames: 299,
   from: 33,
-  batches: 27,
   before: { input: 66, signal: 4, 'duty-ok': 1 },
   span: { batch: 27 },
   after: { 'duty-ok': 1, attest: 1 },
   aloneBefore: { input: 66 },
   aloneSpan: { input: 532 },
   handoverMs: 3000,
-  frameMs: 100,
   batchMs: 5,
 };
-
-const sum = (c: Record<string, number>) => Object.values(c).reduce((a, b) => a + b, 0);
 
 describe('the witness cost model', () => {
   it('agrees with what the hub counted', () => {
     const c = modelOfMeasure(measured);
     expect(c.handFrom).toBe(measured.from);
-    expect(c.batches).toBe(measured.batches);
+    expect(c.batches).toBe(measured.span.batch);
     expect(c.witnessed).toBe(sum(measured.before) + sum(measured.span) + sum(measured.after));
     expect(c.alone).toBe(sum(measured.aloneBefore) + sum(measured.aloneSpan));
   });
@@ -41,7 +38,7 @@ describe('the witness cost model', () => {
       const c = cost(30, 2, d);
       expect(c.alone / c.witnessed, `delay ${d} s`).toBeGreaterThanOrEqual(DUEL_CUT);
       // Per participant-second: 10 inputs a second each against one batch a second shared.
-      expect(10 / (c.batches / 2 / (c.span / 10))).toBeGreaterThanOrEqual(SPAN_CUT);
+      expect((2 * c.span) / c.batches).toBeGreaterThanOrEqual(SPAN_CUT);
     }
   });
 
