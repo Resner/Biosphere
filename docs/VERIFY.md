@@ -13,6 +13,7 @@ Every creature's history can be checked by anyone, with the creatures and their 
   - `--json`: print the `LineageReport` instead of words.
 
   Exit codes: 0 verified, 1 a problem found, 2 nothing to verify (unreachable, 404, busy, malformed, bad arguments).
+- **What witnesses saw.** The card ends the hatch or birth and each fight in its story with what a witness did ("refereed by a witness", "audited by a witness" or "checked by the authority alone", and "a witness disagreed; the authority's result stands" when one was overruled), and its details, like the CLI's second line, count them: "Witnesses: 4 of 6 events seen by a witness; 2 checked by the authority alone". `--json` holds the counts (`witnessed`) and each event (`events`).
 - **Your own code.** Parse untrusted JSON with `parseProofBundle`, then call `verifyLineage(bundle, { keys, logs, replay })`. It is pure, never throws, and has no DOM or network. `replay` is `verifyEncounter` from `src/net/encounter-verify.ts`, passed in so that the ledger code stays off the network code.
 
 ## What each family proves
@@ -23,7 +24,7 @@ Every creature's history can be checked by anyone, with the creatures and their 
 - **Time gates, costs and growth**: the life clock never ran backwards, faster than real time allows or past the lifespan, nobody mated before they were old enough or inside a cooldown, a mating cost what the rules say, nobody grew faster than their genes allow, and a creature put aside stayed exactly as it was until its restore.
 - **Fights**: each fight has one countersigned settlement, and each fight record agrees with it and with the clock around it. With `--replay`, the fight's log plays through to the settlement's end state and results.
 - **Witnesses** (ADR 0058): for each fight, mating and genesis the bundle holds, the authority committed to a pool of up to 16 eligible players and to a drand round before that round existed, and the round's randomness ordered the pool. The check recomputes that order and confirms:
-  - the witness commitment is countersigned, its pool sorted, unique and at most 16 long, and its round was unpublished when committed (a mating's or a genesis's is the event's own round) and carries drand's signature;
+  - the witness commitment is countersigned (by a key in force by the first record that names the event, as for any commitment), its pool sorted, unique and at most 16 long, and its round was unpublished when committed (a mating's or a genesis's is the event's own round) and carries drand's signature;
   - each witness who refereed frames of a fight (the settlement's referee spans, which start with the authority at frame 0) holds the place in the order the span names;
   - each attestation is signed by its witness, comes from that witness's place, names the event's commitment and the event itself (the settlement's hash, the genesis record's hash, or both births' hashes), and no place serves twice.
 

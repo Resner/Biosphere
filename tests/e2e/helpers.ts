@@ -229,6 +229,8 @@ export const M9_LINEAGE_HUB = 'http://localhost:8819';
 export const M9_LIFECYCLE_HUB = 'http://localhost:8821';
 /** The M10 audit spec's hub (M10 T8), with the M5 hooks, `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`. */
 export const M10_AUDIT_HUB = 'http://localhost:8825';
+/** The M10 card spec's hub (M10 T10), with `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`: a witnessed fight on a card. */
+export const M10_CARD_HUB = 'http://localhost:8826';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {

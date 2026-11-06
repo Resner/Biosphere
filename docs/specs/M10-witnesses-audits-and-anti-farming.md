@@ -613,7 +613,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - `speedTest`: the witness family on a 64-creature bundle with 64 fights takes under 1 s in Node.
   - Notes: the honest history stays as M9 built it. This task adds documents beside it, never changes it to make a family pass.
 
-- [ ] T10 Witnesses in bundles, on the card and in the CLI [opus] (after T5, T8, T9, T15) (in progress)
+- [x] T10 Witnesses in bundles, on the card and in the CLI [opus] (after T5, T8, T9, T15) (in progress)
+  - Done: `proof.ts` reads each held event's witness commitment by its request key, and `Beacons.pruneWitnesses` runs in the settlement's transaction; the card's story takes the report (one line per fight when several), `witnessedLine` in `verify.ts` serves card and CLI.
+  - Gotcha: in fixture mode a commitment's `t` and `created` are drand-fixture time, so the prune runs on the beacon source's clock and the witness family checks the commitment's key at the event's first record (as for any commitment), not at its `t`.
   - Steps:
     1. `worker/proof.ts`: a bundle (version 2) holds:
        - the witness commitments of its held events that are still kept;
@@ -626,7 +628,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
        - `__card.state().witnessed`.
     3. The CLI prints the same counts after the verdict, and `--json` includes them.
     4. `docs/VERIFY.md`, DESIGN §5, `docs/TESTING.md`.
-    5. E2E `m10-card.spec.ts` (hub 8826): after a witnessed and audited fight (`m10-steps.ts`), every page closes. A's card verifies, says "refereed by a witness" on that fight, and attaches desktop and 390 px screenshots.
+    5. E2E `m10-card.spec.ts` (hub 8826): after a fight that witnesses saw, every page closes. A's card verifies, ends that fight's line as the hub's settlement and attestation say ("refereed by a witness, audited by another" once the page takes the referee duty (T7), else "audited by a witness"), and attaches desktop and 390 px screenshots. T10 does not follow T7, so a page-refereed fight on a card is asserted in `m10-lifecycle` (T17); the hub test covers it here.
   - Acceptance (tests first):
     - Hub tests:
       - a creature whose fight a witness refereed and audited gets a bundle with its commitment and attestation, which verifies with `refereed: 1, audited: 1`;

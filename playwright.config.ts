@@ -91,6 +91,8 @@ const m9LifecycleHubPort = 8821;
 // The M10 audit spec (8825), with the M5 hooks and the witness variables: every play counts and
 // the IP check is off (every context shares localhost), so the third and fourth pages can audit.
 const m10AuditHubPort = 8825;
+// The M10 card spec (8826), with the witness variables: a fight two witnesses saw, then A's card.
+const m10CardHubPort = 8826;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -404,6 +406,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m10AuditHubPort} --persist-to .wrangler/e2e-state-m10-audit --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off`,
       url: `http://localhost:${m10AuditHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m10CardHubPort} --persist-to .wrangler/e2e-state-m10-card --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off`,
+      url: `http://localhost:${m10CardHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
