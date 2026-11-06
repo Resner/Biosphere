@@ -432,7 +432,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - The cache headers are as above, and a second request for a dead creature's bundle doesn't reach the object (an RPC counter).
   - Notes: the bundle must reach only creatures that the subject's records name, never another player's other creatures. T12 builds the card on these endpoints.
 
-- [x] T8 The audit: one curve for the authority and the verifier, and flags for conflicts, replays and implausible progress [opus] (after T4, T5, T6, T7, T9) (in progress)
+- [x] T8 The audit: one curve for the authority and the verifier, and flags for conflicts, replays and implausible progress [opus] (after T4, T5, T6, T7, T9)
   - Done: `LifeState` binds to the last record (`recorded()`; `startT` for `clock-too-fast`), `worker/audit.ts` (catalogue, `Audit` moved out of `ledger.ts`, `GET /v1/audit`), `replay` and `claim-over`; tests in `audit.test.ts` and `audit-property.test.ts` (40 seeded scripts, the harness in `lineage-test-kit.ts`).
   - Gotcha: the hub now refuses matings under the maturity size, which `MATING_SCALE` shortens like maturity's time (`matureBiomassOf(genome, s)`), so E2E courts still mate in seconds. The client reports just before a court or an accept (a stale record cut honest growth after matings, `m7-kill`), and counts ticks from its `life` message.
   - Steps:
