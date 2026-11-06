@@ -20,7 +20,7 @@ export default defineConfig({
         extends: './vite.config.ts',
         test: {
           name: 'node',
-          include: ['src/**/*.test.ts', 'tools/**/*.test.ts'],
+          include: ['src/**/*.test.ts', 'tools/**/*.test.ts', 'tests/*.test.ts'],
           // Untagged tests take under about 2 s; this leaves room for a loaded runner.
           testTimeout: 20_000,
           tags,

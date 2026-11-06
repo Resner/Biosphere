@@ -113,4 +113,23 @@ Written by `npm run report:net` (`tools/net-report.ts`); rules v11. 2 `Encounter
 | 250 | 60 | 5.0% | 20 | 2.4% | 7.59 | 10 | 24 | yes |
 | 250 | 60 | 5.0% | 60 | 26.9% | 5.73 | 10 | 3 | yes |
 
-Report hash: `9979a39870770766` (rules v11).
+## A witness referees
+
+A witness referees frames 33 to 299 of a calm duel (seed `witness-19`, throttle at most 1 and no dash, so the fight runs long), and the authority takes it back at frame 300, announced 3 frames ahead (ADR 0058). Each fighter sends its inputs for the witness's frames to the witness over its own link (one way and jitter below) and takes its frames from it, leading by that link's latency; the hub's link is 80 ms one way with the same jitter and no loss, and each fighter's hub clock is 20 ms off, one early and one late. The witness's own estimate of the hub clock is off by its clock error (negative is early). Inputs on time count, at each frame's referee, the inputs it took for it. Overruled counts the authority's frames that differed from a witness's.
+
+| Witness one way (ms) | Jitter (ms) | Witness clock error (ms) | Witnessed frames | Own inputs on time | Rollbacks / s | Deepest rollback (frames) | Resyncs | Overruled | Same hash as the referee |
+|---|---|---|---|---|---|---|---|---|---|
+| 20 | 0 | -20 | 267 | 100.0% | 4.16 | 3 | 0 | 0 | yes |
+| 20 | 0 | +20 | 267 | 100.0% | 4.16 | 3 | 0 | 0 | yes |
+| 20 | 30 | -20 | 267 | 99.9% | 4.17 | 3 | 0 | 0 | yes |
+| 20 | 30 | +20 | 267 | 99.9% | 4.17 | 3 | 0 | 0 | yes |
+| 80 | 0 | -20 | 267 | 99.9% | 4.17 | 3 | 0 | 0 | yes |
+| 80 | 0 | +20 | 267 | 99.9% | 4.17 | 3 | 0 | 0 | yes |
+| 80 | 30 | -20 | 267 | 99.9% | 4.17 | 3 | 0 | 0 | yes |
+| 80 | 30 | +20 | 267 | 99.9% | 4.17 | 3 | 0 | 0 | yes |
+| 150 | 0 | -20 | 267 | 99.9% | 4.17 | 4 | 0 | 0 | yes |
+| 150 | 0 | +20 | 267 | 99.9% | 4.17 | 4 | 0 | 0 | yes |
+| 150 | 30 | -20 | 267 | 99.8% | 4.13 | 5 | 0 | 0 | yes |
+| 150 | 30 | +20 | 267 | 99.8% | 4.13 | 5 | 0 | 0 | yes |
+
+Report hash: `e9261b1a3046231c` (rules v11).

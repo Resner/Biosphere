@@ -45,7 +45,7 @@ export type EncFrameMsg = Extract<HubMsg, { t: 'enc-frame' }>;
 export type EncJoinMsg = EncJoin;
 export type EncEndMsg = Extract<HubMsg, { t: 'enc-end' }>;
 export type InputMsg = Extract<ClientMsg, { t: 'input' }>;
-type Inputs = (number | null)[];
+export type Inputs = (number | null)[];
 
 /** How far the local clock runs ahead of the hub's, so an input sent at its frame's start arrives in time. */
 export const leadMs = (oneWayMs: number): number =>
@@ -53,7 +53,7 @@ export const leadMs = (oneWayMs: number): number =>
 
 const STATE_KEYS = ['x', 'y', 'vx', 'vy', 'heading', 'biomass', 'energy', 'health'] as const;
 
-const sameInputs = (a: Inputs | undefined, b: Inputs): boolean =>
+export const sameInputs = (a: Inputs | undefined, b: Inputs): boolean =>
   a !== undefined && a.length === b.length && a.every((v, i) => v === b[i]);
 
 /** A remote's prediction: its last confirmed input with brace and dash cleared (null stays the autopilot). */
@@ -252,10 +252,34 @@ export class EncounterSync {
     this.bundles[msg.f] = inputs;
     if (msg.f > this.newest) this.newest = msg.f;
     while (this.bundles[this.confirmed] !== undefined) this.confirmed++;
-    if (msg.f >= this.frame || sameInputs(this.used[msg.f], inputs)) return;
+    this.markStale(msg.f, inputs);
+  }
+
+  /** Frame `f` changed: roll back to it at the next step, unless it is unplayed, unchanged or past the end. */
+  private markStale(f: number, inputs: Inputs): void {
+    if (f >= this.frame || sameInputs(this.used[f], inputs)) return;
     // Once the fight is over, a later frame changes nothing.
-    if (enc.over && msg.f >= enc.frame) return;
-    this.dirty = this.dirty === null ? msg.f : Math.min(this.dirty, msg.f);
+    if (this.enc?.over && f >= this.enc.frame) return;
+    this.dirty = this.dirty === null ? f : Math.min(this.dirty, f);
+  }
+
+  /**
+   * The authority's frame where it differs from the one taken before, from a witness (ADR 0058):
+   * it replaces it, and a frame already played rolls back at the next step. True when it changed
+   * the frame held, or took it for the first time.
+   */
+  overrule(msg: EncFrameMsg): boolean {
+    const { enc } = this;
+    if (!enc || msg.enc !== this.id || this.over) return false;
+    const held = this.bundles[msg.f];
+    if (held === undefined) {
+      this.receive(msg);
+      return this.bundles[msg.f] !== undefined;
+    }
+    if (msg.i.length !== held.length || sameInputs(held, msg.i)) return false;
+    this.bundles[msg.f] = [...msg.i];
+    this.markStale(msg.f, msg.i);
+    return true;
   }
 
   /** Fighters in frame `f`: the start's and those joined by then. */

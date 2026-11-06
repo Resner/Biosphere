@@ -122,6 +122,8 @@ export class ScriptedReferee {
   readonly bundles: (number | null)[][] = [];
   /** Fighters joined (M7 T15), each seated before its frame is stepped. */
   readonly joins: EncounterJoin[] = [];
+  /** Frames a witness referees (M10 T3): they come from its batches (`take`), never from inputs. */
+  witnessed: { from: number; to: number } | null = null;
   private readonly inputs = new Map<number, (number | null)[]>();
 
   constructor(
@@ -169,6 +171,7 @@ export class ScriptedReferee {
     const out: Extract<HubMsg, { t: 'enc-frame' }>[] = [];
     while (!this.enc.over && this.next < E.timeoutFrames) {
       const f = this.next;
+      if (this.witnessed && f >= this.witnessed.from && f < this.witnessed.to) break;
       applyJoins(this.enc, this.joins);
       const row = this.inputs.get(f) ?? [];
       while (row.length < this.width(f)) row.push(null);
@@ -180,6 +183,23 @@ export class ScriptedReferee {
       this.next++;
       out.push({ t: 'enc-frame', enc: this.start.id, f, i: row });
     }
+    return out;
+  }
+
+  /**
+   * A witness's batch: frames `f` on, each stepped on the referee's own encounter as if finalized
+   * here. Frames already final are skipped; a gap stops it. Returns the frames taken.
+   */
+  take(f: number, rows: readonly (number | null)[][]): Extract<HubMsg, { t: 'enc-frame' }>[] {
+    const out: Extract<HubMsg, { t: 'enc-frame' }>[] = [];
+    rows.forEach((row, k) => {
+      if (f + k !== this.next || this.enc.over) return;
+      applyJoins(this.enc, this.joins);
+      this.bundles.push([...row]);
+      stepFrame(this.enc, row);
+      this.next++;
+      out.push({ t: 'enc-frame', enc: this.start.id, f: f + k, i: [...row] });
+    });
     return out;
   }
 
