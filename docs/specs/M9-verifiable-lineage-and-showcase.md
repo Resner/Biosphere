@@ -513,7 +513,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### Showing it
 
-- [ ] T11 The CLI verifier and `docs/VERIFY.md` (after T4, T5, T6, T7) (in progress)
+- [x] T11 The CLI verifier and `docs/VERIFY.md` (after T4, T5, T6, T7)
+  - Done: `tools/verify-lineage.ts` (`runVerify` with injected files and `fetch`), `tools/lineage.mjs`, `docs/VERIFY.md`. `--replay` beside a bundle file reads `fights/<enc>.json`, the layout `--save` writes.
+  - Gotcha: `bundleOf` shares record objects with its history, so a tamper test `structuredClone`s first.
   - Steps:
     1. `npm run verify:lineage -- <creature id | bundle.json>` (`tools/lineage.mjs` loads `tools/verify-lineage.ts` through Vite, as `tools/net.mjs` does). Its options:
        - `--hub <url>`: default `$AUTHORITY_URL`; it fetches `/v1/proof/<id>`;
