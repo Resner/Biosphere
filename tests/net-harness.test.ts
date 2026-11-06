@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { framesRoot } from '../src/ledger/settlement';
 import { encounterStartOf } from '../src/net/encounter-start';
 import { KEEP_FRAMES } from '../src/net/encounter-sync';
 import { FRAME_MS } from '../src/net/referee';
@@ -102,6 +103,39 @@ describe('net harness (M8 T13)', () => {
     const gapTo = Math.floor((from + 5000 - 300) / FRAME_MS);
     expect(r.frames).toBeGreaterThan(gapTo);
     for (let f = gapFrom; f < gapTo; f++) expect(r.bundles[f]?.[0], `frame ${f}`).toBeNull();
+  });
+});
+
+describe('a witness phase (M10 T3)', () => {
+  // A calm duel long enough for a witness's span and a take-back.
+  const o = { seed: 'witness-19', clients: 2, link: link(20, 0, 0, 0), calm: true };
+  const phase = { from: 33, until: 120, oneWayMs: 20, jitterMs: 0, clockErrMs: 0 };
+
+  it('gives the same frames, root and hash refereed by the authority alone or by a witness from 33 to 119', () => {
+    const alone = runHarness(o);
+    const witnessed = runHarness({ ...o, witness: phase });
+    expect(alone.frames).toBeGreaterThan(phase.until + 10);
+    expect(alone.witness).toBeNull();
+    expect(witnessed.witness).toMatchObject({ frames: phase.until - phase.from, hash: null });
+    // Every input was delivered in both runs, so both refereed the same frames.
+    expect(alone.bundles.every((row) => row.every((code) => code !== null))).toBe(true);
+    expect(witnessed.bundles).toEqual(alone.bundles);
+    expect(framesRoot(witnessed.bundles)).toBe(framesRoot(alone.bundles));
+    expect(witnessed.refereeHash).toBe(alone.refereeHash);
+    expect(alone.converged).toBe(true);
+    expect(witnessed.converged).toBe(true);
+    for (const c of witnessed.clients) {
+      expect(c.onTime).toBe(c.sent);
+      expect([c.resyncs, c.overruled, c.disputes, c.desyncs]).toEqual([0, 0, 0, 0]);
+    }
+    expect(runHarness({ ...o, witness: phase })).toEqual(witnessed);
+  });
+
+  it('ends on the witness’s hash when it referees the fight’s end', () => {
+    const r = runHarness({ ...o, witness: { ...phase, until: undefined, oneWayMs: 80 } });
+    expect(r.witness?.hash).toBe(r.refereeHash);
+    expect(r.witness?.batches).toBe(Math.ceil((r.frames - phase.from) / 10));
+    expect(r.converged).toBe(true);
   });
 });
 

@@ -258,6 +258,27 @@ export class EncounterSync {
     this.dirty = this.dirty === null ? msg.f : Math.min(this.dirty, msg.f);
   }
 
+  /**
+   * The authority's frame where it differs from the one taken before, from a witness (ADR 0058):
+   * it replaces it, and a frame already played rolls back at the next step. True when it changed
+   * the frame held.
+   */
+  overrule(msg: EncFrameMsg): boolean {
+    const { enc } = this;
+    if (!enc || msg.enc !== this.id || this.over) return false;
+    const held = this.bundles[msg.f];
+    if (held === undefined) {
+      this.receive(msg);
+      return this.bundles[msg.f] !== undefined;
+    }
+    if (msg.i.length !== held.length || sameInputs(held, msg.i)) return false;
+    this.bundles[msg.f] = [...msg.i];
+    if (msg.f >= this.frame || sameInputs(this.used[msg.f], msg.i)) return true;
+    if (enc.over && msg.f >= enc.frame) return true;
+    this.dirty = this.dirty === null ? msg.f : Math.min(this.dirty, msg.f);
+    return true;
+  }
+
   /** Fighters in frame `f`: the start's and those joined by then. */
   private width(f: number): number {
     const first = this.origin?.fighters.length ?? 0;
