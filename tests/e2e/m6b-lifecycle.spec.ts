@@ -218,7 +218,13 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
     ['abyss', 'pressure'],
   ] as const) {
     const hits = (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0;
-    await a.evaluate((z) => (window.__bs as BsHook).debug?.setZone(z), zone);
+    // Full health each time: a slow runner lets the world run past one hit, and the shallows' UV
+    // would leave too little for the abyss' pressure to show before it kills.
+    await a.evaluate((z) => {
+      const debug = (window.__bs as BsHook).debug;
+      debug?.setZone(z);
+      debug?.setHealth(Number.MAX_SAFE_INTEGER);
+    }, zone);
     await expect(
       a.locator(`[data-testid="minimap-hazard"][data-hazard="${hazard}"]`),
     ).toBeVisible();
