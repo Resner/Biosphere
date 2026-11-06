@@ -4,8 +4,9 @@
 // transaction writes the tail with the countersigned document and closes the row (`seal`).
 // Recovery after a restart (`recover.ts`) reads it back.
 
-import type { FightLog, SignedSettlement } from '../src/ledger/settlement';
+import { type FightLog, parseRefereeSpans, type SignedSettlement } from '../src/ledger/settlement';
 import type { EncJoin, EncStart } from '../src/net/encounter-start';
+import type { RefereeSpan } from '../src/net/handover';
 import { packFrames, unpackFrames } from './fight-pack';
 import type { Fight } from './fights';
 import { DAY_MS } from './usage';
@@ -41,6 +42,8 @@ export interface FightRow {
   /** When the row was inserted (hub time). */
   t: number;
   settlement: string | null;
+  /** Who refereed which frames (ADR 0058), as last saved; null until a handover. */
+  referees: RefereeSpan[] | null;
 }
 
 interface StoredRow extends Record<string, SqlStorageValue> {
@@ -54,6 +57,7 @@ interface StoredRow extends Record<string, SqlStorageValue> {
   open: number;
   t: number;
   settlement: string | null;
+  referees: string;
 }
 
 /** The final frames' inputs, in order, as the fight's history holds them. */
@@ -86,8 +90,19 @@ const rowOf = (row: StoredRow): FightRow => {
     open: row.open === 1,
     t: row.t,
     settlement: row.settlement,
+    referees: spansOf(row.referees),
   };
 };
+
+/** The saved spans, or null when none were saved (or they no longer read). */
+function spansOf(text: string): RefereeSpan[] | null {
+  if (!text) return null;
+  try {
+    return parseRefereeSpans(JSON.parse(text));
+  } catch {
+    return null;
+  }
+}
 
 export class FightStore {
   /** Rows this store has written (also added to the ledger's count, which the usage meter reads). */
@@ -126,6 +141,15 @@ export class FightStore {
     // `referee.next` counts the final frames, so a tick that finishes no batch builds nothing.
     const upTo = fight.referee.next - (fight.referee.next % BATCH_FRAMES);
     if (upTo > fight.persisted) this.frames(fight, framesOf(fight).slice(0, upTo));
+  }
+
+  /** Saves who referees which frames (a handover or a take-back, ADR 0058): one row; throws when it can't. */
+  referees(fight: Fight): void {
+    this.run(
+      'UPDATE encounters SET referees = ? WHERE id = ?',
+      JSON.stringify(fight.spans),
+      fight.start.enc,
+    );
   }
 
   /** Writes every final frame not yet written (a participant's socket closed). */

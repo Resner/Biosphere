@@ -45,6 +45,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
+import { witnessLocked } from './witness-fight';
 import { commitWitnesses } from './witness-pool';
 
 const E = RULES.encounter;
@@ -200,7 +201,10 @@ export function engage(
     const world = createWorld({ seed: pond.seed, size: RULES.world.size });
     if (!admit(hub, lock, fight, (tick) => fighterInfo(hub, joiner, world, tick), joiner.life)) {
       sendIfOpen(ws, { t: 'refused', reason: 'engage:stale' });
+      return;
     }
+    // A fight the joiner referees is taken back (ADR 0058).
+    witnessLocked(hub, [joiner.player]);
     return;
   }
   const { asking, targetWs } = checked;
@@ -214,6 +218,8 @@ export function engage(
     () => start(hub, id),
   );
   lock.asking = asking;
+  // A fight either side referees is taken back: a witness can't fight and referee (ADR 0058).
+  witnessLocked(hub, lock.players);
   sendIfOpen(targetWs, { t: 'lock-ask', lock: id, by: attacker.player });
 }
 

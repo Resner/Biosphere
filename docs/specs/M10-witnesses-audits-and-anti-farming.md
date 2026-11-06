@@ -406,7 +406,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - `worthOf` (T12) shares `playedMs`.
     - `engage.ts` is T11's after this task.
 
-- [ ] T5 The authority hands fights to witnesses and takes them back [opus] (after T3, T4, T9)
+- [x] T5 The authority hands fights to witnesses and takes them back [opus] (after T3, T4, T9)
+  - Done: `worker/witness-fight.ts` (the phase, its timer, failures and planned take-backs, version 2 spans), `ScriptedWitness` in the kit; a failure before W's first frame takes back at `max(h', h + 1)`, so spans stay strictly increasing; settled spans drop any that refereed no frame.
+  - Gotcha: `recoverFights` (every alarm) looked fights up by lock id, but a lock-in's lock has its own id, so any alarm closed a running fight's row; it now looks by encounter too (`Fights.ofEncounter`).
   - Steps:
     1. `worker/witness-fight.ts` (called from `fights.ts` and `duty.onReferee`):
        - **the handover**: on the referee's `duty-ok`, `h = referee.next + HANDOVER_AHEAD`. `enc-referee { from: h, by: W }` goes to the fighters and W, the span is written to the row's `referees`, and W hears `enc-frame`s up to `h − 1`.

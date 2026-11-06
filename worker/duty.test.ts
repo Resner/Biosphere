@@ -109,9 +109,9 @@ describe('witness duties', () => {
     expect(types(await flush(f.at(3).c))).not.toContain('duty-end');
     expect(await authority((o) => o.duties.strays)).toBe(strays + 1);
     expect(await offersOf(f.event)).toEqual([[0, 'pending']]);
-    // Taken: until T5 hands the fight over, the duty just ends, counted in the witness's hour.
+    // Taken: the fight is handed over (`witness-fight.test.ts`), counted in the witness's hour.
     f.at(0).c.send({ t: 'duty-ok', event: f.event });
-    expect((await nextOf(f.at(0).c, 'duty-end')).why).toBe('done');
+    expect((await nextOf(f.at(0).c, 'enc-referee')).by).toBe(f.at(0).id.playerId);
     expect(await offersOf(f.event)).toEqual([[0, 'ok']]);
     const hour = await authority((o) => {
       for (const ws of o.ctx.getWebSockets()) {
@@ -121,7 +121,8 @@ describe('witness duties', () => {
       return undefined;
     });
     expect(hour).toHaveLength(1);
-    expect(await poolNow([f.a, f.b])).toContain(f.at(0).id.playerId);
+    // It holds the duty while it referees.
+    expect(await poolNow([f.a, f.b])).not.toContain(f.at(0).id.playerId);
   });
 
   it('moves an offer on when its player leaves', async () => {

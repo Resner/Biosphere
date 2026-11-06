@@ -4,6 +4,7 @@
 // connected participant hears the fight again from its start, and one that ended meanwhile settles.
 
 import { type EncJoin, encounterStartOf, fighterStartOf } from '../src/net/encounter-start';
+import { AUTHORITY, type RefereeSpan } from '../src/net/handover';
 import type { FighterInfo, FighterOutcome, HubMsg } from '../src/net/protocol';
 import { Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
@@ -26,7 +27,8 @@ import { type Hub, seated, sendIfOpen } from './socket';
  */
 export function recoverFights(hub: Hub, now: number): void {
   for (const row of hub.fightStore.openRows()) {
-    if (hub.fights.get(row.id)) continue;
+    // Held in memory: a lock-in's lock has its own id, a rebuilt one the encounter's.
+    if (hub.fights.get(row.id) || hub.fights.ofEncounter(row.id)) continue;
     try {
       recover(hub, row, now);
     } catch (error) {
@@ -54,6 +56,14 @@ function recover(hub: Hub, row: FightRow, now: number): void {
   }
   const lock = hub.fights.adopt(row.id, [...fight.players], creatures);
   lock.fight = fight;
+  // A witness's span ended with the memory that held its duty: the authority referees from the log's end.
+  if (row.referees && JSON.stringify(fight.spans) !== JSON.stringify(row.referees)) {
+    try {
+      hub.fightStore.referees(fight);
+    } catch (error) {
+      console.error('fight recovery: the referees are not saved', row.id, error);
+    }
+  }
   // The resync first, so no client sees a frame replaced before it hears the fight again.
   for (const player of fight.players) resend(hub, lock, player);
   if (fight.enc.over) {
@@ -121,7 +131,22 @@ function rebuild(hub: Hub, row: FightRow): Fight | null {
     t0: row.start.t0,
     persisted: row.frames.length,
     awayDue: null,
+    spans: spansAfter(row.referees, row.frames.length),
+    witness: null,
+    batched: [],
   };
+}
+
+/**
+ * The saved spans as a rebuilt fight keeps them: those that refereed one of the log's frames, then
+ * the authority from the log's end when a witness held the last one (ADR 0058).
+ */
+function spansAfter(saved: RefereeSpan[] | null, frames: number): RefereeSpan[] {
+  const spans = (saved ?? []).filter((s, k) => k > 0 && s.from < frames);
+  const out: RefereeSpan[] = [{ by: AUTHORITY, from: 0 }, ...spans];
+  if ((out[out.length - 1] as RefereeSpan).by !== AUTHORITY)
+    out.push({ by: AUTHORITY, from: frames });
+  return out;
 }
 
 /**

@@ -22,6 +22,7 @@ import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
+import { refereeingOf, witnessDone } from './witness-fight';
 
 /** Sends `msg` to every participant who is connected now. */
 export function tell(hub: Hub, lock: Lock, msg: HubMsg): void {
@@ -100,6 +101,9 @@ function lockedTimes(fight: Fight): number[] {
  */
 export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): void {
   const { enc } = fight;
+  // Who refereed which frames, and the witness commitment, as version 2 names them (ADR 0058).
+  const refereeing = refereeingOf(hub, fight);
+  witnessDone(hub, fight);
   const done = results(enc);
   const fighters = outcomesOf(enc, done);
   const creatureAt = (slot: number | null) =>
@@ -134,7 +138,7 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
     settled = hub.ledger.settle({
       enc: enc.id,
       fighters: records,
-      settlement: settlementOf(log, enc, hub.clock.now()),
+      settlement: settlementOf(log, enc, hub.clock.now(), refereeing),
       log: {
         stored: () => hub.fightStore.settlement(enc.id),
         seal: (signed) => {
