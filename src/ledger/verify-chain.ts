@@ -152,15 +152,18 @@ export function verifySignatures(index: BundleIndex, _opts: VerifyOptions): Prob
         : 'commit-sig');
     if (code) out.push(problem('signature', creature, seq, code));
   }
-  for (const [enc, s] of index.settlements) {
+  for (const [enc, copies] of index.settlements) {
     const [creature, seq] = whereNamed(index, naming.enc.get(enc));
-    const code =
-      keyProblem(index, s.keyId, s.settlement.t, 'settlement-') ??
-      (s.hash === settlementHash(s.settlement) &&
-      countersigned(verifiers, index.keys.get(s.keyId) as AuthorityKey, s.hash, s.authSig)
-        ? null
-        : 'settlement-sig');
-    if (code) out.push(problem('signature', creature, seq, code));
+    // Every copy: a duplicate (the fights family's to name) is checked as much as the first.
+    for (const s of copies) {
+      const code =
+        keyProblem(index, s.keyId, s.settlement.t, 'settlement-') ??
+        (s.hash === settlementHash(s.settlement) &&
+        countersigned(verifiers, index.keys.get(s.keyId) as AuthorityKey, s.hash, s.authSig)
+          ? null
+          : 'settlement-sig');
+      if (code) out.push(problem('signature', creature, seq, code));
+    }
   }
   return out;
 }

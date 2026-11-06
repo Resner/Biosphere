@@ -338,6 +338,54 @@ describe('a fight replayed from its log', () => {
   });
 });
 
+describe('a fight settled twice', () => {
+  /** The golden's settlement with A1's reward 1 hundredth higher, signed again. */
+  const richer = (b: ProofBundle): SignedSettlement => {
+    const settlement = structuredClone((b.settlements[0] as SignedSettlement).settlement);
+    const result = settlement.results.find((r) => r.creature === A1);
+    if (!result) throw new Error('no result for A1');
+    result.reward += 1;
+    return signSettlement(AUTH_SECRET, settlement);
+  };
+
+  it('names a second settlement of the fight, even one the same as the first', () => {
+    const b = golden();
+    b.settlements.push(structuredClone(b.settlements[0] as SignedSettlement));
+    expect(verifyLineage(b).problems).toEqual([at(A1, 3, 'settlement-duplicate')]);
+    expect(verifyLineage(b).fights.settled).toBe(1);
+  });
+
+  it('names a second settlement with other results, re-signed, and checks the records against it', () => {
+    const b = golden();
+    b.settlements.push(richer(b));
+    expect(verifyLineage(b).problems).toEqual([
+      at(A1, 3, 'settled:reward'),
+      at(A1, 3, 'settlement-duplicate'),
+    ]);
+  });
+
+  it('checks the signature of an earlier copy', () => {
+    const b = golden();
+    const corrupted = structuredClone(b.settlements[0] as SignedSettlement);
+    const sig = [...corrupted.authSig];
+    sig[5] = sig[5] === 'A' ? 'B' : 'A';
+    corrupted.authSig = sig.join('');
+    b.settlements.unshift(corrupted);
+    expect(verifyLineage(b).problems).toEqual([
+      { ...at(A1, 3, 'settlement-sig'), family: 'signature' },
+      at(A1, 3, 'settlement-duplicate'),
+    ]);
+  });
+
+  it('replays an earlier copy', () => {
+    const b = golden();
+    b.settlements.unshift(richer(b));
+    const problems = verifyLineage(b, replaying()).problems;
+    expect(problems).toContainEqual(at(A1, 3, 'settlement-duplicate'));
+    expect(problems.some((p) => p.code.startsWith('replay:result'))).toBe(true);
+  });
+});
+
 describe('problemText for the fights', () => {
   it('has a sentence for every code the family names, and for each replay problem', () => {
     const fields = [
@@ -368,6 +416,7 @@ describe('problemText for the fights', () => {
     ];
     const codes = [
       'settlement-missing',
+      'settlement-duplicate',
       'fight-clock',
       'fight-growth',
       'start-growth',

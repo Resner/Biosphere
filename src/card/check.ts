@@ -52,7 +52,7 @@ export class LineageCheck {
       const enc = s.record.body.enc;
       if (creatureOf(s) === this.bundle.subject && typeof enc === 'string') own.add(enc);
     }
-    const all = this.bundle.settlements.map((s) => s.settlement.enc);
+    const all = [...new Set(this.bundle.settlements.map((s) => s.settlement.enc))];
     return [...all.filter((e) => own.has(e)), ...all.filter((e) => !own.has(e))];
   }
 
