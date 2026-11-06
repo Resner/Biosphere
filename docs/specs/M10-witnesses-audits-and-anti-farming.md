@@ -168,6 +168,7 @@ export const DUTY_MAX_BYTES = 131_072;
 //   { t: 'dispute'; enc: string; f: number; i: (number | null)[]; sig: string }   // the witness's signed frame
 //   { t: 'attest'; signed: SignedAttestation }
 //   lock-state gains seen?: SignedSnap[] (at most 5; T11 fills it)
+//   lock-ask gains by: string (the attacker's player id, so the target knows whose snapshots are `seen`; T11)
 // HubMsg gains:
 //   { t: 'duty'; event; role: 'referee'; position; commit: SignedCommit; beacon: Beacon; pondSeed: string;
 //     fighters: string[]; start: EncStart; history: DutyHistory[] }
@@ -632,7 +633,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Anti-farming
 
-- [ ] T11 The movement check at lock-in [opus] (after T4) (in progress)
+- [x] T11 The movement check at lock-in [opus] (after T4) (in progress)
+  - Done: `worker/movement.ts` (`jumped`), checked in `lockAnswer`; `SignedSnaps` keeps the last 5 and `lock-ask` gained `by` (the target could not tell whose snapshots to send). The 1,000 honest paths are a `heavyTest` (about 3 s; worst 0.66 of the bound).
+  - Gotcha: an attacker within 3 s of its own fight's end is not checked (`Fights.fightEnded`): a fight's collisions and rollbacks move it, and a `fighting` flag alone would be a free bypass.
   - Steps (ADR 0059):
     1. `src/net/signed-snaps.ts` keeps each peer's last 5 verified signed snapshots. The newest stays what an engage forwards.
     2. The target's `lock-state` carries `seen`: the attacker's held snapshots from the last 2 s.
