@@ -95,6 +95,12 @@ describe('joining a fight (M7 T15)', () => {
   });
 });
 
+describe('the movement check (M10 T11)', () => {
+  it('tells the attacker its own snapshots jumped', () => {
+    expect(refusalToast(authorityRefusal('engage:moved', false))).toBe('Moved too fast to attack');
+  });
+});
+
 describe('the target F engages', () => {
   const near = peer('near', at(-6), 1000);
   const nearer = peer('nearer', at(-10), 1000);

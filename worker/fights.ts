@@ -19,6 +19,7 @@ import { awayDue, remaining } from './away';
 import type { Asking } from './engage';
 import type { SlotClock } from './fight-store';
 import type { LifeState } from './life';
+import { AFTER_FIGHT_MS } from './movement';
 import type { PondRow } from './schema';
 import { settle, tell } from './settle';
 import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
@@ -98,6 +99,8 @@ export class Fights {
   private readonly byCreature = new Map<string, Lock>();
   /** Inputs dropped because they named another fight or came from someone not in one. */
   strays = 0;
+  /** When each player's last fight ended, kept for `AFTER_FIGHT_MS` (the movement check, M10 T11). */
+  private readonly ended = new Map<string, number>();
 
   constructor(private readonly clock: () => Clock) {}
 
@@ -180,9 +183,22 @@ export class Fights {
     const lock = this.byId.get(id);
     if (!lock) return;
     this.clearTimer(lock);
+    if (lock.fight) this.noteEnded(lock.players);
     this.byId.delete(id);
     for (const p of lock.players) if (this.byPlayer.get(p) === lock) this.byPlayer.delete(p);
     for (const c of lock.creatures) if (this.byCreature.get(c) === lock) this.byCreature.delete(c);
+  }
+
+  /** When the player's last fight ended, if within the last `AFTER_FIGHT_MS`; else null. */
+  fightEnded(player: string): number | null {
+    const at = this.ended.get(player);
+    return at !== undefined && this.clock().now() - at < AFTER_FIGHT_MS ? at : null;
+  }
+
+  private noteEnded(players: readonly string[]): void {
+    const now = this.clock().now();
+    for (const [p, at] of this.ended) if (now - at >= AFTER_FIGHT_MS) this.ended.delete(p);
+    for (const p of players) this.ended.set(p, now);
   }
 
   /** Forgets every lock and cancels its timer, as a restart does (the E2E restart hook, hub tests). */

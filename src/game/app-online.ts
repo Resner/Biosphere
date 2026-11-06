@@ -113,12 +113,14 @@ export class OnlineWiring {
   }
 
   /** Someone engages this player: the creature's state now, signed, before anything else runs. */
-  private answerLock(lock: string, link: OnlineSession): void {
+  private answerLock(ask: { lock: string; by: string }, link: OnlineSession): void {
     const { app } = this;
     const pond = app.livePond();
     if (!pond || pond !== app.pond || !app.identity) return;
     const bytes = encodeSnapshot({ ...this.ownSnapshot(), seq: app.sender.nextSeq });
-    link.send(lockState(lock, bytes, app.identity, pond.id));
+    // The attacker's own snapshots as this page saw them: the authority's movement check (M10 T11).
+    const seen = this.signed.recent(ask.by, performance.now());
+    link.send(lockState(ask.lock, bytes, app.identity, pond.id, seen));
   }
 
   private makePond(w: Welcome, hubClock: PondClock): Pond {
@@ -220,7 +222,7 @@ export class OnlineWiring {
           if (signed) this.signed.receive(id, snapshot, signed, now);
         },
         fight: (msg) => {
-          if (msg.t === 'lock-ask') this.answerLock(msg.lock, link);
+          if (msg.t === 'lock-ask') this.answerLock(msg, link);
           // On the title, a running fight's messages wait for "Back to the fight" (M8 T10).
           else if (!app.resume.hold(msg)) this.fightMsg(msg);
         },

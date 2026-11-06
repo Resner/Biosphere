@@ -276,7 +276,10 @@ export type ClientMsg =
   | { t: 'leave' }
   /** Engages `target` (a player id) with the attacker's own fresh signed snapshot and the target's newest. */
   | { t: 'engage'; target: string; mine: SignedSnap; theirs: SignedSnap }
-  /** The answer to `lock-ask`: a freshly signed snapshot of the creature's current state. */
+  /**
+   * The answer to `lock-ask`: a freshly signed snapshot of the creature's current state, and the
+   * attacker's signed snapshots it received in the last 2 s, for the movement check (M10 T11).
+   */
   | { t: 'lock-state'; lock: string; mine: SignedSnap; seen?: SignedSnap[] }
   /** This fighter's input for frame `f` of encounter `enc`: a u32 code (`encodeFrameInput`). */
   | { t: 'input'; enc: string; f: number; i: number }
@@ -420,8 +423,11 @@ export type HubMsg =
   /** Admission is full: the session waits in line (1 = next) instead of getting a `welcome`; sent again when its place changes. */
   | { t: 'queued'; position: number; etaS: number }
   | { t: 'error'; code: string }
-  /** Someone engages this player: answer at once with `lock-state`. */
-  | { t: 'lock-ask'; lock: string }
+  /**
+   * Someone engages this player: answer at once with `lock-state`. `by` is the attacker's player
+   * id, whose held snapshots the answer carries as `seen` (M10 T11).
+   */
+  | { t: 'lock-ask'; lock: string; by: string }
   /**
    * The fight starts: the seed from beacon `round` (0 = none), the pond tick `t0` and the hub time of
    * frame 0, fighters by slot. An `enc-start` for the fight a client already runs is the authority's

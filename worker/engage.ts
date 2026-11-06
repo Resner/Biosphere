@@ -1,8 +1,10 @@
 // Lock-in on the authority (ADR 0050, M7 T8): an engage is checked against both signed snapshots,
-// the target is asked for its own state, and both players get the same `enc-start`. Nothing here
-// writes SQLite, except a flag when a snapshot claims more than the growth curve allows (the
-// fight's log is `runFight`'s and `admit`'s, in `fights.ts`), and the fight's witness commitment
-// once `enc-start` went out (`commitWitnesses`, ADR 0058).
+// the target is asked for its own state, and both players get the same `enc-start`. The target's
+// answer carries the attacker's own snapshots it held (`seen`), and a jump between them refuses
+// the engage (the movement check, ADR 0059). Nothing here writes SQLite, except a flag when a
+// snapshot claims more than the growth curve allows or the attacker jumped (the fight's log is
+// `runFight`'s and `admit`'s, in `fights.ts`), and the fight's witness commitment once
+// `enc-start` went out (`commitWitnesses`, ADR 0058).
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { genomeFromBase64url } from '../src/genome/codec';
@@ -13,7 +15,13 @@ import { encounterId, encounterSeed } from '../src/ledger/encounter';
 import { HUNDREDTHS } from '../src/ledger/gates';
 import { verifySnap } from '../src/ledger/snapshot-sig';
 import type { EncStart } from '../src/net/encounter-start';
-import { type ClientMsg, type FighterInfo, genomeRefOf, type Snapshot } from '../src/net/protocol';
+import {
+  type ClientMsg,
+  type FighterInfo,
+  genomeRefOf,
+  type SignedSnap,
+  type Snapshot,
+} from '../src/net/protocol';
 import type { PhysStats } from '../src/sim/body';
 import { currentAt } from '../src/sim/currents';
 import { engageRange, type Reacher, strikeDistance } from '../src/sim/encounter/reach';
@@ -27,6 +35,7 @@ import { worthOf } from './farming';
 import { admit, type Fight, joinable, type Lock, runFight, type SlotLife } from './fights';
 import type { Head } from './ledger';
 import { type Condition, clampClaim, type LifeState } from './life';
+import { jumped, swimSpeed } from './movement';
 import type { PondRow } from './schema';
 import {
   type ActiveSession,
@@ -79,11 +88,8 @@ export const pondTick = (now: number, epoch: number): number =>
   Math.floor(((now - epoch) * TICK_HZ) / 1000);
 
 /** Speed through the water at full thrust, plus the strongest current, in wu/s. */
-function topSpeed(phys: PhysStats, biomass: number): number {
-  const m = RULES.movement;
-  const scale = (biomass / RULES.starter.biomass) ** m.thrustExp;
-  return (m.thrust * phys.thrust * scale) / (m.drag * phys.drag) + RULES.currents.maxSpeed;
-}
+const topSpeed = (phys: PhysStats, biomass: number): number =>
+  swimSpeed(phys, biomass) + RULES.currents.maxSpeed;
 
 /**
  * A snapshot's condition in hundredths (it carries energy and health as shares of their maximum).
@@ -208,7 +214,7 @@ export function engage(
     () => start(hub, id),
   );
   lock.asking = asking;
-  sendIfOpen(targetWs, { t: 'lock-ask', lock: id });
+  sendIfOpen(targetWs, { t: 'lock-ask', lock: id, by: attacker.player });
 }
 
 /** The checks of an engage in order: the refusal reason (`engage:<why>`) of the first that fails, or both sides. */
@@ -300,8 +306,9 @@ function inRange(attacker: Side, target: Side, nowTick: number): boolean {
 
 /**
  * The target's `lock-state`: its own signed state replaces the attacker's copy and the fight
- * starts at once. Anything else (another lock, a late, stale or older answer) is dropped, and the
- * window's end uses the attacker's copy.
+ * starts at once, unless its `seen` shows the attacker jumped: then both are released and the
+ * attacker is refused `engage:moved`. Anything else (another lock, a late, stale or older answer)
+ * is dropped, and the window's end uses the attacker's copy, unchecked.
  */
 export function lockAnswer(
   hub: Hub,
@@ -319,8 +326,37 @@ export function lockAnswer(
   const head = hub.ledger.head(asking.target.creature);
   const side = head ? sideOf(hub, ws, asking.target.life, head, snap, now) : null;
   if (!side) return;
+  if (msg.seen && moved(hub, asking, msg.seen, now)) {
+    hub.fights.release(msg.lock);
+    const found = seated(hub, asking.attacker.player);
+    if (found) sendIfOpen(found[0], { t: 'refused', reason: 'engage:moved' });
+    return;
+  }
   asking.target = side;
   start(hub, msg.lock);
+}
+
+/**
+ * The movement check (ADR 0059): the attacker's snapshots the target held, each verified as the
+ * engage's own (its key, the pond, a living body of its creature's genome; any other is ignored),
+ * in tick order with its engage snapshot. True, and `teleport` flagged once per creature, when two
+ * neighbours lie further apart than it could swim. An attacker fresh out of a fight is not checked.
+ */
+function moved(hub: Hub, asking: Asking, seen: readonly SignedSnap[], now: number): boolean {
+  const { attacker, pond } = asking;
+  if (hub.fights.fightEnded(attacker.player) !== null) return false;
+  const path: Snapshot[] = [attacker.snap];
+  for (const signed of seen) {
+    const s = verifySnap(attacker.player, pond.id, signed);
+    if (s?.alive && s.genomeRef === attacker.snap.genomeRef) path.push(s);
+  }
+  if (!jumped(path, attacker.stats.phys, attacker.condition.biomass / HUNDREDTHS)) return false;
+  hub.ledger.audit.raise('teleport', {
+    owner: attacker.player,
+    creature: attacker.creature,
+    t: now,
+  });
+  return true;
 }
 
 /**
