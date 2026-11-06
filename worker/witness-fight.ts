@@ -173,10 +173,10 @@ function step(hub: Hub, lock: Lock, fight: Fight, w: WitnessRun, bundles: Bundle
   return settled;
 }
 
-/** The autopilot's frames from the log's end to `until − 1`, each the fallback marker in every slot. */
-function fallback(fight: Fight, until: number): Bundle[] {
+/** The autopilot's frames from `from` (the log's end by default) to `until − 1`, the fallback marker in every slot. */
+function fallback(fight: Fight, until: number, from = fight.enc.frame): Bundle[] {
   const out: Bundle[] = [];
-  for (let f = fight.enc.frame; f < until; f++) {
+  for (let f = from; f < until; f++) {
     out.push({ f, i: new Array<number | null>(widthAt(fight, f)).fill(null) });
   }
   return out;
@@ -205,7 +205,9 @@ export function witnessTick(hub: Hub, lock: Lock, fight: Fight, now: number): vo
   // Everyone left: the authority takes the fight back and plays the rest out at once (ADR 0053).
   if (awayDue(hub, fight, now)) {
     takeBack(hub, lock, fight, 'away');
-    if (step(hub, lock, fight, w, [...ownRest(fight, w), ...fallback(fight, w.until ?? 0)])) return;
+    const own = ownRest(fight, w);
+    const gap = fallback(fight, w.until ?? 0, fight.enc.frame + own.length);
+    if (step(hub, lock, fight, w, [...own, ...gap])) return;
   }
   const L = fight.enc.frame;
   if (

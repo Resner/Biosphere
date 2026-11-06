@@ -199,16 +199,16 @@ async function playTo(r: Run, to: number, sw: ScriptedWitness | null, echo = tru
     const codes = r.plan(f);
     r.next = f + 1;
     if (r.seats[0].spans.refereeOf(f) === AUTHORITY) {
-      [r.a, r.b].forEach((p, k) =>
-        p.c.send({ t: 'input', enc: r.start.enc, f, i: codes[k] as number }),
-      );
+      for (const [k, p] of [r.a, r.b].entries()) {
+        p.c.send({ t: 'input', enc: r.start.enc, f, i: codes[k] as number });
+      }
       await Promise.all(r.seats.map((s) => s.frame(f)));
       continue;
     }
     if (!sw) throw new Error('no witness');
     await sw.catchUp();
     const before = sw.sent.length;
-    [r.a, r.b].forEach((p, k) => sw.input(p, f, codes[k] as number));
+    for (const [k, p] of [r.a, r.b].entries()) sw.input(p, f, codes[k] as number);
     sw.tick();
     const batch = sw.sent[sw.sent.length - 1];
     if (echo && batch && sw.sent.length > before) {
@@ -496,7 +496,7 @@ describe('planned take-backs', () => {
       await advanceTo(startOfFrame(r, f) - FRAME_MS);
       sw.hear();
       const codes = r.plan(f);
-      [r.a, r.b].forEach((p, k) => sw.input(p, f, codes[k] as number));
+      for (const [k, p] of [r.a, r.b].entries()) sw.input(p, f, codes[k] as number);
       sw.tick();
     }
     r.next = from;
