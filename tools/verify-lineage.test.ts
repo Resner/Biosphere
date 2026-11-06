@@ -147,6 +147,16 @@ describe('npm run verify:lineage', () => {
     expect(again.out.split('\n')[0]).toContain('1 fight replayed');
   });
 
+  it('reads a bundle too big to serve as nothing to verify, in words', async () => {
+    const io = {
+      ...nodeIo({}),
+      fetch: (async () => new Response('{"error":"too-big"}', { status: 413 })) as typeof fetch,
+    };
+    const r = await runVerify([A1, '--hub', 'http://hub.test'], io);
+    expect(r.code).toBe(2);
+    expect(r.out).toContain('too long to check');
+  });
+
   it('reads a 404 and a busy hub as nothing to verify', async () => {
     for (const status of [404, 503]) {
       const io = {

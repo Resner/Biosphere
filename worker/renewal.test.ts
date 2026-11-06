@@ -3,8 +3,9 @@ import { env } from 'cloudflare:workers';
 import { afterEach, beforeEach, describe, expect, it } from 'vitest';
 import { createIdentity, memoryKeyStore } from '../src/ledger/identity';
 import { HATCH_BUCKET, Ledger } from './ledger';
+import { sendLife } from './lives';
 import { migrate } from './schema';
-import { closeSockets, hatch, login, sql, useFakeBeacons } from './test-hub';
+import { closeSockets, hatch, login, sql, stub, useFakeBeacons } from './test-hub';
 
 // The world renewals (M6c T2, ADR 0040; M9 T2, ADR 0055): migrations 6 and 8 each empty the world
 // once and keep identities; the hub tells each returning identity once per epoch.
@@ -348,6 +349,31 @@ describe('the renewal notice', () => {
     expect(second.life.renewed).toBeUndefined();
     const third = await login(id);
     expect(third.life.renewed).toBeUndefined();
+  });
+
+  it('keeps the notice when the socket closed before its `life` went out, and tells the next sign-in once', async () => {
+    const id = await createIdentity(memoryKeyStore());
+    await sql(
+      'INSERT INTO players (id, first_seen, last_seen) VALUES (?1, ?2, ?2)',
+      id.playerId,
+      (await resetAt()) - 60_000,
+    );
+    const seen = () =>
+      sql<{ epoch_seen: number }>('SELECT epoch_seen FROM players WHERE id = ?', id.playerId).then(
+        (rows) => rows[0]?.epoch_seen,
+      );
+    const before = await seen();
+    // A sign-in whose socket closed before its `life` (seated from the queue as it left).
+    await runInDurableObject(stub(), (o) => {
+      const [, server] = Object.values(new WebSocketPair()) as [WebSocket, WebSocket];
+      server.accept();
+      server.close(1000, 'gone');
+      sendLife(o as never, server, id.playerId);
+    });
+    expect(await seen()).toBe(before);
+    expect((await login(id)).life.renewed).toBe(true);
+    expect(await seen()).toBe(3);
+    expect((await login(id)).life.renewed).toBeUndefined();
   });
 
   it('never tells a new identity', async () => {

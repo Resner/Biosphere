@@ -2,6 +2,7 @@ import {
   type AuditFlag,
   type AuthorityKey,
   type FightProof,
+  PROOF_CAPS,
   PROOF_MAX_BYTES,
   PROOF_MAX_CREATURES,
   type ProofBundle,
@@ -23,13 +24,21 @@ import type { Hub } from './socket';
 // Reads only: every query goes through `read`, which counts any row written as `Ledger.run` does,
 // so a test sees that nothing is.
 
-/** How far a bundle may grow: `PROOF_MAX_CREATURES` and `PROOF_MAX_BYTES` (tests pass smaller ones). */
+/** How far a bundle may grow: `PROOF_MAX_CREATURES`, `PROOF_MAX_BYTES` and `PROOF_CAPS.records` (tests pass smaller ones). */
 export interface ProofLimits {
   creatures: number;
   bytes: number;
+  records?: number;
 }
 
-const LIMITS: ProofLimits = { creatures: PROOF_MAX_CREATURES, bytes: PROOF_MAX_BYTES };
+const LIMITS: ProofLimits = {
+  creatures: PROOF_MAX_CREATURES,
+  bytes: PROOF_MAX_BYTES,
+  records: PROOF_CAPS.records,
+};
+
+/** How often a bundle was assembled: a test sees that growing one assembles it once (M10 T15). */
+export const proofStats = { assembles: 0 };
 
 function read(hub: Hub, query: string, ...bindings: SqlStorageValue[]): Row[] {
   const cursor = hub.ctx.storage.sql.exec<Row>(query, ...bindings);
@@ -214,8 +223,26 @@ function frameOf(hub: Hub, now: number): Frame {
   };
 }
 
+/** The bundle with its lists empty: the world, the keys and the time, which every bundle holds alike. */
+const shellOf = (frame: Frame, subject: string): ProofBundle => ({
+  v: 1,
+  kind: 'proof',
+  subject,
+  world: frame.world,
+  keys: frame.keys,
+  creatures: [],
+  records: [],
+  commits: [],
+  beacons: [],
+  settlements: [],
+  flags: [],
+  more: [],
+  t: frame.t,
+});
+
 /** The bundle of `held` (the subject first, then ancestors nearest first). */
 function assemble(reader: Reader, frame: Frame, held: readonly Known[]): ProofBundle {
+  proofStats.assembles++;
   const chains = prefixes(held);
   const records = held.flatMap((k) => chains.get(k.id) ?? []);
   const named = (field: string) =>
@@ -226,14 +253,8 @@ function assemble(reader: Reader, frame: Frame, held: readonly Known[]): ProofBu
     .map((id) => reader.commit(id))
     .filter((c): c is SignedCommit => c !== null);
   const rounds = [...new Set(commits.map((c) => c.commitment.round))].sort((x, y) => x - y);
-  const ids = new Set(held.map((k) => k.id));
-  const more = [...new Set(held.flatMap(parentsOf))].filter((id) => !ids.has(id));
   return {
-    v: 1,
-    kind: 'proof',
-    subject: held[0]?.id ?? '',
-    world: frame.world,
-    keys: frame.keys,
+    ...shellOf(frame, held[0]?.id ?? ''),
     creatures: held.map((k) => ({ id: k.id, genome: k.genome })),
     records,
     commits,
@@ -242,40 +263,119 @@ function assemble(reader: Reader, frame: Frame, held: readonly Known[]): ProofBu
       .map((enc) => reader.settlement(enc))
       .filter((s): s is SignedSettlement => s !== null),
     flags: held.flatMap((k) => reader.flagsOf(k.id)),
-    more,
-    t: frame.t,
+    more: moreOf(held),
   };
 }
 
-/** An upper bound of the bundle's JSON size: its frame, and each list item with a comma. */
-function sizeBound(reader: Reader, b: ProofBundle): number {
-  const frame = byteLength(
-    JSON.stringify({
-      ...b,
-      creatures: [],
-      records: [],
-      commits: [],
-      beacons: [],
-      settlements: [],
-      flags: [],
-      more: [],
-    }),
-  );
-  let n = frame;
-  for (const list of [b.records, b.commits, b.beacons, b.settlements, b.flags]) {
-    for (const item of list) n += reader.size(item);
-  }
-  for (const c of b.creatures) n += sizeOf(c);
-  for (const id of b.more) n += id.length + 3;
-  return n;
+/** The parents of the held creatures that are not held: what the bundle's `more` names. */
+function moreOf(held: readonly Known[]): string[] {
+  const ids = new Set(held.map((k) => k.id));
+  return [...new Set(held.flatMap(parentsOf))].filter((id) => !ids.has(id));
 }
 
 /**
- * `creature`'s proof bundle, or null for an unknown creature: its whole chain, then its ancestors
- * breadth-first (nearest first, ties by id), each up to the record that ties it to its descendant
- * (the longer when reached twice), with the commitments, beacons and settlements those records
- * name, the keys, the world and the held creatures' flags. At `limits` creatures, or before the
- * bundle would pass `limits.bytes`, it stops; `more` names the parents it left out.
+ * What a growing bundle holds, and an upper bound of its JSON size (its frame, and each list item
+ * with a comma), kept as creatures are added so no candidate is assembled to be measured.
+ * `add` leaves this one as it was and returns the grown copy, so a candidate that does not fit is
+ * simply dropped.
+ */
+class Growth {
+  private constructor(
+    private readonly reader: Reader,
+    private frame: number,
+    private bytes: number,
+    private records: number,
+    private readonly ends: Map<string, number>,
+    private readonly commits: Set<string>,
+    private readonly rounds: Set<number>,
+    private readonly encs: Set<string>,
+  ) {}
+
+  /** The subject's whole chain, its flags and the bundle's frame. */
+  static of(reader: Reader, frame: Frame, subject: Known): Growth {
+    const shell = byteLength(JSON.stringify(shellOf(frame, subject.id)));
+    const g = new Growth(reader, shell, 0, 0, new Map(), new Set(), new Set(), new Set());
+    g.hold(subject);
+    g.extend(subject, subject.chain.length - 1);
+    return g;
+  }
+
+  /** This growth with `k` held, the ancestors it names extended to their ties with it. */
+  add(held: readonly Known[], k: Known): Growth {
+    const g = new Growth(
+      this.reader,
+      this.frame,
+      this.bytes,
+      this.records,
+      new Map(this.ends),
+      new Set(this.commits),
+      new Set(this.rounds),
+      new Set(this.encs),
+    );
+    g.hold(k);
+    const children = held.filter((c) => parentsOf(c).includes(k.id));
+    g.extend(k, Math.max(-1, ...children.map((c) => tieOf(k, c))));
+    for (const a of held.slice(1)) {
+      if (parentsOf(k).includes(a.id)) g.extend(a, tieOf(a, k));
+    }
+    return g;
+  }
+
+  /** The bound of the bundle's JSON size when it holds `held`, with the parents left out in `more`. */
+  size(held: readonly Known[]): number {
+    return this.bytes + moreOf(held).reduce((n, id) => n + id.length + 3, 0);
+  }
+
+  get recordCount(): number {
+    return this.records;
+  }
+
+  private hold(k: Known): void {
+    this.ends.set(k.id, -1);
+    this.bytes += sizeOf({ id: k.id, genome: k.genome });
+    for (const flag of this.reader.flagsOf(k.id)) this.bytes += this.reader.size(flag);
+  }
+
+  /** Holds `k`'s records up to index `end`, and what they name: commitments, beacons, settlements. */
+  private extend(k: Known, end: number): void {
+    const from = (this.ends.get(k.id) ?? -1) + 1;
+    for (let i = from; i <= end; i++) {
+      const stored = k.chain[i] as StoredRecord;
+      this.bytes += this.reader.size(stored);
+      this.records++;
+      const { commit, enc } = stored.record.body;
+      if (typeof commit === 'string' && !this.commits.has(commit)) {
+        this.commits.add(commit);
+        const signed = this.reader.commit(commit);
+        if (signed) {
+          this.bytes += this.reader.size(signed);
+          this.beacon(signed.commitment.round);
+        }
+      }
+      if (typeof enc === 'string' && !this.encs.has(enc)) {
+        this.encs.add(enc);
+        const settlement = this.reader.settlement(enc);
+        if (settlement) this.bytes += this.reader.size(settlement);
+      }
+    }
+    this.ends.set(k.id, Math.max(end, from - 1));
+  }
+
+  private beacon(round: number): void {
+    if (this.rounds.has(round)) return;
+    this.rounds.add(round);
+    const beacon = this.reader.beacon(round);
+    if (beacon) this.bytes += this.reader.size(beacon);
+  }
+}
+
+/**
+ * `creature`'s proof bundle, or null for an unknown creature (or one whose own chain passes the
+ * limits): its whole chain, then its ancestors breadth-first (nearest first, ties by id), each up
+ * to the record that ties it to its descendant (the longer when reached twice), with the
+ * commitments, beacons and settlements those records name, the keys, the world and the held
+ * creatures' flags. At `limits` creatures, or before the bundle would pass `limits.bytes` or
+ * `limits.records`, it stops; `more` names the parents it left out.
  */
 export function proofBundle(
   hub: Hub,
@@ -283,24 +383,32 @@ export function proofBundle(
   now: number,
   limits: ProofLimits = LIMITS,
 ): ProofBundle | null {
-  return buildBundle(hub, creature, now, limits)?.bundle ?? null;
+  const built = buildBundle(hub, creature, now, limits);
+  return built && built !== 'too-big' ? built.bundle : null;
 }
 
-/** `proofBundle`, with whether its subject is dead (so the bundle can never change). */
+/**
+ * `proofBundle`, with whether its subject is dead (so its flags and attestations are all that can
+ * still arrive), or `too-big` when the subject's own bundle passes the limits.
+ */
 function buildBundle(
   hub: Hub,
   creature: string,
   now: number,
   limits: ProofLimits,
-): { bundle: ProofBundle; final: boolean } | null {
+): { bundle: ProofBundle; final: boolean } | 'too-big' | null {
   const reader = new Reader(hub);
   const subject = reader.creature(creature);
   if (!subject) return null;
+  const maxRecords = limits.records ?? PROOF_CAPS.records;
+  const fits = (g: Growth, held: readonly Known[]) =>
+    g.size(held) <= limits.bytes && g.recordCount <= maxRecords;
+  const frame = frameOf(hub, now);
   const held: Known[] = [subject];
+  let grown = Growth.of(reader, frame, subject);
+  if (!fits(grown, held)) return 'too-big';
   const seen = new Set([subject.id]);
   let level: Known[] = [subject];
-  const frame = frameOf(hub, now);
-  let bundle = assemble(reader, frame, held);
   grow: while (level.length > 0) {
     const ids = [...new Set(level.flatMap(parentsOf))].filter((id) => !seen.has(id)).sort();
     const next: Known[] = [];
@@ -308,16 +416,16 @@ function buildBundle(
       const k = reader.creature(id);
       if (!k) continue;
       if (held.length >= limits.creatures) break grow;
-      const tried = assemble(reader, frame, [...held, k]);
-      if (sizeBound(reader, tried) > limits.bytes) break grow;
+      const tried = grown.add(held, k);
+      if (!fits(tried, [...held, k])) break grow;
       held.push(k);
       seen.add(id);
       next.push(k);
-      bundle = tried;
+      grown = tried;
     }
     level = next;
   }
-  return { bundle, final: subject.status === 'dead' };
+  return { bundle: assemble(reader, frame, held), final: subject.status === 'dead' };
 }
 
 /** Every authority key ever used, public halves only. Unlike `Ledger.pubkeys`, it never makes one. */
@@ -361,8 +469,14 @@ export function fightProof(hub: Hub, enc: string): FightProof | null {
   return { settlement, log };
 }
 
-/** A proof read as the Worker serves it: the JSON, and whether it can never change (cached a day). */
-export type Served = { status: 200; body: string; final: boolean } | { status: 404 | 503 };
+/**
+ * How long the edge may keep a 200 (M10 T15): `settled` (a fight's proof never changes: a day),
+ * `dead` (a dead creature's bundle can still gain flags and attestations: ten minutes) or `live`.
+ */
+export type ProofAge = 'settled' | 'dead' | 'live';
+
+/** A proof read as the Worker serves it: the JSON and its age, 413 for a bundle too big to serve, or 404 and 503. */
+export type Served = { status: 200; body: string; age: ProofAge } | { status: 404 | 413 | 503 };
 
 /** Past this share of the day's request budget, proof reads are refused so the game keeps its room. */
 const BUSY_SHARE = 0.8;
@@ -375,20 +489,25 @@ export function meterRead(hub: Hub): boolean {
 }
 
 /** Counts the request, then answers `busy` past 80% of the day's budget, else what `answer` reads. */
-function serve(hub: Hub, answer: () => { body: unknown; final: boolean } | null): Served {
+function serve(
+  hub: Hub,
+  answer: () => { body: unknown; age: ProofAge } | 'too-big' | null,
+): Served {
   if (meterRead(hub)) return { status: 503 };
   const found = answer();
+  if (found === 'too-big') return { status: 413 };
   return found
-    ? { status: 200, body: JSON.stringify(found.body), final: found.final }
+    ? { status: 200, body: JSON.stringify(found.body), age: found.age }
     : { status: 404 };
 }
 
-/** `GET /v1/proof/<creature>`: a dead creature's bundle never changes. */
-export function serveProof(hub: Hub, creature: string): Served {
+/** `GET /v1/proof/<creature>`: 413 when the creature's own history passes what a bundle may hold. */
+export function serveProof(hub: Hub, creature: string, limits: ProofLimits = LIMITS): Served {
   return serve(hub, () => {
     if (!HEX64.test(creature)) return null;
-    const built = buildBundle(hub, creature, hub.clock.now(), LIMITS);
-    return built && { body: built.bundle, final: built.final };
+    const built = buildBundle(hub, creature, hub.clock.now(), limits);
+    if (built === 'too-big') return built;
+    return built && { body: built.bundle, age: built.final ? 'dead' : 'live' };
   });
 }
 
@@ -396,6 +515,6 @@ export function serveProof(hub: Hub, creature: string): Served {
 export function serveFight(hub: Hub, enc: string): Served {
   return serve(hub, () => {
     const proof = HEX64.test(enc) ? fightProof(hub, enc) : null;
-    return proof && { body: proof, final: true };
+    return proof && { body: proof, age: 'settled' };
   });
 }

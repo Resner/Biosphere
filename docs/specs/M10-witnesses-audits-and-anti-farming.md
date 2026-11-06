@@ -691,7 +691,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Carry-overs
 
-- [ ] T15 M9 carry-overs in the worker: bundle caps, the cache of a dead creature, the renewal notice (after none)
+- [x] T15 M9 carry-overs in the worker: bundle caps, the cache of a dead creature, the renewal notice (after none)
+  - Done: `Growth` in `worker/proof.ts` keeps sizes per added creature (one `assemble`), a subject past the caps is `413 too-big` (card text, CLI exit 2), a dead creature's bundle keeps `max-age=600`, and `sendLife` marks the renewal told only after `life` went out (`renewalDue`, `markRenewalTold`).
+  - Gotcha: the real-cap 413 test writes 4,096 checkpoints (about 2.5 s), so it is tagged `heavy`.
   - Steps:
     1. `worker/proof.ts`:
        - `buildBundle` grows its bundle incrementally, keeping its byte and record counts as it adds each ancestor, instead of calling `assemble` per candidate;
