@@ -124,8 +124,8 @@ describe('duty link probes (M10 T7)', () => {
   it('probes each open duty link once a second, answers probes, and halves the round trip', () => {
     const sent: [string, PeerEvent][] = [];
     const probes = new DutyProbes((peer, ev) => sent.push([peer, ev]));
-    probes.tick(0, ['w', 'x']);
-    probes.tick(PROBE_EVERY_MS - 1, ['w', 'x']);
+    probes.tick(0, () => ['w', 'x']);
+    probes.tick(PROBE_EVERY_MS - 1, () => ['w', 'x']);
     expect(sent.map(([p]) => p)).toEqual(['w', 'x']);
     expect(probes.oneWayMs('w')).toBeNull();
     const [, first] = sent[0] as [string, PeerEvent];
@@ -139,7 +139,7 @@ describe('duty link probes (M10 T7)', () => {
     // A peer's probe is answered at once with its own number.
     probes.receive('w', { t: 'probe', n: 7, back: false }, 50);
     expect(sent.at(-1)).toEqual(['w', { t: 'probe', n: 7, back: true }]);
-    probes.tick(PROBE_EVERY_MS, ['w']);
+    probes.tick(PROBE_EVERY_MS, () => ['w']);
     expect(sent.filter(([, ev]) => ev.t === 'probe' && !ev.back)).toHaveLength(3);
   });
 });

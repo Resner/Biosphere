@@ -120,11 +120,11 @@ export class DutyProbes {
   constructor(private readonly send: (peer: string, ev: Probe) => void) {}
 
   /** Each frame: a probe to every open duty link once a second. */
-  tick(now: number, peers: readonly string[]): void {
+  tick(now: number, peers: () => readonly string[]): void {
     if (now - this.last < PROBE_EVERY_MS) return;
     this.last = now;
     for (const [n, o] of this.out) if (now - o.at > PROBE_KEEP_MS) this.out.delete(n);
-    for (const peer of peers) {
+    for (const peer of peers()) {
       this.n = (this.n + 1) % 1_000_000;
       this.out.set(this.n, { peer, at: now });
       this.send(peer, { t: 'probe', n: this.n, back: false });
@@ -231,10 +231,8 @@ export class DutyWiring {
   frame(now: number, ms: number): void {
     this.avail.frame(now, ms);
     this.update(now);
-    const links = this.app.keeper.current?.dutyLinks() ?? [];
-    this.probes.tick(
-      now,
-      links.filter((l) => l.open).map((l) => l.peer),
+    this.probes.tick(now, () =>
+      (this.app.keeper.current?.dutyLinks() ?? []).filter((l) => l.open).map((l) => l.peer),
     );
     this.app.hud.setWitness(this.witness?.onDuty === true);
   }

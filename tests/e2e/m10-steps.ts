@@ -1,6 +1,7 @@
 import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { percentile } from '../../src/render/post/benchmark';
 import { clickHatch, state, waitPlaying } from './helpers';
 import { open, seen, stage } from './m7-fight';
 import { chase, engage, flee, waitOver } from './m8-fight';
@@ -185,8 +186,7 @@ export async function settled(request: APIRequestContext, hub: string, id: strin
 
 /** The 95th percentile of `ms`. */
 export function p95(ms: readonly number[]): number {
-  const sorted = [...ms].sort((x, y) => x - y);
-  return sorted[Math.min(sorted.length - 1, Math.floor(sorted.length * 0.95))] ?? 0;
+  return percentile(ms, 0.95);
 }
 
 /** Every page of the trio closes. */

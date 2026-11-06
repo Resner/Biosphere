@@ -533,6 +533,7 @@ export class FightPlay {
     const enc = sync?.enc;
     if (!sync || !enc) return null;
     const tick = enc.world.tick;
+    const last = this.route?.spans.last() ?? { by: AUTHORITY, from: 0 };
     const { host } = this;
     return {
       id: sync.id,
@@ -548,9 +549,7 @@ export class FightPlay {
       rejoins: sync.rejoins,
       verified: this.verify.verdict(sync.id),
       aim: this.aim(),
-      referee: (({ by, from }) => ({ by, from }))(
-        this.route?.spans.last() ?? { by: AUTHORITY, from: 0 },
-      ),
+      referee: { by: last.by, from: last.from },
       handovers: (this.route?.spans.list().length ?? 1) - 1,
       disputes: this.route?.disputes ?? 0,
       witnessInputs: this.witnessInputs,

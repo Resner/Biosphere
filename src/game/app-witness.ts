@@ -6,7 +6,7 @@
 // (`enc-referee` by the authority) stops it at that frame; `duty-end` stops it at once. Every
 // handler is timed (`dutyMs`), because duty must never cost the witness's own game.
 
-import { randomnessOf } from '../ledger/drand';
+import { randomnessOf, verifyBeacon } from '../ledger/drand';
 import { commitmentId } from '../ledger/genesis';
 import type { Identity } from '../ledger/identity';
 import {
@@ -93,6 +93,7 @@ export function selected(duty: Extract<HubMsg, { t: 'duty' }>, me: string): bool
   const { event, pool } = data as WitnessData;
   if (event !== duty.event || commitment.round !== duty.beacon.round) return false;
   try {
+    if (!verifyBeacon(duty.beacon)) return false;
     const order = witnessOrder(pool, randomnessOf(duty.beacon), commitmentId(commitment));
     return order[duty.position] === me;
   } catch {
@@ -133,7 +134,7 @@ export class WitnessDuties {
   /** On a duty now (accepted and not yet ended): the HUD's chip. */
   get onDuty(): boolean {
     const phase = this.held?.phase;
-    return phase === 'accepted' || phase === 'refereeing' || phase === 'stopped';
+    return phase !== undefined && phase !== 'linking';
   }
 
   /** A referee duty offered to this player. */
