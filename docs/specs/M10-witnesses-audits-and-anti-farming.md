@@ -689,7 +689,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Carry-overs
 
-- [ ] T15 M9 carry-overs in the worker: bundle caps, the cache of a dead creature, the renewal notice (after none)
+- [ ] T15 M9 carry-overs in the worker: bundle caps, the cache of a dead creature, the renewal notice (after none) (in progress)
   - Steps:
     1. `worker/proof.ts`:
        - `buildBundle` grows its bundle incrementally, keeping its byte and record counts as it adds each ancestor, instead of calling `assemble` per candidate;
