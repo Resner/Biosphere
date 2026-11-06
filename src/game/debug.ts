@@ -28,6 +28,7 @@ import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
 import type { AuditRecord } from './app-audit';
 import type { FightShowView } from './app-fight';
+import type { WitnessDutyView } from './app-witness';
 import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
 import type { Chip, HudBars } from './hud';
@@ -252,11 +253,23 @@ export interface BsState {
     strangers: number;
   };
   /**
-   * Witness duty (M10 T6, T8): `avail`, whether the hub was last told this page can witness; the
-   * event audited now (null without one), and the last 20 audits this page attested, each with
-   * its verdict and the worker's time in ms.
+   * Witness duty (M10 T6, T7, T8): `avail`, whether the hub was last told this page can witness; the
+   * referee duty held now (null without one) and the last one as it ended; the duties accepted, the
+   * offers declined and the batches sent over the page's life; each duty handler's time in ms (the
+   * last 3,000); the event audited now (null without one), and the last 20 audits this page
+   * attested, each with its verdict and the worker's time in ms.
    */
-  witness: { avail: boolean; auditing: string | null; audits: AuditRecord[] };
+  witness: {
+    avail: boolean;
+    duty: WitnessDutyView | null;
+    last: WitnessDutyView | null;
+    duties: number;
+    declined: number;
+    batches: number;
+    dutyMs: number[];
+    auditing: string | null;
+    audits: AuditRecord[];
+  };
   /**
    * Edge indicators as last drawn (M6 T19): the nearest six pond players off screen and the
    * nearby pings off screen. `angle` is the world bearing from the player in degrees
@@ -419,6 +432,13 @@ export interface BsDebug {
    * whose drawn body is followed and reached on touching it.
    */
   steerTo(target: { id?: string; x: number; y: number }): Promise<boolean>;
+  /**
+   * A test aid (M10 T7, client inputs only): while set, the player keeps its centre `distance` wu
+   * from a remote player's drawn centre (in a fight, where the encounter has it), easing in as a
+   * cursor on that spot would, and coasts while the remote is not drawn. `steerTo`, `null` or a
+   * new life ends it.
+   */
+  hover(target: { id: string; distance: number } | null): void;
   /** Adds a toxic plume to the world. */
   spawnPlume(x: number, y: number, radius?: number): void;
   /** Replaces the scripted remotes (an empty list removes them); they send snapshots at 10 Hz. */

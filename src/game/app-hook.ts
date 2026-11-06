@@ -58,6 +58,11 @@ function debugHelpers(app: App): BsDebug {
     autoBrace(on) {
       app.fight.autoBrace = on;
     },
+    hover(target) {
+      app.steering?.done(false);
+      app.steering = null;
+      app.hover = target && { id: target.id, distance: target.distance };
+    },
     skipDraw(on) {
       app.scene.skipDraw = on;
     },
@@ -97,6 +102,7 @@ function debugHelpers(app: App): BsDebug {
     steerTo(target) {
       app.steering?.done(false);
       app.steering = null;
+      app.hover = null;
       if (!app.session.player.alive) return Promise.resolve(false);
       return new Promise<boolean>((resolve) => {
         app.steering = { target: { ...target }, ticksLeft: STEER_TIMEOUT_TICKS, done: resolve };
@@ -387,6 +393,12 @@ export function installAppHook(app: App): void {
         },
         witness: {
           avail: app.duty.avail.on,
+          duty: app.duty.witness?.view() ?? null,
+          last: app.duty.witness?.last ?? null,
+          duties: app.duty.witness?.duties ?? 0,
+          declined: app.duty.witness?.declined ?? 0,
+          batches: app.duty.witness?.batches ?? 0,
+          dutyMs: [...(app.duty.witness?.dutyMs ?? [])],
           auditing: app.duty.audits?.auditing ?? null,
           audits: [...(app.duty.audits?.audits ?? [])],
         },

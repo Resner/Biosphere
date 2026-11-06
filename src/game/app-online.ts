@@ -222,6 +222,8 @@ export class OnlineWiring {
           if (signed) this.signed.receive(id, snapshot, signed, now);
         },
         fight: (msg) => {
+          // A duty's frames before its handover, and the handover, reach this page as a witness too.
+          if (msg.t === 'enc-frame' || msg.t === 'enc-referee') app.duty.fight(msg);
           if (msg.t === 'lock-ask') this.answerLock(msg, link);
           // On the title, a running fight's messages wait for "Back to the fight" (M8 T10).
           else if (!app.resume.hold(msg)) this.fightMsg(msg);
@@ -231,6 +233,16 @@ export class OnlineWiring {
         },
         duty: (msg) => app.duty.receive(msg),
         event: (id, event) => {
+          // A duty link's witness messages (M10 T7): a fighter's input or a probe to this page, a
+          // witness's frame to this page's fight.
+          if (event.t === 'finput' || event.t === 'probe') {
+            app.duty.peerEvent(id, event);
+            return;
+          }
+          if (event.t === 'wframe') {
+            app.fight.witnessFrame(id, event);
+            return;
+          }
           this.receiveFoodEvent(id, event);
           app.social.receive(id, event);
           app.genomeSync.receive(id, event, performance.now());
