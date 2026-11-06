@@ -1,8 +1,8 @@
 import { describe, expect, it } from 'vitest';
 import { createIdentity, memoryKeyStore } from '../ledger/identity';
-import { decodeStateFrame, verifySnap } from '../ledger/snapshot-sig';
+import { decodeStateFrame, signSnap, verifySnap } from '../ledger/snapshot-sig';
 import { RemoteSet } from '../net/pond-sync';
-import { encodeSnapshot, SIGNED_FRAME_BYTES, type Snapshot } from '../net/protocol';
+import { encodeSnapshot, parseClientMsg, SIGNED_FRAME_BYTES, type Snapshot } from '../net/protocol';
 import { ProxyReceiver } from '../net/proxy-snaps';
 import { RULES } from '../sim/rules';
 import {
@@ -88,6 +88,19 @@ describe('lockState', () => {
     expect(msg.t).toBe('lock-state');
     expect(msg.lock).toBe('ab'.repeat(8));
     expect(verifySnap(me.playerId, 'p1', msg.mine)?.tick).toBe(777);
+    expect('seen' in msg).toBe(false);
+  });
+
+  it('carries the attacker’s held snapshots as `seen`, at most 5 and only when there are any (M10 T11)', async () => {
+    const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(5)));
+    const them = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(6)));
+    const held = [1, 2, 3, 4, 5, 6].map((i) =>
+      signSnap(them, 'p1', encodeSnapshot({ ...snap, tick: 700 + i })),
+    );
+    const msg = lockState('ab'.repeat(8), encodeSnapshot(snap), me, 'p1', held);
+    expect(msg.seen).toEqual(held.slice(1));
+    expect(parseClientMsg(JSON.stringify(msg))).toEqual(msg);
+    expect('seen' in lockState('ab'.repeat(8), encodeSnapshot(snap), me, 'p1', [])).toBe(false);
   });
 });
 

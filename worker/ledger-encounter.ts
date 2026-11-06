@@ -98,6 +98,8 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
     return { fresh: false, stored: [], settlement: done };
   }
   const stored: StoredRecord[] = [];
+  // One date for the whole settlement: the verifier ties a checkpoint to its death by their equal `t`.
+  const t = ops.now();
   const append = (head: Head, kind: RecordKind, body: LedgerRecord['body']): Head => {
     const record: LedgerRecord = {
       v: 1,
@@ -107,7 +109,7 @@ export function settleRecords(ops: ChainOps, input: FightRecords): SettleResult 
       seq: head.seq + 1,
       prev: head.hash,
       owner: head.owner,
-      t: ops.now(),
+      t,
       body,
     };
     const problems = recordProblems(record);

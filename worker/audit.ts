@@ -38,8 +38,14 @@ export const FLAG_KINDS = {
   /** A lock-in claim clamped past its tolerance (`life.ts`, through `engage.ts`). */
   'claim-over': 'creature',
   /**
+   * An attacker's own signed snapshots, as the target held them, further apart than it could swim
+   * (the movement check at lock-in, `engage.ts`, ADR 0059).
+   */
+  teleport: 'creature',
+  /**
    * A fight, mating or genesis that no witness can see, keyed by its event (`dutyEvent`): its
-   * pool was empty when it was committed (`commitWitnesses` in `witness-pool.ts`).
+   * pool was empty when it was committed (`commitWitnesses` in `witness-pool.ts`), or its duties
+   * ended with no witness span and no agreeing attestation (`attest.ts`).
    */
   'authority-only': 'request',
   /**
@@ -51,6 +57,17 @@ export const FLAG_KINDS = {
   'witness-silent': 'request',
   'witness-forged': 'request',
   'witness-equivocated': 'request',
+  /**
+   * An auditor's attestation that disagrees with the authority, keyed by the event
+   * (`attest.ts`): stored as overruled, and its auditor struck for a day.
+   */
+  'audit-overruled': 'request',
+  /**
+   * An auditor's attestation with a bad signature, another position, commitment or witness, or a
+   * subject other than the authority's, keyed by the event (`attest.ts`): dropped, and its
+   * sender struck for a day.
+   */
+  'attest-forged': 'request',
 } as const satisfies Record<string, 'request' | 'creature'>;
 
 export type FlagKind = keyof typeof FLAG_KINDS;

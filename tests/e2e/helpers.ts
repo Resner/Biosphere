@@ -231,6 +231,8 @@ export const M9_LIFECYCLE_HUB = 'http://localhost:8821';
 export const M10_WITNESS_HUB = 'http://localhost:8822';
 export const M10_CROSS_HUB = 'http://localhost:8823';
 export const M10_TAKEBACK_HUB = 'http://localhost:8824';
+/** The M10 audit spec's hub (M10 T8), with the M5 hooks, `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`. */
+export const M10_AUDIT_HUB = 'http://localhost:8825';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {

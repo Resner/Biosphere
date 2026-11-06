@@ -2,7 +2,7 @@
 // draws decides who is offered each duty. An offer goes to the first unused position whose player
 // is still eligible; a decline, 5 s of silence or the player leaving moves it on. Each position
 // serves once, and a duty makes at most 3 offers. A fight's referee is offered as soon as the round
-// is in, while the fight runs; an auditor once `offerAudit` hands over the case (T8). Everything
+// is in, while the fight runs; an auditor once `offerAudit` hands over the case (`attest.ts`). Everything
 // here lives in memory: a restart ends every duty, and the fights it rebuilds are the authority's.
 
 import { type Beacon, randomnessOf } from '../src/ledger/drand';
@@ -23,6 +23,7 @@ import type {
   HubMsg,
   SignedCommit,
 } from '../src/net/protocol';
+import { auditEnded, auditorTook } from './attest';
 import type { FlagKind } from './audit';
 import type { SignedCommitment } from './beacons';
 import type { Fight } from './fights';
@@ -101,9 +102,15 @@ export class Duties {
   /** A referee took its duty: the fight is handed over (`witness-fight.ts`). */
   onReferee: (event: string, witness: string, position: number) => void = (event, w, p) =>
     handOver(this.hub, event, w, p);
-  /** An auditor took its duty (T8 waits for its attestation). Until then the duty just ends. */
+  /** An auditor took its duty: it has a minute to attest (`attest.ts`). */
   onAuditor: (event: string, witness: string, position: number) => void = (event) =>
-    this.end(event, 'auditor', 'done');
+    auditorTook(this.hub, event);
+  /** An event's auditors are spent, with nobody left to offer (`attest.ts` flags `authority-only`). */
+  onAuditEnd: (event: string, audit: AuditCase | null, participants: readonly string[]) => void = (
+    event,
+    audit,
+    participants,
+  ) => auditEnded(this.hub, event, audit, participants);
 
   constructor(private readonly hub: Hub) {}
 
@@ -144,14 +151,55 @@ export class Duties {
     if (auditor?.audit && !auditor.current && !auditor.over) this.offer(duty, auditor);
   }
 
-  /** The event is settled: its auditor is offered, now or once its round resolves (T8 calls this). */
+  /** The event is settled: its auditor is offered, now or once its round resolves (`attest.ts`). */
   offerAudit(event: string, audit: AuditCase): void {
     const duty = this.byEvent.get(event);
     if (!duty) return;
     const run = this.run(duty, 'auditor');
     if (run.audit || run.over) return;
     run.audit = audit;
+    // A fight's joiners never audit it either.
+    if (audit.kind === 'enc') {
+      const players = audit.settlement.settlement.results.map((r) => r.player);
+      duty.participants = [...new Set([...duty.participants, ...players])];
+    }
     if (duty.order) this.offer(duty, run);
+  }
+
+  /** The auditor took its duty: without an attestation within `ms`, the next position is offered. */
+  awaitAttest(event: string, ms: number): void {
+    const duty = this.byEvent.get(event);
+    const run = duty?.runs.get('auditor');
+    const offer = run?.current;
+    if (!duty || !run || offer?.outcome !== 'ok') return;
+    this.cancel(run);
+    run.timer = this.hub.clock.after(ms, () => {
+      run.timer = null;
+      if (run.current === offer) this.moveOn(duty, run, 'silent');
+    });
+  }
+
+  /** The auditor duty `player` has taken (and not yet attested), with what its attestation must name; or null. */
+  auditing(player: string): {
+    event: string;
+    position: number;
+    order: string[];
+    commitId: string;
+    audit: AuditCase;
+  } | null {
+    const held = this.held.get(player);
+    const duty = held?.role === 'auditor' ? this.byEvent.get(held.event) : undefined;
+    const run = duty?.runs.get('auditor');
+    const offer = run?.current;
+    const audit = run?.audit;
+    if (!duty?.order || !audit || offer?.player !== player || offer.outcome !== 'ok') return null;
+    return {
+      event: duty.event,
+      position: offer.position,
+      order: duty.order,
+      commitId: duty.commit.id,
+      audit,
+    };
   }
 
   /** A `duty-ok` or `duty-no`: only from the player whose offer is pending, else dropped and counted. */
@@ -223,13 +271,13 @@ export class Duties {
   }
 
   /**
-   * A fight's referee duty may be offered again (its witness failed or was taken back): to the next
-   * unused position, within the duty's 3 offers.
+   * A role may be offered again (a fight's witness failed or was taken back, an auditor was
+   * struck): to the next unused position, within the duty's 3 offers.
    */
-  reoffer(event: string): void {
+  reoffer(event: string, role: DutyRole = 'referee'): void {
     const duty = this.byEvent.get(event);
-    const run = duty?.runs.get('referee');
-    if (!duty || !run || run.current || run.offers >= MAX_OFFERS) return;
+    const run = duty?.runs.get(role);
+    if (!duty || !run || run.current) return;
     run.over = false;
     this.offer(duty, run);
   }
@@ -317,9 +365,10 @@ export class Duties {
   /** Offers the role to the first unused position whose player is still eligible; ends it when none is left. */
   private offer(duty: Duty, run: RoleRun): void {
     const order = duty.order;
+    if (!order || run.over || (run.role === 'auditor' && !run.audit)) return;
     const fight = run.role === 'referee' ? this.fightOf(duty) : null;
-    if (!order || run.over || (run.role === 'referee' && !fight) || run.offers >= MAX_OFFERS) {
-      run.over = true;
+    if ((run.role === 'referee' && !fight) || run.offers >= MAX_OFFERS) {
+      this.spent(duty, run);
       return;
     }
     const now = this.hub.clock.now();
@@ -348,7 +397,13 @@ export class Duties {
       return;
     }
     run.cursor = order.length;
+    this.spent(duty, run);
+  }
+
+  /** Nobody is left to offer the role: it is over, and an auditor's end may leave the event authority-only. */
+  private spent(duty: Duty, run: RoleRun): void {
     run.over = true;
+    if (run.role === 'auditor') this.onAuditEnd(duty.event, run.audit, duty.participants);
   }
 
   private dutyMsg(duty: Duty, run: RoleRun, position: number, fight: Fight | null): HubMsg | null {

@@ -227,10 +227,10 @@ describe('HubClient listeners', () => {
     client.onLife((m) => lives.push(m));
     void client.connect().catch(() => {});
     const s = await handshake();
-    s.receive({ t: 'lock-ask', lock: 'ab'.repeat(8) });
+    s.receive({ t: 'lock-ask', lock: 'ab'.repeat(8), by: 'B'.repeat(43) });
     s.receive({ t: 'enc-frame', enc: 'cd'.repeat(32), f: 3, i: [1, null] });
     expect(fights).toEqual([
-      { t: 'lock-ask', lock: 'ab'.repeat(8) },
+      { t: 'lock-ask', lock: 'ab'.repeat(8), by: 'B'.repeat(43) },
       { t: 'enc-frame', enc: 'cd'.repeat(32), f: 3, i: [1, null] },
     ]);
     expect(lives).toEqual([]);

@@ -72,7 +72,7 @@ const clientMsgs = [
 ];
 
 const hubMsgs = [
-  { t: 'lock-ask', lock: LOCK },
+  { t: 'lock-ask', lock: LOCK, by: PID2 },
   {
     t: 'enc-start',
     enc: HEX,
@@ -233,6 +233,9 @@ describe('encounter ranges', () => {
     expect(hub({ ...end, hash: '13cf1b2deb89cfd' })).toBeNull();
     expect(hub({ ...lockAsk, lock: 'not-hex!' })).toBeNull();
     expect(hub({ ...lockAsk, lock: 'abc' })).toBeNull();
+    // The attacker's player id, so the target knows whose snapshots to send (M10 T11).
+    expect(hub({ ...lockAsk, by: 'short' })).toBeNull();
+    expect(hub({ t: 'lock-ask', lock: LOCK })).toBeNull();
     expect(client({ ...lockState, lock: 'g'.repeat(32) })).toBeNull();
     expect(client({ ...engage, target: 'short' })).toBeNull();
     expect(hub({ ...start, fighters: [fighter({ player: 'x' }), fighter()] })).toBeNull();

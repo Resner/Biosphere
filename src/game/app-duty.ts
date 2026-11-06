@@ -1,18 +1,24 @@
 // Witness duty in the page (M10, ADR 0058). `DutyWiring` dispatches the hub's duties: a referee
-// duty to `app-witness.ts`, an auditor duty answered `duty-no` until audits land (T8). `DutyProbes`
+// duty to `app-witness.ts` and an auditor duty to `app-audit.ts` (T8). `DutyProbes`
 // measures the round trip on each duty link, for a fighter's lead. `Availability` decides the `avail` the hub hears: the
 // page can witness only while the tab is visible, Settings' "Help referee fights" is on, the
 // player is neither locked nor fighting, and its frame times' 90th percentile over the last 5 s
 // is at most 50 ms. Off goes out at once; on only once all of that has held for 5 s and 5 s after
 // the last message, so a flapping tab sends at most one message per 5 s and the hub (which counts
-// an `on` at most once per 5 s) never drops one.
+// an `on` at most once per 5 s) never drops one. `DutyWiring` also dispatches the hub's duties: an
+// auditor duty to `app-audit.ts` (M10 T8), which loads with the first one.
 
-import type { DutyMsg } from '../net/hub-client';
-import type { PeerEvent } from '../net/protocol';
+import type { Beacon } from '../ledger/drand';
+import type { PubKey } from '../ledger/record';
+import type { AuditVerdict } from '../net/audit';
+import { type DutyMsg, fetchJson, hubHttpUrl } from '../net/hub-client';
+import type { AuditCase, PeerEvent } from '../net/protocol';
 import type { FighterInput } from '../net/witness-referee';
 import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
+import type { AuditDuties, AuditRunner } from './app-audit';
 import type { EncFrameMsg, EncRefereeMsg, WitnessDuties, WitnessHost } from './app-witness';
+import { cachedKeys } from './fight-verify';
 
 /** The frame times judged, and how long everything must hold before an `on`. */
 export const AVAIL_WINDOW_MS = 5000;
@@ -163,6 +169,11 @@ export class DutyWiring {
   /** The referee duty's runner, once the first offer has loaded it. */
   witness: WitnessDuties | null = null;
   private loading: Promise<WitnessDuties> | null = null;
+  /** The auditor duty's runner (M10 T8), once the first offer has loaded it. */
+  audits: AuditDuties | null = null;
+  /** `debug.dutyFrameMs`: the frame time availability judges in place of the measured one, or null. */
+  frameMs: number | null = null;
+  private auditLoading: Promise<{ audits: AuditDuties; runner: AuditRunner }> | null = null;
   private readonly host: WitnessHost;
 
   constructor(private readonly app: App) {
@@ -208,11 +219,18 @@ export class DutyWiring {
             decline();
           },
         );
+      } else {
+        this.auditor().then(
+          ({ audits }) => audits.offer(msg),
+          () => {
+            this.auditLoading = null;
+            decline();
+          },
+        );
       }
-      // Audits come with T8: until then an auditor duty is declined.
-      else decline();
     } else if (msg.t === 'duty-end') {
       this.witness?.end(msg);
+      this.audits?.end(msg);
     }
   }
 
@@ -227,9 +245,42 @@ export class DutyWiring {
     else this.witness?.input(from, ev);
   }
 
+  /** The auditor runner and its module worker, loaded once. */
+  private auditor(): Promise<{ audits: AuditDuties; runner: AuditRunner }> {
+    const { app } = this;
+    this.auditLoading ??= import('./app-audit').then((m) => {
+      const { hubUrl } = app;
+      const keys = hubUrl ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys'))) : null;
+      const runner = m.workerRunner(
+        () => new Worker(new URL('./audit-worker.ts', import.meta.url), { type: 'module' }),
+      );
+      this.audits = new m.AuditDuties({
+        identity: () => app.identity,
+        keys: () => keys?.() ?? Promise.resolve(null),
+        sendHub: (msg) => app.keeper.current?.send(msg),
+        runner,
+        perfNow: () => performance.now(),
+      });
+      return { audits: this.audits, runner };
+    });
+    return this.auditLoading;
+  }
+
+  /** `debug.audit`: a verdict worked out in the audit worker, as an auditor duty would, and its time. */
+  async audit(
+    audit: AuditCase,
+    beacon: Beacon,
+    keys: PubKey[],
+  ): Promise<{ verdict: AuditVerdict; ms: number }> {
+    const { runner } = await this.auditor();
+    const t0 = performance.now();
+    const { verdict } = await runner.run({ t: 'verdict', audit, beacon, keys });
+    return { verdict, ms: performance.now() - t0 };
+  }
+
   /** A frame took `ms`. */
   frame(now: number, ms: number): void {
-    this.avail.frame(now, ms);
+    this.avail.frame(now, this.frameMs ?? ms);
     this.update(now);
     this.probes.tick(now, () =>
       (this.app.keeper.current?.dutyLinks() ?? []).filter((l) => l.open).map((l) => l.peer),
@@ -251,5 +302,6 @@ export class DutyWiring {
   welcome(): void {
     this.avail.reset();
     this.witness?.reset();
+    this.audits?.reset();
   }
 }

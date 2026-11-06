@@ -3,7 +3,7 @@
 
 import type { Identity } from '../ledger/identity';
 import { encodeSignedFrame, signSnap } from '../ledger/snapshot-sig';
-import type { ClientMsg } from '../net/protocol';
+import { type ClientMsg, SEEN_MAX, type SignedSnap } from '../net/protocol';
 import { engageRange, type Reacher, strikeDistance } from '../sim/encounter/reach';
 import type { Stance } from '../sim/encounter/types';
 import { RULES } from '../sim/rules';
@@ -81,14 +81,21 @@ export class CandidateSigner {
   }
 }
 
-/** The answer to a `lock-ask`: `bytes`, the creature's snapshot now, signed for the pond. */
+/**
+ * The answer to a `lock-ask`: `bytes`, the creature's snapshot now, signed for the pond, and the
+ * attacker's signed snapshots held from the last 2 s (`seen`, M10 T11), when there are any.
+ */
 export function lockState(
   lock: string,
   bytes: Uint8Array,
   identity: Identity,
   pondId: string,
+  seen: readonly SignedSnap[] = [],
 ): Extract<ClientMsg, { t: 'lock-state' }> {
-  return { t: 'lock-state', lock, mine: signSnap(identity, pondId, bytes) };
+  const mine = signSnap(identity, pondId, bytes);
+  return seen.length > 0
+    ? { t: 'lock-state', lock, mine, seen: seen.slice(-SEEN_MAX) }
+    : { t: 'lock-state', lock, mine };
 }
 
 /**
@@ -116,7 +123,15 @@ export class SpawnShield {
 // ---- Attack (M7 T11): which creature F engages, the hint beside it, and the combat keys ----
 
 /** Why a creature cannot be engaged now, as the player is told. */
-export type EngageRefusal = 'bigger' | 'smaller' | 'protected' | 'fighting' | 'full' | 'range';
+export type EngageRefusal =
+  | 'bigger'
+  | 'smaller'
+  | 'protected'
+  | 'fighting'
+  | 'full'
+  | 'range'
+  /** The authority's movement check (M10 T11): the attacker's own snapshots jumped. */
+  | 'moved';
 
 /** A pond peer as the attack sees it: its drawn body for the reach rules, and its snapshot marks. */
 export interface AttackPeer {
@@ -236,6 +251,8 @@ export function refusalToast(
       return 'That fight is full';
     case 'range':
       return 'Too far';
+    case 'moved':
+      return 'Moved too fast to attack';
     case 'none':
       return 'Nobody in reach';
     default:
@@ -256,6 +273,8 @@ export function authorityRefusal(reason: string, bigger: boolean): EngageRefusal
       return 'full';
     case 'engage:range':
       return 'range';
+    case 'engage:moved':
+      return 'moved';
     default:
       return 'other';
   }

@@ -66,6 +66,7 @@ function debugHelpers(app: App): BsDebug {
     skipDraw(on) {
       app.scene.skipDraw = on;
     },
+    audit: (audit, beacon, keys) => app.duty.audit(audit, beacon, keys),
     holdBelly(on) {
       app.fight.holdBelly = on;
     },
@@ -155,6 +156,9 @@ function debugHelpers(app: App): BsDebug {
     hasFood: (id) => app.food.some((f) => f.id === id),
     setBench(ms) {
       app.autoQuality.setBench(ms, performance.now());
+    },
+    dutyFrameMs(ms) {
+      app.duty.frameMs = ms;
     },
     timeScale(next) {
       app.clock();
@@ -395,6 +399,8 @@ export function installAppHook(app: App): void {
           declined: app.duty.witness?.declined ?? 0,
           batches: app.duty.witness?.batches ?? 0,
           dutyMs: [...(app.duty.witness?.dutyMs ?? [])],
+          auditing: app.duty.audits?.auditing ?? null,
+          audits: [...(app.duty.audits?.audits ?? [])],
         },
       };
     },

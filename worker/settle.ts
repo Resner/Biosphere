@@ -12,6 +12,7 @@ import { FRAME_MS } from '../src/net/referee';
 import { hashEncounter, results } from '../src/sim/encounter/encounter';
 import { type Encounter, survivedOutcome } from '../src/sim/encounter/types';
 import { RULES } from '../src/sim/rules';
+import { auditFight } from './attest';
 import { reportOf, storeReport } from './away';
 import { pondTick } from './engage';
 import { logOf } from './fight-store';
@@ -177,6 +178,8 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
     fighters,
     ...(settlement ? { settlement } : {}),
   });
+  // Its auditor re-plays the log against the settlement (ADR 0058), now or once the round is in.
+  if (settlement) auditFight(hub, log, settlement);
   dropCarrion(hub, fight, fighters, forwarded);
   hub.fights.release(lock.id);
   for (const [slot, f] of fighters.entries()) settleLife(hub, f, records[slot]?.activeMs ?? 0);
