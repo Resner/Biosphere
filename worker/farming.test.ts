@@ -14,7 +14,6 @@ import {
   type EncStart,
   editLife,
   fighters,
-  firstSeenAgo,
   hatched,
   lockIn,
   NEAR,
@@ -23,6 +22,7 @@ import {
   type Player,
   play,
   rehatch,
+  seasoned,
   slotOf,
   snap,
   useFightHub,
@@ -44,8 +44,20 @@ useFightHub();
 
 const hex = () => bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
 
-/** An identity with a row in `players`, first seen `ago` ms before the hub's now. */
-async function identity(ago: number): Promise<string> {
+/** A finished creature of `owner` that lived `ms` of play. */
+const played = (owner: string, ms: number, status = 'dead') =>
+  sql(
+    `INSERT INTO creatures (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t)
+     VALUES (?, ?, ?, 0, '', '', ?, 0, 0, 0, 0, ?)`,
+    hex(),
+    owner,
+    status,
+    ms,
+    status === 'dead' ? 0 : null,
+  );
+
+/** An identity with a row in `players`, first seen `ago` ms before the hub's now, and `play` ms of play. */
+async function identity(ago: number, play: number = F.youngPlayMs): Promise<string> {
   const id = hex();
   await sql(
     'INSERT INTO players (id, first_seen, last_seen) VALUES (?, ?, ?)',
@@ -53,6 +65,7 @@ async function identity(ago: number): Promise<string> {
     clock.t - ago,
     clock.t - ago,
   );
+  if (play > 0) await played(id, play);
   return id;
 }
 
@@ -95,16 +108,31 @@ describe('worthOf', () => {
     expect(await worth(victim)).toBe(2 ** -F.maxHalvings);
   });
 
-  it('halves once more while the identity is under 30 minutes old', async () => {
-    const fresh = await identity(10 * MIN);
+  it('halves once more until the player has played 20 minutes', async () => {
+    const fresh = await identity(10 * MIN, 0);
     expect(await worth(fresh)).toBe(0.5);
     await died(fresh, 'killed', MIN);
     expect(await worth(fresh)).toBe(0.25);
-    const old = await identity(F.youngMs);
-    expect(await worth(old)).toBe(1);
     // At the cap the young halving still counts: 2^-7, the least worth there is.
     for (let i = 0; i < F.maxHalvings + 2; i++) await died(fresh, 'killed', 2 * MIN + i);
     expect(await worth(fresh)).toBe(2 ** -(F.maxHalvings + 1));
+  });
+
+  it('is half at 19 min 59 s of play and 1 at 20 min', async () => {
+    expect(await worth(await identity(HOUR, F.youngPlayMs - 1_000))).toBe(0.5);
+    expect(await worth(await identity(HOUR, F.youngPlayMs))).toBe(1);
+  });
+
+  it('is half for an identity first seen two hours ago that never played', async () => {
+    expect(await worth(await identity(2 * HOUR, 0))).toBe(0.5);
+  });
+
+  it('counts the play of every creature the player had, dead or alive', async () => {
+    const id = await identity(HOUR, 0);
+    await played(id, F.youngPlayMs / 2);
+    expect(await worth(id)).toBe(0.5);
+    await played(id, F.youngPlayMs / 2, 'active');
+    expect(await worth(id)).toBe(1);
   });
 
   it('forgets a kill 24 h + 1 ms ago', async () => {
@@ -126,9 +154,9 @@ describe('worthOf', () => {
   });
 
   it('writes no row', async () => {
-    const victim = await identity(10 * MIN);
+    const victim = await identity(10 * MIN, 0);
     await died(victim, 'killed', MIN);
-    // workerd's own count, over every statement the read runs: no row written.
+    // workerd’s own count, over the two reads (kills, play): no row written.
     const seen = await authority((o) => {
       const sql = o.ctx.storage.sql;
       const exec = sql.exec.bind(sql);
@@ -148,7 +176,7 @@ describe('worthOf', () => {
         ledger: o.ledger.rowsWritten - rows,
       };
     });
-    expect(seen).toEqual({ got: 0.25, statements: 1, written: 0, ledger: 0 });
+    expect(seen).toEqual({ got: 0.25, statements: 2, written: 0, ledger: 0 });
   });
 });
 
@@ -202,7 +230,7 @@ describe('worth at lock-in', () => {
 
   it('a young identity starts at half', async () => {
     const [a, b] = await fighters();
-    await firstSeenAgo(b, 10 * MIN);
+    await seasoned(b, 10 * MIN);
     const [start] = await lockIn(a, b);
     expect(worthIn(start, a)).toBe(1);
     expect(worthIn(start, b)).toBe(0.5);
@@ -249,7 +277,7 @@ describe('joins', () => {
     await grown(b, T1);
     await grown(c, T2);
     await grown(d, T1);
-    await firstSeenAgo(d, 10 * MIN);
+    await seasoned(d, 10 * MIN);
     // A (T0) and B (T1) fight.
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { biomass: T1 }));
     expect(start.fighters).toHaveLength(2);
