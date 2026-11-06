@@ -1,6 +1,10 @@
 import { describe, expect, it } from 'vitest';
+import { commitmentId } from '../src/ledger/genesis';
+import { parseProofBundle } from '../src/ledger/proof';
 import type { SignedSettlement } from '../src/ledger/settlement';
-import { signWitnessFrame } from '../src/ledger/witness';
+import { verifyLineage } from '../src/ledger/verify';
+import { signAttestation, signWitnessFrame } from '../src/ledger/witness';
+import { auditVerdict } from '../src/net/audit';
 import { encounterStartOf } from '../src/net/encounter-start';
 import { settlementOf } from '../src/net/encounter-verify';
 import { AUTHORITY, RefereeSpans } from '../src/net/handover';
@@ -21,6 +25,7 @@ import {
   type EncStart,
   fighters,
   hatched,
+  killB,
   lockIn,
   NEAR,
   outOfReach,
@@ -30,8 +35,10 @@ import {
   useFightHub,
   within,
 } from './fight-test-kit';
+import { proofBundle } from './proof';
 import { recoverFights } from './recover';
-import { publish, sql } from './test-hub';
+import { nextOf, publish, sql } from './test-hub';
+import { DAY_MS } from './usage';
 import { commitWitnesses, STRIKE_MS } from './witness-pool';
 import {
   byPlayer,
@@ -587,5 +594,67 @@ describe('planned take-backs', () => {
       { by: sw.player, from: h, position: 0 },
       { by: AUTHORITY, from: logged },
     ]);
+  });
+});
+
+describe('in the creature’s proof (M10 T10)', () => {
+  it('holds a refereed and audited fight’s commitment and attestation; 15 days on, a settlement prunes the commitment and the report says unchecked', async () => {
+    const { r, sw } = await handedOver(2, 'hunt');
+    const end = await playOut(r, sw);
+    const auditor = r.at(1);
+    const duty = await within(nextOf(auditor.c, 'duty'), 'the auditor duty');
+    if (duty.role !== 'auditor') throw new Error('not an auditor duty');
+    auditor.c.send({ t: 'duty-ok', event: r.event });
+    const v = auditVerdict(duty.audit, duty.beacon, await authority((o) => o.pubkeys()));
+    expect(v).toMatchObject({ agree: true, subject: end.settlement?.hash });
+    const signed = signAttestation(auditor.id, {
+      v: 1,
+      kind: 'attest',
+      event: r.event,
+      duty: r.commitId,
+      position: duty.position,
+      witness: auditor.id.playerId,
+      subject: v.subject,
+      agree: true,
+    });
+    auditor.c.send({ t: 'attest', signed });
+    expect((await within(nextOf(auditor.c, 'duty-end'), 'duty-end')).why).toBe('done');
+
+    /** A's bundle as the authority serves it, through the parser a verifier uses. */
+    const bundleOfA = async () => {
+      const served = await authority((o) => proofBundle(o, r.a.creature, clock.t));
+      const bundle = parseProofBundle(JSON.stringify(served));
+      if (!bundle) throw new Error('the bundle does not parse');
+      return bundle;
+    };
+    const bundle = await bundleOfA();
+    expect(bundle.witnessCommits.map((c) => commitmentId(c.commitment))).toContain(r.commitId);
+    expect(bundle.attestations).toEqual([signed]);
+    const report = verifyLineage(bundle);
+    expect(report.problems).toEqual([]);
+    expect(report.witnessed).toMatchObject({ refereed: 1, audited: 1, overruled: 0, unchecked: 0 });
+    expect(report.events.find((e) => e.event === r.event)).toMatchObject({
+      refereed: true,
+      audited: true,
+      authorityOnly: false,
+      selection: 'checked',
+    });
+
+    // The commitment ages past 14 days (on the clock it was made by); the next settlement prunes it.
+    await sql('UPDATE commitments SET created = created - ? WHERE id = ?', 15 * DAY_MS, r.commitId);
+    const [c, d] = await fighters();
+    await killB(c, d);
+    expect(await sql('SELECT id FROM commitments WHERE id = ?', r.commitId)).toEqual([]);
+    const later = await bundleOfA();
+    expect(later.witnessCommits.map((x) => commitmentId(x.commitment))).not.toContain(r.commitId);
+    expect(later.attestations).toEqual([signed]);
+    const after = verifyLineage(later);
+    expect(after.problems).toEqual([]);
+    expect(after.witnessed).toMatchObject({ refereed: 1, audited: 1, unchecked: 1 });
+    expect(after.events.find((e) => e.event === r.event)).toMatchObject({
+      refereed: true,
+      audited: true,
+      selection: 'unchecked',
+    });
   });
 });

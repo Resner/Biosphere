@@ -39,7 +39,8 @@ const statusOf = (resolved: SqlStorageValue | undefined): CommitStatus =>
 
 type Row = Record<string, SqlStorageValue>;
 
-const requestKey = (kind: string, owner: string, data: Canonical): string =>
+/** The `req` column of a commitment: what makes two requests the same (a witness commitment's is its event's). */
+export const requestKey = (kind: string, owner: string, data: Canonical): string =>
   hashWithDomain(REQUEST_DOMAIN, canonicalize({ kind, owner, data }));
 
 const asSigned = (row: Row): SignedCommitment => ({
@@ -175,6 +176,21 @@ export class Beacons {
     if (out.status === 'awaiting') this.pendingSet().set(out.id, out.commitment.round);
     await this.deps.rearm();
     return out;
+  }
+
+  /**
+   * Deletes up to `max` resolved witness commitments made `keepMs` or more before now, oldest first
+   * (ADR 0058: a settlement's prune). Their time is the source's, as `created` is, so a fixture
+   * clock and the hub's never mix. Attestations and beacons stay.
+   */
+  pruneWitnesses(max: number, keepMs: number): void {
+    this.run(
+      `DELETE FROM commitments WHERE id IN (
+         SELECT id FROM commitments WHERE kind = 'witness' AND created <= ? AND resolved IS NOT NULL
+         ORDER BY created, id LIMIT ?)`,
+      this.deps.source.now() - keepMs,
+      max,
+    );
   }
 
   /** The commitment an earlier `commit` with the same arguments made, or null. Writes nothing. */

@@ -30,7 +30,13 @@ export interface CardState {
   /** Ancestors the proof left out (`more`). */
   missing: number;
   fights: LineageReport['fights'];
-  /** The story lines as shown. */
+  /**
+   * What witnesses saw (M10 T10, ADR 0058): the report's counts of the held fights, matings and
+   * genesis events, refereed, audited, authority-only, overruled and unchecked; null before the
+   * first verification ends.
+   */
+  witnessed: LineageReport['witnessed'] | null;
+  /** The story lines as shown: once the report is in, each fight, birth and hatch says what a witness did. */
   story: string[];
   /** True once a frame shows the creature (the WebGL body, or the flat preview without WebGL2). */
   drawn: boolean;

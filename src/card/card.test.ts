@@ -6,7 +6,7 @@ import { speciesName } from '../genome/names';
 import { rarityOf } from '../genome/rarity';
 import type { ProofBundle } from '../ledger/proof';
 import type { FightLog } from '../ledger/settlement';
-import { verifyLineage } from '../ledger/verify';
+import { verifyLineage, type WitnessEvent, witnessedLine } from '../ledger/verify';
 import { verifyEncounter } from '../net/encounter-verify';
 import {
   cardFacts,
@@ -16,6 +16,7 @@ import {
   speciesOf,
   storyLines,
   verdictLine,
+  witnessSuffix,
 } from './card';
 import { LineageCheck } from './check';
 
@@ -93,6 +94,105 @@ describe('the facts and the story', () => {
     const b = golden();
     b.creatures = b.creatures.slice(1);
     expect(cardFacts(b)).toBeNull();
+  });
+});
+
+describe('what witnesses saw (M10 T10)', () => {
+  const event = (over: Partial<WitnessEvent> = {}): WitnessEvent => ({
+    event: `enc:${'ab'.repeat(32)}`,
+    creatures: [],
+    refereed: false,
+    audited: false,
+    overruled: false,
+    authorityOnly: true,
+    selection: 'checked',
+    ...over,
+  });
+
+  it('ends each fight, birth and hatch of the golden in what a witness did', () => {
+    const b = golden();
+    const story = storyLines(b, verifyLineage(b));
+    expect(story[0]).toMatch(/^Born from drand round \d+ to .+ · audited by a witness$/);
+    expect(story[2]).toBe(
+      'Fought once: 1 kill, 1 egg eaten · refereed by a witness, audited by another',
+    );
+    // A promote, a life and an end are no witnessed events.
+    expect(story[1]).toBe('Hatched from its egg when its parent passed its life on');
+    for (const line of story) expect(line).not.toMatch(RAW);
+    const a0 = bundleOf(history, A0);
+    expect(storyLines(a0, verifyLineage(a0))[0]).toMatch(
+      /^Hatched from drand round \d+, a first-generation cell · audited by a witness$/,
+    );
+    const b0 = bundleOf(history, B0);
+    const lines = storyLines(b0, verifyLineage(b0));
+    expect(lines[0]).toMatch(/ · checked by the authority alone$/);
+    expect(lines).toContain('Fought once · refereed by a witness, audited by another');
+  });
+
+  it('says plainly when the authority checked alone, or overruled a witness', () => {
+    expect(witnessSuffix(event())).toBe(' · checked by the authority alone');
+    expect(witnessSuffix(undefined)).toBe(' · checked by the authority alone');
+    expect(witnessSuffix(event({ audited: true, authorityOnly: false }))).toBe(
+      ' · audited by a witness',
+    );
+    expect(witnessSuffix(event({ refereed: true, authorityOnly: false }))).toBe(
+      ' · refereed by a witness',
+    );
+    expect(witnessSuffix(event({ overruled: true }))).toBe(
+      " · checked by the authority alone · a witness disagreed; the authority's result stands",
+    );
+    expect(witnessSuffix(event({ refereed: true, overruled: true, authorityOnly: false }))).toBe(
+      " · refereed by a witness · a witness disagreed; the authority's result stands",
+    );
+  });
+
+  it('tells each fight apart when there are several', () => {
+    const b = bundleOf(history, B0);
+    const report = verifyLineage(b);
+    const first = report.events.find((e) => e.event.startsWith('enc:')) as WitnessEvent;
+    // A second settled fight of B0's, authority-only: the story counts both and names each.
+    const settled = b.settlements[0];
+    if (!settled) throw new Error('no settlement');
+    const enc = 'cd'.repeat(32);
+    b.settlements.push({ ...settled, settlement: { ...settled.settlement, enc } });
+    const chain = b.records.filter((s) => s.record.creature === B0);
+    const death = chain.find((s) => s.record.kind === 'death');
+    if (!death) throw new Error('no death');
+    b.records.push({
+      ...death,
+      record: { ...death.record, kind: 'encounter', seq: 99, body: { ...death.record.body, enc } },
+    });
+    const both = {
+      ...report,
+      events: [first, event({ event: `enc:${enc}`, overruled: true, creatures: [B0] })],
+    };
+    const lines = storyLines(b, both);
+    expect(lines).toContain('Fought twice');
+    expect(lines).toContain('Fight 1 · refereed by a witness, audited by another');
+    expect(lines).toContain(
+      "Fight 2 · checked by the authority alone · a witness disagreed; the authority's result stands",
+    );
+  });
+
+  it('counts the events in the details, the same line the CLI prints', () => {
+    const r = verifyLineage(golden());
+    expect(witnessedLine(r.witnessed)).toBe(
+      'Witnesses: 3 of 4 events seen by a witness; 1 checked by the authority alone',
+    );
+    expect(familyLines(r)).toContain(`${witnessedLine(r.witnessed)}.`);
+    expect(
+      witnessedLine({
+        events: 6,
+        refereed: 1,
+        audited: 3,
+        authorityOnly: 2,
+        overruled: 1,
+        unchecked: 2,
+      }),
+    ).toBe(
+      "Witnesses: 4 of 6 events seen by a witness; 2 checked by the authority alone; 1 where a witness disagreed and the authority's result stands; 2 whose draw of witnesses is no longer kept, so not checked",
+    );
+    for (const line of familyLines(r)) expect(line).not.toMatch(RAW);
   });
 });
 

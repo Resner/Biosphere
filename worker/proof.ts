@@ -9,10 +9,12 @@ import {
 } from '../src/ledger/proof';
 import { HEX64, type StoredRecord } from '../src/ledger/record';
 import type { FightLog, SignedSettlement } from '../src/ledger/settlement';
+import type { SignedAttestation } from '../src/ledger/witness-doc';
 import type { EncJoin, EncStart } from '../src/net/encounter-start';
 import type { SignedCommit } from '../src/net/protocol-defs';
 import { byteLength } from '../src/net/protocol-kit';
 import { RULES_VERSION } from '../src/sim/rules';
+import { requestKey } from './beacons';
 import { unpackFrames } from './fight-pack';
 import { asStored, type Row } from './ledger-types';
 import { scalesOf } from './mating';
@@ -22,7 +24,9 @@ import type { Hub } from './socket';
 // What verification needs, served from the ledger alone (ADR 0055, M9 T7): a creature's proof
 // bundle (`GET /v1/proof/<creature>`) and a fight's settlement with its log (`GET /v1/fight/<enc>`).
 // Reads only: every query goes through `read`, which counts any row written as `Ledger.run` does,
-// so a test sees that nothing is.
+// so a test sees that nothing is. A bundle (version 2) also holds the witness commitment of each
+// event its records hold (a fight, a genesis, a mating) while it is kept, and every attestation of
+// them (ADR 0058, M10 T10).
 
 /** How far a bundle may grow: `PROOF_MAX_CREATURES`, `PROOF_MAX_BYTES` and `PROOF_CAPS.records` (tests pass smaller ones). */
 export interface ProofLimits {
@@ -59,6 +63,28 @@ interface Known {
   chainParent: string | null;
 }
 
+const signedOf = (row: Row): SignedCommit => ({
+  commitment: JSON.parse(row.json as string),
+  authSig: row.auth_sig as string,
+  keyId: row.key_id as string,
+});
+
+/**
+ * The witness events a held record names, as the verifier's witness family holds them: a genesis
+ * creature's first record, a mating's `mate-commit` or `birth`, and a fight's record (only once its
+ * settlement is held, which `settled` says).
+ */
+function eventsOf(s: StoredRecord, settled: (enc: string) => boolean): string[] {
+  const { kind, seq, body } = s.record;
+  const out: string[] = [];
+  if (typeof body.commit === 'string') {
+    if (kind === 'genesis' && seq === 0) out.push(`genesis:${body.commit}`);
+    else if (kind === 'mate-commit' || kind === 'birth') out.push(`mating:${body.commit}`);
+  }
+  if (typeof body.enc === 'string' && settled(body.enc)) out.push(`enc:${body.enc}`);
+  return out;
+}
+
 /** The JSON size of a value in UTF-8 bytes, plus the comma that follows it in a list. */
 const sizeOf = (v: unknown): number => byteLength(JSON.stringify(v)) + 1;
 
@@ -69,6 +95,8 @@ class Reader {
   private readonly beacons = new Map<number, { round: number; signature: string } | null>();
   private readonly settlements = new Map<string, SignedSettlement | null>();
   private readonly flags = new Map<string, AuditFlag[]>();
+  private readonly witnesses = new Map<string, SignedCommit | null>();
+  private readonly attested = new Map<string, SignedAttestation[]>();
   readonly sizes = new Map<unknown, number>();
 
   constructor(private readonly hub: Hub) {}
@@ -85,16 +113,7 @@ class Reader {
         'SELECT json, auth_sig, key_id FROM commitments WHERE id = ?',
         id,
       )[0];
-      this.commits.set(
-        id,
-        row
-          ? {
-              commitment: JSON.parse(row.json as string),
-              authSig: row.auth_sig as string,
-              keyId: row.key_id as string,
-            }
-          : null,
-      );
+      this.commits.set(id, row ? signedOf(row) : null);
     }
     return this.commits.get(id) ?? null;
   }
@@ -110,6 +129,33 @@ class Reader {
   settlement(enc: string): SignedSettlement | null {
     if (!this.settlements.has(enc)) this.settlements.set(enc, settlementOf(this.hub, enc));
     return this.settlements.get(enc) ?? null;
+  }
+
+  /** The event's witness commitment while it is kept (found by its request key, the event's), or null. */
+  witness(event: string): SignedCommit | null {
+    if (!this.witnesses.has(event)) {
+      const row = read(
+        this.hub,
+        'SELECT json, auth_sig, key_id FROM commitments WHERE req = ?',
+        requestKey('witness', '', { event }),
+      )[0];
+      this.witnesses.set(event, row ? signedOf(row) : null);
+    }
+    return this.witnesses.get(event) ?? null;
+  }
+
+  /** Every attestation stored for the event, by position. */
+  attestations(event: string): SignedAttestation[] {
+    let out = this.attested.get(event);
+    if (!out) {
+      out = read(
+        this.hub,
+        'SELECT json FROM attestations WHERE event = ? ORDER BY position',
+        event,
+      ).map((r) => JSON.parse(r.json as string) as SignedAttestation);
+      this.attested.set(event, out);
+    }
+    return out;
   }
 
   flagsOf(creature: string): AuditFlag[] {
@@ -254,18 +300,28 @@ function assemble(reader: Reader, frame: Frame, held: readonly Known[]): ProofBu
   const commits = named('commit')
     .map((id) => reader.commit(id))
     .filter((c): c is SignedCommit => c !== null);
-  const rounds = [...new Set(commits.map((c) => c.commitment.round))].sort((x, y) => x - y);
+  const settlements = named('enc')
+    .map((enc) => reader.settlement(enc))
+    .filter((s): s is SignedSettlement => s !== null);
+  const settled = new Set(settlements.map((s) => s.settlement.enc));
+  const events = [...new Set(records.flatMap((s) => eventsOf(s, (enc) => settled.has(enc))))];
+  const witnessCommits = events
+    .map((e) => reader.witness(e))
+    .filter((c): c is SignedCommit => c !== null);
+  const rounds = [...new Set([...commits, ...witnessCommits].map((c) => c.commitment.round))].sort(
+    (x, y) => x - y,
+  );
   return {
     ...shellOf(frame, held[0]?.id ?? ''),
     creatures: held.map((k) => ({ id: k.id, genome: k.genome })),
     records,
     commits,
     beacons: rounds.map((r) => reader.beacon(r)).filter((b) => b !== null),
-    settlements: named('enc')
-      .map((enc) => reader.settlement(enc))
-      .filter((s): s is SignedSettlement => s !== null),
+    settlements,
     flags: held.flatMap((k) => reader.flagsOf(k.id)),
     more: moreOf(held),
+    witnessCommits,
+    attestations: events.flatMap((e) => reader.attestations(e)),
   };
 }
 
@@ -273,6 +329,14 @@ function assemble(reader: Reader, frame: Frame, held: readonly Known[]): ProofBu
 function moreOf(held: readonly Known[]): string[] {
   const ids = new Set(held.map((k) => k.id));
   return [...new Set(held.flatMap(parentsOf))].filter((id) => !ids.has(id));
+}
+
+/** What a growing bundle counts against the caps beside its bytes. */
+interface Counts {
+  records: number;
+  beacons: number;
+  witnessCommits: number;
+  attestations: number;
 }
 
 /**
@@ -284,19 +348,29 @@ function moreOf(held: readonly Known[]): string[] {
 class Growth {
   private constructor(
     private readonly reader: Reader,
-    private frame: number,
     private bytes: number,
-    private records: number,
+    readonly counts: Counts,
     private readonly ends: Map<string, number>,
     private readonly commits: Set<string>,
     private readonly rounds: Set<number>,
     private readonly encs: Set<string>,
+    private readonly events: Set<string>,
   ) {}
 
   /** The subject's whole chain, its flags and the bundle's frame. */
   static of(reader: Reader, frame: Frame, subject: Known): Growth {
     const shell = byteLength(JSON.stringify(shellOf(frame, subject.id)));
-    const g = new Growth(reader, shell, 0, 0, new Map(), new Set(), new Set(), new Set());
+    const counts = { records: 0, beacons: 0, witnessCommits: 0, attestations: 0 };
+    const g = new Growth(
+      reader,
+      shell,
+      counts,
+      new Map(),
+      new Set(),
+      new Set(),
+      new Set(),
+      new Set(),
+    );
     g.hold(subject);
     g.extend(subject, subject.chain.length - 1);
     return g;
@@ -306,13 +380,13 @@ class Growth {
   add(held: readonly Known[], k: Known): Growth {
     const g = new Growth(
       this.reader,
-      this.frame,
       this.bytes,
-      this.records,
+      { ...this.counts },
       new Map(this.ends),
       new Set(this.commits),
       new Set(this.rounds),
       new Set(this.encs),
+      new Set(this.events),
     );
     g.hold(k);
     const children = held.filter((c) => parentsOf(c).includes(k.id));
@@ -328,23 +402,22 @@ class Growth {
     return this.bytes + moreOf(held).reduce((n, id) => n + id.length + 3, 0);
   }
 
-  get recordCount(): number {
-    return this.records;
-  }
-
   private hold(k: Known): void {
     this.ends.set(k.id, -1);
     this.bytes += sizeOf({ id: k.id, genome: k.genome });
     for (const flag of this.reader.flagsOf(k.id)) this.bytes += this.reader.size(flag);
   }
 
-  /** Holds `k`'s records up to index `end`, and what they name: commitments, beacons, settlements. */
+  /**
+   * Holds `k`'s records up to index `end`, and what they name: commitments, beacons, settlements,
+   * and each event's witness commitment and attestations.
+   */
   private extend(k: Known, end: number): void {
     const from = (this.ends.get(k.id) ?? -1) + 1;
     for (let i = from; i <= end; i++) {
       const stored = k.chain[i] as StoredRecord;
       this.bytes += this.reader.size(stored);
-      this.records++;
+      this.counts.records++;
       const { commit, enc } = stored.record.body;
       if (typeof commit === 'string' && !this.commits.has(commit)) {
         this.commits.add(commit);
@@ -359,15 +432,36 @@ class Growth {
         const settlement = this.reader.settlement(enc);
         if (settlement) this.bytes += this.reader.size(settlement);
       }
+      for (const event of eventsOf(stored, (e) => this.reader.settlement(e) !== null)) {
+        this.witness(event);
+      }
     }
     this.ends.set(k.id, Math.max(end, from - 1));
+  }
+
+  private witness(event: string): void {
+    if (this.events.has(event)) return;
+    this.events.add(event);
+    const signed = this.reader.witness(event);
+    if (signed) {
+      this.bytes += this.reader.size(signed);
+      this.counts.witnessCommits++;
+      this.beacon(signed.commitment.round);
+    }
+    for (const a of this.reader.attestations(event)) {
+      this.bytes += this.reader.size(a);
+      this.counts.attestations++;
+    }
   }
 
   private beacon(round: number): void {
     if (this.rounds.has(round)) return;
     this.rounds.add(round);
     const beacon = this.reader.beacon(round);
-    if (beacon) this.bytes += this.reader.size(beacon);
+    if (beacon) {
+      this.bytes += this.reader.size(beacon);
+      this.counts.beacons++;
+    }
   }
 }
 
@@ -404,7 +498,11 @@ function buildBundle(
   if (!subject) return null;
   const maxRecords = limits.records ?? PROOF_CAPS.records;
   const fits = (g: Growth, held: readonly Known[]) =>
-    g.size(held) <= limits.bytes && g.recordCount <= maxRecords;
+    g.size(held) <= limits.bytes &&
+    g.counts.records <= maxRecords &&
+    g.counts.beacons <= PROOF_CAPS.beacons &&
+    g.counts.witnessCommits <= PROOF_CAPS.witnessCommits &&
+    g.counts.attestations <= PROOF_CAPS.attestations;
   const frame = frameOf(hub, now);
   const held: Known[] = [subject];
   let grown = Growth.of(reader, frame, subject);

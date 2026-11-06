@@ -15,7 +15,7 @@ import { RULES } from '../src/sim/rules';
 import { auditFight } from './attest';
 import { reportOf, storeReport } from './away';
 import { pondTick } from './engage';
-import { logOf } from './fight-store';
+import { LOG_KEEP_DAYS, logOf, PRUNE_PER_SETTLEMENT } from './fight-store';
 import type { Fight, Lock } from './fights';
 import type { FighterRecord, SettleResult } from './ledger-encounter';
 import { type Condition, isOld, type LifeState, recorded, unsaved } from './life';
@@ -23,6 +23,7 @@ import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
+import { DAY_MS } from './usage';
 import { refereeingOf, witnessDone } from './witness-fight';
 
 /** Sends `msg` to every participant who is connected now. */
@@ -144,6 +145,7 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
         stored: () => hub.fightStore.settlement(enc.id),
         seal: (signed) => {
           hub.fightStore.seal(fight, log.frames, signed);
+          hub.beacons.pruneWitnesses(PRUNE_PER_SETTLEMENT, LOG_KEEP_DAYS * DAY_MS);
           for (const { player, report } of away) storeReport(hub, player, report);
         },
       },

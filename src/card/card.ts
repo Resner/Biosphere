@@ -9,7 +9,14 @@ import { speciesName } from '../genome/names';
 import { type RarityTier, rarityOf } from '../genome/rarity';
 import type { ProofBundle } from '../ledger/proof';
 import type { StoredRecord } from '../ledger/record';
-import { type Family, type LineageReport, type Problem, problemText } from '../ledger/verify';
+import {
+  type Family,
+  type LineageReport,
+  type Problem,
+  problemText,
+  type WitnessEvent,
+  witnessedLine,
+} from '../ledger/verify';
 import { creatureOf } from '../ledger/verify-chain';
 import { int } from '../ledger/verify-gates';
 import type { DeathCause } from '../sim/types';
@@ -81,7 +88,7 @@ export function cardFacts(bundle: ProofBundle): CardFacts | null {
   };
 }
 
-/** The creature's fights from its records: how many, its kills and the eggs it ate. */
+/** Each of the creature's fights from its records, in order: its encounter, its kills and the eggs it ate. */
 function fightsOf(bundle: ProofBundle, chain: readonly StoredRecord[]) {
   const encs = new Set<string>();
   for (const { record } of chain) {
@@ -89,18 +96,36 @@ function fightsOf(bundle: ProofBundle, chain: readonly StoredRecord[]) {
     if (typeof enc === 'string' && (record.kind === 'encounter' || record.kind === 'death'))
       encs.add(enc);
   }
-  let kills = 0;
-  let eggs = 0;
-  for (const enc of encs) {
+  return [...encs].map((enc) => {
+    let kills = 0;
+    let eggs = 0;
     const results = bundle.settlements.find((s) => s.settlement.enc === enc)?.settlement.results;
     const slot = results?.findIndex((r) => r.creature === bundle.subject) ?? -1;
-    if (!results || slot < 0) continue;
-    for (const r of results) {
+    for (const r of slot < 0 ? [] : (results ?? [])) {
       if (r.by === slot) kills++;
       if (r.egg === 'eaten' && r.eggBy === slot) eggs++;
     }
-  }
-  return { fights: encs.size, kills, eggs };
+    return { enc, kills, eggs };
+  });
+}
+
+/** What a fight won, in words: "1 kill, 1 egg eaten", or '' for nothing. */
+const wonText = (kills: number, eggs: number): string =>
+  [kills > 0 ? times(kills, 'kill') : '', eggs > 0 ? `${times(eggs, 'egg')} eaten` : '']
+    .filter(Boolean)
+    .join(', ');
+
+/**
+ * What witnesses did for one event, as the end of its story line (ADR 0058). An event the report
+ * does not hold claims nothing: the authority alone.
+ */
+export function witnessSuffix(e: WitnessEvent | undefined): string {
+  const did = e?.refereed
+    ? `refereed by a witness${e.audited ? ', audited by another' : ''}`
+    : e?.audited
+      ? 'audited by a witness'
+      : 'checked by the authority alone';
+  return ` · ${did}${e?.overruled ? " · a witness disagreed; the authority's result stands" : ''}`;
 }
 
 /** How the creature began: hatched from a round, or born from one to two parents. */
@@ -133,14 +158,22 @@ function endLine(chain: readonly StoredRecord[], status: CardStatus): string {
 
 /**
  * The creature's story from its own records: how it began, its matings and children, its fights
- * and kills, the time it lived, and how it ended or where it is now.
+ * and kills, the time it lived, and how it ended or where it is now. With the verifier's report,
+ * its hatch or birth and each fight end in what a witness did (`witnessSuffix`).
  */
-export function storyLines(bundle: ProofBundle): string[] {
+export function storyLines(bundle: ProofBundle, report?: LineageReport): string[] {
   const chain = chainOf(bundle, bundle.subject);
   const status = statusOf(chain);
+  const events = new Map(report?.events.map((e) => [e.event, e]));
+  const said = (kind: string, id: unknown): string =>
+    report ? witnessSuffix(events.get(`${kind}:${String(id)}`)) : '';
   const lines: string[] = [];
-  const origin = originLine(bundle, chain[0]);
-  if (origin) lines.push(origin);
+  const first = chain[0];
+  const origin = originLine(bundle, first);
+  if (origin && first)
+    lines.push(
+      `${origin}${said(first.record.kind === 'genesis' ? 'genesis' : 'mating', first.record.body.commit)}`,
+    );
   if (chain.some((s) => s.record.kind === 'promote' && s.record.body.role === 'child'))
     lines.push('Hatched from its egg when its parent passed its life on');
   const matings = chain.filter((s) => s.record.kind === 'mate-commit').length;
@@ -151,15 +184,19 @@ export function storyLines(bundle: ProofBundle): string[] {
   if (children > 0) lines.push(`Passed its life on to its child ${count(children)}`);
   const restores = chain.filter((s) => s.record.kind === 'restore').length;
   if (restores > 0) lines.push(`Brought back after its successor died ${count(restores)}`);
-  const { fights, kills, eggs } = fightsOf(bundle, chain);
-  if (fights > 0) {
-    const won = [
-      kills > 0 ? times(kills, 'kill') : '',
-      eggs > 0 ? `${times(eggs, 'egg')} eaten` : '',
-    ]
-      .filter(Boolean)
-      .join(', ');
-    lines.push(`Fought ${count(fights)}${won ? `: ${won}` : ''}`);
+  const fights = fightsOf(bundle, chain);
+  const won = (text: string): string => (text ? `: ${text}` : '');
+  if (fights.length === 1) {
+    const [f] = fights as [(typeof fights)[number]];
+    lines.push(`Fought once${won(wonText(f.kills, f.eggs))}${said('enc', f.enc)}`);
+  } else if (fights.length > 1) {
+    const kills = fights.reduce((n, f) => n + f.kills, 0);
+    const eggs = fights.reduce((n, f) => n + f.eggs, 0);
+    lines.push(`Fought ${count(fights.length)}${won(wonText(kills, eggs))}`);
+    // Each fight its own line once the report can say what a witness did for it.
+    if (report)
+      for (const [i, f] of fights.entries())
+        lines.push(`Fight ${i + 1}${won(wonText(f.kills, f.eggs))}${said('enc', f.enc)}`);
   }
   let lived = 0;
   for (const { record } of chain) lived = Math.max(lived, int(record.body.activeMs) ?? 0);
@@ -207,6 +244,12 @@ export function familyLines(report: LineageReport): string[] {
     if (f.unreplayed > 0) parts.push(`${f.unreplayed} not replayed`);
     lines.push(`Fight replays: ${parts.join(', ')}.`);
   }
+  const witnessProblems = report.problems.filter((p) => p.family === 'witness').length;
+  lines.push(
+    witnessProblems > 0
+      ? `Witnesses: ${times(witnessProblems, 'problem')}.`
+      : `${witnessedLine(report.witnessed)}.`,
+  );
   lines.push(`${times(report.held, 'creature')} checked.`);
   if (report.missing.length > 0)
     lines.push(`${times(report.missing.length, 'ancestor')} not loaded, so not checked.`);
