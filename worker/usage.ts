@@ -10,7 +10,11 @@ interface UsageRow extends Record<string, SqlStorageValue> {
   requests: number;
   messages: number;
   rows_written: number;
+  db_bytes: number;
 }
+
+/** The free plan's SQLite storage per Durable Object (ADR 0008): the limit the audit shows the size against. */
+export const STORAGE_LIMIT_BYTES = 5_000_000_000;
 
 /**
  * The day's usage against the free tier (ADR 0008): upgrades, incoming messages and SQLite row writes,
@@ -27,6 +31,8 @@ export class UsageMeter {
   private messages = 0;
   private rows = 0;
   private rowsSeen = 0;
+  /** The database's size recorded for the day, 0 until the day's first flush. */
+  private bytes = 0;
   private dirty = false;
   private flushedAt = 0;
 
@@ -56,6 +62,12 @@ export class UsageMeter {
     return this.ticks / MESSAGES_PER_REQUEST;
   }
 
+  /** The database's size as the day's row holds it, or as it is now before the day's first flush. */
+  databaseBytes(now: number): number {
+    this.touch(now);
+    return this.bytes || this.sql.databaseSize;
+  }
+
   /** Writes the day's row if anything changed since the last flush. */
   flush(now: number): void {
     const delta = this.writes() - this.rowsSeen;
@@ -63,13 +75,16 @@ export class UsageMeter {
     // The flush's own row is counted with the rows it reports.
     this.rows += delta + 1;
     this.rowsSeen += delta;
+    // Once a day, with the first flush of its row (the one after midnight): a size is a read, free.
+    this.bytes ||= this.sql.databaseSize;
     this.sql.exec(
-      `INSERT INTO usage (day, requests, messages, rows_written) VALUES (?, ?, ?, ?)
-       ON CONFLICT (day) DO UPDATE SET requests = excluded.requests, messages = excluded.messages, rows_written = excluded.rows_written`,
+      `INSERT INTO usage (day, requests, messages, rows_written, db_bytes) VALUES (?, ?, ?, ?, ?)
+       ON CONFLICT (day) DO UPDATE SET requests = excluded.requests, messages = excluded.messages, rows_written = excluded.rows_written, db_bytes = excluded.db_bytes`,
       this.day,
       Math.ceil(this.ticks / MESSAGES_PER_REQUEST),
       this.messages,
       this.rows,
+      this.bytes,
     );
     this.dirty = false;
     this.flushedAt = now;
@@ -92,11 +107,15 @@ export class UsageMeter {
     if (this.day !== '') this.flush(now);
     this.day = day;
     const [stored] = this.sql
-      .exec<UsageRow>('SELECT requests, messages, rows_written FROM usage WHERE day = ?', day)
+      .exec<UsageRow>(
+        'SELECT requests, messages, rows_written, db_bytes FROM usage WHERE day = ?',
+        day,
+      )
       .toArray();
     this.ticks = (stored?.requests ?? 0) * MESSAGES_PER_REQUEST;
     this.messages = stored?.messages ?? 0;
     this.rows = stored?.rows_written ?? 0;
+    this.bytes = stored?.db_bytes ?? 0;
     this.rowsSeen = this.writes();
     this.dirty = false;
     this.flushedAt = now;

@@ -287,7 +287,7 @@ describe('migration 8', () => {
         };
       },
     );
-    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(out.after.kept).toEqual(out.beforeKept);
     expect(out.after.players.map((p) => [p.id, p.first_seen, p.last_seen])).toEqual([
       [out.ids[0], 10, 20],

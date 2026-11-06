@@ -1,6 +1,5 @@
 import { exports } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
-import { LIVE_SCALES, matureBiomassOf } from '../src/ledger/gates';
 import type { ProofBundle } from '../src/ledger/proof';
 import {
   PROOF_MAX_BYTES,
@@ -11,21 +10,9 @@ import {
 import type { StoredRecord } from '../src/ledger/record';
 import { verifyLineage } from '../src/ledger/verify';
 import { verifyEncounter } from '../src/net/encounter-verify';
-import { RULES_VERSION, TICK_HZ } from '../src/sim/rules';
-import {
-  advance,
-  authority,
-  firstSeenAgo,
-  join,
-  killB,
-  lifeOn,
-  lockIn,
-  NEAR,
-  rehatch,
-  setEnv,
-  snap,
-  useFightHub,
-} from './fight-test-kit';
+import { RULES_VERSION } from '../src/sim/rules';
+import { authority, useFightHub } from './fight-test-kit';
+import { history } from './history-kit';
 import {
   bear,
   checkpoint,
@@ -40,18 +27,9 @@ import {
   sign,
   step,
 } from './ledger-test-kit';
-import {
-  breed,
-  chainOf,
-  grower,
-  growTo,
-  keysOf,
-  promote,
-  restore,
-  sizeOf,
-} from './lineage-test-kit';
+import { chainOf, keysOf } from './lineage-test-kit';
 import { proofBundle } from './proof';
-import { closeSockets, nextOf, sql } from './test-hub';
+import { sql } from './test-hub';
 
 // M9 T7: proof bundles and fight proofs, served from the ledger alone while every player is
 // offline (ADR 0055): `GET /v1/proof/<creature>` and `GET /v1/fight/<enc>`.
@@ -80,44 +58,6 @@ const footprint = async () => ({
 /** A held creature's records in the bundle (a first record names no creature: its hash is the id). */
 const recordsIn = (bundle: ProofBundle, id: string) =>
   bundle.records.filter((r) => r.record.creature === id || (r.record.seq === 0 && r.hash === id));
-
-/**
- * The history of the lineage fixture, made through the hub: A0 and B0 hatch, grow and mate; A
- * promotes A1; A1 kills B0, eating B1's egg; A1 dies of a toxin; A restores A0.
- */
-async function history() {
-  await setEnv(true);
-  const pa = await join();
-  const pb = await join();
-  let a = await grower(await rehatch(pa));
-  const b = await grower(await rehatch(pb));
-  for (const p of [a, b]) await firstSeenAgo(p);
-  for (const p of [a, b]) await growTo(p, Math.ceil(matureBiomassOf(p.genome, LIVE_SCALES) * 1.02));
-  const a0 = a.creature;
-  const b0 = b.creature;
-  const [bornA, bornB] = await breed(a, b);
-  a = await promote(a, bornA);
-  const a1 = a.creature;
-  // Past A1's spawn protection, then the fight: B0 at 1 hp, carrying B1 as an egg.
-  await growTo(a, Math.ceil(must(await lifeOn(a)).biomass * 1.1));
-  await advance(16_000);
-  const [start] = await lockIn(
-    a,
-    b,
-    snap(b, ...NEAR.b, { health: 0.01, egg: true, biomass: await sizeOf(b) }),
-    snap(a, ...NEAR.a, { health: 1, biomass: await sizeOf(a) }),
-  );
-  await killB(a, b, start);
-  await advance(5_000);
-  a.ticks += 5 * TICK_HZ;
-  a.c.send({ t: 'death', cause: 'toxin', ticks: a.ticks });
-  const died = await nextOf(a.c, 'died');
-  const ancestor = must(died.fallback?.ancestor);
-  expect(ancestor.creature).toBe(a0);
-  await restore(a, ancestor, a1);
-  await closeSockets();
-  return { a0, b0, a1, b1: bornB.record.hash, enc: start.enc };
-}
 
 describe('GET /v1/proof and /v1/fight, with every socket closed', () => {
   it('serves a bundle of the hub’s own history that verifies, each ancestor cut at its tie', async () => {

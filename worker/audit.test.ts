@@ -250,10 +250,13 @@ describe('GET /v1/audit', () => {
     const text = await res.text();
     const body = JSON.parse(text) as {
       since: number;
+      storage: { bytes: number; limit: number };
       day: Record<string, number>;
       total: Record<string, number>;
     };
-    expect(Object.keys(body).sort()).toEqual(['day', 'since', 'total']);
+    expect(Object.keys(body).sort()).toEqual(['day', 'since', 'storage', 'total']);
+    expect(body.storage.limit).toBe(5_000_000_000);
+    expect(body.storage.bytes).toBeGreaterThan(0);
     const [world] = await sql<{ reset_at: number }>('SELECT reset_at FROM world');
     expect(body.since).toBe(world?.reset_at);
     const counts = async (since: number) => {

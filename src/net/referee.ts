@@ -9,7 +9,8 @@ const E = RULES.encounter;
 export const FRAME_MS = (E.frameTicks * 1000) / TICK_HZ;
 /** An input is taken from this many frames before its own. */
 const AHEAD_FRAMES = 2;
-const U32_MAX = 0xffffffff;
+/** The largest input code the referee takes: `0xFFFFFFFF` marks the fallback in a packed log (ADR 0056), and no real code reaches it (bits above 18 are unused). */
+const CODE_MAX = 0xfffffffe;
 
 export type InputVerdict = 'ok' | 'late' | 'early' | 'dup' | 'bad';
 
@@ -102,7 +103,7 @@ export class Referee {
       slot >= this.width(f) ||
       !Number.isInteger(code) ||
       code < 0 ||
-      code > U32_MAX ||
+      code > CODE_MAX ||
       !Number.isFinite(now)
     ) {
       return 'bad';
