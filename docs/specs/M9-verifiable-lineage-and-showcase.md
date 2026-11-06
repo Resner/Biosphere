@@ -572,7 +572,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `m9-card` passes 3 times in a row (`--repeat-each=3`).
   - Notes: the card reuses `src/render` and `src/game`'s DOM-free helpers (rarity, names, `starsText`), never the game loop. Its look is judged on the screenshots (rubric).
 
-- [x] T13 The lineage viewer [opus] (after T12) (in progress)
+- [x] T13 The lineage viewer [opus] (after T12)
   - Done: `game/pedigree-layout.ts` (rows by longest ancestry, each parent pulled down to just above its nearest child, rows ordered over their children) now lays out both the panel and the card; `card/lineage-graph.ts` (the model) and `card/graph-view.ts` (links over an SVG of the edges).
   - Gotcha: the in-game panel's graph never showed (`hidden = false` on an `<svg>` is a no-op), now `toggleAttribute`; a common card node sets no `data-tier`, or it inherits the page's.
   - Steps:
