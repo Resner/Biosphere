@@ -1,4 +1,5 @@
 import type { DeathCause } from '../sim/types';
+import { cardHref, setCardLink } from './card-link';
 import { pick } from './dom';
 import { DEATH_TEXT, deathName, livedText } from './life-text';
 import type { FallbackId, FallbackOption } from './offspring-text';
@@ -14,6 +15,8 @@ export interface DeathSummary {
   body: string;
   /** The killer's name, when the hub settled a kill and named it (M7 T13). */
   by: string | null;
+  /** The recorded creature that died, whose card the screen links (M9 T14); null for a practice cell. */
+  creature: string | null;
 }
 
 /** Title and death screens over the live scene; `body[data-screen]` shows exactly one layer. */
@@ -23,6 +26,7 @@ export class Screens {
   private readonly survived = pick('[data-testid="death-survived"]');
   private readonly peak = pick('[data-testid="death-peak"]');
   private readonly species = pick('[data-testid="death-species"]');
+  private readonly card = pick<HTMLAnchorElement>('[data-testid="death-card"]');
 
   private readonly buttons: HTMLButtonElement[] = [];
   private readonly practice: HTMLButtonElement[] = [];
@@ -173,6 +177,7 @@ export class Screens {
     this.survived.textContent = livedText(summary.survivedSeconds * 1000);
     this.peak.textContent = String(Math.round(summary.peakBiomass));
     this.species.textContent = summary.body;
+    setCardLink(this.card, cardHref(summary.creature, window.location.search));
     this.show('dead');
   }
 }

@@ -827,6 +827,17 @@
   margin-left: 0.5rem;
   color: var(--muted);
 }
+.lineage-chain a.lineage-card {
+  margin-left: 0.6rem;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.08em;
+  text-transform: uppercase;
+}
+.lineage-chain a.lineage-card:hover,
+.lineage-chain a.lineage-card:focus-visible {
+  color: var(--text);
+}
 .lineage-graph {
   width: 100%;
   height: 100%;
