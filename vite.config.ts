@@ -9,9 +9,9 @@ export default defineConfig({
   },
   build: {
     sourcemap: true,
-    // The game and the Creature Lab (M3 T13) are two pages of one build.
+    // The game, the Creature Lab (M3 T13) and the creature card (M9 T12) are three pages of one build.
     rolldownOptions: {
-      input: { main: 'index.html', lab: 'lab.html' },
+      input: { main: 'index.html', lab: 'lab.html', card: 'card.html' },
     },
     // three.js alone is about 540 kB minified; warn when the app grows well beyond it.
     chunkSizeWarningLimit: 900,
