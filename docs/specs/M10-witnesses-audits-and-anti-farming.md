@@ -309,7 +309,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### The referee, shared
 
-- [ ] T3 One referee for the authority and a witness: spans, the witness's referee, the fighter's route [opus] (after T2)
+- [ ] T3 One referee for the authority and a witness: spans, the witness's referee, the fighter's route [opus] (after T2) (in progress)
   - Steps:
     1. `src/net/handover.ts`: `RefereeSpans` and the constants above.
     2. `src/net/witness-referee.ts`, pure, its clock, signer and sends injected:
