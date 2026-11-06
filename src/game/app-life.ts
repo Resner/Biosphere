@@ -107,6 +107,7 @@ export class LifeStarts {
     app.heldFromKeys = false;
     app.steering?.done(false);
     app.steering = null;
+    app.hover = null;
     const { player } = app.session;
     this.snap();
     scene.setZones(app.session.world.seed32, app.session.world.size);

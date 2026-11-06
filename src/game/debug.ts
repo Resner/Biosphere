@@ -415,6 +415,13 @@ export interface BsDebug {
    * whose drawn body is followed and reached on touching it.
    */
   steerTo(target: { id?: string; x: number; y: number }): Promise<boolean>;
+  /**
+   * A test aid (M10 T7, client inputs only): while set, the player keeps its centre `distance` wu
+   * from a remote player's drawn centre (in a fight, where the encounter has it), easing in as a
+   * cursor on that spot would, and coasts while the remote is not drawn. `steerTo`, `null` or a
+   * new life ends it.
+   */
+  hover(target: { id: string; distance: number } | null): void;
   /** Adds a toxic plume to the world. */
   spawnPlume(x: number, y: number, radius?: number): void;
   /** Replaces the scripted remotes (an empty list removes them); they send snapshots at 10 Hz. */

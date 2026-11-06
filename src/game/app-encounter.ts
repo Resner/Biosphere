@@ -14,7 +14,7 @@ import { type ClientMsg, type FighterInfo, genomeRefOf, type PeerEvent } from '.
 import type { RelayFight } from '../net/proxy-snaps';
 import { RefereeRoute } from '../net/referee-route';
 import type { WitnessFrame } from '../net/witness-referee';
-import { radiusOf } from '../sim/encounter/reach';
+import { radiusOf, strikeReach } from '../sim/encounter/reach';
 import type { Encounter, EncounterEvent, Outcome, Stance } from '../sim/encounter/types';
 import type { Input } from '../sim/input';
 import type { CreatureState, World } from '../sim/types';
@@ -101,6 +101,8 @@ export interface FighterView {
   outcome: 'in' | Outcome;
   /** Its radius in wu (M7 T12). */
   radius: number;
+  /** Its strike reach in wu, from its centre (M10 T7, `strikeReach`). */
+  reach: number;
   /** Staggered by a block: no windup starts (M7 T12). */
   staggered: boolean;
   /** Ticks in a row outside every living opponent's escape range (M7 T12). */
@@ -573,6 +575,7 @@ export class FightPlay {
           egg: egg ? { x: egg.x, y: egg.y, health: egg.health, eaten: egg.by >= 0 } : null,
           outcome: f.status,
           radius: radiusOf(f.body),
+          reach: strikeReach(f),
           staggered: f.fx.staggerUntil > tick,
           outside: f.outside,
           away: f.slot !== sync.slot && host.present?.(f.player) === false,

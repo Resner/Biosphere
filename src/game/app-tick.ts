@@ -10,7 +10,7 @@ import type { App } from './app';
 import { countItem, EXPIRY_RETRY_TICKS, MAX_THROTTLE, REPORT_EVERY_TICKS } from './app-session';
 import { bodyLabel } from './body';
 import { sizeShare } from './growth';
-import { wheelInput } from './input';
+import { hoverInput, wheelInput } from './input';
 import { nearestHazard } from './sound-cues';
 
 const NO_EVENTS: StepEvent[] = [];
@@ -37,6 +37,11 @@ export class Ticker {
       const dx = steering.target.x - player.x;
       const dy = steering.target.y - player.y;
       return { steer: angleToSteer(atan2(dy, dx)), throttle: MAX_THROTTLE, dash: false };
+    }
+    if (app.hover) {
+      const { id, distance } = app.hover;
+      const foe = app.remoteViews.find((r) => r.id === id);
+      return foe ? hoverInput(player, foe, distance, Math.sqrt(player.biomass)) : IDLE;
     }
     // A hatch's still scene (M6c T11): the parent hands over and the child waits in its shell, so
     // the creature holds still until the shell bursts.

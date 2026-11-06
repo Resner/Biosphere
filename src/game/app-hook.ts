@@ -58,6 +58,11 @@ function debugHelpers(app: App): BsDebug {
     autoBrace(on) {
       app.fight.autoBrace = on;
     },
+    hover(target) {
+      app.steering?.done(false);
+      app.steering = null;
+      app.hover = target && { id: target.id, distance: target.distance };
+    },
     skipDraw(on) {
       app.scene.skipDraw = on;
     },
@@ -96,6 +101,7 @@ function debugHelpers(app: App): BsDebug {
     steerTo(target) {
       app.steering?.done(false);
       app.steering = null;
+      app.hover = null;
       if (!app.session.player.alive) return Promise.resolve(false);
       return new Promise<boolean>((resolve) => {
         app.steering = { target: { ...target }, ticksLeft: STEER_TIMEOUT_TICKS, done: resolve };
