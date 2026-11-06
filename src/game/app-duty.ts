@@ -12,7 +12,7 @@ import type { PeerEvent } from '../net/protocol';
 import type { FighterInput } from '../net/witness-referee';
 import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
-import { type EncFrameMsg, type EncRefereeMsg, WitnessDuties } from './app-witness';
+import type { EncFrameMsg, EncRefereeMsg, WitnessDuties, WitnessHost } from './app-witness';
 
 /** The frame times judged, and how long everything must hold before an `on`. */
 export const AVAIL_WINDOW_MS = 5000;
@@ -152,17 +152,24 @@ export class DutyProbes {
   }
 }
 
-/** The page's side of witness duty: its `avail`, the duties offered to it and its duty links' probes. */
+/**
+ * The page's side of witness duty: its `avail`, the duties offered to it and its duty links'
+ * probes. The referee duty's runner checks signatures, so it loads (with `@noble/curves`) at the
+ * first offer, never with the app shell.
+ */
 export class DutyWiring {
   readonly avail: Availability;
-  readonly witness: WitnessDuties;
   readonly probes: DutyProbes;
+  /** The referee duty's runner, once the first offer has loaded it. */
+  witness: WitnessDuties | null = null;
+  private loading: Promise<WitnessDuties> | null = null;
+  private readonly host: WitnessHost;
 
   constructor(private readonly app: App) {
     this.avail = new Availability((on) => app.keeper.current?.send({ t: 'avail', on }));
     const link = () => app.keeper.current;
     this.probes = new DutyProbes((peer, ev) => link()?.sendEvent(peer, ev));
-    this.witness = new WitnessDuties({
+    this.host = {
       identity: () => app.identity,
       hubNow: () => link()?.clock.hubNow(performance.now()) ?? performance.now(),
       perfNow: () => performance.now(),
@@ -176,29 +183,48 @@ export class DutyWiring {
       busy: () => app.fight.fighting || app.attack.waiting,
       setTimer: (fn, ms) => setTimeout(fn, ms),
       clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+    };
+  }
+
+  /** The runner, loaded once. */
+  private runner(): Promise<WitnessDuties> {
+    this.loading ??= import('./app-witness').then((m) => {
+      this.witness = new m.WitnessDuties(this.host);
+      return this.witness;
     });
+    return this.loading;
   }
 
   /** A duty message from the hub (the session has opened or closed its links already). */
   receive(msg: DutyMsg): void {
     if (msg.t === 'duty') {
-      if (msg.role === 'referee') this.witness.offer(msg);
+      const decline = () => this.app.keeper.current?.send({ t: 'duty-no', event: msg.event });
+      if (msg.role === 'referee') {
+        this.runner().then(
+          (w) => w.offer(msg),
+          () => {
+            // The runner could not load (a chunk lost offline): the duty goes to the next place.
+            this.loading = null;
+            decline();
+          },
+        );
+      }
       // Audits come with T8: until then an auditor duty is declined.
-      else this.app.keeper.current?.send({ t: 'duty-no', event: msg.event });
+      else decline();
     } else if (msg.t === 'duty-end') {
-      this.witness.end(msg);
+      this.witness?.end(msg);
     }
   }
 
   /** A fight message the page hears: a duty's frames before its handover, and the handover. */
   fight(msg: EncFrameMsg | EncRefereeMsg): void {
-    this.witness.hubMsg(msg);
+    this.witness?.hubMsg(msg);
   }
 
   /** A witness event on a duty link: a fighter's input to this witness, or a probe. */
   peerEvent(from: string, ev: FighterInput | Probe): void {
     if (ev.t === 'probe') this.probes.receive(from, ev, performance.now());
-    else this.witness.input(from, ev);
+    else this.witness?.input(from, ev);
   }
 
   /** A frame took `ms`. */
@@ -210,7 +236,7 @@ export class DutyWiring {
       now,
       links.filter((l) => l.open).map((l) => l.peer),
     );
-    this.app.hud.setWitness(this.witness.onDuty);
+    this.app.hud.setWitness(this.witness?.onDuty === true);
   }
 
   /** Judges availability now: each frame, and at once when visibility or the settings change. */
@@ -226,6 +252,6 @@ export class DutyWiring {
   /** Every welcome is a new hub session, which has heard nothing yet and holds no duty of this page's. */
   welcome(): void {
     this.avail.reset();
-    this.witness.reset();
+    this.witness?.reset();
   }
 }

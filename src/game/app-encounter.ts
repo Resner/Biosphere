@@ -5,7 +5,6 @@
 
 import type { Creature } from '../genome/stats';
 import type { PubKey } from '../ledger/record';
-import { signInput, witnessFrameSigned } from '../ledger/witness';
 import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
 import { AUTHORITY } from '../net/handover';
@@ -63,6 +62,8 @@ export interface FightHost {
   ): boolean;
   /** The one-way latency to a duty peer from its probes, or null before one came back. */
   peerOneWayMs?(peer: string): number | null;
+  /** A fight begins: what a witness phase will need (its signatures' code) starts to load. */
+  prepare?(): void;
 }
 
 /** Rollbacks this many frames either side of a handover's frame count as the handover's. */
@@ -234,6 +235,7 @@ export class FightPlay {
       return;
     }
     if (!me || !pond || !life) return;
+    host.prepare?.();
     const route = this.routeFor(msg.enc);
     const rolls: [number, number, boolean][] = [];
     const sync: EncounterSync = new EncounterSync({
@@ -586,6 +588,9 @@ export function appFightHost(app: App): FightHost {
   const clock = () => app.keeper.current?.clock ?? null;
   const { hubUrl } = app;
   const keys = hubUrl ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys'))) : undefined;
+  // Signed inputs and witness frames need `@noble/curves`, which the app shell never loads: each
+  // fight loads it as it begins, long before a witness can take it over (a round and an offer later).
+  let witness: typeof import('../ledger/witness') | null = null;
   return {
     ...(keys ? { keys } : {}),
     me: () => app.playerId,
@@ -610,9 +615,21 @@ export function appFightHost(app: App): FightHost {
     events: (events) => app.fightShow.onEvents(events),
     present: (player) =>
       player === app.playerId || app.keeper.current?.nameOf(player) !== undefined,
-    sendWitness: (witness, ev) => app.keeper.current?.sendEvent(witness, ev),
-    signInput: (enc, f, code) => (app.identity ? signInput(app.identity, enc, f, code) : ''),
-    frameSigned: witnessFrameSigned,
+    sendWitness: (peer, ev) => app.keeper.current?.sendEvent(peer, ev),
+    signInput: (enc, f, code) =>
+      witness && app.identity ? witness.signInput(app.identity, enc, f, code) : '',
+    frameSigned: (by, enc, f, inputs, sig) =>
+      witness?.witnessFrameSigned(by, enc, f, inputs, sig) ?? false,
     peerOneWayMs: (peer) => app.duty.probes.oneWayMs(peer),
+    prepare: () => {
+      if (!witness) {
+        void import('../ledger/witness').then(
+          (m) => {
+            witness = m;
+          },
+          () => {},
+        );
+      }
+    },
   };
 }
