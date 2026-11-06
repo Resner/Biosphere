@@ -27,7 +27,7 @@ What is open:
 - Every client keeps the last 5 verified signed snapshots of each engage candidate (it verifies them already, ADR 0050).
 - A `lock-state` answer carries those of the attacker from the last 2 s (`seen`).
 - The authority verifies each one and orders them by pond tick with the attacker's own fresh snapshot from the engage. It refuses the engage (`engage:moved`, "Moved too fast to attack") when two neighbours are further apart than the attacker could swim:
-  - **the bound**: its top speed at its claimed biomass × 1.25 × the time between them, plus the strongest current × that time, plus one dash, plus 8 wu;
+  - **the bound**: (1.25 × its top speed at its claimed biomass + its dash speed + the strongest current) × the time between them, plus 8 wu;
   - **the flag**: `teleport`, once per creature.
 - The target's own answer is what the check reads. A target that does not answer within 150 ms gets the attacker's copy of its state, as before, and no check. A join has no answer to wait for, so it has no check either. Both are explicit limits.
 
@@ -35,7 +35,7 @@ What is open:
 
 A **farmer** works with N bot identities (0, 1, 4 and 16). The bots:
 - report the most growth the authority accepts;
-- mate with the farmer's creature, with no pair doubling;
+- mate with the farmer's creature in turn, so that a pair repeats (and its cooldown doubles) as rarely as N allows;
 - are killed by it, in fights through the authority's referee;
 - are eligible as witnesses once they have played 20 minutes.
 
