@@ -247,6 +247,7 @@ export class Ticker {
       const lived = app.lastClock
         ? app.lastClock.activeMs / 1000
         : (world.tick - player.bornTick) / TICK_HZ;
+      const { creature } = app.flow.view();
       app.flow.died(player.cause, session.ticks);
       app.lastClock = null;
       hud.setLife(null);
@@ -256,6 +257,7 @@ export class Ticker {
         peakBiomass: session.peakBiomass,
         body: bodyLabel(session.body),
         by: app.flow.killer || null,
+        creature,
       };
       fx.startDissolve();
       // Never a silent death: every cause ends in the death tone.

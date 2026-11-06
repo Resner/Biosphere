@@ -161,6 +161,24 @@ body {
   font-size: 1.4rem;
 }
 
+/* The dead creature's card (M9 T14), opened in a new tab: a quiet link under its numbers. */
+.death-card {
+  margin: -1rem 0 1.75rem;
+  color: var(--muted);
+  font-size: 0.85rem;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.death-card:hover,
+.death-card:focus-visible {
+  color: var(--text);
+}
+
+.death-card[hidden] {
+  display: none;
+}
+
 /* The play screen (M6b T9): one round button top left, thin bars bottom left, nothing else. */
 .hud-menu {
   position: fixed;

@@ -214,9 +214,16 @@ body.card-page {
   cursor: pointer;
 }
 
-.card-actions button:hover,
+.card-actions button:hover:not(:disabled),
 .card-actions button:focus-visible {
   background: rgb(255 255 255 / 0.12);
+}
+
+/* "Save image" waits for the verdict: no image without one. */
+.card-actions button:disabled {
+  color: var(--muted);
+  cursor: progress;
+  opacity: 0.6;
 }
 
 .card-copied {
@@ -243,7 +250,8 @@ body.card-page {
 .card[data-empty] .card-head,
 .card[data-empty] .card-story,
 .card[data-empty] .card-details,
-.card[data-empty] [data-testid="card-copy"] {
+.card[data-empty] [data-testid="card-copy"],
+.card[data-empty] [data-testid="card-save"] {
   display: none;
 }
 

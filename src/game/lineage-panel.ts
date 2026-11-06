@@ -3,6 +3,7 @@
 
 import type { LineageEntry, PedigreeNode } from '../net/protocol';
 import { rarityBadge } from './badge';
+import { cardHref, setCardLink } from './card-link';
 import { pick } from './dom';
 import { type GraphNode, lineageView, NODE_HEIGHT, NODE_WIDTH } from './lineage-view';
 
@@ -65,6 +66,7 @@ export class LineagePanel {
   }
 
   private draw(): void {
+    const search = window.location.search;
     const view = lineageView(this.latest.creatures, this.latest.pedigree);
     this.empty.hidden = !view.empty;
     this.more.hidden = !view.more;
@@ -80,7 +82,13 @@ export class LineagePanel {
         detail.textContent = [`generation ${row.generation}`, row.state, row.life]
           .filter(Boolean)
           .join(' · ');
-        item.append(link, ' ', rarityBadge(row.tier), detail);
+        const card = document.createElement('a');
+        card.className = 'lineage-card';
+        card.dataset.testid = 'lineage-card';
+        card.textContent = 'Card';
+        card.title = 'Open its card in a new tab';
+        setCardLink(card, cardHref(row.creature, search));
+        item.append(link, ' ', rarityBadge(row.tier), detail, card);
         return item;
       }),
     );
@@ -100,13 +108,17 @@ export class LineagePanel {
       this.graph.append(line);
     }
     for (const n of view.nodes) {
-      const a = svg('a', { href: labHref(n.genome) });
+      // A node with a known id opens its card in a new tab; one without, its body in the Lab.
+      const card = cardHref(n.id, search);
+      const a = card
+        ? svg('a', { href: card, target: '_blank', rel: 'noopener' })
+        : svg('a', { href: labHref(n.genome) });
       const g = svg('g', {
         class: `node${n.branch ? ' branch' : ''}${n.mine ? ' mine' : ''}${n.root ? ' root' : ''}`,
       });
       g.dataset.testid = 'lineage-node';
       const title = svg('title', {});
-      title.textContent = `${n.label}${n.root ? ' · first of its line' : ''}`;
+      title.textContent = `${n.label}${n.root ? ' · first of its line' : ''}${card ? ' · open its card' : ''}`;
       g.append(
         svg('rect', { x: n.x, y: n.y, width: NODE_WIDTH, height: NODE_HEIGHT, rx: 5 }),
         title,

@@ -37,6 +37,11 @@ export interface CardState {
   renderer: 'webgl' | 'preview' | null;
   /** `performance.now()` when the bundle arrived, the creature was first drawn, and the verdict came. */
   timings: { bundle: number | null; drawn: number | null; verdict: number | null };
+  /**
+   * "Save image" (M9 T14): `ready` once the check is done with a verdict (the button waits until
+   * then), and the images saved so far, each a 1200 × 630 PNG.
+   */
+  image: { ready: boolean; saved: number };
 }
 
 export interface CardHook {
