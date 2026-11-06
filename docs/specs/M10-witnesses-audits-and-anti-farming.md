@@ -758,7 +758,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Closing
 
-- [ ] T17 End-to-end scenario, documentation sync
+- [ ] T17 End-to-end scenario, documentation sync (in progress)
   - Steps:
     1. `m10-lifecycle.spec.ts` (`@slow`, hub 8827, `MATING_SCALE=0.01`, `LIFESPAN_SCALE=0.05`, the witness variables, `?quality=medium`), with four players A, B, C and D, in order:
        - A and B hatch and mate, and C or D audits the births;
