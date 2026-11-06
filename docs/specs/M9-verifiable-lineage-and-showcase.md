@@ -664,12 +664,12 @@ Each path is also checked alone:
 
 ## Rubric
 
-- [ ] A card shows the creature within 1 s of the bundle's arrival, and its verdict within 3 s for a 10-creature lineage and within 15 s for a 64-creature one, on a CI runner (evidence: `m9-card` timings; T4's and T3's `speedTest`s).
-- [ ] The card reads as a creature worth showing off: the creature large and lit as in the game, its name, stars and generation, and one verdict line before any detail (evidence: the desktop and 390 px screenshots attached to T12's PR, and the PNG attached to T14's).
-- [ ] Every problem reads as one plain sentence a player can follow: no hash, code or field name in the line itself (evidence: T3's `problemText` test over every code).
-- [ ] The lineage graph reads at a glance: the checkpoint branch stands out from the other ancestors, genesis roots are marked, verified marks are a shape and not only a colour, and a click opens an ancestor's card (evidence: `m9-lineage`, a screenshot attached to T13's PR).
-- [ ] The CLI's report on a verified lineage fits on one screen and leads with the verdict (evidence: the output pasted in T11's PR).
-- [ ] An honest authority never writes a history the verifier rejects (evidence: T8's property test, T7's hub history).
+- [x] A card shows the creature within 1 s of the bundle's arrival, and its verdict within 3 s for a 10-creature lineage and within 15 s for a 64-creature one, on a CI runner (evidence: `m9-card` timings; T4's and T3's `speedTest`s).
+- [x] The card reads as a creature worth showing off: the creature large and lit as in the game, its name, stars and generation, and one verdict line before any detail (evidence: the desktop and 390 px screenshots attached to T12's PR, and the PNG attached to T14's).
+- [x] Every problem reads as one plain sentence a player can follow: no hash, code or field name in the line itself (evidence: T3's `problemText` test over every code).
+- [x] The lineage graph reads at a glance: the checkpoint branch stands out from the other ancestors, genesis roots are marked, verified marks are a shape and not only a colour, and a click opens an ancestor's card (evidence: `m9-lineage`, a screenshot attached to T13's PR).
+- [x] The CLI's report on a verified lineage fits on one screen and leads with the verdict (evidence: the output pasted in T11's PR).
+- [x] An honest authority never writes a history the verifier rejects (evidence: T8's property test, T7's hub history).
 - [ ] (owner) A card link sent to a friend opens and verifies on their machine, with your creatures offline.
 - [ ] (owner) The card makes a creature feel worth showing off.
 - [ ] (owner) Losing the creatures to this renewal is acceptable for a world whose lineages can now be checked.

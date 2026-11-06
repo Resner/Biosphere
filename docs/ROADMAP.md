@@ -15,7 +15,7 @@ The ordered milestones from M0 to v1.0.0 ("finished"). `/scaffold` wrote them, a
 | M6c | Living creatures and play polish | creatures read as organic plankton (at most 14 visible parts, antennae, legs and tail by region, an Evolved Lab mode); pass-1 glass with limbs of the same glass, a real mouth, organs in at most two related colours and eyes in the organ colour; Firefox draws bodies without aliasing or flashes; damage lands as interval hits; sunlight strongest in the shallows; a still, interactive egg reveal; a smooth minimap with a clear depth gauge; a pre-1.0 world reset retires every frozen version (ADR 0040); (owner) the creatures look like real micro-organisms | gate | done | [M6c](specs/M6c-living-creatures-and-play-polish.md) | v0.7.2 |
 | M7 | Encounters | refereed deterministic combat for comparable sizes: instant lock-in, steering, stance, target, brace, deadlines and autopilot, anatomy-driven outcomes; identical results on all clients; killing is a faster way to grow than plankton and size is a real advantage; a pending egg can be eaten by a predator (owner, Playtest v0.6.0) | gate | done | [M7](specs/M7-encounters.md) | v0.8.0 |
 | M8 | Disconnect-safe settlement | closing a tab never cancels or escapes a fight; reconnect resumes; the authority settles when everyone leaves; backdated inputs rejected; settlement records verifiable | — | done | [M8](specs/M8-disconnect-safe-settlement.md) | v0.9.0 |
-| M9 | Verifiable lineage and showcase | independent verifier for the ancestry graph that rejects tampering; proof bundles served while peers are offline; lineage viewer; shareable verified creature cards | — | specced | [M9](specs/M9-verifiable-lineage-and-showcase.md) | v0.10.0 |
+| M9 | Verifiable lineage and showcase | independent verifier for the ancestry graph that rejects tampering; proof bundles served while peers are offline; lineage viewer; shareable verified creature cards | — | done | [M9](specs/M9-verifiable-lineage-and-showcase.md) | v0.10.0 |
 | M10 | Witnesses, audits and anti-farming | drand-selected witnesses with no rerolls; witness referees with authority fallback; authority-only settlements flagged; signed inputs; bot-farm simulation shows no shortcut | — | planned | — | v0.11.0 |
 | M11 | Area of interest and size tiers | one continuous world; quadtree directory plus tiers decide connections; the cap holds, including boundary neighbours, witnesses and handoffs; no hidden threats (property test); seamless handoffs | — | planned | — | v0.12.0 |
 | M12 | Habitats, regrouping and spawning | sparse consolidation; spawn ring outside attack range with anti-camping; crowded instances; transitions keep one state and can't escape combat | — | planned | — | v0.13.0 |
@@ -214,6 +214,12 @@ Independent eyes without trusting peer votes (ADR 0012).
 - Mating and genesis audits; signed inputs.
 - Remaining anti-farming measures, plus a bot-farm simulation (`tools/farm-sim.ts`).
 - Cost check: authority messages per encounter cut by at least 4×.
+- Carried over from the M9 close review (edge cases, none breaks an exit criterion):
+  - `buildBundle` (`worker/proof.ts`) never checks a subject-only bundle against the 512 KB and 4,096-record caps, so a very long-lived creature could be served a bundle that `parseProofBundle` refuses; it also re-runs `assemble` for every candidate ancestor (about cubic in the lineage size on uncached reads);
+  - a dead creature's bundle is edge-cached for a day as final, but its `flags` can still change after death (a `replay` flag raised on a genesis ask's creature);
+  - `sendLife` consumes `takeRenewal` before it knows the socket is open, so a socket that closed first loses the one-shot renewal notice (as the away report did before M9 T9);
+  - the card's verifier worker `error` handler calls `fail('unchecked')` but leaves the pending reply promise unsettled, so `start()` never finishes;
+  - `verify-gates.ts` skips `death` in `after-lifespan` and checks only `death` for `frozen-changed`; `verify.ts` indexes settlements by `enc` so a duplicate id's earlier copy is neither signature-checked nor replayed.
 
 ### M11 Area of interest and size tiers
 
