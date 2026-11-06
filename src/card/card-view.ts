@@ -152,13 +152,16 @@ export class CreatureStage {
     const [w, h, ratio] = [this.width, this.height, this.renderer.getPixelRatio()];
     this.renderer.setPixelRatio(1);
     [this.width, this.height] = [width, height];
-    this.fitTargets();
-    this.draw();
-    ctx.drawImage(this.renderer.domElement, 0, 0, width, height);
-    this.renderer.setPixelRatio(ratio);
-    [this.width, this.height] = [w, h];
-    this.fitTargets();
-    this.draw();
+    try {
+      this.fitTargets();
+      this.draw();
+      ctx.drawImage(this.renderer.domElement, 0, 0, width, height);
+    } finally {
+      this.renderer.setPixelRatio(ratio);
+      [this.width, this.height] = [w, h];
+      this.fitTargets();
+      this.draw();
+    }
     return out;
   }
 

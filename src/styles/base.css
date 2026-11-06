@@ -175,10 +175,6 @@ body {
   color: var(--text);
 }
 
-.death-card[hidden] {
-  display: none;
-}
-
 /* The play screen (M6b T9): one round button top left, thin bars bottom left, nothing else. */
 .hud-menu {
   position: fixed;

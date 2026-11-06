@@ -241,18 +241,6 @@ const VERDICT_STYLE = {
   failed: { fill: 'rgb(240 110 100 / 0.13)', line: 'rgb(240 110 100 / 0.45)', mark: '#ff9c90' },
 } as const;
 
-function roundRect(
-  ctx: CanvasRenderingContext2D,
-  x: number,
-  y: number,
-  w: number,
-  h: number,
-  r: number,
-) {
-  ctx.beginPath();
-  ctx.roundRect(x, y, w, h, r);
-}
-
 function fillLines(ctx: CanvasRenderingContext2D, b: Block, colour: string): void {
   ctx.font = b.font;
   ctx.fillStyle = colour;
@@ -327,7 +315,8 @@ export function drawCardImage(
   // The verdict in its box: a tick or a cross, as well as a colour.
   const v = layout.verdict;
   const style = VERDICT_STYLE[t.verdict];
-  roundRect(ctx, v.box.x, v.box.y, v.box.w, v.box.h, 14);
+  ctx.beginPath();
+  ctx.roundRect(v.box.x, v.box.y, v.box.w, v.box.h, 14);
   ctx.fillStyle = style.fill;
   ctx.fill();
   ctx.strokeStyle = style.line;
@@ -339,7 +328,8 @@ export function drawCardImage(
   fillLines(ctx, v, TEXT);
 
   // The card's edge, in the rarity's colour as on the page.
-  roundRect(ctx, 8, 8, IMAGE_WIDTH - 16, IMAGE_HEIGHT - 16, 20);
+  ctx.beginPath();
+  ctx.roundRect(8, 8, IMAGE_WIDTH - 16, IMAGE_HEIGHT - 16, 20);
   ctx.strokeStyle = tier;
   ctx.globalAlpha = 0.45;
   ctx.lineWidth = 2;

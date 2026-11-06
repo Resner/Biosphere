@@ -838,9 +838,6 @@
 .lineage-chain a.lineage-card:focus-visible {
   color: var(--text);
 }
-.lineage-chain a.lineage-card[hidden] {
-  display: none;
-}
 .lineage-graph {
   width: 100%;
   height: 100%;
