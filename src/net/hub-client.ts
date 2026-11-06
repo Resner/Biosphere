@@ -55,6 +55,9 @@ export type FightMsg = Extract<
   { t: 'lock-ask' | 'enc-start' | 'enc-frame' | 'enc-join' | 'enc-end' | 'carrion' }
 >;
 
+/** Witness duties (M10, ADR 0058): an offer, its end, and a fighter's duty link to its witness. */
+export type DutyMsg = Extract<HubMsg, { t: 'duty' | 'duty-end' | 'duty-peer' }>;
+
 /** The slice of `WebSocket` the client uses, so tests can fake it. */
 export interface SocketLike {
   onopen: (() => void) | null;
@@ -110,6 +113,7 @@ export class HubClient {
   private welcomeListeners: ((w: Welcome) => void)[] = [];
   private lifeListeners: ((m: LifeMsg) => void)[] = [];
   private fightListeners: ((m: FightMsg) => void)[] = [];
+  private dutyListeners: ((m: DutyMsg) => void)[] = [];
   private _queue: QueuePlace | null = null;
 
   constructor(private readonly opts: HubClientOptions) {
@@ -168,6 +172,10 @@ export class HubClient {
   /** Fires for every fight message; a `lock-ask` wants its answer at once. */
   onFight(fn: (m: FightMsg) => void): () => void {
     return subscribe(this.fightListeners, fn);
+  }
+  /** Fires for every witness duty message. */
+  onDuty(fn: (m: DutyMsg) => void): () => void {
+    return subscribe(this.dutyListeners, fn);
   }
   /** Fires on every welcome, including after a reconnect. */
   onWelcome(fn: (w: Welcome) => void): () => void {
@@ -262,6 +270,11 @@ export class HubClient {
       case 'enc-end':
       case 'carrion':
         for (const fn of [...this.fightListeners]) guarded(() => fn(msg));
+        break;
+      case 'duty':
+      case 'duty-end':
+      case 'duty-peer':
+        for (const fn of [...this.dutyListeners]) guarded(() => fn(msg));
         break;
       case 'error':
         if (msg.code === 'version') this.versionError = true;

@@ -3,7 +3,9 @@
 
 import type { Identity } from '../ledger/identity';
 import type { PondClock } from '../net/clock';
+import { MAX_CAP } from '../net/connection-policy';
 import {
+  type DutyMsg,
   type FightMsg,
   type HubClient,
   type HubStatus,
@@ -38,6 +40,7 @@ export type OnlineHub = Pick<
   | 'onWelcome'
   | 'onLife'
   | 'onFight'
+  | 'onDuty'
 >;
 
 export type OnlineMesh = Pick<
@@ -73,7 +76,20 @@ export interface OnlineHandlers {
   life(msg: LifeMsg): void;
   /** The hub's word about fights; a `lock-ask` is answered before this returns (M7 T7). */
   fight(msg: FightMsg): void;
+  /** A witness duty's offer or end, or a fighter's duty link (M10); the session opens and closes the links itself. */
+  duty?(msg: DutyMsg): void;
 }
+
+/** A duty link (M10 T6) as `state().net.dutyLinks` shows it. */
+export interface DutyLink {
+  peer: string;
+  open: boolean;
+  /** The fights it serves. */
+  encs: string[];
+}
+
+/** The peer events a duty link carries from a peer outside the pond (ADR 0058). */
+const DUTY_EVENTS: ReadonlySet<PeerEvent['t']> = new Set(['finput', 'wframe', 'probe']);
 
 export interface OnlineOptions {
   selfId: string;
@@ -90,8 +106,12 @@ const NO_CANDIDATES: ReadonlySet<string> = new Set();
 
 export class OnlineSession {
   private readonly roster = new Map<string, Member>();
+  /** Duty peers (M10 T6), in the pond or not, with the fights each serves. */
+  private readonly duties = new Map<string, Set<string>>();
   private mesh: OnlineMesh | null = null;
   private last: Welcome | null = null;
+  /** Signals from outside the pond that no duty announced, dropped. */
+  strangers = 0;
 
   constructor(private readonly opts: OnlineOptions) {
     const { hub } = opts;
@@ -99,7 +119,15 @@ export class OnlineSession {
     hub.onMember((op, member) => this.member(op, member));
     hub.onSignal((m) => this.signalled(m));
     hub.onLife((m) => opts.handlers.life(m));
-    hub.onFight((m) => opts.handlers.fight(m));
+    hub.onFight((m) => {
+      opts.handlers.fight(m);
+      if (m.t === 'enc-end') this.endFight(m.enc);
+    });
+    hub.onDuty((m) => {
+      if (m.t === 'duty-peer') this.dutyPeer(m.enc, m.peer, m.on);
+      else if (m.t === 'duty-end' && m.event.startsWith('enc:')) this.endFight(m.event.slice(4));
+      opts.handlers.duty?.(m);
+    });
     // Rejections (replaced, closed) are reported through the status, not here.
     hub.connect().catch(() => {});
   }
@@ -206,12 +234,55 @@ export class OnlineSession {
     this.mesh?.sendEvent(id, event);
   }
 
+  /**
+   * Opens (or closes) a duty link to `peer` for fight `enc` (M10 T6, ADR 0058): a priority-0 link
+   * that may reach a peer in another pond. The lower id calls; the other side waits for its offer,
+   * which only an announced duty peer's gets through. A peer outside the pond is not reached past
+   * `MAX_CAP` connections, and its link closes once no fight needs it; a pond member's stays.
+   */
+  dutyPeer(enc: string, peer: string, on: boolean): void {
+    const { mesh } = this;
+    if (peer === this.opts.selfId || !mesh) return;
+    const encs = this.duties.get(peer);
+    if (!on) {
+      if (!encs?.delete(enc) || encs.size > 0) return;
+      this.duties.delete(peer);
+      if (!this.roster.has(peer)) mesh.disconnect(peer);
+      return;
+    }
+    if (encs) {
+      encs.add(enc);
+      return;
+    }
+    const linked = mesh.peers().includes(peer);
+    if (!linked && !this.roster.has(peer) && mesh.peers().length >= MAX_CAP) return;
+    this.duties.set(peer, new Set([enc]));
+    if (!linked && this.opts.selfId < peer) mesh.connect(peer);
+  }
+
+  /** The duty links, by peer. */
+  dutyLinks(): DutyLink[] {
+    return [...this.duties]
+      .sort(([a], [b]) => (a < b ? -1 : a > b ? 1 : 0))
+      .map(([peer, encs]) => ({
+        peer,
+        open: this.mesh?.isOpen(peer) === true,
+        encs: [...encs].sort(),
+      }));
+  }
+
   /** Leaves the pond and closes every connection. */
   dispose(): void {
     this.opts.hub.send({ t: 'leave' } satisfies ClientMsg);
     this.opts.hub.close();
     this.mesh?.close();
     this.mesh = null;
+    this.duties.clear();
+  }
+
+  /** A fight ended: the duty links it held close. */
+  private endFight(enc: string): void {
+    for (const [peer, encs] of [...this.duties]) if (encs.has(enc)) this.dutyPeer(enc, peer, false);
   }
 
   private eachOpen(fn: (id: string, mesh: OnlineMesh) => void): void {
@@ -258,12 +329,15 @@ export class OnlineSession {
 
   private drop(id: string, member: Member): void {
     this.roster.delete(id);
-    this.mesh?.disconnect(id);
+    // A duty peer's link stays until its duty ends.
+    if (!this.duties.has(id)) this.mesh?.disconnect(id);
     this.opts.handlers.member('leave', member);
   }
 
   private signalled(m: SignalMsg): void {
-    if (this.roster.has(m.from)) void this.mesh?.handleSignal(m.from, m.kind, m.sdp);
+    if (this.roster.has(m.from) || this.duties.has(m.from))
+      void this.mesh?.handleSignal(m.from, m.kind, m.sdp);
+    else this.strangers++;
   }
 
   private makeMesh(ice: IceServer[]): OnlineMesh {
@@ -278,7 +352,9 @@ export class OnlineSession {
       if (this.roster.has(id)) handlers.state(id, s, signed);
     });
     mesh.onEvent((id, e) => {
-      if (this.roster.has(id)) handlers.event(id, e);
+      // A duty peer outside the pond carries witness messages only.
+      if (this.roster.has(id) || (this.duties.has(id) && DUTY_EVENTS.has(e.t)))
+        handlers.event(id, e);
     });
     mesh.onProxy((id, player, s) => {
       if (this.roster.has(id)) handlers.proxy(id, player, s);

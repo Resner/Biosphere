@@ -128,6 +128,74 @@ describe('ConnectionPolicy', () => {
     expect(() => new ConnectionPolicy({ selfId: 'a', cap: 2.5 })).toThrow(RangeError);
   });
 
+  describe('duty links (M10 T6)', () => {
+    it('connects a duty peer outside the roster only once announced, holds it through an eviction pass, and closes it when off', () => {
+      const p = new ConnectionPolicy({ selfId: 'a', cap: 2 });
+      expect(p.admit('w')).toEqual({ accepted: false });
+      expect(p.plan().connect).toEqual([]);
+      p.duty('w', true);
+      expect(p.isDuty('w')).toBe(true);
+      expect(p.plan()).toEqual({ connect: ['w'], evict: [] });
+      // A roster pass of nearer peers fills the cap and evicts among themselves, never the duty link.
+      p.upsert('b', { distance: 5 });
+      p.upsert('c', { distance: 9 });
+      p.plan();
+      p.upsert('d', { distance: 1 });
+      expect(p.plan()).toEqual({ connect: ['d'], evict: ['c'] });
+      expect(p.isHeld('w')).toBe(true);
+      // Leaving a roster it was never in changes nothing; off closes it.
+      p.remove('w');
+      expect(p.isHeld('w')).toBe(true);
+      expect(p.duty('w', false)).toBe(true);
+      expect(p.isHeld('w')).toBe(false);
+      expect(p.plan().connect).toEqual([]);
+    });
+
+    it('keeps a pond member that was also a duty peer', () => {
+      const p = new ConnectionPolicy({ selfId: 'a' });
+      p.upsert('w', { distance: 3 });
+      p.duty('w', true);
+      expect(p.plan().connect).toEqual(['w']);
+      expect(p.duty('w', false)).toBe(false);
+      expect(p.isHeld('w')).toBe(true);
+      // And a duty peer that leaves the roster stays held until its duty ends.
+      p.duty('w', true);
+      p.remove('w');
+      expect(p.isHeld('w')).toBe(true);
+      expect(p.duty('w', false)).toBe(true);
+    });
+
+    it('holds 25 with 24 pond links and a duty link, and never more than 32', () => {
+      const p = filled('a', 30);
+      p.plan();
+      expect(p.held()).toHaveLength(DEFAULT_CAP);
+      p.duty('w00', true);
+      expect(p.plan().connect).toEqual(['w00']);
+      expect(p.held()).toHaveLength(DEFAULT_CAP + 1);
+      // An offer from a duty peer this side doesn't call is admitted past the cap too.
+      p.duty('0w', true);
+      expect(p.admit('0w')).toEqual({ accepted: true });
+      expect(p.held()).toHaveLength(DEFAULT_CAP + 2);
+      // A pond peer still waits for room under the default cap.
+      p.upsert('b-near', { distance: 0.5 });
+      expect(p.plan()).toEqual({ connect: ['b-near'], evict: [id(24)] });
+      expect(p.held()).toHaveLength(DEFAULT_CAP + 2);
+      for (let i = 1; i <= 10; i++) p.duty(`w${String(i).padStart(2, '0')}`, true);
+      const plan = p.plan();
+      // Six more fill the browser's 32; the other four each take a pond peer's place (P2).
+      expect(plan.connect).toHaveLength(10);
+      expect(plan.evict).toHaveLength(4);
+      expect(p.held()).toHaveLength(MAX_CAP);
+      // With every slot a duty link, one more is refused.
+      for (let i = 11; i <= 40; i++) p.duty(`w${String(i).padStart(2, '0')}`, true);
+      p.plan();
+      expect(p.held()).toHaveLength(MAX_CAP);
+      p.duty('0x', true);
+      expect(p.admit('0x')).toEqual({ accepted: false });
+      expect(p.held().length).toBeLessThanOrEqual(MAX_CAP);
+    });
+  });
+
   it('fully connects a pond of 24: each peer ends with 23 connections', () => {
     const ids = Array.from({ length: 24 }, (_, i) => id(i));
     const policies = new Map(ids.map((s) => [s, new ConnectionPolicy({ selfId: s })]));
