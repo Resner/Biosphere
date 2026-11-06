@@ -13,6 +13,7 @@
     "report:speed": "node tools/speed.mjs",
     "report:combat": "node tools/combat.mjs",
     "report:net": "node tools/net.mjs",
+    "verify:lineage": "node tools/lineage.mjs",
     "gallery": "node tools/gallery.mjs",
     "report:budget": "node tools/budget-report.mjs",
     "specimens": "node tools/specimens.mjs",
