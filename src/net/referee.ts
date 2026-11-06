@@ -10,7 +10,7 @@ export const FRAME_MS = (E.frameTicks * 1000) / TICK_HZ;
 /** An input is taken from this many frames before its own. */
 const AHEAD_FRAMES = 2;
 /** The largest input code the referee takes: `0xFFFFFFFF` marks the fallback in a packed log (ADR 0056), and no real code reaches it (bits above 18 are unused). */
-const CODE_MAX = 0xfffffffe;
+export const CODE_MAX = 0xfffffffe;
 
 export type InputVerdict = 'ok' | 'late' | 'early' | 'dup' | 'bad';
 

@@ -23,15 +23,12 @@ import {
   takeBackFrame,
 } from '../src/net/handover';
 import type { ClientMsg, HubMsg } from '../src/net/protocol';
-import { type Bundle, FRAME_MS, type InputVerdict, Referee } from '../src/net/referee';
+import { type Bundle, CODE_MAX, FRAME_MS, type InputVerdict, Referee } from '../src/net/referee';
 import type { FlagKind } from './audit';
 import { awayDue } from './away';
 import { type Fight, type Lock, stepAll, tick } from './fights';
 import { tell } from './settle';
 import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
-
-/** The largest input code a batch may carry: `0xFFFFFFFF` is the packed log's fallback marker. */
-const CODE_MAX = 0xfffffffe;
 
 /** Why the authority takes a fight back as planned: nobody is struck. */
 export type PlannedTakeBack = 'join' | 'away' | 'lock';
@@ -61,13 +58,6 @@ export const dueFrame = (fight: Fight, now: number): number =>
   Math.max(0, Math.floor((now - fight.start.at) / FRAME_MS));
 
 const lockOf = (hub: Hub, enc: string): Lock | null => hub.fights.ofEncounter(enc) ?? null;
-
-/** Slots that play frame `f`: the starters and each join from its frame on. */
-function widthAt(fight: Fight, f: number): number {
-  let n = fight.start.fighters.length;
-  for (const j of fight.joins) if (j.f <= f) n++;
-  return n;
-}
 
 /** The referee for frames before `h` while W referees, or after a take-back the one kept for them. */
 const preOf = (fight: Fight, w: WitnessRun): Referee | null =>
@@ -166,18 +156,20 @@ function step(hub: Hub, lock: Lock, fight: Fight, w: WitnessRun, bundles: Bundle
       if (m.t === 'enc-frame' && m.f < w.from) toWitness(hub, w, m);
     }
   }
-  const pre = preOf(fight, w);
-  if (pre && pre !== fight.referee) {
-    for (const f of fight.enc.fighters) if (f.status !== 'in') pre.retire(f.slot);
-  }
+  if (w.pre) retireOut(fight, w.pre);
   return settled;
+}
+
+/** Retires the slots of fighters who are out from `referee`. */
+function retireOut(fight: Fight, referee: Referee): void {
+  for (const f of fight.enc.fighters) if (f.status !== 'in') referee.retire(f.slot);
 }
 
 /** The autopilot's frames from `from` (the log's end by default) to `until − 1`, the fallback marker in every slot. */
 function fallback(fight: Fight, until: number, from = fight.enc.frame): Bundle[] {
   const out: Bundle[] = [];
   for (let f = from; f < until; f++) {
-    out.push({ f, i: new Array<number | null>(widthAt(fight, f)).fill(null) });
+    out.push({ f, i: new Array<number | null>(fight.referee.width(f)).fill(null) });
   }
   return out;
 }
@@ -268,7 +260,7 @@ function announce(hub: Hub, lock: Lock, fight: Fight, w: WitnessRun, until: numb
     next: until,
     joins: fight.joins.map((j) => j.f),
   });
-  for (const f of fight.enc.fighters) if (f.status !== 'in') referee.retire(f.slot);
+  retireOut(fight, referee);
   fight.referee = referee;
   saveSpans(hub, fight);
   const msg: HubMsg = { t: 'enc-referee', enc: fight.enc.id, from: until, by: AUTHORITY };
@@ -359,7 +351,7 @@ function signed(fight: Fight, w: WitnessRun, msg: ClientMsg & { t: 'batch' }, ta
     const f = msg.f + k;
     const inputs = msg.i[k] as (number | null)[];
     const sigs = msg.s[k] as (string | null)[];
-    if (inputs.length !== widthAt(fight, f)) return false;
+    if (inputs.length !== fight.referee.width(f)) return false;
     for (const [slot, code] of inputs.entries()) {
       if (code === null) continue;
       const key = w.keys[slot];
@@ -385,12 +377,13 @@ export function witnessDispute(
   const lock = hub.fights.ofPlayer(session.playerId);
   const fight = lock?.fight;
   const by = fight?.batched.find((b) => msg.f >= b.from && msg.f < b.to)?.by;
-  const committed = fight?.history.find((m) => m.t === 'enc-frame' && m.f === msg.f);
+  const committed = by && fight?.history.find((m) => m.t === 'enc-frame' && m.f === msg.f);
   if (
     !lock ||
     !fight ||
     fight.enc.id !== msg.enc ||
     !by ||
+    !committed ||
     committed?.t !== 'enc-frame' ||
     sameInputs(committed.i, msg.i) ||
     !witnessFrameSigned(by, msg.enc, msg.f, msg.i, msg.sig)
