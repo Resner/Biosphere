@@ -64,23 +64,24 @@ for (const [name, genome] of Object.entries(bodies)) {
       return { x, y };
     });
     for (const biomass of [100, 1600, 100_000]) {
-      await page.evaluate((p) => (window.__bs as BsHook).debug?.teleport(p.x, p.y), spot);
       await page.evaluate((b) => (window.__bs as BsHook).debug?.setBiomass(b), biomass);
       await page.waitForFunction(
         (b) => ((window.__bs as BsHook).state().player?.biomass ?? 0) >= b,
         biomass,
       );
-      await camSettled(page);
-      // Freeze the world at one shader clock, so the gait and the glow are in the same phase at
-      // every size and the frames compare (the camera has settled by now). The marine snow's flow is
-      // zeroed too: a speck drifting over the centre pixel in one frame and not in another moved
-      // the luma by more than KEEP on a slow runner.
-      await page.evaluate(() => {
+      // Freeze the world at tick 0 with the player stopped on `spot` and the camera snapped onto it
+      // at this size (`freezeAt`), so the body's sub-pixel position and the camera's zoom are the
+      // same on every run: easing to rest and drifting for a slow runner's frames moved the centre
+      // luma of the biggest body by 0.015 from one run to the next, beyond KEEP.
+      // The shaders' clock is set so the gait and the glow are in the same phase at every size, and
+      // the marine snow's flow is zeroed: a speck drifting over the centre pixel in one frame and
+      // not in another moved the luma by more than KEEP on a slow runner.
+      await page.evaluate((p) => {
         const { debug } = window.__bs as BsHook;
-        debug?.timeScale(0);
+        debug?.freezeAt(0, p.x, p.y);
         debug?.resetWater();
         debug?.setClock(100);
-      });
+      }, spot);
       await camSettled(page);
       const [luma = 0] = await patchLuma(page, await page.screenshot(), [
         { x: width / 2, y: height / 2 },
