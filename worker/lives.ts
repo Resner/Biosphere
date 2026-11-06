@@ -24,6 +24,7 @@ import {
 } from '../src/net/protocol';
 import { RULES_VERSION } from '../src/sim/rules';
 import type { DeathCause } from '../src/sim/types';
+import { auditGenesis } from './attest';
 import { clearReport, storedReport } from './away';
 import { type Condition, conditionOf, type Exhaustion, type Head } from './ledger';
 import {
@@ -156,6 +157,8 @@ export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> 
     }
     return;
   }
+  // Its auditor recomputes the record (ADR 0058), now or once the witness round is in.
+  auditGenesis(hub, commit, accepted.stored, genome);
   const ask = commit.commitment.data as GenesisAsk;
   const msg: HubMsg = {
     t: 'genesis',

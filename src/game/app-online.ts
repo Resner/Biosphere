@@ -229,6 +229,7 @@ export class OnlineWiring {
         proxy: (id, player, snapshot) => {
           this.proxies.receive(id, player, snapshot, performance.now());
         },
+        duty: (msg) => app.duty.receive(msg),
         event: (id, event) => {
           this.receiveFoodEvent(id, event);
           app.social.receive(id, event);

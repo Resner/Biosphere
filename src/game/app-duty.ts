@@ -3,10 +3,18 @@
 // player is neither locked nor fighting, and its frame times' 90th percentile over the last 5 s
 // is at most 50 ms. Off goes out at once; on only once all of that has held for 5 s and 5 s after
 // the last message, so a flapping tab sends at most one message per 5 s and the hub (which counts
-// an `on` at most once per 5 s) never drops one.
+// an `on` at most once per 5 s) never drops one. `DutyWiring` also dispatches the hub's duties: an
+// auditor duty to `app-audit.ts` (M10 T8), which loads with the first one.
 
+import type { Beacon } from '../ledger/drand';
+import type { PubKey } from '../ledger/record';
+import type { AuditVerdict } from '../net/audit';
+import { type DutyMsg, fetchJson, hubHttpUrl } from '../net/hub-client';
+import type { AuditCase } from '../net/protocol';
 import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
+import type { AuditDuties, AuditRunner } from './app-audit';
+import { cachedKeys } from './fight-verify';
 
 /** The frame times judged, and how long everything must hold before an `on`. */
 export const AVAIL_WINDOW_MS = 5000;
@@ -95,17 +103,79 @@ export class Availability {
   }
 }
 
-/** The page's side of witness duty: its `avail`, judged each frame and on the page's own events. */
+/**
+ * The page's side of witness duty: its `avail`, judged each frame and on the page's own events, and
+ * the duties the hub offers it.
+ */
 export class DutyWiring {
   readonly avail: Availability;
+  /** The auditor duty's runner, once the first offer has loaded it. */
+  audits: AuditDuties | null = null;
+  /** `debug.dutyFrameMs`: the frame time availability judges in place of the measured one, or null. */
+  frameMs: number | null = null;
+  private loading: Promise<{ audits: AuditDuties; runner: AuditRunner }> | null = null;
 
   constructor(private readonly app: App) {
     this.avail = new Availability((on) => app.keeper.current?.send({ t: 'avail', on }));
   }
 
+  /** The auditor runner and its module worker, loaded once. */
+  private auditor(): Promise<{ audits: AuditDuties; runner: AuditRunner }> {
+    const { app } = this;
+    this.loading ??= import('./app-audit').then((m) => {
+      const { hubUrl } = app;
+      const keys = hubUrl ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys'))) : null;
+      const runner = m.workerRunner(
+        () => new Worker(new URL('./audit-worker.ts', import.meta.url), { type: 'module' }),
+      );
+      this.audits = new m.AuditDuties({
+        identity: () => app.identity,
+        keys: () => keys?.() ?? Promise.resolve(null),
+        sendHub: (msg) => app.keeper.current?.send(msg),
+        runner,
+        perfNow: () => performance.now(),
+      });
+      return { audits: this.audits, runner };
+    });
+    return this.loading;
+  }
+
+  /** A duty message from the hub (the session has opened or closed its links already). */
+  receive(msg: DutyMsg): void {
+    if (msg.t === 'duty') {
+      const decline = () => this.app.keeper.current?.send({ t: 'duty-no', event: msg.event });
+      if (msg.role === 'auditor') {
+        this.auditor().then(
+          ({ audits }) => audits.offer(msg),
+          () => {
+            // The runner could not load (a chunk lost offline): the duty goes to the next place.
+            this.loading = null;
+            decline();
+          },
+        );
+      }
+      // The referee duty comes with T7: until then it is declined.
+      else decline();
+    } else if (msg.t === 'duty-end') {
+      this.audits?.end(msg);
+    }
+  }
+
+  /** `debug.audit`: a verdict worked out in the audit worker, as an auditor duty would, and its time. */
+  async audit(
+    audit: AuditCase,
+    beacon: Beacon,
+    keys: PubKey[],
+  ): Promise<{ verdict: AuditVerdict; ms: number }> {
+    const { runner } = await this.auditor();
+    const t0 = performance.now();
+    const { verdict } = await runner.run({ t: 'verdict', audit, beacon, keys });
+    return { verdict, ms: performance.now() - t0 };
+  }
+
   /** A frame took `ms`. */
   frame(now: number, ms: number): void {
-    this.avail.frame(now, ms);
+    this.avail.frame(now, this.frameMs ?? ms);
     this.update(now);
   }
 
@@ -119,8 +189,9 @@ export class DutyWiring {
     });
   }
 
-  /** Every welcome is a new hub session, which has heard nothing yet. */
+  /** Every welcome is a new hub session, which has heard nothing yet and holds no duty of this page's. */
   welcome(): void {
     this.avail.reset();
+    this.audits?.reset();
   }
 }
