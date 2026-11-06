@@ -9,13 +9,18 @@
 //   both `mate-commit`s (`checkBirth`); its subject is `birthSubject` of both births in slot order.
 
 import { type Genome, genomeFromBase64url } from '../genome/codec';
-import type { Beacon } from '../ledger/drand';
-import { checkGenesis } from '../ledger/genesis';
+import { type Beacon, randomnessOf, verifyBeacon } from '../ledger/drand';
+import { checkGenesis, commitmentId } from '../ledger/genesis';
 import { checkBirth } from '../ledger/mating';
 import { type PubKey, recordHash } from '../ledger/record';
-import { birthSubject } from '../ledger/witness';
+import {
+  birthSubject,
+  type WitnessData,
+  witnessDataProblems,
+  witnessOrder,
+} from '../ledger/witness';
 import { verifyEncounter } from './encounter-verify';
-import type { AuditCase } from './protocol';
+import type { AuditCase, HubMsg } from './protocol';
 
 export interface AuditVerdict {
   subject: string;
@@ -72,4 +77,40 @@ export function auditVerdict(c: AuditCase, beacon: Beacon, keys: readonly PubKey
   const subject = auditSubject(c);
   const [code] = auditProblems(c, beacon, keys);
   return code === undefined ? { subject, agree: true } : { subject, agree: false, code };
+}
+
+/**
+ * Whether `me` holds the duty's position: the event's witness commitment on the beacon's round, its
+ * pool well formed, the beacon valid, and the drand order of the pool naming `me` there. Never throws.
+ */
+export function dutySelected(duty: Extract<HubMsg, { t: 'duty' }>, me: string): boolean {
+  try {
+    const { commitment } = duty.commit;
+    const data = commitment.data as unknown;
+    if (commitment.kind !== 'witness' || witnessDataProblems(data).length > 0) return false;
+    const { event, pool } = data as WitnessData;
+    if (event !== duty.event || commitment.round !== duty.beacon.round) return false;
+    if (!verifyBeacon(duty.beacon)) return false;
+    const order = witnessOrder(pool, randomnessOf(duty.beacon), commitmentId(commitment));
+    return order[duty.position] === me;
+  } catch {
+    return false;
+  }
+}
+
+type AuditorDuty = Extract<HubMsg, { t: 'duty'; role: 'auditor' }>;
+
+/** A job for the page's audit worker (`src/game/audit-worker.ts`): the selection check, or the verdict. */
+export type AuditJob =
+  | { id: number; t: 'select'; duty: AuditorDuty; me: string }
+  | { id: number; t: 'verdict'; audit: AuditCase; beacon: Beacon; keys: PubKey[] };
+
+export type AuditReply =
+  | { id: number; t: 'select'; ok: boolean }
+  | { id: number; t: 'verdict'; verdict: AuditVerdict };
+
+/** Runs one job, as the audit worker does. */
+export function auditJob(job: AuditJob): AuditReply {
+  if (job.t === 'select') return { id: job.id, t: 'select', ok: dutySelected(job.duty, job.me) };
+  return { id: job.id, t: 'verdict', verdict: auditVerdict(job.audit, job.beacon, job.keys) };
 }

@@ -1,9 +1,11 @@
 import { describe, expect, it } from 'vitest';
+import { longAudit } from '../../tests/audit-case';
 import { FIXTURE_KEY, lineageHistory } from '../../tests/lineage-fixture';
 import type { Beacon } from '../ledger/drand';
 import type { StoredRecord } from '../ledger/record';
 import type { FightLog, SignedSettlement } from '../ledger/settlement';
 import { birthSubject } from '../ledger/witness';
+import { RULES } from '../sim/rules';
 import { auditSubject, auditVerdict } from './audit';
 import type { AuditCase } from './protocol';
 
@@ -90,5 +92,17 @@ describe('auditVerdict', () => {
     expect(auditVerdict(turned, mateBeacon, keys).agree).toBe(false);
     const broken = { ...genesis, record: { ...a0, record: null } } as unknown as AuditCase;
     expect(auditVerdict(broken, genesisBeacon, keys)).toMatchObject({ agree: false });
+  });
+});
+
+describe('the heaviest audit', () => {
+  it('agrees with a 4-fighter fight that runs its 900 frames', () => {
+    const long = longAudit();
+    expect(long.audit.log.frames).toHaveLength(RULES.encounter.timeoutFrames);
+    expect(long.audit.log.start.fighters).toHaveLength(4);
+    expect(auditVerdict(long.audit, long.beacon, long.keys)).toEqual({
+      subject: long.audit.settlement.hash,
+      agree: true,
+    });
   });
 });

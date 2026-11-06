@@ -61,6 +61,7 @@ function debugHelpers(app: App): BsDebug {
     skipDraw(on) {
       app.scene.skipDraw = on;
     },
+    audit: (audit, beacon, keys) => app.duty.audit(audit, beacon, keys),
     holdBelly(on) {
       app.fight.holdBelly = on;
     },
@@ -381,7 +382,11 @@ export function installAppHook(app: App): void {
           dutyLinks: keeper.current?.dutyLinks() ?? [],
           strangers: keeper.current?.strangers ?? 0,
         },
-        witness: { avail: app.duty.avail.on },
+        witness: {
+          avail: app.duty.avail.on,
+          auditing: app.duty.audits?.auditing ?? null,
+          audits: [...(app.duty.audits?.audits ?? [])],
+        },
       };
     },
     events: () => ({ ...app.session.counts }),
