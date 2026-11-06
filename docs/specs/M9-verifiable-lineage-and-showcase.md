@@ -616,7 +616,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### Closing
 
-- [ ] T15 End-to-end scenario, documentation sync
+- [ ] T15 End-to-end scenario, documentation sync (in progress)
   - Steps:
     1. `m9-lifecycle.spec.ts` (`@slow`, hub 8821, `LIFESPAN_SCALE=0.05`, `MATING_SCALE=0.01`, `?quality=medium`), in order:
        - A and B hatch, mate and promote;
