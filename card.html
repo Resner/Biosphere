@@ -45,6 +45,17 @@
         </div>
         <p class="card-note">The world may be renewed before v1.0, and its creatures with it.</p>
       </div>
+      <section class="card-lineage" data-testid="card-lineage" aria-labelledby="card-lineage-title" hidden>
+        <header class="card-lineage-head">
+          <h2 id="card-lineage-title">Lineage</h2>
+          <p class="card-legend">
+            <span><span class="legend-branch" aria-hidden="true"></span>The line it took over from</span>
+            <span><span class="legend-mark" data-mark="yes" aria-hidden="true">✓</span>Verified</span>
+            <span><span class="legend-mark" data-mark="no" aria-hidden="true">✗</span>A problem</span>
+          </p>
+        </header>
+        <div class="card-graph" data-testid="card-graph"></div>
+      </section>
     </main>
     <footer class="build-label" data-testid="build-label"></footer>
     <script type="module" src="/src/card/main.ts"></script>

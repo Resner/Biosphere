@@ -23,7 +23,9 @@ import {
   shareUrl,
 } from './card-image';
 import { CreatureStage } from './card-view';
+import { GraphView } from './graph-view';
 import type { CardHook, CardState } from './hook';
+import { cardGraph, graphState, joinBundle, type Pedigree } from './lineage-graph';
 import {
   authorityBase,
   type CardError,
@@ -62,6 +64,8 @@ const el = {
   copied: pick('[data-testid="card-copied"]'),
   save: pick<HTMLButtonElement>('[data-testid="card-save"]'),
   error: pick('[data-testid="card-error"]'),
+  lineage: pick('[data-testid="card-lineage"]'),
+  graph: pick('[data-testid="card-graph"]'),
 };
 
 const state: CardState = {
@@ -84,6 +88,7 @@ const state: CardState = {
   renderer: null,
   timings: { bundle: null, drawn: null, verdict: null },
   image: { ready: false, saved: 0 },
+  graph: [],
 };
 
 const hook: CardHook = { state: () => structuredClone(state) };
@@ -95,6 +100,10 @@ const quality = qualityFromSearch(search) ?? settings.quality;
 const preset: PresetName = resolvePreset(quality, 'high');
 const still = reducedMotion(settings, matchMedia('(prefers-reduced-motion: reduce)').matches);
 el.card.toggleAttribute('data-still', still);
+
+/** The verifier's module worker, which the build bundles once. */
+const spawnVerifier = (): Worker =>
+  new Worker(new URL('./verify-worker.ts', import.meta.url), { type: 'module' });
 
 /** Not `game/app-session`'s copy: that module pulls the sim into the card page. */
 function safeStorage(): Storage | null {
@@ -196,6 +205,56 @@ function startStage(): CreatureStage {
   return s;
 }
 
+// The lineage graph: every creature the card knows of, from its own bundle and any ancestor's
+// loaded since, each with its mark from its own bundle's check.
+const pedigree: Pedigree = new Map();
+let authority: string | null = null;
+const graph = new GraphView({
+  section: el.lineage,
+  box: el.graph,
+  search,
+  onLoad: (id) => void loadAncestor(id),
+});
+
+function drawGraph(): void {
+  if (!state.subject) return;
+  const g = cardGraph(pedigree, state.subject);
+  state.graph = graphState(g);
+  graph.draw(g);
+}
+
+/** One bundle checked in a worker of its own, without its fights: an ancestor's, for the graph. */
+function verifyOnce(bundle: ProofBundle): Promise<LineageReport> {
+  return new Promise((resolve, reject) => {
+    const worker = spawnVerifier();
+    worker.addEventListener('message', (e: MessageEvent<FromWorker>) => {
+      worker.terminate();
+      resolve(e.data.report);
+    });
+    worker.addEventListener('error', (e) => {
+      worker.terminate();
+      reject(new Error(e.message));
+    });
+    worker.postMessage({ t: 'verify', bundle } satisfies ToWorker);
+  });
+}
+
+/** Fetches an ancestor the proof left out, checks its own bundle, and joins it to the graph. */
+async function loadAncestor(id: string): Promise<void> {
+  if (!authority) return;
+  graph.setLoad(id, 'loading');
+  const got = await loadProof(fetch, authority, id);
+  if (!got.ok) return graph.setLoad(id, 'failed');
+  try {
+    joinBundle(pedigree, got.value, await verifyOnce(got.value));
+  } catch (error) {
+    console.error('the ancestor was not checked', error);
+    return graph.setLoad(id, 'failed');
+  }
+  graph.setLoad(id, null, false);
+  drawGraph();
+}
+
 /** Writes the creature's facts and story, and starts drawing it. */
 function showCreature(bundle: ProofBundle): boolean {
   const facts = cardFacts(bundle);
@@ -220,6 +279,8 @@ function showCreature(bundle: ProofBundle): boolean {
   document.title = `${facts.species} · Biosphere`;
   stage ??= startStage();
   stage.show(genome);
+  joinBundle(pedigree, bundle, null);
+  drawGraph();
   return true;
 }
 
@@ -238,6 +299,8 @@ function showReport(bundle: ProofBundle, report: LineageReport): void {
   el.families.replaceChildren(...familyLines(report).map(listItem));
   el.problems.replaceChildren(...state.problems.map(listItem));
   el.problems.hidden = state.problems.length === 0;
+  joinBundle(pedigree, bundle, report);
+  drawGraph();
 }
 
 /** Fetches each fight's log one by one and hands it to the worker; the card shows the count. */
@@ -264,8 +327,9 @@ async function start(): Promise<void> {
   if (!id) return fail('not-found');
   const base = authorityBase(search, __AUTHORITY_URL__);
   if (!base) return fail('offline');
+  authority = base;
   // The worker loads while the proof is fetched.
-  const worker = new Worker(new URL('./verify-worker.ts', import.meta.url), { type: 'module' });
+  const worker = spawnVerifier();
   let reply: ((msg: FromWorker) => void) | null = null;
   worker.addEventListener('message', (e: MessageEvent<FromWorker>) => reply?.(e.data));
   worker.addEventListener('error', (e) => {
