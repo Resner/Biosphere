@@ -20,8 +20,8 @@ Every creature's history can be checked by anyone, with the creatures and their 
 - **Chains**: every record's hash is its contents, `seq` runs from 0 without a gap or a fork, each `prev` is the record before, the creature's id is its first record's hash, one owner holds it throughout, and every step is allowed after the one before.
 - **Signatures**: steps only the owner may take carry the owner's signature, and steps only the authority writes carry none; every record, commitment and settlement is countersigned by an authority key that was in force by then.
 - **Origins**: a genesis creature's DNA is what its committed drand round produces, and a newborn's DNA is what both parents' genomes and its committed round produce. The round was not yet published when it was committed, and carries drand's signature.
-- **Time gates, costs and growth**: the life clock never ran backwards or faster than real time allows, nobody mated before they were old enough or inside a cooldown, a mating cost what the rules say, and nobody grew faster than their genes allow.
-- **Fights**: each fight record agrees with its countersigned settlement and with the clock around it. With `--replay`, the fight's log plays through to the settlement's end state and results.
+- **Time gates, costs and growth**: the life clock never ran backwards, faster than real time allows or past the lifespan, nobody mated before they were old enough or inside a cooldown, a mating cost what the rules say, nobody grew faster than their genes allow, and a creature put aside stayed exactly as it was until its restore.
+- **Fights**: each fight has one countersigned settlement, and each fight record agrees with it and with the clock around it. With `--replay`, the fight's log plays through to the settlement's end state and results.
 
 ## What verification does not prove
 

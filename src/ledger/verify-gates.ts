@@ -148,9 +148,14 @@ function step(
   const gained = activeMs - state.activeMs;
   if (gained < 0) at('clock-back');
   else if (!fight && gained > t - state.t + CLOCK_SLACK_MS) at('clock-fast');
-  if (kind !== 'death' && activeMs > rules.lifespan) at('after-lifespan');
+  if (activeMs > rules.lifespan) at('after-lifespan');
   const left = rules.lifespan - activeMs;
   const condition = conditionIn(body);
+  // Put aside, it neither ages nor changes until its restore (which checks itself, as
+  // `restore-changed`): every record before then carries the clock, condition and cooldown it was
+  // frozen with, and the growth and vitals bounds have nothing further to say.
+  const frozen = state.frozen && kind !== 'restore';
+  if (frozen && !keepsFrozen(state, activeMs, body)) at('frozen-changed');
   /** Whether `biomass` is beyond the growth reach from the condition before, over the time gained. */
   const outgrown = (biomass: number) =>
     biomass > reachAt(state.condition.biomass, rules.growth, Math.max(0, gained));
@@ -169,7 +174,8 @@ function step(
     case 'mate-commit': {
       const before = conditionIn(body, 'Before');
       const cooldownUntilMs = int(body.cooldownUntilMs);
-      if (!before || !condition || cooldownUntilMs === null) return;
+      // A frozen creature's mating is the chain family's to refuse, and `frozen-changed` already holds.
+      if (!before || !condition || cooldownUntilMs === null || frozen) return;
       grown(before);
       if (activeMs < rules.matureAt) at('mature-time');
       if (before.biomass < rules.matureSize) at('mature-size');
@@ -195,13 +201,7 @@ function step(
     }
     case 'death': {
       const biomass = int(body.biomass);
-      if (state.frozen) {
-        // Put aside, it neither ages nor changes: it dies as it was frozen.
-        if (activeMs !== state.activeMs || biomass !== state.condition.biomass)
-          at('frozen-changed');
-      } else if (!fight && biomass !== null && outgrown(biomass)) {
-        at('growth');
-      }
+      if (!frozen && !fight && biomass !== null && outgrown(biomass)) at('growth');
       const exhausted = state.frozen && left < rules.restoreMin;
       if (body.cause === 'old-age' && left > 0 && !exhausted) at('old-age-early');
       break;
@@ -209,7 +209,7 @@ function step(
     default: {
       // A checkpoint, a parent's promote or a fight's encounter. A settlement's checkpoint grows
       // within the fight's bound (the fights family's), but holds no more than its body allows.
-      if (!condition) return;
+      if (!condition || frozen) return;
       if (kind === 'checkpoint' && fight) capped(condition);
       else if (kind !== 'encounter') grown(condition);
       if (kind === 'promote') {
@@ -219,7 +219,26 @@ function step(
       }
     }
   }
+  // A frozen creature stays as it was put aside, so its restore is held to that, not to a changed record.
+  if (frozen) return;
   state.t = t;
   state.activeMs = activeMs;
   if (condition) state.condition = condition;
+}
+
+/** Whether a record keeps the clock and whatever of the condition and cooldown its body names. */
+function keepsFrozen(
+  state: State,
+  activeMs: number,
+  body: StoredRecord['record']['body'],
+): boolean {
+  const kept = (field: string, value: number) =>
+    body[field] === undefined || int(body[field]) === value;
+  return (
+    activeMs === state.activeMs &&
+    kept('biomass', state.condition.biomass) &&
+    kept('energy', state.condition.energy) &&
+    kept('health', state.condition.health) &&
+    kept('cooldownUntilMs', state.cooldownUntilMs)
+  );
 }

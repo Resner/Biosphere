@@ -107,7 +107,7 @@ describe('the clock', () => {
     expect(rise(CLOCK_SLACK_MS)).toEqual([]);
   });
 
-  /** A1's last checkpoint moved to `activeMs`, its wall time with it, and its toxin death after it. */
+  /** A1's last checkpoint moved to `activeMs`, its wall time with it, and its toxin death with it. */
   const lateCheckpoint = (activeMs: number) => {
     const b = golden();
     const cp = recordOf(b, A1, 4);
@@ -125,8 +125,33 @@ describe('the clock', () => {
 
   it('names a checkpoint after the lifespan, and passes one at it', () => {
     const lifespan = lifespanOf(genomeOf(golden(), A1), LIVE_SCALES);
-    expect(lateCheckpoint(lifespan + 1)).toEqual([at(A1, 4, 'after-lifespan')]);
+    // The death that follows it is past the lifespan too.
+    expect(lateCheckpoint(lifespan + 1)).toEqual([
+      at(A1, 4, 'after-lifespan'),
+      at(A1, 5, 'after-lifespan'),
+    ]);
     expect(lateCheckpoint(lifespan)).toEqual([]);
+  });
+
+  it('names a death 1 ms past the lifespan, and passes one at it', () => {
+    const lifespan = lifespanOf(genomeOf(golden(), A1), LIVE_SCALES);
+    /** A1's last checkpoint at the lifespan, and its toxin death `extra` ms of clock and wall time after it. */
+    const lateDeath = (extra: number) => {
+      const b = golden();
+      const cp = recordOf(b, A1, 4);
+      const t = cp.t + (lifespan - num(cp.body.activeMs));
+      rewrite(b, A1, 4, (r) => {
+        r.t = t;
+        r.body.activeMs = lifespan;
+      });
+      rewrite(b, A1, 5, (r) => {
+        r.t = t + extra;
+        r.body.activeMs = lifespan + extra;
+      });
+      return gatesOf(b);
+    };
+    expect(lateDeath(1)).toEqual([at(A1, 5, 'after-lifespan')]);
+    expect(lateDeath(0)).toEqual([]);
   });
 
   /** A1's toxin death made an old-age one at `activeMs`, its wall time moved with it. */
@@ -417,6 +442,47 @@ describe('freezes and returns', () => {
       return { ...d, body: { ...d.body, biomass: num(d.body.biomass) - 1 } };
     };
     expect(frozenWith(minimum - 1, shrunk)).toEqual([at(A0, 5, 'frozen-changed')]);
+  });
+
+  /** A checkpoint of A0 while frozen (after its promote, seq 4), as it was put aside but for `change`. */
+  const frozenCheckpoint = (b: ProofBundle, change: Partial<Condition & { activeMs: number }>) => {
+    const p = recordOf(b, A0, 4);
+    const { activeMs, biomass, energy, health } = p.body;
+    return {
+      kind: 'checkpoint',
+      t: p.t + 5_000,
+      body: {
+        activeMs: num(activeMs),
+        biomass: num(biomass),
+        energy: num(energy),
+        health: num(health),
+        ...change,
+      },
+    } satisfies Step;
+  };
+
+  it('names a checkpoint of A0 while frozen that changes its biomass, energy or clock', () => {
+    const changed = (change: (body: StoredRecord['record']['body']) => object) => {
+      const b = golden();
+      retail(b, A0, 5, [frozenCheckpoint(b, change(bodyOf(b, A0, 4)))]);
+      return gatesOf(b);
+    };
+    expect(changed(() => ({}))).toEqual([]);
+    expect(changed((p) => ({ biomass: num(p.biomass) - 1 }))).toEqual([
+      at(A0, 5, 'frozen-changed'),
+    ]);
+    expect(changed((p) => ({ energy: num(p.energy) + 1 }))).toEqual([at(A0, 5, 'frozen-changed')]);
+    expect(changed((p) => ({ activeMs: num(p.activeMs) + 1 }))).toEqual([
+      at(A0, 5, 'frozen-changed'),
+    ]);
+  });
+
+  it('compares a restore with the creature as it was put aside, not with a changed record', () => {
+    const b = bundleOf(history, A0);
+    const restore = recordOf(b, A0, 5);
+    const cp = frozenCheckpoint(b, { biomass: num(bodyOf(b, A0, 4).biomass) - 1 });
+    retail(b, A0, 5, [cp, { kind: 'restore', t: cp.t + 5_000, body: restore.body }]);
+    expect(gatesOf(b)).toEqual([at(A0, 5, 'frozen-changed')]);
   });
 });
 

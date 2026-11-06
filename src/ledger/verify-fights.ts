@@ -14,7 +14,7 @@ import type { PubKey, StoredRecord } from './record';
 import { checkSettledRecords, type FightLog, type SignedSettlement } from './settlement';
 import type { BundleIndex, LineageReport, Problem, VerifyOptions } from './verify';
 import { firstNamers, whereNamed } from './verify-chain';
-import { conditionIn, fightDeath, int, settlementCheckpoint } from './verify-gates';
+import { conditionIn, int, settlementCheckpoint } from './verify-gates';
 
 // The fights family of `verifyLineage` (ADR 0055): each fight record against its settlement, the
 // locked time and growth around a fight, and, with logs and a replay, the fight replayed and each
@@ -114,34 +114,43 @@ export function verifyFights(index: BundleIndex, opts: VerifyOptions): Problem[]
     for (const f of fightRecordsOf(chain, body)) {
       const at = (code: string) =>
         out.push({ creature: id, seq: f.s.record.seq, family: 'fights', code });
-      const signed = index.settlements.get(f.enc);
-      if (!signed) {
+      const copies = index.settlements.get(f.enc);
+      if (!copies) {
         // A settlement's checkpoint names no fight itself: its death names the missing settlement.
         if (encOf(f.s) !== null) at('settlement-missing');
         continue;
       }
-      if (encOf(f.s) !== null) {
-        for (const p of checkSettledRecords(signed.settlement, [f.s]))
-          at(`settled:${p.split(':').slice(2).join(':')}`);
-      }
-      for (const code of aroundFight(f, signed, body)) at(code);
       const log = replayed.get(f.enc);
-      if (log) for (const code of againstLog(f, signed, log, body)) at(code);
+      // Each copy of a settlement the fight has more than one of is held to the records as well.
+      for (const signed of copies) {
+        if (encOf(f.s) !== null) {
+          for (const p of checkSettledRecords(signed.settlement, [f.s]))
+            at(`settled:${p.split(':').slice(2).join(':')}`);
+        }
+        for (const code of aroundFight(f, signed, body)) at(code);
+        if (log) for (const code of againstLog(f, signed, log, body)) at(code);
+      }
     }
+  }
+  const naming = firstNamers(index).enc;
+  for (const [enc, copies] of index.settlements) {
+    const [creature, seq] = whereNamed(index, naming.get(enc));
+    if (copies.length > 1)
+      out.push({ creature, seq, family: 'fights', code: 'settlement-duplicate' });
   }
   if (opts.replay) {
     const keys: PubKey[] = [...index.keys.values()].map((k) => ({
       id: k.id,
       publicKey: k.publicKey,
     }));
-    const naming = firstNamers(index).enc;
     for (const [enc, log] of replayed) {
-      const signed = index.settlements.get(enc) as SignedSettlement;
       const [creature, seq] = whereNamed(index, naming.get(enc));
-      for (const code of opts.replay(signed, log, keys)) {
-        // The countersignature and its key history are the signature family's to name.
-        if (code === 'key' || code === 'signature') continue;
-        out.push({ creature, seq, family: 'fights', code: `replay:${code}` });
+      for (const signed of index.settlements.get(enc) ?? []) {
+        for (const code of opts.replay(signed, log, keys)) {
+          // The countersignature and its key history are the signature family's to name.
+          if (code === 'key' || code === 'signature') continue;
+          out.push({ creature, seq, family: 'fights', code: `replay:${code}` });
+        }
       }
     }
   }
@@ -224,7 +233,7 @@ function againstLog(f: FightRecord, signed: SignedSettlement, log: FightLog, bod
   return out;
 }
 
-/** The bundle's settlements: how many were replayed, had their log pruned, or had none given. */
+/** The bundle's settled fights: how many were replayed, had their log pruned, or had none given. */
 export function fightsOf(index: BundleIndex, opts: VerifyOptions): LineageReport['fights'] {
   const settled = index.settlements.size;
   let pruned = 0;
