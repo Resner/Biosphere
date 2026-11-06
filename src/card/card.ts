@@ -170,7 +170,7 @@ export function storyLines(bundle: ProofBundle, report?: LineageReport): string[
   const status = statusOf(chain);
   const events = new Map(report?.events.map((e) => [e.event, e]));
   const said = (kind: string, id: unknown): string =>
-    report ? witnessSuffix(events.get(`${kind}:${String(id)}`)) : '';
+    report && typeof id === 'string' ? witnessSuffix(events.get(`${kind}:${id}`)) : '';
   const lines: string[] = [];
   const first = chain[0];
   const origin = originLine(bundle, first);
@@ -248,11 +248,8 @@ export function familyLines(report: LineageReport): string[] {
     lines.push(`Fight replays: ${parts.join(', ')}.`);
   }
   const witnessProblems = report.problems.filter((p) => p.family === 'witness').length;
-  lines.push(
-    witnessProblems > 0
-      ? `Witnesses: ${times(witnessProblems, 'problem')}.`
-      : `${witnessedLine(report.witnessed)}.`,
-  );
+  if (witnessProblems > 0) lines.push(`Witnesses: ${times(witnessProblems, 'problem')}.`);
+  lines.push(`${witnessedLine(report.witnessed)}.`);
   lines.push(`${times(report.held, 'creature')} checked.`);
   if (report.missing.length > 0)
     lines.push(`${times(report.missing.length, 'ancestor')} not loaded, so not checked.`);
