@@ -498,7 +498,8 @@ export function checkpoint(hub: Hub, life: LifeState, owner: string): LifeState 
  * `current` is the connection's own state when it is ahead of the ledger (a fight's result), and
  * `fight` the running encounter its creature is locked in (M8: the client goes back to it). A
  * fight settled while the player was away comes with it once (`report`, M8 T9), and stays on its
- * row until a `life` carrying it went out on an open socket.
+ * row until a `life` carrying it went out on an open socket; the world's renewal notice
+ * (`renewed`) is told the same way.
  */
 export function sendLife(
   hub: Hub,
@@ -514,6 +515,7 @@ export function sendLife(
   const fallback = head ? null : fallbackAfter(hub, hub.ledger.lastDead(playerId));
   const stored = storedReport(hub, playerId);
   const report = stored?.report;
+  const renewal = hub.ledger.renewalDue(playerId);
   const sent = sendIfOpen(ws, {
     t: 'life',
     life: head ? withCurrent(lifeOf(hub, head), current) : null,
@@ -522,10 +524,11 @@ export function sendLife(
     ...(report ? { report } : {}),
     ...(pending ? { pending } : {}),
     ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
-    ...(hub.ledger.takeRenewal(playerId) ? { renewed: true as const } : {}),
+    ...(renewal ? { renewed: true as const } : {}),
   });
-  // Told once: the report goes only once `life` went out on an open socket (M9 T9).
+  // Told once: the report and the renewal notice go only once `life` went out on an open socket (M9 T9, M10 T15).
   if (sent && stored) clearReport(hub, playerId);
+  if (sent && renewal) hub.ledger.markRenewalTold(playerId);
   // A mating whose children were never written (an eviction between its round and the write) is finished now.
   for (const id of hub.ledger.openMatingCommits(playerId)) {
     if (hub.beacons.status(id) === 'ready') deliverBirth(hub, id).catch(() => {});

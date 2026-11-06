@@ -416,18 +416,23 @@ export class Ledger {
   }
 
   /**
-   * Whether the player should hear, now and only now, that the world was renewed (ADR 0040): an
-   * identity first seen before the reset that has not been told about this epoch. Marks it told.
-   * A new identity never qualifies, nor one with no row (it had nothing to lose).
+   * Whether the player should hear that the world was renewed (ADR 0040): an identity first seen
+   * before the reset that has not been told about this epoch. A new identity never qualifies, nor
+   * one with no row (it had nothing to lose). Reads only: `markRenewalTold` records that it heard.
    */
-  takeRenewal(owner: string): boolean {
-    const told = this.run(
-      `UPDATE players SET epoch_seen = w.epoch FROM world w
-       WHERE players.id = ? AND players.first_seen < w.reset_at AND players.epoch_seen < w.epoch
-       RETURNING players.id`,
-      owner,
+  renewalDue(owner: string): boolean {
+    return (
+      this.run(
+        `SELECT players.id FROM players, world w
+         WHERE players.id = ? AND players.first_seen < w.reset_at AND players.epoch_seen < w.epoch`,
+        owner,
+      ).length > 0
     );
-    return told.length > 0;
+  }
+
+  /** Marks the player told of the world's epoch, once the notice went out on an open socket. */
+  markRenewalTold(owner: string): void {
+    this.run('UPDATE players SET epoch_seen = (SELECT epoch FROM world) WHERE id = ?', owner);
   }
 
   /** The record that ended the creature's life, or null while it lives. */

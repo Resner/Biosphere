@@ -12,7 +12,7 @@ import {
 import { HEX64 } from '../ledger/record';
 import { hubHttpUrl } from '../net/hub-client';
 
-export type LoadError = 'not-found' | 'busy' | 'offline' | 'malformed';
+export type LoadError = 'not-found' | 'busy' | 'too-big' | 'offline' | 'malformed';
 /** A load error, or a browser that could not run the check (`unchecked`). */
 export type CardError = LoadError | 'unchecked';
 
@@ -20,6 +20,7 @@ export type CardError = LoadError | 'unchecked';
 export const ERROR_TEXT: Readonly<Record<CardError, string>> = {
   'not-found': 'No such creature',
   busy: 'The authority is busy, try again soon',
+  'too-big': "This creature's history is too long to check here",
   offline: "Can't reach the authority",
   malformed: "This proof doesn't parse",
   unchecked: "This browser couldn't check the proof",
@@ -51,6 +52,7 @@ async function read(fetcher: typeof fetch, url: string): Promise<Loaded<unknown>
   }
   if (res.status === 404 || res.status === 400) return { ok: false, error: 'not-found' };
   if (res.status === 503) return { ok: false, error: 'busy' };
+  if (res.status === 413) return { ok: false, error: 'too-big' };
   if (!res.ok) return { ok: false, error: 'offline' };
   try {
     return { ok: true, value: JSON.parse(await res.text()) as unknown };

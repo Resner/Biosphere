@@ -97,6 +97,7 @@ async function getText(io: Io, url: string): Promise<string> {
   }
   if (res.status === 404) throw new Error('the authority has no record of it.');
   if (res.status === 503) throw new Error('the authority is busy; try again shortly.');
+  if (res.status === 413) throw new Error("this creature's history is too long to check here.");
   if (!res.ok) throw new Error(`the authority answered ${res.status}.`);
   return res.text();
 }

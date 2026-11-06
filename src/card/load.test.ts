@@ -2,7 +2,7 @@ import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import { lineageHistory } from '../../tests/lineage-fixture';
 import type { ProofBundle } from '../ledger/proof';
-import { authorityBase, creatureParam, loadFight, loadProof } from './load';
+import { authorityBase, creatureParam, ERROR_TEXT, loadFight, loadProof } from './load';
 
 // M9 T12: where the card reads its proof, and each failure in its own words.
 
@@ -48,6 +48,11 @@ describe('the reads', () => {
     expect(await loadProof(answering(503, '{"error":"busy"}'), BASE, id)).toMatchObject({
       error: 'busy',
     });
+    expect(await loadProof(answering(413, '{"error":"too-big"}'), BASE, id)).toEqual({
+      ok: false,
+      error: 'too-big',
+    });
+    expect(ERROR_TEXT['too-big']).toBe("This creature's history is too long to check here");
     const offline: typeof fetch = async () => {
       throw new TypeError('Failed to fetch');
     };
