@@ -88,7 +88,7 @@ function page(me = () => w) {
   const links = new Map<string, boolean>();
   const opened: string[] = [];
   const closed: string[] = [];
-  let timer: { at: number; fn: () => void } | null = null;
+  const timers = new Set<{ at: number; fn: () => void }>();
   const host: WitnessHost = {
     identity: () => me(),
     hubNow: () => clock.hub,
@@ -99,21 +99,23 @@ function page(me = () => w) {
     linkOpen: (p) => links.get(p) === true,
     busy: () => false,
     setTimer: (fn, ms) => {
-      timer = { at: clock.perf + ms, fn };
+      const timer = { at: clock.perf + ms, fn };
+      timers.add(timer);
       return timer;
     },
     clearTimer: (t) => {
-      if (timer === t) timer = null;
+      timers.delete(t as { at: number; fn: () => void });
     },
   };
-  /** Moves both clocks on by `ms`, firing the timer whenever it is due. */
+  /** Moves both clocks on by `ms`, firing each timer, earliest first, when it is due. */
   const advance = (ms: number) => {
     const end = clock.perf + ms;
-    while (timer && timer.at <= end) {
-      const t = timer;
+    for (;;) {
+      const t = [...timers].sort((x, y) => x.at - y.at)[0];
+      if (!t || t.at > end) break;
+      timers.delete(t);
       clock.hub += t.at - clock.perf;
       clock.perf = t.at;
-      timer = null;
       t.fn();
     }
     clock.hub += end - clock.perf;

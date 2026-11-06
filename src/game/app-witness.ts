@@ -17,7 +17,12 @@ import {
 } from '../ledger/witness';
 import { AUTHORITY } from '../net/handover';
 import type { ClientMsg, HubMsg, PeerEvent } from '../net/protocol';
-import { type FighterInput, type RefereeDuty, WitnessReferee } from '../net/witness-referee';
+import {
+  type FighterInput,
+  type RefereeDuty,
+  type WitnessFrame,
+  WitnessReferee,
+} from '../net/witness-referee';
 
 /** How long the page waits for its duty links before it declines (the hub moves on after 5 s). */
 export const ACCEPT_WAIT_MS = 4000;
@@ -70,6 +75,10 @@ export interface WitnessDutyView {
   batches: number;
   /** Fighters' inputs dropped, by verdict. */
   dropped: Record<string, number>;
+  /** The witness's `hashEncounter` of its copy of the fight, once handed over. */
+  hash: string | null;
+  /** Its copy of the fight is over. */
+  over: boolean;
 }
 
 /**
@@ -107,11 +116,16 @@ export class WitnessDuties {
   declined = 0;
   /** Each handler's time in ms, the last `KEEP_TIMES`. */
   readonly dutyMs: number[] = [];
+  /** The last duty as it stood when it ended, or null before one ended. */
+  last: WitnessDutyView | null = null;
   /** The witness's referee from the handover until the duty ends. */
   referee: WitnessReferee | null = null;
 
   private held: Held | null = null;
   private timer: unknown = null;
+  /** Final frames waiting for their signature and their way to the fighters, in a task of their own. */
+  private unsigned: WitnessFrame[] = [];
+  private signTimer: unknown = null;
   private early: [string, FighterInput][] = [];
 
   constructor(private readonly host: WitnessHost) {}
@@ -160,8 +174,8 @@ export class WitnessDuties {
           this.early.push([from, ev]);
         return;
       }
-      r.input(from, ev);
-      this.settle();
+      // A frame its input completes is finalized in a task of its own, at once.
+      if (r.input(from, ev) === 'ok') this.arm(0, () => this.timed(() => this.settle()));
     });
   }
 
@@ -189,6 +203,8 @@ export class WitnessDuties {
       frames: r?.frames ?? 0,
       batches: r?.batches ?? 0,
       dropped: { ...(r?.dropped ?? {}) },
+      hash: r ? r.hash() : null,
+      over: r?.encounter.over ?? false,
     };
   }
 
@@ -230,14 +246,22 @@ export class WitnessDuties {
         duty: held.msg,
         from: msg.from,
         now: () => this.host.hubNow(),
-        signFrame: (f, i) => signWitnessFrame(me, enc, f, i),
+        // A frame is signed in a task after the one that finalized it (`signFrames`): stepping
+        // the fight and signing a frame never share one handler.
+        signFrame: () => '',
         sendFrame: (ev) => {
-          for (const p of held.msg.fighters) this.host.sendPeer(p, ev);
+          this.unsigned.push(ev);
+          this.signTimer ??= this.host.setTimer(() => {
+            this.signTimer = null;
+            this.timed(() => this.signFrames(me, held));
+          }, 0);
         },
         sendBatch: (b) => {
           this.batches++;
           this.host.sendHub(b);
         },
+        // An input's check and a frame's signature each take their own task.
+        tickOnInput: false,
       });
     } catch {
       // A duty that does not build: nothing goes out, and the authority takes its fight back.
@@ -248,6 +272,16 @@ export class WitnessDuties {
     const early = this.early;
     this.early = [];
     for (const [from, ev] of early) this.referee.input(from, ev);
+  }
+
+  /** The final frames waiting: each signed and sent to every fighter. */
+  private signFrames(me: Identity, held: Held): void {
+    const frames = this.unsigned;
+    this.unsigned = [];
+    for (const ev of frames) {
+      ev.sig = signWitnessFrame(me, held.enc, ev.f, ev.i);
+      for (const p of held.msg.fighters) this.host.sendPeer(p, ev);
+    }
   }
 
   /** Finalizes what is due, and arms the one timer for the next deadline. */
@@ -272,11 +306,15 @@ export class WitnessDuties {
   /** The duty is over: the referee stops, and with `links` this page closes its duty links itself. */
   private close(links: boolean): void {
     const held = this.held;
+    this.last = this.view();
     this.disarm();
     this.referee?.stop();
     this.referee = null;
     this.held = null;
     this.early = [];
+    this.unsigned = [];
+    if (this.signTimer !== null) this.host.clearTimer(this.signTimer);
+    this.signTimer = null;
     if (links && held) for (const p of held.msg.fighters) this.host.dutyPeer(held.enc, p, false);
   }
 

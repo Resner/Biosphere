@@ -250,12 +250,13 @@ export interface BsState {
   };
   /**
    * Witness duty (M10 T6, T7): `avail`, whether the hub was last told this page can witness; the
-   * referee duty held now (null without one); the duties accepted, the offers declined and the
+   * referee duty held now (null without one) and the last one as it ended; the duties accepted, the offers declined and the
    * batches sent over the page's life; and each duty handler's time in ms (the last 600).
    */
   witness: {
     avail: boolean;
     duty: WitnessDutyView | null;
+    last: WitnessDutyView | null;
     duties: number;
     declined: number;
     batches: number;

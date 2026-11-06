@@ -384,6 +384,7 @@ export function installAppHook(app: App): void {
         witness: {
           avail: app.duty.avail.on,
           duty: app.duty.witness.view(),
+          last: app.duty.witness.last,
           duties: app.duty.witness.duties,
           declined: app.duty.witness.declined,
           batches: app.duty.witness.batches,

@@ -88,6 +88,12 @@ const m9ShareHubPort = 8820;
 const m9LineageHubPort = 8819;
 // The M9 lifecycle spec (8821), with the M5 hooks: genesis, a mating, a fight, a death and a return, then cards and the CLI.
 const m9LifecycleHubPort = 8821;
+// The M10 witness specs (8822–8824): every play counts and the IP check is off (every context shares
+// localhost), so the third page can referee. `m10-cross` holds two seats a pond, so it sits apart.
+const m10WitnessHubPort = 8822;
+const m10CrossHubPort = 8823;
+const m10TakebackHubPort = 8824;
+const WITNESS_VARS = '--var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off';
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -395,6 +401,24 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m9LifecycleHubPort} --persist-to .wrangler/e2e-state-m9-lifecycle --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
       url: `http://localhost:${m9LifecycleHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m10WitnessHubPort} --persist-to .wrangler/e2e-state-m10-witness ${WITNESS_VARS}`,
+      url: `http://localhost:${m10WitnessHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m10CrossHubPort} --persist-to .wrangler/e2e-state-m10-cross ${WITNESS_VARS} --var POND_MAX:2`,
+      url: `http://localhost:${m10CrossHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m10TakebackHubPort} --persist-to .wrangler/e2e-state-m10-takeback ${WITNESS_VARS}`,
+      url: `http://localhost:${m10TakebackHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
