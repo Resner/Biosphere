@@ -1,6 +1,6 @@
 # 0012: Witnesses: drand-selected, budgeted, never final
 
-- Status: accepted
+- Status: accepted, amended by 0058 (the pool is capped at 16; eligibility is measured by play time, an IP hash, one duty at a time and 20 duties an hour; an encounter's round is the next one due at least 0.5 s ahead; how a witness referees, attests and fails)
 - Date: 2026-10-25
 
 ## Context

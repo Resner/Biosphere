@@ -1,6 +1,6 @@
 # 0011: Combat as refereed deterministic encounters
 
-- Status: accepted, amended by 0050 (the authority steps every frame itself; lock-in by signed snapshots; no fight persistence until M8), 0051 (combat numbers and rewards as biomass), 0052 (a carried egg is prey), 0053 (a 10 s wait before the authority finishes a fight everyone left; a restart may replace up to 9 sent frames with the autopilot) and 0054 (the settlement document's shape)
+- Status: accepted, amended by 0050 (the authority steps every frame itself; lock-in by signed snapshots; no fight persistence until M8), 0051 (combat numbers and rewards as biomass), 0052 (a carried egg is prey), 0053 (a 10 s wait before the authority finishes a fight everyone left; a restart may replace up to 9 sent frames with the autopilot), 0054 (the settlement document's shape) and 0058 (a witness referees from the frame after its `duty-ok`, inputs to it are signed, the authority takes failures back; the 4× cost cut holds per witnessed participant-second and for a 30 s duel)
 - Date: 2026-10-25
 
 ## Context
