@@ -225,7 +225,7 @@ function frameOf(hub: Hub, now: number): Frame {
 
 /** The bundle with its lists empty: the world, the keys and the time, which every bundle holds alike. */
 const shellOf = (frame: Frame, subject: string): ProofBundle => ({
-  v: 1,
+  v: 2,
   kind: 'proof',
   subject,
   world: frame.world,
@@ -237,6 +237,8 @@ const shellOf = (frame: Frame, subject: string): ProofBundle => ({
   settlements: [],
   flags: [],
   more: [],
+  witnessCommits: [],
+  attestations: [],
   t: frame.t,
 });
 

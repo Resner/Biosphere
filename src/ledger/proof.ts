@@ -19,7 +19,14 @@ import type { Scales } from './gates';
 import type { Commitment } from './genesis';
 import { isPlayerId } from './identity';
 import { HEX64, type LedgerRecord, recordProblems, type StoredRecord } from './record';
-import type { FightLog, SettledFighter, SignedSettlement } from './settlement';
+import {
+  type FightLog,
+  refereeTail,
+  type SettledFighter,
+  type Settlement,
+  type SignedSettlement,
+} from './settlement';
+import { parseSignedAttestation, type SignedAttestation } from './witness-doc';
 
 // Proof bundles (ADR 0055): what a verifier needs to check a creature's history without trusting
 // anyone, as the authority serves it (`GET /v1/proof/<creature>`), and a fight's log and settlement
@@ -41,6 +48,8 @@ export const PROOF_CAPS = Object.freeze({
   settlements: 1024,
   flags: 1024,
   more: 2 * PROOF_MAX_CREATURES,
+  witnessCommits: 1024,
+  attestations: 2048,
 });
 
 /** An authority key as `/v1/pubkeys` lists it: in force for records from `from` (ms). */
@@ -57,8 +66,12 @@ export interface AuditFlag {
   t: number;
 }
 
+/**
+ * Version 2 (ADR 0058) adds the witness documents. A version 1 bundle parses as one with both
+ * lists empty: its events show as authority-only.
+ */
 export interface ProofBundle {
-  v: 1;
+  v: 2;
   kind: 'proof';
   subject: string;
   world: { epoch: number; rules: number; scales: Scales };
@@ -79,6 +92,10 @@ export interface ProofBundle {
   flags: AuditFlag[];
   /** Parents of held creatures that are not held. */
   more: string[];
+  /** The witness commitments (kind `witness`, owner `''`) of the held fights, matings and geneses it still keeps. */
+  witnessCommits: SignedCommit[];
+  /** Every attestation it holds for those events. */
+  attestations: SignedAttestation[];
   /** When the authority served it. */
   t: number;
 }
@@ -186,14 +203,20 @@ function storedRecord(v: unknown): StoredRecord | null {
   };
 }
 
-function signedCommit(v: unknown): SignedCommit | null {
+/**
+ * A countersigned commitment: in `commits` a genesis's or a mating's, owned by its player; in
+ * `witnessCommits` a witness commitment, which the authority makes for itself (owner `''`).
+ */
+function signedCommit(v: unknown, witness = false): SignedCommit | null {
   if (!isObj(v) || !keysIn(v, ['commitment', 'authSig', 'keyId']) || !signed(v)) return null;
   const c = v.commitment;
   if (!isObj(c) || !keysIn(c, ['v', 'kind', 'owner', 'round', 'req', 't', 'data'])) return null;
-  if (c.v !== 1 || (c.kind !== 'genesis' && c.kind !== 'mate')) return null;
-  if (typeof c.owner !== 'string' || !isPlayerId(c.owner)) return null;
+  if (c.v !== 1 || typeof c.kind !== 'string') return null;
+  if (witness ? c.kind !== 'witness' || c.owner !== '' : c.kind !== 'genesis' && c.kind !== 'mate')
+    return null;
+  if (typeof c.owner !== 'string' || !(witness || isPlayerId(c.owner))) return null;
   if (!uint(c.round) || c.round < 1 || !hex(c.req) || !uint(c.t)) return null;
-  // The request data is checked by `checkGenesis` and `checkBirth`; here it only has to hash.
+  // The request data is checked by `checkGenesis`, `checkBirth` and `witnessDataProblems`; here it only has to hash.
   let data: Canonical;
   try {
     const text = canonicalize(c.data as Canonical);
@@ -285,22 +308,19 @@ const SETTLEMENT_KEYS = [
   'frames',
   'root',
   'hash',
-  'referee',
   'results',
   't',
 ];
 
-function signedSettlement(v: unknown): SignedSettlement | null {
-  if (!isObj(v) || !keysIn(v, ['settlement', 'hash', 'authSig', 'keyId'])) return null;
-  if (!hex(v.hash) || !signed(v)) return null;
-  const s = v.settlement;
-  if (!isObj(s) || !keysIn(s, SETTLEMENT_KEYS)) return null;
+/** A settlement of either version: version 1's `referee`, or version 2's `referees` and `duty`. */
+function settlementDoc(s: unknown): Settlement | null {
+  if (!isObj(s)) return null;
+  const v2 = s.v === 2;
+  if (!keysIn(s, [...SETTLEMENT_KEYS, ...(v2 ? ['referees', 'duty'] : ['referee'])])) return null;
   const joins = list(s.joins, MAX_SLOTS, (x) => (hex(x) ? x : null));
   const results = list(s.results, MAX_SLOTS, settledFighter);
   if (
-    s.v !== 1 ||
     s.kind !== 'settlement' ||
-    s.referee !== 'authority' ||
     !uint(s.rules) ||
     !hex(s.enc) ||
     !isStr(s.pondSeed, ID_RE) ||
@@ -314,26 +334,30 @@ function signedSettlement(v: unknown): SignedSettlement | null {
   ) {
     return null;
   }
-  return {
-    settlement: {
-      v: 1,
-      kind: 'settlement',
-      rules: s.rules,
-      enc: s.enc,
-      pondSeed: s.pondSeed,
-      start: s.start,
-      joins,
-      frames: s.frames,
-      root: s.root,
-      hash: s.hash,
-      referee: 'authority',
-      results,
-      t: s.t,
-    },
-    hash: v.hash,
-    authSig: v.authSig as string,
-    keyId: v.keyId as string,
+  const base = {
+    kind: 'settlement' as const,
+    rules: s.rules,
+    enc: s.enc,
+    pondSeed: s.pondSeed,
+    start: s.start,
+    joins,
+    frames: s.frames,
+    root: s.root,
+    hash: s.hash,
+    results,
+    t: s.t,
   };
+  const tail = refereeTail(s);
+  return tail && { ...base, ...tail };
+}
+
+function signedSettlement(v: unknown): SignedSettlement | null {
+  if (!isObj(v) || !keysIn(v, ['settlement', 'hash', 'authSig', 'keyId'])) return null;
+  if (!hex(v.hash) || !signed(v)) return null;
+  const settlement = settlementDoc(v.settlement);
+  return settlement
+    ? { settlement, hash: v.hash, authSig: v.authSig as string, keyId: v.keyId as string }
+    : null;
 }
 
 function flag(v: unknown): AuditFlag | null {
@@ -361,9 +385,12 @@ const BUNDLE_KEYS = [
   'more',
   't',
 ];
+const BUNDLE_V2_KEYS = [...BUNDLE_KEYS, 'witnessCommits', 'attestations'];
 
 function bundle(v: unknown): ProofBundle | null {
-  if (!isObj(v) || !keysIn(v, BUNDLE_KEYS) || v.v !== 1 || v.kind !== 'proof') return null;
+  if (!isObj(v) || v.kind !== 'proof') return null;
+  // Version 1 has no witness lists; version 2 has both.
+  if (v.v === 1 ? !keysIn(v, BUNDLE_KEYS) : v.v !== 2 || !keysIn(v, BUNDLE_V2_KEYS)) return null;
   const w = v.world;
   const world =
     isObj(w) && keysIn(w, ['epoch', 'rules', 'scales']) && uint(w.epoch) && uint(w.rules)
@@ -374,14 +401,22 @@ function bundle(v: unknown): ProofBundle | null {
   if (!creatures || creatures.length === 0) return null;
   const keys = list(v.keys, PROOF_CAPS.keys, key);
   const records = list(v.records, PROOF_CAPS.records, storedRecord);
-  const commits = list(v.commits, PROOF_CAPS.commits, signedCommit);
+  const commits = list(v.commits, PROOF_CAPS.commits, (x) => signedCommit(x));
   const beacons = list(v.beacons, PROOF_CAPS.beacons, beacon);
   const settlements = list(v.settlements, PROOF_CAPS.settlements, signedSettlement);
   const flags = list(v.flags, PROOF_CAPS.flags, flag);
   const more = list(v.more, PROOF_CAPS.more, (x) => (hex(x) ? x : null));
+  const v1 = v.v === 1;
+  const witnessCommits = v1
+    ? []
+    : list(v.witnessCommits, PROOF_CAPS.witnessCommits, (x) => signedCommit(x, true));
+  const attestations = v1
+    ? []
+    : list(v.attestations, PROOF_CAPS.attestations, parseSignedAttestation);
   if (!keys || !records || !commits || !beacons || !settlements || !flags || !more) return null;
+  if (!witnessCommits || !attestations) return null;
   return {
-    v: 1,
+    v: 2,
     kind: 'proof',
     subject: v.subject,
     world: { epoch: (w as Obj).epoch as number, rules: (w as Obj).rules as number, scales: world },
@@ -393,6 +428,8 @@ function bundle(v: unknown): ProofBundle | null {
     settlements,
     flags,
     more,
+    witnessCommits,
+    attestations,
     t: v.t,
   };
 }

@@ -7,6 +7,7 @@ import { genomeToBase64url } from '../genome/codec';
 import { starterGenome } from '../genome/starter';
 import { encounterId } from '../ledger/encounter';
 import { fromBase64Url, playerIdOf, publicKeyFromSecret, toBase64Url } from '../ledger/identity';
+import { parseFightProof } from '../ledger/proof';
 import {
   authorityKeyId,
   authorityPublicKey,
@@ -20,7 +21,10 @@ import {
   checkSettledRecords,
   type FightLog,
   type Settlement,
+  type SettlementV1,
+  type SettlementV2,
   type SignedSettlement,
+  settlementHash,
   signSettlement,
 } from '../ledger/settlement';
 import { createEncounter, stepFrame } from '../sim/encounter/encounter';
@@ -31,8 +35,9 @@ import { RULES, RULES_VERSION } from '../sim/rules';
 import { maxHealth, starterEnergy } from '../sim/vitals';
 import type { EncJoin, EncStart } from './encounter-start';
 import { encounterStartOf, fighterStartOf } from './encounter-start';
-import { settlementOf, verifyEncounter } from './encounter-verify';
+import { AUTHORITY_ONLY, settlementOf, verifyEncounter } from './encounter-verify';
 import type { FighterInfo } from './protocol-defs';
+import { signedSettlement } from './protocol-encounter';
 
 // ADR 0054: the settlement document of a fight, rechecked from its log. The golden settles the
 // `encounter-duel` and `encounter-join` scenarios (their layouts and inputs) with real genomes, as
@@ -209,6 +214,15 @@ function recordsOf(s: Settlement): StoredRecord[] {
   return out;
 }
 
+/**
+ * The golden's document: version 1, as the authority wrote it before witnesses (M8). It stays
+ * pinned so that version 1 keeps verifying (ADR 0058); `settlementOf` now writes version 2.
+ */
+function v1Of(s: SettlementV2): SettlementV1 {
+  const { v: _v, referees: _r, duty: _d, ...rest } = s;
+  return { v: 1, ...rest, referee: 'authority' };
+}
+
 interface GoldenFight {
   log: FightLog;
   settlement: SignedSettlement;
@@ -218,7 +232,10 @@ interface GoldenFight {
 function build(): Record<'duel' | 'join', GoldenFight> {
   const fight = (name: string): GoldenFight => {
     const log = fightOf(name);
-    const settlement = signSettlement(AUTH_SECRET, settlementOf(log, endOf(log), AT + 60_000));
+    const settlement = signSettlement(
+      AUTH_SECRET,
+      v1Of(settlementOf(log, endOf(log), AT + 60_000)),
+    );
     return { log, settlement, records: recordsOf(settlement.settlement) };
   };
   return { duel: fight('encounter-duel'), join: fight('encounter-join') };
@@ -261,6 +278,87 @@ describe('the golden settlement', () => {
     for (const g of Object.values(golden.fights)) {
       expect(verifyEncounter(g.settlement, g.log, golden.keys)).toEqual([]);
       expect(checkSettledRecords(g.settlement.settlement, g.records)).toEqual([]);
+    }
+  });
+});
+
+describe('settlement version 2 (ADR 0058)', () => {
+  const golden = loadGolden();
+  const W = playerOf(9);
+
+  it('is what settlementOf writes, authority-only unless told who refereed', () => {
+    const { log } = golden.fights.duel;
+    const doc = settlementOf(log, endOf(log), AT);
+    expect(doc).toMatchObject({ v: 2, referees: [{ by: 'authority', from: 0 }], duty: '' });
+    expect(AUTHORITY_ONLY).toEqual({ referees: [{ by: 'authority', from: 0 }], duty: '' });
+    const { v: _v, referees: _r, duty: _d, ...rest } = doc;
+    const {
+      v: _v1,
+      referee: _one,
+      ...before
+    } = golden.fights.duel.settlement.settlement as SettlementV1;
+    expect(rest).toEqual({ ...before, t: AT });
+  });
+
+  it('round-trips through the wire and the fight proof, and verifies from its log', () => {
+    for (const g of Object.values(golden.fights)) {
+      const referees = [
+        { by: 'authority', from: 0 },
+        { by: W, from: 10, position: 0 },
+        { by: 'authority', from: 20 },
+      ];
+      const signed = signSettlement(
+        AUTH_SECRET,
+        settlementOf(g.log, endOf(g.log), AT, { referees, duty: 'cd'.repeat(32) }),
+      );
+      expect(signed.settlement).toMatchObject({ v: 2, referees, duty: 'cd'.repeat(32) });
+      expect(verifyEncounter(signed, g.log, golden.keys)).toEqual([]);
+      expect(signedSettlement(JSON.parse(JSON.stringify(signed)))).toEqual(signed);
+      expect(parseFightProof({ settlement: signed, log: g.log })).toEqual({
+        settlement: signed,
+        log: g.log,
+      });
+      // Who refereed is part of what the authority countersigned.
+      const moved = structuredClone(signed);
+      (moved.settlement as SettlementV2).referees[1] = { by: W, from: 11, position: 0 };
+      expect(verifyEncounter(moved, g.log, golden.keys)).toEqual(['signature']);
+      expect(settlementHash(moved.settlement)).not.toBe(signed.hash);
+    }
+  });
+
+  it('still reads and verifies version 1 (the M8 golden)', () => {
+    for (const g of Object.values(golden.fights)) {
+      expect(g.settlement.settlement.v).toBe(1);
+      expect(signedSettlement(structuredClone(g.settlement))).toEqual(g.settlement);
+      expect(parseFightProof({ settlement: g.settlement, log: g.log })?.settlement).toEqual(
+        g.settlement,
+      );
+      expect(verifyEncounter(g.settlement, g.log, golden.keys)).toEqual([]);
+    }
+  });
+
+  it('refuses a version 2 document without its spans or duty, or with version 1 fields', () => {
+    const { log } = golden.fights.duel;
+    const doc = settlementOf(log, endOf(log), AT) as unknown as Record<string, unknown>;
+    const signed = (settlement: unknown) => ({
+      settlement,
+      hash: 'ab'.repeat(32),
+      authSig: golden.fights.duel.settlement.authSig,
+      keyId: golden.fights.duel.settlement.keyId,
+    });
+    expect(signedSettlement(signed(doc))).not.toBeNull();
+    const { referees: _r, ...noSpans } = doc;
+    const { duty: _d, ...noDuty } = doc;
+    for (const bad of [
+      noSpans,
+      noDuty,
+      { ...doc, duty: 'xyz' },
+      { ...doc, referees: [{ by: 'nobody', from: 0 }] },
+      { ...doc, v: 1 },
+      { ...doc, v: 3 },
+    ]) {
+      expect(signedSettlement(signed(bad))).toBeNull();
+      expect(parseFightProof({ settlement: signed(bad), log: null })).toBeNull();
     }
   });
 });
@@ -408,7 +506,7 @@ describe('verifyEncounter', () => {
       f: g.log.frames.length,
     };
     g.log.joins.push(late);
-    expect(settlementOf(g.log, endOf(g.log), g.settlement.settlement.t)).toEqual(
+    expect(v1Of(settlementOf(g.log, endOf(g.log), g.settlement.settlement.t))).toEqual(
       g.settlement.settlement,
     );
     expect(verifyEncounter(g.settlement, g.log, keys)).toEqual([]);

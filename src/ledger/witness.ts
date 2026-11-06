@@ -3,7 +3,7 @@ import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js';
 import { createRng, seedFromBytes } from '../sim/prng';
 import { canonicalize } from './canonical';
 import { QUICKNET, roundTime } from './drand-time';
-import { type Identity, isPlayerId, toBase64Url } from './identity';
+import { type Identity, isPlayerId, toBase64Url, verify } from './identity';
 import { type KeyVerify, keyVerifier } from './key-verify';
 import { frameLeaf } from './settlement';
 import {
@@ -139,13 +139,11 @@ export function signAttestation(identity: Identity, a: Attestation): SignedAttes
   return { attestation: a, sig: toBase64Url(identity.sign(ATTEST_DOMAIN, attestationBytes(a))) };
 }
 
-/** True when the attestation's own witness signed it. Never throws. */
+/** True when the attestation's own witness signed it. Never throws. A witness signs a few of these, so its key isn't tabled. */
 export function attestationSigned(s: SignedAttestation): boolean {
-  return sigOk(
-    () => playerKey(s.attestation.witness),
-    ATTEST_DOMAIN,
-    () => attestationBytes(s.attestation),
-    s.sig,
+  const raw = sigBytes(s.sig);
+  return (
+    !!raw && verify(s.attestation.witness, ATTEST_DOMAIN, attestationBytes(s.attestation), raw)
   );
 }
 

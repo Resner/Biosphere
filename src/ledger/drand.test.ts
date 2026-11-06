@@ -15,6 +15,7 @@ import {
   roundMessage,
   roundTime,
   verifyBeacon,
+  verifyBeacons,
 } from './drand';
 
 const read = (name: string) =>
@@ -112,6 +113,63 @@ describe('verifyBeacon', () => {
     const each = (performance.now() - start) / 4;
     console.info(`verifyBeacon: ${each.toFixed(1)} ms per beacon`);
     expect(each).toBeLessThan(250);
+  });
+});
+
+describe('verifyBeacons', () => {
+  const flip = (s: string, at: number) =>
+    s.slice(0, at) + (s[at] === '0' ? '1' : '0') + s.slice(at + 1);
+
+  it('accepts recorded beacons together, and answers one or none as verifyBeacon does', () => {
+    const some = [3, 40, 41, 300, 599].map(beacon);
+    expect(verifyBeacons(some)).toEqual([true, true, true, true, true]);
+    expect(verifyBeacons([beacon(7)])).toEqual([true]);
+    expect(verifyBeacons([])).toEqual([]);
+  });
+
+  it('finds each bad beacon among good ones, without throwing', () => {
+    const b = beacon(10);
+    const some: Beacon[] = [
+      beacon(1),
+      { round: b.round, signature: flip(b.signature, 40) },
+      beacon(2),
+      { round: b.round + 1, signature: b.signature },
+      { round: b.round, signature: 'z'.repeat(96) },
+      { round: 0, signature: b.signature },
+      { round: b.round, signature: 42 as unknown as string },
+    ];
+    expect(verifyBeacons(some)).toEqual([true, false, true, false, false, false, false]);
+  });
+
+  it('refuses two forged signatures whose sum is the sum of the real ones', () => {
+    // A plain aggregate check would pass these: each is a real signature moved by ±X.
+    const G1 = bls12_381.G1.Point;
+    const shift = G1.BASE.multiply(12345n);
+    const [a, b] = [beacon(20), beacon(21)];
+    const moved = (x: Beacon, by: typeof shift): Beacon => ({
+      round: x.round,
+      signature: bytesToHex(G1.fromBytes(hexToBytes(x.signature)).add(by).toBytes()),
+    });
+    const forged = [moved(a, shift), moved(b, shift.negate())];
+    const sigs = bls12_381.shortSignatures;
+    const aggregate = sigs.aggregateSignatures(forged.map((x) => hexToBytes(x.signature)));
+    const items = forged.map((x) => ({
+      message: sigs.hash(roundMessage(x.round), DST),
+      publicKey: hexToBytes(QUICKNET.publicKey),
+    }));
+    expect(sigs.verifyBatch(aggregate, items)).toBe(true);
+    expect(verifyBeacons(forged)).toEqual([false, false]);
+    expect(verifyBeacons([a, ...forged, b])).toEqual([true, false, false, true]);
+  });
+
+  speedTest('checks 64 beacons in under 600 ms', () => {
+    verifyBeacons([beacon(0), beacon(1)]); // warm the pairing tables
+    const some = Array.from({ length: 64 }, (_, i) => beacon(100 + i));
+    const start = performance.now();
+    expect(verifyBeacons(some).every(Boolean)).toBe(true);
+    const ms = performance.now() - start;
+    console.info(`verifyBeacons: ${ms.toFixed(0)} ms for 64`);
+    expect(ms).toBeLessThan(600);
   });
 });
 

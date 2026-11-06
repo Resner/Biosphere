@@ -11,8 +11,9 @@ import {
   type FightLog,
   framesRoot,
   joinHash,
+  type RefereeSpan,
   type SettledFighter,
-  type Settlement,
+  type SettlementV2,
   type SignedSettlement,
   startHash,
 } from '../ledger/settlement';
@@ -21,6 +22,7 @@ import { applyJoins } from '../sim/encounter/join';
 import type { Encounter, EncounterJoin } from '../sim/encounter/types';
 import { RULES_VERSION } from '../sim/rules';
 import { encounterStartOf, fighterStartOf } from './encounter-start';
+import { AUTHORITY } from './handover';
 
 /** Amounts in a settlement are hundredths, rounded down, as the fighters' records hold them. */
 const hundredthsDown = (x: number): number => Math.floor(x * 100);
@@ -63,10 +65,30 @@ function resultsOf(enc: Encounter): SettledFighter[] {
   });
 }
 
-/** The authority's settlement of the fight `log` records, from its own encounter `enc` at the end, at hub time `t`. */
-export function settlementOf(log: FightLog, enc: Encounter, t: number): Settlement {
+/** Who refereed a fight, and its witness commitment's id (`''` with an empty pool). */
+export interface Refereeing {
+  referees: RefereeSpan[];
+  duty: string;
+}
+
+/** A fight the authority refereed alone, with no witness commitment. */
+export const AUTHORITY_ONLY: Readonly<Refereeing> = Object.freeze({
+  referees: [{ by: AUTHORITY, from: 0 }],
+  duty: '',
+});
+
+/**
+ * The authority's settlement of the fight `log` records, from its own encounter `enc` at the end,
+ * at hub time `t`: version 2, with who refereed which frames and the witness commitment (ADR 0058).
+ */
+export function settlementOf(
+  log: FightLog,
+  enc: Encounter,
+  t: number,
+  refereeing: Readonly<Refereeing> = AUTHORITY_ONLY,
+): SettlementV2 {
   return {
-    v: 1,
+    v: 2,
     kind: 'settlement',
     rules: RULES_VERSION,
     enc: log.start.enc,
@@ -76,7 +98,8 @@ export function settlementOf(log: FightLog, enc: Encounter, t: number): Settleme
     frames: log.frames.length,
     root: rootOf(log),
     hash: hashEncounter(enc),
-    referee: 'authority',
+    referees: refereeing.referees.map((r) => ({ ...r })),
+    duty: refereeing.duty,
     results: resultsOf(enc),
     t,
   };
