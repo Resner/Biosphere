@@ -488,6 +488,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
   - Done: `app-witness.ts` (selection check, links, then `duty-ok`; an input's check, a frame's step and its signature each in a task of its own), the route in `FightPlay`, `DutyProbes`; the witness crypto loads lazily, as the shell must never import `@noble/curves`.
   - Gotcha: a page accepts only once every fighter's link is open (else `duty-no` after 4 s); `stage` reloads B, whose page then draws and starved C's handlers, so `trio` skips its draw again.
   - Gotcha: a brawl kills within 6 to 25 s, before a slow runner's handover, so the specs' fight hovers out of reach (`debug.hover`, fighter `reach`) and a failed try ends in an escape.
+  - Gotcha: a slow runner's C flapped off, so fights had empty pools and the hub dropped an `on` heard <5 s after a late `off`: the page now waits 6 s, and `trio` pins C's `dutyFrameMs(16)`.
   - Steps:
     1. `src/game/app-duty.ts` dispatches `duty`: a referee duty to `app-witness.ts`; an auditor duty to T8's module, answered `duty-no` until T8 lands.
     2. `src/game/app-witness.ts`:

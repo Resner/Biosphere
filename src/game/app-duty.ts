@@ -3,9 +3,11 @@
 // measures the round trip on each duty link, for a fighter's lead. `Availability` decides the `avail` the hub hears: the
 // page can witness only while the tab is visible, Settings' "Help referee fights" is on, the
 // player is neither locked nor fighting, and its frame times' 90th percentile over the last 5 s
-// is at most 50 ms. Off goes out at once; on only once all of that has held for 5 s and 5 s after
+// is at most 50 ms. Off goes out at once; on only once all of that has held for 5 s and 6 s after
 // the last message, so a flapping tab sends at most one message per 5 s and the hub (which counts
-// an `on` at most once per 5 s) never drops one. `DutyWiring` also dispatches the hub's duties: an
+// an `on` at most once per 5 s from when it heard the last) never drops one it hears up to 1 s
+// later than the message before: a dropped `on` would leave the page out of every pool while it
+// shows itself available. `DutyWiring` also dispatches the hub's duties: an
 // auditor duty to `app-audit.ts` (M10 T8), which loads with the first one.
 
 import type { Beacon } from '../ledger/drand';
@@ -22,8 +24,10 @@ import { cachedKeys } from './fight-verify';
 
 /** The frame times judged, and how long everything must hold before an `on`. */
 export const AVAIL_WINDOW_MS = 5000;
-/** The most an `on` waits after the last message. */
+/** The hub counts an `on` at most this often, from when it heard the last message. */
 export const AVAIL_EVERY_MS = 5000;
+/** How much later the hub may hear a message than the page sent it: an `on` waits this long more. */
+export const AVAIL_LATE_MS = 1000;
 /** The slowest 90th-percentile frame time that still witnesses. */
 export const AVAIL_P90_MS = 50;
 
@@ -81,7 +85,7 @@ export class Availability {
     if (
       !this.on &&
       now - this.goodSince >= AVAIL_WINDOW_MS &&
-      now - this.toldAt >= AVAIL_EVERY_MS
+      now - this.toldAt >= AVAIL_EVERY_MS + AVAIL_LATE_MS
     ) {
       this.tell(now, true);
     }

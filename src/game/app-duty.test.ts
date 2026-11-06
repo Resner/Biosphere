@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import type { PeerEvent } from '../net/protocol';
 import {
   AVAIL_EVERY_MS,
+  AVAIL_LATE_MS,
   AVAIL_WINDOW_MS,
   Availability,
   type AvailInputs,
@@ -108,6 +109,22 @@ describe('Availability', () => {
       expect(t - prev).toBeGreaterThanOrEqual(AVAIL_EVERY_MS);
     }
     expect(h.sent.length - from).toBeLessThanOrEqual(30_000 / AVAIL_EVERY_MS);
+  });
+
+  it('leaves the hub room for a late message: an `on` after a flap is never dropped', () => {
+    // The hub counts an `on` at most once per 5 s from when it heard the last message
+    // (`worker/witness-pool.ts`). It hears the `off` up to `AVAIL_LATE_MS` late, the `on` at once.
+    const h = harness();
+    h.run(10_000);
+    const from = h.sent.length;
+    h.set({ visible: false });
+    h.set({ visible: true });
+    h.run(3 * AVAIL_WINDOW_MS);
+    const [off, on] = h.sent.slice(from) as [number, boolean][];
+    expect([off?.[1], on?.[1]]).toEqual([false, true]);
+    const heardOff = (off?.[0] ?? 0) + AVAIL_LATE_MS;
+    const heardOn = on?.[0] ?? 0;
+    expect(heardOn - heardOff).toBeGreaterThanOrEqual(AVAIL_EVERY_MS);
   });
 
   it('tells a new hub session again', () => {

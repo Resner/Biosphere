@@ -44,6 +44,18 @@ async function hatch(page: Page): Promise<void> {
 }
 
 /**
+ * C's page. Three software-rendered pages on one runner draw slower than a witness may (a
+ * frame-time p90 over 50 ms, as in `m10-audit`): C would flap off, and a fight that starts while
+ * the hub hears C off has an empty pool, so nobody referees it. Availability judges fast frames
+ * here; `m10-avail` covers the frame times.
+ */
+async function witness(browser: Browser, hub: string): Promise<Page> {
+  const c = await open(browser, hub);
+  await c.evaluate(() => (window.__bs as BsHook).debug?.dutyFrameMs(16));
+  return c;
+}
+
+/**
  * A and B hatch and are staged for a fight, B whole; C hatches too, in their pond, or with `apart`
  * once A and B hold theirs (a hub with `POND_MAX=2` then seats C in another pond).
  */
@@ -54,10 +66,10 @@ export async function trio(browser: Browser, hub: string, apart = false): Promis
   let ids: { idA: string; idB: string };
   if (apart) {
     ids = await stage(a, b, undefined, 1);
-    c = await open(browser, hub);
+    c = await witness(browser, hub);
     await hatch(c);
   } else {
-    c = await open(browser, hub);
+    c = await witness(browser, hub);
     [ids] = await Promise.all([stage(a, b, undefined, 1), hatch(c)]);
   }
   // `stage` reloads B, which draws again: every page here skips its draw.
@@ -66,13 +78,19 @@ export async function trio(browser: Browser, hub: string, apart = false): Promis
   return { hub, a, b, c, ...ids, idC };
 }
 
-/** C tells the hub it can witness (5 s of fast frames, visible, not fighting). */
+/**
+ * C tells the hub it can witness (5 s of fast frames, visible, not fighting) and holds no duty: an
+ * audit it took (a genesis's, or an earlier fight's) keeps it out of the next fight's pool.
+ */
 export async function available(c: Page): Promise<void> {
   await expect
-    .poll(async () => (await state(c)).witness.avail, {
-      message: 'C offers to witness',
-      timeout: 60_000,
-    })
+    .poll(
+      async () => {
+        const w = (await state(c)).witness;
+        return w.avail && w.duty === null && w.auditing === null;
+      },
+      { message: 'C offers to witness and holds no duty', timeout: 90_000 },
+    )
     .toBe(true);
 }
 
@@ -112,11 +130,25 @@ async function hold(a: Page, idB: string): Promise<void> {
 
 /** Below this share of its health a fighter is worn: the fight is ended and tried again. */
 const WORN = 0.5;
+/**
+ * The hub writes a fight's witness commitment as `enc-start` goes out; a fight this many frames
+ * in without one had an empty pool (`authority-only`), and nobody will referee it.
+ */
+const COMMITTED_BY = 90;
+
+/** The hub's witness view of an event (`GET /v1/e2e/witness/<event>`), or null without a commitment. */
+async function witnessView(t: Trio, event: string) {
+  const r = await t.a.request.get(`${t.hub}/v1/e2e/witness/${event}`);
+  return r.ok()
+    ? ((await r.json()) as { order: string[] | null; offers: unknown[]; struck: string[] })
+    : null;
+}
 
 /**
  * C referees fight `id` and has finalized `frames` frames, A and B heard the handover, and C's
- * chip shows. Returns C's first frame, or null when the fight ended first, or wore a fighter down
- * before C took it (A and B hit each other until one dies, and a dead B cannot be fought again).
+ * chip shows. Returns C's first frame, or null when the fight ended first, wore a fighter down
+ * before C took it (A and B hit each other until one dies, and a dead B cannot be fought again),
+ * or got no witness commitment.
  */
 export async function refereed(t: Trio, id: string, frames = 30): Promise<number | null> {
   const { a, b, c, idC } = t;
@@ -126,11 +158,18 @@ export async function refereed(t: Trio, id: string, frames = 30): Promise<number
   };
   const worn = async () =>
     (await state(a)).encounter?.fighters.some((f) => f.health < f.maxHealth * WORN) ?? false;
+  let committed = false;
+  const unwitnessed = async () => {
+    if (committed || ((await state(a)).encounter?.frame ?? 0) < COMMITTED_BY) return false;
+    committed = (await witnessView(t, `enc:${id}`)) !== null;
+    return !committed;
+  };
   const status = async () => {
     if (await over()) return 'over';
     if (await worn()) return 'worn';
     const sc = await state(c);
     const duty = sc.witness.duty;
+    if (duty?.enc !== id && (await unwitnessed())) return 'unwitnessed';
     if (duty?.enc !== id || duty.phase !== 'refereeing' || duty.frames < frames) return 'wait';
     if (!sc.hud.chips.includes('witness')) return 'no chip';
     for (const page of [a, b]) {
@@ -147,9 +186,12 @@ export async function refereed(t: Trio, id: string, frames = 30): Promise<number
         seenAs = await status();
         return seenAs;
       },
-      { message: `C referees fight ${id}, or it ends`, timeout: 60_000 },
+      {
+        message: `C referees fight ${id}, or it ends, wears a fighter down or has no witnesses`,
+        timeout: 60_000,
+      },
     )
-    .toMatch(/^(over|worn|refereed)$/)
+    .toMatch(/^(over|worn|unwitnessed|refereed)$/)
     .catch(async (error) => {
       throw new Error(
         `C never refereed: ${JSON.stringify({ a: await witnessSeen(a), b: await witnessSeen(b), c: await witnessSeen(c), seen: await seen(a) })}`,
@@ -170,10 +212,7 @@ async function ready(t: Trio): Promise<void> {
 
 /** One try that C did not referee, for the failure's message: the fight's end and the hub's witness view. */
 async function attemptLine(t: Trio, id: string): Promise<string> {
-  const r = await t.a.request.get(`${t.hub}/v1/e2e/witness/enc:${id}`);
-  const view = r.ok()
-    ? ((await r.json()) as { order: string[] | null; offers: unknown[]; struck: string[] })
-    : null;
+  const view = await witnessView(t, `enc:${id}`);
   return JSON.stringify({
     fight: (await seen(t.a)).encounter,
     hub: view && { order: view.order, offers: view.offers, struck: view.struck },
@@ -183,8 +222,9 @@ async function attemptLine(t: Trio, id: string): Promise<string> {
 
 /**
  * A fight C referees: tried up to 3 times, since a fight can end, or wear a fighter down, before
- * the handover. A failed try ends in A's escape, so nobody dies, and the next starts with A and B
- * whole and C available again. Returns its id and C's first frame.
+ * the handover, and one that starts while the hub counts C out has nobody to offer. A failed try
+ * ends in A's escape, so nobody dies, and the next starts with A and B whole and C available and
+ * free again. Returns its id and C's first frame.
  */
 export async function witnessedFight(t: Trio): Promise<{ id: string; from: number }> {
   let previous: string | undefined;
