@@ -484,7 +484,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
   - Done: `sendIfOpen` reports whether it sent, and the report is cleared only then; `Fights.playerFighting` gates progress and close, and `start` takes each side's latest clock; `giveUp` in `recover.ts` shares `backToLedger` with a failed settlement.
   - Gotcha: the ledger and the life clock now run on `hub.clock` (`Date.now` in production); a test genome that "no longer decodes" needs a non-base64url character, since any base64url string decodes.
 
-- [ ] T10 Retention and the storage budget (after T6, T8)
+- [ ] T10 Retention and the storage budget (after T6, T8) (in progress)
   - Steps (ADR 0056):
     1. `worker/storage.ts`: the packed frames.
        - Each frame's inputs are 4-byte codes, `0xFFFFFFFF` for the fallback, with the whole log base64 in the row's `frames`.
