@@ -11,8 +11,13 @@ import { fightLine, open, parkBeside, seen, stage } from './m7-fight';
 
 test.describe.configure({ mode: 'serial' });
 
-/** B's health as a share of its maximum. */
-const HURT = 0.3;
+/**
+ * B's health as a share of its maximum. The autopilot flies B whenever its input misses the
+ * referee's deadline (a loaded runner), and it flees below `caution x 0.6` of the maximum, dashing
+ * if its reflex is high: at 0.3 a cautious, quick genome (drawn per run from the beacon) outruns A's
+ * chase in every fight. At 0.6 no genome flees, so B stands and A's strikes decide the fight.
+ */
+const HURT = 0.6;
 
 type Ids = { idA: string; idB: string };
 
@@ -132,9 +137,8 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
   test.setTimeout(240_000);
   const [a, b] = await Promise.all([open(browser, M7_DUEL_HUB), open(browser, M7_DUEL_HUB)]);
   try {
-    // B somewhere calm and hurt to a third: a loaded runner plays few frames for A (the referee
-    // flies A's missing inputs with its autopilot), so a healthier B escapes before enough strikes
-    // land, and a nearly dead one dies of the water (a `died` outcome) before A's strikes kill it.
+    // B somewhere calm and hurt, but never below what makes its autopilot flee (see `HURT`): a
+    // nearly dead B also dies of the water (a `died` outcome) before A's strikes kill it.
     const ids = await stage(a, b, undefined, HURT);
 
     let id: string | undefined;
@@ -142,7 +146,7 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
     const fights: string[] = [];
     let stanceShown = false;
     for (let attempt = 0; attempt < 4 && !killed; attempt++) {
-      // A whole again for each try, B back to a third (an escape leaves it hurt, and a fight that
+      // A whole again for each try, B back to `HURT` (an escape leaves it hurt, and a fight that
       // starts at zero health says nothing).
       await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
       // B fed: a hurt B that starves (a `died` outcome, not a kill) says nothing. Never A: its full

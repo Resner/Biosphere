@@ -13,6 +13,9 @@ import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './hel
  */
 export const FIGHT_WALL_MS = (RULES.encounter.timeoutFrames / 10 + 15) * 1000;
 
+/** Every staged fighter's biomass (the starter's), so none is "much bigger" than another. */
+export const EQUAL_BIOMASS = RULES.starter.biomass;
+
 export async function open(browser: Browser, hub: string, extra = '&quality=low'): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
   await openRecorded(page, extra, hub);
@@ -91,6 +94,21 @@ export async function stage(
   await waitPlaying(b);
   const idA = (await state(a)).playerId as string;
   const idB = (await state(b)).playerId as string;
+
+  // Equal sizes: a hatchling's biomass follows its genome (drawn per run), and a cautious fighter
+  // flees a body over `fleeSize` x its own, so a bigger opponent ends the fight as an escape at the
+  // 3 s clock before the test's next step (a third fighter joining) can happen. Health is read
+  // after the resize has reached the state, since the maximum health follows the biomass.
+  await Promise.all(
+    [a, b].map(async (page) => {
+      await page.evaluate((m) => (window.__bs as BsHook).debug?.setBiomass(m), EQUAL_BIOMASS);
+      await page.waitForFunction(
+        (m) => Math.abs((window.__bs?.state().player?.biomass ?? 0) - m) < 1,
+        EQUAL_BIOMASS,
+        { timeout: 10_000 },
+      );
+    }),
+  );
 
   // B somewhere calm (no UV or pressure), hurt. Its autopilot plays whenever its tab is hidden, and flees below `caution × 0.6` of its health, so 0.6 or more never flees and a lower share leaves a cautious genome running.
   await b.evaluate((share) => {

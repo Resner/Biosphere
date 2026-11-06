@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { clickHatch, M7_MELEE_HUB, state, waitPlaying } from './helpers';
-import { open, parkBeside, seen, stage } from './m7-fight';
+import { EQUAL_BIOMASS, open, parkBeside, seen, stage } from './m7-fight';
 
 // A three-way fight (M7 T15): A engages B with F, and C, parked on B's other side, presses F the
 // moment B is fighting: C joins A and B's fight as the third fighter. All three clients step the
@@ -48,6 +48,8 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     // B whole, so A's strikes take a while: the fight is still on when C joins.
     const ids = await stage(a, b, undefined, 1);
     const idC = (await state(c)).playerId as string;
+    // C the size of A and B too, or a cautious B flees a bigger C and the fight ends early.
+    await c.evaluate((m) => (window.__bs as BsHook).debug?.setBiomass(m), EQUAL_BIOMASS);
     // A and C are hatched bodies against a whole B: B can kill C in the seconds the test spends on
     // the ring (the E2E main run that died with C at 0 hp). Bracing on each windup keeps both alive.
     await Promise.all(
