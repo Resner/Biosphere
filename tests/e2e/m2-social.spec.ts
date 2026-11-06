@@ -74,9 +74,17 @@ test('chat is filtered, typing does not steer, mute hides a sender, and cues cro
     );
     const { width, height } = a.viewportSize() ?? { width: 960, height: 540 };
     await a.mouse.move(width / 2 + 100, height / 2);
-    // G opens the wheel at the cursor (M6 T24) and 1 picks the look ping.
-    await a.keyboard.press('g');
-    await a.keyboard.press('1');
+    // G held opens the wheel at the cursor (M6 T24); moving onto "look" and letting go picks that
+    // ping. A tap of G and a number key would depend on the wall time between the key's down and
+    // up (a slow runner reads a late up as a hold that cancels), so the pick goes by direction.
+    await a.keyboard.down('g');
+    await a.waitForFunction(() => window.__bs?.state().wheel.open === true, undefined, {
+      timeout: 10_000,
+    });
+    const look = (await state(a)).wheel.items.find((i) => i.name === 'look');
+    expect(look, 'the wheel lists the look ping').toBeDefined();
+    await a.mouse.move(look?.x ?? 0, look?.y ?? 0);
+    await a.keyboard.up('g');
     await b.waitForFunction(() => window.__bs?.state().social.pings.length === 1, undefined, {
       timeout: 2000,
     });
