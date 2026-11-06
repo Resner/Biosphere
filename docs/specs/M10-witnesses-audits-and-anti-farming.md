@@ -677,7 +677,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
   - Done: `worthOf` reads `playedMs` against `youngPlayMs` (`youngMs` is gone); `seasoned(p, playMs)` in `fight-test-kit.ts` replaces `firstSeenAgo` (it credits one replaceable finished creature).
   - Gotcha: `worthOf` now runs two reads (kills, play), still no write; the E2E hubs are unchanged, since a browser identity starts young either way.
 
-- [ ] T13 The bot-farm simulation (after T12) (in progress)
+- [x] T13 The bot-farm simulation (after T12)
   - Steps (ADR 0059):
     1. `tools/farm-sim.ts`: the strategies and the report.
        - **The honest pair** forages at the pacing bot's measured growth (`tools/pacing-report.ts`), mates as soon as it may and promotes each child.
@@ -689,17 +689,19 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     3. `tools/farm.mjs` (`npm run report:farm`) runs it and writes `docs/perf/farm.md`, rounded so that a rerun gives the same file.
     4. `docs/TESTING.md`.
   - Acceptance (the gates of ADR 0059, asserted by the test):
-    1. For every N, the farmer reaches generation 3 no more than 30 s (one report) before the honest pair, and no sooner than 3 × 7 minutes after its first hatch.
-    2. Every farmer creature has at most 60 ÷ 9 children per hour of its active time.
-    3. The farmer's biomass from kills and carrion is at most what its victims held. Per bot identity and 24 h the kills are worth at most 2 full kills.
+    1. For every N, the farmer reaches generation 3 no sooner than its creatures' own time gates and 3 × 7 minutes allow, and its creatures wait for growth no more than 30 s (one report) less than the honest pair's (ADR 0060: two runs draw different genes, so each creature is measured against its own gate).
+    2. Every farmer creature has at most one child per 9 min cooldown after it is mature, which is 60 ÷ 9 children an hour in the long run (ADR 0060).
+    3. The farmer's biomass from kills and carrion is at most what its victims held. Per bot identity and 24 h the kills are worth at most 2 full kills, the 2^-6 floor of the halvings aside (ADR 0060).
     4. A kill of a bot identity with under 20 minutes of play rewards at most half.
     5. Over 200 events (the fixture's rounds, the real `witnessOrder`), a farm of N eligible bots among H = 8 honest witnesses takes a duty at most `N ÷ (N + H) + 0.1` of the time, and no bot is offered one before 20 minutes of play.
 
-    The report also gives, without a gate, the time to the farmer's maximum size and the rare finds per hour against N. `npm run report:farm` reproduces `docs/perf/farm.md`.
+    The report also gives, without a gate, the time to the farmer's maximum size, and the children, rare finds and mean rarity against N. `npm run report:farm` reproduces `docs/perf/farm.md`.
   - Notes:
     - Bots are test clients on a test hub and never join the live world (the brief's testing rule).
     - Drand time moves only when a commitment needs its round (`publish` in `worker/test-hub.ts`), and commitments made together share one, so the 600 recorded rounds suffice for 3 hours of hub time.
     - If a gate fails, the PR names the shortcut and fixes the rule that let it through, with an ADR. It never relaxes the gate.
+  - Done: `worker/farm-kit.ts`, `worker/farm.test.ts`, `tools/farm-sim.ts`, `tools/farm.mjs` and `docs/perf/farm.md`; all five gates hold for 1, 4 and 16 bots without a rule change. ADR 0060 sets how gates 1 to 3 read (genes cancel in gate 1; one cooldown after maturity; the halvings' floor aside).
+  - Gotcha: a farmer's report waits for its `ack` or its `died` (old age ends the bots' restored ancestors), and a bot with no ancestor waits for its hatch bucket; `flush` can't order a report (the ping is auto-answered).
 
 - [ ] T14 The cost check: messages, CPU and storage of witnessed fights (after T5)
   - Steps (ADR 0058):
