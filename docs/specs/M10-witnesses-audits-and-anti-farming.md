@@ -758,7 +758,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Closing
 
-- [ ] T17 End-to-end scenario, documentation sync (in progress)
+- [x] T17 End-to-end scenario, documentation sync
   - Steps:
     1. `m10-lifecycle.spec.ts` (`@slow`, hub 8827, `MATING_SCALE=0.01`, `LIFESPAN_SCALE=0.05`, the witness variables, `?quality=medium`), with four players A, B, C and D, in order:
        - A and B hatch and mate, and C or D audits the births;
@@ -776,6 +776,8 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
        - `docs/TESTING.md` (the hooks, and hubs 8822–8827; the next file takes 8828);
        - `.claude/rules/{ledger,net,worker}.md`.
     3. List the owner checks for the Playtest issue (the rubric's `(owner)` lines).
+    - Done: `m10-lifecycle.spec.ts` on hub 8827 reuses `m10-steps.ts` (its trio takes a second witness `d`, so whichever of C and D the drand order puts first referees); DESIGN, TESTING and the rules name what shipped. The owner checks for the Playtest issue are the two `(owner)` lines of the rubric below.
+    - Gotcha: the scenario needs 4 software-rendered pages and could not run in the cloud session (every hub starts and the machine runs out of memory), so CI's 3 repeats are its first runs.
   - Acceptance:
     - Every exit criterion maps to a named test or report (the table below).
     - Each PR E2E part stays under 5 minutes, and the long scenarios are `@slow`.

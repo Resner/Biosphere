@@ -18,7 +18,16 @@ export interface Trio {
   idA: string;
   idB: string;
   idC: string;
+  /** A second witness (`m10-lifecycle`): whichever of C and D the drand order puts first referees. */
+  d?: Page;
+  idD?: string;
 }
+
+/** The pages that may witness, with their player ids. */
+const witnesses = (t: Trio): { page: Page; id: string }[] => [
+  { page: t.c, id: t.idC },
+  ...(t.d && t.idD ? [{ page: t.d, id: t.idD }] : []),
+];
 
 /** What the test reads of a page's witness side, for a failure's message. */
 export const witnessSeen = (page: Page) =>
@@ -38,7 +47,7 @@ export const witnessSeen = (page: Page) =>
     };
   });
 
-async function hatch(page: Page): Promise<void> {
+export async function hatch(page: Page): Promise<void> {
   await clickHatch(page);
   await waitPlaying(page);
 }
@@ -49,7 +58,7 @@ async function hatch(page: Page): Promise<void> {
  * the hub hears C off has an empty pool, so nobody referees it. Availability judges fast frames
  * here; `m10-avail` covers the frame times.
  */
-async function witness(browser: Browser, hub: string): Promise<Page> {
+export async function witness(browser: Browser, hub: string): Promise<Page> {
   const c = await open(browser, hub);
   await c.evaluate(() => (window.__bs as BsHook).debug?.dutyFrameMs(16));
   return c;
@@ -145,13 +154,13 @@ async function witnessView(t: Trio, event: string) {
 }
 
 /**
- * C referees fight `id` and has finalized `frames` frames, A and B heard the handover, and C's
+ * A witness (C, or D when the trio has one) referees fight `id` and has finalized `frames` frames, A and B heard the handover, and C's
  * chip shows. Returns C's first frame, or null when the fight ended first, wore a fighter down
  * before C took it (A and B hit each other until one dies, and a dead B cannot be fought again),
  * or got no witness commitment.
  */
 export async function refereed(t: Trio, id: string, frames = 30): Promise<number | null> {
-  const { a, b, c, idC } = t;
+  const { a, b, c } = t;
   const over = async () => {
     const enc = (await state(a)).encounter;
     return enc?.id !== id || enc.over;
@@ -167,14 +176,18 @@ export async function refereed(t: Trio, id: string, frames = 30): Promise<number
   const status = async () => {
     if (await over()) return 'over';
     if (await worn()) return 'worn';
-    const sc = await state(c);
-    const duty = sc.witness.duty;
-    if (duty?.enc !== id && (await unwitnessed())) return 'unwitnessed';
-    if (duty?.enc !== id || duty.phase !== 'refereeing' || duty.frames < frames) return 'wait';
-    if (!sc.hud.chips.includes('witness')) return 'no chip';
+    let holder: { id: string; s: Awaited<ReturnType<typeof state>> } | null = null;
+    for (const w of witnesses(t)) {
+      const s = await state(w.page);
+      if (s.witness.duty?.enc === id) holder = { id: w.id, s };
+    }
+    const duty = holder?.s.witness.duty;
+    if (!holder || duty?.enc !== id) return (await unwitnessed()) ? 'unwitnessed' : 'wait';
+    if (duty.phase !== 'refereeing' || duty.frames < frames) return 'wait';
+    if (!holder.s.hud.chips.includes('witness')) return 'no chip';
     for (const page of [a, b]) {
       const enc = (await state(page)).encounter;
-      if (enc?.referee.by !== idC || enc.referee.from !== duty.from) return 'wait';
+      if (enc?.referee.by !== holder.id || enc.referee.from !== duty.from) return 'wait';
     }
     return 'refereed';
   };
@@ -199,15 +212,19 @@ export async function refereed(t: Trio, id: string, frames = 30): Promise<number
       );
     });
   if (seenAs !== 'refereed') return null;
-  return (await state(c)).witness.duty?.from ?? null;
+  for (const w of witnesses(t)) {
+    const duty = (await state(w.page)).witness.duty;
+    if (duty?.enc === id) return duty.from;
+  }
+  return null;
 }
 
-/** A and B whole (B fed: A's full belly would turn into growth), and C offering to witness. */
+/** A and B whole (B fed: A's full belly would turn into growth), and every witness offering to. */
 async function ready(t: Trio): Promise<void> {
   for (const page of [t.a, t.b])
     await page.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
   await topUp(t.b);
-  await available(t.c);
+  for (const w of witnesses(t)) await available(w.page);
 }
 
 /** One try that C did not referee, for the failure's message: the fight's end and the hub's witness view. */
@@ -217,6 +234,7 @@ async function attemptLine(t: Trio, id: string): Promise<string> {
     fight: (await seen(t.a)).encounter,
     hub: view && { order: view.order, offers: view.offers, struck: view.struck },
     c: (await witnessSeen(t.c)).witness,
+    d: t.d && (await witnessSeen(t.d)).witness,
   });
 }
 
@@ -239,7 +257,7 @@ export async function witnessedFight(t: Trio): Promise<{ id: string; from: numbe
     await end(t, id);
     previous = id;
   }
-  throw new Error(`no fight was refereed by C:\n${tries.join('\n')}`);
+  throw new Error(`no fight was refereed by a witness:\n${tries.join('\n')}`);
 }
 
 /** A swims off, and the fight ends on A's and B's pages. */
@@ -302,7 +320,7 @@ export function p95(ms: readonly number[]): number {
 /** Every page of the trio closes. */
 export async function closeAll(t: Partial<Trio>): Promise<void> {
   await Promise.all(
-    [t.a, t.b, t.c].map((page) =>
+    [t.a, t.b, t.c, t.d].map((page) =>
       page
         ?.context()
         .close()

@@ -234,6 +234,8 @@ export const M10_CROSS_HUB = 'http://localhost:8823';
 export const M10_AUDIT_HUB = 'http://localhost:8825';
 /** The M10 card spec's hub (M10 T10), with `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`: a witnessed fight on a card. */
 export const M10_CARD_HUB = 'http://localhost:8826';
+/** The M10 lifecycle spec's hub (M10 T17): the M5 hooks and the witness variables, four players through the whole M10 line. */
+export const M10_LIFECYCLE_HUB = 'http://localhost:8827';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
