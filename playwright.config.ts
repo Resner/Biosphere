@@ -101,6 +101,8 @@ const WITNESS_VARS = '--var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off';
 // The M10 audit spec (8825), with the M5 hooks and the witness variables: every play counts and
 // the IP check is off (every context shares localhost), so the third and fourth pages can audit.
 const m10AuditHubPort = 8825;
+// The M10 card spec (8826), with the witness variables: a fight two witnesses saw, then A's card.
+const m10CardHubPort = 8826;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -422,6 +424,7 @@ export default defineConfig({
         m10AuditHubPort,
         '--var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off',
       ],
+      ['m10-card', m10CardHubPort, WITNESS_VARS],
     ]
       .filter(([spec]) => !process.env.E2E_SKIP_SLOW && wantsSpec(String(spec)))
       .map(([spec, port, vars]) => ({

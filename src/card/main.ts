@@ -11,7 +11,7 @@ import { buildCreature } from '../genome/stats';
 import type { ProofBundle } from '../ledger/proof';
 import type { LineageReport } from '../ledger/verify';
 import { type PresetName, resolvePreset } from '../render/presets';
-import { cardFacts, familyLines, problemLines, verdictLine } from './card';
+import { cardFacts, familyLines, problemLines, storyLines, verdictLine } from './card';
 import {
   ART_HEIGHT,
   ART_WIDTH,
@@ -83,6 +83,7 @@ const state: CardState = {
   problems: [],
   missing: 0,
   fights: { settled: 0, replayed: 0, pruned: 0, unreplayed: 0 },
+  witnessed: null,
   story: [],
   drawn: false,
   renderer: null,
@@ -287,6 +288,10 @@ function showReport(bundle: ProofBundle, report: LineageReport): void {
   state.problems = problemLines(bundle, report.problems);
   state.missing = report.missing.length;
   state.fights = report.fights;
+  state.witnessed = report.witnessed;
+  // The story again, each fight, birth and hatch now saying what a witness did.
+  state.story = storyLines(bundle, report);
+  el.story.replaceChildren(...state.story.map(listItem));
   state.timings.verdict ??= performance.now();
   el.verdict.dataset.verdict = state.verdict;
   setText(el.verdict, state.verdictText);

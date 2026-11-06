@@ -38,6 +38,10 @@ describe('npm run verify:lineage', () => {
     expect(lines[0]).toMatch(
       /^Verified back to genesis: [A-Z][a-z]+ [a-z]+, generation 1, 3 creatures, 0 fights replayed$/,
     );
+    // What witnesses saw follows the verdict (M10 T10).
+    expect(lines[1]).toBe(
+      'Witnesses: 3 of 4 events seen by a witness; 1 checked by the authority alone',
+    );
     expect(lines.length).toBeLessThanOrEqual(24);
     expect(r.out).toContain('Not checked');
     expect(r.out).not.toMatch(/\b[0-9a-f]{16,}\b/);
@@ -56,6 +60,15 @@ describe('npm run verify:lineage', () => {
     expect(r.code).toBe(0);
     const report = JSON.parse(r.out);
     expect(report).toMatchObject({ subject: A1, problems: [], toGenesis: true, held: 3 });
+    expect(report.witnessed).toEqual({
+      events: 4,
+      refereed: 1,
+      audited: 3,
+      authorityOnly: 1,
+      overruled: 0,
+      unchecked: 0,
+    });
+    expect(report.events).toHaveLength(4);
     const bad = JSON.parse((await run(tamperedFile, '--json')).out);
     expect(bad.problems.map((p: { code: string }) => p.code)).toContain('hash');
   });

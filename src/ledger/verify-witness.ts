@@ -47,6 +47,12 @@ interface Held {
   creatures: Set<string>;
   /** Where its problems go. */
   where: [string, number | null];
+  /**
+   * The time of the first held record that names it, by which the witness commitment's key must be
+   * in force, as an ordinary commitment's is (the commitment's own `t` is on the randomness clock,
+   * which a test world's fixture rounds set apart from the records' clock); null when none does.
+   */
+  t: number | null;
   /** What an attestation of it must name, or null when the bundle cannot tell (a mating with a birth not held). */
   subject: string | null;
   /** A mating's or a genesis's own round, which its witness commitment must name. */
@@ -85,6 +91,7 @@ function heldEvents(index: BundleIndex): Map<string, Held> {
       kind: 'enc',
       creatures: new Set(s.results.map((r) => r.creature).filter((c) => index.creatures.has(c))),
       where: whereNamed(index, naming.enc.get(enc)),
+      t: naming.enc.get(enc)?.record.t ?? null,
       subject,
       round: null,
       spans: refereesOf(s),
@@ -104,6 +111,7 @@ function heldEvents(index: BundleIndex): Map<string, Held> {
           kind: 'genesis',
           creatures: new Set([id]),
           where: [id, 0],
+          t: s.record.t,
           subject: s.hash,
           round: typeof body.round === 'number' ? body.round : null,
           spans: [],
@@ -117,6 +125,7 @@ function heldEvents(index: BundleIndex): Map<string, Held> {
           kind: 'mating' as const,
           creatures: new Set<string>(),
           where: whereNamed(index, naming.commit.get(body.commit as string)),
+          t: naming.commit.get(body.commit as string)?.record.t ?? null,
           subject: null,
           round: typeof body.round === 'number' ? body.round : null,
           spans: [],
@@ -183,7 +192,7 @@ export function verifyWitness(index: BundleIndex, _opts: VerifyOptions): Witness
     at: (code: string) => void,
   ): string[] | null => {
     const c = signed.commitment;
-    const key = keyProblem(index, signed.keyId, c.t, 'witness-commit-');
+    const key = keyProblem(index, signed.keyId, h.t ?? c.t, 'witness-commit-');
     const authority = index.keys.get(signed.keyId) as AuthorityKey;
     if (key) at(key);
     else if (!countersigned(verifiers, authority, id, signed.authSig)) at('witness-commit-sig');

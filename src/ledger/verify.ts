@@ -436,3 +436,20 @@ export function problemText(p: Problem): string {
     'Something in this history does not hold.'
   );
 }
+
+/**
+ * What witnesses saw, in one line (M10 T10): the card's details and the CLI both print it, e.g.
+ * "Witnesses: 4 of 6 events seen by a witness; 2 checked by the authority alone".
+ */
+export function witnessedLine(w: Witnessed): string {
+  if (w.events === 0) return 'Witnesses: no fights, births or hatches in this history';
+  const parts = [
+    `${w.events - w.authorityOnly} of ${w.events} ${w.events === 1 ? 'event' : 'events'} seen by a witness`,
+    `${w.authorityOnly} checked by the authority alone`,
+  ];
+  if (w.overruled > 0)
+    parts.push(`${w.overruled} where a witness disagreed and the authority's result stands`);
+  if (w.unchecked > 0)
+    parts.push(`${w.unchecked} whose draw of witnesses is no longer kept, so not checked`);
+  return `Witnesses: ${parts.join('; ')}`;
+}

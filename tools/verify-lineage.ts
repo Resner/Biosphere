@@ -12,7 +12,13 @@ import {
 } from '../src/ledger/proof';
 import { HEX64 } from '../src/ledger/record';
 import type { FightLog } from '../src/ledger/settlement';
-import { type LineageReport, type Problem, problemText, verifyLineage } from '../src/ledger/verify';
+import {
+  type LineageReport,
+  type Problem,
+  problemText,
+  verifyLineage,
+  witnessedLine,
+} from '../src/ledger/verify';
 import { verifyEncounter } from '../src/net/encounter-verify';
 
 // The command-line verifier (M9 T11, ADR 0055): `npm run verify:lineage -- <creature id | bundle.json>`
@@ -158,7 +164,7 @@ function problemLine(bundle: ProofBundle, p: Problem): string {
   return `  - ${problemText(p)} (${nameOf(bundle, p.creature)}${where})`;
 }
 
-/** The report in words: the verdict first, then problems, then what was not checked. */
+/** The report in words: the verdict first, what witnesses saw, then problems, then what was not checked. */
 export function formatReport(bundle: ProofBundle, r: LineageReport): string {
   const lines: string[] = [];
   const fights = r.fights;
@@ -178,6 +184,8 @@ export function formatReport(bundle: ProofBundle, r: LineageReport): string {
         : `No problems found, but not traced back to genesis: ${counts}`,
     );
   }
+  // Right after the verdict, so "checked by the authority alone" is never hidden (ADR 0058).
+  lines.splice(1, 0, witnessedLine(r.witnessed));
   const unchecked: string[] = [];
   if (r.missing.length > 0)
     unchecked.push(
