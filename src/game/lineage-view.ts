@@ -6,6 +6,7 @@ import { parseGenomeText } from '../genome/codec';
 import { type RarityTier, rarityOf } from '../genome/rarity';
 import type { LineageEntry, PedigreeNode } from '../net/protocol';
 import { lifeLeftText } from './offspring-text';
+import { layoutPedigree, type PedigreePlace } from './pedigree-layout';
 
 /** Generations of ancestors the graph shows above the newest creature. */
 export const GRAPH_GENERATIONS = 6;
@@ -182,25 +183,12 @@ export function lineageView(
     known,
   );
   const shown = new Set(ids);
-  // Oldest generation at the left: a column is the longest run of shown ancestors above a creature,
-  // so a parent always sits left of its child, even when both are the player's own.
-  const columns = new Map<string, number>();
-  const columnOf = (id: string, seen: ReadonlySet<string>): number => {
-    const memo = columns.get(id);
-    if (memo !== undefined) return memo;
-    const parents = (known.get(id)?.parents ?? []).filter((p) => shown.has(p) && !seen.has(p));
-    const next = new Set(seen).add(id);
-    const col = parents.length === 0 ? 0 : 1 + Math.max(...parents.map((p) => columnOf(p, next)));
-    columns.set(id, col);
-    return col;
-  };
-  const deepest = Math.max(...ids.map((id) => columnOf(id, new Set())));
-  const rows = new Map<number, number>();
+  // Oldest generation at the left, so a parent always sits left of its child, even when both are
+  // the player's own; the card draws the same layout top to bottom.
+  const layout = layoutPedigree(ids, (id) => known.get(id)?.parents ?? []);
   const nodes: GraphNode[] = ids.map((id) => {
     const node = known.get(id) as PedigreeNode;
-    const column = columnOf(id, new Set());
-    const row = rows.get(column) ?? 0;
-    rows.set(column, row + 1);
+    const place = layout.places.get(id) as PedigreePlace;
     const own = mine.get(id);
     return {
       id,
@@ -212,8 +200,8 @@ export function lineageView(
       branch: branch.has(id),
       root: node.parents === null,
       genome: node.genome,
-      x: column * COLUMN_WIDTH,
-      y: row * ROW_HEIGHT,
+      x: place.depth * COLUMN_WIDTH,
+      y: place.across * ROW_HEIGHT,
     };
   });
   const edges: GraphEdge[] = [];
@@ -229,8 +217,8 @@ export function lineageView(
     chain: chain.map(chainRow),
     nodes,
     edges,
-    width: deepest * COLUMN_WIDTH + NODE_WIDTH,
-    height: Math.max(...rows.values()) * ROW_HEIGHT,
+    width: (layout.depth - 1) * COLUMN_WIDTH + NODE_WIDTH,
+    height: layout.breadth * ROW_HEIGHT,
     more,
   };
 }
