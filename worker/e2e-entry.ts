@@ -1,6 +1,8 @@
 import { isPlayerId } from '../src/ledger/identity';
+import { parseDutyEvent } from '../src/ledger/witness';
 import { Authority as LiveAuthority } from './authority';
 import type { BeaconSource } from './beacons';
+import { type WitnessView, witnessView } from './duty';
 import { fixtureSource } from './fixture-beacons';
 import live from './index';
 import { recoverFights } from './recover';
@@ -17,6 +19,7 @@ interface EncounterState {
 }
 
 const ENCOUNTER_PATH = '/v1/e2e/encounter/';
+const WITNESS_PATH = '/v1/e2e/witness/';
 
 export class Authority extends LiveAuthority {
   protected override beaconSource(): BeaconSource {
@@ -52,6 +55,8 @@ export class Authority extends LiveAuthority {
       }
     }
     this.fights.clear();
+    // Every duty ends with the memory that held it (ADR 0058).
+    this.duties.clear();
     recoverFights(this, this.clock.now());
   }
 
@@ -68,6 +73,11 @@ export class Authority extends LiveAuthority {
       frames: running ? running.referee.next : row.persisted,
       settled: row.settlement !== null,
     };
+  }
+
+  /** An event's witnesses for a scenario to wait on (M10 T4); null without a witness commitment. */
+  witness(event: string): WitnessView | null {
+    return witnessView(this, event);
   }
 }
 
@@ -99,6 +109,16 @@ export default {
       };
       const state = await stub.encounter(enc);
       return state ? Response.json(state) : new Response('no such encounter', { status: 404 });
+    }
+    const event = pathname.startsWith(WITNESS_PATH)
+      ? decodeURIComponent(pathname.slice(WITNESS_PATH.length))
+      : '';
+    if (parseDutyEvent(event) && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        witness(event: string): Promise<WitnessView | null>;
+      };
+      const state = await stub.witness(event);
+      return state ? Response.json(state) : new Response('no such event', { status: 404 });
     }
     return live.fetch(request, env);
   },

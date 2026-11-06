@@ -9,6 +9,7 @@ import {
 } from '../src/net/protocol';
 import type { AuditReport } from './audit';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
+import { Duties } from './duty';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
 import { FightStore } from './fight-store';
 import { type Clock, Fights, fightInput, realClock, tick } from './fights';
@@ -32,6 +33,7 @@ import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { TurnCredentials } from './turn';
 import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
+import { avail, ipHash } from './witness-pool';
 
 // The message handlers live by area in `sessions.ts` (sessions and signaling), `lives.ts` (genesis
 // and life), `offspring.ts` (mating and offspring) and `engage.ts` (lock-in, with the locks in
@@ -79,6 +81,10 @@ export class Authority extends DurableObject<Env> implements Hub {
   private queueTickAt: number | null = null;
   /** Messages dropped past their own window's cap without closing the socket, by type. */
   readonly dropped = new Map<ClientMsg['t'], number>();
+  /** Witness duties (ADR 0058), in memory: a restart ends them all. */
+  duties: Duties = new Duties(this);
+  /** The salt of every session's IP hash (migration 10), read once. */
+  private ipSalt: string | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -108,6 +114,15 @@ export class Authority extends DurableObject<Env> implements Hub {
       ctx.storage.transactionSync(() => migrate(ctx.storage.sql));
       recoverFights(this, this.clock.now());
     });
+  }
+
+  /** The salt of the sessions' IP hashes, which migration 10 stored in `world`. */
+  private salt(): string {
+    this.ipSalt ??=
+      (this.ctx.storage.sql.exec('SELECT ip_salt FROM world').toArray()[0]?.ip_salt as
+        | string
+        | undefined) ?? '';
+    return this.ipSalt;
   }
 
   /** Live drand by default; the E2E entry (`worker/e2e-entry.ts`) overrides it with recorded rounds. */
@@ -146,7 +161,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     };
   }
 
-  override async fetch(): Promise<Response> {
+  override async fetch(request: Request): Promise<Response> {
     const pair = new WebSocketPair();
     this.ctx.acceptWebSocket(pair[1]);
     const now = Date.now();
@@ -159,6 +174,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       windowStart: now,
       count: 0,
       signals: 0,
+      ip: ipHash(this.salt(), request.headers.get('CF-Connecting-IP') ?? ''),
     } satisfies Session);
     send(pair[1], { t: 'challenge', nonce });
     await this.rearm();
@@ -294,12 +310,19 @@ export class Authority extends DurableObject<Env> implements Hub {
       case 'input':
         fightInput(this, session, msg);
         return;
+      case 'avail':
+        avail(this, ws, session, msg);
+        return;
+      case 'duty-ok':
+      case 'duty-no':
+        this.duties.answer(ws, session, msg);
+        return;
     }
   }
 
-  /** Whether this player may send batches and disputes in their own window: it fights (T4 adds a referee duty). */
+  /** Whether this player may send batches and disputes in their own window: it fights, or holds a referee duty. */
   private refereeWire(player: string): boolean {
-    return this.fights.playerLocked(player);
+    return this.fights.playerLocked(player) || this.duties.holding(player)?.role === 'referee';
   }
 
   override webSocketClose(ws: WebSocket, code: number): void {
@@ -334,6 +357,12 @@ export class Authority extends DurableObject<Env> implements Hub {
       for (const id of await this.beacons.alarm()) {
         // One commitment failing must not strand the others this pass resolved.
         await this.deliverGenesis(id).catch(() => {});
+        // A witness commitment's order is drawn, and a running fight's referee offered (`duty.ts`).
+        try {
+          this.duties.resolved(id);
+        } catch (error) {
+          console.error('witness duty failed', error);
+        }
       }
       // Matings whose round is published, including one marked resolved whose children were not written (an eviction in between).
       for (const id of this.ledger.openMatingCommits()) {

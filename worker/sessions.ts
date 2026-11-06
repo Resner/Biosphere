@@ -34,6 +34,12 @@ import {
 } from './socket';
 
 const POND_CAPACITY = 24;
+
+/** A pond's capacity for new seats: 24, or `POND_MAX` (2–24) in fixture mode, so a test can put a witness in another pond. */
+export function pondMax(env: { DRAND_SOURCE?: string; POND_MAX?: string }): number {
+  const n = env.DRAND_SOURCE === 'fixture' ? Number(env.POND_MAX) : Number.NaN;
+  return Number.isInteger(n) && n >= 2 && n <= POND_CAPACITY ? n : POND_CAPACITY;
+}
 /** New sessions queue once the day's requests reach this share of the budget (DESIGN §8). */
 const BUDGET_SHARE = 0.9;
 /** A queued session's estimated wait per place, until M13 measures it. */
@@ -191,20 +197,21 @@ function awaySeats(hub: Hub): Map<string, number> {
 export function enter(
   hub: Hub,
   ws: WebSocket,
-  from: Pick<Session, 'openedAt' | 'windowStart' | 'count' | 'signals'>,
+  from: Pick<Session, 'openedAt' | 'windowStart' | 'count' | 'signals' | 'ip'>,
   who: { playerId: string; name: string },
   link: { ice: IceServer[]; turn: boolean },
 ): void {
   const lock = hub.fights.ofPlayer(who.playerId);
   const fight = lock?.fight ?? null;
   const { pond, spawnHint, members, slot } = place(hub, fight?.pond);
-  const { openedAt, windowStart, count, signals } = from;
+  const { openedAt, windowStart, count, signals, ip } = from;
   ws.serializeAttachment({
     phase: 'active',
     openedAt,
     windowStart,
     count,
     signals,
+    ip,
     ...who,
     pondId: pond.id,
     slot,
@@ -250,9 +257,10 @@ export function place(
     ? (sql.exec<PondRow>('SELECT * FROM ponds WHERE id = ?', held).toArray()[0] ?? null)
     : null;
   if (!best) {
+    const capacity = pondMax(hub.env);
     for (const row of sql.exec<PondRow>('SELECT * FROM ponds ORDER BY created, id')) {
       const n = counts.get(row.id) ?? 0;
-      if (n < POND_CAPACITY && (!best || n > (counts.get(best.id) ?? 0))) best = row;
+      if (n < capacity && (!best || n > (counts.get(best.id) ?? 0))) best = row;
     }
   }
   if (!best) {
@@ -363,6 +371,8 @@ export function drop(
     }
     // Its fight runs on: the log takes every frame final so far (a failed write is logged there).
     flushFight(hub, session.playerId);
+    // A witness duty offered to it moves on.
+    hub.duties.left(session.playerId);
     broadcast(hub, session.pondId, ws, {
       t: 'member',
       op: 'leave',

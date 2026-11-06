@@ -22,6 +22,7 @@ import {
   sessionOf,
   signedOf,
 } from './socket';
+import { commitWitnesses } from './witness-pool';
 
 /**
  * Writes a mating's two `birth` records once its round is published (idempotent) and sends each
@@ -348,6 +349,14 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
   if (result.fresh) {
     settle(found.ws, theirs, 0, { done: commit.id, nonce: ask.nonce });
     settle(ws, mine, 1);
+    // Its auditor's pool, on the mating's own round (ADR 0058), without either mate.
+    await commitWitnesses(
+      hub,
+      'mating',
+      commit.id,
+      [theirs.playerId, mine.playerId],
+      commit.commitment.round,
+    ).catch((error) => console.error('witness commitment failed', error));
   } else {
     resend(hub, ws, mine.life.creature, commit.id);
   }
