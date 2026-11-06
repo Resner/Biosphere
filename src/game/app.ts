@@ -399,6 +399,7 @@ export class App {
       now: () => performance.now(),
       nameOf: (id) => this.keeper.current?.nameOf(id),
       own: () => this.ownMateView(),
+      fresh: () => this.flow.report(this.session.ticks, this.session.player),
     });
     this.ui = new PlayUi(this);
     attachPointer(this);

@@ -81,6 +81,11 @@ describe('ownRefusal', () => {
     for (const [reason, over] of cases) expect(ownRefusal(view(over)), reason).toBe(reason);
   });
 
+  it('refuses a body under the maturity size when the size is known', () => {
+    expect(ownRefusal(view({ matureBiomass: 500.01 }))).toBe('not-mature');
+    expect(ownRefusal(view({ matureBiomass: 500 }))).toBeNull();
+  });
+
   it('pins the boundaries at exactly each limit', () => {
     expect(ownRefusal(view({ activeMs: 900_000 }))).toBeNull();
     expect(ownRefusal(view({ cooldownUntilMs: 1_000_000 }))).toBeNull();

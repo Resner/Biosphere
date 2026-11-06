@@ -94,7 +94,7 @@ function rulesOf(genome: Genome, s: Scales): Rules {
     growth: phys.growth,
     lifespan: lifespanOf(genome, s),
     matureAt: matureAtOf(genome, s),
-    matureSize: matureBiomassFrom(phys.maxBiomass),
+    matureSize: matureBiomassFrom(phys.maxBiomass, s),
     restoreMin: restoreMinOf(s),
     cooldowns: cooldownsOf(s),
   };

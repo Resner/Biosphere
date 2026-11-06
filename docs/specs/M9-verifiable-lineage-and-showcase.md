@@ -432,7 +432,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - The cache headers are as above, and a second request for a dead creature's bundle doesn't reach the object (an RPC counter).
   - Notes: the bundle must reach only creatures that the subject's records name, never another player's other creatures. T12 builds the card on these endpoints.
 
-- [ ] T8 The audit: one curve for the authority and the verifier, and flags for conflicts, replays and implausible progress [opus] (after T4, T5, T6, T7, T9)
+- [x] T8 The audit: one curve for the authority and the verifier, and flags for conflicts, replays and implausible progress [opus] (after T4, T5, T6, T7, T9)
+  - Done: `LifeState` binds to the last record (`recorded()`; `startT` for `clock-too-fast`), `worker/audit.ts` (catalogue, `Audit` moved out of `ledger.ts`, `GET /v1/audit`), `replay` and `claim-over`; tests in `audit.test.ts` and `audit-property.test.ts` (40 seeded scripts, the harness in `lineage-test-kit.ts`).
+  - Gotcha: the hub now refuses matings under the maturity size, which `MATING_SCALE` shortens like maturity's time (`matureBiomassOf(genome, s)`), so E2E courts still mate in seconds. The client reports just before a court or an accept (a stale record cut honest growth after matings, `m7-kill`), and counts ticks from its `life` message.
   - Steps:
     1. **The bounds per record interval** (ADR 0055), in `worker/life.ts` and `worker/lives.ts`, through `src/ledger/gates.ts`:
        - writing any record of a creature rebinds its connection's clock cap to that record's `t` and `activeMs`;
@@ -482,7 +484,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
   - Done: `sendIfOpen` reports whether it sent, and the report is cleared only then; `Fights.playerFighting` gates progress and close, and `start` takes each side's latest clock; `giveUp` in `recover.ts` shares `backToLedger` with a failed settlement.
   - Gotcha: the ledger and the life clock now run on `hub.clock` (`Date.now` in production); a test genome that "no longer decodes" needs a non-base64url character, since any base64url string decodes.
 
-- [ ] T10 Retention and the storage budget (after T6, T8)
+- [x] T10 Retention and the storage budget (after T6, T8)
   - Steps (ADR 0056):
     1. `worker/storage.ts`: the packed frames.
        - Each frame's inputs are 4-byte codes, `0xFFFFFFFF` for the fallback, with the whole log base64 in the row's `frames`.
@@ -510,6 +512,8 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - The usage row holds the database size after a day boundary. `/v1/audit` shows it.
     - `npm run report:storage` reproduces `docs/perf/storage.md`.
   - Notes: pruning never touches a record, a commitment, a beacon or a settlement.
+  - Done: `worker/fight-pack.ts` packs the frames (the referee now refuses code `0xFFFFFFFF`, the fallback marker), `FightStore.seal` prunes by the settlement's `t` through the partial index `encounters_kept` (migration 9, which also adds `usage.db_bytes`), `GET /v1/audit` shows `storage`, and `npm run report:storage` writes `docs/perf/storage.md` (200 players: logs 547 MB, so 14 days stands).
+  - Gotcha: a row is kept `LOG_KEEP_DAYS` from the fight's start (`t`), within the 90 s limit of its settlement; `history()` moved to `worker/history-kit.ts`.
 
 ### Showing it
 
@@ -570,7 +574,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `m9-card` passes 3 times in a row (`--repeat-each=3`).
   - Notes: the card reuses `src/render` and `src/game`'s DOM-free helpers (rarity, names, `starsText`), never the game loop. Its look is judged on the screenshots (rubric).
 
-- [ ] T13 The lineage viewer [opus] (after T12)
+- [x] T13 The lineage viewer [opus] (after T12)
+  - Done: `game/pedigree-layout.ts` (rows by longest ancestry, each parent pulled down to just above its nearest child, rows ordered over their children) now lays out both the panel and the card; `card/lineage-graph.ts` (the model) and `card/graph-view.ts` (links over an SVG of the edges).
+  - Gotcha: the in-game panel's graph never showed (`hidden = false` on an `<svg>` is a no-op), now `toggleAttribute`; a common card node sets no `data-tier`, or it inherits the page's.
   - Steps:
     1. `src/card/lineage-graph.ts`, a graph of the held creatures on the card:
        - the subject at the bottom and generations above it;

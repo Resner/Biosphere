@@ -153,6 +153,8 @@ export class LifeFlow {
   private tickBase = 0;
   private lastTicks = 0;
   private rebase = false;
+  /** The tick count when the hub bound the creature again, or null to count from the last report. */
+  private rebaseAt: number | null = null;
   private last: GenesisMsg | null = null;
   /** The genome of the genesis that arrived last (see `arriving`). */
   private arrived: string | null = null;
@@ -253,15 +255,20 @@ export class LifeFlow {
     this.known = null;
   }
 
-  receive(msg: LifeMsg): void {
+  /** A hub message; `ticks` is the game's tick count as it arrives, from which a new connection counts. */
+  receive(msg: LifeMsg, ticks?: number): void {
     switch (msg.t) {
       case 'life':
         this.known = { life: msg.life, genesisIn: msg.genesisIn };
         this.genesisIn = msg.genesisIn;
         this.pending = msg.pending !== undefined;
         this.fallback = msg.fallback ?? null;
-        // The hub binds the creature again on every connection and counts from zero.
-        if (this.status === 'playing') this.rebase = true;
+        // The hub binds the creature again on every connection and counts from zero: the play
+        // before this moment (offline, say) is not its to credit, and claiming it would be flagged.
+        if (this.status === 'playing') {
+          this.rebase = true;
+          this.rebaseAt = ticks ?? null;
+        }
         this.lostInFight(msg);
         break;
       case 'ack':
@@ -471,7 +478,7 @@ export class LifeFlow {
   /** `ticks` as this connection counts them, from the first report after a (re)connection. */
   private count(ticks: number): number {
     if (this.rebase) {
-      this.tickBase = this.lastTicks;
+      this.tickBase = Math.min(ticks, this.rebaseAt ?? this.lastTicks);
       this.n = 0;
       this.rebase = false;
     }

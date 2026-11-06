@@ -3,19 +3,8 @@
 
 import type { LineageEntry, PedigreeNode } from '../net/protocol';
 import { rarityBadge } from './badge';
-import { pick } from './dom';
+import { pick, svg } from './dom';
 import { type GraphNode, lineageView, NODE_HEIGHT, NODE_WIDTH } from './lineage-view';
-
-const SVG = 'http://www.w3.org/2000/svg';
-
-function svg<K extends keyof SVGElementTagNameMap>(
-  tag: K,
-  attrs: Record<string, string | number>,
-): SVGElementTagNameMap[K] {
-  const el = document.createElementNS(SVG, tag);
-  for (const [k, v] of Object.entries(attrs)) el.setAttribute(k, String(v));
-  return el;
-}
 
 /** The Lab page that shows one body. */
 export const labHref = (genome: string): string => `lab.html?genome=${encodeURIComponent(genome)}`;
@@ -85,7 +74,8 @@ export class LineagePanel {
       }),
     );
     this.graph.replaceChildren();
-    this.graph.hidden = view.empty;
+    // An SVG element has no `hidden` property: setting one would leave the attribute in place.
+    this.graph.toggleAttribute('hidden', view.empty);
     if (view.empty) return;
     this.graph.setAttribute('viewBox', `-4 -4 ${view.width + 8} ${view.height + 8}`);
     const byId = new Map(view.nodes.map((n) => [n.id, n]));

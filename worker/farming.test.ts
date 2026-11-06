@@ -221,7 +221,7 @@ async function players(n: number): Promise<Player[]> {
 
 /** Gives the player's life a body of `biomass` wu, which its snapshots may then claim. */
 const grown = (p: Player, biomass: number) =>
-  editLife(p, { biomass: biomass * 100, maxBiomass: 2 * biomass });
+  editLife(p, { biomass: biomass * 100, boundBiomass: biomass * 100, maxBiomass: 2 * biomass });
 
 /** `c` engages `target`, already fighting, as a body of `biomass` wu at (x, y). */
 function engageInto(

@@ -133,13 +133,12 @@ function rebuild(hub: Hub, row: FightRow): Fight | null {
 function giveUp(hub: Hub, row: FightRow, now: number): void {
   const named = namedIn(row);
   try {
-    hub.ledger.flagFight(
-      'recover-failed',
-      row.id,
-      named[0]?.player ?? '',
-      named[0]?.creature ?? '',
-      now,
-    );
+    hub.ledger.audit.raise('recover-failed', {
+      owner: named[0]?.player ?? '',
+      creature: named[0]?.creature ?? '',
+      key: row.id,
+      t: now,
+    });
     hub.fightStore.closeRow(row.id);
   } catch (error) {
     console.error('fight recovery: the row stays open', row.id, error);

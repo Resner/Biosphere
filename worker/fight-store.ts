@@ -6,7 +6,9 @@
 
 import type { FightLog, SignedSettlement } from '../src/ledger/settlement';
 import type { EncJoin, EncStart } from '../src/net/encounter-start';
+import { packFrames, unpackFrames } from './fight-pack';
 import type { Fight } from './fights';
+import { DAY_MS } from './usage';
 
 /** Final frames are written once this many have gathered since the last write (M13 may raise it). */
 export const BATCH_FRAMES = 10;
@@ -19,7 +21,12 @@ export interface SlotClock {
   lifespanMs: number;
 }
 
-/** An `encounters` row, read back. */
+/** A settled fight's log is kept this many days (ADR 0056); later settlements prune the expired ones. */
+export const LOG_KEEP_DAYS = 14;
+/** Expired logs one settlement's transaction prunes at most, so pruning costs a bounded number of writes. */
+export const PRUNE_PER_SETTLEMENT = 4;
+
+/** An `encounters` row, read back (a pruned row has no log to read: `read` answers null). */
 export interface FightRow {
   id: string;
   pond: string;
@@ -65,18 +72,22 @@ export const logOf = (fight: Fight): FightLog => ({
 });
 
 /** A stored row, parsed. */
-const rowOf = (row: StoredRow): FightRow => ({
-  id: row.id,
-  pond: row.pond,
-  start: JSON.parse(row.start) as EncStart,
-  joins: JSON.parse(row.joins) as EncJoin[],
-  frames: JSON.parse(row.frames) as (number | null)[][],
-  persisted: row.persisted,
-  fighters: JSON.parse(row.fighters) as SlotClock[],
-  open: row.open === 1,
-  t: row.t,
-  settlement: row.settlement,
-});
+const rowOf = (row: StoredRow): FightRow => {
+  const start = JSON.parse(row.start) as EncStart;
+  const joins = JSON.parse(row.joins) as EncJoin[];
+  return {
+    id: row.id,
+    pond: row.pond,
+    start,
+    joins,
+    frames: unpackFrames(row.frames, start.fighters.length, joins),
+    persisted: row.persisted,
+    fighters: JSON.parse(row.fighters) as SlotClock[],
+    open: row.open === 1,
+    t: row.t,
+    settlement: row.settlement,
+  };
+};
 
 export class FightStore {
   /** Rows this store has written (also added to the ledger's count, which the usage meter reads). */
@@ -124,18 +135,42 @@ export class FightStore {
   }
 
   /**
-   * Writes the tail, the countersigned settlement and `open = 0` in one update, inside the
-   * settlement's transaction (`Ledger.settle`); throws when it can't, so the records roll back too.
+   * Writes the tail, the countersigned settlement and `open = 0` in one update, then prunes the
+   * logs that expired by the settlement's time, inside the settlement's transaction
+   * (`Ledger.settle`); throws when it can't, so the records roll back too.
    */
   seal(fight: Fight, frames: ReturnType<typeof framesOf>, signed: SignedSettlement): void {
     this.run(
       'UPDATE encounters SET frames = ?, persisted = ?, open = 0, settlement = ? WHERE id = ?',
-      JSON.stringify(frames),
+      packFrames(frames),
       frames.length,
       JSON.stringify(signed),
       fight.start.enc,
     );
     fight.persisted = frames.length;
+    this.prune(signed.settlement.t);
+  }
+
+  /**
+   * Blanks the start, joins, frames and fighters of the oldest settled rows started more than
+   * `LOG_KEEP_DAYS` before `now` (at most `PRUNE_PER_SETTLEMENT`), keeping id, pond, time, frame
+   * count and the settlement: what a proof still needs. `GET /v1/fight` then answers `log: null`.
+   */
+  prune(now: number): void {
+    const expired = this.sql
+      .exec<{ id: string }>(
+        `SELECT id FROM encounters WHERE start <> '' AND settlement IS NOT NULL AND t <= ?
+         ORDER BY t, id LIMIT ?`,
+        now - LOG_KEEP_DAYS * DAY_MS,
+        PRUNE_PER_SETTLEMENT,
+      )
+      .toArray();
+    for (const { id } of expired) {
+      this.run(
+        "UPDATE encounters SET start = '', joins = '', frames = '', fighters = '' WHERE id = ?",
+        id,
+      );
+    }
   }
 
   /** The fight's countersigned settlement, once it is settled. */
@@ -149,7 +184,7 @@ export class FightStore {
   /** The fight's row, or null. */
   read(id: string): FightRow | null {
     const row = this.sql.exec<StoredRow>('SELECT * FROM encounters WHERE id = ?', id).toArray()[0];
-    return row ? rowOf(row) : null;
+    return row && row.start !== '' ? rowOf(row) : null;
   }
 
   /** Every row still open (through the open index), oldest first: what recovery rebuilds. */
@@ -174,7 +209,7 @@ export class FightStore {
       // `open` is left to `seal`: setting the indexed column costs index rows on every batch.
       this.run(
         'UPDATE encounters SET frames = ?, persisted = ? WHERE id = ?',
-        JSON.stringify(frames),
+        packFrames(frames),
         frames.length,
         fight.start.enc,
       );

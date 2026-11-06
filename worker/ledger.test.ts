@@ -104,7 +104,7 @@ describe('migration 2', () => {
     ]) {
       expect(result.names).toContain(table);
     }
-    expect(result.before.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(result.before.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(result.after).toEqual(result.before);
   });
 });
@@ -194,10 +194,10 @@ describe('Ledger.accept', () => {
       const wrongPrev = { ...nextRequest(cp), prev: nextHex() };
       expect(reason(ledger, wrongPrev)).toBe('conflict');
       expect(ledger.head(genesis.hash)?.hash).toBe(cp.hash);
-      const flags = ledger.flags(genesis.hash);
+      const flags = ledger.audit.flags(genesis.hash);
       expect(flags).toHaveLength(3);
       expect(reason(ledger, stale)).toBe('conflict'); // a replay adds no row
-      expect(ledger.flags(genesis.hash)).toHaveLength(3);
+      expect(ledger.audit.flags(genesis.hash)).toHaveLength(3);
       expect(flags[0]).toMatchObject({
         kind: 'conflict',
         owner: owner.playerId,
@@ -222,7 +222,7 @@ describe('Ledger.accept', () => {
       expect(reason(ledger, { ...nextRequest(genesis), owner: thief.playerId })).toBe(
         'wrong-owner',
       );
-      expect(ledger.flags(genesis.hash).map((f) => f.kind)).toContain('wrong-owner');
+      expect(ledger.audit.flags(genesis.hash).map((f) => f.kind)).toContain('wrong-owner');
       expect(reason(ledger, { ...nextRequest(genesis), creature: '' })).toBe('no-creature');
       expect(reason(ledger, { ...nextRequest(genesis), v: 2 as 1 })).toMatch(/^invalid-record:/);
       const dead = mustAccept(
@@ -367,7 +367,7 @@ describe('the authority key', () => {
     const leaked = await inLedger(async (ledger) => {
       const genesis = await hatch(ledger, owner.playerId);
       const refused = ledger.accept({ request: { ...nextRequest(genesis), seq: 9 } });
-      return JSON.stringify([genesis, refused, ledger.pubkeys(), ledger.flags(genesis.hash)]);
+      return JSON.stringify([genesis, refused, ledger.pubkeys(), ledger.audit.flags(genesis.hash)]);
     });
     expect(leaked).not.toContain(secretText);
     expect(leaked).not.toContain(Buffer.from(secret).toString('hex'));

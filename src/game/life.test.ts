@@ -92,7 +92,7 @@ function genesisMsg(owner = identity.playerId, hashOk = true): Genesis {
   };
 }
 
-const feed = (msg: LifeMsg): void => flow.receive(msg);
+const feed = (msg: LifeMsg, ticks?: number): void => flow.receive(msg, ticks);
 const ofType = (t: ClientMsg['t']): ClientMsg[] => sent.filter((m) => m.t === t);
 
 describe('hatching', () => {
@@ -404,6 +404,20 @@ describe('progress', () => {
       [1, 900],
       [1, 900],
       [2, 1800],
+    ]);
+  });
+
+  it('counts a new connection from the tick its life arrived at, not the play before it', async () => {
+    await play();
+    flow.report(900, { biomass: 1, energy: 1, health: 1 });
+    flow.attach({ send: (m) => sent.push(m) });
+    // Played offline up to tick 1500; the hub binds the creature as its life arrives.
+    feed({ t: 'life', life: info({ activeMs: 700_000 }), genesisIn: 0 }, 1500);
+    flow.report(1800, { biomass: 1, energy: 1, health: 1 });
+    const progress = ofType('progress') as Extract<ClientMsg, { t: 'progress' }>[];
+    expect(progress.map((m) => [m.n, m.ticks])).toEqual([
+      [1, 900],
+      [1, 300],
     ]);
   });
 

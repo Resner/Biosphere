@@ -12,6 +12,7 @@ import type { EncJoin, EncStart } from '../src/net/encounter-start';
 import type { SignedCommit } from '../src/net/protocol-defs';
 import { byteLength } from '../src/net/protocol-kit';
 import { RULES_VERSION } from '../src/sim/rules';
+import { unpackFrames } from './fight-pack';
 import { asStored, type Row } from './ledger-types';
 import { scalesOf } from './mating';
 import { requestBudget } from './sessions';
@@ -347,12 +348,14 @@ export function fightProof(hub: Hub, enc: string): FightProof | null {
   if (!row?.settlement) return null;
   const settlement = JSON.parse(row.settlement as string) as SignedSettlement;
   const start = row.start as string;
-  const log: FightLog | null = start
+  const startOf = start ? (JSON.parse(start) as EncStart) : null;
+  const joins = start ? (JSON.parse(row.joins as string) as EncJoin[]) : [];
+  const log: FightLog | null = startOf
     ? {
         pondSeed: settlement.settlement.pondSeed,
-        start: JSON.parse(start) as EncStart,
-        joins: JSON.parse(row.joins as string) as EncJoin[],
-        frames: JSON.parse(row.frames as string) as (number | null)[][],
+        start: startOf,
+        joins,
+        frames: unpackFrames(row.frames as string, startOf.fighters.length, joins),
       }
     : null;
   return { settlement, log };
@@ -364,11 +367,16 @@ export type Served = { status: 200; body: string; final: boolean } | { status: 4
 /** Past this share of the day's request budget, proof reads are refused so the game keeps its room. */
 const BUSY_SHARE = 0.8;
 
-/** Counts the request, then answers `busy` past 80% of the day's budget, else what `answer` reads. */
-function serve(hub: Hub, answer: () => { body: unknown; final: boolean } | null): Served {
+/** Counts a public read, and whether the day's budget is past 80%, so the read is refused (`busy`). */
+export function meterRead(hub: Hub): boolean {
   const now = Date.now();
   hub.usage.request(now);
-  if (hub.usage.requests(now) > BUSY_SHARE * requestBudget(hub.env)) return { status: 503 };
+  return hub.usage.requests(now) > BUSY_SHARE * requestBudget(hub.env);
+}
+
+/** Counts the request, then answers `busy` past 80% of the day's budget, else what `answer` reads. */
+function serve(hub: Hub, answer: () => { body: unknown; final: boolean } | null): Served {
+  if (meterRead(hub)) return { status: 503 };
   const found = answer();
   return found
     ? { status: 200, body: JSON.stringify(found.body), final: found.final }

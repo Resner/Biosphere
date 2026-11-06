@@ -31,8 +31,17 @@ const PROOF_PATH = /^\/v1\/(proof|fight)\/([^/]*)$/;
 const FINAL_MAX_AGE = 86_400;
 const LIVE_MAX_AGE = 60;
 const BUSY_RETRY_S = 600;
+/** `GET /v1/audit` is the same for everyone for 5 minutes. */
+const AUDIT_MAX_AGE = 300;
 
 const authority = (env: Env) => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
+
+/** The CORS headers a public read answers with for its request's origin, or the 403 for a foreign one. */
+function corsOf(request: Request): Record<string, string> | Response {
+  const origin = request.headers.get('Origin');
+  if (origin !== null && !isAllowedOrigin(origin)) return json({ error: 'origin' }, 403);
+  return origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : { Vary: 'Origin' };
+}
 
 /**
  * A proof read: checked here (origin, id), answered from the edge cache when it holds the path,
@@ -45,32 +54,62 @@ async function proofRead(
   what: 'proof' | 'fight',
   id: string,
 ): Promise<Response> {
-  const origin = request.headers.get('Origin');
-  if (origin !== null && !isAllowedOrigin(origin)) return json({ error: 'origin' }, 403);
-  const cors: Record<string, string> = origin
-    ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
-    : { Vary: 'Origin' };
+  const cors = corsOf(request);
+  if (cors instanceof Response) return cors;
   if (!HEX64.test(id)) return json({ error: 'id' }, 400, cors);
-  const key = new Request(`${new URL(request.url).origin}/v1/${what}/${id}`);
+  return edgeCached(request, `/v1/${what}/${id}`, cors, async () => {
+    const stub = authority(env);
+    const served: Served = what === 'proof' ? await stub.proof(id) : await stub.fight(id);
+    if (served.status === 503) {
+      return json({ error: 'busy' }, 503, {
+        'Retry-After': String(BUSY_RETRY_S),
+        'Cache-Control': 'no-store',
+      });
+    }
+    const age = served.status === 200 && served.final ? FINAL_MAX_AGE : LIVE_MAX_AGE;
+    const body = served.status === 200 ? served.body : JSON.stringify({ error: 'not-found' });
+    return new Response(body, {
+      status: served.status,
+      headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${age}` },
+    });
+  });
+}
+
+/** `GET /v1/audit` (ADR 0055): the authority's flag counts, with no ids, cached at the edge for 5 minutes. */
+function auditRead(request: Request, env: Env): Promise<Response> | Response {
+  const cors = corsOf(request);
+  if (cors instanceof Response) return cors;
+  return edgeCached(request, '/v1/audit', cors, async () => {
+    const report = await authority(env).audit();
+    if (!report) {
+      return json({ error: 'busy' }, 503, {
+        'Retry-After': String(BUSY_RETRY_S),
+        'Cache-Control': 'no-store',
+      });
+    }
+    return json(report, 200, { 'Cache-Control': `public, max-age=${AUDIT_MAX_AGE}` });
+  });
+}
+
+/**
+ * The edge cache's copy of `path` when it holds one (a hit never reaches the object), else what
+ * `make` answers, kept when it is public. The cached copy carries no CORS header: each answer
+ * adds its own origin's.
+ */
+async function edgeCached(
+  request: Request,
+  path: string,
+  cors: Record<string, string>,
+  make: () => Promise<Response>,
+): Promise<Response> {
+  const key = new Request(`${new URL(request.url).origin}${path}`);
   const cache = caches.default;
   const hit = await cache.match(key);
   if (hit) return withHeaders(hit, cors);
-  const stub = authority(env);
-  const served: Served = what === 'proof' ? await stub.proof(id) : await stub.fight(id);
-  if (served.status === 503) {
-    return json({ error: 'busy' }, 503, {
-      ...cors,
-      'Retry-After': String(BUSY_RETRY_S),
-      'Cache-Control': 'no-store',
-    });
+  const response = await make();
+  if (response.headers.get('Cache-Control')?.startsWith('public')) {
+    await cache.put(key, response.clone());
   }
-  const age = served.status === 200 && served.final ? FINAL_MAX_AGE : LIVE_MAX_AGE;
-  const body = served.status === 200 ? served.body : JSON.stringify({ error: 'not-found' });
-  const response = new Response(body, {
-    status: served.status,
-    headers: { 'Content-Type': 'application/json', 'Cache-Control': `public, max-age=${age}` },
-  });
-  await cache.put(key, response.clone());
   return withHeaders(response, cors);
 }
 
@@ -117,6 +156,7 @@ export default {
       );
     }
     if (pathname === '/v1/hub') return hub(request, env);
+    if (pathname === '/v1/audit' && request.method === 'GET') return auditRead(request, env);
     const proof = request.method === 'GET' ? PROOF_PATH.exec(pathname) : null;
     if (proof) return proofRead(request, env, proof[1] as 'proof' | 'fight', proof[2] ?? '');
     return json({ error: 'not-found' }, 404);

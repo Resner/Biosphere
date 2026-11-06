@@ -1,6 +1,7 @@
 import type { RarityTier } from '../genome/rarity';
 import type { LineageReport } from '../ledger/verify';
 import type { CardStatus } from './card';
+import type { GraphNodeState } from './lineage-graph';
 import type { CardError } from './load';
 
 // `window.__card` (M9 T12): what the creature card shows, for tests. Read-only: the card changes no
@@ -37,6 +38,12 @@ export interface CardState {
   renderer: 'webgl' | 'preview' | null;
   /** `performance.now()` when the bundle arrived, the creature was first drawn, and the verdict came. */
   timings: { bundle: number | null; drawn: number | null; verdict: number | null };
+  /**
+   * The lineage graph's nodes (M9 T13), the subject first, then nearest first: `branch` (the subject
+   * and its chain parents), `root` (genesis), `verified` (null before its check or when not loaded)
+   * and `loaded` (false for an ancestor the proof left out, until its Load joins it).
+   */
+  graph: GraphNodeState[];
 }
 
 export interface CardHook {

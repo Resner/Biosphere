@@ -63,12 +63,18 @@ describe('the time gates', () => {
     }
   });
 
-  it('give the maturity size as 60% of the adult biomass in hundredths, never scaled', () => {
+  it('give the maturity size as 60% of the adult biomass in hundredths, shortened with maturity', () => {
+    const test: Scales = { lifespan: 0.05, mating: 0.01 };
     for (const g of GENOMES) {
       const max = buildCreature(g).phys.maxBiomass;
-      const need = matureBiomassOf(g);
+      const need = matureBiomassOf(g, LIVE_SCALES);
       expect(need / 100).toBeGreaterThanOrEqual(RULES.life.matureBiomassShare * max);
       expect((need - 1) / 100).toBeLessThan(RULES.life.matureBiomassShare * max);
+      // A test world's creatures are mature at its share of that: a hatchling's size or less.
+      expect(matureBiomassOf(g, test)).toBe(
+        Math.ceil(RULES.life.matureBiomassShare * 0.01 * max * 100),
+      );
+      expect(matureBiomassOf(g, test)).toBeLessThanOrEqual(startOf('birth', g).biomass);
     }
   });
 

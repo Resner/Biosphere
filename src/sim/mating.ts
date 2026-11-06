@@ -12,6 +12,8 @@ export interface MateView {
   active: boolean;
   activeMs: number;
   matureAtMs: number;
+  /** The least biomass (wu) at which it is mature, when the caller knows it (the authority does). */
+  matureBiomass?: number;
   cooldownUntilMs: number;
   biomass: number;
   energy: number;
@@ -38,7 +40,7 @@ export function ownRefusal(v: MateView): MateRefusal | null {
   if (v.locked) return 'locked';
   if (v.inFlight) return 'in-flight';
   if (v.hasPending) return 'pending';
-  if (v.activeMs < v.matureAtMs) return 'not-mature';
+  if (v.activeMs < v.matureAtMs || v.biomass < (v.matureBiomass ?? 0)) return 'not-mature';
   if (v.activeMs < v.cooldownUntilMs) return 'cooldown';
   if (v.energy < RULES.mating.minEnergyShare * maxEnergy(v.biomass)) return 'low-energy';
   return null;

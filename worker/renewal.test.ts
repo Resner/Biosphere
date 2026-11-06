@@ -287,8 +287,12 @@ describe('migration 8', () => {
         };
       },
     );
-    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
-    expect(out.after.kept).toEqual(out.beforeKept);
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    // Migration 9 adds the usage rows' database size, 0 for a day it never measured.
+    expect(out.after.kept).toEqual({
+      ...out.beforeKept,
+      usage: (out.beforeKept.usage ?? []).map((r) => ({ ...r, db_bytes: 0 })),
+    });
     expect(out.after.players.map((p) => [p.id, p.first_seen, p.last_seen])).toEqual([
       [out.ids[0], 10, 20],
       [out.ids[1], 11, 21],

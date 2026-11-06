@@ -412,8 +412,7 @@ describe('the life clock never gains', () => {
             { id: 'c', activeMs: saved, biomass: 0, energy: 0, health: 0, cooldownUntilMs: 0 },
             genome,
             wallNow,
-            10 ** 12,
-            0,
+            { lifespanMs: 10 ** 12, matureAtMs: 0, matureBiomass: 0 },
           );
           sessions++;
           ticks = 0;
@@ -442,8 +441,7 @@ describe('the life clock never gains', () => {
       { id: 'c', activeMs: 0, biomass: 0, energy: 0, health: 0, cooldownUntilMs: 0 },
       genome,
       0,
-      60_000,
-      0,
+      { lifespanMs: 60_000, matureAtMs: 0, matureBiomass: 0 },
     );
     const next = applyReport(life, { n: 1, ticks: 2_000_000, ...CALM }, 10 ** 9).life;
     expect(next.activeMs).toBe(60_000);

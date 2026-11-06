@@ -16,6 +16,7 @@ import {
   transitionOutcome,
 } from '../src/ledger/record';
 import { RULES_VERSION } from '../src/sim/rules';
+import { Audit, type FlagKind } from './audit';
 import {
   type FightRecords,
   HOLDS_ENCOUNTER,
@@ -37,7 +38,6 @@ import {
   conditionOf,
   type Exhaustion,
   type Fallback,
-  type Flag,
   FULL_BUCKET,
   field,
   HATCH_BUCKET,
@@ -87,12 +87,11 @@ export {
  */
 const LIVED = '(c.parent_a IS NULL OR c.chain_parent IS NOT NULL)';
 
-/** The flags a fight raises: one that failed to settle, or no longer rebuilds at recovery. */
-type FightFlag = 'settle-failed' | 'recover-failed';
-
 export class Ledger {
   /** Rows written through this ledger since it was made (the usage meter and the write-budget tests read it). */
   rowsWritten = 0;
+  /** The flags table (`worker/audit.ts`), written through `run` so its rows count here. */
+  readonly audit = new Audit((query, ...bindings) => this.run(query, ...bindings));
   private signing: { id: string; secret: Uint8Array } | null = null;
 
   constructor(
@@ -466,16 +465,6 @@ export class Ledger {
     );
   }
 
-  flags(creature: string): Flag[] {
-    return this.run('SELECT * FROM flags WHERE creature = ? ORDER BY id', creature).map((r) => ({
-      kind: r.kind as string,
-      owner: r.owner as string,
-      creature: r.creature as string,
-      hash: r.hash as string,
-      t: r.t as number,
-    }));
-  }
-
   /** Countersigns a hash (a commitment id) with the current key, making the key on first use. The secret stays here. */
   countersign(hash: string): { authSig: string; keyId: string } {
     const key = this.key();
@@ -584,6 +573,7 @@ export class Ledger {
     }
     const again = this.byReq(request.creature, request.seq, req);
     if (again) return { ok: true, stored: again, fresh: false };
+    const moved = ownerSig !== null && this.movedOn(request, head, req, t);
     if (head.status === 'dead') return refuse('dead');
     const role = request.kind === 'promote' ? String(request.body.role) : null;
     const outcome = transitionOutcome(request.kind, role, head.status);
@@ -593,7 +583,7 @@ export class Ledger {
       return refuse('not-exhausted');
     }
     if (request.seq !== head.seq + 1 || request.prev !== head.hash) {
-      this.flag('conflict', request, req, t);
+      if (!moved) this.flag('conflict', request, req, t);
       return refuse('conflict');
     }
     const record: LedgerRecord = { ...request, t };
@@ -798,11 +788,12 @@ export class Ledger {
       )[0];
       return { ok: true, stored: again, frozen: frozen ? asStored(frozen) : null, fresh: false };
     }
+    const moved = this.movedOn(request, child, req, t);
     if (child.status === 'dead') return refuse('dead');
     const outcome = transitionOutcome('promote', 'child', child.status);
     if (!outcome.ok) return refuse(outcome.reason);
     if (request.seq !== child.seq + 1 || request.prev !== child.hash) {
-      this.flag('conflict', request, req, t);
+      if (!moved) this.flag('conflict', request, req, t);
       return refuse('conflict');
     }
     const parent = this.head(String(request.body.parent));
@@ -881,11 +872,12 @@ export class Ledger {
     }
     const again = this.byReq(request.creature, request.seq, req);
     if (again) return { ok: true, stored: again, fresh: false };
+    const moved = this.movedOn(request, head, req, t);
     if (head.status === 'dead') return refuse('dead');
     const outcome = transitionOutcome('restore', null, head.status);
     if (!outcome.ok) return refuse(outcome.reason);
     if (request.seq !== head.seq + 1 || request.prev !== head.hash) {
-      this.flag('conflict', request, req, t);
+      if (!moved) this.flag('conflict', request, req, t);
       return refuse('conflict');
     }
     if (this.active(head.owner)) return refuse('active-exists');
@@ -934,44 +926,30 @@ export class Ledger {
     return { record, hash, ownerSig, authSig, keyId: key.id };
   }
 
-  private flag(kind: string, request: RecordRequest, hash: string, t: number): void {
-    // One row per distinct request, so a replayed bad request can't grow the log.
-    this.insertFlag(kind, request.owner, request.creature, hash, t, 'hash');
+  /**
+   * Notes a refused request once: `conflict`, `wrong-owner`, or `replay` (an owner-signed request
+   * for a head the chain has moved on from, `movedOn`).
+   */
+  private flag(kind: FlagKind, request: RecordRequest, req: string, t: number): void {
+    this.audit.raise(kind, { owner: request.owner, creature: request.creature, key: req, t });
   }
 
-  /** Notes a death report that names no creature of the player's: one row per player, however often it repeats. */
-  flagStray(owner: string, t: number): void {
-    this.insertFlag('stray-death', owner, '', owner, t, 'hash');
-  }
-
-  /** Notes a fight that failed to settle or no longer rebuilds: one row per kind and encounter. */
-  flagFight(kind: FightFlag, enc: string, owner: string, creature: string, t: number): void {
-    this.insertFlag(kind, owner, creature, enc, t, 'hash');
-  }
-
-  /** Notes an implausible report: one row per kind and creature, however many connections send it. */
-  flagImplausible(kind: string, owner: string, creature: string, t: number): void {
-    this.insertFlag(kind, owner, creature, '', t, 'creature');
-  }
-
-  private insertFlag(
-    kind: string,
-    owner: string,
-    creature: string,
-    hash: string,
-    t: number,
-    uniqueBy: 'hash' | 'creature',
-  ): void {
-    this.run(
-      `INSERT INTO flags (kind, owner, creature, hash, t)
-       SELECT ?1, ?2, ?3, ?4, ?5 WHERE NOT EXISTS (SELECT 1 FROM flags WHERE kind = ?1 AND ${uniqueBy} = ?6)`,
-      kind,
-      owner,
-      creature,
-      hash,
-      t,
-      uniqueBy === 'hash' ? hash : creature,
-    );
+  /**
+   * Whether an owner-signed request was made for an earlier head of its chain (its `prev` is the
+   * record before its `seq`, and the head has moved past it): a signed request resent after its
+   * moment, flagged `replay` once. An accepted one never gets here (`byReq` answers it again).
+   */
+  private movedOn(request: RecordRequest, head: Head, req: string, t: number): boolean {
+    const replay =
+      request.seq <= head.seq &&
+      this.run(
+        'SELECT 1 FROM records WHERE creature = ? AND seq = ? AND hash = ?',
+        request.creature,
+        request.seq - 1,
+        request.prev,
+      ).length > 0;
+    if (replay) this.flag('replay', request, req, t);
+    return replay;
   }
 
   /** The signing key: made on first use, then kept in `keys` and in memory. It is never returned by any public method. */
