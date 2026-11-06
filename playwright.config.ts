@@ -407,29 +407,35 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
-    {
-      command: `npm run worker:dev -- --e2e --port ${m10WitnessHubPort} --persist-to .wrangler/e2e-state-m10-witness ${WITNESS_VARS}`,
-      url: `http://localhost:${m10WitnessHubPort}/v1/health`,
-      reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
-    },
-    {
-      command: `npm run worker:dev -- --e2e --port ${m10CrossHubPort} --persist-to .wrangler/e2e-state-m10-cross ${WITNESS_VARS} --var POND_MAX:2`,
-      url: `http://localhost:${m10CrossHubPort}/v1/health`,
-      reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
-    },
-    {
-      command: `npm run worker:dev -- --e2e --port ${m10TakebackHubPort} --persist-to .wrangler/e2e-state-m10-takeback ${WITNESS_VARS}`,
-      url: `http://localhost:${m10TakebackHubPort}/v1/health`,
-      reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
-    },
-    {
-      command: `npm run worker:dev -- --e2e --port ${m10AuditHubPort} --persist-to .wrangler/e2e-state-m10-audit --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off`,
-      url: `http://localhost:${m10AuditHubPort}/v1/health`,
-      reuseExistingServer: !process.env.CI,
-      timeout: 60_000,
-    },
+    // The M10 specs are all `@slow`: the PR parts skip them, so they start no hubs (39 idle
+    // `wrangler dev` processes beside two browsers took the runners down).
+    ...(process.env.E2E_SKIP_SLOW
+      ? []
+      : [
+          {
+            command: `npm run worker:dev -- --e2e --port ${m10WitnessHubPort} --persist-to .wrangler/e2e-state-m10-witness ${WITNESS_VARS}`,
+            url: `http://localhost:${m10WitnessHubPort}/v1/health`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 60_000,
+          },
+          {
+            command: `npm run worker:dev -- --e2e --port ${m10CrossHubPort} --persist-to .wrangler/e2e-state-m10-cross ${WITNESS_VARS} --var POND_MAX:2`,
+            url: `http://localhost:${m10CrossHubPort}/v1/health`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 60_000,
+          },
+          {
+            command: `npm run worker:dev -- --e2e --port ${m10TakebackHubPort} --persist-to .wrangler/e2e-state-m10-takeback ${WITNESS_VARS}`,
+            url: `http://localhost:${m10TakebackHubPort}/v1/health`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 60_000,
+          },
+          {
+            command: `npm run worker:dev -- --e2e --port ${m10AuditHubPort} --persist-to .wrangler/e2e-state-m10-audit --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off`,
+            url: `http://localhost:${m10AuditHubPort}/v1/health`,
+            reuseExistingServer: !process.env.CI,
+            timeout: 60_000,
+          },
+        ]),
   ],
 });
