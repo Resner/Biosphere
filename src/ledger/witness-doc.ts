@@ -18,7 +18,7 @@ const EVENT = /^(enc|mating|genesis):([0-9a-f]{64})$/;
 export const isHex64 = (v: unknown): v is string => typeof v === 'string' && HEX64.test(v);
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
-const onlyKeys = (v: Record<string, unknown>, keys: readonly string[]): boolean =>
+export const onlyKeys = (v: Record<string, unknown>, keys: readonly string[]): boolean =>
   Object.keys(v).every((k) => keys.includes(k));
 
 /** The event a duty serves: `'enc:<64 hex>'`, `'mating:…'` or `'genesis:…'`. */

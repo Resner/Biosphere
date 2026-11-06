@@ -51,8 +51,8 @@ const VEL_MAX = 8192;
 const HEADING_MAX = 2 * Math.PI;
 /** Far above any carrion piece's body (a body's radius stays in the hundreds of wu). */
 const RADIUS_MAX = 10_000;
-const MIN_FIGHTERS = 2;
-const U32_MAX = 0xffffffff;
+export const MIN_FIGHTERS = 2;
+export const U32_MAX = 0xffffffff;
 
 const inRange = (v: unknown, min: number, max: number): v is number =>
   isNum(v) && v >= min && v <= max;
@@ -139,7 +139,7 @@ function perSlot<T>(v: unknown, item: (x: unknown) => T | null): T[] | null {
 }
 
 /** A frame bundle's entry: an input code, or the fallback marker null. */
-export const bundleInput = (v: unknown): { code: number | null } | null =>
+const bundleInput = (v: unknown): { code: number | null } | null =>
   v === null || isInt(v, 0, U32_MAX) ? { code: v } : null;
 
 /** The encounter messages a client sends, or null (also for any other `t`). */

@@ -2,7 +2,7 @@ import type { Beacon } from '../ledger/drand';
 import type { FightLog } from '../ledger/settlement';
 import {
   type DutyKind,
-  POOL_MAX,
+  onlyKeys,
   parseDutyEvent,
   parseSignedAttestation,
   type WitnessData,
@@ -24,11 +24,12 @@ import {
 } from './protocol-defs';
 import { parseBeacon, signedCommit, storedRecord } from './protocol-docs';
 import {
-  bundleInput,
   encStartOf,
   fighterInfo,
   isFrame,
+  MIN_FIGHTERS,
   signedSettlement,
+  U32_MAX,
 } from './protocol-encounter';
 import {
   capped,
@@ -50,8 +51,6 @@ import {
 // new, so unlike the older parsers each refuses a field it does not know, at every level it defines.
 // The handlers (T4, T5, T8) check signatures, positions and logs; this only parses.
 
-const U32_MAX = 0xffffffff;
-const MIN_FIGHTERS = 2;
 const DUTY_ENDS: Record<DutyEndWhy, true> = {
   done: true,
   'taken-back': true,
@@ -60,16 +59,15 @@ const DUTY_ENDS: Record<DutyEndWhy, true> = {
 };
 
 /** True when `o` has no key outside `keys`. */
-const only = (o: Obj, keys: readonly string[]): boolean =>
-  Object.keys(o).every((k) => keys.includes(k));
+const only = onlyKeys;
 
 /** An input code, or null where the autopilot plays. */
 const code = (v: unknown): number | null | undefined =>
   v === null || isInt(v, 0, U32_MAX) ? v : undefined;
 
-/** A witness frame's inputs: 1 to `ENC_MAX_FIGHTERS` slots, each a code or null. */
-function frameInputs(v: unknown): (number | null)[] | null {
-  if (!Array.isArray(v) || v.length < 1 || v.length > ENC_MAX_FIGHTERS) return null;
+/** A frame's inputs: `min` to `ENC_MAX_FIGHTERS` slots, each a code or null. */
+function frameInputs(v: unknown, min = 1): (number | null)[] | null {
+  if (!Array.isArray(v) || v.length < min || v.length > ENC_MAX_FIGHTERS) return null;
   const out: (number | null)[] = [];
   for (const x of v) {
     const c = code(x);
@@ -77,6 +75,14 @@ function frameInputs(v: unknown): (number | null)[] | null {
     out.push(c);
   }
   return out;
+}
+
+/** A fighter's signed frame (`dispute`, `wframe`): `enc`, `f`, `i` and `sig`, no other field but `t`. */
+function signedFrame(o: Obj): { enc: string; f: number; i: (number | null)[]; sig: string } | null {
+  const i = only(o, ['t', 'enc', 'f', 'i', 'sig']) ? frameInputs(o.i) : null;
+  return i && isStr(o.enc, HEX64_RE) && isFrame(o.f) && isStr(o.sig, SIG_RE)
+    ? { enc: o.enc, f: o.f, i, sig: o.sig }
+    : null;
 }
 
 /** The signatures of one batch frame: one exactly where its input is not null. */
@@ -120,11 +126,8 @@ export function witnessClientMsg(o: Obj, raw: string): ClientMsg | null {
     case 'batch':
       return capped(raw, batch(o), BATCH_MAX_BYTES);
     case 'dispute': {
-      if (!only(o, ['t', 'enc', 'f', 'i', 'sig'])) return null;
-      const i = frameInputs(o.i);
-      return i && isStr(o.enc, HEX64_RE) && isFrame(o.f) && isStr(o.sig, SIG_RE)
-        ? capped(raw, { t: 'dispute', enc: o.enc, f: o.f, i, sig: o.sig })
-        : null;
+      const x = signedFrame(o);
+      return x ? capped(raw, { t: 'dispute', ...x }) : null;
     }
     case 'attest': {
       const signed = only(o, ['t', 'signed']) ? parseSignedAttestation(o.signed) : null;
@@ -148,7 +151,7 @@ function dutyBase(
   if (!commit || !beacon || commit.commitment.kind !== 'witness') return null;
   const data = commit.commitment.data as unknown as WitnessData;
   if (data.event !== event || beacon.round !== commit.commitment.round) return null;
-  return isInt(o.position, 0, Math.min(POOL_MAX, data.pool.length) - 1)
+  return isInt(o.position, 0, data.pool.length - 1)
     ? { position: o.position, commit, beacon }
     : null;
 }
@@ -163,10 +166,9 @@ function history(v: unknown): DutyHistory[] | null {
   for (const h of v) {
     if (!isObj(h) || !isFrame(h.f)) return null;
     if (h.t === 'enc-frame' && only(h, ['t', 'f', 'i'])) {
-      const i = list(h.i, ENC_MAX_FIGHTERS, bundleInput);
-      if (!i || i.length < MIN_FIGHTERS || h.f !== frames || ++frames > DUTY_HISTORY_FRAMES)
-        return null;
-      out.push({ t: 'enc-frame', f: h.f, i: i.map((x) => x.code) });
+      const i = frameInputs(h.i, MIN_FIGHTERS);
+      if (!i || h.f !== frames || ++frames > DUTY_HISTORY_FRAMES) return null;
+      out.push({ t: 'enc-frame', f: h.f, i });
     } else if (h.t === 'enc-join' && only(h, ['t', 'f', 'fighter'])) {
       const fighter = fighterInfo(h.fighter);
       if (!fighter || h.f < frames || ++joins > ENC_MAX_FIGHTERS - MIN_FIGHTERS) return null;
@@ -193,10 +195,7 @@ function fightLog(v: unknown, enc: string): FightLog | null {
       ? { t: 'enc-join' as const, enc, f: j.f, fighter }
       : null;
   });
-  const frames = list(v.frames, ENC_MAX_FRAME + 1, (f) => {
-    const i = list(f, ENC_MAX_FIGHTERS, bundleInput);
-    return i && i.length >= MIN_FIGHTERS ? i.map((x) => x.code) : null;
-  });
+  const frames = list(v.frames, ENC_MAX_FRAME + 1, (f) => frameInputs(f, MIN_FIGHTERS));
   return start && start.enc === enc && joins && frames && isStr(v.pondSeed, ID_RE)
     ? { pondSeed: v.pondSeed, start, joins, frames }
     : null;
@@ -315,10 +314,8 @@ export function witnessPeerEvent(o: Obj): PeerEvent | null {
         ? { t: 'finput', enc: o.enc, f: o.f, i: o.i, sig: o.sig }
         : null;
     case 'wframe': {
-      const i = only(o, ['t', 'enc', 'f', 'i', 'sig']) ? frameInputs(o.i) : null;
-      return i && isStr(o.enc, HEX64_RE) && isFrame(o.f) && isStr(o.sig, SIG_RE)
-        ? { t: 'wframe', enc: o.enc, f: o.f, i, sig: o.sig }
-        : null;
+      const x = signedFrame(o);
+      return x ? { t: 'wframe', ...x } : null;
     }
     case 'probe':
       return only(o, ['t', 'n', 'back']) && isInt(o.n, 0, MAX_TICK) && typeof o.back === 'boolean'
