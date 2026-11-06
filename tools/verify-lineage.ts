@@ -76,7 +76,7 @@ function parseArgs(argv: readonly string[], env: Io['env']): Args | string {
       const value = argv[++i];
       if (!value || value.startsWith('--')) return `${a} needs a value.`;
       args[a.slice(2) as 'hub' | 'keys' | 'save'] = value;
-    } else if (a.startsWith('--')) return `Unknown option ${a}.`;
+    } else if (a.startsWith('-')) return `Unknown option ${a}.`;
     else if (args.target) return 'Give one creature id or bundle file.';
     else args.target = a;
   }
@@ -124,9 +124,11 @@ async function fightsOf(
   const got = await Promise.all(
     bundle.settlements.map(async ({ settlement: { enc } }) => {
       try {
-        const text = bundleFile
-          ? await io.readFile(layout(dirname(bundleFile)).fight(enc))
-          : await getText(io, `${hubBase(hub ?? '')}/v1/fight/${enc}`);
+        let text: string | null = null;
+        if (bundleFile)
+          text = await io.readFile(layout(dirname(bundleFile)).fight(enc)).catch(() => null);
+        if (text === null && hub) text = await getText(io, `${hubBase(hub)}/v1/fight/${enc}`);
+        if (text === null) return null;
         const proof = parseFightProof(text);
         return proof?.settlement.settlement.enc === enc ? ([enc, proof] as const) : null;
       } catch {
@@ -250,19 +252,25 @@ export async function runVerify(argv: readonly string[], io: Io): Promise<Outcom
       : {}),
   });
 
+  let note = '';
   if (args.save) {
     const out = layout(args.save);
-    await Promise.all([
-      io.writeFile(out.bundle, `${JSON.stringify(bundle)}\n`),
-      io.writeFile(out.keys, `${JSON.stringify(bundle.keys)}\n`),
-      ...[...fights].map(([enc, proof]) =>
-        io.writeFile(out.fight(enc), `${JSON.stringify(proof)}\n`),
-      ),
-    ]);
+    try {
+      await Promise.all([
+        io.writeFile(out.bundle, `${JSON.stringify(bundle)}\n`),
+        io.writeFile(out.keys, `${JSON.stringify(pinned ?? bundle.keys)}\n`),
+        ...[...fights].map(([enc, proof]) =>
+          io.writeFile(out.fight(enc), `${JSON.stringify(proof)}\n`),
+        ),
+      ]);
+      note = `\nSaved to ${args.save}\n`;
+    } catch {
+      note = `\nCould not save to ${args.save}\n`;
+    }
   }
 
   return {
     code: report.problems.length > 0 ? 1 : 0,
-    out: args.json ? `${JSON.stringify(report, null, 2)}\n` : formatReport(bundle, report),
+    out: args.json ? `${JSON.stringify(report, null, 2)}\n` : formatReport(bundle, report) + note,
   };
 }

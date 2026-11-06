@@ -107,6 +107,13 @@ describe('npm run verify:lineage', () => {
     expect((await run('abc')).code).toBe(2);
   });
 
+  it('keeps the verdict when --save cannot write, and refuses single-dash flags', async () => {
+    const r = await run(goldenFile, '--save', join(goldenFile, 'nope'));
+    expect(r.code).toBe(0);
+    expect(r.out).toContain('Could not save');
+    expect((await run('-h')).code).toBe(2);
+  });
+
   it('exits 2 for an unreachable hub (a closed local port)', async () => {
     const server = createServer();
     await new Promise<void>((ok) => server.listen(0, '127.0.0.1', ok));
