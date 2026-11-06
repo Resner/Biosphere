@@ -699,7 +699,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - Drand time moves only when a commitment needs its round (`publish` in `worker/test-hub.ts`), and commitments made together share one, so the 600 recorded rounds suffice for 3 hours of hub time.
     - If a gate fails, the PR names the shortcut and fixes the rule that let it through, with an ADR. It never relaxes the gate.
 
-- [ ] T14 The cost check: messages, CPU and storage of witnessed fights (after T5)
+- [ ] T14 The cost check: messages, CPU and storage of witnessed fights (after T5) (in progress)
   - Steps (ADR 0058):
     1. `worker/witness-cost.test.ts`, on the hand clock with the scripted witness:
        - a 30 s duel refereed by the authority alone;
