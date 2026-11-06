@@ -351,7 +351,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### The authority
 
-- [ ] T4 Eligibility, pools, commitments and duty offers [opus] (after T2)
+- [ ] T4 Eligibility, pools, commitments and duty offers [opus] (after T2) (in progress)
   - Steps:
     1. Migration 10 (above).
        - `Beacons.commit` takes an explicit round (`{ round }`).
