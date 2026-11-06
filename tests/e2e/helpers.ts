@@ -221,6 +221,8 @@ export const M8_PROXY_HUB = 'http://localhost:8815';
 export const M8_LIFECYCLE_HUB = 'http://localhost:8817';
 /** The M9 card spec's hub (M9 T12): a creature's card opened with its owner offline. */
 export const M9_CARD_HUB = 'http://localhost:8818';
+/** The M9 lineage spec's hub (M9 T13), with the M5 hooks: a mating and both promotions, then the card's graph. */
+export const M9_LINEAGE_HUB = 'http://localhost:8819';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {

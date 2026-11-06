@@ -233,6 +233,243 @@ body.card-page {
   text-decoration: none;
 }
 
+/* The lineage graph (M9 T13): under the card's two columns, in a box that scrolls on its own. The
+   branch the creature took over along is amber and bold; each mark is a shape as well as a colour. */
+.card-lineage {
+  --branch: #e8b04a;
+  grid-column: 1 / -1;
+  min-width: 0;
+  padding-top: 0.25rem;
+  border-top: 1px solid rgb(200 240 255 / 0.08);
+}
+
+.card-lineage[hidden] {
+  display: none;
+}
+
+.card-lineage-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 0.3rem 1rem;
+  margin: 0.4rem 0 0.6rem;
+}
+
+.card-lineage h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  font-weight: 400;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.card-legend {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.25rem 1rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.78rem;
+}
+
+.card-legend > span {
+  display: inline-flex;
+  align-items: center;
+  gap: 0.35rem;
+}
+
+.legend-branch {
+  display: inline-block;
+  width: 1.4rem;
+  height: 3px;
+  border-radius: 2px;
+  background: var(--branch);
+}
+
+.card-graph {
+  max-height: min(70vh, 34rem);
+  overflow: auto;
+  border-radius: 14px;
+  background: rgb(0 0 0 / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(200 240 255 / 0.06);
+  overscroll-behavior: contain;
+}
+
+.graph-plane {
+  position: relative;
+  margin: 0 auto;
+}
+
+.graph-edges {
+  position: absolute;
+  inset: 0;
+  overflow: visible;
+}
+
+.graph-edge {
+  fill: none;
+  stroke: rgb(200 240 255 / 0.32);
+  stroke-width: 1.5;
+}
+
+.graph-edge.faint {
+  stroke-dasharray: 4 4;
+  stroke: rgb(200 240 255 / 0.2);
+}
+
+.graph-edge.branch {
+  stroke: var(--branch);
+  stroke-width: 4;
+  stroke-linecap: round;
+  filter: drop-shadow(0 0 4px rgb(232 176 74 / 0.45));
+}
+
+.graph-node {
+  position: absolute;
+  box-sizing: border-box;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: 0.15rem;
+  padding: 0.35rem 0.6rem 0.35rem 0.7rem;
+  border: 1px solid rgb(200 240 255 / 0.22);
+  border-left: 4px solid var(--tier, rgb(200 240 255 / 0.45));
+  border-radius: 10px;
+  background: rgb(14 32 44 / 0.92);
+  color: var(--text);
+  font-size: 0.8rem;
+  line-height: 1.2;
+  text-decoration: none;
+  overflow: hidden;
+}
+
+.graph-node:not([data-tier]) {
+  --tier: rgb(200 240 255 / 0.45);
+}
+
+a.graph-node:hover,
+a.graph-node:focus-visible {
+  background: rgb(26 54 70 / 0.96);
+}
+
+.graph-node:focus-visible,
+.graph-load:focus-visible {
+  outline: 2px solid var(--text);
+  outline-offset: 2px;
+}
+
+.graph-node[data-branch] {
+  border-top-color: var(--branch);
+  border-right-color: var(--branch);
+  border-bottom-color: var(--branch);
+  border-width: 2px 2px 2px 4px;
+  box-shadow: 0 0 14px -4px rgb(232 176 74 / 0.55);
+}
+
+.graph-node[data-subject] {
+  background: rgb(40 58 52 / 0.96);
+}
+
+/* A genesis root: a cap on top (nothing above it), as well as its word. */
+.graph-node[data-root]::before {
+  content: "";
+  position: absolute;
+  top: 0;
+  left: 50%;
+  width: 2.6rem;
+  height: 4px;
+  border-radius: 0 0 4px 4px;
+  background: var(--text);
+  box-shadow: 0 0 8px rgb(200 240 255 / 0.6);
+  transform: translateX(-50%);
+}
+
+.graph-node[data-unloaded] {
+  align-items: flex-start;
+  border-style: dashed;
+  border-left-width: 1px;
+  background: rgb(14 32 44 / 0.55);
+  color: var(--muted);
+}
+
+.graph-head {
+  display: flex;
+  align-items: center;
+  gap: 0.4rem;
+  min-width: 0;
+}
+
+.graph-name {
+  min-width: 0;
+  overflow: hidden;
+  font-style: italic;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.graph-meta {
+  color: var(--muted);
+  font-size: 0.72rem;
+  white-space: nowrap;
+}
+
+.graph-mark,
+.legend-mark {
+  display: inline-grid;
+  flex: none;
+  place-items: center;
+  width: 1.1rem;
+  height: 1.1rem;
+  border-radius: 50%;
+  font-size: 0.72rem;
+  font-style: normal;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.graph-mark[data-mark="yes"],
+.legend-mark[data-mark="yes"] {
+  background: rgb(110 220 160 / 0.18);
+  box-shadow: inset 0 0 0 1px rgb(110 220 160 / 0.5);
+  color: #8de8b0;
+}
+
+/* A problem is a square, not a circle: the shape tells it apart without the colour. */
+.graph-mark[data-mark="no"],
+.legend-mark[data-mark="no"] {
+  border-radius: 3px;
+  background: rgb(240 110 100 / 0.2);
+  box-shadow: inset 0 0 0 1px rgb(240 110 100 / 0.55);
+  color: #ff9c90;
+}
+
+.graph-mark[data-mark="wait"] {
+  box-shadow: inset 0 0 0 1px rgb(200 240 255 / 0.3);
+  color: var(--muted);
+}
+
+.graph-load {
+  padding: 0.1rem 0.6rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--text);
+  font: inherit;
+  font-size: 0.75rem;
+  cursor: pointer;
+}
+
+.graph-load:hover {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.graph-load:disabled {
+  cursor: progress;
+  opacity: 0.7;
+}
+
 /* No creature to show (no such creature, or no proof): the error line alone. */
 .card[data-empty] {
   grid-template-columns: minmax(0, 1fr);
@@ -243,6 +480,7 @@ body.card-page {
 .card[data-empty] .card-head,
 .card[data-empty] .card-story,
 .card[data-empty] .card-details,
+.card[data-empty] .card-lineage,
 .card[data-empty] [data-testid="card-copy"] {
   display: none;
 }
