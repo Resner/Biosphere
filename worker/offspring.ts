@@ -341,7 +341,7 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
     socket.serializeAttachment({
       ...s,
       court,
-      life: recorded(life, t, life.activeMs, life.biomass),
+      life: recorded(life, t),
     } satisfies Session);
     sendIfOpen(socket, { t: 'mating', commit: signed, record: result.stored[i] });
   };

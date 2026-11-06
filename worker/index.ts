@@ -36,6 +36,13 @@ const AUDIT_MAX_AGE = 300;
 
 const authority = (env: Env) => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
 
+/** The CORS headers a public read answers with for its request's origin, or the 403 for a foreign one. */
+function corsOf(request: Request): Record<string, string> | Response {
+  const origin = request.headers.get('Origin');
+  if (origin !== null && !isAllowedOrigin(origin)) return json({ error: 'origin' }, 403);
+  return origin ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' } : { Vary: 'Origin' };
+}
+
 /**
  * A proof read: checked here (origin, id), answered from the edge cache when it holds the path,
  * else by the object, whose answer (a 200 or a 404) is cached for as long as it can't change.
@@ -47,11 +54,8 @@ async function proofRead(
   what: 'proof' | 'fight',
   id: string,
 ): Promise<Response> {
-  const origin = request.headers.get('Origin');
-  if (origin !== null && !isAllowedOrigin(origin)) return json({ error: 'origin' }, 403);
-  const cors: Record<string, string> = origin
-    ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
-    : { Vary: 'Origin' };
+  const cors = corsOf(request);
+  if (cors instanceof Response) return cors;
   if (!HEX64.test(id)) return json({ error: 'id' }, 400, cors);
   return edgeCached(request, `/v1/${what}/${id}`, cors, async () => {
     const stub = authority(env);
@@ -73,11 +77,8 @@ async function proofRead(
 
 /** `GET /v1/audit` (ADR 0055): the authority's flag counts, with no ids, cached at the edge for 5 minutes. */
 function auditRead(request: Request, env: Env): Promise<Response> | Response {
-  const origin = request.headers.get('Origin');
-  if (origin !== null && !isAllowedOrigin(origin)) return json({ error: 'origin' }, 403);
-  const cors: Record<string, string> = origin
-    ? { 'Access-Control-Allow-Origin': origin, Vary: 'Origin' }
-    : { Vary: 'Origin' };
+  const cors = corsOf(request);
+  if (cors instanceof Response) return cors;
   return edgeCached(request, '/v1/audit', cors, async () =>
     json(await authority(env).audit(), 200, {
       'Cache-Control': `public, max-age=${AUDIT_MAX_AGE}`,

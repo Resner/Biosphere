@@ -1,4 +1,5 @@
 import type { Flag, Row } from './ledger-types';
+import { dayStartOf } from './usage';
 
 // The authority's audit (ADR 0055): one catalogue of the flags it raises, one row per kind and
 // creature (or request) however often the same thing repeats, and the counts `GET /v1/audit`
@@ -40,6 +41,14 @@ export const FLAG_KINDS = {
 
 export type FlagKind = keyof typeof FLAG_KINDS;
 export const FLAG_KIND_NAMES = Object.keys(FLAG_KINDS) as FlagKind[];
+
+/** The kinds that are one row per creature: what a report or a lock-in claim can raise (`life.ts`). */
+export type CreatureFlag = {
+  [K in FlagKind]: (typeof FLAG_KINDS)[K] extends 'creature' ? K : never;
+}[FlagKind];
+export const CREATURE_FLAGS = FLAG_KIND_NAMES.filter(
+  (k): k is CreatureFlag => FLAG_KINDS[k] === 'creature',
+);
 
 /** A raise: who, which creature (or ''), the request, encounter or player it is about, and when. */
 export interface Raise {
@@ -117,7 +126,6 @@ export class Audit {
   /** The audit as `GET /v1/audit` serves it at `now`: since the renewal (`world.reset_at`) and for the UTC day. */
   report(now: number): AuditReport {
     const since = (this.run('SELECT reset_at FROM world')[0]?.reset_at as number | undefined) ?? 0;
-    const day = now - (now % 86_400_000);
-    return { since, day: this.counts(Math.max(day, since)), total: this.counts(since) };
+    return { since, day: this.counts(Math.max(dayStartOf(now), since)), total: this.counts(since) };
   }
 }

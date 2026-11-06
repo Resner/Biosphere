@@ -292,7 +292,7 @@ export function finish(
   const fallback = fallbackAfter(hub, hub.ledger.head(life.creature));
   sendIfOpen(ws, { t: 'died', cause, record: accepted.stored, fallback });
   const { t } = accepted.stored.record;
-  return { ...recorded(saved, t, saved.activeMs, saved.biomass), over: true };
+  return { ...recorded(saved, t), over: true };
 }
 
 /** The player's finished lives, newest first. */
@@ -490,7 +490,7 @@ export function checkpoint(hub: Hub, life: LifeState, owner: string): LifeState 
     health: life.health,
     activeMs: life.activeMs,
   });
-  return accepted.ok ? recorded(life, accepted.stored.record.t, life.activeMs, life.biomass) : life;
+  return accepted.ok ? recorded(life, accepted.stored.record.t) : life;
 }
 
 /**

@@ -9,7 +9,7 @@ import {
 } from '../src/ledger/gates';
 import { accrue } from '../src/sim/life';
 import { RULES, TICK_HZ } from '../src/sim/rules';
-import type { FlagKind } from './audit';
+import { CREATURE_FLAGS, type CreatureFlag } from './audit';
 import type { Head } from './ledger';
 
 export type { Condition };
@@ -62,21 +62,13 @@ export interface LifeState extends Condition {
   /** What the genome allows (`physOf`): the largest body and the growth multiplier. */
   maxBiomass: number;
   growth: number;
-  /** Bit `i` is set once `FLAG_KINDS[i]` was noted on this connection, so a client that keeps sending it costs no more reads. */
+  /** Bit `i` is set once `CREATURE_FLAGS[i]` was noted on this connection, so a client that keeps sending it costs no more reads. */
   flagged: number;
 }
 
 export type Report = Condition & { n: number; ticks: number };
 
-const FLAG_KINDS = [
-  'biomass-over-max',
-  'growth-too-fast',
-  'energy-over',
-  'health-over',
-  'clock-too-fast',
-  'claim-over',
-] as const satisfies readonly FlagKind[];
-export type Implausible = (typeof FLAG_KINDS)[number];
+export type Implausible = CreatureFlag;
 
 /** The gates a creature's life is held to, under the object's scales (`worker/lives.ts`). */
 export interface Gates {
@@ -123,13 +115,13 @@ export function bindLife(
  * The life state once a record of the creature was written at `t` with its clock and biomass:
  * the clock's cap and the growth reach count from it, and everything reported so far is saved.
  */
-export function recorded(life: LifeState, t: number, activeMs: number, biomass: number): LifeState {
+export function recorded(life: LifeState, t: number): LifeState {
   return {
     ...life,
     boundT: t,
-    boundMs: activeMs,
-    boundBiomass: biomass,
-    savedMs: activeMs,
+    boundMs: life.activeMs,
+    boundBiomass: life.biomass,
+    savedMs: life.activeMs,
     savedN: life.n,
   };
 }
@@ -149,10 +141,10 @@ function credited(life: LifeState, ticks: number, now: number): number {
 const tooFast = (life: LifeState, ticks: number, now: number): boolean =>
   (ticks * 1000) / TICK_HZ > now - life.startT + CLOCK_SLACK_MS;
 
-/** Notes `kind` on the life once; whether it is new to this connection. */
-function note(life: LifeState, kind: Implausible): { flagged: number; isNew: boolean } {
-  const bit = 1 << FLAG_KINDS.indexOf(kind);
-  return { flagged: life.flagged | bit, isNew: (life.flagged & bit) === 0 };
+/** Notes `kind` in `flagged` once; whether it is new to this connection. */
+function note(flagged: number, kind: Implausible): { flagged: number; isNew: boolean } {
+  const bit = 1 << CREATURE_FLAGS.indexOf(kind);
+  return { flagged: flagged | bit, isNew: (flagged & bit) === 0 };
 }
 
 /** The clock check of a report or a death's ticks: `clock-too-fast`, once per connection. */
@@ -162,7 +154,7 @@ function clockFlags(
   now: number,
 ): Pick<Clamped, 'flagged' | 'newFlags'> {
   if (!tooFast(life, ticks, now)) return { flagged: life.flagged, newFlags: [] };
-  const { flagged, isNew } = note(life, 'clock-too-fast');
+  const { flagged, isNew } = note(life.flagged, 'clock-too-fast');
   return { flagged, newFlags: isNew ? ['clock-too-fast'] : [] };
 }
 
@@ -228,7 +220,7 @@ function clampCondition(
 
   let flagged = life.flagged;
   const newFlags = [...new Set(clamped)].filter((kind) => {
-    const noted = note({ ...life, flagged }, kind);
+    const noted = note(flagged, kind);
     flagged = noted.flagged;
     return noted.isNew;
   });

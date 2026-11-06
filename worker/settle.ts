@@ -271,12 +271,7 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
   const t = hub.clock.now();
   const condition = vitalsOf(f);
   // The fight's record (at the settlement's time) is the creature's last: the next report counts from it.
-  let life: LifeState = recorded(
-    { ...now.life, ...condition, activeMs, t },
-    t,
-    activeMs,
-    condition.biomass,
-  );
+  let life: LifeState = recorded({ ...now.life, ...condition, activeMs, t }, t);
   if (!survived(f)) life = { ...life, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
   ws.serializeAttachment({ ...session, life });
