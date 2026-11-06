@@ -37,6 +37,8 @@ The decisions behind this milestone:
 
 `docs/DESIGN.md` §5 and §11 hold the values.
 
+v0.9.0 was never released: its Release run failed on E2E scenarios that were flaky at the time and have since been fixed (#366, #369, #371, #376), and nothing was deployed or tagged. Redeploying `main` under that label would ship this milestone's world renewal before its close review, so this milestone's close ships M8 and M9 together as v0.10.0 and v0.9.0 stays untagged.
+
 This milestone has **no gate**. v0.10.0 opens its `Playtest:` issue, and M10 starts without waiting. **The world is renewed** at this release: players keep their identities and lose their creatures. The release notes and the Playtest issue say so.
 
 ## Carried over
