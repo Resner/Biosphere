@@ -88,11 +88,15 @@ const m9ShareHubPort = 8820;
 const m9LineageHubPort = 8819;
 // The M9 lifecycle spec (8821), with the M5 hooks: genesis, a mating, a fight, a death and a return, then cards and the CLI.
 const m9LifecycleHubPort = 8821;
-// The M10 witness specs (8822–8824): every play counts and the IP check is off (every context shares
+// The M10 witness specs (8822, 8823): every play counts and the IP check is off (every context shares
 // localhost), so the third page can referee. `m10-cross` holds two seats a pond, so it sits apart.
 const m10WitnessHubPort = 8822;
 const m10CrossHubPort = 8823;
-const m10TakebackHubPort = 8824;
+/** No spec file is named on the command line, or this one is. */
+const wantsSpec = (stem: string): boolean => {
+  const named = process.argv.filter((a) => a.endsWith('.spec.ts'));
+  return named.length === 0 || named.some((a) => a.includes(stem));
+};
 const WITNESS_VARS = '--var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off';
 // The M10 audit spec (8825), with the M5 hooks and the witness variables: every play counts and
 // the IP check is off (every context shares localhost), so the third and fourth pages can audit.
@@ -407,35 +411,24 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
-    // The M10 specs are all `@slow`: the PR parts skip them, so they start no hubs (39 idle
-    // `wrangler dev` processes beside two browsers took the runners down).
-    ...(process.env.E2E_SKIP_SLOW
-      ? []
-      : [
-          {
-            command: `npm run worker:dev -- --e2e --port ${m10WitnessHubPort} --persist-to .wrangler/e2e-state-m10-witness ${WITNESS_VARS}`,
-            url: `http://localhost:${m10WitnessHubPort}/v1/health`,
-            reuseExistingServer: !process.env.CI,
-            timeout: 60_000,
-          },
-          {
-            command: `npm run worker:dev -- --e2e --port ${m10CrossHubPort} --persist-to .wrangler/e2e-state-m10-cross ${WITNESS_VARS} --var POND_MAX:2`,
-            url: `http://localhost:${m10CrossHubPort}/v1/health`,
-            reuseExistingServer: !process.env.CI,
-            timeout: 60_000,
-          },
-          {
-            command: `npm run worker:dev -- --e2e --port ${m10TakebackHubPort} --persist-to .wrangler/e2e-state-m10-takeback ${WITNESS_VARS}`,
-            url: `http://localhost:${m10TakebackHubPort}/v1/health`,
-            reuseExistingServer: !process.env.CI,
-            timeout: 60_000,
-          },
-          {
-            command: `npm run worker:dev -- --e2e --port ${m10AuditHubPort} --persist-to .wrangler/e2e-state-m10-audit --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off`,
-            url: `http://localhost:${m10AuditHubPort}/v1/health`,
-            reuseExistingServer: !process.env.CI,
-            timeout: 60_000,
-          },
-        ]),
+    // The M10 specs are all `@slow`, so the PR parts start none of their hubs, and a run that names
+    // spec files (CI's repeat of the changed ones) starts only the hubs of the M10 specs it names:
+    // 39 idle `wrangler dev` processes beside a browser took the runners down.
+    ...[
+      ['m10-witness', m10WitnessHubPort, WITNESS_VARS],
+      ['m10-cross', m10CrossHubPort, `${WITNESS_VARS} --var POND_MAX:2`],
+      [
+        'm10-audit',
+        m10AuditHubPort,
+        '--var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off',
+      ],
+    ]
+      .filter(([spec]) => !process.env.E2E_SKIP_SLOW && wantsSpec(String(spec)))
+      .map(([spec, port, vars]) => ({
+        command: `npm run worker:dev -- --e2e --port ${port} --persist-to .wrangler/e2e-state-${spec} ${vars}`,
+        url: `http://localhost:${port}/v1/health`,
+        reuseExistingServer: !process.env.CI,
+        timeout: 60_000,
+      })),
   ],
 });

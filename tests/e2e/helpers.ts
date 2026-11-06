@@ -227,10 +227,9 @@ export const M9_SHARE_HUB = 'http://localhost:8820';
 export const M9_LINEAGE_HUB = 'http://localhost:8819';
 /** The M9 lifecycle spec's hub (M9 T15), with the M5 hooks: a lineage from genesis to a mating, a fight, a death and a return. */
 export const M9_LIFECYCLE_HUB = 'http://localhost:8821';
-/** The M10 witness specs' hubs (M10 T7), with `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`: one pond, two ponds (`POND_MAX=2`), a witness that vanishes. */
+/** The M10 witness specs' hubs (M10 T7), with `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`: one pond (the fight and the witness that vanishes), two ponds (`POND_MAX=2`). */
 export const M10_WITNESS_HUB = 'http://localhost:8822';
 export const M10_CROSS_HUB = 'http://localhost:8823';
-export const M10_TAKEBACK_HUB = 'http://localhost:8824';
 /** The M10 audit spec's hub (M10 T8), with the M5 hooks, `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`. */
 export const M10_AUDIT_HUB = 'http://localhost:8825';
 
