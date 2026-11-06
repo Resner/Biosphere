@@ -701,7 +701,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - Drand time moves only when a commitment needs its round (`publish` in `worker/test-hub.ts`), and commitments made together share one, so the 600 recorded rounds suffice for 3 hours of hub time.
     - If a gate fails, the PR names the shortcut and fixes the rule that let it through, with an ADR. It never relaxes the gate.
 
-- [ ] T14 The cost check: messages, CPU and storage of witnessed fights (after T5)
+- [x] T14 The cost check: messages, CPU and storage of witnessed fights (after T5)
+  - Done: `worker/witness-cost.test.ts` (a 30 s hunt: 600 inputs alone, 100 messages with a witness, 6×; span 20×; 20 signature checks about 5 ms), `tools/witness-report.ts` (`npm run report:witness`, `docs/perf/witness.md`), and the witness commitment (1.2 KB, a pool of 16) and attestation (0.6 KB) in `docs/perf/storage.md` (200 players: 672 MB).
+  - Gotcha: bodies differ per identity, so two hunts differ by a few frames: the test compares per frame, and the hunt's start is found in the sim so that it ends near frame 300.
   - Steps (ADR 0058):
     1. `worker/witness-cost.test.ts`, on the hand clock with the scripted witness:
        - a 30 s duel refereed by the authority alone;

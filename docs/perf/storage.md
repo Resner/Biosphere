@@ -9,7 +9,7 @@ ADR 0056 sets the retention these numbers check: the history for good, fight log
 
 | Event | Stored |
 |---|---|
-| A hatch | 2.1 KB |
+| A hatch | 2.3 KB |
 | An hour of ordinary play (progress every 30 s, then a close) | 2.7 KB |
 | A beacon (shared by everyone) | 100 B |
 | A commitment | 700 B |
@@ -39,19 +39,21 @@ From one hub history (two hatches, a mating, two promotions, a fight, a restore)
 | A kept row, a 30 s duel | 6.4 KB |
 | The log alone, a 30 s duel (guard: under 8 KB) | 5.4 KB |
 | The row after pruning (guard: under 2 KB) | 1.2 KB |
+| A witness commitment, a pool of 16 (kept 14 days) | 1.2 KB |
+| An attestation (kept for good) | 0.6 KB |
 
 ## Steady state and growth
 
-Players around the clock, each in 3 fights an hour, every fight a 30 s duel.
+Players around the clock, each in 3 fights an hour, every fight a 30 s duel with a witness commitment and an attestation.
 Hours of play are charged at the measured ordinary hour; the history never shrinks.
 
-| Concurrent players | Logs kept (steady state) | History growth a year | Days to the limit |
+| Concurrent players | Logs and witness commitments kept (steady state) | History growth a year | Days to the limit |
 |---|---|---|---|
-| 5 | 14 MB | 0.2 GB | 9030 |
-| 50 | 138 MB | 2.0 GB | 880 |
-| 200 | 551 MB | 8.1 GB | 200 |
+| 5 | 17 MB | 0.2 GB | 7550 |
+| 50 | 168 MB | 2.4 GB | 730 |
+| 200 | 672 MB | 9.6 GB | 160 |
 
-The logs' steady state at 200 players (551 MB) is under 1.0 GB, so the 14-day window stands.
+The steady state of logs and witness commitments at 200 players (672 MB) is under 1.0 GB, so the 14-day window stands.
 
-At 200 players around the clock the history alone reaches the limit in about 200 days: the lever is
+At 200 players around the clock the history alone reaches the limit in about 160 days: the lever is
 checkpoint compaction (ADR 0056), which M13's capacity model weighs against admission and the paid plan.
