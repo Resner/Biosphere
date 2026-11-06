@@ -1,6 +1,5 @@
 import '../style.css';
 import './card.css';
-import { safeStorage } from '../game/app-session';
 import { capitalise } from '../game/badge';
 import { formatBuildLabel } from '../game/build-label';
 import { listItem, pick, setText } from '../game/dom';
@@ -84,6 +83,15 @@ const quality = qualityFromSearch(search) ?? settings.quality;
 const preset: PresetName = resolvePreset(quality, 'high');
 const still = reducedMotion(settings, matchMedia('(prefers-reduced-motion: reduce)').matches);
 el.card.toggleAttribute('data-still', still);
+
+/** Not `game/app-session`'s copy: that module pulls the sim into the card page. */
+function safeStorage(): Storage | null {
+  try {
+    return window.localStorage;
+  } catch {
+    return null;
+  }
+}
 
 function setPhase(phase: CardState['phase']): void {
   state.phase = phase;
