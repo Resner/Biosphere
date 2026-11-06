@@ -48,6 +48,34 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     // B whole, so A's strikes take a while: the fight is still on when C joins.
     const ids = await stage(a, b, undefined, 1);
     const idC = (await state(c)).playerId as string;
+    // A and C are hatched bodies against a whole B: B can kill C in the seconds the test spends on
+    // the ring (the E2E main run that died with C at 0 hp). Bracing on each windup keeps both alive.
+    await Promise.all(
+      [a, c].map((page) => page.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true))),
+    );
+
+    // C's page watches itself: the first frame with an aim ring presses Tab, and the frames after
+    // note the chosen mark and the target marks drawn.
+    await c.evaluate(() => {
+      const bs = window.__bs as BsHook;
+      const melee = { ring: false, chosen: false, marks: 0, tabbed: false };
+      (window as unknown as { melee: typeof melee }).melee = melee;
+      const watch = () => {
+        const enc = bs.state().encounter;
+        if (enc && !enc.over && enc.fighters.length === 3 && enc.aim) {
+          melee.ring = true;
+          if (!melee.tabbed) {
+            melee.tabbed = true;
+            dispatchEvent(new KeyboardEvent('keydown', { key: 'Tab' }));
+            dispatchEvent(new KeyboardEvent('keyup', { key: 'Tab' }));
+          }
+          if (enc.aim.chosen) melee.chosen = true;
+          if ((bs.render.info().telegraphs.targets ?? 0) > 0) melee.marks = 1;
+        }
+        requestAnimationFrame(watch);
+      };
+      requestAnimationFrame(watch);
+    });
 
     // C waits in its own page, frame by frame, until B is fighting, and presses F at once: a hatched
     // body can finish B within seconds, so the join must not wait on a round trip from the test.
@@ -135,23 +163,31 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
       (window as unknown as { chase: number }).chase = window.setInterval(chase, 250);
     }, ids.idB);
 
-    // Three fighters offer a choice: the ring marks the nearest, and Tab picks one.
-    await c
-      .waitForFunction(() => window.__bs?.state().encounter?.aim != null, undefined, {
-        timeout: 10_000,
-      })
+    // Three fighters offer a choice: the ring marks the nearest, and Tab picks one. The observer
+    // installed before the join reads all of it frame by frame in the page: a fight is short, and a
+    // round trip from the test can arrive after the ring is gone.
+    const reached = await c
+      .waitForFunction(
+        () => {
+          const w = window as unknown as {
+            melee?: { ring: boolean; chosen: boolean; marks: number };
+          };
+          return w.melee?.ring && w.melee.chosen && w.melee.marks > 0 ? w.melee : false;
+        },
+        undefined,
+        { timeout: 10_000, polling: 'raf' },
+      )
+      .then((h) => h.jsonValue())
       .catch(async (error) => {
-        throw new Error(`no aim ring on C: ${JSON.stringify(await seen(c))}`, { cause: error });
+        const so = await c.evaluate(() => (window as unknown as { melee?: unknown }).melee);
+        throw new Error(
+          `no aim ring on C: ${JSON.stringify(so)} ${JSON.stringify(await seen(c))}`,
+          {
+            cause: error,
+          },
+        );
       });
-    await c.keyboard.press('Tab');
-    await c.waitForFunction(() => window.__bs?.state().encounter?.aim?.chosen === true, undefined, {
-      timeout: 5_000,
-    });
-    await c.waitForFunction(
-      () => ((window.__bs as BsHook).render.info().telegraphs.targets ?? 0) > 0,
-      undefined,
-      { timeout: 5_000, polling: 'raf' },
-    );
+    expect(reached).toBeTruthy();
 
     // A swims off west and C east: each escapes in turn, and the fight ends.
     for (const [page, dx] of [
