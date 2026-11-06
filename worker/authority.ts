@@ -24,7 +24,7 @@ import {
   restoreAncestor,
 } from './lives';
 import { court, decline, deliverBirth, mateCheck, queueAccept } from './offspring';
-import { type Served, serveFight, serveProof } from './proof';
+import { meterRead, type Served, serveFight, serveProof } from './proof';
 import { recoverFights } from './recover';
 import { migrate } from './schema';
 import { drop, hello, promote, queued, relay } from './sessions';
@@ -126,11 +126,10 @@ export class Authority extends DurableObject<Env> implements Hub {
     return serveFight(this, enc);
   }
 
-  /** The flag counts by kind for the UTC day and since the renewal (`GET /v1/audit`): no ids, reads only. */
-  audit(): AuditReport {
+  /** The flag counts by kind for the UTC day and since the renewal (`GET /v1/audit`): no ids, reads only; null while busy. */
+  audit(): AuditReport | null {
     this.proofReads++;
-    this.usage.request(Date.now());
-    return this.ledger.audit.report(this.clock.now());
+    return meterRead(this) ? null : this.ledger.audit.report(this.clock.now());
   }
 
   override async fetch(): Promise<Response> {

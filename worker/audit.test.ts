@@ -218,6 +218,22 @@ describe('each attack leaves its flag once', () => {
 });
 
 describe('GET /v1/audit', () => {
+  it('answers busy past 80% of the day budget, and caches nothing then', async () => {
+    await authority((o) => {
+      (o.env as unknown as Record<string, string>).DAILY_REQUEST_BUDGET = '1';
+    });
+    try {
+      const busy = await exports.default.fetch('https://authority.test/v1/audit');
+      expect(busy.status).toBe(503);
+      expect(busy.headers.get('Retry-After')).toBe('600');
+      expect(await busy.json()).toEqual({ error: 'busy' });
+    } finally {
+      await authority((o) => {
+        delete (o.env as unknown as Record<string, string | undefined>).DAILY_REQUEST_BUDGET;
+      });
+    }
+  });
+
   it('counts the flags by kind for the day and since the renewal, with no ids', async () => {
     // Some flags of this test's own: a stray death and an implausible report.
     const p = await hatched();

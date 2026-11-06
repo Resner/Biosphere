@@ -79,11 +79,16 @@ async function proofRead(
 function auditRead(request: Request, env: Env): Promise<Response> | Response {
   const cors = corsOf(request);
   if (cors instanceof Response) return cors;
-  return edgeCached(request, '/v1/audit', cors, async () =>
-    json(await authority(env).audit(), 200, {
-      'Cache-Control': `public, max-age=${AUDIT_MAX_AGE}`,
-    }),
-  );
+  return edgeCached(request, '/v1/audit', cors, async () => {
+    const report = await authority(env).audit();
+    if (!report) {
+      return json({ error: 'busy' }, 503, {
+        'Retry-After': String(BUSY_RETRY_S),
+        'Cache-Control': 'no-store',
+      });
+    }
+    return json(report, 200, { 'Cache-Control': `public, max-age=${AUDIT_MAX_AGE}` });
+  });
 }
 
 /**
