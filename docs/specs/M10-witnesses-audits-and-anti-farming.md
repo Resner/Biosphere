@@ -662,7 +662,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - A forged `seen` snapshot (bad signature) is ignored, not believed. A `seen` of another creature is ignored.
     - Without `seen`, every M7 engage test passes unchanged.
 
-- [ ] T12 Young identities by play (after T4)
+- [ ] T12 Young identities by play (after T4) (in progress)
   - Steps:
     1. `worthOf` (`worker/farming.ts`) halves the worth while `playedMs` is under `RULES.encounter.farming.youngPlayMs` (20 min). This replaces `youngMs`.
     2. `fight-test-kit.ts` `hatched()` credits each test identity 20 minutes of play, so fights run at worth 1 unless a test says otherwise.
