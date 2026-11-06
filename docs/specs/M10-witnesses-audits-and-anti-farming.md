@@ -549,7 +549,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Verification and showing it
 
-- [x] T9 Settlement and bundle version 2, and the witness family [opus] (after T1, T16) (in progress)
+- [x] T9 Settlement and bundle version 2, and the witness family [opus] (after T1, T16)
   - Done: `settlementOf(log, enc, t, { referees, duty })` writes version 2 (authority-only by default, so the worker already does); the M8 `settlement.json` stays version 1. `verify-witness.ts` checks beacons in one batch (`verifyBeacons`, Fiat–Shamir coefficients): 64 single checks took 1.7 s.
   - A mating's subject is checked only when the bundle holds both births; a genesis or mating with neither commitment nor attestation reads `none`, as with an empty pool.
   - Steps:
