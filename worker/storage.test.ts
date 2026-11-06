@@ -1,7 +1,9 @@
 import { describe, expect, it } from 'vitest';
+import { packedChars } from '../tools/storage-report';
 import { advance, authority, hatched, useFightHub } from './fight-test-kit';
 import { history } from './history-kit';
 import { CALM, closeSockets, nextOf, report, sql } from './test-hub';
+import { DAY_MS } from './usage';
 
 // M9 T10 (ADR 0056): what the authority stores, measured from the rows hub tests write. The guards
 // bound an hour of ordinary play and a fight's log; the measurements, printed as one
@@ -10,7 +12,6 @@ import { CALM, closeSockets, nextOf, report, sql } from './test-hub';
 useFightHub();
 
 const HOUR_MS = 3_600_000;
-const DAY_MS = 86_400_000;
 const TICKS_PER_30S = 900;
 
 /** Per-player data: a beacon is shared by everyone, a key or the migrations belong to the object. */
@@ -35,9 +36,6 @@ async function bytesOf(table: string, where = '1', ...bind: SqlStorageValue[]): 
   );
   return row?.n ?? 0;
 }
-
-/** The base64 characters of `frames` frames of a duel's two codes (`fight-pack.ts`). */
-const packedChars = (frames: number) => Math.ceil((frames * 8) / 3) * 4;
 
 const storedBytes = async () => {
   let n = 0;

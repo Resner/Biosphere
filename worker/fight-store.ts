@@ -8,6 +8,7 @@ import type { FightLog, SignedSettlement } from '../src/ledger/settlement';
 import type { EncJoin, EncStart } from '../src/net/encounter-start';
 import { packFrames, unpackFrames } from './fight-pack';
 import type { Fight } from './fights';
+import { DAY_MS } from './usage';
 
 /** Final frames are written once this many have gathered since the last write (M13 may raise it). */
 export const BATCH_FRAMES = 10;
@@ -24,7 +25,6 @@ export interface SlotClock {
 export const LOG_KEEP_DAYS = 14;
 /** Expired logs one settlement's transaction prunes at most, so pruning costs a bounded number of writes. */
 export const PRUNE_PER_SETTLEMENT = 4;
-const DAY_MS = 86_400_000;
 
 /** An `encounters` row, read back (a pruned row has no log to read: `read` answers null). */
 export interface FightRow {
