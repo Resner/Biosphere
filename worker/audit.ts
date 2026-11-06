@@ -37,6 +37,11 @@ export const FLAG_KINDS = {
   'clock-too-fast': 'creature',
   /** A lock-in claim clamped past its tolerance (`life.ts`, through `engage.ts`). */
   'claim-over': 'creature',
+  /**
+   * A fight, mating or genesis that no witness can see, keyed by its event (`dutyEvent`): its
+   * pool was empty when it was committed (`commitWitnesses` in `witness-pool.ts`).
+   */
+  'authority-only': 'request',
 } as const satisfies Record<string, 'request' | 'creature'>;
 
 export type FlagKind = keyof typeof FLAG_KINDS;

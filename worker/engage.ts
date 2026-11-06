@@ -1,7 +1,8 @@
 // Lock-in on the authority (ADR 0050, M7 T8): an engage is checked against both signed snapshots,
 // the target is asked for its own state, and both players get the same `enc-start`. Nothing here
 // writes SQLite, except a flag when a snapshot claims more than the growth curve allows (the
-// fight's log is `runFight`'s and `admit`'s, in `fights.ts`).
+// fight's log is `runFight`'s and `admit`'s, in `fights.ts`), and the fight's witness commitment
+// once `enc-start` went out (`commitWitnesses`, ADR 0058).
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { genomeFromBase64url } from '../src/genome/codec';
@@ -35,6 +36,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
+import { commitWitnesses } from './witness-pool';
 
 const E = RULES.encounter;
 /** Clock slack either way on a snapshot's pond tick. */
@@ -362,6 +364,8 @@ function start(hub: Hub, id: string): void {
     const found = seated(hub, player);
     if (found) sendIfOpen(found[0], msg);
   }
+  // Only now its witnesses (ADR 0058): lock-in never waits for them.
+  void commitWitnesses(hub, 'enc', enc, lock.players);
 }
 
 /**

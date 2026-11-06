@@ -274,7 +274,8 @@ describe('courtship', () => {
     await courtship(a, b);
     const used = (await rowsWritten()) - writes;
     console.log(`courtship: 4 messages, ${used} ledger row writes`);
-    expect(used).toBeLessThanOrEqual(6);
+    // One of them is the mating's `authority-only` flag (no witness online, M10).
+    expect(used).toBeLessThanOrEqual(7);
   });
 });
 

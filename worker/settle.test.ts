@@ -52,8 +52,9 @@ describe('a kill', () => {
     const [seenA, seenB] = [log(a.c), log(b.c)];
     const rows = await rowsBesideLog();
     const { start, end } = await killB(a, b);
-    // Two rows per participant, and the victim's dead index entry (beside the log, M8 T2).
-    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(5);
+    // Two rows per participant, and the victim's dead index entry (beside the log, M8 T2), and
+    // the lock's `authority-only` flag (no witness online, M10).
+    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(6);
 
     const victim = await chain(b.creature);
     expect(victim.map((r) => r.kind)).toEqual(['genesis', 'death']);

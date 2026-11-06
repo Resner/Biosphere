@@ -351,7 +351,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### The authority
 
-- [ ] T4 Eligibility, pools, commitments and duty offers [opus] (after T2)
+- [x] T4 Eligibility, pools, commitments and duty offers [opus] (after T2)
+  - Done: `witness-pool.ts` (`eligible`, `commitWitnesses`, `avail`), `duty.ts` (`hub.duties`, `witnessView` for the E2E hook), migration 10 with the IP salt in `world`; a witness commitment's request key is its event's, so the req index finds it, and `Beacons.commit` takes `{ round, key }`.
+  - Gotcha: an empty pool's `authority-only` flag adds a row to every lock, mating and genesis with nobody online, and `creatures_owner` one per creature insert; the M7–M9 row bounds grew by exactly that. An `avail` off counts at once (only an on waits 5 s).
   - Steps:
     1. Migration 10 (above).
        - `Beacons.commit` takes an explicit round (`{ round }`).

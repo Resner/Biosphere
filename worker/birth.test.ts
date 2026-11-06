@@ -119,7 +119,8 @@ describe('birth', () => {
     expect(ba.genome).not.toBe(bb.genome);
     const rows = (await rowsWritten()) - before;
     console.log(`birth rows written: ${rows}`);
-    expect(rows).toBeLessThanOrEqual(8);
+    // Two of them are the children's entries in migration 10's index on `creatures (owner)`.
+    expect(rows).toBeLessThanOrEqual(10);
     const [mating] = await sql<{ resolved: number }>('SELECT resolved FROM matings');
     expect(mating?.resolved).toBe(1);
   });

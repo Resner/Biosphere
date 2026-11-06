@@ -45,9 +45,13 @@ export interface Client {
 }
 
 export const sockets: Client[] = [];
-async function open(): Promise<Client> {
+async function open(ip?: string): Promise<Client> {
   const res = await exports.default.fetch('https://authority.test/v1/hub', {
-    headers: { Upgrade: 'websocket', Origin: ORIGIN },
+    headers: {
+      Upgrade: 'websocket',
+      Origin: ORIGIN,
+      ...(ip === undefined ? {} : { 'CF-Connecting-IP': ip }),
+    },
   });
   const ws = res.webSocket;
   if (!ws) throw new Error(`no WebSocket (status ${res.status})`);
@@ -91,10 +95,13 @@ export async function nextOf<T extends HubMsg['t']>(
   }
 }
 
-/** Opens a socket and says hello; the caller reads what the hub answers (`welcome` or `queued`). */
-export async function signIn(id?: Identity, store = memoryKeyStore()) {
+/**
+ * Opens a socket and says hello; the caller reads what the hub answers (`welcome` or `queued`).
+ * `ip` is the `CF-Connecting-IP` the edge would add (none by default, as on localhost).
+ */
+export async function signIn(id?: Identity, store = memoryKeyStore(), ip?: string) {
   const who = id ?? (await createIdentity(store));
-  const c = await open();
+  const c = await open(ip);
   const challenge = await nextOf(c, 'challenge');
   const name = 'Tester';
   const sig = toBase64Url(
