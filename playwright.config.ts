@@ -80,6 +80,8 @@ const m8AwayHubPort = 8816;
 const m8ProxyHubPort = 8815;
 // The M8 lifecycle spec (8817): one fight through a reload, a restart and a closed tab (no `AWAY_GRACE_MS`: a restart empties the hub, and a 500 ms wait would settle the fight first).
 const m8LifecycleHubPort = 8817;
+// The M9 card spec (8818): a creature's card opened after its owner's page closed.
+const m9CardHubPort = 8818;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -363,6 +365,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m8LifecycleHubPort} --persist-to .wrangler/e2e-state-m8-lifecycle`,
       url: `http://localhost:${m8LifecycleHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m9CardHubPort} --persist-to .wrangler/e2e-state-m9-card`,
+      url: `http://localhost:${m9CardHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

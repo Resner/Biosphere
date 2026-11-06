@@ -69,6 +69,7 @@ describe('the facts and the story', () => {
       'Alive and swimming',
     ]);
     expect(cardFacts(b)?.status).toBe('active');
+    expect(familyLines(verifyLineage(b))).toContain('Fights: none in this history.');
   });
 
   it('tell a victim and an eaten egg', () => {

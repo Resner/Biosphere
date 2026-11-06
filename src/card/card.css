@@ -10,6 +10,7 @@ body.card-page {
 }
 
 body.card-page {
+  min-height: 100vh;
   background:
     radial-gradient(ellipse 70% 55% at 30% 30%, rgb(40 92 104 / 0.28), transparent 70%),
     radial-gradient(ellipse 60% 50% at 80% 85%, rgb(22 60 74 / 0.3), transparent 70%), var(--water);

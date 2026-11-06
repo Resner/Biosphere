@@ -196,7 +196,10 @@ const FAMILIES: readonly (readonly [Family, string, string])[] = [
 export function familyLines(report: LineageReport): string[] {
   const lines = FAMILIES.map(([family, name, holds]) => {
     const n = report.problems.filter((p) => p.family === family).length;
-    return n === 0 ? `${name}: ${holds}.` : `${name}: ${times(n, 'problem')}.`;
+    if (n > 0) return `${name}: ${times(n, 'problem')}.`;
+    return family === 'fights' && report.fights.settled === 0
+      ? `${name}: none in this history.`
+      : `${name}: ${holds}.`;
   });
   const f = report.fights;
   if (f.settled > 0) {
