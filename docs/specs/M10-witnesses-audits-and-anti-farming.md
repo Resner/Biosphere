@@ -549,7 +549,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Verification and showing it
 
-- [ ] T9 Settlement and bundle version 2, and the witness family [opus] (after T1, T16)
+- [ ] T9 Settlement and bundle version 2, and the witness family [opus] (after T1, T16) (in progress)
   - Steps:
     1. `src/ledger/settlement.ts`:
        - `SettlementV2` with `referees` and `duty`, and `settlementOf` writing it;
