@@ -381,6 +381,10 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m9ShareHubPort} --persist-to .wrangler/e2e-state-m9-share`,
       url: `http://localhost:${m9ShareHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
       command: `npm run worker:dev -- --e2e --port ${m9LineageHubPort} --persist-to .wrangler/e2e-state-m9-lineage --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
       url: `http://localhost:${m9LineageHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,

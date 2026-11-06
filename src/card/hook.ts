@@ -43,6 +43,7 @@ export interface CardState {
    * then), and the images saved so far, each a 1200 × 630 PNG.
    */
   image: { ready: boolean; saved: number };
+  /**
    * The lineage graph's nodes (M9 T13), the subject first, then nearest first: `branch` (the subject
    * and its chain parents), `root` (genesis), `verified` (null before its check or when not loaded)
    * and `loaded` (false for an ancestor the proof left out, until its Load joins it).
