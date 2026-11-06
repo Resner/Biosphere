@@ -13,6 +13,7 @@ import {
   type HubMsg,
   isCause,
   NAME_RE,
+  SEEN_MAX,
   type SignedSnap,
 } from './protocol-defs';
 import {
@@ -50,17 +51,17 @@ const VEL_MAX = 8192;
 const HEADING_MAX = 2 * Math.PI;
 /** Far above any carrion piece's body (a body's radius stays in the hundreds of wu). */
 const RADIUS_MAX = 10_000;
-const MIN_FIGHTERS = 2;
-const U32_MAX = 0xffffffff;
+export const MIN_FIGHTERS = 2;
+export const U32_MAX = 0xffffffff;
 
 const inRange = (v: unknown, min: number, max: number): v is number =>
   isNum(v) && v >= min && v <= max;
-const isFrame = (v: unknown): v is number => isInt(v, 0, ENC_MAX_FRAME);
+export const isFrame = (v: unknown): v is number => isInt(v, 0, ENC_MAX_FRAME);
 const isSlot = (v: unknown): v is number => isInt(v, 0, ENC_MAX_FIGHTERS - 1);
 const isPos = (v: unknown): v is number => inRange(v, 0, POS_MAX);
 const isCondition = (v: unknown): v is number => inRange(v, 0, MAX_CONDITION);
 
-function signedSnap(v: unknown): SignedSnap | null {
+export function signedSnap(v: unknown): SignedSnap | null {
   return isObj(v) && isStr(v.snap, SNAP_RE) && isStr(v.sig, SIG_RE)
     ? { snap: v.snap, sig: v.sig }
     : null;
@@ -93,7 +94,7 @@ function fighterState(v: Obj): FighterState | null {
     : null;
 }
 
-function fighterInfo(v: unknown): FighterInfo | null {
+export function fighterInfo(v: unknown): FighterInfo | null {
   const state = isObj(v) ? fighterState(v) : null;
   return state &&
     isObj(v) &&
@@ -153,8 +154,10 @@ export function encounterClientMsg(o: Obj, raw: string): ClientMsg | null {
     }
     case 'lock-state': {
       const mine = signedSnap(o.mine);
-      return mine && isStr(o.lock, LOCK_RE)
-        ? capped(raw, { t: 'lock-state', lock: o.lock, mine })
+      // The target's copies of the attacker's last signed snapshots (M10 T11), when it sends them.
+      const seen = o.seen === undefined ? undefined : list(o.seen, SEEN_MAX, signedSnap);
+      return mine && isStr(o.lock, LOCK_RE) && seen !== null
+        ? capped(raw, { t: 'lock-state', lock: o.lock, mine, ...(seen ? { seen } : {}) })
         : null;
     }
     case 'input':
@@ -166,34 +169,29 @@ export function encounterClientMsg(o: Obj, raw: string): ClientMsg | null {
   }
 }
 
+/** An `enc-start` message's fields, or null; the caller caps its size. */
+export function encStartOf(o: Obj): EncStartMsg | null {
+  const fighters = perSlot(o.fighters, fighterInfo);
+  return fighters &&
+    o.t === 'enc-start' &&
+    isStr(o.enc, HEX64_RE) &&
+    isStr(o.seed, HEX64_RE) &&
+    isInt(o.round, 0, MAX_TICK) &&
+    isInt(o.t0, 0, MAX_TICK) &&
+    isInt(o.at, 0, MAX_TIME)
+    ? { t: 'enc-start', enc: o.enc, seed: o.seed, round: o.round, t0: o.t0, at: o.at, fighters }
+    : null;
+}
+
+type EncStartMsg = Extract<HubMsg, { t: 'enc-start' }>;
+
 /** The encounter messages the hub sends, or null (also for any other `t`). */
 export function encounterHubMsg(o: Obj, raw: string): HubMsg | null {
   switch (o.t) {
     case 'lock-ask':
       return isStr(o.lock, LOCK_RE) ? capped(raw, { t: 'lock-ask', lock: o.lock }) : null;
-    case 'enc-start': {
-      const fighters = perSlot(o.fighters, fighterInfo);
-      return fighters &&
-        isStr(o.enc, HEX64_RE) &&
-        isStr(o.seed, HEX64_RE) &&
-        isInt(o.round, 0, MAX_TICK) &&
-        isInt(o.t0, 0, MAX_TICK) &&
-        isInt(o.at, 0, MAX_TIME)
-        ? capped(
-            raw,
-            {
-              t: 'enc-start',
-              enc: o.enc,
-              seed: o.seed,
-              round: o.round,
-              t0: o.t0,
-              at: o.at,
-              fighters,
-            },
-            ENC_START_MAX_BYTES,
-          )
-        : null;
-    }
+    case 'enc-start':
+      return capped(raw, encStartOf(o), ENC_START_MAX_BYTES);
     case 'enc-frame': {
       const inputs = perSlot(o.i, bundleInput);
       return inputs && isStr(o.enc, HEX64_RE) && isFrame(o.f)
@@ -327,7 +325,7 @@ function settlementDoc(v: unknown): Settlement | null {
   };
 }
 
-function signedSettlement(v: unknown): SignedSettlement | null {
+export function signedSettlement(v: unknown): SignedSettlement | null {
   if (!isObj(v)) return null;
   const settlement = settlementDoc(v.settlement);
   return settlement &&

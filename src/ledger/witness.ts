@@ -3,21 +3,39 @@ import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js';
 import { createRng, seedFromBytes } from '../sim/prng';
 import { canonicalize } from './canonical';
 import { QUICKNET, roundTime } from './drand-time';
-import { fromBase64Url, type Identity, isPlayerId, toBase64Url } from './identity';
+import { type Identity, isPlayerId, toBase64Url } from './identity';
 import { type KeyVerify, keyVerifier } from './key-verify';
-import { HEX64 } from './record';
 import { frameLeaf } from './settlement';
+import {
+  type Attestation,
+  type DutyKind,
+  type DutyRole,
+  isHex64,
+  POOL_MAX,
+  type SignedAttestation,
+  sigBytes,
+} from './witness-doc';
+
+export {
+  type Attestation,
+  type DutyKind,
+  type DutyRole,
+  dutyEvent,
+  POOL_MAX,
+  parseDutyEvent,
+  parseSignedAttestation,
+  type SignedAttestation,
+  type WitnessData,
+  witnessDataProblems,
+} from './witness-doc';
 
 // Witness documents (ADR 0058): who may witness an event, the drand round that orders them, the
 // order itself, an auditor's attestation, and the signatures on a fighter's input to a witness and
-// on a witness's frame. All pure and shared by the authority, the page and the verifier.
+// on a witness's frame. All pure and shared by the authority, the page and the verifier. The shapes
+// and parsers that need no key live in `witness-doc.ts`, which the wire's parsers load alone.
 
-export const POOL_MAX = 16;
 /** A witness commitment's round is due at least this long after the commitment. */
 export const WITNESS_MARGIN_MS = 500;
-
-export type DutyKind = 'enc' | 'mating' | 'genesis';
-export type DutyRole = 'referee' | 'auditor';
 
 const POOL_DOMAIN = 'bs/pool/v1';
 const ORDER_DOMAIN = 'bs/witness/v1';
@@ -26,53 +44,8 @@ const INPUT_DOMAIN = 'bs/input/v1';
 const WFRAME_DOMAIN = 'bs/wframe/v1';
 const BIRTH_DOMAIN = 'bs/attest/birth/v1';
 
-// Not `net/protocol-defs`'s SIGNATURE_BYTES: the verifier shares this file and never imports `src/net`.
-const SIGNATURE_BYTES = 64;
-const CODE = /^[a-z0-9:_-]{1,64}$/;
-const EVENT = /^(enc|mating|genesis):([0-9a-f]{64})$/;
 const encoder = new TextEncoder();
 const utf8 = (text: string): Uint8Array => encoder.encode(text);
-
-const isHex64 = (v: unknown): v is string => typeof v === 'string' && HEX64.test(v);
-const isRecord = (v: unknown): v is Record<string, unknown> =>
-  typeof v === 'object' && v !== null && !Array.isArray(v);
-const onlyKeys = (v: Record<string, unknown>, keys: readonly string[]): boolean =>
-  Object.keys(v).every((k) => keys.includes(k));
-
-/** The event a duty serves: `'enc:<64 hex>'`, `'mating:…'` or `'genesis:…'`. */
-export function dutyEvent(kind: DutyKind, id: string): string {
-  const event = `${kind}:${id}`;
-  if (!EVENT.test(event)) throw new RangeError(`not a duty event: ${event}`);
-  return event;
-}
-
-export function parseDutyEvent(s: unknown): { kind: DutyKind; id: string } | null {
-  const m = typeof s === 'string' ? EVENT.exec(s) : null;
-  return m ? { kind: m[1] as DutyKind, id: m[2] as string } : null;
-}
-
-/** A `witness` commitment's data (`Beacons.commit('witness', '', data, { round })`). */
-export interface WitnessData {
-  event: string;
-  /** Player ids, sorted, unique, 1 to `POOL_MAX` of them. */
-  pool: string[];
-}
-
-/** Why `v` is no witness commitment's data; empty when it is one. Never throws. */
-export function witnessDataProblems(v: unknown): string[] {
-  if (!isRecord(v)) return ['data'];
-  const problems = Object.keys(v)
-    .filter((k) => k !== 'event' && k !== 'pool')
-    .map((k) => `unknown:${k}`);
-  if (!parseDutyEvent(v.event)) problems.push('event');
-  const pool = v.pool;
-  if (!Array.isArray(pool)) return [...problems, 'pool'];
-  if (pool.length === 0 || pool.length > POOL_MAX) return [...problems, 'pool-size'];
-  if (!pool.every((id) => typeof id === 'string' && isPlayerId(id))) problems.push('pool-id');
-  else if (!pool.every((id, i) => i === 0 || (pool[i - 1] as string) < id))
-    problems.push('pool-order');
-  return problems;
-}
 
 /** The `POOL_MAX` ids with the lowest SHA-256('bs/pool/v1' ‖ event ‖ id), sorted by id. Duplicates count once. */
 export function poolOf(eligible: readonly string[], event: string): string[] {
@@ -138,11 +111,6 @@ function playerKey(playerId: string): KeyVerify | null {
   return key;
 }
 
-function sigBytes(sig: unknown): Uint8Array | null {
-  const bytes = typeof sig === 'string' ? fromBase64Url(sig) : null;
-  return bytes?.length === SIGNATURE_BYTES ? bytes : null;
-}
-
 /** True when `key()` verifies `sig` over `bytes()` under `domain`. A missing key, a bad signature text or any throw is false. */
 function sigOk(
   key: () => KeyVerify | null,
@@ -159,42 +127,6 @@ function sigOk(
   }
 }
 
-export interface Attestation {
-  v: 1;
-  kind: 'attest';
-  /** `dutyEvent(…)` */
-  event: string;
-  /** The witness commitment's id. */
-  duty: string;
-  /** The witness's place in `witnessOrder`. */
-  position: number;
-  /** Its player id. */
-  witness: string;
-  /** The settlement's hash, the genesis record's hash, or `birthSubject(slot 0, slot 1)`. */
-  subject: string;
-  agree: boolean;
-  /** The auditor's first problem; only when `agree` is false. */
-  code?: string;
-}
-
-/** Ed25519 by the witness, domain `bs/attest/v1`, base64url. */
-export interface SignedAttestation {
-  attestation: Attestation;
-  sig: string;
-}
-
-const ATTEST_KEYS = [
-  'v',
-  'kind',
-  'event',
-  'duty',
-  'position',
-  'witness',
-  'subject',
-  'agree',
-  'code',
-];
-
 /** What an attestation signs: its canonical JSON, with `agree` as 1 or 0 (canonical JSON has no booleans). */
 function attestationBytes(a: Attestation): Uint8Array {
   const { agree, code, ...rest } = a;
@@ -205,37 +137,6 @@ function attestationBytes(a: Attestation): Uint8Array {
 
 export function signAttestation(identity: Identity, a: Attestation): SignedAttestation {
   return { attestation: a, sig: toBase64Url(identity.sign(ATTEST_DOMAIN, attestationBytes(a))) };
-}
-
-/** A signed attestation rebuilt from untrusted JSON, or null. Refuses unknown fields; never throws. */
-export function parseSignedAttestation(v: unknown): SignedAttestation | null {
-  try {
-    if (!isRecord(v) || !onlyKeys(v, ['attestation', 'sig'])) return null;
-    const a = v.attestation;
-    if (!isRecord(a) || !onlyKeys(a, ATTEST_KEYS) || !sigBytes(v.sig)) return null;
-    const { position, agree, code } = a;
-    if (a.v !== 1 || a.kind !== 'attest' || !parseDutyEvent(a.event)) return null;
-    if (!isHex64(a.duty)) return null;
-    if (!isHex64(a.subject)) return null;
-    if (typeof a.witness !== 'string' || !isPlayerId(a.witness)) return null;
-    if (!Number.isInteger(position) || (position as number) < 0) return null;
-    if ((position as number) >= POOL_MAX || typeof agree !== 'boolean') return null;
-    if (code !== undefined && (agree || typeof code !== 'string' || !CODE.test(code))) return null;
-    const attestation: Attestation = {
-      v: 1,
-      kind: 'attest',
-      event: a.event as string,
-      duty: a.duty,
-      position: position as number,
-      witness: a.witness,
-      subject: a.subject,
-      agree,
-    };
-    if (code !== undefined) attestation.code = code as string;
-    return { attestation, sig: v.sig as string };
-  } catch {
-    return null;
-  }
 }
 
 /** True when the attestation's own witness signed it. Never throws. */

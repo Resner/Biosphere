@@ -158,7 +158,7 @@ export function signWitnessFrame(identity: Identity, enc: string, f: number, inp
 export function witnessFrameSigned(witness: string, enc: string, f: number, inputs: readonly (number | null)[], sig: string): boolean;
 
 // src/net/protocol-defs.ts (T2): PROTOCOL_VERSION 10. Parsers in src/net/protocol-witness.ts.
-export const BATCH_MAX_BYTES = 8192;
+export const BATCH_MAX_BYTES = 12_288;   // the largest batch (20 frames of 4 signed inputs) is about 8.2 KB
 export const DUTY_MAX_BYTES = 131_072;
 // ClientMsg gains:
 //   { t: 'avail'; on: boolean }
@@ -170,7 +170,9 @@ export const DUTY_MAX_BYTES = 131_072;
 //   lock-state gains seen?: SignedSnap[] (at most 5; T11 fills it)
 // HubMsg gains:
 //   { t: 'duty'; event; role: 'referee'; position; commit: SignedCommit; beacon: Beacon; pondSeed: string;
-//     fighters: string[]; start: EncStart; history: (EncFrame | EncJoin)[] }
+//     fighters: string[]; start: EncStart; history: DutyHistory[] }
+//   DutyHistory = { t: 'enc-frame'; f; i } | { t: 'enc-join'; f; fighter }: the messages without `enc`, which the duty
+//     names (900 full frames with it would pass DUTY_MAX_BYTES); frames from 0 in order, a join due no earlier than them
 //   { t: 'duty'; event; role: 'auditor'; position; commit: SignedCommit; beacon: Beacon; audit: AuditCase }
 //   { t: 'duty-end'; event; why: 'done' | 'taken-back' | 'replaced' | 'struck' }
 //   { t: 'duty-peer'; enc: string; peer: string; on: boolean }       // open (or close) a duty link to `peer`
@@ -283,7 +285,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - `speedTest`: 40 input signatures checked through one tabled key take under 40 ms in Node.
   - Notes: no worker or protocol changes here (T2, T4).
 
-- [ ] T2 Protocol 10: duties, batches, disputes, attestations, signed inputs on the peer link [opus] (after T1)
+- [x] T2 Protocol 10: duties, batches, disputes, attestations, signed inputs on the peer link [opus] (after T1)
+  - Done: `protocol-witness.ts`, with the shared record and commitment parsers moved to `protocol-docs.ts` (a witness commitment has owner `''`); `Authority.dropped` counts batches and disputes past their window, which `refereeWire` opens to fighters (T4 adds the referee duty).
+  - Gotcha: the shapes changed: a duty's history drops `enc` (900 frames with it pass 128 KB), and `BATCH_MAX_BYTES` is 12,288 (20 frames of 4 signed inputs pass 8 KB). New messages refuse unknown fields.
   - Steps:
     1. `PROTOCOL_VERSION` 10. A protocol-9 hello gets `error: version`.
     2. The messages and peer events above. Parsers go in `src/net/protocol-witness.ts`, and `protocol-parse.ts` dispatches to them.
