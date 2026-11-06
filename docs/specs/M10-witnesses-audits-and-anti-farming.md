@@ -483,7 +483,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
   - Notes: TURN credentials are already per session, so a duty link uses the same ICE servers as pond links.
   - Done: `OnlineSession.dutyPeer` enforces the rules today (pond links do not go through `ConnectionPolicy` yet, which also carries them and is unit-tested). T7 must call `dutyPeer` for each fighter on a `duty`.
 
-- [ ] T7 The referee duty in the browser, and the fighters' route [opus] (after T5, T6) (in progress)
+- [x] T7 The referee duty in the browser, and the fighters' route [opus] (after T5, T6) (in progress)
+  - Done: `app-witness.ts` (selection check, links, then `duty-ok`; an input's check, a frame's step and its signature each in a task of its own), the route in `FightPlay`, `DutyProbes`; the witness crypto loads lazily, as the shell must never import `@noble/curves`.
+  - Gotcha: a page accepts only once every fighter's link is open (else `duty-no` after 4 s); `stage` reloads B, whose page then draws and starved C's handlers, so `trio` skips its draw again.
   - Steps:
     1. `src/game/app-duty.ts` dispatches `duty`: a referee duty to `app-witness.ts`; an auditor duty to T8's module, answered `duty-no` until T8 lands.
     2. `src/game/app-witness.ts`:
