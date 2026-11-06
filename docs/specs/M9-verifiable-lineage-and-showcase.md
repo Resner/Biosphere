@@ -432,7 +432,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - The cache headers are as above, and a second request for a dead creature's bundle doesn't reach the object (an RPC counter).
   - Notes: the bundle must reach only creatures that the subject's records name, never another player's other creatures. T12 builds the card on these endpoints.
 
-- [ ] T8 The audit: one curve for the authority and the verifier, and flags for conflicts, replays and implausible progress [opus] (after T4, T5, T6, T7, T9)
+- [ ] T8 The audit: one curve for the authority and the verifier, and flags for conflicts, replays and implausible progress [opus] (after T4, T5, T6, T7, T9) (in progress)
   - Steps:
     1. **The bounds per record interval** (ADR 0055), in `worker/life.ts` and `worker/lives.ts`, through `src/ledger/gates.ts`:
        - writing any record of a creature rebinds its connection's clock cap to that record's `t` and `activeMs`;
