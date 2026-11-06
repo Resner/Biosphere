@@ -106,6 +106,26 @@ describe('the bounds per record interval', () => {
     expect(ack.activeMs - (record.body.activeMs as number)).toBe(5_000 + CLOCK_SLACK_MS);
   });
 
+  it('clamps a lock-in claim over the wall time since the last record', async () => {
+    const [a, b] = await pair();
+    // Reports since the binding move nothing the claim's bound counts from.
+    a.ticks = 10 * TICK_HZ;
+    report(a.c, a.ticks);
+    await nextOf(a.c, 'ack');
+    const life = must(await lifeOn(a));
+    const engagedAt = clock.t;
+    const [start] = await lockIn(
+      a,
+      b,
+      undefined,
+      snap(a, ...NEAR.a, { biomass: 400, energy: 0.1, health: 0.1 }),
+    );
+    const fa = must(start.fighters.find((f) => f.player === a.id.playerId));
+    expect(Math.round(fa.biomass * 100)).toBe(
+      reachAt(life.boundBiomass, life.growth, engagedAt - life.boundT),
+    );
+  });
+
   it('refuses a mating under the maturity size, which a test world shortens', async () => {
     const [a, b] = await mates();
     // A body under 60% of its adult size at scale 1.
