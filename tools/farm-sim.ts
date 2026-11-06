@@ -11,7 +11,7 @@ import { cooldownMs } from '../src/sim/mating';
 import { RULES } from '../src/sim/rules';
 import rounds from '../tests/fixtures/drand/rounds.json';
 
-const MIN = 60_000;
+export const MIN = 60_000;
 /** One report: the resolution of every time the simulation measures. */
 export const REPORT_MS = 30_000;
 /** The honest forager's growth in biomass per minute across the growth band (`forageGainPerMinute`). */
@@ -132,7 +132,10 @@ export function gatesOf(farm: Measure, honest: Measure): Gate[] {
   const killsOf = (bot: number) => farm.kills.filter((k) => k.victim === bot).length;
   const worstBot = Math.max(
     0,
-    ...[...byBot].map(([bot, worth]) => worth - floor * Math.max(0, killsOf(bot) - 7)),
+    ...[...byBot].map(
+      ([bot, worth]) =>
+        worth - floor * Math.max(0, killsOf(bot) - (RULES.encounter.farming.maxHalvings + 1)),
+    ),
   );
   const young = farm.kills.filter((k) => k.victimPlayMs < RULES.encounter.farming.youngPlayMs);
   const share = dutyShare(farm.bots);
@@ -145,6 +148,8 @@ export function gatesOf(farm: Measure, honest: Measure): Gate[] {
       ok:
         gen3 !== null &&
         gen3 >= minimum &&
+        // Independent of the hub's own acks: no creature of the lineage matures under the rulebook's minimum.
+        farm.lives.slice(0, 3).every((l) => l.matureAtMs >= RULES.life.matureMinMs) &&
         // A farmer's creatures wait for growth at most one report less than the honest pair's.
         lead <= REPORT_MS,
       detail: `generation 3 at ${gen3 === null ? 'never' : minutes(gen3)} min (least the gates allow ${minutes(minimum)}); a creature of the honest pair waits ${minutes(overheadMs(honest))} min beyond its own gate, the farmer's ${minutes(overheadMs(farm))}`,

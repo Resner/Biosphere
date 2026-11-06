@@ -3,6 +3,7 @@ import { RULES } from '../src/sim/rules';
 import { heavyTest } from '../tests/heavy';
 import {
   dutyShare,
+  FARM_SIZES,
   farmReport,
   gatesOf,
   HONEST_GAIN_PER_MIN,
@@ -10,11 +11,10 @@ import {
   type KillLog,
   type LifeLog,
   type Measure,
+  MIN,
   overheadMs,
 } from './farm-sim';
 import { forageGainPerMinute } from './pacing-report';
-
-const MIN = 60_000;
 
 const life = (startedAt: number, waited = 0): LifeLog => ({
   startedAt,
@@ -115,7 +115,7 @@ describe('the gates', () => {
 
 describe('the duty share', () => {
   it('stays within N ÷ (N + H) + 0.1 over 200 events for 1, 4 and 16 bots', () => {
-    for (const n of [1, 4, 16]) {
+    for (const n of FARM_SIZES) {
       expect(dutyShare(n)).toBeLessThanOrEqual(n / (n + HONEST_WITNESSES) + 0.1);
     }
   });

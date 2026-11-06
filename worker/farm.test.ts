@@ -1,7 +1,14 @@
 import { beforeEach, describe, expect } from 'vitest';
 import { heavyTest } from '../tests/heavy';
-import { farmReport, gatesOf, HONEST_GAIN_PER_MIN, type Measure } from '../tools/farm-sim';
-import { HOUR, runScenario, type Scenario } from './farm-kit';
+import {
+  FARM_SIZES,
+  farmReport,
+  gatesOf,
+  HONEST_GAIN_PER_MIN,
+  type Measure,
+  MIN,
+} from '../tools/farm-sim';
+import { runScenario, type Scenario } from './farm-kit';
 import { clock, useFightHub } from './fight-test-kit';
 
 // M10 T13 (ADR 0059): the bot-farm simulation. Scripted identities on one hub, on the hand clock, under
@@ -30,7 +37,7 @@ const farm = (bots: number): Scenario => ({
   farmer: 'max',
   botGrowth: 'max',
   hours: 3,
-  killEveryMs: 6 * 60_000,
+  killEveryMs: 6 * MIN,
 });
 
 const measures = new Map<string, Measure>();
@@ -45,10 +52,10 @@ describe('the farm simulation', () => {
   heavyTest('the honest pair reaches generation 3 on the gates alone', async () => {
     const m = await measure(HONEST);
     expect(m.gen3AtMs).not.toBeNull();
-    expect(m.hours * HOUR).toBeGreaterThan(m.gen3AtMs ?? Number.POSITIVE_INFINITY);
+    expect(m.hours * 60 * MIN).toBeGreaterThan(m.gen3AtMs ?? Number.POSITIVE_INFINITY);
   });
 
-  for (const bots of [1, 4, 16]) {
+  for (const bots of FARM_SIZES) {
     heavyTest(`a farmer with ${bots} bots meets the gates`, async () => {
       const honest = measures.get('honest');
       if (!honest) throw new Error('the honest pair runs first');
@@ -62,6 +69,6 @@ describe('the farm simulation', () => {
   heavyTest('the report states every gate of every farm as met', () => {
     const report = farmReport([...measures.values()]);
     expect(report).not.toContain('MISSED');
-    expect(report.match(/\| met \|/g)).toHaveLength(15);
+    expect(report.match(/\| met \|/g)).toHaveLength(FARM_SIZES.length * 5);
   });
 });

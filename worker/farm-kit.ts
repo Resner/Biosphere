@@ -4,16 +4,15 @@ import { rarityOf } from '../src/genome/rarity';
 import { buildCreature } from '../src/genome/stats';
 import { LIVE_SCALES, matureBiomassOf, reachAt, vitalsCap } from '../src/ledger/gates';
 import { createIdentity, type Identity, memoryKeyStore } from '../src/ledger/identity';
-import { type Born, genomeRefOf, type HubMsg } from '../src/net/protocol';
+import { type Born, genomeRefOf } from '../src/net/protocol';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import { sizeTier } from '../src/sim/size';
 import type { KillLog, LifeLog, Measure } from '../tools/farm-sim';
-import { REPORT_MS } from '../tools/farm-sim';
+import { MIN, REPORT_MS } from '../tools/farm-sim';
 import {
   advance,
   authority,
   clock,
-  type EncEnd,
   engage,
   join,
   killB,
@@ -33,17 +32,16 @@ import {
 } from './lineage-test-kit';
 import { fallbackAfter } from './lives';
 import { flush, nextOf, report, sql } from './test-hub';
-import { eligible, playedMs } from './witness-pool';
-import { setAvail } from './witness-test-kit';
+import { playedMs } from './witness-pool';
+import { poolNow, setAvail } from './witness-test-kit';
 
 // The bot-farm simulation's hands (M10 T13, ADR 0059): scripted identities on one hub, on the hand
 // clock, under the live scales. A test aid: they never join the live world. `worker/farm.test.ts`
 // drives them; `tools/farm-sim.ts` holds the strategies' numbers and the report.
 
-export const MIN = 60_000;
 /** The snapshot sequence the fights' signed claims use: a later engage must not look older. */
 let seq = 0;
-export const HOUR = 60 * MIN;
+const HOUR = 60 * MIN;
 const FIGHT = RULES.encounter;
 
 /** How a player's reports grow its creature. */
@@ -57,8 +55,6 @@ export interface Actor extends Grower {
   /** The creature's last ack. */
   ack: { activeMs: number; matureAtMs: number; cooldownUntilMs: number };
   growth: Growth;
-  /** Children born to this identity (one per mating). */
-  matings: number;
   /** Hub times of each promotion, gen 1 first. */
   promotedAt: number[];
   /** False while the actor is locked in a fight: its reports wait. */
@@ -92,7 +88,6 @@ export async function actor(growth: Growth, t0: number, seed?: Identity): Promis
     last: clock.t,
     ack: { ...ackOf },
     growth,
-    matings: 0,
     promotedAt: [],
     free: true,
     waiting: false,
@@ -126,21 +121,15 @@ export async function reportNow(a: Actor): Promise<void> {
   a.ticks += Math.round((ms * TICK_HZ) / 1000);
   report(a.c, a.ticks, claimOf(a, life.biomass, ms));
   // The ack, or the death that old age (or anything else that ends the life) sends instead.
-  let ack: Extract<HubMsg, { t: 'ack' }> | undefined;
   for (;;) {
     const msg = await a.c.next();
     if (msg.t === 'ack') {
-      ack = msg;
-      break;
+      a.ack = msg;
+      lifeOf(a).matureAtMs = msg.matureAtMs;
+      return;
     }
-    if (msg.t === 'died') break;
+    if (msg.t === 'died') return recover(a);
   }
-  if (!ack) {
-    await recover(a);
-    return;
-  }
-  a.ack = ack;
-  lifeOf(a).matureAtMs = ack.matureAtMs;
 }
 
 /** Moves the hub's clock by `ms`, then every actor reports. */
@@ -179,7 +168,6 @@ export async function mate(a: Actor, b: Actor, children: string[]): Promise<void
   for (const p of [a, b]) {
     lifeOf(p).matedAtMs = p.ack.activeMs;
     lifeOf(p).children = 1;
-    p.matings += 1;
   }
   children.push(bornA.genome, bornB.genome);
   await adopt(a, bornA);
@@ -191,18 +179,6 @@ export async function mate(a: Actor, b: Actor, children: string[]): Promise<void
   }
 }
 
-export interface Kill {
-  /** What the victim's player had played, in ms, and its worth as prey in the fight's start. */
-  victimPlayMs: number;
-  worth: number;
-  /** The victim's size at the fight's start (wu). */
-  victimBiomass: number;
-  /** The killer's reward and the carrion's food, in wu of biomass. */
-  reward: number;
-  carrion: number;
-  end: EncEnd;
-}
-
 /** What the authority counts as the identity's play: the measure of eligibility and of worth. */
 const playedOf = (a: Actor): Promise<number> => authority((o) => playedMs(o, a.id.playerId));
 
@@ -210,7 +186,10 @@ const playedOf = (a: Actor): Promise<number> => authority((o) => playedMs(o, a.i
  * `killer` locks `victim` in at 1 hp and kills it. Both must be out of spawn protection and
  * past their reports. The victim falls back to its ancestor (restored) or a new hatch.
  */
-export async function slay(killer: Actor, victim: Actor): Promise<Kill> {
+export async function slay(
+  killer: Actor,
+  victim: Actor,
+): Promise<Omit<KillLog, 'victim' | 'atMs'>> {
   for (const p of [killer, victim]) await reportNow(p);
   killer.free = false;
   victim.free = false;
@@ -228,23 +207,23 @@ export async function slay(killer: Actor, victim: Actor): Promise<Kill> {
   await nextOf(victim.c, 'lock-ask');
   await advance(FIGHT.lockAnswerMs);
   const [start] = await Promise.all([nextOf(killer.c, 'enc-start'), nextOf(victim.c, 'enc-start')]);
-  const slot = start.fighters.findIndex((f) => f.player === victim.id.playerId);
-  const worth = start.fighters[slot]?.worth ?? 1;
+  const worth = start.fighters.find((f) => f.player === victim.id.playerId)?.worth ?? 1;
   const { end } = await killB(killer, victim, start);
   const settled = end.settlement?.settlement.results.find((r) => r.player === killer.id.playerId);
   killer.free = true;
   victim.free = true;
   killer.last = clock.t;
   victim.last = clock.t;
-  const kills = FIGHT.reward;
   return {
     victimPlayMs: await playedOf(victim),
     worth,
     victimBiomass: sizeV,
     reward: (settled?.reward ?? 0) / 100,
     carrion:
-      kills.carrion * end.fighters.filter((f) => f.outcome === 'killed').length * sizeV * worth,
-    end,
+      FIGHT.reward.carrion *
+      end.fighters.filter((f) => f.outcome === 'killed').length *
+      sizeV *
+      worth,
   };
 }
 
@@ -255,14 +234,13 @@ export async function slay(killer: Actor, victim: Actor): Promise<Kill> {
 export async function recover(a: Actor): Promise<void> {
   const dead = a.creature;
   const fallback = await authority((o) => fallbackAfter(o, o.ledger.head(dead)));
-  if (fallback.ancestor) {
-    await restoreAncestor(a, fallback.ancestor, dead);
-  } else {
+  if (!fallback.ancestor) {
     // Nothing to fall back on: it hatches again once its bucket has a hatch (ADR 0021's genesis bucket).
     a.waiting = true;
     a.free = false;
     return;
   }
+  await restoreAncestor(a, fallback.ancestor, dead);
   await adoptLife(a);
 }
 
@@ -306,13 +284,16 @@ export interface Scenario {
   killEveryMs: number;
 }
 
-/** When a bot identity checks its eligibility as a witness: before and after the 20 minutes of play. */
-const CHECKS = [19 * MIN, 21 * MIN] as const;
+/** When the bots' eligibility as witnesses is read: before and after the 20 minutes of play. */
+const CHECKS = [
+  ['before', 19 * MIN],
+  ['after', 21 * MIN],
+] as const;
 
 /** How many of `bots` the pool the object would draw now holds. */
 async function pooled(bots: readonly Actor[]): Promise<number> {
   for (const b of bots) await setAvail(b.c, true);
-  const pool = await authority((o) => eligible(o, [], clock.t));
+  const pool = await poolNow();
   for (const b of bots) await setAvail(b.c, false);
   const ids = new Set(bots.map((b) => b.id.playerId));
   return pool.filter((id) => ids.has(id)).length;
@@ -350,22 +331,13 @@ export async function runScenario(o: Scenario): Promise<Measure> {
   const kill = async (victim: Actor, index: number): Promise<boolean> => {
     if (victim.waiting) return false;
     await pass(all, 16_000);
-    const mine = sizeTier(must(await lifeOn(farmer)).biomass / 100);
-    const theirs = sizeTier(must(await lifeOn(victim)).biomass / 100);
+    const mine = sizeTier(await sizeOf(farmer));
+    const theirs = sizeTier(await sizeOf(victim));
     if (Math.abs(theirs - mine) > RULES.encounter.maxTierGap) return false;
-    const k = await slay(farmer, victim);
-    kills.push({
-      victim: index,
-      atMs: clock.t - t0,
-      victimPlayMs: k.victimPlayMs,
-      worth: k.worth,
-      victimBiomass: k.victimBiomass,
-      reward: k.reward,
-      carrion: k.carrion,
-    });
+    kills.push({ victim: index, atMs: clock.t - t0, ...(await slay(farmer, victim)) });
     return true;
   };
-  const checks: Array<(typeof CHECKS)[number]> = [...CHECKS];
+  let nextCheck = 0;
 
   while (clock.t < end) {
     await pass(all, REPORT_MS);
@@ -377,11 +349,10 @@ export async function runScenario(o: Scenario): Promise<Measure> {
     }
     if (gen3AtMs === null && farmer.gen >= 3) gen3AtMs = (farmer.promotedAt[2] as number) - t0;
 
-    if (checks[0] !== undefined && now >= checks[0] && o.bots > 0) {
-      const n = await pooled(bots);
-      if (checks[0] === CHECKS[0]) eligibility.before = n;
-      else eligibility.after = n;
-      checks.shift();
+    const due = CHECKS[nextCheck];
+    if (due && o.bots > 0 && now >= due[1]) {
+      eligibility[due[0]] = await pooled(bots);
+      nextCheck += 1;
     }
 
     if (await ready(farmer)) {
