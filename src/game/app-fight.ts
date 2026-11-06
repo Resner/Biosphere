@@ -3,6 +3,7 @@
 // `render/telegraph.ts` and `eggs.ts`; this reads the fight each tick and each frame and hands
 // them what they draw.
 
+import { AUTHORITY } from '../net/handover';
 import type { CellView } from '../render/cell';
 import { type TelegraphMark, Telegraphs, windupGlow } from '../render/telegraph';
 import { EGG_CODE } from '../sim/encounter/egg';
@@ -131,7 +132,8 @@ export class FightShow {
     }
     const marks = telegraphs.end();
     const own = sync?.slot ?? -1;
-    const view = combatHudOf(sync?.enc ?? null, own, fight.stance, fight.fighting);
+    const witness = fight.referee() !== AUTHORITY;
+    const view = combatHudOf(sync?.enc ?? null, own, fight.stance, fight.fighting, witness);
     this.hud.update(view, self ?? NO_SELF, remoteViews, p);
     return marks;
   }

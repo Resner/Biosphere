@@ -24,6 +24,7 @@ import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
 import type { FightShowView } from './app-fight';
+import type { WitnessDutyView } from './app-witness';
 import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
 import type { Chip, HudBars } from './hud';
@@ -247,8 +248,19 @@ export interface BsState {
     dutyLinks: DutyLink[];
     strangers: number;
   };
-  /** Witness duty (M10 T6): `avail`, whether the hub was last told this page can witness. */
-  witness: { avail: boolean };
+  /**
+   * Witness duty (M10 T6, T7): `avail`, whether the hub was last told this page can witness; the
+   * referee duty held now (null without one); the duties accepted, the offers declined and the
+   * batches sent over the page's life; and each duty handler's time in ms (the last 600).
+   */
+  witness: {
+    avail: boolean;
+    duty: WitnessDutyView | null;
+    duties: number;
+    declined: number;
+    batches: number;
+    dutyMs: number[];
+  };
   /**
    * Edge indicators as last drawn (M6 T19): the nearest six pond players off screen and the
    * nearby pings off screen. `angle` is the world bearing from the player in degrees

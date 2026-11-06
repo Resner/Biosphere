@@ -381,7 +381,14 @@ export function installAppHook(app: App): void {
           dutyLinks: keeper.current?.dutyLinks() ?? [],
           strangers: keeper.current?.strangers ?? 0,
         },
-        witness: { avail: app.duty.avail.on },
+        witness: {
+          avail: app.duty.avail.on,
+          duty: app.duty.witness.view(),
+          duties: app.duty.witness.duties,
+          declined: app.duty.witness.declined,
+          batches: app.duty.witness.batches,
+          dutyMs: [...app.duty.witness.dutyMs],
+        },
       };
     },
     events: () => ({ ...app.session.counts }),

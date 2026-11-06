@@ -166,6 +166,36 @@
   display: none;
 }
 
+/* A witness referees the fight (M10): a small eye beside the buttons, named on hover. */
+.witness-mark {
+  display: grid;
+  place-items: center;
+  align-self: center;
+  width: 18px;
+  height: 18px;
+  margin: 0;
+  color: rgb(190 227 242 / 0.85);
+  pointer-events: auto;
+}
+
+.witness-mark[hidden] {
+  display: none;
+}
+
+.witness-mark svg {
+  width: 14px;
+  height: 14px;
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.5;
+  filter: drop-shadow(0 0 2px rgb(0 0 0 / 0.9));
+}
+
+.witness-mark circle {
+  fill: currentcolor;
+  stroke: none;
+}
+
 /* In a fight the size and life bars step aside (growth and age wait), so the HUD keeps its 6%. */
 [data-fighting] [data-testid="hud-bar-size"],
 [data-fighting] [data-testid="hud-bar-life"] {

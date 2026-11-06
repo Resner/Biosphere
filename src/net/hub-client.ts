@@ -49,10 +49,13 @@ export type LifeMsg = Extract<
   }
 >;
 
-/** The hub's word about fights (M7): a lock ask, then a refereed encounter's start, frames and end. */
+/**
+ * The hub's word about fights (M7): a lock ask, then a refereed encounter's start, frames and end,
+ * and who referees it from which frame (`enc-referee`, M10).
+ */
 export type FightMsg = Extract<
   HubMsg,
-  { t: 'lock-ask' | 'enc-start' | 'enc-frame' | 'enc-join' | 'enc-end' | 'carrion' }
+  { t: 'lock-ask' | 'enc-start' | 'enc-frame' | 'enc-join' | 'enc-referee' | 'enc-end' | 'carrion' }
 >;
 
 /** Witness duties (M10, ADR 0058): an offer, its end, and a fighter's duty link to its witness. */
@@ -267,6 +270,7 @@ export class HubClient {
       case 'enc-start':
       case 'enc-frame':
       case 'enc-join':
+      case 'enc-referee':
       case 'enc-end':
       case 'carrion':
         for (const fn of [...this.fightListeners]) guarded(() => fn(msg));

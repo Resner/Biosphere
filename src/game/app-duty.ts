@@ -1,12 +1,18 @@
-// Witness duty in the page (M10, ADR 0058). `Availability` decides the `avail` the hub hears: the
+// Witness duty in the page (M10, ADR 0058). `DutyWiring` dispatches the hub's duties: a referee
+// duty to `app-witness.ts`, an auditor duty answered `duty-no` until audits land (T8). `DutyProbes`
+// measures the round trip on each duty link, for a fighter's lead. `Availability` decides the `avail` the hub hears: the
 // page can witness only while the tab is visible, Settings' "Help referee fights" is on, the
 // player is neither locked nor fighting, and its frame times' 90th percentile over the last 5 s
 // is at most 50 ms. Off goes out at once; on only once all of that has held for 5 s and 5 s after
 // the last message, so a flapping tab sends at most one message per 5 s and the hub (which counts
 // an `on` at most once per 5 s) never drops one.
 
+import type { DutyMsg } from '../net/hub-client';
+import type { PeerEvent } from '../net/protocol';
+import type { FighterInput } from '../net/witness-referee';
 import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
+import { type EncFrameMsg, type EncRefereeMsg, WitnessDuties } from './app-witness';
 
 /** The frame times judged, and how long everything must hold before an `on`. */
 export const AVAIL_WINDOW_MS = 5000;
@@ -95,18 +101,116 @@ export class Availability {
   }
 }
 
-/** The page's side of witness duty: its `avail`, judged each frame and on the page's own events. */
+/** A probe goes out on each duty link this often. */
+export const PROBE_EVERY_MS = 1000;
+/** An unanswered probe is forgotten after this long. */
+const PROBE_KEEP_MS = 5000;
+/** Each new round trip moves the estimate this far. */
+const RTT_WEIGHT = 0.25;
+
+type Probe = Extract<PeerEvent, { t: 'probe' }>;
+
+/** Round trips on the duty links (ADR 0058): a probe every second, answered at once. */
+export class DutyProbes {
+  private n = 0;
+  private last = Number.NEGATIVE_INFINITY;
+  private readonly out = new Map<number, { peer: string; at: number }>();
+  private readonly rtt = new Map<string, number>();
+
+  constructor(private readonly send: (peer: string, ev: Probe) => void) {}
+
+  /** Each frame: a probe to every open duty link once a second. */
+  tick(now: number, peers: readonly string[]): void {
+    if (now - this.last < PROBE_EVERY_MS) return;
+    this.last = now;
+    for (const [n, o] of this.out) if (now - o.at > PROBE_KEEP_MS) this.out.delete(n);
+    for (const peer of peers) {
+      this.n = (this.n + 1) % 1_000_000;
+      this.out.set(this.n, { peer, at: now });
+      this.send(peer, { t: 'probe', n: this.n, back: false });
+    }
+  }
+
+  /** A peer's probe is answered; an answer to one of ours is a round trip. */
+  receive(from: string, ev: Probe, now: number): void {
+    if (!ev.back) {
+      this.send(from, { t: 'probe', n: ev.n, back: true });
+      return;
+    }
+    const sent = this.out.get(ev.n);
+    if (!sent || sent.peer !== from) return;
+    this.out.delete(ev.n);
+    const sample = now - sent.at;
+    const prev = this.rtt.get(from);
+    this.rtt.set(from, prev === undefined ? sample : prev + (sample - prev) * RTT_WEIGHT);
+  }
+
+  /** Half the round trip to `peer`, or null before one came back. */
+  oneWayMs(peer: string): number | null {
+    const rtt = this.rtt.get(peer);
+    return rtt === undefined ? null : rtt / 2;
+  }
+}
+
+/** The page's side of witness duty: its `avail`, the duties offered to it and its duty links' probes. */
 export class DutyWiring {
   readonly avail: Availability;
+  readonly witness: WitnessDuties;
+  readonly probes: DutyProbes;
 
   constructor(private readonly app: App) {
     this.avail = new Availability((on) => app.keeper.current?.send({ t: 'avail', on }));
+    const link = () => app.keeper.current;
+    this.probes = new DutyProbes((peer, ev) => link()?.sendEvent(peer, ev));
+    this.witness = new WitnessDuties({
+      identity: () => app.identity,
+      hubNow: () => link()?.clock.hubNow(performance.now()) ?? performance.now(),
+      perfNow: () => performance.now(),
+      sendHub: (msg) => link()?.send(msg),
+      sendPeer: (peer, ev) => link()?.sendEvent(peer, ev),
+      dutyPeer: (enc, peer, on) => link()?.dutyPeer(enc, peer, on),
+      linkOpen: (peer) =>
+        link()
+          ?.dutyLinks()
+          .some((l) => l.peer === peer && l.open) === true,
+      busy: () => app.fight.fighting || app.attack.waiting,
+      setTimer: (fn, ms) => setTimeout(fn, ms),
+      clearTimer: (t) => clearTimeout(t as ReturnType<typeof setTimeout>),
+    });
+  }
+
+  /** A duty message from the hub (the session has opened or closed its links already). */
+  receive(msg: DutyMsg): void {
+    if (msg.t === 'duty') {
+      if (msg.role === 'referee') this.witness.offer(msg);
+      // Audits come with T8: until then an auditor duty is declined.
+      else this.app.keeper.current?.send({ t: 'duty-no', event: msg.event });
+    } else if (msg.t === 'duty-end') {
+      this.witness.end(msg);
+    }
+  }
+
+  /** A fight message the page hears: a duty's frames before its handover, and the handover. */
+  fight(msg: EncFrameMsg | EncRefereeMsg): void {
+    this.witness.hubMsg(msg);
+  }
+
+  /** A witness event on a duty link: a fighter's input to this witness, or a probe. */
+  peerEvent(from: string, ev: FighterInput | Probe): void {
+    if (ev.t === 'probe') this.probes.receive(from, ev, performance.now());
+    else this.witness.input(from, ev);
   }
 
   /** A frame took `ms`. */
   frame(now: number, ms: number): void {
     this.avail.frame(now, ms);
     this.update(now);
+    const links = this.app.keeper.current?.dutyLinks() ?? [];
+    this.probes.tick(
+      now,
+      links.filter((l) => l.open).map((l) => l.peer),
+    );
+    this.app.hud.setWitness(this.witness.onDuty);
   }
 
   /** Judges availability now: each frame, and at once when visibility or the settings change. */
@@ -119,8 +223,9 @@ export class DutyWiring {
     });
   }
 
-  /** Every welcome is a new hub session, which has heard nothing yet. */
+  /** Every welcome is a new hub session, which has heard nothing yet and holds no duty of this page's. */
   welcome(): void {
     this.avail.reset();
+    this.witness.reset();
   }
 }

@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest';
-import { AVAIL_EVERY_MS, AVAIL_WINDOW_MS, Availability, type AvailInputs } from './app-duty';
+import type { PeerEvent } from '../net/protocol';
+import {
+  AVAIL_EVERY_MS,
+  AVAIL_WINDOW_MS,
+  Availability,
+  type AvailInputs,
+  DutyProbes,
+  PROBE_EVERY_MS,
+} from './app-duty';
 
 // M10 T6: the page's `avail` (ADR 0058) on a fake clock: on only while the tab is visible, the
 // setting on, the player not locked or fighting and its frame times' p90 over 5 s at most 50 ms.
@@ -109,5 +117,29 @@ describe('Availability', () => {
     expect(h.avail.on).toBe(false);
     h.run(FRAME_MS);
     expect(h.sent.map(([, on]) => on)).toEqual([true, true]);
+  });
+});
+
+describe('duty link probes (M10 T7)', () => {
+  it('probes each open duty link once a second, answers probes, and halves the round trip', () => {
+    const sent: [string, PeerEvent][] = [];
+    const probes = new DutyProbes((peer, ev) => sent.push([peer, ev]));
+    probes.tick(0, ['w', 'x']);
+    probes.tick(PROBE_EVERY_MS - 1, ['w', 'x']);
+    expect(sent.map(([p]) => p)).toEqual(['w', 'x']);
+    expect(probes.oneWayMs('w')).toBeNull();
+    const [, first] = sent[0] as [string, PeerEvent];
+    if (first.t !== 'probe') throw new Error('not a probe');
+    // An answer from another peer, or to no probe, counts for nothing.
+    probes.receive('x', { t: 'probe', n: first.n, back: true }, 40);
+    probes.receive('w', { t: 'probe', n: 999, back: true }, 40);
+    expect(probes.oneWayMs('w')).toBeNull();
+    probes.receive('w', { t: 'probe', n: first.n, back: true }, 40);
+    expect(probes.oneWayMs('w')).toBe(20);
+    // A peer's probe is answered at once with its own number.
+    probes.receive('w', { t: 'probe', n: 7, back: false }, 50);
+    expect(sent.at(-1)).toEqual(['w', { t: 'probe', n: 7, back: true }]);
+    probes.tick(PROBE_EVERY_MS, ['w']);
+    expect(sent.filter(([, ev]) => ev.t === 'probe' && !ev.back)).toHaveLength(3);
   });
 });

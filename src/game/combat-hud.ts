@@ -38,6 +38,8 @@ export interface CombatHudView {
   opponents: { player: string; health: number }[];
   /** 0..1, how far the escape has run (the player out of every opponent's escape range). */
   escape: number;
+  /** A witness referees the fight now (M10 T7): the small eye, "Refereed by a witness". */
+  witness: boolean;
 }
 
 const HIDDEN: CombatHudView = {
@@ -46,6 +48,7 @@ const HIDDEN: CombatHudView = {
   brace: { ready: false, cooldown: 0, active: false },
   opponents: [],
   escape: 0,
+  witness: false,
 };
 
 /** The HUD for the player in slot `own` of a fight, or hidden when it is not locked in one. */
@@ -54,6 +57,7 @@ export function combatHudOf(
   own: number,
   stance: Stance,
   locked: boolean,
+  witness = false,
 ): CombatHudView {
   const me = enc?.fighters[own];
   if (!enc || !me || !locked || me.status !== 'in') return HIDDEN;
@@ -76,6 +80,7 @@ export function combatHudOf(
         health: clamp(f.body.health / maxHealth(f.body.biomass), 0, 1),
       })),
     escape: Math.min(1, me.outside / E.escapeTicks),
+    witness,
   };
 }
 
@@ -141,6 +146,7 @@ export class CombatHud {
   private readonly braceButton = pick<HTMLButtonElement>('[data-testid="brace"]');
   private readonly cooldown = pick<SVGCircleElement>('[data-testid="brace-cooldown"]');
   private readonly marks = pick<SVGSVGElement>('[data-testid="combat-marks"]');
+  private readonly witnessMark = pick('[data-testid="witness-mark"]');
   private readonly arcs: Ring[] = [];
   private readonly escapeRing: Ring;
   private lastStance: Stance | null = null;
@@ -177,6 +183,7 @@ export class CombatHud {
       this.marks.style.display = view.shown ? '' : 'none';
     }
     if (!view.shown) return;
+    if (this.witnessMark.hidden === view.witness) this.witnessMark.hidden = !view.witness;
     this.updateButtons(view);
     let used = 0;
     for (const o of view.opponents) {

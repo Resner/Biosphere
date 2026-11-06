@@ -1,12 +1,16 @@
-import { describe, expect, it } from 'vitest';
+import { beforeAll, describe, expect, it } from 'vitest';
 import { hunterFighter, IDLE_CODE, starterFighter, startOf } from '../../tests/encounter-fixture';
 import { Link, ScriptedReferee, startMsg, TEST_POND } from '../../tests/scripted-referee';
 import { genomeFromBase64url, genomeHash } from '../genome/codec';
+import { createIdentity, type Identity, memoryKeyStore } from '../ledger/identity';
+import { keyVerifier } from '../ledger/key-verify';
+import { inputSigned, signInput, signWitnessFrame, witnessFrameSigned } from '../ledger/witness';
 import { PondClock } from '../net/clock';
 import { encounterStartOf } from '../net/encounter-start';
 import type { InputMsg } from '../net/encounter-sync';
 import type { FightMsg, HubStatus, Welcome } from '../net/hub-client';
-import { type ClientMsg, genomeRefOf } from '../net/protocol';
+import { type ClientMsg, genomeRefOf, type PeerEvent } from '../net/protocol';
+import { FRAME_MS } from '../net/referee';
 import { decodeFrameInput } from '../sim/encounter/codec';
 import { createEncounter, stepFrame } from '../sim/encounter/encounter';
 import type { Input } from '../sim/input';
@@ -246,5 +250,117 @@ describe('FightPlay with the fake online session', () => {
     }
     expect(seen.some((l) => l <= AUTO_BRACE_TICKS)).toBe(true);
     expect(seen.some((l) => l > AUTO_BRACE_TICKS)).toBe(true);
+  });
+});
+
+describe('a fighter’s route to a witness (M10 T7)', () => {
+  let a: Identity;
+  let w: Identity;
+  beforeAll(async () => {
+    [a, w] = await Promise.all([
+      createIdentity(memoryKeyStore()),
+      createIdentity(memoryKeyStore()),
+    ]);
+  });
+
+  /** A fighting page for `a` (slot 0) on a hand clock, its sends to the hub and to the witness kept. */
+  function fighter() {
+    const msg = startMsg();
+    msg.fighters = msg.fighters.map((f, s) => (s === 0 ? { ...f, player: a.playerId } : f));
+    const start = encounterStartOf(msg, TEST_POND.seed);
+    const own = start && createEncounter(start).fighters.find((f) => f.player === a.playerId);
+    if (!own) throw new Error('no start');
+    const player: CreatureState = { ...own.body, bornTick: 0 };
+    const world = createWorld(TEST_POND);
+    world.tick = msg.t0;
+    world.creatures.push(player);
+    const clock = { now: msg.at };
+    const hub: ClientMsg[] = [];
+    const toW: [string, PeerEvent][] = [];
+    const play = new FightPlay({
+      me: () => a.playerId,
+      pond: () => TEST_POND,
+      life: () => ({ player, world }),
+      steering: () => ({ steer: 30, throttle: 5, dash: false }),
+      send: (m) => hub.push(m),
+      hubNow: () => clock.now,
+      oneWayMs: () => 0,
+      hidden: () => false,
+      sendWitness: (peer, ev) => toW.push([peer, ev]),
+      signInput: (enc, f, code) => signInput(a, enc, f, code),
+      frameSigned: witnessFrameSigned,
+      peerOneWayMs: () => null,
+    });
+    play.receive(msg);
+    /** Plays up to frame `f` (its start), one tick a frame. */
+    const playTo = (f: number) => {
+      for (let g = play.sync?.frame ?? 0; g <= f; g++) {
+        clock.now = msg.at + g * FRAME_MS + 1;
+        play.tick();
+      }
+    };
+    return { msg, play, hub, toW, playTo };
+  }
+
+  it('sends each input from the handover’s frame to the witness, signed, and back to the hub after a take-back', () => {
+    const { msg, play, hub, toW, playTo } = fighter();
+    const enc = msg.enc;
+    playTo(10);
+    expect(hub.filter((m) => m.t === 'input').length).toBeGreaterThanOrEqual(10);
+    // The handover at frame 9: frame 9 and 10 were sent to the hub already and go to W once more.
+    play.receive({ t: 'enc-referee', enc, from: 9, by: w.playerId });
+    expect(toW.map(([, ev]) => ev.t === 'finput' && ev.f)).toEqual([9, 10]);
+    playTo(20);
+    const hubFrames = hub.flatMap((m) => (m.t === 'input' ? [m.f] : []));
+    expect(Math.max(...hubFrames)).toBe(10);
+    const key = keyVerifier(a.playerId);
+    if (!key) throw new Error('no key');
+    for (const [peer, ev] of toW) {
+      expect(peer).toBe(w.playerId);
+      if (ev.t !== 'finput') throw new Error('not an input');
+      expect(inputSigned(key, enc, ev.f, ev.i, ev.sig)).toBe(true);
+    }
+    expect(play.view()?.referee).toEqual({ by: w.playerId, from: 9 });
+    expect(play.view()?.handovers).toBe(1);
+
+    // A planned take-back from frame 18: frames 18 to 20, sent to W, go to the hub too, and every later one.
+    const sentToW = toW.length;
+    play.receive({ t: 'enc-referee', enc, from: 18, by: 'authority' });
+    expect(hub.flatMap((m) => (m.t === 'input' && m.f >= 18 ? [m.f] : []))).toEqual([18, 19, 20]);
+    playTo(24);
+    expect(toW.length).toBe(sentToW);
+    expect(hub.filter((m) => m.t === 'input' && m.f > 20).length).toBe(4);
+    expect(play.view()?.referee).toEqual({ by: 'authority', from: 18 });
+  });
+
+  it('plays the witness’s signed frames, and the authority’s different frame overrules one with a dispute', () => {
+    const { msg, play, hub, playTo } = fighter();
+    const enc = msg.enc;
+    play.receive({ t: 'enc-referee', enc, from: 1, by: w.playerId });
+    playTo(4);
+    const wframe = (f: number, i: (number | null)[]) => ({
+      t: 'wframe' as const,
+      enc,
+      f,
+      i,
+      sig: signWitnessFrame(w, enc, f, i),
+    });
+    play.receive({ t: 'enc-frame', enc, f: 0, i: [null, null] });
+    // Frame 0 is the authority's: W's is not played.
+    play.witnessFrame(w.playerId, wframe(0, [null, 0]));
+    expect(play.sync?.held).toEqual([[null, null]]);
+    play.witnessFrame(w.playerId, wframe(1, [null, null]));
+    play.witnessFrame(w.playerId, wframe(2, [null, null]));
+    // A forged frame is not played.
+    play.witnessFrame(w.playerId, { ...wframe(3, [null, null]), sig: wframe(3, [null, 1]).sig });
+    expect(play.sync?.confirmed).toBe(3);
+    play.receive({ t: 'enc-frame', enc, f: 1, i: [null, null] });
+    expect(hub.some((m) => m.t === 'dispute')).toBe(false);
+    play.receive({ t: 'enc-frame', enc, f: 2, i: [null, 0] });
+    const disputes = hub.filter((m) => m.t === 'dispute');
+    expect(disputes).toHaveLength(1);
+    expect(disputes[0]).toMatchObject({ enc, f: 2, i: [null, null] });
+    expect(play.sync?.held[2]).toEqual([null, 0]);
+    expect(play.view()?.disputes).toBe(1);
   });
 });

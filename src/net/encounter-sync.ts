@@ -91,6 +91,8 @@ export interface SyncOptions {
    * the same event can come again: a hit names its tick, and the listener drops repeats.
    */
   events?(events: readonly EncounterEvent[]): void;
+  /** Each correction (M10 T7): the frame it replayed from, how many frames, and whether it went back to frame 0. */
+  rolled?(from: number, frames: number, resync: boolean): void;
 }
 
 export class EncounterSync {
@@ -488,12 +490,14 @@ export class EncounterSync {
     const kept = this.states.get(from);
     if (upTo - from > KEEP_FRAMES || !kept) {
       this.resyncs++;
+      this.opts.rolled?.(from, upTo - from, true);
       this.states.clear();
       this.enc = createEncounter(this.origin);
       this.frame = 0;
     } else {
       this.rollbacks++;
       this.longestRollback = Math.max(this.longestRollback, upTo - from);
+      this.opts.rolled?.(from, upTo - from, false);
       this.enc = kept;
       this.frame = from;
     }
