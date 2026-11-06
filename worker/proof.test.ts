@@ -2,7 +2,7 @@ import { exports } from 'cloudflare:workers';
 import { describe, expect, it } from 'vitest';
 import { type Genome, genomeFromBase64url, genomeHash } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
-import { matureBiomassOf, reachAt, vitalsCap } from '../src/ledger/gates';
+import { LIVE_SCALES, matureBiomassOf, reachAt, vitalsCap } from '../src/ledger/gates';
 import { type Identity, toBase64Url } from '../src/ledger/identity';
 import { type MateAsk, signMateAsk } from '../src/ledger/mating';
 import type { ProofBundle } from '../src/ledger/proof';
@@ -196,7 +196,7 @@ async function history() {
   let a = await grower(await rehatch(pa));
   const b = await grower(await rehatch(pb));
   for (const p of [a, b]) await firstSeenAgo(p);
-  for (const p of [a, b]) await growTo(p, Math.ceil(matureBiomassOf(p.genome) * 1.02));
+  for (const p of [a, b]) await growTo(p, Math.ceil(matureBiomassOf(p.genome, LIVE_SCALES) * 1.02));
   const a0 = a.creature;
   const b0 = b.creature;
   const [bornA, bornB] = await breed(a, b);

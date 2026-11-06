@@ -159,7 +159,7 @@ describe('engage refusals', () => {
   it('tier: a gap of two size tiers', async () => {
     const [a, b] = await pair();
     // Tier 2 starts at a radius of 128 (biomass 16,384).
-    await editLife(b, { biomass: 2_000_000, maxBiomass: 30_000 });
+    await editLife(b, { biomass: 2_000_000, boundBiomass: 2_000_000, maxBiomass: 30_000 });
     const big = snap(b, 1150, 1000, { biomass: 20_000 });
     expect(await refusal(a, b, big)).toBe('engage:tier');
   });
@@ -211,7 +211,7 @@ describe('spawn protection', () => {
 });
 
 describe('start states', () => {
-  it('clamps biomass past the growth curve, and flags growth-too-fast once', async () => {
+  it('clamps biomass past the growth curve from the last record, and flags claim-over once', async () => {
     const [a, b] = await pair();
     await editLife(a, { maxBiomass: 100_000 });
     const greedy = () => snap(a, ...NEAR.a, { biomass: 400, energy: 0.1, health: 0.1 });
@@ -222,8 +222,8 @@ describe('start states', () => {
     expect(fa?.biomass).toBeGreaterThan(RULES.starter.biomass);
     // A second claim (refused, since both are locked) notes nothing new.
     expect(await refusal(a, b, undefined, greedy())).toBe('engage:locked');
-    const flags = await authority((o) => o.ledger.flags(a.creature));
-    expect(flags.map((f) => f.kind)).toEqual(['growth-too-fast']);
+    const flags = await authority((o) => o.ledger.audit.flags(a.creature));
+    expect(flags.map((f) => f.kind)).toEqual(['claim-over']);
   });
 });
 

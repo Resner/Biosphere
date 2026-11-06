@@ -1,8 +1,15 @@
 import type { Genome } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
-import { type Condition, HUNDREDTHS, reachAt, vitalsCap } from '../src/ledger/gates';
+import {
+  CLOCK_SLACK_MS,
+  type Condition,
+  HUNDREDTHS,
+  reachAt,
+  vitalsCap,
+} from '../src/ledger/gates';
 import { accrue } from '../src/sim/life';
-import { RULES } from '../src/sim/rules';
+import { RULES, TICK_HZ } from '../src/sim/rules';
+import type { FlagKind } from './audit';
 import type { Head } from './ledger';
 
 export type { Condition };
@@ -10,6 +17,8 @@ export type { Condition };
 // The authority's view of one creature's current session (ADR 0019): what the client last
 // reported and the life clock it earned, kept in the socket's hibernation attachment (small, so
 // it survives eviction without touching SQLite). Plausibility is checked here, as plain functions.
+// The bounds hold per record interval (ADR 0055), as a verifier sees them: the clock and the
+// growth since the creature's last record (or this connection's binding, which comes later).
 
 /** When spawn protection that starts at `now` ends (a genesis, a promoted child or a restore; never a resume). */
 export const protectionEnds = (now: number): number =>
@@ -28,9 +37,15 @@ export interface LifeState extends Condition {
   t: number;
   /** The creature's life clock including everything credited so far. */
   activeMs: number;
-  /** When this connection started crediting, and the life clock then: the wall-time cap counts from here. */
+  /** When this connection bound the creature: the ticks it reports count from here. */
+  startT: number;
+  /**
+   * The creature's last record on this connection (or the binding before one): its time, life clock
+   * and biomass. The clock's credit and the growth since count from here, with one slack each.
+   */
   boundT: number;
   boundMs: number;
+  boundBiomass: number;
   /** The life clock when the creature's last record was written. */
   savedMs: number;
   /** The report number that the last record covers. */
@@ -39,6 +54,8 @@ export interface LifeState extends Condition {
   lifespanMs: number;
   /** The active time from which the creature may mate (ADR 0021) and until which it is in cooldown. */
   matureAtMs: number;
+  /** The least biomass (hundredths) from which it may mate (`matureBiomassOf`). */
+  matureBiomass: number;
   cooldownUntilMs: number;
   /** Set once the creature has died on this connection: it takes no more reports. */
   over: boolean;
@@ -51,16 +68,29 @@ export interface LifeState extends Condition {
 
 export type Report = Condition & { n: number; ticks: number };
 
-const FLAG_KINDS = ['biomass-over-max', 'growth-too-fast', 'energy-over', 'health-over'] as const;
+const FLAG_KINDS = [
+  'biomass-over-max',
+  'growth-too-fast',
+  'energy-over',
+  'health-over',
+  'clock-too-fast',
+  'claim-over',
+] as const satisfies readonly FlagKind[];
 export type Implausible = (typeof FLAG_KINDS)[number];
+
+/** The gates a creature's life is held to, under the object's scales (`worker/lives.ts`). */
+export interface Gates {
+  lifespanMs: number;
+  matureAtMs: number;
+  matureBiomass: number;
+}
 
 /** A session starts crediting the creature from `now`, with the condition and clock the ledger has. */
 export function bindLife(
   head: Pick<Head, 'id' | 'activeMs' | 'biomass' | 'energy' | 'health' | 'cooldownUntilMs'>,
   genome: Genome,
   now: number,
-  lifespanMs: number,
-  matureAtMs: number,
+  { lifespanMs, matureAtMs, matureBiomass }: Gates,
 ): LifeState {
   const { maxBiomass, growth } = buildCreature(genome).phys;
   return {
@@ -69,8 +99,10 @@ export function bindLife(
     ticks: 0,
     t: now,
     activeMs: head.activeMs,
+    startT: now,
     boundT: now,
     boundMs: head.activeMs,
+    boundBiomass: head.biomass,
     savedMs: head.activeMs,
     savedN: 0,
     biomass: head.biomass,
@@ -78,6 +110,7 @@ export function bindLife(
     health: head.health,
     lifespanMs,
     matureAtMs,
+    matureBiomass,
     cooldownUntilMs: head.cooldownUntilMs,
     over: false,
     maxBiomass,
@@ -86,21 +119,69 @@ export function bindLife(
   };
 }
 
-/** Active time to credit for `ticks` now: `accrue`, within this connection's wall-time cap and the lifespan. */
+/**
+ * The life state once a record of the creature was written at `t` with its clock and biomass:
+ * the clock's cap and the growth reach count from it, and everything reported so far is saved.
+ */
+export function recorded(life: LifeState, t: number, activeMs: number, biomass: number): LifeState {
+  return {
+    ...life,
+    boundT: t,
+    boundMs: activeMs,
+    boundBiomass: biomass,
+    savedMs: activeMs,
+    savedN: life.n,
+  };
+}
+
+/** Active time to credit for `ticks` now: `accrue`, within the wall time since the last record (plus one slack) and the lifespan. */
 function credited(life: LifeState, ticks: number, now: number): number {
-  // `accrue` caps one report at its own wall time plus slack; the connection as a whole gets the slack once.
-  const allowed = now - life.boundT + RULES.life.accrueSlackMs - (life.activeMs - life.boundMs);
+  // `accrue` caps one report at its own wall time plus slack; a record interval gets the slack once.
+  const allowed = now - life.boundT + CLOCK_SLACK_MS - (life.activeMs - life.boundMs);
   const left = life.lifespanMs - life.activeMs;
   return Math.floor(Math.max(0, Math.min(accrue(life.ticks, ticks, now - life.t), allowed, left)));
 }
 
+/**
+ * Whether `ticks` (counted from the connection's binding) claim more play than the wall time
+ * since then plus the slack: no honest client can, whatever the record intervals took from it.
+ */
+const tooFast = (life: LifeState, ticks: number, now: number): boolean =>
+  (ticks * 1000) / TICK_HZ > now - life.startT + CLOCK_SLACK_MS;
+
+/** Notes `kind` on the life once; whether it is new to this connection. */
+function note(life: LifeState, kind: Implausible): { flagged: number; isNew: boolean } {
+  const bit = 1 << FLAG_KINDS.indexOf(kind);
+  return { flagged: life.flagged | bit, isNew: (life.flagged & bit) === 0 };
+}
+
+/** The clock check of a report or a death's ticks: `clock-too-fast`, once per connection. */
+function clockFlags(
+  life: LifeState,
+  ticks: number,
+  now: number,
+): Pick<Clamped, 'flagged' | 'newFlags'> {
+  if (!tooFast(life, ticks, now)) return { flagged: life.flagged, newFlags: [] };
+  const { flagged, isNew } = note(life, 'clock-too-fast');
+  return { flagged, newFlags: isNew ? ['clock-too-fast'] : [] };
+}
+
 /** Credits the ticks played since the last report, as a death request carries them; no condition changes. */
-export function creditTicks(life: LifeState, ticks: number, now: number): LifeState {
+export function creditTicks(
+  life: LifeState,
+  ticks: number,
+  now: number,
+): { life: LifeState; newFlags: Implausible[] } {
+  const { flagged, newFlags } = clockFlags(life, ticks, now);
   return {
-    ...life,
-    ticks: Math.max(life.ticks, ticks),
-    t: now,
-    activeMs: life.activeMs + credited(life, ticks, now),
+    life: {
+      ...life,
+      ticks: Math.max(life.ticks, ticks),
+      t: now,
+      activeMs: life.activeMs + credited(life, ticks, now),
+      flagged,
+    },
+    newFlags,
   };
 }
 
@@ -117,27 +198,28 @@ interface Clamped {
 }
 
 /**
- * Clamps a claimed condition to the growth curve a creature of this genome can follow from the
- * last report, over `activeMs` of play (the rulebook's `reachAt`). A value within `tolerance` (a
- * share) of its cap is clamped without a flag, for claims quantised on the way (a snapshot's biomass).
+ * Clamps a claimed condition to the growth curve a creature of this genome can follow from its last
+ * record, over `activeMs` of play since it (the rulebook's `reachAt`, with its one slack). A value
+ * within `tolerance` (a share) of its cap is clamped without a flag, for claims quantised on the way
+ * (a snapshot's biomass). `over` names one kind for every clamp past the tolerance (a lock-in's).
  */
 function clampCondition(
   life: LifeState,
   claim: Condition,
   activeMs: number,
   tolerance = 0,
+  over?: Implausible,
 ): Clamped {
   const clamped: Implausible[] = [];
   const clamp = (value: number, cap: number, kind: Implausible): number => {
     if (value <= cap) return value;
-    if (value > cap * (1 + tolerance)) clamped.push(kind);
+    if (value > cap * (1 + tolerance)) clamped.push(over ?? kind);
     return cap;
   };
 
-  // The curve a creature of this genome can follow from where the last report left it.
   const biomass = clamp(
     clamp(claim.biomass, Math.floor(life.maxBiomass * HUNDREDTHS), 'biomass-over-max'),
-    reachAt(life.biomass, life.growth, activeMs),
+    reachAt(life.boundBiomass, life.growth, activeMs),
     'growth-too-fast',
   );
   const cap = vitalsCap(biomass);
@@ -145,19 +227,18 @@ function clampCondition(
   const health = clamp(claim.health, cap.health, 'health-over');
 
   let flagged = life.flagged;
-  const newFlags = clamped.filter((kind) => {
-    const bit = 1 << FLAG_KINDS.indexOf(kind);
-    const isNew = (flagged & bit) === 0;
-    flagged |= bit;
-    return isNew;
+  const newFlags = [...new Set(clamped)].filter((kind) => {
+    const noted = note({ ...life, flagged }, kind);
+    flagged = noted.flagged;
+    return noted.isNew;
   });
   return { condition: { biomass, energy, health }, flagged, newFlags };
 }
 
 /**
- * Credits a report: advances the life clock by `accrue`, and clamps the reported condition to what
- * the genome and the elapsed active time allow. Never rejects; the kinds it clamped for and had not
- * noted before on this connection come back.
+ * Credits a report: advances the life clock by `accrue` (within the wall time since the last
+ * record), and clamps the reported condition to what the genome and the active time since that
+ * record allow. Never rejects; the kinds it flagged and had not noted before on this connection come back.
  */
 export function applyReport(
   life: LifeState,
@@ -165,7 +246,12 @@ export function applyReport(
   now: number,
 ): { life: LifeState; newFlags: Implausible[] } {
   const gained = credited(life, report.ticks, now);
-  const { condition, flagged, newFlags } = clampCondition(life, report, gained);
+  const clock = clockFlags(life, report.ticks, now);
+  const { condition, flagged, newFlags } = clampCondition(
+    { ...life, flagged: clock.flagged },
+    report,
+    life.activeMs + gained - life.boundMs,
+  );
   return {
     life: {
       ...life,
@@ -176,13 +262,14 @@ export function applyReport(
       ...condition,
       flagged,
     },
-    newFlags,
+    newFlags: [...clock.newFlags, ...newFlags],
   };
 }
 
 /**
  * A condition claimed outside a report (a signed snapshot at lock-in, ADR 0050), clamped by the
- * same growth curve over the wall time since the last report. Nothing is credited.
+ * same growth curve over the wall time since the last record. Nothing is credited; a clamp past
+ * the tolerance is `claim-over`.
  */
 export function clampClaim(
   life: LifeState,
@@ -190,7 +277,7 @@ export function clampClaim(
   now: number,
   tolerance: number,
 ): Clamped {
-  return clampCondition(life, claim, Math.max(0, now - life.t), tolerance);
+  return clampCondition(life, claim, Math.max(0, now - life.boundT), tolerance, 'claim-over');
 }
 
 /** Whether the creature has played since its last record, so a close should write one. */

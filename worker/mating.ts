@@ -43,6 +43,7 @@ export function viewOf(
     active: head?.status === 'active' && !life.over,
     activeMs: life.activeMs,
     matureAtMs: life.matureAtMs,
+    matureBiomass: life.matureBiomass / HUNDREDTHS,
     cooldownUntilMs: life.cooldownUntilMs,
     biomass: life.biomass / HUNDREDTHS,
     energy: life.energy / HUNDREDTHS,
