@@ -3,6 +3,7 @@ import { LIVE_SCALES, matureBiomassOf } from '../src/ledger/gates';
 import { TICK_HZ } from '../src/sim/rules';
 import {
   advance,
+  calmPond,
   join,
   killB,
   lifeOn,
@@ -27,6 +28,7 @@ export async function history() {
   await setEnv(true);
   const pa = await join();
   const pb = await join();
+  await calmPond(pa, pb);
   let a = await grower(await rehatch(pa));
   const b = await grower(await rehatch(pb));
   for (const p of [a, b]) await seasoned(p);
