@@ -7,6 +7,7 @@ import {
   NONCE_BYTES,
   parseClientMsg,
 } from '../src/net/protocol';
+import { attest } from './attest';
 import type { AuditReport } from './audit';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
 import { Duties } from './duty';
@@ -326,6 +327,9 @@ export class Authority extends DurableObject<Env> implements Hub {
         return;
       case 'dispute':
         witnessDispute(this, session, msg);
+        return;
+      case 'attest':
+        attest(this, session, msg);
         return;
     }
   }

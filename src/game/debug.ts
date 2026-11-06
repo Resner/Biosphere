@@ -7,7 +7,10 @@ import type {
 } from '../audio/engine';
 import type { RarityTier } from '../genome/rarity';
 import type { Silhouette } from '../genome/silhouette';
-import type { PeerEvent } from '../net/protocol';
+import type { Beacon } from '../ledger/drand';
+import type { PubKey } from '../ledger/record';
+import type { AuditVerdict } from '../net/audit';
+import type { AuditCase, PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { EggPhase } from '../render/egg';
 import type { DrawnOutline } from '../render/outlines';
@@ -23,6 +26,7 @@ import type { FighterResult } from '../sim/encounter/types';
 import type { LifeStage } from '../sim/life';
 import type { InputLog } from '../sim/replay';
 import type { FoodItem, FoodKind } from '../sim/types';
+import type { AuditRecord } from './app-audit';
 import type { FightShowView } from './app-fight';
 import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
@@ -247,8 +251,12 @@ export interface BsState {
     dutyLinks: DutyLink[];
     strangers: number;
   };
-  /** Witness duty (M10 T6): `avail`, whether the hub was last told this page can witness. */
-  witness: { avail: boolean };
+  /**
+   * Witness duty (M10 T6, T8): `avail`, whether the hub was last told this page can witness; the
+   * event audited now (null without one), and the last 20 audits this page attested, each with
+   * its verdict and the worker's time in ms.
+   */
+  witness: { avail: boolean; auditing: string | null; audits: AuditRecord[] };
   /**
    * Edge indicators as last drawn (M6 T19): the nearest six pond players off screen and the
    * nearby pings off screen. `angle` is the world bearing from the player in degrees
@@ -387,6 +395,15 @@ export interface BsDebug {
    * a frame in over 100 ms misses the referee's input deadline.
    */
   skipDraw(on: boolean): void;
+  /**
+   * A test aid (M10 T8): works out an auditor's verdict on `audit` in the page's audit worker, as
+   * an auditor duty does, and resolves with it and the worker's time in ms. Nothing is sent.
+   */
+  audit(
+    audit: AuditCase,
+    beacon: Beacon,
+    keys: PubKey[],
+  ): Promise<{ verdict: AuditVerdict; ms: number }>;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
   /**
@@ -429,6 +446,12 @@ export interface BsDebug {
    * once; adaptive resolution then follows `ms` too, even where it is otherwise pinned at 1.
    */
   setBench(ms: number): void;
+  /**
+   * A test aid (M10 T8): the frame time witness availability judges is `ms` (null: the measured
+   * one again), as `setBench` does for the quality. Four software-rendered pages on one runner draw
+   * slower than a witness may, and a scenario about audits needs its witnesses to stay available.
+   */
+  dutyFrameMs(ms: number | null): void;
   /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
   /**

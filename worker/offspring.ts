@@ -10,6 +10,7 @@ import type { StoredRecord } from '../src/ledger/record';
 import { rulesStatus } from '../src/ledger/registry';
 import type { Born } from '../src/net/protocol';
 import { sizeTier } from '../src/sim/size';
+import { auditMating } from './attest';
 import type { BirthChild, Head } from './ledger';
 import { type LifeState, recorded } from './life';
 import { askLive, type Court, mateRequests, refusalFor, scalesOf, viewOf } from './mating';
@@ -71,6 +72,8 @@ export async function deliverBirth(hub: Hub, commitId: string): Promise<void> {
     }) as [BirthChild, BirthChild],
   });
   if (!result.ok || !result.fresh) return;
+  // Its auditor recomputes both births (ADR 0058), now or once the witness round is in.
+  auditMating(hub, commit, result.stored, [mates[0], mates[1]], [headA.genome, headB.genome]);
   for (const [i, stored] of result.stored.entries()) {
     const child = hub.ledger.head(stored.hash);
     const born = child ? bornFor(hub, child) : null;
