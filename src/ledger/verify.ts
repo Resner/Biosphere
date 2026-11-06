@@ -9,13 +9,44 @@ import { creatureOf, verifyChain, verifySignatures } from './verify-chain';
 import { fightsOf, verifyFights } from './verify-fights';
 import { verifyGates } from './verify-gates';
 import { reachOf, verifyOrigin } from './verify-origin';
+import { verifyWitness } from './verify-witness';
 
-// The lineage verifier (ADR 0055): a proof bundle checked in five families, with no trust in the
+// The lineage verifier (ADR 0055): a proof bundle checked in six families, with no trust in the
 // authority beyond its signing keys and none in any player. Each family lives in its own file as
 // `(index, opts) => Problem[]`; this one indexes the bundle, runs them and writes the report. Pure
 // and shared by the card, the CLI and the tests: no DOM, no Node APIs, no `src/net` at run time.
 
-export type Family = 'chain' | 'signature' | 'origin' | 'gates' | 'fights';
+export type Family = 'chain' | 'signature' | 'origin' | 'gates' | 'fights' | 'witness';
+
+/**
+ * What witnesses saw of one held fight (`enc:`), mating or genesis (ADR 0058). `selection` is
+ * `checked` when its witness commitment is held and draws the order, `unchecked` when it is not
+ * held (pruned or not served), and `none` when there was no pool.
+ */
+export interface WitnessEvent {
+  event: string;
+  /** Held creatures with a part in it. */
+  creatures: string[];
+  /** A witness refereed some of its frames. */
+  refereed: boolean;
+  /** A witness's attestation agrees with it. */
+  audited: boolean;
+  /** A witness's attestation disagrees: the authority's result stands. */
+  overruled: boolean;
+  /** Neither refereed nor audited: only the authority checked it. */
+  authorityOnly: boolean;
+  selection: 'checked' | 'unchecked' | 'none';
+}
+
+/** The counts of `LineageReport.events`. */
+export interface Witnessed {
+  events: number;
+  refereed: number;
+  audited: number;
+  authorityOnly: number;
+  overruled: number;
+  unchecked: number;
+}
 
 /** One thing that does not hold: on a creature, at a record (`seq`) or on the creature as a whole (null). */
 export interface Problem {
@@ -40,6 +71,9 @@ export interface LineageReport {
   /** Held creatures whose birth was not recomputed, because a parent is not in the bundle. */
   unchecked: string[];
   fights: { settled: number; replayed: number; pruned: number; unreplayed: number };
+  witnessed: Witnessed;
+  /** One per held fight, mating and genesis. */
+  events: WitnessEvent[];
   /** A scale below 1: a test world. */
   scaled: boolean;
   /** Whose keys the countersignatures were checked against: the bundle's, or ones the caller pinned. */
@@ -161,8 +195,8 @@ function distinct(problems: Problem[]): Problem[] {
 }
 
 /**
- * Checks a proof bundle in five families: chains, signatures and key history, origins (T4), time
- * gates, costs and growth (T5), and fights (T6). Pass `opts.keys` to check against pinned
+ * Checks a proof bundle in six families: chains, signatures and key history, origins (T4), time
+ * gates, costs and growth (T5), fights (T6), and witnesses (ADR 0058). Pass `opts.keys` to check against pinned
  * authority keys instead of the ones the bundle lists. Never throws: a bundle that cannot be read
  * reports `unreadable`.
  */
@@ -178,17 +212,21 @@ export function verifyLineage(bundle: ProofBundle, opts: VerifyOptions = {}): Li
     generations: 0,
     unchecked: [],
     fights: { settled: 0, replayed: 0, pruned: 0, unreplayed: 0 },
+    witnessed: { events: 0, refereed: 0, audited: 0, authorityOnly: 0, overruled: 0, unchecked: 0 },
+    events: [],
     scaled: scales !== undefined && isScaled(scales),
     keys: opts.keys ? 'pinned' : 'bundle',
   };
   try {
     const index = indexBundle(bundle, opts);
+    const witness = verifyWitness(index, opts);
     const problems = distinct([
       ...verifyChain(index, opts),
       ...verifySignatures(index, opts),
       ...verifyOrigin(index, opts),
       ...verifyGates(index, opts),
       ...verifyFights(index, opts),
+      ...witness.problems,
     ]);
     return {
       ...base,
@@ -197,6 +235,8 @@ export function verifyLineage(bundle: ProofBundle, opts: VerifyOptions = {}): Li
       missing: [...bundle.more],
       ...reachOf(index),
       fights: fightsOf(index, opts),
+      witnessed: witness.witnessed,
+      events: witness.events,
     };
   } catch {
     return {
@@ -335,6 +375,39 @@ export const PROBLEM_TEXT: Readonly<Record<string, string>> = Object.freeze({
   'replay:replay': "A fight's log does not play through to the end its settlement records.",
   'replay:hash': "A fight's replay does not end where its settlement says it ended.",
   'replay:result': "A fight's replay does not give the results its settlement records.",
+  // The witness family.
+  'spans-start':
+    "A fight's settlement does not begin with the authority refereeing from the first frame.",
+  'spans-order': "A fight's settlement lists who refereed which frames out of order.",
+  'spans-frames': "A fight's settlement hands the refereeing over after the fight was over.",
+  'spans-position':
+    "A fight's settlement names a witness referee without its place in the draw, or the authority with one.",
+  'witness-commit-key-unknown':
+    'A witness draw is countersigned with a key that is not an authority key.',
+  'witness-commit-key-not-yet':
+    'A witness draw is countersigned with an authority key before that key came into use.',
+  'witness-commit-sig': "The authority's countersignature on a witness draw does not verify.",
+  'witness-data': 'A witness draw does not name its event and its pool of witnesses properly.',
+  'witness-data:pool-size':
+    'A witness draw names an empty pool, or more witnesses than a pool holds.',
+  'witness-data:pool-order': "A witness draw's pool is not in order, or names a witness twice.",
+  'witness-data:pool-id': "A witness draw's pool names something that is not a player.",
+  'witness-event': 'A witness draw was made for another event.',
+  'witness-duty': "A fight's settlement names a witness draw other than the one made for it.",
+  'witness-commit-duplicate': 'The same event has more than one witness draw.',
+  'witness-round-not-future': 'A witness draw named a drand round that was already published.',
+  'witness-round':
+    "A birth's or a hatch's witness draw names a drand round other than the event's own.",
+  'witness-beacon-missing': 'The proof lacks the drand round a witness draw was committed to.',
+  'witness-bad-beacon': "A witness draw's drand round does not carry drand's signature.",
+  'referee-unselected':
+    'A fight was refereed by a witness although no witnesses were drawn for it.',
+  'referee-position': 'A fight was refereed by a witness the draw did not pick for that place.',
+  'attest-sig': "A witness's signature on its check of an event does not verify.",
+  'attest-duty': "A witness's check names a witness draw other than its event's.",
+  'attest-position': "A witness's check comes from a place in the draw that witness does not hold.",
+  'attest-subject': "A witness's check is about something other than the event it names.",
+  'position-twice': 'One place in a witness draw served more than once.',
 });
 
 /** The sentence for a code a family reports that `PROBLEM_TEXT` does not list. */
@@ -344,6 +417,7 @@ export const FAMILY_TEXT: Readonly<Record<Family, string>> = Object.freeze({
   origin: "The creature's origin could not be confirmed from its randomness and its parents.",
   gates: 'A time limit, cost or growth limit in the history does not hold.',
   fights: "A fight's records do not agree with its settlement.",
+  witness: "The witnesses' part in an event does not hold.",
 });
 
 /** The sentence for `code`, or for its longest listed prefix (`replay:result:0:biomass` reads as `replay:result`). */

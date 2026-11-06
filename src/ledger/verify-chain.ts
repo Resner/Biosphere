@@ -98,7 +98,7 @@ function chainOf(id: string, chain: readonly StoredRecord[]): Problem[] {
 }
 
 /** Whether `sig` is the countersignature over `hash` (hex) under `key`, through its tabled verifier. Never throws. */
-function countersigned(
+export function countersigned(
   verifiers: Map<string, KeyVerify | null>,
   key: AuthorityKey,
   hash: string,
@@ -208,7 +208,7 @@ function ownerSigned(s: StoredRecord): boolean {
  * `key-unknown` for a key id not in force, `key-not-yet` for a key whose `from` is after `t` (null:
  * no time to check against), each behind `prefix`; null when the key may sign it.
  */
-function keyProblem(
+export function keyProblem(
   index: BundleIndex,
   keyId: string,
   t: number | null,

@@ -7,6 +7,9 @@
 // - a fight in which A1 kills B0 (the pond seed is picked so it does), eating the egg B0 carries,
 //   so B1 dies `eaten` in the same settlement;
 // - A1 dying of a toxin, and A restoring A0.
+// Beside it, the witness documents of an honest authority (ADR 0058): A1's fight refereed by the
+// witness W from frame 40 and audited by V, the mating and A0's genesis audited, and B0's genesis
+// authority-only (an empty pool, so no commitment).
 // `bundleOf` serves a subject's proof as `GET /v1/proof` does: its whole chain, and each ancestor's
 // up to the record that ties it to its descendant.
 
@@ -52,7 +55,21 @@ import {
   type StoredRecord,
 } from '../src/ledger/record';
 import { REGISTRY } from '../src/ledger/registry';
-import { type FightLog, type SignedSettlement, signSettlement } from '../src/ledger/settlement';
+import {
+  type FightLog,
+  type RefereeSpan,
+  type SignedSettlement,
+  signSettlement,
+} from '../src/ledger/settlement';
+import {
+  birthSubject,
+  dutyEvent,
+  poolOf,
+  type SignedAttestation,
+  signAttestation,
+  witnessOrder,
+  witnessRound,
+} from '../src/ledger/witness';
 import type { EncStart } from '../src/net/encounter-start';
 import { encounterStartOf } from '../src/net/encounter-start';
 import { settlementOf } from '../src/net/encounter-verify';
@@ -80,6 +97,18 @@ export const PLAYERS = {
   A: playerIdOf(publicKeyFromSecret(OWNER_SECRETS.A)),
   B: playerIdOf(publicKeyFromSecret(OWNER_SECRETS.B)),
 };
+/** The players who may witness: none of them A or B. */
+export const WITNESS_SECRETS: readonly Uint8Array[] = [0xc1, 0xc2, 0xc3, 0xc4, 0xc5].map((b) =>
+  new Uint8Array(32).fill(b),
+);
+const WITNESSES = WITNESS_SECRETS.map((s) => playerIdOf(publicKeyFromSecret(s)));
+/** A witness's secret by its player id. */
+export function witnessSecret(player: string): Uint8Array {
+  const secret = WITNESS_SECRETS[WITNESSES.indexOf(player)];
+  if (!secret) throw new Error(`${player} is no fixture witness`);
+  return secret;
+}
+
 /**
  * The free choices of the history, picked by trying values so that A1 kills B0: the genesis asks'
  * nonces (and so both genomes), the pond, and A1's size at its checkpoint as a share of its adult
@@ -102,7 +131,8 @@ function beaconAt(round: number): Beacon {
   return b;
 }
 
-const identity = (secret: Uint8Array): Identity => ({
+/** A player identity for a fixture secret. */
+export const identity = (secret: Uint8Array): Identity => ({
   playerId: playerIdOf(publicKeyFromSecret(secret)),
   sign: (domain, message) => signWithSecret(secret, domain, message),
   exportRecoveryCode: () => {
@@ -157,8 +187,51 @@ export interface LineageHistory {
   beacons: Map<number, Beacon>;
   settlements: Map<string, SignedSettlement>;
   logs: Map<string, FightLog>;
+  /** Witness commitments by id, and every attestation, beside the history (ADR 0058). */
+  witnessCommits: Map<string, SignedCommit>;
+  attestations: SignedAttestation[];
+  /** The fight's referee W and auditor V. */
+  witness: { W: string; V: string };
   /** When the history ends. */
   t: number;
+}
+
+/** A witness commitment for `event` over the fixture's witnesses, at `round`, made at `t`; its id and the order its round draws. */
+function witnessCommit(
+  out: LineageHistory,
+  event: string,
+  round: number,
+  t: number,
+): { id: string; order: string[] } {
+  const c = commit('witness', '', { event, pool: poolOf(WITNESSES, event) }, round, t);
+  const id = commitmentId(c.commitment);
+  out.witnessCommits.set(id, c);
+  out.beacons.set(round, beaconAt(round));
+  const { pool } = c.commitment.data as { pool: string[] };
+  return { id, order: witnessOrder(pool, randomnessOf(beaconAt(round)), id) };
+}
+
+/** The agreeing attestation of the witness at `position` of `duty`'s order. */
+function attest(
+  out: LineageHistory,
+  event: string,
+  duty: { id: string; order: string[] },
+  position: number,
+  subject: string,
+): void {
+  const witness = duty.order[position] as string;
+  out.attestations.push(
+    signAttestation(identity(witnessSecret(witness)), {
+      v: 1,
+      kind: 'attest',
+      event,
+      duty: duty.id,
+      position,
+      witness,
+      subject,
+      agree: true,
+    }),
+  );
 }
 
 /** One creature as the hub holds it: its chain and the condition and clock of its head. */
@@ -303,6 +376,9 @@ export function lineageHistory(
     beacons: new Map(),
     settlements: new Map(),
     logs: new Map(),
+    witnessCommits: new Map(),
+    attestations: [],
+    witness: { W: '', V: '' },
     t: 0,
   };
   const first = ROUNDS.first;
@@ -310,6 +386,11 @@ export function lineageHistory(
   const b0 = genesis(OWNER_SECRETS.B, tune.nonces[1], first + 4, out);
   const bornA = a0.head.record.t;
   const bornB = b0.head.record.t;
+  // A0's genesis is audited at position 0, its witness round the genesis's own; B0's had no pool.
+  const a0Commit = out.commits.get(a0.chain[0]?.record.body.commit as string) as SignedCommit;
+  const a0Event = dutyEvent('genesis', commitmentId(a0Commit.commitment));
+  const a0Duty = witnessCommit(out, a0Event, a0Commit.commitment.round, a0Commit.commitment.t);
+  attest(out, a0Event, a0Duty, 0, a0.id);
 
   // Both grow until both are mature and have had the time to reach their size, then mate.
   const mature = Math.max(
@@ -406,6 +487,13 @@ export function lineageHistory(
   };
   const a1 = birth(0, a0.owner);
   const b1 = birth(1, b0.owner);
+  // The mating is audited at position 0 once both births are written; its round is the mating's.
+  const mateEvent = dutyEvent('mating', mateId);
+  const mateDuty = witnessCommit(out, mateEvent, mateRound, mc.commitment.t);
+  const [slot0, slot1] = [a1, b1]
+    .map((life) => life.chain[0] as StoredRecord)
+    .sort((x, y) => (x.record.body.slot as number) - (y.record.body.slot as number));
+  attest(out, mateEvent, mateDuty, 0, birthSubject(slot0?.hash as string, slot1?.hash as string));
 
   // A promotes A1: A0 is frozen with the condition and clock its head holds.
   const promotedAt = bornAt + 20_000;
@@ -439,7 +527,26 @@ export function lineageHistory(
   };
   const fought = play({ pondSeed, start, joins: [] });
   const settledAt = at + fought.log.frames.length * FRAME_MS + 50;
-  const signed = signSettlement(AUTH_SECRET, settlementOf(fought.log, fought.enc, settledAt));
+  // The witness commitment follows `enc-start`; W (position 0) referees from frame 40 once its
+  // round is out, and V (position 1) audits the settlement.
+  const encEvent = dutyEvent('enc', enc);
+  const encDuty = witnessCommit(out, encEvent, witnessRound(lockAt + 1), lockAt + 1);
+  const handover = 40;
+  const encRound = out.witnessCommits.get(encDuty.id)?.commitment.round as number;
+  if (roundTime(encRound) >= at + (handover - 3) * FRAME_MS) {
+    throw new Error('the witness round comes too late for a handover at frame 40');
+  }
+  const W = encDuty.order[0] as string;
+  const referees: RefereeSpan[] = [
+    { by: 'authority', from: 0 },
+    { by: W, from: handover, position: 0 },
+  ];
+  const signed = signSettlement(
+    AUTH_SECRET,
+    settlementOf(fought.log, fought.enc, settledAt, { referees, duty: encDuty.id }),
+  );
+  attest(out, encEvent, encDuty, 1, signed.hash);
+  out.witness = { W, V: encDuty.order[1] as string };
   out.settlements.set(enc, signed);
   out.logs.set(enc, fought.log);
   const s = signed.settlement;
@@ -571,12 +678,23 @@ export function bundleOf(
   const named = (field: string) =>
     new Set(records.map((s) => s.record.body[field]).filter((v) => typeof v === 'string'));
   const commits = [...named('commit')].map((id) => h.commits.get(id as string) as SignedCommit);
-  const rounds = new Set(commits.map((c) => c.commitment.round));
   const settlements = [...named('enc')].map(
     (enc) => h.settlements.get(enc as string) as SignedSettlement,
   );
+  // The held events: each fight, each mating and each genesis a held record names.
+  const events = new Set([
+    ...[...named('enc')].map((enc) => dutyEvent('enc', enc as string)),
+    ...commits.map((c) =>
+      dutyEvent(c.commitment.kind === 'genesis' ? 'genesis' : 'mating', commitmentId(c.commitment)),
+    ),
+  ]);
+  const witnessCommits = [...h.witnessCommits.values()].filter((c) =>
+    events.has((c.commitment.data as { event: string }).event),
+  );
+  const witnessRounds = witnessCommits.map((c) => c.commitment.round);
+  const rounds = new Set([...commits.map((c) => c.commitment.round), ...witnessRounds]);
   return {
-    v: 1,
+    v: 2,
     kind: 'proof',
     subject,
     world: {
@@ -592,6 +710,8 @@ export function bundleOf(
     settlements,
     flags: [],
     more,
+    witnessCommits,
+    attestations: h.attestations.filter((a) => events.has(a.attestation.event)),
     t: h.t + 60_000,
   };
 }

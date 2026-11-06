@@ -82,6 +82,12 @@ function refight(change: (log: FightLog) => void): { b: ProofBundle; log: FightL
   const t = altered.start.at + frames * FRAME_MS + 50;
   const signed = signSettlement(AUTH_SECRET, settlementOf(fought.log, fought.enc, t));
   b.settlements = [signed];
+  // Fought again by the authority alone: the first fight's witness documents go with it.
+  const event = `enc:${ENC}`;
+  b.witnessCommits = b.witnessCommits.filter(
+    (c) => (c.commitment.data as { event?: string }).event !== event,
+  );
+  b.attestations = b.attestations.filter((a) => a.attestation.event !== event);
   const r = signed.settlement.results.find((x) => x.creature === A1);
   if (r?.outcome !== 'stood') throw new Error('A1 no longer stands');
   // Locked from its clock at the start for every frame fought.

@@ -110,8 +110,11 @@ describe('the golden lineage', () => {
     expect(kinds(A0)).toEqual(['genesis', 'checkpoint', 'checkpoint', 'mate-commit', 'promote']);
     expect(kinds(B0)).toEqual(['genesis', 'checkpoint', 'checkpoint', 'mate-commit']);
     expect(b.commits.map((c) => c.commitment.kind).sort()).toEqual(['genesis', 'genesis', 'mate']);
-    expect(b.beacons).toHaveLength(3);
+    // The genesis and mating rounds, and the fight's witness round (ADR 0058).
+    expect(b.beacons).toHaveLength(4);
     expect(b.settlements).toHaveLength(1);
+    expect(b.witnessCommits).toHaveLength(3);
+    expect(b.attestations).toHaveLength(3);
     const results = b.settlements[0]?.settlement.results ?? [];
     expect(results.find((r) => r.creature === B0)).toMatchObject({
       outcome: 'killed',
@@ -332,7 +335,12 @@ describe('the signature family', () => {
     expect(report.keys).toBe('pinned');
     const codes = new Set(report.problems.map((p) => p.code));
     expect([...codes].sort()).toEqual(
-      ['commit-key-unknown', 'key-unknown', 'settlement-key-unknown'].sort(),
+      [
+        'commit-key-unknown',
+        'key-unknown',
+        'settlement-key-unknown',
+        'witness-commit-key-unknown',
+      ].sort(),
     );
     expect(report.problems.filter((p) => p.code === 'key-unknown')).toHaveLength(b.records.length);
   });

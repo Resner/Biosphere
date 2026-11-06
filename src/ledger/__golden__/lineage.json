@@ -1,5 +1,5 @@
 {
-  "v": 1,
+  "v": 2,
   "kind": "proof",
   "subject": "d78d0e094bb37c9c09cecf3e91ba620192d902c6d1a491ceefb03cc7d1ed078f",
   "world": {
@@ -481,12 +481,16 @@
     {
       "round": 33410029,
       "signature": "86474bf9f3e39399102525a79a7abf0206bc229b0270f06b44a29eff4a5291a77c3ef5a05c9fd1d7e11b02fd7ca17ee4"
+    },
+    {
+      "round": 33410067,
+      "signature": "8a1bf416840b9c651580d88471aa9d786dc85b34e1c2f30c0f9b60f6b675e37cef32a4c8ba8bb7cb69142a447b7caf40"
     }
   ],
   "settlements": [
     {
       "settlement": {
-        "v": 1,
+        "v": 2,
         "kind": "settlement",
         "rules": 11,
         "enc": "1056fa6f96fb9ce29844a5f66bd246697cc784229bddb7c5c92413e4ff9f1198",
@@ -496,7 +500,18 @@
         "frames": 57,
         "root": "299e05df80d1cd781dc1820d19101d9560dbab8dcdf08b8654c35dbba90b5e02",
         "hash": "656f04dc777377b0",
-        "referee": "authority",
+        "referees": [
+          {
+            "by": "authority",
+            "from": 0
+          },
+          {
+            "by": "3FF_9SfnvPqwZ_LMYbvvjnX5uo4TMq09QviTjgBF7Yk",
+            "from": 40,
+            "position": 0
+          }
+        ],
+        "duty": "4dda5490e8f03fd52d318b7768fd6162dda7e876eb50d7d47963289f3cc845bf",
         "results": [
           {
             "player": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
@@ -526,12 +541,121 @@
         ],
         "t": 1793033567900
       },
-      "hash": "1915f805d5ef17c961588d9abdfd254faa68927f91b5c8622da8cf29f693881e",
-      "authSig": "SLG7Skg34ckaOcPNrzSLvTwuKaF2GIRf2IwthJd0OmQauq8jwwk8_XiJQ69PVnqkM9qMB9eMyCaFhU678XCQBA",
+      "hash": "447f59b8d28032b9f6ccb6e4f29541ce225e8633f82fdbac26538374f9a0e6c6",
+      "authSig": "AHAw8mrGRG9_epCL8qrNgoQlwBWUjJv4ruX0K2X6ys9IC50XPTP6lNWQVZmZFClqFBNecwUNVsTkgc-B07wMDg",
       "keyId": "dBwGxjx2"
     }
   ],
   "flags": [],
   "more": [],
+  "witnessCommits": [
+    {
+      "commitment": {
+        "v": 1,
+        "kind": "witness",
+        "owner": "",
+        "round": 33409839,
+        "req": "06e263da4ffb339c5ca35c76ec427fcef978b08715f2d83638827782c73c161b",
+        "t": 1793032876000,
+        "data": {
+          "event": "genesis:e53ac00bf44533f7d490389d583fa0407e71f3d388ef147ac1de2db15894234e",
+          "pool": [
+            "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
+            "3FF_9SfnvPqwZ_LMYbvvjnX5uo4TMq09QviTjgBF7Yk",
+            "LbeXY24yPtV26bDgPifLkhcaiWtj6RhvDUpDucfTgtE",
+            "rNzISU1Fj0SnqqwdaoTsYk2u6IQ22yribme6ZFoQYig",
+            "tygv5HL5dkHBcJeCGlN4dKqqUyZFrTTb1ZhzMaTnP40"
+          ]
+        }
+      },
+      "authSig": "sdmU93J0we7REWDJ7_zjxYXKx18d-RpxjlOr9tO5Nv8UphcaC52SRWQDk1O4PU3cAYTvGPd9-DVQ14y_AtBIBg",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "commitment": {
+        "v": 1,
+        "kind": "witness",
+        "owner": "",
+        "round": 33410029,
+        "req": "ea37fa889c7403ba1eb2b173842123c5ef495c25e4851a24978197bc04f6be32",
+        "t": 1793033445647,
+        "data": {
+          "event": "mating:9c4f1e754f90d69e553b8d012dbd24e98b7ba3c3c72a8e33e0d057b262ceb6e3",
+          "pool": [
+            "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
+            "3FF_9SfnvPqwZ_LMYbvvjnX5uo4TMq09QviTjgBF7Yk",
+            "LbeXY24yPtV26bDgPifLkhcaiWtj6RhvDUpDucfTgtE",
+            "rNzISU1Fj0SnqqwdaoTsYk2u6IQ22yribme6ZFoQYig",
+            "tygv5HL5dkHBcJeCGlN4dKqqUyZFrTTb1ZhzMaTnP40"
+          ]
+        }
+      },
+      "authSig": "NxG1aet1EoADa0B6zWuajVzfHl-JiqP35fyeoTjdL_y2bt7qtyAwdeulrTvGd-EHNV5bK3JnHmpkvR_sEaMhBw",
+      "keyId": "dBwGxjx2"
+    },
+    {
+      "commitment": {
+        "v": 1,
+        "kind": "witness",
+        "owner": "",
+        "round": 33410067,
+        "req": "4ad92ed53d023f97cd1c8f89724346e1248a5c9f3c15ba5d8468d8439bf26e45",
+        "t": 1793033562001,
+        "data": {
+          "event": "enc:1056fa6f96fb9ce29844a5f66bd246697cc784229bddb7c5c92413e4ff9f1198",
+          "pool": [
+            "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
+            "3FF_9SfnvPqwZ_LMYbvvjnX5uo4TMq09QviTjgBF7Yk",
+            "LbeXY24yPtV26bDgPifLkhcaiWtj6RhvDUpDucfTgtE",
+            "rNzISU1Fj0SnqqwdaoTsYk2u6IQ22yribme6ZFoQYig",
+            "tygv5HL5dkHBcJeCGlN4dKqqUyZFrTTb1ZhzMaTnP40"
+          ]
+        }
+      },
+      "authSig": "k15gHk1o_IYFmOvB_xOryh1kNolWpzm27tTJ7oE8vX4f8Rme4lE-v2QAVzvb4pgSv6eXXQ5nzesoN3jFeZR2AA",
+      "keyId": "dBwGxjx2"
+    }
+  ],
+  "attestations": [
+    {
+      "attestation": {
+        "v": 1,
+        "kind": "attest",
+        "event": "genesis:e53ac00bf44533f7d490389d583fa0407e71f3d388ef147ac1de2db15894234e",
+        "duty": "d05362fabade73d5e19f07a70553ab1aa46814c6e18ee760bee2a332fd5ba3c5",
+        "position": 0,
+        "witness": "tygv5HL5dkHBcJeCGlN4dKqqUyZFrTTb1ZhzMaTnP40",
+        "subject": "06a47ed179bccab149a9a974ba52535c106001148e70353e35dedd232175b551",
+        "agree": true
+      },
+      "sig": "EULI5ro9OSyou_5q6CKjNmHcXBy9Afmxf68NX8w591iIowNuhvRLnvm2a6a8ROYBbS-OskNpdfFivnPsCewECg"
+    },
+    {
+      "attestation": {
+        "v": 1,
+        "kind": "attest",
+        "event": "mating:9c4f1e754f90d69e553b8d012dbd24e98b7ba3c3c72a8e33e0d057b262ceb6e3",
+        "duty": "db8d817b3d11466fb121a510c3225bb4bf2b0e9191b5475887c4c3852794d466",
+        "position": 0,
+        "witness": "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
+        "subject": "bf36eda67a3c7a2765b6a48e08575e6cac5c40c0fd08a0a7bfb34fddeb51e538",
+        "agree": true
+      },
+      "sig": "JTjlLg50wBlAQDz4Y1th9MGrIvnKqAkM-ZBeI0hh3ThxHKEZp4AOaoLa4TYDUdT-6ZcoaX447jdscKM68jZ8AA"
+    },
+    {
+      "attestation": {
+        "v": 1,
+        "kind": "attest",
+        "event": "enc:1056fa6f96fb9ce29844a5f66bd246697cc784229bddb7c5c92413e4ff9f1198",
+        "duty": "4dda5490e8f03fd52d318b7768fd6162dda7e876eb50d7d47963289f3cc845bf",
+        "position": 1,
+        "witness": "rNzISU1Fj0SnqqwdaoTsYk2u6IQ22yribme6ZFoQYig",
+        "subject": "447f59b8d28032b9f6ccb6e4f29541ce225e8633f82fdbac26538374f9a0e6c6",
+        "agree": true
+      },
+      "sig": "SsXy1gCG0-Ab--XkvEfI-l-VtiDcyCZ1d9XID0kLGtmbF8PcD0a48td8hQ66Sq8sN8KqcNyKXAAYSuleHINTBQ"
+    }
+  ],
   "t": 1793033652900
 }
