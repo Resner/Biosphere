@@ -5,6 +5,7 @@ import {
   farmReport,
   gatesOf,
   HONEST_GAIN_PER_MIN,
+  HOUR,
   type Measure,
   MIN,
 } from '../tools/farm-sim';
@@ -52,7 +53,7 @@ describe('the farm simulation', () => {
   heavyTest('the honest pair reaches generation 3 on the gates alone', async () => {
     const m = await measure(HONEST);
     expect(m.gen3AtMs).not.toBeNull();
-    expect(m.hours * 60 * MIN).toBeGreaterThan(m.gen3AtMs ?? Number.POSITIVE_INFINITY);
+    expect(m.hours * HOUR).toBeGreaterThan(m.gen3AtMs ?? Number.POSITIVE_INFINITY);
   });
 
   for (const bots of FARM_SIZES) {

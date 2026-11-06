@@ -70,6 +70,9 @@ describe('the gates', () => {
     expect(failing({ ...farm, gen3AtMs: null })).toEqual([1]);
     const quick = { ...farm, lives: farm.lives.map((l) => ({ ...l, matureAtMs: 5 * MIN })) };
     expect(failing({ ...quick, gen3AtMs: 3 * RULES.life.matureMinMs - 1 })).toEqual([1]);
+    // A lineage that matured under the rulebook's minimum fails even when its time looks gated.
+    const young = { ...farm, lives: farm.lives.map((l) => ({ ...l, matureAtMs: MIN })) };
+    expect(failing({ ...young, gen3AtMs: 30 * MIN })).toEqual([1]);
   });
 
   it('1: fail when the farmer waits for growth far less than the honest pair does', () => {

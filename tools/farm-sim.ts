@@ -12,6 +12,7 @@ import { RULES } from '../src/sim/rules';
 import rounds from '../tests/fixtures/drand/rounds.json';
 
 export const MIN = 60_000;
+export const HOUR = 60 * MIN;
 /** One report: the resolution of every time the simulation measures. */
 export const REPORT_MS = 30_000;
 /** The honest forager's growth in biomass per minute across the growth band (`forageGainPerMinute`). */

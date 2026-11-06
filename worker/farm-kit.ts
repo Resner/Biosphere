@@ -8,7 +8,7 @@ import { type Born, genomeRefOf } from '../src/net/protocol';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import { sizeTier } from '../src/sim/size';
 import type { KillLog, LifeLog, Measure } from '../tools/farm-sim';
-import { MIN, REPORT_MS } from '../tools/farm-sim';
+import { HOUR, MIN, REPORT_MS } from '../tools/farm-sim';
 import {
   advance,
   authority,
@@ -41,7 +41,6 @@ import { poolNow, setAvail } from './witness-test-kit';
 
 /** The snapshot sequence the fights' signed claims use: a later engage must not look older. */
 let seq = 0;
-const HOUR = 60 * MIN;
 const FIGHT = RULES.encounter;
 
 /** How a player's reports grow its creature. */
