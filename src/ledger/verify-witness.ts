@@ -4,7 +4,13 @@ import { commitmentId } from './genesis';
 import type { KeyVerify } from './key-verify';
 import type { AuthorityKey } from './proof';
 import type { StoredRecord } from './record';
-import { type RefereeSpan, refereeSpanProblems, refereesOf, settlementHash } from './settlement';
+import {
+  AUTHORITY,
+  type RefereeSpan,
+  refereeSpanProblems,
+  refereesOf,
+  settlementHash,
+} from './settlement';
 import type { BundleIndex, Problem, VerifyOptions, WitnessEvent, Witnessed } from './verify';
 import { countersigned, firstNamers, keyProblem, whereNamed } from './verify-chain';
 import {
@@ -32,8 +38,6 @@ const problem = (creature: string, seq: number | null, code: string): Problem =>
   family: 'witness',
   code,
 });
-
-const AUTHORITY = 'authority';
 
 /** One held event, as the records and documents of the bundle give it. */
 interface Held {
@@ -214,13 +218,7 @@ export function verifyWitness(index: BundleIndex, _opts: VerifyOptions): Witness
       at(h.duty === undefined ? 'witness-commit-duplicate' : 'witness-duty');
     const signed = dutyId ? commits.get(dutyId) : undefined;
     const order = signed ? commitmentProblems(h, dutyId as string, signed, at) : null;
-    const selection: WitnessEvent['selection'] = signed
-      ? order
-        ? 'checked'
-        : 'unchecked'
-      : dutyId
-        ? 'unchecked'
-        : 'none';
+    const selection: WitnessEvent['selection'] = !dutyId ? 'none' : order ? 'checked' : 'unchecked';
     // Each position serves once: a witness's spans count once, every signed attestation once.
     const uses = new Map<number, number>();
     const use = (position: number) => uses.set(position, (uses.get(position) ?? 0) + 1);

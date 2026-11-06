@@ -1,6 +1,5 @@
 import {
-  isDuty,
-  parseRefereeSpans,
+  refereeTail,
   type SettledFighter,
   type Settlement,
   type SignedSettlement,
@@ -297,7 +296,6 @@ function settlementDoc(v: unknown): Settlement | null {
   const joins = list(v.joins, ENC_MAX_FIGHTERS - MIN_FIGHTERS, (j) =>
     isStr(j, HEX64_RE) ? j : null,
   );
-  const referees = v.v === 2 ? parseRefereeSpans(v.referees) : null;
   if (
     !results ||
     !joins ||
@@ -327,9 +325,8 @@ function settlementDoc(v: unknown): Settlement | null {
     results,
     t: v.t,
   };
-  if (v.v === 1 && v.referee === 'authority') return { v: 1, ...base, referee: 'authority' };
-  if (v.v === 2 && referees && isDuty(v.duty)) return { v: 2, ...base, referees, duty: v.duty };
-  return null;
+  const tail = refereeTail(v);
+  return tail && { ...base, ...tail };
 }
 
 export function signedSettlement(v: unknown): SignedSettlement | null {

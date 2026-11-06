@@ -132,6 +132,20 @@ export function parseRefereeSpans(v: unknown): RefereeSpan[] | null {
 /** A settlement's `duty`: a witness commitment's id, or `''`. */
 export const isDuty = (v: unknown): v is string => v === '' || isHex64(v);
 
+/**
+ * What a settlement's version adds to the common fields, from untrusted JSON: version 1's
+ * `referee: 'authority'`, or version 2's `referees` and `duty`. Null for anything else. The wire
+ * (`protocol-encounter.ts`) and the proof bundle (`proof.ts`) both parse settlements through it.
+ */
+export function refereeTail(
+  o: Record<string, unknown>,
+): { v: 1; referee: 'authority' } | { v: 2; referees: RefereeSpan[]; duty: string } | null {
+  if (o.v === 1) return o.referee === AUTHORITY ? { v: 1, referee: AUTHORITY } : null;
+  if (o.v !== 2) return null;
+  const referees = parseRefereeSpans(o.referees);
+  return referees && isDuty(o.duty) ? { v: 2, referees, duty: o.duty } : null;
+}
+
 /** The settlement with its hash (`bs/settle/v1`) and the authority's countersignature over it. */
 export interface SignedSettlement {
   settlement: Settlement;
@@ -150,7 +164,7 @@ export interface FightLog {
 }
 
 /** The authority's name in a referee span (`src/net/handover.ts`'s `AUTHORITY`, which the verifier must not import). */
-const AUTHORITY = 'authority';
+export const AUTHORITY = 'authority';
 
 const SETTLE_DOMAIN = 'bs/settle/v1';
 const START_DOMAIN = 'bs/enc/start/v1';

@@ -21,8 +21,7 @@ import { isPlayerId } from './identity';
 import { HEX64, type LedgerRecord, recordProblems, type StoredRecord } from './record';
 import {
   type FightLog,
-  isDuty,
-  parseRefereeSpans,
+  refereeTail,
   type SettledFighter,
   type Settlement,
   type SignedSettlement,
@@ -348,9 +347,8 @@ function settlementDoc(s: unknown): Settlement | null {
     results,
     t: s.t,
   };
-  if (s.v === 1 && s.referee === 'authority') return { v: 1, ...base, referee: 'authority' };
-  const referees = v2 ? parseRefereeSpans(s.referees) : null;
-  return referees && isDuty(s.duty) ? { v: 2, ...base, referees, duty: s.duty } : null;
+  const tail = refereeTail(s);
+  return tail && { ...base, ...tail };
 }
 
 function signedSettlement(v: unknown): SignedSettlement | null {

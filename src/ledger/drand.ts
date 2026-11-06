@@ -33,11 +33,16 @@ export function roundMessage(round: number): Uint8Array {
   return sha256(out);
 }
 
+const wellFormed = (b: Beacon) =>
+  Number.isSafeInteger(b.round) &&
+  b.round >= 1 &&
+  typeof b.signature === 'string' &&
+  SIGNATURE_HEX.test(b.signature);
+
 /** True when the beacon's signature verifies for its round under the pinned chain key. Never throws. */
 export function verifyBeacon(b: Beacon): boolean {
   try {
-    if (!Number.isSafeInteger(b.round) || b.round < 1) return false;
-    if (typeof b.signature !== 'string' || !SIGNATURE_HEX.test(b.signature)) return false;
+    if (!wellFormed(b)) return false;
     const sigs = bls12_381.shortSignatures;
     return sigs.verify(
       hexToBytes(b.signature),
@@ -61,11 +66,6 @@ const BATCH_DOMAIN = new TextEncoder().encode('bs/beacon-batch/v1');
 export function verifyBeacons(beacons: readonly Beacon[]): boolean[] {
   if (beacons.length < 2) return beacons.map(verifyBeacon);
   try {
-    const wellFormed = (b: Beacon) =>
-      Number.isSafeInteger(b.round) &&
-      b.round >= 1 &&
-      typeof b.signature === 'string' &&
-      SIGNATURE_HEX.test(b.signature);
     if (!beacons.every(wellFormed)) return beacons.map(verifyBeacon);
     const sigs = bls12_381.shortSignatures;
     const all = sha256(concatBytes(BATCH_DOMAIN, ...beacons.map((b) => hexToBytes(b.signature))));
