@@ -7,7 +7,8 @@ import { fromBase64Url, signedBytes } from './identity';
 // countersignatures by one or two authority keys, so the key's point is decoded and its
 // multiples tabled once. The equation is `verify`'s in `identity.ts` (RFC 8032, strict: canonical
 // encodings, s < L, no small-order key, the cofactored check), and `key-verify.test.ts` holds the
-// two to the same answers. Loaded by the verifier only, never by the game shell.
+// two to the same answers. Loaded by the verifier, and by the witness documents (`witness.ts`), which
+// table each player key whose inputs, frames or attestations they check.
 
 const { Point } = ed25519;
 const L = Point.Fn.ORDER;
