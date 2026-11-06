@@ -54,6 +54,25 @@ describe('worker bundles', () => {
     );
   });
 
+  // The witness variables (M10 T4): the play needed, the IP check and a pond's capacity are each
+  // read once, behind the fixture source.
+  heavyTest('production honours no witness variable outside fixture mode', () => {
+    const code = bundle(false, 'index.js');
+    const reads = code.match(/[\w$.]*\b(WITNESS_PLAY_MS|WITNESS_IP_CHECK|POND_MAX)\b(?! = )/g) ?? [];
+    expect(reads.sort()).toEqual([
+      'WITNESS_PLAY_MS',
+      'WITNESS_PLAY_MS',
+      'env.POND_MAX',
+      'env.WITNESS_IP_CHECK',
+      'env.WITNESS_PLAY_MS',
+    ]);
+    expect(code).toContain(
+      'env.DRAND_SOURCE === "fixture" ? Number(env.WITNESS_PLAY_MS) : Number.NaN',
+    );
+    expect(code).toContain('env.DRAND_SOURCE === "fixture" && env.WITNESS_IP_CHECK === "off"');
+    expect(code).toContain('env.DRAND_SOURCE === "fixture" ? Number(env.POND_MAX) : Number.NaN');
+  });
+
   heavyTest('the E2E entry carries the recorded rounds', () => {
     const code = bundle(true, 'e2e-entry.js');
     expect(code).toContain(marker);
@@ -62,5 +81,7 @@ describe('worker bundles', () => {
     expect(code).toContain('/v1/e2e/restart');
     // And the fight state a scenario waits on (M8 T9).
     expect(code).toContain('/v1/e2e/encounter/');
+    // And an event's witnesses (M10 T4).
+    expect(code).toContain('/v1/e2e/witness/');
   });
 });

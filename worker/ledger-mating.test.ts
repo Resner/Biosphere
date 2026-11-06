@@ -47,7 +47,7 @@ describe('migration 5', () => {
         .map((r) => r.version);
       return { columns, indexes, matings, versions };
     });
-    expect(result.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
+    expect(result.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
     for (const c of ['generation', 'parent_a', 'parent_b', 'chain_parent', 'cooldown_until_ms']) {
       expect(result.columns).toContain(c);
     }
@@ -284,7 +284,8 @@ describe('Ledger.birth', () => {
       const result = ledger.birth({ commit: m.commit, children });
       const rows = ledger.rowsWritten - before;
       console.log(`rows written by birth: ${rows}`);
-      expect(rows).toBeLessThanOrEqual(7);
+      // Two of them are the children's entries in migration 10's index on `creatures (owner)`.
+      expect(rows).toBeLessThanOrEqual(9);
       if (!result.ok) throw new Error(result.reason);
       expect([ledger.chain(a.id).length, ledger.chain(b.id).length]).toEqual(parentsBefore);
       for (const [i, s] of result.stored.entries()) {

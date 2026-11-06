@@ -130,8 +130,9 @@ describe('a kill’s settlement', () => {
       });
     });
     const { start, end } = await killB(a, b);
-    // M7's rows per participant beside the log, and one update of the row for the tail and the document.
-    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(5);
+    // M7's rows per participant beside the log, and one update of the row for the tail and the
+    // document, and the lock's `authority-only` flag (no witness online, M10).
+    expect((await rowsBesideLog()) - rows).toBeLessThanOrEqual(6);
     expect(sealed.rows).toBeGreaterThan(0);
     expect(sealed.rows).toBeLessThanOrEqual(3);
 

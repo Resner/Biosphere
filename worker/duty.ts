@@ -198,9 +198,11 @@ export class Duties {
     const now = this.hub.clock.now();
     // Not through `Ledger` (which no M10 task grows), but counted with its rows all the same.
     const cursor = this.hub.ctx.storage.sql.exec(
-      'UPDATE players SET struck_until = ? WHERE id = ?',
-      now + STRIKE_MS,
+      `INSERT INTO players (id, first_seen, last_seen, struck_until) VALUES (?1, ?2, ?2, ?3)
+       ON CONFLICT (id) DO UPDATE SET struck_until = ?3`,
       player,
+      now,
+      now + STRIKE_MS,
     );
     this.hub.ledger.rowsWritten += cursor.rowsWritten;
     this.hub.ledger.audit.raise(kind, { owner: player, creature: '', key, t: now });
