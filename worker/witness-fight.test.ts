@@ -332,7 +332,7 @@ describe('a witnessed duel', () => {
   });
 });
 
-type Failure = 'silent' | 'signature' | 'gap' | 'width' | 'close' | 'dispute';
+type Failure = 'silent' | 'signature' | 'gap' | 'width' | 'ahead' | 'close' | 'dispute';
 
 /** Flips one byte of the first input signature of the batch. */
 function flipped(b: BatchMsg): BatchMsg {
@@ -350,6 +350,7 @@ describe('a witness that fails', () => {
     ['signature', 'witness-forged'],
     ['gap', 'witness-forged'],
     ['width', 'witness-forged'],
+    ['ahead', 'witness-forged'],
     ['close', 'witness-silent'],
     ['dispute', 'witness-equivocated'],
   ];
@@ -365,13 +366,20 @@ describe('a witness that fails', () => {
         await playTo(r, h + 10, sw);
         failAt = startOfFrame(r, h + 10) + 1000;
         await advanceTo(failAt);
-      } else if (failure === 'signature' || failure === 'gap' || failure === 'width') {
+      } else if (['signature', 'gap', 'width', 'ahead'].includes(failure)) {
         sw.tamper = (b) =>
           failure === 'signature'
             ? flipped(b)
             : failure === 'gap'
               ? { ...b, f: b.f + 1, i: b.i.slice(1), s: b.s.slice(1) }
-              : { ...b, i: b.i.map((x) => [...x, null]), s: b.s.map((x) => [...x, null]) };
+              : failure === 'ahead'
+                ? // 20 frames of autopilot, far past the frame due: nothing to sign, nothing to check but the clock.
+                  {
+                    ...b,
+                    i: Array.from({ length: 20 }, () => [null, null]),
+                    s: Array.from({ length: 20 }, () => [null, null]),
+                  }
+                : { ...b, i: b.i.map((x) => [...x, null]), s: b.s.map((x) => [...x, null]) };
         await playTo(r, h + 10, sw, false);
         failAt = clock.t;
       } else {

@@ -79,9 +79,11 @@ export async function hello(
   if (current?.phase !== 'challenged') return;
   // The new tab takes over the old one's place: its pond seat, or its spot in line.
   let held: LiveSession | undefined;
+  let duties: number[] | undefined;
   for (const [other, theirs] of liveSessions(hub, ws)) {
     if (theirs.playerId !== msg.playerId) continue;
     if (theirs.phase === 'active' || held?.phase !== 'active') held = theirs;
+    if (theirs.phase === 'active' && theirs.duties) duties = theirs.duties;
     // Quietly: the new socket takes over the place, so nobody moves up and no seat is offered.
     drop(hub, other, CLOSE_REPLACED, 'replaced by a newer session', true);
   }
@@ -99,7 +101,7 @@ export async function hello(
       place: 0,
     } satisfies Session);
   } else {
-    enter(hub, ws, current, who, { ice, turn });
+    enter(hub, ws, { ...current, duties }, who, { ice, turn });
   }
   announceQueue(hub);
   await hub.rearm();
@@ -198,14 +200,16 @@ function awaySeats(hub: Hub): Map<string, number> {
 export function enter(
   hub: Hub,
   ws: WebSocket,
-  from: Pick<Session, 'openedAt' | 'windowStart' | 'count' | 'signals' | 'ip'>,
+  from: Pick<Session, 'openedAt' | 'windowStart' | 'count' | 'signals' | 'ip'> & {
+    duties?: number[] | undefined;
+  },
   who: { playerId: string; name: string },
   link: { ice: IceServer[]; turn: boolean },
 ): void {
   const lock = hub.fights.ofPlayer(who.playerId);
   const fight = lock?.fight ?? null;
   const { pond, spawnHint, members, slot } = place(hub, fight?.pond);
-  const { openedAt, windowStart, count, signals, ip } = from;
+  const { openedAt, windowStart, count, signals, ip, duties } = from;
   ws.serializeAttachment({
     phase: 'active',
     openedAt,
@@ -217,6 +221,8 @@ export function enter(
     pondId: pond.id,
     slot,
     life: bind(hub, who.playerId, hub.clock.now()),
+    // The hour's duties belong to the player, not the socket: a reload keeps them.
+    ...(duties ? { duties } : {}),
   } satisfies Session);
   broadcast(hub, pond.id, ws, { t: 'member', op: 'join', member: who });
   sendIfOpen(ws, {

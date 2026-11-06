@@ -17,6 +17,7 @@ import {
   AUTHORITY,
   BATCH_FRAMES,
   BATCH_GRACE_MS,
+  BATCH_LEAD_MAX,
   handoverFrame,
   plannedTakeBackFrame,
   type RefereeSpan,
@@ -312,8 +313,8 @@ function close(hub: Hub, fight: Fight, w: WitnessRun): void {
 
 /**
  * A witness's `batch`. Only the fight's W (not failed) may send one; a repeat is ignored. It must
- * continue the log, have each frame's width and carry a valid signature for every input, or W has
- * forged it. Frames past a take-back's frame are left out. The authority steps its encounter with
+ * continue the log, have each frame's width, carry a valid signature for every input and reach at
+ * most `BATCH_LEAD_MAX` frames past the frame due, or W has forged it. Frames past a take-back's frame are left out. The authority steps its encounter with
  * the frames, echoes them, writes them (one row) and settles when its encounter ends.
  */
 export function witnessBatch(hub: Hub, session: ActiveSession, msg: ClientMsg & { t: 'batch' }) {
@@ -330,7 +331,8 @@ export function witnessBatch(hub: Hub, session: ActiveSession, msg: ClientMsg & 
     return;
   }
   const take = Math.min(msg.i.length, (w.until ?? Number.POSITIVE_INFINITY) - msg.f);
-  if (msg.f !== L || msg.f < w.from || take <= 0 || !signed(fight, w, msg, take)) {
+  const ahead = msg.f + take - 1 > dueFrame(fight, hub.clock.now()) + BATCH_LEAD_MAX;
+  if (msg.f !== L || msg.f < w.from || take <= 0 || ahead || !signed(fight, w, msg, take)) {
     fail(hub, lock, fight, 'witness-forged');
     return;
   }
