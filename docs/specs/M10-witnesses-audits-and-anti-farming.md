@@ -309,7 +309,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### The referee, shared
 
-- [x] T3 One referee for the authority and a witness: spans, the witness's referee, the fighter's route [opus] (after T2) (in progress)
+- [x] T3 One referee for the authority and a witness: spans, the witness's referee, the fighter's route [opus] (after T2)
   - Done: `handover.ts`, `witness-referee.ts` (drops `stray`, `forged` and `moved` inputs too, so it never batches one the authority refuses), `referee-route.ts` and `EncounterSync.overrule`; the harness's witness phase runs calm scripts (`witness-19`), since its usual duels end in about 4 s.
   - Gotcha: `tests/*.test.ts` never ran (the node project's include missed `tests/`); it does now. A final batch with nothing left is not sent.
   - Steps:
