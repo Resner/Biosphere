@@ -85,6 +85,19 @@ describe('witness eligibility', () => {
     expect(await poolNow()).toEqual([w.id.playerId]);
   });
 
+  it('keeps the hour’s duties across a reload: the player’s, not the socket’s', async () => {
+    const w = await witness();
+    const times = Array.from({ length: DUTIES_PER_HOUR }, (_, k) => clock.t - k * 1000);
+    await editWitness(w, (s) => ({ ...s, duties: times }) satisfies Session);
+    const { c } = await signIn(w.id, undefined, w.ip);
+    await nextOf(c, 'welcome');
+    await nextOf(c, 'life');
+    await setAvail(c, true);
+    expect(await poolNow()).toEqual([]);
+    await advance(3_600_000);
+    expect(await poolNow()).toEqual([w.id.playerId]);
+  });
+
   it('leaves out the participants and anyone sharing a participant’s IP hash', async () => {
     const shared = nextIp();
     const fighter = await witness({ ip: shared });

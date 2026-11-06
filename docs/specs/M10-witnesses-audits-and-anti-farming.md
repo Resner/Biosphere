@@ -782,6 +782,15 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - Every exit criterion maps to a named test or report (the table below).
     - Each PR E2E part stays under 5 minutes, and the long scenarios are `@slow`.
 
+- [x] T18 Close review fixes: a batch can't run ahead of the clock, the hour's duties survive a reload
+  - Steps:
+    1. `witnessBatch` (`worker/witness-fight.ts`): a batch reaching more than `BATCH_LEAD_MAX` (10, `src/net/handover.ts`) frames past the frame due on the hub's clock is `witness-forged`. All-null frames need no signatures, so before this a witness could run a fight on autopilot faster than real time.
+    2. `enter` (`worker/sessions.ts`) carries the replaced session's `duties` into the new socket's attachment, so a reload or a second tab no longer resets the 20-an-hour cap.
+  - Done: tests first in `worker/witness-fight.test.ts` (the `ahead` failure, a take-back and a strike like the other forgeries) and `worker/witness-pool.test.ts` (a reload keeps the hour's duties); both failed before the fixes.
+  - Gotcha: the close review's other findings stay open for M11, listed in its ROADMAP outline.
+  - Acceptance:
+    - A batch 20 frames ahead takes the fight back and strikes the witness; a player who reloads after 20 duties stays out of the pool for the hour.
+
 ## Exit criteria → evidence
 
 | Exit criterion (ROADMAP) | Tasks | Evidence |

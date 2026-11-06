@@ -231,6 +231,12 @@ Scale beyond one pond (ADR 0013).
 - Mesh-relayed signaling; handoffs and boundary neighbours.
 - Tiered viewport and ambient swarms for giants; snapshot rate by distance; tier-sized food for large creatures.
 - Headless AoI simulation harness; migration from ponds to the world.
+- M10 close-review carry-overs (none breaks an exit criterion):
+  - `engage` takes a witness's fight back (`witnessLocked`) when the lock-ask is sent, so a refused or timed-out lock still costs the fight its witness (`worker/engage.ts`);
+  - a `dispute` that arrives after the fight settled is dropped, so an equivocating witness isn't struck (`witnessDispute`);
+  - `commitWitnesses` doesn't flag `authority-only` when `commitPool` throws (a round already due);
+  - `Duties.offer` calls `eligible()` once per order position, and `playedOf` scans every session for one player: compute once per offer and look the seated player up directly;
+  - `OnlineSession.dutyPeer` has its own cap check while `ConnectionPolicy.duty` has no runtime caller.
 
 ### M12 Habitats, regrouping and spawning
 

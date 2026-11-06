@@ -19,6 +19,12 @@ export const HANDOVER_AHEAD = 3;
 export const TAKEBACK_AHEAD = 2;
 /** A witness sends the authority a batch every this many frames. */
 export const BATCH_FRAMES = 10;
+/**
+ * How many frames past the frame due on the hub's clock a batch may reach: a witness finalizes a
+ * frame about when it falls due, so a batch further ahead lets it run the fight on autopilot
+ * faster than real time. Such a batch is `witness-forged`.
+ */
+export const BATCH_LEAD_MAX = 10;
 /** How long past the next batch's last frame the authority waits for it. */
 export const BATCH_GRACE_MS = 1000;
 
