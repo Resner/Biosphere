@@ -1,10 +1,12 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js';
+import { SIGNATURE_BYTES } from '../net/protocol-defs';
 import { createRng, seedFromBytes } from '../sim/prng';
 import { canonicalize } from './canonical';
 import { QUICKNET, roundTime } from './drand-time';
 import { fromBase64Url, type Identity, isPlayerId, toBase64Url } from './identity';
 import { type KeyVerify, keyVerifier } from './key-verify';
+import { HEX64 } from './record';
 import { frameLeaf } from './settlement';
 
 // Witness documents (ADR 0058): who may witness an event, the drand round that orders them, the
@@ -25,13 +27,12 @@ const INPUT_DOMAIN = 'bs/input/v1';
 const WFRAME_DOMAIN = 'bs/wframe/v1';
 const BIRTH_DOMAIN = 'bs/attest/birth/v1';
 
-const HEX64 = /^[0-9a-f]{64}$/;
 const CODE = /^[a-z0-9:_-]{1,64}$/;
 const EVENT = /^(enc|mating|genesis):([0-9a-f]{64})$/;
-const SIG_BYTES = 64;
 const encoder = new TextEncoder();
 const utf8 = (text: string): Uint8Array => encoder.encode(text);
 
+const isHex64 = (v: unknown): v is string => typeof v === 'string' && HEX64.test(v);
 const isRecord = (v: unknown): v is Record<string, unknown> =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 const onlyKeys = (v: Record<string, unknown>, keys: readonly string[]): boolean =>
@@ -39,9 +40,9 @@ const onlyKeys = (v: Record<string, unknown>, keys: readonly string[]): boolean 
 
 /** The event a duty serves: `'enc:<64 hex>'`, `'mating:…'` or `'genesis:…'`. */
 export function dutyEvent(kind: DutyKind, id: string): string {
-  if (!['enc', 'mating', 'genesis'].includes(kind) || !HEX64.test(id))
-    throw new RangeError(`not a duty event: ${kind}:${id}`);
-  return `${kind}:${id}`;
+  const event = `${kind}:${id}`;
+  if (!EVENT.test(event)) throw new RangeError(`not a duty event: ${event}`);
+  return event;
 }
 
 export function parseDutyEvent(s: unknown): { kind: DutyKind; id: string } | null {
@@ -65,7 +66,7 @@ export function witnessDataProblems(v: unknown): string[] {
   if (!parseDutyEvent(v.event)) problems.push('event');
   const pool = v.pool;
   if (!Array.isArray(pool)) return [...problems, 'pool'];
-  if (pool.length === 0 || pool.length > POOL_MAX) problems.push('pool-size');
+  if (pool.length === 0 || pool.length > POOL_MAX) return [...problems, 'pool-size'];
   if (!pool.every((id) => typeof id === 'string' && isPlayerId(id))) problems.push('pool-id');
   else if (!pool.every((id, i) => i === 0 || (pool[i - 1] as string) < id))
     problems.push('pool-order');
@@ -78,7 +79,8 @@ export function poolOf(eligible: readonly string[], event: string): string[] {
     id,
     key: bytesToHex(sha256(utf8(`${POOL_DOMAIN}${event}${id}`))),
   }));
-  keyed.sort((a, b) => (a.key < b.key ? -1 : a.key > b.key ? 1 : a.id < b.id ? -1 : 1));
+  // Ids are unique, so keys differ unless SHA-256 collides.
+  keyed.sort((a, b) => (a.key < b.key ? -1 : 1));
   return keyed
     .slice(0, POOL_MAX)
     .map((k) => k.id)
@@ -105,7 +107,7 @@ export function witnessOrder(
   randomness: Uint8Array,
   commitId: string,
 ): string[] {
-  if (!HEX64.test(commitId)) throw new RangeError(`not a commit id: ${commitId}`);
+  if (!isHex64(commitId)) throw new RangeError(`not a commit id: ${commitId}`);
   const digest = sha256(concatBytes(utf8(ORDER_DOMAIN), randomness, hexToBytes(commitId)));
   const rng = createRng(seedFromBytes(digest), 'witness-order');
   const out = [...pool];
@@ -137,7 +139,23 @@ function playerKey(playerId: string): KeyVerify | null {
 
 function sigBytes(sig: unknown): Uint8Array | null {
   const bytes = typeof sig === 'string' ? fromBase64Url(sig) : null;
-  return bytes?.length === SIG_BYTES ? bytes : null;
+  return bytes?.length === SIGNATURE_BYTES ? bytes : null;
+}
+
+/** True when `key()` verifies `sig` over `bytes()` under `domain`. A missing key, a bad signature text or any throw is false. */
+function sigOk(
+  key: () => KeyVerify | null,
+  domain: string,
+  bytes: () => Uint8Array,
+  sig: unknown,
+): boolean {
+  try {
+    const raw = sigBytes(sig);
+    const verify = raw ? key() : null;
+    return !!verify && !!raw && verify(domain, bytes(), raw);
+  } catch {
+    return false;
+  }
 }
 
 export interface Attestation {
@@ -196,8 +214,8 @@ export function parseSignedAttestation(v: unknown): SignedAttestation | null {
     if (!isRecord(a) || !onlyKeys(a, ATTEST_KEYS) || !sigBytes(v.sig)) return null;
     const { position, agree, code } = a;
     if (a.v !== 1 || a.kind !== 'attest' || !parseDutyEvent(a.event)) return null;
-    if (typeof a.duty !== 'string' || !HEX64.test(a.duty)) return null;
-    if (typeof a.subject !== 'string' || !HEX64.test(a.subject)) return null;
+    if (!isHex64(a.duty)) return null;
+    if (!isHex64(a.subject)) return null;
     if (typeof a.witness !== 'string' || !isPlayerId(a.witness)) return null;
     if (!Number.isInteger(position) || (position as number) < 0) return null;
     if ((position as number) >= POOL_MAX || typeof agree !== 'boolean') return null;
@@ -221,23 +239,22 @@ export function parseSignedAttestation(v: unknown): SignedAttestation | null {
 
 /** True when the attestation's own witness signed it. Never throws. */
 export function attestationSigned(s: SignedAttestation): boolean {
-  try {
-    const sig = sigBytes(s.sig);
-    const key = playerKey(s.attestation.witness);
-    return !!sig && !!key && key(ATTEST_DOMAIN, attestationBytes(s.attestation), sig);
-  } catch {
-    return false;
-  }
+  return sigOk(
+    () => playerKey(s.attestation.witness),
+    ATTEST_DOMAIN,
+    () => attestationBytes(s.attestation),
+    s.sig,
+  );
 }
 
 /** A mating's subject: SHA-256 of both birth hashes in slot order, as hex. */
 export function birthSubject(slot0: string, slot1: string): string {
-  if (!HEX64.test(slot0) || !HEX64.test(slot1)) throw new RangeError('not a record hash');
+  if (!isHex64(slot0) || !isHex64(slot1)) throw new RangeError('not a record hash');
   return bytesToHex(sha256(concatBytes(utf8(BIRTH_DOMAIN), hexToBytes(slot0), hexToBytes(slot1))));
 }
 
 function encBytes(enc: string): Uint8Array {
-  if (!HEX64.test(enc)) throw new RangeError(`not an encounter id: ${enc}`);
+  if (!isHex64(enc)) throw new RangeError(`not an encounter id: ${enc}`);
   return hexToBytes(enc);
 }
 
@@ -269,12 +286,12 @@ export function inputSigned(
   code: number,
   sig: string,
 ): boolean {
-  try {
-    const bytes = sigBytes(sig);
-    return !!bytes && verify(INPUT_DOMAIN, inputBytes(enc, f, code), bytes);
-  } catch {
-    return false;
-  }
+  return sigOk(
+    () => verify,
+    INPUT_DOMAIN,
+    () => inputBytes(enc, f, code),
+    sig,
+  );
 }
 
 /** `'bs/wframe/v1' ‖ enc ‖ frameLeaf(f, inputs)`: a null input and a code 0 differ. */
@@ -304,11 +321,10 @@ export function witnessFrameSigned(
   inputs: readonly (number | null)[],
   sig: string,
 ): boolean {
-  try {
-    const bytes = sigBytes(sig);
-    const key = bytes ? playerKey(witness) : null;
-    return !!key && !!bytes && key(WFRAME_DOMAIN, witnessFrameBytes(enc, f, inputs), bytes);
-  } catch {
-    return false;
-  }
+  return sigOk(
+    () => playerKey(witness),
+    WFRAME_DOMAIN,
+    () => witnessFrameBytes(enc, f, inputs),
+    sig,
+  );
 }

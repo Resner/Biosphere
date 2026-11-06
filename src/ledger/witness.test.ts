@@ -264,8 +264,7 @@ describe('attestations', () => {
     };
     for (let n = 0; n < 10_000; n++) {
       const v = mutate(signed, 0);
-      expect(() => parseSignedAttestation(v)).not.toThrow();
-      const parsed = parseSignedAttestation(v);
+      const parsed = parseSignedAttestation(v); // a throw fails the test
       if (parsed) expect(() => attestationSigned(parsed)).not.toThrow();
     }
   });
