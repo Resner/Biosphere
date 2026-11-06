@@ -574,7 +574,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 - [x] T13 The lineage viewer [opus] (after T12) (in progress)
   - Done: `game/pedigree-layout.ts` (rows by longest ancestry, each parent pulled down to just above its nearest child, rows ordered over their children) now lays out both the panel and the card; `card/lineage-graph.ts` (the model) and `card/graph-view.ts` (links over an SVG of the edges).
-  - Gotcha: a node's rarity stripe must not inherit the page's `--tier`, so a common node sets no `data-tier`; Load checks an ancestor's bundle in a worker of its own, without its fights.
+  - Gotcha: the in-game panel's graph never showed (`hidden = false` on an `<svg>` is a no-op), now `toggleAttribute`; a common card node sets no `data-tier`, or it inherits the page's.
   - Steps:
     1. `src/card/lineage-graph.ts`, a graph of the held creatures on the card:
        - the subject at the bottom and generations above it;

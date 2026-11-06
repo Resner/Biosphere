@@ -85,7 +85,8 @@ export class LineagePanel {
       }),
     );
     this.graph.replaceChildren();
-    this.graph.hidden = view.empty;
+    // An SVG element has no `hidden` property: setting one would leave the attribute in place.
+    this.graph.toggleAttribute('hidden', view.empty);
     if (view.empty) return;
     this.graph.setAttribute('viewBox', `-4 -4 ${view.width + 8} ${view.height + 8}`);
     const byId = new Map(view.nodes.map((n) => [n.id, n]));
