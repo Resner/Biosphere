@@ -1,6 +1,5 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex, concatBytes, hexToBytes } from '@noble/hashes/utils.js';
-import { SIGNATURE_BYTES } from '../net/protocol-defs';
 import { createRng, seedFromBytes } from '../sim/prng';
 import { canonicalize } from './canonical';
 import { QUICKNET, roundTime } from './drand-time';
@@ -27,6 +26,8 @@ const INPUT_DOMAIN = 'bs/input/v1';
 const WFRAME_DOMAIN = 'bs/wframe/v1';
 const BIRTH_DOMAIN = 'bs/attest/birth/v1';
 
+// Not `net/protocol-defs`'s SIGNATURE_BYTES: the verifier shares this file and never imports `src/net`.
+const SIGNATURE_BYTES = 64;
 const CODE = /^[a-z0-9:_-]{1,64}$/;
 const EVENT = /^(enc|mating|genesis):([0-9a-f]{64})$/;
 const encoder = new TextEncoder();
