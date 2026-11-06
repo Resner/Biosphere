@@ -572,7 +572,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - `m9-card` passes 3 times in a row (`--repeat-each=3`).
   - Notes: the card reuses `src/render` and `src/game`'s DOM-free helpers (rarity, names, `starsText`), never the game loop. Its look is judged on the screenshots (rubric).
 
-- [ ] T13 The lineage viewer [opus] (after T12)
+- [ ] T13 The lineage viewer [opus] (after T12) (in progress)
   - Steps:
     1. `src/card/lineage-graph.ts`, a graph of the held creatures on the card:
        - the subject at the bottom and generations above it;
