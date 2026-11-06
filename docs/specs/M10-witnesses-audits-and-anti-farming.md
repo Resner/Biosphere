@@ -633,7 +633,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Anti-farming
 
-- [x] T11 The movement check at lock-in [opus] (after T4) (in progress)
+- [x] T11 The movement check at lock-in [opus] (after T4)
   - Done: `worker/movement.ts` (`jumped`), checked in `lockAnswer`; `SignedSnaps` keeps the last 5 and `lock-ask` gained `by` (the target could not tell whose snapshots to send). The 1,000 honest paths are a `heavyTest` (about 3 s; worst 0.66 of the bound).
   - Gotcha: an attacker within 3 s of its own fight's end is not checked (`Fights.fightEnded`): a fight's collisions and rollbacks move it, and a `fighting` flag alone would be a free bypass.
   - Steps (ADR 0059):

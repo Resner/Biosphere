@@ -204,6 +204,7 @@ export class Fights {
   /** Forgets every lock and cancels its timer, as a restart does (the E2E restart hook, hub tests). */
   clear(): void {
     for (const id of [...this.byId.keys()]) this.release(id);
+    this.ended.clear();
   }
 
   /** The locks whose fight is running. */
