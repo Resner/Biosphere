@@ -121,7 +121,11 @@ export class GraphView {
     const at = new Map(g.nodes.map((n) => [n.id, n]));
     // Each parent's edge meets its child on its own side of the child's top edge.
     const byChild = new Map<string, CardGraph['edges']>();
-    for (const e of g.edges) byChild.set(e.to, [...(byChild.get(e.to) ?? []), e]);
+    for (const e of g.edges) {
+      const bucket = byChild.get(e.to);
+      if (bucket) bucket.push(e);
+      else byChild.set(e.to, [e]);
+    }
     const into = new Map<string, number>();
     for (const [id, edges] of byChild) {
       const froms = edges.sort((a, b) => (at.get(a.from)?.x ?? 0) - (at.get(b.from)?.x ?? 0));
