@@ -151,6 +151,9 @@ function debugHelpers(app: App): BsDebug {
     setBench(ms) {
       app.autoQuality.setBench(ms, performance.now());
     },
+    dutyFrameMs(ms) {
+      app.duty.frameMs = ms;
+    },
     timeScale(next) {
       app.clock();
       app.scale = next;

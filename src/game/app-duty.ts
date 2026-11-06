@@ -111,6 +111,8 @@ export class DutyWiring {
   readonly avail: Availability;
   /** The auditor duty's runner, once the first offer has loaded it. */
   audits: AuditDuties | null = null;
+  /** `debug.dutyFrameMs`: the frame time availability judges in place of the measured one, or null. */
+  frameMs: number | null = null;
   private loading: Promise<{ audits: AuditDuties; runner: AuditRunner }> | null = null;
 
   constructor(private readonly app: App) {
@@ -173,7 +175,7 @@ export class DutyWiring {
 
   /** A frame took `ms`. */
   frame(now: number, ms: number): void {
-    this.avail.frame(now, ms);
+    this.avail.frame(now, this.frameMs ?? ms);
     this.update(now);
   }
 

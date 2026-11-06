@@ -21,6 +21,9 @@ interface WitnessView {
 
 /** Hatches the page's creature and waits until it tells the hub it can witness. */
 async function witnessing(page: Page): Promise<void> {
+  // Four software-rendered pages on one runner draw slower than a witness may (a frame-time p90
+  // over 50 ms): availability judges fast frames here, so both witnesses stay in the pool.
+  await page.evaluate(() => (window.__bs as BsHook).debug?.dutyFrameMs(16));
   await clickHatch(page);
   await waitPlaying(page);
   await expect
@@ -52,7 +55,12 @@ async function audited(pages: Page[], kind: string, id?: string): Promise<string
     .toBe(true)
     .catch(async (error) => {
       const seen = await Promise.all(pages.map(async (p) => (await state(p)).witness));
-      throw new Error(`no ${kind} audit: ${JSON.stringify(seen)}`, { cause: error });
+      const hub = id
+        ? await (
+            await pages[0]?.request.get(`${M10_AUDIT_HUB}/v1/e2e/witness/${kind}:${id}`)
+          )?.text()
+        : null;
+      throw new Error(`no ${kind} audit: ${JSON.stringify({ seen, hub })}`, { cause: error });
     });
   return found;
 }

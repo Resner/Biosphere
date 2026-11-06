@@ -446,6 +446,12 @@ export interface BsDebug {
    * once; adaptive resolution then follows `ms` too, even where it is otherwise pinned at 1.
    */
   setBench(ms: number): void;
+  /**
+   * A test aid (M10 T8): the frame time witness availability judges is `ms` (null: the measured
+   * one again), as `setBench` does for the quality. Four software-rendered pages on one runner draw
+   * slower than a witness may, and a scenario about audits needs its witnesses to stay available.
+   */
+  dutyFrameMs(ms: number | null): void;
   /** Runs the sim this many times faster than real time; 0 also holds the shaders' animation clock. */
   timeScale(scale: number): void;
   /**
