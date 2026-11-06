@@ -246,7 +246,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Documents and wire
 
-- [ ] T1 Witness documents: pools, rounds, the order, attestations, signed inputs and frames [opus] (after none) (in progress)
+- [x] T1 Witness documents: pools, rounds, the order, attestations, signed inputs and frames [opus] (after none) (in progress)
+  - Done: `src/ledger/witness.ts`; the drand clock moved to `drand-time.ts` so the shell can name rounds without BLS. Canonical JSON has no booleans, so an attestation signs `agree` as 1 or 0.
+  - `birthSubject` hashes under `bs/attest/birth/v1`; the pinned order is `tests/witness-order-table.ts`, checked in `src/ledger/witness.test.ts` and `worker/witness.test.ts`.
   - Steps:
     1. `src/ledger/witness.ts` with the shapes above.
        - `poolOf`, `witnessRound` and `witnessOrder` are pure and deterministic. The order seeds the sim's PRNG (`seedFromBytes`, as genesis does).
