@@ -1,3 +1,4 @@
+import { runInDurableObject } from 'cloudflare:test';
 import { describe, expect, it } from 'vitest';
 import { checkStored } from '../src/ledger/record';
 import {
@@ -8,7 +9,17 @@ import {
 import { RULES_VERSION } from '../src/sim/rules';
 import type { Head, Ledger } from './ledger';
 import type { FighterRecord, SettlementLog } from './ledger-encounter';
-import { bear, inLedger, mated, must, mustPromote, nextHex, pair, RULE } from './ledger-test-kit';
+import {
+  bear,
+  inLedger,
+  mated,
+  must,
+  mustPromote,
+  nextHex,
+  pair,
+  RULE,
+  stub,
+} from './ledger-test-kit';
 
 // M7 T13: an encounter's results as records, on the ledger alone (ADR 0052). The hub tests in
 // `settle.test.ts` play real fights; these build the results by hand.
@@ -175,6 +186,25 @@ describe('Ledger.settle', () => {
       expect(ledger.rowsWritten - before).toBeLessThanOrEqual(7);
       expect(kinds(ledger, b.id)).toEqual(['genesis', 'checkpoint', 'death']);
       expect(ledger.chain(b.id)[1]?.record.body).toEqual({ ...unsaved, activeMs: 25_000 });
+    });
+  });
+
+  it('dates a settlement’s checkpoint and its death alike, however the clock runs', async () => {
+    // The verifier ties the checkpoint to the death by their one `t`; a real clock moves between appends.
+    await runInDurableObject(stub(), async (authority) => {
+      const { ledger } = authority;
+      const { a, b } = await pair(ledger);
+      const unsaved = { biomass: 39_000, energy: 20_000, health: 7000 };
+      const [killer, victim] = kill(a, b);
+      let t = Date.now();
+      authority.clock = { ...authority.clock, now: () => ++t };
+      settle(ledger, {
+        enc: nextHex(),
+        fighters: [must(killer), { ...must(victim), unsaved, activeMs: 25_000 }],
+      });
+      const [, checkpoint, death] = ledger.chain(b.id);
+      expect(death?.record.kind).toBe('death');
+      expect(checkpoint?.record.t).toBe(death?.record.t);
     });
   });
 
