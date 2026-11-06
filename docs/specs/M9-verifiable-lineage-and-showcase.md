@@ -35,7 +35,7 @@ The decisions behind this milestone:
 - ADR 0055 covers the proof bundles, the verifier, the shared rulebook and the per-record bounds, the rules registry, the audit, the cards, and the third world renewal: rules 11, epoch 3, protocol 9.
 - ADR 0056 covers retention and the storage budget.
 
-`docs/DESIGN.md` §5 and §11 hold the values, marked (M9) until T15 drops the marks.
+`docs/DESIGN.md` §5 and §11 hold the values.
 
 This milestone has **no gate**. v0.10.0 opens its `Playtest:` issue, and M10 starts without waiting. **The world is renewed** at this release: players keep their identities and lose their creatures. The release notes and the Playtest issue say so.
 
@@ -616,7 +616,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
 
 ### Closing
 
-- [ ] T15 End-to-end scenario, documentation sync (in progress)
+- [x] T15 End-to-end scenario, documentation sync
   - Steps:
     1. `m9-lifecycle.spec.ts` (`@slow`, hub 8821, `LIFESPAN_SCALE=0.05`, `MATING_SCALE=0.01`, `?quality=medium`), in order:
        - A and B hatch, mate and promote;
@@ -635,6 +635,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
   - Acceptance:
     - Every exit criterion maps to a named test or report (the table below).
     - Each PR E2E part stays under 5 minutes, and the long scenarios are `@slow`.
+  - Notes: `m9-lifecycle` runs in about 45 s locally; `takeOver` moved to `m9-steps.ts` and `open` takes a `?quality=` suffix. The owner checks for the Playtest issue are the rubric's three `(owner)` lines; the release notes say the world is renewed (players keep identities, lose creatures).
 
 ## Exit criteria → evidence
 

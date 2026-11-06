@@ -225,6 +225,8 @@ export const M9_CARD_HUB = 'http://localhost:8818';
 export const M9_SHARE_HUB = 'http://localhost:8820';
 /** The M9 lineage spec's hub (M9 T13), with the M5 hooks: a mating and both promotions, then the card's graph. */
 export const M9_LINEAGE_HUB = 'http://localhost:8819';
+/** The M9 lifecycle spec's hub (M9 T15), with the M5 hooks: a lineage from genesis to a mating, a fight, a death and a return. */
+export const M9_LIFECYCLE_HUB = 'http://localhost:8821';
 
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
