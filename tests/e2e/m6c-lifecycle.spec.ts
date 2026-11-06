@@ -49,8 +49,10 @@ interface Charged {
 }
 
 /**
- * Twelve pokes, 260 ms apart, on the egg as soon as it stirs; then the world freezes in the same
- * task, which holds the egg's clock, so a slow page never lets the 6 s wait run out first.
+ * Twelve pokes, 270 ms apart on the egg's clock, as soon as the egg stirs. The world freezes first
+ * and the pokes run in one task, each at a clock `setClock` sets after the beacon: a slow page that
+ * draws a frame in half a second never lets the 6 s wait run out, nor two pokes' wall gap land
+ * inside the quick-crack window (three within 0.5 s).
  */
 const chargeFull = (page: Page) =>
   page.evaluate(
@@ -64,24 +66,18 @@ const chargeFull = (page: Page) =>
           clientY: innerHeight / 2,
           bubbles: true,
         };
-        let left = 12;
-        const poke = () => {
-          canvas.dispatchEvent(new PointerEvent('pointerdown', where));
-          dispatchEvent(new PointerEvent('pointerup', where));
-          left--;
-          if (left > 0) {
-            setTimeout(poke, 260);
-            return;
-          }
+        const look = setInterval(() => {
+          const { phase, paced, beaconAt } = bs.state().egg;
+          if (phase !== 'stirring' || !paced || beaconAt === null) return;
+          clearInterval(look);
           bs.debug?.timeScale(0);
+          for (let i = 0; i < 12; i++) {
+            bs.debug?.setClock((beaconAt + 100 + i * 270) / 1000);
+            canvas.dispatchEvent(new PointerEvent('pointerdown', where));
+            dispatchEvent(new PointerEvent('pointerup', where));
+          }
           const { egg, audio } = bs.state();
           resolve({ charge: egg.charge, phase: egg.phase, ticks: audio.cues.charge ?? 0 });
-        };
-        const look = setInterval(() => {
-          const { phase, paced } = bs.state().egg;
-          if (phase !== 'stirring' || !paced) return;
-          clearInterval(look);
-          poke();
         }, 10);
       }),
   );

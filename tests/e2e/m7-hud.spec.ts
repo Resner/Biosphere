@@ -158,6 +158,9 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
     await b.waitForFunction(() => window.__bs?.state().playerId);
     await clickHatch(b);
     await waitPlaying(b);
+    // A's picture is never judged: its page skips the draw call (the scene still updates), so the one
+    // software renderer on a runner serves B's frames, where a windup's 200 ms must be seen.
+    await a.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
     const idA = (await state(a)).playerId as string;
     const idB = (await state(b)).playerId as string;
 
