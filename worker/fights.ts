@@ -9,6 +9,7 @@ import {
   encounterStartOf,
   fighterStartOf,
 } from '../src/net/encounter-start';
+import { AUTHORITY, type RefereeSpan } from '../src/net/handover';
 import type { ClientMsg, FighterInfo, HubMsg } from '../src/net/protocol';
 import { type Bundle, FRAME_MS, Referee } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
@@ -22,6 +23,7 @@ import type { LifeState } from './life';
 import type { PondRow } from './schema';
 import { settle, tell } from './settle';
 import { type ActiveSession, type Hub, seated, sendIfOpen } from './socket';
+import { routeInput, takeBack, type WitnessRun, witnessTick } from './witness-fight';
 
 /** The time and timers the fights run on; hub tests swap in a hand-moved one. */
 export interface Clock {
@@ -61,6 +63,12 @@ export interface Fight {
   persisted: number;
   /** While no fighter still in has a connected player: when the rest is played out at once (`away.ts`). */
   awayDue: number | null;
+  /** Who refereed which frames (ADR 0058): the authority from 0, then each handover and take-back. */
+  spans: RefereeSpan[];
+  /** The witness phase while one runs (`witness-fight.ts`): a witness referees, or its span is closing. */
+  witness: WitnessRun | null;
+  /** The frames each witness committed in its batches: what a dispute can hold it to. */
+  batched: { by: string; from: number; to: number }[];
 }
 
 /** What a slot's saved clock is taken from: the fighter's life on its connection at lock-in. */
@@ -98,6 +106,12 @@ export class Fights {
   private readonly byCreature = new Map<string, Lock>();
   /** Inputs dropped because they named another fight or came from someone not in one. */
   strays = 0;
+  /**
+   * The witness phases' counts (M10 T5): fighters' inputs for a witness's frames that reached the
+   * authority (`moved`), batches taken, repeats ignored, batches from anyone but a fight's witness
+   * (`strays`), and disputes that changed nothing.
+   */
+  readonly witnessed = { moved: 0, batches: 0, repeats: 0, strays: 0, disputes: 0 };
 
   constructor(private readonly clock: () => Clock) {}
 
@@ -117,6 +131,12 @@ export class Fights {
 
   get(id: string): Lock | undefined {
     return this.byId.get(id);
+  }
+
+  /** The running fight's lock of encounter `enc` (a lock's id is the encounter's only for a rebuilt fight). */
+  ofEncounter(enc: string): Lock | undefined {
+    for (const lock of this.byId.values()) if (lock.fight?.enc.id === enc) return lock;
+    return undefined;
   }
 
   /** The lock the creature is in, if any. */
@@ -260,6 +280,9 @@ export function runFight(
     t0: msg.t0,
     persisted: 0,
     awayDue: null,
+    spans: [{ by: AUTHORITY, from: 0 }],
+    witness: null,
+    batched: [],
   };
   try {
     hub.fightStore.open(fight, hub.clock.now());
@@ -294,8 +317,13 @@ export function fightInput(
   }
   const now = hub.clock.now();
   const slot = fight.players.indexOf(session.playerId);
+  // While a witness referees, its frames' inputs go to it: one that reaches the authority is dropped.
+  const verdict = fight.witness
+    ? routeInput(fight, slot, msg.f, msg.i, now)
+    : fight.referee.input(slot, msg.f, msg.i, now);
+  if (verdict === 'moved') hub.fights.witnessed.moved++;
   // The last input that completes a frame finalizes it at once.
-  if (fight.referee.input(slot, msg.f, msg.i, now) === 'ok') tick(hub, lock.id, now);
+  if (verdict === 'ok') tick(hub, lock.id, now);
 }
 
 /**
@@ -307,6 +335,11 @@ export function tick(hub: Hub, id: string, now: number): void {
   const lock = hub.fights.get(id);
   const fight = lock?.fight;
   if (!lock || !fight) return;
+  // A witness referees (or its span is closing): its phase steps the fight (`witness-fight.ts`).
+  if (fight.witness) {
+    witnessTick(hub, lock, fight, now);
+    return;
+  }
   if (stepAll(hub, lock, fight, fight.referee.due(now))) return;
   if (awayDue(hub, fight, now) && stepAll(hub, lock, fight, remaining(fight.referee), now)) return;
   hub.fightStore.append(fight);
@@ -317,7 +350,7 @@ export function tick(hub: Hub, id: string, now: number): void {
  * Steps the encounter with each bundle and sends it; once the fight is over it settles (`forwarded`
  * is the hub time of a fast-forward), and true is returned.
  */
-function stepAll(
+export function stepAll(
   hub: Hub,
   lock: Lock,
   fight: Fight,
@@ -348,10 +381,13 @@ function stepAll(
  * if nobody still in is left (ADR 0053).
  */
 export function flushFight(hub: Hub, player: string): void {
-  const fight = hub.fights.ofPlayer(player)?.fight;
-  if (!fight) return;
+  const lock = hub.fights.ofPlayer(player);
+  const fight = lock?.fight;
+  if (!lock || !fight) return;
   hub.fightStore.flush(fight);
   awayDue(hub, fight, hub.clock.now());
+  // A witness phase's timer waits for batches: it is armed for the wait's end too.
+  if (fight.witness) witnessTick(hub, lock, fight, hub.clock.now());
 }
 
 /**
@@ -383,6 +419,9 @@ export function admit(
   infoAt: (tick: number) => FighterInfo,
   life: SlotLife,
 ): boolean {
+  if (!joinable(fight)) return false;
+  // A witness can't seat a joiner: the authority takes the fight back first (ADR 0058).
+  takeBack(hub, lock, fight, 'join');
   const f = fight.referee.next + RULES.encounter.joinAheadFrames;
   const info = infoAt(fight.start.t0 + RULES.encounter.frameTicks * f);
   const fighter = fighterStartOf(info);

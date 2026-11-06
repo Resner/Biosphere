@@ -2,17 +2,27 @@ import { bytesToHex } from '@noble/hashes/utils.js';
 import { beforeEach } from 'vitest';
 import { randomnessOf } from '../src/ledger/drand';
 import type { Identity } from '../src/ledger/identity';
-import { type WitnessData, witnessOrder } from '../src/ledger/witness';
-import type { HubMsg, PondInfo, SignedCommit } from '../src/net/protocol';
+import { signInput, signWitnessFrame, type WitnessData, witnessOrder } from '../src/ledger/witness';
+import { AUTHORITY } from '../src/net/handover';
+import type { DutyEndWhy, HubMsg, PondInfo, SignedCommit } from '../src/net/protocol';
+import {
+  type BatchMsg,
+  type RefereeDuty,
+  type WitnessFrame,
+  WitnessReferee,
+  type WitnessVerdict,
+} from '../src/net/witness-referee';
 import type { SignedCommitment } from './beacons';
-import { authority, clock } from './fight-test-kit';
+import { authority, clock, within } from './fight-test-kit';
 import type { Session } from './socket';
 import { beaconOf, type Client, flush, nextOf, signIn, sql } from './test-hub';
 import { eligible, WITNESS_PLAY_MS } from './witness-pool';
 
 // Shared by the witness hub tests (M10 T4, T5): sessions that can witness (play, `avail`, their
-// own IP), the pool the object would draw now, and the order a commitment's round draws. Use it
-// with `useFightHub()` (the hand clock); `useWitnessHub()` adds a clean slate of duties.
+// own IP), the pool the object would draw now, the order a commitment's round draws, and a
+// scripted witness referee (`ScriptedWitness`) that answers its duty, signs and batches on the
+// hand clock, and goes silent or forges on cue. Use it with `useFightHub()` (the hand clock);
+// `useWitnessHub()` adds a clean slate of duties.
 
 export interface Witness {
   c: Client;
@@ -106,4 +116,122 @@ export function byPlayer(ws: readonly Witness[], player: string | undefined): Wi
   const found = ws.find((w) => w.id.playerId === player);
   if (!found) throw new Error(`no witness ${player}`);
   return found;
+}
+
+type EncReferee = Extract<HubMsg, { t: 'enc-referee' }>;
+
+/**
+ * A witness referee driven by a test: the pure `WitnessReferee` on the hand clock behind a real
+ * socket. It hears the hub's frames before its span, a take-back and `duty-end` on its socket,
+ * takes each fighter's signed input directly (the peer link is the test's), and sends its batches
+ * to the hub, unless told to stay `silent` or to `tamper` with them.
+ */
+export class ScriptedWitness {
+  referee: WitnessReferee | null = null;
+  /** No batch goes out. */
+  silent = false;
+  /** Changes each batch before it goes (null: it is not sent). */
+  tamper: ((b: BatchMsg) => BatchMsg | null) | null = null;
+  /** The batches sent, and the signed frames sent to the fighters. */
+  readonly sent: BatchMsg[] = [];
+  readonly frames: WitnessFrame[] = [];
+  /** The take-back the hub announced, and the duty's end. */
+  stoppedAt: number | null = null;
+  ended: DutyEndWhy | null = null;
+
+  constructor(
+    readonly w: Witness,
+    readonly duty: RefereeDuty,
+  ) {}
+
+  get enc(): string {
+    return this.duty.start.enc;
+  }
+
+  get player(): string {
+    return this.w.id.playerId;
+  }
+
+  /** The first frame it referees, once handed over. */
+  get from(): number {
+    return this.referee?.from ?? Number.POSITIVE_INFINITY;
+  }
+
+  /** Answers `duty-ok` and waits for its handover (`enc-referee` naming it). */
+  async accept(): Promise<EncReferee> {
+    this.w.c.send({ t: 'duty-ok', event: this.duty.event });
+    const msg = await within(nextOf(this.w.c, 'enc-referee'), 'the handover');
+    this.referee = new WitnessReferee({
+      duty: this.duty,
+      from: msg.from,
+      now: () => clock.t,
+      signFrame: (f, i) => signWitnessFrame(this.w.id, this.enc, f, i),
+      sendFrame: (ev) => this.frames.push(ev),
+      sendBatch: (b) => this.batch(b),
+    });
+    return msg;
+  }
+
+  private batch(b: BatchMsg): void {
+    if (this.silent) return;
+    const out = this.tamper ? this.tamper(b) : b;
+    if (!out) return;
+    this.sent.push(out);
+    this.w.c.send(out);
+  }
+
+  /** What the hub sent it so far: its frames before the span, a take-back, the duty's end. */
+  hear(): void {
+    for (const m of this.w.c.inbox.splice(0)) this.take(m);
+  }
+
+  private take(m: HubMsg): void {
+    const r = this.referee;
+    if (m.t === 'enc-frame' && m.enc === this.enc) r?.hubFrame(m);
+    else if (m.t === 'enc-referee' && m.enc === this.enc && m.by === AUTHORITY) {
+      this.stoppedAt = m.from;
+      r?.stopAt(m.from);
+    } else if (m.t === 'duty-end' && m.event === this.duty.event) {
+      this.ended = m.why;
+      r?.stop();
+    }
+  }
+
+  /** Waits until `done` holds, taking what the hub sends meanwhile. */
+  async until(done: () => boolean, what: string): Promise<void> {
+    this.hear();
+    while (!done()) this.take(await within(this.w.c.next(), what));
+  }
+
+  /** Waits until the hub's frames before its span are in. */
+  async catchUp(): Promise<void> {
+    const r = this.referee;
+    if (!r) return;
+    this.hear();
+    while (r.encounter.frame < r.from && !r.done) {
+      this.take(await within(this.w.c.next(), `the hub's frames before ${r.from}`));
+    }
+  }
+
+  /** Finalizes every frame due by now (and batches them). */
+  tick(): void {
+    this.hear();
+    this.referee?.tick();
+  }
+
+  /** Fighter `p`'s input for frame `f`, signed as it would be on the peer link. */
+  input(p: { id: Identity }, f: number, code: number): WitnessVerdict {
+    const r = this.referee;
+    if (!r) throw new Error('no handover yet');
+    this.hear();
+    const sig = signInput(p.id, this.enc, f, code);
+    return r.input(p.id.playerId, { t: 'finput', enc: this.enc, f, i: code, sig });
+  }
+}
+
+/** The referee duty the witness was offered. */
+export async function refereeDuty(w: Witness): Promise<ScriptedWitness> {
+  const duty = await within(nextOf(w.c, 'duty'), 'a referee duty');
+  if (duty.role !== 'referee') throw new Error('not a referee duty');
+  return new ScriptedWitness(w, duty);
 }

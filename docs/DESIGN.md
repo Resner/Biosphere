@@ -255,7 +255,7 @@ Values in `RULES.encounter` (`src/sim/rules.ts`), tuned by the combat tournament
   - **The settlement document** (ADR 0054): the same transaction stores a document the authority countersigns, naming:
     - the rules, the encounter, the pond seed, and the hashes of the `enc-start` and of each `enc-join`;
     - the frame count and an RFC 6962 Merkle root over one leaf per frame (its number and its inputs, the fallback marked as such);
-    - the final `hashEncounter`, the referee (the authority), and every fighter's result in hundredths.
+    - the final `hashEncounter`, who refereed which frames (the authority from frame 0, then each witness handover and take-back that refereed a frame), the witness commitment (none with an empty pool), and every fighter's result in hundredths.
 
     The same transaction writes the log's last frames and closes it, so a fight is settled once; settling it again returns the stored document. `enc-end` carries it. `verifyEncounter` rechecks it by replaying the log, and each participant's client checks it after the end, off the frame loop: its countersignature under a key from the hub's `/v1/pubkeys` (fetched once per page), its root over the frames the client holds and its hash against the client's own.
   - **A settlement that fails** (a record the rules refuse, a write that fails: a bug) writes nothing. The fight is flagged `settle-failed` and its log closed, no life is marked over, and each connected fighter gets `enc-end` without a document, then its creature as the ledger holds it, alive; the locks go.

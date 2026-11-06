@@ -394,6 +394,17 @@ describe('a fight whose saved log no longer rebuilds', () => {
 });
 
 describe('recovery leaves alone', () => {
+  it('a running fight a lock-in started, whose lock has its own id: an alarm keeps its row open', async () => {
+    const [a, b] = await fighters();
+    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.5 }));
+    await authority((o) => recoverFights(o, o.clock.now()));
+    await runDurableObjectAlarm(stub());
+    expect((await logRow(start.enc))?.open).toBe(true);
+    // ... so a restart still rebuilds it.
+    await restart();
+    expect((await fightOf(a))?.enc.id).toBe(start.enc);
+  });
+
   it('a settled fight', async () => {
     const [a, b] = await fighters();
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { energy: 0, health: 0.01 }));
