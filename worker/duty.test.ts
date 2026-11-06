@@ -149,7 +149,9 @@ describe('witness duties', () => {
     const start = await outOfReach(c, d);
     await authority((o) => commitWitnesses(o, 'enc', start.enc, [c.id.playerId, d.id.playerId]));
     const next = await witnessCommit(`enc:${start.enc}`);
-    expect((next?.commitment.data as { pool: string[] }).pool).not.toContain(struck);
+    const pool = (next?.commitment.data as { pool: string[] } | undefined)?.pool;
+    expect(pool?.length).toBe(2);
+    expect(pool).not.toContain(struck);
   });
 
   it('offers nothing for a genesis until its audit is handed over', async () => {
