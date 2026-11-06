@@ -1,15 +1,26 @@
 import { describe, expect, it } from 'vitest';
-import { packedChars } from '../tools/storage-report';
-import { advance, authority, hatched, useFightHub } from './fight-test-kit';
+import { commitmentId } from '../src/ledger/genesis';
+import { signAttestation } from '../src/ledger/witness';
+import { POOL_MAX } from '../src/ledger/witness-doc';
+import { auditVerdict } from '../src/net/audit';
+import {
+  LOG_STEADY_LIMIT_BYTES,
+  model,
+  packedChars,
+  type StorageMeasure,
+} from '../tools/storage-report';
+import { advance, authority, hatched, join, useFightHub, within } from './fight-test-kit';
 import { history } from './history-kit';
-import { CALM, closeSockets, nextOf, report, sql } from './test-hub';
+import { ask, CALM, closeSockets, nextOf, publish, report, sql } from './test-hub';
 import { DAY_MS } from './usage';
+import { byPlayer, orderOf, useWitnessHub, witnessCommit, witnesses } from './witness-test-kit';
 
 // M9 T10 (ADR 0056): what the authority stores, measured from the rows hub tests write. The guards
 // bound an hour of ordinary play and a fight's log; the measurements, printed as one
 // `STORAGE_MEASURE` line, are what `npm run report:storage` turns into `docs/perf/storage.md`.
 
 useFightHub();
+useWitnessHub();
 
 const HOUR_MS = 3_600_000;
 const TICKS_PER_30S = 900;
@@ -60,6 +71,54 @@ async function playHour() {
   await sql('SELECT 1');
   const after = await storedBytes();
   return { hatch: before - start, hour: after - before };
+}
+
+/** A full pool's witness commitment and an auditor's attestation, as one genesis writes them (M10 T14). */
+async function witnessRows() {
+  const ws = await witnesses(POOL_MAX);
+  const p = await join();
+  const { commit } = await ask(p.c, p.id);
+  const event = `genesis:${commitmentId(commit.commitment)}`;
+  const wc = await within(
+    (async () => {
+      for (;;) {
+        const found = await witnessCommit(event);
+        if (found) return found;
+      }
+    })(),
+    'the witness commitment',
+  );
+  const order = orderOf(wc, wc.id);
+  expect(order).toHaveLength(POOL_MAX);
+  await publish(commit.commitment.round);
+  await nextOf(p.c, 'genesis');
+  const auditor = byPlayer(ws, order[0]);
+  const duty = await within(nextOf(auditor.c, 'duty'), 'the auditor duty');
+  if (duty.role !== 'auditor') throw new Error('not an auditor duty');
+  auditor.c.send({ t: 'duty-ok', event });
+  const v = auditVerdict(duty.audit, duty.beacon, []);
+  auditor.c.send({
+    t: 'attest',
+    signed: signAttestation(auditor.id, {
+      v: 1,
+      kind: 'attest',
+      event,
+      duty: wc.id,
+      position: duty.position,
+      witness: auditor.id.playerId,
+      subject: v.subject,
+      agree: v.agree,
+    }),
+  });
+  expect((await within(nextOf(auditor.c, 'duty-end'), 'duty-end')).why).toBe('done');
+  const commitBytes = await bytesOf('commitments', 'kind = ?', 'witness');
+  const attestBytes = await bytesOf('attestations');
+  await closeSockets();
+  // The pool's 16 ids are most of it: 16 × 44 characters, and the countersigned envelope.
+  expect(commitBytes).toBeGreaterThan(16 * 44);
+  expect(commitBytes).toBeLessThan(2 * 1024);
+  expect(attestBytes).toBeLessThan(1024);
+  return { commitBytes, attestBytes };
 }
 
 describe('what the authority stores', () => {
@@ -119,6 +178,9 @@ describe('what the authority stores', () => {
       },
       hourMs: HOUR_MS,
     };
-    console.log(`STORAGE_MEASURE ${JSON.stringify(measure)}`);
+    const full: StorageMeasure = { ...measure, witness: await witnessRows() };
+    // Logs and witness commitments together stay under the steady-state limit at 200 players.
+    expect(model(full, 200).logsSteady).toBeLessThan(LOG_STEADY_LIMIT_BYTES);
+    console.log(`STORAGE_MEASURE ${JSON.stringify(full)}`);
   });
 });

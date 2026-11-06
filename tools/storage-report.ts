@@ -20,6 +20,8 @@ export interface StorageMeasure {
     /** The row after pruning. */
     prunedBytes: number;
   };
+  /** A fight's witness commitment (a full pool of 16, kept 14 days) and its auditor's attestation (kept for good). */
+  witness: { commitBytes: number; attestBytes: number };
 }
 
 /** The window the logs are kept (`LOG_KEEP_DAYS` in `worker/fight-store.ts`). */
@@ -58,6 +60,10 @@ function snapped(m: StorageMeasure): StorageMeasure {
       settlementBytes: snap100(m.fight.settlementBytes),
       prunedBytes: snap100(m.fight.prunedBytes),
     },
+    witness: {
+      commitBytes: snap100(m.witness.commitBytes),
+      attestBytes: snap100(m.witness.attestBytes),
+    },
   };
 }
 
@@ -67,9 +73,11 @@ export function model(m: StorageMeasure, players: number) {
   const fixed = m.fight.keptBytes - m.fight.settlementBytes - packedChars(m.fight.frames);
   const logBytes = fixed + packedChars(DUEL_FRAMES);
   const fightsPerHour = (players * FIGHTS_PER_PLAYER_HOUR) / 2;
-  const logsSteady = fightsPerHour * 24 * KEEP_DAYS * logBytes;
+  // A witnessed fight also keeps its witness commitment for the window ...
+  const logsSteady = fightsPerHour * 24 * KEEP_DAYS * (logBytes + m.witness.commitBytes);
   const recordsYear = players * m.hourBytes * 24 * 365;
-  const settledYear = fightsPerHour * 24 * 365 * m.fight.prunedBytes;
+  // ... and its attestation for good, beside the settlement.
+  const settledYear = fightsPerHour * 24 * 365 * (m.fight.prunedBytes + m.witness.attestBytes);
   const growthYear = recordsYear + settledYear;
   const perDay = growthYear / 365;
   return {
@@ -121,13 +129,15 @@ export function storageReport(measured: StorageMeasure): string {
     `| A kept row, a ${DUEL_FRAMES / 10} s duel | ${kb(snap100(model(m, 1).logBytes + m.fight.settlementBytes))} |`,
     `| The log alone, a ${DUEL_FRAMES / 10} s duel (guard: under 8 KB) | ${kb(snap100(model(m, 1).logBytes))} |`,
     `| The row after pruning (guard: under 2 KB) | ${kb(snap100(m.fight.prunedBytes))} |`,
+    `| A witness commitment, a pool of 16 (kept ${KEEP_DAYS} days) | ${kb(m.witness.commitBytes)} |`,
+    `| An attestation (kept for good) | ${kb(m.witness.attestBytes)} |`,
     '',
     '## Steady state and growth',
     '',
-    `Players around the clock, each in ${FIGHTS_PER_PLAYER_HOUR} fights an hour, every fight a ${DUEL_FRAMES / 10} s duel.`,
+    `Players around the clock, each in ${FIGHTS_PER_PLAYER_HOUR} fights an hour, every fight a ${DUEL_FRAMES / 10} s duel with a witness commitment and an attestation.`,
     `Hours of play are charged at the measured ordinary hour; the history never shrinks.`,
     '',
-    '| Concurrent players | Logs kept (steady state) | History growth a year | Days to the limit |',
+    '| Concurrent players | Logs and witness commitments kept (steady state) | History growth a year | Days to the limit |',
     '|---|---|---|---|',
     ...CONCURRENT.map((n) => {
       const r = model(m, n);
@@ -138,8 +148,8 @@ export function storageReport(measured: StorageMeasure): string {
   const worst = model(m, 200);
   out.push(
     worst.logsSteady <= LOG_STEADY_LIMIT_BYTES
-      ? `The logs' steady state at 200 players (${mb(worst.logsSteady)}) is under ${gb(LOG_STEADY_LIMIT_BYTES)}, so the ${KEEP_DAYS}-day window stands.`
-      : `The logs' steady state at 200 players (${mb(worst.logsSteady)}) is over ${gb(LOG_STEADY_LIMIT_BYTES)}: shorten \`LOG_KEEP_DAYS\` (never below 7) and record it in ADR 0056.`,
+      ? `The steady state of logs and witness commitments at 200 players (${mb(worst.logsSteady)}) is under ${gb(LOG_STEADY_LIMIT_BYTES)}, so the ${KEEP_DAYS}-day window stands.`
+      : `The steady state of logs and witness commitments at 200 players (${mb(worst.logsSteady)}) is over ${gb(LOG_STEADY_LIMIT_BYTES)}: shorten \`LOG_KEEP_DAYS\` (never below 7) and record it in ADR 0056.`,
     '',
     `At 200 players around the clock the history alone reaches the limit in about ${worst.daysToLimit} days: the lever is`,
     "checkpoint compaction (ADR 0056), which M13's capacity model weighs against admission and the paid plan.",

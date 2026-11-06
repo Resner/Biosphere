@@ -16,6 +16,7 @@ const M: StorageMeasure = {
   commitment: { count: 5, bytes: 3700 },
   beaconBytes: 100,
   fight: { frames: 3, keptBytes: 3400, settlementBytes: 1100, prunedBytes: 1200 },
+  witness: { commitBytes: 1500, attestBytes: 400 },
 };
 
 describe('the storage report', () => {
@@ -28,13 +29,24 @@ describe('the storage report', () => {
     const r = model(M, 200);
     expect(r.logBytes).toBe(fixed + 3200);
     expect(r.fightsPerHour).toBe(300);
-    expect(r.logsSteady).toBe(300 * 24 * KEEP_DAYS * r.logBytes);
+    expect(r.logsSteady).toBe(300 * 24 * KEEP_DAYS * (r.logBytes + 1500));
     expect(r.logsSteady).toBeLessThan(LOG_STEADY_LIMIT_BYTES);
   });
 
   it('grows with the players and says when the limit is reached', () => {
     expect(model(M, 50).growthYear).toBeGreaterThan(model(M, 5).growthYear);
     expect(model(M, 200).daysToLimit).toBeLessThan(model(M, 5).daysToLimit);
+  });
+
+  it('charges every fight its witness commitment for the window and its attestation for good', () => {
+    const plain = { ...M, witness: { commitBytes: 0, attestBytes: 0 } };
+    expect(model(M, 200).logsSteady - model(plain, 200).logsSteady).toBe(
+      300 * 24 * KEEP_DAYS * 1500,
+    );
+    expect(model(M, 200).growthYear - model(plain, 200).growthYear).toBe(300 * 24 * 365 * 400);
+    const text = storageReport(M);
+    expect(text).toContain('A witness commitment, a pool of 16');
+    expect(text).toContain('An attestation (kept for good)');
   });
 
   it('writes a table row for 5, 50 and 200 players, and the verdict on the window', () => {
