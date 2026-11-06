@@ -283,7 +283,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - `speedTest`: 40 input signatures checked through one tabled key take under 40 ms in Node.
   - Notes: no worker or protocol changes here (T2, T4).
 
-- [ ] T2 Protocol 10: duties, batches, disputes, attestations, signed inputs on the peer link [opus] (after T1)
+- [ ] T2 Protocol 10: duties, batches, disputes, attestations, signed inputs on the peer link [opus] (after T1) (in progress)
   - Steps:
     1. `PROTOCOL_VERSION` 10. A protocol-9 hello gets `error: version`.
     2. The messages and peer events above. Parsers go in `src/net/protocol-witness.ts`, and `protocol-parse.ts` dispatches to them.
