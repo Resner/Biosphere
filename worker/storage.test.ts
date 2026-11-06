@@ -92,6 +92,7 @@ async function witnessRows() {
   await nextOf(p.c, 'genesis');
   const auditor = byPlayer(ws, order[0]);
   expect(await attestAuditor(auditor, event, wc.id)).toBe('done');
+  expect(await sql('SELECT event FROM attestations')).toHaveLength(1);
   const commitBytes = await bytesOf('commitments', 'kind = ?', 'witness');
   const attestBytes = await bytesOf('attestations');
   await closeSockets();

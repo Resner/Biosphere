@@ -63,6 +63,13 @@ export const total = (c: Record<string, number>) => Object.values(c).reduce((a, 
 /** `docs/perf/witness.md` for the measurement. */
 export function witnessReport(m: WitnessMeasure): string {
   const measuredWith = total(m.before) + total(m.span) + total(m.after);
+  const delayS = m.handoverMs / 1000;
+  // Inputs a fighter sends each second, and the first duel length (to 0.1 s) whose cut is at the guard.
+  const perSecond = 1000 / FRAME_MS;
+  let reaches = 0.1;
+  while (cost(reaches, 2, delayS).alone < DUEL_CUT * cost(reaches, 2, delayS).witnessed) {
+    reaches = Math.round((reaches + 0.1) * 10) / 10;
+  }
   const ms5 = Math.max(5, Math.ceil(m.batchMs / 5) * 5);
   const out: string[] = [
     '# Witness cost report',
@@ -73,19 +80,19 @@ export function witnessReport(m: WitnessMeasure): string {
     `once by a scripted witness that takes the duty ${m.handoverMs / 1000} s after the lock-in; the table prices other lengths with the`,
     'same model, which `tools/witness-report.test.ts` checks against what the hub counted.',
     '',
-    '## Measured: a 30 s duel, the witness taking over at 3 s',
+    `## Measured: a 30 s duel, the witness taking over at ${m.handoverMs / 1000} s`,
     '',
     '| | Authority alone | With a witness |',
     '|---|---|---|',
     `| Inputs before the handover (frame ${m.from}) | ${m.aloneBefore.input ?? 0} | ${m.before.input ?? 0} |`,
     `| Signals relayed for the duty links | 0 | ${m.before.signal ?? 0} |`,
     `| The witness's \`duty-ok\` | 0 | ${m.before['duty-ok'] ?? 0} |`,
-    "| Inputs from the handover on, or the witness's batches (one a second) | ~20 a second | ~1 a second |",
+    `| Inputs from the handover on, or the witness's batches | ${2 * perSecond} a second | ${perSecond / BATCH_FRAMES} a second |`,
     `| The auditor's \`duty-ok\` and \`attest\` | 0 | ${(m.after['duty-ok'] ?? 0) + (m.after.attest ?? 0)} |`,
     '',
     `The cut over the whole duel is ${times(cost(30, 2, m.handoverMs / 1000).alone / measuredWith)}`,
     `(guard: at least ${DUEL_CUT}×). From the handover on the authority hears the batches and nothing else; per participant-second`,
-    `the cut is at least ${SPAN_CUT}× (guard), 10 inputs against 0.5 batches.`,
+    `the cut is at least ${SPAN_CUT}× (guard), ${perSecond} inputs against ${perSecond / BATCH_FRAMES / 2} batches.`,
     '',
     '## The model, by length and handover delay',
     '',
@@ -104,7 +111,7 @@ export function witnessReport(m: WitnessMeasure): string {
     }),
     '',
     "Short fights save little: the opening, before the round resolves and a link is up, is the authority's",
-    "(ADR 0058). From 17 s on the cut reaches 4×, and a melee saves more, since each fighter's inputs stop reaching the authority.",
+    `(ADR 0058). At the measured ${delayS} s delay a duel's cut reaches ${DUEL_CUT}× from about ${reaches} s, and a melee saves more, since each fighter's inputs stop reaching the authority.`,
     '',
     '## CPU',
     '',

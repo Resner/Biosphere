@@ -2,6 +2,7 @@ import { describe, expect } from 'vitest';
 import { keyVerifier } from '../src/ledger/key-verify';
 import { inputSigned, signInput } from '../src/ledger/witness';
 import { encounterStartOf } from '../src/net/encounter-start';
+import { handoverFrame } from '../src/net/handover';
 import type { HubMsg } from '../src/net/protocol';
 import { FRAME_MS } from '../src/net/referee';
 import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
@@ -139,10 +140,12 @@ async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
     return enc.frame;
   };
   let huntFrom = DUEL_FRAMES - endOf(0);
-  for (let end = endOf(huntFrom), i = 0; i < 12 && Math.abs(end - DUEL_FRAMES) > 2; i++) {
+  let end = endOf(huntFrom);
+  for (let i = 0; i < 12 && Math.abs(end - DUEL_FRAMES) > 2; i++) {
     huntFrom += DUEL_FRAMES - end;
     end = endOf(huntFrom);
   }
+  expect(Math.abs(end - DUEL_FRAMES), 'a hunt that ends near frame 300').toBeLessThanOrEqual(2);
   // Codes by player (A, B), whatever their slots.
   const codesOf = (f: number): [number, number] => {
     const c = codesBy(f >= huntFrom ? hunter : IDLE_CODE);
@@ -238,6 +241,9 @@ describe('what a witnessed fight costs the authority (ADR 0058)', () => {
         expect(n, 'about 30 s of play').toBeGreaterThan(290);
         expect(n).toBeLessThan(310);
       }
+      // Without a witness the authority hears exactly one input per fighter and frame (the model's `alone`).
+      expect(sum(alone.before) + sum(alone.span)).toBe(2 * alone.frames);
+      expect(withWitness.from).toBe(handoverFrame(HANDOVER_MS / FRAME_MS));
       const messages = (d: Duel) => sum(d.before) + sum(d.span) + sum(d.after);
       const perFrameAlone = messages(alone) / alone.frames;
       const perFrameWith = messages(withWitness) / frames;

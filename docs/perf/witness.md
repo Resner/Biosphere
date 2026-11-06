@@ -13,7 +13,7 @@ same model, which `tools/witness-report.test.ts` checks against what the hub cou
 | Inputs before the handover (frame 33) | 66 | 66 |
 | Signals relayed for the duty links | 0 | 4 |
 | The witness's `duty-ok` | 0 | 1 |
-| Inputs from the handover on, or the witness's batches (one a second) | ~20 a second | ~1 a second |
+| Inputs from the handover on, or the witness's batches | 20 a second | 1 a second |
 | The auditor's `duty-ok` and `attest` | 0 | 2 |
 
 The cut over the whole duel is 6.0×
@@ -36,7 +36,7 @@ per 10 frames after `h`, and the auditor's 2 messages. A fight over before `h` i
 | melee of 4, 30 s | 1200 | 131 | 9.2× | 1200 | 170 | 7.1× | 1200 | 209 | 5.7× |
 
 Short fights save little: the opening, before the round resolves and a link is up, is the authority's
-(ADR 0058). From 17 s on the cut reaches 4×, and a melee saves more, since each fighter's inputs stop reaching the authority.
+(ADR 0058). At the measured 3 s delay a duel's cut reaches 4× from about 17.6 s, and a melee saves more, since each fighter's inputs stop reaching the authority.
 
 ## CPU
 

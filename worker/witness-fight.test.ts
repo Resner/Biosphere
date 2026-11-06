@@ -47,6 +47,7 @@ import {
   type ScriptedWitness,
   useWitnessHub,
   type Witness,
+  waitFor,
   witnessCommit,
   witnesses,
 } from './witness-test-kit';
@@ -126,16 +127,6 @@ interface Run {
 function hunt(start: EncStart, b: Player): (f: number) => number[] {
   const a = drive(0, 15, { stance: 'aggressive', target: slotOf(start, b) });
   return () => (slotOf(start, b) === 1 ? [a, IDLE_CODE] : [IDLE_CODE, a]);
-}
-
-/** Polls until `read` gives a value. */
-async function waitFor<T>(read: () => Promise<T | null>, what: string): Promise<T> {
-  for (let i = 0; i < 100; i++) {
-    const v = await read();
-    if (v !== null) return v;
-    await new Promise((r) => setTimeout(r, 5));
-  }
-  throw new Error(`never got ${what}`);
 }
 
 /**
