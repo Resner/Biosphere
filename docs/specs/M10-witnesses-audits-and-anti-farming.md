@@ -632,7 +632,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Anti-farming
 
-- [ ] T11 The movement check at lock-in [opus] (after T4)
+- [ ] T11 The movement check at lock-in [opus] (after T4) (in progress)
   - Steps (ADR 0059):
     1. `src/net/signed-snaps.ts` keeps each peer's last 5 verified signed snapshots. The newest stays what an engage forwards.
     2. The target's `lock-state` carries `seen`: the attacker's held snapshots from the last 2 s.
