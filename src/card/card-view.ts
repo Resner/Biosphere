@@ -13,13 +13,13 @@ import { CreatureView, type CreatureViewState } from '../render/creature-view';
 import { PostChain } from '../render/post/chain';
 import { type PresetName, pixelRatio } from '../render/presets';
 
-export const WATER = 0x04090b;
+const WATER = 0x04090b;
 /** How hard the creature swims on its card: a gentle gait (0..1). */
-export const CARD_SWIM = 0.3;
+const CARD_SWIM = 0.3;
 /** The share of the stage the body's box may fill. */
-export const FILL = 0.84;
+const FILL = 0.84;
 /** The body's slant on the stage, radians from east: a specimen laid at a slight angle. */
-export const HEADING = 0.28;
+const HEADING = 0.28;
 
 /**
  * The core radius (pixels) and the offset (pixels, y up) that fit a body's rest box, in core radii
@@ -149,11 +149,6 @@ export class CreatureStage {
       this.clock += this.last === null ? 0 : Math.min((now - this.last) / 1000, 0.1);
     this.last = now;
     this.draw();
-  }
-
-  /** What the WebGL frame looks like now (the card image, T14, reads it). */
-  get canvas(): HTMLCanvasElement {
-    return this.renderer ? this.opts.canvas : this.opts.preview;
   }
 
   private place(): void {

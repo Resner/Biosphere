@@ -13,6 +13,7 @@ import {
   type VerifyOptions,
   verifyLineage,
 } from '../ledger/verify';
+import { creatureOf } from '../ledger/verify-chain';
 import { fightsOf, verifyFights } from '../ledger/verify-fights';
 
 export type Replay = NonNullable<VerifyOptions['replay']>;
@@ -49,8 +50,7 @@ export class LineageCheck {
     const own = new Set<string>();
     for (const s of this.bundle.records) {
       const enc = s.record.body.enc;
-      if ((s.record.creature || s.hash) === this.bundle.subject && typeof enc === 'string')
-        own.add(enc);
+      if (creatureOf(s) === this.bundle.subject && typeof enc === 'string') own.add(enc);
     }
     const all = this.bundle.settlements.map((s) => s.settlement.enc);
     return [...all.filter((e) => own.has(e)), ...all.filter((e) => !own.has(e))];

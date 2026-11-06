@@ -10,6 +10,8 @@ import { type RarityTier, rarityOf } from '../genome/rarity';
 import type { ProofBundle } from '../ledger/proof';
 import type { StoredRecord } from '../ledger/record';
 import { type Family, type LineageReport, type Problem, problemText } from '../ledger/verify';
+import { creatureOf } from '../ledger/verify-chain';
+import { int } from '../ledger/verify-gates';
 import type { DeathCause } from '../sim/types';
 
 /** Where a creature is, as its chain leaves it. */
@@ -30,8 +32,6 @@ export interface CardFacts {
 
 /** How long a fingerprint of the owner's key is. */
 export const OWNER_PRINT = 8;
-
-const creatureOf = (s: StoredRecord): string => s.record.creature || s.hash;
 
 /** The subject's records in `seq` order. */
 function chainOf(bundle: ProofBundle, id: string): StoredRecord[] {
@@ -60,7 +60,6 @@ export function statusOf(chain: readonly StoredRecord[]): CardStatus {
   return status;
 }
 
-const int = (v: unknown): number | null => (Number.isSafeInteger(v) ? (v as number) : null);
 const times = (n: number, one: string, many = `${one}s`): string => `${n} ${n === 1 ? one : many}`;
 const count = (n: number): string => (n === 1 ? 'once' : n === 2 ? 'twice' : `${n} times`);
 

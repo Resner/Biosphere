@@ -1,5 +1,7 @@
 import '../style.css';
 import './card.css';
+import { safeStorage } from '../game/app-session';
+import { capitalise } from '../game/badge';
 import { formatBuildLabel } from '../game/build-label';
 import { listItem, pick, setText } from '../game/dom';
 import { setStars, shapeName } from '../game/reveal-card';
@@ -9,7 +11,7 @@ import { silhouetteOf } from '../genome/silhouette';
 import { buildCreature } from '../genome/stats';
 import type { ProofBundle } from '../ledger/proof';
 import type { LineageReport } from '../ledger/verify';
-import type { PresetName } from '../render/presets';
+import { type PresetName, resolvePreset } from '../render/presets';
 import { cardFacts, familyLines, problemLines, verdictLine } from './card';
 import { CreatureStage } from './card-view';
 import type { CardHook, CardState } from './hook';
@@ -79,17 +81,9 @@ window.__card = hook;
 const search = window.location.search;
 const settings = loadSettings(safeStorage());
 const quality = qualityFromSearch(search) ?? settings.quality;
-const preset: PresetName = quality === 'auto' ? 'high' : quality;
+const preset: PresetName = resolvePreset(quality, 'high');
 const still = reducedMotion(settings, matchMedia('(prefers-reduced-motion: reduce)').matches);
 el.card.toggleAttribute('data-still', still);
-
-function safeStorage(): Storage | null {
-  try {
-    return window.localStorage;
-  } catch {
-    return null;
-  }
-}
 
 function setPhase(phase: CardState['phase']): void {
   state.phase = phase;
@@ -160,7 +154,7 @@ function showCreature(bundle: ProofBundle): boolean {
   });
   setText(el.species, facts.species);
   setStars(el.card, el.stars, facts.tier);
-  setText(el.rarity, facts.tier.charAt(0).toUpperCase() + facts.tier.slice(1));
+  setText(el.rarity, capitalise(facts.tier));
   setText(el.shape, shapeName(silhouetteOf(buildCreature(genome).plan)));
   setText(el.generation, `Generation ${facts.generation}`);
   el.story.replaceChildren(...facts.story.map(listItem));
