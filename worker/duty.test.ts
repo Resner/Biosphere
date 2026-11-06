@@ -138,6 +138,9 @@ describe('witness duties', () => {
   });
 
   it('ends a struck player’s duty, and never pools it again for a day', async () => {
+    // The next fight's players hatch before the witnesses come: a genesis with witnesses online
+    // would hand one of them its audit (`attest.test.ts`).
+    const [c, d] = await fighters();
     const f = await witnessed(3);
     await nextOf(f.at(0).c, 'duty');
     const struck = f.at(0).id.playerId;
@@ -146,7 +149,6 @@ describe('witness duties', () => {
     expect(await offersOf(f.event)).toEqual([[0, 'failed']]);
     expect(await authority((o) => witnessView(o, f.event)?.struck)).toEqual([struck]);
     // A new fight's pool leaves it out.
-    const [c, d] = await fighters();
     const start = await outOfReach(c, d);
     await authority((o) => commitWitnesses(o, 'enc', start.enc, [c.id.playerId, d.id.playerId]));
     const next = await witnessCommit(`enc:${start.enc}`);
@@ -156,8 +158,9 @@ describe('witness duties', () => {
   });
 
   it('offers nothing for a genesis until its audit is handed over', async () => {
-    const ws = await witnesses(2);
+    // The player hatches first: a genesis with witnesses online is audited (`attest.test.ts`).
     const p = await fighters().then(([x]) => x);
+    const ws = await witnesses(2);
     const commit = await authority((o) =>
       commitWitnesses(o, 'genesis', 'ab'.repeat(32), [p.id.playerId]),
     );
