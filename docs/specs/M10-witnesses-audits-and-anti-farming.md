@@ -707,7 +707,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - A dead creature's bundle carries `max-age=600`.
     - A socket that closed before its `life` keeps the renewal notice, and the next sign-in hears it once.
 
-- [ ] T16 M9 carry-overs in the verifier and the card [opus] (after none)
+- [ ] T16 M9 carry-overs in the verifier and the card [opus] (after none) (in progress)
   - Steps:
     1. The card's verifier worker: on `error`, settle the pending reply (reject it), so `start()` finishes with `unchecked` (`src/card/main.ts`).
     2. `verify-gates.ts`:
