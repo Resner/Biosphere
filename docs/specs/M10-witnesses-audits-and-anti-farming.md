@@ -452,7 +452,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - Keep `fights.ts`'s referee loop as it is. The witness phase lives in its own file.
     - A fighter whose player is away sends nothing to W either: its slot is the autopilot's, as before.
 
-- [ ] T6 Duty links: across ponds, priority 0, and availability [opus] (after T4)
+- [ ] T6 Duty links: across ponds, priority 0, and availability [opus] (after T4) (in progress)
   - Steps:
     1. `PeerMesh` and `ConnectionPolicy`:
        - `duty-peer { on }` opens a link to a peer outside the pond roster (perfect negotiation, the lower id calls). `{ on: false }`, the duty's end or the fight's end closes it, unless the peer is in the pond;
