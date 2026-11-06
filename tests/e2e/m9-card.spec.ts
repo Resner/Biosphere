@@ -9,7 +9,7 @@ import { decodePng } from './look-metrics';
 // every player offline. The card draws the creature before its verdict, verifies the proof in the
 // browser, names a tampered record in plain words, and says when there is no such creature.
 
-test.describe.configure({ mode: 'serial' });
+test.describe.configure({ mode: 'serial', timeout: 90_000 }); // the recorded hatch alone takes about 15 s
 // The card is judged on its screenshots: no low preset, and the high one asked for.
 test.use({ storageState: { cookies: [], origins: [] } });
 
@@ -79,7 +79,7 @@ async function litPixels(page: Page): Promise<number> {
   return lit;
 }
 
-test('a card verifies a creature whose owner is offline, drawing it before the verdict', async ({
+test('a card verifies a creature whose owner is offline, drawing it before the verdict @slow', async ({
   browser,
 }) => {
   const a = await hatchAndLeave(browser);
