@@ -86,6 +86,8 @@ const m9CardHubPort = 8818;
 const m9ShareHubPort = 8820;
 // The M9 lineage spec (8819), with the M5 hooks: two players mate and promote, then a card shows both parents.
 const m9LineageHubPort = 8819;
+// The M9 lifecycle spec (8821), with the M5 hooks: genesis, a mating, a fight, a death and a return, then cards and the CLI.
+const m9LifecycleHubPort = 8821;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -387,6 +389,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m9LineageHubPort} --persist-to .wrangler/e2e-state-m9-lineage --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
       url: `http://localhost:${m9LineageHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m9LifecycleHubPort} --persist-to .wrangler/e2e-state-m9-lifecycle --var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01`,
+      url: `http://localhost:${m9LifecycleHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

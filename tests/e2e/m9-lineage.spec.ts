@@ -10,6 +10,7 @@ import {
   topUp,
   waitPlaying,
 } from './helpers';
+import { takeOver } from './m9-steps';
 
 // The lineage viewer (M9 T13): A and B hatch, mate and both take over their children, then every
 // page closes. The card of A's child draws both parents as genesis roots and the branch to A's
@@ -28,30 +29,6 @@ async function hatched(context: BrowserContext): Promise<Page> {
   await clickHatch(page);
   await waitPlaying(page);
   return page;
-}
-
-/** Presses H and cracks the egg, and waits until the child is the player's creature, playing. */
-async function takeOver(page: Page): Promise<string> {
-  await page.waitForFunction(() => window.__bs?.state().offspring.kind === 'card', undefined, {
-    timeout: 40_000,
-  });
-  const child = (await state(page)).offspring.creature as string;
-  await page.keyboard.press('h');
-  // The hatch waits up to 6 s for the player to crack it (M6c T11): Enter cracks it now.
-  await page.keyboard.press('Enter');
-  await page
-    .waitForFunction(
-      (id) => {
-        const life = window.__bs?.state().life;
-        return life?.creature === id && life.status === 'playing';
-      },
-      child,
-      { timeout: 20_000 },
-    )
-    .catch((error) => {
-      throw new Error('the child never became the player creature', { cause: error });
-    });
-  return child;
 }
 
 const cardUrl = (id: string): string => `./card.html?c=${id}&hub=${M9_LINEAGE_HUB}&quality=high`;
