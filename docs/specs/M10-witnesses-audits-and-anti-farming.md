@@ -246,7 +246,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
 
 ### Documents and wire
 
-- [ ] T1 Witness documents: pools, rounds, the order, attestations, signed inputs and frames [opus] (after none)
+- [ ] T1 Witness documents: pools, rounds, the order, attestations, signed inputs and frames [opus] (after none) (in progress)
   - Steps:
     1. `src/ledger/witness.ts` with the shapes above.
        - `poolOf`, `witnessRound` and `witnessOrder` are pure and deterministic. The order seeds the sim's PRNG (`seedFromBytes`, as genesis does).
