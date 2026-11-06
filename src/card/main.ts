@@ -3,7 +3,7 @@ import './card.css';
 import { capitalise } from '../game/badge';
 import { formatBuildLabel } from '../game/build-label';
 import { listItem, pick, setText } from '../game/dom';
-import { setStars, shapeName } from '../game/reveal-card';
+import { setStars, shapeName, starsText } from '../game/reveal-card';
 import { loadSettings, qualityFromSearch, reducedMotion } from '../game/settings';
 import { parseGenomeText } from '../genome/codec';
 import { silhouetteOf } from '../genome/silhouette';
@@ -12,6 +12,16 @@ import type { ProofBundle } from '../ledger/proof';
 import type { LineageReport } from '../ledger/verify';
 import { type PresetName, resolvePreset } from '../render/presets';
 import { cardFacts, familyLines, problemLines, verdictLine } from './card';
+import {
+  ART_HEIGHT,
+  ART_WIDTH,
+  drawCardImage,
+  IMAGE_HEIGHT,
+  IMAGE_WIDTH,
+  imageBlob,
+  imageFileName,
+  shareUrl,
+} from './card-image';
 import { CreatureStage } from './card-view';
 import { GraphView } from './graph-view';
 import type { CardHook, CardState } from './hook';
@@ -52,6 +62,7 @@ const el = {
   owner: pick('[data-testid="card-owner"]'),
   copy: pick<HTMLButtonElement>('[data-testid="card-copy"]'),
   copied: pick('[data-testid="card-copied"]'),
+  save: pick<HTMLButtonElement>('[data-testid="card-save"]'),
   error: pick('[data-testid="card-error"]'),
   lineage: pick('[data-testid="card-lineage"]'),
   graph: pick('[data-testid="card-graph"]'),
@@ -76,6 +87,7 @@ const state: CardState = {
   drawn: false,
   renderer: null,
   timings: { bundle: null, drawn: null, verdict: null },
+  image: { ready: false, saved: 0 },
   graph: [],
 };
 
@@ -131,6 +143,43 @@ el.copy.addEventListener('click', () => {
 });
 
 let stage: CreatureStage | null = null;
+
+/** The card as a 1200 × 630 PNG, saved: the creature's frame, its facts, the verdict and the link. */
+async function saveImage(): Promise<void> {
+  const { species, tier, generation, verdict, verdictText } = state;
+  if (!state.image.ready || !stage || !species || !tier || generation === null) return;
+  if (!verdict || !verdictText) return;
+  const canvas = document.createElement('canvas');
+  canvas.width = IMAGE_WIDTH;
+  canvas.height = IMAGE_HEIGHT;
+  const ctx = canvas.getContext('2d');
+  if (!ctx) return;
+  const tierColour = getComputedStyle(el.card).getPropertyValue('--tier').trim();
+  drawCardImage(
+    ctx,
+    stage.snapshot(ART_WIDTH, ART_HEIGHT),
+    {
+      species,
+      stars: starsText(tier).text,
+      rarity: capitalise(tier),
+      generation: `Generation ${generation}`,
+      verdict,
+      verdictText,
+      url: shareUrl(window.location.href),
+    },
+    tierColour || 'rgb(200 240 255)',
+  );
+  const link = document.createElement('a');
+  link.href = URL.createObjectURL(await imageBlob(canvas));
+  link.download = imageFileName(species);
+  link.click();
+  setTimeout(() => URL.revokeObjectURL(link.href), 60_000);
+  state.image.saved++;
+}
+
+el.save.addEventListener('click', () => {
+  saveImage().catch((error: unknown) => console.error('the card image was not made', error));
+});
 
 function startStage(): CreatureStage {
   const s = new CreatureStage({
@@ -317,6 +366,10 @@ async function start(): Promise<void> {
   });
   worker.terminate();
   setPhase('done');
+  // No image without a verdict: "Save image" waits for the last one.
+  state.image.ready = state.verdict !== null;
+  el.save.disabled = !state.image.ready;
+  if (state.image.ready) el.save.removeAttribute('title');
 }
 
 start().catch((error: unknown) => {

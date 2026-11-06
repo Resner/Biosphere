@@ -82,6 +82,8 @@ const m8ProxyHubPort = 8815;
 const m8LifecycleHubPort = 8817;
 // The M9 card spec (8818): a creature's card opened after its owner's page closed.
 const m9CardHubPort = 8818;
+// The M9 share spec (8820): from the game's Lineage to a creature's card and its image.
+const m9ShareHubPort = 8820;
 // The M9 lineage spec (8819), with the M5 hooks: two players mate and promote, then a card shows both parents.
 const m9LineageHubPort = 8819;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
@@ -373,6 +375,12 @@ export default defineConfig({
     {
       command: `npm run worker:dev -- --e2e --port ${m9CardHubPort} --persist-to .wrangler/e2e-state-m9-card`,
       url: `http://localhost:${m9CardHubPort}/v1/health`,
+      reuseExistingServer: !process.env.CI,
+      timeout: 60_000,
+    },
+    {
+      command: `npm run worker:dev -- --e2e --port ${m9ShareHubPort} --persist-to .wrangler/e2e-state-m9-share`,
+      url: `http://localhost:${m9ShareHubPort}/v1/health`,
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },

@@ -221,6 +221,8 @@ export const M8_PROXY_HUB = 'http://localhost:8815';
 export const M8_LIFECYCLE_HUB = 'http://localhost:8817';
 /** The M9 card spec's hub (M9 T12): a creature's card opened with its owner offline. */
 export const M9_CARD_HUB = 'http://localhost:8818';
+/** The M9 share spec's hub (M9 T14): from the game's Lineage to a card and its image. */
+export const M9_SHARE_HUB = 'http://localhost:8820';
 /** The M9 lineage spec's hub (M9 T13), with the M5 hooks: a mating and both promotions, then the card's graph. */
 export const M9_LINEAGE_HUB = 'http://localhost:8819';
 

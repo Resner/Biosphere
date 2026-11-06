@@ -129,6 +129,45 @@ export class CreatureStage {
       this.drawFlat();
       return;
     }
+    this.fitTargets();
+    if (this.opts.still) this.draw();
+  }
+
+  /**
+   * One frame of the creature at `width` × `height` device pixels, copied to a 2D canvas (M9 T14):
+   * drawn and read back in this one task, so the WebGL canvas needs no preserved buffer, then the
+   * stage is drawn again at its own size before the browser shows a frame. Null before a creature.
+   */
+  snapshot(width: number, height: number): HTMLCanvasElement | null {
+    if (!this.genome) return null;
+    const out = document.createElement('canvas');
+    out.width = width;
+    out.height = height;
+    if (!this.renderer || !this.post) {
+      drawPreview(out, hatchBody(this.genome));
+      return out;
+    }
+    const ctx = out.getContext('2d');
+    if (!ctx || !this.frame) return null;
+    const [w, h, ratio] = [this.width, this.height, this.renderer.getPixelRatio()];
+    this.renderer.setPixelRatio(1);
+    [this.width, this.height] = [width, height];
+    try {
+      this.fitTargets();
+      this.draw();
+      ctx.drawImage(this.renderer.domElement, 0, 0, width, height);
+    } finally {
+      this.renderer.setPixelRatio(ratio);
+      [this.width, this.height] = [w, h];
+      this.fitTargets();
+      this.draw();
+    }
+    return out;
+  }
+
+  /** Sizes the renderer, the post chain and the camera to the stage, and fits the body to it. */
+  private fitTargets(): void {
+    if (!this.renderer || !this.post) return;
     this.renderer.setSize(this.width, this.height, false);
     this.post.resize(this.width, this.height, this.renderer.getPixelRatio());
     const cam = this.camera;
@@ -138,7 +177,6 @@ export class CreatureStage {
     cam.bottom = -this.height / 2;
     cam.updateProjectionMatrix();
     this.place();
-    if (this.opts.still) this.draw();
   }
 
   /** One animation frame: the gait moves on unless motion is reduced. */
