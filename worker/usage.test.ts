@@ -11,6 +11,7 @@ interface Row extends Record<string, SqlStorageValue> {
   requests: number;
   messages: number;
   rows_written: number;
+  db_bytes: number;
 }
 
 /** Runs `fn` with a fresh meter over the object's real SQLite and an empty `usage` table. */
@@ -34,7 +35,13 @@ describe('UsageMeter', () => {
       expect(meter.requests(T0)).toBe(190);
       meter.flush(T0);
       expect(rows()).toEqual([
-        { day: '2031-01-05', requests: 190, messages: 3000, rows_written: 1 },
+        {
+          day: '2031-01-05',
+          requests: 190,
+          messages: 3000,
+          rows_written: 1,
+          db_bytes: expect.any(Number),
+        },
       ]);
     });
   });
@@ -101,6 +108,32 @@ describe('UsageMeter', () => {
       first.flush(T0);
       const second = new UsageMeter(sql, () => 0);
       expect(second.requests(T0 + 1000)).toBe(10);
+    });
+  });
+
+  it('records the database size once a day, with the first flush of the day (ADR 0056)', async () => {
+    await withMeter((meter, rows) => {
+      meter.message(T0);
+      meter.flush(T0);
+      const first = rows()[0]?.db_bytes ?? 0;
+      expect(first).toBeGreaterThan(0);
+      // Later flushes of the same day keep the day's size, however the database has grown since.
+      meter.message(T0 + 1000);
+      meter.flush(T0 + 2000);
+      expect(rows()[0]?.db_bytes).toBe(first);
+      expect(meter.databaseBytes(T0 + 3000)).toBe(first);
+      // The next day's first flush records that day's own size.
+      const next = Math.floor(T0 / DAY) * DAY + DAY + 1000;
+      meter.message(next);
+      meter.flush(next);
+      expect(rows().map((r) => r.db_bytes > 0)).toEqual([true, true]);
+    });
+  });
+
+  it('shows the live size before the day has a recorded one', async () => {
+    await withMeter((meter, rows) => {
+      expect(rows()).toEqual([]);
+      expect(meter.databaseBytes(T0)).toBeGreaterThan(0);
     });
   });
 });

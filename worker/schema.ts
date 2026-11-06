@@ -194,6 +194,11 @@ const MIGRATIONS: Step[] = [
       DELETE FROM world`);
     sql.exec('INSERT INTO world (epoch, reset_at) VALUES (3, ?)', now);
   },
+  // Retention (ADR 0056): the database's size is recorded once a day with the usage row, and the
+  // settled fights whose logs are still held are indexed by time, so a settlement finds the expired
+  // ones without scanning (the index changes on a settlement and on a prune, never on a batch).
+  `ALTER TABLE usage ADD COLUMN db_bytes INTEGER NOT NULL DEFAULT 0;
+  CREATE INDEX encounters_kept ON encounters (t) WHERE start <> '' AND settlement IS NOT NULL`,
 ];
 
 /**

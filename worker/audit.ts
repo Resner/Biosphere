@@ -64,6 +64,8 @@ export type FlagCounts = Record<FlagKind, number>;
 /** `GET /v1/audit`: counts by kind for the UTC day so far and since the world's renewal, with no ids. */
 export interface AuditReport {
   since: number;
+  /** The database's size (as the day's usage row records it) against the free plan's limit (ADR 0056). */
+  storage: { bytes: number; limit: number };
   day: FlagCounts;
   total: FlagCounts;
 }
@@ -124,7 +126,7 @@ export class Audit {
   }
 
   /** The audit as `GET /v1/audit` serves it at `now`: since the renewal (`world.reset_at`) and for the UTC day. */
-  report(now: number): AuditReport {
+  report(now: number): Omit<AuditReport, 'storage'> {
     const since = (this.run('SELECT reset_at FROM world')[0]?.reset_at as number | undefined) ?? 0;
     return { since, day: this.counts(Math.max(dayStartOf(now), since)), total: this.counts(since) };
   }

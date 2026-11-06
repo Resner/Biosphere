@@ -104,7 +104,7 @@ describe('migration 2', () => {
     ]) {
       expect(result.names).toContain(table);
     }
-    expect(result.before.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8]);
+    expect(result.before.map((r) => r.version)).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9]);
     expect(result.after).toEqual(result.before);
   });
 });

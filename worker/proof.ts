@@ -12,6 +12,7 @@ import type { EncJoin, EncStart } from '../src/net/encounter-start';
 import type { SignedCommit } from '../src/net/protocol-defs';
 import { byteLength } from '../src/net/protocol-kit';
 import { RULES_VERSION } from '../src/sim/rules';
+import { unpackFrames } from './fight-pack';
 import { asStored, type Row } from './ledger-types';
 import { scalesOf } from './mating';
 import { requestBudget } from './sessions';
@@ -347,12 +348,14 @@ export function fightProof(hub: Hub, enc: string): FightProof | null {
   if (!row?.settlement) return null;
   const settlement = JSON.parse(row.settlement as string) as SignedSettlement;
   const start = row.start as string;
-  const log: FightLog | null = start
+  const startOf = start ? (JSON.parse(start) as EncStart) : null;
+  const joins = start ? (JSON.parse(row.joins as string) as EncJoin[]) : [];
+  const log: FightLog | null = startOf
     ? {
         pondSeed: settlement.settlement.pondSeed,
-        start: JSON.parse(start) as EncStart,
-        joins: JSON.parse(row.joins as string) as EncJoin[],
-        frames: JSON.parse(row.frames as string) as (number | null)[][],
+        start: startOf,
+        joins,
+        frames: unpackFrames(row.frames as string, startOf.fighters.length, joins),
       }
     : null;
   return { settlement, log };

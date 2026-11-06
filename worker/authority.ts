@@ -30,7 +30,7 @@ import { migrate } from './schema';
 import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { TurnCredentials } from './turn';
-import { UsageMeter } from './usage';
+import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
 
 // The message handlers live by area in `sessions.ts` (sessions and signaling), `lives.ts` (genesis
 // and life), `offspring.ts` (mating and offspring) and `engage.ts` (lock-in, with the locks in
@@ -129,7 +129,12 @@ export class Authority extends DurableObject<Env> implements Hub {
   /** The flag counts by kind for the UTC day and since the renewal (`GET /v1/audit`): no ids, reads only; null while busy. */
   audit(): AuditReport | null {
     this.proofReads++;
-    return meterRead(this) ? null : this.ledger.audit.report(this.clock.now());
+    if (meterRead(this)) return null;
+    const bytes = this.usage.databaseBytes(Date.now());
+    return {
+      ...this.ledger.audit.report(this.clock.now()),
+      storage: { bytes, limit: STORAGE_LIMIT_BYTES },
+    };
   }
 
   override async fetch(): Promise<Response> {

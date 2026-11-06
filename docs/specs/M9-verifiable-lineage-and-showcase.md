@@ -484,7 +484,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
   - Done: `sendIfOpen` reports whether it sent, and the report is cleared only then; `Fights.playerFighting` gates progress and close, and `start` takes each side's latest clock; `giveUp` in `recover.ts` shares `backToLedger` with a failed settlement.
   - Gotcha: the ledger and the life clock now run on `hub.clock` (`Date.now` in production); a test genome that "no longer decodes" needs a non-base64url character, since any base64url string decodes.
 
-- [ ] T10 Retention and the storage budget (after T6, T8)
+- [x] T10 Retention and the storage budget (after T6, T8)
   - Steps (ADR 0056):
     1. `worker/storage.ts`: the packed frames.
        - Each frame's inputs are 4-byte codes, `0xFFFFFFFF` for the fallback, with the whole log base64 in the row's `frames`.
@@ -512,6 +512,8 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - The usage row holds the database size after a day boundary. `/v1/audit` shows it.
     - `npm run report:storage` reproduces `docs/perf/storage.md`.
   - Notes: pruning never touches a record, a commitment, a beacon or a settlement.
+  - Done: `worker/fight-pack.ts` packs the frames (the referee now refuses code `0xFFFFFFFF`, the fallback marker), `FightStore.seal` prunes by the settlement's `t` through the partial index `encounters_kept` (migration 9, which also adds `usage.db_bytes`), `GET /v1/audit` shows `storage`, and `npm run report:storage` writes `docs/perf/storage.md` (200 players: logs 547 MB, so 14 days stands).
+  - Gotcha: a row is kept `LOG_KEEP_DAYS` from the fight's start (`t`), within the 90 s limit of its settlement; `history()` moved to `worker/history-kit.ts`.
 
 ### Showing it
 
