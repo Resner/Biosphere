@@ -48,16 +48,30 @@ test('the Lineage section opens a creature’s card, whose image saves as a 1200
     await route.continue();
   });
   const [card] = await Promise.all([context.waitForEvent('page'), link.click()]);
-  await card.waitForFunction(() => window.__card?.state().drawn === true, null, {
-    timeout: 30_000,
+  // The game has done its part: its page closes, so the card has the machine to itself.
+  await page.close();
+  await card
+    .waitForFunction(
+      () => window.__card?.state().drawn === true || window.__card?.state().phase === 'error',
+      null,
+      { timeout: 60_000 },
+    )
+    .catch(async (error) => {
+      throw new Error(`the card never drew A: ${JSON.stringify(await cardState(card))}`, {
+        cause: error,
+      });
+    });
+  expect(await cardState(card)).toMatchObject({
+    drawn: true,
+    verdict: null,
+    image: { ready: false },
   });
-  expect(await cardState(card)).toMatchObject({ verdict: null, image: { ready: false } });
   await expect(card.getByTestId('card-save')).toBeDisabled();
   release();
 
   await card
     .waitForFunction(() => ['done', 'error'].includes(window.__card?.state().phase ?? ''), null, {
-      timeout: 30_000,
+      timeout: 60_000,
     })
     .catch(async (error) => {
       throw new Error(`the card never finished: ${JSON.stringify(await cardState(card))}`, {

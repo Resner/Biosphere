@@ -143,7 +143,15 @@ function fitSpecies(name: string, measure: Measure): { size: number; lines: stri
   };
 }
 
-const block = (font: string, size: number, x: number, top: number, lines: string[], lh = 1.15) => ({
+/** Lines set from `top`, each `lh` times the size below the one before. */
+const block = (
+  font: string,
+  size: number,
+  x: number,
+  top: number,
+  lines: string[],
+  lh = 1.15,
+): Block => ({
   font,
   size,
   lines: lines.map((text, i) => ({ text, x, y: Math.round(top + size + i * size * lh) })),
@@ -151,6 +159,7 @@ const block = (font: string, size: number, x: number, top: number, lines: string
 
 const last = (b: Block): number => b.lines[b.lines.length - 1]?.y ?? 0;
 
+/** Where every word of the image goes, measured with `measure`; the words never leave their column. */
 export function imageLayout(t: ImageText, measure: Measure): ImageLayout {
   const kicker = block(`600 17px ${SANS}`, 17, TEXT_LEFT, 74, ['BIOSPHERE CREATURE']);
   const species = fitSpecies(t.species, measure);
