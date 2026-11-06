@@ -15,6 +15,7 @@ Each directory appears with the milestone that first needs it (ADRs 0003–0014)
 - `src/net/`: WebRTC `PeerMesh` (≤32 peers), hub signaling, ponds and AoI, codecs; `protocol.ts` is shared with the Worker.
 - `src/ledger/`: browser identity, canonical signed records, drand verification, lineage verification; shared.
 - `src/game/` and `src/lab/`: app shell, loop, input, HUD, screens, chat, audio, `window.__bs` test hook; the Creature Lab page.
+- `src/card/`: the creature card page (`card.html?c=<id>`): fetches a proof bundle, draws the creature with `src/render`, verifies the lineage in a module worker, `window.__card` test hook.
 - `worker/`: Cloudflare Worker with one SQLite Durable Object: sessions, signaling, TURN credentials, ledger, clock, commitments, referee, admission.
 - `tests/e2e/` (Playwright against `dist/`), `tests/fixtures/` (recorded drand beacons), `tools/` (load simulation, reports, fixture recorders).
 

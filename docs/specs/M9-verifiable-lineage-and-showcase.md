@@ -540,7 +540,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - an unreachable `--hub` (a closed local port) exits 2.
   - Notes: the output of a verified lineage fits on one screen (paste it in the PR). T15 runs the CLI against a local hub.
 
-- [ ] T12 The creature card page [opus] (after T7)
+- [x] T12 The creature card page [opus] (after T7)
+  - Done: `card.html` and `src/card/` (`card.ts` the words, `load.ts` the reads, `check.ts` the check the worker runs, `card-view.ts` the stage, `main.ts`); every settled fight in the bundle is replayed, the subject's first, each through the fights family alone on the bundle indexed once. `__card.state()` adds `verdictText`, `story`, `renderer`, `timings` and the error `unchecked`.
+  - Gotcha: `m9-card` holds the `verify-worker-*.js` request until `drawn`, which proves no frame waits on the check; a genesis needs one acked report before its page closes, or the close writes no checkpoint to tamper with.
   - Steps:
     1. `card.html` and `src/card/` (the build's third input; `CLAUDE.md`'s Architecture gains `src/card/`):
        - read `?c=`, and `?hub=` for localhost only (`hubSocketUrl`'s rule);

@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="en">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <meta name="description" content="A Biosphere creature card: the creature, its story, and its history checked in your browser." />
+    <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
+    <title>Creature card · Biosphere</title>
+  </head>
+  <body class="card-page">
+    <main class="card" data-testid="card" data-phase="loading">
+      <div class="card-stage" data-testid="card-stage">
+        <canvas class="card-canvas" data-testid="card-canvas" role="img" aria-label="The creature, drawn as in the game"></canvas>
+        <canvas class="card-canvas" data-testid="card-preview" role="img" aria-label="The creature's outline" hidden></canvas>
+      </div>
+      <div class="card-info">
+        <header class="card-head">
+          <p class="card-kicker">Biosphere creature</p>
+          <h1 data-testid="card-species">&nbsp;</h1>
+          <p class="card-meta">
+            <span class="stars" data-testid="card-stars"></span>
+            <span data-testid="card-rarity"></span>
+            <span class="card-dot" aria-hidden="true">·</span>
+            <span data-testid="card-shape"></span>
+            <span class="card-dot" aria-hidden="true">·</span>
+            <span data-testid="card-generation"></span>
+          </p>
+        </header>
+        <p class="card-verdict" data-testid="card-verdict" role="status">Fetching its proof…</p>
+        <p class="card-progress" data-testid="card-progress" hidden></p>
+        <p class="card-error" data-testid="card-error" role="alert" hidden></p>
+        <ul class="card-story" data-testid="card-story" aria-label="Its story"></ul>
+        <details class="card-details" data-testid="card-details">
+          <summary>How it was checked</summary>
+          <ul class="card-families" data-testid="card-families"></ul>
+          <ul class="card-problems" data-testid="card-problems" aria-label="Problems" hidden></ul>
+          <p class="card-owner" data-testid="card-owner"></p>
+          <p class="card-how">Checked in this browser from the authority's signed records and the public drand beacon. <a href="https://github.com/Resner/Biosphere/blob/main/docs/VERIFY.md">What this proves</a></p>
+        </details>
+        <div class="card-actions">
+          <button type="button" data-testid="card-copy">Copy link</button>
+          <span class="card-copied" data-testid="card-copied" role="status" hidden>Link copied</span>
+          <a class="card-play" href="./">Play Biosphere</a>
+        </div>
+        <p class="card-note">The world may be renewed before v1.0, and its creatures with it.</p>
+      </div>
+    </main>
+    <footer class="build-label" data-testid="build-label"></footer>
+    <script type="module" src="/src/card/main.ts"></script>
+  </body>
+</html>

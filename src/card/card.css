@@ -1,0 +1,269 @@
+/* The creature card (M9 T12): one glass panel over dark water, the creature large on the left and
+   its name, verdict and story beside it; one column on a phone, with nothing wider than the screen. */
+
+html,
+body.card-page {
+  height: auto;
+  min-height: 100%;
+  overflow-x: hidden;
+  overflow-y: auto;
+}
+
+body.card-page {
+  min-height: 100vh;
+  background:
+    radial-gradient(ellipse 70% 55% at 30% 30%, rgb(40 92 104 / 0.28), transparent 70%),
+    radial-gradient(ellipse 60% 50% at 80% 85%, rgb(22 60 74 / 0.3), transparent 70%), var(--water);
+  background-attachment: fixed;
+}
+
+.card {
+  box-sizing: border-box;
+  display: grid;
+  grid-template-columns: minmax(0, 1.2fr) minmax(0, 1fr);
+  gap: 1.5rem;
+  width: min(1040px, calc(100% - 2rem));
+  margin: max(1rem, 5vh) auto 3rem;
+  padding: 1.25rem;
+  border: 1px solid var(--glass-line);
+  border-color: color-mix(in srgb, var(--tier, rgb(200 240 255)) 45%, transparent);
+  border-radius: 22px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow:
+    var(--glass-shadow),
+    var(--glass-shine),
+    0 0 48px -12px var(--tier, transparent);
+}
+
+.card-stage {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 1 / 1;
+  border-radius: 16px;
+  overflow: hidden;
+  background: var(--water);
+  box-shadow: inset 0 0 0 1px rgb(200 240 255 / 0.08);
+}
+
+.card-canvas {
+  position: absolute;
+  inset: 0;
+  display: block;
+  width: 100%;
+  height: 100%;
+}
+
+.card-canvas[hidden] {
+  display: none;
+}
+
+.card-info {
+  display: flex;
+  flex-direction: column;
+  gap: 0.9rem;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.card-head h1 {
+  margin: 0.15rem 0 0.35rem;
+  font-size: clamp(1.6rem, 4vw, 2.3rem);
+  font-weight: 400;
+  font-style: italic;
+  letter-spacing: 0.01em;
+  line-height: 1.15;
+}
+
+.card-kicker {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.72rem;
+  letter-spacing: 0.2em;
+  text-transform: uppercase;
+}
+
+.card-meta {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: baseline;
+  gap: 0.2rem 0.45rem;
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.9rem;
+}
+
+.card-meta .stars {
+  font-size: 1.1rem;
+}
+
+.card-meta [data-testid="card-rarity"] {
+  color: var(--tier, var(--text));
+}
+
+/* The verdict, before any detail: a shape (tick or cross) as well as a colour. */
+.card-verdict {
+  margin: 0;
+  padding: 0.65rem 0.85rem;
+  border-radius: 12px;
+  background: rgb(255 255 255 / 0.04);
+  font-size: 1.05rem;
+  line-height: 1.35;
+}
+
+.card-verdict[data-verdict]::before {
+  display: inline-block;
+  width: 1.4em;
+  font-weight: 700;
+}
+
+.card-verdict[data-verdict="verified"] {
+  background: rgb(110 220 160 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(110 220 160 / 0.35);
+}
+
+.card-verdict[data-verdict="verified"]::before {
+  content: "✓";
+  color: #8de8b0;
+}
+
+.card-verdict[data-verdict="failed"] {
+  background: rgb(240 110 100 / 0.12);
+  box-shadow: inset 0 0 0 1px rgb(240 110 100 / 0.4);
+}
+
+.card-verdict[data-verdict="failed"]::before {
+  content: "✗";
+  color: #ff9c90;
+}
+
+.card-progress,
+.card-note,
+.card-owner,
+.card-how {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.8rem;
+}
+
+.card-error {
+  margin: 0;
+  font-size: 1.2rem;
+}
+
+.card-story {
+  margin: 0;
+  padding: 0;
+  list-style: none;
+  font-size: 0.95rem;
+  line-height: 1.45;
+}
+
+.card-story li {
+  padding: 0.3rem 0 0.3rem 1.1rem;
+  border-bottom: 1px solid rgb(200 240 255 / 0.07);
+  text-indent: -1.1rem;
+}
+
+.card-story li::before {
+  content: "•";
+  display: inline-block;
+  width: 1.1rem;
+  text-indent: 0;
+  color: var(--tier, var(--muted));
+}
+
+.card-details {
+  font-size: 0.85rem;
+}
+
+.card-details summary {
+  color: var(--muted);
+  cursor: pointer;
+}
+
+.card-details ul {
+  margin: 0.5rem 0;
+  padding-left: 1.1rem;
+  line-height: 1.45;
+}
+
+.card-problems {
+  color: #ffb3a9;
+}
+
+.card-details a {
+  color: var(--text);
+}
+
+.card-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.75rem;
+}
+
+.card-actions button {
+  padding: 0.4rem 1rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgb(255 255 255 / 0.06);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.card-actions button:hover,
+.card-actions button:focus-visible {
+  background: rgb(255 255 255 / 0.12);
+}
+
+.card-copied {
+  color: var(--muted);
+  font-size: 0.85rem;
+}
+
+.card-play {
+  margin-left: auto;
+  color: var(--muted);
+  font-size: 0.8rem;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+  text-decoration: none;
+}
+
+/* No creature to show (no such creature, or no proof): the error line alone. */
+.card[data-empty] {
+  grid-template-columns: minmax(0, 1fr);
+  max-width: 32rem;
+}
+
+.card[data-empty] .card-stage,
+.card[data-empty] .card-head,
+.card[data-empty] .card-story,
+.card[data-empty] .card-details,
+.card[data-empty] [data-testid="card-copy"] {
+  display: none;
+}
+
+.card-page .build-label {
+  position: static;
+  padding: 0 1rem 1rem;
+  text-align: right;
+}
+
+@media (max-width: 720px) {
+  .card {
+    grid-template-columns: minmax(0, 1fr);
+    gap: 1rem;
+    width: calc(100% - 1.5rem);
+    margin-top: 0.75rem;
+    padding: 0.75rem;
+    border-radius: 18px;
+  }
+
+  .card-stage {
+    aspect-ratio: 4 / 3;
+  }
+}
