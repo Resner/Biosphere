@@ -42,6 +42,15 @@ export const FLAG_KINDS = {
    * pool was empty when it was committed (`commitWitnesses` in `witness-pool.ts`).
    */
   'authority-only': 'request',
+  /**
+   * A witness referee that failed its fight, keyed by the event (`witness-fight.ts`): no batch in
+   * time or its socket closed (`silent`), a batch with a gap, a wrong width or a bad input
+   * signature (`forged`), or a dispute proving it signed a frame other than the one it batched
+   * (`equivocated`). Each also strikes the witness for a day.
+   */
+  'witness-silent': 'request',
+  'witness-forged': 'request',
+  'witness-equivocated': 'request',
 } as const satisfies Record<string, 'request' | 'creature'>;
 
 export type FlagKind = keyof typeof FLAG_KINDS;

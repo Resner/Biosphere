@@ -27,6 +27,7 @@ import type { FlagKind } from './audit';
 import type { SignedCommitment } from './beacons';
 import type { Fight } from './fights';
 import { type ActiveSession, type Hub, type Session, seated, sendIfOpen, signedOf } from './socket';
+import { handOver } from './witness-fight';
 import {
   DUTIES_PER_HOUR,
   dutiesInHour,
@@ -61,6 +62,8 @@ interface RoleRun {
   timer: unknown;
   audit: AuditCase | null;
   over: boolean;
+  /** How much of the fight's history the referee duty last offered carried. */
+  history: number;
 }
 
 interface Duty {
@@ -95,9 +98,9 @@ export class Duties {
   private readonly held = new Map<string, { event: string; role: DutyRole }>();
   /** `duty-ok` and `duty-no` from someone not offered that event, dropped. */
   strays = 0;
-  /** A referee took its duty (T5 hands the fight over). Until then the duty just ends. */
-  onReferee: (event: string, witness: string, position: number) => void = (event) =>
-    this.end(event, 'referee', 'done');
+  /** A referee took its duty: the fight is handed over (`witness-fight.ts`). */
+  onReferee: (event: string, witness: string, position: number) => void = (event, w, p) =>
+    handOver(this.hub, event, w, p);
   /** An auditor took its duty (T8 waits for its attestation). Until then the duty just ends. */
   onAuditor: (event: string, witness: string, position: number) => void = (event) =>
     this.end(event, 'auditor', 'done');
@@ -219,6 +222,23 @@ export class Duties {
     this.end(held.event, held.role, 'struck');
   }
 
+  /**
+   * A fight's referee duty may be offered again (its witness failed or was taken back): to the next
+   * unused position, within the duty's 3 offers.
+   */
+  reoffer(event: string): void {
+    const duty = this.byEvent.get(event);
+    const run = duty?.runs.get('referee');
+    if (!duty || !run || run.current || run.offers >= MAX_OFFERS) return;
+    run.over = false;
+    this.offer(duty, run);
+  }
+
+  /** How many messages of the fight's history the event's last referee offer carried (0 when none). */
+  offeredHistory(event: string): number {
+    return this.byEvent.get(event)?.runs.get('referee')?.history ?? 0;
+  }
+
   /** The duty the player holds (offered or taken), or null. */
   holding(player: string): { event: string; role: DutyRole } | null {
     return this.held.get(player) ?? null;
@@ -272,6 +292,7 @@ export class Duties {
         timer: null,
         audit: null,
         over: firstPosition(duty.kind, role) === null,
+        history: 0,
       };
       duty.runs.set(role, run);
     }
@@ -316,6 +337,7 @@ export class Duties {
       const offer: Offer = { position: p, player, role: run.role, outcome: 'pending' };
       duty.offers.push(offer);
       run.current = offer;
+      if (fight) run.history = fight.history.length;
       this.held.set(player, { event: duty.event, role: run.role });
       sendIfOpen(found[0], msg);
       if (fight) this.tellFighters(fight, duty.id, player, true);

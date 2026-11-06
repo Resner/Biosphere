@@ -33,6 +33,7 @@ import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { TurnCredentials } from './turn';
 import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
+import { witnessBatch, witnessDispute } from './witness-fight';
 import { avail, ipHash } from './witness-pool';
 
 // The message handlers live by area in `sessions.ts` (sessions and signaling), `lives.ts` (genesis
@@ -81,6 +82,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   private queueTickAt: number | null = null;
   /** Messages dropped past their own window's cap without closing the socket, by type. */
   readonly dropped = new Map<ClientMsg['t'], number>();
+  /** Incoming messages that parsed, by type: what a fight costs the authority (ADR 0058's cost check). */
+  readonly received = new Map<ClientMsg['t'], number>();
   /** Witness duties (ADR 0058), in memory: a restart ends them all. */
   duties: Duties = new Duties(this);
   /** The salt of every session's IP hash (migration 10), read once. */
@@ -191,6 +194,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     const now = Date.now();
     this.usage.message(now);
     const msg = typeof data === 'string' ? parseClientMsg(data) : null;
+    if (msg) this.received.set(msg.t, (this.received.get(msg.t) ?? 0) + 1);
     if (now - session.windowStart >= RATE_WINDOW_MS) {
       session.windowStart = now;
       session.count = 0;
@@ -316,6 +320,12 @@ export class Authority extends DurableObject<Env> implements Hub {
       case 'duty-ok':
       case 'duty-no':
         this.duties.answer(ws, session, msg);
+        return;
+      case 'batch':
+        witnessBatch(this, session, msg);
+        return;
+      case 'dispute':
+        witnessDispute(this, session, msg);
         return;
     }
   }

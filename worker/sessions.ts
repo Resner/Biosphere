@@ -32,6 +32,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
+import { witnessLeft } from './witness-fight';
 
 const POND_CAPACITY = 24;
 
@@ -371,7 +372,8 @@ export function drop(
     }
     // Its fight runs on: the log takes every frame final so far (a failed write is logged there).
     flushFight(hub, session.playerId);
-    // A witness duty offered to it moves on.
+    // A fight it referees is taken back, and a witness duty offered to it moves on.
+    witnessLeft(hub, session.playerId);
     hub.duties.left(session.playerId);
     broadcast(hub, session.pondId, ws, {
       t: 'member',
