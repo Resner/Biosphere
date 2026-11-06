@@ -285,7 +285,7 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
     - `speedTest`: 40 input signatures checked through one tabled key take under 40 ms in Node.
   - Notes: no worker or protocol changes here (T2, T4).
 
-- [x] T2 Protocol 10: duties, batches, disputes, attestations, signed inputs on the peer link [opus] (after T1) (in progress)
+- [x] T2 Protocol 10: duties, batches, disputes, attestations, signed inputs on the peer link [opus] (after T1)
   - Done: `protocol-witness.ts`, with the shared record and commitment parsers moved to `protocol-docs.ts` (a witness commitment has owner `''`); `Authority.dropped` counts batches and disputes past their window, which `refereeWire` opens to fighters (T4 adds the referee duty).
   - Gotcha: the shapes changed: a duty's history drops `enc` (900 frames with it pass 128 KB), and `BATCH_MAX_BYTES` is 12,288 (20 frames of 4 signed inputs pass 8 KB). New messages refuse unknown fields.
   - Steps:
