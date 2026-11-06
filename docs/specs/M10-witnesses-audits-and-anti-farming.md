@@ -703,7 +703,9 @@ T1, T15 and T16 need nothing and can start at once. T2 follows T1, and T9 follow
   - Done: `worker/farm-kit.ts`, `worker/farm.test.ts`, `tools/farm-sim.ts`, `tools/farm.mjs` and `docs/perf/farm.md`; all five gates hold for 1, 4 and 16 bots without a rule change. ADR 0060 sets how gates 1 to 3 read (genes cancel in gate 1; one cooldown after maturity; the halvings' floor aside).
   - Gotcha: a farmer's report waits for its `ack` or its `died` (old age ends the bots' restored ancestors), and a bot with no ancestor waits for its hatch bucket; `flush` can't order a report (the ping is auto-answered).
 
-- [ ] T14 The cost check: messages, CPU and storage of witnessed fights (after T5)
+- [x] T14 The cost check: messages, CPU and storage of witnessed fights (after T5)
+  - Done: `worker/witness-cost.test.ts` (a 30 s hunt: 600 inputs alone, 100 messages with a witness, 6×; span 20×; 20 signature checks about 5 ms), `tools/witness-report.ts` (`npm run report:witness`, `docs/perf/witness.md`), and the witness commitment (1.2 KB, a pool of 16) and attestation (0.6 KB) in `docs/perf/storage.md` (200 players: 672 MB).
+  - Gotcha: bodies differ per identity, so two hunts differ by a few frames: the test compares per frame, and the hunt's start is found in the sim so that it ends near frame 300.
   - Steps (ADR 0058):
     1. `worker/witness-cost.test.ts`, on the hand clock with the scripted witness:
        - a 30 s duel refereed by the authority alone;
