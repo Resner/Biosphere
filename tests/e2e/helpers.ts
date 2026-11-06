@@ -282,8 +282,11 @@ export const ripe = (page: Page, timeout = 40_000) =>
     { timeout },
   );
 
-/** Parks the player beside a remote, as soon as the remote is drawn. */
-export async function goTo(page: Page, id: string): Promise<void> {
+/**
+ * Parks the player beside a remote, as soon as the remote is drawn. `peer` is the remote's own page;
+ * when given, a failure reports how that page sees itself (dead, hurt, silent).
+ */
+export async function goTo(page: Page, id: string, peer?: Page): Promise<void> {
   await page
     .waitForFunction((who) => window.__bs?.state().remotes.some((r) => r.id === who), id, {
       timeout: 20_000,
@@ -299,7 +302,21 @@ export async function goTo(page: Page, id: string): Promise<void> {
           alive: s.player?.alive ?? null,
         };
       });
-      throw new Error(`the other player never showed: ${JSON.stringify(seen)}`, { cause: error });
+      const theirs = await peer
+        ?.evaluate(() => {
+          const s = (window.__bs as BsHook).state();
+          return {
+            screen: s.screen,
+            zone: s.zone,
+            health: s.player?.health ?? null,
+            alive: s.player?.alive ?? null,
+            net: s.net.text,
+          };
+        })
+        .catch(() => null);
+      throw new Error(`the other player never showed: ${JSON.stringify({ ...seen, theirs })}`, {
+        cause: error,
+      });
     });
   // Teleport until the HUD sees the creature in reach: on a loaded runner the remote is still fading
   // in or has drifted by the time the first jump lands, and the mate hint stays hidden.
