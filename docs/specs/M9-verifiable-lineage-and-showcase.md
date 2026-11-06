@@ -595,7 +595,7 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - The in-game Lineage panel's tests pass unchanged.
     - `m9-lineage` passes 3 times in a row.
 
-- [ ] T14 Cards from the game, and the card image [opus] (after T12)
+- [ ] T14 Cards from the game, and the card image [opus] (after T12) (in progress)
   - Steps:
     1. In the game:
        - each of the player's creatures in the menu's Lineage section gets a "Card" link, and so does each pedigree node with a known id;
