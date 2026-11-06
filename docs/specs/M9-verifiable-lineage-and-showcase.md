@@ -595,7 +595,9 @@ T1, T2 and T9 need nothing and can start at once. T3 follows T1. Then the verifi
     - The in-game Lineage panel's tests pass unchanged.
     - `m9-lineage` passes 3 times in a row.
 
-- [ ] T14 Cards from the game, and the card image [opus] (after T12) (in progress)
+- [x] T14 Cards from the game, and the card image [opus] (after T12) (in progress)
+  - Done: `cardHref` (`src/game/card-link.ts`) links the Lineage rows ("Card"), every graph node (it now opens the card, the Lab only without an id) and the death screen ("See its card", `death.creature`); `card-image.ts` lays the PNG out with a measure handed in, the URL across the foot.
+  - Gotcha: `CreatureStage.snapshot` renders and reads the WebGL canvas back in one task (no preserved buffer), then redraws the stage at its own size.
   - Steps:
     1. In the game:
        - each of the player's creatures in the menu's Lineage section gets a "Card" link, and so does each pedigree node with a known id;

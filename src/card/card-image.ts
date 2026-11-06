@@ -197,6 +197,10 @@ export function imageLayout(t: ImageText, measure: Measure): ImageLayout {
     VERDICT_LINE,
   );
   const boxHeight = last(verdictBlock) - boxTop + VERDICT_PAD + 6;
+  // The words sit in the middle of the height above the foot.
+  const top = (kicker.lines[0]?.y ?? 0) - kicker.size;
+  const dy = Math.max(0, Math.round((FOOT_TOP - (boxTop + boxHeight - top)) / 2 - top));
+  for (const b of [kicker, name, meta, verdictBlock]) for (const line of b.lines) line.y += dy;
 
   // The URL across the foot, as large as fits on one line.
   const urlWidth = IMAGE_WIDTH - 2 * URL_LEFT;
@@ -214,7 +218,7 @@ export function imageLayout(t: ImageText, measure: Measure): ImageLayout {
     verdict: {
       ...verdictBlock,
       mark: t.verdict === 'verified' ? '✓' : '✗',
-      box: { x: TEXT_LEFT, y: boxTop, w: TEXT_RIGHT - TEXT_LEFT, h: boxHeight },
+      box: { x: TEXT_LEFT, y: boxTop + dy, w: TEXT_RIGHT - TEXT_LEFT, h: boxHeight },
     },
     url: block(urlFont(urlSize), urlSize, URL_LEFT, urlTop, urlLines),
   };
@@ -265,13 +269,6 @@ export function drawCardImage(
   ctx.textBaseline = 'alphabetic';
   ctx.fillStyle = WATER;
   ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
-  // The page's light in the water, behind the words.
-  const glow = ctx.createRadialGradient(900, 220, 0, 900, 220, 520);
-  glow.addColorStop(0, 'rgb(40 92 104 / 0.3)');
-  glow.addColorStop(1, 'rgb(40 92 104 / 0)');
-  ctx.fillStyle = glow;
-  ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
-
   if (art) ctx.drawImage(art, 0, 0, ART_WIDTH, ART_HEIGHT);
   // The render's edge fades into the water.
   const fade = ctx.createLinearGradient(ART_WIDTH - 90, 0, ART_WIDTH, 0);
@@ -284,6 +281,12 @@ export function drawCardImage(
   foot.addColorStop(1, 'rgb(4 9 11 / 1)');
   ctx.fillStyle = foot;
   ctx.fillRect(0, ART_HEIGHT - 60, ART_WIDTH, 60);
+  // The page's light in the water, behind the words and over the render's edge, so no seam shows.
+  const glow = ctx.createRadialGradient(900, 260, 0, 900, 260, 560);
+  glow.addColorStop(0, 'rgb(40 92 104 / 0.3)');
+  glow.addColorStop(1, 'rgb(40 92 104 / 0)');
+  ctx.fillStyle = glow;
+  ctx.fillRect(0, 0, IMAGE_WIDTH, IMAGE_HEIGHT);
 
   // The foot: a hairline, then the URL.
   ctx.fillStyle = 'rgb(200 240 255 / 0.03)';
