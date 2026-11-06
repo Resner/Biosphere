@@ -3,35 +3,30 @@
 
 import { RULES } from '../src/sim/rules';
 import type { Hub } from './socket';
+import { playedMs } from './witness-pool';
 
 const F = RULES.encounter.farming;
 
 /**
  * The kills of the player's creatures in the window (at most `maxHalvings`), through the dead
- * index, and when the identity was first seen. A death's cause is in its record, the creature's last.
+ * index. A death's cause is in its record, the creature's last.
  */
 const WORTH_FACTS = `SELECT
   (SELECT COUNT(*) FROM (
     SELECT 1 FROM creatures c JOIN records r ON r.creature = c.id AND r.seq = c.seq
     WHERE c.owner = ?1 AND c.status = 'dead' AND c.died_t > ?2 AND r.kind = 'death'
       AND json_extract(r.json, '$.body.cause') = 'killed'
-    LIMIT ?3)) AS kills,
-  (SELECT first_seen FROM players WHERE id = ?1) AS first_seen`;
+    LIMIT ?3)) AS kills`;
 
 /**
  * `0.5^k`: `k` counts the player's creatures killed (cause `killed`, by anyone) in the 24 h before
- * `now`, at most 6, plus 1 while the identity was first seen under 30 minutes before `now` (or
- * has no row yet). One read, and no write.
+ * `now`, at most 6, plus 1 until the player has played `youngPlayMs` (`playedMs`: its creatures'
+ * active time, however long ago it was first seen). Reads only.
  */
 export function worthOf(hub: Hub, player: string, now: number): number {
   const row = hub.ctx.storage.sql
-    .exec<{ kills: number; first_seen: number | null }>(
-      WORTH_FACTS,
-      player,
-      now - F.windowMs,
-      F.maxHalvings,
-    )
+    .exec<{ kills: number }>(WORTH_FACTS, player, now - F.windowMs, F.maxHalvings)
     .one();
-  const young = row.first_seen === null || now - row.first_seen < F.youngMs ? 1 : 0;
+  const young = playedMs(hub, player) < F.youngPlayMs ? 1 : 0;
   return 0.5 ** (row.kills + young);
 }

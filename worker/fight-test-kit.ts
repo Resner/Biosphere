@@ -1,4 +1,5 @@
 import { runInDurableObject } from 'cloudflare:test';
+import { sha256 } from '@noble/hashes/sha2.js';
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { afterEach, beforeEach, expect, vi } from 'vitest';
 import { genomeFromBase64url, genomeHash } from '../src/genome/codec';
@@ -126,15 +127,27 @@ export async function join(id?: Identity) {
 }
 
 /**
- * Moves the identity's first sign-in back by `ms` (past the young window by default, ADR 0054), so
- * it fights at worth 1. It is marked told of the world's epoch, as it would be: no renewal follows.
+ * Credits the identity `playMs` of play (20 minutes by default, past the young window, ADR 0059),
+ * so it fights at worth 1: one finished creature of its own whose active time that is, replaced
+ * on each call. The identity is marked told of the world's epoch, as it would be: no renewal follows.
  */
-export const firstSeenAgo = (p: Pick<Player, 'id'>, ms = RULES.encounter.farming.youngMs) =>
-  sql(
-    'UPDATE players SET first_seen = ?, epoch_seen = (SELECT epoch FROM world) WHERE id = ?',
-    clock.t - ms,
+export const seasoned = async (
+  p: Pick<Player, 'id'>,
+  playMs = RULES.encounter.farming.youngPlayMs,
+) => {
+  await sql(
+    `INSERT OR REPLACE INTO creatures
+       (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t)
+     VALUES (?, ?, 'dead', 0, '', '', ?, 0, 0, 0, 0, 0)`,
+    bytesToHex(sha256(new TextEncoder().encode(`played|${p.id.playerId}`))),
+    p.id.playerId,
+    playMs,
+  );
+  await sql(
+    'UPDATE players SET epoch_seen = (SELECT epoch FROM world) WHERE id = ?',
     p.id.playerId,
   );
+};
 
 /** A player whose creature is newly hatched (spawn-protected for 15 s) on a fresh socket. */
 export async function rehatch(p: Pick<Player, 'c' | 'id' | 'pond'>): Promise<Player> {
@@ -146,13 +159,13 @@ export async function rehatch(p: Pick<Player, 'c' | 'id' | 'pond'>): Promise<Pla
 }
 
 /**
- * A signed-in player with a freshly hatched creature (spawn-protected for 15 s). Its identity is
- * older than the young window, so the M7 fight tests' rewards hold (worth 1).
+ * A signed-in player with a freshly hatched creature (spawn-protected for 15 s). Its identity has
+ * played past the young window, so the M7 fight tests' rewards hold (worth 1).
  */
 export async function hatched(): Promise<Player> {
   const { c, id, pond } = await join();
   const p = await rehatch({ c, id, pond });
-  await firstSeenAgo(p);
+  await seasoned(p);
   return p;
 }
 

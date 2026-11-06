@@ -7,7 +7,6 @@ import {
   advance,
   authority,
   clock,
-  firstSeenAgo,
   hatched,
   join,
   lifeOn,
@@ -16,6 +15,7 @@ import {
   type Player,
   pair,
   refusal,
+  seasoned,
   setEnv,
   snap,
   useFightHub,
@@ -179,7 +179,7 @@ describe('each attack leaves its flag once', () => {
 
   it('a replayed genesis ask', async () => {
     const { c, id } = await join();
-    await firstSeenAgo({ id });
+    await seasoned({ id });
     const ask = genesisRequest(id);
     c.send(ask);
     const { commit } = await nextOf(c, 'commit');
