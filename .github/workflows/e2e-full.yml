@@ -55,6 +55,17 @@ jobs:
       - run: npm ci
       - run: npm run build
       - run: npm run e2e:setup --if-present
+      # `playwright test` starts every hub (about 380 MB each, three dozen of them) before its first
+      # test, which is most of a 16 GB runner: since M10 the runner died ("received a shutdown
+      # signal") a minute and a half in, as the browsers started. The hubs are idle most of the time,
+      # so their pages go to swap for little.
+      - name: Add swap
+        run: |
+          sudo fallocate -l 8G /mnt/e2e.swap
+          sudo chmod 600 /mnt/e2e.swap
+          sudo mkswap /mnt/e2e.swap
+          sudo swapon /mnt/e2e.swap
+          free -m
       - name: Install Firefox
         if: matrix.firefox
         run: npx playwright install --with-deps firefox chromium

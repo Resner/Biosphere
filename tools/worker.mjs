@@ -1,5 +1,10 @@
 // Runs wrangler for the Worker with the build version injected: `node tools/worker.mjs dev|deploy …`.
-import { spawnSync } from 'node:child_process';
+//
+// Wrangler's CLI runs as this process's one child, with no `npx` or `.bin` shim between: each shim is
+// a resident Node process, and the E2E run keeps three dozen hubs up at once (about 100 MB of a
+// 16 GB runner for each hub that the shims held).
+import { spawn } from 'node:child_process';
+import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { versionDefine } from './version.mjs';
 
@@ -14,7 +19,12 @@ const defines = Object.entries(versionDefine()).flatMap(([key, value]) => [
   '--define',
   `${key}:${value}`,
 ]);
-const result = spawnSync('npx', ['wrangler', command, '-c', config, ...defines, ...rest], {
-  stdio: 'inherit',
-});
-process.exit(result.status ?? 1);
+// `wrangler/bin/wrangler.js` only starts `wrangler-dist/cli.js` with `--no-warnings`.
+const cli = createRequire(import.meta.url).resolve('wrangler');
+const child = spawn(
+  process.execPath,
+  ['--no-warnings', cli, command, '-c', config, ...defines, ...rest],
+  { stdio: 'inherit' },
+);
+for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, () => child.kill(signal));
+child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));

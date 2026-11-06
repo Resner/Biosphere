@@ -475,12 +475,20 @@ export const rowsBesideLog = () =>
 export const logRow = (enc: string) => authority((o) => o.fightStore.read(enc));
 
 /**
- * Two players whose hatch protection is over, in a pond seeded `timeout`: no UV or pressure at
- * `NEAR`, and a current that shears little (the seed of T1's timeout test).
+ * Seeds the pond of `ps` (players of one pond) `timeout`: no UV or pressure at `NEAR`, and a current
+ * that shears little (the seed of T1's timeout test). A random seed puts pressure at `NEAR` in about
+ * 1 pond in 100, which kills a fighter at 1 hp before it is struck.
  */
+export async function calmPond(...ps: Pick<Player, 'pond'>[]): Promise<void> {
+  const [first] = ps;
+  if (!first) return;
+  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", first.pond.id);
+  for (const p of ps) p.pond = { ...p.pond, seed: 'timeout' };
+}
+
+/** Two players whose hatch protection is over, in the calm pond (`calmPond`). */
 export async function fighters(): Promise<[Player, Player]> {
   const [a, b] = await pair();
-  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", a.pond.id);
-  for (const p of [a, b]) p.pond = { ...p.pond, seed: 'timeout' };
+  await calmPond(a, b);
   return [a, b];
 }

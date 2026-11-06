@@ -60,6 +60,7 @@ The npm script contract: CI, hooks and skills call these names; the tools behind
 - Cloud sessions and CI have no GPU: WebGL renders in software. Judge visuals from screenshots, not frame rates.
 - Cloud sessions have Chromium pre-installed at `/opt/pw-browsers` (`PLAYWRIGHT_BROWSERS_PATH`); don't download browsers there. When the pinned `@playwright/test` expects another build, `playwright.config.ts` falls back to `/opt/pw-browsers/chromium`.
 - Playwright's `--grep-invert` skips project dependencies, so `@slow` filtering lives in `playwright.config.ts` (`E2E_SKIP_SLOW=1`, set by `test:e2e`). Put the `@slow` tag at the end of a title.
+- `playwright test` starts every hub (about 380 MB each, three dozen) before its first test, most of a 16 GB machine: a full run in a cloud session runs out of memory (name the spec files, `wantsSpec` in `playwright.config.ts`), and `e2e-full.yml` adds swap. Hubs run as `node tools/worker.mjs dev …` with no `npm`/`npx` shim in between; a new hub follows that form.
 - Add or upgrade packages with `npx -y npm@11 install …`: npm 10 (Node 22's default) crashes on Vite 8's peer graph (`edgesOut`). `npm ci` works with both.
 - Biome lints and formats code files only, so Markdown stays untouched. `npm run format` applies its fixes; `check` fails on unformatted code.
 - In cloud sessions the proxy blocks `gh pr` and `gh issue` (GraphQL); use the GitHub MCP tools for PRs, issues and merges.
