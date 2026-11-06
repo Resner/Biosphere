@@ -568,7 +568,7 @@ describe('signed snapshots between peers (M7 T7)', () => {
       }
     });
     hub.sent.length = 0;
-    hub.fight({ t: 'lock-ask', lock: 'cd'.repeat(8) });
+    hub.fight({ t: 'lock-ask', lock: 'cd'.repeat(8), by: 'B'.repeat(43) });
     // No await: the answer is out within the same tick.
     const answer = hub.sent[0] as Extract<ClientMsg, { t: 'lock-state' }>;
     expect(answer).toMatchObject({ t: 'lock-state', lock: 'cd'.repeat(8) });

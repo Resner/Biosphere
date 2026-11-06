@@ -38,6 +38,11 @@ export const FLAG_KINDS = {
   /** A lock-in claim clamped past its tolerance (`life.ts`, through `engage.ts`). */
   'claim-over': 'creature',
   /**
+   * An attacker's own signed snapshots, as the target held them, further apart than it could swim
+   * (the movement check at lock-in, `engage.ts`, ADR 0059).
+   */
+  teleport: 'creature',
+  /**
    * A fight, mating or genesis that no witness can see, keyed by its event (`dutyEvent`): its
    * pool was empty when it was committed (`commitWitnesses` in `witness-pool.ts`).
    */

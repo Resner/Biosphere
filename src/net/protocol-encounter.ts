@@ -194,7 +194,9 @@ type EncStartMsg = Extract<HubMsg, { t: 'enc-start' }>;
 export function encounterHubMsg(o: Obj, raw: string): HubMsg | null {
   switch (o.t) {
     case 'lock-ask':
-      return isStr(o.lock, LOCK_RE) ? capped(raw, { t: 'lock-ask', lock: o.lock }) : null;
+      return isStr(o.lock, LOCK_RE) && isStr(o.by, PLAYER_ID_RE)
+        ? capped(raw, { t: 'lock-ask', lock: o.lock, by: o.by })
+        : null;
     case 'enc-start':
       return capped(raw, encStartOf(o), ENC_START_MAX_BYTES);
     case 'enc-frame': {

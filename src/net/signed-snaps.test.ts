@@ -3,7 +3,7 @@ import { speedTest } from '../../tests/heavy';
 import { createIdentity, fromBase64Url, memoryKeyStore, toBase64Url } from '../ledger/identity';
 import { decodeStateFrame, encodeSignedFrame, signSnap, verifySnap } from '../ledger/snapshot-sig';
 import { encodeSnapshot, type SignedSnap, type Snapshot } from './protocol';
-import { SignedSnaps, VERIFY_PER_SECOND } from './signed-snaps';
+import { HELD, SEEN_MS, SignedSnaps, VERIFY_PER_SECOND } from './signed-snaps';
 
 const POND = 'p1';
 
@@ -118,6 +118,30 @@ describe('SignedSnaps', () => {
     expect(snaps.latest(other.playerId)).not.toBeNull();
     snaps.clear();
     expect(snaps.latest(other.playerId)).toBeNull();
+  });
+
+  it('keeps the last 5 verified frames, and gives those received in the last 2 s oldest first (M10 T11)', async () => {
+    const { peer, other, snaps, signed } = await setup();
+    expect(HELD).toBe(5);
+    expect(SEEN_MS).toBe(2000);
+    expect(snaps.recent(peer.playerId, 0)).toEqual([]);
+    const frames = [10, 16, 22, 28, 34, 40, 46].map((tick) => signed(tick));
+    // Received 200 ms apart: the first two fall out of the 5 held.
+    frames.forEach((f, i) => {
+      snaps.receive(peer.playerId, snap(10 + 6 * i), f, 200 * i);
+    });
+    expect(snaps.latest(peer.playerId)).toEqual(frames[6]);
+    expect(snaps.recent(peer.playerId, 1200)).toEqual(frames.slice(2));
+    // Only those received in the 2 s before now.
+    expect(snaps.recent(peer.playerId, 2000 + 800)).toEqual(frames.slice(4));
+    expect(snaps.recent(peer.playerId, 2000 + 1201)).toEqual([]);
+    // A forged or older frame changes nothing held; another peer's are its own.
+    snaps.receive(peer.playerId, snap(52), signed(52, other), 1300);
+    snaps.receive(peer.playerId, snap(30), signed(30), 1300);
+    expect(snaps.recent(peer.playerId, 1300)).toEqual(frames.slice(2));
+    expect(snaps.recent(other.playerId, 1300)).toEqual([]);
+    snaps.remove(peer.playerId);
+    expect(snaps.recent(peer.playerId, 1300)).toEqual([]);
   });
 
   it('never throws on what the state channel delivers', async () => {
