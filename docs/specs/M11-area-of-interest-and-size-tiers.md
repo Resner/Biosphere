@@ -535,7 +535,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - a ticket naming another player fails.
   - Notes: no game wiring (T13).
 
-- [ ] T10 The headless area-of-interest harness: property tests and the report (after T6, T8, T9)
+- [ ] T10 The headless area-of-interest harness: property tests and the report (after T6, T8, T9) (in progress)
   - Steps:
     1. `tests/aoi-harness.ts`, pure and seeded. Simulated clients each run their own:
        - `AoiManager`, `ConnectionPolicy` and `WhereReporter`;
