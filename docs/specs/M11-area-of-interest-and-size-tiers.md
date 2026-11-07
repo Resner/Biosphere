@@ -266,7 +266,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - `viewHalfHeight(10, 20)` is 88.0 and `viewHalfHeight(20, 20)` 133.4 (±0.1); a radius past the adult's counts as the adult's. The camera tests pass unchanged.
   - Notes: no change to the world's size (T12) or the protocol (T2). `m6c-reset` keeps its pre-reset hook.
 
-- [x] T2 Protocol 11: snapshot version 5, the directory, seat and peer messages on the wire [opus] (after none) (in progress)
+- [x] T2 Protocol 11: snapshot version 5, the directory, seat and peer messages on the wire [opus] (after none)
   - Steps:
     1. `PROTOCOL_VERSION` 11. A protocol-10 hello gets `error: version`.
     2. Snapshot version 5 (29 bytes): x and y as u32 in 0.125 wu steps, everything else as version 4. A 25-byte snapshot fails the length check.
