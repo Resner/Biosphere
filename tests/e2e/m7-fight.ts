@@ -1,7 +1,8 @@
 import type { Browser, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { RULES } from '../../src/sim/rules';
+import { SEEN_MS } from '../../src/net/signed-snaps';
+import { RULES, TICK_HZ } from '../../src/sim/rules';
 import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './helpers';
 
 // Shared by the M7 hub specs: two hatched players, one hurt, and a fight A starts with F.
@@ -12,6 +13,9 @@ import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './hel
  * bounded by that, with a margin, never by a guess of how long a fight usually takes.
  */
 export const FIGHT_WALL_MS = (RULES.encounter.timeoutFrames / 10 + 15) * 1000;
+
+/** A's ticks to wait after parking: the target's `seen` window (`SEEN_MS`) at the sim rate, and a second more. */
+const SETTLE_TICKS = Math.ceil((SEEN_MS / 1000 + 1) * TICK_HZ);
 
 /** Every staged fighter's biomass (the starter's), so none is "much bigger" than another. */
 export const EQUAL_BIOMASS = RULES.starter.biomass;
@@ -164,11 +168,13 @@ export async function fightToEnd(
 ): Promise<string | undefined> {
   await expect(async () => {
     await parkBeside(a, ids.idB);
-    // The engage carries A's signed snapshot: let a few snapshots leave from the new place first,
-    // or the fight starts with A where it was and B escapes from it.
-    const at = (await state(a)).tick;
-    await a.waitForFunction((t) => (window.__bs?.state().tick ?? 0) >= t + 15, at, {
-      timeout: 8_000,
+    // The engage carries A's signed snapshot, and B's answer carries the snapshots it received of A
+    // in the last `SEEN_MS`: the movement check refuses a fight whose path jumps from where A was
+    // to where the test teleported it (`engage:moved`). Let the old ones age out first, in A's ticks
+    // (a slow runner plays fewer, so waits longer), plus a margin for B's receive lag.
+    const until = (await state(a)).tick + SETTLE_TICKS;
+    await a.waitForFunction((t) => (window.__bs?.state().tick ?? 0) >= t, until, {
+      timeout: 15_000,
     });
     await a.keyboard.press('f');
     await a.waitForFunction(
@@ -182,9 +188,13 @@ export async function fightToEnd(
   }, 'A engages B')
     .toPass({ timeout: 40_000 })
     .catch(async (error) => {
-      throw new Error(`A's fight never started: ${JSON.stringify(await seen(a))}`, {
-        cause: error,
-      });
+      const toasts = await a.getByTestId('toast').allTextContents();
+      throw new Error(
+        `A's fight never started (toast: ${JSON.stringify(toasts)}): ${JSON.stringify(await seen(a))}`,
+        {
+          cause: error,
+        },
+      );
     });
   // A braces by itself against B's windups: B hits as hard as A, and an A left at a few points
   // dies of the water before the next try.
