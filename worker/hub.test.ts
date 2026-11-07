@@ -376,7 +376,7 @@ describe('ponds', () => {
     });
     try {
       const players = await fill(3);
-      const ponds = players.map((p) => p.welcome.pond);
+      const ponds = players.map((p) => p.welcome.world);
       expect(new Set(ponds.map((p) => p.id)).size).toBe(2);
       for (const pond of ponds) {
         expect(pond.seed).toBe(world?.seed);
