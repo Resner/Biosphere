@@ -120,7 +120,7 @@ export class ProxyReceiver {
   /** Per relaying peer, the players it stands in for and when it last did. */
   private readonly held = new Map<string, Map<string, number>>();
   /** Per away player, the one peer its proxies are taken from and when it last sent one. */
-  private readonly senders = new Map<string, { from: string; at: number }>();
+  private readonly sources = new Map<string, { from: string; at: number }>();
 
   constructor(
     private readonly self: () => string | null,
@@ -141,25 +141,30 @@ export class ProxyReceiver {
       this.dropped++;
       return false;
     }
-    this.senders.set(player, { from, at: localMs });
+    this.sources.set(player, { from, at: localMs });
     target.proxy(player, snapshot, localMs);
     return true;
   }
 
   /** The peer `player`'s proxies are taken from, or null. */
   senderOf(player: string): string | null {
-    return this.senders.get(player)?.from ?? null;
+    return this.sources.get(player)?.from ?? null;
+  }
+
+  /** Each away player's sender, by player (`state().net.proxyFrom`). */
+  senders(): Record<string, string> {
+    return Object.fromEntries([...this.sources].map(([player, s]) => [player, s.from]));
   }
 
   /** A peer that left stands in for nobody any more: the next sender of its players is taken at once. */
   forget(from: string): void {
     this.held.delete(from);
-    for (const [player, s] of [...this.senders]) if (s.from === from) this.senders.delete(player);
+    for (const [player, s] of [...this.sources]) if (s.from === from) this.sources.delete(player);
   }
 
   /** One sender per away player: `from` is it, or the one before has sent nothing for 1 s. */
   private sender(from: string, player: string, localMs: number): boolean {
-    const s = this.senders.get(player);
+    const s = this.sources.get(player);
     return !s || s.from === from || localMs - s.at >= PROXY_QUIET_MS;
   }
 

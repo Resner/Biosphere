@@ -410,6 +410,7 @@ export function installAppHook(app: App): void {
           signed: app.online.signed.size,
           badSignatures: app.online.signed.badSignatures,
           proxyDropped: app.online.proxies.dropped,
+          proxyFrom: app.online.proxies.senders(),
           dutyLinks: keeper.current?.dutyLinks() ?? [],
           strangers: keeper.current?.strangers ?? 0,
           ...(keeper.current?.netInfo() ?? NO_NET),
