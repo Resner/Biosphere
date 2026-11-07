@@ -26,6 +26,7 @@ const view = (genomeRef: number, id = 'a'): RemoteView => ({
   fighting: false,
   health: 1,
   away: false,
+  pace: 0,
 });
 
 describe('RemoteBodies', () => {

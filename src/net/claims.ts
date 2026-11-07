@@ -1,7 +1,13 @@
 // Shared food (ADR 0016): the claim with the lower tick wins a contested item, then the lower
 // playerId, and every client ends up with the same `World.consumed`. Pure and DOM-free.
 
-import { applyRemoteClaim, claimPlausible, consumedPlausible, isFoodSlot } from '../sim/food';
+import {
+  applyRemoteClaim,
+  claimPlausible,
+  consumedPlausible,
+  isFoodSlot,
+  slotCellDistance,
+} from '../sim/food';
 import type { World } from '../sim/types';
 import { CONSUMED_MAX_ENTRIES, type PeerEvent } from './protocol';
 
@@ -59,11 +65,21 @@ export class ClaimBook {
   }
 }
 
-/** The eaten slots as `consumed` messages of at most 40 entries, in a stable order. */
-export function consumedParts(world: World): ConsumedEvent[] {
+/** Consumed slots whose cell lies within this far of the sender's creature go to a new link (M11 T13). */
+export const CONSUMED_NEAR_WU = 4096;
+
+/**
+ * The eaten slots as `consumed` messages of at most 40 entries, in a stable order; with `near`,
+ * only the slots whose cell lies within `CONSUMED_NEAR_WU` of it (a new link's peer swims there).
+ */
+export function consumedParts(world: World, near?: { x: number; y: number }): ConsumedEvent[] {
   // Carrion ids are not food slots: a late joiner never learns of the drop, so it has no use for them.
   const slots = Object.keys(world.consumed)
-    .filter((slot) => isFoodSlot(world, slot))
+    .filter((slot) => {
+      if (!near) return isFoodSlot(world, slot);
+      const d = slotCellDistance(world, slot, near.x, near.y);
+      return d !== null && d <= CONSUMED_NEAR_WU;
+    })
     .sort();
   const of = Math.max(1, Math.ceil(slots.length / CONSUMED_MAX_ENTRIES));
   const parts: ConsumedEvent[] = [];

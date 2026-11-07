@@ -130,6 +130,8 @@ export class App {
   readonly renewal: RenewalNotice;
   /** The hub link of the current online session, for the Lineage panel's question. */
   hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
+  /** The room for links of P2 to P4 that `debug.netCap` set (M11 T13), or null for the default. */
+  netCap: number | null = null;
   readonly lineagePanel: LineagePanel;
   readonly storage: Storage | null;
   /** First-life hints (M6b T9): the play screen has no permanent control lines. */
@@ -477,8 +479,8 @@ export class App {
         this.screens.setReport(lines);
       }
     });
-    this.sender = new SnapshotSender((bytes, signed) =>
-      this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids),
+    this.sender = new SnapshotSender((bytes, signed, n) =>
+      this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids, n),
     );
     // Bodies on the wire (M3 T16): the genome goes out when a link opens and after every rehatch.
     this.genomeSync = new GenomeSync({

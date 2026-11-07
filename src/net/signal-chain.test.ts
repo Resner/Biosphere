@@ -4,7 +4,7 @@ import { authorityKeyId, authorityPublicKey, type PubKey } from '../ledger/recor
 import { SEAT_TTL_MS, seatValid, signalSigned, signSeat, signSignal } from '../ledger/seat';
 import { type Fix, Gossip } from './gossip';
 import { PeerMesh } from './peer-mesh';
-import type { Pos } from './protocol';
+import type { Pos, SignalKind } from './protocol';
 import { FakePc, fakePcs, settle } from './rtc-test-kit';
 import { RELAY_ANSWER_MS, type RelayEvent, SignalRoute } from './signal-route';
 
@@ -35,7 +35,7 @@ interface Page {
 interface HubSignal {
   from: string;
   to: string;
-  kind: 'offer' | 'answer';
+  kind: SignalKind;
 }
 
 let ids: Identity[] = [];
@@ -72,7 +72,7 @@ function world() {
     page.gossip = new Gossip(id);
     page.mesh = new PeerMesh({
       selfId: id,
-      signal: (to, kind, sdp) => page.route.send(to, kind, sdp),
+      signal: (to, kind, sdp) => void page.route.send(to, kind, sdp, 2),
       createPeerConnection: (config) => new FakePc(config),
       hello: {
         ticket: () => ticket,
@@ -83,7 +83,7 @@ function world() {
       selfId: id,
       now: () => Date.now(),
       pos: () => page.pos,
-      sign: (to, kind, at, pos, sdp) => signSignal(identity, to, kind, at, pos, sdp),
+      sign: (to, kind, cls, at, pos, sdp) => signSignal(identity, to, kind, cls, at, pos, sdp),
       verify: signalSigned,
       linked: (peer) => page.mesh.isOpen(peer),
       heard: (peer) => page.gossip.heard(peer, Date.now()),
@@ -94,7 +94,9 @@ function world() {
         hub.push({ from: id, to, kind });
         pages.get(to)?.route.fromHub(id, kind, sdp);
       },
-      deliver: (from, kind, sdp) => void page.mesh.handleSignal(from, kind, sdp),
+      deliver: (from, kind, sdp) => {
+        if (kind !== 'refuse') void page.mesh.handleSignal(from, kind, sdp);
+      },
     });
     page.mesh.onEvent((from, e) => {
       if (e.t === 'relay') page.route.fromPeer(from, e);

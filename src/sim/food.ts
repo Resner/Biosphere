@@ -306,6 +306,17 @@ export function isFoodSlot(world: World, slot: string): boolean {
   return parseSlot(world, slot) !== null;
 }
 
+/** How far a slot's cell (the square its items live in) lies from a point, in wu; null for a name that is not a slot. */
+export function slotCellDistance(world: World, slot: string, x: number, y: number): number | null {
+  const parsed = parseSlot(world, slot);
+  if (!parsed) return null;
+  const [layer, cx, cy] = parsed;
+  const cell = CELL_OF[layer] as number;
+  const dx = Math.max(cx * cell - x, 0, x - (cx + 1) * cell);
+  const dy = Math.max(cy * cell - y, 0, y - (cy + 1) * cell);
+  return Math.sqrt(dx * dx + dy * dy);
+}
+
 /** A slot's layer, cell and slot number, or null for a name that is not one in this world's grid. */
 function parseSlot(world: World, slot: string): [number, number, number, number] | null {
   const m = SLOT_PATTERN.exec(slot);

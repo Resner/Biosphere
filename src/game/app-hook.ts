@@ -4,6 +4,7 @@ import { hashPlan } from '../genome/develop';
 import { silhouetteOf } from '../genome/silhouette';
 import { buildCreature, hashStats } from '../genome/stats';
 import { PondClock } from '../net/clock';
+import { DEFAULT_CAP } from '../net/connection-policy';
 import { SnapshotSender } from '../net/pond-sync';
 import { decodeSnapshot, genomeRefOf, parsePeerEvent } from '../net/protocol';
 import { nearestInZone } from '../render/zones';
@@ -18,8 +19,19 @@ import { createWorld } from '../sim/world';
 import type { App } from './app';
 import { adultRadius } from './app-session';
 import { type BsDebug, type BsGenome, type BsState, installHook } from './debug';
+import type { NetLinks } from './online';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
+
+/** `state().net`'s links without a session. */
+const NO_NET: NetLinks = {
+  links: [],
+  known: { snapshot: 0, gossip: 0, directory: 0, signal: 0 },
+  crowded: false,
+  where: { sent: 0, leaf: null },
+  signals: { hub: 0, relayed: 0, forwarded: 0, forged: 0 },
+  helloFailed: 0,
+};
 
 /** `debug.steerTo` gives up after this many ticks (30 s). */
 const STEER_TIMEOUT_TICKS = 30 * TICK_HZ;
@@ -69,6 +81,13 @@ function debugHelpers(app: App): BsDebug {
     audit: (audit, beacon, keys) => app.duty.audit(audit, beacon, keys),
     holdBelly(on) {
       app.fight.holdBelly = on;
+    },
+    netCap(cap) {
+      if (!Number.isInteger(cap) || cap < 1 || cap > DEFAULT_CAP) {
+        throw new RangeError(`netCap takes 1 to ${DEFAULT_CAP}, got ${cap}`);
+      }
+      app.netCap = cap;
+      app.keeper.current?.setCap(cap);
     },
     teleport(x, y) {
       const { player } = app.session;
@@ -326,6 +345,7 @@ export function installAppHook(app: App): void {
             spawnProtected,
             fighting,
             away,
+            pace,
           }) => ({
             id,
             name,
@@ -339,6 +359,7 @@ export function installAppHook(app: App): void {
             protected: spawnProtected,
             fighting,
             away,
+            pace,
           }),
         ),
         attack: app.attack.info(),
@@ -366,10 +387,7 @@ export function installAppHook(app: App): void {
               seed: pond.seed,
               size: pond.size,
               centre: pond.ring ? { ...pond.ring.centre } : { x: pond.size / 2, y: pond.size / 2 },
-              members: [
-                playerId ?? 'local',
-                ...(keeper.current?.others().map((m) => m.playerId) ?? []),
-              ].sort(),
+              members: [playerId ?? 'local', ...(keeper.current?.members() ?? [])].sort(),
             }
           : null,
         social: {
@@ -394,6 +412,7 @@ export function installAppHook(app: App): void {
           proxyDropped: app.online.proxies.dropped,
           dutyLinks: keeper.current?.dutyLinks() ?? [],
           strangers: keeper.current?.strangers ?? 0,
+          ...(keeper.current?.netInfo() ?? NO_NET),
         },
         witness: {
           avail: app.duty.avail.on,

@@ -181,8 +181,8 @@ describe('a wake', () => {
 });
 
 describe('the relay by distance', () => {
-  const offer = (from: Who, to: Who) =>
-    from.c.send({ t: 'signal', to: to.id.playerId, kind: 'offer', sdp: 'v=0' });
+  const offer = (from: Who, to: Who, cls?: 0 | 1 | 2 | 3 | 4) =>
+    from.c.send({ t: 'signal', to: to.id.playerId, kind: 'offer', sdp: 'v=0', cls });
 
   it('passes a signal 3,000 wu across ponds with the sender’s position, and refuses one 30,000 wu off', async () => {
     const [a, b, far] = [await join(), await join(), await join()];
@@ -200,6 +200,11 @@ describe('the relay by distance', () => {
     });
     const pair = [a.id.playerId, b.id.playerId].sort().join(':');
     expect(await authority((o) => o.relays.get(pair))).toBe(1);
+    // The caller's class (M11 T13) passes with it, and so does a refusal.
+    offer(a, b, 1);
+    expect(await nextOf(b.c, 'signal')).toMatchObject({ kind: 'offer', cls: 1 });
+    b.c.send({ t: 'signal', to: a.id.playerId, kind: 'refuse', sdp: '', cls: 4 });
+    expect(await nextOf(a.c, 'signal')).toMatchObject({ kind: 'refuse', sdp: '', cls: 4 });
     offer(a, far);
     expect(await nextOf(a.c, 'error')).toEqual({ t: 'error', code: 'no-peer' });
     expect(types(await flush(far.c))).toEqual([]);

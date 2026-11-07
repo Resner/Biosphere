@@ -614,8 +614,7 @@ export function appFightHost(app: App): FightHost {
     body: (text) =>
       text === app.session.body.text ? app.session.body.creature : bodyFromText(text),
     events: (events) => app.fightShow.onEvents(events),
-    present: (player) =>
-      player === app.playerId || app.keeper.current?.nameOf(player) !== undefined,
+    present: (player) => player === app.playerId || app.keeper.current?.present(player) === true,
     sendWitness: (peer, ev) => app.keeper.current?.sendEvent(peer, ev),
     signInput: (enc, f, code) =>
       witness && app.identity ? witness.signInput(app.identity, enc, f, code) : '',

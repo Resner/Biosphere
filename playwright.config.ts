@@ -105,6 +105,10 @@ const m10AuditHubPort = 8825;
 const m10CardHubPort = 8826;
 // The M10 lifecycle spec (8827): the mating scale and the witness variables, with lives of normal length (a slow runner's fights would outlast short ones): mating, two witnessed fights, cards and the CLI.
 const m10LifecycleHubPort = 8827;
+// The M11 link specs (M11 T13): leaves crossed with `LEAF_MAX=2` (8828), the cap (8829), a peer's relay (8830).
+const m11HandoffHubPort = 8828;
+const m11CapHubPort = 8829;
+const m11RelayHubPort = 8830;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -415,7 +419,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
-    // The M10 specs are all `@slow`, so the PR parts start none of their hubs, and a run that names
+    // The M10 and M11 specs are all `@slow`, so the PR parts start none of their hubs, and a run that names
     // spec files (CI's repeat of the changed ones) starts only the hubs of the M10 specs it names:
     // 39 idle `wrangler dev` processes beside a browser took the runners down.
     ...[
@@ -427,6 +431,9 @@ export default defineConfig({
         '--var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off',
       ],
       ['m10-card', m10CardHubPort, WITNESS_VARS],
+      ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
+      ['m11-cap', m11CapHubPort, ''],
+      ['m11-relay', m11RelayHubPort, ''],
       [
         'm10-lifecycle',
         m10LifecycleHubPort,

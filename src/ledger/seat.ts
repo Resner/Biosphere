@@ -1,6 +1,6 @@
 import { sha256 } from '@noble/hashes/sha2.js';
 import { hexToBytes } from '@noble/hashes/utils.js';
-import type { PeerEvent, Pos } from '../net/protocol-defs';
+import type { PeerEvent, Pos, SignalKind, WireClass } from '../net/protocol-defs';
 import { type Canonical, canonicalize, hashWithDomain } from './canonical';
 import { fromBase64Url, type Identity, toBase64Url, verify } from './identity';
 import { type KeyVerify, keyVerifier } from './key-verify';
@@ -79,7 +79,7 @@ export function seatValid(
   }
 }
 
-const KINDS = { offer: 0, answer: 1 } as const;
+const KINDS = { offer: 0, answer: 1, refuse: 2 } as const;
 
 function playerBytes(id: string): Uint8Array {
   const bytes = fromBase64Url(id);
@@ -88,24 +88,27 @@ function playerBytes(id: string): Uint8Array {
 }
 
 /**
- * What a signal's sender signs: `'bs/signal/v1' ‖ from (32 bytes) ‖ to (32) ‖ kind (1, offer 0 and
- * answer 1) ‖ u64 at ‖ 3 × f64 pos ‖ SHA-256(sdp)`, big-endian. Throws for malformed input.
+ * What a signal's sender signs: `'bs/signal/v1' ‖ from (32 bytes) ‖ to (32) ‖ kind (1, offer 0,
+ * answer 1, refuse 2) ‖ cls (1, the link class 0 to 4 the sender holds `to` in) ‖ u64 at ‖ 3 × f64
+ * pos ‖ SHA-256(sdp)`, big-endian. Throws for malformed input.
  */
 export function signalBytes(
   from: string,
   to: string,
-  kind: 'offer' | 'answer',
+  kind: SignalKind,
+  cls: WireClass,
   at: number,
   pos: Pos,
   sdp: string,
 ): Uint8Array {
   if (!Object.hasOwn(KINDS, kind)) throw new RangeError('bad kind');
+  if (!Number.isInteger(cls) || cls < 0 || cls > 4) throw new RangeError('bad class');
   if (!Number.isSafeInteger(at) || at < 0) throw new RangeError('bad time');
   if (!Array.isArray(pos) || pos.length !== 3 || !pos.every(Number.isFinite))
     throw new RangeError('bad position');
   if (typeof sdp !== 'string') throw new RangeError('bad sdp');
   const tag = new TextEncoder().encode(SIGNAL_DOMAIN);
-  const out = new Uint8Array(tag.length + 129);
+  const out = new Uint8Array(tag.length + 130);
   out.set(tag);
   let o = tag.length;
   out.set(playerBytes(from), o);
@@ -113,8 +116,9 @@ export function signalBytes(
   o += 64;
   const view = new DataView(out.buffer);
   view.setUint8(o, KINDS[kind]);
-  view.setBigUint64(o + 1, BigInt(at));
-  o += 9;
+  view.setUint8(o + 1, cls);
+  view.setBigUint64(o + 2, BigInt(at));
+  o += 10;
   for (const [i, v] of pos.entries()) view.setFloat64(o + 8 * i, v);
   out.set(sha256(new TextEncoder().encode(sdp)), o + 24);
   return out;
@@ -124,12 +128,13 @@ export function signalBytes(
 export function signSignal(
   identity: Identity,
   to: string,
-  kind: 'offer' | 'answer',
+  kind: SignalKind,
+  cls: WireClass,
   at: number,
   pos: Pos,
   sdp: string,
 ): string {
-  const bytes = signalBytes(identity.playerId, to, kind, at, pos, sdp);
+  const bytes = signalBytes(identity.playerId, to, kind, cls, at, pos, sdp);
   return toBase64Url(identity.sign(SIGNAL_DOMAIN, bytes));
 }
 
@@ -141,7 +146,7 @@ export function signalSigned(m: Extract<PeerEvent, { t: 'relay' }>): boolean {
     return verify(
       m.from,
       SIGNAL_DOMAIN,
-      signalBytes(m.from, m.to, m.kind, m.at, m.pos, m.sdp),
+      signalBytes(m.from, m.to, m.kind, m.cls, m.at, m.pos, m.sdp),
       sig,
     );
   } catch {

@@ -629,7 +629,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The world in the game
 
-- [ ] T13 The session in the world: links by area of interest [opus] (after T6, T9, T12)
+- [x] T13 The session in the world: links by area of interest [opus] (after T6, T9, T12)
+  - Done: `OnlineSession` with `neighbours.ts` (the known set) and `online-links.ts` (`Links`, the plan and dial loop, whose constants the harness now imports); signals carry `cls` and a `refuse` kind (inside `signalBytes`, now 130 bytes), and the mesh runs with `retry: false` and re-answers a repeated offer. Gotchas: the seat checks load lazily (no `@noble/curves` in the shell), away fighters are judged by the roster (`present`), not by a name; a local hub run needs a config that starts only its hub.
   - Steps:
     1. `src/game/online.ts`, split into `online-links.ts` and `neighbours.ts`:
        - **the known set** comes from the directory's `near`, gossip, snapshots, the hub's `at` and a relay's `pos`;
@@ -670,7 +671,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - B is never evicted.
     - **`m11-relay.spec.ts`** (`@slow`, hub 8830): A at −5,000 wu, B at 0 and C at +5,000 wu, so A–B and B–C link and A–C doesn't. A swims toward C:
       - A learns of C from B's gossip;
-      - A and C link through B's relay: `signals.relayed` rises on both, and the hub's relay count for the pair stays 0.
+      - A and C link through B's relay: `signals.relayed` rises on both, neither page's `signals.hub` rises, and the hub's relay count for the pair does not rise (they hatched side by side, so their first link went through the hub; the count lives in memory, so a hibernating hub may drop it).
     - Every existing hub E2E (M2 to M10) passes.
   - Notes: the hub still groups ponds and its `near` stays within the pond (T6), so links form within ponds and `m10-cross` keeps its two ponds until T14. `online.ts` and `app-online.ts` are this task's.
 
@@ -700,7 +701,9 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - Every E2E, fast and full, passes. In `m2-pond`, the friends link within 3 s of their hatch.
     - `tools/worker-bundle.test.ts`: `POND_MAX` appears nowhere, and `LEAF_MAX` only in fixture mode.
 
-- [ ] T15 Snapshot rates by distance [opus] (after T13)
+- [x] T15 Snapshot rates by distance [opus] (after T13)
+  - Done: `src/net/snapshot-rates.ts` (`wantedRate`, `RateAsker`, `SendRates`) wired in `OnlineSession`; `RemoteBuffer.sampleLate` draws a remote its snapshots' spacing + 20 ms behind and eases the lag (`pace` ≤ 1.2); harness gate 9 counts frames on the wire with 93 bytes of headers.
+  - Gotcha: the dense scenarios (`crowd`, `witnesses`) upload 20–32 KB/s at 24 links (all P1 at 10 Hz), so gate 9's 12 KB/s is reported there, not asserted (M12); `m11-cap` flakes locally before this task too (a stale `near` position re-dials an evicted peer as P1).
   - Steps:
     1. **The receiver** decides the rate it wants from each link:
        - 10 Hz for a peer of P0 or P1, or within 1.15 × its view's half-diagonal;
@@ -717,7 +720,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - a peer crossing into the view asks 10 Hz within a second;
       - an asked rate of 2 Hz sends 2 snapshots a second;
       - a candidate's signed frames stay at 5 Hz.
-    - T10's report gains a bandwidth row: upload at 24 links is at most 12 KB/s, and each link at most 4 KB/s.
+    - T10's report gains a bandwidth row: upload at 24 links is at most 12 KB/s (outside the dense scenarios, whose links are all P1 and so 10 Hz by rule), and each link at most 4 KB/s.
     - In `m11-handoff`, C sends to A at 2 Hz or less while far and at 10 Hz once in A's view, and the C that A draws never moves faster than 1.2 × its snapshots' speed.
 
 - [ ] T16 Fights, witnesses and away fighters in the world [opus] (after T13)
