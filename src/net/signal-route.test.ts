@@ -2,7 +2,7 @@ import { beforeAll, describe, expect, it } from 'vitest';
 import { createIdentity, type Identity, memoryKeyStore } from '../ledger/identity';
 import { signalSigned, signSignal } from '../ledger/seat';
 import type { Heard } from './gossip';
-import type { Pos } from './protocol';
+import type { Pos, WireClass } from './protocol';
 import {
   RELAY_ANSWER_MS,
   RELAY_PER_S,
@@ -10,6 +10,7 @@ import {
   RELAY_SKEW_MS,
   type RelayEvent,
   SignalRoute,
+  type SignalRouteOptions,
 } from './signal-route';
 
 // Relayed signaling (M11 T9, ADR 0062), one route alone with fake callbacks. The chain of real
@@ -35,9 +36,10 @@ const posOf = (n: number): Pos => [C + n, C, 10];
 function relay(
   from: Identity,
   to: Identity,
-  kind: 'offer' | 'answer',
+  kind: 'offer' | 'answer' | 'refuse',
   at: number,
   sdp = 'v=0 fake',
+  cls: WireClass = 2,
 ): RelayEvent {
   const pos = posOf(1);
   return {
@@ -46,9 +48,10 @@ function relay(
     to: to.playerId,
     kind,
     sdp,
+    cls,
     at,
     pos,
-    sig: signSignal(from, to.playerId, kind, at, pos, sdp),
+    sig: signSignal(from, to.playerId, kind, cls, at, pos, sdp),
   };
 }
 
@@ -65,7 +68,7 @@ interface Rig {
   sendOk: boolean;
 }
 
-function rig(self: Identity, linked: Identity[] = []): Rig {
+function rig(self: Identity, linked: Identity[] = [], over: Partial<SignalRouteOptions> = {}): Rig {
   const r = {
     clock: { now: T },
     linked: new Set(linked.map((i) => i.playerId)),
@@ -80,7 +83,7 @@ function rig(self: Identity, linked: Identity[] = []): Rig {
     selfId: self.playerId,
     now: () => r.clock.now,
     pos: () => posOf(0),
-    sign: (to, kind, at, pos, sdp) => signSignal(self, to, kind, at, pos, sdp),
+    sign: (to, kind, cls, at, pos, sdp) => signSignal(self, to, kind, cls, at, pos, sdp),
     verify: signalSigned,
     linked: (id) => r.linked.has(id),
     heard: (id) => r.heard.get(id) ?? [],
@@ -92,6 +95,7 @@ function rig(self: Identity, linked: Identity[] = []): Rig {
     },
     sendHub: (to, kind, sdp) => r.hubSent.push([to, kind, sdp]),
     deliver: (from, kind, sdp, pos) => r.delivered.push([from, kind, sdp, pos]),
+    ...over,
   });
   return r;
 }
@@ -108,7 +112,7 @@ describe('SignalRoute: the way out', () => {
       { via: D.playerId, fix: fix(C + 5000) },
       { via: 'stranger'.padEnd(43, 'x'), fix: fix(C + 5000) }, // not linked
     ]);
-    r.route.send(Cc.playerId, 'offer', 'sdp-1');
+    r.route.send(Cc.playerId, 'offer', 'sdp-1', 2);
     expect(r.hubSent).toEqual([]);
     expect(r.peerSent).toHaveLength(1);
     const [via, m] = r.peerSent[0] as [string, RelayEvent];
@@ -118,7 +122,7 @@ describe('SignalRoute: the way out', () => {
     expect(m.pos).toEqual(posOf(0));
     expect(signalSigned(m)).toBe(true);
     // Nobody placed D's own id: the hub carries it.
-    r.route.send(D.playerId, 'offer', 'sdp-2');
+    r.route.send(D.playerId, 'offer', 'sdp-2', 2);
     expect(r.hubSent).toEqual([[D.playerId, 'offer', 'sdp-2']]);
     expect(r.route.stats()).toMatchObject({ relayed: 1, hub: 1 });
   });
@@ -127,7 +131,7 @@ describe('SignalRoute: the way out', () => {
     const r = rig(A, [B]);
     r.heard.set(Cc.playerId, [{ via: B.playerId, fix: fix(C) }]);
     r.sendOk = false;
-    r.route.send(Cc.playerId, 'offer', 'sdp');
+    r.route.send(Cc.playerId, 'offer', 'sdp', 2);
     expect(r.hubSent).toEqual([[Cc.playerId, 'offer', 'sdp']]);
   });
 
@@ -135,8 +139,8 @@ describe('SignalRoute: the way out', () => {
     const r = rig(A, [B]);
     r.heard.set(Cc.playerId, [{ via: B.playerId, fix: fix(C) }]);
     r.heard.set(D.playerId, [{ via: B.playerId, fix: fix(C) }]);
-    r.route.send(Cc.playerId, 'offer', 'sdp-c');
-    r.route.send(D.playerId, 'offer', 'sdp-d');
+    r.route.send(Cc.playerId, 'offer', 'sdp-c', 2);
+    r.route.send(D.playerId, 'offer', 'sdp-d', 2);
     r.clock.now = T + 100;
     r.route.fromPeer(B.playerId, relay(D, A, 'answer', T + 100));
     r.clock.now = T + RELAY_ANSWER_MS - 1;
@@ -154,20 +158,59 @@ describe('SignalRoute: the way out', () => {
     const r = rig(Cc, [B]);
     r.route.fromPeer(B.playerId, relay(A, Cc, 'offer', T, 'offer-a'));
     expect(r.delivered).toEqual([[A.playerId, 'offer', 'offer-a', posOf(1)]]);
-    r.route.send(A.playerId, 'answer', 'answer-c');
+    r.route.send(A.playerId, 'answer', 'answer-c', 2);
     expect(r.peerSent.map(([via, m]) => [via, m.to, m.kind, m.sdp])).toEqual([
       [B.playerId, A.playerId, 'answer', 'answer-c'],
     ]);
     // An offer from the hub is answered through the hub.
     r.route.fromHub(D.playerId, 'offer', 'offer-d', [C, C, 12]);
     expect(r.delivered[1]).toEqual([D.playerId, 'offer', 'offer-d', [C, C, 12]]);
-    r.route.send(D.playerId, 'answer', 'answer-d');
+    r.route.send(D.playerId, 'answer', 'answer-d', 2);
     expect(r.hubSent).toEqual([[D.playerId, 'answer', 'answer-d']]);
     // The relay's link closed meanwhile: the hub carries the answer.
     r.route.fromPeer(B.playerId, relay(A, Cc, 'offer', T + 1, 'offer-a2'));
     r.linked.delete(B.playerId);
-    r.route.send(A.playerId, 'answer', 'answer-c2');
+    r.route.send(A.playerId, 'answer', 'answer-c2', 2);
     expect(r.hubSent.at(-1)).toEqual([A.playerId, 'answer', 'answer-c2']);
+  });
+});
+
+describe('SignalRoute: the caller’s class and refusals (M11 T13)', () => {
+  it('carries the class on both ways, and a P0 or P1 call through the hub even when a peer could carry it', () => {
+    const hubCls: number[] = [];
+    const r = rig(A, [B], { sendHub: (_to, _kind, _sdp, cls) => hubCls.push(cls) });
+    r.heard.set(Cc.playerId, [{ via: B.playerId, fix: fix(C) }]);
+    expect(r.route.send(Cc.playerId, 'offer', 'sdp', 1, true)).toBe('hub');
+    expect(hubCls).toEqual([1]);
+    expect(r.route.send(Cc.playerId, 'offer', 'sdp', 3)).toBe('peer');
+    const [, m] = r.peerSent[0] as [string, RelayEvent];
+    expect(m.cls).toBe(3);
+    expect(signalSigned(m)).toBe(true);
+    // A hub signal with no class counts as P4.
+    const seen: number[] = [];
+    const callee = rig(Cc, [], { deliver: (_f, _k, _s, _p, cls) => seen.push(cls) });
+    callee.route.fromHub(A.playerId, 'offer', 'sdp');
+    callee.route.fromHub(A.playerId, 'offer', 'sdp', undefined, 1);
+    expect(seen).toEqual([4, 1]);
+  });
+
+  it('a refusal goes back the way the offer came, and cancels the caller’s hub resend', () => {
+    const callee = rig(Cc, [B]);
+    callee.route.fromPeer(B.playerId, relay(A, Cc, 'offer', T, 'offer-a'));
+    expect(callee.route.send(A.playerId, 'refuse', '', 4)).toBe('peer');
+    const [via, m] = callee.peerSent[0] as [string, RelayEvent];
+    expect([via, m.kind, m.sdp, m.cls]).toEqual([B.playerId, 'refuse', '', 4]);
+    expect(signalSigned(m)).toBe(true);
+
+    const caller = rig(A, [B]);
+    caller.heard.set(Cc.playerId, [{ via: B.playerId, fix: fix(C) }]);
+    caller.route.send(Cc.playerId, 'offer', 'sdp-c', 3);
+    caller.clock.now = T + 100;
+    caller.route.fromPeer(B.playerId, relay(Cc, A, 'refuse', T + 100, '', 4));
+    expect(caller.delivered).toEqual([[Cc.playerId, 'refuse', '', posOf(1)]]);
+    caller.clock.now = T + 2 * RELAY_ANSWER_MS;
+    caller.route.tick();
+    expect(caller.hubSent).toEqual([]);
   });
 });
 
@@ -179,6 +222,7 @@ describe('SignalRoute: an inbound relay', () => {
       { ...good, sdp: `${good.sdp} ` },
       { ...good, pos: [C + 2, C, 10] },
       { ...good, kind: 'answer' },
+      { ...good, cls: 0 },
       { ...good, from: D.playerId },
       { ...good, at: T + 1 },
       { ...good, sig: relay(D, Cc, 'offer', T).sig },

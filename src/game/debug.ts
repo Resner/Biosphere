@@ -36,7 +36,7 @@ import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
 import type { MinimapInfo } from './minimap';
-import type { DutyLink } from './online';
+import type { DutyLink, NetLinks } from './online';
 import type { DeathSummary, Screen } from './screens';
 import type { WheelInfo } from './wheel';
 
@@ -246,9 +246,14 @@ export interface BsState {
    * that failed to verify (M7 T7), the proxy frames dropped (M8 T11: from a peer not
    * fighting, for a player still sending its own, or more than three from one peer), the duty
    * links by peer (M10 T6: `open` once both channels are, `encs` the fights each serves) and the
-   * signals dropped from outside the pond that no duty announced (`strangers`).
+   * offers this page refused (`strangers`: no class for the caller, or no room). The links by area
+   * of interest (M11 T13): each link with its class, `open` (the connection up), `hello` (the
+   * peer's ticket passed) and `since` (when it did, page ms); the known creatures by source;
+   * `crowded`; the `where` reports sent and the leaf last named; the signals sent through the hub,
+   * relayed through a peer, forwarded for others and dropped as forged; and the links closed for a
+   * failed hello (`NetLinks`).
    */
-  net: {
+  net: NetLinks & {
     text: string;
     status: string;
     open: number;
@@ -432,6 +437,8 @@ export interface BsDebug {
   ): Promise<{ verdict: AuditVerdict; ms: number }>;
   /** Moves the player and stops it. */
   teleport(x: number, y: number): void;
+  /** Sets the room for links of P2 to P4 (1 to 24; M11 T13); P0 and P1 may still reach 32. */
+  netCap(cap: number): void;
   /**
    * Moves the player (as `teleport`) to the nearest point well inside that zone, clear of its edge
    * bands with its surround in the zone too, and returns it (M6 T16).

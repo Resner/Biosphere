@@ -1,4 +1,11 @@
-import { type ClientMsg, GENOME_DATA_MAX_CHARS, HUB_MAX_BYTES, type HubMsg } from './protocol-defs';
+import {
+  type ClientMsg,
+  GENOME_DATA_MAX_CHARS,
+  HUB_MAX_BYTES,
+  type HubMsg,
+  type SignalKind,
+  type WireClass,
+} from './protocol-defs';
 
 // The checks every untrusted-message parser shares (`protocol-parse.ts`, `protocol-encounter.ts`).
 
@@ -38,6 +45,9 @@ export const isInt = (v: unknown, min: number, max: number): v is number =>
   typeof v === 'number' && Number.isInteger(v) && v >= min && v <= max;
 export const isNum = (v: unknown): v is number => typeof v === 'number' && Number.isFinite(v);
 export const isStr = (v: unknown, re: RegExp): v is string => typeof v === 'string' && re.test(v);
+export const isSignalKind = (v: unknown): v is SignalKind =>
+  v === 'offer' || v === 'answer' || v === 'refuse';
+export const isWireClass = (v: unknown): v is WireClass => isInt(v, 0, 4);
 export const isObj = (v: unknown): v is Obj =>
   typeof v === 'object' && v !== null && !Array.isArray(v);
 

@@ -14,11 +14,11 @@ import { survivedOutcome } from '../sim/encounter/types';
 import { createWorld } from '../sim/world';
 import { AloneHint } from './alone-hint';
 import type { App } from './app';
-import { countItem, type Pond } from './app-session';
+import { adultRadius, countItem, type Pond } from './app-session';
 import { pick } from './dom';
 import { CandidateSigner, lockState, SpawnShield } from './engage';
 import { fightEnded } from './fight-end';
-import { connectOnline, type OnlineSession } from './online';
+import { type CreatureNow, connectOnline, type OnlineSession } from './online';
 import { offlineChip, statusText, switchPond } from './online-config';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
@@ -62,7 +62,7 @@ export class OnlineWiring {
       get self() {
         return app.playerId ?? '';
       },
-      present: (player) => link()?.nameOf(player) !== undefined,
+      present: (player) => link()?.present(player) === true,
       peers: () => link()?.openPeers() ?? [],
       send: (peer, frame) => link()?.sendState(peer, frame),
       show: (player, snapshot) => app.remotes.proxy(player, snapshot, performance.now()),
@@ -139,6 +139,27 @@ export class OnlineWiring {
     };
   }
 
+  /**
+   * The own creature as the links see it (M11 T13): a life in the hub's world, in the water while
+   * it lives and the tab shows; null on the title or for a life in a local world.
+   */
+  creatureNow(): CreatureNow | null {
+    const { app } = this;
+    const pond = app.livePond();
+    if (!pond || pond !== app.pond) return null;
+    const { player } = app.session;
+    const r = Math.sqrt(Math.max(1, player.biomass));
+    return {
+      x: player.x,
+      y: player.y,
+      vx: player.vx,
+      vy: player.vy,
+      r,
+      adultR: Math.max(r, adultRadius(player)),
+      inWater: player.alive && !document.hidden,
+    };
+  }
+
   /** Connects to the hub under `name`: the keeper's `start`. */
   start(name: string, loaded: Identity): OnlineSession {
     const { app } = this;
@@ -146,6 +167,8 @@ export class OnlineWiring {
       url: app.hubUrl as string,
       identity: loaded,
       name,
+      creature: () => this.creatureNow(),
+      keys: app.authorityKeys,
       handlers: {
         welcome: (w) => {
           const life = app.session.demo ? null : app.session.pond;
@@ -204,18 +227,17 @@ export class OnlineWiring {
           // Past lives are asked for once the hub has said who the player is, and after each death.
           if (msg.t === 'life' || msg.t === 'died') link.send({ t: 'history' });
         },
-        member(op, member) {
-          if (op === 'join') {
-            app.remotes.setMember(member.playerId, member.name);
-          } else {
-            app.dropPeer(member.playerId);
+        peerOpen: (id, name) => {
+          app.remotes.setMember(id, name);
+          // The new peer learns what has been eaten near this creature (M11 T13); the reliable
+          // channel keeps the parts in order.
+          const at = this.creatureNow();
+          if (app.pond && at) {
+            for (const part of consumedParts(app.pond.world, at)) link.sendEvent(id, part);
           }
-        },
-        peerOpen(id) {
-          // The new peer learns what has been eaten; the reliable channel keeps the parts in order.
-          if (app.pond) for (const part of consumedParts(app.pond.world)) link.sendEvent(id, part);
           app.genomeSync.peerOpen(id);
         },
+        peerLeft: (id) => app.dropPeer(id),
         state: (id, snapshot, signed) => {
           const now = performance.now();
           app.remotes.receive(id, snapshot, now);
@@ -249,6 +271,7 @@ export class OnlineWiring {
         },
       },
     });
+    if (app.netCap !== null) link.setCap(app.netCap);
     app.flow.attach(link);
     app.mate.attach(link);
     app.hubLink = link;
@@ -363,10 +386,11 @@ export class OnlineWiring {
     }
     const status = keeper.current?.status ?? 'connecting';
     app.hud.setOffline(offlineChip(hubUrl !== null, status, apart) ? text : null);
+    const online = joined !== null && keeper.current?.status === 'online';
     const lonely = this.alone.update(
       now,
-      joined !== null && keeper.current?.status === 'online',
-      (keeper.current?.count ?? 1) - 1,
+      online,
+      online && keeper.current?.alone() === false ? 1 : 0,
     );
     if (this.aloneElement.hidden === lonely) this.aloneElement.hidden = !lonely;
   }

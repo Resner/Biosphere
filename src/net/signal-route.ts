@@ -4,12 +4,13 @@
 // signed by its sender over every field (`signalBytes`), so the peer in between can change nothing.
 // A peer forwards a relay only from its own sender to a linked `to`, unchanged, at most 4 a second
 // per link. The receiver takes one signed by `from`, addressed to it, dated within 30 s of its hub
-// clock and new; the answer goes back the way the offer came, and an offer unanswered after 4 s
-// goes once more through the hub. Pure: the signer, the check and every transport are injected,
+// clock and new; the answer (or the callee's refusal) goes back the way the offer came, and an
+// offer unanswered after 4 s goes once more through the hub. Every signal carries the link class its
+// sender holds the receiver in (`cls`, ADR 0063), inside the signature. Pure: the signer, the check and every transport are injected,
 // so it loads no `@noble/curves` and the harness (T10) runs it without sockets.
 
 import type { Heard } from './gossip';
-import type { PeerEvent, Pos } from './protocol-defs';
+import type { PeerEvent, Pos, SignalKind, WireClass } from './protocol-defs';
 
 export const RELAY_PER_S = 4;
 export const RELAY_SKEW_MS = 30_000;
@@ -22,7 +23,7 @@ const OFFER_VIA_MAX = 256;
 const RATE_WINDOW_MS = 1000;
 
 export type RelayEvent = Extract<PeerEvent, { t: 'relay' }>;
-type Kind = 'offer' | 'answer';
+type Kind = SignalKind;
 
 export interface SignalRouteOptions {
   selfId: string;
@@ -31,7 +32,7 @@ export interface SignalRouteOptions {
   /** This page's own position for a relay's `pos`, within the wire's ranges. */
   pos: () => Pos;
   /** This page's signature on a signal (`signSignal` with its identity). */
-  sign: (to: string, kind: Kind, at: number, pos: Pos, sdp: string) => string;
+  sign: (to: string, kind: Kind, cls: WireClass, at: number, pos: Pos, sdp: string) => string;
   /** Whether a relay carries its sender's signature (`signalSigned`). */
   verify: (m: RelayEvent) => boolean;
   /** Whether a peer is linked now (open, its hello passed). */
@@ -43,9 +44,12 @@ export interface SignalRouteOptions {
   /** Sends a relay on a link; false when it was not sent. */
   sendPeer: (via: string, m: RelayEvent) => boolean;
   /** Sends a signal through the hub. */
-  sendHub: (to: string, kind: Kind, sdp: string) => void;
-  /** An inbound signal for this page (`PeerMesh.handleSignal`), with where its sender said it was. */
-  deliver: (from: string, kind: Kind, sdp: string, pos: Pos | null) => void;
+  sendHub: (to: string, kind: Kind, sdp: string, cls: WireClass) => void;
+  /**
+   * An inbound signal for this page, with where its sender said it was and the class it holds this
+   * page in (a hub signal without one counts as P4).
+   */
+  deliver: (from: string, kind: Kind, sdp: string, pos: Pos | null, cls: WireClass) => void;
 }
 
 export interface SignalStats {
@@ -71,6 +75,7 @@ export interface SignalStats {
 
 interface Pending {
   sdp: string;
+  cls: WireClass;
   due: number;
 }
 
@@ -101,29 +106,34 @@ export class SignalRoute {
     return { ...this.counts };
   }
 
-  /** Sends an offer or answer to `to` (the mesh's `signal`): through a peer when one can carry it. */
-  send(to: string, kind: Kind, sdp: string): void {
+  /**
+   * Sends an offer, answer or refusal to `to` (the mesh's `signal`), carrying `cls`: through a peer
+   * when one can carry it, unless `viaHub` (ADR 0063: a P0 or P1 call). Says which way it went.
+   */
+  send(to: string, kind: Kind, sdp: string, cls: WireClass, viaHub = false): 'peer' | 'hub' {
     const now = this.o.now();
-    if (kind === 'answer') {
+    if (kind !== 'offer') {
       const via = this.offerVia.get(to);
       this.offerVia.delete(to);
-      if (via === undefined || !this.relay(via, to, kind, sdp, now)) this.hub(to, kind, sdp);
-      return;
+      if (via !== undefined && this.relay(via, to, kind, sdp, cls, now)) return 'peer';
+      this.hub(to, kind, sdp, cls);
+      return 'hub';
     }
     this.pending.delete(to);
-    const via = this.viaFor(to);
-    if (via !== null && this.relay(via, to, kind, sdp, now)) {
-      this.pending.set(to, { sdp, due: now + RELAY_ANSWER_MS });
-    } else {
-      this.hub(to, kind, sdp);
+    const via = viaHub ? null : this.viaFor(to);
+    if (via !== null && this.relay(via, to, kind, sdp, cls, now)) {
+      this.pending.set(to, { sdp, cls, due: now + RELAY_ANSWER_MS });
+      return 'peer';
     }
+    this.hub(to, kind, sdp, cls);
+    return 'hub';
   }
 
   /** A signal the hub relayed, with the sender's directory position when the hub stamped one. */
-  fromHub(from: string, kind: Kind, sdp: string, at?: Pos): void {
+  fromHub(from: string, kind: Kind, sdp: string, at?: Pos, cls?: WireClass): void {
     if (from === this.o.selfId) return;
     this.took(from, kind, null);
-    this.o.deliver(from, kind, sdp, at ?? null);
+    this.o.deliver(from, kind, sdp, at ?? null, cls ?? 4);
   }
 
   /** A `relay` event that came in on the link to `via`: for this page, or to pass on. */
@@ -162,7 +172,7 @@ export class SignalRoute {
     if (this.seen.size > SEEN_MAX) this.seen.delete(this.seen.keys().next().value as string);
     this.counts.relayed += 1;
     this.took(m.from, m.kind, via);
-    this.o.deliver(m.from, m.kind, m.sdp, m.pos);
+    this.o.deliver(m.from, m.kind, m.sdp, m.pos, m.cls);
   }
 
   /** Resends through the hub, once, each offer a peer carried that is unanswered after 4 s. */
@@ -173,7 +183,7 @@ export class SignalRoute {
       this.pending.delete(to);
       if (this.o.linked(to)) continue;
       this.counts.fallback += 1;
-      this.hub(to, 'offer', p.sdp);
+      this.hub(to, 'offer', p.sdp, p.cls);
     }
   }
 
@@ -186,7 +196,7 @@ export class SignalRoute {
 
   /** An inbound signal from `from` came through `via` (null: the hub). */
   private took(from: string, kind: Kind, via: string | null): void {
-    if (kind === 'answer') {
+    if (kind !== 'offer') {
       this.pending.delete(from);
     } else if (via === null) {
       this.offerVia.delete(from);
@@ -216,14 +226,21 @@ export class SignalRoute {
   }
 
   /** Signs and sends a relay through `via`; false when it could not go. */
-  private relay(via: string, to: string, kind: Kind, sdp: string, now: number): boolean {
+  private relay(
+    via: string,
+    to: string,
+    kind: Kind,
+    sdp: string,
+    cls: WireClass,
+    now: number,
+  ): boolean {
     if (!this.o.linked(via)) return false;
     const at = Math.max(0, Math.round(now));
     const pos = this.o.pos();
     let m: RelayEvent;
     try {
-      m = { t: 'relay', from: this.o.selfId, to, kind, sdp, at, pos, sig: '' };
-      m.sig = this.o.sign(to, kind, at, pos, sdp);
+      m = { t: 'relay', from: this.o.selfId, to, kind, sdp, cls, at, pos, sig: '' };
+      m.sig = this.o.sign(to, kind, cls, at, pos, sdp);
     } catch {
       return false;
     }
@@ -232,9 +249,9 @@ export class SignalRoute {
     return true;
   }
 
-  private hub(to: string, kind: Kind, sdp: string): void {
+  private hub(to: string, kind: Kind, sdp: string, cls: WireClass): void {
     this.counts.hub += 1;
-    this.o.sendHub(to, kind, sdp);
+    this.o.sendHub(to, kind, sdp, cls);
   }
 
   /** Passes a relay on from its sender's link to a linked `to`, unchanged. */

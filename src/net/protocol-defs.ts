@@ -152,6 +152,14 @@ export interface NearPeer {
 /** A position on the wire: the centre and the radius, in wu. */
 export type Pos = [x: number, y: number, r: number];
 
+/**
+ * A signal's kind: an offer, its answer, or the callee's refusal of an offer (M11 T13, ADR 0063),
+ * which carries an empty `sdp`.
+ */
+export type SignalKind = 'offer' | 'answer' | 'refuse';
+/** The link class (P0 to P4) a signal's sender holds its receiver in: an offer is admitted by it. */
+export type WireClass = 0 | 1 | 2 | 3 | 4;
+
 /** A commitment with the authority's countersignature over its id. */
 export interface SignedCommit {
   commitment: Commitment;
@@ -320,7 +328,7 @@ export type ClientMsg =
   | { t: 'accept'; ask: MateAsk }
   | { t: 'decline'; partner: string }
   | { t: 'ping'; id: number }
-  | { t: 'signal'; to: string; kind: 'offer' | 'answer'; sdp: string }
+  | { t: 'signal'; to: string; kind: SignalKind; sdp: string; cls?: WireClass }
   | { t: 'leave' }
   /** Engages `target` (a player id) with the attacker's own fresh signed snapshot and the target's newest. */
   | { t: 'engage'; target: string; mine: SignedSnap; theirs: SignedSnap }
@@ -404,7 +412,7 @@ export type HubMsg =
   | { t: 'pong'; id: number; now: number }
   | { t: 'member'; op: 'join' | 'leave'; member: Member }
   /** `at`: the sender's directory position, stamped by the hub. */
-  | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string; at?: Pos }
+  | { t: 'signal'; from: string; kind: SignalKind; sdp: string; cls?: WireClass; at?: Pos }
   /** The answer to every `where`: the reporter's leaf, the linkable members near it, and the small ones as positions. */
   | { t: 'near'; leaf: Leaf; peers: NearPeer[]; swarm: [x: number, y: number][] }
   /** A split or merge moved the session's leaf. */
@@ -573,8 +581,9 @@ export type PeerEvent =
       t: 'relay';
       from: string;
       to: string;
-      kind: 'offer' | 'answer';
+      kind: SignalKind;
       sdp: string;
+      cls: WireClass;
       at: number;
       pos: Pos;
       sig: string;

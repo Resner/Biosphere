@@ -62,6 +62,9 @@ export type FightMsg = Extract<
 /** Witness duties (M10, ADR 0058): an offer, its end, and a fighter's duty link to its witness. */
 export type DutyMsg = Extract<HubMsg, { t: 'duty' | 'duty-end' | 'duty-peer' }>;
 
+/** The directory's word (M11, ADR 0062): the answer to a `where`, and a leaf a split or merge moved. */
+export type WorldMsg = Extract<HubMsg, { t: 'near' | 'leaf' }>;
+
 /** The slice of `WebSocket` the client uses, so tests can fake it. */
 export interface SocketLike {
   onopen: (() => void) | null;
@@ -118,6 +121,7 @@ export class HubClient {
   private lifeListeners: ((m: LifeMsg) => void)[] = [];
   private fightListeners: ((m: FightMsg) => void)[] = [];
   private dutyListeners: ((m: DutyMsg) => void)[] = [];
+  private worldListeners: ((m: WorldMsg) => void)[] = [];
   private _queue: QueuePlace | null = null;
   private _ticket: SignedSeat | null = null;
 
@@ -189,6 +193,10 @@ export class HubClient {
   /** Fires for every witness duty message. */
   onDuty(fn: (m: DutyMsg) => void): () => void {
     return subscribe(this.dutyListeners, fn);
+  }
+  /** Fires for every `near` and `leaf` from the directory. */
+  onWorld(fn: (m: WorldMsg) => void): () => void {
+    return subscribe(this.worldListeners, fn);
   }
   /** Fires on every welcome, including after a reconnect. */
   onWelcome(fn: (w: Welcome) => void): () => void {
@@ -293,6 +301,10 @@ export class HubClient {
       case 'duty-end':
       case 'duty-peer':
         for (const fn of [...this.dutyListeners]) guarded(() => fn(msg));
+        break;
+      case 'near':
+      case 'leaf':
+        for (const fn of [...this.worldListeners]) guarded(() => fn(msg));
         break;
       case 'error':
         if (msg.code === 'version') this.versionError = true;

@@ -44,6 +44,10 @@ class FakeHub implements OnlineHub {
   onMember() {
     return () => {};
   }
+  onWorld() {
+    return () => {};
+  }
+  readonly ticket = null;
   onLife() {
     return () => {};
   }
@@ -89,8 +93,8 @@ describe('FightPlay with the fake online session', () => {
       createMesh: () => ({}) as OnlineMesh,
       handlers: {
         welcome: () => {},
-        member: () => {},
         peerOpen: () => {},
+        peerLeft: () => {},
         state: () => {},
         event: () => {},
         proxy: () => {},

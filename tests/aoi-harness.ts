@@ -10,6 +10,18 @@
 // before it asks that peer again, and an offer nobody answers within 8 s is dropped. The plan runs
 // every 500 ms, and at once when the directory answers or an offer comes in.
 
+// The page's dial rules (M11 T13): the harness models the same loop with the same constants. A
+// creature younger than `YOUNG_MS` dials freely, and is not yet expected to be linked to anyone.
+import {
+  DIALS_PER_PLAN,
+  FRESH_DIAL_MS,
+  HUB_DIALS_FREE,
+  LOWER_CALLS_MS,
+  OFFER_TIMEOUT_MS,
+  REFUSED_BACKOFF_MAX_MS,
+  REFUSED_BACKOFF_MS,
+  YOUNG_MS,
+} from '../src/game/online-links';
 import {
   AoiManager,
   type AoiSelf,
@@ -21,7 +33,7 @@ import {
 } from '../src/net/aoi';
 import { type LinkClass, NO_CLASS } from '../src/net/connection-policy';
 import { type Fix, Gossip, type PeersEvent } from '../src/net/gossip';
-import { byteLength, type Leaf, type Pos } from '../src/net/protocol';
+import { byteLength, type Leaf, type Pos, type SignalKind } from '../src/net/protocol';
 import { SignalRoute } from '../src/net/signal-route';
 import { WhereReporter } from '../src/net/where';
 import { clamp } from '../src/sim/math';
@@ -48,22 +60,10 @@ const VIEW_DIAG = Math.hypot(1, 16 / 9);
 const SETUP_GRACE_MS = 10_000;
 /** Gate 3 holds for newcomers closing at most this fast (relative, wu/s): the P1 lead gives 6 s at 100. */
 const LATE_CLOSING = 100;
-/** A creature this young is not yet expected to be linked to anyone. */
-const YOUNG_MS = 8000;
 /** A link made this long after the later spawn counts as a later link (gate 5's relay share). */
 const LATE_AFTER_MS = 60_000;
-const REFUSED_BACKOFF_MS = 5000;
-/** A plan starts at most this many calls to peers beyond P1. */
-const DIALS_PER_PLAN = 8;
-/** A client holding fewer links than this dials through the hub freely. */
-const HUB_DIALS_FREE = 4;
-/** Beyond P1 the lower id calls; the higher waits this long for it before calling itself. */
-const LOWER_CALLS_MS = 1500;
-/** A P4 call needs a fix of the target under this old: a directory entry may be 30 s stale. */
-const FRESH_DIAL_MS = 5000;
 /** A crowded flag settles this long after the last plan that set it. */
 const CROWD_SETTLE_MS = 10_000;
-const OFFER_TIMEOUT_MS = 8000;
 const ICE_FAIL = 0.05;
 const MAX_VIOLATIONS = 8;
 
@@ -113,7 +113,6 @@ class Client {
   /** Creatures it could link within its P1 reach by true positions, this tick. */
   p1True = 0;
   dirty = false;
-  forceHub = false;
   leaf: Leaf | null = null;
   readonly hubMsgs: number[] = [];
   readonly phase: number;
@@ -288,7 +287,7 @@ class Sim {
       heard: (id) => c.gossip.heard(id, this.now),
       placeOf: (id) => c.fixes.get(id) ?? null,
       sendPeer: (via, m) => {
-        if (!c.helloed(via) || (c.forceHub && m.kind === 'offer')) return false;
+        if (!c.helloed(via)) return false;
         if (m.kind === 'offer' && m.from === c.id) {
           const a = c.out.get(m.to);
           if (a) a.relayed = true;
@@ -408,7 +407,7 @@ class Sim {
 
   // ---- signals ----
 
-  private hubSend(c: Client, to: string, kind: 'offer' | 'answer', sdp: string): void {
+  private hubSend(c: Client, to: string, kind: SignalKind, sdp: string): void {
     c.hubMsgs.push(this.now);
     if (kind === 'offer') {
       const a = c.out.get(to);
@@ -451,7 +450,7 @@ class Sim {
     );
   }
 
-  private onSignal(c: Client, from: string, kind: 'offer' | 'answer', pos: Pos | null): void {
+  private onSignal(c: Client, from: string, kind: SignalKind, pos: Pos | null): void {
     if (pos) {
       c.signalKnown.set(from, {
         id: from,
@@ -473,7 +472,7 @@ class Sim {
     const held = c.inn.get(from);
     if (held) {
       // The caller's offer again (its relay failed and the hub resent it): the answer may have been lost.
-      if (held.state === 'offer') c.route.send(from, 'answer', 'sdp');
+      if (held.state === 'offer') c.route.send(from, 'answer', 'sdp', held.cls);
       return;
     }
     const mine = c.out.get(from);
@@ -490,7 +489,7 @@ class Sim {
     }
     c.inn.set(from, a);
     this.checkCap(c);
-    c.route.send(from, 'answer', 'sdp');
+    c.route.send(from, 'answer', 'sdp', a.cls);
   }
 
   /** The callee says no: the caller hears it after a hop (or through the hub, which costs a message) and backs off. */
@@ -616,9 +615,7 @@ class Sim {
     this.after(OFFER_TIMEOUT_MS, () => {
       if (a.state === 'offer') this.failAttempt(a, true);
     });
-    c.forceHub = urgent;
-    c.route.send(to, 'offer', 'sdp');
-    c.forceHub = false;
+    c.route.send(to, 'offer', 'sdp', a.cls, urgent);
   }
 
   private evict(c: Client, ids: string[]): void {
@@ -673,7 +670,10 @@ class Sim {
     if (backoff && from) {
       const n = from.refusals.get(a.to) ?? 0;
       from.refusals.set(a.to, n + 1);
-      from.refusedUntil.set(a.to, this.now + Math.min(60_000, REFUSED_BACKOFF_MS * 2 ** n));
+      from.refusedUntil.set(
+        a.to,
+        this.now + Math.min(REFUSED_BACKOFF_MAX_MS, REFUSED_BACKOFF_MS * 2 ** n),
+      );
     }
   }
 

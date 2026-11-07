@@ -1,11 +1,11 @@
-/** How long a player is alone in a pond before the hint shows. */
+/** How long a player is alone before the hint shows. */
 export const ALONE_AFTER_MS = 8000;
 /** How long it then shows: no text stays on the play screen (M6b T9). */
 export const ALONE_SHOW_MS = 8000;
 
 /**
- * Decides when to say "Alone in the pond": after 8 s of an online life with nobody else in the
- * roster, for 8 s.
+ * Decides when to say "No one nearby yet": after 8 s of an online life with nobody linked and
+ * nobody known within the query radius (M11 T13), for 8 s.
  */
 export class AloneHint {
   private since: number | null = null;

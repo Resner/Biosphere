@@ -32,8 +32,10 @@ import {
   peerEventMax,
   RELAY_MAX_BYTES,
   SIGNAL_MAX_BYTES,
+  type SignalKind,
   type Vec2,
   WELCOME_MAX_BYTES,
+  type WireClass,
 } from './protocol-defs';
 import {
   canonicalValue,
@@ -55,7 +57,9 @@ import {
   isInt,
   isNum,
   isObj,
+  isSignalKind,
   isStr,
+  isWireClass,
   list,
   MAX_CONDITION,
   MAX_TICK,
@@ -160,7 +164,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return isInt(o.id, 0, MAX_TICK) ? capped(raw, { t: 'ping', id: o.id }) : null;
     case 'signal':
       if (!isStr(o.to, PLAYER_ID_RE) || !isSignalPayload(o)) return null;
-      return { t: 'signal', to: o.to, kind: o.kind, sdp: o.sdp };
+      return { t: 'signal', to: o.to, kind: o.kind, sdp: o.sdp, ...clsOf(o) };
     case 'leave':
       return capped(raw, { t: 'leave' });
     case 'genesis-request':
@@ -230,7 +234,14 @@ export function parseHubMsg(raw: string): HubMsg | null {
       if (!isStr(o.from, PLAYER_ID_RE) || !isSignalPayload(o)) return null;
       const at = o.at === undefined ? undefined : pos(o.at);
       if (at === null) return null;
-      return { t: 'signal', from: o.from, kind: o.kind, sdp: o.sdp, ...(at ? { at } : {}) };
+      return {
+        t: 'signal',
+        from: o.from,
+        kind: o.kind,
+        sdp: o.sdp,
+        ...clsOf(o),
+        ...(at ? { at } : {}),
+      };
     }
     case 'error':
       return isStr(o.code, CODE_RE) ? capped(raw, { t: 'error', code: o.code }) : null;
@@ -546,14 +557,20 @@ function bornOf(v: unknown): Born | null {
   return { record, commit, beacon, genome: v.genome, parents: [p0, p1], mates: [m0, m1] };
 }
 
-function isSignalPayload(o: Obj): o is Obj & { kind: 'offer' | 'answer'; sdp: string } {
+function isSignalPayload(o: Obj): o is Obj & { kind: SignalKind; sdp: string } {
   return (
-    (o.kind === 'offer' || o.kind === 'answer') &&
+    isSignalKind(o.kind) &&
     typeof o.sdp === 'string' &&
-    o.sdp.length > 0 &&
-    byteLength(o.sdp) <= SIGNAL_MAX_BYTES
+    // A refusal carries no description; an offer or answer always does.
+    (o.kind === 'refuse' ? o.sdp.length === 0 : o.sdp.length > 0) &&
+    byteLength(o.sdp) <= SIGNAL_MAX_BYTES &&
+    (o.cls === undefined || isWireClass(o.cls))
   );
 }
+
+/** A signal's class, when it carries one (M11 T13): spread into the parsed message. */
+const clsOf = (o: Obj & { cls?: unknown }) =>
+  isWireClass(o.cls) ? { cls: o.cls } : ({} as { cls?: WireClass });
 
 function welcome(o: Obj): HubMsg | null {
   const world = worldInfo(o.world);

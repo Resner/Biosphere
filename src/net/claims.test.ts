@@ -3,7 +3,7 @@ import { carrionNear, consumeCarrion, dropCarrion } from '../sim/carrion';
 import { consumeFood } from '../sim/food';
 import { RULES } from '../sim/rules';
 import { createWorld } from '../sim/world';
-import { ClaimBook, ConsumedJoin, consumedParts } from './claims';
+import { ClaimBook, CONSUMED_NEAR_WU, ConsumedJoin, consumedParts } from './claims';
 import {
   CONSUMED_MAX_ENTRIES,
   CONSUMED_MAX_PARTS,
@@ -178,6 +178,18 @@ describe('late join', () => {
     const parts = consumedParts(w);
     expect(parts.length).toBe(CONSUMED_MAX_PARTS);
     for (const part of parts) expect(parsePeerEvent(JSON.stringify(part))).toEqual(part);
+  });
+
+  it('to a new link, sends only the slots whose cell lies within 4,096 wu of the creature, layers too (M11 T13)', () => {
+    const w = world(0);
+    // Cells of 256 wu: c0_0 holds the creature, c16_0 starts 4,096 wu off it, c17_0 4,352. A
+    // layer-1 cell is 1,024 wu wide: t1c4_0 starts at 4,096 wu, t1c5_0 at 5,120. Carrion never goes.
+    for (const slot of ['c0_0_s1', 'c16_0_s2', 'c17_0_s3', 't1c4_0_s0', 't1c5_0_s0', 'x1a2b3c4d_3'])
+      w.consumed[slot] = { k: 1, until: 600 };
+    const parts = consumedParts(w, { x: 0, y: 0 });
+    const sent = parts.flatMap((p) => p.entries.map(([slot]) => slot));
+    expect(CONSUMED_NEAR_WU).toBe(4096);
+    expect(sent).toEqual(['c0_0_s1', 'c16_0_s2', 't1c4_0_s0']);
   });
 
   it('sends one empty part for an empty set', () => {

@@ -325,6 +325,8 @@ const clientMsgs = [
   { t: 'ping', id: 42 },
   { t: 'signal', to: PID2, kind: 'offer', sdp: 'v=0\r\no=- 1 2 IN IP4 0.0.0.0\r\n' },
   { t: 'signal', to: PID2, kind: 'answer', sdp: 'v=0' },
+  { t: 'signal', to: PID2, kind: 'offer', sdp: 'v=0', cls: 1 },
+  { t: 'signal', to: PID2, kind: 'refuse', sdp: '', cls: 4 },
   { t: 'leave' },
   { t: 'genesis-request', nonce: NONCE, sig: SIG },
   { t: 'progress', n: 7, ticks: 12_000, biomass: 14_250, energy: 20_000, health: 3_700 },
@@ -361,6 +363,8 @@ const hubMsgs: HubMsg[] = [
   { t: 'member', op: 'join', member: { playerId: PID, name: 'bob' } },
   { t: 'member', op: 'leave', member: { playerId: PID, name: 'bob' } },
   { t: 'signal', from: PID, kind: 'offer', sdp: 'v=0' },
+  { t: 'signal', from: PID, kind: 'offer', sdp: 'v=0', cls: 0 },
+  { t: 'signal', from: PID, kind: 'refuse', sdp: '' },
   { t: 'error', code: 'no-peer' },
   { t: 'life', life: null, genesisIn: 0 },
   { t: 'life', life, genesisIn: 299_000 },
@@ -518,6 +522,9 @@ describe('rejections', () => {
     expect(bad({ t: 'ping', id: -1 })).toBeNull();
     expect(bad({ t: 'signal', to: PID, kind: 'rollback', sdp: 'v=0' })).toBeNull();
     expect(bad({ t: 'signal', to: PID, kind: 'offer', sdp: '' })).toBeNull();
+    expect(bad({ t: 'signal', to: PID, kind: 'refuse', sdp: 'v=0' })).toBeNull();
+    expect(bad({ t: 'signal', to: PID, kind: 'offer', sdp: 'v=0', cls: 5 })).toBeNull();
+    expect(bad({ t: 'signal', to: PID, kind: 'offer', sdp: 'v=0', cls: 0.5 })).toBeNull();
     expect(bad({ t: 'signal', to: 'nope', kind: 'offer', sdp: 'v=0' })).toBeNull();
   });
 
