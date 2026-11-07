@@ -156,6 +156,10 @@ export default defineConfig({
   ...(process.env.CI ? { workers: CI_WORKERS } : {}),
   forbidOnly: !!process.env.CI,
   retries: 0,
+  // A test's ceiling, not a pace it asserts. Under software GL two workers on a CI runner take
+  // 16-25 s for a hatch and a few frames, and a slower runner (E2E main after M11 T17: every test
+  // 1.3-1.5x slower) pushed three such tests over the 30 s default that pass in 7 s locally.
+  timeout: process.env.CI ? 60_000 : 30_000,
   reporter: process.env.CI ? [['github'], ['list']] : 'list',
   use: {
     baseURL: `http://localhost:${port}/`,
