@@ -20,7 +20,7 @@ export const CLOSE_ORIGIN = 4004;
 
 /** Size caps in UTF-8 bytes. A `signal` carries an SDP of up to `SDP_MAX_BYTES`, so it gets more room. */
 export const HUB_MAX_BYTES = 4096;
-/** A welcome lists up to 23 members plus ICE servers with long TURN credentials and a seat ticket (about 5.3 KB at worst). */
+/** A welcome holds the world, ICE servers with long TURN credentials and a seat ticket (about 3 KB at worst). */
 export const WELCOME_MAX_BYTES = 8192;
 export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;
@@ -113,7 +113,7 @@ export interface Member {
   name: string;
 }
 
-/** Joiner `i` of a pond spawns at angle `i · SPAWN_GOLDEN_ANGLE` on the spawn ring (DESIGN.md). */
+/** The joiner in slot `i` spawns at angle `i · SPAWN_GOLDEN_ANGLE` on the spawn ring (DESIGN.md). */
 export const SPAWN_GOLDEN_ANGLE = 2.399963;
 
 export interface IceServer {
@@ -122,7 +122,7 @@ export interface IceServer {
   credential?: string;
 }
 
-/** The world a welcome names (until T14, `id` is the session's pond, a roster group of it). */
+/** The world a welcome names: `id` names it in snapshot signatures and fight logs. */
 export interface WorldInfo {
   id: string;
   seed: string;
@@ -402,7 +402,6 @@ export type HubMsg =
       t: 'welcome';
       world: WorldInfo;
       you: { spawnHint: Vec2 };
-      members: Member[];
       ice: IceServer[];
       turn: boolean;
       now: number;
@@ -410,7 +409,6 @@ export type HubMsg =
       ticket?: SignedSeat;
     }
   | { t: 'pong'; id: number; now: number }
-  | { t: 'member'; op: 'join' | 'leave'; member: Member }
   /** `at`: the sender's directory position, stamped by the hub. */
   | { t: 'signal'; from: string; kind: SignalKind; sdp: string; cls?: WireClass; at?: Pos }
   /** The answer to every `where`: the reporter's leaf, the linkable members near it, and the small ones as positions. */

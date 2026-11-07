@@ -1,6 +1,7 @@
-import { expect, test } from '@playwright/test';
+import { expect, type Page, test } from '@playwright/test';
 import { M10_CROSS_HUB, state } from './helpers';
 import {
+  APART_WU,
   available,
   closeAll,
   end,
@@ -11,13 +12,17 @@ import {
   witnessedFight,
 } from './m10-steps';
 
-// M10 T7: a witness in another pond (ADR 0058). The hub holds two seats a pond (`POND_MAX=2`), so
-// A and B share one and C sits in the next. The hub relays the duty link's signals across ponds
-// while C holds the referee duty, and C referees the fight to its end over that link.
+// M10 T7, M11 T14: a witness far off in the world (ADR 0058). C swims 20,000 wu from A and B,
+// past every link class and the hub's relay reach (ADR 0062), so the hub relays the duty link's
+// signals only while C holds the referee duty, and C referees the fight to its end over that link.
 
 test.describe.configure({ mode: 'serial' });
 
-test('a witness in another pond referees a fight over a cross-pond duty link @slow', async ({
+/** The link classes a page holds C in (empty when it holds no link to C). */
+const classesOf = async (page: Page, id: string) =>
+  (await state(page)).net.links.filter((l) => l.id === id).map((l) => l.class);
+
+test('a witness 20,000 wu away referees a fight over its duty links alone @slow', async ({
   browser,
   request,
 }) => {
@@ -26,20 +31,26 @@ test('a witness in another pond referees a fight over a cross-pond duty link @sl
   try {
     t = await trio(browser, M10_CROSS_HUB, true);
     const { a, b, c, idB, idC } = t;
-    const [pondA, pondB, pondC] = await Promise.all(
-      [a, b, c].map(async (p) => (await state(p)).pond),
+    const [sa, sc] = [await state(a), await state(c)];
+    expect(sc.world?.id).toBe(sa.world?.id);
+    const [pa, pc] = [sa.player, sc.player];
+    expect(Math.hypot((pc?.x ?? 0) - (pa?.x ?? 0), (pc?.y ?? 0) - (pa?.y ?? 0))).toBeGreaterThan(
+      APART_WU * 0.6,
     );
-    expect(pondA?.id).toBe(pondB?.id);
-    expect(pondC?.id).not.toBe(pondA?.id);
-    expect(pondA?.members).not.toContain(idC);
+    // Once C is gone from beside them, neither fighter holds a link to it.
+    for (const page of [a, b]) {
+      await expect
+        .poll(() => classesOf(page, idC), { message: 'the link to C closes', timeout: 20_000 })
+        .toEqual([]);
+    }
     await available(c);
     const { id, from } = await witnessedFight(t);
 
-    // The fighters reach C over a duty link alone: C is no member of their pond.
+    // The fighters reach C over a duty link alone: P0, the duty's class, and no other.
     for (const page of [a, b]) {
       const s = await state(page);
-      expect(s.pond?.members).not.toContain(idC);
       expect(s.net.dutyLinks).toContainEqual({ peer: idC, open: true, encs: [id] });
+      expect(await classesOf(page, idC)).toEqual([0]);
     }
     expect((await state(c)).net.dutyLinks.map((l) => l.peer)).toContain(idB);
 

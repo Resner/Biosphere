@@ -54,16 +54,14 @@ describe('worker bundles', () => {
     );
   });
 
-  // The witness variables (M10 T4): the play needed, the IP check and a pond's capacity are each
-  // read once, behind the fixture source.
+  // The witness variables (M10 T4): the play needed and the IP check are each read once, behind
+  // the fixture source.
   heavyTest('production honours no witness variable outside fixture mode', () => {
     const code = bundle(false, 'index.js');
-    const reads =
-      code.match(/[\w$.]*\b(WITNESS_PLAY_MS|WITNESS_IP_CHECK|POND_MAX)\b(?! = )/g) ?? [];
+    const reads = code.match(/[\w$.]*\b(WITNESS_PLAY_MS|WITNESS_IP_CHECK)\b(?! = )/g) ?? [];
     expect(reads.sort()).toEqual([
       'WITNESS_PLAY_MS',
       'WITNESS_PLAY_MS',
-      'env.POND_MAX',
       'env.WITNESS_IP_CHECK',
       'env.WITNESS_PLAY_MS',
     ]);
@@ -71,10 +69,20 @@ describe('worker bundles', () => {
       'env.DRAND_SOURCE === "fixture" ? Number(env.WITNESS_PLAY_MS) : Number.NaN',
     );
     expect(code).toContain('env.DRAND_SOURCE === "fixture" && env.WITNESS_IP_CHECK === "off"');
-    expect(code).toContain('env.DRAND_SOURCE === "fixture" ? Number(env.POND_MAX) : Number.NaN');
   });
 
-  // The directory's leaf cap and its jumps (M11 T6) follow the fixture source too.
+  // The ponds are gone (M11 T14): no pond capacity is read anywhere, in either entry.
+  heavyTest('no bundle reads POND_MAX', () => {
+    for (const [e2e, main] of [
+      [false, 'index.js'],
+      [true, 'e2e-entry.js'],
+    ] as const) {
+      expect(bundle(e2e, main)).not.toContain('POND_MAX');
+    }
+  });
+
+  // The directory's leaf cap and its jumps (M11 T6) follow the fixture source too: `LEAF_MAX` is
+  // read from the environment once, behind it.
   heavyTest('production honours no directory variable outside fixture mode', () => {
     const code = bundle(false, 'index.js');
     expect(code.match(/[\w$.]*\bLEAF_MAX\b(?! = )/g)?.filter((r) => r.startsWith('env.'))).toEqual([

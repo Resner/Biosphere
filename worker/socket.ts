@@ -53,7 +53,7 @@ export type Session = (
       phase: 'active';
       playerId: string;
       name: string;
-      pondId: string;
+      /** The spawn slot this seat took: its place on the ring around the world's centre. */
       slot: number;
       /** The creature this connection is playing and what it has reported (absent without one). */
       life?: LifeState | undefined;
@@ -73,7 +73,7 @@ export type Session = (
       seatAt?: number | undefined;
     }
   | {
-      /** Signed in, but admission is full: waits for a place and is in no pond. */
+      /** Signed in, but admission is full: waits for a place and is not in the world yet. */
       phase: 'queued';
       playerId: string;
       name: string;

@@ -14,7 +14,6 @@ import {
   clock,
   drift,
   editLife,
-  editSession,
   engage,
   hatched,
   join,
@@ -28,7 +27,16 @@ import {
   snap,
   useFightHub,
 } from './fight-test-kit';
-import { CALM, flush, freshNonce, genesisRequest, nextOf, report, source } from './test-hub';
+import {
+  CALM,
+  flush,
+  freshNonce,
+  genesisRequest,
+  nextOf,
+  placed,
+  report,
+  source,
+} from './test-hub';
 
 // M7 T8: lock-in on the authority, on the hand-moved clock of `fight-test-kit.ts`.
 
@@ -148,10 +156,11 @@ describe('engage refusals', () => {
     expect(await refusal(a, b, other)).toBe('engage:stale');
   });
 
-  it('pond: the target sits in another pond', async () => {
+  it('anyone in the world: two sessions far apart are refused only by the range check', async () => {
     const [a, b] = await pair();
-    await editSession(b, (s) => ({ ...s, pondId: 'another' }));
-    expect(await refusal(a, b)).toBe('engage:pond');
+    // B's snapshot places it 30,000 wu away: no pond or roster refuses it first (M11 T14).
+    const far = snap(b, NEAR.b[0] + 30_000, NEAR.b[1]);
+    expect(await refusal(a, b, far)).toBe('engage:range');
   });
 
   it('target: the target is not here', async () => {
@@ -265,6 +274,7 @@ describe('while locked', () => {
       partnerCreature: b.creature,
       nonce: freshNonce(),
     });
+    await placed(a, b);
     a.c.send({ t: 'court', ask });
     await nextOf(b.c, 'invite');
     await lockIn(a, b);

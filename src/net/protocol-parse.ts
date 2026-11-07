@@ -21,7 +21,6 @@ import {
   LINEAGE_MAX_BYTES,
   type LifeInfo,
   type LineageEntry,
-  type Member,
   NAME_RE,
   type PastLife,
   PEDIGREE_MAX,
@@ -116,11 +115,6 @@ function parseObject(raw: unknown, maxBytes: number): Obj | null {
 
 function vec(v: unknown): Vec2 | null {
   return isObj(v) && isNum(v.x) && isNum(v.y) ? { x: v.x, y: v.y } : null;
-}
-
-function member(v: unknown): Member | null {
-  if (!isObj(v) || !isStr(v.playerId, PLAYER_ID_RE) || !isStr(v.name, NAME_RE)) return null;
-  return { playerId: v.playerId, name: v.name };
 }
 
 function iceServer(v: unknown): IceServer | null {
@@ -224,12 +218,6 @@ export function parseHubMsg(raw: string): HubMsg | null {
       return isInt(o.id, 0, MAX_TICK) && isInt(o.now, 0, MAX_TIME)
         ? capped(raw, { t: 'pong', id: o.id, now: o.now })
         : null;
-    case 'member': {
-      const m = member(o.member);
-      return (o.op === 'join' || o.op === 'leave') && m
-        ? capped(raw, { t: 'member', op: o.op, member: m })
-        : null;
-    }
     case 'signal': {
       if (!isStr(o.from, PLAYER_ID_RE) || !isSignalPayload(o)) return null;
       const at = o.at === undefined ? undefined : pos(o.at);
@@ -575,13 +563,11 @@ const clsOf = (o: Obj & { cls?: unknown }) =>
 function welcome(o: Obj): HubMsg | null {
   const world = worldInfo(o.world);
   const hint = isObj(o.you) ? vec(o.you.spawnHint) : null;
-  const members = list(o.members, 64, member);
   const ice = list(o.ice, 8, iceServer);
   const ticket = o.ticket === undefined ? undefined : parseSignedSeat(o.ticket);
   if (
     !world ||
     !hint ||
-    !members ||
     !ice ||
     ticket === null ||
     typeof o.turn !== 'boolean' ||
@@ -592,7 +578,6 @@ function welcome(o: Obj): HubMsg | null {
     t: 'welcome',
     world,
     you: { spawnHint: hint },
-    members,
     ice,
     turn: o.turn,
     now: o.now,

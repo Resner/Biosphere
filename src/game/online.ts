@@ -1,7 +1,7 @@
 // The online session: the hub, the WebRTC mesh and the traffic between them (M11 T13, ADR 0062).
 // It owns no game state; `app-online.ts` supplies the handlers and decides what a snapshot or a
 // claim means for the world. Links are the area of interest's: `online-links.ts` plans them from
-// the known set (`neighbours.ts`); the hub's pond roster only names players and counts the pond.
+// the known set (`neighbours.ts`). There is no roster: names come from tickets and the directory.
 
 import type { Identity } from '../ledger/identity';
 import type { PubKey } from '../ledger/record';
@@ -60,7 +60,6 @@ export type OnlineHub = Pick<
   | 'send'
   | 'onStatus'
   | 'onSignal'
-  | 'onMember'
   | 'onWelcome'
   | 'onWorld'
   | 'onLife'
@@ -166,8 +165,6 @@ const NO_CANDIDATES: ReadonlySet<string> = new Set();
 export class OnlineSession {
   readonly neighbours: Neighbours;
   readonly links: Links;
-  /** The pond's roster: names and the pond's count only; no link follows it (T14 removes it). */
-  private readonly roster = new Map<string, Member>();
   private readonly route: SignalRoute;
   /** The rate each link asked of this page, and the rate this page asked of each (M11 T15). */
   private readonly sendRates = new SendRates();
@@ -227,7 +224,6 @@ export class OnlineSession {
         hub.ticket !== null,
     });
     hub.onWelcome((w) => this.welcomed(w));
-    hub.onMember((op, member) => this.member(op, member));
     hub.onSignal((m) => this.signalled(m));
     hub.onWorld((m) => this.world(m));
     hub.onLife((m) => opts.handlers.life(m));
@@ -268,9 +264,9 @@ export class OnlineSession {
     return this.last;
   }
 
-  /** Players in the pond, this one included. */
+  /** The linked players, not this one: the status line's count. */
   get count(): number {
-    return this.roster.size + 1;
+    return this.openCount();
   }
 
   /** Offers this page refused (no class for the caller, or no room). */
@@ -278,11 +274,9 @@ export class OnlineSession {
     return this.links.refused;
   }
 
-  /** A player's name: a linked peer's ticket, the directory's word, or the pond's roster. */
+  /** A player's name: a linked peer's ticket, or the directory's word. */
   nameOf(id: string): string | undefined {
-    return (
-      this.mesh?.ticketOf(id)?.seat.name ?? this.neighbours.nameOf(id) ?? this.roster.get(id)?.name
-    );
+    return this.mesh?.ticketOf(id)?.seat.name ?? this.neighbours.nameOf(id);
   }
 
   /** The linked peers, with their names: the menu's Players list. */
@@ -290,14 +284,12 @@ export class OnlineSession {
     return this.openPeers().map((playerId) => ({ playerId, name: this.nameOf(playerId) ?? '' }));
   }
 
-  /** The pond's members by the hub's roster, not this player. */
-  members(): string[] {
-    return [...this.roster.keys()];
-  }
-
-  /** Whether a player holds a seat in the pond (its roster), so its fighter is not away. */
+  /**
+   * Whether a player's page is here, so its fighter is not away: it is linked (a fight's players
+   * hold each other as P0, and a closed page drops its links).
+   */
   present(id: string): boolean {
-    return this.roster.has(id);
+    return this.mesh?.isOpen(id) === true;
   }
 
   /** Whether there is a connection to this peer, open or coming up. */
@@ -474,7 +466,7 @@ export class OnlineSession {
     this.asker.forget(id);
   }
 
-  /** Leaves the pond and closes every connection. */
+  /** Leaves the hub and closes every connection. */
   dispose(): void {
     if (this.timer !== null) clearInterval(this.timer);
     this.opts.hub.send({ t: 'leave' } satisfies ClientMsg);
@@ -521,10 +513,8 @@ export class OnlineSession {
   }
 
   private welcomed(w: Welcome): void {
-    const { selfId, handlers } = this.opts;
+    const { handlers } = this.opts;
     this.last = w;
-    this.roster.clear();
-    for (const m of w.members) if (m.playerId !== selfId) this.roster.set(m.playerId, m);
     // A new hub session: the directory forgot this page, so it reports again. Links stay: they are
     // the peers' own.
     this.reporter = new WhereReporter();
@@ -532,12 +522,6 @@ export class OnlineSession {
     if (this.mesh) this.mesh.setIce(w.ice);
     else this.mesh = this.makeMesh(w.ice);
     handlers.welcome(w);
-  }
-
-  private member(op: 'join' | 'leave', member: Member): void {
-    if (member.playerId === this.opts.selfId) return;
-    if (op === 'join') this.roster.set(member.playerId, member);
-    else this.roster.delete(member.playerId);
   }
 
   private world(m: WorldMsg): void {

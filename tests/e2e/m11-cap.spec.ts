@@ -24,7 +24,24 @@ test('a cap of 2 holds the creature that can interact and the nearer far one, an
     await place(c, 3000, 0);
     await place(d, -3300, 0);
 
-    await linksAre(a, [b.id, c.id], 'A holds B and C, the nearer of C and D', 60_000);
+    // The links settle once A has seen everyone's new place (at the spawn all four can interact):
+    // B as P1 and C as P4, and nothing else.
+    const settled = async () =>
+      (await a.page.evaluate(() => (window.__bs as BsHook).state().net.links))
+        .filter((l) => l.hello)
+        .map((l) => [l.id, l.class])
+        .sort();
+    await expect
+      .poll(settled, {
+        message: 'A holds B (P1) and C (P4), the nearer of C and D',
+        timeout: 60_000,
+      })
+      .toEqual(
+        [
+          [b.id, 1],
+          [c.id, 4],
+        ].sort(),
+      );
     // From here on B must never leave A's links.
     await a.page.evaluate((idB) => {
       const w = window as unknown as { __lostB?: number; __watch?: number };
@@ -34,11 +51,6 @@ test('a cap of 2 holds the creature that can interact and the nearer far one, an
         if (!links.some((l) => l.id === idB && l.hello)) w.__lostB = (w.__lostB ?? 0) + 1;
       }, 100);
     }, b.id);
-    const classes = (await a.page.evaluate(() => (window.__bs as BsHook).state().net.links)).map(
-      (l) => [l.id, l.class],
-    );
-    expect(classes).toContainEqual([b.id, 1]);
-    expect(classes).toContainEqual([c.id, 4]);
 
     // D swims up beside A: P1 now, so C, the worst P4, goes.
     await place(d, -120, 60);

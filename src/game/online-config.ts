@@ -122,8 +122,8 @@ export const offlineChip = (hub: boolean, status: HubStatus | 'none', apart: boo
   hub && (apart || (status !== 'online' && status !== 'connecting'));
 
 /**
- * The status chip's text. `count` is the players in the pond, this one included; `queue` is the
- * place in the admission line while the hub keeps this session waiting.
+ * The status chip's text. `count` is the players linked to this one (M11 T14: there is no pond to
+ * count); `queue` is the place in the admission line while the hub keeps this session waiting.
  */
 export function statusText(
   status: HubStatus | 'none',
@@ -134,7 +134,7 @@ export function statusText(
     return `Waiting for a place (${ordinal(queue.position)} in line)`;
   switch (status) {
     case 'online':
-      return `Online · ${count} in pond`;
+      return `Online · ${count} nearby`;
     case 'connecting':
       return 'Connecting…';
     case 'replaced':

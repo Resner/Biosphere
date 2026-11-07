@@ -19,7 +19,7 @@ import {
   useFightHub,
   within,
 } from './fight-test-kit';
-import { ask, CALM, flush, freshNonce, nextOf, publish, report, sql } from './test-hub';
+import { ask, CALM, flush, freshNonce, nextOf, placed, publish, report, sql } from './test-hub';
 import {
   byPlayer,
   orderOf,
@@ -280,6 +280,7 @@ async function adult(): Promise<Player> {
   await advance(12_000);
   report(p.c, 12 * 30, CALM);
   await nextOf(p.c, 'ack');
+  await placed(p);
   return p;
 }
 

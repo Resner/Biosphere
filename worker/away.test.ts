@@ -39,7 +39,7 @@ import { runFight } from './fights';
 import { bear, mated, must } from './ledger-test-kit';
 import { sendLife } from './lives';
 import type { Session } from './socket';
-import { type Client, flush, nextOf, signIn, sql } from './test-hub';
+import { type Client, flush, nextOf, placed, signIn, sql } from './test-hub';
 
 // M8 T9: everyone left (ADR 0053). Once no fighter still in has a connected player, the fight runs
 // on in real time for 10 s, then the authority finalizes the rest at once with the autopilot and
@@ -135,11 +135,10 @@ const holds = async (creature: string, enc: string) =>
     )
   ).length > 0;
 
-/** What a sign-in got: everything up to the answer to a ping, member news aside. */
+/** What a sign-in got: everything up to the answer to a ping. */
 async function signInAgain(p: Player): Promise<{ c: Client; got: HubMsg[] }> {
   const { c } = await signIn(p.id);
-  const got = (await flush(c)).filter((m) => m.t !== 'member');
-  return { c, got };
+  return { c, got: await flush(c) };
 }
 
 const lifeIn = (got: HubMsg[]) =>
@@ -403,12 +402,12 @@ describe('the away report', () => {
 });
 
 describe('carrion of a fast-forwarded kill', () => {
-  it('reaches the pond at the current tick, not the kill’s future one', async () => {
+  it('reaches a spectator near the kill at the current tick, not the kill’s future one', async () => {
     await setGrace('50');
     try {
       const [a, b] = await fighters();
       const spectator = await join();
-      expect(spectator.pond.id).toBe(a.pond.id);
+      await placed(spectator);
       const seen = log(spectator.c);
       const start = await hunt(a, b);
       // Both leave before frame 0 starts: the kill a few frames in is played at once.

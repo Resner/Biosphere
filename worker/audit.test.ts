@@ -22,7 +22,7 @@ import {
 } from './fight-test-kit';
 import { must } from './ledger-test-kit';
 import { breed, court, promoteRequest, signed } from './lineage-test-kit';
-import { genesisRequest, nextOf, publish, report, sql } from './test-hub';
+import { genesisRequest, nextOf, placed, publish, report, sql } from './test-hub';
 
 // M9 T8: the authority's bounds hold per record interval, as the verifier checks them, and its
 // audit flags each attack once and counts the flags at `GET /v1/audit` (ADR 0055).
@@ -47,6 +47,7 @@ async function mates(): Promise<[Player, Player]> {
   await setEnv(true);
   const [a, b] = await pair();
   for (const p of [a, b]) await play(p, 10_000);
+  await placed(a, b);
   return [a, b];
 }
 

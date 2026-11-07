@@ -12,6 +12,7 @@ import {
 } from '../src/ledger/identity';
 import { REQUEST_DOMAIN } from '../src/ledger/record';
 import { type HubMsg, PROTOCOL_VERSION, parseHubMsg } from '../src/net/protocol';
+import { RULES } from '../src/sim/rules';
 import rounds from '../tests/fixtures/drand/rounds.json';
 import type { BeaconSource } from './beacons';
 import { fixtureSource } from './fixture-beacons';
@@ -116,6 +117,21 @@ export async function login(id?: Identity, store = memoryKeyStore()) {
   await nextOf(c, 'welcome');
   const life = await nextOf(c, 'life');
   return { c, id: who, life };
+}
+
+/**
+ * Reports each client's starter to the directory at the world's centre, as a client in the water
+ * does, and takes the `near` answer off its socket, keeping every other message where it was. A
+ * court needs the directory to place both partners (M11 T14), so mating tests place their players.
+ */
+export async function placed(...ps: { c: Client }[]): Promise<void> {
+  const centre = RULES.world.size / 2;
+  for (const { c } of ps) {
+    c.send({ t: 'where', x: centre, y: centre, r: 10, aoi: 233 });
+    const kept: HubMsg[] = [];
+    for (let msg = await c.next(); msg.t !== 'near'; msg = await c.next()) kept.push(msg);
+    c.inbox.unshift(...kept);
+  }
 }
 
 let nonces = 0;

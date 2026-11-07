@@ -22,6 +22,7 @@ import {
   login,
   nextOf,
   ORIGIN,
+  placed,
   report,
   rowsWritten,
   source,
@@ -72,7 +73,9 @@ interface Player {
 async function player(): Promise<Player> {
   const { c, id } = await login();
   const g = await hatch(c, id);
-  return { c, id, creature: recordHash(g.record.record), ticks: 0 };
+  const p = { c, id, creature: recordHash(g.record.record), ticks: 0 };
+  await placed(p);
+  return p;
 }
 
 /** Plays `ms` of active time and waits for the ack. */

@@ -16,7 +16,7 @@ import {
   setEnv,
   useFightHub,
 } from './fight-test-kit';
-import { ask, CALM, freshNonce, nextOf, report, source, sql } from './test-hub';
+import { ask, CALM, freshNonce, nextOf, placed, report, source, sql } from './test-hub';
 import { commitWitnesses } from './witness-pool';
 import { setAvail, useWitnessHub, witnessCommit, witnesses } from './witness-test-kit';
 
@@ -170,6 +170,7 @@ async function adult(): Promise<Player> {
   await advance(12_000);
   report(p.c, 12 * 30, CALM);
   await nextOf(p.c, 'ack');
+  await placed(p);
   return p;
 }
 

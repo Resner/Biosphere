@@ -10,7 +10,6 @@ import {
   CLOSE_REPLACED,
   type ClientMsg,
   type HubMsg,
-  type Member,
   PROTOCOL_VERSION,
   parseHubMsg,
 } from './protocol';
@@ -116,7 +115,6 @@ export class HubClient {
   private waiting: { resolve: (w: Welcome) => void; reject: (e: Error) => void }[] = [];
   private statusListeners: ((s: HubStatus) => void)[] = [];
   private signalListeners: ((m: SignalMsg) => void)[] = [];
-  private memberListeners: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeListeners: ((w: Welcome) => void)[] = [];
   private lifeListeners: ((m: LifeMsg) => void)[] = [];
   private fightListeners: ((m: FightMsg) => void)[] = [];
@@ -178,9 +176,6 @@ export class HubClient {
   }
   onSignal(fn: (m: SignalMsg) => void): () => void {
     return subscribe(this.signalListeners, fn);
-  }
-  onMember(fn: (op: 'join' | 'leave', m: Member) => void): () => void {
-    return subscribe(this.memberListeners, fn);
   }
   /** Fires for every message about the player's own creature. */
   onLife(fn: (m: LifeMsg) => void): () => void {
@@ -264,9 +259,6 @@ export class HubClient {
       }
       case 'seat':
         this._ticket = msg.ticket;
-        break;
-      case 'member':
-        for (const fn of [...this.memberListeners]) guarded(() => fn(msg.op, msg.member));
         break;
       case 'signal':
         for (const fn of [...this.signalListeners]) guarded(() => fn(msg));

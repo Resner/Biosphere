@@ -37,7 +37,7 @@ async function join(page: Page, epoch: number): Promise<void> {
   await page.evaluate(
     ({ epoch, hubNow, seed }) => {
       const bs = window.__bs as BsHook;
-      bs.debug?.joinPond({
+      bs.debug?.joinWorld({
         seed,
         epoch,
         hubNow,
