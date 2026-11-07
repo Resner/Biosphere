@@ -83,29 +83,33 @@ function client(self: string, present: Set<string>, peers: () => string[]): Clie
 }
 
 describe('ProxyRelay', () => {
-  it('only the connected fighter with the lowest slot relays, at 5 Hz, to the peers outside the fight, and stops after the end', () => {
+  it('every connected fighter relays, at 5 Hz, to its own peers outside the fight, and stops after the end (M11 T16)', () => {
     const [f0, f1, f2, s1, s2] = ids as [string, string, string, string, string];
-    // f1 has left the pond: f0 and f2 still play, s1 and s2 watch.
+    // f1 has left: f0 and f2 still play. f0 holds links to s1 and s2, f2 only to s2.
     const pond = new Set([f0, f2, s1, s2]);
-    const peers = () => [...pond];
     const players = [f0, f1, f2];
     let now = 0;
     const fight = fightOf(players, () => now);
-    const c0 = client(f0, pond, peers);
-    const c2 = client(f2, pond, peers);
+    const c0 = client(f0, pond, () => [f2, s1, s2]);
+    const c2 = client(f2, pond, () => [f0, s2]);
     for (now = 0; now < 10_000; now += FPS_MS) {
       c0.relay.update(now, fight);
       c2.relay.update(now, fight);
     }
-    expect(c2.sent).toHaveLength(0);
-    const to = (who: string) => c0.sent.filter((s) => s.to === who);
-    for (const peer of [s1, s2]) {
-      expect(to(peer).length).toBeGreaterThanOrEqual(49);
-      expect(to(peer).length).toBeLessThanOrEqual(51);
+    const to = (c: Client, who: string) => c.sent.filter((s) => s.to === who);
+    for (const [c, peer] of [
+      [c0, s1],
+      [c0, s2],
+      [c2, s2],
+    ] as const) {
+      expect(to(c, peer).length).toBeGreaterThanOrEqual(49);
+      expect(to(c, peer).length).toBeLessThanOrEqual(51);
     }
-    // Never to a fighter, and every frame is a proxy of the away fighter.
-    expect(to(f2)).toHaveLength(0);
-    for (const { bytes } of c0.sent) {
+    // Only to its own links, never to a fighter, and every frame is a proxy of the away fighter.
+    expect(to(c2, s1)).toHaveLength(0);
+    expect(to(c0, f2)).toHaveLength(0);
+    expect(to(c2, f0)).toHaveLength(0);
+    for (const { bytes } of [...c0.sent, ...c2.sent]) {
       expect(bytes.length).toBe(PROXY_FRAME_BYTES);
       expect(decodeStateFrame(bytes)?.proxyFor).toBe(f1);
     }
@@ -114,22 +118,23 @@ describe('ProxyRelay', () => {
     expect(c2.shown.length).toBe(c0.shown.length);
 
     // The end: one last frame per peer, carrying the result's alive flag, then nothing more.
-    const before = c0.sent.length;
+    const before = [c0.sent.length, c2.sent.length] as const;
     c0.relay.end(fight, (slot) => slot !== 1);
     c2.relay.end(fight, (slot) => slot !== 1);
-    expect(c0.sent.length - before).toBe(2);
+    expect(c0.sent.length - before[0]).toBe(2);
+    expect(c2.sent.length - before[1]).toBe(1);
     const last = c0.sent.map((s) => decodeStateFrame(s.bytes)?.snapshot.alive);
-    expect(last.slice(before)).toEqual([false, false]);
+    expect(last.slice(before[0])).toEqual([false, false]);
     expect(c2.shown[c2.shown.length - 1]?.snapshot.alive).toBe(false);
     for (now = 10_000; now < 12_000; now += FPS_MS) {
       c0.relay.update(now, fight);
       c2.relay.update(now, fight);
     }
-    expect(c0.sent.length - before).toBe(2);
-    expect(c2.sent).toHaveLength(0);
+    expect(c0.sent.length - before[0]).toBe(2);
+    expect(c2.sent.length - before[1]).toBe(1);
   });
 
-  it('hands the relay to the next connected fighter when the lowest one leaves too', () => {
+  it('a fighter whose fellows left too relays every away fighter', () => {
     const [f0, f1, f2, s1] = ids as [string, string, string, string];
     const pond = new Set([f2, s1]);
     const c2 = client(f2, pond, () => [...pond]);
@@ -236,6 +241,49 @@ describe('ProxyReceiver', () => {
     const drawn = remotes.sample(1100, 1100).find((r) => r.id === live);
     expect(drawn?.away).toBe(false);
     expect(drawn?.x).toBeLessThan(800);
+  });
+
+  it('keeps one sender per away player while it sends, and takes the next 1 s after it stops (M11 T16)', () => {
+    const [self, r1, r2, away] = ids as [string, string, string, string];
+    const { remotes, receiver } = pond(self);
+    remotes.setMember(away, 'Bob');
+    let ms = PROXY_QUIET_MS;
+    const fighting = (at: number) => {
+      for (const r of [r1, r2])
+        remotes.receive(r, snap({ fighting: true, tick: Math.round(at / TICK_MS) }), at);
+    };
+    const pose = (at: number, x: number) => snap({ tick: Math.round(at / TICK_MS), x });
+    // Both fighters relay the same away fighter, r1 heard first: r2's frames are dropped.
+    for (let k = 0; k < 10; k++, ms += PROXY_INTERVAL_MS) {
+      fighting(ms);
+      expect(receiver.receive(r1, away, pose(ms, 900 + k), ms)).toBe(true);
+      expect(receiver.receive(r2, away, pose(ms + 1, 900 + k), ms)).toBe(false);
+    }
+    expect(receiver.dropped).toBe(10);
+    expect(receiver.senders()[away]).toBe(r1);
+    // r1 stops: r2's frames are dropped for 1 s after r1's last one, then taken.
+    const lastR1 = ms - PROXY_INTERVAL_MS;
+    for (; ms - lastR1 < PROXY_QUIET_MS; ms += PROXY_INTERVAL_MS) {
+      fighting(ms);
+      expect(receiver.receive(r2, away, pose(ms, 950), ms)).toBe(false);
+    }
+    fighting(ms);
+    expect(receiver.receive(r2, away, pose(ms, 960), ms)).toBe(true);
+    expect(receiver.senders()[away]).toBe(r2);
+    // And now r1, back, is the one dropped.
+    expect(receiver.receive(r1, away, pose(ms + 1, 961), ms)).toBe(false);
+    const drawn = remotes.sample(ms, ms).find((r) => r.id === away);
+    expect(drawn?.away).toBe(true);
+  });
+
+  it('lets the next sender in at once when the first one’s link closes', () => {
+    const [self, r1, r2, away] = ids as [string, string, string, string];
+    const { remotes, receiver } = pond(self);
+    for (const r of [r1, r2]) remotes.receive(r, snap({ fighting: true }), 0);
+    expect(receiver.receive(r1, away, snap({ tick: 60 }), 2000)).toBe(true);
+    expect(receiver.receive(r2, away, snap({ tick: 61 }), 2010)).toBe(false);
+    receiver.forget(r1);
+    expect(receiver.receive(r2, away, snap({ tick: 62 }), 2020)).toBe(true);
   });
 
   it('takes proxies for at most three players from one peer', () => {

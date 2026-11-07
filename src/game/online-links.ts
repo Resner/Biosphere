@@ -6,7 +6,9 @@
 // calls (the higher waits 1.5 s); a P4 only on a fix under 5 s old; at most 8 calls a plan. An offer
 // carries its caller's class and is admitted by the better of that and this page's own; a refusal
 // is answered and backs off a P3 or P4 (5 s, doubling to 60 s). Duty links are P0, through
-// `ConnectionPolicy.duty`, under the same cap rule as every other link.
+// `ConnectionPolicy.duty`, under the same cap rule as every other link, and so are a fight's links
+// to its other fighters (M11 T16) from its start until 3 s after its end, whatever the distance,
+// leaf or tier; then they close at once unless another class holds them.
 
 import { AoiManager, type AoiSelf } from '../net/aoi';
 import { ConnectionPolicy, type LinkClass, NO_CLASS } from '../net/connection-policy';
@@ -30,6 +32,8 @@ export const OFFER_TIMEOUT_MS = 8000;
 /** A refused P3 or P4 is not asked again for this long, doubling each time up to the max. */
 export const REFUSED_BACKOFF_MS = 5000;
 export const REFUSED_BACKOFF_MAX_MS = 60_000;
+/** A fight's links stay P0 this long past its end (M11 T16). */
+export const FIGHT_HOLD_MS = 3000;
 
 /** The mesh as the plan drives it. */
 export type LinkMesh = Pick<
@@ -88,6 +92,8 @@ export class Links {
   /** The duty peers (P0) by `duty(id, on)`; `duties` keeps the fights each serves. */
   private readonly policy: ConnectionPolicy;
   private readonly duties = new Map<string, Set<string>>();
+  /** This page's fights: the other fighters, P0 until `until` (page ms; Infinity while it runs). */
+  private readonly fights = new Map<string, { peers: Set<string>; until: number }>();
   private readonly out = new Map<string, Attempt>();
   private readonly helloAt = new Map<string, number>();
   private readonly refusals = new Map<string, number>();
@@ -95,6 +101,8 @@ export class Links {
   /** When a lower-id peer first showed up in the plan: this page waits for its call. */
   private readonly waiting = new Map<string, number>();
   private classes = new Map<string, LinkClass>();
+  /** Fighters whose fight's hold ran out in the last classification. */
+  private readonly released = new Set<string>();
   private lastPlan = Number.NEGATIVE_INFINITY;
 
   constructor(private readonly o: LinksOptions) {
@@ -138,6 +146,9 @@ export class Links {
     const now = this.o.now();
     const plan = this.replan(now);
     for (const id of plan.evict) this.close(id);
+    // A fight's links past their hold close at once unless another class holds them.
+    for (const id of this.released) if (!this.classes.has(id)) this.close(id);
+    this.released.clear();
     if (!this.o.ready()) return;
     const wanted = new Set(plan.connect);
     for (const id of this.waiting.keys()) if (!wanted.has(id)) this.waiting.delete(id);
@@ -239,9 +250,51 @@ export class Links {
     this.plan();
   }
 
-  /** A fight ended: the duty links it held lose their class. */
+  /**
+   * This page fights in `enc` (its `enc-start`, also a joiner's catch-up, and each `enc-join`): every
+   * other fighter in `players` is P0 until 3 s after the fight's end.
+   */
+  fight(enc: string, players: readonly string[]): void {
+    const f = this.fights.get(enc) ?? { peers: new Set<string>(), until: Infinity };
+    f.until = Infinity;
+    for (const p of players) if (p !== this.o.selfId) f.peers.add(p);
+    this.fights.set(enc, f);
+    this.plan();
+  }
+
+  /** A fighter joined one of this page's fights (a witness's frames name fights it doesn't fight in). */
+  joined(enc: string, player: string): void {
+    if (this.fights.has(enc)) this.fight(enc, [player]);
+  }
+
+  /**
+   * A fight ended: the duty links it held lose their class, and its fighters' links 3 s from now.
+   */
   endFight(enc: string): void {
+    this.endDuty(enc);
+    this.holdFight(enc);
+  }
+
+  /** A duty for fight `enc` ended: the duty links it held lose their class. */
+  endDuty(enc: string): void {
     for (const [peer, encs] of [...this.duties]) if (encs.has(enc)) this.duty(enc, peer, false);
+  }
+
+  /** A welcome: every fight's links end in 3 s, unless the hub resends the fight (it does at once for a running one). */
+  endFights(): void {
+    for (const enc of this.fights.keys()) this.holdFight(enc);
+  }
+
+  private holdFight(enc: string): void {
+    const f = this.fights.get(enc);
+    if (f && f.until === Infinity) f.until = this.o.now() + FIGHT_HOLD_MS;
+  }
+
+  /** The creatures wanted as P0 or P1 by the last plan: a witness takes a duty only at 28 or fewer. */
+  protectedCount(): number {
+    let n = 0;
+    for (const c of this.classes.values()) if (c <= 1) n++;
+    return n;
   }
 
   dutyLinks(): DutyLink[] {
@@ -265,6 +318,13 @@ export class Links {
   private replan(now: number) {
     const self = this.o.self();
     const p0 = new Set([...this.duties.keys()].filter((id) => this.policy.isDuty(id)));
+    for (const [enc, f] of this.fights) {
+      if (f.until > now) for (const id of f.peers) p0.add(id);
+      else {
+        this.fights.delete(enc);
+        for (const id of f.peers) this.released.add(id);
+      }
+    }
     const classes = self
       ? this.mgr.classify(self, this.o.neighbours.known(now), p0, this.classes)
       : new Map<string, LinkClass>([...p0].map((id) => [id, 0]));
