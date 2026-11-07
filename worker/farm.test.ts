@@ -11,6 +11,7 @@ import {
 } from '../tools/farm-sim';
 import { runScenario, type Scenario } from './farm-kit';
 import { clock, useFightHub } from './fight-test-kit';
+import { sql } from './test-hub';
 
 // M10 T13 (ADR 0059): the bot-farm simulation. Scripted identities on one hub, on the hand clock, under
 // the live rules and scales, for 3 hours of play, with the fixture beacons; each scenario prints its
@@ -19,8 +20,10 @@ import { clock, useFightHub } from './fight-test-kit';
 
 useFightHub();
 // A fixed start, so a rerun draws the same genomes (the hub's hand clock otherwise starts at the real now).
-beforeEach(() => {
+beforeEach(async () => {
   clock.t = Date.UTC(2026, 10, 6, 12, 0, 0);
+  // The world's clock is the ponds' epoch (M11): it starts with the test's.
+  await sql('UPDATE world SET clock = ?', clock.t);
 });
 
 const honestPace = { perMinute: HONEST_GAIN_PER_MIN };

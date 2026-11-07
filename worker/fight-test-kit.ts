@@ -99,6 +99,9 @@ export function useFightHub(): void {
       (a as { fights: Fights }).fights = new Fights(() => a.clock);
     });
     await sql('DELETE FROM matings');
+    // The world's clock starts with the hand clock, as a pond's epoch did before ponds took the
+    // world's (M11): the object outlives a test, and an earlier one moved the clock past it.
+    await sql('UPDATE world SET clock = ?', clock.t);
     // ... and no open fight log: recovery (the alarm runs it) would rebuild an earlier test's fight.
     await sql('UPDATE encounters SET open = 0 WHERE open = 1');
   });

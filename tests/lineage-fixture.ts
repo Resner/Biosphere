@@ -120,7 +120,7 @@ export interface FixtureTune {
   a1Size: number;
 }
 export const TUNE: FixtureTune = {
-  nonces: [`A0${'A'.repeat(20)}`, `B1${'B'.repeat(20)}`],
+  nonces: [`A8${'A'.repeat(20)}`, `B1${'B'.repeat(20)}`],
   pondSeed: 'lineage-0',
   a1Size: 0.5,
 };

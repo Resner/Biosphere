@@ -1,22 +1,13 @@
 import * as THREE from 'three';
 import { lerp } from '../sim/math';
 import { RULES } from '../sim/rules';
+import { viewHalfHeight } from '../sim/size';
 
-const { heightCoeff, heightExp, growExp, smoothSeconds } = RULES.camera;
+const { smoothSeconds } = RULES.camera;
 /** `smoothSeconds` is the time to cover ~98% of a zoom change: exp(-4) ≈ 0.018. */
 const SETTLE_TIME_CONSTANTS = 4;
 
-/**
- * Visible half-height in world units for a creature of radius `r` whose genetic maximum radius is
- * `adult`. An adult sees `heightCoeff · adult^heightExp`; a smaller creature sees a view that
- * shrinks as `(r / adult)^growExp`, so tripling the radius makes it 3^(1 − growExp) ≈ 1.55× larger
- * on screen. A creature past its maximum counts as an adult.
- */
-export function viewHalfHeight(r: number, adult: number): number {
-  const top = Math.max(r, adult);
-  if (!(top > 0)) return 0;
-  return heightCoeff * top ** heightExp * (r / top) ** growExp;
-}
+export { viewHalfHeight };
 
 export interface CameraTarget {
   x: number;

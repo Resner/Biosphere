@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 11,
+    "rules": 12,
     "start": {
       "id": "enc-golden-autopilot",
       "pondSeed": "golden-autopilot",
@@ -375,7 +375,7 @@
       [null, null, null]
     ]
   },
-  "hash": "928370cf1945a747",
+  "hash": "312471fa19270fca",
   "results": [
     {
       "outcome": "escaped",

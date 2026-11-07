@@ -230,13 +230,13 @@ describe('authority signatures', () => {
 
   it('answers through the registry: rules-retired before the renewal, rules-unknown past this build (ADR 0055)', () => {
     for (const record of Object.values(RECORDS)) {
-      for (const rules of [0, 7, 10]) {
+      for (const rules of [0, 7, 11]) {
         expect(checkStored(stored({ ...record, rules }), keys), `${record.kind} ${rules}`).toEqual([
           'rules-retired',
         ]);
       }
-      expect(checkStored(stored({ ...record, rules: 12 }), keys)).toEqual(['rules-unknown']);
-      expect(checkStored(stored({ ...record, rules: 11 }), keys)).toEqual([]);
+      expect(checkStored(stored({ ...record, rules: 13 }), keys)).toEqual(['rules-unknown']);
+      expect(checkStored(stored({ ...record, rules: 12 }), keys)).toEqual([]);
     }
   });
 

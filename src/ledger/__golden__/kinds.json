@@ -1,9 +1,9 @@
 {
-  "rulesVersion": 11,
+  "rulesVersion": 12,
   "genesis": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "genesis",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -18,12 +18,12 @@
       "seq": 0,
       "prev": ""
     },
-    "hash": "d62653cae065ddbffa881320238036e7cad97ef352bb9d0d614cce19b81a0d3b"
+    "hash": "6684145f11e89cedd13621c56e2ddf5c6fd5c331ab5152ee2cd87f7c31714b7e"
   },
   "checkpoint": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "checkpoint",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -37,12 +37,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "b9de2fae10b59a6e354d82513aa3b2f10213db6843ef9a77080f0bd9bdff6c0a"
+    "hash": "8e5920ba7180badae72ea678184b466e0e304f46ba73d40f640d05c4a2b7186c"
   },
   "mate-commit": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "mate-commit",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -68,12 +68,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "a76684c76cca50961ee74060b1d70e3899e674145e7a6f4838532f53ae443bf4"
+    "hash": "cc5158709be3062415929fca92224cb4adbdc67d87e14a30441cf1b707a142bb"
   },
   "birth": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "birth",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -97,12 +97,12 @@
       "seq": 0,
       "prev": ""
     },
-    "hash": "e4478b5a57cd13ed747663c0b8353fb816b9cff663801f4bf29161def6f5f39c"
+    "hash": "6ade5aa9844875e11c977bd47f6c16d63ec2a2d23a365b0f4920426eb630a983"
   },
   "promote-child": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "promote",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -114,12 +114,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "8b2204268aff1f28e1b67877d5d219927558a5e9641a74e63659fc57b5a553df"
+    "hash": "a55505c4768b6954df46002d55335fa8754155eed131e5b90f372e20b4abb85a"
   },
   "promote-parent": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "promote",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -136,12 +136,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "7a1f6a75523e32f1e152ac220401a13e4629d212865582a57538bfb9fffb5541"
+    "hash": "0112c44f2c65559c5fe75bfaad142cdaaafb17368cfebcabb074feac73c0d0d5"
   },
   "restore": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "restore",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -157,12 +157,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "00f0f363c4b5f168460d672213ee5d6d61ad8dde6d360f3e64ba33e52da14471"
+    "hash": "87091f53baceaae5c58843d01213bdf9431fa04a8f36f79b3d0f87a59f7df5fc"
   },
   "encounter": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "encounter",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -180,12 +180,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "f4f54b1a398c27651d2c1cb0b91911c31bb72a904b1de33612ca3175f5f7bf26"
+    "hash": "cda5d515b2c0868bf3c4d1e0b177f31cb39ce52b77faba017d2ac4c23992e647"
   },
   "death-old-age": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "death",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -198,12 +198,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "1b4495047315c61fed8ecf03c04e540a831c52c2b9215e402bdd44017c078a10"
+    "hash": "9ecf2823fc159a60beda774f5994da8fc07e53264df4b413739fbba06e87e01c"
   },
   "death-killed": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "death",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -218,12 +218,12 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "3e7fa170caf2d5d67e1f9bd126f0bbcff6f2a89b54e6d73808d98729d9df6b4c"
+    "hash": "71a24595b43e4568bef78add7b8bccde6575e566e628351e55cc4004db34c935"
   },
   "death-eaten": {
     "record": {
       "v": 1,
-      "rules": 11,
+      "rules": 12,
       "kind": "death",
       "owner": "11qYAYKxCrfVS_7TyWQHOg7hcvPapiMlrwIaaPcHURo",
       "t": 1700000000000,
@@ -238,6 +238,6 @@
       "seq": 3,
       "prev": "dddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddd"
     },
-    "hash": "35882081f784c01caa328314bd1ce60b163b8185a4c66889a4724f432095b56e"
+    "hash": "95c21cf03503c600af2a9f3875cc4b01d71795837a592e97487ab4d0786ec659"
   }
 }

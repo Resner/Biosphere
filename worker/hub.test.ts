@@ -328,6 +328,8 @@ async function fill(n: number) {
   return players;
 }
 
+const sqlRows = <T extends Record<string, SqlStorageValue>>(query: string) =>
+  runInDurableObject(stub(), (_o, state) => state.storage.sql.exec<T>(query).toArray());
 const pondRows = () =>
   runInDurableObject(stub(), (_o, state) =>
     state.storage.sql.exec('SELECT id, seed, epoch, cx, cy, created FROM ponds').toArray(),
@@ -360,6 +362,33 @@ describe('ponds', () => {
       cx: CENTRE,
       cy: CENTRE,
     });
+  });
+
+  it('gives every pond the one world’s seed and clock', async () => {
+    const [world] = await sqlRows<{ seed: string; clock: number; epoch: number }>(
+      'SELECT seed, clock, epoch FROM world',
+    );
+    expect(world?.epoch).toBe(4);
+    expect(world?.seed).toMatch(/^[A-Za-z0-9_-]{16}$/);
+    await runInDurableObject(stub(), (o) => {
+      (o.env as unknown as Record<string, string>).DRAND_SOURCE = 'fixture';
+      (o.env as unknown as Record<string, string>).POND_MAX = '2';
+    });
+    try {
+      const players = await fill(3);
+      const ponds = players.map((p) => p.welcome.pond);
+      expect(new Set(ponds.map((p) => p.id)).size).toBe(2);
+      for (const pond of ponds) {
+        expect(pond.seed).toBe(world?.seed);
+        expect(pond.epoch).toBe(world?.clock);
+      }
+    } finally {
+      await runInDurableObject(stub(), (o) => {
+        const e = o.env as unknown as Record<string, string | undefined>;
+        e.POND_MAX = undefined;
+        e.DRAND_SOURCE = undefined;
+      });
+    }
   });
 
   it('puts the second player in the same pond, on the ring, and tells the first', async () => {
@@ -459,7 +488,7 @@ describe('ponds', () => {
           )
           .one().n,
     );
-    expect(rows).toBe(11); // the pond and the ten schema versions
+    expect(rows).toBe(12); // the pond and the eleven schema versions
   });
 
   it('keeps the pond and the roster across hibernation', async () => {

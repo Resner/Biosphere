@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 11,
+    "rules": 12,
     "start": {
       "id": "enc-golden-join",
       "pondSeed": "golden-join",
@@ -300,7 +300,7 @@
       }
     ]
   },
-  "hash": "e24e0a0ba3fa387b",
+  "hash": "33be82c60471d8a7",
   "results": [
     {
       "outcome": "escaped",

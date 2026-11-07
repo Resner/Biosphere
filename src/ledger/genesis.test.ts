@@ -110,8 +110,8 @@ describe('checkGenesis', () => {
     expect(m.record.body.karyotype).toBe(2);
     for (const [rules, problem] of [
       [5, 'rules-retired'],
-      [10, 'rules-retired'],
-      [12, 'rules-unknown'],
+      [11, 'rules-retired'],
+      [13, 'rules-unknown'],
     ] as const) {
       const other = { ...m.record, rules };
       expect(checkGenesis(other, m.commit, m.beacon, genomeToBase64url(m.genome))).toEqual([
