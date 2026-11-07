@@ -2,7 +2,7 @@ import type { Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { state } from './helpers';
-import { FIGHT_WALL_MS, parkBeside, seen } from './m7-fight';
+import { FIGHT_WALL_MS, parkBeside, SETTLE_TICKS, seen } from './m7-fight';
 
 // Shared by the M8 hub specs (M8 T10): an engage that returns the fight's id, a chase that keeps
 // the fight going while the network does its worst, and a flight that ends it.
@@ -16,10 +16,12 @@ type Ids = { idA: string; idB: string };
 export async function engage(a: Page, ids: Ids, previous?: string): Promise<string> {
   await expect(async () => {
     await parkBeside(a, ids.idB);
-    // The engage carries A's signed snapshot: let a few leave from the new place first.
-    const at = (await state(a)).tick;
-    await a.waitForFunction((t) => (window.__bs?.state().tick ?? 0) >= t + 15, at, {
-      timeout: 8_000,
+    // The engage carries A's signed snapshot, and B's answer the snapshots it received of A in the
+    // last `SEEN_MS`: the movement check (`engage:moved`, flagged `teleport`) would see A jump from
+    // where it was to where the test parked it. Let the old ones age out first, in A's ticks.
+    const until = (await state(a)).tick + SETTLE_TICKS;
+    await a.waitForFunction((t) => (window.__bs?.state().tick ?? 0) >= t, until, {
+      timeout: 15_000,
     });
     await a.keyboard.press('f');
     await a.waitForFunction(
