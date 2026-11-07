@@ -192,7 +192,9 @@ export class Links {
       if (a) a.answered = true;
       void this.o.mesh.handleSignal(from, 'answer', sdp);
     } else if (kind === 'refuse') {
-      if (!this.out.has(from)) return;
+      // Only an unanswered call of this page is refused; a stale or replayed refusal is ignored.
+      const call = this.out.get(from);
+      if (!call || call.answered) return;
       this.close(from);
       this.backOff(from, now);
     } else {

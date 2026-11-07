@@ -629,7 +629,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The world in the game
 
-- [x] T13 The session in the world: links by area of interest [opus] (after T6, T9, T12) (in progress)
+- [x] T13 The session in the world: links by area of interest [opus] (after T6, T9, T12)
   - Done: `OnlineSession` with `neighbours.ts` (the known set) and `online-links.ts` (`Links`, the plan and dial loop, whose constants the harness now imports); signals carry `cls` and a `refuse` kind (inside `signalBytes`, now 130 bytes), and the mesh runs with `retry: false` and re-answers a repeated offer. Gotchas: the seat checks load lazily (no `@noble/curves` in the shell), away fighters are judged by the roster (`present`), not by a name; a local hub run needs a config that starts only its hub.
   - Steps:
     1. `src/game/online.ts`, split into `online-links.ts` and `neighbours.ts`:
