@@ -3,6 +3,7 @@ import type { Member, Vec2 } from '../net/protocol';
 import type { CellView } from '../render/cell';
 import type { CreatureSource } from '../render/creature-cache';
 import type { RemoteCellView } from '../render/remotes';
+import type { SwarmPoint } from '../render/swarms';
 import type { TelegraphMark } from '../render/telegraph';
 import { sightRadius } from '../render/zones';
 import { depthAt, zoneOfDepth } from '../sim/bathymetry';
@@ -17,6 +18,7 @@ import type { EggShow } from './eggs';
 import { edgeIndicators, type Indicator } from './indicators';
 import type { LabelProjection } from './labels';
 import type { MinimapView } from './minimap';
+import { NO_SWARM } from './neighbours';
 import type { DrawnRemote } from './remote-bodies';
 import type { Anchor } from './social-ui';
 import { zoneReadout } from './zone-readout';
@@ -52,6 +54,7 @@ export class Frame {
     telegraphs: readonly TelegraphMark[];
     sight: number;
     flow: { x: number; y: number };
+    swarm: readonly SwarmPoint[];
   };
   readonly cell: CellView = {
     x: 0,
@@ -113,6 +116,7 @@ export class Frame {
       telegraphs: [],
       sight: 1,
       flow: { x: 0, y: 0 },
+      swarm: NO_SWARM,
     };
     this.minimapView = {
       seed: app.session.world.seed32,
@@ -348,6 +352,8 @@ export class Frame {
         ? app.remoteBodies.resolve(app.remotes.sample(now, app.pondMs()), now)
         : NO_REMOTES;
     const { remoteViews } = app;
+    // The directory's swarm (M11 T17): players too small to link, drawn as faint clouds.
+    view.swarm = joined && keeper.current ? keeper.current.swarm() : NO_SWARM;
     app.fight.drawRemotes(remoteViews);
     app.online.updateNetUi(now, joined);
     app.ui.updateHatchNote();

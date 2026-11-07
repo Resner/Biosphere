@@ -36,8 +36,10 @@ export class PlumeLayer {
     this.mesh.instanceMatrix.needsUpdate = true;
   }
 
-  update(time: number): void {
+  /** `look` is the look's scale (M11 T17): the rim widens with it. */
+  update(time: number, look: number): void {
     setUniform(this.material, 'uTime', time);
+    setUniform(this.material, 'uLook', look);
   }
 
   dispose(): void {

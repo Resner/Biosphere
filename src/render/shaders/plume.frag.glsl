@@ -1,7 +1,11 @@
 // A toxic plume: swirling violet murk with a pulsing, dashed rim, so it reads without colour.
 uniform float uTime;
+// The look's scale (M11 T17, look.ts): the rim is at least PLUME_RIM_WU times it wide, so a giant
+// still reads a plume's dashed edge, up to a tenth of the plume's radius.
+uniform float uLook;
 varying vec2 vP;
 varying float vPhase;
+varying float vSize;
 
 void main() {
   float d = length(vP);
@@ -15,7 +19,8 @@ void main() {
   vec3 col = mix(vec3(0.30, 0.05, 0.42), vec3(0.85, 0.25, 0.60), n);
   float alpha = mask * (0.30 + 0.35 * n);
 
-  float ring = 1.0 - smoothstep(0.0, 0.045, abs(d - 0.9));
+  float rim = clamp(PLUME_RIM_WU * uLook / max(vSize, 1e-3), 0.045, 0.1);
+  float ring = 1.0 - smoothstep(0.0, rim, abs(d - 0.9));
   float dashes = 0.55 + 0.45 * sin(angle * 18.0 - uTime * 1.6);
   col += vec3(1.0, 0.55, 0.85) * ring * dashes;
   alpha = max(alpha, ring * (0.35 + 0.5 * dashes));

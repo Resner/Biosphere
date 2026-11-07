@@ -3,10 +3,15 @@
 // plus up to `uSpread` either way. The depth sets how much of the camera motion the speck follows
 // and, with the depth of field (M6 T3), the radius of its circle of confusion: the sprite grows by
 // it and spreads its light over the larger disc (`bokehShape` in `post/dof.ts` mirrors this).
-// The camera from the floating origin (M11 T11), and the origin in whole steps of ORIGIN_STEP wu.
+// The look scale (M11 T17): the layer is drawn around a virtual camera in the patterns' units (wu at
+// a starter's scale), split into whole steps of ORIGIN_STEP and the rest, and every offset from the
+// camera and every size grows by `uLook`, so a giant's snow reads like a starter's.
+// The camera from the floating origin (M11 T11), where the specks are placed around.
 uniform vec2 uCam;
-uniform vec2 uOriginStep;
-/** How far the currents have carried the water, wrapped to the tile (M6 T17). */
+uniform vec2 uAnchor;
+uniform vec2 uAnchorStep;
+uniform float uLook;
+/** How far the currents have carried the water, in the patterns' units, wrapped to the tile (M6 T17). */
 uniform vec2 uFlow;
 uniform float uPeriod;
 uniform float uDepth;
@@ -51,11 +56,11 @@ void main() {
   float parallax = 1.0 / (1.0 - z);
   // Its own slow drift, and the currents that carry all the water (M6 T17).
   vec2 drift = vec2(0.8 + 1.2 * aSeed, 0.3 * sin(uTime * 0.3 + aSeed * 6.2831)) * uTime + uFlow;
-  // The camera's world position times the parallax, wrapped to the tile: the origin's part is a
-  // whole number of steps, each worth a step's parallax wrapped to the tile, so the specks never
-  // jump when the origin moves and keep their precision far out in the world.
-  vec2 origin = mod(uOriginStep * mod(ORIGIN_STEP * parallax, uPeriod), uPeriod);
-  vec2 rel = mod(position.xy * uPeriod + drift - uCam * parallax - origin, uPeriod) - 0.5 * uPeriod;
+  // The virtual camera times the parallax, wrapped to the tile: its whole steps are each worth a
+  // step's parallax wrapped to the tile, so the specks never jump when it crosses one and keep
+  // their precision far out in the world.
+  vec2 origin = mod(uAnchorStep * mod(ORIGIN_STEP * parallax, uPeriod), uPeriod);
+  vec2 rel = (mod(position.xy * uPeriod + drift - uAnchor * parallax - origin, uPeriod) - 0.5 * uPeriod) * uLook;
   vSeed = aSeed;
 
   float coc = min(uCocMax, uCocSlope * abs(z - uFocus));
@@ -65,7 +70,7 @@ void main() {
   vLight = bright ? uSparkleLight : 1.0;
   float grown = bright ? uSparkleSize : 1.0;
   float size = max(
-    min(uSize * grown * (0.6 + aSeed) * uPxPerWu, uMaxSize - 2.0 * (coc + fringe)),
+    min(uSize * uLook * grown * (0.6 + aSeed) * uPxPerWu, uMaxSize - 2.0 * (coc + fringe)),
     0.5
   );
   float radius = size * (0.25 + 0.21 * uBokeh);

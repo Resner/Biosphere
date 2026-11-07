@@ -204,13 +204,17 @@ const welcome = (worldId = 'world1'): Welcome => ({
 });
 
 const LEAF = { x: 0, y: 0, size: 262_144 };
-const nearMsg = (peers: [id: string, dx: number][], age = 0): WorldMsg => ({
+const nearMsg = (
+  peers: [id: string, dx: number][],
+  age = 0,
+  swarm: [x: number, y: number][] = [],
+): WorldMsg => ({
   t: 'near',
   leaf: LEAF,
   peers: peers.map(
     ([id, dx]): NearPeer => ({ id, name: id.toUpperCase(), x: C + dx, y: C, r: 10, age }),
   ),
-  swarm: [],
+  swarm,
 });
 
 /** A starter's snapshot `dx` wu east of the world's centre. */
@@ -426,6 +430,26 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
     run(2100);
     expect(hub.sent.filter((m) => m.t === 'where')).toHaveLength(1);
     expect(session.netInfo().where.sent).toBe(2);
+  });
+
+  it('keeps the newest near’s swarm while in the water, and forgets it out of it or on a new hub session (M11 T17)', () => {
+    const { hub, session, setCreature } = settled();
+    expect(session.swarm()).toEqual([]);
+    const swarm: [number, number][] = [
+      [C + 500, C],
+      [C - 800, C + 200],
+    ];
+    hub.world(nearMsg([], 0, swarm));
+    expect(session.swarm()).toEqual(swarm);
+    // A newer answer replaces it as a whole.
+    hub.world(nearMsg([], 0, [[C, C + 900]]));
+    expect(session.swarm()).toEqual([[C, C + 900]]);
+    setCreature({ x: C, y: C, vx: 0, vy: 0, r: 10, adultR: 20, inWater: false });
+    expect(session.swarm()).toEqual([]);
+    setCreature({ x: C, y: C, vx: 0, vy: 0, r: 10, adultR: 20, inWater: true });
+    expect(session.swarm()).toEqual([[C, C + 900]]);
+    hub.welcome(welcome());
+    expect(session.swarm()).toEqual([]);
   });
 
   it('gossips to linked peers and takes theirs, and passes a relay to the route', () => {
