@@ -386,10 +386,11 @@ export class OnlineWiring {
     }
     const status = keeper.current?.status ?? 'connecting';
     app.hud.setOffline(offlineChip(hubUrl !== null, status, apart) ? text : null);
+    const online = joined !== null && keeper.current?.status === 'online';
     const lonely = this.alone.update(
       now,
-      joined !== null && keeper.current?.status === 'online',
-      keeper.current?.alone() === false ? 1 : 0,
+      online,
+      online && keeper.current?.alone() === false ? 1 : 0,
     );
     if (this.aloneElement.hidden === lonely) this.aloneElement.hidden = !lonely;
   }

@@ -5,7 +5,7 @@
 
 import type { Identity } from '../ledger/identity';
 import type { PubKey } from '../ledger/record';
-import { type AoiSelf, aoiRadius } from '../net/aoi';
+import { type AoiSelf, aoiRadius, queryRadius } from '../net/aoi';
 import type { PondClock } from '../net/clock';
 import {
   type DutyMsg,
@@ -297,7 +297,7 @@ export class OnlineSession {
     if (this.openCount() > 0) return false;
     const c = this.opts.creature?.();
     if (!c) return true;
-    const q = Math.max(8192, 4 * aoiRadius(c.r, c.adultR));
+    const q = queryRadius(aoiRadius(c.r, c.adultR));
     return !this.neighbours.anyWithin(c.x, c.y, q, this.now());
   }
 

@@ -9,7 +9,7 @@
 // `ConnectionPolicy.duty`, under the same cap rule as every other link.
 
 import { AoiManager, type AoiSelf } from '../net/aoi';
-import { ConnectionPolicy, DEFAULT_CAP, type LinkClass, NO_CLASS } from '../net/connection-policy';
+import { ConnectionPolicy, type LinkClass, NO_CLASS } from '../net/connection-policy';
 import type { PeerMesh } from '../net/peer-mesh';
 import type { Pos, SignalKind, WireClass } from '../net/protocol';
 import type { Neighbours } from './neighbours';
@@ -85,7 +85,6 @@ export class Links {
   /** Offers this page refused. */
   refused = 0;
   private mgr: AoiManager;
-  private capValue = DEFAULT_CAP;
   /** The duty peers (P0) by `duty(id, on)`; `duties` keeps the fights each serves. */
   private readonly policy: ConnectionPolicy;
   private readonly duties = new Map<string, Set<string>>();
@@ -103,14 +102,14 @@ export class Links {
     this.policy = new ConnectionPolicy({ selfId: o.selfId });
   }
 
-  get cap(): number {
-    return this.capValue;
+  /** A peer's planned class, P4 when the plan doesn't know it. */
+  private classOrFar(id: string): WireClass {
+    return (this.classes.get(id) ?? 4) as WireClass;
   }
 
   /** Sets the room for P2 to P4 (`debug.netCap`, 1 to 24); P0 and P1 may still reach 32. */
   setCap(cap: number): void {
     this.mgr = new AoiManager({ selfId: this.o.selfId, cap });
-    this.capValue = cap;
     this.plan();
   }
 
@@ -148,7 +147,7 @@ export class Links {
     let dials = 0;
     for (const id of plan.connect) {
       if (this.o.mesh.peers().includes(id)) continue;
-      const cls = (this.classes.get(id) ?? 4) as WireClass;
+      const cls = this.classOrFar(id);
       // A refusal holds off a P3 or P4 call; P0 to P2 are asked again at once.
       if (cls > 2 && (this.refusedUntil.get(id) ?? 0) > now) continue;
       const urgent = cls <= 1;
@@ -177,7 +176,7 @@ export class Links {
   /** The mesh's own signal (an offer or answer it made): out by the route, with this page's class. */
   outgoing(to: string, kind: 'offer' | 'answer', sdp: string): void {
     const a = kind === 'offer' ? this.out.get(to) : undefined;
-    const cls = a?.cls ?? ((this.classes.get(to) ?? 4) as WireClass);
+    const cls = a?.cls ?? this.classOrFar(to);
     // P0 and P1 go through the hub: a peer's relay that fails silently costs 4 s of a 3 s lead.
     const way = this.o.send(to, kind, sdp, cls, kind === 'offer' && cls <= 1);
     if (a) a.viaHub = way === 'hub';
@@ -287,7 +286,7 @@ export class Links {
     }
     if (!this.o.ready() || !this.admit(from, cls, now)) {
       this.refused++;
-      this.o.send(from, 'refuse', '', (this.classes.get(from) ?? 4) as WireClass, false);
+      this.o.send(from, 'refuse', '', this.classOrFar(from), false);
       return;
     }
     this.out.delete(from);
