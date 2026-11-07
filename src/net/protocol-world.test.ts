@@ -47,7 +47,6 @@ const welcome = {
     size: 262_144,
   },
   you: { spawnHint: { x: 131_400, y: 131_000.5 } },
-  members: [{ playerId: PID2, name: 'bob' }],
   ice: [{ urls: 'stun:stun.example.org' }],
   turn: false,
   now: 1_700_000_001_234,
@@ -170,20 +169,22 @@ describe('the welcome', () => {
     expect(parseHubMsg(json({ ...welcome, world: { ...welcome.world, size: 0 } }))).toBeNull();
   });
 
+  it('holds no roster: a welcome’s members are dropped and a member message is refused (T14)', () => {
+    const roster = [{ playerId: PID2, name: 'bob' }];
+    expect(parseHubMsg(json({ ...welcome, members: roster }))).not.toHaveProperty('members');
+    const member = { playerId: PID2, name: 'bob' };
+    expect(parseHubMsg(json({ t: 'member', op: 'join', member }))).toBeNull();
+  });
+
   it('refuses a malformed ticket', () => {
     expect(parseHubMsg(json({ ...welcome, ticket: { ...ticket, keyId: 'x' } }))).toBeNull();
     expect(parseHubMsg(json({ ...welcome, ticket: null }))).toBeNull();
   });
 
   it('still fits the worst case with a ticket', () => {
-    const members = Array.from({ length: 23 }, (_, i) => ({
-      playerId: String.fromCharCode(65 + i).repeat(43),
-      name: 'n'.repeat(16),
-    }));
     const worst = {
       ...welcome,
       world: { ...welcome.world, id: 'w'.repeat(64), seed: 's'.repeat(64) },
-      members,
       ice: [
         { urls: 'stun:stun.cloudflare.com:3478' },
         { urls: 'stun:stun.l.google.com:19302' },

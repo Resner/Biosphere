@@ -15,6 +15,7 @@ import {
   hatch,
   login,
   nextOf,
+  placed,
   publish,
   report,
   rowsWritten,
@@ -69,6 +70,7 @@ async function adult(): Promise<Player> {
   p.ticks += 12 * TICKS_PER_S;
   report(c, p.ticks, CALM);
   await nextOf(c, 'ack');
+  await placed(p);
   return p;
 }
 

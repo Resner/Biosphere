@@ -116,10 +116,10 @@ export function bornFor(hub: Hub, child: Head): Born | null {
     : null;
 }
 
-/** The other seated session of `playerId` in the sender's pond, or null. */
-export function peerOf(hub: Hub, ws: WebSocket, session: ActiveSession, playerId: string) {
+/** The other seated session of `playerId` anywhere in the world, or null. */
+export function peerOf(hub: Hub, ws: WebSocket, playerId: string) {
   for (const [other, theirs] of activeSessions(hub, ws)) {
-    if (theirs.pondId === session.pondId && theirs.playerId === playerId) {
+    if (theirs.playerId === playerId) {
       return { ws: other, session: theirs };
     }
   }
@@ -127,8 +127,8 @@ export function peerOf(hub: Hub, ws: WebSocket, session: ActiveSession, playerId
 }
 
 /** The peer, when it is playing a creature (the `life` is narrowed for the caller). */
-export function partnerOf(hub: Hub, ws: WebSocket, session: ActiveSession, playerId: string) {
-  const peer = peerOf(hub, ws, session, playerId);
+export function partnerOf(hub: Hub, ws: WebSocket, playerId: string) {
+  const peer = peerOf(hub, ws, playerId);
   return peer?.session.life
     ? { ws: peer.ws, session: peer.session, life: peer.session.life }
     : null;
@@ -167,7 +167,7 @@ export function mateCheck(
   session: ActiveSession,
   partnerId: string,
 ): void {
-  const other = session.life ? partnerOf(hub, ws, session, partnerId) : null;
+  const other = session.life ? partnerOf(hub, ws, partnerId) : null;
   if (!session.life || !other) {
     sendIfOpen(ws, {
       t: 'mate-info',
@@ -210,7 +210,7 @@ export function court(
   if (ask.creature !== session.life.creature || !signedBy(session.playerId, ask)) {
     return refuse('bad-signature');
   }
-  const other = partnerOf(hub, ws, session, ask.partner);
+  const other = partnerOf(hub, ws, ask.partner);
   if (!other) return refuse('not-here');
   if (courtTooFar(hub, session.playerId, ask.partner)) return refuse('not-near');
   if (ask.partnerCreature !== other.life.creature) return refuse('pair-mismatch');
@@ -240,7 +240,7 @@ function replayed(hub: Hub, ws: WebSocket, owner: string, ask: MateAsk): false {
 }
 
 export function decline(hub: Hub, ws: WebSocket, session: ActiveSession, courter: string): void {
-  const peer = peerOf(hub, ws, session, courter);
+  const peer = peerOf(hub, ws, courter);
   const court = peer?.session.court;
   if (peer && court && 'ask' in court && court.ask.partner === session.playerId) {
     peer.ws.serializeAttachment({ ...peer.session, court: undefined } satisfies Session);
@@ -275,7 +275,7 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
   if (ask.creature !== me.life.creature || !signedBy(me.playerId, ask)) {
     return refuse('bad-signature');
   }
-  const found = peerOf(hub, ws, me, ask.partner);
+  const found = peerOf(hub, ws, ask.partner);
   if (!found) return refuse('no-court');
   const { court } = found.session;
   if (court && 'done' in court) {

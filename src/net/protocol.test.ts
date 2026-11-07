@@ -351,7 +351,6 @@ const hubMsgs: HubMsg[] = [
       size: 8192,
     },
     you: { spawnHint: { x: 4400, y: 4000.5 } },
-    members: [{ playerId: PID, name: 'bob' }],
     ice: [
       { urls: 'stun:stun.example.org' },
       { urls: ['turn:t.example.org?transport=udp'], username: 'u', credential: 'c' },
@@ -360,8 +359,6 @@ const hubMsgs: HubMsg[] = [
     now: 1_700_000_001_234,
   },
   { t: 'pong', id: 3, now: 1_700_000_001_234 },
-  { t: 'member', op: 'join', member: { playerId: PID, name: 'bob' } },
-  { t: 'member', op: 'leave', member: { playerId: PID, name: 'bob' } },
   { t: 'signal', from: PID, kind: 'offer', sdp: 'v=0' },
   { t: 'signal', from: PID, kind: 'offer', sdp: 'v=0', cls: 0 },
   { t: 'signal', from: PID, kind: 'refuse', sdp: '' },
@@ -434,11 +431,7 @@ const peerEvents = [
 ];
 
 describe('welcome size', () => {
-  it('parses the worst case: 23 members with 16-character names, STUN and two TURN entries with maximal credentials', () => {
-    const members = Array.from({ length: 23 }, (_, i) => ({
-      playerId: String.fromCharCode(65 + i).repeat(43),
-      name: 'n'.repeat(16),
-    }));
+  it('parses the worst case: STUN and two TURN entries with maximal credentials', () => {
     const welcome: HubMsg = {
       t: 'welcome',
       world: {
@@ -449,7 +442,6 @@ describe('welcome size', () => {
         size: 8192,
       },
       you: { spawnHint: { x: 4400.123456789012, y: 4000.123456789012 } },
-      members,
       ice: [
         { urls: 'stun:stun.cloudflare.com:3478' },
         { urls: 'stun:stun.l.google.com:19302' },

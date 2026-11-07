@@ -146,15 +146,11 @@ export class Directory {
   /**
    * The answer to a member's report: its leaf; `peers`, the `NEAR_MAX` nearest others within its
    * query radius that pass `linkTiers` with it, nearest first, with the ms since each reported;
-   * `swarm`, the `SWARM_MAX` nearest others too small to link within its AoI, as points. `keep`
-   * filters the others (the hub's pond, until T14). Positions go out in 1/8 wu steps, and the
-   * farthest entries are dropped until the message fits `NEAR_MAX_BYTES`. Null for an unknown id.
+   * `swarm`, the `SWARM_MAX` nearest others too small to link within its AoI, as points, across
+   * the whole world. Positions go out in 1/8 wu steps, and the farthest entries are dropped until
+   * the message fits `NEAR_MAX_BYTES`. Null for an unknown id.
    */
-  near(
-    id: string,
-    now: number,
-    keep: (other: string) => boolean = () => true,
-  ): { leaf: Leaf; peers: NearPeer[]; swarm: [number, number][] } | null {
+  near(id: string, now: number): { leaf: Leaf; peers: NearPeer[]; swarm: [number, number][] } | null {
     const held = this.byId.get(id);
     if (!held) return null;
     const self = held.m;
@@ -162,7 +158,7 @@ export class Directory {
     const peers: { d: number; m: DirMember }[] = [];
     const swarm: { d: number; m: DirMember }[] = [];
     this.visit(self.x, self.y, q, (other, m) => {
-      if (other === id || !keep(other)) return;
+      if (other === id) return;
       const d = Math.hypot(m.x - self.x, m.y - self.y);
       if (d > q) return;
       if (linkTiers(self.r, m.r)) peers.push({ d, m });

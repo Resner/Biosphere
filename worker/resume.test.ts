@@ -40,13 +40,14 @@ import {
   freshNonce,
   genesisRequest,
   nextOf,
+  placed,
   report,
   signIn,
   sql,
 } from './test-hub';
 
 // M8 T6: a player who signs in again during its fight returns to it (ADR 0053): its seat in the
-// fight's pond was held, `life` names the fight, and the fight follows from its start; its locks
+// world was held, `life` names the fight, and the fight follows from its start; its locks
 // hold across the sign-in, and nothing of its life is credited or written until the settlement.
 
 const E = RULES.encounter;
@@ -68,11 +69,10 @@ async function leave(p: Player): Promise<void> {
   await p.c.closed;
 }
 
-/** What a sign-in got: everything up to the answer to a ping, member news aside. */
+/** What a sign-in got: everything up to the answer to a ping. */
 async function signInAgain(p: Player): Promise<{ c: Client; got: HubMsg[] }> {
   const { c } = await signIn(p.id);
-  const got = (await flush(c)).filter((m) => m.t !== 'member');
-  return { c, got };
+  return { c, got: await flush(c) };
 }
 
 /** The fight the player is locked in, as the object holds it. */
@@ -82,7 +82,7 @@ const fightOf = (p: Player) =>
     return fight ? { next: fight.referee.next, history: fight.history, pond: fight.pond } : null;
   });
 
-/** The resume sequence: `welcome` for the fight's pond, `life` naming the fight, `enc-start`, then the history. */
+/** The resume sequence: `welcome` to the fight's world, `life` naming the fight, `enc-start`, then the history. */
 async function expectResume(got: HubMsg[], p: Player, start: EncStart): Promise<void> {
   const fight = await fightOf(p);
   if (!fight) throw new Error('no fight');
@@ -99,37 +99,13 @@ async function expectResume(got: HubMsg[], p: Player, start: EncStart): Promise<
   expect(rest).toEqual(fight.history);
 }
 
-/** Moves every seated session of these players into another pond, made for them. */
-async function moveTo(pond: string, players: Player[]): Promise<void> {
-  await sql(
-    "INSERT INTO ponds (id, seed, epoch, cx, cy, created) VALUES (?, 'other', 0, 4000, 4000, 0)",
-    pond,
-  );
-  const ids = new Set(players.map((p) => p.id.playerId));
-  await authority((o) => {
-    for (const ws of o.ctx.getWebSockets()) {
-      const s = ws.deserializeAttachment() as Session | null;
-      if (s?.phase === 'active' && ids.has(s.playerId))
-        ws.serializeAttachment({ ...s, pondId: pond });
-    }
-  });
-}
-
-/** A signed-in player with no creature, as a `Player` (only its socket and identity are used). */
-async function newcomer(): Promise<Player> {
-  const { c, id, pond } = await join();
-  return { c, id, pond, creature: '', ref: 0, ticks: 0 };
-}
-
 describe('back to the fight', () => {
-  it('a sign-in mid-fight gets the fight’s pond (though another is fuller), `life` with the fight, then `enc-start`, every frame and every join', async () => {
+  it('a sign-in mid-fight gets the world, `life` with the fight, then `enc-start`, every frame and every join', async () => {
     const [a, b] = await fighters();
     const c = await hatched();
     await advance(16_000);
     await sql('UPDATE ponds SET seed = ? WHERE id = ?', CALM_SEED, c.pond.id);
     c.pond = { ...c.pond, seed: CALM_SEED };
-    const others = [await newcomer(), await newcomer(), await newcomer()];
-    await moveTo('fuller', others);
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.5, energy: 0 }));
     await play(a, b, start, IDLE, 2);
     c.c.send({
@@ -142,7 +118,7 @@ describe('back to the fight', () => {
     expect(joined.fighter.player).toBe(c.id.playerId);
     await leave(b);
     await advanceTo(start.at + 5 * FRAME_MS + E.inputDeadlineMs + 1);
-    // The fight's pond holds A and C, the other three, with B away: B still goes back to its fight.
+    // B is away while A and C fight on: B still goes back to its fight.
     const { got } = await signInAgain(b);
     expect(await locked(b)).toBe(true);
     await expectResume(got, b, start);
@@ -204,19 +180,6 @@ describe('back to the fight', () => {
 });
 
 describe('an away fighter keeps its seat', () => {
-  it('in its pond’s 24: a 24th player who signs in while B is away goes to another pond', async () => {
-    const [a, b] = await fighters();
-    await outOfReach(a, b);
-    const crowd: Player[] = [];
-    for (let i = 0; i < 22; i++) crowd.push(await newcomer());
-    expect(crowd.every((p) => p.pond.id === a.pond.id)).toBe(true);
-    await leave(b);
-    const late = await newcomer();
-    expect(late.pond.id).not.toBe(a.pond.id);
-    const { got } = await signInAgain(b);
-    expect(got[0]?.t === 'welcome' && got[0].world.id).toBe(a.pond.id);
-  });
-
   it('in `MAX_SESSIONS`: B is seated at once and a newcomer is queued', async () => {
     const [a, b] = await fighters();
     const start = await outOfReach(a, b);
@@ -310,6 +273,7 @@ describe('life across a sign-in during the fight', () => {
       partnerCreature: b.creature,
       nonce: freshNonce(),
     });
+    await placed(a, b);
     a.c.send({ t: 'court', ask });
     await nextOf(b.c, 'invite');
     // B starves within a few seconds of the fight.
@@ -317,6 +281,7 @@ describe('life across a sign-in during the fight', () => {
     await leave(b);
     const back = await signInAgain(b);
     expect(back.got.map((m) => m.t).slice(0, 3)).toEqual(['welcome', 'life', 'enc-start']);
+    await placed(back);
     const answer = signMateAsk(b.id, {
       creature: b.creature,
       partner: a.id.playerId,

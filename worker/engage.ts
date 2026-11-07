@@ -47,6 +47,7 @@ import {
 } from './socket';
 import { witnessLocked } from './witness-fight';
 import { commitWitnesses } from './witness-pool';
+import { worldRow } from './world';
 
 const E = RULES.encounter;
 /** Clock slack either way on a snapshot's pond tick. */
@@ -236,11 +237,8 @@ function check(
   const theirs = found ? liveHead(hub, found[1]) : null;
   if (!found || !theirs) return 'engage:target';
   const [targetWs, targetSession] = found;
-  if (targetSession.pondId !== session.pondId) return 'engage:pond';
-  const pond = hub.ctx.storage.sql
-    .exec<PondRow>('SELECT id, seed, epoch FROM ponds WHERE id = ?', session.pondId)
-    .toArray()[0];
-  if (!pond) return 'engage:pond';
+  // Anyone in the world: the engage's own checks decide (M11 T14).
+  const pond = worldRow(hub);
 
   const ownSnap = verifySnap(session.playerId, pond.id, msg.mine);
   const targetSnap = verifySnap(msg.target, pond.id, msg.theirs);

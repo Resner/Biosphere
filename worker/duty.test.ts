@@ -193,10 +193,6 @@ describe('witness duties', () => {
 });
 
 describe('the signal relay for duty links (M10 T6)', () => {
-  const env = (vars: Record<string, string | undefined>) =>
-    authority((o) => {
-      Object.assign(o.env as unknown as Record<string, string | undefined>, vars);
-    });
   const offer = (from: Player | Witness, to: Player | Witness) =>
     from.c.send({ t: 'signal', to: to.id.playerId, kind: 'offer', sdp: 'v=0' });
   const relayed = async (from: Player | Witness, to: Player | Witness) => {
@@ -211,35 +207,29 @@ describe('the signal relay for duty links (M10 T6)', () => {
     return back.code === 'no-peer' && !types(theirs).includes('signal');
   };
 
-  it('passes signals between a referee witness and a fighter in another pond only while the duty runs', async () => {
-    await env({ DRAND_SOURCE: 'fixture', POND_MAX: '2' });
-    try {
-      const [a, b] = await fighters();
-      const [w] = await witnesses(1);
-      if (!w) throw new Error('no witness');
-      expect(w.pond.id).not.toBe(a.pond.id);
-      const start = await outOfReach(a, b);
-      const event = `enc:${start.enc}`;
-      await authority((o) => commitWitnesses(o, 'enc', start.enc, [a.id.playerId, b.id.playerId]));
-      const commit = await witnessCommit(event);
-      if (!commit) throw new Error('no witness commitment');
-      // Before the round: no duty, no relay across ponds.
-      expect(await refused(w, a)).toBe(true);
-      expect(await refused(a, w)).toBe(true);
-      await publish(commit.commitment.round);
-      expect((await nextOf(w.c, 'duty')).role).toBe('referee');
-      expect(await peerOf(a)).toEqual([w.id.playerId, true]);
-      // While it is offered: both ways, with each fighter.
-      expect(await relayed(w, a)).toBe(true);
-      expect(await relayed(a, w)).toBe(true);
-      expect(await relayed(w, b)).toBe(true);
-      // Declined, with nobody left to offer: the duty is over and so is the relay.
-      w.c.send({ t: 'duty-no', event });
-      expect(await peerOf(a)).toEqual([w.id.playerId, false]);
-      expect(await refused(w, a)).toBe(true);
-      expect(await refused(b, w)).toBe(true);
-    } finally {
-      await env({ POND_MAX: undefined });
-    }
+  it('passes signals between a referee witness and a fighter the directory does not place only while the duty runs', async () => {
+    const [a, b] = await fighters();
+    const [w] = await witnesses(1);
+    if (!w) throw new Error('no witness');
+    const start = await outOfReach(a, b);
+    const event = `enc:${start.enc}`;
+    await authority((o) => commitWitnesses(o, 'enc', start.enc, [a.id.playerId, b.id.playerId]));
+    const commit = await witnessCommit(event);
+    if (!commit) throw new Error('no witness commitment');
+    // Before the round: no duty, and no directory reach, so no relay.
+    expect(await refused(w, a)).toBe(true);
+    expect(await refused(a, w)).toBe(true);
+    await publish(commit.commitment.round);
+    expect((await nextOf(w.c, 'duty')).role).toBe('referee');
+    expect(await peerOf(a)).toEqual([w.id.playerId, true]);
+    // While it is offered: both ways, with each fighter.
+    expect(await relayed(w, a)).toBe(true);
+    expect(await relayed(a, w)).toBe(true);
+    expect(await relayed(w, b)).toBe(true);
+    // Declined, with nobody left to offer: the duty is over and so is the relay.
+    w.c.send({ t: 'duty-no', event });
+    expect(await peerOf(a)).toEqual([w.id.playerId, false]);
+    expect(await refused(w, a)).toBe(true);
+    expect(await refused(b, w)).toBe(true);
   });
 });

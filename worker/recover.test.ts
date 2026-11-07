@@ -44,6 +44,7 @@ import {
   freshNonce,
   genesisRequest,
   nextOf,
+  placed,
   report,
   sql,
   stub,
@@ -133,6 +134,7 @@ describe('recovery rebuilds the locks', () => {
       partnerCreature: b.creature,
       nonce: freshNonce(),
     });
+    await placed(a, b);
     a.c.send({ t: 'court', ask });
     await nextOf(b.c, 'invite');
     await lockIn(a, b);

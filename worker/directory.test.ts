@@ -193,14 +193,6 @@ describe('near', () => {
     expect(dir.near(id(1), 0)?.swarm).toEqual([]);
   });
 
-  it('passes only the members `keep` takes', () => {
-    const dir = new Directory(WORLD);
-    dir.report(member(0, 5000, 5000));
-    dir.report(member(1, 5100, 5000));
-    dir.report(member(2, 5200, 5000));
-    expect(dir.near(id(0), 0, (o) => o !== id(1))?.peers.map((p) => p.id)).toEqual([id(2)]);
-  });
-
   it('fits 8 KB: positions in 1/8 wu, and the farthest dropped first', () => {
     const dir = new Directory(WORLD);
     const rand = seeded(6);

@@ -19,6 +19,7 @@ import {
   hatch,
   login,
   nextOf,
+  placed,
   publish,
   report,
   rowsWritten,
@@ -84,6 +85,7 @@ async function adult(): Promise<Player> {
   const g = await hatch(c, id);
   const p = { c, id, creature: recordHash(g.record.record), ticks: 0, activeMs: 0, lifespan: 0 };
   await play(p, 12_000);
+  await placed(p);
   return p;
 }
 

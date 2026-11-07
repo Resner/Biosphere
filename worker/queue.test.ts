@@ -41,7 +41,6 @@ async function queueUp() {
   return { c, id, msg };
 }
 
-const types = (msgs: HubMsg[]) => msgs.map((m) => m.t);
 
 describe('admission queue', () => {
   beforeEach(() => configure({ MAX_SESSIONS: '3' }));
@@ -53,9 +52,9 @@ describe('admission queue', () => {
     const fifth = await queueUp();
     expect(fourth.msg).toEqual({ t: 'queued', position: 1, etaS: 30 });
     expect(fifth.msg).toEqual({ t: 'queued', position: 2, etaS: 60 });
-    // Nobody in the pond hears of them.
+    // Nobody seated hears of them.
     for (const { c } of seated) {
-      expect(types(await flush(c))).not.toContain('member');
+      expect(await flush(c)).toEqual([]);
     }
   });
 

@@ -12,10 +12,9 @@ interface Env {
   MATING_SCALE?: string;
   /** Whole ms, at most 10 s: how long a fight everyone left waits before it is played out at once, for E2E; fixture mode only (ADR 0053). */
   AWAY_GRACE_MS?: string;
-  /** Witnesses, for E2E and fixture mode only (ADR 0058): the play needed to witness (whole ms), `off` to skip the IP check (every local context shares localhost), and a pond's capacity for new seats (2–24). */
+  /** Witnesses, for E2E and fixture mode only (ADR 0058): the play needed to witness (whole ms), and `off` to skip the IP check (every local context shares localhost). */
   WITNESS_PLAY_MS?: string;
   WITNESS_IP_CHECK?: string;
-  POND_MAX?: string;
   /** The directory's leaf cap (1–16, M11 T6), so a few E2E pages make leaves; fixture mode only. */
   LEAF_MAX?: string;
   /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */

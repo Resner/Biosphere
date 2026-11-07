@@ -20,7 +20,7 @@ import {
   useFightHub,
 } from './fight-test-kit';
 import { bear, mated, must } from './ledger-test-kit';
-import { type Client, nextOf, signIn, sql } from './test-hub';
+import { type Client, nextOf, placed, signIn, sql } from './test-hub';
 
 // M7 T13: a fight's results as records, on the hub (ADR 0052): the settlement's records, `died`
 // with the killer and the fallback before `enc-end`, and what a reconnect gets after the end.
@@ -92,10 +92,10 @@ describe('a kill', () => {
     expect((await lifeOn(b))?.over).toBe(true);
   });
 
-  it('broadcasts the victim’s carrion to the whole pond, spectators included', async () => {
+  it('broadcasts the victim’s carrion to everyone near the kill, spectators included', async () => {
     const [a, b] = await fighters();
     const spectator = await join();
-    expect(spectator.pond.id).toBe(a.pond.id);
+    await placed(spectator);
     const [seenA, seenC] = [log(a.c), log(spectator.c)];
     const { start, end } = await killB(a, b);
     const victim = outcomeOf(end, b);
