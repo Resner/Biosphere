@@ -13,8 +13,10 @@
 import type { Beacon } from '../ledger/drand';
 import type { PubKey } from '../ledger/record';
 import type { AuditVerdict } from '../net/audit';
+import { MAX_CAP } from '../net/connection-policy';
 import type { DutyMsg } from '../net/hub-client';
 import type { AuditCase, PeerEvent } from '../net/protocol';
+import { ENC_MAX_FIGHTERS } from '../net/protocol-defs';
 import type { FighterInput } from '../net/witness-referee';
 import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
@@ -30,7 +32,7 @@ export const AVAIL_LATE_MS = 1000;
 /** The slowest 90th-percentile frame time that still witnesses. */
 export const AVAIL_P90_MS = 50;
 /** The most links of P0 and P1 a witness may want: a duty's 4 fighters keep it within 32 (M11 T16). */
-export const AVAIL_MAX_LINKS = 28;
+export const AVAIL_MAX_LINKS = MAX_CAP - ENC_MAX_FIGHTERS;
 
 export interface AvailInputs {
   /** The tab is visible. */

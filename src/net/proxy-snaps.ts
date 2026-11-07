@@ -146,11 +146,6 @@ export class ProxyReceiver {
     return true;
   }
 
-  /** The peer `player`'s proxies are taken from, or null. */
-  senderOf(player: string): string | null {
-    return this.sources.get(player)?.from ?? null;
-  }
-
   /** Each away player's sender, by player (`state().net.proxyFrom`). */
   senders(): Record<string, string> {
     return Object.fromEntries([...this.sources].map(([player, s]) => [player, s.from]));
@@ -159,7 +154,7 @@ export class ProxyReceiver {
   /** A peer that left stands in for nobody any more: the next sender of its players is taken at once. */
   forget(from: string): void {
     this.held.delete(from);
-    for (const [player, s] of [...this.sources]) if (s.from === from) this.sources.delete(player);
+    for (const [player, s] of this.sources) if (s.from === from) this.sources.delete(player);
   }
 
   /** One sender per away player: `from` is it, or the one before has sent nothing for 1 s. */

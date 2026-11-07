@@ -260,7 +260,7 @@ describe('ProxyReceiver', () => {
       expect(receiver.receive(r2, away, pose(ms + 1, 900 + k), ms)).toBe(false);
     }
     expect(receiver.dropped).toBe(10);
-    expect(receiver.senderOf(away)).toBe(r1);
+    expect(receiver.senders()[away]).toBe(r1);
     // r1 stops: r2's frames are dropped for 1 s after r1's last one, then taken.
     const lastR1 = ms - PROXY_INTERVAL_MS;
     for (; ms - lastR1 < PROXY_QUIET_MS; ms += PROXY_INTERVAL_MS) {
@@ -269,7 +269,7 @@ describe('ProxyReceiver', () => {
     }
     fighting(ms);
     expect(receiver.receive(r2, away, pose(ms, 960), ms)).toBe(true);
-    expect(receiver.senderOf(away)).toBe(r2);
+    expect(receiver.senders()[away]).toBe(r2);
     // And now r1, back, is the one dropped.
     expect(receiver.receive(r1, away, pose(ms + 1, 961), ms)).toBe(false);
     const drawn = remotes.sample(ms, ms).find((r) => r.id === away);

@@ -318,14 +318,13 @@ export class Links {
   private replan(now: number) {
     const self = this.o.self();
     const p0 = new Set([...this.duties.keys()].filter((id) => this.policy.isDuty(id)));
-    for (const [enc, f] of [...this.fights]) {
+    for (const [enc, f] of this.fights) {
       if (f.until > now) for (const id of f.peers) p0.add(id);
       else {
         this.fights.delete(enc);
         for (const id of f.peers) this.released.add(id);
       }
     }
-    for (const id of p0) this.released.delete(id);
     const classes = self
       ? this.mgr.classify(self, this.o.neighbours.known(now), p0, this.classes)
       : new Map<string, LinkClass>([...p0].map((id) => [id, 0]));
