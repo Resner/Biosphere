@@ -419,7 +419,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - A `where` writes no SQLite row. 21 messages in 10 s close a session, as before.
   - Notes: no client sends `where` until T13, and the ponds stay until T14. Before T14, a `near` that crosses ponds is a bug.
 
-- [x] T7 Seat tickets and signed signals [opus] (after T2) (in progress)
+- [x] T7 Seat tickets and signed signals [opus] (after T2)
   - Done: `seat.ts` checks (the parser moved to `seat-doc.ts`, so the wire loads no `@noble/curves`), `worker/seat.ts` on the welcome and after a `pong`, `HubClient.ticket`, one `App.authorityKeys` fetch. Gotchas: a ticket's `world` is the world's seed, shared by every pond; it is a `bs/auth/v1` countersignature over a `bs/seat/v1` hash, as a record's, so the ledger signs it and writes no row.
   - Steps:
     1. `src/ledger/seat.ts`: `seatValid`, `signalBytes`, `signSignal` and `signalSigned` (shapes above).
