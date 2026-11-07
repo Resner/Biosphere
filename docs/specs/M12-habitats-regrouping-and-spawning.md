@@ -104,7 +104,8 @@ export type RideNo = 'locked' | 'busy' | 'company' | 'soon' | 'none';
 //   { t: 'ride-no'; why: RideNo }
 //   { t: 'instance'; n: number }         // this session's instance, on every change (0: the open water)
 //   near: each peer gains `n`, its instance
-//   error codes gain 'engage:instance' and 'spawn' (a creature locked in a fight asks for a place)
+//   `refused` reasons gain 'engage:instance' and 'spawn' (a creature locked in a fight asks for a place),
+//   as 'engage:moved' travels: an `error` code can't hold the colon
 // PeerEvent changes and gains:
 //   hello gains `n: number`              // the sender's instance
 //   peers: each entry gains a fifth element, [id, x, y, r, n]
@@ -182,7 +183,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### The wire and the pure parts
 
-- [ ] T1 Protocol 12: spawning, riding and crowd instances on the wire [opus] (after none)
+- [x] T1 Protocol 12: spawning, riding and crowd instances on the wire [opus] (after none)
   - Steps:
     1. `PROTOCOL_VERSION` 12. A protocol-11 hello gets `error: version`.
     2. The messages and events in the shapes above. Their parsers go in `protocol-world.ts`, dispatched from `protocol-parse.ts`, and refuse unknown fields at every level they define:
@@ -213,6 +214,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - 21 messages in 10 s still close the socket.
     - Every unit test and E2E passes otherwise unchanged.
   - Notes: the shapes are fixed here, and T2 to T7 build to them. This task parses and meters, and changes no behaviour.
+  - Done: parsers in `protocol-world.ts`, `SPAWN_WHYS` and `RIDE_NOS` in `protocol-defs.ts`, `instance.ts`; every sender says 0 and the hub drops `spawn` and `ride`. The welcome's hint falls back to the centre.
+    Gotcha: the new refusals are `refused` reasons, not `error` codes (`CODE_RE` has no colon); the spec's shapes now say so.
 
 - [x] T2 Groups and placement, pure (after none)
   - Steps:

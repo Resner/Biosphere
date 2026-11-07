@@ -10,7 +10,7 @@ import { clamp } from '../sim/math';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 11;
+export const PROTOCOL_VERSION = 12;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -88,6 +88,19 @@ export const WIRE_AOI_MAX = 40_000;
 /** A position or radius clamped into its wire range. */
 export const wireCoord = (v: number): number => clamp(v, 0, WIRE_POS_MAX - 1);
 export const wireRadius = (v: number): number => clamp(v, 1, WIRE_RADIUS_MAX);
+/**
+ * Spawning, riding and crowd instances (protocol 12, M12, ADR 0064). A `where`'s `crowd` lists 1 to
+ * `CROWD_LIST_MAX` distinct players: the sender's engage candidates while its page is crowded. An
+ * instance travels as a whole number from 0 (the open water) to `INSTANCE_WIRE_MAX`.
+ */
+export const CROWD_LIST_MAX = 32;
+export const INSTANCE_WIRE_MAX = 65_535;
+/** Why the authority places a creature: a fresh place, back where it left the water, or a ride. */
+export type SpawnWhy = 'placed' | 'back' | 'ride';
+export const SPAWN_WHYS: readonly SpawnWhy[] = ['placed', 'back', 'ride'];
+/** Why a ride is refused: locked in a fight, courting, someone near, fresh from a fight, or no group to go to. */
+export type RideNo = 'locked' | 'busy' | 'company' | 'soon' | 'none';
+export const RIDE_NOS: readonly RideNo[] = ['locked', 'busy', 'company', 'soon', 'none'];
 /** The snapshot rates a receiver may ask for (`rate`), in Hz. */
 export const SNAPSHOT_RATES = [1, 2, 5, 10] as const;
 
@@ -139,7 +152,7 @@ export interface Leaf {
   size: number;
 }
 
-/** A member near a reporter, as the directory last heard of it; `age` is ms since its report. */
+/** A member near a reporter, as the directory last heard of it; `age` is ms since its report, `n` its instance. */
 export interface NearPeer {
   id: string;
   name: string;
@@ -147,6 +160,7 @@ export interface NearPeer {
   y: number;
   r: number;
   age: number;
+  n: number;
 }
 
 /** A position on the wire: the centre and the radius, in wu. */
@@ -361,8 +375,15 @@ export type ClientMsg =
   | { t: 'dispute'; enc: string; f: number; i: (number | null)[]; sig: string }
   /** An auditor's verdict. */
   | { t: 'attest'; signed: SignedAttestation }
-  /** The creature's centre and radius, and the sender's area-of-interest radius, in wu (M11). */
-  | { t: 'where'; x: number; y: number; r: number; aoi: number }
+  /**
+   * The creature's centre and radius, and the sender's area-of-interest radius, in wu (M11). A
+   * crowded page adds `crowd`: its engage candidates, 1 to `CROWD_LIST_MAX` distinct players (M12).
+   */
+  | { t: 'where'; x: number; y: number; r: number; aoi: number; crowd?: string[] }
+  /** The creature is entering the water: the authority places it. `r` and `aoi` count only for an unrecorded cell. */
+  | { t: 'spawn'; r: number; aoi: number }
+  /** Ride the current to a group. */
+  | { t: 'ride' }
   /** No creature in the water: the title, the death screen or a hidden tab. */
   | { t: 'gone' };
 
@@ -401,7 +422,8 @@ export type HubMsg =
   | {
       t: 'welcome';
       world: WorldInfo;
-      you: { spawnHint: Vec2 };
+      /** The spawn ring's hint; the authority places creatures with `spawn` instead (M12 T4 stops sending it). */
+      you?: { spawnHint: Vec2 };
       ice: IceServer[];
       turn: boolean;
       now: number;
@@ -415,6 +437,11 @@ export type HubMsg =
   | { t: 'near'; leaf: Leaf; peers: NearPeer[]; swarm: [x: number, y: number][] }
   /** A split or merge moved the session's leaf. */
   | { t: 'leaf'; leaf: Leaf }
+  /** Where the creature enters the water, also a granted ride; `protect` starts its spawn protection. */
+  | { t: 'spawn'; x: number; y: number; why: SpawnWhy; protect: boolean }
+  | { t: 'ride-no'; why: RideNo }
+  /** This session's instance, on every change (0: the open water). */
+  | { t: 'instance'; n: number }
   /** A fresh seat ticket. */
   | { t: 'seat'; ticket: SignedSeat }
   /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
@@ -486,6 +513,10 @@ export type HubMsg =
       beacon: Beacon;
       genome: string;
     }
+  /**
+   * A request refused, and why: `locked`, `engage:moved`, … (M12 adds `engage:instance`, an engage
+   * across instances, and `spawn`, a place asked for by a creature locked in a fight).
+   */
   | { t: 'refused'; reason: string; genesisIn?: number }
   /** Admission is full: the session waits in line (1 = next) instead of getting a `welcome`; sent again when its place changes. */
   | { t: 'queued'; position: number; etaS: number }
@@ -570,10 +601,12 @@ export type PeerEvent =
   | { t: 'wframe'; enc: string; f: number; i: (number | null)[]; sig: string }
   /** A round trip on a duty link: `back` is the answer to probe `n`. */
   | { t: 'probe'; n: number; back: boolean }
-  /** The first event on every link, each way: the sender's seat ticket. */
-  | { t: 'hello'; ticket: SignedSeat }
-  /** Gossip: up to `GOSSIP_MAX` of the sender's linked peers, distinct. */
-  | { t: 'peers'; list: [id: string, x: number, y: number, r: number][] }
+  /** The first event on every link, each way: the sender's seat ticket and instance. */
+  | { t: 'hello'; ticket: SignedSeat; n: number }
+  /** Gossip: up to `GOSSIP_MAX` of the sender's linked peers, distinct, each with its instance. */
+  | { t: 'peers'; list: [id: string, x: number, y: number, r: number, n: number][] }
+  /** The sender's instance changed. */
+  | { t: 'instance'; n: number }
   /** A signal relayed by a peer both sides hold, signed by `from` over its fields (`signalBytes`). */
   | {
       t: 'relay';

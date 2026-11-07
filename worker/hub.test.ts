@@ -163,7 +163,7 @@ describe('hub hello', () => {
     },
   );
 
-  it.each([1, 6, 7, 8, 9, 10])('closes 4002 for protocol version %i', async (v) => {
+  it.each([1, 6, 7, 8, 9, 10, 11])('closes 4002 for protocol version %i', async (v) => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
     c.send({ ...hello, v });
@@ -307,6 +307,11 @@ const welcomeOf = (msg: HubMsg): Welcome => {
   if (msg.t !== 'welcome') throw new Error(`expected welcome, got ${msg.t}`);
   return msg;
 };
+/** The welcome's spawn hint, which the hub sends until the authority places creatures (M12 T4). */
+const hintOf = (w: Welcome | undefined) => {
+  if (!w?.you) throw new Error('no spawn hint');
+  return w.you.spawnHint;
+};
 const GOLDEN_ANGLE = 2.399963;
 const CENTRE = 131_072;
 
@@ -350,7 +355,7 @@ describe('the world', () => {
     const players = await fill(30);
     players.forEach((p, slot) => {
       const radius = slot === 0 ? 0 : 300 + 40 * slot;
-      const hint = p.welcome.you.spawnHint;
+      const hint = hintOf(p.welcome);
       expect(hint.x).toBeCloseTo(CENTRE + radius * Math.cos(slot * GOLDEN_ANGLE), 6);
       expect(hint.y).toBeCloseTo(CENTRE + radius * Math.sin(slot * GOLDEN_ANGLE), 6);
       expect(p.welcome.world.id).toBe(players[0]?.welcome.world.id);
@@ -364,8 +369,8 @@ describe('the world', () => {
     b.c.send({ t: 'leave' });
     await b.c.closed;
     const d = welcomeOf((await login('Dee')).welcome);
-    expect(d.you.spawnHint).toEqual(b.welcome.you.spawnHint);
-    for (const other of [a, c]) expect(d.you.spawnHint).not.toEqual(other.welcome.you.spawnHint);
+    expect(hintOf(d)).toEqual(hintOf(b.welcome));
+    for (const other of [a, c]) expect(hintOf(d)).not.toEqual(hintOf(other.welcome));
   });
 
   it('makes the world’s row for the first player, with the world’s seed and clock, and the spawn hint at the centre', async () => {
@@ -375,7 +380,7 @@ describe('the world', () => {
     expect(world?.epoch).toBe(4);
     expect(world?.seed).toMatch(/^[A-Za-z0-9_-]{16}$/);
     const { welcome } = (await fill(1))[0] ?? {};
-    expect(welcome?.you.spawnHint).toEqual({ x: CENTRE, y: CENTRE });
+    expect(hintOf(welcome)).toEqual({ x: CENTRE, y: CENTRE });
     expect(welcome?.world.centre).toEqual({ x: CENTRE, y: CENTRE });
     expect(welcome?.world.size).toBe(CENTRE * 2);
     expect(welcome?.world.seed).toBe(world?.seed);
@@ -438,11 +443,11 @@ describe('joining a crowded world', () => {
     const hints = new Set<string>();
     for (let i = 0; i < 24; i++) {
       const { c, id, welcome } = await login(`Pl${i}`);
-      hints.add(JSON.stringify(welcomeOf(welcome).you.spawnHint));
+      hints.add(JSON.stringify(hintOf(welcomeOf(welcome))));
       void c.closed.then((code) => closes.push(code));
       // What a joining client sends: the opening pings, its report, then one offer per neighbour.
       for (let p = 0; p < 8; p++) c.send({ t: 'ping', id: p });
-      await placeAt({ c }, welcomeOf(welcome).you.spawnHint.x, welcomeOf(welcome).you.spawnHint.y);
+      await placeAt({ c }, hintOf(welcomeOf(welcome)).x, hintOf(welcomeOf(welcome)).y);
       for (const m of joined) c.send({ t: 'signal', to: m.playerId, kind: 'offer', sdp: 'v=0' });
       c.send({ t: 'ping', id: 999 });
       for (;;) {
