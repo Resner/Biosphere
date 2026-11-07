@@ -261,13 +261,15 @@ export class PondMap {
       ctx.lineWidth = 1.4;
       ctx.strokeStyle = INK;
       ctx.stroke();
+      // Its name to the left, where no mark's name goes.
       ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'right';
       ctx.textBaseline = 'middle';
       ctx.lineWidth = 3;
       ctx.strokeStyle = SHADOW;
-      ctx.strokeText('Spawn', x + 9, y);
+      ctx.strokeText('Spawn', x - 9, y);
       ctx.fillStyle = INK;
-      ctx.fillText('Spawn', x + 9, y);
+      ctx.fillText('Spawn', x - 9, y);
     }
   }
 }

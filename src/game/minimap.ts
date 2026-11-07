@@ -1,6 +1,6 @@
 // The minimap (M6b T10, DESIGN §9): a round, north-up map in the top-right corner, centred on the
 // player and 6 view half-heights in radius. It shows the zones (the map's chart, from its own
-// depth window: `depth-chart.ts`), the pond's edge when near, other players by size class,
+// depth window: `depth-chart.ts`), the world's edge when near, other players by size class,
 // mate-ready hearts, live pings and the player as an arrow on its heading. The zone's name sits under it, and a slim depth gauge (M6c T12,
 // `depth-gauge.ts`) left of it, with a UV or pressure icon beside the gauge while that hazard
 // hurts; they replace the HUD's depth bar and the hazard overlays. A click on it (or M) opens the
@@ -339,7 +339,7 @@ export class Minimap {
     ctx.beginPath();
     ctx.arc(half, half, half - 1, 0, TAU);
     ctx.clip();
-    // Beyond the pond: the darkest water.
+    // Beyond the world: the darkest water.
     ctx.fillStyle = '#020608';
     ctx.fillRect(0, 0, side, side);
     // The zones, from the chart of the depth window around the player (north up), softened by smoothing.
@@ -368,7 +368,7 @@ export class Minimap {
     }
     ctx.fillStyle = this.glaze;
     ctx.fillRect(0, 0, side, side);
-    // The pond's edge, when near.
+    // The world's edge, when near.
     ctx.strokeStyle = 'rgb(227 244 240 / 0.6)';
     ctx.lineWidth = 1.5;
     ctx.setLineDash(NO_DASH);
