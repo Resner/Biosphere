@@ -848,6 +848,14 @@ describe('snapshot rates by distance (M11 T15)', () => {
     expect(rates(mesh)).toEqual([]);
   });
 
+  it('keeps a link at 10 Hz until its first snapshot places it', () => {
+    const { mesh, run } = settled({ creature: giant });
+    mesh.connect('n');
+    mesh.join('n');
+    run(3000);
+    expect(rates(mesh)).toEqual([]);
+  });
+
   it('asks 10 Hz within a second of a peer crossing into the view', () => {
     const { mesh, run } = linkedGiant([['d', 5000]]);
     expect(rates(mesh)).toEqual([['d', 5]]);

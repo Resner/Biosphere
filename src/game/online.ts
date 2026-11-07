@@ -457,7 +457,12 @@ export class OnlineSession {
         return;
       }
       const fix = this.neighbours.fixOf(id);
-      const d = fix ? Math.hypot(fix.x - c.x, fix.y - c.y) : Number.POSITIVE_INFINITY;
+      // No snapshot heard yet: stay at 10 Hz rather than ask a newcomer's rate down on no distance.
+      if (!fix) {
+        wants.push([id, FULL_RATE]);
+        return;
+      }
+      const d = Math.hypot(fix.x - c.x, fix.y - c.y);
       wants.push([id, wantedRate(this.links.classOf(id), d, halfHeight)]);
     });
     for (const [id, hz] of this.asker.update(now, wants)) mesh.sendEvent(id, { t: 'rate', hz });
