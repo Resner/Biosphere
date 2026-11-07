@@ -37,9 +37,9 @@ export class OnlineWiring {
   readonly signer: CandidateSigner;
   /** Each peer's newest signed snapshot, verified on receipt, to forward at an engage (M7 T8). */
   readonly signed: SignedSnaps;
-  /** The own fight's away opponents: drawn here, and relayed to the pond by the lowest slot (M8 T11). */
+  /** The own fight's away opponents: drawn here, and relayed to this page's links (M8 T11, M11 T16). */
   readonly relay: ProxyRelay;
-  /** Proxies from the pond's fighters, checked before they draw anyone (M8 T11). */
+  /** Proxies from linked fighters, checked before they draw anyone (M8 T11): one sender per away player. */
   readonly proxies: ProxyReceiver;
   private readonly marks: SnapshotMarks = {
     ready: false,
@@ -70,7 +70,7 @@ export class OnlineWiring {
     this.proxies = new ProxyReceiver(() => app.playerId, app.remotes);
   }
 
-  /** Each frame while the own fight runs: its away opponents drawn, and relayed if this client relays. */
+  /** Each frame while the own fight runs: its away opponents drawn, and relayed to this page's links. */
   relayProxies(now: number): void {
     const { app } = this;
     const fight = app.fight.fighting ? app.fight.relayFight() : null;

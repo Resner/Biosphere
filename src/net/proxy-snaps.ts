@@ -1,10 +1,12 @@
-// Proxy snapshots (ADR 0053, M8 T11): a fighter whose player left the pond stays visible. In each
-// running fight the connected fighter with the lowest slot relays every away fighter's pose, from
-// its last confirmed encounter state, to the pond peers outside the fight as 61-byte proxy frames
-// at 5 Hz, and one last frame at the end carries the result's alive flag. Every fighter's client
-// draws its away opponents from the same snapshots. A receiver takes a proxy only from a peer that
-// is fighting, and only for a player that has gone quiet itself. A proxy is unsigned: it moves a
-// faded body and nothing else, never an engage, a claim or a result.
+// Proxy snapshots (ADR 0053, M8 T11): a fighter whose player left stays visible. In each running
+// fight every connected fighter relays every away fighter's pose, from its last confirmed encounter
+// state, to its own linked peers outside the fight as 61-byte proxy frames at 5 Hz (M11 T16: the
+// links are each page's own, so a spectator may hold only one of the fighters), and one last frame
+// at the end carries the result's alive flag. Every fighter's client draws its away opponents from
+// the same snapshots. A receiver takes a proxy only from a peer that is fighting, only for a player
+// that has gone quiet itself, and from one sender per away player: the first heard, while it keeps
+// sending. A proxy is unsigned: it moves a faded body and nothing else, never an engage, a claim or
+// a result.
 
 import { encodeProxyFrame } from '../ledger/snapshot-sig';
 import { REMOVE_AFTER_MS, SEQ_RANGE, type SnapshotFields } from './pond-sync';
@@ -12,7 +14,10 @@ import { encodeSnapshot, type Snapshot } from './protocol';
 
 /** Proxies go out at 5 Hz: 61 bytes each, 305 B/s per away fighter per peer. */
 export const PROXY_INTERVAL_MS = 200;
-/** A proxy for a player is taken only once its own snapshots have stopped for this long. */
+/**
+ * A proxy for a player is taken only once its own snapshots have stopped for this long, and from
+ * another sender only once the one it was taken from has stopped for this long.
+ */
 export const PROXY_QUIET_MS = 1000;
 /** A fight has at most 4 fighters, so one peer relays at most 3 away fighters. */
 export const MAX_PROXIED_PER_PEER = 3;
@@ -29,9 +34,9 @@ export interface RelayFight {
 export interface RelayHost {
   /** This player's id. */
   self: string;
-  /** Whether a player is in the pond now: this player, or a member of the roster. */
+  /** Whether a player is in the world now: this player, or a member of the roster. */
   present(player: string): boolean;
-  /** The pond peers with an open link. */
+  /** The linked peers (their hello passed). */
   peers(): readonly string[];
   /** A proxy frame on the state channel to one peer. */
   send(peer: string, frame: Uint8Array): void;
@@ -39,7 +44,7 @@ export interface RelayHost {
   show(player: string, snapshot: Snapshot): void;
 }
 
-/** The fighter's side: the away opponents drawn here, and relayed when this client has the lowest slot. */
+/** The fighter's side: the away opponents drawn here, and relayed to this client's own links. */
 export class ProxyRelay {
   private due = 0;
   private fightId = '';
@@ -73,15 +78,12 @@ export class ProxyRelay {
   private round(fight: RelayFight, alive: ((slot: number) => boolean) | null): void {
     const { host } = this;
     const { players } = fight;
-    const connected = (p: string) => p === host.self || host.present(p);
     const away: number[] = [];
-    let relay = '';
     players.forEach((p, slot) => {
-      if (!connected(p)) away.push(slot);
-      else if (relay === '') relay = p;
+      if (p !== host.self && !host.present(p)) away.push(slot);
     });
     if (away.length === 0) return;
-    const targets = relay === host.self ? host.peers().filter((p) => !players.includes(p)) : [];
+    const targets = host.peers().filter((p) => !players.includes(p));
     for (const slot of away) {
       const fields = fight.snapshot(slot);
       const player = players[slot] as string;
@@ -113,10 +115,12 @@ export interface ProxyTarget {
 
 /** The spectator's side: proxies checked, then drawn; the rest dropped and counted. */
 export class ProxyReceiver {
-  /** Proxies dropped: from a peer not fighting, for a player still sending, or too many. */
+  /** Proxies dropped: from a peer not fighting, for a player still sending, from a second sender, or too many. */
   dropped = 0;
   /** Per relaying peer, the players it stands in for and when it last did. */
   private readonly held = new Map<string, Map<string, number>>();
+  /** Per away player, the one peer its proxies are taken from and when it last sent one. */
+  private readonly senders = new Map<string, { from: string; at: number }>();
 
   constructor(
     private readonly self: () => string | null,
@@ -131,18 +135,32 @@ export class ProxyReceiver {
       player !== this.self() &&
       target.fighting(from) &&
       target.quietMs(player, localMs) >= PROXY_QUIET_MS &&
+      this.sender(from, player, localMs) &&
       this.room(from, player, localMs);
     if (!taken) {
       this.dropped++;
       return false;
     }
+    this.senders.set(player, { from, at: localMs });
     target.proxy(player, snapshot, localMs);
     return true;
   }
 
-  /** A peer that left stands in for nobody any more. */
+  /** The peer `player`'s proxies are taken from, or null. */
+  senderOf(player: string): string | null {
+    return this.senders.get(player)?.from ?? null;
+  }
+
+  /** A peer that left stands in for nobody any more: the next sender of its players is taken at once. */
   forget(from: string): void {
     this.held.delete(from);
+    for (const [player, s] of [...this.senders]) if (s.from === from) this.senders.delete(player);
+  }
+
+  /** One sender per away player: `from` is it, or the one before has sent nothing for 1 s. */
+  private sender(from: string, player: string, localMs: number): boolean {
+    const s = this.senders.get(player);
+    return !s || s.from === from || localMs - s.at >= PROXY_QUIET_MS;
   }
 
   /** A peer stands in for at most `MAX_PROXIED_PER_PEER` players at once. */

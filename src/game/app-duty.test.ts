@@ -3,6 +3,7 @@ import type { PeerEvent } from '../net/protocol';
 import {
   AVAIL_EVERY_MS,
   AVAIL_LATE_MS,
+  AVAIL_MAX_LINKS,
   AVAIL_WINDOW_MS,
   Availability,
   type AvailInputs,
@@ -11,10 +12,11 @@ import {
 } from './app-duty';
 
 // M10 T6: the page's `avail` (ADR 0058) on a fake clock: on only while the tab is visible, the
-// setting on, the player not locked or fighting and its frame times' p90 over 5 s at most 50 ms.
+// setting on, the player not locked or fighting, at most 28 links of P0 and P1 wanted (M11 T16) and
+// its frame times' p90 over 5 s at most 50 ms.
 
 const FRAME_MS = 16;
-const ALL_RIGHT: AvailInputs = { visible: true, setting: true, busy: false };
+const ALL_RIGHT: AvailInputs = { visible: true, setting: true, busy: false, links: 0 };
 
 function harness() {
   const sent: [number, boolean][] = [];
@@ -55,6 +57,7 @@ describe('Availability', () => {
     ['hidden', { visible: false }],
     ['the setting off', { setting: false }],
     ['fighting', { busy: true }],
+    ['29 links of P0 and P1 are wanted', { links: 29 }],
   ] as const) {
     it(`turns off at once when ${what}`, () => {
       const h = harness();
@@ -71,6 +74,16 @@ describe('Availability', () => {
       expect(h.sent.map(([, on]) => on)).toEqual([true, false, true]);
     });
   }
+
+  it('witnesses with 28 links of P0 and P1, so a duty’s four fighters keep it within 32', () => {
+    expect(AVAIL_MAX_LINKS).toBe(28);
+    const h = harness();
+    h.set({ links: 28 });
+    h.run(AVAIL_WINDOW_MS + 100);
+    expect(h.sent.map(([, on]) => on)).toEqual([true]);
+    h.set({ links: 29 });
+    expect(h.sent.map(([, on]) => on)).toEqual([true, false]);
+  });
 
   it('turns off when the frame times’ p90 reaches 60 ms', () => {
     const h = harness();

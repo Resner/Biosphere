@@ -233,12 +233,19 @@ export class OnlineSession {
     hub.onLife((m) => opts.handlers.life(m));
     hub.onFight((m) => {
       opts.handlers.fight(m);
-      if (m.t === 'enc-end') this.links.endFight(m.enc);
+      // Only a fight's fighters hear its `enc-start` and `enc-join` (a joiner its catch-up first).
+      if (m.t === 'enc-start')
+        this.links.fight(
+          m.enc,
+          m.fighters.map((f) => f.player),
+        );
+      else if (m.t === 'enc-join') this.links.joined(m.enc, m.fighter.player);
+      else if (m.t === 'enc-end') this.links.endFight(m.enc);
     });
     hub.onDuty((m) => {
       if (m.t === 'duty-peer') this.links.duty(m.enc, m.peer, m.on);
       else if (m.t === 'duty-end' && m.event.startsWith('enc:'))
-        this.links.endFight(m.event.slice(4));
+        this.links.endDuty(m.event.slice(4));
       opts.handlers.duty?.(m);
     });
     this.timer = opts.tickMs === undefined ? null : setInterval(() => this.tick(), opts.tickMs);
@@ -392,6 +399,11 @@ export class OnlineSession {
     this.links.duty(enc, peer, on);
   }
 
+  /** The creatures this page wants linked as P0 or P1: a witness duty needs at most 28 (M11 T16). */
+  protectedLinks(): number {
+    return this.links.protectedCount();
+  }
+
   /** The duty links, by peer. */
   dutyLinks(): DutyLink[] {
     return this.links.dutyLinks();
@@ -529,6 +541,8 @@ export class OnlineSession {
     // the peers' own.
     this.reporter = new WhereReporter();
     this.neighbours.resetDirectory();
+    // Its fights end in 3 s unless the hub resends them (it does at once for a running one).
+    this.links.endFights();
     if (this.mesh) this.mesh.setIce(w.ice);
     else this.mesh = this.makeMesh(w.ice);
     handlers.welcome(w);
