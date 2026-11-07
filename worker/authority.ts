@@ -10,6 +10,7 @@ import {
 import { attest } from './attest';
 import type { AuditReport } from './audit';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
+import type { Directory } from './directory';
 import { Duties } from './duty';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
 import { FightStore } from './fight-store';
@@ -35,6 +36,7 @@ import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { TurnCredentials } from './turn';
 import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
 import { witnessBatch, witnessDispute } from './witness-fight';
+import { gone, rebuildDirectory, where } from './where';
 import { avail, ipHash } from './witness-pool';
 
 // The message handlers live by area in `sessions.ts` (sessions and signaling), `lives.ts` (genesis
@@ -81,12 +83,16 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly fightStore: FightStore;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
-  /** Messages dropped without closing the socket, by type: past their own window's cap, or not handled yet (`where`, `gone`). */
+  /** Messages dropped without closing the socket, by type: past their own window's cap, or a `where` refused (a jump, outside the world). */
   readonly dropped = new Map<ClientMsg['t'], number>();
   /** Incoming messages that parsed, by type: what a fight costs the authority (ADR 0058's cost check). */
   readonly received = new Map<ClientMsg['t'], number>();
   /** Witness duties (ADR 0058), in memory: a restart ends them all. */
   duties: Duties = new Duties(this);
+  /** Who is where (M11 T6): rebuilt from the sockets' attachments when the object wakes. */
+  directory: Directory;
+  /** Signals the hub relayed, by unordered pair (E2E reads them). */
+  readonly relays = new Map<string, number>();
   /** The salt of every session's IP hash (migration 10), read once. */
   private ipSalt: string | null = null;
 
@@ -104,6 +110,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       if (session?.phase === 'queued')
         this.nextTicket = Math.max(this.nextTicket, session.ticket + 1);
     }
+    this.directory = rebuildDirectory(this);
     this.source = this.beaconSource();
     this.beacons = new Beacons({
       storage: ctx.storage,
@@ -332,9 +339,10 @@ export class Authority extends DurableObject<Env> implements Hub {
         attest(this, session, msg);
         return;
       case 'where':
+        where(this, ws, session, msg);
+        return;
       case 'gone':
-        // Counted in the 20-message budget above; the directory handles them from M11 T6.
-        this.dropped.set(msg.t, (this.dropped.get(msg.t) ?? 0) + 1);
+        gone(this, ws, session);
         return;
     }
   }

@@ -15,6 +15,7 @@ const REASONS: Readonly<Record<string, string>> = {
   tier: 'Too big or too small',
   self: 'That is you',
   'not-here': 'Out of reach',
+  'not-near': 'Too far away',
   'pair-mismatch': 'They moved on. Try again.',
   used: 'Try again',
   expired: 'Too slow',

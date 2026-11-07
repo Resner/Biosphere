@@ -2,7 +2,7 @@
 // settlement document goes into the fight's saved log, in one transaction; each dead fighter hears
 // `died` with its fallback, everyone gets `enc-end` with the document, the locks go and each
 // connected life takes its result and the locked time. Each kill's carrion goes to the whole pond
-// after the records (M7 T14). A participant away at the end has its report kept for its next
+// and to everyone the directory places within 10,000 wu (M11 T6), after the records (M7 T14). A participant away at the end has its report kept for its next
 // `life` (M8 T9). A settlement that fails leaves every life as the ledger holds it.
 
 import { HUNDREDTHS } from '../src/ledger/gates';
@@ -24,6 +24,7 @@ import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
 import { DAY_MS } from './usage';
+import { carrionNoticed } from './where';
 import { refereeingOf, witnessDone } from './witness-fight';
 
 /** Sends `msg` to every participant who is connected now. */
@@ -234,7 +235,8 @@ export function backToLedger(hub: Hub, players: Iterable<string>, now: number): 
 }
 
 /**
- * Every client in the fight's pond hears of each kill's carrion, and drops the same pieces from
+ * Every client in the fight's pond, and every one the directory places within 10,000 wu of the
+ * kill, hears of each kill's carrion, and drops the same pieces from
  * it (`src/sim/carrion.ts`). A victim killed by a creature (not by the water) leaves some; the
  * authority holds nothing of it afterwards. The tick is the pond tick of the kill, or the pond's
  * current tick when a fast-forward (at hub time `forwarded`) played it ahead of the pond, and the
@@ -261,8 +263,10 @@ function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[], forward
       radius: Math.sqrt(f.biomass),
       tick,
     };
+    // The pond, and everyone the directory places within 10,000 wu of the kill (M11 T6).
+    const near = carrionNoticed(hub, f.x, f.y);
     for (const [ws, session] of activeSessions(hub)) {
-      if (session.pondId === fight.pond) sendIfOpen(ws, msg);
+      if (session.pondId === fight.pond || near.has(session.playerId)) sendIfOpen(ws, msg);
     }
   }
 }

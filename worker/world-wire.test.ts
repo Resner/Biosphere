@@ -5,7 +5,7 @@ import type { Authority } from './authority';
 import { closeSockets, login, nextOf, signIn, stub } from './test-hub';
 
 // Protocol 11 on the authority (M11 T2): `where` and `gone` parse and count in the 20-message
-// budget, and until the directory handles them (T6) they are dropped and counted.
+// budget; the directory answers them (T6, `where.test.ts`).
 
 afterEach(closeSockets);
 
@@ -21,15 +21,16 @@ describe('protocol 11 on the hub', () => {
     expect('pond' in welcome).toBe(false);
   });
 
-  it('drops and counts a where and a gone, and answers nothing', async () => {
+  it('answers a where with near and a gone with nothing', async () => {
     const { c } = await login();
     const [wheres, gones] = [await droppedOf('where'), await droppedOf('gone')];
     c.send(where);
+    expect(await c.next()).toMatchObject({ t: 'near', peers: [], swarm: [] });
     c.send({ t: 'gone' });
     c.send({ t: 'ping', id: 7 });
     expect(await c.next()).toMatchObject({ t: 'pong', id: 7 });
-    expect(await droppedOf('where')).toBe(wheres + 1);
-    expect(await droppedOf('gone')).toBe(gones + 1);
+    expect(await droppedOf('where')).toBe(wheres);
+    expect(await droppedOf('gone')).toBe(gones);
   });
 
   it('counts where in the 20-message budget: the 21st message in 10 s closes the socket', async () => {
@@ -37,7 +38,7 @@ describe('protocol 11 on the hub', () => {
     // The hello was the first message of the window.
     for (let i = 0; i < 18; i++) c.send(where);
     c.send({ t: 'ping', id: 20 });
-    expect(await c.next()).toMatchObject({ t: 'pong', id: 20 });
+    expect(await nextOf(c, 'pong')).toMatchObject({ t: 'pong', id: 20 });
     c.send(where);
     expect(await c.closed).toBe(CLOSE_RATE_LIMITED);
   });

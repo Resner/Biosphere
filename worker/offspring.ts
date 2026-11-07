@@ -24,6 +24,7 @@ import {
   signedOf,
 } from './socket';
 import { commitWitnesses } from './witness-pool';
+import { courtTooFar } from './where';
 
 /**
  * Writes a mating's two `birth` records once its round is published (idempotent) and sends each
@@ -184,7 +185,10 @@ export function mateCheck(
     t: 'mate-info',
     partner: partnerId,
     creature: other.life.creature,
-    reason: mateRefusal(hub, session, other.session),
+    // Out of reach in the directory (M11 T6) before any other reason.
+    reason: courtTooFar(hub, session.playerId, partnerId)
+      ? 'not-near'
+      : mateRefusal(hub, session, other.session),
     ...cardOf(hub, session.life, other.life),
   });
 }
@@ -208,6 +212,7 @@ export function court(
   }
   const other = partnerOf(hub, ws, session, ask.partner);
   if (!other) return refuse('not-here');
+  if (courtTooFar(hub, session.playerId, ask.partner)) return refuse('not-near');
   if (ask.partnerCreature !== other.life.creature) return refuse('pair-mismatch');
   if (hub.ledger.nonceUsed(ask.nonce)) return replayed(hub, ws, session.playerId, ask);
   const reason = mateRefusal(hub, session, other.session);

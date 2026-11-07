@@ -7,6 +7,7 @@ import { fixtureSource } from './fixture-beacons';
 import live from './index';
 import { recoverFights } from './recover';
 import { type Session, sessionOf } from './socket';
+import { type DirectoryView, directoryView, rebuildDirectory } from './where';
 
 // The Worker for local E2E (`worker/wrangler.e2e.jsonc`): the same code, but drand comes from the
 // recorded rounds, so no test touches the network. Never deployed.
@@ -57,7 +58,14 @@ export class Authority extends LiveAuthority {
     this.fights.clear();
     // Every duty ends with the memory that held it (ADR 0058).
     this.duties.clear();
+    // ... and so does the directory: a new object rebuilds it from the attachments (now none).
+    this.directory = rebuildDirectory(this);
     recoverFights(this, this.clock.now());
+  }
+
+  /** The directory for a scenario to read (M11 T6): the leaves, each member's leaf and report, the relays by pair. */
+  directoryState(): DirectoryView {
+    return directoryView(this);
   }
 
   /**
@@ -101,6 +109,12 @@ export default {
       };
       await stub.restart();
       return new Response(null, { status: 204 });
+    }
+    if (pathname === '/v1/e2e/directory' && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        directoryState(): Promise<DirectoryView>;
+      };
+      return Response.json(await stub.directoryState());
     }
     const enc = pathname.startsWith(ENCOUNTER_PATH) ? pathname.slice(ENCOUNTER_PATH.length) : '';
     if (/^[0-9a-f]{64}$/.test(enc) && request.method === 'GET') {

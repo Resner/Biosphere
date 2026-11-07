@@ -74,6 +74,16 @@ describe('worker bundles', () => {
     expect(code).toContain('env.DRAND_SOURCE === "fixture" ? Number(env.POND_MAX) : Number.NaN');
   });
 
+  // The directory's leaf cap and its jumps (M11 T6) follow the fixture source too.
+  heavyTest('production honours no directory variable outside fixture mode', () => {
+    const code = bundle(false, 'index.js');
+    expect(code.match(/[\w$.]*\bLEAF_MAX\b(?! = )/g)?.filter((r) => r.startsWith('env.'))).toEqual([
+      'env.LEAF_MAX',
+    ]);
+    expect(code).toContain('env.DRAND_SOURCE === "fixture" ? Number(env.LEAF_MAX) : Number.NaN');
+    expect(code).toContain('const jumpsTaken = (env) => env.DRAND_SOURCE === "fixture"');
+  });
+
   heavyTest('the E2E entry carries the recorded rounds', () => {
     const code = bundle(true, 'e2e-entry.js');
     expect(code).toContain(marker);
@@ -84,5 +94,7 @@ describe('worker bundles', () => {
     expect(code).toContain('/v1/e2e/encounter/');
     // And an event's witnesses (M10 T4).
     expect(code).toContain('/v1/e2e/witness/');
+    // And the directory (M11 T6).
+    expect(code).toContain('/v1/e2e/directory');
   });
 });
