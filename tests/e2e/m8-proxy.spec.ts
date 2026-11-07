@@ -6,8 +6,9 @@ import { chase, engage, flee, waitOver, watched, watchFrom } from './m8-fight';
 
 // Away fighters stay visible (M8 T11): A engages B while C watches from beside B, and B's page
 // closes. B's autopilot fights on. A still draws B from its fight, faded and marked away, and C
-// sees B by proxy (A relays B's pose): moving, away, and never offered for an attack. A swims off,
-// and A's hash equals the referee's. A fight can end before B's page closes or before C sees the
+// sees B by proxy (A relays B's pose): moving, away, and never offered for an attack. In the world
+// (M11 T16) C's links are its own area of interest's: of the two fighters it holds only A, the one
+// still playing, and takes B's proxies from A alone. A swims off, and A's hash equals the referee's. A fight can end before B's page closes or before C sees the
 // proxy, so B opens again in the same browser and A engages again, at most 3 times.
 
 test.describe.configure({ mode: 'serial' });
@@ -73,6 +74,23 @@ async function tryAway(a: Page, b: Page, c: Page, ids: Ids, previous?: string) {
         cause: error,
       });
     });
+  // C is linked to A alone of the two fighters (B's link goes once its page has closed), and
+  // draws B from A's proxies.
+  await expect
+    .poll(
+      async () => {
+        if (await over()) return 'over';
+        const { net } = await state(c);
+        const linked = net.links.filter((l) => l.hello).map((l) => l.id);
+        const onlyA = linked.includes(ids.idA) && !linked.includes(ids.idB);
+        return onlyA && net.proxyFrom[ids.idB] === ids.idA ? 'from A' : 'waiting';
+      },
+      {
+        message: 'C is linked to A alone and draws B from A’s proxies, or the fight ends',
+        timeout: 20_000,
+      },
+    )
+    .not.toBe('waiting');
   return (await over()) ? null : id;
 }
 

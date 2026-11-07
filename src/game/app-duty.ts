@@ -2,8 +2,8 @@
 // duty to `app-witness.ts` and an auditor duty to `app-audit.ts` (T8). `DutyProbes`
 // measures the round trip on each duty link, for a fighter's lead. `Availability` decides the `avail` the hub hears: the
 // page can witness only while the tab is visible, Settings' "Help referee fights" is on, the
-// player is neither locked nor fighting, and its frame times' 90th percentile over the last 5 s
-// is at most 50 ms. Off goes out at once; on only once all of that has held for 5 s and 6 s after
+// player is neither locked nor fighting, it wants at most 28 links of P0 and P1 (M11 T16), and its
+// frame times' 90th percentile over the last 5 s is at most 50 ms. Off goes out at once; on only once all of that has held for 5 s and 6 s after
 // the last message, so a flapping tab sends at most one message per 5 s and the hub (which counts
 // an `on` at most once per 5 s from when it heard the last) never drops one it hears up to 1 s
 // later than the message before: a dropped `on` would leave the page out of every pool while it
@@ -13,8 +13,10 @@
 import type { Beacon } from '../ledger/drand';
 import type { PubKey } from '../ledger/record';
 import type { AuditVerdict } from '../net/audit';
+import { MAX_CAP } from '../net/connection-policy';
 import type { DutyMsg } from '../net/hub-client';
 import type { AuditCase, PeerEvent } from '../net/protocol';
+import { ENC_MAX_FIGHTERS } from '../net/protocol-defs';
 import type { FighterInput } from '../net/witness-referee';
 import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
@@ -29,6 +31,8 @@ export const AVAIL_EVERY_MS = 5000;
 export const AVAIL_LATE_MS = 1000;
 /** The slowest 90th-percentile frame time that still witnesses. */
 export const AVAIL_P90_MS = 50;
+/** The most links of P0 and P1 a witness may want: a duty's 4 fighters keep it within 32 (M11 T16). */
+export const AVAIL_MAX_LINKS = MAX_CAP - ENC_MAX_FIGHTERS;
 
 export interface AvailInputs {
   /** The tab is visible. */
@@ -37,6 +41,8 @@ export interface AvailInputs {
   setting: boolean;
   /** Locked in a fight or fighting. */
   busy: boolean;
+  /** The links of P0 and P1 the page wants (`OnlineSession.protectedLinks`). */
+  links: number;
 }
 
 export class Availability {
@@ -70,7 +76,7 @@ export class Availability {
   /** Judges the inputs now: off at once when one fails, on once all have held long enough. */
   update(now: number, inputs: AvailInputs): void {
     // The cheap inputs first: the percentile is only worked out for a page that could witness.
-    let good = inputs.visible && inputs.setting && !inputs.busy;
+    let good = inputs.visible && inputs.setting && !inputs.busy && inputs.links <= AVAIL_MAX_LINKS;
     if (good) {
       const p90 = this.p90(now);
       good = p90 !== null && p90 <= AVAIL_P90_MS;
@@ -297,6 +303,7 @@ export class DutyWiring {
       visible: !document.hidden,
       setting: app.settings.helpReferee,
       busy: app.fight.fighting || app.attack.waiting,
+      links: app.keeper.current?.protectedLinks() ?? 0,
     });
   }
 

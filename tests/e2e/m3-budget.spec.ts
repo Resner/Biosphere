@@ -11,6 +11,21 @@ import { hatch, openGame, playerOf } from './helpers';
 
 const render = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
 
+/** `info()` over 12 frames, with the fewest draw calls seen: a transient extra draw (a ring, a
+ * flash) comes and goes between frames and would shift a count taken from one frame by one. */
+const steady = (page: Page) =>
+  page.evaluate(async () => {
+    const { render } = window.__bs as BsHook;
+    let min = Number.POSITIVE_INFINITY;
+    let info = render.info();
+    for (let i = 0; i < 12; i++) {
+      await new Promise((resolve) => requestAnimationFrame(resolve));
+      info = render.info();
+      min = Math.min(min, info.calls);
+    }
+    return { ...info, calls: min };
+  });
+
 async function setRemotes(
   page: Page,
   genomes: string[],
@@ -53,11 +68,11 @@ test('24 maximal bodies with different tints stay within the medium budget', asy
     const { render } = window.__bs as BsHook;
     return render.info().eggs === 0 && render.fx().rings === 0;
   });
-  const alone = await render(page);
+  const alone = await steady(page);
 
   await setRemotes(page, texts.slice(1), 400);
   await bodies(page, 23);
-  const full = await render(page);
+  const full = await steady(page);
   // Each creature costs one draw call (other draws move a little between frames).
   expect(full.calls - alone.calls).toBeGreaterThanOrEqual(23);
   expect(full.calls).toBeLessThanOrEqual(150);

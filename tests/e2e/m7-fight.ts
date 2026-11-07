@@ -285,13 +285,17 @@ export async function mate(courter: Page, partner: Page): Promise<void> {
   const who = (await state(partner)).playerId as string;
   await Promise.all([topUp(courter), topUp(partner)]);
   // The partner drifts and the hub's answer takes a moment: stay beside them until the key is offered.
+  // A court the hub answers late ends as idle on the courter (its check wait ran out) and the invite
+  // never comes, so the court is pressed again whenever the key is offered and no invite shows.
+  const invite = partner.getByTestId('invite');
   await expect(async () => {
+    if (await invite.isVisible()) return;
     await goTo(courter, who);
     await expect(courter.getByTestId('mate-hint')).toHaveText(/^E: court /, { timeout: 1500 });
-  }).toPass({ timeout: 30_000 });
-  await courter.keyboard.press('e');
-  await courter.keyboard.press('e');
-  await expect(partner.getByTestId('invite')).toBeVisible({ timeout: 15_000 });
+    await courter.keyboard.press('e');
+    await courter.keyboard.press('e');
+    await expect(invite).toBeVisible({ timeout: 10_000 });
+  }).toPass({ timeout: 90_000 });
   await partner.keyboard.press('e');
   for (const page of [courter, partner]) {
     await page.waitForFunction(() => window.__bs?.state().offspring.kind === 'card', undefined, {

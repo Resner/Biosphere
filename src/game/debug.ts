@@ -245,7 +245,8 @@ export interface BsState {
    * claims ignored as implausible, genome events dropped (too frequent, from a peer with no
    * link, or not a genome), the peers whose signed snapshot is held, the signed snapshots
    * that failed to verify (M7 T7), the proxy frames dropped (M8 T11: from a peer not
-   * fighting, for a player still sending its own, or more than three from one peer), the duty
+   * fighting, for a player still sending its own, from a second sender while the first one sends,
+   * or more than three from one peer) and each away player's sender (`proxyFrom`, M11 T16), the duty
    * links by peer (M10 T6: `open` once both channels are, `encs` the fights each serves) and the
    * offers this page refused (`strangers`: no class for the caller, or no room). The links by area
    * of interest (M11 T13): each link with its class, `open` (the connection up), `hello` (the
@@ -263,6 +264,8 @@ export interface BsState {
     signed: number;
     badSignatures: number;
     proxyDropped: number;
+    /** Each away player's proxy sender, by player id (M11 T16: one per player). */
+    proxyFrom: Record<string, string>;
     dutyLinks: DutyLink[];
     strangers: number;
   };
