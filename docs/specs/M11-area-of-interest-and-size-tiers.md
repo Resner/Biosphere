@@ -764,7 +764,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - the medium budget holds in C's view;
       - a screenshot of each view is attached.
 
-- [ ] T18 The map, the minimap and finding players in the world [opus] (after T14)
+- [ ] T18 The map, the minimap and finding players in the world [opus] (after T14) (in progress)
   - Steps:
     1. **The map** (M, titled "Map") shows a square of max(8,192, 8 × the AoI) wu centred on the player:
        - a relief chart from its own depth window (T11);
