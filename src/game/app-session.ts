@@ -65,10 +65,8 @@ export interface Pond {
   id: string;
   seed: string;
   size: number;
-  /** The hub's spawn ring: centre and this player's first spawn; null without a hub. */
-  ring: { centre: Vec2; hint: Vec2 } | null;
-  /** Lives started in this pond, to turn the spawn point on the ring. */
-  lives: number;
+  /** The world's spawn centre. */
+  centre: Vec2;
   time: PondTime;
   food: PondFood;
   /** Stands in for the world when a food event arrives between lives; never stepped. */

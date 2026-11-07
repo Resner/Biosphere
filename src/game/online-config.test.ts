@@ -6,7 +6,6 @@ import {
   loadName,
   offlineChip,
   ordinal,
-  ringSpawn,
   saveName,
   statusText,
   switchPond,
@@ -98,22 +97,6 @@ describe('names', () => {
 
   it('replaces a stored name that is profane', () => {
     expect(loadName(store({ 'bs.name': 'Scheisse' }), () => 0.25)).toBe('Cell2500');
-  });
-});
-
-describe('ringSpawn', () => {
-  const centre = { x: 500, y: 500 };
-  const hint = { x: 800, y: 500 };
-
-  it('uses the hub hint first, then the same radius at new angles', () => {
-    expect(ringSpawn(centre, hint, 0)).toEqual(hint);
-    const angles = new Set<number>();
-    for (let life = 1; life < 6; life++) {
-      const p = ringSpawn(centre, hint, life);
-      expect(Math.hypot(p.x - centre.x, p.y - centre.y)).toBeCloseTo(300, 6);
-      angles.add(Math.round(Math.atan2(p.y - centre.y, p.x - centre.x) * 1000));
-    }
-    expect(angles.size).toBe(5);
   });
 });
 
