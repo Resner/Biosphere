@@ -1,6 +1,6 @@
 # 0059: Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation
 
-- Status: accepted, refined by 0060 (gates 1 to 3 of the simulation; amends 0054: an identity is young until it has played 20 minutes, not for its first 30 minutes; amends 0050: an engage is checked against the attacker's own signed snapshots that the target holds)
+- Status: accepted, refined by 0060 (gates 1 to 3 of the simulation) and amended by 0062 (an in-time lock answer must hold one of the attacker's snapshots, else `engage:unseen`) (amends 0054: an identity is young until it has played 20 minutes, not for its first 30 minutes; amends 0050: an engage is checked against the attacker's own signed snapshots that the target holds)
 - Date: 2026-11-06
 
 ## Context

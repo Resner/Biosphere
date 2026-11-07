@@ -17,13 +17,14 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Factory runs, workers and claims | 0057, 0048, 0047, 0042 | 0001, 0015, 0020, 0044, 0045 |
 | Models for specs and tasks | 0026 | 0001, 0023 |
 | CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 (Playwright workers) | 0001, 0015 |
-| Rules versions and freezing | 0055 (the registry, rules 11), 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
+| Rules versions and freezing | 0061 (rules 12, epoch 4), 0055 (the registry), 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
 | Look and the gallery | 0049, 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
 | Combat and encounters | 0059, 0058, 0054, 0053, 0052, 0051, 0050, then 0011 | 0010, 0035 |
 | Lineage verification, proofs and retention | 0058, 0056, 0055, then 0009 | 0019, 0021, 0054 |
-| Witnesses, audits and anti-farming | 0059, 0058, then 0012 | 0010, 0054 |
+| Witnesses, audits and anti-farming | 0062 (free slots, `engage:unseen`), 0059, 0058, then 0012 | 0010, 0054 |
+| The world, area of interest and signaling | 0062, 0061, then 0013 | 0007, 0016 |
 
 ## Index
 
@@ -35,16 +36,16 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0004](0004-rendering.md) | Rendering with Three.js and WebGL2 over a 2D gameplay plane | accepted | 0027 |
 | [0005](0005-deterministic-simulation.md) | Deterministic simulation and versioned rules | accepted | 0035, 0040 |
 | [0006](0006-genome-and-development.md) | Genome, inheritance and bounded development | accepted | 0025, 0036, 0040, 0041 |
-| [0007](0007-networking.md) | Peer-to-peer networking: our own WebRTC mesh, hub signaling, TURN | accepted | |
+| [0007](0007-networking.md) | Peer-to-peer networking: our own WebRTC mesh, hub signaling, TURN | accepted, amended | 0062 |
 | [0008](0008-minimal-authority.md) | Minimal authority on Cloudflare, budgets and admission | accepted | 0017 |
 | [0009](0009-identity-and-records.md) | Identity and UTXO-like lineage records | accepted | 0055, 0056 |
 | [0010](0010-randomness.md) | Randomness from drand quicknet: commitments and outage policy | accepted, amended | 0050, 0058 |
 | [0011](0011-combat-encounters.md) | Combat as refereed deterministic encounters | accepted, amended | 0050, 0051, 0052, 0053, 0054, 0058 |
 | [0012](0012-witnesses.md) | Witnesses: drand-selected, budgeted, never final | accepted, amended | 0058 |
-| [0013](0013-world-partition.md) | World partition: size tiers, area of interest, habitats | accepted | 0029 |
+| [0013](0013-world-partition.md) | World partition: size tiers, area of interest, habitats | accepted, amended | 0029, 0061, 0062 |
 | [0014](0014-game-pillars.md) | Game pillars: water world, controls, economy and supply control | accepted | DESIGN §3 (keys, the six core actions) |
 | [0015](0015-chained-runs-public-repo.md) | Chained factory runs in a public repository | accepted | 0020, 0042, 0044 |
-| [0016](0016-shared-pond-model.md) | Shared pond model: local sim, hub clock, food claims | accepted | |
+| [0016](0016-shared-pond-model.md) | Shared pond model: local sim, hub clock, food claims | accepted, amended | 0061 |
 | [0017](0017-workers-vitest-plugin.md) | Worker tests use `@cloudflare/vitest-plugin` | accepted | |
 | [0018](0018-body-seam-and-genome-sharing.md) | Body seam, genome encoding and sharing, shader gait (M3) | accepted | 0025, 0035, 0040 |
 | [0019](0019-ledger-mechanics-and-life-clock.md) | Ledger mechanics, genesis commitments and the life clock (M4) | accepted | 0025, 0029, 0053, 0055 |
@@ -68,7 +69,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0037](0037-one-body-widest-at-the-trunk.md) | One body, widest at the trunk | accepted, amended | 0038, 0040, 0041 |
 | [0038](0038-curled-chains-fit-along-their-curve.md) | Curled chains fit the bounds along their curve, and a coil is a chambered spiral | accepted, amended | 0039, 0041 |
 | [0039](0039-thin-legs-off-the-body.md) | Thin legs that keep off the body | accepted | 0040, 0041 |
-| [0040](0040-pre-1-0-world-resets.md) | Before v1.0, a rules change may reset the world; no frozen versions | accepted | 0055 |
+| [0040](0040-pre-1-0-world-resets.md) | Before v1.0, a rules change may reset the world; no frozen versions | accepted | 0055, 0061 |
 | [0041](0041-bodies-read-as-organisms.md) | A body plan reads as an organism: parts by region, a visible-part budget | accepted | |
 | [0042](0042-flake-resistant-gates-and-live-claims.md) | Flake-resistant gates and live claims | accepted | 0044 |
 | [0043](0043-glass-sheen-and-two-tone-organs.md) | Glass with pass 1's sheen, organs in two related tones, gallery specimens per rules | accepted, amended | 0046 |
@@ -86,6 +87,8 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted, amended | 0058 |
 | [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted, amended | 0058 |
 | [0057](0057-claims-by-script-and-branch-cleanup.md) | Claims are made by a script, and closed factory branches are deleted | accepted | |
-| [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted | |
-| [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted, refined | 0060 |
+| [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted, amended | 0062 |
+| [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted, refined, amended | 0060, 0062 |
 | [0060](0060-how-the-farm-gates-read.md) | How the bot-farm gates read: genes aside, one cooldown after maturity, the floor aside | accepted | |
+| [0061](0061-one-world-and-food-by-tier.md) | One world: its size and fields, food by tier, and a fourth world renewal | accepted | |
+| [0062](0062-area-of-interest-and-relayed-signaling.md) | Area of interest: the directory, link classes, discovery, relayed signaling and seat tickets | accepted | |
