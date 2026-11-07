@@ -50,7 +50,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
   browser,
   request,
 }) => {
-  test.setTimeout(300_000);
+  test.setTimeout(420_000);
   const players: Player[] = [];
   try {
     for (let i = 0; i < 3; i++) players.push(await join(browser, HUB));
@@ -182,12 +182,17 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     }
     expect(crossed, 'A reached the end of its path').toBe(true);
     // C swims on into A's view (M11 T15: its rate there), and A's watcher keeps watching.
+    // Its own budget: the way there took as long as a slow runner's ticks made it, and C still has
+    // to swim the rest.
     let nearSince: number | null = null;
-    while (Date.now() < deadline + 60_000) {
+    let lastD = Number.NaN;
+    const nearDeadline = Date.now() + 150_000;
+    while (Date.now() < nearDeadline) {
       const me = (await state(a.page)).player;
       const cAt = (await state(c.page)).player;
       if (!me || !cAt) throw new Error('A or C has no creature');
       const d = Math.hypot(cAt.x - me.x, cAt.y - me.y);
+      lastD = d;
       if (d > 120) {
         nearSince = null;
         await steer(c, me.x - CENTRE, me.y - CENTRE);
@@ -197,7 +202,10 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       }
       await a.page.waitForTimeout(500);
     }
-    expect(nearSince, 'C came into A’s view').not.toBeNull();
+    expect(
+      nearSince,
+      `C came into A’s view (last distance ${Math.round(lastD)} wu)`,
+    ).not.toBeNull();
 
     const watch = await a.page.evaluate(() => (window as unknown as { __watch: Watch }).__watch);
     // Each leaf A left brought a report: the count rose before A was inside a leaf again.
