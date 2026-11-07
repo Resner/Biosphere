@@ -114,7 +114,7 @@ function checkValid(
     return 'edge';
   }
   const depth = depthAt(sim.seed32, x, y, SIZE);
-  const atCentre = x === CENTRE.x && y === CENTRE.y; // the pin keeps the centre in 0.26 to 0.54
+  const atCentre = members.length === 0 && x === CENTRE.x && y === CENTRE.y; // the pin keeps the centre in 0.26 to 0.54
   if (!atCentre && depth < RULES.bathymetry.zones.shallows + RULES.hazards.uvBand)
     return `depth ${depth} low`;
   if (!atCentre && depth > RULES.hazards.pressureStart) return `depth ${depth} high`;

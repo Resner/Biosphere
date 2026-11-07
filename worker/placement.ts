@@ -135,7 +135,8 @@ export function groupsFor(
       b.sameTier - a.sameTier ||
       b.linkable - a.linkable ||
       away(a) - away(b) ||
-      (a.ids[0] as string).localeCompare(b.ids[0] as string),
+      Number((a.ids[0] as string) > (b.ids[0] as string)) -
+        Number((a.ids[0] as string) < (b.ids[0] as string)),
   );
 }
 
@@ -214,8 +215,8 @@ export function place(p: PlaceInput): Placement {
       if ((a.x - x) ** 2 + (a.y - y) ** 2 < a.d2) return false;
     }
     // The depth pin leaves the spawn centre in 0.26 to 0.54: a seed at its shallow end would refuse
-    // the centre itself, which an empty world must give.
-    if (x !== centre.x || y !== centre.y) {
+    // the centre itself, which an empty world must give (and only an empty world).
+    if (members.length > 0 || x !== centre.x || y !== centre.y) {
       const depth = depthAt(sim.seed32, x, y, world.size);
       if (depth < lo || depth > hi) return false;
     }
