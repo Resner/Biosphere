@@ -14,10 +14,13 @@ export interface Player {
   id: string;
 }
 
-/** Opens a player on `hub` and hatches it, one after the other so each lands as the last left it. */
-export async function join(browser: Browser, hub: string): Promise<Player> {
+/**
+ * Opens a player on `hub` and hatches it, one after the other so each lands as the last left it;
+ * `query` adds to the page's query (`&quality=medium`).
+ */
+export async function join(browser: Browser, hub: string, query = ''): Promise<Player> {
   const page = await (await browser.newContext()).newPage();
-  await openGame(page, `?debug=1&hub=${hub}`);
+  await openGame(page, `?debug=1&hub=${hub}${query}`);
   await page.waitForFunction(() => window.__bs?.state().playerId);
   await hatch(page);
   return { page, id: (await state(page)).playerId as string };

@@ -739,7 +739,9 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - `m8-proxy` passes in the world, with a spectator linked only to the second fighter seeing the away fighter.
     - `m10-witness` and `m10-cross` pass.
 
-- [ ] T17 The look across tiers, and ambient swarms [opus] (after T14) (in progress)
+- [x] T17 The look across tiers, and ambient swarms [opus] (after T14) (in progress)
+  - Done: `src/render/look.ts` (`lookScale`, never below 1, and `LookAnchor`: patterns drawn around a virtual camera moving by Δcamera ÷ scale) scales the caustics, god rays, snow, food halos and plume rims; `src/render/swarms.ts` draws `near.swarm` (`render.info().swarms`, `look`); `m11-tiers` on hub 8831.
+  - Gotcha: a pattern scaled about a fixed point sweeps far from it as the view grows, hence the anchor; step 3 holds by construction (no link, and a swarm lists only smaller players), so nothing filters drawn remotes (`m3-wire` draws a T2 scripted remote beside a hatchling).
   - Steps:
     1. **The look scales with the view.** The world-space look features take the scale (view half-height ÷ 133.4, a starter adult's), so a giant's screen reads like a starter's:
        - the caustic filaments and the god-ray shafts;

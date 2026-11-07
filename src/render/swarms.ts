@@ -20,8 +20,8 @@ export const SWARM_MOTES = { min: 5, max: 9 } as const;
 /** A point in the next `near` within this many wu of a cloud is the same player moved: it keeps its cloud. */
 export const SWARM_MATCH_WU = 2048;
 /** A cloud's radius and a mote's diameter in wu at a starter's scale; both grow with the look. */
-const CLOUD_WU = 10;
-const MOTE_WU = 1.4;
+const CLOUD_WU = 14;
+const MOTE_WU = 3;
 
 /** One cloud as drawn, for tests (`SwarmLayer.clouds`). */
 export interface SwarmCloud {
@@ -68,6 +68,8 @@ function frac(seed: number, k: number): number {
 }
 
 const smooth = (k: number): number => k * k * (3 - 2 * k);
+/** The per-mote attributes, written every frame. */
+const ATTRIBUTES = ['position', 'aSize', 'aAlpha'] as const;
 
 export class SwarmLayer {
   readonly points: THREE.Points;
@@ -144,7 +146,7 @@ export class SwarmLayer {
     this.geometry.setDrawRange(0, n);
     this.points.visible = n > 0;
     if (n > 0) {
-      for (const name of ['position', 'aSize', 'aAlpha']) {
+      for (const name of ATTRIBUTES) {
         (this.geometry.getAttribute(name) as THREE.BufferAttribute).needsUpdate = true;
       }
     }

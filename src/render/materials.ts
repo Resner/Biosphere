@@ -244,7 +244,7 @@ export const swarmMaterial = (): THREE.ShaderMaterial => {
   const material = layer(
     swarmVertex,
     swarmFragment,
-    { uColor: { value: new THREE.Color(0xbfeee0) }, uOpacity: { value: 0.45 } },
+    { uColor: { value: new THREE.Color(0xbfeee0) }, uOpacity: { value: 0.6 } },
     { blending: THREE.AdditiveBlending },
   );
   material.premultipliedAlpha = true;
