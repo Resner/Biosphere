@@ -242,11 +242,10 @@ export function foodInCell(world: World, cx: number, cy: number, layer = 0): Foo
 /** How many times as wide as layer 0's an item of `layer` is (1 for layer 0). */
 export const foodLayerWidth = (layer: number): number => WIDTH_OF[layer] as number;
 
-/** The layers a creature of size tier `tier` eats: t - 1 and t (layer 0 alone for tier 0). */
-export const eatenLayers = (tier: number): [number, number] => {
-  const top = Math.min(tier, LAYERS.max);
-  return [Math.max(0, top - 1), top];
-};
+/** The top layer a creature of size tier `tier` eats: its own (capped at the last layer). */
+const topLayer = (tier: number): number => Math.min(tier, LAYERS.max);
+/** The lowest: one below its own, never below layer 0. */
+const lowLayer = (tier: number): number => Math.max(0, topLayer(tier) - 1);
 
 /** Food of `layer` within `radius` of a point, ordered by cell then slot (a stable order). */
 export function foodNear(
@@ -284,7 +283,8 @@ export function foodForTier(
   radius: number,
   tier: number,
 ): FoodItem[] {
-  const [low, high] = eatenLayers(tier);
+  const low = lowLayer(tier);
+  const high = topLayer(tier);
   const items = foodNear(world, x, y, radius, low);
   return high === low ? items : items.concat(foodNear(world, x, y, radius, high));
 }
@@ -335,11 +335,10 @@ function respawnDelay(
 
 /** Marks a live item as eaten; its slot is empty until a hash-chosen 20-60 s have passed. */
 export function consumeFood(world: World, id: string): void {
-  const m = ID_PATTERN.exec(id);
-  if (!m) throw new Error(`bad food id ${id}`);
   const claim = parseFoodId(id);
-  const parsed = claim ? parseSlot(world, claim.slot) : null;
-  if (!claim || !parsed || `${claim.slot}_k${claim.k}` !== id) {
+  if (!claim) throw new Error(`bad food id ${id}`);
+  const parsed = parseSlot(world, claim.slot);
+  if (!parsed || `${claim.slot}_k${claim.k}` !== id) {
     throw new Error(`food ${id} is not alive`);
   }
   const [layer, cx, cy, slot] = parsed;
@@ -453,8 +452,9 @@ export function applyFeeding(world: World, creature: CreatureState): StepEvent[]
   m.hy = hy;
   m.cosArc = cosArc;
   const events: StepEvent[] = [];
-  const [lowLayer, highLayer] = eatenLayers(sizeTier(creature.biomass));
-  for (let layer = lowLayer; layer <= highLayer; layer++) {
+  const tier = sizeTier(creature.biomass);
+  for (let layer = lowLayer(tier); layer <= topLayer(tier); layer++) {
+    if (creature.energy >= energyCap) break;
     const reach = mouthRadius + MAX_ITEM_RADIUS * (WIDTH_OF[layer] as number);
     for (const item of foodNear(world, mx, my, reach, layer)) {
       if (!reaches(item.x, item.y, item.radius)) continue;

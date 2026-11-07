@@ -6,7 +6,7 @@
 import { genesisGenome } from '../src/genome/genesis';
 import { buildCreature } from '../src/genome/stats';
 import { depthAt } from '../src/sim/bathymetry';
-import { foodNear } from '../src/sim/food';
+import { foodForTier } from '../src/sim/food';
 import { plumesNear } from '../src/sim/hazards';
 import { angleToSteer } from '../src/sim/input';
 import { applyLife, lifeStage, lifespanMs } from '../src/sim/life';
@@ -30,21 +30,17 @@ export interface PacingOptions {
 const DEFAULTS: PacingOptions = { creatures: 12, minutes: 120, tiers: false };
 
 export function parseArgs(argv: readonly string[]): PacingOptions {
-  const options = { ...DEFAULTS };
-  for (let i = 0; i < argv.length; i += 2) {
-    const key = (argv[i] ?? '').replace(/^--/, '');
-    if (key === 'tiers') {
-      options.tiers = true;
-      i--;
-      continue;
-    }
-    const value = Number(argv[i + 1]);
+  const options = { ...DEFAULTS, tiers: argv.includes('--tiers') };
+  const numeric = argv.filter((arg) => arg !== '--tiers');
+  for (let i = 0; i < numeric.length; i += 2) {
+    const key = (numeric[i] ?? '').replace(/^--/, '');
+    const value = Number(numeric[i + 1]);
     if (key === 'tiers' || !Object.hasOwn(DEFAULTS, key) || !Number.isInteger(value) || value < 1) {
       throw new Error(
-        `Bad option ${argv[i]} ${argv[i + 1]}: use --creatures, --minutes with whole numbers, or --tiers`,
+        `Bad option ${numeric[i]} ${numeric[i + 1]}: use --creatures, --minutes with whole numbers, or --tiers`,
       );
     }
-    (options as unknown as Record<string, number>)[key] = value;
+    options[key as 'creatures' | 'minutes'] = value;
   }
   return options;
 }
@@ -67,8 +63,6 @@ export interface Life {
   /** Active ms at the end of the run, and how it ended. */
   endMs: number;
   end: 'old-age' | 'died' | 'cap';
-  /** The cause of death when `end` is 'died'. */
-  cause: string | null;
 }
 
 /** The biomass band whose crossing time gives a forager's growth rate (the combat tournament compares kills with it). */
@@ -129,7 +123,6 @@ export function simulateLife(
     bandMs: [null, null],
     endMs: 0,
     end: 'cap',
-    cause: null,
   };
   let wander = 0;
   let cooldownUntil = 0;
@@ -144,7 +137,6 @@ export function simulateLife(
     }
     if (!me.alive) {
       life.end = 'died';
-      life.cause = me.cause;
       break;
     }
     if (ms >= capMs) break;
@@ -163,16 +155,14 @@ export function simulateLife(
         if (d < margin && (flee === null || d < flee.d)) flee = { x: p.x, y: p.y, d };
       }
       // A creature of tier t eats layers t - 1 and t.
-      for (let layer = Math.max(0, tier - 1); layer <= tier; layer++) {
-        for (const f of foodNear(world, me.x, me.y, sense, layer)) {
-          // The cheap test first: only a nearer item than the best so far is worth the field samples.
-          const d = (f.x - me.x) ** 2 + (f.y - me.y) ** 2;
-          if (d >= bestD) continue;
-          if (clouds.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.radius + margin)) continue;
-          if (!safeDepth(world, f.x, f.y, tier)) continue;
-          bestD = d;
-          target = f;
-        }
+      for (const f of foodForTier(world, me.x, me.y, sense, tier)) {
+        // The cheap test first: only a nearer item than the best so far is worth the field samples.
+        const d = (f.x - me.x) ** 2 + (f.y - me.y) ** 2;
+        if (d >= bestD) continue;
+        if (clouds.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.radius + margin)) continue;
+        if (!safeDepth(world, f.x, f.y, tier)) continue;
+        bestD = d;
+        target = f;
       }
       if (target === null && world.tick % 180 === 0) {
         wander = (hashU32(world.tick, name.length) % 628) / 100;
@@ -270,10 +260,9 @@ export function tierRows(creatures: number, capMs: number): TierRow[] {
       start: TIER_START[tier] as number,
       medianMs: percentile(times, 0.5),
       grew: times.length,
-      ratio: 0,
     };
   });
-  const base = (rows[0] as TierRow).medianMs;
+  const base = (rows[0] as { medianMs: number }).medianMs;
   return rows.map((row) => ({ ...row, ratio: row.medianMs / base }));
 }
 

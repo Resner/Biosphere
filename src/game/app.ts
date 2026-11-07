@@ -14,7 +14,7 @@ import { type PresetName, resolvePreset } from '../render/presets';
 import { GameScene } from '../render/scene';
 import { Shake } from '../render/shake';
 import { carrionNear } from '../sim/carrion';
-import { eatenLayers, foodForTier, foodLayerWidth } from '../sim/food';
+import { foodForTier, foodLayerWidth } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { IDLE, type Input } from '../sim/input';
 import type { MateView } from '../sim/mating';
@@ -648,7 +648,7 @@ export class App {
       world,
       player.x,
       player.y,
-      view + FIELD_MARGIN * foodLayerWidth(eatenLayers(tier)[1]),
+      view + FIELD_MARGIN * foodLayerWidth(tier),
       tier,
     );
     this.scene.setField(
