@@ -256,7 +256,7 @@ test('three players see each other move smoothly, share food and chat @slow', as
   }
 });
 
-test('a closed tab drops out of the pond and a reload comes back to it @slow', async ({
+test('a closed tab drops out of view and a reload comes back to the world @slow', async ({
   browser,
 }) => {
   test.setTimeout(90_000); // three software-GL browsers join, close and reload
