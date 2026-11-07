@@ -4,6 +4,7 @@ uniform float uTime;
 uniform vec3 uColor;
 varying vec2 vP;
 varying float vPhase;
+varying float vGrow;
 varying vec2 vWorld;
 
 void main() {
@@ -23,9 +24,9 @@ void main() {
     col = uColor * (0.7 + 0.5 * vP.x);
     alpha = body * 0.85;
   } else if (uKind < 1.5) {
-    // A glowing sphere with a soft halo and a highlight.
+    // A glowing sphere with a soft halo (as wide as the quad grew for it) and a highlight.
     float body = 1.0 - smoothstep(0.34, 0.4, d);
-    float halo = exp(-d * 5.5) * 0.45;
+    float halo = exp(-d * 5.5 / vGrow) * 0.45;
     float spec = 1.0 - smoothstep(0.0, 0.16, length(vP - vec2(-0.1, 0.1)));
     col = uColor * (0.6 + 0.8 * (1.0 - d * 2.0)) + vec3(0.7) * spec;
     alpha = max(body, halo * pulse);
@@ -36,10 +37,10 @@ void main() {
     float hex = max(abs(vP.x) * 0.866 + abs(vP.y) * 0.5, abs(vP.y)) * 2.0;
     float body = 1.0 - smoothstep(0.62, 0.7, hex);
     float shade = 0.55 + 0.45 * fract(sector * 0.618 + 0.3);
-    float halo = exp(-d * 5.0) * 0.4;
+    float halo = exp(-d * 5.0 / vGrow) * 0.4;
     col = uColor * shade + vec3(0.8, 0.9, 1.0) * (1.0 - smoothstep(0.0, 0.35, d)) * 0.5 * pulse;
     // Vent crystals glow in the dark: a brighter core and a wider halo the darker the water.
-    float glow = dark * exp(-d * 3.0) * 0.6;
+    float glow = dark * exp(-d * 3.0 / vGrow) * 0.6;
     col += uColor * dark * 0.5 * pulse;
     alpha = max(body, (halo + glow) * pulse);
     sight = 1.0;

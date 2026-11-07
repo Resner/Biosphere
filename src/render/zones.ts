@@ -9,6 +9,7 @@ import { clamp, smoothstep, TAU } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { DepthWindow } from './depth-window';
+import { CAUSTIC_WU } from './look';
 import { wrapTo } from './origin';
 
 type Rgb = readonly [number, number, number];
@@ -383,6 +384,8 @@ export const ZONE_UNIFORMS: {
   readonly uSunTime: THREE.IUniform<number>;
   /** The origin's phase in the caustics' tile (`causticShift`); linked like `uSunTime`. */
   readonly uCausticShift: THREE.IUniform<THREE.Vector2>;
+  /** The look's scale (M11 T17, `lookScale`); linked like `uSunTime`. */
+  readonly uLookScale: THREE.IUniform<number>;
 } = {
   tZoneDepth: { value: null },
   uZoneOn: { value: 0 },
@@ -393,14 +396,16 @@ export const ZONE_UNIFORMS: {
   uLightCount: { value: 0 },
   uSunTime: { value: 0 },
   uCausticShift: { value: new THREE.Vector2() },
+  uLookScale: { value: 1 },
 };
 
-/** The caustics' tile in wu (`causticAt` in caustics.glsl: 2π after dividing by 18). */
-export const CAUSTIC_TILE = 18 * TAU;
+/** The caustics' tile in wu at scale 1 (`causticAt` in caustics.glsl: 2π after dividing by 18). */
+export const CAUSTIC_TILE = CAUSTIC_WU * TAU;
 
 /**
  * The origin's phase in the caustics' tile, in the shader's units (radians, 0..2π): `causticAt`
- * adds it, so a point shows the same light whatever origin it is drawn from.
+ * adds it, so a point shows the same light whatever origin it is drawn from. `origin` is in the
+ * patterns' units (`LookAnchor.originX`), which are wu at a starter's scale.
  */
 export function causticShift(origin: number): number {
   return (wrapTo(origin, CAUSTIC_TILE) / CAUSTIC_TILE) * TAU;

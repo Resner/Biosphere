@@ -43,15 +43,15 @@ export interface PostInfo {
 }
 
 /**
- * Where the god rays (M6 T17) cross the plane: the view in wu (from the floating origin, M11 T11),
- * their strength and their clock.
+ * Where the god rays (M6 T17) cross the plane: the view in the patterns' units (wu at a starter's
+ * scale, M11 T17, from the floating origin, M11 T11), their strength and their clock.
  */
 export interface RayView {
   /** 0 draws none. */
   strength: number;
   camX: number;
   camY: number;
-  /** The floating origin the camera is measured from (`origin.ts`), wu. */
+  /** The floating origin the camera is measured from, in the patterns' units (`LookAnchor.originX`). */
   originX: number;
   originY: number;
   halfWidth: number;

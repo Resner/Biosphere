@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { FOOD_HALO_WU, PLUME_RIM_WU } from './look';
 import type { MaterialParams } from './material-params';
 import { ORIGIN_STEP } from './origin';
 import { depthOfParallax } from './post/dof';
@@ -23,6 +24,8 @@ import particlesVertex from './shaders/particles.vert.glsl?raw';
 import plumeFragment from './shaders/plume.frag.glsl?raw';
 import plumeVertex from './shaders/plume.vert.glsl?raw';
 import ringsFragment from './shaders/rings.frag.glsl?raw';
+import swarmFragment from './shaders/swarm.frag.glsl?raw';
+import swarmVertex from './shaders/swarm.vert.glsl?raw';
 import telegraphFragment from './shaders/telegraph.frag.glsl?raw';
 import waterFragment from './shaders/water.frag.glsl?raw';
 import waterVertex from './shaders/water.vert.glsl?raw';
@@ -126,6 +129,7 @@ export function shareBackdrop(material: THREE.ShaderMaterial): void {
   material.uniforms.uRefract = BACKDROP.strength;
   material.uniforms.uSunTime = ZONE_UNIFORMS.uSunTime;
   material.uniforms.uCausticShift = ZONE_UNIFORMS.uCausticShift;
+  material.uniforms.uLookScale = ZONE_UNIFORMS.uLookScale;
 }
 
 /**
@@ -144,6 +148,7 @@ export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.Shade
     uTime: { value: 0 },
     uSunTime: { value: 0 },
     uCausticShift: { value: new THREE.Vector2() },
+    uLookScale: { value: 1 },
     uCore: { value: new THREE.Color(...params.core) },
     uRim: { value: new THREE.Color(...params.rim) },
     uOrgan: { value: new THREE.Color(...params.organ) },
@@ -183,16 +188,26 @@ export const flagellumMaterial = (): THREE.ShaderMaterial =>
     uAlpha: { value: 1 },
   });
 
-export const foodMaterial = (kind: number, color: number): THREE.ShaderMaterial =>
-  layer(foodVertex, ZONE_GLSL + foodFragment, {
+export const foodMaterial = (kind: number, color: number): THREE.ShaderMaterial => {
+  const material = layer(foodVertex, ZONE_GLSL + foodFragment, {
     ...ZONE_UNIFORMS,
     uKind: { value: kind },
     uTime: { value: 0 },
+    uLook: { value: 1 },
     uColor: { value: new THREE.Color(color) },
   });
+  material.defines = { FOOD_HALO_WU: glslFloat(FOOD_HALO_WU) };
+  return material;
+};
 
-export const plumeMaterial = (): THREE.ShaderMaterial =>
-  layer(plumeVertex, noise + plumeFragment, { uTime: { value: 0 } });
+export const plumeMaterial = (): THREE.ShaderMaterial => {
+  const material = layer(plumeVertex, noise + plumeFragment, {
+    uTime: { value: 0 },
+    uLook: { value: 1 },
+  });
+  material.defines = { PLUME_RIM_WU: glslFloat(PLUME_RIM_WU) };
+  return material;
+};
 
 /** Glow pools over the water (M6 T16): additive, coloured per instance. */
 export const glowMaterial = (): THREE.ShaderMaterial =>
@@ -224,6 +239,18 @@ export const eggMaterial = (): THREE.ShaderMaterial => {
   return material;
 };
 
+/** Ambient swarms' motes (M11 T17): faint, additive, premultiplied. */
+export const swarmMaterial = (): THREE.ShaderMaterial => {
+  const material = layer(
+    swarmVertex,
+    swarmFragment,
+    { uColor: { value: new THREE.Color(0xbfeee0) }, uOpacity: { value: 0.6 } },
+    { blending: THREE.AdditiveBlending },
+  );
+  material.premultipliedAlpha = true;
+  return material;
+};
+
 /** An occasional bright speck (M6 T17) is this much larger and brighter than its plain self. */
 export const SPARKLE = { size: 1.6, light: 5 } as const;
 
@@ -250,7 +277,9 @@ export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial => 
     particlesFragment,
     {
       uCam: { value: new THREE.Vector2() },
-      uOriginStep: { value: new THREE.Vector2() },
+      uAnchor: { value: new THREE.Vector2() },
+      uAnchorStep: { value: new THREE.Vector2() },
+      uLook: { value: 1 },
       uFlow: { value: new THREE.Vector2() },
       uPeriod: { value: style.period },
       uDepth: { value: depthOfParallax(style.parallax) },

@@ -191,13 +191,17 @@ export const welcome = (worldId = 'world1'): Welcome => ({
 });
 
 export const LEAF = { x: 0, y: 0, size: 262_144 };
-export const nearMsg = (peers: [id: string, dx: number][], age = 0): WorldMsg => ({
+export const nearMsg = (
+  peers: [id: string, dx: number][],
+  age = 0,
+  swarm: [x: number, y: number][] = [],
+): WorldMsg => ({
   t: 'near',
   leaf: LEAF,
   peers: peers.map(
     ([id, dx]): NearPeer => ({ id, name: id.toUpperCase(), x: C + dx, y: C, r: 10, age }),
   ),
-  swarm: [],
+  swarm,
 });
 
 /** A starter's snapshot `dx` wu east of the world's centre. */

@@ -14,6 +14,7 @@ import { FoodLayer } from './food';
 import { GlowLayer } from './glows';
 import { type GpuExtent, watchGpu } from './gpu-watch';
 import { PlumeLayer } from './hazards';
+import { LookAnchor } from './look';
 import { materialParams } from './material-params';
 import { followOrigin, ORIGIN } from './origin';
 import { type DrawnOutline, OutlineLayer } from './outlines';
@@ -34,6 +35,7 @@ import {
 } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
 import { RingLayer } from './rings';
+import { SwarmLayer, type SwarmPoint } from './swarms';
 import { TelegraphLayer, type TelegraphMark } from './telegraph';
 import { Water } from './water';
 import {
@@ -80,6 +82,8 @@ export interface SceneView {
   sight: number;
   /** How far the sim's currents have carried the water since the pond began, in wu: it carries the snow (M6 T17). */
   flow: { readonly x: number; readonly y: number };
+  /** The newest `near`'s swarm (M11 T17): players two or more tiers smaller, drawn as faint clouds. */
+  swarm: readonly SwarmPoint[];
 }
 
 /** A creature's glow at a radius of 1 wu, by genome hash; null for one that does not glow. */
@@ -132,6 +136,10 @@ export interface RenderInfo extends PostInfo {
   centre: { x: number; y: number } | null;
   /** The floating origin the scene draws from, wu (M11 T11, `origin.ts`). */
   origin: { x: number; y: number };
+  /** Swarm clouds drawn this frame, fading ones included (M11 T17, `swarms.ts`). */
+  swarms: number;
+  /** The look's scale this frame (M11 T17, `look.ts`): 1 up to a starter adult's view. */
+  look: number;
 }
 
 /** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
@@ -148,6 +156,7 @@ const ORDER = {
   far: 1,
   plumes: 2,
   food: 3,
+  swarms: 3.5,
   cell: 4,
   eggs: 4.7,
   rings: 4.8,
@@ -190,6 +199,7 @@ export class GameScene {
   private readonly near: ParticleLayer;
   private readonly plumes = new PlumeLayer();
   private readonly food = new FoodLayer();
+  private readonly swarms = new SwarmLayer();
   private readonly cell = new Cell();
   private readonly body: BodyLayer;
   private readonly bodyState: CreatureViewState = {
@@ -257,6 +267,8 @@ export class GameScene {
   };
   private caustic = 0;
   private readonly sun = new SunClock();
+  /** The look's scale and the virtual camera its patterns are drawn around (M11 T17, `look.ts`). */
+  private readonly look = new LookAnchor();
   private readonly light: boolean;
   private readonly onResize = () => this.resize();
 
@@ -321,6 +333,7 @@ export class GameScene {
       [this.far.points, ORDER.far],
       [this.plumes.mesh, ORDER.plumes],
       ...this.food.all.map((mesh): [THREE.Object3D, number] => [mesh, ORDER.food]),
+      [this.swarms.points, ORDER.swarms],
       [this.cell.flagellum, ORDER.cell],
       [this.cell.body, ORDER.cell + 0.5],
       [this.eggs.mesh, ORDER.eggs],
@@ -463,21 +476,33 @@ export class GameScene {
     camera.position.y = view.camY - ORIGIN.y;
     camera.updateProjectionMatrix();
 
+    const { look } = this;
+    look.update(view.camX, view.camY, view.halfHeight, view.flow);
     this.water.update(view, halfWidth, this.light);
     this.zones.update(view.camX, view.camY, view.halfHeight, ORIGIN);
-    ZONE_UNIFORMS.uCausticShift.value.set(causticShift(ORIGIN.x), causticShift(ORIGIN.y));
+    ZONE_UNIFORMS.uLookScale.value = look.scale;
+    ZONE_UNIFORMS.uCausticShift.value.set(
+      causticShift(look.originX(ORIGIN.x)),
+      causticShift(look.originY(ORIGIN.y)),
+    );
     this.updateZones(view);
     this.post.setFocus(PLANE_DEPTH);
     const sprites = this.post.spriteDof(this.sprites);
     const depth = this.seed ? depthAt(this.seed, view.camX, view.camY, this.size) : null;
     const snow = depth === null ? 1 : zoneBlend(depth, 'snow');
     this.updateLight(view, halfWidth, depth);
-    const { flow } = view;
-    this.far.update(view, this.pxPerWu, sprites, snow, flow);
-    this.mid.update(view, this.pxPerWu, sprites, snow, flow);
-    this.near.update(view, this.pxPerWu, sprites, snow, flow);
-    this.plumes.update(view.waterTime);
-    this.food.update(view.waterTime);
+    this.far.update(view, this.pxPerWu, sprites, snow, look);
+    this.mid.update(view, this.pxPerWu, sprites, snow, look);
+    this.near.update(view, this.pxPerWu, sprites, snow, look);
+    this.plumes.update(view.waterTime, look.scale);
+    this.food.update(view.waterTime, look.scale);
+    this.swarms.update(
+      view.swarm,
+      view.waterTime,
+      view.flow,
+      look.scale,
+      this.pxPerWu * sprites.pixels,
+    );
     this.cell.update(this.drawBody(view) ? null : this.cellOf(view.creature), view.time);
     this.remotes.set(
       view.remotes,
@@ -527,6 +552,7 @@ export class GameScene {
   /**
    * Sunlight (M6 T17): the caustics and the god rays take the sunlight at the camera (the composite
    * draws the rays, so low has none), and move by the sun's clock at the camera's pace (M6b T8).
+   * The rays are handed over in the patterns' units (M11 T17), so their shafts scale with the view.
    */
   private updateLight(view: SceneView, halfWidth: number, depth: number | null): void {
     this.caustic = this.causticAt(depth);
@@ -534,12 +560,14 @@ export class GameScene {
     ZONE_UNIFORMS.uSunTime.value = sunTime;
     const rays = this.rays;
     rays.strength = depth === null || !this.light ? 0 : sunlight(depth, 'rays');
-    rays.camX = view.camX - ORIGIN.x;
-    rays.camY = view.camY - ORIGIN.y;
-    rays.originX = ORIGIN.x;
-    rays.originY = ORIGIN.y;
-    rays.halfWidth = halfWidth;
-    rays.halfHeight = view.halfHeight;
+    const { look } = this;
+    const k = 1 / look.scale;
+    rays.camX = (view.camX - ORIGIN.x) * k;
+    rays.camY = (view.camY - ORIGIN.y) * k;
+    rays.originX = look.originX(ORIGIN.x);
+    rays.originY = look.originY(ORIGIN.y);
+    rays.halfWidth = halfWidth * k;
+    rays.halfHeight = view.halfHeight * k;
     rays.time = sunTime;
     this.post.setRays(rays);
   }
@@ -692,6 +720,8 @@ export class GameScene {
       telegraphs: this.telegraphs.counts(),
       centre: this.centre ? { ...this.centre } : null,
       origin: { x: ORIGIN.x, y: ORIGIN.y },
+      swarms: this.swarms.count(),
+      look: this.look.scale,
       ...this.post.info(),
     };
   }
@@ -732,6 +762,7 @@ export class GameScene {
       this.near,
       this.plumes,
       this.food,
+      this.swarms,
       this.cell,
       this.body,
       this.eggs,
@@ -748,5 +779,6 @@ export class GameScene {
     this.renderer.dispose();
     ORIGIN.x = 0;
     ORIGIN.y = 0;
+    ZONE_UNIFORMS.uLookScale.value = 1;
   }
 }

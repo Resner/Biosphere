@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import { TAU } from '../sim/math';
+import type { LookAnchor } from './look';
 import {
   MAX_SPRITE_PX,
   type ParticleStyle,
@@ -105,25 +106,31 @@ export class ParticleLayer {
 
   /**
    * `pxPerWu` is in CSS pixels; `dof` says how the sprites draw their blur into their target;
-   * `light` scales their brightness with the zone around the camera (M6 T16); `flow` is how far
-   * the currents have carried the water so far, in wu (M6 T17).
+   * `light` scales their brightness with the zone around the camera (M6 T16); `look` is the look's
+   * scale, and the virtual camera and the currents' carry in the patterns' units (M6 T17, M11 T17).
    */
   update(
     view: SceneView,
     pxPerWu: number,
     dof: SpriteDof,
     light: number,
-    flow: { readonly x: number; readonly y: number },
+    look: Pick<LookAnchor, 'scale' | 'cam' | 'flow'>,
   ): void {
     const m = this.material;
     // Wrapped to the tile, so that a long drift keeps its precision in the shader.
     const { period } = this.style;
+    const { flow, cam } = look;
     vec2Uniform(m, 'uFlow').set(mod(flow.x, period), mod(flow.y, period));
     setUniform(m, 'uOpacity', this.style.opacity * light);
+    setUniform(m, 'uLook', look.scale);
     this.pixels = dof.pixels;
-    // From the floating origin (M11 T11), which the shader adds back in whole steps.
+    // From the floating origin (M11 T11): the specks are placed around the camera from there.
     vec2Uniform(m, 'uCam').set(view.camX - ORIGIN.x, view.camY - ORIGIN.y);
-    vec2Uniform(m, 'uOriginStep').set(ORIGIN.x / ORIGIN_STEP, ORIGIN.y / ORIGIN_STEP);
+    // The virtual camera in whole steps and the rest, which the shader adds back up per parallax.
+    const stepX = Math.round(cam.x / ORIGIN_STEP);
+    const stepY = Math.round(cam.y / ORIGIN_STEP);
+    vec2Uniform(m, 'uAnchor').set(cam.x - stepX * ORIGIN_STEP, cam.y - stepY * ORIGIN_STEP);
+    vec2Uniform(m, 'uAnchorStep').set(stepX, stepY);
     setUniform(m, 'uTime', view.waterTime);
     setUniform(m, 'uPxPerWu', pxPerWu * dof.pixels);
     setUniform(m, 'uMaxSize', MAX_SPRITE_PX * dof.shrink);
@@ -140,12 +147,13 @@ export class ParticleLayer {
   specks(pxPerWu: number, width: number, height: number): Speck[] {
     const u = this.material.uniforms;
     const value = (name: string) => (u[name] as THREE.IUniform).value as number;
-    const fromOrigin = (u.uCam as THREE.IUniform).value as THREE.Vector2;
-    const steps = (u.uOriginStep as THREE.IUniform).value as THREE.Vector2;
+    const anchor = (u.uAnchor as THREE.IUniform).value as THREE.Vector2;
+    const steps = (u.uAnchorStep as THREE.IUniform).value as THREE.Vector2;
     const cam = {
-      x: fromOrigin.x + steps.x * ORIGIN_STEP,
-      y: fromOrigin.y + steps.y * ORIGIN_STEP,
+      x: anchor.x + steps.x * ORIGIN_STEP,
+      y: anchor.y + steps.y * ORIGIN_STEP,
     };
+    const look = value('uLook');
     const flow = (u.uFlow as THREE.IUniform).value as THREE.Vector2;
     const t = value('uTime');
     const { period, size, spread = 0 } = this.style;
@@ -159,8 +167,8 @@ export class ParticleLayer {
       const dy = 0.3 * Math.sin(t * 0.3 + s * TAU) * t + flow.y;
       const rx = mod((this.positions[i * 3] ?? 0) * period + dx - cam.x * parallax, period);
       const ry = mod((this.positions[i * 3 + 1] ?? 0) * period + dy - cam.y * parallax, period);
-      const x = width / 2 + (rx - period / 2) * pxPerWu;
-      const y = height / 2 - (ry - period / 2) * pxPerWu;
+      const x = width / 2 + (rx - period / 2) * look * pxPerWu;
+      const y = height / 2 - (ry - period / 2) * look * pxPerWu;
       if (x < 0 || y < 0 || x >= width || y >= height) continue;
       const coc = Math.min(value('uCocMax'), value('uCocSlope') * Math.abs(z - value('uFocus')));
       const fringe = value('uFringe') * coc;
@@ -168,7 +176,7 @@ export class ParticleLayer {
       const grown = bright ? SPARKLE.size : 1;
       const drawn = Math.max(
         Math.min(
-          size * grown * (0.6 + s) * pxPerWu * this.pixels,
+          size * look * grown * (0.6 + s) * pxPerWu * this.pixels,
           value('uMaxSize') - 2 * (coc + fringe),
         ),
         0.5,

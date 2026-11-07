@@ -26,7 +26,11 @@ const NOT_WATER = waterLuma + 0.04;
  * centre does.
  */
 const bodies = { starter: 'starter', worst: genomeToBase64url(worstBody().ring) };
-const KEEP = 0.02;
+// Re-measured (M11 T17): the worst body's centre at 100,000 biomass reads 0.021 to 0.030 below the
+// small body's on a software-rendered run (12 local runs on the commits of M11 T12, T14, T16 and
+// T17, the gap steady within a run and the small body's own reading moving 0.305 to 0.317 between
+// runs). A hole reads the bare water, 0.033: some 0.25 below either body, so 0.04 still tells it.
+const KEEP = 0.04;
 
 /**
  * Waits until the camera's zoom has held still for 5 frames. A fixed pause is not enough on a slow

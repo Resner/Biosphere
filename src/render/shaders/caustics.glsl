@@ -22,12 +22,16 @@ float caustic(vec2 p, float t) {
 // The caustics' clock (M6b T8, `SunClock` in zones.ts): the shaders' clock at the zone's pace, so the
 // shallows' light drifts slower. The water and the bodies read the same one.
 uniform float uSunTime;
-// The floating origin's phase in the tile (M11 T11, `causticShift` in zones.ts), radians.
+// The floating origin's phase in the tile (M11 T11, `causticShift` in zones.ts), radians: the
+// phase of the virtual origin the look scale draws from (M11 T17, `LookAnchor` in look.ts).
 uniform vec2 uCausticShift;
+// The look's scale (M11 T17, `lookScale` in look.ts): the filaments grow with the view past a
+// starter adult's, so a giant sees them as wide on screen as a starter does.
+uniform float uLookScale;
 
 // The caustic light (0..1) at point `w` (wu from the floating origin) at `t` seconds. The sine
 // terms repeat every 2 pi, so the coordinate is wrapped to one tile, the origin's phase in it
 // added, and the look does not depend on where in the world it is or what origin draws it.
 float causticAt(vec2 w, float t) {
-  return clamp(caustic(mod(w / 18.0 + uCausticShift, 6.2831853), t * 0.35), 0.0, 1.0);
+  return clamp(caustic(mod(w / (18.0 * uLookScale) + uCausticShift, 6.2831853), t * 0.35), 0.0, 1.0);
 }

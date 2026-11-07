@@ -89,10 +89,12 @@ export class FoodLayer {
     });
   }
 
-  update(time: number): void {
+  /** `look` is the look's scale (M11 T17): the halos grow with it. */
+  update(time: number, look: number): void {
     for (const mesh of this.all) {
       const material = mesh.material as THREE.ShaderMaterial;
       setUniform(material, 'uTime', time);
+      setUniform(material, 'uLook', look);
     }
   }
 

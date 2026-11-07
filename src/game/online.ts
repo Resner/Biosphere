@@ -43,9 +43,10 @@ import {
   wantedRate,
 } from '../net/snapshot-rates';
 import { WhereReporter } from '../net/where';
+import type { SwarmPoint } from '../render/swarms';
 import { viewHalfHeight } from '../sim/size';
 import { type MapSighting, sightings } from './map-view';
-import { type KnownCounts, Neighbours } from './neighbours';
+import { type KnownCounts, Neighbours, NO_SWARM } from './neighbours';
 import { type DutyLink, type LinkInfo, Links, YOUNG_MS } from './online-links';
 
 export type { DutyLink, LinkInfo } from './online-links';
@@ -316,6 +317,14 @@ export class OnlineSession {
     return this.openPeers().length;
   }
 
+  /**
+   * The directory's newest swarm while the creature is in the water (M11 T17): the players two or
+   * more tiers smaller in its AoI, which the scene draws as faint clouds. A new answer is a new array.
+   */
+  swarm(): readonly SwarmPoint[] {
+    return this.opts.creature?.()?.inWater ? this.neighbours.swarm : NO_SWARM;
+  }
+
   /** Whether nobody is linked and nobody is known within the creature's query radius. */
   alone(): boolean {
     if (this.openCount() > 0) return false;
@@ -551,7 +560,7 @@ export class OnlineSession {
       this.neighbours.leaf = m.leaf;
       return;
     }
-    this.neighbours.near(m.leaf, m.peers, this.now());
+    this.neighbours.near(m.leaf, m.peers, m.swarm, this.now());
     this.links.plan();
   }
 
