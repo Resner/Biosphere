@@ -485,8 +485,8 @@ export const logRow = (enc: string) => authority((o) => o.fightStore.read(enc));
 export async function calmPond(...ps: Pick<Player, 'pond'>[]): Promise<void> {
   const [first] = ps;
   if (!first) return;
-  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", first.pond.id);
-  for (const p of ps) p.pond = { ...p.pond, seed: 'timeout' };
+  await sql("UPDATE ponds SET seed = 'calm-79' WHERE id = ?", first.pond.id);
+  for (const p of ps) p.pond = { ...p.pond, seed: 'calm-79' };
 }
 
 /** Two players whose hatch protection is over, in the calm pond (`calmPond`). */

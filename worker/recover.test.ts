@@ -185,8 +185,8 @@ describe('recovery rebuilds the locks', () => {
     const [a, b] = await fighters();
     const c = await hatched();
     await advance(16_000);
-    await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", c.pond.id);
-    c.pond = { ...c.pond, seed: 'timeout' };
+    await sql("UPDATE ponds SET seed = 'calm-79' WHERE id = ?", c.pond.id);
+    c.pond = { ...c.pond, seed: 'calm-79' };
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.5, energy: 0 }));
     await play(a, b, start, IDLE, 2);
     await restart();

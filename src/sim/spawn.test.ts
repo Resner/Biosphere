@@ -1,4 +1,5 @@
 import { describe, expect, it } from 'vitest';
+import { speedTest } from '../../tests/heavy';
 import { zoneAt } from './bathymetry';
 import { colliderReach, STARTER_PHYS } from './body';
 import { plumesNear } from './hazards';
@@ -104,6 +105,39 @@ describe('findClearSpot, nearest and stable', () => {
       }
       world.tick = start;
     }
+  });
+});
+
+describe('findClearSpot in a large world', () => {
+  speedTest(
+    'searches within the search radius and keeps the original point beyond, in 50 ms',
+    () => {
+      const world = createWorld({ seed: 'poisoned', size: 262144, hazards: false });
+      const c = world.size / 2;
+      // Nine plumes that together cover every point within 4,096 wu (and the clearance) of the centre.
+      for (let j = -1; j <= 1; j++) {
+        for (let i = -1; i <= 1; i++) {
+          world.extraPlumes.push({
+            id: `x${i}_${j}`,
+            x: c + i * 2900,
+            y: c + j * 2900,
+            radius: 2100,
+          });
+        }
+      }
+      const start = performance.now();
+      expect(findClearSpot(world, c, c)).toEqual({ x: c, y: c });
+      expect(performance.now() - start).toBeLessThan(50);
+    },
+  );
+
+  it('still finds a clear spot inside the radius', () => {
+    const world = createWorld({ seed: 'near', size: 262144, hazards: false });
+    const c = world.size / 2;
+    world.extraPlumes.push({ id: 'x', x: c, y: c, radius: 500 });
+    const spot = findClearSpot(world, c, c);
+    expect(Math.hypot(spot.x - c, spot.y - c)).toBeLessThan(500 + RULES.spawn.plumeClearance + 100);
+    expect(plumesNear(world, spot.x, spot.y, RULES.spawn.plumeClearance)).toEqual([]);
   });
 });
 

@@ -311,8 +311,8 @@ export async function runScenario(o: Scenario): Promise<Measure> {
   }
   const all = [farmer, ...bots];
   // A pond with no UV or pressure where the fights are staged (`fighters` in the fight kit).
-  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", farmer.pond.id);
-  for (const a of all) a.pond = { ...a.pond, seed: 'timeout' };
+  await sql("UPDATE ponds SET seed = 'calm-79' WHERE id = ?", farmer.pond.id);
+  for (const a of all) a.pond = { ...a.pond, seed: 'calm-79' };
   const children: string[] = [];
   const kills: KillLog[] = [];
   const end = t0 + o.hours * HOUR;
@@ -370,7 +370,7 @@ export async function runScenario(o: Scenario): Promise<Measure> {
     if (o.killEveryMs > 0 && o.bots > 0 && gen3AtMs !== null) {
       if (!sacrifice && !sacrificed) {
         sacrifice = await actor('max', t0, await seeded(`${o.name}|sacrifice`));
-        sacrifice.pond = { ...sacrifice.pond, seed: 'timeout' };
+        sacrifice.pond = { ...sacrifice.pond, seed: 'calm-79' };
         sacrificeAt = now;
         all.push(sacrifice);
       }

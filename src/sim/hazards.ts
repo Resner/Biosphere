@@ -28,7 +28,7 @@ function anchorInCell(world: World, cx: number, cy: number): Plume | null {
   const y = cy * cell + unit(cellHash(world, cx, cy, SALT.y)) * cell;
   const centre = world.size / 2;
   if (length(x - centre, y - centre) < H.ventMinDistance) return null;
-  if (depthAt(world.seed32, x, y) < RULES.bathymetry.zones.twilight) return null;
+  if (depthAt(world.seed32, x, y, world.size) < RULES.bathymetry.zones.twilight) return null;
   return {
     id: `p${cx}_${cy}`,
     x,
@@ -124,7 +124,7 @@ export function zoneExposure(depth: number): { uv: number; pressure: number } {
  * creature's centre (`zoneExposure`). A tolerance of 1 takes no damage.
  */
 function applyZoneHazards(world: World, creature: CreatureState, events: StepEvent[]): void {
-  const depth = depthAt(world.seed32, creature.x, creature.y);
+  const depth = depthAt(world.seed32, creature.x, creature.y, world.size);
   // Most of the pond is neither sunlit nor crushing.
   if (depth >= RULES.bathymetry.zones.shallows && depth <= H.pressureStart) return;
   const hurt = (cause: 'uv' | 'pressure', rate: number, exposure: number, tolerance: number) => {

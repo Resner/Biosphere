@@ -8,6 +8,7 @@ import {
   consumeFood,
   efficiency,
   foodInCell,
+  foodMemoChunks,
   foodNear,
   slotAnchor,
 } from './food';
@@ -311,8 +312,10 @@ describe('feeding through the mouth', () => {
   const setup = (kind: FoodKind, mouth: Mouth, bearing = 0, distance = 0, heading = 0) => {
     const w = world('mouth');
     let item: FoodItem | undefined;
-    for (let cx = 6; cx < 20 && !item; cx++) {
-      item = foodInCell(w, cx, 8).find((i) => i.kind === kind);
+    for (let cy = 8; cy < 24 && !item; cy++) {
+      for (let cx = 6; cx < 20 && !item; cx++) {
+        item = foodInCell(w, cx, cy).find((i) => i.kind === kind);
+      }
     }
     if (!item) throw new Error(`no ${kind}`);
     const r = 10;
@@ -450,5 +453,57 @@ describe('feeding through the mouth', () => {
     const start = process.hrtime.bigint();
     for (let i = 0; i < runs; i++) step(w, {});
     expect(Number(process.hrtime.bigint() - start) / 1e6 / runs).toBeLessThan(2);
+  });
+});
+
+describe('the kind memo in a large world', () => {
+  const LARGE = 262144;
+  const JAW: Mouth = { offset: 0.9, radius: 0.35, arc: 0.6, type: 1, digestion: 1 };
+  const big = (seed: string) => createWorld({ seed, size: LARGE, currents: false, hazards: false });
+
+  it('keeps at most 256 chunks of 16 × 16 cells however far a creature sweeps', () => {
+    const w = big('sweep');
+    const before = foodNear(w, 1000, 1000, 600);
+    expect(before.length).toBeGreaterThan(0);
+    // A lawnmower sweep of 200,000 wu in rows 2,048 wu apart: about 9,500 chunks (4,096 wu each).
+    for (let y = 1000; y <= 201000; y += 2048) {
+      for (let x = 1000; x <= 201000; x += 2048) foodNear(w, x, y, 300);
+      expect(foodMemoChunks(w)).toBeLessThanOrEqual(256);
+    }
+    expect(foodMemoChunks(w)).toBeGreaterThan(0);
+    // The chunk of the first cell was dropped long ago; its cells show the same items.
+    expect(foodNear(w, 1000, 1000, 600)).toEqual(before);
+  });
+
+  it('shows the same items to a world that remembers nothing', () => {
+    const a = big('same');
+    const b = big('same');
+    for (let x = 100000; x < 110000; x += 700) foodNear(a, x, 90000, 300);
+    for (let x = 0; x < 200000; x += 4000) foodNear(b, x, 500, 300);
+    expect(foodNear(a, 105000, 90000, 500)).toEqual(foodNear(b, 105000, 90000, 500));
+  });
+
+  speedTest('keeps a tick of 24 creatures with food near (250,000, 250,000) under 2 ms', () => {
+    const w = big('perf-large');
+    const colliders = [{ x: 0, y: 0, r: 1 }];
+    for (let i = 1; i < 12; i++) colliders.push({ x: -0.2 * i, y: 0.1 * i, r: 0.4 });
+    for (let i = 0; i < 24; i++) {
+      spawnCreature(w, {
+        id: `c${String(i).padStart(2, '0')}`,
+        x: 250000 + (i % 6) * 40,
+        y: 250000 + Math.floor(i / 6) * 40,
+        phys: { ...STARTER_PHYS, mouth: JAW, colliders },
+      });
+    }
+    for (let i = 0; i < 30; i++) step(w, {});
+    const runs = 60;
+    const ms = Math.min(
+      ...Array.from({ length: 5 }, () => {
+        const start = process.hrtime.bigint();
+        for (let i = 0; i < runs; i++) step(w, {});
+        return Number(process.hrtime.bigint() - start) / 1e6 / runs;
+      }),
+    );
+    expect(ms).toBeLessThan(2);
   });
 });

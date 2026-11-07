@@ -647,6 +647,8 @@ export const RULES = deepFreeze({
   spawn: {
     /** Hatching looks for a plume-free spot on rings this far apart (wu). */
     searchStep: 50,
+    /** ...but only up to this far from the point (wu); beyond it the original point is kept. */
+    searchRadius: 4096,
     /** A hatching cell keeps at least this far from any plume (wu). */
     plumeClearance: 120,
     /** Plumes drift, so a spot must stay clear for this long (10 s)... */
@@ -667,14 +669,16 @@ export const RULES = deepFreeze({
     /** Depth swing of the noise, before the centre cap. */
     noiseAmplitude: 0.5,
     /** The share of the pond each zone gets before the centre cap: shallows, twilight, deep (abyss is the rest). */
-    shares: { shallows: 0.27, twilight: 0.3, deep: 0.29 },
+    shares: { shallows: 0.27, twilight: 0.33, deep: 0.27 },
     /** The raw field is sampled on this many points per side to find those quantiles. */
-    calibrationSamples: 48,
-    /** Raw slope per wu towards the deep side of the pond. */
-    tilt: 0.0001,
-    /** Within this many wu of the centre the depth stays within `centreCap` of `base`: all twilight. */
+    calibrationSamples: 128,
+    /** The broadest octave: it makes whole regions of a large world shallower or deeper. */
+    broad: { wavelength: 16384, weight: 0.4 },
+    /** Within this many wu of the world's centre the depth stays within `centreCap` of `base`: all twilight. */
     centreRadius: 1400,
     centreCap: 0.14,
+    /** The field around the centre, this many wu each way, is centred in twilight when a world is calibrated. */
+    localHalf: 2200,
     /** The cap opens by this much depth per wu beyond `centreRadius`. */
     capGrowth: 0.002,
     /** A zone ends where the depth reaches this value. */

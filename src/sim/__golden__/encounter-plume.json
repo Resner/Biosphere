@@ -11,8 +11,8 @@
         {
           "player": "player-a",
           "creature": "a",
-          "x": 937,
-          "y": 3411,
+          "x": 294,
+          "y": 209,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -65,8 +65,8 @@
         {
           "player": "player-b",
           "creature": "b",
-          "x": 637,
-          "y": 3411,
+          "x": -6,
+          "y": 209,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -161,7 +161,7 @@
       [3840, 0]
     ]
   },
-  "hash": "74ad02cf010ee5a7",
+  "hash": "d5d508c4f14c61e6",
   "results": [
     {
       "outcome": "died",

@@ -41,8 +41,8 @@ async function players(n: number): Promise<Player[]> {
   const out: Player[] = [];
   for (let i = 0; i < n; i++) out.push(await hatched());
   await advance(16_000);
-  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", (out[0] as Player).pond.id);
-  for (const p of out) p.pond = { ...p.pond, seed: 'timeout' };
+  await sql("UPDATE ponds SET seed = 'calm-79' WHERE id = ?", (out[0] as Player).pond.id);
+  for (const p of out) p.pond = { ...p.pond, seed: 'calm-79' };
   return out;
 }
 

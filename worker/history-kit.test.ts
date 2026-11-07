@@ -13,5 +13,5 @@ it('is made in the calm pond, never one with a random seed', async () => {
     'SELECT settlement FROM encounters WHERE id = ?',
     enc,
   );
-  expect(JSON.parse(row?.settlement ?? '{}').settlement.pondSeed).toBe('timeout');
+  expect(JSON.parse(row?.settlement ?? '{}').settlement.pondSeed).toBe('calm-79');
 });

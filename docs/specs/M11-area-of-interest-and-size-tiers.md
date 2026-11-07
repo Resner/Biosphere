@@ -325,10 +325,10 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### Fields and food
 
-- [ ] T4 Fields for a large world: bathymetry, chunked caches, bounded searches (after T1) (in progress)
+- [x] T4 Fields for a large world: bathymetry, chunked caches, bounded searches (after T1)
   - Steps:
     1. `RULES.bathymetry`:
-       - `broad: { wavelength: 16384, weight: 1 }` in place of `tilt`;
+       - `broad: { wavelength: 16384, weight: 0.4 }` in place of `tilt`;
        - `calibrationSamples` 128;
        - the centre cap at the world's own centre.
 
@@ -351,6 +351,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - With every point within 4,096 wu poisoned (`extraPlumes`), `findClearSpot` returns the original point within 50 ms.
     - The replay goldens are equal in Node and Chromium (`m3-determinism`).
   - Notes: no food layers (T5) and no render (T11). T12 makes the world 262,144 wu.
+  - Done: `depthAt` and `zoneAt` take the world's size last (default `RULES.world.size`; the render callers keep it until T11); each size calibrates its own field from R2 points outside the centre disc, shifted so the centre's 2,200 wu surroundings sit mid-twilight (`localHalf`). The spec's broad weight 1 clustered the shallows beyond 16,384 wu, so it is 0.4 and the shares are 27/33/27/13 (the disc eats 9% of a pond).
+  - Gotcha: the golden-autopilot encounter now scans its start north in steps of 25 wu for a fight that ends in a kill; `foodMemoChunks` and `RULES.spawn.searchRadius` are the new hooks.
 
 - [ ] T5 Food by tier (after T4)
   - Steps:
