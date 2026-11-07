@@ -6,7 +6,7 @@ import { CENTRE, closeAll, directory, join, type Player, place } from './m11-ste
 
 // M11 T13: seamless handoffs. The hub splits leaves above two members (`LEAF_MAX=2`), so the root
 // is four quadrants. A steers 3,000 wu diagonally past the world's centre, across both quadrant
-// edges, with B following, while C, 10,000 wu ahead on A's line, swims toward A. A reports at each
+// edges, with B following, while C, 7,000 wu ahead on A's line, swims toward A. A reports at each
 // leaf it leaves, A–B never closes, A and C link while still more than twice A's AoI apart (so
 // before C can come into A's view), and every remote in A's view stays fully drawn.
 // M11 T15: C sends to A at 2 Hz or less while far and at 10 Hz once near, and A never draws C
@@ -20,6 +20,9 @@ test.describe.configure({ mode: 'serial' });
 const S = { x: -1600, y: -1300 };
 const E = { x: 1400, y: 1700 };
 const DIAG = Math.SQRT1_2;
+/** C's start, along A's line from S. A covers 4,243 wu of it; a slow runner's C swims only a few wu/s,
+ * so C starts near enough to reach A's view, and far enough to link while more than 2 AoI away. */
+const C_AHEAD = 7_000;
 
 interface Watch {
   /** Samples where a remote in A's view was drawn below full alpha. */
@@ -57,7 +60,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     const [a, b, c] = players as [Player, Player, Player];
     await place(a, S.x, S.y);
     await place(b, S.x - 150, S.y - 150);
-    await place(c, S.x + 10_000 * DIAG, S.y + 10_000 * DIAG);
+    await place(c, S.x + C_AHEAD * DIAG, S.y + C_AHEAD * DIAG);
     await expect
       .poll(async () => (await state(a.page)).net.links.some((l) => l.id === b.id && l.hello), {
         message: 'A and B link',
