@@ -6,6 +6,7 @@ import type { RecordRequest, Status, StoredRecord } from '../ledger/record';
 import type { SignedSeat } from '../ledger/seat-doc';
 import type { FightLog, SignedSettlement } from '../ledger/settlement';
 import type { SignedAttestation } from '../ledger/witness-doc';
+import { clamp } from '../sim/math';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
@@ -84,6 +85,9 @@ export const WIRE_POS_MAX = 2 ** 29;
 /** A reported radius lies in 1 to 4096 wu, and an area of interest in 1 to 40,000 wu. */
 export const WIRE_RADIUS_MAX = 4096;
 export const WIRE_AOI_MAX = 40_000;
+/** A position or radius clamped into its wire range. */
+export const wireCoord = (v: number): number => clamp(v, 0, WIRE_POS_MAX - 1);
+export const wireRadius = (v: number): number => clamp(v, 1, WIRE_RADIUS_MAX);
 /** The snapshot rates a receiver may ask for (`rate`), in Hz. */
 export const SNAPSHOT_RATES = [1, 2, 5, 10] as const;
 
