@@ -453,7 +453,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### Links
 
-- [ ] T8 The area-of-interest manager: link classes, the cap, and when to report [opus] (after T1, T2)
+- [x] T8 The area-of-interest manager: link classes, the cap, and when to report [opus] (after T1, T2)
+  - Done: `src/net/aoi.ts` and `src/net/where.ts`, pure; `AoiManager.plan` and `ConnectionPolicy` share `selectLinks`, and the directory uses `queryRadius`. Gotchas: a hold covers a creature whose class was that one or better; past 32, P0 goes before P1, so a 33rd duty peer takes a P1's place; a leaf that doesn't hold the last report is stale and never re-triggers a `where`.
   - Steps:
     1. `src/net/aoi.ts` (shapes above). `classify` takes the classes in order, the first that holds:
        - **P0**: the ids in `p0`;
