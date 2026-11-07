@@ -153,6 +153,11 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
   // 4. B is far away: A finds it by the edge indicator, then by the pond map.
   const view = await a.evaluate(() => (window.__bs as BsHook).render.fx().halfHeight);
   const pa = await playerOf(a);
+  // The far teleport can land B in a zone that hurts, and a slow runner plays B there for long
+  // enough to kill it (a dead B is gone for the wheel and the courtship, and health set on a dead
+  // creature does nothing). B takes the hits at full health and a full belly, as A did above.
+  await b.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
+  await topUp(b);
   await b.evaluate(([x, y]) => (window.__bs as BsHook).debug?.teleport(x, y), [
     pa.x + view * 8,
     pa.y + view * 2,
