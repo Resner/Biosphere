@@ -463,6 +463,12 @@ export class OnlineSession {
     for (const [id, hz] of this.asker.update(now, wants)) mesh.sendEvent(id, { t: 'rate', hz });
   }
 
+  /** Drops both ends' rate state for `id`: a link always starts again at 10 Hz. */
+  private forgetRates(id: string): void {
+    this.sendRates.forget(id);
+    this.asker.forget(id);
+  }
+
   /** Leaves the pond and closes every connection. */
   dispose(): void {
     if (this.timer !== null) clearInterval(this.timer);
@@ -547,15 +553,13 @@ export class OnlineSession {
     const mesh = this.opts.createMesh(ice, (to, kind, sdp) => this.links.outgoing(to, kind, sdp));
     mesh.onPeerJoined((id) => {
       // A new link: both ends start again at 10 Hz.
-      this.sendRates.forget(id);
-      this.asker.forget(id);
+      this.forgetRates(id);
       this.links.opened(id);
       handlers.peerOpen(id, this.nameOf(id) ?? id.slice(0, 6));
       this.links.plan();
     });
     mesh.onPeerLeft((id) => {
-      this.sendRates.forget(id);
-      this.asker.forget(id);
+      this.forgetRates(id);
       this.links.left(id);
       this.route.forget(id);
       handlers.peerLeft(id);
