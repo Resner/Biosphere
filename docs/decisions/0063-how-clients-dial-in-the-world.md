@@ -31,6 +31,7 @@ M11 T10 built the headless area-of-interest harness (`tests/aoi-harness.ts`): si
 
 ## Consequences
 
+- Known limits of the pair rule: the other creature's AoI is taken at its radius, not its adult radius (not known to the other end), so a growing creature's two ends can still differ a little; a giant's wide AoI puts a smaller creature's far P2 to P4 candidates ahead of its nearer ones in class order, within the cap.
 - The dial rules and their constants live in the harness until T13 builds the page's loop; they are provisional until then, and T13 re-runs the harness against that loop (`docs/perf/aoi.md`) rather than copying the numbers.
 - The spec's first numbers stay the targets (friends linked within 3 s at the p95, remotes closing at 200 wu/s linked ahead of view); the gates above are what the link model reaches, and they move with it (ICE at 0.5 to 2 s, 5% of attempts failing).
 - `AoiManager.classify` changes (P2 to P4 reach); `docs/DESIGN.md` and `.claude/rules/net.md` say so.

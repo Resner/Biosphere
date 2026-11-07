@@ -1,7 +1,7 @@
 // The headless area-of-interest harness (M11 T10, ADR 0062): simulated clients, each with its own
 // `AoiManager`, `WhereReporter`, `Gossip` and `SignalRoute`, against one real `Directory`, over a
 // seeded link model, with no sockets and no WebRTC. Creatures move by script within the real speed
-// limits. The harness measures what the gates in `aoi-gates.ts` judge. Deterministic: the same
+// limits. The harness measures what the gates in `aoi-scenarios.ts` judge. Deterministic: the same
 // scenario and seed give the same result.
 //
 // The link model (all numbers seeded): a hop between two peers takes 30-80 ms, the hub 50-150 ms
