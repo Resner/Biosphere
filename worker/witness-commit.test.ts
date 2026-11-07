@@ -1,3 +1,4 @@
+import { bytesToHex } from '@noble/hashes/utils.js';
 import { describe, expect, it } from 'vitest';
 import { commitmentId } from '../src/ledger/genesis';
 import { type MateAsk, signMateAsk } from '../src/ledger/mating';
@@ -98,6 +99,21 @@ describe('witness commitments', () => {
     expect((await rowsBesideLog()) - rows).toBe(1);
     await authority((o) => commitWitnesses(o, 'enc', start.enc, [a.id.playerId]));
     expect(await authorityOnly(event)).toBe(1);
+  });
+
+  it('flags the event authority-only once when commitPool throws (a round already due)', async () => {
+    const [a] = await fighters();
+    await witnesses(2);
+    const enc = bytesToHex(crypto.getRandomValues(new Uint8Array(32)));
+    const event = `enc:${enc}`;
+    const commits = await count('commitments');
+    for (let i = 0; i < 2; i++) {
+      // Round 1 is long due: `Beacons.commit` refuses it, and the event stays authority-only.
+      expect(await authority((o) => commitWitnesses(o, 'enc', enc, [a.id.playerId], 1))).toBeNull();
+    }
+    expect(await authorityOnly(event)).toBe(1);
+    expect(await witnessCommit(event)).toBeNull();
+    expect(await count('commitments')).toBe(commits);
   });
 
   it('pools the 16 that poolOf picks of 40 eligible sessions', async () => {

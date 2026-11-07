@@ -100,6 +100,11 @@ export interface Lock {
 
 /** The watchdog's slack past a fight's latest end. */
 const WATCH_SLACK_MS = 1000;
+/** How long after a fight settles a dispute can still hold its witness to its frames (M11 T3). */
+export const DISPUTE_AFTER_MS = 30_000;
+
+/** A settled fight as a late dispute reads it: its players, its witnesses' batches and their frames. */
+export type Settled = Pick<Fight, 'players' | 'batched' | 'history'>;
 
 export class Fights {
   private readonly byId = new Map<string, Lock>();
@@ -109,6 +114,8 @@ export class Fights {
   strays = 0;
   /** When each player's last fight ended, kept for `AFTER_FIGHT_MS` (the movement check, M10 T11). */
   private readonly ended = new Map<string, number>();
+  /** Each fight a witness batched for, by encounter, kept `DISPUTE_AFTER_MS` past its end. */
+  private readonly settled = new Map<string, { fight: Settled; at: number }>();
   /**
    * The witness phases' counts (M10 T5): fighters' inputs for a witness's frames that reached the
    * authority (`moved`), batches taken, repeats ignored, batches from anyone but a fight's witness
@@ -203,7 +210,10 @@ export class Fights {
     const lock = this.byId.get(id);
     if (!lock) return;
     this.clearTimer(lock);
-    if (lock.fight) this.noteEnded(lock.players);
+    if (lock.fight) {
+      this.noteEnded(lock.players);
+      this.keepSettled(lock.fight);
+    }
     this.byId.delete(id);
     for (const p of lock.players) if (this.byPlayer.get(p) === lock) this.byPlayer.delete(p);
     for (const c of lock.creatures) if (this.byCreature.get(c) === lock) this.byCreature.delete(c);
@@ -213,6 +223,29 @@ export class Fights {
   fightEnded(player: string): number | null {
     const at = this.ended.get(player);
     return at !== undefined && this.clock().now() - at < AFTER_FIGHT_MS ? at : null;
+  }
+
+  /** The ended fight of encounter `enc` while a late dispute may still reach its witness, else undefined. */
+  settledFight(enc: string): Settled | undefined {
+    const kept = this.settled.get(enc);
+    return kept && this.clock().now() - kept.at < DISPUTE_AFTER_MS ? kept.fight : undefined;
+  }
+
+  /** Keeps an ended fight's witness frames for late disputes, and forgets those past the window. */
+  private keepSettled(fight: Fight): void {
+    const now = this.clock().now();
+    for (const [enc, kept] of this.settled) {
+      if (now - kept.at >= DISPUTE_AFTER_MS) this.settled.delete(enc);
+    }
+    const { batched } = fight;
+    if (batched.length === 0) return;
+    const history = fight.history.filter(
+      (m) => m.t === 'enc-frame' && batched.some((b) => m.f >= b.from && m.f < b.to),
+    );
+    this.settled.set(fight.enc.id, {
+      fight: { players: [...fight.players], batched, history },
+      at: now,
+    });
   }
 
   private noteEnded(players: readonly string[]): void {
@@ -225,6 +258,7 @@ export class Fights {
   clear(): void {
     for (const id of [...this.byId.keys()]) this.release(id);
     this.ended.clear();
+    this.settled.clear();
   }
 
   /** The locks whose fight is running. */

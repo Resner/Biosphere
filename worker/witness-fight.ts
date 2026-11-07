@@ -367,9 +367,10 @@ function signed(fight: Fight, w: WitnessRun, msg: ClientMsg & { t: 'batch' }, ta
 
 /**
  * A fighter's `dispute`: a witness's signed frame that differs from the one the witness committed
- * in its batch proves it equivocated (a failure, or a strike once its phase is over). Anything
- * else (not a fighter of the fight, a frame no witness batched, a signature that fails, an equal
- * frame) is dropped and counted.
+ * in its batch proves it equivocated (a failure, or a strike once its phase is over). A fight that
+ * ended is held to its frames for `DISPUTE_AFTER_MS` more (M11 T3). Anything else (not a fighter
+ * of the fight, a frame no witness batched, a signature that fails, an equal frame, too late) is
+ * dropped and counted.
  */
 export function witnessDispute(
   hub: Hub,
@@ -377,15 +378,13 @@ export function witnessDispute(
   msg: ClientMsg & { t: 'dispute' },
 ): void {
   const lock = hub.fights.ofPlayer(session.playerId);
-  const fight = lock?.fight;
-  const by = fight?.batched.find((b) => msg.f >= b.from && msg.f < b.to)?.by;
-  const committed = by && fight?.history.find((m) => m.t === 'enc-frame' && m.f === msg.f);
+  const live = lock?.fight?.enc.id === msg.enc ? lock.fight : null;
+  const fight = live ?? hub.fights.settledFight(msg.enc);
+  const fighter = fight?.players.includes(session.playerId) ?? false;
+  const by = fighter ? fight?.batched.find((b) => msg.f >= b.from && msg.f < b.to)?.by : undefined;
+  const committed = by ? fight?.history.find((m) => m.t === 'enc-frame' && m.f === msg.f) : null;
   if (
-    !lock ||
-    !fight ||
-    fight.enc.id !== msg.enc ||
     !by ||
-    !committed ||
     committed?.t !== 'enc-frame' ||
     sameInputs(committed.i, msg.i) ||
     !witnessFrameSigned(by, msg.enc, msg.f, msg.i, msg.sig)
@@ -393,9 +392,9 @@ export function witnessDispute(
     hub.fights.witnessed.disputes++;
     return;
   }
-  const w = fight.witness;
-  if (w && w.by === by && !w.failed) fail(hub, lock, fight, 'witness-equivocated');
-  else hub.duties.strike(by, 'witness-equivocated', dutyEvent('enc', fight.enc.id));
+  const w = live?.witness;
+  if (lock && live && w && w.by === by && !w.failed) fail(hub, lock, live, 'witness-equivocated');
+  else hub.duties.strike(by, 'witness-equivocated', dutyEvent('enc', msg.enc));
 }
 
 /** The player's socket closed: a fight it referees is taken back (`witness-silent`). */

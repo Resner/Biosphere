@@ -13,7 +13,7 @@ import {
 } from '../src/ledger/witness';
 import type { ClientMsg } from '../src/net/protocol';
 import type { SignedCommitment } from './beacons';
-import { type ActiveSession, activeSessions, type Hub, type Session } from './socket';
+import { type ActiveSession, activeSessions, type Hub, type Session, seated } from './socket';
 
 /** The play (Σ of an identity's creatures' active time) needed to witness: 20 minutes. */
 export const WITNESS_PLAY_MS = 1_200_000;
@@ -47,11 +47,16 @@ export const dutiesInHour = (session: ActiveSession, now: number): number[] =>
 
 /** The player's play: its creatures' active time as their rows hold it, plus what its seated session credited since. */
 export function playedMs(hub: Hub, player: string): number {
-  return playedOf(hub, [player]).get(player) ?? 0;
+  const session = seated(hub, player)?.[1];
+  return (savedPlay(hub, [player]).get(player) ?? 0) + creditOf(session);
 }
 
-/** `playedMs` of each player, in one query. */
-function playedOf(hub: Hub, players: readonly string[]): Map<string, number> {
+/** What the session's life credited since its last record. */
+const creditOf = (session: ActiveSession | undefined): number =>
+  session?.life ? Math.max(0, session.life.activeMs - session.life.savedMs) : 0;
+
+/** Each player's creatures' active time as their rows hold it, in one query. */
+function savedPlay(hub: Hub, players: readonly string[]): Map<string, number> {
   const out = new Map<string, number>();
   if (players.length === 0) return out;
   const cursor = hub.ctx.storage.sql.exec<{ owner: string; ms: number }>(
@@ -60,12 +65,6 @@ function playedOf(hub: Hub, players: readonly string[]): Map<string, number> {
     JSON.stringify(players),
   );
   for (const row of cursor) out.set(row.owner, row.ms);
-  const wanted = new Set(players);
-  for (const [, s] of activeSessions(hub)) {
-    if (!wanted.has(s.playerId) || !s.life) continue;
-    const credit = Math.max(0, s.life.activeMs - s.life.savedMs);
-    out.set(s.playerId, (out.get(s.playerId) ?? 0) + credit);
-  }
   return out;
 }
 
@@ -102,26 +101,28 @@ export function eligible(
   if (ipCheck(hub.env)) {
     for (const s of sessions) if (out.has(s.playerId) && s.ip !== undefined) banned.add(s.ip);
   }
-  const candidates = new Set<string>();
+  // Each candidate's own seated session, which also gives its credit since its last record.
+  const candidates = new Map<string, ActiveSession>();
   for (const s of sessions) {
     if (out.has(s.playerId) || s.avail !== true || (only && !only.has(s.playerId))) continue;
     if (s.ip !== undefined && banned.has(s.ip)) continue;
     if (hub.fights.playerLocked(s.playerId) || hub.duties.holding(s.playerId)) continue;
     if (dutiesInHour(s, now).length >= DUTIES_PER_HOUR) continue;
-    candidates.add(s.playerId);
+    if (!candidates.has(s.playerId)) candidates.set(s.playerId, s);
   }
-  const ids = [...candidates];
-  const played = playedOf(hub, ids);
+  const ids = [...candidates.keys()];
+  const saved = savedPlay(hub, ids);
   const need = witnessPlayMs(hub.env);
   const barred = struck(hub, ids, now);
-  return ids.filter((id) => (played.get(id) ?? 0) >= need && !barred.has(id)).sort();
+  const played = (id: string) => (saved.get(id) ?? 0) + creditOf(candidates.get(id));
+  return ids.filter((id) => played(id) >= need && !barred.has(id)).sort();
 }
 
 /**
  * The event's witness commitment (ADR 0058): its pool of the eligible, `participants` left out, and
  * the round `round` names (an encounter's `witnessRound` by default; a mating's or a genesis's
- * own). One event has one commitment: asking again returns it. An empty pool writes none and
- * flags the event `authority-only` once; null then.
+ * own). One event has one commitment: asking again returns it. An empty pool, or a commitment
+ * that fails (a round already due), writes none and flags the event `authority-only` once; null then.
  */
 export async function commitWitnesses(
   hub: Hub,
@@ -135,8 +136,23 @@ export async function commitWitnesses(
     return await commitPool(hub, kind, id, participants, round);
   } catch (error) {
     console.error('witness commitment failed', error);
+    try {
+      noWitness(hub, dutyEvent(kind, id), participants);
+    } catch (flagError) {
+      console.error('witness commitment: the failure is not flagged', flagError);
+    }
     return null;
   }
+}
+
+/** The event has no witness commitment: it is flagged `authority-only`, once however often this runs. */
+function noWitness(hub: Hub, event: string, participants: readonly string[]): void {
+  hub.ledger.audit.raise('authority-only', {
+    owner: participants[0] ?? '',
+    creature: '',
+    key: event,
+    t: hub.clock.now(),
+  });
 }
 
 async function commitPool(
@@ -153,12 +169,7 @@ async function commitPool(
   const now = hub.clock.now();
   const pool = poolOf(eligible(hub, participants, now), event);
   if (pool.length === 0) {
-    hub.ledger.audit.raise('authority-only', {
-      owner: participants[0] ?? '',
-      creature: '',
-      key: event,
-      t: now,
-    });
+    noWitness(hub, event, participants);
     return null;
   }
   const data: WitnessData = { event, pool };

@@ -1,4 +1,4 @@
-import { describe, expect, it } from 'vitest';
+import { describe, expect, it, vi } from 'vitest';
 import type { HubMsg } from '../src/net/protocol';
 import { OFFER_MS, witnessView } from './duty';
 import {
@@ -11,11 +11,13 @@ import {
 } from './fight-test-kit';
 import type { Session } from './socket';
 import { flush, nextOf, publish } from './test-hub';
+import * as pool from './witness-pool';
 import { commitWitnesses } from './witness-pool';
 import {
   byPlayer,
   orderOf,
   poolNow,
+  setAvail,
   useWitnessHub,
   type Witness,
   witnessCommit,
@@ -155,6 +157,26 @@ describe('witness duties', () => {
     const pool = (next?.commitment.data as { pool: string[] } | undefined)?.pool;
     expect(pool?.length).toBe(2);
     expect(pool).not.toContain(struck);
+  });
+
+  it('calls eligible() once for an offer over a 16-place order', async () => {
+    const [a, b] = await fighters();
+    const ws = await witnesses(16);
+    const start = await outOfReach(a, b);
+    const event = `enc:${start.enc}`;
+    await authority((o) => commitWitnesses(o, 'enc', start.enc, [a.id.playerId, b.id.playerId]));
+    const commit = await witnessCommit(event);
+    if (!commit) throw new Error('no witness commitment');
+    const order = orderOf(commit, commit.id);
+    expect(order).toHaveLength(16);
+    // Every position but the last is off (1 is the auditor's): the offer walks the whole order.
+    for (const p of [0, ...Array.from({ length: 13 }, (_, k) => k + 2)]) {
+      await setAvail(byPlayer(ws, order[p]).c, false);
+    }
+    const spy = vi.spyOn(pool, 'eligible');
+    await publish(commit.commitment.round);
+    expect((await nextOf(byPlayer(ws, order[15]).c, 'duty')).position).toBe(15);
+    expect(spy).toHaveBeenCalledTimes(1);
   });
 
   it('offers nothing for a genesis until its audit is handed over', async () => {
