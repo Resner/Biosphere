@@ -12,7 +12,7 @@
           "player": "player-a",
           "creature": "a",
           "x": 5200,
-          "y": 3000,
+          "y": 3375,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -66,7 +66,7 @@
           "player": "player-b",
           "creature": "b",
           "x": 5330,
-          "y": 3000,
+          "y": 3375,
           "vx": 0,
           "vy": 0,
           "heading": 3.141592653589793,
@@ -120,7 +120,7 @@
           "player": "player-c",
           "creature": "c",
           "x": 5260,
-          "y": 3150,
+          "y": 3525,
           "vx": 0,
           "vy": 0,
           "heading": -1.5707963267948966,
@@ -375,32 +375,32 @@
       [null, null, null]
     ]
   },
-  "hash": "312471fa19270fca",
+  "hash": "48af6b9775590645",
   "results": [
+    {
+      "outcome": "killed",
+      "cause": "killed",
+      "by": 2,
+      "frame": 50,
+      "biomass": 100,
+      "egg": "none",
+      "eggBy": null
+    },
     {
       "outcome": "escaped",
       "cause": null,
       "by": null,
-      "frame": 176,
-      "biomass": 140,
-      "egg": "none",
+      "frame": 81,
+      "biomass": 100,
+      "egg": "kept",
       "eggBy": null
     },
     {
       "outcome": "stood",
       "cause": null,
       "by": null,
-      "frame": 176,
-      "biomass": 100,
-      "egg": "kept",
-      "eggBy": null
-    },
-    {
-      "outcome": "killed",
-      "cause": "killed",
-      "by": 0,
-      "frame": 86,
-      "biomass": 100,
+      "frame": 81,
+      "biomass": 140,
       "egg": "none",
       "eggBy": null
     }

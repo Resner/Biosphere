@@ -25,8 +25,8 @@ export function createWorld(opts: WorldOptions): World {
     options: { currents: opts.currents ?? true, hazards: opts.hazards ?? true },
     extraPlumes: [],
   } satisfies World;
-  // Calibrate the pond's bathymetry now rather than inside the first tick.
-  depthAt(world.seed32, world.size / 2, world.size / 2);
+  // Calibrate the world's bathymetry now rather than inside the first tick.
+  depthAt(world.seed32, world.size / 2, world.size / 2, world.size);
   return world;
 }
 

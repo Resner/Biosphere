@@ -52,7 +52,7 @@ function bob(world: World, cx: number, cy: number, slot: number, k: number, salt
 
 /** The kind weights at a slot anchor: by the zone there, and richer in crystals near a vent. */
 function weightsAt(world: World, anchor: Vec2): Record<FoodKind, number> {
-  const zone = zoneOfDepth(depthAt(world.seed32, anchor.x, anchor.y));
+  const zone = zoneOfDepth(depthAt(world.seed32, anchor.x, anchor.y, world.size));
   if (
     (zone === 'deep' || zone === 'abyss') &&
     ventNear(world, anchor.x, anchor.y, RULES.food.ventRange)
@@ -62,22 +62,59 @@ function weightsAt(world: World, anchor: Vec2): Record<FoodKind, number> {
   return RULES.food.zoneWeights[zone];
 }
 
-/** The kind of cycle `k` of a slot: a pure function of the seed, remembered because zones cost a field sample. */
-interface KindMemo {
+/**
+ * The kind of cycle `k` of a slot: a pure function of the seed, remembered because zones cost a
+ * field sample. The memo holds chunks of 16 × 16 cells, at most 256, the least recently used
+ * dropped first, so a creature crossing a world of a million cells leaves a bounded memory behind;
+ * a dropped chunk is recomputed to the same kinds.
+ */
+interface KindChunk {
   k: Int32Array;
   kind: Uint8Array;
 }
+interface KindMemo {
+  size: number;
+  /** Chunk key to chunk, least recently used first (a Map iterates in insertion order). */
+  chunks: Map<number, KindChunk>;
+  lastKey: number;
+  last: KindChunk | null;
+}
+const CHUNK_CELLS = 16;
+const MAX_CHUNKS = 256;
 const kindMemos = new WeakMap<Seed, KindMemo>();
 
-function kindOf(world: World, cx: number, cy: number, slot: number, k: number, anchor: Vec2) {
-  const side = cellsPerSide(world);
-  const slots = side * side * RULES.food.slotsPerCell;
+/** How many chunks of the kind memo this world's seed holds (a test hook). */
+export function foodMemoChunks(world: World): number {
+  return kindMemos.get(world.seed32)?.chunks.size ?? 0;
+}
+
+function chunkOf(world: World, cx: number, cy: number): KindChunk {
   let memo = kindMemos.get(world.seed32);
-  if (memo === undefined || memo.k.length !== slots) {
-    memo = { k: new Int32Array(slots).fill(-1), kind: new Uint8Array(slots) };
+  if (memo === undefined || memo.size !== world.size) {
+    memo = { size: world.size, chunks: new Map(), lastKey: -1, last: null };
     kindMemos.set(world.seed32, memo);
   }
-  const at = (cy * side + cx) * RULES.food.slotsPerCell + slot;
+  const key = (cy >> 4) * 65536 + (cx >> 4);
+  if (memo.last !== null && memo.lastKey === key) return memo.last;
+  let chunk = memo.chunks.get(key);
+  if (chunk === undefined) {
+    const slots = CHUNK_CELLS * CHUNK_CELLS * RULES.food.slotsPerCell;
+    chunk = { k: new Int32Array(slots).fill(-1), kind: new Uint8Array(slots) };
+    if (memo.chunks.size >= MAX_CHUNKS) {
+      memo.chunks.delete(memo.chunks.keys().next().value as number);
+    }
+  } else {
+    memo.chunks.delete(key);
+  }
+  memo.chunks.set(key, chunk);
+  memo.lastKey = key;
+  memo.last = chunk;
+  return chunk;
+}
+
+function kindOf(world: World, cx: number, cy: number, slot: number, k: number, anchor: Vec2) {
+  const memo = chunkOf(world, cx, cy);
+  const at = ((cy & 15) * CHUNK_CELLS + (cx & 15)) * RULES.food.slotsPerCell + slot;
   if (memo.k[at] === k) return KINDS[memo.kind[at] as number] as FoodKind;
   const weights = weightsAt(world, anchor);
   let total = 0;

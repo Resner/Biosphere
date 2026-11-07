@@ -321,17 +321,6 @@
           [33536, 128, 33984],
           [33536, 128, 33984],
           [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
           [33536, 128, 33984]
         ]
       },
@@ -344,9 +333,9 @@
           "pondSeed": "golden-join",
           "start": "40475867f266a38c21a1e345eeef6115c8245d372827bb4bb887ac773ade0b98",
           "joins": ["e464d7dd8ba0988ae66bd4e6a4435498c5d8cb91afe84d2b705b6dea6882d489"],
-          "frames": 83,
-          "root": "0e6d45dddbdc2d170e2e870a569ca36be7576500c74834163d52ef37c3ed2e8e",
-          "hash": "6ccca74583926eac",
+          "frames": 72,
+          "root": "e1cf116a5c6c2ff5dfc3716b07507255e2589b8c44aba1a7f28df6ddaa00484b",
+          "hash": "403d7250b3a7604c",
           "results": [
             {
               "player": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
@@ -354,10 +343,10 @@
               "outcome": "killed",
               "cause": "killed",
               "by": 2,
-              "frame": 83,
+              "frame": 72,
               "egg": "none",
               "biomass": 10000,
-              "energy": 11223,
+              "energy": 11324,
               "health": 0,
               "reward": 0
             },
@@ -378,19 +367,19 @@
               "player": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
               "creature": "4444444444444444444444444444444444444444444444444444444444444444",
               "outcome": "stood",
-              "frame": 83,
+              "frame": 72,
               "egg": "none",
               "biomass": 18000,
-              "energy": 11232,
-              "health": 3830,
+              "energy": 11365,
+              "health": 5879,
               "reward": 8000
             }
           ],
           "t": 1700000060000,
           "referee": "authority"
         },
-        "hash": "5d8e9faf563b901cfa1328915b8f2f0757341d7cc2232084b92d22642e04f8e6",
-        "authSig": "S9X6UpmAEL77Lk-wdWwr9tm_lnyFq1hkOWlCvaspaNzISjs9ssMNeGb079n4xAPY7Fl4U9wh-aad0xMSyp5dAQ",
+        "hash": "beccc80704cbd32a6bc991ee42e1f993e2c923bfeb0e3cccc469f44ec941c5ac",
+        "authSig": "Z1-owIa8rcjr4tqnX5i-hhg0BHB9l3huI6lzUagpLYq0ZsWuvnWVuo9DDnQ2CklK8z7FG0s3r_AvYfDCF5WxDQ",
         "keyId": "i4HIYmgb"
       },
       "records": [
@@ -406,15 +395,15 @@
             "t": 1700000060000,
             "body": {
               "cause": "killed",
-              "activeMs": 608300,
+              "activeMs": 607200,
               "biomass": 10000,
               "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
               "by": "4444444444444444444444444444444444444444444444444444444444444444"
             }
           },
-          "hash": "f38c3aadc91b3ac9fceb653244e91c97984eb7d493c763d29319e28a14ce73fa",
+          "hash": "76f558a1735f93cc0cfd9afb51b1cbd37e35960b1af197c91b231ee5475aec45",
           "ownerSig": null,
-          "authSig": "D_hiQkMn8PCscCyYEak-oyV6H6s3Q5FoTqKKa-LumMn6CBOGBWg7vc4e7eJImDBMIcPhsYFUeXooOfA4WnCxAg",
+          "authSig": "NJjI13njV-jnxVLM6QO8PFxOfxncxjmn0VWI0Vd5tRRn2wZtsVGr_tcX6UwZv1qbz0VwUmrtWTfhWrUqd_TfCQ",
           "keyId": "i4HIYmgb"
         },
         {
@@ -453,17 +442,17 @@
             "body": {
               "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
               "outcome": "stood",
-              "frames": 83,
+              "frames": 72,
               "biomass": 18000,
-              "energy": 11232,
-              "health": 3830,
+              "energy": 11365,
+              "health": 5879,
               "reward": 8000,
-              "activeMs": 608300
+              "activeMs": 607200
             }
           },
-          "hash": "cf41ee3865f1018ab3a70087289d22c82b69ff1ec0810c0d4312f9589afca82f",
+          "hash": "5dbef22f13f8e916f9e81c9463a0dbfdaabc3f96ef9471eec872213f1ff0cc84",
           "ownerSig": null,
-          "authSig": "8iDyN34T7bTp-jiCPGUQxE9nxz_gUYlsPUulFzWo4MWHG_E172VJdO2huEQ66kyciX7cfb52UeDjvUwR66DODw",
+          "authSig": "TUooqwvwJy-RAxtsEf6wMgk5Ptr72iDTANdc8Nt234BNdzrlGcBl0wzDtQsNuP1Snb6FV9-1xUVC1muxWmVZBA",
           "keyId": "i4HIYmgb"
         }
       ]

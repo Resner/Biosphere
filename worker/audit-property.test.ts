@@ -15,6 +15,7 @@ import {
   advance,
   advanceTo,
   authority,
+  CALM_SEED,
   clock,
   join,
   lifeOn,
@@ -194,8 +195,8 @@ async function misreport(p: Actor): Promise<void> {
 async function fight(a: Actor, b: Actor): Promise<boolean> {
   const claim = a.script.attacks.has('claim');
   // A pond with no hazard or strong current at the fight's place, as the fight hub tests use.
-  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", a.pond.id);
-  for (const p of [a, b]) p.pond = { ...p.pond, seed: 'timeout' };
+  await sql('UPDATE ponds SET seed = ? WHERE id = ?', CALM_SEED, a.pond.id);
+  for (const p of [a, b]) p.pond = { ...p.pond, seed: CALM_SEED };
   const [start] = await lockIn(
     a,
     b,

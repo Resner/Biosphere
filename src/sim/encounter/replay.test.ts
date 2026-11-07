@@ -99,42 +99,51 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
     ]),
   );
   // Three fighters, one carrying an egg, all on the autopilot (every input is the fallback marker).
-  const pilots = log(
-    startOf('golden-autopilot', [
-      {
-        ...hunterFighter('a', 5200, 3000),
-        behaviour: {
-          aggression: 0.9,
-          caution: 0.2,
-          curiosity: 0.8,
-          reflex: 0.6,
-          targetPref: 'nearest',
+  const pilotsAt = (dy: number) =>
+    log(
+      startOf('golden-autopilot', [
+        {
+          ...hunterFighter('a', 5200, 3000 + dy),
+          behaviour: {
+            aggression: 0.9,
+            caution: 0.2,
+            curiosity: 0.8,
+            reflex: 0.6,
+            targetPref: 'nearest',
+          },
         },
-      },
-      {
-        ...hunterFighter('b', 5330, 3000, Math.PI),
-        egg: true,
-        behaviour: {
-          aggression: 0.4,
-          caution: 0.8,
-          curiosity: 0.3,
-          reflex: 0.9,
-          targetPref: 'weakest',
+        {
+          ...hunterFighter('b', 5330, 3000 + dy, Math.PI),
+          egg: true,
+          behaviour: {
+            aggression: 0.4,
+            caution: 0.8,
+            curiosity: 0.3,
+            reflex: 0.9,
+            targetPref: 'weakest',
+          },
         },
-      },
-      {
-        ...starterFighter('c', 5260, 3150, -Math.PI / 2),
-        behaviour: {
-          aggression: 0.7,
-          caution: 0.1,
-          curiosity: 0.5,
-          reflex: 0.5,
-          targetPref: 'largest',
+        {
+          ...starterFighter('c', 5260, 3150 + dy, -Math.PI / 2),
+          behaviour: {
+            aggression: 0.7,
+            caution: 0.1,
+            curiosity: 0.5,
+            reflex: 0.5,
+            targetPref: 'largest',
+          },
         },
-      },
-    ]),
-    Array.from({ length: 200 }, () => [null, null, null]),
-  );
+      ]),
+      Array.from({ length: 200 }, () => [null, null, null]),
+    );
+  // The fight is chaotic: take the first start (moved north in steps of 25 wu) where a fighter
+  // is killed or the egg eaten, as the scenario promises.
+  let pilots = pilotsAt(0);
+  for (let dy = 25; dy <= 1000; dy += 25) {
+    if (promisesAKill(pilots)) break;
+    pilots = pilotsAt(dy);
+  }
+  if (!promisesAKill(pilots)) throw new Error('golden-autopilot: no start ends in a kill');
   // A hunter and a starter spar; a second hunter joins at frame 15 from the north and goes for
   // the starter (target 1), which dies between them (M7 T15).
   const joined = {
@@ -161,6 +170,10 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
     'encounter-duel': duel,
   };
 }
+
+/** Whether a replay of the log kills a fighter or eats an egg. */
+const promisesAKill = (l: EncounterLog): boolean =>
+  replayEncounter(l).results.some((r) => r.outcome === 'killed' || r.egg === 'eaten');
 
 function regenerate(): void {
   for (const [name, l] of Object.entries(build())) {

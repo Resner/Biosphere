@@ -4,17 +4,17 @@
     "seed": "golden-hazard",
     "spawn": {
       "id": "p1",
-      "x": 6783,
-      "y": 3145
+      "x": 4754,
+      "y": 1446
     },
     "ticks": 600,
     "runs": [[0, 3840], [20, 7936], [21, 3840]]
   },
-  "hash": "92117066f79edc73",
+  "hash": "6393c8fca10a76b2",
   "events": {
     "dash": 1,
-    "damage": 350,
-    "eat": 6,
-    "grow": 3
+    "damage": 265,
+    "eat": 8,
+    "grow": 13
   }
 }
