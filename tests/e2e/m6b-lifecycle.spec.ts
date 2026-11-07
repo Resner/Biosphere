@@ -276,6 +276,9 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
     () => {
       const bs = window.__bs as BsHook;
       if (bs.state().screen === 'dead') return true;
+      // The currents carry the body while the world runs at 30x, and the abyss' edge is near: put it
+      // back whenever it leaves, so only the pressure can be what kills it.
+      if (bs.state().zone !== 'abyss') bs.debug?.setZone('abyss');
       // Half energy: fed, but under the growth threshold, so the body does not grow its health
       // back faster than the pressure takes it.
       bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
