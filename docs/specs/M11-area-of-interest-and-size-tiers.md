@@ -788,7 +788,9 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### Closing
 
-- [ ] T19 End-to-end scenario, documentation sync (in progress)
+- [x] T19 End-to-end scenario, documentation sync
+  - Done: `m11-lifecycle` (hub 8832) plays the line; DESIGN, VERIFY, TESTING and the rules synced. The scenario's fighters are A's child and C with D and B as the witnesses, all low preset (four medium pages crash a small runner); the swarm is judged from `render.info().swarms`. Not run in the cloud session (its memory fails `m10-lifecycle` the same way), so CI's repeats are its first run.
+  - Release notes: the world renewal (rules 12, epoch 4) deletes every creature and record; players keep their identities. Owner checks for the Playtest issue are the three `(owner)` rubric lines.
   - Steps:
     1. `m11-lifecycle.spec.ts`: `@slow`, hub 8832, `LEAF_MAX=2`, `MATING_SCALE=0.01`, the witness variables and `?quality=medium`. Four players A, B, C and D, in order:
        - all four hatch by the spawn and link within 3 s;
