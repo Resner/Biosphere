@@ -31,6 +31,8 @@ interface Watch {
   exits: { before: number; after: number }[];
   /** The leaf A holds, and the `where` count when it took it. */
   leaf: { x: number; y: number; size: number; sent: number } | null;
+  /** Every leaf A held, with where A was and the `where` count when it took it (for a failure's message). */
+  path: string[];
 }
 
 test('crossing leaves keeps every link in view, and a creature ahead is linked before it comes into view @slow', async ({
@@ -69,6 +71,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
           cSeenUnlinked: false,
           exits: [],
           leaf: null,
+          path: [],
         };
         w.__watch = watch;
         window.setInterval(() => {
@@ -92,7 +95,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
               aoi: perHalfHeight * fx.halfHeight,
             };
           }
-          // A leaf change with A outside the leaf it held is an exit (a split or merge keeps A inside).
+          // A leaf change with A outside the leaf it held is an exit (a split keeps A inside).
           const leaf = s.net.where.leaf;
           const sent = s.net.where.sent;
           const held = watch.leaf;
@@ -102,9 +105,17 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
             if (held) {
               const dx = Math.max(held.x - me.x, 0, me.x - (held.x + held.size));
               const dy = Math.max(held.y - me.y, 0, me.y - (held.y + held.size));
-              if (Math.hypot(dx, dy) > 32) watch.exits.push({ before: held.sent, after: sent });
+              // Past the 64 wu slack A must have reported; just past the edge, a report that came
+              // anyway (its 30 s) counts, and a split's message landing then does not.
+              const out = Math.hypot(dx, dy);
+              if (out > 64 || (out > 0 && sent > held.sent)) {
+                watch.exits.push({ before: held.sent, after: sent });
+              }
             }
             watch.leaf = { ...leaf, sent };
+            watch.path.push(
+              `${leaf.x - 131_072},${leaf.y - 131_072}/${leaf.size} @${Math.round(me.x - 131_072)},${Math.round(me.y - 131_072)} #${sent}`,
+            );
           }
         }, 100);
       },
@@ -142,7 +153,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
 
     const watch = await a.page.evaluate(() => (window as unknown as { __watch: Watch }).__watch);
     // Each leaf A left brought a report: the count rose before A was inside a leaf again.
-    const exits = JSON.stringify(watch.exits);
+    const exits = JSON.stringify({ exits: watch.exits, path: watch.path });
     expect(watch.exits.length, `A's leaf exits: ${exits}`).toBeGreaterThanOrEqual(2);
     for (const e of watch.exits)
       expect(e.after, `A's leaf exits: ${exits}`).toBeGreaterThan(e.before);
