@@ -1,8 +1,9 @@
 // Lock-in on the authority (ADR 0050, M7 T8): an engage is checked against both signed snapshots,
 // the target is asked for its own state, and both players get the same `enc-start`. The target's
 // answer carries the attacker's own snapshots it held (`seen`): none refuses the engage (the sight
-// check, ADR 0062), and so does a jump between them (the movement check, ADR 0059). Nothing here writes SQLite, except a flag when a
-// snapshot claims more than the growth curve allows or the attacker jumped (the fight's log is
+// check, ADR 0062), and so does a jump between them (the movement check, ADR 0059). Nothing here
+// writes SQLite, except a flag when a snapshot claims more than the growth curve allows or the
+// attacker jumped (the fight's log is
 // `runFight`'s and `admit`'s, in `fights.ts`), and the fight's witness commitment once
 // `enc-start` went out (`commitWitnesses`, ADR 0058).
 
