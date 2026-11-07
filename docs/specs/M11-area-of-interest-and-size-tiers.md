@@ -723,7 +723,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - T10's report gains a bandwidth row: upload at 24 links is at most 12 KB/s (outside the dense scenarios, whose links are all P1 and so 10 Hz by rule), and each link at most 4 KB/s.
     - In `m11-handoff`, C sends to A at 2 Hz or less while far and at 10 Hz once in A's view, and the C that A draws never moves faster than 1.2 × its snapshots' speed.
 
-- [ ] T16 Fights, witnesses and away fighters in the world [opus] (after T13)
+- [ ] T16 Fights, witnesses and away fighters in the world [opus] (after T13) (in progress)
   - Steps:
     1. A fight's links are P0 for every fighter until 3 s after `enc-end`, across leaf and tier changes (a kill's growth included).
     2. `avail` (`app-duty.ts`) also needs at most 28 links of P0 and P1.
