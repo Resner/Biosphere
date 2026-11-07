@@ -582,7 +582,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The world at full size
 
-- [ ] T11 Render at world scale: depth windows and a floating origin [opus] (after T4) (in progress)
+- [x] T11 Render at world scale: depth windows and a floating origin [opus] (after T4) (in progress)
   - Steps:
     1. `src/render/depth-window.ts`:
        - a 256 × 256 depth texture over a square window near a point, re-centred when the point has moved a quarter of the side;
@@ -607,6 +607,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - the medium preset keeps its m6 budgets (draw calls, triangles, target memory);
       - screenshots of both places are attached.
     - Every `m6*` look test passes unchanged at 8,192 wu.
+  - Done: `DepthWindow` is a torus of bytes refilled through `depthSpan` (bathymetry's row sampler, bit-equal to `depthAt`, about 0.65 ms a frame); the scene subtracts `ORIGIN` in `writeInstance` and every mesh, and the minimap charts its own 128-texel window of 24 half-heights (12 would leave its disc off the window between re-centres). The map stays whole-world until T18.
+  - Gotcha: debug teleports fill the zone window at once (`settleZones`), or the m6 look shots would catch its 16-frame refill; `?gpu=watch` and `render.gpu()` check the 16,384 wu bound, in `m11-world`'s fast test (its look test is `@slow`).
 
 - [ ] T12 The world grows to 262,144 wu (after T5, T11)
   - Steps:

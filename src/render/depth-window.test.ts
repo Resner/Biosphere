@@ -153,6 +153,25 @@ describe('DepthWindow over a 262,144 wu world', () => {
       Math.round(depthAt(other, (i + 0.5) * w.cell, (j + 0.5) * w.cell, 8192) * 255),
     );
   });
+
+  it('a smaller grid (the minimap chart of 128 texels) scrolls and fills the same way', () => {
+    const w = new DepthWindow(24, 128);
+    let x = 60_000;
+    w.settle(seed, SIZE, x, 60_000, 20);
+    const first = w.i0;
+    for (let frame = 0; frame < 200; frame++) {
+      x += 1;
+      w.update(seed, SIZE, x, 60_000, 20);
+    }
+    while (w.pending() > 0) w.update(seed, SIZE, x, 60_000, 20);
+    expect(w.i0).toBeGreaterThan(first);
+    for (let j = w.j0; j < w.j0 + 128; j += 5) {
+      for (let i = w.i0; i < w.i0 + 128; i += 3) {
+        const want = Math.round(depthAt(seed, (i + 0.5) * w.cell, (j + 0.5) * w.cell, SIZE) * 255);
+        if (w.texel(i, j) !== want) expect(w.texel(i, j), `${i}, ${j}`).toBe(want);
+      }
+    }
+  });
 });
 
 speedTest("a frame's refill takes at most 1.5 ms in Node", () => {

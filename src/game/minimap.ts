@@ -13,7 +13,7 @@ import type { Seed } from '../sim/prng';
 import { type SizeClass, sizeClass } from '../sim/size';
 import { DepthGauge } from './depth-gauge';
 import { pick, setText } from './dom';
-import { zoneImage } from './pond-map';
+import { MinimapChart } from './minimap-chart';
 import type { ZoneReadout } from './zone-readout';
 
 export const MINIMAP = {
@@ -241,9 +241,8 @@ export class Minimap {
   private readonly at = { x: 0, y: 0, inside: false };
   private readonly heart: Path2D | null;
   private glaze: CanvasGradient | null = null;
-  private image: HTMLCanvasElement | null = null;
-  private imageSeed: Seed | null = null;
-  private imageSize = 0;
+  /** The zones' chart from a depth window around the player (M11 T11). */
+  private readonly chart = new MinimapChart();
 
   constructor(onOpen: () => void) {
     this.context = this.canvas.getContext('2d');
@@ -343,28 +342,24 @@ export class Minimap {
     // Beyond the pond: the darkest water.
     ctx.fillStyle = '#020608';
     ctx.fillRect(0, 0, side, side);
-    // The zones, from the pond map's picture (north up), softened by smoothing.
-    // The picture is looked up only when the pond changes (its key is a new string).
-    if (view.seed !== this.imageSeed || view.size !== this.imageSize || !this.image) {
-      this.imageSeed = view.seed;
-      this.imageSize = view.size;
-      this.image = zoneImage(view.seed, view.size);
+    // The zones, from the chart of the depth window around the player (north up), softened by smoothing.
+    const chart = this.chart.update(view.seed, view.size, self.x, self.y, view.halfHeight);
+    if (chart) {
+      // A blur of about half a texel rounds the picture's steps into the zones' soft edges.
+      const texel = chart.cell * k;
+      ctx.imageSmoothingEnabled = true;
+      ctx.filter = BLURS[Math.min(BLURS.length - 1, Math.round(texel * 0.6))] as string;
+      ctx.globalAlpha = 0.85;
+      ctx.drawImage(
+        chart.image,
+        half + (chart.x - self.x) * k,
+        half - (chart.y + chart.side - self.y) * k,
+        chart.side * k,
+        chart.side * k,
+      );
+      ctx.globalAlpha = 1;
+      ctx.filter = 'none';
     }
-    const image = this.image;
-    // A blur of about half a texel rounds the picture's steps into the zones' soft edges.
-    const texel = (view.size / image.width) * k;
-    ctx.imageSmoothingEnabled = true;
-    ctx.filter = BLURS[Math.min(BLURS.length - 1, Math.round(texel * 0.6))] as string;
-    ctx.globalAlpha = 0.85;
-    ctx.drawImage(
-      image,
-      half - self.x * k,
-      half - (view.size - self.y) * k,
-      view.size * k,
-      view.size * k,
-    );
-    ctx.globalAlpha = 1;
-    ctx.filter = 'none';
     // The glass: darker toward the rim so the marks read.
     if (!this.glaze) {
       this.glaze = ctx.createRadialGradient(half, half, half * 0.35, half, half, half);

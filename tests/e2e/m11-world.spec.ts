@@ -1,3 +1,4 @@
+import { mkdirSync, writeFileSync } from 'node:fs';
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { PRESETS } from '../../src/render/presets';
@@ -133,7 +134,10 @@ function centres(page: Page, frames: number): Promise<{ x: number; y: number }[]
   );
 }
 
+/** Attaches a shot to the report and keeps it as `test-results/<name>.png`. */
 async function attach(testInfo: TestInfo, name: string, png: Buffer): Promise<void> {
+  mkdirSync('test-results', { recursive: true });
+  writeFileSync(`test-results/${name}.png`, png);
   await testInfo.attach(name, { body: png, contentType: 'image/png' });
 }
 
@@ -155,7 +159,7 @@ test("the water keeps its zone's colour at the centre and the far corner of a 26
 }, testInfo) => {
   test.setTimeout(240_000);
   // The same zones in a pond of 8,192 wu: what each zone's water looks like.
-  const pond = await browser.newPage({ viewport: page.viewportSize() ?? undefined });
+  const pond = await browser.newPage({ viewport: page.viewportSize() });
   await openGame(pond, `?debug=1&seed=zones&quality=${QUALITY}`);
   await hatch(pond);
   const reference = {} as Record<Zone, number>;
