@@ -1,6 +1,6 @@
 import { expect, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { AOI_PER_HALF_HEIGHT } from '../../src/net/aoi';
+import { AOI_PER_HALF_HEIGHT, INTERACT_HOLD_WU, INTERACT_RADII } from '../../src/net/aoi';
 import { state } from './helpers';
 import { CENTRE, closeAll, directory, join, type Player, place } from './m11-steps';
 
@@ -229,7 +229,17 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     const rates = await c.page.evaluate(
       () => (window as unknown as { __rates: RateSample[] }).__rates,
     );
-    const far = rates.filter((r) => r.d > 2 * aoi + 300 && r.linkedMs > 2000);
+    // Far: beyond P1's hold (a peer that could interact is asked for every snapshot, and stays P1
+    // out to 8 radii + 900 wu), and beyond twice A's AoI.
+    const radii = [
+      (await state(a.page)).player?.radius ?? 0,
+      (await state(c.page)).player?.radius ?? 0,
+    ];
+    const farFrom = Math.max(
+      2 * aoi + 300,
+      INTERACT_RADII * Math.max(...radii) + INTERACT_HOLD_WU + 100,
+    );
+    const far = rates.filter((r) => r.d > farFrom && r.linkedMs > 2000);
     const near = rates.filter((r) => r.d < 300);
     expect(far.length, 'C was linked to A while far').toBeGreaterThan(5);
     expect(near.length, 'C came near A').toBeGreaterThan(5);
