@@ -14,6 +14,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 6. **Gossip** costs at most 0.3 KB/s per link.
 7. **Tiers**: no link between creatures two tiers apart outside P0 (for more than 4 s); every giant's swarm holds each smaller creature in its AoI that reported in the last 30 s, up to 64.
 8. **Witnesses**: every duty link is taken within 10 s and held to the fight's end, with P0 + P1 ≤ 28, and the cap holds.
+9. **Bandwidth** (M11 T15): snapshots go at the rate each receiver asks (10 Hz for P0, P1 or within 1.15 × its view's half-diagonal, 5 Hz in its AoI, 2 Hz for P3, 1 Hz for P4), an engage candidate's signed frame every 200 ms, plus gossip, each frame counted on the wire with 93 bytes of IPv4, UDP, DTLS and SCTP. A client's upload at 24 links is at most 12 KB/s, and one link's at most 4 KB/s. The upload is not asserted in the dense scenarios, where every link is P1 and at 10 Hz by rule.
 
 ## Scenarios
 
@@ -29,6 +30,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | 6. Gossip within 0.3 KB/s per link | pass | 0.030 KB/s |
 | 7. Tiers: no link two tiers apart, every swarm complete | pass | 0 violations |
 | 8. Witness duties taken within the cap | pass | n/a |
+| 9. Bandwidth: upload at 24 links within 12 KB/s, each link within 4 KB/s | pass | never 24 links; one link 1.6 KB/s at most |
 
 | Metric | Value |
 |---|---|
@@ -38,6 +40,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | Authority messages per player-minute (median, p95; first minute p95) | n/a (under 2 minutes), 0 |
 | Links made after the first minute set up through a peer relay | n/a |
 | Gossip per link | 0.030 KB/s |
+| Upload on the wire at 24 links (most, mean); on one link at most | n/a; 1.57 KB/s |
 | Time crowded (P0 + P1 past 32) | 0.0% |
 
 ### sparse
@@ -52,6 +55,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | 6. Gossip within 0.3 KB/s per link | pass | 0.106 KB/s |
 | 7. Tiers: no link two tiers apart, every swarm complete | pass | 0 violations |
 | 8. Witness duties taken within the cap | pass | n/a |
+| 9. Bandwidth: upload at 24 links within 12 KB/s, each link within 4 KB/s | pass | at 24 links 10.5 KB/s at most, 6.0 KB/s on average; one link 1.6 KB/s at most |
 
 | Metric | Value |
 |---|---|
@@ -61,6 +65,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | Authority messages per player-minute (median, p95; first minute p95) | 2, 4; 39 |
 | Links made after the first minute set up through a peer relay | 99% of 4173 |
 | Gossip per link | 0.106 KB/s |
+| Upload on the wire at 24 links (most, mean); on one link at most | 10.5 KB/s, 6.0 KB/s; 1.65 KB/s |
 | Time crowded (P0 + P1 past 32) | 0.0% |
 
 ### crowd
@@ -75,6 +80,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | 6. Gossip within 0.3 KB/s per link | pass | 0.107 KB/s |
 | 7. Tiers: no link two tiers apart, every swarm complete | pass | 0 violations |
 | 8. Witness duties taken within the cap | pass | n/a |
+| 9. Bandwidth: upload at 24 links within 12 KB/s, each link within 4 KB/s | pass | at 24 links 27.6 KB/s at most, 20.7 KB/s on average (not asserted); one link 1.6 KB/s at most |
 
 | Metric | Value |
 |---|---|
@@ -84,6 +90,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | Authority messages per player-minute (median, p95; first minute p95) | n/a (under 2 minutes), 0 |
 | Links made after the first minute set up through a peer relay | n/a |
 | Gossip per link | 0.107 KB/s |
+| Upload on the wire at 24 links (most, mean); on one link at most | 27.6 KB/s, 20.7 KB/s; 1.65 KB/s |
 | Time crowded (P0 + P1 past 32) | 0.0% |
 
 ### tiers
@@ -98,6 +105,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | 6. Gossip within 0.3 KB/s per link | pass | 0.084 KB/s |
 | 7. Tiers: no link two tiers apart, every swarm complete | pass | 0 violations |
 | 8. Witness duties taken within the cap | pass | n/a |
+| 9. Bandwidth: upload at 24 links within 12 KB/s, each link within 4 KB/s | pass | at 24 links 8.9 KB/s at most, 5.9 KB/s on average; one link 1.6 KB/s at most |
 
 | Metric | Value |
 |---|---|
@@ -107,6 +115,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | Authority messages per player-minute (median, p95; first minute p95) | n/a (under 2 minutes), 22 |
 | Links made after the first minute set up through a peer relay | 100% of 95 |
 | Gossip per link | 0.084 KB/s |
+| Upload on the wire at 24 links (most, mean); on one link at most | 8.9 KB/s, 5.9 KB/s; 1.62 KB/s |
 | Time crowded (P0 + P1 past 32) | 0.0% |
 
 ### streams
@@ -121,6 +130,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | 6. Gossip within 0.3 KB/s per link | pass | 0.092 KB/s |
 | 7. Tiers: no link two tiers apart, every swarm complete | pass | 0 violations |
 | 8. Witness duties taken within the cap | pass | n/a |
+| 9. Bandwidth: upload at 24 links within 12 KB/s, each link within 4 KB/s | pass | never 24 links; one link 1.6 KB/s at most |
 
 | Metric | Value |
 |---|---|
@@ -130,6 +140,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | Authority messages per player-minute (median, p95; first minute p95) | 2, 2; 30 |
 | Links made after the first minute set up through a peer relay | n/a |
 | Gossip per link | 0.092 KB/s |
+| Upload on the wire at 24 links (most, mean); on one link at most | n/a; 1.63 KB/s |
 | Time crowded (P0 + P1 past 32) | 0.0% |
 
 ### traveller
@@ -144,6 +155,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | 6. Gossip within 0.3 KB/s per link | pass | 0.100 KB/s |
 | 7. Tiers: no link two tiers apart, every swarm complete | pass | 0 violations |
 | 8. Witness duties taken within the cap | pass | n/a |
+| 9. Bandwidth: upload at 24 links within 12 KB/s, each link within 4 KB/s | pass | at 24 links 10.0 KB/s at most, 5.9 KB/s on average; one link 1.6 KB/s at most |
 
 | Metric | Value |
 |---|---|
@@ -153,6 +165,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | Authority messages per player-minute (median, p95; first minute p95) | 2, 4; 27 |
 | Links made after the first minute set up through a peer relay | 99% of 2787 |
 | Gossip per link | 0.100 KB/s |
+| Upload on the wire at 24 links (most, mean); on one link at most | 10.0 KB/s, 5.9 KB/s; 1.64 KB/s |
 | Time crowded (P0 + P1 past 32) | 0.0% |
 
 ### witnesses
@@ -167,6 +180,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | 6. Gossip within 0.3 KB/s per link | pass | 0.106 KB/s |
 | 7. Tiers: no link two tiers apart, every swarm complete | pass | 0 violations |
 | 8. Witness duties taken within the cap | pass | 18 of 18 duty links taken in 10 s; 0 violations |
+| 9. Bandwidth: upload at 24 links within 12 KB/s, each link within 4 KB/s | pass | at 24 links 31.5 KB/s at most, 26.9 KB/s on average (not asserted); one link 1.6 KB/s at most |
 
 | Metric | Value |
 |---|---|
@@ -176,6 +190,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 | Authority messages per player-minute (median, p95; first minute p95) | n/a (under 2 minutes), 0 |
 | Links made after the first minute set up through a peer relay | n/a |
 | Gossip per link | 0.106 KB/s |
+| Upload on the wire at 24 links (most, mean); on one link at most | 31.5 KB/s, 26.9 KB/s; 1.65 KB/s |
 | Time crowded (P0 + P1 past 32) | 0.0% |
 
 ## Findings
@@ -185,3 +200,4 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 - Directory positions are up to 30 s old, so a P4 dialled from one may be out of the callee's range: a P4 needs a fix under 5 s old.
 - In a dense crowd (about 20 P1 each) a P1 pair that drifts past the hold and back within a few seconds can come into view before its link is up: about 3 in 1,000 entries. M12 (crowded instances) owns it.
 - A relayed offer lost on a peer's closed link costs 4 s before the hub resend, more than a P1's 3 s lead, so P0 and P1 calls go through the hub.
+- Most of a snapshot's cost on the wire is its carriage: 93 bytes of headers for 29 bytes of snapshot. At 10 Hz to all 24 links a client would upload about 29 KB/s; at the asked rates the open-world scenarios stay near a third of that. In a dense crowd every link is P1 and asks 10 Hz, so 24 links cost about 25 KB/s: M12's instances bound it.

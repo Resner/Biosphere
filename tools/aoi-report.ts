@@ -1,9 +1,9 @@
 // The area-of-interest report (M11 T10, ADR 0062): `npm run report:aoi` writes `docs/perf/aoi.md`
 // from the headless harness (`tests/aoi-harness.ts`): seven scenarios at normal speed over a few
-// seeds each, each judged by the eight gates, with the numbers M13's capacity model reads.
+// seeds each, each judged by the nine gates, with the numbers M13's capacity model reads.
 // The harness is seeded, so the report is deterministic.
 
-import { runScenario } from '../tests/aoi-harness';
+import { FRAME_OVERHEAD_BYTES, runScenario } from '../tests/aoi-harness';
 import {
   FRIENDS_P50_MS,
   FRIENDS_P95_MS,
@@ -11,6 +11,7 @@ import {
   GOSSIP_KBPS,
   gatesOf,
   JOIN_P95,
+  LINK_KBPS,
   MSG_MEDIAN,
   MSG_P95,
   makeScenario,
@@ -19,6 +20,8 @@ import {
   SCENARIO_NAMES,
   type ScenarioName,
   sum,
+  UPLOAD_24_KBPS,
+  uploadOf,
 } from '../tests/aoi-scenarios';
 import type { RunResult } from '../tests/aoi-types';
 
@@ -90,6 +93,7 @@ function section(name: ScenarioName, runs: RunResult[], gates: Gate[]): string {
       1,
       sum(runs, (r) => r.clientSeconds),
     );
+  const up = uploadOf(runs);
   const metrics = table([
     ['Metric', 'Value'],
     ['Runs, clients, simulated seconds', `${runs.length}, ${first.clients}, ${first.seconds}`],
@@ -112,6 +116,10 @@ function section(name: ScenarioName, runs: RunResult[], gates: Gate[]): string {
       lateLinks === 0 ? 'n/a' : `${fixed((100 * lateRelayed) / lateLinks, 0)}% of ${lateLinks}`,
     ],
     ['Gossip per link', `${fixed(kbps, 3)} KB/s`],
+    [
+      'Upload on the wire at 24 links (most, mean); on one link at most',
+      `${up.max24 === null || up.mean24 === null ? 'n/a' : `${fixed(up.max24)} KB/s, ${fixed(up.mean24)} KB/s`}; ${fixed(up.link, 2)} KB/s`,
+    ],
     ['Time crowded (P0 + P1 past 32)', `${fixed(100 * crowded, 1)}%`],
   ]);
   const rows = table([
@@ -137,6 +145,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 6. **Gossip** costs at most ${GOSSIP_KBPS} KB/s per link.
 7. **Tiers**: no link between creatures two tiers apart outside P0 (for more than 4 s); every giant's swarm holds each smaller creature in its AoI that reported in the last 30 s, up to 64.
 8. **Witnesses**: every duty link is taken within 10 s and held to the fight's end, with P0 + P1 ≤ 28, and the cap holds.
+9. **Bandwidth** (M11 T15): snapshots go at the rate each receiver asks (10 Hz for P0, P1 or within 1.15 × its view's half-diagonal, 5 Hz in its AoI, 2 Hz for P3, 1 Hz for P4), an engage candidate's signed frame every 200 ms, plus gossip, each frame counted on the wire with ${FRAME_OVERHEAD_BYTES} bytes of IPv4, UDP, DTLS and SCTP. A client's upload at 24 links is at most ${UPLOAD_24_KBPS} KB/s, and one link's at most ${LINK_KBPS} KB/s. The upload is not asserted in the dense scenarios, where every link is P1 and at 10 Hz by rule.
 `;
 
 const NOTES = `## Findings
@@ -146,6 +155,7 @@ const NOTES = `## Findings
 - Directory positions are up to 30 s old, so a P4 dialled from one may be out of the callee's range: a P4 needs a fix under 5 s old.
 - In a dense crowd (about 20 P1 each) a P1 pair that drifts past the hold and back within a few seconds can come into view before its link is up: about 3 in 1,000 entries. M12 (crowded instances) owns it.
 - A relayed offer lost on a peer's closed link costs 4 s before the hub resend, more than a P1's 3 s lead, so P0 and P1 calls go through the hub.
+- Most of a snapshot's cost on the wire is its carriage: 93 bytes of headers for 29 bytes of snapshot. At 10 Hz to all 24 links a client would upload about 29 KB/s; at the asked rates the open-world scenarios average about 6 KB/s at 24 links and peak near 10.5. In a dense crowd every link is P1 and asks 10 Hz, and most are engage candidates with signed frames, so 24 links cost 20 to 32 KB/s: M12's instances bound it.
 `;
 
 /** The full text of \`docs/perf/aoi.md\`. */

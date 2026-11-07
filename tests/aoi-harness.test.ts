@@ -55,6 +55,8 @@ describe('the harness', () => {
     broken({ violations: { ...base.violations, tierLink: 1 } }, 7);
     broken({ violations: { ...base.violations, swarm: 1 } }, 7);
     broken({ violations: { ...base.violations, duty: 1 }, duties: 3 }, 8);
+    broken({ linkUpload: 5000 }, 9);
+    broken({ upload24: 13_000, upload24Sum: 13_000, upload24Samples: 1 }, 9);
   });
 
   it('links friends who spawn on the ring, with their directory, gossip and hello all in play', () => {
