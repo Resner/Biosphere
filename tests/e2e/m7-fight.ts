@@ -15,7 +15,7 @@ import { clickHatch, goTo, openRecorded, state, topUp, waitPlaying } from './hel
 export const FIGHT_WALL_MS = (RULES.encounter.timeoutFrames / 10 + 15) * 1000;
 
 /** A's ticks to wait after parking: the target's `seen` window (`SEEN_MS`) at the sim rate, and a second more. */
-const SETTLE_TICKS = Math.ceil((SEEN_MS / 1000 + 1) * TICK_HZ);
+export const SETTLE_TICKS = Math.ceil((SEEN_MS / 1000 + 1) * TICK_HZ);
 
 /** Every staged fighter's biomass (the starter's), so none is "much bigger" than another. */
 export const EQUAL_BIOMASS = RULES.starter.biomass;
