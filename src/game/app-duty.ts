@@ -13,14 +13,13 @@
 import type { Beacon } from '../ledger/drand';
 import type { PubKey } from '../ledger/record';
 import type { AuditVerdict } from '../net/audit';
-import { type DutyMsg, fetchJson, hubHttpUrl } from '../net/hub-client';
+import type { DutyMsg } from '../net/hub-client';
 import type { AuditCase, PeerEvent } from '../net/protocol';
 import type { FighterInput } from '../net/witness-referee';
 import { percentile } from '../render/post/benchmark';
 import type { App } from './app';
 import type { AuditDuties, AuditRunner } from './app-audit';
 import type { EncFrameMsg, EncRefereeMsg, WitnessDuties, WitnessHost } from './app-witness';
-import { cachedKeys } from './fight-verify';
 
 /** The frame times judged, and how long everything must hold before an `on`. */
 export const AVAIL_WINDOW_MS = 5000;
@@ -253,8 +252,7 @@ export class DutyWiring {
   private auditor(): Promise<{ audits: AuditDuties; runner: AuditRunner }> {
     const { app } = this;
     this.auditLoading ??= import('./app-audit').then((m) => {
-      const { hubUrl } = app;
-      const keys = hubUrl ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys'))) : null;
+      const keys = app.authorityKeys;
       const runner = m.workerRunner(
         () => new Worker(new URL('./audit-worker.ts', import.meta.url), { type: 'module' }),
       );

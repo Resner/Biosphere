@@ -8,7 +8,7 @@ import type { PubKey } from '../ledger/record';
 import { bodyFromText } from '../net/encounter-start';
 import { EncounterSync } from '../net/encounter-sync';
 import { AUTHORITY } from '../net/handover';
-import { type FightMsg, fetchJson, hubHttpUrl } from '../net/hub-client';
+import type { FightMsg } from '../net/hub-client';
 import { type SnapshotFields, snapshotOf } from '../net/pond-sync';
 import { type ClientMsg, type FighterInfo, genomeRefOf, type PeerEvent } from '../net/protocol';
 import type { RelayFight } from '../net/proxy-snaps';
@@ -22,7 +22,7 @@ import { maxHealth } from '../sim/vitals';
 import type { App } from './app';
 import { aimsAt } from './fight-cues';
 import { inputTarget, markedTarget, nextTarget, targetAt } from './fight-target';
-import { cachedKeys, FightVerify } from './fight-verify';
+import { FightVerify } from './fight-verify';
 
 export interface FightHost {
   /** This player's id, or null before the identity is loaded. */
@@ -588,8 +588,7 @@ export class FightPlay {
 /** The app as a fight's host: the hub's pond and clock, the live life and this tick's steering. */
 export function appFightHost(app: App): FightHost {
   const clock = () => app.keeper.current?.clock ?? null;
-  const { hubUrl } = app;
-  const keys = hubUrl ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys'))) : undefined;
+  const keys = app.authorityKeys;
   // Signed inputs and witness frames need `@noble/curves`, which the app shell never loads: each
   // fight loads it as it begins, long before a witness can take it over (a round and an offer later).
   let witness: typeof import('../ledger/witness') | null = null;
