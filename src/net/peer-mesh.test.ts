@@ -3,9 +3,7 @@ import { createIdentity, memoryKeyStore, toBase64Url } from '../ledger/identity'
 import { encodeProxyFrame, encodeSignedFrame } from '../ledger/snapshot-sig';
 import {
   CONNECT_TIMEOUT_MS,
-  type DataChannelLike,
   GATHER_TIMEOUT_MS,
-  type PeerConnectionLike,
   PeerMesh,
   RECOVERY_MAX_ATTEMPTS,
   RETRY_DELAY_MS,
@@ -22,6 +20,7 @@ import {
   SNAPSHOT_BYTES,
   type Snapshot,
 } from './protocol';
+import { FakePc, fakePcs, settle } from './rtc-test-kit';
 
 const SNAP: Snapshot = {
   seq: 7,
@@ -42,115 +41,6 @@ const SNAP: Snapshot = {
   fighting: false,
   genomeRef: 0x1234,
 };
-
-class FakeChannel implements DataChannelLike {
-  readyState = 'connecting';
-  binaryType = 'blob';
-  onopen: (() => void) | null = null;
-  onclose: (() => void) | null = null;
-  onmessage: ((ev: { data: unknown }) => void) | null = null;
-  other: FakeChannel | null = null;
-  sent: unknown[] = [];
-  constructor(
-    readonly label: string,
-    readonly init: RTCDataChannelInit | undefined,
-  ) {}
-  send(data: string | ArrayBuffer | Uint8Array) {
-    if (this.readyState !== 'open') throw new Error('InvalidStateError');
-    this.sent.push(data);
-    const copy = typeof data === 'string' ? data : (data as Uint8Array).slice().buffer;
-    this.other?.onmessage?.({ data: copy });
-  }
-  open() {
-    this.readyState = 'open';
-    this.onopen?.();
-  }
-  close() {
-    if (this.readyState === 'closed') return;
-    this.readyState = 'closed';
-    this.onclose?.();
-  }
-}
-
-let nextId = 0;
-const registry = new Map<string, FakePc>();
-
-/** A browser-less RTCPeerConnection: offers carry the caller's id, answers link the pair. */
-class FakePc implements PeerConnectionLike {
-  readonly id = `pc${++nextId}`;
-  connectionState = 'new';
-  iceGatheringState = 'new';
-  localDescription: { sdp: string } | null = null;
-  ondatachannel: ((ev: { channel: DataChannelLike }) => void) | null = null;
-  onicegatheringstatechange: (() => void) | null = null;
-  onconnectionstatechange: (() => void) | null = null;
-  channels: FakeChannel[] = [];
-  remote: FakePc | null = null;
-  closed = false;
-  private remoteOffer: string | null = null;
-  /** Tests that exercise the 2 s gather fallback set this to false. */
-  static autoGather = true;
-
-  constructor(readonly config: RTCConfiguration) {
-    registry.set(this.id, this);
-  }
-  createDataChannel(label: string, init?: RTCDataChannelInit) {
-    const ch = new FakeChannel(label, init);
-    this.channels.push(ch);
-    return ch;
-  }
-  async setLocalDescription() {
-    this.localDescription = {
-      sdp: this.remoteOffer ? `answer:${this.id}:${this.remoteOffer}` : `offer:${this.id}`,
-    };
-    if (FakePc.autoGather) this.finishGathering();
-  }
-  finishGathering() {
-    this.iceGatheringState = 'complete';
-    this.onicegatheringstatechange?.();
-  }
-  async setRemoteDescription(desc: { type: 'offer' | 'answer'; sdp: string }) {
-    if (desc.type === 'offer') {
-      this.remoteOffer = desc.sdp.split(':')[1] ?? null;
-      return;
-    }
-    // The answer reaches the caller: wire both ends up.
-    const answerer = registry.get(desc.sdp.split(':')[1] ?? '');
-    if (!answerer || answerer.closed || this.closed) return;
-    this.remote = answerer;
-    answerer.remote = this;
-    for (const mine of this.channels) {
-      const theirs = new FakeChannel(mine.label, mine.init);
-      mine.other = theirs;
-      theirs.other = mine;
-      answerer.channels.push(theirs);
-      answerer.ondatachannel?.({ channel: theirs });
-    }
-    queueMicrotask(() => {
-      for (const pc of [this, answerer]) {
-        pc.connectionState = 'connected';
-        pc.onconnectionstatechange?.();
-        for (const ch of pc.channels) ch.open();
-      }
-    });
-  }
-  fail() {
-    this.connectionState = 'failed';
-    this.onconnectionstatechange?.();
-  }
-  close() {
-    this.closed = true;
-    this.connectionState = 'closed';
-    for (const ch of this.channels) ch.readyState = 'closed';
-    // The far side notices the close like a browser would.
-    const far = this.remote;
-    this.remote = null;
-    if (far && !far.closed) {
-      far.connectionState = 'closed';
-      far.onconnectionstatechange?.();
-    }
-  }
-}
 
 interface Net {
   meshes: Map<string, PeerMesh>;
@@ -205,13 +95,9 @@ function network(ids: string[]): Net {
   return net;
 }
 
-const settle = async () => {
-  for (let i = 0; i < 40; i++) await Promise.resolve();
-};
-
 beforeEach(() => {
   vi.useFakeTimers();
-  registry.clear();
+  fakePcs.clear();
   FakePc.autoGather = true;
 });
 afterEach(() => {

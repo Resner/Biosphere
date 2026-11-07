@@ -1,0 +1,148 @@
+// Gossip (M11 T9, ADR 0062): linked peers tell each other about their neighbours, so a page learns
+// of creatures near it between the directory's answers. Every 4 s each link carries the sender's up
+// to 16 linked peers nearest the receiver that the receiver could link with, placed by snapshots
+// under 2 s old; the receiver keeps each as a `gossip` sighting for 10 s unless it is told again.
+// Pure: the page (T13) and the harness (T10) send what `due` returns and feed `receive`.
+
+import { clamp } from '../sim/math';
+import { linkTiers } from '../sim/size';
+import type { Known } from './aoi';
+import { GOSSIP_MAX, type PeerEvent, WIRE_POS_MAX, WIRE_RADIUS_MAX } from './protocol-defs';
+
+export const GOSSIP_EVERY_MS = 4000;
+export const GOSSIP_TTL_MS = 10_000;
+/** Only peers placed by a snapshot this fresh are passed on. */
+export const GOSSIP_FRESH_MS = 2000;
+/** Sightings kept from one sender, the oldest dropped first: a few rounds' worth. */
+const HEARD_PER_SENDER = 3 * GOSSIP_MAX;
+
+export type PeersEvent = Extract<PeerEvent, { t: 'peers' }>;
+
+/** Where a peer was placed (its centre and radius, wu) and when (ms). */
+export interface Fix {
+  x: number;
+  y: number;
+  r: number;
+  at: number;
+}
+
+/**
+ * The gossip for `to`: up to 16 of `fixes` (this page's linked peers, by their newest snapshots)
+ * nearest `to`'s own newest snapshot, placed under 2 s ago and passing `linkTiers` with it, `to`
+ * itself left out; positions rounded to whole wu. Null when `to` has no snapshot or none qualify.
+ */
+export function gossipFor(
+  to: string,
+  fixes: ReadonlyMap<string, Fix>,
+  now: number,
+): PeersEvent | null {
+  const at = fixes.get(to);
+  if (!at) return null;
+  const near: [d: number, entry: PeersEvent['list'][number]][] = [];
+  for (const [id, f] of fixes) {
+    if (id === to || now - f.at > GOSSIP_FRESH_MS || !linkTiers(at.r, f.r)) continue;
+    near.push([Math.hypot(f.x - at.x, f.y - at.y), [id, coord(f.x), coord(f.y), radius(f.r)]]);
+  }
+  if (near.length === 0) return null;
+  near.sort((a, b) => a[0] - b[0]);
+  return { t: 'peers', list: near.slice(0, GOSSIP_MAX).map(([, e]) => e) };
+}
+
+const coord = (v: number) => clamp(Math.round(v), 0, WIRE_POS_MAX - 1);
+const radius = (v: number) => clamp(Math.round(v), 1, WIRE_RADIUS_MAX);
+
+/** A sighting passed on by a linked peer. */
+export interface Heard {
+  via: string;
+  fix: Fix;
+}
+
+export class Gossip {
+  /** When each link was last told. */
+  private readonly told = new Map<string, number>();
+  /** Each sender's sightings by id, oldest first. */
+  private readonly bySender = new Map<string, Map<string, Fix>>();
+
+  constructor(private readonly selfId: string) {}
+
+  /**
+   * The gossip due now: one `peers` event for each of `linked` not told in the last 4 s (a new link
+   * at once), built by `gossipFor` from the fixes of the linked peers. A link with nothing to tell
+   * is asked again on the next call.
+   */
+  due(
+    linked: Iterable<string>,
+    fixes: ReadonlyMap<string, Fix>,
+    now: number,
+  ): [to: string, event: PeersEvent][] {
+    const held = new Set(linked);
+    for (const id of this.told.keys()) if (!held.has(id)) this.told.delete(id);
+    const mine = new Map<string, Fix>();
+    for (const [id, f] of fixes) if (held.has(id)) mine.set(id, f);
+    const out: [string, PeersEvent][] = [];
+    for (const to of held) {
+      const last = this.told.get(to);
+      if (last !== undefined && now - last < GOSSIP_EVERY_MS) continue;
+      const event = gossipFor(to, mine, now);
+      if (!event) continue;
+      this.told.set(to, now);
+      out.push([to, event]);
+    }
+    return out;
+  }
+
+  /** Merges a linked peer's gossip: each entry is a sighting from `via` at `now`. */
+  receive(via: string, event: PeersEvent, now: number): void {
+    let heard = this.bySender.get(via);
+    if (!heard) {
+      heard = new Map();
+      this.bySender.set(via, heard);
+    }
+    for (const [id, x, y, r] of event.list) {
+      if (id === this.selfId || id === via) continue;
+      heard.delete(id);
+      heard.set(id, { x, y, r, at: now });
+    }
+    for (const id of heard.keys()) {
+      if (heard.size <= HEARD_PER_SENDER) break;
+      heard.delete(id);
+    }
+  }
+
+  /** Forgets a sender's sightings (its link closed). */
+  drop(via: string): void {
+    this.bySender.delete(via);
+    this.told.delete(via);
+  }
+
+  /** The linked peers that placed `id` in the last 10 s, with where each placed it. */
+  heard(id: string, now: number): Heard[] {
+    this.expire(now);
+    const out: Heard[] = [];
+    for (const [via, heard] of this.bySender) {
+      const fix = heard.get(id);
+      if (fix) out.push({ via, fix });
+    }
+    return out;
+  }
+
+  /** Every creature gossip placed in the last 10 s, the newest sighting of each. */
+  known(now: number): Known[] {
+    this.expire(now);
+    const newest = new Map<string, Known>();
+    for (const heard of this.bySender.values()) {
+      for (const [id, f] of heard) {
+        const seen = newest.get(id);
+        if (!seen || f.at > seen.at) newest.set(id, { id, ...f, source: 'gossip' });
+      }
+    }
+    return [...newest.values()];
+  }
+
+  private expire(now: number): void {
+    for (const [via, heard] of this.bySender) {
+      for (const [id, f] of heard) if (now - f.at > GOSSIP_TTL_MS) heard.delete(id);
+      if (heard.size === 0) this.bySender.delete(via);
+    }
+  }
+}

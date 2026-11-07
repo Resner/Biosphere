@@ -1,6 +1,9 @@
-// WebRTC peer mesh: perfect negotiation over the hub's signal relay, non-trickle ICE, and two data
-// channels per peer (`state`: unordered, lossy; `event`: ordered, reliable).
+// WebRTC peer mesh: perfect negotiation over a signal route (the hub, or a peer both sides hold),
+// non-trickle ICE, and two data channels per peer (`state`: unordered, lossy; `event`: ordered,
+// reliable). With a hello gate (M11 T9, ADR 0062), each link's first event, each way, is the
+// sender's seat ticket, and a peer is joined, and heard, only once its ticket holds for it.
 
+import type { SignedSeat } from '../ledger/seat-doc';
 import { decodeStateFrame } from '../ledger/snapshot-sig';
 import { guarded } from './guarded';
 import {
@@ -43,19 +46,31 @@ export type PeerConnectionFactory = (config: RTCConfiguration) => PeerConnection
 export const browserPeerConnection: PeerConnectionFactory = (config) =>
   new RTCPeerConnection(config) as unknown as PeerConnectionLike;
 
+/** The hello gate: this page's ticket, and the check of a peer's (`seatValid` for that peer). */
+export interface HelloGate {
+  /** The ticket this page shows in each link's hello; null while it has none (the peer then fails it). */
+  ticket(): SignedSeat | null;
+  /** Whether `ticket` holds for peer `peerId` now. */
+  check(peerId: string, ticket: SignedSeat): boolean;
+}
+
 export interface PeerMeshOptions {
   selfId: string;
-  /** Sends an offer or answer to `to` through the hub. */
+  /** Sends an offer or answer to `to`: through the hub, or a `SignalRoute`. */
   signal: (to: string, kind: 'offer' | 'answer', sdp: string) => void;
   createPeerConnection?: PeerConnectionFactory;
   iceServers?: RTCIceServer[];
+  /** With a gate, a peer is joined only once its hello passes (M11 T9). */
+  hello?: HelloGate;
 }
 
 export interface PeerMeshStats {
-  /** Inbound messages dropped as malformed, oversized or on the wrong channel. */
+  /** Inbound messages dropped as malformed, oversized, on the wrong channel or before the hello. */
   dropped: number;
-  /** Peers with both channels open. */
+  /** Peers with both channels open (and their hello passed, with a gate). */
   open: number;
+  /** Links closed for a hello that failed or never came within `HELLO_MS`. */
+  helloFailed: number;
 }
 
 /** A connection that is not up by then is closed. */
@@ -66,6 +81,8 @@ export const RECOVERY_MAX_ATTEMPTS = 5;
 const RETRY_DELAY_MAX_MS = 30_000;
 /** Offers and answers wait this long for ICE gathering before they go out. */
 export const GATHER_TIMEOUT_MS = 2_000;
+/** A gated link whose peer shows no valid hello this long after its channels open is closed. */
+export const HELLO_MS = 5000;
 
 const STATE_CHANNEL = 'state';
 const EVENT_CHANNEL = 'event';
@@ -76,7 +93,12 @@ interface Link {
   readonly caller: boolean;
   state: DataChannelLike | null;
   event: DataChannelLike | null;
+  /** The connection and both channels are up. */
+  up: boolean;
+  /** Joined: up, and with a gate the peer's hello passed. */
   opened: boolean;
+  /** The peer's ticket, once its hello passed. */
+  ticket: SignedSeat | null;
   closed: boolean;
   /** Serialises the offer and answer steps of this connection. */
   chain: Promise<void>;
@@ -91,6 +113,7 @@ export class PeerMesh {
   private readonly links = new Map<string, Link>();
   private readonly retries = new Map<string, ReturnType<typeof setTimeout>>();
   private droppedCount = 0;
+  private helloFailedCount = 0;
   private joinedListeners: ((id: string) => void)[] = [];
   private leftListeners: ((id: string) => void)[] = [];
   private stateListeners: ((id: string, s: Snapshot, signed: SignedSnap | null) => void)[] = [];
@@ -125,7 +148,13 @@ export class PeerMesh {
   stats(): PeerMeshStats {
     let open = 0;
     for (const l of this.links.values()) if (l.opened) open += 1;
-    return { dropped: this.droppedCount, open };
+    return { dropped: this.droppedCount, open, helloFailed: this.helloFailedCount };
+  }
+
+  /** The seat ticket a joined peer showed in its hello (null without a gate). */
+  ticketOf(id: string): SignedSeat | null {
+    const link = this.links.get(id);
+    return link?.opened ? link.ticket : null;
   }
 
   /** Peers that are connected or being connected. */
@@ -225,7 +254,9 @@ export class PeerMesh {
       caller,
       state: null,
       event: null,
+      up: false,
       opened: false,
+      ticket: null,
       closed: false,
       chain: Promise.resolve(),
       timeout: null,
@@ -254,7 +285,7 @@ export class PeerMesh {
     channel.binaryType = 'arraybuffer';
     channel.onopen = () => this.checkOpen(link);
     channel.onclose = () => {
-      if (link.opened) this.failed(link);
+      if (link.up) this.failed(link);
     };
     channel.onmessage = (ev) => this.receive(link, channel.label, ev.data);
     return channel;
@@ -262,17 +293,53 @@ export class PeerMesh {
 
   private checkOpen(link: Link): void {
     if (link.closed || link.opened) return;
-    if (
-      link.pc.connectionState !== 'connected' ||
-      link.state?.readyState !== 'open' ||
-      link.event?.readyState !== 'open'
-    ) {
-      return;
+    if (!link.up) {
+      if (
+        link.pc.connectionState !== 'connected' ||
+        link.state?.readyState !== 'open' ||
+        link.event?.readyState !== 'open'
+      ) {
+        return;
+      }
+      link.up = true;
+      if (link.timeout) clearTimeout(link.timeout);
+      link.timeout = null;
+      const gate = this.opts.hello;
+      if (gate) {
+        const ticket = gate.ticket();
+        if (ticket) this.sendOn(link.event, JSON.stringify({ t: 'hello', ticket }));
+        if (!link.ticket) link.timeout = setTimeout(() => this.helloFailed(link), HELLO_MS);
+      }
     }
+    if (this.opts.hello && !link.ticket) return;
     link.opened = true;
     if (link.timeout) clearTimeout(link.timeout);
     link.timeout = null;
     for (const fn of this.joinedListeners) fn(link.peerId);
+  }
+
+  /** A gated link's first event: the peer's hello, whose ticket must hold for it. */
+  private hello(link: Link, event: PeerEvent | null): void {
+    let ok = false;
+    if (event?.t === 'hello') {
+      const { ticket } = event;
+      try {
+        ok = this.opts.hello?.check(link.peerId, ticket) === true;
+      } catch {
+        ok = false;
+      }
+      if (ok) link.ticket = ticket;
+    }
+    if (ok) this.checkOpen(link);
+    else this.helloFailed(link);
+  }
+
+  /** Closes a link whose hello failed or never came; it is not retried. */
+  private helloFailed(link: Link): void {
+    if (link.closed) return;
+    this.helloFailedCount += 1;
+    this.clearRetry(link.peerId);
+    this.teardown(link);
   }
 
   /**
@@ -371,7 +438,13 @@ export class PeerMesh {
 
   private receive(link: Link, label: string, data: unknown): void {
     if (link.closed) return;
+    const gated = this.opts.hello !== undefined && !link.ticket;
     if (label === STATE_CHANNEL) {
+      if (gated) {
+        // Nothing from a peer counts before its hello.
+        this.droppedCount += 1;
+        return;
+      }
       const bytes = toBytes(data);
       const frame = bytes ? decodeStateFrame(bytes) : null;
       if (!frame) {
@@ -389,7 +462,12 @@ export class PeerMesh {
     }
     // The parser caps each event's size: `EVENT_MAX_BYTES`, or `RELAY_MAX_BYTES` for a relay.
     const event = typeof data === 'string' ? parsePeerEvent(data) : null;
-    if (!event) {
+    if (gated) {
+      this.hello(link, event);
+      return;
+    }
+    // A hello is the gate's alone: a second one, or one on an ungated mesh, is dropped.
+    if (!event || event.t === 'hello') {
       this.droppedCount += 1;
       return;
     }
