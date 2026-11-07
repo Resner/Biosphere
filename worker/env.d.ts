@@ -16,6 +16,8 @@ interface Env {
   WITNESS_PLAY_MS?: string;
   WITNESS_IP_CHECK?: string;
   POND_MAX?: string;
+  /** The directory's leaf cap (1–16, M11 T6), so a few E2E pages make leaves; fixture mode only. */
+  LEAF_MAX?: string;
   /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */
   MAX_SESSIONS?: string;
   DAILY_REQUEST_BUDGET?: string;

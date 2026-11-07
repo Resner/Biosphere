@@ -1,7 +1,8 @@
 import { toBase64Url } from '../src/ledger/identity';
-import { type HubMsg, isCause, type SignedCommit } from '../src/net/protocol';
+import { type ClientMsg, type HubMsg, isCause, type SignedCommit } from '../src/net/protocol';
 import type { DeathCause } from '../src/sim/types';
 import type { Beacons, SignedCommitment } from './beacons';
+import type { Directory } from './directory';
 import type { Duties } from './duty';
 import type { FightStore } from './fight-store';
 import type { Clock, Fights } from './fights';
@@ -10,6 +11,7 @@ import type { LifeState } from './life';
 import type { Court } from './mating';
 import type { TurnCredentials } from './turn';
 import type { UsageMeter } from './usage';
+import type { WhereAt } from './where';
 
 /**
  * What the message handlers (`sessions.ts`, `lives.ts`, `offspring.ts`) reach of the one
@@ -34,6 +36,12 @@ export interface Hub {
   readonly fightStore: FightStore;
   /** Witness duties in memory: offers, who holds one, strikes (ADR 0058, `duty.ts`). */
   readonly duties: Duties;
+  /** Who is where (M11 T6, `where.ts`), in memory and rebuilt from the attachments on a wake; hub tests swap in a larger world's. */
+  directory: Directory;
+  /** Signals the hub relayed, by unordered pair (`GET /v1/e2e/directory`). */
+  readonly relays: Map<string, number>;
+  /** Messages dropped without closing the socket, by type (a `where` jump among them). */
+  readonly dropped: Map<ClientMsg['t'], number>;
   /** The one way to set or clear the object's alarm (`.claude/rules/worker.md`). */
   rearm(): Promise<void>;
 }
@@ -59,6 +67,8 @@ export type Session = (
       availAt?: number | undefined;
       /** When each witness duty this session accepted in the last hour began (at most `DUTIES_PER_HOUR`). */
       duties?: number[] | undefined;
+      /** The last `where` the directory took (M11 T6), so a wake rebuilds it and the next is checked against it. */
+      where?: WhereAt | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is in no pond. */

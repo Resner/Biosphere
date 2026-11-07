@@ -20,7 +20,13 @@ export default defineConfig({
         extends: './vite.config.ts',
         test: {
           name: 'node',
-          include: ['src/**/*.test.ts', 'tools/**/*.test.ts', 'tests/*.test.ts'],
+          include: [
+            'src/**/*.test.ts',
+            'tools/**/*.test.ts',
+            'tests/*.test.ts',
+            // The directory is pure, so the headless harness (M11 T10) and its tests run it here.
+            'worker/directory.test.ts',
+          ],
           // Untagged tests take under about 2 s; this leaves room for a loaded runner.
           testTimeout: 20_000,
           tags,
@@ -35,7 +41,12 @@ export default defineConfig({
             },
           }),
         ],
-        test: { name: 'worker', include: ['worker/**/*.test.ts'], tags },
+        test: {
+          name: 'worker',
+          include: ['worker/**/*.test.ts'],
+          exclude: ['worker/directory.test.ts'],
+          tags,
+        },
       },
     ],
   },
