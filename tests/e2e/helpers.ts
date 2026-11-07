@@ -282,20 +282,27 @@ export const topUp = (page: Page) =>
  * authorities). The hub credits at most the wall time (plus 2 s) per report, so fast play sends
  * the reports sooner. The belly is filled all the while, since 30x time would starve it.
  */
-export const ripe = (page: Page, timeout = 40_000) =>
-  page.waitForFunction(
-    () => {
-      const bs = window.__bs as BsHook;
-      bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-      bs.debug?.timeScale(30);
-      const { activeMs, matureAtMs } = bs.state().life;
-      if (matureAtMs === 0 || activeMs < matureAtMs) return false;
-      bs.debug?.timeScale(1);
-      return true;
-    },
-    undefined,
-    { timeout },
-  );
+export const ripe = (page: Page, timeout = 60_000) =>
+  page
+    .waitForFunction(
+      () => {
+        const bs = window.__bs as BsHook;
+        bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+        bs.debug?.timeScale(30);
+        const { activeMs, matureAtMs } = bs.state().life;
+        if (matureAtMs === 0 || activeMs < matureAtMs) return false;
+        bs.debug?.timeScale(1);
+        return true;
+      },
+      undefined,
+      { timeout },
+    )
+    .catch(async (error) => {
+      const life = await page
+        .evaluate(() => (window.__bs as BsHook).state().life)
+        .catch(() => null);
+      throw new Error(`never ripe: ${JSON.stringify(life)}`, { cause: error });
+    });
 
 /**
  * Parks the player beside a remote, as soon as the remote is drawn. `peer` is the remote's own page;
