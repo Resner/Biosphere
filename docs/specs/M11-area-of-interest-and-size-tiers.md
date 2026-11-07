@@ -355,9 +355,9 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
   - Done: `depthAt` and `zoneAt` take the world's size last (default `RULES.world.size`; the render callers keep it until T11); each size calibrates its own field from R2 points outside the centre disc, shifted so the centre's 2,200 wu surroundings sit mid-twilight (`localHalf`). The spec's broad weight 1 clustered the shallows beyond 16,384 wu, so it is 0.4 and the shares are 27/33/27/13 (the disc eats 9% of a pond).
   - Gotcha: the golden-autopilot encounter now scans its start north in steps of 25 wu for a fight that ends in a kill; `foodMemoChunks` and `RULES.spawn.searchRadius` are the new hooks.
 
-- [ ] T5 Food by tier (after T4)
+- [x] T5 Food by tier (after T4)
   - Steps:
-    1. `RULES.food.layers` (ADR 0061): layer k from 0 to 4 has cells of 256 × 4^k wu with 10 slots, items 4^k times as wide and 64^k times as rich.
+    1. `RULES.food.layers` (ADR 0061): layer k from 0 to 4 has cells of 256 × 4^k wu with 10 slots, items 4^k times as wide and 64^k times as rich (tuned below).
     2. `src/sim/food.ts` works per layer:
        - ids are `t<k>c…` for k ≥ 1;
        - `foodInCell`, `foodNear`, `slotAnchor`, `consumeFood`, `applyRemoteClaim`, `isFoodSlot` and `parseFoodId` take or read the layer;
@@ -371,13 +371,15 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
   - Acceptance (tests first):
     - The T0 replay goldens are unchanged: a T0 creature eats only layer 0.
     - **Who eats what**:
-      - a T1 creature over a layer-1 detritus eats it for 8 × 64 × efficiency × digestion;
+      - a T1 creature over a layer-1 detritus eats it for 8 × 128 (`richnessStep`) × efficiency × digestion;
       - a T0 creature passes through it;
       - a T1 creature eats layer-0 items too, and a T2 creature never does.
     - **Claims**: a claim for `t1c2_3_s4` applies, and its respawn follows the same rule as layer 0's. `isFoodSlot` takes a layer-1 slot only within that layer's grid.
     - The pacing report's tier rows lie within 0.5–2× the T0 bot's, and `pacing-report.test.ts` pins the table's shape.
     - `speedTest`: one tick of a T3 creature with its visible food takes under 2 ms.
   - Notes: the rules stay 12, the first bump since the release being T1's.
+  - Done: layers are `RULES.food.layers`, ids `t<k>c…`, and every food function takes a layer (default 0); `foodForTier` and `eatenLayers` give a tier's two layers. The pacing report tuned the layers to 40 slots and 128^k richness (ADR 0061's 10 slots and 64^k left a T3 bot at 2.6× to 5× the T0 time).
+  - Gotcha: the tier bots ignore the depth bands (a giant's health shrugs them off, and the bot dithered at the band edge in the big world).
 
 ### The directory and seat tickets
 
