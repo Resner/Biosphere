@@ -16,6 +16,7 @@ import { pick } from './dom';
 import type { EggShow } from './eggs';
 import { edgeIndicators, type Indicator } from './indicators';
 import type { LabelProjection } from './labels';
+import { type MapSighting, mapSide } from './map-view';
 import type { MinimapView } from './minimap';
 import type { DrawnRemote } from './remote-bodies';
 import type { Anchor } from './social-ui';
@@ -399,9 +400,10 @@ export class Frame {
     }
     if (!finding) pondMap.close();
     else if (pondMap.isOpen) {
-      pondMap.update({
+      pondMap.update(now, {
         seed: app.session.world.seed32,
         size: app.session.world.size,
+        side: mapSide(cell.radius, adultRadius(player)),
         self: {
           id: app.selfKey(),
           name: social.selfName,
@@ -410,6 +412,7 @@ export class Frame {
           ready: app.mateReady,
         },
         players: remoteViews,
+        known: this.sightings(now, joined !== null),
         pings: social.pings(),
       });
     }
@@ -425,6 +428,17 @@ export class Frame {
     // The food and the plumes hold where they are during a still scene; they catch up after it.
     if (!still) app.field.flush();
     scene.draw(view);
+  }
+
+  /** Players known but not drawn, for the map: the known set's (in the hub's world only), then a test's. */
+  private sightings(now: number, joined: boolean): MapSighting[] {
+    const { app } = this;
+    const drawn = new Set(app.remoteViews.map((r) => r.id));
+    const out = (joined && app.keeper.current?.sightings(drawn)) || [];
+    for (const k of app.debugKnown) {
+      if (!drawn.has(k.id)) out.push({ id: k.id, name: k.name, x: k.x, y: k.y, age: now - k.at });
+    }
+    return out;
   }
 
   /**

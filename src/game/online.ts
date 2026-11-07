@@ -44,6 +44,7 @@ import {
 } from '../net/snapshot-rates';
 import { WhereReporter } from '../net/where';
 import { viewHalfHeight } from '../sim/size';
+import { type MapSighting, sightings } from './map-view';
 import { type KnownCounts, Neighbours } from './neighbours';
 import { type DutyLink, type LinkInfo, Links, YOUNG_MS } from './online-links';
 
@@ -284,6 +285,13 @@ export class OnlineSession {
   /** A player's name: a linked peer's ticket, or the directory's word. */
   nameOf(id: string): string | undefined {
     return this.mesh?.ticketOf(id)?.seat.name ?? this.neighbours.nameOf(id);
+  }
+
+  /** The players this page knows of but has no drawn link to, newest sighting each: the map's hollow marks. */
+  sightings(linked: { has(id: string): boolean }): MapSighting[] {
+    const now = this.now();
+    const known = this.neighbours.known(now);
+    return sightings(known, linked, this.opts.selfId, (id) => this.nameOf(id), now);
   }
 
   /** The linked peers, with their names: the menu's Players list. */

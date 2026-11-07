@@ -165,10 +165,10 @@ export class App {
   /** Damage lands as hits that kick the camera and jolt the body (M6c T9), in place of a red edge. */
   readonly shake: Shake;
   readonly labels: RemoteLabels;
-  /** Finding other players (M6 T19): arrows on the screen's edge and the pond map. */
+  /** Finding other players (M6 T19, M11 T18): arrows on the screen's edge and the map. */
   readonly indicatorsUi: EdgeIndicatorsUi;
   readonly pondMap: PondMap;
-  /** The minimap (M6b T10): a click on it opens the pond map, as M does. */
+  /** The minimap (M6b T10): a click on it opens the map, as M does. */
   readonly minimap: Minimap;
 
   /**
@@ -180,6 +180,8 @@ export class App {
   readonly remoteBodies: RemoteBodies;
   remoteViews: readonly DrawnRemote[] = [];
   scripted: Scripted[] = [];
+  /** Sightings a test placed on the map (`debug.setKnown`), `at` on the page's clock. */
+  debugKnown: { id: string; name: string; x: number; y: number; at: number }[] = [];
 
   /** Without IndexedDB (a private window, say) the identity lasts for this visit only. */
   playerId: string | null = null;
