@@ -67,6 +67,8 @@ export interface Life {
   /** Active ms at the end of the run, and how it ended. */
   endMs: number;
   end: 'old-age' | 'died' | 'cap';
+  /** The cause of death when `end` is 'died'. */
+  cause: string | null;
 }
 
 /** The biomass band whose crossing time gives a forager's growth rate (the combat tournament compares kills with it). */
@@ -83,7 +85,9 @@ const PLUME_MARGIN = 60;
 const MS_PER_TICK = 1000 / TICK_HZ;
 /** The depths a bot stays within (a player reads the depth gauge): clear of UV above and pressure below. */
 const SAFE_DEPTH: readonly [number, number] = [0.27, 0.68];
-const safeDepth = (world: World, x: number, y: number): boolean => {
+const safeDepth = (world: World, x: number, y: number, tier = 0): boolean => {
+  // The depth bands are hazards for a starter; a giant's health shrugs them off and its bot swims straight.
+  if (tier > 0) return true;
   const depth = depthAt(world.seed32, x, y, world.size);
   return depth >= SAFE_DEPTH[0] && depth <= SAFE_DEPTH[1];
 };
@@ -125,6 +129,7 @@ export function simulateLife(
     bandMs: [null, null],
     endMs: 0,
     end: 'cap',
+    cause: null,
   };
   let wander = 0;
   let cooldownUntil = 0;
@@ -139,6 +144,7 @@ export function simulateLife(
     }
     if (!me.alive) {
       life.end = 'died';
+      life.cause = me.cause;
       break;
     }
     if (ms >= capMs) break;
@@ -149,7 +155,7 @@ export function simulateLife(
       let bestD = Number.POSITIVE_INFINITY;
       target = null;
       // Swim away from a toxic cloud before reaching it, and ignore food inside one.
-      const clouds = plumesNear(world, me.x, me.y, sense);
+      const clouds = plumesNear(world, me.x, me.y, SENSE);
       const margin = Math.sqrt(me.biomass) + PLUME_MARGIN;
       flee = null;
       for (const p of clouds) {
@@ -159,13 +165,13 @@ export function simulateLife(
       // A creature of tier t eats layers t - 1 and t.
       for (let layer = Math.max(0, tier - 1); layer <= tier; layer++) {
         for (const f of foodNear(world, me.x, me.y, sense, layer)) {
-          if (clouds.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.radius + margin)) continue;
-          if (!safeDepth(world, f.x, f.y)) continue;
+          // The cheap test first: only a nearer item than the best so far is worth the field samples.
           const d = (f.x - me.x) ** 2 + (f.y - me.y) ** 2;
-          if (d < bestD) {
-            bestD = d;
-            target = f;
-          }
+          if (d >= bestD) continue;
+          if (clouds.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.radius + margin)) continue;
+          if (!safeDepth(world, f.x, f.y, tier)) continue;
+          bestD = d;
+          target = f;
         }
       }
       if (target === null && world.tick % 180 === 0) {
@@ -173,7 +179,7 @@ export function simulateLife(
       }
     }
     // Heading out of the safe depths turns the bot back towards the spawn centre.
-    const adrift = !safeDepth(world, me.x, me.y);
+    const adrift = !safeDepth(world, me.x, me.y, tier);
     const aim =
       flee !== null
         ? atan2(me.y - flee.y, me.x - flee.x)

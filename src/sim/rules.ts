@@ -136,7 +136,7 @@ export const RULES = deepFreeze({
      * wu with `slotsPerCell` slots, items `widthStep`^k times as wide and `richnessStep`^k times as
      * rich. A creature of tier t eats layers t - 1 and t. Layer 0 is the table above.
      */
-    layers: { max: 4, cellStep: 4, widthStep: 4, richnessStep: 64, slotsPerCell: 10 },
+    layers: { max: 4, cellStep: 4, widthStep: 4, richnessStep: 128, slotsPerCell: 40 },
   },
   /** Carrion (M7, DESIGN §2): the share and energy per biomass are `encounter.reward.carrion` and `.energyPerBiomass`. */
   carrion: {

@@ -62,9 +62,12 @@ describe('food layers', () => {
     expect(foodInCell(w, 3, 5, 0)[2]?.id).toBe('c3_5_s2_k0');
     expect(foodInCell(w, 3, 5, 1)[2]?.id).toBe('t1c3_5_s2_k0');
     expect(foodInCell(w, 1, 1, 2)[9]?.id).toBe('t2c1_1_s9_k0');
+    expect(foodInCell(w, 1, 1, 2).at(-1)?.id).toBe(
+      `t2c1_1_s${RULES.food.layers.slotsPerCell - 1}_k0`,
+    );
   });
 
-  it('puts 10 items in a cell of 256 × 4^k wu, 4^k times as wide and 64^k times as rich', () => {
+  it('puts a layer’s slots in a cell of 256 × 4^k wu, 4^k times as wide and richness^k times as rich', () => {
     const w = world('scale', 262144);
     for (const layer of [1, 2, 3, 4]) {
       const cell = RULES.world.cellSize * 4 ** layer;
@@ -72,7 +75,7 @@ describe('food layers', () => {
       expect(items).toHaveLength(RULES.food.layers.slotsPerCell);
       for (const item of items) {
         const base = RULES.food.kinds[item.kind];
-        expect(item.value).toBe(base.value * 64 ** layer);
+        expect(item.value).toBe(base.value * RULES.food.layers.richnessStep ** layer);
         expect(item.radius).toBe(base.radius * 4 ** layer);
         expect(item.x).toBeGreaterThanOrEqual(2 * cell - 12 * 4 ** layer);
         expect(item.x).toBeLessThanOrEqual(3 * cell + 12 * 4 ** layer);
@@ -84,9 +87,9 @@ describe('food layers', () => {
 
   it('has a grid of 256 × 4^k wu cells: none outside it, and a layer too coarse for a pond is empty', () => {
     const w = world();
-    expect(foodInCell(w, 7, 7, 1)).toHaveLength(10);
+    expect(foodInCell(w, 7, 7, 1)).toHaveLength(RULES.food.layers.slotsPerCell);
     expect(foodInCell(w, 8, 0, 1)).toEqual([]);
-    expect(foodInCell(w, 1, 1, 2)).toHaveLength(10);
+    expect(foodInCell(w, 1, 1, 2)).toHaveLength(RULES.food.layers.slotsPerCell);
     expect(foodInCell(w, 2, 0, 2)).toEqual([]);
     expect(foodInCell(w, 0, 0, 3)).toEqual([]);
   });
@@ -118,12 +121,14 @@ describe('food layers', () => {
 });
 
 describe('who eats what', () => {
-  it('lets a T1 creature eat layer-1 detritus for 8 × 64 × efficiency × digestion', () => {
+  it('lets a T1 creature eat layer-1 detritus for 8 × richness × efficiency × digestion', () => {
     const w = world();
     const { item } = findItem(w, 1, 'detritus');
     const events = ate(w, 1, item).filter((e) => e.food === item.id);
     expect(events).toHaveLength(1);
-    expect(events[0]?.value).toBeCloseTo(8 * 64 * efficiency('detritus', 0.5) * MIDDLE.digestion);
+    expect(events[0]?.value).toBeCloseTo(
+      8 * RULES.food.layers.richnessStep * efficiency('detritus', 0.5) * MIDDLE.digestion,
+    );
     expect(foodInCell(w, ...cellOf(item, 1), 1).map((i) => i.id)).not.toContain(item.id);
   });
 
@@ -210,8 +215,10 @@ describe('claims on layer slots', () => {
   it('takes a layer slot only within that layer’s grid', () => {
     const w = world();
     expect(isFoodSlot(w, 't1c7_7_s9')).toBe(true);
+    expect(isFoodSlot(w, 'c0_0_s10')).toBe(false);
     expect(isFoodSlot(w, 't1c8_0_s0')).toBe(false);
-    expect(isFoodSlot(w, 't1c0_0_s10')).toBe(false);
+    expect(isFoodSlot(w, 't1c0_0_s39')).toBe(true);
+    expect(isFoodSlot(w, 't1c0_0_s40')).toBe(false);
     expect(isFoodSlot(w, 't2c1_1_s0')).toBe(true);
     expect(isFoodSlot(w, 't2c2_0_s0')).toBe(false);
     expect(isFoodSlot(w, 't3c0_0_s0')).toBe(false);
