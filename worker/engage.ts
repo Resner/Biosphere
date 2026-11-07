@@ -3,9 +3,8 @@
 // answer carries the attacker's own snapshots it held (`seen`): none refuses the engage (the sight
 // check, ADR 0062), and so does a jump between them (the movement check, ADR 0059). Nothing here
 // writes SQLite, except a flag when a snapshot claims more than the growth curve allows or the
-// attacker jumped (the fight's log is
-// `runFight`'s and `admit`'s, in `fights.ts`), and the fight's witness commitment once
-// `enc-start` went out (`commitWitnesses`, ADR 0058).
+// attacker jumped (the fight's log is `runFight`'s and `admit`'s, in `fights.ts`), and the fight's
+// witness commitment once `enc-start` went out (`commitWitnesses`, ADR 0058).
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { genomeFromBase64url } from '../src/genome/codec';
