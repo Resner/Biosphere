@@ -36,7 +36,17 @@ import {
   within,
 } from './fight-test-kit';
 import type { LifeState } from './life';
-import { CALM, type Client, flush, freshNonce, nextOf, placed, report, signIn, sql } from './test-hub';
+import {
+  CALM,
+  type Client,
+  flush,
+  freshNonce,
+  nextOf,
+  placed,
+  report,
+  signIn,
+  sql,
+} from './test-hub';
 
 // M7 T9: the referee's frame clock on the authority, driven by the hand-moved clock of
 // `fight-test-kit.ts`: deadlines, the fallback marker, bundles, the end and life while locked.

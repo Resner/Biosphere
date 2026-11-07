@@ -46,7 +46,7 @@ export interface FightHost {
   events?(events: readonly EncounterEvent[]): void;
   /** The authority's keys a settlement is checked with (M8 T12); none means no check. */
   keys?(): Promise<readonly PubKey[] | null>;
-  /** Whether a player is in the pond now (this one, or a roster member); absent means everyone is. */
+  /** Whether a player's page is here now (this one, or a linked peer); absent means everyone is. */
   present?(player: string): boolean;
   /** A witness's message on the duty link to it (M10 T7): an own `finput`. */
   sendWitness?(witness: string, ev: PeerEvent): void;

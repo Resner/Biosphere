@@ -27,7 +27,16 @@ import {
   snap,
   useFightHub,
 } from './fight-test-kit';
-import { CALM, flush, freshNonce, genesisRequest, nextOf, placed, report, source } from './test-hub';
+import {
+  CALM,
+  flush,
+  freshNonce,
+  genesisRequest,
+  nextOf,
+  placed,
+  report,
+  source,
+} from './test-hub';
 
 // M7 T8: lock-in on the authority, on the hand-moved clock of `fight-test-kit.ts`.
 

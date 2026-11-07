@@ -36,7 +36,7 @@ export const witnessSeen = (page: Page) =>
     return {
       witness: { ...s.witness, dutyMs: s.witness.dutyMs.length },
       dutyLinks: s.net.dutyLinks,
-      pond: s.pond?.id,
+      world: s.world?.id,
       encounter: s.encounter && {
         id: s.encounter.id,
         frame: s.encounter.frame,
@@ -64,9 +64,13 @@ export async function witness(browser: Browser, hub: string): Promise<Page> {
   return c;
 }
 
+/** How far `apart` moves C from A: past any link class and the hub's relay reach (M11 T14). */
+export const APART_WU = 20_000;
+
 /**
- * A and B hatch and are staged for a fight, B whole; C hatches too, in their pond, or with `apart`
- * once A and B hold theirs (a hub with `POND_MAX=2` then seats C in another pond).
+ * A and B hatch and are staged for a fight, B whole; C hatches too, beside them, or with `apart`
+ * once A and B are staged, and then swims off: teleported `APART_WU` east of A, into the nearest
+ * twilight (no UV or pressure wears it down while it waits), so only a duty link reaches it.
  */
 export async function trio(browser: Browser, hub: string, apart = false): Promise<Trio> {
   const a = await open(browser, hub);
@@ -77,6 +81,16 @@ export async function trio(browser: Browser, hub: string, apart = false): Promis
     ids = await stage(a, b, undefined, 1);
     c = await witness(browser, hub);
     await hatch(c);
+    const at = (await state(a)).player;
+    if (!at) throw new Error('A has no creature');
+    await c.evaluate(
+      ([x, y]) => {
+        const debug = (window.__bs as BsHook).debug;
+        debug?.teleport(x as number, y as number);
+        debug?.setZone('twilight');
+      },
+      [at.x + APART_WU, at.y],
+    );
   } else {
     c = await witness(browser, hub);
     [ids] = await Promise.all([stage(a, b, undefined, 1), hatch(c)]);

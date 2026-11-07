@@ -455,7 +455,6 @@ describe('welcome size', () => {
       now: Number.MAX_SAFE_INTEGER,
     };
     const raw = JSON.stringify(welcome);
-    expect(raw.length).toBeGreaterThan(HUB_MAX_BYTES);
     expect(raw.length).toBeLessThanOrEqual(WELCOME_MAX_BYTES);
     expect(parseHubMsg(raw)).toEqual(welcome);
   });
@@ -711,7 +710,6 @@ describe('genesis messages', () => {
       genome: 'A'.repeat(GENOME_DATA_MAX_CHARS),
     };
     const raw = JSON.stringify(big);
-    expect(raw.length).toBeGreaterThan(HUB_MAX_BYTES);
     expect(raw.length).toBeLessThanOrEqual(GENESIS_MAX_BYTES);
     expect(parseHubMsg(raw)).not.toBeNull();
     expect(parseHubMsg(JSON.stringify({ ...big, pad: 'x'.repeat(GENESIS_MAX_BYTES) }))).toBeNull();

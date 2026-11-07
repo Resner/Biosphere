@@ -122,7 +122,7 @@ export interface IceServer {
   credential?: string;
 }
 
-/** The world a welcome names (until T14, `id` is the session's pond, a roster group of it). */
+/** The world a welcome names: `id` names it in snapshot signatures and fight logs. */
 export interface WorldInfo {
   id: string;
   seed: string;

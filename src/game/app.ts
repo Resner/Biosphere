@@ -239,7 +239,7 @@ export class App {
   readonly growth: GrowthWatch;
 
   /**
-   * The online session (ADRs 0007, 0016): the hub roster, the mesh and the pond they share. Without
+   * The online session (ADRs 0007, 0016, 0062): the hub, the mesh and the world they share. Without
    * a hub URL the game runs offline, as in M1.
    */
   readonly hubUrl: string | null;

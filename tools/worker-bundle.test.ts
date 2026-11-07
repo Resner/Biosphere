@@ -58,8 +58,7 @@ describe('worker bundles', () => {
   // the fixture source.
   heavyTest('production honours no witness variable outside fixture mode', () => {
     const code = bundle(false, 'index.js');
-    const reads =
-      code.match(/[\w$.]*\b(WITNESS_PLAY_MS|WITNESS_IP_CHECK)\b(?! = )/g) ?? [];
+    const reads = code.match(/[\w$.]*\b(WITNESS_PLAY_MS|WITNESS_IP_CHECK)\b(?! = )/g) ?? [];
     expect(reads.sort()).toEqual([
       'WITNESS_PLAY_MS',
       'WITNESS_PLAY_MS',

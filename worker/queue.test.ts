@@ -1,6 +1,5 @@
 import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import type { HubMsg } from '../src/net/protocol';
 import { type Client, closeSockets, flush, login, nextOf, signIn, stub } from './test-hub';
 
 interface Limits {
@@ -40,7 +39,6 @@ async function queueUp() {
   if (msg.t !== 'queued') throw new Error(`expected queued, got ${msg.t}`);
   return { c, id, msg };
 }
-
 
 describe('admission queue', () => {
   beforeEach(() => configure({ MAX_SESSIONS: '3' }));

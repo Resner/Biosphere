@@ -131,19 +131,20 @@ describe('offlineChip', () => {
 
 describe('statusText', () => {
   it('names each state of the chip', () => {
-    expect(statusText('online', 3)).toBe('Online · 3 in pond');
-    expect(statusText('connecting', 1)).toBe('Connecting…');
-    expect(statusText('offline', 1)).toBe('Offline · playing alone');
-    expect(statusText('connecting', 1, { position: 3, etaS: 90 })).toBe(
+    expect(statusText('online', 2)).toBe('Online · 2 nearby');
+    expect(statusText('online', 0)).toBe('Online · 0 nearby');
+    expect(statusText('connecting', 0)).toBe('Connecting…');
+    expect(statusText('offline', 0)).toBe('Offline · playing alone');
+    expect(statusText('connecting', 0, { position: 3, etaS: 90 })).toBe(
       'Waiting for a place (3rd in line)',
     );
-    expect(statusText('online', 2, { position: 1, etaS: 30 })).toBe('Online · 2 in pond');
+    expect(statusText('online', 2, { position: 1, etaS: 30 })).toBe('Online · 2 nearby');
     expect(
       ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '103rd'].join(),
     ).toBe([1, 2, 3, 4, 11, 12, 13, 21, 22, 103].map(ordinal).join());
-    expect(statusText('none', 1)).toBe('Offline · playing alone');
-    expect(statusText('replaced', 1)).toBe('Playing in another tab');
-    expect(statusText('outdated', 1)).toBe('Update available, reload');
+    expect(statusText('none', 0)).toBe('Offline · playing alone');
+    expect(statusText('replaced', 0)).toBe('Playing in another tab');
+    expect(statusText('outdated', 0)).toBe('Update available, reload');
   });
 });
 

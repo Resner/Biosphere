@@ -3,30 +3,45 @@ import type { BsHook } from '../../src/game/debug';
 import { INTERPOLATION_MS } from '../../src/net/pond-sync';
 import { chatTexts, hatch, openGame, openMenu, say, state } from './helpers';
 
-// The milestone's end-to-end check: three real browser contexts share a pond through the local
-// Worker and real WebRTC (host candidates only). Smaller pieces have their own specs: the offline
+// The milestone's end-to-end check: three real browser contexts share the world through the local
+// Worker and real WebRTC (host candidates only), linked by the area of interest (M11). Smaller pieces have their own specs: the offline
 // chip in m2-online, chat details in m2-social, the 24-peer mesh in peer-mesh.test.ts.
 
-// Its own hub (see playwright.config.ts), so other specs' ponds stay as they count them.
+// Its own hub (see playwright.config.ts), so no other spec's players spawn beside these.
 const HUB = 'http://localhost:8789';
 
-// One hub, and it fills the fullest pond first: one scenario at a time.
+// One hub, whose spawn ring the players share: one scenario at a time.
 test.describe.configure({ mode: 'serial' });
+
+/** Friends who hatch side by side are linked within this long of their hatch (M11 T14, ADR 0062). */
+const LINKED_MS = 3000;
 
 async function joinThree(browser: Browser): Promise<[Page, Page, Page]> {
   const pages: Page[] = [];
+  const hatchedAt: number[] = [];
   for (let i = 0; i < 3; i++) {
     const page = await (await browser.newContext()).newPage();
     await openGame(page, `?debug=1&hub=${HUB}`);
     await page.waitForFunction(() => window.__bs?.state().playerId);
-    // One after the other: a hatch waits for its hub welcome, and all land in one pond.
+    // One after the other: a hatch waits for its hub welcome, and each takes the next spawn slot.
     await hatch(page);
+    hatchedAt.push(await page.evaluate(() => performance.now()));
     pages.push(page);
   }
   for (const page of pages) {
     await page.waitForFunction(() => window.__bs?.state().remotes.length === 2, undefined, {
       timeout: 20_000,
     });
+  }
+  // Each later friend links to the ones already swimming within 3 s of its hatch, by its own clock.
+  const ids = await Promise.all(pages.map(async (p) => (await state(p)).playerId));
+  for (const [i, page] of pages.entries()) {
+    const links = (await state(page)).net.links.filter((l) => l.hello);
+    for (const earlier of ids.slice(0, i)) {
+      const since = links.find((l) => l.id === earlier)?.since ?? null;
+      expect(since, `the link to ${earlier} opened`).not.toBeNull();
+      expect((since ?? 0) - (hatchedAt[i] ?? 0)).toBeLessThanOrEqual(LINKED_MS);
+    }
   }
   return pages as [Page, Page, Page];
 }
@@ -80,8 +95,8 @@ test('three players see each other move smoothly, share food and chat @slow', as
   try {
     const [sa, sb, sc] = await Promise.all([a, b, c].map(state));
     if (!sa?.playerId || !sb?.playerId || !sc) throw new Error('three states expected');
-    expect(sb.pond?.id).toBe(sa.pond?.id);
-    expect(sc.pond?.id).toBe(sa.pond?.id);
+    expect(sb.world?.id).toBe(sa.world?.id);
+    expect(sc.world?.id).toBe(sa.world?.id);
 
     // A steers in a circle at full throttle for 5 s while B records what it sees of A.
     await Promise.all([recordSeries(a, 'self'), recordSeries(b, sa.playerId)]);
@@ -258,14 +273,14 @@ test('a closed tab drops out of the pond and a reload comes back to it @slow', a
       });
     }
 
-    // C reloads with the same keypair: its old session ends, the pond has room, so it returns to it.
+    // C reloads with the same keypair: its old session ends, and it returns to the same world.
     await c.reload();
     await c.waitForFunction(() => window.__bs?.ready === true);
-    await c.waitForFunction(() => window.__bs?.state().pond !== null, undefined, {
+    await c.waitForFunction(() => window.__bs?.state().world !== null, undefined, {
       timeout: 10_000,
     });
     expect((await state(c)).playerId).toBe(sc?.playerId);
-    expect((await state(c)).pond?.id).toBe(sc?.pond?.id);
+    expect((await state(c)).world?.id).toBe(sc?.world?.id);
     await hatch(c);
     await c.waitForFunction(() => window.__bs?.state().remotes.length === 1, undefined, {
       timeout: 10_000,

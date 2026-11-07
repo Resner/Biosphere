@@ -428,7 +428,7 @@ class Sim {
     });
   }
 
-  /** The hub relays within the pond or between members within max(Q) + 4,096 wu, or a duty pair. */
+  /** The hub relays between members within max(Q) + 4,096 wu, or a duty pair (M11 T14). */
   private hubPasses(a: string, b: string): boolean {
     if (this.dutyPair(a, b)) return true;
     const d = this.dir.distance(a, b);

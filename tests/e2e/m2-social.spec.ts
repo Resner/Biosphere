@@ -26,7 +26,7 @@ async function joined(browser: Browser): Promise<[Page, Page]> {
   return pages as [Page, Page];
 }
 
-test('chat is filtered, typing does not steer, mute hides a sender, and cues cross the pond @slow', async ({
+test('chat is filtered, typing does not steer, mute hides a sender, and cues cross the world @slow', async ({
   browser,
 }) => {
   // Two software-GL browsers hatch and chat: a busy runner needs more than the default 30 s (the
@@ -35,11 +35,11 @@ test('chat is filtered, typing does not steer, mute hides a sender, and cues cro
   const [a, b] = await joined(browser);
   try {
     const aId = (await state(a)).playerId as string;
-    // The hub's pond is the whole world: the player spawns near its centre, not in a corner.
-    const { player: spawn, pond } = await state(a);
-    expect(pond?.size).toBe(262_144);
-    expect(pond?.centre).toEqual({ x: 131_072, y: 131_072 });
-    expect(Math.abs((spawn?.x ?? 0) - (pond?.centre.x ?? 0))).toBeLessThan(1500);
+    // The hub's world: the player spawns near its centre, not in a corner.
+    const { player: spawn, world } = await state(a);
+    expect(world?.size).toBe(262_144);
+    expect(world?.centre).toEqual({ x: 131_072, y: 131_072 });
+    expect(Math.abs((spawn?.x ?? 0) - (world?.centre.x ?? 0))).toBeLessThan(1500);
 
     // Typing spaces into the chat input does not dash.
     await a.keyboard.press('Enter');

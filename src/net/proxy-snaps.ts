@@ -29,7 +29,7 @@ export interface RelayFight {
 export interface RelayHost {
   /** This player's id. */
   self: string;
-  /** Whether a player is in the pond now: this player, or a member of the roster. */
+  /** Whether a player's page is here now: this player, or a linked peer (M11 T14). */
   present(player: string): boolean;
   /** The pond peers with an open link. */
   peers(): readonly string[];

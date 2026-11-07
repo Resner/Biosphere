@@ -17,7 +17,7 @@ async function player(browser: Browser, query = `?debug=1&hub=${HUB}`): Promise<
   return page;
 }
 
-test('three players share a pond, see each other and keep it after dying @slow', async ({
+test('three players share the world, see each other and keep it after dying @slow', async ({
   browser,
 }) => {
   // Three software-GL browsers take about 25 s when other specs share the CPU; the social and pond projects get 60 s too.
@@ -25,7 +25,7 @@ test('three players share a pond, see each other and keep it after dying @slow',
   const pages = await Promise.all([player(browser), player(browser), player(browser)]);
   try {
     await Promise.all(pages.map((p) => p.waitForFunction(() => window.__bs?.state().playerId)));
-    // Hatch one after the other: a hatch waits for its hub welcome, and they land in one pond.
+    // Hatch one after the other: a hatch waits for its hub welcome, and each takes the next spawn slot.
     for (const page of pages) await hatch(page);
     for (const page of pages) {
       await page.waitForFunction(() => window.__bs?.state().remotes.length === 2, undefined, {
@@ -35,17 +35,17 @@ test('three players share a pond, see each other and keep it after dying @slow',
     const states = await Promise.all(pages.map(state));
     const [first] = states;
     for (const s of states) {
-      expect(s.pond?.id).toBe(first?.pond?.id);
-      expect(s.pond?.seed).toBe(first?.pond?.seed);
-      expect(s.pond?.members).toHaveLength(3);
-      expect(s.net.text).toBe('Online · 3 in pond');
+      expect(s.world?.id).toBe(first?.world?.id);
+      expect(s.world?.seed).toBe(first?.world?.seed);
+      expect(s.world).not.toHaveProperty('members');
+      expect(s.net.text).toBe('Online · 2 nearby');
       expect(s.net.open).toBe(2);
     }
     const [a, b] = pages;
     if (!a || !b) throw new Error('three pages expected');
 
-    // Dying and hatching again keeps the pond and the connections.
-    const before = (await state(a)).pond;
+    // Dying and hatching again keeps the world and the connections.
+    const before = (await state(a)).world;
     await a.evaluate(() => {
       const bs = window.__bs as BsHook;
       const { x, y } = bs.state().player as { x: number; y: number };
@@ -64,7 +64,7 @@ test('three players share a pond, see each other and keep it after dying @slow',
     await a.getByRole('button', { name: 'Hatch again' }).click();
     await a.waitForFunction(() => window.__bs?.state().screen === 'playing');
     const after = await state(a);
-    expect(after.pond).toEqual(before);
+    expect(after.world).toEqual(before);
     expect(after.net.open).toBe(2);
     expect(after.remotes).toHaveLength(2);
   } finally {
@@ -143,14 +143,14 @@ test("players see each other's bodies, and a rehatch changes the view (M3 T16)",
   }
 });
 
-test('an unreachable hub means a local pond and an offline chip', async ({ browser }) => {
+test('an unreachable hub means a local world and an offline chip', async ({ browser }) => {
   const page = await player(browser, '?debug=1&hub=http://localhost:1');
   try {
     await expect(page.getByTestId('net-status')).toHaveText('Offline · playing alone');
     await hatch(page);
     const s = await state(page);
     expect(s.player?.alive).toBe(true);
-    expect(s.pond).toBeNull();
+    expect(s.world).toBeNull();
     // The hub client keeps retrying, so the chip may read "Connecting…" between two attempts.
     await expect(page.getByTestId('net-status')).toHaveText('Offline · playing alone');
     // No hub, so no "alone in the pond" hint either.

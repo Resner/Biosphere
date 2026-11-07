@@ -424,7 +424,7 @@ export default defineConfig({
     // 39 idle `wrangler dev` processes beside a browser took the runners down.
     ...[
       ['m10-witness', m10WitnessHubPort, WITNESS_VARS],
-      ['m10-cross', m10CrossHubPort, `${WITNESS_VARS} --var POND_MAX:2`],
+      ['m10-cross', m10CrossHubPort, WITNESS_VARS],
       [
         'm10-audit',
         m10AuditHubPort,

@@ -150,7 +150,10 @@ export class Directory {
    * the whole world. Positions go out in 1/8 wu steps, and the farthest entries are dropped until
    * the message fits `NEAR_MAX_BYTES`. Null for an unknown id.
    */
-  near(id: string, now: number): { leaf: Leaf; peers: NearPeer[]; swarm: [number, number][] } | null {
+  near(
+    id: string,
+    now: number,
+  ): { leaf: Leaf; peers: NearPeer[]; swarm: [number, number][] } | null {
     const held = this.byId.get(id);
     if (!held) return null;
     const self = held.m;

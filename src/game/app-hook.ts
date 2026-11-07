@@ -151,7 +151,7 @@ function debugHelpers(app: App): BsDebug {
         return { spec, sender, startedMs: performance.now(), ref };
       });
     },
-    joinPond(spec) {
+    joinWorld(spec) {
       const clock = new PondClock();
       const now = performance.now();
       clock.addSample(now, now, spec.hubNow);
@@ -379,13 +379,12 @@ export function installAppHook(app: App): void {
             : { shown: !cardElement.hidden, tier: cardElement.hidden ? null : cardTier },
           ...eggCharge(app),
         },
-        pond: pond
+        world: pond
           ? {
               id: pond.id,
               seed: pond.seed,
               size: pond.size,
               centre: pond.ring ? { ...pond.ring.centre } : { x: pond.size / 2, y: pond.size / 2 },
-              members: [playerId ?? 'local', ...(keeper.current?.members() ?? [])].sort(),
             }
           : null,
         social: {

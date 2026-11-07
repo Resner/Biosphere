@@ -29,8 +29,8 @@ import {
   sessionOf,
 } from './socket';
 import { atOf, countRelay, gone, relayReach } from './where';
-import { worldInfo, worldRow } from './world';
 import { witnessLeft } from './witness-fight';
+import { worldInfo, worldRow } from './world';
 
 /** New sessions queue once the day's requests reach this share of the budget (DESIGN §8). */
 const BUDGET_SHARE = 0.9;
