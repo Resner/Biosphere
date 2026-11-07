@@ -739,7 +739,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - `m8-proxy` passes in the world, with a spectator linked only to the second fighter seeing the away fighter.
     - `m10-witness` and `m10-cross` pass.
 
-- [ ] T17 The look across tiers, and ambient swarms [opus] (after T14)
+- [ ] T17 The look across tiers, and ambient swarms [opus] (after T14) (in progress)
   - Steps:
     1. **The look scales with the view.** The world-space look features take the scale (view half-height ÷ 133.4, a starter adult's), so a giant's screen reads like a starter's:
        - the caustic filaments and the god-ray shafts;
