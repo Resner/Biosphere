@@ -7,7 +7,7 @@ import { type Zone, zoneAt } from '../../src/sim/bathymetry';
 import { createWorld } from '../../src/sim/world';
 import { hatch, openGame, state } from './helpers';
 
-// The world at full size (M11 T11): the offline world of 262,144 wu (`?world=`), drawn from a
+// The world at full size (M11 T11): the offline world of 262,144 wu (the default size), drawn from a
 // floating origin with depth windows, at its centre and out at (250,000, 250,000). No hub. The
 // water must keep its zone's colour (against the same zones in a pond of 8,192 wu), a still
 // creature must hold still on screen, the medium preset must keep its budgets, and nothing sent to
@@ -143,10 +143,7 @@ async function attach(testInfo: TestInfo, name: string, png: Buffer): Promise<vo
 
 /** Opens the 262,144 wu offline world on the medium preset with the GPU watched, and hatches at its centre. */
 async function openWorld(page: Page): Promise<void> {
-  await openGame(
-    page,
-    `?debug=1&world=${SIZE}&seed=${FAR_WORLD.seed}&quality=${QUALITY}&gpu=watch`,
-  );
+  await openGame(page, `?debug=1&seed=${FAR_WORLD.seed}&quality=${QUALITY}&gpu=watch`);
   await hatch(page);
   const start = await state(page);
   expect(start.player?.x).toBeCloseTo(CENTRE.x, -3);
@@ -160,7 +157,7 @@ test("the water keeps its zone's colour at the centre and the far corner of a 26
   test.setTimeout(240_000);
   // The same zones in a pond of 8,192 wu: what each zone's water looks like.
   const pond = await browser.newPage({ viewport: page.viewportSize() });
-  await openGame(pond, `?debug=1&seed=zones&quality=${QUALITY}`);
+  await openGame(pond, `?debug=1&world=8192&seed=zones&quality=${QUALITY}`);
   await hatch(pond);
   const reference = {} as Record<Zone, number>;
   for (const zone of ZONES) {

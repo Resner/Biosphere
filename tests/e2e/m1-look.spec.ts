@@ -149,10 +149,10 @@ test.describe('macro look', () => {
     page,
   }) => {
     // The water's colour follows the depth zone under it (M6 T16), so every probe must lie in the
-    // spawn's zone, twilight (the middle of the world always is). This pond's seed has twilight by
+    // spawn's zone, twilight (the middle of the world always is). This seed has twilight by
     // the three spots near the origin; each of those probes is the nearest point well inside
     // twilight, checked to stay by its spot.
-    const seed = 'look-5';
+    const seed = 'look-64';
     await play(page, seed);
     await waitForFrames(page);
     const size = RULES.world.size;

@@ -46,8 +46,10 @@ function starterWith(bytes: Record<string, number>): string {
 }
 
 const HARDY = starterWith({ uvTolerance: 255, pressureTolerance: 255 });
+/** The measures below were taken in a pond of 8,192 wu, so the page runs one (`?world=`). */
+const POND = 8192;
 /** The same pond in Node, to know where its food is drawn. */
-const world = createWorld({ seed: SEED });
+const world = createWorld({ seed: SEED, size: POND });
 /** Each zone is measured at the nearest point well inside it to the pond's centre. */
 const HOME = { x: world.size / 2, y: world.size / 2 };
 
@@ -287,7 +289,7 @@ async function measure(page: Page, zone: Zone, clocks: readonly number[]): Promi
 
 /** Opens the game at medium and hatches. */
 async function play(page: Page, genome = HARDY): Promise<void> {
-  await openGame(page, `?debug=1&seed=${SEED}&genome=${genome}&quality=medium`);
+  await openGame(page, `?debug=1&world=${POND}&seed=${SEED}&genome=${genome}&quality=medium`);
   await hatch(page);
   expect((await info(page)).preset).toBe('medium');
 }
