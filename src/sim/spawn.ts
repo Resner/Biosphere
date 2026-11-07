@@ -16,7 +16,7 @@ export function plumeFutures(world: World): World[] {
 
 /**
  * Whether (x, y) is `plumeClearance` wu (plus `reach`) clear of every toxic plume now and for the
- * next 10 s of drift. `future` is `plumeFutures(world)`, which a search over many points builds once.
+ * next 10 s of drift. `future` is `plumeFutures(world)`, built once per search.
  */
 export function clearOfPlumes(
   world: World,

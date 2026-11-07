@@ -4,11 +4,11 @@ import { depthAt } from '../src/sim/bathymetry';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
 import { sizeTier } from '../src/sim/size';
-import { clearOfPlumes } from '../src/sim/spawn';
+import { clearOfPlumes, plumeFutures } from '../src/sim/spawn';
+import type { Vec2 } from '../src/sim/types';
 import { createWorld } from '../src/sim/world';
 import { speedTest } from '../tests/heavy';
 import {
-  CLEAR_RADII,
   clearance,
   groupsFor,
   type Placed,
@@ -25,6 +25,8 @@ const STARTER_AOI = aoiRadius(STARTER_R, STARTER_R);
 const STARTER: Spawner = { r: STARTER_R, adultR: STARTER_R, aoi: STARTER_AOI };
 const SEED = 'placement-test';
 const WORLD = { seed: SEED, size: SIZE, tick: 0 };
+const SIM = createWorld({ seed: SEED, size: SIZE });
+const FUTURE = plumeFutures(SIM);
 
 const member = (id: string, x: number, y: number, r = STARTER_R, n = 0): Placed => ({
   id,
@@ -39,7 +41,6 @@ const rngFor = (label: string) => createRng(seedFromString(label), 'placement');
 
 describe('clearance', () => {
   it('is the larger AoI, never less than twelve of the larger radius', () => {
-    expect(CLEAR_RADII).toBe(12);
     expect(Math.round(clearance({ r: 20, aoi: 354 }, { r: 20, aoi: 354 }))).toBe(354);
     expect(clearance({ r: 10, aoi: 233 }, { r: 63, aoi: 992 })).toBe(992);
     expect(clearance({ r: 400, aoi: 1000 }, { r: 20, aoi: 354 })).toBe(4800);
@@ -102,7 +103,7 @@ function checkValid(
   now: number,
   spawner: Spawner,
 ): string | null {
-  const sim = createWorld({ seed: SEED, size: SIZE });
+  const sim = SIM;
   const { x, y } = point;
   if (
     x < SPAWN_EDGE_WU ||
@@ -117,7 +118,7 @@ function checkValid(
   if (!atCentre && depth < RULES.bathymetry.zones.shallows + RULES.hazards.uvBand)
     return `depth ${depth} low`;
   if (!atCentre && depth > RULES.hazards.pressureStart) return `depth ${depth} high`;
-  if (!clearOfPlumes(sim, x, y, 2.5 * spawner.r)) return 'plume';
+  if (!clearOfPlumes(sim, x, y, 2.5 * spawner.r, FUTURE)) return 'plume';
   const tier = sizeTier(spawner.r * spawner.r);
   for (const m of members) {
     const d = Math.hypot(m.x - x, m.y - y);
@@ -202,13 +203,6 @@ describe('place', () => {
         continue;
       }
       expect(checkValid(out, members, recent, now, STARTER), `world ${i}`).toBeNull();
-      const group = out.group;
-      if (group !== null && out.fallback === 'none') {
-        // when a valid point lay within P1 reach of the group, the point does too: it can only
-        // fail when no valid candidate of the winning ring did, so check the weaker claim here
-        // and the strong one in the dedicated test below.
-        expect(group.ids.length).toBeGreaterThan(0);
-      }
     }
     expect(centreFallbacks).toBeLessThan(40);
   });
@@ -306,7 +300,7 @@ describe('place', () => {
   });
 
   it('keeps a group in the abyss out of the abyss', () => {
-    const sim = createWorld({ seed: SEED, size: SIZE });
+    const sim = SIM;
     // Find a point deeper than the pressure line and put a group there.
     let abyss: { x: number; y: number } | null = null;
     for (let x = SPAWN_EDGE_WU; x < SIZE - SPAWN_EDGE_WU && abyss === null; x += 1024) {
@@ -317,8 +311,8 @@ describe('place', () => {
         }
       }
     }
-    expect(abyss).not.toBeNull();
-    const at = abyss ?? CENTRE;
+    if (abyss === null) throw new Error('no abyss in the test world');
+    const at: Vec2 = abyss;
     const members = Array.from({ length: 6 }, (_, k) => member(`ab${k}`, at.x + k * 50, at.y));
     const out = place({
       members,
@@ -330,9 +324,7 @@ describe('place', () => {
       rng: rngFor('abyss'),
     });
     expect(out.group).not.toBeNull();
-    if (out.fallback !== 'centre') {
-      expect(checkValid(out, members, [], 0, STARTER)).toBeNull();
-    }
+    expect(checkValid(out, members, [], 0, STARTER)).toBeNull();
   });
 
   speedTest('one placement among 300 members takes under 20 ms', () => {
