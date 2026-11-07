@@ -23,6 +23,7 @@ import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
+import { anchorAtLast } from './spawn';
 import { DAY_MS } from './usage';
 import { carrionNoticed } from './where';
 import { refereeingOf, witnessDone } from './witness-fight';
@@ -229,7 +230,9 @@ export function backToLedger(hub: Hub, players: Iterable<string>, now: number): 
     const found = seated(hub, player);
     if (!found) continue;
     const [ws, session] = found;
-    ws.serializeAttachment({ ...session, life: bind(hub, player, now) });
+    // The same creature on the same socket: its new binding starts from its last report (M12 T4).
+    const life = bind(hub, player, now);
+    ws.serializeAttachment({ ...session, life, anchor: anchorAtLast(session, life) });
     sendLife(hub, ws, player);
   }
 }

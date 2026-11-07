@@ -280,7 +280,7 @@ describe('life across a sign-in during the fight', () => {
     await leave(b);
     const back = await signInAgain(b);
     expect(back.got.map((m) => m.t).slice(0, 3)).toEqual(['welcome', 'life', 'enc-start']);
-    await placed(back);
+    await placed({ ...back, id: b.id });
     const answer = signMateAsk(b.id, {
       creature: b.creature,
       partner: a.id.playerId,

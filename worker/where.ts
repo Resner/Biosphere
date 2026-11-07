@@ -24,6 +24,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
+import { anchorHolds } from './spawn';
 
 /**
  * A session's last report taken, in its attachment (so a wake rebuilds the directory from the
@@ -48,7 +49,7 @@ export function leafMaxOf(env: { DRAND_SOURCE?: string; LEAF_MAX?: string }): nu
 const jumpsTaken = (env: { DRAND_SOURCE?: string }) => env.DRAND_SOURCE === 'fixture';
 
 /** The binding a report is made under: a genesis, promote, restore or sign-in starts a new one. */
-const bindingOf = (life: LifeState | undefined): string =>
+export const bindingOf = (life: LifeState | undefined): string =>
   life ? `${life.creature}:${life.startT}` : '';
 
 const memberOf = (s: ActiveSession, at: WhereAt): DirMember => ({
@@ -79,7 +80,7 @@ export function rebuildDirectory(
 const count = (hub: Hub, t: ClientMsg['t']) => hub.dropped.set(t, (hub.dropped.get(t) ?? 0) + 1);
 
 /** Tells each member a split or merge moved its leaf. */
-function tellMoved(hub: Hub, moved: { id: string; leaf: Leaf }[]): void {
+export function tellMoved(hub: Hub, moved: { id: string; leaf: Leaf }[]): void {
   if (moved.length === 0) return;
   const leaves = new Map(moved.map((m) => [m.id, m.leaf]));
   for (const [ws, s] of activeSessions(hub)) {
@@ -90,9 +91,10 @@ function tellMoved(hub: Hub, moved: { id: string; leaf: Leaf }[]): void {
 
 /**
  * A report: the directory takes it and answers `near`; members whose leaf a split or merge
- * changed hear `leaf`. A centre outside the world, or a jump further than `WHERE_SPEED_WU` × the
- * seconds since the last report plus `WHERE_JUMP_WU`, is dropped and counted, unless the life was
- * bound anew since (or in fixture mode). Writes no SQLite row.
+ * changed hear `leaf`. A centre outside the world, a first report under a binding that its anchor
+ * does not hold (`anchorHolds`, M12 T4), or a jump further than `WHERE_SPEED_WU` × the seconds
+ * since the last report plus `WHERE_JUMP_WU`, is dropped and counted (fixture mode takes jumps).
+ * Writes no SQLite row, except a `teleport` flag once per creature.
  */
 export function where(
   hub: Hub,
@@ -106,6 +108,10 @@ export function where(
     return;
   }
   const bind = bindingOf(session.life);
+  if (!anchorHolds(hub, session, msg, bind, now)) {
+    count(hub, 'where');
+    return;
+  }
   const last = session.where;
   if (last && last.bind === bind && !jumpsTaken(hub.env)) {
     const reach = (WHERE_SPEED_WU * Math.max(0, now - last.t)) / 1000 + WHERE_JUMP_WU;
@@ -114,18 +120,40 @@ export function where(
       return;
     }
   }
-  const at: WhereAt = { x: msg.x, y: msg.y, r: msg.r, aoi: msg.aoi, t: now, bind };
-  const { moved } = hub.directory.report(memberOf(session, at));
-  ws.serializeAttachment({ ...session, where: at } satisfies Session);
+  const moved = whereIn(hub, ws, session, {
+    x: msg.x,
+    y: msg.y,
+    r: msg.r,
+    aoi: msg.aoi,
+    t: now,
+    bind,
+  });
   const near = hub.directory.near(session.playerId, now);
   if (near) sendIfOpen(ws, { t: 'near', ...near });
   tellMoved(hub, moved);
 }
 
+/**
+ * Puts the member in the directory at `at` and keeps it in the attachment (with the rest of
+ * `session`), returning the members whose leaf a split or merge changed, for `tellMoved`. A report
+ * and a spawn's answer (M12 T4) both go through here.
+ */
+export function whereIn(
+  hub: Hub,
+  ws: WebSocket,
+  session: ActiveSession,
+  at: WhereAt,
+): { id: string; leaf: Leaf }[] {
+  const { moved } = hub.directory.report(memberOf(session, at));
+  ws.serializeAttachment({ ...session, where: at } satisfies Session);
+  return moved;
+}
+
 /** No creature in the water (or a closed socket): the member leaves the directory. */
 export function gone(hub: Hub, ws: WebSocket | null, session: ActiveSession): void {
+  // Where it left stays: a promoted child is anchored there (M12 T4).
   if (ws && session.where)
-    ws.serializeAttachment({ ...session, where: undefined } satisfies Session);
+    ws.serializeAttachment({ ...session, where: undefined, left: session.where } satisfies Session);
   tellMoved(hub, hub.directory.remove(session.playerId));
 }
 

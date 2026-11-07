@@ -9,6 +9,7 @@ import type { Clock, Fights } from './fights';
 import type { Ledger } from './ledger';
 import type { LifeState } from './life';
 import type { Court } from './mating';
+import type { Anchor, RecentSpawn, Spawned } from './spawn';
 import type { TurnCredentials } from './turn';
 import type { UsageMeter } from './usage';
 import type { WhereAt } from './where';
@@ -40,6 +41,8 @@ export interface Hub {
   directory: Directory;
   /** Signals the hub relayed, by unordered pair (`GET /v1/e2e/directory`). */
   readonly relays: Map<string, number>;
+  /** The spawns given in the last minute (at most 256), in memory: a wake starts with none (M12 T4). */
+  readonly spawns: RecentSpawn[];
   /** Messages dropped without closing the socket, by type (a `where` jump among them). */
   readonly dropped: Map<ClientMsg['t'], number>;
   /** The one way to set or clear the object's alarm (`.claude/rules/worker.md`). */
@@ -53,14 +56,20 @@ export type Session = (
       phase: 'active';
       playerId: string;
       name: string;
-      /** The spawn slot this seat took: its place on the ring around the world's centre. */
-      slot: number;
       /** The creature this connection is playing and what it has reported (absent without one). */
       life?: LifeState | undefined;
       /** The mating this player has offered, until the partner answers (lazy expiry, no timer). */
       court?: Court | undefined;
-      /** Spawn protection lasts until this time (ADR 0050); set by a genesis, promotion or restore, ended by an engage. */
+      /** Spawn protection lasts until this time (ADR 0050); set by a promotion or a protected spawn, ended by an engage. */
       protectedUntil?: number | undefined;
+      /** The binding a genesis or restore made: its spawn answer is protected (M12 T4, ADR 0064). */
+      protectBind?: string | undefined;
+      /** The spawn answer under its binding, so a repeat gets the same place (M12 T4). */
+      spawned?: Spawned | undefined;
+      /** Where the binding must begin: its first report lies near it (M12 T4, `worker/spawn.ts`). */
+      anchor?: Anchor | undefined;
+      /** The last report before the creature left the water (`gone`): a promoted child's anchor. */
+      left?: WhereAt | undefined;
       /** Whether the client says it can witness (`avail`, ADR 0058); off until it says on. */
       avail?: boolean | undefined;
       /** When the last `avail` that counted arrived: at most one counts every 5 s. */

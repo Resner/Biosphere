@@ -20,6 +20,7 @@ import {
   SDP_MAX_BYTES,
 } from '../src/net/protocol';
 import { heavyTest } from '../tests/heavy';
+import { anchorAt } from './test-hub';
 
 const ORIGIN = 'https://resner.github.io';
 
@@ -307,12 +308,6 @@ const welcomeOf = (msg: HubMsg): Welcome => {
   if (msg.t !== 'welcome') throw new Error(`expected welcome, got ${msg.t}`);
   return msg;
 };
-/** The welcome's spawn hint, which the hub sends until the authority places creatures (M12 T4). */
-const hintOf = (w: Welcome | undefined) => {
-  if (!w?.you) throw new Error('no spawn hint');
-  return w.you.spawnHint;
-};
-const GOLDEN_ANGLE = 2.399963;
 const CENTRE = 131_072;
 
 /** Logs in `n` players, in order, and returns them with their welcomes. */
@@ -325,8 +320,13 @@ async function fill(n: number) {
   return players;
 }
 
-/** Reports a starter's position to the directory and waits for its `near`. */
-async function placeAt(p: { c: Client }, x: number, y = CENTRE): Promise<void> {
+/** Reports a starter's position to the directory, anchored there first, and waits for its `near`. */
+async function placeAt(
+  p: { c: Client; id: { playerId: string } },
+  x: number,
+  y = CENTRE,
+): Promise<void> {
+  await anchorAt(p.id.playerId, x, y);
   p.c.send({ t: 'where', x, y, r: 10, aoi: 233 });
   for (;;) if ((await p.c.next()).t === 'near') return;
 }
@@ -351,36 +351,15 @@ describe('the world', () => {
     for (const p of players) expect((await p.c.next()).t).toBe('pong');
   });
 
-  it('spawns 30 sessions at slots 0 to 29 on one ring around the world’s centre', async () => {
-    const players = await fill(30);
-    players.forEach((p, slot) => {
-      const radius = slot === 0 ? 0 : 300 + 40 * slot;
-      const hint = hintOf(p.welcome);
-      expect(hint.x).toBeCloseTo(CENTRE + radius * Math.cos(slot * GOLDEN_ANGLE), 6);
-      expect(hint.y).toBeCloseTo(CENTRE + radius * Math.sin(slot * GOLDEN_ANGLE), 6);
-      expect(p.welcome.world.id).toBe(players[0]?.welcome.world.id);
-    });
-    expect(await worldRows()).toHaveLength(1);
-  }, 30_000);
-
-  it('gives a joiner a slot no seated session holds, after some left', async () => {
-    const [a, b, c] = await fill(3);
-    if (!a || !b || !c) throw new Error('fill');
-    b.c.send({ t: 'leave' });
-    await b.c.closed;
-    const d = welcomeOf((await login('Dee')).welcome);
-    expect(hintOf(d)).toEqual(hintOf(b.welcome));
-    for (const other of [a, c]) expect(hintOf(d)).not.toEqual(hintOf(other.welcome));
-  });
-
-  it('makes the world’s row for the first player, with the world’s seed and clock, and the spawn hint at the centre', async () => {
+  it('makes the world’s row for the first player, with the world’s seed and clock, centred on the world', async () => {
     const [world] = await sqlRows<{ seed: string; clock: number; epoch: number }>(
       'SELECT seed, clock, epoch FROM world',
     );
     expect(world?.epoch).toBe(4);
     expect(world?.seed).toMatch(/^[A-Za-z0-9_-]{16}$/);
     const { welcome } = (await fill(1))[0] ?? {};
-    expect(hintOf(welcome)).toEqual({ x: CENTRE, y: CENTRE });
+    // The authority places each creature as it enters the water (M12 T4): no hint here.
+    expect(welcome).not.toHaveProperty('you');
     expect(welcome?.world.centre).toEqual({ x: CENTRE, y: CENTRE });
     expect(welcome?.world.size).toBe(CENTRE * 2);
     expect(welcome?.world.seed).toBe(world?.seed);
@@ -440,14 +419,18 @@ describe('joining a crowded world', () => {
   it('lets 24 clients join one after another within the message budget', async () => {
     const closes: number[] = [];
     const joined: Array<{ playerId: string }> = [];
-    const hints = new Set<string>();
+    const spawns = new Set<string>();
     for (let i = 0; i < 24; i++) {
-      const { c, id, welcome } = await login(`Pl${i}`);
-      hints.add(JSON.stringify(hintOf(welcomeOf(welcome))));
+      const { c, id } = await login(`Pl${i}`);
       void c.closed.then((code) => closes.push(code));
-      // What a joining client sends: the opening pings, its report, then one offer per neighbour.
+      // What a joining client sends: the opening pings, its spawn and report, then one offer per neighbour.
       for (let p = 0; p < 8; p++) c.send({ t: 'ping', id: p });
-      await placeAt({ c }, hintOf(welcomeOf(welcome)).x, hintOf(welcomeOf(welcome)).y);
+      c.send({ t: 'spawn', r: 10, aoi: 233 });
+      let at: HubMsg = await c.next();
+      while (at.t !== 'spawn') at = await c.next();
+      spawns.add(`${at.x},${at.y}`);
+      c.send({ t: 'where', x: at.x, y: at.y, r: 10, aoi: 233 });
+      for (;;) if ((await c.next()).t === 'near') break;
       for (const m of joined) c.send({ t: 'signal', to: m.playerId, kind: 'offer', sdp: 'v=0' });
       c.send({ t: 'ping', id: 999 });
       for (;;) {
@@ -457,7 +440,7 @@ describe('joining a crowded world', () => {
       joined.push({ playerId: id.playerId });
     }
     expect(closes).toEqual([]);
-    expect(hints.size).toBe(24);
+    expect(spawns.size).toBe(24);
   }, 30_000);
 
   it('closes 4003 on a flood of signals', async () => {

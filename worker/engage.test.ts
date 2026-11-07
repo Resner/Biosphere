@@ -25,6 +25,7 @@ import {
   rowsBesideLog,
   setEnv,
   snap,
+  spawned,
   useFightHub,
 } from './fight-test-kit';
 import {
@@ -184,10 +185,11 @@ describe('engage refusals', () => {
     expect(await refusal(a, b, big)).toBe('engage:tier');
   });
 
-  it('protected: a target hatched 10 s ago', async () => {
+  it('protected: a target that entered the water 10 s ago', async () => {
     const a = await hatched();
     await advance(6_000);
     const b = await hatched();
+    await spawned(b);
     await advance(10_000);
     expect(await refusal(a, b)).toBe('engage:protected');
   });
@@ -209,6 +211,7 @@ describe('spawn protection', () => {
   it('ends for the attacker when it engages', async () => {
     const a = await hatched();
     const b = await hatched();
+    for (const p of [a, b]) await spawned(p);
     // Both are protected: b's engage ends b's own protection, and is refused by a's.
     expect(await refusal(b, a, snap(a, ...NEAR.a), snap(b, ...NEAR.b))).toBe('engage:protected');
     // a's engage, out of range, ends a's.

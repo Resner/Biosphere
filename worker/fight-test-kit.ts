@@ -152,7 +152,7 @@ export const seasoned = async (
   );
 };
 
-/** A player whose creature is newly hatched (spawn-protected for 15 s) on a fresh socket. */
+/** A player whose creature is newly hatched on a fresh socket; its `spawn` (`spawned`) protects it for 15 s. */
 export async function rehatch(p: Pick<Player, 'c' | 'id' | 'pond'>): Promise<Player> {
   const g = await hatch(p.c, p.id);
   const genome = genomeFromBase64url(g.genome);
@@ -162,7 +162,7 @@ export async function rehatch(p: Pick<Player, 'c' | 'id' | 'pond'>): Promise<Pla
 }
 
 /**
- * A signed-in player with a freshly hatched creature (spawn-protected for 15 s). Its identity has
+ * A signed-in player with a freshly hatched creature, not in the water yet. Its identity has
  * played past the young window, so the M7 fight tests' rewards hold (worth 1).
  */
 export async function hatched(): Promise<Player> {
@@ -170,6 +170,12 @@ export async function hatched(): Promise<Player> {
   const p = await rehatch({ c, id, pond });
   await seasoned(p);
   return p;
+}
+
+/** The creature enters the water: the hub's `spawn` answer (M12 T4), which starts a genesis's protection. */
+export async function spawned(p: Pick<Player, 'c'>) {
+  p.c.send({ t: 'spawn', r: 10, aoi: 233 });
+  return nextOf(p.c, 'spawn');
 }
 
 /** Two players whose hatch protection is over. */
