@@ -200,6 +200,56 @@ describe('RemoteBuffer', () => {
 
   it('returns null before it has heard anything', () => {
     expect(new RemoteBuffer().sample(0)).toBeNull();
+    expect(new RemoteBuffer().sampleLate(0)).toBeNull();
+  });
+
+  /** A swimmer heard at `hz(sent)` snapshots a second, drawn by `sampleLate` at 60 fps. */
+  function drawn(hz: (ms: number) => number, until: number) {
+    const buffer = new RemoteBuffer();
+    const frame = 1000 / 60;
+    const steps: { now: number; x: number; speed: number }[] = [];
+    let last: number | null = null;
+    let seq = 0;
+    let nextAt = 0;
+    for (let now = 0; now < until; now += frame) {
+      // Each snapshot arrives 40 ms after it was made.
+      while (nextAt + 40 <= now) {
+        buffer.push(swimming(seq++, nextAt));
+        nextAt += 1000 / hz(nextAt);
+      }
+      const at = buffer.sampleLate(now);
+      if (!at) continue;
+      if (last !== null) steps.push({ now, x: at.x, speed: ((at.x - last) / frame) * 1000 });
+      last = at.x;
+    }
+    return steps;
+  }
+
+  it('draws a 1 Hz remote moving steadily between its snapshots, not stopping and starting (M11 T15)', () => {
+    const steps = drawn(() => 1, 20_000).filter((s) => s.now > 8000);
+    for (const s of steps) {
+      expect(s.speed).toBeGreaterThan(60 * 0.9);
+      expect(s.speed).toBeLessThan(60 * 1.1);
+    }
+  });
+
+  it('eases a remote in when its rate rises from 1 Hz to 10 Hz: never faster than 1.2× its speed, and back to 120 ms behind (M11 T15)', () => {
+    const steps = drawn((ms) => (ms < 10_000 ? 1 : 10), 25_000);
+    let worst = 0;
+    for (const s of steps) if (s.now > 2000) worst = Math.max(worst, s.speed);
+    expect(worst).toBeLessThanOrEqual(60 * 1.2 + 1e-6);
+    expect(worst).toBeGreaterThan(60 * 1.1);
+    // Settled: drawn `INTERPOLATION_MS` behind the pond clock again.
+    const end = steps[steps.length - 1] as { now: number; x: number };
+    expect(end.x).toBeCloseTo(1000 + (60 * (end.now - INTERPOLATION_MS)) / 1000, 0);
+  });
+
+  it('slows, never jumps back, when a remote’s rate falls from 10 Hz to 1 Hz (M11 T15)', () => {
+    const steps = drawn((ms) => (ms < 5000 ? 10 : 1), 15_000);
+    for (const s of steps) {
+      expect(s.speed).toBeGreaterThanOrEqual(0);
+      expect(s.speed).toBeLessThanOrEqual(60 * 1.2 + 1e-6);
+    }
   });
 });
 
@@ -222,6 +272,23 @@ describe('RemoteSet', () => {
     const back = set.sample(REMOVE_AFTER_MS + 100, REMOVE_AFTER_MS + 100)[0];
     expect(back?.name).toBe('Alice');
     expect(back?.alpha).toBe(1);
+  });
+
+  it('says how fast a remote was drawn at most, as a share of its snapshots’ speed (M11 T15)', () => {
+    const set = new RemoteSet();
+    // 1 Hz for 5 s, then 10 Hz; each snapshot arrives 40 ms after it was made.
+    const made = (i: number) => (i <= 5 ? i * 1000 : 5000 + (i - 5) * 100);
+    let i = 0;
+    let pace = 0;
+    for (let now = 0; now < 12_000; now += 1000 / 60) {
+      while (made(i) + 40 <= now) {
+        send(set, 'a', swimming(i, made(i)), now);
+        i++;
+      }
+      pace = set.sample(now, now)[0]?.pace ?? pace;
+    }
+    expect(pace).toBeGreaterThan(1.1);
+    expect(pace).toBeLessThanOrEqual(1.2 + 1e-6);
   });
 
   it('shows the newest ready and egg marks (M6 T19)', () => {

@@ -35,7 +35,15 @@ import {
   wireRadius,
 } from '../net/protocol';
 import { type RelayEvent, SignalRoute, type SignalStats } from '../net/signal-route';
+import {
+  FULL_RATE,
+  RateAsker,
+  SendRates,
+  type SnapshotRate,
+  wantedRate,
+} from '../net/snapshot-rates';
 import { WhereReporter } from '../net/where';
+import { viewHalfHeight } from '../sim/size';
 import { type KnownCounts, Neighbours } from './neighbours';
 import { type DutyLink, type LinkInfo, Links, YOUNG_MS } from './online-links';
 
@@ -106,9 +114,15 @@ export interface CreatureNow extends AoiSelf {
   inWater: boolean;
 }
 
+/** A link in `state().net.links`: `hz` the rate this page sends it, `wanted` the rate it asked (M11 T15). */
+export interface NetLink extends LinkInfo {
+  hz: SnapshotRate;
+  wanted: SnapshotRate;
+}
+
 /** What `state().net` shows of the links (M11 T13). */
 export interface NetLinks {
-  links: LinkInfo[];
+  links: NetLink[];
   known: KnownCounts;
   crowded: boolean;
   where: { sent: number; leaf: { x: number; y: number; size: number } | null };
@@ -155,6 +169,9 @@ export class OnlineSession {
   /** The pond's roster: names and the pond's count only; no link follows it (T14 removes it). */
   private readonly roster = new Map<string, Member>();
   private readonly route: SignalRoute;
+  /** The rate each link asked of this page, and the rate this page asked of each (M11 T15). */
+  private readonly sendRates = new SendRates();
+  private readonly asker = new RateAsker();
   private reporter = new WhereReporter();
   private wheres = 0;
   private mesh: OnlineMesh | null = null;
@@ -331,13 +348,23 @@ export class OnlineSession {
     this.opts.hub.send(msg);
   }
 
-  /** A snapshot to every linked peer: the 93-byte `signed` frame, when there is one, to `candidates`. */
+  /**
+   * Snapshot `n` (`SnapshotSender`) to the linked peers it falls due for at the rate each asked
+   * (M11 T15); the 93-byte `signed` frame, when there is one, goes to every one of `candidates`
+   * whatever its rate, so they keep a signed frame every 200 ms. Without `n` it goes to every peer.
+   */
   broadcastState(
     bytes: Uint8Array,
     signed: Uint8Array | null = null,
     candidates: ReadonlySet<string> = NO_CANDIDATES,
+    n?: number,
   ): void {
-    this.eachOpen((id, mesh) => mesh.sendState(id, signed && candidates.has(id) ? signed : bytes));
+    const rates = this.sendRates;
+    if (n !== undefined) rates.frame(n);
+    this.eachOpen((id, mesh) => {
+      if (signed && candidates.has(id)) mesh.sendState(id, signed);
+      else if (n === undefined || rates.due(id)) mesh.sendState(id, bytes);
+    });
   }
 
   /** The linked peers (their hello passed). */
@@ -379,7 +406,11 @@ export class OnlineSession {
   netInfo(): NetLinks {
     const s = this.route.stats();
     return {
-      links: this.links.info(),
+      links: this.links.info().map((l) => ({
+        ...l,
+        hz: this.sendRates.hz(l.id),
+        wanted: this.asker.wanted(l.id),
+      })),
       known: this.neighbours.counts(this.now()),
       crowded: this.links.crowded,
       where: { sent: this.wheres, leaf: this.neighbours.leaf ? { ...this.neighbours.leaf } : null },
@@ -407,6 +438,29 @@ export class OnlineSession {
     }
     this.route.tick();
     this.links.tick();
+    this.askRates(now);
+  }
+
+  /**
+   * Asks each linked peer for the snapshot rate this page wants of it now (M11 T15), by its class
+   * and its newest snapshot's distance; 10 Hz with no creature.
+   */
+  private askRates(now: number): void {
+    const mesh = this.mesh;
+    if (!mesh) return;
+    const c = this.opts.creature?.() ?? null;
+    const halfHeight = c ? viewHalfHeight(c.r, c.adultR) : 0;
+    const wants: [string, SnapshotRate][] = [];
+    this.eachOpen((id) => {
+      if (!c) {
+        wants.push([id, FULL_RATE]);
+        return;
+      }
+      const fix = this.neighbours.fixOf(id);
+      const d = fix ? Math.hypot(fix.x - c.x, fix.y - c.y) : Number.POSITIVE_INFINITY;
+      wants.push([id, wantedRate(this.links.classOf(id), d, halfHeight)]);
+    });
+    for (const [id, hz] of this.asker.update(now, wants)) mesh.sendEvent(id, { t: 'rate', hz });
   }
 
   /** Leaves the pond and closes every connection. */
@@ -492,11 +546,16 @@ export class OnlineSession {
     const { handlers } = this.opts;
     const mesh = this.opts.createMesh(ice, (to, kind, sdp) => this.links.outgoing(to, kind, sdp));
     mesh.onPeerJoined((id) => {
+      // A new link: both ends start again at 10 Hz.
+      this.sendRates.forget(id);
+      this.asker.forget(id);
       this.links.opened(id);
       handlers.peerOpen(id, this.nameOf(id) ?? id.slice(0, 6));
       this.links.plan();
     });
     mesh.onPeerLeft((id) => {
+      this.sendRates.forget(id);
+      this.asker.forget(id);
       this.links.left(id);
       this.route.forget(id);
       handlers.peerLeft(id);
@@ -508,6 +567,7 @@ export class OnlineSession {
     mesh.onEvent((id, e) => {
       if (e.t === 'peers') this.neighbours.gossip.receive(id, e, this.now());
       else if (e.t === 'relay') this.route.fromPeer(id, e);
+      else if (e.t === 'rate') this.sendRates.set(id, e.hz);
       else handlers.event(id, e);
     });
     mesh.onProxy((id, player, s) => handlers.proxy(id, player, s));

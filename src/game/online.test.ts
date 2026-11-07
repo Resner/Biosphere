@@ -750,6 +750,36 @@ describe('signed snapshots between peers (M7 T7)', () => {
     expect((bytes.get('far') ?? 0) / seconds).toBeCloseTo(10 * SNAPSHOT_BYTES, -1);
   });
 
+  it('keeps a candidate’s signed frames at 5 Hz when it asked for 1 Hz (M11 T15)', async () => {
+    const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(8)));
+    const { hub, mesh, session } = setup();
+    hub.welcome(welcome(['near']));
+    mesh.join('near');
+    mesh.event('near', { t: 'rate', hz: 1 });
+    const signer = new CandidateSigner(() => ({ identity: me, pondId: 'pond1' }));
+    const sender = new SnapshotSender((plain, signed, n) =>
+      session.broadcastState(plain, signed, signer.ids, n),
+    );
+    const self = { x: 1000, y: 1000, biomass: 400 };
+    const remotes = [{ id: 'near', x: 1100, y: 1000, radius: 20 }];
+    let signedFrames = 0;
+    const seconds = 10;
+    for (let frame = 0; frame < seconds * 60; frame++) {
+      const ms = (frame * 1000) / 60;
+      sender.update(
+        ms,
+        false,
+        () => fields(Math.round((ms * TICK_HZ) / 1000)),
+        (plain) => signer.sign(plain, self, remotes),
+      );
+      for (const [, data] of mesh.states.splice(0)) {
+        if (data.length === SIGNED_FRAME_BYTES) signedFrames++;
+      }
+    }
+    expect(signedFrames).toBeGreaterThanOrEqual(5 * seconds - 1);
+    expect(signedFrames).toBeLessThanOrEqual(5 * seconds + 1);
+  });
+
   it('routes a lock ask to the handler, whose answer leaves before the call returns', async () => {
     const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(7)));
     const { hub, handlers, session } = setup();
@@ -766,5 +796,104 @@ describe('signed snapshots between peers (M7 T7)', () => {
     const answer = hub.sent[0] as Extract<ClientMsg, { t: 'lock-state' }>;
     expect(answer).toMatchObject({ t: 'lock-state', lock: 'cd'.repeat(8) });
     expect(verifySnap(me.playerId, 'pond1', answer.mine)?.tick).toBe(4242);
+  });
+});
+
+describe('snapshot rates by distance (M11 T15)', () => {
+  /** A T2 giant: its view's half-height is about 1,977 wu, its AoI about 5,240 wu. */
+  const giant: CreatureNow = { x: C, y: C, vx: 0, vy: 0, r: 400, adultR: 400, inWater: true };
+  const rates = (mesh: FakeMesh) =>
+    mesh.events.splice(0).flatMap(([id, e]) => (e.t === 'rate' ? [[id, e.hz]] : []));
+
+  /** A settled giant linked to peers of radius 200 at `dx` wu east, each placed by its snapshot. */
+  function linkedGiant(peers: [id: string, dx: number][]) {
+    const rig = settled({ creature: giant });
+    for (const [id, dx] of peers) {
+      rig.mesh.connect(id);
+      rig.mesh.join(id);
+      rig.mesh.state(id, snap(dx, 40_000), null);
+    }
+    rig.run(600);
+    return rig;
+  }
+
+  it('asks each class its rate, and only on a change', () => {
+    const { mesh, session, run } = linkedGiant([
+      ['b', 3000], // P1
+      ['c', 4300], // P2, within 1.15 × the view's half-diagonal
+      ['d', 5000], // P2
+      ['e', 8000], // P3
+      ['f', 15_000], // P4
+    ]);
+    expect(session.links.info().map((l) => [l.id, l.class])).toEqual([
+      ['b', 1],
+      ['c', 2],
+      ['d', 2],
+      ['e', 3],
+      ['f', 4],
+    ]);
+    expect(rates(mesh).sort()).toEqual([
+      ['d', 5],
+      ['e', 2],
+      ['f', 1],
+    ]);
+    expect(session.netInfo().links.map((l) => [l.id, l.wanted])).toEqual([
+      ['b', 10],
+      ['c', 10],
+      ['d', 5],
+      ['e', 2],
+      ['f', 1],
+    ]);
+    run(3000);
+    expect(rates(mesh)).toEqual([]);
+  });
+
+  it('asks 10 Hz within a second of a peer crossing into the view', () => {
+    const { mesh, run } = linkedGiant([['d', 5000]]);
+    expect(rates(mesh)).toEqual([['d', 5]]);
+    // Into the view at once after the ask: the second since it must pass first.
+    mesh.state('d', snap(4000, 40_000), null);
+    let askedAfter = -1;
+    for (let ms = 100; ms <= 1000 && askedAfter < 0; ms += 100) {
+      run(100);
+      if (rates(mesh).some(([id, hz]) => id === 'd' && hz === 10)) askedAfter = ms;
+    }
+    expect(askedAfter).toBeGreaterThan(0);
+    expect(askedAfter).toBeLessThanOrEqual(1000);
+  });
+
+  it('sends a link asking 2 Hz two snapshots a second, and 10 Hz again once its link is new', () => {
+    const { hub, mesh, session } = setup();
+    hub.welcome(welcome([]));
+    for (const id of ['slow', 'full']) {
+      mesh.connect(id);
+      mesh.join(id);
+    }
+    mesh.event('slow', { t: 'rate', hz: 2 });
+    const sender = new SnapshotSender((plain, signed, n) =>
+      session.broadcastState(plain, signed, undefined, n),
+    );
+    const count = (seconds: number, from: number) => {
+      const got = new Map<string, number>();
+      for (let frame = 0; frame < seconds * 60; frame++) {
+        const ms = from + (frame * 1000) / 60;
+        sender.update(ms, false, () => fields(Math.round((ms * TICK_HZ) / 1000)));
+        for (const [id] of mesh.states.splice(0)) got.set(id, (got.get(id) ?? 0) + 1);
+      }
+      return got;
+    };
+    const got = count(10, 0);
+    expect(got.get('slow')).toBeGreaterThanOrEqual(19);
+    expect(got.get('slow')).toBeLessThanOrEqual(21);
+    expect(got.get('full')).toBeGreaterThanOrEqual(99);
+    expect(session.netInfo().links.map((l) => [l.id, l.hz])).toEqual([
+      ['full', 10],
+      ['slow', 2],
+    ]);
+    // The link closes and opens again: the new one starts at 10 Hz.
+    mesh.disconnect('slow');
+    mesh.connect('slow');
+    mesh.join('slow');
+    expect(count(1, 10_000).get('slow')).toBeGreaterThanOrEqual(9);
   });
 });
