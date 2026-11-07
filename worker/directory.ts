@@ -4,6 +4,7 @@
 // they hold fewer than `mergeBelow` together. Its answer to a report (`near`) lists the linkable
 // members within the query radius, nearest first, and the much smaller ones in the AoI as points.
 
+import { queryRadius } from '../src/net/aoi';
 import {
   byteLength,
   type Leaf,
@@ -20,8 +21,8 @@ export const LEAF_MAX = 16;
 export const LEAF_MIN = 6;
 /** A leaf this wide never splits. */
 export const LEAF_MIN_SIZE = 1024;
-/** A report's query radius is Q = max(NEAR_FLOOR_WU, 4 × aoi). */
-export const NEAR_FLOOR_WU = 8192;
+/** A report's query radius is Q = max(NEAR_FLOOR_WU, 4 × aoi), as the client's P4 reach. */
+export { NEAR_FLOOR_WU } from '../src/net/aoi';
 /** The hub relays a signal between two members within max(Q_a, Q_b) + this. */
 export const RELAY_SLACK_WU = 4096;
 /** A court needs its two players within this distance. */
@@ -56,7 +57,7 @@ interface Node {
 }
 
 /** The query radius of a report with this AoI. */
-export const queryOf = (aoi: number): number => Math.max(NEAR_FLOOR_WU, 4 * aoi);
+export const queryOf = queryRadius;
 
 const leafOf = (n: Node): Leaf => ({ x: n.x, y: n.y, size: n.size });
 const sameLeaf = (a: Leaf, b: Leaf) => a.x === b.x && a.y === b.y && a.size === b.size;
