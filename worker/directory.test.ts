@@ -1,7 +1,8 @@
 import { describe, expect, it } from 'vitest';
+import { queryRadius } from '../src/net/aoi';
 import { NEAR_MAX_BYTES, parseHubMsg } from '../src/net/protocol';
 import { createRng, seedFromString } from '../src/sim/prng';
-import { Directory, type DirMember, LEAF_MIN_SIZE, queryOf } from './directory';
+import { Directory, type DirMember, LEAF_MIN_SIZE } from './directory';
 
 // The authority's directory (M11 T6), pure: run in Node, as the headless harness (T10) runs it.
 
@@ -144,12 +145,12 @@ describe('near', () => {
       // Every fourth is radius 200: two tiers above a starter, so never a peer.
       const r = n % 4 === 0 ? 200 : 8 + rand() * 20;
       dir.report(member(n, c + d * Math.cos(a), c + d * Math.sin(a), { r, t: n * 10 }));
-      if (r < 200 && d <= queryOf(STARTER_AOI)) placed.push({ n, d });
+      if (r < 200 && d <= queryRadius(STARTER_AOI)) placed.push({ n, d });
     }
     const out = dir.near(id(0), 5000);
     if (!out) throw new Error('no answer');
     placed.sort((a, b) => a.d - b.d);
-    expect(queryOf(STARTER_AOI)).toBe(8192);
+    expect(queryRadius(STARTER_AOI)).toBe(8192);
     expect(placed.length).toBeGreaterThan(48);
     expect(out.peers.map((p) => p.id)).toEqual(placed.slice(0, 48).map((p) => id(p.n)));
     for (const p of out.peers) {

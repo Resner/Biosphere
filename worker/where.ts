@@ -2,6 +2,7 @@
 // directory's other uses: the signal relay's reach, courts' distance, carrion notices and the E2E
 // view. `worker/directory.ts` holds the tree itself, with no Hub.
 
+import { queryRadius } from '../src/net/aoi';
 import type { ClientMsg, Leaf, Pos } from '../src/net/protocol';
 import { RULES } from '../src/sim/rules';
 import {
@@ -10,7 +11,6 @@ import {
   Directory,
   type DirMember,
   LEAF_MAX,
-  queryOf,
   RELAY_SLACK_WU,
   WHERE_JUMP_WU,
   WHERE_SPEED_WU,
@@ -147,7 +147,7 @@ export function atOf(hub: Hub, player: string): Pos | undefined {
 export function relayReach(hub: Hub, a: string, b: string): boolean {
   const [ma, mb] = [hub.directory.member(a), hub.directory.member(b)];
   if (!ma || !mb) return false;
-  const reach = Math.max(queryOf(ma.aoi), queryOf(mb.aoi)) + RELAY_SLACK_WU;
+  const reach = Math.max(queryRadius(ma.aoi), queryRadius(mb.aoi)) + RELAY_SLACK_WU;
   return Math.hypot(ma.x - mb.x, ma.y - mb.y) <= reach;
 }
 
