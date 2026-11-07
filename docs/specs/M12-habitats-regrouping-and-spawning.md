@@ -214,7 +214,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - Every unit test and E2E passes otherwise unchanged.
   - Notes: the shapes are fixed here, and T2 to T7 build to them. This task parses and meters, and changes no behaviour.
 
-- [ ] T2 Groups and placement, pure (after none) (in progress)
+- [x] T2 Groups and placement, pure (after none)
   - Steps:
     1. `worker/placement.ts` (shapes above), as ADR 0064 decides:
        - **`groupsFor`**: single-linkage clusters of the members that pass `linkTiers` with the spawner, chained within half its `queryRadius`. The best first: the most members of the spawner's own tier, then the most linkable, then the nearest to the spawn centre, then the lowest member id.
@@ -248,6 +248,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - A group in the abyss gets a point in the safe band on a ring, or the centre's rings.
     - `speedTest`: one placement among 300 members takes under 20 ms in Node.
   - Notes: no Hub and no wire. T4 and T7 call it, and T8 and T9 run it in Node.
+    - Done: `worker/placement.ts` (`groupsFor` takes an optional third argument, the spawn centre, for its tie-break), `clearOfPlumes` and `plumeFutures` in `src/sim/spawn.ts`.
+    - Gotcha: the depth pin leaves the spawn centre at 0.26 to 0.54, so the exact centre is exempt from the 0.27 floor; otherwise an empty world would not give it on some seeds.
 
 - [ ] T3 Crowd instances, pure: the authority's crowds and the page's filter [opus] (after T1)
   - Steps:
