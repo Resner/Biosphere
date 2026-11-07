@@ -88,7 +88,7 @@ export const SIGN_EVERY = 2;
 
 /**
  * Sends one snapshot per 100 ms of loop time, on a schedule so frame timing does not drift it.
- * `send` gets the 25 bytes and, for every second snapshot, the 89-byte signed frame when `update`
+ * `send` gets the 29 bytes and, for every second snapshot, the 93-byte signed frame when `update`
  * was given a signer that made one.
  */
 export class SnapshotSender {
@@ -104,8 +104,8 @@ export class SnapshotSender {
   }
 
   /**
-   * Call once per frame. `build` runs only when a snapshot is due, and `sign` (the 25 bytes to an
-   * 89-byte frame, or null) only for every second one.
+   * Call once per frame. `build` runs only when a snapshot is due, and `sign` (the 29 bytes to a
+   * 93-byte frame, or null) only for every second one.
    */
   update(
     ms: number,

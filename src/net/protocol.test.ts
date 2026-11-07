@@ -21,6 +21,7 @@ import {
   parsePeerEvent,
   SDP_MAX_BYTES,
   SNAPSHOT_BYTES,
+  SNAPSHOT_VERSION,
   type Snapshot,
   WELCOME_MAX_BYTES,
 } from './protocol';
@@ -52,11 +53,12 @@ const snap: Snapshot = {
 };
 
 describe('snapshot codec', () => {
-  it('is exactly 25 bytes and round trips within quantization', () => {
+  it('is exactly 29 bytes and round trips within quantization', () => {
     const bytes = encodeSnapshot(snap);
     expect(bytes.length).toBe(SNAPSHOT_BYTES);
-    expect(SNAPSHOT_BYTES).toBe(25);
-    expect(bytes[24]).toBe(4);
+    expect(SNAPSHOT_BYTES).toBe(29);
+    expect(SNAPSHOT_VERSION).toBe(5);
+    expect(bytes[28]).toBe(5);
     const d = decodeSnapshot(bytes);
     expect(d).not.toBeNull();
     if (!d) return;
@@ -90,7 +92,7 @@ describe('snapshot codec', () => {
         fighting: (bits & 32) !== 0,
       };
       const bytes = encodeSnapshot({ ...snap, ...flags });
-      expect(bytes[11]).toBe(bits);
+      expect(bytes[15]).toBe(bits);
       const d = decodeSnapshot(bytes);
       expect(
         d && {
@@ -108,7 +110,7 @@ describe('snapshot codec', () => {
   it('drops a snapshot with a flag bit it does not know', () => {
     for (const bit of [64, 128]) {
       const bytes = encodeSnapshot(snap);
-      bytes[11] = (bytes[11] as number) | bit;
+      bytes[15] = (bytes[15] as number) | bit;
       expect(decodeSnapshot(bytes), String(bit)).toBeNull();
     }
   });
@@ -134,7 +136,7 @@ describe('snapshot codec', () => {
     const d = decodeSnapshot(
       encodeSnapshot({
         ...snap,
-        x: 99999,
+        x: 2 ** 30,
         y: -5,
         vx: Number.NaN,
         vy: Number.POSITIVE_INFINITY,
@@ -144,7 +146,7 @@ describe('snapshot codec', () => {
       }),
     );
     expect(d).not.toBeNull();
-    expect(d?.x).toBeLessThanOrEqual(8192);
+    expect(d?.x).toBe(0xffffffff * 0.125);
     expect(d?.y).toBe(0);
     expect(d?.vx).toBe(0);
     expect(d?.biomass).toBe(1);
@@ -166,13 +168,18 @@ describe('snapshot codec', () => {
     );
   });
 
-  it('drops a version 1 snapshot (24 bytes) and a wrong version byte', () => {
+  it('drops a version 4 snapshot (25 bytes) and a wrong version byte', () => {
     expect(decodeSnapshot(encodeSnapshot(snap).subarray(0, 24))).toBeNull();
-    // Version 2 had the same length but no ready or egg bits (M6 T19), version 3 no protected or
-    // fighting bits (M7 T6).
-    for (const version of [0, 1, 2, 3, 5, 255]) {
+    expect(decodeSnapshot(encodeSnapshot(snap).subarray(0, 25))).toBeNull();
+    const v4 = new Uint8Array(25);
+    v4[11] = 1;
+    v4[24] = 4;
+    expect(decodeSnapshot(v4)).toBeNull();
+    // Version 2 had the same length as 4 but no ready or egg bits (M6 T19), version 3 no protected
+    // or fighting bits (M7 T6); version 5 widened the position for the whole world (M11 T2).
+    for (const version of [0, 1, 2, 3, 4, 6, 255]) {
       const bytes = encodeSnapshot(snap);
-      bytes[24] = version;
+      bytes[28] = version;
       expect(decodeSnapshot(bytes), String(version)).toBeNull();
     }
   });
@@ -184,30 +191,38 @@ describe('snapshot codec', () => {
   });
 
   it('covers the whole world at 0.125 wu', () => {
-    expect(decodeSnapshot(encodeSnapshot({ ...snap, x: 8192, y: 8192 }))?.x).toBeGreaterThan(
-      8191.8,
-    );
+    const largest = 0xffffffff * 0.125;
+    for (const [x, y] of [
+      [0, 0],
+      [262_143.875, 1],
+      [largest, largest],
+      [131_072.3, 250_000.06],
+    ] as const) {
+      const d = decodeSnapshot(encodeSnapshot({ ...snap, x, y }));
+      expect(Math.abs((d?.x ?? -1) - x), `${x}`).toBeLessThanOrEqual(1 / 16);
+      expect(Math.abs((d?.y ?? -1) - y), `${y}`).toBeLessThanOrEqual(1 / 16);
+    }
   });
 });
 
 describe('snapshot fuzz', () => {
-  it('never throws, and decodes only 25-byte arrays with a valid flag and version byte', () => {
+  it('never throws, and decodes only 29-byte arrays with a valid flag and version byte', () => {
     const rng = createRng(seedFromString('fuzz-snapshot'), 'net');
     let decoded = 0;
     for (let i = 0; i < 100_000; i++) {
       const len = rng.int(0, 64);
       const b = new Uint8Array(len);
       for (let j = 0; j < len; j++) b[j] = rng.int(0, 255);
-      // Random bytes almost never carry version 4, so half the arrays get it.
-      if (len === 25 && rng.int(0, 1) === 1) b[24] = 4;
+      // Random bytes almost never carry version 5, so half the arrays get it.
+      if (len === 29 && rng.int(0, 1) === 1) b[28] = 5;
       const d = decodeSnapshot(b);
       if (d) {
         decoded++;
-        expect(len).toBe(25);
-        expect((b[11] as number) & ~63).toBe(0);
-        expect(b[24]).toBe(4);
-      } else if (len === 25 && b[24] === 4) {
-        expect((b[11] as number) & ~63).not.toBe(0);
+        expect(len).toBe(29);
+        expect((b[15] as number) & ~63).toBe(0);
+        expect(b[28]).toBe(5);
+      } else if (len === 29 && b[28] === 5) {
+        expect((b[15] as number) & ~63).not.toBe(0);
       }
     }
     expect(decoded).toBeGreaterThan(0);
@@ -326,7 +341,7 @@ const hubMsgs: HubMsg[] = [
   { t: 'challenge', nonce: NONCE },
   {
     t: 'welcome',
-    pond: {
+    world: {
       id: 'p1',
       seed: 'abc123',
       epoch: 1_700_000_000_000,
@@ -422,7 +437,7 @@ describe('welcome size', () => {
     }));
     const welcome: HubMsg = {
       t: 'welcome',
-      pond: {
+      world: {
         id: 'p'.repeat(6),
         seed: 's'.repeat(16),
         epoch: Number.MAX_SAFE_INTEGER,
@@ -482,8 +497,10 @@ describe('rejections', () => {
     // egg bits (version 4, M6 T19), rules 7 bodies (version 5, M6b T1) and the world renewal
     // (version 6, M6c T2, so no pond mixes epochs), encounters (version 7, M7 T6) and worth,
     // settlements and proxy frames (version 8, M8 T3) and the second world renewal (version 9,
-    // M9 T2) and witnesses (version 10, M10 T2): older clients are turned away.
-    expect(PROTOCOL_VERSION).toBe(10);
+    // M9 T2), witnesses (version 10, M10 T2) and the one world (version 11, M11 T2): older
+    // clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(11);
+    expect(bad({ ...hello, v: 10 })).toBeNull();
     expect(bad({ ...hello, v: 9 })).toBeNull();
     expect(bad({ ...hello, v: 8 })).toBeNull();
     expect(bad({ ...hello, v: 7 })).toBeNull();

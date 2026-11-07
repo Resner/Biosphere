@@ -153,7 +153,7 @@ class FakeMesh implements OnlineMesh {
 
 const welcome = (members: string[], pondId = 'pond1'): Welcome => ({
   t: 'welcome',
-  pond: { id: pondId, seed: 'seed1', epoch: 1000, centre: { x: 500, y: 500 }, size: 1000 },
+  world: { id: pondId, seed: 'seed1', epoch: 1000, centre: { x: 500, y: 500 }, size: 1000 },
   you: { spawnHint: { x: 700, y: 500 } },
   members: members.map((playerId) => ({ playerId, name: playerId.toUpperCase() })),
   ice: [{ urls: 'stun:example.test' }],
@@ -239,7 +239,7 @@ describe('OnlineSession', () => {
     hub.welcome(welcome(['d'], 'pond2'));
     expect(mesh.disconnects.sort()).toEqual(['b', 'c']);
     expect(session.others().map((m) => m.playerId)).toEqual(['d']);
-    expect(session.welcome?.pond.id).toBe('pond2');
+    expect(session.welcome?.world.id).toBe('pond2');
   });
 
   it('re-calls the members it already knew when a reconnect welcomes it into the same pond', () => {
@@ -331,7 +331,7 @@ describe('OnlineSession', () => {
       expect(done).toBeUndefined();
       hub.clock.addSample(0, 40, 5000);
       await vi.advanceTimersByTimeAsync(100);
-      expect(done?.pond.id).toBe('pond1');
+      expect(done?.world.id).toBe('pond1');
     } finally {
       vi.useRealTimers();
     }
@@ -492,7 +492,9 @@ describe('signed snapshots between peers (M7 T7)', () => {
     expect(handlers.state.mock.calls).toEqual([['a', s, signed]]);
   });
 
-  it('sends candidates the 89-byte frame at 5 Hz and everyone else 25 bytes, within 600 B/s', async () => {
+  // 5 Hz of 93-byte frames and 5 Hz of 29 bytes: M7's 600 B/s grew with the snapshot's wider
+  // positions (M11 T2).
+  it('sends candidates the 93-byte frame at 5 Hz and everyone else 29 bytes, within 620 B/s', async () => {
     const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(6)));
     const { hub, mesh, session } = setup();
     hub.welcome(welcome(['near', 'far', 'giant']));
@@ -552,7 +554,7 @@ describe('signed snapshots between peers (M7 T7)', () => {
     }
     expect(heard.badSignatures).toBe(0);
     expect(worstLag).toBeLessThanOrEqual(7);
-    expect((bytes.get('near') ?? 0) / seconds).toBeLessThanOrEqual(600);
+    expect((bytes.get('near') ?? 0) / seconds).toBeLessThanOrEqual(620);
     // Everyone else still hears 10 snapshots a second.
     expect((bytes.get('far') ?? 0) / seconds).toBeCloseTo(10 * SNAPSHOT_BYTES, -1);
   });

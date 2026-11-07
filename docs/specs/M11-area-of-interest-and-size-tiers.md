@@ -266,7 +266,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - `viewHalfHeight(10, 20)` is 88.0 and `viewHalfHeight(20, 20)` 133.4 (±0.1); a radius past the adult's counts as the adult's. The camera tests pass unchanged.
   - Notes: no change to the world's size (T12) or the protocol (T2). `m6c-reset` keeps its pre-reset hook.
 
-- [ ] T2 Protocol 11: snapshot version 5, the directory, seat and peer messages on the wire [opus] (after none)
+- [x] T2 Protocol 11: snapshot version 5, the directory, seat and peer messages on the wire [opus] (after none)
   - Steps:
     1. `PROTOCOL_VERSION` 11. A protocol-10 hello gets `error: version`.
     2. Snapshot version 5 (29 bytes): x and y as u32 in 0.125 wu steps, everything else as version 4. A 25-byte snapshot fails the length check.
@@ -292,6 +292,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - 10,000 fuzzed values per parser never throw.
     - Hub test: a protocol-10 hello is refused; a `where` is dropped and counted; 21 messages in 10 s still close the socket.
   - Notes: the shapes are fixed here, and T6 to T9 build to them. This task parses and meters, and changes no behaviour.
+  - Done: parsers in `protocol-world.ts` and `src/ledger/seat.ts`, the welcome's `world`, `where`/`gone` dropped in `Authority.dropped`; a `near` within 8 KB needs positions at about 1/8 wu, so T6 rounds them and drops the farthest to fit.
+    The 4 bytes more per snapshot raise M7's candidate budget to 620 B/s and M8's proxy budget to 310 B/s (5 Hz of 93- and 61-byte frames).
 
 ### Lock-in and the M10 carry-overs
 
@@ -604,6 +606,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     1. `RULES.world.size` 262,144. The world's centre (131,072, 131,072) is the spawn centre everywhere: the hub's ring and every new pond, the offline world, the bathymetry's twilight disc and the encounters' world. Regenerate the goldens.
     2. `state().pond` gains `size` and `centre`. Every E2E helper and spec that uses absolute pond coordinates moves to coordinates relative to the centre.
     3. DESIGN §2: the world's size. The ponds stay roster groups of it until T14.
+    4. `POS_MAX` in `src/net/protocol-encounter.ts` (8,192, the fight wire's position bound) becomes `WIRE_POS_MAX`, so a fight far from the origin still parses.
   - Acceptance (tests first):
     - Hub test: a welcome names a world of 262,144 wu centred at (131,072, 131,072), and slot 0 spawns at the centre.
     - Every E2E, fast and full, passes. `m11-world` passes at the default size, without `?world=`.

@@ -67,7 +67,7 @@ export interface OnlineHandlers {
   member(op: 'join' | 'leave', member: Member): void;
   /** Both data channels to a roster member are open. */
   peerOpen(id: string): void;
-  /** A peer's snapshot, with its signed form (unverified) when it came as an 89-byte frame. */
+  /** A peer's snapshot, with its signed form (unverified) when it came as a 93-byte frame. */
   state(id: string, snapshot: Snapshot, signed: SignedSnap | null): void;
   event(id: string, event: PeerEvent): void;
   /** A roster member's proxy of `player`'s away fighter (M8 T11), unchecked. */
@@ -205,7 +205,7 @@ export class OnlineSession {
     this.opts.hub.send(msg);
   }
 
-  /** A snapshot to every open peer: the 89-byte `signed` frame, when there is one, to `candidates`. */
+  /** A snapshot to every open peer: the 93-byte `signed` frame, when there is one, to `candidates`. */
   broadcastState(
     bytes: Uint8Array,
     signed: Uint8Array | null = null,
@@ -293,7 +293,7 @@ export class OnlineSession {
 
   private welcomed(w: Welcome): void {
     const { selfId, handlers } = this.opts;
-    const samePond = this.last?.pond.id === w.pond.id;
+    const samePond = this.last?.world.id === w.world.id;
     this.last = w;
     const now = new Map(w.members.filter((m) => m.playerId !== selfId).map((m) => [m.playerId, m]));
     for (const [id, member] of [...this.roster]) {

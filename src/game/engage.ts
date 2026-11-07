@@ -72,7 +72,7 @@ export class CandidateSigner {
 
   constructor(private readonly key: SignKey) {}
 
-  /** Fills `ids`, and gives the 89-byte signed frame of `bytes` when any candidate is in. */
+  /** Fills `ids`, and gives the 93-byte signed frame of `bytes` when any candidate is in. */
   sign(bytes: Uint8Array, self: EngageSelf, remotes: readonly EngagePeer[]): Uint8Array | null {
     candidates(self, remotes, this.ids);
     if (this.ids.size === 0) return null;

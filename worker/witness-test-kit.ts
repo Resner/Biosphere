@@ -11,7 +11,7 @@ import {
 } from '../src/ledger/witness';
 import { auditVerdict } from '../src/net/audit';
 import { AUTHORITY } from '../src/net/handover';
-import type { DutyEndWhy, HubMsg, PondInfo, SignedCommit } from '../src/net/protocol';
+import type { DutyEndWhy, HubMsg, SignedCommit, WorldInfo } from '../src/net/protocol';
 import {
   type BatchMsg,
   type RefereeDuty,
@@ -34,7 +34,7 @@ import { eligible, WITNESS_PLAY_MS } from './witness-pool';
 export interface Witness {
   c: Client;
   id: Identity;
-  pond: PondInfo;
+  pond: WorldInfo;
   ip: string;
 }
 
@@ -72,7 +72,7 @@ export async function witness(
 ): Promise<Witness> {
   const ip = opts.ip ?? nextIp();
   const { c, id } = await signIn(undefined, undefined, ip);
-  const { pond } = await nextOf(c, 'welcome');
+  const { world: pond } = await nextOf(c, 'welcome');
   await nextOf(c, 'life');
   await credit(id.playerId, opts.playMs ?? WITNESS_PLAY_MS);
   if (opts.avail ?? true) await setAvail(c, true);
