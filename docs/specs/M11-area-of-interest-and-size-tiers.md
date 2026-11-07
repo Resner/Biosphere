@@ -453,7 +453,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### Links
 
-- [ ] T8 The area-of-interest manager: link classes, the cap, and when to report [opus] (after T1, T2)
+- [ ] T8 The area-of-interest manager: link classes, the cap, and when to report [opus] (after T1, T2) (in progress)
   - Steps:
     1. `src/net/aoi.ts` (shapes above). `classify` takes the classes in order, the first that holds:
        - **P0**: the ids in `p0`;
