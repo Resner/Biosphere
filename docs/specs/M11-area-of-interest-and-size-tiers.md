@@ -764,7 +764,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - the medium budget holds in C's view;
       - a screenshot of each view is attached.
 
-- [x] T18 The map, the minimap and finding players in the world [opus] (after T14) (in progress)
+- [x] T18 The map, the minimap and finding players in the world [opus] (after T14)
   - Done: `map-view.ts` (the square, marks, sightings) and `depth-chart.ts` (`DepthChart`: the map's 256-texel window charted by `ChartJob` over frames, the minimap's at once); `OnlineSession.sightings` feeds hollow marks, `debug.setKnown` stages them, `m11-map` takes the shots.
   - Gotcha: `Math.hypot` made the relief ten times slower than `sqrt`; a row of relief and colour costs about 16 blur rows (`COLOUR_WEIGHT`).
   - Steps:
