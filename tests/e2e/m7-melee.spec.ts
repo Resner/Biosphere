@@ -25,6 +25,24 @@ async function parkOpposite(c: Page, idB: string): Promise<void> {
   }, 'C parks beside B and the glyph marks B').toPass({ timeout: 30_000 });
 }
 
+/**
+ * `page` keeps steering at `who` until its chase is cleared (`window.chase`). A fight ends as an
+ * escape when a fighter stays out of every opponent's range for 3 s, and an idle body drifts out
+ * of reach on a slow runner: the E2E main runs where A, C and B all escaped within 4 s, before the
+ * test had looked at the third fighter. Both attackers chase from the moment they are in.
+ */
+async function chase(page: Page, who: string): Promise<void> {
+  await page.evaluate((target) => {
+    const w = window as unknown as { chase?: number };
+    if (w.chase) return;
+    const bs = window.__bs as BsHook;
+    w.chase = window.setInterval(() => {
+      const r = bs.state().remotes.find((x) => x.id === target);
+      if (r) void bs.debug?.steerTo({ id: target, x: r.x, y: r.y });
+    }, 250);
+  }, who);
+}
+
 /** Waits until `page`'s own snapshots have left from where it now is (the engage carries one). */
 async function settled(page: Page): Promise<void> {
   const at = (await state(page)).tick;
@@ -113,6 +131,7 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
         });
       });
     const enc = (await state(a)).encounter?.id;
+    await chase(a, ids.idB);
 
     // C's F joins it: every client seats C as the third fighter.
     await pressed.catch(async (error) => {
@@ -134,6 +153,9 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
       .catch(async (error) => {
         throw new Error(`C never joined: ${JSON.stringify(await seen(c))}`, { cause: error });
       });
+    // C stays on the fight from here (A has since its engage), so the wait for the third fighter
+    // and the look at C's ring below happen with every attacker in reach.
+    await chase(c, ids.idB);
     for (const page of [a, b, c]) {
       await page
         .waitForFunction(
@@ -145,7 +167,8 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
           { timeout: 40_000 },
         )
         .catch(async (error) => {
-          throw new Error(`no third fighter: ${JSON.stringify(await seen(page))}`, {
+          const all = await Promise.all([a, b, c].map((p) => seen(p)));
+          throw new Error(`no third fighter: ${JSON.stringify(all)}`, {
             cause: error,
           });
         });
@@ -153,17 +176,6 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     const onC = (await state(c)).encounter;
     expect(onC?.fighters[2]?.player).toBe(idC);
     expect(onC?.slot).toBe(2);
-
-    // C stays on the fight while the test looks at its ring: an idle body that drifts out of reach
-    // on a slow runner escapes before the ring is read. The chase ends when C swims off below.
-    await c.evaluate((who) => {
-      const bs = window.__bs as BsHook;
-      const chase = () => {
-        const r = bs.state().remotes.find((x) => x.id === who);
-        if (r) void bs.debug?.steerTo({ id: who, x: r.x, y: r.y });
-      };
-      (window as unknown as { chase: number }).chase = window.setInterval(chase, 250);
-    }, ids.idB);
 
     // Three fighters offer a choice: the ring marks the nearest, and Tab picks one. The observer
     // installed before the join reads all of it frame by frame in the page: a fight is short, and a
