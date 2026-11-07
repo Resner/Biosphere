@@ -355,7 +355,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
   - Done: `depthAt` and `zoneAt` take the world's size last (default `RULES.world.size`; the render callers keep it until T11); each size calibrates its own field from R2 points outside the centre disc, shifted so the centre's 2,200 wu surroundings sit mid-twilight (`localHalf`). The spec's broad weight 1 clustered the shallows beyond 16,384 wu, so it is 0.4 and the shares are 27/33/27/13 (the disc eats 9% of a pond).
   - Gotcha: the golden-autopilot encounter now scans its start north in steps of 25 wu for a fight that ends in a kill; `foodMemoChunks` and `RULES.spawn.searchRadius` are the new hooks.
 
-- [ ] T5 Food by tier (after T4)
+- [ ] T5 Food by tier (after T4) (in progress)
   - Steps:
     1. `RULES.food.layers` (ADR 0061): layer k from 0 to 4 has cells of 256 × 4^k wu with 10 slots, items 4^k times as wide and 64^k times as rich.
     2. `src/sim/food.ts` works per layer:
