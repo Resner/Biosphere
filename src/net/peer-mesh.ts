@@ -175,6 +175,11 @@ export class PeerMesh {
     return this.links.get(id)?.opened === true;
   }
 
+  /** Whether the connection and both channels are up (with a gate, the hello may still be due). */
+  isUp(id: string): boolean {
+    return this.links.get(id)?.up === true;
+  }
+
   /** Replaces the ICE servers (fresh TURN credentials) for connections and recoveries from now on. */
   setIce(iceServers: RTCIceServer[]): void {
     this.iceServers = iceServers;
@@ -230,7 +235,8 @@ export class PeerMesh {
     if (link && !link.caller && !link.up && link.offer === sdp) {
       // The same offer again (the hub's resend beside a relayed copy): the answer may have been lost.
       return this.enqueue(link, async () => {
-        if (link.pc.localDescription) this.opts.signal(from, 'answer', link.pc.localDescription.sdp);
+        if (link.pc.localDescription)
+          this.opts.signal(from, 'answer', link.pc.localDescription.sdp);
       });
     }
     if (link) this.teardown(link);
@@ -377,9 +383,7 @@ export class PeerMesh {
     const attempt = wasOpen ? 1 : link.attempt + 1;
     const caller = wasOpen ? this.opts.selfId < peerId : link.caller;
     const retry =
-      this.opts.retry !== false &&
-      caller &&
-      attempt <= (recovering ? RECOVERY_MAX_ATTEMPTS : 1);
+      this.opts.retry !== false && caller && attempt <= (recovering ? RECOVERY_MAX_ATTEMPTS : 1);
     this.teardown(link);
     if (!retry) return;
     const delay = Math.min(RETRY_DELAY_MS * 2 ** (attempt - 1), RETRY_DELAY_MAX_MS);

@@ -190,7 +190,7 @@ test('a lone player is told so after eight seconds @slow', async ({ browser }) =
     await hatch(page);
     await expect(page.getByTestId('alone-hint')).toBeHidden();
     await expect(page.getByTestId('alone-hint')).toBeVisible({ timeout: 12_000 });
-    await expect(page.getByTestId('alone-hint')).toHaveText('Alone in the pond. Share the link.');
+    await expect(page.getByTestId('alone-hint')).toHaveText('No one nearby yet');
     // Someone arrives: the hint clears.
     const other = await player(browser);
     try {

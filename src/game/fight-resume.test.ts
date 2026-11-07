@@ -40,6 +40,10 @@ class FakeHub implements OnlineHub {
   onMember() {
     return () => {};
   }
+  onWorld() {
+    return () => {};
+  }
+  readonly ticket = null;
   onLife(fn: (m: LifeMsg) => void) {
     this.lifeFns.push(fn);
     return () => {};
@@ -88,8 +92,8 @@ function page(hub: FakeHub, now: () => number) {
     createMesh: () => ({}) as OnlineMesh,
     handlers: {
       welcome: () => {},
-      member: () => {},
       peerOpen: () => {},
+      peerLeft: () => {},
       state: () => {},
       event: () => {},
       proxy: () => {},

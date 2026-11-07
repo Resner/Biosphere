@@ -172,9 +172,9 @@ describe('signed signals', () => {
     expect(signalSigned(relay({ pos: [pos[0] + 0.125, pos[1], pos[2]] }))).toBe(false);
     expect(signalSigned(relay({ sdp: sdp.replace('127', '128') }))).toBe(false);
     expect(signalSigned(relay({ from: bob.playerId }))).toBe(false);
-    expect(signalSigned(relay({ sig: signSignal(bob, bob.playerId, 'offer', 2, T, pos, sdp) }))).toBe(
-      false,
-    );
+    expect(
+      signalSigned(relay({ sig: signSignal(bob, bob.playerId, 'offer', 2, T, pos, sdp) })),
+    ).toBe(false);
     const sig = relay().sig;
     expect(signalSigned(relay({ sig: flip(sig, 5) }))).toBe(false);
   });

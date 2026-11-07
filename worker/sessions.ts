@@ -358,7 +358,14 @@ export function relay(
     ) {
       const at = atOf(hub, from);
       const cls = msg.cls === undefined ? {} : { cls: msg.cls };
-      send(other, { t: 'signal', from, kind: msg.kind, sdp: msg.sdp, ...cls, ...(at ? { at } : {}) });
+      send(other, {
+        t: 'signal',
+        from,
+        kind: msg.kind,
+        sdp: msg.sdp,
+        ...cls,
+        ...(at ? { at } : {}),
+      });
       countRelay(hub, from, msg.to);
       return;
     }

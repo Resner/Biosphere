@@ -261,11 +261,11 @@ describe('HubClient listeners', () => {
     const s = await handshake();
     const leaf = { x: 131_072, y: 0, size: 131_072 };
     const near = {
-      t: 'near',
+      t: 'near' as const,
       leaf,
       peers: [{ id: 'A'.repeat(43), name: 'ann', x: 131_100, y: 131_000, r: 10, age: 200 }],
       swarm: [],
-    } as const;
+    };
     s.receive(near);
     s.receive({ t: 'leaf', leaf });
     expect(world).toEqual([near, { t: 'leaf', leaf }]);
