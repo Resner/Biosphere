@@ -213,6 +213,21 @@ describe('SignalRoute: an inbound relay', () => {
     expect(RELAY_REPLAY_MS).toBeGreaterThan(2 * RELAY_SKEW_MS);
   });
 
+  it("charges replays and stale relays to the link's second, so a flood is throttled", () => {
+    const r = rig(Cc, [B]);
+    const m = relay(A, Cc, 'offer', T);
+    for (let i = 0; i < RELAY_PER_S + 3; i++) r.route.fromPeer(B.playerId, m);
+    expect(r.delivered).toHaveLength(1);
+    expect(r.route.stats()).toMatchObject({ replayed: RELAY_PER_S - 1, limited: 3 });
+  });
+
+  it('keeps an offer and an answer from one sender in the same millisecond apart', () => {
+    const r = rig(Cc, [B]);
+    r.route.fromPeer(B.playerId, relay(A, Cc, 'offer', T));
+    r.route.fromPeer(B.playerId, relay(A, Cc, 'answer', T));
+    expect(r.delivered).toHaveLength(2);
+  });
+
   it('drops a relay to this page from itself', () => {
     const r = rig(A, [B]);
     r.route.fromPeer(B.playerId, relay(A, A, 'offer', T));

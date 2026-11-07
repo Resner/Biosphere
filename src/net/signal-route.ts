@@ -90,7 +90,7 @@ export class SignalRoute {
   private readonly pending = new Map<string, Pending>();
   /** The link each peer's last offer came in on, so the answer goes back that way. */
   private readonly offerVia = new Map<string, string>();
-  /** Relays taken, `from|at` → when, oldest first. */
+  /** Relays taken, `from|kind|at` → when, oldest first. */
   private readonly seen = new Map<string, number>();
   /** Each link's relays passed in the last second, sent or received. */
   private readonly window = new Map<string, number[]>();
@@ -141,19 +141,19 @@ export class SignalRoute {
       this.counts.limited += 1;
       return;
     }
+    // Every inbound relay counts against the link's second, whatever it turns out to be.
+    this.pass(via, now);
     if (Math.abs(m.at - now) > RELAY_SKEW_MS) {
       this.counts.stale += 1;
       return;
     }
-    const key = `${m.from}|${m.at}`;
+    const key = `${m.from}|${m.kind}|${m.at}`;
     this.forgetSeen(now);
     if (this.seen.has(key)) {
       this.counts.replayed += 1;
       return;
     }
-    // Checked last, as it costs most, and counted against the link's second whatever it shows;
-    // only a genuine relay is remembered against replays.
-    this.pass(via, now);
+    // Checked last, as it costs most; only a genuine relay is remembered against replays.
     if (!this.o.verify(m)) {
       this.counts.forged += 1;
       return;

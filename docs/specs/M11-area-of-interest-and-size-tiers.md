@@ -503,7 +503,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - a death sends `gone` once.
   - Notes: pure. T13 wires it into the game, and the harness (T10) runs it.
 
-- [x] T9 Gossip, relayed signaling and the hello gate [opus] (after T7, T8) (in progress)
+- [x] T9 Gossip, relayed signaling and the hello gate [opus] (after T7, T8)
   - Done: `Gossip`, `SignalRoute` (pure, signer and check injected) and `PeerMesh`'s `hello` gate (joined only once the peer's ticket passes; no retry after a failure); the fake RTC moved to `rtc-test-kit.ts`. Gotchas: a peer forwards only its link's own signals (one hop), and a forged relay counts against the link's 4 a second but never burns a genuine (from, at).
   - Steps:
     1. `src/net/gossip.ts`:
