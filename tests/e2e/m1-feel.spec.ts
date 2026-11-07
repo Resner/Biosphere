@@ -182,7 +182,7 @@ test.describe('feel and feedback', () => {
   });
 
   test('the dissolve starts over on the next hatch', async ({ page }) => {
-    await play(page, 'feel-again');
+    await play(page, 'feel-again-22');
     await page.evaluate(() => {
       window.__bs?.debug?.setEnergy(0);
       window.__bs?.debug?.timeScale(4);

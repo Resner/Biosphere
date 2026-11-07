@@ -8,7 +8,7 @@ import { hatch, openGame, state } from './helpers';
 const cues = async (page: Page) => (await state(page)).audio.cues;
 
 test('eating plays the bubble pop', async ({ page }) => {
-  await openGame(page, '?debug=1&seed=cues-eat');
+  await openGame(page, '?debug=1&seed=cues-eat-13');
   await hatch(page);
   expect((await cues(page)).eat ?? 0).toBe(0);
   const reached = await page.evaluate(async () => {
