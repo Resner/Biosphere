@@ -295,7 +295,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### Lock-in and the M10 carry-overs
 
-- [x] T3 Lock-in sees its attacker, and the M10 carry-overs in the worker [opus] (after none) (in progress)
+- [x] T3 Lock-in sees its attacker, and the M10 carry-overs in the worker [opus] (after none)
   - Done: `engage:unseen` in `lockAnswer` (`ownSeen` shared with the movement check), `witnessLocked` in `start`, `Fights.settledFight` keeps batched frames 30 s for late disputes, `noWitness` on a throwing commit, one `eligible` pass per offer. Gotcha: an in-time hub-test answer must carry the attacker's snapshot in `seen` (`answer` in `fight-test-kit.ts`), or it is refused.
   - Steps:
     1. `engage:unseen` (`lockState` in `worker/engage.ts`, ADR 0062). An in-time answer whose `seen` holds no snapshot verified as the attacker's own (its key, the pond, a living body of its genome) releases the lock and refuses the attacker `engage:unseen`. Nothing is flagged: an honest client meets it only on a fresh or lossy link. A late answer and a join are unchanged.
