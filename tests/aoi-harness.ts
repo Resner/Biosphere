@@ -21,7 +21,7 @@ import {
 } from '../src/net/aoi';
 import { type LinkClass, NO_CLASS } from '../src/net/connection-policy';
 import { type Fix, Gossip, type PeersEvent } from '../src/net/gossip';
-import { byteLength, type Leaf, type Pos } from '../src/net/protocol';
+import { byteLength, type Leaf, type Pos, type SignalKind } from '../src/net/protocol';
 import { SignalRoute } from '../src/net/signal-route';
 import { WhereReporter } from '../src/net/where';
 import { clamp } from '../src/sim/math';
@@ -113,7 +113,6 @@ class Client {
   /** Creatures it could link within its P1 reach by true positions, this tick. */
   p1True = 0;
   dirty = false;
-  forceHub = false;
   leaf: Leaf | null = null;
   readonly hubMsgs: number[] = [];
   readonly phase: number;
@@ -288,7 +287,7 @@ class Sim {
       heard: (id) => c.gossip.heard(id, this.now),
       placeOf: (id) => c.fixes.get(id) ?? null,
       sendPeer: (via, m) => {
-        if (!c.helloed(via) || (c.forceHub && m.kind === 'offer')) return false;
+        if (!c.helloed(via)) return false;
         if (m.kind === 'offer' && m.from === c.id) {
           const a = c.out.get(m.to);
           if (a) a.relayed = true;
@@ -408,7 +407,7 @@ class Sim {
 
   // ---- signals ----
 
-  private hubSend(c: Client, to: string, kind: 'offer' | 'answer', sdp: string): void {
+  private hubSend(c: Client, to: string, kind: SignalKind, sdp: string): void {
     c.hubMsgs.push(this.now);
     if (kind === 'offer') {
       const a = c.out.get(to);
@@ -451,7 +450,7 @@ class Sim {
     );
   }
 
-  private onSignal(c: Client, from: string, kind: 'offer' | 'answer', pos: Pos | null): void {
+  private onSignal(c: Client, from: string, kind: SignalKind, pos: Pos | null): void {
     if (pos) {
       c.signalKnown.set(from, {
         id: from,
@@ -473,7 +472,7 @@ class Sim {
     const held = c.inn.get(from);
     if (held) {
       // The caller's offer again (its relay failed and the hub resent it): the answer may have been lost.
-      if (held.state === 'offer') c.route.send(from, 'answer', 'sdp');
+      if (held.state === 'offer') c.route.send(from, 'answer', 'sdp', held.cls);
       return;
     }
     const mine = c.out.get(from);
@@ -490,7 +489,7 @@ class Sim {
     }
     c.inn.set(from, a);
     this.checkCap(c);
-    c.route.send(from, 'answer', 'sdp');
+    c.route.send(from, 'answer', 'sdp', a.cls);
   }
 
   /** The callee says no: the caller hears it after a hop (or through the hub, which costs a message) and backs off. */
@@ -616,9 +615,7 @@ class Sim {
     this.after(OFFER_TIMEOUT_MS, () => {
       if (a.state === 'offer') this.failAttempt(a, true);
     });
-    c.forceHub = urgent;
-    c.route.send(to, 'offer', 'sdp');
-    c.forceHub = false;
+    c.route.send(to, 'offer', 'sdp', a.cls, urgent);
   }
 
   private evict(c: Client, ids: string[]): void {

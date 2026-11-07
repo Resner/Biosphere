@@ -5,6 +5,7 @@ import {
   CONNECT_TIMEOUT_MS,
   GATHER_TIMEOUT_MS,
   PeerMesh,
+  type PeerMeshOptions,
   RECOVERY_MAX_ATTEMPTS,
   RETRY_DELAY_MS,
 } from './peer-mesh';
@@ -52,7 +53,7 @@ interface Net {
   held: { from: string; to: string; kind: 'offer' | 'answer'; sdp: string }[];
 }
 
-function network(ids: string[]): Net {
+function network(ids: string[], extra: Partial<PeerMeshOptions> = {}): Net {
   const net: Net = {
     meshes: new Map(),
     signals: [],
@@ -79,6 +80,7 @@ function network(ids: string[]): Net {
           net.pcs.push(pc);
           return pc;
         },
+        ...extra,
       }),
     );
   }
@@ -321,6 +323,52 @@ describe('PeerMesh timeouts and loss', () => {
   });
 });
 
+describe('PeerMesh driven by a plan (M11 T13)', () => {
+  it('with retry off, neither a first call that fails nor an open link that drops is called again', async () => {
+    const net = network(['a', 'b'], { retry: false });
+    net.hold = true; // the answer never arrives
+    net.meshes.get('a')?.connect('b');
+    await vi.advanceTimersByTimeAsync(CONNECT_TIMEOUT_MS + 60_000);
+    expect(net.pcs).toHaveLength(1);
+    expect(net.meshes.get('a')?.peers()).toEqual([]);
+    net.hold = false;
+    net.held = [];
+    net.meshes.get('a')?.connect('b');
+    await settle();
+    expect(net.meshes.get('a')?.isOpen('b')).toBe(true);
+    const before = net.pcs.length;
+    net.pcs.at(-1)?.fail();
+    await vi.advanceTimersByTimeAsync(60_000);
+    expect(net.pcs).toHaveLength(before);
+    expect(net.meshes.get('a')?.peers()).toEqual([]);
+  });
+
+  it('answers a repeated offer again and keeps the connection it is building', async () => {
+    const net = network(['a', 'b']);
+    net.hold = true;
+    net.meshes.get('a')?.connect('b');
+    await settle();
+    const offer = net.held.find((m) => m.kind === 'offer');
+    expect(offer).toBeDefined();
+    const b = net.meshes.get('b') as PeerMesh;
+    net.held = [];
+    await b.handleSignal('a', 'offer', offer?.sdp as string);
+    await settle();
+    const pcs = net.pcs.length;
+    const answers = () => net.held.filter((m) => m.kind === 'answer').length;
+    expect(answers()).toBe(1);
+    // The same offer again (the hub's resend beside a relayed copy): the same answer, no new connection.
+    await b.handleSignal('a', 'offer', offer?.sdp as string);
+    await settle();
+    expect(net.pcs).toHaveLength(pcs);
+    expect(answers()).toBe(2);
+    await net.flush();
+    await settle();
+    expect(b.isOpen('a')).toBe(true);
+    expect(net.meshes.get('a')?.isOpen('b')).toBe(true);
+  });
+});
+
 describe('PeerMesh recovery of a dropped link', () => {
   it('re-establishes an open link that dropped: the lower id calls, both come back without a reload', async () => {
     const net = network(['a', 'b']);
@@ -514,6 +562,7 @@ describe('PeerMesh inbound hygiene', () => {
       to: 'B'.repeat(43),
       kind: 'offer',
       sdp: 'v'.repeat(SDP_MAX_BYTES),
+      cls: 2,
       at: 1_700_000_000_000,
       pos: [131_072, 131_072, 10],
       sig: 'c'.repeat(86),

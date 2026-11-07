@@ -133,16 +133,17 @@ describe('signed signals', () => {
     to: bob.playerId,
     kind: 'offer' as const,
     sdp,
+    cls: 2 as const,
     at: T,
     pos,
-    sig: signSignal(alice, bob.playerId, 'offer', T, pos, sdp),
+    sig: signSignal(alice, bob.playerId, 'offer', 2, T, pos, sdp),
     ...over,
   });
 
-  it('pins the signed bytes: 32 + 32 + 1 + 8 + 24 + 32 after the domain', () => {
-    const bytes = signalBytes(alice.playerId, bob.playerId, 'answer', T, pos, sdp);
+  it('pins the signed bytes: 32 + 32 + 1 + 1 + 8 + 24 + 32 after the domain', () => {
+    const bytes = signalBytes(alice.playerId, bob.playerId, 'answer', 3, T, pos, sdp);
     const tag = new TextEncoder().encode(SIGNAL_DOMAIN);
-    expect(bytes.length).toBe(tag.length + 32 + 32 + 1 + 8 + 24 + 32);
+    expect(bytes.length).toBe(tag.length + 32 + 32 + 1 + 1 + 8 + 24 + 32);
     expect(bytes.subarray(0, tag.length)).toEqual(tag);
     let o = tag.length;
     expect(bytes.subarray(o, o + 32)).toEqual(fromBase64Url(alice.playerId));
@@ -150,22 +151,28 @@ describe('signed signals', () => {
     o += 64;
     const view = new DataView(bytes.buffer, bytes.byteOffset);
     expect(view.getUint8(o)).toBe(1);
-    expect(view.getBigUint64(o + 1)).toBe(BigInt(T));
-    expect([0, 1, 2].map((i) => view.getFloat64(o + 9 + 8 * i))).toEqual(pos);
-    expect(bytes.subarray(o + 33)).toEqual(sha256(new TextEncoder().encode(sdp)));
-    expect(signalBytes(alice.playerId, bob.playerId, 'offer', T, pos, sdp)[o]).toBe(0);
+    expect(view.getUint8(o + 1)).toBe(3);
+    expect(view.getBigUint64(o + 2)).toBe(BigInt(T));
+    expect([0, 1, 2].map((i) => view.getFloat64(o + 10 + 8 * i))).toEqual(pos);
+    expect(bytes.subarray(o + 34)).toEqual(sha256(new TextEncoder().encode(sdp)));
+    expect(signalBytes(alice.playerId, bob.playerId, 'offer', 3, T, pos, sdp)[o]).toBe(0);
+    expect(signalBytes(alice.playerId, bob.playerId, 'refuse', 3, T, pos, '')[o]).toBe(2);
+    expect(() => signalBytes(alice.playerId, bob.playerId, 'offer', 5 as 0, T, pos, sdp)).toThrow(
+      RangeError,
+    );
   });
 
-  it('a signature verifies; another to, kind, at, pos, sdp byte or key fails', () => {
+  it('a signature verifies; another to, kind, class, at, pos, sdp byte or key fails', () => {
     expect(signalSigned(relay())).toBe(true);
     expect(signalSigned(relay({ to: alice.playerId }))).toBe(false);
     expect(signalSigned(relay({ kind: 'answer' }))).toBe(false);
+    expect(signalSigned(relay({ cls: 1 }))).toBe(false);
     expect(signalSigned(relay({ at: T + 1 }))).toBe(false);
     expect(signalSigned(relay({ pos: [pos[0], pos[1], 12.75] }))).toBe(false);
     expect(signalSigned(relay({ pos: [pos[0] + 0.125, pos[1], pos[2]] }))).toBe(false);
     expect(signalSigned(relay({ sdp: sdp.replace('127', '128') }))).toBe(false);
     expect(signalSigned(relay({ from: bob.playerId }))).toBe(false);
-    expect(signalSigned(relay({ sig: signSignal(bob, bob.playerId, 'offer', T, pos, sdp) }))).toBe(
+    expect(signalSigned(relay({ sig: signSignal(bob, bob.playerId, 'offer', 2, T, pos, sdp) }))).toBe(
       false,
     );
     const sig = relay().sig;
@@ -202,7 +209,7 @@ describe('signed signals', () => {
       if (signalSigned((r === 2 && rng.int(0, 3) === 0 ? pick(atoms) : v) as typeof base)) passed++;
     }
     expect(passed).toBeGreaterThan(0);
-    expect(() => signalBytes('x', bob.playerId, 'offer', T, pos, sdp)).toThrow(RangeError);
+    expect(() => signalBytes('x', bob.playerId, 'offer', 2, T, pos, sdp)).toThrow(RangeError);
   });
 
   // A signal is checked under its sender's key, which nobody tables (about 1.3 ms in Node, the
@@ -212,7 +219,7 @@ describe('signed signals', () => {
       signSeat(secret, { ...seat, player: authorityPublicKey(new Uint8Array(32).fill(i + 10)) }),
     );
     const signals = Array.from({ length: 20 }, (_, i) =>
-      relay({ at: T + i, sig: signSignal(alice, bob.playerId, 'offer', T + i, pos, sdp) }),
+      relay({ at: T + i, sig: signSignal(alice, bob.playerId, 'offer', 2, T + i, pos, sdp) }),
     );
     const checkAll = () =>
       tickets.every((s) => seatValid(s, keys, { ...want, player: s.seat.player })) &&

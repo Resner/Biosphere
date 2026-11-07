@@ -335,7 +335,8 @@ export function broadcast(hub: Hub, pondId: string, except: WebSocket, msg: HubM
  * Forwards a signal, stamped with the verified sender, to a member of the sender's pond, to a
  * session the directory places within reach (`relayReach`, M11 T6), or across ponds between a
  * referee witness and its fight's fighters while that duty runs (M10 T6). It carries the sender's
- * directory position as `at` once the sender has reported.
+ * directory position as `at` once the sender has reported, and the sender's link class `cls` (M11
+ * T13) when it named one.
  */
 export function relay(
   hub: Hub,
@@ -356,7 +357,8 @@ export function relay(
       hub.duties.linksOf(from).includes(msg.to)
     ) {
       const at = atOf(hub, from);
-      send(other, { t: 'signal', from, kind: msg.kind, sdp: msg.sdp, ...(at ? { at } : {}) });
+      const cls = msg.cls === undefined ? {} : { cls: msg.cls };
+      send(other, { t: 'signal', from, kind: msg.kind, sdp: msg.sdp, ...cls, ...(at ? { at } : {}) });
       countRelay(hub, from, msg.to);
       return;
     }

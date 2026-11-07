@@ -26,7 +26,9 @@ import {
   isInt,
   isNum,
   isObj,
+  isSignalKind,
   isStr,
+  isWireClass,
   list,
   MAX_TIME,
   type Obj,
@@ -155,15 +157,17 @@ export function worldPeerEvent(o: Obj): PeerEvent | null {
       return entries && distinct(entries, (e) => e[0]) ? { t: 'peers', list: entries } : null;
     }
     case 'relay': {
-      if (!only(o, ['t', 'from', 'to', 'kind', 'sdp', 'at', 'pos', 'sig'])) return null;
+      if (!only(o, ['t', 'from', 'to', 'kind', 'sdp', 'cls', 'at', 'pos', 'sig'])) return null;
       const at = pos(o.pos);
       return at &&
         isStr(o.from, PLAYER_ID_RE) &&
         isStr(o.to, PLAYER_ID_RE) &&
-        (o.kind === 'offer' || o.kind === 'answer') &&
+        isSignalKind(o.kind) &&
         typeof o.sdp === 'string' &&
-        o.sdp.length > 0 &&
+        // A refusal carries no description; an offer or answer always does.
+        (o.kind === 'refuse' ? o.sdp.length === 0 : o.sdp.length > 0) &&
         byteLength(o.sdp) <= SDP_MAX_BYTES &&
+        isWireClass(o.cls) &&
         isInt(o.at, 0, MAX_TIME) &&
         isStr(o.sig, SIG_RE)
         ? {
@@ -172,6 +176,7 @@ export function worldPeerEvent(o: Obj): PeerEvent | null {
             to: o.to,
             kind: o.kind,
             sdp: o.sdp,
+            cls: o.cls,
             at: o.at,
             pos: at,
             sig: o.sig,

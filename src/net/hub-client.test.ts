@@ -253,6 +253,24 @@ describe('HubClient listeners', () => {
     expect(fights).toEqual([]);
   });
 
+  it('forwards the directory’s near and leaf (M11 T13)', async () => {
+    const client = make();
+    const world: unknown[] = [];
+    client.onWorld((m) => world.push(m));
+    void client.connect().catch(() => {});
+    const s = await handshake();
+    const leaf = { x: 131_072, y: 0, size: 131_072 };
+    const near = {
+      t: 'near',
+      leaf,
+      peers: [{ id: 'A'.repeat(43), name: 'ann', x: 131_100, y: 131_000, r: 10, age: 200 }],
+      swarm: [],
+    } as const;
+    s.receive(near);
+    s.receive({ t: 'leaf', leaf });
+    expect(world).toEqual([near, { t: 'leaf', leaf }]);
+  });
+
   it('a throwing listener does not stop the others or the receive path', async () => {
     const client = make();
     const signals: unknown[] = [];

@@ -62,6 +62,11 @@ export interface PeerMeshOptions {
   iceServers?: RTCIceServer[];
   /** With a gate, a peer is joined only once its hello passes (M11 T9). */
   hello?: HelloGate;
+  /**
+   * Whether the mesh calls again by itself: a first call that never came up once, a dropped link
+   * from the lower id (default true). A page whose plan decides every call (M11 T13) turns it off.
+   */
+  retry?: boolean;
 }
 
 export interface PeerMeshStats {
@@ -97,6 +102,8 @@ interface Link {
   up: boolean;
   /** A caller that took its answer. */
   answered: boolean;
+  /** A callee's offer, so the same offer again is answered again rather than rebuilt. */
+  offer: string | null;
   /** Joined: up, and with a gate the peer's hello passed. */
   opened: boolean;
   /** The peer's ticket, once its hello passed. */
@@ -220,9 +227,16 @@ export class PeerMesh {
       // Glare: both sides offered and we are the impolite one, so our offer stands.
       return Promise.resolve();
     }
+    if (link && !link.caller && !link.up && link.offer === sdp) {
+      // The same offer again (the hub's resend beside a relayed copy): the answer may have been lost.
+      return this.enqueue(link, async () => {
+        if (link.pc.localDescription) this.opts.signal(from, 'answer', link.pc.localDescription.sdp);
+      });
+    }
     if (link) this.teardown(link);
     this.clearRetry(from);
     const callee = this.createLink(from, false);
+    callee.offer = sdp;
     return this.enqueue(callee, async () => {
       await callee.pc.setRemoteDescription({ type: 'offer', sdp });
       await callee.pc.setLocalDescription();
@@ -260,6 +274,7 @@ export class PeerMesh {
       event: null,
       up: false,
       answered: false,
+      offer: null,
       opened: false,
       ticket: null,
       closed: false,
@@ -361,7 +376,10 @@ export class PeerMesh {
     const recovering = link.recovering || wasOpen;
     const attempt = wasOpen ? 1 : link.attempt + 1;
     const caller = wasOpen ? this.opts.selfId < peerId : link.caller;
-    const retry = caller && attempt <= (recovering ? RECOVERY_MAX_ATTEMPTS : 1);
+    const retry =
+      this.opts.retry !== false &&
+      caller &&
+      attempt <= (recovering ? RECOVERY_MAX_ATTEMPTS : 1);
     this.teardown(link);
     if (!retry) return;
     const delay = Math.min(RETRY_DELAY_MS * 2 ** (attempt - 1), RETRY_DELAY_MAX_MS);
