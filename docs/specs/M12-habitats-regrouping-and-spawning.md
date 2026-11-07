@@ -254,7 +254,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - Done: `worker/placement.ts` (`groupsFor` takes an optional third argument, the spawn centre, for its tie-break), `clearOfPlumes` and `plumeFutures` in `src/sim/spawn.ts`.
     - Gotcha: the depth pin leaves the spawn centre at 0.26 to 0.54, so the exact centre is exempt from the 0.27 floor in an empty world; otherwise an empty world would not give it on some seeds.
 
-- [ ] T3 Crowd instances, pure: the authority's crowds and the page's filter [opus] (after T1)
+- [ ] T3 Crowd instances, pure: the authority's crowds and the page's filter [opus] (after T1) (in progress)
   - Steps:
     1. `worker/crowds.ts`: `Crowds` (shapes above), as ADR 0064 decides:
        - **forming**: a crowded report from open water with no crowd member within the reporter's P1 reach schedules a crowd, due `SPLIT_WAIT_MS` later. At `settle` it takes the reporter and the open-water members `around` places within that reach, and splits them into max(2, ⌈n ÷ `INSTANCE_MAX`⌉) instances;
