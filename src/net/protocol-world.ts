@@ -61,8 +61,8 @@ export function worldInfo(v: unknown): WorldInfo | null {
 
 function leaf(v: unknown): Leaf | null {
   if (!isObj(v) || !only(v, ['x', 'y', 'size'])) return null;
-  return isInt(v.x, 0, WIRE_POS_MAX - 1) &&
-    isInt(v.y, 0, WIRE_POS_MAX - 1) &&
+  return isInt(v.x, 0, COORD_INT_MAX) &&
+    isInt(v.y, 0, COORD_INT_MAX) &&
     isInt(v.size, 1, WIRE_POS_MAX)
     ? { x: v.x, y: v.y, size: v.size }
     : null;
@@ -80,6 +80,8 @@ function nearPeer(v: unknown): NearPeer | null {
     : null;
 }
 
+const COORD_INT_MAX = WIRE_POS_MAX - 1;
+
 function point(v: unknown): [number, number] | null {
   if (!Array.isArray(v) || v.length !== 2) return null;
   const [x, y] = v;
@@ -88,8 +90,8 @@ function point(v: unknown): [number, number] | null {
 
 function gossipEntry(v: unknown): [string, number, number, number] | null {
   if (!Array.isArray(v) || v.length !== 4) return null;
-  const [id, x, y, r] = v;
-  return isStr(id, PLAYER_ID_RE) && isCoord(x) && isCoord(y) && isRadius(r) ? [id, x, y, r] : null;
+  const at = pos(v.slice(1));
+  return isStr(v[0], PLAYER_ID_RE) && at ? [v[0], ...at] : null;
 }
 
 /** Whether no two entries share an id. */
@@ -177,8 +179,8 @@ export function worldPeerEvent(o: Obj): PeerEvent | null {
         : null;
     }
     case 'rate': {
-      const hz = SNAPSHOT_RATES.find((r) => r === o.hz);
-      return only(o, ['t', 'hz']) && hz !== undefined ? { t: 'rate', hz } : null;
+      const hz = only(o, ['t', 'hz']) ? SNAPSHOT_RATES.find((r) => r === o.hz) : undefined;
+      return hz === undefined ? null : { t: 'rate', hz };
     }
     default:
       return null;

@@ -9,7 +9,6 @@ import {
   CONSUMED_MAX_ENTRIES,
   CONSUMED_MAX_PARTS,
   EMOTE_COUNT,
-  EVENT_MAX_BYTES,
   type FallbackInfo,
   GENESIS_MAX_BYTES,
   HISTORY_MAX,
@@ -30,6 +29,7 @@ import {
   type PeerEvent,
   PING_KINDS,
   PROTOCOL_VERSION,
+  peerEventMax,
   RELAY_MAX_BYTES,
   SIGNAL_MAX_BYTES,
   type Vec2,
@@ -594,7 +594,7 @@ function consumedEntry(v: unknown): [string, number, number] | null {
 /** A peer event: at most `EVENT_MAX_BYTES`, or `RELAY_MAX_BYTES` for a `relay`. */
 export function parsePeerEvent(raw: string): PeerEvent | null {
   const o = parseObject(raw, RELAY_MAX_BYTES);
-  if (!o || (o.t !== 'relay' && byteLength(raw) > EVENT_MAX_BYTES)) return null;
+  if (!o || byteLength(raw) > peerEventMax(o.t)) return null;
   switch (o.t) {
     case 'claim':
       return isSlot(o.slot) && isInt(o.k, 0, MAX_TICK) && isInt(o.tick, 0, MAX_TICK)

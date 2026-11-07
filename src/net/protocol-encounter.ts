@@ -51,7 +51,7 @@ const LOCK_RE = /^[0-9a-f]{16,64}$/;
 const SNAP_RE = new RegExp(`^[A-Za-z0-9_-]{${Math.ceil((SNAPSHOT_BYTES * 4) / 3)}}$`);
 /** An encounter's state hash (`hashEncounter`): 16 hex characters. */
 const STATE_HASH_RE = /^[0-9a-f]{16}$/;
-/** Positions lie in the world (the snapshot covers 0 to 8192 wu), velocities within a snapshot's range. */
+/** A fight's positions lie in 0 to 8192 wu (a fight stays inside its own area), velocities within a snapshot's range. */
 const POS_MAX = 8192;
 const VEL_MAX = 8192;
 const HEADING_MAX = 2 * Math.PI;

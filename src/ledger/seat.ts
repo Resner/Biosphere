@@ -4,6 +4,8 @@
 // T2 fixes the shapes and the parser; T7 adds the signing and the checks. No `@noble/curves` here:
 // the wire's parsers import this module.
 
+import { onlyKeys as only } from './witness-doc';
+
 export const SEAT_TTL_MS = 900_000;
 /** A fresh ticket goes out after the first `pong` this long after the last ticket. */
 export const SEAT_RENEW_MS = 600_000;
@@ -35,7 +37,6 @@ const KEY_ID = /^[A-Za-z0-9_-]{8}$/;
 
 type Obj = Record<string, unknown>;
 const isObj = (v: unknown): v is Obj => typeof v === 'object' && v !== null && !Array.isArray(v);
-const only = (o: Obj, keys: readonly string[]) => Object.keys(o).every((k) => keys.includes(k));
 const isStr = (v: unknown, re: RegExp): v is string => typeof v === 'string' && re.test(v);
 const isTime = (v: unknown): v is number =>
   typeof v === 'number' && Number.isSafeInteger(v) && v >= 0;

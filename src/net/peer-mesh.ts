@@ -5,10 +5,9 @@ import { decodeStateFrame } from '../ledger/snapshot-sig';
 import { guarded } from './guarded';
 import {
   byteLength,
-  EVENT_MAX_BYTES,
   type PeerEvent,
   parsePeerEvent,
-  RELAY_MAX_BYTES,
+  peerEventMax,
   type SignedSnap,
   type Snapshot,
 } from './protocol';
@@ -170,7 +169,7 @@ export class PeerMesh {
   /** Sends an event on the reliable channel (a `relay` up to `RELAY_MAX_BYTES`). Returns false when it was not sent. */
   sendEvent(peerId: string, event: PeerEvent): boolean {
     const text = JSON.stringify(event);
-    if (byteLength(text) > (event.t === 'relay' ? RELAY_MAX_BYTES : EVENT_MAX_BYTES)) return false;
+    if (byteLength(text) > peerEventMax(event.t)) return false;
     return this.sendOn(this.links.get(peerId)?.event ?? null, text);
   }
 

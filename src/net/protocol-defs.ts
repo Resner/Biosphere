@@ -76,6 +76,9 @@ export const SWARM_MAX = 64;
 export const NEAR_MAX_BYTES = 8192;
 export const GOSSIP_MAX = 16;
 export const RELAY_MAX_BYTES = 10_240;
+/** The size cap of a peer event of type `t`, for the sender and the receiver alike. */
+export const peerEventMax = (t: unknown): number =>
+  t === 'relay' ? RELAY_MAX_BYTES : EVENT_MAX_BYTES;
 /** Positions on the wire lie in 0 to 2^29 wu (exclusive), the snapshot's reach. */
 export const WIRE_POS_MAX = 2 ** 29;
 /** A reported radius lies in 1 to 4096 wu, and an area of interest in 1 to 40,000 wu. */
