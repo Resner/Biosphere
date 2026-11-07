@@ -131,6 +131,12 @@ export const RULES = deepFreeze({
       abyss: { detritus: 20, globule: 0, crystal: 80 },
     },
     ventRange: 300,
+    /**
+     * Food by tier (M11, ADR 0061): layer k from 0 to `max` has cells of `cellSize` × `cellStep`^k
+     * wu with `slotsPerCell` slots, items `widthStep`^k times as wide and `richnessStep`^k times as
+     * rich. A creature of tier t eats layers t - 1 and t. Layer 0 is the table above.
+     */
+    layers: { max: 4, cellStep: 4, widthStep: 4, richnessStep: 64, slotsPerCell: 10 },
   },
   /** Carrion (M7, DESIGN §2): the share and energy per biomass are `encounter.reward.carrion` and `.energyPerBiomass`. */
   carrion: {

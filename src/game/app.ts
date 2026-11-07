@@ -13,11 +13,12 @@ import { type PresetName, resolvePreset } from '../render/presets';
 import { GameScene } from '../render/scene';
 import { Shake } from '../render/shake';
 import { carrionNear } from '../sim/carrion';
-import { foodNear } from '../sim/food';
+import { eatenLayers, foodForTier, foodLayerWidth } from '../sim/food';
 import { plumesNear } from '../sim/hazards';
 import { IDLE, type Input } from '../sim/input';
 import type { MateView } from '../sim/mating';
 import { RULES } from '../sim/rules';
+import { sizeTier } from '../sim/size';
 import type { FoodItem } from '../sim/types';
 import { AttackUi } from './app-attack';
 import { DutyWiring } from './app-duty';
@@ -628,8 +629,17 @@ export class App {
     const { world, player } = this.session;
     const radius = Math.sqrt(player.biomass);
     const half = Math.max(this.camera.halfHeight, viewHalfHeight(radius, adultRadius(player)));
-    const reach = Math.hypot(half * this.scene.aspect, half) + FIELD_MARGIN;
-    this.food = foodNear(world, player.x, player.y, reach);
+    const view = Math.hypot(half * this.scene.aspect, half);
+    const tier = sizeTier(player.biomass);
+    // Items of the player's layers: t - 1 and t, the latter as wide as its layer's items are.
+    const reach = view + FIELD_MARGIN;
+    this.food = foodForTier(
+      world,
+      player.x,
+      player.y,
+      view + FIELD_MARGIN * foodLayerWidth(eatenLayers(tier)[1]),
+      tier,
+    );
     this.scene.setField(
       this.food,
       plumesNear(world, player.x, player.y, reach),

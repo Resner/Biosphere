@@ -31,7 +31,7 @@ describe('pacing simulation', () => {
   });
 
   it('prints every section, with the doubling from the rules', () => {
-    const text = pacingReport({ creatures: 2, minutes: 15 });
+    const text = pacingReport({ creatures: 2, minutes: 15, tiers: false });
     for (const heading of [
       '# Pacing report',
       '## Targets',
@@ -50,5 +50,8 @@ describe('pacing simulation', () => {
   it('rejects bad options', () => {
     expect(() => parseArgs(['--creatures', '0'])).toThrow(/Bad option/);
     expect(parseArgs(['--minutes', '5']).minutes).toBe(5);
+    expect(parseArgs([]).tiers).toBe(false);
+    expect(parseArgs(['--tiers', '--creatures', '3'])).toMatchObject({ tiers: true, creatures: 3 });
+    expect(parseArgs(['--creatures', '3', '--tiers']).tiers).toBe(true);
   });
 });

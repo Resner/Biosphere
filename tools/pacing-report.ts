@@ -23,21 +23,28 @@ export interface PacingOptions {
   creatures: number;
   /** Cap on the active minutes simulated per creature (a full life is its lifespan). */
   minutes: number;
+  /** Report the growth of bots at the bottom of tiers 1 to 3 against a starter's (M11 T5) instead. */
+  tiers: boolean;
 }
 
-const DEFAULTS: PacingOptions = { creatures: 12, minutes: 120 };
+const DEFAULTS: PacingOptions = { creatures: 12, minutes: 120, tiers: false };
 
 export function parseArgs(argv: readonly string[]): PacingOptions {
   const options = { ...DEFAULTS };
   for (let i = 0; i < argv.length; i += 2) {
     const key = (argv[i] ?? '').replace(/^--/, '');
+    if (key === 'tiers') {
+      options.tiers = true;
+      i--;
+      continue;
+    }
     const value = Number(argv[i + 1]);
-    if (!Object.hasOwn(DEFAULTS, key) || !Number.isInteger(value) || value < 1) {
+    if (key === 'tiers' || !Object.hasOwn(DEFAULTS, key) || !Number.isInteger(value) || value < 1) {
       throw new Error(
-        `Bad option ${argv[i]} ${argv[i + 1]}: use --creatures, --minutes with whole numbers`,
+        `Bad option ${argv[i]} ${argv[i + 1]}: use --creatures, --minutes with whole numbers, or --tiers`,
       );
     }
-    options[key as keyof PacingOptions] = value;
+    (options as unknown as Record<string, number>)[key] = value;
   }
   return options;
 }
@@ -47,6 +54,8 @@ export interface Life {
   doubledAtMs: number | null;
   /** Active ms when biomass first reached `matureBiomassShare` of the maximum, or null. */
   sixtyAtMs: number | null;
+  /** Active ms when biomass first reached 1.5 times its start, or null. */
+  halfAtMs: number | null;
   /** Active ms when the creature first counted as mature, or null. */
   matureAtMs: number | null;
   /** Active ms when it was first mature, fed and out of cooldown. */
@@ -63,13 +72,19 @@ export interface Life {
 /** The biomass band whose crossing time gives a forager's growth rate (the combat tournament compares kills with it). */
 export const GROWTH_BAND = [250, 350] as const;
 const SENSE = 400;
+/** The biomass at the bottom of tiers 0 to 3 (radius 32 × 4^t, squared); tier 0 hatches at the starter's. */
+const TIER_START = [RULES.starter.biomass, 1024, 16_384, 262_144] as const;
+/** 4^t: a bigger body senses and eats at a bigger scale. */
+const TIER_SCALE = [1, 4, 16, 64] as const;
+/** The world a tier bot lives in: big enough for layer 3's cells of 16,384 wu. */
+const TIER_WORLD = 262_144;
 /** How far from a cloud's edge the bot turns away (wu), on top of its own radius. */
 const PLUME_MARGIN = 60;
 const MS_PER_TICK = 1000 / TICK_HZ;
 /** The depths a bot stays within (a player reads the depth gauge): clear of UV above and pressure below. */
 const SAFE_DEPTH: readonly [number, number] = [0.27, 0.68];
 const safeDepth = (world: World, x: number, y: number): boolean => {
-  const depth = depthAt(world.seed32, x, y);
+  const depth = depthAt(world.seed32, x, y, world.size);
   return depth >= SAFE_DEPTH[0] && depth <= SAFE_DEPTH[1];
 };
 
@@ -77,15 +92,32 @@ const safeDepth = (world: World, x: number, y: number): boolean => {
 export function simulateLife(
   name: string,
   capMs: number,
-  { mate = true, untilBand = false }: { mate?: boolean; untilBand?: boolean } = {},
+  {
+    mate = true,
+    untilBand = false,
+    tier = 0,
+    untilHalf = false,
+  }: { mate?: boolean; untilBand?: boolean; tier?: number; untilHalf?: boolean } = {},
 ): Life {
   const { stats, phys } = buildCreature(genesisGenome(seedFromString(`pacing-${name}`)));
   const lifespan = lifespanMs(stats.physiology.lifespan);
-  const world = createWorld({ seed: `pacing/${name}` });
-  const me = spawnCreature(world, { id: 'bot', x: world.size / 2, y: world.size / 2, phys });
+  // A tier bot starts at the bottom of its tier with an adult size 1.5 times that, in the full world.
+  const biomass = TIER_START[tier] as number;
+  const world = createWorld(
+    tier === 0 ? { seed: `pacing/${name}` } : { seed: `pacing/${name}`, size: TIER_WORLD },
+  );
+  const me = spawnCreature(world, {
+    id: 'bot',
+    x: world.size / 2,
+    y: world.size / 2,
+    biomass,
+    phys: tier === 0 ? phys : { ...phys, maxBiomass: 1.5 * biomass },
+  });
   const startBiomass = me.biomass;
+  const sense = SENSE * (TIER_SCALE[tier] as number);
   const life: Life = {
     doubledAtMs: null,
+    halfAtMs: null,
     sixtyAtMs: null,
     matureAtMs: null,
     firstEligibleMs: null,
@@ -111,25 +143,29 @@ export function simulateLife(
     }
     if (ms >= capMs) break;
     if (untilBand && life.bandMs[1] !== null) break;
+    if (untilHalf && life.halfAtMs !== null) break;
     if (ms >= RULES.life.elderAt * lifespan) me.elder = true;
     if (world.tick % 6 === 0) {
       let bestD = Number.POSITIVE_INFINITY;
       target = null;
       // Swim away from a toxic cloud before reaching it, and ignore food inside one.
-      const clouds = plumesNear(world, me.x, me.y, SENSE);
+      const clouds = plumesNear(world, me.x, me.y, sense);
       const margin = Math.sqrt(me.biomass) + PLUME_MARGIN;
       flee = null;
       for (const p of clouds) {
         const d = Math.hypot(p.x - me.x, p.y - me.y) - p.radius;
         if (d < margin && (flee === null || d < flee.d)) flee = { x: p.x, y: p.y, d };
       }
-      for (const f of foodNear(world, me.x, me.y, SENSE)) {
-        if (clouds.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.radius + margin)) continue;
-        if (!safeDepth(world, f.x, f.y)) continue;
-        const d = (f.x - me.x) ** 2 + (f.y - me.y) ** 2;
-        if (d < bestD) {
-          bestD = d;
-          target = f;
+      // A creature of tier t eats layers t - 1 and t.
+      for (let layer = Math.max(0, tier - 1); layer <= tier; layer++) {
+        for (const f of foodNear(world, me.x, me.y, sense, layer)) {
+          if (clouds.some((p) => Math.hypot(p.x - f.x, p.y - f.y) < p.radius + margin)) continue;
+          if (!safeDepth(world, f.x, f.y)) continue;
+          const d = (f.x - me.x) ** 2 + (f.y - me.y) ** 2;
+          if (d < bestD) {
+            bestD = d;
+            target = f;
+          }
         }
       }
       if (target === null && world.tick % 180 === 0) {
@@ -150,6 +186,7 @@ export function simulateLife(
 
     const now = world.tick * MS_PER_TICK;
     if (life.doubledAtMs === null && me.biomass >= 2 * startBiomass) life.doubledAtMs = now;
+    if (life.halfAtMs === null && me.biomass >= 1.5 * startBiomass) life.halfAtMs = now;
     if (life.sixtyAtMs === null && me.biomass >= RULES.life.matureBiomassShare * stats.maxBiomass) {
       life.sixtyAtMs = now;
     }
@@ -199,7 +236,64 @@ const percentile = (sorted: readonly number[], p: number): number =>
 const min = (ms: number): string => (Number.isNaN(ms) ? 'n/a' : (ms / 60_000).toFixed(1));
 const ascending = (a: number, b: number): number => a - b;
 
+/** A tier bot's growth by half may take 0.5 to 2 times a starter's (ADR 0061). */
+export const TIER_PACE_RANGE = [0.5, 2] as const;
+
+/** One row of the tier table: a tier's bots and how long they take to grow by half. */
+export interface TierRow {
+  tier: number;
+  start: number;
+  /** Median active ms to grow by half over the bots that did, or NaN. */
+  medianMs: number;
+  /** How many of the bots grew by half within the cap. */
+  grew: number;
+  /** The median over the T0 bot's, or NaN. */
+  ratio: number;
+}
+
+/** The median minutes to grow by half of foragers at the bottom of tiers 0 to 3 (ADR 0061). */
+export function tierRows(creatures: number, capMs: number): TierRow[] {
+  const rows = [0, 1, 2, 3].map((tier) => {
+    const times = Array.from({ length: creatures }, (_, i) =>
+      simulateLife(`tier-${tier}-${i}`, capMs, { mate: false, tier, untilHalf: true }),
+    )
+      .flatMap((l) => l.halfAtMs ?? [])
+      .sort(ascending);
+    return {
+      tier,
+      start: TIER_START[tier] as number,
+      medianMs: percentile(times, 0.5),
+      grew: times.length,
+      ratio: 0,
+    };
+  });
+  const base = (rows[0] as TierRow).medianMs;
+  return rows.map((row) => ({ ...row, ratio: row.medianMs / base }));
+}
+
+/** The tier table as Markdown: foragers at the bottom of each tier, how long they take to grow by half. */
+export function tierReport(creatures: number, capMs: number): string {
+  const rows = tierRows(creatures, capMs);
+  const [lo, hi] = TIER_PACE_RANGE;
+  return [
+    '# Pacing by tier',
+    '',
+    `Foragers at the bottom of each tier (adult size 1.5 × the start) eat layers t and t − 1. ${creatures} bots per tier; times are active minutes to grow by half.`,
+    '',
+    '| Tier | Start biomass | Grew by half | Median (min) | × the T0 bot | Within the range |',
+    '|---|---|---|---|---|---|',
+    ...rows.map((r) => {
+      const ok = r.tier === 0 || (r.ratio >= lo && r.ratio <= hi);
+      return `| T${r.tier} | ${r.start} | ${r.grew}/${creatures} | ${min(r.medianMs)} | ${Number.isNaN(r.ratio) ? 'n/a' : r.ratio.toFixed(2)} | ${r.tier === 0 ? '(base)' : ok ? 'yes' : 'NO'} |`;
+    }),
+    '',
+    `Target: tiers 1 to 3 within ${lo}–${hi} × the T0 bot.`,
+    '',
+  ].join('\n');
+}
+
 export function pacingReport(options: PacingOptions): string {
+  if (options.tiers) return tierReport(options.creatures, options.minutes * 60_000);
   const lives = Array.from({ length: options.creatures }, (_, i) =>
     simulateLife(String(i), options.minutes * 60_000),
   );
