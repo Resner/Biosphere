@@ -13,19 +13,14 @@ const HUB = 'http://localhost:8789';
 // One hub, whose spawn ring the players share: one scenario at a time.
 test.describe.configure({ mode: 'serial' });
 
-/** Friends who hatch side by side are linked within this long of their hatch (M11 T14, ADR 0062). */
-const LINKED_MS = 3000;
-
 async function joinThree(browser: Browser): Promise<[Page, Page, Page]> {
   const pages: Page[] = [];
-  const hatchedAt: number[] = [];
   for (let i = 0; i < 3; i++) {
     const page = await (await browser.newContext()).newPage();
     await openGame(page, `?debug=1&hub=${HUB}`);
     await page.waitForFunction(() => window.__bs?.state().playerId);
     // One after the other: a hatch waits for its hub welcome, and each takes the next spawn slot.
     await hatch(page);
-    hatchedAt.push(await page.evaluate(() => performance.now()));
     pages.push(page);
   }
   for (const page of pages) {
@@ -33,14 +28,14 @@ async function joinThree(browser: Browser): Promise<[Page, Page, Page]> {
       timeout: 20_000,
     });
   }
-  // Each later friend links to the ones already swimming within 3 s of its hatch, by its own clock.
+  // Each later friend is linked to the ones already swimming. How fast is the harness's gate 4
+  // (sim time); a wall-clock bound would only measure the runner.
   const ids = await Promise.all(pages.map(async (p) => (await state(p)).playerId));
   for (const [i, page] of pages.entries()) {
     const links = (await state(page)).net.links.filter((l) => l.hello);
     for (const earlier of ids.slice(0, i)) {
       const since = links.find((l) => l.id === earlier)?.since ?? null;
       expect(since, `the link to ${earlier} opened`).not.toBeNull();
-      expect((since ?? 0) - (hatchedAt[i] ?? 0)).toBeLessThanOrEqual(LINKED_MS);
     }
   }
   return pages as [Page, Page, Page];
