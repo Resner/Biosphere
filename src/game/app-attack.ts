@@ -38,6 +38,8 @@ export interface AttackView {
   shimmer: string[];
   /** An engage is out and unanswered. */
   waiting: boolean;
+  /** Why the last engage went unsent (`unsigned`) or was refused (`engage:<why>`), or null. */
+  refusal: string | null;
 }
 
 export class AttackUi {
@@ -55,7 +57,7 @@ export class AttackUi {
   private readonly stats = new Map<string, Stats>();
   private starter: Stats | null = null;
   private own: { creature: Creature; stats: Stats } | null = null;
-  private readonly view: AttackView = { hint: null, shimmer: [], waiting: false };
+  private readonly view: AttackView = { hint: null, shimmer: [], waiting: false, refusal: null };
 
   constructor(private readonly app: App) {
     this.attack = new Attack({
@@ -217,6 +219,7 @@ export class AttackUi {
     const hint = self ? hintTarget(self, peers) : null;
     view.hint = hint?.id ?? null;
     view.waiting = this.attack.waiting;
+    view.refusal = this.attack.lastRefusal;
     const target = hint ? remotes.find((r) => r.id === hint.id) : undefined;
     if (target) {
       const r = target.radius * p.pxPerWu;
@@ -287,6 +290,11 @@ export class AttackUi {
 
   /** What `state().attack` shows. */
   info(): AttackView {
-    return { hint: this.view.hint, shimmer: [...this.view.shimmer], waiting: this.view.waiting };
+    return {
+      hint: this.view.hint,
+      shimmer: [...this.view.shimmer],
+      waiting: this.view.waiting,
+      refusal: this.view.refusal,
+    };
   }
 }

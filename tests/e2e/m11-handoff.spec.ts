@@ -198,16 +198,24 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       lastD = d;
       if (d > 120) {
         nearSince = null;
-        await steer(c, me.x - CENTRE, me.y - CENTRE);
+        // Both swim: bodies differ (a whip or a paddle, each from its own DNA), and a slow C on a
+        // slow runner covered only a few wu/s. The link, the far rates and the leaf exits are
+        // already behind A, so it is free to swim back.
+        await Promise.all([
+          steer(c, me.x - CENTRE, me.y - CENTRE),
+          steer(a, cAt.x - CENTRE, cAt.y - CENTRE),
+        ]);
       } else {
         nearSince ??= Date.now();
         if (Date.now() - nearSince > 3000) break;
       }
       await a.page.waitForTimeout(500);
     }
+    const speedA = (await state(a.page)).player?.speed;
+    const speedC = (await state(c.page)).player?.speed;
     expect(
       nearSince,
-      `C came into A’s view (last distance ${Math.round(lastD)} wu)`,
+      `C came into A’s view (last distance ${Math.round(lastD)} wu, speeds A ${speedA}, C ${speedC})`,
     ).not.toBeNull();
 
     const watch = await a.page.evaluate(() => (window as unknown as { __watch: Watch }).__watch);
