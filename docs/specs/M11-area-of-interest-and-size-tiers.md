@@ -419,7 +419,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - A `where` writes no SQLite row. 21 messages in 10 s close a session, as before.
   - Notes: no client sends `where` until T13, and the ponds stay until T14. Before T14, a `near` that crosses ponds is a bug.
 
-- [ ] T7 Seat tickets and signed signals [opus] (after T2)
+- [ ] T7 Seat tickets and signed signals [opus] (after T2) (in progress)
   - Steps:
     1. `src/ledger/seat.ts`: `seatValid`, `signalBytes`, `signSignal` and `signalSigned` (shapes above).
        - A ticket is countersigned with the ledger's authority key over `'bs/seat/v1'` and its canonical JSON.
