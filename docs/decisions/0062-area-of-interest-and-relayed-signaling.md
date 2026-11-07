@@ -1,6 +1,6 @@
 # 0062: Area of interest: the directory, link classes, discovery, relayed signaling and seat tickets
 
-- Status: accepted (amends 0013: the classes' distances, the AoI from a 16:9 view, the fill to 8,192 wu, a crowded area flagged until M12's instances; amends 0007: either side calls, relayed signals are signed by their sender, peers prove their seat with a ticket; amends 0058: a witness's free slots are counted as links of P0 and P1, and duty links reach across the world; amends 0059: an in-time lock answer must hold one of the attacker's snapshots; amended by 0063: P2 to P4 reach by whichever creature sees further, an offer carries its caller's class, how clients dial)
+- Status: accepted (amends 0013: the classes' distances, the AoI from a 16:9 view, the fill to 8,192 wu, a crowded area flagged until M12's instances; amends 0007: either side calls, relayed signals are signed by their sender, peers prove their seat with a ticket; amends 0058: a witness's free slots are counted as links of P0 and P1, and duty links reach across the world; amends 0059: an in-time lock answer must hold one of the attacker's snapshots; amended by 0063: P2 to P4 reach by whichever creature sees further, an offer carries its caller's class, how clients dial; amended by 0064: links, `near`, gossip and the hello follow crowd instances, and a crowded page reports its crowd)
 - Date: 2026-11-07
 
 ## Context
