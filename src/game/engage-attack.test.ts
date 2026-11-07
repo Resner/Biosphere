@@ -246,6 +246,30 @@ describe('Attack', () => {
     expect(log.at(-1)).toBe('toast:Already fighting');
   });
 
+  it('keeps why the last engage went unsent or was refused, for the test hook', () => {
+    const { attack } = rig([peer('b', at(-4), 1000)]);
+    expect(attack.lastRefusal).toBeNull();
+    attack.press();
+    attack.refused('engage:stale');
+    expect(attack.lastRefusal).toBe('engage:stale');
+    const log: string[] = [];
+    const unsigned = new Attack({
+      self: () => self,
+      peers: () => [peer('b', at(-4), 1000)],
+      cursor: () => null,
+      engage: () => null,
+      send: () => log.push('send'),
+      ring: () => log.push('ring'),
+      endShield: () => log.push('shield'),
+      toast: (text) => log.push(`toast:${text}`),
+      nowMs: () => 0,
+      protectedLeft: () => null,
+    });
+    expect(unsigned.press()).toBe(false);
+    expect(unsigned.lastRefusal).toBe('unsigned');
+    expect(log).toEqual(["toast:Can't fight now"]);
+  });
+
   it('toasts instead of engaging a creature it cannot, by the card button too', () => {
     const { attack, log, sent } = rig([peer('b', at(20), 1000)]);
     expect(attack.press()).toBe(false);

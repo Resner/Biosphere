@@ -365,6 +365,8 @@ export const ENGAGE_WAIT_MS = 1000;
 export class Attack {
   /** The engage awaiting the authority's answer. */
   private pending: { target: string; bigger: boolean; until: number } | null = null;
+  /** Why the last engage went unsent or was refused (`engage:<why>`, or `unsigned`), for the test hook. */
+  lastRefusal: string | null = null;
 
   constructor(private readonly host: AttackHost) {}
 
@@ -398,6 +400,7 @@ export class Attack {
     }
     const msg = host.engage(choice.target.id);
     if (!msg) {
+      this.lastRefusal = 'unsigned';
       host.toast(refusalToast('other'));
       return false;
     }
@@ -416,6 +419,7 @@ export class Attack {
   refused(reason: string): void {
     const { pending, host } = this;
     this.pending = null;
+    this.lastRefusal = reason;
     const refusal = authorityRefusal(reason, pending?.bigger ?? true);
     const left = refusal === 'protected' && pending ? host.protectedLeft(pending.target) : null;
     host.toast(refusalToast(refusal, left));
