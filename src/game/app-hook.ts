@@ -151,6 +151,10 @@ function debugHelpers(app: App): BsDebug {
         return { spec, sender, startedMs: performance.now(), ref };
       });
     },
+    setKnown(known) {
+      const now = performance.now();
+      app.debugKnown = known.map(({ id, name, x, y, age }) => ({ id, name, x, y, at: now - age }));
+    },
     joinWorld(spec) {
       const clock = new PondClock();
       const now = performance.now();

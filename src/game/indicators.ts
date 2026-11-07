@@ -1,4 +1,4 @@
-// Edge indicators (M6 T19): every pond player off screen gets an arrow on the screen's edge that
+// Edge indicators (M6 T19): every linked player off screen gets an arrow on the screen's edge that
 // points at them, with the distance in the player's body lengths, a shape for their size and a mark
 // when they say they could mate. Pings nearby but off screen show the same way for their lifetime.
 // Positions come from the pond snapshots the game already receives, so this costs no traffic.
