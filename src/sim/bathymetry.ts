@@ -179,9 +179,13 @@ const EDGES = [0, B.zones.shallows, B.zones.twilight, B.zones.deep, 1];
  * that a disc of `centreRadius` wu there is always twilight.
  */
 export function depthAt(seed: Seed, x: number, y: number, size: number = RULES.world.size): number {
-  const field = fieldFor(seed, size);
+  return calibrated(fieldFor(seed, size), size, x, y, rawField(seed, x, y));
+}
+
+/** The calibrated depth at (x, y) from its raw field value `raw`: `depthAt`'s second half, shared by `depthSpan`. */
+function calibrated(field: Field, size: number, x: number, y: number, raw: number): number {
   const away = length(x - size / 2, y - size / 2);
-  const f = rawField(seed, x, y) - pinAt(away) * field.shift;
+  const f = raw - pinAt(away) * field.shift;
   const k = field.knots;
   let i = 0;
   while (i < 3 && f >= (k[i + 1] as number)) i++;
@@ -191,6 +195,70 @@ export function depthAt(seed: Seed, x: number, y: number, size: number = RULES.w
   const depth = lerp(EDGES[i] as number, EDGES[i + 1] as number, t);
   const cap = B.centreCap + B.capGrowth * Math.max(0, away - B.centreRadius);
   return clamp(B.base + clamp(depth - B.base, -cap, cap), 0, 1);
+}
+
+/** Each octave's lattice row and corner values as `depthSpan` walks a row (reused, never reallocated). */
+const span = {
+  iy: new Float64Array(OCTAVES.length),
+  v: new Float64Array(OCTAVES.length),
+  ix: new Float64Array(OCTAVES.length),
+  corners: new Float64Array(OCTAVES.length * 4),
+};
+
+/**
+ * `depthAt` along a row of square cells `cell` wu wide (M11 T11, the renderer's depth windows): the
+ * depth at the centre of cells `i0` to `i0 + n - 1` of row `j`, that is at ((i + 0.5) · cell,
+ * (j + 0.5) · cell), into `out` from `at`. Bit for bit what `depthAt` gives at each point, several
+ * times faster: neighbouring points share their lattice corners, so each corner is hashed once.
+ */
+export function depthSpan(
+  seed: Seed,
+  size: number,
+  cell: number,
+  i0: number,
+  j: number,
+  n: number,
+  out: Float64Array,
+  at = 0,
+): void {
+  const field = fieldFor(seed, size);
+  const y = (j + 0.5) * cell;
+  for (let o = 0; o < OCTAVES.length; o++) {
+    const gy = y / (OCTAVES[o] as { wavelength: number }).wavelength;
+    const iy = Math.floor(gy);
+    span.iy[o] = iy;
+    span.v[o] = fade(gy - iy);
+    span.ix[o] = Number.NaN;
+  }
+  const { corners } = span;
+  for (let k = 0; k < n; k++) {
+    const x = (i0 + k + 0.5) * cell;
+    let sum = 0;
+    for (let o = 0; o < OCTAVES.length; o++) {
+      const octave = OCTAVES[o] as { wavelength: number; weight: number };
+      const gx = x / octave.wavelength;
+      const ix = Math.floor(gx);
+      const u = fade(gx - ix);
+      const c = o * 4;
+      if (ix !== span.ix[o]) {
+        const iy = span.iy[o] as number;
+        span.ix[o] = ix;
+        corners[c] = lattice(seed, o, ix, iy);
+        corners[c + 1] = lattice(seed, o, ix + 1, iy);
+        corners[c + 2] = lattice(seed, o, ix, iy + 1);
+        corners[c + 3] = lattice(seed, o, ix + 1, iy + 1);
+      }
+      const v = span.v[o] as number;
+      sum +=
+        octave.weight *
+        lerp(
+          lerp(corners[c] as number, corners[c + 1] as number, u),
+          lerp(corners[c + 2] as number, corners[c + 3] as number, u),
+          v,
+        );
+    }
+    out[at + k] = calibrated(field, size, x, y, (B.noiseAmplitude * sum) / NORMALISER);
+  }
 }
 
 /** The zone of a depth. */
