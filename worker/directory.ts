@@ -5,6 +5,7 @@
 // members within the query radius, nearest first, and the much smaller ones in the AoI as points.
 
 import { queryRadius } from '../src/net/aoi';
+import { OPEN_WATER } from '../src/net/instance';
 import {
   byteLength,
   type Leaf,
@@ -180,6 +181,8 @@ export class Directory {
         y: wire(m.y),
         r: Math.max(1, wire(m.r)),
         age: Math.max(0, Math.round(now - m.t)),
+        // Every member is in the open water until the hub keeps crowds (M12 T5).
+        n: OPEN_WATER,
       } satisfies NearPeer,
     }));
     const points = swarm

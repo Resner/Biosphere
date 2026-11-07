@@ -1,6 +1,13 @@
 import { describe, expect, it } from 'vitest';
 import { createRng, seedFromString } from '../sim/prng';
-import { type Fix, GOSSIP_EVERY_MS, GOSSIP_TTL_MS, Gossip, gossipFor } from './gossip';
+import {
+  type Fix,
+  GOSSIP_EVERY_MS,
+  GOSSIP_TTL_MS,
+  Gossip,
+  gossipFor,
+  type PeersEvent,
+} from './gossip';
 import { byteLength, GOSSIP_MAX, parsePeerEvent } from './protocol';
 
 // Gossip (M11 T9): B tells A about B's linked peers nearest A, and A keeps them for 10 s.
@@ -28,7 +35,8 @@ describe('gossipFor', () => {
     expect(ids).not.toContain(A);
     expect(ids).not.toContain(id(40));
     expect(ids).not.toContain(id(41));
-    expect(event?.list[1]).toEqual([id(11), C + 100, C, 12]);
+    // The page keeps no instances yet: every entry is in the open water (M12 T1).
+    expect(event?.list[1]).toEqual([id(11), C + 100, C, 12, 0]);
   });
 
   it('tells nothing to a receiver it has no snapshot of, or when no one qualifies', () => {
@@ -95,9 +103,9 @@ describe('Gossip', () => {
       {
         t: 'peers',
         list: [
-          [id(7), C + 900, C, 10],
-          [A, C, C, 10],
-          [B, C, C, 10],
+          [id(7), C + 900, C, 10, 0],
+          [A, C, C, 10, 0],
+          [B, C, C, 10, 0],
         ],
       },
       T,
@@ -108,8 +116,8 @@ describe('Gossip', () => {
     expect(g.known(T + GOSSIP_TTL_MS + 1)).toEqual([]);
     expect(g.heard(id(7), T + GOSSIP_TTL_MS + 1)).toEqual([]);
     // A refresh keeps it 10 s from the refresh.
-    g.receive(B, { t: 'peers', list: [[id(7), C + 950, C, 10]] }, T + 20_000);
-    g.receive(id(8), { t: 'peers', list: [[id(7), C + 960, C, 10]] }, T + 25_000);
+    g.receive(B, { t: 'peers', list: [[id(7), C + 950, C, 10, 0]] }, T + 20_000);
+    g.receive(id(8), { t: 'peers', list: [[id(7), C + 960, C, 10, 0]] }, T + 25_000);
     expect(g.heard(id(7), T + 29_000).map((h) => h.via)).toEqual([B, id(8)]);
     expect(g.heard(id(7), T + 30_001).map((h) => h.via)).toEqual([id(8)]);
     expect(g.known(T + 34_000)).toEqual([
@@ -122,10 +130,13 @@ describe('Gossip', () => {
   it('keeps a bounded number of sightings from one sender', () => {
     const g = new Gossip(A);
     for (let round = 0; round < 20; round++) {
-      const list = Array.from(
-        { length: GOSSIP_MAX },
-        (_, i) => [id(100 + round * GOSSIP_MAX + i), C, C, 10] as [string, number, number, number],
-      );
+      const list = Array.from({ length: GOSSIP_MAX }, (_, i): PeersEvent['list'][number] => [
+        id(100 + round * GOSSIP_MAX + i),
+        C,
+        C,
+        10,
+        0,
+      ]);
       g.receive(B, { t: 'peers', list }, T);
     }
     expect(g.known(T)).toHaveLength(3 * GOSSIP_MAX);

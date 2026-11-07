@@ -2,8 +2,10 @@ import { describe, expect, it } from 'vitest';
 import { createRng, seedFromString } from '../sim/prng';
 import {
   byteLength,
+  CROWD_LIST_MAX,
   EVENT_MAX_BYTES,
   GOSSIP_MAX,
+  INSTANCE_WIRE_MAX,
   NEAR_MAX,
   NEAR_MAX_BYTES,
   parseClientMsg,
@@ -16,7 +18,8 @@ import {
 } from './protocol';
 
 // Protocol 11 (M11 T2): the world, the directory's messages, seat tickets and the peer events of
-// gossip, relayed signaling and snapshot rates. Every new message refuses a field it doesn't know.
+// gossip, relayed signaling and snapshot rates. Protocol 12 (M12 T1): spawning, riding and crowd
+// instances. Every new message refuses a field it doesn't know.
 
 const PID = 'A'.repeat(43);
 const PID2 = 'B'.repeat(43);
@@ -57,8 +60,8 @@ const near = {
   t: 'near',
   leaf: { x: 131_072, y: 0, size: 131_072 },
   peers: [
-    { id: PID2, name: 'bob', x: 131_100.5, y: 130_900, r: 12.5, age: 1500 },
-    { id: 'C'.repeat(43), name: 'carol', x: 0, y: 262_143.875, r: 4096, age: 0 },
+    { id: PID2, name: 'bob', x: 131_100.5, y: 130_900, r: 12.5, age: 1500, n: 0 },
+    { id: 'C'.repeat(43), name: 'carol', x: 0, y: 262_143.875, r: 4096, age: 0, n: 65_535 },
   ],
   swarm: [
     [131_000, 131_050.25],
@@ -81,12 +84,16 @@ const relay = {
 const peers = {
   t: 'peers',
   list: [
-    [PID2, 100, 200.5, 10],
-    ['C'.repeat(43), 262_000, 3, 4096],
+    [PID2, 100, 200.5, 10, 0],
+    ['C'.repeat(43), 262_000, 3, 4096, 7],
   ],
 };
 
-const clientMsgs: object[] = [where, { t: 'gone' }];
+const crowd = { ...where, crowd: [PID2, 'C'.repeat(43)] };
+const spawnAsk = { t: 'spawn', r: 10, aoi: 233.2 };
+const spawn = { t: 'spawn', x: 131_072.5, y: 0, why: 'placed', protect: true };
+
+const clientMsgs: object[] = [where, crowd, { t: 'gone' }, spawnAsk, { t: 'ride' }];
 const hubMsgs: object[] = [
   welcome,
   { ...welcome, ticket: undefined },
@@ -95,10 +102,22 @@ const hubMsgs: object[] = [
   { t: 'leaf', leaf: { x: 0, y: 65_536, size: 65_536 } },
   { t: 'seat', ticket },
   { t: 'signal', from: PID, kind: 'answer', sdp: 'v=0', at: [131_072, 5, 20] },
+  { ...welcome, you: undefined },
+  spawn,
+  { ...spawn, why: 'back', protect: false },
+  { ...spawn, why: 'ride', x: 0, y: TOP - 0.125 },
+  ...['locked', 'busy', 'company', 'soon', 'none'].map((why) => ({ t: 'ride-no', why })),
+  { t: 'instance', n: 0 },
+  { t: 'instance', n: INSTANCE_WIRE_MAX },
+  { t: 'refused', reason: 'engage:instance' },
+  { t: 'refused', reason: 'spawn' },
 ];
 const peerEvents: object[] = [
-  { t: 'hello', ticket },
+  { t: 'hello', ticket, n: 0 },
+  { t: 'hello', ticket, n: 12 },
   peers,
+  { t: 'instance', n: 0 },
+  { t: 'instance', n: 3 },
   { t: 'peers', list: [] },
   relay,
   { ...relay, kind: 'answer' },
@@ -114,7 +133,7 @@ const peerEvents: object[] = [
 const json = (m: unknown) => JSON.stringify(m);
 const strip = (m: object) => JSON.parse(json(m)) as unknown;
 
-describe('protocol 11 round trips', () => {
+describe('protocol 11 and 12 round trips', () => {
   it.each(clientMsgs)('client %j', (m) => expect(parseClientMsg(json(m))).toEqual(strip(m)));
   it.each(hubMsgs)('hub %j', (m) => expect(parseHubMsg(json(m))).toEqual(strip(m)));
   it.each(peerEvents)('peer %j', (m) => expect(parsePeerEvent(json(m))).toEqual(strip(m)));
@@ -292,13 +311,19 @@ describe('peer events', () => {
   const ev = (m: unknown) => parsePeerEvent(json(m));
 
   it('hello carries a well-formed ticket and nothing else', () => {
-    refusesMissingAndExtra(parsePeerEvent, { t: 'hello', ticket });
-    expect(ev({ t: 'hello', ticket: { ...ticket, authSig: 'short' } })).toBeNull();
+    refusesMissingAndExtra(parsePeerEvent, { t: 'hello', ticket, n: 0 });
+    expect(ev({ t: 'hello', ticket: { ...ticket, authSig: 'short' }, n: 0 })).toBeNull();
   });
 
   it('peers lists at most 16 distinct, well-formed ids', () => {
     expect(GOSSIP_MAX).toBe(16);
-    const entry = (i: number) => [`${i.toString(36).padStart(2, '0')}${'G'.repeat(41)}`, 1, 2, 3];
+    const entry = (i: number) => [
+      `${i.toString(36).padStart(2, '0')}${'G'.repeat(41)}`,
+      1,
+      2,
+      3,
+      0,
+    ];
     const list = (n: number) => ({
       t: 'peers',
       list: Array.from({ length: n }, (_, i) => entry(i)),
@@ -308,13 +333,13 @@ describe('peer events', () => {
     expect(ev({ t: 'peers', list: [entry(1), entry(1)] })).toBeNull();
     refusesMissingAndExtra(parsePeerEvent, peers);
     for (const e of [
-      ['short', 1, 2, 3],
-      [PID, -1, 2, 3],
-      [PID, 1, TOP, 3],
-      [PID, 1, 2, 0],
-      [PID, 1, 2, 4097],
+      ['short', 1, 2, 3, 0],
+      [PID, -1, 2, 3, 0],
+      [PID, 1, TOP, 3, 0],
+      [PID, 1, 2, 0, 0],
+      [PID, 1, 2, 4097, 0],
       [PID, 1, 2],
-      [PID, 1, 2, 3, 4],
+      [PID, 1, 2, 3, 0, 0],
     ]) {
       expect(ev({ t: 'peers', list: [e] }), json(e)).toBeNull();
     }
@@ -381,6 +406,107 @@ describe('peer events', () => {
   });
 });
 
+describe('protocol 12: spawning, riding and crowd instances', () => {
+  const ev = (m: unknown) => parsePeerEvent(json(m));
+  const hub = (m: unknown) => parseHubMsg(json(m));
+  const client = (m: unknown) => parseClientMsg(json(m));
+  /** A whole number from 0 to 65,535 and nothing else. */
+  const badInstances = [INSTANCE_WIRE_MAX + 1, -1, 1.5, '1', null, true, [0]];
+  const ids = (n: number) =>
+    Array.from({ length: n }, (_, i) => `${i.toString(36).padStart(2, '0')}${'K'.repeat(41)}`);
+
+  it('a where’s crowd holds 1 to 32 distinct, well-formed player ids', () => {
+    expect(CROWD_LIST_MAX).toBe(32);
+    expect(client({ ...where, crowd: ids(1) })).toEqual({ ...where, crowd: ids(1) });
+    expect(client({ ...where, crowd: ids(32) })).toEqual({ ...where, crowd: ids(32) });
+    for (const list of [
+      ids(33),
+      [],
+      [PID, PID],
+      [...ids(3), ids(1)[0]],
+      ['short'],
+      [PID, 5],
+      [PID, null],
+      PID,
+      null,
+      { 0: PID },
+    ]) {
+      expect(client({ ...where, crowd: list }), json(list)).toBeNull();
+    }
+    expect(client({ ...crowd, extra: 1 })).toBeNull();
+  });
+
+  it('a client spawn has a radius of 1 to 4096 and an AoI of 1 to 40,000, and a ride nothing', () => {
+    refusesMissingAndExtra(parseClientMsg, spawnAsk);
+    expect(client({ t: 'spawn', r: 1, aoi: 1 })).not.toBeNull();
+    expect(client({ t: 'spawn', r: 4096, aoi: 40_000 })).not.toBeNull();
+    for (const over of [
+      { r: 0.99 },
+      { r: 4097 },
+      { r: '10' },
+      { aoi: 0.5 },
+      { aoi: 40_001 },
+      { aoi: null },
+      { x: 5 },
+    ]) {
+      expect(client({ ...spawnAsk, ...over }), json(over)).toBeNull();
+    }
+    expect(client({ t: 'ride', to: PID })).toBeNull();
+  });
+
+  it('a hub spawn has a position on the wire, a why and a boolean protect', () => {
+    refusesMissingAndExtra(parseHubMsg, spawn);
+    for (const over of [
+      { x: -0.5 },
+      { y: TOP },
+      { x: '5' },
+      { why: 'teleport' },
+      { why: null },
+      { protect: 1 },
+      { protect: 'yes' },
+      { protect: null },
+    ]) {
+      expect(hub({ ...spawn, ...over }), json(over)).toBeNull();
+    }
+  });
+
+  it('ride-no names one of the five reasons', () => {
+    refusesMissingAndExtra(parseHubMsg, { t: 'ride-no', why: 'busy' });
+    for (const why of ['far', '', 'Busy', 0, null]) {
+      expect(hub({ t: 'ride-no', why }), json(why)).toBeNull();
+    }
+  });
+
+  it('an instance is a whole number from 0 to 65,535 wherever it travels', () => {
+    expect(INSTANCE_WIRE_MAX).toBe(65_535);
+    refusesMissingAndExtra(parseHubMsg, { t: 'instance', n: 3 });
+    refusesMissingAndExtra(parsePeerEvent, { t: 'instance', n: 3 });
+    const peer = near.peers[0] as Record<string, unknown>;
+    for (const n of badInstances) {
+      expect(hub({ t: 'instance', n }), `hub instance ${json(n)}`).toBeNull();
+      expect(ev({ t: 'instance', n }), `peer instance ${json(n)}`).toBeNull();
+      expect(ev({ t: 'hello', ticket, n }), `hello ${json(n)}`).toBeNull();
+      expect(ev({ t: 'peers', list: [[PID2, 1, 2, 3, n]] }), `gossip ${json(n)}`).toBeNull();
+      expect(hub({ ...near, peers: [{ ...peer, n }] }), `near ${json(n)}`).toBeNull();
+    }
+  });
+
+  it('the hello needs its instance, and a gossip entry its fifth element', () => {
+    expect(ev({ t: 'hello', ticket })).toBeNull();
+    expect(ev({ t: 'peers', list: [[PID2, 1, 2, 3]] })).toBeNull();
+    const { n: _, ...old } = near.peers[0] as Record<string, unknown>;
+    expect(hub({ ...near, peers: [old] })).toBeNull();
+  });
+
+  it('the welcome may leave out you, but a you it carries is well formed', () => {
+    const { you: _, ...bare } = welcome;
+    expect(hub(bare)).toEqual(strip(bare));
+    expect(hub({ ...welcome, you: {} })).toBeNull();
+    expect(hub({ ...welcome, you: { spawnHint: { x: 'a', y: 0 } } })).toBeNull();
+    expect(hub({ ...welcome, you: null })).toBeNull();
+  });
+});
+
 /** Random JSON, and valid messages with random fields swapped, deleted or added. */
 function fuzzed(seed: string, samples: object[], n: number): string[] {
   const rng = createRng(seedFromString(seed), 'net');
@@ -390,7 +516,10 @@ function fuzzed(seed: string, samples: object[], n: number): string[] {
     const k = rng.int(0, depth > 2 ? 0 : 3);
     if (k === 0) return pick(atoms);
     if (k === 1) return Array.from({ length: rng.int(0, 5) }, () => value(depth + 1));
-    if (k === 2) return Object.fromEntries([['t', pick(['near', 'relay', 'where', 'hello'])]]);
+    if (k === 2)
+      return Object.fromEntries([
+        ['t', pick(['near', 'relay', 'where', 'hello', 'spawn', 'ride', 'ride-no', 'instance'])],
+      ]);
     return mutate(structuredClone(pick(samples)), depth + 1);
   };
   const mutate = (v: unknown, depth: number): unknown => {
