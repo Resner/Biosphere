@@ -247,7 +247,7 @@ const warmed = new Set<string>();
  * waits for a creature that never comes. Waiting on the hub's own answer, bounded, keeps the
  * scenario independent of the runner's speed.
  */
-async function warmHub(hub: string): Promise<void> {
+export async function warmHub(hub: string): Promise<void> {
   if (warmed.has(hub)) return;
   const url = `${hub.replace(/^http/, 'ws')}/v1/hub`;
   await new Promise<void>((resolve, reject) => {

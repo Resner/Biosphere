@@ -1,7 +1,7 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { INTERPOLATION_MS } from '../../src/net/pond-sync';
-import { chatTexts, hatch, openGame, openMenu, say, state } from './helpers';
+import { chatTexts, hatch, openGame, openMenu, say, state, warmHub } from './helpers';
 
 // The milestone's end-to-end check: three real browser contexts share a pond through the local
 // Worker and real WebRTC (host candidates only). Smaller pieces have their own specs: the offline
@@ -14,6 +14,9 @@ const HUB = 'http://localhost:8789';
 test.describe.configure({ mode: 'serial' });
 
 async function joinThree(browser: Browser): Promise<[Page, Page, Page]> {
+  // The first connection starts the hub's authority, which on a loaded runner outlasts the game's
+  // 4 s hatch wait: the first cell then swims alone, offline, and the others never see it.
+  await warmHub(HUB);
   const pages: Page[] = [];
   for (let i = 0; i < 3; i++) {
     const page = await (await browser.newContext()).newPage();
