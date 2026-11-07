@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 11,
+    "rules": 12,
     "start": {
       "id": "enc-golden-plume",
       "pondSeed": "golden-plume",
@@ -161,7 +161,7 @@
       [3840, 0]
     ]
   },
-  "hash": "ce24fdefff62b552",
+  "hash": "74ad02cf010ee5a7",
   "results": [
     {
       "outcome": "died",

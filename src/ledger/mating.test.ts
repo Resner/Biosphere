@@ -333,8 +333,8 @@ describe('checkBirth', () => {
   it('answers rules-retired before the renewal and rules-unknown past this build (ADR 0055)', async () => {
     for (const [rules, problem] of [
       [7, 'rules-retired'],
-      [10, 'rules-retired'],
-      [12, 'rules-unknown'],
+      [11, 'rules-retired'],
+      [13, 'rules-unknown'],
     ] as const) {
       const m = await mating([2, 5], { rules });
       expect(check(m, 0)).toEqual([problem]);

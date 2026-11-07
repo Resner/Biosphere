@@ -2,8 +2,8 @@
 // version where each part of the rules last changed. Every check of a record, a birth, a genesis or
 // a settlement answers a version through `rulesStatus`. Pure and shared: no DOM, no Node APIs.
 
-/** The first rules version of the live world: the renewal of v0.10.0 retired every older one (ADR 0040). */
-export const FIRST_LIVE_RULES = 11;
+/** The first rules version of the live world: the renewal of v0.12.0 retired every older one (ADRs 0040, 0055, 0061). */
+export const FIRST_LIVE_RULES = 12;
 
 export type RulesPart = 'genesis' | 'inherit' | 'body' | 'life' | 'mating' | 'encounter';
 
@@ -21,15 +21,15 @@ export interface RulesEntry {
  */
 export const REGISTRY: readonly RulesEntry[] = Object.freeze([
   Object.freeze({
-    rules: 11,
-    epoch: 3,
+    rules: 12,
+    epoch: 4,
     since: Object.freeze({
-      genesis: 11,
-      inherit: 11,
-      body: 11,
-      life: 11,
-      mating: 11,
-      encounter: 11,
+      genesis: 12,
+      inherit: 12,
+      body: 12,
+      life: 12,
+      mating: 12,
+      encounter: 12,
     }),
   }),
 ]);

@@ -1,3 +1,5 @@
+import { toBase64Url } from '../src/ledger/identity';
+
 export interface PondRow extends Record<string, SqlStorageValue> {
   id: string;
   seed: string;
@@ -223,6 +225,31 @@ const MIGRATIONS: Step[] = [
       .map((b) => b.toString(16).padStart(2, '0'))
       .join('');
     sql.exec('UPDATE world SET ip_salt = ?', salt);
+  },
+  // The third world renewal (ADRs 0061, 0062): rules 12 and one world. As migration 8, with the
+  // ponds deleted too, and the `world` row gains the world's seed and clock (ms since epoch, the
+  // moment of the renewal); the kept ip_salt carries over. Players, keys, names, flags, beacons,
+  // attestations and the usage meter stay, and every identity is told once more (`epoch_seen`
+  // stays below the new epoch 4).
+  (sql, now) => {
+    const salt = sql.exec<{ ip_salt: string }>('SELECT ip_salt FROM world').toArray()[0]?.ip_salt;
+    sql.exec(`DELETE FROM creatures;
+      DELETE FROM records;
+      DELETE FROM commitments;
+      DELETE FROM matings;
+      DELETE FROM genesis_log;
+      DELETE FROM encounters;
+      DELETE FROM ponds;
+      UPDATE players SET pending = '', fight_report = '', hatches = 3, hatch_t = 0;
+      DELETE FROM world;
+      ALTER TABLE world ADD COLUMN seed TEXT NOT NULL DEFAULT '';
+      ALTER TABLE world ADD COLUMN clock INTEGER NOT NULL DEFAULT 0`);
+    sql.exec(
+      'INSERT INTO world (epoch, reset_at, ip_salt, seed, clock) VALUES (4, ?1, ?2, ?3, ?1)',
+      now,
+      salt ?? '',
+      toBase64Url(crypto.getRandomValues(new Uint8Array(12))),
+    );
   },
 ];
 
