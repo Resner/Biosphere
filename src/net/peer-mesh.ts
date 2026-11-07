@@ -95,6 +95,8 @@ interface Link {
   event: DataChannelLike | null;
   /** The connection and both channels are up. */
   up: boolean;
+  /** A caller that took its answer. */
+  answered: boolean;
   /** Joined: up, and with a gate the peer's hello passed. */
   opened: boolean;
   /** The peer's ticket, once its hello passed. */
@@ -207,7 +209,9 @@ export class PeerMesh {
     if (from === this.opts.selfId) return Promise.resolve();
     const link = this.links.get(from);
     if (kind === 'answer') {
-      if (!link || !link.caller || link.opened) return Promise.resolve();
+      // One answer per offer: a second (a relayed one and the hub's after a fallback) is ignored.
+      if (!link || !link.caller || link.answered || link.up) return Promise.resolve();
+      link.answered = true;
       return this.enqueue(link, async () => {
         await link.pc.setRemoteDescription({ type: 'answer', sdp });
       });
@@ -255,6 +259,7 @@ export class PeerMesh {
       state: null,
       event: null,
       up: false,
+      answered: false,
       opened: false,
       ticket: null,
       closed: false,

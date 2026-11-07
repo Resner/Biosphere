@@ -503,7 +503,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - a death sends `gone` once.
   - Notes: pure. T13 wires it into the game, and the harness (T10) runs it.
 
-- [ ] T9 Gossip, relayed signaling and the hello gate [opus] (after T7, T8) (in progress)
+- [x] T9 Gossip, relayed signaling and the hello gate [opus] (after T7, T8) (in progress)
+  - Done: `Gossip`, `SignalRoute` (pure, signer and check injected) and `PeerMesh`'s `hello` gate (joined only once the peer's ticket passes; no retry after a failure); the fake RTC moved to `rtc-test-kit.ts`. Gotchas: a peer forwards only its link's own signals (one hop), and a forged relay counts against the link's 4 a second but never burns a genuine (from, at).
   - Steps:
     1. `src/net/gossip.ts`:
        - **sending**: every 4 s, each link carries the sender's up to 16 linked peers nearest the receiver (by its newest snapshot) that pass `linkTiers` with it, from snapshots under 2 s old;
@@ -525,7 +526,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - **Gossip**:
       - B's `peers` to A lists B's linked peers nearest A, linkable with A, from snapshots under 2 s old;
       - A keeps them as `gossip` and drops them after 10 s;
-      - gossip about 16 peers stays under 1 KB per message.
+      - gossip about 16 peers stays within 1,100 bytes per message (about 1 KB: at the world's six-digit coordinates sixteen 43-character ids with positions need about 1,050 bytes in the T2 wire format, still under gate 6's 0.3 KB/s per link).
     - **The hello gate**:
       - a link with no valid hello within 5 s closes and counts;
       - a snapshot before the hello is not delivered;

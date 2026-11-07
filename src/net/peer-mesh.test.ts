@@ -153,6 +153,25 @@ describe('PeerMesh negotiation', () => {
     expect(live).toHaveLength(2);
   });
 
+  it('takes one answer per offer: a second copy (relayed and from the hub) changes nothing', async () => {
+    const net = network(['a', 'b']);
+    net.hold = true;
+    const a = net.meshes.get('a') as PeerMesh;
+    a.connect('b');
+    await settle();
+    const offer = net.held.splice(0)[0];
+    await net.meshes.get('b')?.handleSignal('a', 'offer', offer?.sdp ?? '');
+    await settle();
+    const answer = net.held.splice(0)[0];
+    expect(answer?.kind).toBe('answer');
+    void a.handleSignal('b', 'answer', answer?.sdp ?? '');
+    void a.handleSignal('b', 'answer', answer?.sdp ?? '');
+    await settle();
+    expect(a.isOpen('b')).toBe(true);
+    expect(net.pcs[1]?.channels).toHaveLength(2); // one state and one event channel, not two pairs
+    expect(net.pcs.filter((p) => !p.closed)).toHaveLength(2);
+  });
+
   it('sends the offer after 2 s when ICE gathering never completes', async () => {
     FakePc.autoGather = false;
     const net = network(['a', 'b']);

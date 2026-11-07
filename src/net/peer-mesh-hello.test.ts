@@ -55,11 +55,12 @@ beforeEach(async () => {
   vi.setSystemTime(T);
   fakePcs.clear();
   FakePc.autoGather = true;
-  [A, B, Cid] = await Promise.all(
+  const got = await Promise.all(
     [1, 2, 3].map(
       async (n) => (await createIdentity(memoryKeyStore(new Uint8Array(32).fill(n)))).playerId,
     ),
   );
+  [A, B, Cid] = got as [string, string, string];
 });
 afterEach(() => {
   vi.useRealTimers();

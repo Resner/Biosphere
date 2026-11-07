@@ -23,9 +23,10 @@ let Cc: Identity;
 let D: Identity;
 
 beforeAll(async () => {
-  [A, B, Cc, D] = await Promise.all(
+  const got = await Promise.all(
     [1, 2, 3, 4].map((n) => createIdentity(memoryKeyStore(new Uint8Array(32).fill(n)))),
   );
+  [A, B, Cc, D] = got as [Identity, Identity, Identity, Identity];
 });
 
 const posOf = (n: number): Pos => [C + n, C, 10];
