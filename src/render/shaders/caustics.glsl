@@ -22,9 +22,12 @@ float caustic(vec2 p, float t) {
 // The caustics' clock (M6b T8, `SunClock` in zones.ts): the shaders' clock at the zone's pace, so the
 // shallows' light drifts slower. The water and the bodies read the same one.
 uniform float uSunTime;
+// The floating origin's phase in the tile (M11 T11, `causticShift` in zones.ts), radians.
+uniform vec2 uCausticShift;
 
-// The caustic light (0..1) at world point `w` at `t` seconds. The sine terms repeat every 2 pi, so
-// the coordinate is wrapped to one tile and the look does not depend on where in the world it is.
+// The caustic light (0..1) at point `w` (wu from the floating origin) at `t` seconds. The sine
+// terms repeat every 2 pi, so the coordinate is wrapped to one tile, the origin's phase in it
+// added, and the look does not depend on where in the world it is or what origin draws it.
 float causticAt(vec2 w, float t) {
-  return clamp(caustic(mod(w / 18.0, 6.2831853), t * 0.35), 0.0, 1.0);
+  return clamp(caustic(mod(w / 18.0 + uCausticShift, 6.2831853), t * 0.35), 0.0, 1.0);
 }

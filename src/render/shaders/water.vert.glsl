@@ -1,5 +1,5 @@
 // The water is a grid over the screen (M6 T16): each vertex looks up the zone under it (the depth
-// map, `zoneDepth`), and the fragments interpolate its look, which is far cheaper than a lookup
+// window, `zoneDepth`), and the fragments interpolate its look, which is far cheaper than a lookup
 // per pixel. A zone feature spans thousands of wu, so the grid (water.ts) is fine enough at any zoom.
 uniform vec2 uCam;
 uniform vec2 uHalf;

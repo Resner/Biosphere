@@ -13,6 +13,7 @@ import type { AuditVerdict } from '../net/audit';
 import type { AuditCase, PeerEvent } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { EggPhase } from '../render/egg';
+import type { GpuExtent } from '../render/gpu-watch';
 import type { DrawnOutline } from '../render/outlines';
 import type { Speck } from '../render/particles';
 import type { ParticleLayerName, PresetName, QualitySetting } from '../render/presets';
@@ -344,6 +345,11 @@ export interface BsHook {
     specks(layer: ParticleLayerName): Speck[];
     /** The size outlines as last drawn (M6 T21): kind, CSS-pixel centre and radius, pulse 0..1. */
     outlines(): DrawnOutline[];
+    /**
+     * With `?gpu=watch` (M11 T11): the largest |float| sent to the GPU so far (uniforms and vertex
+     * buffers), the uniform that sent it and the uploads seen; null without the switch.
+     */
+    gpu(): GpuExtent | null;
     /**
      * The player's egg's swing in radians at `atMs` on the egg's clock (`performance.now()` while
      * the world runs), lean included (M6b T11): a slow software frame cannot hide a wobble's peak.

@@ -12,6 +12,7 @@ import {
 import type { Lod } from './creature-mesh';
 import { GAIT_WRAP, gaitOf, trailHeading, turnLag } from './gait';
 import { setUniform, shareBackdrop } from './materials';
+import { ORIGIN } from './origin';
 import type { PresetName } from './presets';
 
 export interface CreatureViewState {
@@ -91,7 +92,8 @@ export class CreatureView {
     }
     const material = this.material as THREE.ShaderMaterial;
 
-    this.mesh.position.set(view.x, view.y, 0);
+    // From the floating origin (M11 T11): the scene's GPU positions stay small anywhere in the world.
+    this.mesh.position.set(view.x - ORIGIN.x, view.y - ORIGIN.y, 0);
     this.mesh.rotation.z = view.heading;
     this.mesh.scale.setScalar(view.radius);
     const dt = time - (this.lastTime ?? time);

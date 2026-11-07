@@ -1,3 +1,5 @@
+import { ORIGIN } from './origin';
+
 /** A cheap stable fraction in [0, 1) from an id, so an item keeps its angle and phase. */
 export function idFraction(id: string): number {
   let h = 2166136261;
@@ -7,7 +9,8 @@ export function idFraction(id: string): number {
 
 /**
  * Writes a 2D transform into slot `n` of an instance matrix array: rotation by `angle`, uniform
- * `size`, a translation, and `phase` in the otherwise unused z scale and `alpha` in the unused w row (the shaders read them back).
+ * `size`, a translation to world point (x, y) (taken from the floating origin, M11 T11), and
+ * `phase` in the otherwise unused z scale and `alpha` in the unused w row (the shaders read them back).
  */
 export function writeInstance(
   array: ArrayLike<number> & { [index: number]: number },
@@ -34,8 +37,8 @@ export function writeInstance(
   array[o + 9] = 0;
   array[o + 10] = phase;
   array[o + 11] = alpha;
-  array[o + 12] = x;
-  array[o + 13] = y;
+  array[o + 12] = x - ORIGIN.x;
+  array[o + 13] = y - ORIGIN.y;
   array[o + 14] = 0;
   array[o + 15] = 1;
 }

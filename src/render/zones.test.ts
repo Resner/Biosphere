@@ -356,7 +356,7 @@ describe('nearestInZone', () => {
       for (let x = 64; x < size; x += 128) {
         const d = Math.hypot(x - size / 2, y - size / 2);
         if (d >= found - 64) continue;
-        expect(wellInside(seed, x, y, 'shallows')).toBe(false);
+        expect(wellInside(seed, size, x, y, 'shallows')).toBe(false);
       }
     }
   });

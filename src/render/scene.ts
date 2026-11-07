@@ -12,8 +12,10 @@ import type { Ring } from './effects';
 import { EggLayer, type EggView } from './egg';
 import { FoodLayer } from './food';
 import { GlowLayer } from './glows';
+import { type GpuExtent, watchGpu } from './gpu-watch';
 import { PlumeLayer } from './hazards';
 import { materialParams } from './material-params';
+import { followOrigin, ORIGIN } from './origin';
 import { type DrawnOutline, OutlineLayer } from './outlines';
 import { ParticleLayer, type Speck } from './particles';
 import {
@@ -35,6 +37,7 @@ import { RingLayer } from './rings';
 import { TelegraphLayer, type TelegraphMark } from './telegraph';
 import { Water } from './water';
 import {
+  causticShift,
   glowAt,
   LIGHT_WATER,
   type Light,
@@ -125,6 +128,10 @@ export interface RenderInfo extends PostInfo {
   outlines: { bigger: number; smaller: number };
   /** Fight telegraphs drawn this frame, by kind (M7 T12). */
   telegraphs: { glows: number; sparks: number; rings: number };
+  /** The player's centre as the GPU draws it, CSS pixels (M11 T11); null with no player. */
+  centre: { x: number; y: number } | null;
+  /** The floating origin the scene draws from, wu (M11 T11, `origin.ts`). */
+  origin: { x: number; y: number };
 }
 
 /** The player's creature swims at the gameplay plane, and the camera focuses there (T3). */
@@ -163,9 +170,18 @@ export class GameScene {
   private readonly scene = new THREE.Scene();
   private readonly camera = topDownCamera();
   private readonly water: Water;
-  /** The pond's depth map (M6 T16) and its seed, which the zone shaders read. */
+  /** The pond's depth window (M6 T16, M11 T11) and its seed and size, which the zone shaders read. */
   private readonly zones = new ZoneMap();
   private seed: Seed | null = null;
+  private size: number;
+  /** The field last handed over (`setField`): it is written again when the floating origin moves. */
+  private field: {
+    food: readonly FoodItem[];
+    plumes: readonly Plume[];
+    carrion: readonly CarrionPiece[];
+  } = { food: [], plumes: [], carrion: [] };
+  /** The player's centre as the GPU draws it, CSS pixels (`info().centre`); null with no player. */
+  private centre: { x: number; y: number } | null = null;
   private readonly glows = new Map<string, Glow>();
   private lights = 0;
   private readonly pools = new GlowLayer();
@@ -233,6 +249,8 @@ export class GameScene {
     strength: 0,
     camX: 0,
     camY: 0,
+    originX: 0,
+    originY: 0,
     halfWidth: 1,
     halfHeight: 1,
     time: 0,
@@ -242,17 +260,25 @@ export class GameScene {
   private readonly light: boolean;
   private readonly onResize = () => this.resize();
 
+  /** What the GPU has been sent (`?gpu=watch`, M11 T11); null unless watched. */
+  private readonly watched: (() => GpuExtent) | null;
+
   /**
    * `dof: false` is the `?dof=0` test switch: every preset draws without its depth of field.
-   * `light: false` is `?light=0`: no caustics and no god rays.
+   * `light: false` is `?light=0`: no caustics and no god rays. `watch: true` is `?gpu=watch`: the
+   * largest float sent to the GPU is kept (`gpuExtent`).
    */
   constructor(
     private readonly canvas: HTMLCanvasElement,
     worldSize: number,
-    options: { dof?: boolean; light?: boolean } = {},
+    options: { dof?: boolean; light?: boolean; watch?: boolean } = {},
   ) {
     this.light = options.light ?? true;
+    this.size = worldSize;
     this.renderer = new THREE.WebGLRenderer({ canvas, antialias: false });
+    this.watched = options.watch
+      ? watchGpu(this.renderer.getContext() as WebGL2RenderingContext)
+      : null;
     this.renderer.setClearColor(0x04090b);
     this.post = new PostChain(this.renderer, { dof: options.dof ?? true });
     this.post.setPreset(this.preset);
@@ -390,10 +416,17 @@ export class GameScene {
     return this.cssHeight;
   }
 
-  /** Loads the depth map of the pond being drawn; a no-op for the one already loaded. */
+  /** Draws the zones of the world being drawn, its depth window filled at once on the next frame. */
   setZones(seed: Seed, size: number): void {
     this.seed = seed;
+    this.size = size;
+    this.water.setWorld(size);
     this.zones.set(seed, size);
+  }
+
+  /** Fills the zones' depth window at once on the next frame (a debug teleport), with no budget. */
+  settleZones(): void {
+    this.zones.settle();
   }
 
   /** Replaces the food and plumes to draw; call when the sim ticks, not every frame. */
@@ -402,12 +435,23 @@ export class GameScene {
     plumes: readonly Plume[],
     carrion: readonly CarrionPiece[],
   ): void {
+    const { field } = this;
+    field.food = food;
+    field.plumes = plumes;
+    field.carrion = carrion;
     this.food.set(food);
     this.food.setCarrion(carrion);
     this.plumes.set(plumes);
   }
 
   draw(view: SceneView): void {
+    // The floating origin (M11 T11): the scene draws from a point near the camera, so every
+    // position and world-space uniform sent to the GPU stays small anywhere in the world. When it
+    // moves, the field's instances (written on ticks, not frames) are written again from it.
+    if (followOrigin(ORIGIN, view.camX, view.camY)) {
+      const { food, plumes, carrion } = this.field;
+      this.setField(food, plumes, carrion);
+    }
     this.half = view.halfHeight;
     const halfWidth = view.halfHeight * this.aspect;
     const camera = this.camera;
@@ -415,15 +459,17 @@ export class GameScene {
     camera.right = halfWidth;
     camera.top = view.halfHeight;
     camera.bottom = -view.halfHeight;
-    camera.position.x = view.camX;
-    camera.position.y = view.camY;
+    camera.position.x = view.camX - ORIGIN.x;
+    camera.position.y = view.camY - ORIGIN.y;
     camera.updateProjectionMatrix();
 
     this.water.update(view, halfWidth, this.light);
+    this.zones.update(view.camX, view.camY, view.halfHeight, ORIGIN);
+    ZONE_UNIFORMS.uCausticShift.value.set(causticShift(ORIGIN.x), causticShift(ORIGIN.y));
     this.updateZones(view);
     this.post.setFocus(PLANE_DEPTH);
     const sprites = this.post.spriteDof(this.sprites);
-    const depth = this.seed ? depthAt(this.seed, view.camX, view.camY) : null;
+    const depth = this.seed ? depthAt(this.seed, view.camX, view.camY, this.size) : null;
     const snow = depth === null ? 1 : zoneBlend(depth, 'snow');
     this.updateLight(view, halfWidth, depth);
     const { flow } = view;
@@ -446,6 +492,7 @@ export class GameScene {
     this.telegraphs.set(view.telegraphs);
     this.updateOutlines(view);
     this.updateVeil(view, halfWidth);
+    this.updateCentre(view);
 
     if (!this.skipDraw) this.post.render(this.scene, camera);
   }
@@ -461,7 +508,7 @@ export class GameScene {
     this.eggs.mesh.renderOrder = on ? ORDER.eggsOverVeil : ORDER.eggs;
     this.rings.mesh.renderOrder = on ? ORDER.ringsOverVeil : ORDER.rings;
     if (!on) return;
-    veil.position.set(view.camX, view.camY, 0);
+    veil.position.set(view.camX - ORIGIN.x, view.camY - ORIGIN.y, 0);
     veil.scale.set(halfWidth, view.halfHeight, 1);
     (veil.material as THREE.MeshBasicMaterial).opacity = STILL_DIM * Math.min(1, view.dim);
   }
@@ -487,8 +534,10 @@ export class GameScene {
     ZONE_UNIFORMS.uSunTime.value = sunTime;
     const rays = this.rays;
     rays.strength = depth === null || !this.light ? 0 : sunlight(depth, 'rays');
-    rays.camX = view.camX;
-    rays.camY = view.camY;
+    rays.camX = view.camX - ORIGIN.x;
+    rays.camY = view.camY - ORIGIN.y;
+    rays.originX = ORIGIN.x;
+    rays.originY = ORIGIN.y;
     rays.halfWidth = halfWidth;
     rays.halfHeight = view.halfHeight;
     rays.time = sunTime;
@@ -497,7 +546,7 @@ export class GameScene {
 
   /** The caustics' strength over a body at (x, y): the sunlight at its depth (M6 T17). */
   private readonly causticOf = (x: number, y: number): number =>
-    this.causticAt(this.seed ? depthAt(this.seed, x, y) : null);
+    this.causticAt(this.seed ? depthAt(this.seed, x, y, this.size) : null);
 
   private causticAt(depth: number | null): number {
     return depth === null || !this.light ? 0 : sunlight(depth, 'caustic');
@@ -506,7 +555,9 @@ export class GameScene {
   /** Where the player sees from, and the glows of the player and the remotes in view (M6 T16). */
   private updateZones(view: SceneView): void {
     const { creature, body } = view;
-    if (creature) ZONE_UNIFORMS.uViewer.value.set(creature.x, creature.y, view.sight);
+    if (creature) {
+      ZONE_UNIFORMS.uViewer.value.set(creature.x - ORIGIN.x, creature.y - ORIGIN.y, view.sight);
+    }
     this.lights = 0;
     this.pools.clear();
     if (creature && body) this.addLight(body, creature.x, creature.y, creature.radius, 1);
@@ -536,9 +587,16 @@ export class GameScene {
     const [r, g, b] = glow.color;
     const reach = glow.radius * radius;
     const strength = glow.strength * alpha;
-    (ZONE_UNIFORMS.uLights.value[i] as THREE.Vector4).set(x, y, reach, strength);
+    (ZONE_UNIFORMS.uLights.value[i] as THREE.Vector4).set(
+      x - ORIGIN.x,
+      y - ORIGIN.y,
+      reach,
+      strength,
+    );
     // The pool on the water, as bright as the zone under the creature lets glow show.
-    const k = this.seed ? strength * zoneBlend(depthAt(this.seed, x, y), 'glow') * LIGHT_WATER : 0;
+    const k = this.seed
+      ? strength * zoneBlend(depthAt(this.seed, x, y, this.size), 'glow') * LIGHT_WATER
+      : 0;
     if (k > 0) this.pools.add(x, y, reach, r * k, g * k, b * k);
   }
 
@@ -548,15 +606,37 @@ export class GameScene {
    */
   private readonly sightOf = (x: number, y: number): number => {
     if (!this.seed) return 1;
+    // The viewer and the lights are kept from the floating origin, as the shaders read them.
+    const rx = x - ORIGIN.x;
+    const ry = y - ORIGIN.y;
     const viewer = ZONE_UNIFORMS.uViewer.value;
     let lit = 0;
     for (let i = 0; i < this.lights; i++) {
       const l = ZONE_UNIFORMS.uLights.value[i] as THREE.Vector4;
-      lit = Math.max(lit, glowAt(Math.sqrt((x - l.x) ** 2 + (y - l.y) ** 2), l.z, l.w));
+      lit = Math.max(lit, glowAt(Math.sqrt((rx - l.x) ** 2 + (ry - l.y) ** 2), l.z, l.w));
     }
-    const distance = Math.hypot(x - viewer.x, y - viewer.y);
-    return sightAt(depthAt(this.seed, x, y), distance, viewer.z, lit);
+    const distance = Math.hypot(rx - viewer.x, ry - viewer.y);
+    return sightAt(depthAt(this.seed, x, y, this.size), distance, viewer.z, lit);
   };
+
+  /**
+   * Where the GPU draws the player's centre, in CSS pixels: its position and the camera's as the
+   * 32-bit floats the scene sends (both from the floating origin), projected as the shaders do.
+   */
+  private updateCentre(view: SceneView): void {
+    const { creature } = view;
+    if (!creature) {
+      this.centre = null;
+      return;
+    }
+    const k = this.pxPerWu;
+    const dx = Math.fround(creature.x - ORIGIN.x) - Math.fround(this.camera.position.x);
+    const dy = Math.fround(creature.y - ORIGIN.y) - Math.fround(this.camera.position.y);
+    const centre = this.centre ?? { x: 0, y: 0 };
+    centre.x = this.cssWidth / 2 + Math.fround(dx) * k;
+    centre.y = this.cssHeight / 2 - Math.fround(dy) * k;
+    this.centre = centre;
+  }
 
   /** The plain cell's view at its drawn size. */
   private cellOf(creature: CellView | null): CellView | null {
@@ -610,8 +690,15 @@ export class GameScene {
       veil: this.veil.visible ? (this.veil.material as THREE.MeshBasicMaterial).opacity : 0,
       outlines: this.outlines.counts(),
       telegraphs: this.telegraphs.counts(),
+      centre: this.centre ? { ...this.centre } : null,
+      origin: { x: ORIGIN.x, y: ORIGIN.y },
       ...this.post.info(),
     };
+  }
+
+  /** The largest float sent to the GPU so far and the uniform that sent it (`?gpu=watch`); null unless watched. */
+  gpuExtent(): GpuExtent | null {
+    return this.watched?.() ?? null;
   }
 
   /** The size outlines as last drawn, in CSS pixels, for tests. */
@@ -659,5 +746,7 @@ export class GameScene {
     (this.veil.material as THREE.MeshBasicMaterial).dispose();
     this.post.dispose();
     this.renderer.dispose();
+    ORIGIN.x = 0;
+    ORIGIN.y = 0;
   }
 }

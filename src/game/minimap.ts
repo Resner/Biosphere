@@ -1,7 +1,7 @@
 // The minimap (M6b T10, DESIGN §9): a round, north-up map in the top-right corner, centred on the
-// player and 6 view half-heights in radius. It shows the zones (the pond map's picture), the pond's
-// edge when near, other players by size class, mate-ready hearts, live pings and the player as an
-// arrow on its heading. The zone's name sits under it, and a slim depth gauge (M6c T12,
+// player and 6 view half-heights in radius. It shows the zones (the pond map's chart, from its own
+// depth window: `minimap-chart.ts`), the pond's edge when near, other players by size class,
+// mate-ready hearts, live pings and the player as an arrow on its heading. The zone's name sits under it, and a slim depth gauge (M6c T12,
 // `depth-gauge.ts`) left of it, with a UV or pressure icon beside the gauge while that hazard
 // hurts; they replace the HUD's depth bar and the hazard overlays. A click on it (or M) opens the
 // full pond map. The map draws on a 2D canvas at most 30 times a second; the arrow is its own
@@ -13,7 +13,7 @@ import type { Seed } from '../sim/prng';
 import { type SizeClass, sizeClass } from '../sim/size';
 import { DepthGauge } from './depth-gauge';
 import { pick, setText } from './dom';
-import { zoneImage } from './pond-map';
+import { MinimapChart } from './minimap-chart';
 import type { ZoneReadout } from './zone-readout';
 
 export const MINIMAP = {
@@ -241,9 +241,8 @@ export class Minimap {
   private readonly at = { x: 0, y: 0, inside: false };
   private readonly heart: Path2D | null;
   private glaze: CanvasGradient | null = null;
-  private image: HTMLCanvasElement | null = null;
-  private imageSeed: Seed | null = null;
-  private imageSize = 0;
+  /** The zones' chart from a depth window around the player (M11 T11). */
+  private readonly chart = new MinimapChart();
 
   constructor(onOpen: () => void) {
     this.context = this.canvas.getContext('2d');
@@ -343,28 +342,24 @@ export class Minimap {
     // Beyond the pond: the darkest water.
     ctx.fillStyle = '#020608';
     ctx.fillRect(0, 0, side, side);
-    // The zones, from the pond map's picture (north up), softened by smoothing.
-    // The picture is looked up only when the pond changes (its key is a new string).
-    if (view.seed !== this.imageSeed || view.size !== this.imageSize || !this.image) {
-      this.imageSeed = view.seed;
-      this.imageSize = view.size;
-      this.image = zoneImage(view.seed, view.size);
+    // The zones, from the chart of the depth window around the player (north up), softened by smoothing.
+    const chart = this.chart.update(view.seed, view.size, self.x, self.y, view.halfHeight);
+    if (chart) {
+      // A blur of about half a texel rounds the picture's steps into the zones' soft edges.
+      const texel = chart.cell * k;
+      ctx.imageSmoothingEnabled = true;
+      ctx.filter = BLURS[Math.min(BLURS.length - 1, Math.round(texel * 0.6))] as string;
+      ctx.globalAlpha = 0.85;
+      ctx.drawImage(
+        chart.image,
+        half + (chart.x - self.x) * k,
+        half - (chart.y + chart.side - self.y) * k,
+        chart.side * k,
+        chart.side * k,
+      );
+      ctx.globalAlpha = 1;
+      ctx.filter = 'none';
     }
-    const image = this.image;
-    // A blur of about half a texel rounds the picture's steps into the zones' soft edges.
-    const texel = (view.size / image.width) * k;
-    ctx.imageSmoothingEnabled = true;
-    ctx.filter = BLURS[Math.min(BLURS.length - 1, Math.round(texel * 0.6))] as string;
-    ctx.globalAlpha = 0.85;
-    ctx.drawImage(
-      image,
-      half - self.x * k,
-      half - (view.size - self.y) * k,
-      view.size * k,
-      view.size * k,
-    );
-    ctx.globalAlpha = 1;
-    ctx.filter = 'none';
     // The glass: darker toward the rim so the marks read.
     if (!this.glaze) {
       this.glaze = ctx.createRadialGradient(half, half, half * 0.35, half, half, half);

@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { speedTest } from '../../tests/heavy';
-import { depthAt, type Zone, zoneAt, zoneOfDepth } from './bathymetry';
+import { depthAt, depthSpan, type Zone, zoneAt, zoneOfDepth } from './bathymetry';
 import { seedFromString } from './prng';
 import { RULES } from './rules';
 
@@ -196,6 +196,32 @@ describe('depthAt', () => {
       [262144, 262144],
     ].map(([x, y]) => Math.round(depthAt(seed, x as number, y as number, LARGE) * 1e6) / 1e6);
     expect(large).toEqual(GOLDEN_LARGE);
+  });
+});
+
+describe('depthSpan', () => {
+  it('gives depthAt bit for bit at each cell centre of a row, at both sizes and any cell', () => {
+    for (const size of SIZES) {
+      for (const seed of SEEDS.slice(0, 4)) {
+        for (const [cell, i0, j] of [
+          [0.5, 500_000, 499_999],
+          [1, 12, 7],
+          [4, 62_400, 61_000],
+          [37.5, -3, 100],
+          [1024, 0, 255],
+        ] as const) {
+          const n = 300;
+          const out = new Float64Array(n + 2);
+          depthSpan(seed, size, cell, i0, j, n, out, 2);
+          for (let k = 0; k < n; k++) {
+            const want = depthAt(seed, (i0 + k + 0.5) * cell, (j + 0.5) * cell, size);
+            if (out[k + 2] !== want) {
+              expect(out[k + 2], `size ${size} cell ${cell} k ${k}`).toBe(want);
+            }
+          }
+        }
+      }
+    }
   });
 });
 

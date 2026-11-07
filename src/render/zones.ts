@@ -5,9 +5,11 @@
 
 import * as THREE from 'three';
 import { depthAt, type Zone, zoneAt, zoneOfDepth } from '../sim/bathymetry';
-import { clamp, smoothstep } from '../sim/math';
+import { clamp, smoothstep, TAU } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
+import { DepthWindow } from './depth-window';
+import { wrapTo } from './origin';
 
 type Rgb = readonly [number, number, number];
 
@@ -112,8 +114,10 @@ export const MAX_LIGHTS = 8;
 export const LIGHT_WATER = 0.3;
 /** Water depth the shaders assume with no pond loaded (the Lab): mid-twilight. */
 const NEUTRAL_DEPTH = 0.4;
-/** Texels per side of the depth map. */
+/** Texels per side of the pond map's picture. */
 export const ZONE_TEXTURE_SIZE = 256;
+/** The zones' depth window (M11 T11) is at least this many view half-heights wide. */
+export const ZONE_WINDOW_VIEWS = 8;
 
 /** Each zone's share of the look at this depth: 1 inside a zone, blended over the edge bands. */
 export function zoneWeights(depth: number): [number, number, number, number] {
@@ -230,7 +234,7 @@ export function depthGrid(seed: Seed, size: number, n = ZONE_TEXTURE_SIZE): Uint
   const grid = new Uint8Array(n * n);
   for (let j = 0; j < n; j++) {
     for (let i = 0; i < n; i++) {
-      const depth = depthAt(seed, ((i + 0.5) * size) / n, ((j + 0.5) * size) / n);
+      const depth = depthAt(seed, ((i + 0.5) * size) / n, ((j + 0.5) * size) / n, size);
       grid[j * n + i] = Math.round(depth * 255);
     }
   }
@@ -245,14 +249,14 @@ const SEARCH_STEP = 32;
 const SEARCH_INSET = 256;
 
 /** Whether a point lies well inside a zone: clear of every blend (the zone's own look at full strength), and so is its surround. */
-export function wellInside(seed: Seed, x: number, y: number, zone: Zone): boolean {
-  if (zoneWeights(depthAt(seed, x, y))[ZONES.indexOf(zone)] !== 1) return false;
+export function wellInside(seed: Seed, size: number, x: number, y: number, zone: Zone): boolean {
+  if (zoneWeights(depthAt(seed, x, y, size))[ZONES.indexOf(zone)] !== 1) return false;
   const r = INSIDE_REACH;
   return (
-    zoneAt(seed, x + r, y) === zone &&
-    zoneAt(seed, x - r, y) === zone &&
-    zoneAt(seed, x, y + r) === zone &&
-    zoneAt(seed, x, y - r) === zone
+    zoneAt(seed, x + r, y, size) === zone &&
+    zoneAt(seed, x - r, y, size) === zone &&
+    zoneAt(seed, x, y + r, size) === zone &&
+    zoneAt(seed, x, y - r, size) === zone
   );
 }
 
@@ -268,7 +272,7 @@ export function nearestInZone(
   y: number,
   zone: Zone,
 ): { x: number; y: number } {
-  if (wellInside(seed, x, y, zone)) return { x, y };
+  if (wellInside(seed, size, x, y, zone)) return { x, y };
   const lo = SEARCH_INSET;
   const hi = size - SEARCH_INSET;
   for (let r = SEARCH_STEP; r < size * 1.5; r += SEARCH_STEP) {
@@ -278,7 +282,7 @@ export function nearestInZone(
       const px = x + r * Math.cos(a);
       const py = y + r * Math.sin(a);
       if (px < lo || px > hi || py < lo || py > hi) continue;
-      if (wellInside(seed, px, py, zone)) return { x: px, y: py };
+      if (wellInside(seed, size, px, py, zone)) return { x: px, y: py };
     }
   }
   return { x, y };
@@ -299,7 +303,8 @@ export function zoneGlsl(): string {
 #define ZONE_LIGHTS ${MAX_LIGHTS}
 uniform sampler2D tZoneDepth;
 uniform float uZoneOn;
-uniform float uZoneWorld;
+uniform float uZoneScale;
+uniform vec2 uZoneShift;
 uniform vec3 uViewer;
 uniform vec4 uLights[ZONE_LIGHTS];
 uniform float uLightCount;
@@ -313,9 +318,10 @@ const vec4 ZONE_CAUSTIC = ${perZone('caustic')};
 const float ZONE_TWILIGHT_SUN = ${f(TWILIGHT_SUN)};
 ${ZONES.map((z, i) => `const vec3 ZONE_WATER_${i} = ${vec3(ZONE_LOOK[z].water)};\nconst vec3 ZONE_HAZE_${i} = ${vec3(ZONE_LOOK[z].haze)};`).join('\n')}
 
-// Depth under a world point, from the pond's depth map; mid-twilight with no pond loaded.
+// Depth under a point (wu from the floating origin), from the depth window: a torus of texels
+// drawn with repeat wrapping, \`uZoneShift\` the origin's place on it. Mid-twilight with no pond.
 float zoneDepth(vec2 w) {
-  return uZoneOn > 0.5 ? texture2D(tZoneDepth, w / uZoneWorld).r : ZONE_NEUTRAL;
+  return uZoneOn > 0.5 ? texture2D(tZoneDepth, w * uZoneScale + uZoneShift).r : ZONE_NEUTRAL;
 }
 
 // Each zone's share at a depth: 1 inside a zone, blended across the edge bands.
@@ -358,58 +364,114 @@ float zoneSight(vec2 w, float dark) {
 }
 
 /**
- * The uniforms every zone-aware material shares (the shader chunk's): the depth map, where the
- * viewer is and how far it sees, and the glows. `GameScene` writes them each frame; with
- * `uZoneOn` 0 (the Lab) the shaders see mid-twilight water and full sight.
+ * The uniforms every zone-aware material shares (the shader chunk's): the depth window, where the
+ * viewer is and how far it sees, and the glows, every position relative to the floating origin
+ * (`origin.ts`). `GameScene` writes them each frame; with `uZoneOn` 0 (the Lab) the shaders see
+ * mid-twilight water and full sight.
  */
 export const ZONE_UNIFORMS: {
   readonly tZoneDepth: THREE.IUniform<THREE.Texture | null>;
   readonly uZoneOn: THREE.IUniform<number>;
-  readonly uZoneWorld: THREE.IUniform<number>;
+  /** The window's texels per wu over its texel count: a point's place on the torus per wu. */
+  readonly uZoneScale: THREE.IUniform<number>;
+  /** The origin's place on the window's torus, 0..1 on each axis. */
+  readonly uZoneShift: THREE.IUniform<THREE.Vector2>;
   readonly uViewer: THREE.IUniform<THREE.Vector3>;
   readonly uLights: THREE.IUniform<THREE.Vector4[]>;
   readonly uLightCount: THREE.IUniform<number>;
   /** The caustics' clock (`SunClock`); creature materials link it too (`shareBackdrop`). */
   readonly uSunTime: THREE.IUniform<number>;
+  /** The origin's phase in the caustics' tile (`causticShift`); linked like `uSunTime`. */
+  readonly uCausticShift: THREE.IUniform<THREE.Vector2>;
 } = {
   tZoneDepth: { value: null },
   uZoneOn: { value: 0 },
-  uZoneWorld: { value: RULES.world.size },
+  uZoneScale: { value: 1 },
+  uZoneShift: { value: new THREE.Vector2() },
   uViewer: { value: new THREE.Vector3(0, 0, 1) },
   uLights: { value: Array.from({ length: MAX_LIGHTS }, () => new THREE.Vector4()) },
   uLightCount: { value: 0 },
   uSunTime: { value: 0 },
+  uCausticShift: { value: new THREE.Vector2() },
 };
 
-/** The pond's depth map as a texture: built once per seed, filtered so the zones blend. */
-export class ZoneMap {
-  private texture: THREE.DataTexture | null = null;
-  private key = '';
+/** The caustics' tile in wu (`causticAt` in caustics.glsl: 2π after dividing by 18). */
+export const CAUSTIC_TILE = 18 * TAU;
 
-  /** Loads this pond's map (a no-op for the pond already loaded) and turns the zones on. */
+/**
+ * The origin's phase in the caustics' tile, in the shader's units (radians, 0..2π): `causticAt`
+ * adds it, so a point shows the same light whatever origin it is drawn from.
+ */
+export function causticShift(origin: number): number {
+  return (wrapTo(origin, CAUSTIC_TILE) / CAUSTIC_TILE) * TAU;
+}
+
+/**
+ * The zones' depth window as a texture (M11 T11): a `DepthWindow` of `ZONE_WINDOW_VIEWS` around
+ * the camera, uploaded whenever its texels change, filtered so the zones blend and wrapped as the
+ * torus it is.
+ */
+export class ZoneMap {
+  readonly window = new DepthWindow(ZONE_WINDOW_VIEWS);
+  private readonly texture: THREE.DataTexture;
+  private seed: Seed | null = null;
+  private size = 0;
+  private version = -1;
+  private settleNext = false;
+
+  constructor() {
+    const n = this.window.texels;
+    const texture = new THREE.DataTexture(this.window.data, n, n, THREE.RedFormat);
+    texture.magFilter = THREE.LinearFilter;
+    texture.minFilter = THREE.LinearFilter;
+    texture.wrapS = THREE.RepeatWrapping;
+    texture.wrapT = THREE.RepeatWrapping;
+    this.texture = texture;
+  }
+
+  /** Draws this pond's zones from the next frame, the window filled at once there. */
   set(seed: Seed, size: number): void {
-    const key = `${seed.join('.')}/${size}`;
-    if (key !== this.key) {
-      this.dispose();
-      const n = ZONE_TEXTURE_SIZE;
-      const texture = new THREE.DataTexture(depthGrid(seed, size, n), n, n, THREE.RedFormat);
-      texture.magFilter = THREE.LinearFilter;
-      texture.minFilter = THREE.LinearFilter;
-      texture.wrapS = THREE.ClampToEdgeWrapping;
-      texture.wrapT = THREE.ClampToEdgeWrapping;
-      texture.needsUpdate = true;
-      this.texture = texture;
-      this.key = key;
+    this.seed = seed;
+    this.size = size;
+    this.settleNext = true;
+  }
+
+  /** Fills the window at once on the next frame (a debug teleport), with no budget. */
+  settle(): void {
+    this.settleNext = true;
+  }
+
+  /**
+   * Follows the camera at (x, y), seen at `halfHeight` wu, and points the shaders at the window
+   * from `origin`. A frame samples at most `REFILL_BUDGET` depths.
+   */
+  update(x: number, y: number, halfHeight: number, origin: { x: number; y: number }): void {
+    const { seed, window } = this;
+    if (!seed) return;
+    if (this.settleNext) window.settle(seed, this.size, x, y, halfHeight);
+    else window.update(seed, this.size, x, y, halfHeight);
+    this.settleNext = false;
+    if (!window.ready) return;
+    if (window.version !== this.version) {
+      this.version = window.version;
+      this.texture.image.data = window.data;
+      this.texture.needsUpdate = true;
     }
+    const side = window.texels * window.cell;
+    ZONE_UNIFORMS.uZoneScale.value = 1 / side;
+    ZONE_UNIFORMS.uZoneShift.value.set(
+      wrapTo(origin.x, side) / side,
+      wrapTo(origin.y, side) / side,
+    );
     ZONE_UNIFORMS.tZoneDepth.value = this.texture;
-    ZONE_UNIFORMS.uZoneWorld.value = size;
     ZONE_UNIFORMS.uZoneOn.value = 1;
   }
 
   dispose(): void {
-    this.texture?.dispose();
-    this.texture = null;
-    this.key = '';
+    this.version = -1;
+    this.texture.dispose();
+    this.seed = null;
+    this.window.reset();
     ZONE_UNIFORMS.tZoneDepth.value = null;
     ZONE_UNIFORMS.uZoneOn.value = 0;
     ZONE_UNIFORMS.uLightCount.value = 0;

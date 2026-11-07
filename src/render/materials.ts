@@ -1,5 +1,6 @@
 import * as THREE from 'three';
 import type { MaterialParams } from './material-params';
+import { ORIGIN_STEP } from './origin';
 import { depthOfParallax } from './post/dof';
 import caustics from './shaders/caustics.glsl?raw';
 import cellFragment from './shaders/cell.frag.glsl?raw';
@@ -69,7 +70,8 @@ export const waterMaterial = (): THREE.ShaderMaterial =>
       uCam: { value: new THREE.Vector2() },
       uHalf: { value: new THREE.Vector2(1, 1) },
       uTime: { value: 0 },
-      uWorld: { value: 0 },
+      uBodyShift: { value: new THREE.Vector2() },
+      uWalls: { value: new THREE.Vector4() },
       uLight: { value: 1 },
     },
     { blending: THREE.NoBlending },
@@ -123,6 +125,7 @@ export function shareBackdrop(material: THREE.ShaderMaterial): void {
   material.uniforms.tBackdrop = BACKDROP.texture;
   material.uniforms.uRefract = BACKDROP.strength;
   material.uniforms.uSunTime = ZONE_UNIFORMS.uSunTime;
+  material.uniforms.uCausticShift = ZONE_UNIFORMS.uCausticShift;
 }
 
 /**
@@ -140,6 +143,7 @@ export const creatureMaterial = (params: MaterialParams, glint = 0): THREE.Shade
     uTurn: { value: 0 },
     uTime: { value: 0 },
     uSunTime: { value: 0 },
+    uCausticShift: { value: new THREE.Vector2() },
     uCore: { value: new THREE.Color(...params.core) },
     uRim: { value: new THREE.Color(...params.rim) },
     uOrgan: { value: new THREE.Color(...params.organ) },
@@ -240,12 +244,13 @@ export interface ParticleStyle {
   sparkle?: number;
 }
 
-export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
-  layer(
+export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial => {
+  const material = layer(
     particlesVertex,
     particlesFragment,
     {
       uCam: { value: new THREE.Vector2() },
+      uOriginStep: { value: new THREE.Vector2() },
       uFlow: { value: new THREE.Vector2() },
       uPeriod: { value: style.period },
       uDepth: { value: depthOfParallax(style.parallax) },
@@ -267,6 +272,9 @@ export const particleMaterial = (style: ParticleStyle): THREE.ShaderMaterial =>
     },
     { blending: THREE.AdditiveBlending },
   );
+  material.defines = { ORIGIN_STEP: glslFloat(ORIGIN_STEP) };
+  return material;
+};
 
 function uniformOf(material: THREE.ShaderMaterial, name: string): THREE.IUniform {
   const uniform = material.uniforms[name];

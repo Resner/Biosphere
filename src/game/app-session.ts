@@ -91,11 +91,14 @@ export function newSession(
   pond: Pond | null = null,
   spawn: Vec2 | null = null,
   biomass: number = RULES.starter.biomass,
+  /** The side of a local world (`?world=`); a pond's own size wins. */
+  size?: number,
 ): Session {
+  const side = pond?.size ?? size;
   const world = createWorld({
     seed: demo ? `${seed}/title` : seed,
     hazards: !demo,
-    ...(pond ? { size: pond.size } : {}),
+    ...(side ? { size: side } : {}),
   });
   if (pond) {
     world.consumed = pond.world.consumed;
