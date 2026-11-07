@@ -604,6 +604,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     1. `RULES.world.size` 262,144. The world's centre (131,072, 131,072) is the spawn centre everywhere: the hub's ring and every new pond, the offline world, the bathymetry's twilight disc and the encounters' world. Regenerate the goldens.
     2. `state().pond` gains `size` and `centre`. Every E2E helper and spec that uses absolute pond coordinates moves to coordinates relative to the centre.
     3. DESIGN §2: the world's size. The ponds stay roster groups of it until T14.
+    4. `POS_MAX` in `src/net/protocol-encounter.ts` (8,192, the fight wire's position bound) becomes `WIRE_POS_MAX`, so a fight far from the origin still parses.
   - Acceptance (tests first):
     - Hub test: a welcome names a world of 262,144 wu centred at (131,072, 131,072), and slot 0 spawns at the centre.
     - Every E2E, fast and full, passes. `m11-world` passes at the default size, without `?world=`.
