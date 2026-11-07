@@ -53,7 +53,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
   browser,
   request,
 }) => {
-  test.setTimeout(600_000);
+  test.setTimeout(420_000);
   const players: Player[] = [];
   try {
     for (let i = 0; i < 3; i++) players.push(await join(browser, HUB));
@@ -189,7 +189,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     // to swim the rest.
     let nearSince: number | null = null;
     let lastD = Number.NaN;
-    const nearDeadline = Date.now() + 240_000;
+    const nearDeadline = Date.now() + 150_000;
     while (Date.now() < nearDeadline) {
       const me = (await state(a.page)).player;
       const cAt = (await state(c.page)).player;
@@ -205,11 +205,9 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       }
       await a.page.waitForTimeout(500);
     }
-    const speedA = (await state(a.page)).player?.speed;
-    const speedC = (await state(c.page)).player?.speed;
     expect(
       nearSince,
-      `C came into A’s view (last distance ${Math.round(lastD)} wu, speeds A ${speedA}, C ${speedC})`,
+      `C came into A’s view (last distance ${Math.round(lastD)} wu)`,
     ).not.toBeNull();
 
     const watch = await a.page.evaluate(() => (window as unknown as { __watch: Watch }).__watch);
