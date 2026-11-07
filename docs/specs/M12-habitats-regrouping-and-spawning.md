@@ -214,7 +214,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - Every unit test and E2E passes otherwise unchanged.
   - Notes: the shapes are fixed here, and T2 to T7 build to them. This task parses and meters, and changes no behaviour.
 
-- [ ] T2 Groups and placement, pure (after none)
+- [ ] T2 Groups and placement, pure (after none) (in progress)
   - Steps:
     1. `worker/placement.ts` (shapes above), as ADR 0064 decides:
        - **`groupsFor`**: single-linkage clusters of the members that pass `linkTiers` with the spawner, chained within half its `queryRadius`. The best first: the most members of the spawner's own tier, then the most linkable, then the nearest to the spawn centre, then the lowest member id.
