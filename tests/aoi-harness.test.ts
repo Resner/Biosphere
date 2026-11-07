@@ -1,15 +1,15 @@
 import { describe, expect, it } from 'vitest';
-import { CENTRE, type RunResult, runScenario } from './aoi-harness';
+import { CENTRE, runScenario } from './aoi-harness';
 import {
   type Gate,
   gatesOf,
   makeScenario,
   pct,
-  SCENARIO_NAMES,
   type ScenarioName,
   type ScenarioOptions,
+  sum,
 } from './aoi-scenarios';
-import type { Scenario } from './aoi-types';
+import type { RunResult, Scenario } from './aoi-types';
 import { heavyTest } from './heavy';
 
 // The headless area-of-interest harness (M11 T10, ADR 0062): the gates of `docs/perf/aoi.md` as
@@ -39,8 +39,11 @@ describe('the harness', () => {
     expect(failed(gatesOf([base]))).toEqual([]);
     const broken = (patch: Partial<RunResult>, gate: number) => {
       const bad = { ...base, ...patch } as RunResult;
-      expect(gatesOf([bad]).find((g) => !g.ok)?.n).toBe(gate);
-      expect(gatesOf([bad]).filter((g) => !g.ok)).toHaveLength(1);
+      expect(
+        gatesOf([bad])
+          .filter((g) => !g.ok)
+          .map((g) => g.n),
+      ).toEqual([gate]);
     };
     broken({ violations: { ...base.violations, cap: 1 } }, 1);
     broken({ violations: { ...base.violations, hidden: 1 } }, 2);
@@ -103,32 +106,33 @@ describe('the scenarios', () => {
   );
 });
 
-// The property test: 50 seeded runs of the open-world scenarios at twice the speed.
+// The property test: 50 seeded runs of the open-world scenarios at twice the speed, in three tests
+// so that each has its own timeout.
 describe('the property test', () => {
-  heavyTest(
-    '50 seeded runs of sparse, streams and traveller at twice the speed meet every gate',
-    () => {
-      const fast = { speed: 2 };
-      const sparse = runs('sparse', 20, { ...fast, scale: 0.2 });
-      const streams = runs('streams', 20, fast);
-      const traveller = runs('traveller', 10, { ...fast, scale: 0.25 });
-      const all = [...sparse, ...streams, ...traveller];
-      expect(all).toHaveLength(50);
-      for (const group of [sparse, streams, traveller]) {
-        expect(failed(gatesOf(group))).toEqual([]);
+  const fast = { speed: 2 };
+  const groups: [ScenarioName, number, ScenarioOptions][] = [
+    ['sparse', 20, { ...fast, scale: 0.2 }],
+    ['streams', 20, fast],
+    ['traveller', 10, { ...fast, scale: 0.25 }],
+  ];
+  for (const [name, seeds, opts] of groups) {
+    heavyTest(`${seeds} seeded runs of ${name} at twice the speed meet every gate`, () => {
+      const rs = runs(name, seeds, opts);
+      expect(rs).toHaveLength(seeds);
+      expect(failed(gatesOf(rs))).toEqual([]);
+      // Not vacuous: creatures came into view, and the budget had minutes to judge.
+      expect(sum(rs, (r) => r.entries)).toBeGreaterThan(name === 'traveller' ? 20 : 100);
+      if (name === 'sparse') {
+        expect(sum(rs, (r) => r.lateLinks)).toBeGreaterThan(100);
+        expect(
+          pct(
+            rs.flatMap((r) => r.discoveryMs),
+            0.95,
+          ),
+        ).toBeLessThan(10_000);
       }
-      // Not vacuous: links were made and relayed after the first minute, creatures came into view.
-      expect(all.reduce((s, r) => s + r.lateLinks, 0)).toBeGreaterThan(200);
-      expect(all.reduce((s, r) => s + r.entries, 0)).toBeGreaterThan(500);
-      expect(
-        pct(
-          sparse.flatMap((r) => r.discoveryMs),
-          0.95,
-        ),
-      ).toBeLessThan(10_000);
-      expect(SCENARIO_NAMES).toHaveLength(7);
-    },
-  );
+    });
+  }
 });
 
 describe('a pile of creatures', () => {

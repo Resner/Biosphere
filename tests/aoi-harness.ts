@@ -24,6 +24,7 @@ import { type Fix, Gossip, type PeersEvent } from '../src/net/gossip';
 import { byteLength, type Leaf, type Pos } from '../src/net/protocol';
 import { SignalRoute } from '../src/net/signal-route';
 import { WhereReporter } from '../src/net/where';
+import { clamp } from '../src/sim/math';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
 import { linkTiers, viewHalfHeight } from '../src/sim/size';
 import { Directory, RELAY_SLACK_WU } from '../worker/directory';
@@ -37,20 +38,20 @@ import {
   type Scenario,
 } from './aoi-types';
 
-export type { Box, ClientSpec, FightSpec, GateKey, RunResult, Scenario, Walk } from './aoi-types';
-
-export const TICK_MS = 100;
+const TICK_MS = 100;
 /** The world's centre: scenarios lay their creatures out around it (ADR 0061). */
 export const CENTRE = 131_072;
 const WORLD = 262_144;
 /** The half-diagonal of a 16:9 view, in view half-heights. */
 const VIEW_DIAG = Math.hypot(1, 16 / 9);
 /** A pair that has been within P1 reach this long must be linked (gate 2). */
-export const SETUP_GRACE_MS = 10_000;
-/** A creature this young is not yet expected to be linked to anyone. */
+const SETUP_GRACE_MS = 10_000;
 /** Gate 3 holds for newcomers closing at most this fast (relative, wu/s): the P1 lead gives 6 s at 100. */
-export const LATE_CLOSING = 100;
-export const YOUNG_MS = 8000;
+const LATE_CLOSING = 100;
+/** A creature this young is not yet expected to be linked to anyone. */
+const YOUNG_MS = 8000;
+/** A link made this long after the later spawn counts as a later link (gate 5's relay share). */
+const LATE_AFTER_MS = 60_000;
 const REFUSED_BACKOFF_MS = 5000;
 /** A plan starts at most this many calls to peers beyond P1. */
 const DIALS_PER_PLAN = 8;
@@ -75,7 +76,6 @@ interface Link {
 interface Attempt {
   from: string;
   to: string;
-  start: number;
   state: 'offer' | 'ice' | 'dead';
   relayed: boolean;
   /** The class the caller holds the callee in: the offer carries it, and `admit` judges by it. */
@@ -173,7 +173,6 @@ class Sim {
   private readonly badSince = new Map<string, number>();
   private readonly firstLink = new Set<string>();
   private tickIndex = 0;
-  private readonly lateAfter = 60_000;
 
   constructor(
     private readonly sc: Scenario,
@@ -304,17 +303,16 @@ class Sim {
 
   private tick(): void {
     const dt = TICK_MS / 1000;
-    const alive = this.order;
-    for (const c of alive) this.move(c, dt);
-    for (const c of alive) this.snapshots(c);
-    for (const c of alive) {
+    for (const c of this.order) this.move(c, dt);
+    for (const c of this.order) this.snapshots(c);
+    for (const c of this.order) {
       this.report(c);
       this.sendGossip(c);
       c.route.tick();
       if ((this.tickIndex + c.phase) % 5 === 0 || c.dirty) this.plan(c);
       this.sample(c, dt);
     }
-    this.pairs(alive);
+    this.pairs(this.order);
   }
 
   private move(c: Client, dt: number): void {
@@ -332,11 +330,11 @@ class Sim {
     const b = w.box;
     if (b) {
       if (c.x < b.x0 || c.x > b.x1) {
-        c.x = Math.min(b.x1, Math.max(b.x0, c.x));
+        c.x = clamp(c.x, b.x0, b.x1);
         c.heading = Math.PI - c.heading;
       }
       if (c.y < b.y0 || c.y > b.y1) {
-        c.y = Math.min(b.y1, Math.max(b.y0, c.y));
+        c.y = clamp(c.y, b.y0, b.y1);
         c.heading = -c.heading;
       }
     }
@@ -610,7 +608,6 @@ class Sim {
     const a: Attempt = {
       from: c.id,
       to,
-      start: this.now,
       state: 'offer',
       relayed: false,
       cls: (c.classes.get(to) ?? 4) as LinkClass,
@@ -706,7 +703,7 @@ class Sim {
       this.firstLink.add(pair);
       this.res.friendMs.push(this.now - Math.max(a.spec.spawnAt, b.spec.spawnAt));
     }
-    if (this.now - Math.max(a.spec.spawnAt, b.spec.spawnAt) >= this.lateAfter) {
+    if (this.now - Math.max(a.spec.spawnAt, b.spec.spawnAt) >= LATE_AFTER_MS) {
       this.res.lateLinks++;
       if (la.relayed) this.res.lateRelayed++;
     }

@@ -2,15 +2,8 @@
 // gates a run must meet. `tests/aoi-harness.ts` runs them; the test and `npm run report:aoi` judge them.
 
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
-import {
-  type Box,
-  CENTRE,
-  type ClientSpec,
-  type FightSpec,
-  type RunResult,
-  type Scenario,
-  type Walk,
-} from './aoi-harness';
+import { CENTRE } from './aoi-harness';
+import type { Box, ClientSpec, FightSpec, RunResult, Scenario, Walk } from './aoi-types';
 
 export const SCENARIO_NAMES = [
   'friends',
@@ -45,12 +38,12 @@ const box = (cx: number, cy: number, w: number, h = w): Box => ({
   y1: cy + h / 2,
 });
 
-function wander(rng: Rng, speed: number, b: Box | undefined, dash = true): Walk {
+function wander(rng: Rng, speed: number, b: Box | undefined): Walk {
   return {
     heading: rng.range(0, 2 * Math.PI),
     speed: rng.range(40, 105) * speed,
     turn: 1.5,
-    dash,
+    dash: true,
     box: b,
   };
 }
@@ -195,7 +188,6 @@ export interface Gate {
   detail: string;
 }
 
-export const GATE_CAP = 'The cap';
 /** A hatch to a hello: the median within 3 s; one attempt in 20 fails and is retried, so the p95 is 5 s. */
 export const FRIENDS_P50_MS = 3000;
 export const FRIENDS_P95_MS = 5000;
@@ -212,7 +204,8 @@ export function pct(values: readonly number[], p: number): number {
   return sorted[Math.min(sorted.length - 1, Math.floor(p * sorted.length))] as number;
 }
 
-const sum = (runs: RunResult[], f: (r: RunResult) => number) => runs.reduce((s, r) => s + f(r), 0);
+export const sum = (runs: RunResult[], f: (r: RunResult) => number) =>
+  runs.reduce((s, r) => s + f(r), 0);
 const examples = (runs: RunResult[], keys: (keyof RunResult['violations'])[]) =>
   runs
     .flatMap((r) => keys.flatMap((k) => r.examples[k].map((e) => `${r.seed}: ${e}`)))

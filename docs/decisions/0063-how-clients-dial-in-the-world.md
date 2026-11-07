@@ -11,7 +11,7 @@ M11 T10 built the headless area-of-interest harness (`tests/aoi-harness.ts`): si
 
 **What the harness found, and the rules that fix it.**
 - **A giant's AoI is wider than a neighbour's query radius** (a tier-3 creature sees about 20,000 wu, a tier-2 one queries about 11,000). The giant called creatures that had no class for it, and they refused. A creature is now in the AoI of whichever of the two sees further (`AoiManager.classify` takes the larger of its own AoI and the other's at that creature's radius, for P2, P3 and P4). Both ends want the link, and refusals in the `tiers` scenario fell from 227 to 24.
-- **A hub-relayed signal carries a directory position that is up to 30 s old.** A callee that judged the caller from it refused calls that were in range. An offer carries the class its caller holds the callee in (0 to 4), inside the relay's signature, and `admit` takes the better of that and the callee's own class. The callee still drops the link once its own snapshots put the caller out of every class for 3 s.
+- **A hub-relayed signal carries a directory position that is up to 30 s old.** A callee that judged the caller from it refused calls that were in range. An offer carries the class its caller holds the callee in (0 to 4), inside the relay's signature, and `admit` takes the better of that and the callee's own class. This is a deliberate trust decision: a caller can over-claim a class, and the cost is bounded by the cap and by the callee dropping the link once its own snapshots put the caller out of every class for 3 s. (Having the relay stamp a fresh position instead would need the hub to know one; it knows only the last report.)
 - **A relayed offer that a peer cannot pass on is lost silently**, and the hub's resend comes 4 s later: longer than a P1's 3 s lead. P0 and P1 calls go through the hub.
 
 **How a client dials** (the page's plan loop, every 500 ms and at once when the directory answers or an offer comes in):
@@ -31,6 +31,8 @@ M11 T10 built the headless area-of-interest harness (`tests/aoi-harness.ts`): si
 
 ## Consequences
 
+- The dial rules and their constants live in the harness until T13 builds the page's loop; they are provisional until then, and T13 re-runs the harness against that loop (`docs/perf/aoi.md`) rather than copying the numbers.
+- The spec's first numbers stay the targets (friends linked within 3 s at the p95, remotes closing at 200 wu/s linked ahead of view); the gates above are what the link model reaches, and they move with it (ICE at 0.5 to 2 s, 5% of attempts failing).
 - `AoiManager.classify` changes (P2 to P4 reach); `docs/DESIGN.md` and `.claude/rules/net.md` say so.
 - T13 builds the dial loop above and adds the class to `signal` and `relay` (a protocol change in `protocol-world.ts`, covered by the relay's signature).
 - `docs/perf/aoi.md` is the evidence for the milestone's budget and handoff rows; M13's capacity model reads its message rates.

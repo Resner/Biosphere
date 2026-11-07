@@ -18,6 +18,7 @@ import {
   RELAY_SHARE,
   SCENARIO_NAMES,
   type ScenarioName,
+  sum,
 } from '../tests/aoi-scenarios';
 import type { RunResult } from '../tests/aoi-types';
 
@@ -32,13 +33,12 @@ export const REPORT_SEEDS: Record<ScenarioName, number> = {
   witnesses: 3,
 };
 
-export function runReportScenario(name: ScenarioName, seeds = REPORT_SEEDS[name]): RunResult[] {
+function runReportScenario(name: ScenarioName, seeds = REPORT_SEEDS[name]): RunResult[] {
   return Array.from({ length: seeds }, (_, i) =>
     runScenario(makeScenario(name, `report${i}`), `report${i}`),
   );
 }
 
-const sum = (runs: RunResult[], f: (r: RunResult) => number) => runs.reduce((s, r) => s + f(r), 0);
 const fixed = (v: number, digits = 1) => v.toFixed(digits);
 const secs = (ms: number) => fixed(ms / 1000, 2);
 
@@ -130,8 +130,8 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 ## Gates
 
 1. **The cap**: never more than 32 links, nor more than 24 while P0 + P1 ≤ 24.
-2. **No hidden interactable creature**: every pair within 8 × the larger radius that can link is linked with its hello done, unless a side is crowded (or has 24 or more P1 within reach) or the pair has been within P1 reach under ${10} s.
-3. **Seamless handoffs**: no link closes to a creature in view while the two stay within each other's AoI; every remote that comes into view at a closing speed of at most 100 wu/s has been linked for 0.5 s (not asserted in the two dense scenarios, ${'`crowd`'} and ${'`witnesses`'}: M12).
+2. **No hidden interactable creature**: every pair within 8 × the larger radius that can link is linked with its hello done, unless a side is crowded (or has 24 or more P1 within reach) or the pair has been within P1 reach under 10 s.
+3. **Seamless handoffs**: no link closes to a creature in view while the two stay within each other's AoI; every remote that comes into view at a closing speed of at most 100 wu/s has been linked for 0.5 s (not asserted in the two dense scenarios, \`crowd\` and \`witnesses\`: M12).
 4. **Friends** (spawn ring): linked within ${FRIENDS_P50_MS / 1000} s at the median and ${FRIENDS_P95_MS / 1000} s at the p95.
 5. **Budget**: at most ${MSG_MEDIAN} incoming authority messages per player-minute (median) and ${MSG_P95} (p95) after a creature's first minute, at most ${JOIN_P95} (p95) in it; in \`sparse\` and \`streams\`, at least ${RELAY_SHARE * 100}% of the links made after the first minute through a peer relay. Not asserted in the dense scenarios.
 6. **Gossip** costs at most ${GOSSIP_KBPS} KB/s per link.

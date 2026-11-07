@@ -80,7 +80,8 @@ export class AoiManager {
   /**
    * Each known creature's class, the first that holds: P0 the ids in `p0`; P1 within 8 × the
    * larger radius + 600 wu (held to + 900); P2 within the AoI (held to 1.1 ×); P3 within 2 × the
-   * AoI (2.2 ×); P4 within `Q` (1.1 ×). A hold applies to a creature whose class in `prev` was that
+   * AoI (2.2 ×); P4 within `Q` (1.1 ×), the AoI being the larger of the two creatures' (the other's
+   * taken at its radius). A hold applies to a creature whose class in `prev` was that
    * one or better. Every class but P0 needs `linkTiers`; a creature with none is left out.
    */
   classify(

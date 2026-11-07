@@ -74,7 +74,7 @@ export interface RunResult {
   linkSeconds: number;
   crowdedSeconds: number;
   clientSeconds: number;
-  /** Duty links expected and taken, and swarm points expected and sent. */
+  /** Duty links expected, and taken within 10 s. */
   duties: number;
   dutiesTaken: number;
   /** Remotes that came into view, and those already linked for 0.5 s. */
@@ -83,17 +83,7 @@ export interface RunResult {
   hub: { relayed: number; hub: number; fallback: number; refused: number };
 }
 
-export type GateKey =
-  | 'cap'
-  | 'hidden'
-  | 'pops'
-  | 'late'
-  | 'tierLink'
-  | 'swarm'
-  | 'duty'
-  | 'dutyCap';
-
-export const GATE_KEYS: GateKey[] = [
+export const GATE_KEYS = [
   'cap',
   'hidden',
   'pops',
@@ -102,4 +92,5 @@ export const GATE_KEYS: GateKey[] = [
   'swarm',
   'duty',
   'dutyCap',
-];
+] as const;
+export type GateKey = (typeof GATE_KEYS)[number];
