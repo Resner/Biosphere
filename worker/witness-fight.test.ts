@@ -19,10 +19,12 @@ import { witnessView } from './duty';
 import {
   advance,
   advanceTo,
+  answer,
   authority,
   clock,
   type EncEnd,
   type EncStart,
+  engage,
   fighters,
   hatched,
   killB,
@@ -30,6 +32,8 @@ import {
   NEAR,
   outOfReach,
   type Player,
+  pondTick,
+  rehatch,
   slotOf,
   snap,
   useFightHub,
@@ -37,7 +41,7 @@ import {
 } from './fight-test-kit';
 import { proofBundle } from './proof';
 import { recoverFights } from './recover';
-import { nextOf, publish, sql } from './test-hub';
+import { flush, nextOf, publish, sql } from './test-hub';
 import { DAY_MS } from './usage';
 import { commitWitnesses, STRIKE_MS } from './witness-pool';
 import {
@@ -45,6 +49,7 @@ import {
   orderOf,
   refereeDuty,
   type ScriptedWitness,
+  setAvail,
   useWitnessHub,
   type Witness,
   waitFor,
@@ -134,9 +139,15 @@ function hunt(start: EncStart, b: Player): (f: number) => number[] {
  * `health`) and hunts it until B dies. `calm`: both idle out of reach (`outOfReach`), which even
  * the autopilot keeps calm for its 90 s, so frames the autopilot plays never end it early.
  */
-async function witnessed(n: number, kind: 'hunt' | 'calm', health = 0.3): Promise<Run> {
+async function witnessed(
+  n: number,
+  kind: 'hunt' | 'calm',
+  health = 0.3,
+  prep?: (ws: Witness[]) => Promise<void>,
+): Promise<Run> {
   const [a, b] = await fighters();
   const ws = await witnesses(n);
+  if (prep) await prep(ws);
   let start: EncStart;
   if (kind === 'hunt') {
     [start] = await lockIn(a, b, snap(b, ...NEAR.b, { health }), snap(a, ...NEAR.a, { health: 1 }));
@@ -231,8 +242,12 @@ const phaseOf = (r: Run) =>
   });
 
 /** The fight handed to the referee at position 0, played to the frame before its span. */
-async function handedOver(n = 1, kind: 'hunt' | 'calm' = 'calm') {
-  const r = await witnessed(n, kind);
+async function handedOver(
+  n = 1,
+  kind: 'hunt' | 'calm' = 'calm',
+  prep?: (ws: Witness[]) => Promise<void>,
+) {
+  const r = await witnessed(n, kind, 0.3, prep);
   const sw = await refereeDuty(r.at(0));
   const msg = await sw.accept();
   await Promise.all(r.seats.map((s) => s.until(() => s.referees.length === 1, 'the handover')));
@@ -593,6 +608,147 @@ describe('planned take-backs', () => {
       { by: sw.player, from: h, position: 0 },
       { by: AUTHORITY, from: logged },
     ]);
+  });
+});
+
+describe('a lock against the witness (M11 T3)', () => {
+  /**
+   * F handed to its one witness W, who has a creature of its own, with C beside it: both hatched
+   * with W unavailable (so no genesis audit holds W) and past their protection.
+   */
+  async function besideWitness() {
+    const held: { w?: Player; c?: Player } = {};
+    const { r, sw, h } = await handedOver(1, 'calm', async ([w]) => {
+      if (!w) throw new Error('no witness');
+      await setAvail(w.c, false);
+      held.w = await rehatch({ c: w.c, id: w.id, pond: w.pond });
+      held.c = await hatched();
+      await advance(16_000);
+      await setAvail(w.c, true);
+    });
+    const { w, c } = held;
+    if (!w || !c) throw new Error('no creatures');
+    await sw.catchUp();
+    return { r, sw, h, w, c };
+  }
+
+  /** F's spans and witness, as the object holds them. */
+  const witnessOf = (r: Run) =>
+    authority((o) => {
+      const fight = o.fights.ofPlayer(r.a.id.playerId)?.fight;
+      return { spans: fight?.spans, by: fight?.witness?.by, until: fight?.witness?.until };
+    });
+
+  it('leaves F’s spans and its witness as they were when the lock is refused engage:moved or engage:unseen', async () => {
+    const { r, sw, h, w, c } = await besideWitness();
+    const before = {
+      spans: [
+        { by: AUTHORITY, from: 0 },
+        { by: sw.player, from: h, position: 0 },
+      ],
+      by: sw.player,
+      until: null,
+    };
+    const jump = [
+      snap(c, 800, 1000, { tick: pondTick(c) - 12 }),
+      snap(c, 1000, 1000, { tick: pondTick(c) - 6 }),
+    ];
+    for (const [seen, why] of [
+      [jump, 'engage:moved'],
+      [[], 'engage:unseen'],
+    ] as const) {
+      engage(c, w);
+      await answer(c, w, { seen: [...seen] });
+      expect((await nextOf(c.c, 'refused')).reason).toBe(why);
+      expect(await witnessOf(r)).toEqual(before);
+      for (const s of r.seats) s.drain();
+      expect(r.seats[0].referees).toHaveLength(1);
+      sw.hear();
+      expect(sw.stoppedAt).toBeNull();
+      expect(await struckUntil(sw.player)).toBe(0);
+    }
+  });
+
+  it('takes F back at due + 3 when the lock starts', async () => {
+    const { r, sw, h, w, c } = await besideWitness();
+    engage(c, w);
+    await answer(c, w);
+    const due = Math.floor((clock.t - r.start.at) / FRAME_MS);
+    await Promise.all([
+      nextOf(c.c, 'enc-start'),
+      within(nextOf(w.c, 'enc-start'), 'W’s enc-start'),
+    ]);
+    const from = due + 3;
+    for (const s of r.seats) {
+      await s.until(() => s.referees.length === 2, 'the take-back');
+      expect(s.referees[1]).toEqual({ t: 'enc-referee', enc: r.start.enc, from, by: AUTHORITY });
+    }
+    expect((await witnessOf(r)).spans).toEqual([
+      { by: AUTHORITY, from: 0 },
+      { by: sw.player, from: h, position: 0 },
+      { by: AUTHORITY, from },
+    ]);
+    expect(await struckUntil(sw.player)).toBe(0);
+  });
+});
+
+describe('a late dispute (M11 T3)', () => {
+  /** A hunt W refereed, played to its end. */
+  async function settled() {
+    const { r, sw, h } = await handedOver(1, 'hunt');
+    await playOut(r, sw);
+    expect(await authority((o) => o.fights.ofPlayer(r.a.id.playerId))).toBeUndefined();
+    return { r, sw, f: h + 2 };
+  }
+
+  /** A's dispute of frame `f` with W's valid signature on inputs other than those committed. */
+  function otherFrame(r: Run, sw: ScriptedWitness, f: number) {
+    const held = r.seats[0].frames[f] as (number | null)[];
+    const other = held.map((x) => (x === null ? IDLE_CODE : x ^ 1));
+    return {
+      t: 'dispute' as const,
+      enc: r.start.enc,
+      f,
+      i: other,
+      sig: signWitnessFrame(sw.w.id, r.start.enc, f, other),
+    };
+  }
+  const disputes = () => authority((o) => o.fights.witnessed.disputes);
+
+  it('2 s after enc-end, strikes the witness for a frame that differs from the committed one, and flags witness-equivocated once', async () => {
+    const { r, sw, f } = await settled();
+    await advance(2000);
+    r.a.c.send(otherFrame(r, sw, f));
+    await flush(r.a.c);
+    expect(await flags('witness-equivocated', r.event)).toBe(1);
+    expect(await struckUntil(sw.player)).toBe(clock.t + STRIKE_MS);
+    r.b.c.send(otherFrame(r, sw, f));
+    await flush(r.b.c);
+    expect(await flags('witness-equivocated', r.event)).toBe(1);
+  });
+
+  it('changes nothing for an equal frame', async () => {
+    const { r, sw, f } = await settled();
+    await advance(2000);
+    const held = sw.frames.find((x) => x.f === f);
+    if (!held) throw new Error('no witness frame');
+    const before = await disputes();
+    r.a.c.send({ t: 'dispute', enc: r.start.enc, f, i: held.i, sig: held.sig });
+    await flush(r.a.c);
+    expect(await disputes()).toBe(before + 1);
+    expect(await flags('witness-equivocated', r.event)).toBe(0);
+    expect(await struckUntil(sw.player)).toBe(0);
+  });
+
+  it('drops and counts one 31 s after enc-end', async () => {
+    const { r, sw, f } = await settled();
+    await advance(31_000);
+    const before = await disputes();
+    r.a.c.send(otherFrame(r, sw, f));
+    await flush(r.a.c);
+    expect(await disputes()).toBe(before + 1);
+    expect(await flags('witness-equivocated', r.event)).toBe(0);
+    expect(await struckUntil(sw.player)).toBe(0);
   });
 });
 
