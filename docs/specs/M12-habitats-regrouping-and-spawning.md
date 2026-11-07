@@ -304,7 +304,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Spawning
 
-- [ ] T4 Spawning by the authority [opus] (after T1, T2)
+- [ ] T4 Spawning by the authority [opus] (after T1, T2) (in progress)
   - Steps:
     1. `worker/spawn.ts` answers a `spawn` from a seated session:
        - **a locked creature** (in a fight, or a lock waiting for its answer) is refused `spawn`: its page goes back into the fight;
