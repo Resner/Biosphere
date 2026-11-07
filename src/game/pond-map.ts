@@ -1,169 +1,78 @@
-// The pond map (M6 T19, `M`): the pond's bounds and depth zones, every player as a dot (the player
-// ringed, mate-ready players as hearts) and the live pings. It lies over the water without taking
-// the pointer, so steering carries on under it; `M` or Esc closes it.
+// The map (M6 T19, M11 T18, `M`): a square of the world centred on the player (`map-view.ts`),
+// charted from its own depth window (`depth-chart.ts`): you ringed, linked players as dots with
+// names (mate-ready players as hearts), players known but not linked as hollow marks fading with
+// age, the spawn centre and the world's edge when in the square, and the live pings. It lies over
+// the water without taking the pointer, so steering carries on under it; `M` or Esc closes it.
 
-import { depthGrid, ZONE_TEXTURE_SIZE, ZONES, zoneWeights } from '../render/zones';
 import type { Zone } from '../sim/bathymetry';
-import { clamp } from '../sim/math';
-import type { Seed } from '../sim/prng';
-import { RULES } from '../sim/rules';
+import { ChartCanvas, type ChartImage, mapChart } from './depth-chart';
 import { pick, setText } from './dom';
 import { showIcon } from './icons';
-import { ISOBATH_STRENGTH, relief, smoothDepth } from './map-relief';
+import { BEYOND, EDGE, INK, MAP_COLOURS, SHADOW } from './map-relief';
+import { type MapMark, type MapView, mapMarks, mapSpot, squareShows } from './map-view';
+import { DrawClock } from './minimap';
 import { PINGS } from './social-ui';
 
-/** How far an edge texel is lightened, so zones are told apart by a line as well as a colour. */
-export const EDGE_LIGHTEN = 0.45;
-
-/**
- * Each zone's colour on the map: its water brightened to read on a small picture, getting darker
- * with depth so brightness alone separates them (the legend names them too).
- */
-export const MAP_COLOURS: Readonly<Record<Zone, readonly [number, number, number]>> = {
-  shallows: [0.3, 0.66, 0.54],
-  twilight: [0.1, 0.3, 0.36],
-  deep: [0.04, 0.1, 0.22],
-  abyss: [0.02, 0.025, 0.06],
-};
-
-/** A world position on the map, 0..1 from the left and from the top (north up). */
-export function mapSpot(x: number, y: number, size: number): { u: number; v: number } {
-  return { u: clamp(x / size, 0, 1), v: clamp(1 - y / size, 0, 1) };
-}
-
-/**
- * RGBA pixels for a depth grid of `n` × `n` bytes (row = y, south first, as `depthGrid` gives):
- * row 0 of the picture is the north edge. Each texel mixes the zones' colours by the same weights
- * the viewport's water uses (`zoneWeights`), so the map grades from one zone into the next as a
- * gradient and not in hard-edged steps (the owner's Playtest v0.7.2).
- */
-export function zonePixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayBuffer> {
-  const lut = depthColours();
-  const out = new Uint8ClampedArray(new ArrayBuffer(n * n * 4));
-  for (let j = 0; j < n; j++) {
-    for (let i = 0; i < n; i++) {
-      const d = (grid[j * n + i] as number) * 3;
-      const o = ((n - 1 - j) * n + i) * 4;
-      out[o] = lut[d] as number;
-      out[o + 1] = lut[d + 1] as number;
-      out[o + 2] = lut[d + 2] as number;
-      out[o + 3] = 255;
-    }
-  }
-  return out;
-}
-
-/** Each depth byte's colour (0–255 per channel, three to a depth), mixing the zones as the water does. */
-function depthColours(): Float32Array {
-  if (colourLut) return colourLut;
-  const lut = new Float32Array(256 * 3);
-  for (let d = 0; d < 256; d++) {
-    const w = zoneWeights(d / 255);
-    for (let k = 0; k < 3; k++) {
-      let c = 0;
-      for (let z = 0; z < 4; z++)
-        c += (w[z] as number) * (MAP_COLOURS[ZONES[z] as Zone][k] as number);
-      lut[d * 3 + k] = Math.round(c * 255);
-    }
-  }
-  colourLut = lut;
-  return lut;
-}
-
-let colourLut: Float32Array | null = null;
-
-/**
- * The map's picture (owner, Playtest v0.7.2): the depth softened, coloured like `zonePixels`, lit
- * from the north-west and crossed by faint isobaths at the zone edges, so the flat spawn disc and
- * the zones read as one chart without a hard circle. Same layout as `zonePixels` (north first).
- */
-export function mapPixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayBuffer> {
-  const z = RULES.bathymetry.zones;
-  // The grid's row 0 is the south edge: flip to picture order first so the light comes from the top.
-  const flipped = new Uint8Array(n * n);
-  for (let j = 0; j < n; j++) flipped.set(grid.subarray(j * n, (j + 1) * n), (n - 1 - j) * n);
-  const depth = smoothDepth(flipped, n);
-  const { shade, line } = relief(depth, n, [z.shallows * 255, z.twilight * 255, z.deep * 255]);
-  // Colour at a fractional depth byte: the LUT's neighbours, mixed.
-  const lut = depthColours();
-  const out = new Uint8ClampedArray(new ArrayBuffer(n * n * 4));
-  for (let o = 0; o < n * n; o++) {
-    const d = clamp(depth[o] as number, 0, 255);
-    const lo = Math.floor(d);
-    const hi = Math.min(255, lo + 1);
-    const f = d - lo;
-    const s = shade[o] as number;
-    const l = (line[o] as number) * ISOBATH_STRENGTH;
-    for (let k = 0; k < 3; k++) {
-      const c = (lut[lo * 3 + k] as number) * (1 - f) + (lut[hi * 3 + k] as number) * f;
-      out[o * 4 + k] = Math.round(c * s + (255 - c * s) * l);
-    }
-    out[o * 4 + 3] = 255;
-  }
-  return out;
-}
-
-/** The last pond's picture, for the pond map. */
-const zoneCache: { key: string; image: HTMLCanvasElement | null } = { key: '', image: null };
-
-/** The pond's zones as a picture (`ZONE_TEXTURE_SIZE` square, north up), built once per pond. */
-export function zoneImage(seed: Seed, size: number): HTMLCanvasElement {
-  const key = `${seed.join('.')}/${size}`;
-  if (key === zoneCache.key && zoneCache.image) return zoneCache.image;
-  const n = ZONE_TEXTURE_SIZE;
-  const canvas = document.createElement('canvas');
-  canvas.width = n;
-  canvas.height = n;
-  const pixels = mapPixels(depthGrid(seed, size, n), n);
-  canvas.getContext('2d')?.putImageData(new ImageData(pixels, n, n), 0, 0);
-  zoneCache.key = key;
-  zoneCache.image = canvas;
-  return canvas;
-}
-
-export interface MapPlayer {
-  id: string;
-  name: string;
-  x: number;
-  y: number;
-  ready: boolean;
-}
-
-export interface MapView {
-  seed: Seed;
-  size: number;
-  self: MapPlayer;
-  players: readonly MapPlayer[];
-  pings: readonly { kind: number; x: number; y: number }[];
-}
-
+/** The most the chart redraws per second (the marks move every frame). */
+const MAP_HZ = 30;
 const SVG_NS = 'http://www.w3.org/2000/svg';
-/** The player is a ring, others dots, and players ready to mate hearts: shape, not colour alone. */
-const MARKS = {
+/** You are a ring, linked players dots, ready ones hearts and sightings hollow rings: shape, not colour alone. */
+const MARKS: Record<MapMark['mark'], string> = {
   self: '<circle class="map-ring" r="7"/><circle class="map-core" r="2.5"/>',
-  other: '<circle class="map-core" r="4"/>',
+  player: '<circle class="map-core" r="4"/>',
   ready: '<path class="map-heart" d="M0 5 C-9 -1 -5 -9 0 -4 C5 -9 9 -1 0 5 Z"/>',
-} as const;
+  known: '<circle class="map-hollow-shade" r="4.5"/><circle class="map-hollow" r="4.5"/>',
+};
 
 interface Dot {
   root: HTMLElement;
   svg: SVGSVGElement;
   label: HTMLElement;
-  mark: keyof typeof MARKS | '';
+  mark: MapMark['mark'] | '';
+  opacity: string;
+}
+
+/** What the map showed last, for the test hook. */
+export interface MapInfo {
+  open: boolean;
+  /** You and the linked players. */
+  players: number;
+  /** Players known but not linked (hollow marks). */
+  known: number;
+  pings: number;
+  /** The square's side, wu. */
+  side: number;
+  /** Whether a chart covers the whole square (until then the last one shows where it lies). */
+  chart: boolean;
+  spawn: boolean;
+  edge: boolean;
 }
 
 export class PondMap {
   private readonly panel = pick('[data-testid="pond-map"]');
   private readonly frame = pick('[data-testid="map-frame"]');
   private readonly canvas = pick<HTMLCanvasElement>('[data-testid="map-zones"]');
+  private readonly context: CanvasRenderingContext2D | null;
   private readonly marks = pick('[data-testid="map-marks"]');
   private readonly dots = new Map<string, Dot>();
   private readonly pingEls: HTMLElement[] = [];
-  private zonesKey = '';
+  private readonly chart = new ChartCanvas(mapChart());
+  private readonly clock = new DrawClock(MAP_HZ);
   /** The frame's side in CSS pixels, measured when the map opens or the window resizes. */
   private side = 0;
+  private dpr = 1;
+  private shown: Omit<MapInfo, 'open'> = {
+    players: 0,
+    known: 0,
+    pings: 0,
+    side: 0,
+    chart: false,
+    spawn: false,
+    edge: false,
+  };
 
   constructor() {
+    this.context = this.canvas.getContext('2d');
     for (const swatch of this.panel.querySelectorAll<HTMLElement>('[data-zone]')) {
       const colour = MAP_COLOURS[swatch.dataset.zone as Zone];
       if (colour)
@@ -192,63 +101,74 @@ export class PondMap {
     if (!this.panel.hidden) this.panel.hidden = true;
   }
 
-  /** Counts for the test hook. */
-  info(): { open: boolean; players: number; pings: number } {
-    let players = 0;
-    for (const dot of this.dots.values()) if (!dot.root.hidden) players++;
-    const pings = this.pingEls.filter((el) => !el.hidden).length;
-    return {
-      open: this.isOpen,
-      players: this.isOpen ? players : 0,
-      pings: this.isOpen ? pings : 0,
-    };
+  /** What it shows, for the test hook. */
+  info(): MapInfo {
+    if (!this.isOpen)
+      return { ...this.shown, open: false, players: 0, known: 0, pings: 0, chart: false };
+    return { ...this.shown, open: true };
   }
 
-  /** Redraws the marks; call each frame while the map is open. */
-  update(view: MapView): void {
+  /** Redraws the marks, and the chart at most `MAP_HZ` times a second; call each frame while open. */
+  update(now: number, view: MapView): void {
     if (!this.isOpen) return;
-    this.drawZones(view.seed, view.size);
+    const { self, side } = view;
     const seen = new Set<string>();
-    this.dot(view.self, true, view.size);
-    seen.add(view.self.id);
-    for (const player of view.players) {
-      if (seen.has(player.id)) continue;
-      seen.add(player.id);
-      this.dot(player, false, view.size);
+    let players = 0;
+    let known = 0;
+    for (const mark of mapMarks(view)) {
+      seen.add(mark.id);
+      if (mark.mark === 'known') known++;
+      else players++;
+      this.dot(mark);
     }
     for (const [id, dot] of this.dots) {
       if (seen.has(id)) continue;
       dot.root.remove();
       this.dots.delete(id);
     }
-    view.pings.forEach((ping, i) => {
-      let el = this.pingEls[i];
+    let pings = 0;
+    for (const ping of view.pings) {
+      const at = mapSpot(ping.x, ping.y, self.x, self.y, side);
+      if (!at.inside) continue;
+      let el = this.pingEls[pings];
       if (!el) {
         el = document.createElement('span');
         el.className = 'map-ping';
         el.dataset.testid = 'map-ping';
         this.marks.append(el);
-        this.pingEls[i] = el;
+        this.pingEls[pings] = el;
       }
       const kind = PINGS[ping.kind];
       showIcon(el, kind?.name ?? null);
       el.dataset.kind = String(ping.kind);
       el.setAttribute('aria-label', `${kind?.name ?? ''} ping`);
-      el.style.transform = this.place(ping.x, ping.y, view.size);
+      el.style.transform = this.place(at.u, at.v);
       el.hidden = false;
-    });
-    for (let i = view.pings.length; i < this.pingEls.length; i++) {
-      (this.pingEls[i] as HTMLElement).hidden = true;
+      pings++;
     }
+    for (let i = pings; i < this.pingEls.length; i++)
+      (this.pingEls[i] as HTMLElement).hidden = true;
+    // The chart does a frame's work every frame, and is drawn at most `MAP_HZ` times a second.
+    const image = this.chart.update(view.seed, view.size, self.x, self.y, side);
+    const shows = squareShows(self.x, self.y, side, view.size);
+    const h = side / 2;
+    const chart =
+      image !== null &&
+      image.x <= self.x - h &&
+      image.y <= self.y - h &&
+      image.x + image.side >= self.x + h &&
+      image.y + image.side >= self.y + h;
+    this.shown = { players, known, pings, side, chart, ...shows };
+    if (this.clock.due(now)) this.draw(view, image, shows);
   }
 
-  private dot(player: MapPlayer, self: boolean, size: number): void {
-    let dot = this.dots.get(player.id);
+  private dot(mark: MapMark): void {
+    let dot = this.dots.get(mark.id);
     if (!dot) {
       const root = document.createElement('span');
       root.className = 'map-dot';
       root.dataset.testid = 'map-dot';
-      root.dataset.id = player.id;
+      root.dataset.id = mark.id;
       const svg = document.createElementNS(SVG_NS, 'svg');
       svg.setAttribute('viewBox', '-10 -10 20 20');
       svg.setAttribute('aria-hidden', 'true');
@@ -256,39 +176,96 @@ export class PondMap {
       label.className = 'map-label';
       root.append(svg, label);
       this.marks.append(root);
-      dot = { root, svg, label, mark: '' };
-      this.dots.set(player.id, dot);
+      dot = { root, svg, label, mark: '', opacity: '' };
+      this.dots.set(mark.id, dot);
     }
-    const mark = self ? 'self' : player.ready ? 'ready' : 'other';
-    if (dot.mark !== mark) {
-      dot.mark = mark;
-      dot.svg.innerHTML = MARKS[mark];
+    if (dot.mark !== mark.mark) {
+      dot.mark = mark.mark;
+      dot.svg.innerHTML = MARKS[mark.mark];
+      dot.root.dataset.mark = mark.mark;
+      dot.root.dataset.self = String(mark.mark === 'self');
+      dot.root.dataset.ready = String(mark.mark === 'ready');
     }
-    dot.root.dataset.self = String(self);
-    dot.root.dataset.ready = String(player.ready);
     // Names come from other players: text only.
-    const who = self ? 'You' : player.name;
-    setText(dot.label, player.ready ? `${who} · ready` : who);
-    dot.root.style.transform = this.place(player.x, player.y, size);
+    const who = mark.mark === 'self' ? 'You' : mark.name;
+    setText(dot.label, mark.mark === 'ready' ? `${who} · ready` : who);
+    const opacity = mark.alpha >= 1 ? '' : mark.alpha.toFixed(2);
+    if (opacity !== dot.opacity) {
+      dot.opacity = opacity;
+      dot.root.style.opacity = opacity;
+    }
+    dot.root.style.transform = this.place(mark.u, mark.v);
   }
 
-  /** A transform that centres a mark on a world position, on whole pixels. */
-  private place(x: number, y: number, size: number): string {
-    const { u, v } = mapSpot(x, y, size);
+  /** A transform that centres a mark on a spot of the map, on whole pixels. */
+  private place(u: number, v: number): string {
     return `translate(${Math.round(u * this.side)}px, ${Math.round(v * this.side)}px)`;
   }
 
   private measure(): void {
     this.side = this.frame.clientWidth;
+    this.dpr = window.devicePixelRatio || 1;
+    const px = Math.max(1, Math.round(this.side * this.dpr));
+    if (this.canvas.width !== px) {
+      this.canvas.width = px;
+      this.canvas.height = px;
+    }
+    this.clock.reset();
   }
 
-  private drawZones(seed: Seed, size: number): void {
-    const key = `${seed.join('.')}/${size}`;
-    if (key === this.zonesKey) return;
-    this.zonesKey = key;
-    const n = ZONE_TEXTURE_SIZE;
-    this.canvas.width = n;
-    this.canvas.height = n;
-    this.canvas.getContext('2d')?.drawImage(zoneImage(seed, size), 0, 0);
+  /** The chart, the world's edge and the spawn centre, north up around the player. */
+  private draw(view: MapView, image: ChartImage | null, shows: { spawn: boolean; edge: boolean }) {
+    const ctx = this.context;
+    const px = this.side;
+    if (!ctx || !(px > 0)) return;
+    const { self, side, size } = view;
+    const k = px / side;
+    // Screen x and y of a world point.
+    const sx = (x: number) => px / 2 + (x - self.x) * k;
+    const sy = (y: number) => px / 2 - (y - self.y) * k;
+    ctx.setTransform(this.dpr, 0, 0, this.dpr, 0, 0);
+    ctx.fillStyle = BEYOND;
+    ctx.fillRect(0, 0, px, px);
+    if (image) {
+      ctx.imageSmoothingEnabled = true;
+      ctx.drawImage(
+        image.image,
+        sx(image.x),
+        sy(image.y + image.side),
+        image.side * k,
+        image.side * k,
+      );
+    }
+    if (shows.edge) {
+      ctx.strokeStyle = EDGE;
+      ctx.lineWidth = 1.5;
+      ctx.strokeRect(sx(0), sy(size), size * k, size * k);
+    }
+    if (shows.spawn) {
+      // A diamond with its name: no player mark is square.
+      const x = sx(size / 2);
+      const y = sy(size / 2);
+      ctx.beginPath();
+      ctx.moveTo(x, y - 6);
+      ctx.lineTo(x + 6, y);
+      ctx.lineTo(x, y + 6);
+      ctx.lineTo(x - 6, y);
+      ctx.closePath();
+      ctx.lineWidth = 3.5;
+      ctx.strokeStyle = SHADOW;
+      ctx.stroke();
+      ctx.lineWidth = 1.4;
+      ctx.strokeStyle = INK;
+      ctx.stroke();
+      // Its name to the left, where no mark's name goes.
+      ctx.font = '11px system-ui, sans-serif';
+      ctx.textAlign = 'right';
+      ctx.textBaseline = 'middle';
+      ctx.lineWidth = 3;
+      ctx.strokeStyle = SHADOW;
+      ctx.strokeText('Spawn', x - 9, y);
+      ctx.fillStyle = INK;
+      ctx.fillText('Spawn', x - 9, y);
+    }
   }
 }
