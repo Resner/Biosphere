@@ -744,7 +744,7 @@ describe('signed snapshots between peers (M7 T7)', () => {
   it('keeps a candidate’s signed frames at 5 Hz when it asked for 1 Hz (M11 T15)', async () => {
     const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(8)));
     const { hub, mesh, session } = setup();
-    hub.welcome(welcome(['near']));
+    hub.welcome(welcome());
     mesh.join('near');
     mesh.event('near', { t: 'rate', hz: 1 });
     const signer = new CandidateSigner(() => ({ identity: me, pondId: 'pond1' }));
@@ -863,7 +863,7 @@ describe('snapshot rates by distance (M11 T15)', () => {
 
   it('sends a link asking 2 Hz two snapshots a second, and 10 Hz again once its link is new', () => {
     const { hub, mesh, session } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     for (const id of ['slow', 'full']) {
       mesh.connect(id);
       mesh.join(id);
