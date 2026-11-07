@@ -612,7 +612,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
   - Done: `DepthWindow` is a torus of bytes refilled through `depthSpan` (bathymetry's row sampler, bit-equal to `depthAt`, about 0.65 ms a frame); the scene subtracts `ORIGIN` in `writeInstance` and every mesh, and the minimap charts its own 128-texel window of 24 half-heights (12 would leave its disc off the window between re-centres). The map stays whole-world until T18.
   - Gotcha: debug teleports fill the zone window at once (`settleZones`), or the m6 look shots would catch its 16-frame refill; `?gpu=watch` and `render.gpu()` check the 16,384 wu bound, in `m11-world`'s fast test (its look test is `@slow`).
 
-- [ ] T12 The world grows to 262,144 wu (after T5, T11)
+- [ ] T12 The world grows to 262,144 wu (after T5, T11) (in progress)
   - Steps:
     1. `RULES.world.size` 262,144. The world's centre (131,072, 131,072) is the spawn centre everywhere: the hub's ring and every new pond, the offline world, the bathymetry's twilight disc and the encounters' world. Regenerate the goldens.
     2. `state().pond` gains `size` and `centre`. Every E2E helper and spec that uses absolute pond coordinates moves to coordinates relative to the centre.
