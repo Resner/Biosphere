@@ -23,8 +23,8 @@ import {
   sessionOf,
   signedOf,
 } from './socket';
-import { commitWitnesses } from './witness-pool';
 import { courtTooFar } from './where';
+import { commitWitnesses } from './witness-pool';
 
 /**
  * Writes a mating's two `birth` records once its round is published (idempotent) and sends each

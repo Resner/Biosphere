@@ -7,8 +7,8 @@ import { RULES } from '../src/sim/rules';
 import {
   CARRION_NOTICE_WU,
   COURT_NEAR_WU,
-  type DirMember,
   Directory,
+  type DirMember,
   LEAF_MAX,
   queryOf,
   RELAY_SLACK_WU,

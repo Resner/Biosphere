@@ -81,7 +81,7 @@ describe('worker bundles', () => {
       'env.LEAF_MAX',
     ]);
     expect(code).toContain('env.DRAND_SOURCE === "fixture" ? Number(env.LEAF_MAX) : Number.NaN');
-    expect(code).toContain('const jumpsTaken = (env) => env.DRAND_SOURCE === "fixture"');
+    expect(code).toMatch(/jumpsTaken = [^\n]*\(env\) => env\.DRAND_SOURCE === "fixture"[,;)]/);
   });
 
   heavyTest('the E2E entry carries the recorded rounds', () => {

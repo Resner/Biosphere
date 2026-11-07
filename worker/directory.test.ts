@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import { NEAR_MAX_BYTES, parseHubMsg } from '../src/net/protocol';
 import { createRng, seedFromString } from '../src/sim/prng';
-import { type DirMember, Directory, LEAF_MIN_SIZE, queryOf } from './directory';
+import { Directory, type DirMember, LEAF_MIN_SIZE, queryOf } from './directory';
 
 // The authority's directory (M11 T6), pure: run in Node, as the headless harness (T10) runs it.
 

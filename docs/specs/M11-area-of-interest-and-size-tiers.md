@@ -379,7 +379,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The directory and seat tickets
 
-- [ ] T6 The authority's directory: the quadtree, reports and their answers [opus] (after T1, T2) (in progress)
+- [x] T6 The authority's directory: the quadtree, reports and their answers [opus] (after T1, T2) (in progress)
+  - Done: `worker/directory.ts` (pure, tested in Node) and `worker/where.ts` on `hub.directory`, rebuilt from `Session.where` on a wake; the relay, courts and carrion read it, and `GET /v1/e2e/directory` shows it. Gotchas: `LEAF_MIN` scales with `leafMax` (a merged leaf must not split at once, so with `LEAF_MAX=2` leaves merge only when empty); a court is `not-near` only once the directory knows one of the two, so before T13 the pond still decides.
   - Steps:
     1. `worker/directory.ts`, pure (shapes above):
        - **the root** is the world square;
@@ -411,7 +412,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - a creature two tiers smaller within the AoI is in `swarm` (at most 64) and never in `peers`.
     - A split sends one `leaf` to each member whose leaf changed.
     - **Jumps**: a report 5,000 wu from one 2 s earlier is dropped and counted. After a genesis it is taken, and in fixture mode it is taken.
-    - After `POST /v1/e2e/restart`, the next `where` is answered with the same peers.
+    - After a wake (the directory rebuilt from the sockets' attachments), the next `where` is answered with the same peers. `POST /v1/e2e/restart` closes every socket, so it empties the directory.
     - **The relay**: a signal between sessions 3,000 wu apart in different ponds passes and carries `at`. One between sessions 30,000 wu apart gets `no-peer`, and a duty pair passes at any distance.
     - **Courts**: partners 15,000 wu apart get `not-near` in `mate-info` and from `court`; 2,000 wu apart, the court goes on as before.
     - **Carrion**: a kill's `carrion` reaches a session 9,000 wu away in another pond, and not one 12,000 wu away in another pond.

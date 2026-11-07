@@ -191,7 +191,7 @@ export class Directory {
       .slice(0, SWARM_MAX)
       .map(({ d, m }) => ({ d, out: [wire(m.x), wire(m.y)] as [number, number] }));
     const leaf = leafOf(held.leaf);
-    fit(leaf, near, points);
+    trim(leaf, near, points);
     return { leaf, peers: near.map((p) => p.out), swarm: points.map((p) => p.out) };
   }
 
@@ -317,7 +317,7 @@ function quadrant(n: Node, kids: [Node, Node, Node, Node], x: number, y: number)
 }
 
 /** Drops the farthest peers and points until `{ t: 'near', leaf, peers, swarm }` fits `NEAR_MAX_BYTES`. */
-function fit(
+function trim(
   leaf: Leaf,
   peers: { d: number; out: NearPeer }[],
   swarm: { d: number; out: [number, number] }[],

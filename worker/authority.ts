@@ -35,8 +35,8 @@ import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { TurnCredentials } from './turn';
 import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
-import { witnessBatch, witnessDispute } from './witness-fight';
 import { gone, rebuildDirectory, where } from './where';
+import { witnessBatch, witnessDispute } from './witness-fight';
 import { avail, ipHash } from './witness-pool';
 
 // The message handlers live by area in `sessions.ts` (sessions and signaling), `lives.ts` (genesis
