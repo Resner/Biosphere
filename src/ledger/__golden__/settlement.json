@@ -1,5 +1,5 @@
 {
-  "rulesVersion": 11,
+  "rulesVersion": 12,
   "keys": [
     {
       "id": "i4HIYmgb",
@@ -88,15 +88,14 @@
         "settlement": {
           "v": 1,
           "kind": "settlement",
-          "rules": 11,
+          "rules": 12,
           "enc": "ca69e53bd381d3d274a3f93198b3ce227657cd7a7bb1e20a4dfda6509bbc458c",
           "pondSeed": "golden-duel",
           "start": "7bdd6b02a47c97f391bf6f578cbd958db2c1fbbb4ae31e7380dc6deb92ae3454",
           "joins": [],
           "frames": 28,
           "root": "510032e8cf8930e40171277e6ee26c15a76f9624d8fb7377778c1dbd4f8bec94",
-          "hash": "98382d0e045d4b77",
-          "referee": "authority",
+          "hash": "ff6287593f313e53",
           "results": [
             {
               "player": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
@@ -123,17 +122,18 @@
               "reward": 0
             }
           ],
-          "t": 1700000060000
+          "t": 1700000060000,
+          "referee": "authority"
         },
-        "hash": "1bf1ccb29f47fa6f0b38593d1af0e893aa8a759b65b058d5548d5986c598da76",
-        "authSig": "S0TCaOYeVYnR-h-nY_PYMqE0fTYorHK2WQ9sMnr1jcCPiEl_E8nrudY31ftrJOGPalPST0prFDp3D-pzSz_PBg",
+        "hash": "497c4ca4ba4d93522e4151fa2184c814487ec393f9248b762793755513823c69",
+        "authSig": "8pZl7YLfvKETuFnbfXgN7qFIZ5PO1o0lBH7203BEjPyG3nwRm3xvbBtNIm4p2pC8SsHDMjOJmUCD_p4NH9S-CA",
         "keyId": "i4HIYmgb"
       },
       "records": [
         {
           "record": {
             "v": 1,
-            "rules": 11,
+            "rules": 12,
             "kind": "encounter",
             "creature": "1111111111111111111111111111111111111111111111111111111111111111",
             "seq": 4,
@@ -151,15 +151,15 @@
               "activeMs": 602800
             }
           },
-          "hash": "6f90d7ff19b87c7f7668a7d0e6b335b9c873694e879e21d0a098124ea98a9c17",
+          "hash": "a7480c84f56a4a371b4248266224c5111748362cb06e7a0d2053c779d88e5fef",
           "ownerSig": null,
-          "authSig": "3Ih8unm3ED3Vur5AS8ugoxDMhzwWr_T6tJ_EWI-Dhyas5sjB_FS2-ZpqRoE5t6PoA6IEKjKIYXqnNtetjeQAAg",
+          "authSig": "g_7NQq4zuS8JHds4NjRsvK01Amxr06o7BYMZS8UtYQutseWti4Y8L8c75DZXw2R7LO-M2EMdC0qFHaQmAPhXDg",
           "keyId": "i4HIYmgb"
         },
         {
           "record": {
             "v": 1,
-            "rules": 11,
+            "rules": 12,
             "kind": "death",
             "creature": "2222222222222222222222222222222222222222222222222222222222222222",
             "seq": 4,
@@ -174,9 +174,9 @@
               "by": "1111111111111111111111111111111111111111111111111111111111111111"
             }
           },
-          "hash": "4eb7c99a97019c64f7f277c4ba1cbd6b33abfd1103d3e44e4c30d7e41f357c18",
+          "hash": "996e62973c33f3c46a40855f3e093887d7cfde9271c74dad0bbea65407bf4991",
           "ownerSig": null,
-          "authSig": "d5dhn-wmjsYQy4sZ4oayb15RgdTy4dzxuj6nDH8bizlAw63sVzKgLm4vkfz_PcesYD9JXeOASDvrWRf-OQgQDQ",
+          "authSig": "mPMxAQtdO3Ptv3hEuFqptkDlWuou9_J_XXqvNhFaY2fXBsgMOLvhkjLNGjULz9oFcWLSY9dYIK6QPFSW6CYyAg",
           "keyId": "i4HIYmgb"
         }
       ]
@@ -339,15 +339,14 @@
         "settlement": {
           "v": 1,
           "kind": "settlement",
-          "rules": 11,
+          "rules": 12,
           "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
           "pondSeed": "golden-join",
           "start": "40475867f266a38c21a1e345eeef6115c8245d372827bb4bb887ac773ade0b98",
           "joins": ["e464d7dd8ba0988ae66bd4e6a4435498c5d8cb91afe84d2b705b6dea6882d489"],
           "frames": 83,
           "root": "0e6d45dddbdc2d170e2e870a569ca36be7576500c74834163d52ef37c3ed2e8e",
-          "hash": "e57f33ef55e36078",
-          "referee": "authority",
+          "hash": "6ccca74583926eac",
           "results": [
             {
               "player": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
@@ -387,17 +386,18 @@
               "reward": 8000
             }
           ],
-          "t": 1700000060000
+          "t": 1700000060000,
+          "referee": "authority"
         },
-        "hash": "577c3606b74c000a63cb42c2b5991b871a86d2cb18f9fc3ec55c2562eade7eea",
-        "authSig": "Mii4fjKKKmhHo6m87KWpVHnOE1pcyS7BkJ9HW6UNX8qksXCZPsrcsPhzgcy8EABXCMRh1NBfBkrYm5D7wg6DAA",
+        "hash": "5d8e9faf563b901cfa1328915b8f2f0757341d7cc2232084b92d22642e04f8e6",
+        "authSig": "S9X6UpmAEL77Lk-wdWwr9tm_lnyFq1hkOWlCvaspaNzISjs9ssMNeGb079n4xAPY7Fl4U9wh-aad0xMSyp5dAQ",
         "keyId": "i4HIYmgb"
       },
       "records": [
         {
           "record": {
             "v": 1,
-            "rules": 11,
+            "rules": 12,
             "kind": "death",
             "creature": "2222222222222222222222222222222222222222222222222222222222222222",
             "seq": 4,
@@ -412,15 +412,15 @@
               "by": "4444444444444444444444444444444444444444444444444444444444444444"
             }
           },
-          "hash": "3073905f6e1dcb3b7f9c9c014369a5f5933e24a4a3580293ea3797e3a0cfd695",
+          "hash": "f38c3aadc91b3ac9fceb653244e91c97984eb7d493c763d29319e28a14ce73fa",
           "ownerSig": null,
-          "authSig": "-d-mLv4ltQkbilxlqJq821WpnyeJasorGu10bNW7WqXJkYEmBmuJTTdy0q0cCUJ0ruQyM-Wcnptstw7p34VZCg",
+          "authSig": "D_hiQkMn8PCscCyYEak-oyV6H6s3Q5FoTqKKa-LumMn6CBOGBWg7vc4e7eJImDBMIcPhsYFUeXooOfA4WnCxAg",
           "keyId": "i4HIYmgb"
         },
         {
           "record": {
             "v": 1,
-            "rules": 11,
+            "rules": 12,
             "kind": "death",
             "creature": "3333333333333333333333333333333333333333333333333333333333333333",
             "seq": 4,
@@ -435,15 +435,15 @@
               "by": "4444444444444444444444444444444444444444444444444444444444444444"
             }
           },
-          "hash": "756038b8e49b757084985e9c771253deab883e15b20d60a24c5669f39a7f53d2",
+          "hash": "cfda8acadaae655dc26f36d044dbc6bd4ebe09768093898be02baf7bcd1681d0",
           "ownerSig": null,
-          "authSig": "nXcAkW6dYZHKqLvs0VK2NduEYLSPKfp20bWu6iJLHUT5_ncsigIvTbrboYGWTVH_C5AZl3-N46F_wnNBOeZSBw",
+          "authSig": "1bnYZ2qNe4vG6Mjcwy-7YFG7nogVVDQScw6FDk0UvPMac3mrReXGXdp_HxdN97ycN4ThuLJ8fktRle3ixAE-Bg",
           "keyId": "i4HIYmgb"
         },
         {
           "record": {
             "v": 1,
-            "rules": 11,
+            "rules": 12,
             "kind": "encounter",
             "creature": "4444444444444444444444444444444444444444444444444444444444444444",
             "seq": 4,
@@ -461,9 +461,9 @@
               "activeMs": 608300
             }
           },
-          "hash": "ba9d715b852f1a0d586065435e7ef5bcc1d706409bb1ec9675134ad2a25c8520",
+          "hash": "cf41ee3865f1018ab3a70087289d22c82b69ff1ec0810c0d4312f9589afca82f",
           "ownerSig": null,
-          "authSig": "3WYZbOjTEQLvD1lxKrhQPKiRMimEGteV4mBlwVVb1LIHE2VkDlp4LVLkvSXRpaav0lTb3hIALjD7NgqqHC4-CA",
+          "authSig": "8iDyN34T7bTp-jiCPGUQxE9nxz_gUYlsPUulFzWo4MWHG_E172VJdO2huEQ66kyciX7cfb52UeDjvUwR66DODw",
           "keyId": "i4HIYmgb"
         }
       ]

@@ -24,7 +24,7 @@ test.describe.configure({ mode: 'serial' });
 test.use({ storageState: { cookies: [], origins: [] } });
 
 const NOTICE =
-  'The world was renewed in v0.10.0. Your identity is kept; your creatures start again.';
+  'The world was renewed in v0.12.0. Your identity is kept; your creatures start again.';
 
 const info = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.info());
 const cues = async (page: Page) => (await state(page)).audio.cues;

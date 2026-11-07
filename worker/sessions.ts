@@ -271,12 +271,14 @@ export function place(
     }
   }
   if (!best) {
+    // Every pond is a roster group of the one world, so it takes the world's seed and clock (M11).
+    const world = sql.exec<{ seed: string; clock: number }>('SELECT seed, clock FROM world').one();
     const centre = RULES.world.size / 2;
     const now = Date.now();
     best = {
       id: randomToken(6),
-      seed: randomToken(12),
-      epoch: now,
+      seed: world.seed,
+      epoch: world.clock,
       cx: centre,
       cy: centre,
       created: now,

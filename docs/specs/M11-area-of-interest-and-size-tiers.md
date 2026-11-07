@@ -238,7 +238,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### Versions
 
-- [ ] T1 The world renewal: rules 12, epoch 4, one world's seed and clock (after none) (in progress)
+- [x] T1 The world renewal: rules 12, epoch 4, one world's seed and clock (after none)
+  - Done: rules 12, migration 11 (world `seed`/`clock`, ponds deleted), `linkTiers`/`viewHalfHeight` in `src/sim/size.ts`. Gotchas: `**` is banned in `src/sim` (so `viewHalfHeight` uses the sim's `pow`); the lineage fixture's `TUNE` was retuned (A nonce `A8`) because the fight's outcome moves with the rules version; hub tests that move the clock set `world.clock` themselves.
   - Steps:
     1. `RULES_VERSION` 12. `src/ledger/registry.ts`: `FIRST_LIVE_RULES` 12 and one entry `{ rules: 12, epoch: 4, since: every part 12 }`. Regenerate the goldens that record the version; never edit one by hand.
     2. Migration 11 (`worker/schema.ts`), a function of `(sql, now)` as migration 8 is:

@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 11,
+    "rules": 12,
     "start": {
       "id": "enc-golden-egg",
       "pondSeed": "golden-egg",
@@ -181,7 +181,7 @@
       [163840, 0]
     ]
   },
-  "hash": "8c1e5481984091b5",
+  "hash": "a444a81aa051ac51",
   "results": [
     {
       "outcome": "escaped",

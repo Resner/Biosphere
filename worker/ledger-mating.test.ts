@@ -47,7 +47,7 @@ describe('migration 5', () => {
         .map((r) => r.version);
       return { columns, indexes, matings, versions };
     });
-    expect(result.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10]);
+    expect(result.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11]);
     for (const c of ['generation', 'parent_a', 'parent_b', 'chain_parent', 'cooldown_until_ms']) {
       expect(result.columns).toContain(c);
     }
