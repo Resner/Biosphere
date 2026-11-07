@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { hatch, M6_FIND_HUB, openGame, playerOf, state } from './helpers';
+import { hatch, M6_FIND_HUB, openGame, pingLook, playerOf, state } from './helpers';
 
 // Finding other players (M6 T19): an edge indicator points at a pond player off screen, a ping
 // near the player but off screen shows on the edge, and the map (M) places everyone.
@@ -108,8 +108,7 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
         )
         .toBeLessThan(2);
       // The wheel (M6 T24): G at the cursor, then 1 for a look ping.
-      await b.keyboard.press('g');
-      await b.keyboard.press('1');
+      await pingLook(b);
     };
     // A ping lives 4 s of wall time, so each wait for one runs in the page (a frame-paced poll),
     // not over a round trip that a loaded runner can stretch past its life.

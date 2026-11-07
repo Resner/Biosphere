@@ -27,6 +27,13 @@ const cues = async (page: Page) => (await state(page)).audio.cues;
 const timeScale = (page: Page, scale: number) =>
   page.evaluate((s) => (window.__bs as BsHook).debug?.timeScale(s), scale);
 
+/** Puts the body back into `zone` if the cursor or the currents carried it out. */
+const stayIn = (page: Page, zone: 'shallows' | 'abyss') =>
+  page.evaluate((z) => {
+    const bs = window.__bs as BsHook;
+    if (bs.state().zone !== z) bs.debug?.setZone(z);
+  }, zone);
+
 /** The frame is drawn with the medium chain and stays within the medium budget. */
 async function withinBudget(page: Page, step: string): Promise<void> {
   const frame = await info(page);
@@ -111,6 +118,7 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
       .poll(
         async () => {
           await topUp(a);
+          await stayIn(a, zone);
           return (await cues(a))[sound] ?? 0;
         },
         { message: `the ${zone}'s ${sound} cue to sound`, timeout: 60_000 },
@@ -132,12 +140,18 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
         });
       });
     // The shake takes the kind of the hit that lands: a starving belly's hits would hide the zone's.
-    await a.waitForFunction((kind) => {
-      const bs = window.__bs as BsHook;
-      bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-      const { shake, vignette } = bs.render.fx();
-      return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
-    }, cue);
+    await a.waitForFunction(
+      ([kind, inZone]) => {
+        const bs = window.__bs as BsHook;
+        bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+        // The cursor and the currents carry the body about while the world runs: out of the zone
+        // its hazard stops, and no further hit would come.
+        if (bs.state().zone !== inZone) bs.debug?.setZone(inZone);
+        const { shake, vignette } = bs.render.fx();
+        return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
+      },
+      [cue, zone] as const,
+    );
     await timeScale(a, 0);
     expect(
       (await a.evaluate(() => (window.__bs as BsHook).events())).damage ?? 0,
