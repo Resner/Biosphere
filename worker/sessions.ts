@@ -32,6 +32,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
+import { atOf, countRelay, gone, relayReach } from './where';
 import { witnessLeft } from './witness-fight';
 
 const POND_CAPACITY = 24;
@@ -326,8 +327,10 @@ export function broadcast(hub: Hub, pondId: string, except: WebSocket, msg: HubM
 }
 
 /**
- * Forwards a signal, stamped with the verified sender, to a member of the sender's pond, or across
- * ponds between a referee witness and its fight's fighters while that duty runs (M10 T6).
+ * Forwards a signal, stamped with the verified sender, to a member of the sender's pond, to a
+ * session the directory places within reach (`relayReach`, M11 T6), or across ponds between a
+ * referee witness and its fight's fighters while that duty runs (M10 T6). It carries the sender's
+ * directory position as `at` once the sender has reported.
  */
 export function relay(
   hub: Hub,
@@ -339,10 +342,17 @@ export function relay(
     send(ws, { t: 'error', code: 'too-big' });
     return;
   }
+  const from = session.playerId;
   for (const [other, theirs] of activeSessions(hub, ws)) {
     if (theirs.playerId !== msg.to) continue;
-    if (theirs.pondId === session.pondId || hub.duties.linksOf(session.playerId).includes(msg.to)) {
-      send(other, { t: 'signal', from: session.playerId, kind: msg.kind, sdp: msg.sdp });
+    if (
+      theirs.pondId === session.pondId ||
+      relayReach(hub, from, msg.to) ||
+      hub.duties.linksOf(from).includes(msg.to)
+    ) {
+      const at = atOf(hub, from);
+      send(other, { t: 'signal', from, kind: msg.kind, sdp: msg.sdp, ...(at ? { at } : {}) });
+      countRelay(hub, from, msg.to);
       return;
     }
   }
@@ -387,6 +397,8 @@ export function drop(
     // A fight it referees is taken back, and a witness duty offered to it moves on.
     witnessLeft(hub, session.playerId);
     hub.duties.left(session.playerId);
+    // Out of the directory: a split's neighbours hear their new leaf (the socket is going, so no attachment is kept).
+    gone(hub, null, session);
     broadcast(hub, session.pondId, ws, {
       t: 'member',
       op: 'leave',

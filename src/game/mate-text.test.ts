@@ -16,6 +16,7 @@ const OWN: MateRefusal[] = [
 ];
 const HUB = [
   'not-here',
+  'not-near',
   'pair-mismatch',
   'used',
   'expired',
@@ -30,6 +31,7 @@ describe('refusalText', () => {
     expect(refusalText('not-mature')).toBe('Not mature yet');
     expect(refusalText('cooldown', 200_000)).toBe('Rest for 3:20');
     expect(refusalText('tier')).toBe('Too big or too small');
+    expect(refusalText('not-near')).toBe('Too far away');
     expect(refusalText('low-energy')).toBe('Needs more energy');
     expect(refusalText('pending')).toBe('Already has an offspring waiting');
   });
