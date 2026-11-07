@@ -379,7 +379,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The directory and seat tickets
 
-- [ ] T6 The authority's directory: the quadtree, reports and their answers [opus] (after T1, T2)
+- [ ] T6 The authority's directory: the quadtree, reports and their answers [opus] (after T1, T2) (in progress)
   - Steps:
     1. `worker/directory.ts`, pure (shapes above):
        - **the root** is the world square;
