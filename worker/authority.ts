@@ -31,6 +31,7 @@ import { court, decline, deliverBirth, mateCheck, queueAccept } from './offsprin
 import { meterRead, type Served, serveFight, serveProof } from './proof';
 import { recoverFights } from './recover';
 import { migrate } from './schema';
+import { renewSeat } from './seat';
 import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { TurnCredentials } from './turn';
@@ -269,6 +270,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     switch (msg.t) {
       case 'ping':
         send(ws, { t: 'pong', id: msg.id, now });
+        renewSeat(this, ws, session, this.clock.now());
         return;
       case 'leave':
         drop(this, ws, 1000, 'bye');

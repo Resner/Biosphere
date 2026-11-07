@@ -69,6 +69,8 @@ export type Session = (
       duties?: number[] | undefined;
       /** The last `where` the directory took (M11 T6), so a wake rebuilds it and the next is checked against it. */
       where?: WhereAt | undefined;
+      /** When the session's last seat ticket was signed, on the hub's clock (M11 T7, `worker/seat.ts`). */
+      seatAt?: number | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is in no pond. */

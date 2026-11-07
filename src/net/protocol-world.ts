@@ -1,4 +1,4 @@
-import { parseSignedSeat } from '../ledger/seat';
+import { parseSignedSeat } from '../ledger/seat-doc';
 import { onlyKeys as only } from '../ledger/witness-doc';
 import {
   type ClientMsg,

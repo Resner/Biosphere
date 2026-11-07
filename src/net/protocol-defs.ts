@@ -3,7 +3,7 @@ import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
 import type { MateAsk } from '../ledger/mate-ask';
 import type { RecordRequest, Status, StoredRecord } from '../ledger/record';
-import type { SignedSeat } from '../ledger/seat';
+import type { SignedSeat } from '../ledger/seat-doc';
 import type { FightLog, SignedSettlement } from '../ledger/settlement';
 import type { SignedAttestation } from '../ledger/witness-doc';
 import type { DeathCause } from '../sim/types';

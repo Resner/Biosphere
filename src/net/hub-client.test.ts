@@ -8,6 +8,7 @@ import {
   memoryKeyStore,
   verify,
 } from '../ledger/identity';
+import type { SignedSeat } from '../ledger/seat-doc';
 import { HubClient, type HubClientOptions, type HubStatus, type SocketLike } from './hub-client';
 import {
   CLOSE_BAD_HELLO,
@@ -459,5 +460,41 @@ describe('HubClient clock', () => {
     const s = await handshake();
     s.receive({ t: 'pong', id: 9999, now: 1 });
     expect(client.clock.offset).toBeNull();
+  });
+});
+
+describe('HubClient seat ticket (M11 T7)', () => {
+  const ticketAt = (t: number): SignedSeat => ({
+    seat: {
+      v: 1,
+      kind: 'seat',
+      player: identity.playerId,
+      name: NAME,
+      world: 'seed',
+      t,
+      until: t + 900_000,
+    },
+    authSig: 'c'.repeat(86),
+    keyId: 'AbCdEf_-',
+  });
+
+  it('keeps the welcome’s ticket, and each fresh seat in its place', async () => {
+    const client = make();
+    expect(client.ticket).toBeNull();
+    void client.connect();
+    const s = last();
+    s.open();
+    s.receive({ t: 'challenge', nonce: NONCE });
+    s.receive({ ...welcome(), ticket: ticketAt(1) } as HubMsg);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(client.ticket).toEqual(ticketAt(1));
+    s.receive({ t: 'seat', ticket: ticketAt(2) });
+    expect(client.ticket).toEqual(ticketAt(2));
+    // A malformed seat is dropped and counted; the ticket stays.
+    const dropped = client.dropped;
+    s.onmessage?.({ data: JSON.stringify({ t: 'seat', ticket: { ...ticketAt(3), keyId: 'x' } }) });
+    expect(client.dropped).toBe(dropped + 1);
+    expect(client.ticket).toEqual(ticketAt(2));
+    client.close();
   });
 });
