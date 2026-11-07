@@ -5,7 +5,7 @@
 
 import * as THREE from 'three';
 import { depthAt, type Zone, zoneAt, zoneOfDepth } from '../sim/bathymetry';
-import { clamp, smoothstep } from '../sim/math';
+import { clamp, smoothstep, TAU } from '../sim/math';
 import type { Seed } from '../sim/prng';
 import { RULES } from '../sim/rules';
 import { DepthWindow } from './depth-window';
@@ -396,14 +396,14 @@ export const ZONE_UNIFORMS: {
 };
 
 /** The caustics' tile in wu (`causticAt` in caustics.glsl: 2π after dividing by 18). */
-export const CAUSTIC_TILE = 18 * 2 * Math.PI;
+export const CAUSTIC_TILE = 18 * TAU;
 
 /**
  * The origin's phase in the caustics' tile, in the shader's units (radians, 0..2π): `causticAt`
  * adds it, so a point shows the same light whatever origin it is drawn from.
  */
 export function causticShift(origin: number): number {
-  return (wrapTo(origin, CAUSTIC_TILE) / CAUSTIC_TILE) * 2 * Math.PI;
+  return (wrapTo(origin, CAUSTIC_TILE) / CAUSTIC_TILE) * TAU;
 }
 
 /**

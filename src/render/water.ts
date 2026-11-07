@@ -1,4 +1,5 @@
 import * as THREE from 'three';
+import { clamp } from '../sim/math';
 import { setUniform, vec2Uniform, waterMaterial } from './materials';
 import { ORIGIN } from './origin';
 import type { SceneView } from './scene';
@@ -18,7 +19,7 @@ const BODY_CELL = 700;
  */
 const WALL_FAR = 8192;
 
-const within = (v: number, far: number): number => Math.max(-far, Math.min(far, v));
+const within = (v: number, far: number): number => clamp(v, -far, far);
 
 export class Water {
   readonly mesh: THREE.Mesh;

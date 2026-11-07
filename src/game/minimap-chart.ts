@@ -4,6 +4,7 @@
 // new cells are in; until then the last picture stays drawn where it belongs.
 
 import { DepthWindow } from '../render/depth-window';
+import { wrapTo } from '../render/origin';
 import type { Seed } from '../sim/prng';
 import { mapPixels } from './pond-map';
 
@@ -63,9 +64,9 @@ export class MinimapChart {
     const n = w.texels;
     const { data, i0, j0, cell } = w;
     for (let j = 0; j < n; j++) {
-      const row = (((j0 + j) % n) + n) % n;
+      const row = wrapTo(j0 + j, n);
       for (let i = 0; i < n; i++) {
-        this.grid[j * n + i] = data[row * n + ((((i0 + i) % n) + n) % n)] as number;
+        this.grid[j * n + i] = data[row * n + wrapTo(i0 + i, n)] as number;
       }
     }
     const pixels = mapPixels(this.grid, n);

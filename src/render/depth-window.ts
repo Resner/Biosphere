@@ -7,6 +7,7 @@
 
 import { depthSpan } from '../sim/bathymetry';
 import type { Seed } from '../sim/prng';
+import { wrapTo } from './origin';
 
 /** Texels per side. */
 export const WINDOW_TEXELS = 256;
@@ -123,7 +124,7 @@ export class DepthWindow {
       if (i >= r.i0 && i < r.i1 && j >= r.j0 && j < r.j1 && (j > r.j || (j === r.j && i >= r.i)))
         return null;
     }
-    return g.data[wrap(j, n) * n + wrap(i, n)] as number;
+    return g.data[wrapTo(j, n) * n + wrapTo(i, n)] as number;
   }
 
   /**
@@ -239,7 +240,6 @@ export class DepthWindow {
 }
 
 /** A cell index's texel on an axis of `n` (a power of two), for negative indices too. */
-const wrap = (i: number, n: number): number => ((i % n) + n) % n;
 
 function remaining(g: Grid): number {
   let left = 0;
@@ -302,9 +302,9 @@ function fill(g: Grid, budget: number, n: number): number {
     const r = g.todo[0] as Grid['todo'][number];
     const count = Math.min(r.i1 - r.i, budget - used, row.length);
     depthSpan(seed, g.size, g.cell, r.i, r.j, count, row);
-    const base = wrap(r.j, n) * n;
+    const base = wrapTo(r.j, n) * n;
     for (let k = 0; k < count; k++) {
-      g.data[base + wrap(r.i + k, n)] = Math.round((row[k] as number) * 255);
+      g.data[base + wrapTo(r.i + k, n)] = Math.round((row[k] as number) * 255);
     }
     used += count;
     r.i += count;

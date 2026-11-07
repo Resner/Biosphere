@@ -8,6 +8,7 @@
 // backdrop copy, which the creatures' glass samples through `BACKDROP` while the scene draws.
 
 import * as THREE from 'three';
+import { TAU } from '../../sim/math';
 import { BACKDROP } from '../materials';
 import { wrapTo } from '../origin';
 import { type DofMode, PRESETS, type PresetName } from '../presets';
@@ -429,7 +430,6 @@ export class PostChain {
 
 /** The god rays' light runs this way across the plane, and their bands across it (godrays.glsl). */
 const RAY_DIR = { x: 0.8, y: -0.6 } as const;
-const TAU = 2 * Math.PI;
 
 /**
  * The floating origin's phase in each of the god rays' waves (M11 T11, `godRays`): the three bands
