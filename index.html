@@ -139,7 +139,7 @@
         <span class="minimap-depth-bands" aria-hidden="true"></span>
         <span class="minimap-depth-marker" data-testid="minimap-depth-marker"><b aria-hidden="true">◂</b><span data-testid="minimap-depth-text"></span></span>
       </div>
-      <button type="button" class="minimap-disc" data-testid="minimap" aria-label="Pond map (M)">
+      <button type="button" class="minimap-disc" data-testid="minimap" aria-label="Map (M)">
         <canvas class="minimap-canvas" data-testid="minimap-canvas" aria-hidden="true"></canvas>
         <svg class="minimap-arrow" data-testid="minimap-arrow" viewBox="-8 -8 16 16" aria-hidden="true"><path d="M7 0 L-4.5 -4.6 L-2.2 0 L-4.5 4.6 Z" /></svg>
       </button>
@@ -181,7 +181,7 @@
         <div><dt>G</dt><dd>Ping and emote wheel</dd></div>
         <div><dt>T then 1–6</dt><dd>Emote</dd></div>
         <div><dt>Middle click</dt><dd>Look ping</dd></div>
-        <div><dt>M</dt><dd>Pond map</dd></div>
+        <div><dt>M</dt><dd>Map</dd></div>
         <div><dt>Click a creature</dt><dd>Inspect it</dd></div>
         <div><dt>Esc</dt><dd>Menu, or close</dd></div>
       </dl>
@@ -249,8 +249,8 @@
     </section>
     <div class="social-cues" data-for="playing" data-testid="social-cues" aria-hidden="true"></div>
     <section class="edge-indicators" data-for="playing" data-testid="edge-indicators" aria-label="Off screen"></section>
-    <section class="pond-map" data-for="playing" data-testid="pond-map" aria-label="Pond map" hidden>
-      <h2>Pond map</h2>
+    <section class="pond-map" data-for="playing" data-testid="pond-map" aria-label="Map" hidden>
+      <h2>Map</h2>
       <div class="map-frame" data-testid="map-frame">
         <canvas class="map-zones" data-testid="map-zones" aria-hidden="true"></canvas>
         <div class="map-marks" data-testid="map-marks"></div>
@@ -264,6 +264,8 @@
         <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><path class="map-heart" d="M0 5 C-9 -1 -5 -9 0 -4 C5 -9 9 -1 0 5 Z" /></svg>Ready to mate</li>
         <li><i class="map-swatch" data-zone="abyss"></i>Abyss · pressure</li>
         <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle class="map-ping-ring" r="7" /></svg>Ping</li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><path class="map-spawn" d="M0 -6 L6 0 L0 6 L-6 0 Z" /></svg>Spawn</li>
+        <li><svg viewBox="-10 -10 20 20" aria-hidden="true"><circle class="map-hollow-shade" r="4.5" /><circle class="map-hollow" r="4.5" /></svg>Last seen</li>
       </ul>
       <p class="hint">M or Esc to close · you can keep swimming</p>
     </section>

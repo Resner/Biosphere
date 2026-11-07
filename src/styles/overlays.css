@@ -719,7 +719,7 @@
   }
 }
 
-/* The pond map (M): beside the player, never over it, and it never takes the pointer. */
+/* The map (M): beside the player, never over it, and it never takes the pointer. */
 .pond-map {
   position: fixed;
   top: 2.5rem;
@@ -825,6 +825,27 @@
   fill: var(--text);
   stroke: rgb(2 8 10 / 0.9);
   stroke-width: 1;
+}
+
+.map-hollow,
+.map-hollow-shade {
+  fill: none;
+}
+
+.map-hollow {
+  stroke: var(--text);
+  stroke-width: 1.6;
+}
+
+.map-hollow-shade {
+  stroke: rgb(2 8 10 / 0.9);
+  stroke-width: 3.6;
+}
+
+.map-spawn {
+  fill: none;
+  stroke: var(--text);
+  stroke-width: 1.4;
 }
 
 .map-heart {

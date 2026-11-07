@@ -1,10 +1,9 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { RULES } from '../../src/sim/rules';
 import { hatch, M6_FIND_HUB, openGame, playerOf, state } from './helpers';
 
 // Finding other players (M6 T19): an edge indicator points at a pond player off screen, a ping
-// near the player but off screen shows on the edge, and the pond map (M) places everyone.
+// near the player but off screen shows on the edge, and the map (M) places everyone.
 
 test.describe.configure({ mode: 'serial' });
 
@@ -136,7 +135,7 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
     }
     await a.screenshot({ path: 'test-results/m6-find-ping.png' });
 
-    // The pond map lists both players where they are, and the ping.
+    // The map (M11 T18: a square around A, north up) places both players where they are, and the ping.
     await b.waitForTimeout(1100);
     await ping();
     await a.keyboard.press('m');
@@ -152,11 +151,13 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
       if (!dot || !frame) continue;
       const s = await state(a);
       const at = id === idA ? s.player : s.remotes.find((r) => r.id === id);
-      if (!at) throw new Error(`no position for ${id}`);
+      if (!at || !s.player) throw new Error(`no position for ${id}`);
       const u = (dot.x + dot.width / 2 - frame.x) / frame.width;
       const v = (dot.y + dot.height / 2 - frame.y) / frame.height;
-      expect(Math.abs(u - at.x / RULES.world.size), id).toBeLessThanOrEqual(0.02);
-      expect(Math.abs(v - (1 - at.y / RULES.world.size)), id).toBeLessThanOrEqual(0.02);
+      // A starter's map is 8,192 wu across, centred on A.
+      expect(s.map.side).toBe(8192);
+      expect(Math.abs(u - (0.5 + (at.x - s.player.x) / s.map.side)), id).toBeLessThanOrEqual(0.02);
+      expect(Math.abs(v - (0.5 - (at.y - s.player.y) / s.map.side)), id).toBeLessThanOrEqual(0.02);
     }
     await expect(a.locator(`[data-testid="map-dot"][data-id="${idA}"]`)).toHaveAttribute(
       'data-self',

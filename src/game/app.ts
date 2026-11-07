@@ -180,6 +180,8 @@ export class App {
   readonly remoteBodies: RemoteBodies;
   remoteViews: readonly DrawnRemote[] = [];
   scripted: Scripted[] = [];
+  /** Sightings a test placed on the map (`debug.setKnown`), `at` on the page's clock. */
+  debugKnown: { id: string; name: string; x: number; y: number; at: number }[] = [];
 
   /** Without IndexedDB (a private window, say) the identity lasts for this visit only. */
   playerId: string | null = null;

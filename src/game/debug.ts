@@ -37,6 +37,7 @@ import type { Indicator } from './indicators';
 import type { LifeView } from './life';
 import type { MinimapInfo } from './minimap';
 import type { DutyLink, NetLinks } from './online';
+import type { MapInfo } from './pond-map';
 import type { DeathSummary, Screen } from './screens';
 import type { WheelInfo } from './wheel';
 
@@ -294,8 +295,12 @@ export interface BsState {
    * the indicator's CSS-pixel position.
    */
   indicators: Indicator[];
-  /** The pond map (M): whether it is open, and the player dots and pings it shows. */
-  map: { open: boolean; players: number; pings: number };
+  /**
+   * The map (M, M11 T18): whether it is open; the marks it shows (`players` you and the linked
+   * players, `known` the hollow marks of players known but not linked, `pings`); its square's
+   * `side` in wu; whether its `chart` is drawn and the `spawn` centre and world `edge` are in it.
+   */
+  map: MapInfo;
   /**
    * The minimap as last drawn (M6b T10): `shown`, its radius in world units, the zone and depth
    * under the player, the `hazard` hurting now (`uv`, `pressure` or null), the `heading` its arrow
@@ -467,6 +472,11 @@ export interface BsDebug {
   spawnPlume(x: number, y: number, radius?: number): void;
   /** Replaces the scripted remotes (an empty list removes them); they send snapshots at 10 Hz. */
   setRemotes(remotes: readonly ScriptedRemote[]): void;
+  /**
+   * Replaces the sightings a test places on the map (M11 T18) beside the known set's: players
+   * known but not linked, each last placed `age` ms ago (it grows from now on).
+   */
+  setKnown(known: readonly { id: string; name: string; x: number; y: number; age: number }[]): void;
   /**
    * Joins a world for the next hatch without a hub: its seed, epoch and the hub clock's reading
    * now (hub ms), and where this tab's food claims go. Tests relay them to other tabs.

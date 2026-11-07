@@ -5,7 +5,7 @@
 import { clamp, lerp } from '../sim/math';
 import { RULES } from '../sim/rules';
 import { pick, setText } from './dom';
-import { EDGE_LIGHTEN, MAP_COLOURS } from './pond-map';
+import { EDGE_LIGHTEN, MAP_COLOURS } from './map-relief';
 
 export const DEPTH_GAUGE = {
   /** Metres at the abyss floor: the depth (0 the surface, 1 the floor) times this. */
