@@ -7,10 +7,13 @@ import {
   AoiManager,
   type AoiSelf,
   aoiRadius,
+  INTERACT_HOLD_WU,
   INTERACT_LEAD_WU,
   INTERACT_RADII,
   type Known,
   type LinkClass,
+  p1Hold,
+  p1Reach,
   queryRadius,
   UNWANTED_GRACE_MS,
 } from './aoi';
@@ -372,5 +375,14 @@ describe('AoiManager.classify across crowd instances (M12 T3)', () => {
     expect(m.classify(self, [at('b', 100, 1, 0), at('b', 100, 2, 5)], NONE, FRESH).has('b')).toBe(
       false,
     );
+  });
+});
+
+describe('p1Reach and p1Hold', () => {
+  it('use the larger radius, either way round', () => {
+    expect(p1Reach(10, 40)).toBe(INTERACT_RADII * 40 + INTERACT_LEAD_WU);
+    expect(p1Reach(40, 10)).toBe(p1Reach(10, 40));
+    expect(p1Hold(10, 40)).toBe(INTERACT_RADII * 40 + INTERACT_HOLD_WU);
+    expect(p1Hold(40, 10)).toBe(p1Hold(10, 40));
   });
 });

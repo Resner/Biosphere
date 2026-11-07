@@ -43,7 +43,7 @@ export function linkTiers(ra: number, rb: number): boolean {
   return sizeTier(larger * larger) - sizeTier(smaller * smaller) <= 1;
 }
 
-/** The radius of the largest creature `linkTiers` lets a creature of radius `r` link with. */
+/** An upper bound on the radius of a creature `linkTiers` lets a creature of radius `r` link with (the top tier has no ceiling: clamp it). */
 export const maxLinkRadius = (r: number): number =>
   TIER_STEP * TIER_STEP * TIER_LINK_MARGIN * TIER_LINK_MARGIN * r;
 
