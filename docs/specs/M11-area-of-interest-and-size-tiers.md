@@ -675,7 +675,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - Every existing hub E2E (M2 to M10) passes.
   - Notes: the hub still groups ponds and its `near` stays within the pond (T6), so links form within ponds and `m10-cross` keeps its two ponds until T14. `online.ts` and `app-online.ts` are this task's.
 
-- [ ] T14 The ponds go: one world with no rosters [opus] (after T13)
+- [ ] T14 The ponds go: one world with no rosters [opus] (after T13) (in progress)
   - Steps:
     1. The worker:
        - **seats**: every seat is in the one world, and the welcome holds no `members` and there is no `member` message;
