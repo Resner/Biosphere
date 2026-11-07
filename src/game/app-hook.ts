@@ -191,6 +191,10 @@ function debugHelpers(app: App): BsDebug {
     },
     freezeAt(tick, x, y) {
       debug.timeScale(0);
+      // The loop may still hold the real time of frames that ran before the freeze (a slow runner
+      // draws seldom); dropping it keeps those ticks from moving the player off its place.
+      app.loop.pause();
+      app.loop.resume();
       app.session.world.tick = tick;
       placeCamera(x, y);
     },
