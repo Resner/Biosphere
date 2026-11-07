@@ -629,7 +629,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The world in the game
 
-- [ ] T13 The session in the world: links by area of interest [opus] (after T6, T9, T12)
+- [ ] T13 The session in the world: links by area of interest [opus] (after T6, T9, T12) (in progress)
   - Steps:
     1. `src/game/online.ts`, split into `online-links.ts` and `neighbours.ts`:
        - **the known set** comes from the directory's `near`, gossip, snapshots, the hub's `at` and a relay's `pos`;
