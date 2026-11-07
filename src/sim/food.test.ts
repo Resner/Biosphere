@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { speedTest } from '../../tests/heavy';
+import { heavyTest, speedTest } from '../../tests/heavy';
 import { depthAt, zoneAt } from './bathymetry';
 import { type Mouth, STARTER_PHYS } from './body';
 import {
@@ -461,7 +461,7 @@ describe('the kind memo in a large world', () => {
   const JAW: Mouth = { offset: 0.9, radius: 0.35, arc: 0.6, type: 1, digestion: 1 };
   const big = (seed: string) => createWorld({ seed, size: LARGE, currents: false, hazards: false });
 
-  it('keeps at most 256 chunks of 16 × 16 cells however far a creature sweeps', () => {
+  heavyTest('keeps at most 256 chunks of 16 × 16 cells however far a creature sweeps', () => {
     const w = big('sweep');
     const before = foodNear(w, 1000, 1000, 600);
     expect(before.length).toBeGreaterThan(0);
