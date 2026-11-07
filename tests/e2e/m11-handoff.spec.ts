@@ -27,9 +27,10 @@ interface Watch {
   /** A–C distance and A's AoI when C first linked, and whether C was ever drawn in view before. */
   cLinked: { d: number; aoi: number } | null;
   cSeenUnlinked: boolean;
-  /** Each time A's centre left its leaf by more than 64 wu: the `where` count then, and once back in one. */
+  /** Each new leaf A took on leaving its last one: the `where` count when it took the last, and the new. */
   exits: { before: number; after: number }[];
-  open: { before: number } | null;
+  /** The leaf A holds, and the `where` count when it took it. */
+  leaf: { x: number; y: number; size: number; sent: number } | null;
 }
 
 test('crossing leaves keeps every link in view, and a creature ahead is linked before it comes into view @slow', async ({
@@ -67,7 +68,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
           cLinked: null,
           cSeenUnlinked: false,
           exits: [],
-          open: null,
+          leaf: null,
         };
         w.__watch = watch;
         window.setInterval(() => {
@@ -91,18 +92,19 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
               aoi: perHalfHeight * fx.halfHeight,
             };
           }
+          // A leaf change with A outside the leaf it held is an exit (a split or merge keeps A inside).
           const leaf = s.net.where.leaf;
           const sent = s.net.where.sent;
-          let out = false;
-          if (leaf && me) {
-            const dx = Math.max(leaf.x - me.x, 0, me.x - (leaf.x + leaf.size));
-            const dy = Math.max(leaf.y - me.y, 0, me.y - (leaf.y + leaf.size));
-            out = Math.hypot(dx, dy) > 64;
-          }
-          if (out && !watch.open) watch.open = { before: sent };
-          if (!out && watch.open) {
-            watch.exits.push({ before: watch.open.before, after: sent });
-            watch.open = null;
+          const held = watch.leaf;
+          const same =
+            leaf && held && leaf.x === held.x && leaf.y === held.y && leaf.size === held.size;
+          if (leaf && me && !same) {
+            if (held) {
+              const dx = Math.max(held.x - me.x, 0, me.x - (held.x + held.size));
+              const dy = Math.max(held.y - me.y, 0, me.y - (held.y + held.size));
+              if (Math.hypot(dx, dy) > 32) watch.exits.push({ before: held.sent, after: sent });
+            }
+            watch.leaf = { ...leaf, sent };
           }
         }, 100);
       },
