@@ -198,7 +198,7 @@ describe('encounter ranges', () => {
   it('rejects non-finite or out-of-range numbers in the fighter shapes and carrion', () => {
     for (const [key, value] of [
       ['x', -0.5],
-      ['x', 2 ** 29 + 0.5],
+      ['x', 2 ** 29],
       ['y', 1e300],
       ['vx', 1e6],
       ['heading', 7],

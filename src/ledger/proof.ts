@@ -457,8 +457,8 @@ function fighterInfo(v: unknown): FightLog['start']['fighters'][number] | null {
     !isStr(v.player, PLAYER_ID_RE) ||
     !hex(v.creature) ||
     !isStr(v.genome, GENOME_TEXT) ||
-    !num(v.x, 0, WIRE_POS_MAX) ||
-    !num(v.y, 0, WIRE_POS_MAX) ||
+    !num(v.x, 0, WIRE_POS_MAX - 1) ||
+    !num(v.y, 0, WIRE_POS_MAX - 1) ||
     !num(v.vx, -VEL_MAX, VEL_MAX) ||
     !num(v.vy, -VEL_MAX, VEL_MAX) ||
     !num(v.heading, -2 * Math.PI, 2 * Math.PI) ||

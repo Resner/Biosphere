@@ -64,7 +64,7 @@ const inRange = (v: unknown, min: number, max: number): v is number =>
   isNum(v) && v >= min && v <= max;
 export const isFrame = (v: unknown): v is number => isInt(v, 0, ENC_MAX_FRAME);
 const isSlot = (v: unknown): v is number => isInt(v, 0, ENC_MAX_FIGHTERS - 1);
-const isPos = (v: unknown): v is number => inRange(v, 0, WIRE_POS_MAX);
+const isPos = (v: unknown): v is number => inRange(v, 0, WIRE_POS_MAX - 1);
 const isCondition = (v: unknown): v is number => inRange(v, 0, MAX_CONDITION);
 
 export function signedSnap(v: unknown): SignedSnap | null {
