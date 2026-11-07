@@ -3,6 +3,7 @@
 // than a quarter, and otherwise every 30 s; a `gone` once on leaving the water. Never two messages
 // within 2 s: a trigger inside that gap waits for it. Pure; the page (T13) sends what it returns.
 
+import { clamp } from '../sim/math';
 import { sizeTier } from '../sim/size';
 import { type ClientMsg, type Leaf, WIRE_AOI_MAX, WIRE_POS_MAX, WIRE_RADIUS_MAX } from './protocol';
 
@@ -19,8 +20,6 @@ function outside(leaf: Leaf, x: number, y: number): number {
   const dy = Math.max(leaf.y - y, 0, y - (leaf.y + leaf.size));
   return Math.hypot(dx, dy);
 }
-
-const clamp = (v: number, lo: number, hi: number) => Math.min(Math.max(v, lo), hi);
 
 interface Sent {
   x: number;

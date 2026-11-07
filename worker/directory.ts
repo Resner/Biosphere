@@ -21,8 +21,6 @@ export const LEAF_MAX = 16;
 export const LEAF_MIN = 6;
 /** A leaf this wide never splits. */
 export const LEAF_MIN_SIZE = 1024;
-/** A report's query radius is Q = max(NEAR_FLOOR_WU, 4 × aoi), as the client's P4 reach. */
-export { NEAR_FLOOR_WU } from '../src/net/aoi';
 /** The hub relays a signal between two members within max(Q_a, Q_b) + this. */
 export const RELAY_SLACK_WU = 4096;
 /** A court needs its two players within this distance. */
@@ -55,9 +53,6 @@ interface Node {
   kids: [Node, Node, Node, Node] | null;
   members: Set<string>;
 }
-
-/** The query radius of a report with this AoI. */
-export const queryOf = queryRadius;
 
 const leafOf = (n: Node): Leaf => ({ x: n.x, y: n.y, size: n.size });
 const sameLeaf = (a: Leaf, b: Leaf) => a.x === b.x && a.y === b.y && a.size === b.size;
@@ -163,7 +158,7 @@ export class Directory {
     const held = this.byId.get(id);
     if (!held) return null;
     const self = held.m;
-    const q = queryOf(self.aoi);
+    const q = queryRadius(self.aoi);
     const peers: { d: number; m: DirMember }[] = [];
     const swarm: { d: number; m: DirMember }[] = [];
     this.visit(self.x, self.y, q, (other, m) => {

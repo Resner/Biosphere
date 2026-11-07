@@ -4,10 +4,12 @@
 
 import { linkTiers, viewHalfHeight } from '../sim/size';
 import {
+  type ConnectionPlan,
   checkCap,
   DEFAULT_CAP,
   type LinkCandidate,
   type LinkClass,
+  NO_CLASS,
   selectLinks,
 } from './connection-policy';
 
@@ -60,14 +62,7 @@ export interface AoiSelf {
   adultR: number;
 }
 
-export interface AoiPlan {
-  /** Wanted peers not held, best first. */
-  connect: string[];
-  /** Held peers to close: crowded out, or unwanted for `UNWANTED_GRACE_MS`. */
-  evict: string[];
-  /** P0 and P1 pass `MAX_CAP`: only P0 and the nearest P1 are held. */
-  crowded: boolean;
-}
+export type AoiPlan = ConnectionPlan;
 
 export class AoiManager {
   private readonly selfId: string;
@@ -111,7 +106,7 @@ export class AoiManager {
       const d = Math.hypot(k.x - self.x, k.y - self.y);
       rank.set(id, d);
       if (out.has(id) || !linkTiers(self.r, k.r)) continue;
-      const was = prev.get(id) ?? 5;
+      const was = prev.get(id) ?? NO_CLASS;
       const within = (c: LinkClass, enter: number, hold: number) =>
         d <= enter || (was <= c && d <= hold);
       const reach = INTERACT_RADII * Math.max(self.r, k.r);
