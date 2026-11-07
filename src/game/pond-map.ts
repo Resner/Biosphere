@@ -103,7 +103,7 @@ export function mapPixels(grid: Uint8Array, n: number): Uint8ClampedArray<ArrayB
   return out;
 }
 
-/** The last pond's picture, shared by the pond map and the minimap. */
+/** The last pond's picture, for the pond map. */
 const zoneCache: { key: string; image: HTMLCanvasElement | null } = { key: '', image: null };
 
 /** The pond's zones as a picture (`ZONE_TEXTURE_SIZE` square, north up), built once per pond. */

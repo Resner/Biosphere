@@ -128,7 +128,7 @@ export class DepthWindow {
 
   /**
    * Follows the point (x, y) of a world, seen at `halfHeight` wu, and samples up to `budget`
-   * cells. Returns whether the shown texels changed. Allocation-free while the point swims.
+   * cells. Returns whether the shown texels changed. It allocates only when it re-centres.
    */
   update(
     seed: Seed,

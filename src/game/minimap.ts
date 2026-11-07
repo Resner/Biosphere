@@ -1,7 +1,7 @@
 // The minimap (M6b T10, DESIGN §9): a round, north-up map in the top-right corner, centred on the
-// player and 6 view half-heights in radius. It shows the zones (the pond map's picture), the pond's
-// edge when near, other players by size class, mate-ready hearts, live pings and the player as an
-// arrow on its heading. The zone's name sits under it, and a slim depth gauge (M6c T12,
+// player and 6 view half-heights in radius. It shows the zones (the pond map's chart, from its own
+// depth window: `minimap-chart.ts`), the pond's edge when near, other players by size class,
+// mate-ready hearts, live pings and the player as an arrow on its heading. The zone's name sits under it, and a slim depth gauge (M6c T12,
 // `depth-gauge.ts`) left of it, with a UV or pressure icon beside the gauge while that hazard
 // hurts; they replace the HUD's depth bar and the hazard overlays. A click on it (or M) opens the
 // full pond map. The map draws on a 2D canvas at most 30 times a second; the arrow is its own
