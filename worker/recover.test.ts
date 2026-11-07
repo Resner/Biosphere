@@ -15,6 +15,7 @@ import {
   advanceTo,
   authority,
   CALM_SEED,
+  CENTRE,
   clock,
   type EncEnd,
   type EncStart,
@@ -200,7 +201,7 @@ describe('recovery rebuilds the locks', () => {
     c.c.send({
       t: 'engage',
       target: a.id.playerId,
-      mine: snap(c, 1000, 1012, { health: 0.01, energy: 0 }),
+      mine: snap(c, CENTRE, CENTRE + 12, { health: 0.01, energy: 0 }),
       theirs: snap(a, ...NEAR.a),
     });
     expect(await within(nextOf(c.c, 'enc-start'), 'the joiner’s enc-start')).toEqual(start);

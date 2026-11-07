@@ -10,6 +10,7 @@ import {
   advanceTo,
   authority,
   CALM_SEED,
+  CENTRE,
   clock,
   type EncEnd,
   type EncStart,
@@ -283,11 +284,11 @@ describe('joins', () => {
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { biomass: T1 }));
     expect(start.fighters).toHaveLength(2);
     // C (T2) is within a tier of B, its target, but two from A.
-    engageInto(c, b, [1100, 1000], T2, T1);
+    engageInto(c, b, [CENTRE + 100, CENTRE], T2, T1);
     expect((await within(nextOf(c.c, 'refused'), 'C’s refusal')).reason).toBe('engage:tier');
     expect(await authority((o) => o.fights.playerLocked(c.id.playerId))).toBe(false);
     // D (T1) is within a tier of both, and joins at its own worth (a young identity).
-    engageInto(d, b, [1040, 1000], T1, T1);
+    engageInto(d, b, [CENTRE + 40, CENTRE], T1, T1);
     const join: EncJoin = await within(nextOf(a.c, 'enc-join'), 'D’s join');
     expect(join.fighter.player).toBe(d.id.playerId);
     expect(join.fighter.worth).toBe(0.5);
@@ -300,7 +301,7 @@ describe('joins', () => {
     c.c.send({
       t: 'engage',
       target: a.id.playerId,
-      mine: snap(c, 1000, 1012, { health: 0.5, energy: 0.5 }),
+      mine: snap(c, CENTRE, CENTRE + 12, { health: 0.5, energy: 0.5 }),
       theirs: snap(a, ...NEAR.a),
     });
     const join = await within(nextOf(a.c, 'enc-join'), 'C’s join');
@@ -317,7 +318,7 @@ describe('joins', () => {
     d.c.send({
       t: 'engage',
       target: b.id.playerId,
-      mine: snap(d, 1024, 1000, { health: 0.5, energy: 0.5 }),
+      mine: snap(d, CENTRE + 24, CENTRE, { health: 0.5, energy: 0.5 }),
       theirs: snap(b, ...NEAR.b),
     });
     expect((await within(nextOf(d.c, 'refused'), 'D’s refusal')).reason).toBe('engage:locked');
@@ -326,7 +327,7 @@ describe('joins', () => {
       t: 'engage',
       target: d.id.playerId,
       mine: snap(b, ...NEAR.b),
-      theirs: snap(d, 1024, 1000, { health: 0.5, energy: 0.5 }),
+      theirs: snap(d, CENTRE + 24, CENTRE, { health: 0.5, energy: 0.5 }),
     });
     expect((await within(nextOf(b.c, 'refused'), 'B’s refusal')).reason).toBe('engage:locked');
     expect(await authority((o) => o.fights.playerLocked(d.id.playerId))).toBe(false);

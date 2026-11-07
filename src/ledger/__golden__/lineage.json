@@ -499,7 +499,7 @@
         "joins": [],
         "frames": 57,
         "root": "299e05df80d1cd781dc1820d19101d9560dbab8dcdf08b8654c35dbba90b5e02",
-        "hash": "9c33a2c743da5997",
+        "hash": "797c67ea8fde40d8",
         "referees": [
           {
             "by": "authority",
@@ -541,8 +541,8 @@
         ],
         "t": 1793033567900
       },
-      "hash": "a67fe1e85b5c8392db0969c9b1cc183b62272effafe0254cef847cbdc89f2286",
-      "authSig": "c8ca66G_6DBjS-5A6nxittcIcglUO-O6GpxBKMr68jgVKn1Dium6SYrVlAYSUdXSy5UyM2XHklCNKymvbz9xDQ",
+      "hash": "989d048cb80ed705ae04694568982c0891e404dcb1708d7c02e3f14567ad29da",
+      "authSig": "YTGYsv2K8--aYOqI74V1tGh6aY5MENI_9MUXJxHpOIFysoXLFeRM7a9wOCVky7sxOrHmM-meGUfDMdgAuEXoAA",
       "keyId": "dBwGxjx2"
     }
   ],
@@ -651,10 +651,10 @@
         "duty": "774af76af128e6a66197630bdd4012c87f285c9aebd9fa32673ef6c5c23a585c",
         "position": 1,
         "witness": "tygv5HL5dkHBcJeCGlN4dKqqUyZFrTTb1ZhzMaTnP40",
-        "subject": "a67fe1e85b5c8392db0969c9b1cc183b62272effafe0254cef847cbdc89f2286",
+        "subject": "989d048cb80ed705ae04694568982c0891e404dcb1708d7c02e3f14567ad29da",
         "agree": true
       },
-      "sig": "n04-LIlM0JbB5j4UFoAJ17E-fDRXgKP83bbtUX7mZOwYJlVGoLJlV6FuaZuyItaToHXDE-Ay5TKvF1OTpWoPBw"
+      "sig": "1tDg9C7IY0H_hKhBlasT9jUAU3XyeAM6BK7N1CudTwX91OVMPoAXZUnFVM2teuuIZ9KXdil5hyRXu8W1SmGzBw"
     }
   ],
   "t": 1793033652900

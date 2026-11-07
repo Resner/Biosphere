@@ -222,7 +222,14 @@ export interface BsState {
     dim: number;
   };
   /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
-  pond: { id: string; seed: string; members: string[] } | null;
+  pond: {
+    id: string;
+    seed: string;
+    /** The world's side in wu, and its centre: where the hub's spawn ring is. */
+    size: number;
+    centre: { x: number; y: number };
+    members: string[];
+  } | null;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
   social: {
     chat: { from: string; name: string; text: string }[];

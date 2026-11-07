@@ -76,22 +76,25 @@ function forager(world: World, tick: number): Input {
   };
 }
 
+/** The spawn centre: where every golden starts, as a pond's players do. */
+const C = RULES.world.size / 2;
+
 function build(): Record<(typeof NAMES)[number], InputLog> {
   // Food is dense, so an idler only starves if nothing drifts into reach: take the first spawn
   // on a coarse grid where that holds.
   let idle: InputLog | null = null;
-  for (let y = 2048; idle === null && y < 6144; y += 97) {
-    for (let x = 2048; idle === null && x < 6144; x += 89) {
+  for (let y = C - 2048; idle === null && y < C + 2048; y += 97) {
+    for (let x = C - 2048; idle === null && x < C + 2048; x += 89) {
       const log = record('golden-idle', { x, y }, 5000, () => IDLE);
       if (replay(log).world.creatures[0]?.cause === 'starved') idle = log;
     }
   }
   if (idle === null) throw new Error('golden-idle: no spawn starves');
 
-  const forage = record('golden-forage', { x: 3000, y: 3000 }, 1800, forager);
+  const forage = record('golden-forage', { x: C - 1096, y: C - 1096 }, 1800, forager);
   const body = record(
     'golden-body',
-    { x: 3000, y: 3000, phys: { ...STARTER_PHYS, thrust: 1.4, drag: 0.8, basal: 1.2 } },
+    { x: C - 1096, y: C - 1096, phys: { ...STARTER_PHYS, thrust: 1.4, drag: 0.8, basal: 1.2 } },
     1800,
     forager,
   );
@@ -104,7 +107,7 @@ function build(): Record<(typeof NAMES)[number], InputLog> {
     const depth = depthAt(probe.seed32, x, y);
     return depth > 0.3 && depth < 0.65;
   };
-  const plume = plumesNear(probe, 4096, 4096, 8192).find(
+  const plume = plumesNear(probe, C, C, 8192).find(
     (p) => p.x - p.radius > 200 && mild(p.x, p.y) && mild(p.x - p.radius - 40, p.y),
   );
   if (plume === undefined) throw new Error('golden-hazard has no plume');

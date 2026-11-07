@@ -21,6 +21,7 @@ import {
   SEEN_MAX,
   type SignedSnap,
   SNAPSHOT_BYTES,
+  WIRE_POS_MAX,
 } from './protocol-defs';
 import {
   capped,
@@ -51,8 +52,7 @@ const LOCK_RE = /^[0-9a-f]{16,64}$/;
 const SNAP_RE = new RegExp(`^[A-Za-z0-9_-]{${Math.ceil((SNAPSHOT_BYTES * 4) / 3)}}$`);
 /** An encounter's state hash (`hashEncounter`): 16 hex characters. */
 const STATE_HASH_RE = /^[0-9a-f]{16}$/;
-/** Positions lie in the pond (0 to 8192 wu; M11 T12 widens this to the world), velocities within a snapshot's range. */
-const POS_MAX = 8192;
+/** Positions lie in the world (`WIRE_POS_MAX`), velocities within a snapshot's range. */
 const VEL_MAX = 8192;
 const HEADING_MAX = 2 * Math.PI;
 /** Far above any carrion piece's body (a body's radius stays in the hundreds of wu). */
@@ -64,7 +64,7 @@ const inRange = (v: unknown, min: number, max: number): v is number =>
   isNum(v) && v >= min && v <= max;
 export const isFrame = (v: unknown): v is number => isInt(v, 0, ENC_MAX_FRAME);
 const isSlot = (v: unknown): v is number => isInt(v, 0, ENC_MAX_FIGHTERS - 1);
-const isPos = (v: unknown): v is number => inRange(v, 0, POS_MAX);
+const isPos = (v: unknown): v is number => inRange(v, 0, WIRE_POS_MAX - 1);
 const isCondition = (v: unknown): v is number => inRange(v, 0, MAX_CONDITION);
 
 export function signedSnap(v: unknown): SignedSnap | null {

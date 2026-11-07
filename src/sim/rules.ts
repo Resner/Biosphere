@@ -17,8 +17,8 @@ function deepFreeze<T>(value: T): DeepReadonly<T> {
 
 export const RULES = deepFreeze({
   world: {
-    /** Square world edge in wu (M1 single pond). */
-    size: 8192,
+    /** Square world edge in wu: 2^18, centred at (131,072, 131,072), the spawn centre. */
+    size: 262_144,
     /** Soft wall width in wu. */
     wallMargin: 64,
     /** Food grid cell edge in wu. */

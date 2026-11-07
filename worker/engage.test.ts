@@ -10,6 +10,7 @@ import type { BeaconSource } from './beacons';
 import {
   advance,
   authority,
+  CENTRE,
   clock,
   drift,
   editLife,
@@ -48,7 +49,7 @@ describe('engage', () => {
     b.c.send({
       t: 'lock-state',
       lock: ask.lock,
-      mine: snap(b, 1013, 1001),
+      mine: snap(b, CENTRE + 13, CENTRE + 1),
       seen: [snap(a, ...NEAR.a)],
     });
     const [sa, sb] = await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
@@ -61,9 +62,9 @@ describe('engage', () => {
     const fa = sa.fighters.find((f) => f.player === a.id.playerId);
     // The target's answer, carried to frame 0 by the current alone (it was at rest).
     const ticks = sa.t0 - pondTick(b) + 1;
-    expect(Math.abs((fb?.x ?? 0) - 1013)).toBeLessThanOrEqual(drift(ticks));
-    expect(Math.abs((fb?.y ?? 0) - 1001)).toBeLessThanOrEqual(drift(ticks));
-    expect(Math.abs((fa?.x ?? 0) - 1000)).toBeLessThanOrEqual(drift(ticks));
+    expect(Math.abs((fb?.x ?? 0) - (CENTRE + 13))).toBeLessThanOrEqual(drift(ticks));
+    expect(Math.abs((fb?.y ?? 0) - (CENTRE + 1))).toBeLessThanOrEqual(drift(ticks));
+    expect(Math.abs((fa?.x ?? 0) - CENTRE)).toBeLessThanOrEqual(drift(ticks));
     expect(fa?.genome).toBeTruthy();
     expect(fa?.egg).toBe(false);
     expect(fa?.elder).toBe(false);
@@ -87,12 +88,14 @@ describe('engage', () => {
     });
     const rows = await rowsBesideLog();
     const engagedAt = clock.t;
-    const [sa, sb] = await lockIn(a, b, snap(b, 1012, 1003));
+    const [sa, sb] = await lockIn(a, b, snap(b, CENTRE + 12, CENTRE + 3));
     expect(sa).toEqual(sb);
     expect(sa.at).toBe(engagedAt + E.lockAnswerMs + E.startDelayMs);
     expect(sa.at - engagedAt).toBeLessThanOrEqual(300);
     const fb = sa.fighters.find((f) => f.player === b.id.playerId);
-    expect(Math.abs((fb?.y ?? 0) - 1003)).toBeLessThanOrEqual(drift(sa.t0 - pondTick(b) + 10));
+    expect(Math.abs((fb?.y ?? 0) - (CENTRE + 3))).toBeLessThanOrEqual(
+      drift(sa.t0 - pondTick(b) + 10),
+    );
 
     // The seed: the newest beacon the object held, and nothing fetched for it.
     const newest = await authority((o) => o.beacons.newestKnown());
@@ -168,7 +171,7 @@ describe('engage refusals', () => {
     const [a, b] = await pair();
     // Tier 2 starts at a radius of 128 (biomass 16,384).
     await editLife(b, { biomass: 2_000_000, boundBiomass: 2_000_000, maxBiomass: 30_000 });
-    const big = snap(b, 1150, 1000, { biomass: 20_000 });
+    const big = snap(b, CENTRE + 150, CENTRE, { biomass: 20_000 });
     expect(await refusal(a, b, big)).toBe('engage:tier');
   });
 
@@ -189,7 +192,7 @@ describe('engage refusals', () => {
 
   it('range: the target is out of reach', async () => {
     const [a, b] = await pair();
-    expect(await refusal(a, b, snap(b, 1500, 1000))).toBe('engage:range');
+    expect(await refusal(a, b, snap(b, CENTRE + 500, CENTRE))).toBe('engage:range');
   });
 });
 
@@ -200,7 +203,7 @@ describe('spawn protection', () => {
     // Both are protected: b's engage ends b's own protection, and is refused by a's.
     expect(await refusal(b, a, snap(a, ...NEAR.a), snap(b, ...NEAR.b))).toBe('engage:protected');
     // a's engage, out of range, ends a's.
-    expect(await refusal(a, b, snap(b, 1500, 1000))).toBe('engage:range');
+    expect(await refusal(a, b, snap(b, CENTRE + 500, CENTRE))).toBe('engage:range');
     engage(b, a, snap(a, ...NEAR.a), snap(b, ...NEAR.b));
     await nextOf(a.c, 'lock-ask');
   });

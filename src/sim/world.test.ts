@@ -20,7 +20,7 @@ describe('RULES', () => {
     expect(RULES.starter.biomass).toBe(100);
     expect(RULES.starter.energyFraction).toBe(0.6);
     expect(RULES.movement.drag).toBe(2.2);
-    expect(RULES.world.size).toBe(8192);
+    expect(RULES.world.size).toBe(262_144);
   });
 });
 
@@ -31,7 +31,7 @@ describe('createWorld and spawnCreature', () => {
       rules: RULES_VERSION,
       seed: 'pond-1',
       tick: 0,
-      size: 8192,
+      size: 262_144,
       creatures: [],
       consumed: {},
       carrion: [],

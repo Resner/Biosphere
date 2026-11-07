@@ -12,15 +12,15 @@ The 11 archetypes of `tests/archetypes.ts` at 400 biomass, every pair from 8 sta
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **flagellate** | · | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | **50%** |
 | **ciliate** | 50% | · | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | **50%** |
-| **swimmer** | 50% | 50% | · | 50% | 50% | 50% | 75% | 69% | 50% | 53% | 50% | **55%** |
-| **armoured** | 50% | 50% | 50% | · | 50% | 50% | 94% | 100% | 50% | 50% | 50% | **59%** |
-| **filter** | 50% | 50% | 50% | 50% | · | 0% | 50% | 50% | 0% | 50% | 50% | **40%** |
+| **swimmer** | 50% | 50% | · | 50% | 53% | 50% | 72% | 66% | 50% | 56% | 50% | **55%** |
+| **armoured** | 50% | 50% | 50% | · | 50% | 50% | 91% | 100% | 50% | 50% | 50% | **59%** |
+| **filter** | 50% | 50% | 47% | 50% | · | 0% | 50% | 50% | 0% | 50% | 50% | **40%** |
 | **hunter** | 50% | 50% | 50% | 50% | 100% | · | 100% | 100% | 50% | 50% | 50% | **65%** |
-| **radial** | 50% | 50% | 25% | 6% | 50% | 0% | · | 50% | 0% | 50% | 19% | **30%** |
-| **coiled** | 50% | 50% | 31% | 0% | 50% | 0% | 50% | · | 0% | 47% | 38% | **32%** |
-| **carapaced** | 50% | 50% | 50% | 50% | 100% | 50% | 100% | 100% | · | 50% | 50% | **65%** |
-| **winged** | 50% | 50% | 47% | 50% | 50% | 50% | 50% | 53% | 50% | · | 50% | **50%** |
-| **setose** | 50% | 50% | 50% | 50% | 50% | 50% | 81% | 63% | 50% | 50% | · | **54%** |
+| **radial** | 50% | 50% | 28% | 9% | 50% | 0% | · | 50% | 6% | 50% | 13% | **31%** |
+| **coiled** | 50% | 50% | 34% | 0% | 50% | 0% | 50% | · | 0% | 47% | 38% | **32%** |
+| **carapaced** | 50% | 50% | 50% | 50% | 100% | 50% | 94% | 100% | · | 50% | 50% | **64%** |
+| **winged** | 50% | 50% | 44% | 50% | 50% | 50% | 50% | 53% | 50% | · | 50% | **50%** |
+| **setose** | 50% | 50% | 50% | 50% | 50% | 50% | 88% | 63% | 50% | 50% | · | **55%** |
 
 ## Size
 
@@ -28,7 +28,7 @@ Mirror duels: 8 genesis bodies fight a copy of themselves of 300 biomass, on 16 
 
 | Biomass ratio | Bigger body wins |
 |---|---|
-| 1 × | 42% |
+| 1 × | 41% |
 | 1.5 × | 100% |
 | 2 × | 100% |
 
@@ -38,12 +38,12 @@ Mirror duels: 8 genesis bodies fight a copy of themselves of 300 biomass, on 16 
 
 | Measure | Value |
 |---|---|
-| Fight length (median, p10, p90) | 10.4 s, 6.0 s, 17.2 s |
-| Fights that end in a kill | 23 of 64 |
+| Fight length (median, p10, p90) | 10.7 s, 6.0 s, 17.1 s |
+| Fights that end in a kill | 25 of 64 |
 
 ## Growth by kills
 
-The winners of those kills gained 370 biomass per minute of fighting (the kill reward over the fight's length). A forager (the pacing bot, `tools/pacing-report.ts`, no mating, no carrion, median of 12 genesis bots) gains 77.8 biomass per minute between 250 and 350 biomass: killing grows 4.8 × as fast.
+The winners of those kills gained 337 biomass per minute of fighting (the kill reward over the fight's length). A forager (the pacing bot, `tools/pacing-report.ts`, no mating, no carrion, median of 12 genesis bots) gains 75.5 biomass per minute between 250 and 350 biomass: killing grows 4.5 × as fast.
 
 ## Gate
 
@@ -51,10 +51,10 @@ The winners of those kills gained 370 biomass per minute of fighting (the kill r
 |---|---|---|
 | No archetype wins more than 70% overall | 65% | met |
 | One pairing is won 65% or more by one side | 100% | met |
-| Mirror duels at 1 × go 40%-60% | 42% | met |
-| Equal genesis duels last a median of 8-25 s | 10.4 s | met |
+| Mirror duels at 1 × go 40%-60% | 41% | met |
+| Equal genesis duels last a median of 8-25 s | 10.7 s | met |
 | At 2 × the biomass a body wins 85% or more of mirror duels | 100% | met |
 | At 1.5 × the biomass a body wins 70% or more of mirror duels | 100% | met |
-| Winners grow 1.5 × as fast per minute as a forager | 4.8 × | met |
+| Winners grow 1.5 × as fast per minute as a forager | 4.5 × | met |
 
-Report hash: `8822713d7060b933` (rules v12).
+Report hash: `90a0a11a2d32034f` (rules v12).

@@ -4,15 +4,15 @@
     "start": {
       "id": "enc-golden-escape",
       "pondSeed": "golden-escape",
-      "size": 8192,
+      "size": 262144,
       "seed": [905684353, 336995853, 1518218799, 2777275976],
       "t0": 1000,
       "fighters": [
         {
           "player": "player-a",
           "creature": "a",
-          "x": 5200,
-          "y": 3000,
+          "x": 132176,
+          "y": 129976,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -65,8 +65,8 @@
         {
           "player": "player-b",
           "creature": "b",
-          "x": 5230,
-          "y": 3000,
+          "x": 132206,
+          "y": 129976,
           "vx": 0,
           "vy": 0,
           "heading": 3.141592653589793,
@@ -201,7 +201,7 @@
       [20352, 0]
     ]
   },
-  "hash": "54836571bd95407c",
+  "hash": "4636a727cb728594",
   "results": [
     {
       "outcome": "escaped",

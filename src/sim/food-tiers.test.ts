@@ -18,7 +18,7 @@ import type { FoodItem, FoodKind, World } from './types';
 import { createWorld, spawnCreature } from './world';
 
 const world = (seed = 'tiers', size?: number) =>
-  createWorld({ seed, ...(size === undefined ? {} : { size }), currents: false, hazards: false });
+  createWorld({ seed, size: size ?? 8192, currents: false, hazards: false });
 
 /** Biomass at the bottom of each tier: radius 32 × 4^t, squared. */
 const BIOMASS = [100, 1024, 16384, 262144];

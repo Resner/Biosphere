@@ -12,7 +12,7 @@ import {
 } from './protocol';
 
 const world = (tick = 0) => {
-  const w = createWorld({ seed: 'pond-claims', currents: false, hazards: false });
+  const w = createWorld({ seed: 'pond-claims', size: 8192, currents: false, hazards: false });
   w.tick = tick;
   return w;
 };
@@ -170,7 +170,7 @@ describe('late join', () => {
 
   it('emits parts that all parse when every slot of the pond is eaten', () => {
     const w = world(0);
-    const side = Math.floor(RULES.world.size / RULES.world.cellSize);
+    const side = Math.floor(w.size / RULES.world.cellSize);
     for (let cx = 0; cx < side; cx++)
       for (let cy = 0; cy < side; cy++)
         for (let s = 0; s < RULES.food.slotsPerCell; s++)

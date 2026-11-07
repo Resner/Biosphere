@@ -11,6 +11,7 @@ import {
   advanceTo,
   authority,
   CALM_SEED,
+  CENTRE,
   drift,
   type EncEnd,
   type EncStart,
@@ -85,7 +86,7 @@ describe('joins', () => {
     await Promise.all([nextOf(a.c, 'enc-frame'), nextOf(a.c, 'enc-frame')]);
     await Promise.all([nextOf(b.c, 'enc-frame'), nextOf(b.c, 'enc-frame')]);
     const snapTick = pondTick(c);
-    engageInto(c, a, [1000, 1012]);
+    engageInto(c, a, [CENTRE, CENTRE + 12]);
     const heard = await joinerHears(c);
     expect(heard.start).toEqual(start);
     expect(heard.frames.map((m) => m.f)).toEqual([0, 1]);
@@ -100,8 +101,8 @@ describe('joins', () => {
     expect(f.health).toBeGreaterThan(0);
     expect(f.health).toBeLessThan(0.02 * maxHealth(RULES.starter.biomass));
     const ticks = start.t0 + E.frameTicks * ja.f - snapTick;
-    expect(Math.abs(f.x - 1000)).toBeLessThan(drift(ticks));
-    expect(Math.abs(f.y - 1012)).toBeLessThan(drift(ticks));
+    expect(Math.abs(f.x - CENTRE)).toBeLessThan(drift(ticks));
+    expect(Math.abs(f.y - (CENTRE + 12))).toBeLessThan(drift(ticks));
     expect(await locked(c)).toBe(true);
 
     // Everyone idles until the fight is over: C and B have no energy and starve (B's 50 hp outlast
@@ -158,17 +159,19 @@ describe('joins', () => {
       Player,
     ];
     const [start] = await lockIn(a, b);
-    engageInto(c, a, [1000, 1012]);
+    engageInto(c, a, [CENTRE, CENTRE + 12]);
     await nextOf(c.c, 'enc-start');
-    engageInto(d, b, [1012, 1012], NEAR.b);
+    engageInto(d, b, [CENTRE + 12, CENTRE + 12], NEAR.b);
     await nextOf(d.c, 'enc-start');
     expect(await authority((o) => o.fights.ofPlayer(a.id.playerId)?.players.length)).toBe(4);
-    engageInto(e, a, [988, 1000]);
+    engageInto(e, a, [CENTRE - 12, CENTRE]);
     expect((await nextOf(e.c, 'refused')).reason).toBe('engage:full');
     expect(await locked(e)).toBe(false);
     // E and G fight each other; A, in another fight, can't engage G.
-    await lockIn(e, g, snap(g, 1012, 1000), snap(e, 1000, 1000));
-    expect(await refusal(g, a, snap(a, ...NEAR.a), snap(g, 1012, 1000))).toBe('engage:locked');
+    await lockIn(e, g, snap(g, CENTRE + 12, CENTRE), snap(e, CENTRE, CENTRE));
+    expect(await refusal(g, a, snap(a, ...NEAR.a), snap(g, CENTRE + 12, CENTRE))).toBe(
+      'engage:locked',
+    );
     expect(start.fighters).toHaveLength(2);
   });
 });

@@ -11,6 +11,7 @@ import {
   advanceTo,
   authority,
   CALM_SEED,
+  CENTRE,
   type EncStart,
   engage,
   fighters,
@@ -134,7 +135,7 @@ describe('back to the fight', () => {
     c.c.send({
       t: 'engage',
       target: a.id.playerId,
-      mine: snap(c, 1000, 1012, { health: 0.01, energy: 0 }),
+      mine: snap(c, CENTRE, CENTRE + 12, { health: 0.01, energy: 0 }),
       theirs: snap(a, ...NEAR.a),
     });
     const joined = await within(nextOf(a.c, 'enc-join'), 'the join');

@@ -4,15 +4,15 @@
     "start": {
       "id": "enc-golden-plume",
       "pondSeed": "golden-plume",
-      "size": 8192,
+      "size": 262144,
       "seed": [185197456, 3075752650, 2232766054, 244996241],
       "t0": 1000,
       "fighters": [
         {
           "player": "player-a",
           "creature": "a",
-          "x": 294,
-          "y": 209,
+          "x": 126289,
+          "y": 124273,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -65,8 +65,8 @@
         {
           "player": "player-b",
           "creature": "b",
-          "x": -6,
-          "y": 209,
+          "x": 125989,
+          "y": 124273,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -161,7 +161,7 @@
       [3840, 0]
     ]
   },
-  "hash": "d5d508c4f14c61e6",
+  "hash": "4468ac4c5d9638b5",
   "results": [
     {
       "outcome": "died",

@@ -17,14 +17,14 @@ const maxDrift =
 
 describe('plumesNear', () => {
   it('is a pure function of the seed and tick', () => {
-    const w = createWorld({ seed: 'haz' });
+    const w = createWorld({ size: 8192, seed: 'haz' });
     const a = plumesNear(w, 4000, 4000, 600);
-    expect(plumesNear(createWorld({ seed: 'haz' }), 4000, 4000, 600)).toEqual(a);
-    expect(allPlumes(createWorld({ seed: 'haz2' }))).not.toEqual(allPlumes(w));
+    expect(plumesNear(createWorld({ size: 8192, seed: 'haz' }), 4000, 4000, 600)).toEqual(a);
+    expect(allPlumes(createWorld({ size: 8192, seed: 'haz2' }))).not.toEqual(allPlumes(w));
   });
 
   it('raises plumes from vents in the deep and the abyss, about one per 9 cells there', () => {
-    const w = createWorld({ seed: 'haz', currents: false });
+    const w = createWorld({ size: 8192, seed: 'haz', currents: false });
     const plumes = allPlumes(w);
     const cell = RULES.world.cellSize;
     const side = w.size / cell;
@@ -34,7 +34,7 @@ describe('plumesNear', () => {
         const x = (cx + 0.5) * cell;
         const y = (cy + 0.5) * cell;
         const far = Math.hypot(x - w.size / 2, y - w.size / 2) >= RULES.hazards.ventMinDistance;
-        if (far && depthAt(w.seed32, x, y) >= RULES.bathymetry.zones.twilight) eligible++;
+        if (far && depthAt(w.seed32, x, y, w.size) >= RULES.bathymetry.zones.twilight) eligible++;
       }
     }
     expect(plumes.length).toBeGreaterThan((eligible / 9) * 0.6);
@@ -51,12 +51,12 @@ describe('plumesNear', () => {
 
   it('keeps at least 80% of the plumes in the deep or the abyss, drift included', () => {
     for (const seed of ['haz', 'haz2', 'haz3']) {
-      const w = createWorld({ seed });
+      const w = createWorld({ size: 8192, seed });
       for (const tick of [0, 900, 1800]) {
         w.tick = tick;
         const plumes = allPlumes(w);
         const down = plumes.filter((p) => {
-          const zone = zoneAt(w.seed32, p.x, p.y);
+          const zone = zoneAt(w.seed32, p.x, p.y, w.size);
           return zone === 'deep' || zone === 'abyss';
         });
         expect(down.length / plumes.length).toBeGreaterThanOrEqual(0.8);
@@ -65,7 +65,7 @@ describe('plumesNear', () => {
   });
 
   it('finds every plume whose area reaches the query disc', () => {
-    const w = createWorld({ seed: 'haz' });
+    const w = createWorld({ size: 8192, seed: 'haz' });
     for (const tick of [0, 1500, 3000]) {
       w.tick = tick;
       const all = allPlumes(w);
@@ -76,8 +76,8 @@ describe('plumesNear', () => {
   });
 
   it('drifts with the currents, only by a bounded amount, and not at all without them', () => {
-    const w = createWorld({ seed: 'haz' });
-    const still = createWorld({ seed: 'haz', currents: false });
+    const w = createWorld({ size: 8192, seed: 'haz' });
+    const still = createWorld({ size: 8192, seed: 'haz', currents: false });
     const at0 = new Map(allPlumes(w).map((p) => [p.id, p]));
     let moved = 0;
     for (let tick = 0; tick < 7200; tick += 100) {
@@ -91,20 +91,22 @@ describe('plumesNear', () => {
     }
     expect(moved).toBeGreaterThan(20);
     expect(moved).toBeLessThanOrEqual(maxDrift);
-    expect(allPlumes(still)).toEqual(allPlumes(createWorld({ seed: 'haz', currents: false })));
+    expect(allPlumes(still)).toEqual(
+      allPlumes(createWorld({ size: 8192, seed: 'haz', currents: false })),
+    );
   });
 
   it('has none when hazards are off', () => {
-    expect(allPlumes(createWorld({ seed: 'haz', hazards: false }))).toEqual([]);
+    expect(allPlumes(createWorld({ size: 8192, seed: 'haz', hazards: false }))).toEqual([]);
   });
 });
 
 describe('toxin', () => {
   const inPlume = (): [World, string] => {
-    const world = createWorld({ seed: 'haz', currents: false });
+    const world = createWorld({ size: 8192, seed: 'haz', currents: false });
     // A plume in the upper deep: no pressure there, so toxin is the only damage.
     const plume = allPlumes(world).find((p) => {
-      const depth = depthAt(world.seed32, p.x, p.y);
+      const depth = depthAt(world.seed32, p.x, p.y, world.size);
       return depth > 0.58 && depth < 0.66;
     }) as Plume;
     const c = spawnCreature(world, { id: 'a', x: plume.x, y: plume.y });
@@ -137,7 +139,7 @@ describe('toxin', () => {
 
 describe('extra plumes', () => {
   it('poison a creature inside them, even with hazards off', () => {
-    const world = createWorld({ seed: 'haz', hazards: false });
+    const world = createWorld({ size: 8192, seed: 'haz', hazards: false });
     const c = spawnCreature(world, { id: 'a', x: 3000, y: 3000 });
     expect(applyHazards(world, c)).toEqual([]);
     world.extraPlumes = [{ id: 'debug0', x: 3010, y: 3000, radius: 40 }];
@@ -148,7 +150,7 @@ describe('extra plumes', () => {
   });
 
   it('are part of the state hash, and an empty list is not', () => {
-    const world = createWorld({ seed: 'haz' });
+    const world = createWorld({ size: 8192, seed: 'haz' });
     const plain = hashWorld(world);
     world.extraPlumes = [];
     expect(hashWorld(world)).toBe(plain);
@@ -165,7 +167,7 @@ describe('toxin exposure through the colliders', () => {
 
   /** A creature of radius 10 heading `heading` with a tail, and a plume over only the tail's centre. */
   const tailed = (heading: number) => {
-    const world = createWorld({ seed: 'tail', currents: false, hazards: false });
+    const world = createWorld({ size: 8192, seed: 'tail', currents: false, hazards: false });
     const c = spawnCreature(world, {
       id: 'a',
       x: 3000,
@@ -210,7 +212,7 @@ describe('UV and pressure', () => {
   const spotWithDepth = (world: World, lo: number, hi: number): { x: number; y: number } => {
     for (let y = 100; y < world.size; y += 100) {
       for (let x = 100; x < world.size; x += 100) {
-        const depth = depthAt(world.seed32, x, y);
+        const depth = depthAt(world.seed32, x, y, world.size);
         if (depth >= lo && depth <= hi) return { x, y };
       }
     }
@@ -222,7 +224,7 @@ describe('UV and pressure', () => {
     pressureTolerance: pressure,
   });
   const at = (phys = STARTER_PHYS, lo: number, hi: number, options = {}) => {
-    const world = createWorld({ seed: 'zones', currents: false, ...options });
+    const world = createWorld({ size: 8192, seed: 'zones', currents: false, ...options });
     const spot = spotWithDepth(world, lo, hi);
     const c = spawnCreature(world, { id: 'a', ...spot, phys });
     return { world, c };

@@ -1,5 +1,5 @@
 import { GENOME_TEXT_LENGTH } from '../genome/codec';
-import type { SignedCommit } from '../net/protocol-defs';
+import { type SignedCommit, WIRE_POS_MAX } from '../net/protocol-defs';
 import {
   byteLength,
   ID_RE,
@@ -116,7 +116,7 @@ const WORD = /^[a-z][a-z0-9:-]{0,31}$/;
 /** A fight has at most 4 slots; a log at most this many frames (a 90 s fight is 900). */
 const MAX_SLOTS = 4;
 const MAX_FRAMES = 4096;
-const POS_MAX = 8192;
+const VEL_MAX = 8192;
 const U32_MAX = 0xffffffff;
 /** The JSON of a commitment's request data: two signed mate asks fit well within it. */
 const DATA_MAX_BYTES = 2048;
@@ -457,10 +457,10 @@ function fighterInfo(v: unknown): FightLog['start']['fighters'][number] | null {
     !isStr(v.player, PLAYER_ID_RE) ||
     !hex(v.creature) ||
     !isStr(v.genome, GENOME_TEXT) ||
-    !num(v.x, 0, POS_MAX) ||
-    !num(v.y, 0, POS_MAX) ||
-    !num(v.vx, -POS_MAX, POS_MAX) ||
-    !num(v.vy, -POS_MAX, POS_MAX) ||
+    !num(v.x, 0, WIRE_POS_MAX - 1) ||
+    !num(v.y, 0, WIRE_POS_MAX - 1) ||
+    !num(v.vx, -VEL_MAX, VEL_MAX) ||
+    !num(v.vy, -VEL_MAX, VEL_MAX) ||
     !num(v.heading, -2 * Math.PI, 2 * Math.PI) ||
     !condition(v.biomass) ||
     !condition(v.energy) ||

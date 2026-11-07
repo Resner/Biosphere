@@ -182,12 +182,16 @@ test.describe('feel and feedback', () => {
   });
 
   test('the dissolve starts over on the next hatch', async ({ page }) => {
-    await play(page, 'feel-again');
+    await play(page, 'feel-again-22');
     await page.evaluate(() => {
       window.__bs?.debug?.setEnergy(0);
       window.__bs?.debug?.timeScale(4);
     });
-    await page.getByRole('button', { name: 'Hatch again' }).click({ timeout: 15_000 });
+    const again = page.getByRole('button', { name: 'Hatch again' });
+    await again.waitFor({ timeout: 15_000 });
+    // Hold the new world still, so a slow runner's currents cannot carry the new cell onto food.
+    await page.evaluate(() => window.__bs?.debug?.timeScale(0));
+    await again.click();
     await page.waitForFunction(() => window.__bs?.state().screen === 'playing');
     const fx = await page.evaluate(() => window.__bs?.render.fx());
     expect(fx?.dissolve).toBe(0);

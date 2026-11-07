@@ -4,15 +4,15 @@
     "start": {
       "id": "enc-golden-join",
       "pondSeed": "golden-join",
-      "size": 8192,
+      "size": 262144,
       "seed": [2458555303, 3785419864, 1997867465, 1600652117],
       "t0": 1000,
       "fighters": [
         {
           "player": "player-b",
           "creature": "b",
-          "x": 5200,
-          "y": 3000,
+          "x": 132176,
+          "y": 129976,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -65,8 +65,8 @@
         {
           "player": "player-m",
           "creature": "m",
-          "x": 5242,
-          "y": 3000,
+          "x": 132218,
+          "y": 129976,
           "vx": 0,
           "vy": 0,
           "heading": 3.141592653589793,
@@ -246,7 +246,7 @@
         "fighter": {
           "player": "player-c",
           "creature": "c",
-          "x": 5242,
+          "x": 132218,
           "y": 3050,
           "vx": 0,
           "vy": 0,
@@ -300,13 +300,13 @@
       }
     ]
   },
-  "hash": "c7109763156a2103",
+  "hash": "f663f637ad582115",
   "results": [
     {
-      "outcome": "escaped",
+      "outcome": "stood",
       "cause": null,
       "by": null,
-      "frame": 119,
+      "frame": 74,
       "biomass": 140,
       "egg": "none",
       "eggBy": null
@@ -315,16 +315,16 @@
       "outcome": "killed",
       "cause": "killed",
       "by": 0,
-      "frame": 53,
+      "frame": 74,
       "biomass": 100,
       "egg": "none",
       "eggBy": null
     },
     {
-      "outcome": "stood",
+      "outcome": "escaped",
       "cause": null,
       "by": null,
-      "frame": 119,
+      "frame": 45,
       "biomass": 100,
       "egg": "none",
       "eggBy": null

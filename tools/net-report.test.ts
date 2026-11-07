@@ -21,7 +21,7 @@ import {
  * rules, the harness or the lead's constants changes it: regenerate `docs/perf/netcode.md` with
  * `npm run report:net` and pin the new hash here.
  */
-const PINNED: Record<number, string> = { 11: 'e9261b1a3046231c', 12: '6848719fdbdfdeb1' };
+const PINNED: Record<number, string> = { 11: 'e9261b1a3046231c', 12: '0b673b74f4f7bfe7' };
 
 let measured: Cell[] | null = null;
 const once = (): Cell[] => {

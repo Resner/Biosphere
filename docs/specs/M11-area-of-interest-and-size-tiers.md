@@ -612,7 +612,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
   - Done: `DepthWindow` is a torus of bytes refilled through `depthSpan` (bathymetry's row sampler, bit-equal to `depthAt`, about 0.65 ms a frame); the scene subtracts `ORIGIN` in `writeInstance` and every mesh, and the minimap charts its own 128-texel window of 24 half-heights (12 would leave its disc off the window between re-centres). The map stays whole-world until T18.
   - Gotcha: debug teleports fill the zone window at once (`settleZones`), or the m6 look shots would catch its 16-frame refill; `?gpu=watch` and `render.gpu()` check the 16,384 wu bound, in `m11-world`'s fast test (its look test is `@slow`).
 
-- [ ] T12 The world grows to 262,144 wu (after T5, T11)
+- [x] T12 The world grows to 262,144 wu (after T5, T11)
   - Steps:
     1. `RULES.world.size` 262,144. The world's centre (131,072, 131,072) is the spawn centre everywhere: the hub's ring and every new pond, the offline world, the bathymetry's twilight disc and the encounters' world. Regenerate the goldens.
     2. `state().pond` gains `size` and `centre`. Every E2E helper and spec that uses absolute pond coordinates moves to coordinates relative to the centre.
@@ -624,6 +624,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - The medium budgets hold at the spawn (`m6-budget`), and the replay goldens are equal in Node and Chromium.
     - `speedTest`: one tick of 24 creatures at the spawn stays under 2 ms.
   - Notes: no change to links or ponds: players in a pond still all link to each other.
+  - Done: `RULES.world.size` is 262,144; the hub, offline cell and fights already centred on `size / 2`. `state().pond` has `size` and `centre`, and the encounter wire and proof parsers take `WIRE_POS_MAX`. Goldens, the combat and net reports regenerated.
+  - Gotcha: tests that swept a whole world (food, hazards, claims, the tournament, `m3-anatomy`) or measured a calibrated look (`m6b-water`, `m11-world`'s reference) pass `size: 8192` / `?world=8192`; hub fight tests stage at `CENTRE`/`STAGE` in `fight-test-kit.ts`, with `CALM_SEED` `calm-1`.
 
 ### The world in the game
 

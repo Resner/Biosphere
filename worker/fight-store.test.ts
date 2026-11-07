@@ -13,6 +13,7 @@ import {
   advanceTo,
   authority,
   CALM_SEED,
+  CENTRE,
   type EncEnd,
   type EncFrame,
   type EncStart,
@@ -248,7 +249,7 @@ describe('a join', () => {
     c.c.send({
       t: 'engage',
       target: a.id.playerId,
-      mine: snap(c, 1000, 1012, { health: 0.01, energy: 0 }),
+      mine: snap(c, CENTRE, CENTRE + 12, { health: 0.01, energy: 0 }),
       theirs: snap(a, ...NEAR.a),
     });
     return { a, b, c, start };

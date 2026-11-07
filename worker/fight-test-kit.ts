@@ -207,7 +207,11 @@ export function snap(p: Player, x: number, y: number, over: Partial<Snapshot> = 
   return signSnap(p.id, p.pond.id, encodeSnapshot(s));
 }
 
-export const NEAR = { a: [1000, 1000], b: [1012, 1000] } as const;
+/** The spawn centre: every hub test stages its fights there, where the water is twilight. */
+export const CENTRE = RULES.world.size / 2;
+export const NEAR = { a: [CENTRE, CENTRE], b: [CENTRE + 12, CENTRE] } as const;
+/** The away tests' staging spot (a fight 1,104 wu east and 1,096 wu north of the centre). */
+export const STAGE = { x: CENTRE + 1104, y: CENTRE - 1096 } as const;
 
 export function engage(
   a: Player,
@@ -436,14 +440,14 @@ export const genomeOf = (p: Player) => authority((o) => o.ledger.head(p.creature
  */
 export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
   const genome = await genomeOf(a);
-  const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, worth: 1, genome, y: 3000 };
+  const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, worth: 1, genome, y: STAGE.y };
   const vitals = { biomass: RULES.starter.biomass, energy: 150, health: 100 };
   const fighters: FighterInfo[] = [a, b].map((p, k) => ({
     ...base,
     ...vitals,
     player: p.id.playerId,
     creature: p.creature,
-    x: 5200 + 100 * k,
+    x: STAGE.x + 100 * k,
   }));
   const msg = startOf(a, fighters);
   // Moves B in until 1.5 x the reach is left between them (both bodies are alike).
@@ -461,8 +465,8 @@ export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
         : strikeDistance(fb.body, fa.body);
     return { gap, reach: strikeReach(fa), away: 2 * engageRange(fa, fb) };
   };
-  let x = 5300;
-  while (x > 5200 && probe(x - 0.5).gap >= 1.5 * probe(x).reach) x -= 0.5;
+  let x = STAGE.x + 100;
+  while (x > STAGE.x && probe(x - 0.5).gap >= 1.5 * probe(x).reach) x -= 0.5;
   const { gap, reach, away } = probe(x);
   expect(gap).toBeGreaterThan(1.4 * reach);
   expect(gap).toBeLessThan(away * 0.9);
@@ -499,8 +503,8 @@ export const rowsBesideLog = () =>
 /** The fight's saved log, as the object reads it back. */
 export const logRow = (enc: string) => authority((o) => o.fightStore.read(enc));
 
-/** A pond seed with no UV, pressure or plume at `NEAR` or at the fights' staging spots (5,200, 3,000), and a current that shears little. Pick another with a search if a bathymetry change breaks this. */
-export const CALM_SEED = 'calm-79';
+/** A pond seed with no UV, pressure or plume at `NEAR` or at the fights' staging spots (`STAGE`), and a current that shears little. Pick another with a search if a bathymetry change breaks this. */
+export const CALM_SEED = 'calm-1';
 
 /**
  * Seeds the pond of `ps` (players of one pond) `timeout`: no UV or pressure at `NEAR`, and a current

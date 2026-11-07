@@ -31,9 +31,9 @@ function predictedSpeed(stats: PlayerState['stats'], seconds: number): number {
 async function measureSpeed(page: Page): Promise<{ measured: number; predicted: number }> {
   await page.evaluate(() => {
     const bs = window.__bs as BsHook;
-    const { y } = bs.state().player as PlayerState;
-    bs.debug?.teleport(2000, y);
-    void bs.debug?.steerTo({ x: 6000, y });
+    const { x, y } = bs.state().player as PlayerState;
+    bs.debug?.teleport(x - 2000, y);
+    void bs.debug?.steerTo({ x: x + 2000, y });
   });
   const first = await state(page);
   await page.waitForFunction((t) => (window.__bs as BsHook).state().tick >= t + 90, first.tick);
@@ -110,11 +110,14 @@ test.describe('anatomy changes play', () => {
     const middle = RULES.world.size / 2;
     let crystal = { x: middle, y: middle };
     let best = Number.POSITIVE_INFINITY;
-    const cells = RULES.world.size / RULES.world.cellSize;
-    for (let cy = 0; cy < cells; cy++) {
-      for (let cx = 0; cx < cells; cx++) {
+    // The scan covers 8,192 wu around the middle (a pond's worth), not the whole world.
+    const reach = 4096 / RULES.world.cellSize;
+    const mid = middle / RULES.world.cellSize;
+    for (let cy = mid - reach; cy < mid + reach; cy++) {
+      for (let cx = mid - reach; cx < mid + reach; cx++) {
         for (const item of foodInCell(world, cx, cy)) {
-          if (item.kind !== 'crystal' || depthAt(world.seed32, item.x, item.y) > 0.66) continue;
+          if (item.kind !== 'crystal' || depthAt(world.seed32, item.x, item.y, world.size) > 0.66)
+            continue;
           const away = Math.hypot(item.x - middle, item.y - middle);
           if (away < best) {
             best = away;
