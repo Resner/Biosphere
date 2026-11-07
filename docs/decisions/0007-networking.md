@@ -1,6 +1,6 @@
 # 0007: Peer-to-peer networking: our own WebRTC mesh, hub signaling, TURN
 
-- Status: accepted
+- Status: accepted, amended by 0062 (either side calls; a peer-relayed signal is signed by its sender and carries its position; peers prove their seat with an authority-signed ticket; the hub relays only between directory neighbours and duty pairs)
 - Date: 2026-10-25
 
 ## Context

@@ -1,6 +1,6 @@
 # 0016: Shared pond model: local sim, hub clock, food claims
 
-- Status: accepted
+- Status: accepted, amended by 0061 (one world clock instead of a clock per pond; claims, the consumed set and the stolen cue among linked peers; a joiner's consumed set comes by area; food by tier keeps the claim rules per layer)
 - Date: 2026-10-25
 
 ## Context
