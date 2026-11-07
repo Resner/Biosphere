@@ -379,7 +379,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The directory and seat tickets
 
-- [x] T6 The authority's directory: the quadtree, reports and their answers [opus] (after T1, T2) (in progress)
+- [x] T6 The authority's directory: the quadtree, reports and their answers [opus] (after T1, T2)
   - Done: `worker/directory.ts` (pure, tested in Node) and `worker/where.ts` on `hub.directory`, rebuilt from `Session.where` on a wake; the relay, courts and carrion read it, and `GET /v1/e2e/directory` shows it. Gotchas: `LEAF_MIN` scales with `leafMax` (a merged leaf must not split at once, so with `LEAF_MAX=2` leaves merge only when empty); a court is `not-near` only once the directory knows one of the two, so before T13 the pond still decides.
   - Steps:
     1. `worker/directory.ts`, pure (shapes above):
