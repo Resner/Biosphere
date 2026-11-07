@@ -62,7 +62,7 @@ export class OnlineWiring {
       get self() {
         return app.playerId ?? '';
       },
-      present: (player) => link()?.nameOf(player) !== undefined,
+      present: (player) => link()?.present(player) === true,
       peers: () => link()?.openPeers() ?? [],
       send: (peer, frame) => link()?.sendState(peer, frame),
       show: (player, snapshot) => app.remotes.proxy(player, snapshot, performance.now()),

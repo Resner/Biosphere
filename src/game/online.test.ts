@@ -472,6 +472,11 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
     expect(session.count).toBe(2);
     expect(session.members()).toEqual(['r']);
     expect(session.nameOf('r')).toBe('Roster');
+    // Away fighters are judged by the seat, not by a name the directory once gave.
+    hub.world(nearMsg([['n', 9000]]));
+    expect(session.nameOf('n')).toBe('N');
+    expect(session.present('n')).toBe(false);
+    expect(session.present('r')).toBe(true);
     mesh.connect('a');
     mesh.join('a');
     expect(handlers.peerOpen).toHaveBeenCalledWith('a', 'A');

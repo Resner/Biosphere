@@ -278,6 +278,11 @@ export class OnlineSession {
     return [...this.roster.keys()];
   }
 
+  /** Whether a player holds a seat in the pond (its roster), so its fighter is not away. */
+  present(id: string): boolean {
+    return this.roster.has(id);
+  }
+
   /** Whether there is a connection to this peer, open or coming up. */
   hasLink(id: string): boolean {
     return this.mesh?.peers().includes(id) === true;
