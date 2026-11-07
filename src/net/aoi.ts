@@ -95,8 +95,7 @@ export class AoiManager {
       const seen = newest.get(k.id);
       if (!seen || k.at > seen.at) newest.set(k.id, k);
     }
-    const aoi = aoiRadius(self.r, self.adultR);
-    const q = queryRadius(aoi);
+    const ownAoi = aoiRadius(self.r, self.adultR);
     const aheadX = self.x + self.vx * AHEAD_S;
     const aheadY = self.y + self.vy * AHEAD_S;
     const out = new Map<string, LinkClass>();
@@ -106,6 +105,11 @@ export class AoiManager {
       const d = Math.hypot(k.x - self.x, k.y - self.y);
       rank.set(id, d);
       if (out.has(id) || !linkTiers(self.r, k.r)) continue;
+      // A link is wanted from both ends: a creature is in the AoI of whichever of the two sees further
+      // (the other's AoI taken at its radius, as its adult radius is not known), so a giant's call
+      // to a smaller creature far inside its AoI is one the smaller creature wants too.
+      const aoi = Math.max(ownAoi, aoiRadius(k.r, k.r));
+      const q = queryRadius(aoi);
       const was = prev.get(id) ?? NO_CLASS;
       const within = (c: LinkClass, enter: number, hold: number) =>
         d <= enter || (was <= c && d <= hold);

@@ -16,6 +16,7 @@
     "report:farm": "node tools/farm.mjs",
     "report:witness": "node tools/witness.mjs",
     "report:net": "node tools/net.mjs",
+    "report:aoi": "node tools/aoi.mjs",
     "verify:lineage": "node tools/lineage.mjs",
     "gallery": "node tools/gallery.mjs",
     "report:budget": "node tools/budget-report.mjs",

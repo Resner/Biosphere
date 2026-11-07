@@ -91,4 +91,5 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted, refined, amended | 0060, 0062 |
 | [0060](0060-how-the-farm-gates-read.md) | How the bot-farm gates read: genes aside, one cooldown after maturity, the floor aside | accepted | |
 | [0061](0061-one-world-and-food-by-tier.md) | One world: its size and fields, food by tier, and a fourth world renewal | accepted | |
-| [0062](0062-area-of-interest-and-relayed-signaling.md) | Area of interest: the directory, link classes, discovery, relayed signaling and seat tickets | accepted | |
+| [0062](0062-area-of-interest-and-relayed-signaling.md) | Area of interest: the directory, link classes, discovery, relayed signaling and seat tickets | accepted, amended | 0063 |
+| [0063](0063-how-clients-dial-in-the-world.md) | How clients dial in the world: the headless harness's link model and gates | accepted | |
