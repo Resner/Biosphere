@@ -15,8 +15,8 @@ import {
 // M11 T13: discovery and signaling through a peer. A at −5,000 wu, B at the centre and C at
 // +5,000 wu: A–B and B–C are linked, A–C is not (10,000 wu is past a starter's reach). A swims
 // toward C, learns of it from B's gossip, and the two link through B's relay: the hub carries none
-// of their signals. (They hatched side by side, so their first link went through the hub; the
-// count must not rise.)
+// of their signals. (They hatched side by side, so their first link went through the hub: the
+// pair's count must not rise from there.)
 
 const HUB = 'http://localhost:8830';
 
@@ -44,6 +44,8 @@ test('two players learn of each other by gossip and link through a peer’s rela
     const hubBefore = relaysOf(await directory(request, HUB), a.id, c.id);
     const relayedA = (await signals(a)).relayed;
     const relayedC = (await signals(c)).relayed;
+    const hubA = (await signals(a)).hub;
+    const hubC = (await signals(c)).hub;
 
     // A swims toward C, in steps a starter could swim, until C is within its reach.
     for (let x = -5000; x <= -1500; x += 100) {
@@ -63,9 +65,14 @@ test('two players learn of each other by gossip and link through a peer’s rela
     expect((await signals(a)).relayed, 'A’s signals went through a peer').toBeGreaterThan(relayedA);
     expect((await signals(c)).relayed, 'C’s signals went through a peer').toBeGreaterThan(relayedC);
     expect((await signals(b)).forwarded, 'B passed them on').toBeGreaterThan(0);
-    expect(relaysOf(await directory(request, HUB), a.id, c.id), 'the hub carried none').toBe(
-      hubBefore,
-    );
+    // Neither page sent a signal through the hub, and the hub relayed nothing more for the pair (its
+    // count lives in memory, so a hibernating hub may have dropped the spawn's).
+    expect((await signals(a)).hub, 'A sent nothing through the hub').toBe(hubA);
+    expect((await signals(c)).hub, 'C sent nothing through the hub').toBe(hubC);
+    expect(
+      relaysOf(await directory(request, HUB), a.id, c.id),
+      'the hub relayed nothing more for A and C',
+    ).toBeLessThanOrEqual(hubBefore);
     // Both still in the world where the test put them.
     const at = (await a.page.evaluate(() => (window.__bs as BsHook).state().player)) ?? null;
     expect(Math.abs((at?.x ?? 0) - (CENTRE - 1500))).toBeLessThan(200);
