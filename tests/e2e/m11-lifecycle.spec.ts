@@ -194,7 +194,9 @@ test('four players find each other across a world, fight a witnessed fight 30,00
       await page.evaluate((m) => (window.__bs as BsHook).debug?.setBiomass(m), EQUAL_BIOMASS);
     }
     await place(a, FAR_WU, 0);
-    await place(c, FAR_WU + APART_WU, 0);
+    // C goes beside where A ended up (the zone search may have moved it), APART_WU to its east.
+    const start = await at(a);
+    await place(c, start.x - CENTRE + APART_WU, start.y - CENTRE);
     for (const page of toFight)
       await page.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
     const deadline = Date.now() + 300_000;
@@ -206,13 +208,13 @@ test('four players find each other across a world, fight a witnessed fight 30,00
         near = true;
         break;
       }
-      await Promise.all([
-        steer(a, pc.x - CENTRE, pc.y - CENTRE),
-        steer(c, pa.x - CENTRE, pa.y - CENTRE),
-      ]);
+      await Promise.all([steer(a, pc.x, pc.y), steer(c, pa.x, pa.y)]);
       await a.waitForTimeout(1000);
     }
-    expect(near, 'A’s child and C swam together').toBe(true);
+    expect(
+      near,
+      `A’s child and C swam together: ${JSON.stringify({ a: await at(a), c: await at(c) })}`,
+    ).toBe(true);
     // They found each other through the directory with no link in common: each holds the other
     // and nobody from the spawn.
     await expect
