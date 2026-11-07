@@ -138,14 +138,15 @@ function calibrate(seed: Seed, size: number): Field {
   let kept = 0;
   // An R2 low-discrepancy sequence rather than a grid: a grid step that divides the octaves'
   // wavelengths samples every lattice at one phase and biases the quantiles. The centre disc is
-  // twilight whatever the field says, so it stays out of the quantiles: outside it the shares hold.
+  // twilight whatever the field says, so it stays out of the quantiles (in a world big enough to
+  // keep samples beyond it): outside it the shares hold.
   for (let k = 0; k < count; k++) {
     const u = 0.5 + k * R2.x;
     const v = 0.5 + k * R2.y;
     const x = (u - Math.floor(u)) * size;
     const y = (v - Math.floor(v)) * size;
     const away = length(x - centre, y - centre);
-    if (away < B.centreRadius) continue;
+    if (away < B.centreRadius && size > 4 * B.centreRadius) continue;
     raw[kept] = rawField(seed, x, y);
     pins[kept++] = pinAt(away);
   }
