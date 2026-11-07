@@ -848,13 +848,13 @@ The harness (T10) checks the invariants at populations no E2E can reach.
 
 ## Rubric
 
-- [ ] A friend who hatches nearby is linked and on screen within 3 s, as in a pond (evidence: harness gate 4; `m11-lifecycle`'s first step).
-- [ ] Nothing pops: no creature on screen vanishes or reappears while both live within each other's AoI, and newcomers are linked before they come into view (evidence: harness gate 3; `m11-handoff`'s sampled alphas).
-- [ ] The cap holds everywhere: never more than 32 links, and never more than 24 unless P0 and P1 need them (evidence: harness gate 1; `m11-cap`; `m11-lifecycle`'s link counts).
-- [ ] A giant's view reads like a starter's: caustics, food and snow at the same screen scale, and the small players around it as faint swarms (evidence: `m11-tiers`' screenshots at T0, T1 and T2).
-- [ ] The far corner of the world looks and moves like the centre: the right zone colours, crisp bodies, no jitter (evidence: `m11-world`'s screenshots and its drift of at most 0.05 px).
-- [ ] The map reads as a chart of the region around you and who is near (evidence: T18's screenshots).
-- [ ] The directory and signaling stay within budget: a median of at most 6 incoming messages per player-minute (evidence: `docs/perf/aoi.md`).
+- [x] A friend who hatches nearby is linked and on screen within 3 s, as in a pond (evidence: harness gate 4; `m11-lifecycle`'s first step).
+- [x] Nothing pops: no creature on screen vanishes or reappears while both live within each other's AoI, and newcomers are linked before they come into view (evidence: harness gate 3; `m11-handoff`'s sampled alphas).
+- [x] The cap holds everywhere: never more than 32 links, and never more than 24 unless P0 and P1 need them (evidence: harness gate 1; `m11-cap`; `m11-lifecycle`'s link counts).
+- [x] A giant's view reads like a starter's: caustics, food and snow at the same screen scale, and the small players around it as faint swarms (evidence: `m11-tiers`' screenshots at T0, T1 and T2).
+- [x] The far corner of the world looks and moves like the centre: the right zone colours, crisp bodies, no jitter (evidence: `m11-world`'s screenshots and its drift of at most 0.05 px).
+- [x] The map reads as a chart of the region around you and who is near (evidence: T18's screenshots).
+- [x] The directory and signaling stay within budget: a median of at most 6 incoming messages per player-minute (evidence: `docs/perf/aoi.md`).
 - [ ] (owner) Playing with friends in the world feels like the pond did: you find each other and see each other move smoothly.
 - [ ] (owner) Swimming far, other players appear and fade smoothly over real networks, and nothing pops.
 - [ ] (owner) Growing into a bigger tier feels like the world opens up.

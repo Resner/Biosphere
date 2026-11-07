@@ -1,7 +1,6 @@
 // Seat tickets on the hub (M11 T7, ADR 0062): the welcome carries one, and the first `pong` at
 // least `SEAT_RENEW_MS` after the session's last is followed by a fresh one. A ticket names the
-// world by its seed, which every pond of the one world shares (M11 T1), so a ticket holds across
-// ponds until T14 removes them. Signing goes through the ledger's `countersign` and writes no row
+// world by its seed (M11 T1), so it holds wherever the player swims in the one world. Signing goes through the ledger's `countersign` and writes no row
 // (the authority's key is made once, at its first use by anything).
 
 import { SEAT_RENEW_MS, SEAT_TTL_MS, type SignedSeat, seatHash } from '../src/ledger/seat';
