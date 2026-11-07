@@ -35,7 +35,7 @@ export function parseArgs(argv: readonly string[]): PacingOptions {
   for (let i = 0; i < numeric.length; i += 2) {
     const key = (numeric[i] ?? '').replace(/^--/, '');
     const value = Number(numeric[i + 1]);
-    if (key === 'tiers' || !Object.hasOwn(DEFAULTS, key) || !Number.isInteger(value) || value < 1) {
+    if (!Object.hasOwn(DEFAULTS, key) || !Number.isInteger(value) || value < 1) {
       throw new Error(
         `Bad option ${numeric[i]} ${numeric[i + 1]}: use --creatures, --minutes with whole numbers, or --tiers`,
       );
