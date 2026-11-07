@@ -122,14 +122,14 @@
           "frames": 57,
           "biomass": 31254,
           "energy": 24038,
-          "health": 7680,
+          "health": 6759,
           "reward": 14073,
           "activeMs": 95700
         }
       },
-      "hash": "8ebd933eea7c388c15de3a18fb2a51ec02ea6fdd9d76407d7ae84fcda0620514",
+      "hash": "9c4144f18c0c328af8833b451b9d17c177b3a802e64b00d325fbbdedae292336",
       "ownerSig": null,
-      "authSig": "FV6zljlLbO5SDAIbnEZWGm7NEpyOfwdMErs3m4QYr352vWNLIxKils1uRkiM1VDdY56UmR4SUJEPZjRfzkoKCg",
+      "authSig": "HjKDhKX-1JX3x3cFimjZqGjoccsfi72RQEVoB0iytYsxJ0xFpAWvGX6HA8WP9dTpdKXPvoXhMXIBU7_IGOf1Dw",
       "keyId": "dBwGxjx2"
     },
     {
@@ -139,19 +139,19 @@
         "kind": "checkpoint",
         "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
         "seq": 4,
-        "prev": "8ebd933eea7c388c15de3a18fb2a51ec02ea6fdd9d76407d7ae84fcda0620514",
+        "prev": "9c4144f18c0c328af8833b451b9d17c177b3a802e64b00d325fbbdedae292336",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033587900,
         "body": {
           "activeMs": 115700,
           "biomass": 31254,
           "energy": 24038,
-          "health": 7680
+          "health": 6759
         }
       },
-      "hash": "db18ee9aa4e6a9647668804f1bef3fe990e891bd934732b9ddf457b6846004ab",
+      "hash": "00b5b3b1a8b88dc2b717a83c8a69ddda2c91d2fac4a77428db092ca0b1099d17",
       "ownerSig": null,
-      "authSig": "P6cVfsgm2eLGkjPPmKhX9KlPdBEyaHAGBFk5u1-PGHp6TGUzktpTMdd3AyjY4R6OZLnMDP53OHHvE8kZd_AADg",
+      "authSig": "STdJPqUq0L2iDl0m40xTUVdBifi9WwBFgDFjxlGHbNjuJEymLmVfKFzljGXaU2DbP1hC0Z4HU9y7sa-Vj4LlBA",
       "keyId": "dBwGxjx2"
     },
     {
@@ -161,7 +161,7 @@
         "kind": "death",
         "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
         "seq": 5,
-        "prev": "db18ee9aa4e6a9647668804f1bef3fe990e891bd934732b9ddf457b6846004ab",
+        "prev": "00b5b3b1a8b88dc2b717a83c8a69ddda2c91d2fac4a77428db092ca0b1099d17",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033587900,
         "body": {
@@ -170,9 +170,9 @@
           "biomass": 31254
         }
       },
-      "hash": "ff21d1b8ad9c265c54c3318238476f130ef1399fba243a0b1a6515cbfd06ea03",
+      "hash": "5815f9f6b944880d555e73831ad5e1681c6c9fcc9b5637d1107a05e9bf7a6cd7",
       "ownerSig": null,
-      "authSig": "cwrNTts4Hm-VZAuAHVovP_suo0lkaqDuA1pUHk4coZMtw52VaIDIfgQevpX9EY04W2TfdUdPZ9JaFcJgLRoDCQ",
+      "authSig": "2mBtoXsuyhcZe4t3topnLR-39bPU2pNQNgJDAYoStQobABdv0qLkzN16oEfN4jK6IJZAZKgv3ZIiXXW-D-YvBQ",
       "keyId": "dBwGxjx2"
     },
     {
@@ -499,7 +499,7 @@
         "joins": [],
         "frames": 57,
         "root": "299e05df80d1cd781dc1820d19101d9560dbab8dcdf08b8654c35dbba90b5e02",
-        "hash": "04979448d69aa9de",
+        "hash": "9c33a2c743da5997",
         "referees": [
           {
             "by": "authority",
@@ -521,7 +521,7 @@
             "egg": "none",
             "biomass": 31254,
             "energy": 24038,
-            "health": 7680,
+            "health": 6759,
             "reward": 14073
           },
           {
@@ -541,8 +541,8 @@
         ],
         "t": 1793033567900
       },
-      "hash": "63ec4ceab7cf0434c7b80aa88442ff7e098391f8e2e6788befb7d2f2df2f4e76",
-      "authSig": "UqE3uJ0K7y2R8RPvRGjJxhpRHM5oo6yc8atyXPi5rUGrNM96BwNymRzi8XXQ1THI5msAhPnfNX_Ui5Zh8QfyDQ",
+      "hash": "a67fe1e85b5c8392db0969c9b1cc183b62272effafe0254cef847cbdc89f2286",
+      "authSig": "c8ca66G_6DBjS-5A6nxittcIcglUO-O6GpxBKMr68jgVKn1Dium6SYrVlAYSUdXSy5UyM2XHklCNKymvbz9xDQ",
       "keyId": "dBwGxjx2"
     }
   ],
@@ -651,10 +651,10 @@
         "duty": "774af76af128e6a66197630bdd4012c87f285c9aebd9fa32673ef6c5c23a585c",
         "position": 1,
         "witness": "tygv5HL5dkHBcJeCGlN4dKqqUyZFrTTb1ZhzMaTnP40",
-        "subject": "63ec4ceab7cf0434c7b80aa88442ff7e098391f8e2e6788befb7d2f2df2f4e76",
+        "subject": "a67fe1e85b5c8392db0969c9b1cc183b62272effafe0254cef847cbdc89f2286",
         "agree": true
       },
-      "sig": "MnQTfJaMlQM0OTzIm-2LUsUT2tK86_j4g1ClO-wpdQI_6b5_H4sj6lMRSt4qQ4cW8bFrZt1z3uu0mvBwrDi2Aw"
+      "sig": "n04-LIlM0JbB5j4UFoAJ17E-fDRXgKP83bbtUX7mZOwYJlVGoLJlV6FuaZuyItaToHXDE-Ay5TKvF1OTpWoPBw"
     }
   ],
   "t": 1793033652900

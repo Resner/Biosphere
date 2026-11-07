@@ -16,7 +16,7 @@ export const HOUR = 60 * MIN;
 /** One report: the resolution of every time the simulation measures. */
 export const REPORT_MS = 30_000;
 /** The honest forager's growth in biomass per minute across the growth band (`forageGainPerMinute`). */
-export const HONEST_GAIN_PER_MIN = 69;
+export const HONEST_GAIN_PER_MIN = 78;
 /** Bots that farm, by scenario. */
 export const FARM_SIZES = [1, 4, 16] as const;
 /** Honest witnesses in the duty-share gate. */

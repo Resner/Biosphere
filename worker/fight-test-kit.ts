@@ -499,6 +499,9 @@ export const rowsBesideLog = () =>
 /** The fight's saved log, as the object reads it back. */
 export const logRow = (enc: string) => authority((o) => o.fightStore.read(enc));
 
+/** A pond seed with no UV, pressure or plume at `NEAR` or at the fights' staging spots (5,200, 3,000), and a current that shears little. Pick another with a search if a bathymetry change breaks this. */
+export const CALM_SEED = 'calm-79';
+
 /**
  * Seeds the pond of `ps` (players of one pond) `timeout`: no UV or pressure at `NEAR`, and a current
  * that shears little (the seed of T1's timeout test). A random seed puts pressure at `NEAR` in about
@@ -507,8 +510,8 @@ export const logRow = (enc: string) => authority((o) => o.fightStore.read(enc));
 export async function calmPond(...ps: Pick<Player, 'pond'>[]): Promise<void> {
   const [first] = ps;
   if (!first) return;
-  await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", first.pond.id);
-  for (const p of ps) p.pond = { ...p.pond, seed: 'timeout' };
+  await sql('UPDATE ponds SET seed = ? WHERE id = ?', CALM_SEED, first.pond.id);
+  for (const p of ps) p.pond = { ...p.pond, seed: CALM_SEED };
 }
 
 /** Two players whose hatch protection is over, in the calm pond (`calmPond`). */

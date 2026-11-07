@@ -12,6 +12,7 @@ import {
   advance,
   advanceTo,
   authority,
+  CALM_SEED,
   type EncEnd,
   type EncFrame,
   type EncStart,
@@ -231,8 +232,8 @@ describe('a join', () => {
     const out: Player[] = [];
     for (let i = 0; i < 3; i++) out.push(await hatched());
     await advance(16_000);
-    await sql("UPDATE ponds SET seed = 'timeout' WHERE id = ?", (out[0] as Player).pond.id);
-    for (const p of out) p.pond = { ...p.pond, seed: 'timeout' };
+    await sql('UPDATE ponds SET seed = ? WHERE id = ?', CALM_SEED, (out[0] as Player).pond.id);
+    for (const p of out) p.pond = { ...p.pond, seed: CALM_SEED };
     return out as [Player, Player, Player];
   }
 

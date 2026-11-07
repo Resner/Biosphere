@@ -12,14 +12,14 @@ The 11 archetypes of `tests/archetypes.ts` at 400 biomass, every pair from 8 sta
 |---|---|---|---|---|---|---|---|---|---|---|---|---|
 | **flagellate** | · | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | **50%** |
 | **ciliate** | 50% | · | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 50% | **50%** |
-| **swimmer** | 50% | 50% | · | 50% | 50% | 50% | 75% | 69% | 50% | 50% | 50% | **54%** |
+| **swimmer** | 50% | 50% | · | 50% | 50% | 50% | 75% | 69% | 50% | 53% | 50% | **55%** |
 | **armoured** | 50% | 50% | 50% | · | 50% | 50% | 94% | 100% | 50% | 50% | 50% | **59%** |
 | **filter** | 50% | 50% | 50% | 50% | · | 0% | 50% | 50% | 0% | 50% | 50% | **40%** |
 | **hunter** | 50% | 50% | 50% | 50% | 100% | · | 100% | 100% | 50% | 50% | 50% | **65%** |
 | **radial** | 50% | 50% | 25% | 6% | 50% | 0% | · | 50% | 0% | 50% | 19% | **30%** |
 | **coiled** | 50% | 50% | 31% | 0% | 50% | 0% | 50% | · | 0% | 47% | 38% | **32%** |
 | **carapaced** | 50% | 50% | 50% | 50% | 100% | 50% | 100% | 100% | · | 50% | 50% | **65%** |
-| **winged** | 50% | 50% | 50% | 50% | 50% | 50% | 50% | 53% | 50% | · | 50% | **50%** |
+| **winged** | 50% | 50% | 47% | 50% | 50% | 50% | 50% | 53% | 50% | · | 50% | **50%** |
 | **setose** | 50% | 50% | 50% | 50% | 50% | 50% | 81% | 63% | 50% | 50% | · | **54%** |
 
 ## Size
@@ -43,7 +43,7 @@ Mirror duels: 8 genesis bodies fight a copy of themselves of 300 biomass, on 16 
 
 ## Growth by kills
 
-The winners of those kills gained 370 biomass per minute of fighting (the kill reward over the fight's length). A forager (the pacing bot, `tools/pacing-report.ts`, no mating, no carrion, median of 12 genesis bots) gains 69.5 biomass per minute between 250 and 350 biomass: killing grows 5.3 × as fast.
+The winners of those kills gained 370 biomass per minute of fighting (the kill reward over the fight's length). A forager (the pacing bot, `tools/pacing-report.ts`, no mating, no carrion, median of 12 genesis bots) gains 77.8 biomass per minute between 250 and 350 biomass: killing grows 4.8 × as fast.
 
 ## Gate
 
@@ -55,6 +55,6 @@ The winners of those kills gained 370 biomass per minute of fighting (the kill r
 | Equal genesis duels last a median of 8-25 s | 10.4 s | met |
 | At 2 × the biomass a body wins 85% or more of mirror duels | 100% | met |
 | At 1.5 × the biomass a body wins 70% or more of mirror duels | 100% | met |
-| Winners grow 1.5 × as fast per minute as a forager | 5.3 × | met |
+| Winners grow 1.5 × as fast per minute as a forager | 4.8 × | met |
 
-Report hash: `64fb2fdad0c5e831` (rules v12).
+Report hash: `8822713d7060b933` (rules v12).

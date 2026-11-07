@@ -6,6 +6,7 @@ import {
   starterFighter,
   startOf,
 } from '../../../tests/encounter-fixture';
+import { heavyTest } from '../../../tests/heavy';
 import { STARTER_COMBAT } from '../body';
 import { createRng, seedFromString } from '../prng';
 import { RULES } from '../rules';
@@ -36,7 +37,7 @@ const calm = (enc: Encounter) => {
 const gene = (over: Partial<Behaviour>): Behaviour => ({ ...CALM, ...over });
 
 describe('autopilot', () => {
-  it('never throws and stays deterministic over 1,000 random encounter states', () => {
+  heavyTest('never throws and stays deterministic over 1,000 random encounter states', () => {
     const rng = createRng(seedFromString('autopilot-states'), 'states');
     for (let n = 0; n < 1000; n++) {
       const count = rng.int(1, 4);
