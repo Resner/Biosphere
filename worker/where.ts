@@ -151,10 +151,11 @@ export function relayReach(hub: Hub, a: string, b: string): boolean {
   return Math.hypot(ma.x - mb.x, ma.y - mb.y) <= reach;
 }
 
-/** Counts a relayed signal by its (unordered) pair, for `GET /v1/e2e/directory`. */
+/** Counts a relayed signal by its (unordered) pair, for `GET /v1/e2e/directory`. At most 1,024 pairs are kept, so it cannot grow without bound. */
 export function countRelay(hub: Hub, a: string, b: string): void {
   const key = a < b ? `${a}:${b}` : `${b}:${a}`;
-  hub.relays.set(key, (hub.relays.get(key) ?? 0) + 1);
+  const n = hub.relays.get(key);
+  if (n !== undefined || hub.relays.size < 1024) hub.relays.set(key, (n ?? 0) + 1);
 }
 
 /**
@@ -163,10 +164,9 @@ export function countRelay(hub: Hub, a: string, b: string): void {
  * neither, and the pond alone decides, as before.
  */
 export function courtTooFar(hub: Hub, a: string, b: string): boolean {
-  const known = [a, b].filter((p) => hub.directory.member(p)).length;
-  if (known === 0) return false;
-  const d = hub.directory.distance(a, b);
-  return d === null || d > COURT_NEAR_WU;
+  const [ma, mb] = [hub.directory.member(a), hub.directory.member(b)];
+  if (!ma && !mb) return false;
+  return !ma || !mb || Math.hypot(ma.x - mb.x, ma.y - mb.y) > COURT_NEAR_WU;
 }
 
 /** The players the directory places within 10,000 wu of a kill: its carrion is told to them too. */
