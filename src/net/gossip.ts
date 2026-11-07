@@ -4,10 +4,9 @@
 // under 2 s old; the receiver keeps each as a `gossip` sighting for 10 s unless it is told again.
 // Pure: the page (T13) and the harness (T10) send what `due` returns and feed `receive`.
 
-import { clamp } from '../sim/math';
 import { linkTiers } from '../sim/size';
 import type { Known } from './aoi';
-import { GOSSIP_MAX, type PeerEvent, WIRE_POS_MAX, WIRE_RADIUS_MAX } from './protocol-defs';
+import { GOSSIP_MAX, type PeerEvent, wireCoord, wireRadius } from './protocol-defs';
 
 export const GOSSIP_EVERY_MS = 4000;
 export const GOSSIP_TTL_MS = 10_000;
@@ -19,12 +18,7 @@ const HEARD_PER_SENDER = 3 * GOSSIP_MAX;
 export type PeersEvent = Extract<PeerEvent, { t: 'peers' }>;
 
 /** Where a peer was placed (its centre and radius, wu) and when (ms). */
-export interface Fix {
-  x: number;
-  y: number;
-  r: number;
-  at: number;
-}
+export type Fix = Omit<Known, 'id' | 'source'>;
 
 /**
  * The gossip for `to`: up to 16 of `fixes` (this page's linked peers, by their newest snapshots)
@@ -48,8 +42,8 @@ export function gossipFor(
   return { t: 'peers', list: near.slice(0, GOSSIP_MAX).map(([, e]) => e) };
 }
 
-const coord = (v: number) => clamp(Math.round(v), 0, WIRE_POS_MAX - 1);
-const radius = (v: number) => clamp(Math.round(v), 1, WIRE_RADIUS_MAX);
+const coord = (v: number) => wireCoord(Math.round(v));
+const radius = (v: number) => wireRadius(Math.round(v));
 
 /** A sighting passed on by a linked peer. */
 export interface Heard {
@@ -77,18 +71,23 @@ export class Gossip {
   ): [to: string, event: PeersEvent][] {
     const held = new Set(linked);
     for (const id of this.told.keys()) if (!held.has(id)) this.told.delete(id);
+    if (![...held].some((to) => this.isDue(to, now))) return [];
     const mine = new Map<string, Fix>();
     for (const [id, f] of fixes) if (held.has(id)) mine.set(id, f);
     const out: [string, PeersEvent][] = [];
     for (const to of held) {
-      const last = this.told.get(to);
-      if (last !== undefined && now - last < GOSSIP_EVERY_MS) continue;
+      if (!this.isDue(to, now)) continue;
       const event = gossipFor(to, mine, now);
       if (!event) continue;
       this.told.set(to, now);
       out.push([to, event]);
     }
     return out;
+  }
+
+  private isDue(to: string, now: number): boolean {
+    const last = this.told.get(to);
+    return last === undefined || now - last >= GOSSIP_EVERY_MS;
   }
 
   /** Merges a linked peer's gossip: each entry is a sighting from `via` at `now`. */
@@ -133,7 +132,8 @@ export class Gossip {
     for (const heard of this.bySender.values()) {
       for (const [id, f] of heard) {
         const seen = newest.get(id);
-        if (!seen || f.at > seen.at) newest.set(id, { id, ...f, source: 'gossip' });
+        if (!seen || f.at > seen.at)
+          newest.set(id, { id, x: f.x, y: f.y, r: f.r, at: f.at, source: 'gossip' });
       }
     }
     return [...newest.values()];
@@ -141,7 +141,11 @@ export class Gossip {
 
   private expire(now: number): void {
     for (const [via, heard] of this.bySender) {
-      for (const [id, f] of heard) if (now - f.at > GOSSIP_TTL_MS) heard.delete(id);
+      // Oldest first: `receive` re-inserts a refreshed id at the end, with a later `at`.
+      for (const [id, f] of heard) {
+        if (now - f.at <= GOSSIP_TTL_MS) break;
+        heard.delete(id);
+      }
       if (heard.size === 0) this.bySender.delete(via);
     }
   }

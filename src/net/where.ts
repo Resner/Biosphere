@@ -5,7 +5,7 @@
 
 import { clamp } from '../sim/math';
 import { sizeTier } from '../sim/size';
-import { type ClientMsg, type Leaf, WIRE_AOI_MAX, WIRE_POS_MAX, WIRE_RADIUS_MAX } from './protocol';
+import { type ClientMsg, type Leaf, WIRE_AOI_MAX, wireCoord, wireRadius } from './protocol';
 
 export const WHERE_EVERY_MS = 30_000;
 export const WHERE_MIN_GAP_MS = 2000;
@@ -64,9 +64,9 @@ export class WhereReporter {
     this.sent = { x: s.x, y: s.y, tier: sizeTier(s.r * s.r), aoi: s.aoi, t: s.now };
     return {
       t: 'where',
-      x: clamp(s.x, 0, WIRE_POS_MAX - 1),
-      y: clamp(s.y, 0, WIRE_POS_MAX - 1),
-      r: clamp(s.r, 1, WIRE_RADIUS_MAX),
+      x: wireCoord(s.x),
+      y: wireCoord(s.y),
+      r: wireRadius(s.r),
       aoi: clamp(s.aoi, 1, WIRE_AOI_MAX),
     };
   }

@@ -17,6 +17,8 @@ export const RELAY_REPLAY_MS = 120_000;
 export const RELAY_ANSWER_MS = 4000;
 /** Relays remembered against replays at most, the oldest dropped first. */
 const SEEN_MAX = 4096;
+/** Offers' return routes kept, the oldest dropped first. */
+const OFFER_VIA_MAX = 256;
 const RATE_WINDOW_MS = 1000;
 
 export type RelayEvent = Extract<PeerEvent, { t: 'relay' }>;
@@ -189,7 +191,11 @@ export class SignalRoute {
     } else if (via === null) {
       this.offerVia.delete(from);
     } else {
+      // Bounded like `seen`: an offer nobody answers would otherwise stay for good.
+      this.offerVia.delete(from);
       this.offerVia.set(from, via);
+      if (this.offerVia.size > OFFER_VIA_MAX)
+        this.offerVia.delete(this.offerVia.keys().next().value as string);
     }
   }
 
@@ -201,7 +207,7 @@ export class SignalRoute {
       if (via === to || via === this.o.selfId || !this.o.linked(via)) continue;
       const at = this.o.placeOf(via);
       const d = at ? Math.hypot(at.x - fix.x, at.y - fix.y) : Number.MAX_VALUE;
-      if (best === null || d < bestD) {
+      if (d < bestD) {
         best = via;
         bestD = d;
       }

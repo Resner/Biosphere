@@ -325,18 +325,20 @@ export class PeerMesh {
 
   /** A gated link's first event: the peer's hello, whose ticket must hold for it. */
   private hello(link: Link, event: PeerEvent | null): void {
-    let ok = false;
-    if (event?.t === 'hello') {
-      const { ticket } = event;
-      try {
-        ok = this.opts.hello?.check(link.peerId, ticket) === true;
-      } catch {
-        ok = false;
-      }
-      if (ok) link.ticket = ticket;
+    if (event?.t === 'hello' && this.ticketHolds(link, event.ticket)) {
+      link.ticket = event.ticket;
+      this.checkOpen(link);
+    } else {
+      this.helloFailed(link);
     }
-    if (ok) this.checkOpen(link);
-    else this.helloFailed(link);
+  }
+
+  private ticketHolds(link: Link, ticket: SignedSeat): boolean {
+    try {
+      return this.opts.hello?.check(link.peerId, ticket) === true;
+    } catch {
+      return false;
+    }
   }
 
   /** Closes a link whose hello failed or never came; it is not retried. */
