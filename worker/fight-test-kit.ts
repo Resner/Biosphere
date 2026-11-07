@@ -224,6 +224,28 @@ export async function refusal(a: Player, b: Player, theirs?: SignedSnap, mine?: 
   return (await nextOf(a.c, 'refused')).reason;
 }
 
+/**
+ * B answers A's `lock-ask` in time with its own state, as a client that has A on its screen does:
+ * `seen` holds A's snapshots (by default one at `NEAR.a` now); `[]` sends an empty list and `null`
+ * none at all (ADR 0062: either is refused `engage:unseen`).
+ */
+export async function answer(
+  a: Player,
+  b: Player,
+  opts: { mine?: SignedSnap; seen?: SignedSnap[] | null } = {},
+) {
+  const ask = await nextOf(b.c, 'lock-ask');
+  expect(ask.by).toBe(a.id.playerId);
+  const seen = opts.seen === undefined ? [snap(a, ...NEAR.a)] : opts.seen;
+  b.c.send({
+    t: 'lock-state',
+    lock: ask.lock,
+    mine: opts.mine ?? snap(b, ...NEAR.b),
+    ...(seen ? { seen } : {}),
+  });
+  return ask;
+}
+
 /** Engages, lets the window close unanswered and returns what both players got. */
 export async function lockIn(a: Player, b: Player, theirs?: SignedSnap, mine?: SignedSnap) {
   engage(a, b, theirs, mine);

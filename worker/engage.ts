@@ -1,10 +1,10 @@
 // Lock-in on the authority (ADR 0050, M7 T8): an engage is checked against both signed snapshots,
 // the target is asked for its own state, and both players get the same `enc-start`. The target's
-// answer carries the attacker's own snapshots it held (`seen`), and a jump between them refuses
-// the engage (the movement check, ADR 0059). Nothing here writes SQLite, except a flag when a
-// snapshot claims more than the growth curve allows or the attacker jumped (the fight's log is
-// `runFight`'s and `admit`'s, in `fights.ts`), and the fight's witness commitment once
-// `enc-start` went out (`commitWitnesses`, ADR 0058).
+// answer carries the attacker's own snapshots it held (`seen`): none refuses the engage (the sight
+// check, ADR 0062), and so does a jump between them (the movement check, ADR 0059). Nothing here
+// writes SQLite, except a flag when a snapshot claims more than the growth curve allows or the
+// attacker jumped (the fight's log is `runFight`'s and `admit`'s, in `fights.ts`), and the fight's
+// witness commitment once `enc-start` went out (`commitWitnesses`, ADR 0058).
 
 import { bytesToHex } from '@noble/hashes/utils.js';
 import { genomeFromBase64url } from '../src/genome/codec';
@@ -218,8 +218,6 @@ export function engage(
     () => start(hub, id),
   );
   lock.asking = asking;
-  // A fight either side referees is taken back: a witness can't fight and referee (ADR 0058).
-  witnessLocked(hub, lock.players);
   sendIfOpen(targetWs, { t: 'lock-ask', lock: id, by: attacker.player });
 }
 
@@ -312,9 +310,11 @@ function inRange(attacker: Side, target: Side, nowTick: number): boolean {
 
 /**
  * The target's `lock-state`: its own signed state replaces the attacker's copy and the fight
- * starts at once, unless its `seen` shows the attacker jumped: then both are released and the
- * attacker is refused `engage:moved`. Anything else (another lock, a late, stale or older answer)
- * is dropped, and the window's end uses the attacker's copy, unchecked.
+ * starts at once, unless its `seen` holds none of the attacker's own snapshots (the target's
+ * screen has not shown it: `engage:unseen`, ADR 0062) or shows the attacker jumped
+ * (`engage:moved`): then both are released and the attacker is refused. Anything else (another
+ * lock, a late, stale or older answer) is dropped, and the window's end uses the attacker's copy,
+ * unchecked.
  */
 export function lockAnswer(
   hub: Hub,
@@ -332,10 +332,14 @@ export function lockAnswer(
   const head = hub.ledger.head(asking.target.creature);
   const side = head ? sideOf(hub, ws, asking.target.life, head, snap, now) : null;
   if (!side) return;
-  if (msg.seen && moved(hub, asking, msg.seen, now)) {
+  // Nothing is flagged for an unseen attacker: an honest target meets it on a fresh or lossy link.
+  const seen = ownSeen(asking, msg.seen ?? []);
+  const refusal =
+    seen.length === 0 ? 'engage:unseen' : moved(hub, asking, seen, now) ? 'engage:moved' : null;
+  if (refusal) {
     hub.fights.release(msg.lock);
     const found = seated(hub, asking.attacker.player);
-    if (found) sendIfOpen(found[0], { t: 'refused', reason: 'engage:moved' });
+    if (found) sendIfOpen(found[0], { t: 'refused', reason: refusal });
     return;
   }
   asking.target = side;
@@ -343,19 +347,28 @@ export function lockAnswer(
 }
 
 /**
- * The movement check (ADR 0059): the attacker's snapshots the target held, each verified as the
- * engage's own (its key, the pond, a living body of its creature's genome; any other is ignored),
- * in tick order with its engage snapshot. True, and `teleport` flagged once per creature, when two
- * neighbours lie further apart than it could swim. An attacker fresh out of a fight is not checked.
+ * The attacker's snapshots the target held, each verified as the engage's own (its key, the pond,
+ * a living body of its creature's genome); any other is ignored.
  */
-function moved(hub: Hub, asking: Asking, seen: readonly SignedSnap[], now: number): boolean {
+function ownSeen(asking: Asking, seen: readonly SignedSnap[]): Snapshot[] {
   const { attacker, pond } = asking;
-  if (hub.fights.fightEnded(attacker.player) !== null) return false;
-  const path: Snapshot[] = [attacker.snap];
+  const out: Snapshot[] = [];
   for (const signed of seen) {
     const s = verifySnap(attacker.player, pond.id, signed);
-    if (s?.alive && s.genomeRef === attacker.snap.genomeRef) path.push(s);
+    if (s?.alive && s.genomeRef === attacker.snap.genomeRef) out.push(s);
   }
+  return out;
+}
+
+/**
+ * The movement check (ADR 0059): the attacker's own snapshots the target held (`ownSeen`), in tick
+ * order with its engage snapshot. True, and `teleport` flagged once per creature, when two
+ * neighbours lie further apart than it could swim. An attacker fresh out of a fight is not checked.
+ */
+function moved(hub: Hub, asking: Asking, seen: readonly Snapshot[], now: number): boolean {
+  const { attacker } = asking;
+  if (hub.fights.fightEnded(attacker.player) !== null) return false;
+  const path = [attacker.snap, ...seen];
   if (!jumped(path, attacker.stats.phys, attacker.condition.biomass / HUNDREDTHS)) return false;
   hub.ledger.audit.raise('teleport', {
     owner: attacker.player,
@@ -402,6 +415,9 @@ function start(hub: Hub, id: string): void {
     if (found) sendIfOpen(found[0], { t: 'refused', reason: 'engage:stale' });
     return;
   }
+  // A fight either side referees is taken back at the lock-in, not the ask, so a lock refused at
+  // its answer or that can't start leaves it as it was: a witness can't fight and referee (ADR 0058).
+  witnessLocked(hub, lock.players);
   for (const player of lock.players) {
     const found = seated(hub, player);
     if (found) sendIfOpen(found[0], msg);

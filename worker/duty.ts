@@ -373,10 +373,16 @@ export class Duties {
     }
     const now = this.hub.clock.now();
     const exclude = [...new Set([...duty.participants, ...(fight?.players ?? [])])];
+    const open: number[] = [];
     for (let p = run.cursor; p < order.length; p++) {
+      if (!duty.used.has(p) && !this.reserved(duty, run, p)) open.push(p);
+    }
+    // One eligibility pass for every position left (it reads every session), not one per position.
+    const among = open.map((p) => order[p] as string);
+    const ok = new Set(among.length > 0 ? eligible(this.hub, exclude, now, among) : []);
+    for (const p of open) {
       const player = order[p] as string;
-      if (duty.used.has(p) || this.reserved(duty, run, p)) continue;
-      if (!eligible(this.hub, exclude, now, [player]).includes(player)) continue;
+      if (!ok.has(player)) continue;
       const found = seated(this.hub, player);
       const msg = found ? this.dutyMsg(duty, run, p, fight) : null;
       if (!found || !msg) continue;

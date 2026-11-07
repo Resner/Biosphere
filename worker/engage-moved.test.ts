@@ -3,6 +3,7 @@ import type { SignedSnap } from '../src/net/protocol';
 import { RULES } from '../src/sim/rules';
 import {
   advance,
+  answer,
   authority,
   engage,
   lockIn,
@@ -10,6 +11,7 @@ import {
   type Player,
   pair,
   pondTick,
+  rowsBesideLog,
   snap,
   useFightHub,
 } from './fight-test-kit';
@@ -17,16 +19,20 @@ import { AFTER_FIGHT_MS } from './movement';
 import { nextOf, sql } from './test-hub';
 
 // M10 T11 (ADR 0059): the movement check at lock-in. The target's answer carries the attacker's
-// own signed snapshots it held (`seen`); a jump between neighbours refuses the engage.
+// own signed snapshots it held (`seen`); a jump between neighbours refuses the engage. M11 T3
+// (ADR 0062): the sight check, an in-time answer holding none of them refuses it too.
 
 useFightHub();
 
 /** Engages, answers the ask with the target's own state and `seen`, and returns the attacker's next word. */
-async function answered(a: Player, b: Player, seen: SignedSnap[], mine = snap(a, ...NEAR.a)) {
+async function answered(
+  a: Player,
+  b: Player,
+  seen: SignedSnap[] | null,
+  mine = snap(a, ...NEAR.a),
+) {
   engage(a, b, undefined, mine);
-  const ask = await nextOf(b.c, 'lock-ask');
-  expect(ask.by).toBe(a.id.playerId);
-  b.c.send({ t: 'lock-state', lock: ask.lock, mine: snap(b, ...NEAR.b), seen });
+  await answer(a, b, { seen });
   for (;;) {
     const word = await a.c.next();
     if (word.t === 'refused') return word.reason;
@@ -90,14 +96,6 @@ describe('the movement check at lock-in', () => {
     expect(await teleports(a)).toBe(0);
   });
 
-  it('leaves an answer without seen on the M7 path', async () => {
-    const [a, b] = await pair();
-    engage(a, b);
-    const ask = await nextOf(b.c, 'lock-ask');
-    b.c.send({ t: 'lock-state', lock: ask.lock, mine: snap(b, ...NEAR.b) });
-    await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
-  });
-
   it('does not check an attacker fresh out of a fight, whose fight moved it', async () => {
     const [a, b] = await pair();
     await lockIn(a, b);
@@ -115,5 +113,55 @@ describe('the movement check at lock-in', () => {
     await advance(AFTER_FIGHT_MS + 1);
     expect(await answered(a, b, jump())).toBe('engage:moved');
     expect(AFTER_FIGHT_MS).toBeGreaterThan(2000 + RULES.encounter.lockAnswerMs);
+  });
+});
+
+describe('the sight check at lock-in (M11 T3)', () => {
+  const flags = async () => (await sql<{ n: number }>('SELECT COUNT(*) AS n FROM flags'))[0]?.n;
+
+  it('refuses engage:unseen for an in-time answer with an empty seen or none, releases both, and writes and flags nothing', async () => {
+    const [a, b] = await pair();
+    for (const seen of [[], null]) {
+      const rows = await rowsBesideLog();
+      const flagged = await flags();
+      expect(await answered(a, b, seen)).toBe('engage:unseen');
+      expect(await locked(a)).toBe(false);
+      expect(await locked(b)).toBe(false);
+      expect(await rowsBesideLog()).toBe(rows);
+      expect(await flags()).toBe(flagged);
+      await advance(500);
+    }
+  });
+
+  it('starts the fight with one verified snapshot of the attacker', async () => {
+    const [a, b] = await pair();
+    expect(await answered(a, b, [ago(a, 3, 998)])).toBe('enc-start');
+    await nextOf(b.c, 'enc-start');
+  });
+
+  it('refuses engage:unseen when seen holds only another player’s snapshots, or none of the attacker’s own', async () => {
+    const [a, b] = await pair();
+    const own = ago(a, 3, 998);
+    const forged = {
+      ...own,
+      sig: own.sig.startsWith('A') ? `B${own.sig.slice(1)}` : `A${own.sig.slice(1)}`,
+    };
+    expect(await answered(a, b, [ago(b, 3, 1012), ago(b, 6, 1012)])).toBe('engage:unseen');
+    await advance(500);
+    const otherGenome = ago(a, 3, 998, { genomeRef: (a.ref + 1) & 0xffff });
+    const dead = ago(a, 3, 998, { alive: false });
+    expect(await answered(a, b, [forged, otherGenome, dead])).toBe('engage:unseen');
+    expect(await teleports(a)).toBe(0);
+  });
+
+  it('starts the fight on a late answer with none, as before', async () => {
+    const [a, b] = await pair();
+    engage(a, b);
+    const ask = await nextOf(b.c, 'lock-ask');
+    await advance(RULES.encounter.lockAnswerMs);
+    const [sa] = await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
+    b.c.send({ t: 'lock-state', lock: ask.lock, mine: snap(b, ...NEAR.b) });
+    await advance(100);
+    expect(await authority((o) => o.fights.ofPlayer(a.id.playerId)?.fight?.enc.id)).toBe(sa.enc);
   });
 });

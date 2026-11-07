@@ -101,6 +101,12 @@ describe('the movement check (M10 T11)', () => {
   });
 });
 
+describe('the sight check (M11 T3)', () => {
+  it('tells the attacker the target has not seen it yet', () => {
+    expect(refusalToast(authorityRefusal('engage:unseen', false))).toBe('Not in its sight yet');
+  });
+});
+
 describe('the target F engages', () => {
   const near = peer('near', at(-6), 1000);
   const nearer = peer('nearer', at(-10), 1000);

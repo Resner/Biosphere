@@ -44,7 +44,13 @@ describe('engage', () => {
     const ask = await nextOf(b.c, 'lock-ask');
     expect(ask.lock).toMatch(/^[0-9a-f]{32}$/);
     await advance(50);
-    b.c.send({ t: 'lock-state', lock: ask.lock, mine: snap(b, 1013, 1001) });
+    // B has A on its screen: its answer holds A's snapshot (ADR 0062).
+    b.c.send({
+      t: 'lock-state',
+      lock: ask.lock,
+      mine: snap(b, 1013, 1001),
+      seen: [snap(a, ...NEAR.a)],
+    });
     const [sa, sb] = await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
     expect(sa).toEqual(sb);
     expect(sa.at).toBe(engagedAt + 50 + E.startDelayMs);
