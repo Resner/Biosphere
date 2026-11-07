@@ -19,9 +19,9 @@ export interface LinkCandidate {
   held: boolean;
 }
 
-/** Lower is better: class, then distance, then a held peer before a new one, then id. */
-/** The order of "no class": after every class. */
+/** The order of "no class": after every class (P0 to P4). */
 export const NO_CLASS = 5;
+/** Lower is better: class, then distance, then a held peer before a new one, then id. */
 const rankOf = (c: LinkCandidate) => c.linkClass ?? NO_CLASS;
 function compare(a: LinkCandidate, b: LinkCandidate): number {
   return (
