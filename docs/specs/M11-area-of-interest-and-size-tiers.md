@@ -325,7 +325,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### Fields and food
 
-- [ ] T4 Fields for a large world: bathymetry, chunked caches, bounded searches (after T1)
+- [ ] T4 Fields for a large world: bathymetry, chunked caches, bounded searches (after T1) (in progress)
   - Steps:
     1. `RULES.bathymetry`:
        - `broad: { wavelength: 16384, weight: 1 }` in place of `tilt`;
