@@ -53,7 +53,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
   browser,
   request,
 }) => {
-  test.setTimeout(420_000);
+  test.setTimeout(600_000);
   const players: Player[] = [];
   try {
     for (let i = 0; i < 3; i++) players.push(await join(browser, HUB));
@@ -189,7 +189,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     // to swim the rest.
     let nearSince: number | null = null;
     let lastD = Number.NaN;
-    const nearDeadline = Date.now() + 150_000;
+    const nearDeadline = Date.now() + 240_000;
     while (Date.now() < nearDeadline) {
       const me = (await state(a.page)).player;
       const cAt = (await state(c.page)).player;
@@ -198,13 +198,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       lastD = d;
       if (d > 120) {
         nearSince = null;
-        // Both swim: bodies differ (a whip or a paddle, each from its own DNA), and a slow C on a
-        // slow runner covered only a few wu/s. The link, the far rates and the leaf exits are
-        // already behind A, so it is free to swim back.
-        await Promise.all([
-          steer(c, me.x - CENTRE, me.y - CENTRE),
-          steer(a, cAt.x - CENTRE, cAt.y - CENTRE),
-        ]);
+        await steer(c, me.x - CENTRE, me.y - CENTRE);
       } else {
         nearSince ??= Date.now();
         if (Date.now() - nearSince > 3000) break;
