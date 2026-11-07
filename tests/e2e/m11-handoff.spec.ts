@@ -185,8 +185,10 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     }
     expect(crossed, 'A reached the end of its path').toBe(true);
     // C swims on into A's view (M11 T15: its rate there), and A's watcher keeps watching.
-    // Its own budget: the way there took as long as a slow runner's ticks made it (on a slow runner C
-    // was still 788 wu away after 150 s more), and C still has to swim the rest.
+    // Its own budget: the way there took as long as a slow runner's ticks made it, and C still has
+    // to swim the rest.
+    // C's page plays far fewer ticks a second than A's on a loaded runner (C was still 1,549 wu away
+    // after 300 s), so C swims on at four times the sim's pace, its belly full against the hunger.
     let nearSince: number | null = null;
     let lastD = Number.NaN;
     const nearDeadline = Date.now() + 300_000;
@@ -194,6 +196,11 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       const me = (await state(a.page)).player;
       const cAt = (await state(c.page)).player;
       if (!me || !cAt) throw new Error('A or C has no creature');
+      await c.page.evaluate(() => {
+        const debug = (window.__bs as BsHook).debug;
+        debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+        debug?.timeScale(4);
+      });
       const d = Math.hypot(cAt.x - me.x, cAt.y - me.y);
       lastD = d;
       if (d > 120) {
@@ -209,6 +216,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       nearSince,
       `C came into A’s view (last distance ${Math.round(lastD)} wu)`,
     ).not.toBeNull();
+    await c.page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
 
     const watch = await a.page.evaluate(() => (window as unknown as { __watch: Watch }).__watch);
     // Each leaf A left brought a report: the count rose before A was inside a leaf again.
