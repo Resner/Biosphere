@@ -20,6 +20,7 @@ import { flushFight, resend } from './fights';
 import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
 import type { PondRow } from './schema';
+import { seatTicket } from './seat';
 import {
   type ActiveSession,
   activeSessions,
@@ -211,6 +212,8 @@ export function enter(
   const fight = lock?.fight ?? null;
   const { pond, spawnHint, members, slot } = place(hub, fight?.pond);
   const { openedAt, windowStart, count, signals, ip, duties } = from;
+  const now = hub.clock.now();
+  const ticket = seatTicket(hub, who, now);
   ws.serializeAttachment({
     phase: 'active',
     openedAt,
@@ -221,7 +224,8 @@ export function enter(
     ...who,
     pondId: pond.id,
     slot,
-    life: bind(hub, who.playerId, hub.clock.now()),
+    life: bind(hub, who.playerId, now),
+    seatAt: now,
     // The hour's duties belong to the player, not the socket: a reload keeps them.
     ...(duties ? { duties } : {}),
   } satisfies Session);
@@ -234,6 +238,7 @@ export function enter(
     ice: link.ice,
     turn: link.turn,
     now: Date.now(),
+    ticket,
   });
   sendLife(hub, ws, who.playerId, undefined, fight?.enc.id);
   if (!lock || !fight) return;

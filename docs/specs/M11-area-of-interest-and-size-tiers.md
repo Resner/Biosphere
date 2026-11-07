@@ -76,7 +76,7 @@ No owner input came: Playtests v0.10.0 (#379) and v0.11.0 (#418) have no replies
 
 - **New:**
   - sim: `src/sim/size.ts` gains `linkTiers` and `viewHalfHeight` (T1);
-  - ledger: `src/ledger/seat.ts` (seat tickets and signed signals, T2 and T7);
+  - ledger: `src/ledger/seat-doc.ts` (the shapes and the parser, T2) and `src/ledger/seat.ts` (signing and the checks, T7);
   - net:
     - `src/net/protocol-world.ts`: the new messages' parsers (T2);
     - `src/net/aoi.ts`: the link classes (T8);
@@ -148,14 +148,14 @@ export type Pos = [x: number, y: number, r: number];
 //   { t: 'rate'; hz: 1 | 2 | 5 | 10 }                               // the snapshot rate this side wants from the other
 //   claim and consumed slot ids may carry a food layer: `t<1–4>c<x>_<y>_s<slot>` (T5 builds the layers)
 
-// src/ledger/seat.ts (T2: the shapes and the parser; T7: signing and checking)
+// src/ledger/seat-doc.ts (T2: the shapes and the parser); src/ledger/seat.ts (T7: re-exports it, signing and checking)
 export interface Seat { v: 1; kind: 'seat'; player: string; name: string; world: string; t: number; until: number }
 export interface SignedSeat { seat: Seat; authSig: string; keyId: string }
 export const SEAT_TTL_MS = 900_000;        // until = t + 15 min
 export const SEAT_RENEW_MS = 600_000;      // a fresh ticket after the first pong 10 min past the last
 export function parseSignedSeat(v: unknown): SignedSeat | null;     // untrusted: never throws, refuses unknown fields
 // T7:
-export function seatValid(s: SignedSeat, keys: AuthorityKeys, want: { world: string; player: string; now: number }): boolean;
+export function seatValid(s: SignedSeat, keys: readonly PubKey[], want: { world: string; player: string; now: number }): boolean;
 export function signalBytes(from: string, to: string, kind: 'offer' | 'answer', at: number, pos: Pos, sdp: string): Uint8Array;
 //   'bs/signal/v1' ‖ from (32 bytes) ‖ to (32) ‖ kind (1) ‖ u64 at ‖ 3 × f64 pos ‖ SHA-256(sdp)
 export function signSignal(identity: Identity, to: string, kind: 'offer' | 'answer', at: number, pos: Pos, sdp: string): string;
@@ -423,7 +423,8 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - A `where` writes no SQLite row. 21 messages in 10 s close a session, as before.
   - Notes: no client sends `where` until T13, and the ponds stay until T14. Before T14, a `near` that crosses ponds is a bug.
 
-- [ ] T7 Seat tickets and signed signals [opus] (after T2)
+- [x] T7 Seat tickets and signed signals [opus] (after T2)
+  - Done: `seat.ts` checks (the parser moved to `seat-doc.ts`, so the wire loads no `@noble/curves`), `worker/seat.ts` on the welcome and after a `pong`, `HubClient.ticket`, one `App.authorityKeys` fetch. Gotchas: a ticket's `world` is the world's seed, shared by every pond; it is a `bs/auth/v1` countersignature over a `bs/seat/v1` hash, as a record's, so the ledger signs it and writes no row.
   - Steps:
     1. `src/ledger/seat.ts`: `seatValid`, `signalBytes`, `signSignal` and `signalSigned` (shapes above).
        - A ticket is countersigned with the ledger's authority key over `'bs/seat/v1'` and its canonical JSON.
@@ -449,7 +450,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - a signature verifies;
       - another `to`, `kind`, `at`, `pos`, a changed SDP byte or another key fails;
       - `signalBytes` is pinned at 32 + 32 + 1 + 8 + 24 + 32 bytes after its domain.
-    - `speedTest`: 20 ticket checks and 20 signal checks take under 40 ms in Node.
+    - `speedTest`: 20 ticket checks and 20 signal checks take under 60 ms in Node, warm. (40 ms was below the floor: a signal's check under a key nobody tables is a plain Ed25519 check, about 1.3 ms, so the 40 took about 35 ms.)
     - 10,000 fuzzed values never make a check throw.
 
 ### Links

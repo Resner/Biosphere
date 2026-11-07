@@ -1,6 +1,7 @@
 // Hub WebSocket client: challenge-signed hello, reconnect with backoff, pings for the pond clock.
 
 import { HELLO_DOMAIN, helloMessage, type Identity, toBase64Url } from '../ledger/identity';
+import type { SignedSeat } from '../ledger/seat-doc';
 import { createRng, type Rng, seedFromString } from '../sim/prng';
 import { PondClock } from './clock';
 import { guarded } from './guarded';
@@ -118,6 +119,7 @@ export class HubClient {
   private fightListeners: ((m: FightMsg) => void)[] = [];
   private dutyListeners: ((m: DutyMsg) => void)[] = [];
   private _queue: QueuePlace | null = null;
+  private _ticket: SignedSeat | null = null;
 
   constructor(private readonly opts: HubClientOptions) {
     this.rng = createRng(seedFromString(opts.seed ?? opts.identity.playerId), 'hub-backoff');
@@ -134,6 +136,14 @@ export class HubClient {
   /** Where the hub has this session in the admission line, or null when it is not waiting. */
   get queue(): QueuePlace | null {
     return this._queue;
+  }
+
+  /**
+   * The session's seat ticket (M11 T7, ADR 0062): the welcome's, then each fresh `seat`'s. The
+   * page shows it to each peer in a link's `hello`; null before the first welcome.
+   */
+  get ticket(): SignedSeat | null {
+    return this._ticket;
   }
 
   /** Connects now and resolves with the first welcome; retries in the background until then. */
@@ -233,6 +243,7 @@ export class HubClient {
         this.setStatus('online');
         this.startPings();
         this.lastWelcome = msg;
+        this._ticket = msg.ticket ?? null;
         this.settleWith(msg);
         for (const fn of [...this.welcomeListeners]) guarded(() => fn(msg));
         break;
@@ -243,6 +254,9 @@ export class HubClient {
         this.clock.addSample(sent, this.now(), msg.now);
         break;
       }
+      case 'seat':
+        this._ticket = msg.ticket;
+        break;
       case 'member':
         for (const fn of [...this.memberListeners]) guarded(() => fn(msg.op, msg.member));
         break;

@@ -2,8 +2,9 @@ import { GameSound } from '../audio/engine';
 import { indexedDbKeyStore } from '../ledger/idb-keystore';
 import type { Identity } from '../ledger/identity';
 import { createIdentity, importRecoveryCode, memoryKeyStore } from '../ledger/identity';
+import type { PubKey } from '../ledger/record';
 import { GenomeSync } from '../net/genome-sync';
-import { isFinalStatus } from '../net/hub-client';
+import { fetchJson, hubHttpUrl, isFinalStatus } from '../net/hub-client';
 import { RemoteSet, SnapshotSender } from '../net/pond-sync';
 import type { Vec2 } from '../net/protocol';
 import { FollowCamera, viewHalfHeight } from '../render/camera';
@@ -48,6 +49,7 @@ import { pick } from './dom';
 import { EggShow } from './eggs';
 import { createFieldSync } from './field';
 import { FightResume } from './fight-resume';
+import { cachedKeys } from './fight-verify';
 import { GrowthWatch } from './growth';
 import { Hints } from './hints';
 import { HistoryPanel } from './history';
@@ -235,6 +237,11 @@ export class App {
    * a hub URL the game runs offline, as in M1.
    */
   readonly hubUrl: string | null;
+  /**
+   * The authority's keys (`GET /v1/pubkeys`), fetched once per page at the first ask and shared by
+   * the settlement checks, the audits and the seat tickets (M11 T7); null without a hub.
+   */
+  readonly authorityKeys: (() => Promise<PubKey[] | null>) | null;
   readonly keeper: OnlineKeeper<OnlineSession>;
   readonly nameInput: HTMLInputElement;
   readonly nameError: HTMLElement;
@@ -422,6 +429,10 @@ export class App {
     this.growth = new GrowthWatch();
 
     this.hubUrl = hubSocketUrl(window.location.search, __AUTHORITY_URL__);
+    const { hubUrl } = this;
+    this.authorityKeys = hubUrl
+      ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys')))
+      : null;
     this.keeper = new OnlineKeeper<OnlineSession>({
       start: (name) => {
         this.social.selfName = name;

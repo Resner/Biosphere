@@ -1,6 +1,6 @@
 import type { Canonical } from '../ledger/canonical';
 import type { RecordRequest, Status } from '../ledger/record';
-import { parseSignedSeat } from '../ledger/seat';
+import { parseSignedSeat } from '../ledger/seat-doc';
 import {
   BORN_MAX_BYTES,
   type Born,
