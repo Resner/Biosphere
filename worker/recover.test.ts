@@ -14,6 +14,7 @@ import {
   advance,
   advanceTo,
   authority,
+  CALM_SEED,
   clock,
   type EncEnd,
   type EncStart,
@@ -185,8 +186,8 @@ describe('recovery rebuilds the locks', () => {
     const [a, b] = await fighters();
     const c = await hatched();
     await advance(16_000);
-    await sql("UPDATE ponds SET seed = 'calm-79' WHERE id = ?", c.pond.id);
-    c.pond = { ...c.pond, seed: 'calm-79' };
+    await sql('UPDATE ponds SET seed = ? WHERE id = ?', CALM_SEED, c.pond.id);
+    c.pond = { ...c.pond, seed: CALM_SEED };
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.5, energy: 0 }));
     await play(a, b, start, IDLE, 2);
     await restart();

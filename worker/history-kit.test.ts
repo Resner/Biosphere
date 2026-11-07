@@ -1,5 +1,5 @@
 import { expect, it } from 'vitest';
-import { useFightHub } from './fight-test-kit';
+import { CALM_SEED, useFightHub } from './fight-test-kit';
 import { history } from './history-kit';
 import { sql } from './test-hub';
 
@@ -13,5 +13,5 @@ it('is made in the calm pond, never one with a random seed', async () => {
     'SELECT settlement FROM encounters WHERE id = ?',
     enc,
   );
-  expect(JSON.parse(row?.settlement ?? '{}').settlement.pondSeed).toBe('calm-79');
+  expect(JSON.parse(row?.settlement ?? '{}').settlement.pondSeed).toBe(CALM_SEED);
 });

@@ -1,5 +1,5 @@
-// Bathymetry (M6 T15, DESIGN §2): how deep the water is under every point of a pond. A pure
-// function of the pond seed and a position, so peers, witnesses and the authority all agree, and
+// Bathymetry (M6 T15, DESIGN §2): how deep the water is under every point of a world. A pure
+// function of the world seed, its size and a position, so peers, witnesses and the authority all agree, and
 // presentation reads the same field. Depth runs from 0 (the sunlit surface) to 1 (the abyss floor).
 
 import { clamp, length, lerp } from './math';
@@ -29,6 +29,11 @@ interface Field {
 const byIdentity = new WeakMap<Seed, Map<number, Field>>();
 const byKey = new Map<string, Field>();
 const MAX_KEYED = 16;
+const last: { seed: Seed | null; size: number; field: Field | null } = {
+  seed: null,
+  size: 0,
+  field: null,
+};
 
 const unit = (hash: number): number => (hash >>> 0) / 4294967296;
 
@@ -63,20 +68,22 @@ function rawField(seed: Seed, x: number, y: number): number {
   return (B.noiseAmplitude * n) / NORMALISER;
 }
 
-/** The raw field's mean over the square of `localHalf` wu around the world's centre, on an 8 × 8 lattice. */
+const LOCAL_GRID = 8;
+
+/** The raw field's mean over the square of `localHalf` wu around the world's centre, on a `LOCAL_GRID` × `LOCAL_GRID` lattice. */
 function localMean(seed: Seed, centre: number): number {
   const half = B.localHalf;
   let sum = 0;
-  for (let j = 0; j < 8; j++) {
-    for (let i = 0; i < 8; i++) {
+  for (let j = 0; j < LOCAL_GRID; j++) {
+    for (let i = 0; i < LOCAL_GRID; i++) {
       sum += rawField(
         seed,
-        centre + ((i + 0.5) / 4 - 1) * half,
-        centre + ((j + 0.5) / 4 - 1) * half,
+        centre + (((i + 0.5) * 2) / LOCAL_GRID - 1) * half,
+        centre + (((j + 0.5) * 2) / LOCAL_GRID - 1) * half,
       );
     }
   }
-  return sum / 64;
+  return sum / (LOCAL_GRID * LOCAL_GRID);
 }
 
 /**
@@ -95,6 +102,16 @@ function pinAt(distance: number): number {
  * deep and abyss.
  */
 function fieldFor(seed: Seed, size: number): Field {
+  // A world asks for the same field every time, so the last answer is the hot path.
+  if (seed === last.seed && size === last.size && last.field !== null) return last.field;
+  const field = lookup(seed, size);
+  last.seed = seed;
+  last.size = size;
+  last.field = field;
+  return field;
+}
+
+function lookup(seed: Seed, size: number): Field {
   const known = byIdentity.get(seed)?.get(size);
   if (known !== undefined) return known;
   const key = `${seed.join('.')}:${size}`;

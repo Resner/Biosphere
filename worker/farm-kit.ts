@@ -12,6 +12,7 @@ import { HOUR, MIN, REPORT_MS } from '../tools/farm-sim';
 import {
   advance,
   authority,
+  CALM_SEED,
   clock,
   engage,
   join,
@@ -311,8 +312,8 @@ export async function runScenario(o: Scenario): Promise<Measure> {
   }
   const all = [farmer, ...bots];
   // A pond with no UV or pressure where the fights are staged (`fighters` in the fight kit).
-  await sql("UPDATE ponds SET seed = 'calm-79' WHERE id = ?", farmer.pond.id);
-  for (const a of all) a.pond = { ...a.pond, seed: 'calm-79' };
+  await sql('UPDATE ponds SET seed = ? WHERE id = ?', CALM_SEED, farmer.pond.id);
+  for (const a of all) a.pond = { ...a.pond, seed: CALM_SEED };
   const children: string[] = [];
   const kills: KillLog[] = [];
   const end = t0 + o.hours * HOUR;
@@ -370,7 +371,7 @@ export async function runScenario(o: Scenario): Promise<Measure> {
     if (o.killEveryMs > 0 && o.bots > 0 && gen3AtMs !== null) {
       if (!sacrifice && !sacrificed) {
         sacrifice = await actor('max', t0, await seeded(`${o.name}|sacrifice`));
-        sacrifice.pond = { ...sacrifice.pond, seed: 'calm-79' };
+        sacrifice.pond = { ...sacrifice.pond, seed: CALM_SEED };
         sacrificeAt = now;
         all.push(sacrifice);
       }
