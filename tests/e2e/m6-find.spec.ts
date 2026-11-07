@@ -111,16 +111,22 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
       await b.keyboard.press('g');
       await b.keyboard.press('1');
     };
+    // A ping lives 4 s of wall time, so each wait for one runs in the page (a frame-paced poll),
+    // not over a round trip that a loaded runner can stretch past its life.
     await ping();
-    await expect
-      .poll(async () => (await state(b)).social.pings.some((p) => p.from === idB), {
-        timeout: 5_000,
-      })
-      .toBe(true);
-    const pingEdge = a.locator(
-      `[data-testid="edge-indicator"][data-kind="ping"][data-id="${idB}"]:not([hidden])`,
+    await b.waitForFunction(
+      (id) => window.__bs?.state().social.pings.some((p) => p.from === id),
+      idB,
+      { timeout: 10_000 },
     );
-    await expect(pingEdge).toBeVisible({ timeout: 5_000 });
+    await a.waitForFunction(
+      (id) =>
+        !!document.querySelector(
+          `[data-testid="edge-indicator"][data-kind="ping"][data-id="${id}"]:not([hidden])`,
+        ),
+      idB,
+      { timeout: 10_000 },
+    );
     // The indicator points at where the ping landed, seen from where A is in the same snapshot
     // (A drifts a little on a loaded runner, so a fixed 180° would be a moving target).
     const seen = await state(a);
@@ -136,12 +142,20 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
     await a.screenshot({ path: 'test-results/m6-find-ping.png' });
 
     // The map (M11 T18: a square around A, north up) places both players where they are, and the ping.
-    await b.waitForTimeout(1100);
-    await ping();
+    // The map is open before the ping comes, so the ping is drawn within its life.
     await a.keyboard.press('m');
     const map = a.getByTestId('pond-map');
     await expect(map).toBeVisible();
-    await expect(a.locator('[data-testid="map-ping"]:visible')).not.toHaveCount(0);
+    await b.waitForTimeout(1100);
+    await ping();
+    await a.waitForFunction(
+      () =>
+        [...document.querySelectorAll('[data-testid="map-ping"]')].some(
+          (el) => (el as HTMLElement).offsetParent !== null || el.getClientRects().length > 0,
+        ),
+      undefined,
+      { timeout: 10_000 },
+    );
     expect((await state(a)).map.open).toBe(true);
     const frame = await a.getByTestId('map-frame').boundingBox();
     expect(frame).not.toBeNull();
