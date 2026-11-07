@@ -73,12 +73,15 @@ interface Measures {
  * and the twilight's spread are re-measured there (the zones' looks are unchanged: twilight spread
  * 3.43 → 3.55-3.62 over runs, 3.58 here), and the shallows, whose pure point is now
  * measures 60% of main's change, so its limit is 65%.
+ * The deep and abyss are re-measured again where M11's bathymetry per size (T4) puts their pure
+ * points: the render code is unchanged, the water at the new place differs
+ * (deep change 1.22, abyss 0.72; CI and a local run agree within 1%).
  */
 const MAIN: Readonly<Record<Zone, Measures>> = {
   shallows: { change: 4.9, spread: 10.18, luma: 33.83, caustic: 1.4, rays: 1 },
   twilight: { change: 1.987, spread: 3.58, luma: 15.41, caustic: 0.2877, rays: 0.2302 },
-  deep: { change: 1.074, spread: 2.136, luma: 7.534, caustic: 0, rays: 0 },
-  abyss: { change: 0.549, spread: 0.8015, luma: 3.5, caustic: 0, rays: 0 },
+  deep: { change: 1.217, spread: 1.943, luma: 8.136, caustic: 0, rays: 0 },
+  abyss: { change: 0.717, spread: 1.055, luma: 3.834, caustic: 0, rays: 0 },
 };
 /** How much of main's change the shallows may keep (the pure point's, see `MAIN`). */
 const SHALLOWS_CHANGE = 0.65;
