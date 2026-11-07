@@ -1,6 +1,6 @@
 # 0013: World partition: size tiers, area of interest, habitats
 
-- Status: accepted, amended by 0061 and 0062 (the viewport's half-height follows 0029, not `9·r^0.9`; 0061: the world is 262,144 wu square and the ponds end in M11; 0062: the classes' distances, the AoI from a 16:9 view, the fill to 8,192 wu, and a crowded area flagged until M12's instances)
+- Status: accepted, amended by 0061, 0062 and 0064 (the viewport's half-height follows 0029, not `9·r^0.9`; 0061: the world is 262,144 wu square and the ponds end in M11; 0062: the classes' distances, the AoI from a 16:9 view, the fill to 8,192 wu, and a crowded area flagged until M12's instances; 0064: the spawn centre stays the world's centre, placement rules and anchors, instances split a crowded area found by the pages rather than a crowded leaf, and open water shares water with every instance)
 - Date: 2026-10-25
 
 ## Context

@@ -24,7 +24,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Combat and encounters | 0059, 0058, 0054, 0053, 0052, 0051, 0050, then 0011 | 0010, 0035 |
 | Lineage verification, proofs and retention | 0058, 0056, 0055, then 0009 | 0019, 0021, 0054 |
 | Witnesses, audits and anti-farming | 0062 (free slots, `engage:unseen`), 0059, 0058, then 0012 | 0010, 0054 |
-| The world, area of interest and signaling | 0062, 0061, then 0013 | 0007, 0016 |
+| The world, area of interest and signaling | 0064 (spawning, riding, crowd instances), 0063, 0062, 0061, then 0013 | 0007, 0016 |
 
 ## Index
 
@@ -42,7 +42,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0010](0010-randomness.md) | Randomness from drand quicknet: commitments and outage policy | accepted, amended | 0050, 0058 |
 | [0011](0011-combat-encounters.md) | Combat as refereed deterministic encounters | accepted, amended | 0050, 0051, 0052, 0053, 0054, 0058 |
 | [0012](0012-witnesses.md) | Witnesses: drand-selected, budgeted, never final | accepted, amended | 0058 |
-| [0013](0013-world-partition.md) | World partition: size tiers, area of interest, habitats | accepted, amended | 0029, 0061, 0062 |
+| [0013](0013-world-partition.md) | World partition: size tiers, area of interest, habitats | accepted, amended | 0029, 0061, 0062, 0064 |
 | [0014](0014-game-pillars.md) | Game pillars: water world, controls, economy and supply control | accepted | DESIGN §3 (keys, the six core actions) |
 | [0015](0015-chained-runs-public-repo.md) | Chained factory runs in a public repository | accepted | 0020, 0042, 0044 |
 | [0016](0016-shared-pond-model.md) | Shared pond model: local sim, hub clock, food claims | accepted, amended | 0061 |
@@ -91,5 +91,6 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted, refined, amended | 0060, 0062 |
 | [0060](0060-how-the-farm-gates-read.md) | How the bot-farm gates read: genes aside, one cooldown after maturity, the floor aside | accepted | |
 | [0061](0061-one-world-and-food-by-tier.md) | One world: its size and fields, food by tier, and a fourth world renewal | accepted | |
-| [0062](0062-area-of-interest-and-relayed-signaling.md) | Area of interest: the directory, link classes, discovery, relayed signaling and seat tickets | accepted, amended | 0063 |
+| [0062](0062-area-of-interest-and-relayed-signaling.md) | Area of interest: the directory, link classes, discovery, relayed signaling and seat tickets | accepted, amended | 0063, 0064 |
 | [0063](0063-how-clients-dial-in-the-world.md) | How clients dial in the world: the headless harness's link model and gates | accepted | |
+| [0064](0064-habitats-spawning-riding-and-crowd-instances.md) | Habitats: spawning around groups, riding the current, crowd instances and anchored transitions | accepted | |
