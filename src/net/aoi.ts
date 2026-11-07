@@ -24,6 +24,13 @@ export const INTERACT_RADII = 8;
 export const INTERACT_LEAD_WU = 600;
 /** A P1 stays P1 until this far past the interaction distance. */
 export const INTERACT_HOLD_WU = 900;
+
+/** P1 reach between two radii: how close a creature must be to be linked at once (wu). */
+export const p1Reach = (a: number, b: number): number =>
+  INTERACT_RADII * Math.max(a, b) + INTERACT_LEAD_WU;
+/** P1 hold between two radii: how far a P1 link may stretch before it drops (wu). */
+export const p1Hold = (a: number, b: number): number =>
+  INTERACT_RADII * Math.max(a, b) + INTERACT_HOLD_WU;
 /** A held peer with no class closes after this long. */
 export const UNWANTED_GRACE_MS = 3000;
 /** P4 is ordered by the distance from where the player will be this many seconds on. */
@@ -121,8 +128,7 @@ export class AoiManager {
       const was = prev.get(id) ?? NO_CLASS;
       const within = (c: LinkClass, enter: number, hold: number) =>
         d <= enter || (was <= c && d <= hold);
-      const reach = INTERACT_RADII * Math.max(self.r, k.r);
-      if (within(1, reach + INTERACT_LEAD_WU, reach + INTERACT_HOLD_WU)) out.set(id, 1);
+      if (within(1, p1Reach(self.r, k.r), p1Hold(self.r, k.r))) out.set(id, 1);
       else if (within(2, aoi, HOLD * aoi)) out.set(id, 2);
       else if (within(3, 2 * aoi, 2 * HOLD * aoi)) out.set(id, 3);
       else if (within(4, q, HOLD * q)) {

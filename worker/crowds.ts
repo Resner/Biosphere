@@ -3,10 +3,10 @@
 // locked creature, and merges a crowd back into the open water once it is quiet. Pure: no Hub and
 // no wire, so the hub (T5), the harness (T8) and the wave (T9) run the same rules.
 
-import { INTERACT_HOLD_WU, INTERACT_LEAD_WU, INTERACT_RADII } from '../src/net/aoi';
+import { p1Hold, p1Reach } from '../src/net/aoi';
 import { INSTANCE_MAX, OPEN_WATER } from '../src/net/instance';
 import { INSTANCE_WIRE_MAX, WIRE_RADIUS_MAX } from '../src/net/protocol';
-import { linkTiers, TIER_LINK_MARGIN } from '../src/sim/size';
+import { linkTiers, maxLinkRadius } from '../src/sim/size';
 
 /** A crowd forms, or re-bins, this long after the crowded report that asks for it. */
 export const SPLIT_WAIT_MS = 3000;
@@ -41,15 +41,10 @@ export interface CrowdContext {
   around(x: number, y: number, radius: number): CrowdMember[];
 }
 
-/** P1 reach between two radii: 8 × the larger + 600 wu. */
-const p1Reach = (a: number, b: number): number =>
-  INTERACT_RADII * Math.max(a, b) + INTERACT_LEAD_WU;
 /** A member this far from every other member of its crowd leaves it: twice the P1 hold. */
-const strayAt = (a: number, b: number): number =>
-  2 * (INTERACT_RADII * Math.max(a, b) + INTERACT_HOLD_WU);
+const strayAt = (a: number, b: number): number => 2 * p1Hold(a, b);
 /** The P1 reach to the largest creature `linkTiers` lets a creature of radius `r` link with. */
-const reachBound = (r: number): number =>
-  p1Reach(r, Math.min(WIRE_RADIUS_MAX, 16 * TIER_LINK_MARGIN ** 2 * r));
+const reachBound = (r: number): number => p1Reach(r, Math.min(WIRE_RADIUS_MAX, maxLinkRadius(r)));
 const dist = (a: CrowdMember, b: CrowdMember): number => Math.hypot(a.x - b.x, a.y - b.y);
 const inReach = (a: CrowdMember, b: CrowdMember): boolean =>
   linkTiers(a.r, b.r) && dist(a, b) <= p1Reach(a.r, b.r);

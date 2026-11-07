@@ -43,6 +43,10 @@ export function linkTiers(ra: number, rb: number): boolean {
   return sizeTier(larger * larger) - sizeTier(smaller * smaller) <= 1;
 }
 
+/** The radius of the largest creature `linkTiers` lets a creature of radius `r` link with. */
+export const maxLinkRadius = (r: number): number =>
+  TIER_STEP * TIER_STEP * TIER_LINK_MARGIN * TIER_LINK_MARGIN * r;
+
 /**
  * Visible half-height in world units for a creature of radius `r` whose genetic maximum radius is
  * `adult`: `heightCoeff · adult^heightExp · (r / adult)^growExp` (DESIGN §3, ADR 0029); a creature
