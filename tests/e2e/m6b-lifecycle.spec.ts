@@ -29,6 +29,14 @@ const info = (page: Page) => page.evaluate(() => (window.__bs as BsHook).render.
 const timeScale = (page: Page, scale: number) =>
   page.evaluate((s) => (window.__bs as BsHook).debug?.timeScale(s), scale);
 
+/**
+ * The speed of the world while one hazard hit is awaited. After a stall (a loaded runner) the loop
+ * catches up to 600 ticks in one frame, which at full speed is 20 s of pressure: the body died
+ * between two frames, with no shake drawn (`E2E main` 42340457046). A quarter speed cuts what a
+ * stall can run past to a quarter; the first hit lands on the first damage tick either way.
+ */
+const HAZARD_SCALE = 0.25;
+
 /** The frame is drawn with the medium chain and stays within the medium budget. */
 async function withinBudget(page: Page, step: string): Promise<void> {
   const frame = await info(page);
@@ -229,7 +237,7 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
       a.locator(`[data-testid="minimap-hazard"][data-hazard="${hazard}"]`),
     ).toBeVisible();
     await expect(a.getByTestId(`${hazard}-cue`)).toHaveCount(0);
-    await timeScale(a, 1);
+    await timeScale(a, HAZARD_SCALE);
     await a
       .waitForFunction(
         (kind) => {
@@ -244,7 +252,7 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
         const seen = await a.evaluate(() => {
           const bs = window.__bs as BsHook;
           const s = bs.state();
-          return { screen: s.screen, health: s.player?.health, fx: bs.render.fx() };
+          return { screen: s.screen, health: s.player?.health, tick: s.tick, fx: bs.render.fx() };
         });
         throw new Error(`no ${hazard} shake in the ${zone}: ${JSON.stringify(seen)}`, {
           cause: error,
