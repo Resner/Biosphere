@@ -262,6 +262,14 @@ test('four players find each other across a world, fight a witnessed fight 30,00
 
     // Tiers: B grows to T2 beside D. D is then a swarm to B, and B never links D again.
     const spawn = await at(d);
+    await b.evaluate((who) => {
+      const w = window as unknown as { __lastD: number };
+      w.__lastD = (window.__bs as BsHook).state().tick;
+      window.setInterval(() => {
+        const s = (window.__bs as BsHook).state();
+        if (s.net.links.some((l) => l.id === who && l.hello)) w.__lastD = s.tick;
+      }, 100);
+    }, idD);
     await b.evaluate(
       ([x, y]) => {
         const debug = (window.__bs as BsHook).debug;
@@ -272,25 +280,29 @@ test('four players find each other across a world, fight a witnessed fight 30,00
       [spawn.x, spawn.y],
     );
     await expect
-      .poll(() => helloed(b).then((l) => l.includes(idD)), {
-        message: 'B’s link to D closes: a giant and a starter are two tiers apart',
-        timeout: 60_000,
-        intervals: [250],
-      })
-      .toBe(false);
-    await expect
       .poll(async () => (await b.evaluate(() => (window.__bs as BsHook).render.info())).swarms, {
         message: 'B draws D as a swarm',
         timeout: 60_000,
         intervals: [250],
       })
       .toBeGreaterThanOrEqual(1);
-    // A few more seconds of B’s own ticks: the link stays closed.
-    const tick = (await state(b)).tick;
-    await b.waitForFunction((t0) => (window.__bs?.state().tick ?? 0) >= t0 + 90, tick, {
-      timeout: 60_000,
-    });
-    expect(await helloed(b), 'B never links D').not.toContain(idD);
+    // Once D's page has B's new size, the pair is two tiers apart and the link stays closed: B's
+    // last tick with a link to D is 10 s of its ticks behind it. (A link may flap while the news
+    // of B's size is still on its way to D.)
+    await expect
+      .poll(
+        async () => {
+          const tick = (await state(b)).tick;
+          const last = await b.evaluate(() => (window as unknown as { __lastD: number }).__lastD);
+          return tick - last >= 300;
+        },
+        {
+          message: 'B holds no link to D for 300 ticks: a giant and a starter are two tiers apart',
+          timeout: 120_000,
+          intervals: [500],
+        },
+      )
+      .toBe(true);
 
     // No page ever held more links than its cap allows.
     for (const page of pages) {
