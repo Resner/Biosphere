@@ -127,9 +127,11 @@ function scatter(
 /** A crowd formed of `count` members around the reporter `id(0)` at the centre, at time 0. */
 function formed(count: number, opts?: { instanceMax?: number; quietMs?: number; seed?: string }) {
   const hub = new Hub(opts);
-  const rng = createRng(seedFromString(opts?.seed ?? 'crowd'));
+  const rng = createRng(seedFromString(opts?.seed ?? 'crowd'), 'crowds');
   hub.report(id(0), C, C, 0);
-  scatter(rng, count - 1, 350, 30).forEach(([x, y], i) => hub.report(id(i + 1), x, y, 0));
+  scatter(rng, count - 1, 350, 30).forEach(([x, y], i) => {
+    hub.report(id(i + 1), x, y, 0);
+  });
   hub.report(id(0), C, C, 100, listOf(hub, id(0)));
   hub.settle(100 + SPLIT_WAIT_MS);
   return hub;
@@ -138,9 +140,11 @@ function formed(count: number, opts?: { instanceMax?: number; quietMs?: number; 
 describe('Crowds: forming', () => {
   it('splits a crowded reporter and the open water in its P1 reach 3 s after the report', () => {
     const hub = new Hub();
-    const rng = createRng(seedFromString('forty'));
+    const rng = createRng(seedFromString('forty'), 'crowds');
     hub.report(id(0), C, C, 0);
-    scatter(rng, 40, 350, 30).forEach(([x, y], i) => hub.report(id(i + 1), x, y, 0));
+    scatter(rng, 40, 350, 30).forEach(([x, y], i) => {
+      hub.report(id(i + 1), x, y, 0);
+    });
     // One far away, and one two tiers up next to the reporter: neither is in the crowd.
     hub.report(id(90), C + 5000, C, 0);
     hub.report(id(91), C + 50, C, 0, null, 400);
@@ -243,13 +247,13 @@ describe('Crowds: units', () => {
  */
 function unitsHold(runs: number, seed: string): void {
   for (let run = 0; run < runs; run++) {
-    const rng = createRng(seedFromString(`${seed}:${run}`));
+    const rng = createRng(seedFromString(`${seed}:${run}`), 'crowds');
     const hub = new Hub({ instanceMax: rng.int(1, 16) });
     const count = rng.int(2, 60);
     // Every one within the reporter's P1 reach (760 wu): the reporter at the centre, the rest in 700.
-    scatter(rng, count, 700).forEach(([x, y], i) =>
-      hub.report(id(i), i === 0 ? C : x, i === 0 ? C : y, 0),
-    );
+    scatter(rng, count, 700).forEach(([x, y], i) => {
+      hub.report(id(i), i === 0 ? C : x, i === 0 ? C : y, 0);
+    });
     // The reporter asks first, so its crowd takes everyone; the other lists only make units.
     hub.again(id(0), 0, [id(1)]);
     const pairs: [string, string][] = [[id(0), id(1)]];
@@ -295,7 +299,7 @@ describe('Crowds: joining', () => {
     const hub = formed(32, { seed: 'pick' });
     const bins = [...hub.bins()].sort((a, b) => a[0] - b[0]);
     expect(bins.map(([, m]) => m.length)).toEqual([16, 16]);
-    const [[n1, in1], [n2, in2]] = bins as [number, string[]][];
+    const [[n1, in1], [n2, in2]] = bins as [[number, string[]], [number, string[]]];
 
     // A court partner in the first instance, though its list names the second's.
     hub.pair(id(70), in1[0] as string);
@@ -307,17 +311,16 @@ describe('Crowds: joining', () => {
     hub.report(id(71), C - 20, C - 20, 10_000, in2.slice(0, 3));
     expect(hub.n(id(71))).toBe(n2);
 
-    // Its list in the first instance, which is full now: the least-full is the second (17 vs 17,
-    // the lower number).
+    // Its list in the first instance, which is full: the least-full, the lower number of two at 17.
     hub.report(id(72), C - 20, C + 20, 10_000, in1.slice(0, 3));
-    expect(hub.n(id(72))).toBe(n1 < n2 ? n1 : n2);
+    expect(hub.n(id(72))).toBe(Math.min(n1, n2));
 
     // A crowd with room: its list wins over the least-full (the fuller instance, or the higher
     // number of two as full).
     const roomy = formed(12, { seed: 'room' });
     const [[r1, m1], [r2]] = [...roomy.bins()].sort(
       (a, b) => b[1].length - a[1].length || b[0] - a[0],
-    ) as [number, string[]][];
+    ) as [[number, string[]], [number, string[]]];
     expect(r1).not.toBe(r2);
     roomy.report(id(73), C + 10, C - 10, 10_000, m1.slice(0, 2));
     expect(roomy.n(id(73))).toBe(r1);
@@ -501,7 +504,7 @@ describe('Crowds: locked members', () => {
  */
 function lockedHold(runs: number, seed: string): void {
   for (let run = 0; run < runs; run++) {
-    const rng = createRng(seedFromString(`${seed}:${run}`));
+    const rng = createRng(seedFromString(`${seed}:${run}`), 'crowds');
     const hub = new Hub({ instanceMax: rng.int(1, 4), quietMs: 2000 });
     const frozen = new Map<string, number>();
     let now = 0;
@@ -576,7 +579,7 @@ describe('Crowds: lists', () => {
 
 describe('Crowds: speed', () => {
   speedTest('a report into a crowd of 300 under 1 ms, forming one of 300 under 20 ms', () => {
-    const rng = createRng(seedFromString('speed'));
+    const rng = createRng(seedFromString('speed'), 'crowds');
     // All within the reporter's P1 reach, 10 of them with lists.
     const points = scatter(rng, 300, 700);
     points[0] = [C, C];
@@ -584,14 +587,18 @@ describe('Crowds: speed', () => {
     let reporting = Number.POSITIVE_INFINITY;
     for (let round = 0; round < 5; round++) {
       const hub = new Hub();
-      points.forEach(([x, y], i) => hub.report(id(i), x, y, 0));
+      points.forEach(([x, y], i) => {
+        hub.report(id(i), x, y, 0);
+      });
       for (let i = 0; i < 300; i += 30) hub.again(id(i), 0, listOf(hub, id(i)));
       const t0 = performance.now();
       hub.settle(SPLIT_WAIT_MS);
       forming = Math.min(forming, performance.now() - t0);
       expect(hub.bins().size).toBeGreaterThanOrEqual(2);
       const t1 = performance.now();
-      points.forEach(([x, y], i) => hub.report(id(i), x + 1, y, 5000));
+      points.forEach(([x, y], i) => {
+        hub.report(id(i), x + 1, y, 5000);
+      });
       for (let i = 0; i < 300; i++) hub.report(id(400 + i), C + 760 + i, C, 5000);
       reporting = Math.min(reporting, (performance.now() - t1) / 600);
     }

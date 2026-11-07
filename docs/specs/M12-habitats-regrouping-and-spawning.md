@@ -95,7 +95,8 @@ export const INSTANCE_WIRE_MAX = 65_535;   // an instance on the wire: 0 (the op
 export type SpawnWhy = 'placed' | 'back' | 'ride';
 export type RideNo = 'locked' | 'busy' | 'company' | 'soon' | 'none';
 // ClientMsg changes and gains:
-//   where gains `crowd?: string[]`       // 1 to CROWD_LIST_MAX distinct player ids: the sender's engage candidates
+//   where gains `crowd?: string[]`       // 1 to CROWD_LIST_MAX distinct player ids: the sender's engage candidates,
+//                                        //   or the sender alone when it is crowded with none (T3)
 //   { t: 'spawn'; r: number; aoi: number }   // the creature is entering the water; r and aoi count only for an unrecorded cell
 //   { t: 'ride' }                        // ride the current to a group
 // HubMsg changes and gains:
@@ -149,6 +150,7 @@ export interface Moved { id: string; n: number }
 export class Crowds {
   constructor(opts?: { instanceMax?: number; quietMs?: number });
   instanceOf(id: string): number;
+  crowdOf(id: string): number;             // the id of its crowd, 0 for none: what the attachment keeps (T3)
   report(m: CrowdMember, crowd: readonly string[] | null, now: number, ctx: CrowdContext): Moved[];
   due(): number | null;                    // when the next split or re-split falls due
   settle(now: number, ctx: CrowdContext): Moved[];
@@ -254,7 +256,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - Done: `worker/placement.ts` (`groupsFor` takes an optional third argument, the spawn centre, for its tie-break), `clearOfPlumes` and `plumeFutures` in `src/sim/spawn.ts`.
     - Gotcha: the depth pin leaves the spawn centre at 0.26 to 0.54, so the exact centre is exempt from the 0.27 floor in an empty world; otherwise an empty world would not give it on some seeds.
 
-- [ ] T3 Crowd instances, pure: the authority's crowds and the page's filter [opus] (after T1) (in progress)
+- [x] T3 Crowd instances, pure: the authority's crowds and the page's filter [opus] (after T1) (in progress)
   - Steps:
     1. `worker/crowds.ts`: `Crowds` (shapes above), as ADR 0064 decides:
        - **forming**: a crowded report from open water with no crowd member within the reporter's P1 reach schedules a crowd, due `SPLIT_WAIT_MS` later. At `settle` it takes the reporter and the open-water members `around` places within that reach, and splits them into max(2, ⌈n ÷ `INSTANCE_MAX`⌉) instances;
@@ -281,7 +283,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - **Units** (property, over 10,000 random crowds): a fight of 2, a court pair and a chain of listed pairs each end up whole in one instance. A unit of 20 keeps an instance to itself, and the others fill the rest.
     - **Joining**:
       - an open-water member reporting within P1 reach of a member joins;
-      - with a fight partner inside, it takes the partner's instance;
+      - with a court partner inside, it takes the partner's instance (a fighter is locked, so it never joins: it stays in the open water, which shares water with its partner's);
       - else the instance holding most of its list, when it has room; else the least-full.
     - **Leaving**: a member reported beyond 2 × (8 × r + 900) wu of every other member goes to 0.
     - **Locked** (property, over 10,000 random sequences of reports, lists, locks, unlocks and removes):
@@ -301,6 +303,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - gossip entries carry instances, and an entry from water the receiver doesn't share is dropped.
     - `speedTest`: a report into a crowd of 300 takes under 1 ms, and forming a crowd of 300 under 20 ms, in Node.
   - Notes: pure. T5 wires `Crowds` into the hub and T6 the filter into the page; T8 runs both.
+    - Done: `worker/crowds.ts` (tests in the Node project), `Known.n`/`AoiSelf.n` (optional: none is the open water), `crowdList` and the crowd in `WhereReporter`, instances in gossip.
+    - Gotcha: binning opens a new instance rather than overfill one, and joining counts list pairs from both sides; a page crowded with no engage candidate sends its own id alone as its list.
 
 ### Spawning
 

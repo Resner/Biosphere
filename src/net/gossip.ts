@@ -2,11 +2,13 @@
 // of creatures near it between the directory's answers. Every 4 s each link carries the sender's up
 // to 16 linked peers nearest the receiver that the receiver could link with, placed by snapshots
 // under 2 s old; the receiver keeps each as a `gossip` sighting for 10 s unless it is told again.
+// Each entry carries its creature's instance (M12 T3, ADR 0064): the sender leaves out what the
+// receiver can't share water with, and the receiver drops what still comes from other water.
 // Pure: the page (T13) and the harness (T10) send what `due` returns and feed `receive`.
 
 import { linkTiers } from '../sim/size';
 import type { Known } from './aoi';
-import { OPEN_WATER } from './instance';
+import { OPEN_WATER, sameWater } from './instance';
 import { GOSSIP_MAX, type PeerEvent, wireCoord, wireRadius } from './protocol-defs';
 
 export const GOSSIP_EVERY_MS = 4000;
@@ -23,8 +25,9 @@ export type Fix = Omit<Known, 'id' | 'source'>;
 
 /**
  * The gossip for `to`: up to 16 of `fixes` (this page's linked peers, by their newest snapshots)
- * nearest `to`'s own newest snapshot, placed under 2 s ago and passing `linkTiers` with it, `to`
- * itself left out; positions rounded to whole wu. Null when `to` has no snapshot or none qualify.
+ * nearest `to`'s own newest snapshot, placed under 2 s ago, passing `linkTiers` with it and sharing
+ * its water, `to` itself left out; positions rounded to whole wu, each with its instance (none is
+ * the open water). Null when `to` has no snapshot or none qualify.
  */
 export function gossipFor(
   to: string,
@@ -34,13 +37,12 @@ export function gossipFor(
   const at = fixes.get(to);
   if (!at) return null;
   const near: [d: number, entry: PeersEvent['list'][number]][] = [];
+  const water = at.n ?? OPEN_WATER;
   for (const [id, f] of fixes) {
     if (id === to || now - f.at > GOSSIP_FRESH_MS || !linkTiers(at.r, f.r)) continue;
-    // Every entry is in the open water (0) until the page keeps instances (M12 T3).
-    near.push([
-      Math.hypot(f.x - at.x, f.y - at.y),
-      [id, coord(f.x), coord(f.y), radius(f.r), OPEN_WATER],
-    ]);
+    const n = f.n ?? OPEN_WATER;
+    if (!sameWater(water, n)) continue;
+    near.push([Math.hypot(f.x - at.x, f.y - at.y), [id, coord(f.x), coord(f.y), radius(f.r), n]]);
   }
   if (near.length === 0) return null;
   near.sort((a, b) => a[0] - b[0]);
@@ -95,17 +97,20 @@ export class Gossip {
     return last === undefined || now - last >= GOSSIP_EVERY_MS;
   }
 
-  /** Merges a linked peer's gossip: each entry is a sighting from `via` at `now`. */
-  receive(via: string, event: PeersEvent, now: number): void {
+  /**
+   * Merges a linked peer's gossip: each entry is a sighting from `via` at `now`, but for one from
+   * water this page, in instance `own`, does not share.
+   */
+  receive(via: string, event: PeersEvent, now: number, own = OPEN_WATER): void {
     let heard = this.bySender.get(via);
     if (!heard) {
       heard = new Map();
       this.bySender.set(via, heard);
     }
-    for (const [id, x, y, r] of event.list) {
-      if (id === this.selfId || id === via) continue;
+    for (const [id, x, y, r, n] of event.list) {
+      if (id === this.selfId || id === via || !sameWater(own, n)) continue;
       heard.delete(id);
-      heard.set(id, { x, y, r, at: now });
+      heard.set(id, { x, y, r, at: now, n });
     }
     for (const id of heard.keys()) {
       if (heard.size <= HEARD_PER_SENDER) break;
@@ -137,8 +142,7 @@ export class Gossip {
     for (const heard of this.bySender.values()) {
       for (const [id, f] of heard) {
         const seen = newest.get(id);
-        if (!seen || f.at > seen.at)
-          newest.set(id, { id, x: f.x, y: f.y, r: f.r, at: f.at, source: 'gossip' });
+        if (!seen || f.at > seen.at) newest.set(id, { id, ...f, source: 'gossip' });
       }
     }
     return [...newest.values()];

@@ -12,6 +12,7 @@ import {
   NO_CLASS,
   selectLinks,
 } from './connection-policy';
+import { OPEN_WATER, sameWater } from './instance';
 
 export type { LinkClass } from './connection-policy';
 
@@ -49,6 +50,8 @@ export interface Known {
   y: number;
   r: number;
   at: number;
+  /** Its instance as that source gave it (M12, ADR 0064); none is the open water. */
+  n?: number;
   source: 'snapshot' | 'gossip' | 'directory' | 'signal';
 }
 
@@ -60,6 +63,8 @@ export interface AoiSelf {
   vy: number;
   r: number;
   adultR: number;
+  /** Its own instance, as the hub last said (M12); none is the open water. */
+  n?: number;
 }
 
 export type AoiPlan = ConnectionPlan;
@@ -82,7 +87,8 @@ export class AoiManager {
    * larger radius + 600 wu (held to + 900); P2 within the AoI (held to 1.1 ×); P3 within 2 × the
    * AoI (2.2 ×); P4 within `Q` (1.1 ×), the AoI being the larger of the two creatures' (the other's
    * taken at its radius). A hold applies to a creature whose class in `prev` was that
-   * one or better. Every class but P0 needs `linkTiers`; a creature with none is left out.
+   * one or better. Every class but P0 needs `linkTiers` and water shared with the player
+   * (`sameWater`, by the newest sighting's instance); a creature with neither is left out.
    */
   classify(
     self: AoiSelf,
@@ -97,6 +103,7 @@ export class AoiManager {
       if (!seen || k.at > seen.at) newest.set(k.id, k);
     }
     const ownAoi = aoiRadius(self.r, self.adultR);
+    const water = self.n ?? OPEN_WATER;
     const aheadX = self.x + self.vx * AHEAD_S;
     const aheadY = self.y + self.vy * AHEAD_S;
     const out = new Map<string, LinkClass>();
@@ -105,7 +112,7 @@ export class AoiManager {
     for (const [id, k] of newest) {
       const d = Math.hypot(k.x - self.x, k.y - self.y);
       rank.set(id, d);
-      if (out.has(id) || !linkTiers(self.r, k.r)) continue;
+      if (out.has(id) || !linkTiers(self.r, k.r) || !sameWater(water, k.n ?? OPEN_WATER)) continue;
       // A link is wanted from both ends: a creature is in the AoI of whichever of the two sees further
       // (the other's AoI taken at its radius, as its adult radius is not known), so a giant's call
       // to a smaller creature far inside its AoI is one the smaller creature wants too.
