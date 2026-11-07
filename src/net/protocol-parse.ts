@@ -562,12 +562,13 @@ const clsOf = (o: Obj & { cls?: unknown }) =>
 
 function welcome(o: Obj): HubMsg | null {
   const world = worldInfo(o.world);
-  const hint = isObj(o.you) ? vec(o.you.spawnHint) : null;
+  // `you` is optional from protocol 12 (M12 T4 stops sending it), and well formed when it comes.
+  const hint = o.you === undefined ? undefined : isObj(o.you) ? vec(o.you.spawnHint) : null;
   const ice = list(o.ice, 8, iceServer);
   const ticket = o.ticket === undefined ? undefined : parseSignedSeat(o.ticket);
   if (
     !world ||
-    !hint ||
+    hint === null ||
     !ice ||
     ticket === null ||
     typeof o.turn !== 'boolean' ||
@@ -577,7 +578,7 @@ function welcome(o: Obj): HubMsg | null {
   return {
     t: 'welcome',
     world,
-    you: { spawnHint: hint },
+    ...(hint ? { you: { spawnHint: hint } } : {}),
     ice,
     turn: o.turn,
     now: o.now,

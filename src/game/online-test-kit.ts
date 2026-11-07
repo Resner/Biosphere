@@ -199,7 +199,7 @@ export const nearMsg = (
   t: 'near',
   leaf: LEAF,
   peers: peers.map(
-    ([id, dx]): NearPeer => ({ id, name: id.toUpperCase(), x: C + dx, y: C, r: 10, age }),
+    ([id, dx]): NearPeer => ({ id, name: id.toUpperCase(), x: C + dx, y: C, r: 10, age, n: 0 }),
   ),
   swarm,
 });

@@ -333,7 +333,8 @@ export class PeerMesh {
       const gate = this.opts.hello;
       if (gate) {
         const ticket = gate.ticket();
-        if (ticket) this.sendOn(link.event, JSON.stringify({ t: 'hello', ticket }));
+        // The page is in the open water (0) until it keeps instances (M12 T6).
+        if (ticket) this.sendOn(link.event, JSON.stringify({ t: 'hello', ticket, n: 0 }));
         if (!link.ticket) link.timeout = setTimeout(() => this.helloFailed(link), HELLO_MS);
       }
     }

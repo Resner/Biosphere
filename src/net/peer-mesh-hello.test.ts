@@ -128,8 +128,8 @@ describe('PeerMesh hello gate', () => {
     await settle();
     expect(a.joined).toEqual([B]);
     expect(b.joined).toEqual([A]);
-    expect(firstEvent(a.pcs[0])).toEqual({ t: 'hello', ticket: a.ticket });
-    expect(firstEvent(b.pcs[0])).toEqual({ t: 'hello', ticket: b.ticket });
+    expect(firstEvent(a.pcs[0])).toEqual({ t: 'hello', ticket: a.ticket, n: 0 });
+    expect(firstEvent(b.pcs[0])).toEqual({ t: 'hello', ticket: b.ticket, n: 0 });
     expect(a.mesh.ticketOf(B)?.seat.name).toBe('Bob');
     expect(b.mesh.ticketOf(A)?.seat.name).toBe('Alice');
     // The hellos are the mesh's own: listeners never see them.
@@ -170,12 +170,12 @@ describe('PeerMesh hello gate', () => {
     expect(a.states).toEqual([]);
     expect(a.mesh.stats().dropped).toBe(1);
     // b's hello comes late but in time.
-    expect(b.mesh.sendEvent(A, { t: 'hello', ticket: ticketFor(B) })).toBe(true);
+    expect(b.mesh.sendEvent(A, { t: 'hello', ticket: ticketFor(B), n: 0 })).toBe(true);
     expect(a.joined).toEqual([B]);
     expect(b.mesh.sendState(A, encodeSnapshot(SNAP))).toBe(true);
     expect(a.states).toHaveLength(1);
     // A second hello is not the listeners' either.
-    b.mesh.sendEvent(A, { t: 'hello', ticket: ticketFor(B) });
+    b.mesh.sendEvent(A, { t: 'hello', ticket: ticketFor(B), n: 0 });
     expect(a.events).toEqual([]);
     await vi.advanceTimersByTimeAsync(HELLO_MS * 2);
     expect(a.mesh.isOpen(B)).toBe(true);
@@ -184,7 +184,7 @@ describe('PeerMesh hello gate', () => {
 
   it('fails a ticket naming another player, and a first event that is not a hello', async () => {
     const firsts: PeerEvent[] = [
-      { t: 'hello', ticket: ticketFor(Cid) },
+      { t: 'hello', ticket: ticketFor(Cid), n: 0 },
       { t: 'chat', text: 'hi' },
     ];
     for (const first of firsts) {
@@ -205,7 +205,7 @@ describe('PeerMesh hello gate', () => {
     a.mesh.connect(B);
     await settle();
     vi.setSystemTime(T + SEAT_TTL_MS);
-    b.mesh.sendEvent(A, { t: 'hello', ticket: ticketFor(B) });
+    b.mesh.sendEvent(A, { t: 'hello', ticket: ticketFor(B), n: 0 });
     expect(a.mesh.peers()).toEqual([]);
     expect(a.mesh.stats().helloFailed).toBe(1);
   });

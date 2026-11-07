@@ -492,9 +492,10 @@ describe('rejections', () => {
     // egg bits (version 4, M6 T19), rules 7 bodies (version 5, M6b T1) and the world renewal
     // (version 6, M6c T2, so no pond mixes epochs), encounters (version 7, M7 T6) and worth,
     // settlements and proxy frames (version 8, M8 T3) and the second world renewal (version 9,
-    // M9 T2), witnesses (version 10, M10 T2) and the one world (version 11, M11 T2): older
-    // clients are turned away.
-    expect(PROTOCOL_VERSION).toBe(11);
+    // M9 T2), witnesses (version 10, M10 T2), the one world (version 11, M11 T2) and spawning,
+    // riding and crowd instances (version 12, M12 T1): older clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(12);
+    expect(bad({ ...hello, v: 11 })).toBeNull();
     expect(bad({ ...hello, v: 10 })).toBeNull();
     expect(bad({ ...hello, v: 9 })).toBeNull();
     expect(bad({ ...hello, v: 8 })).toBeNull();

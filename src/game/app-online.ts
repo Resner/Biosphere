@@ -129,7 +129,8 @@ export class OnlineWiring {
       id: w.world.id,
       seed: w.world.seed,
       size: w.world.size,
-      ring: { centre: w.world.centre, hint: w.you.spawnHint },
+      // Until the authority places creatures (M12 T4), the welcome's hint; with none, the centre.
+      ring: { centre: w.world.centre, hint: w.you?.spawnHint ?? w.world.centre },
       lives: 0,
       time: new PondTime(hubClock, w.world.epoch),
       food: new PondFood(app.playerId ?? 'local', (event) =>

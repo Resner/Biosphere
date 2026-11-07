@@ -35,7 +35,8 @@ export function gossipFor(
   const near: [d: number, entry: PeersEvent['list'][number]][] = [];
   for (const [id, f] of fixes) {
     if (id === to || now - f.at > GOSSIP_FRESH_MS || !linkTiers(at.r, f.r)) continue;
-    near.push([Math.hypot(f.x - at.x, f.y - at.y), [id, coord(f.x), coord(f.y), radius(f.r)]]);
+    // Every entry is in the open water (0) until the page keeps instances (M12 T3).
+    near.push([Math.hypot(f.x - at.x, f.y - at.y), [id, coord(f.x), coord(f.y), radius(f.r), 0]]);
   }
   if (near.length === 0) return null;
   near.sort((a, b) => a[0] - b[0]);

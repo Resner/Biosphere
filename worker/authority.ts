@@ -84,7 +84,7 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly fightStore: FightStore;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
-  /** Messages dropped without closing the socket, by type: past their own window's cap, or a `where` refused (a jump, outside the world). */
+  /** Messages dropped without closing the socket, by type: past their own window's cap, a `where` refused (a jump, outside the world), or a `spawn` or `ride` not yet answered (M12 T1). */
   readonly dropped = new Map<ClientMsg['t'], number>();
   /** Incoming messages that parsed, by type: what a fight costs the authority (ADR 0058's cost check). */
   readonly received = new Map<ClientMsg['t'], number>();
@@ -345,6 +345,12 @@ export class Authority extends DurableObject<Env> implements Hub {
         return;
       case 'gone':
         gone(this, ws, session);
+        return;
+      // Counted in the 20-message budget above, then dropped until spawning (M12 T4) and riding
+      // (M12 T7) answer them.
+      case 'spawn':
+      case 'ride':
+        this.dropped.set(msg.t, (this.dropped.get(msg.t) ?? 0) + 1);
         return;
     }
   }

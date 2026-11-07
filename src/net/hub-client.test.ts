@@ -146,7 +146,7 @@ describe('HubClient connect', () => {
     s.receive(welcome());
     const w = await p;
     expect(w.world.id).toBe('p1');
-    expect(w.you.spawnHint).toEqual({ x: 1, y: 2 });
+    expect(w.you?.spawnHint).toEqual({ x: 1, y: 2 });
     expect(client.status).toBe('online');
   });
 
@@ -258,7 +258,7 @@ describe('HubClient listeners', () => {
     const near = {
       t: 'near' as const,
       leaf,
-      peers: [{ id: 'A'.repeat(43), name: 'ann', x: 131_100, y: 131_000, r: 10, age: 200 }],
+      peers: [{ id: 'A'.repeat(43), name: 'ann', x: 131_100, y: 131_000, r: 10, age: 200, n: 0 }],
       swarm: [],
     };
     s.receive(near);

@@ -205,7 +205,7 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
     run(100);
     const told = mesh.events.filter(([, e]) => e.t === 'peers');
     expect(told.map(([to]) => to).sort()).toEqual(['a', 'b']);
-    mesh.event('a', { t: 'peers', list: [['c', C + 900, C, 10]] });
+    mesh.event('a', { t: 'peers', list: [['c', C + 900, C, 10, 0]] });
     expect(session.netInfo().known.gossip).toBe(1);
     // A forged relay (the fake signs nothing) is dropped and counted.
     mesh.event('a', {

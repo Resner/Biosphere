@@ -180,6 +180,8 @@ export class Directory {
         y: wire(m.y),
         r: Math.max(1, wire(m.r)),
         age: Math.max(0, Math.round(now - m.t)),
+        // Every member is in the open water until the hub keeps crowds (M12 T5).
+        n: 0,
       } satisfies NearPeer,
     }));
     const points = swarm
