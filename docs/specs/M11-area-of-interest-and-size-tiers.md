@@ -582,7 +582,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
 
 ### The world at full size
 
-- [ ] T11 Render at world scale: depth windows and a floating origin [opus] (after T4)
+- [ ] T11 Render at world scale: depth windows and a floating origin [opus] (after T4) (in progress)
   - Steps:
     1. `src/render/depth-window.ts`:
        - a 256 × 256 depth texture over a square window near a point, re-centred when the point has moved a quarter of the side;
