@@ -56,6 +56,24 @@ describe('AoiManager.classify', () => {
     expect(m.classify(STARTER, [known('a', 981)], NONE, new Map([['a', 1]])).get('a')).toBe(4);
   });
 
+  it('puts a creature in the AoI of whichever of the two sees further', () => {
+    // A tier-2 creature (radius 300) sees about 4,000 wu; a starter's AoI is 233 wu. The starter is in
+    // the big one's P2 at 3,000 wu, and the big one is in the starter's, so both ends want the link.
+    const m = new AoiManager({ selfId: 'me' });
+    const big: AoiSelf = { x: 0, y: 0, vx: 0, vy: 0, r: 300, adultR: 300 };
+    const reach = aoiRadius(300, 300);
+    expect(reach).toBeGreaterThan(3000);
+    // A tier-1 creature (radius 60) beside a tier-2 one: linkable, and far past its own AoI.
+    const mid: AoiSelf = { x: 0, y: 0, vx: 0, vy: 0, r: 60, adultR: 60 };
+    expect(aoiRadius(60, 60)).toBeLessThan(1000);
+    expect(m.classify(mid, [known('big', 3500, 300)], NONE, FRESH).get('big')).toBe(2);
+    expect(
+      new AoiManager({ selfId: 'big' })
+        .classify(big, [known('mid', 3500, 60)], NONE, FRESH)
+        .get('mid'),
+    ).toBe(2);
+  });
+
   it('gives a creature two tiers bigger no class, however near', () => {
     const m = new AoiManager({ selfId: 'me' });
     expect(m.classify(STARTER, [known('giant', 100, 200)], NONE, FRESH).has('giant')).toBe(false);
