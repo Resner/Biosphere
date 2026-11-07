@@ -24,8 +24,10 @@ export default defineConfig({
             'src/**/*.test.ts',
             'tools/**/*.test.ts',
             'tests/*.test.ts',
-            // The directory is pure, so the headless harness (M11 T10) and its tests run it here.
+            // The directory and the crowds are pure, so the headless harness (M11 T10) and their
+            // tests run them here.
             'worker/directory.test.ts',
+            'worker/crowds.test.ts',
           ],
           // Untagged tests take under about 2 s; this leaves room for a loaded runner.
           testTimeout: 20_000,
@@ -44,7 +46,7 @@ export default defineConfig({
         test: {
           name: 'worker',
           include: ['worker/**/*.test.ts'],
-          exclude: ['worker/directory.test.ts'],
+          exclude: ['worker/directory.test.ts', 'worker/crowds.test.ts'],
           tags,
         },
       },
