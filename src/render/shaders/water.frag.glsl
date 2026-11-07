@@ -1,10 +1,14 @@
 // The backdrop: water coloured by the zone under it (M6 T16; `zoneGlsl` in zones.ts, looked up per
 // vertex in water.vert.glsl), with a slow body colour, animated caustics (M6 T17), the dimming beyond the
-// player's sight in dark zones, and a glowing world wall.
+// player's sight in dark zones, and a glowing world wall. Points are wu from the floating origin
+// (M11 T11, origin.ts).
 uniform vec2 uCam;
 uniform vec2 uHalf;
 uniform float uTime;
-uniform float uWorld;
+// The origin over the body noise's 700 wu cells, so the body stays where it is when the origin moves.
+uniform vec2 uBodyShift;
+// The world's walls from the origin: west, south, east, north (each clamped within 16,384 wu).
+uniform vec4 uWalls;
 uniform float uLight;
 varying vec2 vNdc;
 varying vec3 vLow;
@@ -15,7 +19,7 @@ const vec3 CAUSTIC_WATER = vec3(0.14, 0.4, 0.36);
 
 void main() {
   vec2 w = uCam + vNdc * uHalf;
-  float body = fbm(w / 700.0 + vec2(uTime * 0.01, 0.0));
+  float body = fbmWorld(w / 700.0 + uBodyShift + vec2(uTime * 0.01, 0.0));
   vec3 col = mix(vLow, vHaze, body);
 
   // Caustics (caustics.glsl), as strong as the sunlight that reaches this depth (`zoneSun`).
@@ -28,7 +32,7 @@ void main() {
   col *= 1.0 - 0.4 * dot(vNdc, vNdc) * 0.5;
 
   // Negative outside the world. The wall is a soft glow, and beyond it the water is black.
-  float edge = min(min(w.x, uWorld - w.x), min(w.y, uWorld - w.y));
+  float edge = min(min(w.x - uWalls.x, uWalls.z - w.x), min(w.y - uWalls.y, uWalls.w - w.y));
   col = mix(col, vec3(0.0, 0.004, 0.006), (1.0 - smoothstep(-30.0, 0.0, edge)));
   col += vec3(0.10, 0.26, 0.30) * exp(-abs(edge) / 14.0) * 0.5;
 

@@ -1,6 +1,7 @@
 import * as THREE from 'three';
 import { advanceBeatPhase } from './beat';
 import { cellMaterial, colorUniform, flagellumMaterial, setUniform } from './materials';
+import { ORIGIN } from './origin';
 
 /** The halo reaches this many radii out from the centre. */
 const EXTENT = 1.45;
@@ -60,7 +61,7 @@ export class Cell {
     setUniform(this.bodyMaterial, 'uAlpha', alpha);
     setUniform(this.flagellumMat, 'uAlpha', alpha);
 
-    this.body.position.set(view.x, view.y, 0);
+    this.body.position.set(view.x - ORIGIN.x, view.y - ORIGIN.y, 0);
     this.body.rotation.z = view.heading;
     this.body.scale.setScalar(view.radius * EXTENT);
     setUniform(this.bodyMaterial, 'uTime', time);
@@ -68,7 +69,7 @@ export class Cell {
     setUniform(this.bodyMaterial, 'uDissolve', view.dissolve);
 
     // The whip's vertices are built in the cell's frame, so it follows the heading as a whole.
-    this.flagellum.position.set(view.x, view.y, 0);
+    this.flagellum.position.set(view.x - ORIGIN.x, view.y - ORIGIN.y, 0);
     this.flagellum.rotation.z = view.heading;
     this.phase = advanceBeatPhase(this.phase, view.beat, time - (this.lastTime ?? time));
     this.lastTime = time;

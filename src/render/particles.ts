@@ -8,6 +8,7 @@ import {
   setUniform,
   vec2Uniform,
 } from './materials';
+import { ORIGIN, ORIGIN_STEP } from './origin';
 import type { SpriteDof } from './post/chain';
 import { depthOfParallax, parallaxOfDepth } from './post/dof';
 import { PRESETS } from './presets';
@@ -120,7 +121,9 @@ export class ParticleLayer {
     vec2Uniform(m, 'uFlow').set(mod(flow.x, period), mod(flow.y, period));
     setUniform(m, 'uOpacity', this.style.opacity * light);
     this.pixels = dof.pixels;
-    vec2Uniform(m, 'uCam').set(view.camX, view.camY);
+    // From the floating origin (M11 T11), which the shader adds back in whole steps.
+    vec2Uniform(m, 'uCam').set(view.camX - ORIGIN.x, view.camY - ORIGIN.y);
+    vec2Uniform(m, 'uOriginStep').set(ORIGIN.x / ORIGIN_STEP, ORIGIN.y / ORIGIN_STEP);
     setUniform(m, 'uTime', view.waterTime);
     setUniform(m, 'uPxPerWu', pxPerWu * dof.pixels);
     setUniform(m, 'uMaxSize', MAX_SPRITE_PX * dof.shrink);
@@ -137,7 +140,12 @@ export class ParticleLayer {
   specks(pxPerWu: number, width: number, height: number): Speck[] {
     const u = this.material.uniforms;
     const value = (name: string) => (u[name] as THREE.IUniform).value as number;
-    const cam = (u.uCam as THREE.IUniform).value as THREE.Vector2;
+    const fromOrigin = (u.uCam as THREE.IUniform).value as THREE.Vector2;
+    const steps = (u.uOriginStep as THREE.IUniform).value as THREE.Vector2;
+    const cam = {
+      x: fromOrigin.x + steps.x * ORIGIN_STEP,
+      y: fromOrigin.y + steps.y * ORIGIN_STEP,
+    };
     const flow = (u.uFlow as THREE.IUniform).value as THREE.Vector2;
     const t = value('uTime');
     const { period, size, spread = 0 } = this.style;

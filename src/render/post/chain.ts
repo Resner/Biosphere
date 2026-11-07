@@ -9,6 +9,7 @@
 
 import * as THREE from 'three';
 import { BACKDROP } from '../materials';
+import { wrapTo } from '../origin';
 import { type DofMode, PRESETS, type PresetName } from '../presets';
 import bloomFragment from '../shaders/bloom.frag.glsl?raw';
 import godrays from '../shaders/godrays.glsl?raw';
@@ -40,12 +41,18 @@ export interface PostInfo {
   rays: number;
 }
 
-/** Where the god rays (M6 T17) cross the plane: the view in wu, their strength and their clock. */
+/**
+ * Where the god rays (M6 T17) cross the plane: the view in wu (from the floating origin, M11 T11),
+ * their strength and their clock.
+ */
 export interface RayView {
   /** 0 draws none. */
   strength: number;
   camX: number;
   camY: number;
+  /** The floating origin the camera is measured from (`origin.ts`), wu. */
+  originX: number;
+  originY: number;
   halfWidth: number;
   halfHeight: number;
   /** Seconds. */
@@ -126,6 +133,8 @@ export class PostChain {
     strength: 0,
     camX: 0,
     camY: 0,
+    originX: 0,
+    originY: 0,
     halfWidth: 1,
     halfHeight: 1,
     time: 0,
@@ -293,10 +302,12 @@ export class PostChain {
         GRADE.around / target.height,
       );
       if (!this.still) this.frame = (this.frame + 1) % 4096;
-      (u.uSeed as THREE.IUniform).value = this.frame * 17.31;
+      // Kept small, as every uniform is (M11 T11): the grain's hash keeps its precision.
+      (u.uSeed as THREE.IUniform).value = (this.frame * 17.31) % 1024;
       const rays = this.rays;
       (u.uRays as THREE.IUniform).value = rays.strength;
       ((u.uRayCam as THREE.IUniform).value as THREE.Vector2).set(rays.camX, rays.camY);
+      rayShift(rays.originX, rays.originY, (u.uRayShift as THREE.IUniform).value as THREE.Vector4);
       ((u.uRayHalf as THREE.IUniform).value as THREE.Vector2).set(rays.halfWidth, rays.halfHeight);
       (u.uRayTime as THREE.IUniform).value = rays.time;
       this.quad.material = composite;
@@ -370,6 +381,7 @@ export class PostChain {
         uSeed: { value: 0 },
         uRays: { value: 0 },
         uRayCam: { value: new THREE.Vector2() },
+        uRayShift: { value: new THREE.Vector4() },
         uRayHalf: { value: new THREE.Vector2(1, 1) },
         uRayTime: { value: 0 },
       },
@@ -413,4 +425,23 @@ export class PostChain {
     for (const mip of this.mips) mip.dispose();
     this.mips = [];
   }
+}
+
+/** The god rays' light runs this way across the plane, and their bands across it (godrays.glsl). */
+const RAY_DIR = { x: 0.8, y: -0.6 } as const;
+const TAU = 2 * Math.PI;
+
+/**
+ * The floating origin's phase in each of the god rays' waves (M11 T11, `godRays`): the three bands
+ * across the light and the swell along it, so the shafts stay put when the origin moves.
+ */
+export function rayShift(x: number, y: number, out: THREE.Vector4): THREE.Vector4 {
+  const across = -RAY_DIR.y * x + RAY_DIR.x * y;
+  const along = RAY_DIR.x * x + RAY_DIR.y * y;
+  return out.set(
+    wrapTo(across / 9, TAU),
+    wrapTo(across / 14, TAU),
+    wrapTo(across / 23, TAU),
+    wrapTo(along / 45 + across / 31, TAU),
+  );
 }

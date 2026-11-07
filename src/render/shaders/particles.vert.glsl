@@ -3,7 +3,9 @@
 // plus up to `uSpread` either way. The depth sets how much of the camera motion the speck follows
 // and, with the depth of field (M6 T3), the radius of its circle of confusion: the sprite grows by
 // it and spreads its light over the larger disc (`bokehShape` in `post/dof.ts` mirrors this).
+// The camera from the floating origin (M11 T11), and the origin in whole steps of ORIGIN_STEP wu.
 uniform vec2 uCam;
+uniform vec2 uOriginStep;
 /** How far the currents have carried the water, wrapped to the tile (M6 T17). */
 uniform vec2 uFlow;
 uniform float uPeriod;
@@ -49,7 +51,11 @@ void main() {
   float parallax = 1.0 / (1.0 - z);
   // Its own slow drift, and the currents that carry all the water (M6 T17).
   vec2 drift = vec2(0.8 + 1.2 * aSeed, 0.3 * sin(uTime * 0.3 + aSeed * 6.2831)) * uTime + uFlow;
-  vec2 rel = mod(position.xy * uPeriod + drift - uCam * parallax, uPeriod) - 0.5 * uPeriod;
+  // The camera's world position times the parallax, wrapped to the tile: the origin's part is a
+  // whole number of steps, each worth a step's parallax wrapped to the tile, so the specks never
+  // jump when the origin moves and keep their precision far out in the world.
+  vec2 origin = mod(uOriginStep * mod(ORIGIN_STEP * parallax, uPeriod), uPeriod);
+  vec2 rel = mod(position.xy * uPeriod + drift - uCam * parallax - origin, uPeriod) - 0.5 * uPeriod;
   vSeed = aSeed;
 
   float coc = min(uCocMax, uCocSlope * abs(z - uFocus));

@@ -9,6 +9,7 @@ import { RARITY_TIERS, type RarityTier } from '../genome/rarity';
 import { clamp, lerp } from '../sim/math';
 import { writeInstance } from './instances';
 import { eggMaterial, setUniform } from './materials';
+import { ORIGIN } from './origin';
 
 export type EggPhase = 'none' | 'waiting' | 'stirring' | 'cracking' | 'revealed';
 
@@ -851,8 +852,8 @@ export class EggLayer {
           matrix[o + 9] = 0;
           matrix[o + 10] = 1;
           matrix[o + 11] = 0;
-          matrix[o + 12] = p.x + ux * mid;
-          matrix[o + 13] = p.y + uy * mid;
+          matrix[o + 12] = p.x + ux * mid - ORIGIN.x;
+          matrix[o + 13] = p.y + uy * mid - ORIGIN.y;
           matrix[o + 14] = 0;
           matrix[o + 15] = 1;
           this.write(n, 1, pose, egg.seed);

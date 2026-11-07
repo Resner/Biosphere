@@ -92,6 +92,10 @@ export interface GameParams {
   dof?: boolean;
   /** `?light=0`: a test switch that draws no caustics and no god rays (M6 T17). */
   light?: boolean;
+  /** `?gpu=watch` (M11 T11): a test switch that keeps the largest float sent to the GPU (`render.gpu()`). */
+  gpuWatch?: boolean;
+  /** `?world=<size>` (M11 T11): the offline world's side in wu; it spawns at its centre. */
+  world?: number | null;
 }
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
@@ -283,9 +287,10 @@ export class App {
     readonly canvas: HTMLCanvasElement,
     readonly params: GameParams,
   ) {
-    this.scene = new GameScene(canvas, RULES.world.size, {
+    this.scene = new GameScene(canvas, params.world ?? RULES.world.size, {
       dof: params.dof ?? true,
       light: params.light ?? true,
+      watch: params.gpuWatch ?? false,
     });
     this.camera = new FollowCamera();
     this.controller = new InputController();
@@ -424,7 +429,15 @@ export class App {
       random: () => crypto.getRandomValues(new Uint32Array(2)).join('-'),
       warn: (message) => console.warn(message),
     });
-    this.session = newSession(params.seed, true, this.hatcher.title());
+    this.session = newSession(
+      params.seed,
+      true,
+      this.hatcher.title(),
+      null,
+      null,
+      undefined,
+      params.world ?? undefined,
+    );
     this.field = createFieldSync(() => this.refreshField());
     this.growth = new GrowthWatch();
 

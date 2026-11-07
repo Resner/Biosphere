@@ -8,6 +8,7 @@ import {
   reducedMotion,
   saveBench,
   saveSettings,
+  worldFromSearch,
 } from './settings';
 
 const store = (initial?: string) => {
@@ -128,6 +129,27 @@ describe('reducedMotion', () => {
     expect(reducedMotion(DEFAULT_SETTINGS, false)).toBe(false);
     expect(reducedMotion({ ...DEFAULT_SETTINGS, reducedMotion: false }, true)).toBe(false);
     expect(reducedMotion({ ...DEFAULT_SETTINGS, reducedMotion: true }, false)).toBe(true);
+  });
+});
+
+describe('worldFromSearch', () => {
+  it('reads the offline world size from ?world=, 8,192 to 262,144 wu', () => {
+    expect(worldFromSearch('?world=262144')).toBe(262_144);
+    expect(worldFromSearch('?debug=1&world=8192')).toBe(8192);
+    expect(worldFromSearch('?world=65536')).toBe(65_536);
+  });
+
+  it('ignores a size out of range, not in 4,096 wu steps, or not a number', () => {
+    for (const search of [
+      '',
+      '?world=4096',
+      '?world=524288',
+      '?world=10000',
+      '?world=big',
+      '?world=',
+    ]) {
+      expect(worldFromSearch(search), search).toBeNull();
+    }
   });
 });
 

@@ -153,6 +153,7 @@ export class LifeStarts {
       target,
       spawn,
       recorded?.start.condition?.biomass,
+      app.params.world ?? undefined,
     );
     const saved = recorded?.start.condition;
     if (saved) {

@@ -323,7 +323,7 @@ export class Frame {
     minimapView.readout = null;
     if (!app.session.demo) {
       const { world } = app.session;
-      const depth = depthAt(world.seed32, player.x, player.y);
+      const depth = depthAt(world.seed32, player.x, player.y, world.size);
       const readout = zoneReadout(depth, player.phys, world.options.hazards && player.alive);
       hud.setZone(readout);
       minimapView.readout = readout;

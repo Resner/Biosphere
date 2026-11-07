@@ -67,6 +67,18 @@ export function qualityFromSearch(search: string): PresetName | null {
   return isPresetName(value) ? value : null;
 }
 
+/** `?world=` (M11 T11): the offline world's side, wu. */
+export const WORLD_PARAM = { min: 8192, max: 262_144, step: 4096 } as const;
+
+/** `?world=<size>` sizes the offline local world for this visit; null when absent or out of range. */
+export function worldFromSearch(search: string): number | null {
+  const value = new URLSearchParams(search).get('world');
+  if (!value || !/^\d+$/.test(value)) return null;
+  const size = Number(value);
+  const { min, max, step } = WORLD_PARAM;
+  return size >= min && size <= max && size % step === 0 ? size : null;
+}
+
 const BENCH_KEY = 'bs.bench';
 /** A browser keeps the benchmark results of this many GPUs (a laptop docked and undocked). */
 export const BENCH_GPUS = 8;

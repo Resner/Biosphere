@@ -78,6 +78,8 @@ function debugHelpers(app: App): BsDebug {
       player.vy = 0;
       app.prev.x = x;
       app.prev.y = y;
+      // The zones' depth window fills at once there, as a new life's does.
+      app.scene.settleZones();
     },
     setZone(zone) {
       const { world, player } = app.session;
@@ -186,7 +188,7 @@ const zoneState = (app: App): Pick<BsState, 'zone' | 'depth'> => {
   const { session } = app;
   if (session.demo) return { zone: null, depth: null };
   const { world, player } = session;
-  const depth = depthAt(world.seed32, player.x, player.y);
+  const depth = depthAt(world.seed32, player.x, player.y, world.size);
   return { zone: zoneOfDepth(depth), depth };
 };
 
@@ -433,6 +435,7 @@ export function installAppHook(app: App): void {
       info: () => ({ ...scene.info(), telegraphs: app.fightShow.telegraphs.info() }),
       specks: (layer) => scene.specks(layer),
       outlines: () => scene.outlinesDrawn(),
+      gpu: () => scene.gpuExtent(),
       eggAngle: (atMs) => eggs.angleAt(atMs, app.motionReduced()),
       fx: () => {
         const { cell } = app.frame;

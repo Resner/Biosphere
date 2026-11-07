@@ -1,7 +1,7 @@
 import './style.css';
 import { startApp } from './game/app';
 import { formatBuildLabel } from './game/build-label';
-import { qualityFromSearch } from './game/settings';
+import { qualityFromSearch, worldFromSearch } from './game/settings';
 
 const label = document.querySelector<HTMLElement>('[data-testid="build-label"]');
 if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
@@ -16,6 +16,8 @@ if (canvas) {
     quality: qualityFromSearch(window.location.search),
     dof: params.get('dof') !== '0',
     light: params.get('light') !== '0',
+    world: worldFromSearch(window.location.search),
+    gpuWatch: params.get('gpu') === 'watch',
   });
 }
 
