@@ -290,7 +290,7 @@ describe('protocol 10 round trips', () => {
   it.each(peerEvents.map(label))('peer %s', (_, m) => expect(peer(m)).toEqual(m));
 
   it('keeps lock-state without seen, and with up to 5 signed snapshots', () => {
-    const mine = { snap: 'A'.repeat(34), sig: SIG };
+    const mine = { snap: 'A'.repeat(39), sig: SIG };
     const bare = { t: 'lock-state', lock: 'ab'.repeat(16), mine };
     expect(client(bare)).toEqual(bare);
     for (const n of [0, 1, 5]) {

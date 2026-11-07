@@ -8,6 +8,7 @@ import {
   EVENT_MAX_BYTES,
   type PeerEvent,
   parsePeerEvent,
+  RELAY_MAX_BYTES,
   type SignedSnap,
   type Snapshot,
 } from './protocol';
@@ -110,14 +111,14 @@ export class PeerMesh {
   onPeerLeft(fn: (id: string) => void): void {
     this.leftListeners.push(fn);
   }
-  /** A snapshot, with its signed form when it came as an 89-byte frame (not verified here). */
+  /** A snapshot, with its signed form when it came as a 93-byte frame (not verified here). */
   onState(fn: (id: string, s: Snapshot, signed: SignedSnap | null) => void): void {
     this.stateListeners.push(fn);
   }
   onEvent(fn: (id: string, e: PeerEvent) => void): void {
     this.eventListeners.push(fn);
   }
-  /** A 57-byte proxy frame: `player`'s away fighter as peer `id` relays it (M8 T11, not checked here). */
+  /** A 61-byte proxy frame: `player`'s away fighter as peer `id` relays it (M8 T11, not checked here). */
   onProxy(fn: (id: string, player: string, s: Snapshot) => void): void {
     this.proxyListeners.push(fn);
   }
@@ -166,10 +167,10 @@ export class PeerMesh {
     return this.sendOn(this.links.get(peerId)?.state ?? null, bytes);
   }
 
-  /** Sends an event on the reliable channel. Returns false when it was not sent. */
+  /** Sends an event on the reliable channel (a `relay` up to `RELAY_MAX_BYTES`). Returns false when it was not sent. */
   sendEvent(peerId: string, event: PeerEvent): boolean {
     const text = JSON.stringify(event);
-    if (byteLength(text) > EVENT_MAX_BYTES) return false;
+    if (byteLength(text) > (event.t === 'relay' ? RELAY_MAX_BYTES : EVENT_MAX_BYTES)) return false;
     return this.sendOn(this.links.get(peerId)?.event ?? null, text);
   }
 
@@ -387,8 +388,8 @@ export class PeerMesh {
       for (const fn of this.stateListeners) guarded(() => fn(link.peerId, snapshot, signed));
       return;
     }
-    const event =
-      typeof data === 'string' && byteLength(data) <= EVENT_MAX_BYTES ? parsePeerEvent(data) : null;
+    // The parser caps each event's size: `EVENT_MAX_BYTES`, or `RELAY_MAX_BYTES` for a relay.
+    const event = typeof data === 'string' ? parsePeerEvent(data) : null;
     if (!event) {
       this.droppedCount += 1;
       return;

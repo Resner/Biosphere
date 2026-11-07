@@ -8,10 +8,10 @@ import {
   type HubMsg,
   type IceServer,
   type Member,
-  type PondInfo,
   SDP_MAX_BYTES,
   SPAWN_GOLDEN_ANGLE,
   type Vec2,
+  type WorldInfo,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { RULES } from '../src/sim/rules';
@@ -227,7 +227,7 @@ export function enter(
   broadcast(hub, pond.id, ws, { t: 'member', op: 'join', member: who });
   sendIfOpen(ws, {
     t: 'welcome',
-    pond,
+    world: pond,
     you: { spawnHint },
     members,
     ice: link.ice,
@@ -250,7 +250,7 @@ export function place(
   hub: Hub,
   held?: string,
 ): {
-  pond: PondInfo;
+  pond: WorldInfo;
   spawnHint: Vec2;
   members: Member[];
   slot: number;

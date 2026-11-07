@@ -160,7 +160,7 @@ describe('SignedSnaps', () => {
 });
 
 describe('signing cost', () => {
-  speedTest('signs one snapshot as an 89-byte frame in under 1 ms in Node', async () => {
+  speedTest('signs one snapshot as a 93-byte frame in under 1 ms in Node', async () => {
     const me = await seeded(3);
     const bytes = encodeSnapshot(snap(1000));
     for (let i = 0; i < 20; i++) encodeSignedFrame(signSnap(me, POND, bytes));

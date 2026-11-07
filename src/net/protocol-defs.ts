@@ -3,12 +3,13 @@ import type { Beacon } from '../ledger/drand';
 import type { Commitment } from '../ledger/genesis';
 import type { MateAsk } from '../ledger/mate-ask';
 import type { RecordRequest, Status, StoredRecord } from '../ledger/record';
+import type { SignedSeat } from '../ledger/seat';
 import type { FightLog, SignedSettlement } from '../ledger/settlement';
 import type { SignedAttestation } from '../ledger/witness-doc';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 10;
+export const PROTOCOL_VERSION = 11;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -18,7 +19,7 @@ export const CLOSE_ORIGIN = 4004;
 
 /** Size caps in UTF-8 bytes. A `signal` carries an SDP of up to `SDP_MAX_BYTES`, so it gets more room. */
 export const HUB_MAX_BYTES = 4096;
-/** A welcome lists up to 23 members plus ICE servers with long TURN credentials (about 4.8 KB at worst). */
+/** A welcome lists up to 23 members plus ICE servers with long TURN credentials and a seat ticket (about 5.3 KB at worst). */
 export const WELCOME_MAX_BYTES = 8192;
 export const SIGNAL_MAX_BYTES = 12288;
 export const SDP_MAX_BYTES = 8192;
@@ -33,9 +34,9 @@ export const LINEAGE_MAX_BYTES = 131_072;
 export const LINEAGE_MAX = 64;
 export const PEDIGREE_MAX = 64;
 export const EVENT_MAX_BYTES = 2048;
-export const SNAPSHOT_BYTES = 25;
+export const SNAPSHOT_BYTES = 29;
 /** The snapshot layout version, the last byte of every snapshot. */
-export const SNAPSHOT_VERSION = 4;
+export const SNAPSHOT_VERSION = 5;
 /** An Ed25519 signature. */
 export const SIGNATURE_BYTES = 64;
 /** A state-channel frame for engage candidates: the snapshot, then its 64-byte signature (ADR 0050). */
@@ -63,6 +64,25 @@ export const BATCH_MAX_FRAMES = 20;
 export const DUTY_HISTORY_FRAMES = 900;
 /** A `lock-state` carries at most this many of the target's copies of the attacker's signed snapshots (M10 T11). */
 export const SEEN_MAX = 5;
+
+/**
+ * The world and its directory (protocol 11, M11, ADR 0062). A `near` lists up to 48 peers and 64
+ * swarm points within `NEAR_MAX_BYTES` (the hub drops the farthest to stay within it); a gossip
+ * `peers` event up to 16. A `relay` peer event carries an SDP, so it alone may pass
+ * `EVENT_MAX_BYTES`, up to `RELAY_MAX_BYTES`.
+ */
+export const NEAR_MAX = 48;
+export const SWARM_MAX = 64;
+export const NEAR_MAX_BYTES = 8192;
+export const GOSSIP_MAX = 16;
+export const RELAY_MAX_BYTES = 10_240;
+/** Positions on the wire lie in 0 to 2^29 wu (exclusive), the snapshot's reach. */
+export const WIRE_POS_MAX = 2 ** 29;
+/** A reported radius lies in 1 to 4096 wu, and an area of interest in 1 to 40,000 wu. */
+export const WIRE_RADIUS_MAX = 4096;
+export const WIRE_AOI_MAX = 40_000;
+/** The snapshot rates a receiver may ask for (`rate`), in Hz. */
+export const SNAPSHOT_RATES = [1, 2, 5, 10] as const;
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;
@@ -95,7 +115,8 @@ export interface IceServer {
   credential?: string;
 }
 
-export interface PondInfo {
+/** The world a welcome names (until T14, `id` is the session's pond, a roster group of it). */
+export interface WorldInfo {
   id: string;
   seed: string;
   epoch: number;
@@ -103,6 +124,26 @@ export interface PondInfo {
   /** The world's side in wu. */
   size: number;
 }
+
+/** A directory leaf: its square's lower corner and side, in wu. */
+export interface Leaf {
+  x: number;
+  y: number;
+  size: number;
+}
+
+/** A member near a reporter, as the directory last heard of it; `age` is ms since its report. */
+export interface NearPeer {
+  id: string;
+  name: string;
+  x: number;
+  y: number;
+  r: number;
+  age: number;
+}
+
+/** A position on the wire: the centre and the radius, in wu. */
+export type Pos = [x: number, y: number, r: number];
 
 /** A commitment with the authority's countersignature over its id. */
 export interface SignedCommit {
@@ -196,7 +237,7 @@ export const isCause = (v: unknown): v is DeathCause =>
 /** Past lives one `history` answer carries. */
 export const HISTORY_MAX = 20;
 
-/** A snapshot signed by its sender for lock-in (`src/ledger/snapshot-sig.ts`): base64url of the 25 snapshot bytes and of the 64-byte signature. */
+/** A snapshot signed by its sender for lock-in (`src/ledger/snapshot-sig.ts`): base64url of the 29 snapshot bytes and of the 64-byte signature. */
 export interface SignedSnap {
   snap: string;
   sig: string;
@@ -304,7 +345,11 @@ export type ClientMsg =
   /** A fighter shows the witness's signed frame `f` (`signWitnessFrame`), which differs from the authority's. */
   | { t: 'dispute'; enc: string; f: number; i: (number | null)[]; sig: string }
   /** An auditor's verdict. */
-  | { t: 'attest'; signed: SignedAttestation };
+  | { t: 'attest'; signed: SignedAttestation }
+  /** The creature's centre and radius, and the sender's area-of-interest radius, in wu (M11). */
+  | { t: 'where'; x: number; y: number; r: number; aoi: number }
+  /** No creature in the water: the title, the death screen or a hidden tab. */
+  | { t: 'gone' };
 
 /** One entry of a referee duty's history: a finalized frame or a join, in order, without the encounter id the duty names. */
 export type DutyHistory =
@@ -340,16 +385,25 @@ export type HubMsg =
   | { t: 'challenge'; nonce: string }
   | {
       t: 'welcome';
-      pond: PondInfo;
+      world: WorldInfo;
       you: { spawnHint: Vec2 };
       members: Member[];
       ice: IceServer[];
       turn: boolean;
       now: number;
+      /** The session's seat ticket (T7 always sends one). */
+      ticket?: SignedSeat;
     }
   | { t: 'pong'; id: number; now: number }
   | { t: 'member'; op: 'join' | 'leave'; member: Member }
-  | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string }
+  /** `at`: the sender's directory position, stamped by the hub. */
+  | { t: 'signal'; from: string; kind: 'offer' | 'answer'; sdp: string; at?: Pos }
+  /** The answer to every `where`: the reporter's leaf, the linkable members near it, and the small ones as positions. */
+  | { t: 'near'; leaf: Leaf; peers: NearPeer[]; swarm: [x: number, y: number][] }
+  /** A split or merge moved the session's leaf. */
+  | { t: 'leaf'; leaf: Leaf }
+  /** A fresh seat ticket. */
+  | { t: 'seat'; ticket: SignedSeat }
   /** After `welcome`: the player's active creature or null, and ms until the next recorded hatch (0 = now). */
   | {
       t: 'life';
@@ -484,6 +538,7 @@ export type HubMsg =
 
 /** Peer `event` channel: JSON, at most `EVENT_MAX_BYTES`. */
 export type PeerEvent =
+  /** `slot` may carry a food layer before its cell: `t<1–4>c<x>_<y>_s<slot>`. */
   | { t: 'claim'; slot: string; k: number; tick: number }
   | {
       t: 'consumed';
@@ -501,7 +556,24 @@ export type PeerEvent =
   /** The witness referee's final frame, signed (`signWitnessFrame`). */
   | { t: 'wframe'; enc: string; f: number; i: (number | null)[]; sig: string }
   /** A round trip on a duty link: `back` is the answer to probe `n`. */
-  | { t: 'probe'; n: number; back: boolean };
+  | { t: 'probe'; n: number; back: boolean }
+  /** The first event on every link, each way: the sender's seat ticket. */
+  | { t: 'hello'; ticket: SignedSeat }
+  /** Gossip: up to `GOSSIP_MAX` of the sender's linked peers, distinct. */
+  | { t: 'peers'; list: [id: string, x: number, y: number, r: number][] }
+  /** A signal relayed by a peer both sides hold, signed by `from` over its fields (`signalBytes`). */
+  | {
+      t: 'relay';
+      from: string;
+      to: string;
+      kind: 'offer' | 'answer';
+      sdp: string;
+      at: number;
+      pos: Pos;
+      sig: string;
+    }
+  /** The snapshot rate this side wants from the other. */
+  | { t: 'rate'; hz: (typeof SNAPSHOT_RATES)[number] };
 
 /** Peer `state` channel. Energy and health are fractions of their maximum, 0 to 1. */
 export interface Snapshot {
@@ -532,18 +604,19 @@ export interface Snapshot {
   genomeRef: number;
 }
 
-// Snapshot layout (version 4), little endian, 25 bytes:
-//  0 seq u16 | 2 tick u32 | 6 x u16 | 8 y u16 | 10 heading u8 | 11 flags u8 |
-// 12 vx i16 | 14 vy i16 | 16 biomass u16 | 18 energy u16 | 20 health u16 | 22 genomeRef u16 |
-// 24 version u8 (4)
+// Snapshot layout (version 5), little endian, 29 bytes:
+//  0 seq u16 | 2 tick u32 | 6 x u32 | 10 y u32 | 14 heading u8 | 15 flags u8 |
+// 16 vx i16 | 18 vy i16 | 20 biomass u16 | 22 energy u16 | 24 health u16 | 26 genomeRef u16 |
+// 28 version u8 (5)
 // Flags: 1 alive, 2 dashing, 4 ready to mate, 8 carrying an egg, 16 spawn-protected, 32 fighting;
 // any other bit drops the snapshot.
-// Positions are in 0.125 wu steps (0 to 8192 wu), heading in 2π/256, velocity in 0.25 wu/s;
+// Positions are in 0.125 wu steps (0 to 2^29 wu), heading in 2π/256, velocity in 0.25 wu/s;
 // energy and health are fractions of the creature's maximum, in 1/65535. Biomass is quantised on a
 // log scale: q = round(log2(biomass) · 65535 / 24) covers 1 to 2^24 (a body can reach 2.4 million),
 // so the relative error is at most 2^(12/65535) - 1 = 0.013%; smaller values read back as 1.
-// Version 1 snapshots are 24 bytes and fail the length check; version 2 lacked the ready and egg
-// bits, version 3 the protected and fighting bits.
+// Version 1 snapshots are 24 bytes and versions 2 to 4 25 bytes (x and y as u16, 0 to 8192 wu),
+// so they fail the length check; version 2 lacked the ready and egg bits, version 3 the protected
+// and fighting bits.
 const TAU = 2 * Math.PI;
 const POS_STEP = 0.125;
 const VEL_STEP = 0.25;
@@ -581,12 +654,12 @@ export function encodeSnapshot(s: Snapshot): Uint8Array {
   const v = new DataView(out.buffer);
   v.setUint16(0, s.seq & 0xffff, true);
   v.setUint32(2, s.tick >>> 0, true);
-  v.setUint16(6, quantize(s.x, POS_STEP, 0, 0xffff), true);
-  v.setUint16(8, quantize(s.y, POS_STEP, 0, 0xffff), true);
+  v.setUint32(6, quantize(s.x, POS_STEP, 0, 0xffffffff), true);
+  v.setUint32(10, quantize(s.y, POS_STEP, 0, 0xffffffff), true);
   const turns = Number.isFinite(s.heading) ? s.heading / TAU : 0;
-  v.setUint8(10, Math.round((turns - Math.floor(turns)) * HEADING_STEPS) & (HEADING_STEPS - 1));
+  v.setUint8(14, Math.round((turns - Math.floor(turns)) * HEADING_STEPS) & (HEADING_STEPS - 1));
   v.setUint8(
-    11,
+    15,
     (s.alive ? FLAG_ALIVE : 0) |
       (s.dashing ? FLAG_DASHING : 0) |
       (s.ready ? FLAG_READY : 0) |
@@ -594,13 +667,13 @@ export function encodeSnapshot(s: Snapshot): Uint8Array {
       (s.spawnProtected ? FLAG_PROTECTED : 0) |
       (s.fighting ? FLAG_FIGHTING : 0),
   );
-  v.setInt16(12, quantize(s.vx, VEL_STEP, -0x8000, 0x7fff), true);
-  v.setInt16(14, quantize(s.vy, VEL_STEP, -0x8000, 0x7fff), true);
-  v.setUint16(16, encodeBiomass(s.biomass), true);
-  v.setUint16(18, quantize(s.energy, 1 / 0xffff, 0, 0xffff), true);
-  v.setUint16(20, quantize(s.health, 1 / 0xffff, 0, 0xffff), true);
-  v.setUint16(22, s.genomeRef & 0xffff, true);
-  v.setUint8(24, SNAPSHOT_VERSION);
+  v.setInt16(16, quantize(s.vx, VEL_STEP, -0x8000, 0x7fff), true);
+  v.setInt16(18, quantize(s.vy, VEL_STEP, -0x8000, 0x7fff), true);
+  v.setUint16(20, encodeBiomass(s.biomass), true);
+  v.setUint16(22, quantize(s.energy, 1 / 0xffff, 0, 0xffff), true);
+  v.setUint16(24, quantize(s.health, 1 / 0xffff, 0, 0xffff), true);
+  v.setUint16(26, s.genomeRef & 0xffff, true);
+  v.setUint8(28, SNAPSHOT_VERSION);
   return out;
 }
 
@@ -608,25 +681,25 @@ export function encodeSnapshot(s: Snapshot): Uint8Array {
 export function decodeSnapshot(b: Uint8Array): Snapshot | null {
   if (!(b instanceof Uint8Array) || b.length !== SNAPSHOT_BYTES) return null;
   const v = new DataView(b.buffer, b.byteOffset, b.byteLength);
-  const flags = v.getUint8(11);
-  if ((flags & ~FLAG_MASK) !== 0 || v.getUint8(24) !== SNAPSHOT_VERSION) return null;
+  const flags = v.getUint8(15);
+  if ((flags & ~FLAG_MASK) !== 0 || v.getUint8(28) !== SNAPSHOT_VERSION) return null;
   return {
     seq: v.getUint16(0, true),
     tick: v.getUint32(2, true),
-    x: v.getUint16(6, true) * POS_STEP,
-    y: v.getUint16(8, true) * POS_STEP,
-    heading: (v.getUint8(10) * TAU) / HEADING_STEPS,
-    vx: v.getInt16(12, true) * VEL_STEP,
-    vy: v.getInt16(14, true) * VEL_STEP,
-    biomass: 2 ** ((v.getUint16(16, true) * BIOMASS_LOG2_MAX) / 0xffff),
-    energy: v.getUint16(18, true) / 0xffff,
-    health: v.getUint16(20, true) / 0xffff,
+    x: v.getUint32(6, true) * POS_STEP,
+    y: v.getUint32(10, true) * POS_STEP,
+    heading: (v.getUint8(14) * TAU) / HEADING_STEPS,
+    vx: v.getInt16(16, true) * VEL_STEP,
+    vy: v.getInt16(18, true) * VEL_STEP,
+    biomass: 2 ** ((v.getUint16(20, true) * BIOMASS_LOG2_MAX) / 0xffff),
+    energy: v.getUint16(22, true) / 0xffff,
+    health: v.getUint16(24, true) / 0xffff,
     alive: (flags & FLAG_ALIVE) !== 0,
     dashing: (flags & FLAG_DASHING) !== 0,
     ready: (flags & FLAG_READY) !== 0,
     egg: (flags & FLAG_EGG) !== 0,
     spawnProtected: (flags & FLAG_PROTECTED) !== 0,
     fighting: (flags & FLAG_FIGHTING) !== 0,
-    genomeRef: v.getUint16(22, true),
+    genomeRef: v.getUint16(26, true),
   };
 }

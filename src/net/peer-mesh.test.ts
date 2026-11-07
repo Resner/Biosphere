@@ -11,8 +11,12 @@ import {
   RETRY_DELAY_MS,
 } from './peer-mesh';
 import {
+  byteLength,
   EVENT_MAX_BYTES,
   encodeSnapshot,
+  type PeerEvent,
+  RELAY_MAX_BYTES,
+  SDP_MAX_BYTES,
   SIGNED_FRAME_BYTES,
   type SignedSnap,
   SNAPSHOT_BYTES,
@@ -530,7 +534,7 @@ describe('PeerMesh inbound hygiene', () => {
     expect(b.stats().dropped).toBe(0);
   });
 
-  it('delivers an 89-byte signed frame with its snapshot and the signed part', async () => {
+  it('delivers a 93-byte signed frame with its snapshot and the signed part', async () => {
     const { a, b } = await pair();
     const got: [Snapshot, SignedSnap | null][] = [];
     b.onState((_, s, signed) => got.push([s, signed]));
@@ -545,7 +549,7 @@ describe('PeerMesh inbound hygiene', () => {
     expect(b.stats().dropped).toBe(0);
   });
 
-  it('delivers a 57-byte proxy frame as the away player’s pose, never as the sender’s own', async () => {
+  it('delivers a 61-byte proxy frame as the away player’s pose, never as the sender’s own', async () => {
     const { a, b, rx } = await pair();
     const proxies: [string, string, number][] = [];
     b.onProxy((from, player, s) => proxies.push([from, player, s.seq]));
@@ -585,7 +589,7 @@ describe('PeerMesh inbound hygiene', () => {
     toB('state', new Uint8Array(SIGNED_FRAME_BYTES + 1).buffer);
     toB('state', 'text on the state channel');
     const bad = new Uint8Array(SNAPSHOT_BYTES);
-    bad[11] = 0xff; // unknown flag bits
+    bad[15] = 0xff; // unknown flag bits
     toB('state', bad.buffer);
     expect(b.stats().dropped).toBe(9);
     expect(rx.states).toHaveLength(0);
@@ -595,6 +599,30 @@ describe('PeerMesh inbound hygiene', () => {
   it('does not send an event over 2 KB', async () => {
     const { a } = await pair();
     expect(a.sendEvent('b', { t: 'chat', text: 'x'.repeat(EVENT_MAX_BYTES) })).toBe(false);
+  });
+
+  it('takes a relay event up to RELAY_MAX_BYTES, and every other event only up to 2 KB', async () => {
+    const { a, b, rx, toB } = await pair();
+    const relay: PeerEvent = {
+      t: 'relay',
+      from: 'A'.repeat(43),
+      to: 'B'.repeat(43),
+      kind: 'offer',
+      sdp: 'v'.repeat(SDP_MAX_BYTES),
+      at: 1_700_000_000_000,
+      pos: [131_072, 131_072, 10],
+      sig: 'c'.repeat(86),
+    };
+    const raw = JSON.stringify(relay);
+    expect(byteLength(raw)).toBeGreaterThan(EVENT_MAX_BYTES);
+    expect(a.sendEvent('b', relay)).toBe(true);
+    expect(rx.events).toEqual([relay]);
+    toB('event', `${raw.slice(0, -1)}${' '.repeat(RELAY_MAX_BYTES - byteLength(raw) + 1)}}`);
+    const chat = JSON.stringify({ t: 'chat', text: 'hi' });
+    toB('event', `${chat.slice(0, -1)}${' '.repeat(EVENT_MAX_BYTES)}}`);
+    expect(b.stats().dropped).toBe(2);
+    expect(rx.events).toHaveLength(1);
+    expect(a.sendEvent('b', { ...relay, sdp: 'v'.repeat(RELAY_MAX_BYTES) })).toBe(false);
   });
 });
 

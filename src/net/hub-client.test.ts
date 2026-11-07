@@ -48,7 +48,7 @@ class FakeSocket implements SocketLike {
 
 const welcome = (now = 1_000_000): HubMsg => ({
   t: 'welcome',
-  pond: { id: 'p1', seed: 'seed', epoch: 0, centre: { x: 0, y: 0 }, size: 24 },
+  world: { id: 'p1', seed: 'seed', epoch: 0, centre: { x: 0, y: 0 }, size: 24 },
   you: { spawnHint: { x: 1, y: 2 } },
   members: [],
   ice: [],
@@ -145,7 +145,7 @@ describe('HubClient connect', () => {
     expect(msg && sig && verify(identity.playerId, HELLO_DOMAIN, msg, sig)).toBe(true);
     s.receive(welcome());
     const w = await p;
-    expect(w.pond.id).toBe('p1');
+    expect(w.world.id).toBe('p1');
     expect(w.you.spawnHint).toEqual({ x: 1, y: 2 });
     expect(client.status).toBe('online');
   });
@@ -409,7 +409,7 @@ describe('HubClient reconnect', () => {
     void client.connect().catch(() => {});
     await handshake();
     const n = sockets.length;
-    expect((await client.connect()).pond.id).toBe('p1');
+    expect((await client.connect()).world.id).toBe('p1');
     expect(sockets.length).toBe(n);
   });
 

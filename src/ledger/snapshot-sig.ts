@@ -11,9 +11,9 @@ import {
 import { fromBase64Url, type Identity, isPlayerKey, toBase64Url, verify } from './identity';
 
 // Snapshots signed for lock-in (ADR 0050): the owner's key signs `bs/snap/v1 ‖ 0x0A ‖ pond id ‖
-// 0x0A ‖ the 25 snapshot bytes`, so a snapshot from one pond never engages in another. Candidates
-// receive it on the state channel as an 89-byte frame: the snapshot, then the signature. A proxy
-// frame (ADR 0053) is 57 bytes: an away fighter's player key, then the snapshot a connected fighter
+// 0x0A ‖ the 29 snapshot bytes`, so a snapshot from one pond never engages in another. Candidates
+// receive it on the state channel as a 93-byte frame: the snapshot, then the signature. A proxy
+// frame (ADR 0053) is 61 bytes: an away fighter's player key, then the snapshot a connected fighter
 // relays for it from the encounter. It is unsigned: it moves a faded body and feeds nothing else.
 
 export const SNAP_DOMAIN = 'bs/snap/v1';
@@ -37,7 +37,7 @@ function unpack(s: SignedSnap): { bytes: Uint8Array; sig: Uint8Array } | null {
     : null;
 }
 
-/** Signs the 25 encoded snapshot bytes for `pondId`. */
+/** Signs the 29 encoded snapshot bytes for `pondId`. */
 export function signSnap(identity: Identity, pondId: string, bytes: Uint8Array): SignedSnap {
   return {
     snap: toBase64Url(bytes),
@@ -60,7 +60,7 @@ export function verifySnap(playerId: string, pondId: string, s: SignedSnap): Sna
   }
 }
 
-/** The 89-byte state-channel frame of a signed snapshot; a RangeError if it is malformed. */
+/** The 93-byte state-channel frame of a signed snapshot; a RangeError if it is malformed. */
 export function encodeSignedFrame(signed: SignedSnap): Uint8Array {
   const parts = unpack(signed);
   if (!parts) throw new RangeError('not a signed snapshot');
@@ -71,7 +71,7 @@ export function encodeSignedFrame(signed: SignedSnap): Uint8Array {
   return out;
 }
 
-/** The 57-byte proxy frame of `playerId`'s away fighter; a RangeError for a bad player id or snapshot. */
+/** The 61-byte proxy frame of `playerId`'s away fighter; a RangeError for a bad player id or snapshot. */
 export function encodeProxyFrame(playerId: string, snapshotBytes: Uint8Array): Uint8Array {
   const key = typeof playerId === 'string' ? fromBase64Url(playerId) : null;
   if (!key || !isPlayerKey(key)) throw new RangeError('not a player id');
@@ -83,8 +83,8 @@ export function encodeProxyFrame(playerId: string, snapshotBytes: Uint8Array): U
 }
 
 /**
- * A state-channel frame: a plain 25-byte snapshot, an 89-byte signed one (`signed`, whose signature
- * is not checked here: `verifySnap` does) or a 57-byte proxy frame (`proxyFor`, the away player's
+ * A state-channel frame: a plain 29-byte snapshot, a 93-byte signed one (`signed`, whose signature
+ * is not checked here: `verifySnap` does) or a 61-byte proxy frame (`proxyFor`, the away player's
  * id). Null for anything else, a proxy key that is no player key included. Never throws.
  */
 export function decodeStateFrame(
