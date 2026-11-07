@@ -701,7 +701,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - Every E2E, fast and full, passes. In `m2-pond`, the friends link within 3 s of their hatch.
     - `tools/worker-bundle.test.ts`: `POND_MAX` appears nowhere, and `LEAF_MAX` only in fixture mode.
 
-- [ ] T15 Snapshot rates by distance [opus] (after T13)
+- [ ] T15 Snapshot rates by distance [opus] (after T13) (in progress)
   - Steps:
     1. **The receiver** decides the rate it wants from each link:
        - 10 Hz for a peer of P0 or P1, or within 1.15 × its view's half-diagonal;
