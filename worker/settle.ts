@@ -235,8 +235,8 @@ export function backToLedger(hub: Hub, players: Iterable<string>, now: number): 
 }
 
 /**
- * Every client in the fight's pond, and every one the directory places within 10,000 wu of the
- * kill, hears of each kill's carrion, and drops the same pieces from
+ * The fight's own players, and every client the directory places within 10,000 wu of the kill
+ * (M11 T14: by area only), hear of each kill's carrion, and drop the same pieces from
  * it (`src/sim/carrion.ts`). A victim killed by a creature (not by the water) leaves some; the
  * authority holds nothing of it afterwards. The tick is the pond tick of the kill, or the pond's
  * current tick when a fast-forward (at hub time `forwarded`) played it ahead of the pond, and the
@@ -263,10 +263,11 @@ function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[], forward
       radius: Math.sqrt(f.biomass),
       tick,
     };
-    // The pond, and everyone the directory places within 10,000 wu of the kill (M11 T6).
+    // Everyone the directory places within 10,000 wu of the kill, and the fighters themselves.
     const near = carrionNoticed(hub, f.x, f.y);
+    for (const player of fight.players) near.add(player);
     for (const [ws, session] of activeSessions(hub)) {
-      if (session.pondId === fight.pond || near.has(session.playerId)) sendIfOpen(ws, msg);
+      if (near.has(session.playerId)) sendIfOpen(ws, msg);
     }
   }
 }

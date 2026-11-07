@@ -5,7 +5,6 @@ import { Directory } from './directory';
 import {
   advance,
   authority,
-  editSession,
   fighters,
   hatched,
   join,
@@ -20,8 +19,9 @@ import {
 import { type Client, flush, freshNonce, nextOf, report, rowsWritten } from './test-hub';
 import { leafMaxOf, rebuildDirectory } from './where';
 
-// The authority's directory on the hub (M11 T6): `where` answered with `near`, `leaf` to the
-// members a split moves, jumps, the wake, and the relay, courts and carrion by distance. The
+// The authority's directory on the hub (M11 T6, T14): `where` answered with `near` across the
+// world, `leaf` to the members a split moves, jumps, the wake, and the relay, courts and carrion
+// by the directory alone. The
 // object's directory is swapped for one of 262,144 wu, so distances past today's world fit.
 
 useFightHub();
@@ -45,11 +45,10 @@ const placed = async (p: Who, x: number, y = C, r = 10, aoi = STARTER_AOI) => {
   return nextOf(p.c, 'near');
 };
 const droppedWheres = () => authority((o) => o.dropped.get('where') ?? 0);
-const elsewhere = (p: Who) => editSession(p as Player, (s) => ({ ...s, pondId: 'another' }));
-const types = (ms: HubMsg[]) => ms.map((m) => m.t).filter((t) => t !== 'member');
+const types = (ms: HubMsg[]) => ms.map((m) => m.t);
 
 describe('where and near', () => {
-  it('answers a where with the linkable members of its pond near it, nearest first, writing no row', async () => {
+  it('answers a where with the linkable members near it anywhere in the world, nearest first, writing no row', async () => {
     const [a, b, c, d, giant] = [
       await join(),
       await join(),
@@ -60,20 +59,20 @@ describe('where and near', () => {
     await placed(b, C + 3000);
     await advance(400);
     await placed(c, C + 1000);
-    await elsewhere(d);
     await placed(d, C + 500);
     await placed(giant, C + 200, C, 300, 3000);
     await advance(100);
     const rows = await rowsWritten();
     const near = await placed(a, C);
-    expect(near.peers.map((p) => p.id)).toEqual([c.id.playerId, b.id.playerId]);
-    expect(near.peers.map((p) => p.age)).toEqual([100, 500]);
-    expect(near.peers[0]).toMatchObject({ name: 'Tester', x: C + 1000, y: C, r: 10 });
+    expect(near.peers.map((p) => p.id)).toEqual([d.id.playerId, c.id.playerId, b.id.playerId]);
+    expect(near.peers.map((p) => p.age)).toEqual([100, 100, 500]);
+    expect(near.peers[1]).toMatchObject({ name: 'Tester', x: C + 1000, y: C, r: 10 });
     expect(near.leaf).toEqual({ x: 0, y: 0, size: WORLD });
     expect(near.swarm).toEqual([]);
-    // The giant sees the starters of its pond within its AoI as a swarm, nearest first.
+    // The giant sees the starters within its AoI as a swarm, nearest first.
     expect((await placed(giant, C + 200, C, 300, 3000)).swarm).toEqual([
       [C, C],
+      [C + 500, C],
       [C + 1000, C],
       [C + 3000, C],
     ]);
@@ -184,9 +183,8 @@ describe('the relay by distance', () => {
   const offer = (from: Who, to: Who, cls?: 0 | 1 | 2 | 3 | 4) =>
     from.c.send({ t: 'signal', to: to.id.playerId, kind: 'offer', sdp: 'v=0', cls });
 
-  it('passes a signal 3,000 wu across ponds with the sender’s position, and refuses one 30,000 wu off', async () => {
+  it('passes a signal 3,000 wu apart with the sender’s position, and refuses one 30,000 wu off', async () => {
     const [a, b, far] = [await join(), await join(), await join()];
-    for (const p of [b, far]) await elsewhere(p);
     await placed(a, C);
     await placed(b, C + 3000);
     await placed(far, C + 30_000);
@@ -210,9 +208,20 @@ describe('the relay by distance', () => {
     expect(types(await flush(far.c))).toEqual([]);
   });
 
+  it('refuses a signal to or from a session the directory does not place', async () => {
+    const [a, b, c] = [await join(), await join(), await join()];
+    await placed(a, C);
+    offer(a, b);
+    expect(await nextOf(a.c, 'error')).toEqual({ t: 'error', code: 'no-peer' });
+    offer(b, a);
+    expect(await nextOf(b.c, 'error')).toEqual({ t: 'error', code: 'no-peer' });
+    offer(b, c);
+    expect(await nextOf(b.c, 'error')).toEqual({ t: 'error', code: 'no-peer' });
+    for (const p of [a, b, c]) expect(types(await flush(p.c))).toEqual([]);
+  });
+
   it('passes a duty pair’s signal at any distance', async () => {
     const [a, far] = [await join(), await join()];
-    await elsewhere(far);
     await placed(a, C);
     await placed(far, C + 100_000);
     await authority((o) => {
@@ -262,8 +271,11 @@ describe('courts by distance', () => {
     expect(await nextOf(b.c, 'invite')).toMatchObject({ from: a.id.playerId });
   });
 
-  it('answers not-near when the directory knows only one of them', async () => {
+  it('answers not-near when the directory knows only one of them, or neither', async () => {
     const [a, b] = [await hatched(), await hatched()];
+    expect(await check(a, b)).toBe('not-near');
+    a.c.send({ t: 'court', ask: askOf(a, b) });
+    expect(await nextOf(a.c, 'refused')).toEqual({ t: 'refused', reason: 'not-near' });
     await placed(a, C);
     expect(await check(a, b)).toBe('not-near');
   });
@@ -279,20 +291,22 @@ describe('carrion by area', () => {
     return seen;
   }
 
-  it('reaches a session 9,000 wu from the kill in another pond, and not one 12,000 wu away', async () => {
+  it('reaches a session 9,000 wu from the kill, and not one 12,000 wu away or unplaced', async () => {
     const [a, b] = await fighters();
-    const [near, far] = [await join(), await join()];
-    for (const p of [near, far]) await elsewhere(p);
+    const [near, far, unplaced] = [await join(), await join(), await join()];
     // The fight is at `NEAR` (at the world's centre).
     await placed(near, NEAR.b[0] + 9000, NEAR.b[1]);
     await placed(far, NEAR.b[0] + 12_000, NEAR.b[1]);
-    const [seenNear, seenFar] = [log(near.c), log(far.c)];
+    const [seenNear, seenFar, seenUnplaced] = [log(near.c), log(far.c), log(unplaced.c)];
+    const seenA = log(a.c);
     const { end } = await killB(a, b);
     const victim = outcomeOf(end, b);
     expect(Math.abs(victim.x - NEAR.b[0])).toBeLessThan(500);
-    await flush(near.c);
-    await flush(far.c);
+    for (const p of [near, far, unplaced, a]) await flush(p.c);
     expect(seenNear.filter((m) => m.t === 'carrion')).toHaveLength(1);
     expect(seenFar.filter((m) => m.t === 'carrion')).toHaveLength(0);
+    expect(seenUnplaced.filter((m) => m.t === 'carrion')).toHaveLength(0);
+    // The killer hears its own fight's carrion without a report.
+    expect(seenA.filter((m) => m.t === 'carrion')).toHaveLength(1);
   });
 });

@@ -1,25 +1,21 @@
-// Sessions and signaling: sign-in, admission and its queue, pond seats, signal relay and leaving.
+// Sessions and signaling: sign-in, admission and its queue, seats in the world, signal relay and leaving.
 import { fromBase64Url, HELLO_DOMAIN, helloMessage, verify } from '../src/ledger/identity';
 import {
   byteLength,
   CLOSE_BAD_HELLO,
   CLOSE_REPLACED,
   type ClientMsg,
-  type HubMsg,
   type IceServer,
-  type Member,
   SDP_MAX_BYTES,
   SPAWN_GOLDEN_ANGLE,
   type Vec2,
   type WorldInfo,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
-import { RULES } from '../src/sim/rules';
 import { awayDue } from './away';
 import { flushFight, resend } from './fights';
 import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
-import type { PondRow } from './schema';
 import { seatTicket } from './seat';
 import {
   type ActiveSession,
@@ -27,7 +23,6 @@ import {
   type Hub,
   type LiveSession,
   liveSessions,
-  randomToken,
   type Session,
   send,
   sendIfOpen,
@@ -35,21 +30,15 @@ import {
 } from './socket';
 import { atOf, countRelay, gone, relayReach } from './where';
 import { witnessLeft } from './witness-fight';
+import { worldInfo, worldRow } from './world';
 
-const POND_CAPACITY = 24;
-
-/** A pond's capacity for new seats: 24, or `POND_MAX` (2–24) in fixture mode, so a test can put a witness in another pond. */
-export function pondMax(env: { DRAND_SOURCE?: string; POND_MAX?: string }): number {
-  const n = env.DRAND_SOURCE === 'fixture' ? Number(env.POND_MAX) : Number.NaN;
-  return Number.isInteger(n) && n >= 2 && n <= POND_CAPACITY ? n : POND_CAPACITY;
-}
 /** New sessions queue once the day's requests reach this share of the budget (DESIGN §8). */
 const BUDGET_SHARE = 0.9;
 /** A queued session's estimated wait per place, until M13 measures it. */
 const ETA_S_PER_PLACE = 30;
 const DEFAULT_MAX_SESSIONS = 200;
 const DEFAULT_DAILY_REQUEST_BUDGET = 100_000;
-/** A joiner takes the first free slot `i` of its pond: angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · i` (DESIGN.md). */
+/** A joiner takes the first free slot `i` among every seated session: angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · i` (DESIGN.md). */
 const RING_BASE = 300;
 const RING_STEP = 40;
 
@@ -79,7 +68,7 @@ export async function hello(
   // signal to the joiner or learn of it first.
   const current = ws.readyState === WebSocket.OPEN ? sessionOf(ws) : null;
   if (current?.phase !== 'challenged') return;
-  // The new tab takes over the old one's place: its pond seat, or its spot in line.
+  // The new tab takes over the old one's place: its seat, or its spot in line.
   let held: LiveSession | undefined;
   let duties: number[] | undefined;
   for (const [other, theirs] of liveSessions(hub, ws)) {
@@ -92,7 +81,7 @@ export async function hello(
   const who = { playerId: msg.playerId, name: msg.name };
   // Admission never drops or re-queues a player who already has a seat: a seated tab's, or the one
   // its fight held while it was away (M8).
-  const seat = held?.phase === 'active' || fightPond(hub, msg.playerId) !== null;
+  const seat = held?.phase === 'active' || hub.fights.ofPlayer(msg.playerId)?.fight != null;
   if (!seat && (queued(hub).length > 0 || !canAdmit(hub, Date.now()))) {
     const ticket = held?.phase === 'queued' ? held.ticket : hub.nextTicket++;
     ws.serializeAttachment({
@@ -114,8 +103,7 @@ export async function hello(
  * of 90% of the day's request budget.
  */
 export function canAdmit(hub: Hub, now: number): boolean {
-  let sessions = [...activeSessions(hub)].length;
-  for (const n of awaySeats(hub).values()) sessions += n;
+  const sessions = [...activeSessions(hub)].length + awaySeats(hub);
   return (
     sessions < limit(hub.env.MAX_SESSIONS, DEFAULT_MAX_SESSIONS) &&
     hub.usage.requests(now) < BUDGET_SHARE * requestBudget(hub.env)
@@ -170,34 +158,26 @@ export async function promoteWaiting(hub: Hub): Promise<void> {
   }
 }
 
-/** The pond of the running fight the player is locked in, if any (M8: its seat waits there). */
-export function fightPond(hub: Hub, player: string): string | null {
-  return hub.fights.ofPlayer(player)?.fight?.pond ?? null;
-}
-
 /**
- * The seats held for fighters whose player is away, by pond (ADR 0053): every participant of a
+ * The seats held world-wide for fighters whose player is away (ADR 0053): every participant of a
  * running fight with no seated socket keeps its place until the fight ends.
  */
-function awaySeats(hub: Hub): Map<string, number> {
-  const away = new Map<string, number>();
+function awaySeats(hub: Hub): number {
   const running = hub.fights.running();
-  if (running.length === 0) return away;
+  if (running.length === 0) return 0;
   const here = new Set<string>();
   for (const [, theirs] of activeSessions(hub)) here.add(theirs.playerId);
+  let away = 0;
   for (const { players, fight } of running) {
-    if (!fight) continue;
-    for (const p of players) {
-      if (!here.has(p)) away.set(fight.pond, (away.get(fight.pond) ?? 0) + 1);
-    }
+    if (fight) away += players.filter((p) => !here.has(p)).length;
   }
   return away;
 }
 
 /**
- * Seats a signed-in session in a pond and welcomes it. A player locked in a running fight goes
- * back to the fight's pond and to the fight: `life` names it, and its start and every frame and
- * join so far follow (M8, ADR 0053).
+ * Seats a signed-in session in the world and welcomes it. A player locked in a running fight goes
+ * back to the fight: `life` names it, and its start and every frame and join so far follow (M8,
+ * ADR 0053).
  */
 export function enter(
   hub: Hub,
@@ -210,7 +190,7 @@ export function enter(
 ): void {
   const lock = hub.fights.ofPlayer(who.playerId);
   const fight = lock?.fight ?? null;
-  const { pond, spawnHint, members, slot } = place(hub, fight?.pond);
+  const { world, spawnHint, slot } = place(hub);
   const { openedAt, windowStart, count, signals, ip, duties } = from;
   const now = hub.clock.now();
   const ticket = seatTicket(hub, who, now);
@@ -222,19 +202,16 @@ export function enter(
     signals,
     ip,
     ...who,
-    pondId: pond.id,
     slot,
     life: bind(hub, who.playerId, now),
     seatAt: now,
     // The hour's duties belong to the player, not the socket: a reload keeps them.
     ...(duties ? { duties } : {}),
   } satisfies Session);
-  broadcast(hub, pond.id, ws, { t: 'member', op: 'join', member: who });
   sendIfOpen(ws, {
     t: 'welcome',
-    world: pond,
+    world,
     you: { spawnHint },
-    members,
     ice: link.ice,
     turn: link.turn,
     now: Date.now(),
@@ -247,63 +224,11 @@ export function enter(
   awayDue(hub, fight, hub.clock.now());
 }
 
-/**
- * Picks the fullest pond with a free place (creating one if none), counting the seats held for
- * away fighters, and the joiner's spawn hint. `held` is the pond of the joiner's running fight,
- * whose seat waited for it.
- */
-export function place(
-  hub: Hub,
-  held?: string,
-): {
-  pond: WorldInfo;
-  spawnHint: Vec2;
-  members: Member[];
-  slot: number;
-} {
-  const sql = hub.ctx.storage.sql;
-  const counts = awaySeats(hub);
-  for (const [, theirs] of activeSessions(hub)) {
-    counts.set(theirs.pondId, (counts.get(theirs.pondId) ?? 0) + 1);
-  }
-  let best: PondRow | null = held
-    ? (sql.exec<PondRow>('SELECT * FROM ponds WHERE id = ?', held).toArray()[0] ?? null)
-    : null;
-  if (!best) {
-    const capacity = pondMax(hub.env);
-    for (const row of sql.exec<PondRow>('SELECT * FROM ponds ORDER BY created, id')) {
-      const n = counts.get(row.id) ?? 0;
-      if (n < capacity && (!best || n > (counts.get(best.id) ?? 0))) best = row;
-    }
-  }
-  if (!best) {
-    // Every pond is a roster group of the one world, so it takes the world's seed and clock (M11).
-    const world = sql.exec<{ seed: string; clock: number }>('SELECT seed, clock FROM world').one();
-    const centre = RULES.world.size / 2;
-    const now = Date.now();
-    best = {
-      id: randomToken(6),
-      seed: world.seed,
-      epoch: world.clock,
-      cx: centre,
-      cy: centre,
-      created: now,
-    };
-    sql.exec(
-      'INSERT INTO ponds (id, seed, epoch, cx, cy, created) VALUES (?, ?, ?, ?, ?, ?)',
-      best.id,
-      best.seed,
-      best.epoch,
-      best.cx,
-      best.cy,
-      best.created,
-    );
-  }
-  const members: Member[] = [];
+/** The world and the joiner's spawn hint: the first slot no seated session holds, on the ring around the centre. */
+export function place(hub: Hub): { world: WorldInfo; spawnHint: Vec2; slot: number } {
+  const row = worldRow(hub);
   const taken = new Set<number>();
   for (const [, theirs] of activeSessions(hub)) {
-    if (theirs.pondId !== best.id) continue;
-    members.push({ playerId: theirs.playerId, name: theirs.name });
     // A session hibernated before slots existed has none.
     if (theirs.slot !== undefined) taken.add(theirs.slot);
   }
@@ -312,29 +237,16 @@ export function place(
   const angle = slot * SPAWN_GOLDEN_ANGLE;
   const radius = slot === 0 ? 0 : RING_BASE + RING_STEP * slot;
   return {
-    pond: {
-      id: best.id,
-      seed: best.seed,
-      epoch: best.epoch,
-      centre: { x: best.cx, y: best.cy },
-      size: RULES.world.size,
-    },
-    spawnHint: { x: best.cx + radius * Math.cos(angle), y: best.cy + radius * Math.sin(angle) },
-    members,
+    world: worldInfo(row),
+    spawnHint: { x: row.cx + radius * Math.cos(angle), y: row.cy + radius * Math.sin(angle) },
     slot,
   };
 }
 
-export function broadcast(hub: Hub, pondId: string, except: WebSocket, msg: HubMsg): void {
-  for (const [other, theirs] of activeSessions(hub, except)) {
-    if (theirs.pondId === pondId) send(other, msg);
-  }
-}
-
 /**
- * Forwards a signal, stamped with the verified sender, to a member of the sender's pond, to a
- * session the directory places within reach (`relayReach`, M11 T6), or across ponds between a
- * referee witness and its fight's fighters while that duty runs (M10 T6). It carries the sender's
+ * Forwards a signal, stamped with the verified sender, to a session the directory places within
+ * reach (`relayReach`, M11 T6), or anywhere between a referee witness and its fight's fighters
+ * while that duty runs (M10 T6); nothing else passes (M11 T14). It carries the sender's
  * directory position as `at` once the sender has reported, and the sender's link class `cls` (M11
  * T13) when it named one.
  */
@@ -351,11 +263,7 @@ export function relay(
   const from = session.playerId;
   for (const [other, theirs] of activeSessions(hub, ws)) {
     if (theirs.playerId !== msg.to) continue;
-    if (
-      theirs.pondId === session.pondId ||
-      relayReach(hub, from, msg.to) ||
-      hub.duties.linksOf(from).includes(msg.to)
-    ) {
+    if (relayReach(hub, from, msg.to) || hub.duties.linksOf(from).includes(msg.to)) {
       const at = atOf(hub, from);
       const cls = msg.cls === undefined ? {} : { cls: msg.cls };
       send(other, {
@@ -383,7 +291,7 @@ export function saveOnClose(hub: Hub, { life, playerId }: ActiveSession): void {
     checkpoint(hub, life, playerId);
 }
 
-/** Closes a socket; an active one first leaves its pond so the others see it go exactly once. */
+/** Closes a socket; an active one first leaves the directory and its duties. */
 export function drop(
   hub: Hub,
   ws: WebSocket,
@@ -413,11 +321,6 @@ export function drop(
     hub.duties.left(session.playerId);
     // Out of the directory: a split's neighbours hear their new leaf (the socket is going, so no attachment is kept).
     gone(hub, null, session);
-    broadcast(hub, session.pondId, ws, {
-      t: 'member',
-      op: 'leave',
-      member: { playerId: session.playerId, name: session.name },
-    });
     // The seat is free: the first in line takes it.
     if (!replaced && queued(hub).length > 0) promote(hub).catch(() => {});
   }

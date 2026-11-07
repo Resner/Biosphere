@@ -97,12 +97,12 @@ describe('OnlineSession: a fight’s links (M11 T16)', () => {
     run(1000);
     expect(session.links.classOf('b')).toBe(0);
     // A reconnect whose resync brings the fight back keeps it.
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     hub.fight(start(['me', 'b']));
     run(FIGHT_HOLD_MS + 1000);
     expect(mesh.disconnects).toEqual([]);
     // One that doesn't: the fight settled while this page was away.
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     run(FIGHT_HOLD_MS + 1000);
     expect(mesh.disconnects).toEqual(['b']);
   });

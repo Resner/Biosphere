@@ -88,13 +88,6 @@ function tellMoved(hub: Hub, moved: { id: string; leaf: Leaf }[]): void {
   }
 }
 
-/** The ids of the sessions seated in a pond (the `near` filter until T14). */
-function pondOf(hub: Hub, pondId: string): Set<string> {
-  const out = new Set<string>();
-  for (const [, s] of activeSessions(hub)) if (s.pondId === pondId) out.add(s.playerId);
-  return out;
-}
-
 /**
  * A report: the directory takes it and answers `near`; members whose leaf a split or merge
  * changed hear `leaf`. A centre outside the world, or a jump further than `WHERE_SPEED_WU` × the
@@ -124,8 +117,7 @@ export function where(
   const at: WhereAt = { x: msg.x, y: msg.y, r: msg.r, aoi: msg.aoi, t: now, bind };
   const { moved } = hub.directory.report(memberOf(session, at));
   ws.serializeAttachment({ ...session, where: at } satisfies Session);
-  const pond = pondOf(hub, session.pondId);
-  const near = hub.directory.near(session.playerId, now, (other) => pond.has(other));
+  const near = hub.directory.near(session.playerId, now);
   if (near) sendIfOpen(ws, { t: 'near', ...near });
   tellMoved(hub, moved);
 }
@@ -161,12 +153,10 @@ export function countRelay(hub: Hub, a: string, b: string): void {
 }
 
 /**
- * Whether a court between two players is out of reach: the directory places them more than
- * 12,288 wu apart, or knows one of them but not the other. Until clients report (T13) it knows
- * neither, and the pond alone decides, as before.
+ * Whether a court between two players is out of reach: the directory alone decides (M11 T14), so
+ * it is unless the directory places both within 12,288 wu.
  */
 export function courtTooFar(hub: Hub, a: string, b: string): boolean {
-  if (!hub.directory.member(a) && !hub.directory.member(b)) return false;
   const d = hub.directory.distance(a, b);
   return d === null || d > COURT_NEAR_WU;
 }

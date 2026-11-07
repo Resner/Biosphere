@@ -372,10 +372,10 @@ export class OnlineWiring {
     let text = '';
     if (hubUrl) {
       text = apart
-        ? statusText('offline', 1)
+        ? statusText('offline', 0)
         : statusText(
             keeper.current?.status ?? 'connecting',
-            keeper.current?.count ?? 1,
+            keeper.current?.count ?? 0,
             keeper.current?.queue ?? null,
           );
     }

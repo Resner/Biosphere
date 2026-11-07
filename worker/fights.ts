@@ -56,7 +56,7 @@ export interface Fight {
   joins: EncounterJoin[];
   /** Every `enc-frame` and `enc-join` sent so far, in order: a joiner's catch-up. */
   history: HubMsg[];
-  /** The pond it is fought in (its id and seed) and the pond tick it started at, to place a kill's carrion. */
+  /** The world it is fought in (its id and seed) and the world tick it started at, to place a kill's carrion. */
   pond: string;
   pondSeed: string;
   t0: number;

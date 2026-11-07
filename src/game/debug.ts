@@ -223,14 +223,13 @@ export interface BsState {
     still: boolean;
     dim: number;
   };
-  /** The pond this tab is in (the next hatch joins it); `members` are player ids, this one included. */
-  pond: {
+  /** The world this tab plays in (the next hatch joins it), null on its own. */
+  world: {
     id: string;
     seed: string;
     /** The world's side in wu, and its centre: where the hub's spawn ring is. */
     size: number;
     centre: { x: number; y: number };
-    members: string[];
   } | null;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
   social: {
@@ -469,10 +468,10 @@ export interface BsDebug {
   /** Replaces the scripted remotes (an empty list removes them); they send snapshots at 10 Hz. */
   setRemotes(remotes: readonly ScriptedRemote[]): void;
   /**
-   * Joins a pond for the next hatch without a hub: its seed, epoch and the hub clock's reading now
-   * (hub ms), and where this tab's food claims go. Tests relay them to other tabs.
+   * Joins a world for the next hatch without a hub: its seed, epoch and the hub clock's reading
+   * now (hub ms), and where this tab's food claims go. Tests relay them to other tabs.
    */
-  joinPond(spec: {
+  joinWorld(spec: {
     seed: string;
     epoch: number;
     hubNow: number;

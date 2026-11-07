@@ -14,7 +14,7 @@ import type {
   WorldMsg,
 } from '../net/hub-client';
 import type { PeerMeshStats } from '../net/peer-mesh';
-import type { ClientMsg, Member, NearPeer, PeerEvent, SignedSnap, Snapshot } from '../net/protocol';
+import type { ClientMsg, NearPeer, PeerEvent, SignedSnap, Snapshot } from '../net/protocol';
 import { type CreatureNow, type OnlineHub, type OnlineMesh, OnlineSession } from './online';
 import { YOUNG_MS } from './online-links';
 
@@ -27,7 +27,6 @@ export class FakeHub implements OnlineHub {
   closed = false;
   private statusFns: ((s: HubStatus) => void)[] = [];
   private signalFns: ((m: SignalMsg) => void)[] = [];
-  private memberFns: ((op: 'join' | 'leave', m: Member) => void)[] = [];
   private welcomeFns: ((w: Welcome) => void)[] = [];
   private worldFns: ((m: WorldMsg) => void)[] = [];
   private lifeFns: ((m: LifeMsg) => void)[] = [];
@@ -48,10 +47,6 @@ export class FakeHub implements OnlineHub {
   }
   onSignal(fn: (m: SignalMsg) => void) {
     this.signalFns.push(fn);
-    return () => {};
-  }
-  onMember(fn: (op: 'join' | 'leave', m: Member) => void) {
-    this.memberFns.push(fn);
     return () => {};
   }
   onWorld(fn: (m: WorldMsg) => void) {
@@ -87,9 +82,6 @@ export class FakeHub implements OnlineHub {
   welcome(w: Welcome): void {
     this.setStatus('online');
     for (const fn of this.welcomeFns) fn(w);
-  }
-  member(op: 'join' | 'leave', m: Member): void {
-    for (const fn of this.memberFns) fn(op, m);
   }
   world(m: WorldMsg): void {
     for (const fn of this.worldFns) fn(m);
@@ -189,11 +181,10 @@ export class FakeMesh implements OnlineMesh {
 
 export const C = 131_072;
 
-export const welcome = (members: string[], pondId = 'pond1'): Welcome => ({
+export const welcome = (worldId = 'world1'): Welcome => ({
   t: 'welcome',
-  world: { id: pondId, seed: 'seed1', epoch: 1000, centre: { x: C, y: C }, size: 262_144 },
+  world: { id: worldId, seed: 'seed1', epoch: 1000, centre: { x: C, y: C }, size: 262_144 },
   you: { spawnHint: { x: C + 200, y: C } },
-  members: members.map((playerId) => ({ playerId, name: playerId.toUpperCase() })),
   ice: [{ urls: 'stun:example.test' }],
   turn: false,
   now: 5000,
@@ -262,7 +253,7 @@ export function setup(over: { creature?: CreatureNow | null } = {}) {
 /** A session welcomed and in the water past its young dialling, with nothing known yet. */
 export function settled(over: { creature?: CreatureNow | null } = {}) {
   const rig = setup(over);
-  rig.hub.welcome(welcome([]));
+  rig.hub.welcome(welcome());
   rig.run(YOUNG_MS + 100);
   rig.hub.sent.length = 0;
   return rig;

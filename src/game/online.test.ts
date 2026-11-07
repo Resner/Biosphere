@@ -21,7 +21,7 @@ import { C, type FakeMesh, LEAF, nearMsg, settled, setup, snap, welcome } from '
 describe('OnlineSession: links by area of interest (M11 T13)', () => {
   it('reports where it is, and links all three peers of a near', () => {
     const { hub, mesh, session, run } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     run(100);
     expect(hub.sent.filter((m) => m.t === 'where')).toHaveLength(1);
     expect(session.netInfo().where.sent).toBe(1);
@@ -56,7 +56,7 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
 
   it('with a cap of 2 and three peers (one P1, two P4), holds the P1 and the nearer P4', () => {
     const { hub, mesh, session, run } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     run(100);
     session.setCap(2);
     hub.world(
@@ -152,7 +152,7 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
 
   it('sends the mesh’s offers with the class: a P1 through the hub, and drops one unanswered after 8 s', () => {
     const { hub, mesh, made, run } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     hub.world(nearMsg([['a', 300]]));
     expect(mesh.connects).toEqual(['a']);
     made[0]?.signal('a', 'offer', 'sdp-a');
@@ -204,22 +204,23 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
 
   it('names linked peers from their tickets, lists them as the players, and tells the app of links', () => {
     const { hub, mesh, handlers, session } = settled();
-    hub.member('join', { playerId: 'r', name: 'Roster' });
-    expect(session.count).toBe(2);
-    expect(session.members()).toEqual(['r']);
-    expect(session.nameOf('r')).toBe('Roster');
-    // Away fighters are judged by the seat, not by a name the directory once gave.
+    expect(session.count).toBe(0);
+    // A fighter is present while its link is open, not by a name the directory once gave.
     hub.world(nearMsg([['n', 9000]]));
     expect(session.nameOf('n')).toBe('N');
     expect(session.present('n')).toBe(false);
-    expect(session.present('r')).toBe(true);
     mesh.connect('a');
+    expect(session.present('a')).toBe(false);
     mesh.join('a');
+    expect(session.present('a')).toBe(true);
+    expect(session.count).toBe(1);
     expect(handlers.peerOpen).toHaveBeenCalledWith('a', 'A');
     expect(session.others()).toEqual([{ playerId: 'a', name: 'A' }]);
     mesh.disconnect('a');
     expect(handlers.peerLeft).toHaveBeenCalledWith('a');
     expect(session.others()).toEqual([]);
+    expect(session.present('a')).toBe(false);
+    expect(session.count).toBe(0);
   });
 
   it('is alone with nothing linked and nothing known within Q', () => {
@@ -237,7 +238,7 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
   it('dials nobody and refuses every offer before it can check tickets', () => {
     const { hub, mesh } = setup();
     hub.ticket = null;
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     hub.world(nearMsg([['a', 300]]));
     expect(mesh.connects).toEqual([]);
     hub.signal({ t: 'signal', from: 'a', kind: 'offer', sdp: 'v=0', cls: 1 });
@@ -260,7 +261,7 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
 describe('OnlineSession', () => {
   it('passes on proxies and peer traffic from linked peers, and sends state to one open peer', () => {
     const { hub, mesh, handlers, session } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     mesh.join('a');
     const pose = { seq: 1 } as Snapshot;
     mesh.proxy('a', 'gone', pose);
@@ -275,11 +276,11 @@ describe('OnlineSession', () => {
 
   it('makes one mesh with the welcome’s ICE servers, and hands it the newest on a later welcome', () => {
     const { hub, mesh, made, handlers } = setup();
-    hub.welcome(welcome(['a']));
+    hub.welcome(welcome());
     expect(made).toHaveLength(1);
     expect(made[0]?.ice).toEqual([{ urls: 'stun:example.test' }]);
     expect(mesh.ices).toEqual([]);
-    const second = { ...welcome(['a']), ice: [{ urls: 'turn:fresh.test', username: 'u' }] };
+    const second = { ...welcome(), ice: [{ urls: 'turn:fresh.test', username: 'u' }] };
     hub.welcome(second);
     expect(made).toHaveLength(1);
     expect(mesh.ices).toEqual([[{ urls: 'turn:fresh.test', username: 'u' }]]);
@@ -290,7 +291,7 @@ describe('OnlineSession', () => {
     const { hub, mesh, session, run } = settled();
     mesh.connect('a');
     mesh.join('a');
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     run(100);
     expect(mesh.disconnects).toEqual([]);
     expect(session.netInfo().where.leaf).toBeNull();
@@ -307,7 +308,7 @@ describe('OnlineSession', () => {
 
   it('broadcasts to open peers only, and has a link to every peer the mesh holds', () => {
     const { hub, mesh, session } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     mesh.join('a');
     mesh.connect('b');
     session.broadcastState(new Uint8Array(24));
@@ -325,7 +326,7 @@ describe('OnlineSession', () => {
     vi.useFakeTimers();
     try {
       const ready = session.whenReady(4000);
-      hub.welcome(welcome([]));
+      hub.welcome(welcome());
       await vi.advanceTimersByTimeAsync(200);
       let done: Welcome | null | undefined;
       void ready.then((w) => {
@@ -335,7 +336,7 @@ describe('OnlineSession', () => {
       expect(done).toBeUndefined();
       hub.clock.addSample(0, 40, 5000);
       await vi.advanceTimersByTimeAsync(100);
-      expect(done?.world.id).toBe('pond1');
+      expect(done?.world.id).toBe('world1');
     } finally {
       vi.useRealTimers();
     }
@@ -382,7 +383,7 @@ describe('OnlineSession', () => {
 
   it('says goodbye and closes everything on dispose', () => {
     const { hub, mesh, session } = setup();
-    hub.welcome(welcome(['a']));
+    hub.welcome(welcome());
     session.dispose();
     expect(hub.sent).toContainEqual({ t: 'leave' });
     expect(hub.closed).toBe(true);
@@ -412,7 +413,7 @@ const fields = (tick: number): SnapshotFields => ({
 describe('signed snapshots between peers (M7 T7)', () => {
   it('passes a signed frame from the mesh to the handler with its snapshot', () => {
     const { hub, mesh, handlers } = setup();
-    hub.welcome(welcome(['a']));
+    hub.welcome(welcome());
     const s = { ...fields(5), seq: 1 };
     const signed = { snap: 'x', sig: 'y' };
     mesh.state('a', s, signed);
@@ -424,7 +425,7 @@ describe('signed snapshots between peers (M7 T7)', () => {
   it('sends candidates the 93-byte frame at 5 Hz and everyone else 29 bytes, within 620 B/s', async () => {
     const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(6)));
     const { hub, mesh, session } = setup();
-    hub.welcome(welcome(['near', 'far', 'giant']));
+    hub.welcome(welcome());
     for (const id of ['near', 'far', 'giant']) mesh.join(id);
     const self = { x: 1000, y: 1000, biomass: 400 };
     const remotes = [
@@ -489,7 +490,7 @@ describe('signed snapshots between peers (M7 T7)', () => {
   it('keeps a candidate’s signed frames at 5 Hz when it asked for 1 Hz (M11 T15)', async () => {
     const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(8)));
     const { hub, mesh, session } = setup();
-    hub.welcome(welcome(['near']));
+    hub.welcome(welcome());
     mesh.join('near');
     mesh.event('near', { t: 'rate', hz: 1 });
     const signer = new CandidateSigner(() => ({ identity: me, pondId: 'pond1' }));
@@ -519,7 +520,7 @@ describe('signed snapshots between peers (M7 T7)', () => {
   it('routes a lock ask to the handler, whose answer leaves before the call returns', async () => {
     const me = await createIdentity(memoryKeyStore(new Uint8Array(32).fill(7)));
     const { hub, handlers, session } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     const now = fields(4242);
     handlers.fight.mockImplementation((msg: FightMsg) => {
       if (msg.t === 'lock-ask') {
@@ -608,7 +609,7 @@ describe('snapshot rates by distance (M11 T15)', () => {
 
   it('sends a link asking 2 Hz two snapshots a second, and 10 Hz again once its link is new', () => {
     const { hub, mesh, session } = setup();
-    hub.welcome(welcome([]));
+    hub.welcome(welcome());
     for (const id of ['slow', 'full']) {
       mesh.connect(id);
       mesh.join(id);

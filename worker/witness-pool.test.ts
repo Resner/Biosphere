@@ -1,6 +1,5 @@
 import { describe, expect, it } from 'vitest';
 import { advance, authority, clock, setEnv, useFightHub } from './fight-test-kit';
-import { pondMax } from './sessions';
 import type { Session } from './socket';
 import { flush, nextOf, signIn, sql } from './test-hub';
 import {
@@ -138,7 +137,7 @@ describe('witness eligibility', () => {
     }
   });
 
-  it('reads WITNESS_PLAY_MS, WITNESS_IP_CHECK and POND_MAX only in fixture mode', () => {
+  it('reads WITNESS_PLAY_MS and WITNESS_IP_CHECK only in fixture mode', () => {
     expect(witnessPlayMs({ WITNESS_PLAY_MS: '0' })).toBe(WITNESS_PLAY_MS);
     expect(witnessPlayMs({ DRAND_SOURCE: 'fixture', WITNESS_PLAY_MS: '0' })).toBe(0);
     expect(witnessPlayMs({ DRAND_SOURCE: 'fixture', WITNESS_PLAY_MS: '1.5' })).toBe(
@@ -146,21 +145,5 @@ describe('witness eligibility', () => {
     );
     expect(ipCheck({ WITNESS_IP_CHECK: 'off' })).toBe(true);
     expect(ipCheck({ DRAND_SOURCE: 'fixture', WITNESS_IP_CHECK: 'off' })).toBe(false);
-    expect(pondMax({ POND_MAX: '2' })).toBe(24);
-    expect(pondMax({ DRAND_SOURCE: 'fixture', POND_MAX: '2' })).toBe(2);
-    for (const bad of ['1', '25', 'x'])
-      expect(pondMax({ DRAND_SOURCE: 'fixture', POND_MAX: bad })).toBe(24);
-  });
-
-  it('seats a third session in a second pond under POND_MAX=2', async () => {
-    await fixture({ DRAND_SOURCE: 'fixture', POND_MAX: '2' });
-    try {
-      const [x, y, z] = [await witness(), await witness(), await witness()];
-      expect(x.pond.id).toBe(y.pond.id);
-      expect(z.pond.id).not.toBe(x.pond.id);
-    } finally {
-      await fixture({ POND_MAX: undefined });
-      await setEnv(false);
-    }
   });
 });

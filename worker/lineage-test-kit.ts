@@ -14,7 +14,7 @@ import { type Ancestor, type Born, genomeRefOf } from '../src/net/protocol';
 import { RULES_VERSION, TICK_HZ } from '../src/sim/rules';
 import { advance, authority, lifeOn, type Player } from './fight-test-kit';
 import { must } from './ledger-test-kit';
-import { freshNonce, nextOf, publish, report } from './test-hub';
+import { freshNonce, nextOf, placed, publish, report } from './test-hub';
 
 // The lineage hub tests' moves (proofs, the audit): a creature grown by honest reports, a mating
 // through courtship, a promotion and a restore, each as a client sends it.
@@ -63,8 +63,9 @@ export const askOf = (from: Player, to: Player, nonce: string): MateAsk =>
     nonce,
   });
 
-/** A courts B and B accepts: both get their `mating` (the round is not out yet). */
+/** A courts B, side by side in the directory, and B accepts: both get their `mating` (the round is not out yet). */
 export async function court(a: Player, b: Player, nonce = freshNonce()) {
+  await placed(a, b);
   const askA = askOf(a, b, nonce);
   a.c.send({ t: 'court', ask: askA });
   await nextOf(b.c, 'invite');

@@ -21,7 +21,7 @@ import {
 
 test.describe.configure({ mode: 'serial' });
 
-test('a witness in the pond referees a fight from the handover to its end @slow', async ({
+test('a witness beside the fight referees a fight from the handover to its end @slow', async ({
   browser,
   request,
 }) => {
@@ -30,7 +30,7 @@ test('a witness in the pond referees a fight from the handover to its end @slow'
   try {
     t = await trio(browser, M10_WITNESS_HUB);
     const { a, b, c, idC } = t;
-    expect((await state(c)).pond?.id).toBe((await state(a)).pond?.id);
+    expect((await state(c)).world?.id).toBe((await state(a)).world?.id);
     await available(c);
     const { id, from } = await witnessedFight(t);
 

@@ -227,7 +227,7 @@ export const M9_SHARE_HUB = 'http://localhost:8820';
 export const M9_LINEAGE_HUB = 'http://localhost:8819';
 /** The M9 lifecycle spec's hub (M9 T15), with the M5 hooks: a lineage from genesis to a mating, a fight, a death and a return. */
 export const M9_LIFECYCLE_HUB = 'http://localhost:8821';
-/** The M10 witness specs' hubs (M10 T7), with `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`: one pond (the fight and the witness that vanishes), two ponds (`POND_MAX=2`). */
+/** The M10 witness specs' hubs (M10 T7), with `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`: the fight and the witness that vanishes, and the witness 20,000 wu away. */
 export const M10_WITNESS_HUB = 'http://localhost:8822';
 export const M10_CROSS_HUB = 'http://localhost:8823';
 /** The M10 audit spec's hub (M10 T8), with the M5 hooks, `WITNESS_PLAY_MS=0` and `WITNESS_IP_CHECK=off`. */
@@ -247,7 +247,7 @@ const warmed = new Set<string>();
  * waits for a creature that never comes. Waiting on the hub's own answer, bounded, keeps the
  * scenario independent of the runner's speed.
  */
-async function warmHub(hub: string): Promise<void> {
+export async function warmHub(hub: string): Promise<void> {
   if (warmed.has(hub)) return;
   const url = `${hub.replace(/^http/, 'ws')}/v1/hub`;
   await new Promise<void>((resolve, reject) => {
@@ -352,7 +352,7 @@ export async function goTo(page: Page, id: string, peer?: Page): Promise<void> {
         return {
           screen: s.screen,
           remotes: s.remotes.map((r) => r.id),
-          pond: s.pond,
+          world: s.world,
           net: s.net,
           alive: s.player?.alive ?? null,
         };

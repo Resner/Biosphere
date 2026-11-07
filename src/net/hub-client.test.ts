@@ -51,7 +51,6 @@ const welcome = (now = 1_000_000): HubMsg => ({
   t: 'welcome',
   world: { id: 'p1', seed: 'seed', epoch: 0, centre: { x: 0, y: 0 }, size: 24 },
   you: { spawnHint: { x: 1, y: 2 } },
-  members: [],
   ice: [],
   turn: false,
   now,
@@ -162,19 +161,15 @@ describe('HubClient connect', () => {
     expect(client.status).toBe('connecting');
   });
 
-  it('forwards signals and member events', async () => {
+  it('forwards signals', async () => {
     const client = make();
     const signals: unknown[] = [];
-    const members: unknown[] = [];
     client.onSignal((m) => signals.push(m));
-    client.onMember((op, m) => members.push([op, m.name]));
     void client.connect().catch(() => {});
     const s = await handshake();
     const from = 'A'.repeat(43);
     s.receive({ t: 'signal', from, kind: 'offer', sdp: 'v=0' });
-    s.receive({ t: 'member', op: 'join', member: { playerId: from, name: 'Other' } });
     expect(signals).toEqual([{ t: 'signal', from, kind: 'offer', sdp: 'v=0' }]);
-    expect(members).toEqual([['join', 'Other']]);
     client.send({ t: 'leave' });
     expect(s.sent.at(-1)).toEqual({ t: 'leave' });
   });

@@ -41,7 +41,7 @@ import {
   useFightHub,
   within,
 } from './fight-test-kit';
-import { type Client, nextOf, report, sql } from './test-hub';
+import { type Client, nextOf, placed, report, sql } from './test-hub';
 
 // M8 T8: the settlement (ADR 0053, ADR 0054): the countersigned document in the fight's row and in
 // `enc-end`, the locked time in the records, the carrion at the victim's worth, and a settlement
@@ -180,6 +180,7 @@ describe('a kill’s settlement', () => {
   it('drops carrion of the victim’s biomass times its worth', async () => {
     const [a, b] = await fighters();
     const spectator = await join();
+    await placed(spectator);
     const seen = log(spectator.c);
     const genomes = await Promise.all([genomeOf(a), genomeOf(b)]);
     const info = (p: Player, k: number, over: Partial<FighterInfo>): FighterInfo => ({
