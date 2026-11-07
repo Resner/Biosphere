@@ -8,7 +8,7 @@ import { SEAT_RENEW_MS, SEAT_TTL_MS, type SignedSeat, seatHash } from '../src/le
 import { type ActiveSession, type Hub, type Session, sendIfOpen } from './socket';
 
 /** The world a ticket names: its seed, the one every pond row takes. */
-export function worldOf(hub: Hub): string {
+function worldOf(hub: Hub): string {
   return hub.ctx.storage.sql.exec<{ seed: string }>('SELECT seed FROM world').one().seed;
 }
 

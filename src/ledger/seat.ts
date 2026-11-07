@@ -12,6 +12,7 @@ import {
   type PubKey,
 } from './record';
 import { parseSignedSeat, type Seat, type SignedSeat } from './seat-doc';
+import { sigBytes } from './witness-doc';
 
 // Seat tickets and signed signals (M11 T7, ADR 0062). A ticket is countersigned as a record is:
 // the authority's `bs/auth/v1` signature over its hash, `SHA-256('bs/seat/v1' ‖ canonical JSON)`,
@@ -135,7 +136,7 @@ export function signSignal(
 /** True when a relayed signal carries its sender's (`from`) signature over every field. Never throws. */
 export function signalSigned(m: Extract<PeerEvent, { t: 'relay' }>): boolean {
   try {
-    const sig = typeof m.sig === 'string' ? fromBase64Url(m.sig) : null;
+    const sig = sigBytes(m.sig);
     if (!sig) return false;
     return verify(
       m.from,
