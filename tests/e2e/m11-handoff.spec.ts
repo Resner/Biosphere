@@ -9,6 +9,8 @@ import { CENTRE, closeAll, directory, join, type Player, place } from './m11-ste
 // edges, with B following, while C, 10,000 wu ahead on A's line, swims toward A. A reports at each
 // leaf it leaves, A–B never closes, A and C link while still more than twice A's AoI apart (so
 // before C can come into A's view), and every remote in A's view stays fully drawn.
+// M11 T15: C sends to A at 2 Hz or less while far and at 10 Hz once near, and A never draws C
+// faster than 1.2 × its snapshots' speed (`pace`).
 
 const HUB = 'http://localhost:8828';
 
@@ -33,6 +35,15 @@ interface Watch {
   leaf: { x: number; y: number; size: number; sent: number } | null;
   /** Every leaf A held, with where A was and the `where` count when it took it (for a failure's message). */
   path: string[];
+  /** The rates A asked of C while C was in A's view, other than 10 Hz. */
+  slowInView: number[];
+}
+
+/** C's link to A every 100 ms (M11 T15): the rate C sends A, the distance and how long linked. */
+interface RateSample {
+  hz: number;
+  d: number;
+  linkedMs: number;
 }
 
 test('crossing leaves keeps every link in view, and a creature ahead is linked before it comes into view @slow', async ({
@@ -72,6 +83,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
           exits: [],
           leaf: null,
           path: [],
+          slowInView: [],
         };
         w.__watch = watch;
         window.setInterval(() => {
@@ -86,6 +98,9 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
               Math.abs(r.x - fx.camX) <= halfW && Math.abs(r.y - fx.camY) <= fx.halfHeight;
             if (inView && r.alpha < 1) watch.faded.push({ id: r.id, alpha: r.alpha });
             if (inView && r.id === idC && !links.includes(idC)) watch.cSeenUnlinked = true;
+            const wanted = s.net.links.find((l) => l.id === idC)?.wanted;
+            if (inView && r.id === idC && wanted !== undefined && wanted !== 10)
+              watch.slowInView.push(wanted);
           }
           if (!links.includes(idB)) watch.lostB++;
           const remoteC = s.remotes.find((r) => r.id === idC);
@@ -121,6 +136,22 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       },
       { idB: b.id, idC: c.id, perHalfHeight: AOI_PER_HALF_HEIGHT },
     );
+    // C's watcher: the rate it sends A, and how far A is.
+    await c.page.evaluate((idA) => {
+      const w = window as unknown as { __rates: RateSample[] };
+      w.__rates = [];
+      window.setInterval(() => {
+        const s = (window.__bs as BsHook).state();
+        const link = s.net.links.find((l) => l.id === idA && l.hello);
+        const remoteA = s.remotes.find((r) => r.id === idA);
+        if (!link || link.since === null || !remoteA || !s.player) return;
+        w.__rates.push({
+          hz: link.hz,
+          d: Math.hypot(remoteA.x - s.player.x, remoteA.y - s.player.y),
+          linkedMs: performance.now() - link.since,
+        });
+      }, 100);
+    }, a.id);
     const sentBefore = (await state(a.page)).net.where.sent;
 
     // B follows A; A and C steer toward each other along the line.
@@ -150,6 +181,23 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       await a.page.waitForTimeout(1000);
     }
     expect(crossed, 'A reached the end of its path').toBe(true);
+    // C swims on into A's view (M11 T15: its rate there), and A's watcher keeps watching.
+    let nearSince: number | null = null;
+    while (Date.now() < deadline + 60_000) {
+      const me = (await state(a.page)).player;
+      const cAt = (await state(c.page)).player;
+      if (!me || !cAt) throw new Error('A or C has no creature');
+      const d = Math.hypot(cAt.x - me.x, cAt.y - me.y);
+      if (d > 120) {
+        nearSince = null;
+        await steer(c, me.x - CENTRE, me.y - CENTRE);
+      } else {
+        nearSince ??= Date.now();
+        if (Date.now() - nearSince > 3000) break;
+      }
+      await a.page.waitForTimeout(500);
+    }
+    expect(nearSince, 'C came into A’s view').not.toBeNull();
 
     const watch = await a.page.evaluate(() => (window as unknown as { __watch: Watch }).__watch);
     // Each leaf A left brought a report: the count rose before A was inside a leaf again.
@@ -164,6 +212,30 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     expect(d, 'A and C link while more than twice A’s AoI apart').toBeGreaterThan(2 * aoi);
     expect(watch.cSeenUnlinked).toBe(false);
     expect(watch.faded, 'every remote in A’s view keeps an alpha of 1').toEqual([]);
+
+    // M11 T15: far, C sends A 2 Hz or less (once A has asked: a link starts at 10 Hz); near, 10 Hz.
+    expect(watch.slowInView, 'A asks 10 Hz of C while C is in its view').toEqual([]);
+    const rates = await c.page.evaluate(
+      () => (window as unknown as { __rates: RateSample[] }).__rates,
+    );
+    const far = rates.filter((r) => r.d > 2 * aoi + 300 && r.linkedMs > 2000);
+    const near = rates.filter((r) => r.d < 300);
+    expect(far.length, 'C was linked to A while far').toBeGreaterThan(5);
+    expect(near.length, 'C came near A').toBeGreaterThan(5);
+    expect(
+      far.filter((r) => r.hz > 2),
+      'C sends A 2 Hz or less while far',
+    ).toEqual([]);
+    expect(
+      near.filter((r) => r.hz !== 10),
+      'C sends A 10 Hz once near',
+    ).toEqual([]);
+    const drawnC = (await state(a.page)).remotes.find((r) => r.id === c.id);
+    expect(drawnC, 'A draws C').toBeDefined();
+    expect(
+      drawnC?.pace,
+      'A never draws C faster than 1.2 × its snapshots’ speed',
+    ).toBeLessThanOrEqual(1.2 + 1e-6);
   } finally {
     await closeAll(players);
   }

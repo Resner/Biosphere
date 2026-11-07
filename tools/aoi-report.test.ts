@@ -10,7 +10,7 @@ describe('the area-of-interest report', () => {
     expect(Object.keys(REPORT_SEEDS).sort()).toEqual([...SCENARIO_NAMES].sort());
   });
 
-  heavyTest('writes every scenario with its eight gates and its metrics', () => {
+  heavyTest('writes every scenario with its nine gates and its metrics', () => {
     const results = Object.fromEntries(
       SCENARIO_NAMES.map((name) => [
         name,
@@ -21,6 +21,8 @@ describe('the area-of-interest report', () => {
     const text = aoiReport(results);
     for (const name of SCENARIO_NAMES) expect(text).toContain(`### ${name}`);
     expect(text.match(/\| 8\. Witness duties/g)).toHaveLength(SCENARIO_NAMES.length);
+    expect(text.match(/\| 9\. Bandwidth/g)).toHaveLength(SCENARIO_NAMES.length);
+    expect(text).toContain('Upload on the wire at 24 links');
     expect(text).toContain('Links per client');
     expect(text).toContain('Discovery latency');
   });

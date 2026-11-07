@@ -72,6 +72,15 @@ export interface RunResult {
   lateRelayed: number;
   gossipBytes: number;
   linkSeconds: number;
+  /**
+   * Snapshot upload (B/s) at the rates the receivers ask (M11 T15): the most a client sent while
+   * holding 24 links or more, scaled to 24 links, with the sum and count of those samples, and the
+   * most one link carried. Gossip is added from `gossipBytes` when judged.
+   */
+  upload24: number;
+  upload24Sum: number;
+  upload24Samples: number;
+  linkUpload: number;
   crowdedSeconds: number;
   clientSeconds: number;
   /** Duty links expected, and taken within 10 s. */

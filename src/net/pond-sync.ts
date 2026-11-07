@@ -11,10 +11,25 @@ import { encodeSnapshot, type Snapshot } from './protocol';
 export const SNAPSHOT_INTERVAL_MS = 100;
 /** Remote creatures are drawn this far behind the pond clock, so two samples bracket the view. */
 export const INTERPOLATION_MS = 120;
+/**
+ * A remote heard less often (M11 T15: 5, 2 or 1 Hz) is drawn its snapshots' spacing plus this far
+ * behind, so two of them still bracket the view; the lag eases between the two.
+ */
+const LAG_MARGIN_MS = INTERPOLATION_MS - SNAPSHOT_INTERVAL_MS;
+/** Spacings up to this count as 10 Hz (the sender's ticks make it 67 to 133 ms). */
+const FULL_RATE_GAP_MS = 150;
+/** The widest spacing the lag follows: 1 Hz, the slowest asked rate. */
+const MAX_GAP_MS = 1000;
+/** The lag follows the smallest of this many newest spacings, so one lost snapshot does not slow a remote. */
+const GAP_SAMPLES = 3;
+/** A shrinking lag runs the drawn clock at most this much fast, so a remote eases in at 1.2× (`EASE_SPEED`). */
+const LAG_SHRINK = 0.2;
+/** A growing lag runs the drawn clock at half speed at the slowest. */
+const LAG_GROW = 0.5;
 /** Past the newest snapshot a remote keeps coasting on its velocity for this long, then holds. */
 export const EXTRAPOLATE_MS = 250;
 /** A drawn creature never moves faster than this × its snapshots' speed, so a late snapshot eases in (M6b T1). */
-const EASE_SPEED = 1.2;
+export const EASE_SPEED = 1.2;
 /** A creature that has stopped still catches up at this speed (wu/s), so it is never left behind. */
 const EASE_MIN_SPEED = 40;
 /** Further than this from where the snapshots put it, a creature has been moved: it is drawn there at once. */
@@ -87,16 +102,19 @@ export function snapshotOf(
 export const SIGN_EVERY = 2;
 
 /**
- * Sends one snapshot per 100 ms of loop time, on a schedule so frame timing does not drift it.
- * `send` gets the 29 bytes and, for every second snapshot, the 93-byte signed frame when `update`
- * was given a signer that made one.
+ * Makes one snapshot per 100 ms of loop time, on a schedule so frame timing does not drift it.
+ * `send` gets the 29 bytes, for every second snapshot the 93-byte signed frame when `update` was
+ * given a signer that made one, and the snapshot's number `n` (from 0), by which each link's asked
+ * rate picks its share (`SendRates`, M11 T15).
  */
 export class SnapshotSender {
   private seq = 0;
   private due = 0;
   private sent = 0;
 
-  constructor(private readonly send: (bytes: Uint8Array, signed: Uint8Array | null) => void) {}
+  constructor(
+    private readonly send: (bytes: Uint8Array, signed: Uint8Array | null, n: number) => void,
+  ) {}
 
   /** The seq the next snapshot takes. */
   get nextSeq(): number {
@@ -120,7 +138,7 @@ export class SnapshotSender {
     if (hidden) return;
     const bytes = encodeSnapshot({ ...build(), seq: this.seq });
     const signed = sign && this.sent % SIGN_EVERY === 0 ? sign(bytes) : null;
-    this.send(bytes, signed);
+    this.send(bytes, signed, this.sent);
     this.seq = (this.seq + 1) % SEQ_RANGE;
     this.sent++;
   }
@@ -159,6 +177,11 @@ export class RemoteBuffer {
   private shownAt = Number.NaN;
   private shownX = 0;
   private shownY = 0;
+  /** How far behind the pond clock `sampleLate` draws (ms), and when it last did. */
+  private lag = INTERPOLATION_MS;
+  private lagAt = Number.NaN;
+  /** The fastest it was drawn, as a share of its snapshots' speed (M11 T15). */
+  pace = 0;
   private readonly pose: RemotePose = {
     x: 0,
     y: 0,
@@ -204,6 +227,7 @@ export class RemoteBuffer {
   /**
    * After a gap the snapshots put the creature well ahead of where it was drawn: it catches up at
    * `EASE_SPEED` times its speed instead of jumping, unless it was moved (`SNAP_DISTANCE`).
+   * `pondMs` is the pond clock now, not the moment drawn.
    */
   private ease(pose: RemotePose, pondMs: number, speed: number): void {
     const dt = (pondMs - this.shownAt) / 1000;
@@ -211,11 +235,14 @@ export class RemoteBuffer {
       const dx = pose.x - this.shownX;
       const dy = pose.y - this.shownY;
       const distance = Math.sqrt(dx * dx + dy * dy);
-      const step = EASE_SPEED * Math.max(speed, EASE_MIN_SPEED) * dt;
+      const pace = Math.max(speed, EASE_MIN_SPEED) * dt;
+      const step = EASE_SPEED * pace;
       if (distance > step && distance <= SNAP_DISTANCE) {
         pose.x = this.shownX + (dx * step) / distance;
         pose.y = this.shownY + (dy * step) / distance;
       }
+      this.pace = Math.max(this.pace, Math.min(distance, step) / pace);
+      if (distance > SNAP_DISTANCE) this.pace = Math.max(this.pace, distance / pace);
     } else if (dt === 0) {
       pose.x = this.shownX;
       pose.y = this.shownY;
@@ -227,11 +254,43 @@ export class RemoteBuffer {
 
   /** The pose at `pondMs`, or null before anything was heard. The result is overwritten by the next call. */
   sample(pondMs: number): RemotePose | null {
+    return this.poseAt(pondMs, pondMs);
+  }
+
+  /**
+   * The pose to draw at `pondMs`, the pond clock now: `INTERPOLATION_MS` behind it for a remote
+   * heard at 10 Hz, its snapshots' spacing plus 20 ms behind for one heard less often (M11 T15).
+   * The lag eases between the two, so a remote whose rate rises catches up at 1.2× its speed at
+   * most and one whose rate falls slows down; neither jumps.
+   */
+  sampleLate(pondMs: number): RemotePose | null {
+    const dt = Number.isNaN(this.lagAt) ? 0 : Math.max(0, pondMs - this.lagAt);
+    this.lagAt = pondMs;
+    const want = this.wantedLag();
+    this.lag =
+      want > this.lag
+        ? Math.min(want, this.lag + LAG_GROW * dt)
+        : Math.max(want, this.lag - LAG_SHRINK * dt);
+    return this.poseAt(pondMs - this.lag, pondMs);
+  }
+
+  /** The lag the newest snapshots' spacing asks for: the smallest of the last few. */
+  private wantedLag(): number {
+    const { samples } = this;
+    let gap = Number.POSITIVE_INFINITY;
+    for (let i = Math.max(1, samples.length - GAP_SAMPLES); i < samples.length; i++) {
+      gap = Math.min(gap, (samples[i] as Sample).t - (samples[i - 1] as Sample).t);
+    }
+    if (!(gap > FULL_RATE_GAP_MS)) return INTERPOLATION_MS;
+    return Math.min(gap, MAX_GAP_MS) + LAG_MARGIN_MS;
+  }
+
+  private poseAt(drawnMs: number, pondMs: number): RemotePose | null {
     const { samples, pose } = this;
     const newest = samples[samples.length - 1];
     if (!newest) return null;
     let i = samples.length - 1;
-    while (i > 0 && (samples[i] as Sample).t > pondMs) i--;
+    while (i > 0 && (samples[i] as Sample).t > drawnMs) i--;
     const from = samples[i] as Sample;
     pose.biomass = newest.biomass;
     pose.alive = newest.alive;
@@ -239,20 +298,20 @@ export class RemoteBuffer {
     pose.vx = newest.vx;
     pose.vy = newest.vy;
     let speed = Math.hypot(newest.vx, newest.vy);
-    if (pondMs <= from.t) {
+    if (drawnMs <= from.t) {
       // Older than anything held: hold the oldest pose.
       pose.x = from.x;
       pose.y = from.y;
       pose.heading = from.heading;
     } else if (i < samples.length - 1) {
       const to = samples[i + 1] as Sample;
-      const f = (pondMs - from.t) / (to.t - from.t);
+      const f = (drawnMs - from.t) / (to.t - from.t);
       speed = Math.max(speed, (Math.hypot(to.x - from.x, to.y - from.y) * 1000) / (to.t - from.t));
       pose.x = lerp(from.x, to.x, f);
       pose.y = lerp(from.y, to.y, f);
       pose.heading = from.heading + wrapAngle(to.heading - from.heading) * f;
     } else {
-      const seconds = Math.min(pondMs - newest.t, EXTRAPOLATE_MS) / 1000;
+      const seconds = Math.min(drawnMs - newest.t, EXTRAPOLATE_MS) / 1000;
       pose.x = newest.x + newest.vx * seconds;
       pose.y = newest.y + newest.vy * seconds;
       pose.heading = newest.heading;
@@ -294,6 +353,8 @@ export interface RemoteView {
    * `AWAY_ALPHA`, and never offered for an engage.
    */
   away: boolean;
+  /** The fastest it was drawn, as a share of its snapshots' speed (M11 T15: at most `EASE_SPEED`). */
+  pace: number;
 }
 
 interface Remote {
@@ -370,6 +431,7 @@ export class RemoteSet {
           fighting: snapshot.fighting,
           health: snapshot.health,
           away: false,
+          pace: 0,
         },
       };
       this.remotes.set(id, remote);
@@ -425,8 +487,8 @@ export class RemoteSet {
   }
 
   /**
-   * The live remotes as they should be drawn at `pondMs`, which is shown `INTERPOLATION_MS`
-   * late. The array and its views are reused between calls.
+   * The live remotes as they should be drawn at `pondMs`, each shown late by its own lag
+   * (`RemoteBuffer.sampleLate`). The array and its views are reused between calls.
    */
   sample(localMs: number, pondMs: number): readonly RemoteView[] {
     this.views.length = 0;
@@ -437,9 +499,10 @@ export class RemoteSet {
         if (!this.names.has(id)) this.gone?.(id);
         continue;
       }
-      const pose = remote.buffer.sample(pondMs - INTERPOLATION_MS);
+      const pose = remote.buffer.sampleLate(pondMs);
       if (!pose?.alive) continue;
       const { view } = remote;
+      view.pace = remote.buffer.pace;
       view.x = pose.x;
       view.y = pose.y;
       view.heading = pose.heading;

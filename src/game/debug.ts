@@ -172,6 +172,8 @@ export interface BsState {
      * faded, with "away" after its name, and never offered for an engage.
      */
     away: boolean;
+    /** The fastest it was drawn, as a share of its snapshots' speed: at most 1.2 (M11 T15). */
+    pace: number;
   }[];
   /**
    * Attack (M7 T11): the remote the "F" glyph marks (the nearest this player could engage now) or

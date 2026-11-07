@@ -345,6 +345,7 @@ export function installAppHook(app: App): void {
             spawnProtected,
             fighting,
             away,
+            pace,
           }) => ({
             id,
             name,
@@ -358,6 +359,7 @@ export function installAppHook(app: App): void {
             protected: spawnProtected,
             fighting,
             away,
+            pace,
           }),
         ),
         attack: app.attack.info(),

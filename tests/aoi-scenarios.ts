@@ -1,4 +1,4 @@
-// The harness's scenarios and gates (M11 T10, ADR 0062): seven worlds laid out by seed, and the eight
+// The harness's scenarios and gates (M11 T10, ADR 0062): seven worlds laid out by seed, and the nine
 // gates a run must meet. `tests/aoi-harness.ts` runs them; the test and `npm run report:aoi` judge them.
 
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
@@ -197,6 +197,26 @@ export const MSG_P95 = 12;
 export const JOIN_P95 = 48;
 export const RELAY_SHARE = 0.7;
 export const GOSSIP_KBPS = 0.3;
+/** Snapshots and gossip on the wire at the asked rates (M11 T15): a client's upload at 24 links, and one link's. */
+export const UPLOAD_24_KBPS = 12;
+export const LINK_KBPS = 4;
+
+/** Upload on the wire (KB/s): at 24 links (null with no sample there; most and mean) and on one link at most. */
+export function uploadOf(runs: RunResult[]) {
+  const gossip =
+    sum(runs, (r) => r.gossipBytes) /
+    Math.max(
+      1,
+      sum(runs, (r) => r.linkSeconds),
+    );
+  const samples = sum(runs, (r) => r.upload24Samples);
+  const at24 = (bps: number) => (bps + 24 * gossip) / 1000;
+  return {
+    max24: samples === 0 ? null : at24(Math.max(...runs.map((r) => r.upload24))),
+    mean24: samples === 0 ? null : at24(sum(runs, (r) => r.upload24Sum) / samples),
+    link: (Math.max(...runs.map((r) => r.linkUpload)) + gossip) / 1000,
+  };
+}
 
 export function pct(values: readonly number[], p: number): number {
   if (values.length === 0) return 0;
@@ -212,7 +232,7 @@ const examples = (runs: RunResult[], keys: (keyof RunResult['violations'])[]) =>
     .slice(0, 3)
     .join('; ');
 
-/** The eight gates over one scenario's runs (several seeds are pooled). */
+/** The nine gates over one scenario's runs (several seeds are pooled). */
 export function gatesOf(runs: RunResult[]): Gate[] {
   const v = (k: keyof RunResult['violations']) => sum(runs, (r) => r.violations[k]);
   const name = runs[0]?.scenario ?? '';
@@ -250,6 +270,8 @@ export function gatesOf(runs: RunResult[]): Gate[] {
     (!budgeted || (median <= MSG_MEDIAN && p95 <= MSG_P95 && join <= JOIN_P95)) &&
     (!relayScenario || lateLinks === 0 || share >= RELAY_SHARE);
   const duties = sum(runs, (r) => r.duties);
+  const up = uploadOf(runs);
+  const kb = (v: number) => `${v.toFixed(1)} KB/s`;
   return [
     zero(1, 'The cap holds', ['cap']),
     zero(2, 'No hidden interactable creature', ['hidden']),
@@ -292,6 +314,17 @@ export function gatesOf(runs: RunResult[]): Gate[] {
         duties === 0
           ? 'n/a'
           : `${sum(runs, (r) => r.dutiesTaken)} of ${duties} duty links taken in 10 s; ${examples(runs, ['duty', 'dutyCap']) || '0 violations'}`,
+    },
+    {
+      n: 9,
+      name: `Bandwidth: upload at 24 links within ${UPLOAD_24_KBPS} KB/s, each link within ${LINK_KBPS} KB/s`,
+      // A dense crowd's links are all P1, at 10 Hz by rule: its upload is reported, not asserted (M12).
+      ok: up.link <= LINK_KBPS && (dense || up.max24 === null || up.max24 <= UPLOAD_24_KBPS),
+      detail: `${
+        up.max24 === null || up.mean24 === null
+          ? 'never 24 links'
+          : `at 24 links ${kb(up.max24)} at most, ${kb(up.mean24)} on average${dense ? ' (not asserted)' : ''}`
+      }; one link ${kb(up.link)} at most`,
     },
   ];
 }
