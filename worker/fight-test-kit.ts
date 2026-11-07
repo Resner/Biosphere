@@ -12,9 +12,9 @@ import {
   type FighterInfo,
   genomeRefOf,
   type HubMsg,
-  type PondInfo,
   type SignedSnap,
   type Snapshot,
+  type WorldInfo,
 } from '../src/net/protocol';
 import { FRAME_MS } from '../src/net/referee';
 import { createEncounter } from '../src/sim/encounter/encounter';
@@ -116,7 +116,7 @@ export function useFightHub(): void {
 export interface Player {
   c: Client;
   id: Identity;
-  pond: PondInfo;
+  pond: WorldInfo;
   creature: string;
   ref: number;
   ticks: number;
@@ -124,7 +124,7 @@ export interface Player {
 
 export async function join(id?: Identity) {
   const { c, id: who } = await signIn(id);
-  const { pond } = await nextOf(c, 'welcome');
+  const { world: pond } = await nextOf(c, 'welcome');
   const life = await nextOf(c, 'life');
   return { c, id: who, pond, life };
 }

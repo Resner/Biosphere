@@ -1,5 +1,6 @@
 import type { Canonical } from '../ledger/canonical';
 import type { RecordRequest, Status } from '../ledger/record';
+import { parseSignedSeat } from '../ledger/seat';
 import {
   BORN_MAX_BYTES,
   type Born,
@@ -8,7 +9,6 @@ import {
   CONSUMED_MAX_ENTRIES,
   CONSUMED_MAX_PARTS,
   EMOTE_COUNT,
-  EVENT_MAX_BYTES,
   type FallbackInfo,
   GENESIS_MAX_BYTES,
   HISTORY_MAX,
@@ -29,6 +29,8 @@ import {
   type PeerEvent,
   PING_KINDS,
   PROTOCOL_VERSION,
+  peerEventMax,
+  RELAY_MAX_BYTES,
   SIGNAL_MAX_BYTES,
   type Vec2,
   WELCOME_MAX_BYTES,
@@ -63,10 +65,15 @@ import {
   SIG_RE,
 } from './protocol-kit';
 import { witnessClientMsg, witnessHubMsg, witnessPeerEvent } from './protocol-witness';
+import { pos, worldClientMsg, worldHubMsg, worldInfo, worldPeerEvent } from './protocol-world';
 
 export { byteLength };
 
 const SLOT_RE = /^[A-Za-z0-9_]{1,24}$/;
+/** A food slot of layer 1 to 4 (M11 T5): `t<k>c<x>_<y>_s<slot>`. Any other id starting with `t` is refused. */
+const LAYER_SLOT_RE = /^t[1-4]c\d+_\d+_s\d+$/;
+const isSlot = (v: unknown): v is string =>
+  isStr(v, SLOT_RE) && (!v.startsWith('t') || LAYER_SLOT_RE.test(v));
 const CODE_RE = /^[a-z0-9-]{1,32}$/;
 /** A species name: two words of letters, as `speciesName` makes them. */
 const SPECIES_RE = /^[A-Za-z]{2,40} [A-Za-z]{2,40}$/;
@@ -197,7 +204,7 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return ask ? capped(raw, { t: o.t, ask }) : null;
     }
     default:
-      return encounterClientMsg(o, raw) ?? witnessClientMsg(o, raw);
+      return encounterClientMsg(o, raw) ?? witnessClientMsg(o, raw) ?? worldClientMsg(o, raw);
   }
 }
 
@@ -219,9 +226,12 @@ export function parseHubMsg(raw: string): HubMsg | null {
         ? capped(raw, { t: 'member', op: o.op, member: m })
         : null;
     }
-    case 'signal':
+    case 'signal': {
       if (!isStr(o.from, PLAYER_ID_RE) || !isSignalPayload(o)) return null;
-      return { t: 'signal', from: o.from, kind: o.kind, sdp: o.sdp };
+      const at = o.at === undefined ? undefined : pos(o.at);
+      if (at === null) return null;
+      return { t: 'signal', from: o.from, kind: o.kind, sdp: o.sdp, ...(at ? { at } : {}) };
+    }
     case 'error':
       return isStr(o.code, CODE_RE) ? capped(raw, { t: 'error', code: o.code }) : null;
     case 'life': {
@@ -386,7 +396,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
         ? capped(raw, { t: 'queued', position: o.position, etaS: o.etaS })
         : null;
     default:
-      return encounterHubMsg(o, raw) ?? witnessHubMsg(o, raw);
+      return encounterHubMsg(o, raw) ?? witnessHubMsg(o, raw) ?? worldHubMsg(o, raw);
   }
 }
 
@@ -546,51 +556,48 @@ function isSignalPayload(o: Obj): o is Obj & { kind: 'offer' | 'answer'; sdp: st
 }
 
 function welcome(o: Obj): HubMsg | null {
-  const pond = isObj(o.pond) ? o.pond : null;
-  const centre = pond ? vec(pond.centre) : null;
+  const world = worldInfo(o.world);
   const hint = isObj(o.you) ? vec(o.you.spawnHint) : null;
   const members = list(o.members, 64, member);
   const ice = list(o.ice, 8, iceServer);
+  const ticket = o.ticket === undefined ? undefined : parseSignedSeat(o.ticket);
   if (
-    !pond ||
-    !centre ||
+    !world ||
     !hint ||
     !members ||
     !ice ||
-    !isStr(pond.id, ID_RE) ||
-    !isStr(pond.seed, ID_RE) ||
-    !isInt(pond.epoch, 0, MAX_TIME) ||
-    !isNum(pond.size) ||
-    pond.size <= 0 ||
+    ticket === null ||
     typeof o.turn !== 'boolean' ||
     !isInt(o.now, 0, MAX_TIME)
   )
     return null;
   return {
     t: 'welcome',
-    pond: { id: pond.id, seed: pond.seed, epoch: pond.epoch, centre, size: pond.size },
+    world,
     you: { spawnHint: hint },
     members,
     ice,
     turn: o.turn,
     now: o.now,
+    ...(ticket ? { ticket } : {}),
   };
 }
 
 function consumedEntry(v: unknown): [string, number, number] | null {
   if (!Array.isArray(v) || v.length !== 3) return null;
   const [slot, k, until] = v;
-  return isStr(slot, SLOT_RE) && isInt(k, 0, MAX_TICK) && isInt(until, 0, MAX_TICK)
+  return isSlot(slot) && isInt(k, 0, MAX_TICK) && isInt(until, 0, MAX_TICK)
     ? [slot, k, until]
     : null;
 }
 
+/** A peer event: at most `EVENT_MAX_BYTES`, or `RELAY_MAX_BYTES` for a `relay`. */
 export function parsePeerEvent(raw: string): PeerEvent | null {
-  const o = parseObject(raw, EVENT_MAX_BYTES);
-  if (!o) return null;
+  const o = parseObject(raw, RELAY_MAX_BYTES);
+  if (!o || byteLength(raw) > peerEventMax(o.t)) return null;
   switch (o.t) {
     case 'claim':
-      return isStr(o.slot, SLOT_RE) && isInt(o.k, 0, MAX_TICK) && isInt(o.tick, 0, MAX_TICK)
+      return isSlot(o.slot) && isInt(o.k, 0, MAX_TICK) && isInt(o.tick, 0, MAX_TICK)
         ? { t: 'claim', slot: o.slot, k: o.k, tick: o.tick }
         : null;
     case 'consumed': {
@@ -612,6 +619,6 @@ export function parsePeerEvent(raw: string): PeerEvent | null {
         ? { t: 'ping', kind: o.kind, x: o.x, y: o.y }
         : null;
     default:
-      return witnessPeerEvent(o);
+      return witnessPeerEvent(o) ?? worldPeerEvent(o);
   }
 }

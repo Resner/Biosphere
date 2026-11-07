@@ -91,7 +91,7 @@ async function expectResume(got: HubMsg[], p: Player, start: EncStart): Promise<
     ...fight.history.map((m) => m.t),
   ]);
   const [welcome, life, encStart, ...rest] = got;
-  expect(welcome?.t === 'welcome' && welcome.pond.id).toBe(fight.pond);
+  expect(welcome?.t === 'welcome' && welcome.world.id).toBe(fight.pond);
   expect(life).toMatchObject({ t: 'life', fight: start.enc, life: { creature: p.creature } });
   expect(encStart).toEqual(start);
   expect(rest).toEqual(fight.history);
@@ -212,7 +212,7 @@ describe('an away fighter keeps its seat', () => {
     const late = await newcomer();
     expect(late.pond.id).not.toBe(a.pond.id);
     const { got } = await signInAgain(b);
-    expect(got[0]?.t === 'welcome' && got[0].pond.id).toBe(a.pond.id);
+    expect(got[0]?.t === 'welcome' && got[0].world.id).toBe(a.pond.id);
   });
 
   it('in `MAX_SESSIONS`: B is seated at once and a newcomer is queued', async () => {

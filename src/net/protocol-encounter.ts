@@ -20,6 +20,7 @@ import {
   NAME_RE,
   SEEN_MAX,
   type SignedSnap,
+  SNAPSHOT_BYTES,
 } from './protocol-defs';
 import {
   capped,
@@ -46,11 +47,11 @@ import {
 
 /** A lock id: 8 to 32 random bytes as hex. */
 const LOCK_RE = /^[0-9a-f]{16,64}$/;
-/** The 25 snapshot bytes in base64url. */
-const SNAP_RE = /^[A-Za-z0-9_-]{34}$/;
+/** The 29 snapshot bytes in base64url, unpadded (39 characters). */
+const SNAP_RE = new RegExp(`^[A-Za-z0-9_-]{${Math.ceil((SNAPSHOT_BYTES * 4) / 3)}}$`);
 /** An encounter's state hash (`hashEncounter`): 16 hex characters. */
 const STATE_HASH_RE = /^[0-9a-f]{16}$/;
-/** Positions lie in the world (the snapshot covers 0 to 8192 wu), velocities within a snapshot's range. */
+/** Positions lie in the pond (0 to 8192 wu; M11 T12 widens this to the world), velocities within a snapshot's range. */
 const POS_MAX = 8192;
 const VEL_MAX = 8192;
 const HEADING_MAX = 2 * Math.PI;

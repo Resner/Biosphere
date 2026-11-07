@@ -126,16 +126,16 @@ export class OnlineWiring {
   private makePond(w: Welcome, hubClock: PondClock): Pond {
     const { app } = this;
     return {
-      id: w.pond.id,
-      seed: w.pond.seed,
-      size: w.pond.size,
-      ring: { centre: w.pond.centre, hint: w.you.spawnHint },
+      id: w.world.id,
+      seed: w.world.seed,
+      size: w.world.size,
+      ring: { centre: w.world.centre, hint: w.you.spawnHint },
       lives: 0,
-      time: new PondTime(hubClock, w.pond.epoch),
+      time: new PondTime(hubClock, w.world.epoch),
       food: new PondFood(app.playerId ?? 'local', (event) =>
         app.keeper.current?.broadcastEvent(event),
       ),
-      world: createWorld({ seed: w.pond.seed, size: w.pond.size }),
+      world: createWorld({ seed: w.world.seed, size: w.world.size }),
     };
   }
 
@@ -149,7 +149,7 @@ export class OnlineWiring {
       handlers: {
         welcome: (w) => {
           const life = app.session.demo ? null : app.session.pond;
-          const next = switchPond(app.pond, life, w.pond.id, () => this.makePond(w, link.clock));
+          const next = switchPond(app.pond, life, w.world.id, () => this.makePond(w, link.clock));
           if (next.changed) {
             app.pond = next.pond;
             app.social.reset();
@@ -163,7 +163,7 @@ export class OnlineWiring {
               app.loop.setSpeed(1);
             }
           }
-          app.social.worldSize = w.pond.size;
+          app.social.worldSize = w.world.size;
           app.mate.attach(link);
           app.duty.welcome();
         },

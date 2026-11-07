@@ -1,6 +1,6 @@
 // Proxy snapshots (ADR 0053, M8 T11): a fighter whose player left the pond stays visible. In each
 // running fight the connected fighter with the lowest slot relays every away fighter's pose, from
-// its last confirmed encounter state, to the pond peers outside the fight as 57-byte proxy frames
+// its last confirmed encounter state, to the pond peers outside the fight as 61-byte proxy frames
 // at 5 Hz, and one last frame at the end carries the result's alive flag. Every fighter's client
 // draws its away opponents from the same snapshots. A receiver takes a proxy only from a peer that
 // is fighting, and only for a player that has gone quiet itself. A proxy is unsigned: it moves a
@@ -10,7 +10,7 @@ import { encodeProxyFrame } from '../ledger/snapshot-sig';
 import { REMOVE_AFTER_MS, SEQ_RANGE, type SnapshotFields } from './pond-sync';
 import { encodeSnapshot, type Snapshot } from './protocol';
 
-/** Proxies go out at 5 Hz: 57 bytes each, 285 B/s per away fighter per peer. */
+/** Proxies go out at 5 Hz: 61 bytes each, 305 B/s per away fighter per peer. */
 export const PROXY_INTERVAL_MS = 200;
 /** A proxy for a player is taken only once its own snapshots have stopped for this long. */
 export const PROXY_QUIET_MS = 1000;

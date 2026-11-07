@@ -24,9 +24,9 @@ const HEX2 = 'cd'.repeat(32);
 const LOCK = '0123456789abcdef'.repeat(2);
 const GENOME = 'Ab-_09'.repeat(100);
 const SIG = 'c'.repeat(86);
-const SNAP = 'x'.repeat(33) + 'A';
+const SNAP = 'x'.repeat(38) + 'A';
 const mine: SignedSnap = { snap: SNAP, sig: SIG };
-const theirs: SignedSnap = { snap: `${'y'.repeat(33)}w`, sig: 'd'.repeat(86) };
+const theirs: SignedSnap = { snap: `${'y'.repeat(38)}w`, sig: 'd'.repeat(86) };
 
 const fighter = (over: Partial<FighterInfo> = {}): FighterInfo => ({
   player: PID,
@@ -248,7 +248,7 @@ describe('encounter ranges', () => {
     expect(hub({ ...start, t0: 2 ** 32 })).toBeNull();
   });
 
-  it('takes signed snapshots only as 25 bytes and 64 bytes of base64url', () => {
+  it('takes signed snapshots only as 29 bytes and 64 bytes of base64url', () => {
     for (const s of [
       { snap: SNAP.slice(1), sig: SIG },
       { snap: `${SNAP}A`, sig: SIG },

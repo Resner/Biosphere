@@ -153,7 +153,8 @@ describe('ProxyRelay', () => {
     expect(c0.shown).toHaveLength(0);
   });
 
-  it('keeps the traffic per away fighter per peer at or under 300 B/s over 10 s', () => {
+  // 5 Hz of 61-byte frames: M8's 300 B/s grew with the snapshot's wider positions (M11 T2).
+  it('keeps the traffic per away fighter per peer at or under 310 B/s over 10 s', () => {
     const [f0, f1, f2, s1] = ids as [string, string, string, string];
     // Two away fighters in a three-way fight; frame timing jitters between 8 and 40 ms.
     const pond = new Set([f0, s1]);
@@ -170,7 +171,7 @@ describe('ProxyRelay', () => {
       const bytes = c0.sent
         .filter((s) => s.to === s1 && decodeStateFrame(s.bytes)?.proxyFor === away)
         .reduce((n, s) => n + s.bytes.length, 0);
-      expect(bytes / 10).toBeLessThanOrEqual(300);
+      expect(bytes / 10).toBeLessThanOrEqual(310);
       expect(bytes / 10).toBeGreaterThan(200);
     }
   });

@@ -163,7 +163,7 @@ describe('hub hello', () => {
     },
   );
 
-  it.each([1, 6, 7, 8, 9])('closes 4002 for protocol version %i', async (v) => {
+  it.each([1, 6, 7, 8, 9, 10])('closes 4002 for protocol version %i', async (v) => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
     c.send({ ...hello, v });
@@ -350,15 +350,15 @@ describe('ponds', () => {
     const { welcome } = (await fill(1))[0] ?? {};
     expect(welcome?.members).toEqual([]);
     expect(welcome?.you.spawnHint).toEqual({ x: CENTRE, y: CENTRE });
-    expect(welcome?.pond.centre).toEqual({ x: CENTRE, y: CENTRE });
+    expect(welcome?.world.centre).toEqual({ x: CENTRE, y: CENTRE });
     // The world side in wu (not the pond's capacity): clients build their world from it.
-    expect(welcome?.pond.size).toBe(CENTRE * 2);
+    expect(welcome?.world.size).toBe(CENTRE * 2);
     const rows = await pondRows();
     expect(rows).toHaveLength(1);
     expect(rows[0]).toMatchObject({
-      id: welcome?.pond.id,
-      seed: welcome?.pond.seed,
-      epoch: welcome?.pond.epoch,
+      id: welcome?.world.id,
+      seed: welcome?.world.seed,
+      epoch: welcome?.world.epoch,
       cx: CENTRE,
       cy: CENTRE,
     });
@@ -376,7 +376,7 @@ describe('ponds', () => {
     });
     try {
       const players = await fill(3);
-      const ponds = players.map((p) => p.welcome.pond);
+      const ponds = players.map((p) => p.welcome.world);
       expect(new Set(ponds.map((p) => p.id)).size).toBe(2);
       for (const pond of ponds) {
         expect(pond.seed).toBe(world?.seed);
@@ -394,7 +394,7 @@ describe('ponds', () => {
   it('puts the second player in the same pond, on the ring, and tells the first', async () => {
     const [a, b] = await fill(2);
     if (!a || !b) throw new Error('fill');
-    expect(b.welcome.pond).toEqual(a.welcome.pond);
+    expect(b.welcome.world).toEqual(a.welcome.world);
     expect(b.welcome.members).toEqual([{ playerId: a.id.playerId, name: 'Pl0' }]);
     const angle = GOLDEN_ANGLE;
     const radius = 340;
@@ -417,7 +417,7 @@ describe('ponds', () => {
   it('sends the 25th player to a new pond', async () => {
     const players = await fill(25);
     const last = players[24]?.welcome;
-    expect(last?.pond.id).not.toBe(players[0]?.welcome.pond.id);
+    expect(last?.world.id).not.toBe(players[0]?.welcome.world.id);
     expect(last?.members).toEqual([]);
     expect(await pondRows()).toHaveLength(2);
   }, 20_000);
@@ -425,13 +425,13 @@ describe('ponds', () => {
   it('joins the fullest pond that has a free place', async () => {
     const players = await fill(25); // pond A: 24, pond B: 1
     const b2 = await login('Bee2'); // joins B (A is full)
-    const bId = players[24]?.welcome.pond.id;
-    expect(welcomeOf(b2.welcome).pond.id).toBe(bId);
+    const bId = players[24]?.welcome.world.id;
+    expect(welcomeOf(b2.welcome).world.id).toBe(bId);
     // A loses a player: A has 23 and is now the fullest with a place.
     players[0]?.c.send({ t: 'leave' });
     await players[0]?.c.closed;
     const next = welcomeOf((await login('Next')).welcome);
-    expect(next.pond.id).toBe(players[1]?.welcome.pond.id);
+    expect(next.world.id).toBe(players[1]?.welcome.world.id);
     expect(next.members).toHaveLength(23);
   }, 20_000);
 
@@ -441,7 +441,7 @@ describe('ponds', () => {
     a.c.send({ t: 'leave' });
     await a.c.closed;
     const again = welcomeOf((await login('Again')).welcome);
-    expect(again.pond).toEqual(a.welcome.pond);
+    expect(again.world).toEqual(a.welcome.world);
     expect(again.members).toEqual([]);
     expect(await pondRows()).toHaveLength(1);
   });
@@ -495,7 +495,7 @@ describe('ponds', () => {
     const [a] = await fill(1);
     await evictDurableObject(stub());
     const b = welcomeOf((await login('Late')).welcome);
-    expect(b.pond).toEqual(a?.welcome.pond);
+    expect(b.world).toEqual(a?.welcome.world);
     expect(b.members).toHaveLength(1);
   });
 });
@@ -576,8 +576,8 @@ describe('signal relay', () => {
     const [a] = await fill(1);
     skip(60_000);
     const b = welcomeOf((await login('Later')).welcome);
-    expect(b.pond.epoch).toBe(a?.welcome.pond.epoch);
-    expect(b.now).toBeGreaterThan(b.pond.epoch);
+    expect(b.world.epoch).toBe(a?.welcome.world.epoch);
+    expect(b.now).toBeGreaterThan(b.world.epoch);
   });
 });
 
