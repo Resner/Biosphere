@@ -237,8 +237,41 @@ export const M10_CARD_HUB = 'http://localhost:8826';
 /** The M10 lifecycle spec's hub (M10 T17): `MATING_SCALE` and the witness variables, four players through the whole M10 line. */
 export const M10_LIFECYCLE_HUB = 'http://localhost:8827';
 
+/** Hubs this worker process has already woken. */
+const warmed = new Set<string>();
+
+/**
+ * Wakes a hub's authority before a page asks it for anything. The first connection to a hub
+ * starts its Durable Object, which on a loaded runner (three dozen hubs starting at once) can take
+ * longer than the game's 4 s hatch wait: the cell then swims as a practice cell and the scenario
+ * waits for a creature that never comes. Waiting on the hub's own answer, bounded, keeps the
+ * scenario independent of the runner's speed.
+ */
+async function warmHub(hub: string): Promise<void> {
+  if (warmed.has(hub)) return;
+  const url = `${hub.replace(/^http/, 'ws')}/v1/hub`;
+  await new Promise<void>((resolve, reject) => {
+    const socket = new WebSocket(url);
+    const timer = setTimeout(() => {
+      socket.close();
+      reject(new Error(`the hub at ${hub} did not accept a connection within 60 s`));
+    }, 60_000);
+    socket.onopen = () => {
+      clearTimeout(timer);
+      socket.close();
+      resolve();
+    };
+    socket.onerror = () => {
+      clearTimeout(timer);
+      reject(new Error(`the hub at ${hub} refused a connection`));
+    };
+  });
+  warmed.add(hub);
+}
+
 /** Opens the game against an M4 hub with no pinned body, so a hatch goes through the ledger. */
 export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promise<void> {
+  await warmHub(hub);
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
   await page.waitForFunction(() => window.__bs?.ready === true);
   await page.waitForFunction(() => window.__bs?.state().playerId);
