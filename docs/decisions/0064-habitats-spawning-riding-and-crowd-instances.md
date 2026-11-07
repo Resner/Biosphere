@@ -43,7 +43,8 @@ The authority places every creature that enters the water from somewhere else: a
   - it keeps the **clearance** from every member that could engage the spawner (exact tiers within ±1), and from every spawn of the last 60 s;
   - it is not within P1 reach of a member in an instance (a newcomer never spawns into a crowd; it may swim in).
 - **The clearance** between two creatures is the larger of their AoIs, and never less than 12 × the larger radius:
-  - for two starters, 354 to 480 wu: out of each other's view, and three times a typical engage range;
+  - for two starters, 233 to 354 wu: out of each other's view, and three times a typical engage range (3 to 4 radii);
+  - 992 wu for two T1 adults and about 5,200 wu for two T2 adults, where the AoI still decides;
   - it uses the members' reported positions, so a member that swam since may be nearer. Spawn protection (15 s) covers the rest.
 - **The first ring with a valid candidate wins.** Among its valid candidates, those within P1 reach of a member of the group come first, so friends link at once. One is drawn at random.
   - So spawns fill the gaps inside a group first, and the populated area grows outward as it fills.
@@ -55,7 +56,8 @@ The authority places every creature that enters the water from somewhere else: a
 
 - **Asking.** When its creature enters the water, a page asks the hub with `spawn`. The answer names the place, why (`placed`, `back`, `ride`) and whether the creature is protected. The welcome's ring slot and spawn hint go.
 - **By kind of life**:
-  - a genesis and a restore are `placed` and protected (15 s, as now);
+  - a genesis and a restore are `placed` and protected for 15 s, counted from the answer rather than the binding, so a long egg reveal no longer eats it;
+  - an unrecorded practice cell in the hub's world is `placed` by the radius and AoI it states, unprotected;
   - a promoted child keeps the parent's place and asks nothing;
   - a resume comes `back` where the creature left the water when that was under 10 minutes ago and it is the same creature, unprotected; otherwise it is `placed`, unprotected;
   - a return into a fight takes its place from the fight.
@@ -79,6 +81,7 @@ The authority places every creature that enters the water from somewhere else: a
   - The target is the best group among the others, and the arrival is placed by the rules above.
   - On arrival the creature is protected for 15 s, as a spawn is.
   - The creature keeps its state; no record is written.
+  - The answer, like a spawn's, puts the member in the directory at its arrival at once, so two lone players asking together don't swap places.
 - **Refusals**: `locked`, `busy` (a court), `company` (someone near), `soon` (under 120 s alone, or since a fight) and `none` (no group to ride to).
 - **It is offered, never forced.** After 120 s alone the alone hint offers "Ride the current" (R) for 12 s, then again every 2 minutes while the player stays alone. The menu offers it whenever the page thinks it is alone. Consolidation comes from both paths: every new life spawns at the best group, and riding is one key away.
 
@@ -115,7 +118,7 @@ The authority places every creature that enters the water from somewhere else: a
     - else the least-full instance.
   - **Leaving**: a member further than twice the P1 hold (2 × (8 × the larger radius + 900 wu)) from every other member of its crowd goes back to open water.
   - **More room**: a crowded report from inside a crowd adds an instance and re-bins, at most once per 10 s per crowd. A unit stays in its instance while that instance holds at most 16; overflow units move to the least-full one.
-- **A locked creature's instance never changes.** Joins, leaves, re-splits and merges pass over a fighter until its fight ends, so an instance change can't end or escape a fight.
+- **A locked creature's instance never changes.** Joins, leaves, re-splits and merges pass over a fighter until its fight ends, so an instance change can't end or escape a fight. A fighter whose page closes keeps its instance while its fight runs, and takes it back when it signs in again during the fight.
 - **Merging when quiet.** A crowd merges back into the open water once all of these hold for 30 s (`QUIET_MS`):
   - it has had at most 16 members;
   - no crowd list came from its members;
