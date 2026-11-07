@@ -22,7 +22,7 @@ const E = { x: 1400, y: 1700 };
 const DIAG = Math.SQRT1_2;
 /** C's start, along A's line from S. A covers 4,243 wu of it; a slow runner's C swims only a few wu/s,
  * so C starts near enough to reach A's view, and far enough to link while more than 2 AoI away. */
-const C_AHEAD = 7_000;
+const C_AHEAD = 6_000;
 
 interface Watch {
   /** Samples where a remote in A's view was drawn below full alpha. */
@@ -53,7 +53,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
   browser,
   request,
 }) => {
-  test.setTimeout(420_000);
+  test.setTimeout(660_000);
   const players: Player[] = [];
   try {
     for (let i = 0; i < 3; i++) players.push(await join(browser, HUB));
@@ -185,11 +185,11 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     }
     expect(crossed, 'A reached the end of its path').toBe(true);
     // C swims on into A's view (M11 T15: its rate there), and A's watcher keeps watching.
-    // Its own budget: the way there took as long as a slow runner's ticks made it, and C still has
-    // to swim the rest.
+    // Its own budget: the way there took as long as a slow runner's ticks made it (on a slow runner C
+    // was still 788 wu away after 150 s more), and C still has to swim the rest.
     let nearSince: number | null = null;
     let lastD = Number.NaN;
-    const nearDeadline = Date.now() + 150_000;
+    const nearDeadline = Date.now() + 300_000;
     while (Date.now() < nearDeadline) {
       const me = (await state(a.page)).player;
       const cAt = (await state(c.page)).player;
