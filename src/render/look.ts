@@ -82,9 +82,4 @@ export class LookAnchor {
   originY(origin: number): number {
     return this.cam.y - (this.camY - origin) / this.scale;
   }
-
-  /** Starts again at the next update (a new scene or world). */
-  reset(): void {
-    this.started = false;
-  }
 }

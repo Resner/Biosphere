@@ -5,9 +5,10 @@
 import type { Known } from '../net/aoi';
 import { type Fix, Gossip } from '../net/gossip';
 import type { Leaf, NearPeer, Pos } from '../net/protocol';
+import type { SwarmPoint } from '../render/swarms';
 
 /** No swarm: before the directory's first answer, and after it forgot this page. */
-export const NO_SWARM: readonly (readonly [number, number])[] = [];
+export const NO_SWARM: readonly SwarmPoint[] = [];
 
 /** A linked peer's newest snapshot places it for this long (a hidden tab stops sending). */
 export const SNAPSHOT_TTL_MS = 10_000;
@@ -22,7 +23,7 @@ export class Neighbours {
   /** The leaf the directory last named for this page, or null before its first answer. */
   leaf: Leaf | null = null;
   /** The directory's last swarm (M11 T17): players two or more tiers smaller in the AoI, as points. */
-  swarm: readonly (readonly [number, number])[] = NO_SWARM;
+  swarm: readonly SwarmPoint[] = NO_SWARM;
   /** The newest snapshot of each linked peer. */
   private readonly fixes = new Map<string, Fix>();
   private directory: Known[] = [];
@@ -34,12 +35,7 @@ export class Neighbours {
   }
 
   /** The directory's answer to a `where`: its peers and its swarm replace the last answer's. */
-  near(
-    leaf: Leaf,
-    peers: readonly NearPeer[],
-    swarm: readonly (readonly [number, number])[],
-    now: number,
-  ): void {
+  near(leaf: Leaf, peers: readonly NearPeer[], swarm: readonly SwarmPoint[], now: number): void {
     this.leaf = leaf;
     this.swarm = swarm;
     this.directory = [];

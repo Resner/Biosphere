@@ -4,7 +4,7 @@
 // none can be touched. One `Points` draw for all of them; nothing is allocated per frame.
 
 import * as THREE from 'three';
-import { TAU } from '../sim/math';
+import { clamp, lerp, smoothstep, TAU } from '../sim/math';
 import { swarmMaterial } from './materials';
 import { ORIGIN } from './origin';
 
@@ -67,7 +67,6 @@ function frac(seed: number, k: number): number {
   return ((h ^ (h >>> 16)) >>> 0) / 4294967296;
 }
 
-const smooth = (k: number): number => k * k * (3 - 2 * k);
 /** The per-mote attributes, written every frame. */
 const ATTRIBUTES = ['position', 'aSize', 'aAlpha'] as const;
 
@@ -245,22 +244,22 @@ export class SwarmLayer {
   }
 
   private alphaOf(c: Cloud, time: number): number {
-    const fadeIn = Math.min(1, Math.max(0, (time - c.bornAt) / SWARM_FADE_S));
-    const fadeOut = Math.min(1, Math.max(0, 1 - (time - c.goneAt) / SWARM_FADE_S));
+    const fadeIn = clamp((time - c.bornAt) / SWARM_FADE_S, 0, 1);
+    const fadeOut = clamp(1 - (time - c.goneAt) / SWARM_FADE_S, 0, 1);
     return fadeIn * fadeOut;
   }
 
   private glide(c: Cloud, time: number): number {
-    return Math.min(1, Math.max(0, (time - c.movedAt) / SWARM_FADE_S));
+    return smoothstep(0, 1, (time - c.movedAt) / SWARM_FADE_S);
   }
 
   private waterX(c: Cloud, time: number): number {
     const k = this.glide(c, time);
-    return k >= 1 ? c.toX : c.fromX + (c.toX - c.fromX) * smooth(k);
+    return lerp(c.fromX, c.toX, k);
   }
 
   private waterY(c: Cloud, time: number): number {
     const k = this.glide(c, time);
-    return k >= 1 ? c.toY : c.fromY + (c.toY - c.fromY) * smooth(k);
+    return lerp(c.fromY, c.toY, k);
   }
 }

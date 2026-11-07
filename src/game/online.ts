@@ -43,6 +43,7 @@ import {
   wantedRate,
 } from '../net/snapshot-rates';
 import { WhereReporter } from '../net/where';
+import type { SwarmPoint } from '../render/swarms';
 import { viewHalfHeight } from '../sim/size';
 import { type KnownCounts, Neighbours, NO_SWARM } from './neighbours';
 import { type DutyLink, type LinkInfo, Links, YOUNG_MS } from './online-links';
@@ -305,7 +306,7 @@ export class OnlineSession {
    * The directory's newest swarm while the creature is in the water (M11 T17): the players two or
    * more tiers smaller in its AoI, which the scene draws as faint clouds. A new answer is a new array.
    */
-  swarm(): readonly (readonly [number, number])[] {
+  swarm(): readonly SwarmPoint[] {
     return this.opts.creature?.()?.inWater ? this.neighbours.swarm : NO_SWARM;
   }
 
