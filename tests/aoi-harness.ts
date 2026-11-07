@@ -33,8 +33,17 @@ import {
 } from '../src/net/aoi';
 import { type LinkClass, NO_CLASS } from '../src/net/connection-policy';
 import { type Fix, Gossip, type PeersEvent } from '../src/net/gossip';
-import { byteLength, type Leaf, type Pos, type SignalKind } from '../src/net/protocol';
+import { SIGN_EVERY } from '../src/net/pond-sync';
+import {
+  byteLength,
+  type Leaf,
+  type Pos,
+  SIGNED_FRAME_BYTES,
+  type SignalKind,
+  SNAPSHOT_BYTES,
+} from '../src/net/protocol';
 import { SignalRoute } from '../src/net/signal-route';
+import { FULL_RATE, wantedRate } from '../src/net/snapshot-rates';
 import { WhereReporter } from '../src/net/where';
 import { clamp } from '../src/sim/math';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
@@ -65,6 +74,8 @@ const LATE_AFTER_MS = 60_000;
 /** A crowded flag settles this long after the last plan that set it. */
 const CROWD_SETTLE_MS = 10_000;
 const ICE_FAIL = 0.05;
+/** What carries each state frame (B): IPv4 20, UDP 8, a DTLS record 37 (header, nonce, tag), SCTP 28. */
+export const FRAME_OVERHEAD_BYTES = 93;
 const MAX_VIOLATIONS = 8;
 
 interface Link {
@@ -200,6 +211,10 @@ class Sim {
       lateRelayed: 0,
       gossipBytes: 0,
       linkSeconds: 0,
+      upload24: 0,
+      upload24Sum: 0,
+      upload24Samples: 0,
+      linkUpload: 0,
       crowdedSeconds: 0,
       clientSeconds: 0,
       duties: 0,
@@ -778,6 +793,38 @@ class Sim {
     this.res.linkSeconds += n * dt;
     this.res.clientSeconds += dt;
     if (c.crowded) this.res.crowdedSeconds += dt;
+    this.upload(c, n);
+  }
+
+  /**
+   * The snapshots `c` sends this tick (B/s) at the rate each linked peer asks of it (M11 T15): by
+   * the peer's class for `c` and their distance, as the page's `wantedRate`; an engage candidate
+   * also gets a signed frame every 200 ms whatever it asked.
+   */
+  private upload(c: Client, n: number): void {
+    let total = 0;
+    for (const [id, l] of c.links) {
+      const b = this.clients.get(id);
+      if (!l.hello || !b) continue;
+      const d = Math.hypot(b.x - c.x, b.y - c.y);
+      const hz = wantedRate(b.classes.get(c.id) ?? null, d, viewHalfHeight(b.r, b.spec.adultR));
+      const candidate = linkTiers(c.r, b.r) && d <= INTERACT_RADII * Math.max(c.r, b.r);
+      const signed = FULL_RATE / SIGN_EVERY;
+      // A signed frame takes the place of a plain one on the frames it falls on.
+      const plain = candidate ? Math.min(hz, FULL_RATE - signed) : hz;
+      const frames = (candidate ? signed : 0) + plain;
+      const bps =
+        (candidate ? signed * SIGNED_FRAME_BYTES : 0) +
+        plain * SNAPSHOT_BYTES +
+        frames * FRAME_OVERHEAD_BYTES;
+      total += bps;
+      this.res.linkUpload = Math.max(this.res.linkUpload, bps);
+    }
+    if (n < 24) return;
+    const at24 = (total * 24) / n;
+    this.res.upload24 = Math.max(this.res.upload24, at24);
+    this.res.upload24Sum += at24;
+    this.res.upload24Samples++;
   }
 
   private cellKey = (cx: number, cy: number) => cy * 256 + cx;

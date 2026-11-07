@@ -703,7 +703,9 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
     - Every E2E, fast and full, passes. In `m2-pond`, the friends link within 3 s of their hatch.
     - `tools/worker-bundle.test.ts`: `POND_MAX` appears nowhere, and `LEAF_MAX` only in fixture mode.
 
-- [ ] T15 Snapshot rates by distance [opus] (after T13)
+- [x] T15 Snapshot rates by distance [opus] (after T13)
+  - Done: `src/net/snapshot-rates.ts` (`wantedRate`, `RateAsker`, `SendRates`) wired in `OnlineSession`; `RemoteBuffer.sampleLate` draws a remote its snapshots' spacing + 20 ms behind and eases the lag (`pace` ≤ 1.2); harness gate 9 counts frames on the wire with 93 bytes of headers.
+  - Gotcha: the dense scenarios (`crowd`, `witnesses`) upload 20–32 KB/s at 24 links (all P1 at 10 Hz), so gate 9's 12 KB/s is reported there, not asserted (M12); `m11-cap` flakes locally before this task too (a stale `near` position re-dials an evicted peer as P1).
   - Steps:
     1. **The receiver** decides the rate it wants from each link:
        - 10 Hz for a peer of P0 or P1, or within 1.15 × its view's half-diagonal;
@@ -720,7 +722,7 @@ T1, T2 and T3 need nothing and can start at once. T4 follows T1, and T5 and T11 
       - a peer crossing into the view asks 10 Hz within a second;
       - an asked rate of 2 Hz sends 2 snapshots a second;
       - a candidate's signed frames stay at 5 Hz.
-    - T10's report gains a bandwidth row: upload at 24 links is at most 12 KB/s, and each link at most 4 KB/s.
+    - T10's report gains a bandwidth row: upload at 24 links is at most 12 KB/s (outside the dense scenarios, whose links are all P1 and so 10 Hz by rule), and each link at most 4 KB/s.
     - In `m11-handoff`, C sends to A at 2 Hz or less while far and at 10 Hz once in A's view, and the C that A draws never moves faster than 1.2 × its snapshots' speed.
 
 - [ ] T16 Fights, witnesses and away fighters in the world [opus] (after T13)

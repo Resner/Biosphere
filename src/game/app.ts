@@ -479,8 +479,8 @@ export class App {
         this.screens.setReport(lines);
       }
     });
-    this.sender = new SnapshotSender((bytes, signed) =>
-      this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids),
+    this.sender = new SnapshotSender((bytes, signed, n) =>
+      this.keeper.current?.broadcastState(bytes, signed, this.online.signer.ids, n),
     );
     // Bodies on the wire (M3 T16): the genome goes out when a link opens and after every rehatch.
     this.genomeSync = new GenomeSync({
