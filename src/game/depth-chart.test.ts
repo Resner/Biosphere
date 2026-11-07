@@ -8,6 +8,7 @@ import {
   CHART_VIEWS,
   DepthChart,
   MAP_BUILD_BUDGET,
+  MAP_SMOOTH_WU,
   MAP_TEXELS,
   mapChart,
   minimapChart,
@@ -69,7 +70,7 @@ describe('the map chart', () => {
     expect(pic?.n).toBe(MAP_TEXELS);
     // Twice the square: it stays inside the window until the window re-centres.
     expect(pic?.side).toBeGreaterThanOrEqual(2 * side);
-    const once = new DepthChart(2, MAP_TEXELS, { smoothWu: 190 });
+    const once = new DepthChart(2, MAP_TEXELS, { smoothWu: MAP_SMOOTH_WU });
     once.update(seed, SIZE, MID, MID, side);
     expect(once.picture?.cell).toBe(pic?.cell);
     expect([...(pic?.pixels ?? [])]).toEqual([...(once.picture?.pixels ?? [])]);

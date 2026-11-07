@@ -14,6 +14,7 @@ import { type SizeClass, sizeClass } from '../sim/size';
 import { ChartCanvas, minimapChart } from './depth-chart';
 import { DepthGauge } from './depth-gauge';
 import { pick, setText } from './dom';
+import { BEYOND, EDGE, INK, SHADOW } from './map-relief';
 import type { ZoneReadout } from './zone-readout';
 
 export const MINIMAP = {
@@ -212,8 +213,6 @@ const BLURS: readonly string[] = [
   'none',
   ...Array.from({ length: 10 }, (_, i) => `blur(${i + 1}px)`),
 ];
-const INK = '#e3f4f0';
-const SHADOW = 'rgb(0 0 0 / 0.75)';
 const HEART = '#ff8fc8';
 
 export class Minimap {
@@ -340,7 +339,7 @@ export class Minimap {
     ctx.arc(half, half, half - 1, 0, TAU);
     ctx.clip();
     // Beyond the world: the darkest water.
-    ctx.fillStyle = '#020608';
+    ctx.fillStyle = BEYOND;
     ctx.fillRect(0, 0, side, side);
     // The zones, from the chart of the depth window around the player (north up), softened by smoothing.
     const chart = this.chart.update(view.seed, view.size, self.x, self.y, view.halfHeight);
@@ -369,7 +368,7 @@ export class Minimap {
     ctx.fillStyle = this.glaze;
     ctx.fillRect(0, 0, side, side);
     // The world's edge, when near.
-    ctx.strokeStyle = 'rgb(227 244 240 / 0.6)';
+    ctx.strokeStyle = EDGE;
     ctx.lineWidth = 1.5;
     ctx.setLineDash(NO_DASH);
     ctx.strokeRect(

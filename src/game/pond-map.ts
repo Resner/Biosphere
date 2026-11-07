@@ -8,7 +8,7 @@ import type { Zone } from '../sim/bathymetry';
 import { ChartCanvas, type ChartImage, mapChart } from './depth-chart';
 import { pick, setText } from './dom';
 import { showIcon } from './icons';
-import { MAP_COLOURS } from './map-relief';
+import { BEYOND, EDGE, INK, MAP_COLOURS, SHADOW } from './map-relief';
 import { type MapMark, type MapView, mapMarks, mapSpot, squareShows } from './map-view';
 import { DrawClock } from './minimap';
 import { PINGS } from './social-ui';
@@ -23,10 +23,6 @@ const MARKS: Record<MapMark['mark'], string> = {
   ready: '<path class="map-heart" d="M0 5 C-9 -1 -5 -9 0 -4 C5 -9 9 -1 0 5 Z"/>',
   known: '<circle class="map-hollow-shade" r="4.5"/><circle class="map-hollow" r="4.5"/>',
 };
-const BEYOND = '#020608';
-const EDGE = 'rgb(227 244 240 / 0.6)';
-const INK = '#e3f4f0';
-const SHADOW = 'rgb(0 0 0 / 0.8)';
 
 interface Dot {
   root: HTMLElement;

@@ -16,6 +16,11 @@ export const MAP_SMOOTH_RADIUS = 6;
 export const RELIEF_STRENGTH = 0.045;
 /** The most a texel is lightened or darkened by relief, as a share of its colour. */
 export const RELIEF_LIMIT = 0.22;
+/** Canvas colours the map and the minimap share: beyond the world, its edge, label ink and halo. */
+export const BEYOND = '#020608';
+export const EDGE = 'rgb(227 244 240 / 0.6)';
+export const INK = '#e3f4f0';
+export const SHADOW = 'rgb(0 0 0 / 0.75)';
 /** An isobath's strength where it crosses an edge: the share of the way to white. */
 export const ISOBATH_STRENGTH = 0.12;
 /** An isobath is never thinner than this gradient floor allows (bytes per texel), so flats stay thin. */
@@ -145,7 +150,7 @@ function reliefRow(
     const gy = ((depth[down + i] as number) - (depth[up + i] as number)) / 2;
     // Deeper is darker: a slope that rises toward the light (shallower there) is lit.
     const lit = -(gx * LIGHT_X + gy * LIGHT_Y);
-    shade[at + i] = 1 + Math.max(-RELIEF_LIMIT, Math.min(RELIEF_LIMIT, lit * RELIEF_STRENGTH));
+    shade[at + i] = 1 + clamp(lit * RELIEF_STRENGTH, -RELIEF_LIMIT, RELIEF_LIMIT);
     const grad = Math.max(ISOBATH_FLOOR, Math.sqrt(gx * gx + gy * gy));
     const depthHere = depth[here + i] as number;
     let best = 0;
