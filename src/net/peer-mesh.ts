@@ -6,6 +6,7 @@
 import type { SignedSeat } from '../ledger/seat-doc';
 import { decodeStateFrame } from '../ledger/snapshot-sig';
 import { guarded } from './guarded';
+import { OPEN_WATER } from './instance';
 import {
   byteLength,
   type PeerEvent,
@@ -334,7 +335,7 @@ export class PeerMesh {
       if (gate) {
         const ticket = gate.ticket();
         // The page is in the open water (0) until it keeps instances (M12 T6).
-        if (ticket) this.sendOn(link.event, JSON.stringify({ t: 'hello', ticket, n: 0 }));
+        if (ticket) this.sendOn(link.event, JSON.stringify({ t: 'hello', ticket, n: OPEN_WATER }));
         if (!link.ticket) link.timeout = setTimeout(() => this.helloFailed(link), HELLO_MS);
       }
     }

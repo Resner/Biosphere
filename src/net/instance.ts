@@ -2,6 +2,9 @@
 // split into instances of at most `INSTANCE_MAX`; creatures of different instances can't see or
 // affect each other, and the open water (instance 0) around a crowd shares water with every one.
 
+/** The open water: the instance of every creature outside a crowd. */
+export const OPEN_WATER = 0;
+
 /** A page that wants this many links of P0 and P1 that share its water is crowded. */
 export const CROWD_AT = 24;
 /** A crowded page's `where` carries its crowd at once, then this often while it stays crowded. */
@@ -11,5 +14,5 @@ export const INSTANCE_MAX = 16;
 
 /** Whether creatures in instances `a` and `b` share water: the same instance, or either in the open water. */
 export function sameWater(a: number, b: number): boolean {
-  return a === b || a === 0 || b === 0;
+  return a === b || a === OPEN_WATER || b === OPEN_WATER;
 }

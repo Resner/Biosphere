@@ -6,6 +6,7 @@
 
 import { linkTiers } from '../sim/size';
 import type { Known } from './aoi';
+import { OPEN_WATER } from './instance';
 import { GOSSIP_MAX, type PeerEvent, wireCoord, wireRadius } from './protocol-defs';
 
 export const GOSSIP_EVERY_MS = 4000;
@@ -36,7 +37,10 @@ export function gossipFor(
   for (const [id, f] of fixes) {
     if (id === to || now - f.at > GOSSIP_FRESH_MS || !linkTiers(at.r, f.r)) continue;
     // Every entry is in the open water (0) until the page keeps instances (M12 T3).
-    near.push([Math.hypot(f.x - at.x, f.y - at.y), [id, coord(f.x), coord(f.y), radius(f.r), 0]]);
+    near.push([
+      Math.hypot(f.x - at.x, f.y - at.y),
+      [id, coord(f.x), coord(f.y), radius(f.r), OPEN_WATER],
+    ]);
   }
   if (near.length === 0) return null;
   near.sort((a, b) => a[0] - b[0]);

@@ -183,7 +183,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### The wire and the pure parts
 
-- [x] T1 Protocol 12: spawning, riding and crowd instances on the wire [opus] (after none) (in progress)
+- [x] T1 Protocol 12: spawning, riding and crowd instances on the wire [opus] (after none)
   - Steps:
     1. `PROTOCOL_VERSION` 12. A protocol-11 hello gets `error: version`.
     2. The messages and events in the shapes above. Their parsers go in `protocol-world.ts`, dispatched from `protocol-parse.ts`, and refuse unknown fields at every level they define:
