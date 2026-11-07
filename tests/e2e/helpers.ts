@@ -236,6 +236,8 @@ export const M10_AUDIT_HUB = 'http://localhost:8825';
 export const M10_CARD_HUB = 'http://localhost:8826';
 /** The M10 lifecycle spec's hub (M10 T17): `MATING_SCALE` and the witness variables, four players through the whole M10 line. */
 export const M10_LIFECYCLE_HUB = 'http://localhost:8827';
+/** The M11 lifecycle spec (8832): `LEAF_MAX=2`, short matings and the witness variables. */
+export const M11_LIFECYCLE_HUB = 'http://localhost:8832';
 
 /** Hubs this worker process has already woken. */
 const warmed = new Set<string>();
