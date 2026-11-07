@@ -316,7 +316,7 @@ async function nextNonMember(c: Client): Promise<HubMsg> {
   }
 }
 const GOLDEN_ANGLE = 2.399963;
-const CENTRE = 4096;
+const CENTRE = 131_072;
 
 /** Logs in `n` players, in order, and returns them with their welcomes. */
 async function fill(n: number) {

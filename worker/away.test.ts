@@ -29,6 +29,7 @@ import {
   type Plan,
   type Player,
   play,
+  STAGE,
   startFight,
   startOf,
   useFightHub,
@@ -73,7 +74,11 @@ const info = (p: Player, genome: string, x: number, y: number, over: Partial<Fig
 
 /** Two starter cells 30 wu apart: on the autopilot alone they fight for more than 30 s. */
 const duel = (a: Player, b: Player) =>
-  startFight(a, b, startOf(a, [info(a, STARTER, 5200, 3000), info(b, STARTER, 5230, 3000)]));
+  startFight(
+    a,
+    b,
+    startOf(a, [info(a, STARTER, STAGE.x, STAGE.y), info(b, STARTER, STAGE.x + 30, STAGE.y)]),
+  );
 
 /** A's hunter beside B's starter at 1 hp: the autopilot kills B within a few frames. */
 const hunt = (a: Player, b: Player, egg = false) =>
@@ -231,10 +236,10 @@ describe('everyone left', () => {
     const c = await hatched();
     await advance(16_000);
     const msg = startOf(a, [
-      info(a, STARTER, 5200, 3000),
-      info(b, STARTER, 5230, 3000),
+      info(a, STARTER, STAGE.x, STAGE.y),
+      info(b, STARTER, STAGE.x + 30, STAGE.y),
       // Far outside everyone's escape range: it escapes within its first frames.
-      info(c, STARTER, 5200, 3900),
+      info(c, STARTER, STAGE.x, STAGE.y + 900),
     ]);
     const lives = await Promise.all([a, b, c].map((p) => lifeOn(p)));
     await authority((o) => {

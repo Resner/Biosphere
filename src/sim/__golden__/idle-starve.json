@@ -4,16 +4,15 @@
     "seed": "golden-idle",
     "spawn": {
       "id": "p1",
-      "x": 3828,
-      "y": 2048
+      "x": 133029,
+      "y": 129121
     },
     "ticks": 5000,
     "runs": [[0, 0]]
   },
-  "hash": "678f0a4168f9eb74",
+  "hash": "e56b702af1cfd691",
   "events": {
-    "damage": 2260,
-    "eat": 1,
+    "damage": 376,
     "death": 1
   }
 }

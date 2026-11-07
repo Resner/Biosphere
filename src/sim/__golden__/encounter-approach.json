@@ -4,15 +4,15 @@
     "start": {
       "id": "enc-golden-approach",
       "pondSeed": "golden-approach",
-      "size": 8192,
+      "size": 262144,
       "seed": [4213158211, 1966238616, 2696643213, 2648413714],
       "t0": 1000,
       "fighters": [
         {
           "player": "player-a",
           "creature": "a",
-          "x": 5200,
-          "y": 3000,
+          "x": 132176,
+          "y": 129976,
           "vx": 0,
           "vy": 0,
           "heading": 0,
@@ -65,8 +65,8 @@
         {
           "player": "player-b",
           "creature": "b",
-          "x": 5280,
-          "y": 3000,
+          "x": 132256,
+          "y": 129976,
           "vx": 0,
           "vy": 0,
           "heading": 3.141592653589793,
@@ -145,7 +145,7 @@
       [0, 0]
     ]
   },
-  "hash": "82872d5c25bb3d53",
+  "hash": "721fca6712850495",
   "results": [
     {
       "outcome": "stood",

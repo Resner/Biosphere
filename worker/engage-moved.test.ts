@@ -5,6 +5,7 @@ import {
   advance,
   answer,
   authority,
+  CENTRE,
   engage,
   lockIn,
   NEAR,
@@ -50,9 +51,9 @@ const teleports = async (p: Player) =>
 
 const locked = (p: Player) => authority((o) => o.fights.playerLocked(p.id.playerId));
 
-/** `p`'s snapshot `back` ticks ago at (x, 1000). */
+/** `p`'s snapshot `back` ticks ago at x, counted from 1,000 wu west of the centre (`NEAR.a` lies at 1,000). */
 const ago = (p: Player, back: number, x: number, over = {}) =>
-  snap(p, x, 1000, { tick: pondTick(p) - back, ...over });
+  snap(p, CENTRE - 1000 + x, CENTRE, { tick: pondTick(p) - back, ...over });
 
 describe('the movement check at lock-in', () => {
   it('refuses a 200 wu jump between two seen snapshots 200 ms apart, and flags teleport once', async () => {

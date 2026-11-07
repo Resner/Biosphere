@@ -10,6 +10,7 @@ import {
   hatched,
   join,
   killB,
+  NEAR,
   outcomeOf,
   type Player,
   rehatch,
@@ -277,13 +278,13 @@ describe('carrion by area', () => {
     const [a, b] = await fighters();
     const [near, far] = [await join(), await join()];
     for (const p of [near, far]) await elsewhere(p);
-    // The fight is at `NEAR` (about (1,000, 1,000)).
-    await placed(near, 1012 + 9000, 1000);
-    await placed(far, 1012 + 12_000, 1000);
+    // The fight is at `NEAR` (at the world's centre).
+    await placed(near, NEAR.b[0] + 9000, NEAR.b[1]);
+    await placed(far, NEAR.b[0] + 12_000, NEAR.b[1]);
     const [seenNear, seenFar] = [log(near.c), log(far.c)];
     const { end } = await killB(a, b);
     const victim = outcomeOf(end, b);
-    expect(Math.abs(victim.x - 1012)).toBeLessThan(500);
+    expect(Math.abs(victim.x - NEAR.b[0])).toBeLessThan(500);
     await flush(near.c);
     await flush(far.c);
     expect(seenNear.filter((m) => m.t === 'carrion')).toHaveLength(1);

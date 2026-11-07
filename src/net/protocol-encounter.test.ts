@@ -198,7 +198,7 @@ describe('encounter ranges', () => {
   it('rejects non-finite or out-of-range numbers in the fighter shapes and carrion', () => {
     for (const [key, value] of [
       ['x', -0.5],
-      ['x', 8192.5],
+      ['x', 2 ** 29 + 0.5],
       ['y', 1e300],
       ['vx', 1e6],
       ['heading', 7],
@@ -214,7 +214,7 @@ describe('encounter ranges', () => {
     expect(parseHubMsg(JSON.stringify(carrion).replace('"x":1.5', '"x":1e999'))).toBeNull();
     for (const [key, value] of [
       ['x', -1],
-      ['y', 9000],
+      ['y', 2 ** 29 + 1],
       ['biomass', -1],
       ['radius', 0],
       ['radius', 1e6],

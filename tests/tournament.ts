@@ -28,6 +28,8 @@ export const TOURNAMENT_ARCHETYPES = [
 export type Scenario = (typeof SCENARIOS)[number];
 const SEEDS = ['t0', 't1', 't2', 't3', 't4', 't5', 't6', 't7'] as const;
 
+/** The scenarios run in a pond of 8,192 wu, as they were tuned; the world is far larger. */
+const POND = 8192;
 const ID = 'bot';
 const SECONDS = 1 / DT;
 const FORAGE_TICKS = 180 * SECONDS;
@@ -119,7 +121,7 @@ function forageTarget(world: World, c: CreatureState): { x: number; y: number } 
 }
 
 function forage(archetype: string, seed: string): number {
-  const world = createWorld({ seed });
+  const world = createWorld({ size: POND, seed });
   const c = spawn(world, archetype, world.size / 2, world.size / 2);
   c.phys.maxBiomass = FORAGE_CAP;
   const start = c.biomass;
@@ -134,7 +136,7 @@ function forage(archetype: string, seed: string): number {
 
 function gauntlet(archetype: string, seed: string): number {
   const g = GAUNTLET;
-  const world = createWorld({ seed, hazards: false });
+  const world = createWorld({ size: POND, seed, hazards: false });
   for (let i = 0; i < g.plumes; i++)
     world.extraPlumes.push({ id: `p${i}`, x: 800 + i * g.spacing, y: g.y, radius: g.radius });
   const c = spawn(world, archetype, g.startX, g.y, 'adult');
@@ -151,7 +153,7 @@ function gauntlet(archetype: string, seed: string): number {
 
 function sprint(archetype: string, seed: string): number {
   const s = SPRINT;
-  const world = createWorld({ seed, hazards: false });
+  const world = createWorld({ size: POND, seed, hazards: false });
   const c = spawn(world, archetype, s.startX, s.y);
   const goal = s.startX + s.distance;
   let ticks = 0;
@@ -164,7 +166,7 @@ function sprint(archetype: string, seed: string): number {
 }
 
 function cruise(archetype: string, seed: string): number {
-  const world = createWorld({ seed, hazards: false });
+  const world = createWorld({ size: POND, seed, hazards: false });
   emptyPond(world);
   const c = spawn(world, archetype, world.size / 2, world.size / 2);
   c.energy = CRUISE.energyFraction * maxEnergy(c.biomass);

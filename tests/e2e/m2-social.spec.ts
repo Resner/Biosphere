@@ -36,8 +36,10 @@ test('chat is filtered, typing does not steer, mute hides a sender, and cues cro
   try {
     const aId = (await state(a)).playerId as string;
     // The hub's pond is the whole world: the player spawns near its centre, not in a corner.
-    const spawn = (await state(a)).player;
-    expect(Math.abs((spawn?.x ?? 0) - 4096)).toBeLessThan(1500);
+    const { player: spawn, pond } = await state(a);
+    expect(pond?.size).toBe(262_144);
+    expect(pond?.centre).toEqual({ x: 131_072, y: 131_072 });
+    expect(Math.abs((spawn?.x ?? 0) - (pond?.centre.x ?? 0))).toBeLessThan(1500);
 
     // Typing spaces into the chat input does not dash.
     await a.keyboard.press('Enter');

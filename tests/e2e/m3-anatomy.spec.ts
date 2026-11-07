@@ -31,9 +31,9 @@ function predictedSpeed(stats: PlayerState['stats'], seconds: number): number {
 async function measureSpeed(page: Page): Promise<{ measured: number; predicted: number }> {
   await page.evaluate(() => {
     const bs = window.__bs as BsHook;
-    const { y } = bs.state().player as PlayerState;
-    bs.debug?.teleport(2000, y);
-    void bs.debug?.steerTo({ x: 6000, y });
+    const { x, y } = bs.state().player as PlayerState;
+    bs.debug?.teleport(x - 2000, y);
+    void bs.debug?.steerTo({ x: x + 2000, y });
   });
   const first = await state(page);
   await page.waitForFunction((t) => (window.__bs as BsHook).state().tick >= t + 90, first.tick);

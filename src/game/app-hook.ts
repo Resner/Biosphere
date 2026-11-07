@@ -364,6 +364,8 @@ export function installAppHook(app: App): void {
           ? {
               id: pond.id,
               seed: pond.seed,
+              size: pond.size,
+              centre: pond.ring ? { ...pond.ring.centre } : { x: pond.size / 2, y: pond.size / 2 },
               members: [
                 playerId ?? 'local',
                 ...(keeper.current?.others().map((m) => m.playerId) ?? []),

@@ -18,7 +18,7 @@ import { step } from './step';
 import type { FoodItem, FoodKind, World } from './types';
 import { createWorld, spawnCreature } from './world';
 
-const world = (seed = 'food') => createWorld({ seed, currents: false, hazards: false });
+const world = (seed = 'food') => createWorld({ seed, size: 8192, currents: false, hazards: false });
 
 describe('foodInCell', () => {
   it('is identical across calls and differs by world seed', () => {
@@ -81,7 +81,7 @@ describe('foodInCell', () => {
       for (let cx = 0; cx < side; cx++) {
         for (const item of foodInCell(w, cx, cy)) {
           // The item sits within the drift radius of its anchor; judge by the cell's slot kind only.
-          const zone = zoneAt(w.seed32, item.x, item.y);
+          const zone = zoneAt(w.seed32, item.x, item.y, w.size);
           const bucket = counts[zone] ?? { detritus: 0, globule: 0, crystal: 0 };
           counts[zone] = bucket;
           bucket[item.kind]++;
@@ -133,7 +133,7 @@ describe('vent crystals', () => {
       for (let cx = 0; cx < side; cx++) {
         for (const slot of foodInCell(w, cx, cy)) {
           const anchor = slotAnchor(w, cx, cy, Number(slot.id.split('_s')[1]?.split('_')[0]), 0);
-          if (zoneAt(w.seed32, anchor.x, anchor.y) !== 'deep') continue;
+          if (zoneAt(w.seed32, anchor.x, anchor.y, w.size) !== 'deep') continue;
           const bucket = ventNear(w, anchor.x, anchor.y, RULES.food.ventRange) ? near : far;
           bucket.all++;
           if (slot.kind === 'crystal') bucket.crystal++;
@@ -409,15 +409,16 @@ describe('feeding through the mouth', () => {
     expect(foodNear(full.w, item.x, item.y, 1).map((i) => i.id)).toContain(item.id);
   });
 
-  speedTest('keeps a tick of 24 armed creatures in a full pond under 2 ms', () => {
+  speedTest('keeps a tick of 24 armed creatures at the spawn centre under 2 ms', () => {
     const w = createWorld({ seed: 'perf' });
+    const centre = w.size / 2;
     const colliders = [{ x: 0, y: 0, r: 1 }];
     for (let i = 1; i < 12; i++) colliders.push({ x: -0.2 * i, y: 0.1 * i, r: 0.4 });
     for (let i = 0; i < 24; i++) {
       spawnCreature(w, {
         id: `c${String(i).padStart(2, '0')}`,
-        x: 3000 + (i % 6) * 40,
-        y: 3000 + Math.floor(i / 6) * 40,
+        x: centre + (i % 6) * 40,
+        y: centre + Math.floor(i / 6) * 40,
         phys: { ...STARTER_PHYS, mouth: JAW, colliders },
       });
     }
@@ -436,11 +437,11 @@ describe('feeding through the mouth', () => {
   });
 
   speedTest('keeps a tick of 24 creatures in the deep, where vents are scanned, under 2 ms', () => {
-    const w = createWorld({ seed: 'perf2' });
+    const w = createWorld({ seed: 'perf2', size: 8192 });
     let at = { x: 0, y: 0 };
     for (let y = 100; y < 8000; y += 100) {
       for (let x = 100; x < 8000; x += 100) {
-        const depth = depthAt(w.seed32, x, y);
+        const depth = depthAt(w.seed32, x, y, w.size);
         if (depth > 0.6 && depth < 0.68) at = { x, y };
       }
     }

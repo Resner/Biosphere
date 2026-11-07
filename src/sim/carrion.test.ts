@@ -216,6 +216,6 @@ describe('the state hash', () => {
       eaten += events.filter((e) => e.type === 'eat' && e.food === piece.id).length;
     }
     expect(eaten).toBe(1);
-    expect(hashWorld(w)).toBe('84eb8e80c5d0a95f');
+    expect(hashWorld(w)).toBe('49f2c9ccc93d229b');
   });
 });

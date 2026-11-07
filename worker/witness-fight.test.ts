@@ -21,6 +21,7 @@ import {
   advanceTo,
   answer,
   authority,
+  CENTRE,
   clock,
   type EncEnd,
   type EncStart,
@@ -503,7 +504,7 @@ describe('planned take-backs', () => {
     c.c.send({
       t: 'engage',
       target: r.a.id.playerId,
-      mine: snap(c, 1000, 1012, { health: 0.01, energy: 0 }),
+      mine: snap(c, CENTRE, CENTRE + 12, { health: 0.01, energy: 0 }),
       theirs: snap(r.a, ...NEAR.a),
     });
     const from = due + 3;
@@ -650,8 +651,8 @@ describe('a lock against the witness (M11 T3)', () => {
       until: null,
     };
     const jump = [
-      snap(c, 800, 1000, { tick: pondTick(c) - 12 }),
-      snap(c, 1000, 1000, { tick: pondTick(c) - 6 }),
+      snap(c, CENTRE - 200, CENTRE, { tick: pondTick(c) - 12 }),
+      snap(c, CENTRE, CENTRE, { tick: pondTick(c) - 6 }),
     ];
     for (const [seen, why] of [
       [jump, 'engage:moved'],

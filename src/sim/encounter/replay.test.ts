@@ -28,6 +28,9 @@ const NAMES = [
   'encounter-autopilot',
   'encounter-join',
 ] as const;
+/** The spawn centre: fights start there, as a pond's players do. */
+const C = RULES.world.size / 2;
+
 const file = (name: string) => new URL(`./../__golden__/${name}.json`, import.meta.url);
 
 const log = (start: EncounterLog['start'], frames: EncounterLog['frames']): EncounterLog => ({
@@ -40,8 +43,8 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
   // Two starters 80 wu apart swim at each other for 6 s, bump and slide past.
   const approach = log(
     startOf('golden-approach', [
-      starterFighter('a', 5200, 3000),
-      starterFighter('b', 5280, 3000, Math.PI),
+      starterFighter('a', C + 1104, C - 1096),
+      starterFighter('b', C + 1184, C - 1096, Math.PI),
     ]),
     Array.from({ length: 24 }, (_, f) =>
       f < 20 ? [drive(0, 15, { dash: f === 2 }), drive(128, 12)] : [IDLE_CODE, IDLE_CODE],
@@ -50,8 +53,8 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
   // One flees west at full throttle and escapes; the other idles.
   const fleeing = log(
     startOf('golden-escape', [
-      starterFighter('a', 5200, 3000),
-      starterFighter('b', 5230, 3000, Math.PI),
+      starterFighter('a', C + 1104, C - 1096),
+      starterFighter('b', C + 1134, C - 1096, Math.PI),
     ]),
     Array.from({ length: 80 }, () => [drive(128, 15, { stance: 'evasive' }), IDLE_CODE]),
   );
@@ -62,7 +65,7 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
     const depth = depthAt(probe.seed32, x, y);
     return depth > 0.3 && depth < 0.65;
   };
-  const found = plumesNear(probe, 4096, 4096, 8192).find(
+  const found = plumesNear(probe, C, C, 8192).find(
     (p) => p.x - p.radius > 300 && mild(p.x, p.y) && mild(p.x - p.radius - 40, p.y),
   );
   if (found === undefined) throw new Error('golden-plume has no plume');
@@ -78,8 +81,8 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
   // A hunter closes on a starter that braces once and then drifts, and stays on it: it is bitten to death.
   const duel = log(
     startOf('golden-duel', [
-      hunterFighter('a', 5200, 3000),
-      starterFighter('b', 5242, 3000, Math.PI),
+      hunterFighter('a', C + 1104, C - 1096),
+      starterFighter('b', C + 1146, C - 1096, Math.PI),
     ]),
     Array.from({ length: 90 }, (_, f) => [
       drive(0, f < 8 ? 15 : 2, { stance: 'aggressive', dash: f === 4 }),
@@ -88,8 +91,11 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
   );
   // A hunter nips the egg trailing a drifting starter until it is eaten (target 5 is slot 1's egg).
   const eggStart = startOf('golden-egg', [
-    hunterFighter('a', 5200, 3000),
-    { ...starterFighter('b', 5200 + 3.5 * Math.sqrt(RULES.starter.biomass), 3000), egg: true },
+    hunterFighter('a', C + 1104, C - 1096),
+    {
+      ...starterFighter('b', C + 1104 + 3.5 * Math.sqrt(RULES.starter.biomass), C - 1096),
+      egg: true,
+    },
   ]);
   const egg = log(
     eggStart,
@@ -103,7 +109,7 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
     log(
       startOf('golden-autopilot', [
         {
-          ...hunterFighter('a', 5200, 3000 + dy),
+          ...hunterFighter('a', C + 1104, C - 1096 + dy),
           behaviour: {
             aggression: 0.9,
             caution: 0.2,
@@ -113,7 +119,7 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
           },
         },
         {
-          ...hunterFighter('b', 5330, 3000 + dy, Math.PI),
+          ...hunterFighter('b', C + 1234, C - 1096 + dy, Math.PI),
           egg: true,
           behaviour: {
             aggression: 0.4,
@@ -124,7 +130,7 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
           },
         },
         {
-          ...starterFighter('c', 5260, 3150 + dy, -Math.PI / 2),
+          ...starterFighter('c', C + 1164, C - 946 + dy, -Math.PI / 2),
           behaviour: {
             aggression: 0.7,
             caution: 0.1,
@@ -149,8 +155,8 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
   const joined = {
     ...log(
       startOf('golden-join', [
-        hunterFighter('b', 5200, 3000),
-        starterFighter('m', 5242, 3000, Math.PI),
+        hunterFighter('b', C + 1104, C - 1096),
+        starterFighter('m', C + 1146, C - 1096, Math.PI),
       ]),
       Array.from({ length: 120 }, (_, f) =>
         f < 15
@@ -158,7 +164,7 @@ function build(): Record<(typeof NAMES)[number], EncounterLog> {
           : [drive(0, 3, { target: 1 }), drive(128, 0), drive(192, 4, { target: 1 })],
       ),
     ),
-    joins: [{ f: 15, fighter: hunterFighter('c', 5242, 3050, -Math.PI / 2) }],
+    joins: [{ f: 15, fighter: hunterFighter('c', C + 1146, 3050, -Math.PI / 2) }],
   };
   return {
     'encounter-join': joined,

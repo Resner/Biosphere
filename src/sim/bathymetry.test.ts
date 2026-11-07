@@ -186,7 +186,7 @@ describe('depthAt', () => {
       [1000, 7000],
       [6500, 2500],
       [8192, 8192],
-    ].map(([x, y]) => Math.round(depthAt(seed, x as number, y as number) * 1e6) / 1e6);
+    ].map(([x, y]) => Math.round(depthAt(seed, x as number, y as number, 8192) * 1e6) / 1e6);
     expect(samples).toEqual(GOLDEN);
     const large = [
       [0, 0],

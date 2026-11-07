@@ -22,8 +22,8 @@
               "player": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
               "creature": "1111111111111111111111111111111111111111111111111111111111111111",
               "genome": "AAAAAAAAAAAAAAAAAAAAAAABtCMAAIIA_wDcAAAA_wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD___8BvloAAAAAYP8AAAAAHgABvloAAAAAYP8AAAAASgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbQjAACCAP8A3AAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA____Ab5aAAAAAGD_AAAAAB4AAb5aAAAAAGD_AAAAAEoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-              "x": 5200,
-              "y": 3000,
+              "x": 132176,
+              "y": 129976,
               "vx": 0,
               "vy": 0,
               "heading": 0,
@@ -38,8 +38,8 @@
               "player": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
               "creature": "2222222222222222222222222222222222222222222222222222222222222222",
               "genome": "AACAAAAYAAAAAAAAAAAAAAABeBQAAGQA_wDIAP8A5gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD_f5kAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAGQAAAAAAAAAAAAAAAXgUAABkAP8AyAD_AOYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA_4CZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-              "x": 5242,
-              "y": 3000,
+              "x": 132218,
+              "y": 129976,
               "vx": 0,
               "vy": 0,
               "heading": 3.141592653589793,
@@ -91,11 +91,11 @@
           "rules": 12,
           "enc": "ca69e53bd381d3d274a3f93198b3ce227657cd7a7bb1e20a4dfda6509bbc458c",
           "pondSeed": "golden-duel",
-          "start": "7bdd6b02a47c97f391bf6f578cbd958db2c1fbbb4ae31e7380dc6deb92ae3454",
+          "start": "f61c3ec40e64f3cf4e2487cec542dcbbd45dee3bade448f48928c9479636455d",
           "joins": [],
           "frames": 28,
           "root": "510032e8cf8930e40171277e6ee26c15a76f9624d8fb7377778c1dbd4f8bec94",
-          "hash": "ff6287593f313e53",
+          "hash": "5a3945eeab67c369",
           "results": [
             {
               "player": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
@@ -125,8 +125,8 @@
           "t": 1700000060000,
           "referee": "authority"
         },
-        "hash": "497c4ca4ba4d93522e4151fa2184c814487ec393f9248b762793755513823c69",
-        "authSig": "8pZl7YLfvKETuFnbfXgN7qFIZ5PO1o0lBH7203BEjPyG3nwRm3xvbBtNIm4p2pC8SsHDMjOJmUCD_p4NH9S-CA",
+        "hash": "d4363d1273da4a32ea85f97dd30770dd880a2449f07896ab42af1e0bed369bce",
+        "authSig": "nOrP6qhXc-dS9NP8tcP0H3pS8H79a3t9BIX4Pb475Cwq8_4Dn74JeIaAEJPAl8YdDbbDEzk0j01MRrOQSARkBg",
         "keyId": "i4HIYmgb"
       },
       "records": [
@@ -196,8 +196,8 @@
               "player": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
               "creature": "2222222222222222222222222222222222222222222222222222222222222222",
               "genome": "AAAAAAAAAAAAAAAAAAAAAAABtCMAAIIA_wDcAAAA_wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD___8BvloAAAAAYP8AAAAAHgABvloAAAAAYP8AAAAASgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbQjAACCAP8A3AAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA____Ab5aAAAAAGD_AAAAAB4AAb5aAAAAAGD_AAAAAEoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-              "x": 5200,
-              "y": 3000,
+              "x": 132176,
+              "y": 129976,
               "vx": 0,
               "vy": 0,
               "heading": 0,
@@ -212,8 +212,8 @@
               "player": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
               "creature": "3333333333333333333333333333333333333333333333333333333333333333",
               "genome": "AACAAAAYAAAAAAAAAAAAAAABeBQAAGQA_wDIAP8A5gAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD_f5kAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAgAAAGQAAAAAAAAAAAAAAAXgUAABkAP8AyAD_AOYAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA_4CZAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-              "x": 5242,
-              "y": 3000,
+              "x": 132218,
+              "y": 129976,
               "vx": 0,
               "vy": 0,
               "heading": 3.141592653589793,
@@ -235,7 +235,7 @@
               "player": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
               "creature": "4444444444444444444444444444444444444444444444444444444444444444",
               "genome": "AAAAAAAAAAAAAAAAAAAAAAABtCMAAIIA_wDcAAAA_wAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD___8BvloAAAAAYP8AAAAAHgABvloAAAAAYP8AAAAASgAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAbQjAACCAP8A3AAAAP8AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA____Ab5aAAAAAGD_AAAAAB4AAb5aAAAAAGD_AAAAAEoAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAD_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA",
-              "x": 5242,
+              "x": 132218,
               "y": 3050,
               "vx": 0,
               "vy": 0,
@@ -305,22 +305,6 @@
           [33536, 128, 33984],
           [33536, 128, 33984],
           [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
-          [33536, 128, 33984],
           [33536, 128, 33984]
         ]
       },
@@ -331,55 +315,53 @@
           "rules": 12,
           "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
           "pondSeed": "golden-join",
-          "start": "40475867f266a38c21a1e345eeef6115c8245d372827bb4bb887ac773ade0b98",
-          "joins": ["e464d7dd8ba0988ae66bd4e6a4435498c5d8cb91afe84d2b705b6dea6882d489"],
-          "frames": 72,
-          "root": "e1cf116a5c6c2ff5dfc3716b07507255e2589b8c44aba1a7f28df6ddaa00484b",
-          "hash": "403d7250b3a7604c",
+          "start": "645aab88c0c0bfc2ccf3d83d7635e3155173454653ecb63ac4b126eb94bdcad0",
+          "joins": ["df6c78f2a45e78f1f7341e590b54dd22651780b505351143c275482b73b6809e"],
+          "frames": 56,
+          "root": "1eef5dac6144c2bb8dfbde2200cb59fd7c38426f5c114bd5a20634448afe22d3",
+          "hash": "25f919b9f5fe6278",
           "results": [
             {
               "player": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
               "creature": "2222222222222222222222222222222222222222222222222222222222222222",
-              "outcome": "killed",
-              "cause": "killed",
-              "by": 2,
-              "frame": 72,
+              "outcome": "stood",
+              "frame": 56,
               "egg": "none",
-              "biomass": 10000,
-              "energy": 11324,
-              "health": 0,
-              "reward": 0
+              "biomass": 14000,
+              "energy": 11475,
+              "health": 8324,
+              "reward": 4000
             },
             {
               "player": "gTl3Dqh9F19Wo1Rmw0x-zMuNipG07jeiXfYPW4_Js5Q",
               "creature": "3333333333333333333333333333333333333333333333333333333333333333",
               "outcome": "killed",
               "cause": "killed",
-              "by": 2,
-              "frame": 40,
+              "by": 0,
+              "frame": 56,
               "egg": "none",
               "biomass": 10000,
-              "energy": 11682,
+              "energy": 11554,
               "health": 0,
               "reward": 0
             },
             {
               "player": "7UkoxijRwsbq6QM4kFmVYSlZJzpcY_k2NsFGFKyHN9E",
               "creature": "4444444444444444444444444444444444444444444444444444444444444444",
-              "outcome": "stood",
-              "frame": 72,
+              "outcome": "escaped",
+              "frame": 45,
               "egg": "none",
-              "biomass": 18000,
-              "energy": 11365,
-              "health": 5879,
-              "reward": 8000
+              "biomass": 10000,
+              "energy": 11711,
+              "health": 9400,
+              "reward": 0
             }
           ],
           "t": 1700000060000,
           "referee": "authority"
         },
-        "hash": "beccc80704cbd32a6bc991ee42e1f993e2c923bfeb0e3cccc469f44ec941c5ac",
-        "authSig": "Z1-owIa8rcjr4tqnX5i-hhg0BHB9l3huI6lzUagpLYq0ZsWuvnWVuo9DDnQ2CklK8z7FG0s3r_AvYfDCF5WxDQ",
+        "hash": "2a176707926ad90982237ec54f082f8021e9fb7a877e7fea803c9e3949cc3a39",
+        "authSig": "VqLy8QoHMSPIDBjS02_v4xuB5L5xVjnAB4GCZ44_gANtn6ymCBc-oKY7GDcR0cCDyl9HzLv837fgvR3Ch3FrAQ",
         "keyId": "i4HIYmgb"
       },
       "records": [
@@ -387,23 +369,26 @@
           "record": {
             "v": 1,
             "rules": 12,
-            "kind": "death",
+            "kind": "encounter",
             "creature": "2222222222222222222222222222222222222222222222222222222222222222",
             "seq": 4,
             "prev": "eeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeeee",
             "owner": "iojj3XQJ8ZX9UtstPLpdcspnCb8dlBIb83SIAbQPb1w",
             "t": 1700000060000,
             "body": {
-              "cause": "killed",
-              "activeMs": 607200,
-              "biomass": 10000,
               "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
-              "by": "4444444444444444444444444444444444444444444444444444444444444444"
+              "outcome": "stood",
+              "frames": 56,
+              "biomass": 14000,
+              "energy": 11475,
+              "health": 8324,
+              "reward": 4000,
+              "activeMs": 605600
             }
           },
-          "hash": "76f558a1735f93cc0cfd9afb51b1cbd37e35960b1af197c91b231ee5475aec45",
+          "hash": "c0ddb43fbd12ba5c2fc8cccee8d76636b2084e8e15e3df29f1d3b866ba1a58bb",
           "ownerSig": null,
-          "authSig": "NJjI13njV-jnxVLM6QO8PFxOfxncxjmn0VWI0Vd5tRRn2wZtsVGr_tcX6UwZv1qbz0VwUmrtWTfhWrUqd_TfCQ",
+          "authSig": "VwXkfD3qROWqoDYUz1mXmp0faR1peKuiJIxil6NpIEpEe8aMa5JRFPGqIhxXXSpJN1eAAMmx3J045I7f7w2YCw",
           "keyId": "i4HIYmgb"
         },
         {
@@ -418,15 +403,15 @@
             "t": 1700000060000,
             "body": {
               "cause": "killed",
-              "activeMs": 604000,
+              "activeMs": 605600,
               "biomass": 10000,
               "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
-              "by": "4444444444444444444444444444444444444444444444444444444444444444"
+              "by": "2222222222222222222222222222222222222222222222222222222222222222"
             }
           },
-          "hash": "cfda8acadaae655dc26f36d044dbc6bd4ebe09768093898be02baf7bcd1681d0",
+          "hash": "3782bdcd95342c23b8df1f746ce4d5167c4d7cf621beed82ca87d6aa00d0488d",
           "ownerSig": null,
-          "authSig": "1bnYZ2qNe4vG6Mjcwy-7YFG7nogVVDQScw6FDk0UvPMac3mrReXGXdp_HxdN97ycN4ThuLJ8fktRle3ixAE-Bg",
+          "authSig": "Xdu_ueMAn3lrxsOKEe2Cn0baC6BBV3AXolhsEtJIpE1kwf7lb6tXSOW_WOuwOd2nO0_nfb2gqndsrR3kwAwyDQ",
           "keyId": "i4HIYmgb"
         },
         {
@@ -441,18 +426,18 @@
             "t": 1700000060000,
             "body": {
               "enc": "35256412c71c9ad4e55ee51186a8cd815cbf606ef133949ee3c6a105e1a3f4a8",
-              "outcome": "stood",
-              "frames": 72,
-              "biomass": 18000,
-              "energy": 11365,
-              "health": 5879,
-              "reward": 8000,
-              "activeMs": 607200
+              "outcome": "escaped",
+              "frames": 45,
+              "biomass": 10000,
+              "energy": 11711,
+              "health": 9400,
+              "reward": 0,
+              "activeMs": 604500
             }
           },
-          "hash": "5dbef22f13f8e916f9e81c9463a0dbfdaabc3f96ef9471eec872213f1ff0cc84",
+          "hash": "41448e32792c9154879f58c0e4c3870d16a46c3b825902a6058b42c2d6ddcbcd",
           "ownerSig": null,
-          "authSig": "TUooqwvwJy-RAxtsEf6wMgk5Ptr72iDTANdc8Nt234BNdzrlGcBl0wzDtQsNuP1Snb6FV9-1xUVC1muxWmVZBA",
+          "authSig": "mOzDGPuOCSw91_UETnRiyEKK9MeVq0MMqucapRMxMAlHMrwD0Tya1_nT4F0Tq_8sKFvNqOrIsortqQ3gXpvdCA",
           "keyId": "i4HIYmgb"
         }
       ]
