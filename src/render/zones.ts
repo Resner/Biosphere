@@ -468,6 +468,7 @@ export class ZoneMap {
   }
 
   dispose(): void {
+    this.version = -1;
     this.texture.dispose();
     this.seed = null;
     this.window.reset();

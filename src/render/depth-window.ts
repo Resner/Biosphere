@@ -239,8 +239,6 @@ export class DepthWindow {
   }
 }
 
-/** A cell index's texel on an axis of `n` (a power of two), for negative indices too. */
-
 function remaining(g: Grid): number {
   let left = 0;
   for (const r of g.todo) left += r.i1 - r.i + (r.j1 - r.j - 1) * (r.i1 - r.i0);
