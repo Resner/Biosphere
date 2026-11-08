@@ -1,11 +1,23 @@
 // When a page tells the directory where its creature is (M11 T8, ADR 0062): a `where` on entering
 // the water, on leaving its leaf by more than 64 wu, on a tier change or an AoI change of more
 // than a quarter, and otherwise every 30 s; a `gone` once on leaving the water. Never two messages
-// within 2 s: a trigger inside that gap waits for it. Pure; the page (T13) sends what it returns.
+// within 2 s: a trigger inside that gap waits for it. A crowded page's `where` carries its crowd
+// (M12 T3, ADR 0064): at once when it turns crowded, then every 10 s while it stays so. Pure; the
+// page (T13) sends what it returns.
 
 import { clamp } from '../sim/math';
-import { sizeTier } from '../sim/size';
-import { type ClientMsg, type Leaf, WIRE_AOI_MAX, wireCoord, wireRadius } from './protocol';
+import { linkTiers, sizeTier } from '../sim/size';
+import { INTERACT_RADII } from './aoi';
+import type { Fix } from './gossip';
+import { CROWD_EVERY_MS, OPEN_WATER, sameWater } from './instance';
+import {
+  type ClientMsg,
+  CROWD_LIST_MAX,
+  type Leaf,
+  WIRE_AOI_MAX,
+  wireCoord,
+  wireRadius,
+} from './protocol';
 
 export const WHERE_EVERY_MS = 30_000;
 export const WHERE_MIN_GAP_MS = 2000;
@@ -38,16 +50,48 @@ export interface WhereState {
   now: number;
 }
 
+/**
+ * A crowded page's crowd list: its linked peers within 8 × the larger radius by their snapshots
+ * (`fixes`) that pass `linkTiers` and share its water, nearest first, at most 32. A page with none
+ * that close sends its own id alone, which says it is crowded and pairs it with no one.
+ */
+export function crowdList(
+  selfId: string,
+  self: { x: number; y: number; r: number; n?: number },
+  fixes: ReadonlyMap<string, Fix>,
+): string[] {
+  const water = self.n ?? OPEN_WATER;
+  const near: [d: number, id: string][] = [];
+  for (const [id, f] of fixes) {
+    if (id === selfId || !linkTiers(self.r, f.r) || !sameWater(water, f.n ?? OPEN_WATER)) continue;
+    const d = Math.hypot(f.x - self.x, f.y - self.y);
+    if (d <= INTERACT_RADII * Math.max(self.r, f.r)) near.push([d, id]);
+  }
+  if (near.length === 0) return [selfId];
+  near.sort((a, b) => a[0] - b[0]);
+  return near.slice(0, CROWD_LIST_MAX).map(([, id]) => id);
+}
+
 export class WhereReporter {
   /** The last `where`, while the directory holds this creature. */
   private sent: Sent | null = null;
+  /** When the last `where` carrying a crowd went. */
+  private crowdAt = Number.NEGATIVE_INFINITY;
   /** When the last message of either kind went. */
   private lastAt = Number.NEGATIVE_INFINITY;
   /** A trigger that fell inside the gap and waits for it. */
   private pending = false;
 
-  /** The message to send now, if any, for this state and the leaf the hub last named. */
-  update(s: WhereState, leaf: Leaf | null): ClientMsg | null {
+  /**
+   * The message to send now, if any, for this state, the leaf the hub last named and the page's
+   * crowd list (null while it isn't crowded). Turning crowded reports at once unless a crowd went
+   * in the last 10 s; while crowded, every report carries the list.
+   */
+  update(
+    s: WhereState,
+    leaf: Leaf | null,
+    crowd: readonly string[] | null = null,
+  ): ClientMsg | null {
     if (!s.inWater) {
       // Out of the water: the directory should forget it, once (and if it ever heard of it).
       this.pending = this.sent !== null;
@@ -57,18 +101,24 @@ export class WhereReporter {
       this.lastAt = s.now;
       return { t: 'gone' };
     }
-    if (!this.pending && this.due(s, leaf)) this.pending = true;
+    const crowdDue = crowd !== null && s.now - this.crowdAt >= CROWD_EVERY_MS;
+    if (!this.pending && (crowdDue || this.due(s, leaf))) this.pending = true;
     if (!this.pending || s.now - this.lastAt < WHERE_MIN_GAP_MS) return null;
     this.pending = false;
     this.lastAt = s.now;
     this.sent = { x: s.x, y: s.y, tier: sizeTier(s.r * s.r), aoi: s.aoi, t: s.now };
-    return {
+    const msg: ClientMsg = {
       t: 'where',
       x: wireCoord(s.x),
       y: wireCoord(s.y),
       r: wireRadius(s.r),
       aoi: clamp(s.aoi, 1, WIRE_AOI_MAX),
     };
+    if (crowd !== null && crowd.length > 0) {
+      msg.crowd = crowd.slice(0, CROWD_LIST_MAX);
+      this.crowdAt = s.now;
+    }
+    return msg;
   }
 
   /** Whether this state calls for a `where` since the last one. */
