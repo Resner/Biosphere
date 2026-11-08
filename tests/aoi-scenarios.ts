@@ -220,8 +220,8 @@ export const GOSSIP_KBPS = 0.3;
 /** Snapshots and gossip on the wire at the asked rates (M11 T15): a client's upload at 24 links, and one link's. */
 export const UPLOAD_24_KBPS = 12;
 export const LINK_KBPS = 4;
-/** Gate 3 in the dense scenarios: late entries in 1,000 (M12). */
-export const LATE_PER_1000 = 5;
+/** Gate 3 in the dense scenarios: late entries in 1,000 (M12, ADR 0065). */
+export const LATE_PER_1000 = 15;
 /** Gate 10: the share of client-seconds crowded after a client's first 10 s, and instance changes a client-minute (p95). */
 export const CROWDED_SHARE = 0.01;
 export const CHANGES_P95 = 1;

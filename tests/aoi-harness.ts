@@ -1202,7 +1202,7 @@ class Sim {
     else
       this.violate(
         'late',
-        `${b.id} came into ${a.id}'s view unlinked (closing ${Math.round(closing)} wu/s)`,
+        `${b.id} came into ${a.id}'s view unlinked (closing ${Math.round(closing)} wu/s, instances ${b.n} and ${a.n}, P0+P1 ${a.heavy()})`,
       );
   }
 

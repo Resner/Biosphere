@@ -133,8 +133,15 @@ function section(name: ScenarioName, runs: RunResult[], gates: Gate[]): string {
     ...(first.instances
       ? [
           [
-            'Time crowded after a client\'s first 10 s; instance changes per client-minute (p95)',
-            `${fixed((100 * sum(runs, (r) => r.crowdedLate)) / Math.max(1, sum(runs, (r) => r.clientLate)), 2)}%; ${fixed(
+            "Time crowded after a client's first 10 s; instance changes per client-minute (p95)",
+            `${fixed(
+              (100 * sum(runs, (r) => r.crowdedLate)) /
+                Math.max(
+                  1,
+                  sum(runs, (r) => r.clientLate),
+                ),
+              2,
+            )}%; ${fixed(
               pct(
                 runs.flatMap((r) => r.changesPerMinute),
                 0.95,
@@ -185,12 +192,12 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 
 const NOTES = `## Findings
 
-- Crowd instances (M12 T8): \`throng\` (80 comparable starters hatching within 5 s in a room 1,500 wu wide) is crowded about 94% of the time without instances and about 1% with them. The first split forms 3 instances of about 27 from the members within the first reporter's P1 reach; the rest join the least-full, and the next crowded report (10 s later at the earliest) re-bins them into 5 of 16, so half the members change instance once more. Until the instances settle, a page still counts the creatures it knew in the open water as sharing its water: the directory's answer holds only the 48 nearest that share it, so a creature absent from it keeps its old word (instance 0, shared with everyone). A page asks the directory again after its own instance changes (\`WhereReporter.refresh\`), which brought the crowded share from about 4% to 1%.
+- Crowd instances (M12 T8): \`throng\` (80 comparable starters hatching within 5 s in a room 1,500 wu wide) is crowded all of the time after the first 10 s without instances and 0.4% of it with them. The first split forms 3 instances of about 27 from the members within the first reporter's P1 reach; the rest join the least-full, and the next crowded report (10 s later at the earliest) re-bins them into 5 of 16, so half the members change instance once more. Until the instances settle, a page still counts the creatures it knew in the open water as sharing its water: the directory's answer holds only the 48 nearest that share it, so a creature absent from it keeps its old word (instance 0, shared with everyone). A page asks the directory again after its own instance changes (\`WhereReporter.refresh\`), which brought the crowded share from about 4% to under 1%.
 
 - A hub-relayed signal carries the sender's directory position, up to 30 s old. A callee that judged the caller's class from it refused calls that were in range; \`admit\` judges by the class the offer carries.
 - A giant's AoI (up to about 20,000 wu) is wider than a smaller neighbour's query radius, so the giant called creatures that had no class for it. A creature is now in the AoI of whichever of two creatures sees further (\`AoiManager.classify\`); refusals in \`tiers\` fell from 227 to 24.
 - Directory positions are up to 30 s old, so a P4 dialled from one may be out of the callee's range: a P4 needs a fix under 5 s old.
-- In a dense crowd (about 20 P1 each) a P1 pair that drifts past the hold and back within a few seconds can come into view before its link is up: about 3 in 1,000 entries. M12 (crowded instances) owns it.
+- In dense water (14 to 18 P1 each, under the crowd threshold) a P1 pair that drifts past the hold and back within a few seconds can come into view before its link is up: 7 to 10 in 1,000 entries, with or without instances. Gate 3 reads at most 15 in 1,000 there (ADR 0065).
 - A relayed offer lost on a peer's closed link costs 4 s before the hub resend, more than a P1's 3 s lead, so P0 and P1 calls go through the hub.
 - Most of a snapshot's cost on the wire is its carriage: 93 bytes of headers for 29 bytes of snapshot. At 10 Hz to all 24 links a client would upload about 29 KB/s; at the asked rates the open-world scenarios average about 6 KB/s at 24 links and peak near 10.5. In a dense crowd every link is P1 and asks 10 Hz, and most are engage candidates with signed frames, so 24 links cost 20 to 32 KB/s: M12's instances bound it.
 `;

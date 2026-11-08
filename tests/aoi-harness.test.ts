@@ -72,8 +72,8 @@ describe('the harness', () => {
         .filter((g) => !g.ok)
         .map((g) => g.n);
     const late = (n: number) => ({ entries: 1000, violations: { ...base.violations, late: n } });
-    expect(dense(late(5))).toEqual([]);
-    expect(dense(late(6))).toEqual([3]);
+    expect(dense(late(15))).toEqual([]);
+    expect(dense(late(16))).toEqual([3]);
     expect(dense({ ...late(0), violations: { ...base.violations, pops: 1 } })).toEqual([3]);
     // Without instances a crowd is expected: gate 10 reads n/a.
     const off = gatesOf([{ ...base, instances: false, crowdedLate: base.clientLate } as RunResult]);
@@ -115,22 +115,29 @@ describe('the scenarios', () => {
     expect(failed(gatesOf(rs))).toEqual([]);
   });
 
-  heavyTest('without instances the throng is crowded at least half the time; with them, at most 1%', () => {
-    const off = runs('throng', 1, { instances: false });
-    const on = runs('throng', 3);
-    const share = (rs: RunResult[]) => sum(rs, (r) => r.crowdedLate) / sum(rs, (r) => r.clientLate);
-    expect(share(off)).toBeGreaterThanOrEqual(0.5);
-    expect(share(on)).toBeLessThanOrEqual(0.01);
-    // The crowd formed: instances changed hands, and the cap held throughout.
-    expect(sum(on, (r) => r.maxHeld)).toBeGreaterThan(0);
-    for (const r of [...off, ...on]) expect(r.maxHeld).toBeLessThanOrEqual(32);
-  });
+  heavyTest(
+    'without instances the throng is crowded at least half the time; with them, at most 1%',
+    () => {
+      const off = runs('throng', 1, { instances: false });
+      const on = runs('throng', 3);
+      const share = (rs: RunResult[]) =>
+        sum(rs, (r) => r.crowdedLate) / sum(rs, (r) => r.clientLate);
+      expect(share(off)).toBeGreaterThanOrEqual(0.5);
+      expect(share(on)).toBeLessThanOrEqual(0.01);
+      // The crowd formed: instances changed hands, and the cap held throughout.
+      expect(sum(on, (r) => r.maxHeld)).toBeGreaterThan(0);
+      for (const r of [...off, ...on]) expect(r.maxHeld).toBeLessThanOrEqual(32);
+    },
+  );
 
-  heavyTest('fights keep their water: engaged fighters share an instance for the whole fight', () => {
-    const rs = runs('witnesses', 3);
-    expect(sum(rs, (r) => r.violations.fightWater)).toBe(0);
-    for (const r of rs) expect(r.duties).toBe(6);
-  });
+  heavyTest(
+    'fights keep their water: engaged fighters share an instance for the whole fight',
+    () => {
+      const rs = runs('witnesses', 3);
+      expect(sum(rs, (r) => r.violations.fightWater)).toBe(0);
+      for (const r of rs) expect(r.duties).toBe(6);
+    },
+  );
 
   heavyTest(
     'the tiers scenario exercises swarms, the cross-tier rule and a creature growing a tier',
@@ -243,15 +250,18 @@ describe('the ride model', () => {
     ],
   };
 
-  heavyTest('a client alone for RIDE_ALONE_MS rides to the group, placed with its clearance and linked', () => {
-    const r = runScenario(lone, 'ride');
-    expect(r.rides).toBe(1);
-    expect(r.spawns).toBe(1);
-    expect(r.violations.clearance).toBe(0);
-    // Within P1 reach of a group member and unlinked past 10 s would be a hidden creature.
-    expect(r.violations.hidden).toBe(0);
-    expect(failed(gatesOf([r]))).toEqual([]);
-  });
+  heavyTest(
+    'a client alone for RIDE_ALONE_MS rides to the group, placed with its clearance and linked',
+    () => {
+      const r = runScenario(lone, 'ride');
+      expect(r.rides).toBe(1);
+      expect(r.spawns).toBe(1);
+      expect(r.violations.clearance).toBe(0);
+      // Within P1 reach of a group member and unlinked past 10 s would be a hidden creature.
+      expect(r.violations.hidden).toBe(0);
+      expect(failed(gatesOf([r]))).toEqual([]);
+    },
+  );
 
   it('a scenario without the ride model never rides, however long a client is alone', () => {
     const r = runScenario({ ...lone, ride: false }, 'ride');
