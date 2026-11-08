@@ -28,7 +28,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
-import { atOf, countRelay, gone, relayReach } from './where';
+import { atOf, countRelay, gone, relayReach, reseatCrowd, sharesWater } from './where';
 import { witnessLeft } from './witness-fight';
 import { worldInfo, worldRow } from './world';
 
@@ -218,6 +218,8 @@ export function enter(
     ticket,
   });
   sendLife(hub, ws, who.playerId, undefined, fight?.enc.id);
+  // A fighter back during its fight takes back its instance (M12 T5).
+  reseatCrowd(hub, ws, who.playerId);
   if (!lock || !fight) return;
   resend(hub, lock, who.playerId);
   // Back in time: the fight goes on in real time.
@@ -245,8 +247,8 @@ export function place(hub: Hub): { world: WorldInfo; spawnHint: Vec2; slot: numb
 
 /**
  * Forwards a signal, stamped with the verified sender, to a session the directory places within
- * reach (`relayReach`, M11 T6), or anywhere between a referee witness and its fight's fighters
- * while that duty runs (M10 T6); nothing else passes (M11 T14). It carries the sender's
+ * reach (`relayReach`, M11 T6) that shares water with it (M12 T5), or anywhere between a referee
+ * witness and its fight's fighters while that duty runs (M10 T6); nothing else passes (M11 T14). It carries the sender's
  * directory position as `at` once the sender has reported, and the sender's link class `cls` (M11
  * T13) when it named one.
  */
@@ -263,7 +265,10 @@ export function relay(
   const from = session.playerId;
   for (const [other, theirs] of activeSessions(hub, ws)) {
     if (theirs.playerId !== msg.to) continue;
-    if (relayReach(hub, from, msg.to) || hub.duties.linksOf(from).includes(msg.to)) {
+    if (
+      (relayReach(hub, from, msg.to) && sharesWater(hub, from, msg.to)) ||
+      hub.duties.linksOf(from).includes(msg.to)
+    ) {
       const at = atOf(hub, from);
       const cls = msg.cls === undefined ? {} : { cls: msg.cls };
       send(other, {

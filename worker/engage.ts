@@ -45,6 +45,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
+import { sharesWater } from './where';
 import { witnessLocked } from './witness-fight';
 import { commitWitnesses } from './witness-pool';
 import { worldRow } from './world';
@@ -236,6 +237,8 @@ function check(
   const found = seated(hub, msg.target);
   const theirs = found ? liveHead(hub, found[1]) : null;
   if (!found || !theirs) return 'engage:target';
+  // Only creatures that share water engage (M12 T5, ADR 0064).
+  if (!sharesWater(hub, session.playerId, msg.target)) return 'engage:instance';
   const [targetWs, targetSession] = found;
   // Anyone in the world: the engage's own checks decide (M11 T14).
   const pond = worldRow(hub);
@@ -269,6 +272,7 @@ function check(
     // A fighter already out of its fight (escaped, stood or dead, still locked) is joined by nobody.
     if (!stillIn(lock.fight, fighter.creature)) return 'engage:locked';
     if (!joinable(lock.fight)) return 'engage:full';
+    if (!joinsWater(hub, lock.fight, joiner.player)) return 'engage:instance';
     if (!withinTiers(lock.fight, joiner)) return 'engage:tier';
     if (!inRange(attacker, target, nowTick)) return 'engage:range';
     return { joining: { pond: ponded, lock, fight: lock.fight, joiner } };
@@ -281,6 +285,16 @@ function check(
 function stillIn(fight: Fight, creature: string): boolean {
   const seat = fight.enc.fighters.find((f) => f.creature === creature);
   return seat ? seat.status === 'in' : fight.joins.some((j) => j.fighter.creature === creature);
+}
+
+/** Whether the joiner shares water with every fighter still in the fight, joiners not yet seated included (M12 T5). */
+function joinsWater(hub: Hub, fight: Fight, joiner: string): boolean {
+  const seated = new Set(fight.enc.fighters.map((f) => f.creature));
+  const players = [
+    ...fight.enc.fighters.filter((f) => f.status === 'in').map((f) => f.player),
+    ...fight.joins.filter((j) => !seated.has(j.fighter.creature)).map((j) => j.fighter.player),
+  ];
+  return players.every((p) => sharesWater(hub, joiner, p));
 }
 
 /** Whether the joiner is within `maxTierGap` of every fighter still in the fight, joiners not yet seated included. */

@@ -169,6 +169,32 @@ describe('near', () => {
     expect(dir.near(id(0), 0)?.peers.map((p) => p.id)).toEqual([id(1)]);
   });
 
+  it('keeps peers and swarm to the water the member shares, each peer with its instance (M12 T5)', () => {
+    const dir = new Directory(WORLD);
+    const c = 100_000;
+    dir.report(member(0, c, c, { r: 200, aoi: 3000 }));
+    dir.report(member(1, c + 100, c, { r: 180 }));
+    dir.report(member(2, c + 200, c, { r: 180 }));
+    dir.report(member(3, c + 300, c, { r: 180 }));
+    dir.report(member(4, c + 400, c, { r: 10 }));
+    dir.report(member(5, c + 500, c, { r: 10 }));
+    const n = new Map([
+      [id(0), 1],
+      [id(1), 1],
+      [id(2), 2],
+      [id(4), 2],
+    ]);
+    const instanceOf = (who: string) => n.get(who) ?? 0;
+    const out = dir.near(id(0), 0, instanceOf);
+    expect(out?.peers.map((p) => [p.id, p.n])).toEqual([
+      [id(1), 1],
+      [id(3), 0],
+    ]);
+    expect(out?.swarm).toEqual([[c + 500, c]]);
+    // The open water sees every instance.
+    expect(dir.near(id(3), 0, instanceOf)?.peers.map((p) => p.n)).toEqual([2, 1, 1]);
+  });
+
   it('puts a creature two tiers smaller within the AoI in the swarm, never in peers, at most 64', () => {
     const dir = new Directory(WORLD);
     const rand = seeded(5);

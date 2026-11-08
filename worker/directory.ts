@@ -5,7 +5,7 @@
 // members within the query radius, nearest first, and the much smaller ones in the AoI as points.
 
 import { queryRadius } from '../src/net/aoi';
-import { OPEN_WATER } from '../src/net/instance';
+import { OPEN_WATER, sameWater } from '../src/net/instance';
 import {
   byteLength,
   type Leaf,
@@ -148,23 +148,27 @@ export class Directory {
    * The answer to a member's report: its leaf; `peers`, the `NEAR_MAX` nearest others within its
    * query radius that pass `linkTiers` with it, nearest first, with the ms since each reported;
    * `swarm`, the `SWARM_MAX` nearest others too small to link within its AoI, as points, across
-   * the whole world. Positions go out in 1/8 wu steps, and the farthest entries are dropped until
-   * the message fits `NEAR_MAX_BYTES`. Null for an unknown id.
+   * the whole world. Both keep to the members that share water with it by `instanceOf` (M12 T5:
+   * everyone is in the open water without one), and each peer carries its instance. Positions go
+   * out in 1/8 wu steps, and the farthest entries are dropped until the message fits
+   * `NEAR_MAX_BYTES`. Null for an unknown id.
    */
   near(
     id: string,
     now: number,
+    instanceOf: (id: string) => number = () => OPEN_WATER,
   ): { leaf: Leaf; peers: NearPeer[]; swarm: [number, number][] } | null {
     const held = this.byId.get(id);
     if (!held) return null;
     const self = held.m;
+    const own = instanceOf(id);
     const q = queryRadius(self.aoi);
     const peers: { d: number; m: DirMember }[] = [];
     const swarm: { d: number; m: DirMember }[] = [];
     this.visit(self.x, self.y, q, (other, m) => {
       if (other === id) return;
       const d = Math.hypot(m.x - self.x, m.y - self.y);
-      if (d > q) return;
+      if (d > q || !sameWater(own, instanceOf(other))) return;
       if (linkTiers(self.r, m.r)) peers.push({ d, m });
       else if (m.r < self.r && d <= self.aoi) swarm.push({ d, m });
     });
@@ -181,8 +185,7 @@ export class Directory {
         y: wire(m.y),
         r: Math.max(1, wire(m.r)),
         age: Math.max(0, Math.round(now - m.t)),
-        // Every member is in the open water until the hub keeps crowds (M12 T5).
-        n: OPEN_WATER,
+        n: instanceOf(m.id),
       } satisfies NearPeer,
     }));
     const points = swarm
