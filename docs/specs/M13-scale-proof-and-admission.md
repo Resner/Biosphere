@@ -652,7 +652,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### The release gate
 
-- [ ] T11 A load test in the release gate (after T7, T8)
+- [ ] T11 A load test in the release gate (after T7, T8) (in progress)
   - Steps:
     1. **`m13-load.spec.ts`** (`@slow`, hub 8837):
        - 40 headless clients (T7's) join around the world's centre over 30 s;
