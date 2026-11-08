@@ -20,6 +20,8 @@ interface Env {
   /** Crowd instances (M12 T5), fixture mode only: an instance's fill (1–16) and how long a crowd stays quiet before it merges (whole ms, at least 500). */
   INSTANCE_MAX?: string;
   QUIET_MS?: string;
+  /** How long a player is alone before it may ride the current (whole ms, at least 1,000; M12 T7); fixture mode only. */
+  RIDE_ALONE_MS?: string;
   /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */
   MAX_SESSIONS?: string;
   DAILY_REQUEST_BUDGET?: string;
