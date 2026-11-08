@@ -576,7 +576,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Closing
 
-- [ ] T11 End-to-end scenario, documentation sync
+- [ ] T11 End-to-end scenario, documentation sync (in progress)
   - Steps:
     1. **`m12-lifecycle.spec.ts`**: `@slow`, hub 8836, `INSTANCE_MAX=2`, `QUIET_MS=3000`, `RIDE_ALONE_MS=3000`, `MATING_SCALE` 0.01 and `?quality=medium`. Four players A, B, C and D, all on `debug.crowdAt(3)`, in order:
        - **spawning**: A hatches on the world's centre, and B, C and D are placed around it, outside each other's clearance, and all link within 3 s;
