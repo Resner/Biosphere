@@ -1,0 +1,163 @@
+{
+  "seed": "report0",
+  "players": 10000,
+  "simulatedSeconds": 960,
+  "pairsEvery": 10,
+  "pairSample": 1,
+  "holdSeries": [
+    {
+      "minute": 11,
+      "players": 8588,
+      "median": 7,
+      "p95": 17,
+      "mean": 8.455752212389381
+    },
+    {
+      "minute": 12,
+      "players": 9343,
+      "median": 7,
+      "p95": 17,
+      "mean": 8.278283206678797
+    },
+    {
+      "minute": 13,
+      "players": 9354,
+      "median": 7,
+      "p95": 17,
+      "mean": 7.963758819756254
+    },
+    {
+      "minute": 14,
+      "players": 9389,
+      "median": 6,
+      "p95": 17,
+      "mean": 7.629140483544574
+    },
+    {
+      "minute": 15,
+      "players": 9391,
+      "median": 6,
+      "p95": 16,
+      "mean": 7.362794164625705
+    },
+    {
+      "minute": 16,
+      "players": 9379,
+      "median": 6,
+      "p95": 17,
+      "mean": 7.293954579379465
+    }
+  ],
+  "gates": [
+    {
+      "n": 1,
+      "name": "Budget: in the hold, after a player's first minute, at most 8 world messages per player-minute (median) and 20 (p95); in a joiner's first minute at most 100 (p95); the hold's mean, churn included, at most 12",
+      "ok": true,
+      "detail": "10877 players: median 6.8, p95 15.7; 1593 joiners: first minute p95 92; mean 9.1 over 60004 player-minutes"
+    },
+    {
+      "n": 2,
+      "name": "Placement: no clearance violation, no fall back to the spawn centre, every spawn with a group within the group's reach plus 3 clearances",
+      "ok": true,
+      "detail": "11952 spawns and rides: 0 clearance violations, 0 fell back, 0 of 11951 with a group too far"
+    },
+    {
+      "n": 3,
+      "name": "Together: a T0 newcomer with a group is linked to one of its members within 3 s (median) and 5 s (p95)",
+      "ok": true,
+      "detail": "10755 newcomers: median 1.70 s, p95 2.00 s"
+    },
+    {
+      "n": 4,
+      "name": "Bounded: never more than 32 links, and at most 1% of client-seconds crowded after a client's first 10 s",
+      "ok": true,
+      "detail": "24 links at most, 0.00% crowded"
+    },
+    {
+      "n": 5,
+      "name": "No hidden creature: a pair that shares water and can interact is left unlinked for at most 1 second in a million client-seconds",
+      "ok": true,
+      "detail": "5 violations in 9.6 million client-seconds (at most 9): t=554.0s p2245 and p949 are 129 wu apart (reach 162) and not linked; t=555.0s p2245 and p949 are 83 wu apart (reach 162) and not linked; t=556.0s p2245 and p949 are 105 wu apart (reach 162) and not linked"
+    },
+    {
+      "n": 6,
+      "name": "Integrity: fighters share water and keep their instance through their fights",
+      "ok": true,
+      "detail": "600 fights, 0 violations"
+    }
+  ],
+  "ok": true,
+  "messages": {
+    "where": 347830,
+    "whereCrowd": 4,
+    "spawn": 11952,
+    "ride": 0,
+    "gone": 1952,
+    "offer": 506439,
+    "answer": 338188,
+    "refuse": 191793,
+    "resend": 237632
+  },
+  "messagesPerPlayerMinute": {
+    "where": 3.3108172294475655,
+    "whereCrowd": 3.8073969806486676e-05,
+    "spawn": 0.1137650217817822,
+    "ride": 0,
+    "gone": 0.0185800972655655,
+    "offer": 4.8205357987068265,
+    "answer": 3.2190399252290294,
+    "refuse": 1.8255802227738749,
+    "resend": 2.2618983982637606
+  },
+  "ops": [
+    {
+      "op": "where",
+      "count": 347750,
+      "perSecond": 362.2395833333333,
+      "p50Ms": 1.8833510000258684,
+      "p99Ms": 26.252552000805736
+    },
+    {
+      "op": "place",
+      "count": 11952,
+      "perSecond": 12.45,
+      "p50Ms": 26.998984000005294,
+      "p99Ms": 72.17424799967557
+    },
+    {
+      "op": "signal",
+      "count": 1037905,
+      "perSecond": 1081.1510416666667,
+      "p50Ms": 0.004849999910220504,
+      "p99Ms": 0.025846999953500926
+    },
+    {
+      "op": "split",
+      "count": 30,
+      "perSecond": 0.03125,
+      "p50Ms": 0.02457199990749359,
+      "p99Ms": 6.36158800002886
+    },
+    {
+      "op": "pool",
+      "count": 600,
+      "perSecond": 0.625,
+      "p50Ms": 6.431476000696421,
+      "p99Ms": 26.816899999976158
+    }
+  ],
+  "heapBytes": 2912464,
+  "heapMembers": 10000,
+  "uploadKBps": {
+    "mean": 4.4003078600405034,
+    "max": 29.11
+  },
+  "downloadKBps": {
+    "mean": 4.4003078600405034,
+    "max": 29.72
+  },
+  "linkSetupsPerPlayerMinute": 15.256839366483664,
+  "relayedShare": 0.856654623632837,
+  "gossipKBps": 0.12125373394827392,
+  "wallSeconds": 21148.011
+}
