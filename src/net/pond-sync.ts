@@ -241,8 +241,9 @@ export class RemoteBuffer {
         pose.x = this.shownX + (dx * step) / distance;
         pose.y = this.shownY + (dy * step) / distance;
       }
-      this.pace = Math.max(this.pace, Math.min(distance, step) / pace);
-      if (distance > SNAP_DISTANCE) this.pace = Math.max(this.pace, distance / pace);
+      // A creature that was moved is drawn there at once: a jump is not a pace, so it is not counted.
+      if (distance <= SNAP_DISTANCE)
+        this.pace = Math.max(this.pace, Math.min(distance, step) / pace);
     } else if (dt === 0) {
       pose.x = this.shownX;
       pose.y = this.shownY;
