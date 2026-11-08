@@ -36,12 +36,16 @@ import {
 
 useFightHub();
 
-beforeEach(() =>
-  authority((o) => {
+// A fixed world seed: placement reads the depth field and the plumes around the groups, so a random
+// seed puts a test's chosen spots out of the band about 1 run in 12 (the hub then falls back).
+const SEED = '5'.repeat(64);
+beforeEach(async () => {
+  await sql('UPDATE world SET seed = ?', SEED);
+  await authority((o) => {
     o.directory = new Directory(262_144);
     o.spawns.length = 0;
-  }),
-);
+  });
+});
 
 const STARTER = { r: 10, aoi: 233 };
 type Spawn = Extract<HubMsg, { t: 'spawn' }>;
