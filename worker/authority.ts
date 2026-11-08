@@ -116,8 +116,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly spawns: RecentSpawn[] = [];
   /** The salt of every session's IP hash (migration 10), read once. */
   private ipSalt: string | null = null;
-  /** The play the indexes took during the transaction running now, so a rollback takes it back (null outside one). */
-  private playTaken: [string, number][] | null = null;
+  /** The owners whose indexed play the transaction running now changed, read again from SQLite if it rolls back (null outside one). */
+  private playTouched: Set<string> | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -131,7 +131,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     this.ledger = new Ledger(storage, () => this.clock.now());
     // Every record that adds active time keeps a seated player's saved play current (`seats.ts`).
     this.ledger.played = (owner, ms) => {
-      if (this.seats.addPlay(owner, ms)) this.playTaken?.push([owner, ms]);
+      if (this.seats.addPlay(owner, ms)) this.playTouched?.add(owner);
     };
     // The log's rows count with the ledger's own counter too (`rowsBesideLog` in tests reads them apart).
     this.fightStore = new FightStore(this.sql, (rows) => {
@@ -180,20 +180,19 @@ export class Authority extends DurableObject<Env> implements Hub {
 
   /**
    * One SQLite transaction, as the ledger and the beacons run theirs: the play a record added to
-   * the indexes during one that throws is taken back with its rows.
+   * the indexes during one that throws is read again from the rolled-back rows.
    */
   private transaction<T>(fn: () => T): T {
-    const outer = this.playTaken === null;
-    const taken = this.playTaken ?? [];
-    const mark = taken.length;
-    this.playTaken = taken;
+    const outer = this.playTouched === null;
+    const touched = this.playTouched ?? new Set<string>();
+    this.playTouched = touched;
     try {
       return this.ctx.storage.transactionSync(fn);
     } catch (error) {
-      for (const [owner, ms] of taken.splice(mark).reverse()) this.seats.addPlay(owner, -ms);
+      for (const owner of touched) this.seats.reload(owner);
       throw error;
     } finally {
-      if (outer) this.playTaken = null;
+      if (outer) this.playTouched = null;
     }
   }
 

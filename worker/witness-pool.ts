@@ -70,7 +70,7 @@ function savedPlay(hub: Pick<Hub, 'sql'>, players: readonly string[]): Map<strin
   return out;
 }
 
-/** The players struck at `now`, of `players`, as SQLite holds them (the E2E witness view). */
+/** The players struck at `now`, of `players`, as SQLite holds them (the duties' view of an order). */
 export function struck(hub: Hub, players: readonly string[], now: number): Set<string> {
   if (players.length === 0) return new Set();
   const rows = hub.sql

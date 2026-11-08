@@ -38,6 +38,9 @@ export class Seats {
   private readonly owner = new Map<WebSocket, string>();
   /** The waiting sessions, lowest ticket first. */
   private readonly waiting: InLine[] = [];
+  /** The same entries by socket and by player, so a lookup never scans the line. */
+  private readonly lineBySocket = new Map<WebSocket, InLine>();
+  private readonly lineByPlayer = new Map<string, InLine>();
   /** The sockets that haven't said hello, with when they opened. */
   private readonly hellos = new Map<WebSocket, number>();
   /** Each seated player's own court ask: its partner and when it was sent. */
@@ -45,23 +48,17 @@ export class Seats {
   /** Each seated player's witness candidacy. */
   private readonly candidates = new Map<string, Candidate>();
 
-  constructor(private load: PlayLoader) {}
+  constructor(private readonly load: PlayLoader) {}
 
   /** Notes every socket a woken object finds, the seated players' play read all at once. */
   rebuild(sockets: Iterable<[WebSocket, Session | null]>): void {
     const all = [...sockets];
     const play = this.load(all.flatMap(([, s]) => (s?.phase === 'active' ? [s.playerId] : [])));
-    const load = this.load;
-    this.load = () => play;
-    try {
-      for (const [ws, s] of all) this.note(ws, s);
-    } finally {
-      this.load = load;
-    }
+    for (const [ws, s] of all) this.note(ws, s, play);
   }
 
   /** Notes a socket's attachment as just written (null or `retired`: the socket is gone). */
-  note(ws: WebSocket, s: Session | null): void {
+  note(ws: WebSocket, s: Session | null, play?: ReturnType<PlayLoader>): void {
     if (s?.phase !== 'challenged') this.hellos.delete(ws);
     if (s?.phase !== 'queued') this.unqueue(ws);
     switch (s?.phase) {
@@ -74,7 +71,7 @@ export class Seats {
         this.enqueue(ws, s.playerId, s.ticket, s.place);
         return;
       case 'active':
-        this.seat(ws, s);
+        this.seat(ws, s, play);
         return;
       default:
         this.unseat(ws);
@@ -83,7 +80,11 @@ export class Seats {
   }
 
   /** A seated session: its socket, its court and its candidacy (its play read once, when it takes the seat). */
-  private seat(ws: WebSocket, s: Session & { phase: 'active' }): void {
+  private seat(
+    ws: WebSocket,
+    s: Session & { phase: 'active' },
+    preloaded?: ReturnType<PlayLoader>,
+  ): void {
     const player = s.playerId;
     const holder = this.bySeat.get(player);
     // A socket already closing (a handler finishing after its tab was replaced) never takes the
@@ -94,7 +95,7 @@ export class Seats {
     let c = this.candidates.get(player);
     if (holder !== ws || !c) {
       this.bySeat.set(player, ws);
-      const play = this.load([player]).get(player);
+      const play = (preloaded ?? this.load([player])).get(player);
       c = {
         avail: false,
         ip: undefined,
@@ -120,7 +121,7 @@ export class Seats {
   }
 
   private enqueue(ws: WebSocket, player: string, ticket: number, place: number): void {
-    const held = this.waiting.find((e) => e.ws === ws);
+    const held = this.lineBySocket.get(ws);
     if (held && held.ticket === ticket) {
       held.place = place;
       return;
@@ -128,12 +129,18 @@ export class Seats {
     if (held) this.unqueue(ws);
     let i = this.waiting.length;
     while (i > 0 && (this.waiting[i - 1] as InLine).ticket > ticket) i--;
-    this.waiting.splice(i, 0, { ws, player, ticket, place });
+    const entry = { ws, player, ticket, place };
+    this.waiting.splice(i, 0, entry);
+    this.lineBySocket.set(ws, entry);
+    this.lineByPlayer.set(player, entry);
   }
 
   private unqueue(ws: WebSocket): void {
-    const i = this.waiting.findIndex((e) => e.ws === ws);
-    if (i >= 0) this.waiting.splice(i, 1);
+    const entry = this.lineBySocket.get(ws);
+    if (!entry) return;
+    this.waiting.splice(this.waiting.indexOf(entry), 1);
+    this.lineBySocket.delete(ws);
+    if (this.lineByPlayer.get(entry.player) === entry) this.lineByPlayer.delete(entry.player);
   }
 
   /** The player's seated socket, or null. */
@@ -163,7 +170,7 @@ export class Seats {
 
   /** The player's waiting socket, or null. */
   waitingOf(player: string): InLine | null {
-    return this.waiting.find((e) => e.player === player) ?? null;
+    return this.lineByPlayer.get(player) ?? null;
   }
 
   /** The sockets that haven't said hello yet, with when each opened. */
