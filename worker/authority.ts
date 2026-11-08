@@ -31,6 +31,7 @@ import {
 import { court, decline, deliverBirth, mateCheck, queueAccept } from './offspring';
 import { meterRead, type Served, serveFight, serveProof } from './proof';
 import { recoverFights } from './recover';
+import { ride } from './ride';
 import { migrate } from './schema';
 import { renewSeat } from './seat';
 import { drop, hello, promote, queued, relay } from './sessions';
@@ -86,7 +87,7 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly fightStore: FightStore;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
-  /** Messages dropped without closing the socket, by type: past their own window's cap, a `where` refused (a jump, outside the world, past its anchor), or a `ride` not yet answered (M12 T1). */
+  /** Messages dropped without closing the socket, by type: past their own window's cap, a `where` refused (a jump, outside the world, past its anchor). */
   readonly dropped = new Map<ClientMsg['t'], number>();
   /** Incoming messages that parsed, by type: what a fight costs the authority (ADR 0058's cost check). */
   readonly received = new Map<ClientMsg['t'], number>();
@@ -361,9 +362,8 @@ export class Authority extends DurableObject<Env> implements Hub {
       case 'spawn':
         spawn(this, ws, session, msg);
         return;
-      // Counted in the 20-message budget above, then dropped until riding (M12 T7) answers it.
       case 'ride':
-        this.dropped.set(msg.t, (this.dropped.get(msg.t) ?? 0) + 1);
+        ride(this, ws, session);
         return;
     }
   }

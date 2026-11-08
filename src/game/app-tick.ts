@@ -7,7 +7,13 @@ import { step } from '../sim/step';
 import type { StepEvent } from '../sim/types';
 import { maxEnergy, maxHealth, starterEnergy } from '../sim/vitals';
 import type { App } from './app';
-import { countItem, EXPIRY_RETRY_TICKS, MAX_THROTTLE, REPORT_EVERY_TICKS } from './app-session';
+import {
+  adultRadius,
+  countItem,
+  EXPIRY_RETRY_TICKS,
+  MAX_THROTTLE,
+  REPORT_EVERY_TICKS,
+} from './app-session';
 import { bodyLabel } from './body';
 import { sizeShare } from './growth';
 import { hoverInput, wheelInput } from './input';
@@ -33,6 +39,8 @@ export class Ticker {
     if (session.demo) {
       return { steer: (world.tick >> 2) & 255, throttle: 5, dash: false };
     }
+    // Riding the current (M12 T7): the ride carries the creature, and the player's input waits.
+    if (app.ride.holding) return IDLE;
     if (steering) {
       const dx = steering.target.x - player.x;
       const dy = steering.target.y - player.y;
@@ -164,6 +172,27 @@ export class Ticker {
     }
   }
 
+  /**
+   * A ride of the current carries the creature after the step (M12 T7); where it is put by the
+   * arrival, the view follows at once: no smear between the frames, the camera, zones and field there.
+   */
+  private carry(): void {
+    const { app } = this;
+    const { player } = app.session;
+    const moved = app.ride.carry(player, performance.now());
+    if (moved !== 'turn') return;
+    app.prev.x = player.x;
+    app.prev.y = player.y;
+    app.camera.snap({
+      x: player.x,
+      y: player.y,
+      radius: Math.sqrt(player.biomass),
+      adult: adultRadius(player),
+    });
+    app.scene.settleZones();
+    app.field.now();
+  }
+
   tick(): void {
     const { app } = this;
     const { session, prev, fx, hud, cueWatch } = app;
@@ -240,6 +269,7 @@ export class Ticker {
         );
       }
     }
+    this.carry();
     app.field.markDirty();
     this.settleSteering(events);
     if (!session.demo && player.cause === null && session.ticks >= session.nextReport) {

@@ -914,7 +914,7 @@ class Sim {
     c.joined = true;
     c.n = n;
     c.waterAt = this.now;
-    c.reporter.refresh();
+    c.reporter.nudge();
     c.dirty = true;
   }
 

@@ -123,11 +123,12 @@ export class WhereReporter {
   }
 
   /**
-   * The page's own instance changed: the directory's peers it holds still carry the water of before
-   * (and would count as crowding it), so it asks again, held to the 2 s gap. Nothing while it isn't
-   * in the directory.
+   * Asks for a `where` as soon as the gap allows, while the directory holds this creature: the page
+   * turned alone (M12 T7), so the hub's alone time starts from where it really is, or its own
+   * instance changed (M12 T8), so the peers it holds from the directory no longer carry the right
+   * water.
    */
-  refresh(): void {
+  nudge(): void {
     if (this.sent !== null) this.pending = true;
   }
 

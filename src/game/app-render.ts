@@ -3,6 +3,7 @@ import type { Member, Vec2 } from '../net/protocol';
 import type { CellView } from '../render/cell';
 import type { CreatureSource } from '../render/creature-cache';
 import type { RemoteCellView } from '../render/remotes';
+import type { RideLook } from '../render/ride-fx';
 import type { SwarmPoint } from '../render/swarms';
 import type { TelegraphMark } from '../render/telegraph';
 import { sightRadius } from '../render/zones';
@@ -56,6 +57,7 @@ export class Frame {
     sight: number;
     flow: { x: number; y: number };
     swarm: readonly SwarmPoint[];
+    ride: RideLook | null;
   };
   readonly cell: CellView = {
     x: 0,
@@ -118,6 +120,7 @@ export class Frame {
       sight: 1,
       flow: { x: 0, y: 0 },
       swarm: NO_SWARM,
+      ride: null,
     };
     this.minimapView = {
       seed: app.session.world.seed32,
@@ -319,6 +322,8 @@ export class Frame {
       drawnCell.x = cell.x + shake.body.x * shift;
       drawnCell.y = cell.y + shake.body.y * shift;
     }
+    // A ride of the current playing (M12 T7): its streaks and wash.
+    view.ride = app.ride.look(now);
     view.camX = camera.x + shake.camera.x / scene.pxPerWu;
     view.camY = camera.y + shake.camera.y / scene.pxPerWu;
     // A genesis egg is alone on screen: the title cell steps out of the way.

@@ -103,6 +103,11 @@ const WATCH_SLACK_MS = 1000;
 /** How long after a fight settles a dispute can still hold its witness to its frames (M11 T3). */
 export const DISPUTE_AFTER_MS = 30_000;
 
+/** A creature whose fight ended this recently can't ride the current (M12 T7, ADR 0064). */
+export const RIDE_AFTER_FIGHT_MS = 120_000;
+/** How long a fight's end is kept per player: the longest of its readers' windows. */
+const ENDED_KEEP_MS = Math.max(AFTER_FIGHT_MS, RIDE_AFTER_FIGHT_MS);
+
 /** A settled fight as a late dispute reads it: its players, its witnesses' batches and their frames. */
 export type Settled = Pick<Fight, 'players' | 'batched' | 'history'>;
 
@@ -112,7 +117,10 @@ export class Fights {
   private readonly byCreature = new Map<string, Lock>();
   /** Inputs dropped because they named another fight or came from someone not in one. */
   strays = 0;
-  /** When each player's last fight ended, kept for `AFTER_FIGHT_MS` (the movement check, M10 T11). */
+  /**
+   * When each player's last fight ended, kept for `ENDED_KEEP_MS`: the movement check reads the
+   * last `AFTER_FIGHT_MS` (M10 T11), a ride the last `RIDE_AFTER_FIGHT_MS` (M12 T7).
+   */
   private readonly ended = new Map<string, number>();
   /** Each fight a witness batched for, by encounter, kept `DISPUTE_AFTER_MS` past its end. */
   private readonly settled = new Map<string, { fight: Settled; at: number }>();
@@ -219,10 +227,10 @@ export class Fights {
     for (const c of lock.creatures) if (this.byCreature.get(c) === lock) this.byCreature.delete(c);
   }
 
-  /** When the player's last fight ended, if within the last `AFTER_FIGHT_MS`; else null. */
-  fightEnded(player: string): number | null {
+  /** When the player's last fight ended, if within the last `within` ms (`AFTER_FIGHT_MS`); else null. */
+  fightEnded(player: string, within = AFTER_FIGHT_MS): number | null {
     const at = this.ended.get(player);
-    return at !== undefined && this.clock().now() - at < AFTER_FIGHT_MS ? at : null;
+    return at !== undefined && this.clock().now() - at < within ? at : null;
   }
 
   /** The ended fight of encounter `enc` while a late dispute may still reach its witness, else undefined. */
@@ -250,7 +258,7 @@ export class Fights {
 
   private noteEnded(players: readonly string[]): void {
     const now = this.clock().now();
-    for (const [p, at] of this.ended) if (now - at >= AFTER_FIGHT_MS) this.ended.delete(p);
+    for (const [p, at] of this.ended) if (now - at >= ENDED_KEEP_MS) this.ended.delete(p);
     for (const p of players) this.ended.set(p, now);
   }
 

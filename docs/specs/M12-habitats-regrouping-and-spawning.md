@@ -430,7 +430,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Regrouping
 
-- [ ] T7 Ride the current [opus] (after T4)
+- [x] T7 Ride the current [opus] (after T4)
   - Steps:
     1. **`worker/ride.ts`** answers a `ride`. The refusals, in this order:
        - `locked`: in a fight or a lock;
@@ -471,6 +471,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - B presses R again and reads "Someone is near";
       - screenshots mid-ride and at the arrival are attached;
       - on medium, the transition keeps the medium budget.
+  - Done: `worker/ride.ts` (`aloneSince` from `near`, `Fights.fightEnded(id, RIDE_AFTER_FIGHT_MS)`), `src/game/ride.ts`, `src/render/ride-fx.ts`, `m12-ride` on 8835; a page reports at once on turning alone and on arriving (`WhereReporter.nudge`).
+    Gotcha: the hub times the wait from that report, so the offer waits the 2 s report gap more; a creature the hub never saw alone is `soon`, and a placement fallback is `none`.
 
 ### Evidence at scale
 
@@ -500,7 +502,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - `throng` without instances is crowded at least 50% of the time, which shows the scenario crowds; with them, at most 1%.
     - Gate 9's bandwidth row is reported for `throng`. Its links are all P1, so it is not asserted.
   - Notes: if a gate's number is out of the link model's reach, the task records what it measures and why in an ADR, as ADR 0063 did, and the gate reads that.
-  - Done: harness runs `Crowds`, `place()` and a ride model (`Scenario.instances`, `.ride`, `ClientSpec.place`, `FightSpec.engage`); gates 10 and 11, `throng` (0.4% crowded with instances, all of the time without), `friends` placed; `WhereReporter.refresh` makes a page ask the directory again after its own instance changes (stale open-water words kept it crowded).
+  - Done: harness runs `Crowds`, `place()` and a ride model (`Scenario.instances`, `.ride`, `ClientSpec.place`, `FightSpec.engage`); gates 10 and 11, `throng` (0.4% crowded with instances, all of the time without), `friends` placed; `WhereReporter.nudge` makes a page ask the directory again after its own instance changes (stale open-water words kept it crowded).
     Gotcha: gate 3 in the dense scenarios reads 15 in 1,000, not 5 (ADR 0065: `crowd` and `witnesses` form no crowd and give 7 to 10 in 1,000 with or without instances); rides are off in every shipped scenario.
 
 - [ ] T9 The population wave: 5 → 300 → 20 (after T8)

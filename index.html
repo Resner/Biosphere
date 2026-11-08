@@ -168,6 +168,7 @@
         <button type="button" class="action quiet" data-testid="menu-lineage">Lineage</button>
         <button type="button" class="action quiet" data-testid="menu-settings">Settings</button>
         <button type="button" class="action quiet" data-testid="menu-controls" aria-expanded="false" aria-controls="controls">Controls</button>
+        <button type="button" class="action quiet" data-testid="menu-ride" hidden>Ride the current (R)</button>
       </p>
       <dl class="controls" id="controls" data-testid="controls" hidden>
         <div><dt>Mouse or WASD</dt><dd>Swim</dd></div>
@@ -182,6 +183,7 @@
         <div><dt>T then 1–6</dt><dd>Emote</dd></div>
         <div><dt>Middle click</dt><dd>Look ping</dd></div>
         <div><dt>M</dt><dd>Map</dd></div>
+        <div><dt>R</dt><dd>Alone: ride the current to other players</dd></div>
         <div><dt>Click a creature</dt><dd>Inspect it</dd></div>
         <div><dt>Esc</dt><dd>Menu, or close</dd></div>
       </dl>
@@ -234,6 +236,7 @@
     <p class="net-status" data-testid="net-status" role="status"></p>
     <p class="hatch-note" data-testid="hatch-note" role="status" hidden></p>
     <p class="alone-hint" data-for="playing" data-testid="alone-hint" hidden>No one nearby yet</p>
+    <p class="alone-hint ride-offer" data-for="playing" data-testid="ride-offer" role="status" hidden>Alone here. <button type="button" class="ride-button" data-testid="ride-button">Ride the current (R)</button></p>
     <div class="remote-labels" data-for="playing" data-testid="remote-labels" aria-hidden="true"></div>
     <div class="attack-marks" data-for="playing" data-testid="attack-marks" aria-hidden="true">
       <kbd class="attack-hint" data-testid="attack-hint" title="F: attack" hidden>F</kbd>

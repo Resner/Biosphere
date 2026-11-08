@@ -116,6 +116,17 @@ describe('WhereReporter', () => {
     expect(w.update(swim(64_000), LEAF)).toBeNull();
   });
 
+  it('reports as soon as the gap allows after a nudge, and only in the water (M12 T7)', () => {
+    const w = started();
+    w.nudge();
+    expect(w.update(swim(WHERE_MIN_GAP_MS - 100), LEAF)).toBeNull();
+    expect(w.update(swim(WHERE_MIN_GAP_MS), LEAF)?.t).toBe('where');
+    expect(w.update(swim(WHERE_MIN_GAP_MS * 3), LEAF)).toBeNull();
+    const ashoreNow = new WhereReporter();
+    ashoreNow.nudge();
+    expect(ashoreNow.update(ashore(10_000), LEAF)).toBeNull();
+  });
+
   it('keeps its reports within the wire’s ranges', () => {
     const w = new WhereReporter();
     const msg = w.update({ inWater: true, x: -3, y: 2 ** 30, r: 0.4, aoi: 42_000, now: 0 }, null);
@@ -126,20 +137,20 @@ describe('WhereReporter', () => {
   });
 });
 
-describe('WhereReporter.refresh (M12 T8)', () => {
+describe('WhereReporter.nudge (M12 T8)', () => {
   it('asks for a where after an instance change, held to the 2 s gap', () => {
     const w = started();
     expect(w.update(swim(5000), LEAF)).toBeNull();
-    w.refresh();
+    w.nudge();
     expect(w.update(swim(5100), LEAF)).not.toBeNull();
-    w.refresh();
+    w.nudge();
     expect(w.update(swim(5100 + WHERE_MIN_GAP_MS - 1), LEAF)).toBeNull();
     expect(w.update(swim(5100 + WHERE_MIN_GAP_MS), LEAF)).not.toBeNull();
   });
 
   it('is nothing while the directory holds no one', () => {
     const w = new WhereReporter();
-    w.refresh();
+    w.nudge();
     expect(w.update(ashore(0), null)).toBeNull();
     expect(w.update(swim(100), LEAF)).not.toBeNull();
     expect(w.update(swim(2500), LEAF)).toBeNull();
