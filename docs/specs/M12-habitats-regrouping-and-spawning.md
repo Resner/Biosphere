@@ -428,7 +428,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Regrouping
 
-- [x] T7 Ride the current [opus] (after T4) (in progress)
+- [x] T7 Ride the current [opus] (after T4)
   - Steps:
     1. **`worker/ride.ts`** answers a `ride`. The refusals, in this order:
        - `locked`: in a fight or a lock;
