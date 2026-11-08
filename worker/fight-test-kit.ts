@@ -150,6 +150,8 @@ export const seasoned = async (
     'UPDATE players SET epoch_seen = (SELECT epoch FROM world) WHERE id = ?',
     p.id.playerId,
   );
+  // Written directly, so a seated player's witness candidacy reads its play again (`seats.ts`).
+  await authority((a) => a.seats.reload(p.id.playerId));
 };
 
 /** A player whose creature is newly hatched on a fresh socket; its `spawn` (`spawned`) protects it for 15 s. */

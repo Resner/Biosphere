@@ -49,7 +49,7 @@ export const nextIp = () => `10.4.${(++ips >> 8) & 255}.${ips & 255}`;
 
 /**
  * Credits `ms` of play to the player: a finished creature of its own that lived that long. Its row
- * is written directly, so a seated player's candidacy takes it as a record would (`seats.ts`).
+ * is written directly, so a seated player's witness candidacy reads its play again (`seats.ts`).
  */
 export async function credit(player: string, ms: number): Promise<void> {
   await sql(
@@ -59,7 +59,7 @@ export async function credit(player: string, ms: number): Promise<void> {
     player,
     ms,
   );
-  await authority((a) => a.seats.addPlay(player, ms));
+  await authority((a) => a.seats.reload(player));
 }
 
 /** Sends `avail` and waits until the object has taken it. */

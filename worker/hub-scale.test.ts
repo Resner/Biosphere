@@ -44,7 +44,7 @@ import {
   sql,
 } from './test-hub';
 import { eligible, playOf } from './witness-pool';
-import { useWitnessHub, witness } from './witness-test-kit';
+import { editWitness, useWitnessHub, witness } from './witness-test-kit';
 
 // M13 T2: the hub's work per message doesn't grow with its sockets. Each message finds what it
 // needs through the hub's indexes (`seats.ts`), so the attachment reads it costs are the same with
@@ -143,7 +143,7 @@ async function round(n: number): Promise<Record<string, Cost>> {
   const out: Record<string, Cost> = {};
 
   // A `where` with a crowd list: its split's `leaf` notices, then the crowd's `instance` notices.
-  const group = [];
+  const group: Awaited<ReturnType<typeof join>>[] = [];
   for (let i = 0; i < 5; i++) group.push(await join());
   for (const [i, g] of group.slice(0, 4).entries())
     await standAt(g.c, g.id.playerId, GROUP.x + 40 * i, GROUP.y);
@@ -189,11 +189,11 @@ async function round(n: number): Promise<Record<string, Cost>> {
 
   // An engage with its lock-ask and answer: the fight starts and its witness pool is drawn.
   const weak = { health: 0.01 };
-  let start: EncStart | null = null;
+  const begun: { start?: EncStart } = {};
   out.engage = await cost(async () => {
     engage(a, b, snap(b, ...NEAR.b, weak), snap(a, ...NEAR.a, { health: 1 }));
     await answer(a, b, { mine: snap(b, ...NEAR.b, weak) });
-    [start] = await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
+    [begun.start] = await Promise.all([nextOf(a.c, 'enc-start'), nextOf(b.c, 'enc-start')]);
     await flush(a.c);
   });
   out.pool = await cost(() =>
@@ -201,7 +201,7 @@ async function round(n: number): Promise<Record<string, Cost>> {
       expect(eligible(o, [a.id.playerId, b.id.playerId], clock.now())).toEqual([w.id.playerId]);
     }),
   );
-  out.kill = await killCost(a, b, must(start));
+  out.kill = await killCost(a, b, must(begun.start));
 
   out.seated = await cost(() => join());
   await setSessions(await authority((o) => o.seats.size));
@@ -218,7 +218,7 @@ async function round(n: number): Promise<Record<string, Cost>> {
   out.spawn = await cost(() => spawned(swimmer));
   const rider = await join();
   expect((await standAt(rider.c, rider.id.playerId, FAR.x, FAR.y)).peers).toEqual([]);
-  await editSession(rider as Player, (s) => ({ ...s, aloneSince: clock.t - 2 * RIDE_ALONE_MS }));
+  await editWitness(rider, (s) => ({ ...s, aloneSince: clock.t - 2 * RIDE_ALONE_MS }));
   out.ride = await cost(async () => {
     rider.c.send({ t: 'ride' });
     const answered = await flush(rider.c);

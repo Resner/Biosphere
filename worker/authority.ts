@@ -39,7 +39,7 @@ import { migrate } from './schema';
 import { renewSeat } from './seat';
 import { Seats } from './seats';
 import { drop, hello, meterSeats, promote, queued, relay } from './sessions';
-import { type Hub, keep, randomToken, type Session, send, sessionOf, socketsOf } from './socket';
+import { type Hub, keep, randomToken, send, sessionOf, socketsOf } from './socket';
 import { type RecentSpawn, spawn } from './spawn';
 import { TurnCredentials } from './turn';
 import { UsageMeter } from './usage';

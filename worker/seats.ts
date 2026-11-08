@@ -2,7 +2,7 @@
 // ticket order, the sockets still to say hello, the live courts and the witness candidates. A
 // message then finds what it needs by key, and its cost doesn't grow with the sockets. The
 // attachments stay the truth: every write of one goes through `keep` (`socket.ts`), which notes
-// it here, and a woken object rebuilds the indexes from them (`rebuildSeats`).
+// it here, and a woken object rebuilds the indexes from them (`Seats.rebuild`).
 
 import { askLive } from './mating';
 import type { Session } from './socket';
@@ -26,7 +26,7 @@ export interface Candidate {
   struckUntil: number;
 }
 
-/** What a player's saved play and strike are now, read from SQLite for these players (one query). */
+/** These players' saved play and strike as SQLite holds them now (`playOf` in `witness-pool.ts`). */
 export type PlayLoader = (
   players: readonly string[],
 ) => Map<string, { savedMs: number; struckUntil: number }>;
@@ -47,7 +47,7 @@ export class Seats {
 
   constructor(private load: PlayLoader) {}
 
-  /** Notes every socket a woken object finds, each seated player's play read in one query. */
+  /** Notes every socket a woken object finds, the seated players' play read all at once. */
   rebuild(sockets: Iterable<[WebSocket, Session | null]>): void {
     const all = [...sockets];
     const play = this.load(all.flatMap(([, s]) => (s?.phase === 'active' ? [s.playerId] : [])));
@@ -204,6 +204,15 @@ export class Seats {
     if (!c) return false;
     c.savedMs += ms;
     return true;
+  }
+
+  /** Reads a seated player's play and strike again (a test that wrote their rows directly). */
+  reload(player: string): void {
+    const c = this.candidates.get(player);
+    const play = c ? this.load([player]).get(player) : undefined;
+    if (!c || !play) return;
+    c.savedMs = play.savedMs;
+    c.struckUntil = play.struckUntil;
   }
 
   /** The player is struck until `until`. */
