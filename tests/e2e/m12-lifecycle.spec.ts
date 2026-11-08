@@ -194,10 +194,10 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
             `${name} lies outside an earlier player’s clearance`,
           ).toBeGreaterThanOrEqual(-1e-6);
         }
+        // A member the directory misses after the spawn counts at the place the sample before it had.
+        const known = (id: string) => (after.get(id) ?? before.get(id)) as Sized;
         const reach = Math.min(
-          ...players.map(
-            (q) => dist(at, after.get(q.id) as Sized) - p1Reach(note, after.get(q.id) as Sized),
-          ),
+          ...players.map((q) => dist(at, known(q.id)) - p1Reach(note, known(q.id))),
         );
         expect(reach, `${name} lies within P1 reach of an earlier player`).toBeLessThanOrEqual(0);
       }
