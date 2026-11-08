@@ -63,7 +63,6 @@ export class SpawnAsk {
         if (this.settle !== done) return;
         this.settle = null;
         this.timers.clear(timer);
-        if (answer) this.last = answer;
         resolve(answer);
       };
       this.settle = done;
@@ -75,9 +74,9 @@ export class SpawnAsk {
   receive(msg: HubMsg): void {
     if (msg.t === 'spawn') {
       const answer = { x: msg.x, y: msg.y, why: msg.why, protect: msg.protect };
-      if (this.settle) this.settle(answer);
       // A ride's arrival (M12 T7) comes unasked: it is still the last answer.
-      else this.last = answer;
+      this.last = answer;
+      this.settle?.(answer);
     } else if (msg.t === 'refused' && msg.reason === 'spawn') {
       this.settle?.(null);
     }

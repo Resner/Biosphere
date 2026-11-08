@@ -31,6 +31,9 @@ export const CARRION_NOTICE_WU = 10_000;
 /** A report further than this × the seconds since the last, plus `WHERE_JUMP_WU`, is a jump. */
 export const WHERE_SPEED_WU = 300;
 export const WHERE_JUMP_WU = 2000;
+/** How far a creature can have moved `dtMs` after its last report, jump allowance included. */
+export const reachSince = (dtMs: number): number =>
+  (WHERE_SPEED_WU * Math.max(0, dtMs)) / 1000 + WHERE_JUMP_WU;
 /** Positions in a `near` go out in steps of 1/8 wu, so 48 peers and 64 points fit in 8 KB. */
 const WIRE_STEP = 8;
 

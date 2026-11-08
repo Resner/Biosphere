@@ -12,8 +12,7 @@ import {
   type DirMember,
   LEAF_MAX,
   RELAY_SLACK_WU,
-  WHERE_JUMP_WU,
-  WHERE_SPEED_WU,
+  reachSince,
 } from './directory';
 import type { LifeState } from './life';
 import {
@@ -24,7 +23,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
-import { anchorHolds } from './spawn';
+import { anchorHolds, type RecentSpawn } from './spawn';
 
 /**
  * A session's last report taken, in its attachment (so a wake rebuilds the directory from the
@@ -114,8 +113,7 @@ export function where(
   }
   const last = session.where;
   if (last && last.bind === bind && !jumpsTaken(hub.env)) {
-    const reach = (WHERE_SPEED_WU * Math.max(0, now - last.t)) / 1000 + WHERE_JUMP_WU;
-    if (Math.hypot(msg.x - last.x, msg.y - last.y) > reach) {
+    if (Math.hypot(msg.x - last.x, msg.y - last.y) > reachSince(now - last.t)) {
       count(hub, 'where');
       return;
     }
@@ -202,7 +200,7 @@ export interface DirectoryView {
   leaves: { leaf: Leaf; members: number }[];
   members: (DirMember & { leaf: Leaf })[];
   relays: Record<string, number>;
-  spawns: { x: number; y: number; r: number; aoi: number; t: number }[];
+  spawns: RecentSpawn[];
 }
 
 export function directoryView(hub: Hub): DirectoryView {

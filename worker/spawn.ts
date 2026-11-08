@@ -7,7 +7,7 @@ import { aoiRadius } from '../src/net/aoi';
 import type { ClientMsg, HubMsg, SpawnWhy } from '../src/net/protocol';
 import { createRng, seedFromBytes } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
-import { WHERE_JUMP_WU, WHERE_SPEED_WU } from './directory';
+import { reachSince } from './directory';
 import { pondTick } from './engage';
 import type { Lock } from './fights';
 import { type LifeState, protectionEnds } from './life';
@@ -70,9 +70,10 @@ function othersOf(hub: Hub, self: string): Placed[] {
 
 /** Notes a spawn the hub gave, keeping the newest `RECENT_SPAWNS_MAX` of the last minute. */
 function remember(hub: Hub, s: RecentSpawn): void {
-  const kept = hub.spawns.filter((o) => s.t - o.t < SPAWN_RECENT_MS);
-  kept.push(s);
-  hub.spawns.splice(0, hub.spawns.length, ...kept.slice(-RECENT_SPAWNS_MAX));
+  // Appended in clock order, so the expired ones are at the front.
+  while (hub.spawns[0] && s.t - hub.spawns[0].t >= SPAWN_RECENT_MS) hub.spawns.shift();
+  hub.spawns.push(s);
+  if (hub.spawns.length > RECENT_SPAWNS_MAX) hub.spawns.shift();
 }
 
 const answerOf = (s: Spawned): HubMsg => ({
@@ -151,8 +152,7 @@ export function anchorHolds(
   // Reported under this binding since its anchor: the jump check against that report decides.
   if (last?.bind === bind && (!fresh || last.t > anchor.t)) return true;
   if (!fresh) return false;
-  const reach = (WHERE_SPEED_WU * Math.max(0, now - anchor.t)) / 1000 + WHERE_JUMP_WU;
-  if (Math.hypot(msg.x - anchor.x, msg.y - anchor.y) <= reach) return true;
+  if (Math.hypot(msg.x - anchor.x, msg.y - anchor.y) <= reachSince(now - anchor.t)) return true;
   if (session.life) {
     hub.ledger.audit.raise('teleport', {
       owner: session.playerId,
