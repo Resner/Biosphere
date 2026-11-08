@@ -25,6 +25,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Lineage verification, proofs and retention | 0058, 0056, 0055, then 0009 | 0019, 0021, 0054 |
 | Witnesses, audits and anti-farming | 0062 (free slots, `engage:unseen`), 0059, 0058, then 0012 | 0010, 0054 |
 | The world, area of interest and signaling | 0064 (spawning, riding, crowd instances), 0063, 0062, 0061, then 0013 | 0007, 0016 |
+| Scale, metering, budgets and admission | 0067 (plans, the scale proof, admission by reason), 0056 (storage), then 0008 | |
 
 ## Index
 
@@ -37,7 +38,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0005](0005-deterministic-simulation.md) | Deterministic simulation and versioned rules | accepted | 0035, 0040 |
 | [0006](0006-genome-and-development.md) | Genome, inheritance and bounded development | accepted | 0025, 0036, 0040, 0041 |
 | [0007](0007-networking.md) | Peer-to-peer networking: our own WebRTC mesh, hub signaling, TURN | accepted, amended | 0062 |
-| [0008](0008-minimal-authority.md) | Minimal authority on Cloudflare, budgets and admission | accepted | 0017 |
+| [0008](0008-minimal-authority.md) | Minimal authority on Cloudflare, budgets and admission | accepted, amended | 0017, 0067 |
 | [0009](0009-identity-and-records.md) | Identity and UTXO-like lineage records | accepted | 0055, 0056 |
 | [0010](0010-randomness.md) | Randomness from drand quicknet: commitments and outage policy | accepted, amended | 0050, 0058 |
 | [0011](0011-combat-encounters.md) | Combat as refereed deterministic encounters | accepted, amended | 0050, 0051, 0052, 0053, 0054, 0058 |
@@ -85,7 +86,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0053](0053-fights-outlast-disconnects-and-restarts.md) | Fights outlast disconnects and restarts: a saved log, recovery, reconnects, and the authority finishing an abandoned fight | accepted | |
 | [0054](0054-signed-settlements-and-victim-worth.md) | A settled encounter is a signed document over a Merkle root of its frames, and a victim's worth decays | accepted, amended | 0058, 0059 |
 | [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted, amended | 0058 |
-| [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted, amended | 0058 |
+| [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted, amended | 0058, 0067 |
 | [0057](0057-claims-by-script-and-branch-cleanup.md) | Claims are made by a script, and closed factory branches are deleted | accepted | |
 | [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted, amended | 0062 |
 | [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted, refined, amended | 0060, 0062 |
@@ -96,3 +97,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0064](0064-habitats-spawning-riding-and-crowd-instances.md) | Habitats: spawning around groups, riding the current, crowd instances and anchored transitions | accepted | |
 | [0065](0065-late-entries-in-dense-water.md) | Late entries in dense water read at 15 in 1,000 | accepted | |
 | [0066](0066-how-the-wave-gates-read.md) | How the population wave's gates read: the group's edge, regrouped, hidden creatures and the budget | accepted | |
+| [0067](0067-scale-proof-metering-and-admission-by-plan.md) | Scale proof, metering and admission by plan | accepted | |

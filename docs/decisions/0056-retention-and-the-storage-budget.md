@@ -1,6 +1,6 @@
 # 0056: Retention: the history for good, fight logs for 14 days, and a storage budget
 
-- Status: accepted, amended by 0058 (a witness commitment is kept 14 days, an attestation for good) (amends 0009: the checkpoint compaction it planned for M9 waits for M13's measurements)
+- Status: accepted, amended by 0058 (a witness commitment is kept 14 days, an attestation for good) and 0067 (the storage limit is the plan's per object, 1 GB on the free plan and 10 GB on the paid one, and a store at 90% of it stops new sessions; compaction stays a lever) (amends 0009: the checkpoint compaction it planned for M9 waits for M13's measurements)
 - Date: 2026-11-04
 
 ## Context
