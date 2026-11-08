@@ -192,7 +192,12 @@ export function leftPlace(
  */
 export function saveLeft(hub: Hub, session: ActiveSession): void {
   const { life } = session;
-  const at = session.where ?? session.left;
+  // The newest place the authority knows: a report, the one `gone` kept, or the anchor a fight's end
+  // gave a fighter that has not reported since.
+  const at = [session.where, session.left, session.anchor].reduce(
+    (a, b) => (a && (!b || a.t >= b.t) ? a : b),
+    undefined,
+  );
   if (!life || life.over || !at || creatureOf(at.bind) !== life.creature) return;
   leftAt(hub, session.playerId, life.creature, at);
 }

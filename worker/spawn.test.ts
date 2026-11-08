@@ -388,6 +388,21 @@ describe('after a fight (M12 T10)', () => {
     expect(await teleports(a.creature)).toBe(1);
     expect(await reports(a, left.x + 100, left.y)).toBe(true);
   });
+
+  it('brings a survivor that reloads before reporting back at the fight’s end, not its earlier report', async () => {
+    const [a, b] = await fighters();
+    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { energy: 0, health: 0.01 }));
+    const played = await play(a, b, start, () => [IDLE_CODE, IDLE_CODE]);
+    const [end] = must(played.ends);
+    const left = outcomeOf(end, a);
+    expect(left.outcome).toBe('stood');
+    await advance(1000);
+    const again = await join(a.id);
+    const resumed: Player = { ...a, c: again.c, pond: again.pond };
+    const back = await spawnOf(resumed);
+    expect(back).toMatchObject({ why: 'back', protect: false });
+    expect(Math.hypot(back.x - left.x, back.y - left.y)).toBeLessThan(1);
+  });
 });
 
 describe('the welcome', () => {
