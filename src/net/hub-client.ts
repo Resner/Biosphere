@@ -61,8 +61,11 @@ export type FightMsg = Extract<
 /** Witness duties (M10, ADR 0058): an offer, its end, and a fighter's duty link to its witness. */
 export type DutyMsg = Extract<HubMsg, { t: 'duty' | 'duty-end' | 'duty-peer' }>;
 
-/** The directory's word (M11, ADR 0062): the answer to a `where`, and a leaf a split or merge moved. */
-export type WorldMsg = Extract<HubMsg, { t: 'near' | 'leaf' }>;
+/**
+ * The directory's word (M11, ADR 0062): the answer to a `where`, a leaf a split or merge moved, and
+ * the session's instance on every change (M12 T6).
+ */
+export type WorldMsg = Extract<HubMsg, { t: 'near' | 'leaf' | 'instance' }>;
 
 /** The slice of `WebSocket` the client uses, so tests can fake it. */
 export interface SocketLike {
@@ -296,6 +299,7 @@ export class HubClient {
         break;
       case 'near':
       case 'leaf':
+      case 'instance':
         for (const fn of [...this.worldListeners]) guarded(() => fn(msg));
         break;
       case 'error':

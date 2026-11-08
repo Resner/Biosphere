@@ -78,9 +78,12 @@ interface Page {
 }
 
 /** Two gated pages; `ticket` is each one's own ticket (null: it has none to show). */
-function pair(tickets: { a?: SignedSeat | null; b?: SignedSeat | null } = {}) {
+function pair(
+  tickets: { a?: SignedSeat | null; b?: SignedSeat | null } = {},
+  instances: { a?: number; b?: number } = {},
+) {
   const pages = new Map<string, Page>();
-  const make = (self: string, ticket: SignedSeat | null) => {
+  const make = (self: string, ticket: SignedSeat | null, n?: number) => {
     const page: Page = {
       ticket,
       joined: [],
@@ -103,6 +106,7 @@ function pair(tickets: { a?: SignedSeat | null; b?: SignedSeat | null } = {}) {
         hello: {
           ticket: () => page.ticket,
           check: (peer, t) => seatValid(t, keys, { world: WORLD, player: peer, now: Date.now() }),
+          ...(n === undefined ? {} : { instance: () => n }),
         },
       }),
     };
@@ -113,8 +117,8 @@ function pair(tickets: { a?: SignedSeat | null; b?: SignedSeat | null } = {}) {
     pages.set(self, page);
     return page;
   };
-  const a = make(A, tickets.a === undefined ? ticketFor(A, 'Alice') : tickets.a);
-  const b = make(B, tickets.b === undefined ? ticketFor(B, 'Bob') : tickets.b);
+  const a = make(A, tickets.a === undefined ? ticketFor(A, 'Alice') : tickets.a, instances.a);
+  const b = make(B, tickets.b === undefined ? ticketFor(B, 'Bob') : tickets.b, instances.b);
   return { a, b };
 }
 
@@ -139,6 +143,16 @@ describe('PeerMesh hello gate', () => {
     expect(b.states).toHaveLength(1);
     expect(b.events).toEqual([{ t: 'chat', text: 'hi' }]);
     expect(a.mesh.stats().helloFailed).toBe(0);
+  });
+
+  it('names each page’s instance in its hello, and each side reads the other’s (M12 T6)', async () => {
+    const { a, b } = pair({}, { a: 3, b: 7 });
+    expect(a.mesh.instanceOf(B)).toBe(0);
+    a.mesh.connect(B);
+    await settle();
+    expect(firstEvent(a.pcs[0])).toEqual({ t: 'hello', ticket: a.ticket, n: 3 });
+    expect(a.mesh.instanceOf(B)).toBe(7);
+    expect(b.mesh.instanceOf(A)).toBe(3);
   });
 
   it('closes a link with no hello within 5 s and counts it; its side never calls again', async () => {

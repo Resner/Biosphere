@@ -132,6 +132,8 @@ export class App {
   hubLink: { send(msg: { t: 'lineage' }): void } | null = null;
   /** The room for links of P2 to P4 that `debug.netCap` set (M11 T13), or null for the default. */
   netCap: number | null = null;
+  /** How many P0 + P1 make the page crowded, as `debug.crowdAt` set it (M12 T6), or null for 24. */
+  crowdAt: number | null = null;
   readonly lineagePanel: LineagePanel;
   readonly storage: Storage | null;
   /** First-life hints (M6b T9): the play screen has no permanent control lines. */

@@ -274,6 +274,39 @@ describe('RemoteSet', () => {
     expect(back?.alpha).toBe(1);
   });
 
+  it('fades a creature out over 1 s once it stops sharing water, then lets it go (M12 T6)', () => {
+    const gone: string[] = [];
+    const set = new RemoteSet((id) => gone.push(id));
+    set.setMember('a', 'Alice');
+    for (let i = 0; i <= 10; i++) send(set, 'a', swimming(i, i * 100), i * 100);
+    set.fadeOut('a', 1000);
+    const alphaAt = (ms: number): number | undefined => set.sample(ms, ms)[0]?.alpha;
+    expect(alphaAt(1000)).toBe(1);
+    expect(alphaAt(1250)).toBeCloseTo(0.75, 5);
+    // Its link closes mid-fade: it stays to finish fading, and only then goes.
+    expect(set.removeMember('a')).toBe(true);
+    expect(alphaAt(1500)).toBeCloseTo(0.5, 5);
+    expect(alphaAt(1900)).toBeCloseTo(0.1, 5);
+    expect(gone).toEqual([]);
+    expect(set.sample(2000, 2000)).toHaveLength(0);
+    expect(gone).toEqual(['a']);
+  });
+
+  it('draws a fading creature again once it shares water again (M12 T6)', () => {
+    const set = new RemoteSet();
+    set.setMember('a', 'Alice');
+    send(set, 'a', swimming(0, 0), 0);
+    set.fadeOut('a', 0);
+    expect(set.sample(500, 500)[0]?.alpha).toBeCloseTo(0.5, 5);
+    set.fadeIn('a');
+    send(set, 'a', swimming(5, 500), 500);
+    expect(set.sample(600, 600)[0]?.alpha).toBe(1);
+    // A new link to it ends a fade too.
+    set.fadeOut('a', 600);
+    set.setMember('a', 'Alice');
+    expect(set.sample(1700, 1700)[0]?.alpha).toBe(1);
+  });
+
   it('says how fast a remote was drawn at most, as a share of its snapshots’ speed (M11 T15)', () => {
     const set = new RemoteSet();
     // 1 Hz for 5 s, then 10 Hz; each snapshot arrives 40 ms after it was made.

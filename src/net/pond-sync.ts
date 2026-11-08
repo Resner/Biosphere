@@ -364,6 +364,8 @@ interface Remote {
   lastOwnMs: number;
   /** Its newest own snapshot said it is fighting (a proxy never sets this). */
   ownFighting: boolean;
+  /** When it stopped sharing water with this page (M12 T6), or null: it fades out over `FADE_MS`. */
+  fadeFrom: number | null;
   view: RemoteView;
 }
 
@@ -385,12 +387,32 @@ export class RemoteSet {
     this.names.set(id, name);
     this.left.delete(id);
     const remote = this.remotes.get(id);
-    if (remote) remote.view.name = name;
+    if (remote) {
+      remote.view.name = name;
+      // A new link to it: it shares water again.
+      remote.fadeFrom = null;
+    }
+  }
+
+  /**
+   * `id` stopped sharing water with this page (M12 T6): it fades out over `FADE_MS` from `localMs`
+   * and then goes, whether or not its link is still open.
+   */
+  fadeOut(id: string, localMs: number): void {
+    const remote = this.remotes.get(id);
+    if (remote && remote.fadeFrom === null) remote.fadeFrom = localMs;
+  }
+
+  /** `id` shares water with this page again: its fade, if any, ends. */
+  fadeIn(id: string): void {
+    const remote = this.remotes.get(id);
+    if (remote) remote.fadeFrom = null;
   }
 
   /**
    * A player left the roster. Its creature stays while it may still be fighting (its newest own
-   * snapshot said so, or proxies move it), to fade when nothing moves it any more; true then.
+   * snapshot said so, or proxies move it), to fade when nothing moves it any more, or while it fades
+   * out of the shared water (M12 T6); true then.
    */
   removeMember(id: string): boolean {
     const name = this.names.get(id);
@@ -401,7 +423,7 @@ export class RemoteSet {
       if (this.left.size > LEFT_NAMES) this.left.delete(this.left.keys().next().value as string);
     }
     const remote = this.remotes.get(id);
-    if (remote && (remote.ownFighting || remote.view.away)) return true;
+    if (remote && (remote.ownFighting || remote.view.away || remote.fadeFrom !== null)) return true;
     this.remotes.delete(id);
     return false;
   }
@@ -414,6 +436,7 @@ export class RemoteSet {
         lastHeardMs: localMs,
         lastOwnMs: Number.NEGATIVE_INFINITY,
         ownFighting: false,
+        fadeFrom: null,
         view: {
           id,
           name: this.names.get(id) ?? this.left.get(id) ?? id.slice(0, 6),
@@ -494,7 +517,8 @@ export class RemoteSet {
     this.views.length = 0;
     for (const [id, remote] of this.remotes) {
       const quiet = localMs - remote.lastHeardMs;
-      if (quiet > REMOVE_AFTER_MS) {
+      const shared = remote.fadeFrom === null ? 1 : 1 - (localMs - remote.fadeFrom) / FADE_MS;
+      if (quiet > REMOVE_AFTER_MS || shared <= 0) {
         this.remotes.delete(id);
         if (!this.names.has(id)) this.gone?.(id);
         continue;
@@ -508,7 +532,7 @@ export class RemoteSet {
       view.heading = pose.heading;
       view.radius = Math.sqrt(clamp(pose.biomass, MIN_DRAWN_BIOMASS, MAX_DRAWN_BIOMASS));
       view.beat = pose.dashing ? 1 : clamp(Math.hypot(pose.vx, pose.vy) / CRUISE, 0, 1);
-      const alpha = clamp(1 - (quiet - FADE_AFTER_MS) / FADE_MS, 0, 1);
+      const alpha = clamp(Math.min(shared, 1 - (quiet - FADE_AFTER_MS) / FADE_MS), 0, 1);
       view.alpha = view.away ? Math.min(alpha, AWAY_ALPHA) : alpha;
       this.views.push(view);
     }
