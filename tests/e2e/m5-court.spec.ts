@@ -40,7 +40,11 @@ test('a court is answered, both pay, and a newborn is refused for being too youn
   const [idB, idA] = [await idOf(b), await idOf(a)];
 
   // A third creature has not been reported yet: the hub counts it as not mature.
+  // Its life clock runs on the page's ticks and maturity takes seconds here, so C's sim is slowed
+  // to 1/20 (frozen, it would not report at all): how long a loaded runner takes to bring A to C
+  // must not decide the case.
   const c = await hatched(ctxC);
+  await c.evaluate(() => (window.__bs as BsHook).debug?.timeScale(0.05));
   await goTo(a, await idOf(c));
   await expect(a.getByTestId('mate-hint')).toContainText('Not mature yet');
   await a.keyboard.press('e');
