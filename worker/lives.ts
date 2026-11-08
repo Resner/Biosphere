@@ -49,6 +49,8 @@ import {
   sendIfOpen,
   signedOf,
 } from './socket';
+import { anchorAtLast } from './spawn';
+import { bindingOf } from './where';
 import { commitWitnesses } from './witness-pool';
 
 /** Starts a genesis request after any earlier one from the same player has finished. */
@@ -172,11 +174,17 @@ export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> 
   for (const [other, theirs] of activeSessions(hub)) {
     if (theirs.playerId !== owner) continue;
     // A new creature starts its clock when it reaches the player; a repeat delivery leaves it be.
+    // Its protection starts at its spawn's answer (M12 T4), so a long egg reveal doesn't eat it.
     if (head && theirs.life?.creature !== head.id) {
-      const now = hub.clock.now();
-      const life = bindHead(hub, head, now);
-      const protectedUntil = protectionEnds(now);
-      other.serializeAttachment({ ...theirs, life, protectedUntil } satisfies Session);
+      const life = bindHead(hub, head, hub.clock.now());
+      const protectBind = bindingOf(life);
+      other.serializeAttachment({
+        ...theirs,
+        life,
+        protectBind,
+        anchor: undefined,
+        spawned: undefined,
+      } satisfies Session);
     }
     sendIfOpen(other, msg);
   }
@@ -403,7 +411,11 @@ export function promoteChild(
     mine && !mine.over && mine.creature === request.body.parent ? conditionOf(mine) : null;
   const result = hub.ledger.promote(request, sig, freeze);
   const parent = result.ok ? result.frozen : null;
-  takeOver(hub, ws, session, request, now, result, (life) => ({ t: 'promoted', life, parent }));
+  takeOver(hub, ws, session, request, now, result, 'promote', (life) => ({
+    t: 'promoted',
+    life,
+    parent,
+  }));
 }
 
 /** Brings the nearest surviving ancestor back with its saved condition and life clock. */
@@ -415,10 +427,18 @@ export function restoreAncestor(
   now: number,
 ): void {
   const result = hub.ledger.restore(request, sig, exhaustion(hub));
-  takeOver(hub, ws, session, request, now, result, (life) => ({ t: 'restored', life }));
+  takeOver(hub, ws, session, request, now, result, 'restore', (life) => ({
+    t: 'restored',
+    life,
+  }));
 }
 
-/** Answers a promotion or restore: a refusal, or the connection now plays `request.creature` (a repeat keeps its running clock). */
+/**
+ * Answers a promotion or restore: a refusal, or the connection now plays `request.creature` (a
+ * repeat keeps its running clock). A promoted child is protected from now and anchored at its
+ * parent's last report, where it hatches; a restored ancestor asks `spawn`, whose answer protects
+ * it (M12 T4).
+ */
 export function takeOver(
   hub: Hub,
   ws: WebSocket,
@@ -426,6 +446,7 @@ export function takeOver(
   request: RecordRequest,
   now: number,
   result: { ok: true; fresh: boolean } | { ok: false; reason: string },
+  kind: 'promote' | 'restore',
   reply: (life: LifeInfo) => HubMsg,
 ): void {
   if (!result.ok) {
@@ -437,9 +458,17 @@ export function takeOver(
   const mine = session.life;
   const repeat = !result.fresh && mine?.creature === head.id;
   const life = repeat ? mine : bindHead(hub, head, now);
-  // A promoted or restored creature is spawn-protected; a repeat keeps what it had.
-  const protectedUntil = repeat ? session.protectedUntil : protectionEnds(hub.clock.now());
-  ws.serializeAttachment({ ...session, life, court: undefined, protectedUntil } satisfies Session);
+  // A repeat keeps what it had.
+  const fresh: Partial<ActiveSession> = repeat
+    ? {}
+    : kind === 'promote'
+      ? {
+          protectedUntil: protectionEnds(hub.clock.now()),
+          anchor: anchorAtLast(session, life),
+          spawned: undefined,
+        }
+      : { protectBind: bindingOf(life), anchor: undefined, spawned: undefined };
+  ws.serializeAttachment({ ...session, life, court: undefined, ...fresh } satisfies Session);
   sendIfOpen(ws, reply(lifeOf(hub, head)));
 }
 

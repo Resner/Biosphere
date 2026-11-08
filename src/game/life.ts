@@ -63,8 +63,8 @@ export interface Started {
   lifespanMs: number;
 }
 
-/** Refusals the hub sends about something other than a genesis ask: progress after death, a bad cause, a queued session. */
-const STRAY_REFUSALS: ReadonlySet<string> = new Set(['dead', 'cause', 'queued']);
+/** Refusals the hub sends about something other than a genesis ask: progress after death, a bad cause, a queued session, a locked creature's `spawn`. */
+const STRAY_REFUSALS: ReadonlySet<string> = new Set(['dead', 'cause', 'queued', 'spawn']);
 
 export type HatchOutcome =
   /** `protect`: a genesis, a promoted child or a restore, which spawn protection covers (M7). */

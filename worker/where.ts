@@ -16,8 +16,7 @@ import {
   type DirMember,
   LEAF_MAX,
   RELAY_SLACK_WU,
-  WHERE_JUMP_WU,
-  WHERE_SPEED_WU,
+  reachSince,
 } from './directory';
 import type { LifeState } from './life';
 import { askLive } from './mating';
@@ -30,6 +29,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
+import { anchorHolds, type RecentSpawn } from './spawn';
 
 /**
  * A session's last report taken, in its attachment (so a wake rebuilds the directory from the
@@ -66,7 +66,7 @@ export function quietMsOf(env: { DRAND_SOURCE?: string; QUIET_MS?: string }): nu
 const jumpsTaken = (env: { DRAND_SOURCE?: string }) => env.DRAND_SOURCE === 'fixture';
 
 /** The binding a report is made under: a genesis, promote, restore or sign-in starts a new one. */
-const bindingOf = (life: LifeState | undefined): string =>
+export const bindingOf = (life: LifeState | undefined): string =>
   life ? `${life.creature}:${life.startT}` : '';
 
 const memberOf = (s: ActiveSession, at: WhereAt): DirMember => ({
@@ -111,7 +111,7 @@ export function rebuildCrowds(hub: Pick<Hub, 'ctx' | 'env' | 'clock'>): Crowds {
 const count = (hub: Hub, t: ClientMsg['t']) => hub.dropped.set(t, (hub.dropped.get(t) ?? 0) + 1);
 
 /** Tells each member a split or merge moved its leaf. */
-function tellMoved(hub: Hub, moved: { id: string; leaf: Leaf }[]): void {
+export function tellMoved(hub: Hub, moved: { id: string; leaf: Leaf }[]): void {
   if (moved.length === 0) return;
   const leaves = new Map(moved.map((m) => [m.id, m.leaf]));
   for (const [ws, s] of activeSessions(hub)) {
@@ -266,9 +266,10 @@ function seatedCrowd(
  * A report: the directory takes it, and so do the crowds (with its crowd list, the ids not seated
  * dropped), then it is answered with `near` by the water it shares; members whose leaf a split or
  * merge changed hear `leaf`, and those whose instance changed `instance`. A centre outside the
- * world, or a jump further than `WHERE_SPEED_WU` × the seconds since the last report plus
- * `WHERE_JUMP_WU`, is dropped and counted, unless the life was bound anew since (or in fixture
- * mode). Writes no SQLite row.
+ * world, a first report under a binding that its anchor does not hold (`anchorHolds`, M12 T4), or a
+ * jump further than `WHERE_SPEED_WU` × the seconds since the last report plus `WHERE_JUMP_WU`, is
+ * dropped and counted (fixture mode takes jumps). Writes no SQLite row, except a `teleport` flag
+ * once per creature.
  */
 export function where(
   hub: Hub,
@@ -282,20 +283,28 @@ export function where(
     return;
   }
   const bind = bindingOf(session.life);
+  if (!anchorHolds(hub, session, msg, bind, now)) {
+    count(hub, 'where');
+    return;
+  }
   const last = session.where;
   if (last && last.bind === bind && !jumpsTaken(hub.env)) {
-    const reach = (WHERE_SPEED_WU * Math.max(0, now - last.t)) / 1000 + WHERE_JUMP_WU;
-    if (Math.hypot(msg.x - last.x, msg.y - last.y) > reach) {
+    if (Math.hypot(msg.x - last.x, msg.y - last.y) > reachSince(now - last.t)) {
       count(hub, 'where');
       return;
     }
   }
-  const at: WhereAt = { x: msg.x, y: msg.y, r: msg.r, aoi: msg.aoi, t: now, bind };
-  const { moved } = hub.directory.report(memberOf(session, at));
-  ws.serializeAttachment({ ...session, where: at } satisfies Session);
+  const moved = whereIn(hub, ws, session, {
+    x: msg.x,
+    y: msg.y,
+    r: msg.r,
+    aoi: msg.aoi,
+    t: now,
+    bind,
+  });
   const ctx = crowdContext(hub);
   releaseKept(hub, now, ctx);
-  const self = { id: session.playerId, x: at.x, y: at.y, r: at.r };
+  const self = { id: session.playerId, x: msg.x, y: msg.y, r: msg.r };
   const crowd = seatedCrowd(hub, session.playerId, msg.crowd);
   tellInstances(hub, hub.crowds.report(self, crowd, now, ctx));
   armCrowds(hub);
@@ -305,13 +314,30 @@ export function where(
 }
 
 /**
+ * Puts the member in the directory at `at` and keeps it in the attachment (with the rest of
+ * `session`), returning the members whose leaf a split or merge changed, for `tellMoved`. A report
+ * and a spawn's answer (M12 T4) both go through here.
+ */
+export function whereIn(
+  hub: Hub,
+  ws: WebSocket,
+  session: ActiveSession,
+  at: WhereAt,
+): { id: string; leaf: Leaf }[] {
+  const { moved } = hub.directory.report(memberOf(session, at));
+  ws.serializeAttachment({ ...session, where: at } satisfies Session);
+  return moved;
+}
+
+/**
  * No creature in the water (or a closed socket): the member leaves the directory and its crowd,
  * except a fighter, whose instance is kept while its fight runs (`crowdsKept`).
  */
 export function gone(hub: Hub, ws: WebSocket | null, session: ActiveSession): void {
   const id = session.playerId;
+  // Where it left stays: a promoted child is anchored there (M12 T4).
   if (ws && session.where)
-    ws.serializeAttachment({ ...session, where: undefined } satisfies Session);
+    ws.serializeAttachment({ ...session, where: undefined, left: session.where } satisfies Session);
   tellMoved(hub, hub.directory.remove(id));
   if (hub.fights.playerLocked(id) && hub.crowds.instanceOf(id) !== OPEN_WATER) {
     hub.crowdsKept.add(id);
@@ -365,12 +391,13 @@ export function carrionNoticed(hub: Hub, x: number, y: number, victim: string): 
 
 /**
  * The directory as `GET /v1/e2e/directory` shows it: the leaves, each member's leaf, report and
- * instance, the relays by pair, and the crowds (M12 T5).
+ * instance, the relays by pair, the crowds (M12 T5) and the spawns of the last minute (M12 T4).
  */
 export interface DirectoryView {
   leaves: { leaf: Leaf; members: number }[];
   members: (DirMember & { leaf: Leaf; n: number })[];
   relays: Record<string, number>;
+  spawns: RecentSpawn[];
   crowds: ReturnType<Crowds['view']>;
 }
 
@@ -385,6 +412,7 @@ export function directoryView(hub: Hub): DirectoryView {
     leaves: hub.directory.leaves(),
     members,
     relays: Object.fromEntries(hub.relays),
+    spawns: hub.spawns.map((s) => ({ ...s })),
     crowds: hub.crowds.view(),
   };
 }

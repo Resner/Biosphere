@@ -35,6 +35,7 @@ import { migrate } from './schema';
 import { renewSeat } from './seat';
 import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
+import { type RecentSpawn, spawn } from './spawn';
 import { TurnCredentials } from './turn';
 import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
 import { armCrowds, gone, rebuildCrowds, rebuildDirectory, where } from './where';
@@ -85,7 +86,7 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly fightStore: FightStore;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
-  /** Messages dropped without closing the socket, by type: past their own window's cap, a `where` refused (a jump, outside the world), or a `spawn` or `ride` not yet answered (M12 T1). */
+  /** Messages dropped without closing the socket, by type: past their own window's cap, a `where` refused (a jump, outside the world, past its anchor), or a `ride` not yet answered (M12 T1). */
   readonly dropped = new Map<ClientMsg['t'], number>();
   /** Incoming messages that parsed, by type: what a fight costs the authority (ADR 0058's cost check). */
   readonly received = new Map<ClientMsg['t'], number>();
@@ -101,6 +102,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly crowdsKept = new Set<string>();
   /** Signals the hub relayed, by unordered pair (E2E reads them). */
   readonly relays = new Map<string, number>();
+  /** The spawns given in the last minute, in memory (M12 T4, `spawn.ts`). */
+  readonly spawns: RecentSpawn[] = [];
   /** The salt of every session's IP hash (migration 10), read once. */
   private ipSalt: string | null = null;
 
@@ -355,9 +358,10 @@ export class Authority extends DurableObject<Env> implements Hub {
       case 'gone':
         gone(this, ws, session);
         return;
-      // Counted in the 20-message budget above, then dropped until spawning (M12 T4) and riding
-      // (M12 T7) answer them.
       case 'spawn':
+        spawn(this, ws, session, msg);
+        return;
+      // Counted in the 20-message budget above, then dropped until riding (M12 T7) answers it.
       case 'ride':
         this.dropped.set(msg.t, (this.dropped.get(msg.t) ?? 0) + 1);
         return;

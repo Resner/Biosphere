@@ -2,11 +2,12 @@ import { runInDurableObject } from 'cloudflare:test';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CLOSE_RATE_LIMITED } from '../src/net/protocol';
 import type { Authority } from './authority';
-import { closeSockets, login, nextOf, stub } from './test-hub';
+import { anchorAt, closeSockets, login, nextOf, stub } from './test-hub';
 
-// Protocol 12 on the authority (M12 T1): `spawn` and `ride` count in the 20-message budget and are
-// dropped and counted until T4 and T7 answer them; a `where` with a crowd is still answered with
-// `near` (T5's crowds are in `instances.test.ts`). The protocol-11 hello's refusal is in `hub.test.ts`.
+// Protocol 12 on the authority (M12 T1): `spawn` and `ride` count in the 20-message budget; `spawn`
+// is answered (T4, `spawn.test.ts`) and `ride` dropped and counted until T7 answers it; a `where`
+// with a crowd is still answered with `near` (T5's crowds are in `instances.test.ts`). The
+// protocol-11 hello's refusal is in `hub.test.ts`.
 
 afterEach(closeSockets);
 
@@ -17,19 +18,21 @@ const spawn = { t: 'spawn', r: 10, aoi: 233 };
 const ride = { t: 'ride' };
 
 describe('protocol 12 on the hub', () => {
-  it('drops and counts a spawn and a ride, answering neither', async () => {
+  it('answers a spawn, and drops and counts a ride', async () => {
     const { c } = await login();
     const [spawns, rides] = [await droppedOf('spawn'), await droppedOf('ride')];
     c.send(spawn);
     c.send(ride);
     c.send({ t: 'ping', id: 3 });
+    expect(await c.next()).toMatchObject({ t: 'spawn', why: 'placed', protect: false });
     expect(await c.next()).toMatchObject({ t: 'pong', id: 3 });
-    expect(await droppedOf('spawn')).toBe(spawns + 1);
+    expect(await droppedOf('spawn')).toBe(spawns);
     expect(await droppedOf('ride')).toBe(rides + 1);
   });
 
   it('answers a where with a crowd with near, as before', async () => {
-    const { c } = await login();
+    const { c, id } = await login();
+    await anchorAt(id.playerId, where.x, where.y);
     const wheres = await droppedOf('where');
     c.send({ ...where, crowd: ['A'.repeat(43), 'B'.repeat(43)] });
     expect(await c.next()).toMatchObject({ t: 'near', peers: [], swarm: [] });

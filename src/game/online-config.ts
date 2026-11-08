@@ -1,7 +1,6 @@
 // Where the hub is and what the player is called: small, DOM-free helpers for the online session.
 
 import type { HubStatus, QueuePlace } from '../net/hub-client';
-import { SPAWN_GOLDEN_ANGLE, type Vec2 } from '../net/protocol';
 import { validName } from '../net/text';
 
 const NAME_KEY = 'bs.name';
@@ -92,19 +91,6 @@ export function saveName(store: Store | null, name: string): void {
   } catch {
     // storage blocked: the name lasts for this visit
   }
-}
-
-/**
- * Where life number `life` (0 for the first) of a player spawns: the hub's hint, then the same
- * ring radius at a new angle each time.
- */
-export function ringSpawn(centre: Vec2, hint: Vec2, life: number): Vec2 {
-  if (life === 0) return hint;
-  const dx = hint.x - centre.x;
-  const dy = hint.y - centre.y;
-  const angle = Math.atan2(dy, dx) + life * SPAWN_GOLDEN_ANGLE;
-  const radius = Math.hypot(dx, dy);
-  return { x: centre.x + Math.cos(angle) * radius, y: centre.y + Math.sin(angle) * radius };
 }
 
 /** "1st", "2nd", "3rd", "4th", "11th", "22nd". */

@@ -184,7 +184,6 @@ export const C = 131_072;
 export const welcome = (worldId = 'world1'): Welcome => ({
   t: 'welcome',
   world: { id: worldId, seed: 'seed1', epoch: 1000, centre: { x: C, y: C }, size: 262_144 },
-  you: { spawnHint: { x: C + 200, y: C } },
   ice: [{ urls: 'stun:example.test' }],
   turn: false,
   now: 5000,
