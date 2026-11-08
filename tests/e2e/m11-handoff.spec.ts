@@ -26,6 +26,17 @@ const C_AHEAD = 6_000;
 /** C's budget to swim into A's view, in its own sim ticks (300 s of sim time). */
 const NEAR_TICKS = 9_000;
 
+/**
+ * Keeps C whole: a belly full against the hunger, and full health against a toxic plume (15 hp/s)
+ * its start or its swim crosses in the deep water, which would kill it unseen between two reads.
+ */
+const keepWhole = (p: Player) =>
+  p.page.evaluate(() => {
+    const debug = (window.__bs as BsHook).debug;
+    debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+    debug?.setHealth(Number.MAX_SAFE_INTEGER);
+  });
+
 interface Watch {
   /** Samples where a remote in A's view was drawn below full alpha. */
   faded: { id: string; alpha: number }[];
@@ -68,6 +79,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     await place(a, S.x, S.y);
     await place(b, S.x - 150, S.y - 150);
     await place(c, S.x + C_AHEAD * DIAG, S.y + C_AHEAD * DIAG);
+    await keepWhole(c);
     await expect
       .poll(async () => (await state(a.page)).net.links.some((l) => l.id === b.id && l.hello), {
         message: 'A and B link',
@@ -187,9 +199,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       if (!crossed) await steer(a, E.x, E.y);
       // C waits unfed for as long as A's slower pages take to cross: its belly stays full, so it
       // is alive when its swim starts (it was found dead, with no tick played, after A crossed).
-      await c.page.evaluate(() =>
-        (window.__bs as BsHook).debug?.setEnergy(Number.MAX_SAFE_INTEGER),
-      );
+      await keepWhole(c);
       const cState = await state(c.page);
       expect(cState.screen, 'C is alive while A crosses').not.toBe('dead');
       const cAt = cState.player;
@@ -220,11 +230,8 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       const cAt = cState.player;
       if (!me || !cAt) throw new Error('A or C has no creature');
       swumTicks = cState.tick - swumFrom;
-      await c.page.evaluate(() => {
-        const debug = (window.__bs as BsHook).debug;
-        debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-        debug?.timeScale(4);
-      });
+      await keepWhole(c);
+      await c.page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(4));
       const d = Math.hypot(cAt.x - me.x, cAt.y - me.y);
       lastD = d;
       if (d > 120) {
