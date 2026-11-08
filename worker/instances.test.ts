@@ -23,7 +23,7 @@ import {
 } from './fight-test-kit';
 import type { Session } from './socket';
 import { type Client, flush, freshNonce, nextOf, report, rowsWritten } from './test-hub';
-import { instanceMaxOf, quietMsOf, rebuildCrowds } from './where';
+import { armCrowds, instanceMaxOf, quietMsOf, rebuildCrowds } from './where';
 
 // Crowd instances on the authority (M12 T5, ADR 0064): `hub.crowds` beside the directory. Crowded
 // reports split a crowd into instances, each member hears its own, and `near`, the relay, courts,
@@ -436,5 +436,47 @@ describe('the budget', () => {
     }
     c.send({ t: 'where', x: CX, y: CY, r: 10, aoi: STARTER_AOI });
     expect(await c.closed).toBe(CLOSE_RATE_LIMITED);
+  });
+});
+
+describe('the crowds’ timer', () => {
+  function fake(due: number | null) {
+    const timers: { at: number; live: boolean }[] = [];
+    const hub = {
+      crowds: { due: () => due },
+      crowdTimer: null as { at: number; handle: unknown } | null,
+      clock: {
+        now: () => 0,
+        after: (ms: number) => {
+          const t = { at: ms, live: true };
+          timers.push(t);
+          return t;
+        },
+        cancel: (h: unknown) => {
+          (h as { live: boolean }).live = false;
+        },
+      },
+    };
+    return { hub, timers, set: (d: number | null) => (due = d) };
+  }
+
+  it('keeps a timer held for the same time or earlier, replaces one held for later, clears it at null', () => {
+    const f = fake(100);
+    // biome-ignore lint/suspicious/noExplicitAny: a hub with only the fields armCrowds reads
+    const h = f.hub as any;
+    armCrowds(h);
+    expect(f.timers).toHaveLength(1);
+    f.set(100);
+    armCrowds(h);
+    f.set(250);
+    armCrowds(h);
+    expect(f.timers).toHaveLength(1);
+    f.set(40);
+    armCrowds(h);
+    expect(f.timers.map((t) => t.live)).toEqual([false, true]);
+    f.set(null);
+    armCrowds(h);
+    expect(f.timers.map((t) => t.live)).toEqual([false, false]);
+    expect(f.hub.crowdTimer).toBeNull();
   });
 });
