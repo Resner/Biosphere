@@ -120,6 +120,8 @@ const m12CrowdHubPort = 8834;
 const m12SpawnHubPort = 8833;
 // The M12 ride spec (M12 T7, 8835): a lone player rides the current back, after 3 s alone.
 const m12RideHubPort = 8835;
+// The M12 lifecycle spec (M12 T11, 8836): four players through spawning, a crowd, a reload in a fight, a ride and a merge.
+const m12LifecycleHubPort = 8836;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -453,6 +455,11 @@ export default defineConfig({
       ['m12-crowd', m12CrowdHubPort, '--var INSTANCE_MAX:2 --var QUIET_MS:3000 --var LEAF_MAX:2'],
       ['m12-spawn', m12SpawnHubPort, ''],
       ['m12-ride', m12RideHubPort, '--var RIDE_ALONE_MS:3000'],
+      [
+        'm12-lifecycle',
+        m12LifecycleHubPort,
+        '--var INSTANCE_MAX:2 --var QUIET_MS:3000 --var RIDE_ALONE_MS:3000 --var MATING_SCALE:0.01',
+      ],
       [
         'm11-lifecycle',
         m11LifecycleHubPort,
