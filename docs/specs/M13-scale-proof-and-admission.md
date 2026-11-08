@@ -269,7 +269,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Scale in the hub
 
-- [x] T2 The hub's work per message doesn't grow with its sockets [opus] (after T1) (in progress)
+- [x] T2 The hub's work per message doesn't grow with its sockets [opus] (after T1)
   - Steps:
     1. **In-memory indexes** on the hub replace the socket scans. They are rebuilt in the constructor from the attachments, as the directory is, and kept up by `hello`, `enter`, `drop`, `promote` and the handlers that change them:
        - **each seated player's socket**, used by `seated`, the relay's target, `tellMoved`, `tellInstances`, court and mate targets, `seatedCrowd` and duties;
