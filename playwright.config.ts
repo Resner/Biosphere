@@ -113,6 +113,8 @@ const m11RelayHubPort = 8830;
 const m11TiersHubPort = 8831;
 // The M11 lifecycle spec (M11 T19, 8832): four players in the one world.
 const m11LifecycleHubPort = 8832;
+// The M12 spawning spec (M12 T4, 8833): four players placed by the authority.
+const m12SpawnHubPort = 8833;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -427,7 +429,7 @@ export default defineConfig({
       reuseExistingServer: !process.env.CI,
       timeout: 60_000,
     },
-    // The M10 and M11 specs are all `@slow`, so the PR parts start none of their hubs, and a run that names
+    // The M10, M11 and M12 specs are all `@slow`, so the PR parts start none of their hubs, and a run that names
     // spec files (CI's repeat of the changed ones) starts only the hubs of the M10 specs it names:
     // 39 idle `wrangler dev` processes beside a browser took the runners down.
     ...[
@@ -443,6 +445,7 @@ export default defineConfig({
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],
       ['m11-tiers', m11TiersHubPort, ''],
+      ['m12-spawn', m12SpawnHubPort, ''],
       [
         'm11-lifecycle',
         m11LifecycleHubPort,

@@ -194,11 +194,15 @@ export function carrionNoticed(hub: Hub, x: number, y: number): Set<string> {
   return new Set(hub.directory.around(x, y, CARRION_NOTICE_WU));
 }
 
-/** The directory as `GET /v1/e2e/directory` shows it: the leaves, each member's leaf and report, and the relays by pair. */
+/**
+ * The directory as `GET /v1/e2e/directory` shows it: the leaves, each member's leaf and report, the
+ * relays by pair, and the spawns of the last minute (M12 T4).
+ */
 export interface DirectoryView {
   leaves: { leaf: Leaf; members: number }[];
   members: (DirMember & { leaf: Leaf })[];
   relays: Record<string, number>;
+  spawns: { x: number; y: number; r: number; aoi: number; t: number }[];
 }
 
 export function directoryView(hub: Hub): DirectoryView {
@@ -208,5 +212,10 @@ export function directoryView(hub: Hub): DirectoryView {
     const leaf = hub.directory.leafOf(s.playerId);
     if (m && leaf) members.push({ ...m, leaf });
   }
-  return { leaves: hub.directory.leaves(), members, relays: Object.fromEntries(hub.relays) };
+  return {
+    leaves: hub.directory.leaves(),
+    members,
+    relays: Object.fromEntries(hub.relays),
+    spawns: hub.spawns.map((s) => ({ ...s })),
+  };
 }
