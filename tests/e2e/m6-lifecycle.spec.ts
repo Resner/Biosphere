@@ -161,7 +161,15 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
     await a.screenshot({ path: `test-results/m6-lifecycle-${zone}.png` });
     await withinBudget(a, zone);
   }
-  await a.evaluate(() => (window.__bs as BsHook).debug?.setZone('twilight'));
+  // The abyss left A hurt, and it plays on for the minutes the rest of the scenario takes (at 30x on
+  // a slow runner): A returns to the twilight at full health and a full belly, as B does below, since
+  // a dead A shows no mate hint and cannot court.
+  await a.evaluate(() => {
+    const bs = window.__bs as BsHook;
+    bs.debug?.setZone('twilight');
+    bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
+  });
+  await topUp(a);
   await timeScale(a, 1);
 
   // 4. B is far away: A finds it by the edge indicator, then by the pond map.
@@ -197,11 +205,16 @@ test('hatch, grow, zones, find, wheel, mate, promote and a death in the abyss @s
   // The far teleport can land B in a zone that hurts (the pond's depth map is seeded per pond), and
   // A then goes to B and stays there for the wheel and the courtship. Both steps below need B alive
   // and drawn, so B returns to the twilight at full health first.
-  await b.evaluate(() => {
-    const bs = window.__bs as BsHook;
-    bs.debug?.setZone('twilight');
-    bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
-  });
+  await Promise.all(
+    [a, b].map((page) =>
+      page.evaluate(() => {
+        const bs = window.__bs as BsHook;
+        bs.debug?.setZone('twilight');
+        bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
+      }),
+    ),
+  );
+  await Promise.all([topUp(a), topUp(b)]);
 
   // 5. A pings and emotes through the wheel; B receives both.
   await goTo(a, idB, b);
