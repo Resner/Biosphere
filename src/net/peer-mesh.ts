@@ -53,6 +53,8 @@ export interface HelloGate {
   ticket(): SignedSeat | null;
   /** Whether `ticket` holds for peer `peerId` now. */
   check(peerId: string, ticket: SignedSeat): boolean;
+  /** The instance this page's hello names (M12 T6); the open water without it. */
+  instance?(): number;
 }
 
 export interface PeerMeshOptions {
@@ -109,6 +111,8 @@ interface Link {
   opened: boolean;
   /** The peer's ticket, once its hello passed. */
   ticket: SignedSeat | null;
+  /** The instance the peer's hello named (M12 T6). */
+  n: number;
   closed: boolean;
   /** Serialises the offer and answer steps of this connection. */
   chain: Promise<void>;
@@ -165,6 +169,12 @@ export class PeerMesh {
   ticketOf(id: string): SignedSeat | null {
     const link = this.links.get(id);
     return link?.opened ? link.ticket : null;
+  }
+
+  /** The instance a joined peer's hello named (M12 T6); the open water without a gate. */
+  instanceOf(id: string): number {
+    const link = this.links.get(id);
+    return link?.opened ? link.n : OPEN_WATER;
   }
 
   /** Peers that are connected or being connected. */
@@ -284,6 +294,7 @@ export class PeerMesh {
       offer: null,
       opened: false,
       ticket: null,
+      n: OPEN_WATER,
       closed: false,
       chain: Promise.resolve(),
       timeout: null,
@@ -334,8 +345,8 @@ export class PeerMesh {
       const gate = this.opts.hello;
       if (gate) {
         const ticket = gate.ticket();
-        // The page is in the open water (0) until it keeps instances (M12 T6).
-        if (ticket) this.sendOn(link.event, JSON.stringify({ t: 'hello', ticket, n: OPEN_WATER }));
+        const n = gate.instance?.() ?? OPEN_WATER;
+        if (ticket) this.sendOn(link.event, JSON.stringify({ t: 'hello', ticket, n }));
         if (!link.ticket) link.timeout = setTimeout(() => this.helloFailed(link), HELLO_MS);
       }
     }
@@ -350,6 +361,7 @@ export class PeerMesh {
   private hello(link: Link, event: PeerEvent | null): void {
     if (event?.t === 'hello' && this.ticketHolds(link, event.ticket)) {
       link.ticket = event.ticket;
+      link.n = event.n;
       this.checkOpen(link);
     } else {
       this.helloFailed(link);

@@ -182,6 +182,26 @@ describe('ProxyRelay', () => {
   });
 });
 
+describe('ProxyRelay and the water (M12 T6)', () => {
+  it('relays an away fighter only to the peers that share water with it', () => {
+    const [f0, f1, s1, s2] = ids as [string, string, string, string];
+    const sent: string[] = [];
+    const relay = new ProxyRelay({
+      self: f0,
+      present: (p) => p !== f1,
+      peers: () => [s1, s2],
+      sees: (peer, player) => !(peer === s2 && player === f1),
+      send: (to) => sent.push(to),
+      show: () => {},
+    });
+    let now = 0;
+    const fight = fightOf([f0, f1], () => now);
+    for (now = 0; now < 1000; now += FPS_MS) relay.update(now, fight);
+    expect(sent.length).toBeGreaterThan(0);
+    expect(new Set(sent)).toEqual(new Set([s1]));
+  });
+});
+
 describe('ProxyReceiver', () => {
   /** A pond of remotes as spectator `self` sees it, with `relay` fighting and `away` gone quiet. */
   function pond(self: string) {

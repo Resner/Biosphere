@@ -18,6 +18,7 @@ import { maxEnergy, maxHealth } from '../sim/vitals';
 import { createWorld } from '../sim/world';
 import type { App } from './app';
 import { adultRadius } from './app-session';
+import { checkCrowdAt } from './crowd-view';
 import { type BsDebug, type BsGenome, type BsState, installHook } from './debug';
 import type { NetLinks } from './online';
 import { PondFood } from './pond-food';
@@ -31,6 +32,7 @@ const NO_NET: NetLinks = {
   where: { sent: 0, leaf: null },
   signals: { hub: 0, relayed: 0, forwarded: 0, forged: 0 },
   helloFailed: 0,
+  instance: { n: 0, changes: 0, crowded: false, crowdSent: 0 },
 };
 
 /** `debug.steerTo` gives up after this many ticks (30 s). */
@@ -88,6 +90,10 @@ function debugHelpers(app: App): BsDebug {
       }
       app.netCap = cap;
       app.keeper.current?.setCap(cap);
+    },
+    crowdAt(n) {
+      app.crowdAt = checkCrowdAt(n);
+      app.keeper.current?.setCrowdAt(n);
     },
     teleport(x, y) {
       const { player } = app.session;
@@ -354,6 +360,7 @@ export function installAppHook(app: App): void {
             away,
             pace,
           }) => ({
+            instance: keeper.current?.crowd.of(id) ?? 0,
             id,
             name,
             x,

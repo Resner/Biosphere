@@ -175,6 +175,8 @@ export interface BsState {
     away: boolean;
     /** The fastest it was drawn, as a share of its snapshots' speed: at most 1.2 (M11 T15). */
     pace: number;
+    /** Its crowd instance by the freshest word of it (M12 T6; 0: the open water). */
+    instance: number;
   }[];
   /**
    * Attack (M7 T11): the remote the "F" glyph marks (the nearest this player could engage now) or
@@ -450,6 +452,8 @@ export interface BsDebug {
   teleport(x: number, y: number): void;
   /** Sets the room for links of P2 to P4 (1 to 24; M11 T13); P0 and P1 may still reach 32. */
   netCap(cap: number): void;
+  /** Sets how many P0 + P1 sharing water make the page crowded (2 to 24; M12 T6). */
+  crowdAt(n: number): void;
   /**
    * Moves the player (as `teleport`) to the nearest point well inside that zone, clear of its edge
    * bands with its surround in the zone too, and returns it (M6 T16).

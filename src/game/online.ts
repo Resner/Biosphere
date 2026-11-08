@@ -2,6 +2,8 @@
 // It owns no game state; `app-online.ts` supplies the handlers and decides what a snapshot or a
 // claim means for the world. Links are the area of interest's: `online-links.ts` plans them from
 // the known set (`neighbours.ts`). There is no roster: names come from tickets and the directory.
+// Crowd instances (M12 T6, ADR 0064): `crowd-view.ts` keeps the page's instance and its peers';
+// links, snapshots and game events follow the water, and a peer that leaves it is told to fade.
 
 import type { Identity } from '../ledger/identity';
 import type { PubKey } from '../ledger/record';
@@ -20,6 +22,7 @@ import {
   type Welcome,
   type WorldMsg,
 } from '../net/hub-client';
+import { OPEN_WATER } from '../net/instance';
 import { PeerMesh } from '../net/peer-mesh';
 import {
   type ClientMsg,
@@ -42,9 +45,10 @@ import {
   type SnapshotRate,
   wantedRate,
 } from '../net/snapshot-rates';
-import { WhereReporter } from '../net/where';
+import { crowdList, WhereReporter } from '../net/where';
 import type { SwarmPoint } from '../render/swarms';
 import { viewHalfHeight } from '../sim/size';
+import { CrowdView, type InstanceInfo } from './crowd-view';
 import { type MapSighting, sightings } from './map-view';
 import { type KnownCounts, Neighbours, NO_SWARM } from './neighbours';
 import { type DutyLink, type LinkInfo, Links, YOUNG_MS } from './online-links';
@@ -79,6 +83,7 @@ export type OnlineMesh = Pick<
   | 'isOpen'
   | 'isUp'
   | 'ticketOf'
+  | 'instanceOf'
   | 'stats'
   | 'sendState'
   | 'sendEvent'
@@ -108,6 +113,10 @@ export interface OnlineHandlers {
   fight(msg: FightMsg): void;
   /** A witness duty's offer or end, or a fighter's duty link (M10); the session opens and closes the links itself. */
   duty?(msg: DutyMsg): void;
+  /** A linked creature stopped (`shown` false: it fades out) or started again being drawn (M12 T6). */
+  water?(id: string, shown: boolean): void;
+  /** The page's own instance left the open water, at most once a minute: the busy toast (M12 T6). */
+  busy?(): void;
 }
 
 /** The own creature as the links and the directory see it; `inWater` false on the death screen or in a hidden tab. */
@@ -129,6 +138,8 @@ export interface NetLinks {
   where: { sent: number; leaf: { x: number; y: number; size: number } | null };
   signals: Pick<SignalStats, 'hub' | 'relayed' | 'forwarded' | 'forged'>;
   helloFailed: number;
+  /** The page's crowd instance (M12 T6). */
+  instance: InstanceInfo;
 }
 
 export interface OnlineOptions {
@@ -163,8 +174,12 @@ export interface OnlineOptions {
 const READY_POLL_MS = 50;
 const TICK_MS = 100;
 const NO_CANDIDATES: ReadonlySet<string> = new Set();
+/** What a linked peer that doesn't share water still brings: its duty (M12 T6). */
+const DUTY_EVENTS: ReadonlySet<PeerEvent['t']> = new Set(['finput', 'probe', 'wframe']);
 
 export class OnlineSession {
+  /** The page's crowd instance and each known creature's (M12 T6). */
+  readonly crowd = new CrowdView();
   readonly neighbours: Neighbours;
   readonly links: Links;
   private readonly route: SignalRoute;
@@ -182,7 +197,7 @@ export class OnlineSession {
   constructor(private readonly opts: OnlineOptions) {
     const { hub, selfId } = opts;
     const now = () => this.now();
-    this.neighbours = new Neighbours(selfId);
+    this.neighbours = new Neighbours(selfId, (id) => this.crowd.sighting(id));
     this.route = new SignalRoute({
       selfId,
       now: () => hub.clock.hubNow(now()),
@@ -217,7 +232,11 @@ export class OnlineSession {
       neighbours: this.neighbours,
       send: (to, kind, sdp, cls, viaHub) => this.route.send(to, kind, sdp, cls, viaHub),
       now,
-      self: () => opts.creature?.() ?? null,
+      self: () => {
+        const c = opts.creature?.();
+        return c ? { ...c, n: this.crowd.own } : null;
+      },
+      shares: (id) => this.crowd.shares(id),
       young: () => this.inWaterSince !== null && now() - this.inWaterSince < YOUNG_MS,
       ready: () =>
         this.mesh !== null &&
@@ -378,6 +397,7 @@ export class OnlineSession {
     const rates = this.sendRates;
     if (n !== undefined) rates.frame(n);
     this.eachOpen((id, mesh) => {
+      if (!this.drawn(id)) return;
       if (signed && candidates.has(id)) mesh.sendState(id, signed);
       else if (n === undefined || rates.due(id)) mesh.sendState(id, bytes);
     });
@@ -395,8 +415,11 @@ export class OnlineSession {
     if (this.mesh?.isOpen(id)) this.mesh.sendState(id, bytes);
   }
 
+  /** A game event to every linked peer that shares water (a duty link in other water carries only its duty). */
   broadcastEvent(event: PeerEvent): void {
-    this.eachOpen((id, mesh) => mesh.sendEvent(id, event));
+    this.eachOpen((id, mesh) => {
+      if (this.drawn(id)) mesh.sendEvent(id, event);
+    });
   }
 
   sendEvent(id: string, event: PeerEvent): void {
@@ -418,6 +441,16 @@ export class OnlineSession {
     return this.links.dutyLinks();
   }
 
+  /** Sets how many P0 + P1 sharing water make the page crowded (`debug.crowdAt`, 2 to 24). */
+  setCrowdAt(n: number): void {
+    this.crowd.setCrowdAt(n);
+  }
+
+  /** Whether `peer` shares water with `player`, by the freshest word of each: an away fighter's proxies. */
+  sharesWith(peer: string, player: string): boolean {
+    return this.crowd.between(peer, player);
+  }
+
   /** Sets the room for P2 to P4 (`debug.netCap`). */
   setCap(cap: number): void {
     this.links.setCap(cap);
@@ -437,6 +470,7 @@ export class OnlineSession {
       where: { sent: this.wheres, leaf: this.neighbours.leaf ? { ...this.neighbours.leaf } : null },
       signals: { hub: s.hub, relayed: s.relayed, forwarded: s.forwarded, forged: s.forged },
       helloFailed: this.mesh?.stats().helloFailed ?? 0,
+      instance: this.crowd.info(),
     };
   }
 
@@ -510,6 +544,9 @@ export class OnlineSession {
     const inWater = c?.inWater === true;
     if (!inWater) this.inWaterSince = null;
     else this.inWaterSince ??= now;
+    const { crowd } = this;
+    // Crowded: the P0 + P1 wanted that share its water reach `crowdAt` (M12 T6).
+    crowd.crowded = inWater && this.links.protectedCount((id) => crowd.shares(id)) >= crowd.crowdAt;
     if (!this.last || this.opts.hub.status !== 'online') return;
     const msg = this.reporter.update(
       {
@@ -521,9 +558,15 @@ export class OnlineSession {
         now,
       },
       this.neighbours.leaf,
+      c && crowd.crowded
+        ? () => crowdList(this.opts.selfId, { ...c, n: crowd.own }, this.neighbours.linkedFixes())
+        : null,
     );
     if (!msg) return;
-    if (msg.t === 'where') this.wheres++;
+    if (msg.t === 'where') {
+      this.wheres++;
+      if (msg.crowd) crowd.crowdSent++;
+    }
     this.opts.hub.send(msg);
   }
 
@@ -552,6 +595,8 @@ export class OnlineSession {
     this.links.endFights();
     if (this.mesh) this.mesh.setIce(w.ice);
     else this.mesh = this.makeMesh(w.ice);
+    // A new hub session starts in the open water; the hub names the instance again if it keeps one.
+    this.ownWater(OPEN_WATER);
     handlers.welcome(w);
   }
 
@@ -560,7 +605,38 @@ export class OnlineSession {
       this.neighbours.leaf = m.leaf;
       return;
     }
-    this.neighbours.near(m.leaf, m.peers, m.swarm, this.now());
+    if (m.t === 'instance') {
+      this.ownWater(m.n);
+      return;
+    }
+    const now = this.now();
+    for (const p of m.peers) this.crowd.see(p.id, p.n, now);
+    this.neighbours.near(m.leaf, m.peers, m.swarm, now);
+    this.waterChanged();
+  }
+
+  /** Whether this page draws a linked peer: it shares water, or fights beside it (M12 T6). */
+  private drawn(id: string): boolean {
+    return this.crowd.shares(id) || this.links.fighter(id);
+  }
+
+  /**
+   * The hub named this page's instance (M12 T6): every link hears it before any closes, the busy
+   * toast shows on leaving the open water (at most once a minute), and the links follow the water.
+   */
+  private ownWater(n: number): void {
+    const { changed, busy } = this.crowd.setOwn(n, this.now());
+    if (!changed) return;
+    this.eachOpen((id, mesh) => mesh.sendEvent(id, { t: 'instance', n }));
+    if (busy) this.opts.handlers.busy?.();
+    this.waterChanged();
+  }
+
+  /** Tells the app which linked peers stopped or started being drawn, then plans: links follow the water. */
+  private waterChanged(): void {
+    for (const [id, shown] of this.crowd.sort(this.openPeers(), (id) => this.drawn(id))) {
+      this.opts.handlers.water?.(id, shown);
+    }
     this.links.plan();
   }
 
@@ -572,27 +648,37 @@ export class OnlineSession {
     const { handlers } = this.opts;
     const mesh = this.opts.createMesh(ice, (to, kind, sdp) => this.links.outgoing(to, kind, sdp));
     mesh.onPeerJoined((id) => {
+      // Its hello named its instance (M12 T6).
+      this.crowd.see(id, mesh.instanceOf(id), this.now());
       // A new link: both ends start again at 10 Hz.
       this.forgetRates(id);
       this.links.opened(id);
       handlers.peerOpen(id, this.nameOf(id) ?? id.slice(0, 6));
-      this.links.plan();
+      this.waterChanged();
     });
     mesh.onPeerLeft((id) => {
+      // Closed by the other side just after this page's instance changed: it left the water, and
+      // fades rather than vanish (its `instance` event may not have come first).
+      if (!this.crowd.left(id) && this.crowd.changedLately(this.now())) handlers.water?.(id, false);
       this.forgetRates(id);
       this.links.left(id);
       this.route.forget(id);
       handlers.peerLeft(id);
     });
     mesh.onState((id, s, signed) => {
+      // A peer in other water is not drawn (a duty link carries its duty only).
+      if (!this.drawn(id)) return;
       this.neighbours.snapshot(id, s.x, s.y, Math.sqrt(Math.max(1, s.biomass)), this.now());
       handlers.state(id, s, signed);
     });
     mesh.onEvent((id, e) => {
-      if (e.t === 'peers') this.neighbours.gossip.receive(id, e, this.now());
+      if (e.t === 'peers') this.neighbours.gossip.receive(id, e, this.now(), this.crowd.own);
       else if (e.t === 'relay') this.route.fromPeer(id, e);
       else if (e.t === 'rate') this.sendRates.set(id, e.hz);
-      else handlers.event(id, e);
+      else if (e.t === 'instance') {
+        this.crowd.see(id, e.n, this.now());
+        this.waterChanged();
+      } else if (this.drawn(id) || DUTY_EVENTS.has(e.t)) handlers.event(id, e);
     });
     mesh.onProxy((id, player, s) => handlers.proxy(id, player, s));
     return mesh;
@@ -657,6 +743,7 @@ export function connectOnline(opts: RealSessionOptions): OnlineSession {
         retry: false,
         hello: {
           ticket: () => hub.ticket,
+          instance: () => session.crowd.own,
           check: (peer, ticket) => {
             const world = session.welcome?.world.seed;
             return (

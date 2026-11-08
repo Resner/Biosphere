@@ -15,6 +15,7 @@ import { createWorld } from '../sim/world';
 import { AloneHint } from './alone-hint';
 import type { App } from './app';
 import { adultRadius, countItem, type Pond } from './app-session';
+import { BUSY_TEXT } from './crowd-view';
 import { pick } from './dom';
 import { CandidateSigner, lockState, SpawnShield } from './engage';
 import { fightEnded } from './fight-end';
@@ -64,6 +65,8 @@ export class OnlineWiring {
       },
       present: (player) => link()?.present(player) === true,
       peers: () => link()?.openPeers() ?? [],
+      // Only to spectators that share water with the away fighter (M12 T6).
+      sees: (peer, player) => link()?.sharesWith(peer, player) !== false,
       send: (peer, frame) => link()?.sendState(peer, frame),
       show: (player, snapshot) => app.remotes.proxy(player, snapshot, performance.now()),
     });
@@ -254,6 +257,12 @@ export class OnlineWiring {
           this.proxies.receive(id, player, snapshot, performance.now());
         },
         duty: (msg) => app.duty.receive(msg),
+        // A creature in other water fades out over 1 s, and one back in shared water is drawn (M12 T6).
+        water: (id, shown) => {
+          if (shown) app.remotes.fadeIn(id);
+          else app.remotes.fadeOut(id, performance.now());
+        },
+        busy: () => app.hud.toast(BUSY_TEXT),
         event: (id, event) => {
           // A duty link's witness messages (M10 T7): a fighter's input or a probe to this page, a
           // witness's frame to this page's fight.
@@ -272,6 +281,7 @@ export class OnlineWiring {
       },
     });
     if (app.netCap !== null) link.setCap(app.netCap);
+    if (app.crowdAt !== null) link.setCrowdAt(app.crowdAt);
     app.flow.attach(link);
     app.mate.attach(link);
     app.hubLink = link;

@@ -1,11 +1,15 @@
 // The known set (M11 T13, ADR 0062): every creature this page knows of and where, from the
 // directory's `near`, linked peers' snapshots, gossip, and the positions signals carry (the hub's
 // `at`, a relay's `pos`). `online-links.ts` classifies it; names come from tickets and `near`.
+// Each sighting carries the creature's instance (M12 T6): its source's, or the freshest word of it
+// (`water`, the page's `CrowdView`) when that is newer; a linked peer's snapshot takes the word.
 
 import type { Known } from '../net/aoi';
 import { type Fix, Gossip } from '../net/gossip';
+import { OPEN_WATER } from '../net/instance';
 import type { Leaf, NearPeer, Pos } from '../net/protocol';
 import type { SwarmPoint } from '../render/swarms';
+import type { WaterSighting } from './crowd-view';
 
 /** No swarm: before the directory's first answer, and after it forgot this page. */
 export const NO_SWARM: readonly SwarmPoint[] = [];
@@ -30,7 +34,11 @@ export class Neighbours {
   private readonly names = new Map<string, string>();
   private readonly signals = new Map<string, Known>();
 
-  constructor(private readonly selfId: string) {
+  constructor(
+    private readonly selfId: string,
+    /** The freshest word of a creature's instance (M12 T6). */
+    private readonly water: (id: string) => WaterSighting | undefined = () => undefined,
+  ) {
     this.gossip = new Gossip(selfId);
   }
 
@@ -48,6 +56,7 @@ export class Neighbours {
         y: p.y,
         r: p.r,
         at: now - p.age,
+        n: p.n,
         source: 'directory',
       });
     }
@@ -82,24 +91,38 @@ export class Neighbours {
     return this.fixes.get(id) ?? null;
   }
 
-  /** The linked peers' newest snapshots (what gossip passes on). */
+  /** The linked peers' newest snapshots, each with its instance (what gossip and the crowd list pass on). */
   linkedFixes(): ReadonlyMap<string, Fix> {
-    return this.fixes;
+    const out = new Map<string, Fix>();
+    for (const [id, f] of this.fixes) out.set(id, { ...f, n: this.waterOf(id) });
+    return out;
   }
 
   /** Every sighting still fresh: each source's newest of each creature (`classify` takes the newest). */
   known(now: number): Known[] {
     const out: Known[] = [];
     for (const [id, f] of this.fixes) {
-      if (now - f.at <= SNAPSHOT_TTL_MS) out.push({ id, ...f, source: 'snapshot' });
+      if (now - f.at <= SNAPSHOT_TTL_MS)
+        out.push({ id, ...f, n: this.waterOf(id), source: 'snapshot' });
     }
-    out.push(...this.gossip.known(now));
-    out.push(...this.directory);
+    for (const k of this.gossip.known(now)) out.push(this.withWater(k));
+    for (const k of this.directory) out.push(this.withWater(k));
     for (const [id, k] of this.signals) {
       if (now - k.at > SIGNAL_TTL_MS) this.signals.delete(id);
-      else out.push(k);
+      else out.push(this.withWater(k));
     }
     return out;
+  }
+
+  /** A creature's instance by the freshest word of it; the open water with none. */
+  private waterOf(id: string): number {
+    return this.water(id)?.n ?? OPEN_WATER;
+  }
+
+  /** A sighting with the freshest word of its instance, when that is newer than the sighting. */
+  private withWater(k: Known): Known {
+    const w = this.water(k.id);
+    return w && (k.n === undefined || w.at >= k.at) ? { ...k, n: w.n } : k;
   }
 
   /** How many creatures each source places now. */
