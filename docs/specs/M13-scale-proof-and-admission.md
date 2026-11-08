@@ -303,7 +303,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - **A wake**: indexes rebuilt from a set of attachments give the same seated set, line order, courts and witness candidates as the live ones, tested as `rebuildDirectory` is.
   - Notes: the answers don't change; only how the hub finds things does. T9 builds admission on the line's index.
 
-- [ ] T3 Placement and the hub's pure parts at 10,000 (after none)
+- [ ] T3 Placement and the hub's pure parts at 10,000 (after none) (in progress)
   - Steps:
     1. **`place()` at 10,000 members** (`worker/placement.ts`):
        - **The avoid test** goes through a grid whose cells are at least the widest avoid distance, so a candidate checks only the discs near it.
