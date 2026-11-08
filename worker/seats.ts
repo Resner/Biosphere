@@ -132,7 +132,9 @@ export class Seats {
     const entry = { ws, player, ticket, place };
     this.waiting.splice(i, 0, entry);
     this.lineBySocket.set(ws, entry);
-    this.lineByPlayer.set(player, entry);
+    // A player's entry is its lowest ticket, as a scan of the ordered line found it.
+    const first = this.lineByPlayer.get(player);
+    if (!first || ticket < first.ticket) this.lineByPlayer.set(player, entry);
   }
 
   private unqueue(ws: WebSocket): void {
@@ -140,7 +142,10 @@ export class Seats {
     if (!entry) return;
     this.waiting.splice(this.waiting.indexOf(entry), 1);
     this.lineBySocket.delete(ws);
-    if (this.lineByPlayer.get(entry.player) === entry) this.lineByPlayer.delete(entry.player);
+    if (this.lineByPlayer.get(entry.player) !== entry) return;
+    const next = this.waiting.find((e) => e.player === entry.player);
+    if (next) this.lineByPlayer.set(entry.player, next);
+    else this.lineByPlayer.delete(entry.player);
   }
 
   /** The player's seated socket, or null. */
