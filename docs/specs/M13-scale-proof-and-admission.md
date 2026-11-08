@@ -481,7 +481,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### The model
 
-- [ ] T8 The capacity model, `docs/CAPACITY.md` and the capacity ADR (after T5, T6, T7)
+- [ ] T8 The capacity model, `docs/CAPACITY.md` and the capacity ADR (after T5, T6, T7) (in progress)
   - Steps:
     1. **The inputs.** `tools/storage.mjs` and `tools/witness.mjs` also write `docs/perf/storage.json` and `witness.json`, their measures. The storage report's limit comes from `worker/plan.ts`.
     2. **The report.** `tools/capacity-report.ts` (pure) and `tools/capacity.mjs` (`npm run report:capacity`) write `docs/CAPACITY.md` from:
