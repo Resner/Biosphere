@@ -113,6 +113,9 @@ const m11RelayHubPort = 8830;
 const m11TiersHubPort = 8831;
 // The M11 lifecycle spec (M11 T19, 8832): four players in the one world.
 const m11LifecycleHubPort = 8832;
+// The M12 crowd spec (M12 T6, 8834): instances of 2 that merge after 3 s quiet, small leaves so a
+// page that swims out reports at once.
+const m12CrowdHubPort = 8834;
 // The M12 spawning spec (M12 T4, 8833): four players placed by the authority.
 const m12SpawnHubPort = 8833;
 // The M12 ride spec (M12 T7, 8835): a lone player rides the current back, after 3 s alone.
@@ -447,6 +450,7 @@ export default defineConfig({
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],
       ['m11-tiers', m11TiersHubPort, ''],
+      ['m12-crowd', m12CrowdHubPort, '--var INSTANCE_MAX:2 --var QUIET_MS:3000 --var LEAF_MAX:2'],
       ['m12-spawn', m12SpawnHubPort, ''],
       ['m12-ride', m12RideHubPort, '--var RIDE_ALONE_MS:3000'],
       [

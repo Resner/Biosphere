@@ -396,7 +396,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - Done: `where.ts` runs `hub.crowds` (`armCrowds`, `rebuildCrowds`, `reseatCrowd`, `sharesWater`; `Directory.near` takes `instanceOf`); the page's toast for `engage:instance`; hub tests in `worker/instances.test.ts`.
     - Gotcha: a fighter whose page leaves keeps its instance in `hub.crowdsKept` until its fight ends; a crowd of more members than `INSTANCE_MAX` never merges, so merge tests keep under it.
 
-- [ ] T6 Crowd instances in the page [opus] (after T5)
+- [x] T6 Crowd instances in the page [opus] (after T5)
   - Steps:
     1. **`src/game/crowd-view.ts`** keeps the page's own instance (the hub's `instance`) and each known creature's: from `near`, gossip, a link's `hello` and `instance` events. `AoiManager` takes them:
        - a link that no longer shares water closes at once, with no 3 s grace, unless it is P0;
@@ -417,7 +417,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - a gossip entry from another instance is never dialled;
       - a fight's opponent in another instance stays linked;
       - a page past `CROWD_AT` sends its crowd in its next `where`.
-    - **`m12-crowd.spec.ts`** (`@slow`, hub 8834, `INSTANCE_MAX=2`, `QUIET_MS=3000`): four pages on `debug.crowdAt(3)`. A and B are 100 wu apart, C and D 100 wu apart, and the pairs 300 wu apart, so all four link:
+    - **`m12-crowd.spec.ts`** (`@slow`, hub 8834, `INSTANCE_MAX=2`, `QUIET_MS=3000`, `LEAF_MAX=2` so a page that swims out reports at once): four pages on `debug.crowdAt(3)`, in a row B, A, C, D. A and B are 50 wu apart, C and D 50 wu apart (inside a hatchling's crowd list, 8 × its radius of about 9 wu), and A and C 130 wu apart (outside it, and inside A's view), so all four link:
       - within 6 s of their links the hub splits them into {A, B} and {C, D};
       - A then holds a link to B alone;
       - in A's view, sampled every 100 ms, C's and D's alpha fall to 0 over at least 0.8 s, never from 1 to 0 between two samples;
@@ -425,6 +425,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - A and B's crowd, now two, merges within 6 s, and both are in 0;
       - a screenshot during the fade is attached.
     - Every M11 E2E passes: no crowd forms at the default `CROWD_AT`.
+  - Done: `crowd-view.ts` (`CrowdView`, `OnlineSession.crowd`); links, snapshots and game events follow the water, `RemoteSet.fadeOut`, the busy toast, `debug.crowdAt`, `state().net.instance`.
+    Gotcha: the spec's 100 wu pairs are outside a hatchling's crowd list, so nothing kept them together; a practice cell's `setLife(null)` every tick hid every toast (now `clearToast`).
 
 ### Regrouping
 

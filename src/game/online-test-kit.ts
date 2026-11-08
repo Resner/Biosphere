@@ -13,6 +13,7 @@ import type {
   Welcome,
   WorldMsg,
 } from '../net/hub-client';
+import { OPEN_WATER } from '../net/instance';
 import type { PeerMeshStats } from '../net/peer-mesh';
 import type { ClientMsg, NearPeer, PeerEvent, SignedSnap, Snapshot } from '../net/protocol';
 import { type CreatureNow, type OnlineHub, type OnlineMesh, OnlineSession } from './online';
@@ -115,6 +116,8 @@ export class FakeMesh implements OnlineMesh {
   state: (id: string, s: Snapshot, signed: SignedSnap | null) => void = () => {};
   event: (id: string, e: PeerEvent) => void = () => {};
   proxy: (id: string, player: string, s: Snapshot) => void = () => {};
+  /** The instance each peer's hello names (M12 T6); the open water when unset. */
+  readonly helloN = new Map<string, number>();
   connect(id: string): void {
     this.connects.push(id);
     if (!this.open.has(id)) this.pending.add(id);
@@ -144,6 +147,9 @@ export class FakeMesh implements OnlineMesh {
   }
   isUp(id: string): boolean {
     return this.open.has(id);
+  }
+  instanceOf(id: string): number {
+    return this.helloN.get(id) ?? OPEN_WATER;
   }
   ticketOf(id: string): SignedSeat | null {
     return this.open.has(id) ? ({ seat: { name: id.toUpperCase() } } as SignedSeat) : null;
@@ -190,15 +196,16 @@ export const welcome = (worldId = 'world1'): Welcome => ({
 });
 
 export const LEAF = { x: 0, y: 0, size: 262_144 };
+/** A `near` of starters `dx` wu east of the world's centre, each in instance `n` (default 0). */
 export const nearMsg = (
-  peers: [id: string, dx: number][],
+  peers: [id: string, dx: number, n?: number][],
   age = 0,
   swarm: [x: number, y: number][] = [],
 ): WorldMsg => ({
   t: 'near',
   leaf: LEAF,
   peers: peers.map(
-    ([id, dx]): NearPeer => ({ id, name: id.toUpperCase(), x: C + dx, y: C, r: 10, age, n: 0 }),
+    ([id, dx, n = 0]): NearPeer => ({ id, name: id.toUpperCase(), x: C + dx, y: C, r: 10, age, n }),
   ),
   swarm,
 });
@@ -228,6 +235,8 @@ export function setup(over: { creature?: CreatureNow | null } = {}) {
     proxy: vi.fn(),
     life: vi.fn(),
     fight: vi.fn(),
+    water: vi.fn(),
+    busy: vi.fn(),
   };
   const session = new OnlineSession({
     selfId: 'me',

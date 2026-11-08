@@ -38,6 +38,8 @@ export interface RelayHost {
   present(player: string): boolean;
   /** The linked peers (their hello passed). */
   peers(): readonly string[];
+  /** Whether `peer` shares water with `player` (M12 T6); every peer does without it. */
+  sees?(peer: string, player: string): boolean;
   /** A proxy frame on the state channel to one peer. */
   send(peer: string, frame: Uint8Array): void;
   /** An away opponent's pose for this client's own view of its fight. */
@@ -99,7 +101,7 @@ export class ProxyRelay {
       } catch {
         continue;
       }
-      for (const peer of targets) host.send(peer, frame);
+      for (const peer of targets) if (host.sees?.(peer, player) ?? true) host.send(peer, frame);
     }
   }
 }

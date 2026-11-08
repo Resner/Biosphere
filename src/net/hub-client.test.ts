@@ -248,7 +248,7 @@ describe('HubClient listeners', () => {
     expect(fights).toEqual([]);
   });
 
-  it('forwards the directory’s near and leaf (M11 T13)', async () => {
+  it('forwards the directory’s near and leaf (M11 T13), and the instance (M12 T6)', async () => {
     const client = make();
     const world: unknown[] = [];
     client.onWorld((m) => world.push(m));
@@ -263,7 +263,9 @@ describe('HubClient listeners', () => {
     };
     s.receive(near);
     s.receive({ t: 'leaf', leaf });
-    expect(world).toEqual([near, { t: 'leaf', leaf }]);
+    // The session's instance (M12 T6) is the directory's word too.
+    s.receive({ t: 'instance', n: 4 });
+    expect(world).toEqual([near, { t: 'leaf', leaf }, { t: 'instance', n: 4 }]);
   });
 
   it('a throwing listener does not stop the others or the receive path', async () => {

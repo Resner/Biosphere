@@ -8,7 +8,9 @@
 // is answered and backs off a P3 or P4 (5 s, doubling to 60 s). Duty links are P0, through
 // `ConnectionPolicy.duty`, under the same cap rule as every other link, and so are a fight's links
 // to its other fighters (M11 T16) from its start until 3 s after its end, whatever the distance,
-// leaf or tier; then they close at once unless another class holds them.
+// leaf or tier; then they close at once unless another class holds them. A held peer that no
+// longer shares water with the page (M12 T6, ADR 0064) closes at once, with no 3 s grace, unless
+// it is P0, and an offer from one is refused unless either side holds it as P0.
 
 import { AoiManager, type AoiSelf } from '../net/aoi';
 import { ConnectionPolicy, type LinkClass, NO_CLASS } from '../net/connection-policy';
@@ -73,6 +75,8 @@ export interface LinksOptions {
   young(): boolean;
   /** Whether this page may call and admit: it holds a ticket and can check its peers'. */
   ready(): boolean;
+  /** Whether a creature shares water with this page (M12 T6); every one does without it. */
+  shares?(id: string): boolean;
 }
 
 interface Attempt {
@@ -146,6 +150,10 @@ export class Links {
     const now = this.o.now();
     const plan = this.replan(now);
     for (const id of plan.evict) this.close(id);
+    // A link that no longer shares water closes at once, unless it is P0 (M12 T6).
+    for (const id of this.o.mesh.peers()) {
+      if (!this.classes.has(id) && !this.sharesWater(id)) this.close(id);
+    }
     // A fight's links past their hold close at once unless another class holds them.
     for (const id of this.released) if (!this.classes.has(id)) this.close(id);
     this.released.clear();
@@ -290,11 +298,25 @@ export class Links {
     if (f && f.until === Infinity) f.until = this.o.now() + FIGHT_HOLD_MS;
   }
 
-  /** The creatures wanted as P0 or P1 by the last plan: a witness takes a duty only at 28 or fewer. */
-  protectedCount(): number {
+  /**
+   * The creatures wanted as P0 or P1 by the last plan, those `only` passes (all without it): a
+   * witness takes a duty only at 28 or fewer.
+   */
+  protectedCount(only?: (id: string) => boolean): number {
     let n = 0;
-    for (const c of this.classes.values()) if (c <= 1) n++;
+    for (const [id, c] of this.classes) if (c <= 1 && (only?.(id) ?? true)) n++;
     return n;
+  }
+
+  /** Whether `id` is another fighter of one of this page's fights, from its start to its hold's end. */
+  fighter(id: string): boolean {
+    const now = this.o.now();
+    for (const f of this.fights.values()) if (f.until > now && f.peers.has(id)) return true;
+    return false;
+  }
+
+  private sharesWater(id: string): boolean {
+    return this.o.shares?.(id) ?? true;
   }
 
   dutyLinks(): DutyLink[] {
@@ -358,6 +380,8 @@ export class Links {
   /** By the better of the caller's class and this page's own, against the links held now. */
   private admit(from: string, cls: WireClass, now: number): boolean {
     this.replan(now);
+    // Another instance's caller is let in only as P0, by its word or this page's (M12 T6).
+    if (!this.sharesWater(from) && cls !== 0 && this.classes.get(from) !== 0) return false;
     const classes = new Map(this.classes);
     if (cls < (classes.get(from) ?? NO_CLASS)) classes.set(from, cls);
     const held = new Set(this.o.mesh.peers());

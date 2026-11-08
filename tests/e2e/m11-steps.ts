@@ -49,8 +49,17 @@ export async function linksAre(p: Player, ids: string[], message: string, timeou
 
 export interface DirectoryView {
   leaves: { leaf: { x: number; y: number; size: number }; members: number }[];
-  members: { id: string; x: number; y: number; leaf: { x: number; y: number; size: number } }[];
+  /** Each member, with its crowd instance (M12 T5; 0: the open water). */
+  members: {
+    id: string;
+    x: number;
+    y: number;
+    leaf: { x: number; y: number; size: number };
+    n: number;
+  }[];
   relays: Record<string, number>;
+  /** The crowds (M12 T5), each with its instances' sizes. */
+  crowds: { id: number; instances: { n: number; members: number }[] }[];
 }
 
 /** The hub's directory and relay counts (`GET /v1/e2e/directory`). */

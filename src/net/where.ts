@@ -90,7 +90,7 @@ export class WhereReporter {
   update(
     s: WhereState,
     leaf: Leaf | null,
-    crowd: readonly string[] | null = null,
+    crowd: readonly string[] | (() => readonly string[]) | null = null,
   ): ClientMsg | null {
     if (!s.inWater) {
       // Out of the water: the directory should forget it, once (and if it ever heard of it).
@@ -114,8 +114,9 @@ export class WhereReporter {
       r: wireRadius(s.r),
       aoi: clamp(s.aoi, 1, WIRE_AOI_MAX),
     };
-    if (crowd !== null && crowd.length > 0) {
-      msg.crowd = crowd.slice(0, CROWD_LIST_MAX);
+    const list = typeof crowd === 'function' ? crowd() : crowd;
+    if (list !== null && list.length > 0) {
+      msg.crowd = list.slice(0, CROWD_LIST_MAX);
       this.crowdAt = s.now;
     }
     return msg;

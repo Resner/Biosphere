@@ -286,6 +286,7 @@ export class Ticker {
       app.flow.died(player.cause, session.ticks);
       app.lastClock = null;
       hud.setLife(null);
+      hud.clearToast();
       session.death = {
         cause: player.cause,
         survivedSeconds: lived,
