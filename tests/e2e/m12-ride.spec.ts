@@ -46,7 +46,7 @@ async function attach(testInfo: TestInfo, name: string, png: Buffer): Promise<vo
 
 /**
  * Records, every frame after the app's own, the ride's phases as they change, the most the frames
- * of the transition drew, and the canvas once the wash is well up (read in the frame that drew it).
+ * of the transition drew, and the canvas of its frame nearest the turn (read in the frame that drew it).
  */
 const watchRide = (p: Player) =>
   p.page.evaluate(() => {
@@ -61,6 +61,8 @@ const watchRide = (p: Player) =>
     };
     (window as unknown as { rideWatch: typeof w }).rideWatch = w;
     const started = performance.now();
+    let riding: number | null = null;
+    let nearest = Number.POSITIVE_INFINITY;
     const frame = () => {
       const bs = window.__bs as BsHook;
       const s = bs.state();
@@ -72,7 +74,12 @@ const watchRide = (p: Player) =>
         w.triangles = Math.max(w.triangles, info.triangles);
         w.targetBytes = Math.max(w.targetBytes, info.targetBytes);
         w.preset = info.preset;
-        if (w.shot === null && w.frames >= 2) {
+        // The frame nearest the turn (0.6 s in), where the wash is strongest.
+        const t = performance.now();
+        riding ??= t;
+        const off = Math.abs(t - riding - 600);
+        if (off < nearest) {
+          nearest = off;
           w.shot = (document.querySelector('canvas') as HTMLCanvasElement).toDataURL('image/png');
         }
       }

@@ -5,10 +5,16 @@
 // in at the arrival; a 0.4 s cross-fade under Reduce motion) with input held; a `ride-no` is told.
 
 import type { ClientMsg, HubMsg, RideNo, Vec2 } from '../net/protocol';
+import { WHERE_MIN_GAP_MS } from '../net/where';
 import type { RideLook } from '../render/ride-fx';
 
 /** How long the page is alone before it offers a ride: the hub's own wait (`worker/ride.ts`). */
 export const RIDE_ALONE_MS = 120_000;
+/**
+ * The hub times its wait from the report the page sends on turning alone, which goes within the
+ * reports' gap: the offer waits that much longer, so the hub never answers it "Not yet".
+ */
+export const RIDE_REPORT_LAG_MS = WHERE_MIN_GAP_MS;
 /** The offer shows this long... */
 export const RIDE_OFFER_MS = 12_000;
 /** ...and again this often while the page stays alone. */
@@ -80,7 +86,7 @@ export class Ride {
       return false;
     }
     this.aloneFrom ??= now;
-    const past = now - this.aloneFrom - this.aloneMs;
+    const past = now - this.aloneFrom - this.aloneMs - RIDE_REPORT_LAG_MS;
     this.offered = this.phase !== 'riding' && past >= 0 && past % RIDE_AGAIN_MS < RIDE_OFFER_MS;
     return this.offered;
   }

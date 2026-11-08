@@ -7,6 +7,7 @@ import {
   RIDE_MS,
   RIDE_NO_TEXT,
   RIDE_OFFER_MS,
+  RIDE_REPORT_LAG_MS,
   Ride,
 } from './ride';
 
@@ -29,14 +30,17 @@ function play(ride: Ride, start: number, ms: number) {
 describe('the offer', () => {
   it('shows after the wait alone, for 12 s, and again 2 minutes later while still alone', () => {
     const ride = new Ride();
+    // The hub's wait starts from the report that turning alone sends, at most 2 s later.
+    expect(RIDE_REPORT_LAG_MS).toBe(2000);
+    const WAIT = RIDE_ALONE_MS + RIDE_REPORT_LAG_MS;
     expect(ride.offer(0, true)).toBe(false);
-    expect(ride.offer(RIDE_ALONE_MS - 1, true)).toBe(false);
-    expect(ride.offer(RIDE_ALONE_MS, true)).toBe(true);
-    expect(ride.offer(RIDE_ALONE_MS + RIDE_OFFER_MS - 1, true)).toBe(true);
-    expect(ride.offer(RIDE_ALONE_MS + RIDE_OFFER_MS, true)).toBe(false);
-    expect(ride.offer(RIDE_ALONE_MS + RIDE_AGAIN_MS - 1, true)).toBe(false);
-    expect(ride.offer(RIDE_ALONE_MS + RIDE_AGAIN_MS, true)).toBe(true);
-    expect(ride.offer(RIDE_ALONE_MS + RIDE_AGAIN_MS + RIDE_OFFER_MS, true)).toBe(false);
+    expect(ride.offer(WAIT - 1, true)).toBe(false);
+    expect(ride.offer(WAIT, true)).toBe(true);
+    expect(ride.offer(WAIT + RIDE_OFFER_MS - 1, true)).toBe(true);
+    expect(ride.offer(WAIT + RIDE_OFFER_MS, true)).toBe(false);
+    expect(ride.offer(WAIT + RIDE_AGAIN_MS - 1, true)).toBe(false);
+    expect(ride.offer(WAIT + RIDE_AGAIN_MS, true)).toBe(true);
+    expect(ride.offer(WAIT + RIDE_AGAIN_MS + RIDE_OFFER_MS, true)).toBe(false);
     expect(ride.alone).toBe(true);
   });
 
@@ -47,8 +51,8 @@ describe('the offer', () => {
     expect(ride.offer(2000, false)).toBe(false);
     expect(ride.alone).toBe(false);
     expect(ride.offer(2500, true)).toBe(false);
-    expect(ride.offer(5499, true)).toBe(false);
-    expect(ride.offer(5500, true)).toBe(true);
+    expect(ride.offer(2500 + 3000 + RIDE_REPORT_LAG_MS - 1, true)).toBe(false);
+    expect(ride.offer(2500 + 3000 + RIDE_REPORT_LAG_MS, true)).toBe(true);
   });
 });
 
@@ -154,7 +158,7 @@ describe('the transition', () => {
   it('stops the offer while it plays, and a new life forgets the ride', () => {
     const ride = new Ride();
     ride.aloneMs = 0;
-    ride.offer(0, true);
+    expect(ride.offer(0, true)).toBe(false);
     ride.receive(ARRIVAL, 0, FROM, false);
     expect(ride.offer(10, true)).toBe(false);
     ride.reset();

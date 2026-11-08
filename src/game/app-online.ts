@@ -304,7 +304,10 @@ export class OnlineWiring {
     const from = { x: player.x, y: player.y, radius: Math.sqrt(player.biomass) };
     const told = app.ride.receive(msg, performance.now(), from, app.motionReduced());
     if (told) app.hud.toast(told);
-    if (msg.t === 'spawn' && msg.protect) this.shield.start(app.pondMs());
+    if (msg.t !== 'spawn') return;
+    if (msg.protect) this.shield.start(app.pondMs());
+    // The arrival is reported at once, so the hub's answer names the group there to link.
+    app.keeper.current?.reportSoon();
   }
 
   /** The hub's ride offer each frame (M12 T7): the hint turns into the offer once the wait is over. */

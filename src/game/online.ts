@@ -172,6 +172,8 @@ export class OnlineSession {
   private readonly sendRates = new SendRates();
   private readonly asker = new RateAsker();
   private reporter = new WhereReporter();
+  /** Whether the page was alone at the last report check (`alone()`). */
+  private wasAlone = false;
   private wheres = 0;
   private mesh: OnlineMesh | null = null;
   private last: Welcome | null = null;
@@ -323,6 +325,14 @@ export class OnlineSession {
    */
   swarm(): readonly SwarmPoint[] {
     return this.opts.creature?.()?.inWater ? this.neighbours.swarm : NO_SWARM;
+  }
+
+  /**
+   * Reports where the creature is as soon as the reports' gap allows (M12 T7): a ride's arrival,
+   * so the hub's `near` names the group there at once.
+   */
+  reportSoon(): void {
+    this.reporter.nudge();
   }
 
   /** Whether nobody is linked and nobody is known within the creature's query radius. */
@@ -511,6 +521,10 @@ export class OnlineSession {
     if (!inWater) this.inWaterSince = null;
     else this.inWaterSince ??= now;
     if (!this.last || this.opts.hub.status !== 'online') return;
+    // Turning alone reports at once (M12 T7): the hub times a ride's wait from that report.
+    const lonely = inWater && this.alone();
+    if (lonely && !this.wasAlone) this.reporter.nudge();
+    this.wasAlone = lonely;
     const msg = this.reporter.update(
       {
         inWater,
