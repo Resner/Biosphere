@@ -423,7 +423,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - The fill's first minutes cost far more per player than a live world would: 18 joins a second into a few thousand players. They are reported, not gated.
     - If a gate's number is beyond the link model at 10,000, an ADR records what it measures and why, as ADRs 0063 and 0066 did.
 
-- [ ] T6 What a message costs in the real object (after T2)
+- [x] T6 What a message costs in the real object (after T2)
   - Steps:
     1. **`worker/hub-cost.test.ts`** seats 50, 200 and 500 sessions: real sockets, each with a recorded creature placed in one populated area of the world.
        - For each message type, it sends batches of 200 through the object's own dispatch inside the object (`runInDurableObject` → `webSocketMessage`), and times each batch on the local runtime's clock, which steps by 1 ms. The median of 5 batches gives ms per message.
@@ -440,6 +440,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
   - Acceptance:
     - A `speedTest`: each type's ms per message at 500 seated is at most 1.5 times its ms at 50, plus 0.02 ms.
     - The report and its JSON are committed. `tools/hub-report.test.ts` checks the report against a recorded `HubCost`.
+  - Done: `hub-cost.test.ts` (a `speedTest`, about 20 s) seats 50, 200 and 500, a batch's clock moving 1 s per message, and prints `HUB_COST`; `docs/perf/hub.md` and `hub.json` are committed. Every type is flat but `spawn`, which `place()` makes grow with the members (about 6 ms per 1,000 seated, 60 ms at 10,000 in workerd): its budget is the growth of the members, and T8 prices it. `ride`'s `company` check scanned every member in reach; `Directory.anyAround` stops at the first. The population sits 500 wu apart: 500 within one 1,024 wu leaf makes `where` grow with the leaf.
 
 - [ ] T7 500 headless clients against `wrangler dev` (after T2)
   - Steps:
