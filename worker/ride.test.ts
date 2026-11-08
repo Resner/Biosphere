@@ -132,7 +132,9 @@ describe('the refusals, in their order', () => {
   it('refuses `soon` within 120 s of the last fight, however long alone', async () => {
     const [a, b] = await fighters();
     await killB(a, b);
-    const ended = must(await authority((o) => o.fights.lastFightEnd(a.id.playerId)));
+    const ended = must(
+      await authority((o) => o.fights.fightEnded(a.id.playerId, RIDE_AFTER_FIGHT_MS)),
+    );
     // A has been alone far out for a long time, by the hub's word.
     await inDirectory(a, FAR.x, FAR.y);
     await editSession(a, (s) => ({ ...s, aloneSince: clock.t - 10 * RIDE_ALONE_MS }));

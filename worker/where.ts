@@ -20,7 +20,6 @@ import {
 } from './directory';
 import type { LifeState } from './life';
 import { askLive } from './mating';
-import { aloneAfter } from './ride';
 import {
   type ActiveSession,
   activeSessions,
@@ -145,7 +144,7 @@ function crowdContext(hub: Hub): CrowdContext {
 }
 
 /** Each player's live court partners, both ways. */
-function courtPairs(hub: Hub): Map<string, string[]> {
+export function courtPairs(hub: Hub): Map<string, string[]> {
   const pairs = new Map<string, string[]>();
   const add = (a: string, b: string) => pairs.set(a, [...(pairs.get(a) ?? []), b]);
   const now = Date.now();
@@ -321,7 +320,7 @@ export function where(
 function noteAlone(ws: WebSocket, peers: number, now: number): void {
   const s = sessionOf(ws);
   if (s?.phase !== 'active') return;
-  const aloneSince = aloneAfter(s.aloneSince, peers, now);
+  const aloneSince = peers > 0 ? undefined : (s.aloneSince ?? now);
   if (aloneSince !== s.aloneSince) ws.serializeAttachment({ ...s, aloneSince } satisfies Session);
 }
 

@@ -227,16 +227,10 @@ export class Fights {
     for (const c of lock.creatures) if (this.byCreature.get(c) === lock) this.byCreature.delete(c);
   }
 
-  /** When the player's last fight ended, if within the last `AFTER_FIGHT_MS`; else null. */
-  fightEnded(player: string): number | null {
+  /** When the player's last fight ended, if within the last `within` ms (`AFTER_FIGHT_MS`); else null. */
+  fightEnded(player: string, within = AFTER_FIGHT_MS): number | null {
     const at = this.ended.get(player);
-    return at !== undefined && this.clock().now() - at < AFTER_FIGHT_MS ? at : null;
-  }
-
-  /** When the player's last fight ended, if within the last `RIDE_AFTER_FIGHT_MS` (120 s); else null. */
-  lastFightEnd(player: string): number | null {
-    const at = this.ended.get(player);
-    return at !== undefined && this.clock().now() - at < RIDE_AFTER_FIGHT_MS ? at : null;
+    return at !== undefined && this.clock().now() - at < within ? at : null;
   }
 
   /** The ended fight of encounter `enc` while a late dispute may still reach its witness, else undefined. */

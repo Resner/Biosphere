@@ -7,6 +7,7 @@
 import type { ClientMsg, HubMsg, RideNo, Vec2 } from '../net/protocol';
 import { WHERE_MIN_GAP_MS } from '../net/where';
 import type { RideLook } from '../render/ride-fx';
+import { smoothstep } from '../sim/math';
 
 /** How long the page is alone before it offers a ride: the hub's own wait (`worker/ride.ts`). */
 export const RIDE_ALONE_MS = 120_000;
@@ -61,10 +62,7 @@ interface Trip {
   turned: boolean;
 }
 
-const smooth = (u: number): number => {
-  const t = Math.min(1, Math.max(0, u));
-  return t * t * (3 - 2 * t);
-};
+const smooth = (u: number): number => smoothstep(0, 1, u);
 
 export class Ride {
   /** How long the page waits alone before it offers (`debug.aloneMs`). */

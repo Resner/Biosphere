@@ -9,12 +9,12 @@ import { createRng, seedFromBytes } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
 import { linkTiers } from '../src/sim/size';
 import { pondTick } from './engage';
+import { RIDE_AFTER_FIGHT_MS } from './fights';
 import { protectionEnds } from './life';
-import { askLive } from './mating';
 import { place } from './placement';
-import { type ActiveSession, activeSessions, type Hub, sendIfOpen } from './socket';
+import { type ActiveSession, type Hub, sendIfOpen } from './socket';
 import { othersOf, remember, spawnerOf } from './spawn';
-import { bindingOf, sharesWater, tellMoved, whereIn } from './where';
+import { bindingOf, courtPairs, sharesWater, tellMoved, whereIn } from './where';
 import { worldRow } from './world';
 
 /** How long a player is alone before it may ride: 120 s, or `RIDE_ALONE_MS` (at least 1,000) in fixture mode. */
@@ -23,24 +23,6 @@ export const RIDE_ALONE_MS = 120_000;
 export function rideAloneMsOf(env: { DRAND_SOURCE?: string; RIDE_ALONE_MS?: string }): number {
   const n = env.DRAND_SOURCE === 'fixture' ? Number(env.RIDE_ALONE_MS) : Number.NaN;
   return Number.isInteger(n) && n >= 1000 ? n : RIDE_ALONE_MS;
-}
-
-/**
- * When the session has been alone since, after a `near` with `peers` linkable peers sharing its
- * water: none keeps the time it began (or starts it now), any clears it.
- */
-export const aloneAfter = (since: number | undefined, peers: number, now: number) =>
-  peers > 0 ? undefined : (since ?? now);
-
-/** Whether a court involving the player waits for its answer: its own, or one naming it. */
-function courting(hub: Hub, player: string): boolean {
-  const now = Date.now();
-  for (const [, s] of activeSessions(hub)) {
-    const c = s.court;
-    if (!c || !('ask' in c) || !askLive(c.sentAt, now)) continue;
-    if (s.playerId === player || c.ask.partner === player) return true;
-  }
-  return false;
 }
 
 /** Whether the directory places a member the player can link with, sharing its water, within its `Q`. */
@@ -68,9 +50,9 @@ function company(hub: Hub, player: string): boolean {
 export function rideRefusal(hub: Hub, session: ActiveSession, now: number): RideNo | null {
   const id = session.playerId;
   if (hub.fights.playerLocked(id)) return 'locked';
-  if (courting(hub, id)) return 'busy';
+  if (courtPairs(hub).has(id)) return 'busy';
   const since = session.aloneSince;
-  if (hub.fights.lastFightEnd(id) !== null) return 'soon';
+  if (hub.fights.fightEnded(id, RIDE_AFTER_FIGHT_MS) !== null) return 'soon';
   if (since !== undefined && now - since < rideAloneMsOf(hub.env)) return 'soon';
   if (company(hub, id)) return 'company';
   if (since === undefined || !hub.directory.member(id)) return 'soon';
