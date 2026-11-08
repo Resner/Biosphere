@@ -41,7 +41,7 @@ Short fights save little: the opening, before the round resolves and a link is u
 ## CPU
 
 A batch of 10 frames of two fighters carries 20 input signatures; the authority checks each against its fighter's key
-(`worker/witness-cost.test.ts`, workerd): at most 5 ms per batch (guard: under 10 ms), one batch a second per witnessed fight.
+(`worker/witness-cost.test.ts`, workerd): at most 10 ms per batch (guard: under 10 ms), one batch a second per witnessed fight.
 The authority alone checks none: inputs on its own sockets are authenticated by the session.
 
 ## Storage

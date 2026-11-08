@@ -2,6 +2,7 @@
 // measured from the rows hub tests write (`worker/storage.test.ts`), and the steady state and
 // yearly growth that follow at 5, 50 and 200 concurrent players. Pure: `tools/storage.mjs` runs the
 // measuring test and hands its numbers here.
+import { FREE } from '../worker/plan';
 
 /** What `worker/storage.test.ts` measures, as bytes. */
 export interface StorageMeasure {
@@ -31,8 +32,8 @@ export const FIGHTS_PER_PLAYER_HOUR = 3;
 /** The fight the model stores: a 30 s duel of two (300 frames of 100 ms). */
 export const DUEL_FRAMES = 300;
 export const CONCURRENT = [5, 50, 200] as const;
-/** The free plan's SQLite storage per Durable Object (ADR 0008). */
-export const LIMIT_BYTES = 5_000_000_000;
+/** The free plan's SQLite storage per Durable Object (`worker/plan.ts`, ADR 0067). */
+export const LIMIT_BYTES = FREE.storageBytes;
 /** The steady state the logs must stay under, or the window shrinks (ADR 0056). */
 export const LOG_STEADY_LIMIT_BYTES = 1_000_000_000;
 
@@ -46,7 +47,7 @@ export const packedChars = (frames: number): number => Math.ceil((frames * 8) / 
 const snap100 = (n: number) => Math.round(n / 100) * 100;
 
 /** The measurement with every size rounded to 100 bytes, so a few bytes of run-to-run difference (ids, times) never show. */
-function snapped(m: StorageMeasure): StorageMeasure {
+export function snapped(m: StorageMeasure): StorageMeasure {
   return {
     ...m,
     hatchBytes: snap100(m.hatchBytes),
@@ -151,8 +152,8 @@ export function storageReport(measured: StorageMeasure): string {
       ? `The steady state of logs and witness commitments at 200 players (${mb(worst.logsSteady)}) is under ${gb(LOG_STEADY_LIMIT_BYTES)}, so the ${KEEP_DAYS}-day window stands.`
       : `The steady state of logs and witness commitments at 200 players (${mb(worst.logsSteady)}) is over ${gb(LOG_STEADY_LIMIT_BYTES)}: shorten \`LOG_KEEP_DAYS\` (never below 7) and record it in ADR 0056.`,
     '',
-    `At 200 players around the clock the history alone reaches the limit in about ${worst.daysToLimit} days: the lever is`,
-    "checkpoint compaction (ADR 0056), which M13's capacity model weighs against admission and the paid plan.",
+    `At 200 players around the clock the history alone reaches the free plan's limit in about ${worst.daysToLimit} days. The free plan does not serve 200 around the clock, though:`,
+    "`docs/CAPACITY.md` gives how long each plan's store lasts at its full daily allowance, and weighs checkpoint compaction (ADR 0056) against the paid plan.",
     '',
   );
   return out.join('\n');

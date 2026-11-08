@@ -27,6 +27,11 @@ try {
   const { storageReport } = await server.ssrLoadModule('/tools/storage-report.ts');
   const text = storageReport(measure);
   await writeFile(new URL('../docs/perf/storage.md', import.meta.url), text);
+  // The capacity model reads the measure (`npm run report:capacity`).
+  await writeFile(
+    new URL('../docs/perf/storage.json', import.meta.url),
+    `${JSON.stringify(measure, null, 2)}\n`,
+  );
   process.stdout.write(text);
 } finally {
   await server.close();

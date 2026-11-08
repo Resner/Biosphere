@@ -13,6 +13,7 @@
     "report:speed": "node tools/speed.mjs",
     "report:combat": "node tools/combat.mjs",
     "report:storage": "node tools/storage.mjs",
+    "report:capacity": "node tools/capacity.mjs",
     "report:hub": "node tools/hub.mjs",
     "load:hub": "node tools/load-hub.mjs",
     "report:farm": "node tools/farm.mjs",

@@ -481,7 +481,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### The model
 
-- [ ] T8 The capacity model, `docs/CAPACITY.md` and the capacity ADR (after T5, T6, T7)
+- [x] T8 The capacity model, `docs/CAPACITY.md` and the capacity ADR (after T5, T6, T7)
   - Steps:
     1. **The inputs.** `tools/storage.mjs` and `tools/witness.mjs` also write `docs/perf/storage.json` and `witness.json`, their measures. The storage report's limit comes from `worker/plan.ts`.
     2. **The report.** `tools/capacity-report.ts` (pure) and `tools/capacity.mjs` (`npm run report:capacity`) write `docs/CAPACITY.md` from:
@@ -561,6 +561,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
   - Notes:
     - **If one object's capacity falls below 200** (M14's playtest), the task stops after the ADR and the report. The spec then gains a task for the hottest path, before T9.
     - **The relay share is an assumption**: `docs/CAPACITY.md` says how to replace it with the playtest's `/v1/metrics` (`--metrics`).
+  - Done (ADR 0071): `worker/capacity.ts` (the model), `tools/capacity-report.ts` and `-measure.ts`, `npm run report:capacity`. One object serves 777, the caps are 63 free and 590 paid, the 14-day window stands. Gotcha: the hub-load database size is the WAL's, not the store's, so storage comes from the column bytes; `node tools/capacity.mjs --write-measured` refreshes `MEASURED` after a measurement changes. For T9: `wrangler.jsonc` and `wrangler.e2e.jsonc` still set `MAX_SESSIONS` 200, which overrides the derived caps until T9 drops it.
 
 ### Admission
 

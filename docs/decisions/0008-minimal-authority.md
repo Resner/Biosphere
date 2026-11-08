@@ -1,6 +1,6 @@
 # 0008: Minimal authority on Cloudflare, budgets and admission
 
-- Status: accepted, amended by 0017 and 0067 (0017: the workerd test package is `@cloudflare/vitest-plugin`; 0067: the budgets are measured and the plan sets the limits, rows read are metered, admission queues by reason with a measured wait, and the ceiling is $9.50 a month)
+- Status: accepted, amended by 0017 and 0067 (0017: the workerd test package is `@cloudflare/vitest-plugin`; 0067: the budgets are measured and the plan sets the limits, rows read are metered, admission queues by reason with a measured wait, and the ceiling is $9.50 a month) and 0071 (one object serves 777 players, so hubs are not split; the session caps follow)
 - Date: 2026-10-25
 
 ## Context

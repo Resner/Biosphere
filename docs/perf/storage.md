@@ -3,13 +3,13 @@
 Reproduce with `npm run report:storage`. Bytes are column sizes of the rows a hub test writes
 (`worker/storage.test.ts`), rounded to 100 bytes; SQLite pages and indexes add some on top.
 ADR 0056 sets the retention these numbers check: the history for good, fight logs for
-14 days, a free-tier limit of 5.0 GB.
+14 days, a free-tier limit of 1.0 GB.
 
 ## What a player writes
 
 | Event | Stored |
 |---|---|
-| A hatch | 2.3 KB |
+| A hatch | 2.5 KB |
 | An hour of ordinary play (progress every 30 s, then a close) | 2.7 KB |
 | A beacon (shared by everyone) | 100 B |
 | A commitment | 700 B |
@@ -49,11 +49,11 @@ Hours of play are charged at the measured ordinary hour; the history never shrin
 
 | Concurrent players | Logs and witness commitments kept (steady state) | History growth a year | Days to the limit |
 |---|---|---|---|
-| 5 | 17 MB | 0.2 GB | 7550 |
-| 50 | 168 MB | 2.4 GB | 730 |
-| 200 | 672 MB | 9.6 GB | 160 |
+| 5 | 17 MB | 0.2 GB | 1490 |
+| 50 | 168 MB | 2.4 GB | 130 |
+| 200 | 672 MB | 9.6 GB | 10 |
 
 The steady state of logs and witness commitments at 200 players (672 MB) is under 1.0 GB, so the 14-day window stands.
 
-At 200 players around the clock the history alone reaches the limit in about 160 days: the lever is
-checkpoint compaction (ADR 0056), which M13's capacity model weighs against admission and the paid plan.
+At 200 players around the clock the history alone reaches the free plan's limit in about 10 days. The free plan does not serve 200 around the clock, though:
+`docs/CAPACITY.md` gives how long each plan's store lasts at its full daily allowance, and weighs checkpoint compaction (ADR 0056) against the paid plan.
