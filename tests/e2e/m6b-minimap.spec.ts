@@ -67,19 +67,25 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
     };
     await teleport(b, far.x, far.y);
     const side = await a.getByTestId('minimap').evaluate((el) => el.clientWidth);
+    // The dot is checked against where A draws B in the same frame, not against where B was sent:
+    // the remote eases there over several seconds and drifts on the currents, and a loaded runner
+    // can be caught mid-way. B must have left A's view, so the dot stands for an off-screen player.
     await expect
       .poll(
         async () => {
           const s = await state(a);
           const dot = s.minimap.players.find((p) => p.id === idB);
-          if (!dot || !s.player) return 999;
+          const remote = s.remotes.find((r) => r.id === idB);
+          if (!dot || !remote || !s.player) return 999;
+          if (Math.hypot(remote.x - s.player.x, remote.y - s.player.y) < 1.2 * view.radius)
+            return 999;
           // Inside the minimap's own CSS pixels: y grows downwards, north is up.
           const drawn = Math.atan2(side / 2 - dot.y, dot.x - side / 2) * DEG;
-          const placed = Math.atan2(far.y - s.player.y, far.x - s.player.x) * DEG;
+          const placed = Math.atan2(remote.y - s.player.y, remote.x - s.player.x) * DEG;
           return turn(drawn, placed);
         },
         // B is eased to where it was moved (about 5 s at 1.2 times its speed), slower on a busy CI.
-        { timeout: 25_000 },
+        { timeout: 40_000, message: 'the dot of the off-screen player sits at its bearing' },
       )
       .toBeLessThanOrEqual(5);
     const dot = (await state(a)).minimap.players.find((p) => p.id === idB);
