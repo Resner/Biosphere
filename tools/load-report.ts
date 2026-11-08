@@ -40,6 +40,8 @@ export interface LoadMeasure {
   /** The pair checks: every `pairsEvery` ticks (100 ms each), on `pairSample` of the clients. */
   pairsEvery: number;
   pairSample: number;
+  /** For each minute of the hold: players judged and their messages per minute (median, p95, mean). */
+  holdSeries: { minute: number; players: number; median: number; p95: number; mean: number }[];
   gates: { n: number; name: string; ok: boolean; detail: string }[];
   ok: boolean;
   messages: Record<MsgType, number>;
@@ -87,6 +89,13 @@ export function measureOf(
     simulatedSeconds: seconds,
     pairsEvery: shape.pairsEvery,
     pairSample: shape.pairSample,
+    holdSeries: (w?.holdByMinute ?? []).map((counts, k) => ({
+      minute: shape.holdFrom / 60_000 + k + 1,
+      players: counts.length,
+      median: pct(counts, 0.5),
+      p95: pct(counts, 0.95),
+      mean: counts.reduce((a, b) => a + b, 0) / Math.max(1, counts.length),
+    })),
     gates: gates.map((g) => ({ n: g.n, name: g.name, ok: g.ok, detail: g.detail })),
     ok: gates.every((g) => g.ok),
     messages: { ...meter.msgs },
@@ -103,6 +112,19 @@ export function measureOf(
     gossipKBps: run.linkSeconds === 0 ? 0 : run.gossipBytes / 1000 / run.linkSeconds,
     wallSeconds,
   };
+}
+
+function holdTable(m: LoadMeasure): string {
+  return table([
+    ['Minute', 'Players', 'Median', 'p95', 'Mean'],
+    ...m.holdSeries.map((r) => [
+      String(r.minute),
+      String(r.players),
+      r.median.toFixed(1),
+      r.p95.toFixed(1),
+      r.mean.toFixed(1),
+    ]),
+  ]);
 }
 
 function minuteTable(run: RunResult): string {
@@ -214,6 +236,12 @@ ${types}
 Groups are the groups \`place()\` finds for a T0 newcomer; crowded players and instances are counted at the minute mark; spawns, rides and messages are the minute's. The fill's first minutes cost far more per player than a live world would (18 joins a second into a few thousand players): they are reported, not gated.
 
 ${minuteTable(run)}
+
+## The hold, minute by minute
+
+Messages per player-minute of the players past their first minute and in the water through the minute. The world relaxes from the fill through the hold, so the first minutes cost more.
+
+${holdTable(m)}
 
 ## Timings (machine-dependent)
 

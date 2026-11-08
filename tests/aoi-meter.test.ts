@@ -142,3 +142,32 @@ describe('the pair checks', () => {
     expect(every.violations).toEqual(all.violations);
   });
 });
+
+describe('the wave record of an arrival', () => {
+  it('measures a starter placed beside a T1 in the clearance it owes the T1', () => {
+    const placed = (id: string, spawnAt: number, r: number): ClientSpec => ({
+      ...client(id, spawnAt, { r, adultR: r }),
+      place: true,
+    });
+    const run = runScenario(
+      {
+        name: 'owed',
+        seconds: 30,
+        clients: [placed('big', 0, 90), placed('small', 6000, 20)],
+        wave: {
+          peakFrom: 0,
+          peakUntil: 1,
+          regroupFrom: Number.POSITIVE_INFINITY,
+          crowdsGoneAt: Number.POSITIVE_INFINITY,
+          holdFrom: 0,
+          holdUntil: 30_000,
+        },
+      },
+      'owed',
+    );
+    const small = run.wave?.arrivals.find((a) => a.id === 'small');
+    expect(small?.groupSize).toBe(1);
+    // In the starter's own clearance it would stand several away; in the T1's it stands at its edge.
+    expect(small?.edgeClearances).toBeLessThan(3);
+  });
+});

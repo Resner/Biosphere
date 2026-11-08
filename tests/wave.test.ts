@@ -46,6 +46,7 @@ function clean(patch: Partial<WaveRecord> = {}, run: Partial<RunResult> = {}): R
     holdMinutes: 0,
     holdSteady: [],
     holdJoin: [],
+    holdByMinute: [],
     ...patch,
   };
   return {

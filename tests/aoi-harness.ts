@@ -468,7 +468,7 @@ class Sim {
       if ((this.tickIndex + c.phase) % 5 === 0 || c.dirty) this.plan(c);
       this.sample(c, dt);
     }
-    if (this.meter) {
+    if (this.meter && this.tickIndex % (this.sc.rateEvery ?? 1) === 0) {
       for (const c of this.order) {
         this.meter.rate(c.tx, c.rx);
         c.tx = c.rx = 0;
@@ -1138,7 +1138,7 @@ class Sim {
     if (at.fallback === 'centre') this.res.spawnFallbacks++;
     else this.checkClearance(c, at, members, spawner);
     this.spawns.push({ x: at.x, y: at.y, r: c.r, aoi: spawner.aoi, t: this.now });
-    this.noteArrival(c, at, ride, spawner);
+    this.noteArrival(c, at, ride, spawner, members);
     return at;
   }
 
@@ -1195,6 +1195,7 @@ class Sim {
     at: Placement,
     ride: boolean,
     spawner: { r: number; adultR: number; aoi: number },
+    members: readonly Placed[],
   ): void {
     if (ride) {
       this.minuteRides++;
@@ -1202,7 +1203,13 @@ class Sim {
     } else this.minuteSpawns++;
     if (!this.wave) return;
     const g = at.group;
-    const base = clearance(spawner, spawner);
+    // A clearance is what the spawner owes its group: the most it owes any member (a starter beside a
+    // T1 keeps the T1's clearance, which is wider than its own).
+    let base = clearance(spawner, spawner);
+    if (g) {
+      const ids = new Set(g.ids);
+      for (const m of members) if (ids.has(m.id)) base = Math.max(base, clearance(spawner, m));
+    }
     c.groupIds = g ? new Set(g.ids) : null;
     // The group's reach includes the minute's spawns around it: they are about to be members.
     let radius = g?.radius ?? 0;
@@ -1367,7 +1374,7 @@ class Sim {
       this.res.clientLate += dt;
       if (c.crowded) this.res.crowdedLate += dt;
     }
-    this.upload(c, n);
+    if (this.tickIndex % (this.sc.rateEvery ?? 1) === 0) this.upload(c, n);
   }
 
   /**
@@ -1574,6 +1581,13 @@ class Sim {
       if (until - steady >= 60_000) {
         const n = c.hubMsgs.filter((m) => m >= steady && m < until).length;
         w.holdSteady.push(n / ((until - steady) / 60_000));
+      }
+      // Each minute of the hold, the messages of the players past their first minute and there for all of it.
+      const minutes = Math.round((holdUntil - holdFrom) / 60_000);
+      for (let k = 0; k < minutes; k++) {
+        const a = holdFrom + k * 60_000;
+        if (c.spec.spawnAt + 60_000 > a || end < a + 60_000) continue;
+        (w.holdByMinute[k] ??= []).push(c.hubMsgs.filter((m) => m >= a && m < a + 60_000).length);
       }
       // A player that joined in the hold: its first minute.
       if (

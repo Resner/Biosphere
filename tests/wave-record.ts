@@ -72,6 +72,8 @@ export interface WaveRecord {
   /** Messages per minute of each player after its first minute in the hold, and a joiner's first minute. */
   holdSteady: number[];
   holdJoin: number[];
+  /** For each minute of the hold, the messages in it of each player past its first minute and in the water through it. */
+  holdByMinute: number[][];
 }
 
 export function emptyWave(params: WaveParams): WaveRecord {
@@ -92,5 +94,6 @@ export function emptyWave(params: WaveParams): WaveRecord {
     holdMinutes: 0,
     holdSteady: [],
     holdJoin: [],
+    holdByMinute: [],
   };
 }

@@ -45,6 +45,8 @@ export interface LoadShape {
   /** The pair checks run every this many ticks, on this share of the clients. */
   pairsEvery: number;
   pairSample: number;
+  /** The bandwidth readings run every this many ticks. */
+  rateEvery: number;
   /** Players wander within this half-width of the spawn centre (wu). */
   boxHalf: number;
 }
@@ -62,6 +64,7 @@ export const FULL_LOAD: LoadShape = {
   playersPerFight: 100,
   pairsEvery: 10,
   pairSample: 1,
+  rateEvery: 10,
   boxHalf: WORLD_HALF,
 };
 
@@ -82,6 +85,7 @@ export const SCALED_LOAD: LoadShape = {
   playersPerFight: 20,
   pairsEvery: 2,
   pairSample: 1,
+  rateEvery: 5,
   boxHalf: boxFor(100),
 };
 
@@ -204,6 +208,7 @@ export function loadScenario(
     instances: true,
     pairsEvery: shape.pairsEvery,
     pairSample: shape.pairSample,
+    rateEvery: shape.rateEvery,
     ...(meter ? { meter } : {}),
     ...(progress ? { progress } : {}),
     wave: {

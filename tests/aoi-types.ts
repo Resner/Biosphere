@@ -68,6 +68,8 @@ export interface Scenario {
   wave?: WaveParams;
   /** The pair checks (discovery, hidden threats, views, tier links) run every this many ticks; default 1. */
   pairsEvery?: number;
+  /** The upload and download rates are read every this many ticks (they are B/s, so a thinner reading is as true); default 1. */
+  rateEvery?: number;
   /** A seeded share of the clients is judged by the pair checks (the rest are only counted); default all. */
   pairSample?: number;
   /** Times the hub's operations, counts messages by type and the bandwidth (the load scenario, M13). */
