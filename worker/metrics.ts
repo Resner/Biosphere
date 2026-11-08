@@ -1,6 +1,7 @@
 import type { QueueWhy } from '../src/net/protocol';
+import { admission, awaySeats, turnOpen } from './admission';
 import { CHECKED, limitsOf, type PlanLimits, type PlanName, planOf } from './plan';
-import { admissionWhy, awaySeats, ETA_S_PER_PLACE, queued, seatedCount } from './sessions';
+import { queued, seatedCount } from './sessions';
 import type { Hub } from './socket';
 import type { UsageDay } from './usage';
 
@@ -38,7 +39,9 @@ export interface Metrics {
     open: boolean;
     why: QueueWhy | null;
     turn: boolean;
+    /** The mean interval between the last seats freed (30 before two have). */
     seatEveryS: number;
+    /** The waits of sessions seated from the line today (the last 200 in memory), in seconds. */
     waits: { n: number; p50: number; p95: number } | null;
   };
 }
@@ -56,7 +59,7 @@ export function metricsOf(hub: Hub, now: number): Metrics {
   const running = hub.fights.running();
   const minutes = today.playerMs / MINUTE_MS;
   const hours = today.playerMs / HOUR_MS;
-  const why = admissionWhy(hub, now);
+  const why = admission(hub, now);
   const bytes = hub.usage.databaseBytes(now);
   return {
     now,
@@ -92,13 +95,12 @@ export function metricsOf(hub: Hub, now: number): Metrics {
     },
     days: hub.usage.history(now),
     storage: { bytes, limit: limits.storageBytes },
-    // T9 fills in the wait and the TURN guard for real.
     admission: {
       open: why === null,
       why,
-      turn: true,
-      seatEveryS: ETA_S_PER_PLACE,
-      waits: null,
+      turn: turnOpen(hub, now),
+      seatEveryS: Math.round(hub.admission.seatEveryMs(now) / 1000),
+      waits: hub.admission.waitsToday(now),
     },
   };
 }

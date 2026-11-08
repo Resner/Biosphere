@@ -10,6 +10,7 @@ import {
   type Client,
   closeSockets,
   flush,
+  freshLine,
   hatch,
   login,
   nextOf,
@@ -42,6 +43,7 @@ let wall = 0;
 
 beforeEach(async () => {
   await useFakeBeacons();
+  await freshLine();
   dayNo++;
   wall = Date.UTC(2032, 0, 1, 10, 0, 0) + dayNo * 3 * DAY_MS;
   vi.spyOn(Date, 'now').mockImplementation(() => wall);

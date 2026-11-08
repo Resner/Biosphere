@@ -1,6 +1,7 @@
 import { toBase64Url } from '../src/ledger/identity';
 import { type ClientMsg, type HubMsg, isCause, type SignedCommit } from '../src/net/protocol';
 import type { DeathCause } from '../src/sim/types';
+import type { Admission } from './admission';
 import type { Beacons, SignedCommitment } from './beacons';
 import type { Crowds } from './crowds';
 import type { Directory } from './directory';
@@ -29,6 +30,8 @@ export interface Hub {
   readonly ledger: Ledger;
   readonly beacons: Beacons;
   readonly usage: UsageMeter;
+  /** The line's memory (M13 T9, `admission.ts`): seats freed, seats closed lately, waits measured; hub tests replace it. */
+  admission: Admission;
   readonly asking: Map<string, Promise<void>>;
   promoting: Promise<void>;
   matingQueue: Promise<void>;

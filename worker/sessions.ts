@@ -6,10 +6,10 @@ import {
   CLOSE_REPLACED,
   type ClientMsg,
   type IceServer,
-  type QueueWhy,
   SDP_MAX_BYTES,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
+import { admission, etaMoved, etaS, iceFor } from './admission';
 import { awayDue } from './away';
 import { flushFight, resend } from './fights';
 import { unsaved } from './life';
@@ -33,11 +33,6 @@ import { atOf, countRelay, gone, relayReach, reseatCrowd, sharesWater } from './
 import { witnessLeft } from './witness-fight';
 import { worldInfo, worldRow } from './world';
 
-/** New sessions queue once the day's requests reach this share of the budget (DESIGN §8). */
-const BUDGET_SHARE = 0.9;
-/** A queued session's estimated wait per place, until M13 T9 measures it. */
-export const ETA_S_PER_PLACE = 30;
-
 export async function hello(
   hub: Hub,
   ws: WebSocket,
@@ -58,7 +53,7 @@ export async function hello(
     ws.close(CLOSE_BAD_HELLO, 'bad hello');
     return;
   }
-  const { ice, turn } = await hub.turn.ice(hub.env);
+  const { ice, turn } = await iceFor(hub, Date.now());
   // The socket may have closed, said hello again or sent messages while the lookup ran: go on
   // from its current state. From here to the welcome there is no await, so nobody can relay a
   // signal to the joiner or learn of it first.
@@ -74,10 +69,14 @@ export async function hello(
     drop(hub, other, CLOSE_REPLACED, 'replaced by a newer session', true);
   }
   const who = { playerId: msg.playerId, name: msg.name };
-  // Admission never drops or re-queues a player who already has a seat: a seated tab's, or the one
-  // its fight held while it was away (M8).
-  const seat = held?.phase === 'active' || hub.fights.ofPlayer(msg.playerId)?.fight != null;
-  if (!seat && (queued(hub).length > 0 || !canAdmit(hub, Date.now()))) {
+  // Admission never drops or re-queues a player who already has a seat: a seated tab's, the one
+  // its fight held while it was away (M8), or one that closed within the last 2 minutes (M13 T9).
+  const now = Date.now();
+  const seat =
+    held?.phase === 'active' ||
+    hub.fights.ofPlayer(msg.playerId)?.fight != null ||
+    hub.admission.seatBack(msg.playerId, now);
+  if (!seat && (queued(hub).length > 0 || admission(hub, now) !== null)) {
     const ticket = held?.phase === 'queued' ? held.ticket : hub.nextTicket++;
     keep(hub, ws, {
       ...current,
@@ -85,7 +84,7 @@ export async function hello(
       ...who,
       ticket,
       place: 0,
-      queuedAt: held?.phase === 'queued' && held.queuedAt ? held.queuedAt : Date.now(),
+      queuedAt: held?.phase === 'queued' && held.queuedAt ? held.queuedAt : now,
     });
     meterSeats(hub);
   } else {
@@ -105,19 +104,6 @@ function placesOf(hub: Hub, player: string, except: WebSocket): [WebSocket, Live
   if (waiting && s?.phase === 'queued') out.push([waiting.ws, s]);
   return out;
 }
-
-/**
- * Why one more session doesn't fit, by the guard that holds (M13 T4): `budget` at 90% of the day's
- * request budget, else `full` at the session cap (away fighters' seats included); null when it fits.
- */
-export function admissionWhy(hub: Hub, now: number): QueueWhy | null {
-  if (hub.usage.requests(now) >= BUDGET_SHARE * requestBudget(hub.env)) return 'budget';
-  if (seatedCount(hub) + awaySeats(hub) >= limitsOf(hub.env).sessions) return 'full';
-  return null;
-}
-
-/** Whether one more session fits. */
-export const canAdmit = (hub: Hub, now: number): boolean => admissionWhy(hub, now) === null;
 
 /** The day's request budget (`DAILY_REQUEST_BUDGET`), which admission and the proof reads share. */
 export const requestBudget = (env: Env): number => limitsOf(env).requestsPerDay;
@@ -143,20 +129,25 @@ function firstInLine(hub: Hub): [WebSocket, Session & { phase: 'queued' }] | nul
 }
 
 /**
- * Tells each waiting session its place when that changed (the first time included), with the
- * guard that holds now (a line that waits only for its first to be seated is `full`): only those
- * are read.
+ * Tells each waiting session its place, the guard that holds now (a line that waits only for its
+ * first to be seated is `full`) and its estimated wait, when any of them changed since it last
+ * heard (the first time included) or the estimate moved by more than 20%: only those are read.
  */
 export function announceQueue(hub: Hub): void {
-  let why: QueueWhy | undefined;
-  [...queued(hub)].forEach(({ ws, place: was }, i) => {
+  const line = queued(hub);
+  if (line.length === 0) return;
+  const now = Date.now();
+  const why = admission(hub, now) ?? 'full';
+  [...line].forEach((entry, i) => {
     const place = i + 1;
-    if (was === place) return;
-    const session = sessionOf(ws);
+    const eta = etaS(hub, why, place, now);
+    if (entry.place === place && entry.why === why && !etaMoved(entry.etaS, eta)) return;
+    const session = sessionOf(entry.ws);
     if (session?.phase !== 'queued') return;
-    why ??= admissionWhy(hub, Date.now()) ?? 'full';
-    keep(hub, ws, { ...session, place });
-    sendIfOpen(ws, { t: 'queued', position: place, etaS: place * ETA_S_PER_PLACE, why });
+    keep(hub, entry.ws, { ...session, place });
+    entry.why = why;
+    entry.etaS = eta;
+    sendIfOpen(entry.ws, { t: 'queued', position: place, etaS: eta, why });
   });
 }
 
@@ -171,32 +162,24 @@ export async function promoteWaiting(hub: Hub): Promise<void> {
   try {
     for (;;) {
       const first = queued(hub)[0];
-      if (!first || !canAdmit(hub, Date.now())) return;
-      const { ice, turn } = await hub.turn.ice(hub.env);
+      if (!first || admission(hub, Date.now()) !== null) return;
+      const { ice, turn } = await iceFor(hub, Date.now());
       // The line may have changed while the lookup ran. No await from here to the welcome.
+      const now = Date.now();
       const next = firstInLine(hub);
-      if (next?.[0] !== first.ws || !canAdmit(hub, Date.now())) continue;
+      if (next?.[0] !== first.ws || admission(hub, now) !== null) continue;
       const [ws, session] = next;
       // A session queued before `queuedAt` existed has no wait to record.
-      if (session.queuedAt) hub.usage.waited(Date.now(), Date.now() - session.queuedAt);
+      if (session.queuedAt) {
+        hub.usage.waited(now, now - session.queuedAt);
+        hub.admission.waited(now, now - session.queuedAt);
+      }
       enter(hub, ws, session, { playerId: session.playerId, name: session.name }, { ice, turn });
     }
   } finally {
     announceQueue(hub);
     await hub.rearm();
   }
-}
-
-/**
- * The seats held world-wide for fighters whose player is away (ADR 0053): every participant of a
- * running fight with no seated socket keeps its place until the fight ends.
- */
-export function awaySeats(hub: Hub): number {
-  let away = 0;
-  for (const { players, fight } of hub.fights.running()) {
-    if (fight) away += players.filter((p) => !hub.seats.has(p)).length;
-  }
-  return away;
 }
 
 /**
@@ -332,6 +315,13 @@ export function drop(
   if (session?.phase === 'active') {
     keep(hub, ws, { ...session, phase: 'retired' });
     meterSeats(hub);
+    if (!replaced) {
+      const now = Date.now();
+      // A reload or a lost connection gets the seat back within 2 minutes (M13 T9); an away
+      // fighter's seat frees only when its fight ends (`settle.ts`).
+      hub.admission.seatClosed(session.playerId, now);
+      if (!hub.fights.ofPlayer(session.playerId)?.fight) hub.admission.seatFreed(now);
+    }
     try {
       saveOnClose(hub, session);
     } catch {

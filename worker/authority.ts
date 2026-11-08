@@ -7,6 +7,7 @@ import {
   NONCE_BYTES,
   parseClientMsg,
 } from '../src/net/protocol';
+import { Admission } from './admission';
 import { attest } from './attest';
 import type { AuditReport } from './audit';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
@@ -79,6 +80,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly ledger: Ledger;
   readonly beacons: Beacons;
   readonly usage: UsageMeter;
+  /** The line's memory (M13 T9): a wake forgets it. */
+  admission = new Admission();
   private rearming: Promise<void> = Promise.resolve();
   /** Genesis requests run one at a time per player, so a second can't slip past the checks of the first. */
   readonly asking = new Map<string, Promise<void>>();

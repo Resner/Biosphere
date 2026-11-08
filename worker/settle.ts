@@ -192,11 +192,13 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
   dropCarrion(hub, fight, fighters, forwarded);
   hub.fights.release(lock.id);
   for (const [slot, f] of fighters.entries()) settleLife(hub, f, records[slot]?.activeMs ?? 0);
-  freeSeats(hub);
+  freeSeats(hub, lock.players);
 }
 
-/** The seats held for away fighters are free: the first in line takes one. */
-function freeSeats(hub: Hub): void {
+/** The seats held for away fighters are free (each one measured for the line's wait, M13 T9): the first in line takes one. */
+function freeSeats(hub: Hub, players: readonly string[]): void {
+  const now = Date.now();
+  for (const p of players) if (!hub.seats.has(p)) hub.admission.seatFreed(now);
   if (queued(hub).length > 0) promote(hub).catch(() => {});
 }
 
@@ -223,7 +225,7 @@ function unsettled(hub: Hub, lock: Lock, fight: Fight, fighters: FighterOutcome[
   tell(hub, lock, { t: 'enc-end', enc: enc.id, f: enc.frame, hash: hashEncounter(enc), fighters });
   hub.fights.release(lock.id);
   backToLedger(hub, lock.players, now, fighters);
-  freeSeats(hub);
+  freeSeats(hub, lock.players);
 }
 
 /**
