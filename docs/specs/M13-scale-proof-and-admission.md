@@ -226,7 +226,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Metering
 
-- [ ] T1 Metering: the day in depth, and `GET /v1/metrics` (after none)
+- [ ] T1 Metering: the day in depth, and `GET /v1/metrics` (after none) (in progress)
   - Steps:
     1. **`worker/plan.ts`**, in the shapes above. `STORAGE_LIMIT_BYTES` leaves `usage.ts`: the audit's `storage.limit` is the plan's `storageBytes`, which is 1 GB on the free plan.
     2. **`worker/metered-sql.ts`**: one wrapper over `ctx.storage.sql`, which every module uses instead of the raw handle: the ledger, beacons, the fight store, proofs, away reports, duties, the witness pool, spawn, seat, world, farming and recovery. It adds each statement's `rowsRead` and `rowsWritten` to the meter. The existing counters (`Ledger.rowsWritten`, `FightStore.rowsWritten`, `rowsBesideLog`) keep their meaning. No answer changes.
