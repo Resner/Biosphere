@@ -357,7 +357,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Crowd instances in the world
 
-- [ ] T5 Crowd instances on the authority [opus] (after T3) (in progress)
+- [x] T5 Crowd instances on the authority [opus] (after T3) (in progress)
   - Steps:
     1. `worker/where.ts` runs `hub.crowds` (`Crowds`) beside the directory:
        - every `where` reports to it with its `crowd` list (ids that aren't seated are dropped). The context comes from the hub: `locked` from `hub.fights` (a fight, or a lock waiting for its answer), `partners` from the fight's other fighters and the session's court, and `around` from the directory;
@@ -391,6 +391,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - a crowd with a locked member waits until its fight ends.
     - `rowsWritten` is unchanged by reports, splits and merges, and 21 messages in 10 s still close a session.
   - Notes: no page change (T6). Pages still send instance 0 and no crowd, so outside tests no crowd forms until T6.
+    - Done: `where.ts` runs `hub.crowds` (`armCrowds`, `rebuildCrowds`, `reseatCrowd`, `sharesWater`; `Directory.near` takes `instanceOf`); the page's toast for `engage:instance`; hub tests in `worker/instances.test.ts`.
+    - Gotcha: a fighter whose page leaves keeps its instance in `hub.crowdsKept` until its fight ends; a crowd of more members than `INSTANCE_MAX` never merges, so merge tests keep under it.
 
 - [ ] T6 Crowd instances in the page [opus] (after T5)
   - Steps:
