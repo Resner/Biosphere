@@ -469,7 +469,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - B presses R again and reads "Someone is near";
       - screenshots mid-ride and at the arrival are attached;
       - on medium, the transition keeps the medium budget.
-  - Done: `worker/ride.ts` (`aloneSince` from `near`, `Fights.lastFightEnd`), `src/game/ride.ts`, `src/render/ride-fx.ts`, `m12-ride` on 8835; a page reports at once on turning alone and on arriving (`WhereReporter.nudge`).
+  - Done: `worker/ride.ts` (`aloneSince` from `near`, `Fights.fightEnded(id, RIDE_AFTER_FIGHT_MS)`), `src/game/ride.ts`, `src/render/ride-fx.ts`, `m12-ride` on 8835; a page reports at once on turning alone and on arriving (`WhereReporter.nudge`).
     Gotcha: the hub times the wait from that report, so the offer waits the 2 s report gap more; a creature the hub never saw alone is `soon`, and a placement fallback is `none`.
 
 ### Evidence at scale
