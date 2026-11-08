@@ -307,4 +307,21 @@ describe('near', () => {
     expect(dir.around(1000, 1000, 5000).sort()).toEqual([id(0), id(1)]);
     expect(dir.near(id(9), 0)).toBeNull();
   });
+
+  it('asks anyAround of the members within the radius, and stops at the first that passes', () => {
+    const dir = new Directory(WORLD);
+    for (let i = 0; i < 6; i++) dir.report(member(i, 1000 + i, 1000));
+    dir.report(member(6, 4000, 5000));
+    const seen: string[] = [];
+    const test = (want: string) => (who: string) => {
+      seen.push(who);
+      return who === want;
+    };
+    expect(dir.anyAround(1000, 1000, 4999, test(id(6)))).toBe(false);
+    expect(seen.sort()).toEqual([0, 1, 2, 3, 4, 5].map(id));
+    expect(dir.anyAround(1000, 1000, 5000, test(id(6)))).toBe(true);
+    seen.length = 0;
+    expect(dir.anyAround(1000, 1000, 5000, () => (seen.push('x'), true))).toBe(true);
+    expect(seen).toEqual(['x']);
+  });
 });

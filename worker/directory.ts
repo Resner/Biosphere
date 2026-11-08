@@ -137,8 +137,24 @@ export class Directory {
     const out: string[] = [];
     this.visit(x, y, radius, (id, m) => {
       if (Math.hypot(m.x - x, m.y - y) <= radius) out.push(id);
+      return false;
     });
     return out;
+  }
+
+  /** Whether a member within `radius` of (x, y) passes `test`; it stops at the first that does. */
+  anyAround(
+    x: number,
+    y: number,
+    radius: number,
+    test: (id: string, m: DirMember) => boolean,
+  ): boolean {
+    return this.visit(
+      x,
+      y,
+      radius,
+      (id, m) => Math.hypot(m.x - x, m.y - y) <= radius && test(id, m),
+    );
   }
 
   /** Every leaf with its member count. */
@@ -319,8 +335,13 @@ export class Directory {
     }
   }
 
-  /** Calls `each` for every member of every leaf whose square comes within `radius` of (x, y). */
-  private visit(x: number, y: number, radius: number, each: (id: string, m: DirMember) => void) {
+  /** Calls `each` for every member of the leaves within `radius`; true from `each` stops the walk and answers true. */
+  private visit(
+    x: number,
+    y: number,
+    radius: number,
+    each: (id: string, m: DirMember) => boolean,
+  ): boolean {
     const stack: Node[] = [this.root];
     for (let n = stack.pop(); n; n = stack.pop()) {
       const dx = Math.max(n.x - x, 0, x - (n.x + n.size));
@@ -332,9 +353,10 @@ export class Directory {
       }
       for (const id of n.members) {
         const held = this.byId.get(id);
-        if (held) each(id, held.m);
+        if (held && each(id, held.m)) return true;
       }
     }
+    return false;
   }
 
   /**

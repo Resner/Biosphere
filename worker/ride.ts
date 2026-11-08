@@ -30,15 +30,12 @@ function company(hub: Hub, player: string): boolean {
   const self = hub.directory.member(player);
   if (!self) return false;
   const q = queryRadius(self.aoi);
-  return hub.directory.around(self.x, self.y, q).some((id) => {
-    const m = id === player ? null : hub.directory.member(id);
-    return (
-      m !== null &&
-      Math.hypot(m.x - self.x, m.y - self.y) <= q &&
-      linkTiers(self.r, m.r) &&
-      sharesWater(hub, player, id)
-    );
-  });
+  return hub.directory.anyAround(
+    self.x,
+    self.y,
+    q,
+    (id, m) => id !== player && linkTiers(self.r, m.r) && sharesWater(hub, player, id),
+  );
 }
 
 /**
