@@ -19,6 +19,8 @@ export const SPAWN_RECENT_MS = 60_000;
 export const SPAWN_EDGE_WU = 1024;
 export const SPAWN_RINGS = 128;
 export const SPAWN_CANDIDATES = 8192;
+/** A ring at a wide group's edge is first tried at about this many of its candidates. */
+const EDGE_SAMPLE = 48;
 
 /** A member of the directory, by its last report. `n` is its instance (0: the open water). */
 export interface Placed {
@@ -71,14 +73,19 @@ export function groupsFor(
   const linkable = members.filter((m) => linkTiers(s.r, m.r));
   const chain = queryRadius(s.aoi) / 2;
   const chain2 = chain * chain;
-  const cell = (v: number): number => Math.floor(v / chain);
-  const grid = new Map<string, number[]>();
-  const key = (cx: number, cy: number): string => `${cx},${cy}`;
+  // Cells so small that all of a cell's members lie within the chain of each other (the diagonal is
+  // a hair under it): a cell is one piece at once, and only two cells within two cells of each other
+  // are looked at, stopping at the first pair that links them.
+  const side = chain / 1.4143;
+  const cellKey = (cx: number, cy: number): number => cx * 4_194_304 + cy;
+  const cells = new Map<number, { cx: number; cy: number; at: number[] }>();
   linkable.forEach((m, i) => {
-    const k = key(cell(m.x), cell(m.y));
-    const bucket = grid.get(k);
-    if (bucket === undefined) grid.set(k, [i]);
-    else bucket.push(i);
+    const cx = Math.floor(m.x / side);
+    const cy = Math.floor(m.y / side);
+    const k = cellKey(cx, cy);
+    const cell = cells.get(k);
+    if (cell === undefined) cells.set(k, { cx, cy, at: [i] });
+    else cell.at.push(i);
   });
   const parent = linkable.map((_, i) => i);
   const find = (i: number): number => {
@@ -92,19 +99,40 @@ export function groupsFor(
     }
     return root;
   };
-  linkable.forEach((m, i) => {
-    const cx = cell(m.x);
-    const cy = cell(m.y);
-    for (let dx = -1; dx <= 1; dx++) {
-      for (let dy = -1; dy <= 1; dy++) {
-        for (const j of grid.get(key(cx + dx, cy + dy)) ?? []) {
-          if (j <= i) continue;
-          const o = linkable[j] as Placed;
-          if ((o.x - m.x) ** 2 + (o.y - m.y) ** 2 <= chain2) parent[find(j)] = find(i);
-        }
+  for (const cell of cells.values()) {
+    const head = cell.at[0] as number;
+    for (const i of cell.at) parent[i] = head;
+  }
+  const linked = (a: readonly number[], b: readonly number[]): boolean => {
+    for (const i of a) {
+      const m = linkable[i] as Placed;
+      for (const j of b) {
+        const o = linkable[j] as Placed;
+        if ((o.x - m.x) ** 2 + (o.y - m.y) ** 2 <= chain2) return true;
       }
     }
-  });
+    return false;
+  };
+  // Neighbours at one cell first, so that a dense area is one piece before the cells two apart (only
+  // a pair at the very corners can link those) are looked at, and are then skipped as already joined.
+  const forward = (dx: number, dy: number): boolean => dy > 0 || (dy === 0 && dx > 0);
+  const offsets: [number, number][] = [];
+  for (const reach of [1, 2]) {
+    for (let dy = 0; dy <= reach; dy++) {
+      for (let dx = -reach; dx <= reach; dx++) {
+        if (forward(dx, dy) && Math.max(Math.abs(dx), dy) === reach) offsets.push([dx, dy]);
+      }
+    }
+  }
+  for (const [dx, dy] of offsets) {
+    for (const cell of cells.values()) {
+      const other = cells.get(cellKey(cell.cx + dx, cell.cy + dy));
+      if (other === undefined) continue;
+      const rootA = find(cell.at[0] as number);
+      const rootB = find(other.at[0] as number);
+      if (rootA !== rootB && linked(cell.at, other.at)) parent[rootB] = rootA;
+    }
+  }
   const sets = new Map<number, Placed[]>();
   linkable.forEach((m, i) => {
     const root = find(i);
@@ -120,7 +148,7 @@ export function groupsFor(
       ids: set.map((m) => m.id).sort(),
       x,
       y,
-      radius: Math.max(...set.map((m) => Math.hypot(m.x - x, m.y - y))),
+      radius: set.reduce((far, m) => Math.max(far, Math.hypot(m.x - x, m.y - y)), 0),
       sameTier: set.filter((m) => tierOf(m.r) === tier).length,
       linkable: set.length,
     };
@@ -184,6 +212,55 @@ interface Avoid {
   d2: number;
 }
 
+/** Points in a hash grid of square cells: a query visits the 3 × 3 cells around a point. */
+class Grid<T extends { x: number; y: number }> {
+  private readonly cells = new Map<number, T[]>();
+
+  /** Every item that lies within `cell` of a queried point is in the cells it visits. */
+  constructor(
+    items: readonly T[],
+    private readonly cell: number,
+  ) {
+    for (const item of items) {
+      const k = this.key(Math.floor(item.x / cell), Math.floor(item.y / cell));
+      const bucket = this.cells.get(k);
+      if (bucket === undefined) this.cells.set(k, [item]);
+      else bucket.push(item);
+    }
+  }
+
+  private key(cx: number, cy: number): number {
+    return cx * 1_048_576 + cy;
+  }
+
+  /** Whether `test` holds for any item in the cells around (x, y). */
+  some(x: number, y: number, test: (item: T) => boolean): boolean {
+    const cx = Math.floor(x / this.cell);
+    const cy = Math.floor(y / this.cell);
+    for (let dx = -1; dx <= 1; dx++) {
+      for (let dy = -1; dy <= 1; dy++) {
+        const bucket = this.cells.get(this.key(cx + dx, cy + dy));
+        if (bucket === undefined) continue;
+        for (const item of bucket) if (test(item)) return true;
+      }
+    }
+    return false;
+  }
+}
+
+/** The radius the rings reach from their start before the candidate budget is spent. */
+function ringsReach(base: number): number {
+  let tried = 0;
+  let reach = 0;
+  for (let ring = 0; ring < SPAWN_RINGS; ring++) {
+    const rho = (ring * base) / 4;
+    tried += ring === 0 ? 1 : Math.max(8, Math.ceil((2 * Math.PI * rho) / (base / 2)));
+    if (tried > SPAWN_CANDIDATES) break;
+    reach = rho;
+  }
+  return reach;
+}
+
 /**
  * The point where `spawner` enters the water (ADR 0064): rings around the best group's centroid, or
  * around the spawn centre when there is none, from the middle outward. The first ring with a valid
@@ -211,12 +288,23 @@ export function place(p: PlaceInput): Placement {
     avoid.push({ x: s.x, y: s.y, d2: d * d });
   }
 
-  const valid = (x: number, y: number): boolean => {
+  // The discs through a grid whose cells are the widest avoid distance: a candidate checks the nine
+  // cells around it, never every member.
+  const widest = Math.sqrt(avoid.reduce((w, a) => Math.max(w, a.d2), 1));
+  const discs = new Grid(avoid, widest);
+  const hit =
+    (x: number, y: number) =>
+    (a: Avoid): boolean =>
+      (a.x - x) ** 2 + (a.y - y) ** 2 < a.d2;
+
+  // The cheap rules first: the world's edges and the discs.
+  const free = (x: number, y: number): boolean => {
     if (x < SPAWN_EDGE_WU || y < SPAWN_EDGE_WU) return false;
     if (x > world.size - SPAWN_EDGE_WU || y > world.size - SPAWN_EDGE_WU) return false;
-    for (const a of avoid) {
-      if ((a.x - x) ** 2 + (a.y - y) ** 2 < a.d2) return false;
-    }
+    return !discs.some(x, y, hit(x, y));
+  };
+  // Then the field: depth and plumes, which cost far more.
+  const deep = (x: number, y: number): boolean => {
     // The depth pin leaves the spawn centre in 0.26 to 0.54: a seed at its shallow end would refuse
     // the centre itself, which an empty world must give (and only an empty world).
     if (members.length > 0 || x !== centre.x || y !== centre.y) {
@@ -228,24 +316,43 @@ export function place(p: PlaceInput): Placement {
 
   const base = clearance(spawner, spawner);
   const phase = rng.next() * 2 * Math.PI;
-  const search = (around: Vec2, group: Group | null): Vec2 | null => {
-    const near: Placed[] = group === null ? [] : members.filter((m) => group.ids.includes(m.id));
+  // The rings start at the centroid. A group wider than they reach, whose rings found nothing, is
+  // searched again from 2 clearances inside its radius, at its edge (ADR 0069).
+  const edge = (group: Group | null): number =>
+    group !== null && group.radius + 2 * base > ringsReach(base)
+      ? Math.max(0, group.radius - 2 * base)
+      : 0;
+  const search = (around: Vec2, group: Group | null, from = 0): Vec2 | null => {
+    const ids = group === null ? null : new Set(group.ids);
+    const near: Placed[] = ids === null ? [] : members.filter((m) => ids.has(m.id));
+    const nearReach = near.reduce((w, m) => Math.max(w, p1Reach(spawner.r, m.r)), 1);
+    const nearGrid = new Grid(near, nearReach);
+    const first = Math.floor(from / (base / 4));
     let tried = 0;
-    for (let ring = 0; ring < SPAWN_RINGS; ring++) {
+    for (let ring = first; ring < first + SPAWN_RINGS; ring++) {
       const rho = (ring * base) / 4;
       const count = ring === 0 ? 1 : Math.max(8, Math.ceil((2 * Math.PI * rho) / (base / 2)));
       tried += count;
       if (tried > SPAWN_CANDIDATES) return null;
-      const found: Vec2[] = [];
+      const open: Vec2[] = [];
       for (let i = 0; i < count; i++) {
         const angle = phase + (2 * Math.PI * i) / count;
         const x = around.x + rho * Math.cos(angle);
         const y = around.y + rho * Math.sin(angle);
-        if (valid(x, y)) found.push({ x, y });
+        if (free(x, y)) open.push({ x, y });
       }
+      const deepOf = (list: Vec2[]): Vec2[] => list.filter((c) => deep(c.x, c.y));
+      // A long ring at a wide group's edge is tried through an even sample first; only a ring whose
+      // sample holds no valid point is tried whole.
+      let found: Vec2[];
+      if (from > 0 && open.length > EDGE_SAMPLE) {
+        const stride = Math.ceil(open.length / EDGE_SAMPLE);
+        found = deepOf(open.filter((_, i) => i % stride === 0));
+        if (found.length === 0) found = deepOf(open);
+      } else found = deepOf(open);
       if (found.length === 0) continue;
       const close = found.filter((c) =>
-        near.some((m) => Math.hypot(m.x - c.x, m.y - c.y) <= p1Reach(spawner.r, m.r)),
+        nearGrid.some(c.x, c.y, (m) => Math.hypot(m.x - c.x, m.y - c.y) <= p1Reach(spawner.r, m.r)),
       );
       const pool = close.length > 0 ? close : found;
       return pool[rng.int(0, pool.length - 1)] as Vec2;
@@ -253,7 +360,9 @@ export function place(p: PlaceInput): Placement {
     return null;
   };
 
-  const first = search(best === null ? centre : { x: best.x, y: best.y }, best);
+  let first = search(best === null ? centre : { x: best.x, y: best.y }, best);
+  const outer = edge(best);
+  if (first === null && best !== null && outer > 0) first = search(best, best, outer);
   if (first !== null) return { ...first, group: best, fallback: 'none' };
   if (best !== null) {
     const again = search(centre, null);
