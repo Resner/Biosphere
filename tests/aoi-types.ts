@@ -1,5 +1,7 @@
 // The harness's shared shapes (M11 T10): a scenario's clients and fights, and a run's counters.
 
+import type { WaveParams, WaveRecord } from './wave-record';
+
 export interface Box {
   x0: number;
   y0: number;
@@ -30,6 +32,8 @@ export interface ClientSpec {
   walk: Walk;
   /** It enters the water where `place()` puts it (M12), around the best group; `x` and `y` are ignored. */
   place?: boolean;
+  /** ms: it leaves the water then (M12 T9: the hub takes it out of the directory and the crowds). */
+  leaveAt?: number;
 }
 
 /** A fight refereed by witnesses: its fighters and witnesses hold P0 links for its span (ms). */
@@ -57,6 +61,10 @@ export interface Scenario {
   instances?: boolean;
   /** A client alone for `RIDE_ALONE_MS` rides the current, by `place()` (M12). */
   ride?: boolean;
+  /** ms a client must be alone before it rides; default `RIDE_ALONE_MS` (the hub's fixture mode shortens it too). */
+  rideAloneMs?: number;
+  /** Records the wave's arrivals, rides and series (`RunResult.wave`, M12 T9). */
+  wave?: WaveParams;
 }
 
 /** The gates' counters: each is a count of violations, with the first few described. */
@@ -112,6 +120,8 @@ export interface RunResult {
   entries: number;
   entriesLinked: number;
   hub: { relayed: number; hub: number; fallback: number; refused: number };
+  /** The wave's record, when the scenario asked for it. */
+  wave?: WaveRecord;
 }
 
 export const GATE_KEYS = [
