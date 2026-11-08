@@ -653,7 +653,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### The release gate
 
-- [ ] T11 A load test in the release gate (after T7, T8)
+- [x] T11 A load test in the release gate (after T7, T8)
   - Steps:
     1. **`m13-load.spec.ts`** (`@slow`, hub 8837):
        - 40 headless clients (T7's) join around the world's centre over 30 s;
@@ -671,6 +671,9 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - It passes 3 times in a row locally (`--repeat-each=3 --workers=1`).
     - It fails when a page's `where` cadence is broken on purpose: a temporary local change that reports every tick, not committed.
   - Notes: this guards the page's real cadence against the model, which the headless clients can't. The storage per player-hour is guarded by `worker/storage.test.ts`, as now.
+  - Done: `m13-load.spec.ts` (hub 8837) passes 3 in a row on a fresh store and fails with `where` sent every second (59 messages a minute against 13.8). `GET /v1/e2e/sessions` gained `byType`; `LoadClient` gained `answerOffers`, and the clients take identities no earlier run on the hub used (a returning one is flagged `clock-too-fast`).
+    Gotchas: pages beside 40 headless clients dial peers that never link (about 18 `signal` a minute), so the clients stay silent and the pages play 40,000 wu away, within reach of each other; a page that swims at full throttle crosses a leaf every few seconds (4.3 `where` a minute against the model's 2.2), so it rests when fed.
+    Found, not fixed (outside T11): an honest page that feeds is flagged now and then `health-over`, `energy-over` or `biomass-over-max` (a few of 12 runs, at biomass well under the maximum), so the spec's flag check leaves those three kinds out. The hub's cap for a body (`vitalsCap`, `clampCondition`) and what the page reports differ by a hair somewhere; T12 or the close review should find where.
 
 ### Closing
 

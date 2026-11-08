@@ -44,6 +44,12 @@ export interface LoadClientOptions {
   index: number;
   /** Offers to `near` peers per minute while in the water. */
   offersPerMinute: number;
+  /**
+   * Whether the client answers the offers it gets (default true). A real page that dials it gets a
+   * bogus answer that fails at once, which a page redials with no backoff; a client that stays
+   * silent is a peer that cannot be reached, which a page backs off from (M13 T11).
+   */
+  answerOffers?: boolean;
   /** Opens a socket (default: Node's `WebSocket` with the origin); tests fake it. */
   createSocket?: (url: string) => SocketLike;
   now?: () => number;
@@ -162,6 +168,7 @@ export class LoadClient {
     });
     hub.onSignal((m) => {
       if (m.kind === 'offer') {
+        if (this.opts.answerOffers === false) return;
         hub.send({ t: 'signal', to: m.from, kind: 'answer', sdp: SDP });
       } else if (m.kind === 'answer') {
         const at = this.offered.get(m.from);

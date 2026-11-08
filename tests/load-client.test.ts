@@ -74,11 +74,12 @@ beforeEach(() => {
 });
 afterEach(() => vi.useRealTimers());
 
-const make = (index = 1, offersPerMinute = 6) =>
+const make = (index = 1, offersPerMinute = 6, answerOffers = true) =>
   new LoadClient({
     url: 'ws://hub.test/v1/hub',
     index,
     offersPerMinute,
+    answerOffers,
     createSocket: () => {
       const hub = new FakeHub();
       hubs.push(hub);
@@ -152,6 +153,18 @@ describe('the load client', () => {
       kind: 'answer',
       sdp: 'v=0 load',
     });
+    client.leave();
+  });
+
+  it('stays silent to an offer when it is told not to answer', async () => {
+    const client = make(3, 0, false);
+    const started = client.start();
+    await vi.advanceTimersByTimeAsync(10);
+    await started;
+    const hub = hubs[0] as FakeHub;
+    const before = hub.sent.length;
+    hub.say({ t: 'signal', from: THIRD, kind: 'offer', sdp: 'x' });
+    expect(hub.sent).toHaveLength(before);
     client.leave();
   });
 
