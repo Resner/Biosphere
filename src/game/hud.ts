@@ -213,9 +213,7 @@ export class Hud {
     this.toastElement.textContent = text;
     this.toastElement.hidden = false;
     clearTimeout(this.toastTimer);
-    this.toastTimer = setTimeout(() => {
-      this.toastElement.hidden = true;
-    }, ms);
+    this.toastTimer = setTimeout(() => this.clearToast(), ms);
   }
 
   /** Restarts the short brightening of the energy bar after eating. */

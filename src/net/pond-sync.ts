@@ -389,9 +389,9 @@ export class RemoteSet {
     const remote = this.remotes.get(id);
     if (remote) {
       remote.view.name = name;
-      // A new link to it: it shares water again.
-      remote.fadeFrom = null;
     }
+    // A new link to it: it shares water again.
+    this.fadeIn(id);
   }
 
   /**

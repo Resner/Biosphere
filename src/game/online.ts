@@ -22,6 +22,7 @@ import {
   type Welcome,
   type WorldMsg,
 } from '../net/hub-client';
+import { OPEN_WATER } from '../net/instance';
 import { PeerMesh } from '../net/peer-mesh';
 import {
   type ClientMsg,
@@ -558,7 +559,7 @@ export class OnlineSession {
       },
       this.neighbours.leaf,
       c && crowd.crowded
-        ? crowdList(this.opts.selfId, { ...c, n: crowd.own }, this.neighbours.linkedFixes())
+        ? () => crowdList(this.opts.selfId, { ...c, n: crowd.own }, this.neighbours.linkedFixes())
         : null,
     );
     if (!msg) return;
@@ -595,7 +596,7 @@ export class OnlineSession {
     if (this.mesh) this.mesh.setIce(w.ice);
     else this.mesh = this.makeMesh(w.ice);
     // A new hub session starts in the open water; the hub names the instance again if it keeps one.
-    this.ownWater(0);
+    this.ownWater(OPEN_WATER);
     handlers.welcome(w);
   }
 

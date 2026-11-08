@@ -13,6 +13,7 @@ import type {
   Welcome,
   WorldMsg,
 } from '../net/hub-client';
+import { OPEN_WATER } from '../net/instance';
 import type { PeerMeshStats } from '../net/peer-mesh';
 import type { ClientMsg, NearPeer, PeerEvent, SignedSnap, Snapshot } from '../net/protocol';
 import { type CreatureNow, type OnlineHub, type OnlineMesh, OnlineSession } from './online';
@@ -148,7 +149,7 @@ export class FakeMesh implements OnlineMesh {
     return this.open.has(id);
   }
   instanceOf(id: string): number {
-    return this.helloN.get(id) ?? 0;
+    return this.helloN.get(id) ?? OPEN_WATER;
   }
   ticketOf(id: string): SignedSeat | null {
     return this.open.has(id) ? ({ seat: { name: id.toUpperCase() } } as SignedSeat) : null;
