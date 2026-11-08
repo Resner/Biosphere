@@ -77,9 +77,8 @@ export class Admission {
     return open > mean ? (last - first + open) / n : mean;
   }
 
-  /** The ms until the next seat is likely to free: the interval less the time since the last one freed. */
-  nextSeatMs(now: number): number {
-    const every = this.seatEveryMs(now);
+  /** The ms until the next seat is likely to free: `every` (`seatEveryMs`) less the time since the last one freed. */
+  nextSeatMs(now: number, every: number): number {
     const last = this.freed[this.freed.length - 1];
     if (this.freed.length < 2 || last === undefined) return every;
     const open = now - last;
@@ -142,7 +141,8 @@ export function etaS(hub: Hub, why: QueueWhy, place: number, now: number): numbe
   if (why === 'storage') return 0;
   const every = hub.admission.seatEveryMs(now);
   const ahead = (place - 1) * every;
-  const first = why === 'budget' ? dayStartOf(now) + DAY_MS - now : hub.admission.nextSeatMs(now);
+  const first =
+    why === 'budget' ? dayStartOf(now) + DAY_MS - now : hub.admission.nextSeatMs(now, every);
   return Math.max(0, Math.round((first + ahead) / 1000));
 }
 

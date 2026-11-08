@@ -14,7 +14,6 @@ import { awayDue } from './away';
 import { flushFight, resend } from './fights';
 import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
-import { limitsOf } from './plan';
 import { seatTicket } from './seat';
 import type { InLine } from './seats';
 import {
@@ -104,9 +103,6 @@ function placesOf(hub: Hub, player: string, except: WebSocket): [WebSocket, Live
   if (waiting && s?.phase === 'queued') out.push([waiting.ws, s]);
   return out;
 }
-
-/** The day's request budget (`DAILY_REQUEST_BUDGET`), which admission and the proof reads share. */
-export const requestBudget = (env: Env): number => limitsOf(env).requestsPerDay;
 
 /** How many sessions hold a seat (away fighters not included). */
 export const seatedCount = (hub: Hub): number => hub.seats.size;
