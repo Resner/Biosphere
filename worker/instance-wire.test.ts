@@ -5,8 +5,9 @@ import type { Authority } from './authority';
 import { anchorAt, closeSockets, login, nextOf, stub } from './test-hub';
 
 // Protocol 12 on the authority (M12 T1): `spawn` and `ride` count in the 20-message budget; `spawn`
-// is answered (T4, `spawn.test.ts`) and `ride` dropped and counted until T7 answers it; a `where`'s
-// crowd is parsed and ignored until T5. The protocol-11 hello's refusal is in `hub.test.ts`.
+// is answered (T4, `spawn.test.ts`) and `ride` dropped and counted until T7 answers it; a `where`
+// with a crowd is still answered with `near` (T5's crowds are in `instances.test.ts`). The
+// protocol-11 hello's refusal is in `hub.test.ts`.
 
 afterEach(closeSockets);
 

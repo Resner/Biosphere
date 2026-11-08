@@ -2,6 +2,7 @@ import { toBase64Url } from '../src/ledger/identity';
 import { type ClientMsg, type HubMsg, isCause, type SignedCommit } from '../src/net/protocol';
 import type { DeathCause } from '../src/sim/types';
 import type { Beacons, SignedCommitment } from './beacons';
+import type { Crowds } from './crowds';
 import type { Directory } from './directory';
 import type { Duties } from './duty';
 import type { FightStore } from './fight-store';
@@ -39,6 +40,12 @@ export interface Hub {
   readonly duties: Duties;
   /** Who is where (M11 T6, `where.ts`), in memory and rebuilt from the attachments on a wake; hub tests swap in a larger world's. */
   directory: Directory;
+  /** Crowd instances beside the directory (M12 T5, `where.ts`), in memory and rebuilt from the attachments on a wake. */
+  crowds: Crowds;
+  /** The crowds' one split timer on `hub.clock`, for `crowds.due()` (`armCrowds`). */
+  crowdTimer: { at: number; handle: unknown } | null;
+  /** Fighters whose page left the water during their fight: their instance is kept until it ends. */
+  readonly crowdsKept: Set<string>;
   /** Signals the hub relayed, by unordered pair (`GET /v1/e2e/directory`). */
   readonly relays: Map<string, number>;
   /** The spawns given in the last minute (at most 256), in memory: a wake starts with none (M12 T4). */
@@ -80,6 +87,8 @@ export type Session = (
       where?: WhereAt | undefined;
       /** When the session's last seat ticket was signed, on the hub's clock (M11 T7, `worker/seat.ts`). */
       seatAt?: number | undefined;
+      /** Its crowd and instance (M12 T5), absent in the open water, so a wake rebuilds the crowds. */
+      crowd?: { id: number; n: number } | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is not in the world yet. */

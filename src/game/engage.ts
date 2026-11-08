@@ -133,7 +133,9 @@ export type EngageRefusal =
   /** The authority's movement check (M10 T11): the attacker's own snapshots jumped. */
   | 'moved'
   /** The authority's sight check (M11 T3): the target's answer held none of the attacker's snapshots. */
-  | 'unseen';
+  | 'unseen'
+  /** Crowd instances (M12 T5): the target, or a fighter of the fight it joins, is in other water. */
+  | 'instance';
 
 /** A pond peer as the attack sees it: its drawn body for the reach rules, and its snapshot marks. */
 export interface AttackPeer {
@@ -257,6 +259,8 @@ export function refusalToast(
       return 'Moved too fast to attack';
     case 'unseen':
       return 'Not in its sight yet';
+    case 'instance':
+      return "Can't reach it from here";
     case 'none':
       return 'Nobody in reach';
     default:
@@ -281,6 +285,8 @@ export function authorityRefusal(reason: string, bigger: boolean): EngageRefusal
       return 'moved';
     case 'engage:unseen':
       return 'unseen';
+    case 'engage:instance':
+      return 'instance';
     default:
       return 'other';
   }

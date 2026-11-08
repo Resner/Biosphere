@@ -7,7 +7,13 @@ import { fixtureSource } from './fixture-beacons';
 import live from './index';
 import { recoverFights } from './recover';
 import { type Session, sessionOf } from './socket';
-import { type DirectoryView, directoryView, rebuildDirectory } from './where';
+import {
+  armCrowds,
+  type DirectoryView,
+  directoryView,
+  rebuildCrowds,
+  rebuildDirectory,
+} from './where';
 
 // The Worker for local E2E (`worker/wrangler.e2e.jsonc`): the same code, but drand comes from the
 // recorded rounds, so no test touches the network. Never deployed.
@@ -60,10 +66,13 @@ export class Authority extends LiveAuthority {
     this.duties.clear();
     // ... and so does the directory: a new object rebuilds it from the attachments (now none).
     this.directory = rebuildDirectory(this);
+    this.crowds = rebuildCrowds(this);
+    this.crowdsKept.clear();
+    armCrowds(this);
     recoverFights(this, this.clock.now());
   }
 
-  /** The directory for a scenario to read (M11 T6): the leaves, each member's leaf and report, the relays by pair. */
+  /** The directory for a scenario to read (M11 T6): the leaves, each member's leaf, report and instance, the relays by pair, the crowds (M12 T5). */
   directoryState(): DirectoryView {
     return directoryView(this);
   }

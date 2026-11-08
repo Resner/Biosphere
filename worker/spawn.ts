@@ -57,13 +57,14 @@ export function spawnerOf(life: LifeState | undefined, msg: { r: number; aoi: nu
   return { r, adultR, aoi: aoiRadius(r, adultR) };
 }
 
-/** Every other member of the directory, by its last report (all in the open water until T5). */
+/** Every other member of the directory, by its last report (each with its instance). */
 function othersOf(hub: Hub, self: string): Placed[] {
   const out: Placed[] = [];
   for (const [, s] of activeSessions(hub)) {
     if (s.playerId === self) continue;
     const m = hub.directory.member(s.playerId);
-    if (m) out.push({ id: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, n: 0 });
+    if (m)
+      out.push({ id: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, n: hub.crowds.instanceOf(m.id) });
   }
   return out;
 }
