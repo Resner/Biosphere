@@ -536,7 +536,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Transitions
 
-- [ ] T10 Transitions keep one place and one state [opus] (after T5, T7)
+- [x] T10 Transitions keep one place and one state [opus] (after T5, T7)
   - Steps:
     1. **A resume comes back.** Migration 12 (above): a close writes where the creature left the water from the session's last report, once, in its checkpoint's transaction. A `spawn` for a resume answers:
        - `back`, unprotected, at that place, when the same creature left under 10 minutes ago;
@@ -569,6 +569,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
       - migration 12 adds the columns, and a close writes one row more than before.
     - The property test passes with 0 violations.
     - `m12-spawn`'s reload passes with `back`, and every M8 resume and restart E2E passes.
+  - Done: migration 12 and `saveLeft`/`leftPlace`/`leftAt` in `worker/spawn.ts` (a `gone` clears `spawned`, so the next spawn comes `back`); fighters anchored at their final position in `settle.ts` (no `fights.ts` change needed); `worker/transitions.test.ts`.
+    Gotcha: the property test found nothing to fix; one run in three is a test world (fixture mode takes every jump), so only the others send dishonest reports.
 
 ### Closing
 

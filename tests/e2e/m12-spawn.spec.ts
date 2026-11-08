@@ -17,16 +17,23 @@ import {
 // M12 T4: the authority places every life. A hatches (a genesis) on the world's centre; B, C and D hatch one
 // after another, each placed outside every earlier player's clearance (by the hub's directory) and
 // every earlier spawn's, and within P1 reach of one of them, so each pair links at once. D reloads
-// and is placed again, unprotected.
+// and comes back where it left the water, unprotected (M12 T10).
 
 const HUB = 'http://localhost:8833';
 
 test.describe.configure({ mode: 'serial' });
 
+/** Where the page's own creature is. */
+async function placeOf(p: Player): Promise<{ x: number; y: number }> {
+  const player = (await state(p.page)).player;
+  if (!player) throw new Error('the page has no creature');
+  return player;
+}
+
 /** The directory's members, by player id. */
 const membersOf = (view: DirectoryView) => new Map(view.members.map((m) => [m.id, m]));
 
-test('the authority places each hatch around the others, and a reload again unprotected @slow', async ({
+test('the authority places each hatch around the others, and a reload comes back unprotected @slow', async ({
   browser,
   request,
 }) => {
@@ -84,10 +91,15 @@ test('the authority places each hatch around the others, and a reload again unpr
       }
     }
 
-    // D reloads: the resume is placed again, unprotected, and A sees no shimmer on it.
+    // D reloads: the resume comes back where it left the water (M12 T10), unprotected, and A sees
+    // no shimmer on it.
     const d = players[3] as Player;
+    const left = await placeOf(d);
     await reloadAndResume(d);
-    expect(await spawnOf(d)).toMatchObject({ why: 'placed', protect: false });
+    const back = await spawnOf(d);
+    expect(back).toMatchObject({ why: 'back', protect: false });
+    expect(dist(back, left), 'D comes back where it left').toBeLessThanOrEqual(300);
+    expect(dist(await placeOf(d), left), 'D plays on from there').toBeLessThanOrEqual(300);
     await expect
       .poll(async () => (await state(a.page)).remotes.find((r) => r.id === d.id)?.protected, {
         message: 'A sees D again, unprotected',

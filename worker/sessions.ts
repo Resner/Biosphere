@@ -25,7 +25,7 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
-import { fightAnchor } from './spawn';
+import { fightAnchor, saveLeft } from './spawn';
 import { atOf, countRelay, gone, relayReach, reseatCrowd, sharesWater } from './where';
 import { witnessLeft } from './witness-fight';
 import { worldInfo, worldRow } from './world';
@@ -267,11 +267,16 @@ export function relay(
 /**
  * A connection that reported anything since the last record leaves its condition behind as a
  * checkpoint; a fighter's leaves nothing, since its fight's settlement writes its records. A lock
- * still asking is no fight yet: its close writes the checkpoint.
+ * still asking is no fight yet: its close writes the checkpoint. In the same transaction, a
+ * creature that was in the water leaves where it was (`saveLeft`, M12 T10): one row more.
  */
-export function saveOnClose(hub: Hub, { life, playerId }: ActiveSession): void {
-  if (life && unsaved(life) && !hub.fights.playerFighting(playerId))
-    checkpoint(hub, life, playerId);
+export function saveOnClose(hub: Hub, session: ActiveSession): void {
+  const { life, playerId } = session;
+  hub.ctx.storage.transactionSync(() => {
+    if (life && unsaved(life) && !hub.fights.playerFighting(playerId))
+      checkpoint(hub, life, playerId);
+    saveLeft(hub, session);
+  });
 }
 
 /** Closes a socket; an active one first leaves the directory and its duties. */
