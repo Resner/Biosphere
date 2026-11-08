@@ -48,8 +48,9 @@ describe('admission queue', () => {
     await Promise.all(seated.map(({ c }) => flush(c)));
     const fourth = await queueUp();
     const fifth = await queueUp();
-    expect(fourth.msg).toEqual({ t: 'queued', position: 1, etaS: 30 });
-    expect(fifth.msg).toEqual({ t: 'queued', position: 2, etaS: 60 });
+    // The line's reason (M13 T4): the session cap held.
+    expect(fourth.msg).toEqual({ t: 'queued', position: 1, etaS: 30, why: 'full' });
+    expect(fifth.msg).toEqual({ t: 'queued', position: 2, etaS: 60, why: 'full' });
     // Nobody seated hears of them.
     for (const { c } of seated) {
       expect(await flush(c)).toEqual([]);
@@ -79,7 +80,12 @@ describe('admission queue', () => {
     await a.c.closed;
     await nextOf(fourth.c, 'welcome');
     expect((await nextOf(fourth.c, 'life')).t).toBe('life');
-    expect(await nextOf(fifth.c, 'queued')).toEqual({ t: 'queued', position: 1, etaS: 30 });
+    expect(await nextOf(fifth.c, 'queued')).toEqual({
+      t: 'queued',
+      position: 1,
+      etaS: 30,
+      why: 'full',
+    });
     // Seated, the fourth session can play: a history request is answered.
     fourth.c.send({ t: 'history' });
     expect((await nextOf(fourth.c, 'history')).lives).toEqual([]);
@@ -156,7 +162,9 @@ describe('request budget', () => {
       const { usage } = authority as unknown as Limits;
       for (let i = 0; i < 18_000; i++) usage.message(wall);
     });
-    const { c } = await queueUp();
+    const { c, msg } = await queueUp();
+    // The line's reason (M13 T4): the day's requests held, not the seats.
+    expect(msg).toMatchObject({ position: 1, why: 'budget' });
     expect(await flush(seated)).toEqual([]);
     wall = Math.floor(wall / DAY) * DAY + DAY + 1000;
     await runDurableObjectAlarm(stub());

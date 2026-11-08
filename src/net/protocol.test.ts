@@ -369,7 +369,7 @@ const hubMsgs: HubMsg[] = [
   { t: 'commit', commit, hatchesLeft: 2 },
   genesisMsg as unknown as HubMsg,
   { t: 'refused', reason: 'active' },
-  { t: 'queued', position: 3, etaS: 90 },
+  { t: 'queued', position: 3, etaS: 90, why: 'full' },
   { t: 'refused', reason: 'limit', genesisIn: 300_000 },
   {
     t: 'ack',
@@ -493,8 +493,10 @@ describe('rejections', () => {
     // (version 6, M6c T2, so no pond mixes epochs), encounters (version 7, M7 T6) and worth,
     // settlements and proxy frames (version 8, M8 T3) and the second world renewal (version 9,
     // M9 T2), witnesses (version 10, M10 T2), the one world (version 11, M11 T2) and spawning,
-    // riding and crowd instances (version 12, M12 T1): older clients are turned away.
-    expect(PROTOCOL_VERSION).toBe(12);
+    // riding and crowd instances (version 12, M12 T1), and relay reports and the line's reason
+    // (version 13, M13 T4): older clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(13);
+    expect(bad({ ...hello, v: 12 })).toBeNull();
     expect(bad({ ...hello, v: 11 })).toBeNull();
     expect(bad({ ...hello, v: 10 })).toBeNull();
     expect(bad({ ...hello, v: 9 })).toBeNull();
@@ -641,9 +643,9 @@ describe('genesis messages', () => {
     expect(
       hubBad({ t: 'commit', commit: { ...commit, authSig: 'no' }, hatchesLeft: 1 }),
     ).toBeNull();
-    expect(hubBad({ t: 'queued', position: 0, etaS: 0 })).toBeNull();
-    expect(hubBad({ t: 'queued', position: 1.5, etaS: 0 })).toBeNull();
-    expect(hubBad({ t: 'queued', position: 1, etaS: -1 })).toBeNull();
+    expect(hubBad({ t: 'queued', position: 0, etaS: 0, why: 'full' })).toBeNull();
+    expect(hubBad({ t: 'queued', position: 1.5, etaS: 0, why: 'full' })).toBeNull();
+    expect(hubBad({ t: 'queued', position: 1, etaS: -1, why: 'full' })).toBeNull();
     expect(hubBad({ t: 'queued', position: 1 })).toBeNull();
     expect(hubBad({ t: 'refused', reason: 'Not Allowed' })).toBeNull();
     expect(hubBad({ t: 'refused', reason: 'limit', genesisIn: 'soon' })).toBeNull();

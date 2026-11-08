@@ -10,7 +10,7 @@ import type { Silhouette } from '../genome/silhouette';
 import type { Beacon } from '../ledger/drand';
 import type { PubKey } from '../ledger/record';
 import type { AuditVerdict } from '../net/audit';
-import type { AuditCase, PeerEvent } from '../net/protocol';
+import type { AuditCase, PeerEvent, RelayReport } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { EggPhase } from '../render/egg';
 import type { GpuExtent } from '../render/gpu-watch';
@@ -282,6 +282,8 @@ export interface BsState {
     proxyFrom: Record<string, string>;
     dutyLinks: DutyLink[];
     strangers: number;
+    /** The last relay report a `progress` carried (M13 T4), null before one. */
+    relay: RelayReport | null;
   };
   /**
    * Witness duty (M10 T6, T7, T8): `avail`, whether the hub was last told this page can witness; the
@@ -465,6 +467,11 @@ export interface BsDebug {
   aloneMs(ms: number): void;
   /** Sets how many P0 + P1 sharing water make the page crowded (2 to 24; M12 T6). */
   crowdAt(n: number): void;
+  /**
+   * Reads the links' stats and sends a progress report at once (M13 T4), with the relay totals;
+   * resolves once it is sent (nothing is sent without a recorded creature playing).
+   */
+  progressNow(): Promise<void>;
   /**
    * Moves the player (as `teleport`) to the nearest point well inside that zone, clear of its edge
    * bands with its surround in the zone too, and returns it (M6 T16).

@@ -12,12 +12,14 @@ import {
   type HubMsg,
   PROTOCOL_VERSION,
   parseHubMsg,
+  type QueueWhy,
 } from './protocol';
 
-/** A place in the admission line: 1 is next, `etaS` the estimated wait. */
+/** A place in the admission line: 1 is next, `etaS` the estimated wait, `why` the guard that holds (M13 T4). */
 export interface QueuePlace {
   position: number;
   etaS: number;
+  why: QueueWhy;
 }
 
 /** `outdated`: the hub speaks another protocol version, so this page needs a reload. */
@@ -242,7 +244,7 @@ export class HubClient {
         this.hello(msg.nonce);
         break;
       case 'queued':
-        this._queue = { position: msg.position, etaS: msg.etaS };
+        this._queue = { position: msg.position, etaS: msg.etaS, why: msg.why };
         break;
       case 'welcome':
         this._queue = null;

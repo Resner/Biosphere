@@ -1,6 +1,7 @@
 import type { Canonical } from '../ledger/canonical';
 import type { RecordRequest, Status } from '../ledger/record';
 import { parseSignedSeat } from '../ledger/seat-doc';
+import { onlyKeys } from '../ledger/witness-doc';
 import {
   BORN_MAX_BYTES,
   type Born,
@@ -29,7 +30,11 @@ import {
   PING_KINDS,
   PROTOCOL_VERSION,
   peerEventMax,
+  QUEUE_WHYS,
+  RELAY_KB_MAX,
+  RELAY_LINKS_MAX,
   RELAY_MAX_BYTES,
+  type RelayReport,
   SIGNAL_MAX_BYTES,
   type SignalKind,
   type Vec2,
@@ -165,8 +170,10 @@ export function parseClientMsg(raw: string): ClientMsg | null {
       return isStr(o.nonce, NONCE_RE) && isStr(o.sig, SIG_RE)
         ? capped(raw, { t: 'genesis-request', nonce: o.nonce, sig: o.sig })
         : null;
-    case 'progress':
-      return isInt(o.n, 0, MAX_TICK) &&
+    case 'progress': {
+      const relay = o.relay === undefined ? undefined : relayReport(o.relay);
+      return relay !== null &&
+        isInt(o.n, 0, MAX_TICK) &&
         isInt(o.ticks, 0, MAX_TICK) &&
         isInt(o.biomass, 0, MAX_CONDITION) &&
         isInt(o.energy, 0, MAX_CONDITION) &&
@@ -178,8 +185,10 @@ export function parseClientMsg(raw: string): ClientMsg | null {
             biomass: o.biomass,
             energy: o.energy,
             health: o.health,
+            ...(relay ? { relay } : {}),
           })
         : null;
+    }
     case 'death':
       return isCause(o.cause) && isInt(o.ticks, 0, MAX_TICK)
         ? capped(raw, { t: 'death', cause: o.cause, ticks: o.ticks })
@@ -390,13 +399,24 @@ export function parseHubMsg(raw: string): HubMsg | null {
       return isInt(o.genesisIn, 0, MAX_TIME)
         ? capped(raw, { t: 'refused', reason: o.reason, genesisIn: o.genesisIn })
         : null;
-    case 'queued':
-      return isInt(o.position, 1, MAX_QUEUE) && isInt(o.etaS, 0, MAX_TIME)
-        ? capped(raw, { t: 'queued', position: o.position, etaS: o.etaS })
+    case 'queued': {
+      const why = QUEUE_WHYS.find((w) => w === o.why);
+      return why && isInt(o.position, 1, MAX_QUEUE) && isInt(o.etaS, 0, MAX_TIME)
+        ? capped(raw, { t: 'queued', position: o.position, etaS: o.etaS, why })
         : null;
+    }
     default:
       return encounterHubMsg(o, raw) ?? witnessHubMsg(o, raw) ?? worldHubMsg(o, raw);
   }
+}
+
+/** A page's relay report (M13 T4): exactly its three whole numbers, each in its range. */
+function relayReport(v: unknown): RelayReport | null {
+  if (!isObj(v) || !onlyKeys(v, ['links', 'relayed', 'kb'])) return null;
+  const { links, relayed, kb } = v;
+  return isInt(links, 0, RELAY_LINKS_MAX) && isInt(relayed, 0, links) && isInt(kb, 0, RELAY_KB_MAX)
+    ? { links, relayed, kb }
+    : null;
 }
 
 function pastLife(v: unknown): PastLife | null {

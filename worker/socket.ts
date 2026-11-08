@@ -10,6 +10,7 @@ import type { Clock, Fights } from './fights';
 import type { Ledger } from './ledger';
 import type { LifeState } from './life';
 import type { Court } from './mating';
+import type { Seats } from './seats';
 import type { Anchor, RecentSpawn, Spawned } from './spawn';
 import type { TurnCredentials } from './turn';
 import type { UsageMeter } from './usage';
@@ -40,6 +41,8 @@ export interface Hub {
   readonly fightStore: FightStore;
   /** Witness duties in memory: offers, who holds one, strikes (ADR 0058, `duty.ts`). */
   readonly duties: Duties;
+  /** The sockets by seat, the line, the hellos due, the courts and the witness candidates (M13 T2, `seats.ts`), in memory and rebuilt from the attachments on a wake. */
+  seats: Seats;
   /** Who is where (M11 T6, `where.ts`), in memory and rebuilt from the attachments on a wake; hub tests swap in a larger world's. */
   directory: Directory;
   /** Crowd instances beside the directory (M12 T5, `where.ts`), in memory and rebuilt from the attachments on a wake. */
@@ -93,6 +96,8 @@ export type Session = (
       crowd?: { id: number; n: number } | undefined;
       /** Since when its `near` answers have held no peer (M12 T7, `worker/ride.ts`); absent with company. */
       aloneSince?: number | undefined;
+      /** When its last relay report was counted (wall time, M13 T4); the next one's KB is clamped from it. */
+      relayAt?: number | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is not in the world yet. */
@@ -126,31 +131,40 @@ export type Session = (
 export type ActiveSession = Session & { phase: 'active' };
 export type LiveSession = Session & { phase: 'active' | 'queued' };
 
-/** Every logged-in socket (except `except`) with its session. A joiner is still `challenged` until placed. */
+/**
+ * What finding sessions costs (M13 T2): attachment reads (`sessionOf`) and `getWebSockets()` calls
+ * (`socketsOf`), for the tests that check a message's work doesn't grow with the sockets.
+ */
+export const hubReads = { attachments: 0, sockets: 0 };
+
+/** Every socket the object holds, with its session: only a wake (and the E2E restart) walks them all. */
+export function* socketsOf(hub: Pick<Hub, 'ctx'>): Generator<[WebSocket, Session | null]> {
+  hubReads.sockets++;
+  for (const ws of hub.ctx.getWebSockets()) yield [ws, sessionOf(ws)];
+}
+
+/** Writes a socket's attachment and notes it in the hub's indexes (`seats.ts`): every handler's write goes through here. */
+export function keep(hub: Pick<Hub, 'seats'>, ws: WebSocket, session: Session): void {
+  ws.serializeAttachment(session);
+  hub.seats.note(ws, session);
+}
+
+/** Every seated socket (except `except`) with its session: one attachment read each, so per-message paths look up `seated` instead. */
 export function* activeSessions(
   hub: Hub,
   except?: WebSocket,
 ): Generator<[WebSocket, ActiveSession]> {
-  for (const other of hub.ctx.getWebSockets()) {
-    if (other === except) continue;
-    const theirs = sessionOf(other);
-    if (theirs?.phase === 'active') yield [other, theirs];
+  for (const [player] of [...hub.seats.seated()]) {
+    const found = seated(hub, player);
+    if (found && found[0] !== except) yield found;
   }
 }
 
-/** The player's seated socket, if any. */
+/** The player's seated socket, if any: one attachment read. */
 export function seated(hub: Hub, player: string): [WebSocket, ActiveSession] | null {
-  for (const entry of activeSessions(hub)) if (entry[1].playerId === player) return entry;
-  return null;
-}
-
-/** Every signed-in socket (except `except`), seated or waiting. */
-export function* liveSessions(hub: Hub, except?: WebSocket): Generator<[WebSocket, LiveSession]> {
-  for (const other of hub.ctx.getWebSockets()) {
-    if (other === except) continue;
-    const theirs = sessionOf(other);
-    if (theirs?.phase === 'active' || theirs?.phase === 'queued') yield [other, theirs];
-  }
+  const ws = hub.seats.socketOf(player);
+  const s = ws ? sessionOf(ws) : null;
+  return ws && s?.phase === 'active' && s.playerId === player ? [ws, s] : null;
 }
 
 /** A commitment as the wire carries it: without the id and status the client recomputes or doesn't need. */
@@ -169,6 +183,7 @@ export function randomToken(bytes: number): string {
 }
 
 export function sessionOf(ws: WebSocket): Session | null {
+  hubReads.attachments++;
   return ws.deserializeAttachment() as Session | null;
 }
 

@@ -269,7 +269,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Scale in the hub
 
-- [ ] T2 The hub's work per message doesn't grow with its sockets [opus] (after T1)
+- [x] T2 The hub's work per message doesn't grow with its sockets [opus] (after T1)
   - Steps:
     1. **In-memory indexes** on the hub replace the socket scans. They are rebuilt in the constructor from the attachments, as the directory is, and kept up by `hello`, `enter`, `drop`, `promote` and the handlers that change them:
        - **each seated player's socket**, used by `seated`, the relay's target, `tellMoved`, `tellInstances`, court and mate targets, `seatedCrowd` and duties;
@@ -303,6 +303,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
       - 500 seated sessions relay 100 signals, and every one reaches its target.
     - **A wake**: indexes rebuilt from a set of attachments give the same seated set, line order, courts and witness candidates as the live ones, tested as `rebuildDirectory` is.
   - Notes: the answers don't change; only how the hub finds things does. T9 builds admission on the line's index.
+  - Done: `worker/seats.ts` (`hub.seats`) indexes seats, the line, hellos, courts and witness candidates; every attachment write goes through `keep`, and `hubReads` counts reads (`worker/hub-scale.test.ts`, heavy). Gotcha: a test writing a seated player's `creatures`/`players` rows directly calls `seats.reload`; eligibility still reads each candidate's attachment for its duties and credit.
 
 - [x] T3 Placement and the hub's pure parts at 10,000 (after none)
   - Steps:
@@ -333,7 +334,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Relay and the line on the wire
 
-- [ ] T4 Protocol 13: relay reports and the line's reason [opus] (after T1)
+- [x] T4 Protocol 13: relay reports and the line's reason [opus] (after T1)
   - Steps:
     1. `PROTOCOL_VERSION` 13. A protocol-12 hello gets `error: version`.
     2. **The wire**: `progress` gains `relay?`, and `queued` gains `why` (shapes above). The parsers refuse a missing, extra or out-of-range field.
@@ -371,6 +372,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
       - each page's `state().net.relay` holds its open links, none relayed;
       - the hub's `/v1/e2e/metrics` counts the reports, with 0 KB.
     - Every E2E passes on protocol 13.
+  - Done: `relay-stats.ts` (pure) and `PeerMesh.linkStats` feed `LifeFlow.report` every 10 s of links; the hub clamps and meters them (`meterRelay`), and `queued` carries `admissionWhy`. Gotcha: a report's `links` and `relayed` are the most of any read since the last report (summing would pass 32), only its KB is summed.
 
 ### Evidence
 
@@ -421,7 +423,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - The fill's first minutes cost far more per player than a live world would: 18 joins a second into a few thousand players. They are reported, not gated.
     - If a gate's number is beyond the link model at 10,000, an ADR records what it measures and why, as ADRs 0063 and 0066 did.
 
-- [ ] T6 What a message costs in the real object (after T2)
+- [x] T6 What a message costs in the real object (after T2)
   - Steps:
     1. **`worker/hub-cost.test.ts`** seats 50, 200 and 500 sessions: real sockets, each with a recorded creature placed in one populated area of the world.
        - For each message type, it sends batches of 200 through the object's own dispatch inside the object (`runInDurableObject` → `webSocketMessage`), and times each batch on the local runtime's clock, which steps by 1 ms. The median of 5 batches gives ms per message.
@@ -438,6 +440,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
   - Acceptance:
     - A `speedTest`: each type's ms per message at 500 seated is at most 1.5 times its ms at 50, plus 0.02 ms.
     - The report and its JSON are committed. `tools/hub-report.test.ts` checks the report against a recorded `HubCost`.
+  - Done: `hub-cost.test.ts` (a `speedTest`, about 20 s) seats 50, 200 and 500, a batch's clock moving 1 s per message, and prints `HUB_COST`; `docs/perf/hub.md` and `hub.json` are committed. Every type is flat but `spawn`, which `place()` makes grow with the members (about 6 ms per 1,000 seated, 60 ms at 10,000 in workerd): its budget is the growth of the members, and T8 prices it. `ride`'s `company` check scanned every member in reach; `Directory.anyAround` stops at the first. The population sits 500 wu apart: 500 within one 1,024 wu leaf makes `where` grow with the leaf.
 
 - [ ] T7 500 headless clients against `wrangler dev` (after T2)
   - Steps:

@@ -93,6 +93,8 @@ export class Ledger {
   /** The flags table (`worker/audit.ts`), written through `run` so its rows count here. */
   readonly audit = new Audit((query, ...bindings) => this.run(query, ...bindings));
   private signing: { id: string; secret: Uint8Array } | null = null;
+  /** Told of each record that changes a creature's active time, by owner (the hub's witness candidates keep their play with it). */
+  played: ((owner: string, ms: number) => void) | null = null;
 
   constructor(
     readonly storage: Storage,
@@ -612,10 +614,11 @@ export class Ledger {
     }: { chainParent?: string | null; diedT?: number } = {},
   ): void {
     const { body } = record;
+    const activeMs = field(body, 'activeMs', head.activeMs);
     const values: SqlStorageValue[] = [
       record.seq,
       hash,
-      field(body, 'activeMs', head.activeMs),
+      activeMs,
       field(body, 'biomass', head.biomass),
       field(body, 'energy', head.energy),
       field(body, 'health', head.health),
@@ -630,6 +633,7 @@ export class Ledger {
       ...values,
       head.id,
     );
+    if (activeMs !== head.activeMs) this.played?.(head.owner, activeMs - head.activeMs);
   }
 
   private mateInTransaction({ commit, round, requests }: MateInput): MateResult {

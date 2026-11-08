@@ -19,15 +19,14 @@ import {
   reachSince,
 } from './directory';
 import type { LifeState } from './life';
-import { askLive } from './mating';
 import {
   type ActiveSession,
-  activeSessions,
   type Hub,
-  type Session,
+  keep,
   seated,
   sendIfOpen,
   sessionOf,
+  socketsOf,
 } from './socket';
 import { anchorHolds, type RecentSpawn } from './spawn';
 
@@ -85,8 +84,7 @@ export function rebuildDirectory(
   size = RULES.world.size,
 ): Directory {
   const dir = new Directory(size, { leafMax: leafMaxOf(hub.env) });
-  for (const ws of hub.ctx.getWebSockets()) {
-    const s = sessionOf(ws);
+  for (const [, s] of socketsOf(hub)) {
     if (s?.phase === 'active' && s.where && dir.inside(s.where.x, s.where.y)) {
       dir.report(memberOf(s, s.where));
     }
@@ -98,8 +96,7 @@ export function rebuildDirectory(
 export function rebuildCrowds(hub: Pick<Hub, 'ctx' | 'env' | 'clock'>): Crowds {
   const crowds = new Crowds({ instanceMax: instanceMaxOf(hub.env), quietMs: quietMsOf(hub.env) });
   const members: { m: CrowdMember; crowd: number; n: number }[] = [];
-  for (const ws of hub.ctx.getWebSockets()) {
-    const s = sessionOf(ws);
+  for (const [, s] of socketsOf(hub)) {
     if (s?.phase !== 'active' || !s.where) continue;
     const { x, y, r } = s.where;
     members.push({ m: { id: s.playerId, x, y, r }, crowd: s.crowd?.id ?? 0, n: s.crowd?.n ?? 0 });
@@ -113,10 +110,9 @@ const count = (hub: Hub, t: ClientMsg['t']) => hub.dropped.set(t, (hub.dropped.g
 /** Tells each member a split or merge moved its leaf. */
 export function tellMoved(hub: Hub, moved: { id: string; leaf: Leaf }[]): void {
   if (moved.length === 0) return;
-  const leaves = new Map(moved.map((m) => [m.id, m.leaf]));
-  for (const [ws, s] of activeSessions(hub)) {
-    const leaf = leaves.get(s.playerId);
-    if (leaf) sendIfOpen(ws, { t: 'leaf', leaf });
+  for (const { id, leaf } of moved) {
+    const ws = hub.seats.socketOf(id);
+    if (ws) sendIfOpen(ws, { t: 'leaf', leaf });
   }
 }
 
@@ -143,29 +139,19 @@ function crowdContext(hub: Hub): CrowdContext {
   };
 }
 
-/** Each player's live court partners, both ways. */
-export function courtPairs(hub: Hub): Map<string, string[]> {
-  const pairs = new Map<string, string[]>();
-  const add = (a: string, b: string) => pairs.set(a, [...(pairs.get(a) ?? []), b]);
-  const now = Date.now();
-  for (const [, s] of activeSessions(hub)) {
-    if (s.court && 'ask' in s.court && askLive(s.court.sentAt, now)) {
-      add(s.playerId, s.court.ask.partner);
-      add(s.court.ask.partner, s.playerId);
-    }
-  }
-  return pairs;
-}
+/** Each player's live court partners, both ways (the courts' index). */
+export const courtPairs = (hub: Hub): Map<string, string[]> => hub.seats.courtPairs(Date.now());
 
 /** Tells each member whose instance changed its new one (`instance`), and keeps it in its attachment. */
 function tellInstances(hub: Hub, moved: readonly Moved[]): void {
   if (moved.length === 0) return;
-  const ids = new Set(moved.map((m) => m.id));
-  for (const [ws, s] of activeSessions(hub)) {
-    if (!ids.has(s.playerId)) continue;
-    const n = hub.crowds.instanceOf(s.playerId);
-    const crowd = n === OPEN_WATER ? undefined : { id: hub.crowds.crowdOf(s.playerId), n };
-    ws.serializeAttachment({ ...s, crowd } satisfies Session);
+  for (const id of new Set(moved.map((m) => m.id))) {
+    const found = seated(hub, id);
+    if (!found) continue;
+    const [ws, s] = found;
+    const n = hub.crowds.instanceOf(id);
+    const crowd = n === OPEN_WATER ? undefined : { id: hub.crowds.crowdOf(id), n };
+    keep(hub, ws, { ...s, crowd });
     sendIfOpen(ws, { t: 'instance', n });
   }
 }
@@ -200,7 +186,7 @@ function leaveCrowds(hub: Hub, ws: WebSocket | null, id: string, now: number, ct
   if (!ws) return;
   const s = sessionOf(ws);
   if (s?.phase === 'active' && s.crowd) {
-    ws.serializeAttachment({ ...s, crowd: undefined } satisfies Session);
+    keep(hub, ws, { ...s, crowd: undefined });
   }
   if (was !== OPEN_WATER) sendIfOpen(ws, { t: 'instance', n: OPEN_WATER });
 }
@@ -240,7 +226,7 @@ export function reseatCrowd(hub: Hub, ws: WebSocket, player: string): void {
   const n = hub.crowds.instanceOf(player);
   const s = sessionOf(ws);
   if (n === OPEN_WATER || s?.phase !== 'active') return;
-  ws.serializeAttachment({ ...s, crowd: { id: hub.crowds.crowdOf(player), n } } satisfies Session);
+  keep(hub, ws, { ...s, crowd: { id: hub.crowds.crowdOf(player), n } });
   sendIfOpen(ws, { t: 'instance', n });
   armCrowds(hub);
 }
@@ -257,9 +243,7 @@ function seatedCrowd(
   crowd: readonly string[] | undefined,
 ): string[] | null {
   if (!crowd) return null;
-  const here = new Set<string>([self]);
-  for (const [, s] of activeSessions(hub)) here.add(s.playerId);
-  return crowd.filter((id) => here.has(id));
+  return crowd.filter((id) => id === self || hub.seats.has(id));
 }
 
 /**
@@ -310,18 +294,18 @@ export function where(
   armCrowds(hub);
   const near = hub.directory.near(session.playerId, now, (id) => hub.crowds.instanceOf(id));
   if (near) {
-    noteAlone(ws, near.peers.length, now);
+    noteAlone(hub, ws, near.peers.length, now);
     sendIfOpen(ws, { t: 'near', ...near });
   }
   tellMoved(hub, moved);
 }
 
 /** A `near` with no peers starts the session's alone time (or keeps it), and one with any clears it (M12 T7). */
-function noteAlone(ws: WebSocket, peers: number, now: number): void {
+function noteAlone(hub: Hub, ws: WebSocket, peers: number, now: number): void {
   const s = sessionOf(ws);
   if (s?.phase !== 'active') return;
   const aloneSince = peers > 0 ? undefined : (s.aloneSince ?? now);
-  if (aloneSince !== s.aloneSince) ws.serializeAttachment({ ...s, aloneSince } satisfies Session);
+  if (aloneSince !== s.aloneSince) keep(hub, ws, { ...s, aloneSince });
 }
 
 /**
@@ -336,7 +320,7 @@ export function whereIn(
   at: WhereAt,
 ): { id: string; leaf: Leaf }[] {
   const { moved } = hub.directory.report(memberOf(session, at));
-  ws.serializeAttachment({ ...session, where: at } satisfies Session);
+  keep(hub, ws, { ...session, where: at });
   return moved;
 }
 
@@ -350,13 +334,13 @@ export function gone(hub: Hub, ws: WebSocket | null, session: ActiveSession): vo
   // same binding asks afresh, so it comes back there (M12 T10).
   // Out of the water it is not alone: the next report starts the count again (M12 T7).
   if (ws && (session.where || session.aloneSince !== undefined || session.spawned))
-    ws.serializeAttachment({
+    keep(hub, ws, {
       ...session,
       where: undefined,
       left: session.where ?? session.left,
       aloneSince: undefined,
       spawned: undefined,
-    } satisfies Session);
+    });
   tellMoved(hub, hub.directory.remove(id));
   if (hub.fights.playerLocked(id) && hub.crowds.instanceOf(id) !== OPEN_WATER) {
     hub.crowdsKept.add(id);
@@ -422,10 +406,10 @@ export interface DirectoryView {
 
 export function directoryView(hub: Hub): DirectoryView {
   const members: DirectoryView['members'] = [];
-  for (const [, s] of activeSessions(hub)) {
-    const m = hub.directory.member(s.playerId);
-    const leaf = hub.directory.leafOf(s.playerId);
-    if (m && leaf) members.push({ ...m, leaf, n: hub.crowds.instanceOf(s.playerId) });
+  for (const [id] of hub.seats.seated()) {
+    const m = hub.directory.member(id);
+    const leaf = hub.directory.leafOf(id);
+    if (m && leaf) members.push({ ...m, leaf, n: hub.crowds.instanceOf(id) });
   }
   return {
     leaves: hub.directory.leaves(),

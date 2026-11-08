@@ -27,7 +27,7 @@ import { auditEnded, auditorTook } from './attest';
 import type { FlagKind } from './audit';
 import type { SignedCommitment } from './beacons';
 import type { Fight } from './fights';
-import { type ActiveSession, type Hub, type Session, seated, sendIfOpen, signedOf } from './socket';
+import { type ActiveSession, type Hub, keep, seated, sendIfOpen, signedOf } from './socket';
 import { handOver } from './witness-fight';
 import {
   DUTIES_PER_HOUR,
@@ -227,7 +227,7 @@ export class Duties {
     offer.outcome = 'ok';
     const now = this.hub.clock.now();
     const taken = [...dutiesInHour(session, now), now].slice(-DUTIES_PER_HOUR);
-    ws.serializeAttachment({ ...session, duties: taken } satisfies Session);
+    keep(this.hub, ws, { ...session, duties: taken });
     if (run.role === 'referee') this.onReferee(duty.event, offer.player, offer.position);
     else this.onAuditor(duty.event, offer.player, offer.position);
   }
@@ -262,6 +262,7 @@ export class Duties {
       now + STRIKE_MS,
     );
     this.hub.ledger.rowsWritten += cursor.rowsWritten;
+    this.hub.seats.strike(player, now + STRIKE_MS);
     this.hub.ledger.audit.raise(kind, { owner: player, creature: '', key, t: now });
     const held = this.held.get(player);
     const offer = held ? this.byEvent.get(held.event)?.runs.get(held.role)?.current : null;

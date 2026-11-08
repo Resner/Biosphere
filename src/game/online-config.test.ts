@@ -118,10 +118,12 @@ describe('statusText', () => {
     expect(statusText('online', 0)).toBe('Online · 0 nearby');
     expect(statusText('connecting', 0)).toBe('Connecting…');
     expect(statusText('offline', 0)).toBe('Offline · playing alone');
-    expect(statusText('connecting', 0, { position: 3, etaS: 90 })).toBe(
+    expect(statusText('connecting', 0, { position: 3, etaS: 90, why: 'full' })).toBe(
       'Waiting for a place (3rd in line)',
     );
-    expect(statusText('online', 2, { position: 1, etaS: 30 })).toBe('Online · 2 nearby');
+    expect(statusText('online', 2, { position: 1, etaS: 30, why: 'full' })).toBe(
+      'Online · 2 nearby',
+    );
     expect(
       ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '103rd'].join(),
     ).toBe([1, 2, 3, 4, 11, 12, 13, 21, 22, 103].map(ordinal).join());

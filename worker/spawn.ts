@@ -13,7 +13,7 @@ import { pondTick } from './engage';
 import type { Lock } from './fights';
 import { type LifeState, protectionEnds } from './life';
 import { type Placed, place, SPAWN_RECENT_MS, type Spawner } from './placement';
-import { type ActiveSession, activeSessions, type Hub, type Session, sendIfOpen } from './socket';
+import { type ActiveSession, type Hub, type Session, sendIfOpen } from './socket';
 import { bindingOf, tellMoved, type WhereAt, whereIn } from './where';
 import { worldRow } from './world';
 
@@ -61,14 +61,12 @@ export function spawnerOf(life: LifeState | undefined, msg: { r: number; aoi: nu
   return { r, adultR, aoi: aoiRadius(r, adultR) };
 }
 
-/** Every other member of the directory, by its last report (each with its instance). */
+/** Every other seated member of the directory, by its last report (each with its instance): no attachment read. */
 export function othersOf(hub: Hub, self: string): Placed[] {
   const out: Placed[] = [];
-  for (const [, s] of activeSessions(hub)) {
-    if (s.playerId === self) continue;
-    const m = hub.directory.member(s.playerId);
-    if (m)
-      out.push({ id: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, n: hub.crowds.instanceOf(m.id) });
+  for (const m of hub.directory.members()) {
+    if (m.id === self || !hub.seats.has(m.id)) continue;
+    out.push({ id: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, n: hub.crowds.instanceOf(m.id) });
   }
   return out;
 }

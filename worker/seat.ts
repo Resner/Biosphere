@@ -4,7 +4,7 @@
 // (the authority's key is made once, at its first use by anything).
 
 import { SEAT_RENEW_MS, SEAT_TTL_MS, type SignedSeat, seatHash } from '../src/ledger/seat';
-import { type ActiveSession, type Hub, type Session, sendIfOpen } from './socket';
+import { type ActiveSession, type Hub, keep, sendIfOpen } from './socket';
 
 /** The world a ticket names: its seed, the one every pond row takes. */
 function worldOf(hub: Hub): string {
@@ -32,6 +32,6 @@ export function seatTicket(
 /** After a `pong`: a fresh `seat` once the session's last ticket is `SEAT_RENEW_MS` old. */
 export function renewSeat(hub: Hub, ws: WebSocket, session: ActiveSession, now: number): void {
   if (now - (session.seatAt ?? 0) < SEAT_RENEW_MS) return;
-  ws.serializeAttachment({ ...session, seatAt: now } satisfies Session);
+  keep(hub, ws, { ...session, seatAt: now });
   sendIfOpen(ws, { t: 'seat', ticket: seatTicket(hub, session, now) });
 }

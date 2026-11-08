@@ -9,7 +9,7 @@ import {
 } from '../ledger/identity';
 import { REQUEST_DOMAIN, recordHash, requestMessage, type StoredRecord } from '../ledger/record';
 import type { LifeMsg } from '../net/hub-client';
-import type { Born, ClientMsg, HubMsg, LifeInfo } from '../net/protocol';
+import type { Born, ClientMsg, HubMsg, LifeInfo, RelayReport } from '../net/protocol';
 import { LifeFlow } from './life';
 
 type Genesis = Extract<HubMsg, { t: 'genesis' }>;
@@ -323,6 +323,36 @@ describe('progress', () => {
       { t: 'progress', n: 1, ticks: 900, biomass: 31_250, energy: 4_013, health: 1_500 },
       { t: 'progress', n: 2, ticks: 1800, biomass: 32_000, energy: 3_000, health: 1_500 },
     ]);
+  });
+
+  it('carries the relay totals since the last report, and keeps the last one sent (M13 T4)', async () => {
+    const totals: (RelayReport | null)[] = [{ links: 3, relayed: 1, kb: 12 }, null];
+    const relaying = new LifeFlow({
+      identity: () => identity,
+      nonce: () => NONCE,
+      verify: async () => [],
+      relay: () => totals.shift() ?? null,
+    });
+    relaying.attach({ send: (m) => sent.push(m) });
+    relaying.receive({ t: 'life', life: info(), genesisIn: 0 });
+    await relaying.hatch(WAIT);
+    expect(relaying.relaySent).toBeNull();
+    relaying.report(900, { biomass: 10, energy: 1, health: 1 });
+    relaying.report(1800, { biomass: 10, energy: 1, health: 1 });
+    expect(sent).toEqual([
+      {
+        t: 'progress',
+        n: 1,
+        ticks: 900,
+        biomass: 1000,
+        energy: 100,
+        health: 100,
+        relay: { links: 3, relayed: 1, kb: 12 },
+      },
+      { t: 'progress', n: 2, ticks: 1800, biomass: 1000, energy: 100, health: 100 },
+    ]);
+    // The last report that carried one.
+    expect(relaying.relaySent).toEqual({ links: 3, relayed: 1, kb: 12 });
   });
 
   it('keeps the biomass of the report the hub took, not of a later one', async () => {
