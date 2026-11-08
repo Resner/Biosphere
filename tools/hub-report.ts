@@ -20,10 +20,6 @@ export const GROWTH_FLOOR_MS = 0.02;
 
 const ms = (n: number) => n.toFixed(3);
 
-/** Whether `costs` (one per size) stays within the budget of the first. */
-export const flat = (costs: number[]): boolean =>
-  (costs[costs.length - 1] ?? 0) <= GROWTH_RATIO * (costs[0] ?? 0) + GROWTH_FLOOR_MS + 1e-9;
-
 /**
  * The most a type's largest size may cost, by its smallest. A `spawn` places the creature by
  * `place()`, which reads every member of the directory (ADR 0069 budgets it at 20 ms at 10,000
@@ -32,7 +28,8 @@ export const flat = (costs: number[]): boolean =>
  */
 export function budgetOf(type: string, small: number, sessions: number[]): number {
   const [first, last] = [sessions[0] ?? 1, sessions[sessions.length - 1] ?? 1];
-  return type === 'spawn' ? small * (last / first) : GROWTH_RATIO * small + GROWTH_FLOOR_MS + 1e-9;
+  const ratio = type === 'spawn' ? last / first : GROWTH_RATIO;
+  return ratio * small + GROWTH_FLOOR_MS + 1e-9;
 }
 
 /** Whether a type's costs (one per size) are within its budget. */

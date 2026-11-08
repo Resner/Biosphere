@@ -16,18 +16,18 @@ price of a message on Cloudflare's hardware.
 
 | Message | 50 seated | 200 seated | 500 seated | 500 against 50 |
 |---|---|---|---|---|
-| avail | 0.015 | 0.010 | 0.010 | 0.67x |
-| batch | 7.333 | 6.533 | 6.933 | 0.95x |
-| input | 0.025 | 0.020 | 0.015 | 0.60x |
-| lock-state | 0.015 | 0.015 | 0.010 | 0.67x |
+| avail | 0.010 | 0.010 | 0.010 | 1.00x |
+| batch | 6.933 | 6.700 | 6.800 | 0.98x |
+| input | 0.020 | 0.005 | 0.015 | 0.75x |
+| lock-state | 0.015 | 0.010 | 0.010 | 0.67x |
 | ping | 0.015 | 0.010 | 0.010 | 0.67x |
 | progress | 0.020 | 0.015 | 0.015 | 0.75x |
 | ride | 0.015 | 0.015 | 0.015 | 1.00x |
 | signal | 0.025 | 0.025 | 0.025 | 1.00x |
-| spawn | 1.357 | 1.413 | 4.040 | 2.98x |
-| where | 0.070 | 0.095 | 0.110 | 1.57x |
-| whereCrowd | 0.040 | 0.035 | 0.035 | 0.88x |
-| frame step (an authority-refereed duel) | 0.185 | 0.095 | 0.105 | 0.57x |
+| spawn | 1.571 | 1.520 | 3.790 | 2.41x |
+| where | 0.070 | 0.100 | 0.110 | 1.57x |
+| whereCrowd | 0.035 | 0.035 | 0.035 | 1.00x |
+| frame step (an authority-refereed duel) | 0.150 | 0.110 | 0.110 | 0.73x |
 
 The budget (the `speedTest`): each type at the largest size at most 1.5 times its cost at the smallest, plus 0.02 ms; a `spawn`, which reads every member, at most 10 times.
 
@@ -37,9 +37,9 @@ Each seated session keeps its state in its socket attachment, as JSON (the limit
 
 | Median | p95 | Max |
 |---|---|---|
-| 569 B | 569 B | 596 B |
+| 566 B | 569 B | 593 B |
 
 `spawn` is the one type that grows with the population, by design: `place()` reads every member of the
-directory (ADR 0069 budgets it at 20 ms in Node at 10,000 members), and a session asks once per life. Its budget is that it grows no faster than the members do. On a straight line it costs about 6.0 ms more per 1,000 seated, so about 60.681 ms at 10,000 on the local runtime: the capacity model prices it.
+directory (ADR 0069 budgets it at 20 ms in Node at 10,000 members), and a session asks once per life. Its budget is that it grows no faster than the members do. On a straight line it costs about 4.9 ms more per 1,000 seated, so about 50.636 ms at 10,000 on the local runtime: the capacity model prices it.
 
-Every type stays within the budget: a message costs the same with 500 seated as with 50.
+Every type stays within its budget.

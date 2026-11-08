@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest';
-import { flat, type HubCost, hubReport, rounded, spawnSlope } from './hub-report';
+import { type HubCost, hubReport, inBudget, rounded, spawnSlope } from './hub-report';
 
 const COST: HubCost = {
   sessions: [50, 200, 500],
@@ -15,10 +15,16 @@ const COST: HubCost = {
 };
 
 describe('the hub cost report', () => {
-  it('judges a type flat when its largest size is within 1.5 times its smallest plus 0.02 ms', () => {
-    expect(flat([0.08, 0.09, 0.14])).toBe(true);
-    expect(flat([0.08, 0.09, 0.141])).toBe(false);
-    expect(flat([0, 0, 0.02])).toBe(true);
+  it('judges a type by its largest size against its smallest: 1.5 times plus 0.02 ms, and a spawn as many times as the sessions', () => {
+    const sizes = [50, 200, 500];
+    expect(inBudget('where', [0.08, 0.09, 0.14], sizes)).toBe(true);
+    expect(inBudget('where', [0.08, 0.09, 0.141], sizes)).toBe(false);
+    expect(inBudget('where', [0, 0, 0.02], sizes)).toBe(true);
+    // A spawn may grow as fast as the sessions seated do.
+    expect(inBudget('spawn', [1, 3, 10], sizes)).toBe(true);
+    expect(inBudget('spawn', [1, 3, 10.1], sizes)).toBe(false);
+    // Whatever its smallest size resolved to, the floor leaves room for the clock's step.
+    expect(inBudget('spawn', [0, 0, 0.02], sizes)).toBe(true);
   });
 
   it('rounds every time to a thousandth of a millisecond', () => {

@@ -135,8 +135,8 @@ export class Directory {
   /** Every member whose centre lies within `radius` of (x, y). */
   around(x: number, y: number, radius: number): string[] {
     const out: string[] = [];
-    this.visit(x, y, radius, (id, m) => {
-      if (Math.hypot(m.x - x, m.y - y) <= radius) out.push(id);
+    this.anyAround(x, y, radius, (id) => {
+      out.push(id);
       return false;
     });
     return out;

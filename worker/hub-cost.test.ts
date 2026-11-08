@@ -76,14 +76,21 @@ afterEach(() => setSessions(200));
 const socketOf = (o: Authority, player: string): WebSocket => must(o.seats.socketOf(player));
 
 /**
- * `count` messages from `player` through the object's dispatch, the hub's clock a second apart:
- * ms per message. The timers that fell due run after, outside the timing.
+ * `count` messages, the `i`th from `from(i)`, through the object's dispatch, the hub's clock a
+ * second apart: ms per message. The timers that fell due run after, outside the timing.
  */
-function timed(o: Authority, player: string, make: (i: number) => unknown, count = BATCH): number {
-  const ws = socketOf(o, player);
-  const raws = Array.from({ length: count }, (_, i) => JSON.stringify(make(i)));
+function timed(
+  o: Authority,
+  from: (i: number) => string,
+  make: (i: number) => unknown,
+  count = BATCH,
+): number {
+  const batch = Array.from({ length: count }, (_, i) => ({
+    ws: socketOf(o, from(i)),
+    raw: JSON.stringify(make(i)),
+  }));
   const t0 = wall();
-  for (const raw of raws) {
+  for (const { ws, raw } of batch) {
     clock.t += MESSAGE_GAP_MS;
     o.webSocketMessage(ws, raw);
   }
@@ -92,14 +99,11 @@ function timed(o: Authority, player: string, make: (i: number) => unknown, count
   return ms;
 }
 
-/** The median of `REPEATS` batches. */
+/** The median of `REPEATS` batches from one player. */
 const typical = (o: Authority, player: string, make: (i: number) => unknown): number =>
-  median(Array.from({ length: REPEATS }, () => timed(o, player, make)));
+  median(Array.from({ length: REPEATS }, () => timed(o, () => player, make)));
 
-interface Seated {
-  c: Awaited<ReturnType<typeof join>>['c'];
-  id: { playerId: string };
-}
+type Seated = Pick<Player, 'c' | 'id'>;
 
 /** Anchors and reports `c` at (x, y), taking its `near`. */
 async function standAt(p: Seated, x: number, y: number) {
@@ -125,16 +129,16 @@ interface Round {
 async function duel(c: Player, d: Player): Promise<{ input: number; frame: number }> {
   const start = await outOfReach(c, d);
   return authority((o) => {
-    const players = [c, d].map((p) => socketOf(o, p.id.playerId));
+    const [cs, ds] = [socketOf(o, c.id.playerId), socketOf(o, d.id.playerId)];
     let input = 0;
     let frame = 0;
     for (let f = 0; f < DUEL_FRAMES; f++) {
       clock.advance(Math.max(0, start.at + f * FRAME_MS - FRAME_MS - clock.t));
       const raw = JSON.stringify({ t: 'input', enc: start.enc, f, i: IDLE_CODE });
       const t0 = wall();
-      o.webSocketMessage(must(players[0]), raw);
+      o.webSocketMessage(cs, raw);
       const t1 = wall();
-      o.webSocketMessage(must(players[1]), raw);
+      o.webSocketMessage(ds, raw);
       const t2 = wall();
       input += t1 - t0;
       frame += t2 - t1;
@@ -206,14 +210,14 @@ async function round(size: number, pop: Seated[]): Promise<Round> {
   const ms: Record<string, number> = {};
   // A pair of its own: the crowd batch below moves its sender and whoever is near into instances.
   const [a, b] = await pair();
-  // Seated in all at the measuring: the background, the pair, the swimmer far out, the witness and the two duels' fighters.
+  // The 8 actors seated at the measuring (a, b, c, d, e, f, the witness and g) are part of the size.
   const fresh = await seat(pop, size - 8);
   pop.push(...fresh);
   const at = a.id.playerId;
   const crowd = pop.slice(0, 16).map((p) => p.id.playerId);
 
   await placed(a, b);
-  const ids = { a: a.id.playerId, b: b.id.playerId };
+  const toB = b.id.playerId;
   await authority((o) => {
     ms.ping = typical(o, at, (i) => ({ t: 'ping', id: 5000 + i }));
     ms.avail = typical(o, at, (i) => ({ t: 'avail', on: i % 2 === 0 }));
@@ -227,7 +231,7 @@ async function round(size: number, pop: Seated[]): Promise<Round> {
     }));
     ms.signal = typical(o, at, (i) => ({
       t: 'signal',
-      to: ids.b,
+      to: toB,
       kind: 'offer',
       sdp: `${i}`.padEnd(1500, 'v'),
     }));
@@ -268,17 +272,14 @@ async function round(size: number, pop: Seated[]): Promise<Round> {
   expect((await flush(g.c)).filter((m) => m.t === 'near').length).toBe(BATCH * REPEATS);
 
   // A first spawn for each session this round seated.
-  ms.spawn = await authority((o) => {
-    const raws = fresh.map(() => JSON.stringify({ t: 'spawn', ...STARTER }));
-    const t0 = wall();
-    for (const [i, p] of fresh.entries()) {
-      clock.t += MESSAGE_GAP_MS;
-      o.webSocketMessage(socketOf(o, p.id.playerId), must(raws[i]));
-    }
-    const spent = (wall() - t0) / fresh.length;
-    clock.advance(0);
-    return spent;
-  });
+  ms.spawn = await authority((o) =>
+    timed(
+      o,
+      (i) => must(fresh[i]).id.playerId,
+      () => ({ t: 'spawn', ...STARTER }),
+      fresh.length,
+    ),
+  );
 
   const [c, d] = await pair();
   const authorityDuel = await duel(c, d);
