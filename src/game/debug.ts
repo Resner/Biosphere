@@ -230,10 +230,12 @@ export interface BsState {
   world: {
     id: string;
     seed: string;
-    /** The world's side in wu, and its centre: where the hub's spawn ring is. */
+    /** The world's side in wu, and its centre: the spawn centre. */
     size: number;
     centre: { x: number; y: number };
   } | null;
+  /** The hub's last `spawn` answer: where a life entered its world, why, and whether it is protected (M12 T4); null before one. */
+  spawn: { x: number; y: number; why: 'placed' | 'back' | 'ride'; protect: boolean } | null;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
   social: {
     chat: { from: string; name: string; text: string }[];

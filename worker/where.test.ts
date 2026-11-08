@@ -16,7 +16,7 @@ import {
   setEnv,
   useFightHub,
 } from './fight-test-kit';
-import { type Client, flush, freshNonce, nextOf, report, rowsWritten } from './test-hub';
+import { anchorAt, type Client, flush, freshNonce, nextOf, report, rowsWritten } from './test-hub';
 import { leafMaxOf, rebuildDirectory } from './where';
 
 // The authority's directory on the hub (M11 T6, T14): `where` answered with `near` across the
@@ -37,11 +37,14 @@ beforeEach(() =>
 );
 
 type Who = Pick<Player, 'c' | 'id'>;
-const where = (p: Who, x: number, y = C, r = 10, aoi = STARTER_AOI) =>
+/** Reports at (x, y); a binding the hub has not anchored yet is anchored there first (M12 T4). */
+const where = async (p: Who, x: number, y = C, r = 10, aoi = STARTER_AOI) => {
+  await anchorAt(p.id.playerId, x, y);
   p.c.send({ t: 'where', x, y, r, aoi });
+};
 /** Reports and waits for the answer. */
 const placed = async (p: Who, x: number, y = C, r = 10, aoi = STARTER_AOI) => {
-  where(p, x, y, r, aoi);
+  await where(p, x, y, r, aoi);
   return nextOf(p.c, 'near');
 };
 const droppedWheres = () => authority((o) => o.dropped.get('where') ?? 0);
@@ -125,7 +128,7 @@ describe('where and near', () => {
   it('drops and counts a centre outside the world', async () => {
     const a = await join();
     const before = await droppedWheres();
-    where(a, WORLD + 10);
+    await where(a, WORLD + 10);
     expect(types(await flush(a.c))).toEqual([]);
     expect(await droppedWheres()).toBe(before + 1);
   });
@@ -137,20 +140,23 @@ describe('jumps', () => {
     await placed(p, C);
     await advance(2000);
     const before = await droppedWheres();
-    where(p, C + 5000);
+    await where(p, C + 5000);
     expect(types(await flush(p.c))).toEqual([]);
     expect(await droppedWheres()).toBe(before + 1);
     // Within reach (300 wu/s × 2 s + 2,000 wu), it is taken.
     expect((await placed(p, C + 2500)).leaf.size).toBe(WORLD);
   });
 
-  it('takes the jump after a genesis', async () => {
+  it('takes the jump after a genesis to the place its spawn gave', async () => {
     const p = await join();
     await placed(p, C);
     await advance(2000);
     await rehatch({ ...p, pond: p.pond });
+    p.c.send({ t: 'spawn', r: 10, aoi: STARTER_AOI });
+    const at = await nextOf(p.c, 'spawn');
+    expect(Math.hypot(at.x - C, at.y - C)).toBeGreaterThan(20_000);
     const before = await droppedWheres();
-    await placed(p, C + 50_000);
+    await placed(p, at.x, at.y);
     expect(await droppedWheres()).toBe(before);
   });
 

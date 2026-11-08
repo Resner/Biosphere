@@ -1,15 +1,17 @@
 import { parseGenomeText } from '../genome/codec';
-import type { Vec2 } from '../net/protocol';
+import type { ClientMsg, Vec2 } from '../net/protocol';
 import { EGG } from '../render/egg';
 import { IDLE } from '../sim/input';
+import { RULES } from '../sim/rules';
 import { maxEnergy, maxHealth } from '../sim/vitals';
 import type { App } from './app';
 import { adultRadius, newSession, type Session } from './app-session';
 import { type Body, bodyLabel, hatchBody } from './body';
 import { type Started, VERIFY_FAILED } from './life';
 import type { FallbackId } from './offspring-text';
-import { cleanName, ringSpawn, saveName, tryOnline } from './online-config';
+import { cleanName, saveName, tryOnline } from './online-config';
 import type { Screen } from './screens';
+import { placeLife, spawnAskOf } from './spawn-ask';
 
 /** Why "Back to the fight" did not start. */
 const NOT_RESUMED = 'Could not go back to the fight. Try again.';
@@ -132,43 +134,82 @@ export class LifeStarts {
     app.screens.show(nextScreen);
   }
 
-  /** Starts a life, in the joined pond or (`inPond` false) in a local one. */
+  /**
+   * Starts a life, in the joined pond or (`inPond` false) in a local one. `place` is where it enters
+   * the pond and whether it is spawn-protected: the hub's `spawn` answer, or a promoted child's
+   * parent's place (M12 T4).
+   */
   begin(
     inPond: boolean,
-    recorded?: { body: Body; start: Started; protect: boolean },
-    at?: Vec2,
+    life?: { body: Body; start?: Started },
+    place?: { at: Vec2; protect: boolean },
   ): void {
     const { app } = this;
     const target = inPond ? app.pond : null;
     const seed = this.hatches === 0 ? app.params.seed : `${app.params.seed}/${this.hatches}`;
     this.hatches++;
-    let spawn: Vec2 | null = null;
-    if (at) spawn = at;
-    else if (target?.ring) spawn = ringSpawn(target.ring.centre, target.ring.hint, target.lives);
-    if (target) target.lives++;
+    const saved = life?.start?.condition;
+    const spawn = target ? (place?.at ?? null) : null;
     app.hatchError = '';
     const next = newSession(
       target ? target.seed : seed,
       false,
-      recorded?.body ?? app.hatcher.next(),
+      life?.body ?? app.hatcher.next(),
       target,
       spawn,
-      recorded?.start.condition?.biomass,
+      saved?.biomass,
       app.params.world ?? undefined,
     );
-    const saved = recorded?.start.condition;
     if (saved) {
       const { player } = next;
       player.energy = Math.min(saved.energy, maxEnergy(saved.biomass));
       player.health = Math.min(saved.health, maxHealth(saved.biomass));
     }
     this.enter(next, 'playing');
-    // A genesis, a promoted child or a restore is spawn-protected for a while; a resume is not.
-    if (target && recorded?.protect) app.online.shield.start(app.pondMs());
+    // The hub says which lives are spawn-protected: a genesis, a promoted child or a restore.
+    if (target && place?.protect) app.online.shield.start(app.pondMs());
     else app.online.shield.end();
     // After a genesis or a hatch, the creature grows out of its egg.
     app.emerging = app.eggs.hatched(app.eggClock(), next.body.rarity) ? next : null;
     if (app.emerging) app.sound.cue('hatch');
+  }
+
+  /**
+   * Where a life enters the hub's world (M12 T4): a promoted child's `parent` place, else the hub's
+   * answer to `spawn`, asked with the creature's size; with no answer in `SPAWN_WAIT_MS`, a local
+   * world. The run begins it; the egg or the title stays up until then.
+   */
+  private async beginPlaced(
+    life: { body: Body; start?: Started },
+    parent?: { at: Vec2; protect: boolean },
+  ): Promise<() => void> {
+    const link = this.app.keeper.current;
+    const send = (msg: ClientMsg): boolean => {
+      if (link?.status !== 'online') return false;
+      link.send(msg);
+      return true;
+    };
+    const biomass = life.start?.condition?.biomass ?? RULES.starter.biomass;
+    const ask = spawnAskOf(biomass, life.body.creature.phys.maxBiomass);
+    const { inPond, place } = await placeLife(this.app.spawnAsk, send, ask, parent);
+    return () => this.begin(inPond, life, place);
+  }
+
+  /** "Swim in a practice cell": in the hub's world where the hub puts it, else in a local one. */
+  practice(): void {
+    const { app } = this;
+    if (this.hatching) return;
+    app.flow.practice();
+    if (app.pond === null) {
+      this.begin(false);
+      return;
+    }
+    this.hatching = true;
+    void this.beginPlaced({ body: app.hatcher.next() })
+      .then((run) => run())
+      .finally(() => {
+        this.hatching = false;
+      });
   }
 
   hatch(): void {
@@ -200,7 +241,8 @@ export class LifeStarts {
         // A pinned body is a test or a debug cell: it never touches the ledger.
         if (!joined || app.params.genome) {
           flow.practice();
-          this.begin(joined);
+          if (joined) (await this.beginPlaced({ body: app.hatcher.next() }))();
+          else this.begin(false);
           return;
         }
         const outcome = await flow.hatch(HATCH_WAIT_MS);
@@ -211,7 +253,7 @@ export class LifeStarts {
           if (outcome.reason === 'limit' && (outcome.genesisIn ?? 0) > 0) {
             app.limitUntil = performance.now() + (outcome.genesisIn ?? 0);
           } else {
-            this.begin(true);
+            (await this.beginPlaced({ body: app.hatcher.next() }))();
           }
         } else {
           const genome = parseGenomeText(outcome.start.genome);
@@ -219,10 +261,10 @@ export class LifeStarts {
             app.hatchError = VERIFY_FAILED;
             return;
           }
-          // The egg stirs and cracks first; play begins with its burst.
+          // The hub places the creature while the egg stirs and cracks; play begins with its burst.
           const body = hatchBody(genome);
-          const { start, protect } = outcome;
-          await this.whenRipe(body.rarity, () => this.begin(true, { body, start, protect }));
+          const run = await this.beginPlaced({ body, start: outcome.start });
+          await this.whenRipe(body.rarity, run);
         }
       })
       .catch((error: unknown) => {
@@ -260,7 +302,8 @@ export class LifeStarts {
           return;
         }
         app.eggs.cancel();
-        this.begin(true, { body: hatchBody(genome), start: outcome.start, protect: false });
+        // The fight places the creature: nothing is asked (a locked creature is refused `spawn`).
+        this.begin(true, { body: hatchBody(genome), start: outcome.start });
         for (const msg of app.resume.take()) app.online.fightMsg(msg);
         if (app.fight.resumed()) this.snap();
       })
@@ -298,16 +341,18 @@ export class LifeStarts {
     // A living parent hands over to the child, which hatches out of the egg it carries.
     const alive = app.screen === 'playing' && app.session.player.alive;
     const hatchingChild = choice === 'child' && child !== null;
-    const at = alive
-      ? ((hatchingChild ? eggs.ownAt() : null) ?? {
-          x: app.session.player.x,
-          y: app.session.player.y,
-        })
-      : undefined;
+    // A promoted child hatches where its parent was, living or dead, when this page played it in
+    // the hub's world; anything else asks the hub where it enters (M12 T4).
+    const parentHere =
+      !app.session.demo && app.session.pond !== null && app.session.pond === app.pond;
+    const at =
+      hatchingChild && parentHere
+        ? (eggs.ownAt() ?? { x: app.session.player.x, y: app.session.player.y })
+        : undefined;
     if (hatchingChild) eggs.hatchStart(app.eggClock(), child.body.rarity, alive && eggs.ownShown);
     let begun = false;
     void task()
-      .then((outcome) => {
+      .then(async (outcome) => {
         if (outcome.kind === 'failed') {
           app.hatchError = outcome.message;
           hud.toast(outcome.message);
@@ -335,8 +380,8 @@ export class LifeStarts {
           );
         }
         begun = true;
-        const { start, protect } = outcome;
-        this.begin(true, { body: hatchBody(genome), start, protect }, at);
+        const life = { body: hatchBody(genome), start: outcome.start };
+        (await this.beginPlaced(life, at && { at, protect: outcome.protect }))();
         hud.toast(
           choice === 'child'
             ? `You are now ${app.session.body.species}`

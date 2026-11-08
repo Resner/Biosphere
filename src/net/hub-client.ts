@@ -26,7 +26,7 @@ export type HubStatus = 'connecting' | 'online' | 'offline' | 'replaced' | 'outd
 export const isFinalStatus = (s: HubStatus): boolean => s === 'replaced' || s === 'outdated';
 export type Welcome = Extract<HubMsg, { t: 'welcome' }>;
 export type SignalMsg = Extract<HubMsg, { t: 'signal' }>;
-/** The hub's answers about the player's own creature (M4) and its matings (M5). */
+/** The hub's answers about the player's own creature (M4), its matings (M5) and where it enters the water (M12). */
 export type LifeMsg = Extract<
   HubMsg,
   {
@@ -45,7 +45,8 @@ export type LifeMsg = Extract<
       | 'born'
       | 'promoted'
       | 'restored'
-      | 'lineage';
+      | 'lineage'
+      | 'spawn';
   }
 >;
 
@@ -281,6 +282,7 @@ export class HubClient {
       case 'promoted':
       case 'restored':
       case 'lineage':
+      case 'spawn':
         for (const fn of [...this.lifeListeners]) guarded(() => fn(msg));
         break;
       case 'lock-ask':

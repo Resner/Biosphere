@@ -308,7 +308,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Spawning
 
-- [ ] T4 Spawning by the authority [opus] (after T1, T2)
+- [x] T4 Spawning by the authority [opus] (after T1, T2)
   - Steps:
     1. `worker/spawn.ts` answers a `spawn` from a seated session:
        - **a locked creature** (in a fight, or a lock waiting for its answer) is refused `spawn`: its page goes back into the fight;
@@ -350,10 +350,12 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - **`m12-spawn.spec.ts`** (`@slow`, hub 8833): A hatches on the world's centre. B, C and D then hatch one after another:
       - each `state().spawn.why` is `placed`;
       - each lies at least the clearance from every earlier player's directory position (`GET /v1/e2e/directory`) and from every earlier spawn, and within P1 reach of one of them;
-      - every pair links within 3 s of the later hatch;
+      - every pair links after the later hatch (a 20 s ceiling: E2E never asserts a wall-time pace, `.claude/rules/tests.md`; harness gate 11 times the 3 s);
       - D reloads and is placed again, unprotected (no shimmer on A's screen).
     - Every E2E, fast and full, passes. A spec that relied on a ring slot reads `state().spawn` or teleports instead.
   - Notes: no instances (T5), rides (T7) or resumes in place (T10). `worker/where.ts` is shared with T5: the anchor check stays in its own function, so the merge is small.
+  - Done: `worker/spawn.ts` (`spawn`, `anchorHolds`, `fightAnchor`), `src/game/spawn-ask.ts` (`placeLife`), `m12-spawn` on 8833; a fighter seated back into its fight and a fight that settles nothing are anchored too.
+    Gotcha: a report under an unanchored binding is dropped, so hub tests place by `spawned(p)` or `anchorAt` (`placed` anchors at the centre).
 
 ### Crowd instances in the world
 
