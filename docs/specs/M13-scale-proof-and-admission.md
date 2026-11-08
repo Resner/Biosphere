@@ -442,7 +442,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - The report and its JSON are committed. `tools/hub-report.test.ts` checks the report against a recorded `HubCost`.
   - Done: `hub-cost.test.ts` (a `speedTest`, about 20 s) seats 50, 200 and 500, a batch's clock moving 1 s per message, and prints `HUB_COST`; `docs/perf/hub.md` and `hub.json` are committed. Every type is flat but `spawn`, which `place()` makes grow with the members (about 6 ms per 1,000 seated, 60 ms at 10,000 in workerd): its budget is the growth of the members, and T8 prices it. `ride`'s `company` check scanned every member in reach; `Directory.anyAround` stops at the first. The population sits 500 wu apart: 500 within one 1,024 wu leaf makes `where` grow with the leaf.
 
-- [ ] T7 500 headless clients against `wrangler dev` (after T2)
+- [ ] T7 500 headless clients against `wrangler dev` (after T2) (in progress)
   - Steps:
     1. **`tests/load-client.ts`**: a headless client on the page's own `HubClient` (with Node's `WebSocket`) and a seeded identity. It does what a page does:
        - a recorded genesis, from the fixture rounds;
