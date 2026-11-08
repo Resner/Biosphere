@@ -78,12 +78,15 @@ export function makeScenario(
   seed: string,
   opts: ScenarioOptions = {},
 ): Scenario {
+  const sc = layout(name, seed, opts);
+  return opts.instances === false ? { ...sc, instances: false } : sc;
+}
+
+function layout(name: ScenarioName, seed: string, opts: ScenarioOptions): Scenario {
   const speed = opts.speed ?? 1;
   const scale = opts.scale ?? 1;
   const rng = createRng(seedFromString(`layout|${name}|${seed}`), 'layout');
   const n = (count: number) => Math.max(2, Math.round(count * scale));
-  const inst = opts.instances === false ? { instances: false } : {};
-  const scenario = (sc: Scenario): Scenario => ({ ...sc, ...inst });
   switch (name) {
     case 'friends': {
       const around = box(CENTRE, CENTRE, 10_000);
@@ -92,7 +95,7 @@ export function makeScenario(
         const at = { x: CENTRE + 2400 * Math.cos(a), y: CENTRE + 2400 * Math.sin(a) };
         return { ...walker(rng, `f${i}`, 0, around, speed, i * 500, at), place: true };
       });
-      return { name, seconds: 40, clients, friends: true, ...inst };
+      return { name, seconds: 40, clients, friends: true };
     }
     case 'sparse': {
       const side = 40_000 * Math.sqrt(scale);
@@ -100,7 +103,7 @@ export function makeScenario(
       const clients = Array.from({ length: n(200) }, (_, i) =>
         walker(rng, `s${i}`, rng.next() < 0.1 ? 1 : 0, world, speed, rng.range(0, 20_000)),
       );
-      return scenario({ name, seconds: 150, clients });
+      return { name, seconds: 150, clients };
     }
     case 'crowd': {
       const room = box(CENTRE, CENTRE, 2660);
@@ -109,7 +112,7 @@ export function makeScenario(
         r: rng.range(14, 26),
         adultR: 26,
       }));
-      return scenario({ name, seconds: 60, clients });
+      return { name, seconds: 60, clients };
     }
     case 'tiers': {
       const world = box(CENTRE, CENTRE, 24_000);
@@ -124,7 +127,7 @@ export function makeScenario(
       grower.r = 28;
       grower.adultR = 40;
       grower.walk.grow = 0.005;
-      return scenario({ name, seconds: 90, clients });
+      return { name, seconds: 90, clients };
     }
     case 'streams': {
       const lane = (g: number, i: number): ClientSpec => {
@@ -142,7 +145,7 @@ export function makeScenario(
         };
       };
       const clients = [0, 1].flatMap((g) => Array.from({ length: 12 }, (_, i) => lane(g, i)));
-      return scenario({ name, seconds: Math.round(7000 / (105 * speed * 1.1)) + 150, clients });
+      return { name, seconds: Math.round(7000 / (105 * speed * 1.1)) + 150, clients };
     }
     case 'traveller': {
       const length = 60_000 * scale;
@@ -160,11 +163,11 @@ export function makeScenario(
         spawnAt: 0,
         walk: { heading: 0, speed: 100 * speed, turn: 0, dash: false },
       });
-      return scenario({
+      return {
         name,
         seconds: Math.max(130, Math.round(length / (100 * speed)) + 5),
         clients,
-      });
+      };
     }
     case 'throng': {
       // 80 comparable starters in a room 1,500 wu wide: each has dozens of P1 within reach.
@@ -174,7 +177,7 @@ export function makeScenario(
         r: rng.range(14, 26),
         adultR: 26,
       }));
-      return scenario({ name, seconds: 90, clients });
+      return { name, seconds: 90, clients };
     }
     case 'witnesses': {
       const room = box(CENTRE, CENTRE, 2660);
@@ -194,7 +197,7 @@ export function makeScenario(
         witnesses: [`w${i}`],
         engage: true,
       }));
-      return scenario({ name, seconds: 60, clients: [...crowd, ...witnesses], fights });
+      return { name, seconds: 60, clients: [...crowd, ...witnesses], fights };
     }
   }
 }
@@ -225,6 +228,18 @@ export const LATE_PER_1000 = 15;
 /** Gate 10: the share of client-seconds crowded after a client's first 10 s, and instance changes a client-minute (p95). */
 export const CROWDED_SHARE = 0.01;
 export const CHANGES_P95 = 1;
+
+/** The crowds' numbers over runs (gate 10): the crowded share after a client's first 10 s, and the p95 of instance changes a client-minute. */
+export function crowdOf(runs: RunResult[]) {
+  const clientLate = sum(runs, (r) => r.clientLate);
+  return {
+    crowdedShare: clientLate === 0 ? 0 : sum(runs, (r) => r.crowdedLate) / clientLate,
+    changes: pct(
+      runs.flatMap((r) => r.changesPerMinute),
+      0.95,
+    ),
+  };
+}
 
 /** Upload on the wire (KB/s): at 24 links (null with no sample there; most and mean) and on one link at most. */
 export function uploadOf(runs: RunResult[]) {
@@ -311,12 +326,7 @@ export function gatesOf(runs: RunResult[]): Gate[] {
       }
     : zero(3, 'Seamless handoffs: no pops, newcomers linked 0.5 s ahead', ['pops', 'late']);
   const instanced = runs.every((r) => r.instances);
-  const clientLate = sum(runs, (r) => r.clientLate);
-  const crowdedShare = clientLate === 0 ? 0 : sum(runs, (r) => r.crowdedLate) / clientLate;
-  const changes = pct(
-    runs.flatMap((r) => r.changesPerMinute),
-    0.95,
-  );
+  const { crowdedShare, changes } = crowdOf(runs);
   const crowdOk = crowdedShare <= CROWDED_SHARE && changes <= CHANGES_P95 && v('fightWater') === 0;
   const spawns = sum(runs, (r) => r.spawns);
   const placedFriends = spawns > 0 && friends.length > 0;
@@ -328,9 +338,7 @@ export function gatesOf(runs: RunResult[]): Gate[] {
     {
       n: 4,
       name: 'Friends linked within 3 s (median), 5 s (p95)',
-      ok:
-        friends.length === 0 ||
-        (pct(friends, 0.5) <= FRIENDS_P50_MS && pct(friends, 0.95) <= FRIENDS_P95_MS),
+      ok: friends.length === 0 || friendsOk,
       detail:
         friends.length === 0
           ? 'n/a'

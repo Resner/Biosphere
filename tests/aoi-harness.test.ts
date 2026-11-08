@@ -15,10 +15,19 @@ import { heavyTest } from './heavy';
 // The headless area-of-interest harness (M11 T10, ADR 0062): the gates of `docs/perf/aoi.md` as
 // tests. Each gate is judged over the runs of its scenario; a broken gate names what broke.
 
+// A run is deterministic, so a scenario run for one test is not run again for the next.
+const cache = new Map<string, RunResult[]>();
+
 function runs(name: ScenarioName, seeds: number, opts: ScenarioOptions = {}): RunResult[] {
-  return Array.from({ length: seeds }, (_, i) =>
-    runScenario(makeScenario(name, `t${i}`, opts), `t${i}`),
-  );
+  const key = JSON.stringify([name, seeds, opts]);
+  let found = cache.get(key);
+  if (!found) {
+    found = Array.from({ length: seeds }, (_, i) =>
+      runScenario(makeScenario(name, `t${i}`, opts), `t${i}`),
+    );
+    cache.set(key, found);
+  }
+  return found;
 }
 
 function failed(gates: Gate[]): string[] {

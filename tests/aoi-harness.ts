@@ -48,11 +48,17 @@ import { FULL_RATE, wantedRate } from '../src/net/snapshot-rates';
 import { crowdList, WhereReporter } from '../src/net/where';
 import { clamp } from '../src/sim/math';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
-import { RULES } from '../src/sim/rules';
+import { RULES, TICK_HZ } from '../src/sim/rules';
 import { linkTiers, sizeTier, viewHalfHeight } from '../src/sim/size';
 import { type CrowdContext, Crowds, type Moved } from '../worker/crowds';
 import { Directory, RELAY_SLACK_WU } from '../worker/directory';
-import { clearance, type Placed, type Placement, place } from '../worker/placement';
+import {
+  clearance,
+  type Placed,
+  type Placement,
+  place,
+  SPAWN_RECENT_MS,
+} from '../worker/placement';
 
 import {
   type Box,
@@ -83,8 +89,6 @@ const ICE_FAIL = 0.05;
 export const RIDE_ALONE_MS = 120_000;
 /** Gate 10 starts to count a client this long after its spawn. */
 export const CROWD_GRACE_MS = 10_000;
-/** The hub keeps a placed spawn's clearance for this long (`SPAWN_RECENT_MS`). */
-const RECENT_MS = 60_000;
 /** What carries each state frame (B): IPv4 20, UDP 8, a DTLS record 37 (header, nonce, tag), SCTP 28. */
 export const FRAME_OVERHEAD_BYTES = 93;
 const MAX_VIOLATIONS = 8;
@@ -529,8 +533,16 @@ class Sim {
     return d <= Math.max(queryRadius(ma.aoi), queryRadius(mb.aoi)) + RELAY_SLACK_WU;
   }
 
+  /** The fights running now, kept for the tick: the crowds ask for them once per member. */
+  private activeAt = Number.NaN;
+  private active: FightSpec[] = [];
+
   private activeFights(): FightSpec[] {
-    return this.fights.filter((f) => f.from <= this.now && this.now < f.until);
+    if (this.activeAt !== this.now) {
+      this.activeAt = this.now;
+      this.active = this.fights.filter((f) => f.from <= this.now && this.now < f.until);
+    }
+    return this.active;
   }
 
   private dutyPair(a: string, b: string): boolean {
@@ -908,8 +920,9 @@ class Sim {
 
   /** The hub's one crowd timer: what is due settles. */
   private settleCrowds(): void {
-    const due = this.crowds?.due() ?? null;
-    if (this.crowds && due !== null && due <= this.now) {
+    if (!this.crowds) return;
+    const due = this.crowds.due();
+    if (due !== null && due <= this.now) {
       this.told(this.crowds.settle(this.now, this.ctx));
     }
   }
@@ -917,7 +930,7 @@ class Sim {
   /** A link that no longer shares water closes at once, unless it is a duty link (P0). */
   private closeApart(c: Client): void {
     if (this.crowds === null) return;
-    for (const id of [...c.links.keys()]) {
+    for (const id of c.links.keys()) {
       const f = c.fixes.get(id);
       if (f && !c.p0.has(id) && !sameWater(c.n, f.n ?? OPEN_WATER)) this.close(c, id);
     }
@@ -974,7 +987,7 @@ class Sim {
       const m = o === c ? undefined : this.dir.member(o.id);
       if (m) members.push({ id: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, n: this.inst(o.id) });
     }
-    while (this.spawns[0] && this.now - this.spawns[0].t >= RECENT_MS) this.spawns.shift();
+    while (this.spawns[0] && this.now - this.spawns[0].t >= SPAWN_RECENT_MS) this.spawns.shift();
     const spawner = { r: c.r, adultR: c.spec.adultR, aoi: c.aoi() };
     const at = place({
       members,
@@ -984,7 +997,7 @@ class Sim {
       world: {
         seed: `aoi|${this.res.scenario}|${this.res.seed}`,
         size: WORLD,
-        tick: Math.floor((this.now * 30) / 1000),
+        tick: Math.floor((this.now * TICK_HZ) / 1000),
       },
       now: this.now,
       rng: this.placeRng,

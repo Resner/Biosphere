@@ -3,10 +3,11 @@
 // seeds each, each judged by the nine gates, with the numbers M13's capacity model reads.
 // The harness is seeded, so the report is deterministic.
 
-import { FRAME_OVERHEAD_BYTES, runScenario } from '../tests/aoi-harness';
+import { CROWD_GRACE_MS, FRAME_OVERHEAD_BYTES, runScenario } from '../tests/aoi-harness';
 import {
   CHANGES_P95,
   CROWDED_SHARE,
+  crowdOf,
   FRIENDS_P50_MS,
   FRIENDS_P95_MS,
   type Gate,
@@ -81,7 +82,7 @@ function table(rows: string[][]): string {
   ].join('\n');
 }
 
-function section(name: ScenarioName, runs: RunResult[], gates: Gate[]): string {
+function section(title: string, runs: RunResult[], gates: Gate[]): string {
   const first = runs[0] as RunResult;
   const links = linkStats(runs);
   const disc = runs.flatMap((r) => r.discoveryMs);
@@ -103,6 +104,7 @@ function section(name: ScenarioName, runs: RunResult[], gates: Gate[]): string {
       sum(runs, (r) => r.clientSeconds),
     );
   const up = uploadOf(runs);
+  const crowd = crowdOf(runs);
   const metrics = table([
     ['Metric', 'Value'],
     ['Runs, clients, simulated seconds', `${runs.length}, ${first.clients}, ${first.seconds}`],
@@ -134,20 +136,7 @@ function section(name: ScenarioName, runs: RunResult[], gates: Gate[]): string {
       ? [
           [
             "Time crowded after a client's first 10 s; instance changes per client-minute (p95)",
-            `${fixed(
-              (100 * sum(runs, (r) => r.crowdedLate)) /
-                Math.max(
-                  1,
-                  sum(runs, (r) => r.clientLate),
-                ),
-              2,
-            )}%; ${fixed(
-              pct(
-                runs.flatMap((r) => r.changesPerMinute),
-                0.95,
-              ),
-              2,
-            )}`,
+            `${fixed(100 * crowd.crowdedShare, 2)}%; ${fixed(crowd.changes, 2)}`,
           ],
         ]
       : []),
@@ -164,10 +153,8 @@ function section(name: ScenarioName, runs: RunResult[], gates: Gate[]): string {
     ['Gate', 'Result', 'Detail'],
     ...gates.map((g) => [`${g.n}. ${g.name}`, g.ok ? 'pass' : '**FAIL**', g.detail]),
   ]);
-  return `### ${name}\n\n${rows}\n\n${metrics}\n`;
+  return `### ${title}\n\n${rows}\n\n${metrics}\n`;
 }
-
-const CROWD_GRACE_S = 10;
 
 const INTRO = `# Area-of-interest report
 
@@ -186,7 +173,7 @@ How the clients dial is part of the model, and is what the page (M11 T13) must d
 7. **Tiers**: no link between creatures two tiers apart outside P0 (for more than 4 s); every giant's swarm holds each smaller creature in its AoI that reported in the last 30 s, up to 64.
 8. **Witnesses**: every duty link is taken within 10 s and held to the fight's end, with P0 + P1 ≤ 28, and the cap holds.
 9. **Bandwidth** (M11 T15): snapshots go at the rate each receiver asks (10 Hz for P0, P1 or within 1.15 × its view's half-diagonal, 5 Hz in its AoI, 2 Hz for P3, 1 Hz for P4), an engage candidate's signed frame every 200 ms, plus gossip, each frame counted on the wire with ${FRAME_OVERHEAD_BYTES} bytes of IPv4, UDP, DTLS and SCTP. A client's upload at 24 links is at most ${UPLOAD_24_KBPS} KB/s, and one link's at most ${LINK_KBPS} KB/s. The upload is not asserted in the dense scenarios, where every link is P1 and at 10 Hz by rule.
-10. **Crowds** (M12 T8, ADR 0064): clients run the page's crowd rules against the hub's \`Crowds\` (\`worker/crowds.ts\`): a client whose wanted P0 + P1 that share its water reach 24 sends its crowd list in its \`where\`; the hub tells each member whose instance changed (after the hub's latency); a link that no longer shares water closes at once unless it is a duty link; each client keeps the freshest word of every creature's instance; a page asks the directory again when its own instance changes. After a client's first ${CROWD_GRACE_S} s at most ${CROWDED_SHARE * 100}% of client-seconds are crowded (P0 + P1 past 32), at most ${CHANGES_P95} instance change per client-minute at the 95th percentile (the first instance a client joins is its entry, not a change), and a fight's fighters, picked as an engage picks them (the nearest comparable creature that shares water), share water and keep their instance for the whole fight. Judged only when instances are on.
+10. **Crowds** (M12 T8, ADR 0064): clients run the page's crowd rules against the hub's \`Crowds\` (\`worker/crowds.ts\`): a client whose wanted P0 + P1 that share its water reach 24 sends its crowd list in its \`where\`; the hub tells each member whose instance changed (after the hub's latency); a link that no longer shares water closes at once unless it is a duty link; each client keeps the freshest word of every creature's instance; a page asks the directory again when its own instance changes. After a client's first ${CROWD_GRACE_MS / 1000} s at most ${CROWDED_SHARE * 100}% of client-seconds are crowded (P0 + P1 past 32), at most ${CHANGES_P95} instance change per client-minute at the 95th percentile (the first instance a client joins is its entry, not a change), and a fight's fighters, picked as an engage picks them (the nearest comparable creature that shares water), share water and keep their instance for the whole fight. Judged only when instances are on.
 11. **Spawns** (M12 T8): clients that enter the water by \`place()\` over the directory's positions keep the clearance from every engage-capable member (tier gap within the rules' limit) by those positions, except a placement that falls back to the spawn centre; and the friends of the \`friends\` scenario, placed so, are linked within ${FRIENDS_P50_MS / 1000} s (median) and ${FRIENDS_P95_MS / 1000} s (p95). A ride (a client alone 120 s that the directory names no one for, the hub places around the best group) is a placement too; it is switched on per scenario, and no scenario here rides.
 `;
 
@@ -213,7 +200,7 @@ export function aoiReport(
   });
   // The same throng with no instances, which shows the scenario crowds (gates 1 to 9 as they stand).
   const compare = without
-    ? `\n### throng without instances (comparison)\n\n${section('throng', without, gatesOf(without)).replace(/^### throng\n\n/, '')}`
+    ? `\n${section('throng without instances (comparison)', without, gatesOf(without))}`
     : '';
   return `${INTRO}\n## Scenarios\n\n${parts.join('\n')}${compare}\n${NOTES}`;
 }
