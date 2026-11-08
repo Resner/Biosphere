@@ -635,12 +635,12 @@ The harness (T8) and the wave (T9) check the invariants at populations no E2E ca
 
 ## Rubric
 
-- [ ] A newcomer appears near players of its size, out of view and out of reach of anything that could attack it, and is linked to a friend within 3 s (evidence: wave gates 1 and 2; harness gate 11; `m12-spawn`).
-- [ ] The populated area grows outward as it fills, and no two newcomers of the same minute arrive on top of each other (evidence: `place`'s growth test; wave gates 1 and 3).
-- [ ] A lone player is one key from company, and the ride reads as a journey through the water, not a cut (evidence: `m12-ride`'s screenshots mid-ride and at the arrival; the Reduce motion cross-fade).
-- [ ] A crowd thins smoothly: creatures in another instance fade over 1 s, never vanish in one frame, and a toast says why (evidence: `m12-crowd`'s alpha samples and screenshot).
-- [ ] No crowd shows a page more than about 16 creatures of its instance plus the open water, and a page is crowded at most 1% of the time (evidence: `throng`, harness gate 10; wave gate 5).
-- [ ] The authority stays within budget through the wave: a median of at most 6 incoming messages per player-minute (evidence: `docs/perf/wave.md`).
+- [x] A newcomer appears near players of its size, out of view and out of reach of anything that could attack it, and is linked to a friend within 3 s (evidence: wave gates 1 and 2; harness gate 11; `m12-spawn`).
+- [x] The populated area grows outward as it fills, and no two newcomers of the same minute arrive on top of each other (evidence: `place`'s growth test; wave gates 1 and 3).
+- [x] A lone player is one key from company, and the ride reads as a journey through the water, not a cut (evidence: `m12-ride`'s screenshots mid-ride and at the arrival; the Reduce motion cross-fade).
+- [x] A crowd thins smoothly: creatures in another instance fade over 1 s, never vanish in one frame, and a toast says why (evidence: `m12-crowd`'s alpha samples and screenshot).
+- [x] No crowd shows a page more than about 16 creatures of its instance plus the open water, and a page is crowded at most 1% of the time (evidence: `throng`, harness gate 10; wave gate 5).
+- [x] The authority stays within budget through the wave: a median of at most 6 incoming messages per player-minute (evidence: `docs/perf/wave.md`).
 - [ ] (owner) Joining friends feels natural: you hatch near players of your size, quickly see them, and nobody pounces on you as you arrive.
 - [ ] (owner) Riding the current to other players is clear and feels like part of the world.
 - [ ] (owner) In a busy spot, creatures thinning out reads as calmer water, not a glitch.
