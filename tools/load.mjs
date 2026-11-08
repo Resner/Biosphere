@@ -17,7 +17,15 @@ try {
   const scaled = Number(process.env.LOAD_PLAYERS ?? 0);
   const shape = scaled > 0 ? { ...FULL_LOAD, name: 'load', players: scaled, boxHalf: boxFor(scaled) } : FULL_LOAD;
   const started = Date.now();
-  const { text, measure } = runLoadReport(shape, undefined, () => (Date.now() - started) / 1000);
+  const { text, measure } = runLoadReport(
+    shape,
+    undefined,
+    () => (Date.now() - started) / 1000,
+    (minute, players) =>
+      process.stderr.write(
+        `minute ${minute}: ${players} players, ${((Date.now() - started) / 60_000).toFixed(1)} min elapsed, heap ${(process.memoryUsage().heapUsed / 1e9).toFixed(2)} GB\n`,
+      ),
+  );
   if (scaled > 0) {
     process.stdout.write(text);
   } else {

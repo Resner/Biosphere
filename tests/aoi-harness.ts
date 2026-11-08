@@ -332,6 +332,8 @@ class Sim {
       this.runEvents();
       this.tick();
       this.tickIndex++;
+      if (this.sc.progress && this.now % 60_000 === 0)
+        this.sc.progress(this.now / 60_000, this.order.length);
     }
     for (const c of this.order) this.retire(c);
     if (this.wave) {

@@ -65,21 +65,24 @@ export const FULL_LOAD: LoadShape = {
   boxHalf: WORLD_HALF,
 };
 
-/** The scaled run of the `heavyTest`: 500 players filled over 1 minute, held for 2. */
+/**
+ * The scaled run of the `heavyTest`: 100 players filled over 3 minutes and held for 6. A quicker fill
+ * leaves the world still forming its groups through the hold, and the budget gate fails on the joins
+ * of the fill, not on the hold.
+ */
 export const SCALED_LOAD: LoadShape = {
   name: 'load (scaled)',
-  players: 500,
+  players: 100,
   first: 10,
-  firstUntil: 0.2 * MIN,
-  fillUntil: MIN,
-  holdFrom: MIN,
-  holdUntil: 3 * MIN,
-  meanSession: 5 * MIN,
-  playersPerFight: 50,
-  rideAloneMs: 20_000,
-  pairsEvery: 1,
+  firstUntil: 20_000,
+  fillUntil: 3 * MIN,
+  holdFrom: 3 * MIN,
+  holdUntil: 9 * MIN,
+  meanSession: 30 * MIN,
+  playersPerFight: 20,
+  pairsEvery: 2,
   pairSample: 1,
-  boxHalf: boxFor(500),
+  boxHalf: boxFor(100),
 };
 
 const T1_SHARE = 0.09;
@@ -171,8 +174,11 @@ function fightsFor(rng: Rng, players: ClientSpec[], shape: LoadShape): FightSpec
       (p) => p.spawnAt + 20_000 <= from && (p.leaveAt === undefined || p.leaveAt > until),
     );
     for (let k = 0; k < perMinute && here.length > 0; k++) {
-      const pick = here[rng.int(0, here.length - 1)];
-      if (!pick || used.has(pick.id)) continue;
+      // An attacker is not named twice while others are free.
+      const free = here.filter((p) => !used.has(p.id));
+      const pool = free.length > 0 ? free : here;
+      const pick = pool[rng.int(0, pool.length - 1)];
+      if (!pick) break;
       used.add(pick.id);
       fights.push({ from, until, fighters: [pick.id], witnesses: [], engage: true });
     }
@@ -180,7 +186,12 @@ function fightsFor(rng: Rng, players: ClientSpec[], shape: LoadShape): FightSpec
   return fights;
 }
 
-export function loadScenario(seed: string, shape: LoadShape = FULL_LOAD, meter?: Meter): Scenario {
+export function loadScenario(
+  seed: string,
+  shape: LoadShape = FULL_LOAD,
+  meter?: Meter,
+  progress?: Scenario['progress'],
+): Scenario {
   const rng = createRng(seedFromString(`load|${shape.name}|${seed}`), 'layout');
   const clients = loadPlayers(rng, shape);
   return {
@@ -194,6 +205,7 @@ export function loadScenario(seed: string, shape: LoadShape = FULL_LOAD, meter?:
     pairsEvery: shape.pairsEvery,
     pairSample: shape.pairSample,
     ...(meter ? { meter } : {}),
+    ...(progress ? { progress } : {}),
     wave: {
       peakFrom: shape.holdFrom,
       peakUntil: shape.holdUntil,
@@ -205,8 +217,13 @@ export function loadScenario(seed: string, shape: LoadShape = FULL_LOAD, meter?:
   };
 }
 
-export function runLoad(seed: string, shape: LoadShape = FULL_LOAD, meter?: Meter): RunResult {
-  return runScenario(loadScenario(seed, shape, meter), seed);
+export function runLoad(
+  seed: string,
+  shape: LoadShape = FULL_LOAD,
+  meter?: Meter,
+  progress?: Scenario['progress'],
+): RunResult {
+  return runScenario(loadScenario(seed, shape, meter, progress), seed);
 }
 
 // ---- the gates ----

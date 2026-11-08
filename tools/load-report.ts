@@ -240,9 +240,10 @@ export function runLoadReport(
   shape: LoadShape = FULL_LOAD,
   seed = LOAD_SEED,
   wall: () => number = () => 0,
+  progress?: (minute: number, players: number) => void,
 ): { text: string; measure: LoadMeasure } {
   const meter = new Meter();
-  const run = runLoad(seed, shape, meter);
+  const run = runLoad(seed, shape, meter, progress);
   const measure = measureOf(run, meter, shape, seed, wall());
   return { text: loadReport(run, measure, shape), measure };
 }

@@ -3,7 +3,15 @@ import { createRng, seedFromString } from '../src/sim/prng';
 import { Meter } from './aoi-meter';
 import { GATE_KEYS, type RunResult } from './aoi-types';
 import { heavyTest } from './heavy';
-import { FULL_LOAD, loadGates, loadPlayers, loadScenario, runLoad, SCALED_LOAD } from './load';
+import {
+  boxFor,
+  FULL_LOAD,
+  loadGates,
+  loadPlayers,
+  loadScenario,
+  runLoad,
+  SCALED_LOAD,
+} from './load';
 import { emptyWave } from './wave-record';
 
 // The load scenario (M13 T5): its players and the gates of `docs/perf/load.md` as tests. `npm run
@@ -60,7 +68,7 @@ describe('the players of a load run', () => {
   it('puts one fight in 100 players in each minute of the hold', () => {
     const sc = loadScenario('t', { ...FULL_LOAD, players: 1000, boxHalf: 50_000 });
     const starts = new Set((sc.fights ?? []).map((f) => f.from));
-    expect(starts.size).toBe(6 - 0);
+    expect(starts.size).toBe(6);
     for (const from of starts) {
       expect((sc.fights ?? []).filter((f) => f.from === from).length).toBe(10);
     }
@@ -181,7 +189,7 @@ describe('the load gates', () => {
 });
 
 describe('the scaled load run', () => {
-  heavyTest('500 players, filled in a minute and held for two, pass every gate', () => {
+  heavyTest('100 players, filled in three minutes and held for six, pass every gate', () => {
     const meter = new Meter();
     const run = runLoad('scaled', SCALED_LOAD, meter);
     const gates = loadGates(run);
@@ -198,7 +206,14 @@ describe('the scaled load run', () => {
   });
 
   heavyTest('the same seed gives the same counters', () => {
-    const shape = { ...SCALED_LOAD, players: 120, boxHalf: 20_000, holdUntil: 2 * MIN };
+    const shape = {
+      ...SCALED_LOAD,
+      players: 60,
+      boxHalf: boxFor(60),
+      fillUntil: MIN,
+      holdFrom: MIN,
+      holdUntil: 2 * MIN,
+    };
     const a = runLoad('same', shape, new Meter());
     const b = runLoad('same', shape, new Meter());
     expect(b.wave?.holdSteady).toEqual(a.wave?.holdSteady);

@@ -72,6 +72,8 @@ export interface Scenario {
   pairSample?: number;
   /** Times the hub's operations, counts messages by type and the bandwidth (the load scenario, M13). */
   meter?: Meter;
+  /** Called at each simulated minute with the minute and the players in the water (a long run's progress). */
+  progress?: (minute: number, players: number) => void;
 }
 
 /** The gates' counters: each is a count of violations, with the first few described. */
