@@ -375,7 +375,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Evidence
 
-- [ ] T5 The load simulation at 10,000, in process (after T3)
+- [ ] T5 The load simulation at 10,000, in process (after T3) (in progress)
   - Steps:
     1. **The harness at 10,000 clients.** Profile it, and remove what grows faster than the clients. The pairwise gate checks may be judged once a second, and on a seeded sample of clients at 10,000; the report says which.
     2. **The `load` scenario** (`tests/load.ts`, on the harness):
