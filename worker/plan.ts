@@ -77,7 +77,6 @@ export const TABLES: Tables = {
   prices: PRICES,
   included: INCLUDED,
   free: { ...FREE_LIMITS, ...FREE_DAILY },
-  paid: { storageBytes: 10_000_000_000 },
   ceilingUsd: CEILING_USD,
 };
 
@@ -91,7 +90,7 @@ export const PAID: PlanLimits = {
   requestsPerDay: DERIVED.paid.requestsPerDay,
   rowsWrittenPerDay: DERIVED.paid.rowsWrittenPerDay,
   rowsReadPerDay: DERIVED.paid.rowsReadPerDay,
-  storageBytes: TABLES.paid.storageBytes,
+  storageBytes: 10_000_000_000,
   turnGbPerMonth: 1_000,
   sessions: DERIVED.paid.sessions,
 };

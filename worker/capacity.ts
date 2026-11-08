@@ -35,7 +35,6 @@ export interface Tables {
     turnGbPerMonth: number;
     storageBytes: number;
   };
-  paid: { storageBytes: number };
   ceilingUsd: number;
 }
 
@@ -114,7 +113,7 @@ export const OBJECT_GB = 0.128;
 export const CAP_SHARE = 0.8;
 /** The days in a month the paid plan bills. */
 export const MONTH_DAYS = 30;
-/** A player counts as hatching once; a session's reads and writes are the model's unit. */
+/** Seconds in a day. */
 export const SECONDS_PER_DAY = 86_400;
 
 /** Decimal units, as Cloudflare bills: 1 KB is 1,000 bytes. */
@@ -152,21 +151,7 @@ export function ratesOf(
   // A fight has two sides: each player carries half of its messages, rows and bytes.
   const sides = a.fightsPerHour / 2;
   const messagesPerHour = outside * 60 + sides * fightMessages(m, a);
-  return {
-    ...ratesBase(m, a, outside, sessionsPerHour, sides, messagesPerHour),
-    ...over,
-  };
-}
-
-function ratesBase(
-  m: Measured,
-  a: Assumptions,
-  outside: number,
-  sessionsPerHour: number,
-  sides: number,
-  messagesPerHour: number,
-): Rates {
-  return {
+  const rates: Rates = {
     messagesPerMinuteOutside: outside,
     messagesPerHour,
     sessionsPerHour,
@@ -182,6 +167,7 @@ function ratesBase(
     loggedBytesPerHour: sides * m.bytes.logged,
     fightsPerHour: a.fightsPerHour,
   };
+  return { ...rates, ...over };
 }
 
 /** TURN traffic in GB: `players` each receiving `kbps` KB/s over a relay for `days` days. */
@@ -292,23 +278,24 @@ export interface Bill {
   total: number;
 }
 
-const over = (used: number, included: number) => Math.max(0, used - included);
+const excess = (used: number, included: number) => Math.max(0, used - included);
 
 /** The paid month for a usage: `monthStorageBytes` is the database at the month's end. */
 export function billOf(u: Usage, t: Tables, monthStorageBytes: number): Bill {
   const month = MONTH_DAYS;
   const items = {
     base: t.prices.base,
-    requests: (over(u.requestsPerDay * month, t.included.requests) / 1e6) * t.prices.requestsPerM,
+    requests: (excess(u.requestsPerDay * month, t.included.requests) / 1e6) * t.prices.requestsPerM,
     gbSeconds:
-      (over(u.gbSecondsPerDay * month, t.included.gbSeconds) / 1e6) * t.prices.gbSecondsPerM,
+      (excess(u.gbSecondsPerDay * month, t.included.gbSeconds) / 1e6) * t.prices.gbSecondsPerM,
     rowsWritten:
-      (over(u.rowsWrittenPerDay * month, t.included.rowsWritten) / 1e6) * t.prices.rowsWrittenPerM,
-    rowsRead: (over(u.rowsReadPerDay * month, t.included.rowsRead) / 1e6) * t.prices.rowsReadPerM,
-    storage: over(monthStorageBytes / GB, t.included.storageGbMonth) * t.prices.storageGbMonth,
-    turn: over(u.turnGbPerMonth, t.included.turnGb) * t.prices.turnGb,
+      (excess(u.rowsWrittenPerDay * month, t.included.rowsWritten) / 1e6) *
+      t.prices.rowsWrittenPerM,
+    rowsRead: (excess(u.rowsReadPerDay * month, t.included.rowsRead) / 1e6) * t.prices.rowsReadPerM,
+    storage: excess(monthStorageBytes / GB, t.included.storageGbMonth) * t.prices.storageGbMonth,
+    turn: excess(u.turnGbPerMonth, t.included.turnGb) * t.prices.turnGb,
     workerRequests:
-      (over(u.workerRequestsPerDay * month, t.included.workerRequests) / 1e6) *
+      (excess(u.workerRequestsPerDay * month, t.included.workerRequests) / 1e6) *
       t.prices.workerRequestsPerM,
   };
   const total = Object.values(items).reduce((s, n) => s + n, 0);
