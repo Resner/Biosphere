@@ -13,6 +13,7 @@ import { awayDue } from './away';
 import { flushFight, resend } from './fights';
 import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
+import { limitsOf } from './plan';
 import { seatTicket } from './seat';
 import {
   type ActiveSession,
@@ -32,10 +33,8 @@ import { worldInfo, worldRow } from './world';
 
 /** New sessions queue once the day's requests reach this share of the budget (DESIGN §8). */
 const BUDGET_SHARE = 0.9;
-/** A queued session's estimated wait per place, until M13 measures it. */
-const ETA_S_PER_PLACE = 30;
-const DEFAULT_MAX_SESSIONS = 200;
-const DEFAULT_DAILY_REQUEST_BUDGET = 100_000;
+/** A queued session's estimated wait per place, until M13 T9 measures it. */
+export const ETA_S_PER_PLACE = 30;
 
 export async function hello(
   hub: Hub,
@@ -85,7 +84,9 @@ export async function hello(
       ...who,
       ticket,
       place: 0,
+      queuedAt: held?.phase === 'queued' && held.queuedAt ? held.queuedAt : Date.now(),
     } satisfies Session);
+    meterSeats(hub);
   } else {
     enter(hub, ws, { ...current, duties }, who, { ice, turn });
   }
@@ -98,16 +99,25 @@ export async function hello(
  * of 90% of the day's request budget.
  */
 export function canAdmit(hub: Hub, now: number): boolean {
-  const sessions = [...activeSessions(hub)].length + awaySeats(hub);
+  const sessions = seatedCount(hub) + awaySeats(hub);
   return (
-    sessions < limit(hub.env.MAX_SESSIONS, DEFAULT_MAX_SESSIONS) &&
+    sessions < limitsOf(hub.env).sessions &&
     hub.usage.requests(now) < BUDGET_SHARE * requestBudget(hub.env)
   );
 }
 
 /** The day's request budget (`DAILY_REQUEST_BUDGET`), which admission and the proof reads share. */
-export const requestBudget = (env: Env): number =>
-  limit(env.DAILY_REQUEST_BUDGET, DEFAULT_DAILY_REQUEST_BUDGET);
+export const requestBudget = (env: Env): number => limitsOf(env).requestsPerDay;
+
+/** How many sessions hold a seat (away fighters not included). */
+export const seatedCount = (hub: Hub): number => [...activeSessions(hub)].length;
+
+/** Tells the usage meter how many sessions are seated and how many wait (the seated time is integrated from these). */
+export function meterSeats(hub: Hub): void {
+  const now = Date.now();
+  hub.usage.setSeated(now, seatedCount(hub));
+  hub.usage.setQueued(now, queued(hub).length);
+}
 
 /** The waiting sessions, next first. */
 export function queued(hub: Hub): [WebSocket, Session & { phase: 'queued' }][] {
@@ -145,6 +155,8 @@ export async function promoteWaiting(hub: Hub): Promise<void> {
       const next = queued(hub)[0];
       if (next?.[0] !== first[0] || !canAdmit(hub, Date.now())) continue;
       const [ws, session] = next;
+      // A session queued before `queuedAt` existed has no wait to record.
+      if (session.queuedAt) hub.usage.waited(Date.now(), Date.now() - session.queuedAt);
       enter(hub, ws, session, { playerId: session.playerId, name: session.name }, { ice, turn });
     }
   } finally {
@@ -157,7 +169,7 @@ export async function promoteWaiting(hub: Hub): Promise<void> {
  * The seats held world-wide for fighters whose player is away (ADR 0053): every participant of a
  * running fight with no seated socket keeps its place until the fight ends.
  */
-function awaySeats(hub: Hub): number {
+export function awaySeats(hub: Hub): number {
   const running = hub.fights.running();
   if (running.length === 0) return 0;
   const here = new Set<string>();
@@ -206,6 +218,7 @@ export function enter(
     // The hour's duties belong to the player, not the socket: a reload keeps them.
     ...(duties ? { duties } : {}),
   } satisfies Session);
+  meterSeats(hub);
   sendIfOpen(ws, {
     t: 'welcome',
     world,
@@ -290,6 +303,7 @@ export function drop(
   const session = sessionOf(ws);
   if (session?.phase === 'queued') {
     ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
+    meterSeats(hub);
     if (!replaced) {
       announceQueue(hub);
       hub.rearm().catch(() => {});
@@ -297,6 +311,7 @@ export function drop(
   }
   if (session?.phase === 'active') {
     ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
+    meterSeats(hub);
     try {
       saveOnClose(hub, session);
     } catch {
@@ -317,10 +332,4 @@ export function drop(
   } catch {
     // already closed
   }
-}
-
-/** A positive whole number from a `vars` entry, else the default. */
-function limit(value: string | undefined, fallback: number): number {
-  const n = Number(value);
-  return Number.isInteger(n) && n > 0 ? n : fallback;
 }

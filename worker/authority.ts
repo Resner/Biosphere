@@ -28,17 +28,20 @@ import {
   queueGenesis,
   restoreAncestor,
 } from './lives';
+import { meteredSql, type RowCounter } from './metered-sql';
+import { type Metrics, metricsOf } from './metrics';
 import { court, decline, deliverBirth, mateCheck, queueAccept } from './offspring';
+import { limitsOf } from './plan';
 import { meterRead, type Served, serveFight, serveProof } from './proof';
 import { recoverFights } from './recover';
 import { ride } from './ride';
 import { migrate } from './schema';
 import { renewSeat } from './seat';
-import { drop, hello, promote, queued, relay } from './sessions';
+import { drop, hello, meterSeats, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { type RecentSpawn, spawn } from './spawn';
 import { TurnCredentials } from './turn';
-import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
+import { UsageMeter } from './usage';
 import { armCrowds, gone, rebuildCrowds, rebuildDirectory, where } from './where';
 import { witnessBatch, witnessDispute } from './witness-fight';
 import { avail, ipHash } from './witness-pool';
@@ -68,6 +71,9 @@ export class Authority extends DurableObject<Env> implements Hub {
   // Public for the handler modules, which reach the object through `Hub`.
   declare readonly ctx: DurableObjectState<object>;
   declare readonly env: Env;
+  /** Every statement's rows read and written, as the metered handle counts them (the usage meter reads it). */
+  private readonly rowCount: RowCounter = { written: 0, read: 0 };
+  readonly sql: SqlStorage;
   readonly turn = new TurnCredentials();
   readonly ledger: Ledger;
   readonly beacons: Beacons;
@@ -111,12 +117,23 @@ export class Authority extends DurableObject<Env> implements Hub {
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
     // Records are dated on the hub's clock, as the fights are (hub tests swap in a hand-moved one).
-    this.ledger = new Ledger(ctx.storage, () => this.clock.now());
-    // The log's rows count with the ledger's, which the usage meter reads.
-    this.fightStore = new FightStore(ctx.storage.sql, (rows) => {
+    this.sql = meteredSql(ctx.storage.sql, this.rowCount);
+    // The ledger and the beacons take the counted handle with the object's own transactions.
+    const storage = {
+      sql: this.sql,
+      transactionSync: <T>(fn: () => T) => ctx.storage.transactionSync(fn),
+    };
+    this.ledger = new Ledger(storage, () => this.clock.now());
+    // The log's rows count with the ledger's own counter too (`rowsBesideLog` in tests reads them apart).
+    this.fightStore = new FightStore(this.sql, (rows) => {
       this.ledger.rowsWritten += rows;
     });
-    this.usage = new UsageMeter(ctx.storage.sql, () => this.ledger.rowsWritten);
+    // The meter reads the raw handle (its own flush is counted with the rows it reports) and the metered totals.
+    this.usage = new UsageMeter(
+      ctx.storage.sql,
+      () => this.rowCount.written,
+      () => this.rowCount.read,
+    );
     for (const ws of ctx.getWebSockets()) {
       const session = sessionOf(ws);
       if (session?.phase === 'queued')
@@ -127,7 +144,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     armCrowds(this);
     this.source = this.beaconSource();
     this.beacons = new Beacons({
-      storage: ctx.storage,
+      storage,
       // Looked up on each use, so a test can swap the source of a live object.
       source: { now: () => this.source.now(), fetch: (round) => this.source.fetch(round) },
       countersign: (hash) => this.ledger.countersign(hash),
@@ -137,6 +154,8 @@ export class Authority extends DurableObject<Env> implements Hub {
     // Then every fight the saved logs hold open is rebuilt before any message arrives (ADR 0053).
     ctx.blockConcurrencyWhile(async () => {
       ctx.storage.transactionSync(() => migrate(ctx.storage.sql));
+      // The seated time starts from the sockets a wake finds (the usage table exists now).
+      meterSeats(this);
       recoverFights(this, this.clock.now());
     });
   }
@@ -144,9 +163,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   /** The salt of the sessions' IP hashes, which migration 10 stored in `world`. */
   private salt(): string {
     this.ipSalt ??=
-      (this.ctx.storage.sql.exec('SELECT ip_salt FROM world').toArray()[0]?.ip_salt as
-        | string
-        | undefined) ?? '';
+      (this.sql.exec('SELECT ip_salt FROM world').toArray()[0]?.ip_salt as string | undefined) ??
+      '';
     return this.ipSalt;
   }
 
@@ -182,8 +200,16 @@ export class Authority extends DurableObject<Env> implements Hub {
     const bytes = this.usage.databaseBytes(Date.now());
     return {
       ...this.ledger.audit.report(this.clock.now()),
-      storage: { bytes, limit: STORAGE_LIMIT_BYTES },
+      storage: { bytes, limit: limitsOf(this.env).storageBytes },
     };
+  }
+
+  /** What the authority spends and what admission does (`GET /v1/metrics`, `worker/metrics.ts`): counted as a public read, answered even past 80% of the day's requests. */
+  metrics(): Metrics {
+    this.proofReads++;
+    const now = Date.now();
+    this.usage.request(now);
+    return metricsOf(this, now);
   }
 
   override async fetch(request: Request): Promise<Response> {
@@ -214,8 +240,8 @@ export class Authority extends DurableObject<Env> implements Hub {
     }
     if (session.phase === 'retired') return;
     const now = Date.now();
-    this.usage.message(now);
     const msg = typeof data === 'string' ? parseClientMsg(data) : null;
+    this.usage.message(now, msg?.t ?? 'bad');
     if (msg) this.received.set(msg.t, (this.received.get(msg.t) ?? 0) + 1);
     if (now - session.windowStart >= RATE_WINDOW_MS) {
       session.windowStart = now;

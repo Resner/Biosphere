@@ -45,7 +45,7 @@ const LIMITS: ProofLimits = {
 export const proofStats = { assembles: 0 };
 
 function read(hub: Hub, query: string, ...bindings: SqlStorageValue[]): Row[] {
-  const cursor = hub.ctx.storage.sql.exec<Row>(query, ...bindings);
+  const cursor = hub.sql.exec<Row>(query, ...bindings);
   const rows = cursor.toArray();
   hub.ledger.rowsWritten += cursor.rowsWritten;
   return rows;

@@ -24,6 +24,8 @@ interface Env {
   RIDE_ALONE_MS?: string;
   /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */
   MAX_SESSIONS?: string;
+  /** The plan whose limits admission and `/v1/metrics` use: `paid`, else the free plan (`worker/plan.ts`). */
+  PLAN?: string;
   DAILY_REQUEST_BUDGET?: string;
   AUTHORITY: DurableObjectNamespace<import('./authority').Authority>;
 }

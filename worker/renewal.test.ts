@@ -458,8 +458,27 @@ describe('migration 11', () => {
         };
       },
     );
-    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12]);
-    expect(out.after.kept).toEqual(out.beforeKept);
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13]);
+    // Migration 13 adds the usage rows' day in depth: zeros and `{}` for a day it never counted.
+    const depth = {
+      by_type: '{}',
+      upgrades: 0,
+      reads: 0,
+      rows_read: 0,
+      player_ms: 0,
+      peak_seated: 0,
+      peak_queued: 0,
+      waits: 0,
+      wait_ms: 0,
+      relay_reports: 0,
+      relay_links: 0,
+      relay_relayed: 0,
+      relay_kb: 0,
+    };
+    expect(out.after.kept).toEqual({
+      ...out.beforeKept,
+      usage: (out.beforeKept.usage ?? []).map((r) => ({ ...r, ...depth })),
+    });
     expect(out.after.players.map((p) => [p.id, p.first_seen, p.last_seen, p.struck_until])).toEqual(
       [
         [out.ids[0], 10, 20, 0],

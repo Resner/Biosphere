@@ -7,8 +7,8 @@ import type { PondRow } from './schema';
 import { type Hub, randomToken } from './socket';
 
 /** The world's row, made on first use with the world's seed and clock and centred on the world. */
-export function worldRow(hub: Pick<Hub, 'ctx'>): PondRow {
-  const sql = hub.ctx.storage.sql;
+export function worldRow(hub: Pick<Hub, 'sql'>): PondRow {
+  const sql = hub.sql;
   const row = sql.exec<PondRow>('SELECT * FROM ponds ORDER BY created, id LIMIT 1').toArray()[0];
   if (row) return row;
   const world = sql.exec<{ seed: string; clock: number }>('SELECT seed, clock FROM world').one();

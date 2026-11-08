@@ -134,6 +134,6 @@ describe('fight log retention', () => {
     const day = new Date(Date.now()).toISOString().slice(0, 10);
     const [row] = await sql<{ db_bytes: number }>('SELECT db_bytes FROM usage WHERE day = ?', day);
     expect(row?.db_bytes).toBeGreaterThan(0);
-    expect(body.storage).toEqual({ bytes: row?.db_bytes, limit: 5_000_000_000 });
+    expect(body.storage).toEqual({ bytes: row?.db_bytes, limit: 1_000_000_000 });
   });
 });

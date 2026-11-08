@@ -59,7 +59,7 @@ const creditOf = (session: ActiveSession | undefined): number =>
 function savedPlay(hub: Hub, players: readonly string[]): Map<string, number> {
   const out = new Map<string, number>();
   if (players.length === 0) return out;
-  const cursor = hub.ctx.storage.sql.exec<{ owner: string; ms: number }>(
+  const cursor = hub.sql.exec<{ owner: string; ms: number }>(
     `SELECT owner, SUM(active_ms) AS ms FROM creatures
      WHERE owner IN (SELECT value FROM json_each(?)) GROUP BY owner`,
     JSON.stringify(players),
@@ -71,7 +71,7 @@ function savedPlay(hub: Hub, players: readonly string[]): Map<string, number> {
 /** The players struck at `now`, of `players`. */
 export function struck(hub: Hub, players: readonly string[], now: number): Set<string> {
   if (players.length === 0) return new Set();
-  const rows = hub.ctx.storage.sql
+  const rows = hub.sql
     .exec<{ id: string }>(
       'SELECT id FROM players WHERE struck_until > ? AND id IN (SELECT value FROM json_each(?))',
       now,

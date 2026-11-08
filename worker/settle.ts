@@ -261,7 +261,7 @@ function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[], forward
   const { enc } = fight;
   let tick = fight.t0 + enc.frame * RULES.encounter.frameTicks;
   if (forwarded !== undefined && fighters.some((f) => f.outcome === 'killed')) {
-    const pond = hub.ctx.storage.sql
+    const pond = hub.sql
       .exec<Pick<PondRow, 'epoch'>>('SELECT epoch FROM ponds WHERE id = ?', fight.pond)
       .toArray()[0];
     if (pond) tick = Math.min(tick, pondTick(forwarded, pond.epoch));
