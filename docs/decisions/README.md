@@ -96,3 +96,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0064](0064-habitats-spawning-riding-and-crowd-instances.md) | Habitats: spawning around groups, riding the current, crowd instances and anchored transitions | accepted | |
 | [0065](0065-late-entries-in-dense-water.md) | Late entries in dense water read at 15 in 1,000 | accepted | |
 | [0066](0066-how-the-wave-gates-read.md) | How the population wave's gates read: the group's edge, regrouped, hidden creatures and the budget | accepted | |
+| [0067](0067-spawn-band-floor-at-the-centre.md) | The spawn band's floor near the centre: 0.26 within the centre cap's radius | accepted | |
