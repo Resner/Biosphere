@@ -6,7 +6,7 @@ import { type WitnessView, witnessView } from './duty';
 import { fixtureSource } from './fixture-beacons';
 import live from './index';
 import { recoverFights } from './recover';
-import { type Session, sessionOf } from './socket';
+import { type Session, socketsOf } from './socket';
 import {
   armCrowds,
   type DirectoryView,
@@ -52,8 +52,7 @@ export class Authority extends LiveAuthority {
    * discarded, and the open fights are rebuilt from their saved logs as a new object would.
    */
   restart(): void {
-    for (const ws of this.ctx.getWebSockets()) {
-      const session = sessionOf(ws);
+    for (const [ws, session] of socketsOf(this)) {
       if (session) ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
       try {
         ws.close(1012, 'restart');
@@ -61,6 +60,8 @@ export class Authority extends LiveAuthority {
         // already closed
       }
     }
+    // The indexes are rebuilt as a new object would (now empty).
+    this.rebuildSeats();
     this.fights.clear();
     // Every duty ends with the memory that held it (ADR 0058).
     this.duties.clear();

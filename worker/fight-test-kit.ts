@@ -24,7 +24,7 @@ import { drive, IDLE_CODE } from '../tests/encounter-fixture';
 import type { Authority } from './authority';
 import { type Clock, Fights, runFight } from './fights';
 import type { LifeState } from './life';
-import type { Session } from './socket';
+import { keep, type Session } from './socket';
 import {
   type Client,
   closeSockets,
@@ -150,6 +150,8 @@ export const seasoned = async (
     'UPDATE players SET epoch_seen = (SELECT epoch FROM world) WHERE id = ?',
     p.id.playerId,
   );
+  // Written directly, so a seated player's witness candidacy reads its play again (`seats.ts`).
+  await authority((a) => a.seats.reload(p.id.playerId));
 };
 
 /** A player whose creature is newly hatched on a fresh socket; its `spawn` (`spawned`) protects it for 15 s. */
@@ -269,7 +271,7 @@ export const editSession = (p: Player, edit: (s: Session & { phase: 'active' }) 
   authority((a) => {
     for (const ws of a.ctx.getWebSockets()) {
       const s = ws.deserializeAttachment() as Session | null;
-      if (s?.phase === 'active' && s.playerId === p.id.playerId) ws.serializeAttachment(edit(s));
+      if (s?.phase === 'active' && s.playerId === p.id.playerId) keep(a, ws, edit(s));
     }
   });
 

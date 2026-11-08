@@ -269,7 +269,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Scale in the hub
 
-- [ ] T2 The hub's work per message doesn't grow with its sockets [opus] (after T1)
+- [x] T2 The hub's work per message doesn't grow with its sockets [opus] (after T1)
   - Steps:
     1. **In-memory indexes** on the hub replace the socket scans. They are rebuilt in the constructor from the attachments, as the directory is, and kept up by `hello`, `enter`, `drop`, `promote` and the handlers that change them:
        - **each seated player's socket**, used by `seated`, the relay's target, `tellMoved`, `tellInstances`, court and mate targets, `seatedCrowd` and duties;
@@ -303,6 +303,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
       - 500 seated sessions relay 100 signals, and every one reaches its target.
     - **A wake**: indexes rebuilt from a set of attachments give the same seated set, line order, courts and witness candidates as the live ones, tested as `rebuildDirectory` is.
   - Notes: the answers don't change; only how the hub finds things does. T9 builds admission on the line's index.
+  - Done: `worker/seats.ts` (`hub.seats`) indexes seats, the line, hellos, courts and witness candidates; every attachment write goes through `keep`, and `hubReads` counts reads (`worker/hub-scale.test.ts`, heavy). Gotcha: a test writing a seated player's `creatures`/`players` rows directly calls `seats.reload`; eligibility still reads each candidate's attachment for its duties and credit.
 
 - [x] T3 Placement and the hub's pure parts at 10,000 (after none)
   - Steps:

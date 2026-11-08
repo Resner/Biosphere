@@ -37,14 +37,15 @@ import { recoverFights } from './recover';
 import { ride } from './ride';
 import { migrate } from './schema';
 import { renewSeat } from './seat';
+import { Seats } from './seats';
 import { drop, hello, meterSeats, promote, queued, relay } from './sessions';
-import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
+import { type Hub, keep, randomToken, send, sessionOf, socketsOf } from './socket';
 import { type RecentSpawn, spawn } from './spawn';
 import { TurnCredentials } from './turn';
 import { UsageMeter } from './usage';
 import { armCrowds, gone, rebuildCrowds, rebuildDirectory, where } from './where';
 import { witnessBatch, witnessDispute } from './witness-fight';
-import { avail, ipHash } from './witness-pool';
+import { avail, ipHash, playOf } from './witness-pool';
 
 // The message handlers live by area in `sessions.ts` (sessions and signaling), `lives.ts` (genesis
 // and life), `offspring.ts` (mating and offspring) and `engage.ts` (lock-in, with the locks in
@@ -99,6 +100,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly received = new Map<ClientMsg['t'], number>();
   /** Witness duties (ADR 0058), in memory: a restart ends them all. */
   duties: Duties = new Duties(this);
+  /** The sockets by seat, the line, the hellos due, the courts and the witness candidates (M13 T2): rebuilt from the attachments when the object wakes. */
+  seats: Seats;
   /** Who is where (M11 T6): rebuilt from the sockets' attachments when the object wakes. */
   directory: Directory;
   /** Crowd instances (M12 T5): rebuilt from the sockets' attachments when the object wakes. */
@@ -113,6 +116,8 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly spawns: RecentSpawn[] = [];
   /** The salt of every session's IP hash (migration 10), read once. */
   private ipSalt: string | null = null;
+  /** The owners whose indexed play the transaction running now changed, read again from SQLite if it rolls back (null outside one). */
+  private playTouched: Set<string> | null = null;
 
   constructor(ctx: DurableObjectState, env: Env) {
     super(ctx, env);
@@ -121,9 +126,13 @@ export class Authority extends DurableObject<Env> implements Hub {
     // The ledger and the beacons take the counted handle with the object's own transactions.
     const storage = {
       sql: this.sql,
-      transactionSync: <T>(fn: () => T) => ctx.storage.transactionSync(fn),
+      transactionSync: <T>(fn: () => T) => this.transaction(fn),
     };
     this.ledger = new Ledger(storage, () => this.clock.now());
+    // Every record that adds active time keeps a seated player's saved play current (`seats.ts`).
+    this.ledger.played = (owner, ms) => {
+      if (this.seats.addPlay(owner, ms)) this.playTouched?.add(owner);
+    };
     // The log's rows count with the ledger's own counter too (`rowsBesideLog` in tests reads them apart).
     this.fightStore = new FightStore(this.sql, (rows) => {
       this.ledger.rowsWritten += rows;
@@ -134,11 +143,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       () => this.rowCount.written,
       () => this.rowCount.read,
     );
-    for (const ws of ctx.getWebSockets()) {
-      const session = sessionOf(ws);
-      if (session?.phase === 'queued')
-        this.nextTicket = Math.max(this.nextTicket, session.ticket + 1);
-    }
+    this.seats = new Seats(playOf(this));
     this.directory = rebuildDirectory(this);
     this.crowds = rebuildCrowds(this);
     armCrowds(this);
@@ -154,10 +159,41 @@ export class Authority extends DurableObject<Env> implements Hub {
     // Then every fight the saved logs hold open is rebuilt before any message arrives (ADR 0053).
     ctx.blockConcurrencyWhile(async () => {
       ctx.storage.transactionSync(() => migrate(ctx.storage.sql));
+      // The indexes, with each seated player's play and strike as the migrated tables hold them.
+      this.rebuildSeats();
       // The seated time starts from the sockets a wake finds (the usage table exists now).
       meterSeats(this);
       recoverFights(this, this.clock.now());
     });
+  }
+
+  /** The indexes as the sockets' attachments hold them (a wake, and the E2E restart). */
+  protected rebuildSeats(): void {
+    const sockets = [...socketsOf(this)];
+    for (const [, session] of sockets) {
+      if (session?.phase === 'queued')
+        this.nextTicket = Math.max(this.nextTicket, session.ticket + 1);
+    }
+    this.seats = new Seats(playOf(this));
+    this.seats.rebuild(sockets);
+  }
+
+  /**
+   * One SQLite transaction, as the ledger and the beacons run theirs: the play a record added to
+   * the indexes during one that throws is read again from the rolled-back rows.
+   */
+  private transaction<T>(fn: () => T): T {
+    const outer = this.playTouched === null;
+    const touched = this.playTouched ?? new Set<string>();
+    this.playTouched = touched;
+    try {
+      return this.ctx.storage.transactionSync(fn);
+    } catch (error) {
+      for (const owner of touched) this.seats.reload(owner);
+      throw error;
+    } finally {
+      if (outer) this.playTouched = null;
+    }
   }
 
   /** The salt of the sessions' IP hashes, which migration 10 stored in `world`. */
@@ -218,7 +254,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     const now = Date.now();
     this.usage.upgrade(now);
     const nonce = randomToken(NONCE_BYTES);
-    pair[1].serializeAttachment({
+    keep(this, pair[1], {
       phase: 'challenged',
       nonce,
       openedAt: now,
@@ -226,7 +262,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       count: 0,
       signals: 0,
       ip: ipHash(this.salt(), request.headers.get('CF-Connecting-IP') ?? ''),
-    } satisfies Session);
+    });
     send(pair[1], { t: 'challenge', nonce });
     await this.rearm();
     return new Response(null, { status: 101, webSocket: pair[0] });
@@ -269,7 +305,7 @@ export class Authority extends DurableObject<Env> implements Hub {
     else session.count++;
     if (referee && msg && (session.referee ?? 0) > RATE_MAX_REFEREE) {
       this.dropped.set(msg.t, (this.dropped.get(msg.t) ?? 0) + 1);
-      ws.serializeAttachment(session);
+      keep(this, ws, session);
       return;
     }
     const over = signal
@@ -281,7 +317,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       drop(this, ws, CLOSE_RATE_LIMITED, 'rate limited');
       return;
     }
-    ws.serializeAttachment(session);
+    keep(this, ws, session);
     if (session.phase === 'challenged') {
       if (msg?.t !== 'hello') {
         // A client on another protocol version is told so, to show "Update available".
@@ -414,10 +450,13 @@ export class Authority extends DurableObject<Env> implements Hub {
    */
   override async alarm(): Promise<void> {
     const now = Date.now();
-    for (const ws of this.ctx.getWebSockets()) {
-      const session = sessionOf(ws);
-      if (session?.phase === 'challenged' && session.openedAt + HELLO_TIMEOUT_MS <= now) {
+    for (const [ws, openedAt] of [...this.seats.challenged()]) {
+      if (openedAt + HELLO_TIMEOUT_MS > now) continue;
+      this.seats.forgetHello(ws);
+      try {
         ws.close(CLOSE_BAD_HELLO, 'hello timeout');
+      } catch {
+        // already closed
       }
     }
     try {
@@ -450,10 +489,12 @@ export class Authority extends DurableObject<Env> implements Hub {
   /** When the earliest socket that hasn't said hello times out, or null. Sockets already closing don't count. */
   private helloDue(): number | null {
     let next: number | null = null;
-    for (const ws of this.ctx.getWebSockets()) {
-      const session = sessionOf(ws);
-      if (session?.phase !== 'challenged' || ws.readyState > WebSocket.READY_STATE_OPEN) continue;
-      const due = session.openedAt + HELLO_TIMEOUT_MS;
+    for (const [ws, openedAt] of [...this.seats.challenged()]) {
+      if (ws.readyState > WebSocket.READY_STATE_OPEN) {
+        this.seats.forgetHello(ws);
+        continue;
+      }
+      const due = openedAt + HELLO_TIMEOUT_MS;
       next = Math.min(next ?? due, due);
     }
     return next;
