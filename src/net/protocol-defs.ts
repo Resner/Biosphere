@@ -118,8 +118,8 @@ export interface RelayReport {
 }
 export const RELAY_LINKS_MAX = 32;
 export const RELAY_KB_MAX = 16_384;
-export type QueueWhy = 'full' | 'budget' | 'storage';
-export const QUEUE_WHYS: readonly QueueWhy[] = ['full', 'budget', 'storage'];
+export const QUEUE_WHYS = ['full', 'budget', 'storage'] as const;
+export type QueueWhy = (typeof QUEUE_WHYS)[number];
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;

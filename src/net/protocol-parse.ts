@@ -1,6 +1,7 @@
 import type { Canonical } from '../ledger/canonical';
 import type { RecordRequest, Status } from '../ledger/record';
 import { parseSignedSeat } from '../ledger/seat-doc';
+import { onlyKeys } from '../ledger/witness-doc';
 import {
   BORN_MAX_BYTES,
   type Born,
@@ -411,7 +412,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
 
 /** A page's relay report (M13 T4): exactly its three whole numbers, each in its range. */
 function relayReport(v: unknown): RelayReport | null {
-  if (!isObj(v) || Object.keys(v).length !== 3) return null;
+  if (!isObj(v) || !onlyKeys(v, ['links', 'relayed', 'kb'])) return null;
   const { links, relayed, kb } = v;
   return isInt(links, 0, RELAY_LINKS_MAX) && isInt(relayed, 0, links) && isInt(kb, 0, RELAY_KB_MAX)
     ? { links, relayed, kb }
