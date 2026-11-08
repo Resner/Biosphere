@@ -115,8 +115,12 @@ function checkValid(
   }
   const depth = depthAt(sim.seed32, x, y, SIZE);
   const atCentre = members.length === 0 && x === CENTRE.x && y === CENTRE.y; // the pin keeps the centre in 0.26 to 0.54
-  if (!atCentre && depth < RULES.bathymetry.zones.shallows + RULES.hazards.uvBand)
-    return `depth ${depth} low`;
+  // Within the centre cap's radius the floor is the cap's own (0.26), which flat ground there holds.
+  const floor =
+    Math.hypot(x - CENTRE.x, y - CENTRE.y) <= RULES.bathymetry.centreRadius
+      ? RULES.bathymetry.base - RULES.bathymetry.centreCap
+      : RULES.bathymetry.zones.shallows + RULES.hazards.uvBand;
+  if (!atCentre && depth < floor) return `depth ${depth} low`;
   if (!atCentre && depth > RULES.hazards.pressureStart) return `depth ${depth} high`;
   if (!clearOfPlumes(sim, x, y, 2.5 * spawner.r, FUTURE)) return 'plume';
   const tier = sizeTier(spawner.r * spawner.r);
@@ -205,6 +209,28 @@ describe('place', () => {
       expect(checkValid(out, members, recent, now, STARTER), `world ${i}`).toBeNull();
     }
     expect(centreFallbacks).toBeLessThan(40);
+  });
+
+  it('places a second starter within P1 reach of the first when the world’s centre is at the shallow end of the pin', () => {
+    // Seeds 5 and 7 leave the ground around the spawn centre flat at depth 0.26 (the centre cap's
+    // floor), just under the band's 0.27: that ground has to hold a spawn too.
+    for (const seed of ['s5', 's7']) {
+      const world = { seed, size: SIZE, tick: 0 };
+      const first = member('a', CENTRE.x, CENTRE.y);
+      const at = place({
+        members: [first],
+        recent: [],
+        spawner: STARTER,
+        centre: CENTRE,
+        world,
+        now: 0,
+        rng: rngFor(`shallow-${seed}`),
+      });
+      expect(at.fallback, seed).toBe('none');
+      expect(Math.hypot(at.x - CENTRE.x, at.y - CENTRE.y), seed).toBeLessThanOrEqual(
+        8 * STARTER_R + 600,
+      );
+    }
   });
 
   it('keeps within P1 reach of a group member when its winning ring allows it', () => {

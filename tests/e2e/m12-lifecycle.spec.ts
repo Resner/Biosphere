@@ -340,6 +340,10 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       .toBe(true);
     const fightRuns = async () => (await state(a.page)).encounter?.over === false;
     const runningBefore = await fightRuns();
+    // The hub decides D's place from the directory somewhere between this sample and the one after
+    // the arrival, while A and B keep fighting: a member's place then lies within what it moved
+    // between the two samples.
+    const sampledBefore = new Map((await directory(request, HUB)).members.map((m) => [m.id, m]));
     await d.page.keyboard.press('r');
     await expect
       .poll(async () => (await state(d.page)).ride.phase, {
@@ -358,16 +362,20 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       // The fight held the crowd: the fighters were in an instance when D landed.
       expect(crowded.map((m) => m.id)).toEqual(expect.arrayContaining([a.id, b.id]));
     }
+    const movedSince = (m: Sized & { id: string }) => {
+      const was = sampledBefore.get(m.id);
+      return (was ? dist(was, m) : 0) + DRIFT_WU;
+    };
     for (const m of after.members.filter((m) => m.id !== d.id)) {
       expect(dist(arrival, m), 'D lands outside every member’s clearance').toBeGreaterThanOrEqual(
-        clearance(note, m) - DRIFT_WU,
+        clearance(note, m) - movedSince(m),
       );
     }
     for (const m of crowded) {
       expect(
         dist(arrival, m),
         'D lands outside the P1 reach of every member still in the crowd',
-      ).toBeGreaterThanOrEqual(p1Reach(note, m) - DRIFT_WU);
+      ).toBeGreaterThanOrEqual(p1Reach(note, m) - movedSince(m));
     }
     // D holds a link to nobody in the crowd.
     const dLinks = (await state(d.page)).net.links.map((l) => l.id);
