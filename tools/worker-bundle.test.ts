@@ -92,10 +92,11 @@ describe('worker bundles', () => {
     expect(code).toMatch(/jumpsTaken = [^\n]*\(env\) => env\.DRAND_SOURCE === "fixture"[,;)]/);
   });
 
-  // The crowds' fill and quiet wait (M12 T5) likewise: each read once, behind the fixture source.
-  heavyTest('production honours no crowd variable outside fixture mode', () => {
+  // The crowds' fill and quiet wait (M12 T5) and the ride's wait (M12 T7) likewise: each read once,
+  // behind the fixture source.
+  heavyTest('production honours no crowd or ride variable outside fixture mode', () => {
     const code = bundle(false, 'index.js');
-    for (const name of ['INSTANCE_MAX', 'QUIET_MS']) {
+    for (const name of ['INSTANCE_MAX', 'QUIET_MS', 'RIDE_ALONE_MS']) {
       expect(
         code.match(new RegExp(`[\\w$.]*\\b${name}\\b`, 'g'))?.filter((r) => r.startsWith('env.')),
       ).toEqual([`env.${name}`]);

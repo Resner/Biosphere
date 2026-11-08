@@ -46,7 +46,8 @@ export type LifeMsg = Extract<
       | 'promoted'
       | 'restored'
       | 'lineage'
-      | 'spawn';
+      | 'spawn'
+      | 'ride-no';
   }
 >;
 
@@ -283,6 +284,7 @@ export class HubClient {
       case 'restored':
       case 'lineage':
       case 'spawn':
+      case 'ride-no':
         for (const fn of [...this.lifeListeners]) guarded(() => fn(msg));
         break;
       case 'lock-ask':

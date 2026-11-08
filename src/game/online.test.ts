@@ -255,6 +255,33 @@ describe('OnlineSession: links by area of interest (M11 T13)', () => {
     expect(session.alone()).toBe(false);
   });
 
+  it('reports at once when it turns alone, so the hub times a ride from there (M12 T7)', () => {
+    const { hub, session, run } = settled();
+    hub.world(nearMsg([['a', 300]]));
+    run(3000);
+    expect(session.alone()).toBe(false);
+    hub.sent.length = 0;
+    hub.world(nearMsg([]));
+    run(2100);
+    expect(session.alone()).toBe(true);
+    expect(hub.sent.filter((m) => m.t === 'where')).toHaveLength(1);
+    // Staying alone sends nothing more until the 30 s report.
+    run(20_000);
+    expect(hub.sent.filter((m) => m.t === 'where')).toHaveLength(1);
+  });
+
+  it('reports at once when asked to, as after a ride’s arrival (M12 T7)', () => {
+    const { hub, session, run, setCreature } = settled();
+    run(3000);
+    hub.sent.length = 0;
+    setCreature({ x: C + 40_000, y: C, vx: 0, vy: 0, r: 10, adultR: 20, inWater: true });
+    run(5000);
+    expect(hub.sent.filter((m) => m.t === 'where')).toEqual([]);
+    session.reportSoon();
+    run(100);
+    expect(hub.sent.filter((m) => m.t === 'where')).toMatchObject([{ x: C + 40_000, y: C }]);
+  });
+
   it('dials nobody and refuses every offer before it can check tickets', () => {
     const { hub, mesh } = setup();
     hub.ticket = null;

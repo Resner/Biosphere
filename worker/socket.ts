@@ -89,6 +89,8 @@ export type Session = (
       seatAt?: number | undefined;
       /** Its crowd and instance (M12 T5), absent in the open water, so a wake rebuilds the crowds. */
       crowd?: { id: number; n: number } | undefined;
+      /** Since when its `near` answers have held no peer (M12 T7, `worker/ride.ts`); absent with company. */
+      aloneSince?: number | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is not in the world yet. */

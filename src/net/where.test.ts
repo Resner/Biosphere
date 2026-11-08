@@ -116,6 +116,17 @@ describe('WhereReporter', () => {
     expect(w.update(swim(64_000), LEAF)).toBeNull();
   });
 
+  it('reports as soon as the gap allows after a nudge, and only in the water (M12 T7)', () => {
+    const w = started();
+    w.nudge();
+    expect(w.update(swim(WHERE_MIN_GAP_MS - 100), LEAF)).toBeNull();
+    expect(w.update(swim(WHERE_MIN_GAP_MS), LEAF)?.t).toBe('where');
+    expect(w.update(swim(WHERE_MIN_GAP_MS * 3), LEAF)).toBeNull();
+    const ashoreNow = new WhereReporter();
+    ashoreNow.nudge();
+    expect(ashoreNow.update(ashore(10_000), LEAF)).toBeNull();
+  });
+
   it('keeps its reports within the wire’s ranges', () => {
     const w = new WhereReporter();
     const msg = w.update({ inWater: true, x: -3, y: 2 ** 30, r: 0.4, aoi: 42_000, now: 0 }, null);

@@ -58,7 +58,7 @@ export function spawnerOf(life: LifeState | undefined, msg: { r: number; aoi: nu
 }
 
 /** Every other member of the directory, by its last report (each with its instance). */
-function othersOf(hub: Hub, self: string): Placed[] {
+export function othersOf(hub: Hub, self: string): Placed[] {
   const out: Placed[] = [];
   for (const [, s] of activeSessions(hub)) {
     if (s.playerId === self) continue;
@@ -70,7 +70,7 @@ function othersOf(hub: Hub, self: string): Placed[] {
 }
 
 /** Notes a spawn the hub gave, keeping the newest `RECENT_SPAWNS_MAX` of the last minute. */
-function remember(hub: Hub, s: RecentSpawn): void {
+export function remember(hub: Hub, s: RecentSpawn): void {
   // Appended in clock order, so the expired ones are at the front.
   while (hub.spawns[0] && s.t - hub.spawns[0].t >= SPAWN_RECENT_MS) hub.spawns.shift();
   hub.spawns.push(s);
