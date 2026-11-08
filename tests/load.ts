@@ -261,7 +261,8 @@ export function loadGates(run: RunResult): Gate[] {
     steady.length > 0 &&
     median <= LOAD_MSG_MEDIAN &&
     p95 <= LOAD_MSG_P95 &&
-    (w.holdJoin.length === 0 || join <= LOAD_JOIN_P95) &&
+    w.holdJoin.length > 0 &&
+    join <= LOAD_JOIN_P95 &&
     mean <= LOAD_MSG_MEAN;
 
   const arrivals = w.arrivals;

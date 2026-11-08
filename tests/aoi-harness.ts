@@ -478,8 +478,11 @@ class Sim {
       this.report(c);
       this.sendGossip(c);
       this.resending = true;
-      c.route.tick();
-      this.resending = false;
+      try {
+        c.route.tick();
+      } finally {
+        this.resending = false;
+      }
       if ((this.tickIndex + c.phase) % 5 === 0 || c.dirty) this.plan(c);
       this.sample(c, dt);
     }

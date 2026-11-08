@@ -138,6 +138,10 @@ describe('the load gates', () => {
     const joiner = clean();
     (joiner.wave as NonNullable<RunResult['wave']>).holdJoin = [101, 101];
     expect(failing(joiner)).toEqual([1]);
+    // A run with no joiner in the hold has nothing to judge: it fails, it does not pass by default.
+    const none = clean();
+    (none.wave as NonNullable<RunResult['wave']>).holdJoin = [];
+    expect(failing(none)).toEqual([1]);
     const mean = clean();
     (mean.wave as NonNullable<RunResult['wave']>).holdMessages = 1300;
     expect(failing(mean)).toEqual([1]);

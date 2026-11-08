@@ -41,6 +41,8 @@ Written by `npm run sim:load` (`tools/load-report.ts`) from the headless harness
 
 ## Messages by type
 
+Over the whole run, the fill included (the gates read the hold alone).
+
 | Message | Count | Per player-minute |
 |---|---|---|
 | where | 347,830 | 3.31 |

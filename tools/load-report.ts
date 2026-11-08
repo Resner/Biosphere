@@ -236,6 +236,8 @@ ${metrics}
 
 ## Messages by type
 
+Over the whole run, the fill included (the gates read the hold alone).
+
 ${types}
 
 ## The fill, minute by minute
