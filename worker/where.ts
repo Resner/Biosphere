@@ -346,14 +346,16 @@ export function whereIn(
  */
 export function gone(hub: Hub, ws: WebSocket | null, session: ActiveSession): void {
   const id = session.playerId;
-  // Where it left stays: a promoted child is anchored there (M12 T4).
+  // Where it left stays: a promoted child is anchored there (M12 T4), and the next spawn under the
+  // same binding asks afresh, so it comes back there (M12 T10).
   // Out of the water it is not alone: the next report starts the count again (M12 T7).
-  if (ws && (session.where || session.aloneSince !== undefined))
+  if (ws && (session.where || session.aloneSince !== undefined || session.spawned))
     ws.serializeAttachment({
       ...session,
       where: undefined,
       left: session.where ?? session.left,
       aloneSince: undefined,
+      spawned: undefined,
     } satisfies Session);
   tellMoved(hub, hub.directory.remove(id));
   if (hub.fights.playerLocked(id) && hub.crowds.instanceOf(id) !== OPEN_WATER) {

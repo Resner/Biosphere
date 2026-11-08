@@ -23,9 +23,9 @@ import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
-import { anchorAtLast } from './spawn';
+import { type Anchor, anchorAtLast, leftAt } from './spawn';
 import { DAY_MS } from './usage';
-import { carrionNoticed } from './where';
+import { bindingOf, carrionNoticed } from './where';
 import { refereeingOf, witnessDone } from './witness-fight';
 
 /** Sends `msg` to every participant who is connected now. */
@@ -135,7 +135,7 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
   const away = fighters.flatMap((f, slot) =>
     seated(hub, f.player)
       ? []
-      : [{ player: f.player, report: reportOf(fight, f, records[slot]?.frames ?? enc.frame) }],
+      : [{ f, report: reportOf(fight, f, records[slot]?.frames ?? enc.frame) }],
   );
   let settled: SettleResult;
   try {
@@ -148,7 +148,11 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
         seal: (signed) => {
           hub.fightStore.seal(fight, log.frames, signed);
           hub.beacons.pruneWitnesses(PRUNE_PER_SETTLEMENT, LOG_KEEP_DAYS * DAY_MS);
-          for (const { player, report } of away) storeReport(hub, player, report);
+          for (const { f, report } of away) {
+            storeReport(hub, f.player, report);
+            // A survivor resumes where the fight left it (M12 T10).
+            if (survived(f)) leftAt(hub, f.player, f.creature, { ...f, t: hub.clock.now() });
+          }
         },
       },
     });
@@ -217,22 +221,29 @@ function unsettled(hub: Hub, lock: Lock, fight: Fight, fighters: FighterOutcome[
   }
   tell(hub, lock, { t: 'enc-end', enc: enc.id, f: enc.frame, hash: hashEncounter(enc), fighters });
   hub.fights.release(lock.id);
-  backToLedger(hub, lock.players, now);
+  backToLedger(hub, lock.players, now, fighters);
   freeSeats(hub);
 }
 
 /**
  * Each connected player of a fight that wrote nothing plays its creature from the ledger's head
- * again, as a sign-in would, and hears it in `life`.
+ * again, as a sign-in would, and hears it in `life`. Its new binding starts where the fight left it
+ * when `ends` holds its place there (M12 T10), else from its last report (M12 T4).
  */
-export function backToLedger(hub: Hub, players: Iterable<string>, now: number): void {
+export function backToLedger(
+  hub: Hub,
+  players: Iterable<string>,
+  now: number,
+  ends: readonly Pick<FighterOutcome, 'player' | 'x' | 'y'>[] = [],
+): void {
   for (const player of players) {
     const found = seated(hub, player);
     if (!found) continue;
     const [ws, session] = found;
-    // The same creature on the same socket: its new binding starts from its last report (M12 T4).
     const life = bind(hub, player, now);
-    ws.serializeAttachment({ ...session, life, anchor: anchorAtLast(session, life) });
+    const end = ends.find((f) => f.player === player);
+    const anchor = end && life ? finalAnchor(end, life, now) : anchorAtLast(session, life);
+    ws.serializeAttachment({ ...session, life, anchor });
     sendLife(hub, ws, player);
   }
 }
@@ -292,5 +303,14 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
   let life: LifeState = recorded({ ...now.life, ...condition, activeMs, t }, t);
   if (!survived(f)) life = { ...life, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
-  ws.serializeAttachment({ ...session, life });
+  // It starts from where the authority's encounter left it: the next report lies near (M12 T10).
+  ws.serializeAttachment({ ...session, life, anchor: finalAnchor(f, life, t) });
 }
+
+/** A fighter's anchor at its place at the fight's end, in the authority's own encounter (M12 T10). */
+const finalAnchor = (f: Pick<FighterOutcome, 'x' | 'y'>, life: LifeState, t: number): Anchor => ({
+  x: f.x,
+  y: f.y,
+  t,
+  bind: bindingOf(life),
+});

@@ -1,16 +1,21 @@
 import { beforeEach, describe, expect, it } from 'vitest';
 import { INTERACT_LEAD_WU, INTERACT_RADII } from '../src/net/aoi';
 import type { HubMsg } from '../src/net/protocol';
+import { IDLE_CODE } from '../tests/encounter-fixture';
 import { Directory } from './directory';
 import {
   advance,
   authority,
   CENTRE,
+  fighters,
   hatched,
   join,
+  lockIn,
   NEAR,
+  outcomeOf,
   type Player,
   pair,
+  play,
   refusal,
   setEnv,
   snap,
@@ -26,6 +31,7 @@ import {
   nextOf,
   placed,
   report,
+  rowsWritten,
   signIn,
   sql,
 } from './test-hub';
@@ -193,10 +199,10 @@ describe('answers', () => {
       await nextOf(p.c, 'ack');
     }
     await placed(a, b);
-    // A reload resumes the creature: placed, unprotected.
+    // A reload resumes the creature: back where it left the water (M12 T10), unprotected.
     const again = await join(a.id);
     const resumed: Player = { ...a, c: again.c, pond: again.pond };
-    expect(await spawnOf(resumed)).toMatchObject({ why: 'placed', protect: false });
+    expect(await spawnOf(resumed)).toMatchObject({ why: 'back', protect: false });
     await placed(resumed, b);
     const [bornA] = await breed(resumed, b);
     const child = await promote(await grower(resumed), bornA);
@@ -264,6 +270,123 @@ describe('anchors', () => {
     expect(await droppedWheres()).toBe(before + 1);
     // Beside the parent's last report (the world's centre, where `placed` put it), it is taken.
     expect(await reports(child, CENTRE + 300, CENTRE)).toBe(true);
+  });
+});
+
+describe('resumes come back (M12 T10)', () => {
+  /** The same player on a fresh socket: the old one is replaced, and its close saves where it left. */
+  async function reload(p: Player): Promise<Player> {
+    const again = await join(p.id);
+    return { ...p, c: again.c, pond: again.pond };
+  }
+
+  it('brings a reload 1 s after a report back at that report’s place, unprotected', async () => {
+    const a = await hatched();
+    const at = await spawnOf(a);
+    expect(await reports(a, at.x + 200, at.y - 100)).toBe(true);
+    await advance(1000);
+    const resumed = await reload(a);
+    expect(await spawnOf(resumed)).toEqual({
+      t: 'spawn',
+      x: at.x + 200,
+      y: at.y - 100,
+      why: 'back',
+      protect: false,
+    });
+    // The answer anchors the binding there: a report beside it is taken.
+    expect(await reports(resumed, at.x + 250, at.y - 100)).toBe(true);
+  });
+
+  it('places a reload after 11 minutes away', async () => {
+    const a = await hatched();
+    const at = await spawnOf(a);
+    expect(await reports(a, at.x + 200, at.y)).toBe(true);
+    a.c.ws.close(1000, 'away');
+    await a.c.closed;
+    await advance(11 * 60_000);
+    const resumed = await reload(a);
+    expect(await spawnOf(resumed)).toMatchObject({ why: 'placed', protect: false });
+  });
+
+  it('brings a creature back where it left the water on the same socket (`gone`)', async () => {
+    const a = await hatched();
+    const at = await spawnOf(a);
+    expect(await reports(a, at.x - 300, at.y)).toBe(true);
+    a.c.send({ t: 'gone' });
+    await flush(a.c);
+    await advance(5000);
+    expect(await spawnOf(a)).toMatchObject({ x: at.x - 300, y: at.y, why: 'back', protect: false });
+  });
+
+  it('places a resume of another creature: a restore came in between', async () => {
+    await setEnv(true);
+    const [a, b] = await pair();
+    for (const p of [a, b]) {
+      await advance(10_000);
+      p.ticks += 300;
+      report(p.c, p.ticks);
+      await nextOf(p.c, 'ack');
+    }
+    await placed(a, b);
+    const [bornA] = await breed(a, b);
+    const child = await promote(await grower(a), bornA);
+    expect(await reports(child, CENTRE + 300, CENTRE)).toBe(true);
+    // The child reloads: back where it left.
+    const again = await reload(child);
+    expect(await spawnOf(again)).toMatchObject({ x: CENTRE + 300, y: CENTRE, why: 'back' });
+    again.c.send({ t: 'death', cause: 'toxin', ticks: 0 });
+    const ancestor = must((await nextOf(again.c, 'died')).fallback?.ancestor);
+    await setEnv(false);
+    await restore(again, ancestor, again.creature);
+    // The restored parent reloads before it entered the water: the child's place is not its own.
+    const parent = await reload({ ...again, creature: a.creature, ref: a.ref });
+    expect(await spawnOf(parent)).toMatchObject({ why: 'placed', protect: false });
+  });
+
+  it('adds the columns in migration 12, and a close in the water writes one row more', async () => {
+    const columns = (await sql<{ name: string }>('PRAGMA table_info(players)')).map((c) => c.name);
+    expect(columns).toEqual(
+      expect.arrayContaining(['left_x', 'left_y', 'left_at', 'left_creature']),
+    );
+    const [a, b] = await pair();
+    for (const p of [a, b]) {
+      await advance(10_000);
+      p.ticks += 300;
+      report(p.c, p.ticks);
+      await nextOf(p.c, 'ack');
+    }
+    // B is in the water, A is not: each close writes its checkpoint, and B's its place too.
+    const at = await spawnOf(b);
+    expect(await reports(b, at.x, at.y)).toBe(true);
+    const closeCost = async (p: Player) => {
+      const before = await rowsWritten();
+      await reload(p);
+      return (await rowsWritten()) - before;
+    };
+    const dry = await closeCost(a);
+    expect(await closeCost(b)).toBe(dry + 1);
+    const [row] = await sql<{ left_x: number; left_y: number; left_creature: string }>(
+      'SELECT left_x, left_y, left_creature FROM players WHERE id = ?',
+      b.id.playerId,
+    );
+    expect(row).toEqual({ left_x: at.x, left_y: at.y, left_creature: b.creature });
+  });
+});
+
+describe('after a fight (M12 T10)', () => {
+  it('drops a first report 2,500 wu from where the fight left the fighter, and flags teleport', async () => {
+    const [a, b] = await fighters();
+    const [start] = await lockIn(a, b, snap(b, ...NEAR.b, { energy: 0, health: 0.01 }));
+    const played = await play(a, b, start, () => [IDLE_CODE, IDLE_CODE]);
+    const [end] = must(played.ends);
+    const left = outcomeOf(end, a);
+    expect(left.outcome).toBe('stood');
+    await advance(1000);
+    const before = await droppedWheres();
+    expect(await reports(a, left.x + 2500, left.y)).toBe(false);
+    expect(await droppedWheres()).toBe(before + 1);
+    expect(await teleports(a.creature)).toBe(1);
+    expect(await reports(a, left.x + 100, left.y)).toBe(true);
   });
 });
 
