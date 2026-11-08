@@ -20,16 +20,20 @@ async function attach(testInfo: TestInfo, name: string, page: Page): Promise<voi
   await testInfo.attach(name, { body: png, contentType: 'image/png' });
 }
 
-/** The card's box lies wholly inside the viewport, beside no other main button. */
+/** The card and the title above it lie wholly inside the viewport. */
 async function cardFits(page: Page): Promise<void> {
-  const box = await page.getByTestId('queue-card').boundingBox();
   const view = page.viewportSize();
-  expect(box && view).toBeTruthy();
-  if (!box || !view) return;
-  expect(box.x).toBeGreaterThanOrEqual(0);
-  expect(box.y).toBeGreaterThanOrEqual(0);
-  expect(box.x + box.width).toBeLessThanOrEqual(view.width);
-  expect(box.y + box.height).toBeLessThanOrEqual(view.height);
+  for (const box of [
+    await page.getByTestId('queue-card').boundingBox(),
+    await page.locator('.title h1').boundingBox(),
+  ]) {
+    expect(box && view).toBeTruthy();
+    if (!box || !view) return;
+    expect(box.x).toBeGreaterThanOrEqual(0);
+    expect(box.y).toBeGreaterThanOrEqual(0);
+    expect(box.x + box.width).toBeLessThanOrEqual(view.width);
+    expect(box.y + box.height).toBeLessThanOrEqual(view.height);
+  }
 }
 
 test('a full world queues B with a card, B swims meanwhile, and a freed seat seats it', async ({

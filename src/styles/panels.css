@@ -410,6 +410,41 @@
   font-size: 0.85rem;
 }
 
+/* The card takes the tagline's place, as the renewal notice does, so the title keeps its room. */
+.title:has(.queue-card:not([hidden])) .tagline {
+  display: none;
+}
+
+.title:has(.queue-card:not([hidden])) h1 {
+  margin-bottom: 1rem;
+}
+
+/* A short screen (960 × 540) lowers the column so the title stays whole above the card. */
+@media (max-height: 640px) {
+  .title:has(.queue-card:not([hidden])) {
+    padding-bottom: 3vh;
+  }
+}
+
+/* Wide screens: one row, the words left and the practice cell right, so the column stays short. */
+@media (min-width: 600px) {
+  .queue-card {
+    grid-template-columns: 1fr auto;
+    align-items: center;
+    justify-items: start;
+    column-gap: 1.2rem;
+    width: min(34rem, calc(100vw - 2rem));
+    padding: 0.7rem 0.8rem 0.7rem 1.3rem;
+    text-align: left;
+  }
+
+  .queue-card .action {
+    grid-row: 1 / span 2;
+    grid-column: 2;
+    margin-top: 0;
+  }
+}
+
 /* Hatch while the line holds it, or while the recorded hatches are used up. */
 .screen .action:disabled {
   opacity: 0.5;
