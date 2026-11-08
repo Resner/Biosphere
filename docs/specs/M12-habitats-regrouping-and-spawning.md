@@ -534,7 +534,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Transitions
 
-- [x] T10 Transitions keep one place and one state [opus] (after T5, T7) (in progress)
+- [x] T10 Transitions keep one place and one state [opus] (after T5, T7)
   - Steps:
     1. **A resume comes back.** Migration 12 (above): a close writes where the creature left the water from the session's last report, once, in its checkpoint's transaction. A `spawn` for a resume answers:
        - `back`, unprotected, at that place, when the same creature left under 10 minutes ago;
