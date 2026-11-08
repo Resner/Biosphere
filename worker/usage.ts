@@ -132,6 +132,8 @@ export class UsageMeter {
   private reads = 0;
   private rows = 0;
   private rowsSeen = 0;
+  /** Rows read as the day's row holds them. */
+  private rowsReadStored = 0;
   private readsSeen = 0;
   private playerMs = 0;
   private peakSeated = 0;
@@ -241,7 +243,7 @@ export class UsageMeter {
       // The flush's own row is counted with the rows it reports, as a flush would.
       rowsWritten: this.rows + (this.writes() - this.rowsSeen),
       rowsRead: this.rowsReadNow(),
-      dbBytes: this.bytes || this.sql.databaseSize,
+      dbBytes: this.databaseBytes(now),
       playerMs: Math.round(this.playerMs),
       peakSeated: this.peakSeated,
       peakQueued: this.peakQueued,
@@ -301,9 +303,6 @@ export class UsageMeter {
   private rowsReadNow(): number {
     return this.rowsReadStored + (this.readTotal() - this.readsSeen);
   }
-
-  /** Rows read as the day's row holds them. */
-  private rowsReadStored = 0;
 
   private writeRow(now: number, written: number, read: number): void {
     // The flush's own row is counted with the rows it reports.

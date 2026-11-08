@@ -1,6 +1,6 @@
 import { CHECKED, limitsOf, type PlanLimits, type PlanName, planOf } from './plan';
-import { awaySeats, canAdmit, queued } from './sessions';
-import { activeSessions, type Hub } from './socket';
+import { awaySeats, canAdmit, ETA_S_PER_PLACE, queued, seatedCount } from './sessions';
+import type { Hub } from './socket';
 import type { UsageDay } from './usage';
 
 // `GET /v1/metrics` (M13 T1, ADR 0067): what the authority spends today and this month, the plan's
@@ -45,8 +45,6 @@ export interface Metrics {
   };
 }
 
-/** The seconds a place in line is estimated to take until T9 measures it. */
-const SEAT_EVERY_S = 30;
 const MINUTE_MS = 60_000;
 const HOUR_MS = 3_600_000;
 
@@ -55,7 +53,7 @@ export function metricsOf(hub: Hub, now: number): Metrics {
   const limits = limitsOf(hub.env);
   const today = hub.usage.today(now);
   const before = hub.usage.monthBefore(now);
-  const seated = [...activeSessions(hub)].length;
+  const seated = seatedCount(hub);
   const crowds = hub.crowds.view();
   const running = hub.fights.running();
   const minutes = today.playerMs / MINUTE_MS;
@@ -101,7 +99,7 @@ export function metricsOf(hub: Hub, now: number): Metrics {
       open,
       why: open ? null : 'full',
       turn: true,
-      seatEveryS: SEAT_EVERY_S,
+      seatEveryS: ETA_S_PER_PLACE,
       waits: null,
     },
   };

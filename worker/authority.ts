@@ -28,7 +28,7 @@ import {
   queueGenesis,
   restoreAncestor,
 } from './lives';
-import { meteredSql, meteredStorage, type RowCounter } from './metered-sql';
+import { meteredSql, type RowCounter } from './metered-sql';
 import { type Metrics, metricsOf } from './metrics';
 import { court, decline, deliverBirth, mateCheck, queueAccept } from './offspring';
 import { limitsOf } from './plan';
@@ -118,7 +118,11 @@ export class Authority extends DurableObject<Env> implements Hub {
     super(ctx, env);
     // Records are dated on the hub's clock, as the fights are (hub tests swap in a hand-moved one).
     this.sql = meteredSql(ctx.storage.sql, this.rowCount);
-    const storage = meteredStorage(ctx.storage, this.sql);
+    // The ledger and the beacons take the counted handle with the object's own transactions.
+    const storage = {
+      sql: this.sql,
+      transactionSync: <T>(fn: () => T) => ctx.storage.transactionSync(fn),
+    };
     this.ledger = new Ledger(storage, () => this.clock.now());
     // The log's rows count with the ledger's own counter too (`rowsBesideLog` in tests reads them apart).
     this.fightStore = new FightStore(this.sql, (rows) => {

@@ -87,11 +87,3 @@ export function meteredSql(sql: SqlStorage, counter: RowCounter): SqlStorage {
     Statement: sql.Statement,
   } as SqlStorage;
 }
-
-/** The storage handle modules take (`Storage` in the ledger, `BeaconsDeps.storage`): the counted `sql` and the object's transactions. */
-export function meteredStorage(
-  storage: Pick<DurableObjectStorage, 'transactionSync'>,
-  sql: SqlStorage,
-): { sql: SqlStorage; transactionSync<T>(fn: () => T): T } {
-  return { sql, transactionSync: (fn) => storage.transactionSync(fn) };
-}
