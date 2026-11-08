@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import { createRng, seedFromString } from './prng';
-import { linkTiers, sizeTier, viewHalfHeight } from './size';
+import { linkTiers, maxLinkRadius, sizeTier, viewHalfHeight } from './size';
 
 // M11 T1: the pure size shapes the link classes and the camera share (ADR 0062).
 
@@ -36,5 +36,16 @@ describe('viewHalfHeight', () => {
     expect(viewHalfHeight(20, 20)).toBeCloseTo(133.4, 1);
     expect(viewHalfHeight(40, 20)).toBeCloseTo(viewHalfHeight(40, 40), 9);
     expect(viewHalfHeight(0, 20)).toBe(0);
+  });
+});
+
+describe('maxLinkRadius', () => {
+  it('bounds every radius linkTiers accepts, for radii of 20 up to the top tier', () => {
+    for (const r of [20, 33, 80, 130, 300]) {
+      for (let k = 1; k <= 400; k++) {
+        const other = r * (k / 10);
+        if (linkTiers(r, other)) expect(other).toBeLessThanOrEqual(maxLinkRadius(r));
+      }
+    }
   });
 });

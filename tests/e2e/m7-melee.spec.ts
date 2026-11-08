@@ -70,8 +70,11 @@ test('C joins A and B’s fight, and all three clients’ hashes equal the refer
     await c.evaluate((m) => (window.__bs as BsHook).debug?.setBiomass(m), EQUAL_BIOMASS);
     // A and C are hatched bodies against a whole B: B can kill C in the seconds the test spends on
     // the ring (the E2E main run that died with C at 0 hp). Bracing on each windup keeps both alive.
+    // B braces too: a fight runs on the pond's clock, not the runner's, and two attackers on a bare
+    // B can finish it before a loaded runner's C has pressed F (the E2E main run where A had killed
+    // B, grown out of C's tier and C's glyph never marked it).
     await Promise.all(
-      [a, c].map((page) => page.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true))),
+      [a, b, c].map((page) => page.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true))),
     );
 
     // C's page watches itself: the first frame with an aim ring presses Tab, and the frames after

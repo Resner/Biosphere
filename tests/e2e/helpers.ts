@@ -39,6 +39,17 @@ export async function openMenu(page: Page): Promise<void> {
 export const state = (page: Page) => page.evaluate(() => (window.__bs as BsHook).state());
 
 /** Types a chat line through the real UI (Enter, text, Enter). */
+/**
+ * The wheel's "look" ping at the cursor: G held while `1` picks, then released. A G tapped and
+ * released later than the wheel's hold time (250 ms) cancels it, and a loaded runner can take
+ * longer than that between the two key events of `keyboard.press('g')`.
+ */
+export async function pingLook(page: Page): Promise<void> {
+  await page.keyboard.down('g');
+  await page.keyboard.press('1');
+  await page.keyboard.up('g');
+}
+
 export async function say(page: Page, text: string): Promise<void> {
   await page.keyboard.press('Enter');
   await expect(page.getByTestId('chat-input')).toBeVisible();

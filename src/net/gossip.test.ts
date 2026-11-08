@@ -35,7 +35,7 @@ describe('gossipFor', () => {
     expect(ids).not.toContain(A);
     expect(ids).not.toContain(id(40));
     expect(ids).not.toContain(id(41));
-    // The page keeps no instances yet: every entry is in the open water (M12 T1).
+    // A fix with no instance is in the open water.
     expect(event?.list[1]).toEqual([id(11), C + 100, C, 12, 0]);
   });
 
@@ -110,8 +110,12 @@ describe('Gossip', () => {
       },
       T,
     );
-    expect(g.known(T)).toEqual([{ id: id(7), x: C + 900, y: C, r: 10, at: T, source: 'gossip' }]);
-    expect(g.heard(id(7), T + 1000)).toEqual([{ via: B, fix: { x: C + 900, y: C, r: 10, at: T } }]);
+    expect(g.known(T)).toEqual([
+      { id: id(7), x: C + 900, y: C, r: 10, at: T, n: 0, source: 'gossip' },
+    ]);
+    expect(g.heard(id(7), T + 1000)).toEqual([
+      { via: B, fix: { x: C + 900, y: C, r: 10, at: T, n: 0 } },
+    ]);
     expect(g.known(T + GOSSIP_TTL_MS)).toHaveLength(1);
     expect(g.known(T + GOSSIP_TTL_MS + 1)).toEqual([]);
     expect(g.heard(id(7), T + GOSSIP_TTL_MS + 1)).toEqual([]);
@@ -121,7 +125,7 @@ describe('Gossip', () => {
     expect(g.heard(id(7), T + 29_000).map((h) => h.via)).toEqual([B, id(8)]);
     expect(g.heard(id(7), T + 30_001).map((h) => h.via)).toEqual([id(8)]);
     expect(g.known(T + 34_000)).toEqual([
-      { id: id(7), x: C + 960, y: C, r: 10, at: T + 25_000, source: 'gossip' },
+      { id: id(7), x: C + 960, y: C, r: 10, at: T + 25_000, n: 0, source: 'gossip' },
     ]);
     g.drop(id(8));
     expect(g.known(T + 30_001)).toEqual([]);
@@ -140,5 +144,43 @@ describe('Gossip', () => {
       g.receive(B, { t: 'peers', list }, T);
     }
     expect(g.known(T)).toHaveLength(3 * GOSSIP_MAX);
+  });
+});
+
+describe('gossip across crowd instances (M12 T3)', () => {
+  it('each entry carries its instance, and a receiver in other water is told none of it', () => {
+    const fixes = new Map<string, Fix>([
+      [A, { x: C, y: C, r: 10, at: T, n: 1 }],
+      [id(1), { x: C + 100, y: C, r: 10, at: T, n: 1 }],
+      [id(2), { x: C + 200, y: C, r: 10, at: T, n: 0 }],
+      [id(3), { x: C + 300, y: C, r: 10, at: T, n: 2 }],
+      [id(4), { x: C + 400, y: C, r: 10, at: T }],
+    ]);
+    expect(gossipFor(A, fixes, T)?.list).toEqual([
+      [id(1), C + 100, C, 10, 1],
+      [id(2), C + 200, C, 10, 0],
+      [id(4), C + 400, C, 10, 0],
+    ]);
+    // A receiver in the open water hears of every instance.
+    fixes.set(A, { x: C, y: C, r: 10, at: T, n: 0 });
+    expect(gossipFor(A, fixes, T)?.list.map((e) => e[4])).toEqual([1, 0, 2, 0]);
+  });
+
+  it('a receiver drops an entry from water it does not share', () => {
+    const g = new Gossip(A);
+    const list: PeersEvent['list'] = [
+      [id(11), C, C, 10, 1],
+      [id(12), C, C, 10, 0],
+      [id(13), C, C, 10, 2],
+    ];
+    g.receive(B, { t: 'peers', list }, T, 1);
+    expect(g.known(T).map((k) => [k.id, k.n])).toEqual([
+      [id(11), 1],
+      [id(12), 0],
+    ]);
+    expect(g.heard(id(13), T)).toEqual([]);
+    const open = new Gossip(A);
+    open.receive(B, { t: 'peers', list }, T);
+    expect(open.known(T).map((k) => k.n)).toEqual([1, 0, 2]);
   });
 });

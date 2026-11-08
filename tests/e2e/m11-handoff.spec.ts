@@ -23,6 +23,8 @@ const DIAG = Math.SQRT1_2;
 /** C's start, along A's line from S. A covers 4,243 wu of it; a slow runner's C swims only a few wu/s,
  * so C starts near enough to reach A's view, and far enough to link while more than 2 AoI away. */
 const C_AHEAD = 6_000;
+/** C's budget to swim into A's view, in its own sim ticks (300 s of sim time). */
+const NEAR_TICKS = 9_000;
 
 interface Watch {
   /** Samples where a remote in A's view was drawn below full alpha. */
@@ -53,10 +55,15 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
   browser,
   request,
 }) => {
-  test.setTimeout(660_000);
+  test.setTimeout(780_000);
   const players: Player[] = [];
   try {
     for (let i = 0; i < 3; i++) players.push(await join(browser, HUB));
+    // Nothing here looks at a picture: three pages drawing in software take a slow runner's CPU
+    // and memory, and a starved page plays no ticks (C swam 0 and 200 in 8 minutes).
+    await Promise.all(
+      players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true))),
+    );
     const [a, b, c] = players as [Player, Player, Player];
     await place(a, S.x, S.y);
     await place(b, S.x - 150, S.y - 150);
@@ -189,13 +196,20 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     // to swim the rest.
     // C's page plays far fewer ticks a second than A's on a loaded runner (C was still 1,549 wu away
     // after 300 s), so C swims on at four times the sim's pace, its belly full against the hunger.
+    // The budget is C's own sim time: a loaded runner draws few frames, and a page plays only a
+    // few ticks per frame, so how far C swims in a wall second is not the runner's to promise. Wall
+    // time only bounds a hang.
     let nearSince: number | null = null;
     let lastD = Number.NaN;
-    const nearDeadline = Date.now() + 300_000;
-    while (Date.now() < nearDeadline) {
+    const swumFrom = (await state(c.page)).tick;
+    let swumTicks = 0;
+    const nearDeadline = Date.now() + 480_000;
+    while (Date.now() < nearDeadline && swumTicks < NEAR_TICKS) {
       const me = (await state(a.page)).player;
-      const cAt = (await state(c.page)).player;
+      const cState = await state(c.page);
+      const cAt = cState.player;
       if (!me || !cAt) throw new Error('A or C has no creature');
+      swumTicks = cState.tick - swumFrom;
       await c.page.evaluate(() => {
         const debug = (window.__bs as BsHook).debug;
         debug?.setEnergy(Number.MAX_SAFE_INTEGER);
@@ -214,7 +228,7 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     }
     expect(
       nearSince,
-      `C came into A’s view (last distance ${Math.round(lastD)} wu)`,
+      `C came into A’s view (last distance ${Math.round(lastD)} wu after ${swumTicks} of C’s ticks)`,
     ).not.toBeNull();
     await c.page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
 
