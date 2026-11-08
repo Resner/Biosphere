@@ -423,7 +423,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - The fill's first minutes cost far more per player than a live world would: 18 joins a second into a few thousand players. They are reported, not gated.
     - If a gate's number is beyond the link model at 10,000, an ADR records what it measures and why, as ADRs 0063 and 0066 did.
 
-- [ ] T6 What a message costs in the real object (after T2)
+- [ ] T6 What a message costs in the real object (after T2) (in progress)
   - Steps:
     1. **`worker/hub-cost.test.ts`** seats 50, 200 and 500 sessions: real sockets, each with a recorded creature placed in one populated area of the world.
        - For each message type, it sends batches of 200 through the object's own dispatch inside the object (`runInDurableObject` → `webSocketMessage`), and times each batch on the local runtime's clock, which steps by 1 ms. The median of 5 batches gives ms per message.
