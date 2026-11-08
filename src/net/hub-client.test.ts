@@ -105,11 +105,12 @@ describe('HubClient queue', () => {
     s.open();
     s.receive({ t: 'challenge', nonce: NONCE });
     expect(client.queue).toBeNull();
-    s.receive({ t: 'queued', position: 3, etaS: 90 });
-    expect(client.queue).toEqual({ position: 3, etaS: 90 });
+    s.receive({ t: 'queued', position: 3, etaS: 90, why: 'full' });
+    expect(client.queue).toEqual({ position: 3, etaS: 90, why: 'full' });
     expect(client.status).toBe('connecting');
-    s.receive({ t: 'queued', position: 2, etaS: 60 });
-    expect(client.queue).toEqual({ position: 2, etaS: 60 });
+    // The reason is kept as the hub gives it (M13 T4).
+    s.receive({ t: 'queued', position: 2, etaS: 60, why: 'budget' });
+    expect(client.queue).toEqual({ position: 2, etaS: 60, why: 'budget' });
     s.receive(welcome());
     await vi.advanceTimersByTimeAsync(0);
     expect(client.status).toBe('online');
@@ -121,7 +122,7 @@ describe('HubClient queue', () => {
     void client.connect();
     const s = last();
     s.open();
-    s.receive({ t: 'queued', position: 1, etaS: 30 });
+    s.receive({ t: 'queued', position: 1, etaS: 30, why: 'full' });
     s.drop();
     expect(client.queue).toBeNull();
   });

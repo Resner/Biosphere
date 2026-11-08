@@ -21,6 +21,12 @@
         <input type="text" data-testid="name-input" maxlength="16" autocomplete="off" spellcheck="false" />
       </label>
       <p class="name-error" data-testid="name-error" hidden>Pick another name</p>
+      <!-- The admission line (M13 T10): why the session waits, its place and the wait, and the practice cell meanwhile. -->
+      <section class="queue-card" data-testid="queue-card" aria-label="Waiting for a place" hidden>
+        <p class="queue-reason" aria-live="polite"></p>
+        <p class="queue-line" aria-live="polite"></p>
+        <button type="button" class="action" data-testid="queue-swim">Swim while you wait</button>
+      </section>
       <div class="fallback" data-testid="title-fallback" hidden></div>
       <button type="button" class="action" data-testid="hatch">Hatch</button>
       <!-- A creature locked in a running fight (M8 T10): the main button takes the player back into it. -->
@@ -288,6 +294,12 @@
         <div><dt>Peak biomass</dt><dd data-testid="death-peak"></dd></div>
       </dl>
       <a class="death-card" data-testid="death-card" href="card.html" target="_blank" rel="noopener" hidden>See its card</a>
+      <!-- The admission line (M13 T10): why the session waits, its place and the wait, and the practice cell meanwhile. -->
+      <section class="queue-card" data-testid="death-queue-card" aria-label="Waiting for a place" hidden>
+        <p class="queue-reason" aria-live="polite"></p>
+        <p class="queue-line" aria-live="polite"></p>
+        <button type="button" class="action" data-testid="death-queue-swim">Swim while you wait</button>
+      </section>
       <div class="fallback" data-testid="death-fallback" hidden></div>
       <button type="button" class="action" data-testid="hatch-again">Hatch again</button>
       <button type="button" class="action quiet" data-testid="practice-again" hidden>Practice cell</button>

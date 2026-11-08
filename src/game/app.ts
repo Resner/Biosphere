@@ -413,6 +413,8 @@ export class App {
         const { checkGenesis } = await import('../ledger/genesis');
         return checkGenesis(g.record.record, g.commit.commitment, g.beacon, g.genome);
       },
+      // The links' relay reads since the last report (M13 T4).
+      relay: () => this.keeper.current?.takeRelay() ?? null,
     });
     this.offspring = new OffspringFlow({
       now: () => performance.now(),

@@ -334,7 +334,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Relay and the line on the wire
 
-- [ ] T4 Protocol 13: relay reports and the line's reason [opus] (after T1)
+- [x] T4 Protocol 13: relay reports and the line's reason [opus] (after T1)
   - Steps:
     1. `PROTOCOL_VERSION` 13. A protocol-12 hello gets `error: version`.
     2. **The wire**: `progress` gains `relay?`, and `queued` gains `why` (shapes above). The parsers refuse a missing, extra or out-of-range field.
@@ -372,6 +372,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
       - each page's `state().net.relay` holds its open links, none relayed;
       - the hub's `/v1/e2e/metrics` counts the reports, with 0 KB.
     - Every E2E passes on protocol 13.
+  - Done: `relay-stats.ts` (pure) and `PeerMesh.linkStats` feed `LifeFlow.report` every 10 s of links; the hub clamps and meters them (`meterRelay`), and `queued` carries `admissionWhy`. Gotcha: a report's `links` and `relayed` are the most of any read since the last report (summing would pass 32), only its KB is summed.
 
 ### Evidence
 
@@ -422,7 +423,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - The fill's first minutes cost far more per player than a live world would: 18 joins a second into a few thousand players. They are reported, not gated.
     - If a gate's number is beyond the link model at 10,000, an ADR records what it measures and why, as ADRs 0063 and 0066 did.
 
-- [ ] T6 What a message costs in the real object (after T2)
+- [x] T6 What a message costs in the real object (after T2)
   - Steps:
     1. **`worker/hub-cost.test.ts`** seats 50, 200 and 500 sessions: real sockets, each with a recorded creature placed in one populated area of the world.
        - For each message type, it sends batches of 200 through the object's own dispatch inside the object (`runInDurableObject` → `webSocketMessage`), and times each batch on the local runtime's clock, which steps by 1 ms. The median of 5 batches gives ms per message.
@@ -439,8 +440,9 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
   - Acceptance:
     - A `speedTest`: each type's ms per message at 500 seated is at most 1.5 times its ms at 50, plus 0.02 ms.
     - The report and its JSON are committed. `tools/hub-report.test.ts` checks the report against a recorded `HubCost`.
+  - Done: `hub-cost.test.ts` (a `speedTest`, about 20 s) seats 50, 200 and 500, a batch's clock moving 1 s per message, and prints `HUB_COST`; `docs/perf/hub.md` and `hub.json` are committed. Every type is flat but `spawn`, which `place()` makes grow with the members (about 6 ms per 1,000 seated, 60 ms at 10,000 in workerd): its budget is the growth of the members, and T8 prices it. `ride`'s `company` check scanned every member in reach; `Directory.anyAround` stops at the first. The population sits 500 wu apart: 500 within one 1,024 wu leaf makes `where` grow with the leaf.
 
-- [ ] T7 500 headless clients against `wrangler dev` (after T2)
+- [x] T7 500 headless clients against `wrangler dev` (after T2)
   - Steps:
     1. **`tests/load-client.ts`**: a headless client on the page's own `HubClient` (with Node's `WebSocket`) and a seeded identity. It does what a page does:
        - a recorded genesis, from the fixture rounds;
@@ -474,6 +476,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - A unit test builds the report from a recorded run's numbers.
     - The report and its JSON are committed.
   - Notes: the clients open no WebRTC link, so their hub signals follow the measured rate, and T11 checks a real page's cadence. A recorded genesis per client makes progress, checkpoints and the close's rows real.
+  - Done: `npm run load:hub` (`tests/load-client.ts`, `tools/load-hub-run.ts`, `-report.ts`) ran 500 clients for 10 minutes: all seated, no close, drop or flag, the meter equal to the clients' counts (9.21 messages and 0.46 request-equivalents per player-minute, 0.99 ms CPU per message, `where` → `near` p99 31 ms; `docs/perf/hub-load.md`). Gotchas: the clients also witness (`avail`, genesis audits), which needs the fixture vars `WITNESS_PLAY_MS:0` and `WITNESS_IP_CHECK:off`; the first 24 hatch together and their `authority-only` flags are counted apart (nobody can audit the world's first creatures); the rows and bytes per player-hour carry each client's hatch over ten minutes, which T8 must separate from steady play. Also `GET /v1/e2e/audit` and `/v1/e2e/dropped` (the spec named only `/v1/e2e/sessions`).
 
 ### The model
 
@@ -610,7 +613,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - `/v1/metrics`'s `admission` matches each case.
     - Every E2E passes (`m4-lifecycle`'s queue).
 
-- [ ] T10 The line in the page [opus] (after T4)
+- [x] T10 The line in the page [opus] (after T4)
   - Steps:
     1. **The card** (`src/game/queue-card.ts`, from `screens.ts`). While the hub keeps the session waiting, the title and death screens show a glass card in the HUD's style. It gives:
        - the reason:
@@ -639,9 +642,11 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
       - B's title shows the card: 1st in line, `why` full, a wait in words;
       - B swims as a practice cell from the card;
       - A's page closes, and B's toast shows within 20 s;
-      - B returns to the title and hatches a recorded creature;
+      - B's practice cell ends (the page has no way back to the title but a reload, which would test a fresh page), and B hatches a recorded creature from the death screen;
       - screenshots of the card at 960 × 540 and 390 × 844 are attached.
     - `m4-lifecycle` reads `state().queue` instead of the old chip text.
+  - Done: `queue-card.ts` (pure words and the card), `Screens.setQueue` and the chip and toast in `OnlineWiring.updateNetUi`; the card takes the tagline's place and is one row from 600 px, so the title stays whole at 960 × 540.
+    Gotcha: the practice cell begun in line swims in a local world, so its chip follows the hub (`lineLife`) instead of reading offline; `m13-queue`'s hub starts only when no spec is named or it is.
 
 ### The release gate
 

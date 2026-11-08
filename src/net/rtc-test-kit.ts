@@ -48,6 +48,9 @@ export class FakePc implements PeerConnectionLike {
   channels: FakeChannel[] = [];
   remote: FakePc | null = null;
   closed = false;
+  /** What `getStats()` answers (M13 T4), and whether it rejects instead. */
+  stats: Record<string, unknown>[] = [];
+  statsFail = false;
   private remoteOffer: string | null = null;
   /** Tests that exercise the 2 s gather fallback set this to false. */
   static autoGather = true;
@@ -94,6 +97,10 @@ export class FakePc implements PeerConnectionLike {
         for (const ch of pc.channels) ch.open();
       }
     });
+  }
+  async getStats() {
+    if (this.statsFail) throw new Error('InvalidStateError');
+    return new Map(this.stats.map((s) => [String(s.id), { ...s }]));
   }
   fail() {
     this.connectionState = 'failed';

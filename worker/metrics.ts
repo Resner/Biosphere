@@ -1,13 +1,11 @@
+import type { QueueWhy } from '../src/net/protocol';
 import { CHECKED, limitsOf, type PlanLimits, type PlanName, planOf } from './plan';
-import { awaySeats, canAdmit, ETA_S_PER_PLACE, queued, seatedCount } from './sessions';
+import { admissionWhy, awaySeats, ETA_S_PER_PLACE, queued, seatedCount } from './sessions';
 import type { Hub } from './socket';
 import type { UsageDay } from './usage';
 
 // `GET /v1/metrics` (M13 T1, ADR 0067): what the authority spends today and this month, the plan's
 // limits and the admission state. It names no player.
-
-/** Why a newcomer waits (M13 T4 moves this into the protocol). */
-export type QueueWhy = 'full' | 'budget' | 'storage';
 
 export interface Metrics {
   now: number;
@@ -58,7 +56,7 @@ export function metricsOf(hub: Hub, now: number): Metrics {
   const running = hub.fights.running();
   const minutes = today.playerMs / MINUTE_MS;
   const hours = today.playerMs / HOUR_MS;
-  const open = canAdmit(hub, now);
+  const why = admissionWhy(hub, now);
   const bytes = hub.usage.databaseBytes(now);
   return {
     now,
@@ -94,10 +92,10 @@ export function metricsOf(hub: Hub, now: number): Metrics {
     },
     days: hub.usage.history(now),
     storage: { bytes, limit: limits.storageBytes },
-    // T9 fills in the reason, the wait and the TURN guard for real.
+    // T9 fills in the wait and the TURN guard for real.
     admission: {
-      open,
-      why: open ? null : 'full',
+      open: why === null,
+      why,
       turn: true,
       seatEveryS: ETA_S_PER_PLACE,
       waits: null,

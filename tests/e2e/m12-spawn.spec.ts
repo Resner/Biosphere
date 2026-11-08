@@ -1,4 +1,6 @@
-import { expect, test } from '@playwright/test';
+import { type APIRequestContext, expect, test } from '@playwright/test';
+import type { BsHook } from '../../src/game/debug';
+import type { RelayReport } from '../../src/net/protocol';
 import { state } from './helpers';
 import { CENTRE, closeAll, linksAre, type Player } from './m11-steps';
 import {
@@ -17,7 +19,8 @@ import {
 // M12 T4: the authority places every life. A hatches (a genesis) on the world's centre; B, C and D hatch one
 // after another, each placed outside every earlier player's clearance (by the hub's directory) and
 // every earlier spawn's, and within P1 reach of one of them, so each pair links at once. D reloads
-// and comes back where it left the water, unprotected (M12 T10).
+// and comes back where it left the water, unprotected (M12 T10). Linked, each page reports its
+// relay at once (M13 T4): its open links, none relayed (host candidates only), and the hub counts it.
 
 const HUB = 'http://localhost:8833';
 
@@ -28,6 +31,14 @@ async function placeOf(p: Player): Promise<{ x: number; y: number }> {
   const player = (await state(p.page)).player;
   if (!player) throw new Error('the page has no creature');
   return player;
+}
+
+/** The day's relay reports as the hub's meter holds them (M13 T4). */
+async function relayMeter(request: APIRequestContext): Promise<RelayReport & { reports: number }> {
+  const res = await request.get(`${HUB}/v1/e2e/metrics`);
+  expect(res.ok(), 'GET /v1/e2e/metrics').toBe(true);
+  return ((await res.json()) as { today: { relay: RelayReport & { reports: number } } }).today
+    .relay;
 }
 
 /** The directory's members, by player id. */
@@ -90,6 +101,28 @@ test('the authority places each hatch around the others, and a reload comes back
         );
       }
     }
+
+    // Each page reports its relay at once (M13 T4): its open links, on host candidates, none relayed.
+    const before = await relayMeter(request);
+    for (const p of players) {
+      await p.page.evaluate(() => (window.__bs as BsHook).debug?.progressNow());
+      const net = (await state(p.page)).net;
+      expect(net.relay, `${p.id}: the report sent`).toEqual({
+        links: net.open,
+        relayed: 0,
+        kb: 0,
+      });
+      expect(net.open, `${p.id}: holds its links`).toBe(players.length - 1);
+    }
+    await expect
+      .poll(async () => (await relayMeter(request)).reports - before.reports, {
+        message: 'the hub counts every page’s report',
+        timeout: 10_000,
+      })
+      .toBeGreaterThanOrEqual(players.length);
+    const after = await relayMeter(request);
+    expect(after.relayed - before.relayed, 'no link relayed').toBe(0);
+    expect(after.kb - before.kb, 'no relay KB').toBe(0);
 
     // D reloads: the resume comes back where it left the water (M12 T10), unprotected, and A sees
     // no shimmer on it.

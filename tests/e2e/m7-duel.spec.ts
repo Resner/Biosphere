@@ -178,7 +178,9 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
         const fighters = (await state(a)).encounter?.fighters;
         killed = fighters?.find((f) => f.player === ids.idB)?.outcome === 'killed';
         fights.push(await fightLine(a, ids));
-        if (fighters?.find((f) => f.player === ids.idA)?.outcome === 'killed') break;
+        // A dead A (killed, or died of the water in the fight) can't try again: stage a new pair.
+        const mine = fighters?.find((f) => f.player === ids.idA)?.outcome;
+        if (mine === 'killed' || mine === 'died' || (await state(a)).screen === 'dead') break;
       }
     }
 

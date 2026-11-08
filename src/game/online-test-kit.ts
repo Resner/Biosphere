@@ -16,6 +16,7 @@ import type {
 import { OPEN_WATER } from '../net/instance';
 import type { PeerMeshStats } from '../net/peer-mesh';
 import type { ClientMsg, NearPeer, PeerEvent, SignedSnap, Snapshot } from '../net/protocol';
+import type { LinkRead } from '../net/relay-stats';
 import { type CreatureNow, type OnlineHub, type OnlineMesh, OnlineSession } from './online';
 import { YOUNG_MS } from './online-links';
 
@@ -118,6 +119,13 @@ export class FakeMesh implements OnlineMesh {
   proxy: (id: string, player: string, s: Snapshot) => void = () => {};
   /** The instance each peer's hello names (M12 T6); the open water when unset. */
   readonly helloN = new Map<string, number>();
+  /** What `linkStats` answers, and how often it was asked (M13 T4). */
+  linkReads: LinkRead[] = [];
+  statReads = 0;
+  async linkStats(): Promise<LinkRead[]> {
+    this.statReads++;
+    return this.linkReads;
+  }
   connect(id: string): void {
     this.connects.push(id);
     if (!this.open.has(id)) this.pending.add(id);

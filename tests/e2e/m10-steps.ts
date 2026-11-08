@@ -147,7 +147,25 @@ async function hold(a: Page, idB: string): Promise<void> {
     const lo = 1.1 * Math.max(foe.reach + EXT * me.radius, me.reach + EXT * foe.radius);
     const hi = Math.min(2 * foe.reach + 1.6 * me.radius, 2 * me.reach + 1.6 * foe.radius);
     bs.debug?.autoBrace(true);
-    bs.debug?.hover({ id: who, distance: lo < hi ? (lo + hi) / 2 : hi - me.radius / 2 });
+    const mid = lo < hi ? (lo + hi) / 2 : hi - me.radius / 2;
+    // The window is an estimate (a long thin body's circles end well inside `EXT` radii), so the
+    // distance follows the sim's own count: a fighter outside the escape range draws in, and a
+    // settled one drifts back out toward the estimate. `flee` stops it (`__chase`).
+    let distance = mid;
+    const w = window as unknown as { __chase?: number };
+    clearInterval(w.__chase);
+    w.__chase = window.setInterval(() => {
+      const enc = bs.state().encounter;
+      if (!enc || enc.over) {
+        clearInterval(w.__chase);
+        return;
+      }
+      const fighters = enc.fighters;
+      const outside = fighters.some((f) => f.outside > 0);
+      distance = outside ? Math.max(distance * 0.85, me.radius) : Math.min(distance * 1.02, mid);
+      bs.debug?.hover({ id: who, distance });
+    }, 100);
+    bs.debug?.hover({ id: who, distance });
   }, idB);
 }
 
@@ -173,7 +191,7 @@ async function witnessView(t: Trio, event: string) {
  * before C took it (A and B hit each other until one dies, and a dead B cannot be fought again),
  * or got no witness commitment.
  */
-export async function refereed(t: Trio, id: string, frames = 30): Promise<number | null> {
+export async function refereed(t: Trio, id: string, frames = 20): Promise<number | null> {
   const { a, b, c } = t;
   const over = async () => {
     const enc = (await state(a)).encounter;
@@ -189,12 +207,14 @@ export async function refereed(t: Trio, id: string, frames = 30): Promise<number
   };
   const status = async () => {
     if (await over()) return 'over';
-    if (await worn()) return 'worn';
     let holder: { id: string; s: Awaited<ReturnType<typeof state>> } | null = null;
     for (const w of witnesses(t)) {
       const s = await state(w.page);
       if (s.witness.duty?.enc === id) holder = { id: w.id, s };
     }
+    // A witness that holds the duty keeps the fight: a slow runner links late, and a fight worn
+    // down meanwhile still counts once the witness has finalized its frames.
+    if (!holder && (await worn())) return 'worn';
     const duty = holder?.s.witness.duty;
     if (!holder || duty?.enc !== id) return (await unwitnessed()) ? 'unwitnessed' : 'wait';
     if (duty.phase !== 'refereeing' || duty.frames < frames) return 'wait';

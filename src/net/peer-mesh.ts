@@ -15,6 +15,7 @@ import {
   type SignedSnap,
   type Snapshot,
 } from './protocol';
+import type { LinkRead, RtcStat } from './relay-stats';
 
 /** The slice of `RTCDataChannel` the mesh uses, so tests can fake it. */
 export interface DataChannelLike {
@@ -40,6 +41,8 @@ export interface PeerConnectionLike {
   setLocalDescription(): Promise<void>;
   setRemoteDescription(desc: { type: 'offer' | 'answer'; sdp: string }): Promise<void>;
   close(): void;
+  /** The connection's stats (M13 T4); a fake without it reports none. */
+  getStats?(): Promise<{ values(): Iterable<unknown> }>;
 }
 
 export type PeerConnectionFactory = (config: RTCConfiguration) => PeerConnectionLike;
@@ -92,6 +95,9 @@ export const GATHER_TIMEOUT_MS = 2_000;
 /** A gated link whose peer shows no valid hello this long after its channels open is closed. */
 export const HELLO_MS = 5000;
 
+/** Closed links' last stats kept for the next read: more than a page can hold. */
+const CLOSED_STATS_MAX = 64;
+
 const STATE_CHANNEL = 'state';
 const EVENT_CHANNEL = 'event';
 
@@ -133,6 +139,8 @@ export class PeerMesh {
   private stateListeners: ((id: string, s: Snapshot, signed: SignedSnap | null) => void)[] = [];
   private eventListeners: ((id: string, e: PeerEvent) => void)[] = [];
   private proxyListeners: ((id: string, player: string, s: Snapshot) => void)[] = [];
+  /** Closed links' last stats, read as they closed, for the next `linkStats` (M13 T4). */
+  private closedStats: Promise<LinkRead | null>[] = [];
   private readonly factory: PeerConnectionFactory;
   private iceServers: RTCIceServer[];
 
@@ -163,6 +171,19 @@ export class PeerMesh {
     let open = 0;
     for (const l of this.links.values()) if (l.opened) open += 1;
     return { dropped: this.droppedCount, open, helloFailed: this.helloFailedCount };
+  }
+
+  /**
+   * Each joined link's stats now, and the last stats of each link closed since the last call (M13
+   * T4, `relay-stats.ts`). A link whose stats can't be read is left out.
+   */
+  async linkStats(): Promise<LinkRead[]> {
+    const reads = this.closedStats;
+    this.closedStats = [];
+    for (const link of this.links.values()) {
+      if (link.opened) reads.push(statsOf(link, false));
+    }
+    return (await Promise.all(reads)).filter((r): r is LinkRead => r !== null);
   }
 
   /** The seat ticket a joined peer showed in its hello (null without a gate). */
@@ -430,6 +451,11 @@ export class PeerMesh {
       link.pc.onconnectionstatechange =
       link.pc.onicegatheringstatechange =
         null;
+    // Its last stats, asked before the close, count at the next read (a few at most).
+    if (link.opened && link.pc.getStats) {
+      this.closedStats.push(statsOf(link, true));
+      if (this.closedStats.length > CLOSED_STATS_MAX) this.closedStats.shift();
+    }
     try {
       link.pc.close();
     } catch {
@@ -523,4 +549,22 @@ function toBytes(data: unknown): Uint8Array | null {
   if (ArrayBuffer.isView(data))
     return new Uint8Array(data.buffer, data.byteOffset, data.byteLength);
   return null;
+}
+
+/** A link's stats as a `LinkRead`, or null when they can't be read. */
+async function statsOf(link: Link, closed: boolean): Promise<LinkRead | null> {
+  try {
+    const report = await link.pc.getStats?.();
+    if (!report) return null;
+    const stats = [...report.values()].filter(
+      (s): s is RtcStat =>
+        typeof s === 'object' &&
+        s !== null &&
+        typeof (s as RtcStat).type === 'string' &&
+        typeof (s as RtcStat).id === 'string',
+    );
+    return { id: link.peerId, stats, closed };
+  } catch {
+    return null;
+  }
 }

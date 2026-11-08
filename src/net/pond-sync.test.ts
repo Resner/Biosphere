@@ -324,6 +324,21 @@ describe('RemoteSet', () => {
     expect(pace).toBeLessThanOrEqual(1.2 + 1e-6);
   });
 
+  it('draws a creature that was moved at once, and that is not a pace (M11 T15)', () => {
+    const set = new RemoteSet();
+    send(set, 'a', swimming(0, 0), 0);
+    send(set, 'a', swimming(1, 100), 100);
+    for (let now = 100; now < 400; now += 1000 / 60) set.sample(now, now);
+    // 5,000 wu away in the next 100 ms: far more than a swimmer covers, so it was moved.
+    send(set, 'a', { ...swimming(2, 200), x: 6000 }, 400);
+    send(set, 'a', { ...swimming(3, 300), x: 6006 }, 500);
+    send(set, 'a', { ...swimming(4, 5000), x: 6300 }, 600);
+    let view = set.sample(400, 400)[0];
+    for (let now = 400; now < 6000; now += 1000 / 60) view = set.sample(now, now)[0] ?? view;
+    expect(view?.x).toBeGreaterThan(5000);
+    expect(view?.pace).toBeLessThanOrEqual(1.2 + 1e-6);
+  });
+
   it('shows the newest ready and egg marks (M6 T19)', () => {
     const set = new RemoteSet();
     send(set, 'a', snap({ seq: 0, tick: 0, ready: true }), 0);

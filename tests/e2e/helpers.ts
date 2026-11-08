@@ -392,24 +392,37 @@ export async function goTo(page: Page, id: string, peer?: Page): Promise<void> {
   // in or has drifted by the time the first jump lands, and the mate hint stays hidden.
   const hint = page.getByTestId('mate-hint');
   await expect(async () => {
-    await page.evaluate((who) => {
-      const bs = window.__bs as BsHook;
-      const { remotes } = bs.state();
-      const r = remotes.find((x) => x.id === who);
-      if (!r) return;
-      // The hint names the nearest creature in reach, and a newcomer is placed beside its friends: park
-      // on the side of the target where no other creature is nearer (the east side when none is).
-      const gap = r.radius * 2.5;
-      let best = { x: r.x + gap, y: r.y, margin: Number.NEGATIVE_INFINITY };
-      for (let k = 0; k < 8 && best.margin < 0; k++) {
-        const x = r.x + Math.cos((k * Math.PI) / 4) * gap;
-        const y = r.y + Math.sin((k * Math.PI) / 4) * gap;
-        const others = remotes.filter((o) => o.id !== who);
-        const margin = Math.min(...others.map((o) => Math.hypot(o.x - x, o.y - y)), Infinity) - gap;
-        if (margin > best.margin) best = { x, y, margin };
-      }
-      bs.debug?.teleport(best.x, best.y);
-    }, id);
+    // The remote can leave A's view while A hovers (a link that drops, an instance change): B's own
+    // page knows where it is, and parking beside that brings the link back, so the loop doesn't wait
+    // on a remote A no longer sees.
+    const home = await peer
+      ?.evaluate(() => {
+        const p = (window.__bs as BsHook).state().player;
+        return p ? { x: p.x, y: p.y, radius: p.radius } : null;
+      })
+      .catch(() => null);
+    await page.evaluate(
+      ([who, at]) => {
+        const bs = window.__bs as BsHook;
+        const { remotes } = bs.state();
+        const r = remotes.find((x) => x.id === who) ?? (at ? { ...at, id: who } : undefined);
+        if (!r) return;
+        // The hint names the nearest creature in reach, and a newcomer is placed beside its friends: park
+        // on the side of the target where no other creature is nearer (the east side when none is).
+        const gap = r.radius * 2.5;
+        let best = { x: r.x + gap, y: r.y, margin: Number.NEGATIVE_INFINITY };
+        for (let k = 0; k < 8 && best.margin < 0; k++) {
+          const x = r.x + Math.cos((k * Math.PI) / 4) * gap;
+          const y = r.y + Math.sin((k * Math.PI) / 4) * gap;
+          const others = remotes.filter((o) => o.id !== who);
+          const margin =
+            Math.min(...others.map((o) => Math.hypot(o.x - x, o.y - y)), Infinity) - gap;
+          if (margin > best.margin) best = { x, y, margin };
+        }
+        bs.debug?.teleport(best.x, best.y);
+      },
+      [id, home ?? null] as const,
+    );
     await expect(hint).toBeVisible({ timeout: 2_000 });
   })
     .toPass({ timeout: 40_000 })
@@ -419,7 +432,19 @@ export async function goTo(page: Page, id: string, peer?: Page): Promise<void> {
         const r = s.remotes.find((x) => x.id === who);
         return {
           player: s.player && { x: s.player.x, y: s.player.y },
-          remote: r && { x: r.x, y: r.y, radius: r.radius },
+          remote: r && {
+            x: r.x,
+            y: r.y,
+            radius: r.radius,
+            alpha: r.alpha,
+            fighting: r.fighting,
+            away: r.away,
+            protected: r.protected,
+          },
+          screen: s.screen,
+          alive: s.player?.alive ?? null,
+          fighting: s.encounter !== null,
+          net: s.net.text,
           mate: s.mate,
         };
       }, id);

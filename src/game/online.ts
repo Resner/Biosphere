@@ -30,6 +30,7 @@ import {
   type Member,
   type PeerEvent,
   type Pos,
+  type RelayReport,
   type SignalKind,
   type SignedSnap,
   type Snapshot,
@@ -37,6 +38,7 @@ import {
   wireCoord,
   wireRadius,
 } from '../net/protocol';
+import { RELAY_READ_MS, RelayStats } from '../net/relay-stats';
 import { type RelayEvent, SignalRoute, type SignalStats } from '../net/signal-route';
 import {
   FULL_RATE,
@@ -93,7 +95,8 @@ export type OnlineMesh = Pick<
   | 'onState'
   | 'onEvent'
   | 'onProxy'
->;
+> &
+  Partial<Pick<PeerMesh, 'linkStats'>>;
 
 export interface OnlineHandlers {
   /** Every welcome, including after a reconnect. */
@@ -194,6 +197,11 @@ export class OnlineSession {
   private last: Welcome | null = null;
   /** When the creature last went into the water, or null while it is out. */
   private inWaterSince: number | null = null;
+  /** The links' relay reads since the last report (M13 T4): when the last began, whether it held links, the one running. */
+  private readonly relayStats = new RelayStats();
+  private relayReadAt = Number.NEGATIVE_INFINITY;
+  private relayHeld = false;
+  private relayReading: Promise<void> | null = null;
   private readonly timer: ReturnType<typeof setInterval> | null;
 
   constructor(private readonly opts: OnlineOptions) {
@@ -485,12 +493,50 @@ export class OnlineSession {
   }
 
   /**
+   * Reads the links' stats into the relay totals (M13 T4): every `RELAY_READ_MS` while the page
+   * holds links (and once after the last closes, for its last stats), and now for
+   * `debug.progressNow`. A read waits for the one running.
+   */
+  readRelay(): Promise<void> {
+    const mesh = this.mesh;
+    if (!mesh?.linkStats) return Promise.resolve();
+    this.relayReadAt = this.now();
+    const run = (this.relayReading ?? Promise.resolve())
+      .then(() => mesh.linkStats?.() ?? [])
+      .then(
+        (links) => {
+          this.relayStats.read(links);
+          this.relayHeld = links.some((l) => !l.closed);
+        },
+        () => {},
+      );
+    this.relayReading = run;
+    void run.then(() => {
+      if (this.relayReading === run) this.relayReading = null;
+    });
+    return run;
+  }
+
+  /** The totals of the relay reads since the last call (`LifeFlow.report`), or null with none. */
+  takeRelay(): RelayReport | null {
+    return this.relayStats.take();
+  }
+
+  /**
    * One step of the links: the directory report, gossip, the route's resends, offers past their
-   * time and the plan (every 500 ms). The session's timer calls it; tests call it by hand.
+   * time and the plan (every 500 ms), and the relay reads. The session's timer calls it; tests call
+   * it by hand.
    */
   tick(): void {
     const now = this.now();
     this.report(now);
+    if (
+      this.relayReading === null &&
+      now - this.relayReadAt >= RELAY_READ_MS &&
+      (this.relayHeld || this.openCount() > 0)
+    ) {
+      void this.readRelay();
+    }
     const mesh = this.mesh;
     if (mesh) {
       for (const [to, event] of this.neighbours.gossip.due(

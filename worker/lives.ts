@@ -21,6 +21,7 @@ import {
   type LineageEntry,
   PEDIGREE_MAX,
   type PedigreeNode,
+  type RelayReport,
 } from '../src/net/protocol';
 import { RULES_VERSION } from '../src/sim/rules';
 import type { DeathCause } from '../src/sim/types';
@@ -197,26 +198,29 @@ export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> 
 export function progress(
   hub: Hub,
   ws: WebSocket,
-  session: ActiveSession,
+  seated: ActiveSession,
   msg: ClientMsg & { t: 'progress' },
   now: number,
 ): void {
+  const current = seated.life;
   // No creature bound (none yet, or it is gone): nothing to credit.
-  if (!session.life || msg.n <= session.life.n) return;
-  if (session.life.over) {
+  if (!current || msg.n <= current.n) return;
+  if (current.over) {
     sendIfOpen(ws, { t: 'refused', reason: 'dead' });
     return;
   }
+  // The page's relay report goes to the meter, whatever the report credits (M13 T4).
+  const session = msg.relay ? meterRelay(hub, seated, msg.relay, Date.now()) : seated;
   if (hub.fights.playerFighting(session.playerId)) {
     // In a fight the settlement owns the creature (M8): the report is acknowledged, and nothing is
     // credited, kept or written. Its ticks are the fight's, so a report after the end credits only
     // what follows (the locked time is the settlement's to credit). A lock still asking is free play.
-    const life = { ...session.life, ticks: Math.max(session.life.ticks, msg.ticks), t: now };
+    const life = { ...current, ticks: Math.max(current.ticks, msg.ticks), t: now };
     ack(ws, msg.n, life);
     keep(hub, ws, { ...session, life });
     return;
   }
-  const { life, newFlags } = applyReport(session.life, msg, now);
+  const { life, newFlags } = applyReport(current, msg, now);
   for (const kind of newFlags) {
     hub.ledger.audit.raise(kind, { owner: session.playerId, creature: life.creature, t: now });
   }
@@ -225,6 +229,32 @@ export function progress(
   // Old age is decided here, on the authority's clock: the client counts down, but never has the last word.
   if (isOld(next)) next = finish(hub, ws, next, session.playerId, 'old-age');
   keep(hub, ws, { ...session, life: next });
+}
+
+/** A relay report's KB is at most this per reported link and second (M13 T4, ADR 0067)... */
+const RELAY_KB_PER_LINK_S = 4;
+/** ...over at most this long since the session's last counted report. */
+const RELAY_WINDOW_MS = 60_000;
+
+/**
+ * Counts a page's relay report in the usage meter, its KB clamped to `RELAY_KB_PER_LINK_S` per
+ * reported link over the time since the session's last counted report (or its opening), at most
+ * `RELAY_WINDOW_MS`. Reports are untrusted: a page can only overstate its relay within the clamp.
+ * Returns the session with the report's time.
+ */
+function meterRelay(
+  hub: Hub,
+  session: ActiveSession,
+  report: RelayReport,
+  wall: number,
+): ActiveSession {
+  const since = Math.min(
+    RELAY_WINDOW_MS,
+    Math.max(0, wall - (session.relayAt ?? session.openedAt)),
+  );
+  const most = Math.floor((RELAY_KB_PER_LINK_S * report.links * since) / 1000);
+  hub.usage.relayed(wall, { ...report, kb: Math.min(report.kb, most) });
+  return { ...session, relayAt: wall };
 }
 
 function ack(ws: WebSocket, n: number, life: LifeState): void {

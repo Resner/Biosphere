@@ -6,6 +6,7 @@ import {
   CLOSE_REPLACED,
   type ClientMsg,
   type IceServer,
+  type QueueWhy,
   SDP_MAX_BYTES,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
@@ -106,16 +107,17 @@ function placesOf(hub: Hub, player: string, except: WebSocket): [WebSocket, Live
 }
 
 /**
- * Whether one more session fits: under the session cap (away fighters' seats included) and short
- * of 90% of the day's request budget.
+ * Why one more session doesn't fit, by the guard that holds (M13 T4): `budget` at 90% of the day's
+ * request budget, else `full` at the session cap (away fighters' seats included); null when it fits.
  */
-export function canAdmit(hub: Hub, now: number): boolean {
-  const sessions = seatedCount(hub) + awaySeats(hub);
-  return (
-    sessions < limitsOf(hub.env).sessions &&
-    hub.usage.requests(now) < BUDGET_SHARE * requestBudget(hub.env)
-  );
+export function admissionWhy(hub: Hub, now: number): QueueWhy | null {
+  if (hub.usage.requests(now) >= BUDGET_SHARE * requestBudget(hub.env)) return 'budget';
+  if (seatedCount(hub) + awaySeats(hub) >= limitsOf(hub.env).sessions) return 'full';
+  return null;
 }
+
+/** Whether one more session fits. */
+export const canAdmit = (hub: Hub, now: number): boolean => admissionWhy(hub, now) === null;
 
 /** The day's request budget (`DAILY_REQUEST_BUDGET`), which admission and the proof reads share. */
 export const requestBudget = (env: Env): number => limitsOf(env).requestsPerDay;
@@ -140,15 +142,21 @@ function firstInLine(hub: Hub): [WebSocket, Session & { phase: 'queued' }] | nul
   return first && session?.phase === 'queued' ? [first.ws, session] : null;
 }
 
-/** Tells each waiting session its place when that changed (the first time included): only those are read. */
+/**
+ * Tells each waiting session its place when that changed (the first time included), with the
+ * guard that holds now (a line that waits only for its first to be seated is `full`): only those
+ * are read.
+ */
 export function announceQueue(hub: Hub): void {
+  let why: QueueWhy | undefined;
   [...queued(hub)].forEach(({ ws, place: was }, i) => {
     const place = i + 1;
     if (was === place) return;
     const session = sessionOf(ws);
     if (session?.phase !== 'queued') return;
+    why ??= admissionWhy(hub, Date.now()) ?? 'full';
     keep(hub, ws, { ...session, place });
-    sendIfOpen(ws, { t: 'queued', position: place, etaS: place * ETA_S_PER_PLACE });
+    sendIfOpen(ws, { t: 'queued', position: place, etaS: place * ETA_S_PER_PLACE, why });
   });
 }
 
