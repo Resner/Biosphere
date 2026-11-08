@@ -14,7 +14,15 @@ import {
   requestMessage,
 } from '../ledger/record';
 import type { LifeMsg } from '../net/hub-client';
-import type { Ancestor, Born, ClientMsg, FallbackInfo, HubMsg, LifeInfo } from '../net/protocol';
+import type {
+  Ancestor,
+  Born,
+  ClientMsg,
+  FallbackInfo,
+  HubMsg,
+  LifeInfo,
+  RelayReport,
+} from '../net/protocol';
 import { type LifeStage, lifeStage } from '../sim/life';
 import { RULES_VERSION, TICK_HZ } from '../sim/rules';
 import type { DeathCause } from '../sim/types';
@@ -42,6 +50,8 @@ export interface LifeDeps {
   nonce(): string;
   /** Why the genesis is not the one its commitment and beacon produce; empty when it is. */
   verify(genesis: GenesisMsg): Promise<string[]>;
+  /** The totals of the page's relay reads since the last report, or null with none (M13 T4). */
+  relay?(): RelayReport | null;
 }
 
 /** Biomass, energy and health in world units. */
@@ -170,8 +180,14 @@ export class LifeFlow {
   private cooldownUntilMs = 0;
   private pending = false;
   private fallback: FallbackInfo | null = null;
+  private lastRelay: RelayReport | null = null;
 
   constructor(private readonly deps: LifeDeps) {}
+
+  /** The last relay report a `progress` carried (`state().net.relay`), null before one. */
+  get relaySent(): RelayReport | null {
+    return this.lastRelay;
+  }
 
   view(): LifeView {
     return {
@@ -370,6 +386,8 @@ export class LifeFlow {
     this.n++;
     this.sentReports.push({ n: this.n, ticks, biomass: condition.biomass });
     if (this.sentReports.length > SENT_KEPT) this.sentReports.shift();
+    const relay = this.deps.relay?.() ?? null;
+    if (relay) this.lastRelay = relay;
     this.link.send({
       t: 'progress',
       n: this.n,
@@ -377,6 +395,7 @@ export class LifeFlow {
       biomass: wire(condition.biomass),
       energy: wire(condition.energy),
       health: wire(condition.health),
+      ...(relay ? { relay } : {}),
     });
   }
 

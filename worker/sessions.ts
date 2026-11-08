@@ -6,6 +6,7 @@ import {
   CLOSE_REPLACED,
   type ClientMsg,
   type IceServer,
+  type QueueWhy,
   SDP_MAX_BYTES,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
@@ -95,16 +96,17 @@ export async function hello(
 }
 
 /**
- * Whether one more session fits: under the session cap (away fighters' seats included) and short
- * of 90% of the day's request budget.
+ * Why one more session doesn't fit, by the guard that holds (M13 T4): `budget` at 90% of the day's
+ * request budget, else `full` at the session cap (away fighters' seats included); null when it fits.
  */
-export function canAdmit(hub: Hub, now: number): boolean {
-  const sessions = seatedCount(hub) + awaySeats(hub);
-  return (
-    sessions < limitsOf(hub.env).sessions &&
-    hub.usage.requests(now) < BUDGET_SHARE * requestBudget(hub.env)
-  );
+export function admissionWhy(hub: Hub, now: number): QueueWhy | null {
+  if (hub.usage.requests(now) >= BUDGET_SHARE * requestBudget(hub.env)) return 'budget';
+  if (seatedCount(hub) + awaySeats(hub) >= limitsOf(hub.env).sessions) return 'full';
+  return null;
 }
+
+/** Whether one more session fits. */
+export const canAdmit = (hub: Hub, now: number): boolean => admissionWhy(hub, now) === null;
 
 /** The day's request budget (`DAILY_REQUEST_BUDGET`), which admission and the proof reads share. */
 export const requestBudget = (env: Env): number => limitsOf(env).requestsPerDay;
@@ -128,13 +130,18 @@ export function queued(hub: Hub): [WebSocket, Session & { phase: 'queued' }][] {
   return out.sort((a, b) => a[1].ticket - b[1].ticket);
 }
 
-/** Tells each waiting session its place when that changed (the first time included). */
+/**
+ * Tells each waiting session its place when that changed (the first time included), with the
+ * guard that holds now (a line that waits only for its first to be seated is `full`).
+ */
 export function announceQueue(hub: Hub): void {
+  let why: QueueWhy | undefined;
   queued(hub).forEach(([ws, session], i) => {
     const place = i + 1;
     if (session.place === place) return;
+    why ??= admissionWhy(hub, Date.now()) ?? 'full';
     ws.serializeAttachment({ ...session, place } satisfies Session);
-    sendIfOpen(ws, { t: 'queued', position: place, etaS: place * ETA_S_PER_PLACE });
+    sendIfOpen(ws, { t: 'queued', position: place, etaS: place * ETA_S_PER_PLACE, why });
   });
 }
 

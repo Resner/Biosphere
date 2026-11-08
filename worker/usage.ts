@@ -1,3 +1,5 @@
+import type { RelayReport } from '../src/net/protocol';
+
 export const DAY_MS = 86_400_000;
 
 /** The start of the UTC day holding `now`. */
@@ -207,7 +209,7 @@ export class UsageMeter {
   }
 
   /** A page's relay report (M13 T4). */
-  relayed(now: number, report: { links: number; relayed: number; kb: number }): void {
+  relayed(now: number, report: RelayReport): void {
     this.touch(now);
     this.relay.reports++;
     this.relay.links += report.links;

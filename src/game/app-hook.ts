@@ -100,6 +100,12 @@ function debugHelpers(app: App): BsDebug {
       app.crowdAt = checkCrowdAt(n);
       app.keeper.current?.setCrowdAt(n);
     },
+    async progressNow() {
+      await app.keeper.current?.readRelay();
+      const { session } = app;
+      if (!session.demo && session.player.cause === null)
+        app.flow.report(session.ticks, session.player);
+    },
     teleport(x, y) {
       const { player } = app.session;
       player.x = x;
@@ -433,6 +439,7 @@ export function installAppHook(app: App): void {
           proxyFrom: app.online.proxies.senders(),
           dutyLinks: keeper.current?.dutyLinks() ?? [],
           strangers: keeper.current?.strangers ?? 0,
+          relay: app.flow.relaySent,
           ...(keeper.current?.netInfo() ?? NO_NET),
         },
         witness: {

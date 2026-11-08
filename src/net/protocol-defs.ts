@@ -10,7 +10,7 @@ import { clamp } from '../sim/math';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 12;
+export const PROTOCOL_VERSION = 13;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;
@@ -103,6 +103,23 @@ export type RideNo = 'locked' | 'busy' | 'company' | 'soon' | 'none';
 export const RIDE_NOS: readonly RideNo[] = ['locked', 'busy', 'company', 'soon', 'none'];
 /** The snapshot rates a receiver may ask for (`rate`), in Hz. */
 export const SNAPSHOT_RATES = [1, 2, 5, 10] as const;
+
+/**
+ * Relay reports and the line's reason (protocol 13, M13 T4, ADR 0067). A `progress` may carry the
+ * page's relay report: the links it held (0 to `RELAY_LINKS_MAX`), those on a local TURN relay
+ * candidate (0 to `links`) and the KB (1,000 bytes) received over them, 0 to `RELAY_KB_MAX`, all
+ * whole. A `queued` says why the session waits: the water is full (the session cap), the day's
+ * room is used up (its budget) or the store is nearly full.
+ */
+export interface RelayReport {
+  links: number;
+  relayed: number;
+  kb: number;
+}
+export const RELAY_LINKS_MAX = 32;
+export const RELAY_KB_MAX = 16_384;
+export type QueueWhy = 'full' | 'budget' | 'storage';
+export const QUEUE_WHYS: readonly QueueWhy[] = ['full', 'budget', 'storage'];
 
 export const CHAT_MAX_CHARS = 140;
 export const CONSUMED_MAX_ENTRIES = 40;
@@ -319,8 +336,20 @@ export interface FightReport {
 export type ClientMsg =
   | { t: 'hello'; v: typeof PROTOCOL_VERSION; playerId: string; name: string; sig: string }
   | { t: 'genesis-request'; nonce: string; sig: string }
-  /** Life report, about every 30 s: `n` counts up, `ticks` is cumulative for this connection, the rest is the condition in hundredths. */
-  | { t: 'progress'; n: number; ticks: number; biomass: number; energy: number; health: number }
+  /**
+   * Life report, about every 30 s: `n` counts up, `ticks` is cumulative for this connection, the
+   * rest is the condition in hundredths. `relay` totals the page's link reads since its last report
+   * (M13 T4), absent while it read none.
+   */
+  | {
+      t: 'progress';
+      n: number;
+      ticks: number;
+      biomass: number;
+      energy: number;
+      health: number;
+      relay?: RelayReport;
+    }
   /** The creature died of `cause`; `ticks` is the cumulative count as in `progress`, so the last stretch is credited. */
   | { t: 'death'; cause: DeathCause; ticks: number }
   /** The player's past lives, newest first. */
@@ -515,8 +544,8 @@ export type HubMsg =
    * across instances, and `spawn`, a place asked for by a creature locked in a fight).
    */
   | { t: 'refused'; reason: string; genesisIn?: number }
-  /** Admission is full: the session waits in line (1 = next) instead of getting a `welcome`; sent again when its place changes. */
-  | { t: 'queued'; position: number; etaS: number }
+  /** Admission is full: the session waits in line (1 = next) instead of getting a `welcome`, and `why` (M13 T4); sent again when its place changes. */
+  | { t: 'queued'; position: number; etaS: number; why: QueueWhy }
   | { t: 'error'; code: string }
   /**
    * Someone engages this player: answer at once with `lock-state`. `by` is the attacker's player
