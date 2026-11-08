@@ -251,6 +251,13 @@ const MIGRATIONS: Step[] = [
       toBase64Url(crypto.getRandomValues(new Uint8Array(12))),
     );
   },
+  // Resumes in place (M12 T10, ADR 0064): where a player's creature left the water, written once
+  // by the close of a session whose creature was in it (in the checkpoint's transaction), so a
+  // reload within 10 minutes comes back there (`worker/spawn.ts`).
+  `ALTER TABLE players ADD COLUMN left_x REAL;
+  ALTER TABLE players ADD COLUMN left_y REAL;
+  ALTER TABLE players ADD COLUMN left_at INTEGER;
+  ALTER TABLE players ADD COLUMN left_creature TEXT`,
 ];
 
 /**

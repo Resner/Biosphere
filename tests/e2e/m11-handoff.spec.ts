@@ -185,7 +185,14 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       if (crossed && linkedC) break;
       // Steering targets a point ahead (a steer gives up after 30 s of sim time, so it is renewed).
       if (!crossed) await steer(a, E.x, E.y);
-      const cAt = (await state(c.page)).player;
+      // C waits unfed for as long as A's slower pages take to cross: its belly stays full, so it
+      // is alive when its swim starts (it was found dead, with no tick played, after A crossed).
+      await c.page.evaluate(() =>
+        (window.__bs as BsHook).debug?.setEnergy(Number.MAX_SAFE_INTEGER),
+      );
+      const cState = await state(c.page);
+      expect(cState.screen, 'C is alive while A crosses').not.toBe('dead');
+      const cAt = cState.player;
       if (cAt && Math.hypot(cAt.x - me.x, cAt.y - me.y) > 300)
         await steer(c, me.x - CENTRE, me.y - CENTRE);
       await a.page.waitForTimeout(1000);
@@ -201,6 +208,9 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     // time only bounds a hang.
     let nearSince: number | null = null;
     let lastD = Number.NaN;
+    // A page that is not the front one may be throttled or not drawn at all: C swam 0 ticks in 8
+    // minutes beside two pages that were polled as often.
+    await c.page.bringToFront();
     const swumFrom = (await state(c.page)).tick;
     let swumTicks = 0;
     const nearDeadline = Date.now() + 480_000;
@@ -226,9 +236,13 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       }
       await a.page.waitForTimeout(500);
     }
+    const cEnd = await c.page.evaluate(() => ({
+      visibility: document.visibilityState,
+      screen: (window.__bs as BsHook).state().screen,
+    }));
     expect(
       nearSince,
-      `C came into A’s view (last distance ${Math.round(lastD)} wu after ${swumTicks} of C’s ticks)`,
+      `C came into A’s view (last distance ${Math.round(lastD)} wu after ${swumTicks} of C’s ticks; C ${JSON.stringify(cEnd)})`,
     ).not.toBeNull();
     await c.page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
 
@@ -273,8 +287,22 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       near.filter((r) => r.hz !== 10),
       'C sends A 10 Hz once near',
     ).toEqual([]);
-    const drawnC = (await state(a.page)).remotes.find((r) => r.id === c.id);
-    expect(drawnC, 'A draws C').toBeDefined();
+    // A draws C: a bounded wait on A's own frame (a loaded runner's C may have sent no snapshot for
+    // a while when its time scale dropped back, and A draws only what it heard lately); the pace is
+    // read from the frame that shows C.
+    const drawnDeadline = Date.now() + 120_000;
+    let drawnC: Awaited<ReturnType<typeof state>>['remotes'][number] | undefined;
+    let lastA = await state(a.page);
+    while (Date.now() < drawnDeadline) {
+      lastA = await state(a.page);
+      drawnC = lastA.remotes.find((r) => r.id === c.id);
+      if (drawnC) break;
+      await a.page.waitForTimeout(500);
+    }
+    expect(
+      drawnC,
+      `A draws C (A draws ${JSON.stringify(lastA.remotes.map((r) => ({ id: r.id, alpha: r.alpha })))}, links ${JSON.stringify(lastA.net.links.map((l) => ({ id: l.id, hello: l.hello })))})`,
+    ).toBeDefined();
     expect(
       drawnC?.pace,
       'A never draws C faster than 1.2 × its snapshots’ speed',

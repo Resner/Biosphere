@@ -7,6 +7,7 @@ import { aoiRadius } from '../src/net/aoi';
 import type { ClientMsg, HubMsg, SpawnWhy } from '../src/net/protocol';
 import { createRng, seedFromBytes } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
+import { count } from './away';
 import { reachSince } from './directory';
 import { pondTick } from './engage';
 import type { Lock } from './fights';
@@ -18,6 +19,9 @@ import { worldRow } from './world';
 
 /** The hub keeps at most this many recent spawns, in memory (a wake starts again with none). */
 export const RECENT_SPAWNS_MAX = 256;
+
+/** A resume comes back where its creature left the water when that was less than this ago (M12 T10). */
+export const BACK_WITHIN_MS = 10 * 60_000;
 
 /**
  * Where a binding must begin (ADR 0064): the place a spawn gave, a promoted child's parent's last
@@ -87,10 +91,12 @@ const answerOf = (s: Spawned): HubMsg => ({
 
 /**
  * Answers a `spawn` from a seated session (ADR 0064). A locked creature is refused `spawn`: its
- * page goes back into the fight. A repeat under the same binding gets the same place. Otherwise
- * `place()` decides, over the directory's other members and the hub's recent spawns. A genesis or
- * a restore is protected from the answer; a resume and a practice cell are not. The answer anchors
- * the binding and puts the member in the directory there at once, as a report would. Writes no row.
+ * page goes back into the fight. A repeat under the same binding gets the same place. A resume of
+ * the creature that left the water under `BACK_WITHIN_MS` ago comes `back` there (M12 T10).
+ * Otherwise `place()` decides, over the directory's other members and the hub's recent spawns. A
+ * genesis or a restore is protected from the answer; a resume and a practice cell are not. The
+ * answer anchors the binding and puts the member in the directory there at once, as a report
+ * would. Writes no row.
  */
 export function spawn(
   hub: Hub,
@@ -109,18 +115,12 @@ export function spawn(
   }
   const now = hub.clock.now();
   const spawner = spawnerOf(session.life, msg);
-  const row = worldRow(hub);
-  const at = place({
-    members: othersOf(hub, session.playerId),
-    recent: hub.spawns,
-    spawner,
-    centre: { x: row.cx, y: row.cy },
-    world: { seed: row.seed, size: RULES.world.size, tick: Math.max(0, pondTick(now, row.epoch)) },
-    now,
-    rng: createRng(seedFromBytes(crypto.getRandomValues(new Uint8Array(16))), 'spawn'),
-  });
   const protect = session.life !== undefined && session.protectBind === bind;
-  const spawned: Spawned = { x: at.x, y: at.y, why: 'placed', protect, bind };
+  // A resume of the creature that left the water lately comes back there (M12 T10).
+  const back = protect ? null : leftPlace(hub, session, now);
+  const at = back ?? placeFor(hub, session.playerId, spawner, now);
+  const why: SpawnWhy = back ? 'back' : 'placed';
+  const spawned: Spawned = { x: at.x, y: at.y, why, protect, bind };
   remember(hub, { x: at.x, y: at.y, r: spawner.r, aoi: spawner.aoi, t: now });
   const where: WhereAt = { x: at.x, y: at.y, r: spawner.r, aoi: spawner.aoi, t: now, bind };
   const next: ActiveSession = {
@@ -132,6 +132,94 @@ export function spawn(
   const moved = whereIn(hub, ws, next, where);
   sendIfOpen(ws, answerOf(spawned));
   tellMoved(hub, moved);
+}
+
+/** Where `place()` puts the spawner, over the directory's other members and the recent spawns. */
+function placeFor(hub: Hub, self: string, spawner: Spawner, now: number): { x: number; y: number } {
+  const row = worldRow(hub);
+  return place({
+    members: othersOf(hub, self),
+    recent: hub.spawns,
+    spawner,
+    centre: { x: row.cx, y: row.cy },
+    world: { seed: row.seed, size: RULES.world.size, tick: Math.max(0, pondTick(now, row.epoch)) },
+    now,
+    rng: createRng(seedFromBytes(crypto.getRandomValues(new Uint8Array(16))), 'spawn'),
+  });
+}
+
+/** The creature a binding (`creature:startT`, `bindingOf`) was made for. */
+const creatureOf = (bind: string): string => bind.slice(0, bind.indexOf(':'));
+
+interface LeftRow extends Record<string, SqlStorageValue> {
+  left_x: number | null;
+  left_y: number | null;
+  left_at: number | null;
+  left_creature: string | null;
+}
+
+/**
+ * Where the session's creature left the water less than `BACK_WITHIN_MS` ago (M12 T10): as this
+ * socket's `gone` kept it (`Session.left`), else as the player row's last close wrote it. Null
+ * for another creature's place, an older one, or none.
+ */
+export function leftPlace(
+  hub: Hub,
+  session: ActiveSession,
+  now: number,
+): { x: number; y: number } | null {
+  const creature = session.life?.creature;
+  if (!creature) return null;
+  const own = session.left;
+  const recent = (t: number) => now - t < BACK_WITHIN_MS;
+  if (own && creatureOf(own.bind) === creature && recent(own.t)) return own;
+  const row = hub.ctx.storage.sql
+    .exec<LeftRow>(
+      'SELECT left_x, left_y, left_at, left_creature FROM players WHERE id = ?',
+      session.playerId,
+    )
+    .toArray()[0];
+  if (row?.left_creature !== creature || row.left_at === null || !recent(row.left_at)) return null;
+  const { left_x: x, left_y: y } = row;
+  return x !== null && y !== null && hub.directory.inside(x, y) ? { x, y } : null;
+}
+
+/**
+ * Writes where the session's creature left the water (M12 T10): its last report, or the one `gone`
+ * kept, made under one of that creature's bindings, with that report's time. One row; nothing for
+ * a session with no living creature, or whose last place belongs to another creature. The caller
+ * runs it in the transaction of the close's checkpoint (`saveOnClose`).
+ */
+export function saveLeft(hub: Hub, session: ActiveSession): void {
+  const { life } = session;
+  // The newest place the authority knows: a report, the one `gone` kept, or the anchor a fight's end
+  // gave a fighter that has not reported since.
+  const at = [session.where, session.left, session.anchor].reduce(
+    (a, b) => (a && (!b || a.t >= b.t) ? a : b),
+    undefined,
+  );
+  if (!life || life.over || !at || creatureOf(at.bind) !== life.creature) return;
+  leftAt(hub, session.playerId, life.creature, at);
+}
+
+/** Stores a creature's place out of the water on its player's row (one row). */
+export function leftAt(
+  hub: Hub,
+  player: string,
+  creature: string,
+  at: { x: number; y: number; t: number },
+): void {
+  count(
+    hub,
+    hub.ctx.storage.sql.exec(
+      'UPDATE players SET left_x = ?, left_y = ?, left_at = ?, left_creature = ? WHERE id = ?',
+      at.x,
+      at.y,
+      at.t,
+      creature,
+      player,
+    ),
+  );
 }
 
 /**
@@ -181,5 +269,17 @@ export function fightAnchor(
   now: number,
 ): Anchor | undefined {
   const body = lock?.fight?.enc.fighters.find((f) => f.player === player)?.body;
-  return body ? { x: body.x, y: body.y, t: now, bind: bindingOf(life) } : undefined;
+  return body ? anchorAt(body, life, now) : undefined;
 }
+
+/** An anchor at a point the authority itself placed `life`'s creature at. */
+export const anchorAt = (
+  at: { x: number; y: number },
+  life: LifeState | undefined,
+  t: number,
+): Anchor => ({
+  x: at.x,
+  y: at.y,
+  t,
+  bind: bindingOf(life),
+});
