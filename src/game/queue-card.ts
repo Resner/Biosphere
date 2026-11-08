@@ -61,16 +61,19 @@ export function cardWords(
 
 /** The place and the wait in one line, as the status chip shows it: "2nd in line · about 1 min". */
 export function lineText(q: QueuePlace, now: number, offsetAt: OffsetAt = localOffset): string {
-  const { place, wait } = cardWords(q, now, offsetAt);
+  return joinWords(cardWords(q, now, offsetAt));
+}
+
+function joinWords({ place, wait }: { place: string; wait: string }): string {
   return wait ? `${place} · ${wait}` : place;
 }
 
-/** The glass card on the title and death screens (`queue-card`, `death-queue-card`). */
 const CARD_IDS: readonly (readonly [card: string, swim: string])[] = [
   ['queue-card', 'queue-swim'],
   ['death-queue-card', 'death-queue-swim'],
 ];
 
+/** The glass card on the title and death screens (`queue-card`, `death-queue-card`). */
 export class QueueCard {
   private readonly cards = CARD_IDS.map(([id]) => ({
     root: pick(`[data-testid="${id}"]`),
@@ -85,10 +88,12 @@ export class QueueCard {
   /** Shows the place in line, or hides the card (null). */
   show(q: QueuePlace | null, now: number): void {
     const words = q && cardWords(q, now);
-    const line = words && (words.wait ? `${words.place} · ${words.wait}` : words.place);
     for (const card of this.cards) {
-      card.root.hidden = q === null;
-      if (!words || line === null) continue;
+      if (card.root.hidden !== (q === null)) card.root.hidden = q === null;
+    }
+    if (!words) return;
+    const line = joinWords(words);
+    for (const card of this.cards) {
       setText(card.reason, words.reason);
       setText(card.line, line);
     }
