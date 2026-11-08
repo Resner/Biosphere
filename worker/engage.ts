@@ -37,14 +37,7 @@ import type { Head } from './ledger';
 import { type Condition, clampClaim, type LifeState } from './life';
 import { jumped, swimSpeed } from './movement';
 import type { PondRow } from './schema';
-import {
-  type ActiveSession,
-  type Hub,
-  type Session,
-  seated,
-  sendIfOpen,
-  sessionOf,
-} from './socket';
+import { type ActiveSession, type Hub, keep, seated, sendIfOpen, sessionOf } from './socket';
 import { sharesWater } from './where';
 import { witnessLocked } from './witness-fight';
 import { commitWitnesses } from './witness-pool';
@@ -158,7 +151,7 @@ function sideOf(
     kept = { ...life, flagged };
     const session = sessionOf(ws);
     if (session?.phase === 'active' && session.life?.creature === life.creature) {
-      ws.serializeAttachment({ ...session, life: { ...session.life, flagged } } satisfies Session);
+      keep(hub, ws, { ...session, life: { ...session.life, flagged } });
     }
   }
   return {
@@ -191,7 +184,7 @@ export function engage(
   msg: ClientMsg & { t: 'engage' },
 ): void {
   if (session.protectedUntil !== undefined) {
-    ws.serializeAttachment({ ...session, protectedUntil: undefined } satisfies Session);
+    keep(hub, ws, { ...session, protectedUntil: undefined });
   }
   const checked = check(hub, ws, session, msg, hub.clock.now());
   if (typeof checked === 'string') {

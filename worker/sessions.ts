@@ -16,13 +16,14 @@ import { unsaved } from './life';
 import { bind, checkpoint, sendLife } from './lives';
 import { limitsOf } from './plan';
 import { seatTicket } from './seat';
+import type { InLine } from './seats';
 import {
   type ActiveSession,
-  activeSessions,
   type Hub,
+  keep,
   type LiveSession,
-  liveSessions,
   type Session,
+  seated,
   send,
   sendIfOpen,
   sessionOf,
@@ -66,8 +67,7 @@ export async function hello(
   // The new tab takes over the old one's place: its seat, or its spot in line.
   let held: LiveSession | undefined;
   let duties: number[] | undefined;
-  for (const [other, theirs] of liveSessions(hub, ws)) {
-    if (theirs.playerId !== msg.playerId) continue;
+  for (const [other, theirs] of placesOf(hub, msg.playerId, ws)) {
     if (theirs.phase === 'active' || held?.phase !== 'active') held = theirs;
     if (theirs.phase === 'active' && theirs.duties) duties = theirs.duties;
     // Quietly: the new socket takes over the place, so nobody moves up and no seat is offered.
@@ -79,20 +79,31 @@ export async function hello(
   const seat = held?.phase === 'active' || hub.fights.ofPlayer(msg.playerId)?.fight != null;
   if (!seat && (queued(hub).length > 0 || !canAdmit(hub, Date.now()))) {
     const ticket = held?.phase === 'queued' ? held.ticket : hub.nextTicket++;
-    ws.serializeAttachment({
+    keep(hub, ws, {
       ...current,
       phase: 'queued',
       ...who,
       ticket,
       place: 0,
       queuedAt: held?.phase === 'queued' && held.queuedAt ? held.queuedAt : Date.now(),
-    } satisfies Session);
+    });
     meterSeats(hub);
   } else {
     enter(hub, ws, { ...current, duties }, who, { ice, turn });
   }
   announceQueue(hub);
   await hub.rearm();
+}
+
+/** The player's seat and its place in line (at most one of each), other than `except`'s: two attachment reads at most. */
+function placesOf(hub: Hub, player: string, except: WebSocket): [WebSocket, LiveSession][] {
+  const out: [WebSocket, LiveSession][] = [];
+  const seat = seated(hub, player);
+  if (seat && seat[0] !== except) out.push(seat);
+  const waiting = hub.seats.waitingOf(player);
+  const s = waiting && waiting.ws !== except ? sessionOf(waiting.ws) : null;
+  if (waiting && s?.phase === 'queued') out.push([waiting.ws, s]);
+  return out;
 }
 
 /**
@@ -112,7 +123,7 @@ export const canAdmit = (hub: Hub, now: number): boolean => admissionWhy(hub, no
 export const requestBudget = (env: Env): number => limitsOf(env).requestsPerDay;
 
 /** How many sessions hold a seat (away fighters not included). */
-export const seatedCount = (hub: Hub): number => [...activeSessions(hub)].length;
+export const seatedCount = (hub: Hub): number => hub.seats.size;
 
 /** Tells the usage meter how many sessions are seated and how many wait (the seated time is integrated from these). */
 export function meterSeats(hub: Hub): void {
@@ -121,26 +132,30 @@ export function meterSeats(hub: Hub): void {
   hub.usage.setQueued(now, queued(hub).length);
 }
 
-/** The waiting sessions, next first. */
-export function queued(hub: Hub): [WebSocket, Session & { phase: 'queued' }][] {
-  const out: [WebSocket, Session & { phase: 'queued' }][] = [];
-  for (const [ws, session] of liveSessions(hub)) {
-    if (session.phase === 'queued') out.push([ws, session]);
-  }
-  return out.sort((a, b) => a[1].ticket - b[1].ticket);
+/** The waiting sessions, next first (the line's index). */
+export const queued = (hub: Hub): readonly InLine[] => hub.seats.line();
+
+/** The first waiting session with its attachment, or null. */
+function firstInLine(hub: Hub): [WebSocket, Session & { phase: 'queued' }] | null {
+  const first = queued(hub)[0];
+  const session = first ? sessionOf(first.ws) : null;
+  return first && session?.phase === 'queued' ? [first.ws, session] : null;
 }
 
 /**
  * Tells each waiting session its place when that changed (the first time included), with the
- * guard that holds now (a line that waits only for its first to be seated is `full`).
+ * guard that holds now (a line that waits only for its first to be seated is `full`): only those
+ * are read.
  */
 export function announceQueue(hub: Hub): void {
   let why: QueueWhy | undefined;
-  queued(hub).forEach(([ws, session], i) => {
+  [...queued(hub)].forEach(({ ws, place: was }, i) => {
     const place = i + 1;
-    if (session.place === place) return;
+    if (was === place) return;
+    const session = sessionOf(ws);
+    if (session?.phase !== 'queued') return;
     why ??= admissionWhy(hub, Date.now()) ?? 'full';
-    ws.serializeAttachment({ ...session, place } satisfies Session);
+    keep(hub, ws, { ...session, place });
     sendIfOpen(ws, { t: 'queued', position: place, etaS: place * ETA_S_PER_PLACE, why });
   });
 }
@@ -159,8 +174,8 @@ export async function promoteWaiting(hub: Hub): Promise<void> {
       if (!first || !canAdmit(hub, Date.now())) return;
       const { ice, turn } = await hub.turn.ice(hub.env);
       // The line may have changed while the lookup ran. No await from here to the welcome.
-      const next = queued(hub)[0];
-      if (next?.[0] !== first[0] || !canAdmit(hub, Date.now())) continue;
+      const next = firstInLine(hub);
+      if (next?.[0] !== first.ws || !canAdmit(hub, Date.now())) continue;
       const [ws, session] = next;
       // A session queued before `queuedAt` existed has no wait to record.
       if (session.queuedAt) hub.usage.waited(Date.now(), Date.now() - session.queuedAt);
@@ -177,13 +192,9 @@ export async function promoteWaiting(hub: Hub): Promise<void> {
  * running fight with no seated socket keeps its place until the fight ends.
  */
 export function awaySeats(hub: Hub): number {
-  const running = hub.fights.running();
-  if (running.length === 0) return 0;
-  const here = new Set<string>();
-  for (const [, theirs] of activeSessions(hub)) here.add(theirs.playerId);
   let away = 0;
-  for (const { players, fight } of running) {
-    if (fight) away += players.filter((p) => !here.has(p)).length;
+  for (const { players, fight } of hub.fights.running()) {
+    if (fight) away += players.filter((p) => !hub.seats.has(p)).length;
   }
   return away;
 }
@@ -211,7 +222,7 @@ export function enter(
   const ticket = seatTicket(hub, who, now);
   const life = bind(hub, who.playerId, now);
   const anchor = fightAnchor(lock, who.playerId, life, now);
-  ws.serializeAttachment({
+  keep(hub, ws, {
     phase: 'active',
     openedAt,
     windowStart,
@@ -224,7 +235,7 @@ export function enter(
     seatAt: now,
     // The hour's duties belong to the player, not the socket: a reload keeps them.
     ...(duties ? { duties } : {}),
-  } satisfies Session);
+  });
   meterSeats(hub);
   sendIfOpen(ws, {
     t: 'welcome',
@@ -261,25 +272,25 @@ export function relay(
     return;
   }
   const from = session.playerId;
-  for (const [other, theirs] of activeSessions(hub, ws)) {
-    if (theirs.playerId !== msg.to) continue;
-    if (
-      (relayReach(hub, from, msg.to) && sharesWater(hub, from, msg.to)) ||
-      hub.duties.linksOf(from).includes(msg.to)
-    ) {
-      const at = atOf(hub, from);
-      const cls = msg.cls === undefined ? {} : { cls: msg.cls };
-      send(other, {
-        t: 'signal',
-        from,
-        kind: msg.kind,
-        sdp: msg.sdp,
-        ...cls,
-        ...(at ? { at } : {}),
-      });
-      countRelay(hub, from, msg.to);
-      return;
-    }
+  const target = hub.seats.socketOf(msg.to);
+  if (
+    target &&
+    target !== ws &&
+    ((relayReach(hub, from, msg.to) && sharesWater(hub, from, msg.to)) ||
+      hub.duties.linksOf(from).includes(msg.to))
+  ) {
+    const at = atOf(hub, from);
+    const cls = msg.cls === undefined ? {} : { cls: msg.cls };
+    send(target, {
+      t: 'signal',
+      from,
+      kind: msg.kind,
+      sdp: msg.sdp,
+      ...cls,
+      ...(at ? { at } : {}),
+    });
+    countRelay(hub, from, msg.to);
+    return;
   }
   send(ws, { t: 'error', code: 'no-peer' });
 }
@@ -308,8 +319,10 @@ export function drop(
   replaced = false,
 ): void {
   const session = sessionOf(ws);
+  // A socket that never said hello leaves the hellos due.
+  hub.seats.forgetHello(ws);
   if (session?.phase === 'queued') {
-    ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
+    keep(hub, ws, { ...session, phase: 'retired' });
     meterSeats(hub);
     if (!replaced) {
       announceQueue(hub);
@@ -317,7 +330,7 @@ export function drop(
     }
   }
   if (session?.phase === 'active') {
-    ws.serializeAttachment({ ...session, phase: 'retired' } satisfies Session);
+    keep(hub, ws, { ...session, phase: 'retired' });
     meterSeats(hub);
     try {
       saveOnClose(hub, session);

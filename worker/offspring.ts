@@ -16,9 +16,9 @@ import { type LifeState, recorded } from './life';
 import { askLive, type Court, mateRequests, refusalFor, scalesOf, viewOf } from './mating';
 import {
   type ActiveSession,
-  activeSessions,
   type Hub,
-  type Session,
+  keep,
+  seated,
   sendIfOpen,
   sessionOf,
   signedOf,
@@ -79,9 +79,8 @@ export async function deliverBirth(hub: Hub, commitId: string): Promise<void> {
     const child = hub.ledger.head(stored.hash);
     const born = child ? bornFor(hub, child) : null;
     if (!born) continue;
-    for (const [other, theirs] of activeSessions(hub)) {
-      if (theirs.playerId === owners[i]) sendIfOpen(other, { t: 'born', ...born });
-    }
+    const found = seated(hub, owners[i] as string);
+    if (found) sendIfOpen(found[0], { t: 'born', ...born });
   }
 }
 
@@ -118,12 +117,8 @@ export function bornFor(hub: Hub, child: Head): Born | null {
 
 /** The other seated session of `playerId` anywhere in the world, or null. */
 export function peerOf(hub: Hub, ws: WebSocket, playerId: string) {
-  for (const [other, theirs] of activeSessions(hub, ws)) {
-    if (theirs.playerId === playerId) {
-      return { ws: other, session: theirs };
-    }
-  }
-  return null;
+  const found = seated(hub, playerId);
+  return found && found[0] !== ws ? { ws: found[0], session: found[1] } : null;
 }
 
 /** The peer, when it is playing a creature (the `life` is narrowed for the caller). */
@@ -218,7 +213,7 @@ export function court(
   const reason = mateRefusal(hub, session, other.session);
   if (reason) return refuse(reason);
   // A second court replaces the first: the earlier invitation is void.
-  ws.serializeAttachment({ ...session, court: { ask, sentAt: now } } satisfies Session);
+  keep(hub, ws, { ...session, court: { ask, sentAt: now } });
   const card = cardOf(hub, session.life, other.life);
   sendIfOpen(other.ws, {
     t: 'invite',
@@ -243,7 +238,7 @@ export function decline(hub: Hub, ws: WebSocket, session: ActiveSession, courter
   const peer = peerOf(hub, ws, courter);
   const court = peer?.session.court;
   if (peer && court && 'ask' in court && court.ask.partner === session.playerId) {
-    peer.ws.serializeAttachment({ ...peer.session, court: undefined } satisfies Session);
+    keep(hub, peer.ws, { ...peer.session, court: undefined });
     sendIfOpen(peer.ws, { t: 'declined', by: session.playerId });
   }
 }
@@ -347,11 +342,11 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
       cooldownUntilMs: body.cooldownUntilMs as number,
     };
     // The record covers everything reported so far, and the next report counts from it.
-    socket.serializeAttachment({
+    keep(hub, socket, {
       ...s,
       court,
       life: recorded(life, t),
-    } satisfies Session);
+    });
     sendIfOpen(socket, { t: 'mating', commit: signed, record: result.stored[i] });
   };
   if (result.fresh) {

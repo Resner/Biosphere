@@ -22,7 +22,7 @@ import { type Condition, isOld, type LifeState, recorded, unsaved } from './life
 import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
-import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
+import { type Hub, keep, seated, sendIfOpen } from './socket';
 import { anchorAt, anchorAtLast, leftAt } from './spawn';
 import { DAY_MS } from './usage';
 import { carrionNoticed } from './where';
@@ -244,7 +244,7 @@ export function backToLedger(
     const life = bind(hub, player, now);
     const end = ends.find((f) => f.player === player);
     const anchor = end && life ? anchorAt(end, life, now) : anchorAtLast(session, life);
-    ws.serializeAttachment({ ...session, life, anchor });
+    keep(hub, ws, { ...session, life, anchor });
     sendLife(hub, ws, player);
   }
 }
@@ -282,8 +282,9 @@ function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[], forward
     // victim (M12 T5), and the fighters themselves.
     const near = carrionNoticed(hub, f.x, f.y, f.player);
     for (const player of fight.players) near.add(player);
-    for (const [ws, session] of activeSessions(hub)) {
-      if (near.has(session.playerId)) sendIfOpen(ws, msg);
+    for (const player of near) {
+      const ws = hub.seats.socketOf(player);
+      if (ws) sendIfOpen(ws, msg);
     }
   }
 }
@@ -305,5 +306,5 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
   if (!survived(f)) life = { ...life, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
   // It starts from where the authority's encounter left it: the next report lies near (M12 T10).
-  ws.serializeAttachment({ ...session, life, anchor: anchorAt(f, life, t) });
+  keep(hub, ws, { ...session, life, anchor: anchorAt(f, life, t) });
 }

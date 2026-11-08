@@ -43,10 +43,10 @@ import { scalesOf } from './mating';
 import { bornFor, deliverBirth } from './offspring';
 import {
   type ActiveSession,
-  activeSessions,
   causeOf,
   type Hub,
-  type Session,
+  keep,
+  seated,
   sendIfOpen,
   signedOf,
 } from './socket';
@@ -155,9 +155,8 @@ export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> 
   if (!accepted.ok) {
     // Nothing will ever follow: give the hatch back and free the player to ask again instead of waiting on a dead commitment.
     hub.ledger.refundHatch(owner, commitId, Date.now());
-    for (const [other, theirs] of activeSessions(hub)) {
-      if (theirs.playerId === owner) sendIfOpen(other, { t: 'refused', reason: accepted.reason });
-    }
+    const found = seated(hub, owner);
+    if (found) sendIfOpen(found[0], { t: 'refused', reason: accepted.reason });
     return;
   }
   // Its auditor recomputes the record (ADR 0058), now or once the witness round is in.
@@ -172,20 +171,21 @@ export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> 
     genome: text,
   };
   const head = hub.ledger.head(accepted.stored.hash);
-  for (const [other, theirs] of activeSessions(hub)) {
-    if (theirs.playerId !== owner) continue;
+  const found = seated(hub, owner);
+  if (found) {
+    const [other, theirs] = found;
     // A new creature starts its clock when it reaches the player; a repeat delivery leaves it be.
     // Its protection starts at its spawn's answer (M12 T4), so a long egg reveal doesn't eat it.
     if (head && theirs.life?.creature !== head.id) {
       const life = bindHead(hub, head, hub.clock.now());
       const protectBind = bindingOf(life);
-      other.serializeAttachment({
+      keep(hub, other, {
         ...theirs,
         life,
         protectBind,
         anchor: undefined,
         spawned: undefined,
-      } satisfies Session);
+      });
     }
     sendIfOpen(other, msg);
   }
@@ -217,7 +217,7 @@ export function progress(
     // what follows (the locked time is the settlement's to credit). A lock still asking is free play.
     const life = { ...current, ticks: Math.max(current.ticks, msg.ticks), t: now };
     ack(ws, msg.n, life);
-    ws.serializeAttachment({ ...session, life } satisfies Session);
+    keep(hub, ws, { ...session, life });
     return;
   }
   const { life, newFlags } = applyReport(current, msg, now);
@@ -228,7 +228,7 @@ export function progress(
   ack(ws, msg.n, next);
   // Old age is decided here, on the authority's clock: the client counts down, but never has the last word.
   if (isOld(next)) next = finish(hub, ws, next, session.playerId, 'old-age');
-  ws.serializeAttachment({ ...session, life: next } satisfies Session);
+  keep(hub, ws, { ...session, life: next });
 }
 
 /** A relay report's KB is at most this per reported link and second (M13 T4, ADR 0067)... */
@@ -311,7 +311,7 @@ export function death(
   }
   const cause = isOld(credited) ? 'old-age' : msg.cause;
   const life = finish(hub, ws, credited, session.playerId, cause);
-  ws.serializeAttachment({ ...session, life } satisfies Session);
+  keep(hub, ws, { ...session, life });
 }
 
 /**
@@ -498,7 +498,7 @@ export function takeOver(
           spawned: undefined,
         }
       : { protectBind: bindingOf(life), anchor: undefined, spawned: undefined };
-  ws.serializeAttachment({ ...session, life, court: undefined, ...fresh } satisfies Session);
+  keep(hub, ws, { ...session, life, court: undefined, ...fresh });
   sendIfOpen(ws, reply(lifeOf(hub, head)));
 }
 

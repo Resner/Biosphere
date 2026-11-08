@@ -114,6 +114,11 @@ export class Directory {
     return held ? { ...held.m } : null;
   }
 
+  /** Every member as last reported (not copies: read only). */
+  *members(): Generator<Readonly<DirMember>> {
+    for (const { m } of this.byId.values()) yield m;
+  }
+
   /** The member's leaf, or null. */
   leafOf(id: string): Leaf | null {
     const held = this.byId.get(id);
