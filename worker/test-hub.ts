@@ -16,6 +16,8 @@ import { RULES } from '../src/sim/rules';
 import rounds from '../tests/fixtures/drand/rounds.json';
 import type { BeaconSource } from './beacons';
 import { fixtureSource } from './fixture-beacons';
+import { type Hub, type Session, sessionOf } from './socket';
+import { bindingOf } from './where';
 
 // Shared by the hub tests that need a signed-in client and fake beacons (genesis, progress).
 
@@ -123,16 +125,37 @@ export async function login(id?: Identity, store = memoryKeyStore()) {
  * Reports each client's starter to the directory at the world's centre, as a client in the water
  * does, and takes the `near` answer off its socket, keeping every other message where it was. A
  * court needs the directory to place both partners (M11 T14), so mating tests place their players.
+ * Each binding is anchored at the centre first (`anchorAt`), as if the hub had spawned it there.
  */
-export async function placed(...ps: { c: Client }[]): Promise<void> {
+export async function placed(...ps: { c: Client; id: { playerId: string } }[]): Promise<void> {
   const centre = RULES.world.size / 2;
-  for (const { c } of ps) {
+  for (const { c, id } of ps) {
+    await anchorAt(id.playerId, centre, centre);
     c.send({ t: 'where', x: centre, y: centre, r: 10, aoi: 233 });
     const kept: HubMsg[] = [];
     for (let msg = await c.next(); msg.t !== 'near'; msg = await c.next()) kept.push(msg);
     c.inbox.unshift(...kept);
   }
 }
+
+/**
+ * Anchors the player's current binding at (x, y) unless the hub already anchored it (M12 T4): what
+ * a spawn's answer would do, for tests that place a creature where they need it.
+ */
+export const anchorAt = (player: string, x: number, y: number) =>
+  runInDurableObject(stub(), (o) => {
+    const hub = o as unknown as Hub;
+    for (const ws of hub.ctx.getWebSockets()) {
+      const s = sessionOf(ws);
+      if (s?.phase !== 'active' || s.playerId !== player) continue;
+      const bind = bindingOf(s.life);
+      if (s.anchor?.bind === bind) continue;
+      ws.serializeAttachment({
+        ...s,
+        anchor: { x, y, t: hub.clock.now(), bind },
+      } satisfies Session);
+    }
+  });
 
 let nonces = 0;
 export const freshNonce = () =>

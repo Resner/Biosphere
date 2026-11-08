@@ -82,7 +82,14 @@ const CHECK_WAIT_MS = 5000;
 /** How long the reason a mating ended stays on screen. */
 const NOTE_MS = 4000;
 /** Hub refusals that belong to the life flow, not to a mating. */
-const LIFE_REFUSALS: ReadonlySet<string> = new Set(['dead', 'cause', 'queued', 'limit', 'active']);
+const LIFE_REFUSALS: ReadonlySet<string> = new Set([
+  'dead',
+  'cause',
+  'queued',
+  'limit',
+  'active',
+  'spawn',
+]);
 
 const VISITED_KEPT = 16;
 

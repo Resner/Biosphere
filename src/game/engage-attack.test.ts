@@ -107,6 +107,14 @@ describe('the sight check (M11 T3)', () => {
   });
 });
 
+describe('crowd instances (M12 T5)', () => {
+  it('tells the attacker the target is in other water', () => {
+    expect(refusalToast(authorityRefusal('engage:instance', false))).toBe(
+      "Can't reach it from here",
+    );
+  });
+});
+
 describe('the target F engages', () => {
   const near = peer('near', at(-6), 1000);
   const nearer = peer('nearer', at(-10), 1000);

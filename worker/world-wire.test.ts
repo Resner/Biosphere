@@ -2,7 +2,7 @@ import { runInDurableObject } from 'cloudflare:test';
 import { afterEach, describe, expect, it } from 'vitest';
 import { CLOSE_RATE_LIMITED } from '../src/net/protocol';
 import type { Authority } from './authority';
-import { closeSockets, login, nextOf, signIn, stub } from './test-hub';
+import { anchorAt, closeSockets, login, nextOf, signIn, stub } from './test-hub';
 
 // Protocol 11 on the authority (M11 T2): `where` and `gone` parse and count in the 20-message
 // budget; the directory answers them (T6, `where.test.ts`).
@@ -22,7 +22,8 @@ describe('protocol 11 on the hub', () => {
   });
 
   it('answers a where with near and a gone with nothing', async () => {
-    const { c } = await login();
+    const { c, id } = await login();
+    await anchorAt(id.playerId, where.x, where.y);
     const [wheres, gones] = [await droppedOf('where'), await droppedOf('gone')];
     c.send(where);
     expect(await c.next()).toMatchObject({ t: 'near', peers: [], swarm: [] });

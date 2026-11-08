@@ -164,8 +164,7 @@ function debugHelpers(app: App): BsDebug {
         id: 'debug',
         seed: spec.seed,
         size: RULES.world.size,
-        ring: null,
-        lives: 0,
+        centre: { x: RULES.world.size / 2, y: RULES.world.size / 2 },
         time: new PondTime(clock, spec.epoch),
         food: new PondFood(app.playerId ?? 'local', spec.send),
         world,
@@ -394,9 +393,10 @@ export function installAppHook(app: App): void {
               id: pond.id,
               seed: pond.seed,
               size: pond.size,
-              centre: pond.ring ? { ...pond.ring.centre } : { x: pond.size / 2, y: pond.size / 2 },
+              centre: { ...pond.centre },
             }
           : null,
+        spawn: app.spawnAsk.last ? { ...app.spawnAsk.last } : null,
         social: {
           chat: social.log().map((line) => ({ ...line })),
           muted: [...social.muted.ids()],

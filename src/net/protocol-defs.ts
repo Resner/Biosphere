@@ -126,9 +126,6 @@ export interface Member {
   name: string;
 }
 
-/** The joiner in slot `i` spawns at angle `i · SPAWN_GOLDEN_ANGLE` on the spawn ring (DESIGN.md). */
-export const SPAWN_GOLDEN_ANGLE = 2.399963;
-
 export interface IceServer {
   urls: string | string[];
   username?: string;

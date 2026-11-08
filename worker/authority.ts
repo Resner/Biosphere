@@ -10,6 +10,7 @@ import {
 import { attest } from './attest';
 import type { AuditReport } from './audit';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
+import type { Crowds } from './crowds';
 import type { Directory } from './directory';
 import { Duties } from './duty';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
@@ -34,9 +35,10 @@ import { migrate } from './schema';
 import { renewSeat } from './seat';
 import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
+import { type RecentSpawn, spawn } from './spawn';
 import { TurnCredentials } from './turn';
 import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
-import { gone, rebuildDirectory, where } from './where';
+import { armCrowds, gone, rebuildCrowds, rebuildDirectory, where } from './where';
 import { witnessBatch, witnessDispute } from './witness-fight';
 import { avail, ipHash } from './witness-pool';
 
@@ -84,7 +86,7 @@ export class Authority extends DurableObject<Env> implements Hub {
   readonly fightStore: FightStore;
   /** When the queue is looked at next; null while nobody waits (then no alarm is held for it). */
   private queueTickAt: number | null = null;
-  /** Messages dropped without closing the socket, by type: past their own window's cap, a `where` refused (a jump, outside the world), or a `spawn` or `ride` not yet answered (M12 T1). */
+  /** Messages dropped without closing the socket, by type: past their own window's cap, a `where` refused (a jump, outside the world, past its anchor), or a `ride` not yet answered (M12 T1). */
   readonly dropped = new Map<ClientMsg['t'], number>();
   /** Incoming messages that parsed, by type: what a fight costs the authority (ADR 0058's cost check). */
   readonly received = new Map<ClientMsg['t'], number>();
@@ -92,8 +94,16 @@ export class Authority extends DurableObject<Env> implements Hub {
   duties: Duties = new Duties(this);
   /** Who is where (M11 T6): rebuilt from the sockets' attachments when the object wakes. */
   directory: Directory;
+  /** Crowd instances (M12 T5): rebuilt from the sockets' attachments when the object wakes. */
+  crowds: Crowds;
+  /** The crowds' one split timer (`armCrowds` in `where.ts`). */
+  crowdTimer: { at: number; handle: unknown } | null = null;
+  /** Fighters whose page left the water during their fight, their instance kept until it ends. */
+  readonly crowdsKept = new Set<string>();
   /** Signals the hub relayed, by unordered pair (E2E reads them). */
   readonly relays = new Map<string, number>();
+  /** The spawns given in the last minute, in memory (M12 T4, `spawn.ts`). */
+  readonly spawns: RecentSpawn[] = [];
   /** The salt of every session's IP hash (migration 10), read once. */
   private ipSalt: string | null = null;
 
@@ -112,6 +122,8 @@ export class Authority extends DurableObject<Env> implements Hub {
         this.nextTicket = Math.max(this.nextTicket, session.ticket + 1);
     }
     this.directory = rebuildDirectory(this);
+    this.crowds = rebuildCrowds(this);
+    armCrowds(this);
     this.source = this.beaconSource();
     this.beacons = new Beacons({
       storage: ctx.storage,
@@ -346,9 +358,10 @@ export class Authority extends DurableObject<Env> implements Hub {
       case 'gone':
         gone(this, ws, session);
         return;
-      // Counted in the 20-message budget above, then dropped until spawning (M12 T4) and riding
-      // (M12 T7) answer them.
       case 'spawn':
+        spawn(this, ws, session, msg);
+        return;
+      // Counted in the 20-message budget above, then dropped until riding (M12 T7) answers it.
       case 'ride':
         this.dropped.set(msg.t, (this.dropped.get(msg.t) ?? 0) + 1);
         return;

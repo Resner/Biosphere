@@ -129,9 +129,7 @@ export class OnlineWiring {
       id: w.world.id,
       seed: w.world.seed,
       size: w.world.size,
-      // Until the authority places creatures (M12 T4), the welcome's hint; with none, the centre.
-      ring: { centre: w.world.centre, hint: w.you?.spawnHint ?? w.world.centre },
-      lives: 0,
+      centre: w.world.centre,
       time: new PondTime(hubClock, w.world.epoch),
       food: new PondFood(app.playerId ?? 'local', (event) =>
         app.keeper.current?.broadcastEvent(event),
@@ -201,6 +199,7 @@ export class OnlineWiring {
             }
             if (msg.reason === 'no-creature' && app.attack.waiting) app.attack.refused(msg.reason);
           }
+          app.spawnAsk.receive(msg);
           app.flow.receive(msg, app.session.ticks);
           app.mate.receive(msg);
           app.offspring.receive(msg);

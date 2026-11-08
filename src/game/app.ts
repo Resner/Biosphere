@@ -79,6 +79,7 @@ import { SettingsPanel } from './settings-panel';
 import { MuteList, Social } from './social';
 import { SocialUi } from './social-ui';
 import { CueWatch } from './sound-cues';
+import { SpawnAsk } from './spawn-ask';
 import { Wheel, WheelUi } from './wheel';
 
 export interface GameParams {
@@ -266,6 +267,8 @@ export class App {
   readonly resume: FightResume;
   /** A fight settled while the player was away, told once at the next sign-in (M8 T12). */
   readonly awayReport: AwayReport;
+  /** Where each life in the hub's world enters the water: the authority's answer (M12 T4). */
+  readonly spawnAsk = new SpawnAsk();
   readonly sender: SnapshotSender;
   readonly genomeSync: GenomeSync;
   /** Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`. */
@@ -534,8 +537,7 @@ export class App {
       resume: () => this.life.resumeFight(),
       practice: () => {
         this.limitUntil = 0;
-        this.flow.practice();
-        this.life.begin(this.pond !== null);
+        this.life.practice();
       },
     });
     if (this.hubUrl) {

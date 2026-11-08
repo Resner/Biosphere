@@ -7,9 +7,6 @@ import {
   type ClientMsg,
   type IceServer,
   SDP_MAX_BYTES,
-  SPAWN_GOLDEN_ANGLE,
-  type Vec2,
-  type WorldInfo,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
 import { awayDue } from './away';
@@ -28,7 +25,8 @@ import {
   sendIfOpen,
   sessionOf,
 } from './socket';
-import { atOf, countRelay, gone, relayReach } from './where';
+import { fightAnchor } from './spawn';
+import { atOf, countRelay, gone, relayReach, reseatCrowd, sharesWater } from './where';
 import { witnessLeft } from './witness-fight';
 import { worldInfo, worldRow } from './world';
 
@@ -38,9 +36,6 @@ const BUDGET_SHARE = 0.9;
 const ETA_S_PER_PLACE = 30;
 const DEFAULT_MAX_SESSIONS = 200;
 const DEFAULT_DAILY_REQUEST_BUDGET = 100_000;
-/** A joiner takes the first free slot `i` among every seated session: angle `i · SPAWN_GOLDEN_ANGLE`, radius `RING_BASE + RING_STEP · i` (DESIGN.md). */
-const RING_BASE = 300;
-const RING_STEP = 40;
 
 export async function hello(
   hub: Hub,
@@ -177,7 +172,8 @@ function awaySeats(hub: Hub): number {
 /**
  * Seats a signed-in session in the world and welcomes it. A player locked in a running fight goes
  * back to the fight: `life` names it, and its start and every frame and join so far follow (M8,
- * ADR 0053).
+ * ADR 0053), and its binding is anchored at its place in the fight. Anyone else asks `spawn` as
+ * its creature enters the water (M12 T4).
  */
 export function enter(
   hub: Hub,
@@ -190,10 +186,12 @@ export function enter(
 ): void {
   const lock = hub.fights.ofPlayer(who.playerId);
   const fight = lock?.fight ?? null;
-  const { world, spawnHint, slot } = place(hub);
+  const world = worldInfo(worldRow(hub));
   const { openedAt, windowStart, count, signals, ip, duties } = from;
   const now = hub.clock.now();
   const ticket = seatTicket(hub, who, now);
+  const life = bind(hub, who.playerId, now);
+  const anchor = fightAnchor(lock, who.playerId, life, now);
   ws.serializeAttachment({
     phase: 'active',
     openedAt,
@@ -202,8 +200,8 @@ export function enter(
     signals,
     ip,
     ...who,
-    slot,
-    life: bind(hub, who.playerId, now),
+    life,
+    ...(anchor ? { anchor } : {}),
     seatAt: now,
     // The hour's duties belong to the player, not the socket: a reload keeps them.
     ...(duties ? { duties } : {}),
@@ -211,42 +209,24 @@ export function enter(
   sendIfOpen(ws, {
     t: 'welcome',
     world,
-    you: { spawnHint },
     ice: link.ice,
     turn: link.turn,
     now: Date.now(),
     ticket,
   });
   sendLife(hub, ws, who.playerId, undefined, fight?.enc.id);
+  // A fighter back during its fight takes back its instance (M12 T5).
+  reseatCrowd(hub, ws, who.playerId);
   if (!lock || !fight) return;
   resend(hub, lock, who.playerId);
   // Back in time: the fight goes on in real time.
   awayDue(hub, fight, hub.clock.now());
 }
 
-/** The world and the joiner's spawn hint: the first slot no seated session holds, on the ring around the centre. */
-export function place(hub: Hub): { world: WorldInfo; spawnHint: Vec2; slot: number } {
-  const row = worldRow(hub);
-  const taken = new Set<number>();
-  for (const [, theirs] of activeSessions(hub)) {
-    // A session hibernated before slots existed has none.
-    if (theirs.slot !== undefined) taken.add(theirs.slot);
-  }
-  let slot = 0;
-  while (taken.has(slot)) slot++;
-  const angle = slot * SPAWN_GOLDEN_ANGLE;
-  const radius = slot === 0 ? 0 : RING_BASE + RING_STEP * slot;
-  return {
-    world: worldInfo(row),
-    spawnHint: { x: row.cx + radius * Math.cos(angle), y: row.cy + radius * Math.sin(angle) },
-    slot,
-  };
-}
-
 /**
  * Forwards a signal, stamped with the verified sender, to a session the directory places within
- * reach (`relayReach`, M11 T6), or anywhere between a referee witness and its fight's fighters
- * while that duty runs (M10 T6); nothing else passes (M11 T14). It carries the sender's
+ * reach (`relayReach`, M11 T6) that shares water with it (M12 T5), or anywhere between a referee
+ * witness and its fight's fighters while that duty runs (M10 T6); nothing else passes (M11 T14). It carries the sender's
  * directory position as `at` once the sender has reported, and the sender's link class `cls` (M11
  * T13) when it named one.
  */
@@ -263,7 +243,10 @@ export function relay(
   const from = session.playerId;
   for (const [other, theirs] of activeSessions(hub, ws)) {
     if (theirs.playerId !== msg.to) continue;
-    if (relayReach(hub, from, msg.to) || hub.duties.linksOf(from).includes(msg.to)) {
+    if (
+      (relayReach(hub, from, msg.to) && sharesWater(hub, from, msg.to)) ||
+      hub.duties.linksOf(from).includes(msg.to)
+    ) {
       const at = atOf(hub, from);
       const cls = msg.cls === undefined ? {} : { cls: msg.cls };
       send(other, {
