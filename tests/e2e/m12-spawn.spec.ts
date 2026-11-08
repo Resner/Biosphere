@@ -23,6 +23,13 @@ const HUB = 'http://localhost:8833';
 
 test.describe.configure({ mode: 'serial' });
 
+/** Where the page's own creature is. */
+async function placeOf(p: Player): Promise<{ x: number; y: number }> {
+  const player = (await state(p.page)).player;
+  if (!player) throw new Error('the page has no creature');
+  return player;
+}
+
 /** The directory's members, by player id. */
 const membersOf = (view: DirectoryView) => new Map(view.members.map((m) => [m.id, m]));
 
@@ -87,14 +94,12 @@ test('the authority places each hatch around the others, and a reload comes back
     // D reloads: the resume comes back where it left the water (M12 T10), unprotected, and A sees
     // no shimmer on it.
     const d = players[3] as Player;
-    const left = (await state(d.page)).player;
+    const left = await placeOf(d);
     await reloadAndResume(d);
     const back = await spawnOf(d);
     expect(back).toMatchObject({ why: 'back', protect: false });
     expect(dist(back, left), 'D comes back where it left').toBeLessThanOrEqual(300);
-    expect(dist((await state(d.page)).player, left), 'D plays on from there').toBeLessThanOrEqual(
-      300,
-    );
+    expect(dist(await placeOf(d), left), 'D plays on from there').toBeLessThanOrEqual(300);
     await expect
       .poll(async () => (await state(a.page)).remotes.find((r) => r.id === d.id)?.protected, {
         message: 'A sees D again, unprotected',
