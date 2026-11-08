@@ -1587,7 +1587,10 @@ class Sim {
       for (let k = 0; k < minutes; k++) {
         const a = holdFrom + k * 60_000;
         if (c.spec.spawnAt + 60_000 > a || end < a + 60_000) continue;
-        (w.holdByMinute[k] ??= []).push(c.hubMsgs.filter((m) => m >= a && m < a + 60_000).length);
+        const sent = c.hubMsgs.filter((m) => m >= a && m < a + 60_000).length;
+        const row = w.holdByMinute[k];
+        if (row) row.push(sent);
+        else w.holdByMinute[k] = [sent];
       }
       // A player that joined in the hold: its first minute.
       if (
