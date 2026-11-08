@@ -357,7 +357,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Crowd instances in the world
 
-- [x] T5 Crowd instances on the authority [opus] (after T3) (in progress)
+- [x] T5 Crowd instances on the authority [opus] (after T3)
   - Steps:
     1. `worker/where.ts` runs `hub.crowds` (`Crowds`) beside the directory:
        - every `where` reports to it with its `crowd` list (ids that aren't seated are dropped). The context comes from the hub: `locked` from `hub.fights` (a fight, or a lock waiting for its answer), `partners` from the fight's other fighters and the session's court, and `around` from the directory;

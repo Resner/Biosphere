@@ -170,11 +170,15 @@ function tellInstances(hub: Hub, moved: readonly Moved[]): void {
   }
 }
 
-/** Sets the crowds' one timer for `crowds.due()` (a one-shot on `hub.clock`), or clears it. */
+/**
+ * Sets the crowds' one timer for `crowds.due()` (a one-shot on `hub.clock`), or clears it. A timer
+ * held for the same time or earlier stays: it fires, settles what is due and arms the next one, so
+ * a report that only pushes the due time out costs no new timer.
+ */
 export function armCrowds(hub: Hub): void {
   const at = hub.crowds.due();
   const held = hub.crowdTimer;
-  if ((held?.at ?? null) === at) return;
+  if (held && at !== null && held.at <= at) return;
   if (held) hub.clock.cancel(held.handle);
   hub.crowdTimer = null;
   if (at === null) return;
