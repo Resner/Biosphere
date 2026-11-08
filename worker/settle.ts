@@ -263,8 +263,9 @@ function dropCarrion(hub: Hub, fight: Fight, fighters: FighterOutcome[], forward
       radius: Math.sqrt(f.biomass),
       tick,
     };
-    // Everyone the directory places within 10,000 wu of the kill, and the fighters themselves.
-    const near = carrionNoticed(hub, f.x, f.y);
+    // Everyone the directory places within 10,000 wu of the kill that shares water with the
+    // victim (M12 T5), and the fighters themselves.
+    const near = carrionNoticed(hub, f.x, f.y, f.player);
     for (const player of fight.players) near.add(player);
     for (const [ws, session] of activeSessions(hub)) {
       if (near.has(session.playerId)) sendIfOpen(ws, msg);

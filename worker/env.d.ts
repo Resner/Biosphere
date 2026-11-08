@@ -17,6 +17,9 @@ interface Env {
   WITNESS_IP_CHECK?: string;
   /** The directory's leaf cap (1–16, M11 T6), so a few E2E pages make leaves; fixture mode only. */
   LEAF_MAX?: string;
+  /** Crowd instances (M12 T5), fixture mode only: an instance's fill (1–16) and how long a crowd stays quiet before it merges (whole ms, at least 500). */
+  INSTANCE_MAX?: string;
+  QUIET_MS?: string;
   /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */
   MAX_SESSIONS?: string;
   DAILY_REQUEST_BUDGET?: string;

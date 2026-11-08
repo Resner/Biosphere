@@ -10,6 +10,7 @@ import {
 import { attest } from './attest';
 import type { AuditReport } from './audit';
 import { type BeaconSource, Beacons, liveSource } from './beacons';
+import type { Crowds } from './crowds';
 import type { Directory } from './directory';
 import { Duties } from './duty';
 import { engage, LOCK_BARRED, lockAnswer, lockedOut } from './engage';
@@ -36,7 +37,7 @@ import { drop, hello, promote, queued, relay } from './sessions';
 import { type Hub, randomToken, type Session, send, sessionOf } from './socket';
 import { TurnCredentials } from './turn';
 import { STORAGE_LIMIT_BYTES, UsageMeter } from './usage';
-import { gone, rebuildDirectory, where } from './where';
+import { armCrowds, gone, rebuildCrowds, rebuildDirectory, where } from './where';
 import { witnessBatch, witnessDispute } from './witness-fight';
 import { avail, ipHash } from './witness-pool';
 
@@ -92,6 +93,12 @@ export class Authority extends DurableObject<Env> implements Hub {
   duties: Duties = new Duties(this);
   /** Who is where (M11 T6): rebuilt from the sockets' attachments when the object wakes. */
   directory: Directory;
+  /** Crowd instances (M12 T5): rebuilt from the sockets' attachments when the object wakes. */
+  crowds: Crowds;
+  /** The crowds' one split timer (`armCrowds` in `where.ts`). */
+  crowdTimer: { at: number; handle: unknown } | null = null;
+  /** Fighters whose page left the water during their fight, their instance kept until it ends. */
+  readonly crowdsKept = new Set<string>();
   /** Signals the hub relayed, by unordered pair (E2E reads them). */
   readonly relays = new Map<string, number>();
   /** The salt of every session's IP hash (migration 10), read once. */
@@ -112,6 +119,8 @@ export class Authority extends DurableObject<Env> implements Hub {
         this.nextTicket = Math.max(this.nextTicket, session.ticket + 1);
     }
     this.directory = rebuildDirectory(this);
+    this.crowds = rebuildCrowds(this);
+    armCrowds(this);
     this.source = this.beaconSource();
     this.beacons = new Beacons({
       storage: ctx.storage,

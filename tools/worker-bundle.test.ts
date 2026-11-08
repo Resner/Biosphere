@@ -92,6 +92,17 @@ describe('worker bundles', () => {
     expect(code).toMatch(/jumpsTaken = [^\n]*\(env\) => env\.DRAND_SOURCE === "fixture"[,;)]/);
   });
 
+  // The crowds' fill and quiet wait (M12 T5) likewise: each read once, behind the fixture source.
+  heavyTest('production honours no crowd variable outside fixture mode', () => {
+    const code = bundle(false, 'index.js');
+    for (const name of ['INSTANCE_MAX', 'QUIET_MS']) {
+      expect(
+        code.match(new RegExp(`[\\w$.]*\\b${name}\\b`, 'g'))?.filter((r) => r.startsWith('env.')),
+      ).toEqual([`env.${name}`]);
+      expect(code).toContain(`env.DRAND_SOURCE === "fixture" ? Number(env.${name}) : Number.NaN`);
+    }
+  });
+
   heavyTest('the E2E entry carries the recorded rounds', () => {
     const code = bundle(true, 'e2e-entry.js');
     expect(code).toContain(marker);
