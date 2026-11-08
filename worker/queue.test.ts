@@ -1,6 +1,15 @@
 import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
-import { type Client, closeSockets, flush, login, nextOf, signIn, stub } from './test-hub';
+import {
+  type Client,
+  closeSockets,
+  flush,
+  freshLine,
+  login,
+  nextOf,
+  signIn,
+  stub,
+} from './test-hub';
 
 interface Limits {
   env: { MAX_SESSIONS?: string; DAILY_REQUEST_BUDGET?: string };
@@ -18,9 +27,11 @@ const configure = (limits: Limits['env']) =>
 
 const alarmAt = () => runInDurableObject(stub(), (_a, state) => state.storage.getAlarm());
 
-beforeEach(() => {
+beforeEach(async () => {
   wall = Date.now();
   vi.spyOn(Date, 'now').mockImplementation(() => wall);
+  // Earlier tests' closes freed seats: the wait starts at 30 s a place again.
+  await freshLine();
 });
 
 afterEach(async () => {

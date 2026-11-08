@@ -149,6 +149,8 @@ export class UsageMeter {
   private seatedAt = 0;
   /** The database's size recorded for the day, 0 until the day's first flush. */
   private bytes = 0;
+  /** The relay KB of the month before today plus yesterday's, read once a day (the TURN guard); null until read. */
+  private pastKb: number | null = null;
   private dirty = false;
   private flushedAt = 0;
 
@@ -230,6 +232,33 @@ export class UsageMeter {
     return this.bytes || this.sql.databaseSize;
   }
 
+  /** The database's size now (admission's storage guard): a property read, no row. */
+  storedBytes(): number {
+    return this.sql.databaseSize;
+  }
+
+  /** Rows written and read today (UTC) so far. */
+  rowsToday(now: number): { written: number; read: number } {
+    this.touch(now);
+    return { written: this.rowsWrittenNow(), read: this.rowsReadNow() };
+  }
+
+  /**
+   * The relay KB the TURN guard weighs: the UTC month's so far, today's included, plus yesterday's
+   * once more (a day of margin for credentials already handed out). The past days are read once a day.
+   */
+  turnKb(now: number): number {
+    this.touch(now);
+    if (this.pastKb === null) {
+      const yesterday = new Date(this.dayStart - DAY_MS).toISOString().slice(0, 10);
+      const [row] = this.sql
+        .exec<{ kb: number | null }>('SELECT relay_kb AS kb FROM usage WHERE day = ?', yesterday)
+        .toArray();
+      this.pastKb = this.monthBefore(now).relayKb + (row?.kb ?? 0);
+    }
+    return this.pastKb + this.relay.kb;
+  }
+
   /** Today's counts as the meter holds them now, not as last flushed. */
   today(now: number): UsageDay {
     this.touch(now);
@@ -243,7 +272,7 @@ export class UsageMeter {
       upgrades: this.upgrades,
       reads: this.reads,
       // The flush's own row is counted with the rows it reports, as a flush would.
-      rowsWritten: this.rows + (this.writes() - this.rowsSeen),
+      rowsWritten: this.rowsWrittenNow(),
       rowsRead: this.rowsReadNow(),
       dbBytes: this.databaseBytes(now),
       playerMs: Math.round(this.playerMs),
@@ -300,6 +329,10 @@ export class UsageMeter {
     if (!this.dirty && written === 0 && read === 0) return;
     this.integrate(Math.min(now, this.dayEnd));
     this.writeRow(now, written, read);
+  }
+
+  private rowsWrittenNow(): number {
+    return this.rows + (this.writes() - this.rowsSeen);
   }
 
   private rowsReadNow(): number {
@@ -395,6 +428,7 @@ export class UsageMeter {
     this.waits = loaded.waits;
     this.waitMs = loaded.waitMs;
     this.relay = loaded.relay;
+    this.pastKb = null;
     // Seated sessions carry over midnight; an object that just woke starts counting now.
     this.seatedAt = first ? now : this.dayStart;
     this.rowsSeen = this.writes();

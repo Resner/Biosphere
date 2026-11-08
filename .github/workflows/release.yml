@@ -111,7 +111,8 @@ jobs:
         env:
           CLOUDFLARE_API_TOKEN: ${{ secrets.CLOUDFLARE_API_TOKEN }}
           CLOUDFLARE_ACCOUNT_ID: ${{ secrets.CLOUDFLARE_ACCOUNT_ID }}
-        run: node tools/worker.mjs deploy
+        # The plan whose limits admission keeps (docs/SETUP.md step 8): `free` unless the owner sets `paid`.
+        run: node tools/worker.mjs deploy --var PLAN:${{ vars.CLOUDFLARE_PLAN || 'free' }}
 
       - name: Set the TURN secrets
         env:

@@ -79,10 +79,27 @@ describe('release workflow', () => {
     const worker = jobs().find((j) => j.name === 'worker');
     const all = worker?.steps.map((s) => s.text).join('') ?? '';
     expect(all).toContain('tools/worker.mjs deploy');
+    // The plan comes from the repository's variable, the free plan when it is unset (M13 T9).
+    expect(all).toMatch(/deploy --var PLAN:\$\{\{ vars\.CLOUDFLARE_PLAN \|\| 'free' \}\}/);
     expect(all).toContain('secret put CF_TURN_KEY_ID');
     expect(all).toContain('secret put CF_TURN_KEY_API_TOKEN');
     expect(all).toContain('/v1/health');
     expect(text).toContain('BUILD_LABEL');
     expect(text).toMatch(/AUTHORITY_URL: \$\{\{ vars\.AUTHORITY_URL \}\}/);
+  });
+
+  it('deploys the plan as the only production var, while the E2E config keeps its own', () => {
+    const vars = (name: string) => {
+      const config = readFileSync(new URL(`../worker/${name}`, import.meta.url), 'utf8');
+      return JSON.parse(/"vars":\s*(\{[^}]*\})/.exec(config)?.[1] ?? 'null') as Record<
+        string,
+        string
+      >;
+    };
+    expect(vars('wrangler.jsonc')).toEqual({ PLAN: 'free' });
+    expect(vars('wrangler.e2e.jsonc')).toMatchObject({
+      MAX_SESSIONS: '200',
+      DAILY_REQUEST_BUDGET: '100000',
+    });
   });
 });

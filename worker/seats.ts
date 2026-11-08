@@ -4,6 +4,7 @@
 // attachments stay the truth: every write of one goes through `keep` (`socket.ts`), which notes
 // it here, and a woken object rebuilds the indexes from them (`Seats.rebuild`).
 
+import type { QueueWhy } from '../src/net/protocol';
 import { askLive } from './mating';
 import type { Session } from './socket';
 
@@ -14,6 +15,9 @@ export interface InLine {
   readonly ticket: number;
   /** The place last announced (1 = next); 0 before the first. */
   place: number;
+  /** The reason and the estimated wait last announced, in memory only (M13 T9): a wake announces again. */
+  why?: QueueWhy;
+  etaS?: number;
 }
 
 /** What eligibility needs of a seated player beyond its own attachment (ADR 0058). */
