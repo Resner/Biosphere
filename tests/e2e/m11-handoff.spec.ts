@@ -273,8 +273,22 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       near.filter((r) => r.hz !== 10),
       'C sends A 10 Hz once near',
     ).toEqual([]);
-    const drawnC = (await state(a.page)).remotes.find((r) => r.id === c.id);
-    expect(drawnC, 'A draws C').toBeDefined();
+    // A draws C: a bounded wait on A's own frame (a loaded runner's C may have sent no snapshot for
+    // a while when its time scale dropped back, and A draws only what it heard lately); the pace is
+    // read from the frame that shows C.
+    const drawnDeadline = Date.now() + 120_000;
+    let drawnC: Awaited<ReturnType<typeof state>>['remotes'][number] | undefined;
+    let lastA = await state(a.page);
+    while (Date.now() < drawnDeadline) {
+      lastA = await state(a.page);
+      drawnC = lastA.remotes.find((r) => r.id === c.id);
+      if (drawnC) break;
+      await a.page.waitForTimeout(500);
+    }
+    expect(
+      drawnC,
+      `A draws C (A draws ${JSON.stringify(lastA.remotes.map((r) => ({ id: r.id, alpha: r.alpha })))}, links ${JSON.stringify(lastA.net.links.map((l) => ({ id: l.id, hello: l.hello })))})`,
+    ).toBeDefined();
     expect(
       drawnC?.pace,
       'A never draws C faster than 1.2 × its snapshots’ speed',
