@@ -126,6 +126,26 @@ describe('WhereReporter', () => {
   });
 });
 
+describe('WhereReporter.refresh (M12 T8)', () => {
+  it('asks for a where after an instance change, held to the 2 s gap', () => {
+    const w = started();
+    expect(w.update(swim(5000), LEAF)).toBeNull();
+    w.refresh();
+    expect(w.update(swim(5100), LEAF)).not.toBeNull();
+    w.refresh();
+    expect(w.update(swim(5100 + WHERE_MIN_GAP_MS - 1), LEAF)).toBeNull();
+    expect(w.update(swim(5100 + WHERE_MIN_GAP_MS), LEAF)).not.toBeNull();
+  });
+
+  it('is nothing while the directory holds no one', () => {
+    const w = new WhereReporter();
+    w.refresh();
+    expect(w.update(ashore(0), null)).toBeNull();
+    expect(w.update(swim(100), LEAF)).not.toBeNull();
+    expect(w.update(swim(2500), LEAF)).toBeNull();
+  });
+});
+
 describe('WhereReporter with a crowd (M12 T3)', () => {
   const CROWD = ['P1', 'P2'];
   const crowdIn = (msg: ClientMsg | null) => (msg?.t === 'where' ? msg.crowd : undefined);

@@ -122,6 +122,15 @@ export class WhereReporter {
     return msg;
   }
 
+  /**
+   * The page's own instance changed: the directory's peers it holds still carry the water of before
+   * (and would count as crowding it), so it asks again, held to the 2 s gap. Nothing while it isn't
+   * in the directory.
+   */
+  refresh(): void {
+    if (this.sent !== null) this.pending = true;
+  }
+
   /** Whether this state calls for a `where` since the last one. */
   private due(s: WhereState, leaf: Leaf | null): boolean {
     const last = this.sent;

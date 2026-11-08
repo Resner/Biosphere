@@ -13,6 +13,7 @@ export const SCENARIO_NAMES = [
   'streams',
   'traveller',
   'witnesses',
+  'throng',
 ] as const;
 export type ScenarioName = (typeof SCENARIO_NAMES)[number];
 
@@ -21,6 +22,8 @@ export interface ScenarioOptions {
   speed?: number;
   /** A share of the population and the area, and of the time: smaller worlds for quick runs. */
   scale?: number;
+  /** False runs the scenario without crowd instances, for comparison (M12). */
+  instances?: boolean;
 }
 
 /** A radius in each size tier (T0 below 32, T1 below 128, T2 below 512, T3 below 2,048). */
@@ -79,15 +82,17 @@ export function makeScenario(
   const scale = opts.scale ?? 1;
   const rng = createRng(seedFromString(`layout|${name}|${seed}`), 'layout');
   const n = (count: number) => Math.max(2, Math.round(count * scale));
+  const inst = opts.instances === false ? { instances: false } : {};
+  const scenario = (sc: Scenario): Scenario => ({ ...sc, ...inst });
   switch (name) {
     case 'friends': {
       const around = box(CENTRE, CENTRE, 10_000);
       const clients = Array.from({ length: 6 }, (_, i) => {
         const a = (i / 6) * 2 * Math.PI + rng.range(-0.2, 0.2);
         const at = { x: CENTRE + 2400 * Math.cos(a), y: CENTRE + 2400 * Math.sin(a) };
-        return walker(rng, `f${i}`, 0, around, speed, i * 500, at);
+        return { ...walker(rng, `f${i}`, 0, around, speed, i * 500, at), place: true };
       });
-      return { name, seconds: 40, clients, friends: true };
+      return { name, seconds: 40, clients, friends: true, ...inst };
     }
     case 'sparse': {
       const side = 40_000 * Math.sqrt(scale);
@@ -95,7 +100,7 @@ export function makeScenario(
       const clients = Array.from({ length: n(200) }, (_, i) =>
         walker(rng, `s${i}`, rng.next() < 0.1 ? 1 : 0, world, speed, rng.range(0, 20_000)),
       );
-      return { name, seconds: 150, clients };
+      return scenario({ name, seconds: 150, clients });
     }
     case 'crowd': {
       const room = box(CENTRE, CENTRE, 2660);
@@ -104,7 +109,7 @@ export function makeScenario(
         r: rng.range(14, 26),
         adultR: 26,
       }));
-      return { name, seconds: 60, clients };
+      return scenario({ name, seconds: 60, clients });
     }
     case 'tiers': {
       const world = box(CENTRE, CENTRE, 24_000);
@@ -119,7 +124,7 @@ export function makeScenario(
       grower.r = 28;
       grower.adultR = 40;
       grower.walk.grow = 0.005;
-      return { name, seconds: 90, clients };
+      return scenario({ name, seconds: 90, clients });
     }
     case 'streams': {
       const lane = (g: number, i: number): ClientSpec => {
@@ -137,7 +142,7 @@ export function makeScenario(
         };
       };
       const clients = [0, 1].flatMap((g) => Array.from({ length: 12 }, (_, i) => lane(g, i)));
-      return { name, seconds: Math.round(7000 / (105 * speed * 1.1)) + 150, clients };
+      return scenario({ name, seconds: Math.round(7000 / (105 * speed * 1.1)) + 150, clients });
     }
     case 'traveller': {
       const length = 60_000 * scale;
@@ -155,7 +160,21 @@ export function makeScenario(
         spawnAt: 0,
         walk: { heading: 0, speed: 100 * speed, turn: 0, dash: false },
       });
-      return { name, seconds: Math.max(130, Math.round(length / (100 * speed)) + 5), clients };
+      return scenario({
+        name,
+        seconds: Math.max(130, Math.round(length / (100 * speed)) + 5),
+        clients,
+      });
+    }
+    case 'throng': {
+      // 80 comparable starters in a room 1,500 wu wide: each has dozens of P1 within reach.
+      const room = box(CENTRE, CENTRE, 1500 * Math.sqrt(scale));
+      const clients = Array.from({ length: n(80) }, (_, i) => ({
+        ...walker(rng, `h${i}`, 0, room, speed, rng.range(0, 5000)),
+        r: rng.range(14, 26),
+        adultR: 26,
+      }));
+      return scenario({ name, seconds: 90, clients });
     }
     case 'witnesses': {
       const room = box(CENTRE, CENTRE, 2660);
@@ -171,10 +190,11 @@ export function makeScenario(
       const fights: FightSpec[] = [0, 1, 2].map((i) => ({
         from: 20_000,
         until: 50_000,
-        fighters: [`c${2 * i}`, `c${2 * i + 1}`],
+        fighters: [`c${2 * i}`],
         witnesses: [`w${i}`],
+        engage: true,
       }));
-      return { name, seconds: 60, clients: [...crowd, ...witnesses], fights };
+      return scenario({ name, seconds: 60, clients: [...crowd, ...witnesses], fights });
     }
   }
 }
@@ -200,6 +220,11 @@ export const GOSSIP_KBPS = 0.3;
 /** Snapshots and gossip on the wire at the asked rates (M11 T15): a client's upload at 24 links, and one link's. */
 export const UPLOAD_24_KBPS = 12;
 export const LINK_KBPS = 4;
+/** Gate 3 in the dense scenarios: late entries in 1,000 (M12). */
+export const LATE_PER_1000 = 5;
+/** Gate 10: the share of client-seconds crowded after a client's first 10 s, and instance changes a client-minute (p95). */
+export const CROWDED_SHARE = 0.01;
+export const CHANGES_P95 = 1;
 
 /** Upload on the wire (KB/s): at 24 links (null with no sample there; most and mean) and on one link at most. */
 export function uploadOf(runs: RunResult[]) {
@@ -262,8 +287,8 @@ export function gatesOf(runs: RunResult[]): Gate[] {
       sum(runs, (r) => r.linkSeconds),
     );
   const relayScenario = name === 'sparse' || name === 'streams';
-  const dense = name === 'crowd' || name === 'witnesses';
-  const budgeted = name !== 'crowd' && name !== 'witnesses';
+  const dense = name === 'crowd' || name === 'witnesses' || name === 'throng';
+  const budgeted = !dense;
   const median = pct(perMinute, 0.5);
   const p95 = pct(perMinute, 0.95);
   const budgetOk =
@@ -272,14 +297,34 @@ export function gatesOf(runs: RunResult[]): Gate[] {
   const duties = sum(runs, (r) => r.duties);
   const up = uploadOf(runs);
   const kb = (v: number) => `${v.toFixed(1)} KB/s`;
+  const entries = sum(runs, (r) => r.entries);
+  const late = v('late');
+  const lateOk = late * 1000 <= LATE_PER_1000 * entries;
+  const gate3 = dense
+    ? {
+        n: 3,
+        name: 'Seamless handoffs: no pops, newcomers linked 0.5 s ahead',
+        ok: v('pops') === 0 && lateOk,
+        detail: `${v('pops')} pops, ${late} late entries in ${entries} (at most ${LATE_PER_1000} in 1,000)${
+          v('pops') + late === 0 ? '' : `: ${examples(runs, ['pops', 'late'])}`
+        }`,
+      }
+    : zero(3, 'Seamless handoffs: no pops, newcomers linked 0.5 s ahead', ['pops', 'late']);
+  const instanced = runs.every((r) => r.instances);
+  const clientLate = sum(runs, (r) => r.clientLate);
+  const crowdedShare = clientLate === 0 ? 0 : sum(runs, (r) => r.crowdedLate) / clientLate;
+  const changes = pct(
+    runs.flatMap((r) => r.changesPerMinute),
+    0.95,
+  );
+  const crowdOk = crowdedShare <= CROWDED_SHARE && changes <= CHANGES_P95 && v('fightWater') === 0;
+  const spawns = sum(runs, (r) => r.spawns);
+  const placedFriends = spawns > 0 && friends.length > 0;
+  const friendsOk = pct(friends, 0.5) <= FRIENDS_P50_MS && pct(friends, 0.95) <= FRIENDS_P95_MS;
   return [
     zero(1, 'The cap holds', ['cap']),
-    zero(2, 'No hidden interactable creature', ['hidden']),
-    zero(
-      3,
-      'Seamless handoffs: no pops, newcomers linked 0.5 s ahead',
-      dense ? ['pops'] : ['pops', 'late'],
-    ),
+    zero(2, 'No hidden interactable creature that shares water', ['hidden']),
+    gate3,
     {
       n: 4,
       name: 'Friends linked within 3 s (median), 5 s (p95)',
@@ -325,6 +370,31 @@ export function gatesOf(runs: RunResult[]): Gate[] {
           ? 'never 24 links'
           : `at 24 links ${kb(up.max24)} at most, ${kb(up.mean24)} on average${dense ? ' (not asserted)' : ''}`
       }; one link ${kb(up.link)} at most`,
+    },
+    {
+      n: 10,
+      name: `Crowds: at most ${CROWDED_SHARE * 100}% of client-seconds crowded after a client's first 10 s, ${CHANGES_P95} instance change a client-minute (p95), fights keep their water`,
+      ok: !instanced || crowdOk,
+      detail: instanced
+        ? `${(100 * crowdedShare).toFixed(2)}% crowded, ${changes.toFixed(2)} changes a client-minute (p95), ${v('fightWater')} fight-water violations${
+            v('fightWater') === 0 ? '' : `: ${examples(runs, ['fightWater'])}`
+          }`
+        : `n/a: instances off (${(100 * crowdedShare).toFixed(1)}% crowded)`,
+    },
+    {
+      n: 11,
+      name: 'Spawns: every placed spawn keeps its clearance; a placed friend is linked within 3 s (median), 5 s (p95)',
+      ok: v('clearance') === 0 && (!placedFriends || friendsOk),
+      detail:
+        spawns === 0
+          ? 'n/a'
+          : `${spawns} placed (${sum(runs, (r) => r.spawnFallbacks)} at the centre), ${v('clearance')} clearance violations${
+              v('clearance') === 0 ? '' : `: ${examples(runs, ['clearance'])}`
+            }; ${
+              placedFriends
+                ? `friends median ${(pct(friends, 0.5) / 1000).toFixed(2)} s, p95 ${(pct(friends, 0.95) / 1000).toFixed(2)} s`
+                : 'no friends'
+            }`,
     },
   ];
 }

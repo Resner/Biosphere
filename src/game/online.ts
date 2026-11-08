@@ -627,6 +627,7 @@ export class OnlineSession {
   private ownWater(n: number): void {
     const { changed, busy } = this.crowd.setOwn(n, this.now());
     if (!changed) return;
+    this.reporter.refresh();
     this.eachOpen((id, mesh) => mesh.sendEvent(id, { t: 'instance', n }));
     if (busy) this.opts.handlers.busy?.();
     this.waterChanged();
