@@ -124,7 +124,9 @@ export class WhereReporter {
 
   /**
    * Asks for a `where` as soon as the gap allows, while the directory holds this creature: the page
-   * turned alone (M12 T7), so the hub's alone time starts from where it really is.
+   * turned alone (M12 T7), so the hub's alone time starts from where it really is, or its own
+   * instance changed (M12 T8), so the peers it holds from the directory no longer carry the right
+   * water.
    */
   nudge(): void {
     if (this.sent !== null) this.pending = true;

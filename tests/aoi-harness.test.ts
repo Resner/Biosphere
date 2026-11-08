@@ -15,10 +15,19 @@ import { heavyTest } from './heavy';
 // The headless area-of-interest harness (M11 T10, ADR 0062): the gates of `docs/perf/aoi.md` as
 // tests. Each gate is judged over the runs of its scenario; a broken gate names what broke.
 
+// A run is deterministic, so a scenario run for one test is not run again for the next.
+const cache = new Map<string, RunResult[]>();
+
 function runs(name: ScenarioName, seeds: number, opts: ScenarioOptions = {}): RunResult[] {
-  return Array.from({ length: seeds }, (_, i) =>
-    runScenario(makeScenario(name, `t${i}`, opts), `t${i}`),
-  );
+  const key = JSON.stringify([name, seeds, opts]);
+  let found = cache.get(key);
+  if (!found) {
+    found = Array.from({ length: seeds }, (_, i) =>
+      runScenario(makeScenario(name, `t${i}`, opts), `t${i}`),
+    );
+    cache.set(key, found);
+  }
+  return found;
 }
 
 function failed(gates: Gate[]): string[] {
@@ -37,19 +46,20 @@ describe('the harness', () => {
   it('judges each gate: a run that breaks one fails that gate and no other', () => {
     const base = runScenario(makeScenario('friends', 'g'), 'g');
     expect(failed(gatesOf([base]))).toEqual([]);
-    const broken = (patch: Partial<RunResult>, gate: number) => {
+    const broken = (patch: Partial<RunResult>, ...gates: number[]) => {
       const bad = { ...base, ...patch } as RunResult;
       expect(
         gatesOf([bad])
           .filter((g) => !g.ok)
           .map((g) => g.n),
-      ).toEqual([gate]);
+      ).toEqual(gates);
     };
     broken({ violations: { ...base.violations, cap: 1 } }, 1);
     broken({ violations: { ...base.violations, hidden: 1 } }, 2);
     broken({ violations: { ...base.violations, pops: 1 } }, 3);
     broken({ violations: { ...base.violations, late: 1 } }, 3);
-    broken({ friendMs: [...base.friendMs, ...Array.from({ length: 5 }, () => 9000)] }, 4);
+    // The friends are placed spawns, so slow friends also break gate 11.
+    broken({ friendMs: [...base.friendMs, ...Array.from({ length: 5 }, () => 9000)] }, 4, 11);
     broken({ perMinute: Array.from({ length: 20 }, () => 13) }, 5);
     broken({ gossipBytes: base.linkSeconds * 400 }, 6);
     broken({ violations: { ...base.violations, tierLink: 1 } }, 7);
@@ -57,12 +67,36 @@ describe('the harness', () => {
     broken({ violations: { ...base.violations, duty: 1 }, duties: 3 }, 8);
     broken({ linkUpload: 5000 }, 9);
     broken({ upload24: 13_000, upload24Sum: 13_000, upload24Samples: 1 }, 9);
+    broken({ crowdedLate: base.clientLate }, 10);
+    broken({ crowdedLate: 0.011 * base.clientLate }, 10);
+    broken({ changesPerMinute: [0.5, 2] }, 10);
+    broken({ violations: { ...base.violations, fightWater: 1 } }, 10);
+    broken({ violations: { ...base.violations, clearance: 1 } }, 11);
+  });
+
+  it('judges gate 3 in the dense scenarios by late entries in 1,000, and gate 10 only with instances', () => {
+    const base = runScenario(makeScenario('friends', 'g'), 'g');
+    const dense = (patch: Partial<RunResult>): number[] =>
+      gatesOf([{ ...base, scenario: 'throng', ...patch } as RunResult])
+        .filter((g) => !g.ok)
+        .map((g) => g.n);
+    const late = (n: number) => ({ entries: 1000, violations: { ...base.violations, late: n } });
+    expect(dense(late(15))).toEqual([]);
+    expect(dense(late(16))).toEqual([3]);
+    expect(dense({ ...late(0), violations: { ...base.violations, pops: 1 } })).toEqual([3]);
+    // Without instances a crowd is expected: gate 10 reads n/a.
+    const off = gatesOf([{ ...base, instances: false, crowdedLate: base.clientLate } as RunResult]);
+    expect(off.filter((g) => !g.ok)).toEqual([]);
+    expect(off.find((g) => g.n === 10)?.detail).toMatch(/instances off/);
   });
 
   it('links friends who spawn on the ring, with their directory, gossip and hello all in play', () => {
     const [run] = runs('friends', 1);
     const r = run as RunResult;
     expect(r.friendMs).toHaveLength(15);
+    // Every friend entered the water where `place()` put it, with its clearance.
+    expect(r.spawns).toBe(6);
+    expect(r.violations.clearance).toBe(0);
     expect(r.maxHeld).toBeLessThanOrEqual(5);
     expect(r.gossipBytes).toBeGreaterThan(0);
   });
@@ -74,6 +108,7 @@ const SCENARIOS: [ScenarioName, number][] = [
   ['crowd', 3],
   ['tiers', 3],
   ['witnesses', 3],
+  ['throng', 3],
 ];
 
 describe('the scenarios', () => {
@@ -83,6 +118,35 @@ describe('the scenarios', () => {
       expect(failed(gatesOf(rs))).toEqual([]);
     });
   }
+
+  heavyTest('a scaled throng meets its gates', () => {
+    const rs = runs('throng', 2, { scale: 0.5 });
+    expect(failed(gatesOf(rs))).toEqual([]);
+  });
+
+  heavyTest(
+    'without instances the throng is crowded at least half the time; with them, at most 1%',
+    () => {
+      const off = runs('throng', 1, { instances: false });
+      const on = runs('throng', 3);
+      const share = (rs: RunResult[]) =>
+        sum(rs, (r) => r.crowdedLate) / sum(rs, (r) => r.clientLate);
+      expect(share(off)).toBeGreaterThanOrEqual(0.5);
+      expect(share(on)).toBeLessThanOrEqual(0.01);
+      // The crowd formed: instances changed hands, and the cap held throughout.
+      expect(sum(on, (r) => r.maxHeld)).toBeGreaterThan(0);
+      for (const r of [...off, ...on]) expect(r.maxHeld).toBeLessThanOrEqual(32);
+    },
+  );
+
+  heavyTest(
+    'fights keep their water: engaged fighters share an instance for the whole fight',
+    () => {
+      const rs = runs('witnesses', 3);
+      expect(sum(rs, (r) => r.violations.fightWater)).toBe(0);
+      for (const r of rs) expect(r.duties).toBe(6);
+    },
+  );
 
   heavyTest(
     'the tiers scenario exercises swarms, the cross-tier rule and a creature growing a tier',
@@ -164,5 +228,52 @@ describe('a pile of creatures', () => {
     expect(r.maxHeld).toBeLessThanOrEqual(32);
     expect(r.violations.cap).toBe(0);
     expect(r.crowdedSeconds / r.clientSeconds).toBeGreaterThan(0.5);
+  });
+});
+
+describe('the ride model', () => {
+  // A group of six within 800 wu, and one creature 30,000 wu away that stands still.
+  const lone: Scenario = {
+    name: 'lone',
+    seconds: 160,
+    ride: true,
+    clients: [
+      ...Array.from({ length: 6 }, (_, i) => ({
+        id: `g${i}`,
+        x: CENTRE + 120 * i,
+        y: CENTRE + 60 * (i % 3),
+        r: 20,
+        adultR: 20,
+        spawnAt: 0,
+        walk: { heading: i, speed: 0, turn: 0, dash: false },
+      })),
+      {
+        id: 'lone',
+        x: CENTRE + 30_000,
+        y: CENTRE,
+        r: 20,
+        adultR: 20,
+        spawnAt: 0,
+        walk: { heading: 0, speed: 0, turn: 0, dash: false },
+      },
+    ],
+  };
+
+  heavyTest(
+    'a client alone for RIDE_ALONE_MS rides to the group, placed with its clearance and linked',
+    () => {
+      const r = runScenario(lone, 'ride');
+      expect(r.rides).toBe(1);
+      expect(r.spawns).toBe(1);
+      expect(r.violations.clearance).toBe(0);
+      // Within P1 reach of a group member and unlinked past 10 s would be a hidden creature.
+      expect(r.violations.hidden).toBe(0);
+      expect(failed(gatesOf([r]))).toEqual([]);
+    },
+  );
+
+  it('a scenario without the ride model never rides, however long a client is alone', () => {
+    const r = runScenario({ ...lone, ride: false }, 'ride');
+    expect(r.rides).toBe(0);
   });
 });

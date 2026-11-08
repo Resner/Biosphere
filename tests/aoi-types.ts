@@ -28,6 +28,8 @@ export interface ClientSpec {
   /** ms. */
   spawnAt: number;
   walk: Walk;
+  /** It enters the water where `place()` puts it (M12), around the best group; `x` and `y` are ignored. */
+  place?: boolean;
 }
 
 /** A fight refereed by witnesses: its fighters and witnesses hold P0 links for its span (ms). */
@@ -36,6 +38,11 @@ export interface FightSpec {
   until: number;
   fighters: string[];
   witnesses: string[];
+  /**
+   * With one fighter named, the other is chosen at `from` as an engage does: the nearest comparable
+   * creature sharing its water (M12: a fight between instances is refused).
+   */
+  engage?: boolean;
 }
 
 export interface Scenario {
@@ -46,6 +53,10 @@ export interface Scenario {
   fights?: FightSpec[];
   /** Everyone is a friend: each pair's first link is timed from the later spawn (gate 4). */
   friends?: boolean;
+  /** Crowds split into instances (M12); false runs the scenario without them, for comparison. */
+  instances?: boolean;
+  /** A client alone for `RIDE_ALONE_MS` rides the current, by `place()` (M12). */
+  ride?: boolean;
 }
 
 /** The gates' counters: each is a count of violations, with the first few described. */
@@ -83,6 +94,17 @@ export interface RunResult {
   linkUpload: number;
   crowdedSeconds: number;
   clientSeconds: number;
+  /** Whether crowds split into instances in this run. */
+  instances: boolean;
+  /** The same two, counted only after each client's first 10 s (gate 10). */
+  crowdedLate: number;
+  clientLate: number;
+  /** Instance changes per client-minute of life, for each client that lived a full minute. */
+  changesPerMinute: number[];
+  /** Placed spawns and rides, and how many fell back to the spawn centre (no clearance owed). */
+  spawns: number;
+  spawnFallbacks: number;
+  rides: number;
   /** Duty links expected, and taken within 10 s. */
   duties: number;
   dutiesTaken: number;
@@ -101,5 +123,7 @@ export const GATE_KEYS = [
   'swarm',
   'duty',
   'dutyCap',
+  'fightWater',
+  'clearance',
 ] as const;
 export type GateKey = (typeof GATE_KEYS)[number];
