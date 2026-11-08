@@ -82,6 +82,52 @@ describe('poolOf', () => {
   });
 });
 
+describe('poolOf over many ids', () => {
+  const event = dutyEvent('enc', ENC);
+  const key = (e: string, id: string) =>
+    bytesToHex(sha256(new TextEncoder().encode(`bs/pool/v1${e}${id}`)));
+  /** The window the rule names: 1,024 sorted ids from the point SHA-256('bs/pool-window/v1' ‖ event) marks. */
+  const windowOf = (all: string[], e: string): string[] => {
+    const sorted = [...new Set(all)].sort();
+    const mark = sha256(new TextEncoder().encode(`bs/pool-window/v1${e}`));
+    const at = new DataView(mark.buffer, mark.byteOffset).getUint32(0) / 2 ** 32;
+    const start = Math.floor(at * sorted.length);
+    return Array.from({ length: 1024 }, (_, i) => sorted[(start + i) % sorted.length] as string);
+  };
+  it('keys every id up to 1,024, and a window of 1,024 above', () => {
+    const exact = ids(1024);
+    const lowest = (list: string[]) =>
+      [...list].sort((a, b) => (key(event, a) < key(event, b) ? -1 : 1)).slice(0, 16);
+    expect(poolOf(exact, event)).toEqual(lowest(exact).sort());
+    const many = ids(3000);
+    expect(poolOf(many, event)).toEqual(lowest(windowOf(many, event)).sort());
+  });
+  it('is the same whatever the order or duplicates, and moves with the event', () => {
+    const many = ids(2500);
+    const pool = poolOf(many, event);
+    expect(pool).toHaveLength(POOL_MAX);
+    expect(poolOf([...many].reverse(), event)).toEqual(pool);
+    expect(poolOf([...many, ...many.slice(0, 50)], event)).toEqual(pool);
+    const others = new Set(
+      Array.from({ length: 8 }, (_, i) => poolOf(many, dutyEvent('enc', `${i}`.repeat(64))).join()),
+    );
+    expect(others.size).toBeGreaterThan(1);
+  });
+  it('wraps round the end of the id order', () => {
+    // Whichever event puts the window's start near the end, the window still holds 1,024 ids.
+    const many = ids(1500);
+    for (let i = 0; i < 40; i++) {
+      const e = dutyEvent('enc', i.toString(16).padStart(2, '0').repeat(32));
+      expect(poolOf(many, e)).toEqual(
+        [...windowOf(many, e)]
+          .sort((a, b) => (key(e, a) < key(e, b) ? -1 : 1))
+          .slice(0, 16)
+          .sort(),
+      );
+    }
+  });
+});
+
 describe('witnessRound', () => {
   it('names the first round due at least 500 ms ahead', () => {
     expect(WITNESS_MARGIN_MS).toBe(500);

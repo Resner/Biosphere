@@ -1,6 +1,6 @@
 # 0064: Habitats: spawning around groups, riding the current, crowd instances and anchored transitions
 
-- Status: accepted (amends 0013: the spawn centre stays the world's centre, instances split a crowded area rather than a crowded leaf, and open water shares water with every instance; amends 0062: `near`, gossip and the hello carry the instance, and a crowded page reports its crowd)
+- Status: accepted (amends 0013: the spawn centre stays the world's centre, instances split a crowded area rather than a crowded leaf, and open water shares water with every instance; amends 0062: `near`, gossip and the hello carry the instance, and a crowded page reports its crowd; amended by 0069: a group wider than the rings reach is searched from its edge)
 - Date: 2026-11-07
 
 ## Context

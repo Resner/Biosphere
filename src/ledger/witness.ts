@@ -47,9 +47,29 @@ const BIRTH_DOMAIN = 'bs/attest/birth/v1';
 const encoder = new TextEncoder();
 const utf8 = (text: string): Uint8Array => encoder.encode(text);
 
-/** The `POOL_MAX` ids with the lowest SHA-256('bs/pool/v1' ‖ event ‖ id), sorted by id. Duplicates count once. */
+/** At most this many eligible ids, a window of the id order, are keyed for a pool (ADR 0069). */
+export const POOL_WINDOW = 1024;
+const POOL_WINDOW_DOMAIN = 'bs/pool-window/v1';
+
+/**
+ * The `POOL_MAX` ids with the lowest SHA-256('bs/pool/v1' ‖ event ‖ id), sorted by id. Duplicates
+ * count once. Among more than `POOL_WINDOW` ids only a window is keyed: the `POOL_WINDOW` ids that
+ * follow the point SHA-256('bs/pool-window/v1' ‖ event) marks in id order (its first four bytes as a
+ * fraction of the sorted ids), wrapping round.
+ */
 export function poolOf(eligible: readonly string[], event: string): string[] {
-  const keyed = [...new Set(eligible)].map((id) => ({
+  let ids = [...new Set(eligible)];
+  if (ids.length > POOL_WINDOW) {
+    const sorted = ids.sort();
+    const mark = sha256(utf8(`${POOL_WINDOW_DOMAIN}${event}`));
+    const at = new DataView(mark.buffer, mark.byteOffset).getUint32(0) / 2 ** 32;
+    const start = Math.floor(at * sorted.length);
+    ids = Array.from(
+      { length: POOL_WINDOW },
+      (_, i) => sorted[(start + i) % sorted.length] as string,
+    );
+  }
+  const keyed = ids.map((id) => ({
     id,
     key: bytesToHex(sha256(utf8(`${POOL_DOMAIN}${event}${id}`))),
   }));

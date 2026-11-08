@@ -2,6 +2,7 @@ import { describe, expect, it } from 'vitest';
 import { queryRadius } from '../src/net/aoi';
 import { NEAR_MAX_BYTES, parseHubMsg } from '../src/net/protocol';
 import { createRng, seedFromString } from '../src/sim/prng';
+import { linkTiers } from '../src/sim/size';
 import { Directory, type DirMember, LEAF_MIN_SIZE } from './directory';
 
 // The authority's directory (M11 T6), pure: run in Node, as the headless harness (T10) runs it.
@@ -133,6 +134,49 @@ describe('splits and merges', () => {
 });
 
 describe('near', () => {
+  it('equals the brute-force answer over 300 seeded dense and sparse worlds', () => {
+    const rand = seeded(11);
+    for (let run = 0; run < 300; run++) {
+      const dir = new Directory(WORLD);
+      const count = Math.floor(rand() * 400);
+      const spread = rand() < 0.5 ? 6000 : 120_000;
+      const all: DirMember[] = [];
+      for (let n = 0; n < count; n++) {
+        const roll = rand();
+        const r = roll < 0.8 ? 10 : roll < 0.93 ? 63 : 3;
+        const m = member(n, 131_072 + (rand() - 0.5) * spread, 131_072 + (rand() - 0.5) * spread, {
+          r,
+          aoi: roll < 0.93 ? STARTER_AOI : 80,
+        });
+        all.push(m);
+        dir.report(m);
+      }
+      for (const who of all.slice(0, 8)) {
+        const q = queryRadius(who.aoi);
+        const others = all
+          .filter((o) => o.id !== who.id)
+          .map((o) => ({ o, d: Math.hypot(o.x - who.x, o.y - who.y) }))
+          .sort((a, b) => a.d - b.d || (a.o.id < b.o.id ? -1 : 1));
+        const peers = others.filter(({ o, d }) => d <= q && linkTiers(who.r, o.r));
+        const swarm = others.filter(
+          ({ o, d }) => d <= who.aoi && !linkTiers(who.r, o.r) && o.r < who.r,
+        );
+        const got = dir.near(who.id, 0);
+        // The byte trim may cut the farthest; up to it the lists are the brute-force prefixes.
+        const wire = (v: number) => Math.round(v * 8) / 8;
+        const wantPeers = peers.slice(0, got?.peers.length).map(({ o }) => o.id);
+        expect(
+          got?.peers.map((p) => p.id),
+          `run ${run}`,
+        ).toEqual(wantPeers);
+        expect(got?.swarm, `run ${run}`).toEqual(
+          swarm.slice(0, got?.swarm.length).map(({ o }) => [wire(o.x), wire(o.y)]),
+        );
+        expect(got?.peers.length).toBe(Math.min(peers.length, 48));
+      }
+    }
+  });
+
   it('lists the 48 nearest linkable members within Q, nearest first, with their ages, never the reporter', () => {
     const dir = new Directory(WORLD);
     const rand = seeded(4);

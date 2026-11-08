@@ -166,20 +166,38 @@ export class Directory {
     const self = held.m;
     const own = instanceOf(id);
     const q = queryRadius(self.aoi);
-    const peers: { d: number; m: DirMember }[] = [];
-    const swarm: { d: number; m: DirMember }[] = [];
-    this.visit(self.x, self.y, q, (other, m) => {
-      if (other === id) return;
-      const d = Math.hypot(m.x - self.x, m.y - self.y);
-      if (d > q || !sameWater(own, instanceOf(other))) return;
-      if (linkTiers(self.r, m.r)) peers.push({ d, m });
-      else if (m.r < self.r && d <= self.aoi) swarm.push({ d, m });
-    });
-    const order = (a: { d: number; m: DirMember }, b: { d: number; m: DirMember }) =>
+    type Cand = { d: number; m: DirMember };
+    const order = (a: Cand, b: Cand) =>
       a.d - b.d || (a.m.id < b.m.id ? -1 : a.m.id > b.m.id ? 1 : 0);
-    peers.sort(order);
-    swarm.sort(order);
-    const near = peers.slice(0, NEAR_MAX).map(({ d, m }) => ({
+    // The nearest `max` of each list, kept in order as members are seen: an entry beyond the last
+    // of a full list is never built, and `reach` is how far a leaf must come to still matter.
+    const keep = (list: Cand[], c: Cand, max: number): void => {
+      if (list.length === max && order(c, list[max - 1] as Cand) >= 0) return;
+      if (list.length === max) list.pop();
+      let i = list.length;
+      while (i > 0 && order(c, list[i - 1] as Cand) < 0) i--;
+      list.splice(i, 0, c);
+    };
+    const peers: Cand[] = [];
+    const swarm: Cand[] = [];
+    const reach = (list: Cand[], max: number, limit: number): number =>
+      list.length === max ? Math.min(limit, (list[max - 1] as Cand).d) : limit;
+    this.visitNearest(
+      self.x,
+      self.y,
+      () => Math.max(reach(peers, NEAR_MAX, q), reach(swarm, SWARM_MAX, self.aoi)),
+      (other, m) => {
+        if (other === id) return;
+        const d = Math.hypot(m.x - self.x, m.y - self.y);
+        if (d > q || !sameWater(own, instanceOf(other))) return;
+        if (linkTiers(self.r, m.r)) {
+          if (d <= reach(peers, NEAR_MAX, q)) keep(peers, { d, m }, NEAR_MAX);
+        } else if (m.r < self.r && d <= self.aoi) {
+          if (d <= reach(swarm, SWARM_MAX, self.aoi)) keep(swarm, { d, m }, SWARM_MAX);
+        }
+      },
+    );
+    const near = peers.map(({ d, m }) => ({
       d,
       out: {
         id: m.id,
@@ -191,9 +209,10 @@ export class Directory {
         n: instanceOf(m.id),
       } satisfies NearPeer,
     }));
-    const points = swarm
-      .slice(0, SWARM_MAX)
-      .map(({ d, m }) => ({ d, out: [wire(m.x), wire(m.y)] as [number, number] }));
+    const points = swarm.map(({ d, m }) => ({
+      d,
+      out: [wire(m.x), wire(m.y)] as [number, number],
+    }));
     const leaf = leafOf(held.leaf);
     trim(leaf, near, points);
     return { leaf, peers: near.map((p) => p.out), swarm: points.map((p) => p.out) };
@@ -304,6 +323,38 @@ export class Directory {
       if (dx * dx + dy * dy > radius * radius) continue;
       if (n.kids) {
         stack.push(...n.kids);
+        continue;
+      }
+      for (const id of n.members) {
+        const held = this.byId.get(id);
+        if (held) each(id, held.m);
+      }
+    }
+  }
+
+  /**
+   * Calls `each` for the members of the leaves near (x, y), the nearest leaves first, and stops
+   * descending into a leaf farther than `limit()` (read again at every leaf, so it may shrink).
+   */
+  private visitNearest(
+    x: number,
+    y: number,
+    limit: () => number,
+    each: (id: string, m: DirMember) => void,
+  ): void {
+    const gap = (n: Node): number => {
+      const dx = Math.max(n.x - x, 0, x - (n.x + n.size));
+      const dy = Math.max(n.y - y, 0, y - (n.y + n.size));
+      return Math.hypot(dx, dy);
+    };
+    const stack: { n: Node; d: number }[] = [{ n: this.root, d: 0 }];
+    for (let top = stack.pop(); top; top = stack.pop()) {
+      if (top.d > limit()) continue;
+      const n = top.n;
+      if (n.kids) {
+        // Farthest first, so that the nearest child is popped first.
+        const kids = n.kids.map((k) => ({ n: k, d: gap(k) })).sort((a, b) => b.d - a.d);
+        stack.push(...kids);
         continue;
       }
       for (const id of n.members) {

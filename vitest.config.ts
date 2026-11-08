@@ -28,6 +28,8 @@ export default defineConfig({
             // tests run them here.
             'worker/directory.test.ts',
             'worker/crowds.test.ts',
+            // The pure parts at 10,000 members (M13 T3): placement, the directory, the crowds.
+            'worker/scale-parts.test.ts',
           ],
           // Untagged tests take under about 2 s; this leaves room for a loaded runner.
           testTimeout: 20_000,
@@ -46,7 +48,11 @@ export default defineConfig({
         test: {
           name: 'worker',
           include: ['worker/**/*.test.ts'],
-          exclude: ['worker/directory.test.ts', 'worker/crowds.test.ts'],
+          exclude: [
+            'worker/directory.test.ts',
+            'worker/crowds.test.ts',
+            'worker/scale-parts.test.ts',
+          ],
           tags,
         },
       },
