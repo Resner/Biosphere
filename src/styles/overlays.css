@@ -58,6 +58,30 @@
   pointer-events: none;
 }
 
+/* The ride offer (M12 T7) takes the alone hint's place, and its button takes the pointer. */
+.ride-offer {
+  display: flex;
+  align-items: center;
+  gap: 0.6rem;
+  color: var(--text);
+}
+
+.ride-button {
+  pointer-events: auto;
+  padding: 0.2rem 0.75rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgb(18 58 58 / 0.6);
+  color: var(--text);
+  font: inherit;
+  cursor: pointer;
+}
+
+.ride-button:hover,
+.ride-button:focus-visible {
+  background: rgb(30 88 86 / 0.75);
+}
+
 .remote-labels {
   position: fixed;
   inset: 0;

@@ -73,6 +73,7 @@ import { RecoveryPanel } from './recovery-panel';
 import { type DrawnRemote, RemoteBodies } from './remote-bodies';
 import { RenewalNotice } from './renewal';
 import { RevealCard } from './reveal-card';
+import { Ride } from './ride';
 import { type Screen, Screens } from './screens';
 import { loadSettings, reducedMotion, type Settings, saveSettings } from './settings';
 import { SettingsPanel } from './settings-panel';
@@ -269,6 +270,8 @@ export class App {
   readonly awayReport: AwayReport;
   /** Where each life in the hub's world enters the water: the authority's answer (M12 T4). */
   readonly spawnAsk = new SpawnAsk();
+  /** Riding the current (M12 T7): the offer, the request and the transition. */
+  readonly ride = new Ride();
   readonly sender: SnapshotSender;
   readonly genomeSync: GenomeSync;
   /** Chat, emotes and pings travel on the reliable event channel; the rules live in `Social`. */

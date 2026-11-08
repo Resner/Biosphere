@@ -577,7 +577,8 @@ body {
 .name-field[hidden],
 .name-error[hidden],
 .resume-line[hidden],
-.alone-hint[hidden] {
+.alone-hint[hidden],
+.ride-offer[hidden] {
   display: none;
 }
 

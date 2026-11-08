@@ -164,6 +164,7 @@ export class LifeStarts {
       player.energy = Math.min(saved.energy, maxEnergy(saved.biomass));
       player.health = Math.min(saved.health, maxHealth(saved.biomass));
     }
+    app.ride.reset();
     this.enter(next, 'playing');
     // The hub says which lives are spawn-protected: a genesis, a promoted child or a restore.
     if (target && place?.protect) app.online.shield.start(app.pondMs());

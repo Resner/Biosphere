@@ -89,6 +89,11 @@ function debugHelpers(app: App): BsDebug {
       app.netCap = cap;
       app.keeper.current?.setCap(cap);
     },
+    aloneMs(ms) {
+      if (!Number.isInteger(ms) || ms < 0)
+        throw new RangeError(`aloneMs takes whole ms, got ${ms}`);
+      app.ride.aloneMs = ms;
+    },
     teleport(x, y) {
       const { player } = app.session;
       player.x = x;
@@ -397,6 +402,7 @@ export function installAppHook(app: App): void {
             }
           : null,
         spawn: app.spawnAsk.last ? { ...app.spawnAsk.last } : null,
+        ride: app.ride.view(),
         social: {
           chat: social.log().map((line) => ({ ...line })),
           muted: [...social.muted.ids()],

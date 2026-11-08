@@ -74,9 +74,9 @@ export class SpawnAsk {
   receive(msg: HubMsg): void {
     if (msg.t === 'spawn') {
       const answer = { x: msg.x, y: msg.y, why: msg.why, protect: msg.protect };
-      // A ride's arrival (M12 T7) comes unasked: it is still the last answer.
+      // A ride's arrival (M12 T7) comes unasked: it is still the last answer, but answers no ask.
       this.last = answer;
-      this.settle?.(answer);
+      if (msg.why !== 'ride') this.settle?.(answer);
     } else if (msg.t === 'refused' && msg.reason === 'spawn') {
       this.settle?.(null);
     }

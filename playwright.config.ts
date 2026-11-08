@@ -115,6 +115,8 @@ const m11TiersHubPort = 8831;
 const m11LifecycleHubPort = 8832;
 // The M12 spawning spec (M12 T4, 8833): four players placed by the authority.
 const m12SpawnHubPort = 8833;
+// The M12 ride spec (M12 T7, 8835): a lone player rides the current back, after 3 s alone.
+const m12RideHubPort = 8835;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -446,6 +448,7 @@ export default defineConfig({
       ['m11-relay', m11RelayHubPort, ''],
       ['m11-tiers', m11TiersHubPort, ''],
       ['m12-spawn', m12SpawnHubPort, ''],
+      ['m12-ride', m12RideHubPort, '--var RIDE_ALONE_MS:3000'],
       [
         'm11-lifecycle',
         m11LifecycleHubPort,
