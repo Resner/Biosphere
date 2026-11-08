@@ -42,6 +42,10 @@ function clean(patch: Partial<WaveRecord> = {}, run: Partial<RunResult> = {}): R
     holdPerMinute: [3, 4, 5],
     messageTotal: 100,
     lifeMinutes: 10,
+    holdMessages: 0,
+    holdMinutes: 0,
+    holdSteady: [],
+    holdJoin: [],
     ...patch,
   };
   return {

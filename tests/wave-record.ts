@@ -66,6 +66,12 @@ export interface WaveRecord {
   /** Every incoming authority message of the run, and the player-minutes they were sent in. */
   messageTotal: number;
   lifeMinutes: number;
+  /** The load scenario's reading of the hold (M13 T5): messages and player-minutes of everyone in the water in it. */
+  holdMessages: number;
+  holdMinutes: number;
+  /** Messages per minute of each player after its first minute in the hold, and a joiner's first minute. */
+  holdSteady: number[];
+  holdJoin: number[];
 }
 
 export function emptyWave(params: WaveParams): WaveRecord {
@@ -82,5 +88,9 @@ export function emptyWave(params: WaveParams): WaveRecord {
     holdPerMinute: [],
     messageTotal: 0,
     lifeMinutes: 0,
+    holdMessages: 0,
+    holdMinutes: 0,
+    holdSteady: [],
+    holdJoin: [],
   };
 }

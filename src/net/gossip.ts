@@ -138,14 +138,17 @@ export class Gossip {
   /** Every creature gossip placed in the last 10 s, the newest sighting of each. */
   known(now: number): Known[] {
     this.expire(now);
-    const newest = new Map<string, Known>();
+    // The newest fix of each id; the `Known` objects are made once, after the choice.
+    const newest = new Map<string, Fix>();
     for (const heard of this.bySender.values()) {
       for (const [id, f] of heard) {
         const seen = newest.get(id);
-        if (!seen || f.at > seen.at) newest.set(id, { id, ...f, source: 'gossip' });
+        if (!seen || f.at > seen.at) newest.set(id, f);
       }
     }
-    return [...newest.values()];
+    const out: Known[] = [];
+    for (const [id, f] of newest) out.push({ id, ...f, source: 'gossip' });
+    return out;
   }
 
   private expire(now: number): void {
