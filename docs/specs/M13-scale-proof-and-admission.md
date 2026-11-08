@@ -677,7 +677,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Closing
 
-- [ ] T12 End-to-end scenario, documentation sync
+- [ ] T12 End-to-end scenario, documentation sync (in progress)
   - Steps:
     1. **`POST /v1/e2e/usage { requests }`** (E2E entry only) sets today's request-equivalents. `tools/worker-bundle.test.ts` guards it.
     2. **`m13-lifecycle.spec.ts`** (`@slow`, hub 8839, `MAX_SESSIONS=2`, `MATING_SCALE` 0.01), in order:
