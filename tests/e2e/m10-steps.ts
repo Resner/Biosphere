@@ -253,12 +253,17 @@ export async function refereed(t: Trio, id: string, frames = 20): Promise<number
   return null;
 }
 
-/** A and B whole (B fed: A's full belly would turn into growth), and every witness offering to. */
+/**
+ * Every witness offering to, then A and B whole (B fed: A's full belly would turn into growth).
+ * The witnesses come first: a page that held a duty or an audit takes seconds to offer again, and a
+ * fighter restored before that wait bleeds meanwhile (`m11-lifecycle`: B began its second and third
+ * tries at 42 to 46 of about 110 health, which counts as worn at once).
+ */
 async function ready(t: Trio): Promise<void> {
+  for (const w of witnesses(t)) await available(w.page);
   for (const page of [t.a, t.b])
     await page.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
   await topUp(t.b);
-  for (const w of witnesses(t)) await available(w.page);
 }
 
 /** One try that C did not referee, for the failure's message: the fight's end and the hub's witness view. */
