@@ -34,6 +34,7 @@ import {
   pixelRatio,
 } from './presets';
 import { type RemoteCellView, RemoteLayer } from './remotes';
+import { type RideFrame, RideFx, type RideLook } from './ride-fx';
 import { RingLayer } from './rings';
 import { SwarmLayer, type SwarmPoint } from './swarms';
 import { TelegraphLayer, type TelegraphMark } from './telegraph';
@@ -84,6 +85,8 @@ export interface SceneView {
   flow: { readonly x: number; readonly y: number };
   /** The newest `near`'s swarm (M11 T17): players two or more tiers smaller, drawn as faint clouds. */
   swarm: readonly SwarmPoint[];
+  /** A ride of the current playing (M12 T7): its streaks and wash; absent or null otherwise. */
+  ride?: RideLook | null;
 }
 
 /** A creature's glow at a radius of 1 wu, by genome hash; null for one that does not glow. */
@@ -164,6 +167,10 @@ const ORDER = {
   outlines: 4.9,
   mid: 5,
   near: 6,
+  /** A ride's wash over the world, under the creatures (M12 T7). */
+  rideWash: 3.8,
+  /** A ride's streaks of snow, over everything but the veil (M12 T7). */
+  rideStreaks: 6.4,
   /** The still scene's veil over everything, and the egg and its rings above it (M6c T11). */
   veil: 6.5,
   eggsOverVeil: 6.6,
@@ -228,6 +235,14 @@ export class GameScene {
     }),
   );
   private readonly outlines = new OutlineLayer();
+  private readonly rideFx = new RideFx();
+  private readonly rideFrame: RideFrame = {
+    camX: 0,
+    camY: 0,
+    halfWidth: 1,
+    halfHeight: 1,
+    time: 0,
+  };
   private readonly outlineView = { camX: 0, camY: 0, pxPerWu: 1, width: 1, height: 1 };
   /** The plain cell drawn at a scaled size (a pop or a shrink), so the view itself is never written. */
   private readonly scaledCell: CellView = {
@@ -342,6 +357,8 @@ export class GameScene {
       [this.outlines.mesh, ORDER.outlines],
       [this.mid.points, ORDER.mid],
       [this.near.points, ORDER.near],
+      [this.rideFx.wash, ORDER.rideWash],
+      [this.rideFx.streaks, ORDER.rideStreaks],
       [this.veil, ORDER.veil],
     ];
     for (const [object, order] of items) {
@@ -517,6 +534,7 @@ export class GameScene {
     this.telegraphs.set(view.telegraphs);
     this.updateOutlines(view);
     this.updateVeil(view, halfWidth);
+    this.updateRide(view, halfWidth);
     this.updateCentre(view);
 
     if (!this.skipDraw) this.post.render(this.scene, camera);
@@ -536,6 +554,17 @@ export class GameScene {
     veil.position.set(view.camX - ORIGIN.x, view.camY - ORIGIN.y, 0);
     veil.scale.set(halfWidth, view.halfHeight, 1);
     (veil.material as THREE.MeshBasicMaterial).opacity = STILL_DIM * Math.min(1, view.dim);
+  }
+
+  /** A ride of the current (M12 T7): the wash and the streaks over the view, or nothing. */
+  private updateRide(view: SceneView, halfWidth: number): void {
+    const f = this.rideFrame;
+    f.camX = view.camX;
+    f.camY = view.camY;
+    f.halfWidth = halfWidth;
+    f.halfHeight = view.halfHeight;
+    f.time = view.time;
+    this.rideFx.update(f, view.ride ?? null);
   }
 
   /** Size outlines (M6 T21): remotes a tier bigger or smaller than the player. */
@@ -770,6 +799,7 @@ export class GameScene {
       this.telegraphs,
       this.outlines,
       this.remotes,
+      this.rideFx,
     ]) {
       part.dispose();
     }

@@ -4,8 +4,8 @@ import { CLOSE_RATE_LIMITED } from '../src/net/protocol';
 import type { Authority } from './authority';
 import { anchorAt, closeSockets, login, nextOf, stub } from './test-hub';
 
-// Protocol 12 on the authority (M12 T1): `spawn` and `ride` count in the 20-message budget; `spawn`
-// is answered (T4, `spawn.test.ts`) and `ride` dropped and counted until T7 answers it; a `where`
+// Protocol 12 on the authority (M12 T1): `spawn` and `ride` count in the 20-message budget; both
+// are answered (T4, `spawn.test.ts`; T7, `ride.test.ts`); a `where`
 // with a crowd is still answered with `near` (T5's crowds are in `instances.test.ts`). The
 // protocol-11 hello's refusal is in `hub.test.ts`.
 
@@ -18,16 +18,18 @@ const spawn = { t: 'spawn', r: 10, aoi: 233 };
 const ride = { t: 'ride' };
 
 describe('protocol 12 on the hub', () => {
-  it('answers a spawn, and drops and counts a ride', async () => {
+  it('answers a spawn and a ride, dropping neither', async () => {
     const { c } = await login();
     const [spawns, rides] = [await droppedOf('spawn'), await droppedOf('ride')];
     c.send(spawn);
     c.send(ride);
     c.send({ t: 'ping', id: 3 });
     expect(await c.next()).toMatchObject({ t: 'spawn', why: 'placed', protect: false });
+    // Never seen alone yet: too soon.
+    expect(await c.next()).toEqual({ t: 'ride-no', why: 'soon' });
     expect(await c.next()).toMatchObject({ t: 'pong', id: 3 });
     expect(await droppedOf('spawn')).toBe(spawns);
-    expect(await droppedOf('ride')).toBe(rides + 1);
+    expect(await droppedOf('ride')).toBe(rides);
   });
 
   it('answers a where with a crowd with near, as before', async () => {

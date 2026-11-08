@@ -114,6 +114,8 @@ export function attachKeys(app: App): void {
           return;
         }
         if (key === 'm' || key === 'M') pondMap.toggle();
+        // R rides the current (M12 T7): the hub decides whether it may.
+        if (key === 'r' || key === 'R') app.online.askRide();
         if (key === 'Escape' && pondMap.isOpen) {
           pondMap.close();
         } else if (key === 'Escape' && menu.isOpen) {

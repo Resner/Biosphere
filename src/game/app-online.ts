@@ -30,6 +30,8 @@ export class OnlineWiring {
   private readonly menuNet = pick('[data-testid="menu-net"]');
   private readonly aloneElement = pick('[data-testid="alone-hint"]');
   private readonly alone = new AloneHint();
+  private readonly rideElement = pick('[data-testid="ride-offer"]');
+  private readonly menuRide = pick('[data-testid="menu-ride"]');
   /** The connection line as last shown. */
   shownStatus = '';
   /** Spawn protection as the own snapshot shows it (M7 T7). */
@@ -71,6 +73,14 @@ export class OnlineWiring {
       show: (player, snapshot) => app.remotes.proxy(player, snapshot, performance.now()),
     });
     this.proxies = new ProxyReceiver(() => app.playerId, app.remotes);
+    pick('[data-testid="ride-button"]').addEventListener('click', (e) => {
+      (e.currentTarget as HTMLElement).blur();
+      this.askRide();
+    });
+    this.menuRide.addEventListener('click', () => {
+      app.menu.close();
+      this.askRide();
+    });
   }
 
   /** Each frame while the own fight runs: its away opponents drawn, and relayed to this page's links. */
@@ -151,11 +161,13 @@ export class OnlineWiring {
     if (!pond || pond !== app.pond) return null;
     const { player } = app.session;
     const r = Math.sqrt(Math.max(1, player.biomass));
+    // While a ride plays, the hub already has the creature at its arrival: its reports say so.
+    const riding = app.ride.reportAt();
     return {
-      x: player.x,
-      y: player.y,
-      vx: player.vx,
-      vy: player.vy,
+      x: riding ? riding.x : player.x,
+      y: riding ? riding.y : player.y,
+      vx: riding ? 0 : player.vx,
+      vy: riding ? 0 : player.vy,
       r,
       adultR: Math.max(r, adultRadius(player)),
       inWater: player.alive && !document.hidden,
@@ -203,6 +215,7 @@ export class OnlineWiring {
             if (msg.reason === 'no-creature' && app.attack.waiting) app.attack.refused(msg.reason);
           }
           app.spawnAsk.receive(msg);
+          this.rideMsg(msg);
           app.flow.receive(msg, app.session.ticks);
           app.mate.receive(msg);
           app.offspring.receive(msg);
@@ -288,6 +301,43 @@ export class OnlineWiring {
     // A panel opened before the link was up asks again once it is.
     if (app.lineagePanel.isOpen) link.send({ t: 'lineage' });
     return link;
+  }
+
+  /**
+   * The hub's word on a ride (M12 T7): a granted ride starts the transition from where the creature
+   * is, protected as a spawn is; a refusal is told.
+   */
+  private rideMsg(msg: LifeMsg): void {
+    const { app } = this;
+    if (msg.t !== 'ride-no' && !(msg.t === 'spawn' && msg.why === 'ride')) return;
+    const { player } = app.session;
+    const from = { x: player.x, y: player.y, radius: Math.sqrt(player.biomass) };
+    const told = app.ride.receive(msg, performance.now(), from, app.motionReduced());
+    if (told) app.hud.toast(told);
+    if (msg.t !== 'spawn') return;
+    if (msg.protect) this.shield.start(app.pondMs());
+    // The arrival is reported at once, so the hub's answer names the group there to link.
+    app.keeper.current?.reportSoon();
+  }
+
+  /** The hub's ride offer each frame (M12 T7): the hint turns into the offer once the wait is over. */
+  private updateRide(now: number, alone: boolean): boolean {
+    const { app } = this;
+    const offered = app.ride.offer(now, alone);
+    if (this.rideElement.hidden === offered) this.rideElement.hidden = !offered;
+    const menu = app.ride.alone && !app.ride.holding;
+    if (this.menuRide.hidden === menu) this.menuRide.hidden = !menu;
+    return offered;
+  }
+
+  /** R, the offer's button or the menu's: asks the hub to ride the current. */
+  askRide(): void {
+    const link = this.app.keeper.current;
+    this.app.ride.ask((msg) => {
+      if (link?.status !== 'online') return false;
+      link.send(msg);
+      return true;
+    });
   }
 
   /** A fight message from the hub, as it comes or held until the player resumes the fight. */
@@ -397,11 +447,11 @@ export class OnlineWiring {
     const status = keeper.current?.status ?? 'connecting';
     app.hud.setOffline(offlineChip(hubUrl !== null, status, apart) ? text : null);
     const online = joined !== null && keeper.current?.status === 'online';
-    const lonely = this.alone.update(
-      now,
-      online,
-      online && keeper.current?.alone() === false ? 1 : 0,
-    );
+    const others = online && keeper.current?.alone() === false ? 1 : 0;
+    const playing = online && app.screen === 'playing' && app.session.player.alive;
+    const offered = this.updateRide(now, playing && others === 0);
+    // The offer takes the hint's place while it shows.
+    const lonely = this.alone.update(now, online, others) && !offered;
     if (this.aloneElement.hidden === lonely) this.aloneElement.hidden = !lonely;
   }
 }

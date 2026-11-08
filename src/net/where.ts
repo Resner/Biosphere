@@ -122,6 +122,14 @@ export class WhereReporter {
     return msg;
   }
 
+  /**
+   * Asks for a `where` as soon as the gap allows, while the directory holds this creature: the page
+   * turned alone (M12 T7), so the hub's alone time starts from where it really is.
+   */
+  nudge(): void {
+    if (this.sent !== null) this.pending = true;
+  }
+
   /** Whether this state calls for a `where` since the last one. */
   private due(s: WhereState, leaf: Leaf | null): boolean {
     const last = this.sent;

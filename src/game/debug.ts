@@ -236,6 +236,15 @@ export interface BsState {
   } | null;
   /** The hub's last `spawn` answer: where a life entered its world, why, and whether it is protected (M12 T4); null before one. */
   spawn: { x: number; y: number; why: 'placed' | 'back' | 'ride'; protect: boolean } | null;
+  /**
+   * Riding the current (M12 T7): whether the offer shows, the phase (`asking` once R went, `riding`
+   * while the transition plays, `arrived` after it) and the hub's last word (`ride`, or a refusal).
+   */
+  ride: {
+    offered: boolean;
+    phase: 'idle' | 'asking' | 'riding' | 'arrived';
+    last: 'ride' | 'locked' | 'busy' | 'company' | 'soon' | 'none' | null;
+  };
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
   social: {
     chat: { from: string; name: string; text: string }[];
@@ -452,6 +461,8 @@ export interface BsDebug {
   teleport(x: number, y: number): void;
   /** Sets the room for links of P2 to P4 (1 to 24; M11 T13); P0 and P1 may still reach 32. */
   netCap(cap: number): void;
+  /** How long the page waits alone before it offers a ride (whole ms, at least 0; M12 T7). */
+  aloneMs(ms: number): void;
   /** Sets how many P0 + P1 sharing water make the page crowded (2 to 24; M12 T6). */
   crowdAt(n: number): void;
   /**

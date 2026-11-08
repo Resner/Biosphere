@@ -144,7 +144,7 @@ function crowdContext(hub: Hub): CrowdContext {
 }
 
 /** Each player's live court partners, both ways. */
-function courtPairs(hub: Hub): Map<string, string[]> {
+export function courtPairs(hub: Hub): Map<string, string[]> {
   const pairs = new Map<string, string[]>();
   const add = (a: string, b: string) => pairs.set(a, [...(pairs.get(a) ?? []), b]);
   const now = Date.now();
@@ -309,8 +309,19 @@ export function where(
   tellInstances(hub, hub.crowds.report(self, crowd, now, ctx));
   armCrowds(hub);
   const near = hub.directory.near(session.playerId, now, (id) => hub.crowds.instanceOf(id));
-  if (near) sendIfOpen(ws, { t: 'near', ...near });
+  if (near) {
+    noteAlone(ws, near.peers.length, now);
+    sendIfOpen(ws, { t: 'near', ...near });
+  }
   tellMoved(hub, moved);
+}
+
+/** A `near` with no peers starts the session's alone time (or keeps it), and one with any clears it (M12 T7). */
+function noteAlone(ws: WebSocket, peers: number, now: number): void {
+  const s = sessionOf(ws);
+  if (s?.phase !== 'active') return;
+  const aloneSince = peers > 0 ? undefined : (s.aloneSince ?? now);
+  if (aloneSince !== s.aloneSince) ws.serializeAttachment({ ...s, aloneSince } satisfies Session);
 }
 
 /**
@@ -336,8 +347,14 @@ export function whereIn(
 export function gone(hub: Hub, ws: WebSocket | null, session: ActiveSession): void {
   const id = session.playerId;
   // Where it left stays: a promoted child is anchored there (M12 T4).
-  if (ws && session.where)
-    ws.serializeAttachment({ ...session, where: undefined, left: session.where } satisfies Session);
+  // Out of the water it is not alone: the next report starts the count again (M12 T7).
+  if (ws && (session.where || session.aloneSince !== undefined))
+    ws.serializeAttachment({
+      ...session,
+      where: undefined,
+      left: session.where ?? session.left,
+      aloneSince: undefined,
+    } satisfies Session);
   tellMoved(hub, hub.directory.remove(id));
   if (hub.fights.playerLocked(id) && hub.crowds.instanceOf(id) !== OPEN_WATER) {
     hub.crowdsKept.add(id);
