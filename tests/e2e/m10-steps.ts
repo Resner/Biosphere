@@ -2,7 +2,7 @@ import type { APIRequestContext, Browser, Page } from '@playwright/test';
 import { expect } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { clickHatch, state, topUp, waitPlaying } from './helpers';
-import { open, seen, stage } from './m7-fight';
+import { FIGHT_WALL_MS, open, seen, stage } from './m7-fight';
 import { engage, flee, waitOver } from './m8-fight';
 
 // Shared by the M10 witness specs (M10 T7): three players, a fight between A and B, and C, who
@@ -246,6 +246,7 @@ async function attemptLine(t: Trio, id: string): Promise<string> {
   const view = await witnessView(t, `enc:${id}`);
   return JSON.stringify({
     fight: (await seen(t.a)).encounter,
+    b: (await seen(t.b)).encounter,
     hub: view && { order: view.order, offers: view.offers, struck: view.struck },
     c: (await witnessSeen(t.c)).witness,
     d: t.d && (await witnessSeen(t.d)).witness,
@@ -268,7 +269,7 @@ export async function witnessedFight(t: Trio): Promise<{ id: string; from: numbe
     if (from !== null) return { id, from };
     tries.push(await attemptLine(t, id));
     console.log(`try ${attempt + 1} not refereed: ${tries.at(-1)}`);
-    await end(t, id);
+    await abandon(t, id);
     previous = id;
   }
   throw new Error(`no fight was refereed by a witness:\n${tries.join('\n')}`);
@@ -279,6 +280,31 @@ export async function end(t: Trio, id: string): Promise<void> {
   await flee(t.a, t.idB);
   await waitOver(t.a, id, 'A');
   await waitOver(t.b, id, 'B');
+}
+
+/**
+ * Ends a try that nobody refereed, ready for the next. A fight can end (an escape) within a few
+ * frames of its start, before B's page has applied its `enc-start`: B's page then still shows the
+ * fight before (`E2E main` waited 105 s for B to end a fight B never showed). Only A's page must
+ * show the try's fight over; B's must hold no fight in progress.
+ */
+async function abandon(t: Trio, id: string): Promise<void> {
+  await flee(t.a, t.idB);
+  await waitOver(t.a, id, 'A');
+  await t.b
+    .waitForFunction(
+      () => {
+        const e = window.__bs?.state().encounter;
+        return !e || e.over;
+      },
+      undefined,
+      { timeout: FIGHT_WALL_MS },
+    )
+    .catch(async (error) => {
+      throw new Error(`B still fights after try ${id}: ${JSON.stringify(await seen(t.b))}`, {
+        cause: error,
+      });
+    });
 }
 
 /** A and B end the fight on its `enc-end`'s hash, with no desync. Returns that hash. */
