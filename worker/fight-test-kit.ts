@@ -24,7 +24,7 @@ import { drive, IDLE_CODE } from '../tests/encounter-fixture';
 import type { Authority } from './authority';
 import { type Clock, Fights, runFight } from './fights';
 import type { LifeState } from './life';
-import type { Session } from './socket';
+import { keep, type Session } from './socket';
 import {
   type Client,
   closeSockets,
@@ -269,7 +269,7 @@ export const editSession = (p: Player, edit: (s: Session & { phase: 'active' }) 
   authority((a) => {
     for (const ws of a.ctx.getWebSockets()) {
       const s = ws.deserializeAttachment() as Session | null;
-      if (s?.phase === 'active' && s.playerId === p.id.playerId) ws.serializeAttachment(edit(s));
+      if (s?.phase === 'active' && s.playerId === p.id.playerId) keep(a, ws, edit(s));
     }
   });
 

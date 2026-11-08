@@ -21,7 +21,7 @@ import {
 } from '../src/net/witness-referee';
 import type { SignedCommitment } from './beacons';
 import { authority, clock, within } from './fight-test-kit';
-import type { Session } from './socket';
+import { keep, type Session } from './socket';
 import { beaconOf, type Client, flush, nextOf, signIn, sql } from './test-hub';
 import { eligible, WITNESS_PLAY_MS } from './witness-pool';
 
@@ -47,15 +47,20 @@ let ips = 0;
 /** A fresh address for a session's `CF-Connecting-IP`. */
 export const nextIp = () => `10.4.${(++ips >> 8) & 255}.${ips & 255}`;
 
-/** Credits `ms` of play to the player: a finished creature of its own that lived that long. */
-export const credit = (player: string, ms: number) =>
-  sql(
+/**
+ * Credits `ms` of play to the player: a finished creature of its own that lived that long. Its row
+ * is written directly, so a seated player's candidacy takes it as a record would (`seats.ts`).
+ */
+export async function credit(player: string, ms: number): Promise<void> {
+  await sql(
     `INSERT INTO creatures (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t)
      VALUES (?, ?, 'dead', 0, '', '', ?, 0, 0, 0, 0, 0)`,
     bytesToHex(crypto.getRandomValues(new Uint8Array(32))),
     player,
     ms,
   );
+  await authority((a) => a.seats.addPlay(player, ms));
+}
 
 /** Sends `avail` and waits until the object has taken it. */
 export async function setAvail(c: Client, on: boolean): Promise<HubMsg[]> {
@@ -104,7 +109,7 @@ export const editWitness = (
   authority((a) => {
     for (const ws of a.ctx.getWebSockets()) {
       const s = ws.deserializeAttachment() as Session | null;
-      if (s?.phase === 'active' && s.playerId === w.id.playerId) ws.serializeAttachment(edit(s));
+      if (s?.phase === 'active' && s.playerId === w.id.playerId) keep(a, ws, edit(s));
     }
   });
 
