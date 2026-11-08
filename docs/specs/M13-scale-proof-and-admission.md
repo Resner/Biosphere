@@ -334,7 +334,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Relay and the line on the wire
 
-- [ ] T4 Protocol 13: relay reports and the line's reason [opus] (after T1)
+- [x] T4 Protocol 13: relay reports and the line's reason [opus] (after T1)
   - Steps:
     1. `PROTOCOL_VERSION` 13. A protocol-12 hello gets `error: version`.
     2. **The wire**: `progress` gains `relay?`, and `queued` gains `why` (shapes above). The parsers refuse a missing, extra or out-of-range field.
@@ -372,6 +372,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
       - each page's `state().net.relay` holds its open links, none relayed;
       - the hub's `/v1/e2e/metrics` counts the reports, with 0 KB.
     - Every E2E passes on protocol 13.
+  - Done: `relay-stats.ts` (pure) and `PeerMesh.linkStats` feed `LifeFlow.report` every 10 s of links; the hub clamps and meters them (`meterRelay`), and `queued` carries `admissionWhy`. Gotcha: a report's `links` and `relayed` are the most of any read since the last report (summing would pass 32), only its KB is summed.
 
 ### Evidence
 

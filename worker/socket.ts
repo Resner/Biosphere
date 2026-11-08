@@ -96,6 +96,8 @@ export type Session = (
       crowd?: { id: number; n: number } | undefined;
       /** Since when its `near` answers have held no peer (M12 T7, `worker/ride.ts`); absent with company. */
       aloneSince?: number | undefined;
+      /** When its last relay report was counted (wall time, M13 T4); the next one's KB is clamped from it. */
+      relayAt?: number | undefined;
     }
   | {
       /** Signed in, but admission is full: waits for a place and is not in the world yet. */

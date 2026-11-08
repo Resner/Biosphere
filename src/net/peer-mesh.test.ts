@@ -615,3 +615,52 @@ describe('PeerMesh in a full pond', () => {
     }
   });
 });
+
+describe('PeerMesh link stats (M13 T4)', () => {
+  const pairStat = (bytes: number) => [
+    { type: 'transport', id: 'T', selectedCandidatePairId: 'CP' },
+    { type: 'candidate-pair', id: 'CP', localCandidateId: 'L', bytesReceived: bytes },
+    { type: 'local-candidate', id: 'L', candidateType: 'relay' },
+  ];
+
+  it('reads each open link’s stats, and a closed link’s last stats once', async () => {
+    const net = network(['a', 'b', 'c']);
+    const a = net.meshes.get('a') as PeerMesh;
+    a.connect('b');
+    a.connect('c');
+    await settle();
+    // A's two calls made the first two connections.
+    const [ab, ac] = net.pcs;
+    if (!ab || !ac) throw new Error('no links');
+    ab.stats = pairStat(1_000);
+    ac.stats = pairStat(2_000);
+    const first = await a.linkStats();
+    expect(first.map((l) => [l.id, l.closed, l.stats.length]).sort()).toEqual([
+      ['b', false, 3],
+      ['c', false, 3],
+    ]);
+    ab.stats = pairStat(5_000);
+    a.disconnect('b');
+    const second = await a.linkStats();
+    expect(second.map((l) => [l.id, l.closed]).sort()).toEqual([
+      ['b', true],
+      ['c', false],
+    ]);
+    expect(second.find((l) => l.id === 'b')?.stats).toContainEqual(
+      expect.objectContaining({ bytesReceived: 5_000 }),
+    );
+    expect((await a.linkStats()).map((l) => l.id)).toEqual(['c']);
+  });
+
+  it('skips a link whose stats can’t be read', async () => {
+    const net = network(['a', 'b']);
+    const a = net.meshes.get('a') as PeerMesh;
+    a.connect('b');
+    await settle();
+    const pc = net.pcs[0] as FakePc;
+    pc.statsFail = true;
+    expect(await a.linkStats()).toEqual([]);
+    a.disconnect('b');
+    expect(await a.linkStats()).toEqual([]);
+  });
+});

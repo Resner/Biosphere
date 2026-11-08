@@ -689,3 +689,63 @@ describe('snapshot rates by distance (M11 T15)', () => {
     expect(count(1, 10_000).get('slow')).toBeGreaterThanOrEqual(9);
   });
 });
+
+describe('OnlineSession relay reads (M13 T4)', () => {
+  const relayLink = (id: string, bytes: number, closed = false) => ({
+    id,
+    closed,
+    stats: [
+      { type: 'transport', id: 'T', selectedCandidatePairId: 'CP' },
+      { type: 'candidate-pair', id: 'CP', localCandidateId: 'L', bytesReceived: bytes },
+      { type: 'local-candidate', id: 'L', candidateType: 'relay' },
+    ],
+  });
+  const drain = async () => {
+    for (let i = 0; i < 10; i++) await Promise.resolve();
+  };
+
+  it('reads nothing while it holds no link', async () => {
+    const { mesh, run, session } = settled();
+    run(30_000);
+    await drain();
+    expect(mesh.statReads).toBe(0);
+    expect(session.takeRelay()).toBeNull();
+  });
+
+  it('reads every 10 s while it holds links, once after the last closes, and totals the reads', async () => {
+    const { mesh, run, session } = settled();
+    mesh.connect('p1');
+    mesh.join('p1');
+    mesh.linkReads = [relayLink('p1', 3_000)];
+    run(100);
+    await drain();
+    expect(mesh.statReads).toBe(1);
+    run(9_800);
+    await drain();
+    expect(mesh.statReads).toBe(1);
+    mesh.linkReads = [relayLink('p1', 7_000)];
+    run(200);
+    await drain();
+    expect(mesh.statReads).toBe(2);
+    expect(session.takeRelay()).toEqual({ links: 1, relayed: 1, kb: 7 });
+    expect(session.takeRelay()).toBeNull();
+    // The link closes: one more read takes its last stats, then the reads stop.
+    mesh.disconnect('p1');
+    mesh.linkReads = [relayLink('p1', 9_000, true)];
+    run(10_000);
+    await drain();
+    mesh.linkReads = [];
+    run(30_000);
+    await drain();
+    expect(mesh.statReads).toBe(3);
+    expect(session.takeRelay()).toEqual({ links: 1, relayed: 1, kb: 2 });
+  });
+
+  it('reads at once when asked (debug.progressNow)', async () => {
+    const { mesh, session } = settled();
+    mesh.linkReads = [relayLink('p1', 2_000)];
+    await session.readRelay();
+    expect(mesh.statReads).toBe(1);
+    expect(session.takeRelay()).toEqual({ links: 1, relayed: 1, kb: 2 });
+  });
+});
