@@ -9,7 +9,7 @@ describe('EventQueue', () => {
   it('pops in time order, and in the order added at one time', () => {
     const q = new EventQueue<{ t: number; seq: number }>();
     const input = [5, 1, 3, 3, 9, 1, 0, 7, 3];
-    input.forEach((t, seq) => q.push({ t, seq }));
+    for (const [seq, t] of input.entries()) q.push({ t, seq });
     const out: [number, number][] = [];
     for (let e = q.pop(); e; e = q.pop()) out.push([e.t, e.seq]);
     expect(out).toEqual([
@@ -27,22 +27,29 @@ describe('EventQueue', () => {
     expect(q.pop()).toBeUndefined();
   });
 
-  it('agrees with a sort over random events pushed between pops', () => {
+  it('pops the least of what it holds, with events pushed between the pops', () => {
     const q = new EventQueue<{ t: number; seq: number }>();
     let x = 12345;
-    const rnd = () => (x = (Math.imul(x, 1103515245) + 12345) >>> 0) / 2 ** 32;
-    const all: { t: number; seq: number }[] = [];
-    const out: { t: number; seq: number }[] = [];
+    const rnd = () => {
+      x = (Math.imul(x, 1103515245) + 12345) >>> 0;
+      return x / 2 ** 32;
+    };
+    const held: { t: number; seq: number }[] = [];
+    let popped = 0;
     for (let i = 0; i < 2000; i++) {
       const e = { t: Math.floor(rnd() * 100), seq: i };
-      all.push(e);
+      held.push(e);
       q.push(e);
-      if (i % 3 === 0) out.push(q.pop() as { t: number; seq: number });
+      if (i % 3 === 0) {
+        held.sort((a, b) => a.t - b.t || a.seq - b.seq);
+        expect(q.pop()).toBe(held.shift());
+        popped++;
+      }
     }
-    for (let e = q.pop(); e; e = q.pop()) out.push(e);
-    // Every event came out once, and each pop was the least of what was in the queue then.
-    expect(out.length).toBe(all.length);
-    expect(new Set(out.map((e) => e.seq)).size).toBe(all.length);
+    held.sort((a, b) => a.t - b.t || a.seq - b.seq);
+    for (const e of held) expect(q.pop()).toBe(e);
+    expect(popped).toBeGreaterThan(600);
+    expect(q.size).toBe(0);
   });
 });
 
