@@ -60,12 +60,14 @@ const POOL_WINDOW_DOMAIN = 'bs/pool-window/v1';
 export function poolOf(eligible: readonly string[], event: string): string[] {
   let ids = [...new Set(eligible)];
   if (ids.length > POOL_WINDOW) {
-    ids.sort();
+    const sorted = ids.sort();
     const mark = sha256(utf8(`${POOL_WINDOW_DOMAIN}${event}`));
     const at = new DataView(mark.buffer, mark.byteOffset).getUint32(0) / 2 ** 32;
-    const start = Math.floor(at * ids.length);
-    const all = ids;
-    ids = Array.from({ length: POOL_WINDOW }, (_, i) => all[(start + i) % all.length] as string);
+    const start = Math.floor(at * sorted.length);
+    ids = Array.from(
+      { length: POOL_WINDOW },
+      (_, i) => sorted[(start + i) % sorted.length] as string,
+    );
   }
   const keyed = ids.map((id) => ({
     id,

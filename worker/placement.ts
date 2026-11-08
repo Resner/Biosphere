@@ -56,6 +56,15 @@ export function clearance(a: { r: number; aoi: number }, b: { r: number; aoi: nu
   return Math.max(a.aoi, b.aoi, CLEAR_RADII * Math.max(a.r, b.r));
 }
 
+/** The cells that can hold a chained neighbour, each pair once (forward), those one cell away first. */
+const CELL_OFFSETS: readonly (readonly [number, number])[] = [1, 2].flatMap((reach) =>
+  Array.from({ length: reach + 1 }, (_, dy) => dy).flatMap((dy) =>
+    Array.from({ length: 2 * reach + 1 }, (_, i) => [i - reach, dy] as const).filter(
+      ([dx]) => (dy > 0 || dx > 0) && Math.max(Math.abs(dx), dy) === reach,
+    ),
+  ),
+);
+
 const tierOf = (r: number): number => sizeTier(r * r);
 
 const WORLD_CENTRE: Vec2 = { x: RULES.world.size / 2, y: RULES.world.size / 2 };
@@ -115,16 +124,7 @@ export function groupsFor(
   };
   // Neighbours at one cell first, so that a dense area is one piece before the cells two apart (only
   // a pair at the very corners can link those) are looked at, and are then skipped as already joined.
-  const forward = (dx: number, dy: number): boolean => dy > 0 || (dy === 0 && dx > 0);
-  const offsets: [number, number][] = [];
-  for (const reach of [1, 2]) {
-    for (let dy = 0; dy <= reach; dy++) {
-      for (let dx = -reach; dx <= reach; dx++) {
-        if (forward(dx, dy) && Math.max(Math.abs(dx), dy) === reach) offsets.push([dx, dy]);
-      }
-    }
-  }
-  for (const [dx, dy] of offsets) {
+  for (const [dx, dy] of CELL_OFFSETS) {
     for (const cell of cells.values()) {
       const other = cells.get(cellKey(cell.cx + dx, cell.cy + dy));
       if (other === undefined) continue;
