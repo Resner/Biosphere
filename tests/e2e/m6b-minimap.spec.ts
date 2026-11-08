@@ -1,6 +1,6 @@
 import { type Browser, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
-import { hatch, M6B_MINIMAP_HUB, openGame, playerOf, state } from './helpers';
+import { hatch, M6B_MINIMAP_HUB, openGame, pingLook, playerOf, state } from './helpers';
 
 // The minimap (M6b T10): round, north-up and centred on the player in the top-right corner. Another
 // player shows at its bearing, a ping for its lifetime, and it carries the depth, the zone's name
@@ -101,8 +101,7 @@ test('another player shows at its bearing, and a ping for its lifetime', async (
         { timeout: 5_000 },
       )
       .toBeLessThan(2);
-    await b.keyboard.press('g');
-    await b.keyboard.press('1');
+    await pingLook(b);
     const pinged = async () => (await state(a)).minimap.pings.some((p) => p.id === idB);
     await expect.poll(pinged, { timeout: 5_000, intervals: [50] }).toBe(true);
     const shownAt = Date.now();
