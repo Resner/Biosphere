@@ -93,6 +93,29 @@ describe('PondTime', () => {
     expect(world.tick).toBe(600);
   });
 
+  it('snaps back onto the pond tick as soon as a slow page falls behind it, not at the next check', () => {
+    const world = createWorld({ seed: 'pond' });
+    const time = client(0);
+    time.join(world, EPOCH);
+    // A page that draws 4 frames a second and so plays 5 of its 7.5 ticks a second too few.
+    let now = EPOCH;
+    for (let i = 0; i < 8; i++) {
+      now += 250;
+      world.tick += 2;
+      time.update(world, now);
+      expect(((now - EPOCH) * TICK_HZ) / 1000 - world.tick).toBeLessThanOrEqual(3);
+    }
+  });
+
+  it('does not snap a page that runs ahead of the pond tick', () => {
+    const world = createWorld({ seed: 'pond' });
+    const time = client(0);
+    time.join(world, EPOCH);
+    world.tick = 50;
+    time.update(world, EPOCH + 1_000);
+    expect(world.tick).toBe(50);
+  });
+
   it('resnaps after a hidden tab without costing the creature anything', () => {
     const world = createWorld({ seed: 'pond' });
     const creature = spawnCreature(world, { id: 'me', x: 2000, y: 2000 });

@@ -8,6 +8,8 @@ import type { World } from '../sim/types';
 const CHECK_MS = 10_000;
 /** While slewing the check runs often, so the correction does not overshoot. */
 const SLEW_CHECK_MS = 1_000;
+/** A world this many ticks behind the pond snaps on the frame it is seen (`ClockSync` slews less). */
+const SNAP_BEHIND_TICKS = 3;
 
 export class PondTime {
   private readonly sync: ClockSync;
@@ -48,6 +50,15 @@ export class PondTime {
    * itself and skips the ticks in between.
    */
   update(world: World, localNow: number): number {
+    // A page that draws too slowly plays fewer ticks than the pond: its snapshots would age past
+    // what an engage accepts long before the next check, so falling behind snaps at once.
+    const behind = this.clock.pondTickExact(localNow, this.epoch) - world.tick;
+    if (behind > SNAP_BEHIND_TICKS) {
+      world.tick = this.tickAt(localNow);
+      this.speed = 1;
+      this.nextCheck = localNow + CHECK_MS;
+      return this.speed;
+    }
     if (localNow < this.nextCheck) return this.speed;
     const correction = this.sync.correct(world.tick, localNow);
     if (correction.snapTo !== undefined) world.tick = Math.floor(correction.snapTo);
