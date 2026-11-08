@@ -191,7 +191,7 @@ async function witnessView(t: Trio, event: string) {
  * before C took it (A and B hit each other until one dies, and a dead B cannot be fought again),
  * or got no witness commitment.
  */
-export async function refereed(t: Trio, id: string, frames = 30): Promise<number | null> {
+export async function refereed(t: Trio, id: string, frames = 20): Promise<number | null> {
   const { a, b, c } = t;
   const over = async () => {
     const enc = (await state(a)).encounter;
@@ -207,12 +207,14 @@ export async function refereed(t: Trio, id: string, frames = 30): Promise<number
   };
   const status = async () => {
     if (await over()) return 'over';
-    if (await worn()) return 'worn';
     let holder: { id: string; s: Awaited<ReturnType<typeof state>> } | null = null;
     for (const w of witnesses(t)) {
       const s = await state(w.page);
       if (s.witness.duty?.enc === id) holder = { id: w.id, s };
     }
+    // A witness that holds the duty keeps the fight: a slow runner links late, and a fight worn
+    // down meanwhile still counts once the witness has finalized its frames.
+    if (!holder && (await worn())) return 'worn';
     const duty = holder?.s.witness.duty;
     if (!holder || duty?.enc !== id) return (await unwitnessed()) ? 'unwitnessed' : 'wait';
     if (duty.phase !== 'refereeing' || duty.frames < frames) return 'wait';

@@ -271,9 +271,16 @@ export async function killB(
       if (p) debug?.setHealth(p.health * share);
     }, hurt);
     previous = await fightToEnd(a, b, ids, previous);
-    const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
+    const fighters = (await state(a)).encounter?.fighters ?? [];
     fights.push(await fightLine(a, ids));
-    if (outcomes?.includes('killed') && previous) return previous;
+    // Only B's death counts: a fight A loses kills A, and a dead A can't try again. The caller
+    // stages the pair again on fresh pages (a loaded runner can drop A's inputs in a fight).
+    if (fighters.find((f) => f.player === ids.idB)?.outcome === 'killed' && previous)
+      return previous;
+    const mine = fighters.find((f) => f.player === ids.idA)?.outcome;
+    if (mine === 'killed' || mine === 'died' || (await state(a)).screen === 'dead') {
+      throw new Error(`A was killed (${mine}):\n${fights.join('\n')}`);
+    }
   }
   throw new Error(
     `B survived four fights:\n${fights.join('\n')}\n${JSON.stringify(await seen(a))}`,
