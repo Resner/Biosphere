@@ -10,7 +10,7 @@ import type { Silhouette } from '../genome/silhouette';
 import type { Beacon } from '../ledger/drand';
 import type { PubKey } from '../ledger/record';
 import type { AuditVerdict } from '../net/audit';
-import type { AuditCase, PeerEvent, RelayReport } from '../net/protocol';
+import type { AuditCase, PeerEvent, QueueWhy, RelayReport } from '../net/protocol';
 import type { FxSnapshot } from '../render/effects';
 import type { EggPhase } from '../render/egg';
 import type { GpuExtent } from '../render/gpu-watch';
@@ -236,6 +236,8 @@ export interface BsState {
   } | null;
   /** The hub's last `spawn` answer: where a life entered its world, why, and whether it is protected (M12 T4); null before one. */
   spawn: { x: number; y: number; why: 'placed' | 'back' | 'ride'; protect: boolean } | null;
+  /** Where the hub keeps this session in the admission line (M13 T10): 1 is next; null once seated or with no hub. */
+  queue: { position: number; etaS: number; why: QueueWhy } | null;
   /**
    * Riding the current (M12 T7): whether the offer shows, the phase (`asking` once R went, `riding`
    * while the transition plays, `arrived` after it) and the hub's last word (`ride`, or a refusal).

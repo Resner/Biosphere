@@ -364,6 +364,58 @@
   margin: 0;
 }
 
+/* The admission line (M13 T10): the same glass on the title and death screens, above the choices.
+   The reason leads, then the place and the wait; the practice cell is the card's own button, and
+   Hatch below it reads as waiting. */
+.queue-card {
+  box-sizing: border-box;
+  display: grid;
+  justify-items: center;
+  gap: 0.3rem;
+  width: min(24rem, calc(100vw - 2rem));
+  margin: 0 0 1.1rem;
+  padding: 0.85rem 1.1rem 1rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 16px;
+  background: var(--glass);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
+  text-shadow: none;
+}
+
+.queue-card[hidden] {
+  display: none;
+}
+
+.queue-card p {
+  margin: 0;
+}
+
+.queue-reason {
+  font-size: 1.05rem;
+  letter-spacing: 0.06em;
+}
+
+.queue-line {
+  color: var(--muted);
+  font-size: 0.9rem;
+  letter-spacing: 0.04em;
+  font-variant-numeric: tabular-nums;
+}
+
+.queue-card .action {
+  margin-top: 0.5rem;
+  padding: 0.55rem 1.6rem;
+  font-size: 0.85rem;
+}
+
+/* Hatch while the line holds it, or while the recorded hatches are used up. */
+.screen .action:disabled {
+  opacity: 0.5;
+  cursor: default;
+}
+
 /* Recovery code: a panel over the title screen; the code stays blurred until it is clicked. */
 .recovery-reminder {
   margin: 0.75rem 0 0;
