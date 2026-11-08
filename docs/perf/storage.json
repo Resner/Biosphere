@@ -1,0 +1,62 @@
+{
+  "hatchBytes": 2604,
+  "hourBytes": 2795,
+  "perKind": [
+    {
+      "kind": "birth",
+      "count": 2,
+      "bytes": 1986
+    },
+    {
+      "kind": "checkpoint",
+      "count": 8,
+      "bytes": 5590
+    },
+    {
+      "kind": "death",
+      "count": 3,
+      "bytes": 2305
+    },
+    {
+      "kind": "encounter",
+      "count": 1,
+      "bytes": 810
+    },
+    {
+      "kind": "genesis",
+      "count": 4,
+      "bytes": 2792
+    },
+    {
+      "kind": "mate-commit",
+      "count": 2,
+      "bytes": 2412
+    },
+    {
+      "kind": "promote",
+      "count": 2,
+      "bytes": 1611
+    },
+    {
+      "kind": "restore",
+      "count": 1,
+      "bytes": 875
+    }
+  ],
+  "commitment": {
+    "count": 5,
+    "bytes": 3707
+  },
+  "beaconBytes": 104,
+  "fight": {
+    "frames": 3,
+    "keptBytes": 3373,
+    "settlementBytes": 1116,
+    "prunedBytes": 1212
+  },
+  "hourMs": 3600000,
+  "witness": {
+    "commitBytes": 1233,
+    "attestBytes": 581
+  }
+}

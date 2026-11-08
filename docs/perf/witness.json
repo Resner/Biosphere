@@ -1,0 +1,24 @@
+{
+  "frames": 300,
+  "from": 33,
+  "before": {
+    "input": 66,
+    "signal": 4,
+    "duty-ok": 1
+  },
+  "span": {
+    "batch": 27
+  },
+  "after": {
+    "duty-ok": 1,
+    "attest": 1
+  },
+  "aloneBefore": {
+    "input": 66
+  },
+  "aloneSpan": {
+    "input": 536
+  },
+  "handoverMs": 3000,
+  "batchMs": 6
+}

@@ -33,6 +33,11 @@ try {
   const { witnessReport } = await server.ssrLoadModule('/tools/witness-report.ts');
   const text = witnessReport({ ...measure, ...cpu });
   await writeFile(new URL('../docs/perf/witness.md', import.meta.url), text);
+  // The capacity model reads the measure (`npm run report:capacity`).
+  await writeFile(
+    new URL('../docs/perf/witness.json', import.meta.url),
+    `${JSON.stringify({ ...measure, ...cpu }, null, 2)}\n`,
+  );
   process.stdout.write(text);
 } finally {
   await server.close();
