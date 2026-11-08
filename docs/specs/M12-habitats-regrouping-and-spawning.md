@@ -576,7 +576,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Closing
 
-- [ ] T11 End-to-end scenario, documentation sync (in progress)
+- [x] T11 End-to-end scenario, documentation sync
   - Steps:
     1. **`m12-lifecycle.spec.ts`**: `@slow`, hub 8836, `INSTANCE_MAX=2`, `QUIET_MS=3000`, `RIDE_ALONE_MS=3000`, `MATING_SCALE` 0.01 and `?quality=medium`. Four players A, B, C and D, all on `debug.crowdAt(3)`, in order:
        - **spawning**: A hatches on the world's centre, and B, C and D are placed around it, outside each other's clearance, and all link within 3 s;
@@ -601,6 +601,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
   - Acceptance:
     - Every exit criterion maps to a named test or report (the table below).
     - Each PR E2E part stays under 5 minutes, and the long scenarios are `@slow`.
+  - Note: `m12-lifecycle` ran in about 100 s locally; D rides while the fight still runs (the locked fighters keep the crowd alive, so the P1-reach check is never vacuous), not after it. The sync drops the remaining M12 marks from DESIGN (the ride row, §7's engage lines, the spawning heading, the glossary), reads §8's "M12 splits such areas" as current, and adds hub 8836 and the scenario to TESTING.md; the rules files were already in step.
+  - Owner checks for the `Playtest: v0.13.0` issue (the rubric's `(owner)` lines): joining friends feels natural (you hatch near players of your size, quickly see them, and nobody pounces on you as you arrive); riding the current to other players is clear and feels like part of the world; in a busy spot, creatures thinning out reads as calmer water, not a glitch. Release notes: protocol 12, no world renewal (rules stay 12).
 
 ## Exit criteria → evidence
 

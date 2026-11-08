@@ -3,7 +3,14 @@ import { promisify } from 'node:util';
 import { expect, type Page, test } from '@playwright/test';
 import type { CardState } from '../../src/card/hook';
 import type { BsHook } from '../../src/game/debug';
-import { clickHatch, M12_LIFECYCLE_HUB as HUB, ripe, state, waitPlaying } from './helpers';
+import {
+  clickHatch,
+  M12_LIFECYCLE_HUB as HUB,
+  playerOf,
+  ripe,
+  state,
+  waitPlaying,
+} from './helpers';
 import { mate, open } from './m7-fight';
 import { takeOver } from './m9-steps';
 import { end, fight, hatch, settled, type Trio } from './m10-steps';
@@ -59,43 +66,45 @@ async function cardOf(page: Page, id: string, what: string): Promise<CardState> 
   return cardState(page);
 }
 
-/** Every second a page samples its links: the most it held at once, and the most beyond P0 and P1. */
+/** The most links a page held at once, and the most of them beyond P0 and P1. */
+interface Held {
+  max: number;
+  maxLow: number;
+}
+
+/** Every second a page samples its links (a reload starts the page's count again). */
 const sampleLinks = (page: Page) =>
   page.evaluate(() => {
-    const w = window as unknown as { __links?: { max: number; maxLow: number } };
+    const w = window as unknown as { __links?: Held };
     w.__links = { max: 0, maxLow: 0 };
     window.setInterval(() => {
       const links = (window.__bs as BsHook).state().net.links;
-      const held = w.__links as { max: number; maxLow: number };
+      const held = w.__links as Held;
       held.max = Math.max(held.max, links.length);
       const low = links.filter((l) => l.class !== null && l.class >= 2).length;
       held.maxLow = Math.max(held.maxLow, low);
     }, 1000);
   });
 
-const sampled = (page: Page) =>
-  page.evaluate(() => (window as unknown as { __links: { max: number; maxLow: number } }).__links);
+const sampled = (page: Page): Promise<Held> =>
+  page.evaluate(() => (window as unknown as { __links: Held }).__links);
 
 /** A page's own instance (`state().net.instance.n`; 0 is the open water). */
 const instanceOf = (p: Player) =>
   p.page.evaluate(() => (window.__bs as BsHook).state().net.instance.n);
 
-const where = async (p: Player) => {
-  const at = (await state(p.page)).player;
-  if (!at) throw new Error('a page has no creature');
-  return at;
-};
-
 /** Every pair of `ps` holds a link past its hello. */
 async function allLinked(ps: Player[], message: string, timeout = 60_000): Promise<void> {
-  for (const p of ps) {
-    await linksAre(
-      p,
-      ps.filter((o) => o !== p).map((o) => o.id),
-      message,
-      timeout,
-    );
-  }
+  await Promise.all(
+    ps.map((p) =>
+      linksAre(
+        p,
+        ps.filter((o) => o !== p).map((o) => o.id),
+        message,
+        timeout,
+      ),
+    ),
+  );
 }
 
 /**
@@ -104,7 +113,13 @@ async function allLinked(ps: Player[], message: string, timeout = 60_000): Promi
  */
 async function reloadBack(a: Player, b: Player, id: string): Promise<boolean> {
   await b.page.reload();
-  await b.page.waitForFunction(() => window.__bs?.ready === true && window.__bs.state().playerId);
+  await b.page
+    .waitForFunction(() => window.__bs?.ready === true && window.__bs.state().playerId, undefined, {
+      timeout: 60_000,
+    })
+    .catch((error) => {
+      throw new Error('B’s page never came back after its reload', { cause: error });
+    });
   await b.page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
   const offered = b.page.getByTestId('resume-fight');
   await expect
@@ -123,9 +138,13 @@ async function reloadBack(a: Player, b: Player, id: string): Promise<boolean> {
     return false;
   }
   await offered.click();
-  await b.page.waitForFunction(() => window.__bs?.state().screen === 'playing', undefined, {
-    timeout: 20_000,
-  });
+  await b.page
+    .waitForFunction(() => window.__bs?.state().screen === 'playing', undefined, {
+      timeout: 20_000,
+    })
+    .catch((error) => {
+      throw new Error('B never went back into the fight after its click', { cause: error });
+    });
   const back = (await state(b.page)).encounter;
   expect(back?.id, 'B is back in the same fight').toBe(id);
   return back?.over === false;
@@ -141,7 +160,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
   const made: { a1?: string; b1?: string; c0?: string; d0?: string } = {};
   let fightId = '';
   // B's links held before its reload, whose page then starts counting again.
-  let bBefore = { max: 0, maxLow: 0 };
+  let bBefore: Held = { max: 0, maxLow: 0 };
   try {
     // Spawning. Each page hatches after the one before, the hub placing it by the directory as it
     // stands: outside every earlier player's clearance, and linking at once.
@@ -206,7 +225,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     // A crowd. The pairs sit inside each other's crowd list (8 × the larger radius) and the two pairs
     // outside it, in a row B, A, C, D; all four link, and A draws C and D in full, before they crowd.
     const radius = Math.max(
-      ...(await Promise.all(players.map(async (p) => (await where(p)).radius))),
+      ...(await Promise.all(players.map(async (p) => (await playerOf(p.page)).radius))),
     );
     const pair = 3 * radius;
     const gap = 12 * radius;
@@ -229,7 +248,9 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
         { message: 'A draws C and D in full', timeout: 30_000 },
       )
       .toBe(true);
-    for (const p of players) await p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(3));
+    await Promise.all(
+      players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(3))),
+    );
     const split = async () => {
       const [na, nb, nc, nd] = await Promise.all(players.map(instanceOf));
       return na !== 0 && nc !== 0 && na === nb && nc === nd && na !== nc;
@@ -264,14 +285,10 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       expect(await instanceOf(b), 'B fights in A’s instance').toBe(instance);
       for (const other of [c, d]) {
         const s = await state(other.page);
+        const links = s.net.links.map((l) => l.id);
+        expect(s.encounter?.id, 'C and D never see the fight').not.toBe(id);
         for (const fighter of [a, b]) {
-          expect(
-            s.net.links.map((l) => l.id),
-            'C and D hold no link to the fighters',
-          ).not.toContain(fighter.id);
-        }
-        expect(s.encounter?.id === id, 'C and D never see the fight').toBe(false);
-        for (const fighter of [a, b]) {
+          expect(links, 'C and D hold no link to the fighters').not.toContain(fighter.id);
           expect(
             s.remotes.find((r) => r.id === fighter.id)?.alpha ?? 0,
             'C and D draw neither fighter',
@@ -281,16 +298,15 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       bBefore = await sampled(b.page);
       if (await reloadBack(a, b, id)) {
         fightId = id;
+        await sampleLinks(b.page);
+        await b.page.evaluate(() => {
+          const debug = (window.__bs as BsHook).debug;
+          debug?.crowdAt(3);
+          debug?.autoBrace(true);
+        });
       } else {
         previous = id;
-        continue;
       }
-      await sampleLinks(b.page);
-      await b.page.evaluate(() => {
-        const debug = (window.__bs as BsHook).debug;
-        debug?.crowdAt(3);
-        debug?.autoBrace(true);
-      });
     }
     expect(fightId, 'B was back in a running fight').not.toBe('');
     await expect
@@ -307,8 +323,11 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
 
     // D swims out of the crowd, alone in the twilight, and after 3 s rides the current back (the
     // locked fight keeps the crowd, and its members' P1 reach, in force).
-    await d.page.evaluate(() => (window.__bs as BsHook).debug?.aloneMs(3000));
-    await d.page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(false));
+    await d.page.evaluate(() => {
+      const debug = (window.__bs as BsHook).debug;
+      debug?.aloneMs(3000);
+      debug?.skipDraw(false);
+    });
     await place(d, FAR_WU, 0);
     await d.page.evaluate(() => (window.__bs as BsHook).debug?.setZone('twilight'));
     await linksAre(d, [], 'D is alone out there', 60_000);
@@ -319,7 +338,8 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
         intervals: [200],
       })
       .toBe(true);
-    const runningBefore = (await state(a.page)).encounter?.over === false;
+    const fightRuns = async () => (await state(a.page)).encounter?.over === false;
+    const runningBefore = await fightRuns();
     await d.page.keyboard.press('r');
     await expect
       .poll(async () => (await state(d.page)).ride.phase, {
@@ -333,9 +353,8 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     const after = await directory(request, HUB);
     const note = after.spawns.find((s) => s.x === arrival.x && s.y === arrival.y);
     if (!note) throw new Error('the hub has a note of D’s arrival');
-    const stillRunning = runningBefore && (await state(a.page)).encounter?.over === false;
     const crowded = after.members.filter((m) => m.id !== d.id && m.n !== 0);
-    if (stillRunning) {
+    if (runningBefore && (await fightRuns())) {
       // The fight held the crowd: the fighters were in an instance when D landed.
       expect(crowded.map((m) => m.id)).toEqual(expect.arrayContaining([a.id, b.id]));
     }
@@ -351,9 +370,8 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       ).toBeGreaterThanOrEqual(p1Reach(note, m) - DRIFT_WU);
     }
     // D holds a link to nobody in the crowd.
-    for (const other of [a, b, c]) {
-      expect((await state(d.page)).net.links.map((l) => l.id)).not.toContain(other.id);
-    }
+    const dLinks = (await state(d.page)).net.links.map((l) => l.id);
+    for (const other of [a, b, c]) expect(dLinks).not.toContain(other.id);
 
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
@@ -379,33 +397,32 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       .toBe(0);
 
     // The four come together in open water (no crowd now: 24 links) and link.
-    for (const p of players)
-      await p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24));
-    const home = await where(a);
-    for (const [p, dx] of [
-      [c, -pair],
-      [d, pair],
-    ] as const) {
-      await p.page.evaluate(
-        ([x, y]) => (window.__bs as BsHook).debug?.teleport(x as number, y as number),
-        [home.x + dx, home.y],
-      );
-    }
+    await Promise.all(
+      players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
+    );
+    const home = await playerOf(a.page);
+    await place(c, home.x - CENTRE - pair, home.y - CENTRE);
+    await place(d, home.x - CENTRE + pair, home.y - CENTRE);
     await allLinked(players, 'the four link in open water', 90_000);
     for (const p of players) expect(await instanceOf(p), 'the open water').toBe(0);
 
     // No page ever held more links than its cap allows.
     for (const p of players) {
+      // `bBefore` is zero for everyone but B, whose page counted again after its reload.
       const held = await sampled(p.page);
-      const max = p === b ? Math.max(held.max, bBefore.max) : held.max;
-      const low = p === b ? Math.max(held.maxLow, bBefore.maxLow) : held.maxLow;
-      expect(max, 'a page held more links than the cap').toBeLessThanOrEqual(CAP);
-      expect(low, 'a page held more P2–P4 links than the cap').toBeLessThanOrEqual(CAP_LOW);
+      const earlier = p === b ? bBefore : { max: 0, maxLow: 0 };
+      expect(
+        Math.max(held.max, earlier.max),
+        'a page held more links than the cap',
+      ).toBeLessThanOrEqual(CAP);
+      expect(
+        Math.max(held.maxLow, earlier.maxLow),
+        'a page held more P2–P4 links than the cap',
+      ).toBeLessThanOrEqual(CAP_LOW);
     }
   } finally {
     await closeAll(players);
   }
-  expect(fightId).not.toBe('');
 
   // Every page is closed. The cards verify, the command line agrees and the audit is clean.
   const { a1, b1, c0, d0 } = made;
