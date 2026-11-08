@@ -113,7 +113,7 @@ export function clearReport(hub: Hub, player: string): void {
 }
 
 /** Adds a write's rows to the ledger's count, which the usage meter reads. */
-function count(hub: Hub, cursor: SqlStorageCursor<Record<string, SqlStorageValue>>): void {
+export function count(hub: Hub, cursor: SqlStorageCursor<Record<string, SqlStorageValue>>): void {
   cursor.toArray();
   hub.ledger.rowsWritten += cursor.rowsWritten;
 }

@@ -7,6 +7,7 @@ import { aoiRadius } from '../src/net/aoi';
 import type { ClientMsg, HubMsg, SpawnWhy } from '../src/net/protocol';
 import { createRng, seedFromBytes } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
+import { count } from './away';
 import { reachSince } from './directory';
 import { pondTick } from './engage';
 import type { Lock } from './fights';
@@ -203,16 +204,17 @@ export function leftAt(
   creature: string,
   at: { x: number; y: number; t: number },
 ): void {
-  const cursor = hub.ctx.storage.sql.exec(
-    'UPDATE players SET left_x = ?, left_y = ?, left_at = ?, left_creature = ? WHERE id = ?',
-    at.x,
-    at.y,
-    at.t,
-    creature,
-    player,
+  count(
+    hub,
+    hub.ctx.storage.sql.exec(
+      'UPDATE players SET left_x = ?, left_y = ?, left_at = ?, left_creature = ? WHERE id = ?',
+      at.x,
+      at.y,
+      at.t,
+      creature,
+      player,
+    ),
   );
-  cursor.toArray();
-  hub.ledger.rowsWritten += cursor.rowsWritten;
 }
 
 /**
@@ -262,5 +264,17 @@ export function fightAnchor(
   now: number,
 ): Anchor | undefined {
   const body = lock?.fight?.enc.fighters.find((f) => f.player === player)?.body;
-  return body ? { x: body.x, y: body.y, t: now, bind: bindingOf(life) } : undefined;
+  return body ? anchorAt(body, life, now) : undefined;
 }
+
+/** An anchor at a point the authority itself placed `life`'s creature at. */
+export const anchorAt = (
+  at: { x: number; y: number },
+  life: LifeState | undefined,
+  t: number,
+): Anchor => ({
+  x: at.x,
+  y: at.y,
+  t,
+  bind: bindingOf(life),
+});

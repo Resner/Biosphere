@@ -23,9 +23,9 @@ import { bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { activeSessions, type Hub, seated, sendIfOpen } from './socket';
-import { type Anchor, anchorAtLast, leftAt } from './spawn';
+import { anchorAt, anchorAtLast, leftAt } from './spawn';
 import { DAY_MS } from './usage';
-import { bindingOf, carrionNoticed } from './where';
+import { carrionNoticed } from './where';
 import { refereeingOf, witnessDone } from './witness-fight';
 
 /** Sends `msg` to every participant who is connected now. */
@@ -151,7 +151,8 @@ export function settle(hub: Hub, lock: Lock, fight: Fight, forwarded?: number): 
           for (const { f, report } of away) {
             storeReport(hub, f.player, report);
             // A survivor resumes where the fight left it (M12 T10).
-            if (survived(f)) leftAt(hub, f.player, f.creature, { ...f, t: hub.clock.now() });
+            if (survived(f))
+              leftAt(hub, f.player, f.creature, { x: f.x, y: f.y, t: hub.clock.now() });
           }
         },
       },
@@ -242,7 +243,7 @@ export function backToLedger(
     const [ws, session] = found;
     const life = bind(hub, player, now);
     const end = ends.find((f) => f.player === player);
-    const anchor = end && life ? finalAnchor(end, life, now) : anchorAtLast(session, life);
+    const anchor = end && life ? anchorAt(end, life, now) : anchorAtLast(session, life);
     ws.serializeAttachment({ ...session, life, anchor });
     sendLife(hub, ws, player);
   }
@@ -304,13 +305,5 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
   if (!survived(f)) life = { ...life, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
   // It starts from where the authority's encounter left it: the next report lies near (M12 T10).
-  ws.serializeAttachment({ ...session, life, anchor: finalAnchor(f, life, t) });
+  ws.serializeAttachment({ ...session, life, anchor: anchorAt(f, life, t) });
 }
-
-/** A fighter's anchor at its place at the fight's end, in the authority's own encounter (M12 T10). */
-const finalAnchor = (f: Pick<FighterOutcome, 'x' | 'y'>, life: LifeState, t: number): Anchor => ({
-  x: f.x,
-  y: f.y,
-  t,
-  bind: bindingOf(life),
-});
