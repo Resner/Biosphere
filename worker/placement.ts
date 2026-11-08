@@ -198,12 +198,24 @@ function simWorld(w: PlaceInput['world']): World {
 
 /** Whether a point lies in the depth band a spawn must keep to (the wave's gate reads it). */
 export function inSpawnBand(world: PlaceInput['world'], x: number, y: number): boolean {
-  return depthInBand(depthAt(simWorld(world).seed32, x, y, world.size));
+  const near = Math.hypot(x - world.size / 2, y - world.size / 2) <= RULES.bathymetry.centreRadius;
+  return depthInBand(
+    depthAt(simWorld(world).seed32, x, y, world.size),
+    near ? FLOOR_AT_CENTRE : BAND_FLOOR,
+  );
 }
 
-const depthInBand = (depth: number): boolean =>
-  depth >= RULES.bathymetry.zones.shallows + RULES.hazards.uvBand &&
-  depth <= RULES.hazards.pressureStart;
+const BAND_FLOOR = RULES.bathymetry.zones.shallows + RULES.hazards.uvBand;
+
+/**
+ * The band's floor is the shallower of 0.27 and the shallowest depth the centre cap allows around
+ * the spawn centre (`base - centreCap` = 0.26): flat ground at that depth, which the depth pin can
+ * leave there, must hold a spawn like any other.
+ */
+const FLOOR_AT_CENTRE = Math.min(BAND_FLOOR, RULES.bathymetry.base - RULES.bathymetry.centreCap);
+
+const depthInBand = (depth: number, floor = BAND_FLOOR): boolean =>
+  depth >= floor && depth <= RULES.hazards.pressureStart;
 
 /** A disc a spawn must stay out of: nearer than `d` is invalid. */
 interface Avoid {
@@ -288,6 +300,10 @@ export function place(p: PlaceInput): Placement {
     avoid.push({ x: s.x, y: s.y, d2: d * d });
   }
 
+  // Within the centre cap's radius the floor is `FLOOR_AT_CENTRE`, so a world whose pin leaves the
+  // centre on flat 0.26 ground still holds spawns beside it.
+  const nearCentre = (x: number, y: number): boolean =>
+    Math.hypot(x - centre.x, y - centre.y) <= RULES.bathymetry.centreRadius;
   // The discs through a grid whose cells are the widest avoid distance: a candidate checks the nine
   // cells around it, never every member.
   const widest = Math.sqrt(avoid.reduce((w, a) => Math.max(w, a.d2), 1));
@@ -309,7 +325,7 @@ export function place(p: PlaceInput): Placement {
     // the centre itself, which an empty world must give (and only an empty world).
     if (members.length > 0 || x !== centre.x || y !== centre.y) {
       const depth = depthAt(sim.seed32, x, y, world.size);
-      if (!depthInBand(depth)) return false;
+      if (!depthInBand(depth, nearCentre(x, y) ? FLOOR_AT_CENTRE : BAND_FLOOR)) return false;
     }
     return clearOfPlumes(sim, x, y, reach, future);
   };

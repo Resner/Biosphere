@@ -88,13 +88,15 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted, amended | 0058 |
 | [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted, amended | 0058, 0067 |
 | [0057](0057-claims-by-script-and-branch-cleanup.md) | Claims are made by a script, and closed factory branches are deleted | accepted | |
-| [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted, amended | 0062 |
+| [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted, amended | 0062, 0069 |
 | [0059](0059-farming-and-movement-checks.md) | Farming and movement in M10: young identities by play, a movement check at lock-in, and a bot-farm simulation | accepted, refined, amended | 0060, 0062 |
 | [0060](0060-how-the-farm-gates-read.md) | How the bot-farm gates read: genes aside, one cooldown after maturity, the floor aside | accepted | |
 | [0061](0061-one-world-and-food-by-tier.md) | One world: its size and fields, food by tier, and a fourth world renewal | accepted | |
 | [0062](0062-area-of-interest-and-relayed-signaling.md) | Area of interest: the directory, link classes, discovery, relayed signaling and seat tickets | accepted, amended | 0063, 0064 |
 | [0063](0063-how-clients-dial-in-the-world.md) | How clients dial in the world: the headless harness's link model and gates | accepted | |
-| [0064](0064-habitats-spawning-riding-and-crowd-instances.md) | Habitats: spawning around groups, riding the current, crowd instances and anchored transitions | accepted | |
+| [0064](0064-habitats-spawning-riding-and-crowd-instances.md) | Habitats: spawning around groups, riding the current, crowd instances and anchored transitions | accepted, amended | 0069 |
 | [0065](0065-late-entries-in-dense-water.md) | Late entries in dense water read at 15 in 1,000 | accepted | |
 | [0066](0066-how-the-wave-gates-read.md) | How the population wave's gates read: the group's edge, regrouped, hidden creatures and the budget | accepted | |
 | [0067](0067-scale-proof-metering-and-admission-by-plan.md) | Scale proof, metering and admission by plan | accepted | |
+| [0068](0068-spawn-band-floor-at-the-centre.md) | The spawn band's floor near the centre: 0.26 within the centre cap's radius | accepted | |
+| [0069](0069-the-pure-parts-at-10000-members.md) | The pure parts at 10,000 members: placement from a wide group's edge and a window for the witness pool | accepted | |
