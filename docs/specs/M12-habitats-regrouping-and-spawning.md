@@ -394,7 +394,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - Done: `where.ts` runs `hub.crowds` (`armCrowds`, `rebuildCrowds`, `reseatCrowd`, `sharesWater`; `Directory.near` takes `instanceOf`); the page's toast for `engage:instance`; hub tests in `worker/instances.test.ts`.
     - Gotcha: a fighter whose page leaves keeps its instance in `hub.crowdsKept` until its fight ends; a crowd of more members than `INSTANCE_MAX` never merges, so merge tests keep under it.
 
-- [ ] T6 Crowd instances in the page [opus] (after T5)
+- [ ] T6 Crowd instances in the page [opus] (after T5) (in progress)
   - Steps:
     1. **`src/game/crowd-view.ts`** keeps the page's own instance (the hub's `instance`) and each known creature's: from `near`, gossip, a link's `hello` and `instance` events. `AoiManager` takes them:
        - a link that no longer shares water closes at once, with no 3 s grace, unless it is P0;
