@@ -201,6 +201,9 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
     // time only bounds a hang.
     let nearSince: number | null = null;
     let lastD = Number.NaN;
+    // A page that is not the front one may be throttled or not drawn at all: C swam 0 ticks in 8
+    // minutes beside two pages that were polled as often.
+    await c.page.bringToFront();
     const swumFrom = (await state(c.page)).tick;
     let swumTicks = 0;
     const nearDeadline = Date.now() + 480_000;
@@ -226,9 +229,13 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       }
       await a.page.waitForTimeout(500);
     }
+    const cEnd = await c.page.evaluate(() => ({
+      visibility: document.visibilityState,
+      screen: (window.__bs as BsHook).state().screen,
+    }));
     expect(
       nearSince,
-      `C came into A’s view (last distance ${Math.round(lastD)} wu after ${swumTicks} of C’s ticks)`,
+      `C came into A’s view (last distance ${Math.round(lastD)} wu after ${swumTicks} of C’s ticks; C ${JSON.stringify(cEnd)})`,
     ).not.toBeNull();
     await c.page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
 
