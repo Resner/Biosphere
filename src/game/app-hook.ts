@@ -415,6 +415,7 @@ export function installAppHook(app: App): void {
             }
           : null,
         spawn: app.spawnAsk.last ? { ...app.spawnAsk.last } : null,
+        queue: keeper.current?.queue ? { ...keeper.current.queue } : null,
         ride: app.ride.view(),
         social: {
           chat: social.log().map((line) => ({ ...line })),

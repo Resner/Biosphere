@@ -5,7 +5,6 @@ import {
   hubSocketUrl,
   loadName,
   offlineChip,
-  ordinal,
   saveName,
   statusText,
   switchPond,
@@ -118,15 +117,19 @@ describe('statusText', () => {
     expect(statusText('online', 0)).toBe('Online · 0 nearby');
     expect(statusText('connecting', 0)).toBe('Connecting…');
     expect(statusText('offline', 0)).toBe('Offline · playing alone');
+    // In line (M13 T10): the place and the wait in words.
     expect(statusText('connecting', 0, { position: 3, etaS: 90, why: 'full' })).toBe(
-      'Waiting for a place (3rd in line)',
+      '3rd in line · about 2 min',
+    );
+    expect(statusText('connecting', 0, { position: 1, etaS: 20, why: 'full' })).toBe(
+      '1st in line · under a minute',
+    );
+    expect(statusText('connecting', 0, { position: 2, etaS: 0, why: 'storage' })).toBe(
+      '2nd in line',
     );
     expect(statusText('online', 2, { position: 1, etaS: 30, why: 'full' })).toBe(
       'Online · 2 nearby',
     );
-    expect(
-      ['1st', '2nd', '3rd', '4th', '11th', '12th', '13th', '21st', '22nd', '103rd'].join(),
-    ).toBe([1, 2, 3, 4, 11, 12, 13, 21, 22, 103].map(ordinal).join());
     expect(statusText('none', 0)).toBe('Offline · playing alone');
     expect(statusText('replaced', 0)).toBe('Playing in another tab');
     expect(statusText('outdated', 0)).toBe('Update available, reload');

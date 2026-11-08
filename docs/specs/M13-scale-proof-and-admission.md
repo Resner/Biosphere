@@ -613,7 +613,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - `/v1/metrics`'s `admission` matches each case.
     - Every E2E passes (`m4-lifecycle`'s queue).
 
-- [ ] T10 The line in the page [opus] (after T4)
+- [x] T10 The line in the page [opus] (after T4)
   - Steps:
     1. **The card** (`src/game/queue-card.ts`, from `screens.ts`). While the hub keeps the session waiting, the title and death screens show a glass card in the HUD's style. It gives:
        - the reason:
@@ -642,9 +642,11 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
       - B's title shows the card: 1st in line, `why` full, a wait in words;
       - B swims as a practice cell from the card;
       - A's page closes, and B's toast shows within 20 s;
-      - B returns to the title and hatches a recorded creature;
+      - B's practice cell ends (the page has no way back to the title but a reload, which would test a fresh page), and B hatches a recorded creature from the death screen;
       - screenshots of the card at 960 × 540 and 390 × 844 are attached.
     - `m4-lifecycle` reads `state().queue` instead of the old chip text.
+  - Done: `queue-card.ts` (pure words and the card), `Screens.setQueue` and the chip and toast in `OnlineWiring.updateNetUi`; the card takes the tagline's place and is one row from 600 px, so the title stays whole at 960 × 540.
+    Gotcha: the practice cell begun in line swims in a local world, so its chip follows the hub (`lineLife`) instead of reading offline; `m13-queue`'s hub starts only when no spec is named or it is.
 
 ### The release gate
 

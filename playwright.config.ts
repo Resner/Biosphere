@@ -122,6 +122,10 @@ const m12SpawnHubPort = 8833;
 const m12RideHubPort = 8835;
 // The M12 lifecycle spec (M12 T11, 8836): four players through spawning, a crowd, a reload in a fight, a ride and a merge.
 const m12LifecycleHubPort = 8836;
+// The M13 queue spec (M13 T10, 8838): one seat, so the second page waits in line. Not `@slow`, so
+// its hub starts in the PR parts too (`E2E_SKIP_SLOW` doesn't drop it), but only when no spec file is
+// named or this one is.
+const m13QueueHubPort = 8838;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -472,6 +476,11 @@ export default defineConfig({
       ],
     ]
       .filter(([spec]) => !process.env.E2E_SKIP_SLOW && wantsSpec(String(spec)))
+      .concat(
+        [['m13-queue', m13QueueHubPort, '--var MAX_SESSIONS:1']].filter(([spec]) =>
+          wantsSpec(String(spec)),
+        ),
+      )
       .map(([spec, port, vars]) => ({
         command: `node tools/worker.mjs dev --e2e --port ${port} --persist-to .wrangler/e2e-state-${spec} ${vars}`,
         url: `http://localhost:${port}/v1/health`,

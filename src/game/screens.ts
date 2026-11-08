@@ -1,8 +1,13 @@
+import type { QueuePlace } from '../net/hub-client';
 import type { DeathCause } from '../sim/types';
 import { cardHref, setCardLink } from './card-link';
 import { pick } from './dom';
 import { DEATH_TEXT, deathName, livedText } from './life-text';
 import type { FallbackId, FallbackOption } from './offspring-text';
+import { QueueCard } from './queue-card';
+
+/** The Hatch buttons while the hub keeps the session waiting (M13 T10). */
+export const WAITING_TEXT = 'Waiting for a place…';
 
 export type Screen = 'title' | 'playing' | 'dead';
 
@@ -38,6 +43,10 @@ export class Screens {
   private options: FallbackOption[] = [];
   private busy = false;
   private limited = false;
+  /** The hub keeps the session in line (M13 T10): the card shows, and Hatch waits. */
+  private queued = false;
+  private readonly queueCard: QueueCard;
+  private readonly hatchTexts: string[] = [];
   /** "Back to the fight" takes the title's main button (M8 T10). */
   private readonly resumeButton = pick<HTMLButtonElement>('[data-testid="resume-fight"]');
   private readonly resumeLine = pick('[data-testid="resume-line"]');
@@ -66,6 +75,24 @@ export class Screens {
     };
     bind(['hatch', 'hatch-again'], this.buttons, handlers.hatch);
     bind(['practice', 'practice-again'], this.practice, handlers.practice);
+    for (const button of this.buttons) this.hatchTexts.push(button.textContent ?? '');
+    this.queueCard = new QueueCard(handlers.practice);
+  }
+
+  /** The place in the admission line, or null once seated: the card, and Hatch reading as waiting. */
+  setQueue(queue: QueuePlace | null, now: number): void {
+    this.queueCard.show(queue, now);
+    if (this.queued === (queue !== null)) return;
+    this.queued = queue !== null;
+    this.buttons.forEach((button, i) => {
+      button.textContent = this.queued ? WAITING_TEXT : (this.hatchTexts[i] ?? '');
+    });
+    this.refresh();
+  }
+
+  /** Whether the hub keeps the session in line. */
+  get waiting(): boolean {
+    return this.queued;
   }
 
   /** Greys out the hatch buttons while a hatch waits for the hub. */
@@ -147,16 +174,18 @@ export class Screens {
     // The title's own choices give way to "Back to the fight"; the death screen keeps its own.
     const onTitle = (button: HTMLElement) => button.closest('[data-for="title"]') !== null;
     const away = (button: HTMLElement) => this.resuming && onTitle(button);
-    for (const button of this.fallbackButtons) button.disabled = this.busy;
+    // The offspring and the ancestor need a seat, as a recorded hatch does.
+    for (const button of this.fallbackButtons) button.disabled = this.busy || this.queued;
     this.fallbackBoxes.forEach((box) => {
       box.hidden = !choosing || away(box);
     });
     for (const button of this.buttons) {
       button.hidden = choosing || away(button);
-      button.disabled = this.busy || this.limited;
+      button.disabled = this.busy || this.limited || this.queued;
     }
+    // In line, the card offers the practice cell itself.
     for (const button of this.practice) {
-      button.hidden = !this.limited || away(button);
+      button.hidden = !this.limited || this.queued || away(button);
       button.disabled = this.busy;
     }
     this.resumeButton.hidden = !this.resuming;

@@ -4,7 +4,7 @@ import type { Identity } from '../ledger/identity';
 import { signSnap, verifySnap } from '../ledger/snapshot-sig';
 import { consumedParts } from '../net/claims';
 import type { PondClock } from '../net/clock';
-import type { FightMsg, LifeMsg, Welcome } from '../net/hub-client';
+import type { FightMsg, HubStatus, LifeMsg, Welcome } from '../net/hub-client';
 import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
 import { encodeSnapshot, type PeerEvent, type SignedSnap } from '../net/protocol';
 import { ProxyReceiver, ProxyRelay } from '../net/proxy-snaps';
@@ -14,7 +14,7 @@ import { survivedOutcome } from '../sim/encounter/types';
 import { createWorld } from '../sim/world';
 import { AloneHint } from './alone-hint';
 import type { App } from './app';
-import { adultRadius, countItem, type Pond } from './app-session';
+import { adultRadius, countItem, type Pond, type Session } from './app-session';
 import { BUSY_TEXT } from './crowd-view';
 import { pick } from './dom';
 import { CandidateSigner, lockState, SpawnShield } from './engage';
@@ -23,6 +23,7 @@ import { type CreatureNow, connectOnline, type OnlineSession } from './online';
 import { offlineChip, statusText, switchPond } from './online-config';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
+import { SEATED_TEXT } from './queue-card';
 
 /** The online session's wiring (ADRs 0007, 0016): the hub's messages, peers' events and the net chip. */
 export class OnlineWiring {
@@ -34,6 +35,10 @@ export class OnlineWiring {
   private readonly menuRide = pick('[data-testid="menu-ride"]');
   /** The connection line as last shown. */
   shownStatus = '';
+  /** The hub has kept this session in line since it was last seated (M13 T10). */
+  private inLine = false;
+  /** A practice life begun while in line: its chip follows the hub, not its local water. */
+  private lineLife: Session | null = null;
   /** Spawn protection as the own snapshot shows it (M7 T7). */
   readonly shield = new SpawnShield();
   /** Signs every second snapshot for the engage candidates; `signer.ids` names them. */
@@ -423,28 +428,39 @@ export class OnlineWiring {
     app.field.markDirty();
   }
 
+  /** Tells a session that waited in line, once, that the hub has seated it. */
+  private toastSeat(queued: boolean, status: HubStatus): void {
+    if (queued) this.inLine = true;
+    else if (this.inLine && status !== 'connecting') {
+      this.inLine = false;
+      if (status === 'online') this.app.hud.toast(SEATED_TEXT, 6000);
+    }
+  }
+
   /** The connection line, the offline chip and the alone hint, each frame. */
   updateNetUi(now: number, joined: Pond | null): void {
     const { app } = this;
     const { keeper, hubUrl } = app;
-    // A life in a local pond is alone, whatever the hub says about its own pond.
-    const apart = app.screen === 'playing' && !app.session.demo && app.session.pond === null;
+    const queue = hubUrl ? (keeper.current?.queue ?? null) : null;
+    const status = keeper.current?.status ?? 'connecting';
+    app.screens.setQueue(queue, Date.now());
+    this.toastSeat(queue !== null, status);
+    // A life in a local pond is alone, whatever the hub says about its own pond, except a practice
+    // cell that swims while it waits: its chip shows the line, then the seat (M13 T10).
+    const local = app.screen === 'playing' && !app.session.demo && app.session.pond === null;
+    if (local && queue) this.lineLife = app.session;
+    const apart = local && app.session !== this.lineLife;
     let text = '';
     if (hubUrl) {
       text = apart
         ? statusText('offline', 0)
-        : statusText(
-            keeper.current?.status ?? 'connecting',
-            keeper.current?.count ?? 0,
-            keeper.current?.queue ?? null,
-          );
+        : statusText(status, keeper.current?.count ?? 0, queue);
     }
     if (text !== this.shownStatus) {
       this.shownStatus = text;
       this.netStatus.textContent = text;
       this.menuNet.textContent = text;
     }
-    const status = keeper.current?.status ?? 'connecting';
     app.hud.setOffline(offlineChip(hubUrl !== null, status, apart) ? text : null);
     const online = joined !== null && keeper.current?.status === 'online';
     const others = online && keeper.current?.alone() === false ? 1 : 0;
