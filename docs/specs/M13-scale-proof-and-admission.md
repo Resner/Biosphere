@@ -613,7 +613,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - `/v1/metrics`'s `admission` matches each case.
     - Every E2E passes (`m4-lifecycle`'s queue).
 
-- [x] T10 The line in the page [opus] (after T4) (in progress)
+- [x] T10 The line in the page [opus] (after T4)
   - Steps:
     1. **The card** (`src/game/queue-card.ts`, from `screens.ts`). While the hub keeps the session waiting, the title and death screens show a glass card in the HUD's style. It gives:
        - the reason:
