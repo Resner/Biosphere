@@ -52,7 +52,24 @@ test('clicking another creature opens a card that sits beside it', async ({ brow
     aim.y = at?.y ?? 0;
     await a.mouse.click(aim.x, aim.y);
     await expect(card).toBeVisible({ timeout: 1000 });
-  }).toPass({ timeout: 15_000 });
+  })
+    .toPass({ timeout: 15_000 })
+    .catch(async (error) => {
+      // A repeat names the cause: where A drew B, where the click went, and what A's screen showed.
+      const seen = await a.evaluate((who) => {
+        const s = (window.__bs as BsHook).state();
+        return {
+          tick: s.tick,
+          screen: s.screen,
+          alive: s.player?.alive,
+          player: s.player && { x: s.player.x, y: s.player.y, radius: s.player.radius },
+          remote: s.remotes.find((x) => x.id === who),
+          remotes: s.remotes.length,
+          view: { w: innerWidth, h: innerHeight },
+        };
+      }, idB);
+      throw new Error(`no inspect card opened: ${JSON.stringify({ aim, seen })}`, { cause: error });
+    });
   await expect(card).toBeVisible();
   await expect(a.getByTestId('inspect-species')).not.toBeEmpty();
   await expect(a.getByTestId('inspect-badge')).toHaveText(/^(Common|Uncommon|Rare|Exotic)$/);
