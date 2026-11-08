@@ -23,6 +23,17 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
   try {
     await clickHatch(c);
     await waitPlaying(c);
+    // C only watches, through up to three staged pairs of fights (minutes on a loaded runner): left
+    // alone it starves and the carrion has no one to reach. A keep-alive in its page holds its health
+    // and belly full until the test sets C's own energy for the eating check.
+    await c.evaluate(() => {
+      const bs = window.__bs as BsHook;
+      const w = window as unknown as { __keep?: number };
+      w.__keep = window.setInterval(() => {
+        bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
+        bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      }, 500);
+    });
 
     // B's genome decides whether its autopilot can be caught: below `caution x 0.6` of its health
     // it flees, and a swift one outruns A in every fight (each ends as A's escape), so a retry on
@@ -73,6 +84,9 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
     if (!piece) throw new Error('no piece');
     await c.evaluate((id) => {
       const bs = window.__bs as BsHook;
+      // The keep-alive stops here: a full belly could not take the piece's value.
+      window.clearInterval((window as unknown as { __keep?: number }).__keep);
+      bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
       bs.debug?.setEnergy(20);
       // The belly drains while C swims over (on a slow runner for a long while), so its level
       // proves nothing. Watch the frame in which the piece leaves C's world: eating adds its

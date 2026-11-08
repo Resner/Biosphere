@@ -432,7 +432,19 @@ export async function goTo(page: Page, id: string, peer?: Page): Promise<void> {
         const r = s.remotes.find((x) => x.id === who);
         return {
           player: s.player && { x: s.player.x, y: s.player.y },
-          remote: r && { x: r.x, y: r.y, radius: r.radius },
+          remote: r && {
+            x: r.x,
+            y: r.y,
+            radius: r.radius,
+            alpha: r.alpha,
+            fighting: r.fighting,
+            away: r.away,
+            protected: r.protected,
+          },
+          screen: s.screen,
+          alive: s.player?.alive ?? null,
+          fighting: s.encounter !== null,
+          net: s.net.text,
           mate: s.mate,
         };
       }, id);
