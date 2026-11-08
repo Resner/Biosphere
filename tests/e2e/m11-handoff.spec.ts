@@ -185,7 +185,14 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
       if (crossed && linkedC) break;
       // Steering targets a point ahead (a steer gives up after 30 s of sim time, so it is renewed).
       if (!crossed) await steer(a, E.x, E.y);
-      const cAt = (await state(c.page)).player;
+      // C waits unfed for as long as A's slower pages take to cross: its belly stays full, so it
+      // is alive when its swim starts (it was found dead, with no tick played, after A crossed).
+      await c.page.evaluate(() =>
+        (window.__bs as BsHook).debug?.setEnergy(Number.MAX_SAFE_INTEGER),
+      );
+      const cState = await state(c.page);
+      expect(cState.screen, 'C is alive while A crosses').not.toBe('dead');
+      const cAt = cState.player;
       if (cAt && Math.hypot(cAt.x - me.x, cAt.y - me.y) > 300)
         await steer(c, me.x - CENTRE, me.y - CENTRE);
       await a.page.waitForTimeout(1000);
