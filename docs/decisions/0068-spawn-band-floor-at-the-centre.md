@@ -1,4 +1,4 @@
-# 0067: The spawn band's floor near the centre
+# 0068: The spawn band's floor near the centre
 
 - Status: accepted (adjusts one number of ADR 0064's placement rules)
 - Date: 2026-11-08
