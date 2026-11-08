@@ -1,5 +1,6 @@
 // The harness's shared shapes (M11 T10): a scenario's clients and fights, and a run's counters.
 
+import type { Meter } from './aoi-meter';
 import type { WaveParams, WaveRecord } from './wave-record';
 
 export interface Box {
@@ -65,6 +66,16 @@ export interface Scenario {
   rideAloneMs?: number;
   /** Records the wave's arrivals, rides and series (`RunResult.wave`, M12 T9). */
   wave?: WaveParams;
+  /** The pair checks (discovery, hidden threats, views, tier links) run every this many ticks; default 1. */
+  pairsEvery?: number;
+  /** The upload and download rates are read every this many ticks (they are B/s, so a thinner reading is as true); default 1. */
+  rateEvery?: number;
+  /** A seeded share of the clients is judged by the pair checks (the rest are only counted); default all. */
+  pairSample?: number;
+  /** Times the hub's operations, counts messages by type and the bandwidth (the load scenario, M13). */
+  meter?: Meter;
+  /** Called at each simulated minute with the minute and the players in the water (a long run's progress). */
+  progress?: (minute: number, players: number) => void;
 }
 
 /** The gates' counters: each is a count of violations, with the first few described. */

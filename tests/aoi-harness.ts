@@ -22,6 +22,7 @@ import {
   REFUSED_BACKOFF_MS,
   YOUNG_MS,
 } from '../src/game/online-links';
+import { poolOf } from '../src/ledger/witness';
 import {
   AoiManager,
   type AoiSelf,
@@ -62,7 +63,7 @@ import {
   place,
   SPAWN_RECENT_MS,
 } from '../worker/placement';
-
+import { EventQueue, type Meter, type MsgType, type Op } from './aoi-meter';
 import {
   type Box,
   type ClientSpec,
@@ -170,6 +171,11 @@ class Client {
   /** Creatures it could link within its P1 reach by true positions, this tick. */
   p1True = 0;
   dirty = false;
+  /** Whether the pair checks judge it (all, or a seeded sample). */
+  judged = true;
+  /** Bytes per second the links sent to it in this tick (the meter). */
+  rx = 0;
+  tx = 0;
   leaf: Leaf | null = null;
   readonly hubMsgs: number[] = [];
   readonly phase: number;
@@ -181,6 +187,7 @@ class Client {
     readonly spec: ClientSpec,
     index: number,
     route: (c: Client) => SignalRoute,
+    sample: number,
   ) {
     this.mgr = new AoiManager({ selfId: spec.id });
     this.gossip = new Gossip(spec.id);
@@ -190,6 +197,7 @@ class Client {
     this.heading = spec.walk.heading;
     this.box = spec.walk.box;
     this.phase = index % 5;
+    this.judged = sample >= 1 || (Math.imul(index + 1, 2654435761) >>> 0) / 2 ** 32 < sample;
     this.route = route(this);
   }
   get id(): string {
@@ -199,7 +207,17 @@ class Client {
     return aoiRadius(this.r, this.spec.adultR);
   }
   view(): number {
-    return VIEW_DIAG * viewHalfHeight(this.r, this.spec.adultR);
+    return VIEW_DIAG * this.viewHalf();
+  }
+  private viewR = Number.NaN;
+  private viewH = 0;
+  /** The half-height of its view, kept while its radius stays (it is asked of every link every tick). */
+  viewHalf(): number {
+    if (this.r !== this.viewR) {
+      this.viewR = this.r;
+      this.viewH = viewHalfHeight(this.r, this.spec.adultR);
+    }
+    return this.viewH;
   }
   helloed(id: string): boolean {
     return this.links.get(id)?.hello === true;
@@ -212,6 +230,21 @@ class Client {
   }
 }
 
+/** The times in `sorted` (ascending) that fall in [from, to). */
+function countIn(sorted: readonly number[], from: number, to: number): number {
+  const below = (x: number) => {
+    let lo = 0;
+    let hi = sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if ((sorted[mid] as number) < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return Math.max(0, below(to) - below(from));
+}
+
 export function runScenario(scenario: Scenario, seed: string): RunResult {
   return new Sim(scenario, seed).run();
 }
@@ -219,7 +252,7 @@ export function runScenario(scenario: Scenario, seed: string): RunResult {
 class Sim {
   private now = 0;
   private seq = 0;
-  private readonly events: { t: number; seq: number; fn: () => void }[] = [];
+  private readonly events = new EventQueue<{ t: number; seq: number; fn: () => void }>();
   private readonly clients = new Map<string, Client>();
   private readonly order: Client[] = [];
   private readonly dir = new Directory(WORLD);
@@ -235,12 +268,14 @@ class Sim {
   private minuteSpawns = 0;
   private minuteRides = 0;
   private minuteMsgs = 0;
-  private readonly gone: Client[] = [];
   private readonly spawns: { x: number; y: number; r: number; aoi: number; t: number }[] = [];
   private readonly p1Since = new Map<string, number>();
   private readonly badSince = new Map<string, number>();
   private readonly firstLink = new Set<string>();
   private tickIndex = 0;
+  /** A route's `tick` resends its unanswered offers through the hub. */
+  private resending = false;
+  private readonly meter: Meter | null;
 
   constructor(
     private readonly sc: Scenario,
@@ -250,6 +285,7 @@ class Sim {
     this.script = createRng(s, 'script');
     this.net = createRng(s, 'net');
     this.placeRng = createRng(s, 'place');
+    this.meter = sc.meter ?? null;
     this.crowds = sc.instances === false ? null : new Crowds();
     this.wave = sc.wave ? emptyWave(sc.wave) : null;
     this.fights = (sc.fights ?? []).map((f) => ({ ...f, fighters: [...f.fighters] }));
@@ -311,8 +347,10 @@ class Sim {
       this.runEvents();
       this.tick();
       this.tickIndex++;
+      if (this.sc.progress && this.now % 60_000 === 0)
+        this.sc.progress(this.now / 60_000, this.order.length);
     }
-    for (const c of [...this.order, ...this.gone]) this.finish(c);
+    for (const c of this.order) this.retire(c);
     if (this.wave) {
       this.wave.fights = this.fights.map((f) => ({
         fighters: [...f.fighters],
@@ -320,34 +358,18 @@ class Sim {
         until: f.until,
       }));
     }
-    for (const c of [...this.order, ...this.gone]) {
-      const s = c.route.stats();
-      this.res.hub.relayed += s.relayed;
-      this.res.hub.hub += s.hub;
-      this.res.hub.fallback += s.fallback;
-    }
     return this.res;
   }
 
   // ---- time ----
 
   private after(ms: number, fn: () => void): void {
-    const t = this.now + Math.max(0, ms);
-    const e = { t, seq: this.seq++, fn };
-    let lo = 0;
-    let hi = this.events.length;
-    while (lo < hi) {
-      const mid = (lo + hi) >> 1;
-      const m = this.events[mid] as (typeof this.events)[number];
-      if (m.t < t || (m.t === t && m.seq < e.seq)) lo = mid + 1;
-      else hi = mid;
-    }
-    this.events.splice(lo, 0, e);
+    this.events.push({ t: this.now + Math.max(0, ms), seq: this.seq++, fn });
   }
 
   private runEvents(): void {
-    while (this.events.length > 0 && (this.events[0] as { t: number }).t <= this.now) {
-      (this.events.shift() as { fn: () => void }).fn();
+    for (let e = this.events.peek(); e && e.t <= this.now; e = this.events.peek()) {
+      (this.events.pop() as { fn: () => void }).fn();
     }
   }
 
@@ -360,15 +382,20 @@ class Sim {
     if (ex.length < MAX_VIOLATIONS) ex.push(`t=${(this.now / 1000).toFixed(1)}s ${text}`);
   }
 
+  /** Times a hub operation when the scenario carries a meter. */
+  private timed<T>(op: Op, fn: () => T): T {
+    return this.meter ? this.meter.time(op, fn) : fn();
+  }
+
   // ---- clients ----
 
   private spawn(spec: ClientSpec, index: number): void {
-    const c = new Client(spec, index, (self) => this.routeOf(self));
+    const c = new Client(spec, index, (self) => this.routeOf(self), this.sc.pairSample ?? 1);
     if (spec.place) {
       const at = this.placeFor(c) as Placement;
       c.x = at.x;
       c.y = at.y;
-      this.hubMsg(c);
+      this.hubMsg(c, 'spawn');
       this.hubReport(c);
     }
     c.dashAt = this.now + this.script.range(1000, 6000);
@@ -377,15 +404,22 @@ class Sim {
   }
 
   /** A message the authority receives from `c` (the budget gate's count). */
-  private hubMsg(c: Client): void {
+  private hubMsg(c: Client, type: MsgType): void {
     c.hubMsgs.push(this.now);
     this.minuteMsgs++;
+    if (this.meter) this.meter.msgs[type]++;
   }
 
   /** `c` leaves the water: its links close, the hub drops it from the directory and the crowds. */
   private leave(id: string): void {
     const c = this.clients.get(id);
     if (!c || c.left) return;
+    // Closing a tab never cancels a fight (M8): a fighter's leave waits for the fight's end.
+    const fight = this.activeFights().find((f) => f.fighters.includes(id));
+    if (fight) {
+      this.after(fight.until - this.now + TICK_MS, () => this.leave(id));
+      return;
+    }
     for (const other of [...c.links.keys()]) this.close(c, other);
     for (const a of [...c.out.values(), ...c.inn.values()]) this.dropAttempt(a);
     c.left = true;
@@ -397,7 +431,18 @@ class Sim {
     if (this.crowds) this.told(this.crowds.remove(id, this.now, this.ctx));
     this.order.splice(this.order.indexOf(c), 1);
     this.clients.delete(id);
-    this.gone.push(c);
+    if (this.meter) this.meter.msgs.gone++;
+    // Its numbers are final: they are taken now, so a long run doesn't hold every client it ever had.
+    this.retire(c);
+  }
+
+  /** A client's counters go into the result, once: when it leaves or the run ends. */
+  private retire(c: Client): void {
+    this.finish(c);
+    const s = c.route.stats();
+    this.res.hub.relayed += s.relayed;
+    this.res.hub.hub += s.hub;
+    this.res.hub.fallback += s.fallback;
   }
 
   private routeOf(c: Client): SignalRoute {
@@ -432,11 +477,22 @@ class Sim {
     for (const c of this.order) {
       this.report(c);
       this.sendGossip(c);
-      c.route.tick();
+      this.resending = true;
+      try {
+        c.route.tick();
+      } finally {
+        this.resending = false;
+      }
       if ((this.tickIndex + c.phase) % 5 === 0 || c.dirty) this.plan(c);
       this.sample(c, dt);
     }
-    this.pairs(this.order);
+    if (this.meter && this.tickIndex % (this.sc.rateEvery ?? 1) === 0) {
+      for (const c of this.order) {
+        this.meter.rate(c.tx, c.rx);
+        c.tx = c.rx = 0;
+      }
+    }
+    if (this.tickIndex % (this.sc.pairsEvery ?? 1) === 0) this.pairs(this.order);
     this.checkFightWater();
     if (this.sc.ride) for (const c of this.order) this.maybeRide(c);
     if (this.wave) this.recordWave();
@@ -472,8 +528,20 @@ class Sim {
     for (const [id, link] of c.links) {
       const o = this.clients.get(id);
       if (!o || !link.hello) continue;
-      c.fixes.set(id, { x: o.x, y: o.y, r: o.r, at: this.now, n: o.n });
-      c.words.set(id, { n: o.n, at: this.now });
+      // The fix and the word are updated in place: this runs for every link every tick.
+      const fix = c.fixes.get(id);
+      if (fix) {
+        fix.x = o.x;
+        fix.y = o.y;
+        fix.r = o.r;
+        fix.at = this.now;
+        fix.n = o.n;
+      } else c.fixes.set(id, { x: o.x, y: o.y, r: o.r, at: this.now, n: o.n });
+      const word = c.words.get(id);
+      if (word) {
+        word.n = o.n;
+        word.at = this.now;
+      } else c.words.set(id, { n: o.n, at: this.now });
     }
   }
 
@@ -491,7 +559,7 @@ class Sim {
       crowd,
     );
     if (msg?.t !== 'where') return;
-    this.hubMsg(c);
+    this.hubMsg(c, msg.crowd ? 'whereCrowd' : 'where');
     const sent = { x: c.x, y: c.y, r: c.r, aoi: c.aoi() };
     const list = msg.crowd ?? null;
     this.after(this.hubMs(), () => this.answerWhere(c, sent, list));
@@ -520,8 +588,10 @@ class Sim {
     crowd: readonly string[] | null,
   ): void {
     if (c.left) return;
-    this.hubReport(c, crowd, s);
-    const near = this.dir.near(c.id, this.now, (id) => this.inst(id));
+    const near = this.timed('where', () => {
+      this.hubReport(c, crowd, s);
+      return this.dir.near(c.id, this.now, (id) => this.inst(id));
+    });
     if (!near) return;
     c.aloneSince = near.peers.length === 0 ? (c.aloneSince ?? this.now) : null;
     this.checkSwarm(c, s, near.swarm);
@@ -566,7 +636,7 @@ class Sim {
   // ---- signals ----
 
   private hubSend(c: Client, to: string, kind: SignalKind, sdp: string): void {
-    this.hubMsg(c);
+    this.hubMsg(c, this.resending ? 'resend' : kind);
     if (kind === 'offer') {
       const a = c.out.get(to);
       if (a) a.relayed = false;
@@ -588,6 +658,11 @@ class Sim {
 
   /** The hub relays between members within max(Q) + 4,096 wu, or a duty pair (M11 T14). */
   private hubPasses(a: string, b: string): boolean {
+    const meter = this.meter;
+    return meter ? meter.time('signal', () => this.reaches(a, b)) : this.reaches(a, b);
+  }
+
+  private reaches(a: string, b: string): boolean {
     if (this.dutyPair(a, b)) return true;
     if (!sameWater(this.inst(a), this.inst(b))) return false;
     const d = this.dir.distance(a, b);
@@ -665,7 +740,7 @@ class Sim {
     if (!caller) return;
     let ms = this.hop();
     if (!a.relayed) {
-      this.hubMsg(c);
+      this.hubMsg(c, 'refuse');
       ms = this.hubMs() + this.hubMs();
     }
     this.after(ms, () => {
@@ -879,6 +954,10 @@ class Sim {
     b.refusals.delete(a.id);
     la.hello = lb.hello = true;
     la.helloAt = lb.helloAt = this.now;
+    if (this.meter) {
+      this.meter.setups++;
+      if (la.relayed) this.meter.setupsRelayed++;
+    }
     this.noteLink(a, b);
     this.noteLink(b, a);
     const pair = a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`;
@@ -990,7 +1069,8 @@ class Sim {
     if (!this.crowds) return;
     const due = this.crowds.due();
     if (due !== null && due <= this.now) {
-      this.told(this.crowds.settle(this.now, this.ctx));
+      const crowds = this.crowds;
+      this.told(this.timed('split', () => crowds.settle(this.now, this.ctx)));
     }
   }
 
@@ -1025,6 +1105,10 @@ class Sim {
       f,
       f.fighters.map((id) => this.inst(id)),
     );
+    if (this.meter) {
+      const present = this.order.map((o) => o.id);
+      this.timed('pool', () => poolOf(present, `fight|${f.from}|${f.fighters.join(',')}`));
+    }
     this.duty(f, true);
   }
 
@@ -1056,22 +1140,24 @@ class Sim {
     }
     while (this.spawns[0] && this.now - this.spawns[0].t >= SPAWN_RECENT_MS) this.spawns.shift();
     const spawner = { r: c.r, adultR: c.spec.adultR, aoi: c.aoi() };
-    const at = place({
-      members,
-      recent: this.spawns,
-      spawner,
-      centre: { x: CENTRE, y: CENTRE },
-      world: this.worldOf(),
-      now: this.now,
-      rng: this.placeRng,
-    });
+    const at = this.timed('place', () =>
+      place({
+        members,
+        recent: this.spawns,
+        spawner,
+        centre: { x: CENTRE, y: CENTRE },
+        world: this.worldOf(),
+        now: this.now,
+        rng: this.placeRng,
+      }),
+    );
     // The hub refuses a ride with no group to ride to, or no room around it.
     if (ride && (at.group === null || at.fallback !== 'none')) return null;
     this.res.spawns++;
     if (at.fallback === 'centre') this.res.spawnFallbacks++;
     else this.checkClearance(c, at, members, spawner);
     this.spawns.push({ x: at.x, y: at.y, r: c.r, aoi: spawner.aoi, t: this.now });
-    this.noteArrival(c, at, ride, spawner);
+    this.noteArrival(c, at, ride, spawner, members);
     return at;
   }
 
@@ -1128,6 +1214,7 @@ class Sim {
     at: Placement,
     ride: boolean,
     spawner: { r: number; adultR: number; aoi: number },
+    members: readonly Placed[],
   ): void {
     if (ride) {
       this.minuteRides++;
@@ -1135,7 +1222,13 @@ class Sim {
     } else this.minuteSpawns++;
     if (!this.wave) return;
     const g = at.group;
-    const base = clearance(spawner, spawner);
+    // A clearance is what the spawner owes its group: the most it owes any member (a starter beside a
+    // T1 keeps the T1's clearance, which is wider than its own).
+    let base = clearance(spawner, spawner);
+    if (g) {
+      const ids = new Set(g.ids);
+      for (const m of members) if (ids.has(m.id)) base = Math.max(base, clearance(spawner, m));
+    }
     c.groupIds = g ? new Set(g.ids) : null;
     // The group's reach includes the minute's spawns around it: they are about to be members.
     let radius = g?.radius ?? 0;
@@ -1183,7 +1276,7 @@ class Sim {
     )
       return;
     c.aloneSince = null;
-    this.hubMsg(c);
+    this.hubMsg(c, 'ride');
     const near = this.dir.near(c.id, this.now, (id) => this.inst(id));
     if (!near || near.peers.length > 0) return;
     const at = this.placeFor(c, true);
@@ -1244,6 +1337,7 @@ class Sim {
       w.regroup.push({ t: this.now, eligible, linked });
     }
     if (this.now === 0 || this.now % 60_000 !== 0) return;
+    if (this.meter && this.now === w.params.holdFrom) this.measureHeap();
     const nominal = { r: 20, adultR: 20, aoi: aoiRadius(20, 20) };
     const members: Placed[] = [];
     const seen = new Set<number>();
@@ -1265,6 +1359,27 @@ class Sim {
     this.minuteSpawns = this.minuteRides = this.minuteMsgs = 0;
   }
 
+  /**
+   * The heap a directory of the members now present holds, by a copy built beside the live one
+   * (after a GC when the process runs with `--expose-gc`). The crowds hold a few entries and aren't
+   * copied.
+   */
+  private measureHeap(): void {
+    const meter = this.meter as Meter;
+    const gc = (globalThis as { gc?: () => void }).gc;
+    gc?.();
+    const before = process.memoryUsage().heapUsed;
+    const copy = new Directory(WORLD);
+    for (const o of this.order) {
+      const m = this.dir.member(o.id);
+      if (m) copy.report({ id: m.id, name: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, t: this.now });
+    }
+    gc?.();
+    meter.heapBytes = Math.max(0, process.memoryUsage().heapUsed - before);
+    // Counting the copy's members after the reading also keeps it alive until then.
+    meter.heapMembers = this.order.filter((o) => copy.member(o.id)).length;
+  }
+
   private sample(c: Client, dt: number): void {
     let n = 0;
     for (const l of c.links.values()) if (l.hello) n++;
@@ -1277,7 +1392,7 @@ class Sim {
       this.res.clientLate += dt;
       if (c.crowded) this.res.crowdedLate += dt;
     }
-    this.upload(c, n);
+    if (this.tickIndex % (this.sc.rateEvery ?? 1) === 0) this.upload(c, n);
   }
 
   /**
@@ -1291,7 +1406,7 @@ class Sim {
       const b = this.clients.get(id);
       if (!l.hello || !b) continue;
       const d = Math.hypot(b.x - c.x, b.y - c.y);
-      const hz = wantedRate(b.classes.get(c.id) ?? null, d, viewHalfHeight(b.r, b.spec.adultR));
+      const hz = wantedRate(b.classes.get(c.id) ?? null, d, b.viewHalf());
       const candidate = linkTiers(c.r, b.r) && d <= INTERACT_RADII * Math.max(c.r, b.r);
       const signed = FULL_RATE / SIGN_EVERY;
       // A signed frame takes the place of a plain one on the frames it falls on.
@@ -1302,8 +1417,10 @@ class Sim {
         plain * SNAPSHOT_BYTES +
         frames * FRAME_OVERHEAD_BYTES;
       total += bps;
+      b.rx += bps;
       this.res.linkUpload = Math.max(this.res.linkUpload, bps);
     }
+    c.tx = total;
     if (n < 24) return;
     const at24 = (total * 24) / n;
     this.res.upload24 = Math.max(this.res.upload24, at24);
@@ -1341,15 +1458,18 @@ class Sim {
             if (b === a) continue;
             const d = Math.hypot(b.x - a.x, b.y - a.y);
             if (d > q * 1.1) continue;
+            if (d <= INTERACT_RADII * Math.max(a.r, b.r) + INTERACT_LEAD_WU && linkTiers(a.r, b.r))
+              a.p1True++;
+            // A client outside the sample (`Scenario.pairSample`) is only counted, not judged.
+            if (!a.judged) continue;
             near.add(b.id);
             this.discover(a, b, d, q);
             if (d <= view) inView.add(b.id);
-            if (d <= INTERACT_RADII * Math.max(a.r, b.r) + INTERACT_LEAD_WU && linkTiers(a.r, b.r))
-              a.p1True++;
-            if (a.id < b.id) checks.push([a, b, d]);
+            if (a.id < b.id || !b.judged) checks.push([a, b, d]);
           }
         }
       }
+      if (!a.judged) continue;
       for (const id of inView) {
         if (!a.viewSet.has(id)) entries.push([a, this.clients.get(id) as Client]);
       }
@@ -1464,8 +1584,39 @@ class Sim {
     w.lifeMinutes += (end - c.spec.spawnAt) / 60_000;
     const { holdFrom, holdUntil } = w.params;
     if (c.spec.spawnAt <= holdFrom && end >= holdUntil) {
-      const n = c.hubMsgs.filter((m) => m >= holdFrom && m < holdUntil).length;
+      const n = countIn(c.hubMsgs, holdFrom, holdUntil);
       w.holdPerMinute.push(n / ((holdUntil - holdFrom) / 60_000));
+    }
+    // The load scenario's reading of the hold: every player in the water in it, joins and leaves included.
+    const from = Math.max(holdFrom, c.spec.spawnAt);
+    const until = Math.min(holdUntil, end);
+    if (until > from) {
+      const inHold = countIn(c.hubMsgs, from, until);
+      w.holdMessages += inHold;
+      w.holdMinutes += (until - from) / 60_000;
+      // After its first minute, a player's messages per minute (at least a minute of them to judge).
+      const steady = Math.max(from, c.spec.spawnAt + 60_000);
+      if (until - steady >= 60_000) {
+        const n = countIn(c.hubMsgs, steady, until);
+        w.holdSteady.push(n / ((until - steady) / 60_000));
+      }
+      // Each minute of the hold, the messages of the players past their first minute and there for all of it.
+      const minutes = Math.round((holdUntil - holdFrom) / 60_000);
+      for (let k = 0; k < minutes; k++) {
+        const a = holdFrom + k * 60_000;
+        if (c.spec.spawnAt + 60_000 > a || end < a + 60_000) continue;
+        const sent = countIn(c.hubMsgs, a, a + 60_000);
+        const row = w.holdByMinute[k];
+        if (row) row.push(sent);
+        else w.holdByMinute[k] = [sent];
+      }
+      // A player that joined in the hold: its first minute.
+      if (
+        c.spec.spawnAt >= holdFrom &&
+        c.spec.spawnAt + 60_000 <= Math.min(end, holdUntil + 60_000)
+      ) {
+        w.holdJoin.push(countIn(c.hubMsgs, Number.NEGATIVE_INFINITY, c.spec.spawnAt + 60_000));
+      }
     }
   }
 
@@ -1477,7 +1628,7 @@ class Sim {
     // Authority messages per player-minute: each full minute of the creature's life.
     const from = c.spec.spawnAt;
     for (let t = from; t + 60_000 <= end; t += 60_000) {
-      const n = c.hubMsgs.filter((m) => m >= t && m < t + 60_000).length;
+      const n = countIn(c.hubMsgs, t, t + 60_000);
       (t === from ? this.res.joinMinute : this.res.perMinute).push(n);
     }
   }

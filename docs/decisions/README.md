@@ -100,3 +100,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0067](0067-scale-proof-metering-and-admission-by-plan.md) | Scale proof, metering and admission by plan | accepted | |
 | [0068](0068-spawn-band-floor-at-the-centre.md) | The spawn band's floor near the centre: 0.26 within the centre cap's radius | accepted | |
 | [0069](0069-the-pure-parts-at-10000-members.md) | The pure parts at 10,000 members: placement from a wide group's edge and a window for the witness pool | accepted | |
+| [0070](0070-how-the-load-gates-read-at-10000.md) | How the load gates read at 10,000: the budget's tail, hidden creatures as a rate, and the run's time | accepted | |
