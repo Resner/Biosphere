@@ -14,6 +14,7 @@ import { REQUEST_DOMAIN } from '../src/ledger/record';
 import { type HubMsg, PROTOCOL_VERSION, parseHubMsg } from '../src/net/protocol';
 import { RULES } from '../src/sim/rules';
 import rounds from '../tests/fixtures/drand/rounds.json';
+import { Admission } from './admission';
 import type { BeaconSource } from './beacons';
 import { fixtureSource } from './fixture-beacons';
 import { type Hub, type Session, sessionOf } from './socket';
@@ -186,6 +187,12 @@ export async function hatch(c: Client, id: Identity) {
 
 export const kill = (creature: string) =>
   sql("UPDATE creatures SET status = 'dead', died_t = 1 WHERE id = ?", creature);
+
+/** Forgets the line's memory (seats freed, seats closed lately, waits), as a wake does: earlier tests' closes don't set the wait. */
+export const freshLine = () =>
+  runInDurableObject(stub(), (authority) => {
+    (authority as unknown as Hub).admission = new Admission();
+  });
 
 /** Closes every socket a test opened (call from `afterEach`) and clears the ponds. */
 export async function closeSockets(): Promise<void> {

@@ -18,7 +18,7 @@ import { requestKey } from './beacons';
 import { unpackFrames } from './fight-pack';
 import { asStored, type Row } from './ledger-types';
 import { scalesOf } from './mating';
-import { requestBudget } from './sessions';
+import { limitsOf } from './plan';
 import type { Hub } from './socket';
 
 // What verification needs, served from the ledger alone (ADR 0055, M9 T7): a creature's proof
@@ -585,7 +585,7 @@ const BUSY_SHARE = 0.8;
 export function meterRead(hub: Hub): boolean {
   const now = Date.now();
   hub.usage.request(now);
-  return hub.usage.requests(now) > BUSY_SHARE * requestBudget(hub.env);
+  return hub.usage.requests(now) > BUSY_SHARE * limitsOf(hub.env).requestsPerDay;
 }
 
 /** Counts the request, then answers `busy` past 80% of the day's budget, else what `answer` reads. */

@@ -47,6 +47,7 @@ export const seen = (page: Page) =>
     return {
       screen: s.screen,
       player: s.player && { x: s.player.x, y: s.player.y, health: s.player.health },
+      tick: s.tick,
       remotes: s.remotes.map(({ id, x, y, radius, alpha, protected: p, fighting }) => ({
         id,
         x,
@@ -67,6 +68,7 @@ export const seen = (page: Page) =>
           x: Math.round(f.x),
           y: Math.round(f.y),
           health: f.health,
+          maxHealth: Math.round(f.maxHealth),
           outcome: f.outcome,
         })),
       },
@@ -190,7 +192,7 @@ export async function fightToEnd(
     .catch(async (error) => {
       const toasts = await a.getByTestId('toast').allTextContents();
       throw new Error(
-        `A's fight never started (toast: ${JSON.stringify(toasts)}): ${JSON.stringify(await seen(a))}`,
+        `A's fight never started (toast: ${JSON.stringify(toasts)}): ${JSON.stringify({ a: await seen(a), b: await seen(b) })}`,
         {
           cause: error,
         },

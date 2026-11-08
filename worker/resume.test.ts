@@ -193,7 +193,7 @@ describe('an away fighter keeps its seat', () => {
     });
     expect(seated).toBe(1);
     const { c } = await signIn();
-    expect((await c.next()).t).toBe('queued');
+    expect(await c.next()).toMatchObject({ t: 'queued', why: 'full' });
     const { got } = await signInAgain(b);
     await expectResume(got, b, start);
   });
