@@ -44,7 +44,7 @@ const teleport = (page: Page, x: number, y: number) =>
 test('an edge indicator points at a far player, a nearby ping shows on the edge, and M maps both', async ({
   browser,
 }) => {
-  test.setTimeout(60_000);
+  test.setTimeout(120_000);
   const [a, b] = await joinTwo(browser);
   try {
     const idA = (await state(a)).playerId as string;
@@ -90,9 +90,10 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
     await a.screenshot({ path: 'test-results/m6-find-edge.png' });
 
     // B pings beside itself, 1.5 half-widths to A's left: off A's screen but within 2 view radii.
-    const near = { x: pa.x - 1.5 * view.halfW, y: pa.y };
-    await teleport(b, near.x, near.y);
+    // A drifts while a loaded runner waits, so B goes to where A is at each ping.
     const ping = async () => {
+      const at = await playerOf(a);
+      await teleport(b, at.x - 1.5 * view.halfW, at.y);
       // B's cursor sits on its cell, so the ping lands there once the camera has caught up with the
       // teleport (a loaded runner draws few frames, and the camera eases after its target).
       await expect
@@ -112,20 +113,22 @@ test('an edge indicator points at a far player, a nearby ping shows on the edge,
     };
     // A ping lives 4 s of wall time, so each wait for one runs in the page (a frame-paced poll),
     // not over a round trip that a loaded runner can stretch past its life.
-    await ping();
-    await b.waitForFunction(
-      (id) => window.__bs?.state().social.pings.some((p) => p.from === id),
-      idB,
-      { timeout: 10_000 },
-    );
-    await a.waitForFunction(
-      (id) =>
-        !!document.querySelector(
-          `[data-testid="edge-indicator"][data-kind="ping"][data-id="${id}"]:not([hidden])`,
-        ),
-      idB,
-      { timeout: 10_000 },
-    );
+    await expect(async () => {
+      await ping();
+      await b.waitForFunction(
+        (id) => window.__bs?.state().social.pings.some((p) => p.from === id),
+        idB,
+        { timeout: 5_000 },
+      );
+      await a.waitForFunction(
+        (id) =>
+          !!document.querySelector(
+            `[data-testid="edge-indicator"][data-kind="ping"][data-id="${id}"]:not([hidden])`,
+          ),
+        idB,
+        { timeout: 4_000 },
+      );
+    }, 'A shows the edge indicator of B’s ping').toPass({ timeout: 45_000 });
     // The indicator points at where the ping landed, seen from where A is in the same snapshot
     // (A drifts a little on a loaded runner, so a fixed 180° would be a moving target).
     const seen = await state(a);

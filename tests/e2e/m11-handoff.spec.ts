@@ -59,6 +59,11 @@ test('crossing leaves keeps every link in view, and a creature ahead is linked b
   const players: Player[] = [];
   try {
     for (let i = 0; i < 3; i++) players.push(await join(browser, HUB));
+    // Nothing here looks at a picture: three pages drawing in software take a slow runner's CPU
+    // and memory, and a starved page plays no ticks (C swam 0 and 200 in 8 minutes).
+    await Promise.all(
+      players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true))),
+    );
     const [a, b, c] = players as [Player, Player, Player];
     await place(a, S.x, S.y);
     await place(b, S.x - 150, S.y - 150);
