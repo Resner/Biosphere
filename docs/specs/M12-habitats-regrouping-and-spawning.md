@@ -43,7 +43,7 @@ No owner input came: Playtests v0.10.0 (#379) and v0.11.0 (#418) have no replies
 | From M11 | Task |
 |---|---|
 | A crowd of more than 32 interactable creatures is flagged, not split (ADR 0062) | T3, T5, T6 |
-| Harness gate 3 is not asserted in the dense scenarios (`crowd`, `witnesses`): a pair that drifts past the P1 hold and back can come into view before its link is up, about 3 entries in 1,000 (ADR 0063) | T8 |
+| Harness gate 3 is not asserted in the dense scenarios (`crowd`, `witnesses`): a pair that drifts past the P1 hold and back can come into view before its link is up, about 3 entries in 1,000 (ADR 0063); asserted since T8 at 15 in 1,000 (ADR 0065) | T8 |
 | Spawning stays a ring around the world's centre; positions are not kept across reloads | T2, T4, T10 |
 
 ## Out of scope
@@ -476,7 +476,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Evidence at scale
 
-- [ ] T8 The harness learns placement, crowd instances and rides (after T2, T3)
+- [x] T8 The harness learns placement, crowd instances and rides (after T2, T3)
   - Steps:
     1. `tests/aoi-harness.ts`:
        - a scenario may place its spawns with `place()`;
@@ -502,6 +502,8 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
     - `throng` without instances is crowded at least 50% of the time, which shows the scenario crowds; with them, at most 1%.
     - Gate 9's bandwidth row is reported for `throng`. Its links are all P1, so it is not asserted.
   - Notes: if a gate's number is out of the link model's reach, the task records what it measures and why in an ADR, as ADR 0063 did, and the gate reads that.
+  - Done: harness runs `Crowds`, `place()` and a ride model (`Scenario.instances`, `.ride`, `ClientSpec.place`, `FightSpec.engage`); gates 10 and 11, `throng` (0.4% crowded with instances, all of the time without), `friends` placed; `WhereReporter.nudge` makes a page ask the directory again after its own instance changes (stale open-water words kept it crowded).
+    Gotcha: gate 3 in the dense scenarios reads 15 in 1,000, not 5 (ADR 0065: `crowd` and `witnesses` form no crowd and give 7 to 10 in 1,000 with or without instances); rides are off in every shipped scenario.
 
 - [ ] T9 The population wave: 5 → 300 → 20 (after T8)
   - Steps:

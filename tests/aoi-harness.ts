@@ -33,6 +33,7 @@ import {
 } from '../src/net/aoi';
 import { type LinkClass, NO_CLASS } from '../src/net/connection-policy';
 import { type Fix, Gossip, type PeersEvent } from '../src/net/gossip';
+import { CROWD_AT, OPEN_WATER, sameWater } from '../src/net/instance';
 import { SIGN_EVERY } from '../src/net/pond-sync';
 import {
   byteLength,
@@ -44,13 +45,23 @@ import {
 } from '../src/net/protocol';
 import { SignalRoute } from '../src/net/signal-route';
 import { FULL_RATE, wantedRate } from '../src/net/snapshot-rates';
-import { WhereReporter } from '../src/net/where';
+import { crowdList, WhereReporter } from '../src/net/where';
 import { clamp } from '../src/sim/math';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
-import { linkTiers, viewHalfHeight } from '../src/sim/size';
+import { RULES, TICK_HZ } from '../src/sim/rules';
+import { linkTiers, sizeTier, viewHalfHeight } from '../src/sim/size';
+import { type CrowdContext, Crowds, type Moved } from '../worker/crowds';
 import { Directory, RELAY_SLACK_WU } from '../worker/directory';
+import {
+  clearance,
+  type Placed,
+  type Placement,
+  place,
+  SPAWN_RECENT_MS,
+} from '../worker/placement';
 
 import {
+  type Box,
   type ClientSpec,
   type FightSpec,
   GATE_KEYS,
@@ -74,6 +85,10 @@ const LATE_AFTER_MS = 60_000;
 /** A crowded flag settles this long after the last plan that set it. */
 const CROWD_SETTLE_MS = 10_000;
 const ICE_FAIL = 0.05;
+/** A client alone this long may ride the current (M12 T7's `RIDE_ALONE_MS`, 120 s). */
+export const RIDE_ALONE_MS = 120_000;
+/** Gate 10 starts to count a client this long after its spawn. */
+export const CROWD_GRACE_MS = 10_000;
 /** What carries each state frame (B): IPv4 20, UDP 8, a DTLS record 37 (header, nonce, tag), SCTP 28. */
 export const FRAME_OVERHEAD_BYTES = 93;
 const MAX_VIOLATIONS = 8;
@@ -106,12 +121,23 @@ class Client {
   heading: number;
   dashUntil = 0;
   dashAt = 0;
+  /** Its instance, as the hub last told it (M12); 0 is the open water. */
+  n = OPEN_WATER;
+  changes = 0;
+  joined = false;
+  waterAt = Number.NEGATIVE_INFINITY;
+  /** Since when the directory has named no peer for it, null while it has one. */
+  aloneSince: number | null = null;
+  /** The box it bounces in: a ride takes it out. */
+  box: Box | undefined;
   readonly links = new Map<string, Link>();
   readonly out = new Map<string, Attempt>();
   readonly inn = new Map<string, Attempt>();
   readonly fixes = new Map<string, Fix>();
   dirKnown: Known[] = [];
   readonly signalKnown = new Map<string, Known>();
+  /** The freshest word of each creature's instance, from whatever source (the page's `CrowdView`). */
+  readonly words = new Map<string, { n: number; at: number }>();
   readonly refusedUntil = new Map<string, number>();
   readonly refusals = new Map<string, number>();
   /** When a higher-id peer first showed up in the plan: it waits for the lower id's call. */
@@ -142,6 +168,7 @@ class Client {
     this.y = spec.y;
     this.r = spec.r;
     this.heading = spec.walk.heading;
+    this.box = spec.walk.box;
     this.phase = index % 5;
     this.route = route(this);
   }
@@ -179,6 +206,11 @@ class Sim {
   private readonly script: Rng;
   private readonly net: Rng;
   private readonly res: RunResult;
+  private readonly crowds: Crowds | null;
+  private readonly fights: FightSpec[];
+  private readonly fightWater = new Map<FightSpec, number[]>();
+  private readonly placeRng: Rng;
+  private readonly spawns: { x: number; y: number; r: number; aoi: number; t: number }[] = [];
   private readonly p1Since = new Map<string, number>();
   private readonly badSince = new Map<string, number>();
   private readonly firstLink = new Set<string>();
@@ -191,6 +223,9 @@ class Sim {
     const s = seedFromString(`aoi|${sc.name}|${seed}`);
     this.script = createRng(s, 'script');
     this.net = createRng(s, 'net');
+    this.placeRng = createRng(s, 'place');
+    this.crowds = sc.instances === false ? null : new Crowds();
+    this.fights = (sc.fights ?? []).map((f) => ({ ...f, fighters: [...f.fighters] }));
     const zero = () => Object.fromEntries(GATE_KEYS.map((k) => [k, 0])) as Record<GateKey, number>;
     const none = () =>
       Object.fromEntries(GATE_KEYS.map((k) => [k, []])) as unknown as Record<GateKey, string[]>;
@@ -217,6 +252,13 @@ class Sim {
       linkUpload: 0,
       crowdedSeconds: 0,
       clientSeconds: 0,
+      instances: sc.instances !== false,
+      crowdedLate: 0,
+      clientLate: 0,
+      changesPerMinute: [],
+      spawns: 0,
+      spawnFallbacks: 0,
+      rides: 0,
       duties: 0,
       dutiesTaken: 0,
       entries: 0,
@@ -226,8 +268,8 @@ class Sim {
     sc.clients.forEach((spec, i) => {
       this.after(spec.spawnAt, () => this.spawn(spec, i));
     });
-    for (const f of sc.fights ?? []) {
-      this.after(f.from, () => this.duty(f, true));
+    for (const f of this.fights) {
+      this.after(f.from, () => this.startFight(f));
       this.after(f.until, () => this.duty(f, false));
       this.after(f.from + 10_000, () => this.checkDuty(f, 'taken'));
       this.after(f.until - 500, () => this.checkDuty(f, 'held'));
@@ -286,6 +328,12 @@ class Sim {
 
   private spawn(spec: ClientSpec, index: number): void {
     const c = new Client(spec, index, (self) => this.routeOf(self));
+    if (spec.place) {
+      const at = this.placeFor(c) as Placement;
+      c.x = at.x;
+      c.y = at.y;
+      this.hubReport(c);
+    }
     c.dashAt = this.now + this.script.range(1000, 6000);
     this.clients.set(spec.id, c);
     this.order.push(c);
@@ -317,6 +365,7 @@ class Sim {
 
   private tick(): void {
     const dt = TICK_MS / 1000;
+    this.settleCrowds();
     for (const c of this.order) this.move(c, dt);
     for (const c of this.order) this.snapshots(c);
     for (const c of this.order) {
@@ -327,6 +376,8 @@ class Sim {
       this.sample(c, dt);
     }
     this.pairs(this.order);
+    this.checkFightWater();
+    if (this.sc.ride) for (const c of this.order) this.maybeRide(c);
   }
 
   private move(c: Client, dt: number): void {
@@ -341,7 +392,7 @@ class Sim {
     c.vy = Math.sin(c.heading) * speed;
     c.x += c.vx * dt;
     c.y += c.vy * dt;
-    const b = w.box;
+    const b = c.box;
     if (b) {
       if (c.x < b.x0 || c.x > b.x1) {
         c.x = clamp(c.x, b.x0, b.x1);
@@ -359,33 +410,59 @@ class Sim {
     for (const [id, link] of c.links) {
       const o = this.clients.get(id);
       if (!o || !link.hello) continue;
-      c.fixes.set(id, { x: o.x, y: o.y, r: o.r, at: this.now });
+      c.fixes.set(id, { x: o.x, y: o.y, r: o.r, at: this.now, n: o.n });
+      c.words.set(id, { n: o.n, at: this.now });
     }
   }
 
   // ---- the directory ----
 
   private report(c: Client): void {
+    // A page whose wanted P0 + P1 that share its water reach `CROWD_AT` is crowded: its `where` carries its crowd.
+    const crowd =
+      this.crowds !== null && c.heavy() >= CROWD_AT
+        ? () => crowdList(c.id, { x: c.x, y: c.y, r: c.r, n: c.n }, c.fixes)
+        : null;
     const msg = c.reporter.update(
       { inWater: true, x: c.x, y: c.y, r: c.r, aoi: c.aoi(), now: this.now },
       c.leaf,
+      crowd,
     );
     if (msg?.t !== 'where') return;
     c.hubMsgs.push(this.now);
     const sent = { x: c.x, y: c.y, r: c.r, aoi: c.aoi() };
-    this.after(this.hubMs(), () => this.answerWhere(c, sent));
+    const list = msg.crowd ?? null;
+    this.after(this.hubMs(), () => this.answerWhere(c, sent, list));
   }
 
-  private answerWhere(c: Client, s: { x: number; y: number; r: number; aoi: number }): void {
+  /** The hub takes a report: the directory, then the crowds (a list of ids that aren't seated is cut). */
+  private hubReport(
+    c: Client,
+    crowd: readonly string[] | null = null,
+    s: { x: number; y: number; r: number; aoi: number } = { x: c.x, y: c.y, r: c.r, aoi: c.aoi() },
+  ): void {
     const { moved } = this.dir.report({ id: c.id, name: c.id, ...s, t: this.now });
     for (const m of moved) {
       const o = this.clients.get(m.id);
       if (o) this.after(this.hubMs(), () => (o.leaf = m.leaf));
     }
-    const near = this.dir.near(c.id, this.now);
+    if (this.crowds === null) return;
+    const seated = crowd?.filter((id) => id === c.id || this.dir.member(id)) ?? null;
+    this.told(this.crowds.report({ id: c.id, x: s.x, y: s.y, r: s.r }, seated, this.now, this.ctx));
+  }
+
+  private answerWhere(
+    c: Client,
+    s: { x: number; y: number; r: number; aoi: number },
+    crowd: readonly string[] | null,
+  ): void {
+    this.hubReport(c, crowd, s);
+    const near = this.dir.near(c.id, this.now, (id) => this.inst(id));
     if (!near) return;
+    c.aloneSince = near.peers.length === 0 ? (c.aloneSince ?? this.now) : null;
     this.checkSwarm(c, s, near.swarm);
     this.after(this.hubMs(), () => {
+      for (const p of near.peers) c.words.set(p.id, { n: p.n, at: this.now });
       c.leaf = near.leaf;
       c.dirKnown = near.peers.map((p) => ({
         id: p.id,
@@ -393,6 +470,7 @@ class Sim {
         y: p.y,
         r: p.r,
         at: this.now - p.age,
+        n: p.n,
         source: 'directory' as const,
       }));
       c.dirty = true;
@@ -410,6 +488,7 @@ class Sim {
     for (const id of this.dir.around(s.x, s.y, s.aoi)) {
       const m = id === c.id ? null : this.dir.member(id);
       if (!m || m.r >= s.r || linkTiers(s.r, m.r) || this.now - m.t > 30_000) continue;
+      if (!sameWater(this.inst(c.id), this.inst(id))) continue;
       const wire = (v: number) => Math.round(v * 8) / 8;
       want.push({ d: Math.hypot(m.x - s.x, m.y - s.y), key: `${wire(m.x)},${wire(m.y)}` });
     }
@@ -446,6 +525,7 @@ class Sim {
   /** The hub relays between members within max(Q) + 4,096 wu, or a duty pair (M11 T14). */
   private hubPasses(a: string, b: string): boolean {
     if (this.dutyPair(a, b)) return true;
+    if (!sameWater(this.inst(a), this.inst(b))) return false;
     const d = this.dir.distance(a, b);
     const ma = this.dir.member(a);
     const mb = this.dir.member(b);
@@ -453,8 +533,16 @@ class Sim {
     return d <= Math.max(queryRadius(ma.aoi), queryRadius(mb.aoi)) + RELAY_SLACK_WU;
   }
 
+  /** The fights running now, kept for the tick: the crowds ask for them once per member. */
+  private activeAt = Number.NaN;
+  private active: FightSpec[] = [];
+
   private activeFights(): FightSpec[] {
-    return (this.sc.fights ?? []).filter((f) => f.from <= this.now && this.now < f.until);
+    if (this.activeAt !== this.now) {
+      this.activeAt = this.now;
+      this.active = this.fights.filter((f) => f.from <= this.now && this.now < f.until);
+    }
+    return this.active;
   }
 
   private dutyPair(a: string, b: string): boolean {
@@ -549,11 +637,23 @@ class Sim {
       if (this.now - k.at > 10_000) c.signalKnown.delete(id);
       else out.push(k);
     }
-    return out;
+    // Each sighting carries the freshest word of its creature's instance.
+    return out.map((k) => {
+      const w = c.words.get(k.id);
+      return w ? { ...k, n: w.n } : k;
+    });
   }
 
   private replan(c: Client) {
-    const self: AoiSelf = { x: c.x, y: c.y, vx: c.vx, vy: c.vy, r: c.r, adultR: c.spec.adultR };
+    const self: AoiSelf = {
+      x: c.x,
+      y: c.y,
+      vx: c.vx,
+      vy: c.vy,
+      r: c.r,
+      adultR: c.spec.adultR,
+      n: c.n,
+    };
     const known = this.knownOf(c);
     const classes = c.mgr.classify(self, known, c.p0, c.classes);
     const plan = c.mgr.plan(classes, this.heldSet(c), this.now);
@@ -566,6 +666,7 @@ class Sim {
   }
 
   private plan(c: Client): void {
+    this.closeApart(c);
     const plan = this.replan(c);
     this.evict(c, plan.evict);
     for (const id of c.waiting.keys()) if (!plan.connect.includes(id)) c.waiting.delete(id);
@@ -649,6 +750,7 @@ class Sim {
     const inView = d <= c.view() || d <= o.view();
     if (!inView || d > Math.min(c.aoi(), o.aoi()) || !linkTiers(c.r, o.r)) return;
     if (c.crowded || o.crowded || c.heavy() >= 24 || o.heavy() >= 24) return;
+    if (!this.shares(c.id, id) || this.watered(c) || this.watered(o)) return;
     this.violate('pops', `${c.id} closed the link to ${id} in view at ${Math.round(d)} wu`);
   }
 
@@ -737,7 +839,7 @@ class Sim {
 
   private hearGossip(to: string, from: string, ev: PeersEvent): void {
     const c = this.clients.get(to);
-    if (c?.helloed(from)) c.gossip.receive(from, ev, this.now);
+    if (c?.helloed(from)) c.gossip.receive(from, ev, this.now, c.n);
   }
 
   // ---- fights ----
@@ -772,6 +874,176 @@ class Sim {
     }
   }
 
+  // ---- instances, placement and rides (M12) ----
+
+  /** A client's instance by the hub's crowds (0 without them). */
+  private inst(id: string): number {
+    return this.crowds?.instanceOf(id) ?? OPEN_WATER;
+  }
+
+  private shares(a: string, b: string): boolean {
+    return sameWater(this.inst(a), this.inst(b));
+  }
+
+  /** What the crowds need of the hub: a fight's fighters are locked and each other's partners. */
+  private readonly ctx: CrowdContext = {
+    locked: (id) => this.activeFights().some((f) => f.fighters.includes(id)),
+    partners: (id) => {
+      const f = this.activeFights().find((g) => g.fighters.includes(id));
+      return f ? f.fighters.filter((o) => o !== id) : [];
+    },
+    around: (x, y, radius) =>
+      this.dir.around(x, y, radius).flatMap((id) => {
+        const m = this.dir.member(id);
+        return m ? [{ id, x: m.x, y: m.y, r: m.r }] : [];
+      }),
+  };
+
+  /** Each member whose instance changed hears it after the hub's latency. */
+  private told(moved: readonly Moved[]): void {
+    for (const m of moved) {
+      const o = this.clients.get(m.id);
+      if (o) this.after(this.hubMs(), () => this.setWater(o, this.inst(o.id)));
+    }
+  }
+
+  private setWater(c: Client, n: number): void {
+    if (c.n === n) return;
+    // The first instance a creature joins is its entry; what follows is a change (gate 10).
+    if (c.joined) c.changes++;
+    c.joined = true;
+    c.n = n;
+    c.waterAt = this.now;
+    c.reporter.nudge();
+    c.dirty = true;
+  }
+
+  /** The hub's one crowd timer: what is due settles. */
+  private settleCrowds(): void {
+    if (!this.crowds) return;
+    const due = this.crowds.due();
+    if (due !== null && due <= this.now) {
+      this.told(this.crowds.settle(this.now, this.ctx));
+    }
+  }
+
+  /** A link that no longer shares water closes at once, unless it is a duty link (P0). */
+  private closeApart(c: Client): void {
+    if (this.crowds === null) return;
+    for (const id of c.links.keys()) {
+      const f = c.fixes.get(id);
+      if (f && !c.p0.has(id) && !sameWater(c.n, f.n ?? OPEN_WATER)) this.close(c, id);
+    }
+  }
+
+  /** An engage picks its target: the nearest comparable creature sharing the attacker's water. */
+  private startFight(f: FightSpec): void {
+    const a =
+      f.engage && f.fighters.length === 1 ? this.clients.get(f.fighters[0] as string) : null;
+    if (a) {
+      const taken = new Set(
+        this.activeFights().flatMap((g) => [...g.fighters, ...(g === f ? f.witnesses : [])]),
+      );
+      let best: Client | null = null;
+      let near = Number.POSITIVE_INFINITY;
+      for (const o of this.order) {
+        if (o === a || taken.has(o.id) || !linkTiers(a.r, o.r) || !this.shares(a.id, o.id))
+          continue;
+        const d = Math.hypot(o.x - a.x, o.y - a.y);
+        if (d < near) [best, near] = [o, d];
+      }
+      if (best) f.fighters.push(best.id);
+    }
+    this.fightWater.set(
+      f,
+      f.fighters.map((id) => this.inst(id)),
+    );
+    this.duty(f, true);
+  }
+
+  /** Gate 10: a fight's fighters share water and keep their instance for the whole fight. */
+  private checkFightWater(): void {
+    for (const f of this.activeFights()) {
+      const start = this.fightWater.get(f);
+      if (!start) continue;
+      f.fighters.forEach((id, i) => {
+        if (this.inst(id) !== start[i])
+          this.violate('fightWater', `${id} changed instance during a fight`);
+      });
+      const [a, b] = f.fighters;
+      if (a && b && !this.shares(a, b))
+        this.violate('fightWater', `fighters ${a} and ${b} do not share water`);
+    }
+  }
+
+  /**
+   * Where `c` enters the water, by `place()` over the directory's positions as the hub knows them
+   * (gate 11: the clearance from every engage-capable member). A ride with no group to ride to gets
+   * null.
+   */
+  private placeFor(c: Client, ride = false): Placement | null {
+    const members: Placed[] = [];
+    for (const o of this.order) {
+      const m = o === c ? undefined : this.dir.member(o.id);
+      if (m) members.push({ id: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, n: this.inst(o.id) });
+    }
+    while (this.spawns[0] && this.now - this.spawns[0].t >= SPAWN_RECENT_MS) this.spawns.shift();
+    const spawner = { r: c.r, adultR: c.spec.adultR, aoi: c.aoi() };
+    const at = place({
+      members,
+      recent: this.spawns,
+      spawner,
+      centre: { x: CENTRE, y: CENTRE },
+      world: {
+        seed: `aoi|${this.res.scenario}|${this.res.seed}`,
+        size: WORLD,
+        tick: Math.floor((this.now * TICK_HZ) / 1000),
+      },
+      now: this.now,
+      rng: this.placeRng,
+    });
+    if (ride && at.group === null) return null;
+    this.res.spawns++;
+    if (at.fallback === 'centre') this.res.spawnFallbacks++;
+    else {
+      const tier = sizeTier(c.r * c.r);
+      for (const m of members) {
+        if (Math.abs(sizeTier(m.r * m.r) - tier) > RULES.encounter.maxTierGap) continue;
+        const d = Math.hypot(m.x - at.x, m.y - at.y);
+        if (d < clearance(spawner, m) - 1e-6)
+          this.violate('clearance', `${c.id} placed ${Math.round(d)} wu from ${m.id}`);
+      }
+    }
+    this.spawns.push({ x: at.x, y: at.y, r: c.r, aoi: spawner.aoi, t: this.now });
+    return at;
+  }
+
+  /**
+   * The ride model: a client the directory has named no one for in `RIDE_ALONE_MS` asks to ride; the
+   * hub refuses a locked one, one with company now and one with no group to ride to, and otherwise
+   * places it around the best group at once. It asks again after another wait.
+   */
+  private maybeRide(c: Client): void {
+    if (c.aloneSince === null || this.now - c.aloneSince < RIDE_ALONE_MS) return;
+    c.aloneSince = null;
+    if (this.activeFights().some((f) => f.fighters.includes(c.id))) return;
+    const near = this.dir.near(c.id, this.now, (id) => this.inst(id));
+    if (!near || near.peers.length > 0) return;
+    const at = this.placeFor(c, true);
+    if (!at) return;
+    for (const id of [...c.links.keys()]) this.close(c, id);
+    for (const a of [...c.out.values(), ...c.inn.values()]) this.dropAttempt(a);
+    c.fixes.clear();
+    c.dirKnown = [];
+    c.signalKnown.clear();
+    c.x = at.x;
+    c.y = at.y;
+    c.box = undefined;
+    c.dirty = true;
+    this.res.rides++;
+    this.hubReport(c);
+  }
+
   // ---- measurements ----
 
   private checkCap(c: Client): void {
@@ -793,6 +1065,10 @@ class Sim {
     this.res.linkSeconds += n * dt;
     this.res.clientSeconds += dt;
     if (c.crowded) this.res.crowdedSeconds += dt;
+    if (this.now - c.spec.spawnAt >= CROWD_GRACE_MS) {
+      this.res.clientLate += dt;
+      if (c.crowded) this.res.crowdedLate += dt;
+    }
     this.upload(c, n);
   }
 
@@ -895,7 +1171,7 @@ class Sim {
   private pairChecks(a: Client, b: Client, d: number): void {
     const key = `${a.id}|${b.id}`;
     const reach = INTERACT_RADII * Math.max(a.r, b.r);
-    if (!linkTiers(a.r, b.r)) {
+    if (!linkTiers(a.r, b.r) || !this.shares(a.id, b.id)) {
       this.p1Since.delete(key);
       return;
     }
@@ -914,11 +1190,18 @@ class Sim {
 
   /** A creature that is crowded, or has the room under 24 full of P1 by true positions, is excused. */
   private settling(c: Client): boolean {
-    return c.crowded || c.p1True >= 24 || this.now - c.crowdedAt < CROWD_SETTLE_MS;
+    return (
+      c.crowded || c.p1True >= 24 || this.now - c.crowdedAt < CROWD_SETTLE_MS || this.watered(c)
+    );
+  }
+
+  /** Its instance changed in the last 10 s: a pair is excused as a new pair is. */
+  private watered(c: Client): boolean {
+    return this.now - c.waterAt < CROWD_SETTLE_MS;
   }
 
   private entered(a: Client, b: Client): void {
-    if (!linkTiers(a.r, b.r)) return;
+    if (!linkTiers(a.r, b.r) || !this.shares(a.id, b.id)) return;
     if (this.now - a.spec.spawnAt < YOUNG_MS || this.now - b.spec.spawnAt < YOUNG_MS) return;
     if (this.settling(a) || this.settling(b) || a.heavy() >= 24) return;
     const dx = b.x - a.x;
@@ -932,7 +1215,7 @@ class Sim {
     else
       this.violate(
         'late',
-        `${b.id} came into ${a.id}'s view unlinked (closing ${Math.round(closing)} wu/s)`,
+        `${b.id} came into ${a.id}'s view unlinked (closing ${Math.round(closing)} wu/s, instances ${b.n} and ${a.n}, P0+P1 ${a.heavy()})`,
       );
   }
 
@@ -956,6 +1239,8 @@ class Sim {
   }
 
   private finish(c: Client): void {
+    const life = this.sc.seconds * 1000 - c.spec.spawnAt;
+    if (life >= 60_000) this.res.changesPerMinute.push(c.changes / (life / 60_000));
     // Authority messages per player-minute: each full minute of the creature's life.
     const from = c.spec.spawnAt;
     for (let t = from; t + 60_000 <= this.sc.seconds * 1000; t += 60_000) {
