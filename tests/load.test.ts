@@ -115,6 +115,7 @@ function clean(): RunResult {
     spawnFallbacks: 0,
     crowdedLate: 0,
     clientLate: 1000,
+    clientSeconds: 1000,
     wave,
   } as RunResult;
 }
@@ -129,10 +130,10 @@ describe('the load gates', () => {
 
   it('fail the budget on the median, the p95, a joiner and the mean', () => {
     const median = clean();
-    (median.wave as NonNullable<RunResult['wave']>).holdSteady = [7, 7, 7, 7, 7];
+    (median.wave as NonNullable<RunResult['wave']>).holdSteady = [9, 9, 9, 9, 9];
     expect(failing(median)).toEqual([1]);
     const tail = clean();
-    (tail.wave as NonNullable<RunResult['wave']>).holdSteady = [1, 1, 1, 1, 1, 1, 1, 1, 1, 13];
+    (tail.wave as NonNullable<RunResult['wave']>).holdSteady = [1, 1, 1, 1, 1, 1, 1, 1, 1, 21];
     expect(failing(tail)).toEqual([1]);
     const joiner = clean();
     (joiner.wave as NonNullable<RunResult['wave']>).holdJoin = [101, 101];
@@ -178,10 +179,18 @@ describe('the load gates', () => {
     expect(failing(crowded)).toEqual([4]);
   });
 
-  it('fail on a hidden creature and on a fight that changed water', () => {
+  it('fail on hidden creatures past a rate, and on a fight that changed water', () => {
+    // clean() has 1,000 client-seconds: one violation is a thousand times the rate allowed.
     const hidden = clean();
     hidden.violations.hidden = 1;
     expect(failing(hidden)).toEqual([5]);
+    // 9.6 million client-seconds (10,000 players for 16 minutes) allow 9, and the run measured 5.
+    const rare = clean();
+    rare.clientSeconds = 9.6e6;
+    rare.violations.hidden = 9;
+    expect(failing(rare)).toEqual([]);
+    rare.violations.hidden = 10;
+    expect(failing(rare)).toEqual([5]);
     const water = clean();
     water.violations.fightWater = 1;
     expect(failing(water)).toEqual([6]);

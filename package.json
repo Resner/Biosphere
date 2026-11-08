@@ -20,7 +20,7 @@
     "report:net": "node tools/net.mjs",
     "report:aoi": "node tools/aoi.mjs",
     "sim:wave": "node tools/wave.mjs",
-    "sim:load": "node --expose-gc tools/load.mjs",
+    "sim:load": "node --expose-gc --max-old-space-size=12000 tools/load.mjs",
     "verify:lineage": "node tools/lineage.mjs",
     "gallery": "node tools/gallery.mjs",
     "report:budget": "node tools/budget-report.mjs",

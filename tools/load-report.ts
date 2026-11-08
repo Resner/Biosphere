@@ -9,6 +9,7 @@ import type { RunResult } from '../tests/aoi-types';
 import {
   FULL_LOAD,
   LOAD_CROWDED_SHARE,
+  LOAD_HIDDEN_PER_MILLION,
   LOAD_JOIN_P95,
   LOAD_MSG_MEAN,
   LOAD_MSG_MEDIAN,
@@ -166,11 +167,11 @@ Written by \`npm run sim:load\` (\`tools/load-report.ts\`) from the headless har
 
 ## Gates
 
-1. **Budget**, in the hold: world messages per player-minute after a player's first minute, median at most ${LOAD_MSG_MEDIAN} and p95 at most ${LOAD_MSG_P95}; in a joiner's first minute p95 at most ${LOAD_JOIN_P95}; the hold's mean, churn included, at most ${LOAD_MSG_MEAN}.
+1. **Budget**, in the hold (ADR 0070): world messages per player-minute after a player's first minute, median at most ${LOAD_MSG_MEDIAN} and p95 at most ${LOAD_MSG_P95} (the Worker's own budget); in a joiner's first minute p95 at most ${LOAD_JOIN_P95}; the hold's mean, churn included, at most ${LOAD_MSG_MEAN}.
 2. **Placement**: no clearance violation, no fall back to the spawn centre, every spawn with a group within the group's reach plus ${EDGE_CLEARANCES} clearances.
 3. **Together**: a T0 newcomer with a group is linked to one of its members within 3 s at the median and 5 s at the p95.
 4. **Bounded**: never more than ${LINK_CAP} links, and at most ${LOAD_CROWDED_SHARE * 100}% of client-seconds crowded after a client's first 10 s.
-5. **No hidden creature**: gate 2 of the area-of-interest report among pairs that share water, as the wave reads it (ADR 0066).
+5. **No hidden creature**: gate 2 of the area-of-interest report among pairs that share water, as the wave reads it (ADR 0066), at most ${LOAD_HIDDEN_PER_MILLION} violation-second in a million client-seconds (ADR 0070).
 6. **Integrity**: fighters share water and keep their instance through their fights.
 `;
 

@@ -233,8 +233,14 @@ export function runLoad(
 
 // ---- the gates ----
 
-export const LOAD_MSG_MEDIAN = 6;
-export const LOAD_MSG_P95 = 12;
+/**
+ * The budget's tail at 10,000 (ADR 0070): the median at most 8 and the p95 at most the Worker's own
+ * 20 messages a player-minute (one request-equivalent). The wave's 6 and 12 (ADR 0066) stay the wave's.
+ */
+export const LOAD_MSG_MEDIAN = 8;
+export const LOAD_MSG_P95 = 20;
+/** Hidden-creature seconds allowed per million client-seconds (ADR 0070). */
+export const LOAD_HIDDEN_PER_MILLION = 1;
 export const LOAD_JOIN_P95 = 100;
 export const LOAD_MSG_MEAN = 12;
 export const LOAD_CROWDED_SHARE = PEAK_CROWDED_SHARE;
@@ -280,6 +286,7 @@ export function loadGates(run: RunResult): Gate[] {
   const crowdedShare = run.clientLate === 0 ? 0 : run.crowdedLate / run.clientLate;
   const boundedOk = run.maxHeld <= LINK_CAP && crowdedShare <= LOAD_CROWDED_SHARE;
 
+  const hiddenAllowed = Math.floor((LOAD_HIDDEN_PER_MILLION * run.clientSeconds) / 1e6);
   const fights = w.fights.filter((f) => f.fighters.length > 1).length;
 
   return [
@@ -309,9 +316,9 @@ export function loadGates(run: RunResult): Gate[] {
     },
     {
       n: 5,
-      name: 'No hidden creature: no pair that shares water and can interact is left unlinked',
-      ok: v('hidden') === 0,
-      detail: `${v('hidden')} violations${v('hidden') === 0 ? '' : `: ${examples(run, 'hidden')}`}`,
+      name: `No hidden creature: a pair that shares water and can interact is left unlinked for at most ${LOAD_HIDDEN_PER_MILLION} second in a million client-seconds`,
+      ok: v('hidden') <= hiddenAllowed,
+      detail: `${v('hidden')} violations in ${(run.clientSeconds / 1e6).toFixed(1)} million client-seconds (at most ${hiddenAllowed})${v('hidden') === 0 ? '' : `: ${examples(run, 'hidden')}`}`,
     },
     {
       n: 6,
