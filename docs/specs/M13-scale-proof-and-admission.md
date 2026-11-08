@@ -333,7 +333,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Relay and the line on the wire
 
-- [ ] T4 Protocol 13: relay reports and the line's reason [opus] (after T1)
+- [ ] T4 Protocol 13: relay reports and the line's reason [opus] (after T1) (in progress)
   - Steps:
     1. `PROTOCOL_VERSION` 13. A protocol-12 hello gets `error: version`.
     2. **The wire**: `progress` gains `relay?`, and `queued` gains `why` (shapes above). The parsers refuse a missing, extra or out-of-range field.
