@@ -113,6 +113,9 @@ const m11RelayHubPort = 8830;
 const m11TiersHubPort = 8831;
 // The M11 lifecycle spec (M11 T19, 8832): four players in the one world.
 const m11LifecycleHubPort = 8832;
+// The M12 crowd spec (M12 T6, 8834): instances of 2 that merge after 3 s quiet, small leaves so a
+// page that swims out reports at once.
+const m12CrowdHubPort = 8834;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -443,6 +446,7 @@ export default defineConfig({
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],
       ['m11-tiers', m11TiersHubPort, ''],
+      ['m12-crowd', m12CrowdHubPort, '--var INSTANCE_MAX:2 --var QUIET_MS:3000 --var LEAF_MAX:2'],
       [
         'm11-lifecycle',
         m11LifecycleHubPort,

@@ -125,6 +125,7 @@ export class LifeStarts {
     app.frame.view.body = app.session.body.creature;
     app.lastClock = null;
     hud.setLife(null);
+    hud.clearToast();
     hud.setPractice(!app.session.demo && flow.view().status === 'practice');
     app.screen = nextScreen;
     app.screenShownAt = performance.now();

@@ -117,12 +117,8 @@ export class Hud {
   setLife(clock: LifeClock | null): void {
     setHidden(this.lifeRows, clock === null);
     setHidden(this.lifeBar.root, clock === null);
-    if (!clock) {
-      // A new life starts without the last one's toast.
-      clearTimeout(this.toastTimer);
-      this.toastElement.hidden = true;
-      return;
-    }
+    // A practice cell has none on every tick: its toasts stay (`clearToast` ends one).
+    if (!clock) return;
     const stage = stageWord(clock.stage);
     const left = remainingText(clock.remainingMs);
     setText(this.stage, stage);
@@ -204,6 +200,12 @@ export class Hud {
         { duration: 1100, easing: 'ease-in-out' },
       );
     }
+  }
+
+  /** Hides the toast at once: a new life starts without the last one's. */
+  clearToast(): void {
+    clearTimeout(this.toastTimer);
+    this.toastElement.hidden = true;
   }
 
   /** A short line in the middle of the screen. */
