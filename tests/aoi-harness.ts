@@ -29,6 +29,7 @@ import {
   INTERACT_LEAD_WU,
   INTERACT_RADII,
   type Known,
+  p1Reach,
   queryRadius,
 } from '../src/net/aoi';
 import { type LinkClass, NO_CLASS } from '../src/net/connection-policy';
@@ -54,6 +55,8 @@ import { type CrowdContext, Crowds, type Moved } from '../worker/crowds';
 import { Directory, RELAY_SLACK_WU } from '../worker/directory';
 import {
   clearance,
+  groupsFor,
+  inSpawnBand,
   type Placed,
   type Placement,
   place,
@@ -69,6 +72,7 @@ import {
   type RunResult,
   type Scenario,
 } from './aoi-types';
+import { type Arrival, emptyWave, type WaveRecord } from './wave-record';
 
 const TICK_MS = 100;
 /** The world's centre: scenarios lay their creatures out around it (ADR 0061). */
@@ -92,6 +96,8 @@ export const CROWD_GRACE_MS = 10_000;
 /** What carries each state frame (B): IPv4 20, UDP 8, a DTLS record 37 (header, nonce, tag), SCTP 28. */
 export const FRAME_OVERHEAD_BYTES = 93;
 const MAX_VIOLATIONS = 8;
+/** The hub refuses a ride this long after the rider's last fight ended (`RIDE_AFTER_FIGHT_MS` in `worker/fights.ts`). */
+export const RIDE_AFTER_FIGHT_MS = 120_000;
 
 interface Link {
   hello: boolean;
@@ -130,6 +136,14 @@ class Client {
   aloneSince: number | null = null;
   /** The box it bounces in: a ride takes it out. */
   box: Box | undefined;
+  /** It has left the water (`ClientSpec.leaveAt`). */
+  left = false;
+  leftAt = Number.POSITIVE_INFINITY;
+  /** When its last fight ended (ms). */
+  fightEnd = Number.NEGATIVE_INFINITY;
+  /** The wave's record of its last arrival, and the ids of the group it was placed around. */
+  arrival: Arrival | null = null;
+  groupIds: Set<string> | null = null;
   readonly links = new Map<string, Link>();
   readonly out = new Map<string, Attempt>();
   readonly inn = new Map<string, Attempt>();
@@ -210,6 +224,12 @@ class Sim {
   private readonly fights: FightSpec[];
   private readonly fightWater = new Map<FightSpec, number[]>();
   private readonly placeRng: Rng;
+  private readonly wave: WaveRecord | null;
+  /** The wave's counters since the last minute mark: spawns, rides and authority messages. */
+  private minuteSpawns = 0;
+  private minuteRides = 0;
+  private minuteMsgs = 0;
+  private readonly gone: Client[] = [];
   private readonly spawns: { x: number; y: number; r: number; aoi: number; t: number }[] = [];
   private readonly p1Since = new Map<string, number>();
   private readonly badSince = new Map<string, number>();
@@ -225,6 +245,7 @@ class Sim {
     this.net = createRng(s, 'net');
     this.placeRng = createRng(s, 'place');
     this.crowds = sc.instances === false ? null : new Crowds();
+    this.wave = sc.wave ? emptyWave(sc.wave) : null;
     this.fights = (sc.fights ?? []).map((f) => ({ ...f, fighters: [...f.fighters] }));
     const zero = () => Object.fromEntries(GATE_KEYS.map((k) => [k, 0])) as Record<GateKey, number>;
     const none = () =>
@@ -265,8 +286,10 @@ class Sim {
       entriesLinked: 0,
       hub: { relayed: 0, hub: 0, fallback: 0, refused: 0 },
     };
+    if (this.wave) this.res.wave = this.wave;
     sc.clients.forEach((spec, i) => {
       this.after(spec.spawnAt, () => this.spawn(spec, i));
+      if (spec.leaveAt !== undefined) this.after(spec.leaveAt, () => this.leave(spec.id));
     });
     for (const f of this.fights) {
       this.after(f.from, () => this.startFight(f));
@@ -283,8 +306,15 @@ class Sim {
       this.tick();
       this.tickIndex++;
     }
-    for (const c of this.order) this.finish(c);
-    for (const c of this.order) {
+    for (const c of [...this.order, ...this.gone]) this.finish(c);
+    if (this.wave) {
+      this.wave.fights = this.fights.map((f) => ({
+        fighters: [...f.fighters],
+        from: f.from,
+        until: f.until,
+      }));
+    }
+    for (const c of [...this.order, ...this.gone]) {
       const s = c.route.stats();
       this.res.hub.relayed += s.relayed;
       this.res.hub.hub += s.hub;
@@ -332,11 +362,36 @@ class Sim {
       const at = this.placeFor(c) as Placement;
       c.x = at.x;
       c.y = at.y;
+      this.hubMsg(c);
       this.hubReport(c);
     }
     c.dashAt = this.now + this.script.range(1000, 6000);
     this.clients.set(spec.id, c);
     this.order.push(c);
+  }
+
+  /** A message the authority receives from `c` (the budget gate's count). */
+  private hubMsg(c: Client): void {
+    c.hubMsgs.push(this.now);
+    this.minuteMsgs++;
+  }
+
+  /** `c` leaves the water: its links close, the hub drops it from the directory and the crowds. */
+  private leave(id: string): void {
+    const c = this.clients.get(id);
+    if (!c || c.left) return;
+    for (const other of [...c.links.keys()]) this.close(c, other);
+    for (const a of [...c.out.values(), ...c.inn.values()]) this.dropAttempt(a);
+    c.left = true;
+    c.leftAt = this.now;
+    for (const m of this.dir.remove(id)) {
+      const o = this.clients.get(m.id);
+      if (o) this.after(this.hubMs(), () => (o.leaf = m.leaf));
+    }
+    if (this.crowds) this.told(this.crowds.remove(id, this.now, this.ctx));
+    this.order.splice(this.order.indexOf(c), 1);
+    this.clients.delete(id);
+    this.gone.push(c);
   }
 
   private routeOf(c: Client): SignalRoute {
@@ -377,7 +432,8 @@ class Sim {
     }
     this.pairs(this.order);
     this.checkFightWater();
-    if (this.sc.ride) for (const c of this.order) this.maybeRide(c);
+    if (this.sc.ride) for (const c of [...this.order]) this.maybeRide(c);
+    if (this.wave) this.recordWave();
   }
 
   private move(c: Client, dt: number): void {
@@ -429,7 +485,7 @@ class Sim {
       crowd,
     );
     if (msg?.t !== 'where') return;
-    c.hubMsgs.push(this.now);
+    this.hubMsg(c);
     const sent = { x: c.x, y: c.y, r: c.r, aoi: c.aoi() };
     const list = msg.crowd ?? null;
     this.after(this.hubMs(), () => this.answerWhere(c, sent, list));
@@ -441,6 +497,7 @@ class Sim {
     crowd: readonly string[] | null = null,
     s: { x: number; y: number; r: number; aoi: number } = { x: c.x, y: c.y, r: c.r, aoi: c.aoi() },
   ): void {
+    if (c.left) return;
     const { moved } = this.dir.report({ id: c.id, name: c.id, ...s, t: this.now });
     for (const m of moved) {
       const o = this.clients.get(m.id);
@@ -456,6 +513,7 @@ class Sim {
     s: { x: number; y: number; r: number; aoi: number },
     crowd: readonly string[] | null,
   ): void {
+    if (c.left) return;
     this.hubReport(c, crowd, s);
     const near = this.dir.near(c.id, this.now, (id) => this.inst(id));
     if (!near) return;
@@ -502,7 +560,7 @@ class Sim {
   // ---- signals ----
 
   private hubSend(c: Client, to: string, kind: SignalKind, sdp: string): void {
-    c.hubMsgs.push(this.now);
+    this.hubMsg(c);
     if (kind === 'offer') {
       const a = c.out.get(to);
       if (a) a.relayed = false;
@@ -601,7 +659,7 @@ class Sim {
     if (!caller) return;
     let ms = this.hop();
     if (!a.relayed) {
-      c.hubMsgs.push(this.now);
+      this.hubMsg(c);
       ms = this.hubMs() + this.hubMs();
     }
     this.after(ms, () => {
@@ -815,6 +873,8 @@ class Sim {
     b.refusals.delete(a.id);
     la.hello = lb.hello = true;
     la.helloAt = lb.helloAt = this.now;
+    this.noteLink(a, b);
+    this.noteLink(b, a);
     const pair = a.id < b.id ? `${a.id}|${b.id}` : `${b.id}|${a.id}`;
     if (this.sc.friends && !this.firstLink.has(pair)) {
       this.firstLink.add(pair);
@@ -849,6 +909,7 @@ class Sim {
     for (const id of ids) {
       const c = this.clients.get(id);
       if (!c) continue;
+      if (!on && f.fighters.includes(id)) c.fightEnd = this.now;
       const mates = f.witnesses.includes(id) ? f.fighters : ids.filter((o) => o !== id);
       for (const m of mates) {
         if (on) c.p0.add(m);
@@ -994,28 +1055,103 @@ class Sim {
       recent: this.spawns,
       spawner,
       centre: { x: CENTRE, y: CENTRE },
-      world: {
-        seed: `aoi|${this.res.scenario}|${this.res.seed}`,
-        size: WORLD,
-        tick: Math.floor((this.now * TICK_HZ) / 1000),
-      },
+      world: this.worldOf(),
       now: this.now,
       rng: this.placeRng,
     });
-    if (ride && at.group === null) return null;
+    // The hub refuses a ride with no group to ride to, or no room around it.
+    if (ride && (at.group === null || at.fallback !== 'none')) return null;
     this.res.spawns++;
     if (at.fallback === 'centre') this.res.spawnFallbacks++;
-    else {
-      const tier = sizeTier(c.r * c.r);
-      for (const m of members) {
-        if (Math.abs(sizeTier(m.r * m.r) - tier) > RULES.encounter.maxTierGap) continue;
-        const d = Math.hypot(m.x - at.x, m.y - at.y);
-        if (d < clearance(spawner, m) - 1e-6)
-          this.violate('clearance', `${c.id} placed ${Math.round(d)} wu from ${m.id}`);
-      }
-    }
+    else this.checkClearance(c, at, members, spawner);
     this.spawns.push({ x: at.x, y: at.y, r: c.r, aoi: spawner.aoi, t: this.now });
+    this.noteArrival(c, at, ride, spawner);
     return at;
+  }
+
+  /**
+   * Gate 11 and the wave's gate 1: the clearance from every engage-capable member and every spawn of
+   * the last minute, the depth band, and P1 reach from a member in an instance, by the directory's
+   * positions.
+   */
+  private checkClearance(
+    c: Client,
+    at: Placement,
+    members: readonly Placed[],
+    spawner: { r: number; adultR: number; aoi: number },
+  ): void {
+    const tier = sizeTier(c.r * c.r);
+    for (const m of members) {
+      const d = Math.hypot(m.x - at.x, m.y - at.y);
+      if (
+        Math.abs(sizeTier(m.r * m.r) - tier) <= RULES.encounter.maxTierGap &&
+        d < clearance(spawner, m) - 1e-6
+      )
+        this.violate('clearance', `${c.id} placed ${Math.round(d)} wu from ${m.id}`);
+      if (m.n !== OPEN_WATER && linkTiers(c.r, m.r) && d < p1Reach(c.r, m.r) - 1e-6)
+        this.violate(
+          'clearance',
+          `${c.id} placed ${Math.round(d)} wu from ${m.id} in instance ${m.n}`,
+        );
+    }
+    for (const s of this.spawns) {
+      const d = Math.hypot(s.x - at.x, s.y - at.y);
+      if (d < clearance(spawner, s) - 1e-6)
+        this.violate(
+          'clearance',
+          `${c.id} placed ${Math.round(d)} wu from a spawn ${Math.round((this.now - s.t) / 1000)} s ago`,
+        );
+    }
+    // An empty world gives the spawn centre itself, whatever its depth (`place`).
+    const centre = members.length === 0 && at.x === CENTRE && at.y === CENTRE;
+    if (!centre && !inSpawnBand(this.worldOf(), at.x, at.y))
+      this.violate('clearance', `${c.id} placed outside the depth band`);
+  }
+
+  private worldOf() {
+    return {
+      seed: `aoi|${this.res.scenario}|${this.res.seed}`,
+      size: WORLD,
+      tick: Math.floor((this.now * TICK_HZ) / 1000),
+    };
+  }
+
+  /** The wave's record of an arrival: how far it landed from its group, and (later) when it was linked. */
+  private noteArrival(
+    c: Client,
+    at: Placement,
+    ride: boolean,
+    spawner: { r: number; adultR: number; aoi: number },
+  ): void {
+    if (ride) {
+      this.minuteRides++;
+      this.wave?.rides.push({ id: c.id, t: this.now });
+    } else this.minuteSpawns++;
+    if (!this.wave) return;
+    const g = at.group;
+    const base = clearance(spawner, spawner);
+    c.groupIds = g ? new Set(g.ids) : null;
+    c.arrival = {
+      id: c.id,
+      t: this.now,
+      ride,
+      tier: sizeTier(c.r * c.r),
+      groupSize: g?.ids.length ?? 0,
+      fallback: at.fallback,
+      beyondEdge: g ? Math.hypot(at.x - g.x, at.y - g.y) - (g.radius + 2 * base) : null,
+      linkMs: null,
+      groupLinkMs: null,
+    };
+    this.wave.arrivals.push(c.arrival);
+  }
+
+  /** `c` has a hello with `other`: its arrival's first link and first link into its group. */
+  private noteLink(c: Client, other: Client): void {
+    const a = c.arrival;
+    if (!a) return;
+    const ms = this.now - a.t;
+    a.linkMs ??= ms;
+    if (c.groupIds?.has(other.id)) a.groupLinkMs ??= ms;
   }
 
   /**
@@ -1025,8 +1161,14 @@ class Sim {
    */
   private maybeRide(c: Client): void {
     if (c.aloneSince === null || this.now - c.aloneSince < RIDE_ALONE_MS) return;
+    // A fight, or one that ended under 120 s ago, refuses the ride and leaves the wait running.
+    if (
+      this.activeFights().some((f) => f.fighters.includes(c.id)) ||
+      this.now - c.fightEnd < RIDE_AFTER_FIGHT_MS
+    )
+      return;
     c.aloneSince = null;
-    if (this.activeFights().some((f) => f.fighters.includes(c.id))) return;
+    this.hubMsg(c);
     const near = this.dir.near(c.id, this.now, (id) => this.inst(id));
     if (!near || near.peers.length > 0) return;
     const at = this.placeFor(c, true);
@@ -1055,6 +1197,57 @@ class Sim {
     }
     if (this.activeFights().length > 0 && held > 32)
       this.violate('dutyCap', `${c.id} holds ${held}`);
+  }
+
+  /** The wave's series: a row each simulated minute, the regroup and crowd samples each second. */
+  private recordWave(): void {
+    const w = this.wave as WaveRecord;
+    const { peakFrom, peakUntil, regroupFrom, crowdsGoneAt } = w.params;
+    if (this.now >= peakFrom && this.now < peakUntil) {
+      for (const c of this.order) {
+        if (this.now - c.spec.spawnAt < CROWD_GRACE_MS) continue;
+        w.peakSeconds += TICK_MS / 1000;
+        if (c.crowded) w.peakCrowded += TICK_MS / 1000;
+      }
+    }
+    if (this.now % 1000 === 0 && this.now >= crowdsGoneAt)
+      w.crowdsLeft = Math.max(w.crowdsLeft, this.crowds?.view().length ?? 0);
+    if (this.now % 1000 === 0 && this.now >= regroupFrom) {
+      let eligible = 0;
+      let linked = 0;
+      for (const a of this.order) {
+        if (!this.order.some((b) => b !== a && linkTiers(a.r, b.r))) continue;
+        eligible++;
+        for (const [id, l] of a.links) {
+          const b = this.clients.get(id);
+          if (l.hello && b && linkTiers(a.r, b.r)) {
+            linked++;
+            break;
+          }
+        }
+      }
+      w.regroup.push({ t: this.now, eligible, linked });
+    }
+    if (this.now === 0 || this.now % 60_000 !== 0) return;
+    const nominal = { r: 20, adultR: 20, aoi: aoiRadius(20, 20) };
+    const members: Placed[] = [];
+    const seen = new Set<number>();
+    for (const o of this.order) {
+      const m = this.dir.member(o.id);
+      if (m) members.push({ id: m.id, x: m.x, y: m.y, r: m.r, aoi: m.aoi, n: this.inst(o.id) });
+      if (this.inst(o.id) !== OPEN_WATER) seen.add(this.inst(o.id));
+    }
+    w.minutes.push({
+      minute: this.now / 60_000,
+      population: this.order.length,
+      groups: groupsFor(members, nominal, { x: CENTRE, y: CENTRE }).length,
+      crowded: this.order.filter((c) => c.crowded).length,
+      instances: seen.size,
+      spawns: this.minuteSpawns,
+      rides: this.minuteRides,
+      messages: this.minuteMsgs,
+    });
+    this.minuteSpawns = this.minuteRides = this.minuteMsgs = 0;
   }
 
   private sample(c: Client, dt: number): void {
@@ -1239,11 +1432,12 @@ class Sim {
   }
 
   private finish(c: Client): void {
-    const life = this.sc.seconds * 1000 - c.spec.spawnAt;
+    const end = Math.min(this.sc.seconds * 1000, c.leftAt);
+    const life = end - c.spec.spawnAt;
     if (life >= 60_000) this.res.changesPerMinute.push(c.changes / (life / 60_000));
     // Authority messages per player-minute: each full minute of the creature's life.
     const from = c.spec.spawnAt;
-    for (let t = from; t + 60_000 <= this.sc.seconds * 1000; t += 60_000) {
+    for (let t = from; t + 60_000 <= end; t += 60_000) {
       const n = c.hubMsgs.filter((m) => m >= t && m < t + 60_000).length;
       (t === from ? this.res.joinMinute : this.res.perMinute).push(n);
     }

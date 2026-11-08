@@ -168,6 +168,15 @@ function simWorld(w: PlaceInput['world']): World {
   return { ...world, tick: w.tick };
 }
 
+/** Whether a point lies in the depth band a spawn must keep to (the wave's gate reads it). */
+export function inSpawnBand(world: PlaceInput['world'], x: number, y: number): boolean {
+  const depth = depthAt(simWorld(world).seed32, x, y, world.size);
+  return (
+    depth >= RULES.bathymetry.zones.shallows + RULES.hazards.uvBand &&
+    depth <= RULES.hazards.pressureStart
+  );
+}
+
 /** A disc a spawn must stay out of: nearer than `d` is invalid. */
 interface Avoid {
   x: number;
