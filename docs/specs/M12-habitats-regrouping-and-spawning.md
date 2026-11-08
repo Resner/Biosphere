@@ -474,7 +474,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
 
 ### Evidence at scale
 
-- [ ] T8 The harness learns placement, crowd instances and rides (after T2, T3)
+- [ ] T8 The harness learns placement, crowd instances and rides (after T2, T3) (in progress)
   - Steps:
     1. `tests/aoi-harness.ts`:
        - a scenario may place its spawns with `place()`;
