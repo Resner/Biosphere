@@ -1,0 +1,156 @@
+{
+  "config": {
+    "clients": 500,
+    "joinMin": 2,
+    "holdMin": 6,
+    "leaveMin": 2,
+    "offersPerMinute": 2
+  },
+  "start": {
+    "byType": {},
+    "requests": 1,
+    "rowsWritten": 0,
+    "rowsRead": 1,
+    "playerMs": 0,
+    "clientSent": {},
+    "cpuMs": 470,
+    "rssBytes": 216797184
+  },
+  "holdStart": {
+    "byType": {
+      "hello": 500,
+      "ping": 4344,
+      "genesis-request": 500,
+      "spawn": 500,
+      "avail": 500,
+      "where": 1440,
+      "signal": 2104,
+      "duty-ok": 476,
+      "attest": 476,
+      "progress": 804
+    },
+    "requests": 1086,
+    "rowsWritten": 6975,
+    "rowsRead": 14410,
+    "playerMs": 36108521,
+    "clientSent": {
+      "hello": 500,
+      "ping": 4344,
+      "genesis-request": 500,
+      "spawn": 500,
+      "avail": 500,
+      "where": 1440,
+      "signal": 2104,
+      "progress": 804,
+      "duty-ok": 476,
+      "attest": 476
+    },
+    "cpuMs": 25040,
+    "rssBytes": 767401984
+  },
+  "holdEnd": {
+    "byType": {
+      "hello": 500,
+      "ping": 7344,
+      "genesis-request": 500,
+      "spawn": 500,
+      "avail": 500,
+      "where": 8078,
+      "signal": 14102,
+      "duty-ok": 476,
+      "attest": 476,
+      "progress": 6802
+    },
+    "requests": 2468,
+    "rowsWritten": 6981,
+    "rowsRead": 14410,
+    "playerMs": 216118021,
+    "clientSent": {
+      "hello": 500,
+      "ping": 7344,
+      "genesis-request": 500,
+      "spawn": 500,
+      "avail": 500,
+      "where": 8078,
+      "signal": 14102,
+      "progress": 6802,
+      "duty-ok": 476,
+      "attest": 476
+    },
+    "cpuMs": 52290,
+    "rssBytes": 751083520
+  },
+  "end": {
+    "byType": {
+      "hello": 500,
+      "ping": 8000,
+      "genesis-request": 500,
+      "spawn": 500,
+      "avail": 500,
+      "where": 9183,
+      "signal": 15925,
+      "duty-ok": 476,
+      "attest": 476,
+      "progress": 7972,
+      "gone": 500
+    },
+    "requests": 2732,
+    "rowsWritten": 8483,
+    "rowsRead": 16410,
+    "playerMs": 246072411,
+    "clientSent": {
+      "hello": 500,
+      "ping": 8000,
+      "genesis-request": 500,
+      "spawn": 500,
+      "avail": 500,
+      "where": 9183,
+      "signal": 15925,
+      "progress": 7972,
+      "duty-ok": 476,
+      "attest": 476,
+      "gone": 500
+    },
+    "cpuMs": 60650,
+    "rssBytes": 753721344
+  },
+  "entered": 500,
+  "failures": [],
+  "seated": {
+    "count": 500,
+    "received": 39278
+  },
+  "rssPeakBytes": 787238912,
+  "dbBytes": {
+    "start": 406408,
+    "end": 36203880
+  },
+  "rtt": {
+    "near": {
+      "n": 9183,
+      "p50": 3,
+      "p95": 14,
+      "p99": 31
+    },
+    "signal": {
+      "n": 7873,
+      "p50": 5,
+      "p95": 15,
+      "p99": 30
+    }
+  },
+  "offers": {
+    "sent": 8052,
+    "answered": 7873
+  },
+  "closes": {},
+  "refused": {},
+  "dropped": {},
+  "founders": {
+    "n": 24,
+    "flags": {
+      "authority-only": 24
+    }
+  },
+  "flags": {}
+}

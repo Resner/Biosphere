@@ -25,12 +25,50 @@ interface EncounterState {
   settled: boolean;
 }
 
+/** One seated session as `GET /v1/e2e/sessions` shows it (M13 T7). */
+export interface SeatedView {
+  id: string;
+  name: string;
+  /** Wall time the socket opened. */
+  seatedAt: number;
+  /** Messages the object received on this socket. */
+  received: number;
+}
+
 const ENCOUNTER_PATH = '/v1/e2e/encounter/';
 const WITNESS_PATH = '/v1/e2e/witness/';
 
 export class Authority extends LiveAuthority {
   protected override beaconSource(): BeaconSource {
     return fixtureSource();
+  }
+
+  /** Messages received by each socket, for `sessions()`; memory only. */
+  private readonly receivedBy = new WeakMap<WebSocket, number>();
+
+  override webSocketMessage(ws: WebSocket, data: string | ArrayBuffer): void {
+    this.receivedBy.set(ws, (this.receivedBy.get(ws) ?? 0) + 1);
+    super.webSocketMessage(ws, data);
+  }
+
+  /** Each seated session with its count of received messages, for a load run to check against the meter (M13 T7). */
+  sessions(): SeatedView[] {
+    const out: SeatedView[] = [];
+    for (const [ws, s] of socketsOf(this)) {
+      if (s?.phase !== 'active') continue;
+      out.push({
+        id: s.playerId,
+        name: s.name,
+        seatedAt: s.openedAt,
+        received: this.receivedBy.get(ws) ?? 0,
+      });
+    }
+    return out;
+  }
+
+  /** Messages dropped without closing the socket, by type (the cost check, M13 T7). */
+  droppedByType(): Record<string, number> {
+    return Object.fromEntries(this.dropped);
   }
 
   /**
@@ -126,6 +164,25 @@ export default {
         metrics(): Promise<unknown>;
       };
       return Response.json(await stub.metrics());
+    }
+    if (pathname === '/v1/e2e/sessions' && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        sessions(): Promise<SeatedView[]>;
+      };
+      return Response.json(await stub.sessions());
+    }
+    if (pathname === '/v1/e2e/dropped' && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        droppedByType(): Promise<Record<string, number>>;
+      };
+      return Response.json(await stub.droppedByType());
+    }
+    if (pathname === '/v1/e2e/audit' && request.method === 'GET') {
+      // `/v1/audit`'s answer, uncached (the public one is cached at the edge for 5 minutes).
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        audit(): Promise<unknown>;
+      };
+      return Response.json(await stub.audit());
     }
     if (pathname === '/v1/e2e/directory' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {

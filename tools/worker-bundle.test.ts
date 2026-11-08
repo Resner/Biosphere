@@ -117,5 +117,9 @@ describe('worker bundles', () => {
     // And the directory (M11 T6).
     expect(code).toContain('/v1/e2e/directory');
     expect(code).toContain('/v1/e2e/metrics');
+    // And the seated sessions and the uncached audit a load run reads (M13 T7).
+    expect(code).toContain('/v1/e2e/sessions');
+    expect(code).toContain('/v1/e2e/audit');
+    expect(code).toContain('/v1/e2e/dropped');
   });
 });

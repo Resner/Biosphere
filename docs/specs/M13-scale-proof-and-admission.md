@@ -442,7 +442,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - The report and its JSON are committed. `tools/hub-report.test.ts` checks the report against a recorded `HubCost`.
   - Done: `hub-cost.test.ts` (a `speedTest`, about 20 s) seats 50, 200 and 500, a batch's clock moving 1 s per message, and prints `HUB_COST`; `docs/perf/hub.md` and `hub.json` are committed. Every type is flat but `spawn`, which `place()` makes grow with the members (about 6 ms per 1,000 seated, 60 ms at 10,000 in workerd): its budget is the growth of the members, and T8 prices it. `ride`'s `company` check scanned every member in reach; `Directory.anyAround` stops at the first. The population sits 500 wu apart: 500 within one 1,024 wu leaf makes `where` grow with the leaf.
 
-- [ ] T7 500 headless clients against `wrangler dev` (after T2)
+- [x] T7 500 headless clients against `wrangler dev` (after T2)
   - Steps:
     1. **`tests/load-client.ts`**: a headless client on the page's own `HubClient` (with Node's `WebSocket`) and a seeded identity. It does what a page does:
        - a recorded genesis, from the fixture rounds;
@@ -476,6 +476,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - A unit test builds the report from a recorded run's numbers.
     - The report and its JSON are committed.
   - Notes: the clients open no WebRTC link, so their hub signals follow the measured rate, and T11 checks a real page's cadence. A recorded genesis per client makes progress, checkpoints and the close's rows real.
+  - Done: `npm run load:hub` (`tests/load-client.ts`, `tools/load-hub-run.ts`, `-report.ts`) ran 500 clients for 10 minutes: all seated, no close, drop or flag, the meter equal to the clients' counts (9.21 messages and 0.46 request-equivalents per player-minute, 0.99 ms CPU per message, `where` → `near` p99 31 ms; `docs/perf/hub-load.md`). Gotchas: the clients also witness (`avail`, genesis audits), which needs the fixture vars `WITNESS_PLAY_MS:0` and `WITNESS_IP_CHECK:off`; the first 24 hatch together and their `authority-only` flags are counted apart (nobody can audit the world's first creatures); the rows and bytes per player-hour carry each client's hatch over ten minutes, which T8 must separate from steady play. Also `GET /v1/e2e/audit` and `/v1/e2e/dropped` (the spec named only `/v1/e2e/sessions`).
 
 ### The model
 
