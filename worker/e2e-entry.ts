@@ -33,6 +33,8 @@ export interface SeatedView {
   seatedAt: number;
   /** Messages the object received on this socket. */
   received: number;
+  /** The same by `ClientMsg['t']` (`bad` for one that does not parse). */
+  byType: Record<string, number>;
 }
 
 const ENCOUNTER_PATH = '/v1/e2e/encounter/';
@@ -44,10 +46,13 @@ export class Authority extends LiveAuthority {
   }
 
   /** Messages received by each socket, for `sessions()`; memory only. */
-  private readonly receivedBy = new WeakMap<WebSocket, number>();
+  private readonly receivedBy = new WeakMap<WebSocket, Record<string, number>>();
 
   override webSocketMessage(ws: WebSocket, data: string | ArrayBuffer): void {
-    this.receivedBy.set(ws, (this.receivedBy.get(ws) ?? 0) + 1);
+    const counts = this.receivedBy.get(ws) ?? {};
+    this.receivedBy.set(ws, counts);
+    const type = typeof data === 'string' ? /^\{"t":"([a-z0-9_-]+)"/.exec(data)?.[1] : undefined;
+    counts[type ?? 'other'] = (counts[type ?? 'other'] ?? 0) + 1;
     super.webSocketMessage(ws, data);
   }
 
@@ -56,11 +61,13 @@ export class Authority extends LiveAuthority {
     const out: SeatedView[] = [];
     for (const [ws, s] of socketsOf(this)) {
       if (s?.phase !== 'active') continue;
+      const byType = { ...this.receivedBy.get(ws) };
       out.push({
         id: s.playerId,
         name: s.name,
         seatedAt: s.openedAt,
-        received: this.receivedBy.get(ws) ?? 0,
+        received: Object.values(byType).reduce((n, c) => n + c, 0),
+        byType,
       });
     }
     return out;

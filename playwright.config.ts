@@ -126,6 +126,8 @@ const m12LifecycleHubPort = 8836;
 // its hub starts in the PR parts too (`E2E_SKIP_SLOW` doesn't drop it), but only when no spec file is
 // named or this one is.
 const m13QueueHubPort = 8838;
+// The M13 load spec (M13 T11, 8837, `@slow`): 40 headless clients and two real pages on one hub, with the witness variables (every client shares localhost).
+const m13LoadHubPort = 8837;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -452,6 +454,7 @@ export default defineConfig({
         '--var LIFESPAN_SCALE:0.05 --var MATING_SCALE:0.01 --var WITNESS_PLAY_MS:0 --var WITNESS_IP_CHECK:off',
       ],
       ['m10-card', m10CardHubPort, WITNESS_VARS],
+      ['m13-load', m13LoadHubPort, WITNESS_VARS],
       ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],
