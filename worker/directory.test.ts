@@ -321,7 +321,12 @@ describe('near', () => {
     expect(seen.sort()).toEqual([0, 1, 2, 3, 4, 5].map(id));
     expect(dir.anyAround(1000, 1000, 5000, test(id(6)))).toBe(true);
     seen.length = 0;
-    expect(dir.anyAround(1000, 1000, 5000, () => (seen.push('x'), true))).toBe(true);
+    expect(
+      dir.anyAround(1000, 1000, 5000, () => {
+        seen.push('x');
+        return true;
+      }),
+    ).toBe(true);
     expect(seen).toEqual(['x']);
   });
 });
