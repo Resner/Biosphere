@@ -134,36 +134,52 @@ async function oneFight(
 }
 
 test('A engages B with F, both play the same fight, and A kills B', async ({ browser }) => {
-  test.setTimeout(240_000);
-  const [a, b] = await Promise.all([open(browser, M7_DUEL_HUB), open(browser, M7_DUEL_HUB)]);
+  test.setTimeout(360_000);
+  const pages: Page[] = [];
+  const openPair = async (): Promise<[Page, Page]> => {
+    await Promise.all(pages.splice(0).map((page) => page.context().close()));
+    const pair = await Promise.all([open(browser, M7_DUEL_HUB), open(browser, M7_DUEL_HUB)]);
+    pages.push(...pair);
+    return pair;
+  };
   try {
-    // B somewhere calm and hurt, but never below what makes its autopilot flee (see `HURT`): a
-    // nearly dead B also dies of the water (a `died` outcome) before A's strikes kill it.
-    const ids = await stage(a, b, undefined, HURT);
+    let [a, b] = await openPair();
+    let ids = await stage(a, b, undefined, HURT);
 
     let id: string | undefined;
     let killed = false;
     const fights: string[] = [];
     let stanceShown = false;
-    for (let attempt = 0; attempt < 4 && !killed; attempt++) {
-      // A whole again for each try, B back to `HURT` (an escape leaves it hurt, and a fight that
-      // starts at zero health says nothing).
-      await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
-      // B fed: a hurt B that starves (a `died` outcome, not a kill) says nothing. Never A: its full
-      // belly turns into growth, and B's autopilot flees from a body over 1.5 times its size.
-      await topUp(b);
-      await b.evaluate((share) => {
-        const bs = window.__bs as BsHook;
-        bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
-        const p = bs.state().player;
-        if (p) bs.debug?.setHealth(p.health * share);
-      }, HURT);
-      const fight = await oneFight(a, b, ids, id);
-      id = fight.id;
-      stanceShown ||= fight.stance;
-      const outcomes = (await state(a)).encounter?.fighters.map((f) => f.outcome);
-      killed = outcomes?.includes('killed') ?? false;
-      fights.push(await fightLine(a, ids));
+    // A fight that A loses (B hits as hard as A, and a loaded runner can drop A's inputs) kills A,
+    // and a dead A can't try again: the duel is staged again on fresh pages, up to 3 times. Within
+    // a duel, B's autopilot may flee, so A heals and engages again until B dies.
+    for (let round = 0; round < 3 && !killed; round++) {
+      if (round > 0) {
+        [a, b] = await openPair();
+        ids = await stage(a, b, undefined, HURT);
+        id = undefined;
+      }
+      for (let attempt = 0; attempt < 4 && !killed; attempt++) {
+        // A whole again for each try, B back to `HURT` (an escape leaves it hurt, and a fight that
+        // starts at zero health says nothing).
+        await a.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
+        // B fed: a hurt B that starves (a `died` outcome, not a kill) says nothing. Never A: its full
+        // belly turns into growth, and B's autopilot flees from a body over 1.5 times its size.
+        await topUp(b);
+        await b.evaluate((share) => {
+          const bs = window.__bs as BsHook;
+          bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
+          const p = bs.state().player;
+          if (p) bs.debug?.setHealth(p.health * share);
+        }, HURT);
+        const fight = await oneFight(a, b, ids, id);
+        id = fight.id;
+        stanceShown ||= fight.stance;
+        const fighters = (await state(a)).encounter?.fighters;
+        killed = fighters?.find((f) => f.player === ids.idB)?.outcome === 'killed';
+        fights.push(await fightLine(a, ids));
+        if (fighters?.find((f) => f.player === ids.idA)?.outcome === 'killed') break;
+      }
     }
 
     const [endA, endB] = [(await state(a)).encounter, (await state(b)).encounter];
@@ -175,7 +191,7 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
     expect(endA?.endHash).toBe(endB?.endHash);
     const fighterOf = (enc: typeof endA, who: string) =>
       enc?.fighters.find((f) => f.player === who);
-    expect(fighterOf(endA, ids.idB)?.outcome, `B survived four fights:\n${fights.join('\n')}`).toBe(
+    expect(fighterOf(endA, ids.idB)?.outcome, `B survived every fight:\n${fights.join('\n')}`).toBe(
       'killed',
     );
     expect(fighterOf(endB, ids.idB)?.outcome).toBe('killed');
@@ -190,6 +206,6 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
     await expect(b.getByTestId('death-cause')).toContainText('Killed');
     expect((await state(a)).player?.alive).toBe(true);
   } finally {
-    await Promise.all([a.context().close(), b.context().close()]);
+    await Promise.all(pages.map((page) => page.context().close()));
   }
 });
