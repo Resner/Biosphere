@@ -66,29 +66,31 @@ export function lineText(q: QueuePlace, now: number, offsetAt: OffsetAt = localO
 }
 
 /** The glass card on the title and death screens (`queue-card`, `death-queue-card`). */
+const CARD_IDS: readonly (readonly [card: string, swim: string])[] = [
+  ['queue-card', 'queue-swim'],
+  ['death-queue-card', 'death-queue-swim'],
+];
+
 export class QueueCard {
-  private readonly cards = ['queue-card', 'death-queue-card'].map((id) => {
-    const root = pick(`[data-testid="${id}"]`);
-    return {
-      root,
-      reason: pick(`[data-testid="${id}"] .queue-reason`),
-      line: pick(`[data-testid="${id}"] .queue-line`),
-    };
-  });
+  private readonly cards = CARD_IDS.map(([id]) => ({
+    root: pick(`[data-testid="${id}"]`),
+    reason: pick(`[data-testid="${id}"] .queue-reason`),
+    line: pick(`[data-testid="${id}"] .queue-line`),
+  }));
 
   constructor(swim: () => void) {
-    for (const id of ['queue-swim', 'death-queue-swim']) {
-      pick(`[data-testid="${id}"]`).addEventListener('click', swim);
-    }
+    for (const [, id] of CARD_IDS) pick(`[data-testid="${id}"]`).addEventListener('click', swim);
   }
 
   /** Shows the place in line, or hides the card (null). */
   show(q: QueuePlace | null, now: number): void {
+    const words = q && cardWords(q, now);
+    const line = words && (words.wait ? `${words.place} · ${words.wait}` : words.place);
     for (const card of this.cards) {
-      if (card.root.hidden !== (q === null)) card.root.hidden = q === null;
-      if (!q) continue;
-      setText(card.reason, REASON_TEXT[q.why]);
-      setText(card.line, lineText(q, now));
+      card.root.hidden = q === null;
+      if (!words || line === null) continue;
+      setText(card.reason, words.reason);
+      setText(card.line, line);
     }
   }
 }
