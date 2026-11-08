@@ -22,6 +22,8 @@ import {
 // attached.
 
 const HUB = 'http://localhost:8835';
+/** How far A may have drifted from where the hub placed B around it (wu). */
+const DRIFT_SLACK_WU = 300;
 
 test.describe.configure({ mode: 'serial' });
 // The screenshots judge the picture, so B draws on medium (A on low).
@@ -153,7 +155,10 @@ test('a lone player rides the current to the others, protected, and links on arr
     expect(dist(at, ma), 'B lands outside A’s clearance').toBeGreaterThanOrEqual(
       clearance(note, ma) - 1e-6,
     );
-    expect(dist(at, ma), 'B lands within A’s P1 reach').toBeLessThanOrEqual(p1Reach(note, ma));
+    // A drifts with the current between the arrival and this read (the hub test pins the exact reach).
+    expect(dist(at, ma), 'B lands within A’s P1 reach').toBeLessThanOrEqual(
+      p1Reach(note, ma) + DRIFT_SLACK_WU,
+    );
 
     // A sees B arrive protected, and the two link (a ceiling for a slow runner: the harness times it).
     await expect
