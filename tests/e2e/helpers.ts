@@ -251,6 +251,8 @@ export const M10_LIFECYCLE_HUB = 'http://localhost:8827';
 export const M11_LIFECYCLE_HUB = 'http://localhost:8832';
 /** The M12 lifecycle spec (8836): instances of 2, a 3 s quiet and a 3 s wait alone, short matings. */
 export const M12_LIFECYCLE_HUB = 'http://localhost:8836';
+/** The M13 lifecycle spec's hub (two seats, short matings). */
+export const M13_LIFECYCLE_HUB = 'http://localhost:8839';
 
 /** Hubs this worker process has already woken. */
 const warmed = new Set<string>();

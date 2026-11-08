@@ -121,5 +121,7 @@ describe('worker bundles', () => {
     expect(code).toContain('/v1/e2e/sessions');
     expect(code).toContain('/v1/e2e/audit');
     expect(code).toContain('/v1/e2e/dropped');
+    // And the budget line a scenario spends and refills (M13 T12).
+    expect(code).toContain('/v1/e2e/usage');
   });
 });

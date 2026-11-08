@@ -73,6 +73,11 @@ export class Authority extends LiveAuthority {
     return out;
   }
 
+  /** Sets today's request-equivalents, so a scenario can spend or refill the day's budget (M13 T12). */
+  setUsage(requests: number): void {
+    this.usage.setRequests(Date.now(), requests);
+  }
+
   /** Messages dropped without closing the socket, by type (the cost check, M13 T7). */
   droppedByType(): Record<string, number> {
     return Object.fromEntries(this.dropped);
@@ -177,6 +182,17 @@ export default {
         sessions(): Promise<SeatedView[]>;
       };
       return Response.json(await stub.sessions());
+    }
+    if (pathname === '/v1/e2e/usage' && request.method === 'POST') {
+      const { requests } = (await request.json().catch(() => ({}))) as { requests?: unknown };
+      if (typeof requests !== 'number' || !Number.isFinite(requests) || requests < 0) {
+        return new Response('bad requests', { status: 400 });
+      }
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        setUsage(requests: number): Promise<void>;
+      };
+      await stub.setUsage(requests);
+      return new Response(null, { status: 204 });
     }
     if (pathname === '/v1/e2e/dropped' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
