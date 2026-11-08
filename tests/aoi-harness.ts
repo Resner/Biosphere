@@ -230,6 +230,21 @@ class Client {
   }
 }
 
+/** The times in `sorted` (ascending) that fall in [from, to). */
+function countIn(sorted: readonly number[], from: number, to: number): number {
+  const below = (x: number) => {
+    let lo = 0;
+    let hi = sorted.length;
+    while (lo < hi) {
+      const mid = (lo + hi) >> 1;
+      if ((sorted[mid] as number) < x) lo = mid + 1;
+      else hi = mid;
+    }
+    return lo;
+  };
+  return Math.max(0, below(to) - below(from));
+}
+
 export function runScenario(scenario: Scenario, seed: string): RunResult {
   return new Sim(scenario, seed).run();
 }
@@ -640,7 +655,8 @@ class Sim {
 
   /** The hub relays between members within max(Q) + 4,096 wu, or a duty pair (M11 T14). */
   private hubPasses(a: string, b: string): boolean {
-    return this.timed('signal', () => this.reaches(a, b));
+    const meter = this.meter;
+    return meter ? meter.time('signal', () => this.reaches(a, b)) : this.reaches(a, b);
   }
 
   private reaches(a: string, b: string): boolean {
@@ -1357,9 +1373,8 @@ class Sim {
     }
     gc?.();
     meter.heapBytes = Math.max(0, process.memoryUsage().heapUsed - before);
-    meter.heapMembers = this.order.length;
-    // Keeps the copy alive until after the second reading.
-    if (copy.size < 0) throw new Error('unreachable');
+    // Counting the copy's members after the reading also keeps it alive until then.
+    meter.heapMembers = this.order.filter((o) => copy.member(o.id)).length;
   }
 
   private sample(c: Client, dt: number): void {
@@ -1566,20 +1581,20 @@ class Sim {
     w.lifeMinutes += (end - c.spec.spawnAt) / 60_000;
     const { holdFrom, holdUntil } = w.params;
     if (c.spec.spawnAt <= holdFrom && end >= holdUntil) {
-      const n = c.hubMsgs.filter((m) => m >= holdFrom && m < holdUntil).length;
+      const n = countIn(c.hubMsgs, holdFrom, holdUntil);
       w.holdPerMinute.push(n / ((holdUntil - holdFrom) / 60_000));
     }
     // The load scenario's reading of the hold: every player in the water in it, joins and leaves included.
     const from = Math.max(holdFrom, c.spec.spawnAt);
     const until = Math.min(holdUntil, end);
     if (until > from) {
-      const inHold = c.hubMsgs.filter((m) => m >= from && m < until).length;
+      const inHold = countIn(c.hubMsgs, from, until);
       w.holdMessages += inHold;
       w.holdMinutes += (until - from) / 60_000;
       // After its first minute, a player's messages per minute (at least a minute of them to judge).
       const steady = Math.max(from, c.spec.spawnAt + 60_000);
       if (until - steady >= 60_000) {
-        const n = c.hubMsgs.filter((m) => m >= steady && m < until).length;
+        const n = countIn(c.hubMsgs, steady, until);
         w.holdSteady.push(n / ((until - steady) / 60_000));
       }
       // Each minute of the hold, the messages of the players past their first minute and there for all of it.
@@ -1587,7 +1602,7 @@ class Sim {
       for (let k = 0; k < minutes; k++) {
         const a = holdFrom + k * 60_000;
         if (c.spec.spawnAt + 60_000 > a || end < a + 60_000) continue;
-        const sent = c.hubMsgs.filter((m) => m >= a && m < a + 60_000).length;
+        const sent = countIn(c.hubMsgs, a, a + 60_000);
         const row = w.holdByMinute[k];
         if (row) row.push(sent);
         else w.holdByMinute[k] = [sent];
@@ -1597,7 +1612,7 @@ class Sim {
         c.spec.spawnAt >= holdFrom &&
         c.spec.spawnAt + 60_000 <= Math.min(end, holdUntil + 60_000)
       ) {
-        w.holdJoin.push(c.hubMsgs.filter((m) => m < c.spec.spawnAt + 60_000).length);
+        w.holdJoin.push(countIn(c.hubMsgs, Number.NEGATIVE_INFINITY, c.spec.spawnAt + 60_000));
       }
     }
   }
@@ -1610,7 +1625,7 @@ class Sim {
     // Authority messages per player-minute: each full minute of the creature's life.
     const from = c.spec.spawnAt;
     for (let t = from; t + 60_000 <= end; t += 60_000) {
-      const n = c.hubMsgs.filter((m) => m >= t && m < t + 60_000).length;
+      const n = countIn(c.hubMsgs, t, t + 60_000);
       (t === from ? this.res.joinMinute : this.res.perMinute).push(n);
     }
   }

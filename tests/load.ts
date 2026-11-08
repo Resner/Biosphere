@@ -20,7 +20,7 @@ import {
 
 const MIN = 60_000;
 /** The world's half-width less its spawn edge: 131,072 − 2,048. */
-const WORLD_HALF = 129_024;
+const WORLD_HALF = CENTRE - 2048;
 /** The wave's density (300 players in a 60,000 wu square), as far as the world allows. */
 export const boxFor = (players: number): number =>
   Math.min(WORLD_HALF, 30_000 * Math.sqrt(players / 300));
@@ -41,7 +41,6 @@ export interface LoadShape {
   meanSession: number;
   /** In each minute of the hold, one fight per this many players. */
   playersPerFight: number;
-  rideAloneMs?: number;
   /** The pair checks run every this many ticks, on this share of the clients. */
   pairsEvery: number;
   pairSample: number;
@@ -204,7 +203,6 @@ export function loadScenario(
     clients,
     fights: fightsFor(rng, clients, shape),
     ride: true,
-    ...(shape.rideAloneMs === undefined ? {} : { rideAloneMs: shape.rideAloneMs }),
     instances: true,
     pairsEvery: shape.pairsEvery,
     pairSample: shape.pairSample,
@@ -243,9 +241,6 @@ export const LOAD_MSG_P95 = 20;
 export const LOAD_HIDDEN_PER_MILLION = 1;
 export const LOAD_JOIN_P95 = 100;
 export const LOAD_MSG_MEAN = 12;
-export const LOAD_CROWDED_SHARE = PEAK_CROWDED_SHARE;
-export const LOAD_TOGETHER_P50_MS = TOGETHER_P50_MS;
-export const LOAD_TOGETHER_P95_MS = TOGETHER_P95_MS;
 
 const examples = (r: RunResult, key: keyof RunResult['violations']) =>
   r.examples[key].slice(0, 3).join('; ');
@@ -281,10 +276,10 @@ export function loadGates(run: RunResult): Gate[] {
   const groupLink = grouped.map((a) => ms(a.groupLinkMs));
   const g50 = pct(groupLink, 0.5);
   const g95 = pct(groupLink, 0.95);
-  const togetherOk = g50 <= LOAD_TOGETHER_P50_MS && g95 <= LOAD_TOGETHER_P95_MS;
+  const togetherOk = g50 <= TOGETHER_P50_MS && g95 <= TOGETHER_P95_MS;
 
   const crowdedShare = run.clientLate === 0 ? 0 : run.crowdedLate / run.clientLate;
-  const boundedOk = run.maxHeld <= LINK_CAP && crowdedShare <= LOAD_CROWDED_SHARE;
+  const boundedOk = run.maxHeld <= LINK_CAP && crowdedShare <= PEAK_CROWDED_SHARE;
 
   const hiddenAllowed = Math.floor((LOAD_HIDDEN_PER_MILLION * run.clientSeconds) / 1e6);
   const fights = w.fights.filter((f) => f.fighters.length > 1).length;
@@ -304,13 +299,13 @@ export function loadGates(run: RunResult): Gate[] {
     },
     {
       n: 3,
-      name: `Together: a T0 newcomer with a group is linked to one of its members within ${LOAD_TOGETHER_P50_MS / 1000} s (median) and ${LOAD_TOGETHER_P95_MS / 1000} s (p95)`,
+      name: `Together: a T0 newcomer with a group is linked to one of its members within ${TOGETHER_P50_MS / 1000} s (median) and ${TOGETHER_P95_MS / 1000} s (p95)`,
       ok: togetherOk,
       detail: `${grouped.length} newcomers: median ${secs(g50)} s, p95 ${secs(g95)} s`,
     },
     {
       n: 4,
-      name: `Bounded: never more than ${LINK_CAP} links, and at most ${LOAD_CROWDED_SHARE * 100}% of client-seconds crowded after a client's first 10 s`,
+      name: `Bounded: never more than ${LINK_CAP} links, and at most ${PEAK_CROWDED_SHARE * 100}% of client-seconds crowded after a client's first 10 s`,
       ok: boundedOk,
       detail: `${run.maxHeld} links at most, ${(100 * crowdedShare).toFixed(2)}% crowded`,
     },

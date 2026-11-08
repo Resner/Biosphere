@@ -36,8 +36,6 @@ export class Meter {
   /** Heap held by a directory of the peak's members (bytes) and the members it held, or null. */
   heapBytes: number | null = null;
   heapMembers = 0;
-  /** Wall time of each phase of the run (ms): set by the caller. */
-  wallMs = 0;
 
   time<T>(op: Op, fn: () => T): T {
     const t0 = performance.now();
