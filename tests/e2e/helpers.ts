@@ -392,8 +392,21 @@ export async function goTo(page: Page, id: string, peer?: Page): Promise<void> {
   await expect(async () => {
     await page.evaluate((who) => {
       const bs = window.__bs as BsHook;
-      const r = bs.state().remotes.find((x) => x.id === who);
-      if (r) bs.debug?.teleport(r.x + r.radius * 2.5, r.y);
+      const { remotes } = bs.state();
+      const r = remotes.find((x) => x.id === who);
+      if (!r) return;
+      // The hint names the nearest creature in reach, and a newcomer is placed beside its friends: park
+      // on the side of the target where no other creature is nearer (the east side when none is).
+      const gap = r.radius * 2.5;
+      let best = { x: r.x + gap, y: r.y, margin: Number.NEGATIVE_INFINITY };
+      for (let k = 0; k < 8 && best.margin < 0; k++) {
+        const x = r.x + Math.cos((k * Math.PI) / 4) * gap;
+        const y = r.y + Math.sin((k * Math.PI) / 4) * gap;
+        const others = remotes.filter((o) => o.id !== who);
+        const margin = Math.min(...others.map((o) => Math.hypot(o.x - x, o.y - y)), Infinity) - gap;
+        if (margin > best.margin) best = { x, y, margin };
+      }
+      bs.debug?.teleport(best.x, best.y);
     }, id);
     await expect(hint).toBeVisible({ timeout: 2_000 });
   })
