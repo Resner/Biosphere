@@ -232,6 +232,17 @@ test('four players find each other across a world, fight a witnessed fight 30,00
       expect(Math.hypot((m?.x ?? 0) - CENTRE, (m?.y ?? 0) - CENTRE)).toBeGreaterThan(FAR_WU * 0.8);
     }
 
+    // The swim crossed zones: the deep and the abyss drain health (E2E main: C bled out at 827 m
+    // while A's page waited for the glyph, so A saw no remote). Both go back to the twilight, C
+    // beside A, before the fight; the links they hold are by distance and stay.
+    const here = await at(a);
+    await place(a, here.x - CENTRE, here.y - CENTRE);
+    const placed = await at(a);
+    await place(c, placed.x - CENTRE + 150, placed.y - CENTRE);
+    await expect
+      .poll(() => helloed(a), { message: 'A still links C after the twilight', timeout: 60_000 })
+      .toEqual([idC]);
+
     // The fight: A's child engages C, and a witness back at the spawn (D, or B) referees it over
     // its duty links. D and B are the pool; the fighters are the pair.
     const t: Trio = { hub: HUB, a, b: c, c: d, d: b, idA, idB: idC, idC: idD, idD: idB };

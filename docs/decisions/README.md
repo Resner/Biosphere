@@ -102,3 +102,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0069](0069-the-pure-parts-at-10000-members.md) | The pure parts at 10,000 members: placement from a wide group's edge and a window for the witness pool | accepted | |
 | [0070](0070-how-the-load-gates-read-at-10000.md) | How the load gates read at 10,000: the budget's tail, hidden creatures as a rate, and the run's time | accepted | |
 | [0071](0071-capacity-of-one-object-and-what-10000-need.md) | What one authority object serves, the session caps, and what 10,000 players need | accepted | |
+| [0072](0072-slow-e2e-in-four-shards.md) | The slow E2E scenarios run in four shards | accepted | |

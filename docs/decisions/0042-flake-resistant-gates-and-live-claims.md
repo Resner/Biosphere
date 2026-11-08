@@ -1,6 +1,6 @@
 # 0042: Flake-resistant gates and live claims
 
-- Status: accepted (refines 0001's single CI job, and the 90-minute rule of 0015 and 0020; refined by 0044: a red `E2E main` is the care lane's first job and holds back only the milestone close, and CI repeats every new or changed spec, not only `@slow` ones)
+- Status: accepted (refines 0001's single CI job, and the 90-minute rule of 0015 and 0020; refined by 0072: the slow part runs in 4 shards; refined by 0044: a red `E2E main` is the care lane's first job and holds back only the milestone close, and CI repeats every new or changed spec, not only `@slow` ones)
 - Date: 2026-11-01
 
 ## Context

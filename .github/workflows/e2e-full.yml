@@ -27,12 +27,14 @@ jobs:
             args: --project=chromium --grep-invert=@slow --shard=2/3
           - name: fast 3 of 3
             args: --project=chromium --grep-invert=@slow --shard=3/3
-          - name: slow 1 of 3
-            args: --project=chromium --grep=@slow --shard=1/3 --workers=1
-          - name: slow 2 of 3
-            args: --project=chromium --grep=@slow --shard=2/3 --workers=1
-          - name: slow 3 of 3
-            args: --project=chromium --grep=@slow --shard=3/3 --workers=1
+          - name: slow 1 of 4
+            args: --project=chromium --grep=@slow --shard=1/4 --workers=1
+          - name: slow 2 of 4
+            args: --project=chromium --grep=@slow --shard=2/4 --workers=1
+          - name: slow 3 of 4
+            args: --project=chromium --grep=@slow --shard=3/4 --workers=1
+          - name: slow 4 of 4
+            args: --project=chromium --grep=@slow --shard=4/4 --workers=1
           # The projects that must not share a runner with the rest (playwright.config.ts), each on
           # its own: together they took 21 minutes on a one-worker runner.
           - name: social

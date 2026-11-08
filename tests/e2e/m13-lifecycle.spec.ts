@@ -206,17 +206,44 @@ test('the line from a full house to the budget reopening @slow', async ({ browse
     await expect.poll(async () => (await metrics()).live.seated, { timeout: 20_000 }).toBe(1);
     await waitsFor(pageD, 1, 'budget');
     expect((await state(pageD)).screen).toBe('title');
-    // The budget refills and D is seated within the next queue tick.
+    // The budget refills and D is seated within the next queue tick. The toast shows for 6 s on a
+    // page that a loaded runner draws slowly, so a recorder in the page keeps every text it shows
+    // (a poll could look between two frames and miss it) and the wait is on D's state.
+    await pageD.evaluate(() => {
+      const w = window as unknown as { __toasts: string[] };
+      w.__toasts = [];
+      const element = document.querySelector('[data-testid="toast"]');
+      if (!element) throw new Error('no toast element');
+      new MutationObserver(() => {
+        if (element.textContent) w.__toasts.push(element.textContent);
+      }).observe(element, { childList: true, characterData: true, subtree: true });
+    });
     await setRequests(0);
-    await expect(pageD.getByTestId('toast')).toHaveText(SEATED_TOAST, { timeout: SEAT_MS });
-    await pageD.waitForFunction(
-      () => {
-        const s = window.__bs?.state();
-        return s?.net.status === 'online' && s.queue === null;
-      },
-      undefined,
-      { timeout: 20_000 },
+    await pageD
+      .waitForFunction(
+        () => {
+          const s = window.__bs?.state();
+          return s?.net.status === 'online' && s.queue === null;
+        },
+        undefined,
+        { timeout: SEAT_MS },
+      )
+      .catch(async (error) => {
+        throw new Error(
+          `D was not seated after the budget reopened: ${JSON.stringify({
+            d: await pageD.evaluate(() => {
+              const s = window.__bs?.state();
+              return { screen: s?.screen, net: s?.net.status, queue: s?.queue };
+            }),
+            metrics: await metrics(),
+          })}`,
+          { cause: error },
+        );
+      });
+    const shown = await pageD.evaluate(
+      () => (window as unknown as { __toasts: string[] }).__toasts,
     );
+    expect(shown, 'D was told that its place is free').toContain(SEATED_TOAST);
     await hatchAndPlay(pageD);
     expect((await state(pageA)).net.status).toBe('online');
 
