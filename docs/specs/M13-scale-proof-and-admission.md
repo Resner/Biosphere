@@ -565,7 +565,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Admission
 
-- [ ] T9 Admission by plan: three reasons, a measured wait, the TURN guard [opus] (after T4, T8) (in progress)
+- [x] T9 Admission by plan: three reasons, a measured wait, the TURN guard [opus] (after T4, T8) (in progress)
   - Steps:
     1. **`canAdmit` becomes `admission(hub, now)`**: null while the line is open, else the reason, checked in this order:
        - `storage`: the database at 90% of the plan's `storageBytes`;
@@ -574,7 +574,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
        The cap is `MAX_SESSIONS` when set, else `sessionCap(plan)`. The request allowance is `DAILY_REQUEST_BUDGET` when set, else the plan's.
     2. **The measured wait**:
-       - `full`: the session's place times the mean interval between the last 20 seats freed, kept in memory (30 s before two have freed);
+       - `full`: the session's place times the mean interval between the last 20 seats freed, kept in memory (30 s before two have freed), the first place counted from the last seat freed (the interval less the time since; a plain place × interval misses a waiter at place 1 by up to a whole interval, which the honest-wait test below would fail);
        - `budget`: the seconds to the next 00:00 UTC, plus the place less one times that interval;
        - `storage`: 0.
 
@@ -614,6 +614,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
     - **Plans**: `PLAN=paid` reads the paid allowances, and an unknown value reads the free ones.
     - `/v1/metrics`'s `admission` matches each case.
     - Every E2E passes (`m4-lifecycle`'s queue).
+  - Done: `worker/admission.ts` (`admission`, `etaS`, the TURN guard `iceFor`, and `hub.admission`'s memory of seats freed, seats closed and waits); production's only var is `PLAN`, deployed from `vars.CLOUDFLARE_PLAN`. Gotcha: the worker test pool runs `wrangler.jsonc`, so hub tests now see the free plan's cap of 63, and a test that reads the wait calls `freshLine()`, since earlier tests' closes free seats.
 
 - [x] T10 The line in the page [opus] (after T4)
   - Steps:

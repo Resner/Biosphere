@@ -22,7 +22,7 @@ interface Env {
   QUIET_MS?: string;
   /** How long a player is alone before it may ride the current (whole ms, at least 1,000; M12 T7); fixture mode only. */
   RIDE_ALONE_MS?: string;
-  /** Admission (DESIGN §8): sessions past `MAX_SESSIONS`, or past 90% of `DAILY_REQUEST_BUDGET` requests a day, wait in line. */
+  /** Overrides of the plan's session cap and daily requests (`limitsOf` in `worker/plan.ts`): E2E, the load tools and hub tests set them; production sets only `PLAN`. */
   MAX_SESSIONS?: string;
   /** The plan whose limits admission and `/v1/metrics` use: `paid`, else the free plan (`worker/plan.ts`). */
   PLAN?: string;

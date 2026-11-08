@@ -76,7 +76,13 @@ M4 needs no new secrets or variables. The authority generates its own signing ke
 
 M5 needs no new secrets or variables either. Mating commitments use the same drand source, and `MATING_SCALE` exists only in fixture mode (E2E), never in production.
 
-The free plan stops at its daily limits instead of billing you, and the game queues new players before it gets there. Switching to the $5 Workers Paid plan is optional and only raises capacity (`docs/CAPACITY.md`, from M13).
+The free plan stops at its daily limits instead of billing you, and the game queues new players before it gets there. Switching to the $5 Workers Paid plan is optional and only raises capacity (`docs/CAPACITY.md`): the authority then admits up to 590 players at once, and spends within $9.50 a month by its own daily allowances. To switch:
+
+1. Cloudflare → **Workers & Pages → Plans** → upgrade to **Workers Paid** ($5 a month). Optionally set a billing notification under **Notifications**.
+2. GitHub → Settings → Secrets and variables → Actions → **Variables**: add `CLOUDFLARE_PLAN` = `paid`.
+3. Actions → **Release** → **Run workflow** on `main` (or wait for the next release): the deploy passes `PLAN` from `CLOUDFLARE_PLAN` (`free` when unset), and `GET /v1/metrics` then shows `"plan": "paid"`.
+
+To go back, delete the variable (or set it to `free`) before you downgrade the plan, and redeploy.
 
 ## What only you provide
 

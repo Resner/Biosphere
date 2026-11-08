@@ -22,7 +22,7 @@ import { DAY_MS, type UsageMeter } from './usage';
 // empty, and the line's memory starts fresh (`freshLine`).
 
 interface Inside {
-  usage: UsageMeter & { storedBytes?: () => number };
+  usage: UsageMeter;
   env: Record<string, string | undefined>;
   rowCount: RowCounter;
   turn: { reset(): void };
@@ -58,7 +58,8 @@ afterEach(async () => {
     for (const k of ['MAX_SESSIONS', 'DAILY_REQUEST_BUDGET', 'PLAN', 'CF_TURN_KEY_ID'])
       delete o.env[k];
     delete o.env.CF_TURN_KEY_API_TOKEN;
-    delete o.usage.storedBytes;
+    // The meter's own `storedBytes` again (a test replaced it on the instance).
+    Reflect.deleteProperty(o.usage, 'storedBytes');
     o.turn.reset();
     await o.rearm();
   });
