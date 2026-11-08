@@ -11,6 +11,9 @@ export interface WaveParams {
   regroupFrom: number;
   /** From this time no crowd may be left. */
   crowdsGoneAt: number;
+  /** The hold: the population is whole, nobody has arrived for a minute and nobody has left. */
+  holdFrom: number;
+  holdUntil: number;
 }
 
 /** One spawn or ride arrival. */
@@ -24,8 +27,8 @@ export interface Arrival {
   /** Members of the group it was placed around, 0 when it found none. */
   groupSize: number;
   fallback: 'none' | 'centre-rings' | 'centre';
-  /** Distance from the group's centroid beyond its radius plus twice the clearance (wu); at most 0 is at the edge. Null without a group. */
-  beyondEdge: number | null;
+  /** How far it landed from the group's centroid beyond the group's reach, in clearances (the group's radius counts the spawns of the last minute around it). Null without a group. */
+  edgeClearances: number | null;
   /** ms to its first hello with anyone, and with a member of its group; null if never. */
   linkMs: number | null;
   groupLinkMs: number | null;
@@ -58,6 +61,11 @@ export interface WaveRecord {
   /** Client-seconds in the peak after a client's first 10 s, and those crowded. */
   peakSeconds: number;
   peakCrowded: number;
+  /** Incoming authority messages per minute of each player that was in the water through the hold. */
+  holdPerMinute: number[];
+  /** Every incoming authority message of the run, and the player-minutes they were sent in. */
+  messageTotal: number;
+  lifeMinutes: number;
 }
 
 export function emptyWave(params: WaveParams): WaveRecord {
@@ -71,5 +79,8 @@ export function emptyWave(params: WaveParams): WaveRecord {
     crowdsLeft: 0,
     peakSeconds: 0,
     peakCrowded: 0,
+    holdPerMinute: [],
+    messageTotal: 0,
+    lifeMinutes: 0,
   };
 }

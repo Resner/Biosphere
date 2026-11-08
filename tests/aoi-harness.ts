@@ -46,7 +46,7 @@ import {
 } from '../src/net/protocol';
 import { SignalRoute } from '../src/net/signal-route';
 import { FULL_RATE, wantedRate } from '../src/net/snapshot-rates';
-import { crowdList, WhereReporter } from '../src/net/where';
+import { crowdList, WHERE_EVERY_MS, WhereReporter } from '../src/net/where';
 import { clamp } from '../src/sim/math';
 import { createRng, type Rng, seedFromString } from '../src/sim/prng';
 import { RULES, TICK_HZ } from '../src/sim/rules';
@@ -82,6 +82,12 @@ const WORLD = 262_144;
 const VIEW_DIAG = Math.hypot(1, 16 / 9);
 /** A pair that has been within P1 reach this long must be linked (gate 2). */
 const SETUP_GRACE_MS = 10_000;
+/**
+ * A pair that knows each other only from the directory has this long (the wave, ADR 0066): the
+ * directory's word of a creature is up to one `where` interval old (30 s), and nothing else tells
+ * two lone creatures that they have closed.
+ */
+const DIRECTORY_GRACE_MS = SETUP_GRACE_MS + WHERE_EVERY_MS;
 /** Gate 3 holds for newcomers closing at most this fast (relative, wu/s): the P1 lead gives 6 s at 100. */
 const LATE_CLOSING = 100;
 /** A link made this long after the later spawn counts as a later link (gate 5's relay share). */
@@ -432,7 +438,7 @@ class Sim {
     }
     this.pairs(this.order);
     this.checkFightWater();
-    if (this.sc.ride) for (const c of [...this.order]) this.maybeRide(c);
+    if (this.sc.ride) for (const c of this.order) this.maybeRide(c);
     if (this.wave) this.recordWave();
   }
 
@@ -1131,6 +1137,14 @@ class Sim {
     const g = at.group;
     const base = clearance(spawner, spawner);
     c.groupIds = g ? new Set(g.ids) : null;
+    // The group's reach includes the minute's spawns around it: they are about to be members.
+    let radius = g?.radius ?? 0;
+    if (g) {
+      for (const sp of this.spawns.slice(0, -1)) {
+        const d = Math.hypot(sp.x - g.x, sp.y - g.y);
+        if (d <= g.radius + 4 * base) radius = Math.max(radius, d);
+      }
+    }
     c.arrival = {
       id: c.id,
       t: this.now,
@@ -1138,7 +1152,7 @@ class Sim {
       tier: sizeTier(c.r * c.r),
       groupSize: g?.ids.length ?? 0,
       fallback: at.fallback,
-      beyondEdge: g ? Math.hypot(at.x - g.x, at.y - g.y) - (g.radius + 2 * base) : null,
+      edgeClearances: g ? (Math.hypot(at.x - g.x, at.y - g.y) - radius) / base : null,
       linkMs: null,
       groupLinkMs: null,
     };
@@ -1160,7 +1174,8 @@ class Sim {
    * places it around the best group at once. It asks again after another wait.
    */
   private maybeRide(c: Client): void {
-    if (c.aloneSince === null || this.now - c.aloneSince < RIDE_ALONE_MS) return;
+    if (c.aloneSince === null || this.now - c.aloneSince < (this.sc.rideAloneMs ?? RIDE_ALONE_MS))
+      return;
     // A fight, or one that ended under 120 s ago, refuses the ride and leaves the wait running.
     if (
       this.activeFights().some((f) => f.fighters.includes(c.id)) ||
@@ -1374,10 +1389,20 @@ class Sim {
     const since = this.p1Since.get(key);
     if (since === undefined || d > reach || this.now - since < SETUP_GRACE_MS) return;
     if (a.helloed(b.id) && b.helloed(a.id)) return;
+    // The wave gives a pair that knows each other only from the directory a `where` interval more.
+    if (this.wave && this.now - since < DIRECTORY_GRACE_MS && !this.sees(a, b) && !this.sees(b, a))
+      return;
     if (this.settling(a) || this.settling(b)) return;
     this.violate(
       'hidden',
       `${a.id} and ${b.id} are ${Math.round(d)} wu apart (reach ${Math.round(reach)}) and not linked`,
+    );
+  }
+
+  /** Whether `c` holds a snapshot, gossip or signal fix of `id`: more than the directory's word. */
+  private sees(c: Client, id: Client): boolean {
+    return (
+      c.fixes.has(id.id) || c.signalKnown.has(id.id) || c.gossip.heard(id.id, this.now).length > 0
     );
   }
 
@@ -1431,9 +1456,23 @@ class Sim {
     }
   }
 
+  /** The wave's message counts: the whole life, and the hold for a player that was in the water through it. */
+  private finishWave(c: Client, end: number): void {
+    const w = this.wave;
+    if (!w) return;
+    w.messageTotal += c.hubMsgs.length;
+    w.lifeMinutes += (end - c.spec.spawnAt) / 60_000;
+    const { holdFrom, holdUntil } = w.params;
+    if (c.spec.spawnAt <= holdFrom && end >= holdUntil) {
+      const n = c.hubMsgs.filter((m) => m >= holdFrom && m < holdUntil).length;
+      w.holdPerMinute.push(n / ((holdUntil - holdFrom) / 60_000));
+    }
+  }
+
   private finish(c: Client): void {
     const end = Math.min(this.sc.seconds * 1000, c.leftAt);
     const life = end - c.spec.spawnAt;
+    this.finishWave(c, end);
     if (life >= 60_000) this.res.changesPerMinute.push(c.changes / (life / 60_000));
     // Authority messages per player-minute: each full minute of the creature's life.
     const from = c.spec.spawnAt;

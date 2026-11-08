@@ -73,7 +73,7 @@ function linkStats(runs: RunResult[]) {
   return { mean, p95, max };
 }
 
-function table(rows: string[][]): string {
+export function table(rows: string[][]): string {
   const [head, ...body] = rows as [string[], ...string[][]];
   return [
     `| ${head.join(' | ')} |`,

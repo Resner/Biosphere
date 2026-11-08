@@ -170,12 +170,12 @@ function simWorld(w: PlaceInput['world']): World {
 
 /** Whether a point lies in the depth band a spawn must keep to (the wave's gate reads it). */
 export function inSpawnBand(world: PlaceInput['world'], x: number, y: number): boolean {
-  const depth = depthAt(simWorld(world).seed32, x, y, world.size);
-  return (
-    depth >= RULES.bathymetry.zones.shallows + RULES.hazards.uvBand &&
-    depth <= RULES.hazards.pressureStart
-  );
+  return depthInBand(depthAt(simWorld(world).seed32, x, y, world.size));
 }
+
+const depthInBand = (depth: number): boolean =>
+  depth >= RULES.bathymetry.zones.shallows + RULES.hazards.uvBand &&
+  depth <= RULES.hazards.pressureStart;
 
 /** A disc a spawn must stay out of: nearer than `d` is invalid. */
 interface Avoid {
@@ -196,8 +196,6 @@ export function place(p: PlaceInput): Placement {
   const sim = simWorld(world);
   const future = plumeFutures(sim);
   const tier = tierOf(spawner.r);
-  const lo = RULES.bathymetry.zones.shallows + RULES.hazards.uvBand;
-  const hi = RULES.hazards.pressureStart;
   const reach = 2.5 * spawner.r;
 
   const avoid: Avoid[] = [];
@@ -223,7 +221,7 @@ export function place(p: PlaceInput): Placement {
     // the centre itself, which an empty world must give (and only an empty world).
     if (members.length > 0 || x !== centre.x || y !== centre.y) {
       const depth = depthAt(sim.seed32, x, y, world.size);
-      if (depth < lo || depth > hi) return false;
+      if (!depthInBand(depth)) return false;
     }
     return clearOfPlumes(sim, x, y, reach, future);
   };

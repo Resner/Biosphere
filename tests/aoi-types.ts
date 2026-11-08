@@ -61,6 +61,8 @@ export interface Scenario {
   instances?: boolean;
   /** A client alone for `RIDE_ALONE_MS` rides the current, by `place()` (M12). */
   ride?: boolean;
+  /** ms a client must be alone before it rides; default `RIDE_ALONE_MS` (the hub's fixture mode shortens it too). */
+  rideAloneMs?: number;
   /** Records the wave's arrivals, rides and series (`RunResult.wave`, M12 T9). */
   wave?: WaveParams;
 }

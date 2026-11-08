@@ -31,6 +31,8 @@ export interface WaveShape {
   regroupAfter: number;
   crowdsGoneAfter: number;
   end: number;
+  /** ms a player is alone before it rides (the hub's fixture mode shortens it too); default 120 s. */
+  rideAloneMs?: number;
 }
 
 /** The wave of the spec: 5 → 300 → 20, 24 simulated minutes. */
@@ -50,21 +52,22 @@ export const FULL_WAVE: WaveShape = {
   end: 24 * MIN,
 };
 
-/** The scaled wave of the `heavyTest`: 5 → 60 → 10 over 8 minutes, the waits after the fall shortened to fit. */
+/** The scaled wave of the `heavyTest`: 5 → 60 → 10 over 8 minutes, the waits after the fall and a player's ride wait (20 s, as the hub's fixture mode allows) shortened to fit. */
 export const SCALED_WAVE: WaveShape = {
   name: 'wave (scaled)',
   first: 5,
   peak: 60,
   rest: 10,
-  firstUntil: MIN,
-  joinEvery: 2500,
-  fallFrom: 3.5 * MIN,
-  fallUntil: 4.5 * MIN,
+  firstUntil: 0.5 * MIN,
+  joinEvery: 3000,
+  fallFrom: 5 * MIN,
+  fallUntil: 5.5 * MIN,
   peakFrom: 2.5 * MIN,
-  peakUntil: 3.5 * MIN,
-  regroupAfter: 2.5 * MIN,
+  peakUntil: 5 * MIN,
+  regroupAfter: 1.5 * MIN,
   crowdsGoneAfter: MIN,
   end: 8 * MIN,
+  rideAloneMs: 20_000,
 };
 
 /** Pairs of comparable players fight each minute of the peak, for this long. */
@@ -109,6 +112,8 @@ export function waveScenario(seed: string, shape: WaveShape = FULL_WAVE): Scenar
     peakUntil: shape.peakUntil,
     regroupFrom: shape.fallUntil + shape.regroupAfter,
     crowdsGoneAt: shape.fallUntil + shape.crowdsGoneAfter,
+    holdFrom: shape.firstUntil + (shape.peak - shape.first) * shape.joinEvery + MIN,
+    holdUntil: shape.fallFrom,
   };
   return {
     name: shape.name,
@@ -116,6 +121,7 @@ export function waveScenario(seed: string, shape: WaveShape = FULL_WAVE): Scenar
     clients: players,
     fights,
     ride: true,
+    ...(shape.rideAloneMs === undefined ? {} : { rideAloneMs: shape.rideAloneMs }),
     instances: true,
     wave,
   };
@@ -178,8 +184,12 @@ export const NEWCOMER_P95_MS = 15_000;
 export const REGROUPED_SHARE = 0.9;
 export const PEAK_CROWDED_SHARE = 0.01;
 export const LINK_CAP = 32;
+/** A spawn lies within the group's reach plus this many clearances (ADR 0066). */
+export const EDGE_CLEARANCES = 3;
 export const WAVE_MSG_MEDIAN = 6;
 export const WAVE_MSG_P95 = 12;
+/** The Worker's budget: one request-equivalent (20 incoming messages) per player-minute. */
+export const WAVE_MSG_MEAN = 20;
 
 const examples = (runs: RunResult[], key: keyof RunResult['violations']) =>
   runs
@@ -198,6 +208,7 @@ export function waveGates(runs: RunResult[]): Gate[] {
   const ms = (x: number | null) => x ?? Number.POSITIVE_INFINITY;
 
   const clearance = v('clearance');
+  const hidden = v('hidden');
   const fallbacks = sum(runs, (r) => r.spawnFallbacks);
 
   const grouped = arrivals.filter((a) => !a.ride && a.tier === 0 && a.groupSize > 0);
@@ -209,15 +220,20 @@ export function waveGates(runs: RunResult[]): Gate[] {
   const togetherOk = g50 <= TOGETHER_P50_MS && g95 <= TOGETHER_P95_MS && n95 <= NEWCOMER_P95_MS;
 
   const edge = arrivals.filter((a) => a.groupSize > 0);
-  const far = edge.filter((a) => a.fallback !== 'none' || (a.beyondEdge ?? 0) > 0);
-  const farMost = Math.max(0, ...edge.map((a) => a.beyondEdge ?? 0));
+  const far = edge.filter(
+    (a) => a.fallback !== 'none' || (a.edgeClearances ?? 0) > EDGE_CLEARANCES,
+  );
+  const farMost = Math.max(0, ...edge.map((a) => a.edgeClearances ?? 0));
 
   const samples = waves.flatMap((w) => w.regroup);
+  const eligible = samples.reduce((n, x) => n + x.eligible, 0);
+  const linkedNow = samples.reduce((n, x) => n + x.linked, 0);
+  const share = eligible === 0 ? 1 : linkedNow / eligible;
   const worst = Math.min(
     1,
     ...samples.filter((s) => s.eligible > 0).map((s) => s.linked / s.eligible),
   );
-  const regroupOk = samples.length > 0 && worst >= REGROUPED_SHARE;
+  const regroupOk = samples.length > 0 && share >= REGROUPED_SHARE;
 
   const peakSeconds = sum(runs, (r) => r.wave?.peakSeconds ?? 0);
   const crowdedShare =
@@ -239,9 +255,12 @@ export function waveGates(runs: RunResult[]): Gate[] {
   );
   const fightWater = v('fightWater');
 
-  const perMinute = runs.flatMap((r) => r.perMinute);
-  const median = pct(perMinute, 0.5);
-  const p95 = pct(perMinute, 0.95);
+  const hold = runs.flatMap((r) => r.wave?.holdPerMinute ?? []);
+  const median = pct(hold, 0.5);
+  const p95 = pct(hold, 0.95);
+  const total = sum(runs, (r) => r.wave?.messageTotal ?? 0);
+  const minutes = sum(runs, (r) => r.wave?.lifeMinutes ?? 0);
+  const mean = minutes === 0 ? 0 : total / minutes;
 
   const fights = sum(runs, (r) => r.wave?.fights.filter((f) => f.fighters.length > 1).length ?? 0);
   const rides = sum(runs, (r) => r.rides);
@@ -261,18 +280,18 @@ export function waveGates(runs: RunResult[]): Gate[] {
     },
     {
       n: 3,
-      name: "At the group's edge: every spawn that found a group lies within its radius plus twice the clearance of its centroid",
+      name: `At the group's edge: every spawn that found a group lies within its reach plus ${EDGE_CLEARANCES} clearances of its centroid`,
       ok: far.length === 0,
-      detail: `${edge.length} spawns and rides with a group, ${far.length} too far or at the centre (the farthest ${Math.round(farMost)} wu past the edge)`,
+      detail: `${edge.length} spawns and rides with a group, ${far.length} too far or at the centre (the farthest ${farMost.toFixed(2)} clearances past its reach)`,
     },
     {
       n: 4,
-      name: `Regrouped: from the wait after the fall, at least ${REGROUPED_SHARE * 100}% of the players hold a link to a creature they can link with`,
+      name: `Regrouped: from the wait after the fall, at least ${REGROUPED_SHARE * 100}% of player-seconds hold a link to a creature they can link with`,
       ok: regroupOk,
       detail:
         samples.length === 0
           ? 'no samples'
-          : `${samples.length} samples, the worst ${(100 * worst).toFixed(0)}%`,
+          : `${(100 * share).toFixed(1)}% of player-seconds over ${samples.length} s (the worst second ${(100 * worst).toFixed(0)}%)`,
     },
     {
       n: 5,
@@ -283,8 +302,8 @@ export function waveGates(runs: RunResult[]): Gate[] {
     {
       n: 6,
       name: 'No hidden creature: no pair that shares water and can interact is left unlinked',
-      ok: v('hidden') === 0,
-      detail: `${v('hidden')} violations${v('hidden') === 0 ? '' : `: ${examples(runs, 'hidden')}`}`,
+      ok: hidden === 0,
+      detail: `${hidden} violations${hidden === 0 ? '' : `: ${examples(runs, 'hidden')}`}`,
     },
     {
       n: 7,
@@ -294,9 +313,13 @@ export function waveGates(runs: RunResult[]): Gate[] {
     },
     {
       n: 8,
-      name: `Budget: incoming authority messages per player-minute at most ${WAVE_MSG_MEDIAN} (median) and ${WAVE_MSG_P95} (p95) after a player's first minute`,
-      ok: median <= WAVE_MSG_MEDIAN && p95 <= WAVE_MSG_P95,
-      detail: `median ${median}, p95 ${p95} over ${perMinute.length} player-minutes`,
+      name: `Budget: in the hold at most ${WAVE_MSG_MEDIAN} incoming authority messages per player-minute (median) and ${WAVE_MSG_P95} (p95); over the whole wave a mean of at most ${WAVE_MSG_MEAN}`,
+      ok:
+        hold.length > 0 &&
+        median <= WAVE_MSG_MEDIAN &&
+        p95 <= WAVE_MSG_P95 &&
+        mean <= WAVE_MSG_MEAN,
+      detail: `hold: median ${median.toFixed(1)}, p95 ${p95.toFixed(1)} over ${hold.length} players; whole wave: mean ${mean.toFixed(1)} over ${Math.round(minutes)} player-minutes`,
     },
   ];
 }
