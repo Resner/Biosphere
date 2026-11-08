@@ -22,7 +22,7 @@ import {
   useFightHub,
 } from './fight-test-kit';
 import type { Session } from './socket';
-import { type Client, flush, freshNonce, nextOf, report, rowsWritten } from './test-hub';
+import { anchorAt, type Client, flush, freshNonce, nextOf, report, rowsWritten } from './test-hub';
 import { armCrowds, instanceMaxOf, quietMsOf, rebuildCrowds } from './where';
 
 // Crowd instances on the authority (M12 T5, ADR 0064): `hub.crowds` beside the directory. Crowded
@@ -47,8 +47,9 @@ const freshWater = (instanceMax?: number) =>
     o.crowdsKept.clear();
   });
 
-/** Reports (with a crowd list when given) and waits for the answer. */
+/** Reports (with a crowd list when given) and waits for the answer; the first one anchors its binding there. */
 const placed = async (p: Who, x: number, y: number, crowd?: string[]) => {
+  await anchorAt(idOf(p), x, y);
   p.c.send({ t: 'where', x, y, r: 10, aoi: STARTER_AOI, ...(crowd ? { crowd } : {}) });
   return nextOf(p.c, 'near');
 };
