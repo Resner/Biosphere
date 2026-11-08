@@ -565,7 +565,7 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Admission
 
-- [x] T9 Admission by plan: three reasons, a measured wait, the TURN guard [opus] (after T4, T8) (in progress)
+- [x] T9 Admission by plan: three reasons, a measured wait, the TURN guard [opus] (after T4, T8)
   - Steps:
     1. **`canAdmit` becomes `admission(hub, now)`**: null while the line is open, else the reason, checked in this order:
        - `storage`: the database at 90% of the plan's `storageBytes`;
