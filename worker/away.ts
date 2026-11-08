@@ -83,7 +83,7 @@ export function reportOf(fight: Fight, f: FighterOutcome, frames: number): Fight
 export function storeReport(hub: Hub, player: string, report: FightReport): void {
   count(
     hub,
-    hub.ctx.storage.sql.exec(
+    hub.sql.exec(
       'UPDATE players SET fight_report = ? WHERE id = ?',
       JSON.stringify(report),
       player,
@@ -96,7 +96,7 @@ export function storeReport(hub: Hub, player: string, report: FightReport): void
  * longer reads (`clearReport` still takes it away).
  */
 export function storedReport(hub: Hub, player: string): { report: FightReport | undefined } | null {
-  const row = hub.ctx.storage.sql
+  const row = hub.sql
     .exec<{ fight_report: string }>('SELECT fight_report FROM players WHERE id = ?', player)
     .toArray()[0];
   if (!row?.fight_report) return null;
@@ -109,7 +109,7 @@ export function storedReport(hub: Hub, player: string): { report: FightReport | 
 
 /** Clears the player's report once it was told (one row). */
 export function clearReport(hub: Hub, player: string): void {
-  count(hub, hub.ctx.storage.sql.exec("UPDATE players SET fight_report = '' WHERE id = ?", player));
+  count(hub, hub.sql.exec("UPDATE players SET fight_report = '' WHERE id = ?", player));
 }
 
 /** Adds a write's rows to the ledger's count, which the usage meter reads. */

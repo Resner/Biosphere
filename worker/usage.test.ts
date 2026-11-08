@@ -41,6 +41,20 @@ describe('UsageMeter', () => {
           messages: 3000,
           rows_written: 1,
           db_bytes: expect.any(Number),
+          // The day in depth (migration 13): 40 upgrades, and messages sent without a type.
+          by_type: '{}',
+          upgrades: 40,
+          reads: 0,
+          rows_read: 0,
+          player_ms: 0,
+          peak_seated: 0,
+          peak_queued: 0,
+          waits: 0,
+          wait_ms: 0,
+          relay_reports: 0,
+          relay_links: 0,
+          relay_relayed: 0,
+          relay_kb: 0,
         },
       ]);
     });

@@ -32,6 +32,8 @@ const MAX_AGE: Readonly<Record<ProofAge, number>> = { settled: 86_400, dead: 600
 const BUSY_RETRY_S = 600;
 /** `GET /v1/audit` is the same for everyone for 5 minutes. */
 const AUDIT_MAX_AGE = 300;
+/** `GET /v1/metrics` is the same for everyone for a minute. */
+const METRICS_MAX_AGE = 60;
 
 const authority = (env: Env) => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
 
@@ -91,6 +93,17 @@ function auditRead(request: Request, env: Env): Promise<Response> | Response {
     }
     return json(report, 200, { 'Cache-Control': `public, max-age=${AUDIT_MAX_AGE}` });
   });
+}
+
+/** `GET /v1/metrics` (M13 T1): the authority's costs and admission, with no player named; cached 60 s at the edge, which lets at most one read a minute per location reach the object. */
+function metricsRead(request: Request, env: Env): Promise<Response> | Response {
+  const cors = corsOf(request);
+  if (cors instanceof Response) return cors;
+  return edgeCached(request, '/v1/metrics', cors, async () =>
+    json(await authority(env).metrics(), 200, {
+      'Cache-Control': `public, max-age=${METRICS_MAX_AGE}`,
+    }),
+  );
 }
 
 /**
@@ -159,6 +172,7 @@ export default {
     }
     if (pathname === '/v1/hub') return hub(request, env);
     if (pathname === '/v1/audit' && request.method === 'GET') return auditRead(request, env);
+    if (pathname === '/v1/metrics' && request.method === 'GET') return metricsRead(request, env);
     const proof = request.method === 'GET' ? PROOF_PATH.exec(pathname) : null;
     if (proof) return proofRead(request, env, proof[1] as 'proof' | 'fight', proof[2] ?? '');
     return json({ error: 'not-found' }, 404);

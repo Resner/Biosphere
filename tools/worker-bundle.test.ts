@@ -116,5 +116,6 @@ describe('worker bundles', () => {
     expect(code).toContain('/v1/e2e/witness/');
     // And the directory (M11 T6).
     expect(code).toContain('/v1/e2e/directory');
+    expect(code).toContain('/v1/e2e/metrics');
   });
 });

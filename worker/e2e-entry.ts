@@ -119,6 +119,13 @@ export default {
       await stub.restart();
       return new Response(null, { status: 204 });
     }
+    if (pathname === '/v1/e2e/metrics' && request.method === 'GET') {
+      // `/v1/metrics`'s answer, uncached, for scenarios to read.
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        metrics(): Promise<unknown>;
+      };
+      return Response.json(await stub.metrics());
+    }
     if (pathname === '/v1/e2e/directory' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
         directoryState(): Promise<DirectoryView>;

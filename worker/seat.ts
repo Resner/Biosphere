@@ -8,7 +8,7 @@ import { type ActiveSession, type Hub, type Session, sendIfOpen } from './socket
 
 /** The world a ticket names: its seed, the one every pond row takes. */
 function worldOf(hub: Hub): string {
-  return hub.ctx.storage.sql.exec<{ seed: string }>('SELECT seed FROM world').one().seed;
+  return hub.sql.exec<{ seed: string }>('SELECT seed FROM world').one().seed;
 }
 
 /** A ticket for `who`, dated `now` on the hub's clock and good for `SEAT_TTL_MS`. */

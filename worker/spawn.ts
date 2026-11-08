@@ -173,7 +173,7 @@ export function leftPlace(
   const own = session.left;
   const recent = (t: number) => now - t < BACK_WITHIN_MS;
   if (own && creatureOf(own.bind) === creature && recent(own.t)) return own;
-  const row = hub.ctx.storage.sql
+  const row = hub.sql
     .exec<LeftRow>(
       'SELECT left_x, left_y, left_at, left_creature FROM players WHERE id = ?',
       session.playerId,
@@ -211,7 +211,7 @@ export function leftAt(
 ): void {
   count(
     hub,
-    hub.ctx.storage.sql.exec(
+    hub.sql.exec(
       'UPDATE players SET left_x = ?, left_y = ?, left_at = ?, left_creature = ? WHERE id = ?',
       at.x,
       at.y,

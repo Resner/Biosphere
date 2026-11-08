@@ -254,7 +254,7 @@ export class Duties {
   strike(player: string, kind: FlagKind, key: string): void {
     const now = this.hub.clock.now();
     // Not through `Ledger` (which no M10 task grows), but counted with its rows all the same.
-    const cursor = this.hub.ctx.storage.sql.exec(
+    const cursor = this.hub.sql.exec(
       `INSERT INTO players (id, first_seen, last_seen, struck_until) VALUES (?1, ?2, ?2, ?3)
        ON CONFLICT (id) DO UPDATE SET struck_until = ?3`,
       player,
@@ -502,7 +502,7 @@ export function witnessView(hub: Hub, event: string): WitnessView | null {
     const data = commit.commitment.data as unknown as WitnessData;
     order = witnessOrder(data.pool, randomnessOf(beacon), commit.id);
   }
-  const sql = hub.ctx.storage.sql;
+  const sql = hub.sql;
   const struck = order ? [...struckAmong(hub, order, hub.clock.now())].sort() : [];
   const attestations = sql
     .exec<{ json: string }>(

@@ -47,7 +47,7 @@ function recover(hub: Hub, row: FightRow, now: number): void {
     return;
   }
   const creatures = participants(fight.enc, row, 'creature');
-  const sql = hub.ctx.storage.sql;
+  const sql = hub.sql;
   const settled = creatures.some((c) => sql.exec(HOLDS_ENCOUNTER, c, row.id).toArray().length > 0);
   const busy = fight.players.some((p) => hub.fights.playerLocked(p));
   if (settled || busy) {
@@ -87,7 +87,7 @@ const participants = (enc: Encounter, row: FightRow, key: 'player' | 'creature')
  * doesn't hold, and the history a resync sends. Null when the pond or the start is gone.
  */
 function rebuild(hub: Hub, row: FightRow): Fight | null {
-  const pond = hub.ctx.storage.sql
+  const pond = hub.sql
     .exec<Pick<PondRow, 'seed'>>('SELECT seed FROM ponds WHERE id = ?', row.pond)
     .toArray()[0];
   const startOf = pond ? encounterStartOf(row.start, pond.seed) : null;

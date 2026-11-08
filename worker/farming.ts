@@ -24,7 +24,7 @@ const WORTH_FACTS = `SELECT
  * active time, however long ago it was first seen). Reads only.
  */
 export function worthOf(hub: Hub, player: string, now: number): number {
-  const row = hub.ctx.storage.sql
+  const row = hub.sql
     .exec<{ kills: number }>(WORTH_FACTS, player, now - F.windowMs, F.maxHalvings)
     .one();
   const young = playedMs(hub, player) < F.youngPlayMs ? 1 : 0;

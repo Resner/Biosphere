@@ -21,6 +21,8 @@ import type { WhereAt } from './where';
  */
 export interface Hub {
   readonly ctx: DurableObjectState;
+  /** The object's SQLite handle with every statement counted into the usage meter (`metered-sql.ts`): modules use this, never `ctx.storage.sql`. */
+  readonly sql: SqlStorage;
   readonly env: Env;
   readonly turn: TurnCredentials;
   readonly ledger: Ledger;
@@ -101,6 +103,8 @@ export type Session = (
       ticket: number;
       /** The place last announced (1 = next), so only a change is sent again. */
       place: number;
+      /** When it joined the line (wall time), for the wait the meter records; absent on an older attachment. */
+      queuedAt?: number | undefined;
     }
   | { phase: 'retired' }
 ) & {
