@@ -128,6 +128,8 @@ const m12LifecycleHubPort = 8836;
 const m13QueueHubPort = 8838;
 // The M13 load spec (M13 T11, 8837, `@slow`): 40 headless clients and two real pages on one hub, with the witness variables (every client shares localhost).
 const m13LoadHubPort = 8837;
+// The M13 lifecycle spec (M13 T12, 8839, `@slow`): two seats, so a third and a fourth page wait in line.
+const m13LifecycleHubPort = 8839;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -455,6 +457,7 @@ export default defineConfig({
       ],
       ['m10-card', m10CardHubPort, WITNESS_VARS],
       ['m13-load', m13LoadHubPort, WITNESS_VARS],
+      ['m13-lifecycle', m13LifecycleHubPort, '--var MAX_SESSIONS:2 --var MATING_SCALE:0.01'],
       ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],

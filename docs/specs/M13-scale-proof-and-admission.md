@@ -677,7 +677,9 @@ T1 and T3 need nothing and can start at once. T2 and T4 follow T1, and T5 follow
 
 ### Closing
 
-- [ ] T12 End-to-end scenario, documentation sync (in progress)
+- [x] T12 End-to-end scenario, documentation sync
+  - Done: `POST /v1/e2e/usage`, `m13-lifecycle` (8839, passes 3 repeats on one hub) and the rules and `docs/TESTING.md` sync; DESIGN §8 and SETUP already described what shipped. The Playtest issue and release notes belong to the milestone close.
+  - Gotcha: the hub keeps its day between runs, so the scenario judges metric differences; the audit check ignores `authority-only`, which every settlement without witnesses raises.
   - Steps:
     1. **`POST /v1/e2e/usage { requests }`** (E2E entry only) sets today's request-equivalents. `tools/worker-bundle.test.ts` guards it.
     2. **`m13-lifecycle.spec.ts`** (`@slow`, hub 8839, `MAX_SESSIONS=2`, `MATING_SCALE` 0.01), in order:

@@ -226,6 +226,13 @@ export class UsageMeter {
     return this.ticks / MESSAGES_PER_REQUEST;
   }
 
+  /** Sets today's request-equivalents (the E2E entry's budget line, M13 T12); the next flush stores them. */
+  setRequests(now: number, requests: number): void {
+    this.touch(now);
+    this.ticks = Math.max(0, Math.round(requests * MESSAGES_PER_REQUEST));
+    this.dirty = true;
+  }
+
   /** The database's size as the day's row holds it, or as it is now before the day's first flush. */
   databaseBytes(now: number): number {
     this.touch(now);
