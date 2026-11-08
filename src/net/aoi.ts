@@ -12,6 +12,7 @@ import {
   NO_CLASS,
   selectLinks,
 } from './connection-policy';
+import { OPEN_WATER, sameWater } from './instance';
 
 export type { LinkClass } from './connection-policy';
 
@@ -23,6 +24,13 @@ export const INTERACT_RADII = 8;
 export const INTERACT_LEAD_WU = 600;
 /** A P1 stays P1 until this far past the interaction distance. */
 export const INTERACT_HOLD_WU = 900;
+
+/** P1 reach between two radii: how close a creature must be to be linked at once (wu). */
+export const p1Reach = (a: number, b: number): number =>
+  INTERACT_RADII * Math.max(a, b) + INTERACT_LEAD_WU;
+/** P1 hold between two radii: how far a P1 link may stretch before it drops (wu). */
+export const p1Hold = (a: number, b: number): number =>
+  INTERACT_RADII * Math.max(a, b) + INTERACT_HOLD_WU;
 /** A held peer with no class closes after this long. */
 export const UNWANTED_GRACE_MS = 3000;
 /** P4 is ordered by the distance from where the player will be this many seconds on. */
@@ -49,6 +57,8 @@ export interface Known {
   y: number;
   r: number;
   at: number;
+  /** Its instance as that source gave it (M12, ADR 0064); none is the open water. */
+  n?: number;
   source: 'snapshot' | 'gossip' | 'directory' | 'signal';
 }
 
@@ -60,6 +70,8 @@ export interface AoiSelf {
   vy: number;
   r: number;
   adultR: number;
+  /** Its own instance, as the hub last said (M12); none is the open water. */
+  n?: number;
 }
 
 export type AoiPlan = ConnectionPlan;
@@ -82,7 +94,8 @@ export class AoiManager {
    * larger radius + 600 wu (held to + 900); P2 within the AoI (held to 1.1 ×); P3 within 2 × the
    * AoI (2.2 ×); P4 within `Q` (1.1 ×), the AoI being the larger of the two creatures' (the other's
    * taken at its radius). A hold applies to a creature whose class in `prev` was that
-   * one or better. Every class but P0 needs `linkTiers`; a creature with none is left out.
+   * one or better. Every class but P0 needs `linkTiers` and water shared with the player
+   * (`sameWater`, by the newest sighting's instance); a creature with neither is left out.
    */
   classify(
     self: AoiSelf,
@@ -97,6 +110,7 @@ export class AoiManager {
       if (!seen || k.at > seen.at) newest.set(k.id, k);
     }
     const ownAoi = aoiRadius(self.r, self.adultR);
+    const water = self.n ?? OPEN_WATER;
     const aheadX = self.x + self.vx * AHEAD_S;
     const aheadY = self.y + self.vy * AHEAD_S;
     const out = new Map<string, LinkClass>();
@@ -105,7 +119,7 @@ export class AoiManager {
     for (const [id, k] of newest) {
       const d = Math.hypot(k.x - self.x, k.y - self.y);
       rank.set(id, d);
-      if (out.has(id) || !linkTiers(self.r, k.r)) continue;
+      if (out.has(id) || !linkTiers(self.r, k.r) || !sameWater(water, k.n ?? OPEN_WATER)) continue;
       // A link is wanted from both ends: a creature is in the AoI of whichever of the two sees further
       // (the other's AoI taken at its radius, as its adult radius is not known), so a giant's call
       // to a smaller creature far inside its AoI is one the smaller creature wants too.
@@ -114,8 +128,7 @@ export class AoiManager {
       const was = prev.get(id) ?? NO_CLASS;
       const within = (c: LinkClass, enter: number, hold: number) =>
         d <= enter || (was <= c && d <= hold);
-      const reach = INTERACT_RADII * Math.max(self.r, k.r);
-      if (within(1, reach + INTERACT_LEAD_WU, reach + INTERACT_HOLD_WU)) out.set(id, 1);
+      if (within(1, p1Reach(self.r, k.r), p1Hold(self.r, k.r))) out.set(id, 1);
       else if (within(2, aoi, HOLD * aoi)) out.set(id, 2);
       else if (within(3, 2 * aoi, 2 * HOLD * aoi)) out.set(id, 3);
       else if (within(4, q, HOLD * q)) {

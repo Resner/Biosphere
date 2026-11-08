@@ -2,7 +2,7 @@
 // the placement around the best one. Pure: no Hub and no wire, so the harness and the wave run it
 // in Node too.
 
-import { INTERACT_LEAD_WU, INTERACT_RADII, queryRadius } from '../src/net/aoi';
+import { p1Reach, queryRadius } from '../src/net/aoi';
 import { depthAt } from '../src/sim/bathymetry';
 import type { Rng } from '../src/sim/prng';
 import { RULES } from '../src/sim/rules';
@@ -55,10 +55,6 @@ export function clearance(a: { r: number; aoi: number }, b: { r: number; aoi: nu
 }
 
 const tierOf = (r: number): number => sizeTier(r * r);
-
-/** P1 reach between two radii: how close a creature must be to be linked at once (wu). */
-const p1Reach = (a: number, b: number): number =>
-  INTERACT_RADII * Math.max(a, b) + INTERACT_LEAD_WU;
 
 const WORLD_CENTRE: Vec2 = { x: RULES.world.size / 2, y: RULES.world.size / 2 };
 

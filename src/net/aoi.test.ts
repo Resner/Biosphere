@@ -7,10 +7,13 @@ import {
   AoiManager,
   type AoiSelf,
   aoiRadius,
+  INTERACT_HOLD_WU,
   INTERACT_LEAD_WU,
   INTERACT_RADII,
   type Known,
   type LinkClass,
+  p1Hold,
+  p1Reach,
   queryRadius,
   UNWANTED_GRACE_MS,
 } from './aoi';
@@ -340,5 +343,46 @@ describe('AoiManager.plan', () => {
     );
     expect(m.plan(classes, new Set(), 0).connect).toEqual(['a', 'b']);
     expect(() => new AoiManager({ selfId: 'me', cap: 33 })).toThrow(RangeError);
+  });
+});
+
+describe('AoiManager.classify across crowd instances (M12 T3)', () => {
+  const at = (id: string, x: number, n: number, when = 0): Known => ({
+    ...known(id, x),
+    at: when,
+    n,
+  });
+
+  it('gives no class to a creature in other water, but keeps P0 across instances', () => {
+    const m = new AoiManager({ selfId: 'me' });
+    const two = at('two', 100, 2);
+    expect(m.classify({ ...STARTER, n: 1 }, [two], NONE, FRESH).has('two')).toBe(false);
+    expect(m.classify({ ...STARTER, n: 0 }, [two], NONE, FRESH).get('two')).toBe(1);
+    expect(m.classify({ ...STARTER, n: 2 }, [two], NONE, FRESH).get('two')).toBe(1);
+    // A sighting or a self with no instance is in the open water.
+    expect(m.classify(STARTER, [two], NONE, FRESH).get('two')).toBe(1);
+    expect(m.classify({ ...STARTER, n: 1 }, [known('open', 100)], NONE, FRESH).get('open')).toBe(1);
+    // A fight's opponent in another instance stays P0.
+    expect(m.classify({ ...STARTER, n: 1 }, [two], new Set(['two']), FRESH).get('two')).toBe(0);
+  });
+
+  it('takes the instance of the newest sighting', () => {
+    const m = new AoiManager({ selfId: 'me' });
+    const self = { ...STARTER, n: 1 };
+    expect(m.classify(self, [at('b', 100, 2, 0), at('b', 100, 1, 5)], NONE, FRESH).get('b')).toBe(
+      1,
+    );
+    expect(m.classify(self, [at('b', 100, 1, 0), at('b', 100, 2, 5)], NONE, FRESH).has('b')).toBe(
+      false,
+    );
+  });
+});
+
+describe('p1Reach and p1Hold', () => {
+  it('use the larger radius, either way round', () => {
+    expect(p1Reach(10, 40)).toBe(INTERACT_RADII * 40 + INTERACT_LEAD_WU);
+    expect(p1Reach(40, 10)).toBe(p1Reach(10, 40));
+    expect(p1Hold(10, 40)).toBe(INTERACT_RADII * 40 + INTERACT_HOLD_WU);
+    expect(p1Hold(40, 10)).toBe(p1Hold(10, 40));
   });
 });
