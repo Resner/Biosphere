@@ -505,7 +505,7 @@ T1 and T2 need nothing and can start at once. T3 follows T1, and T4 follows T1 a
   - Done: harness runs `Crowds`, `place()` and a ride model (`Scenario.instances`, `.ride`, `ClientSpec.place`, `FightSpec.engage`); gates 10 and 11, `throng` (0.4% crowded with instances, all of the time without), `friends` placed; `WhereReporter.nudge` makes a page ask the directory again after its own instance changes (stale open-water words kept it crowded).
     Gotcha: gate 3 in the dense scenarios reads 15 in 1,000, not 5 (ADR 0065: `crowd` and `witnesses` form no crowd and give 7 to 10 in 1,000 with or without instances); rides are off in every shipped scenario.
 
-- [ ] T9 The population wave: 5 → 300 → 20 (after T8)
+- [ ] T9 The population wave: 5 → 300 → 20 (after T8) (in progress)
   - Steps:
     1. `tests/wave.ts`, on the harness:
        - **the wave**: 5 players join in the first 2 minutes; 295 more join over the next 10, 1 every 2 s, each placed by `place()`. 10% are T1, restored with a T1 ancestor's size;
