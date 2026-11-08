@@ -2,6 +2,7 @@
 
 import type { HubStatus, QueuePlace } from '../net/hub-client';
 import { validName } from '../net/text';
+import { lineText } from './queue-card';
 
 const NAME_KEY = 'bs.name';
 const LOCAL_HOST = /^(localhost|127\.0\.0\.1)$/;
@@ -93,13 +94,6 @@ export function saveName(store: Store | null, name: string): void {
   }
 }
 
-/** "1st", "2nd", "3rd", "4th", "11th", "22nd". */
-export function ordinal(n: number): string {
-  const tens = n % 100;
-  const suffix = tens >= 11 && tens <= 13 ? 'th' : (['th', 'st', 'nd', 'rd'][n % 10] ?? 'th');
-  return `${n}${suffix}`;
-}
-
 /**
  * The play screen's offline dot (M6b T9): a hub is set but this life cannot use it (unreachable,
  * replaced or outdated), or the life runs apart in a local pond. Connecting shows nothing.
@@ -109,15 +103,16 @@ export const offlineChip = (hub: boolean, status: HubStatus | 'none', apart: boo
 
 /**
  * The status chip's text. `count` is the players linked to this one (M11 T14: there is no pond to
- * count); `queue` is the place in the admission line while the hub keeps this session waiting.
+ * count); `queue` is the place in the admission line while the hub keeps this session waiting,
+ * shown with the wait in words (M13 T10).
  */
 export function statusText(
   status: HubStatus | 'none',
   count: number,
   queue: QueuePlace | null = null,
+  now = Date.now(),
 ): string {
-  if (queue && status === 'connecting')
-    return `Waiting for a place (${ordinal(queue.position)} in line)`;
+  if (queue && status === 'connecting') return lineText(queue, now);
   switch (status) {
     case 'online':
       return `Online · ${count} nearby`;

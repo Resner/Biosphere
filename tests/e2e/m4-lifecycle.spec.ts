@@ -131,9 +131,8 @@ test('hatch, reload, recovery code, three deaths, history, practice and the queu
   const d = await browser.newContext();
   const pageD = await d.newPage();
   await openRecorded(pageD, '', HUB);
-  await pageD.waitForFunction(
-    () => window.__bs?.state().net.text === 'Waiting for a place (1st in line)',
-  );
+  await pageD.waitForFunction(() => window.__bs?.state().queue?.position === 1);
+  expect((await state(pageD)).queue?.why).toBe('full');
   expect((await state(pageD)).screen).toBe('title');
   await c.close();
   await pageD.waitForFunction(() => window.__bs?.state().net.status === 'online', undefined, {

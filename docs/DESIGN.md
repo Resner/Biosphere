@@ -333,6 +333,7 @@ Values in `RULES.encounter` (`src/sim/rules.ts`), tuned by the combat tournament
     - `storage`: none.
 
     A player whose seat closed within the last 2 minutes (a reload, a dropped connection) is seated again past any guard.
+  - **The line in the page**: while it waits, the title and death screens show a glass card with the reason ("The water is full", "Today's room is used up" or "No room for new players right now"), the place ("2nd in line") and the wait in words ("under a minute", "about 3 min", "about 2 h"; for `budget` "opens at 01:00", the next 00:00 UTC in local time; for `storage` none). Hatch reads "Waiting for a place…" and waits, and the card offers "Swim while you wait": a practice cell in a local world, whose status chip reads "2nd in line · about 1 min". Once seated, a toast says "A place is free: your next hatch is recorded" and the chip turns online; a practice life goes on until it ends or the player returns to the title.
   - **The TURN guard**: once the month's relay by the clamped reports, plus one more day at yesterday's rate, reaches 90% of the month's TURN allowance (free 1,000 GB), new welcomes carry STUN only. Credentials already handed out last at most a day.
 
 ## 9. Social

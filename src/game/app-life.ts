@@ -201,7 +201,8 @@ export class LifeStarts {
     const { app } = this;
     if (this.hatching) return;
     app.flow.practice();
-    if (app.pond === null) {
+    // While the hub keeps the session in line (M13 T10), the cell swims in local water.
+    if (app.pond === null || app.screens.waiting) {
       this.begin(false);
       return;
     }
@@ -216,7 +217,8 @@ export class LifeStarts {
   hatch(): void {
     const { app } = this;
     const { flow, screens } = app;
-    if (this.hatching || app.limitLeft() > 0) return;
+    // In line, Hatch waits for a seat (M13 T10); the card offers the practice cell.
+    if (this.hatching || app.limitLeft() > 0 || app.screens.waiting) return;
     app.limitUntil = 0;
     if (!app.hubUrl) {
       flow.practice();
