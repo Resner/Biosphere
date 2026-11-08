@@ -80,10 +80,10 @@ It holds no identities, is cached for 60 s, and is metered as a public read.
 
 The estimated wait is measured:
 - for `full`, the session's place times the mean interval between the last 20 seats freed (30 s until two have freed);
-- for `budget`, the time to the next 00:00 UTC, plus that;
+- for `budget`, the time to the next 00:00 UTC, plus that interval for each session ahead of it;
 - for `storage`, none: the owner must act.
 
-**The TURN guard.** Once the clamped reports pass 90% of the month's TURN allowance, new welcomes carry STUN only. TURN credentials then last an hour instead of a day, so the guard holds within an hour.
+**The TURN guard.** Once the month's relay by the clamped reports, plus one more day at yesterday's rate, reaches 90% of the month's TURN allowance, new welcomes carry STUN only. Credentials already handed out last at most a day, and that day of margin covers them.
 
 **One authority, with headroom.**
 - **No work that grows with the population.** No message's or alarm's work may grow with the number of sockets or members. In-memory indexes, rebuilt after a wake, replace the scans, and the pure parts stay within their budgets at 10,000 members.
@@ -104,7 +104,7 @@ The capacity model weighs each of them. The one storage lever M13 may pull is AD
 
 ## Consequences
 
-- **The ceiling holds by construction** for everything the authority meters. TURN, which it can't meter, is bounded by the session cap, and the guard stops it for newcomers. A month can still pass its TURN allowance by up to an hour of relay at the moment the guard trips.
+- **The ceiling holds by construction** for everything the authority meters. TURN, which it can't meter, is bounded by the session cap, and the guard stops it for newcomers. A month can still pass its TURN allowance if a day's relay grows well past the day before's.
 - **The free plan can stop admitting new players** for the rest of a UTC day after a busy morning. The queue says when it reopens.
 - **A full store stops new sessions** until the owner acts: the paid plan, a shorter log window or compaction. `docs/CAPACITY.md` says how many days each plan's store lasts.
 - **10,000 concurrent players are shown by simulation and priced.** The €10 ceiling doesn't buy them, and admission keeps the live world to what it does buy.
