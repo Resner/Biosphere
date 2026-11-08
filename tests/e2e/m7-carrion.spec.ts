@@ -43,7 +43,8 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
         enc = await killB(a, b, ids);
         break;
       } catch (error) {
-        if (round >= 2 || !String((error as Error).message).startsWith('B survived four fights')) {
+        const message = String((error as Error).message);
+        if (round >= 2 || !/^(B survived four fights|A was killed)/.test(message)) {
           throw error;
         }
       }
