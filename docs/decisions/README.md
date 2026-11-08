@@ -95,3 +95,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0063](0063-how-clients-dial-in-the-world.md) | How clients dial in the world: the headless harness's link model and gates | accepted | |
 | [0064](0064-habitats-spawning-riding-and-crowd-instances.md) | Habitats: spawning around groups, riding the current, crowd instances and anchored transitions | accepted | |
 | [0065](0065-late-entries-in-dense-water.md) | Late entries in dense water read at 15 in 1,000 | accepted | |
+| [0066](0066-how-the-wave-gates-read.md) | How the population wave's gates read: the group's edge, regrouped, hidden creatures and the budget | accepted | |
