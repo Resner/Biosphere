@@ -419,7 +419,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Room for 200
 
-- [ ] T12 Room for a crowd: the headroom cap [opus] (after none)
+- [ ] T12 Room for a crowd: the headroom cap [opus] (after none) (in progress)
   - Steps:
     1. **The caps** (ADR 0075): `worker/capacity.ts`'s `derive()` gives the free plan 80% of one object's capacity (621 at the measured 777); the paid plan keeps its money cap (590).
     2. **`headroomSeats(hub, now)`** (`worker/admission.ts`): the smallest, over request-equivalents, rows written and rows read, of ⌊(the plan's daily allowance − today's use) ÷ (that item's per-player-hour cost from `ratesOf(MEASURED, ASSUMPTIONS)` × `HEADROOM_H`)⌋. `admission` answers `full` when the seats held (seated and away fighters) reach the smaller of the session cap and the headroom. The budget, storage and TURN guards, the seat back and `MAX_SESSIONS` are unchanged.
