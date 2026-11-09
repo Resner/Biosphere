@@ -220,7 +220,7 @@ export class HubClient {
     this.drop();
     this.versionError = false;
     this.setStatus('connecting');
-    const socket = (this.opts.createSocket ?? ((u) => new WebSocket(u) as SocketLike))(
+    const socket = (this.opts.createSocket ?? ((u) => new WebSocket(u) as unknown as SocketLike))(
       this.opts.url,
     );
     this.socket = socket;
