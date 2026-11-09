@@ -95,9 +95,9 @@ const instanceOf = (p: Player) =>
 
 /**
  * Keeps the pages' creatures fed from here on. These creatures never eat, so on a slow runner they
- * starve before the last step (E2E main: all four pages on the death screen), and a dead creature
- * leaves the directory, so nobody could link to it. Called once the crowd has merged, so it changes
- * nothing the crowd steps see: it only keeps the living alive through the final gathering.
+ * starve before the last step (E2E main: pages on the death screen), and a dead creature leaves the
+ * directory, so nobody could link to it. Called once the fight has settled, so it changes nothing
+ * the fight sees: it only keeps the living alive through the quiet steps and the final gathering.
  */
 const feedAll = (ps: Player[]) =>
   Promise.all(
@@ -465,6 +465,9 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
     await settled(request, HUB, fightId);
+    // The fight is over: from here the four are kept alive through the quiet steps and the gathering
+    // (E2E main and the CI repeat: A or B on the death screen, out of the directory, unlinkable).
+    await feedAll(players);
 
     // Quiet: C swims out of the crowd too, the fight is over, and the crowd (A's and B's children)
     // merges back into the open water.
@@ -486,7 +489,6 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       .toBe(0);
 
     // The four come together in open water (no crowd now: 24 links) and link.
-    await feedAll(players);
     await Promise.all(
       players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
     );
