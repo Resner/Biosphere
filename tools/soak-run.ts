@@ -35,6 +35,8 @@ const JOIN_GAP_MS = 150;
 const ORIGIN = 'http://localhost:5173';
 /** Creatures whose proof bundle is verified besides the last generation. */
 const SAMPLE = 20;
+/** How long the closing consistency read may take (it verifies every creature's chain). */
+const CONSISTENT_READ_MS = 300_000;
 /** The full soak's sample (M14 T14). */
 const FULL_SAMPLE = 50;
 
@@ -177,21 +179,15 @@ export async function runSoak(opts: SoakOptions): Promise<Soak> {
 }
 
 /**
- * `/v1/e2e/consistency` verifies every live creature's chain on the hub's thread: after half an hour
- * of 200 players that takes longer than a meter read may wait.
- */
-const CONSISTENCY_WAIT_MS = 300_000;
-
-/**
  * A read of the authority's E2E meter. A busy hour answers slowly, and one slow answer is not the
- * run's end: each read waits up to 30 s (or `waitMs`) and tries three times before it gives up.
+ * run's end: each read waits up to 30 s (or `timeoutMs`) and tries three times before it gives up.
  */
-async function getJson<T>(port: number, path: string, waitMs = 30_000): Promise<T> {
+async function getJson<T>(port: number, path: string, timeoutMs = 30_000): Promise<T> {
   let last: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(`http://localhost:${port}${path}`, {
-        signal: AbortSignal.timeout(waitMs),
+        signal: AbortSignal.timeout(timeoutMs),
       });
       if (!res.ok) throw new Error(`${path} ${res.status}`);
       return (await res.json()) as T;
@@ -296,17 +292,24 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
         failures.push(`client ${i} was closed for its rate; it sent ${top.join(', ')}`);
       }
     }
+    // The clients stop before the closing reads: 200 of them still playing keep a one-machine hub
+    // too busy to answer, and the run would end without its report.
+    for (const c of clients) c.stop();
     const pageLives = pages ? await pages.stop() : [];
     for (const life of pageLives)
       for (const e of life.errors) failures.push(`page ${life.page}: ${e}`);
     const stats = clients.map((c): LifeStats => c.stats);
-    // One at a time, the long check last: a meter read must not wait behind it.
+    log(
+      `closes ${JSON.stringify(sum(stats.map((s) => s.closes)))}, refused ${JSON.stringify(sum(stats.map((s) => s.refused)))}`,
+    );
+    // One at a time: the consistency read verifies every chain on the hub's thread, and beside it
+    // the others wait past their timeout.
     const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
     const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
     const inconsistencies = await getJson<unknown[]>(
       opts.port,
       '/v1/e2e/consistency',
-      CONSISTENCY_WAIT_MS,
+      CONSISTENT_READ_MS,
     );
     const verified = await verifyProofs(
       opts.port,
@@ -376,7 +379,7 @@ async function sampleHub(
       ? getJson<{ kind: string; detail?: string }[]>(
           port,
           '/v1/e2e/consistency',
-          CONSISTENCY_WAIT_MS,
+          CONSISTENT_READ_MS,
         )
       : Promise.resolve(null),
   ]);

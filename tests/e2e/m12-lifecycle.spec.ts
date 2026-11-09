@@ -115,6 +115,25 @@ const feedAll = (ps: Player[]) =>
   );
 
 /**
+ * Brings a page that starved back into play: it takes the ancestor the death screen offers, else
+ * hatches again. These creatures never eat and the scenario runs for minutes, so one of the four can
+ * be on its death screen at the final gathering (E2E main: whichever of them ran out first, in
+ * either order, and feeding the crowd steps' creatures broke those steps). A dead creature leaves
+ * the directory, so the gathering is of the four players' living creatures, whichever those are.
+ */
+async function revive(p: Player): Promise<void> {
+  if ((await state(p.page)).screen !== 'dead') return;
+  const ancestor = p.page.getByTestId('death-fallback-ancestor');
+  const offered = await ancestor
+    .waitFor({ state: 'visible', timeout: 20_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (offered) await ancestor.click();
+  else await p.page.getByTestId('hatch-again').click();
+  await waitPlaying(p.page);
+}
+
+/**
  * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
  * and position, since the one page that timed out first says nothing of the others.
  */
@@ -135,9 +154,17 @@ async function allLinked(ps: Player[], message: string, timeout = 60_000): Promi
     ps.map(async (p) => {
       const { net, spawn, ride, screen } = await state(p.page);
       const at = await playerOf(p.page).catch(() => null);
+      const died =
+        screen === 'dead'
+          ? await p.page
+              .getByTestId('death-cause')
+              .textContent({ timeout: 2000 })
+              .catch(() => null)
+          : undefined;
       return {
         id: p.id.slice(0, 6),
         screen,
+        died,
         spawn,
         ride,
         at: at ? { x: Math.round(at.x), y: Math.round(at.y), radius: at.radius } : null,
@@ -434,14 +461,24 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     }
     // D holds a link to nobody who is in a crowd. A member that left its instance meanwhile (C's
     // crowd of one dissolves after QUIET_MS, A's and B's once the fight is over) is open water and
-    // may be linked, so judge the members that were in an instance before and after the links.
-    const dLinks = (await state(d.page)).net.links.map((l) => l.id);
-    const stillCrowded = new Set(
-      (await directory(request, HUB)).members.filter((m) => m.n !== 0).map((m) => m.id),
-    );
-    for (const m of crowded) {
-      if (stillCrowded.has(m.id)) expect(dLinks).not.toContain(m.id);
-    }
+    // may be linked, so judge the members that were in an instance before and now. A link made while
+    // a member was still in the open water closes a moment after the hub moves that member into an
+    // instance (E2E CI: one such link was read between the two), so the links and the directory are
+    // read together until none is left, within a bound.
+    await expect
+      .poll(
+        async () => {
+          const dLinks = new Set((await state(d.page)).net.links.map((l) => l.id));
+          const own = await instanceOf(d);
+          const now = new Map((await directory(request, HUB)).members.map((m) => [m.id, m.n]));
+          // A member in D's own instance is a crowd D has joined, and links it.
+          return crowded
+            .filter((m) => (now.get(m.id) ?? 0) !== 0 && now.get(m.id) !== own && dLinks.has(m.id))
+            .map((m) => m.id);
+        },
+        { message: 'D holds no link to a member in a crowd', timeout: 20_000, intervals: [200] },
+      )
+      .toEqual([]);
 
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
@@ -467,42 +504,72 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       .toBe(0);
 
     // The four come together in open water (no crowd now: 24 links) and link.
+    const openCrowds = () =>
+      Promise.all(
+        players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
+      );
     await feedAll(players);
-    await Promise.all(
-      players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
-    );
-    // A swam off to end the fight and B stayed where it fought, so all four gather on one spot: A
-    // (which a teleport also stops) stays where it is, B, C and D are placed around it.
-    const home = await playerOf(a.page);
-    const [hx, hy] = [home.x - CENTRE, home.y - CENTRE];
-    await place(a, hx, hy);
-    await place(b, hx, hy + pair);
-    await place(c, hx - pair, hy);
-    await place(d, hx + pair, hy);
-    // Each one stands where it was put, and stays there: a page that has moved on (a late
-    // settlement, a hub spawn) would sit out of the others' reach, and the failure says which.
-    const put = [
-      ['A', a, hx, hy],
-      ['B', b, hx, hy + pair],
-      ['C', c, hx - pair, hy],
-      ['D', d, hx + pair, hy],
-    ] as const;
-    const stand = async (when: string) => {
-      for (const [name, p, dx, dy] of put) {
-        const at = await playerOf(p.page);
-        expect(
-          Math.hypot(at.x - (CENTRE + dx), at.y - (CENTRE + dy)),
-          `${name} stands where it was put ${when}: at ${Math.round(at.x)},${Math.round(at.y)}, put at ${CENTRE + dx},${CENTRE + dy}`,
-        ).toBeLessThan(400);
-      }
-    };
-    await stand('right after the teleport');
-    await allLinked(players, 'the four link in open water', 90_000).catch(async (error) => {
-      await stand('when they failed to link').catch((e) => {
-        throw new Error(`${(error as Error).message}\n${(e as Error).message}`, { cause: error });
+    await openCrowds();
+    // A page that starved before this point comes back into play. The pages stop reporting crowds
+    // first: a revival takes seconds, and the four, linked and close, would crowd again meanwhile.
+    const gather = async () => {
+      await Promise.all(players.map(revive));
+      await openCrowds();
+      await expect
+        .poll(
+          async () => ({
+            instances: await Promise.all(players.map(instanceOf)),
+            crowds: (await directory(request, HUB)).crowds.length,
+          }),
+          { message: 'the four are in the open water, no crowd left', timeout: 60_000 },
+        )
+        .toEqual({ instances: [0, 0, 0, 0], crowds: 0 });
+      // A swam off to end the fight and B stayed where it fought, so all four gather on one spot: A
+      // (which a teleport also stops) stays where it is, B, C and D are placed around it.
+      const home = await playerOf(a.page);
+      const [hx, hy] = [home.x - CENTRE, home.y - CENTRE];
+      await place(a, hx, hy);
+      await place(b, hx, hy + pair);
+      await place(c, hx - pair, hy);
+      await place(d, hx + pair, hy);
+      // Each one stands where it was put, and stays there: a page that has moved on (a late
+      // settlement, a hub spawn) would sit out of the others' reach, and the failure says which.
+      const put = [
+        ['A', a, hx, hy],
+        ['B', b, hx, hy + pair],
+        ['C', c, hx - pair, hy],
+        ['D', d, hx + pair, hy],
+      ] as const;
+      const stand = async (when: string) => {
+        for (const [name, p, dx, dy] of put) {
+          const at = await playerOf(p.page);
+          expect(
+            Math.hypot(at.x - (CENTRE + dx), at.y - (CENTRE + dy)),
+            `${name} stands where it was put ${when}: at ${Math.round(at.x)},${Math.round(at.y)}, put at ${CENTRE + dx},${CENTRE + dy}`,
+          ).toBeLessThan(400);
+        }
+      };
+      await stand('right after the teleport');
+      await allLinked(players, 'the four link in open water', 90_000).catch(async (error) => {
+        await stand('when they failed to link').catch((e) => {
+          throw new Error(`${(error as Error).message}\n${(e as Error).message}`, { cause: error });
+        });
+        throw error;
       });
-      throw error;
-    });
+    };
+    // A page can die while the four gather (E2E main: the one on its death screen at the last link),
+    // so one that did comes back into play and the four gather again, at most twice more.
+    for (let round = 0; ; round++) {
+      try {
+        await gather();
+        break;
+      } catch (error) {
+        const dead = await Promise.all(
+          players.map(async (p) => (await state(p.page)).screen === 'dead'),
+        );
+        if (round >= 2 || !dead.includes(true)) throw error;
+      }
+    }
     for (const p of players) expect(await instanceOf(p), 'the open water').toBe(0);
 
     // No page ever held more links than its cap allows.

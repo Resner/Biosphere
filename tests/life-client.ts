@@ -66,6 +66,13 @@ const HUNT_GAP_MS = 5000;
 /** A hunting client engages from this many radii apart; the hub's own range check decides. */
 const ENGAGE_RADII = 6;
 const ENGAGE_GAP_MS = 2500;
+/** After a refused engage the next waits this much longer. */
+const ENGAGE_BACKOFF_MS = 5000;
+/** The ticks behind and ahead of the pond clock that the hub takes a snapshot from (`fresh` in `worker/engage.ts`, less a margin for the trip). */
+const ENGAGE_BEHIND_TICKS = 24;
+const ENGAGE_AHEAD_TICKS = 20;
+const inWindow = (tick: number, now: number): boolean =>
+  tick >= now - ENGAGE_BEHIND_TICKS && tick <= now + ENGAGE_AHEAD_TICKS;
 /** A court refused or unanswered is not repeated to the same player for this long. */
 const COURT_GAP_MS = 30_000;
 const FIGHT_PAUSE_MS = 5000;
@@ -186,6 +193,8 @@ interface Swimmer {
   ref: number;
   /** The world tick of the hatch, from which the ticks are counted. */
   startTick: number;
+  /** When (`now()`) the creature entered the water: the ticks it claims never pass the time since. */
+  enteredAt: number;
   nextReport: number;
   seq: number;
   phys: ReturnType<typeof buildCreature>['phys'];
@@ -225,6 +234,8 @@ export class LifeClient {
   private busy = false;
   private readonly waiters: { t: LifeMsg['t']; resolve: (m: LifeMsg) => void }[] = [];
   private readonly reporter = new WhereReporter();
+  /** What the socket sent in the last 10 s (the hub's rate window), to say what a rate close was made of. */
+  private readonly recent: { at: number; type: string }[] = [];
   private peers: NearPeer[] = [];
   private leafValue: Extract<WorldMsg, { t: 'leaf' }>['leaf'] | null = null;
   private pending: Born | null = null;
@@ -377,7 +388,12 @@ export class LifeClient {
       onclose: null,
       onerror: null,
       send: (data) => {
-        bump(this.stats.sent, typeOf(data));
+        const type = typeOf(data);
+        bump(this.stats.sent, type);
+        const now = this.now();
+        this.recent.push({ at: now, type });
+        while (this.recent.length > 0 && (this.recent[0]?.at ?? now) < now - 10_000)
+          this.recent.shift();
         raw.send(data);
       },
       close: () => raw.close(),
@@ -390,9 +406,22 @@ export class LifeClient {
     };
     raw.onclose = (ev) => {
       if (!this.stopped && this.hub !== null) bump(this.stats.closes, String(ev.code));
+      if (!this.stopped && this.hub !== null && ev.code === 4003)
+        this.errors.push(this.lastWindow());
       s.onclose?.(ev);
     };
     return s;
+  }
+
+  /** The last 10 s of sends by type, for the failure line of a rate close. */
+  private lastWindow(): string {
+    const from = this.now() - 10_000;
+    const counts: Record<string, number> = {};
+    for (const m of this.recent) if (m.at >= from) bump(counts, m.type);
+    return `rate close after ${Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `${k} ${n}`)
+      .join(', ')}`;
   }
 
   // ---- messages ----
@@ -408,6 +437,8 @@ export class LifeClient {
         break;
       case 'refused':
         bump(this.stats.refused, m.reason);
+        // An engage the hub refused is not asked again at once, whatever it said.
+        if (m.reason.startsWith('engage:')) this.engagedAt = this.now() + ENGAGE_BACKOFF_MS;
         break;
       case 'mating':
         this.stats.matings++;
@@ -490,9 +521,17 @@ export class LifeClient {
 
   // ---- lives ----
 
-  /** The ticks as the flow counts them: since the creature hatched. */
+  /**
+   * The ticks as the flow counts them: since the creature hatched, and never more than the time
+   * since it entered the water. A page's clock follows the hub's; a client whose offset was off by
+   * seconds (a hub busy with 200 others) would otherwise claim time that has not passed.
+   */
   private ticksNow(): number {
-    return this.swim ? this.swim.world.tick - this.swim.startTick : 0;
+    const swim = this.swim;
+    if (!swim) return 0;
+    const played = swim.world.tick - swim.startTick;
+    const elapsed = Math.floor(((this.now() - swim.enteredAt) / 1000) * TICK_HZ);
+    return Math.max(0, Math.min(played, elapsed));
   }
 
   /** Gets a creature into the water: resume, promote the child, restore an ancestor or hatch. */
@@ -575,6 +614,7 @@ export class LifeClient {
       matureBiomass: matureBiomassOf(genome, this.opts.scales) / HUNDREDTHS,
       ref: genomeRefOf(genomeHash(genome)),
       startTick: world.tick,
+      enteredAt: this.now(),
       nextReport: FIRST_REPORT_TICKS,
       seq: 0,
       phys,
@@ -775,6 +815,7 @@ export class LifeClient {
   private social(t: number, swim: Swimmer): void {
     const hub = this.hub as HubClient;
     const mate = this.mate as MateFlow;
+    const welcome = this.welcome as Welcome;
     const mine = (this.identity as Identity).playerId;
     const state = mate.view().state;
     // An invitation is accepted after a moment, as a player reads it.
@@ -833,6 +874,10 @@ export class LifeClient {
       const theirs = this.opts.bus.latest(h.id);
       const own = this.signedNow(swim);
       if (!theirs || !own) continue;
+      // Only snapshots the hub would take (`fresh` in `worker/engage.ts`, with a margin): an engage it
+      // refuses as stale costs a message and is asked again, 25,000 times in an hour of soak.
+      const at = hub.clock.pondTick(t, welcome.world.epoch);
+      if (!inWindow(own.snap.tick, at) || !inWindow(theirs.snap.tick, at)) continue;
       this.engagedAt = t;
       this.stats.engages++;
       hub.send({ t: 'engage', target: h.id, mine: own.signed, theirs: theirs.signed });
