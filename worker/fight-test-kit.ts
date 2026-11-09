@@ -484,12 +484,13 @@ export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
 
 /**
  * A locks B in at 1 hp (unless `start` is given); A then swims at it with its weapon aimed while B
- * idles, until B dies.
+ * idles, until B dies. A swims straight ahead unless `plan` gives its inputs for the fight begun.
  */
 export async function killB(
   a: Player,
   b: Player,
   start?: EncStart,
+  plan?: (begun: EncStart) => Plan,
 ): Promise<{ start: EncStart; end: EncEnd }> {
   const begun =
     start ??
@@ -497,7 +498,8 @@ export async function killB(
       await lockIn(a, b, snap(b, ...NEAR.b, { health: 0.01 }), snap(a, ...NEAR.a, { health: 1 }))
     )[0];
   const target = slotOf(begun, b);
-  const hunt: Plan = () => [drive(0, 15, { stance: 'aggressive', target }), IDLE_CODE];
+  const hunt: Plan =
+    plan?.(begun) ?? (() => [drive(0, 15, { stance: 'aggressive', target }), IDLE_CODE]);
   const played = await play(a, b, begun, hunt);
   const [end] = played.ends as [EncEnd, EncEnd];
   expect(outcomeOf(end, b)).toMatchObject({ outcome: 'killed', by: slotOf(begun, a) });

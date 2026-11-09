@@ -45,7 +45,8 @@ export const REGISTRY: readonly RulesEntry[] = Object.freeze([
 export const RELEASED: Readonly<Record<number, string>> = Object.freeze({});
 
 /**
- * `live` for a version the registry holds, `retired` for one a world renewal retired, `unknown`
+ * `live` for a version the registry holds, `retired` for one before the permanent world (rules 12
+ * or older, retired by a world renewal), `unknown`
  * for anything else (a newer build's version: the checker must be updated). Never throws.
  */
 export function rulesStatus(rules: number): 'live' | 'retired' | 'unknown' {
