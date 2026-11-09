@@ -1,6 +1,6 @@
 # 0067: Scale proof, metering and admission by plan
 
-- Status: accepted, amended by 0071 (the session caps and the paid plan's allowances are set from the measurements) (amends 0008: the budgets are measured, the plan sets the limits, rows read are metered, admission queues by reason with a measured wait, and the ceiling is $9.50 a month; amends 0056: the storage limit is the plan's per object, and a store at 90% of it stops new sessions)
+- Status: accepted, amended by 0071 (the session caps and the paid plan's allowances are set from the measurements) and 0075 (a headroom cap on both plans) (amends 0008: the budgets are measured, the plan sets the limits, rows read are metered, admission queues by reason with a measured wait, and the ceiling is $9.50 a month; amends 0056: the storage limit is the plan's per object, and a store at 90% of it stops new sessions)
 - Date: 2026-11-08
 
 ## Context

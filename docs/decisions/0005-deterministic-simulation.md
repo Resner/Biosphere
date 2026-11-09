@@ -1,6 +1,6 @@
 # 0005: Deterministic simulation and versioned rules
 
-- Status: accepted (no rules version is frozen before v1.0: 0040, which replaces 0035's interim rule for development and stats)
+- Status: accepted (no rules version is frozen before v1.0: 0040, which replaces 0035's interim rule for development and stats; frozen again from v1.0.0: 0074)
 - Date: 2026-10-25
 
 ## Context

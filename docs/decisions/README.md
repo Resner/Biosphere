@@ -17,7 +17,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Factory runs, workers and claims | 0057, 0048, 0047, 0042 | 0001, 0015, 0020, 0044, 0045 |
 | Models for specs and tasks | 0026 | 0001, 0023 |
 | CI and the release gate | 0045 (`check` and `check:full`), 0042, 0044 (Playwright workers) | 0001, 0015 |
-| Rules versions and freezing | 0061 (rules 12, epoch 4), 0055 (the registry), 0040 (no frozen versions before v1.0) | 0005, 0006, 0018, 0025, 0035 |
+| Rules versions and freezing | 0074 (rules 13, epoch 5, permanent from v1.0.0), 0061, 0055 (the registry), 0040 | 0005, 0006, 0018, 0025, 0035 |
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
 | Look and the gallery | 0049, 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
@@ -25,7 +25,8 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Lineage verification, proofs and retention | 0058, 0056, 0055, then 0009 | 0019, 0021, 0054 |
 | Witnesses, audits and anti-farming | 0062 (free slots, `engage:unseen`), 0059, 0058, then 0012 | 0010, 0054 |
 | The world, area of interest and signaling | 0064 (spawning, riding, crowd instances), 0063, 0062, 0061, then 0013 | 0007, 0016 |
-| Scale, metering, budgets and admission | 0067 (plans, the scale proof, admission by reason), 0056 (storage), then 0008 | |
+| Scale, metering, budgets and admission | 0075 (the headroom cap), 0071 (the caps), 0067 (plans, the scale proof, admission by reason), 0056 (storage), then 0008 | |
+| Interrupted transactions | 0076 (the ledger is the journal; a sign-in names what is in flight), 0053 (fights) | |
 
 ## Index
 
@@ -35,7 +36,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0002](0002-owner-checks-and-credentials.md) | Owner checks, playtest gates and credentials | accepted | |
 | [0003](0003-toolchain.md) | Toolchain and repository layout | accepted | 0017, 0045 |
 | [0004](0004-rendering.md) | Rendering with Three.js and WebGL2 over a 2D gameplay plane | accepted | 0027 |
-| [0005](0005-deterministic-simulation.md) | Deterministic simulation and versioned rules | accepted | 0035, 0040 |
+| [0005](0005-deterministic-simulation.md) | Deterministic simulation and versioned rules | accepted | 0035, 0040, 0074 |
 | [0006](0006-genome-and-development.md) | Genome, inheritance and bounded development | accepted | 0025, 0036, 0040, 0041 |
 | [0007](0007-networking.md) | Peer-to-peer networking: our own WebRTC mesh, hub signaling, TURN | accepted, amended | 0062 |
 | [0008](0008-minimal-authority.md) | Minimal authority on Cloudflare, budgets and admission | accepted, amended | 0017, 0067, 0071 |
@@ -48,7 +49,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0015](0015-chained-runs-public-repo.md) | Chained factory runs in a public repository | accepted | 0020, 0042, 0044 |
 | [0016](0016-shared-pond-model.md) | Shared pond model: local sim, hub clock, food claims | accepted, amended | 0061 |
 | [0017](0017-workers-vitest-plugin.md) | Worker tests use `@cloudflare/vitest-plugin` | accepted | |
-| [0018](0018-body-seam-and-genome-sharing.md) | Body seam, genome encoding and sharing, shader gait (M3) | accepted | 0025, 0035, 0040 |
+| [0018](0018-body-seam-and-genome-sharing.md) | Body seam, genome encoding and sharing, shader gait (M3) | accepted | 0025, 0035, 0040, 0074 |
 | [0019](0019-ledger-mechanics-and-life-clock.md) | Ledger mechanics, genesis commitments and the life clock (M4) | accepted | 0025, 0029, 0053, 0055 |
 | [0020](0020-single-factory-pr-guard.md) | Lowest PR number wins, enforced by CI | accepted | 0042, 0044, 0047 |
 | [0021](0021-mating-offspring-and-the-checkpoint-chain.md) | Mating, offspring and the checkpoint chain (M5) | accepted | 0022, 0052 |
@@ -70,7 +71,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0037](0037-one-body-widest-at-the-trunk.md) | One body, widest at the trunk | accepted, amended | 0038, 0040, 0041 |
 | [0038](0038-curled-chains-fit-along-their-curve.md) | Curled chains fit the bounds along their curve, and a coil is a chambered spiral | accepted, amended | 0039, 0041 |
 | [0039](0039-thin-legs-off-the-body.md) | Thin legs that keep off the body | accepted | 0040, 0041 |
-| [0040](0040-pre-1-0-world-resets.md) | Before v1.0, a rules change may reset the world; no frozen versions | accepted | 0055, 0061 |
+| [0040](0040-pre-1-0-world-resets.md) | Before v1.0, a rules change may reset the world; no frozen versions | accepted, closed | 0055, 0061, 0074 |
 | [0041](0041-bodies-read-as-organisms.md) | A body plan reads as an organism: parts by region, a visible-part budget | accepted | |
 | [0042](0042-flake-resistant-gates-and-live-claims.md) | Flake-resistant gates and live claims | accepted | 0044 |
 | [0043](0043-glass-sheen-and-two-tone-organs.md) | Glass with pass 1's sheen, organs in two related tones, gallery specimens per rules | accepted, amended | 0046 |
@@ -85,7 +86,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0052](0052-eggs-are-prey-in-encounters.md) | A carried egg is prey, eaten only in a settled encounter | accepted | |
 | [0053](0053-fights-outlast-disconnects-and-restarts.md) | Fights outlast disconnects and restarts: a saved log, recovery, reconnects, and the authority finishing an abandoned fight | accepted | |
 | [0054](0054-signed-settlements-and-victim-worth.md) | A settled encounter is a signed document over a Merkle root of its frames, and a victim's worth decays | accepted, amended | 0058, 0059 |
-| [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted, amended | 0058 |
+| [0055](0055-proof-bundles-and-an-independent-verifier.md) | Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal | accepted, amended | 0058, 0074 |
 | [0056](0056-retention-and-the-storage-budget.md) | Retention: the history for good, fight logs for 14 days, and a storage budget | accepted, amended | 0058, 0067, 0071 |
 | [0057](0057-claims-by-script-and-branch-cleanup.md) | Claims are made by a script, and closed factory branches are deleted | accepted | |
 | [0058](0058-witnesses-referee-after-the-round.md) | Witnesses: a committed pool per event, a witness referee from the round on, auditors, and authority-only flags | accepted, amended | 0062, 0069 |
@@ -97,10 +98,13 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0064](0064-habitats-spawning-riding-and-crowd-instances.md) | Habitats: spawning around groups, riding the current, crowd instances and anchored transitions | accepted, amended | 0069 |
 | [0065](0065-late-entries-in-dense-water.md) | Late entries in dense water read at 15 in 1,000 | accepted | |
 | [0066](0066-how-the-wave-gates-read.md) | How the population wave's gates read: the group's edge, regrouped, hidden creatures and the budget | accepted | |
-| [0067](0067-scale-proof-metering-and-admission-by-plan.md) | Scale proof, metering and admission by plan | accepted, amended | 0071 |
+| [0067](0067-scale-proof-metering-and-admission-by-plan.md) | Scale proof, metering and admission by plan | accepted, amended | 0071, 0075 |
 | [0068](0068-spawn-band-floor-at-the-centre.md) | The spawn band's floor near the centre: 0.26 within the centre cap's radius | accepted | |
 | [0069](0069-the-pure-parts-at-10000-members.md) | The pure parts at 10,000 members: placement from a wide group's edge and a window for the witness pool | accepted | |
 | [0070](0070-how-the-load-gates-read-at-10000.md) | How the load gates read at 10,000: the budget's tail, hidden creatures as a rate, and the run's time | accepted | |
-| [0071](0071-capacity-of-one-object-and-what-10000-need.md) | What one authority object serves, the session caps, and what 10,000 players need | accepted | |
+| [0071](0071-capacity-of-one-object-and-what-10000-need.md) | What one authority object serves, the session caps, and what 10,000 players need | accepted, amended | 0075 |
 | [0072](0072-slow-e2e-in-four-shards.md) | The slow E2E scenarios run in four shards | accepted | |
 | [0073](0073-engage-clock-slack-one-second.md) | An engage's snapshots may be a second off the hub's clock | accepted | |
+| [0074](0074-permanent-lineages-from-v1-0.md) | From v1.0, lineages are permanent: one last renewal, rules 13, and frozen versions | accepted | |
+| [0075](0075-room-for-a-crowd-headroom-cap.md) | Room for a crowd: the session cap follows the day's headroom | accepted | |
+| [0076](0076-interrupted-transactions-the-ledger-is-the-journal.md) | Interrupted transactions: the ledger is the journal, and a sign-in names what is in flight | accepted | |

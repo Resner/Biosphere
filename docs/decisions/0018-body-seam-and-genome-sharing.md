@@ -1,6 +1,6 @@
 # 0018: Body seam, genome encoding and sharing, shader gait (M3)
 
-- Status: accepted (`KARYOTYPE_VERSION` is 2: 0025; development and stats may change within a version: 0035; before v1.0 nothing is frozen and no old decoder is kept: 0040)
+- Status: accepted (`KARYOTYPE_VERSION` is 2: 0025; development and stats may change within a version: 0035; before v1.0 nothing is frozen and no old decoder is kept: 0040; from v1.0.0 a changed part keeps its old code: 0074)
 - Date: 2026-10-26
 
 ## Context
