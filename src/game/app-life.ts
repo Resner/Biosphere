@@ -251,30 +251,36 @@ export class LifeStarts {
     app.hatchError = '';
     screens.setBusy(true);
     // A hub that cannot be reached (or a failing connector) means a local pond, never a stuck screen.
-    void tryOnline(() =>
+    const work = tryOnline(() =>
       app.identityReady.then(() => {
         app.online.ensure(name);
         return app.keeper.current?.whenReady(HATCH_WAIT_MS) ?? null;
       }),
-    )
-      .then(async (welcome) => {
-        const joined = welcome !== null && app.pond !== null;
-        // A pinned body is a test or a debug cell: it never touches the ledger.
-        if (!joined || app.params.genome) {
-          flow.practice();
-          if (joined) (await this.beginPlaced({ body: app.hatcher.next() }))();
-          else this.begin(false);
-          return;
-        }
-        await this.play(await flow.hatch(HATCH_WAIT_MS));
-      })
+    ).then(async (welcome) => {
+      const joined = welcome !== null && app.pond !== null;
+      // A pinned body is a test or a debug cell: it never touches the ledger.
+      if (!joined || app.params.genome) {
+        flow.practice();
+        if (joined) (await this.beginPlaced({ body: app.hatcher.next() }))();
+        else this.begin(false);
+        return;
+      }
+      await this.play(await flow.hatch(HATCH_WAIT_MS));
+    });
+    this.settleHatch(work);
+  }
+
+  /** The tail every online hatch shares: a failure is the "not hatched" card, and the screen frees. */
+  private settleHatch(work: Promise<void>): void {
+    const { app } = this;
+    void work
       .catch((error: unknown) => {
         console.warn('hatch failed', error);
         app.hatchError = NOT_HATCHED;
       })
       .finally(() => {
         this.hatching = false;
-        screens.setBusy(false);
+        app.screens.setBusy(false);
       });
   }
 
@@ -289,17 +295,7 @@ export class LifeStarts {
     this.hatching = true;
     app.hatchError = '';
     app.screens.setBusy(true);
-    void app.flow
-      .hatch(HATCH_WAIT_MS)
-      .then((outcome) => this.play(outcome))
-      .catch((error: unknown) => {
-        console.warn('hatch failed', error);
-        app.hatchError = NOT_HATCHED;
-      })
-      .finally(() => {
-        this.hatching = false;
-        app.screens.setBusy(false);
-      });
+    this.settleHatch(app.flow.hatch(HATCH_WAIT_MS).then((outcome) => this.play(outcome)));
   }
 
   /** What a hatch came to: the error, the countdown or a practice cell, or the creature played. */

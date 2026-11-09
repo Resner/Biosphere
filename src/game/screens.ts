@@ -205,8 +205,8 @@ export class Screens {
     this.cause.textContent = deathName(summary.cause, summary.by);
     this.hint.textContent = text.hint;
     this.survived.textContent = livedText(summary.survivedSeconds * 1000);
-    this.peak.textContent =
-      summary.peakBiomass === null ? '' : String(Math.round(summary.peakBiomass));
+    if (summary.peakBiomass !== null)
+      this.peak.textContent = String(Math.round(summary.peakBiomass));
     const row = this.peak.parentElement;
     if (row) row.hidden = summary.peakBiomass === null;
     this.species.textContent = summary.body;
