@@ -83,13 +83,21 @@ test('the bars wear their glyphs; low energy hollows the bolt and a hit cracks t
   const health = () => glyphs(page).then((b) => b[0]);
   expect((await health())?.crack).toBe(false);
   await page.evaluate(() => {
+    // Hold the first hit's state: once the bar is hurt, the HUD can no longer clear it, so the
+    // shot below doesn't race the 0.3 s flash (the real stylesheet still draws the hit).
+    const stat = document.querySelector<HTMLElement>('[data-testid="hud-bar-health"]');
+    if (!stat) throw new Error('no health bar');
+    new MutationObserver((_, watch) => {
+      if (!stat.hasAttribute('data-hurt')) return;
+      stat.toggleAttribute = () => true;
+      watch.disconnect();
+    }).observe(stat, { attributes: true, attributeFilter: ['data-hurt'] });
     const bs = window.__bs as BsHook;
     const { x, y } = bs.state().player ?? { x: 0, y: 0 };
     bs.debug?.spawnPlume(x, y, 200);
     bs.debug?.setEnergy(1);
   });
-  // Hits land every 0.5 s and flash for 0.3, so the hurt bar is set and cleared while the test
-  // looks: in the frame that sets it, the cross is cracked.
+  // The first hit sets the hurt bar (and the observer holds it): the cross is cracked.
   await page.waitForFunction(() => {
     const stat = document.querySelector('[data-testid="hud-bar-health"]');
     const crack = stat?.querySelector('.crack');
@@ -109,12 +117,8 @@ test('the bars wear their glyphs; low energy hollows the bolt and a hit cracks t
       }
     return red >= 6;
   };
-  let shot: Buffer | null = null;
-  for (let i = 0; i < 30 && !shot; i++) {
-    const png = await page.screenshot();
-    if (hurtIn(png)) shot = png;
-  }
-  if (!shot) throw new Error('no shot while a hit showed');
+  const shot = await page.screenshot();
+  expect(hurtIn(shot), 'the health glyph wears the hit colour').toBe(true);
   expect((await energy())?.low, 'energy still low in the shot').toBe(true);
   await attachSeen(info, 'hud', shot);
   expect((await hudCover(page)).share).toBeLessThanOrEqual(0.06);
