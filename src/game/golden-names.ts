@@ -1,0 +1,21 @@
+/** The golden sets `src/game/goldens.ts` computes; named apart so the page lists them without loading its code. */
+export const GOLDEN_SET_NAMES: readonly string[] = [
+  'math',
+  'replay',
+  'encounter',
+  'develop',
+  'express',
+  'stats',
+  'genesis',
+  'genome-hash',
+  'inherit',
+  'offspring',
+  'rarity',
+  'describe',
+  'records',
+  'kinds',
+  'settlement',
+  'lineage',
+  'growth-reach',
+  'frozen',
+];

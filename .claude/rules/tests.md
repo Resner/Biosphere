@@ -29,4 +29,5 @@ paths:
 - A spec file that uses a hub runs serially (`test.describe.configure({ mode: 'serial' })`) and gets its own `wrangler dev` port in `playwright.config.ts`, because files run in parallel and would share a pond. `docs/TESTING.md` names the next free port.
 - Golden files (replays, math, genome vectors) change only with a change to the rules they pin, never just to get green. The first such change after a release bumps `RULES_VERSION` (ADR 0018). A golden change under an unreleased version reruns `npm run goldens:manifest` (`src/ledger/__golden__/frozen.json`, checked by `src/ledger/frozen.test.ts`).
 - A released rules version's manifest entry and goldens never change, and neither does its pin in `RELEASED` (`src/ledger/registry.ts`; ADR 0074). A rules change after v1.0 is a new version that keeps the older part's code and goldens callable beside the new ones.
+- A new golden file joins the catalogue (`tests/goldens-catalogue.ts`, `docs/TESTING.md`): a set recomputed in the page (`src/game/goldens.ts`, `golden-names.ts`) or a `NODE_ONLY` entry with its reason.
 - Never skip, loosen or delete a test to get green; fix the cause.
