@@ -1,13 +1,18 @@
 import '../style.css';
 import './lab.css';
 import { formatBuildLabel } from '../game/build-label';
+import { capabilities, showUnsupported, unsupportedReason } from '../game/capability';
 import { randomSeed, startLab } from './lab';
 
 const label = document.querySelector<HTMLElement>('[data-testid="build-label"]');
 if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
 
 const params = new URLSearchParams(window.location.search);
-if (params.has('gallery')) {
+// A browser without WebGL2 or module workers gets the plain page (M14 T6).
+const unsupported = unsupportedReason(capabilities(window), 'lab');
+if (unsupported) {
+  showUnsupported(document, unsupported);
+} else if (params.has('gallery')) {
   // The look-pass sheet (M6 T5) loads its specimens only when asked for.
   import('./gallery-page')
     .then((page) => page.startGallery())

@@ -132,6 +132,13 @@ const m13LoadHubPort = 8837;
 const m13LifecycleHubPort = 8839;
 // The M14 guide spec (M14 T7, 8843, `@slow`): two players learn the guide's later steps, with short matings.
 const m14GuideHubPort = 8843;
+// The M14 engine specs (M14 T6, `@slow`): the game in the engine under test (8842), and a Chromium
+// page with a Firefox (and a WebKit) page in one pond (8841).
+const m14SmokeHubPort = 8842;
+const m14MixedHubPort = 8841;
+// The M14 capability spec (M14 T6, 8845): a recorded creature without WebRTC. Not `@slow`, so its
+// hub starts in the PR parts too, as m13-queue's does.
+const m14CapabilityHubPort = 8845;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -151,25 +158,43 @@ const SOCIAL = /m2-social\.spec\.ts/;
 const POND = /m2-pond\.spec\.ts/;
 const POST =
   /m6-(post|dof|gallery|creature-mesh|readable|budget)\.spec\.ts|m6b-(look|clip)\.spec\.ts|m6c-(glass|organs)\.spec\.ts/;
-// Firefox (M6c T8): `m6c-firefox` (Firefox only; it skips itself elsewhere) and `m6c-flash` (both
-// browsers). Only `E2E full`'s firefox part sets `E2E_FIREFOX`, after installing Firefox; PR CI and
-// a plain `test:e2e:full` stay Chromium. Headless Firefox finds no GL driver on a runner (no EGL), so
-// it runs headed under `xvfb-run`, where it draws WebGL2 through Mesa like Chromium.
-const FIREFOX = /m6c-(firefox|flash)\.spec\.ts/;
-const firefox = process.env.E2E_FIREFOX
-  ? [
-      {
-        name: 'firefox',
-        testMatch: FIREFOX,
-        use: {
-          browserName: 'firefox' as const,
-          headless: false,
-          launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+// The other engines (M6c T8, M14 T6; ADR 0077). Only `E2E full`'s firefox and webkit parts set
+// `E2E_FIREFOX` or `E2E_WEBKIT`, after installing that engine and Chromium; PR CI and a plain
+// `test:e2e:full` stay Chromium. Firefox runs `m6c-firefox` (Firefox only; it skips itself elsewhere),
+// `m6c-flash`, the goldens, the smoke and the mixed pond; WebKit the goldens, the smoke and the mixed
+// pond. Headless Firefox finds no GL driver on a runner (no EGL), so it runs headed under `xvfb-run`,
+// where it draws WebGL2 through Mesa like Chromium; headless WebKit draws WebGL2 itself.
+const ENGINES = /m14-(goldens|smoke|mixed)\.spec\.ts/;
+const FIREFOX = [/m6c-(firefox|flash)\.spec\.ts/, ENGINES];
+// The mixed pond launches its Chromium page itself, so only the engine projects run it.
+const MIXED = /m14-mixed\.spec\.ts/;
+const engines = [
+  ...(process.env.E2E_FIREFOX
+    ? [
+        {
+          name: 'firefox',
+          testMatch: FIREFOX,
+          use: {
+            browserName: 'firefox' as const,
+            headless: false,
+            launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+          },
+          ...skipSlow,
         },
-        ...skipSlow,
-      },
-    ]
-  : [];
+      ]
+    : []),
+  ...(process.env.E2E_WEBKIT
+    ? [
+        {
+          name: 'webkit',
+          testMatch: ENGINES,
+          // Not Chromium's flags or its fallback build.
+          use: { browserName: 'webkit' as const, launchOptions: {} },
+          ...skipSlow,
+        },
+      ]
+    : []),
+];
 
 export default defineConfig({
   testDir: 'tests/e2e',
@@ -197,7 +222,7 @@ export default defineConfig({
   projects: [
     {
       name: 'chromium',
-      testIgnore: [SOCIAL, POND, POST],
+      testIgnore: [SOCIAL, POND, POST, MIXED],
       use: { browserName: 'chromium' },
       ...skipSlow,
     },
@@ -227,7 +252,7 @@ export default defineConfig({
       use: { browserName: 'chromium' },
       ...skipSlow,
     },
-    ...firefox,
+    ...engines,
   ],
   webServer: [
     {
@@ -461,6 +486,8 @@ export default defineConfig({
       ['m13-load', m13LoadHubPort, WITNESS_VARS],
       ['m13-lifecycle', m13LifecycleHubPort, '--var MAX_SESSIONS:2 --var MATING_SCALE:0.01'],
       ['m14-guide', m14GuideHubPort, '--var MATING_SCALE:0.01'],
+      ['m14-smoke', m14SmokeHubPort, ''],
+      ['m14-mixed', m14MixedHubPort, WITNESS_VARS],
       ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],
@@ -486,9 +513,10 @@ export default defineConfig({
     ]
       .filter(([spec]) => !process.env.E2E_SKIP_SLOW && wantsSpec(String(spec)))
       .concat(
-        [['m13-queue', m13QueueHubPort, '--var MAX_SESSIONS:1']].filter(([spec]) =>
-          wantsSpec(String(spec)),
-        ),
+        [
+          ['m13-queue', m13QueueHubPort, '--var MAX_SESSIONS:1'],
+          ['m14-capability', m14CapabilityHubPort, ''],
+        ].filter(([spec]) => wantsSpec(String(spec))),
       )
       .map(([spec, port, vars]) => ({
         command: `node tools/worker.mjs dev --e2e --port ${port} --persist-to .wrangler/e2e-state-${spec} ${vars}`,

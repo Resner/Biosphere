@@ -45,6 +45,7 @@ import { PlayUi } from './app-ui';
 import { AutoQuality } from './auto-quality';
 import { AwayReport } from './away-report';
 import { Hatcher } from './body';
+import { type Capabilities, type PlayLimits, playLimits } from './capability';
 import { pick } from './dom';
 import { EggShow } from './eggs';
 import { createFieldSync } from './field';
@@ -98,7 +99,17 @@ export interface GameParams {
   gpuWatch?: boolean;
   /** `?world=<size>` (M11 T11): the offline world's side in wu; it spawns at its centre. */
   world?: number | null;
+  /** What the browser offers (M14 T6); everything when not given. */
+  capabilities?: Capabilities;
 }
+
+const EVERYTHING: Capabilities = {
+  webgl2: true,
+  rtc: true,
+  idb: true,
+  ws: true,
+  moduleWorker: true,
+};
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
 const FIELD_MARGIN = RULES.food.driftRadius + RULES.food.kinds.globule.radius;
@@ -251,6 +262,9 @@ export class App {
    * a hub URL the game runs offline, as in M1.
    */
   readonly hubUrl: string | null;
+  /** What the browser offers (M14 T6), and how the game plays with it: online, linked, and why not. */
+  readonly capabilities: Capabilities;
+  readonly limits: PlayLimits;
   /**
    * The authority's keys (`GET /v1/pubkeys`), fetched once per page at the first ask and shared by
    * the settlement checks, the audits and the seat tickets (M11 T7); null without a hub.
@@ -458,7 +472,13 @@ export class App {
     this.field = createFieldSync(() => this.refreshField());
     this.growth = new GrowthWatch();
 
-    this.hubUrl = hubSocketUrl(window.location.search, __AUTHORITY_URL__);
+    this.capabilities = params.capabilities ?? EVERYTHING;
+    const configured = hubSocketUrl(window.location.search, __AUTHORITY_URL__);
+    this.limits = playLimits(this.capabilities, configured !== null);
+    this.hubUrl = this.limits.online ? configured : null;
+    const note = pick('[data-testid="capability-note"]');
+    note.textContent = this.limits.note ?? '';
+    note.hidden = this.limits.note === null;
     const { hubUrl } = this;
     this.authorityKeys = hubUrl
       ? cachedKeys(() => fetchJson(hubHttpUrl(hubUrl, '/v1/pubkeys')))

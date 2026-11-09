@@ -32,6 +32,7 @@ import type { FightShowView } from './app-fight';
 import type { WitnessDutyView } from './app-witness';
 import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
+import type { Capabilities, Unsupported } from './capability';
 import type { GuideView } from './guide';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
@@ -45,6 +46,13 @@ import type { WheelInfo } from './wheel';
 /** Read-only views of the running game for tests and tools (`window.__bs`). */
 export interface BsState {
   screen: Screen;
+  /** What the browser offers (M14 T6), as checked on load. */
+  capabilities: Capabilities;
+  /**
+   * Why the page shows the plain page instead of the game (M14 T6), or null while the game runs. On
+   * the plain page the hook holds only `ready`, and `state()` only `capabilities` and this.
+   */
+  unsupported: Unsupported | null;
   /**
    * Graphics quality (M6 T4): the setting in force, the preset `auto` resolves to, and the
    * benchmark's status (`stored` means this GPU's result was read and no benchmark ran).
@@ -571,4 +579,10 @@ declare global {
 
 export function installHook(hook: BsHook): void {
   window.__bs = hook;
+}
+
+/** The plain page's hook (M14 T6): there is no game, so `state()` says only why. */
+export function installPlainHook(capabilities: Capabilities, unsupported: Unsupported): void {
+  const state = { capabilities, unsupported };
+  window.__bs = { ready: true, state: () => ({ ...state }) } as unknown as BsHook;
 }

@@ -301,7 +301,8 @@ export class DutyWiring {
     const { app } = this;
     this.avail.update(now, {
       visible: !document.hidden,
-      setting: app.settings.helpReferee,
+      // A page that can't link can't referee (M14 T6).
+      setting: app.settings.helpReferee && app.limits.links,
       busy: app.fight.fighting || app.attack.waiting,
       links: app.keeper.current?.protectedLinks() ?? 0,
     });
