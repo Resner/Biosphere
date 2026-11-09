@@ -96,8 +96,8 @@ const instanceOf = (p: Player) =>
 /**
  * Keeps the pages' creatures fed from here on. These creatures never eat, so on a slow runner they
  * starve before the last step (E2E main: pages on the death screen), and a dead creature leaves the
- * directory, so nobody could link to it. Called once the fight has settled, so it changes nothing
- * the fight sees: it only keeps the living alive through the quiet steps and the final gathering.
+ * directory, so nobody could link to it. Called once the crowd has merged, so it changes nothing
+ * the crowd steps see: it only keeps the living alive through the final gathering.
  */
 const feedAll = (ps: Player[]) =>
   Promise.all(
@@ -115,10 +115,9 @@ const feedAll = (ps: Player[]) =>
   );
 
 /**
- * Keeps the pages' energy full from here on, and nothing else. C and D never mate, so their first
- * creatures live through the whole scenario, which a slow runner stretches until they starve (E2E
- * main: C and D on the death screen at the final gathering, out of the directory, unlinkable).
- * Energy takes no part in the crowd steps, so it changes nothing they see.
+ * Keeps the pages' energy full from here on, and nothing else, so a slow runner can't starve them
+ * (E2E main: pages on the death screen at the final gathering, out of the directory, unlinkable).
+ * C and D, which never mate, are kept from the start; A and B once the fight has settled.
  */
 const keepFed = (ps: Player[]) =>
   Promise.all(
@@ -465,9 +464,10 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
     await settled(request, HUB, fightId);
-    // The fight is over: from here the four are kept alive through the quiet steps and the gathering
-    // (E2E main and the CI repeat: A or B on the death screen, out of the directory, unlinkable).
-    await feedAll(players);
+    // The fight is over: A and B are kept from starving through the quiet steps (CI repeat: one of
+    // them on the death screen at the gathering, out of the directory, unlinkable). Their health is
+    // left alone until the crowd has merged: with it held at the maximum the crowd did not merge.
+    await keepFed([a, b]);
 
     // Quiet: C swims out of the crowd too, the fight is over, and the crowd (A's and B's children)
     // merges back into the open water.
@@ -489,6 +489,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       .toBe(0);
 
     // The four come together in open water (no crowd now: 24 links) and link.
+    await feedAll(players);
     await Promise.all(
       players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
     );
