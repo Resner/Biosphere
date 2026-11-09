@@ -7,6 +7,7 @@ import { REQUEST_DOMAIN, type RecordRequest, requestMessage } from '../src/ledge
 import type { HubMsg } from '../src/net/protocol';
 import { RULES, RULES_VERSION, TICK_HZ } from '../src/sim/rules';
 import type { BeaconSource } from './beacons';
+import { SLACK_TICKS } from './engage';
 import {
   advance,
   authority,
@@ -143,11 +144,20 @@ describe('engage refusals', () => {
 
   it('stale: a target snapshot older than the window', async () => {
     const [a, b] = await pair();
-    const old = snap(b, ...NEAR.b, { tick: pondTick(b) - E.snapshotMaxAge - 4 });
+    const old = snap(b, ...NEAR.b, { tick: pondTick(b) - E.snapshotMaxAge - SLACK_TICKS - 1 });
     expect(await refusal(a, b, old)).toBe('engage:stale');
     // At the edge of the slack it is still fresh.
-    const edge = snap(b, ...NEAR.b, { tick: pondTick(b) - E.snapshotMaxAge - 3 });
+    const edge = snap(b, ...NEAR.b, { tick: pondTick(b) - E.snapshotMaxAge - SLACK_TICKS });
     engage(a, b, edge);
+    await nextOf(b.c, 'lock-ask');
+  });
+
+  it('stale: an own snapshot ahead of the hub clock by more than the slack, fresh within it', async () => {
+    const [a, b] = await pair();
+    const ahead = snap(a, ...NEAR.a, { tick: pondTick(a) + SLACK_TICKS + 2 });
+    expect(await refusal(a, b, undefined, ahead)).toBe('engage:stale');
+    const within = snap(a, ...NEAR.a, { tick: pondTick(a) + SLACK_TICKS - 2 });
+    engage(a, b, undefined, within);
     await nextOf(b.c, 'lock-ask');
   });
 
