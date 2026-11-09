@@ -97,6 +97,9 @@ test('renewal notice, charged reveal, a dive with UV hits and the gauge, mate an
 
   // 1. A returning identity reads the renewal notice once (M6c T2).
   const idA = (await state(a)).playerId as string;
+  // The hub's first `life` must have arrived before staging: sent after it, it would carry the
+  // notice to this page and mark it told, and the reloaded page would never hear it.
+  await a.waitForFunction(() => window.__bs?.state().renewed !== null);
   const staged = await request.post(`${HUB}/v1/e2e/pre-reset`, { data: { playerId: idA } });
   expect(staged.status(), 'the hub staged the identity as pre-reset').toBe(204);
   await a.reload();

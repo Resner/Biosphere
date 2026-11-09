@@ -21,7 +21,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | Genome and body plan | 0041, then 0039, 0038, 0037, 0031, 0028, 0025 | 0006, 0018 |
 | Look and the gallery | 0049, 0046, 0043, 0034 | 0024, 0032, 0033 |
 | Speed, growth and pacing | 0036, 0029, 0022 | 0019, 0021 |
-| Combat and encounters | 0059, 0058, 0054, 0053, 0052, 0051, 0050, then 0011 | 0010, 0035 |
+| Combat and encounters | 0073, 0059, 0058, 0054, 0053, 0052, 0051, 0050, then 0011 | 0010, 0035 |
 | Lineage verification, proofs and retention | 0058, 0056, 0055, then 0009 | 0019, 0021, 0054 |
 | Witnesses, audits and anti-farming | 0062 (free slots, `engage:unseen`), 0059, 0058, then 0012 | 0010, 0054 |
 | The world, area of interest and signaling | 0064 (spawning, riding, crowd instances), 0063, 0062, 0061, then 0013 | 0007, 0016 |
@@ -80,7 +80,7 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0047](0047-workers-not-lanes.md) | Two identical workers with one claim per task, instead of two lanes | accepted, amended | 0048, 0057 |
 | [0048](0048-at-most-two-steps.md) | At most two steps in progress at once | accepted, amended | 0057 |
 | [0049](0049-inherited-organ-colour.md) | The organs' second tone follows the inherited hue | accepted | |
-| [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted, amended | 0053, 0059 |
+| [0050](0050-encounters-refereed-by-the-authority.md) | Encounters in M7: the authority referees and simulates every frame, lock-in by signed snapshots | accepted, amended | 0053, 0059, 0073 |
 | [0051](0051-combat-from-anatomy-and-growth-by-kills.md) | Combat from anatomy, size as an advantage, and kills as the fast way to grow | accepted, amended | 0054 |
 | [0052](0052-eggs-are-prey-in-encounters.md) | A carried egg is prey, eaten only in a settled encounter | accepted | |
 | [0053](0053-fights-outlast-disconnects-and-restarts.md) | Fights outlast disconnects and restarts: a saved log, recovery, reconnects, and the authority finishing an abandoned fight | accepted | |
@@ -103,3 +103,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0070](0070-how-the-load-gates-read-at-10000.md) | How the load gates read at 10,000: the budget's tail, hidden creatures as a rate, and the run's time | accepted | |
 | [0071](0071-capacity-of-one-object-and-what-10000-need.md) | What one authority object serves, the session caps, and what 10,000 players need | accepted | |
 | [0072](0072-slow-e2e-in-four-shards.md) | The slow E2E scenarios run in four shards | accepted | |
+| [0073](0073-engage-clock-slack-one-second.md) | An engage's snapshots may be a second off the hub's clock | accepted | |
