@@ -139,7 +139,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### The permanent world
 
-- [x] T1 Rules 13 and the last renewal: epoch 5, permanent from v1.0 [opus] (after none) (in progress)
+- [x] T1 Rules 13 and the last renewal: epoch 5, permanent from v1.0 [opus] (after none)
   - Steps:
     1. **Rules 13.** `RULES_VERSION` 13, and the registry holds one entry, `{ rules: 13, epoch: 5 }`, every part since 13; `FIRST_LIVE_RULES` 13. Regenerate every golden that names the rules version, and nothing else changes in them.
     2. **Migration 14, the fifth renewal**, as migration 11 did (ADR 0061): every creature, record, commitment, mating, genesis-log entry, fight row, away report and the world row's clock go; the world's epoch is 5, its reset time the migration's, its seed and clock new; every hatch bucket refilled; identities, keys, names, flags, beacons, attestations and the usage meter kept. One transaction, with the version row.
