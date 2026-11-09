@@ -2,6 +2,7 @@ import '../style.css';
 import './card.css';
 import { capitalise } from '../game/badge';
 import { formatBuildLabel } from '../game/build-label';
+import { capabilities, showUnsupported, unsupportedReason } from '../game/capability';
 import { listItem, pick, setText } from '../game/dom';
 import { setStars, shapeName, starsText } from '../game/reveal-card';
 import { loadSettings, qualityFromSearch, reducedMotion } from '../game/settings';
@@ -347,7 +348,14 @@ async function start(): Promise<void> {
   if (state.image.ready) el.save.removeAttribute('title');
 }
 
-start().catch((error: unknown) => {
-  console.error(error);
-  fail('malformed');
-});
+// Without module workers the card can't check a history, so it says what to do instead (M14 T6).
+// Without WebGL2 it still runs: the flat preview draws the creature.
+const unsupported = unsupportedReason(capabilities(window), 'card');
+if (unsupported) {
+  showUnsupported(document, unsupported);
+} else {
+  start().catch((error: unknown) => {
+    console.error(error);
+    fail('malformed');
+  });
+}
