@@ -111,6 +111,10 @@ export const MEMORY_MAX_BYTES = 64 * 1024 * 1024;
 export const OBJECT_GB = 0.128;
 /** The share of one object's capacity admission fills (ADR 0067). */
 export const CAP_SHARE = 0.8;
+/** Admission's guards hold at this share of a limit, so the line forms before any limit is reached. */
+export const GUARD_SHARE = 0.9;
+/** The hours of play left in the day's allowances that admission keeps for everyone seated (ADR 0075). */
+export const HEADROOM_H = 2;
 /** The days in a month the paid plan bills. */
 export const MONTH_DAYS = 30;
 /** Seconds in a day. */
@@ -407,7 +411,8 @@ export function derive(m: Measured, t: Tables, a: Assumptions = ASSUMPTIONS): De
       requestsPerDay: t.free.requestsPerDay,
       rowsWrittenPerDay: t.free.rowsWrittenPerDay,
       rowsReadPerDay: t.free.rowsReadPerDay,
-      sessions: Math.max(1, Math.min(free.around, cap)),
+      // ADR 0075: 80% of one object, as the paid plan's bound; the headroom cap keeps the day.
+      sessions: Math.max(1, cap),
       around: free.around,
       playerHours: free.playerHours,
     },
@@ -419,6 +424,39 @@ export function derive(m: Measured, t: Tables, a: Assumptions = ASSUMPTIONS): De
       around,
     },
   };
+}
+
+/**
+ * The headroom in seats (ADR 0075): how many players could each play `HEADROOM_H` more hours, at
+ * the per-player-hour costs `r`, within what is `left` of the day's allowances (to 100%). The
+ * smallest over request-equivalents, rows written and rows read; none once one is spent.
+ */
+export function headroomOf(left: Allowances, r: Rates): number {
+  const seats = (left: number, perHour: number) =>
+    Math.floor(Math.max(0, left) / (perHour * HEADROOM_H));
+  return Math.min(
+    seats(left.requestsPerDay, r.requestsPerHour),
+    seats(left.rowsWrittenPerDay, r.rowsWrittenPerHour),
+    seats(left.rowsReadPerDay, r.rowsReadPerHour),
+  );
+}
+
+/**
+ * A crowd of `players` that plays from a fresh day on `allowances`: the hours until the headroom
+ * falls below the crowd (a seat that frees no longer refills: `HEADROOM_H` before the first
+ * allowance is spent) and until the budget guard stops newcomers (`GUARD_SHARE` of it spent).
+ */
+export function crowdHours(
+  allowances: Allowances,
+  r: Rates,
+  players: number,
+): { headroom: number; budget: number } {
+  const spent = Math.min(
+    allowances.requestsPerDay / (players * r.requestsPerHour),
+    allowances.rowsWrittenPerDay / (players * r.rowsWrittenPerHour),
+    allowances.rowsReadPerDay / (players * r.rowsReadPerHour),
+  );
+  return { headroom: Math.max(0, spent - HEADROOM_H), budget: GUARD_SHARE * spent };
 }
 
 /** Days the store lasts under a log window (the plan's store, the plan's full daily allowance in player-hours). */

@@ -4,13 +4,13 @@
 // whose seat closed before the wake waits as anyone does.
 
 import type { IceServer, QueueWhy } from '../src/net/protocol';
-import { limitsOf } from './plan';
+import { ASSUMPTIONS, GUARD_SHARE, HEADROOM_H, headroomOf, ratesOf } from './capacity';
+import { limitsOf, MEASURED } from './plan';
 import type { Hub } from './socket';
 import { STUN_SERVERS } from './turn';
 import { DAY_MS, dayStartOf } from './usage';
 
-/** A guard holds at this share of its limit, so the line forms before any limit is reached. */
-export const GUARD_SHARE = 0.9;
+export { GUARD_SHARE, HEADROOM_H };
 /** The wait a place counts before two seats have freed. */
 export const DEFAULT_SEAT_EVERY_S = 30;
 /** The seats freed that the interval is measured over. */
@@ -23,6 +23,8 @@ const WAITS_KEPT = 200;
 const ETA_MOVE = 0.2;
 /** Cloudflare bills TURN in decimal units: a GB is 1,000,000 KB. */
 const KB_PER_GB = 1_000_000;
+/** What a seated player costs an hour at the measured mix: the headroom's divisors. */
+const RATES = ratesOf(MEASURED, ASSUMPTIONS);
 
 /** The line's memory: when seats freed, whose seat closed lately, and the waits measured. */
 export class Admission {
@@ -104,7 +106,8 @@ const tenths = (x: number): number => Math.round(x * 10) / 10;
  * Why one more session doesn't fit, by the first guard that holds, or null while the line is
  * open: `storage` (the database at 90% of the plan's), `budget` (the day's request-equivalents,
  * rows written or rows read at 90% of their allowances), `full` (seated sessions and away fighters
- * at the session cap). `MAX_SESSIONS` and `DAILY_REQUEST_BUDGET` override the plan's (`limitsOf`).
+ * at the smaller of the session cap and the headroom, `headroomSeats`). `MAX_SESSIONS` and
+ * `DAILY_REQUEST_BUDGET` override the plan's (`limitsOf`); the headroom applies under both.
  */
 export function admission(hub: Hub, now: number): QueueWhy | null {
   const limits = limitsOf(hub.env);
@@ -116,8 +119,29 @@ export function admission(hub: Hub, now: number): QueueWhy | null {
     rows.read >= GUARD_SHARE * limits.rowsReadPerDay
   )
     return 'budget';
-  if (hub.seats.size + awaySeats(hub) >= limits.sessions) return 'full';
+  if (seatsHeld(hub) >= Math.min(limits.sessions, headroomSeats(hub, now))) return 'full';
   return null;
+}
+
+/** The seats held: seated sessions and away fighters. */
+const seatsHeld = (hub: Hub): number => hub.seats.size + awaySeats(hub);
+
+/**
+ * The headroom in seats (ADR 0075): how many players could each play `HEADROOM_H` more hours
+ * within what is left today (UTC) of the plan's allowances, to 100%, at the measured per-player-hour
+ * costs. Admission seats a newcomer only while the seats held stay below it.
+ */
+export function headroomSeats(hub: Hub, now: number): number {
+  const limits = limitsOf(hub.env);
+  const rows = hub.usage.rowsToday(now);
+  return headroomOf(
+    {
+      requestsPerDay: limits.requestsPerDay - hub.usage.requests(now),
+      rowsWrittenPerDay: limits.rowsWrittenPerDay - rows.written,
+      rowsReadPerDay: limits.rowsReadPerDay - rows.read,
+    },
+    RATES,
+  );
 }
 
 /**
@@ -134,13 +158,16 @@ export function awaySeats(hub: Hub): number {
 
 /**
  * The estimated wait in whole seconds of the session at `place` (1 = next): for `full` the time to
- * the next seat plus the interval for each one ahead; for `budget` the time to the next 00:00 UTC
- * plus the interval for each one ahead; for `storage` none (0).
+ * the next seat plus the interval for each one ahead, and while the headroom binds one more for
+ * each seat held past it (the holders plus one, less the headroom, must free before the first is
+ * seated); for `budget` the time to the next 00:00 UTC plus the interval for each one ahead; for
+ * `storage` none (0).
  */
 export function etaS(hub: Hub, why: QueueWhy, place: number, now: number): number {
   if (why === 'storage') return 0;
   const every = hub.admission.seatEveryMs(now);
-  const ahead = (place - 1) * every;
+  const past = why === 'full' ? Math.max(0, seatsHeld(hub) - headroomSeats(hub, now)) : 0;
+  const ahead = (place - 1 + past) * every;
   const first =
     why === 'budget' ? dayStartOf(now) + DAY_MS - now : hub.admission.nextSeatMs(now, every);
   return Math.max(0, Math.round((first + ahead) / 1000));

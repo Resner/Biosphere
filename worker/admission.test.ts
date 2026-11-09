@@ -2,9 +2,12 @@ import { runDurableObjectAlarm, runInDurableObject } from 'cloudflare:test';
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest';
 import type { Identity } from '../src/ledger/identity';
 import type { HubMsg } from '../src/net/protocol';
+import { HEADROOM_H, headroomSeats } from './admission';
+import { ASSUMPTIONS, ratesOf } from './capacity';
 import type { RowCounter } from './metered-sql';
 import type { Metrics } from './metrics';
-import { FREE, PAID } from './plan';
+import { FREE, MEASURED, PAID } from './plan';
+import type { Hub } from './socket';
 import {
   type Client,
   closeSockets,
@@ -104,6 +107,7 @@ describe('full', () => {
       open: false,
       why: 'full',
       turn: true,
+      headroom: expect.any(Number),
       seatEveryS: 30,
       waits: null,
     });
@@ -323,6 +327,138 @@ describe('the wait is honest', () => {
   });
 });
 
+/**
+ * The headroom (ADR 0075). On the free plan's own allowances it can't fall below about 76 seats
+ * before the budget guard holds (the guard's 10% at 131 rows written a seat), so these tests bind
+ * it through the day's request-equivalents under a `DAILY_REQUEST_BUDGET` (10,000 to start, a
+ * fresh day's headroom 77): the same rule, at a size a hub test seats.
+ */
+describe('the headroom', () => {
+  const RATES = ratesOf(MEASURED, ASSUMPTIONS);
+  /** Request-equivalents a seat of headroom needs. */
+  const PER_SEAT = RATES.requestsPerHour * HEADROOM_H;
+
+  /**
+   * Sets the day's request budget to `seats` + 5 seats' worth, and today's request-equivalents so
+   * the headroom is `seats`: the budget guard's 10% stays under what is left, and half a seat of
+   * slack covers what the sign-ins and closes that follow spend (about one request each).
+   */
+  const headroomTo = async (seats: number) => {
+    const budget = Math.round((seats + 5) * PER_SEAT);
+    await set({ DAILY_REQUEST_BUDGET: String(budget) });
+    await inside((o) => o.usage.setRequests(wall, budget - (seats + 0.5) * PER_SEAT));
+    expect(await admissionNow()).toMatchObject({ headroom: seats });
+  };
+
+  beforeEach(() => set({ DAILY_REQUEST_BUDGET: '10000' }));
+
+  it('seats 20 at a headroom of 20, lines up the 21st, and seats it only once the holders fall below the headroom', async () => {
+    await headroomTo(20);
+    const seated: Client[] = [];
+    for (let i = 0; i < 20; i++) seated.push((await login()).c);
+    const waiting = await queueUp();
+    expect(waiting.msg).toMatchObject({ position: 1, why: 'full' });
+    expect(await admissionNow()).toMatchObject({ open: false, why: 'full', headroom: 20 });
+    // The day goes on: the headroom falls to 18, under the 20 seats held.
+    await headroomTo(18);
+    const welcomed = async () => {
+      await runDurableObjectAlarm(stub());
+      return (await flush(waiting.c)).some((m) => m.t === 'welcome');
+    };
+    // 19 held, then 18: still at or past the headroom.
+    for (let i = 0; i < 2; i++) {
+      wall += 20_000;
+      await leave(seated.shift() as Client);
+      expect(await welcomed()).toBe(false);
+    }
+    // 17 held: one seat under the headroom.
+    wall += 20_000;
+    await leave(seated.shift() as Client);
+    expect(await welcomed()).toBe(true);
+  });
+
+  it('drops nobody seated when the headroom falls below the seats held, and seats a reload within 2 minutes past it', async () => {
+    const held = [await login(), await login(), await login(), await login(), await login()];
+    await headroomTo(2);
+    expect((await queueUp()).msg).toMatchObject({ position: 1, why: 'full' });
+    wall += 15_000;
+    await runDurableObjectAlarm(stub());
+    for (const { c } of held) {
+      expect(await flush(c)).toEqual([]);
+      c.send({ t: 'history' });
+      expect((await nextOf(c, 'history')).t).toBe('history');
+    }
+    const a = held[0] as (typeof held)[number];
+    await leave(a.c);
+    wall += 119_000;
+    const back = await login(a.id);
+    expect(back.life.t).toBe('life');
+  });
+
+  it('tells the first in line the next seat plus one interval for each seat held past the headroom', async () => {
+    const seated: Client[] = [];
+    for (let i = 0; i < 6; i++) seated.push((await login()).c);
+    // Seats free every 20 s, each taken again at once: 6 held.
+    for (let i = 0; i < 3; i++) {
+      wall += 20_000;
+      await leave(seated.shift() as Client);
+      seated.push((await login()).c);
+    }
+    expect((await admissionNow()).seatEveryS).toBe(20);
+    await headroomTo(3);
+    wall += 5_000;
+    const { msg } = await queueUp();
+    expect(msg).toMatchObject({ position: 1, why: 'full' });
+    if (msg.t !== 'queued') return;
+    // The next seat in 15 s, then 3 more: the 4 seats that must free before it fits.
+    expect(Math.abs(msg.etaS - (4 * 20 - 5))).toBeLessThanOrEqual(1);
+  });
+
+  it('applies under MAX_SESSIONS, which still sets the cap', async () => {
+    await set({ MAX_SESSIONS: '3' });
+    await Promise.all([login(), login(), login()]);
+    expect((await admissionNow()).headroom).toBeGreaterThan(3);
+    expect((await queueUp()).msg).toMatchObject({ why: 'full' });
+    await closeSockets();
+    await set({ MAX_SESSIONS: '1000' });
+    await headroomTo(2);
+    await login();
+    await login();
+    expect((await queueUp()).msg).toMatchObject({ why: 'full' });
+  });
+
+  it('reports in the metrics what headroomSeats gives, the smallest over the three allowances', async () => {
+    await set({ DAILY_REQUEST_BUDGET: undefined });
+    await login();
+    await inside((o) => {
+      o.rowCount.written += 0.6 * FREE.rowsWrittenPerDay;
+    });
+    const { reported, seats, left } = await inside((o) => {
+      const rows = o.usage.rowsToday(wall);
+      return {
+        reported: o.metrics().admission.headroom,
+        seats: headroomSeats(o as unknown as Hub, wall),
+        left: {
+          requests: FREE.requestsPerDay - o.usage.requests(wall),
+          written: FREE.rowsWrittenPerDay - rows.written,
+          read: FREE.rowsReadPerDay - rows.read,
+        },
+      };
+    });
+    expect(reported).toBe(seats);
+    expect(seats).toBe(
+      Math.min(
+        Math.floor(left.requests / (RATES.requestsPerHour * 2)),
+        Math.floor(left.written / (RATES.rowsWrittenPerHour * 2)),
+        Math.floor(left.read / (RATES.rowsReadPerHour * 2)),
+      ),
+    );
+    // Rows written bind: just under 40,000 left.
+    expect(seats).toBe(Math.floor(left.written / (RATES.rowsWrittenPerHour * 2)));
+    expect(seats).toBeLessThan(FREE.sessions);
+  });
+});
+
 describe('TURN', () => {
   const TURN_ENTRY = { urls: ['turn:turn.cloudflare.com:3478'], username: 'u', credential: 'c' };
   const STUN = ['stun:stun.cloudflare.com:3478', 'stun:stun.l.google.com:19302'];
@@ -370,6 +506,20 @@ describe('plans', () => {
     });
     expect((await admissionNow()).why).toBe('budget');
   });
+
+  it.each([
+    ['free', FREE.sessions, 621],
+    ['paid', PAID.sessions, 590],
+  ])(
+    'on a fresh day the %s plan seats its cap of %i: the headroom is above it',
+    async (plan, sessions, cap) => {
+      await set({ PLAN: plan });
+      expect(sessions).toBe(cap);
+      const metrics = await inside((o) => o.metrics());
+      expect(metrics.limits.sessions).toBe(cap);
+      expect(metrics.admission.headroom).toBeGreaterThan(cap);
+    },
+  );
 
   it.each([['gold'], [undefined]])('reads the free plan for PLAN=%s', async (plan) => {
     await set({ PLAN: plan });

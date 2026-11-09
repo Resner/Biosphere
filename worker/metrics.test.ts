@@ -311,6 +311,7 @@ describe('GET /v1/metrics', () => {
       open: true,
       why: null,
       turn: true,
+      headroom: expect.any(Number),
       seatEveryS: 30,
       waits: null,
     });

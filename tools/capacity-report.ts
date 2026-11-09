@@ -9,10 +9,14 @@ import {
   CORE_SHARE_MAX,
   CPU_FACTOR,
   capOf,
+  crowdHours,
   derive,
   fightMessages,
   freeServes,
   freeVerdict,
+  GUARD_SHARE,
+  HEADROOM_H,
+  headroomOf,
   logWindowDays,
   MEMORY_MAX_BYTES,
   MESSAGES_PER_SECOND_MAX,
@@ -29,11 +33,20 @@ import {
   storeDays,
   usageOf,
 } from '../worker/capacity';
-import { CEILING_USD, FREE, MEASURED, PAID, TABLES } from '../worker/plan';
+import {
+  allowances,
+  CEILING_USD,
+  FREE,
+  PAID,
+  type PlanName,
+  TABLES,
+} from '../worker/plan';
 import { type CapacityInputs, measuredFrom } from './capacity-measure';
 
 /** The concurrent players the tables show, around the clock. */
 export const POPULATIONS = [5, 50, 200, 1000, 10_000] as const;
+/** The crowds the headroom section follows from a fresh day (ADR 0075). */
+export const CROWDS = [50, 200, 621] as const;
 
 /** The parts of a saved `/v1/metrics` answer that replace assumptions. */
 export interface MetricsInput {
@@ -121,7 +134,7 @@ export function capacityReport(
     '',
     '## Summary',
     '',
-    `- **The free plan** serves **${n0(free.playerHours)} player-hours a day**, about **${n0(free.around)} concurrent players** around the clock. It stops at ${n0(FREE.requestsPerDay)} request-equivalents or ${n0(FREE.rowsWrittenPerDay)} rows written a day (${free.binding} first); admission queues newcomers at 90% of either and until 00:00 UTC.`,
+    `- **The free plan** serves **${n0(free.playerHours)} player-hours a day**, about **${n0(free.around)} concurrent players** around the clock. It stops at ${n0(FREE.requestsPerDay)} request-equivalents or ${n0(FREE.rowsWrittenPerDay)} rows written a day (${free.binding} first); admission queues newcomers at 90% of either and until 00:00 UTC. Its session cap is **${n0(derived.free.sessions)}** (80% of one object), and the headroom seats a newcomer only while everyone seated could play ${HEADROOM_H} more hours of the day: ${n0(headroomOf(allowances('free'), ratesOf(m, a)))} seats on a fresh day, so the cap binds, and a crowd of 200 plays ${n1(crowdHours(allowances('free'), ratesOf(m, a), 200).headroom)} hours of a fresh day before the headroom stops newcomers.`,
     `- **The paid plan** ($5 a month plus usage) serves **${n0(paid)} concurrent players** around the clock within **$${n2(CEILING_USD)}** (€10 at $${a.usdPerEur} to the euro): ${usd(paidBill.total)} a month, ${usd(paidBill.total - paidBill.base)} of it above the base, all of it requests.`,
     `- **One authority object** serves **${n0(capacity.players)} concurrent players** (${capacity.binding} binds: ${pct(CORE_SHARE_MAX)} of a core at ${CPU_FACTOR}× the local runtime's CPU). Admission fills ${n0(derived.paid.sessions)} sessions on the paid plan and ${n0(derived.free.sessions)} on the free plan.`,
     `- **10,000 concurrent players** need **${n0(shards)} objects** (shards of ${n0(capOf(capacity))}), ${n0(big.messagesPerSecond)} incoming messages a second and ${n1(big.requestsPerDay / 1e6)} M request-equivalents a day, and cost about **${usd(bigBill.total)} a month** on the paid plan (${usd(bigBill.requests)} requests, ${usd(bigBill.gbSeconds)} duration, ${usd(bigBill.rowsWritten)} rows written). The ceiling does not buy them.`,
@@ -289,7 +302,7 @@ export function capacityReport(
     '## Operating limits',
     '',
     `- **One object**: ${n0(capacity.players)} concurrent players. By CPU ${n0(capacity.byCpu)} (${pct(CORE_SHARE_MAX)} of a core, the local runtime's ${n2(m.cpuMsPerMessage)} ms a message doubled), by messages ${n0(capacity.byMessages)} (${n0(MESSAGES_PER_SECOND_MAX)} a second), by memory ${n0(capacity.byMemory)} (${n0(MEMORY_MAX_BYTES / 1048576)} MiB, a limit this model does not bind). The smallest binds: ${capacity.binding}.`,
-    `- **Session caps**: ${n0(derived.free.sessions)} on the free plan (what its daily allowances serve around the clock), ${n0(derived.paid.sessions)} on the paid plan (the smaller of what $${n2(CEILING_USD)} serves, ${n0(paid)}, and 80% of one object, ${n0(capOf(capacity))}).`,
+    `- **Session caps**: ${n0(derived.free.sessions)} on the free plan (80% of one object, ADR 0075), ${n0(derived.paid.sessions)} on the paid plan (the smaller of what $${n2(CEILING_USD)} serves, ${n0(paid)}, and 80% of one object, ${n0(capOf(capacity))}). On both, the headroom (below) seats fewer late in a busy day.`,
     '',
     table([
       ['Plan', 'Requests a day', 'Rows written a day', 'Rows read a day', 'Storage', 'Sessions'],
@@ -329,10 +342,25 @@ export function capacityReport(
     '',
     `The rule (ADR 0067): the free plan keeps the 14-day window if its store lasts ${STORE_DAYS_MIN} days at its full allowance, else 7. At 14 days it lasts ${n0(storeDays(m, free.playerHours, FREE.storageBytes, 14, a))}, so the window is **${window} days**. The figures are column bytes; SQLite's pages and indexes add some, which the \`storage\` guard (a store at 90% stops new sessions) covers.`,
     '',
+    '### Crowds from a fresh day',
+    '',
+    `The headroom (ADR 0075): a newcomer is seated only while everyone who holds a seat, plus it, could play ${HEADROOM_H} more hours within what is left of the day's allowances (to 100%) at the per-player-hour costs above. A crowd that stays at its size from 00:00 UTC has its freed seats refilled until the headroom falls below it, ${HEADROOM_H} hours before it would spend the first allowance; the budget guard stops newcomers once ${n0(100 * GUARD_SHARE)}% of it is spent. The day's allowances reset at 00:00 UTC, so a crowd that reaches neither within 24 hours plays all day.`,
+    '',
+    table([
+      [
+        'Plan',
+        'Crowd',
+        'Seats on a fresh day',
+        'Hours before the headroom',
+        'Hours before the budget',
+      ],
+      ...crowdRows(m, a, derived),
+    ]),
+    '',
     '## The admission policy, as built',
     '',
-    "- A newcomer waits when one of three guards holds: `full` (seated sessions and away fighters reach the session cap), `budget` (the day's request-equivalents, rows written or rows read reach 90% of the plan's allowance) or `storage` (the database reaches 90% of the plan's store).",
-    '- Its wait is measured: for `full` its place times the mean interval between the last 20 seats freed; for `budget` the time to 00:00 UTC plus that interval for each session ahead; for `storage` none.',
+    "- A newcomer waits when one of three guards holds: `full` (seated sessions and away fighters reach the smaller of the session cap and the headroom), `budget` (the day's request-equivalents, rows written or rows read reach 90% of the plan's allowance) or `storage` (the database reaches 90% of the plan's store).",
+    '- Its wait is measured: for `full` the time to the next seat plus the mean interval between the last 20 seats freed for each session ahead, and while the headroom binds one more interval for each seat held past it; for `budget` the time to 00:00 UTC plus that interval for each session ahead; for `storage` none.',
     "- A seated player is never dropped, and a player whose seat closed within 2 minutes is seated again past any guard. The TURN guard stops the relay for newcomers before the month's allowance runs out.",
     '',
     '## Beyond one object',
@@ -351,6 +379,27 @@ export function capacityReport(
     '',
   );
   return out.join('\n');
+}
+
+/** Each plan's crowds from a fresh day: the seats it gives them, and the hours until the headroom and the budget guard stop newcomers. */
+function crowdRows(
+  m: Measured,
+  a: typeof ASSUMPTIONS,
+  derived: ReturnType<typeof derive>,
+): string[][] {
+  const r = ratesOf(m, a);
+  const hours = (h: number) => (h >= 24 ? 'all day' : n1(h));
+  return (['free', 'paid'] as PlanName[]).flatMap((plan) => {
+    const day = allowances(plan);
+    const cap = derived[plan].sessions;
+    const seats = Math.min(cap, headroomOf(day, r));
+    const name = plan === 'free' ? 'Free' : 'Paid';
+    return CROWDS.map((players) => {
+      if (players > seats) return [name, n0(players), n0(seats), `past the cap of ${n0(cap)}`, '—'];
+      const h = crowdHours(day, r, players);
+      return [name, n0(players), n0(seats), hours(h.headroom), hours(h.budget)];
+    });
+  });
 }
 
 function rowsOf(
@@ -410,7 +459,7 @@ function leversOf(m: Measured, r: Rates, a: typeof ASSUMPTIONS, over: Partial<Ra
     ),
     row(
       'The paid plan',
-      `$5 a month plus usage serves ${n0(paidPlayers(m, TABLES, a))} concurrent players within $${n2(CEILING_USD)}, against ${n0(freeServes(m, TABLES, a).around)} on the free plan.`,
+      `$5 a month plus usage serves ${n0(paidPlayers(m, TABLES, a))} concurrent players within $${n2(CEILING_USD)}, against ${n0(freeServes(m, TABLES, a).around)} around the clock on the free plan.`,
     ),
   ];
 }
