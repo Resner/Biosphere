@@ -11,7 +11,7 @@ import { verifyLineage } from '../src/ledger/verify';
 import { LifeClient, type LifeStats, SnapBus } from '../tests/life-client';
 import { RuntimeWatch } from './load-hub-run';
 import { SoakPages } from './soak-pages';
-import type { FullSeries, HubSample, PageSample } from './soak-report';
+import { CONSISTENT_EVERY, type FullSeries, type HubSample, type PageSample } from './soak-report';
 
 export interface SoakOptions {
   clients: number;
@@ -256,7 +256,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
         sampled++;
         const minute = sampled;
         try {
-          hubSamples.push(await sampleHub(opts.port, watch, minute));
+          hubSamples.push(
+            await sampleHub(opts.port, watch, minute, minute % CONSISTENT_EVERY === 0),
+          );
         } catch (e) {
           failures.push(`hub sample at minute ${minute}: ${String(e)}`);
         }
@@ -344,11 +346,18 @@ interface MetricsAnswer {
 }
 
 /** One look at the authority: its process, its meter and its audit. */
-async function sampleHub(port: number, watch: RuntimeWatch, minute: number): Promise<HubSample> {
+async function sampleHub(
+  port: number,
+  watch: RuntimeWatch,
+  minute: number,
+  inconsistent: boolean,
+): Promise<HubSample> {
   const [metrics, audit, inconsistencies] = await Promise.all([
     getJson<MetricsAnswer>(port, '/v1/e2e/metrics'),
     getJson<{ day: Record<string, number> } | null>(port, '/v1/e2e/audit'),
-    getJson<unknown[]>(port, '/v1/e2e/consistency'),
+    inconsistent
+      ? getJson<{ kind: string; detail?: string }[]>(port, '/v1/e2e/consistency')
+      : Promise.resolve(null),
   ]);
   const proc = watch.now();
   return {
@@ -358,7 +367,17 @@ async function sampleHub(port: number, watch: RuntimeWatch, minute: number): Pro
     messages: Object.values(metrics.today.byType).reduce((n, v) => n + v, 0),
     seated: metrics.live.seated,
     queued: metrics.live.queued,
-    consistent: inconsistencies.length,
+    consistent: inconsistencies
+      ? {
+          kinds: Object.fromEntries(
+            [...new Set(inconsistencies.map((i) => i.kind))].map((k) => [
+              k,
+              inconsistencies.filter((i) => i.kind === k).length,
+            ]),
+          ),
+          first: inconsistencies.slice(0, 3).map((i) => `${i.kind}: ${i.detail ?? ''}`),
+        }
+      : null,
     flags: Object.fromEntries(Object.entries(audit?.day ?? {}).filter(([, n]) => n > 0)),
   };
 }

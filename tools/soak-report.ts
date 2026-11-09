@@ -16,8 +16,11 @@ export interface HubSample {
   messages: number;
   seated: number;
   queued: number;
-  /** `/v1/e2e/consistency` violations. */
-  consistent: number;
+  /**
+   * `/v1/e2e/consistency` violations by kind, with the first of them in words; null at a minute that
+   * didn't ask (the check reads every chain, so it runs every `CONSISTENT_EVERY` minutes).
+   */
+  consistent: { kinds: Record<string, number>; first: string[] } | null;
   /** Today's audit flags above zero. */
   flags: Record<string, number>;
 }
@@ -62,6 +65,9 @@ export interface Check {
 }
 
 /** Allowed growth: the authority's resident memory per hour, and every other drift. */
+/** The check of `/v1/e2e/consistency` verifies every creature's chain on the hub's thread: every fifth minute, not every one. */
+export const CONSISTENT_EVERY = 5;
+
 export const LIMITS = {
   memorySlopeBytesPerHour: 20_000_000,
   cpuPerMessageRatio: 1.5,
@@ -134,7 +140,9 @@ export function checksOf(run: Soak): Check[] {
   );
   if (!full) return out;
 
-  const bad = full.hub.filter((s) => s.consistent > 0);
+  const bad = full.hub.filter(
+    (s) => s.consistent !== null && Object.keys(s.consistent.kinds).length > 0,
+  );
   add(
     'consistent empty at every sample',
     bad.length === 0 && run.inconsistencies.length === 0,

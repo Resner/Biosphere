@@ -24,7 +24,7 @@ function healthy(): Soak {
       messages: minute * 12_000,
       seated: 200,
       queued: 0,
-      consistent: 0,
+      consistent: minute % 5 === 0 ? { kinds: {}, first: [] } : null,
       flags: { 'authority-only': 4 },
     });
   }
@@ -112,7 +112,7 @@ describe('the soak checks', () => {
     const hub = run.full?.hub ?? [];
     for (const p of run.full?.pages ?? []) if (p.page === 1 && p.minute > 40) p.textures = 41;
     if (hub[20]) hub[20].queued = 3;
-    if (hub[30]) hub[30].consistent = 1;
+    if (hub[29]) hub[29].consistent = { kinds: { ashore: 1 }, first: ['ashore: anchored'] };
     if (hub[40]) hub[40].flags = { 'authority-only': 4, implausible: 1 };
     expect(failed(run)).toEqual([
       'consistent empty at every sample',
