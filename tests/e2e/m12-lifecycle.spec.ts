@@ -115,7 +115,7 @@ const feedAll = (ps: Player[]) =>
   );
 
 /**
- * Keeps the pages' energy full from here on, and nothing else, so a slow runner can't starve them
+ * Keeps the pages' energy up from here on (to 60 %, never full), and nothing else, so a slow runner can't starve them
  * (E2E main: pages on the death screen at the final gathering, out of the directory, unlinkable).
  * C and D, which never mate, are kept from the start; A and B once the fight has settled.
  */
@@ -123,8 +123,16 @@ const keepFed = (ps: Player[]) =>
   Promise.all(
     ps.map((p) =>
       p.page.evaluate(() => {
-        const debug = (window.__bs as BsHook).debug;
-        const feed = () => debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+        const hook = window.__bs as BsHook;
+        const debug = hook.debug;
+        // Never to the cap: a creature at its cap leaves the carrion on the water, and the pieces
+        // keep a crowd from merging. Below 40 % it is topped up to 60 %.
+        const feed = () => {
+          const now = hook.state().player?.energy ?? 0;
+          debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+          const cap = hook.state().player?.energy ?? 0;
+          debug?.setEnergy(now < 0.4 * cap ? 0.6 * cap : now);
+        };
         feed();
         window.setInterval(feed, 2000);
       }),
