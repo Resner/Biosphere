@@ -301,3 +301,30 @@ describe('a new connection', () => {
     expect(sent).toEqual([{ t: 'mate-check', partner: them.playerId }]);
   });
 });
+
+describe('a mating the hub names in flight (ADR 0076)', () => {
+  const life = (withMating: boolean): LifeMsg =>
+    ({
+      t: 'life',
+      life: null,
+      genesisIn: 0,
+      ...(withMating ? { mating: { commit: 'c'.repeat(64), round: 7, partner: 'Mira' } } : {}),
+    }) as LifeMsg;
+
+  it('shows the parent’s waiting egg on sign-in, with the cost already paid, and is done on born', () => {
+    flow.receive(life(true));
+    expect(flow.view()).toMatchObject({ state: 'awaiting', note: 'Awaiting beacon' });
+    // The hub's condition already carries the cost: nothing is taken twice.
+    expect(flow.takeCost()).toBe(false);
+    // Waiting, it takes no new court or invitation.
+    flow.court(them.playerId);
+    expect(courts()).toEqual([]);
+    flow.receive({ t: 'born' } as unknown as LifeMsg);
+    expect(flow.view().state).toBe('done');
+  });
+
+  it('stays idle on a sign-in with nothing in flight', () => {
+    flow.receive(life(false));
+    expect(flow.view().state).toBe('idle');
+  });
+});

@@ -265,6 +265,14 @@ export class MateFlow {
           this.note = 'Awaiting beacon';
         }
         break;
+      case 'life':
+        // A sign-in names a mating still waiting for its round (ADR 0076): its egg waits beside the
+        // parent, whose condition the hub already charged.
+        if (msg.mating && !BUSY.has(this.state)) {
+          this.enter('awaiting');
+          this.note = 'Awaiting beacon';
+        }
+        break;
       case 'born':
         if (this.state === 'awaiting') this.end('done', '');
         break;

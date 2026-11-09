@@ -6,7 +6,11 @@ const DB_NAME = 'biosphere-identity';
 const STORE = 'keys';
 const SEED_KEY = 'seed';
 
-/** The seed in IndexedDB, bound to the site's origin. */
+/**
+ * The seed in IndexedDB, bound to the site's origin. A write resolves only once its transaction has
+ * committed, flushed to disk where the engine offers `durability: 'strict'` (ADR 0076): a tab killed
+ * after a recovery import says done comes back with the imported identity.
+ */
 export function indexedDbKeyStore(): KeyStore {
   const open = () =>
     new Promise<IDBDatabase>((resolve, reject) => {
@@ -19,9 +23,12 @@ export function indexedDbKeyStore(): KeyStore {
     const db = await open();
     try {
       return await new Promise<T>((resolve, reject) => {
-        const request = op(db.transaction(STORE, mode).objectStore(STORE));
-        request.onsuccess = () => resolve(request.result);
-        request.onerror = () => reject(request.error);
+        // An engine that doesn't know the option ignores it.
+        const tx = db.transaction(STORE, mode, { durability: 'strict' });
+        const request = op(tx.objectStore(STORE));
+        tx.oncomplete = () => resolve(request.result);
+        tx.onerror = () => reject(tx.error ?? request.error);
+        tx.onabort = () => reject(tx.error ?? new Error('aborted'));
       });
     } finally {
       db.close();

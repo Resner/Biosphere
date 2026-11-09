@@ -3,6 +3,7 @@
 // a spawn looks like. A cell the hub does not know about is a practice cell: nothing is sent for it.
 
 import { signGenesisAsk } from '../ledger/ask';
+import { commitmentId } from '../ledger/commitment';
 import { reachAt, vitalsCap } from '../ledger/gates';
 import type { Identity } from '../ledger/identity';
 import { toBase64Url } from '../ledger/identity';
@@ -77,6 +78,9 @@ export interface Started {
 /** Refusals the hub sends about something other than a genesis ask: progress after death, a bad cause, a queued session, a locked creature's `spawn`. */
 const STRAY_REFUSALS: ReadonlySet<string> = new Set(['dead', 'cause', 'queued', 'spawn']);
 
+/** The states in which the hub's word on a genesis in flight is taken up: no recorded life is on screen. */
+const ADOPTS: ReadonlySet<LifeStatus> = new Set<LifeStatus>(['idle', 'dead', 'practice']);
+
 export type HatchOutcome =
   /** `protect`: a genesis, a promoted child or a restore, which spawn protection covers (M7). */
   | { kind: 'recorded'; start: Started; protect: boolean }
@@ -105,6 +109,16 @@ export interface LifeView {
   pending: boolean;
   /** With no creature active: what the player can fall back on (null when nothing, or while playing). */
   fallback: FallbackInfo | null;
+  inFlight: InFlight;
+}
+
+/**
+ * What the hub named in flight for the player (ADR 0076): the waiting genesis's commitment, and the
+ * waiting mating's commitment with the partner's name at it. Null when nothing waits.
+ */
+export interface InFlight {
+  genesis: string | null;
+  mating: { commit: string; partner: string } | null;
 }
 
 /** The creature's age as the game counts it: the hub's last word plus the ticks played since. */
@@ -192,6 +206,12 @@ export class LifeFlow {
   private pending = false;
   private fallback: FallbackInfo | null = null;
   private lastRelay: RelayReport | null = null;
+  /** The player's own genesis the hub named in flight (its commitment's id), and its `genesis` once it came. */
+  private waitingGenesis: string | null = null;
+  private heldGenesis: GenesisMsg | null = null;
+  private waitingMating: InFlight['mating'] = null;
+  /** A hatch is waiting for its genesis (`awaitGenesis`). */
+  private settling = false;
 
   constructor(private readonly deps: LifeDeps) {}
 
@@ -217,6 +237,7 @@ export class LifeFlow {
       cooldownUntilMs: this.cooldownUntilMs,
       pending: this.pending,
       fallback: this.fallback,
+      inFlight: { genesis: this.waitingGenesis, mating: this.waitingMating },
     };
   }
 
@@ -291,6 +312,11 @@ export class LifeFlow {
         this.genesisIn = msg.genesisIn;
         this.pending = msg.pending !== undefined;
         this.fallback = msg.fallback ?? null;
+        this.waitingMating = msg.mating
+          ? { commit: msg.mating.commit, partner: msg.mating.partner }
+          : null;
+        // A creature means no genesis waits; the `commit` that names a waiting one follows `life`.
+        if (msg.life) this.forgetGenesis();
         // The hub binds the creature again on every connection and counts from zero: the play
         // before this moment (offline, say) is not its to credit, and claiming it would be flagged.
         if (this.status === 'playing') {
@@ -317,6 +343,7 @@ export class LifeFlow {
       }
       case 'born':
         this.pending = true;
+        this.waitingMating = null;
         break;
       case 'promoted':
         this.pending = false;
@@ -326,14 +353,22 @@ export class LifeFlow {
         this.fallback = null;
         break;
       case 'commit':
-        if (this.status === 'requesting') this.status = 'awaiting';
+        // The hub's word on the player's own genesis, whatever this page asked (ADR 0076): a tab
+        // reopened during the beacon wait waits for the creature it already paid for.
+        if (!this.own(msg.commit.commitment)) break;
+        this.waitingGenesis = commitmentId(msg.commit.commitment);
+        if (this.status === 'requesting' || ADOPTS.has(this.status)) this.status = 'awaiting';
         break;
-      case 'genesis':
-        if (this.status === 'requesting' || this.status === 'awaiting') {
+      case 'genesis': {
+        // Kept until a hatch takes it: a reopened tab may hear it before the shell asks.
+        const own = this.own(msg.commit.commitment);
+        if (own) this.heldGenesis = msg;
+        if (this.status === 'requesting' || this.status === 'awaiting' || (own && ADOPTS.has(this.status))) {
           this.status = 'verifying';
           this.arrived = msg.genome;
         }
         break;
+      }
       case 'died':
         if (this.status === 'playing') {
           this.endedBy(msg.cause, msg.by);
@@ -366,9 +401,18 @@ export class LifeFlow {
     this.ended();
   }
 
-  /** Starts a recorded life: the saved creature if there is one, else a new genesis. */
+  /**
+   * A genesis the hub named in flight (ADR 0076) that no hatch of this page is waiting for yet: the
+   * shell shows its egg and calls `hatch`, which waits for that creature and asks for nothing new.
+   */
+  get genesisInFlight(): boolean {
+    return !this.settling && (this.status === 'awaiting' || this.status === 'verifying');
+  }
+
+  /** Starts a recorded life: the genesis in flight, the saved creature if there is one, else a new genesis. */
   async hatch(waitMs: number): Promise<HatchOutcome> {
     if (!this.link) return this.practiceCell('offline');
+    if (this.genesisInFlight) return this.awaitGenesis();
     this.status = 'requesting';
     if (!this.known) await this.wait(waitMs, (m) => (m.t === 'life' ? m : undefined));
     const { known } = this;
@@ -555,6 +599,7 @@ export class LifeFlow {
   }
 
   private begin(start: Started, protect = false): HatchOutcome {
+    this.forgetGenesis();
     this.status = 'playing';
     this.creature = start.creature;
     this.seq = start.seq;
@@ -601,12 +646,31 @@ export class LifeFlow {
     return outcome;
   }
 
-  private async genesis(): Promise<HatchOutcome> {
+  private genesis(): Promise<HatchOutcome> {
     const ask = signGenesisAsk(this.deps.identity(), this.deps.nonce());
+    this.heldGenesis = null;
     this.link?.send({ t: 'genesis-request', nonce: ask.nonce, sig: ask.sig });
-    const reply = await this.wait(GENESIS_WAIT_MS, (m) =>
-      m.t === 'genesis' || (m.t === 'refused' && !STRAY_REFUSALS.has(m.reason)) ? m : undefined,
-    );
+    return this.awaitGenesis();
+  }
+
+  /** The genesis that answers this page's ask or the one in flight: checked, then played. */
+  private async awaitGenesis(): Promise<HatchOutcome> {
+    this.settling = true;
+    try {
+      return await this.settleGenesis();
+    } finally {
+      this.settling = false;
+    }
+  }
+
+  private async settleGenesis(): Promise<HatchOutcome> {
+    const held = this.heldGenesis;
+    this.heldGenesis = null;
+    const reply =
+      held ??
+      (await this.wait(GENESIS_WAIT_MS, (m) =>
+        m.t === 'genesis' || (m.t === 'refused' && !STRAY_REFUSALS.has(m.reason)) ? m : undefined,
+      ));
     if (!reply) return this.fail(SLOW);
     if (reply.t === 'refused') {
       if (reply.reason === 'limit') return this.practiceCell('limit', reply.genesisIn ?? 0);
@@ -616,6 +680,7 @@ export class LifeFlow {
       }
       return this.fail(NOT_HATCHED);
     }
+    this.heldGenesis = null;
     if (!(await this.checked(reply))) return this.fail(VERIFY_FAILED);
     this.known = { life: null, genesisIn: 0 };
     this.last = reply;
@@ -630,6 +695,17 @@ export class LifeFlow {
       },
       true,
     );
+  }
+
+  /** A genesis commitment of this player's: the hub's word about one of others' is not this page's. */
+  private own(commitment: { kind: string; owner: string }): boolean {
+    const identity = this.deps.identity() as Identity | null;
+    return commitment.kind === 'genesis' && identity !== null && commitment.owner === identity.playerId;
+  }
+
+  private forgetGenesis(): void {
+    this.waitingGenesis = null;
+    this.heldGenesis = null;
   }
 
   /** The cheap checks here, then the BLS and DNA recomputation the shell supplies. */

@@ -804,3 +804,74 @@ describe('fallback and taking over', () => {
     expect(flow.view().creature).toBe(ancestor.creature);
   });
 });
+
+describe('what the hub names in flight (ADR 0076)', () => {
+  const commitOf = (owner = identity.playerId) => genesisMsg(owner).commit;
+
+  it('waits for its own genesis a reopened tab hears of: the egg, not Hatch or the practice cell', async () => {
+    // An empty bucket would offer the practice cell, but the hatch already went into this commitment.
+    feed({ t: 'life', life: null, genesisIn: 120_000 });
+    feed({ t: 'commit', commit: commitOf(), hatchesLeft: 0 });
+    const view = flow.view();
+    expect(view).toMatchObject({ status: 'awaiting', awaitingBeacon: true });
+    expect(view.inFlight.genesis).toMatch(/^[0-9a-f]{64}$/);
+    expect(flow.genesisInFlight).toBe(true);
+
+    const pending = flow.hatch(WAIT);
+    await vi.advanceTimersByTimeAsync(0);
+    expect(sent).toEqual([]);
+    expect(flow.genesisInFlight).toBe(false);
+    feed(genesisMsg());
+    expect(flow.view().status).toBe('verifying');
+    const outcome = await pending;
+    expect(verified).toHaveLength(1);
+    expect(outcome).toMatchObject({ kind: 'recorded', start: { genome: 'FRESH', seq: 0 } });
+    expect(flow.view()).toMatchObject({ status: 'playing', inFlight: { genesis: null } });
+    expect(sent).toEqual([]);
+  });
+
+  it('keeps a genesis that came before the shell asked, and plays it', async () => {
+    feed({ t: 'life', life: null, genesisIn: 0 });
+    feed({ t: 'commit', commit: commitOf(), hatchesLeft: 2 });
+    feed(genesisMsg());
+    expect(flow.genesisInFlight).toBe(true);
+    expect((await flow.hatch(WAIT)).kind).toBe('recorded');
+    expect(sent).toEqual([]);
+  });
+
+  it('takes a genesis in flight up after a death or in a practice cell too', async () => {
+    feed({ t: 'life', life: null, genesisIn: 90_000 });
+    expect((await flow.hatch(WAIT)).kind).toBe('practice');
+    feed({ t: 'commit', commit: commitOf(), hatchesLeft: 0 });
+    expect(flow.view().status).toBe('awaiting');
+  });
+
+  it('ignores a commit or a genesis that names another player', async () => {
+    feed({ t: 'life', life: null, genesisIn: 0 });
+    feed({ t: 'commit', commit: commitOf('o'.repeat(43)), hatchesLeft: 2 });
+    feed(genesisMsg('o'.repeat(43)));
+    expect(flow.view()).toMatchObject({ status: 'idle', inFlight: { genesis: null } });
+    expect(flow.genesisInFlight).toBe(false);
+  });
+
+  it('forgets the genesis once the hub says the creature is there', () => {
+    feed({ t: 'life', life: null, genesisIn: 0 });
+    feed({ t: 'commit', commit: commitOf(), hatchesLeft: 2 });
+    feed({ t: 'life', life: info({ seq: 0, biomass: 0 }), genesisIn: 0 });
+    expect(flow.view().inFlight.genesis).toBeNull();
+  });
+
+  it('names a mating waiting for its round until its child is born', () => {
+    const mating = { commit: 'f'.repeat(64), round: 12, partner: 'Bea' };
+    feed({ t: 'life', life: info(), genesisIn: 0, mating });
+    expect(flow.view().inFlight).toEqual({
+      genesis: null,
+      mating: { commit: mating.commit, partner: 'Bea' },
+    });
+    feed({ t: 'born' } as unknown as LifeMsg);
+    expect(flow.view().inFlight.mating).toBeNull();
+    feed({ t: 'life', life: info(), genesisIn: 0, mating });
+    feed({ t: 'life', life: info(), genesisIn: 0 });
+    expect(flow.view().inFlight.mating).toBeNull();
+  });
+});
