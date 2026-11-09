@@ -3,8 +3,6 @@ import { promisify } from 'node:util';
 import { expect, type Page, test } from '@playwright/test';
 import type { CardState } from '../../src/card/hook';
 import type { BsHook } from '../../src/game/debug';
-import { RULES } from '../../src/sim/rules';
-import { maxEnergy } from '../../src/sim/vitals';
 import {
   clickHatch,
   M12_LIFECYCLE_HUB as HUB,
@@ -113,31 +111,6 @@ const feedAll = (ps: Player[]) =>
         feed();
         window.setInterval(feed, 2000);
       }),
-    ),
-  );
-
-/**
- * Keeps the pages' creatures from starving through the crowd steps without growing them: every 2 s
- * an energy under half the creature's most is raised to 60%, below the growth threshold (75%), so
- * the radii (and with them the crowd lists' and P1 reaches) stay as the steps measured them. These
- * creatures never eat, and on CI they reached the final gathering with about 60 s of energy left
- * (B, after its reload, starved first). A reload loses it: call it again for the reloaded page.
- */
-const keepAlive = (ps: Player[]) =>
-  Promise.all(
-    ps.map((p) =>
-      p.page.evaluate(
-        ([perBiomass, below, to]) => {
-          window.setInterval(() => {
-            const hook = window.__bs as BsHook;
-            const me = hook.state().player;
-            if (!me?.alive) return;
-            const most = perBiomass * me.biomass;
-            if (me.energy < below * most) hook.debug?.setEnergy(to * most);
-          }, 2000);
-        },
-        [maxEnergy(1), 0.5, RULES.growth.energyThreshold - 0.15] as const,
-      ),
     ),
   );
 
@@ -303,7 +276,6 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     [made.a1, made.b1] = await Promise.all([takeOver(a.page), takeOver(b.page)]);
     made.c0 = (await state(c.page)).life.creature as string;
     made.d0 = (await state(d.page)).life.creature as string;
-    await keepAlive(players);
 
     // A crowd. The pairs sit inside each other's crowd list (8 × the larger radius) and the two pairs
     // outside it, in a row B, A, C, D; all four link, and A draws C and D in full, before they crowd.
@@ -379,9 +351,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
         }
       }
       bBefore = await sampled(b.page);
-      const back = await reloadBack(a, b, id);
-      await keepAlive([b]);
-      if (back) {
+      if (await reloadBack(a, b, id)) {
         fightId = id;
         await sampleLinks(b.page);
         await b.page.evaluate(() => {
