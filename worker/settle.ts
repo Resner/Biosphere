@@ -308,6 +308,7 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
   if (!survived(f)) life = { ...life, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
   // It starts from where the authority's encounter left it: the next report lies near (M12 T10).
-  keep(hub, ws, { ...session, life, anchor: anchorAt(f, life, t) });
-  ashore(hub, ws);
+  const kept = { ...session, life, anchor: anchorAt(f, life, t) };
+  keep(hub, ws, kept);
+  ashore(hub, ws, kept);
 }

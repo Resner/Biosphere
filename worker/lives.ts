@@ -49,7 +49,6 @@ import {
   keep,
   seated,
   sendIfOpen,
-  sessionOf,
   signedOf,
 } from './socket';
 import { anchorAtLast } from './spawn';
@@ -241,8 +240,9 @@ export function progress(
   ack(ws, msg.n, next);
   // Old age is decided here, on the authority's clock: the client counts down, but never has the last word.
   if (isOld(next)) next = finish(hub, ws, next, session.playerId, 'old-age');
-  keep(hub, ws, { ...session, life: next });
-  ashore(hub, ws);
+  const kept = { ...session, life: next };
+  keep(hub, ws, kept);
+  ashore(hub, ws, kept);
 }
 
 /** A relay report's KB is at most this per reported link and second (M13 T4, ADR 0067)... */
@@ -325,19 +325,19 @@ export function death(
   }
   const cause = isOld(credited) ? 'old-age' : msg.cause;
   const life = finish(hub, ws, credited, session.playerId, cause);
-  keep(hub, ws, { ...session, life });
-  ashore(hub, ws);
+  const kept = { ...session, life };
+  keep(hub, ws, kept);
+  ashore(hub, ws, kept);
 }
 
 /**
  * A creature whose life ended leaves the water at once (ADR 0076): no directory entry or anchor
  * names it. Where it was stays as `left`, where a promoted child hatches (M12 T4).
  */
-export function ashore(hub: Hub, ws: WebSocket): void {
-  const s = sessionOf(ws);
-  if (s?.phase !== 'active' || !s.life?.over) return;
-  if (s.anchor) keep(hub, ws, { ...s, anchor: undefined });
+export function ashore(hub: Hub, ws: WebSocket, s: ActiveSession): void {
+  if (!s.life?.over) return;
   if (s.where || hub.directory.member(s.playerId)) gone(hub, ws, { ...s, anchor: undefined });
+  else if (s.anchor) keep(hub, ws, { ...s, anchor: undefined });
 }
 
 /**

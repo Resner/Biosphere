@@ -96,7 +96,11 @@ export const CATALOGUE: Readonly<Record<TransactionName, readonly Step[]>> = {
   ],
   close: [
     { step: 'checkpoint', what: 'the checkpoint and the place out of the water (one transaction)' },
-    { step: 'seat-back', what: 'the seat held back for 2 minutes' },
+    {
+      step: 'seat-back',
+      what: 'the seat held back for 2 minutes',
+      atomic: 'memory only, set by the close that wrote the checkpoint',
+    },
   ],
 };
 
