@@ -44,7 +44,15 @@ export const linked = async (p: Player): Promise<string[]> =>
 export async function linksAre(p: Player, ids: string[], message: string, timeout = 30_000) {
   await expect
     .poll(() => linked(p), { message, timeout, intervals: [200] })
-    .toEqual([...ids].sort());
+    .toEqual([...ids].sort())
+    .catch(async (error) => {
+      // The failure names every link the page holds, open or not, and which instance it plays in.
+      const net = (await state(p.page)).net;
+      throw new Error(
+        `${message}: ${JSON.stringify({ wanted: ids, instance: net.instance, links: net.links, known: net.known, crowded: net.crowded })}`,
+        { cause: error },
+      );
+    });
 }
 
 export interface DirectoryView {

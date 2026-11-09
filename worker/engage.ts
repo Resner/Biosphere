@@ -44,8 +44,11 @@ import { commitWitnesses } from './witness-pool';
 import { worldRow } from './world';
 
 const E = RULES.encounter;
-/** Clock slack either way on a snapshot's pond tick. */
-const SLACK_TICKS = 3;
+/**
+ * Clock slack either way on a snapshot's pond tick: a page's pond clock is a min-RTT estimate, and
+ * on a loaded or distant link it is off by a few hundred ms (ADR 0073).
+ */
+export const SLACK_TICKS = 30;
 /** A snapshot's biomass is log-quantised (0.013%): a claim this close to its cap is clamped without a flag. */
 const QUANTISED = 0.001;
 /** Lock ids are 16 random bytes as hex. */
