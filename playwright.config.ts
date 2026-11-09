@@ -166,7 +166,7 @@ const POST =
 // headed under `xvfb-run`, where it draws WebGL2 through Mesa like Chromium; headless WebKit draws
 // WebGL2 itself.
 const WEBKIT = /m14-(goldens|smoke)\.spec\.ts/;
-const FIREFOX = [/m6c-(firefox|flash)\.spec\.ts/, /m14-(goldens|smoke|mixed)\.spec\.ts/];
+const FIREFOX = [/m6c-(firefox|flash)\.spec\.ts/, /m14-(aprobe|goldens|smoke|mixed)\.spec\.ts/];
 // The mixed pond launches its Chromium page itself, so only the engine projects run it.
 const MIXED = /m14-mixed\.spec\.ts/;
 /**
