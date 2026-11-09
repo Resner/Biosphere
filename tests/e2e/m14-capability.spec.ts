@@ -31,6 +31,7 @@ test('without RTCPeerConnection the note shows and a recorded creature plays alo
   const note = page.getByTestId('capability-note');
   await expect(note).toBeVisible();
   await expect(note).toHaveText(NOTES.rtc);
+  await page.screenshot({ path: 'test-results/m14-capability-note.png' });
   const before = await state(page);
   expect(before.capabilities).toMatchObject({ rtc: false, webgl2: true, ws: true, idb: true });
   expect(before.unsupported).toBeNull();

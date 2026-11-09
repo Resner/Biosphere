@@ -387,10 +387,14 @@
   display: none;
 }
 
-/* What the browser lacks (M14 T6): the same glass, a step quieter, under the tagline. */
+/* What the browser lacks (M14 T6): the same glass, a step quieter, in the tagline's place as the
+   renewal notice is, so the title stays whole at 960 × 540. */
 .capability-note {
-  margin-top: 0;
   color: var(--muted);
+}
+
+.title:has(.capability-note:not([hidden])) .tagline {
+  display: none;
 }
 
 /* The plain page (M14 T6): no canvas, only what the browser needs and what to do, centred on the

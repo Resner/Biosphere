@@ -260,7 +260,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Notes: done: 18 sets (the frozen manifest included) in `src/game/goldens.ts`, the catalogue in `tests/goldens-catalogue.ts`; `tests/e2e/m3-determinism` and `m7-determinism` and the `?debug=1` `genome.hashes` hook are gone (the `stats` and `encounter` sets cover them). `tournament.json` is Node-only. The page's lazy chunk loads on first `run`.
   - Notes: T6 runs the same spec in Firefox and WebKit. A set that differs in an engine is a determinism bug in `src/sim/math.ts` or wherever the difference starts, fixed at its cause in T6; it is never left out.
 
-- [ ] T6 Firefox and WebKit play the game; mixed engines; the capability screen [opus] (after T5) (in progress)
+- [x] T6 Firefox and WebKit play the game; mixed engines; the capability screen [opus] (after T5) (in progress)
   - Steps:
     1. **Projects** (`playwright.config.ts`): `firefox` (`E2E_FIREFOX`) runs `m6c-firefox`, `m6c-flash`, `m14-goldens`, `m14-smoke` and `m14-mixed`; a new `webkit` project (`E2E_WEBKIT`) runs `m14-goldens` and `m14-smoke` (and `m14-mixed` if WebKit can link, below). `m14-smoke` runs in the chromium project too; `m14-mixed` runs only in the engine projects, which install Chromium beside their own engine. Both are `@slow`. `e2e-full.yml` gains a `webkit` part that installs WebKit and Chromium; headed under Xvfb if headless WebKit draws no WebGL2, as Firefox does. Release and `E2E main` run both, through `e2e-full.yml`.
     2. **`m14-smoke.spec.ts`** (`@slow`, hub 8842), the game in the engine under test:
@@ -286,6 +286,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `m14-goldens` and `m14-smoke` pass in Firefox and in WebKit in `e2e-full.yml` (a dispatched run on the branch is the evidence, linked in the PR).
     - `m14-mixed` passes Chromium with Firefox, 3 times in a row in its part.
   - Notes: the WebKit part may need system libraries (`--with-deps`). Keep the Firefox and WebKit parts to these specs: the engine suites gate releases, and every scenario added there is one more that can flake.
+  - Done: `capability.ts` (plain page for game and Lab without WebGL2, every page without module workers; the card keeps its flat preview), `m14-capability` (8845, PR suite), `m14-smoke` and `m14-mixed`, a webkit part, ADR 0077. Every golden matched in all three engines with no fix.
+  - Gotcha: Linux WebKit offers only mDNS candidates, so it never links (its smoke skips the link step, no WebKit in `m14-mixed`); Firefox links only with `media.peerconnection.ice.obfuscate_host_addresses` off.
 
 ### Onboarding and accessibility
 
