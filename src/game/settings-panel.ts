@@ -1,6 +1,6 @@
-// The Settings panel: graphics quality (M6 T1), sound volume and mute, reduced motion (M6 T22)
-// and "Help referee fights" (M10 T6). It owns no state: the app hands it the current settings and
-// applies what it reports.
+// The Settings panel: graphics quality (M6 T1), sound volume and mute, reduced motion (M6 T22),
+// "Help referee fights" (M10 T6) and the guide's "Show hints" and "Show the hints again" (M14 T7).
+// It owns no state: the app hands it the current settings and applies what it reports.
 
 import type { PresetName, QualitySetting } from '../render/presets';
 import { capitalise } from './badge';
@@ -22,12 +22,16 @@ export class SettingsPanel {
   private readonly motion = pick<HTMLInputElement>('[data-testid="reduced-motion"]');
   private readonly motionNote = pick('[data-testid="motion-note"]');
   private readonly referee = pick<HTMLInputElement>('[data-testid="help-referee"]');
+  private readonly hints = pick<HTMLInputElement>('[data-testid="show-hints"]');
+  private readonly replayed = pick('[data-testid="hints-replayed"]');
   /** The settings last shown, which each change starts from. */
   private current: Settings | null = null;
 
   constructor(
     private readonly onChange: (settings: Settings) => void,
     openers: readonly string[],
+    /** "Show the hints again": the guide forgets what this browser has seen. */
+    replayHints: () => void,
   ) {
     for (const [quality, radio] of this.radios) {
       radio.addEventListener('change', () => {
@@ -43,6 +47,11 @@ export class SettingsPanel {
     this.referee.addEventListener('change', () =>
       this.change({ helpReferee: this.referee.checked }),
     );
+    this.hints.addEventListener('change', () => this.change({ hints: this.hints.checked }));
+    pick('[data-testid="hints-replay"]').addEventListener('click', () => {
+      replayHints();
+      this.replayed.hidden = false;
+    });
     for (const id of openers)
       pick(`[data-testid="${id}"]`).addEventListener('click', () => this.open());
     pick('[data-testid="settings-close"]').addEventListener('click', () => this.close());
@@ -78,9 +87,11 @@ export class SettingsPanel {
     this.motionNote.textContent =
       settings.reducedMotion === null ? 'Motion follows your system setting.' : '';
     this.referee.checked = settings.helpReferee;
+    this.hints.checked = settings.hints;
   }
 
   open(): void {
+    this.replayed.hidden = true;
     this.panel.hidden = false;
     this.panel.querySelector<HTMLInputElement>('input:checked')?.focus();
   }

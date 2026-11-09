@@ -365,7 +365,7 @@ export class Frame {
     app.ui.updateHatchNote();
     app.ui.updateMateUi();
     app.ui.updateOffspringUi();
-    app.ui.updateHint();
+    app.ui.updateGuide();
     view.eggs = this.updateEggs(eggNow, dt, reduced);
     this.placeEgg(eggNow);
     if (app.cardDue && (app.cardDue !== app.session || app.screen !== 'playing')) {

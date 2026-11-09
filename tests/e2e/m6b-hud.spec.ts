@@ -1,9 +1,10 @@
 import { expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { GUIDE_WORDS } from '../../src/game/guide';
 import { clickHatch, hatch, hudCover, openGame, openRecorded, state, waitPlaying } from './helpers';
 
 // The HUD shell (M6b T9): one menu button, four thin stat bars and the minimap (T10) and nothing
-// else on the play screen; the numbers live in the menu, the controls in first-life hints and the menu.
+// else on the play screen; the numbers live in the menu, the controls in the guide (M14 T7) and the menu.
 
 test.describe.configure({ mode: 'serial' });
 
@@ -13,7 +14,7 @@ const STATS = ['health', 'energy', 'size', 'life'] as const;
 const strayText = (page: Page) =>
   page.evaluate(() => {
     // Toasts (the alone and mate hints are toasts too: each shows only for an event), chat lines,
-    // labels over creatures, edge-indicator labels, the first-life hints, the chips, the online
+    // labels over creatures, edge-indicator labels, the guide's line, the chips, the online
     // counter (owner request), the zone's name under the minimap (M6b T10) and the depth on its
     // gauge (M6c T12).
     const allowed =
@@ -245,12 +246,33 @@ test('the menu holds everything the play screen dropped, and steering carries on
   expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
 });
 
-test('first-life hints fade in once per browser, and never on later lives', async ({ browser }) => {
+test('the first-life guide tells a fresh browser to swim once, and never again', async ({
+  browser,
+}) => {
   test.setTimeout(60_000);
   const context = await browser.newContext();
   const page = await context.newPage();
   const hint = page.getByTestId('hint');
-  const playFor = async (seconds: number) => {
+  try {
+    await openGame(page, '?debug=1&seed=hints');
+    await hatch(page);
+    await expect(hint).toBeVisible();
+    await expect(hint).toHaveText(GUIDE_WORDS.swim);
+    expect((await hudState(page)).hints).toBe(GUIDE_WORDS.swim);
+    expect(await page.evaluate(() => localStorage.getItem('bs.guide'))).toContain('swim');
+    await page.screenshot({ path: 'test-results/m6b-hud-hint.png' });
+    // A step shows for 8 s at most (a still creature never swims its 3 body lengths).
+    await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(8));
+    await page.waitForFunction(
+      () => (window.__bs as BsHook).state().guide.current !== 'swim',
+      undefined,
+      { timeout: 10_000 },
+    );
+    await expect(hint).not.toHaveText(GUIDE_WORDS.swim);
+
+    // A later life, after a reload: swim is not told again.
+    await openGame(page, '?debug=1&seed=hints-2');
+    await hatch(page);
     const start = (await state(page)).tick;
     await page.waitForFunction(
       (until) => {
@@ -258,47 +280,11 @@ test('first-life hints fade in once per browser, and never on later lives', asyn
         bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
         return bs.state().tick >= until;
       },
-      start + seconds * 30,
+      start + 60,
       { timeout: 20_000 },
     );
-  };
-  try {
-    await openGame(page, '?debug=1&seed=hints');
-    await hatch(page);
-    await expect(hint).toBeVisible();
-    await expect(hint).toHaveText('Mouse or WASD to swim · Space to dash');
-    expect((await hudState(page)).hints).toBe('Mouse or WASD to swim · Space to dash');
-    expect(await page.evaluate(() => localStorage.getItem('bs.hints'))).not.toBeNull();
-    await page.screenshot({ path: 'test-results/m6b-hud-hint.png' });
-    await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(8));
-    await expect(hint).toBeHidden({ timeout: 10_000 });
-    expect((await hudState(page)).hints).toBeNull();
-    // After 30 s of play, the social keys (caught at full speed, so the 8 s show is seen).
-    await page.waitForFunction(
-      () => {
-        const bs = window.__bs as BsHook;
-        bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-        if (bs.state().hud.hints === null) return false;
-        bs.debug?.timeScale(1);
-        return true;
-      },
-      undefined,
-      { timeout: 15_000 },
-    );
-    await expect(hint).toBeVisible();
-    await expect(hint).toHaveText('G wheel · M map · Enter chat');
-    await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(8));
-    await expect(hint).toBeHidden({ timeout: 10_000 });
-
-    // A later life, after a reload: no hints at all.
-    await openGame(page, '?debug=1&seed=hints-2');
-    await hatch(page);
-    await expect(hint).toBeHidden();
-    expect((await hudState(page)).hints).toBeNull();
-    await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(8));
-    await playFor(34);
-    await expect(hint).toBeHidden();
-    expect((await hudState(page)).hints).toBeNull();
+    expect((await state(page)).guide.current).not.toBe('swim');
+    expect((await hudState(page)).hints).not.toBe(GUIDE_WORDS.swim);
   } finally {
     await context.close();
   }

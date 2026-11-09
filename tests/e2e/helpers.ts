@@ -253,6 +253,8 @@ export const M11_LIFECYCLE_HUB = 'http://localhost:8832';
 export const M12_LIFECYCLE_HUB = 'http://localhost:8836';
 /** The M13 lifecycle spec's hub (two seats, short matings). */
 export const M13_LIFECYCLE_HUB = 'http://localhost:8839';
+/** The M14 guide spec's hub (M14 T7): `MATING_SCALE` 0.01, two players learn the later steps. */
+export const M14_GUIDE_HUB = 'http://localhost:8843';
 
 /** Hubs this worker process has already woken. */
 const warmed = new Set<string>();

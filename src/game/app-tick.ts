@@ -231,6 +231,8 @@ export class Ticker {
     if (!fought && app.fight.holdBelly && world.carrion.length > 0) {
       player.energy = Math.max(player.energy, maxEnergy(player.biomass) + 1);
     }
+    // `debug.sated` (a test aid): a belly full at each tick's start eats nothing.
+    if (app.sated) player.energy = Math.max(player.energy, maxEnergy(player.biomass));
     const events = fought ? NO_EVENTS : step(world, { [player.id]: app.input });
     session.ticks++;
     live?.food.onEat(events, at);

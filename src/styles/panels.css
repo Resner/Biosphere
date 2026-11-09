@@ -139,6 +139,31 @@
   text-decoration: none;
 }
 
+/* A browser that has seen no guide step (M14 T7): one quiet line under Hatch to the help panel. It
+   takes the place of the keys line at the foot, which the guide teaches in play, so the title stays
+   whole on a short screen. */
+.title-help {
+  margin: 0;
+  padding: 0.2rem 0.5rem;
+  border: 0;
+  background: none;
+  color: var(--text);
+  font: inherit;
+  font-size: 0.85rem;
+  text-decoration: underline;
+  text-underline-offset: 0.25em;
+  cursor: pointer;
+}
+
+.title-help:hover,
+.title-help:focus-visible {
+  color: var(--muted);
+}
+
+.title-help:not([hidden]) ~ .hint {
+  display: none;
+}
+
 .lab-link:hover,
 .lab-link:focus-visible {
   color: var(--text);
