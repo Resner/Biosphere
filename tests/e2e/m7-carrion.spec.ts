@@ -61,18 +61,23 @@ test('a kill drops carrion that a spectator eats, and the piece is gone for the 
       }
     }
 
-    // Everyone in the pond drops the pieces from the one `carrion` message, named for the fight.
+    // Everyone in the pond drops the pieces from the one `carrion` message, named for the fight. A
+    // round that ended with A killed too left its own pieces on C's water, so only this fight's
+    // pieces are judged (and waited for).
+    const prefix = `x${enc?.slice(0, 8)}`;
     await c
-      .waitForFunction(() => (window.__bs?.state().carrion.length ?? 0) >= 1, undefined, {
-        timeout: 15_000,
-      })
+      .waitForFunction(
+        (own) =>
+          (window.__bs?.state().carrion.filter((p) => p.id.startsWith(own)).length ?? 0) >= 1,
+        prefix,
+        { timeout: 15_000 },
+      )
       .catch(async (error) => {
         throw new Error(`no carrion reached C: ${JSON.stringify(await seen(c))}`, { cause: error });
       });
-    const onC = (await state(c)).carrion;
+    const onC = (await state(c)).carrion.filter((p) => p.id.startsWith(prefix));
     expect(onC.length).toBeLessThanOrEqual(12);
     for (const p of onC) {
-      expect(p.id.startsWith(`x${enc?.slice(0, 8)}`)).toBe(true);
       expect(p.value).toBeGreaterThan(0);
       expect(p.radius).toBeGreaterThan(1.5);
     }
