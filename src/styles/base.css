@@ -551,13 +551,14 @@ body {
   transition: opacity 0.6s ease;
 }
 
-.first-hint[data-raised] {
+/* In a fight the line rises above the combat HUD's buttons, which hold the bottom centre. */
+[data-fighting] .first-hint {
   bottom: calc(var(--hud-gap) + 2.75rem);
 }
 
 @media (max-width: 56rem) {
   .first-hint,
-  .first-hint[data-raised] {
+  [data-fighting] .first-hint {
     bottom: 7.5rem;
     max-width: calc(100vw - 2 * var(--hud-gap));
   }

@@ -149,24 +149,16 @@ export class PlayUi {
     const { app, hintElement, titleHelp } = this;
     const { guide } = app;
     const now = app.virtualNow;
-    guide.update(now, this.guideFacts());
-    const { text } = guide.view();
+    // Every step seen: nothing can start, so skip the world analysis a returning player never needs.
+    if (!guide.done) guide.update(now, this.guideFacts());
+    const { text } = guide;
     if (text !== this.shownHint) {
       this.shownHint = text;
       if (text) hintElement.textContent = text;
       hintElement.hidden = text === null;
     }
-    // In a fight the line rises above the combat HUD's buttons, which hold the bottom centre.
-    const raised = app.fight.fighting;
-    if (hintElement.hasAttribute('data-raised') !== raised) {
-      hintElement.toggleAttribute('data-raised', raised);
-    }
-    const leaving = text !== null && guide.leftMs(now) < HINT_FADE_MS;
-    if (hintElement.hasAttribute('data-leaving') !== leaving) {
-      hintElement.toggleAttribute('data-leaving', leaving);
-    }
-    const seenAny = !guide.fresh();
-    if (titleHelp.hidden !== seenAny) titleHelp.hidden = seenAny;
+    hintElement.toggleAttribute('data-leaving', text !== null && guide.leftMs(now) < HINT_FADE_MS);
+    titleHelp.hidden = !guide.fresh();
   }
 
   /** What the guide reads this frame. */
@@ -212,6 +204,7 @@ export class PlayUi {
     }
     const life = app.flow.view();
     const clock = app.lastClock;
+    const pending = app.offspring.child() !== null;
     return {
       screen,
       still: app.eggs.still(),
@@ -231,11 +224,11 @@ export class PlayUi {
       mature: clock !== null && life.matureAtMs > 0 && clock.activeMs >= life.matureAtMs,
       courting: app.mateNow === 'courting',
       invited: app.mateNow === 'invited',
-      pending: app.offspring.child() !== null,
+      pending,
       menuOpen: app.menu.isOpen,
       linked: (app.keeper.current?.openCount() ?? 0) > 0,
       wheelOpen: app.wheel.isOpen,
-      fallback: life.fallback !== null || app.offspring.child() !== null,
+      fallback: life.fallback !== null || pending,
     };
   }
 

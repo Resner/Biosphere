@@ -292,6 +292,16 @@ export class Guide {
     return this.seen.size === 0;
   }
 
+  /** Every step seen: the guide has nothing left to teach this browser. */
+  get done(): boolean {
+    return this.seen.size === GUIDE_STEPS.length;
+  }
+
+  /** The words on screen now, or null; cheaper than `view()` for a per-frame read. */
+  get text(): string | null {
+    return this.current?.text ?? null;
+  }
+
   /** "Show hints": off hides the step on screen and starts none. */
   setOn(on: boolean): void {
     this.on = on;
