@@ -115,6 +115,24 @@ const feedAll = (ps: Player[]) =>
   );
 
 /**
+ * Keeps the pages' energy full from here on, and nothing else. C and D never mate, so their first
+ * creatures live through the whole scenario, which a slow runner stretches until they starve (E2E
+ * main: C and D on the death screen at the final gathering, out of the directory, unlinkable).
+ * Energy takes no part in the crowd steps, so it changes nothing they see.
+ */
+const keepFed = (ps: Player[]) =>
+  Promise.all(
+    ps.map((p) =>
+      p.page.evaluate(() => {
+        const debug = (window.__bs as BsHook).debug;
+        const feed = () => debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+        feed();
+        window.setInterval(feed, 2000);
+      }),
+    ),
+  );
+
+/**
  * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
  * and position, since the one page that timed out first says nothing of the others.
  */
@@ -260,6 +278,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       await allLinked(players, `${name} spawns and every pair links`, 30_000);
     }
     const [a, b, c, d] = players as [Player, Player, Player, Player];
+    await keepFed([c, d]);
     const t: Trio = {
       hub: HUB,
       a: a.page,
