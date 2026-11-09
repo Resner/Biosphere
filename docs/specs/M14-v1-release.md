@@ -176,7 +176,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Interrupted transactions
 
-- [x] T3 The hub's kill matrix: every step survives a closed socket and a restart [opus] (after T1) (in progress)
+- [x] T3 The hub's kill matrix: every step survives a closed socket and a restart [opus] (after T1)
   - Steps:
     1. **The catalogue** (`worker/interrupt-kit.ts`): each transaction and its steps, as the hub sees them, in one table the matrix walks:
        - **genesis**: the ask arrives; the commitment is written and `commit` sent; the round is published and the record written; `genesis` sent;
