@@ -94,21 +94,26 @@ const instanceOf = (p: Player) =>
   p.page.evaluate(() => (window.__bs as BsHook).state().net.instance.n);
 
 /**
- * Keeps a page fed, as the M11 lifecycle does: a starter's belly lasts 150 s of sim and then it loses
- * health, and a slow runner plays this scenario for minutes (E2E main: all four were dead by the final
- * link, and a dead creature leaves the directory, so nobody could link to them). Energy is mended on
- * every page; health only where the scenario does not set it itself (a fighter's wear is left alone).
+ * Keeps the pages' creatures fed from here on. These creatures never eat, so on a slow runner they
+ * starve before the last step (E2E main: all four pages on the death screen), and a dead creature
+ * leaves the directory, so nobody could link to it. Called after the steps that judge the crowd, so
+ * it changes nothing they see: it only keeps the living alive through the settlement, the merge and
+ * the final gathering.
  */
-const mend = (page: Page, health: boolean) =>
-  page.evaluate((withHealth) => {
-    const debug = (window.__bs as BsHook).debug;
-    const feed = () => {
-      debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-      if (withHealth) debug?.setHealth(Number.MAX_SAFE_INTEGER);
-    };
-    feed();
-    window.setInterval(feed, 2000);
-  }, health);
+const feedAll = (ps: Player[]) =>
+  Promise.all(
+    ps.map((p) =>
+      p.page.evaluate(() => {
+        const debug = (window.__bs as BsHook).debug;
+        const feed = () => {
+          debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+          debug?.setHealth(Number.MAX_SAFE_INTEGER);
+        };
+        feed();
+        window.setInterval(feed, 2000);
+      }),
+    ),
+  );
 
 /**
  * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
@@ -220,7 +225,6 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       const page = await open(browser, HUB, '&quality=medium');
       await hatch(page);
       await sampleLinks(page);
-      await mend(page, name === 'C' || name === 'D');
       const p: Player = { page, id: (await state(page)).playerId as string };
       const at = await spawnOf(p);
       if (players.length === 0) {
@@ -348,9 +352,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
         }
       }
       bBefore = await sampled(b.page);
-      const back = await reloadBack(a, b, id);
-      await mend(b.page, false);
-      if (back) {
+      if (await reloadBack(a, b, id)) {
         fightId = id;
         await sampleLinks(b.page);
         await b.page.evaluate(() => {
@@ -442,6 +444,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       if (stillCrowded.has(m.id)) expect(dLinks).not.toContain(m.id);
     }
 
+    await feedAll(players);
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
     await settled(request, HUB, fightId);
