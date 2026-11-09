@@ -28,4 +28,5 @@ paths:
 - Use the `window.__bs` hook (`?debug=1` for mutations) instead of sleeping or scraping the DOM for game state. The hooks' API (`window.__bs`, `__lab`, `__gallery`), the budget scenes and the hub ports are in `docs/TESTING.md`: read the parts your test uses, and update it in the same PR when you change a hook or add a hub.
 - A spec file that uses a hub runs serially (`test.describe.configure({ mode: 'serial' })`) and gets its own `wrangler dev` port in `playwright.config.ts`, because files run in parallel and would share a pond. `docs/TESTING.md` names the next free port.
 - Golden files (replays, math, genome vectors) change only with a change to the rules they pin, never just to get green. The first such change after a release bumps `RULES_VERSION` (ADR 0018).
+- A new golden file joins the catalogue (`tests/goldens-catalogue.ts`, `docs/TESTING.md`): a set recomputed in the page (`src/game/goldens.ts`, `golden-names.ts`) or a `NODE_ONLY` entry with its reason.
 - Never skip, loosen or delete a test to get green; fix the cause.

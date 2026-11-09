@@ -19,7 +19,8 @@ import { createWorld } from '../sim/world';
 import type { App } from './app';
 import { adultRadius } from './app-session';
 import { checkCrowdAt } from './crowd-view';
-import { type BsDebug, type BsGenome, type BsState, installHook } from './debug';
+import { type BsDebug, type BsState, installHook } from './debug';
+import { GOLDEN_SET_NAMES } from './golden-names';
 import type { NetLinks } from './online';
 import { PondFood } from './pond-food';
 import { PondTime } from './pond-time';
@@ -285,16 +286,6 @@ const eggCharge = (app: App) => {
   };
 };
 
-const genome: BsGenome = {
-  hashes: (list) =>
-    list.map((text) => {
-      const g = genomeFromBase64url(text);
-      if (!g) throw new RangeError('not a base64url genome');
-      const c = buildCreature(g);
-      return { planHash: hashPlan(c.plan), statsHash: hashStats(c.stats) };
-    }),
-};
-
 /** Installs `window.__bs`: read-only views and replay always, the debug helpers under `?debug=1`. */
 export function installAppHook(app: App): void {
   const debug = debugHelpers(app);
@@ -459,6 +450,10 @@ export function installAppHook(app: App): void {
     },
     events: () => ({ ...app.session.counts }),
     replayEncounter: (log) => replayEncounter(log),
+    goldens: {
+      sets: () => [...GOLDEN_SET_NAMES],
+      run: async (set, input) => (await import('./goldens')).runGolden(set, input),
+    },
     audio: { render: renderOffline, renderCue: renderCueOffline },
     replay: (log) => {
       const { hash, events } = replay(log);
@@ -508,6 +503,6 @@ export function installAppHook(app: App): void {
         };
       },
     },
-    ...(app.params.debug ? { debug, genome } : {}),
+    ...(app.params.debug ? { debug } : {}),
   });
 }

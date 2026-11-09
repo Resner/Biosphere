@@ -405,15 +405,17 @@ export interface BsHook {
       genomeHash: string;
     } | null>;
   };
-  /** Genome code run in this engine; present only with `?debug=1`. */
-  genome?: BsGenome;
+  /** The golden sets recomputed in this engine's own bundle (M14 T5); only computes, so always present. */
+  goldens: BsGoldens;
   /** Mutating helpers; present only with `?debug=1`. */
   debug?: BsDebug;
 }
 
-export interface BsGenome {
-  /** The plan and stats hashes of each genome (base64url), for comparing engines against the Node goldens. */
-  hashes(genomes: readonly string[]): { planHash: string; statsHash: string }[];
+export interface BsGoldens {
+  /** The names of the sets (`src/game/goldens.ts`). */
+  sets(): string[];
+  /** Runs one set on its JSON input and returns its JSON output; loads the sets' code on first use. */
+  run(set: string, input: unknown): Promise<unknown>;
 }
 
 /** The feedback cues now showing: counts since hatching, plus the camera's current zoom. */

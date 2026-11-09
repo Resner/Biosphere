@@ -237,7 +237,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Engines
 
-- [ ] T5 Every golden in every engine (after none) (in progress)
+- [x] T5 Every golden in every engine (after none)
   - Steps:
     1. **The catalogue** (`tests/goldens-catalogue.ts`): each golden file under `src/*/__golden__/` maps to the page-side set that recomputes it, or sits in a Node-only list with its reason (a report's summary, say). The sets cover at least:
        - `math.json` (every function of `src/sim/math.ts` on its vectors);
@@ -252,6 +252,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `tests/goldens-catalogue.test.ts`: every golden file is in the catalogue or the Node-only list, and every Node-only entry has a reason; a new file in a `__golden__` directory fails it.
     - `m14-goldens` passes in Chromium in the PR suite, within one test's 60 s ceiling in CI (split by set if it needs more).
     - A golden changed by one byte fails `m14-goldens` in Chromium (a temporary local change, not committed).
+  - Notes: done: 17 sets in `src/game/goldens.ts`, the catalogue in `tests/goldens-catalogue.ts`; `tests/e2e/m3-determinism` and `m7-determinism` and the `?debug=1` `genome.hashes` hook are gone (the `stats` and `encounter` sets cover them). `tournament.json` is Node-only. The page's lazy chunk loads on first `run`.
   - Notes: T6 runs the same spec in Firefox and WebKit. A set that differs in an engine is a determinism bug in `src/sim/math.ts` or wherever the difference starts, fixed at its cause in T6; it is never left out.
 
 - [ ] T6 Firefox and WebKit play the game; mixed engines; the capability screen [opus] (after T5)
