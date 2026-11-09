@@ -399,7 +399,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Notes: this task measures; T11 tunes. The gates are asserted on the committed report from T11 on.
   - Done: `tests/balance.ts`, `tools/balance-report.ts`, `npm run sim:balance` (ADR 0078); the committed run (53.5 min on 4 cores) meets both gates, with 42 bodies tied at the 5-mating ceiling. Gotcha: `pgrep -f` in a wait loop matches its own shell; wait on the PID.
 
-- [ ] T11 Balance tuning in rules 13 (after T1, T10) (in progress)
+- [x] T11 Balance tuning in rules 13 (after T1, T10)
   - Steps:
     1. **Read the report.** If both gates pass, nothing moves: record the measurement and tick the task.
     2. **Otherwise tune values**, in this order of preference, each step remeasured:
@@ -417,6 +417,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - The committed `docs/perf/balance.md` passes both gates, and so does the scaled `heavyTest`.
     - Every report above is regenerated and passes its own gates; `npm run check:full` passes.
   - Notes: if the gates can't hold together with the combat and pacing gates, the brief's order decides (a fun, readable core loop first, then diverse adaptations): the balance ADR records the trade-off, and the task ends with the best compromise and the reason.
+  - Done: both gates already hold on the committed run, so no value moved (ADR 0078, "Outcome"); a test now asserts them on `balance.json`. Gotcha: the scaled run's top is 2 bodies, so it asserts only the half-share gate.
 
 ### Room for 200
 
