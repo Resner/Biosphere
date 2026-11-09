@@ -9,6 +9,7 @@ paths:
 - PR CI never touches live services or secrets. Deploys (Pages, and the Worker from M2) happen only in the release workflow, triggered by a `VERSION` change on `main`.
 - Secrets are read only in the release workflow's deploy steps (`CLOUDFLARE_API_TOKEN`, `CLOUDFLARE_ACCOUNT_ID`, `CF_TURN_KEY_ID`, `CF_TURN_KEY_API_TOKEN`). The client build reads the repository variable `AUTHORITY_URL`.
 - Keep slow E2E out of the PR gate (`test:e2e` versus `test:e2e:full`); the full suite runs in `e2e-full.yml`, which Release and `E2E main` call. Browser installs run through `npm run e2e:setup`.
+- `e2e-full.yml`'s parts: fast in 3 shards, `@slow` in 4, social, pond and post each alone, and one part per other engine (`engine: firefox`, `engine: webkit`, ADR 0077), which installs that engine and Chromium with `--with-deps`, sets `E2E_FIREFOX` or `E2E_WEBKIT`, and runs on one worker (Firefox headed under `xvfb-run`).
 - Pin actions to major versions from `actions/*` only, matching the repository's Actions policy (`docs/SETUP.md` step 4).
 - `branch-cleanup.yml` deletes the branches of factory PRs closed without merging (`pull_request_target`, no checkout) and sweeps `claude/` branches with no open PR and no commit for 6 hours, daily and on dispatch (ADR 0057).
 - Playwright runs with 2 workers in CI (`playwright.config.ts`, ADR 0044); the main process logs the CPU count Node reports.

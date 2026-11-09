@@ -20,8 +20,14 @@ export const SETTLE_TICKS = Math.ceil((SEEN_MS / 1000 + 1) * TICK_HZ);
 /** Every staged fighter's biomass (the starter's), so none is "much bigger" than another. */
 export const EQUAL_BIOMASS = RULES.starter.biomass;
 
-export async function open(browser: Browser, hub: string, extra = '&quality=low'): Promise<Page> {
+export async function open(
+  browser: Browser,
+  hub: string,
+  extra = '&quality=low',
+  before?: (page: Page) => Promise<unknown>,
+): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
+  await before?.(page);
   await openRecorded(page, extra, hub);
   // No picture: software rendering is the cost of a frame on a runner, and a page that draws a
   // frame in over 100 ms misses the referee's input deadline, so the autopilot flies that frame (B

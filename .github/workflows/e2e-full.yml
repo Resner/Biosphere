@@ -43,11 +43,19 @@ jobs:
             args: --project=pond --no-deps
           - name: post
             args: --project=post --no-deps
-          # Firefox (M6c T8): `m6c-firefox` and `m6c-flash` only. Firefox is installed in this part
-          # alone, and runs headed under Xvfb: headless, it finds no GL driver on the runner.
+          # The other engines (M6c T8, M14 T6, ADR 0077), each installed in its part alone beside the
+          # Chromium the mixed pond and the Firefox check launch. Firefox runs `m6c-firefox`,
+          # `m6c-flash`, the goldens, the smoke and the mixed pond, headed under Xvfb (headless, it
+          # finds no GL driver on the runner); WebKit the goldens and the smoke. One worker each:
+          # the mixed pond's duel keeps two browsers inside the referee's deadlines.
           - name: firefox
-            args: --project=firefox
-            firefox: true
+            args: --project=firefox --workers=1
+            engine: firefox
+            install: firefox chromium
+          - name: webkit
+            args: --project=webkit --workers=1
+            engine: webkit
+            install: webkit
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -68,17 +76,22 @@ jobs:
           sudo mkswap /mnt/e2e.swap
           sudo swapon /mnt/e2e.swap
           free -m
-      - name: Install Firefox
-        if: matrix.firefox
-        run: npx playwright install --with-deps firefox chromium
+      - name: Install the part's engine
+        if: matrix.engine
+        run: npx playwright install --with-deps ${{ matrix.install }}
       - name: Run this part of the suite
-        if: ${{ !matrix.firefox }}
+        if: ${{ !matrix.engine }}
         run: npx playwright test ${{ matrix.args }}
       - name: Run this part of the suite in Firefox
-        if: matrix.firefox
+        if: matrix.engine == 'firefox'
         env:
           E2E_FIREFOX: 1
         run: xvfb-run -a npx playwright test ${{ matrix.args }}
+      - name: Run this part of the suite in WebKit
+        if: matrix.engine == 'webkit'
+        env:
+          E2E_WEBKIT: 1
+        run: npx playwright test ${{ matrix.args }}
       - name: Keep the failure evidence
         if: failure()
         uses: actions/upload-artifact@v7

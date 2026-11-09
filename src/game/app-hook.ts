@@ -305,6 +305,8 @@ export function installAppHook(app: App): void {
       const { eggOnScreen, eggAt } = app.frame;
       return {
         screen: app.screen,
+        capabilities: { ...app.capabilities },
+        unsupported: null,
         quality: {
           setting: settings.quality,
           detected: autoQuality.detected,

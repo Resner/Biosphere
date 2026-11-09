@@ -360,7 +360,8 @@
    covers neither the title, the buttons, the status chip nor an egg. The away report (M8 T12)
    wears the same glass on the title and death screens. */
 .renewed,
-.away-report {
+.away-report,
+.capability-note {
   box-sizing: border-box;
   max-width: min(40rem, calc(100vw - 2rem));
   margin: 0.6rem 0 1.2rem;
@@ -380,8 +381,49 @@
 
 .renewed[hidden],
 .renewed:not([hidden]) + .tagline,
-.away-report[hidden] {
+.away-report[hidden],
+.capability-note[hidden] {
   display: none;
+}
+
+/* What the browser lacks (M14 T6): the same glass, a step quieter, in the tagline's place as the
+   renewal notice is, so the title stays whole at 960 × 540. */
+.capability-note {
+  color: var(--muted);
+}
+
+.title:has(.capability-note:not([hidden])) .tagline {
+  display: none;
+}
+
+/* The plain page (M14 T6): no canvas, only what the browser needs and what to do, centred on the
+   water's colour. It scrolls if the words don't fit. */
+body[data-screen="unsupported"] {
+  overflow: auto;
+}
+
+.unsupported {
+  box-sizing: border-box;
+  max-width: 34rem;
+  min-height: 100%;
+  margin: 0 auto;
+  padding: 2rem 1.25rem;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  line-height: 1.5;
+}
+
+.unsupported h1 {
+  margin: 0 0 1rem;
+  font-size: clamp(1.5rem, 5vw, 2.2rem);
+  font-weight: 300;
+  letter-spacing: 0.04em;
+}
+
+.unsupported p {
+  margin: 0 0 0.75rem;
+  color: var(--muted);
 }
 
 .away-report p {
