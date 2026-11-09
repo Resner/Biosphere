@@ -1,5 +1,5 @@
-// Temporary diagnostic (M14 T6): two pages (separate contexts or browsers) link over ICE, signalled
-// through Node, with and without the hub's STUN servers.
+// Temporary diagnostic (M14 T6): the game's way to link (no trickle: the SDP after gathering
+// completes or 2 s), across contexts and browsers, with and without the hub's STUN servers.
 import { chromium, firefox } from '@playwright/test';
 const STUN = [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
 const prefs = { 'media.peerconnection.ice.obfuscate_host_addresses': false };
@@ -8,42 +8,41 @@ async function pageOf(browser) {
   await p.setContent('<html><body>probe</body></html>');
   return p;
 }
-async function pair(name, pa, pb, ice) {
-  const setup = (ice) => {
-    window.pc = new RTCPeerConnection({ iceServers: ice });
-    window.cands = [];
-    window.pc.onicecandidate = (e) => { if (e.candidate) window.cands.push(e.candidate.toJSON()); };
-    window.opened = false;
-  };
-  await pa.evaluate(setup, ice); await pb.evaluate(setup, ice);
-  const offer = await pa.evaluate(async () => {
-    const ch = window.pc.createDataChannel('x'); ch.onopen = () => { window.opened = true; };
-    await window.pc.setLocalDescription(); return window.pc.localDescription.toJSON();
-  });
-  const answer = await pb.evaluate(async (o) => {
-    window.pc.ondatachannel = (e) => { e.channel.onopen = () => { window.opened = true; }; };
-    await window.pc.setRemoteDescription(o); await window.pc.setLocalDescription(); return window.pc.localDescription.toJSON();
-  }, offer);
-  await pa.evaluate((a) => window.pc.setRemoteDescription(a), answer);
-  // Trickle both ways for 6 s.
-  const sent = { a: 0, b: 0 };
-  for (let t = 0; t < 30; t++) {
-    const ca = await pa.evaluate(() => window.cands); const cb = await pb.evaluate(() => window.cands);
-    for (const c of ca.slice(sent.a)) await pb.evaluate((c) => window.pc.addIceCandidate(c).catch(() => {}), c);
-    for (const c of cb.slice(sent.b)) await pa.evaluate((c) => window.pc.addIceCandidate(c).catch(() => {}), c);
-    sent.a = ca.length; sent.b = cb.length;
-    if (await pa.evaluate(() => window.opened)) break;
-    await new Promise((r) => setTimeout(r, 200));
+const gather = async () => {
+  const pc = window.pc;
+  const t0 = performance.now();
+  if (pc.iceGatheringState !== 'complete') {
+    await new Promise((res) => {
+      const timer = setTimeout(res, 2000);
+      pc.onicegatheringstatechange = () => { if (pc.iceGatheringState === 'complete') { clearTimeout(timer); res(); } };
+    });
   }
-  const res = await pa.evaluate(() => ({ open: window.opened, state: window.pc.iceConnectionState, cands: window.cands.map((c) => c.candidate) }));
-  const resb = await pb.evaluate(() => ({ state: window.pc.iceConnectionState, cands: window.cands.map((c) => c.candidate) }));
-  console.log(name, JSON.stringify({ a: res, b: resb }));
+  window.gatherMs = Math.round(performance.now() - t0);
+  return pc.localDescription.toJSON();
+};
+async function pair(name, pa, pb, ice) {
+  const setup = (ice) => { window.pc = new RTCPeerConnection({ iceServers: ice }); window.opened = false; };
+  await pa.evaluate(setup, ice); await pb.evaluate(setup, ice);
+  const offer = await pa.evaluate(async (g) => {
+    const ch = window.pc.createDataChannel('x'); ch.onopen = () => { window.opened = true; };
+    await window.pc.setLocalDescription(); return await (0, eval)(`(${g})`)();
+  }, gather.toString());
+  const answer = await pb.evaluate(async ([o, g]) => {
+    window.pc.ondatachannel = (e) => { e.channel.onopen = () => { window.opened = true; }; };
+    await window.pc.setRemoteDescription(o); await window.pc.setLocalDescription(); return await (0, eval)(`(${g})`)();
+  }, [offer, gather.toString()]);
+  await pa.evaluate((a) => window.pc.setRemoteDescription(a), answer);
+  for (let t = 0; t < 50 && !(await pa.evaluate(() => window.opened)); t++) await new Promise((r) => setTimeout(r, 200));
+  const lines = (sdp) => sdp.split('\n').filter((l) => l.startsWith('a=candidate') || l.startsWith('c=')).map((l) => l.trim());
+  const a = await pa.evaluate(() => ({ open: window.opened, state: window.pc.iceConnectionState, gatherMs: window.gatherMs }));
+  const b = await pb.evaluate(() => ({ state: window.pc.iceConnectionState, gatherMs: window.gatherMs }));
+  console.log(name, JSON.stringify({ a, b, offer: lines(offer.sdp), answer: lines(answer.sdp) }));
 }
 const ff = await firefox.launch({ headless: false, firefoxUserPrefs: prefs });
 const cr = await chromium.launch({ args: ['--disable-features=WebRtcHideLocalIpsWithMdns'] });
 for (const [label, ice] of [['nostun', []], ['stun', STUN]]) {
   await pair(`ff-ff-${label}`, await pageOf(ff), await pageOf(ff), ice);
   await pair(`cr-ff-${label}`, await pageOf(cr), await pageOf(ff), ice);
-  await pair(`cr-cr-${label}`, await pageOf(cr), await pageOf(cr), ice);
+  await pair(`ff-cr-${label}`, await pageOf(ff), await pageOf(cr), ice);
 }
 await ff.close(); await cr.close();
