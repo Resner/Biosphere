@@ -1,0 +1,2556 @@
+{
+  "rules": 13,
+  "variants": 15,
+  "genesis": 32,
+  "lives": 16,
+  "bodies": [
+    {
+      "id": "armoured-0",
+      "archetype": "armoured",
+      "score": 0.5625,
+      "zone": "deep",
+      "ends": {
+        "starved": 9,
+        "pressure": 5,
+        "killed": 2
+      },
+      "fights": 13,
+      "kills": 1
+    },
+    {
+      "id": "armoured-1",
+      "archetype": "armoured",
+      "score": 2.4375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 2,
+        "starved": 10,
+        "old-age": 4
+      },
+      "fights": 19,
+      "kills": 2
+    },
+    {
+      "id": "armoured-10",
+      "archetype": "armoured",
+      "score": 1.3125,
+      "zone": "twilight",
+      "ends": {
+        "starved": 14,
+        "old-age": 1,
+        "killed": 1
+      },
+      "fights": 16,
+      "kills": 2
+    },
+    {
+      "id": "armoured-11",
+      "archetype": "armoured",
+      "score": 2.125,
+      "zone": "twilight",
+      "ends": {
+        "starved": 12,
+        "old-age": 2,
+        "killed": 2
+      },
+      "fights": 18,
+      "kills": 2
+    },
+    {
+      "id": "armoured-12",
+      "archetype": "armoured",
+      "score": 2.25,
+      "zone": "twilight",
+      "ends": {
+        "uv": 1,
+        "starved": 11,
+        "killed": 2,
+        "old-age": 2
+      },
+      "fights": 25,
+      "kills": 10
+    },
+    {
+      "id": "armoured-13",
+      "archetype": "armoured",
+      "score": 1.75,
+      "zone": "twilight",
+      "ends": {
+        "starved": 10,
+        "killed": 2,
+        "uv": 1,
+        "old-age": 3
+      },
+      "fights": 21,
+      "kills": 9
+    },
+    {
+      "id": "armoured-14",
+      "archetype": "armoured",
+      "score": 2.5625,
+      "zone": "twilight",
+      "ends": {
+        "starved": 11,
+        "old-age": 3,
+        "killed": 2
+      },
+      "fights": 21,
+      "kills": 3
+    },
+    {
+      "id": "armoured-2",
+      "archetype": "armoured",
+      "score": 1.6875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 4,
+        "starved": 9,
+        "old-age": 3
+      },
+      "fights": 18,
+      "kills": 1
+    },
+    {
+      "id": "armoured-3",
+      "archetype": "armoured",
+      "score": 2.375,
+      "zone": "twilight",
+      "ends": {
+        "starved": 11,
+        "old-age": 3,
+        "killed": 2
+      },
+      "fights": 18,
+      "kills": 1
+    },
+    {
+      "id": "armoured-4",
+      "archetype": "armoured",
+      "score": 1.25,
+      "zone": "twilight",
+      "ends": {
+        "starved": 12,
+        "killed": 4
+      },
+      "fights": 19,
+      "kills": 1
+    },
+    {
+      "id": "armoured-5",
+      "archetype": "armoured",
+      "score": 1.375,
+      "zone": "twilight",
+      "ends": {
+        "starved": 14,
+        "old-age": 1,
+        "killed": 1
+      },
+      "fights": 17,
+      "kills": 1
+    },
+    {
+      "id": "armoured-6",
+      "archetype": "armoured",
+      "score": 2.3125,
+      "zone": "twilight",
+      "ends": {
+        "starved": 8,
+        "old-age": 4,
+        "killed": 4
+      },
+      "fights": 21,
+      "kills": 7
+    },
+    {
+      "id": "armoured-7",
+      "archetype": "armoured",
+      "score": 1.875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 5,
+        "starved": 10,
+        "old-age": 1
+      },
+      "fights": 26,
+      "kills": 2
+    },
+    {
+      "id": "armoured-8",
+      "archetype": "armoured",
+      "score": 1.9375,
+      "zone": "twilight",
+      "ends": {
+        "starved": 10,
+        "old-age": 2,
+        "killed": 4
+      },
+      "fights": 31,
+      "kills": 4
+    },
+    {
+      "id": "armoured-9",
+      "archetype": "armoured",
+      "score": 1.6875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 5,
+        "old-age": 2,
+        "starved": 9
+      },
+      "fights": 23,
+      "kills": 6
+    },
+    {
+      "id": "armoured-base",
+      "archetype": "armoured",
+      "score": 2.1875,
+      "zone": "twilight",
+      "ends": {
+        "starved": 11,
+        "killed": 3,
+        "old-age": 2
+      },
+      "fights": 17,
+      "kills": 4
+    },
+    {
+      "id": "carapaced-0",
+      "archetype": "carapaced",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 2
+      },
+      "fights": 37,
+      "kills": 6
+    },
+    {
+      "id": "carapaced-1",
+      "archetype": "carapaced",
+      "score": 4.3125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 11,
+        "uv": 3,
+        "killed": 2
+      },
+      "fights": 28,
+      "kills": 4
+    },
+    {
+      "id": "carapaced-10",
+      "archetype": "carapaced",
+      "score": 4.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "uv": 3
+      },
+      "fights": 38,
+      "kills": 7
+    },
+    {
+      "id": "carapaced-11",
+      "archetype": "carapaced",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 1,
+        "old-age": 13,
+        "uv": 2
+      },
+      "fights": 42,
+      "kills": 12
+    },
+    {
+      "id": "carapaced-12",
+      "archetype": "carapaced",
+      "score": 4.125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 3,
+        "old-age": 10,
+        "uv": 3
+      },
+      "fights": 37,
+      "kills": 5
+    },
+    {
+      "id": "carapaced-13",
+      "archetype": "carapaced",
+      "score": 4.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 11,
+        "killed": 2,
+        "uv": 3
+      },
+      "fights": 25,
+      "kills": 6
+    },
+    {
+      "id": "carapaced-14",
+      "archetype": "carapaced",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "uv": 3
+      },
+      "fights": 27,
+      "kills": 5
+    },
+    {
+      "id": "carapaced-2",
+      "archetype": "carapaced",
+      "score": 4.4375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 1,
+        "old-age": 11,
+        "starved": 2,
+        "uv": 2
+      },
+      "fights": 39,
+      "kills": 9
+    },
+    {
+      "id": "carapaced-3",
+      "archetype": "carapaced",
+      "score": 4.75,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 11,
+        "killed": 1,
+        "uv": 2,
+        "starved": 2
+      },
+      "fights": 26,
+      "kills": 5
+    },
+    {
+      "id": "carapaced-4",
+      "archetype": "carapaced",
+      "score": 4.4375,
+      "zone": "twilight",
+      "ends": {
+        "uv": 5,
+        "old-age": 11
+      },
+      "fights": 23,
+      "kills": 4
+    },
+    {
+      "id": "carapaced-5",
+      "archetype": "carapaced",
+      "score": 4,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 8,
+        "uv": 5,
+        "killed": 3
+      },
+      "fights": 33,
+      "kills": 3
+    },
+    {
+      "id": "carapaced-6",
+      "archetype": "carapaced",
+      "score": 4.3125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 12,
+        "uv": 3,
+        "starved": 1
+      },
+      "fights": 34,
+      "kills": 4
+    },
+    {
+      "id": "carapaced-7",
+      "archetype": "carapaced",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "uv": 1,
+        "killed": 1
+      },
+      "fights": 40,
+      "kills": 6
+    },
+    {
+      "id": "carapaced-8",
+      "archetype": "carapaced",
+      "score": 4.5625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 1,
+        "old-age": 13,
+        "starved": 1,
+        "uv": 1
+      },
+      "fights": 36,
+      "kills": 8
+    },
+    {
+      "id": "carapaced-9",
+      "archetype": "carapaced",
+      "score": 4,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 12,
+        "pressure": 1,
+        "uv": 3
+      },
+      "fights": 29,
+      "kills": 3
+    },
+    {
+      "id": "carapaced-base",
+      "archetype": "carapaced",
+      "score": 4.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 11,
+        "killed": 3,
+        "uv": 2
+      },
+      "fights": 32,
+      "kills": 4
+    },
+    {
+      "id": "ciliate-0",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 42,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-1",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 31,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-10",
+      "archetype": "ciliate",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 37,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-11",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 29,
+      "kills": 2
+    },
+    {
+      "id": "ciliate-12",
+      "archetype": "ciliate",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "starved": 1
+      },
+      "fights": 36,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-13",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 49,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-14",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "starved": 1
+      },
+      "fights": 41,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-2",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 37,
+      "kills": 1
+    },
+    {
+      "id": "ciliate-3",
+      "archetype": "ciliate",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "starved": 2
+      },
+      "fights": 30,
+      "kills": 1
+    },
+    {
+      "id": "ciliate-4",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 36,
+      "kills": 1
+    },
+    {
+      "id": "ciliate-5",
+      "archetype": "ciliate",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 37,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-6",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 39,
+      "kills": 1
+    },
+    {
+      "id": "ciliate-7",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 35,
+      "kills": 1
+    },
+    {
+      "id": "ciliate-8",
+      "archetype": "ciliate",
+      "score": 4.75,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "uv": 2
+      },
+      "fights": 45,
+      "kills": 0
+    },
+    {
+      "id": "ciliate-9",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 43,
+      "kills": 1
+    },
+    {
+      "id": "ciliate-base",
+      "archetype": "ciliate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 44,
+      "kills": 2
+    },
+    {
+      "id": "coiled-0",
+      "archetype": "coiled",
+      "score": 2.5625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 20,
+      "kills": 0
+    },
+    {
+      "id": "coiled-1",
+      "archetype": "coiled",
+      "score": 2.375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 4,
+        "killed": 12
+      },
+      "fights": 18,
+      "kills": 0
+    },
+    {
+      "id": "coiled-10",
+      "archetype": "coiled",
+      "score": 2.0625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 3,
+        "killed": 13
+      },
+      "fights": 19,
+      "kills": 0
+    },
+    {
+      "id": "coiled-11",
+      "archetype": "coiled",
+      "score": 2.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 7,
+        "killed": 9
+      },
+      "fights": 14,
+      "kills": 0
+    },
+    {
+      "id": "coiled-12",
+      "archetype": "coiled",
+      "score": 3.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 8,
+        "killed": 8
+      },
+      "fights": 16,
+      "kills": 0
+    },
+    {
+      "id": "coiled-13",
+      "archetype": "coiled",
+      "score": 3.4375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 6
+      },
+      "fights": 16,
+      "kills": 0
+    },
+    {
+      "id": "coiled-14",
+      "archetype": "coiled",
+      "score": 2.625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 21,
+      "kills": 0
+    },
+    {
+      "id": "coiled-2",
+      "archetype": "coiled",
+      "score": 2.9375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 12,
+        "old-age": 4
+      },
+      "fights": 23,
+      "kills": 0
+    },
+    {
+      "id": "coiled-3",
+      "archetype": "coiled",
+      "score": 3.25,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 6
+      },
+      "fights": 24,
+      "kills": 0
+    },
+    {
+      "id": "coiled-4",
+      "archetype": "coiled",
+      "score": 3.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 7,
+        "killed": 9
+      },
+      "fights": 25,
+      "kills": 0
+    },
+    {
+      "id": "coiled-5",
+      "archetype": "coiled",
+      "score": 2.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 5,
+        "killed": 11
+      },
+      "fights": 28,
+      "kills": 0
+    },
+    {
+      "id": "coiled-6",
+      "archetype": "coiled",
+      "score": 2.5,
+      "zone": "twilight",
+      "ends": {
+        "killed": 13,
+        "old-age": 3
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "coiled-7",
+      "archetype": "coiled",
+      "score": 2.6875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 12,
+        "old-age": 4
+      },
+      "fights": 20,
+      "kills": 1
+    },
+    {
+      "id": "coiled-8",
+      "archetype": "coiled",
+      "score": 2.625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 25,
+      "kills": 0
+    },
+    {
+      "id": "coiled-9",
+      "archetype": "coiled",
+      "score": 2.375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 20,
+      "kills": 0
+    },
+    {
+      "id": "coiled-base",
+      "archetype": "coiled",
+      "score": 2.875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 6
+      },
+      "fights": 19,
+      "kills": 0
+    },
+    {
+      "id": "filter-0",
+      "archetype": "filter",
+      "score": 0.3125,
+      "zone": "twilight",
+      "ends": {
+        "starved": 3,
+        "killed": 9,
+        "old-age": 4
+      },
+      "fights": 27,
+      "kills": 0
+    },
+    {
+      "id": "filter-1",
+      "archetype": "filter",
+      "score": 0.4375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 5,
+        "old-age": 4,
+        "starved": 7
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "filter-10",
+      "archetype": "filter",
+      "score": 0.375,
+      "zone": "twilight",
+      "ends": {
+        "starved": 2,
+        "killed": 11,
+        "old-age": 3
+      },
+      "fights": 24,
+      "kills": 0
+    },
+    {
+      "id": "filter-11",
+      "archetype": "filter",
+      "score": 0.1875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 6,
+        "starved": 7,
+        "old-age": 3
+      },
+      "fights": 25,
+      "kills": 0
+    },
+    {
+      "id": "filter-12",
+      "archetype": "filter",
+      "score": 0.125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 12,
+        "starved": 2,
+        "old-age": 2
+      },
+      "fights": 29,
+      "kills": 0
+    },
+    {
+      "id": "filter-13",
+      "archetype": "filter",
+      "score": 0.4375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "starved": 2,
+        "old-age": 4
+      },
+      "fights": 27,
+      "kills": 0
+    },
+    {
+      "id": "filter-14",
+      "archetype": "filter",
+      "score": 0.3125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 5,
+        "pressure": 1
+      },
+      "fights": 23,
+      "kills": 0
+    },
+    {
+      "id": "filter-2",
+      "archetype": "filter",
+      "score": 0.5,
+      "zone": "twilight",
+      "ends": {
+        "killed": 9,
+        "starved": 3,
+        "old-age": 4
+      },
+      "fights": 23,
+      "kills": 0
+    },
+    {
+      "id": "filter-3",
+      "archetype": "filter",
+      "score": 0.375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 7,
+        "starved": 3,
+        "old-age": 6
+      },
+      "fights": 30,
+      "kills": 0
+    },
+    {
+      "id": "filter-4",
+      "archetype": "filter",
+      "score": 0.3125,
+      "zone": "twilight",
+      "ends": {
+        "starved": 7,
+        "killed": 8,
+        "old-age": 1
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "filter-5",
+      "archetype": "filter",
+      "score": 0.1875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 8,
+        "pressure": 1,
+        "starved": 3,
+        "old-age": 3,
+        "uv": 1
+      },
+      "fights": 25,
+      "kills": 0
+    },
+    {
+      "id": "filter-6",
+      "archetype": "filter",
+      "score": 0.4375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 6,
+        "old-age": 8,
+        "starved": 2
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "filter-7",
+      "archetype": "filter",
+      "score": 0.5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 9,
+        "killed": 7
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "filter-8",
+      "archetype": "filter",
+      "score": 0.3125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 8,
+        "starved": 3,
+        "old-age": 5
+      },
+      "fights": 20,
+      "kills": 0
+    },
+    {
+      "id": "filter-9",
+      "archetype": "filter",
+      "score": 0.3125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 7,
+        "old-age": 5,
+        "starved": 3,
+        "pressure": 1
+      },
+      "fights": 22,
+      "kills": 0
+    },
+    {
+      "id": "filter-base",
+      "archetype": "filter",
+      "score": 0.25,
+      "zone": "twilight",
+      "ends": {
+        "killed": 9,
+        "old-age": 7
+      },
+      "fights": 24,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-0",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 33,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-1",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 30,
+      "kills": 1
+    },
+    {
+      "id": "flagellate-10",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 31,
+      "kills": 1
+    },
+    {
+      "id": "flagellate-11",
+      "archetype": "flagellate",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 2
+      },
+      "fights": 30,
+      "kills": 3
+    },
+    {
+      "id": "flagellate-12",
+      "archetype": "flagellate",
+      "score": 4.6875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "starved": 1
+      },
+      "fights": 33,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-13",
+      "archetype": "flagellate",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 30,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-14",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 31,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-2",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 30,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-3",
+      "archetype": "flagellate",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 1,
+        "old-age": 15
+      },
+      "fights": 45,
+      "kills": 1
+    },
+    {
+      "id": "flagellate-4",
+      "archetype": "flagellate",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 43,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-5",
+      "archetype": "flagellate",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "starved": 1
+      },
+      "fights": 27,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-6",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 29,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-7",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 41,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-8",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "flagellate-9",
+      "archetype": "flagellate",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 31,
+      "kills": 1
+    },
+    {
+      "id": "flagellate-base",
+      "archetype": "flagellate",
+      "score": 4.6875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "starved": 1,
+        "uv": 1
+      },
+      "fights": 31,
+      "kills": 1
+    },
+    {
+      "id": "genesis-0",
+      "archetype": "genesis",
+      "score": 4.6875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 3,
+        "uv": 2,
+        "starved": 1
+      },
+      "fights": 41,
+      "kills": 0
+    },
+    {
+      "id": "genesis-1",
+      "archetype": "genesis",
+      "score": 1.9375,
+      "zone": "shallows",
+      "ends": {
+        "uv": 14,
+        "killed": 2
+      },
+      "fights": 22,
+      "kills": 0
+    },
+    {
+      "id": "genesis-10",
+      "archetype": "genesis",
+      "score": 5.6875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 44,
+      "kills": 1
+    },
+    {
+      "id": "genesis-11",
+      "archetype": "genesis",
+      "score": 1.4375,
+      "zone": "twilight",
+      "ends": {
+        "starved": 4,
+        "killed": 12
+      },
+      "fights": 25,
+      "kills": 0
+    },
+    {
+      "id": "genesis-12",
+      "archetype": "genesis",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 13,
+        "pressure": 1,
+        "old-age": 2
+      },
+      "fights": 31,
+      "kills": 0
+    },
+    {
+      "id": "genesis-13",
+      "archetype": "genesis",
+      "score": 3.9375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 13,
+        "old-age": 3
+      },
+      "fights": 31,
+      "kills": 1
+    },
+    {
+      "id": "genesis-14",
+      "archetype": "genesis",
+      "score": 4.0625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 14,
+        "old-age": 2
+      },
+      "fights": 39,
+      "kills": 0
+    },
+    {
+      "id": "genesis-15",
+      "archetype": "genesis",
+      "score": 5.8125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 9,
+        "old-age": 5,
+        "starved": 2
+      },
+      "fights": 45,
+      "kills": 5
+    },
+    {
+      "id": "genesis-16",
+      "archetype": "genesis",
+      "score": 3.8125,
+      "zone": "shallows",
+      "ends": {
+        "killed": 14,
+        "old-age": 2
+      },
+      "fights": 30,
+      "kills": 0
+    },
+    {
+      "id": "genesis-17",
+      "archetype": "genesis",
+      "score": 2.5625,
+      "zone": "shallows",
+      "ends": {
+        "uv": 13,
+        "killed": 3
+      },
+      "fights": 27,
+      "kills": 4
+    },
+    {
+      "id": "genesis-18",
+      "archetype": "genesis",
+      "score": 7.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "starved": 1
+      },
+      "fights": 62,
+      "kills": 4
+    },
+    {
+      "id": "genesis-19",
+      "archetype": "genesis",
+      "score": 7.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 12,
+        "killed": 1,
+        "pressure": 1,
+        "uv": 1,
+        "starved": 1
+      },
+      "fights": 60,
+      "kills": 1
+    },
+    {
+      "id": "genesis-2",
+      "archetype": "genesis",
+      "score": 2.625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 14,
+        "uv": 2
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "genesis-20",
+      "archetype": "genesis",
+      "score": 5.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 8,
+        "starved": 1,
+        "killed": 6,
+        "uv": 1
+      },
+      "fights": 41,
+      "kills": 8
+    },
+    {
+      "id": "genesis-21",
+      "archetype": "genesis",
+      "score": 2.5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 1,
+        "killed": 14,
+        "uv": 1
+      },
+      "fights": 18,
+      "kills": 0
+    },
+    {
+      "id": "genesis-22",
+      "archetype": "genesis",
+      "score": 1.9375,
+      "zone": "twilight",
+      "ends": {
+        "starved": 1,
+        "killed": 15
+      },
+      "fights": 23,
+      "kills": 0
+    },
+    {
+      "id": "genesis-23",
+      "archetype": "genesis",
+      "score": 5.4375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 12,
+        "old-age": 3,
+        "uv": 1
+      },
+      "fights": 48,
+      "kills": 14
+    },
+    {
+      "id": "genesis-24",
+      "archetype": "genesis",
+      "score": 10,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 71,
+      "kills": 2
+    },
+    {
+      "id": "genesis-25",
+      "archetype": "genesis",
+      "score": 4.125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 16
+      },
+      "fights": 36,
+      "kills": 0
+    },
+    {
+      "id": "genesis-26",
+      "archetype": "genesis",
+      "score": 7.5625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 2,
+        "old-age": 13,
+        "starved": 1
+      },
+      "fights": 45,
+      "kills": 7
+    },
+    {
+      "id": "genesis-27",
+      "archetype": "genesis",
+      "score": 9.75,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 70,
+      "kills": 8
+    },
+    {
+      "id": "genesis-28",
+      "archetype": "genesis",
+      "score": 6.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "killed": 3
+      },
+      "fights": 47,
+      "kills": 0
+    },
+    {
+      "id": "genesis-29",
+      "archetype": "genesis",
+      "score": 6.3125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 9,
+        "old-age": 5,
+        "starved": 1,
+        "uv": 1
+      },
+      "fights": 40,
+      "kills": 0
+    },
+    {
+      "id": "genesis-3",
+      "archetype": "genesis",
+      "score": 3.625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "genesis-30",
+      "archetype": "genesis",
+      "score": 7.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 11,
+        "killed": 5
+      },
+      "fights": 58,
+      "kills": 1
+    },
+    {
+      "id": "genesis-31",
+      "archetype": "genesis",
+      "score": 2.375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 16
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "genesis-4",
+      "archetype": "genesis",
+      "score": 9.125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "killed": 1,
+        "starved": 2
+      },
+      "fights": 65,
+      "kills": 2
+    },
+    {
+      "id": "genesis-5",
+      "archetype": "genesis",
+      "score": 7.75,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "uv": 1,
+        "pressure": 1
+      },
+      "fights": 47,
+      "kills": 5
+    },
+    {
+      "id": "genesis-6",
+      "archetype": "genesis",
+      "score": 2.625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 12,
+        "old-age": 1,
+        "starved": 3
+      },
+      "fights": 26,
+      "kills": 2
+    },
+    {
+      "id": "genesis-7",
+      "archetype": "genesis",
+      "score": 5.875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 7,
+        "old-age": 7,
+        "uv": 1,
+        "starved": 1
+      },
+      "fights": 38,
+      "kills": 3
+    },
+    {
+      "id": "genesis-8",
+      "archetype": "genesis",
+      "score": 1.8125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 15,
+        "starved": 1
+      },
+      "fights": 22,
+      "kills": 0
+    },
+    {
+      "id": "genesis-9",
+      "archetype": "genesis",
+      "score": 6.5625,
+      "zone": "twilight",
+      "ends": {
+        "uv": 1,
+        "killed": 5,
+        "old-age": 10
+      },
+      "fights": 52,
+      "kills": 5
+    },
+    {
+      "id": "hunter-0",
+      "archetype": "hunter",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 30,
+      "kills": 10
+    },
+    {
+      "id": "hunter-1",
+      "archetype": "hunter",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 32,
+      "kills": 3
+    },
+    {
+      "id": "hunter-10",
+      "archetype": "hunter",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 2,
+        "old-age": 14
+      },
+      "fights": 35,
+      "kills": 6
+    },
+    {
+      "id": "hunter-11",
+      "archetype": "hunter",
+      "score": 1,
+      "zone": "deep",
+      "ends": {
+        "pressure": 14,
+        "old-age": 2
+      },
+      "fights": 7,
+      "kills": 0
+    },
+    {
+      "id": "hunter-12",
+      "archetype": "hunter",
+      "score": 4.5625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "starved": 1,
+        "killed": 1,
+        "uv": 1
+      },
+      "fights": 31,
+      "kills": 3
+    },
+    {
+      "id": "hunter-13",
+      "archetype": "hunter",
+      "score": 4.6875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "killed": 2,
+        "uv": 1
+      },
+      "fights": 29,
+      "kills": 8
+    },
+    {
+      "id": "hunter-14",
+      "archetype": "hunter",
+      "score": 4.6875,
+      "zone": "twilight",
+      "ends": {
+        "uv": 1,
+        "old-age": 14,
+        "killed": 1
+      },
+      "fights": 33,
+      "kills": 11
+    },
+    {
+      "id": "hunter-2",
+      "archetype": "hunter",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 2
+      },
+      "fights": 31,
+      "kills": 8
+    },
+    {
+      "id": "hunter-3",
+      "archetype": "hunter",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 30,
+      "kills": 11
+    },
+    {
+      "id": "hunter-4",
+      "archetype": "hunter",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 38,
+      "kills": 9
+    },
+    {
+      "id": "hunter-5",
+      "archetype": "hunter",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 37,
+      "kills": 8
+    },
+    {
+      "id": "hunter-6",
+      "archetype": "hunter",
+      "score": 4.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "uv": 1,
+        "killed": 2
+      },
+      "fights": 39,
+      "kills": 7
+    },
+    {
+      "id": "hunter-7",
+      "archetype": "hunter",
+      "score": 4.125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 12,
+        "killed": 3,
+        "uv": 1
+      },
+      "fights": 26,
+      "kills": 5
+    },
+    {
+      "id": "hunter-8",
+      "archetype": "hunter",
+      "score": 1.1875,
+      "zone": "deep",
+      "ends": {
+        "pressure": 14,
+        "old-age": 2
+      },
+      "fights": 13,
+      "kills": 2
+    },
+    {
+      "id": "hunter-9",
+      "archetype": "hunter",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 29,
+      "kills": 6
+    },
+    {
+      "id": "hunter-base",
+      "archetype": "hunter",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 48,
+      "kills": 8
+    },
+    {
+      "id": "radial-0",
+      "archetype": "radial",
+      "score": 2.75,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 23,
+      "kills": 0
+    },
+    {
+      "id": "radial-1",
+      "archetype": "radial",
+      "score": 2.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 3,
+        "killed": 11,
+        "starved": 2
+      },
+      "fights": 26,
+      "kills": 0
+    },
+    {
+      "id": "radial-10",
+      "archetype": "radial",
+      "score": 2.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 5,
+        "killed": 11
+      },
+      "fights": 17,
+      "kills": 0
+    },
+    {
+      "id": "radial-11",
+      "archetype": "radial",
+      "score": 2.8125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 5,
+        "starved": 1
+      },
+      "fights": 22,
+      "kills": 0
+    },
+    {
+      "id": "radial-12",
+      "archetype": "radial",
+      "score": 2.1875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 12,
+        "old-age": 3,
+        "pressure": 1
+      },
+      "fights": 21,
+      "kills": 0
+    },
+    {
+      "id": "radial-13",
+      "archetype": "radial",
+      "score": 2.25,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 2,
+        "killed": 14
+      },
+      "fights": 19,
+      "kills": 0
+    },
+    {
+      "id": "radial-14",
+      "archetype": "radial",
+      "score": 2.6875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 5,
+        "starved": 1
+      },
+      "fights": 21,
+      "kills": 0
+    },
+    {
+      "id": "radial-2",
+      "archetype": "radial",
+      "score": 3.25,
+      "zone": "twilight",
+      "ends": {
+        "killed": 10,
+        "old-age": 6
+      },
+      "fights": 16,
+      "kills": 0
+    },
+    {
+      "id": "radial-3",
+      "archetype": "radial",
+      "score": 2.5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 6,
+        "killed": 9,
+        "pressure": 1
+      },
+      "fights": 18,
+      "kills": 0
+    },
+    {
+      "id": "radial-4",
+      "archetype": "radial",
+      "score": 2.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 5,
+        "killed": 10,
+        "starved": 1
+      },
+      "fights": 16,
+      "kills": 0
+    },
+    {
+      "id": "radial-5",
+      "archetype": "radial",
+      "score": 2.6875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 13,
+        "pressure": 1,
+        "old-age": 2
+      },
+      "fights": 25,
+      "kills": 0
+    },
+    {
+      "id": "radial-6",
+      "archetype": "radial",
+      "score": 3,
+      "zone": "twilight",
+      "ends": {
+        "killed": 9,
+        "old-age": 6,
+        "starved": 1
+      },
+      "fights": 18,
+      "kills": 0
+    },
+    {
+      "id": "radial-7",
+      "archetype": "radial",
+      "score": 2.875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 14,
+        "old-age": 2
+      },
+      "fights": 22,
+      "kills": 0
+    },
+    {
+      "id": "radial-8",
+      "archetype": "radial",
+      "score": 2.1875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 13,
+        "old-age": 3
+      },
+      "fights": 20,
+      "kills": 0
+    },
+    {
+      "id": "radial-9",
+      "archetype": "radial",
+      "score": 2.8125,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 22,
+      "kills": 0
+    },
+    {
+      "id": "radial-base",
+      "archetype": "radial",
+      "score": 3,
+      "zone": "twilight",
+      "ends": {
+        "killed": 11,
+        "old-age": 5
+      },
+      "fights": 22,
+      "kills": 0
+    },
+    {
+      "id": "setose-0",
+      "archetype": "setose",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "uv": 1,
+        "pressure": 1
+      },
+      "fights": 33,
+      "kills": 0
+    },
+    {
+      "id": "setose-1",
+      "archetype": "setose",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 39,
+      "kills": 0
+    },
+    {
+      "id": "setose-10",
+      "archetype": "setose",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 39,
+      "kills": 1
+    },
+    {
+      "id": "setose-11",
+      "archetype": "setose",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "pressure": 1
+      },
+      "fights": 25,
+      "kills": 0
+    },
+    {
+      "id": "setose-12",
+      "archetype": "setose",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 29,
+      "kills": 0
+    },
+    {
+      "id": "setose-13",
+      "archetype": "setose",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "uv": 1,
+        "killed": 1
+      },
+      "fights": 39,
+      "kills": 1
+    },
+    {
+      "id": "setose-14",
+      "archetype": "setose",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "pressure": 1
+      },
+      "fights": 26,
+      "kills": 2
+    },
+    {
+      "id": "setose-2",
+      "archetype": "setose",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 49,
+      "kills": 1
+    },
+    {
+      "id": "setose-3",
+      "archetype": "setose",
+      "score": 4.75,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "pressure": 1
+      },
+      "fights": 25,
+      "kills": 2
+    },
+    {
+      "id": "setose-4",
+      "archetype": "setose",
+      "score": 4.6875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 41,
+      "kills": 2
+    },
+    {
+      "id": "setose-5",
+      "archetype": "setose",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "killed": 1,
+        "old-age": 14,
+        "uv": 1
+      },
+      "fights": 37,
+      "kills": 0
+    },
+    {
+      "id": "setose-6",
+      "archetype": "setose",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "starved": 1
+      },
+      "fights": 25,
+      "kills": 2
+    },
+    {
+      "id": "setose-7",
+      "archetype": "setose",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 31,
+      "kills": 0
+    },
+    {
+      "id": "setose-8",
+      "archetype": "setose",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "uv": 1,
+        "killed": 1,
+        "pressure": 1
+      },
+      "fights": 27,
+      "kills": 0
+    },
+    {
+      "id": "setose-9",
+      "archetype": "setose",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 35,
+      "kills": 2
+    },
+    {
+      "id": "setose-base",
+      "archetype": "setose",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 35,
+      "kills": 0
+    },
+    {
+      "id": "swimmer-0",
+      "archetype": "swimmer",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "swimmer-1",
+      "archetype": "swimmer",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "uv": 1
+      },
+      "fights": 33,
+      "kills": 3
+    },
+    {
+      "id": "swimmer-10",
+      "archetype": "swimmer",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "uv": 1
+      },
+      "fights": 37,
+      "kills": 0
+    },
+    {
+      "id": "swimmer-11",
+      "archetype": "swimmer",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "uv": 1
+      },
+      "fights": 47,
+      "kills": 0
+    },
+    {
+      "id": "swimmer-12",
+      "archetype": "swimmer",
+      "score": 4.4375,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "uv": 3
+      },
+      "fights": 36,
+      "kills": 0
+    },
+    {
+      "id": "swimmer-13",
+      "archetype": "swimmer",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 37,
+      "kills": 1
+    },
+    {
+      "id": "swimmer-14",
+      "archetype": "swimmer",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 36,
+      "kills": 2
+    },
+    {
+      "id": "swimmer-2",
+      "archetype": "swimmer",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "swimmer-3",
+      "archetype": "swimmer",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "swimmer-4",
+      "archetype": "swimmer",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "uv": 1
+      },
+      "fights": 31,
+      "kills": 1
+    },
+    {
+      "id": "swimmer-5",
+      "archetype": "swimmer",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 30,
+      "kills": 1
+    },
+    {
+      "id": "swimmer-6",
+      "archetype": "swimmer",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 40,
+      "kills": 1
+    },
+    {
+      "id": "swimmer-7",
+      "archetype": "swimmer",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "uv": 1
+      },
+      "fights": 36,
+      "kills": 1
+    },
+    {
+      "id": "swimmer-8",
+      "archetype": "swimmer",
+      "score": 4.9375,
+      "zone": "twilight",
+      "ends": {
+        "killed": 1,
+        "old-age": 15
+      },
+      "fights": 43,
+      "kills": 1
+    },
+    {
+      "id": "swimmer-9",
+      "archetype": "swimmer",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 47,
+      "kills": 2
+    },
+    {
+      "id": "swimmer-base",
+      "archetype": "swimmer",
+      "score": 4.75,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "uv": 1
+      },
+      "fights": 37,
+      "kills": 0
+    },
+    {
+      "id": "winged-0",
+      "archetype": "winged",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 2
+      },
+      "fights": 32,
+      "kills": 1
+    },
+    {
+      "id": "winged-1",
+      "archetype": "winged",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "uv": 1
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "winged-10",
+      "archetype": "winged",
+      "score": 4.1875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 11,
+        "uv": 2,
+        "killed": 3
+      },
+      "fights": 40,
+      "kills": 0
+    },
+    {
+      "id": "winged-11",
+      "archetype": "winged",
+      "score": 4.1875,
+      "zone": "twilight",
+      "ends": {
+        "starved": 1,
+        "old-age": 13,
+        "killed": 2
+      },
+      "fights": 27,
+      "kills": 0
+    },
+    {
+      "id": "winged-12",
+      "archetype": "winged",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 41,
+      "kills": 0
+    },
+    {
+      "id": "winged-13",
+      "archetype": "winged",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 37,
+      "kills": 1
+    },
+    {
+      "id": "winged-14",
+      "archetype": "winged",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 37,
+      "kills": 0
+    },
+    {
+      "id": "winged-2",
+      "archetype": "winged",
+      "score": 4.6875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 1,
+        "uv": 1
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "winged-3",
+      "archetype": "winged",
+      "score": 4.5625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 13,
+        "pressure": 1,
+        "killed": 2
+      },
+      "fights": 43,
+      "kills": 0
+    },
+    {
+      "id": "winged-4",
+      "archetype": "winged",
+      "score": 4.8125,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 2
+      },
+      "fights": 31,
+      "kills": 0
+    },
+    {
+      "id": "winged-5",
+      "archetype": "winged",
+      "score": 4.625,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 2
+      },
+      "fights": 29,
+      "kills": 0
+    },
+    {
+      "id": "winged-6",
+      "archetype": "winged",
+      "score": 4.75,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 15,
+        "killed": 1
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "winged-7",
+      "archetype": "winged",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 44,
+      "kills": 0
+    },
+    {
+      "id": "winged-8",
+      "archetype": "winged",
+      "score": 5,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 16
+      },
+      "fights": 31,
+      "kills": 0
+    },
+    {
+      "id": "winged-9",
+      "archetype": "winged",
+      "score": 4.0625,
+      "zone": "twilight",
+      "ends": {
+        "killed": 4,
+        "old-age": 11,
+        "uv": 1
+      },
+      "fights": 32,
+      "kills": 0
+    },
+    {
+      "id": "winged-base",
+      "archetype": "winged",
+      "score": 4.875,
+      "zone": "twilight",
+      "ends": {
+        "old-age": 14,
+        "killed": 2
+      },
+      "fights": 43,
+      "kills": 0
+    }
+  ]
+}

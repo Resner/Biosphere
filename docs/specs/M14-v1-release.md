@@ -374,7 +374,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Balance
 
-- [ ] T10 The balance simulation and its gate (after none) (in progress)
+- [x] T10 The balance simulation and its gate (after none)
   - Steps:
     1. **The population** (`tests/balance.ts`): the 11 archetypes of `tests/archetypes.ts`, each with 15 seeded variants (one to three mutation trials of the archetype's genome through the real mutation, keeping only variants that still hold the archetype's defining feature: a predicate per archetype, `ARCHETYPE_KEEPS` in `tests/archetypes.ts`), so 176 bodies; and 32 genesis bodies as a reference, reported but outside the gate.
     2. **A life** (`balanceLife(body, seed)`), on the real rules:
@@ -395,6 +395,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - **A scaled run** (`heavyTest`: each archetype itself, 1 life each, lives capped at 12 minutes) finishes within 120 s and gives the same report for the same seed. (A full-length life takes about 4 s and the full population 3,000 lives, so 3 variants × 4 lives could not fit; the scaled run keeps the real probe, fights and report.)
     - `npm run sim:balance` runs the full population and prints its wall time (target: under an hour on a cloud session; if it can't, fewer lives a body, and the balance ADR says so), and the report and its JSON are committed, whether or not the gates pass today. `tools/balance-report.test.ts` builds the report from a recorded JSON.
   - Notes: this task measures; T11 tunes. The gates are asserted on the committed report from T11 on.
+  - Done: `tests/balance.ts`, `tools/balance-report.ts`, `npm run sim:balance` (ADR 0078); the committed run (53.5 min on 4 cores) meets both gates, with 42 bodies tied at the 5-mating ceiling. Gotcha: `pgrep -f` in a wait loop matches its own shell; wait on the PID.
 
 - [ ] T11 Balance tuning in rules 13 (after T1, T10)
   - Steps:

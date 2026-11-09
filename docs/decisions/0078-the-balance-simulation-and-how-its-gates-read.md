@@ -24,6 +24,10 @@ v1.0 promises that different builds succeed (BRIEF: viable, bounded organisms; t
 
 **The run** (`npm run sim:balance`) splits the bodies over the machine's cores (child processes, one shard each) and writes `docs/perf/balance.md` and `balance.json`, whether or not the gates pass. T11 asserts them on the committed report.
 
+## First run
+
+Rules 13, 16 lives per body, 176 bodies and 32 genesis bodies: 53.5 minutes on 4 processes (a cloud session; the target was under an hour, so the lives per body stayed at 16). Both gates hold: the top 18 holds 5 archetypes and the most any holds is 7 (hunter). 42 bodies tie at the ceiling of 5 matings, so the top set is decided by kills and the hash; filter (median 0.31), armoured (1.91), radial and coiled (about 2.7) are far below, which T11 reads. Nearly every body chooses twilight.
+
 ## Consequences
 
 - The measurement is deterministic for a seed and a rules version; the report changes only with the rules or the model.
