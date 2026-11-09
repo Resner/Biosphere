@@ -499,7 +499,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `npm run ops:watch -- --once --url http://localhost:<hub>` against a local `wrangler dev` prints a status line (a test in the node project starts the hub, as the load tools do, or the PR shows the run).
     - **The runbook's references** (`tools/ops-doc.test.ts`): every npm script, workflow, variable, secret and endpoint `docs/OPERATIONS.md` names exists in `package.json`, `.github/workflows/`, `worker/` or `docs/SETUP.md`.
   - Notes: the pure parts are `tools/ops-lines.ts` (a `.ts` beside `ops-watch.mjs` would lose the import to the `.mjs`); its unit tests run on answers recorded from a local E2E hub (`tests/fixtures/ops/`), edited for the busy cases, and the PR shows the `--once` run against a local `wrangler dev` instead of a test that starts a hub. The runbook's Data section leaves the privacy notice to T16, which links `docs/PRIVACY.md` from it.
-- [x] T16 The security and privacy review [opus] (after T4, T6, T8, T12) (in progress)
+- [x] T16 The security and privacy review [opus] (after T4, T6, T8, T12)
   - Steps:
     1. **`docs/SECURITY.md`**: the threat model (what is protected: identities' keys, lineage integrity, the authority's signing key, the budget; who attacks: modified clients, bot farms, griefing peers, a hostile page script, the supply chain) and every surface with the checks that cover it, by test name:
        - the hub's messages (parsers, rate limits per type, origins, sizes), the peer events and snapshots, the witness messages;
