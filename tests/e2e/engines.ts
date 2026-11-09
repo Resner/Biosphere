@@ -94,8 +94,71 @@ export async function seesMove(watcher: Page, mover: Page, moverId: string): Pro
     .toBeGreaterThan(far / 2);
 }
 
+type RtcLogged = Window & { __rtcLog?: string[] };
+
 /**
- * Waits until `page` draws the remote `id` over an open link, with what it saw on failure.
+ * Logs, from the page's first script, each `RTCPeerConnection`'s life (its descriptions, the
+ * candidates in them, and its ICE and connection states, with the page's clock), so a link that
+ * never comes up says why in the failure (`linked`). Behaviour is unchanged.
+ */
+export const recordRtc = (page: Page) =>
+  page.addInitScript(() => {
+    const Native = window.RTCPeerConnection;
+    if (typeof Native !== 'function') return;
+    const log: string[] = [];
+    (window as RtcLogged).__rtcLog = log;
+    let n = 0;
+    const at = () => Math.round(performance.now());
+    const cands = (sdp: string | undefined) =>
+      (sdp ?? '')
+        .split('\n')
+        .filter((l) => l.startsWith('a=candidate'))
+        .map((l) => l.split(' ').slice(4, 8).join(' '))
+        .join(', ');
+    class Logged extends Native {
+      constructor(config?: RTCConfiguration) {
+        super(config);
+        const id = ++n;
+        const say = (what: string) => log.length < 400 && log.push(`${at()} #${id} ${what}`);
+        say(`new ice=${JSON.stringify(config?.iceServers?.map((s) => s.urls) ?? [])}`);
+        this.addEventListener('iceconnectionstatechange', () =>
+          say(`ice ${this.iceConnectionState}`),
+        );
+        this.addEventListener('connectionstatechange', () => say(`conn ${this.connectionState}`));
+        this.addEventListener('icegatheringstatechange', () =>
+          say(`gather ${this.iceGatheringState}`),
+        );
+        const setLocal = this.setLocalDescription.bind(this);
+        this.setLocalDescription = async (d?: RTCLocalSessionDescriptionInit) => {
+          await setLocal(d);
+          say(`local ${this.localDescription?.type}`);
+        };
+        const setRemote = this.setRemoteDescription.bind(this);
+        this.setRemoteDescription = async (d: RTCSessionDescriptionInit) => {
+          say(`remote ${d.type} [${cands(d.sdp)}]`);
+          await setRemote(d);
+        };
+        const close = this.close.bind(this);
+        this.close = () => {
+          say(`close (local had [${cands(this.localDescription?.sdp)}])`);
+          close();
+        };
+      }
+    }
+    window.RTCPeerConnection = Logged;
+  });
+
+/** The page's `RTCPeerConnection` log (`recordRtc`), for a failure's message. */
+export const rtcLog = async (page: Page, who: string): Promise<string> => {
+  const log = await page
+    .evaluate(() => (window as RtcLogged).__rtcLog?.slice(0, 60) ?? [])
+    .catch(() => []);
+  return `${who}'s RTCPeerConnection log:\n${log.join('\n')}`;
+};
+
+/**
+ * Waits until `page` draws the remote `id` over an open link, with what it saw on failure (and the
+ * `RTCPeerConnection` log when `recordRtc` ran).
  */
 export async function linked(page: Page, id: string, timeout = 60_000): Promise<void> {
   await page
@@ -112,6 +175,9 @@ export async function linked(page: Page, id: string, timeout = 60_000): Promise<
         const s = (window.__bs as BsHook).state();
         return { remotes: s.remotes.map((r) => r.id), net: s.net };
       });
-      throw new Error(`no link to ${id}: ${JSON.stringify(net).slice(0, 1500)}`, { cause: error });
+      throw new Error(
+        `no link to ${id}: ${JSON.stringify(net).slice(0, 1500)}\n${await rtcLog(page, 'its')}`,
+        { cause: error },
+      );
     });
 }

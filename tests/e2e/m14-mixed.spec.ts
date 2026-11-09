@@ -1,7 +1,7 @@
 import { type Browser, chromium, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import { chromiumPath } from '../../tools/gallery-capture.mjs';
-import { linked, seesMove, watchErrors } from './engines';
+import { linked, recordRtc, rtcLog, seesMove, watchErrors } from './engines';
 import { openRecorded, state, warmHub } from './helpers';
 import { fightLine, fightToEnd, stage } from './m7-fight';
 
@@ -22,6 +22,7 @@ const HURT = 0.6;
 /** A recorded page on the mixed hub, drawing nothing: a slow frame would miss the referee's deadline. */
 async function openOn(browser: Browser): Promise<Page> {
   const page = await (await browser.newContext()).newPage();
+  await recordRtc(page);
   await openRecorded(page, '&quality=low', HUB);
   await page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
   return page;
@@ -43,7 +44,10 @@ test('a Chromium page and this engine link, see each other move and duel to the 
     // A is Chromium, B the engine under test; B is the one `stage` reloads and hurts.
     const [a, b] = await Promise.all([openOn(other), openOn(browser)]);
     const errors = [watchErrors(a, 'chromium'), watchErrors(b, browserName)];
-    const ids = await stage(a, b, undefined, HURT);
+    const ids = await stage(a, b, undefined, HURT).catch(async (error: Error) => {
+      const logs = [await rtcLog(a, 'chromium'), await rtcLog(b, browserName)];
+      throw new Error(`${error.message}\n${logs.join('\n')}`, { cause: error });
+    });
 
     // Linked both ways, and each sees the other move.
     await Promise.all([linked(a, ids.idB), linked(b, ids.idA)]);

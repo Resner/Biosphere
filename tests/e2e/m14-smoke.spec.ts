@@ -1,7 +1,7 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { CardState } from '../../src/card/hook';
 import type { BsHook } from '../../src/game/debug';
-import { drawnShot, framesRun, linked, seesMove, watchErrors } from './engines';
+import { drawnShot, framesRun, linked, recordRtc, seesMove, watchErrors } from './engines';
 import { clickHatch, openRecorded, state, waitPlaying, warmHub } from './helpers';
 
 // The game in the engine under test (M14 T6): the chromium project runs it in Chromium, and the
@@ -70,6 +70,7 @@ test('the game plays in this engine: hatch, feed, dash, link, menus and a verifi
       const context = await browser.newContext();
       contexts.push(context);
       const page = await context.newPage();
+      await recordRtc(page);
       errors.push(watchErrors(page, who));
       return page;
     };
