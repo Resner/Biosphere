@@ -7,7 +7,7 @@ import { genesisGenome } from '../../src/genome/genesis';
 import { rarityOf } from '../../src/genome/rarity';
 import { seedFromString } from '../../src/sim/prng';
 import { hatch, hudCover, openGame, state } from './helpers';
-import { decodePng, encodePng } from './png';
+import { decodePngBuffer, encodePng } from './png';
 
 // Colour never alone (M14 T9): the cues that carry meaning, each shot as drawn and as someone with
 // protanopia, deuteranopia or tritanopia sees it (Machado et al. 2009, simulated in Node), attached
@@ -24,12 +24,15 @@ async function attachSeen(info: TestInfo, name: string, png: Buffer): Promise<vo
     await writeFile(`test-results/${file}.png`, body);
     await info.attach(file, { body, contentType: 'image/png' });
   };
-  await keep(`m14-colour-${name}`, png);
-  for (const d of DEFICIENCIES) {
-    const image = decodePng(png);
-    pixelSimulator(d)(image.data);
-    await keep(`m14-colour-${name}-${d}`, encodePng(image));
-  }
+  const seen = decodePngBuffer(png);
+  await Promise.all([
+    keep(`m14-colour-${name}`, png),
+    ...DEFICIENCIES.map((d) => {
+      const data = seen.data.slice();
+      pixelSimulator(d)(data);
+      return keep(`m14-colour-${name}-${d}`, encodePng({ ...seen, data }));
+    }),
+  ]);
 }
 
 /** Each bar's glyph and whether its parts show, read in one frame. */
@@ -97,7 +100,7 @@ test('the bars wear their glyphs; low energy hollows the bolt and a hit cracks t
   const icon = await page.getByTestId('hud-bar-health').locator('svg').boundingBox();
   if (!icon) throw new Error('no health glyph');
   const hurtIn = (png: Buffer) => {
-    const { width, data } = decodePng(png);
+    const { width, data } = decodePngBuffer(png);
     let red = 0;
     for (let y = Math.floor(icon.y); y < icon.y + icon.height; y++)
       for (let x = Math.floor(icon.x); x < icon.x + icon.width; x++) {

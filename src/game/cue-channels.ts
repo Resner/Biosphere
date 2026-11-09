@@ -60,6 +60,7 @@ export function parseColour(text: string): Rgb {
 }
 
 const paint = (file: string, text: string): Paint => ({ rgb: parseColour(text), file, text });
+const HEART = paint('src/game/minimap.ts', "HEART = '#ff8fc8'");
 
 const BASE = 'src/styles/base.css';
 const OVERLAYS = 'src/styles/overlays.css';
@@ -210,11 +211,7 @@ export const CUES: readonly Cue[] = [
   {
     id: 'mate-ready',
     means: 'mature, rested and free to mate',
-    colours: [
-      paint(BASE, 'color: #ff9db3'),
-      paint(OVERLAYS, 'fill: #ff9cc0'),
-      paint('src/game/minimap.ts', "HEART = '#ff8fc8'"),
-    ],
+    colours: [paint(BASE, 'color: #ff9db3'), paint(OVERLAYS, 'fill: #ff9cc0'), HEART],
     channels: {
       icon: 'a heart: the chip, beside an edge arrow, on the minimap and the map',
       text: '“Ready to mate” on the chip and in the menu',
@@ -284,7 +281,7 @@ export const CUES: readonly Cue[] = [
   {
     id: 'minimap-players',
     means: 'other players around, by size and readiness',
-    colours: [paint('src/game/minimap.ts', "HEART = '#ff8fc8'"), TEXT],
+    colours: [HEART, TEXT],
     channels: { shape: 'a heart when ready, else a mark for its size against the player’s' },
   },
   {

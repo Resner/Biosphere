@@ -12,7 +12,7 @@ export interface Image {
 
 const SIGNATURE = Buffer.from([137, 80, 78, 71, 13, 10, 26, 10]);
 
-export function decodePng(png: Buffer): Image {
+export function decodePngBuffer(png: Buffer): Image {
   if (!png.subarray(0, 8).equals(SIGNATURE)) throw new Error('not a PNG');
   let at = 8;
   let width = 0;

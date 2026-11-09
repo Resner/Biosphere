@@ -3,6 +3,8 @@
 // applied in linear light (sRGB decoded, then encoded again); the distance is CIEDE2000 in CIELAB
 // under D65. Pure, for the cue inventory's tests and for the E2E spec's screenshots.
 
+import { clamp } from '../sim/math';
+
 /** An sRGB colour, each channel 0..1. */
 export type Rgb = readonly [number, number, number];
 
@@ -22,7 +24,7 @@ export const MACHADO: Readonly<Record<Deficiency, readonly number[]>> = {
   ],
 };
 
-const clamp01 = (v: number): number => Math.min(Math.max(v, 0), 1);
+const clamp01 = (v: number): number => clamp(v, 0, 1);
 
 /** sRGB's transfer function, encoded 0..1 to linear 0..1. */
 export function toLinear(c: number): number {
@@ -49,16 +51,28 @@ export function simulate(rgb: Rgb, deficiency: Deficiency): Rgb {
   ];
 }
 
+const ENCODE_STEPS = 4096;
+let tables: { lin: Float64Array; enc: Uint8Array } | undefined;
+
+/** The decode table (256 entries) and the encode table (4,096 linear steps), built once. */
+function pixelTables(): { lin: Float64Array; enc: Uint8Array } {
+  tables ??= {
+    lin: Float64Array.from({ length: 256 }, (_, i) => toLinear(i / 255)),
+    enc: Uint8Array.from({ length: ENCODE_STEPS + 1 }, (_, i) =>
+      Math.round(toSrgb(i / ENCODE_STEPS) * 255),
+    ),
+  };
+  return tables;
+}
+
 /**
  * A simulator for 8-bit RGBA pixels in place (a screenshot's): decoding through a table of 256 and
  * encoding through one of 4,096 linear steps, so a whole screen takes well under a second.
  */
 export function pixelSimulator(deficiency: Deficiency): (px: Uint8Array) => void {
   const m = MACHADO[deficiency];
-  const lin = Float64Array.from({ length: 256 }, (_, i) => toLinear(i / 255));
-  const STEPS = 4096;
-  const enc = Uint8Array.from({ length: STEPS + 1 }, (_, i) => Math.round(toSrgb(i / STEPS) * 255));
-  const out = (v: number) => enc[Math.round(clamp01(v) * STEPS)] as number;
+  const { lin, enc } = pixelTables();
+  const out = (v: number) => enc[Math.round(clamp01(v) * ENCODE_STEPS)] as number;
   const at = (i: number) => m[i] as number;
   return (px) => {
     for (let i = 0; i + 3 < px.length; i += 4) {
