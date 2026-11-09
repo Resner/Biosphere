@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 12,
+    "rules": 13,
     "seed": "golden-forage",
     "spawn": {
       "id": "p1",
@@ -1257,7 +1257,7 @@
     ],
     "life": [[300, "mate"], [1200, "mate"]]
   },
-  "hash": "ce1afb10647d1c9c",
+  "hash": "92182487e40d7726",
   "events": {
     "dash": 20,
     "eat": 45,

@@ -334,7 +334,8 @@ describe('checkBirth', () => {
     for (const [rules, problem] of [
       [7, 'rules-retired'],
       [11, 'rules-retired'],
-      [13, 'rules-unknown'],
+      [12, 'rules-retired'],
+      [14, 'rules-unknown'],
     ] as const) {
       const m = await mating([2, 5], { rules });
       expect(check(m, 0)).toEqual([problem]);

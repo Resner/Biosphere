@@ -272,7 +272,18 @@ export async function killB(
       const p = (window.__bs as BsHook).state().player;
       if (p) debug?.setHealth(p.health * share);
     }, hurt);
-    previous = await fightToEnd(a, b, ids, previous);
+    try {
+      previous = await fightToEnd(a, b, ids, previous);
+    } catch (error) {
+      // A can die of the water between two fights (after the last check, before its health is
+      // topped up): it can't engage again, and the caller stages a fresh pair, as for a lost fight.
+      if ((await state(a)).screen === 'dead') {
+        throw new Error(`A was killed (died between fights):\n${fights.join('\n')}`, {
+          cause: error,
+        });
+      }
+      throw error;
+    }
     const fighters = (await state(a)).encounter?.fighters ?? [];
     fights.push(await fightLine(a, ids));
     // Only B's death counts: a fight A loses kills A, and a dead A can't try again. The caller

@@ -273,6 +273,28 @@ const MIGRATIONS: Step[] = [
   ALTER TABLE usage ADD COLUMN relay_links INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE usage ADD COLUMN relay_relayed INTEGER NOT NULL DEFAULT 0;
   ALTER TABLE usage ADD COLUMN relay_kb INTEGER NOT NULL DEFAULT 0`,
+  // The fifth and last world renewal (ADR 0074): rules 13 and the permanent world of v1.0.0. As
+  // migration 11, with each player's place out of the water cleared too (it names a deleted
+  // creature). Players, keys, names, flags, beacons, attestations, strikes and the usage meter stay;
+  // the world row keeps its ip_salt and takes epoch 5, the migration's time as its reset and clock,
+  // and a new seed; every identity is told once more (`epoch_seen` stays below 5). After this one
+  // the world is never renewed again: lineages are permanent.
+  (sql, now) => {
+    sql.exec(`DELETE FROM creatures;
+      DELETE FROM records;
+      DELETE FROM commitments;
+      DELETE FROM matings;
+      DELETE FROM genesis_log;
+      DELETE FROM encounters;
+      DELETE FROM ponds;
+      UPDATE players SET pending = '', fight_report = '', hatches = 3, hatch_t = 0,
+        left_x = NULL, left_y = NULL, left_at = NULL, left_creature = NULL`);
+    sql.exec(
+      'UPDATE world SET epoch = 5, reset_at = ?1, clock = ?1, seed = ?2',
+      now,
+      toBase64Url(crypto.getRandomValues(new Uint8Array(12))),
+    );
+  },
 ];
 
 /**

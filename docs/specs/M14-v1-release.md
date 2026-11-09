@@ -139,7 +139,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### The permanent world
 
-- [ ] T1 Rules 13 and the last renewal: epoch 5, permanent from v1.0 [opus] (after none)
+- [x] T1 Rules 13 and the last renewal: epoch 5, permanent from v1.0 [opus] (after none)
   - Steps:
     1. **Rules 13.** `RULES_VERSION` 13, and the registry holds one entry, `{ rules: 13, epoch: 5 }`, every part since 13; `FIRST_LIVE_RULES` 13. Regenerate every golden that names the rules version, and nothing else changes in them.
     2. **Migration 14, the fifth renewal**, as migration 11 did (ADR 0061): every creature, record, commitment, mating, genesis-log entry, fight row, away report and the world row's clock go; the world's epoch is 5, its reset time the migration's, its seed and clock new; every hatch bucket refilled; identities, keys, names, flags, beacons, attestations and the usage meter kept. One transaction, with the version row.
@@ -159,6 +159,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - **Manifest**: changing one byte of any golden file fails `frozen.test.ts`; adding a golden file without the manifest fails it; `npm run goldens:manifest` makes it pass again; with `RELEASED = { 13: <wrong hash> }` it fails.
     - Every E2E passes on protocol 14, `m6c-reset` reading the new notice.
   - Notes: the renewal is ADR 0074's; it runs in every environment at deploy, so the E2E hubs start in epoch 5 too. Until v1.0.0 is tagged, later M14 tasks may change rules-13 values and goldens without another bump; each reruns `npm run goldens:manifest`.
+  - Done: migration 14 (also clears `left_*`, new seed and clock on the kept world row), `frozen.ts` + `tools/goldens-manifest.ts` (`goldens:manifest` formats goldens before hashing). Record hashes carry the rules, so lineage.json's derived genomes and fights moved too.
+  - Gotcha: the farm kit's straight-run kill missed under the new genomes; `slay` now homes on its victim (`killB`'s optional plan). Combat and netcode reports pin rules 13.
 
 - [ ] T2 Honest pages raise no plausibility flags (after T1)
   - Steps:

@@ -10,7 +10,7 @@ import { clamp } from '../sim/math';
 import type { DeathCause } from '../sim/types';
 
 /** Wire protocol shared by clients and the Worker. No DOM or Node APIs. */
-export const PROTOCOL_VERSION = 13;
+export const PROTOCOL_VERSION = 14;
 
 /** Hub WebSocket close codes. */
 export const CLOSE_REPLACED = 4001;

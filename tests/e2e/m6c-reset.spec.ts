@@ -9,13 +9,14 @@ import { decodeRecoveryCode } from '../../src/ledger/recovery';
 import { RULES_VERSION } from '../../src/sim/rules';
 import { clickHatch, M6C_RESET_HUB, openRecorded, state, waitPlaying } from './helpers';
 
-// The world renewal (M6c T2, ADR 0040). `wrangler dev` always starts migrated, so the hub's E2E hook
-// stages this browser's identity as one first seen before the reset.
+// The world renewal (M6c T2, ADR 0040), now the last one: v1.0.0's, into the permanent world of
+// epoch 5 (M14 T1, ADR 0074). `wrangler dev` always starts migrated, so the hub's E2E hook stages
+// this browser's identity as one first seen before the reset.
 
 test.describe.configure({ mode: 'serial' });
 
 const NOTICE =
-  'The world was renewed in v0.12.0. Your identity is kept; your creatures start again.';
+  'The world was renewed in v1.0.0. Your identity is kept; your creatures start again. From now on, lineages are permanent.';
 
 /** Waits until the hub has said who the player is on this page, and returns whether it said "renewed". */
 async function heard(page: Page): Promise<boolean> {
@@ -76,7 +77,7 @@ test('a returning identity sees the renewal notice once, and not after a reload'
   await context.close();
 });
 
-test('the recovery code of a returning identity still imports, and a fresh genesis hatches under rules 8', async ({
+test('the recovery code of a returning identity still imports, and a fresh genesis hatches under rules 13', async ({
   browser,
   request,
 }) => {
@@ -113,9 +114,7 @@ test('the recovery code of a returning identity still imports, and a fresh genes
   await clickHatch(other);
   await waitPlaying(other);
   const genesis = await other.evaluate(() => window.__bs?.life.recompute());
-  expect(RULES_VERSION, 'the live rules are never below the reset version').toBeGreaterThanOrEqual(
-    8,
-  );
+  expect(RULES_VERSION, 'the permanent world starts at rules 13').toBeGreaterThanOrEqual(13);
   expect(genesis?.rules, 'the genesis record names the live rules').toBe(RULES_VERSION);
   expect((await state(other)).life.creature).toBeTruthy();
   await b.close();

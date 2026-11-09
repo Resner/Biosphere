@@ -164,7 +164,7 @@ describe('hub hello', () => {
     },
   );
 
-  it.each([1, 6, 7, 8, 9, 10, 11, 12])('closes 4002 for protocol version %i', async (v) => {
+  it.each([1, 6, 7, 8, 9, 10, 11, 12, 13])('closes 4002 for protocol version %i', async (v) => {
     const c = await open();
     const { hello } = await makeHello(await challenge(c));
     c.send({ ...hello, v });
@@ -355,7 +355,7 @@ describe('the world', () => {
     const [world] = await sqlRows<{ seed: string; clock: number; epoch: number }>(
       'SELECT seed, clock, epoch FROM world',
     );
-    expect(world?.epoch).toBe(4);
+    expect(world?.epoch).toBe(5);
     expect(world?.seed).toMatch(/^[A-Za-z0-9_-]{16}$/);
     const { welcome } = (await fill(1))[0] ?? {};
     // The authority places each creature as it enters the water (M12 T4): no hint here.
@@ -403,7 +403,7 @@ describe('the world', () => {
           )
           .one().n,
     );
-    expect(rows).toBe(14); // the world's row and the thirteen schema versions
+    expect(rows).toBe(15); // the world's row and the fourteen schema versions
   });
 
   it('keeps the world’s clock for a later joiner', async () => {

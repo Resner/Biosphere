@@ -1,12 +1,13 @@
 import { pick } from './dom';
 
-/** How long the notice stays on the title screen: two sentences, read once (M6c T2). */
+/** How long the notice stays on the title screen: three short sentences, read once (M6c T2). */
 export const RENEWAL_SHOW_MS = 15_000;
 
 /**
- * The world renewal notice (ADR 0040): the hub says `renewed` once per returning identity, and the
- * title screen shows it as a glass toast. Its text is in `index.html`; the version is the release
- * that renewed the world, not the one running.
+ * The world renewal notice (ADRs 0040, 0074): the hub says `renewed` once per returning identity,
+ * and the title screen shows it as a glass toast. Its text is in `index.html`: v1.0.0's, the last
+ * renewal, after which lineages are permanent (the version is the release that renewed the world,
+ * not the one running).
  */
 export class RenewalNotice {
   private readonly element = pick('[data-testid="renewed"]');

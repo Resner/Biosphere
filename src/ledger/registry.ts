@@ -2,8 +2,12 @@
 // version where each part of the rules last changed. Every check of a record, a birth, a genesis or
 // a settlement answers a version through `rulesStatus`. Pure and shared: no DOM, no Node APIs.
 
-/** The first rules version of the live world: the renewal of v0.12.0 retired every older one (ADRs 0040, 0055, 0061). */
-export const FIRST_LIVE_RULES = 12;
+/**
+ * The first rules version of the permanent world: the last renewal, of v1.0.0, retired every older
+ * one (ADRs 0040, 0055, 0061, 0074). From v1.0.0 nothing is retired again: a rules bump adds an
+ * entry and keeps the older parts' code.
+ */
+export const FIRST_LIVE_RULES = 13;
 
 export type RulesPart = 'genesis' | 'inherit' | 'body' | 'life' | 'mating' | 'encounter';
 
@@ -16,26 +20,33 @@ export interface RulesEntry {
 }
 
 /**
- * One entry per live version, oldest first. A rules bump without a world renewal adds one; a bump
- * that changes a part recorded history depends on must also keep that part's older code (none yet).
+ * One entry per live version, oldest first. A rules bump adds one in the same epoch; a bump that
+ * changes a part recorded history depends on must also keep that part's older code (none yet).
  */
 export const REGISTRY: readonly RulesEntry[] = Object.freeze([
   Object.freeze({
-    rules: 12,
-    epoch: 4,
+    rules: 13,
+    epoch: 5,
     since: Object.freeze({
-      genesis: 12,
-      inherit: 12,
-      body: 12,
-      life: 12,
-      mating: 12,
-      encounter: 12,
+      genesis: 13,
+      inherit: 13,
+      body: 13,
+      life: 13,
+      mating: 13,
+      encounter: 13,
     }),
   }),
 ]);
 
 /**
- * `live` for a version the registry holds, `retired` for one a world renewal retired, `unknown`
+ * Each released rules version → the SHA-256 of its entry in `__golden__/frozen.json` (`entryHash`
+ * in `frozen.ts`, ADR 0074): a released version's goldens never change. Empty until v1.0.0.
+ */
+export const RELEASED: Readonly<Record<number, string>> = Object.freeze({});
+
+/**
+ * `live` for a version the registry holds, `retired` for one before the permanent world (rules 12
+ * or older, retired by a world renewal), `unknown`
  * for anything else (a newer build's version: the checker must be updated). Never throws.
  */
 export function rulesStatus(rules: number): 'live' | 'retired' | 'unknown' {

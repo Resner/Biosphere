@@ -111,7 +111,8 @@ describe('checkGenesis', () => {
     for (const [rules, problem] of [
       [5, 'rules-retired'],
       [11, 'rules-retired'],
-      [13, 'rules-unknown'],
+      [12, 'rules-retired'],
+      [14, 'rules-unknown'],
     ] as const) {
       const other = { ...m.record, rules };
       expect(checkGenesis(other, m.commit, m.beacon, genomeToBase64url(m.genome))).toEqual([
