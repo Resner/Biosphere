@@ -33,7 +33,9 @@ export function goldenHashes(root: string): FrozenEntry {
     if (!isDir) continue;
     for (const path of filesUnder(root, dir).sort()) {
       if (path === MANIFEST) continue;
-      out[path] = createHash('sha256').update(readFileSync(join(root, path))).digest('hex');
+      out[path] = createHash('sha256')
+        .update(readFileSync(join(root, path)))
+        .digest('hex');
     }
   }
   return out;
