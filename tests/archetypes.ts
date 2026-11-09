@@ -10,7 +10,7 @@ import {
   MODULE_PARAMS,
   type ModuleLocus,
 } from '../src/genome/karyotype';
-import { buildCreature, statsAt } from '../src/genome/stats';
+import { buildCreature, type Creature, statsAt } from '../src/genome/stats';
 import { efficiency } from '../src/sim/food';
 import { pow } from '../src/sim/math';
 import { RULES } from '../src/sim/rules';
@@ -289,3 +289,32 @@ export function metricsAt(g: Genome, biomass: number): Record<Metric, number> {
     sense: stats.sense,
   };
 }
+
+/** A module's extension byte (webbing, setae, ...) averaged over both haplotypes, 0-255. */
+function extByte(g: Genome, id: string, name: (typeof MODULE_EXT)[number]): number {
+  const bytes = encodeGenome(g);
+  const at = (locus(id) as ModuleLocus).ext + MODULE_EXT.indexOf(name);
+  return ((bytes[at] as number) + (bytes[HAPLOTYPE_BYTES + at] as number)) / 2;
+}
+
+/** The appendages grown from module slot `slot` (0 is M1). */
+const limbs = (c: Creature, slot: number): number =>
+  c.plan.appendages.filter((a) => a.module === slot).length;
+
+/**
+ * What makes each archetype that archetype (M14 T10): a balance variant is a mutated copy that
+ * still holds it, so a variant is a different body of the same kind, not a different kind.
+ */
+export const ARCHETYPE_KEEPS: Record<string, (g: Genome, c: Creature) => boolean> = {
+  flagellate: (_, c) => c.plan.segments.length === 1 && limbs(c, 0) >= 1 && limbs(c, 0) <= 2,
+  ciliate: (_, c) => limbs(c, 0) >= 4 && c.plan.segments.length === 1,
+  swimmer: (_, c) => c.plan.segments.length >= 4 && limbs(c, 0) >= 4,
+  armoured: (_, c) => c.stats.combat.armour >= 0.5,
+  filter: (_, c) => c.plan.mouth.radius >= 1.25 && limbs(c, 1) >= 2,
+  hunter: (_, c) => c.stats.combat.power >= 2,
+  radial: (_, c) => c.plan.form.radial === 1,
+  coiled: (_, c) => c.plan.form.turn >= 1.5,
+  carapaced: (_, c) => c.plan.carapace.count >= 2,
+  winged: (g, c) => limbs(c, 0) >= 4 && extByte(g, 'M1', 'webbing') >= 128,
+  setose: (g, c) => limbs(c, 1) >= 2 && extByte(g, 'M2', 'setaeDensity') >= 128,
+};
