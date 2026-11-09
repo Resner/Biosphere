@@ -481,7 +481,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Operations, security and the brief
 
-- [ ] T15 `docs/OPERATIONS.md` and `npm run ops:watch` (after T12)
+- [x] T15 `docs/OPERATIONS.md` and `npm run ops:watch` (after T12)
   - Steps:
     1. **`npm run ops:watch -- --url <authority>`** (`tools/ops-watch.mjs`, pure parts in `tools/ops-watch.ts`): polls `/v1/metrics` every 60 s (its edge cache) and `/v1/audit` every 5 minutes, prints one status line per poll (seated, waiting and why, the headroom, today's use against each allowance in %, the hours left at the current rate, relay share, flags today by kind) and a warning line when an action from the runbook applies; saves every answer under `ops/<UTC date>/` (git-ignored) so `npm run report:capacity -- --metrics <file>` can take one. `--once` prints one line and exits.
     2. **`docs/OPERATIONS.md`**, the owner's runbook, in plain steps:
@@ -498,8 +498,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - **Unit tests** of `ops-watch.ts` over recorded `/v1/metrics` and `/v1/audit` answers (from an E2E hub): the status line, the hours left at a given rate, each warning's threshold, and a malformed answer printed as an error line, never a crash.
     - `npm run ops:watch -- --once --url http://localhost:<hub>` against a local `wrangler dev` prints a status line (a test in the node project starts the hub, as the load tools do, or the PR shows the run).
     - **The runbook's references** (`tools/ops-doc.test.ts`): every npm script, workflow, variable, secret and endpoint `docs/OPERATIONS.md` names exists in `package.json`, `.github/workflows/`, `worker/` or `docs/SETUP.md`.
-
-- [ ] T16 The security and privacy review [opus] (after T4, T6, T8, T12)
+  - Notes: the pure parts are `tools/ops-lines.ts` (a `.ts` beside `ops-watch.mjs` would lose the import to the `.mjs`); its unit tests run on answers recorded from a local E2E hub (`tests/fixtures/ops/`), edited for the busy cases, and the PR shows the `--once` run against a local `wrangler dev` instead of a test that starts a hub. The runbook's Data section leaves the privacy notice to T16, which links `docs/PRIVACY.md` from it.
+- [x] T16 The security and privacy review [opus] (after T4, T6, T8, T12)
   - Steps:
     1. **`docs/SECURITY.md`**: the threat model (what is protected: identities' keys, lineage integrity, the authority's signing key, the budget; who attacks: modified clients, bot farms, griefing peers, a hostile page script, the supply chain) and every surface with the checks that cover it, by test name:
        - the hub's messages (parsers, rate limits per type, origins, sizes), the peer events and snapshots, the witness messages;
@@ -519,6 +519,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - The source test, the CSP violation check and the endpoint tests pass; every E2E spec passes under the CSP in Chromium, and `m14-smoke` in Firefox and WebKit.
     - Every parser in the list has its fuzz test.
     - `docs/SECURITY.md` names a test or a document for every surface, and `docs/PRIVACY.md` matches what the code stores (a reviewer's table of each `localStorage` and IndexedDB key and each SQLite table, checked by a test against the source's keys and `worker/schema.ts`'s tables).
+  - Notes: the policy is `tools/csp.mjs` (`.mjs`: the Vite config imports it), written into each page's `__BS_CSP__` meta at build; fixed mates' names kept for good, unbounded paths (414) and the missing fuzz tests. Gotcha: `resner.github.io` is one origin for every Pages site of the account (a residual risk in SECURITY.md, the owner's call).
 
 - [ ] T17 The brief, line by line, with evidence (after T11, T14, T16)
   - Steps:

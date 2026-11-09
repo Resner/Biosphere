@@ -1,0 +1,49 @@
+{
+    "since": 1794241046449,
+    "day": {
+        "conflict": 0,
+        "wrong-owner": 0,
+        "replay": 0,
+        "stray-death": 0,
+        "settle-failed": 0,
+        "recover-failed": 0,
+        "biomass-over-max": 0,
+        "growth-too-fast": 0,
+        "energy-over": 0,
+        "health-over": 0,
+        "clock-too-fast": 0,
+        "claim-over": 0,
+        "teleport": 0,
+        "authority-only": 0,
+        "witness-silent": 0,
+        "witness-forged": 0,
+        "witness-equivocated": 0,
+        "audit-overruled": 0,
+        "attest-forged": 0
+    },
+    "total": {
+        "conflict": 0,
+        "wrong-owner": 0,
+        "replay": 0,
+        "stray-death": 0,
+        "settle-failed": 0,
+        "recover-failed": 0,
+        "biomass-over-max": 0,
+        "growth-too-fast": 0,
+        "energy-over": 0,
+        "health-over": 0,
+        "clock-too-fast": 0,
+        "claim-over": 0,
+        "teleport": 0,
+        "authority-only": 0,
+        "witness-silent": 0,
+        "witness-forged": 0,
+        "witness-equivocated": 0,
+        "audit-overruled": 0,
+        "attest-forged": 0
+    },
+    "storage": {
+        "bytes": 118784,
+        "limit": 1000000000
+    }
+}

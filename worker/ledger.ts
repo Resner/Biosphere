@@ -785,7 +785,8 @@ export class Ledger {
       return s;
     }) as [StoredRecord, StoredRecord];
     this.run(
-      'UPDATE matings SET resolved = 1, child_a = ?, child_b = ? WHERE commit_id = ?',
+      // The names served only the wait (`openMating`): a resolved mating keeps none.
+      "UPDATE matings SET resolved = 1, child_a = ?, child_b = ?, name_a = '', name_b = '' WHERE commit_id = ?",
       stored[0].hash,
       stored[1].hash,
       commit,

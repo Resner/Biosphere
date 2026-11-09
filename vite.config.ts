@@ -1,8 +1,19 @@
 import { defineConfig } from 'vite';
+import { cspPolicy, withCsp } from './tools/csp.mjs';
 
 export default defineConfig({
   // Relative asset URLs work both at the Pages path (/Biosphere/) and at the preview root.
   base: './',
+  // Every page's Content-Security-Policy (M14 T16), for the authority this build names.
+  plugins: [
+    {
+      name: 'biosphere-csp',
+      transformIndexHtml: {
+        order: 'pre',
+        handler: (html) => withCsp(html, cspPolicy(process.env.AUTHORITY_URL ?? '')),
+      },
+    },
+  ],
   define: {
     __BUILD_LABEL__: JSON.stringify(process.env.BUILD_LABEL ?? ''),
     __AUTHORITY_URL__: JSON.stringify(process.env.AUTHORITY_URL ?? ''),

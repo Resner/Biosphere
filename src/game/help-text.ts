@@ -93,7 +93,7 @@ export const HELP_SECTIONS: readonly HelpSection[] = [
     lines: [
       'This browser keeps your identity key, your name, your settings, the hints seen and who you muted.',
       'Your recovery code moves your identity to another browser. Keep it private.',
-      'The game’s server keeps your public key, your name, your creatures’ signed records and where they are.',
+      'The game’s server keeps your public key and your creatures’ signed records, and your name while you play.',
       'Records are public: a creature’s card shows its story, with no player’s name.',
       'A fight’s log is kept for 14 days. There are no accounts and no email.',
       'Players you link with can see your network address, as in any peer-to-peer game.',

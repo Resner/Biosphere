@@ -6,6 +6,7 @@
 
 import * as THREE from 'three';
 import { rarityBadge } from '../game/badge';
+import { cspViolations } from '../game/csp-watch';
 import { listItem, pick } from '../game/dom';
 import { genomeToBase64url, parseGenomeText } from '../genome/codec';
 import { explainChild, type TraitExplanation } from '../genome/explain';
@@ -149,6 +150,7 @@ export function startLab(options: LabOptions): void {
       selected,
       parents: [...parents],
       offspring: offspring.map(summary),
+      csp: cspViolations(),
     }),
     select: (index, options) => select(index, options?.second === true),
     setMode: (next) => show(next, seed),

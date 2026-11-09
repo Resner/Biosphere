@@ -3,6 +3,7 @@ import './card.css';
 import { capitalise } from '../game/badge';
 import { formatBuildLabel } from '../game/build-label';
 import { capabilities, showUnsupported, unsupportedReason } from '../game/capability';
+import { cspViolations, watchCsp } from '../game/csp-watch';
 import { listItem, pick, setText } from '../game/dom';
 import { setStars, shapeName, starsText } from '../game/reveal-card';
 import { loadSettings, qualityFromSearch, reducedMotion } from '../game/settings';
@@ -41,6 +42,9 @@ import { checkInWorker, VerifierLink } from './verifier';
 // authority, draws the creature at once, and checks the proof in a module worker: the whole bundle
 // first, then each settled fight replayed from its log. It works with every player offline, and it
 // names no player.
+
+// What the page's Content-Security-Policy blocks, for `state().csp` (M14 T16).
+watchCsp(document);
 
 const label = document.querySelector<HTMLElement>('[data-testid="build-label"]');
 if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
@@ -91,9 +95,10 @@ const state: CardState = {
   timings: { bundle: null, drawn: null, verdict: null },
   image: { ready: false, saved: 0 },
   graph: [],
+  csp: [],
 };
 
-const hook: CardHook = { state: () => structuredClone(state) };
+const hook: CardHook = { state: () => ({ ...structuredClone(state), csp: cspViolations() }) };
 window.__card = hook;
 
 const search = window.location.search;

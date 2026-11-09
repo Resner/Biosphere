@@ -17,6 +17,7 @@ import { createWorld } from '../sim/world';
 import type { App } from './app';
 import { adultRadius } from './app-session';
 import { checkCrowdAt } from './crowd-view';
+import { cspViolations } from './csp-watch';
 import { type BsDebug, type BsState, installHook } from './debug';
 import { GOLDEN_SET_NAMES } from './golden-names';
 import type { NetLinks } from './online';
@@ -310,6 +311,7 @@ export function installAppHook(app: App): void {
         screen: app.screen,
         capabilities: { ...app.capabilities },
         unsupported: null,
+        csp: cspViolations(),
         quality: {
           setting: settings.quality,
           detected: autoQuality.detected,
