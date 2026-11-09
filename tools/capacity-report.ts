@@ -33,14 +33,7 @@ import {
   storeDays,
   usageOf,
 } from '../worker/capacity';
-import {
-  allowances,
-  CEILING_USD,
-  FREE,
-  PAID,
-  type PlanName,
-  TABLES,
-} from '../worker/plan';
+import { allowances, CEILING_USD, FREE, PAID, type PlanName, TABLES } from '../worker/plan';
 import { type CapacityInputs, measuredFrom } from './capacity-measure';
 
 /** The concurrent players the tables show, around the clock. */
