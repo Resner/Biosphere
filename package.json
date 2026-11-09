@@ -17,6 +17,7 @@
     "report:capacity": "node tools/capacity.mjs",
     "report:hub": "node tools/hub.mjs",
     "load:hub": "node tools/load-hub.mjs",
+    "soak": "node tools/soak.mjs",
     "report:farm": "node tools/farm.mjs",
     "report:witness": "node tools/witness.mjs",
     "report:net": "node tools/net.mjs",

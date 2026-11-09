@@ -126,5 +126,7 @@ describe('worker bundles', () => {
     // And a player's hatch bucket and the held rounds of the page's kill matrix (M14 T4).
     expect(code).toContain('/v1/e2e/hatches');
     expect(code).toContain('/v1/e2e/beacons');
+    // And the hub's invariants after interrupted transactions (M14 T13).
+    expect(code).toContain('/v1/e2e/consistency');
   });
 });
