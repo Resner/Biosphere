@@ -453,14 +453,22 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     }
     // D holds a link to nobody who is in a crowd. A member that left its instance meanwhile (C's
     // crowd of one dissolves after QUIET_MS, A's and B's once the fight is over) is open water and
-    // may be linked, so judge the members that were in an instance before and after the links.
-    const dLinks = (await state(d.page)).net.links.map((l) => l.id);
-    const stillCrowded = new Set(
-      (await directory(request, HUB)).members.filter((m) => m.n !== 0).map((m) => m.id),
-    );
-    for (const m of crowded) {
-      if (stillCrowded.has(m.id)) expect(dLinks).not.toContain(m.id);
-    }
+    // may be linked, so judge the members that were in an instance before and now. A link made while
+    // a member was still in the open water closes a moment after the hub moves that member into an
+    // instance (E2E CI: one such link was read between the two), so the links and the directory are
+    // read together until none is left, within a bound.
+    await expect
+      .poll(
+        async () => {
+          const dLinks = new Set((await state(d.page)).net.links.map((l) => l.id));
+          const stillCrowded = new Set(
+            (await directory(request, HUB)).members.filter((m) => m.n !== 0).map((m) => m.id),
+          );
+          return crowded.filter((m) => stillCrowded.has(m.id) && dLinks.has(m.id)).map((m) => m.id);
+        },
+        { message: 'D holds no link to a member in a crowd', timeout: 20_000, intervals: [200] },
+      )
+      .toEqual([]);
 
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
