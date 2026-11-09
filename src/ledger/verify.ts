@@ -257,7 +257,8 @@ export const PROBLEM_TEXT: Readonly<Record<string, string>> = Object.freeze({
   'no-records': 'The proof holds no records for this creature.',
   stray: 'The proof holds a record that belongs to none of its creatures.',
   shape: 'A record is malformed.',
-  'rules-retired': 'A record was made under rules that a world renewal retired.',
+  'rules-retired':
+    'A record was made under rules 12 or older, which the last world renewal (v1.0.0) retired.',
   'rules-unknown': 'A record names rules this verifier does not know.',
   hash: 'A record has been changed since it was written.',
   'creature-id': "The creature's identity is not the fingerprint of its first record.",
@@ -370,7 +371,8 @@ export const PROBLEM_TEXT: Readonly<Record<string, string>> = Object.freeze({
   'replay:frames': "A fight's log does not last as long as its settlement says.",
   'replay:root': "A fight's log does not hold the inputs its settlement was signed over.",
   'replay:width': "A fight's log holds a frame with the wrong number of inputs.",
-  'replay:rules-retired': 'A fight was settled under rules that a world renewal retired.',
+  'replay:rules-retired':
+    'A fight was settled under rules 12 or older, which the last world renewal (v1.0.0) retired.',
   'replay:rules-unknown': 'A fight was settled under rules this verifier does not know.',
   'replay:replay': "A fight's log does not play through to the end its settlement records.",
   'replay:hash': "A fight's replay does not end where its settlement says it ended.",

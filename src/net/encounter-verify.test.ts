@@ -442,7 +442,8 @@ describe('verifyEncounter', () => {
     expect(verifyEncounter(hash, g.log, keys)).toEqual(['hash']);
     for (const [rules, problem] of [
       [11, 'rules-retired'],
-      [13, 'rules-unknown'],
+      [12, 'rules-retired'],
+      [14, 'rules-unknown'],
     ] as const) {
       const other = resigned(g, (s) => {
         s.rules = rules;

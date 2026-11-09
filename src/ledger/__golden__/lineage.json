@@ -1,10 +1,10 @@
 {
   "v": 2,
   "kind": "proof",
-  "subject": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+  "subject": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
   "world": {
-    "epoch": 4,
-    "rules": 12,
+    "epoch": 5,
+    "rules": 13,
     "scales": {
       "lifespan": 1,
       "mating": 1
@@ -19,15 +19,15 @@
   ],
   "creatures": [
     {
-      "id": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
-      "genome": "BEAzeYQCAAAAAC0EABIAAQABbB8AxWwA9yLb1PwA5QABMQsApAAA6QBJ5wAAjv4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABfoQDVr5oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACHvmwXAB48DdW_AecAAFlVdJNlGAAAAAAAAAAAAAAAAAAAAAAAAABWkQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZ-XjBQAFAGdXCTQfAAAAAcunAGRvAPUiwzT-AO4AASgaAOwAAN8ARMFEyrLbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM6sAqUy_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8gCiFAFsaEWckwCDAADqg59bX9AAAAAAAAAAAAAAAADQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
+      "id": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
+      "genome": "ABc3UXMDAAgABUAVGBwAAAABdxYAwXEA-CbZ0PkA4gABMQ0AogAA6QBH6AAAjv4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA-oADVr5oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACHvmwXAB48DdW_AecAAFlVdJNlGAAAAAAAAAAAAAAAAAAAAAAAAABWkQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZ461CQoDAGdKFjQfAAAAAculAF9yAPoizDP6AOsAASgaAOwAAN8ARMFEyrLbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM6sAqUy5AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8wHGJQBsaEWckwCDAADqoXtbc5sAAAAAAAAAAAAAAADQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     },
     {
-      "id": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+      "id": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
       "genome": "ABc3UXMDAAgAAC0EABIAAQABbB8AxWwA9yLb1PwA5QABMQsApAAA6QBJ5wAAjv4AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAABfoQDWr3oAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAACHvmwXAB48DdW_AecAAFlVdJNlGAAAAAAAAAAAAAAAAAAAAAAAAABWkQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAARAM3mEAgAAAAVAFRgcAAAAAXcWAMFxAPgm2dD5AOIAATENAKIAAOkAR-gAAI7-AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAPqAA1a-aAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAWL5sKQApLybVrwL6AABxjnOTZQ8AAAAAAAAAAAAAAAAAAAAAAAAAVpEAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     },
     {
-      "id": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+      "id": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
       "genome": "EA-KjrUJCgMAZ1cJBB8AAAABy6UAX3IA-iLMM_oA6wABKhQA8wAA2wBKvkDDteAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA7qgC6bbkAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAADzAcYlAFtSQ0-BAYMAAOqhe1tzmwAAAAAAAAAAAAAAANAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAZ-XjBQAFAGdKFjQfAAAAAcunAGRvAPUiwzT-AO4AASgaAOwAAN8ARMFEyrLbAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAM6sAqUy_AAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA8gCiFAFsaEWckwCDAADpg59bX9AAAAAAAAAAAAAAAADQAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAAA"
     }
   ],
@@ -35,150 +35,150 @@
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "birth",
         "creature": "",
         "seq": 0,
         "prev": "",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "body": {
-          "commit": "4f7faad973cfc9d01bbb654a9e6cf50623d7a3a9aa2f6f9b740dc9503d890a48",
+          "commit": "d15233c4a9e8a315f0e9c079dab3b33ab15f2a0a5c877a746dc18fe85840ef37",
           "round": 33410029,
           "slot": 0,
           "parents": [
-            "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
-            "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854"
+            "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
+            "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b"
           ],
           "mates": [
-            "6195eeec21699e8a2747a0020769931f54fb5939b71afac29b519ff61c4a0bac",
-            "ead002ca2a206090abdfa75bf185be0039828bd0b9e748ff9e24912d3c9b6352"
+            "08d18e2f19866349b163b92b06845eeb49150484931072c5abba2e123fb00a23",
+            "fb941c3930f19263adcc596623aeed5759f9e86a7128983ed4a91e1f3445c137"
           ],
-          "genome": "90fc2e6dbb5369f6b1ccf8d7d2dc030e8db97da662468a696b9a28f36667f46c",
+          "genome": "43e55074b17515f4f20e97188fc989ef823af44f01b3fc011fb835d8a43e0bc9",
           "generation": 1,
           "karyotype": 2
         },
         "t": 1793033452000
       },
-      "hash": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+      "hash": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
       "ownerSig": null,
-      "authSig": "lEYy9XTsoCKaSPpNZK0fUHo7uTCZwVC0zeCjCOzDKsVmgIJgnqzjJb4ilrIaJRUkg-utdixbB0wVrHOlwKN4DA",
+      "authSig": "U6wASg6eFdljjnFNkJ0ZFGYR_HEYrlUDf0ImvyCJcE6v1fWnAixvbNVU_QKZypwKWbT1tqeOP-CQgXOpCx32Aw",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "promote",
-        "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+        "creature": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
         "seq": 1,
-        "prev": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+        "prev": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033472000,
         "body": {
           "role": "child",
-          "parent": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258"
+          "parent": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e"
         }
       },
-      "hash": "b128429a89dff7c8a67afadc87913886a72ea21b2548db16c0bfe74e0c9d761d",
-      "ownerSig": "YjCCI6JuLhuWMnsnN2uzUAs6KUvpM2-mLhhyMiB1j6HihOSWNHKRTi6nRJCV1GEcfUZCoeYQ78JsfH2xhQstDw",
-      "authSig": "3u4WPhkWCo9Az3V4d7uc14OAAyG3WfiiNTk3IJam56Iu5A8I2cfndcObyv9UkCfljU2_jTD4yhGJ4s25bfSqCw",
+      "hash": "b826da54ca71c481bce87dcd0964effaf56c4d23b8557e6822ec16ae102312af",
+      "ownerSig": "d7O-JNH7ZbVwTMVPfh6g3EImptx-Guzvlzwf9x5VmPFkafIUU6vaEZwADDvlv8MRyHHZfBJ79qOz35IUwfCqBA",
+      "authSig": "U8M2lxWTmaDN0vpsHxr35GfN033EKpA4Qo99wgt3AM1bswC9ykCdT1Fng3GqyPzKaeAGSEOBHe10XYCSLjwrCA",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "checkpoint",
-        "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+        "creature": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
         "seq": 2,
-        "prev": "b128429a89dff7c8a67afadc87913886a72ea21b2548db16c0bfe74e0c9d761d",
+        "prev": "b826da54ca71c481bce87dcd0964effaf56c4d23b8557e6822ec16ae102312af",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033532000,
         "body": {
           "activeMs": 60000,
-          "biomass": 16098,
-          "energy": 32195,
-          "health": 12687
+          "biomass": 18217,
+          "energy": 36434,
+          "health": 13497
         }
       },
-      "hash": "1f82f57a1d31b326686a64070011052c1b78dcc73c4766e7140ca4a8e7874d2b",
+      "hash": "2ddd65cd33aea63eb3782a5c0804c4dc07de2ea7f385398f637a6e77fb70365c",
       "ownerSig": null,
-      "authSig": "MZF8jMYZlUGdTe_cO2_9_snxb_vE8Z5zU2v76vm6f2YxwoNNtvaIK5LFOHF6uw-mOJ1nmIWc0i9c6JUaw78TCA",
+      "authSig": "hJLNvd2rYLPqXb5KnWP7CZJNoyLv_PMupAolb0VyGTz95DwnCimEULhi-DIfV-IN10rd1teKOckBI4_RiA5vBQ",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "encounter",
-        "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+        "creature": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
         "seq": 3,
-        "prev": "1f82f57a1d31b326686a64070011052c1b78dcc73c4766e7140ca4a8e7874d2b",
+        "prev": "2ddd65cd33aea63eb3782a5c0804c4dc07de2ea7f385398f637a6e77fb70365c",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
-        "t": 1793033567900,
+        "t": 1793033567600,
         "body": {
-          "enc": "3a2fe90ee67c47678377188fc0ffc172ed2616819209e5dd30871224e6cfe3fa",
+          "enc": "fe4aa662dc8e922cd16d3a3352658c6d2f80c78f6f8cd6aad21513bad3108174",
           "outcome": "stood",
-          "frames": 57,
-          "biomass": 31254,
-          "energy": 24038,
-          "health": 6759,
+          "frames": 54,
+          "biomass": 33527,
+          "energy": 27381,
+          "health": 8828,
           "reward": 14073,
-          "activeMs": 95700
+          "activeMs": 95400
         }
       },
-      "hash": "9c4144f18c0c328af8833b451b9d17c177b3a802e64b00d325fbbdedae292336",
+      "hash": "a5435e24ba5a5e71362285cc5a4904721f087bb09ac41d734586c288a9011f94",
       "ownerSig": null,
-      "authSig": "HjKDhKX-1JX3x3cFimjZqGjoccsfi72RQEVoB0iytYsxJ0xFpAWvGX6HA8WP9dTpdKXPvoXhMXIBU7_IGOf1Dw",
+      "authSig": "o7Yt7QU4elLU867qzRd7m0paJt_iqZcToZwzy9fIc9auJKdzHh6KXj66E-4DjNXYoZmhI-jnm4PrjH9F9PW2AA",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "checkpoint",
-        "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+        "creature": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
         "seq": 4,
-        "prev": "9c4144f18c0c328af8833b451b9d17c177b3a802e64b00d325fbbdedae292336",
+        "prev": "a5435e24ba5a5e71362285cc5a4904721f087bb09ac41d734586c288a9011f94",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
-        "t": 1793033587900,
+        "t": 1793033587600,
         "body": {
-          "activeMs": 115700,
-          "biomass": 31254,
-          "energy": 24038,
-          "health": 6759
+          "activeMs": 115400,
+          "biomass": 33527,
+          "energy": 27381,
+          "health": 8828
         }
       },
-      "hash": "00b5b3b1a8b88dc2b717a83c8a69ddda2c91d2fac4a77428db092ca0b1099d17",
+      "hash": "1b8046044d908f218f2c92b6f5a1ef9748d9c7e678a8021ed54841cc721d65fa",
       "ownerSig": null,
-      "authSig": "STdJPqUq0L2iDl0m40xTUVdBifi9WwBFgDFjxlGHbNjuJEymLmVfKFzljGXaU2DbP1hC0Z4HU9y7sa-Vj4LlBA",
+      "authSig": "-u1cdWGuOG_j1UCbML8eBpgjb_aNIKgdt-BmfGLWgmSD9eHTl9wQmI8bXBnepjWhgCiMLmNlwayxgsrpcGtZCA",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "death",
-        "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+        "creature": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
         "seq": 5,
-        "prev": "00b5b3b1a8b88dc2b717a83c8a69ddda2c91d2fac4a77428db092ca0b1099d17",
+        "prev": "1b8046044d908f218f2c92b6f5a1ef9748d9c7e678a8021ed54841cc721d65fa",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
-        "t": 1793033587900,
+        "t": 1793033587600,
         "body": {
           "cause": "toxin",
-          "activeMs": 115700,
-          "biomass": 31254
+          "activeMs": 115400,
+          "biomass": 33527
         }
       },
-      "hash": "5815f9f6b944880d555e73831ad5e1681c6c9fcc9b5637d1107a05e9bf7a6cd7",
+      "hash": "810d2bb2bace452cd449770293980453f4feb0526bf1aec4b22b3ffe68c01f6f",
       "ownerSig": null,
-      "authSig": "2mBtoXsuyhcZe4t3topnLR-39bPU2pNQNgJDAYoStQobABdv0qLkzN16oEfN4jK6IJZAZKgv3ZIiXXW-D-YvBQ",
+      "authSig": "2ygHPkzhdrjZ9owNGa34ZgA2WfLBbFvOJGUzAKIieVaDtIMCAXZRVE7xdA5GcTsT3hE6xO_VHXZFm0hm9kXcCQ",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "genesis",
         "creature": "",
         "seq": 0,
@@ -193,19 +193,19 @@
         },
         "t": 1793032882000
       },
-      "hash": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+      "hash": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
       "ownerSig": null,
-      "authSig": "_f9GVWOApMKyy9GFyRXLwGPfWc8oIFNykIM6HK_684efgxjrXYdYnsfZWKVHM0VQH7X11_0k4Lfw3lfTESeiAg",
+      "authSig": "rOjfOaL6lqdqDfLRdmERCt0d7uIVoIsAwpKJIMhKnA5g-ZGWnl6_TTDxGMrrKlQWDUAfv4E0DJjRXJ2cyefRCg",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "checkpoint",
-        "creature": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+        "creature": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
         "seq": 1,
-        "prev": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+        "prev": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033163823,
         "body": {
@@ -215,19 +215,19 @@
           "health": 11020
         }
       },
-      "hash": "3b64dddb6fb1000d9f060f9d1d4c86c6973da8f4edcf3fe67b345fbfdd2994be",
+      "hash": "b3d69591e2899c93c4a8ec5df58d0f23e940197cf313c5051d5a1acdc0baddbe",
       "ownerSig": null,
-      "authSig": "r5rXYhmUv09xhUi-mN9kBgh1ELKk-g_AhInwQOBI4eBX_zvcuRfVOZkCGxfQI_tkhjuuVG9PrQ_3jENuhqaMDg",
+      "authSig": "bl3Bs8U0RuQ6mm4ShfxsLgEgoAD5DSWC7kh_FODCpg6Rb7_Pr7M8KheCpKziMYONuZJlCjbJ8PvU3CvyTexhDA",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "checkpoint",
-        "creature": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+        "creature": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
         "seq": 2,
-        "prev": "3b64dddb6fb1000d9f060f9d1d4c86c6973da8f4edcf3fe67b345fbfdd2994be",
+        "prev": "b3d69591e2899c93c4a8ec5df58d0f23e940197cf313c5051d5a1acdc0baddbe",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033435647,
         "body": {
@@ -237,27 +237,27 @@
           "health": 15585
         }
       },
-      "hash": "f5ac284b45a6e7b2c8e698fca513cf301936100662290a3cf9dbfe2d077d97e4",
+      "hash": "bc9d0f73e77e5c21ed469ec171a100da2f1cd6a7fef6ca5c474cb4a1901aa339",
       "ownerSig": null,
-      "authSig": "YMFAP6UKiJdHWrvexI25eTxivCdeVPF5ApDEPb3p-_gjALxoL9pSIqIsF2N1m6bc_grxNCuBR1LOxUanvD1dBA",
+      "authSig": "J4uWkjoTaAVaHY4DuqAp8nfGmJUyG233IMi1bnVK2oTqV5F4yfjPKUn4JdzYx-1w1pJgbplJIXri8uHfWqbwDQ",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "mate-commit",
-        "creature": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+        "creature": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
         "seq": 3,
-        "prev": "f5ac284b45a6e7b2c8e698fca513cf301936100662290a3cf9dbfe2d077d97e4",
+        "prev": "bc9d0f73e77e5c21ed469ec171a100da2f1cd6a7fef6ca5c474cb4a1901aa339",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033446147,
         "body": {
-          "commit": "4f7faad973cfc9d01bbb654a9e6cf50623d7a3a9aa2f6f9b740dc9503d890a48",
+          "commit": "d15233c4a9e8a315f0e9c079dab3b33ab15f2a0a5c877a746dc18fe85840ef37",
           "round": 33410029,
           "role": "a",
           "partner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
-          "partnerCreature": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+          "partnerCreature": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
           "genome": "72987deb1522877516747c2288ae480c7d3a3afb2720731bf60d6031131617dc",
           "partnerGenome": "902dae9a61d547a2d4250ca574f2d736134a20e10948881d2f2c9d9e5aa45008",
           "generation": 0,
@@ -271,24 +271,24 @@
           "healthBefore": 15585
         }
       },
-      "hash": "6195eeec21699e8a2747a0020769931f54fb5939b71afac29b519ff61c4a0bac",
+      "hash": "08d18e2f19866349b163b92b06845eeb49150484931072c5abba2e123fb00a23",
       "ownerSig": null,
-      "authSig": "LpUMAXkql3bkwKauSgGAaUYd3zX_BddCrWSW4e3xclTRD3zV9w7v9XoC-v-caIlCn1dapSX6adtSzPajLvt7AQ",
+      "authSig": "Z6EJg52BzZ8hTjDkekCvQ82b-0U5H1y8hgA741L7fx1y84mjEdJnAK8Ef0izlBTi30DyGd5nEj9-H_g8H1oCAA",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "promote",
-        "creature": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+        "creature": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
         "seq": 4,
-        "prev": "6195eeec21699e8a2747a0020769931f54fb5939b71afac29b519ff61c4a0bac",
+        "prev": "08d18e2f19866349b163b92b06845eeb49150484931072c5abba2e123fb00a23",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "t": 1793033472000,
         "body": {
           "role": "parent",
-          "child": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
+          "child": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
           "activeMs": 564147,
           "biomass": 20646,
           "energy": 34006,
@@ -296,15 +296,15 @@
           "cooldownUntilMs": 1104147
         }
       },
-      "hash": "fa6b5161c1dfe1c1a6902e72765465ce9283b37b176bd24b32babe1104f18cce",
+      "hash": "bc832343aa80ab339f34cff30a26f8d2202d4a4898d764e1116df70858839b3a",
       "ownerSig": null,
-      "authSig": "Nb9ayO0c_NuGuTszE9Q__WnJ-yL3o14gDHySB0B8iv7wyJHW9k6cyPCw0NtVuE2R2fWn4KNUcqpDVrwj64BOAQ",
+      "authSig": "qbjAUeslyC8f4idFc7HRj5zIWdMprli4a9ti_4Mogm4x8EVC_pipQ1kWHeWiQm72p5QhIZNBOFNfTE_EVju6CQ",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "genesis",
         "creature": "",
         "seq": 0,
@@ -319,19 +319,19 @@
         },
         "t": 1793032888000
       },
-      "hash": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+      "hash": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
       "ownerSig": null,
-      "authSig": "xHX6h246Qlg7KKd-InLFo3fXuOP9y5SyWdIegK7mDuWOQqYObkj5oHaTa4Ha79mbE5K1NL-STODad6c3O3Q5Ag",
+      "authSig": "s_oq4MPhAIWCiEjP4d2kB7xPCjDVS556SLJ1f4cfOL6Ijl_ARSAEzdBkfe8Eb2GqQYDq7FO2k3EwjZaRLgkeDg",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "checkpoint",
-        "creature": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+        "creature": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
         "seq": 1,
-        "prev": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+        "prev": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
         "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
         "t": 1793033166823,
         "body": {
@@ -341,19 +341,19 @@
           "health": 11654
         }
       },
-      "hash": "d14f0b84366405d2d2360cbeb6f707507efe89bf1b9c6ecf893121f9474ed262",
+      "hash": "1d9d7d5603b74996818b03aa8bb6655493009ea1ae1ee044942521a7653276b0",
       "ownerSig": null,
-      "authSig": "9pde0W8kZ98pcBZRxlGjicK5NnkNm925z-roR-Nxcz3Fy6zRAVQp6aA7tNgFCjcOHbXRRUAIgH1ztaOdpKfaDw",
+      "authSig": "bKnRUwFNSfAg7AglGqyBjW9piVDogT0ONCcjvDRWdzWX0RmH9soQnBk6KqB-MUi-ZbfxdhkGgBRzOM6JOpWyCw",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "checkpoint",
-        "creature": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+        "creature": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
         "seq": 2,
-        "prev": "d14f0b84366405d2d2360cbeb6f707507efe89bf1b9c6ecf893121f9474ed262",
+        "prev": "1d9d7d5603b74996818b03aa8bb6655493009ea1ae1ee044942521a7653276b0",
         "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
         "t": 1793033435647,
         "body": {
@@ -363,27 +363,27 @@
           "health": 16481
         }
       },
-      "hash": "839b5e26c8b7f24ae58aeab1a2765eade874cc77715b838340b681f490830852",
+      "hash": "6121f7d09d63a758a1eea925b70f5ddc2274007b6b2bb50e6ece6bb085aa74ec",
       "ownerSig": null,
-      "authSig": "voS1po93LkEB7wtUIbV9tocNPwKSt0lqXVaE2INiPe_2L6mFwN4ZxJY1MGQMinxKTac7riutNDoUDdU9CVVZDA",
+      "authSig": "cWPGMs8XwMSjDJtofomeX9w2GFSzuT9vstHLnL8zY98R9siY9Bp8BRVhQyiYtKczWy-wu4TMf7pnqNP1VBz7Aw",
       "keyId": "dBwGxjx2"
     },
     {
       "record": {
         "v": 1,
-        "rules": 12,
+        "rules": 13,
         "kind": "mate-commit",
-        "creature": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+        "creature": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
         "seq": 3,
-        "prev": "839b5e26c8b7f24ae58aeab1a2765eade874cc77715b838340b681f490830852",
+        "prev": "6121f7d09d63a758a1eea925b70f5ddc2274007b6b2bb50e6ece6bb085aa74ec",
         "owner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
         "t": 1793033446147,
         "body": {
-          "commit": "4f7faad973cfc9d01bbb654a9e6cf50623d7a3a9aa2f6f9b740dc9503d890a48",
+          "commit": "d15233c4a9e8a315f0e9c079dab3b33ab15f2a0a5c877a746dc18fe85840ef37",
           "round": 33410029,
           "role": "b",
           "partner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
-          "partnerCreature": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+          "partnerCreature": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
           "genome": "902dae9a61d547a2d4250ca574f2d736134a20e10948881d2f2c9d9e5aa45008",
           "partnerGenome": "72987deb1522877516747c2288ae480c7d3a3afb2720731bf60d6031131617dc",
           "generation": 0,
@@ -397,9 +397,9 @@
           "healthBefore": 16481
         }
       },
-      "hash": "ead002ca2a206090abdfa75bf185be0039828bd0b9e748ff9e24912d3c9b6352",
+      "hash": "fb941c3930f19263adcc596623aeed5759f9e86a7128983ed4a91e1f3445c137",
       "ownerSig": null,
-      "authSig": "q7AA9qUN-SHpPs_gKada59QtQ6zJ_HmTQxqf9tHb9_soXU3iuf-8mMeXs1tBZml_idew8nG9Bzz9hCEgLVj7Aw",
+      "authSig": "BFnuBNqw_GQkK4jguNGlxY9lRldkesHHsyArAXkRq46QizY3xnNMKjEioTc48ZkVWqTF6G_L6x6CtCcYX_iDCw",
       "keyId": "dBwGxjx2"
     }
   ],
@@ -410,30 +410,30 @@
         "kind": "mate",
         "owner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
         "round": 33410029,
-        "req": "43472265ee15f02557759221c7e02d4ce4f597cabd09d00c08f7f0e48aabc96f",
+        "req": "4a53d06f4433eeb5f3af89fdac3164d6c7c4e75f2018716db60a3b3993b2184d",
         "t": 1793033445647,
         "data": {
           "a": {
             "v": 1,
             "kind": "mate",
-            "creature": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+            "creature": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
             "partner": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
-            "partnerCreature": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+            "partnerCreature": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
             "nonce": "MMMMMMMMMMMMMMMMMMMMMM",
-            "sig": "K3WPmjyw2YuJ8uwNZEF8vPC4VwrgP9KvQZbNP1mb4gke6-910ghjRhxggz0pNmON8gQxe5EBrAFDtMA9uXryAA"
+            "sig": "bnVdSZlWelvxFSUscnvei4p8mRICz597LMbuKIzj1y-pxNl6JxMJUcwBMRb0934SU8KmL1K5Gnyqx9Hz7NlfCw"
           },
           "b": {
             "v": 1,
             "kind": "mate",
-            "creature": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+            "creature": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
             "partner": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
-            "partnerCreature": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+            "partnerCreature": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
             "nonce": "MMMMMMMMMMMMMMMMMMMMMM",
-            "sig": "0JemocAu8lmrXB74J-pBXiJcWPO_GlqC_I9TPOvaOW95vARWH7PLHQWOAg9jaz7tvKTZL_YcJsWv7Fx-Om1EAg"
+            "sig": "6VRHwr7YNgsQVLfwKOr8O7Y7DBS6dSYGkD8jFv_T2uALgg4XXJyy0fIRPpKV7LyGPccalKbXaZgSadhKXQhBBQ"
           }
         }
       },
-      "authSig": "OiCtd_XCS5B8uDSiwA8Q-eyeJheSeBiU3AL_IBm53fXYT8Tbv57nEAe-VqGjTEBzjBF1VUJNU3Na7dyMW1YdBQ",
+      "authSig": "0v9W2ApZvn2DEKuw-H3OYEzgi_Jx7WvPQTGh1ntVmxckD7FK4ehLCTrT7_VsyYJg5AFVcD4MV-so3_JMq4Y1Ag",
       "keyId": "dBwGxjx2"
     },
     {
@@ -492,57 +492,57 @@
       "settlement": {
         "v": 2,
         "kind": "settlement",
-        "rules": 12,
-        "enc": "3a2fe90ee67c47678377188fc0ffc172ed2616819209e5dd30871224e6cfe3fa",
+        "rules": 13,
+        "enc": "fe4aa662dc8e922cd16d3a3352658c6d2f80c78f6f8cd6aad21513bad3108174",
         "pondSeed": "lineage-0",
-        "start": "d2fe9722f2b60b58f33ce02ddb13f0e584dbd2a30afb3fd5fbcbcbd64a73c220",
+        "start": "8dd2f33e67ad40d748173eae4280f17d109913a5e50db2da3d6bbe1aaf4f8d2f",
         "joins": [],
-        "frames": 57,
-        "root": "299e05df80d1cd781dc1820d19101d9560dbab8dcdf08b8654c35dbba90b5e02",
-        "hash": "797c67ea8fde40d8",
+        "frames": 54,
+        "root": "ff649e1a6d30108ca405617c3b1bec37dae93018ad54dd6fd9b1015d806c54d8",
+        "hash": "d900ffc0a124dc90",
         "referees": [
           {
             "by": "authority",
             "from": 0
           },
           {
-            "by": "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
+            "by": "3FF_9SfnvPqwZ_LMYbvvjnX5uo4TMq09QviTjgBF7Yk",
             "from": 40,
             "position": 0
           }
         ],
-        "duty": "774af76af128e6a66197630bdd4012c87f285c9aebd9fa32673ef6c5c23a585c",
+        "duty": "a8a58ec799ecfc5c184ab40dd69e639fff239c27a158b9fb2ad78f9f81f7038d",
         "results": [
           {
-            "player": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
-            "creature": "4310e5de1daa171747d0fd64db561f40056b7b63c02c5bd3827061157a43e335",
-            "outcome": "stood",
-            "frame": 57,
-            "egg": "none",
-            "biomass": 31254,
-            "energy": 24038,
-            "health": 6759,
-            "reward": 14073
-          },
-          {
             "player": "VRVPQgZepaG-oFRjgmviaE65LfksEAAnqrquV8pVQgc",
-            "creature": "d7cc3573b2e96f62597823fabfbd7c576ea064a8e23d6055ed2cff049a004854",
+            "creature": "8aa2b066c8f54d37ab725887480b99a56686f58c8e5a8d505d2510cccbcd786b",
             "outcome": "killed",
             "cause": "killed",
-            "by": 0,
-            "frame": 57,
+            "by": 1,
+            "frame": 54,
             "egg": "eaten",
-            "eggBy": 0,
+            "eggBy": 1,
             "biomass": 23456,
-            "energy": 30404,
+            "energy": 30528,
             "health": 0,
             "reward": 0
+          },
+          {
+            "player": "vHy8tWNjdfodgkNNRmck2SN39TuYBpXdSdJtDOEiBaU",
+            "creature": "d5bbe2df08b359ff32172f4f931f86695e522cf1bec23ff42132fb92059bfe9a",
+            "outcome": "stood",
+            "frame": 54,
+            "egg": "none",
+            "biomass": 33527,
+            "energy": 27381,
+            "health": 8828,
+            "reward": 14073
           }
         ],
-        "t": 1793033567900
+        "t": 1793033567600
       },
-      "hash": "989d048cb80ed705ae04694568982c0891e404dcb1708d7c02e3f14567ad29da",
-      "authSig": "YTGYsv2K8--aYOqI74V1tGh6aY5MENI_9MUXJxHpOIFysoXLFeRM7a9wOCVky7sxOrHmM-meGUfDMdgAuEXoAA",
+      "hash": "596e418bc70e0b65d96137c9c03f67a8570bacac879652a7686dd08bf1258c22",
+      "authSig": "v8KUs6jBaopCZHBiuLPreSjEJBUT_ZiTbjJ8FBDi5T0EpaqkClxtkpd1lT_bYd-aAz04IBjaGk1MRiuLd4-yCg",
       "keyId": "dBwGxjx2"
     }
   ],
@@ -577,10 +577,10 @@
         "kind": "witness",
         "owner": "",
         "round": 33410029,
-        "req": "3f51014eba1e4b9742e457499f5a1c425ef62c2a0cf3cd3ef25d6f3087339f70",
+        "req": "86aa264840ef0decd522293db7538b982f9c186910e2ab1124e4f5363fb132d4",
         "t": 1793033445647,
         "data": {
-          "event": "mating:4f7faad973cfc9d01bbb654a9e6cf50623d7a3a9aa2f6f9b740dc9503d890a48",
+          "event": "mating:d15233c4a9e8a315f0e9c079dab3b33ab15f2a0a5c877a746dc18fe85840ef37",
           "pool": [
             "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
             "3FF_9SfnvPqwZ_LMYbvvjnX5uo4TMq09QviTjgBF7Yk",
@@ -590,7 +590,7 @@
           ]
         }
       },
-      "authSig": "f6-Zf4n9XrmMonRfIYzv0mT35055NSP7C8xpcktzPzTiemY74w4sSBSrcQFWRiL0zczSTfaKF2J6nvEZnRBKAQ",
+      "authSig": "b93r1kvGJidiG3l0mrYdcqYFC1nKoBTgjRhT4gBDrCwDe87-VuQ5cOM_NKlqKKmSxUL4xd6zATD2yw3026cPBA",
       "keyId": "dBwGxjx2"
     },
     {
@@ -599,10 +599,10 @@
         "kind": "witness",
         "owner": "",
         "round": 33410067,
-        "req": "2d6dc4de7e26083ff4411c6c24e670d67b31b478884191bc8eee9bd5c6bb8c7e",
+        "req": "61ffbdd1702ca39d54fa66aee36bd9fb9e635f0c8505ef05b07fc76b487b401e",
         "t": 1793033562001,
         "data": {
-          "event": "enc:3a2fe90ee67c47678377188fc0ffc172ed2616819209e5dd30871224e6cfe3fa",
+          "event": "enc:fe4aa662dc8e922cd16d3a3352658c6d2f80c78f6f8cd6aad21513bad3108174",
           "pool": [
             "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
             "3FF_9SfnvPqwZ_LMYbvvjnX5uo4TMq09QviTjgBF7Yk",
@@ -612,7 +612,7 @@
           ]
         }
       },
-      "authSig": "aq_WRah0aSPGtgttvgU3Mk4X2MVnSmTFRtd0NJCzgzzWjxldmPDfOKzRYAXif793wEzYsX4CvVRb-fef_75zAw",
+      "authSig": "sRVGydjHbJovjHfAtzwSJzgVwUQJdyrg-40gxBdBIO9NUfT9QpWgqNxpOlcTFq_hAUurNwLWVRcQJqh4u_XtDg",
       "keyId": "dBwGxjx2"
     }
   ],
@@ -625,37 +625,37 @@
         "duty": "8033830727675878002c2e69cde4c0fb4edf66f8afc99d2230c17848337876f2",
         "position": 0,
         "witness": "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
-        "subject": "486abaf2217e34b523366f4bca2149c8916c3917de73563f7408dacd555aa258",
+        "subject": "68ef7900f4b469954e700a442f33aeff307a1c493d2036c35dc581689d9a5a6e",
         "agree": true
       },
-      "sig": "iNEjY2i0CoejKizEXJRnFAMYUfsAn1ouLrKjUzIj-7bXxfhlhGiBBFTgDcOesPQggnHFE70fIrgbg2cj2wVBDA"
+      "sig": "Q-2_QoIOxeOof477LGEaEabvLhw7pduVglj3VUEbGrpKQoj7cE7Y4ga1ooS2AgFCE4TlftjRVCv580jVgqsyBQ"
     },
     {
       "attestation": {
         "v": 1,
         "kind": "attest",
-        "event": "mating:4f7faad973cfc9d01bbb654a9e6cf50623d7a3a9aa2f6f9b740dc9503d890a48",
-        "duty": "286e5ea7826f0e6c0aea81a9940a6aabf67df112e72ce144a40069f965dd22b2",
+        "event": "mating:d15233c4a9e8a315f0e9c079dab3b33ab15f2a0a5c877a746dc18fe85840ef37",
+        "duty": "f2edd29439680f9e9ba95bb32d191ad8bb7f6e29486b56df5b828a1fdc8fea92",
         "position": 0,
         "witness": "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
-        "subject": "723ffd65766b15eab3ef7458c1e2117ed83999e5cc8b4fae8ccbb629d94dac19",
+        "subject": "bcf0dc43b76671051440689325dde1b1c97054d8b4c159fdaaac1e0d75af9f89",
         "agree": true
       },
-      "sig": "9LkArXB5l0ZfPCtcrKhcpvNTedI1NkLZbwljuejF-vbc5y2GBueFSAekx32QTU8FmkATlUjE3BSDMINPKHASDw"
+      "sig": "SMvs-LWdAJKVAiQCp3EjaiA2SCqsWMATUCNLD31TiI2KMkEzYU7GqMv0-PGauOih7wT5DpT3kxrc_bRjKSFXAg"
     },
     {
       "attestation": {
         "v": 1,
         "kind": "attest",
-        "event": "enc:3a2fe90ee67c47678377188fc0ffc172ed2616819209e5dd30871224e6cfe3fa",
-        "duty": "774af76af128e6a66197630bdd4012c87f285c9aebd9fa32673ef6c5c23a585c",
+        "event": "enc:fe4aa662dc8e922cd16d3a3352658c6d2f80c78f6f8cd6aad21513bad3108174",
+        "duty": "a8a58ec799ecfc5c184ab40dd69e639fff239c27a158b9fb2ad78f9f81f7038d",
         "position": 1,
-        "witness": "tygv5HL5dkHBcJeCGlN4dKqqUyZFrTTb1ZhzMaTnP40",
-        "subject": "989d048cb80ed705ae04694568982c0891e404dcb1708d7c02e3f14567ad29da",
+        "witness": "1AS8RFZa7buJkVDlsLOzK5RBvwy3iEwzEw2o28J90s8",
+        "subject": "596e418bc70e0b65d96137c9c03f67a8570bacac879652a7686dd08bf1258c22",
         "agree": true
       },
-      "sig": "1tDg9C7IY0H_hKhBlasT9jUAU3XyeAM6BK7N1CudTwX91OVMPoAXZUnFVM2teuuIZ9KXdil5hyRXu8W1SmGzBw"
+      "sig": "pQKrYDqM4QV38gJRtCO8E9FTWXwP0dlDVdrcDE1ogvKcVGvUAaa-AM-CufCA0ggvK0YXm_e7i3bUiecP_G8NBw"
     }
   ],
-  "t": 1793033652900
+  "t": 1793033652600
 }

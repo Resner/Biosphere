@@ -1,6 +1,6 @@
 # Combat report
 
-Written by `npm run report:combat` (`tools/combat-report.ts`); rules v12. Every fighter flies the autopilot through the real encounter simulation, from fixed start layouts.
+Written by `npm run report:combat` (`tools/combat-report.ts`); rules v13. Every fighter flies the autopilot through the real encounter simulation, from fixed start layouts.
 
 **Scoring.** A kill is the only win (1); an escape or the timeout leaves both standing and is a draw (½), because a fighter that gets away loses nothing.
 
@@ -57,4 +57,4 @@ The winners of those kills gained 337 biomass per minute of fighting (the kill r
 | At 1.5 × the biomass a body wins 70% or more of mirror duels | 100% | met |
 | Winners grow 1.5 × as fast per minute as a forager | 4.5 × | met |
 
-Report hash: `90a0a11a2d32034f` (rules v12).
+Report hash: `ce6e94725f4bc3e2` (rules v13).

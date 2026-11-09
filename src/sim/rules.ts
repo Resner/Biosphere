@@ -1,7 +1,7 @@
 // Rules v11 (ADR 0005): every simulation number, with initial values from docs/DESIGN.md §2-§4.
 // Changing a value that alters outcomes bumps RULES_VERSION and regenerates the goldens.
 
-export const RULES_VERSION = 12;
+export const RULES_VERSION = 13;
 export const TICK_HZ = 30;
 export const DT = 1 / TICK_HZ;
 

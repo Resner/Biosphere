@@ -111,7 +111,11 @@ describe('npm run verify:lineage', () => {
   });
 
   it('exits 2 for nothing to verify', async () => {
-    expect((await run()).code).toBe(2);
+    const usage = await run();
+    expect(usage.code).toBe(2);
+    // From v1.0.0 lineages are permanent (ADR 0074); older bundles answer rules-retired.
+    expect(usage.out).toContain('Lineages are permanent from v1.0.0');
+    expect(usage.out).not.toMatch(/may be renewed/);
     expect((await run(join(dir, 'missing.json'))).code).toBe(2);
     expect((await run(put('junk.json', { hello: 1 }))).code).toBe(2);
     expect((await run(goldenFile, '--keys', join(dir, 'missing-keys.json'))).code).toBe(2);

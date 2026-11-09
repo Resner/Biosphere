@@ -8,7 +8,9 @@ import { migrate } from './schema';
 import { closeSockets, hatch, login, sql, stub, useFakeBeacons } from './test-hub';
 
 // The world renewals (M6c T2, ADR 0040; M9 T2, ADR 0055): migrations 6 and 8 each empty the world
-// once and keep identities; migration 11 (M11 T1, ADR 0061) is the third and also ends the ponds; the hub tells each returning identity once per epoch.
+// once and keep identities; migration 11 (M11 T1, ADR 0061) is the third and also ends the ponds;
+// migration 14 (M14 T1, ADR 0074) is the last, into the permanent world. The hub tells each
+// returning identity once per epoch.
 
 const hex = (n: number): string => n.toString(16).padStart(64, '0');
 
@@ -439,9 +441,9 @@ describe('migration 11', () => {
         });
         const beforeKept = keptRows();
         const from = Date.now();
-        migrate(sql);
+        migrate(sql, 13);
         const after = dump();
-        migrate(sql);
+        migrate(sql, 13);
         const again = dump();
         const ledger = new Ledger(state.storage);
         return {
@@ -520,6 +522,199 @@ describe('migration 11', () => {
   });
 });
 
+describe('migration 14', () => {
+  it('renews the world a last time as epoch 5, keeps identities and the audit trail, and runs once', async () => {
+    const out = await runInDurableObject(
+      env.AUTHORITY.get(env.AUTHORITY.idFromName('renewal-db-14')),
+      async (_o, state) => {
+        const sql = state.storage.sql;
+        const tables = sql
+          .exec<{ name: string }>(
+            "SELECT name FROM sqlite_master WHERE type = 'table' AND name NOT LIKE '\\_cf\\_%' ESCAPE '\\' AND name NOT LIKE 'sqlite\\_%' ESCAPE '\\'",
+          )
+          .toArray();
+        for (const { name } of tables) sql.exec(`DROP TABLE "${name}"`);
+        migrate(sql, 13);
+        const [p1, p2] = [
+          await createIdentity(memoryKeyStore()),
+          await createIdentity(memoryKeyStore()),
+        ];
+        // The epoch-4 world as v0.14.0 left it: both identities told of epoch 4, one with a
+        // pending genesis, an away report and a place out of the water.
+        sql.exec(
+          `INSERT INTO players (id, first_seen, last_seen, hatches, hatch_t, pending, epoch_seen, fight_report, struck_until, left_x, left_y, left_at, left_creature)
+           VALUES (?1, 10, 20, 0, 15, 'c1', 4, 'report', 0, 100.5, 200.5, 19, ?2),
+                  (?3, 11, 21, 2, 16, '', 4, '', 77, NULL, NULL, NULL, NULL)`,
+          p1.playerId,
+          hex(1),
+          p2.playerId,
+        );
+        sql.exec(
+          `INSERT INTO creatures (id, owner, status, seq, hash, genome, active_ms, biomass, energy, health, born_t, died_t)
+           VALUES (?, ?, 'active', 0, ?, 'g', 1000, 150, 8000, 9000, 5, NULL),
+                  (?, ?, 'pending', 0, ?, 'g', 0, 0, 0, 0, 5, NULL)`,
+          hex(1),
+          p1.playerId,
+          hex(1),
+          hex(3),
+          p2.playerId,
+          hex(3),
+        );
+        sql.exec(
+          `INSERT INTO records (creature, seq, hash, req, kind, owner, t, json, owner_sig, auth_sig, key_id)
+           VALUES (?, 0, ?, ?, 'genesis', ?, 5, '{}', NULL, 'sig', 'key')`,
+          hex(1),
+          hex(1),
+          hex(9),
+          p1.playerId,
+        );
+        sql.exec(
+          `INSERT INTO commitments (id, kind, owner, round, req, json, auth_sig, key_id, created, resolved)
+           VALUES ('c1', 'genesis', ?, 100, 'r1', '{}', 'sig', 'key', 5, NULL),
+                  ('w1', 'witness', '', 101, 'r2', '{}', 'sig', 'key', 6, 1)`,
+          p1.playerId,
+        );
+        sql.exec(
+          `INSERT INTO matings (commit_id, owner_a, owner_b, creature_a, creature_b, round, t)
+           VALUES ('m1', ?, ?, ?, ?, 100, 5)`,
+          p1.playerId,
+          p2.playerId,
+          hex(1),
+          hex(3),
+        );
+        sql.exec("INSERT INTO genesis_log VALUES ('r1', ?, ?, 5)", hex(1), p1.playerId);
+        sql.exec(
+          `INSERT INTO encounters (id, pond, start, joins, frames, persisted, fighters, open, t, settlement)
+           VALUES ('e1', 'world', '{}', '[]', '[]', 0, '[]', 0, 6, '{}')`,
+        );
+        sql.exec("INSERT INTO ponds VALUES ('world', 'old-seed', 5, 100, 100, 5)");
+        sql.exec("INSERT INTO beacons VALUES (100, 'beacon-sig')");
+        sql.exec("INSERT INTO keys VALUES ('k1', 'pub', X'00', 1)");
+        sql.exec(
+          "INSERT INTO usage (day, requests, messages, rows_written, db_bytes, by_type) VALUES ('2026-11-08', 10, 200, 30, 4096, '{\"where\":3}')",
+        );
+        sql.exec(
+          "INSERT INTO flags (kind, owner, creature, hash, t) VALUES ('x', ?, ?, ?, 5)",
+          p1.playerId,
+          hex(1),
+          hex(1),
+        );
+        sql.exec(
+          "INSERT INTO attestations (event, position, witness, json, t) VALUES ('ev', 0, ?, '{}', 5)",
+          p2.playerId,
+        );
+        const old = sql
+          .exec<{ seed: string; clock: number; ip_salt: string }>(
+            'SELECT seed, clock, ip_salt FROM world',
+          )
+          .one();
+        const count = (table: string) =>
+          sql.exec<{ n: number }>(`SELECT COUNT(*) AS n FROM ${table}`).one().n;
+        const wiped = [
+          'creatures',
+          'records',
+          'commitments',
+          'matings',
+          'genesis_log',
+          'encounters',
+          'ponds',
+        ];
+        const kept = ['keys', 'usage', 'flags', 'beacons', 'attestations'];
+        const keptRows = () =>
+          Object.fromEntries(
+            kept.map((t) => [t, sql.exec(`SELECT * FROM ${t} ORDER BY 1`).toArray()]),
+          );
+        const dump = () => ({
+          wiped: Object.fromEntries(wiped.map((t) => [t, count(t)])),
+          kept: keptRows(),
+          players: sql
+            .exec(
+              'SELECT id, first_seen, last_seen, hatches, hatch_t, pending, epoch_seen, fight_report, struck_until, left_x, left_y, left_at, left_creature FROM players ORDER BY first_seen',
+            )
+            .toArray(),
+          world: sql.exec('SELECT epoch, reset_at, seed, clock, ip_salt FROM world').toArray(),
+          versions: sql
+            .exec<{ version: number }>('SELECT version FROM migrations ORDER BY version')
+            .toArray()
+            .map((r) => r.version),
+        });
+        const beforeKept = keptRows();
+        const from = Date.now() + 1;
+        // The renewal's own time, so its reset and clock are told apart from the old world's.
+        migrate(sql, 14, from);
+        const after = dump();
+        migrate(sql, 14, from + 5_000);
+        const again = dump();
+        const ledger = new Ledger(state.storage);
+        return {
+          from,
+          old,
+          beforeKept,
+          after,
+          again,
+          ids: [p1.playerId, p2.playerId],
+          hatches: [p1, p2].map((p) => ledger.hatches(p.playerId, Date.now()).left),
+          active: ledger.active(p1.playerId),
+          pending: ledger.pending(p2.playerId),
+          renewal: [p1, p2].map((p) => ledger.renewalDue(p.playerId)),
+        };
+      },
+    );
+    expect(out.after.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    // Keys, the usage meter, flags, beacons and attestations stay as they were.
+    expect(out.after.kept).toEqual(out.beforeKept);
+    // Identities, names' rows and strikes stay.
+    expect(out.after.players.map((p) => [p.id, p.first_seen, p.last_seen, p.struck_until])).toEqual(
+      [
+        [out.ids[0], 10, 20, 0],
+        [out.ids[1], 11, 21, 77],
+      ],
+    );
+    // Creatures, records, commitments (witness ones too), matings, the genesis log, fights and the
+    // world's row are gone.
+    expect(out.after.wiped).toEqual({
+      creatures: 0,
+      records: 0,
+      commitments: 0,
+      matings: 0,
+      genesis_log: 0,
+      encounters: 0,
+      ponds: 0,
+    });
+    // Every bucket is full, nothing points at deleted rows (the pending genesis, the away report,
+    // the place out of the water), and each identity is still to be told about epoch 5.
+    for (const p of out.after.players) {
+      expect(p).toMatchObject({
+        pending: '',
+        fight_report: '',
+        hatches: HATCH_BUCKET,
+        hatch_t: 0,
+        epoch_seen: 4,
+        left_x: null,
+        left_y: null,
+        left_at: null,
+        left_creature: null,
+      });
+    }
+    expect(out.hatches).toEqual([HATCH_BUCKET, HATCH_BUCKET]);
+    expect(out.active).toBeNull();
+    expect(out.pending).toBeNull();
+    expect(out.renewal).toEqual([true, true]);
+    // The one-row world is epoch 5 from the migration's time, with a new seed and clock.
+    expect(out.after.world).toHaveLength(1);
+    const world = out.after.world[0];
+    expect(world?.epoch).toBe(5);
+    expect(world?.reset_at).toBe(out.from);
+    expect(world?.clock).toBe(out.from);
+    expect(world?.clock).not.toBe(out.old.clock);
+    expect(String(world?.seed)).toMatch(/^[A-Za-z0-9_-]{16}$/);
+    expect(world?.seed).not.toBe(out.old.seed);
+    expect(world?.ip_salt).toBe(out.old.ip_salt);
+    // A second run is a no-op.
+    expect(out.again).toEqual(out.after);
+  });
+});
+
 describe('the renewal notice', () => {
   const resetAt = async () =>
     (await sql<{ reset_at: number }>('SELECT reset_at FROM world'))[0]?.reset_at ?? 0;
@@ -535,7 +730,7 @@ describe('the renewal notice', () => {
     const first = await login(id);
     expect(first.life.renewed).toBe(true);
     expect((await sql('SELECT epoch_seen FROM players WHERE id = ?', id.playerId))[0]).toEqual({
-      epoch_seen: 4,
+      epoch_seen: 5,
     });
     const second = await login(id);
     expect(second.life.renewed).toBeUndefined();
@@ -564,7 +759,7 @@ describe('the renewal notice', () => {
     });
     expect(await seen()).toBe(before);
     expect((await login(id)).life.renewed).toBe(true);
-    expect(await seen()).toBe(4);
+    expect(await seen()).toBe(5);
     expect((await login(id)).life.renewed).toBeUndefined();
   });
 

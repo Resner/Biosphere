@@ -31,7 +31,9 @@ const USAGE = `Usage: npm run verify:lineage -- <creature id | bundle.json> [opt
   --keys <file>  check against these authority keys instead of the bundle's
   --save <dir>   write the bundle, fight logs and keys for offline checks
   --json         print the report as JSON
-Exit codes: 0 verified, 1 a problem, 2 nothing to verify.`;
+Exit codes: 0 verified, 1 a problem, 2 nothing to verify.
+Lineages are permanent from v1.0.0 (rules 13, epoch 5); a bundle of rules 12 or older answers
+rules-retired.`;
 
 /** What the command touches outside itself, so tests run it on files and a fake `fetch`. */
 export interface Io {

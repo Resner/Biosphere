@@ -4,9 +4,16 @@ import { rarityOf } from '../src/genome/rarity';
 import { buildCreature } from '../src/genome/stats';
 import { LIVE_SCALES, matureBiomassOf, reachAt, vitalsCap } from '../src/ledger/gates';
 import { createIdentity, type Identity, memoryKeyStore } from '../src/ledger/identity';
+import { encounterStartOf } from '../src/net/encounter-start';
 import { type Born, genomeRefOf } from '../src/net/protocol';
+import { createEncounter, stepFrame } from '../src/sim/encounter/encounter';
+import { aim, aimAt, strikeReach } from '../src/sim/encounter/reach';
+import type { Encounter } from '../src/sim/encounter/types';
+import { angleToSteer } from '../src/sim/input';
+import { atan2 } from '../src/sim/math';
 import { RULES, TICK_HZ } from '../src/sim/rules';
 import { sizeTier } from '../src/sim/size';
+import { drive, IDLE_CODE } from '../tests/encounter-fixture';
 import type { KillLog, LifeLog, Measure } from '../tools/farm-sim';
 import { HOUR, MIN, REPORT_MS } from '../tools/farm-sim';
 import {
@@ -14,11 +21,13 @@ import {
   authority,
   CALM_SEED,
   clock,
+  type EncStart,
   engage,
   join,
   killB,
   lifeOn,
   NEAR,
+  type Plan,
   rehatch,
   snap,
 } from './fight-test-kit';
@@ -183,6 +192,39 @@ export async function mate(a: Actor, b: Actor, children: string[]): Promise<void
 const playedOf = (a: Actor): Promise<number> => authority((o) => playedMs(o, a.id.playerId));
 
 /**
+ * The killer's hunt: it steers at the victim each frame, read from its own copy of the fight
+ * (stepped with the inputs it sent, which the hand clock always lands in time), and slows to a
+ * cruise in reach, so the windup lands whatever its genome's speed; the victim idles. A straight
+ * run can pass a fast body through its victim before the windup lands.
+ */
+function homing(killer: Actor, victim: Actor, pondSeed: string): (begun: EncStart) => Plan {
+  return (begun) => {
+    const built = encounterStartOf(begun, pondSeed);
+    if (!built) throw new Error('the fight’s genomes do not build');
+    const enc: Encounter = createEncounter(built);
+    const k = begun.fighters.findIndex((f) => f.player === killer.id.playerId);
+    const v = begun.fighters.findIndex((f) => f.player === victim.id.playerId);
+    let stepped = 0;
+    let sent: number[] = [];
+    return (f) => {
+      for (; stepped < f; stepped++) stepFrame(enc, sent);
+      const me = enc.fighters[k];
+      const prey = enc.fighters[v];
+      if (!me || !prey) throw new Error('no such fighter');
+      aimAt(me.body, prey.body, false);
+      const near = aim.distance <= 2 * strikeReach(me);
+      const code = drive(angleToSteer(atan2(aim.dy, aim.dx)), near ? 6 : 15, {
+        stance: 'aggressive',
+        target: v,
+      });
+      sent = begun.fighters.map((_, slot) => (slot === k ? code : IDLE_CODE));
+      // `play` sends [killer, victim]: the killer is the first player it was given.
+      return [code, IDLE_CODE];
+    };
+  };
+}
+
+/**
  * `killer` locks `victim` in at 1 hp and kills it. Both must be out of spawn protection and
  * past their reports. The victim falls back to its ancestor (restored) or a new hatch.
  */
@@ -208,7 +250,7 @@ export async function slay(
   await advance(FIGHT.lockAnswerMs);
   const [start] = await Promise.all([nextOf(killer.c, 'enc-start'), nextOf(victim.c, 'enc-start')]);
   const worth = start.fighters.find((f) => f.player === victim.id.playerId)?.worth ?? 1;
-  const { end } = await killB(killer, victim, start);
+  const { end } = await killB(killer, victim, start, homing(killer, victim, killer.pond.seed));
   const settled = end.settlement?.settlement.results.find((r) => r.player === killer.id.playerId);
   killer.free = true;
   victim.free = true;

@@ -1,0 +1,33 @@
+{
+  "13": {
+    "src/genome/__golden__/describe.json": "eda58d194aa47cbc920f62b178363234cf875cedb7c9ef0dc67b66f40c7eece2",
+    "src/genome/__golden__/develop.json": "bc1d66f012c77878bc050663e32cab5099d1c0c5089214b8fc59d78127891297",
+    "src/genome/__golden__/express.json": "5f5bf64ded5633559d7b5146a0877a0835c264c4a3118396b636382543ed251d",
+    "src/genome/__golden__/genesis.json": "94564687554ba1c7d907deb26d219f397d684016d303f0c2f09993dc1935d9e4",
+    "src/genome/__golden__/genome-hash.json": "2ac633042c586cfdb65debd76f15e104d94c39369649a65deb2dc4bed5db534d",
+    "src/genome/__golden__/inherit.json": "6e57f0cca189741d517f4a20b18cd8f3b6ad21c682de9263e6dbd02e14907638",
+    "src/genome/__golden__/offspring.json": "66d7df93f4cbc641705033dbd39fc7617754e0b67bfffe5a3f4cbd1861f6ba3d",
+    "src/genome/__golden__/rarity.json": "24afe072fe89e9ae02f8c707184d5eceb90c4582a094b5e2c40c621f0816ec32",
+    "src/genome/__golden__/stats.json": "33b10997569a07c5d0b3fdc0f2fc0b516ee8dbcf1ce0cc5d4fbe706394eab5b9",
+    "src/genome/__golden__/tournament.json": "70ac60c21eb2ff424ce2d8ca65021d736c67d881134805a18ebbfabf2a79a362",
+    "src/ledger/__golden__/growth-reach.json": "89e8100e36f4c63fcdf402fdf5002b117d2e6c52563dc45b69a270b57a9e1f09",
+    "src/ledger/__golden__/kinds.json": "0d29e9d041e831fd0a49ad0176a1ebc67b96c374329acdae3f3dcb8ffa3d1e0c",
+    "src/ledger/__golden__/lineage.json": "dd803dfe29498a18912a312b9f4a38797b89e612bfa8c3df295940d48946d86a",
+    "src/ledger/__golden__/records.json": "4a44b723463624f101ada6ead62666b571517675a3f89828930652ed464b8f1e",
+    "src/ledger/__golden__/settlement.json": "3f7c43eac457ed4c4678bf720cc764fa7c83dc35634cd53565a81c618f4e9af5",
+    "src/sim/__golden__/body-forage.json": "eb6f9e61a5de177d25d5fce8cd4c6e0423c6d327c57fda9e160f0e9d873c37af",
+    "src/sim/__golden__/encounter-approach.json": "3a82b8665e1c5a6fcddc5a6811be4312b78571c5876edc9d127f88f4dff6714a",
+    "src/sim/__golden__/encounter-autopilot.json": "1c7c3344749f370ef4b16518d4603f5e667597889ce623ab7df5871ab0ae2e44",
+    "src/sim/__golden__/encounter-duel.json": "41eaae0152f793d97f9ac58a0b66d0694e6efd2adff30c9022f14e34316bb86a",
+    "src/sim/__golden__/encounter-egg.json": "c821c60c0138d60b5559d2d3bd3a2b2866aaa64b7cfe7555b020f75ca35cb17d",
+    "src/sim/__golden__/encounter-escape.json": "d7b267c034d95f82b181c3e645182b505072ba2c4e383591c436a7b22958c6b8",
+    "src/sim/__golden__/encounter-join.json": "64ff8578bb22d8ef31966b19ae1cd47dc24c775d83dc62ea01d707f351cfe2c8",
+    "src/sim/__golden__/encounter-plume.json": "721dd8bf0f52cbed266b60208a8553d566b51b04e8b774287282927073dd30b0",
+    "src/sim/__golden__/forage-route.json": "d6502a8a1bfc109b1a63f65655fff88d08120ae54e3fa8adbd0ba0c30616bc11",
+    "src/sim/__golden__/hazard-dash.json": "f12855f670d35a83fd3f8d80a41f9665b1d721e4f9071693e4f22f2af5ef2d1e",
+    "src/sim/__golden__/idle-starve.json": "694bbde9b42e88e8708c1ec4224ef8cd79a62b90ef3252260441a7ac874a8931",
+    "src/sim/__golden__/mate.json": "eb4bc81f37684d8c661114bbe714f94aafe8ba1b2c651b6bbd1ad74f505190c8",
+    "src/sim/__golden__/math.json": "62a0dfbe64b52c2dba13491bfd86ffbc3d90b098f18fe660367ce9b11027dec6",
+    "src/sim/__golden__/old-age.json": "f82ad02c0e2f9d56503af61597847f403f47da5b95e9d4f1146163c31d2371b1"
+  }
+}
