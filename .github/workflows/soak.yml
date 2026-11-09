@@ -1,0 +1,47 @@
+name: Soak
+
+# The one-hour soak (M14 T14, `npm run soak -- --full`): 200 headless life clients and two Chromium
+# pages play for an hour against the Worker under `wrangler dev` on the free plan's own limits, with a
+# sample every minute. It fails when a check fails (memory, CPU per message, per-player costs, the
+# pages' heap, resources and frame times, consistency, bundles). Release does not run it; from v1.0
+# the milestone close needs the latest run on main's head to be green (`milestone` skill, step 1).
+on:
+  workflow_dispatch:
+  schedule:
+    - cron: '0 3 * * 0'
+
+permissions:
+  contents: read
+
+concurrency:
+  group: soak
+  cancel-in-progress: false
+
+jobs:
+  soak:
+    runs-on: ubuntu-latest
+    timeout-minutes: 90
+    steps:
+      - uses: actions/checkout@v7
+      - uses: actions/setup-node@v7
+        with:
+          node-version-file: package.json
+          package-manager-cache: false
+      - run: npm ci
+      - run: npm run build
+      - run: npm run e2e:setup --if-present
+      - name: Add swap
+        run: |
+          sudo fallocate -l 8G /mnt/soak.swap
+          sudo chmod 600 /mnt/soak.swap
+          sudo mkswap /mnt/soak.swap
+          sudo swapon /mnt/soak.swap
+      - name: Play for an hour
+        run: npm run soak -- --full --out soak-report
+      - name: Keep the report
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: soak-report
+          path: soak-report/
+          retention-days: 30

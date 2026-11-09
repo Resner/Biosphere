@@ -33,15 +33,14 @@ export async function fetchInfo(f: typeof fetch, hosts: readonly string[] = DRAN
   throw new Error('no drand host served /info');
 }
 
-/** The newest published round minus a margin, and the 600 rounds up to it; each one verified. */
-export async function recordRounds(
+/** The `count` rounds from `first`, each one verified. */
+export async function recordFrom(
   f: typeof fetch,
-  count = RECORDED_ROUNDS,
+  first: number,
+  count: number,
   hosts: readonly string[] = DRAND_HOSTS,
 ): Promise<RoundsFixture> {
-  const latest = await fetchBeacon('latest', f, hosts);
-  const last = latest.round - 2;
-  const first = last - count + 1;
+  const last = first + count - 1;
   const beacons: RoundsFixture['beacons'] = [];
   for (let from = first; from <= last; from += BATCH) {
     const rounds = Array.from({ length: Math.min(BATCH, last - from + 1) }, (_, i) => from + i);
@@ -49,3 +48,16 @@ export async function recordRounds(
   }
   return { first, last, beacons };
 }
+
+/** The newest published round minus a margin, and the 600 rounds up to it; each one verified. */
+export async function recordRounds(
+  f: typeof fetch,
+  count = RECORDED_ROUNDS,
+  hosts: readonly string[] = DRAND_HOSTS,
+): Promise<RoundsFixture> {
+  const latest = await fetchBeacon('latest', f, hosts);
+  return recordFrom(f, latest.round - 2 - count + 1, count, hosts);
+}
+
+/** The soak's rounds (M14 T14): the same first round as `rounds.json`, 80 minutes of them. */
+export const SOAK_ROUNDS = 1_600;

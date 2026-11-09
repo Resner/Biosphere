@@ -105,7 +105,7 @@ function workerd(root: number): Proc[] {
  * process on the machine blocks the event loop that carries the clients, so it runs again only
  * when a process it knew has gone.
  */
-class RuntimeWatch {
+export class RuntimeWatch {
   private pids: number[] = [];
   constructor(private readonly root: number) {}
 

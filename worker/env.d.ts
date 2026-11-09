@@ -6,6 +6,8 @@ interface Env {
   CF_TURN_KEY_API_TOKEN?: string;
   /** `fixture` in `wrangler.e2e.jsonc`: that entry serves recorded drand rounds (the production bundle has no fixture code). */
   DRAND_SOURCE?: string;
+  /** `soak` in the E2E entry serves 80 minutes of recorded rounds instead of 30 (`tests/fixtures/drand/soak-rounds.json`); read by that entry only. */
+  DRAND_ROUNDS?: string;
   /** A fraction in (0, 1] that shortens every lifespan for E2E; honoured only together with `DRAND_SOURCE=fixture`. */
   LIFESPAN_SCALE?: string;
   /** A fraction in (0, 1] that shortens maturity, cooldown and the repeat window for E2E; fixture mode only (ADR 0021). */

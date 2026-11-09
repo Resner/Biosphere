@@ -124,7 +124,7 @@ export interface RenderInfo extends PostInfo {
   /** Particles drawn across the three layers. */
   particles: number;
   /** GPU resources alive in the renderer. */
-  memory: { geometries: number; textures: number };
+  memory: { geometries: number; textures: number; programs: number };
   /** The caustics' strength at the camera (M6 T17, `sunlight`); `rays` is the god rays' drawn. */
   caustic: number;
   /** Eggs drawn this frame, the player's and its peers' (M6 T20). */
@@ -725,7 +725,7 @@ export class GameScene {
   }
 
   info(): RenderInfo {
-    const { render, memory } = this.renderer.info;
+    const { render, memory, programs } = this.renderer.info;
     return {
       calls: render.calls,
       triangles: render.triangles,
@@ -741,7 +741,11 @@ export class GameScene {
       vertices: this.body.vertices(),
       pixelRatio: this.renderer.getPixelRatio(),
       particles: this.far.drawnCount + this.mid.drawnCount + this.near.drawnCount,
-      memory: { geometries: memory.geometries, textures: memory.textures },
+      memory: {
+        geometries: memory.geometries,
+        textures: memory.textures,
+        programs: programs?.length ?? 0,
+      },
       caustic: this.caustic,
       eggs: this.eggs.count(),
       veil: this.veil.visible ? (this.veil.material as THREE.MeshBasicMaterial).opacity : 0,

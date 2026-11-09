@@ -504,11 +504,14 @@ export class LifeClient {
       for (let attempt = 0; attempt < 5 && !this.stopped && this.hub === hub; attempt++) {
         const view = flow.view();
         let outcome: Awaited<ReturnType<LifeFlow['hatch']>>;
-        if (view.status === 'dead' && view.fallback?.pending && this.pending) {
+        // A fresh connection to a player whose creature ended while it was away says the same as a death:
+        // no life and a way back (`missedDeath`); asking for a genesis then is refused (`has-lineage`).
+        const ended = view.status !== 'playing' && view.fallback !== null;
+        if (ended && view.fallback?.pending && this.pending) {
           outcome = await flow.promote(this.pending);
           this.child = outcome.kind === 'recorded';
           if (outcome.kind === 'recorded') this.stats.promotes++;
-        } else if (view.status === 'dead' && view.fallback?.ancestor) {
+        } else if (ended && view.fallback?.ancestor) {
           outcome = await flow.restore(view.fallback.ancestor);
           this.child = false;
           if (outcome.kind === 'recorded') this.stats.restores++;
@@ -843,7 +846,7 @@ export class LifeClient {
     const hub = this.hub;
     if (!fight || !hub || !this.scripted) return;
     const due = Math.floor((t - fight.at) / FRAME_MS) + 2;
-    for (let f = Math.max(0, fight.sentTo + 1); f <= due && f < fight.sentTo + 8; f++) {
+    for (let f = Math.max(0, fight.sentTo + 1); f <= due && f < fight.sentTo + 4; f++) {
       const i = encodeFrameInput({
         steer: Math.floor(this.rng.next() * 256),
         throttle: 15,
