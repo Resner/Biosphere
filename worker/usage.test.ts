@@ -125,6 +125,19 @@ describe('UsageMeter', () => {
     });
   });
 
+  it('keeps a request count that was set across an eviction, lowered or raised', async () => {
+    await runInDurableObject(stub(), (_o, state) => {
+      const sql = state.storage.sql;
+      sql.exec('DELETE FROM usage');
+      const first = new UsageMeter(sql, () => 0);
+      first.setRequests(T0, 99_000);
+      expect(new UsageMeter(sql, () => 0).requests(T0 + 1000)).toBe(99_000);
+      // Refilled between two flushes, then the object is evicted: the refill must not be lost.
+      first.setRequests(T0 + 2000, 0);
+      expect(new UsageMeter(sql, () => 0).requests(T0 + 3000)).toBe(0);
+    });
+  });
+
   it('records the database size once a day, with the first flush of the day (ADR 0056)', async () => {
     await withMeter((meter, rows) => {
       meter.message(T0);
