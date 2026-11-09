@@ -249,13 +249,28 @@ test('four players find each other across a world, fight a witnessed fight 30,00
     await expect
       .poll(() => helloed(c), { message: 'C links A alone, 30,000 wu out', timeout: 60_000 })
       .toEqual([idA]);
-    // The directory places them far from the spawn, in leaves of their own.
-    const view = await directory(request, HUB);
-    const member = (id: string) => view.members.find((m) => m.id === id);
-    for (const id of [idA, idC]) {
-      const m = member(id);
-      expect(m, `the directory holds ${id}`).toBeDefined();
-      expect(Math.hypot((m?.x ?? 0) - CENTRE, (m?.y ?? 0) - CENTRE)).toBeGreaterThan(FAR_WU * 0.8);
+    // The directory places them far from the spawn, in leaves of their own. It is the hub's view,
+    // taken from the pages' reports, so each member is waited for; a failure names both views.
+    const farFrom = (m: { x: number; y: number } | undefined) =>
+      m ? Math.hypot(m.x - CENTRE, m.y - CENTRE) : 0;
+    for (const [id, page] of [
+      [idA, a],
+      [idC, c],
+    ] as const) {
+      await expect
+        .poll(
+          async () => farFrom((await directory(request, HUB)).members.find((m) => m.id === id)),
+          { message: `the directory places ${id} far from the spawn`, timeout: 30_000 },
+        )
+        .toBeGreaterThan(FAR_WU * 0.8)
+        .catch(async (error) => {
+          const member = (await directory(request, HUB)).members.find((m) => m.id === id) ?? null;
+          const there = await at(page);
+          throw new Error(
+            `${(error as Error).message}\npage ${JSON.stringify({ x: there.x, y: there.y })}, directory ${JSON.stringify(member)}`,
+            { cause: error },
+          );
+        });
     }
 
     // The swim crossed zones: the deep and the abyss drain health (E2E main: C bled out at 827 m

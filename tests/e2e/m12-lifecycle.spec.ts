@@ -175,6 +175,10 @@ async function reloadBack(a: Player, b: Player, id: string): Promise<boolean> {
     .catch((error) => {
       throw new Error('B never went back into the fight after its click', { cause: error });
     });
+  // The click leaves the cursor on the button, which steers B away (E2E main: B swam 8,300 wu off
+  // after the final teleport and could not link), so the cursor is parked on the cell, as `hatch` does.
+  const { width, height } = b.page.viewportSize() ?? { width: 960, height: 540 };
+  await b.page.mouse.move(width / 2, height / 2);
   const back = (await state(b.page)).encounter;
   expect(back?.id, 'B is back in the same fight').toBe(id);
   return back?.over === false;
