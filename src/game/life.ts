@@ -363,7 +363,11 @@ export class LifeFlow {
         // Kept until a hatch takes it: a reopened tab may hear it before the shell asks.
         const own = this.own(msg.commit.commitment);
         if (own) this.heldGenesis = msg;
-        if (this.status === 'requesting' || this.status === 'awaiting' || (own && ADOPTS.has(this.status))) {
+        if (
+          this.status === 'requesting' ||
+          this.status === 'awaiting' ||
+          (own && ADOPTS.has(this.status))
+        ) {
           this.status = 'verifying';
           this.arrived = msg.genome;
         }
@@ -700,7 +704,9 @@ export class LifeFlow {
   /** A genesis commitment of this player's: the hub's word about one of others' is not this page's. */
   private own(commitment: { kind: string; owner: string }): boolean {
     const identity = this.deps.identity() as Identity | null;
-    return commitment.kind === 'genesis' && identity !== null && commitment.owner === identity.playerId;
+    return (
+      commitment.kind === 'genesis' && identity !== null && commitment.owner === identity.playerId
+    );
   }
 
   private forgetGenesis(): void {

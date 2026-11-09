@@ -348,6 +348,8 @@ export class PlayUi {
 
   updateHatchNote(): void {
     const { app, hatchNote } = this;
+    // A genesis the hub named in flight waits as its egg, whatever this page asked (ADR 0076).
+    app.life.awaitGenesis();
     app.screens.setResume(app.resume.offered !== null && app.screen === 'title');
     const status = app.flow.state;
     const waiting = app.life.hatching && (status === 'awaiting' || status === 'verifying');

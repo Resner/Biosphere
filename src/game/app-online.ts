@@ -6,7 +6,7 @@ import { consumedParts } from '../net/claims';
 import type { PondClock } from '../net/clock';
 import type { FightMsg, HubStatus, LifeMsg, Welcome } from '../net/hub-client';
 import { type SnapshotFields, type SnapshotMarks, snapshotOf } from '../net/pond-sync';
-import { encodeSnapshot, type PeerEvent, type SignedSnap } from '../net/protocol';
+import { encodeSnapshot, type PastLife, type PeerEvent, type SignedSnap } from '../net/protocol';
 import { ProxyReceiver, ProxyRelay } from '../net/proxy-snaps';
 import { SignedSnaps } from '../net/signed-snaps';
 import { dropCarrion } from '../sim/carrion';
@@ -19,6 +19,7 @@ import { BUSY_TEXT } from './crowd-view';
 import { pick } from './dom';
 import { CandidateSigner, lockState, SpawnShield } from './engage';
 import { fightEnded } from './fight-end';
+import { missedDeath } from './missed-death';
 import { type CreatureNow, connectOnline, type OnlineSession } from './online';
 import { offlineChip, statusText, switchPond } from './online-config';
 import { PondFood } from './pond-food';
@@ -244,6 +245,7 @@ export class OnlineWiring {
           if (msg.t === 'history') {
             app.history.show(msg.lives, Date.now());
             app.awayReport.history(msg.lives);
+            this.missedDeath(msg.lives);
           }
           // Past lives are asked for once the hub has said who the player is, and after each death.
           if (msg.t === 'life' || msg.t === 'died') link.send({ t: 'history' });
@@ -391,6 +393,29 @@ export class OnlineWiring {
       app.offspring.eaten();
       app.flow.eggEaten();
     }
+  }
+
+  /**
+   * A tab that opens after its creature died, with a child or an ancestor to fall back on, shows
+   * that death's screen with the choices (ADR 0076), as if it had seen it.
+   */
+  private missedDeath(lives: readonly PastLife[]): void {
+    const { app } = this;
+    const view = app.flow.view();
+    const summary = missedDeath(
+      {
+        screen: app.screen,
+        demo: app.session.demo,
+        idle: !app.life.starting,
+        status: view.status,
+        fallback: view.fallback,
+      },
+      lives,
+    );
+    if (!summary) return;
+    app.screen = 'dead';
+    app.screenShownAt = performance.now();
+    app.screens.showDeath(summary);
   }
 
   /** Connects (or reconnects under a new name) once the identity is loaded. */
