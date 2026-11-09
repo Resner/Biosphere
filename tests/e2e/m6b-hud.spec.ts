@@ -230,7 +230,10 @@ test('the menu holds everything the play screen dropped, and steering carries on
   await expect(panel).toBeVisible();
   await page.getByTestId('menu-settings').click();
   await expect(page.getByTestId('settings')).toBeVisible();
-  await page.getByTestId('settings-close').click();
+  // A closed panel leaves no focus in itself: Esc must reach the menu under it, not the hidden panel.
+  await page.getByTestId('settings-close').focus();
+  await page.getByTestId('settings-close').evaluate((el) => (el as HTMLElement).click());
+  expect(await page.evaluate(() => document.activeElement === document.body)).toBe(true);
   await expect(page.getByTestId('settings')).toBeHidden();
   await page.keyboard.press('Escape');
   await expect(panel).toBeHidden();

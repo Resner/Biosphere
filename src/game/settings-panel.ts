@@ -98,5 +98,12 @@ export class SettingsPanel {
 
   close(): void {
     this.panel.hidden = true;
+    // Focus left on a hidden button lingers until the next frame, and Esc pressed in that gap would
+    // reach this panel's own key handler (which stops it) instead of the menu underneath.
+    if (
+      this.panel.contains(document.activeElement) &&
+      document.activeElement instanceof HTMLElement
+    )
+      document.activeElement.blur();
   }
 }

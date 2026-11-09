@@ -93,9 +93,12 @@ const sampled = (page: Page): Promise<Held> =>
 const instanceOf = (p: Player) =>
   p.page.evaluate(() => (window.__bs as BsHook).state().net.instance.n);
 
-/** Every pair of `ps` holds a link past its hello. */
+/**
+ * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
+ * and position, since the one page that timed out first says nothing of the others.
+ */
 async function allLinked(ps: Player[], message: string, timeout = 60_000): Promise<void> {
-  await Promise.all(
+  const results = await Promise.allSettled(
     ps.map((p) =>
       linksAre(
         p,
@@ -105,6 +108,33 @@ async function allLinked(ps: Player[], message: string, timeout = 60_000): Promi
       ),
     ),
   );
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (!failed) return;
+  const all = await Promise.all(
+    ps.map(async (p) => {
+      const { net, spawn, ride, screen } = await state(p.page);
+      const at = await playerOf(p.page).catch(() => null);
+      return {
+        id: p.id.slice(0, 6),
+        screen,
+        spawn,
+        ride,
+        at: at ? { x: Math.round(at.x), y: Math.round(at.y), radius: at.radius } : null,
+        n: net.instance.n,
+        crowded: net.crowded,
+        known: net.known,
+        links: net.links.map((l) => ({
+          id: l.id.slice(0, 6),
+          class: l.class,
+          open: l.open,
+          hello: l.hello,
+        })),
+      };
+    }),
+  );
+  throw new Error(`${(failed.reason as Error).message}\nevery player: ${JSON.stringify(all)}`, {
+    cause: failed.reason,
+  });
 }
 
 /**
@@ -423,7 +453,30 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     await place(b, hx, hy + pair);
     await place(c, hx - pair, hy);
     await place(d, hx + pair, hy);
-    await allLinked(players, 'the four link in open water', 90_000);
+    // Each one stands where it was put, and stays there: a page that has moved on (a late
+    // settlement, a hub spawn) would sit out of the others' reach, and the failure says which.
+    const put = [
+      ['A', a, hx, hy],
+      ['B', b, hx, hy + pair],
+      ['C', c, hx - pair, hy],
+      ['D', d, hx + pair, hy],
+    ] as const;
+    const stand = async (when: string) => {
+      for (const [name, p, dx, dy] of put) {
+        const at = await playerOf(p.page);
+        expect(
+          Math.hypot(at.x - (CENTRE + dx), at.y - (CENTRE + dy)),
+          `${name} stands where it was put ${when}: at ${Math.round(at.x)},${Math.round(at.y)}, put at ${CENTRE + dx},${CENTRE + dy}`,
+        ).toBeLessThan(400);
+      }
+    };
+    await stand('right after the teleport');
+    await allLinked(players, 'the four link in open water', 90_000).catch(async (error) => {
+      await stand('when they failed to link').catch((e) => {
+        throw new Error(`${(error as Error).message}\n${(e as Error).message}`, { cause: error });
+      });
+      throw error;
+    });
     for (const p of players) expect(await instanceOf(p), 'the open water').toBe(0);
 
     // No page ever held more links than its cap allows.
