@@ -361,16 +361,18 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Done: `controls.ts` (`CONTROLS`, with `after` for T then 1–6), `help-text.ts`, `help-panel.ts` (`Help` pure over a `HelpView`); each key handler exports its key list (`APP_KEYS`, `MOVE_KEYS`, `FIGHT_KEYS`, `WHEEL_KEYS`, `EMOTE_KEYS`) for the key-map test. "How to play" sits beside Hatch, hidden while T7's `title-help` shows.
   - Gotcha: the code reads `KeyboardEvent.key`, not `.code` as Out of scope says, so WASD follows the layout's letters; in play focus returns nowhere on close, so Space stays the dash.
 
-- [ ] T9 Colour never alone [opus] (after T7, T8)
+- [x] T9 Colour never alone [opus] (after T7, T8)
   - Steps:
     1. **The inventory** (`src/game/cue-channels.ts`): every cue that carries meaning on screen (the four bars, low energy, damage hits, the size outlines, the "F" glyph, the target ring, windups, blocks, the mate heart and "ready", pings, emotes, the egg's tier colours and the result card's stars, rarity on cards, depth zones on the gauge and the minimap, minimap players, the hazard icons, the witness mark, away fighters, the queue card, the status chip, the guide), each with its colours (the code constants it draws with) and its other channels: shape, pattern, icon, text, motion, position or sound.
-    2. **Second channels where only colour carries it.** At least: a small glyph at the left of each bar (a heart for health, a bolt for energy, outward arrows for size, an hourglass for life), drawn in SVG like the HUD's icons, within the HUD's 6%; and any cue the inventory finds with colour alone.
+    2. **Second channels where only colour carries it.** At least: a small glyph at the left of each bar (a cross for health, a bolt for energy, outward arrows for size, an hourglass for life; the health bar keeps its cross because the heart already means "ready to mate" on the chip beside the bars, in the edge marks and on the minimap), drawn in SVG like the HUD's icons, within the HUD's 6%; and any cue the inventory finds with colour alone.
     3. **Pairs that must stay apart** (`CONFUSABLE` in the same file): the bars' fills, low against normal energy, health against damage, each pair of ping kinds, each pair of rarity tiers, each pair of depth zones on the gauge. Each pair's colours keep a CIEDE2000 distance of at least 12 under protanopia, deuteranopia and tritanopia (Machado, Oliveira and Fernandes 2009, severity 1), or the pair differs in a non-colour channel and the test says so.
     4. DESIGN §10 (the bars' glyphs, the rule), `.claude/rules/game.md`.
   - Acceptance (tests first):
     - **Unit tests**: every cue in the inventory has a visual channel that isn't colour; every `CONFUSABLE` pair passes under the three simulations or names its other channel; the simulation leaves greys unchanged under all three deficiencies (within 0.5 of 255) and applies the paper's severity-1 matrices in linear light (sRGB decoded, then encoded), checked against three colours worked by hand in the test.
     - **`m14-colour.spec.ts`** (no hub, `?genome=` cells and `debug.setRemotes`): the HUD with low energy and a damage hit, a bigger and a smaller remote with their outlines, the minimap with each ping kind, a rare result card. Each screenshot is simulated under the three deficiencies in Node and attached beside the original (`m14-colour-*`); the bar glyphs are present; the HUD stays within 6% of the screen.
   - Notes: no colour-blind palette setting: every cue carries a second channel, which serves everyone. A colour may move only within DESIGN's look (the organ and glass colours are not cues and stay).
+  - Done: `cue-channels.ts` (29 cues, colours as the literals their files write; 12 `CONFUSABLE` pairs lean on glyphs, words, rings or order), `colour-vision.ts`; a hit cracks the health cross and low energy hollows the bolt, both still under Reduce motion; `debug.showCard()`.
+  - Gotcha: a hit's flash outlasts no screenshot, so `m14-colour` keeps the shot whose decoded health glyph wears #ff9a8a; `tests/e2e/png.ts` is a Node PNG codec for any spec that needs one.
 
 ### Balance
 
@@ -418,7 +420,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Room for 200
 
-- [ ] T12 Room for a crowd: the headroom cap [opus] (after none)
+- [x] T12 Room for a crowd: the headroom cap [opus] (after none)
   - Steps:
     1. **The caps** (ADR 0075): `worker/capacity.ts`'s `derive()` gives the free plan 80% of one object's capacity (621 at the measured 777); the paid plan keeps its money cap (590).
     2. **`headroomSeats(hub, now)`** (`worker/admission.ts`): the smallest, over request-equivalents, rows written and rows read, of ⌊(the plan's daily allowance − today's use) ÷ (that item's per-player-hour cost from `ratesOf(MEASURED, ASSUMPTIONS)` × `HEADROOM_H`)⌋. `admission` answers `full` when the seats held (seated and away fighters) reach the smaller of the session cap and the headroom. The budget, storage and TURN guards, the seat back and `MAX_SESSIONS` are unchanged.
@@ -428,7 +430,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     6. DESIGN §8, `.claude/rules/worker.md`, ADR 0071's numbers stay as history.
   - Acceptance (tests first). Hub tests with a mocked `Date.now`, on the free plan unless said:
     - **The arithmetic** (unit, on the committed `MEASURED`): a fresh day's headroom is above 621, so the cap binds; with rows written at 60% of the allowance, the headroom is ⌊40,000 ÷ (rows written per player-hour × 2)⌋.
-    - **Seating**: with today's rows written pushed (`rowCount`) so the headroom is 20 as the sessions sign in, 20 seated sessions hold and the 21st waits with `why: 'full'`; one seated session leaving doesn't seat it while the headroom still binds; once enough have left, it is seated.
+    - **Seating**: with today's request-equivalents set (under a `DAILY_REQUEST_BUDGET`) so the headroom is 20 as the sessions sign in, 20 seated sessions hold and the 21st waits with `why: 'full'`; with the headroom then at 18, a seated session leaving doesn't seat it while the headroom still binds; once enough have left, it is seated. (Rows written can't put the free plan's headroom under about 76 seats before the budget guard's 90% holds, so the hub tests bind it through the requests.)
     - **Seats kept**: no seated session is dropped when the headroom falls below the seats held; a reload within 2 minutes is seated past it.
     - **The wait**: with the headroom 3 below the seats held and departures every 20 s, the first in line hears the next seat's wait plus 3 more intervals: 4 × 20 s less the time since the last seat freed (± 1).
     - **Plans**: the paid plan seats 590 on a fresh day; `MAX_SESSIONS` still overrides the cap (the headroom still applies).
@@ -436,6 +438,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `docs/CAPACITY.md` regenerates byte for byte (the existing test), and its new section's numbers come from the model.
     - Every existing admission test and `m13-*` E2E passes (their `MAX_SESSIONS` caps sit far under the headroom).
   - Notes: the headroom counts to 100% of an allowance, not to the 90% guard: the guard's 10% is what the crowd already seated plays on.
+    - Done: `derive()` caps the free plan at 621; `headroomOf`/`crowdHours` (`capacity.ts`) feed `headroomSeats`, the wait, `admission.headroom` and CAPACITY.md's "Crowds from a fresh day". Gotcha: on the free plan the budget guard holds before the headroom drops under ~76, so hub tests bind it via `DAILY_REQUEST_BUDGET` (`headroomTo`).
 
 - [ ] T13 Life clients: headless players that hatch, mate, fight, die and drop (after T3)
   - Steps:

@@ -94,6 +94,27 @@ const instanceOf = (p: Player) =>
   p.page.evaluate(() => (window.__bs as BsHook).state().net.instance.n);
 
 /**
+ * Keeps the pages' creatures fed from here on. These creatures never eat, so on a slow runner they
+ * starve before the last step (E2E main: all four pages on the death screen), and a dead creature
+ * leaves the directory, so nobody could link to it. Called once the crowd has merged, so it changes
+ * nothing the crowd steps see: it only keeps the living alive through the final gathering.
+ */
+const feedAll = (ps: Player[]) =>
+  Promise.all(
+    ps.map((p) =>
+      p.page.evaluate(() => {
+        const debug = (window.__bs as BsHook).debug;
+        const feed = () => {
+          debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+          debug?.setHealth(Number.MAX_SAFE_INTEGER);
+        };
+        feed();
+        window.setInterval(feed, 2000);
+      }),
+    ),
+  );
+
+/**
  * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
  * and position, since the one page that timed out first says nothing of the others.
  */
@@ -175,6 +196,10 @@ async function reloadBack(a: Player, b: Player, id: string): Promise<boolean> {
     .catch((error) => {
       throw new Error('B never went back into the fight after its click', { cause: error });
     });
+  // The click leaves the cursor on the button, which steers B away (E2E main: B swam 8,300 wu off
+  // after the final teleport and could not link), so the cursor is parked on the cell, as `hatch` does.
+  const { width, height } = b.page.viewportSize() ?? { width: 960, height: 540 };
+  await b.page.mouse.move(width / 2, height / 2);
   const back = (await state(b.page)).encounter;
   expect(back?.id, 'B is back in the same fight').toBe(id);
   return back?.over === false;
@@ -442,6 +467,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       .toBe(0);
 
     // The four come together in open water (no crowd now: 24 links) and link.
+    await feedAll(players);
     await Promise.all(
       players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
     );

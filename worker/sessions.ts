@@ -9,7 +9,7 @@ import {
   SDP_MAX_BYTES,
 } from '../src/net/protocol';
 import { isProfane } from '../src/net/text';
-import { admission, etaMoved, etaS, iceFor } from './admission';
+import { admission, etaMoved, etaS, iceFor, seatsPastHeadroom } from './admission';
 import { awayDue } from './away';
 import { flushFight, resend } from './fights';
 import { unsaved } from './life';
@@ -134,9 +134,10 @@ export function announceQueue(hub: Hub): void {
   if (line.length === 0) return;
   const now = Date.now();
   const why = admission(hub, now) ?? 'full';
+  const past = seatsPastHeadroom(hub, why, now);
   [...line].forEach((entry, i) => {
     const place = i + 1;
-    const eta = etaS(hub, why, place, now);
+    const eta = etaS(hub, why, place, now, past);
     if (entry.place === place && entry.why === why && !etaMoved(entry.etaS, eta)) return;
     const session = sessionOf(entry.ws);
     if (session?.phase !== 'queued') return;
