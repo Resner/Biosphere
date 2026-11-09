@@ -1,6 +1,7 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
 import type { BalanceRun } from '../tests/balance';
+import { heavyTest } from '../tests/heavy';
 import { archetypeRows, balanceReport, GATE, gates, mergeRuns, topBodies } from './balance-report';
 
 const sample = JSON.parse(
@@ -69,5 +70,11 @@ describe('the balance report', () => {
       new Set(sample.bodies.map((b) => b.id)),
     );
     expect(balanceReport(merged)).toBe(balanceReport(sample));
+  });
+
+  heavyTest('is what the committed report says', () => {
+    const read = (name: string) =>
+      readFileSync(new URL(`../docs/perf/${name}`, import.meta.url), 'utf8');
+    expect(balanceReport(JSON.parse(read('balance.json')) as BalanceRun)).toBe(read('balance.md'));
   });
 });

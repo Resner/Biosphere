@@ -28,8 +28,8 @@ try {
   const genesis = Number(flag('genesis') ?? B.GENESIS_BODIES);
   const lives = Number(flag('lives') ?? B.LIVES);
   const shard = flag('shard');
-  const bodies = B.population(variants, genesis);
   if (shard !== undefined) {
+    const bodies = B.population(variants, genesis);
     const [i, n] = shard.split('/').map(Number);
     const mine = bodies.filter((_, k) => k % n === i - 1);
     const done = mine.map((body, k) => {

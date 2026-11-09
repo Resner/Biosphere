@@ -100,20 +100,22 @@ const inZone = (world: World, zone: Zone, x: number, y: number): boolean => {
   return depth >= lo && depth <= hi;
 };
 
+const ANCHOR_STEP = 256;
+/** The offsets (wu) around an anchor that must all lie in its zone. */
+const AROUND = [-1, 0, 1].flatMap((i) => [-1, 0, 1].map((j) => [i * 300, j * 300] as const));
+
 /** The point nearest the world's centre that lies well inside `zone` (all around it), or null. */
 function zoneAnchor(world: World, zone: Zone): { x: number; y: number } | null {
   const mid = world.size / 2;
-  const STEP = 256;
-  const around = [-1, 0, 1].flatMap((i) => [-1, 0, 1].map((j) => [i * 300, j * 300] as const));
   let best: { x: number; y: number } | null = null;
   let bestD = Number.POSITIVE_INFINITY;
   for (let i = -64; i <= 64; i++) {
     for (let j = -64; j <= 64; j++) {
       const d = i * i + j * j;
       if (d >= bestD) continue;
-      const x = mid + i * STEP;
-      const y = mid + j * STEP;
-      if (around.every(([dx, dy]) => zoneAt(world.seed32, x + dx, y + dy, world.size) === zone)) {
+      const x = mid + i * ANCHOR_STEP;
+      const y = mid + j * ANCHOR_STEP;
+      if (AROUND.every(([dx, dy]) => zoneAt(world.seed32, x + dx, y + dy, world.size) === zone)) {
         best = { x, y };
         bestD = d;
       }
@@ -322,6 +324,7 @@ export function balanceLife(
   let nextFight = options.fights === false ? Number.POSITIVE_INFINITY : nextGap();
   let cooldownUntil = 0;
   const capMs = Math.min(options.capMs ?? lifespan, lifespan);
+  const elderMs = RULES.life.elderAt * lifespan;
   for (;;) {
     const ms = world.tick * MS_PER_TICK;
     result.endMs = ms;
@@ -334,7 +337,7 @@ export function balanceLife(
       break;
     }
     if (ms >= capMs) break;
-    if (ms >= RULES.life.elderAt * lifespan) me.elder = true;
+    if (ms >= elderMs) me.elder = true;
     if (options.keepEnergy === true) {
       me.energy = maxEnergy(me.biomass);
       me.health = maxHealth(me.biomass);

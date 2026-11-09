@@ -9,13 +9,12 @@ import type { BalanceRun, BodyResult } from '../tests/balance';
 export const GATE = { topShare: 0.1, minArchetypes: 3, maxShare: 0.5 } as const;
 
 const median = (values: readonly number[]): number => {
+  if (values.length === 0) return Number.NaN;
   const sorted = [...values].sort((a, b) => a - b);
   const mid = sorted.length >> 1;
-  return sorted.length === 0
-    ? Number.NaN
-    : sorted.length % 2 === 1
-      ? (sorted[mid] as number)
-      : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
+  return sorted.length % 2 === 1
+    ? (sorted[mid] as number)
+    : ((sorted[mid - 1] as number) + (sorted[mid] as number)) / 2;
 };
 
 /**
@@ -23,7 +22,7 @@ const median = (values: readonly number[]): number => {
  * ties go to the body that won more fights, then to a fixed hash of its id, never to its name.
  */
 const byScore = (a: BodyResult, b: BodyResult): number =>
-  b.score - a.score || b.kills - a.kills || hashId(a.id) - hashId(b.id) || (a.id < b.id ? -1 : 1);
+  b.score - a.score || b.kills - a.kills || hashId(a.id) - hashId(b.id) || byName(a.id, b.id);
 
 const hashId = (id: string): number => seedFromString(`balance-tie/${id}`)[0];
 
@@ -87,33 +86,38 @@ export function gates(run: BalanceRun): Gate[] {
 
 const fixed = (v: number, digits = 2): string => (Number.isNaN(v) ? 'n/a' : v.toFixed(digits));
 
-/** Counts of a field over bodies, as `a 12, b 3`, most first. */
-function tally(values: readonly string[]): string {
-  const counts = new Map<string, number>();
-  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+const byName = (a: string, b: string): number => (a < b ? -1 : a > b ? 1 : 0);
+
+/** Counts as `a 12, b 3`, most first, ties by name. */
+function ranked(counts: ReadonlyMap<string, number>): string {
   return (
     [...counts]
-      .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
+      .sort((a, b) => b[1] - a[1] || byName(a[0], b[0]))
       .map(([k, n]) => `${k} ${n}`)
       .join(', ') || 'none'
   );
 }
 
+/** Counts of a field over bodies. */
+function tally(values: readonly string[]): string {
+  const counts = new Map<string, number>();
+  for (const v of values) counts.set(v, (counts.get(v) ?? 0) + 1);
+  return ranked(counts);
+}
+
 /** Deaths by cause over every life of the given bodies. */
 function causes(bodies: readonly BodyResult[]): string {
   const counts = new Map<string, number>();
-  for (const b of bodies)
+  for (const b of bodies) {
     for (const [k, n] of Object.entries(b.ends)) counts.set(k, (counts.get(k) ?? 0) + n);
-  return [...counts]
-    .sort((a, b) => b[1] - a[1] || (a[0] < b[0] ? -1 : 1))
-    .map(([k, n]) => `${k} ${n}`)
-    .join(', ');
+  }
+  return ranked(counts);
 }
 
 export function balanceReport(run: BalanceRun): string {
   const top = topBodies(run);
   const rows = archetypeRows(run).sort(
-    (a, b) => b.median - a.median || (a.archetype < b.archetype ? -1 : 1),
+    (a, b) => b.median - a.median || byName(a.archetype, b.archetype),
   );
   const best = top[0]?.score ?? 0;
   const genesis = run.bodies.filter((b) => b.archetype === 'genesis').sort(byScore);
@@ -155,7 +159,7 @@ export function balanceReport(run: BalanceRun): string {
     '',
     '## Genesis reference',
     '',
-    `${genesis.length} genesis bodies (not gated): median score ${fixed(median(genesis.map((b) => b.score)))}, best ${fixed(genesis[0]?.score ?? Number.NaN)}. Zones: ${tally(genesis.map((b) => b.zone))}. Lives ended by ${causes(genesis) || 'none'}.`,
+    `${genesis.length} genesis bodies (not gated): median score ${fixed(median(genesis.map((b) => b.score)))}, best ${fixed(genesis[0]?.score ?? Number.NaN)}. Zones: ${tally(genesis.map((b) => b.zone))}. Lives ended by ${causes(genesis)}.`,
     '',
   ];
   return lines.join('\n');
@@ -165,6 +169,6 @@ export function balanceReport(run: BalanceRun): string {
 export function mergeRuns(parts: readonly BalanceRun[]): BalanceRun {
   const first = parts[0] as BalanceRun;
   const bodies = parts.flatMap((p) => p.bodies);
-  bodies.sort((a, b) => (a.id < b.id ? -1 : a.id > b.id ? 1 : 0));
+  bodies.sort((a, b) => byName(a.id, b.id));
   return { ...first, bodies };
 }

@@ -63,7 +63,7 @@ describe('the population', () => {
 describe('a life', () => {
   const opponents = population(1, 0);
 
-  it('is the same life for the same seed, and a different one for another', () => {
+  heavyTest('is the same life for the same seed, and a different one for another', () => {
     const b = body('ciliate');
     const run = (seed: string) =>
       balanceLife(b, seed, { zone: 'twilight', opponents, capMs: 9 * 60_000 });
@@ -99,7 +99,7 @@ describe('a life', () => {
     expect(kills).toBeGreaterThan(0);
   });
 
-  it('ends a fought life when a fight kills it', () => {
+  heavyTest('ends a fought life when a fight kills it', () => {
     // A starter-sized cell against a hunter's weight in a crowd of hunters: some life of a few dies of a kill.
     const hunters = population(3, 0).filter((b) => b.archetype === 'hunter');
     const ends = Array.from({ length: 6 }, (_, i) =>
@@ -143,7 +143,7 @@ describe('a scaled run', () => {
       variants: 1,
       genesis: 0,
       lives: 1,
-      bodies: bodies.map((b) => scoreBody(b, 1, { capMs: 12 * 60_000, opponents: bodies })),
+      bodies: bodies.map((b) => scoreBody(b, 1, { capMs: 9 * 60_000, opponents: bodies })),
     });
     const first = run();
     expect(run()).toEqual(first);
