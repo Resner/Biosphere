@@ -122,18 +122,27 @@ test('the game plays in this engine: hatch, feed, dash, link, menus and a verifi
     // From here on its belly stays full: the rest of the scenario is no place to starve.
     await a.evaluate(() => (window.__bs as BsHook).debug?.sated(true));
 
-    // A second page of the same engine joins: they link, and each sees the other move.
-    const b = await open('B');
-    await openRecorded(b, '', HUB);
-    await clickHatch(b);
-    await waitPlaying(b);
-    await b.evaluate(() => (window.__bs as BsHook).debug?.sated(true));
-    const idA = (await state(a)).playerId as string;
-    const idB = (await state(b)).playerId as string;
-    await Promise.all([linked(a, idB), linked(b, idA)]);
-    await seesMove(a, b, idB);
-    await seesMove(b, a, idA);
-    await drawnShot(a, info, 'm14-smoke-linked', browserName);
+    // A second page of the same engine joins: they link, and each sees the other move. Playwright's
+    // Linux WebKit offers only mDNS host candidates, which nothing on a runner resolves, so its pages
+    // never link, not even within one page (ADR 0077): Safari's links are an owner check.
+    if (browserName === 'webkit') {
+      info.annotations.push({
+        type: 'skip',
+        description: 'WebKit links: ADR 0077, an owner check',
+      });
+    } else {
+      const b = await open('B');
+      await openRecorded(b, '', HUB);
+      await clickHatch(b);
+      await waitPlaying(b);
+      await b.evaluate(() => (window.__bs as BsHook).debug?.sated(true));
+      const idA = (await state(a)).playerId as string;
+      const idB = (await state(b)).playerId as string;
+      await Promise.all([linked(a, idB), linked(b, idA)]);
+      await seesMove(a, b, idB);
+      await seesMove(b, a, idA);
+      await drawnShot(a, info, 'm14-smoke-linked', browserName);
+    }
 
     // The menu, and Settings: the quality preset changes and is kept.
     await a.keyboard.press('Escape');

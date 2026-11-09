@@ -133,7 +133,7 @@ const m13LifecycleHubPort = 8839;
 // The M14 guide spec (M14 T7, 8843, `@slow`): two players learn the guide's later steps, with short matings.
 const m14GuideHubPort = 8843;
 // The M14 engine specs (M14 T6, `@slow`): the game in the engine under test (8842), and a Chromium
-// page with a Firefox (and a WebKit) page in one pond (8841).
+// page with a Firefox page in one pond, where they duel (8841).
 const m14SmokeHubPort = 8842;
 const m14MixedHubPort = 8841;
 // The M14 capability spec (M14 T6, 8845): a recorded creature without WebRTC. Not `@slow`, so its
@@ -161,13 +161,22 @@ const POST =
 // The other engines (M6c T8, M14 T6; ADR 0077). Only `E2E full`'s firefox and webkit parts set
 // `E2E_FIREFOX` or `E2E_WEBKIT`, after installing that engine and Chromium; PR CI and a plain
 // `test:e2e:full` stay Chromium. Firefox runs `m6c-firefox` (Firefox only; it skips itself elsewhere),
-// `m6c-flash`, the goldens, the smoke and the mixed pond; WebKit the goldens, the smoke and the mixed
-// pond. Headless Firefox finds no GL driver on a runner (no EGL), so it runs headed under `xvfb-run`,
-// where it draws WebGL2 through Mesa like Chromium; headless WebKit draws WebGL2 itself.
-const ENGINES = /m14-(goldens|smoke|mixed)\.spec\.ts/;
-const FIREFOX = [/m6c-(firefox|flash)\.spec\.ts/, ENGINES];
+// `m6c-flash`, the goldens, the smoke and the mixed pond; WebKit the goldens and the smoke (its pages
+// can't link on Linux, ADR 0077). Headless Firefox finds no GL driver on a runner (no EGL), so it runs
+// headed under `xvfb-run`, where it draws WebGL2 through Mesa like Chromium; headless WebKit draws
+// WebGL2 itself.
+const WEBKIT = /m14-(goldens|smoke)\.spec\.ts/;
+const FIREFOX = [/m6c-(firefox|flash)\.spec\.ts/, /m14-(goldens|smoke|mixed)\.spec\.ts/];
 // The mixed pond launches its Chromium page itself, so only the engine projects run it.
 const MIXED = /m14-mixed\.spec\.ts/;
+/**
+ * WebGL2 on Mesa, and host candidates as addresses: like Chromium's mDNS flag above, an mDNS name
+ * can't be resolved in a sandbox, and the mixed pond links Firefox to Chromium.
+ */
+const FIREFOX_PREFS = {
+  'webgl.force-enabled': true,
+  'media.peerconnection.ice.obfuscate_host_addresses': false,
+};
 const engines = [
   ...(process.env.E2E_FIREFOX
     ? [
@@ -177,7 +186,7 @@ const engines = [
           use: {
             browserName: 'firefox' as const,
             headless: false,
-            launchOptions: { firefoxUserPrefs: { 'webgl.force-enabled': true } },
+            launchOptions: { firefoxUserPrefs: FIREFOX_PREFS },
           },
           ...skipSlow,
         },
@@ -187,7 +196,7 @@ const engines = [
     ? [
         {
           name: 'webkit',
-          testMatch: ENGINES,
+          testMatch: WEBKIT,
           // Not Chromium's flags or its fallback build.
           use: { browserName: 'webkit' as const, launchOptions: {} },
           ...skipSlow,
@@ -487,7 +496,7 @@ export default defineConfig({
       ['m13-lifecycle', m13LifecycleHubPort, '--var MAX_SESSIONS:2 --var MATING_SCALE:0.01'],
       ['m14-guide', m14GuideHubPort, '--var MATING_SCALE:0.01'],
       ['m14-smoke', m14SmokeHubPort, ''],
-      ['m14-mixed', m14MixedHubPort, WITNESS_VARS],
+      ['m14-mixed', m14MixedHubPort, ''],
       ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],

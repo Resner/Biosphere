@@ -64,7 +64,7 @@ No owner input since Playtest v0.8.0 (#311: "Keep going. Godspeed!"). Playtests 
     - `tools/soak.mjs`, `tools/soak-run.ts`, `tools/soak-report.ts`, `npm run soak`, `docs/perf/soak.md` and `soak.json`, `.github/workflows/soak.yml` (T13, T14);
     - `tools/ops-watch.ts`, `tools/ops-watch.mjs`, `npm run ops:watch`, `tools/ops-doc.test.ts` (T15);
     - `tools/coverage.test.ts` (T17);
-  - E2E: `m14-goldens` (no hub, T5), `m14-smoke` 8842 and `m14-mixed` 8841 (T6), `m14-guide` 8843 (T7), `m14-help` (no hub, T8), `m14-colour` (no hub, T9), `m14-interrupt` 8840 (T4), `m14-lifecycle` 8844 (T18);
+  - E2E: `m14-goldens` (no hub, T5), `m14-smoke` 8842, `m14-mixed` 8841 and `m14-capability` 8845 (T6), `m14-guide` 8843 (T7), `m14-help` (no hub, T8), `m14-colour` (no hub, T9), `m14-interrupt` 8840 (T4), `m14-lifecycle` 8844 (T18);
   - docs: `docs/OPERATIONS.md` (T15), `docs/SECURITY.md` and `docs/PRIVACY.md` (T16), `docs/COVERAGE.md` (T17).
 - **Changed:**
   - sim and genome: `src/sim/rules.ts` (`RULES_VERSION` 13, T1; values, T11), the stats and encounter tables (T11), the goldens they pin;
@@ -129,7 +129,7 @@ export function capabilities(win: Window): Capabilities;
 
 **E2E entry hooks:** `POST /v1/e2e/hatches { player, left }` (T4) sets a player's hatch bucket; `GET /v1/e2e/consistency` (T13) answers `consistent(hub)`. `tools/worker-bundle.test.ts` guards both.
 
-**Hubs**: `m14-interrupt` 8840, `m14-mixed` 8841, `m14-smoke` 8842, `m14-guide` 8843, `m14-lifecycle` 8844; the next hub file takes 8845. `npm run soak` uses 8851, outside the E2E range (`load:hub` has 8850).
+**Hubs**: `m14-interrupt` 8840, `m14-mixed` 8841, `m14-smoke` 8842, `m14-guide` 8843, `m14-lifecycle` 8844; `m14-capability` 8845 (T6); the next hub file takes 8846. `npm run soak` uses 8851, outside the E2E range (`load:hub` has 8850).
 
 **Engines in CI** (T6): `E2E_FIREFOX` adds the `firefox` project and `E2E_WEBKIT` a `webkit` project, each only in `e2e-full.yml`'s part of its own. PR CI stays Chromium. In a cloud session, install Firefox or WebKit into a scratch `PLAYWRIGHT_BROWSERS_PATH`, never `/opt/pw-browsers`, or dispatch `e2e-full.yml` on the branch (`gh api -X POST repos/Resner/Biosphere/actions/workflows/e2e-full.yml/dispatches -f ref=<branch>`).
 
