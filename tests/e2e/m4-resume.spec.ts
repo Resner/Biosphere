@@ -38,9 +38,11 @@ test('closing the tab and coming back resumes the same creature @slow', async ({
   await first.waitForTimeout(300);
   const before = await state(first);
   expect(before.life.activeMs).toBeGreaterThan(0);
-  // The condition in the report the hub took; the creature has changed since (it feeds and burns).
-  const ackedBiomass = before.life.ackedBiomass;
-  expect(ackedBiomass).toBeGreaterThan(0);
+  // The condition in the reports the hub may hold: the acked one, or a later one sent at 30x before
+  // the first ack was seen on a loaded runner (its ack may not have come back before the close).
+  // The creature has changed since (it feeds and burns).
+  const ackedBiomass = Math.max(before.life.ackedBiomass, before.life.sentBiomass);
+  expect(before.life.ackedBiomass).toBeGreaterThan(0);
   await first.close();
 
   // Time away is not life: the same clock comes back after a pause.

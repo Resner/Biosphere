@@ -388,6 +388,7 @@ describe('progress', () => {
       lifespanMs: 4_500_000,
       lastAckN: 1,
       ackedBiomass: 1,
+      sentBiomass: 1,
     });
   });
 
