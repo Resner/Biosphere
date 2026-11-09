@@ -115,17 +115,25 @@ const feedAll = (ps: Player[]) =>
   );
 
 /**
- * Keeps the pages' energy full from here on, and nothing else. C and D never mate, so their first
- * creatures live through the whole scenario, which a slow runner stretches until they starve (E2E
- * main: C and D on the death screen at the final gathering, out of the directory, unlinkable).
- * Energy takes no part in the crowd steps, so it changes nothing they see.
+ * Keeps the pages' energy between 40 and 60 % of the cap from here on, and nothing else. A slow
+ * runner stretches the scenario until a creature starves (CI repeats and E2E main: `cause: starved`
+ * after a minute, on the death screen at the final gathering, out of the directory, unlinkable). Never
+ * the cap itself: a creature at its cap leaves the carrion on the water, and the pieces keep a crowd
+ * from merging (health held at the maximum did the same), so a creature that has eaten is let down
+ * again and the carrion stays edible. C and D never mate and are kept from the start; A and B from
+ * the settled fight.
  */
 const keepFed = (ps: Player[]) =>
   Promise.all(
     ps.map((p) =>
       p.page.evaluate(() => {
-        const debug = (window.__bs as BsHook).debug;
-        const feed = () => debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+        const hook = window.__bs as BsHook;
+        const feed = () => {
+          const now = hook.state().player?.energy ?? 0;
+          hook.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+          const cap = hook.state().player?.energy ?? 0;
+          hook.debug?.setEnergy(Math.min(Math.max(now, 0.4 * cap), 0.6 * cap));
+        };
         feed();
         window.setInterval(feed, 2000);
       }),
@@ -466,6 +474,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
     await settled(request, HUB, fightId);
+    await keepFed([a, b]);
 
     // Quiet: C swims out of the crowd too, the fight is over, and the crowd (A's and B's children)
     // merges back into the open water.
