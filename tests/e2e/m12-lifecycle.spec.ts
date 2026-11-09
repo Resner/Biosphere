@@ -494,12 +494,25 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       .toBe(0);
 
     // The four come together in open water (no crowd now: 24 links) and link.
+    const openCrowds = () =>
+      Promise.all(
+        players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
+      );
     await feedAll(players);
-    // Fed from here on, a page that starved before this point comes back into play first.
+    await openCrowds();
+    // A page that starved before this point comes back into play. The pages stop reporting crowds
+    // first: a revival takes seconds, and the four, linked and close, would crowd again meanwhile.
     await Promise.all(players.map(revive));
-    await Promise.all(
-      players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
-    );
+    await openCrowds();
+    await expect
+      .poll(
+        async () => ({
+          instances: await Promise.all(players.map(instanceOf)),
+          crowds: (await directory(request, HUB)).crowds.length,
+        }),
+        { message: 'the four are in the open water, no crowd left', timeout: 60_000 },
+      )
+      .toEqual({ instances: [0, 0, 0, 0], crowds: 0 });
     // A swam off to end the fight and B stayed where it fought, so all four gather on one spot: A
     // (which a teleport also stops) stays where it is, B, C and D are placed around it.
     const home = await playerOf(a.page);
