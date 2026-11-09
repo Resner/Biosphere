@@ -279,6 +279,8 @@ export interface BsState {
     dropped: number;
     signed: number;
     badSignatures: number;
+    /** The tick of the newest verified signed snapshot held of each peer, by player id (an engage forwards it). */
+    heldTicks: Record<string, number>;
     proxyDropped: number;
     /** Each away player's proxy sender, by player id (M11 T16: one per player). */
     proxyFrom: Record<string, string>;
