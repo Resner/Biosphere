@@ -166,7 +166,7 @@ const POST =
 // headed under `xvfb-run`, where it draws WebGL2 through Mesa like Chromium; headless WebKit draws
 // WebGL2 itself.
 const WEBKIT = /m14-(goldens|smoke)\.spec\.ts/;
-const FIREFOX = [/m6c-(firefox|flash)\.spec\.ts/, /m14-(aprobe|goldens|smoke|mixed)\.spec\.ts/];
+const FIREFOX = [/m6c-(firefox|flash)\.spec\.ts/, /m14-(goldens|smoke|mixed)\.spec\.ts/];
 // The mixed pond launches its Chromium page itself, so only the engine projects run it.
 const MIXED = /m14-mixed\.spec\.ts/;
 /**
@@ -265,7 +265,10 @@ export default defineConfig({
   ],
   webServer: [
     {
-      command: `npm run preview -- --port ${port} --strictPort`,
+      // On IPv4 loopback: where `localhost` resolves to ::1 first (the runners), a page served over
+      // IPv6 loopback gathers no ICE candidates in Firefox, so its links never come up (M14 T6). The
+      // browsers fall back from ::1 to 127.0.0.1 at once, as they do for the hubs.
+      command: `npm run preview -- --port ${port} --strictPort --host 127.0.0.1`,
       url: `http://localhost:${port}/`,
       reuseExistingServer: !process.env.CI,
     },

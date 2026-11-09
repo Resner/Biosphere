@@ -287,7 +287,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `m14-mixed` passes Chromium with Firefox, 3 times in a row in its part.
   - Notes: the WebKit part may need system libraries (`--with-deps`). Keep the Firefox and WebKit parts to these specs: the engine suites gate releases, and every scenario added there is one more that can flake.
   - Done: `capability.ts` (plain page for game and Lab without WebGL2, every page without module workers; the card keeps its flat preview), `m14-capability` (8845, PR suite), `m14-smoke` and `m14-mixed`, a webkit part, ADR 0077. Every golden matched in all three engines with no fix.
-  - Gotcha: Linux WebKit offers only mDNS candidates, so it never links (its smoke skips the link step, no WebKit in `m14-mixed`); Firefox links only with `media.peerconnection.ice.obfuscate_host_addresses` off.
+  - Gotcha: Linux WebKit offers only mDNS candidates, so it never links (smoke skips its link step; no WebKit in `m14-mixed`); Firefox links only with `obfuscate_host_addresses` off and the page served on 127.0.0.1 (over ::1 it gathers no candidates on a runner).
 
 ### Onboarding and accessibility
 

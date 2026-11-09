@@ -21,6 +21,28 @@ jobs:
       fail-fast: false
       matrix:
         include:
+          - name: fast 1 of 3
+            args: --project=chromium --grep-invert=@slow --shard=1/3
+          - name: fast 2 of 3
+            args: --project=chromium --grep-invert=@slow --shard=2/3
+          - name: fast 3 of 3
+            args: --project=chromium --grep-invert=@slow --shard=3/3
+          - name: slow 1 of 4
+            args: --project=chromium --grep=@slow --shard=1/4 --workers=1
+          - name: slow 2 of 4
+            args: --project=chromium --grep=@slow --shard=2/4 --workers=1
+          - name: slow 3 of 4
+            args: --project=chromium --grep=@slow --shard=3/4 --workers=1
+          - name: slow 4 of 4
+            args: --project=chromium --grep=@slow --shard=4/4 --workers=1
+          # The projects that must not share a runner with the rest (playwright.config.ts), each on
+          # its own: together they took 21 minutes on a one-worker runner.
+          - name: social
+            args: --project=social --no-deps
+          - name: pond
+            args: --project=pond --no-deps
+          - name: post
+            args: --project=post --no-deps
           # The other engines (M6c T8, M14 T6, ADR 0077), each installed in its part alone beside the
           # Chromium the mixed pond and the Firefox check launch. Firefox runs `m6c-firefox`,
           # `m6c-flash`, the goldens, the smoke and the mixed pond, headed under Xvfb (headless, it
@@ -52,7 +74,7 @@ jobs:
           sudo mkswap /mnt/e2e.swap
           sudo swapon /mnt/e2e.swap
           free -m
-      - name: Install ${{ matrix.engine }}
+      - name: Install the part's engine and Chromium
         if: matrix.engine
         run: npx playwright install --with-deps ${{ matrix.engine }} chromium
       - name: Run this part of the suite

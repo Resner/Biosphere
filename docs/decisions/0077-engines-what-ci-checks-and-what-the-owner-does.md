@@ -8,7 +8,7 @@
 v1.0 promises Chrome, Edge, Firefox and Safari (M14). CI has Linux runners with no GPU and Playwright's own builds of Chromium, Firefox and WebKit. Until M14 only Chromium played the game in CI; Firefox ran two look checks (`m6c-firefox`, `m6c-flash`, M6c T8). M14 T6 measured what each of Playwright's Linux engines can do on a runner and in a cloud session:
 
 - **Chromium** draws WebGL2 through SwiftShader headless, and links over WebRTC with host candidates once `WebRtcHideLocalIpsWithMdns` is off.
-- **Firefox** finds no GL driver headless (no EGL): run headed under Xvfb it draws WebGL2 through Mesa (llvmpipe). Its ICE hides host addresses behind mDNS names unless `media.peerconnection.ice.obfuscate_host_addresses` is false; with the pref it links to itself and to Chromium.
+- **Firefox** finds no GL driver headless (no EGL): run headed under Xvfb it draws WebGL2 through Mesa (llvmpipe). Its ICE hides host addresses behind mDNS names unless `media.peerconnection.ice.obfuscate_host_addresses` is false; with the pref it links to itself and to Chromium. On a runner, where `localhost` resolves to ::1 first and the host has no global IPv6, a page served over IPv6 loopback gathers no ICE candidates at all (ICE fails within milliseconds), while the same page over 127.0.0.1 links; so the E2E page server listens on 127.0.0.1 (`--host 127.0.0.1`), as the hubs do.
 - **WebKit** draws WebGL2 headless and has `RTCPeerConnection`, but it offers only mDNS host candidates (`<uuid>.local`), and Playwright exposes no switch for WebKit's mDNS setting. Nothing on a runner resolves those names, so two WebKit peers never connect, not even two `RTCPeerConnection`s in one page (ICE stays `new`).
 
 ## Decision
