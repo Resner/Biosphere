@@ -4,13 +4,12 @@
 // whose seat closed before the wake waits as anyone does.
 
 import type { IceServer, QueueWhy } from '../src/net/protocol';
-import { ASSUMPTIONS, GUARD_SHARE, HEADROOM_H, headroomOf, ratesOf } from './capacity';
+import { ASSUMPTIONS, GUARD_SHARE, headroomOf, ratesOf } from './capacity';
 import { limitsOf, MEASURED } from './plan';
 import type { Hub } from './socket';
 import { STUN_SERVERS } from './turn';
 import { DAY_MS, dayStartOf } from './usage';
 
-export { GUARD_SHARE, HEADROOM_H };
 /** The wait a place counts before two seats have freed. */
 export const DEFAULT_SEAT_EVERY_S = 30;
 /** The seats freed that the interval is measured over. */
@@ -119,7 +118,8 @@ export function admission(hub: Hub, now: number): QueueWhy | null {
     rows.read >= GUARD_SHARE * limits.rowsReadPerDay
   )
     return 'budget';
-  if (seatsHeld(hub) >= Math.min(limits.sessions, headroomSeats(hub, now))) return 'full';
+  const held = seatsHeld(hub);
+  if (held >= limits.sessions || held >= headroomSeats(hub, now)) return 'full';
   return null;
 }
 
@@ -156,6 +156,10 @@ export function awaySeats(hub: Hub): number {
   return away;
 }
 
+/** The seats held past the headroom, which must free before the first in line is seated (`full` only). */
+export const seatsPastHeadroom = (hub: Hub, why: QueueWhy, now: number): number =>
+  why === 'full' ? Math.max(0, seatsHeld(hub) - headroomSeats(hub, now)) : 0;
+
 /**
  * The estimated wait in whole seconds of the session at `place` (1 = next): for `full` the time to
  * the next seat plus the interval for each one ahead, and while the headroom binds one more for
@@ -163,10 +167,15 @@ export function awaySeats(hub: Hub): number {
  * seated); for `budget` the time to the next 00:00 UTC plus the interval for each one ahead; for
  * `storage` none (0).
  */
-export function etaS(hub: Hub, why: QueueWhy, place: number, now: number): number {
+export function etaS(
+  hub: Hub,
+  why: QueueWhy,
+  place: number,
+  now: number,
+  past = seatsPastHeadroom(hub, why, now),
+): number {
   if (why === 'storage') return 0;
   const every = hub.admission.seatEveryMs(now);
-  const past = why === 'full' ? Math.max(0, seatsHeld(hub) - headroomSeats(hub, now)) : 0;
   const ahead = (place - 1 + past) * every;
   const first =
     why === 'budget' ? dayStartOf(now) + DAY_MS - now : hub.admission.nextSeatMs(now, every);

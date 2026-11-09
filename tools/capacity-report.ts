@@ -33,7 +33,7 @@ import {
   storeDays,
   usageOf,
 } from '../worker/capacity';
-import { allowances, CEILING_USD, FREE, PAID, type PlanName, TABLES } from '../worker/plan';
+import { CEILING_USD, FREE, PAID, type PlanName, TABLES } from '../worker/plan';
 import { type CapacityInputs, measuredFrom } from './capacity-measure';
 
 /** The concurrent players the tables show, around the clock. */
@@ -103,6 +103,7 @@ export function capacityReport(
   const a = ASSUMPTIONS;
   const over = overridesFrom(metrics);
   const r = ratesOf(m, a, over);
+  const base = ratesOf(m, a);
   const capacity = objectCapacity(m, a, over);
   const free = freeServes(m, TABLES, a);
   const paid = paidPlayers(m, TABLES, a);
@@ -127,7 +128,7 @@ export function capacityReport(
     '',
     '## Summary',
     '',
-    `- **The free plan** serves **${n0(free.playerHours)} player-hours a day**, about **${n0(free.around)} concurrent players** around the clock. It stops at ${n0(FREE.requestsPerDay)} request-equivalents or ${n0(FREE.rowsWrittenPerDay)} rows written a day (${free.binding} first); admission queues newcomers at 90% of either and until 00:00 UTC. Its session cap is **${n0(derived.free.sessions)}** (80% of one object), and the headroom seats a newcomer only while everyone seated could play ${HEADROOM_H} more hours of the day: ${n0(headroomOf(allowances('free'), ratesOf(m, a)))} seats on a fresh day, so the cap binds, and a crowd of 200 plays ${n1(crowdHours(allowances('free'), ratesOf(m, a), 200).headroom)} hours of a fresh day before the headroom stops newcomers.`,
+    `- **The free plan** serves **${n0(free.playerHours)} player-hours a day**, about **${n0(free.around)} concurrent players** around the clock. It stops at ${n0(FREE.requestsPerDay)} request-equivalents or ${n0(FREE.rowsWrittenPerDay)} rows written a day (${free.binding} first); admission queues newcomers at 90% of either and until 00:00 UTC. Its session cap is **${n0(derived.free.sessions)}** (80% of one object), and the headroom seats a newcomer only while everyone seated could play ${HEADROOM_H} more hours of the day: ${n0(headroomOf(derived.free, base))} seats on a fresh day, so the cap binds, and a crowd of 200 plays ${n1(crowdHours(derived.free, base, 200).headroom)} hours of a fresh day before the headroom stops newcomers.`,
     `- **The paid plan** ($5 a month plus usage) serves **${n0(paid)} concurrent players** around the clock within **$${n2(CEILING_USD)}** (€10 at $${a.usdPerEur} to the euro): ${usd(paidBill.total)} a month, ${usd(paidBill.total - paidBill.base)} of it above the base, all of it requests.`,
     `- **One authority object** serves **${n0(capacity.players)} concurrent players** (${capacity.binding} binds: ${pct(CORE_SHARE_MAX)} of a core at ${CPU_FACTOR}× the local runtime's CPU). Admission fills ${n0(derived.paid.sessions)} sessions on the paid plan and ${n0(derived.free.sessions)} on the free plan.`,
     `- **10,000 concurrent players** need **${n0(shards)} objects** (shards of ${n0(capOf(capacity))}), ${n0(big.messagesPerSecond)} incoming messages a second and ${n1(big.requestsPerDay / 1e6)} M request-equivalents a day, and cost about **${usd(bigBill.total)} a month** on the paid plan (${usd(bigBill.requests)} requests, ${usd(bigBill.gbSeconds)} duration, ${usd(bigBill.rowsWritten)} rows written). The ceiling does not buy them.`,
@@ -383,8 +384,8 @@ function crowdRows(
   const r = ratesOf(m, a);
   const hours = (h: number) => (h >= 24 ? 'all day' : n1(h));
   return (['free', 'paid'] as PlanName[]).flatMap((plan) => {
-    const day = allowances(plan);
-    const cap = derived[plan].sessions;
+    const day = derived[plan];
+    const cap = day.sessions;
     const seats = Math.min(cap, headroomOf(day, r));
     const name = plan === 'free' ? 'Free' : 'Paid';
     return CROWDS.map((players) => {
