@@ -1,8 +1,6 @@
 import { renderCueOffline, renderOffline } from '../audio/engine';
-import { genomeFromBase64url, genomeHash, parseGenomeText } from '../genome/codec';
-import { hashPlan } from '../genome/develop';
+import { genomeHash, parseGenomeText } from '../genome/codec';
 import { silhouetteOf } from '../genome/silhouette';
-import { buildCreature, hashStats } from '../genome/stats';
 import { PondClock } from '../net/clock';
 import { DEFAULT_CAP } from '../net/connection-policy';
 import { SnapshotSender } from '../net/pond-sync';
