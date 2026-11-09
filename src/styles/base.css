@@ -561,6 +561,12 @@ body {
     bottom: 7.5rem;
     max-width: calc(100vw - 2 * var(--hud-gap));
   }
+
+  /* The offspring card fills the lower right there: the line goes under the minimap instead. */
+  :root:has(.offspring:not([hidden])) .first-hint {
+    top: 12.5rem;
+    bottom: auto;
+  }
 }
 
 /* The death screen has no bars: its step sits at the very bottom, under the choices. */

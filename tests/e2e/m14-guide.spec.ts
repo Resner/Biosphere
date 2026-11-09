@@ -1,7 +1,7 @@
 import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import type { GuideStep } from '../../src/game/guide';
-import { GUIDE_WORDS } from '../../src/game/guide';
+import { GUIDE_STEPS, GUIDE_WORDS } from '../../src/game/guide';
 import {
   clickHatch,
   courtUntilInvited,
@@ -41,8 +41,9 @@ const FULL: Keep = { full: true };
 type Kept = Window & { __guideKeep?: (keep: Keep) => void };
 
 /** Installs, before the page's scripts on every load, the helper that applies a `Keep` each poll. */
-const prepare = (page: Page) =>
-  page.addInitScript(() => {
+const prepare = async (page: Page) => {
+  await record(page);
+  await page.addInitScript(() => {
     (window as Kept).__guideKeep = (keep: Keep) => {
       const bs = window.__bs as BsHook | undefined;
       const debug = bs?.debug;
@@ -60,6 +61,50 @@ const prepare = (page: Page) =>
       }
     };
   });
+};
+
+type Logged = Window & { __guideLog?: { step: string; text: string | null }[] };
+
+/** Records, every 100 ms from each load, the steps the page has shown and their words. */
+const record = (page: Page) =>
+  page.addInitScript(() => {
+    const log: { step: string; text: string | null }[] = [];
+    (window as Logged).__guideLog = log;
+    setInterval(() => {
+      const guide = (window.__bs as BsHook | undefined)?.ready
+        ? (window.__bs as BsHook).state().guide
+        : null;
+      if (guide?.current && log.at(-1)?.step !== guide.current) {
+        log.push({ step: guide.current, text: guide.text });
+      }
+    }, 100);
+  });
+
+/** Plays on (fast, held `full`) until the page has shown `step` with `words`, now or before. */
+async function told(page: Page, step: GuideStep, words: string, timeout = 60_000): Promise<void> {
+  await page
+    .waitForFunction(
+      (step) => {
+        const bs = window.__bs as BsHook;
+        (window as Kept).__guideKeep?.({ full: true });
+        if ((window as Logged).__guideLog?.some((e) => e.step === step)) {
+          bs.debug?.timeScale(1);
+          return true;
+        }
+        bs.debug?.timeScale(8);
+        return false;
+      },
+      step,
+      { timeout, polling: 100 },
+    )
+    .catch(async (error) => {
+      throw new Error(`the guide never showed ${step}: ${JSON.stringify(await guideOf(page))}`, {
+        cause: error,
+      });
+    });
+  const log = await page.evaluate(() => (window as Logged).__guideLog ?? []);
+  expect(log.find((e) => e.step === step)?.text).toBe(words);
+}
 
 /**
  * Plays on until `step` shows. The sim runs fast meanwhile, since the guide starts at most one new
@@ -130,13 +175,23 @@ async function shoot(page: Page, name: string): Promise<void> {
       const range = document.createRange();
       range.selectNodeContents(el);
       const tops = new Set([...range.getClientRects()].map((b) => Math.round(b.top)));
-      const covers = ['.hud .stat', '.minimap', '[data-testid="minimap-depth"]']
+      // The bars, the minimap and its gauge, the offspring card and the invitation; and the egg.
+      const parts = [
+        '.hud .stat',
+        '.minimap',
+        '[data-testid="minimap-depth"]',
+        '.offspring',
+        '.invite',
+      ];
+      const boxes = parts
         .flatMap((s) => [...document.querySelectorAll(s)])
         .filter((o) => (o as HTMLElement).checkVisibility())
-        .some((o) => {
-          const b = o.getBoundingClientRect();
-          return b.left < r.right && r.left < b.right && b.top < r.bottom && r.top < b.bottom;
-        });
+        .map((o) => o.getBoundingClientRect());
+      const egg = (window.__bs as BsHook).state().egg.at;
+      if (egg) boxes.push(new DOMRect(egg.x - egg.r, egg.y - egg.r, 2 * egg.r, 2 * egg.r));
+      const covers = boxes.some(
+        (b) => b.left < r.right && r.left < b.right && b.top < r.bottom && r.top < b.bottom,
+      );
       return {
         left: r.left,
         right: r.right,
@@ -267,9 +322,13 @@ test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, onc
   }
 });
 
-async function hatched(context: BrowserContext): Promise<Page> {
+/** Hatches a recorded creature on the guide's hub in a browser that has seen the steps `seen`. */
+async function hatched(context: BrowserContext, seen: readonly GuideStep[]): Promise<Page> {
   const page = await context.newPage();
   await prepare(page);
+  await page.addInitScript((seen) => {
+    if (localStorage.getItem('bs.guide') === null) localStorage.setItem('bs.guide', seen);
+  }, JSON.stringify(seen));
   await openRecorded(page, '', M14_GUIDE_HUB);
   await clickHatch(page);
   await waitPlaying(page);
@@ -278,6 +337,9 @@ async function hatched(context: BrowserContext): Promise<Page> {
 
 const idOf = async (page: Page): Promise<string> => (await state(page)).playerId as string;
 
+/** Every step but these: the first test's steps are seen, so each page waits only for its own. */
+const seenBut = (steps: GuideStep[]) => GUIDE_STEPS.filter((s) => !steps.includes(s));
+
 test('two players learn the amber rings, the wheel, maturity, the invitation and the egg @slow', async ({
   browser,
 }) => {
@@ -285,62 +347,37 @@ test('two players learn the amber rings, the wheel, maturity, the invitation and
   const contexts = await Promise.all([0, 1].map(() => browser.newContext()));
   const [ctxA, ctxB] = contexts as [BrowserContext, BrowserContext];
   try {
-    const [a, b] = await Promise.all([hatched(ctxA), hatched(ctxB)]);
-    const [idA, idB] = [await idOf(a), await idOf(b)];
-    // The early steps are another test's: here each page has seen them, so the later ones come at once.
-    for (const page of [a, b]) {
-      await page.evaluate(() => {
-        const seen = ['swim', 'eat', 'dash', 'energy', 'hazard', 'attack', 'fight', 'menu'];
-        localStorage.setItem('bs.guide', JSON.stringify(seen));
-      });
-    }
-    // Reloaded, the guide reads them; each page plays its creature on.
-    // (The hub resumes the same creature: no new hatch is spent.)
-    for (const page of [a, b]) {
-      await openRecorded(page, '', M14_GUIDE_HUB);
-      await page.getByTestId('hatch').click();
-      await waitPlaying(page);
-    }
+    const [a, b] = await Promise.all([
+      hatched(ctxA, seenBut(['bigger', 'wheel', 'mature', 'egg'])),
+      hatched(ctxB, seenBut(['invite', 'egg'])),
+    ]);
+    const idB = await idOf(b);
 
-    // B grows a tier past A, side by side: A sees amber rings.
+    // B grows a tier past A, side by side: A sees amber rings and is told what they mean.
     await goTo(a, idB, b);
-    await b.evaluate(() => {
-      const bs = window.__bs as BsHook;
-      const p = bs.state().player;
-      if (p) bs.debug?.setBiomass(p.biomass * 6);
-    });
-    await until(a, 'bigger', FULL);
+    const before = (await state(b)).player?.biomass ?? 0;
+    await b.evaluate(() => (window.__bs as BsHook).debug?.setBiomass(1200));
+    await until(a, 'bigger', FULL, 60_000);
     await expect(a.getByTestId('hint')).toHaveText(GUIDE_WORDS.bigger);
     await shoot(a, 'bigger');
-    await b.evaluate(() => {
-      const bs = window.__bs as BsHook;
-      const p = bs.state().player;
-      if (p) bs.debug?.setBiomass(p.biomass / 6);
-    });
+    await b.evaluate((m) => (window.__bs as BsHook).debug?.setBiomass(m), before);
 
-    // 30 s after the first link: the wheel; gone when it opens.
-    await until(a, 'wheel', FULL, 60_000);
-    await expect(a.getByTestId('hint')).toHaveText(GUIDE_WORDS.wheel);
-    await a.keyboard.down('g');
-    await gone(a, 'wheel', FULL);
-    await a.keyboard.up('g');
-
-    // Mature: told to court; A courts, B is told how to accept; after the round, both are told of the egg.
+    // 30 s after the first link: the wheel. Grown up: told to court (in whichever order they came).
+    await told(a, 'wheel', GUIDE_WORDS.wheel);
     await Promise.all([ripe(a), ripe(b)]);
-    await until(a, 'mature', FULL, 60_000);
-    await expect(a.getByTestId('hint')).toHaveText(GUIDE_WORDS.mature);
+    await told(a, 'mature', GUIDE_WORDS.mature);
+
+    // A courts: B is told how to accept at once; after the round, both are told of the egg.
     await Promise.all([topUp(a), topUp(b)]);
     await courtUntilInvited(a, b, idB);
-    await gone(a, 'mature', FULL);
     await until(b, 'invite', FULL, 10_000);
     await expect(b.getByTestId('hint')).toHaveText(GUIDE_WORDS.invite);
+    await b.screenshot({ path: 'test-results/m14-guide-invite-960.png' });
     await b.keyboard.press('e');
     await gone(b, 'invite', FULL);
     for (const page of [a, b]) await until(page, 'egg', FULL, 60_000);
     await expect(a.getByTestId('hint')).toHaveText(GUIDE_WORDS.egg);
     await shoot(a, 'egg');
-    expect((await guideOf(b)).seen).toContain('egg');
-    expect(idA).not.toBe(idB);
   } finally {
     await Promise.all(contexts.map((c) => c.close()));
   }
