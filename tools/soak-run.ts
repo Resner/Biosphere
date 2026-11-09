@@ -27,6 +27,9 @@ export interface SoakOptions {
 
 /** The hub's shortened clocks: maturity and cooldown at 5%, the lifespan at 10%. */
 export const SCALES = { lifespan: 0.1, mating: 0.05 } as const;
+/** The full soak keeps real lifespans, so per-player costs compare with `MEASURED`'s; only maturity and cooldown are short. */
+export const FULL_SCALES = { lifespan: 1, mating: 0.05 } as const;
+const scalesOf = (opts: SoakOptions) => (opts.full ? FULL_SCALES : SCALES);
 /** Clients that hatch together before the rest, and the pause between two joins. */
 const JOIN_GAP_MS = 150;
 const ORIGIN = 'http://localhost:5173';
@@ -112,8 +115,8 @@ async function startHub(opts: SoakOptions, persist: string): Promise<ChildProces
     : { MAX_SESSIONS: Math.max(1000, opts.clients * 2), DAILY_REQUEST_BUDGET: 100_000_000 };
   const vars = {
     ...limits,
-    LIFESPAN_SCALE: SCALES.lifespan,
-    MATING_SCALE: SCALES.mating,
+    LIFESPAN_SCALE: scalesOf(opts).lifespan,
+    MATING_SCALE: scalesOf(opts).mating,
     // Fresh identities have no play and share one address; let them witness, as a populated world would.
     WITNESS_PLAY_MS: 0,
     WITNESS_IP_CHECK: 'off',
@@ -201,7 +204,7 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
         url: `ws://localhost:${opts.port}/v1/hub`,
         index: i,
         bus,
-        scales: SCALES,
+        scales: scalesOf(opts),
         ...(opts.dropEveryMs !== undefined ? { dropEveryMs: opts.dropEveryMs } : {}),
       });
       clients.push(client);
@@ -244,6 +247,13 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     }
     for (const [i, c] of clients.entries()) {
       for (const e of c.errors.slice(0, 3)) failures.push(`client ${i}: ${e}`);
+      if ((c.stats.closes['4003'] ?? 0) > 0) {
+        const top = Object.entries(c.stats.sent)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([k, n]) => `${k} ${n}`);
+        failures.push(`client ${i} was closed for its rate; it sent ${top.join(', ')}`);
+      }
     }
     const pageLives = pages ? await pages.stop() : [];
     for (const life of pageLives)
