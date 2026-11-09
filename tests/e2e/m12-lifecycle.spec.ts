@@ -115,6 +115,25 @@ const feedAll = (ps: Player[]) =>
   );
 
 /**
+ * Brings a page that starved back into play: it takes the ancestor the death screen offers, else
+ * hatches again. These creatures never eat and the scenario runs for minutes, so one of the four can
+ * be on its death screen at the final gathering (E2E main: whichever of them ran out first, in
+ * either order, and feeding the crowd steps' creatures broke those steps). A dead creature leaves
+ * the directory, so the gathering is of the four players' living creatures, whichever those are.
+ */
+async function revive(p: Player): Promise<void> {
+  if ((await state(p.page)).screen !== 'dead') return;
+  const ancestor = p.page.getByTestId('death-fallback-ancestor');
+  const offered = await ancestor
+    .waitFor({ state: 'visible', timeout: 20_000 })
+    .then(() => true)
+    .catch(() => false);
+  if (offered) await ancestor.click();
+  else await p.page.getByTestId('hatch-again').click();
+  await waitPlaying(p.page);
+}
+
+/**
  * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
  * and position, since the one page that timed out first says nothing of the others.
  */
@@ -468,6 +487,8 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
 
     // The four come together in open water (no crowd now: 24 links) and link.
     await feedAll(players);
+    // Fed from here on, a page that starved before this point comes back into play first.
+    await Promise.all(players.map(revive));
     await Promise.all(
       players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
     );
