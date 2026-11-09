@@ -66,7 +66,7 @@ describe('key labels', () => {
   it('runs of numbers read as a range, and a second press as "then"', () => {
     expect(keysText({ keys: ['1', '2', '3'] })).toEqual(['1', '2', '3']);
     expect(keysText({ keys: ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'] })).toEqual(['1–0']);
-    expect(keysText({ keys: ['t'], then: ['1', '2', '3', '4', '5', '6'] })).toEqual([
+    expect(keysText({ keys: ['t'], after: ['1', '2', '3', '4', '5', '6'] })).toEqual([
       'T',
       'then',
       '1–6',

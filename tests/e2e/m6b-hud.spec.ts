@@ -4,7 +4,7 @@ import { GUIDE_WORDS } from '../../src/game/guide';
 import { clickHatch, hatch, hudCover, openGame, openRecorded, state, waitPlaying } from './helpers';
 
 // The HUD shell (M6b T9): one menu button, four thin stat bars and the minimap (T10) and nothing
-// else on the play screen; the numbers live in the menu, the controls in the guide (M14 T7) and the menu.
+// else on the play screen; the numbers live in the menu, the controls in the guide (M14 T7) and the help panel (M14 T8).
 
 test.describe.configure({ mode: 'serial' });
 
@@ -203,16 +203,20 @@ test('the menu holds everything the play screen dropped, and steering carries on
   await expect(page.getByTestId('hud-health')).toHaveText(/^\d+$/);
   await expect(page.getByTestId('hud-growth')).toHaveText(/^Size \d+% of adult/);
   await expect(page.getByTestId('hud-zone')).toHaveText(/^[A-Z][a-z]+$/);
-  for (const id of ['menu-lineage', 'menu-settings', 'menu-controls', 'roster-title'])
+  for (const id of ['menu-lineage', 'menu-settings', 'menu-help', 'roster-title'])
     await expect(page.getByTestId(id)).toBeVisible();
   await expect(page.getByTestId('menu-build')).toHaveText(process.env.BUILD_LABEL || 'dev');
-  // Every key, in the Controls section.
-  await page.getByTestId('menu-controls').click();
-  const keys = page.getByTestId('controls');
+  // Every key, in the help panel's Controls (M14 T8), which the menu's Help opens.
+  await page.getByTestId('menu-help').click();
+  const keys = page.getByTestId('help-controls');
   await expect(keys).toBeVisible();
-  for (const key of ['WASD', 'Space', 'Enter', 'G', 'T', 'M', 'E', 'H', 'Esc', 'Middle'])
+  for (const key of ['W', 'Space', 'Enter', 'G', 'T', 'M', 'E', 'H', 'Esc', 'Middle'])
     await expect(keys).toContainText(key);
   await page.screenshot({ path: 'test-results/m6b-hud-menu.png' });
+  // Esc closes the help first, leaving the menu open.
+  await page.keyboard.press('Escape');
+  await expect(page.getByTestId('help')).toBeHidden();
+  await expect(panel).toBeVisible();
 
   // Steering carries on under the menu: the cursor at the right edge swims right.
   const before = (await state(page)).player?.x ?? 0;

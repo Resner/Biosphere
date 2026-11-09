@@ -1,6 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
-import type { BsHook } from '../../src/game/debug';
 import { CONTROLS } from '../../src/game/controls';
+import type { BsHook } from '../../src/game/debug';
 import { HELP_SECTIONS } from '../../src/game/help-text';
 import { hatch, openGame, openMenu, state } from './helpers';
 
@@ -45,6 +45,18 @@ async function checkFits(page: Page): Promise<void> {
     expect(side).toBeGreaterThanOrEqual(0);
 }
 
+/** The title screen within the screen: its name and its last line both on it. */
+async function checkTitleWhole(page: Page): Promise<void> {
+  const edges = await page.evaluate(() => ({
+    top: document.querySelector('.title h1')?.getBoundingClientRect().top ?? -1,
+    bottom:
+      innerHeight -
+      (document.querySelector('.title .lab-link')?.getBoundingClientRect().bottom ?? 0),
+  }));
+  expect(edges.top).toBeGreaterThanOrEqual(0);
+  expect(edges.bottom).toBeGreaterThanOrEqual(0);
+}
+
 for (const viewport of [
   { width: 960, height: 540 },
   { width: 390, height: 844 },
@@ -58,6 +70,7 @@ for (const viewport of [
     }) => {
       await openGame(page, '?debug=1&seed=help-title');
       expect(await helpOf(page)).toEqual({ open: false, section: null });
+      await checkTitleWhole(page);
       await page.keyboard.press('?');
       await expect(panel(page)).toBeVisible();
       expect(await helpOf(page)).toEqual({ open: true, section: 'play' });
@@ -68,16 +81,27 @@ for (const viewport of [
       // Centred: as far from the left as from the right.
       const box = await panel(page).boundingBox();
       expect(Math.abs((box?.x ?? 0) * 2 + (box?.width ?? 0) - viewport.width)).toBeLessThan(4);
-      // The title stays whole under it.
-      await expect(page.getByTestId('hatch')).toBeAttached();
       await page.screenshot({ path: `test-results/m14-help-title-${size}.png` });
       await page.keyboard.press('Escape');
       await expect(panel(page)).toBeHidden();
       expect((await helpOf(page)).open).toBe(false);
 
-      // The title's own button opens it; the close button closes it.
+      // A new browser's "New here? How to play" (M14 T7) opens it, in place of the pill beside Hatch.
+      await expect(page.getByTestId('help-open')).toBeHidden();
+      await page.getByTestId('title-help').click();
+      await expect(panel(page)).toBeVisible();
+      expect((await helpOf(page)).section).toBe('play');
+      await page.getByTestId('help-close').click();
+      await expect(panel(page)).toBeHidden();
+
+      // A browser that has seen the guide gets "How to play" beside Hatch.
+      await page.evaluate(() => localStorage.setItem('bs.guide', JSON.stringify(['swim'])));
+      await openGame(page, '?debug=1&seed=help-title');
+      await expect(page.getByTestId('title-help')).toBeHidden();
       const open = page.getByTestId('help-open');
       await expect(open).toBeVisible();
+      await checkTitleWhole(page);
+      await page.screenshot({ path: `test-results/m14-help-title-closed-${size}.png` });
       await open.click();
       await expect(panel(page)).toBeVisible();
       expect((await helpOf(page)).section).toBe('play');

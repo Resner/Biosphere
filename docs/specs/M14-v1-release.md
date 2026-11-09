@@ -332,7 +332,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Done: `guide.ts` (a `RULES` row per step, the loop's clock), `PlayUi.guideFacts`, Settings' two controls, `title-help` (hides the title's keys line, so the queue card's title stays whole); fight, mature and death words tightened to fit 390 px. `debug.sated` keeps a test's belly full so no meal ends a step early.
   - Gotcha: `m6b-hud`'s first-life hints test described the replaced hints; it now checks the guide's `swim` once per browser. Under 56rem the line sits above the bars (under the minimap while the offspring card shows).
 
-- [ ] T8 How to play: the help panel and every control [opus] (after none) (in progress)
+- [x] T8 How to play: the help panel and every control [opus] (after none) (in progress)
   - Steps:
     1. **`src/game/controls.ts`**: the one table of controls (`CONTROLS`, DESIGN §3), each action with its mouse and its keys and when it works.
     2. **The help panel** (`src/game/help-panel.ts`, `index.html`): a glass panel with sections in this order:
@@ -356,6 +356,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
       - screenshots at 960 × 540 and 390 × 844, on the title and in play, attached (`m14-help-*`); no horizontal scroll at 390.
     - `m6b-hud` passes with the menu's Help in place of Controls.
   - Notes: plain words, short lines, no genetics jargon in How to play; the panel never names a number DESIGN.md doesn't hold.
+  - Done: `controls.ts` (`CONTROLS`, with `after` for T then 1–6), `help-text.ts`, `help-panel.ts` (`Help` pure over a `HelpView`); each key handler exports its key list (`APP_KEYS`, `MOVE_KEYS`, `FIGHT_KEYS`, `WHEEL_KEYS`, `EMOTE_KEYS`) for the key-map test. "How to play" sits beside Hatch, hidden while T7's `title-help` shows.
+  - Gotcha: the code reads `KeyboardEvent.key`, not `.code` as Out of scope says, so WASD follows the layout's letters; in play focus returns nowhere on close, so Space stays the dash.
 
 - [ ] T9 Colour never alone [opus] (after T7, T8)
   - Steps:

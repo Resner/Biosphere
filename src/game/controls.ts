@@ -7,8 +7,8 @@ export interface Control {
   /** The mouse's way to do it, or null when only keys do. */
   mouse: string | null;
   keys: readonly string[];
-  /** Keys pressed after `keys` (T then 1–6). */
-  then?: readonly string[];
+  /** Keys pressed after `keys` (T, then 1–6). */
+  after?: readonly string[];
   when: 'always' | 'play' | 'combat' | 'title';
 }
 
@@ -55,7 +55,7 @@ export const CONTROLS: readonly Control[] = [
     keys: DIGITS,
     when: 'play',
   },
-  { action: 'Emote', mouse: null, keys: ['t'], then: DIGITS.slice(0, 6), when: 'play' },
+  { action: 'Emote', mouse: null, keys: ['t'], after: DIGITS.slice(0, 6), when: 'play' },
   { action: 'Chat', mouse: null, keys: ['Enter'], when: 'play' },
   { action: 'Map', mouse: 'Click the minimap', keys: ['m'], when: 'play' },
   {
@@ -89,7 +89,9 @@ export const CONTROLS: readonly Control[] = [
 /** Every key the table names, lower case, once each. */
 export function controlKeys(): string[] {
   return [
-    ...new Set(CONTROLS.flatMap((c) => [...c.keys, ...(c.then ?? [])]).map((k) => k.toLowerCase())),
+    ...new Set(
+      CONTROLS.flatMap((c) => [...c.keys, ...(c.after ?? [])]).map((k) => k.toLowerCase()),
+    ),
   ];
 }
 
@@ -115,7 +117,7 @@ function labels(keys: readonly string[]): string[] {
 }
 
 /** A control's keys as the caps to draw, with "then" between a key and the ones that follow it. */
-export function keysText(control: Pick<Control, 'keys' | 'then'>): string[] {
-  const then = control.then ?? [];
-  return then.length ? [...labels(control.keys), 'then', ...labels(then)] : labels(control.keys);
+export function keysText(control: Pick<Control, 'keys' | 'after'>): string[] {
+  const after = control.after ?? [];
+  return after.length ? [...labels(control.keys), 'then', ...labels(after)] : labels(control.keys);
 }

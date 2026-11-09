@@ -1,3 +1,21 @@
+/* The title's row: Hatch, and How to play beside it, so the column grows no taller. */
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.title-row .action.quiet {
+  margin-top: 0;
+}
+
+/* A browser that has seen no guide step has "New here? How to play" right under it instead. */
+.title:has(.title-help:not([hidden])) [data-testid="help-open"] {
+  display: none;
+}
+
 /* How to play (M14 T8): a glass panel that scrolls inside itself. Centred over the title and death
    screens; in play a side panel under the minimap, so the creature and the HUD stay in view and
    steering carries on under it. */
@@ -117,8 +135,9 @@ body[data-screen="playing"] .help {
 }
 
 .help-section h3:focus-visible {
-  outline: 1px solid var(--muted);
-  outline-offset: 2px;
+  border-radius: 4px;
+  outline: 1px solid var(--glass-line);
+  outline-offset: 3px;
 }
 
 .help-section ul {
