@@ -264,7 +264,7 @@ export class Ledger {
   openMating(owner: string): { commit: string; round: number; partner: string } | null {
     const row = this.run(
       `SELECT commit_id, round, owner_a, name_a, name_b FROM matings
-       WHERE resolved = 0 AND (owner_a = ?1 OR owner_b = ?1) LIMIT 1`,
+       WHERE resolved = 0 AND (owner_a = ?1 OR owner_b = ?1) ORDER BY round DESC LIMIT 1`,
       owner,
     )[0];
     if (!row) return null;
