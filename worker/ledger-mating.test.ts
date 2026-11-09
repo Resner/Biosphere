@@ -312,6 +312,28 @@ describe('Ledger.birth', () => {
     });
   });
 
+  it('forgets both names once the children are written (M14 T16: they serve only the wait)', async () => {
+    await inLedger(async (ledger) => {
+      const { a, b } = await pair(ledger);
+      const commit = nextHex();
+      const requests = mateRequests(a, b, commit);
+      const result = ledger.mate({ commit, round: ROUND, requests, names: ['Ann', 'Bob'] });
+      if (!result.ok) throw new Error(result.reason);
+      expect(ledger.openMating(a.owner)?.partner).toBe('Bob');
+      const names = () =>
+        ledger.storage.sql
+          .exec('SELECT name_a, name_b FROM matings WHERE commit_id = ?', commit)
+          .toArray();
+      expect(names()).toEqual([{ name_a: 'Ann', name_b: 'Bob' }]);
+      const born = ledger.birth({
+        commit,
+        children: birthChildren(commit, a, b, result.stored),
+      });
+      if (!born.ok) throw new Error(born.reason);
+      expect(names()).toEqual([{ name_a: '', name_b: '' }]);
+    });
+  });
+
   it('writes nothing for an unknown mating, and a repeat answers with the same children', async () => {
     await inLedger(async (ledger) => {
       const { a, b } = await pair(ledger);

@@ -33,6 +33,7 @@ import type { WitnessDutyView } from './app-witness';
 import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
 import type { Capabilities, Unsupported } from './capability';
+import { type CspViolation, cspViolations } from './csp-watch';
 import type { GuideView } from './guide';
 import type { HelpInfo } from './help-panel';
 import type { Chip, HudBars } from './hud';
@@ -54,6 +55,8 @@ export interface BsState {
    * the plain page the hook holds only `ready`, and `state()` only `capabilities` and this.
    */
   unsupported: Unsupported | null;
+  /** The Content-Security-Policy violations seen on this page (M14 T16), oldest first. */
+  csp: CspViolation[];
   /**
    * Graphics quality (M6 T4): the setting in force, the preset `auto` resolves to, and the
    * benchmark's status (`stored` means this GPU's result was read and no benchmark ran).
@@ -599,5 +602,8 @@ export function installHook(hook: BsHook): void {
 /** The plain page's hook (M14 T6): there is no game, so `state()` says only why. */
 export function installPlainHook(capabilities: Capabilities, unsupported: Unsupported): void {
   const state = { capabilities, unsupported };
-  window.__bs = { ready: true, state: () => ({ ...state }) } as unknown as BsHook;
+  window.__bs = {
+    ready: true,
+    state: () => ({ ...state, csp: cspViolations() }),
+  } as unknown as BsHook;
 }

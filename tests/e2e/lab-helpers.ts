@@ -1,6 +1,7 @@
 import type { Locator, Page } from '@playwright/test';
 import { cellRect } from '../../src/lab/grid';
 import type { LabHook } from '../../src/lab/hook';
+import { expectNoCsp } from './helpers';
 
 // Shared by the Creature Lab specs (M3 T13, T14): opening the page, calling the hook, and measuring
 // decoded screenshots of the stage cell by cell.
@@ -20,6 +21,7 @@ export const lab = <T>(page: Page, run: (hook: LabHook) => T) =>
 export async function openLab(page: Page, query = QUERY): Promise<void> {
   await page.goto(`./lab.html${query}`);
   await page.waitForFunction(() => window.__lab?.ready === true);
+  await expectNoCsp(page);
   // A running Lab renders 24 creatures every frame in software GL. The specs read single frames,
   // and the CI runner is shared with the multi-browser pond specs, so stop the loop.
   await page.evaluate(() => window.__lab?.debug?.pause());

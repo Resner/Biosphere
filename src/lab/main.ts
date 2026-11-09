@@ -2,7 +2,11 @@ import '../style.css';
 import './lab.css';
 import { formatBuildLabel } from '../game/build-label';
 import { capabilities, showUnsupported, unsupportedReason } from '../game/capability';
+import { watchCsp } from '../game/csp-watch';
 import { randomSeed, startLab } from './lab';
+
+// What the page's Content-Security-Policy blocks, for `state().csp` (M14 T16).
+watchCsp(document);
 
 const label = document.querySelector<HTMLElement>('[data-testid="build-label"]');
 if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);

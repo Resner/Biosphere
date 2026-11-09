@@ -1,3 +1,4 @@
+import type { CspViolation } from '../game/csp-watch';
 import type { RarityTier } from '../genome/rarity';
 import type { Silhouette } from '../genome/silhouette';
 import type { LabMode } from './specimens';
@@ -31,6 +32,8 @@ export interface LabState {
   parents: [number | null, number | null];
   /** The eight children of the last Breed, or none. */
   offspring: LabCreature[];
+  /** The Content-Security-Policy violations seen on this page (M14 T16), oldest first. */
+  csp: CspViolation[];
 }
 
 export interface LabRenderInfo {

@@ -12,6 +12,35 @@ export async function openGame(page: Page, query: string): Promise<void> {
     : `${query}${query.includes('?') ? '&' : '?'}genome=starter`;
   await page.goto(`./${pinned}`);
   await page.waitForFunction(() => window.__bs?.ready === true);
+  await expectNoCsp(page);
+}
+
+/**
+ * What the page's Content-Security-Policy blocked (M14 T16), from whichever page's hook it has:
+ * the game's `__bs`, the Lab's `__lab` or the card's `__card`.
+ */
+export const cspSeen = (page: Page) =>
+  page.evaluate(() => {
+    const w = window as unknown as Record<
+      string,
+      { state?: () => { csp?: unknown[] } } | undefined
+    >;
+    for (const name of ['__bs', '__lab', '__card']) {
+      const csp = w[name]?.state?.().csp;
+      if (csp) return csp;
+    }
+    return [];
+  });
+
+/**
+ * Fails the test whose page saw a Content-Security-Policy violation: the policy blocked something
+ * the page tried to do. Every opening and state helper here calls it.
+ */
+export async function expectNoCsp(page: Page): Promise<void> {
+  const seen = await cspSeen(page);
+  if (seen.length > 0) {
+    throw new Error(`the page's Content-Security-Policy blocked ${JSON.stringify(seen)}`);
+  }
 }
 
 /**
@@ -21,6 +50,7 @@ export async function openGame(page: Page, query: string): Promise<void> {
 export async function hatch(page: Page): Promise<void> {
   await page.getByRole('button', { name: 'Hatch', exact: true }).click();
   await page.waitForFunction(() => window.__bs?.state().screen === 'playing');
+  await expectNoCsp(page);
   const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
   await page.mouse.move(width / 2, height / 2);
 }
@@ -36,7 +66,14 @@ export async function openMenu(page: Page): Promise<void> {
   await expect(menu).toBeVisible();
 }
 
-export const state = (page: Page) => page.evaluate(() => (window.__bs as BsHook).state());
+/** The game's state; a page that saw a CSP violation fails the test (M14 T16). */
+export async function state(page: Page): Promise<BsState> {
+  const s = await page.evaluate(() => (window.__bs as BsHook).state());
+  if (s.csp.length > 0) {
+    throw new Error(`the page's Content-Security-Policy blocked ${JSON.stringify(s.csp)}`);
+  }
+  return s;
+}
 
 /** Types a chat line through the real UI (Enter, text, Enter). */
 /**
@@ -296,6 +333,7 @@ export async function openRecorded(page: Page, extra = '', hub = M4_HUB): Promis
   await page.goto(`./?debug=1&hub=${hub}${extra}`);
   await page.waitForFunction(() => window.__bs?.ready === true);
   await page.waitForFunction(() => window.__bs?.state().playerId);
+  await expectNoCsp(page);
 }
 
 /** Clicks Hatch on the title screen without waiting for play to start. */
@@ -323,6 +361,7 @@ export async function waitPlaying(page: Page, { paced = false } = {}): Promise<v
     paced,
     { timeout: 15_000, polling: 'raf' },
   );
+  await expectNoCsp(page);
   const { width, height } = page.viewportSize() ?? { width: 960, height: 540 };
   await page.mouse.move(width / 2, height / 2);
 }
