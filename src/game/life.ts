@@ -684,6 +684,7 @@ export class LifeFlow {
       }
       return this.fail(NOT_HATCHED);
     }
+    // The same genesis was kept as it came during the wait: it is taken now.
     this.heldGenesis = null;
     if (!(await this.checked(reply))) return this.fail(VERIFY_FAILED);
     this.known = { life: null, genesisIn: 0 };
