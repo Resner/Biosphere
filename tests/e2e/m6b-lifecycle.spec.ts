@@ -3,7 +3,7 @@ import type { BsHook } from '../../src/game/debug';
 import { starterGenome } from '../../src/genome/starter';
 import { buildCreature } from '../../src/genome/stats';
 import { PRESETS } from '../../src/render/presets';
-import { RULES } from '../../src/sim/rules';
+import { RULES, TICK_HZ } from '../../src/sim/rules';
 import {
   atEgg,
   clickHatch,
@@ -12,7 +12,6 @@ import {
   openRecorded,
   playerOf,
   state,
-  swimPace,
   waitPlaying,
 } from './helpers';
 
@@ -36,6 +35,42 @@ const timeScale = (page: Page, scale: number) =>
  * stall can run past to a quarter; the first hit lands on the first damage tick either way.
  */
 const HAZARD_SCALE = 0.25;
+
+/**
+ * The distance the player swims along its path per second of sim time over `ms` of wall time (at
+ * least 5 ticks), sampled every frame in one page call so a slow runner's stalled frames read as
+ * no ticks rather than a slower swimmer.
+ */
+function pathPace(page: Page, ms = 1000): Promise<number> {
+  return page.evaluate(
+    ({ ms: window_, tickHz }) =>
+      new Promise<number>((resolve, reject) => {
+        const read = () => {
+          const { player, tick } = (window.__bs as BsHook).state();
+          if (!player) throw new Error('the player has not hatched');
+          return { x: player.x, y: player.y, tick };
+        };
+        let last = read();
+        const first = last.tick;
+        let path = 0;
+        const end = performance.now() + window_;
+        const look = () => {
+          try {
+            const now = read();
+            path += Math.hypot(now.x - last.x, now.y - last.y);
+            last = now;
+            if (performance.now() >= end && now.tick >= first + 5)
+              resolve((path * tickHz) / (now.tick - first));
+            else requestAnimationFrame(look);
+          } catch (error) {
+            reject(error);
+          }
+        };
+        requestAnimationFrame(look);
+      }),
+    { ms, tickHz: TICK_HZ },
+  );
+}
 
 /** The frame is drawn with the medium chain and stays within the medium budget. */
 async function withinBudget(page: Page, step: string): Promise<void> {
@@ -176,7 +211,9 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
 
   // 4. The wheel, held open for a second mid-swim, keeps at least 80% of the pace; a ping from
   // it reaches the other player's minimap.
-  const travel = async () => (await swimPace(a)).dist;
+  // The pace along the path, not the net displacement: the sweep turns the pointer, and a swimmer
+  // that turns covers the same ground at the same speed but ends nearer where it began.
+  const travel = () => pathPace(a);
   const closed = await travel();
   expect(closed).toBeGreaterThan(10);
   // A tap's keydown and keyup go in one page call: two Playwright round trips can sit more than the
@@ -240,11 +277,21 @@ test('egg, minimal HUD, speed band, wheel, hazards, death and Hatch again @slow'
     await timeScale(a, HAZARD_SCALE);
     await a
       .waitForFunction(
-        (kind) => {
-          const { shake, vignette } = (window.__bs as BsHook).render.fx();
+        ({ kind, at }) => {
+          const bs = window.__bs as BsHook;
+          const { shake, vignette } = bs.render.fx();
+          if (shake.kind !== null && shake.kind !== kind) {
+            // A toxin cloud over the spot takes each hit's slot before the water does (a jolt, not
+            // this hazard's shake): step out of it, with full health again.
+            const p = bs.state().player;
+            if (p) bs.debug?.teleport(p.x + 400, p.y + 400);
+            bs.debug?.setZone(at);
+            bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
+            return false;
+          }
           return shake.kind === kind && shake.body > 0 && shake.camera > 0 && vignette === 0;
         },
-        hazard,
+        { kind: hazard, at: zone },
         { timeout: 30_000 },
       )
       .catch(async (error) => {

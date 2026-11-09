@@ -2,14 +2,13 @@ import { type BrowserContext, expect, type Page, test } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
 import {
   clickHatch,
-  goTo,
   M5_LIFECYCLE_HUB as HUB,
   openRecorded,
   ripe,
   state,
-  topUp,
   waitPlaying,
 } from './helpers';
+import { mate } from './m7-fight';
 
 // The whole M5 line in one scenario (@slow, release gate), on an authority with lives of 1 to 2 min
 // and maturity in seconds: A mates with B and promotes the child, the child mates with C and
@@ -48,26 +47,6 @@ async function growOld(page: Page): Promise<void> {
     { timeout: 170_000 },
   );
   expect((await state(page)).death?.cause).toBe('old-age');
-}
-
-/** `courter` courts `partner`, who accepts; both end up with a card for a different child. */
-async function mate(courter: Page, partner: Page): Promise<void> {
-  const who = (await state(partner)).playerId as string;
-  await Promise.all([topUp(courter), topUp(partner)]);
-  // The partner drifts and the hub's answer takes a moment: stay beside them until the key is offered.
-  await expect(async () => {
-    await goTo(courter, who);
-    await expect(courter.getByTestId('mate-hint')).toHaveText(/^E: court /, { timeout: 1500 });
-  }).toPass({ timeout: 30_000 });
-  await courter.keyboard.press('e');
-  await courter.keyboard.press('e');
-  await expect(partner.getByTestId('invite')).toBeVisible({ timeout: 15_000 });
-  await partner.keyboard.press('e');
-  for (const page of [courter, partner]) {
-    await page.waitForFunction(() => window.__bs?.state().offspring.kind === 'card', undefined, {
-      timeout: 60_000,
-    });
-  }
 }
 
 async function become(page: Page, creature: string | null): Promise<void> {
