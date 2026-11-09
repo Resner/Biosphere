@@ -459,6 +459,11 @@ export interface BsDebug {
    */
   holdBelly(on: boolean): void;
   /**
+   * A test aid (M14 T7): while on, the player's energy is filled to its cap at each tick's start, so
+   * it eats nothing (the guide's steps that a meal would end wait for the test).
+   */
+  sated(on: boolean): void;
+  /**
    * A test aid: while on, the scene still updates (`render.info()` counts, the HUD) but skips its
    * draw call. Software rendering is the cost of a frame on a runner, and a fight page that draws
    * a frame in over 100 ms misses the referee's input deadline.

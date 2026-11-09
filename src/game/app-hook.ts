@@ -86,6 +86,9 @@ function debugHelpers(app: App): BsDebug {
     holdBelly(on) {
       app.fight.holdBelly = on;
     },
+    sated(on) {
+      app.sated = on;
+    },
     netCap(cap) {
       if (!Number.isInteger(cap) || cap < 1 || cap > DEFAULT_CAP) {
         throw new RangeError(`netCap takes 1 to ${DEFAULT_CAP}, got ${cap}`);

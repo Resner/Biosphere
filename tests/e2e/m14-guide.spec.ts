@@ -27,8 +27,8 @@ test.describe.configure({ mode: 'serial' });
 const guideOf = async (page: Page) => (await state(page)).guide;
 
 /**
- * What the page holds each poll while it waits: a `full` belly eats nothing, so no meal ends a step
- * before the test means it to; `share` holds the energy at that share of its cap; `nearFood` keeps
+ * What the page holds each poll while it waits: a `full` belly (`debug.sated`) eats nothing, so no
+ * meal ends a step before the test means it to; `share` holds the energy at that share of its cap; `nearFood` keeps
  * the creature within 3 body radii of the nearest food.
  */
 interface Keep {
@@ -48,8 +48,12 @@ const prepare = (page: Page) =>
       const debug = bs?.debug;
       const p = bs?.state().player;
       if (!bs || !debug || !p) return;
-      if (keep.full || keep.share !== undefined) debug.setEnergy(Number.MAX_SAFE_INTEGER);
-      if (keep.share !== undefined) debug.setEnergy((bs.state().player?.energy ?? 0) * keep.share);
+      if (keep.full) debug.sated(true);
+      if (keep.share !== undefined) {
+        debug.sated(false);
+        debug.setEnergy(Number.MAX_SAFE_INTEGER);
+        debug.setEnergy((bs.state().player?.energy ?? 0) * keep.share);
+      }
       const food = keep.nearFood ? debug.nearestFood() : null;
       if (food && Math.hypot(food.x - p.x, food.y - p.y) > p.radius * 4) {
         debug.teleport(food.x - p.radius * 3, food.y);
@@ -72,11 +76,11 @@ async function until(
     .waitForFunction(
       ([step, keep]) => {
         const bs = window.__bs as BsHook;
+        (window as Kept).__guideKeep?.(keep);
         if (bs.state().guide.current === step) {
           bs.debug?.timeScale(1);
           return true;
         }
-        (window as Kept).__guideKeep?.(keep);
         bs.debug?.timeScale(8);
         return false;
       },
@@ -122,7 +126,10 @@ async function shoot(page: Page, name: string): Promise<void> {
     await expect(hint).toBeVisible();
     const look = await hint.evaluate((el) => {
       const r = el.getBoundingClientRect();
-      const line = parseFloat(getComputedStyle(el).lineHeight) || 16;
+      // The text's line boxes: one top per line.
+      const range = document.createRange();
+      range.selectNodeContents(el);
+      const tops = new Set([...range.getClientRects()].map((b) => Math.round(b.top)));
       const covers = ['.hud .stat', '.minimap', '[data-testid="minimap-depth"]']
         .flatMap((s) => [...document.querySelectorAll(s)])
         .filter((o) => (o as HTMLElement).checkVisibility())
@@ -133,7 +140,7 @@ async function shoot(page: Page, name: string): Promise<void> {
       return {
         left: r.left,
         right: r.right,
-        lines: Math.round((r.height - 2) / line),
+        lines: tops.size,
         covers,
         scroll: document.documentElement.scrollWidth > innerWidth,
       };
@@ -144,7 +151,8 @@ async function shoot(page: Page, name: string): Promise<void> {
     expect(look.lines, at).toBeLessThanOrEqual(1);
     expect(look.covers, at).toBe(false);
     expect(look.scroll, at).toBe(false);
-    expect((await hudCover(page)).share, at).toBeLessThanOrEqual(0.06);
+    // The HUD's 6% is m6b-hud's at 960 × 540 (at 390 px its fixed-size bars and minimap alone are more).
+    if (width === 960) expect((await hudCover(page)).share, at).toBeLessThanOrEqual(0.06);
     await page.screenshot({ path: `test-results/m14-guide-${name}-${width}.png` });
   }
   await page.setViewportSize({ width: 960, height: 540 });

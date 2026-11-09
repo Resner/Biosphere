@@ -234,6 +234,8 @@ export class App {
   input: Input = IDLE;
   screenShownAt = 0;
   steering: Steering | null = null;
+  /** `debug.sated`: the player's belly is filled at each tick's start, so it eats nothing. */
+  sated = false;
   /** `debug.hover`: the remote the player keeps `distance` wu from, or null. */
   hover: { id: string; distance: number } | null = null;
   /** What the creature keeps swimming on while the social wheel is open (M6b T2); a new life clears it. */
