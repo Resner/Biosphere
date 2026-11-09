@@ -408,9 +408,14 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     await Promise.all(
       players.map((p) => p.page.evaluate(() => (window.__bs as BsHook).debug?.crowdAt(24))),
     );
+    // A swam off to end the fight and B stayed where it fought, so all four gather on one spot: A
+    // (which a teleport also stops) stays where it is, B, C and D are placed around it.
     const home = await playerOf(a.page);
-    await place(c, home.x - CENTRE - pair, home.y - CENTRE);
-    await place(d, home.x - CENTRE + pair, home.y - CENTRE);
+    const [hx, hy] = [home.x - CENTRE, home.y - CENTRE];
+    await place(a, hx, hy);
+    await place(b, hx, hy + pair);
+    await place(c, hx - pair, hy);
+    await place(d, hx + pair, hy);
     await allLinked(players, 'the four link in open water', 90_000);
     for (const p of players) expect(await instanceOf(p), 'the open water').toBe(0);
 
