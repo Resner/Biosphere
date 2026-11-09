@@ -377,9 +377,16 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
         'D lands outside the P1 reach of every member still in the crowd',
       ).toBeGreaterThanOrEqual(p1Reach(note, m) - movedSince(m));
     }
-    // D holds a link to nobody in the crowd.
+    // D holds a link to nobody who is in a crowd. A member that left its instance meanwhile (C's
+    // crowd of one dissolves after QUIET_MS, A's and B's once the fight is over) is open water and
+    // may be linked, so judge the members that were in an instance before and after the links.
     const dLinks = (await state(d.page)).net.links.map((l) => l.id);
-    for (const other of [a, b, c]) expect(dLinks).not.toContain(other.id);
+    const stillCrowded = new Set(
+      (await directory(request, HUB)).members.filter((m) => m.n !== 0).map((m) => m.id),
+    );
+    for (const m of crowded) {
+      if (stillCrowded.has(m.id)) expect(dLinks).not.toContain(m.id);
+    }
 
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
