@@ -8,8 +8,10 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { verifyLineage } from '../src/ledger/verify';
-import { fetchJson } from '../src/net/hub-client';
 import { LifeClient, type LifeStats, SnapBus } from '../tests/life-client';
+import { RuntimeWatch } from './load-hub-run';
+import { SoakPages } from './soak-pages';
+import { CONSISTENT_EVERY, type FullSeries, type HubSample, type PageSample } from './soak-report';
 
 export interface SoakOptions {
   clients: number;
@@ -17,16 +19,23 @@ export interface SoakOptions {
   port: number;
   /** Mean play time between a client's drops (ms); 0 never drops. */
   dropEveryMs?: number;
+  /** The full soak (M14 T14): the free plan's own limits, two pages, a sample every minute. */
+  full?: { site: string; pages: number; joinMinutes: number };
   log?: (line: string) => void;
 }
 
 /** The hub's shortened clocks: maturity and cooldown at 5%, the lifespan at 10%. */
 export const SCALES = { lifespan: 0.1, mating: 0.05 } as const;
+/** The full soak keeps real lifespans, so per-player costs compare with `MEASURED`'s; only maturity and cooldown are short. */
+export const FULL_SCALES = { lifespan: 1, mating: 0.05 } as const;
+const scalesOf = (opts: SoakOptions) => (opts.full ? FULL_SCALES : SCALES);
 /** Clients that hatch together before the rest, and the pause between two joins. */
 const JOIN_GAP_MS = 150;
 const ORIGIN = 'http://localhost:5173';
 /** Creatures whose proof bundle is verified besides the last generation. */
 const SAMPLE = 20;
+/** The full soak's sample (M14 T14). */
+const FULL_SAMPLE = 50;
 
 export interface Soak {
   config: { clients: number; minutes: number };
@@ -46,6 +55,8 @@ export interface Soak {
   /** `consistent(hub)` at the end: empty when every invariant holds. */
   inconsistencies: unknown[];
   verified: { checked: number; problems: string[] };
+  /** The full run's series: the authority and the pages sampled every minute (M14 T14). */
+  full?: FullSeries;
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -96,12 +107,18 @@ function stop(hub: ChildProcess, signal: NodeJS.Signals): void {
 }
 
 async function startHub(opts: SoakOptions, persist: string): Promise<ChildProcess> {
+  // The full soak runs on the free plan's own limits: the headroom seats the crowd or the line says so.
+  // The E2E Worker's config pins 200 sessions and 100,000 requests; a zero is no override (`limitsOf`).
+  const limits = opts.full
+    ? { MAX_SESSIONS: 0, DAILY_REQUEST_BUDGET: 0 }
+    : { MAX_SESSIONS: Math.max(1000, opts.clients * 2), DAILY_REQUEST_BUDGET: 100_000_000 };
   const vars = {
-    MAX_SESSIONS: Math.max(1000, opts.clients * 2),
-    DAILY_REQUEST_BUDGET: 100_000_000,
-    LIFESPAN_SCALE: SCALES.lifespan,
-    MATING_SCALE: SCALES.mating,
+    ...limits,
+    LIFESPAN_SCALE: scalesOf(opts).lifespan,
+    MATING_SCALE: scalesOf(opts).mating,
     // Fresh identities have no play and share one address; let them witness, as a populated world would.
+    // The recorded rounds last 30 minutes; the full soak plays for an hour.
+    ...(opts.full ? { DRAND_ROUNDS: 'soak' } : {}),
     WITNESS_PLAY_MS: 0,
     WITNESS_IP_CHECK: 'off',
   };
@@ -140,10 +157,16 @@ async function startHub(opts: SoakOptions, persist: string): Promise<ChildProces
 }
 
 export async function runSoak(opts: SoakOptions): Promise<Soak> {
+  // A hub left over from an earlier run would answer in this run's place, with its own day's meter.
+  const taken = await fetch(`http://localhost:${opts.port}/v1/health`).then(
+    (r) => r.ok,
+    () => false,
+  );
+  if (taken) throw new Error(`port ${opts.port} already answers: stop the old hub first`);
   const persist = await mkdtemp(join(tmpdir(), 'bs-soak-'));
   const hub = await startHub(opts, persist);
   try {
-    return await drive(opts);
+    return await drive(opts, hub.pid ?? 0);
   } finally {
     stop(hub, 'SIGINT');
     await sleep(500);
@@ -152,23 +175,61 @@ export async function runSoak(opts: SoakOptions): Promise<Soak> {
   }
 }
 
-const getJson = <T>(port: number, path: string): Promise<T> =>
-  fetchJson(`http://localhost:${port}${path}`) as Promise<T>;
+/**
+ * A read of the authority's E2E meter. A busy hour answers slowly, and one slow answer is not the
+ * run's end: each read waits up to 30 s and tries three times before it gives up.
+ */
+async function getJson<T>(port: number, path: string): Promise<T> {
+  let last: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`http://localhost:${port}${path}`, {
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) throw new Error(`${path} ${res.status}`);
+      return (await res.json()) as T;
+    } catch (e) {
+      last = e;
+      await sleep(2_000);
+    }
+  }
+  throw new Error(`${path} did not answer: ${String(last)}`);
+}
 
-async function drive(opts: SoakOptions): Promise<Soak> {
+async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
   const log = opts.log ?? (() => {});
   const bus = new SnapBus();
   const clients: LifeClient[] = [];
   const failures: string[] = [];
   const starts: Promise<void>[] = [];
   let entered = 0;
+  const t0 = Date.now();
+  const hubSamples: HubSample[] = [];
+  const pageSamples: PageSample[] = [];
+  const watch = new RuntimeWatch(hubPid);
+  const pages = opts.full
+    ? new SoakPages({
+        site: opts.full.site,
+        hub: `http://localhost:${opts.port}`,
+        pages: opts.full.pages,
+        minutes: opts.minutes,
+        log,
+      })
+    : null;
+  const joinGap = opts.full ? (opts.full.joinMinutes * 60_000) / opts.clients : JOIN_GAP_MS;
+  let pagesUp: Promise<void> = Promise.resolve();
   try {
+    if (pages) {
+      pagesUp = pages.start().catch((e: unknown) => {
+        failures.push(`pages: ${e instanceof Error ? e.message : String(e)}`);
+      });
+    }
     for (let i = 0; i < opts.clients; i++) {
       const client = new LifeClient({
         url: `ws://localhost:${opts.port}/v1/hub`,
         index: i,
         bus,
-        scales: SCALES,
+        scales: scalesOf(opts),
         ...(opts.dropEveryMs !== undefined ? { dropEveryMs: opts.dropEveryMs } : {}),
       });
       clients.push(client);
@@ -182,13 +243,34 @@ async function drive(opts: SoakOptions): Promise<Soak> {
           },
         ),
       );
-      await sleep(JOIN_GAP_MS);
+      await sleep(joinGap);
     }
     await Promise.all(starts);
     log(`${entered} of ${opts.clients} in the water`);
-    const end = Date.now() + opts.minutes * 60_000;
+    const end = (opts.full ? t0 : Date.now()) + opts.minutes * 60_000;
+    let sampled = 0;
     while (Date.now() < end) {
-      await sleep(Math.min(30_000, end - Date.now()));
+      const next = opts.full ? t0 + (sampled + 1) * 60_000 : Date.now() + 30_000;
+      await sleep(Math.max(0, Math.min(next, end) - Date.now()));
+      if (opts.full && Date.now() >= t0 + (sampled + 1) * 60_000) {
+        sampled++;
+        const minute = sampled;
+        try {
+          hubSamples.push(
+            await sampleHub(opts.port, watch, minute, minute % CONSISTENT_EVERY === 0),
+          );
+        } catch (e) {
+          failures.push(`hub sample at minute ${minute}: ${String(e)}`);
+        }
+        await pagesUp;
+        if (pages) {
+          try {
+            pageSamples.push(...(await pages.sample(minute)));
+          } catch (e) {
+            failures.push(`page sample at minute ${minute}: ${String(e)}`);
+          }
+        }
+      }
       const t = sum(clients.map((c) => c.stats));
       log(
         `matings ${t.matings ?? 0}, births ${t.births ?? 0}, fights ${t.fights ?? 0}, kills ${t.kills ?? 0}, restores ${t.restores ?? 0}, drops ${t.drops ?? 0}`,
@@ -196,7 +278,17 @@ async function drive(opts: SoakOptions): Promise<Soak> {
     }
     for (const [i, c] of clients.entries()) {
       for (const e of c.errors.slice(0, 3)) failures.push(`client ${i}: ${e}`);
+      if ((c.stats.closes['4003'] ?? 0) > 0) {
+        const top = Object.entries(c.stats.sent)
+          .sort((a, b) => b[1] - a[1])
+          .slice(0, 6)
+          .map(([k, n]) => `${k} ${n}`);
+        failures.push(`client ${i} was closed for its rate; it sent ${top.join(', ')}`);
+      }
     }
+    const pageLives = pages ? await pages.stop() : [];
+    for (const life of pageLives)
+      for (const e of life.errors) failures.push(`page ${life.page}: ${e}`);
     const stats = clients.map((c): LifeStats => c.stats);
     const [dropped, audit, inconsistencies] = await Promise.all([
       getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped'),
@@ -206,7 +298,22 @@ async function drive(opts: SoakOptions): Promise<Soak> {
     const verified = await verifyProofs(
       opts.port,
       clients.map((c) => c.seen),
+      opts.full ? FULL_SAMPLE : SAMPLE,
     );
+    const pageIds = pages?.creatures() ?? [];
+    const full: FullSeries | undefined = opts.full
+      ? {
+          hub: hubSamples,
+          pages: pageSamples,
+          pageLives,
+          perPlayer: await perPlayerOf(opts.port),
+          pagesVerified: await verifyProofs(
+            opts.port,
+            pageIds.map((id) => [id]),
+            pageIds.length,
+          ),
+        }
+      : undefined;
     const totals = sum(stats);
     return {
       config: { clients: opts.clients, minutes: opts.minutes },
@@ -221,22 +328,80 @@ async function drive(opts: SoakOptions): Promise<Soak> {
       flags: Object.fromEntries(Object.entries(audit?.day ?? {}).filter(([, n]) => n > 0)),
       inconsistencies,
       verified,
+      ...(full ? { full } : {}),
     };
   } finally {
+    await pages?.stop().catch(() => {});
     for (const c of clients) c.stop();
   }
+}
+
+interface MetricsAnswer {
+  live: { seated: number; queued: number };
+  today: {
+    byType: Record<string, number>;
+    perPlayerMinute: { messages: number } | null;
+    perPlayerHour: { rowsWritten: number } | null;
+  };
+}
+
+/** One look at the authority: its process, its meter and its audit. */
+async function sampleHub(
+  port: number,
+  watch: RuntimeWatch,
+  minute: number,
+  inconsistent: boolean,
+): Promise<HubSample> {
+  const [metrics, audit, inconsistencies] = await Promise.all([
+    getJson<MetricsAnswer>(port, '/v1/e2e/metrics'),
+    getJson<{ day: Record<string, number> } | null>(port, '/v1/e2e/audit'),
+    inconsistent
+      ? getJson<{ kind: string; detail?: string }[]>(port, '/v1/e2e/consistency')
+      : Promise.resolve(null),
+  ]);
+  const proc = watch.now();
+  return {
+    minute,
+    cpuMs: proc.cpuMs,
+    rssBytes: proc.rssBytes,
+    messages: Object.values(metrics.today.byType).reduce((n, v) => n + v, 0),
+    seated: metrics.live.seated,
+    queued: metrics.live.queued,
+    consistent: inconsistencies
+      ? {
+          kinds: Object.fromEntries(
+            [...new Set(inconsistencies.map((i) => i.kind))].map((k) => [
+              k,
+              inconsistencies.filter((i) => i.kind === k).length,
+            ]),
+          ),
+          first: inconsistencies.slice(0, 3).map((i) => `${i.kind}: ${i.detail ?? ''}`),
+        }
+      : null,
+    flags: Object.fromEntries(Object.entries(audit?.day ?? {}).filter(([, n]) => n > 0)),
+  };
+}
+
+/** The meter's per-player figures at the end of the run. */
+async function perPlayerOf(port: number): Promise<FullSeries['perPlayer']> {
+  const metrics = await getJson<MetricsAnswer>(port, '/v1/e2e/metrics');
+  return {
+    messagesPerMinute: metrics.today.perPlayerMinute?.messages ?? null,
+    rowsWrittenPerHour: metrics.today.perPlayerHour?.rowsWritten ?? null,
+  };
 }
 
 /** The proof bundle of a sample of the creatures played, and of the last generation, through the verifier. */
 async function verifyProofs(
   port: number,
   lives: readonly (readonly string[])[],
+  size: number,
 ): Promise<Soak['verified']> {
   const all = [...new Set(lives.flat())];
   const lastGeneration = lives.flatMap((l) => l.slice(-1));
-  const step = Math.max(1, Math.floor(all.length / SAMPLE));
+  const step = Math.max(1, Math.floor(all.length / size));
   const sample = new Set([
-    ...all.filter((_, i) => i % step === 0).slice(0, SAMPLE),
+    ...all.filter((_, i) => i % step === 0).slice(0, size),
     ...lastGeneration,
   ]);
   const problems: string[] = [];
