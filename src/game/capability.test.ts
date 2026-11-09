@@ -32,14 +32,13 @@ interface Fake {
   worker?: 'module' | 'classic' | 'none';
 }
 
-function fakeWindow(f: Fake = {}, started = { n: 0 }, lost = { n: 0 }): CapabilityWindow {
-  const gl = {
-    getExtension: (name: string) =>
-      name === 'WEBGL_lose_context' ? { loseContext: () => lost.n++ } : null,
-  };
+function fakeWindow(f: Fake = {}, started = { n: 0 }): CapabilityWindow {
+  const gl = {};
   const win = {
     document: {
       createElement: () => ({
+        width: 300,
+        height: 150,
         getContext: (kind: string) => {
           if (f.webgl2 === 'throws') throw new Error('no GL');
           return kind === 'webgl2' && f.webgl2 !== false ? gl : null;
@@ -85,12 +84,10 @@ describe('capabilities', () => {
     });
   });
 
-  it('starts no worker and gives back the WebGL2 context it took', () => {
+  it('starts no worker to find module workers', () => {
     const started = { n: 0 };
-    const lost = { n: 0 };
-    capabilities(fakeWindow({}, started, lost));
+    capabilities(fakeWindow({}, started));
     expect(started.n).toBe(0);
-    expect(lost.n).toBe(1);
   });
 });
 

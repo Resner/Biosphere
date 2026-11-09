@@ -53,13 +53,15 @@ function moduleWorker(win: CapabilityWindow): boolean {
   return read;
 }
 
-/** A WebGL2 context on a canvas of its own, given back at once. */
+/**
+ * A WebGL2 context on a 1 × 1 canvas of its own, left to the garbage collector: losing it on purpose
+ * makes Firefox warn "WebGL context was lost" in the console, which the look checks count.
+ */
 function webgl2(win: CapabilityWindow): boolean {
   const canvas = win.document.createElement('canvas');
-  const gl = canvas.getContext('webgl2');
-  if (!gl) return false;
-  gl.getExtension('WEBGL_lose_context')?.loseContext();
-  return true;
+  canvas.width = 1;
+  canvas.height = 1;
+  return canvas.getContext('webgl2') !== null;
 }
 
 export function capabilities(win: CapabilityWindow): Capabilities {
