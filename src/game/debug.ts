@@ -33,6 +33,7 @@ import type { WitnessDutyView } from './app-witness';
 import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
 import type { GuideView } from './guide';
+import type { HelpInfo } from './help-panel';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
@@ -255,6 +256,8 @@ export interface BsState {
    * the step on screen (`current`) and its words (`text`), or null.
    */
   guide: GuideView;
+  /** How to play (M14 T8): whether it is `open`, and the `section` it last opened or jumped to (null while closed). */
+  help: HelpInfo;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
   social: {
     chat: { from: string; name: string; text: string }[];

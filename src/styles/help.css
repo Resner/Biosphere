@@ -1,0 +1,263 @@
+/* The title's row: Hatch, and How to play beside it, so the column grows no taller. */
+.title-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  justify-content: center;
+  gap: 0.6rem;
+}
+
+.title-row .action.quiet {
+  margin-top: 0;
+}
+
+/* A browser that has seen no guide step has "New here? How to play" right under it instead. */
+.title:has(.title-help:not([hidden])) [data-testid="help-open"] {
+  display: none;
+}
+
+/* How to play (M14 T8): a glass panel that scrolls inside itself. Centred over the title and death
+   screens; in play a side panel under the minimap, so the creature and the HUD stay in view and
+   steering carries on under it. */
+.help {
+  position: fixed;
+  inset: 2.5rem 1rem;
+  z-index: 22;
+  display: flex;
+  flex-direction: column;
+  box-sizing: border-box;
+  max-width: 36rem;
+  margin: 0 auto;
+  border: 1px solid var(--glass-line);
+  border-radius: 16px;
+  background: var(--glass-solid);
+  -webkit-backdrop-filter: var(--glass-blur);
+  backdrop-filter: var(--glass-blur);
+  box-shadow: var(--glass-shadow), var(--glass-shine);
+  color: var(--text);
+  font-size: 0.85rem;
+  line-height: 1.4;
+  text-align: left;
+  text-shadow: none;
+  animation: menu-in 0.18s ease-out both;
+}
+
+.help[hidden] {
+  display: none;
+}
+
+/* In play: the right-hand side, from under the minimap and its zone line to the bottom. */
+body[data-screen="playing"] .help {
+  inset: calc(48px + 120px + 2.25rem) var(--hud-gap) var(--hud-gap) auto;
+  width: min(24rem, calc(100vw - 2 * var(--hud-gap)));
+  max-width: none;
+  margin: 0;
+}
+
+/* A narrow screen in play keeps the creature (the screen's centre) in view: the lower half. */
+@media (max-width: 40rem) {
+  body[data-screen="playing"] .help {
+    top: calc(50% + 3rem);
+  }
+}
+
+.help-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 0.75rem;
+  padding: 0.6rem 0.75rem 0.5rem 1rem;
+  border-bottom: 1px solid var(--glass-line);
+}
+
+.help-head h2 {
+  margin: 0;
+  color: var(--muted);
+  font-size: 0.75rem;
+  font-weight: 400;
+  letter-spacing: 0.15em;
+  text-transform: uppercase;
+}
+
+.help .help-close {
+  margin: 0;
+  padding: 0.35rem 0.9rem;
+  font-size: 0.7rem;
+}
+
+/* The sections' offset parent, so a section's `offsetTop` is its scroll position. */
+.help-body {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  overflow-x: hidden;
+  overflow-y: auto;
+  padding: 0.6rem 1rem 1rem;
+  overscroll-behavior: contain;
+  container: help / inline-size;
+}
+
+.help-nav {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.35rem;
+  margin-bottom: 0.4rem;
+}
+
+.help-nav button {
+  padding: 0.2rem 0.6rem;
+  border: 1px solid var(--glass-line);
+  border-radius: 999px;
+  background: rgb(4 9 11 / 0.35);
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.72rem;
+  cursor: pointer;
+}
+
+.help-nav button:hover,
+.help-nav button:focus-visible {
+  color: var(--text);
+  border-color: var(--muted);
+}
+
+.help-section h3 {
+  margin: 0.9rem 0 0.35rem;
+  color: var(--text);
+  font-size: 0.8rem;
+  font-weight: 600;
+  letter-spacing: 0.12em;
+  text-transform: uppercase;
+}
+
+.help-section h3:focus {
+  outline: none;
+}
+
+.help-section h3:focus-visible {
+  border-radius: 4px;
+  outline: 1px solid var(--glass-line);
+  outline-offset: 3px;
+}
+
+.help-section ul {
+  display: grid;
+  gap: 0.3rem;
+  margin: 0;
+  padding: 0 0 0 1rem;
+}
+
+.help-section li::marker {
+  color: var(--muted);
+}
+
+.help-section p {
+  margin: 0.4rem 0 0;
+}
+
+.help-section a {
+  color: var(--text);
+  text-underline-offset: 0.2em;
+}
+
+.help-controls {
+  width: 100%;
+  border-collapse: collapse;
+  font-size: 0.8rem;
+}
+
+.help-controls thead th {
+  padding: 0 0.4rem 0.25rem 0;
+  color: var(--muted);
+  font-size: 0.68rem;
+  font-weight: 400;
+  letter-spacing: 0.12em;
+  text-align: left;
+  text-transform: uppercase;
+}
+
+.help-controls tbody th,
+.help-controls td {
+  padding: 0.3rem 0.4rem 0.3rem 0;
+  border-top: 1px solid rgb(200 240 255 / 0.08);
+  text-align: left;
+  vertical-align: top;
+}
+
+.help-controls tbody th {
+  font-weight: 400;
+}
+
+.help-when {
+  display: block;
+  color: var(--muted);
+  font-size: 0.7rem;
+}
+
+.help-keys {
+  white-space: nowrap;
+}
+
+.help-keys kbd {
+  display: inline-block;
+  min-width: 1.1rem;
+  margin: 0 0.1rem 0.15rem 0;
+  padding: 0 0.3rem;
+  border: 1px solid rgb(227 244 240 / 0.45);
+  border-radius: 5px;
+  background: rgb(2 8 10 / 0.6);
+  font: inherit;
+  font-size: 0.72rem;
+  font-weight: 600;
+  line-height: 1.35;
+  text-align: center;
+}
+
+.help-mouse {
+  color: var(--muted);
+}
+
+/* A narrow panel (the side panel in play, or a narrow screen): each control is its action, then its
+   keys, and its mouse beside them or on the line under them. */
+@container help (max-width: 28rem) {
+  .help-controls thead {
+    display: none;
+  }
+
+  .help-controls tr {
+    display: flex;
+    flex-wrap: wrap;
+    align-items: baseline;
+    gap: 0.1rem 0.6rem;
+    padding: 0.35rem 0;
+    border-top: 1px solid rgb(200 240 255 / 0.08);
+  }
+
+  .help-controls tbody th {
+    flex: 1 0 100%;
+  }
+
+  .help-controls tbody th,
+  .help-controls td {
+    padding: 0;
+    border: 0;
+  }
+
+  .help-keys {
+    white-space: normal;
+  }
+
+  .help-mouse {
+    flex: 1 1 9rem;
+  }
+
+  .help-controls .help-none {
+    display: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .help {
+    animation: none;
+  }
+}

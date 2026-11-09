@@ -1,6 +1,27 @@
 import type { App } from './app';
+import { ESC_KEY } from './controls';
 import { fightKey, offered } from './engage';
-import { enterHatches } from './input';
+import { HELP_KEY } from './help-panel';
+import { DASH_KEY, enterHatches } from './input';
+import { WHEEL_KEY } from './wheel';
+
+/** The keys `attachKeys` reads itself, beside the fight's, the wheel's numbers and the emotes'. */
+const KEY = {
+  menu: ESC_KEY,
+  dash: DASH_KEY,
+  wheel: WHEEL_KEY,
+  promote: 'h',
+  map: 'm',
+  ride: 'r',
+  court: 'e',
+  help: HELP_KEY,
+} as const;
+/** Every key `attachKeys` reacts to (the help's key map, M14 T8). */
+export const APP_KEYS: readonly string[] = Object.values(KEY);
+
+/** Whether a key is this one, whatever the case (Caps Lock, Shift). */
+const is = (key: string, name: string): boolean => key.toLowerCase() === name;
+const isEsc = (key: string): boolean => key === KEY.menu;
 
 /** A click this close (in CSS pixels) to a creature's centre picks it, however small it is drawn. */
 const INSPECT_MIN_PX = 24;
@@ -57,7 +78,7 @@ export function attachPointer(app: App): void {
  */
 export function attachKeys(app: App): void {
   const { controller, eggs, lineagePanel, settingsPanel, wheel, scene, pondMap, menu, mate } = app;
-  const { social, screens } = app;
+  const { social, screens, helpPanel } = app;
   // Enter and Space both go back to a running fight when the title offers it (M8 T10).
   const resumeOffered = (): boolean => {
     if (!screens.resumeOffered) return false;
@@ -69,6 +90,8 @@ export function attachKeys(app: App): void {
     document,
     () => {
       if (lineagePanel.isOpen || settingsPanel.isOpen) return;
+      // On the title and death screens the help is centred over the buttons: Enter waits for it.
+      if (helpPanel.isOpen && !app.playing()) return;
       // Enter during a genesis or hatch egg's stir or crack cracks it and skips to the burst
       // (M6b T11, M6c T11); during a hatch it does not open the chat.
       if (eggs.still() && (eggs.skip(app.eggClock()) || app.playing())) return;
@@ -82,59 +105,64 @@ export function attachKeys(app: App): void {
     },
     {
       key: (key, at) => {
+        // `?` opens or closes How to play over anything (M14 T8); Esc closes it first.
+        if (helpPanel.help.key(key)) return;
         if (settingsPanel.isOpen) {
-          if (key === 'Escape') settingsPanel.close();
+          if (isEsc(key)) settingsPanel.close();
           return;
         }
         if (lineagePanel.isOpen) {
-          if (key === 'Escape') lineagePanel.close();
+          if (isEsc(key)) lineagePanel.close();
           return;
         }
         // Space on the title goes back to a running fight (M8 T10), as Enter does.
-        if (key === ' ' && resumeOffered()) return;
+        // Like Enter, Space waits while the help is centred over the buttons.
+        const covered = helpPanel.isOpen && !app.playing();
+        if (key === KEY.dash && !covered && resumeOffered()) return;
         // Space pokes a genesis egg on the title or death screen (M6b T11, M6c T11); in play it dashes.
-        if (key === ' ' && eggs.mode === 'genesis' && !app.playing()) eggs.poke(app.eggClock());
+        if (key === KEY.dash && !covered && eggs.mode === 'genesis' && !app.playing())
+          eggs.poke(app.eggClock());
         if (!app.playing()) return;
         // While the wheel is open, Esc and the numbers are its own.
-        if (wheel.isOpen && key === 'Escape') {
+        if (wheel.isOpen && isEsc(key)) {
           wheel.cancel();
           return;
         }
         if (wheel.pick(key)) return;
         // F engages; while locked, 1-3 set the stance and Shift braces (M7 T11).
         if (app.attack.key(key)) return;
-        if (key === 'g' || key === 'G') {
+        if (is(key, KEY.wheel)) {
           const cursor = controller.pointerAt() ?? { x: scene.width / 2, y: scene.height / 2 };
           const view = { width: scene.width, height: scene.height };
           wheel.press(cursor, app.worldAt(cursor.x, cursor.y), view, at);
           return;
         }
-        if ((key === 'h' || key === 'H') && app.offspring.child()) {
+        if (is(key, KEY.promote) && app.offspring.child()) {
           app.life.become('child');
           return;
         }
-        if (key === 'm' || key === 'M') pondMap.toggle();
+        if (is(key, KEY.map)) pondMap.toggle();
         // R rides the current (M12 T7): the hub decides whether it may.
-        if (key === 'r' || key === 'R') app.online.askRide();
-        if (key === 'Escape' && pondMap.isOpen) {
+        if (is(key, KEY.ride)) app.online.askRide();
+        if (isEsc(key) && pondMap.isOpen) {
           pondMap.close();
-        } else if (key === 'Escape' && menu.isOpen) {
+        } else if (isEsc(key) && menu.isOpen) {
           menu.close();
         } else if (mate.view().state === 'invited') {
-          if (key === 'e' || key === 'E') mate.accept();
-          else if (key === 'Escape') mate.decline();
-        } else if (key === 'Escape' && app.inspected) {
+          if (is(key, KEY.court)) mate.accept();
+          else if (isEsc(key)) mate.decline();
+        } else if (isEsc(key) && app.inspected) {
           app.inspected = null;
-        } else if (key === 'Escape') {
+        } else if (isEsc(key)) {
           menu.open();
-        } else if ((key === 'e' || key === 'E') && app.nearby) {
+        } else if (is(key, KEY.court) && app.nearby) {
           mate.court(app.nearby.id);
         }
         social.key(key, app.selfKey());
       },
       keyUp: (key, at) => {
-        if (key === ' ') eggs.lift();
-        if (key === 'g' || key === 'G') wheel.release(controller.pointerAt(), at);
+        if (key === KEY.dash) eggs.lift();
+        if (is(key, KEY.wheel)) wheel.release(controller.pointerAt(), at);
       },
       // A quick "look" ping.
       middle: (x, y) => {

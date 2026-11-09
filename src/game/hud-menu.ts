@@ -1,24 +1,19 @@
 // The play screen's one button (M6b T9): a round profile button in the top-left corner, or Esc,
 // opens a panel with everything the play screen leaves out: the species, the numbers in words,
-// Lineage, Settings and the Controls, the players and the build. Steering carries on under it.
+// Lineage, Settings and Help (the How to play panel, at its Controls; M14 T8), the players and the
+// build. Steering carries on under it.
 
 import { pick } from './dom';
 
 export class HudMenu {
   private readonly button = pick<HTMLButtonElement>('[data-testid="hud-menu"]');
   private readonly panel = pick('[data-testid="menu"]');
-  private readonly controlsButton = pick('[data-testid="menu-controls"]');
-  private readonly controls = pick('[data-testid="controls"]');
 
   constructor() {
     // The build label the title screen shows, set before the game starts.
     pick('[data-testid="menu-build"]').textContent =
       pick('[data-testid="build-label"]').textContent ?? '';
     this.button.addEventListener('click', () => this.toggle());
-    this.controlsButton.addEventListener('click', () => {
-      this.controls.hidden = !this.controls.hidden;
-      this.controlsButton.setAttribute('aria-expanded', String(!this.controls.hidden));
-    });
     // A clicked button keeps no focus, so Space stays the dash key instead of clicking it again.
     for (const root of [this.button, this.panel]) {
       root.addEventListener('click', (e) => {
