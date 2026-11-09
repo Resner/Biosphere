@@ -1,4 +1,5 @@
 import type { App } from './app';
+import { ESC_KEY } from './controls';
 import { fightKey, offered } from './engage';
 import { HELP_KEY } from './help-panel';
 import { DASH_KEY, enterHatches } from './input';
@@ -6,7 +7,7 @@ import { WHEEL_KEY } from './wheel';
 
 /** The keys `attachKeys` reads itself, beside the fight's, the wheel's numbers and the emotes'. */
 const KEY = {
-  menu: 'Escape',
+  menu: ESC_KEY,
   dash: DASH_KEY,
   wheel: WHEEL_KEY,
   promote: 'h',

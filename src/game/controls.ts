@@ -2,6 +2,8 @@
 // works. The help panel draws it, and a key-map test holds it to the game's key handlers both ways.
 // Keys are `KeyboardEvent.key` names as the handlers compare them (letters in lower case).
 
+import { EMOTE_COUNT } from '../net/protocol-defs';
+
 export interface Control {
   action: string;
   /** The mouse's way to do it, or null when only keys do. */
@@ -11,6 +13,9 @@ export interface Control {
   after?: readonly string[];
   when: 'always' | 'play' | 'combat' | 'title';
 }
+
+/** Closes what is open: Esc. */
+export const ESC_KEY = 'Escape';
 
 const DIGITS = ['1', '2', '3', '4', '5', '6', '7', '8', '9', '0'];
 
@@ -55,7 +60,7 @@ export const CONTROLS: readonly Control[] = [
     keys: DIGITS,
     when: 'play',
   },
-  { action: 'Emote', mouse: null, keys: ['t'], after: DIGITS.slice(0, 6), when: 'play' },
+  { action: 'Emote', mouse: null, keys: ['t'], after: DIGITS.slice(0, EMOTE_COUNT), when: 'play' },
   { action: 'Chat', mouse: null, keys: ['Enter'], when: 'play' },
   { action: 'Map', mouse: 'Click the minimap', keys: ['m'], when: 'play' },
   {

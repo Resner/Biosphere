@@ -4,9 +4,10 @@
 // a side panel and steering carries on under it; on the title and death screens it is centred.
 // `Help` is the logic over a `HelpView`, so it tests without a DOM; `HelpPanel` is the DOM.
 
-import { CONTROLS, type Control, keysText } from './controls';
-import { pick } from './dom';
+import { CONTROLS, type Control, ESC_KEY, keysText } from './controls';
+import { listItem, pick } from './dom';
 import { HELP_SECTIONS, type HelpSectionId } from './help-text';
+import { DASH_KEY, ENTER_KEY } from './input';
 
 /** Opens and closes the panel: the key's value, whatever the layout puts it on. */
 export const HELP_KEY = '?';
@@ -73,10 +74,10 @@ export class Help {
   key(key: string): boolean {
     if (key === HELP_KEY) {
       if (this.shown) this.close();
-      else this.open('play');
+      else this.open();
       return true;
     }
-    if (key === 'Escape' && this.shown) {
+    if (key === ESC_KEY && this.shown) {
       this.close();
       return true;
     }
@@ -181,11 +182,7 @@ export class HelpPanel {
       this.headings.set(section.id, heading);
       if (section.lines.length) {
         const list = document.createElement('ul');
-        for (const line of section.lines) {
-          const item = document.createElement('li');
-          item.textContent = line;
-          list.append(item);
-        }
+        list.append(...section.lines.map(listItem));
         block.append(list);
       }
       if (section.link) {
@@ -235,10 +232,10 @@ export class HelpPanel {
     // key goes on to the game, so WASD and the dash still work while focus is inside.
     this.panel.addEventListener('keydown', (e) => {
       const control = e.target instanceof Element && e.target.closest('button, a');
-      if ((e.key === 'Escape' || e.key === HELP_KEY) && !e.repeat) {
+      if ((e.key === ESC_KEY || e.key === HELP_KEY) && !e.repeat) {
         e.stopPropagation();
         this.help.close();
-      } else if ((e.key === 'Enter' || e.key === ' ') && control) {
+      } else if ((e.key === ENTER_KEY || e.key === DASH_KEY) && control) {
         e.stopPropagation();
       }
     });
