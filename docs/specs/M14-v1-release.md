@@ -480,7 +480,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Operations, security and the brief
 
-- [ ] T15 `docs/OPERATIONS.md` and `npm run ops:watch` (after T12)
+- [ ] T15 `docs/OPERATIONS.md` and `npm run ops:watch` (after T12) (in progress)
   - Steps:
     1. **`npm run ops:watch -- --url <authority>`** (`tools/ops-watch.mjs`, pure parts in `tools/ops-watch.ts`): polls `/v1/metrics` every 60 s (its edge cache) and `/v1/audit` every 5 minutes, prints one status line per poll (seated, waiting and why, the headroom, today's use against each allowance in %, the hours left at the current rate, relay share, flags today by kind) and a warning line when an action from the runbook applies; saves every answer under `ops/<UTC date>/` (git-ignored) so `npm run report:capacity -- --metrics <file>` can take one. `--once` prints one line and exits.
     2. **`docs/OPERATIONS.md`**, the owner's runbook, in plain steps:
