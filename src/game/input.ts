@@ -57,6 +57,9 @@ const KEY_DIRECTIONS: Readonly<Record<string, Point>> = {
   arrowright: { x: 1, y: 0 },
 };
 
+/** The movement keys (WASD and the arrows), lower case. */
+export const MOVE_KEYS: readonly string[] = Object.keys(KEY_DIRECTIONS);
+
 /** WASD or arrows; `null` when no movement key is held, so the mouse stays in control. */
 export function keysToInput(keys: ReadonlySet<string>): Input | null {
   let x = 0;
@@ -85,7 +88,9 @@ export function wheelInput(open: boolean, held: Input, sampled: Input, keys: Inp
   return { steer, throttle, dash: sampled.dash };
 }
 
-const DASH_KEY = ' ';
+export const DASH_KEY = ' ';
+/** Hatches from the title and death screens, and opens the chat in play (`attach`'s `onEnter`). */
+export const ENTER_KEY = 'Enter';
 /** Keys the page would otherwise scroll with. */
 const SCROLL_KEYS: ReadonlySet<string> = new Set([
   DASH_KEY,
@@ -199,12 +204,12 @@ export class InputController {
     const down = (e: KeyboardEvent) => {
       if (this.typing) return;
       // The name field on the title screen: the arrows, Space and Backspace edit text there.
-      if (e.key !== 'Enter' && inTextField(e.target)) return;
-      if (SCROLL_KEYS.has(e.key) || (e.key === 'Enter' && onEnter) || hooks.holds?.(e.key)) {
+      if (e.key !== ENTER_KEY && inTextField(e.target)) return;
+      if (SCROLL_KEYS.has(e.key) || (e.key === ENTER_KEY && onEnter) || hooks.holds?.(e.key)) {
         e.preventDefault();
       }
       if (e.repeat) return;
-      if (e.key === 'Enter') onEnter?.();
+      if (e.key === ENTER_KEY) onEnter?.();
       else {
         this.keyDown(e.key);
         if (!e.ctrlKey && !e.metaKey && !e.altKey) hooks.key?.(e.key, e.timeStamp);

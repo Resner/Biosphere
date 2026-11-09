@@ -474,27 +474,6 @@ body {
   text-transform: none;
 }
 
-.controls {
-  display: grid;
-  gap: 0.15rem;
-  margin: 0.6rem 0 0;
-}
-
-.controls div {
-  display: grid;
-  grid-template-columns: 6.5rem 1fr;
-  gap: 0.5rem;
-}
-
-.controls dt {
-  color: var(--text);
-}
-
-.controls dd {
-  margin: 0;
-  color: var(--muted);
-}
-
 .menu-title {
   margin: 0.8rem 0 0.3rem;
   color: var(--muted);

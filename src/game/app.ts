@@ -54,6 +54,7 @@ import { GrowthWatch } from './growth';
 import { Guide } from './guide';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
+import { HelpPanel } from './help-panel';
 import { HudMenu } from './hud-menu';
 import { EdgeIndicatorsUi } from './indicators';
 import { InputController } from './input';
@@ -158,6 +159,8 @@ export class App {
    */
   readonly autoQuality: AutoQuality;
   readonly settingsPanel: SettingsPanel;
+  /** How to play (M14 T8): `?`, the title's button, the guide's title line and the menu's Help. */
+  readonly helpPanel: HelpPanel;
   readonly fx: Effects;
   /** The result card after a genesis (M6b T11), due once the burst has played out. */
   readonly revealCard: RevealCard;
@@ -337,6 +340,11 @@ export class App {
       onDetect: () => this.applySettings(),
       onScale: (scale) => this.scene.setRenderScale(scale),
     });
+    this.helpPanel = new HelpPanel([
+      ['help-open', 'play'],
+      ['title-help', 'play'],
+      ['menu-help', 'controls'],
+    ]);
     this.settingsPanel = new SettingsPanel(
       (next) => {
         if (next.quality !== this.settings.quality) this.qualityPinned = false;
