@@ -95,9 +95,9 @@ const instanceOf = (p: Player) =>
 
 /**
  * Keeps the pages' creatures fed from here on. These creatures never eat, so on a slow runner they
- * starve before the last step (E2E main: pages on the death screen), and a dead creature leaves the
- * directory, so nobody could link to it. Called once the crowd has merged, so it changes nothing
- * the crowd steps see: it only keeps the living alive through the final gathering.
+ * starve before the last step (E2E main: all four pages on the death screen), and a dead creature
+ * leaves the directory, so nobody could link to it. Called once the crowd has merged, so it changes
+ * nothing the crowd steps see: it only keeps the living alive through the final gathering.
  */
 const feedAll = (ps: Player[]) =>
   Promise.all(
@@ -107,32 +107,6 @@ const feedAll = (ps: Player[]) =>
         const feed = () => {
           debug?.setEnergy(Number.MAX_SAFE_INTEGER);
           debug?.setHealth(Number.MAX_SAFE_INTEGER);
-        };
-        feed();
-        window.setInterval(feed, 2000);
-      }),
-    ),
-  );
-
-/**
- * Keeps the pages' energy between 40 and 60 % of the cap from here on, and nothing else. A slow
- * runner stretches the scenario until a creature starves (CI repeats and E2E main: `cause: starved`
- * after a minute, on the death screen at the final gathering, out of the directory, unlinkable). Never
- * the cap itself: a creature at its cap leaves the carrion on the water, and the pieces keep a crowd
- * from merging (health held at the maximum did the same), so a creature that has eaten is let down
- * again and the carrion stays edible. C and D never mate and are kept from the start; A and B from
- * the settled fight.
- */
-const keepFed = (ps: Player[]) =>
-  Promise.all(
-    ps.map((p) =>
-      p.page.evaluate(() => {
-        const hook = window.__bs as BsHook;
-        const feed = () => {
-          const now = hook.state().player?.energy ?? 0;
-          hook.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-          const cap = hook.state().player?.energy ?? 0;
-          hook.debug?.setEnergy(Math.min(Math.max(now, 0.4 * cap), 0.6 * cap));
         };
         feed();
         window.setInterval(feed, 2000);
@@ -159,12 +133,11 @@ async function allLinked(ps: Player[], message: string, timeout = 60_000): Promi
   if (!failed) return;
   const all = await Promise.all(
     ps.map(async (p) => {
-      const { net, spawn, ride, screen, death } = await state(p.page);
+      const { net, spawn, ride, screen } = await state(p.page);
       const at = await playerOf(p.page).catch(() => null);
       return {
         id: p.id.slice(0, 6),
         screen,
-        death: death ? JSON.stringify(death).slice(0, 160) : null,
         spawn,
         ride,
         at: at ? { x: Math.round(at.x), y: Math.round(at.y), radius: at.radius } : null,
@@ -287,7 +260,6 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       await allLinked(players, `${name} spawns and every pair links`, 30_000);
     }
     const [a, b, c, d] = players as [Player, Player, Player, Player];
-    await keepFed([c, d]);
     const t: Trio = {
       hub: HUB,
       a: a.page,
@@ -474,7 +446,6 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
     await settled(request, HUB, fightId);
-    await keepFed([a, b]);
 
     // Quiet: C swims out of the crowd too, the fight is over, and the crowd (A's and B's children)
     // merges back into the open water.
