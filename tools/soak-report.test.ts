@@ -153,6 +153,18 @@ describe('the soak checks', () => {
     expect(failed(run)).toEqual(['bundles verify']);
   });
 
+  it('read the memory slope of a shorter run from minute 10, after the join', () => {
+    const run = healthy();
+    run.config.minutes = 30;
+    const hub = (run.full?.hub ?? []).filter((s) => s.minute <= 30);
+    if (run.full) run.full.hub = hub;
+    // The crowd joins over 5 minutes and the hub settles into it by minute 10: a step there is no leak.
+    for (const s of hub) s.rssBytes = s.minute <= 6 ? 400_000_000 : 600_000_000;
+    expect(failed(run)).toEqual([]);
+    for (const s of hub) if (s.minute >= 10) s.rssBytes = 600_000_000 + s.minute * 1_000_000;
+    expect(failed(run)).toEqual(['authority memory level']);
+  });
+
   it('scale their windows to a shorter run', () => {
     const run = healthy();
     run.config.minutes = 30;

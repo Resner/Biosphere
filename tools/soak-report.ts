@@ -75,7 +75,7 @@ export const LIMITS = {
   pageDrift: 0.2,
 } as const;
 
-/** The minutes the checks compare, for a run of 60: scaled for a shorter one. */
+/** The minutes the checks compare, for a run of 60: scaled for a shorter one (the slope's start aside). */
 export const WINDOWS = {
   early: [10, 20],
   late: [50, 60],
@@ -162,7 +162,10 @@ export function checksOf(run: Soak): Check[] {
   add('nobody waited in line', queued === 0, `at most ${queued} queued`);
 
   const k = scaleOf(run.config.minutes);
-  const [s0, s1] = WINDOWS.slope.map((m) => m * k) as [number, number];
+  // The join takes its 5 minutes whatever the run's length, so the slope starts at minute 10 in a
+  // shorter run too (half of one under 20 minutes), and ends with the run.
+  const s0 = Math.min(WINDOWS.slope[0], run.config.minutes / 2);
+  const s1 = WINDOWS.slope[1] * k;
   const memory = slopePerHour(
     full.hub
       .filter((s) => s.rssBytes !== null && s.minute >= s0 && s.minute <= s1)
