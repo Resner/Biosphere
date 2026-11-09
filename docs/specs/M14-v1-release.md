@@ -287,7 +287,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Onboarding and accessibility
 
-- [ ] T7 The first-life guide [opus] (after none)
+- [ ] T7 The first-life guide [opus] (after none) (in progress)
   - Steps:
     1. **`src/game/guide.ts`** replaces `hints.ts`. A guide step shows the first time its moment comes in this browser, one line at the bottom centre (where the hints show now), in the HUD's glass style:
 
