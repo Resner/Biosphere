@@ -45,7 +45,7 @@ import { PlayUi } from './app-ui';
 import { AutoQuality } from './auto-quality';
 import { AwayReport } from './away-report';
 import { Hatcher } from './body';
-import { type Capabilities, type PlayLimits, playLimits } from './capability';
+import { ALL_CAPABILITIES, type Capabilities, type PlayLimits, playLimits } from './capability';
 import { pick } from './dom';
 import { EggShow } from './eggs';
 import { createFieldSync } from './field';
@@ -102,14 +102,6 @@ export interface GameParams {
   /** What the browser offers (M14 T6); everything when not given. */
   capabilities?: Capabilities;
 }
-
-const EVERYTHING: Capabilities = {
-  webgl2: true,
-  rtc: true,
-  idb: true,
-  ws: true,
-  moduleWorker: true,
-};
 
 /** Food drifts up to this far from its slot anchor; the field query reaches that much further. */
 const FIELD_MARGIN = RULES.food.driftRadius + RULES.food.kinds.globule.radius;
@@ -472,7 +464,7 @@ export class App {
     this.field = createFieldSync(() => this.refreshField());
     this.growth = new GrowthWatch();
 
-    this.capabilities = params.capabilities ?? EVERYTHING;
+    this.capabilities = params.capabilities ?? ALL_CAPABILITIES;
     const configured = hubSocketUrl(window.location.search, __AUTHORITY_URL__);
     this.limits = playLimits(this.capabilities, configured !== null);
     this.hubUrl = this.limits.online ? configured : null;

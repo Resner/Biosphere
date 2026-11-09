@@ -1,5 +1,6 @@
 import { expect, type Page, type TestInfo } from '@playwright/test';
 import type { BsHook } from '../../src/game/debug';
+import { playerOf } from './helpers';
 import { decodePng, luminance } from './look-metrics';
 
 // Shared by the engine specs (M14 T6): `m14-smoke` (the game in one engine) and `m14-mixed`
@@ -55,14 +56,6 @@ export async function framesRun(page: Page, more = 10): Promise<void> {
   );
 }
 
-/** Where `page`'s own creature is now. */
-export const own = (page: Page) =>
-  page.evaluate(() => {
-    const p = (window.__bs as BsHook).state().player;
-    if (!p) throw new Error('no creature');
-    return { x: p.x, y: p.y, radius: p.radius };
-  });
-
 /** Where `page` draws the remote `id`, or null while it draws none. */
 export const seen = (page: Page, id: string) =>
   page.evaluate((who) => {
@@ -77,7 +70,7 @@ export const seen = (page: Page, id: string) =>
 export async function seesMove(watcher: Page, mover: Page, moverId: string): Promise<void> {
   const before = await seen(watcher, moverId);
   if (!before) throw new Error(`the watcher draws no ${moverId}`);
-  const from = await own(mover);
+  const from = await playerOf(mover);
   const far = from.radius * 8;
   await mover.evaluate(([x, y]) => void (window.__bs as BsHook).debug?.steerTo({ x, y }), [
     from.x + far,

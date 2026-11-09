@@ -3,7 +3,7 @@ import type { BsHook } from '../../src/game/debug';
 import { chromiumPath } from '../../tools/gallery-capture.mjs';
 import { linked, recordRtc, rtcLog, seesMove, watchErrors } from './engines';
 import { openRecorded, state, warmHub } from './helpers';
-import { fightLine, fightToEnd, stage } from './m7-fight';
+import { fightLine, fightToEnd, open, stage } from './m7-fight';
 
 // Mixed engines in one pond (M14 T6): a Chromium page and a page of the engine under test (the
 // firefox project's Firefox; `E2E full` only) hatch near each other, link over WebRTC with host
@@ -19,14 +19,7 @@ test.skip(({ browserName }) => browserName === 'chromium', 'an engine beside Chr
 /** B at 0.6 of its health stands and fights (as `m7-duel` explains): no genome's autopilot flees. */
 const HURT = 0.6;
 
-/** A recorded page on the mixed hub, drawing nothing: a slow frame would miss the referee's deadline. */
-async function openOn(browser: Browser): Promise<Page> {
-  const page = await (await browser.newContext()).newPage();
-  await recordRtc(page);
-  await openRecorded(page, '&quality=low', HUB);
-  await page.evaluate(() => (window.__bs as BsHook).debug?.skipDraw(true));
-  return page;
-}
+const openOn = (browser: Browser) => open(browser, HUB, '&quality=low', recordRtc);
 
 test('a Chromium page and this engine link, see each other move and duel to the referee’s hash @slow', async ({
   browser,

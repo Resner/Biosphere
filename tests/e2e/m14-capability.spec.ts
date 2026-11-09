@@ -1,5 +1,6 @@
 import { expect, type Page, test } from '@playwright/test';
 import { NOTES, PLAIN_WORDS } from '../../src/game/capability';
+import { watchErrors } from './engines';
 import { clickHatch, openRecorded, state, waitPlaying } from './helpers';
 
 // The capability screen (M14 T6): a browser that lacks what the game needs is told what to do. The
@@ -11,13 +12,6 @@ const HUB = 'http://localhost:8845';
 
 test.describe.configure({ mode: 'serial' });
 
-/** Page errors and uncaught rejections, gathered from the start. */
-function errorsOf(page: Page): string[] {
-  const errors: string[] = [];
-  page.on('pageerror', (e) => errors.push(String(e)));
-  return errors;
-}
-
 test('without RTCPeerConnection the note shows and a recorded creature plays alone', async ({
   page,
 }) => {
@@ -26,7 +20,7 @@ test('without RTCPeerConnection the note shows and a recorded creature plays alo
       delete (window as unknown as Record<string, unknown>)[name];
     }
   });
-  const errors = errorsOf(page);
+  const errors = watchErrors(page, 'capability');
   await openRecorded(page, '', HUB);
   const note = page.getByTestId('capability-note');
   await expect(note).toBeVisible();
@@ -59,7 +53,7 @@ test('without IndexedDB the practice cell plays with its note', async ({ page })
       if (Object.hasOwn(o, 'indexedDB')) delete (o as Record<string, unknown>).indexedDB;
     }
   });
-  const errors = errorsOf(page);
+  const errors = watchErrors(page, 'capability');
   await page.goto(`./?debug=1&hub=${HUB}`);
   await page.waitForFunction(() => window.__bs?.ready === true);
   const note = page.getByTestId('capability-note');
@@ -95,7 +89,7 @@ test('without WebGL2 the game and the lab are plain pages that say what to do', 
       return (getContext as (...a: unknown[]) => unknown).call(this, kind, ...rest);
     } as typeof getContext;
   });
-  const errors = errorsOf(page);
+  const errors = watchErrors(page, 'capability');
   const words = PLAIN_WORDS.webgl2;
 
   await page.goto('./?genome=starter');

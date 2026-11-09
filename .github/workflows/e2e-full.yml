@@ -51,9 +51,11 @@ jobs:
           - name: firefox
             args: --project=firefox --workers=1
             engine: firefox
+            install: firefox chromium
           - name: webkit
             args: --project=webkit --workers=1
             engine: webkit
+            install: webkit
     steps:
       - uses: actions/checkout@v7
       - uses: actions/setup-node@v7
@@ -74,9 +76,9 @@ jobs:
           sudo mkswap /mnt/e2e.swap
           sudo swapon /mnt/e2e.swap
           free -m
-      - name: Install the part's engine and Chromium
+      - name: Install the part's engine
         if: matrix.engine
-        run: npx playwright install --with-deps ${{ matrix.engine }} chromium
+        run: npx playwright install --with-deps ${{ matrix.install }}
       - name: Run this part of the suite
         if: ${{ !matrix.engine }}
         run: npx playwright test ${{ matrix.args }}

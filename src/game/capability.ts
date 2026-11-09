@@ -10,6 +10,15 @@ export interface Capabilities {
   moduleWorker: boolean;
 }
 
+/** A browser that offers everything. */
+export const ALL_CAPABILITIES: Capabilities = {
+  webgl2: true,
+  rtc: true,
+  idb: true,
+  ws: true,
+  moduleWorker: true,
+};
+
 /** Why a page shows the plain page instead of itself. */
 export type Unsupported = 'webgl2' | 'module-worker';
 
@@ -103,10 +112,13 @@ export const NOTES = {
  * plays offline anyway, and no line is needed.
  */
 export function playLimits(caps: Capabilities, hub: boolean): PlayLimits {
-  if (!caps.ws) return { online: false, links: false, note: hub ? NOTES.ws : null };
-  if (!caps.idb) return { online: false, links: false, note: hub ? NOTES.idb : null };
-  if (!caps.rtc) return { online: true, links: false, note: hub ? NOTES.rtc : null };
-  return { online: true, links: true, note: null };
+  // The most limiting gap wins: no WebSocket, then no IndexedDB, then no RTCPeerConnection.
+  const gap = !caps.ws ? 'ws' : !caps.idb ? 'idb' : !caps.rtc ? 'rtc' : null;
+  return {
+    online: gap === null || gap === 'rtc',
+    links: gap === null,
+    note: gap && hub ? NOTES[gap] : null,
+  };
 }
 
 /** The plain page's words: a heading and what to do. */

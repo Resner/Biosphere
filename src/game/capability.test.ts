@@ -1,5 +1,6 @@
 import { describe, expect, it } from 'vitest';
 import {
+  ALL_CAPABILITIES,
   type Capabilities,
   type CapabilityWindow,
   capabilities,
@@ -9,7 +10,7 @@ import {
   unsupportedReason,
 } from './capability';
 
-const ALL: Capabilities = { webgl2: true, rtc: true, idb: true, ws: true, moduleWorker: true };
+const ALL = ALL_CAPABILITIES;
 
 /** A browser that reads a worker's `type` (module workers) or ignores it (classic only). */
 function fakeWorker(reads: boolean, started: { n: number }) {
