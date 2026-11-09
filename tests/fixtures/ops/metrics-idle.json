@@ -1,0 +1,66 @@
+{
+    "now": 1794241046475,
+    "plan": "free",
+    "checked": "2026-11-08",
+    "limits": {
+        "requestsPerDay": 100000,
+        "rowsWrittenPerDay": 100000,
+        "rowsReadPerDay": 5000000,
+        "storageBytes": 1000000000,
+        "turnGbPerMonth": 1000,
+        "sessions": 200
+    },
+    "live": {
+        "seated": 0,
+        "queued": 0,
+        "away": 0,
+        "fights": 0,
+        "witnessed": 0,
+        "members": 0,
+        "crowds": 0,
+        "instances": 0
+    },
+    "today": {
+        "day": "2026-11-09",
+        "requests": 1,
+        "messages": 0,
+        "byType": {},
+        "upgrades": 0,
+        "reads": 1,
+        "rowsWritten": 0,
+        "rowsRead": 1,
+        "dbBytes": 118784,
+        "playerMs": 0,
+        "peakSeated": 0,
+        "peakQueued": 0,
+        "waits": 0,
+        "waitMs": 0,
+        "relay": {
+            "reports": 0,
+            "links": 0,
+            "relayed": 0,
+            "kb": 0
+        },
+        "perPlayerMinute": null,
+        "perPlayerHour": null
+    },
+    "month": {
+        "requests": 1,
+        "rowsWritten": 0,
+        "rowsRead": 1,
+        "relayKb": 0
+    },
+    "days": [],
+    "storage": {
+        "bytes": 118784,
+        "limit": 1000000000
+    },
+    "admission": {
+        "open": true,
+        "why": null,
+        "turn": true,
+        "headroom": 763,
+        "seatEveryS": 30,
+        "waits": null
+    }
+}
