@@ -144,8 +144,10 @@ test('one fight through a reload, an authority restart and a closed tab, then th
           { timeout: 20_000 },
         );
       }
-      const fight = await engage(a, ids, previous);
+      // B's autopilot can escape within a second: a fight that is already over is tried again.
+      const fight = await engage(a, ids, previous, true);
       previous = fight;
+      if (!(await running(a, fight))) continue;
       await chase(a, ids.idB);
       await watchFrom(c, ids.idB);
       await pageB.waitForFunction((enc) => window.__bs?.state().encounter?.id === enc, fight, {
