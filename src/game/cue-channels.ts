@@ -135,7 +135,7 @@ export const CUES: readonly Cue[] = [
   },
   {
     id: 'low-energy',
-    means: 'energy under 30%: eat or starve',
+    means: 'energy under 20%: eat or starve',
     colours: [LOW],
     channels: {
       shape: 'the bolt goes hollow',

@@ -1,3 +1,4 @@
+import { mkdir, writeFile } from 'node:fs/promises';
 import { expect, type Page, type TestInfo, test } from '@playwright/test';
 import { DEFICIENCIES, pixelSimulator } from '../../src/game/colour-vision';
 import type { BsHook } from '../../src/game/debug';
@@ -15,16 +16,19 @@ import { decodePng, encodePng } from './png';
 
 test.use({ viewport: { width: 960, height: 540 } });
 
-/** Attaches the shot and its three simulations. */
+test.beforeAll(() => mkdir('test-results', { recursive: true }));
+
+/** Attaches the shot and its three simulations, and keeps them in `test-results/` beside the others. */
 async function attachSeen(info: TestInfo, name: string, png: Buffer): Promise<void> {
-  await info.attach(`m14-colour-${name}`, { body: png, contentType: 'image/png' });
+  const keep = async (file: string, body: Buffer) => {
+    await writeFile(`test-results/${file}.png`, body);
+    await info.attach(file, { body, contentType: 'image/png' });
+  };
+  await keep(`m14-colour-${name}`, png);
   for (const d of DEFICIENCIES) {
     const image = decodePng(png);
     pixelSimulator(d)(image.data);
-    await info.attach(`m14-colour-${name}-${d}`, {
-      body: encodePng(image),
-      contentType: 'image/png',
-    });
+    await keep(`m14-colour-${name}-${d}`, encodePng(image));
   }
 }
 
@@ -81,16 +85,31 @@ test('the bars wear their glyphs; low energy hollows the bolt and a hit cracks t
     bs.debug?.spawnPlume(x, y, 200);
     bs.debug?.setEnergy(1);
   });
-  // Hits land every 0.5 s and flash for 0.3: a shot taken with the hit showing before and after it.
+  // Hits land every 0.5 s and flash for 0.3, so the hurt bar is set and cleared while the test
+  // looks: in the frame that sets it, the cross is cracked.
+  await page.waitForFunction(() => {
+    const stat = document.querySelector('[data-testid="hud-bar-health"]');
+    const crack = stat?.querySelector('.crack');
+    return stat?.hasAttribute('data-hurt') && crack && getComputedStyle(crack).display !== 'none';
+  });
+  // A shot is kept once the health glyph in it wears the hit's colour (#ff9a8a; whole, it is the
+  // text's grey-green), read from the decoded pixels.
+  const icon = await page.getByTestId('hud-bar-health').locator('svg').boundingBox();
+  if (!icon) throw new Error('no health glyph');
+  const hurtIn = (png: Buffer) => {
+    const { width, data } = decodePng(png);
+    let red = 0;
+    for (let y = Math.floor(icon.y); y < icon.y + icon.height; y++)
+      for (let x = Math.floor(icon.x); x < icon.x + icon.width; x++) {
+        const i = (y * width + x) * 4;
+        if ((data[i] as number) - (data[i + 1] as number) > 50) red++;
+      }
+    return red >= 6;
+  };
   let shot: Buffer | null = null;
-  for (let i = 0; i < 20 && !shot; i++) {
-    const before = await health();
+  for (let i = 0; i < 30 && !shot; i++) {
     const png = await page.screenshot();
-    const after = await health();
-    if (before?.hurt && after?.hurt) {
-      expect(before.crack && after.crack).toBe(true);
-      shot = png;
-    }
+    if (hurtIn(png)) shot = png;
   }
   if (!shot) throw new Error('no shot while a hit showed');
   expect((await energy())?.low, 'energy still low in the shot').toBe(true);
@@ -137,19 +156,18 @@ test('outlines for a bigger and a smaller creature, and every ping kind on the m
     ['peer-0', 'smaller'],
     ['peer-1', 'bigger'],
   ]);
-  // Each ping kind from its own peer, around the player.
+  // Each ping kind from its own peer, in a row 150 px under the player, on screen.
   await page.evaluate(() => {
     const bs = window.__bs as BsHook;
     const { x, y } = bs.state().player ?? { x: 0, y: 0 };
-    for (let kind = 0; kind < 4; kind++) {
-      const a = (kind * Math.PI) / 2 + 0.4;
+    const { pxPerWu } = bs.render.info();
+    for (let kind = 0; kind < 4; kind++)
       bs.debug?.deliver(`peer-${kind}`, {
         t: 'ping',
         kind,
-        x: x + 300 * Math.cos(a),
-        y: y + 300 * Math.sin(a),
+        x: x + ((kind - 1.5) * 110) / pxPerWu,
+        y: y + 150 / pxPerWu,
       });
-    }
   });
   await expect
     .poll(async () => (await state(page)).minimap.pings.length, { timeout: 5_000 })
