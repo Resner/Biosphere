@@ -439,7 +439,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Notes: the headroom counts to 100% of an allowance, not to the 90% guard: the guard's 10% is what the crowd already seated plays on.
     - Done: `derive()` caps the free plan at 621; `headroomOf`/`crowdHours` (`capacity.ts`) feed `headroomSeats`, the wait, `admission.headroom` and CAPACITY.md's "Crowds from a fresh day". Gotcha: on the free plan the budget guard holds before the headroom drops under ~76, so hub tests bind it via `DAILY_REQUEST_BUDGET` (`headroomTo`).
 
-- [ ] T13 Life clients: headless players that hatch, mate, fight, die and drop (after T3) (in progress)
+- [x] T13 Life clients: headless players that hatch, mate, fight, die and drop (after T3)
   - Steps:
     1. **`tests/life-client.ts`**, on M13's `LoadClient` (the page's own `HubClient`, a seeded identity, fixture rounds). A life client plays whole lives over the real protocol:
        - hatches a recorded genesis, asks `spawn`, wanders with the page's `WhereReporter`;
@@ -454,7 +454,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - Unit tests of the client's script against a fake transport: a court is accepted and births awaited; a drop during a beacon wait resumes the egg on sign-in; a fight is engaged with both signed snapshots.
     - The quick mode passes 3 times in a row on a cloud session, and its counts show matings, fights, kills, restores and drops in every run (each above zero).
     - `tools/worker-bundle.test.ts` guards `/v1/e2e/consistency`.
-  - Notes: the clients never point at a production authority (`.claude/rules/tests.md`): the tool refuses any hub URL but localhost.
+  - Notes: the clients never point at a production authority (`.claude/rules/tests.md`): the tool starts its own hub, so the clients only ever dial localhost.
+  - Done: the clients run the page's own `LifeFlow` and `MateFlow` (`tests/life-client.ts`, `tests/life-policy.ts`); `GET /v1/e2e/consistency` and `npm run soak` (port 8851, `LIFESPAN_SCALE` 0.1) are in. A `mating` or `born` message needs the real records, so the unit tests stop at the accept and the `life.mating` resume, and the soak shows the births. Promoted children starve sooner than hatched creatures, so every run restores an ancestor.
 
 - [ ] T14 The one-hour soak: 200 players, two pages, a workflow and a report (after T12, T13)
   - Steps:

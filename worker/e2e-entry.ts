@@ -5,6 +5,7 @@ import type { BeaconSource } from './beacons';
 import { type WitnessView, witnessView } from './duty';
 import { fixtureSource } from './fixture-beacons';
 import live from './index';
+import { consistent, type Inconsistency } from './interrupt-kit';
 import { HATCH_BUCKET } from './ledger-types';
 import { recoverFights } from './recover';
 import { type Session, socketsOf } from './socket';
@@ -172,6 +173,11 @@ export class Authority extends LiveAuthority {
     };
   }
 
+  /** The invariants every interrupted transaction must leave, for a scenario or a soak to read (M14 T13); empty when they hold. */
+  consistency(): Inconsistency[] {
+    return consistent(this);
+  }
+
   /** An event's witnesses for a scenario to wait on (M10 T4); null without a witness commitment. */
   witness(event: string): WitnessView | null {
     return witnessView(this, event);
@@ -248,6 +254,12 @@ export default {
       };
       await stub.setUsage(requests);
       return new Response(null, { status: 204 });
+    }
+    if (pathname === '/v1/e2e/consistency' && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        consistency(): Promise<Inconsistency[]>;
+      };
+      return Response.json(await stub.consistency());
     }
     if (pathname === '/v1/e2e/dropped' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
