@@ -139,6 +139,8 @@ const m14MixedHubPort = 8841;
 // The M14 capability spec (M14 T6, 8845): a recorded creature without WebRTC. Not `@slow`, so its
 // hub starts in the PR parts too, as m13-queue's does.
 const m14CapabilityHubPort = 8845;
+// The M14 interrupt spec (M14 T4, 8840, `@slow`): the page's kill matrix, with short matings and lives.
+const m14InterruptHubPort = 8840;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -500,6 +502,7 @@ export default defineConfig({
       ['m14-guide', m14GuideHubPort, '--var MATING_SCALE:0.01'],
       ['m14-smoke', m14SmokeHubPort, ''],
       ['m14-mixed', m14MixedHubPort, ''],
+      ['m14-interrupt', m14InterruptHubPort, '--var MATING_SCALE:0.01 --var LIFESPAN_SCALE:0.05'],
       ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],

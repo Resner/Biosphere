@@ -15,7 +15,8 @@ export interface DeathSummary {
   cause: DeathCause;
   /** Seconds the creature lived: its life clock when it has one, else sim time since hatching. */
   survivedSeconds: number;
-  peakBiomass: number;
+  /** Null when it isn't known (a death the page never saw), which leaves the line out. */
+  peakBiomass: number | null;
   /** Species and rarity of the body that died. */
   body: string;
   /** The killer's name, when the hub settled a kill and named it (M7 T13). */
@@ -204,7 +205,10 @@ export class Screens {
     this.cause.textContent = deathName(summary.cause, summary.by);
     this.hint.textContent = text.hint;
     this.survived.textContent = livedText(summary.survivedSeconds * 1000);
-    this.peak.textContent = String(Math.round(summary.peakBiomass));
+    if (summary.peakBiomass !== null)
+      this.peak.textContent = String(Math.round(summary.peakBiomass));
+    const row = this.peak.parentElement;
+    if (row) row.hidden = summary.peakBiomass === null;
     this.species.textContent = summary.body;
     setCardLink(this.card, cardHref(summary.creature, window.location.search));
     this.show('dead');

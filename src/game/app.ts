@@ -53,6 +53,7 @@ import { FightResume } from './fight-resume';
 import { cachedKeys } from './fight-verify';
 import { GrowthWatch } from './growth';
 import { Guide } from './guide';
+import { HelpPanel } from './help-panel';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
 import { HudMenu } from './hud-menu';
@@ -161,6 +162,8 @@ export class App {
    */
   readonly autoQuality: AutoQuality;
   readonly settingsPanel: SettingsPanel;
+  /** How to play (M14 T8): `?`, the title's button, the guide's title line and the menu's Help. */
+  readonly helpPanel: HelpPanel;
   readonly fx: Effects;
   /** The result card after a genesis (M6b T11), due once the burst has played out. */
   readonly revealCard: RevealCard;
@@ -199,6 +202,9 @@ export class App {
    * the new identity connects and the old tab's session is replaced by the hub (single session).
    */
   readonly recovery: RecoveryPanel;
+  /** A recovery import has stored its seed; `holdReload` (`debug.holdReload`) keeps the page from reloading then. */
+  imported = false;
+  holdReload = false;
 
   /**
    * The recorded life (M4): genesis from the hub, resume, progress and death. A cell it does not
@@ -340,6 +346,11 @@ export class App {
       onDetect: () => this.applySettings(),
       onScale: (scale) => this.scene.setRenderScale(scale),
     });
+    this.helpPanel = new HelpPanel([
+      ['help-open', 'play'],
+      ['title-help', 'play'],
+      ['menu-help', 'controls'],
+    ]);
     this.settingsPanel = new SettingsPanel(
       (next) => {
         if (next.quality !== this.settings.quality) this.qualityPinned = false;
@@ -409,8 +420,10 @@ export class App {
       code: () => this.identity?.exportRecoveryCode() ?? '',
       replace: async (code) => {
         await this.identityReady;
+        // Stored for good before the page says so (ADR 0076): the new identity connects after the reload.
         await importRecoveryCode(keyStore, code);
-        location.reload();
+        this.imported = true;
+        if (!this.holdReload) location.reload();
       },
     });
 

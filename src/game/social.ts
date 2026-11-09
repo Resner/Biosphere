@@ -5,6 +5,14 @@ import { CHAT_MAX_CHARS, EMOTE_COUNT, type PeerEvent, PING_KINDS } from '../net/
 import { filterText } from '../net/text';
 import type { Store } from './online-config';
 
+/** T, then a number within a moment, sends that emote. */
+const EMOTE_KEY = 't';
+/** Every key `Social.key` reacts to (the help's key map, M14 T8). */
+export const EMOTE_KEYS: readonly string[] = [
+  EMOTE_KEY,
+  ...Array.from({ length: EMOTE_COUNT }, (_, i) => String(i + 1)),
+];
+
 const MUTE_KEY = 'bs.muted';
 
 const CHAT_LIMIT = { max: 3, windowMs: 5000 };
@@ -235,7 +243,7 @@ export class Social {
   key(key: string, self: string): void {
     const now = this.opts.now();
     const k = key.toLowerCase();
-    if (k === 't') {
+    if (k === EMOTE_KEY) {
       this.armedUntil = now + EMOTE_ARM_MS;
     } else if (/^[1-9]$/.test(k) && Number(k) <= EMOTE_COUNT && now < this.armedUntil) {
       this.armedUntil = -1;

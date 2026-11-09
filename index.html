@@ -30,7 +30,11 @@
         <button type="button" class="action" data-testid="queue-swim">Swim while you wait</button>
       </section>
       <div class="fallback" data-testid="title-fallback" hidden></div>
-      <button type="button" class="action" data-testid="hatch">Hatch</button>
+      <!-- Hatch, and beside it How to play (M14 T8). -->
+      <div class="title-row">
+        <button type="button" class="action" data-testid="hatch">Hatch</button>
+        <button type="button" class="action quiet" data-testid="help-open" aria-controls="help">How to play</button>
+      </div>
       <!-- A browser that has seen no guide step (M14 T7): the way to the help panel (T8). -->
       <button type="button" class="title-help" data-testid="title-help" hidden>New here? How to play</button>
       <!-- A creature locked in a running fight (M8 T10): the main button takes the player back into it. -->
@@ -114,6 +118,16 @@
       <p class="settings-note" data-testid="hints-replayed" role="status" hidden>They start again on your next life.</p>
       <button type="button" class="action quiet" data-testid="settings-close">Close (Esc)</button>
     </section>
+    <!-- How to play (M14 T8): its sections come from src/game/help-text.ts and controls.ts. Centred over the title and death screens, a side panel in play. -->
+    <section class="help" id="help" data-testid="help" aria-labelledby="help-title" hidden>
+      <header class="help-head">
+        <h2 id="help-title">Help</h2>
+        <button type="button" class="action quiet help-close" data-testid="help-close">Close (Esc)</button>
+      </header>
+      <div class="help-body">
+        <nav class="help-nav" aria-label="Sections"></nav>
+      </div>
+    </section>
     <button type="button" class="hud-menu" data-for="playing" data-testid="hud-menu" aria-label="Menu (Esc)" aria-expanded="false" aria-controls="menu">
       <svg viewBox="-12 -12 24 24" aria-hidden="true"><circle cx="0" cy="-3.5" r="4.2" /><path d="M-8 9.5 C-7 3.5 -3.5 1.8 0 1.8 C3.5 1.8 7 3.5 8 9.5" /></svg>
     </button>
@@ -183,26 +197,9 @@
       <p class="menu-buttons">
         <button type="button" class="action quiet" data-testid="menu-lineage">Lineage</button>
         <button type="button" class="action quiet" data-testid="menu-settings">Settings</button>
-        <button type="button" class="action quiet" data-testid="menu-controls" aria-expanded="false" aria-controls="controls">Controls</button>
+        <button type="button" class="action quiet" data-testid="menu-help" aria-controls="help">Help (?)</button>
         <button type="button" class="action quiet" data-testid="menu-ride" hidden>Ride the current (R)</button>
       </p>
-      <dl class="controls" id="controls" data-testid="controls" hidden>
-        <div><dt>Mouse or WASD</dt><dd>Swim</dd></div>
-        <div><dt>Space</dt><dd>Dash</dd></div>
-        <div><dt>E</dt><dd>Court a creature in reach</dd></div>
-        <div><dt>F</dt><dd>Attack a creature in reach</dd></div>
-        <div><dt>1 2 3</dt><dd>In a fight: aggressive, balanced, evasive</dd></div>
-        <div><dt>Shift or right click</dt><dd>In a fight: brace</dd></div>
-        <div><dt>H</dt><dd>Hatch your egg</dd></div>
-        <div><dt>Enter</dt><dd>Chat</dd></div>
-        <div><dt>G</dt><dd>Ping and emote wheel</dd></div>
-        <div><dt>T then 1–6</dt><dd>Emote</dd></div>
-        <div><dt>Middle click</dt><dd>Look ping</dd></div>
-        <div><dt>M</dt><dd>Map</dd></div>
-        <div><dt>R</dt><dd>Alone: ride the current to other players</dd></div>
-        <div><dt>Click a creature</dt><dd>Inspect it</dd></div>
-        <div><dt>Esc</dt><dd>Menu, or close</dd></div>
-      </dl>
       <h2 class="menu-title" data-testid="roster-title">Players</h2>
       <ul class="roster" data-testid="roster" aria-label="Players (click a name to mute)" hidden></ul>
       <p class="roster-empty">Nobody else here yet</p>

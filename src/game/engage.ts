@@ -330,15 +330,26 @@ const STANCE_KEYS: Readonly<Record<string, Stance>> = {
   '3': 'evasive',
 };
 
+const ATTACK_KEY = 'f';
+const BRACE_KEY = 'Shift';
+const TARGET_KEY = 'Tab';
+/** Every key `fightKey` routes (the help's key map, M14 T8). */
+export const FIGHT_KEYS: readonly string[] = [
+  ATTACK_KEY,
+  BRACE_KEY,
+  TARGET_KEY,
+  ...Object.keys(STANCE_KEYS),
+];
+
 /**
  * Routes a fresh key press. F attacks outside a fight; inside one, 1-3 set the stance, Shift
  * braces and Tab cycles the target (M7 T15), and nothing else is a combat key. The open social
  * wheel keeps its numbers.
  */
 export function fightKey(key: string, locked: boolean, wheelOpen: boolean): FightKey | null {
-  if (!locked) return key === 'f' || key === 'F' ? { t: 'attack' } : null;
-  if (key === 'Shift') return { t: 'brace' };
-  if (key === 'Tab') return { t: 'target' };
+  if (!locked) return key.toLowerCase() === ATTACK_KEY ? { t: 'attack' } : null;
+  if (key === BRACE_KEY) return { t: 'brace' };
+  if (key === TARGET_KEY) return { t: 'target' };
   const stance = STANCE_KEYS[key];
   return stance && !wheelOpen ? { t: 'stance', stance } : null;
 }

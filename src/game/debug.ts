@@ -34,6 +34,7 @@ import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
 import type { Capabilities, Unsupported } from './capability';
 import type { GuideView } from './guide';
+import type { HelpInfo } from './help-panel';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
@@ -64,6 +65,8 @@ export interface BsState {
   depth: number | null;
   /** This browser's identity; null until the key is loaded. */
   playerId: string | null;
+  /** A recovery import on this page has stored its seed (M14 T4); the reload follows unless held. */
+  imported: boolean;
   /**
    * Whether the hub's last `life` on this page said the world was renewed (M6c T2, ADR 0040): true
    * at most once per identity; null until the hub has answered.
@@ -261,6 +264,8 @@ export interface BsState {
    * the step on screen (`current`) and its words (`text`), or null.
    */
   guide: GuideView;
+  /** How to play (M14 T8): whether it is `open`, and the `section` it last opened or jumped to (null while closed). */
+  help: HelpInfo;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
   social: {
     chat: { from: string; name: string; text: string }[];
@@ -471,6 +476,11 @@ export interface BsDebug {
    * it eats nothing (the guide's steps that a meal would end wait for the test).
    */
   sated(on: boolean): void;
+  /**
+   * A test aid (M14 T4): while on, a recovery import that has stored its seed sets `imported` and
+   * leaves the page as it is instead of reloading, so a test can kill the tab at that moment.
+   */
+  holdReload(on: boolean): void;
   /**
    * A test aid: while on, the scene still updates (`render.info()` counts, the HUD) but skips its
    * draw call. Software rendering is the cost of a frame on a runner, and a fight page that draws

@@ -11,9 +11,16 @@ type Ids = { idA: string; idB: string };
 
 /**
  * A parks beside B and presses F until a fight other than `previous` starts on A's page (parking
- * again whenever B has drifted off). Returns its id.
+ * again whenever B has drifted off). Returns its id. A fight that is already over by the time the
+ * page is read (B's autopilot can escape within a second) counts only with `allowOver`, for a
+ * caller that checks the fight is still running and tries again if not.
  */
-export async function engage(a: Page, ids: Ids, previous?: string): Promise<string> {
+export async function engage(
+  a: Page,
+  ids: Ids,
+  previous?: string,
+  allowOver = false,
+): Promise<string> {
   await expect(async () => {
     await parkBeside(a, ids.idB);
     // The engage carries A's signed snapshot, and B's answer the snapshots it received of A in the
@@ -25,11 +32,11 @@ export async function engage(a: Page, ids: Ids, previous?: string): Promise<stri
     });
     await a.keyboard.press('f');
     await a.waitForFunction(
-      (old) => {
+      ([old, over]) => {
         const enc = window.__bs?.state().encounter;
-        return enc != null && enc.id !== old && !enc.over;
+        return enc != null && enc.id !== old && (over || !enc.over);
       },
-      previous,
+      [previous, allowOver] as const,
       { timeout: 4_000 },
     );
   }, 'A engages B')

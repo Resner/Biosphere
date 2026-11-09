@@ -255,6 +255,8 @@ export const M12_LIFECYCLE_HUB = 'http://localhost:8836';
 export const M13_LIFECYCLE_HUB = 'http://localhost:8839';
 /** The M14 guide spec's hub (M14 T7): `MATING_SCALE` 0.01, two players learn the later steps. */
 export const M14_GUIDE_HUB = 'http://localhost:8843';
+/** The M14 interrupt spec's hub (M14 T4): `MATING_SCALE` 0.01 and `LIFESPAN_SCALE` 0.05, the page's kill matrix. */
+export const M14_INTERRUPT_HUB = 'http://localhost:8840';
 
 /** Hubs this worker process has already woken. */
 const warmed = new Set<string>();

@@ -26,6 +26,11 @@ export const WHEEL_ITEMS: readonly WheelItem[] = [
   ...EMOTES.map((e, id) => ({ kind: 'emote' as const, id, name: e.name })),
 ].map((item, i) => ({ ...item, key: String((i + 1) % 10) }));
 
+/** G opens the wheel at the cursor and releasing it picks (`App`'s key hook). */
+export const WHEEL_KEY = 'g';
+/** Every key the wheel takes: G and each item's number (the help's key map, M14 T8). */
+export const WHEEL_KEYS: readonly string[] = [WHEEL_KEY, ...WHEEL_ITEMS.map((item) => item.key)];
+
 /** Sizes in CSS pixels. */
 export const WHEEL = {
   /** Centre to an item's centre. */

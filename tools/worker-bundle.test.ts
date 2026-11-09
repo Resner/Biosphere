@@ -123,5 +123,8 @@ describe('worker bundles', () => {
     expect(code).toContain('/v1/e2e/dropped');
     // And the budget line a scenario spends and refills (M13 T12).
     expect(code).toContain('/v1/e2e/usage');
+    // And a player's hatch bucket and the held rounds of the page's kill matrix (M14 T4).
+    expect(code).toContain('/v1/e2e/hatches');
+    expect(code).toContain('/v1/e2e/beacons');
   });
 });

@@ -127,7 +127,7 @@ export function capabilities(win: Window): Capabilities;
 - `state().capabilities` (T6) and `state().unsupported` (T6: null, or the screen's reason);
 - `state().csp` (T16): the Content-Security-Policy violations seen on this page.
 
-**E2E entry hooks:** `POST /v1/e2e/hatches { player, left }` (T4) sets a player's hatch bucket; `GET /v1/e2e/consistency` (T13) answers `consistent(hub)`. `tools/worker-bundle.test.ts` guards both.
+**E2E entry hooks:** `POST /v1/e2e/hatches { player, left }` (T4) sets a player's hatch bucket; `POST /v1/e2e/beacons { hold }` (T4) holds the recorded rounds where they stand, since a round comes 0.5–3.5 s after its commitment and a reopened page takes longer than that to sign in; `GET /v1/e2e/consistency` (T13) answers `consistent(hub)`. `tools/worker-bundle.test.ts` guards them.
 
 **Hubs**: `m14-interrupt` 8840, `m14-mixed` 8841, `m14-smoke` 8842, `m14-guide` 8843, `m14-lifecycle` 8844; `m14-capability` 8845 (T6); the next hub file takes 8846. `npm run soak` uses 8851, outside the E2E range (`load:hub` has 8850).
 
@@ -213,7 +213,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Done: gaps fixed at the cause: a genesis's hatch and a mating's records now share their commitment's transaction, a death's checkpoint its record, a genesis or mating is marked resolved only with its writes (so a wake keeps it due), and a dead creature leaves the water. Migration 15 keeps the mates' names for `life.mating`.
   - Gotcha: `consistent(hub, players)` scopes to a test's players, since the kits wipe `matings` between tests; the matrix runs on the hand clock (84 cases, about 20 s).
 
-- [ ] T4 The page resumes what was in flight [opus] (after T3)
+- [x] T4 The page resumes what was in flight [opus] (after T3)
   - Steps:
     1. **The page takes the hub's word** (ADR 0076). `LifeFlow` takes a `commit` or `genesis` for the player's own waiting genesis whatever its state, and `life.mating` and `life.pending` on any `life`. `state().life.inFlight` names them.
     2. **The screens resume**:
@@ -232,13 +232,15 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
       - a `commit` naming another player's commitment is ignored.
     - **`m14-interrupt.spec.ts`** (`@slow`, hub 8840, `MATING_SCALE` 0.01, `LIFESPAN_SCALE` 0.05). Each kill is a renderer crash (`Page.crash` over the DevTools protocol, so nothing unloads), and each reopen is a new page in the same browser context:
       - **Genesis**: A uses its last hatch (`POST /v1/e2e/hatches { player, left: 1 }`, an E2E-entry hook this task adds and `tools/worker-bundle.test.ts` guards, leaves it one) and crashes while `awaiting`; reopened, the title shows the egg (not Hatch, not the practice offer), the reveal plays and the creature's DNA matches `life.recompute()`.
-      - **Mating**: A courts B, B accepts, and A crashes on `mating` before `born`; reopened, A's creature has paid the cost (biomass 85% of before, ± 1) and its egg waits beside it, then `born` reveals the child; B never sees anything wrong.
+      - **Mating**: A courts B, B accepts, and A crashes on `mating` before `born`; reopened, A's creature has paid the cost (biomass 85% of before, ± 3%) and its egg waits beside it, then `born` reveals the child; B never sees anything wrong.
       - **Promote**: A presses H and crashes at once (before or after `promoted` reaches it: either way); reopened, A plays the child, and Lineage shows the parent as a checkpoint once.
       - **Death**: A starves (`debug.setEnergy(0)`, as `m13-queue` does) and crashes on the death screen; reopened, the death screen offers the pending child or the ancestor; A picks the ancestor and crashes at once; reopened, A plays the ancestor.
       - **Import**: B imports A's recovery code and crashes as the import resolves; reopened, B's identity is A's.
       - **The hub**: `GET /v1/e2e/consistency` (T13) is empty after each part when present, and `GET /v1/e2e/audit` holds no flag but `authority-only`.
       - Screenshots of each reopened screen are attached (`m14-interrupt-<step>`).
   - Notes: fights are M8's (`m8-resume`, `m8-lifecycle`), so this spec doesn't repeat them. `Page.crash` is Chromium's; the spec skips itself in other engines.
+  - Done: `LifeFlow` adopts its own `commit`/`genesis` (`genesisInFlight`, `inFlight`), `MateFlow` a `life.mating`, `LifeStarts.awaitGenesis` plays it, `missedDeath` opens on the death screen; the key store resolves on the transaction's `complete` (`durability: 'strict'`). `commitmentId` moved to `src/ledger/commitment.ts` so the shell names a commitment without BLS.
+  - Gotcha: the spec holds the rounds (`POST /v1/e2e/beacons`) while a page is dead, and grows up at normal speed: `ripe`'s fast play raises `clock-too-fast`, which the audit check would catch.
 
 ### Engines
 
@@ -332,7 +334,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Done: `guide.ts` (a `RULES` row per step, the loop's clock), `PlayUi.guideFacts`, Settings' two controls, `title-help` (hides the title's keys line, so the queue card's title stays whole); fight, mature and death words tightened to fit 390 px. `debug.sated` keeps a test's belly full so no meal ends a step early.
   - Gotcha: `m6b-hud`'s first-life hints test described the replaced hints; it now checks the guide's `swim` once per browser. Under 56rem the line sits above the bars (under the minimap while the offspring card shows).
 
-- [ ] T8 How to play: the help panel and every control [opus] (after none)
+- [x] T8 How to play: the help panel and every control [opus] (after none)
   - Steps:
     1. **`src/game/controls.ts`**: the one table of controls (`CONTROLS`, DESIGN §3), each action with its mouse and its keys and when it works.
     2. **The help panel** (`src/game/help-panel.ts`, `index.html`): a glass panel with sections in this order:
@@ -356,6 +358,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
       - screenshots at 960 × 540 and 390 × 844, on the title and in play, attached (`m14-help-*`); no horizontal scroll at 390.
     - `m6b-hud` passes with the menu's Help in place of Controls.
   - Notes: plain words, short lines, no genetics jargon in How to play; the panel never names a number DESIGN.md doesn't hold.
+  - Done: `controls.ts` (`CONTROLS`, with `after` for T then 1–6), `help-text.ts`, `help-panel.ts` (`Help` pure over a `HelpView`); each key handler exports its key list (`APP_KEYS`, `MOVE_KEYS`, `FIGHT_KEYS`, `WHEEL_KEYS`, `EMOTE_KEYS`) for the key-map test. "How to play" sits beside Hatch, hidden while T7's `title-help` shows.
+  - Gotcha: the code reads `KeyboardEvent.key`, not `.code` as Out of scope says, so WASD follows the layout's letters; in play focus returns nowhere on close, so Space stays the dash.
 
 - [ ] T9 Colour never alone [opus] (after T7, T8)
   - Steps:

@@ -5,6 +5,7 @@ import type { BeaconSource } from './beacons';
 import { type WitnessView, witnessView } from './duty';
 import { fixtureSource } from './fixture-beacons';
 import live from './index';
+import { HATCH_BUCKET } from './ledger-types';
 import { recoverFights } from './recover';
 import { type Session, socketsOf } from './socket';
 import {
@@ -41,8 +42,36 @@ const ENCOUNTER_PATH = '/v1/e2e/encounter/';
 const WITNESS_PATH = '/v1/e2e/witness/';
 
 export class Authority extends LiveAuthority {
+  /**
+   * The wall time the recorded rounds stand still at while a scenario holds them (M14 T4); unset,
+   * they run on. Read lazily: the base constructor asks for the source before this field is set.
+   */
+  private heldAt: number | null = null;
+
   protected override beaconSource(): BeaconSource {
-    return fixtureSource();
+    return fixtureSource(Date.now(), () => this.heldAt ?? Date.now());
+  }
+
+  /**
+   * Holds the recorded rounds where they are, or lets them run on (M14 T4): a commitment made while
+   * held waits for its round however long a scenario takes to reopen a page, and on release the
+   * rounds catch up with the wall clock at once.
+   */
+  async holdBeacons(hold: boolean): Promise<void> {
+    this.heldAt = hold ? (this.heldAt ?? Date.now()) : null;
+    await this.rearm();
+  }
+
+  /** Sets a player's hatch bucket to `left` hatches, refilling from now (M14 T4). */
+  setHatches(playerId: string, left: number): void {
+    const now = Date.now();
+    this.sql.exec(
+      `INSERT INTO players (id, first_seen, last_seen, hatches, hatch_t) VALUES (?1, ?2, ?2, ?3, ?2)
+       ON CONFLICT (id) DO UPDATE SET hatches = ?3, hatch_t = ?2`,
+      playerId,
+      now,
+      left,
+    );
   }
 
   /** Messages received by each socket, for `sessions()`; memory only. */
@@ -161,6 +190,32 @@ export default {
         preReset(id: string): Promise<void>;
       };
       await stub.preReset(playerId);
+      return new Response(null, { status: 204 });
+    }
+    if (pathname === '/v1/e2e/hatches' && request.method === 'POST') {
+      const { player, left } = (await request.json().catch(() => ({}))) as {
+        player?: unknown;
+        left?: unknown;
+      };
+      if (typeof player !== 'string' || !isPlayerId(player)) {
+        return new Response('bad player', { status: 400 });
+      }
+      if (typeof left !== 'number' || !Number.isInteger(left) || left < 0 || left > HATCH_BUCKET) {
+        return new Response('bad left', { status: 400 });
+      }
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        setHatches(id: string, left: number): Promise<void>;
+      };
+      await stub.setHatches(player, left);
+      return new Response(null, { status: 204 });
+    }
+    if (pathname === '/v1/e2e/beacons' && request.method === 'POST') {
+      const { hold } = (await request.json().catch(() => ({}))) as { hold?: unknown };
+      if (typeof hold !== 'boolean') return new Response('bad hold', { status: 400 });
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        holdBeacons(hold: boolean): Promise<void>;
+      };
+      await stub.holdBeacons(hold);
       return new Response(null, { status: 204 });
     }
     if (pathname === '/v1/e2e/restart' && request.method === 'POST') {

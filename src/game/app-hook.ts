@@ -89,6 +89,9 @@ function debugHelpers(app: App): BsDebug {
     sated(on) {
       app.sated = on;
     },
+    holdReload(on) {
+      app.holdReload = on;
+    },
     netCap(cap) {
       if (!Number.isInteger(cap) || cap < 1 || cap > DEFAULT_CAP) {
         throw new RangeError(`netCap takes 1 to ${DEFAULT_CAP}, got ${cap}`);
@@ -312,6 +315,7 @@ export function installAppHook(app: App): void {
         tick: session.world.tick,
         ...zoneState(app),
         playerId,
+        imported: app.imported,
         renewed: app.renewal.heard,
         report: app.awayReport.told,
         visibleFood: app.food.length,
@@ -415,6 +419,7 @@ export function installAppHook(app: App): void {
         queue: keeper.current?.queue ? { ...keeper.current.queue } : null,
         ride: app.ride.view(),
         guide: app.guide.view(),
+        help: app.helpPanel.help.view(),
         social: {
           chat: social.log().map((line) => ({ ...line })),
           muted: [...social.muted.ids()],
