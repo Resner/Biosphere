@@ -49,9 +49,8 @@ async function chargeAndCrack(page: Page): Promise<number> {
   );
 }
 
-/** Whether the help panel (`state().help`, M14 T8) is open; null on a page without one yet. */
-const helpOpen = (): boolean | null =>
-  (window.__bs?.state() as { help?: { open: boolean } } | undefined)?.help?.open ?? null;
+/** Whether the help panel (`state().help`, M14 T8) is open. */
+const helpOpen = (): boolean => (window.__bs as BsHook).state().help.open;
 
 const cardState = (page: Page): Promise<CardState> =>
   page.evaluate(() => (window.__card as { state(): CardState }).state());
@@ -162,16 +161,12 @@ test('the game plays in this engine: hatch, feed, dash, link, menus and a verifi
     await a.keyboard.press('Escape');
     await expect(a.getByTestId('menu')).toBeHidden();
 
-    // The help panel (M14 T8): `?` opens it and Esc closes it, once the page has one.
-    if ((await a.evaluate(helpOpen)) !== null) {
-      await a.keyboard.press('?');
-      await expect.poll(() => a.evaluate(helpOpen), { timeout: 10_000 }).toBe(true);
-      await drawnShot(a, info, 'm14-smoke-help', browserName);
-      await a.keyboard.press('Escape');
-      await expect.poll(() => a.evaluate(helpOpen), { timeout: 10_000 }).toBe(false);
-    } else {
-      info.annotations.push({ type: 'skip', description: 'the help panel waits for M14 T8' });
-    }
+    // The help panel (M14 T8): `?` opens it and Esc closes it.
+    await a.keyboard.press('?');
+    await expect.poll(() => a.evaluate(helpOpen), { timeout: 10_000 }).toBe(true);
+    await drawnShot(a, info, 'm14-smoke-help', browserName);
+    await a.keyboard.press('Escape');
+    await expect.poll(() => a.evaluate(helpOpen), { timeout: 10_000 }).toBe(false);
 
     // The creature's card opens from Lineage and checks its history back to genesis.
     const creature = (await state(a)).life.creature as string;

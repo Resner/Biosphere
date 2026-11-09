@@ -269,7 +269,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
        - a recorded hatch with its egg reveal (charge, crack, result card);
        - swimming to food (`debug.steerTo`), eating and dashing, with the HUD's bars moving;
        - a second page of the same engine joins; they link, each sees the other move;
-       - the menu, Settings (the quality preset changes and is kept) and the help panel open (T8; skipped until T8 lands);
+       - the menu, Settings (the quality preset changes and is kept) and the help panel open (T8);
        - the creature's card opens and says "Verified back to genesis";
        - every frame drawn (non-blank screenshots), no page error, no uncaught rejection; screenshots attached per engine.
     3. **`m14-mixed.spec.ts`** (`@slow`, hub 8841): a Chromium page and a Firefox page (the test launches the second browser type itself) hatch near each other, link over WebRTC (host candidates), see each other move, and duel: both pages end on the referee's hash. If Playwright's WebKit can hold a WebRTC link on Linux, a WebKit page joins the same scenario; if it can't, the ADR below says so and the owner checks Safari's links.
