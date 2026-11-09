@@ -115,24 +115,17 @@ const feedAll = (ps: Player[]) =>
   );
 
 /**
- * Keeps the pages' energy up from here on (to 60 %, never full), and nothing else, so a slow runner can't starve them
- * (E2E main: pages on the death screen at the final gathering, out of the directory, unlinkable).
- * C and D, which never mate, are kept from the start; A and B once the fight has settled.
+ * Keeps the pages' energy full from here on, and nothing else. C and D never mate, so their first
+ * creatures live through the whole scenario, which a slow runner stretches until they starve (E2E
+ * main: C and D on the death screen at the final gathering, out of the directory, unlinkable).
+ * Energy takes no part in the crowd steps, so it changes nothing they see.
  */
 const keepFed = (ps: Player[]) =>
   Promise.all(
     ps.map((p) =>
       p.page.evaluate(() => {
-        const hook = window.__bs as BsHook;
-        const debug = hook.debug;
-        // Never to the cap: a creature at its cap leaves the carrion on the water, and the pieces
-        // keep a crowd from merging. Below 40 % it is topped up to 60 %.
-        const feed = () => {
-          const now = hook.state().player?.energy ?? 0;
-          debug?.setEnergy(Number.MAX_SAFE_INTEGER);
-          const cap = hook.state().player?.energy ?? 0;
-          debug?.setEnergy(now < 0.4 * cap ? 0.6 * cap : now);
-        };
+        const debug = (window.__bs as BsHook).debug;
+        const feed = () => debug?.setEnergy(Number.MAX_SAFE_INTEGER);
         feed();
         window.setInterval(feed, 2000);
       }),
@@ -158,11 +151,12 @@ async function allLinked(ps: Player[], message: string, timeout = 60_000): Promi
   if (!failed) return;
   const all = await Promise.all(
     ps.map(async (p) => {
-      const { net, spawn, ride, screen } = await state(p.page);
+      const { net, spawn, ride, screen, death } = await state(p.page);
       const at = await playerOf(p.page).catch(() => null);
       return {
         id: p.id.slice(0, 6),
         screen,
+        death: death ? JSON.stringify(death).slice(0, 160) : null,
         spawn,
         ride,
         at: at ? { x: Math.round(at.x), y: Math.round(at.y), radius: at.radius } : null,
@@ -472,10 +466,6 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
     // After the fight, A ends it by swimming off, and the hub settles it.
     await end(t, fightId);
     await settled(request, HUB, fightId);
-    // The fight is over: A and B are kept from starving through the quiet steps (CI repeat: one of
-    // them on the death screen at the gathering, out of the directory, unlinkable). Their health is
-    // left alone until the crowd has merged: with it held at the maximum the crowd did not merge.
-    await keepFed([a, b]);
 
     // Quiet: C swims out of the crowd too, the fight is over, and the crowd (A's and B's children)
     // merges back into the open water.
