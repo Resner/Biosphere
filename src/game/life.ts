@@ -92,6 +92,8 @@ export interface LifeView {
   lastAckN: number;
   /** The biomass in the report the hub last took (0 before the first). */
   ackedBiomass: number;
+  /** The most biomass in any of the last reports sent, acked or not: what the hub may hold (0 before the first). */
+  sentBiomass: number;
   /** Ms until the next recorded hatch, as the hub last said (0 = now). */
   genesisIn: number;
   practice: boolean;
@@ -199,6 +201,7 @@ export class LifeFlow {
       awaitingBeacon: this.status === 'awaiting',
       lastAckN: this.lastAckN,
       ackedBiomass: this.ackedBiomass,
+      sentBiomass: Math.max(0, ...this.sentReports.map((r) => r.biomass)),
       genesisIn: this.genesisIn,
       practice: this.status === 'practice',
       matureAtMs: this.matureAtMs,

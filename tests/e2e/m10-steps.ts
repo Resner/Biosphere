@@ -263,7 +263,9 @@ async function ready(t: Trio): Promise<void> {
   for (const w of witnesses(t)) await available(w.page);
   for (const page of [t.a, t.b])
     await page.evaluate(() => (window.__bs as BsHook).debug?.setHealth(Number.MAX_SAFE_INTEGER));
-  await topUp(t.b);
+  // Both bellies are full: a long walk to the fight (M11) can starve the fighter that was never
+  // topped up, and a starved A is dead before it engages.
+  await Promise.all([topUp(t.a), topUp(t.b)]);
 }
 
 /** One try that C did not referee, for the failure's message: the fight's end and the hub's witness view. */

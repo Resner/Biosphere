@@ -226,6 +226,14 @@ test('four players find each other across a world, fight a witnessed fight 30,00
         near = true;
         break;
       }
+      // The swim is long on a slow runner: a starter's belly lasts 150 s of sim, and the zones it
+      // crosses drain health. Both are mended each second until the fight.
+      for (const page of toFight)
+        await page.evaluate(() => {
+          const debug = (window.__bs as BsHook).debug;
+          debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+          debug?.setHealth(Number.MAX_SAFE_INTEGER);
+        });
       await Promise.all([steer(a, pc.x, pc.y), steer(c, pa.x, pa.y)]);
       await a.waitForTimeout(1000);
     }
