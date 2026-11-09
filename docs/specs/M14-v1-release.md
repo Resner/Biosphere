@@ -439,7 +439,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Notes: the headroom counts to 100% of an allowance, not to the 90% guard: the guard's 10% is what the crowd already seated plays on.
     - Done: `derive()` caps the free plan at 621; `headroomOf`/`crowdHours` (`capacity.ts`) feed `headroomSeats`, the wait, `admission.headroom` and CAPACITY.md's "Crowds from a fresh day". Gotcha: on the free plan the budget guard holds before the headroom drops under ~76, so hub tests bind it via `DAILY_REQUEST_BUDGET` (`headroomTo`).
 
-- [ ] T13 Life clients: headless players that hatch, mate, fight, die and drop (after T3)
+- [ ] T13 Life clients: headless players that hatch, mate, fight, die and drop (after T3) (in progress)
   - Steps:
     1. **`tests/life-client.ts`**, on M13's `LoadClient` (the page's own `HubClient`, a seeded identity, fixture rounds). A life client plays whole lives over the real protocol:
        - hatches a recorded genesis, asks `spawn`, wanders with the page's `WhereReporter`;
