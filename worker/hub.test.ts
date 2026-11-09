@@ -403,7 +403,7 @@ describe('the world', () => {
           )
           .one().n,
     );
-    expect(rows).toBe(15); // the world's row and the fourteen schema versions
+    expect(rows).toBe(16); // the world's row and the fifteen schema versions
   });
 
   it('keeps the world’s clock for a later joiner', async () => {

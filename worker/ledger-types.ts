@@ -69,6 +69,8 @@ export interface MateInput {
   round: number;
   /** A's then B's `mate-commit` request, already carrying the costs and the cooldown. */
   requests: [RecordRequest, RecordRequest];
+  /** A's and B's player names at the commitment, which a sign-in during the wait names (ADR 0076). */
+  names?: [string, string];
 }
 
 /** The outcome of an operation that writes one record on each of two chains. */

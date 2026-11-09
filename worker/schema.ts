@@ -295,6 +295,10 @@ const MIGRATIONS: Step[] = [
       toBase64Url(crypto.getRandomValues(new Uint8Array(12))),
     );
   },
+  // Each mate's name at the commitment (M14 T3, ADR 0076): a sign-in during the wait for the round
+  // names its partner (`life.mating`). Written with the matings row, so it costs no row.
+  `ALTER TABLE matings ADD COLUMN name_a TEXT NOT NULL DEFAULT '';
+  ALTER TABLE matings ADD COLUMN name_b TEXT NOT NULL DEFAULT ''`,
 ];
 
 /**

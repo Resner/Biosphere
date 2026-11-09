@@ -10,7 +10,7 @@ import {
 import { Admission } from './admission';
 import { attest } from './attest';
 import type { AuditReport } from './audit';
-import { type BeaconSource, Beacons, liveSource } from './beacons';
+import { type BeaconSource, Beacons, liveSource, resolvedOnFetch } from './beacons';
 import type { Crowds } from './crowds';
 import type { Directory } from './directory';
 import { Duties } from './duty';
@@ -470,9 +470,13 @@ export class Authority extends DurableObject<Env> implements Hub {
       // Reset first, so the re-arm inside `promote` doesn't read the tick that just fired; it arms the next one if anyone still waits.
       this.queueTickAt = null;
       if (queued(this).length > 0) await promote(this);
-      for (const id of await this.beacons.alarm()) {
+      // A genesis and a mating are marked resolved with what they write (ADR 0076): a wake before
+      // that finds them still due. Whatever wrote nothing is marked now, so the alarm doesn't spin.
+      for (const id of await this.beacons.alarm(resolvedOnFetch)) {
         // One commitment failing must not strand the others this pass resolved.
         await this.deliverGenesis(id).catch(() => {});
+        await deliverBirth(this, id).catch(() => {});
+        this.beacons.resolve(id);
         // A witness commitment's order is drawn, and a running fight's referee offered (`duty.ts`).
         try {
           this.duties.resolved(id);
@@ -480,9 +484,9 @@ export class Authority extends DurableObject<Env> implements Hub {
           console.error('witness duty failed', error);
         }
       }
-      // Matings whose round is published, including one marked resolved whose children were not written (an eviction in between).
+      // Matings whose round is published but whose children are not written (one a wake interrupted).
       for (const id of this.ledger.openMatingCommits()) {
-        if (this.beacons.status(id) === 'ready') await deliverBirth(this, id).catch(() => {});
+        await deliverBirth(this, id).catch(() => {});
       }
     } finally {
       await this.rearm();
