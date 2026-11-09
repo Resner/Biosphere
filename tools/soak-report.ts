@@ -215,12 +215,12 @@ export function checksOf(run: Soak): Check[] {
     const first = nearest(mine, WINDOWS.heap[0] * k);
     const level =
       a && first
-        ? a.geometries === first.geometries &&
-          a.textures === first.textures &&
-          a.programs === first.programs
+        ? a.geometries <= first.geometries &&
+          a.textures <= first.textures &&
+          a.programs <= first.programs
         : false;
     add(
-      `page ${id} renderer resources level`,
+      `page ${id} renderer resources do not grow`,
       level,
       a && first
         ? `geometries ${first.geometries} → ${a.geometries}, textures ${first.textures} → ${a.textures}, programs ${first.programs} → ${a.programs}`

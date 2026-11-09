@@ -118,7 +118,7 @@ describe('the soak checks', () => {
       'consistent empty at every sample',
       'no audit flag at any sample',
       'nobody waited in line',
-      'page 1 renderer resources level',
+      'page 1 renderer resources do not grow',
     ]);
   });
 
@@ -139,6 +139,12 @@ describe('the soak checks', () => {
       'no socket closed for its rate',
       'page 1 played and reloaded',
     ]);
+  });
+
+  it('let a page free resources (a reload frees what a life made)', () => {
+    const run = healthy();
+    for (const p of run.full?.pages ?? []) if (p.minute > 30) p.geometries = 110;
+    expect(failed(run)).toEqual([]);
   });
 
   it('fail a bundle that does not verify', () => {
