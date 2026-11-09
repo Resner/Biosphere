@@ -1,0 +1,294 @@
+{
+ "rules": 13,
+ "variants": 2,
+ "genesis": 2,
+ "lives": 4,
+ "bodies": [
+  {
+   "id": "flagellate-0",
+   "archetype": "flagellate",
+   "score": 4.5,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "flagellate-1",
+   "archetype": "flagellate",
+   "score": 4.25,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "ciliate-0",
+   "archetype": "ciliate",
+   "score": 4.0,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "ciliate-1",
+   "archetype": "ciliate",
+   "score": 3.75,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "swimmer-0",
+   "archetype": "swimmer",
+   "score": 3.5,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "swimmer-1",
+   "archetype": "swimmer",
+   "score": 3.25,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "armoured-0",
+   "archetype": "armoured",
+   "score": 3.0,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "armoured-1",
+   "archetype": "armoured",
+   "score": 2.75,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "filter-0",
+   "archetype": "filter",
+   "score": 2.5,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "filter-1",
+   "archetype": "filter",
+   "score": 2.25,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "hunter-0",
+   "archetype": "hunter",
+   "score": 2.0,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "hunter-1",
+   "archetype": "hunter",
+   "score": 1.75,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "radial-0",
+   "archetype": "radial",
+   "score": 1.5,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "radial-1",
+   "archetype": "radial",
+   "score": 1.25,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "coiled-0",
+   "archetype": "coiled",
+   "score": 1.0,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "coiled-1",
+   "archetype": "coiled",
+   "score": 0.75,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "carapaced-0",
+   "archetype": "carapaced",
+   "score": 0.5,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "carapaced-1",
+   "archetype": "carapaced",
+   "score": 0.25,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "winged-0",
+   "archetype": "winged",
+   "score": 0.0,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "winged-1",
+   "archetype": "winged",
+   "score": 0,
+   "zone": "deep",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "setose-0",
+   "archetype": "setose",
+   "score": 0.0,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 2,
+   "kills": 0
+  },
+  {
+   "id": "setose-1",
+   "archetype": "setose",
+   "score": 0,
+   "zone": "twilight",
+   "ends": {
+    "old-age": 3,
+    "killed": 1
+   },
+   "fights": 3,
+   "kills": 1
+  },
+  {
+   "id": "genesis-0",
+   "archetype": "genesis",
+   "score": 1,
+   "zone": "shallows",
+   "ends": {
+    "uv": 4
+   },
+   "fights": 0,
+   "kills": 0
+  },
+  {
+   "id": "genesis-1",
+   "archetype": "genesis",
+   "score": 2,
+   "zone": "shallows",
+   "ends": {
+    "uv": 4
+   },
+   "fights": 0,
+   "kills": 0
+  }
+ ]
+}

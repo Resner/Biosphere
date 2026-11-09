@@ -9,6 +9,7 @@
   "scripts": {
     "dev": "vite",
     "sim:pacing": "node tools/pacing.mjs",
+    "sim:balance": "node tools/balance.mjs",
     "report:diversity": "node tools/diversity.mjs",
     "report:speed": "node tools/speed.mjs",
     "report:combat": "node tools/combat.mjs",

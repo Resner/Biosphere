@@ -4,12 +4,13 @@
 // (the winners' biomass per minute of fighting). `tools/combat-report.ts` prints it; the unit tests
 // gate it.
 
+import type { Genome } from '../src/genome/codec';
 import { fighterOf } from '../src/genome/fighter';
 import { genesisGenome } from '../src/genome/genesis';
 import { buildCreature } from '../src/genome/stats';
 import { createEncounter, results, stepFrame } from '../src/sim/encounter/encounter';
 import { engageRange } from '../src/sim/encounter/reach';
-import type { Behaviour, FighterStart } from '../src/sim/encounter/types';
+import type { Behaviour, FighterStart, Outcome } from '../src/sim/encounter/types';
 import { cos, sin } from '../src/sim/math';
 import { createRng, hashU32, seedFromString } from '../src/sim/prng';
 import { DT, RULES } from '../src/sim/rules';
@@ -37,6 +38,17 @@ const MIRROR_RATIOS = [1, 1.5, 2] as const;
 export interface Side {
   body: Pick<FighterStart, 'phys' | 'combat' | 'behaviour'>;
   biomass: number;
+  /** Its energy and health going in (default: a starter's, full for its biomass). */
+  energy?: number;
+  health?: number;
+}
+
+/** A fighter's condition at the end of a fight. */
+export interface FighterEnd {
+  outcome: Outcome;
+  biomass: number;
+  energy: number;
+  health: number;
 }
 
 export interface Duel {
@@ -47,32 +59,34 @@ export interface Duel {
   kill: boolean;
   /** Biomass each side gained during the fight (the kill's reward). */
   gain: [number, number];
+  /** How each side left the fight. */
+  end: [FighterEnd, FighterEnd];
 }
 
 /** The hand-built archetypes carry no behaviour genes: the armed or armoured ones fly the middling behaviour, the others this skittish one, so the matrix measures anatomy. */
 const SKITTISH: Behaviour = { ...CALM, aggression: 0.2, caution: 0.9, reflex: 0.9 };
-const archetypeBody = (name: string): Side['body'] => {
-  const body = fighterOf(
-    buildCreature(ARCHETYPES[name] as NonNullable<(typeof ARCHETYPES)[string]>),
-  );
+/** A hand-built genome's fighter: the middling behaviour when armed or armoured, else the skittish one. */
+export const handBuiltBody = (genome: Genome): Side['body'] => {
+  const body = fighterOf(buildCreature(genome));
   return {
     ...body,
     behaviour: body.combat.power > 1 || body.combat.armour > 0.5 ? CALM : SKITTISH,
   };
 };
+const archetypeBody = (name: string): Side['body'] =>
+  handBuiltBody(ARCHETYPES[name] as NonNullable<(typeof ARCHETYPES)[string]>);
 const genesisBody = (seed: string): Side['body'] =>
   fighterOf(buildCreature(genesisGenome(seedFromString(seed))));
 
-const fighterAt = (
-  side: Side,
-  id: string,
-  x: number,
-  y: number,
-  heading: number,
-): FighterStart => ({
-  ...starterFighter(id, x, y, heading, side.biomass),
-  ...side.body,
-});
+const fighterAt = (side: Side, id: string, x: number, y: number, heading: number): FighterStart => {
+  const start = starterFighter(id, x, y, heading, side.biomass);
+  return {
+    ...start,
+    ...side.body,
+    energy: side.energy ?? start.energy,
+    health: side.health ?? start.health,
+  };
+};
 
 /**
  * One fight on the autopilot. The layout (0 to LAYOUTS - 1) sets the bearing between the fighters
@@ -117,11 +131,18 @@ export function duel(a: Side, b: Side, layout: number, swap = false): Duel {
   const kill = ra.outcome === 'killed' || rb.outcome === 'killed';
   // A kill is the only win: an escape or a timeout leaves both standing, which is a draw.
   const score = ra.outcome === 'killed' ? 0 : rb.outcome === 'killed' ? 1 : 0.5;
+  const endOf = (f: typeof fa, r: typeof ra): FighterEnd => ({
+    outcome: r.outcome,
+    biomass: f.body.biomass,
+    energy: f.body.energy,
+    health: f.body.health,
+  });
   return {
     score,
     seconds: enc.frame * SECONDS_PER_FRAME,
     kill,
     gain: [fa.body.biomass - a.biomass, fb.body.biomass - b.biomass],
+    end: [endOf(fa, ra), endOf(fb, rb)],
   };
 }
 
