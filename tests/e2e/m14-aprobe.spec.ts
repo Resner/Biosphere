@@ -28,28 +28,43 @@ test('probe ICE gathering', async ({ baseURL }) => {
   test.setTimeout(240_000);
   const prefs = { 'media.peerconnection.ice.obfuscate_host_addresses': false };
   const b = await firefox.launch({ headless: false, firefoxUserPrefs: prefs });
-  const page = await b.newPage();
   const at = () => new Date().toISOString().slice(11, 19);
-  await page.setContent('<p>blank</p>');
-  console.log(at(), 'blank 1', JSON.stringify(await gatherIn(page)));
-  await page.waitForTimeout(5000);
-  console.log(at(), 'blank 2 (5 s later)', JSON.stringify(await gatherIn(page)));
-  await page.goto(`${baseURL}lab.html?seed=x`);
-  console.log(at(), 'lab', JSON.stringify(await gatherIn(page)));
-  await page.goto(`${baseURL}?genome=starter`);
-  console.log(at(), 'game', JSON.stringify(await gatherIn(page)));
-  const p2 = await b.newPage();
-  await p2.setContent('<p>blank</p>');
-  console.log(at(), 'blank 3 (new tab)', JSON.stringify(await gatherIn(p2)));
-  console.log(
-    sh(
-      'free -m; sudo dmesg | grep -iE "oom|killed process" | tail -5; ps -eo rss,comm --sort=-rss | head -6',
-    ),
+  const tab = async (
+    label: string,
+    setup: (p: import('@playwright/test').Page) => Promise<unknown>,
+  ) => {
+    const p = await b.newPage();
+    try {
+      await setup(p);
+      console.log(at(), label, JSON.stringify(await gatherIn(p)));
+    } catch (e) {
+      console.log(at(), label, 'threw', String(e).slice(0, 200));
+    }
+    await p.close();
+  };
+  await tab('blank', (p) => p.setContent('<p>blank</p>'));
+  await tab('blank+webgl2', async (p) => {
+    await p.setContent('<p>blank</p>');
+    await p.evaluate(() => {
+      const c = document.createElement('canvas');
+      c.width = 1;
+      c.height = 1;
+      return c.getContext('webgl2') !== null;
+    });
+  });
+  await tab('blank+worker-probe', async (p) => {
+    await p.setContent('<p>blank</p>');
+    await p.evaluate(() => {
+      try {
+        new Worker('http://[', { type: 'module' }).terminate();
+      } catch {}
+    });
+  });
+  await tab('hub health page (localhost, no script)', (p) =>
+    p.goto('http://localhost:8842/v1/health'),
   );
+  await tab('preview 404 page (localhost:4173)', (p) => p.goto(`${baseURL}nothing-here.txt`));
+  await tab('favicon (localhost:4173)', (p) => p.goto(`${baseURL}favicon.svg`));
+  await tab('game', (p) => p.goto(`${baseURL}?genome=starter`));
   await b.close();
-  const c = await firefox.launch({ headless: false, firefoxUserPrefs: prefs });
-  const p3 = await c.newPage();
-  await p3.setContent('<p>blank</p>');
-  console.log(at(), 'fresh browser blank', JSON.stringify(await gatherIn(p3)));
-  await c.close();
 });
