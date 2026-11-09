@@ -8,7 +8,6 @@ import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
 import { verifyLineage } from '../src/ledger/verify';
-import { fetchJson } from '../src/net/hub-client';
 import { LifeClient, type LifeStats, SnapBus } from '../tests/life-client';
 import { RuntimeWatch } from './load-hub-run';
 import { SoakPages } from './soak-pages';
@@ -168,8 +167,26 @@ export async function runSoak(opts: SoakOptions): Promise<Soak> {
   }
 }
 
-const getJson = <T>(port: number, path: string): Promise<T> =>
-  fetchJson(`http://localhost:${port}${path}`) as Promise<T>;
+/**
+ * A read of the authority's E2E meter. A busy hour answers slowly, and one slow answer is not the
+ * run's end: each read waits up to 30 s and tries three times before it gives up.
+ */
+async function getJson<T>(port: number, path: string): Promise<T> {
+  let last: unknown;
+  for (let attempt = 0; attempt < 3; attempt++) {
+    try {
+      const res = await fetch(`http://localhost:${port}${path}`, {
+        signal: AbortSignal.timeout(30_000),
+      });
+      if (!res.ok) throw new Error(`${path} ${res.status}`);
+      return (await res.json()) as T;
+    } catch (e) {
+      last = e;
+      await sleep(2_000);
+    }
+  }
+  throw new Error(`${path} did not answer: ${String(last)}`);
+}
 
 async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
   const log = opts.log ?? (() => {});
@@ -230,7 +247,11 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
       if (opts.full && Date.now() >= t0 + (sampled + 1) * 60_000) {
         sampled++;
         const minute = sampled;
-        hubSamples.push(await sampleHub(opts.port, watch, minute));
+        try {
+          hubSamples.push(await sampleHub(opts.port, watch, minute));
+        } catch (e) {
+          failures.push(`hub sample at minute ${minute}: ${String(e)}`);
+        }
         await pagesUp;
         if (pages) {
           try {
