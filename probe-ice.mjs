@@ -1,35 +1,49 @@
-// Temporary diagnostic (M14 T6): which ICE candidates each engine gathers on a runner.
+// Temporary diagnostic (M14 T6): two pages (separate contexts or browsers) link over ICE, signalled
+// through Node, with and without the hub's STUN servers.
 import { chromium, firefox } from '@playwright/test';
-const page = `<html><body>probe</body></html>`;
-async function probe(name, browser) {
-  const p = await browser.newPage();
-  await p.setContent(page);
-  const r = await p.evaluate(async () => {
-    const out = { cands: [], open: false, state: null, err: null };
-    try {
-      const a = new RTCPeerConnection(); const c = new RTCPeerConnection();
-      a.onicecandidate = (e) => { if (e.candidate) { out.cands.push(e.candidate.candidate); c.addIceCandidate(e.candidate); } };
-      c.onicecandidate = (e) => { if (e.candidate) a.addIceCandidate(e.candidate); };
-      const ch = a.createDataChannel('x');
-      const opened = new Promise((res) => { ch.onopen = () => res(true); setTimeout(() => res(false), 10000); });
-      await a.setLocalDescription(); await c.setRemoteDescription(a.localDescription);
-      await c.setLocalDescription(); await a.setRemoteDescription(c.localDescription);
-      out.open = await opened; out.state = a.iceConnectionState;
-    } catch (e) { out.err = String(e); }
-    return out;
+const STUN = [{ urls: 'stun:stun.cloudflare.com:3478' }, { urls: 'stun:stun.l.google.com:19302' }];
+const prefs = { 'media.peerconnection.ice.obfuscate_host_addresses': false };
+async function pageOf(browser) {
+  const p = await (await browser.newContext()).newPage();
+  await p.setContent('<html><body>probe</body></html>');
+  return p;
+}
+async function pair(name, pa, pb, ice) {
+  const setup = (ice) => {
+    window.pc = new RTCPeerConnection({ iceServers: ice });
+    window.cands = [];
+    window.pc.onicecandidate = (e) => { if (e.candidate) window.cands.push(e.candidate.toJSON()); };
+    window.opened = false;
+  };
+  await pa.evaluate(setup, ice); await pb.evaluate(setup, ice);
+  const offer = await pa.evaluate(async () => {
+    const ch = window.pc.createDataChannel('x'); ch.onopen = () => { window.opened = true; };
+    await window.pc.setLocalDescription(); return window.pc.localDescription.toJSON();
   });
-  console.log(name, JSON.stringify(r));
+  const answer = await pb.evaluate(async (o) => {
+    window.pc.ondatachannel = (e) => { e.channel.onopen = () => { window.opened = true; }; };
+    await window.pc.setRemoteDescription(o); await window.pc.setLocalDescription(); return window.pc.localDescription.toJSON();
+  }, offer);
+  await pa.evaluate((a) => window.pc.setRemoteDescription(a), answer);
+  // Trickle both ways for 6 s.
+  const sent = { a: 0, b: 0 };
+  for (let t = 0; t < 30; t++) {
+    const ca = await pa.evaluate(() => window.cands); const cb = await pb.evaluate(() => window.cands);
+    for (const c of ca.slice(sent.a)) await pb.evaluate((c) => window.pc.addIceCandidate(c).catch(() => {}), c);
+    for (const c of cb.slice(sent.b)) await pa.evaluate((c) => window.pc.addIceCandidate(c).catch(() => {}), c);
+    sent.a = ca.length; sent.b = cb.length;
+    if (await pa.evaluate(() => window.opened)) break;
+    await new Promise((r) => setTimeout(r, 200));
+  }
+  const res = await pa.evaluate(() => ({ open: window.opened, state: window.pc.iceConnectionState, cands: window.cands.map((c) => c.candidate) }));
+  const resb = await pb.evaluate(() => ({ state: window.pc.iceConnectionState, cands: window.cands.map((c) => c.candidate) }));
+  console.log(name, JSON.stringify({ a: res, b: resb }));
 }
-const prefsets = {
-  base: { 'media.peerconnection.ice.obfuscate_host_addresses': false },
-  loopback: { 'media.peerconnection.ice.obfuscate_host_addresses': false, 'media.peerconnection.ice.loopback': true },
-  allIf: { 'media.peerconnection.ice.obfuscate_host_addresses': false, 'media.peerconnection.ice.default_address_only': false, 'media.peerconnection.ice.no_host': false },
-};
-for (const [k, prefs] of Object.entries(prefsets)) {
-  const b = await firefox.launch({ headless: false, firefoxUserPrefs: prefs });
-  await probe(`firefox-${k}`, b);
-  await b.close();
+const ff = await firefox.launch({ headless: false, firefoxUserPrefs: prefs });
+const cr = await chromium.launch({ args: ['--disable-features=WebRtcHideLocalIpsWithMdns'] });
+for (const [label, ice] of [['nostun', []], ['stun', STUN]]) {
+  await pair(`ff-ff-${label}`, await pageOf(ff), await pageOf(ff), ice);
+  await pair(`cr-ff-${label}`, await pageOf(cr), await pageOf(ff), ice);
+  await pair(`cr-cr-${label}`, await pageOf(cr), await pageOf(cr), ice);
 }
-const c = await chromium.launch({ args: ['--disable-features=WebRtcHideLocalIpsWithMdns'] });
-await probe('chromium', c);
-await c.close();
+await ff.close(); await cr.close();
