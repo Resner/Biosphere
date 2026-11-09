@@ -374,7 +374,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Balance
 
-- [ ] T10 The balance simulation and its gate (after none)
+- [ ] T10 The balance simulation and its gate (after none) (in progress)
   - Steps:
     1. **The population** (`tests/balance.ts`): the 11 archetypes of `tests/archetypes.ts`, each with 15 seeded variants (one to three mutation trials of the archetype's genome through the real mutation, keeping only variants that still hold the archetype's defining feature: a predicate per archetype, `ARCHETYPE_KEEPS` in `tests/archetypes.ts`), so 176 bodies; and 32 genesis bodies as a reference, reported but outside the gate.
     2. **A life** (`balanceLife(body, seed)`), on the real rules:
