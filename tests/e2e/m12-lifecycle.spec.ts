@@ -93,9 +93,12 @@ const sampled = (page: Page): Promise<Held> =>
 const instanceOf = (p: Player) =>
   p.page.evaluate(() => (window.__bs as BsHook).state().net.instance.n);
 
-/** Every pair of `ps` holds a link past its hello. */
+/**
+ * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
+ * and position, since the one page that timed out first says nothing of the others.
+ */
 async function allLinked(ps: Player[], message: string, timeout = 60_000): Promise<void> {
-  await Promise.all(
+  const results = await Promise.allSettled(
     ps.map((p) =>
       linksAre(
         p,
@@ -105,6 +108,30 @@ async function allLinked(ps: Player[], message: string, timeout = 60_000): Promi
       ),
     ),
   );
+  const failed = results.find((r): r is PromiseRejectedResult => r.status === 'rejected');
+  if (!failed) return;
+  const all = await Promise.all(
+    ps.map(async (p) => {
+      const net = (await state(p.page)).net;
+      const at = await playerOf(p.page).catch(() => null);
+      return {
+        id: p.id.slice(0, 6),
+        at: at ? { x: Math.round(at.x), y: Math.round(at.y), radius: at.radius } : null,
+        n: net.instance.n,
+        crowded: net.crowded,
+        known: net.known,
+        links: net.links.map((l) => ({
+          id: l.id.slice(0, 6),
+          class: l.class,
+          open: l.open,
+          hello: l.hello,
+        })),
+      };
+    }),
+  );
+  throw new Error(`${(failed.reason as Error).message}\nevery player: ${JSON.stringify(all)}`, {
+    cause: failed.reason,
+  });
 }
 
 /**

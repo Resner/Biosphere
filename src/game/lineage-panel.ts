@@ -46,6 +46,12 @@ export class LineagePanel {
 
   close(): void {
     this.panel.hidden = true;
+    // Focus left on a hidden button would send the next Esc to this panel's own key handler.
+    if (
+      this.panel.contains(document.activeElement) &&
+      document.activeElement instanceof HTMLElement
+    )
+      document.activeElement.blur();
   }
 
   /** Takes the hub's answer; draws only while the panel is open. */
