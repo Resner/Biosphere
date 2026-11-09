@@ -44,9 +44,9 @@ test('probe ICE gathering', async ({ baseURL }) => {
     const page = await b.newPage();
     await page.goto(`${baseURL}?genome=starter`);
     const origin = await gatherIn(page);
-    await page.goto(`http://127.0.0.1:4173/?genome=starter`);
-    const ip = await gatherIn(page);
-    console.log(name, JSON.stringify({ localhost: origin, ip127: ip }));
+    await page.setContent('<p>blank</p>');
+    const blank = await gatherIn(page);
+    console.log(name, JSON.stringify({ localhost: origin, blank }));
     await b.close();
   }
 });
