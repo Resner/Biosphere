@@ -257,6 +257,25 @@ export class Ledger {
     );
   }
 
+  /**
+   * The player's mating that has not produced its children yet (at most one): its commitment, round
+   * and the partner's name at the commitment ('' for a mating written without names).
+   */
+  openMating(owner: string): { commit: string; round: number; partner: string } | null {
+    const row = this.run(
+      `SELECT commit_id, round, owner_a, name_a, name_b FROM matings
+       WHERE resolved = 0 AND (owner_a = ?1 OR owner_b = ?1) ORDER BY round DESC LIMIT 1`,
+      owner,
+    )[0];
+    if (!row) return null;
+    const partner = row.owner_a === owner ? row.name_b : row.name_a;
+    return {
+      commit: row.commit_id as string,
+      round: row.round as number,
+      partner: String(partner),
+    };
+  }
+
   /** The commitments of matings that have not produced their children yet (few: one per courting pair), optionally the player's own. */
   openMatingCommits(owner?: string): string[] {
     return this.run(
@@ -636,7 +655,7 @@ export class Ledger {
     if (activeMs !== head.activeMs) this.played?.(head.owner, activeMs - head.activeMs);
   }
 
-  private mateInTransaction({ commit, round, requests }: MateInput): MateResult {
+  private mateInTransaction({ commit, round, requests, names }: MateInput): MateResult {
     const t = this.now();
     const hashes = requests.map((r) => requestHash(r));
     if (this.run('SELECT 1 FROM matings WHERE commit_id = ?', commit).length > 0) {
@@ -695,8 +714,8 @@ export class Ledger {
       return s;
     }) as [StoredRecord, StoredRecord];
     this.run(
-      `INSERT INTO matings (commit_id, owner_a, owner_b, creature_a, creature_b, round, t)
-       VALUES (?, ?, ?, ?, ?, ?, ?)`,
+      `INSERT INTO matings (commit_id, owner_a, owner_b, creature_a, creature_b, round, t, name_a, name_b)
+       VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)`,
       commit,
       a.owner,
       b.owner,
@@ -704,6 +723,8 @@ export class Ledger {
       b.id,
       round,
       t,
+      names?.[0] ?? '',
+      names?.[1] ?? '',
     );
     return { ok: true, stored, fresh: true };
   }

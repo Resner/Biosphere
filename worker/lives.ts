@@ -19,6 +19,7 @@ import {
   LINEAGE_MAX,
   type LifeInfo,
   type LineageEntry,
+  NAME_RE,
   PEDIGREE_MAX,
   type PedigreeNode,
   type RelayReport,
@@ -51,7 +52,7 @@ import {
   signedOf,
 } from './socket';
 import { anchorAtLast } from './spawn';
-import { bindingOf } from './where';
+import { bindingOf, gone } from './where';
 import { commitWitnesses } from './witness-pool';
 
 /** Starts a genesis request after any earlier one from the same player has finished. */
@@ -124,8 +125,12 @@ export async function genesisRequest(
       sendIfOpen(ws, { t: 'refused', reason: 'limit', genesisIn: bucket.genesisIn });
       return;
     }
-    commit = await hub.beacons.commit('genesis', owner, data);
-    hatchesLeft = hub.ledger.takeHatch(owner, commit.id, Date.now());
+    // The hatch is spent in the commitment's own transaction (ADR 0076): never one without the other.
+    commit = await hub.beacons.commit('genesis', owner, data, {
+      write: (made) => {
+        hatchesLeft = hub.ledger.takeHatch(owner, made.id, Date.now());
+      },
+    });
     sendIfOpen(ws, { t: 'commit', commit: signedOf(commit), hatchesLeft });
     // Its auditor's pool, on the genesis's own round (ADR 0058); the player never audits itself.
     await commitWitnesses(hub, 'genesis', commit.id, [owner], commit.commitment.round);
@@ -145,16 +150,23 @@ export function isActiveBirth(hub: Hub, owner: string, commitId: string): boolea
 export async function deliverGenesis(hub: Hub, commitId: string): Promise<void> {
   const commit = hub.beacons.commitment(commitId);
   if (commit?.commitment.kind !== 'genesis') return;
-  const beacon = await hub.beacons.beaconFor(commitId);
+  // Marked resolved below, with the record (ADR 0076).
+  const beacon = await hub.beacons.beaconFor(commitId, () => false);
   if (!beacon) return;
   const owner = commit.commitment.owner;
   const genome = genesisFor(randomnessOf(beacon), commitId);
   const request = genesisRecordRequest(RULES_VERSION, commit.commitment, genome);
   const text = genomeToBase64url(genome);
-  const accepted = hub.ledger.accept({ request, genome: text });
+  // One transaction: the round's resolution and the creature, or (refused) the hatch given back.
+  // Nothing will ever follow a refusal: the hatch goes back and the player is free to ask again
+  // instead of waiting on a dead commitment.
+  const accepted = hub.ledger.storage.transactionSync(() => {
+    hub.beacons.resolve(commitId);
+    const out = hub.ledger.accept({ request, genome: text });
+    if (!out.ok) hub.ledger.refundHatch(owner, commitId, Date.now());
+    return out;
+  });
   if (!accepted.ok) {
-    // Nothing will ever follow: give the hatch back and free the player to ask again instead of waiting on a dead commitment.
-    hub.ledger.refundHatch(owner, commitId, Date.now());
     const found = seated(hub, owner);
     if (found) sendIfOpen(found[0], { t: 'refused', reason: accepted.reason });
     return;
@@ -228,7 +240,9 @@ export function progress(
   ack(ws, msg.n, next);
   // Old age is decided here, on the authority's clock: the client counts down, but never has the last word.
   if (isOld(next)) next = finish(hub, ws, next, session.playerId, 'old-age');
-  keep(hub, ws, { ...session, life: next });
+  const kept = { ...session, life: next };
+  keep(hub, ws, kept);
+  ashore(hub, ws, kept);
 }
 
 /** A relay report's KB is at most this per reported link and second (M13 T4, ADR 0067)... */
@@ -311,13 +325,25 @@ export function death(
   }
   const cause = isOld(credited) ? 'old-age' : msg.cause;
   const life = finish(hub, ws, credited, session.playerId, cause);
-  keep(hub, ws, { ...session, life });
+  const kept = { ...session, life };
+  keep(hub, ws, kept);
+  ashore(hub, ws, kept);
+}
+
+/**
+ * A creature whose life ended leaves the water at once (ADR 0076): no directory entry or anchor
+ * names it. Where it was stays as `left`, where a promoted child hatches (M12 T4).
+ */
+export function ashore(hub: Hub, ws: WebSocket, s: ActiveSession): void {
+  if (!s.life?.over) return;
+  if (s.where || hub.directory.member(s.playerId)) gone(hub, ws, { ...s, anchor: undefined });
+  else if (s.anchor) keep(hub, ws, { ...s, anchor: undefined });
 }
 
 /**
  * Ends the creature's life: a checkpoint of its last condition (when it has played since the last
- * record), then the `death` record, and `died` to the owner. A ledger that refuses leaves the
- * creature as it was, and the next report or request tries again.
+ * record), then the `death` record, in one transaction (ADR 0076), and `died` to the owner. A
+ * ledger that refuses leaves the creature as it was, and the next report or request tries again.
  */
 export function finish(
   hub: Hub,
@@ -326,14 +352,19 @@ export function finish(
   owner: string,
   cause: DeathCause,
 ): LifeState {
-  const saved = unsaved(life) ? checkpoint(hub, life, owner) : life;
-  const head = hub.ledger.head(life.creature);
-  if (head?.status !== 'active' || head.owner !== owner) return { ...saved, over: true };
-  const accepted = hub.ledger.append(head, 'death', {
-    cause,
-    activeMs: saved.activeMs,
-    biomass: saved.biomass,
+  const ended = hub.ledger.storage.transactionSync(() => {
+    const saved = unsaved(life) ? checkpoint(hub, life, owner) : life;
+    const head = hub.ledger.head(life.creature);
+    if (head?.status !== 'active' || head.owner !== owner) return { saved, accepted: null };
+    const accepted = hub.ledger.append(head, 'death', {
+      cause,
+      activeMs: saved.activeMs,
+      biomass: saved.biomass,
+    });
+    return { saved, accepted };
   });
+  const { saved, accepted } = ended;
+  if (!accepted) return { ...saved, over: true };
   if (!accepted.ok) return saved;
   const fallback = fallbackAfter(hub, hub.ledger.head(life.creature));
   sendIfOpen(ws, { t: 'died', cause, record: accepted.stored, fallback });
@@ -583,6 +614,10 @@ export function sendLife(
   const stored = storedReport(hub, playerId);
   const report = stored?.report;
   const renewal = hub.ledger.renewalDue(playerId);
+  // A mating still waiting for its children (ADR 0076): `born` follows when the round is published.
+  // One written without names (before migration 15) is not named: its `born` still comes.
+  const open = hub.ledger.openMating(playerId);
+  const mating = open && NAME_RE.test(open.partner) ? open : null;
   const sent = sendIfOpen(ws, {
     t: 'life',
     life: head ? withCurrent(lifeOf(hub, head), current) : null,
@@ -590,16 +625,15 @@ export function sendLife(
     ...(fight !== undefined ? { fight } : {}),
     ...(report ? { report } : {}),
     ...(pending ? { pending } : {}),
+    ...(mating ? { mating } : {}),
     ...(fallback && (fallback.pending || fallback.ancestor) ? { fallback } : {}),
     ...(renewal ? { renewed: true as const } : {}),
   });
   // Told once: the report and the renewal notice go only once `life` went out on an open socket (M9 T9, M10 T15).
   if (sent && stored) clearReport(hub, playerId);
   if (sent && renewal) hub.ledger.markRenewalTold(playerId);
-  // A mating whose children were never written (an eviction between its round and the write) is finished now.
-  for (const id of hub.ledger.openMatingCommits(playerId)) {
-    if (hub.beacons.status(id) === 'ready') deliverBirth(hub, id).catch(() => {});
-  }
+  // A mating whose round is published but whose children are not written yet is finished now.
+  for (const id of hub.ledger.openMatingCommits(playerId)) deliverBirth(hub, id).catch(() => {});
   // A genesis still waiting on its round is announced again, and its creature follows when the round comes.
   const waiting = hub.ledger.pendingCommit(playerId);
   const commit = waiting ? hub.beacons.commitment(waiting) : null;

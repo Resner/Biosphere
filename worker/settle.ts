@@ -19,7 +19,7 @@ import { LOG_KEEP_DAYS, logOf, PRUNE_PER_SETTLEMENT } from './fight-store';
 import type { Fight, Lock } from './fights';
 import type { FighterRecord, SettleResult } from './ledger-encounter';
 import { type Condition, isOld, type LifeState, recorded, unsaved } from './life';
-import { bind, fallbackAfter, finish, sendLife } from './lives';
+import { ashore, bind, fallbackAfter, finish, sendLife } from './lives';
 import type { PondRow } from './schema';
 import { promote, queued } from './sessions';
 import { type Hub, keep, seated, sendIfOpen } from './socket';
@@ -308,5 +308,7 @@ function settleLife(hub: Hub, f: FighterOutcome, activeMs: number): void {
   if (!survived(f)) life = { ...life, over: true };
   else if (isOld(life)) life = finish(hub, ws, life, f.player, 'old-age');
   // It starts from where the authority's encounter left it: the next report lies near (M12 T10).
-  keep(hub, ws, { ...session, life, anchor: anchorAt(f, life, t) });
+  const kept = { ...session, life, anchor: anchorAt(f, life, t) };
+  keep(hub, ws, kept);
+  ashore(hub, ws, kept);
 }

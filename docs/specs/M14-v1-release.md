@@ -176,7 +176,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Interrupted transactions
 
-- [ ] T3 The hub's kill matrix: every step survives a closed socket and a restart [opus] (after T1)
+- [x] T3 The hub's kill matrix: every step survives a closed socket and a restart [opus] (after T1)
   - Steps:
     1. **The catalogue** (`worker/interrupt-kit.ts`): each transaction and its steps, as the hub sees them, in one table the matrix walks:
        - **genesis**: the ask arrives; the commitment is written and `commit` sent; the round is published and the record written; `genesis` sent;
@@ -210,6 +210,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - **Parsers**: `life.mating` round-trips, and a `life` with `mating` missing `partner`, with a round of −1, or with an extra field parses to null; 10,000 fuzzed values never throw.
     - Every existing hub test and E2E passes.
   - Notes: M8's fight recovery and M12's `transitions.test.ts` already cover parts of this; the matrix reuses their kits rather than repeating them. A step the matrix can't interrupt (inside one SQLite transaction) is listed as such in the catalogue.
+  - Done: gaps fixed at the cause: a genesis's hatch and a mating's records now share their commitment's transaction, a death's checkpoint its record, a genesis or mating is marked resolved only with its writes (so a wake keeps it due), and a dead creature leaves the water. Migration 15 keeps the mates' names for `life.mating`.
+  - Gotcha: `consistent(hub, players)` scopes to a test's players, since the kits wipe `matings` between tests; the matrix runs on the hand clock (84 cases, about 20 s).
 
 - [ ] T4 The page resumes what was in flight [opus] (after T3)
   - Steps:

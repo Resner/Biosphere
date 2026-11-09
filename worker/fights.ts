@@ -269,6 +269,11 @@ export class Fights {
     this.settled.clear();
   }
 
+  /** Every lock, asking or running (`consistent` in `interrupt-kit.ts` reads them). */
+  locks(): Lock[] {
+    return [...this.byId.values()];
+  }
+
   /** The locks whose fight is running. */
   running(): Lock[] {
     return [...this.byId.values()].filter((lock) => lock.fight !== null);

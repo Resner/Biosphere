@@ -47,7 +47,7 @@ describe('migration 5', () => {
         .map((r) => r.version);
       return { columns, indexes, matings, versions };
     });
-    expect(result.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14]);
+    expect(result.versions).toEqual([1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11, 12, 13, 14, 15]);
     for (const c of ['generation', 'parent_a', 'parent_b', 'chain_parent', 'cooldown_until_ms']) {
       expect(result.columns).toContain(c);
     }
@@ -60,6 +60,8 @@ describe('migration 5', () => {
       expect(result.matings).toContain(c);
     }
     expect(result.matings).toContain('resolved');
+    // Migration 15: each mate's name at the commitment (M14 T3).
+    expect(result.matings).toEqual(expect.arrayContaining(['name_a', 'name_b']));
   });
 
   it('migrates a database built through migration 4 without changing a row, and applies once', async () => {
