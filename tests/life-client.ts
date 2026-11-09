@@ -390,7 +390,7 @@ export class LifeClient {
       send: (data) => {
         const type = typeOf(data);
         bump(this.stats.sent, type);
-        const now = Date.now();
+        const now = this.now();
         this.recent.push({ at: now, type });
         while (this.recent.length > 0 && (this.recent[0]?.at ?? now) < now - 10_000)
           this.recent.shift();
@@ -415,7 +415,7 @@ export class LifeClient {
 
   /** The last 10 s of sends by type, for the failure line of a rate close. */
   private lastWindow(): string {
-    const from = Date.now() - 10_000;
+    const from = this.now() - 10_000;
     const counts: Record<string, number> = {};
     for (const m of this.recent) if (m.at >= from) bump(counts, m.type);
     return `rate close after ${Object.entries(counts)
