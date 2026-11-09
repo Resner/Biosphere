@@ -58,7 +58,8 @@ describe('life.mating', () => {
     };
     let parsed = 0;
     for (let n = 0; n < 10_000; n++) {
-      const v = rng.int(0, 4) === 0 ? { ...mating, [keys[rng.int(0, 3)] as string]: value() } : value();
+      const v =
+        rng.int(0, 4) === 0 ? { ...mating, [keys[rng.int(0, 3)] as string]: value() } : value();
       const raw = withMating(v);
       let msg: HubMsg | null = null;
       expect(() => {

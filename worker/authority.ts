@@ -10,7 +10,7 @@ import {
 import { Admission } from './admission';
 import { attest } from './attest';
 import type { AuditReport } from './audit';
-import { type BeaconSource, Beacons, liveSource } from './beacons';
+import { type BeaconSource, Beacons, liveSource, resolvedOnFetch } from './beacons';
 import type { Crowds } from './crowds';
 import type { Directory } from './directory';
 import { Duties } from './duty';
@@ -472,7 +472,7 @@ export class Authority extends DurableObject<Env> implements Hub {
       if (queued(this).length > 0) await promote(this);
       // A genesis and a mating are marked resolved with what they write (ADR 0076): a wake before
       // that finds them still due. Whatever wrote nothing is marked now, so the alarm doesn't spin.
-      for (const id of await this.beacons.alarm(markedOnFetch)) {
+      for (const id of await this.beacons.alarm(resolvedOnFetch)) {
         // One commitment failing must not strand the others this pass resolved.
         await this.deliverGenesis(id).catch(() => {});
         await deliverBirth(this, id).catch(() => {});
@@ -546,9 +546,6 @@ export class Authority extends DurableObject<Env> implements Hub {
     }
   }
 }
-
-/** The commitment kinds the beacon service marks resolved as it fetches their round: not a genesis's or a mating's. */
-const markedOnFetch = (kind: string): boolean => kind !== 'genesis' && kind !== 'mate';
 
 /** The earliest of the times that are set. */
 const earliest = (...times: (number | null)[]): number | null =>

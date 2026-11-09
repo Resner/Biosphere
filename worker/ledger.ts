@@ -269,7 +269,11 @@ export class Ledger {
     )[0];
     if (!row) return null;
     const partner = row.owner_a === owner ? row.name_b : row.name_a;
-    return { commit: row.commit_id as string, round: row.round as number, partner: String(partner) };
+    return {
+      commit: row.commit_id as string,
+      round: row.round as number,
+      partner: String(partner),
+    };
   }
 
   /** The commitments of matings that have not produced their children yet (few: one per courting pair), optionally the player's own. */

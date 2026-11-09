@@ -121,10 +121,13 @@ type Row = Record<string, SqlStorageValue>;
  *   without its fight, and every settled fight's records on each fighter's chain;
  * - a seated session plays its player's active creature (or one whose life it saw end), and no
  *   directory entry or anchor names a creature that isn't active;
- * - each creature in `verify` (by default every active and pending one) verifies (`verifyLineage`
- *   over its proof bundle).
+ * - each creature verifies (`verifyLineage` over its proof bundle): every active and pending one,
+ *   or every creature of `players`.
+ *
+ * With `players`, only what concerns them (or no player at all) is reported: a hub test's object
+ * outlives its tests, whose kits wipe tables between them.
  */
-export function consistent(hub: Hub, verify?: readonly string[]): Inconsistency[] {
+export function consistent(hub: Hub, players?: readonly string[]): Inconsistency[] {
   const out: Inconsistency[] = [];
   const rows = (query: string, ...b: SqlStorageValue[]): Row[] =>
     hub.sql.exec<Row>(query, ...b).toArray();
@@ -132,9 +135,12 @@ export function consistent(hub: Hub, verify?: readonly string[]): Inconsistency[
   commitments(rows, out);
   fights(hub, rows, out);
   sessions(hub, out);
-  const ids =
-    verify ??
-    rows("SELECT id FROM creatures WHERE status IN ('active', 'pending')").map((r) => String(r.id));
+  const scope = players ? new Set(players) : null;
+  const ids = rows(
+    scope
+      ? `SELECT id, owner FROM creatures`
+      : "SELECT id, owner FROM creatures WHERE status IN ('active', 'pending')",
+  ).flatMap((r) => (!scope || scope.has(String(r.owner)) ? [String(r.id)] : []));
   for (const id of ids) {
     const bundle = proofBundle(hub, id, hub.clock.now());
     if (!bundle) {
@@ -145,7 +151,7 @@ export function consistent(hub: Hub, verify?: readonly string[]): Inconsistency[
       out.push({ kind: 'verify', creature: id, detail: `${p.family}:${p.code} at ${p.seq}` });
     }
   }
-  return out;
+  return scope ? out.filter((x) => x.player === undefined || scope.has(x.player)) : out;
 }
 
 type Rows = (query: string, ...b: SqlStorageValue[]) => Row[];
@@ -197,7 +203,8 @@ function commitments(rows: Rows, out: Inconsistency[]): void {
   );
   const mates = new Map(
     rows(
-      `SELECT json_extract(json, '$.body.commit') AS c, COUNT(*) AS n, COUNT(DISTINCT creature) AS k
+      `SELECT json_extract(json, '$.body.commit') AS c, COUNT(*) AS n,
+         COUNT(DISTINCT creature) AS k, MIN(owner) AS owner
        FROM records WHERE kind = 'mate-commit' GROUP BY c`,
     ).map((r) => [String(r.c), r]),
   );
@@ -237,7 +244,11 @@ function commitments(rows: Rows, out: Inconsistency[]): void {
   }
   for (const [id, pair] of mates) {
     if (!matings.has(id))
-      out.push({ kind: 'mating-records', detail: `${id}: ${pair.n} mate-commits, no mating` });
+      out.push({
+        kind: 'mating-records',
+        player: String(pair.owner),
+        detail: `${id}: ${pair.n} mate-commits, no mating`,
+      });
   }
 }
 

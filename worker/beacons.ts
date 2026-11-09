@@ -39,6 +39,12 @@ const statusOf = (resolved: SqlStorageValue | undefined): CommitStatus =>
 
 type Row = Record<string, SqlStorageValue>;
 
+/**
+ * The commitment kinds whose round resolves them as it is fetched: not a genesis's or a mating's,
+ * which their writer marks resolved in the transaction that writes their creatures (ADR 0076).
+ */
+export const resolvedOnFetch = (kind: string): boolean => kind !== 'genesis' && kind !== 'mate';
+
 /** The `req` column of a commitment: what makes two requests the same (a witness commitment's is its event's). */
 export const requestKey = (kind: string, owner: string, data: Canonical): string =>
   hashWithDomain(REQUEST_DOMAIN, canonicalize({ kind, owner, data }));
@@ -226,7 +232,10 @@ export class Beacons {
    * marked in the transaction that writes what it resolves to (`resolve`, ADR 0076), so a wake
    * between the two never leaves a published round with nothing written and nothing waiting.
    */
-  async beaconFor(id: string, mark: (kind: string) => boolean = () => true): Promise<Beacon | null> {
+  async beaconFor(
+    id: string,
+    mark: (kind: string) => boolean = () => true,
+  ): Promise<Beacon | null> {
     const row = this.run('SELECT kind, round, resolved FROM commitments WHERE id = ?', id)[0];
     if (!row) return null;
     const round = row.round as number;

@@ -11,8 +11,8 @@ import { rulesStatus } from '../src/ledger/registry';
 import type { Born } from '../src/net/protocol';
 import { sizeTier } from '../src/sim/size';
 import { auditMating } from './attest';
-import type { BirthChild, BirthInput, Head, MateResult } from './ledger';
 import type { SignedCommitment } from './beacons';
+import type { BirthChild, BirthInput, Head, MateResult } from './ledger';
 import { type LifeState, recorded } from './life';
 import { askLive, type Court, mateRequests, refusalFor, scalesOf, viewOf } from './mating';
 import {
@@ -419,7 +419,13 @@ function pairNow(
     names,
   });
   if (!result.ok) return { ok: false, reason: result.reason, both: true };
-  return { ok: true, commit, result, mine: { ...mine, life: mine.life }, theirs: { ...theirs, life: theirs.life } };
+  return {
+    ok: true,
+    commit,
+    result,
+    mine: { ...mine, life: mine.life },
+    theirs: { ...theirs, life: theirs.life },
+  };
 }
 
 /** Sends a player the commitment and their `mate-commit` record of an earlier mating again. */

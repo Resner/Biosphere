@@ -36,8 +36,13 @@ export const useFakeBeacons = () =>
   });
 /** The network publishes `round`; the object's alarm then resolves what waited for it. */
 export async function publish(round: number): Promise<void> {
-  clock.wall = Math.max(clock.wall, roundTime(round) - roundTime(rounds.first) + 600);
+  publishOnly(round);
   await runDurableObjectAlarm(stub());
+}
+
+/** The network publishes `round`, and the object's alarm has not run yet. */
+export function publishOnly(round: number): void {
+  clock.wall = Math.max(clock.wall, roundTime(round) - roundTime(rounds.first) + 600);
 }
 
 export interface Client {
