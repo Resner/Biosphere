@@ -5,9 +5,15 @@ import { createIdentity, memoryKeyStore } from '../src/ledger/identity';
 import { signMateAsk } from '../src/ledger/mate-ask';
 import { signSnap, verifySnap } from '../src/ledger/snapshot-sig';
 import type { SocketLike } from '../src/net/hub-client';
-import { type ClientMsg, encodeSnapshot, type HubMsg, type Snapshot } from '../src/net/protocol';
+import {
+  type ClientMsg,
+  encodeSnapshot,
+  type HubMsg,
+  type SignedSnap,
+  type Snapshot,
+} from '../src/net/protocol';
 import { seedFromString } from '../src/sim/prng';
-import { RULES } from '../src/sim/rules';
+import { RULES, TICK_HZ } from '../src/sim/rules';
 import { LifeClient, lifeSeedOf, SnapBus } from './life-client';
 
 const HEX = 'a'.repeat(64);
@@ -54,8 +60,10 @@ class FakeHub implements SocketLike {
     const msg = JSON.parse(data) as ClientMsg;
     this.sent.push(msg);
     if (msg.t === 'hello') {
-      this.say({ t: 'welcome', world: WORLD, ice: [], turn: false, now: Date.now() });
+      this.say({ t: 'welcome', world: WORLD, ice: [], turn: false, now: Date.now() + hubAhead });
       this.hello(this);
+    } else if (msg.t === 'ping') {
+      this.say({ t: 'pong', id: msg.id, now: Date.now() + hubAhead });
     } else if (msg.t === 'spawn') {
       this.say({ t: 'spawn', x: CENTRE, y: CENTRE, why: 'placed', protect: false });
     } else if (msg.t === 'where') {
@@ -76,9 +84,12 @@ class FakeHub implements SocketLike {
 }
 
 let hubs: FakeHub[];
+/** How far the hub's clock is ahead of the page's at the welcome (ms). */
+let hubAhead = 0;
 let hello: (hub: FakeHub) => void;
 beforeEach(() => {
   hubs = [];
+  hubAhead = 0;
   hello = (hub) => hub.say({ t: 'life', life: LIFE, genesisIn: 0 });
   vi.useFakeTimers();
 });
@@ -198,20 +209,77 @@ describe('the life client', () => {
       fighting: false,
       genomeRef: 0,
     };
-    const signed = signSnap(partner, WORLD.id, encodeSnapshot(snap));
+    const posted: SignedSnap[] = [];
     await run(client);
+    // The peer's snapshots are of the pond's present, as the hub takes them (`fresh`).
     const refresh = setInterval(() => {
-      bus.post(OTHER, signed, snap, Date.now());
+      const fresh = { ...snap, tick: Math.floor((Date.now() * TICK_HZ) / 1000) };
+      const signed = signSnap(partner, WORLD.id, encodeSnapshot(fresh));
+      posted.push(signed);
+      bus.post(OTHER, signed, fresh, Date.now());
       bus.hunt(OTHER, Date.now() + 60_000);
     }, 100);
     await vi.advanceTimersByTimeAsync(20_000);
     clearInterval(refresh);
     const engage = hubs[0]?.find('engage');
     expect(engage?.target).toBe(OTHER);
-    expect(engage?.theirs).toEqual(signed);
+    expect(posted).toContainEqual(engage?.theirs);
     const me = await createIdentity(memoryKeyStore(lifeSeedOf(1)));
     expect(verifySnap(me.playerId, WORLD.id, engage?.mine as never)).toMatchObject({ alive: true });
     expect(client.stats.engages).toBeGreaterThan(0);
+    client.stop();
+  });
+
+  it('does not engage with a snapshot the hub would call stale', async () => {
+    const { client, bus } = make({ huntPerSecond: 1 });
+    const partner = await createIdentity(memoryKeyStore(lifeSeedOf(97)));
+    const snap = {
+      seq: 1,
+      tick: 0,
+      x: CENTRE + 20,
+      y: CENTRE,
+      heading: 0,
+      vx: 0,
+      vy: 0,
+      biomass: 100,
+      energy: 0.5,
+      health: 0.5,
+      alive: true,
+      dashing: false,
+      ready: false,
+      egg: false,
+      spawnProtected: false,
+      fighting: false,
+      genomeRef: 0,
+    } satisfies Snapshot;
+    // Tick 0 is a long way behind the pond's clock.
+    const old = signSnap(partner, WORLD.id, encodeSnapshot(snap));
+    await run(client);
+    const stale = setInterval(() => {
+      bus.post(OTHER, old, snap, Date.now());
+      bus.hunt(OTHER, Date.now() + 60_000);
+    }, 100);
+    await vi.advanceTimersByTimeAsync(20_000);
+    clearInterval(stale);
+    expect(hubs[0]?.find('engage')).toBeUndefined();
+    expect(client.stats.engages).toBe(0);
+    client.stop();
+  });
+
+  it('claims no more ticks than the time since it entered the water', async () => {
+    const { client } = make();
+    await run(client);
+    const hub = hubs[0] as FakeHub;
+    await vi.advanceTimersByTimeAsync(5000);
+    // A later clock sample puts the hub's clock 20 s ahead of the page's: the pond clock jumps and
+    // the creature plays up to it, but that time did not pass.
+    hubAhead = 20_000;
+    await vi.advanceTimersByTimeAsync(60_000);
+    const reports = hub.sent.filter((m) => m.t === 'progress');
+    expect(reports.length).toBeGreaterThan(0);
+    const last = reports.at(-1) as Extract<ClientMsg, { t: 'progress' }>;
+    expect(last.ticks).toBeGreaterThan(0);
+    expect(last.ticks).toBeLessThanOrEqual(66 * TICK_HZ);
     client.stop();
   });
 
