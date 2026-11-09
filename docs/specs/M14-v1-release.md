@@ -480,7 +480,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Steps: resident memory of the workerd processes rose 355 MB an hour in minutes 10-60 (833 MB at 6, 1,077 at 54). Find what grows: the hub's in-memory state (`hub.spawns`, `hub.admission`, `hub.fights`, the directory, `Fights.settledFight`, the `Authority.dropped` and `received` maps, usage waits, the seat indexes) against `wrangler dev`'s own (inspector, SQLite page cache); take heap snapshots of the object at minutes 10 and 50 (the inspector port is the hub's + 1000) and fix what grows with the number of fights or sessions served. A Durable Object has 128 MB: if the growth is the runtime's, say so with the evidence and set the check to the object's own heap.
   - Acceptance: a 30-minute full-mode run shows a slope under 20 MB an hour over minutes 10-30, and a unit test or the heap evidence names what was growing.
 
-- [ ] T14d Rows written per player-hour match the capacity model (after T14)
+- [ ] T14d Rows written per player-hour match the capacity model (after T14) (in progress)
   - Steps: the soak wrote 188 rows per player-hour against `MEASURED`'s 65.5 (limit 98). Count by cause from the meter (sessions and drops: 1,039 drops make 5 sessions a player-hour against the model's 2; matings 3.8; fights 6.6 a player; checkpoints) and decide for each: calibrate the clients to the model's mix (`ASSUMPTIONS`: 30-minute sessions, 3 fights an hour) or, where the hub writes more than modelled, fix the hub or refresh `MEASURED` (ADR 0071) and `docs/CAPACITY.md`.
   - Acceptance: `rows written per player-hour` and `messages per player-minute` hold at the committed mix, with the mix named in `docs/TESTING.md`.
 
