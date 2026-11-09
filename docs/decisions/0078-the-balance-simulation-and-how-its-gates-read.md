@@ -33,3 +33,7 @@ Rules 13, 16 lives per body, 176 bodies and 32 genesis bodies: 53.5 minutes on 4
 - The measurement is deterministic for a seed and a rules version; the report changes only with the rules or the model.
 - A full run is long (see the report's wall time); the tests run a scaled one.
 - The probe, the zone anchors and the fights are simplifications: nobody travels to a zone, a fight costs no time, and every opponent is a population member. They are the same for every body, so they bias none.
+
+## Outcome (M14 T11)
+
+Both gates are met on the committed run (5 archetypes in the top 10%; the most any holds is 7 of 18), so rules 13 keep every value and no golden or report moves. The gates are asserted on the committed `balance.json` (`tools/balance-report.test.ts`). The scaled `heavyTest` asserts only "no archetype over half": its top tenth of 11 bodies is 2, so three archetypes cannot fit there.

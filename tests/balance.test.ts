@@ -3,7 +3,7 @@ import type { Genome } from '../src/genome/codec';
 import { buildCreature } from '../src/genome/stats';
 import { mateCost } from '../src/sim/mating';
 import { RULES } from '../src/sim/rules';
-import { balanceReport, gates } from '../tools/balance-report';
+import { balanceReport, gates, topBodies } from '../tools/balance-report';
 import { ARCHETYPE_KEEPS, ARCHETYPES, buildGenome } from './archetypes';
 import {
   type BalanceBody,
@@ -149,6 +149,11 @@ describe('a scaled run', () => {
     expect(run()).toEqual(first);
     expect(first.bodies).toHaveLength(11);
     expect(balanceReport(first)).toBe(balanceReport(run()));
-    expect(gates(first)).toHaveLength(2);
+    // The top tenth of 11 bodies is 2, so the gate of 3 archetypes can't be met at this scale; it is
+    // asserted on the committed full run (tools/balance-report.test.ts). Nobody holds over half here.
+    const [kinds, share] = gates(first);
+    expect(topBodies(first)).toHaveLength(2);
+    expect(kinds?.ok).toBe(false);
+    expect(share?.ok).toBe(true);
   });
 });

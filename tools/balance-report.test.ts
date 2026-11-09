@@ -72,6 +72,16 @@ describe('the balance report', () => {
     expect(balanceReport(merged)).toBe(balanceReport(sample));
   });
 
+  it('passes both gates on the committed run (the tuning gate, M14 T11)', () => {
+    const run = JSON.parse(
+      readFileSync(new URL('../docs/perf/balance.json', import.meta.url), 'utf8'),
+    ) as BalanceRun;
+    expect(gates(run).map((g) => `${g.line}: ${g.value}: ${g.ok}`)).toEqual([
+      expect.stringMatching(/: true$/),
+      expect.stringMatching(/: true$/),
+    ]);
+  });
+
   heavyTest('is what the committed report says', () => {
     const read = (name: string) =>
       readFileSync(new URL(`../docs/perf/${name}`, import.meta.url), 'utf8');
