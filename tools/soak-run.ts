@@ -286,6 +286,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
         failures.push(`client ${i} was closed for its rate; it sent ${top.join(', ')}`);
       }
     }
+    // The clients stop before the closing reads: 200 of them still playing keep a one-machine hub
+    // too busy to answer, and the run would end without its report.
+    for (const c of clients) c.stop();
     const pageLives = pages ? await pages.stop() : [];
     for (const life of pageLives)
       for (const e of life.errors) failures.push(`page ${life.page}: ${e}`);
