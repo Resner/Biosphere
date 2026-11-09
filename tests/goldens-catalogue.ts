@@ -8,6 +8,7 @@ import {
   MODULE_PARAMS,
 } from '../src/genome/karyotype';
 import { starterGenome } from '../src/genome/starter';
+import { entryHash } from '../src/ledger/frozen';
 import { createRng, seedFromString } from '../src/sim/prng';
 import { ARCHETYPES, buildBytes, locus, withAlleles } from './archetypes';
 
@@ -356,5 +357,25 @@ export const SETS: GoldenSet[] = [
         read(ledger('growth-reach')).table as { seed: string; from: number; activeMs: number }[]
       ).map(({ seed, from, activeMs }) => ({ seed, from, activeMs })),
     expected: () => read(ledger('growth-reach')).table,
+  },
+  {
+    name: 'frozen',
+    files: [ledger('frozen')],
+    input: () => {
+      const manifest = read(ledger('frozen')) as unknown as Record<string, Record<string, string>>;
+      const paths = Object.keys(Object.values(manifest).at(-1) ?? {});
+      return {
+        files: Object.fromEntries(paths.map((p) => [p, readFileSync(new URL(p, ROOT), 'utf8')])),
+        entries: manifest,
+      };
+    },
+    expected: () => {
+      const manifest = read(ledger('frozen')) as unknown as Record<string, Record<string, string>>;
+      const live = Object.values(manifest).at(-1) ?? {};
+      return {
+        files: live,
+        entries: Object.fromEntries(Object.entries(manifest).map(([v, e]) => [v, entryHash(e)])),
+      };
+    },
   },
 ];

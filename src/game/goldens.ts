@@ -10,6 +10,7 @@ import { offspringPair } from '../genome/offspring';
 import { rarityOf } from '../genome/rarity';
 import { buildCreature, hashStats } from '../genome/stats';
 import { type Beacon, randomnessOf } from '../ledger/drand';
+import { entryHash } from '../ledger/frozen';
 import { growthReach } from '../ledger/gates';
 import { genesisFor } from '../ledger/genesis';
 import type { ProofBundle } from '../ledger/proof';
@@ -215,6 +216,24 @@ const SETS: Record<string, Fn> = {
     const { problems, subject, held, missing, scaled, keys } = verifyLineage(input);
     return { problems, subject, held, missing, scaled, keys };
   },
+  /**
+   * `{ files: { path: text }, entries: { version: { path: hash } } }` -> the SHA-256 of each
+   * file's bytes and the hash of each version's entry (`src/ledger/frozen.ts`).
+   */
+  frozen: (input: {
+    files: Record<string, string>;
+    entries: Record<string, Record<string, string>>;
+  }) => ({
+    files: Object.fromEntries(
+      Object.entries(input.files).map(([path, text]) => [
+        path,
+        bytesToHex(sha256(new TextEncoder().encode(text))),
+      ]),
+    ),
+    entries: Object.fromEntries(
+      Object.entries(input.entries).map(([version, entry]) => [version, entryHash(entry)]),
+    ),
+  }),
   /** `{ seed, from, activeMs }[]` -> the same with `reach`. */
   'growth-reach': (input: { seed: string; from: number; activeMs: number }[]) =>
     input.map(({ seed, from, activeMs }) => ({

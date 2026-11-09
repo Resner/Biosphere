@@ -17,4 +17,5 @@ export const GOLDEN_SET_NAMES: readonly string[] = [
   'settlement',
   'lineage',
   'growth-reach',
+  'frozen',
 ];
