@@ -208,6 +208,11 @@ export class AttackUi {
     return this.attack.waiting;
   }
 
+  /** Whether the "F" glyph marks a creature, as of the last frame. */
+  get marked(): boolean {
+    return this.view.hint !== null;
+  }
+
   /** Each frame: the "F" glyph, the protection shimmers and the card's Attack button. */
   update(p: LabelProjection): void {
     const { app, view } = this;

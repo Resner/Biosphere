@@ -31,13 +31,14 @@ const throwing = {
 };
 
 describe('loadSettings', () => {
-  it('defaults to auto quality, volume 60, sound on, the system motion setting and helping referee', () => {
+  it('defaults to auto quality, volume 60, sound on, the system motion setting helping referee and hints on', () => {
     expect(DEFAULT_SETTINGS).toEqual({
       quality: 'auto',
       volume: 60,
       muted: false,
       reducedMotion: null,
       helpReferee: true,
+      hints: true,
     });
     expect(loadSettings(store())).toEqual(DEFAULT_SETTINGS);
   });
@@ -61,6 +62,7 @@ describe('loadSettings', () => {
       muted: true,
       reducedMotion: false,
       helpReferee: true,
+      hints: true,
     });
     expect(loadSettings(store('{"reducedMotion":true}')).reducedMotion).toBe(true);
     expect(loadSettings(store('{"reducedMotion":null}')).reducedMotion).toBeNull();
@@ -100,6 +102,11 @@ describe('loadSettings', () => {
     expect(loadSettings(throwing)).toEqual(DEFAULT_SETTINGS);
     expect(loadSettings(null)).toEqual(DEFAULT_SETTINGS);
   });
+
+  it('reads a stored "Show hints" (M14 T7)', () => {
+    expect(loadSettings(store('{"hints":false}')).hints).toBe(false);
+    expect(loadSettings(store('{"hints":0}')).hints).toBe(true);
+  });
 });
 
 describe('saveSettings', () => {
@@ -111,6 +118,7 @@ describe('saveSettings', () => {
       muted: true,
       reducedMotion: true,
       helpReferee: false,
+      hints: false,
     } as const;
     saveSettings(settings, s);
     expect(loadSettings(s)).toEqual(settings);

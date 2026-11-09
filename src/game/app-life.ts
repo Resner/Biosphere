@@ -120,7 +120,7 @@ export class LifeStarts {
       app.cueWatch.reset();
       hud.setBody(bodyLabel(app.session.body));
       app.genomeSync.setOwn(app.session.body.text);
-      app.hints.startLife();
+      app.guide.startLife();
       // What happened while the player was away belongs to the life before.
       app.screens.setReport([]);
     }

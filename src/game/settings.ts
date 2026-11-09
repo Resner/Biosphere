@@ -14,6 +14,8 @@ export interface Settings {
   reducedMotion: boolean | null;
   /** "Help referee fights": the page may witness other players' fights (M10 T6). */
   helpReferee: boolean;
+  /** "Show hints": the first-life guide (M14 T7). */
+  hints: boolean;
 }
 
 export const DEFAULT_SETTINGS: Readonly<Settings> = {
@@ -22,6 +24,7 @@ export const DEFAULT_SETTINGS: Readonly<Settings> = {
   muted: false,
   reducedMotion: null,
   helpReferee: true,
+  hints: true,
 };
 
 const SETTINGS_KEY = 'bs.settings';
@@ -34,7 +37,10 @@ export function loadSettings(store: Store | null): Settings {
     if (!text) return out;
     const data: unknown = JSON.parse(text);
     if (typeof data !== 'object' || data === null || Array.isArray(data)) return out;
-    const { quality, volume, muted, reducedMotion, helpReferee } = data as Record<string, unknown>;
+    const { quality, volume, muted, reducedMotion, helpReferee, hints } = data as Record<
+      string,
+      unknown
+    >;
     if (quality === 'auto' || isPresetName(quality)) out.quality = quality;
     if (typeof volume === 'number' && Number.isFinite(volume))
       out.volume = clamp(Math.round(volume), 0, 100);
@@ -42,6 +48,7 @@ export function loadSettings(store: Store | null): Settings {
     if (typeof reducedMotion === 'boolean' || reducedMotion === null)
       out.reducedMotion = reducedMotion;
     if (typeof helpReferee === 'boolean') out.helpReferee = helpReferee;
+    if (typeof hints === 'boolean') out.hints = hints;
   } catch {
     // A throwing store or damaged JSON: use the defaults.
   }

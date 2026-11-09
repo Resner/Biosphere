@@ -29,6 +29,8 @@
       </section>
       <div class="fallback" data-testid="title-fallback" hidden></div>
       <button type="button" class="action" data-testid="hatch">Hatch</button>
+      <!-- A browser that has seen no guide step (M14 T7): the way to the help panel (T8). -->
+      <button type="button" class="title-help" data-testid="title-help" hidden>New here? How to play</button>
       <!-- A creature locked in a running fight (M8 T10): the main button takes the player back into it. -->
       <button type="button" class="action" data-testid="resume-fight" hidden>Back to the fight</button>
       <p class="resume-line" data-testid="resume-line" hidden>Your creature fights on by itself</p>
@@ -102,6 +104,12 @@
         <label><input type="checkbox" data-testid="help-referee" /> Help referee fights</label>
       </fieldset>
       <p class="settings-note" data-testid="referee-note">Lets the game use a little of your connection to referee other players' fights.</p>
+      <fieldset class="settings-hints" data-testid="hints">
+        <legend>Hints</legend>
+        <label><input type="checkbox" data-testid="show-hints" /> Show hints</label>
+        <button type="button" class="action quiet" data-testid="hints-replay">Show the hints again</button>
+      </fieldset>
+      <p class="settings-note" data-testid="hints-replayed" role="status" hidden>They start again on your next life.</p>
       <button type="button" class="action quiet" data-testid="settings-close">Close (Esc)</button>
     </section>
     <button type="button" class="hud-menu" data-for="playing" data-testid="hud-menu" aria-label="Menu (Esc)" aria-expanded="false" aria-controls="menu">
@@ -198,7 +206,8 @@
       <p class="roster-empty">Nobody else here yet</p>
       <p class="menu-build" data-testid="menu-build"></p>
     </section>
-    <p class="first-hint" data-for="playing" data-testid="hint" role="status" hidden></p>
+    <!-- The first-life guide (M14 T7): in play, and on the death screen for its own step. -->
+    <p class="first-hint" data-testid="hint" role="status" hidden></p>
     <p class="toast" data-for="playing" data-testid="toast" role="status" hidden></p>
     <p class="mate-hint" data-for="playing" data-testid="mate-hint" role="status" hidden></p>
     <section class="invite" data-for="playing" data-testid="invite" aria-label="Invitation" hidden>

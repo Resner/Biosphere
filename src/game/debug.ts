@@ -32,6 +32,7 @@ import type { FightShowView } from './app-fight';
 import type { WitnessDutyView } from './app-witness';
 import type { BenchStatus } from './auto-quality';
 import type { ToldReport } from './away-report';
+import type { GuideView } from './guide';
 import type { Chip, HudBars } from './hud';
 import type { Indicator } from './indicators';
 import type { LifeView } from './life';
@@ -186,7 +187,7 @@ export interface BsState {
   /**
    * The play screen's HUD (M6b T9): whether the `menu` is open, the stat `bars` as drawn (each
    * 0..1; `life` null while its bar is hidden, as on a practice cell), the `chips` shown beside them
-   * and the first-life hint on screen (`hints`, its text, or null).
+   * and the guide's line on screen (`hints`, its text, or null; M14 T7).
    */
   hud: { menu: boolean; bars: HudBars; chips: Chip[]; hints: string | null };
   /**
@@ -247,6 +248,11 @@ export interface BsState {
     phase: 'idle' | 'asking' | 'riding' | 'arrived';
     last: 'ride' | 'locked' | 'busy' | 'company' | 'soon' | 'none' | null;
   };
+  /**
+   * The first-life guide (M14 T7): whether "Show hints" is `on`, the steps this browser has `seen`,
+   * the step on screen (`current`) and its words (`text`), or null.
+   */
+  guide: GuideView;
   /** Chat, emotes and pings as this tab sees them; `muted` holds player ids. */
   social: {
     chat: { from: string; name: string; text: string }[];
@@ -433,6 +439,8 @@ export interface FxState extends FxSnapshot {
 }
 
 export interface BsDebug {
+  /** Forgets the guide steps this browser has seen (M14 T7), as "Show the hints again" does. */
+  guideReset(): void;
   /** Sets the player's energy (clamped to its maximum). */
   setEnergy(energy: number): void;
   /** Sets the player's biomass (growth to a new size); energy and health keep their fractions. */
@@ -450,6 +458,11 @@ export interface BsDebug {
    * so the killer would otherwise eat them before anyone else saw them.
    */
   holdBelly(on: boolean): void;
+  /**
+   * A test aid (M14 T7): while on, the player's energy is filled to its cap at each tick's start, so
+   * it eats nothing (the guide's steps that a meal would end wait for the test).
+   */
+  sated(on: boolean): void;
   /**
    * A test aid: while on, the scene still updates (`render.info()` counts, the HUD) but skips its
    * draw call. Software rendering is the cost of a frame on a runner, and a fight page that draws
