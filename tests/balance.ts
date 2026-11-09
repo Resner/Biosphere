@@ -1,4 +1,4 @@
-// The balance simulation (M14 T10, ADR 0079): whole lives of many bodies on the real rules, scored
+// The balance simulation (M14 T10, ADR 0078): whole lives of many bodies on the real rules, scored
 // by their matings, to see whether different builds succeed. `tools/balance-report.ts` turns the
 // scores into the report and its gates; `npm run sim:balance` runs it.
 
@@ -60,11 +60,12 @@ export function variantOf(name: string, index: number, taken: ReadonlySet<string
   throw new Error(`no variant ${index} of ${name} keeps its feature`);
 }
 
-/** The population: `variants` mutated bodies of each archetype, then `genesis` reference bodies. */
+/** The population: each archetype itself and `variants` mutated bodies of it, then `genesis` reference bodies. */
 export function population(variants = VARIANTS, genesis = GENESIS_BODIES): BalanceBody[] {
   const bodies: BalanceBody[] = [];
   for (const name of Object.keys(ARCHETYPES)) {
     const taken = new Set<string>([buildCreature(ARCHETYPES[name] as Genome).hash]);
+    bodies.push({ id: `${name}-base`, archetype: name, genome: ARCHETYPES[name] as Genome });
     for (let v = 0; v < variants; v++) {
       const genome = variantOf(name, v, taken);
       taken.add(buildCreature(genome).hash);
@@ -258,6 +259,10 @@ export interface LifeResult {
 }
 
 let everyone: BalanceBody[] | null = null;
+function pooled(): BalanceBody[] {
+  everyone = everyone ?? population();
+  return everyone;
+}
 const fightersOf = new Map<string, Side['body']>();
 /** The fighter view of a body: hand-built archetypes fly the tournament's behaviour, genesis bodies their own. */
 function fighterFor(body: BalanceBody): Side['body'] {
@@ -312,7 +317,7 @@ export function balanceLife(
   const { world } = f;
   const me = world.creatures[0] as World['creatures'][number];
   const rng = createRng(seedFromString(`balance/${body.id}/${seed}`), 'fights');
-  const pool = options.opponents ?? (everyone ??= population());
+  const pool = options.opponents ?? pooled();
   const nextGap = (): number => (-log(1 - rng.next()) * 3_600_000) / FIGHTS_PER_HOUR;
   let nextFight = options.fights === false ? Number.POSITIVE_INFINITY : nextGap();
   let cooldownUntil = 0;

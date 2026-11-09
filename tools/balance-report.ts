@@ -1,4 +1,4 @@
-// The balance report (M14 T10, ADR 0079): `npm run sim:balance` runs the population through whole
+// The balance report (M14 T10, ADR 0078): `npm run sim:balance` runs the population through whole
 // lives (`tests/balance.ts`) and writes `docs/perf/balance.md` and `balance.json` from the scores.
 // This module is the pure part: the gates and the Markdown, built from the JSON.
 
@@ -120,7 +120,7 @@ export function balanceReport(run: BalanceRun): string {
   const lines = [
     '# Balance',
     '',
-    `Rules version ${run.rules}. ${gated(run).length} bodies (${run.variants} variants of each archetype), ${run.lives} lives each, on the real rules (\`tests/balance.ts\`, ADR 0079). A life's score is its matings; a body's score is the mean over its lives.`,
+    `Rules version ${run.rules}. ${gated(run).length} bodies (each archetype and ${run.variants} variants of it), ${run.lives} lives each, on the real rules (\`tests/balance.ts\`, ADR 0078). A life's score is its matings; a body's score is the mean over its lives.`,
     '',
     '## Gates',
     '',

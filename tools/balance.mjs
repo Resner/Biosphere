@@ -1,5 +1,5 @@
 // The balance simulation: `npm run sim:balance` runs every body's lives on the real rules, split over
-// the machine's cores, and writes `docs/perf/balance.md` and `balance.json` (M14 T10, ADR 0079).
+// the machine's cores, and writes `docs/perf/balance.md` and `balance.json` (M14 T10, ADR 0078).
 // `--variants n --lives n --genesis n` scale it down (and write nothing); a child is `--shard i/n --out file`.
 import { spawn } from 'node:child_process';
 import { readFile, rm, writeFile } from 'node:fs/promises';

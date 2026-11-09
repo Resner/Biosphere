@@ -392,7 +392,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     4. **The balance ADR** (the next free number): the score, the population, and how the gates read.
   - Acceptance (tests first):
     - **Life mechanics** (unit, Node): the same seed gives the same life; a body that can't eat its zone's food starves before maturity and scores 0; a kill grows the killer by `RULES.encounter`'s reward; a life with N minutes past maturity and its energy kept mates at most ⌊N ÷ 9⌋ + 1 times, paying the cost each time; old age ends a life at its lifespan.
-    - **A scaled run** (`heavyTest`: 3 variants per archetype, 4 lives each) finishes within 120 s and gives the same report for the same seed.
+    - **A scaled run** (`heavyTest`: each archetype itself, 1 life each, lives capped at 12 minutes) finishes within 120 s and gives the same report for the same seed. (A full-length life takes about 4 s and the full population 3,000 lives, so 3 variants × 4 lives could not fit; the scaled run keeps the real probe, fights and report.)
     - `npm run sim:balance` runs the full population and prints its wall time (target: under an hour on a cloud session; if it can't, fewer lives a body, and the balance ADR says so), and the report and its JSON are committed, whether or not the gates pass today. `tools/balance-report.test.ts` builds the report from a recorded JSON.
   - Notes: this task measures; T11 tunes. The gates are asserted on the committed report from T11 on.
 
