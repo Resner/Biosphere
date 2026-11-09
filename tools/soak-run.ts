@@ -117,6 +117,8 @@ async function startHub(opts: SoakOptions, persist: string): Promise<ChildProces
     LIFESPAN_SCALE: scalesOf(opts).lifespan,
     MATING_SCALE: scalesOf(opts).mating,
     // Fresh identities have no play and share one address; let them witness, as a populated world would.
+    // The recorded rounds last 30 minutes; the full soak plays for an hour.
+    ...(opts.full ? { DRAND_ROUNDS: 'soak' } : {}),
     WITNESS_PLAY_MS: 0,
     WITNESS_IP_CHECK: 'off',
   };

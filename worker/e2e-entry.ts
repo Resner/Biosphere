@@ -1,5 +1,6 @@
 import { isPlayerId } from '../src/ledger/identity';
 import { parseDutyEvent } from '../src/ledger/witness';
+import soakRounds from '../tests/fixtures/drand/soak-rounds.json';
 import { Authority as LiveAuthority } from './authority';
 import type { BeaconSource } from './beacons';
 import { type WitnessView, witnessView } from './duty';
@@ -50,7 +51,9 @@ export class Authority extends LiveAuthority {
   private heldAt: number | null = null;
 
   protected override beaconSource(): BeaconSource {
-    return fixtureSource(Date.now(), () => this.heldAt ?? Date.now());
+    // `DRAND_ROUNDS=soak` serves 80 minutes of recorded rounds instead of 30 (the one-hour soak, M14 T14).
+    const set = this.env.DRAND_ROUNDS === 'soak' ? soakRounds : undefined;
+    return fixtureSource(Date.now(), () => this.heldAt ?? Date.now(), set);
   }
 
   /**
