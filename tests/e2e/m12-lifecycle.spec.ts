@@ -94,6 +94,23 @@ const instanceOf = (p: Player) =>
   p.page.evaluate(() => (window.__bs as BsHook).state().net.instance.n);
 
 /**
+ * Keeps a page fed, as the M11 lifecycle does: a starter's belly lasts 150 s of sim and then it loses
+ * health, and a slow runner plays this scenario for minutes (E2E main: all four were dead by the final
+ * link, and a dead creature leaves the directory, so nobody could link to them). Energy is mended on
+ * every page; health only where the scenario does not set it itself (a fighter's wear is left alone).
+ */
+const mend = (page: Page, health: boolean) =>
+  page.evaluate((withHealth) => {
+    const debug = (window.__bs as BsHook).debug;
+    const feed = () => {
+      debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      if (withHealth) debug?.setHealth(Number.MAX_SAFE_INTEGER);
+    };
+    feed();
+    window.setInterval(feed, 2000);
+  }, health);
+
+/**
  * Every pair of `ps` holds a link past its hello. A failure names every player's links, instance
  * and position, since the one page that timed out first says nothing of the others.
  */
@@ -203,6 +220,7 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
       const page = await open(browser, HUB, '&quality=medium');
       await hatch(page);
       await sampleLinks(page);
+      await mend(page, name === 'C' || name === 'D');
       const p: Player = { page, id: (await state(page)).playerId as string };
       const at = await spawnOf(p);
       if (players.length === 0) {
@@ -330,7 +348,9 @@ test('four players spawn around each other, fight in a crowd instance, a lone on
         }
       }
       bBefore = await sampled(b.page);
-      if (await reloadBack(a, b, id)) {
+      const back = await reloadBack(a, b, id);
+      await mend(b.page, false);
+      if (back) {
         fightId = id;
         await sampleLinks(b.page);
         await b.page.evaluate(() => {
