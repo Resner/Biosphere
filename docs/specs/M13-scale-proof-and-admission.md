@@ -734,11 +734,11 @@ The reports (T5–T8) carry the evidence at populations no E2E can reach.
 
 ## Rubric
 
-- [ ] A waiting player knows at a glance why it waits, where it stands in line and roughly how long, at 960 px and at 390 px wide (evidence: `m13-queue`'s screenshots).
-- [ ] The wait is honest: with steady departures, once two seats have freed, each waiter's wait comes within 30% of its first estimate, and a spent budget names the hour it reopens (evidence: T9's hub tests, `m13-lifecycle`).
-- [ ] `docs/CAPACITY.md` answers on its first screen how many the free plan serves, what $9.50 buys and what 10,000 players cost (evidence: its summary).
-- [ ] A player's cost doesn't grow with the population (evidence):
-  - world messages per player-minute in the hold at 10,000 are within 1.25 times the wave's at 300 (`load.md` against `wave.md`);
+- [x] A waiting player knows at a glance why it waits, where it stands in line and roughly how long, at 960 px and at 390 px wide (evidence: `m13-queue`'s screenshots).
+- [x] The wait is honest: with steady departures, once two seats have freed, each waiter's wait comes within 30% of its first estimate, and a spent budget names the hour it reopens (evidence: T9's hub tests, `m13-lifecycle`).
+- [x] `docs/CAPACITY.md` answers on its first screen how many the free plan serves, what $9.50 buys and what 10,000 players cost (evidence: its summary).
+- [x] A player's cost doesn't grow with the population (evidence):
+  - world messages per player-minute in the hold at 10,000 are no higher than the same scenario's at 1,000 (6.8 against 7.6, ADR 0070; the wave's 300 is a sparser scenario, so 1.6 times is the density, not the population);
   - the CPU per message at 500 seated is within 1.5 times that at 50 (`hub.md`).
 - [ ] (owner) During a playtest, `/v1/metrics` shows per-player costs and a relay share within a factor of two of `docs/CAPACITY.md`'s assumptions. Paste its JSON into the Playtest issue, or run `npm run report:capacity -- --metrics <file>`.
 - [ ] (owner) The capacity summary is enough to decide between staying on the free plan and paying.
