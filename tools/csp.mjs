@@ -2,25 +2,21 @@
 // each page carries it as a `<meta>` whose content the build writes (`vite.config.ts`): scripts and
 // workers only from the site itself and never `eval`, connections only to the site, the authority
 // the build names (`AUTHORITY_URL`) and a hub on localhost (`?hub=`, E2E and `wrangler dev`).
+// Plain JavaScript, as `version.mjs`: the Vite config imports it.
 
 /** The `content` each page's CSP `<meta>` holds in source, replaced at build. */
 export const CSP_PLACEHOLDER = '__BS_CSP__';
 
 /** Every page of the build (`vite.config.ts`'s inputs). */
-export const CSP_PAGES = ['index.html', 'lab.html', 'card.html'] as const;
+export const CSP_PAGES = ['index.html', 'lab.html', 'card.html'];
 
 /** The only hubs `?hub=` accepts (`hubSocketUrl` in `src/game/online-config.ts`). */
-const LOCAL_HUBS = [
-  'http://localhost:*',
-  'ws://localhost:*',
-  'http://127.0.0.1:*',
-  'ws://127.0.0.1:*',
-] as const;
+const LOCAL_HUBS = ['http://localhost:*', 'ws://localhost:*', 'http://127.0.0.1:*', 'ws://127.0.0.1:*'];
 
 /** The authority's HTTP and WebSocket origins; none for a build without one. */
-export function authorityOrigins(url: string): string[] {
+export function authorityOrigins(url) {
   if (!url) return [];
-  let parsed: URL;
+  let parsed;
   try {
     parsed = new URL(url);
   } catch {
@@ -37,8 +33,8 @@ export function authorityOrigins(url: string): string[] {
 }
 
 /** The policy for a build whose authority is `authorityUrl` ('' for none). */
-export function cspPolicy(authorityUrl: string): string {
-  const directives: [string, readonly string[]][] = [
+export function cspPolicy(authorityUrl) {
+  const directives = [
     ['default-src', ["'self'"]],
     ['script-src', ["'self'"]],
     ['worker-src', ["'self'"]],
@@ -54,9 +50,9 @@ export function cspPolicy(authorityUrl: string): string {
 }
 
 /** A page with its policy written in; a page without the placeholder fails the build. */
-export function withCsp(html: string, policy: string): string {
+export function withCsp(html, policy) {
   if (!html.includes(`content="${CSP_PLACEHOLDER}"`)) {
-    throw new Error('every page carries the CSP meta (tools/csp.ts)');
+    throw new Error('every page carries the CSP meta (tools/csp.mjs)');
   }
   return html.replaceAll(CSP_PLACEHOLDER, policy);
 }

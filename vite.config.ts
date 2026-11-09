@@ -1,5 +1,5 @@
 import { defineConfig } from 'vite';
-import { cspPolicy, withCsp } from './tools/csp';
+import { cspPolicy, withCsp } from './tools/csp.mjs';
 
 export default defineConfig({
   // Relative asset URLs work both at the Pages path (/Biosphere/) and at the preview root.

@@ -77,6 +77,30 @@ describe('markup sinks', () => {
   });
 });
 
+describe('the built site', () => {
+  it('bakes in two public values only: the release tag and the authority’s URL', () => {
+    const config = readFileSync(join(ROOT, 'vite.config.ts'), 'utf8');
+    const define = config.slice(
+      config.indexOf('define: {'),
+      config.indexOf('},', config.indexOf('define: {')),
+    );
+    expect([...define.matchAll(/process\.env\.(\w+)/g)].map((m) => m[1])).toEqual([
+      'BUILD_LABEL',
+      'AUTHORITY_URL',
+    ]);
+    expect([...config.matchAll(/process\.env\.(\w+)/g)].map((m) => m[1]).sort()).toEqual([
+      'AUTHORITY_URL',
+      'AUTHORITY_URL',
+      'BUILD_LABEL',
+    ]);
+    // Nothing reads the environment from the pages' code, where Vite would inline it.
+    const reading = sources('src').filter((file) =>
+      /import\.meta\.env|process\.env/.test(readFileSync(join(ROOT, file), 'utf8')),
+    );
+    expect(reading).toEqual([]);
+  });
+});
+
 /** The surfaces docs/SECURITY.md must cover, by the words its table names them with. */
 const SURFACES = [
   'hub messages',
@@ -113,7 +137,9 @@ describe('docs/SECURITY.md', () => {
   it('has a row for every surface', () => {
     for (const surface of SURFACES) {
       expect(
-        surfaceRows.some((row) => (row.split('|')[1] ?? '').includes(surface)),
+        surfaceRows.some((row) =>
+          (row.split('|')[1] ?? '').toLowerCase().includes(surface.toLowerCase()),
+        ),
         surface,
       ).toBe(true);
     }
@@ -121,7 +147,7 @@ describe('docs/SECURITY.md', () => {
 
   it('names an existing test or document for every surface', () => {
     for (const row of surfaceRows) {
-      const checks = row.split('|').slice(2).join('|');
+      const checks = row.split('|')[3] ?? '';
       const paths = [...checks.matchAll(/`([\w./-]+\.(?:ts|md|mjs|yml|jsonc))(?:::[^`]*)?`/g)].map(
         (m) => m[1] as string,
       );

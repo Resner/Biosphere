@@ -1,6 +1,6 @@
 import { readFileSync } from 'node:fs';
 import { describe, expect, it } from 'vitest';
-import { CSP_PAGES, CSP_PLACEHOLDER, cspPolicy, withCsp } from './csp';
+import { CSP_PAGES, CSP_PLACEHOLDER, cspPolicy, withCsp } from './csp.mjs';
 
 const directives = (policy: string): Map<string, string[]> =>
   new Map(

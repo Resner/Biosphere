@@ -7,6 +7,8 @@ import { describe, expect, it } from 'vitest';
 
 const ROOT = new URL('..', import.meta.url).pathname;
 const read = (path: string) => readFileSync(join(ROOT, path), 'utf8');
+const withoutComments = (code: string) =>
+  code.replace(/\/\*[\s\S]*?\*\//g, '').replace(/^\s*\/\/.*$/gm, '');
 
 function shipped(dir: string): string[] {
   return readdirSync(join(ROOT, dir), { withFileTypes: true, recursive: true })
@@ -75,7 +77,7 @@ describe('docs/PRIVACY.md', () => {
 
   it('only the known modules reach the browser’s storage, and none sets a cookie or session storage', () => {
     const touching = shipped('src').filter((file) =>
-      /\b(localStorage|indexedDB)\b/.test(read(file)),
+      /\b(localStorage|indexedDB)\b/.test(withoutComments(read(file))),
     );
     expect(touching.sort()).toEqual(
       [

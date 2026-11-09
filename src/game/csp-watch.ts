@@ -1,4 +1,4 @@
-// What the pages' Content-Security-Policy blocked (M14 T16, `tools/csp.ts`, docs/SECURITY.md).
+// What the pages' Content-Security-Policy blocked (M14 T16, `tools/csp.mjs`, docs/SECURITY.md).
 // Each page's `main.ts` starts the watch before anything else runs; its hook's `state().csp` lists
 // what it saw, and the E2E helpers fail a test whose page saw anything.
 

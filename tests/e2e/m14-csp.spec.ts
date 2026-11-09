@@ -1,7 +1,7 @@
 import { expect, type Page, test } from '@playwright/test';
 import { cspSeen, expectNoCsp, hatch, openGame, state } from './helpers';
 
-// M14 T16: every page runs under its Content-Security-Policy (tools/csp.ts), sees no violation
+// M14 T16: every page runs under its Content-Security-Policy (tools/csp.mjs), sees no violation
 // while it works, and blocks and counts what the policy forbids. No hub: the card asks a local
 // port nothing listens on, which the policy allows and the card reports as unreachable.
 
