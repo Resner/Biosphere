@@ -448,6 +448,11 @@ export interface BsDebug {
   guideReset(): void;
   /** Sets the player's energy (clamped to its maximum). */
   setEnergy(energy: number): void;
+  /**
+   * Shows the result card for the creature playing now, as a genesis's burst does (M14 T9), so a
+   * practice cell's body is shown in its rarity's card without a hub.
+   */
+  showCard(): void;
   /** Sets the player's biomass (growth to a new size); energy and health keep their fractions. */
   setBiomass(biomass: number): void;
   /** Sets the player's health here only (never above its maximum); the hub hears it in snapshots. */
