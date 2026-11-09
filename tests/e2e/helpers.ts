@@ -330,7 +330,8 @@ export const topUp = (page: Page) =>
 /**
  * Runs the sim fast until the hub has credited the creature's maturity (seconds, on the M5
  * authorities). The hub credits at most the wall time (plus 2 s) per report, so fast play sends
- * the reports sooner. The belly is filled all the while, since 30x time would starve it.
+ * the reports sooner, and until the size is enough too (`stage` is no longer young). The belly is
+ * filled all the while, since 30x time would starve it.
  */
 export const ripe = (page: Page, timeout = 60_000) =>
   page
@@ -339,8 +340,11 @@ export const ripe = (page: Page, timeout = 60_000) =>
         const bs = window.__bs as BsHook;
         bs.debug?.setEnergy(Number.MAX_SAFE_INTEGER);
         bs.debug?.timeScale(30);
-        const { activeMs, matureAtMs } = bs.state().life;
+        const { activeMs, matureAtMs, stage } = bs.state().life;
         if (matureAtMs === 0 || activeMs < matureAtMs) return false;
+        // Time is not all of it: a mating also needs the size (`not-mature`), which grows with the
+        // full belly, and a child's genome may need longer for it than its time does.
+        if (stage === 'young') return false;
         bs.debug?.timeScale(1);
         return true;
       },
