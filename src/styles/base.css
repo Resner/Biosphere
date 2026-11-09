@@ -524,15 +524,17 @@ body {
     monospace;
 }
 
-/* A first-life hint at the bottom: fades in, then out over its last moments (opacity only, so its
-   text stays on whole pixels, M6 T21). */
+/* The first-life guide's line (M14 T7) at the bottom centre: fades in, then out over its last
+   moments (opacity only, so its text stays on whole pixels, M6 T21). It sits between the bars and
+   the screen's other edge; in a fight above the combat HUD; on a narrow screen above the bars. */
 .first-hint {
   position: fixed;
   left: 0;
   right: 0;
   bottom: var(--hud-gap);
+  z-index: 14;
   width: fit-content;
-  max-width: max(14rem, calc(100vw - 600px));
+  max-width: calc(100vw - 35rem);
   margin: 0 auto;
   padding: 0.3rem 0.9rem;
   border: 1px solid var(--glass-line);
@@ -547,6 +549,24 @@ body {
   pointer-events: none;
   animation: hint-in 0.6s ease-out both;
   transition: opacity 0.6s ease;
+}
+
+.first-hint[data-raised] {
+  bottom: calc(var(--hud-gap) + 2.75rem);
+}
+
+@media (max-width: 56rem) {
+  .first-hint,
+  .first-hint[data-raised] {
+    bottom: 7.5rem;
+    max-width: calc(100vw - 2 * var(--hud-gap));
+  }
+}
+
+/* The death screen has no bars: its step sits at the very bottom, under the choices. */
+[data-screen="dead"] .first-hint {
+  bottom: var(--hud-gap);
+  max-width: calc(100vw - 2 * var(--hud-gap));
 }
 
 .first-hint[data-leaving] {

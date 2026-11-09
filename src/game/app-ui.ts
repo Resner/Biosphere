@@ -1,13 +1,17 @@
 import { rarityOfTraits } from '../genome/rarity';
+import { depthAt } from '../sim/bathymetry';
+import { plumesNear } from '../sim/hazards';
 import { ownRefusal } from '../sim/mating';
 import { RULES, TICK_HZ } from '../sim/rules';
-import { sizeTier } from '../sim/size';
+import { sizeClass, sizeTier } from '../sim/size';
+import { maxEnergy } from '../sim/vitals';
 import type { App } from './app';
 import { setBadge } from './badge';
 import type { Body } from './body';
 import { listItem, pick } from './dom';
 import { offered } from './engage';
 import { growthText, sizeShare } from './growth';
+import type { GuideFacts } from './guide';
 import { countdownText } from './life-text';
 import { inspectCard } from './mate-card';
 import { readyText } from './mate-text';
@@ -15,9 +19,14 @@ import { drawPreview } from './offspring-preview';
 import { childLine, fallbackOptions } from './offspring-text';
 import type { DrawnRemote } from './remote-bodies';
 import { setStars } from './reveal-card';
+import { nearestHazard } from './sound-cues';
+import { zoneReadout } from './zone-readout';
 
-/** A first-life hint fades out over this much of its end, in milliseconds of play. */
+/** A guide step fades out over this much of its longest show, in milliseconds of the guide's clock. */
 const HINT_FADE_MS = 600;
+/** The guide's `hazard` and `dash` reach: a plume's edge within 3 body radii, food within 3 body lengths. */
+const PLUME_RADII = 3;
+const FOOD_LENGTHS = 3;
 
 const setIfChanged = (el: HTMLElement, text: string): void => {
   if (el.textContent !== text) el.textContent = text;
@@ -25,12 +34,13 @@ const setIfChanged = (el: HTMLElement, text: string): void => {
 
 /**
  * The play screen's DOM, updated each frame: courting (the hint, the invitation and the inspect
- * card), the offspring card and the choice after a death, the first-life hint, the hatch note and
+ * card), the offspring card and the choice after a death, the first-life guide, the hatch note and
  * the size line.
  */
 export class PlayUi {
   private readonly hintElement = pick('[data-testid="hint"]');
-  /** The first-life hint on screen; null when none is. */
+  private readonly titleHelp = pick('[data-testid="title-help"]');
+  /** The guide's line on screen; null when none is. */
   shownHint: string | null = null;
   private readonly hatchNote = pick('[data-testid="hatch-note"]');
   readonly mateHint = pick('[data-testid="mate-hint"]');
@@ -134,20 +144,99 @@ export class PlayUi {
     }
   }
 
-  /** The first-life hint for this moment of play (M6b T9); it fades out over its last moments. */
-  updateHint(): void {
-    const { app, hintElement } = this;
-    const { session, hints } = app;
-    const live = app.screen === 'playing' && !session.demo && session.death === null;
-    const playMs = (session.ticks * 1000) / TICK_HZ;
-    const text = live ? hints.at(playMs) : null;
+  /** The first-life guide (M14 T7): this frame's facts in, its line out; it fades over its last moments. */
+  updateGuide(): void {
+    const { app, hintElement, titleHelp } = this;
+    const { guide } = app;
+    const now = app.virtualNow;
+    guide.update(now, this.guideFacts());
+    const { text } = guide.view();
     if (text !== this.shownHint) {
       this.shownHint = text;
       if (text) hintElement.textContent = text;
       hintElement.hidden = text === null;
     }
-    const leaving = text !== null && hints.at(playMs + HINT_FADE_MS) !== text;
-    hintElement.toggleAttribute('data-leaving', leaving);
+    // In a fight the line rises above the combat HUD's buttons, which hold the bottom centre.
+    const raised = app.fight.fighting;
+    if (hintElement.hasAttribute('data-raised') !== raised) {
+      hintElement.toggleAttribute('data-raised', raised);
+    }
+    const leaving = text !== null && guide.leftMs(now) < HINT_FADE_MS;
+    if (hintElement.hasAttribute('data-leaving') !== leaving) {
+      hintElement.toggleAttribute('data-leaving', leaving);
+    }
+    const seenAny = !guide.fresh();
+    if (titleHelp.hidden !== seenAny) titleHelp.hidden = seenAny;
+  }
+
+  /** What the guide reads this frame. */
+  private guideFacts(): GuideFacts {
+    const { app } = this;
+    const { session } = app;
+    const { player, world, counts } = session;
+    const radius = Math.sqrt(player.biomass);
+    const play = app.playing() && player.alive;
+    const screen = play ? 'play' : app.screen === 'dead' ? 'dead' : 'other';
+    let hazard: GuideFacts['hazard'] = null;
+    let foodNear = false;
+    let bigger = false;
+    if (play) {
+      const near = nearestHazard(
+        plumesNear(world, player.x, player.y, radius * (PLUME_RADII + 2)),
+        player.x,
+        player.y,
+        radius,
+      );
+      const zone = zoneReadout(
+        depthAt(world.seed32, player.x, player.y, world.size),
+        player.phys,
+        world.options.hazards,
+      );
+      if (near && near.gap <= PLUME_RADII) hazard = 'plume';
+      else if (zone.uv) hazard = 'uv';
+      else if (zone.pressure) hazard = 'pressure';
+      const reach = FOOD_LENGTHS * 2 * radius;
+      foodNear = app.food.some(
+        (f) => Math.hypot(f.x - player.x, f.y - player.y) <= reach + f.radius,
+      );
+      const { camera, scene } = app;
+      const halfH = camera.halfHeight;
+      const halfW = halfH * scene.aspect;
+      bigger = app.remoteViews.some(
+        (r) =>
+          r.alpha >= 0.01 &&
+          Math.abs(r.x - camera.x) <= halfW + r.radius &&
+          Math.abs(r.y - camera.y) <= halfH + r.radius &&
+          sizeClass(radius, r.radius) === 'bigger',
+      );
+    }
+    const life = app.flow.view();
+    const clock = app.lastClock;
+    return {
+      screen,
+      still: app.eggs.still(),
+      lifeMs: (session.ticks * 1000) / TICK_HZ,
+      x: player.x,
+      y: player.y,
+      radius,
+      eats: counts.eat ?? 0,
+      dashes: counts.dash ?? 0,
+      foodNear,
+      energy: player.energy / maxEnergy(player.biomass),
+      hazard,
+      bigger,
+      marked: app.attack.marked,
+      engaged: app.attack.waiting || app.fight.fighting,
+      fighting: app.fight.fighting,
+      mature: clock !== null && life.matureAtMs > 0 && clock.activeMs >= life.matureAtMs,
+      courting: app.mateNow === 'courting',
+      invited: app.mateNow === 'invited',
+      pending: app.offspring.child() !== null,
+      menuOpen: app.menu.isOpen,
+      linked: (app.keeper.current?.openCount() ?? 0) > 0,
+      wheelOpen: app.wheel.isOpen,
+      fallback: life.fallback !== null || app.offspring.child() !== null,
+    };
   }
 
   /** The inspect card beside a clicked creature: closed when it leaves, dies or the game stops. */

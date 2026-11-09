@@ -47,6 +47,9 @@ function debugHelpers(app: App): BsDebug {
     app.field.now();
   };
   const debug: BsDebug = {
+    guideReset() {
+      app.guide.reset();
+    },
     setEnergy(energy) {
       const { player } = app.session;
       player.energy = Math.min(energy, maxEnergy(player.biomass));
@@ -406,6 +409,7 @@ export function installAppHook(app: App): void {
         spawn: app.spawnAsk.last ? { ...app.spawnAsk.last } : null,
         queue: keeper.current?.queue ? { ...keeper.current.queue } : null,
         ride: app.ride.view(),
+        guide: app.guide.view(),
         social: {
           chat: social.log().map((line) => ({ ...line })),
           muted: [...social.muted.ids()],

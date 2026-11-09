@@ -51,7 +51,7 @@ import { createFieldSync } from './field';
 import { FightResume } from './fight-resume';
 import { cachedKeys } from './fight-verify';
 import { GrowthWatch } from './growth';
-import { Hints } from './hints';
+import { Guide } from './guide';
 import { HistoryPanel } from './history';
 import { Hud } from './hud';
 import { HudMenu } from './hud-menu';
@@ -138,8 +138,8 @@ export class App {
   crowdAt: number | null = null;
   readonly lineagePanel: LineagePanel;
   readonly storage: Storage | null;
-  /** First-life hints (M6b T9): the play screen has no permanent control lines. */
-  readonly hints: Hints;
+  /** The first-life guide (M14 T7): each step once per browser, at the moment it matters. */
+  readonly guide: Guide;
   /**
    * The stored settings; this visit's `?quality=` beats the stored quality without being written,
    * until the player picks one in the panel.
@@ -313,7 +313,7 @@ export class App {
     this.lineagePanel = new LineagePanel(() => this.hubLink?.send({ t: 'lineage' }));
     pick('[data-testid="menu-lineage"]').addEventListener('click', () => this.lineagePanel.open());
     this.storage = safeStorage();
-    this.hints = new Hints(this.storage);
+    this.guide = new Guide(this.storage);
     this.stored = loadSettings(this.storage);
     this.settings = params.quality ? { ...this.stored, quality: params.quality } : this.stored;
     this.qualityPinned = Boolean(params.quality);
@@ -345,6 +345,7 @@ export class App {
         this.duty.update();
       },
       ['settings-open', 'lineage-settings', 'menu-settings'],
+      () => this.guide.reset(),
     );
     this.applySettings();
     this.systemMotion?.addEventListener?.('change', () =>
@@ -605,6 +606,11 @@ export class App {
     installAppHook(this);
   }
 
+  /** The loop's clock as of its last read, without advancing it: the guide's time. */
+  get virtualNow(): number {
+    return this.virtualMs;
+  }
+
   /** The loop's clock: real time scaled by `timeScale`. */
   clock(): number {
     const real = performance.now();
@@ -618,6 +624,7 @@ export class App {
     this.scene.setPreset(preset);
     this.sound.setVolume(this.settings.volume);
     this.sound.setMuted(this.settings.muted);
+    this.guide.setOn(this.settings.hints);
     this.settingsPanel.show(this.settings, preset, this.autoQuality.detected, this.motionReduced());
   }
 
