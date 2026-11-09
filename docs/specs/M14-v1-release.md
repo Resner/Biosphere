@@ -237,7 +237,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Engines
 
-- [ ] T5 Every golden in every engine (after none)
+- [ ] T5 Every golden in every engine (after none) (in progress)
   - Steps:
     1. **The catalogue** (`tests/goldens-catalogue.ts`): each golden file under `src/*/__golden__/` maps to the page-side set that recomputes it, or sits in a Node-only list with its reason (a report's summary, say). The sets cover at least:
        - `math.json` (every function of `src/sim/math.ts` on its vectors);
