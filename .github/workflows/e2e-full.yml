@@ -80,6 +80,11 @@ jobs:
       - name: Run this part of the suite
         if: ${{ !matrix.engine }}
         run: npx playwright test ${{ matrix.args }}
+      - name: Probe ICE (temporary)
+        if: matrix.engine == 'firefox'
+        run: |
+          ip -brief addr || true
+          xvfb-run -a node probe-ice.mjs || true
       - name: Run this part of the suite in Firefox
         if: matrix.engine == 'firefox'
         env:
