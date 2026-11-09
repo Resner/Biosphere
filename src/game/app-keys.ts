@@ -116,9 +116,11 @@ export function attachKeys(app: App): void {
           return;
         }
         // Space on the title goes back to a running fight (M8 T10), as Enter does.
-        if (key === KEY.dash && resumeOffered()) return;
+        // Like Enter, Space waits while the help is centred over the buttons.
+        const covered = helpPanel.isOpen && !app.playing();
+        if (key === KEY.dash && !covered && resumeOffered()) return;
         // Space pokes a genesis egg on the title or death screen (M6b T11, M6c T11); in play it dashes.
-        if (key === KEY.dash && eggs.mode === 'genesis' && !app.playing())
+        if (key === KEY.dash && !covered && eggs.mode === 'genesis' && !app.playing())
           eggs.poke(app.eggClock());
         if (!app.playing()) return;
         // While the wheel is open, Esc and the numbers are its own.
