@@ -213,7 +213,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Done: gaps fixed at the cause: a genesis's hatch and a mating's records now share their commitment's transaction, a death's checkpoint its record, a genesis or mating is marked resolved only with its writes (so a wake keeps it due), and a dead creature leaves the water. Migration 15 keeps the mates' names for `life.mating`.
   - Gotcha: `consistent(hub, players)` scopes to a test's players, since the kits wipe `matings` between tests; the matrix runs on the hand clock (84 cases, about 20 s).
 
-- [x] T4 The page resumes what was in flight [opus] (after T3) (in progress)
+- [x] T4 The page resumes what was in flight [opus] (after T3)
   - Steps:
     1. **The page takes the hub's word** (ADR 0076). `LifeFlow` takes a `commit` or `genesis` for the player's own waiting genesis whatever its state, and `life.mating` and `life.pending` on any `life`. `state().life.inFlight` names them.
     2. **The screens resume**:
