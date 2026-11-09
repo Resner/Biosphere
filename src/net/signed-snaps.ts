@@ -94,6 +94,13 @@ export class SignedSnaps {
     return held && held.frames.length > 0 ? held.tick : null;
   }
 
+  /** The tick of each peer's newest verified frame, by player id (a failure's evidence in the test hook). */
+  ticks(): Record<string, number> {
+    const out: Record<string, number> = {};
+    for (const [id, held] of this.peers) if (held.frames.length > 0) out[id] = held.tick;
+    return out;
+  }
+
   /** Peers with a verified frame held. */
   get size(): number {
     let n = 0;

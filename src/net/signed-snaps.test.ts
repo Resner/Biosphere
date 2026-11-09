@@ -53,6 +53,17 @@ describe('SignedSnaps', () => {
     expect(verifySnap(peer.playerId, POND, next)?.tick).toBe(106);
   });
 
+  it('lists the newest held tick of each peer, none for a peer with no frame', async () => {
+    const { peer, other, snaps, signed } = await setup();
+    expect(snaps.ticks()).toEqual({});
+    snaps.receive(peer.playerId, snap(100), signed(100), 0);
+    snaps.receive(peer.playerId, snap(106), signed(106), 200);
+    snaps.receive(other.playerId, snap(50), signed(50, other), 300);
+    expect(snaps.ticks()).toEqual({ [peer.playerId]: 106, [other.playerId]: 50 });
+    snaps.remove(other.playerId);
+    expect(snaps.ticks()).toEqual({ [peer.playerId]: 106 });
+  });
+
   it('ignores a frame no newer than the stored one, without verifying it', async () => {
     const { peer, snaps, signed } = await setup();
     let calls = 0;

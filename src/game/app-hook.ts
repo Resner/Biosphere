@@ -436,6 +436,7 @@ export function installAppHook(app: App): void {
           dropped: app.genomeSync.dropped + app.remoteBodies.dropped,
           signed: app.online.signed.size,
           badSignatures: app.online.signed.badSignatures,
+          heldTicks: app.online.signed.ticks(),
           proxyDropped: app.online.proxies.dropped,
           proxyFrom: app.online.proxies.senders(),
           dutyLinks: keeper.current?.dutyLinks() ?? [],
