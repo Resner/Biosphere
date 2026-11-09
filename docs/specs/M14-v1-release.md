@@ -459,7 +459,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Notes: the clients never point at a production authority (`.claude/rules/tests.md`): the tool starts its own hub, so the clients only ever dial localhost.
   - Done: the clients run the page's own `LifeFlow` and `MateFlow` (`tests/life-client.ts`, `tests/life-policy.ts`); `GET /v1/e2e/consistency` and `npm run soak` (port 8851, `LIFESPAN_SCALE` 0.1) are in. A `mating` or `born` message needs the real records, so the unit tests stop at the accept and the `life.mating` resume, and the soak shows the births. Promoted children starve sooner than hatched creatures, so every run restores an ancestor.
 
-- [ ] T14 The one-hour soak: 200 players, two pages, a workflow and a report (after T12, T13)
+- [ ] T14 The one-hour soak: 200 players, two pages, a workflow and a report (after T12, T13) (in progress)
   - Steps:
     1. **The full soak** (`npm run soak`): 200 life clients join over the first 5 minutes and play for 60, on the free plan's own limits (`PLAN` free, no `MAX_SESSIONS`, no budget override: the headroom seats them), with the witness fixture vars and `MATING_SCALE` 0.05. Two Chromium pages (the Playwright library, low preset) play throughout among them: hatch, `debug.steerTo` to food, court each other when mature, and each reloads once at minute 30.
     2. **Samples every minute**: the workerd process's CPU time and resident memory (`/proc`), `/v1/e2e/metrics`, `/v1/e2e/audit` and `/v1/e2e/consistency`; each page's JS heap after a forced GC (as `m6-budget` does), `renderer.info`'s geometries, textures and programs, and its frame time p95 over the minute.
