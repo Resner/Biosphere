@@ -43,9 +43,11 @@ async function crash(page: Page): Promise<void> {
   const crashed = new Promise<void>((resolve) => page.once('crash', () => resolve()));
   const cdp = await page.context().newCDPSession(page);
   void cdp.send('Page.crash').catch(() => {});
+  // A ceiling, not a pace: on a loaded runner (E2E main: software GL beside other workers) the
+  // renderer took longer than 10 s to go down.
   let timer: NodeJS.Timeout | undefined;
   const late = new Promise<never>((_, reject) => {
-    timer = setTimeout(() => reject(new Error('the renderer did not crash within 10 s')), 10_000);
+    timer = setTimeout(() => reject(new Error('the renderer did not crash within 90 s')), 90_000);
   });
   await Promise.race([crashed, late]).finally(() => clearTimeout(timer));
   await page.close().catch(() => {});
