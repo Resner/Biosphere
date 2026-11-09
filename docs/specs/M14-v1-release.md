@@ -419,7 +419,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Room for 200
 
-- [ ] T12 Room for a crowd: the headroom cap [opus] (after none)
+- [x] T12 Room for a crowd: the headroom cap [opus] (after none)
   - Steps:
     1. **The caps** (ADR 0075): `worker/capacity.ts`'s `derive()` gives the free plan 80% of one object's capacity (621 at the measured 777); the paid plan keeps its money cap (590).
     2. **`headroomSeats(hub, now)`** (`worker/admission.ts`): the smallest, over request-equivalents, rows written and rows read, of ⌊(the plan's daily allowance − today's use) ÷ (that item's per-player-hour cost from `ratesOf(MEASURED, ASSUMPTIONS)` × `HEADROOM_H`)⌋. `admission` answers `full` when the seats held (seated and away fighters) reach the smaller of the session cap and the headroom. The budget, storage and TURN guards, the seat back and `MAX_SESSIONS` are unchanged.
@@ -429,7 +429,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     6. DESIGN §8, `.claude/rules/worker.md`, ADR 0071's numbers stay as history.
   - Acceptance (tests first). Hub tests with a mocked `Date.now`, on the free plan unless said:
     - **The arithmetic** (unit, on the committed `MEASURED`): a fresh day's headroom is above 621, so the cap binds; with rows written at 60% of the allowance, the headroom is ⌊40,000 ÷ (rows written per player-hour × 2)⌋.
-    - **Seating**: with today's rows written pushed (`rowCount`) so the headroom is 20 as the sessions sign in, 20 seated sessions hold and the 21st waits with `why: 'full'`; one seated session leaving doesn't seat it while the headroom still binds; once enough have left, it is seated.
+    - **Seating**: with today's request-equivalents set (under a `DAILY_REQUEST_BUDGET`) so the headroom is 20 as the sessions sign in, 20 seated sessions hold and the 21st waits with `why: 'full'`; with the headroom then at 18, a seated session leaving doesn't seat it while the headroom still binds; once enough have left, it is seated. (Rows written can't put the free plan's headroom under about 76 seats before the budget guard's 90% holds, so the hub tests bind it through the requests.)
     - **Seats kept**: no seated session is dropped when the headroom falls below the seats held; a reload within 2 minutes is seated past it.
     - **The wait**: with the headroom 3 below the seats held and departures every 20 s, the first in line hears the next seat's wait plus 3 more intervals: 4 × 20 s less the time since the last seat freed (± 1).
     - **Plans**: the paid plan seats 590 on a fresh day; `MAX_SESSIONS` still overrides the cap (the headroom still applies).
@@ -437,6 +437,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `docs/CAPACITY.md` regenerates byte for byte (the existing test), and its new section's numbers come from the model.
     - Every existing admission test and `m13-*` E2E passes (their `MAX_SESSIONS` caps sit far under the headroom).
   - Notes: the headroom counts to 100% of an allowance, not to the 90% guard: the guard's 10% is what the crowd already seated plays on.
+    - Done: `derive()` caps the free plan at 621; `headroomOf`/`crowdHours` (`capacity.ts`) feed `headroomSeats`, the wait, `admission.headroom` and CAPACITY.md's "Crowds from a fresh day". Gotcha: on the free plan the budget guard holds before the headroom drops under ~76, so hub tests bind it via `DAILY_REQUEST_BUDGET` (`headroomTo`).
 
 - [ ] T13 Life clients: headless players that hatch, mate, fight, die and drop (after T3)
   - Steps:

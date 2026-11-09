@@ -3,9 +3,12 @@ import {
   ASSUMPTIONS,
   billOf,
   capOf,
+  crowdHours,
   derive,
   freeServes,
   freeVerdict,
+  HEADROOM_H,
+  headroomOf,
   logWindowDays,
   type Measured,
   monthStorage,
@@ -13,6 +16,7 @@ import {
   objectsFor,
   paidMonthUsd,
   paidPlayers,
+  ratesOf,
   STORE_DAYS_MIN,
   storeDays,
   turnGb,
@@ -108,15 +112,17 @@ describe('the capacity arithmetic', () => {
     expect(paidMonthUsd(MEASURED, TABLES, players + 1)).toBeGreaterThan(CEILING_USD);
   });
 
-  it('a session cap is the smaller of the money cap and 80% of one object', () => {
+  it('the free plan caps at 80% of one object, and the paid plan at the smaller of its money cap and that (ADR 0075)', () => {
     const cap = capOf(objectCapacity(MEASURED));
     expect(cap).toBe(Math.floor(0.8 * DERIVED.capacity.players));
+    expect(FREE.sessions).toBe(cap);
+    expect(FREE.sessions).toBe(621);
     expect(PAID.sessions).toBe(Math.min(DERIVED.paid.around, cap));
-    expect(FREE.sessions).toBe(Math.min(DERIVED.free.around, cap));
+    expect(PAID.sessions).toBe(590);
     expect(sessionCap('paid')).toBe(PAID.sessions);
     expect(sessionCap('free')).toBe(FREE.sessions);
-    // The free plan's money cap is the smaller here, the paid plan's the one object's cap only if it is smaller.
-    expect(FREE.sessions).toBeLessThan(cap);
+    // The free plan's allowances serve far fewer around the clock: the headroom keeps the day.
+    expect(DERIVED.free.around).toBeLessThan(FREE.sessions);
   });
 
   it('one object is bound by the smallest of CPU, messages and memory', () => {
@@ -144,5 +150,56 @@ describe('the capacity arithmetic', () => {
     expect(
       logWindowDays(MEASURED, { ...TABLES, free: { ...TABLES.free, storageBytes: 1e8 } }),
     ).toBe(7);
+  });
+});
+
+describe('the headroom (ADR 0075)', () => {
+  const r = ratesOf(MEASURED, ASSUMPTIONS);
+  const free = allowances('free');
+
+  it('is above the free cap on a fresh day, so the cap binds', () => {
+    expect(HEADROOM_H).toBe(2);
+    expect(headroomOf(free, r)).toBeGreaterThan(FREE.sessions);
+  });
+
+  it('with rows written at 60% of the allowance, is ⌊40,000 ÷ (rows written per player-hour × 2)⌋', () => {
+    const left = { ...free, rowsWrittenPerDay: 0.4 * FREE.rowsWrittenPerDay };
+    expect(left.rowsWrittenPerDay).toBe(40_000);
+    expect(headroomOf(left, r)).toBe(Math.floor(40_000 / (r.rowsWrittenPerHour * 2)));
+  });
+
+  it('is the smallest over requests, rows written and rows read, and none once one is spent', () => {
+    const left = { requestsPerDay: 1_000, rowsWrittenPerDay: 1e9, rowsReadPerDay: 1e12 };
+    expect(headroomOf(left, r)).toBe(Math.floor(1_000 / (r.requestsPerHour * 2)));
+    expect(headroomOf({ ...left, rowsReadPerDay: -5 }, r)).toBe(0);
+  });
+
+  it('is above the paid cap on a fresh day', () => {
+    expect(headroomOf(allowances('paid'), r)).toBeGreaterThan(PAID.sessions);
+  });
+
+  it.each([50, 200, 621])(
+    'a crowd of %i from a fresh free day: the headroom falls below it and the budget guard holds when crowdHours says',
+    (players) => {
+      const h = crowdHours(free, r, players);
+      // What is left after `t` hours of the crowd's play.
+      const leftAt = (t: number) => ({
+        requestsPerDay: free.requestsPerDay - players * r.requestsPerHour * t,
+        rowsWrittenPerDay: free.rowsWrittenPerDay - players * r.rowsWrittenPerHour * t,
+        rowsReadPerDay: free.rowsReadPerDay - players * r.rowsReadPerHour * t,
+      });
+      expect(headroomOf(leftAt(h.headroom - 0.01), r)).toBeGreaterThanOrEqual(players);
+      expect(headroomOf(leftAt(h.headroom + 0.01), r)).toBeLessThan(players);
+      const spent = leftAt(h.budget);
+      expect(spent.rowsWrittenPerDay).toBeCloseTo(0.1 * free.rowsWrittenPerDay, 3);
+    },
+  );
+
+  it('about 200 players play over five hours of a fresh free day before the headroom stops newcomers, and nearly seven before the budget guard', () => {
+    const h = crowdHours(free, r, 200);
+    expect(h.headroom).toBeGreaterThan(5);
+    expect(h.budget).toBeGreaterThan(h.headroom);
+    expect(h.budget).toBeGreaterThan(6.5);
+    expect(h.budget).toBeLessThan(7);
   });
 });

@@ -1,5 +1,5 @@
 import type { QueueWhy } from '../src/net/protocol';
-import { admission, awaySeats, turnOpen } from './admission';
+import { admission, awaySeats, headroomSeats, turnOpen } from './admission';
 import { CHECKED, limitsOf, type PlanLimits, type PlanName, planOf } from './plan';
 import { queued, seatedCount } from './sessions';
 import type { Hub } from './socket';
@@ -39,6 +39,8 @@ export interface Metrics {
     open: boolean;
     why: QueueWhy | null;
     turn: boolean;
+    /** The seats the headroom allows now (ADR 0075), before the session cap. */
+    headroom: number;
     /** The mean interval between the last seats freed (30 before two have). */
     seatEveryS: number;
     /** The waits of sessions seated from the line today (the last 200 in memory), in seconds. */
@@ -99,6 +101,7 @@ export function metricsOf(hub: Hub, now: number): Metrics {
       open: why === null,
       why,
       turn: turnOpen(hub, now),
+      headroom: headroomSeats(hub, now),
       seatEveryS: Math.round(hub.admission.seatEveryMs(now) / 1000),
       waits: hub.admission.waitsToday(now),
     },
