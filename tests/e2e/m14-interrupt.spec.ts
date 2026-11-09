@@ -13,7 +13,6 @@ import {
   courtUntilInvited,
   M14_INTERRUPT_HUB,
   openRecorded,
-  state,
   topUp,
   waitPlaying,
 } from './helpers';
@@ -44,7 +43,11 @@ async function crash(page: Page): Promise<void> {
   const crashed = new Promise<void>((resolve) => page.once('crash', () => resolve()));
   const cdp = await page.context().newCDPSession(page);
   void cdp.send('Page.crash').catch(() => {});
-  await Promise.race([crashed, page.waitForTimeout(10_000)]);
+  let timer: NodeJS.Timeout | undefined;
+  const late = new Promise<never>((_, reject) => {
+    timer = setTimeout(() => reject(new Error('the renderer did not crash within 10 s')), 10_000);
+  });
+  await Promise.race([crashed, late]).finally(() => clearTimeout(timer));
   await page.close().catch(() => {});
 }
 
@@ -288,12 +291,11 @@ test('a crashed tab resumes its genesis, its mating, its promotion, its death an
     await importer.getByTestId('recovery-open').click();
     await importer.getByTestId('recovery-input').fill(code);
     await importer.getByTestId('recovery-import').click();
-    // The page reloads once the code is stored: the tab dies as that navigation starts.
-    const navigating = importer.waitForRequest(
-      (r) => r.isNavigationRequest() && r.frame() === importer.mainFrame(),
-    );
+    // The page would reload once the code is stored: the tab dies at that moment instead (Chromium
+    // won't crash a renderer with a navigation pending).
+    await importer.evaluate(() => (window.__bs as BsHook).debug?.holdReload(true));
     await importer.getByTestId('recovery-yes').click();
-    await navigating;
+    await importer.waitForFunction(() => window.__bs?.state().imported === true);
     await crash(importer);
     const b2 = await reopen(b.context);
     expect((await bs(b2)).playerId).toBe(idA);
