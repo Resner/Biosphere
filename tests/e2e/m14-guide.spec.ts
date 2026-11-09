@@ -109,27 +109,30 @@ async function told(page: Page, step: GuideStep, words: string, timeout = 60_000
 /**
  * Plays on until `step` shows. The sim runs fast meanwhile, since the guide starts at most one new
  * step every 20 s of the loop's clock, and `keep` holds the creature's state; the frame that sees
- * the step drops back to normal speed.
+ * the step drops back to normal speed, or, with `freeze`, stops the clock in that same frame: a
+ * step shows 6 to 8 s of the loop's clock, and the round trips before a screenshot can outlast that
+ * on a loaded runner. `shoot` restores normal speed.
  */
 async function until(
   page: Page,
   step: GuideStep,
   keep: Keep = {},
   timeout = 30_000,
+  freeze = false,
 ): Promise<void> {
   await page
     .waitForFunction(
-      ([step, keep]) => {
+      ([step, keep, freeze]) => {
         const bs = window.__bs as BsHook;
         (window as Kept).__guideKeep?.(keep);
         if (bs.state().guide.current === step) {
-          bs.debug?.timeScale(1);
+          bs.debug?.timeScale(freeze ? 0 : 1);
           return true;
         }
         bs.debug?.timeScale(8);
         return false;
       },
-      [step, keep] as const,
+      [step, keep, freeze] as const,
       { timeout, polling: 100 },
     )
     .catch(async (error) => {
@@ -232,7 +235,7 @@ test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, onc
     await hatch(page);
 
     // Swim, in the life's first second; gone once it has swum 3 body lengths.
-    await until(page, 'swim', FULL);
+    await until(page, 'swim', FULL, 30_000, true);
     await expect(page.getByTestId('hint')).toHaveText(GUIDE_WORDS.swim);
     expect((await state(page)).hud.hints).toBe(GUIDE_WORDS.swim);
     await shoot(page, 'swim');
@@ -269,7 +272,7 @@ test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, onc
       const p = bs.state().player;
       if (p) bs.debug?.spawnPlume(p.x + p.radius * 4, p.y, p.radius * 2);
     });
-    await until(page, 'hazard', FULL, 10_000);
+    await until(page, 'hazard', FULL, 10_000, true);
     await expect(page.getByTestId('hint')).toHaveText(GUIDE_WORDS.hazard[0]);
     await shoot(page, 'hazard');
     await page.evaluate(() => {
@@ -280,7 +283,7 @@ test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, onc
     await gone(page, 'hazard', FULL);
 
     // Hungry: under 30% of the cap; gone over 50%.
-    await until(page, 'energy', { share: 0.2 }, 60_000);
+    await until(page, 'energy', { share: 0.2 }, 60_000, true);
     await expect(page.getByTestId('hint')).toHaveText(GUIDE_WORDS.energy);
     await shoot(page, 'energy');
     await page.evaluate(() => (window.__bs as BsHook).debug?.setEnergy(Number.MAX_SAFE_INTEGER));
@@ -361,7 +364,7 @@ test('two players learn the amber rings, the wheel, maturity, the invitation and
     await goTo(a, idB, b);
     const before = (await state(b)).player?.biomass ?? 0;
     await b.evaluate(() => (window.__bs as BsHook).debug?.setBiomass(1200));
-    await until(a, 'bigger', FULL, 60_000);
+    await until(a, 'bigger', FULL, 60_000, true);
     await expect(a.getByTestId('hint')).toHaveText(GUIDE_WORDS.bigger);
     await shoot(a, 'bigger');
     await b.evaluate((m) => (window.__bs as BsHook).debug?.setBiomass(m), before);
@@ -379,7 +382,8 @@ test('two players learn the amber rings, the wheel, maturity, the invitation and
     await b.screenshot({ path: 'test-results/m14-guide-invite-960.png' });
     await b.keyboard.press('e');
     await gone(b, 'invite', FULL);
-    for (const page of [a, b]) await until(page, 'egg', FULL, 60_000);
+    await until(a, 'egg', FULL, 60_000, true);
+    await until(b, 'egg', FULL, 60_000);
     await expect(a.getByTestId('hint')).toHaveText(GUIDE_WORDS.egg);
     await shoot(a, 'egg');
   } finally {
