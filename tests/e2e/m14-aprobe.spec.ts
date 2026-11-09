@@ -1,4 +1,3 @@
-import { execSync } from 'node:child_process';
 import { firefox, test } from '@playwright/test';
 
 // Temporary diagnostic (M14 T6, to remove): when Firefox's ICE gathering stops working.
@@ -16,55 +15,52 @@ const gatherIn = (page: import('@playwright/test').Page) =>
     pc.close();
     return out;
   });
-const sh = (cmd: string) => {
-  try {
-    return execSync(cmd).toString();
-  } catch (e) {
-    return String(e);
-  }
-};
-
-test('probe ICE gathering', async ({ baseURL }) => {
+test('probe ICE gathering', async () => {
   test.setTimeout(240_000);
-  const prefs = { 'media.peerconnection.ice.obfuscate_host_addresses': false };
-  const b = await firefox.launch({ headless: false, firefoxUserPrefs: prefs });
-  const at = () => new Date().toISOString().slice(11, 19);
-  const tab = async (
-    label: string,
-    setup: (p: import('@playwright/test').Page) => Promise<unknown>,
-  ) => {
-    const p = await b.newPage();
-    try {
-      await setup(p);
-      console.log(at(), label, JSON.stringify(await gatherIn(p)));
-    } catch (e) {
-      console.log(at(), label, 'threw', String(e).slice(0, 200));
-    }
-    await p.close();
-  };
-  await tab('blank', (p) => p.setContent('<p>blank</p>'));
-  await tab('blank+webgl2', async (p) => {
-    await p.setContent('<p>blank</p>');
-    await p.evaluate(() => {
-      const c = document.createElement('canvas');
-      c.width = 1;
-      c.height = 1;
-      return c.getContext('webgl2') !== null;
+  const http = await import('node:http');
+  const serve = (host: string, port: number) =>
+    new Promise<import('node:http').Server>((resolve) => {
+      const srv = http.createServer((_q, r) => {
+        r.setHeader('content-type', 'text/html');
+        r.end('<p>probe</p>');
+      });
+      srv.listen(port, host, () => resolve(srv));
     });
-  });
-  await tab('blank+worker-probe', async (p) => {
-    await p.setContent('<p>blank</p>');
-    await p.evaluate(() => {
+  const v4 = await serve('127.0.0.1', 4199);
+  const v6 = await serve('::1', 4198);
+  for (const [name, prefs] of [
+    ['base', { 'media.peerconnection.ice.obfuscate_host_addresses': false }],
+    [
+      'noIPv6',
+      {
+        'media.peerconnection.ice.obfuscate_host_addresses': false,
+        'network.dns.disableIPv6': true,
+      },
+    ],
+  ] as const) {
+    const b = await firefox.launch({ headless: false, firefoxUserPrefs: prefs });
+    const at = () => new Date().toISOString().slice(11, 19);
+    const tab = async (url: string) => {
+      const p = await b.newPage();
       try {
-        new Worker('http://[', { type: 'module' }).terminate();
-      } catch {}
-    });
-  });
-  await tab('hub health page (localhost, no script)', (p) =>
-    p.goto('http://localhost:8842/v1/health'),
-  );
-  await tab('preview 404 page (localhost:4173)', (p) => p.goto(`${baseURL}nothing-here.txt`));
-  await tab('favicon (localhost:4173)', (p) => p.goto(`${baseURL}favicon.svg`));
-  await tab('game', (p) => p.goto(`${baseURL}?genome=starter`));
-  await b.close();
+        await p.goto(url);
+        console.log(at(), name, url, JSON.stringify(await gatherIn(p)));
+      } catch (e) {
+        console.log(at(), name, url, 'threw', String(e).slice(0, 120));
+      }
+      await p.close();
+    };
+    for (const url of [
+      'http://127.0.0.1:4199/',
+      'http://localhost:4199/',
+      'http://[::1]:4198/',
+      'http://localhost:4198/',
+      'http://localhost:4173/favicon.svg',
+      'http://[::1]:4173/favicon.svg',
+    ])
+      await tab(url);
+    await b.close();
+  }
+  v4.close();
+  v6.close();
 });
