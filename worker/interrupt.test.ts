@@ -53,6 +53,10 @@ const E = RULES.encounter;
 type Cut = '1s' | '10min' | 'restart';
 const CUTS: readonly Cut[] = ['1s', '10min', 'restart'];
 
+/** A mate ask's nonce no other mating in this file used (a nonce makes one mating, ADR 0021). */
+let mates = 0;
+const mateNonce = () => `I${++mates}`.padStart(22, 'A');
+
 /** A player of a case: `c` is null while its socket is closed. */
 interface Actor extends Omit<Player, 'c'> {
   c: Client | null;
@@ -96,7 +100,7 @@ async function adults(): Promise<[Actor, Actor]> {
 /** A courts B, B accepts and the round comes out: both hold a pending child. */
 async function bred(): Promise<[Actor, Actor, Born]> {
   const [a, b] = await adults();
-  const nonce = `${Math.floor(Math.random() * 1e9)}`.padStart(22, 'A');
+  const nonce = mateNonce();
   live(a).c.send({ t: 'court', ask: askOf(live(a), live(b), nonce) });
   await nextOf(live(b).c, 'invite');
   live(b).c.send({ t: 'accept', ask: askOf(live(b), live(a), nonce) });
@@ -200,6 +204,8 @@ async function expectTold(p: Actor, { life, after }: { life: Life; after: HubMsg
  */
 async function interrupt(cut: Cut, closed: Actor[], all: Actor[]): Promise<void> {
   if (cut === 'restart') {
+    // The step reached the object before it goes: what a socket sent is handled in order.
+    for (const p of closed) if (p.c) await flush(p.c);
     await restart();
     for (const p of all) {
       const c = p.c;
@@ -266,7 +272,7 @@ async function genesisCase(step: string, cut: Cut): Promise<Actor[]> {
 
 async function matingCase(step: string, cut: Cut, partner: boolean): Promise<Actor[]> {
   const [a, b] = await adults();
-  const nonce = `${Math.floor(Math.random() * 1e9)}`.padStart(22, 'A');
+  const nonce = mateNonce();
   let round = 0;
   if (step === 'mate-check') {
     live(a).c.send({ t: 'mate-check', partner: b.id.playerId });
