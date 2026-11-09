@@ -22,9 +22,9 @@ describe('the dev hub', () => {
     expect(withInspectorPort('deploy', ['--port', '8787'])).toEqual(['--port', '8787']);
   });
 
-  // M14 T14c: the soak's hub grew 355 MB an hour. What grew was `wrangler dev`'s own trace store
-  // (miniflare's `miniflare-wobs-trace-store` object, on by default): every message the authority
-  // took became spans kept in the workerd process, never evicted. Production has no such store.
+  // M14 T14c: the soak's hub grew 400 MB an hour with wrangler dev's own trace store (miniflare's
+  // `miniflare-wobs-trace-store` object, on by default): every message the authority took became
+  // spans kept in the hub's workerd process, never evicted. The deployed Worker has no such store.
   it('starts a dev hub without the local trace store, unless the caller asks for it', () => {
     expect(devEnv('dev', { PATH: '/bin' })).toEqual({
       PATH: '/bin',
