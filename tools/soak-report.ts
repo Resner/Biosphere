@@ -12,6 +12,11 @@ export interface HubSample {
   /** The workerd processes' summed CPU time and resident memory; null without /proc. */
   cpuMs: number | null;
   rssBytes: number | null;
+  /**
+   * The authority object's live JS heap after a forced collection (`tools/object-heap.ts`); null
+   * where the inspector can't be reached, absent from runs recorded before M14 T14c.
+   */
+  heapBytes?: number | null;
   /** Messages the object has taken today (the meter's `byType`, summed). */
   messages: number;
   seated: number;
@@ -64,10 +69,15 @@ export interface Check {
   detail: string;
 }
 
-/** Allowed growth: the authority's resident memory per hour, and every other drift. */
 /** The check of `/v1/e2e/consistency` verifies every creature's chain on the hub's thread: every fifth minute, not every one. */
 export const CONSISTENT_EVERY = 5;
 
+/**
+ * Allowed growth: the authority object's heap per hour, and every other drift. The heap, not the
+ * processes' resident memory, is what the hub keeps (M14 T14c): under `wrangler dev` the resident
+ * memory also holds wrangler's proxy, a second workerd that forwards every socket and grew 300 MB an
+ * hour on its own, and V8's garbage between major collections. The report still shows it.
+ */
 export const LIMITS = {
   memorySlopeBytesPerHour: 20_000_000,
   cpuPerMessageRatio: 1.5,
@@ -166,17 +176,19 @@ export function checksOf(run: Soak): Check[] {
   // shorter run too (half of one under 20 minutes), and ends with the run.
   const s0 = Math.min(WINDOWS.slope[0], run.config.minutes / 2);
   const s1 = WINDOWS.slope[1] * k;
-  const memory = slopePerHour(
-    full.hub
-      .filter((s) => s.rssBytes !== null && s.minute >= s0 && s.minute <= s1)
-      .map((s) => ({ minute: s.minute, value: s.rssBytes as number })),
+  const heaps = full.hub.flatMap((s) =>
+    typeof s.heapBytes === 'number' && s.minute >= s0 && s.minute <= s1
+      ? [{ minute: s.minute, value: s.heapBytes }]
+      : [],
   );
+  const memory = slopePerHour(heaps);
+  const last = heaps[heaps.length - 1];
   add(
-    'authority memory level',
+    'authority heap level',
     memory !== null && memory < LIMITS.memorySlopeBytesPerHour,
-    memory === null
-      ? 'no memory samples'
-      : `${fixed(memory / 1e6, 1)} MB an hour (limit ${LIMITS.memorySlopeBytesPerHour / 1e6})`,
+    memory === null || !last
+      ? 'no heap samples'
+      : `${fixed(memory / 1e6, 1)} MB an hour (limit ${LIMITS.memorySlopeBytesPerHour / 1e6}), ${fixed(last.value / 1e6, 1)} MB at minute ${last.minute}`,
   );
   const early = cpuPerMessage(full.hub, WINDOWS.early[0] * k, WINDOWS.early[1] * k);
   const late = cpuPerMessage(full.hub, WINDOWS.late[0] * k, WINDOWS.late[1] * k);
@@ -310,13 +322,14 @@ export function reportOf(run: Soak): string {
       '',
       '## Authority, per minute',
       '',
-      row(['Minute', 'Resident MB', 'CPU s', 'Messages', 'Seated', 'Queued']),
-      row(['---', '---', '---', '---', '---', '---']),
+      row(['Minute', 'Heap MB', 'Resident MB', 'CPU s', 'Messages', 'Seated', 'Queued']),
+      row(['---', '---', '---', '---', '---', '---', '---']),
       ...full.hub
         .filter((_, i) => i % 5 === 0 || i === full.hub.length - 1)
         .map((s) =>
           row([
             s.minute,
+            typeof s.heapBytes === 'number' ? fixed(s.heapBytes / 1e6, 1) : '-',
             s.rssBytes === null ? '-' : fixed(s.rssBytes / 1e6, 1),
             s.cpuMs === null ? '-' : fixed(s.cpuMs / 1000, 1),
             s.messages,

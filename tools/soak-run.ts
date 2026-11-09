@@ -10,6 +10,7 @@ import { join } from 'node:path';
 import { verifyLineage } from '../src/ledger/verify';
 import { LifeClient, type LifeStats, SnapBus } from '../tests/life-client';
 import { RuntimeWatch } from './load-hub-run';
+import { ObjectHeap } from './object-heap';
 import { SoakPages } from './soak-pages';
 import { CONSISTENT_EVERY, type FullSeries, type HubSample, type PageSample } from './soak-report';
 
@@ -176,15 +177,21 @@ export async function runSoak(opts: SoakOptions): Promise<Soak> {
 }
 
 /**
- * A read of the authority's E2E meter. A busy hour answers slowly, and one slow answer is not the
- * run's end: each read waits up to 30 s and tries three times before it gives up.
+ * `/v1/e2e/consistency` verifies every live creature's chain on the hub's thread: after half an hour
+ * of 200 players that takes longer than a meter read may wait.
  */
-async function getJson<T>(port: number, path: string): Promise<T> {
+const CONSISTENCY_WAIT_MS = 300_000;
+
+/**
+ * A read of the authority's E2E meter. A busy hour answers slowly, and one slow answer is not the
+ * run's end: each read waits up to 30 s (or `waitMs`) and tries three times before it gives up.
+ */
+async function getJson<T>(port: number, path: string, waitMs = 30_000): Promise<T> {
   let last: unknown;
   for (let attempt = 0; attempt < 3; attempt++) {
     try {
       const res = await fetch(`http://localhost:${port}${path}`, {
-        signal: AbortSignal.timeout(30_000),
+        signal: AbortSignal.timeout(waitMs),
       });
       if (!res.ok) throw new Error(`${path} ${res.status}`);
       return (await res.json()) as T;
@@ -207,6 +214,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
   const hubSamples: HubSample[] = [];
   const pageSamples: PageSample[] = [];
   const watch = new RuntimeWatch(hubPid);
+  const heap = new ObjectHeap(hubPid, () => {
+    fetch(`http://localhost:${opts.port}/v1/health`).catch(() => {});
+  });
   const pages = opts.full
     ? new SoakPages({
         site: opts.full.site,
@@ -257,7 +267,7 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
         const minute = sampled;
         try {
           hubSamples.push(
-            await sampleHub(opts.port, watch, minute, minute % CONSISTENT_EVERY === 0),
+            await sampleHub(opts.port, watch, heap, minute, minute % CONSISTENT_EVERY === 0),
           );
         } catch (e) {
           failures.push(`hub sample at minute ${minute}: ${String(e)}`);
@@ -290,11 +300,14 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     for (const life of pageLives)
       for (const e of life.errors) failures.push(`page ${life.page}: ${e}`);
     const stats = clients.map((c): LifeStats => c.stats);
-    const [dropped, audit, inconsistencies] = await Promise.all([
-      getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped'),
-      getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit'),
-      getJson<unknown[]>(opts.port, '/v1/e2e/consistency'),
-    ]);
+    // One at a time, the long check last: a meter read must not wait behind it.
+    const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
+    const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
+    const inconsistencies = await getJson<unknown[]>(
+      opts.port,
+      '/v1/e2e/consistency',
+      CONSISTENCY_WAIT_MS,
+    );
     const verified = await verifyProofs(
       opts.port,
       clients.map((c) => c.seen),
@@ -349,21 +362,29 @@ interface MetricsAnswer {
 async function sampleHub(
   port: number,
   watch: RuntimeWatch,
+  heap: ObjectHeap,
   minute: number,
   inconsistent: boolean,
 ): Promise<HubSample> {
+  // The process and the object's heap first: the consistency check below holds the hub's thread.
+  const proc = watch.now();
+  const heapBytes = await heap.now();
   const [metrics, audit, inconsistencies] = await Promise.all([
     getJson<MetricsAnswer>(port, '/v1/e2e/metrics'),
     getJson<{ day: Record<string, number> } | null>(port, '/v1/e2e/audit'),
     inconsistent
-      ? getJson<{ kind: string; detail?: string }[]>(port, '/v1/e2e/consistency')
+      ? getJson<{ kind: string; detail?: string }[]>(
+          port,
+          '/v1/e2e/consistency',
+          CONSISTENCY_WAIT_MS,
+        )
       : Promise.resolve(null),
   ]);
-  const proc = watch.now();
   return {
     minute,
     cpuMs: proc.cpuMs,
     rssBytes: proc.rssBytes,
+    heapBytes,
     messages: Object.values(metrics.today.byType).reduce((n, v) => n + v, 0),
     seated: metrics.live.seated,
     queued: metrics.live.queued,
