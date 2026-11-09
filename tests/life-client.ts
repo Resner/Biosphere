@@ -225,6 +225,8 @@ export class LifeClient {
   private busy = false;
   private readonly waiters: { t: LifeMsg['t']; resolve: (m: LifeMsg) => void }[] = [];
   private readonly reporter = new WhereReporter();
+  /** What the socket sent in the last 10 s (the hub's rate window), to say what a rate close was made of. */
+  private readonly recent: { at: number; type: string }[] = [];
   private peers: NearPeer[] = [];
   private leafValue: Extract<WorldMsg, { t: 'leaf' }>['leaf'] | null = null;
   private pending: Born | null = null;
@@ -377,7 +379,12 @@ export class LifeClient {
       onclose: null,
       onerror: null,
       send: (data) => {
-        bump(this.stats.sent, typeOf(data));
+        const type = typeOf(data);
+        bump(this.stats.sent, type);
+        const now = Date.now();
+        this.recent.push({ at: now, type });
+        while (this.recent.length > 0 && (this.recent[0]?.at ?? now) < now - 10_000)
+          this.recent.shift();
         raw.send(data);
       },
       close: () => raw.close(),
@@ -390,9 +397,22 @@ export class LifeClient {
     };
     raw.onclose = (ev) => {
       if (!this.stopped && this.hub !== null) bump(this.stats.closes, String(ev.code));
+      if (!this.stopped && this.hub !== null && ev.code === 4003)
+        this.errors.push(this.lastWindow());
       s.onclose?.(ev);
     };
     return s;
+  }
+
+  /** The last 10 s of sends by type, for the failure line of a rate close. */
+  private lastWindow(): string {
+    const from = Date.now() - 10_000;
+    const counts: Record<string, number> = {};
+    for (const m of this.recent) if (m.at >= from) bump(counts, m.type);
+    return `rate close after ${Object.entries(counts)
+      .sort((a, b) => b[1] - a[1])
+      .map(([k, n]) => `${k} ${n}`)
+      .join(', ')}`;
   }
 
   // ---- messages ----
