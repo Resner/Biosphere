@@ -11,13 +11,13 @@ export interface Capabilities {
 }
 
 /** A browser that offers everything. */
-export const ALL_CAPABILITIES: Capabilities = {
+export const ALL_CAPABILITIES: Capabilities = Object.freeze({
   webgl2: true,
   rtc: true,
   idb: true,
   ws: true,
   moduleWorker: true,
-};
+});
 
 /** Why a page shows the plain page instead of itself. */
 export type Unsupported = 'webgl2' | 'module-worker';
