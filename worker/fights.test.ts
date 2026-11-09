@@ -163,8 +163,9 @@ describe('the frame clock', () => {
       await nextOf(p.c, 'ack');
     }
     const [start] = await lockIn(a, b, snap(b, ...NEAR.b, FULL), snap(a, ...NEAR.a, FULL));
-    // B swims away west until one of them is out of the other's range; A idles.
-    const flee: Plan = () => [IDLE_CODE, drive(128, 15, { stance: 'evasive' })];
+    // B (east of A) swims away east until one of them is out of the other's range; A idles. West
+    // would take B through A, where some hatched bodies' contact ends the fight in a kill.
+    const flee: Plan = () => [IDLE_CODE, drive(0, 15, { stance: 'evasive' })];
     const played = await play(a, b, start, flee);
     expect(outcomes(played)).toEqual(['escaped', 'stood']);
     expect(await authority((o) => o.fights.timers())).toBe(0);

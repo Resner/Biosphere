@@ -47,6 +47,9 @@ function debugHelpers(app: App): BsDebug {
     app.field.now();
   };
   const debug: BsDebug = {
+    showCard() {
+      app.cardDue = app.session;
+    },
     guideReset() {
       app.guide.reset();
     },

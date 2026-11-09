@@ -325,6 +325,29 @@ body {
   animation: low-energy 1.1s ease-in-out infinite;
 }
 
+/* A damage hit cracks the health cross while its flash lasts (M14 T9): a shape, so the hit reads
+   with motion reduced too. */
+.stat .crack {
+  display: none;
+  fill: none;
+  stroke: var(--water);
+  stroke-width: 1.6;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.stat[data-hurt] .crack {
+  display: inline;
+}
+
+/* Low energy hollows the bolt (M14 T9): running empty is a shape as well as a pulse. */
+.stat[data-low] [data-glyph="bolt"] path {
+  fill: none;
+  stroke: currentcolor;
+  stroke-width: 1.7;
+  stroke-linejoin: round;
+}
+
 /* An old creature's life bar turns dashed, so the stage never rests on colour alone. */
 .stat[data-old] [data-bar="life"] {
   background: repeating-linear-gradient(90deg, #9aa5a3 0 4px, transparent 4px 7px);

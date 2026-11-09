@@ -361,16 +361,18 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Done: `controls.ts` (`CONTROLS`, with `after` for T then 1–6), `help-text.ts`, `help-panel.ts` (`Help` pure over a `HelpView`); each key handler exports its key list (`APP_KEYS`, `MOVE_KEYS`, `FIGHT_KEYS`, `WHEEL_KEYS`, `EMOTE_KEYS`) for the key-map test. "How to play" sits beside Hatch, hidden while T7's `title-help` shows.
   - Gotcha: the code reads `KeyboardEvent.key`, not `.code` as Out of scope says, so WASD follows the layout's letters; in play focus returns nowhere on close, so Space stays the dash.
 
-- [ ] T9 Colour never alone [opus] (after T7, T8)
+- [x] T9 Colour never alone [opus] (after T7, T8)
   - Steps:
     1. **The inventory** (`src/game/cue-channels.ts`): every cue that carries meaning on screen (the four bars, low energy, damage hits, the size outlines, the "F" glyph, the target ring, windups, blocks, the mate heart and "ready", pings, emotes, the egg's tier colours and the result card's stars, rarity on cards, depth zones on the gauge and the minimap, minimap players, the hazard icons, the witness mark, away fighters, the queue card, the status chip, the guide), each with its colours (the code constants it draws with) and its other channels: shape, pattern, icon, text, motion, position or sound.
-    2. **Second channels where only colour carries it.** At least: a small glyph at the left of each bar (a heart for health, a bolt for energy, outward arrows for size, an hourglass for life), drawn in SVG like the HUD's icons, within the HUD's 6%; and any cue the inventory finds with colour alone.
+    2. **Second channels where only colour carries it.** At least: a small glyph at the left of each bar (a cross for health, a bolt for energy, outward arrows for size, an hourglass for life; the health bar keeps its cross because the heart already means "ready to mate" on the chip beside the bars, in the edge marks and on the minimap), drawn in SVG like the HUD's icons, within the HUD's 6%; and any cue the inventory finds with colour alone.
     3. **Pairs that must stay apart** (`CONFUSABLE` in the same file): the bars' fills, low against normal energy, health against damage, each pair of ping kinds, each pair of rarity tiers, each pair of depth zones on the gauge. Each pair's colours keep a CIEDE2000 distance of at least 12 under protanopia, deuteranopia and tritanopia (Machado, Oliveira and Fernandes 2009, severity 1), or the pair differs in a non-colour channel and the test says so.
     4. DESIGN §10 (the bars' glyphs, the rule), `.claude/rules/game.md`.
   - Acceptance (tests first):
     - **Unit tests**: every cue in the inventory has a visual channel that isn't colour; every `CONFUSABLE` pair passes under the three simulations or names its other channel; the simulation leaves greys unchanged under all three deficiencies (within 0.5 of 255) and applies the paper's severity-1 matrices in linear light (sRGB decoded, then encoded), checked against three colours worked by hand in the test.
     - **`m14-colour.spec.ts`** (no hub, `?genome=` cells and `debug.setRemotes`): the HUD with low energy and a damage hit, a bigger and a smaller remote with their outlines, the minimap with each ping kind, a rare result card. Each screenshot is simulated under the three deficiencies in Node and attached beside the original (`m14-colour-*`); the bar glyphs are present; the HUD stays within 6% of the screen.
   - Notes: no colour-blind palette setting: every cue carries a second channel, which serves everyone. A colour may move only within DESIGN's look (the organ and glass colours are not cues and stay).
+  - Done: `cue-channels.ts` (29 cues, colours as the literals their files write; 12 `CONFUSABLE` pairs lean on glyphs, words, rings or order), `colour-vision.ts`; a hit cracks the health cross and low energy hollows the bolt, both still under Reduce motion; `debug.showCard()`.
+  - Gotcha: a hit's flash outlasts no screenshot, so `m14-colour` keeps the shot whose decoded health glyph wears #ff9a8a; `tests/e2e/png.ts` is a Node PNG codec for any spec that needs one.
 
 ### Balance
 
