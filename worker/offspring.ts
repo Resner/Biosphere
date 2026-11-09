@@ -11,7 +11,8 @@ import { rulesStatus } from '../src/ledger/registry';
 import type { Born } from '../src/net/protocol';
 import { sizeTier } from '../src/sim/size';
 import { auditMating } from './attest';
-import type { BirthChild, Head } from './ledger';
+import type { BirthChild, BirthInput, Head, MateResult } from './ledger';
+import type { SignedCommitment } from './beacons';
 import { type LifeState, recorded } from './life';
 import { askLive, type Court, mateRequests, refusalFor, scalesOf, viewOf } from './mating';
 import {
@@ -34,7 +35,8 @@ import { commitWitnesses } from './witness-pool';
 export async function deliverBirth(hub: Hub, commitId: string): Promise<void> {
   const commit = hub.beacons.commitment(commitId);
   if (commit?.commitment.kind !== 'mate') return;
-  const beacon = await hub.beacons.beaconFor(commitId);
+  // Marked resolved below, with the births (ADR 0076).
+  const beacon = await hub.beacons.beaconFor(commitId, () => false);
   if (!beacon) return;
   const { a: askA, b: askB } = commit.commitment.data as unknown as { a: MateAsk; b: MateAsk };
   const owners: [string, string] = [commit.commitment.owner, askA.partner];
@@ -53,7 +55,7 @@ export async function deliverBirth(hub: Hub, commitId: string): Promise<void> {
   const { children, slots } = offspringPair(randomnessOf(beacon), commitId, genomeA, genomeB);
   const generation = Math.max(headA.generation, headB.generation) + 1;
   const mateHashes: [string, string] = [mates[0].hash, mates[1].hash];
-  const result = hub.ledger.birth({
+  const birth: BirthInput = {
     commit: commitId,
     children: children.map((child, i) => {
       return {
@@ -71,6 +73,11 @@ export async function deliverBirth(hub: Hub, commitId: string): Promise<void> {
         condition: startOf('birth', child),
       };
     }) as [BirthChild, BirthChild],
+  };
+  // One transaction: the round's resolution and both births.
+  const result = hub.ledger.storage.transactionSync(() => {
+    hub.beacons.resolve(commitId);
+    return hub.ledger.birth(birth);
   });
   if (!result.ok || !result.fresh) return;
   // Its auditor recomputes both births (ADR 0058), now or once the witness round is in.
@@ -294,43 +301,29 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
     Date.now() - repeatWindowOf(scales),
   );
   const data = { a: court.ask, b: ask } as unknown as Canonical;
-  const commit = await hub.beacons.commit('mate', found.session.playerId, data);
-
-  // The network call let others in: read both sessions and their creatures again.
-  const [mine, theirs] = [sessionOf(ws), sessionOf(found.ws)];
-  if (mine?.phase !== 'active' || theirs?.phase !== 'active' || !mine.life || !theirs.life) {
-    return refuse('not-here');
+  const names: [string, string] = [found.session.name, me.name];
+  // The commitment and both mate-commits in one transaction (ADR 0076): a refusal or a wake leaves
+  // neither. The network call inside `commit` let others in, so `pairUp` reads both sessions again.
+  let made: Paired | null = null;
+  const pairUp = (c: SignedCommitment): void => {
+    made = pairNow(hub, ws, found.ws, court, ask, c, { prior, names });
+    if (!made.ok) throw new Unpaired();
+  };
+  try {
+    const commit = await hub.beacons.commit('mate', found.session.playerId, data, {
+      write: pairUp,
+    });
+    // An earlier call made the commitment: its mating is read (or written) on its own.
+    if (made === null) pairUp(commit);
+  } catch (error) {
+    if (!(error instanceof Unpaired)) throw error;
   }
-  const again = theirs.court;
-  // The same offer, and the same two creatures: a re-court, a decline or a death during the wait voids it.
-  if (!again || 'done' in again || again.sentAt !== court.sentAt) return refuse('no-court');
-  if (mine.life.creature !== ask.creature || theirs.life.creature !== court.ask.creature) {
-    return refuse('pair-mismatch');
+  const paired = made as Paired | null;
+  if (!paired?.ok) {
+    if (paired?.both) sendIfOpen(found.ws, { t: 'refused', reason: paired.reason });
+    return refuse(paired?.reason ?? 'not-here');
   }
-  const stale = mateRefusal(hub, mine, theirs);
-  if (stale) return refuse(stale);
-  const [headA, headB] = [
-    hub.ledger.head(theirs.life.creature),
-    hub.ledger.head(mine.life.creature),
-  ];
-  const [genomeA, genomeB] = [headA, headB].map((h) => (h ? genomeFromBase64url(h.genome) : null));
-  if (!headA || !headB || !genomeA || !genomeB) return refuse('unknown-creature');
-  const cooldown = cooldownOf(prior, scales);
-  const requests = mateRequests(
-    { id: commit.id, round: commit.commitment.round },
-    { head: headA, life: theirs.life, genome: genomeA },
-    { head: headB, life: mine.life, genome: genomeB },
-    cooldown,
-  );
-  const result = hub.ledger.mate({
-    commit: commit.id,
-    round: commit.commitment.round,
-    requests,
-  });
-  if (!result.ok) {
-    sendIfOpen(found.ws, { t: 'refused', reason: result.reason });
-    return refuse(result.reason);
-  }
+  const { commit, result, mine, theirs } = paired;
   const signed = signedOf(commit);
   const settle = (socket: WebSocket, s: ActiveSession, i: 0 | 1, court?: Court) => {
     const { body, t } = result.stored[i].record as { body: Record<string, number>; t: number };
@@ -364,6 +357,69 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
     resend(hub, ws, mine.life.creature, commit.id);
   }
   return true;
+}
+
+/** A mating's write refused inside the commitment's transaction, which rolls it back. */
+class Unpaired extends Error {}
+
+type Paired =
+  | {
+      ok: true;
+      commit: SignedCommitment;
+      result: MateResult & { ok: true };
+      mine: ActiveSession & { life: LifeState };
+      theirs: ActiveSession & { life: LifeState };
+    }
+  | { ok: false; reason: string; both?: boolean };
+
+/**
+ * Both sessions and their creatures as they are now, and their two `mate-commit` records written
+ * under `commit` (a refusal writes nothing). `ws` is the accepting player's socket, `courting` the
+ * courting player's, `court` the offer accepted and `ask` the acceptance.
+ */
+function pairNow(
+  hub: Hub,
+  ws: WebSocket,
+  courting: WebSocket,
+  court: { ask: MateAsk; sentAt: number },
+  ask: MateAsk,
+  commit: SignedCommitment,
+  { prior, names }: { prior: number; names: [string, string] },
+): Paired {
+  const [mine, theirs] = [sessionOf(ws), sessionOf(courting)];
+  if (mine?.phase !== 'active' || theirs?.phase !== 'active' || !mine.life || !theirs.life) {
+    return { ok: false, reason: 'not-here' };
+  }
+  const again = theirs.court;
+  // The same offer, and the same two creatures: a re-court, a decline or a death during the wait voids it.
+  if (!again || 'done' in again || again.sentAt !== court.sentAt) {
+    return { ok: false, reason: 'no-court' };
+  }
+  if (mine.life.creature !== ask.creature || theirs.life.creature !== court.ask.creature) {
+    return { ok: false, reason: 'pair-mismatch' };
+  }
+  const stale = mateRefusal(hub, mine, theirs);
+  if (stale) return { ok: false, reason: stale };
+  const [headA, headB] = [
+    hub.ledger.head(theirs.life.creature),
+    hub.ledger.head(mine.life.creature),
+  ];
+  const [genomeA, genomeB] = [headA, headB].map((h) => (h ? genomeFromBase64url(h.genome) : null));
+  if (!headA || !headB || !genomeA || !genomeB) return { ok: false, reason: 'unknown-creature' };
+  const requests = mateRequests(
+    { id: commit.id, round: commit.commitment.round },
+    { head: headA, life: theirs.life, genome: genomeA },
+    { head: headB, life: mine.life, genome: genomeB },
+    cooldownOf(prior, scalesOf(hub.env)),
+  );
+  const result = hub.ledger.mate({
+    commit: commit.id,
+    round: commit.commitment.round,
+    requests,
+    names,
+  });
+  if (!result.ok) return { ok: false, reason: result.reason, both: true };
+  return { ok: true, commit, result, mine: { ...mine, life: mine.life }, theirs: { ...theirs, life: theirs.life } };
 }
 
 /** Sends a player the commitment and their `mate-commit` record of an earlier mating again. */

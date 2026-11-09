@@ -21,6 +21,7 @@ import {
   LINEAGE_MAX,
   LINEAGE_MAX_BYTES,
   type LifeInfo,
+  type LifeMating,
   type LineageEntry,
   NAME_RE,
   type PastLife,
@@ -246,10 +247,12 @@ export function parseHubMsg(raw: string): HubMsg | null {
       const life = o.life === null ? null : lifeInfo(o.life);
       const pending = o.pending === undefined ? undefined : bornOf(o.pending);
       const fallback = o.fallback === undefined ? undefined : fallbackOf(o.fallback);
+      const mating = o.mating === undefined ? undefined : lifeMating(o.mating);
       if (!(o.life === null || life) || !isInt(o.genesisIn, 0, MAX_TIME) || pending === null) {
         return null;
       }
-      if (fallback === null || (o.renewed !== undefined && o.renewed !== true)) return null;
+      if (fallback === null || mating === null) return null;
+      if (o.renewed !== undefined && o.renewed !== true) return null;
       const fight = lifeFight(o);
       if (!fight) return null;
       return capped(
@@ -259,6 +262,7 @@ export function parseHubMsg(raw: string): HubMsg | null {
           life,
           genesisIn: o.genesisIn,
           ...(pending ? { pending } : {}),
+          ...(mating ? { mating } : {}),
           ...(fallback ? { fallback } : {}),
           ...(o.renewed ? { renewed: true as const } : {}),
           ...fight,
@@ -505,6 +509,14 @@ function fallbackOf(v: unknown): FallbackInfo | null {
   const life = lifeInfo(v.ancestor);
   return life && isObj(v.ancestor) && isStr(v.ancestor.hash, HEX64_RE)
     ? { pending: v.pending, ancestor: { ...life, hash: v.ancestor.hash } }
+    : null;
+}
+
+/** A `life`'s waiting mating (ADR 0076): exactly its commitment's id, a round and the partner's name. */
+function lifeMating(v: unknown): LifeMating | null {
+  if (!isObj(v) || !onlyKeys(v, ['commit', 'round', 'partner'])) return null;
+  return isStr(v.commit, HEX64_RE) && isInt(v.round, 1, MAX_TICK) && isStr(v.partner, NAME_RE)
+    ? { commit: v.commit, round: v.round, partner: v.partner }
     : null;
 }
 

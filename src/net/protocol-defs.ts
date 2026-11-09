@@ -255,6 +255,16 @@ export interface Born {
   mates: [StoredRecord, StoredRecord];
 }
 
+/**
+ * A mating committed to a round not yet published, as a sign-in hears it (ADR 0076): its
+ * commitment's id, the round and the partner's name at the commitment.
+ */
+export interface LifeMating {
+  commit: string;
+  round: number;
+  partner: string;
+}
+
 /** A finished life as the history lists it (ADR 0019); the species name is derived from the genome. */
 export interface PastLife {
   creature: string;
@@ -476,6 +486,8 @@ export type HubMsg =
       life: LifeInfo | null;
       genesisIn: number;
       pending?: Born;
+      /** A mating waiting for its round (ADR 0076): `born` follows when the round is published. */
+      mating?: LifeMating;
       /** With no active creature: what the player can fall back on. */
       fallback?: FallbackInfo;
       /** Once per returning identity: the world was renewed since it last played (ADR 0040). */

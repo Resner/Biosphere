@@ -137,7 +137,16 @@ export class Beacons {
     kind: string,
     owner: string,
     data: Canonical,
-    opts: { round?: (now: number) => number; key?: Canonical } = {},
+    opts: {
+      round?: (now: number) => number;
+      key?: Canonical;
+      /**
+       * What the new commitment brings with it, in the commitment's own transaction (ADR 0076: a
+       * genesis's hatch, a mating's two records): if it throws, nothing is written. It is not run
+       * for a commitment an earlier call made.
+       */
+      write?: (made: SignedCommitment) => void;
+    } = {},
   ): Promise<SignedCommitment> {
     const req = requestKey(kind, owner, opts.key ?? data);
     const known = this.byReq(req);
@@ -171,7 +180,9 @@ export class Beacons {
         keyId,
         now,
       );
-      return { commitment, id, authSig, keyId, status: 'awaiting' as const };
+      const made = { commitment, id, authSig, keyId, status: 'awaiting' as const };
+      opts.write?.(made);
+      return made;
     });
     if (out.status === 'awaiting') this.pendingSet().set(out.id, out.commitment.round);
     await this.deps.rearm();
@@ -209,18 +220,32 @@ export class Beacons {
     return row ? statusOf(row.resolved) : null;
   }
 
-  /** The commitment's beacon once its round is published; null while it is not (or unknown). */
-  async beaconFor(id: string): Promise<Beacon | null> {
-    const row = this.run('SELECT round, resolved FROM commitments WHERE id = ?', id)[0];
+  /**
+   * The commitment's beacon once its round is published; null while it is not (or unknown). It
+   * marks the commitment resolved unless `mark` says no for its kind: a genesis or a mating is
+   * marked in the transaction that writes what it resolves to (`resolve`, ADR 0076), so a wake
+   * between the two never leaves a published round with nothing written and nothing waiting.
+   */
+  async beaconFor(id: string, mark: (kind: string) => boolean = () => true): Promise<Beacon | null> {
+    const row = this.run('SELECT kind, round, resolved FROM commitments WHERE id = ?', id)[0];
     if (!row) return null;
     const round = row.round as number;
     if (row.resolved === null && roundTime(round) > this.deps.source.now()) return null;
     const beacon = await this.get(round);
-    if (beacon && row.resolved === null) {
-      this.run('UPDATE commitments SET resolved = ? WHERE id = ?', this.deps.source.now(), id);
-      this.pendingSet().delete(id);
-    }
+    if (beacon && row.resolved === null && mark(row.kind as string)) this.resolve(id);
+    // Marked by its writer since it was last due: no longer waited on.
+    if (beacon && row.resolved !== null) this.pendingSet().delete(id);
     return beacon;
+  }
+
+  /** Marks a commitment resolved (once): its round is published and what it resolves to is written. */
+  resolve(id: string): void {
+    this.run(
+      'UPDATE commitments SET resolved = ? WHERE id = ? AND resolved IS NULL',
+      this.deps.source.now(),
+      id,
+    );
+    this.pendingSet().delete(id);
   }
 
   pending(): number {
@@ -236,8 +261,11 @@ export class Beacons {
     return Date.now() + Math.max(0, due - this.deps.source.now());
   }
 
-  /** Resolves every pending commitment whose round the network now serves, and returns their ids. */
-  async alarm(): Promise<string[]> {
+  /**
+   * Resolves every pending commitment whose round the network now serves, and returns their ids.
+   * A kind `mark` refuses is only fetched: its caller marks it (`resolve`) with what it writes.
+   */
+  async alarm(mark: (kind: string) => boolean = () => true): Promise<string[]> {
     const current = roundAt(this.deps.source.now());
     const due = [...this.pendingSet()].filter(([, round]) => round <= current);
     due.sort((a, b) => a[1] - b[1]);
@@ -246,7 +274,7 @@ export class Beacons {
     const resolved: string[] = [];
     for (const [id, round] of due) {
       if (failed.has(round)) continue;
-      if (await this.beaconFor(id)) resolved.push(id);
+      if (await this.beaconFor(id, mark)) resolved.push(id);
       else failed.add(round);
     }
     if (failed.size === 0) {
