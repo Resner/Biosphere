@@ -1,3 +1,4 @@
+import type { CspViolation } from '../game/csp-watch';
 import type { RarityTier } from '../genome/rarity';
 import type { LineageReport } from '../ledger/verify';
 import type { CardStatus } from './card';
@@ -55,6 +56,8 @@ export interface CardState {
    * and `loaded` (false for an ancestor the proof left out, until its Load joins it).
    */
   graph: GraphNodeState[];
+  /** The Content-Security-Policy violations seen on this page (M14 T16), oldest first. */
+  csp: CspViolation[];
 }
 
 export interface CardHook {

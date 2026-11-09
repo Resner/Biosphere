@@ -35,6 +35,9 @@ const AUDIT_MAX_AGE = 300;
 /** `GET /v1/metrics` is the same for everyone for a minute. */
 const METRICS_MAX_AGE = 60;
 
+/** The longest path the Worker reads: a proof's is 74 characters. Anything longer is refused unread. */
+const MAX_PATH = 128;
+
 const authority = (env: Env) => env.AUTHORITY.get(env.AUTHORITY.idFromName('global'));
 
 /** The CORS headers a public read answers with for its request's origin, or the 403 for a foreign one. */
@@ -152,6 +155,7 @@ function hub(request: Request, env: Env): Response | Promise<Response> {
 export default {
   fetch(request: Request, env: Env): Response | Promise<Response> {
     const { pathname } = new URL(request.url);
+    if (pathname.length > MAX_PATH) return json({ error: 'path' }, 414);
     const origin = request.headers.get('Origin');
     if (pathname === '/v1/health') {
       return publicJson(origin, () => ({

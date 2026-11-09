@@ -164,8 +164,8 @@ Four secrets and two variables, all under GitHub → Settings → Secrets and va
 
 ## Data
 
-- **What the authority keeps**: identities (a public key and a name), the signed records of every creature, commitments and beacons, fight settlements, flags and attestations, and a usage meter per day. Records, commitments, beacons, settlements and flags are kept for good (lineages are permanent). A fight's log is kept 14 days; after that only its signed settlement remains.
-- What players are told about this data is the privacy notice that M14 T16 writes; link it here then.
+- **What the authority keeps**: identities (a public key), the signed records of every creature, commitments and beacons, fight settlements, flags and attestations, and a usage meter per day. Records, commitments, beacons, settlements and flags are kept for good (lineages are permanent). A fight's log is kept 14 days; after that only its signed settlement remains.
+- What players are told about this data, table by table, is the privacy notice: `docs/PRIVACY.md`. A change to what the authority or the page stores changes it in the same PR (`tools/privacy.test.ts` checks it).
 - **What a lost object would cost**: everything. There is no restore path in v1.0: no backup, no export. Cloudflare keeps the object's storage durable; do not delete the Worker or its object in the dashboard, and do not deploy a Worker with another object class name or migration tag.
 - A creature's lineage can still be shown from a saved proof bundle (`npm run verify:lineage`), which is checked without the authority.
 
