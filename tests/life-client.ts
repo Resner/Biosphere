@@ -43,7 +43,7 @@ import { TICK_HZ } from '../src/sim/rules';
 import { step } from '../src/sim/step';
 import type { CreatureState, DeathCause, World } from '../src/sim/types';
 import { createWorld, spawnCreature } from '../src/sim/world';
-import { Forager } from './life-policy';
+import { Forager, type Goal } from './life-policy';
 
 /** The hub counts condition in hundredths. */
 const HUNDREDTHS = 100;
@@ -153,13 +153,12 @@ export interface LifeStats {
   promotes: number;
   restores: number;
   fights: number;
+  /** Lives that ended with the hub's word that this client had been killed. */
   kills: number;
   drops: number;
   limited: number;
   courts: number;
   engages: number;
-  /** Lives that ended with the hub's word that this client had been killed. */
-  killed: number;
 }
 
 /** The seed of the `index`th client's identity: the same every run. */
@@ -182,9 +181,8 @@ interface Swimmer {
   world: World;
   me: CreatureState;
   policy: Forager;
-  genome: ReturnType<typeof genomeFromBase64url>;
-  maxBiomass: number;
-  lifespanMs: number;
+  /** The least biomass (wu) from which it may mate. */
+  matureBiomass: number;
   ref: number;
   /** The world tick of the hatch, from which the ticks are counted. */
   startTick: number;
@@ -213,7 +211,6 @@ export class LifeClient {
     limited: 0,
     courts: 0,
     engages: 0,
-    killed: 0,
   };
 
   private readonly rng;
@@ -427,7 +424,7 @@ export class LifeClient {
         break;
       case 'died':
         bump(this.stats.deaths, m.cause);
-        if (m.cause === 'killed') this.stats.killed++;
+        if (m.cause === 'killed') this.stats.kills++;
         this.pending = m.fallback?.pending ? this.pending : null;
         break;
       default:
@@ -438,10 +435,9 @@ export class LifeClient {
   }
 
   private onWorld(m: WorldMsg): void {
-    if (m.t === 'leaf') {
-      this.leafValue = m.leaf;
-    } else if (m.t === 'near') {
-      this.leafValue = m.leaf;
+    if (m.t === 'instance') return;
+    this.leafValue = m.leaf;
+    if (m.t === 'near') {
       this.peers = m.peers;
       for (const p of m.peers) this.names.set(p.id, p.name);
     }
@@ -517,14 +513,12 @@ export class LifeClient {
           this.child = false;
           if (outcome.kind === 'recorded') this.stats.restores++;
         } else {
-          const before = flow.view().inFlight;
           this.child = false;
           outcome = await flow.hatch(WAIT_MS);
           if (outcome.kind === 'recorded') {
             if (outcome.start.seq === 0 && outcome.protect) this.stats.hatches++;
             else this.stats.resumes++;
           }
-          void before;
         }
         if (outcome.kind === 'practice') {
           this.stats.limited++;
@@ -555,7 +549,7 @@ export class LifeClient {
     hub.send({ t: 'spawn', r: 10, aoi: AOI });
     const spawn = await answer;
     if (spawn?.t !== 'spawn' || this.hub !== hub) return false;
-    const { phys, stats } = buildCreature(genome);
+    const { phys } = buildCreature(genome);
     const world = createWorld({ seed: welcome.world.seed, size: welcome.world.size });
     world.tick = hub.clock.pondTick(this.now(), welcome.world.epoch);
     const me = spawnCreature(world, {
@@ -575,16 +569,13 @@ export class LifeClient {
       world,
       me,
       policy: new Forager(this.opts.index),
-      genome,
-      maxBiomass: phys.maxBiomass,
-      lifespanMs: 0,
+      matureBiomass: matureBiomassOf(genome, this.opts.scales) / HUNDREDTHS,
       ref: genomeRefOf(genomeHash(genome)),
       startTick: world.tick,
       nextReport: FIRST_REPORT_TICKS,
       seq: 0,
       phys,
     };
-    void stats;
     this.nextSnapAt = 0;
     this.huntAgainAt = this.now() + HUNT_GAP_MS * this.rng.next();
     return true;
@@ -615,16 +606,14 @@ export class LifeClient {
     const flow = this.flow;
     if (!swim || !flow || !this.identity || flow.state !== 'playing' || !swim.me.alive) return null;
     const v = flow.view();
-    const clock = flow.clock(this.ticksNow(), swim.me.biomass, swim.maxBiomass, 0);
+    const clock = flow.clock(this.ticksNow(), swim.me.biomass, swim.phys.maxBiomass, 0);
     return {
       creature: v.creature as string,
       owner: this.identity.playerId,
       active: true,
       activeMs: clock?.activeMs ?? v.activeMs,
       matureAtMs: v.matureAtMs,
-      matureBiomass:
-        matureBiomassOf(swim.genome as NonNullable<Swimmer['genome']>, this.opts.scales) /
-        HUNDREDTHS,
+      matureBiomass: swim.matureBiomass,
       cooldownUntilMs: v.cooldownUntilMs,
       biomass: swim.me.biomass,
       energy: swim.me.energy,
@@ -650,48 +639,46 @@ export class LifeClient {
   }
 
   private async loopOnce(): Promise<void> {
-    {
-      const t = this.now();
-      if (this.reconnectAt !== null && t >= this.reconnectAt) {
-        this.reconnectAt = null;
-        await this.connect();
-        await this.live();
-        return;
+    const t = this.now();
+    if (this.reconnectAt !== null && t >= this.reconnectAt) {
+      this.reconnectAt = null;
+      await this.connect();
+      await this.live();
+      return;
+    }
+    // A client the hub would not give a creature (a hatch it refused) asks again now and then.
+    if (this.hub && !this.swim && !this.entering && t >= this.retryAt) {
+      this.retryAt = t + RETRY_MS;
+      await this.live();
+      return;
+    }
+    if (!this.hub || !this.swim || this.entering) return;
+    if (t >= this.dropAt) {
+      this.drop();
+      return;
+    }
+    const flow = this.flow as LifeFlow;
+    if (flow.state === 'dead') {
+      this.swim = null;
+      this.opts.bus.hunt(this.identity?.playerId ?? '', null);
+      this.hub.send({ t: 'gone' });
+      await sleep(1000 + this.rng.next() * 2000);
+      await this.live();
+      return;
+    }
+    this.play(t);
+    if (this.promoteAt !== null && t >= this.promoteAt && this.pending && !this.fight) {
+      this.promoteAt = null;
+      const born = this.pending;
+      this.swim = null;
+      this.hub.send({ t: 'gone' });
+      const outcome = await flow.promote(born);
+      if (outcome.kind === 'recorded') {
+        this.stats.promotes++;
+        this.child = true;
+        if (await this.enterWater(outcome.start)) return;
       }
-      // A client the hub would not give a creature (a hatch it refused) asks again now and then.
-      if (this.hub && !this.swim && !this.entering && t >= this.retryAt) {
-        this.retryAt = t + RETRY_MS;
-        await this.live();
-        return;
-      }
-      if (!this.hub || !this.swim || this.entering) return;
-      if (t >= this.dropAt) {
-        this.drop();
-        return;
-      }
-      const flow = this.flow as LifeFlow;
-      if (flow.state === 'dead') {
-        this.swim = null;
-        this.opts.bus.hunt(this.identity?.playerId ?? '', null);
-        this.hub.send({ t: 'gone' });
-        await sleep(1000 + this.rng.next() * 2000);
-        await this.live();
-        return;
-      }
-      this.play(t);
-      if (this.promoteAt !== null && t >= this.promoteAt && this.pending && !this.fight) {
-        this.promoteAt = null;
-        const born = this.pending;
-        this.swim = null;
-        this.hub.send({ t: 'gone' });
-        const outcome = await flow.promote(born);
-        if (outcome.kind === 'recorded') {
-          this.stats.promotes++;
-          this.child = true;
-          if (await this.enterWater(outcome.start)) return;
-        }
-        await this.live();
-      }
+      await this.live();
     }
   }
 
@@ -707,8 +694,9 @@ export class LifeClient {
       this.fightInputs(t);
     } else {
       if (swim.world.tick < target - 4 * CATCH_UP_TICKS) swim.world.tick = target - CATCH_UP_TICKS;
+      const goal = this.goal(t);
       for (let n = 0; n < CATCH_UP_TICKS && swim.world.tick < target && swim.me.alive; n++) {
-        step(swim.world, { me: swim.policy.input(swim.world, swim.me, this.goal(t)) });
+        step(swim.world, { me: swim.policy.input(swim.world, swim.me, goal) });
         if (mate.takeCost()) applyLife(swim.world, 'me', 'mate');
         if (swim.world.tick - swim.startTick >= swim.nextReport) {
           swim.nextReport = swim.world.tick - swim.startTick + REPORT_EVERY_TICKS;
@@ -764,7 +752,7 @@ export class LifeClient {
 
   // ---- the social part: courts, accepts and fights ----
 
-  private goal(t: number): { x: number; y: number; dashFrom?: number } | null {
+  private goal(t: number): Goal | null {
     if (t >= this.huntUntil || this.fight) return null;
     const mine = (this.identity as Identity).playerId;
     let best: { x: number; y: number } | null = null;

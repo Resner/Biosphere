@@ -35,7 +35,7 @@ export interface Goal {
 export class Forager {
   private target: { x: number; y: number } | null = null;
   private flee: { x: number; y: number } | null = null;
-  private wander = 0;
+  private wander: number;
 
   constructor(private readonly salt: number) {
     this.wander = (hashU32(salt, 1) % 628) / 100;

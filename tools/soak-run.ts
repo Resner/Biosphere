@@ -143,7 +143,7 @@ export async function runSoak(opts: SoakOptions): Promise<Soak> {
   const persist = await mkdtemp(join(tmpdir(), 'bs-soak-'));
   const hub = await startHub(opts, persist);
   try {
-    return await drive(opts, persist);
+    return await drive(opts);
   } finally {
     stop(hub, 'SIGINT');
     await sleep(500);
@@ -155,7 +155,7 @@ export async function runSoak(opts: SoakOptions): Promise<Soak> {
 const getJson = <T>(port: number, path: string): Promise<T> =>
   fetchJson(`http://localhost:${port}${path}`) as Promise<T>;
 
-async function drive(opts: SoakOptions, _persist: string): Promise<Soak> {
+async function drive(opts: SoakOptions): Promise<Soak> {
   const log = opts.log ?? (() => {});
   const bus = new SnapBus();
   const clients: LifeClient[] = [];
@@ -191,7 +191,7 @@ async function drive(opts: SoakOptions, _persist: string): Promise<Soak> {
       await sleep(Math.min(30_000, end - Date.now()));
       const t = sum(clients.map((c) => c.stats));
       log(
-        `matings ${t.matings ?? 0}, births ${t.births ?? 0}, fights ${t.fights ?? 0}, killed ${t.killed ?? 0}, restores ${t.restores ?? 0}, drops ${t.drops ?? 0}`,
+        `matings ${t.matings ?? 0}, births ${t.births ?? 0}, fights ${t.fights ?? 0}, kills ${t.kills ?? 0}, restores ${t.restores ?? 0}, drops ${t.drops ?? 0}`,
       );
     }
     for (const [i, c] of clients.entries()) {
@@ -207,9 +207,7 @@ async function drive(opts: SoakOptions, _persist: string): Promise<Soak> {
       opts.port,
       clients.map((c) => c.seen),
     );
-    const totals = sum(
-      stats.map((s) => ({ ...s, kills: s.killed }) as unknown as Record<string, number>),
-    );
+    const totals = sum(stats);
     return {
       config: { clients: opts.clients, minutes: opts.minutes },
       entered,
