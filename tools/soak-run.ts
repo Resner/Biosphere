@@ -157,6 +157,12 @@ async function startHub(opts: SoakOptions, persist: string): Promise<ChildProces
 }
 
 export async function runSoak(opts: SoakOptions): Promise<Soak> {
+  // A hub left over from an earlier run would answer in this run's place, with its own day's meter.
+  const taken = await fetch(`http://localhost:${opts.port}/v1/health`).then(
+    (r) => r.ok,
+    () => false,
+  );
+  if (taken) throw new Error(`port ${opts.port} already answers: stop the old hub first`);
   const persist = await mkdtemp(join(tmpdir(), 'bs-soak-'));
   const hub = await startHub(opts, persist);
   try {

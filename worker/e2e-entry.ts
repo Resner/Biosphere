@@ -178,7 +178,16 @@ export class Authority extends LiveAuthority {
 
   /** The invariants every interrupted transaction must leave, for a scenario or a soak to read (M14 T13); empty when they hold. */
   consistency(): Inconsistency[] {
-    return consistent(this);
+    // The check reads every creature's chain: it is the test's own look, and must not spend the plan's
+    // rows-read allowance that the soak measures (and whose 90% guard closes the line). It never awaits,
+    // so nothing else counts rows while it runs.
+    const before = { ...this.rowCount };
+    try {
+      return consistent(this);
+    } finally {
+      this.rowCount.read = before.read;
+      this.rowCount.written = before.written;
+    }
   }
 
   /** An event's witnesses for a scenario to wait on (M10 T4); null without a witness commitment. */
