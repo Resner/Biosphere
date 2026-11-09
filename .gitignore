@@ -13,3 +13,4 @@ playwright-report/
 blob-report/
 .wrangler/
 *.tsbuildinfo
+ops/

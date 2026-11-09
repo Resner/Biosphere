@@ -84,6 +84,8 @@ The free plan stops at its daily limits instead of billing you, and the game que
 
 To go back, delete the variable (or set it to `free`) before you downgrade the plan, and redeploy.
 
+Once players use the game, `docs/OPERATIONS.md` is the runbook: what to watch (`npm run ops:watch`), what to do in each incident, rotating these secrets and the playtest checklist.
+
 ## What only you provide
 
 - **Playtests.** Each release opens a `Playtest: v…` issue with the Pages link and what to check. Milestones marked `gate` in the roadmap wait for your reply; reply with what you found, or just "go".

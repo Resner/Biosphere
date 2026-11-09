@@ -15,6 +15,7 @@
     "report:combat": "node tools/combat.mjs",
     "report:storage": "node tools/storage.mjs",
     "report:capacity": "node tools/capacity.mjs",
+    "ops:watch": "node tools/ops-watch.mjs",
     "report:hub": "node tools/hub.mjs",
     "load:hub": "node tools/load-hub.mjs",
     "report:farm": "node tools/farm.mjs",
