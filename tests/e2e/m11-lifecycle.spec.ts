@@ -69,6 +69,23 @@ async function audited(pages: Page[], kind: string): Promise<void> {
     .toBe(true);
 }
 
+/**
+ * Keeps a page's creature fed and whole. B and D idle by the spawn through the whole scenario
+ * (nothing is ever eaten there), and on a slow runner the fight's retries outlast a starter's
+ * energy (120 at a 0.8/s basal, then 8 hp/s): E2E main saw B draw no swarm for 60 s because D,
+ * the swarm, was dead. Never given to a fighter: it would mend the wear a fight waits for.
+ */
+const keepAlive = (page: Page) =>
+  page.evaluate(() => {
+    const debug = (window.__bs as BsHook).debug;
+    const mend = () => {
+      debug?.setEnergy(Number.MAX_SAFE_INTEGER);
+      debug?.setHealth(Number.MAX_SAFE_INTEGER);
+    };
+    mend();
+    window.setInterval(mend, 2000);
+  });
+
 /** Every second a page samples its links: the most it held at once, and the most of those beyond P0 and P1. */
 const sampleLinks = (page: Page) =>
   page.evaluate(() => {
@@ -165,6 +182,7 @@ test('four players find each other across a world, fight a witnessed fight 30,00
     await Promise.all([hatch(c), hatch(d)]);
     await Promise.all([hatch(a), hatch(b)]);
     for (const page of pages) await sampleLinks(page);
+    for (const page of [b, d]) await keepAlive(page);
     const ids = await Promise.all(pages.map(async (p) => (await state(p)).playerId as string));
     const [idA, idB, idC, idD] = ids as [string, string, string, string];
 
@@ -296,7 +314,23 @@ test('four players find each other across a world, fight a witnessed fight 30,00
         timeout: 60_000,
         intervals: [250],
       })
-      .toBeGreaterThanOrEqual(1);
+      .toBeGreaterThanOrEqual(1)
+      .catch(async (error) => {
+        const views = await Promise.all(
+          [b, d].map(async (p) => {
+            const s = await state(p);
+            return { player: s.player, life: s.life, net: s.net.links.length };
+          }),
+        );
+        const members = (await directory(request, HUB)).members.map((m) => ({
+          id: m.id.slice(0, 4),
+          x: Math.round(m.x),
+          y: Math.round(m.y),
+        }));
+        throw new Error(`B draws D as a swarm: ${JSON.stringify({ views, members })}`, {
+          cause: error,
+        });
+      });
     // Once D's page has B's new size, the pair is two tiers apart and the link stays closed: B's
     // last tick with a link to D is 10 s of its ticks behind it. (A link may flap while the news
     // of B's size is still on its way to D.)
