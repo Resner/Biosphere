@@ -21,6 +21,7 @@ import {
   snap,
   useFightHub,
 } from './fight-test-kit';
+import { consistent } from './interrupt-kit';
 import { must } from './ledger-test-kit';
 import { breed, grower, promote, restore } from './lineage-test-kit';
 import { clearance } from './placement';
@@ -180,6 +181,20 @@ describe('answers', () => {
     await nextOf(b.c, 'lock-ask');
     a.c.send({ t: 'spawn', ...STARTER });
     expect(await nextOf(a.c, 'refused')).toEqual({ t: 'refused', reason: 'spawn' });
+  });
+
+  it('refuses a `spawn` from a creature whose life is over, and leaves nobody ashore', async () => {
+    const a = await hatched();
+    a.c.send({ t: 'death', cause: 'toxin', ticks: 0 });
+    await nextOf(a.c, 'died');
+    a.c.send({ t: 'spawn', ...STARTER });
+    expect(await nextOf(a.c, 'refused')).toEqual({ t: 'refused', reason: 'spawn' });
+    expect(await authority((o) => o.directory.member(a.id.playerId))).toBeNull();
+    // The hatched fixture's chain has no records, which `consistent` also reports: only the water's invariants are asked.
+    const broken = await authority((o) => consistent(o, [a.id.playerId]));
+    expect(
+      broken.filter((b) => ['ashore', 'directory', 'session-creature'].includes(b.kind)),
+    ).toEqual([]);
   });
 
   it('places an unrecorded cell by the radius and AoI it states, unprotected', async () => {

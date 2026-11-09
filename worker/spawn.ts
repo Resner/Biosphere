@@ -102,7 +102,8 @@ export function spawn(
   session: ActiveSession,
   msg: ClientMsg & { t: 'spawn' },
 ): void {
-  if (hub.fights.playerLocked(session.playerId)) {
+  // A creature whose life is over leaves the water (`ashore`): a `spawn` that crossed its death on the wire finds nothing to place.
+  if (session.life?.over || hub.fights.playerLocked(session.playerId)) {
     sendIfOpen(ws, { t: 'refused', reason: 'spawn' });
     return;
   }
