@@ -78,7 +78,7 @@ describe('GET /v1/proof and /v1/fight, with every socket closed', () => {
     expect(bundle.subject).toBe(h.a1);
     expect(bundle.creatures.map((c) => c.id)).toEqual([h.a1, ...[h.a0, h.b0].sort()]);
     expect(bundle.more).toEqual([]);
-    expect(bundle.world).toMatchObject({ epoch: 4, rules: RULES_VERSION });
+    expect(bundle.world).toMatchObject({ epoch: 5, rules: RULES_VERSION });
     expect(bundle.world.scales.mating).toBe(0.01);
     expect(bundle.settlements.map((s) => s.settlement.enc)).toEqual([h.enc]);
 

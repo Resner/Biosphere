@@ -7,13 +7,13 @@ import { FIRST_LIVE_RULES, REGISTRY, type RulesPart, rulesProblem, rulesStatus }
 const PARTS: RulesPart[] = ['genesis', 'inherit', 'body', 'life', 'mating', 'encounter'];
 
 describe('the rules registry', () => {
-  it('starts the live world at rules 12', () => {
-    expect(FIRST_LIVE_RULES).toBe(12);
+  it('starts the permanent world at rules 13, epoch 5 (ADR 0074)', () => {
+    expect(FIRST_LIVE_RULES).toBe(13);
     expect(REGISTRY).toEqual([
       {
-        rules: 12,
-        epoch: 4,
-        since: { genesis: 12, inherit: 12, body: 12, life: 12, mating: 12, encounter: 12 },
+        rules: 13,
+        epoch: 5,
+        since: { genesis: 13, inherit: 13, body: 13, life: 13, mating: 13, encounter: 13 },
       },
     ]);
   });
@@ -44,17 +44,18 @@ describe('the rules registry', () => {
 
   it('answers retired below the first live version, live for an entry and unknown past them', () => {
     expect(rulesStatus(11)).toBe('retired');
+    expect(rulesStatus(12)).toBe('retired');
     expect(rulesStatus(0)).toBe('retired');
-    expect(rulesStatus(12)).toBe('live');
-    expect(rulesStatus(13)).toBe('unknown');
-    for (const junk of [Number.NaN, 12.5, -1, Number.POSITIVE_INFINITY]) {
+    expect(rulesStatus(13)).toBe('live');
+    expect(rulesStatus(14)).toBe('unknown');
+    for (const junk of [Number.NaN, 13.5, -1, Number.POSITIVE_INFINITY]) {
       expect(rulesStatus(junk), String(junk)).not.toBe('live');
     }
   });
 
   it('turns a status into the problem a check names', () => {
-    expect(rulesProblem(11)).toBe('rules-retired');
-    expect(rulesProblem(12)).toBeNull();
-    expect(rulesProblem(13)).toBe('rules-unknown');
+    expect(rulesProblem(12)).toBe('rules-retired');
+    expect(rulesProblem(13)).toBeNull();
+    expect(rulesProblem(14)).toBe('rules-unknown');
   });
 });

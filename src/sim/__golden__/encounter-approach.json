@@ -1,6 +1,6 @@
 {
   "log": {
-    "rules": 12,
+    "rules": 13,
     "start": {
       "id": "enc-golden-approach",
       "pondSeed": "golden-approach",
@@ -145,7 +145,7 @@
       [0, 0]
     ]
   },
-  "hash": "721fca6712850495",
+  "hash": "e428b4d6adab685d",
   "results": [
     {
       "outcome": "stood",

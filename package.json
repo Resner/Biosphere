@@ -27,6 +27,7 @@
     "report:budget": "node tools/budget-report.mjs",
     "specimens": "node tools/specimens.mjs",
     "record:drand": "node tools/record-drand.mjs",
+    "goldens:manifest": "node tools/goldens.mjs",
     "build": "vite build",
     "preview": "vite preview",
     "check": "biome check . && tsc --noEmit && tsc --noEmit -p worker && vitest run --tags-filter='!heavy'",

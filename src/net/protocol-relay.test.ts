@@ -25,11 +25,12 @@ const relay = { links: 3, relayed: 1, kb: 120 };
 const client = (m: unknown) => parseClientMsg(JSON.stringify(m));
 const hub = (m: unknown) => parseHubMsg(JSON.stringify(m));
 
-describe('protocol 13', () => {
-  it('is version 13: a protocol-12 hello parses to null', () => {
-    expect(PROTOCOL_VERSION).toBe(13);
+describe('protocol 14', () => {
+  it('is version 14: a protocol-13 hello parses to null', () => {
+    expect(PROTOCOL_VERSION).toBe(14);
     const hello = { t: 'hello', playerId: 'A'.repeat(43), name: 'Alice_9', sig: 'c'.repeat(86) };
-    expect(client({ ...hello, v: 13 })).not.toBeNull();
+    expect(client({ ...hello, v: 14 })).not.toBeNull();
+    expect(client({ ...hello, v: 13 })).toBeNull();
     expect(client({ ...hello, v: 12 })).toBeNull();
   });
 

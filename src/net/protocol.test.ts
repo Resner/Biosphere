@@ -494,8 +494,10 @@ describe('rejections', () => {
     // settlements and proxy frames (version 8, M8 T3) and the second world renewal (version 9,
     // M9 T2), witnesses (version 10, M10 T2), the one world (version 11, M11 T2) and spawning,
     // riding and crowd instances (version 12, M12 T1), and relay reports and the line's reason
-    // (version 13, M13 T4): older clients are turned away.
-    expect(PROTOCOL_VERSION).toBe(13);
+    // (version 13, M13 T4), and the last world renewal (version 14, M14 T1, ADR 0074): older
+    // clients are turned away.
+    expect(PROTOCOL_VERSION).toBe(14);
+    expect(bad({ ...hello, v: 13 })).toBeNull();
     expect(bad({ ...hello, v: 12 })).toBeNull();
     expect(bad({ ...hello, v: 11 })).toBeNull();
     expect(bad({ ...hello, v: 10 })).toBeNull();
