@@ -162,6 +162,9 @@ async function gone(page: Page, step: GuideStep, keep: Keep = {}): Promise<void>
 
 /** Screenshots at 960 × 540 and 390 × 844, with the line whole on one line and inside the screen. */
 async function shoot(page: Page, name: string): Promise<void> {
+  // Two resizes and two software-rendered screenshots can outlast a step's 6 s show on a loaded
+  // runner: the loop's clock (the guide's too) stands still while the line is judged.
+  await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(0));
   for (const [width, height] of [
     [960, 540],
     [390, 844],
@@ -211,6 +214,7 @@ async function shoot(page: Page, name: string): Promise<void> {
     await page.screenshot({ path: `test-results/m14-guide-${name}-${width}.png` });
   }
   await page.setViewportSize({ width: 960, height: 540 });
+  await page.evaluate(() => (window.__bs as BsHook).debug?.timeScale(1));
 }
 
 test('a newcomer is told to swim, eat, dash, keep clear and eat when hungry, once per browser @slow', async ({
