@@ -208,7 +208,9 @@ test('a crashed tab resumes its genesis, its mating, its promotion, its death an
     await a.waitForFunction(() => window.__bs?.state().egg.shown === true);
     const paid = await bs(a);
     expect(paid.life.creature).toBe(a0);
-    expect(Math.abs((paid.player?.biomass ?? 0) - 0.85 * before)).toBeLessThanOrEqual(1);
+    // Paid once: 85% of before. The hub charges its own biomass, which grew a little since the last
+    // report, so allow 3% (a second payment would leave 72%).
+    expect(Math.abs((paid.player?.biomass ?? 0) - 0.85 * before)).toBeLessThanOrEqual(0.03 * before);
     await expect(a.getByTestId('mate-hint')).toHaveText('Awaiting beacon');
     await attach(a, 'mating');
     // The round comes: `born` reveals the child to both, and B never saw anything wrong.
