@@ -32,8 +32,8 @@ const CENTRE = 131_072;
 /** How far from the centre the pages swim, well outside the clients' wandering. */
 const APART_WU = 40_000;
 const MINUTE_MS = 60_000;
-/** Flag kinds an honest page raises now and then, which the check leaves out. */
-const PLAUSIBILITY = new Set(['health-over', 'energy-over', 'biomass-over-max']);
+/** The one flag kind the check leaves out: a pond this small has no witness pool to audit with. */
+const NOT_A_FAULT = 'authority-only';
 
 test.describe.configure({ mode: 'serial' });
 
@@ -229,11 +229,10 @@ test('two pages among 40 headless clients send no more than the model says @slow
       expect(await page.evaluate(() => (window.__bs as BsHook).state().net.status)).toBe('online');
     }
     expect(dropped.where ?? 0, 'where messages dropped').toBe(0);
-    // A page that plays honestly is sometimes flagged `health-over`, `energy-over` or
-    // `biomass-over-max` (the hub's cap for a body is a hair under what the page reports; found in
-    // this scenario, noted in the M13 spec); any other kind is a failure.
+    // A page that plays honestly raises no flag (M14 T2: `worker/honest-pages.test.ts`); any kind
+    // but `authority-only` is a failure.
     const real = (r: Record<string, number>) =>
-      Object.entries(r).filter(([kind]) => !PLAUSIBILITY.has(kind));
+      Object.entries(r).filter(([kind]) => kind !== NOT_A_FAULT);
     const founders = new Map(real(founderFlags));
     const raised = real(flags).filter(([kind, n]) => n > (founders.get(kind) ?? 0));
     expect(raised, `audit flags after the founders (${JSON.stringify(flags)})`).toEqual([]);

@@ -162,7 +162,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Done: migration 14 (also clears `left_*`, new seed and clock on the kept world row), `frozen.ts` + `tools/goldens-manifest.ts` (`goldens:manifest` formats goldens before hashing). Record hashes carry the rules, so lineage.json's derived genomes and fights moved too.
   - Gotcha: the farm kit's straight-run kill missed under the new genomes; `slay` now homes on its victim (`killB`'s optional plan). Combat and netcode reports pin rules 13.
 
-- [ ] T2 Honest pages raise no plausibility flags (after T1)
+- [x] T2 Honest pages raise no plausibility flags (after T1)
   - Steps:
     1. **Find the hair.** M13 T11 saw an honest page that feeds flagged `health-over`, `energy-over` or `biomass-over-max` in a few of 12 runs, at a biomass well under the maximum. Reproduce it in Node: the pacing bot (`simulateLife`) through the real `step`, reporting as the page does (`LifeFlow.report`: after 5 s, then every 30 s, the wire's rounding to hundredths, `ticks` counted as the page counts them, including the rebase after a reconnect), fed to the hub's checks as the hub calls them (`applyReport`, `clampCondition` and `creditTicks` in `worker/life.ts`; `vitalsCap` and `reachAt` in `src/ledger/gates.ts`). Find where the page's numbers and the hub's caps differ (rounding, the order of growth and the health it brings, energy's cap at 2·b of a biomass the hub clamped, a report between a growth step and its health).
     2. **Fix it at the cause**, on whichever side is wrong. The bound stays as tight as the verifier needs: a client that claims more than the rules allow is still flagged. If the rulebook (`src/ledger/gates.ts`) changes, it changes under rules 13 (T1) and the goldens and manifest follow.
@@ -172,6 +172,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - **Still caught**: a report 1 unit of biomass above the growth reach, energy 1 above 2·b, or health 1 above 10·r is flagged as before (the existing hub tests pass unchanged).
     - `m13-load` passes 3 times in a row (`--repeat-each=3 --workers=1`) with no flag but `authority-only`.
   - Notes: a page whose report is clamped also plays on with less than it had; a fix that removes the flag but keeps the clamp is not done.
+  - Done: two hairs, both on the page (`wireCondition`, `src/game/life.ts`): energy and health rounded to the nearest hundredth sat one above the hub's floored cap (full health 173.205 → 17321 against 17320), and after a reconnect the growth of the unreported stretch before the drop has no credited time, so reports follow the hub's reach from the bind until the body is within it (the hub's number lags by a few percent, the page's body is untouched). The hub's bounds are unchanged. `worker/honest-pages.test.ts` runs 240 lives of 100 s (the 120 s heavy budget; `LIVES=2000 LIFE_MS=150000` is the full sweep, 9 minutes) through the real `LifeFlow`; `simulateLife` takes `genome`, `at` and `onTick`.
 
 ### Interrupted transactions
 

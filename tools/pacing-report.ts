@@ -3,6 +3,7 @@
 // A test aid, not a player model: it never fights, never waits for a partner and takes the
 // nearest food, so the owner judges the feel in the playtest.
 
+import type { Genome } from '../src/genome/codec';
 import { genesisGenome } from '../src/genome/genesis';
 import { buildCreature } from '../src/genome/stats';
 import { depthAt } from '../src/sim/bathymetry';
@@ -95,9 +96,23 @@ export function simulateLife(
     untilBand = false,
     tier = 0,
     untilHalf = false,
-  }: { mate?: boolean; untilBand?: boolean; tier?: number; untilHalf?: boolean } = {},
+    genome,
+    at,
+    onTick,
+  }: {
+    mate?: boolean;
+    untilBand?: boolean;
+    tier?: number;
+    untilHalf?: boolean;
+    /** The body to live in (default: the genesis genome of `name`). */
+    genome?: Genome;
+    /** Where it hatches (default: the world's centre). */
+    at?: { x: number; y: number };
+    /** Called after every tick with the creature's condition (world units): what a page would report. */
+    onTick?: (tick: number, c: { biomass: number; energy: number; health: number }) => void;
+  } = {},
 ): Life {
-  const { stats, phys } = buildCreature(genesisGenome(seedFromString(`pacing-${name}`)));
+  const { stats, phys } = buildCreature(genome ?? genesisGenome(seedFromString(`pacing-${name}`)));
   const lifespan = lifespanMs(stats.physiology.lifespan);
   // A tier bot starts at the bottom of its tier with an adult size 1.5 times that, in the full world.
   const biomass = TIER_START[tier] as number;
@@ -106,8 +121,8 @@ export function simulateLife(
   );
   const me = spawnCreature(world, {
     id: 'bot',
-    x: world.size / 2,
-    y: world.size / 2,
+    x: at?.x ?? world.size / 2,
+    y: at?.y ?? world.size / 2,
     biomass,
     phys: tier === 0 ? phys : { ...phys, maxBiomass: 1.5 * biomass },
   });
@@ -180,6 +195,7 @@ export function simulateLife(
             : atan2(target.y - me.y, target.x - me.x);
     step(world, { bot: { steer: angleToSteer(aim), throttle: 15, dash: false } });
 
+    onTick?.(world.tick, me);
     const now = world.tick * MS_PER_TICK;
     if (life.doubledAtMs === null && me.biomass >= 2 * startBiomass) life.doubledAtMs = now;
     if (life.halfAtMs === null && me.biomass >= 1.5 * startBiomass) life.halfAtMs = now;

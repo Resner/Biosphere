@@ -3,6 +3,7 @@
 // a spawn looks like. A cell the hub does not know about is a practice cell: nothing is sent for it.
 
 import { signGenesisAsk } from '../ledger/ask';
+import { reachAt, vitalsCap } from '../ledger/gates';
 import type { Identity } from '../ledger/identity';
 import { toBase64Url } from '../ledger/identity';
 import {
@@ -172,6 +173,14 @@ export class LifeFlow {
   private arrived: string | null = null;
   /** The game's tick count when the hub's last word on the life clock (`activeMs`) was true. */
   private baseTicks = 0;
+  /**
+   * After a reconnection: the last biomass (hundredths) the hub holds for the creature and the
+   * counted ms it was held at. The play since the last report before the drop was never credited,
+   * so the hub's growth reach can sit below the body's; each report follows the reach from the
+   * previous one (never above what the hub's own bound allows, whether or not it wrote a record
+   * meanwhile) until the body is within it. The hub's number lags; the page's body is untouched.
+   */
+  private bound: { biomass: number; atMs: number } | null = null;
   private sentReports: { n: number; ticks: number; biomass: number }[] = [];
   private oldAge = false;
   /** The killer's name (empty when unnamed) once the hub has settled a kill of this creature. */
@@ -287,6 +296,7 @@ export class LifeFlow {
         if (this.status === 'playing') {
           this.rebase = true;
           this.rebaseAt = ticks ?? null;
+          this.bound = msg.life ? { biomass: msg.life.biomass, atMs: 0 } : null;
         }
         this.lostInFight(msg);
         break;
@@ -383,9 +393,23 @@ export class LifeFlow {
   }
 
   /** The creature's condition, from the game's tick count since it hatched. */
-  report(ticks: number, condition: Condition): void {
+  report(
+    ticks: number,
+    condition: Condition & { phys?: { maxBiomass: number; growth: number } },
+  ): void {
     if (this.status !== 'playing' || !this.link) return;
     const counted = this.count(ticks);
+    const { phys } = condition;
+    const ms = (counted * 1000) / TICK_HZ;
+    // The reach less its wu of slack, which the hub grants once per record, not once per report.
+    const reach =
+      this.bound !== null && phys
+        ? reachAt(this.bound.biomass, phys.growth, ms - this.bound.atMs) - HUNDREDTHS
+        : Number.POSITIVE_INFINITY;
+    const claim = wireCondition(condition, phys?.maxBiomass, reach);
+    // Within the reach the hub follows the body again; until then the next reach starts from this claim.
+    if (this.bound !== null && phys)
+      this.bound = wire(condition.biomass) <= reach ? null : { biomass: claim.biomass, atMs: ms };
     this.n++;
     this.sentReports.push({ n: this.n, ticks, biomass: condition.biomass });
     if (this.sentReports.length > SENT_KEPT) this.sentReports.shift();
@@ -395,9 +419,7 @@ export class LifeFlow {
       t: 'progress',
       n: this.n,
       ticks: counted,
-      biomass: wire(condition.biomass),
-      energy: wire(condition.energy),
-      health: wire(condition.health),
+      ...claim,
       ...(relay ? { relay } : {}),
     });
   }
@@ -641,6 +663,26 @@ export class LifeFlow {
       };
     });
   }
+}
+
+/**
+ * The condition as a report carries it: each value in hundredths (see `wire`), held to what the
+ * hub's caps allow of the numbers it will read. A body at its adult size or full health rounds
+ * to the nearest hundredth, which can sit one above the floored cap (`vitalsCap`, the genome's
+ * maximum); the report gives up that hundredth, so an honest page is never flagged.
+ */
+export function wireCondition(
+  c: Condition,
+  maxBiomass = Number.POSITIVE_INFINITY,
+  reach = Number.POSITIVE_INFINITY,
+): Condition {
+  const biomass = Math.min(wire(c.biomass), Math.floor(maxBiomass * HUNDREDTHS), reach);
+  const cap = vitalsCap(biomass);
+  return {
+    biomass,
+    energy: Math.min(wire(c.energy), cap.energy),
+    health: Math.min(wire(c.health), cap.health),
+  };
 }
 
 /** A condition value as the hub takes it: hundredths, never negative. A broken value is 0, not a throw in the game loop. */
