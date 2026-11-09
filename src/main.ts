@@ -1,13 +1,21 @@
 import './style.css';
 import { startApp } from './game/app';
 import { formatBuildLabel } from './game/build-label';
+import { capabilities, showUnsupported, unsupportedReason } from './game/capability';
+import { installPlainHook } from './game/debug';
 import { qualityFromSearch, worldFromSearch } from './game/settings';
 
 const label = document.querySelector<HTMLElement>('[data-testid="build-label"]');
 if (label) label.textContent = formatBuildLabel(__BUILD_LABEL__);
 
+// A browser without what the game needs gets a plain page that says what to do (M14 T6).
+const caps = capabilities(window);
+const unsupported = unsupportedReason(caps, 'game');
 const canvas = document.querySelector<HTMLCanvasElement>('#scene');
-if (canvas) {
+if (unsupported) {
+  showUnsupported(document, unsupported);
+  installPlainHook(caps, unsupported);
+} else if (canvas) {
   const params = new URLSearchParams(window.location.search);
   startApp(canvas, {
     seed: params.get('seed') ?? randomSeed(),
@@ -18,6 +26,7 @@ if (canvas) {
     light: params.get('light') !== '0',
     world: worldFromSearch(window.location.search),
     gpuWatch: params.get('gpu') === 'watch',
+    capabilities: caps,
   });
 }
 

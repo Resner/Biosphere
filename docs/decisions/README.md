@@ -108,3 +108,4 @@ Some topics have long chains of ADRs. Start at the newest one listed for a topic
 | [0074](0074-permanent-lineages-from-v1-0.md) | From v1.0, lineages are permanent: one last renewal, rules 13, and frozen versions | accepted | |
 | [0075](0075-room-for-a-crowd-headroom-cap.md) | Room for a crowd: the session cap follows the day's headroom | accepted | |
 | [0076](0076-interrupted-transactions-the-ledger-is-the-journal.md) | Interrupted transactions: the ledger is the journal, and a sign-in names what is in flight | accepted | |
+| [0077](0077-engines-what-ci-checks-and-what-the-owner-does.md) | The engines: what CI checks in Firefox and WebKit, and what only the owner can | accepted | |

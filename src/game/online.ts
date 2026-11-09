@@ -754,6 +754,11 @@ export interface RealSessionOptions {
   creature: () => CreatureNow | null;
   /** The authority's keys (`/v1/pubkeys`), which check each peer's seat ticket. */
   keys: (() => Promise<PubKey[] | null>) | null;
+  /**
+   * Whether the browser can link to peers (M14 T6): without RTCPeerConnection the page never calls
+   * or answers, so its creature plays recorded and alone. Default true.
+   */
+  links?: boolean;
 }
 
 /** The session with the real hub client and a gated `PeerMesh`, clocked by `performance.now`. */
@@ -793,6 +798,7 @@ export function connectOnline(opts: RealSessionOptions): OnlineSession {
     },
     verify: (m) => seat?.signalSigned(m) === true,
     canLink: () => {
+      if (opts.links === false) return false;
       load();
       return seat !== null && keys !== null;
     },

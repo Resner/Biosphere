@@ -64,7 +64,7 @@ No owner input since Playtest v0.8.0 (#311: "Keep going. Godspeed!"). Playtests 
     - `tools/soak.mjs`, `tools/soak-run.ts`, `tools/soak-report.ts`, `npm run soak`, `docs/perf/soak.md` and `soak.json`, `.github/workflows/soak.yml` (T13, T14);
     - `tools/ops-watch.ts`, `tools/ops-watch.mjs`, `npm run ops:watch`, `tools/ops-doc.test.ts` (T15);
     - `tools/coverage.test.ts` (T17);
-  - E2E: `m14-goldens` (no hub, T5), `m14-smoke` 8842 and `m14-mixed` 8841 (T6), `m14-guide` 8843 (T7), `m14-help` (no hub, T8), `m14-colour` (no hub, T9), `m14-interrupt` 8840 (T4), `m14-lifecycle` 8844 (T18);
+  - E2E: `m14-goldens` (no hub, T5), `m14-smoke` 8842, `m14-mixed` 8841 and `m14-capability` 8845 (T6), `m14-guide` 8843 (T7), `m14-help` (no hub, T8), `m14-colour` (no hub, T9), `m14-interrupt` 8840 (T4), `m14-lifecycle` 8844 (T18);
   - docs: `docs/OPERATIONS.md` (T15), `docs/SECURITY.md` and `docs/PRIVACY.md` (T16), `docs/COVERAGE.md` (T17).
 - **Changed:**
   - sim and genome: `src/sim/rules.ts` (`RULES_VERSION` 13, T1; values, T11), the stats and encounter tables (T11), the goldens they pin;
@@ -129,7 +129,7 @@ export function capabilities(win: Window): Capabilities;
 
 **E2E entry hooks:** `POST /v1/e2e/hatches { player, left }` (T4) sets a player's hatch bucket; `POST /v1/e2e/beacons { hold }` (T4) holds the recorded rounds where they stand, since a round comes 0.5–3.5 s after its commitment and a reopened page takes longer than that to sign in; `GET /v1/e2e/consistency` (T13) answers `consistent(hub)`. `tools/worker-bundle.test.ts` guards them.
 
-**Hubs**: `m14-interrupt` 8840, `m14-mixed` 8841, `m14-smoke` 8842, `m14-guide` 8843, `m14-lifecycle` 8844; the next hub file takes 8845. `npm run soak` uses 8851, outside the E2E range (`load:hub` has 8850).
+**Hubs**: `m14-interrupt` 8840, `m14-mixed` 8841, `m14-smoke` 8842, `m14-guide` 8843, `m14-lifecycle` 8844; `m14-capability` 8845 (T6); the next hub file takes 8846. `npm run soak` uses 8851, outside the E2E range (`load:hub` has 8850).
 
 **Engines in CI** (T6): `E2E_FIREFOX` adds the `firefox` project and `E2E_WEBKIT` a `webkit` project, each only in `e2e-full.yml`'s part of its own. PR CI stays Chromium. In a cloud session, install Firefox or WebKit into a scratch `PLAYWRIGHT_BROWSERS_PATH`, never `/opt/pw-browsers`, or dispatch `e2e-full.yml` on the branch (`gh api -X POST repos/Resner/Biosphere/actions/workflows/e2e-full.yml/dispatches -f ref=<branch>`).
 
@@ -262,14 +262,14 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
   - Notes: done: 18 sets (the frozen manifest included) in `src/game/goldens.ts`, the catalogue in `tests/goldens-catalogue.ts`; `tests/e2e/m3-determinism` and `m7-determinism` and the `?debug=1` `genome.hashes` hook are gone (the `stats` and `encounter` sets cover them). `tournament.json` is Node-only. The page's lazy chunk loads on first `run`.
   - Notes: T6 runs the same spec in Firefox and WebKit. A set that differs in an engine is a determinism bug in `src/sim/math.ts` or wherever the difference starts, fixed at its cause in T6; it is never left out.
 
-- [ ] T6 Firefox and WebKit play the game; mixed engines; the capability screen [opus] (after T5)
+- [x] T6 Firefox and WebKit play the game; mixed engines; the capability screen [opus] (after T5)
   - Steps:
     1. **Projects** (`playwright.config.ts`): `firefox` (`E2E_FIREFOX`) runs `m6c-firefox`, `m6c-flash`, `m14-goldens`, `m14-smoke` and `m14-mixed`; a new `webkit` project (`E2E_WEBKIT`) runs `m14-goldens` and `m14-smoke` (and `m14-mixed` if WebKit can link, below). `m14-smoke` runs in the chromium project too; `m14-mixed` runs only in the engine projects, which install Chromium beside their own engine. Both are `@slow`. `e2e-full.yml` gains a `webkit` part that installs WebKit and Chromium; headed under Xvfb if headless WebKit draws no WebGL2, as Firefox does. Release and `E2E main` run both, through `e2e-full.yml`.
     2. **`m14-smoke.spec.ts`** (`@slow`, hub 8842), the game in the engine under test:
        - a recorded hatch with its egg reveal (charge, crack, result card);
        - swimming to food (`debug.steerTo`), eating and dashing, with the HUD's bars moving;
        - a second page of the same engine joins; they link, each sees the other move;
-       - the menu, Settings (the quality preset changes and is kept) and the help panel open (T8; skipped until T8 lands);
+       - the menu, Settings (the quality preset changes and is kept) and the help panel open (T8);
        - the creature's card opens and says "Verified back to genesis";
        - every frame drawn (non-blank screenshots), no page error, no uncaught rejection; screenshots attached per engine.
     3. **`m14-mixed.spec.ts`** (`@slow`, hub 8841): a Chromium page and a Firefox page (the test launches the second browser type itself) hatch near each other, link over WebRTC (host candidates), see each other move, and duel: both pages end on the referee's hash. If Playwright's WebKit can hold a WebRTC link on Linux, a WebKit page joins the same scenario; if it can't, the ADR below says so and the owner checks Safari's links.
@@ -288,6 +288,8 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
     - `m14-goldens` and `m14-smoke` pass in Firefox and in WebKit in `e2e-full.yml` (a dispatched run on the branch is the evidence, linked in the PR).
     - `m14-mixed` passes Chromium with Firefox, 3 times in a row in its part.
   - Notes: the WebKit part may need system libraries (`--with-deps`). Keep the Firefox and WebKit parts to these specs: the engine suites gate releases, and every scenario added there is one more that can flake.
+  - Done: `capability.ts` (plain page for game and Lab without WebGL2, every page without module workers; the card keeps its flat preview), `m14-capability` (8845, PR suite), `m14-smoke` and `m14-mixed`, a webkit part, ADR 0077. Every golden matched in all three engines with no fix.
+  - Gotcha: Linux WebKit offers only mDNS candidates, so it never links (smoke skips its link step; no WebKit in `m14-mixed`); Firefox links only with `obfuscate_host_addresses` off and the page served on 127.0.0.1 (over ::1 it gathers no candidates on a runner).
 
 ### Onboarding and accessibility
 

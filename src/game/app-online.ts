@@ -189,6 +189,7 @@ export class OnlineWiring {
       name,
       creature: () => this.creatureNow(),
       keys: app.authorityKeys,
+      links: app.limits.links,
       handlers: {
         welcome: (w) => {
           const life = app.session.demo ? null : app.session.pond;
