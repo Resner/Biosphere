@@ -7,11 +7,24 @@ import { maxEnergy, maxHealth } from '../sim/vitals';
 import type { App } from './app';
 import { adultRadius, newSession, type Session } from './app-session';
 import { type Body, bodyLabel, hatchBody } from './body';
-import { type Started, VERIFY_FAILED } from './life';
+import { type HatchOutcome, type Started, VERIFY_FAILED } from './life';
 import type { FallbackId } from './offspring-text';
 import { cleanName, saveName, tryOnline } from './online-config';
 import type { Screen } from './screens';
 import { placeLife, spawnAskOf } from './spawn-ask';
+
+/** Why a hatch did not start, when nothing says more. */
+const NOT_HATCHED = 'Could not hatch. Try again.';
+
+/** The toast of a creature whose genesis came while the page was gone (ADR 0076). */
+export const HATCHED_AWAY = 'Your new creature hatched';
+
+/**
+ * A resume of a creature the hub made from a genesis this page never played: its genesis record
+ * is still its head and it was never reported. A genesis played here is protected; a resume isn't.
+ */
+export const hatchedAway = (outcome: Extract<HatchOutcome, { kind: 'recorded' }>): boolean =>
+  !outcome.protect && outcome.start.seq === 0 && outcome.start.condition === null;
 
 /** Why "Back to the fight" did not start. */
 const NOT_RESUMED = 'Could not go back to the fight. Try again.';
@@ -40,6 +53,11 @@ export class LifeStarts {
   private hatches = 0;
   hatching = false;
   private switching = false;
+
+  /** A hatch, a switch or a genesis in flight is starting a life. */
+  get starting(): boolean {
+    return this.hatching || this.switching;
+  }
 
   constructor(private readonly app: App) {}
 
@@ -233,51 +251,78 @@ export class LifeStarts {
     app.hatchError = '';
     screens.setBusy(true);
     // A hub that cannot be reached (or a failing connector) means a local pond, never a stuck screen.
-    void tryOnline(() =>
+    const work = tryOnline(() =>
       app.identityReady.then(() => {
         app.online.ensure(name);
         return app.keeper.current?.whenReady(HATCH_WAIT_MS) ?? null;
       }),
-    )
-      .then(async (welcome) => {
-        const joined = welcome !== null && app.pond !== null;
-        // A pinned body is a test or a debug cell: it never touches the ledger.
-        if (!joined || app.params.genome) {
-          flow.practice();
-          if (joined) (await this.beginPlaced({ body: app.hatcher.next() }))();
-          else this.begin(false);
-          return;
-        }
-        const outcome = await flow.hatch(HATCH_WAIT_MS);
-        if (outcome.kind === 'failed') {
-          app.hatchError = outcome.message;
-        } else if (outcome.kind === 'practice') {
-          // Out of recorded hatches: wait out the countdown or swim in a practice cell.
-          if (outcome.reason === 'limit' && (outcome.genesisIn ?? 0) > 0) {
-            app.limitUntil = performance.now() + (outcome.genesisIn ?? 0);
-          } else {
-            (await this.beginPlaced({ body: app.hatcher.next() }))();
-          }
-        } else {
-          const genome = parseGenomeText(outcome.start.genome);
-          if (!genome) {
-            app.hatchError = VERIFY_FAILED;
-            return;
-          }
-          // The hub places the creature while the egg stirs and cracks; play begins with its burst.
-          const body = hatchBody(genome);
-          const run = await this.beginPlaced({ body, start: outcome.start });
-          await this.whenRipe(body.rarity, run);
-        }
-      })
+    ).then(async (welcome) => {
+      const joined = welcome !== null && app.pond !== null;
+      // A pinned body is a test or a debug cell: it never touches the ledger.
+      if (!joined || app.params.genome) {
+        flow.practice();
+        if (joined) (await this.beginPlaced({ body: app.hatcher.next() }))();
+        else this.begin(false);
+        return;
+      }
+      await this.play(await flow.hatch(HATCH_WAIT_MS));
+    });
+    this.settleHatch(work);
+  }
+
+  /** The tail every online hatch shares: a failure is the "not hatched" card, and the screen frees. */
+  private settleHatch(work: Promise<void>): void {
+    const { app } = this;
+    void work
       .catch((error: unknown) => {
         console.warn('hatch failed', error);
-        app.hatchError = 'Could not hatch. Try again.';
+        app.hatchError = NOT_HATCHED;
       })
       .finally(() => {
         this.hatching = false;
-        screens.setBusy(false);
+        app.screens.setBusy(false);
       });
+  }
+
+  /**
+   * A genesis the hub named in flight (ADR 0076), on a page that did not ask for it (a tab reopened
+   * during the beacon wait): its egg waits on the title, and its reveal plays when the round comes.
+   * Called each frame; it starts once, while no other hatch or switch runs.
+   */
+  awaitGenesis(): void {
+    const { app } = this;
+    if (this.hatching || this.switching || !app.flow.genesisInFlight) return;
+    this.hatching = true;
+    app.hatchError = '';
+    app.screens.setBusy(true);
+    this.settleHatch(app.flow.hatch(HATCH_WAIT_MS).then((outcome) => this.play(outcome)));
+  }
+
+  /** What a hatch came to: the error, the countdown or a practice cell, or the creature played. */
+  private async play(outcome: HatchOutcome): Promise<void> {
+    const { app } = this;
+    if (outcome.kind === 'failed') {
+      app.hatchError = outcome.message;
+    } else if (outcome.kind === 'practice') {
+      // Out of recorded hatches: wait out the countdown or swim in a practice cell.
+      if (outcome.reason === 'limit' && (outcome.genesisIn ?? 0) > 0) {
+        app.limitUntil = performance.now() + (outcome.genesisIn ?? 0);
+      } else {
+        (await this.beginPlaced({ body: app.hatcher.next() }))();
+      }
+    } else {
+      const genome = parseGenomeText(outcome.start.genome);
+      if (!genome) {
+        app.hatchError = VERIFY_FAILED;
+        return;
+      }
+      // The hub places the creature while the egg stirs and cracks; play begins with its burst.
+      const body = hatchBody(genome);
+      const run = await this.beginPlaced({ body, start: outcome.start });
+      await this.whenRipe(body.rarity, run);
+      // A genesis that finished while the page was gone (ADR 0076): its first resume says so.
+      if (hatchedAway(outcome)) app.hud.toast(HATCHED_AWAY);
+    }
   }
 
   /**

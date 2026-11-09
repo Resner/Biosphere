@@ -132,6 +132,8 @@ const m13LoadHubPort = 8837;
 const m13LifecycleHubPort = 8839;
 // The M14 guide spec (M14 T7, 8843, `@slow`): two players learn the guide's later steps, with short matings.
 const m14GuideHubPort = 8843;
+// The M14 interrupt spec (M14 T4, 8840, `@slow`): the page's kill matrix, with short matings and lives.
+const m14InterruptHubPort = 8840;
 // `--grep-invert` does not reach a project's dependencies, which would run the slow scenarios in the
 // PR gate; `test:e2e` sets this instead and every project skips them itself.
 // The post chain (M6 T2) makes software rendering several times slower, which starves specs that
@@ -461,6 +463,7 @@ export default defineConfig({
       ['m13-load', m13LoadHubPort, WITNESS_VARS],
       ['m13-lifecycle', m13LifecycleHubPort, '--var MAX_SESSIONS:2 --var MATING_SCALE:0.01'],
       ['m14-guide', m14GuideHubPort, '--var MATING_SCALE:0.01'],
+      ['m14-interrupt', m14InterruptHubPort, '--var MATING_SCALE:0.01 --var LIFESPAN_SCALE:0.05'],
       ['m11-handoff', m11HandoffHubPort, '--var LEAF_MAX:2'],
       ['m11-cap', m11CapHubPort, ''],
       ['m11-relay', m11RelayHubPort, ''],

@@ -261,8 +261,14 @@ export class MateFlow {
       case 'mating':
         if (this.state === 'courting' || this.state === 'signing') {
           this.owed = true;
-          this.enter('awaiting');
-          this.note = 'Awaiting beacon';
+          this.awaitBeacon();
+        }
+        break;
+      case 'life':
+        // A sign-in names a mating still waiting for its round (ADR 0076): its egg waits beside the
+        // parent, whose condition the hub already charged.
+        if (msg.mating && !BUSY.has(this.state)) {
+          this.awaitBeacon();
         }
         break;
       case 'born':
@@ -339,6 +345,11 @@ export class MateFlow {
       band: bandWords(msg.kinship),
     };
     this.enter('invited');
+  }
+
+  private awaitBeacon(): void {
+    this.enter('awaiting');
+    this.note = 'Awaiting beacon';
   }
 
   private enter(state: MateState): void {

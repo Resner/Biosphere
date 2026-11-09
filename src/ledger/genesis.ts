@@ -4,7 +4,8 @@ import { deriveSeed } from '../genome/inherit';
 import { KARYOTYPE_VERSION } from '../genome/karyotype';
 import type { Seed } from '../sim/prng';
 import { type GenesisAsk, verifyGenesisAsk } from './ask';
-import { type Canonical, canonicalize, hashWithDomain } from './canonical';
+import { canonicalize } from './canonical';
+import { type Commitment, commitmentId } from './commitment';
 import { type Beacon, randomnessOf, verifyBeacon } from './drand';
 import { type LedgerRecord, type RecordRequest, recordProblems, rulesOf } from './record';
 
@@ -12,24 +13,9 @@ import { type LedgerRecord, type RecordRequest, recordProblems, rulesOf } from '
 // when the player asked for it. Everything here is pure, so the client and (from M9) the verifier
 // recompute what the authority claims.
 
-const COMMIT_DOMAIN = 'bs/commit/v1';
+export { type Commitment, commitmentId } from './commitment';
+
 const GENESIS_DOMAIN = 'bs/genesis/v1';
-
-/** A commitment to a future drand round. `data` is the committed request. */
-export interface Commitment {
-  v: 1;
-  kind: string;
-  owner: string;
-  round: number;
-  /** Hash of the request, so a repeated request finds this commitment. */
-  req: string;
-  t: number;
-  data: Canonical;
-}
-
-export function commitmentId(c: Commitment): string {
-  return hashWithDomain(COMMIT_DOMAIN, canonicalize(c as unknown as Canonical));
-}
 
 /** SHA-256 of the domain, the randomness, the commit id and a zero byte, as four words. */
 export function genesisSeed(randomness: Uint8Array, commitId: string): Seed {

@@ -56,6 +56,8 @@ export interface BsState {
   depth: number | null;
   /** This browser's identity; null until the key is loaded. */
   playerId: string | null;
+  /** A recovery import on this page has stored its seed (M14 T4); the reload follows unless held. */
+  imported: boolean;
   /**
    * Whether the hub's last `life` on this page said the world was renewed (M6c T2, ADR 0040): true
    * at most once per identity; null until the hub has answered.
@@ -463,6 +465,11 @@ export interface BsDebug {
    * it eats nothing (the guide's steps that a meal would end wait for the test).
    */
   sated(on: boolean): void;
+  /**
+   * A test aid (M14 T4): while on, a recovery import that has stored its seed sets `imported` and
+   * leaves the page as it is instead of reloading, so a test can kill the tab at that moment.
+   */
+  holdReload(on: boolean): void;
   /**
    * A test aid: while on, the scene still updates (`render.info()` counts, the HUD) but skips its
    * draw call. Software rendering is the cost of a frame on a runner, and a fight page that draws
