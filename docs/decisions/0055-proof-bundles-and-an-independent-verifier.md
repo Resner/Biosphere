@@ -1,6 +1,6 @@
 # 0055: Proof bundles, an independent verifier, one rulebook for the authority and the verifier, and a third world renewal
 
-- Status: accepted, amended by 0058 (bundles of version 2 carry witness commitments and attestations, and the verifier gains a witness family) (amends 0019: the life clock's credit and the growth clamp are bounded per record interval, from the creature's last record; applies 0040 again: rules 11 renews the world as epoch 3)
+- Status: accepted, amended by 0058 (bundles of version 2 carry witness commitments and attestations, and the verifier gains a witness family) (amends 0019: the life clock's credit and the growth clamp are bounded per record interval, from the creature's last record; applies 0040 again: rules 11 renews the world as epoch 3; its open freeze is settled by 0074: lineages are permanent from v1.0.0)
 - Date: 2026-11-04
 
 ## Context
