@@ -1,7 +1,6 @@
-import { execSync } from 'node:child_process';
-import { test } from '@playwright/test';
+import { firefox, test } from '@playwright/test';
 
-// Temporary diagnostic (M14 T6, to remove): Firefox's ICE gathering on a blank page and on the game's origin.
+// Temporary diagnostic (M14 T6, to remove): Firefox's ICE gathering on the game's origin under prefs.
 const gatherIn = (page: import('@playwright/test').Page) =>
   page.evaluate(async () => {
     const pc = new RTCPeerConnection({ iceServers: [] });
@@ -17,15 +16,37 @@ const gatherIn = (page: import('@playwright/test').Page) =>
     return out;
   });
 
-test('probe ICE gathering', async ({ browser }) => {
-  console.log(execSync('free -m; ps -eo rss,comm --sort=-rss | head -8').toString());
-  const ctx = await browser.newContext();
-  const page = await ctx.newPage();
-  await page.setContent('<p>blank</p>');
-  console.log('blank', JSON.stringify(await gatherIn(page)));
-  await page.goto('./?genome=starter');
-  console.log('game-origin before app', JSON.stringify(await gatherIn(page)));
-  await page.waitForFunction(() => window.__bs?.ready === true);
-  console.log('game-origin after app', JSON.stringify(await gatherIn(page)));
-  await ctx.close();
+const BASE = { 'media.peerconnection.ice.obfuscate_host_addresses': false };
+const VARIANTS: Record<string, Record<string, unknown>> = {
+  base: BASE,
+  lna: { ...BASE, 'network.lna.enabled': false, 'network.lna.blocking': false },
+  loopback: { ...BASE, 'media.peerconnection.ice.loopback': true },
+  parentProcess: {
+    ...BASE,
+    'media.peerconnection.mtransport_process': false,
+    'network.process.enabled': false,
+  },
+  allAddr: { ...BASE, 'media.peerconnection.ice.default_address_only': false },
+  proxy: {
+    ...BASE,
+    'media.peerconnection.ice.proxy_only_if_behind_proxy': false,
+    'network.proxy.type': 0,
+  },
+};
+
+test('probe ICE gathering', async ({ baseURL }) => {
+  test.setTimeout(240_000);
+  for (const [name, prefs] of Object.entries(VARIANTS)) {
+    const b = await firefox.launch({
+      headless: false,
+      firefoxUserPrefs: prefs as Record<string, string>,
+    });
+    const page = await b.newPage();
+    await page.goto(`${baseURL}?genome=starter`);
+    const origin = await gatherIn(page);
+    await page.goto(`http://127.0.0.1:4173/?genome=starter`);
+    const ip = await gatherIn(page);
+    console.log(name, JSON.stringify({ localhost: origin, ip127: ip }));
+    await b.close();
+  }
 });
