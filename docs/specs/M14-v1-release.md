@@ -564,7 +564,7 @@ T1, T5, T7, T8, T10 and T12 need nothing and can start at once. T2 and T3 follow
 
 ### Closing
 
-- [ ] T18 The v1.0 scenario, the playtest kit and the documentation sync
+- [ ] T18 The v1.0 scenario, the playtest kit and the documentation sync (in progress)
   - Steps:
     1. **`m14-lifecycle.spec.ts`** (`@slow`, hub 8844, `MATING_SCALE` 0.01, Chromium), the v1.0 story in one scenario:
        - a fresh browser A: the title offers "How to play"; the help opens on `?` and closes;
