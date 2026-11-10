@@ -36,10 +36,11 @@ export const FULL_SCALES = { lifespan: 1, mating: 0.05 } as const;
 const modelMixOf = (opts: SoakOptions): boolean => Boolean(opts.full || opts.modelMix);
 const scalesOf = (opts: SoakOptions) => (modelMixOf(opts) ? FULL_SCALES : SCALES);
 /**
- * The mix the full soak plays (M14 T14d): the capacity model's own, so rows written and messages per
- * player-hour compare with `MEASURED` like for like. A client signs in `ASSUMPTIONS.sessionMinutes`
- * apart, and hunts for a fight at half the quick mode's rate, which makes about the model's 3 fights
- * an hour. The quick modes keep their fast mix: they must see every kind of event in minutes.
+ * The mix the full soak plays (M14 T14d): the model's session length, and far fewer fights than the
+ * quick mode (about 6 a player-hour at 200 clients, measured: the join chance sets the rate, as a
+ * crowd always has a hunter). Matings are whatever the 5% cooldown allows. `checksOf` prices rows
+ * and messages by the mix the clients counted, so the check holds whatever the rates come to. The
+ * quick modes keep their fast mix: they must see every kind of event in minutes.
  */
 export const FULL_MIX = {
   dropEveryMs: ASSUMPTIONS.sessionMinutes * 60_000,
