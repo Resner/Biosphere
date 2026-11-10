@@ -447,6 +447,11 @@ export const genomeOf = (p: Player) => authority((o) => o.ledger.head(p.creature
  * its `enc-start`.
  */
 export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
+  return startFight(a, b, await outOfReachStart(a, b));
+}
+
+/** The start `outOfReach` plays, built from the bodies alone: nothing reaches the hub until it is played. */
+export async function outOfReachStart(a: Player, b: Player): Promise<EncStart> {
   const genome = await genomeOf(a);
   const base = { vx: 0, vy: 0, heading: 0, elder: false, egg: false, worth: 1, genome, y: STAGE.y };
   const vitals = { biomass: RULES.starter.biomass, energy: 150, health: 100 };
@@ -479,7 +484,7 @@ export async function outOfReach(a: Player, b: Player): Promise<EncStart> {
   expect(gap).toBeGreaterThan(1.4 * reach);
   expect(gap).toBeLessThan(away * 0.9);
   for (const f of fighters) if (f.player === b.id.playerId) f.x = x;
-  return startFight(a, b, msg);
+  return msg;
 }
 
 /**

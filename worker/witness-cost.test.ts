@@ -14,10 +14,12 @@ import {
   advanceTo,
   authority,
   type EncEnd,
+  type EncStart,
   fighters,
-  outOfReach,
+  outOfReachStart,
   type Player,
   slotOf,
+  startFight,
   useFightHub,
   within,
 } from './fight-test-kit';
@@ -108,28 +110,27 @@ interface Duel {
   after: Counts;
 }
 
+interface Staged {
+  a: Player;
+  b: Player;
+  start: EncStart;
+  huntFrom: number;
+  codesBy: (h: number) => [number, number];
+}
+
 /**
- * One hunt to the victim's death. With `witnessed`, two eligible witnesses are online: the first
- * referees from `HANDOVER_MS` on (its 4 signals, `duty-ok` and batches are real messages), the
- * second audits. `spanFrom` marks where the span starts when nobody refereed, to compare alike.
+ * The fight `a` and `b` would play, and the frame the hunter must start at for the fight to end near
+ * frame `DUEL_FRAMES`: both idle, then the hunter strikes from there, played in the sim from the
+ * very start (bodies differ per identity, and idle bodies drift). Null when no start frame gives
+ * such a fight.
  */
-async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
-  const [a, b] = await fighters();
-  const ws = witnessed ? await witnesses(2) : [];
-  const start = await outOfReach(a, b);
-  if (witnessed) {
-    await authority((o) => commitWitnesses(o, 'enc', start.enc, [a.id.playerId, b.id.playerId]));
-  }
-  const event = `enc:${start.enc}`;
-  const slots = [slotOf(start, a), slotOf(start, b)];
+async function stagedHunt(a: Player, b: Player): Promise<Staged | null> {
+  const start = await outOfReachStart(a, b);
   const hunter = drive(0, 15, { stance: 'aggressive', target: slotOf(start, b) });
-  // Codes by slot, the hunter being A's.
   const codesBy = (h: number): [number, number] => {
     const c = slotOf(start, b) === 1 ? [h, IDLE_CODE] : [IDLE_CODE, h];
     return [c[0] as number, c[1] as number];
   };
-  // Both idle, then the hunter strikes at `huntFrom`: played in the sim from this very start
-  // (bodies differ per identity, and idle bodies drift) until the fight ends near frame 300.
   const first = encounterStartOf(start, a.pond.seed);
   if (!first) throw new Error('no start');
   const endOf = (from: number) => {
@@ -145,7 +146,38 @@ async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
     huntFrom += DUEL_FRAMES - end;
     end = endOf(huntFrom);
   }
-  expect(Math.abs(end - DUEL_FRAMES), 'a hunt that ends near frame 300').toBeLessThanOrEqual(2);
+  return Math.abs(end - DUEL_FRAMES) <= 2 ? { a, b, start, huntFrom, codesBy } : null;
+}
+
+/**
+ * Two fighters whose hunt can end near frame 300. The bodies come from random identities, and some
+ * end an idle fight before a hunt could: fresh fighters are drawn (the sim alone decides, before any
+ * fight is started) until a pair's hunt can.
+ */
+async function huntingPair(): Promise<Staged> {
+  for (let tries = 0; tries < 8; tries++) {
+    const [a, b] = await fighters();
+    const staged = await stagedHunt(a, b);
+    if (staged) return staged;
+  }
+  throw new Error('no pair of bodies whose hunt ends near frame 300');
+}
+
+/**
+ * One hunt to the victim's death. With `witnessed`, two eligible witnesses are online: the first
+ * referees from `HANDOVER_MS` on (its 4 signals, `duty-ok` and batches are real messages), the
+ * second audits. `spanFrom` marks where the span starts when nobody refereed, to compare alike.
+ */
+async function duel(witnessed: boolean, spanFrom = 0): Promise<Duel> {
+  const { a, b, start, huntFrom, codesBy } = await huntingPair();
+  const ws = witnessed ? await witnesses(2) : [];
+  await startFight(a, b, start);
+  if (witnessed) {
+    await authority((o) => commitWitnesses(o, 'enc', start.enc, [a.id.playerId, b.id.playerId]));
+  }
+  const event = `enc:${start.enc}`;
+  const slots = [slotOf(start, a), slotOf(start, b)];
+  const hunter = drive(0, 15, { stance: 'aggressive', target: slotOf(start, b) });
   // Codes by player (A, B), whatever their slots.
   const codesOf = (f: number): [number, number] => {
     const c = codesBy(f >= huntFrom ? hunter : IDLE_CODE);
