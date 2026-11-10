@@ -16,7 +16,7 @@ describe('the recorded soak', () => {
       .filter((c) => !c.ok)
       .map((c) => c.name);
     // What an hour of 200 clients now shows: no socket closed for its rate, the object's heap and CPU
-    // per message level, every creature consistent; and what is still open (T14f).
+    // per message level, every creature consistent; and what is still open (T14g).
     expect(failed).toEqual([
       'no audit flag but authority-only',
       'no audit flag at any sample',
