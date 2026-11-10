@@ -64,7 +64,30 @@ export interface LifeState extends Condition {
   growth: number;
   /** Bit `i` is set once `CREATURE_FLAGS[i]` was noted on this connection, so a client that keeps sending it costs no more reads. */
   flagged: number;
+  /** When the last mating record, which charged the cost, was written (hub clock): see `COST_GRACE_MS`. */
+  costT?: number;
 }
+
+/**
+ * How long after a mating record a report or a lock-in claim may still hold the body from before
+ * the cost. The record charges the cost at the hub; the page pays it when the `mating` message
+ * arrives, at its next tick, so a report it sent in that window (a round trip and a tick, seconds
+ * on a loaded page) is honest. Such a claim is clamped as ever, just not flagged.
+ */
+export const COST_GRACE_MS = 5_000;
+
+/**
+ * The share a claim in that window may stand over its cap without a flag: the cost's 1 / 0.85
+ * (17.6%) on the body, and the growth since the report the record charged it on (the soak's
+ * honest pages ran 18-33% over). A claim past it, or any claim after the window, is flagged.
+ */
+export const COST_TOLERANCE = 0.5;
+
+/** The tolerance for a claim at `now`: wide while a mating's cost may be in flight, else `base`. */
+const toleranceAt = (life: LifeState, now: number, base: number): number =>
+  life.costT !== undefined && now - life.costT <= COST_GRACE_MS
+    ? Math.max(base, COST_TOLERANCE)
+    : base;
 
 export type Report = Condition & { n: number; ticks: number };
 
@@ -243,6 +266,7 @@ export function applyReport(
     { ...life, flagged: clock.flagged },
     report,
     life.activeMs + gained - life.boundMs,
+    toleranceAt(life, now, 0),
   );
   return {
     life: {
@@ -269,7 +293,13 @@ export function clampClaim(
   now: number,
   tolerance: number,
 ): Clamped {
-  return clampCondition(life, claim, Math.max(0, now - life.boundT), tolerance, 'claim-over');
+  return clampCondition(
+    life,
+    claim,
+    Math.max(0, now - life.boundT),
+    toleranceAt(life, now, tolerance),
+    'claim-over',
+  );
 }
 
 /** Whether the creature has played since its last record, so a close should write one. */

@@ -18,7 +18,14 @@ import { RULES, TICK_HZ } from '../src/sim/rules';
 import { ARCHETYPES } from '../tests/archetypes';
 import { heavyTest } from '../tests/heavy';
 import { simulateLife } from '../tools/pacing-report';
-import { applyReport, bindLife, type Implausible, type LifeState } from './life';
+import {
+  applyReport,
+  bindLife,
+  COST_GRACE_MS,
+  type Implausible,
+  type LifeState,
+  recorded,
+} from './life';
 
 // An honest page raises no plausibility flag (M14 T2): the real sim's creatures, reported by the
 // real `LifeFlow.report` (after 5 s, then every 30 s, in hundredths, the ticks counted from each
@@ -202,3 +209,52 @@ describe('honest pages', () => {
 
 // A tick of the real sim costs about 65 µs, so the 120 s a heavy test gets pays for this many
 // lives of this length (2,000 lives of 150 s took 9 minutes); `LIVES=2000 LIFE_MS=150000` runs the full sweep.
+
+describe('a report in flight when a mating is recorded', () => {
+  // The mating record charges its cost at the hub; the page pays it when the `mating` message
+  // arrives, at its next tick, so a report it sent meanwhile still holds the body before the cost.
+  const genome = bodyOf(1);
+  const gates = { lifespanMs: 1e12, matureAtMs: 0, matureBiomass: 0 };
+  // An adult at half its largest body: the growth reach over a few seconds is small beside the cost.
+  const half = Math.floor(buildCreature(genome).phys.maxBiomass * 50);
+  const base = { biomass: half, ...vitalsCap(half) };
+  const ticks = 30 * TICK_HZ;
+  const wall = 30_000;
+  const costed = (): { life: LifeState; before: number } => {
+    const life = bindLife(
+      { id: CREATURE, activeMs: 0, cooldownUntilMs: 0, ...base },
+      genome,
+      0,
+      gates,
+    );
+    const before = life.biomass;
+    const paid = {
+      ...life,
+      biomass: Math.floor(before * (1 - RULES.mating.costBiomass)),
+      energy: Math.floor(life.energy * (1 - RULES.mating.costEnergy)),
+    };
+    return { life: { ...recorded(paid, wall), costT: wall }, before };
+  };
+
+  it('raises no flag, and the hub holds the paid body', () => {
+    const { life, before } = costed();
+    const claim = { biomass: before, energy: base.energy, health: base.health };
+    const res = applyReport(life, { n: 1, ticks, ...claim }, wall + 100);
+    expect(res.newFlags).toEqual([]);
+    expect(res.life.biomass).toBeLessThan(before);
+  });
+
+  it('still flags a claim far past the paid body', () => {
+    const { life, before } = costed();
+    const claim = { biomass: 3 * before, energy: base.energy, health: base.health };
+    const res = applyReport(life, { n: 1, ticks, ...claim }, wall + 100);
+    expect(res.newFlags).toContain('growth-too-fast');
+  });
+
+  it('is flagged again once the page had time to pay', () => {
+    const { life, before } = costed();
+    const claim = { biomass: before, energy: base.energy, health: base.health };
+    const res = applyReport(life, { n: 1, ticks, ...claim }, wall + COST_GRACE_MS + 1_000);
+    expect(res.newFlags).toContain('growth-too-fast');
+  });
+});

@@ -338,7 +338,7 @@ export async function accept(hub: Hub, ws: WebSocket, ask: MateAsk): Promise<boo
     keep(hub, socket, {
       ...s,
       court,
-      life: recorded(life, t),
+      life: { ...recorded(life, t), costT: t },
     });
     sendIfOpen(socket, { t: 'mating', commit: signed, record: result.stored[i] });
   };
