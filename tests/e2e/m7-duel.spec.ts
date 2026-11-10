@@ -27,11 +27,13 @@ async function oneFight(
   b: Page,
   { idA, idB }: Ids,
   previous?: string,
-): Promise<{ id: string; stance: boolean }> {
+): Promise<{ id: string; stance: boolean; dead?: true }> {
   // A parks beside B, lets a few snapshots leave from the new place (the engage carries A's signed
   // snapshot, and an engage from a stale place is refused), and presses F; if no new fight starts,
   // it parks and presses again.
   await expect(async () => {
+    // A that died of the water between two tries can't fight: the caller stages a new pair.
+    if ((await state(a)).screen === 'dead') return;
     await parkBeside(a, idB);
     const at = (await state(a)).tick;
     await a.waitForFunction((t) => (window.__bs?.state().tick ?? 0) >= t + 15, at, {
@@ -57,6 +59,8 @@ async function oneFight(
         cause: error,
       });
     });
+
+  if ((await state(a)).screen === 'dead') return { id: previous ?? '', stance: false, dead: true };
 
   // A braces by itself against B's windups: B hits as hard as A, and an A left at a few points
   // dies of the water before the next try.
@@ -173,6 +177,8 @@ test('A engages B with F, both play the same fight, and A kills B', async ({ bro
           if (p) bs.debug?.setHealth(p.health * share);
         }, HURT);
         const fight = await oneFight(a, b, ids, id);
+        // A died of the water before it could press F again: stage a new pair.
+        if (fight.dead) break;
         id = fight.id;
         stanceShown ||= fight.stance;
         const fighters = (await state(a)).encounter?.fighters;
