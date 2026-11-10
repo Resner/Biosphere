@@ -7,7 +7,7 @@ import { spawn } from 'node:child_process';
 import { createRequire } from 'node:module';
 import { fileURLToPath } from 'node:url';
 import { versionDefine } from './version.mjs';
-import { withInspectorPort } from './worker-args.mjs';
+import { devEnv, withInspectorPort } from './worker-args.mjs';
 
 const [command, ...args] = process.argv.slice(2);
 // `--e2e` selects the config whose Worker serves recorded drand rounds (never deployed).
@@ -28,7 +28,7 @@ const cli = createRequire(import.meta.url).resolve('wrangler');
 const child = spawn(
   process.execPath,
   ['--no-warnings', cli, command, '-c', config, ...defines, ...rest],
-  { stdio: 'inherit' },
+  { stdio: 'inherit', env: devEnv(command, process.env) },
 );
 for (const signal of ['SIGINT', 'SIGTERM', 'SIGHUP']) process.on(signal, () => child.kill(signal));
 child.on('exit', (code, signal) => process.exit(code ?? (signal ? 1 : 0)));

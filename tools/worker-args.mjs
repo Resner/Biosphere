@@ -9,3 +9,12 @@ export function withInspectorPort(command, args) {
   if (at < 0 || !Number.isInteger(port)) return args;
   return [...args, '--inspector-port', String(port + 1000)];
 }
+
+// `wrangler dev` attaches miniflare's local trace store to the Worker by default: every message the
+// object takes becomes spans kept by a never-evicted object in the hub's own workerd process, which
+// held 280 MB more by the soak's minute 6 and grew 400 MB an hour (M14 T14c). The deployed Worker has
+// no such store, so a dev hub runs without it unless the caller sets `X_LOCAL_OBSERVABILITY` itself.
+export function devEnv(command, env) {
+  if (command !== 'dev' || env.X_LOCAL_OBSERVABILITY !== undefined) return env;
+  return { ...env, X_LOCAL_OBSERVABILITY: 'false' };
+}

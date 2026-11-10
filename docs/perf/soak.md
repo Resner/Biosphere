@@ -15,7 +15,7 @@ Reproduce with `npm run soak -- --full` (about 70 minutes; `.github/workflows/so
 | consistent empty at every sample | **FAIL** | minutes 1, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 19, 34 |
 | no audit flag at any sample | **FAIL** | minutes 1, 2, 3, 4, 5, 6, 7, 8, 9, 11, 12, 13, 14, 16, 17, 18, 19, 20, 21, 22, 23, 24, 29, 30, 31, 32, 33, 34, 35, 36, 37, 38, 50, 51, 52, 53, 54 |
 | nobody waited in line | pass | at most 0 queued |
-| authority memory level | **FAIL** | 355.6 MB an hour (limit 20) |
+| authority heap level | **FAIL** | no heap samples |
 | authority CPU per message level | pass | 18.2593 ms against 17.5248 ms (1.04x, limit 1.5x) |
 | messages per player-minute | pass | 17.13 (MEASURED 19.57, limit 29.35) |
 | rows written per player-hour | **FAIL** | 187.96 (MEASURED 65.51, limit 98.26) |
@@ -43,17 +43,17 @@ Reproduce with `npm run soak -- --full` (about 70 minutes; `.github/workflows/so
 
 ## Authority, per minute
 
-| Minute | Resident MB | CPU s | Messages | Seated | Queued |
-| --- | --- | --- | --- | --- | --- |
-| 1 | 691.1 | 74.2 | 16160 | 189 | 0 |
-| 6 | 833.2 | 192.4 | 22641 | 175 | 0 |
-| 12 | 808.4 | 454.2 | 38080 | 179 | 0 |
-| 18 | 881.8 | 831.3 | 58134 | 188 | 0 |
-| 23 | 918.5 | 1039.2 | 70743 | 187 | 0 |
-| 32 | 974.4 | 1655.8 | 99439 | 185 | 0 |
-| 37 | 967.1 | 1803.2 | 108664 | 168 | 0 |
-| 53 | 1076.6 | 3046.0 | 149664 | 184 | 0 |
-| 54 | 1077.0 | 3075.2 | 151305 | 177 | 0 |
+| Minute | Heap MB | Resident MB | CPU s | Messages | Seated | Queued |
+| --- | --- | --- | --- | --- | --- | --- |
+| 1 | - | 691.1 | 74.2 | 16160 | 189 | 0 |
+| 6 | - | 833.2 | 192.4 | 22641 | 175 | 0 |
+| 12 | - | 808.4 | 454.2 | 38080 | 179 | 0 |
+| 18 | - | 881.8 | 831.3 | 58134 | 188 | 0 |
+| 23 | - | 918.5 | 1039.2 | 70743 | 187 | 0 |
+| 32 | - | 974.4 | 1655.8 | 99439 | 185 | 0 |
+| 37 | - | 967.1 | 1803.2 | 108664 | 168 | 0 |
+| 53 | - | 1076.6 | 3046.0 | 149664 | 184 | 0 |
+| 54 | - | 1077.0 | 3075.2 | 151305 | 177 | 0 |
 
 ## Pages, every five minutes
 
