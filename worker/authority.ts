@@ -74,7 +74,7 @@ export class Authority extends DurableObject<Env> implements Hub {
   declare readonly ctx: DurableObjectState<object>;
   declare readonly env: Env;
   /** Every statement's rows read and written, as the metered handle counts them (the usage meter reads it). */
-  protected readonly rowCount: RowCounter = { written: 0, read: 0, tables: {} };
+  protected readonly rowCount: RowCounter = { written: 0, read: 0 };
   readonly sql: SqlStorage;
   readonly turn = new TurnCredentials();
   readonly ledger: Ledger;

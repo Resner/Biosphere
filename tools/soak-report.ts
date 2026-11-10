@@ -59,10 +59,7 @@ export interface FullSeries {
   pages: PageSample[];
   pageLives: PageLife[];
   /** The meter's per-player figures at the end. */
-  perPlayer: {
-    messagesPerMinute: number | null;
-    rowsWrittenPerHour: number | null;
-  };
+  perPlayer: { messagesPerMinute: number | null; rowsWrittenPerHour: number | null };
   /** The proof bundles of the creatures the pages played. */
   pagesVerified: { checked: number; problems: string[] };
 }
@@ -104,8 +101,8 @@ export function modelOf(mix: PlayedMix): { rowsPerHour: number; messagesPerMinut
     mix.sessions * MEASURED.session.rowsWritten +
     60 / a.checkpointMinutes +
     (mix.fights / 2) * MEASURED.fightRows.written +
-    (mix.matings / 2) * LIFECYCLE_ROWS.mating +
-    mix.promotions * LIFECYCLE_ROWS.promote +
+    (mix.matings / 2) * MEASURED.lifecycle.mating +
+    mix.promotions * MEASURED.lifecycle.promote +
     mix.hatches * LIFECYCLE_ROWS.hatch;
   const outside =
     MEASURED.world + MEASURED.page.progress + MEASURED.page.ping + MEASURED.page.avail;

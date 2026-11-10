@@ -50,6 +50,12 @@ export class Authority extends LiveAuthority {
    */
   private heldAt: number | null = null;
 
+  constructor(ctx: DurableObjectState, env: Env) {
+    super(ctx, env);
+    // The meter's rows by table (M14 T14d) is for the soak to read: production does not parse a statement per write.
+    this.rowCount.tables = {};
+  }
+
   protected override beaconSource(): BeaconSource {
     // `DRAND_ROUNDS=soak` serves 80 minutes of recorded rounds instead of 30 (the one-hour soak, M14 T14).
     const set = this.env.DRAND_ROUNDS === 'soak' ? soakRounds : undefined;

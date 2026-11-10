@@ -25,6 +25,7 @@ useFightHub();
 const counter = () =>
   authority((o) => {
     const c = (o as unknown as { rowCount: RowCounter }).rowCount;
+    c.tables ??= {};
     return { written: c.written, tables: { ...c.tables } };
   });
 

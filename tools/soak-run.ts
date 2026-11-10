@@ -32,7 +32,9 @@ export interface SoakOptions {
 export const SCALES = { lifespan: 0.1, mating: 0.05 } as const;
 /** The full soak keeps real lifespans, so per-player costs compare with `MEASURED`'s; only maturity and cooldown are short. */
 export const FULL_SCALES = { lifespan: 1, mating: 0.05 } as const;
-const scalesOf = (opts: SoakOptions) => (opts.full || opts.modelMix ? FULL_SCALES : SCALES);
+/** The full soak and `--model-mix` play the model's mix at real lifespans. */
+const modelMixOf = (opts: SoakOptions): boolean => Boolean(opts.full || opts.modelMix);
+const scalesOf = (opts: SoakOptions) => (modelMixOf(opts) ? FULL_SCALES : SCALES);
 /**
  * The mix the full soak plays (M14 T14d): the capacity model's own, so rows written and messages per
  * player-hour compare with `MEASURED` like for like. A client signs in `ASSUMPTIONS.sessionMinutes`
@@ -248,21 +250,15 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
         failures.push(`pages: ${e instanceof Error ? e.message : String(e)}`);
       });
     }
-    const modelMix = opts.modelMix || opts.full !== undefined;
+    const mix = modelMixOf(opts) ? FULL_MIX : null;
     for (let i = 0; i < opts.clients; i++) {
       const client = new LifeClient({
         url: `ws://localhost:${opts.port}/v1/hub`,
         index: i,
         bus,
         scales: scalesOf(opts),
-        ...(modelMix
-          ? { huntPerSecond: FULL_MIX.huntPerSecond, huntJoinChance: FULL_MIX.huntJoinChance }
-          : {}),
-        ...(opts.dropEveryMs !== undefined
-          ? { dropEveryMs: opts.dropEveryMs }
-          : modelMix
-            ? { dropEveryMs: FULL_MIX.dropEveryMs }
-            : {}),
+        ...(mix ?? {}),
+        ...(opts.dropEveryMs !== undefined ? { dropEveryMs: opts.dropEveryMs } : {}),
       });
       clients.push(client);
       starts.push(
@@ -333,8 +329,8 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
     const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
     const rows = await getJson<Record<string, number>>(opts.port, '/v1/e2e/rows');
-    const meter = await getJson<MetricsAnswer>(opts.port, '/v1/e2e/metrics');
-    const playerHours = meter.today.playerMs / 3_600_000;
+    const playerHours =
+      (await getJson<MetricsAnswer>(opts.port, '/v1/e2e/metrics')).today.playerMs / 3_600_000;
     const inconsistencies = await getJson<unknown[]>(
       opts.port,
       '/v1/e2e/consistency',

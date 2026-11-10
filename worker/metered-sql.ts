@@ -6,7 +6,7 @@
 export interface RowCounter {
   written: number;
   read: number;
-  /** Rows written by the table the statement names (an INSERT, UPDATE, DELETE or REPLACE); counted when present. */
+  /** Rows written by the table the statement names (an INSERT, UPDATE, DELETE or REPLACE); counted only when present (the E2E entry sets it). */
   tables?: Record<string, number>;
 }
 
@@ -27,10 +27,11 @@ function meteredCursor<T extends Record<string, SqlStorageValue>>(
 ): SqlStorageCursor<T> {
   let written = 0;
   let read = 0;
+  let table: string | undefined;
   const account = () => {
     const rows = cursor.rowsWritten - written;
     if (rows > 0 && counter.tables) {
-      const table = tableOf(query);
+      table ??= tableOf(query);
       counter.tables[table] = (counter.tables[table] ?? 0) + rows;
     }
     counter.written += rows;
