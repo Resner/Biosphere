@@ -100,7 +100,8 @@ export class Authority extends LiveAuthority {
     if (ring.length > 60) ring.shift();
     super.webSocketMessage(ws, data);
     if (ws.readyState > 1 && this.flagLog.length < 60) {
-      const who = sessionOf(ws)?.playerId ?? '';
+      const session = sessionOf(ws);
+      const who = session && 'playerId' in session ? session.playerId : '';
       this.flagLog.push(
         `closed in a message: locked ${this.fights.playerLocked(who)}, ended ${this.fights.fightEnded(who, 600_000) ?? 'never'} (hub ${this.clock.now()}), ${ring.join(' ')}`,
       );
