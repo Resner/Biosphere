@@ -7,6 +7,7 @@ import { type ChildProcess, spawn } from 'node:child_process';
 import { mkdtemp, rm } from 'node:fs/promises';
 import { tmpdir } from 'node:os';
 import { join } from 'node:path';
+import { monitorEventLoopDelay } from 'node:perf_hooks';
 import { verifyLineage } from '../src/ledger/verify';
 import { LifeClient, type LifeStats, SnapBus } from '../tests/life-client';
 import { ASSUMPTIONS } from '../worker/capacity';
@@ -81,6 +82,11 @@ export interface Soak {
   verified: { checked: number; problems: string[] };
   /** The full run's series: the authority and the pages sampled every minute (M14 T14). */
   full?: FullSeries;
+  /**
+   * How late this process's own timers ran, each minute (M14 T14e): the clients share one thread,
+   * and a loop seconds late hears of a fight's end seconds late. Only in the JSON.
+   */
+  clientLag?: { minute: number; p99Ms: number; maxMs: number }[];
 }
 
 const sleep = (ms: number) => new Promise<void>((r) => setTimeout(r, ms));
@@ -229,6 +235,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
   let entered = 0;
   const t0 = Date.now();
   const hubSamples: HubSample[] = [];
+  const loopDelay = monitorEventLoopDelay({ resolution: 20 });
+  loopDelay.enable();
+  const clientLag: NonNullable<Soak['clientLag']> = [];
   const pageSamples: PageSample[] = [];
   const watch = new RuntimeWatch(hubPid);
   const heap = new ObjectHeap(hubPid, () => {
@@ -284,6 +293,12 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
       if (opts.full && Date.now() >= t0 + (sampled + 1) * 60_000) {
         sampled++;
         const minute = sampled;
+        clientLag.push({
+          minute,
+          p99Ms: Math.round(loopDelay.percentile(99) / 1e6),
+          maxMs: Math.round(loopDelay.max / 1e6),
+        });
+        loopDelay.reset();
         try {
           hubSamples.push(
             await sampleHub(opts.port, watch, heap, minute, minute % CONSISTENT_EVERY === 0),
@@ -362,6 +377,7 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     const totals = sum(stats);
     return {
       config: { clients: opts.clients, minutes: opts.minutes },
+      clientLag,
       entered,
       failures,
       totals,
