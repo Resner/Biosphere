@@ -290,10 +290,16 @@ test('a crashed tab resumes its genesis, its mating, its promotion, its death an
     await expect(shown).toHaveAttribute('data-revealed', 'true');
     const code = (await shown.textContent()) ?? '';
     await reader.close();
-    // The import is on the title screen: B's tab of the title.
+    // The import is on the title screen. B's own tab is not used: nothing steers B's creature through
+    // the minutes above, so it may have died by now (the death screen has no recovery button). A
+    // browser that has never played always opens on the title.
     await b.page.close();
-    const importer = await reopen(b.context);
-    expect((await bs(importer)).playerId).toBe(idB);
+    const ctxC = await browser.newContext();
+    contexts.push(ctxC);
+    const importer = await reopen(ctxC);
+    const idC = (await bs(importer)).playerId;
+    expect(idC).toBeTruthy();
+    expect(idC).not.toBe(idA);
     await importer.getByTestId('recovery-open').click();
     await importer.getByTestId('recovery-input').fill(code);
     await importer.getByTestId('recovery-import').click();
@@ -303,9 +309,9 @@ test('a crashed tab resumes its genesis, its mating, its promotion, its death an
     await importer.getByTestId('recovery-yes').click();
     await importer.waitForFunction(() => window.__bs?.state().imported === true);
     await crash(importer);
-    const b2 = await reopen(b.context);
-    expect((await bs(b2)).playerId).toBe(idA);
-    await attach(b2, 'import');
+    const c2 = await reopen(ctxC);
+    expect((await bs(c2)).playerId).toBe(idA);
+    await attach(c2, 'import');
     await hubIsWhole(request);
   } finally {
     await hold(request, false).catch(() => {});
