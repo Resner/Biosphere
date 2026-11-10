@@ -229,15 +229,27 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
     await expect(b.getByTestId('hud-bar-size')).toBeHidden();
     expect(cover.share, `HUD covers ${(cover.share * 100).toFixed(2)}%`).toBeLessThanOrEqual(0.06);
 
-    // A keeps swimming onto B (debug steering works in a fight) until the test calls it off.
+    // A keeps swimming onto B (debug steering works in a fight) until the test calls it off. A stays
+    // whole, so the fight lasts until the shots are taken (a slow runner shoots a windup seconds late,
+    // and a fight that kills A ends first); B is healed in its own page below.
     await a.evaluate((who) => {
       const bs = window.__bs as BsHook;
       const chase = () => {
+        bs.debug?.setHealth(Number.MAX_SAFE_INTEGER);
         const r = bs.state().remotes.find((x) => x.id === who);
         if (r) void bs.debug?.steerTo({ id: who, x: r.x, y: r.y });
       };
       (window as unknown as { chase: number }).chase = window.setInterval(chase, 250);
     }, idB);
+
+    await b.evaluate(() => {
+      const bs = window.__bs as BsHook;
+      // B's health at full keeps its autopilot standing and the fight alive; `apart` clears it.
+      (window as unknown as { heal: number }).heal = window.setInterval(
+        () => bs.debug?.setHealth(Number.MAX_SAFE_INTEGER),
+        250,
+      );
+    });
 
     // On B's screen, A's front in a calm moment (each frame frozen to shoot it). A has just started to chase, so no
     // strike is coming yet: the calm shot goes first, because on a slow runner the fight can be over
@@ -285,6 +297,7 @@ test('the combat HUD shows only in the fight, a windup glows and ticks, and a br
       page.evaluate((from) => {
         const bs = window.__bs as BsHook;
         window.clearInterval((window as unknown as { chase?: number }).chase);
+        window.clearInterval((window as unknown as { heal?: number }).heal);
         const s = bs.state();
         const me = s.player;
         const them = s.remotes.find((r) => r.id === from);
