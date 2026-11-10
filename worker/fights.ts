@@ -117,6 +117,8 @@ export class Fights {
   private readonly byCreature = new Map<string, Lock>();
   /** Inputs dropped because they named another fight or came from someone not in one. */
   strays = 0;
+  /** The E2E entry's note of each lock's life, to say what a soak's rate close followed (M14 T14e). */
+  trace: ((players: readonly string[], what: string) => void) | null = null;
   /**
    * When each player's last fight ended, kept for `ENDED_KEEP_MS`: the movement check reads the
    * last `AFTER_FIGHT_MS` (M10 T11), a ride the last `RIDE_AFTER_FIGHT_MS` (M12 T7).
@@ -193,6 +195,7 @@ export class Fights {
     this.byId.set(id, lock);
     for (const p of players) this.byPlayer.set(p, lock);
     for (const c of creatures) this.byCreature.set(c, lock);
+    this.trace?.(players, `lock ${id.slice(0, 6)}`);
     return lock;
   }
 
@@ -218,6 +221,7 @@ export class Fights {
     const lock = this.byId.get(id);
     if (!lock) return;
     this.clearTimer(lock);
+    this.trace?.(lock.players, `release ${id.slice(0, 6)} ${lock.fight ? 'fight' : 'nofight'}`);
     if (lock.fight) {
       this.noteEnded(lock.players);
       this.keepSettled(lock.fight);

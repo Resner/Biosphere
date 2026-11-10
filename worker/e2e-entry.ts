@@ -54,6 +54,7 @@ export class Authority extends LiveAuthority {
     super(ctx, env);
     // The meter's rows by table (M14 T14d) is for the soak to read: production does not parse a statement per write.
     this.rowCount.tables = {};
+    this.traceLocks();
   }
 
   protected override beaconSource(): BeaconSource {
@@ -103,13 +104,26 @@ export class Authority extends LiveAuthority {
       const session = sessionOf(ws);
       const who = session && 'playerId' in session ? session.playerId : '';
       this.flagLog.push(
-        `closed in a message: locked ${this.fights.playerLocked(who)}, ended ${this.fights.fightEnded(who, 600_000) ?? 'never'} (hub ${this.clock.now()}), ${ring.join(' ')}`,
+        `closed in a message: locked ${this.fights.playerLocked(who)}, ended ${this.fights.fightEnded(who, 600_000) ?? 'never'} (hub ${this.clock.now()}), locks ${(this.locks.get(who) ?? []).join(' ')}, ${ring.slice(-12).join(' ')}`,
       );
       this.wire.delete(ws);
     }
   }
 
   private readonly wire = new WeakMap<WebSocket, string[]>();
+  /** Each player's last lock events (`Fights.trace`), for the same line. */
+  private readonly locks = new Map<string, string[]>();
+
+  traceLocks(): void {
+    this.fights.trace = (players, what) => {
+      for (const p of players) {
+        const ring = this.locks.get(p) ?? [];
+        this.locks.set(p, ring);
+        ring.push(`${what}@${Date.now() % 100_000}`);
+        if (ring.length > 8) ring.shift();
+      }
+    };
+  }
 
   /** Each seated session with its count of received messages, for a load run to check against the meter (M13 T7). */
   sessions(): SeatedView[] {
