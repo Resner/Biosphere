@@ -5,9 +5,10 @@
 // waits for its births and promotes its child half the time, fights (each client signs its own
 // snapshots onto an in-process bus that stands in for the peer links), dies, restores its nearest
 // ancestor or hatches again, and drops: it closes its socket at a random moment and signs in again
-// 1 to 90 s later, resuming from what the hub names. Node only (the global `WebSocket`).
+// 1 to 90 s later, resuming from what the hub names. Node only (the `ws` package, without compression).
 
 import { createHash } from 'node:crypto';
+import WebSocket from 'ws';
 import { lockState } from '../src/game/engage';
 import { LifeFlow } from '../src/game/life';
 import { MateFlow } from '../src/game/mate';
@@ -399,13 +400,17 @@ export class LifeClient {
     return toBase64Url(bytes);
   }
 
-  /** The socket the hub client uses: Node's `WebSocket` (or the option's), counting what crosses it. */
+  /** The socket the hub client uses: `ws`'s `WebSocket` (or the option's), counting what crosses it. */
   private socket(url: string): SocketLike {
     const raw: SocketLike =
       this.opts.createSocket?.(url) ??
       (new WebSocket(url, {
         headers: { Origin: ORIGIN },
-      } as unknown as string[]) as unknown as SocketLike);
+        // Node's own `WebSocket` offers permessage-deflate and inflates each message on the libuv
+        // thread pool, which 200 clients' signing keep busy: a client heard the hub's frames about
+        // twice a second and its fight's end 60 to 90 s late (M14 T14g).
+        perMessageDeflate: false,
+      }) as unknown as SocketLike);
     const s: SocketLike = {
       onopen: null,
       onmessage: null,
