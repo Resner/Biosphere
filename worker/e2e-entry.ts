@@ -117,6 +117,13 @@ export class Authority extends LiveAuthority {
     this.usage.setRequests(Date.now(), requests);
   }
 
+  /** The first reports that raised a creature flag, in words for a soak's failure lines (M14 T14e). */
+  override flagLog: string[] = [];
+
+  flagDetails(): string[] {
+    return [...this.flagLog];
+  }
+
   /** Messages dropped without closing the socket, by type (the cost check, M13 T7). */
   droppedByType(): Record<string, number> {
     return Object.fromEntries(this.dropped);
@@ -293,6 +300,12 @@ export default {
         rowTables(): Promise<Record<string, number>>;
       };
       return Response.json(await stub.rowTables());
+    }
+    if (pathname === '/v1/e2e/flags' && request.method === 'GET') {
+      const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {
+        flagDetails(): Promise<string[]>;
+      };
+      return Response.json(await stub.flagDetails());
     }
     if (pathname === '/v1/e2e/dropped' && request.method === 'GET') {
       const stub = env.AUTHORITY.get(env.AUTHORITY.idFromName('global')) as unknown as {

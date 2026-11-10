@@ -329,6 +329,9 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     // the others wait past their timeout.
     const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
     const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
+    // The first reports behind a creature flag, so a failed check says what they were.
+    for (const line of await getJson<string[]>(opts.port, '/v1/e2e/flags'))
+      failures.push(`flagged report: ${line}`);
     const rows = await getJson<Record<string, number>>(opts.port, '/v1/e2e/rows');
     const playerHours =
       (await getJson<MetricsAnswer>(opts.port, '/v1/e2e/metrics')).today.playerMs / 3_600_000;
