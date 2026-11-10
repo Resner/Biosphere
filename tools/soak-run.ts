@@ -14,7 +14,13 @@ import { ASSUMPTIONS } from '../worker/capacity';
 import { RuntimeWatch } from './load-hub-run';
 import { ObjectHeap } from './object-heap';
 import { SoakPages } from './soak-pages';
-import { CONSISTENT_EVERY, type FullSeries, type HubSample, type PageSample } from './soak-report';
+import {
+  CONSISTENT_EVERY,
+  type FullSeries,
+  failingReports,
+  type HubSample,
+  type PageSample,
+} from './soak-report';
 
 export interface SoakOptions {
   clients: number;
@@ -352,7 +358,7 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
     const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
     // The first reports behind a creature flag, so a failed check says what they were.
-    for (const line of await getJson<string[]>(opts.port, '/v1/e2e/flags'))
+    for (const line of failingReports(await getJson<string[]>(opts.port, '/v1/e2e/flags')))
       failures.push(`flagged report: ${line}`);
     const rows = await getJson<Record<string, number>>(opts.port, '/v1/e2e/rows');
     const playerHours =

@@ -458,3 +458,13 @@ export function failures(run: Soak): string[] {
     .filter((c) => !c.ok)
     .map((c) => `${c.name}: ${c.detail}`);
 }
+
+/**
+ * The hub's flag reports worth failing a run for. A socket seen closed while the hub handles its
+ * message is a page's reload (or a client's stop) arriving before its queued pings, not a fault:
+ * a socket closed for its rate is judged by the clients' own `4003` closes, so those lines stay in
+ * the log (`/v1/e2e/flags`) for the one that is.
+ */
+export function failingReports(lines: readonly string[]): string[] {
+  return lines.filter((l) => !l.startsWith('closed in a message:'));
+}
