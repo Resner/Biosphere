@@ -220,6 +220,10 @@ function itemFor(
   };
 }
 
+/** Whether a slot with this `consumed` entry shows an item: untouched at any tick, else once its respawn tick has come. */
+const slotShows = (world: World, eaten: { k: number; until: number } | undefined): boolean =>
+  eaten === undefined || world.tick >= eaten.until;
+
 /**
  * The food of `layer` (0 unless given) alive in one grid cell at `world.tick`, in slot order. A slot shows cycle 0 until it is
  * eaten; then it is empty until its respawn tick and shows the next cycle. `respawnTick` is the
@@ -232,7 +236,7 @@ export function foodInCell(world: World, cx: number, cy: number, layer = 0): Foo
   const slots = SLOTS_OF[layer] as number;
   for (let slot = 0; slot < slots; slot++) {
     const eaten = world.consumed[slotKey(layer, cx, cy, slot)];
-    if (eaten === undefined || world.tick >= eaten.until) {
+    if (slotShows(world, eaten)) {
       items.push(itemFor(world, layer, cx, cy, slot, eaten));
     }
   }
@@ -354,7 +358,9 @@ export function consumeFood(world: World, id: string): void {
   }
   const [layer, cx, cy, slot] = parsed;
   const eaten = world.consumed[claim.slot];
-  const alive = claim.k === (eaten?.k ?? 0) && world.tick >= (eaten?.until ?? 0);
+  // The one test `foodInCell` shows items by: a world whose tick is still negative (a page that
+  // joined a pond before its clock synced) eats the slots nobody has touched as well.
+  const alive = claim.k === (eaten?.k ?? 0) && slotShows(world, eaten);
   if (!alive) throw new Error(`food ${id} is not alive`);
   const delay = respawnDelay(world, layer, cx, cy, slot, claim.k);
   world.consumed[claim.slot] = { k: claim.k + 1, until: world.tick + delay };

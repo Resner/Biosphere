@@ -256,6 +256,30 @@ describe('feeding', () => {
   });
 });
 
+describe('a world whose tick is still before the pond clock starts', () => {
+  // A page that joins a pond before its clock has synced can hold a negative tick (M14 T14f).
+  // `foodInCell` shows every slot nobody ate, so the item it shows is one `consumeFood` takes.
+  it('eats what it sees', () => {
+    const w = world('negative');
+    w.tick = -40;
+    const items = foodNear(w, 3000, 3000, 400);
+    expect(items.length).toBeGreaterThan(0);
+    for (const item of items) expect(() => consumeFood(w, item.id)).not.toThrow();
+    expect(foodNear(w, 3000, 3000, 400)).toEqual([]);
+    expect(() => consumeFood(w, items[0]?.id as string)).toThrow('is not alive');
+  });
+
+  it('feeds a creature on an item like any other tick', () => {
+    const w = world('negative-feed');
+    w.tick = -40;
+    const item = foodInCell(w, 8, 8)[0];
+    if (!item) throw new Error('no item');
+    spawnCreature(w, { id: 'p', x: item.x, y: item.y });
+    const events = step(w, {});
+    expect(events.filter((e) => e.type === 'eat').map((e) => e.food)).toContain(item.id);
+  });
+});
+
 describe('applyRemoteClaim', () => {
   it('gives the slot the respawn tick the eater would have computed', () => {
     const local = world('claims');
