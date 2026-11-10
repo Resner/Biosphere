@@ -43,7 +43,7 @@ let site = null;
 let failed = false;
 try {
   const { runSoak, problems, missing } = await server.ssrLoadModule('/tools/soak-run.ts');
-  const { failures, reportOf } = await server.ssrLoadModule('/tools/soak-report.ts');
+  const { failures, reportOf, mixLine } = await server.ssrLoadModule('/tools/soak-report.ts');
   if (full) {
     // The built game, on the loopback address as the E2E pages are.
     site = await preview({
@@ -63,6 +63,8 @@ try {
     log: (line) => process.stderr.write(`${line}\n`),
   });
   process.stdout.write(`${JSON.stringify(run, null, 2)}\n`);
+  const mixed = mixLine(run);
+  if (mixed) process.stderr.write(`${mixed}\n`);
   const bad = [
     ...new Set([...problems(run), ...failures(run), ...missing(run).map((k) => `no ${k} happened`)]),
   ];

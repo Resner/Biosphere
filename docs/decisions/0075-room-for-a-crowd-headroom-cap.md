@@ -1,6 +1,6 @@
 # 0075: Room for a crowd: the session cap follows the day's headroom
 
-- Status: accepted (amends ADR 0071's free-plan cap and ADR 0067's session cap rule)
+- Status: accepted, amended by 0079 (the headroom on a fresh free day is 568 seats and a crowd of 200 plays 3.7 hours, once matings are priced) (amends ADR 0071's free-plan cap and ADR 0067's session cap rule)
 - Date: 2026-11-09
 
 ## Context

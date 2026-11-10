@@ -68,6 +68,8 @@ export interface Soak {
   /** The hub's dropped messages by type, and the day's audit flags. */
   dropped: Record<string, number>;
   flags: Record<string, number>;
+  /** The meter's seated player-hours at the end (M14 T14d); absent from older runs. */
+  playerHours?: number;
   /** Rows the hub wrote, by table, over the run (M14 T14d): what the rows per player-hour were for. */
   rows?: Record<string, number>;
   /** `consistent(hub)` at the end: empty when every invariant holds. */
@@ -327,6 +329,8 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
     const dropped = await getJson<Record<string, number>>(opts.port, '/v1/e2e/dropped');
     const audit = await getJson<{ day: Record<string, number> } | null>(opts.port, '/v1/e2e/audit');
     const rows = await getJson<Record<string, number>>(opts.port, '/v1/e2e/rows');
+    const meter = await getJson<MetricsAnswer>(opts.port, '/v1/e2e/metrics');
+    const playerHours = meter.today.playerMs / 3_600_000;
     const inconsistencies = await getJson<unknown[]>(
       opts.port,
       '/v1/e2e/consistency',
@@ -362,6 +366,7 @@ async function drive(opts: SoakOptions, hubPid: number): Promise<Soak> {
       deaths: sum(stats.map((s) => s.deaths)),
       notReady: sum(stats.map((s) => s.notReady)),
       dropped,
+      playerHours,
       rows,
       flags: Object.fromEntries(Object.entries(audit?.day ?? {}).filter(([, n]) => n > 0)),
       inconsistencies,
@@ -380,6 +385,7 @@ interface MetricsAnswer {
     byType: Record<string, number>;
     perPlayerMinute: { messages: number } | null;
     perPlayerHour: { rowsWritten: number } | null;
+    playerMs: number;
   };
 }
 
