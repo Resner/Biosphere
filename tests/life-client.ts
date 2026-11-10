@@ -430,7 +430,11 @@ export class LifeClient {
       const type = typeOf(ev.data);
       bump(this.stats.received, type);
       if (type !== 'pong' && type !== 'near') {
-        this.heard.push(`${type}@${Math.round((this.now() - this.openedAt) / 1000)}`);
+        // The wall clock's last five digits too: the hub's trace is in them, so a late `enc-end` shows
+        // whether it was sent late (hub side) or heard late (this process).
+        this.heard.push(
+          `${type}@${Math.round((this.now() - this.openedAt) / 1000)}/${Date.now() % 100_000}`,
+        );
         if (this.heard.length > 8) this.heard.shift();
       }
       s.onmessage?.(ev);
