@@ -76,9 +76,18 @@ export interface LifeState extends Condition {
  */
 export const COST_GRACE_MS = 5_000;
 
-/** The tolerance for a claim at `now`: unbounded while a mating's cost may be in flight, else `base`. */
+/**
+ * The share a claim in that window may stand over its cap without a flag: the cost's 1 / 0.85
+ * (17.6%) on the body, and the growth since the report the record charged it on (the soak's
+ * honest pages ran 18-33% over). A claim past it, or any claim after the window, is flagged.
+ */
+export const COST_TOLERANCE = 0.5;
+
+/** The tolerance for a claim at `now`: wide while a mating's cost may be in flight, else `base`. */
 const toleranceAt = (life: LifeState, now: number, base: number): number =>
-  life.costT !== undefined && now - life.costT <= COST_GRACE_MS ? Number.POSITIVE_INFINITY : base;
+  life.costT !== undefined && now - life.costT <= COST_GRACE_MS
+    ? Math.max(base, COST_TOLERANCE)
+    : base;
 
 export type Report = Condition & { n: number; ticks: number };
 

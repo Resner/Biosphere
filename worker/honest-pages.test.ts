@@ -244,6 +244,13 @@ describe('a report in flight when a mating is recorded', () => {
     expect(res.life.biomass).toBeLessThan(before);
   });
 
+  it('still flags a claim far past the paid body', () => {
+    const { life, before } = costed();
+    const claim = { biomass: 3 * before, energy: base.energy, health: base.health };
+    const res = applyReport(life, { n: 1, ticks, ...claim }, wall + 100);
+    expect(res.newFlags).toContain('growth-too-fast');
+  });
+
   it('is flagged again once the page had time to pay', () => {
     const { life, before } = costed();
     const claim = { biomass: before, energy: base.energy, health: base.health };
