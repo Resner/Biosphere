@@ -123,7 +123,7 @@ export async function available(c: Page): Promise<void> {
  */
 export async function fight(t: Trio, previous?: string): Promise<string> {
   await t.b.evaluate(() => (window.__bs as BsHook).debug?.autoBrace(true));
-  const id = await engage(t.a, t, previous, false, t.b);
+  const id = await engage(t.a, t, previous, false, t.b, [t.a, t.b]);
   await hold(t.a, t.idB);
   return id;
 }
