@@ -541,6 +541,21 @@ export class LifeClient {
       this.huntUntil = 0;
       this.opts.bus.hunt(this.identity.playerId, null);
     } else if (m.t === 'enc-end') {
+      // The page takes its creature's state from the fight's end (`app-encounter.ts`): what the
+      // fight cost or paid, and where it left it. Without it the creature goes on with the
+      // state it had going in, and its next report claims more than the settlement holds.
+      const mine = m.fighters.find((f) => f.player === this.identity?.playerId);
+      const swim = this.swim;
+      if (mine && swim?.me.alive && mine.outcome !== 'killed' && mine.outcome !== 'died') {
+        swim.me.biomass = mine.biomass;
+        swim.me.energy = mine.energy;
+        swim.me.health = mine.health;
+        swim.me.x = mine.x;
+        swim.me.y = mine.y;
+        swim.me.vx = mine.vx;
+        swim.me.vy = mine.vy;
+        swim.me.heading = mine.heading;
+      }
       this.fight = null;
       this.fightEndedAt = this.now();
       this.huntAgainAt = this.now() + AFTER_FIGHT_MS;
