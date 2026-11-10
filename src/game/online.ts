@@ -139,7 +139,7 @@ export interface NetLinks {
   known: KnownCounts;
   crowded: boolean;
   where: { sent: number; leaf: { x: number; y: number; size: number } | null };
-  signals: Pick<SignalStats, 'hub' | 'relayed' | 'forwarded' | 'forged'>;
+  signals: Pick<SignalStats, 'hub' | 'relayed' | 'forwarded' | 'forged' | 'fallback'>;
   helloFailed: number;
   /** The page's crowd instance (M12 T6). */
   instance: InstanceInfo;
@@ -486,7 +486,13 @@ export class OnlineSession {
       known: this.neighbours.counts(this.now()),
       crowded: this.links.crowded,
       where: { sent: this.wheres, leaf: this.neighbours.leaf ? { ...this.neighbours.leaf } : null },
-      signals: { hub: s.hub, relayed: s.relayed, forwarded: s.forwarded, forged: s.forged },
+      signals: {
+        hub: s.hub,
+        relayed: s.relayed,
+        forwarded: s.forwarded,
+        forged: s.forged,
+        fallback: s.fallback,
+      },
       helloFailed: this.mesh?.stats().helloFailed ?? 0,
       instance: this.crowd.info(),
     };

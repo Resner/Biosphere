@@ -32,6 +32,9 @@ const CENTRE = 131_072;
 /** How far from the centre the pages swim, well outside the clients' wandering. */
 const APART_WU = 40_000;
 const MINUTE_MS = 60_000;
+const DAY_MS = 86_400_000;
+/** Past midnight by this much, so the meter's new day has begun when the window starts. */
+const MIDNIGHT_MARGIN_MS = 5000;
 /** The one flag kind the check leaves out: a pond this small has no witness pool to audit with. */
 const NOT_A_FAULT = 'authority-only';
 
@@ -96,7 +99,7 @@ async function swim(page: Page, turn: number, stop: { done: boolean }): Promise<
 test('two pages among 40 headless clients send no more than the model says @slow', async ({
   browser,
 }) => {
-  test.setTimeout(600_000);
+  test.setTimeout(900_000);
   const pages: Page[] = [];
   const clients: LoadClient[] = [];
   const failures: string[] = [];
@@ -104,7 +107,6 @@ test('two pages among 40 headless clients send no more than the model says @slow
   // Identities that no earlier run on this hub (a repeat, or a local re-run on its saved store) has used: a returning client brings its old life's clock, which the audit flags.
   const runBase = (Math.floor(Date.now() / 1000) % 100_000) * 100;
   try {
-    const start = await getJson<Meter>('/v1/e2e/metrics');
     const join = (i: number): Promise<void> => {
       const client = new LoadClient({
         url: WS,
@@ -165,7 +167,11 @@ test('two pages among 40 headless clients send no more than the model says @slow
       ...(await sample()).sessions.filter((s) => ids.includes(s.id)).map((s) => s.seatedAt),
     );
     await sleep(Math.max(0, seatedAt + SETTLE_MS - Date.now()));
-    const from = await sample();
+    // The meter's `today` restarts at 00:00 UTC (`E2E main` ran this across it: 1,068 counted
+    // against 1,969 received). A window that would cross it starts just after instead.
+    const toMidnight = DAY_MS - (Date.now() % DAY_MS);
+    if (toMidnight < WINDOW_MS + MIDNIGHT_MARGIN_MS) await sleep(toMidnight + MIDNIGHT_MARGIN_MS);
+    const [from, begin] = await Promise.all([sample(), getJson<Meter>('/v1/e2e/metrics')]);
     await sleep(WINDOW_MS);
     const [to, end, dropped, flags] = await Promise.all([
       sample(),
@@ -205,15 +211,19 @@ test('two pages among 40 headless clients send no more than the model says @slow
     }
 
     // Hub-wide.
-    const requests = end.today.requests - start.today.requests;
-    const playerMinutes = (end.today.playerMs - start.today.playerMs) / MINUTE_MS;
+    const requests = end.today.requests - begin.today.requests;
+    const playerMinutes = (end.today.playerMs - begin.today.playerMs) / MINUTE_MS;
     expect(playerMinutes).toBeGreaterThan(0);
     expect(
       requests / playerMinutes,
       'request-equivalents per seated player-minute',
     ).toBeLessThanOrEqual(1);
-    const counted = end.today.messages - start.today.messages;
-    const received = to.sessions.reduce((n, s) => n + s.received, 0);
+    // The same window on both sides: what the meter counted, and what the seated sessions received.
+    const counted = end.today.messages - begin.today.messages;
+    const received = to.sessions.reduce(
+      (n, s) => n + s.received - (from.sessions.find((f) => f.id === s.id)?.received ?? s.received),
+      0,
+    );
     expect(
       Math.abs(counted - received) / received,
       `the meter ${counted}, sessions ${received}`,
